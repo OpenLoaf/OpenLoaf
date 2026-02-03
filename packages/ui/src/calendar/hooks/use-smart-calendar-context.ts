@@ -1,11 +1,19 @@
 import { useContext } from 'react'
-import { CalendarContext } from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/context'
-import { ResourceCalendarContext } from '@tenas-ai/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
+import {
+	CalendarContext,
+	type CalendarContextType,
+} from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/context'
+import {
+	ResourceCalendarContext,
+	type ResourceCalendarContextType,
+} from '@tenas-ai/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
 
 /**
  * Generic hook that detects which calendar context is available and returns selected properties
  */
-export function useSmartCalendarContext<T>(selector: (context) => T): T {
+export function useSmartCalendarContext<T>(
+	selector: (context: CalendarContextType | ResourceCalendarContextType) => T
+): T {
 	// Check both contexts using useContext directly (no hooks)
 	const resourceContext = useContext(ResourceCalendarContext)
 	const regularContext = useContext(CalendarContext)

@@ -1,4 +1,9 @@
-import { fetchBlobFromUri, loadImageFromBlob, resolveFileName } from "@/lib/image/uri";
+import {
+  fetchBlobFromUri,
+  loadImageFromBlob,
+  resolveBaseName,
+  resolveFileName,
+} from "@/lib/image/uri";
 
 export type ImageNodePayload = {
   /** Props used by the image node component. */
@@ -23,6 +28,43 @@ export type ImageNodePayload = {
 const DEFAULT_PREVIEW_MAX = 1024;
 const DEFAULT_NODE_MAX = 480;
 const DEFAULT_PREVIEW_QUALITY = 0.82;
+
+/** Extract a lowercase file extension from a name. */
+function getFileExtension(fileName: string): string {
+  const clean = fileName.split("?")[0]?.split("#")[0] || fileName;
+  const parts = clean.split(".");
+  if (parts.length <= 1) return "";
+  return String(parts.pop() ?? "").toLowerCase();
+}
+
+/** Check whether a file is JPG or PNG. */
+function isJpegOrPng(file: File): boolean {
+  const type = file.type.toLowerCase();
+  const ext = getFileExtension(file.name);
+  if (type === "image/png" || type === "image/jpeg" || type === "image/jpg") return true;
+  return ext === "png" || ext === "jpg" || ext === "jpeg";
+}
+
+/** Decide whether a file should be converted to PNG before insertion. */
+export function shouldConvertImageToPng(file: File): boolean {
+  return !isJpegOrPng(file);
+}
+
+/** Check whether a file is HEIC/HEIF. */
+function isHeicLike(file: File): boolean {
+  const type = file.type.toLowerCase();
+  const ext = getFileExtension(file.name);
+  if (type === "image/heic" || type === "image/heif") return true;
+  return ext === "heic" || ext === "heif";
+}
+
+/** Build a PNG file name from the original file. */
+function buildPngFileName(fileName: string): string {
+  const base = resolveBaseName(fileName) || "image";
+  // 逻辑：清理非法路径分隔符，避免生成嵌套路径。
+  const safeBase = base.replace(/[\\/]/g, "-") || "image";
+  return `${safeBase}.png`;
+}
 
 /** Read a blob as a data url string. */
 function readBlobAsDataUrl(blob: Blob): Promise<string> {
@@ -49,6 +91,55 @@ async function decodeImage(dataUrl: string): Promise<HTMLImageElement> {
     image.onerror = () => reject(new Error("Failed to decode image."));
   });
   return image;
+}
+
+/** Convert an image file into a PNG file using canvas rendering. */
+async function convertImageFileToPng(file: File): Promise<File> {
+  const dataUrl = await readBlobAsDataUrl(file);
+  const image = await decodeImage(dataUrl);
+  const width = image.naturalWidth || 1;
+  const height = image.naturalHeight || 1;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("canvas context unavailable");
+  }
+  ctx.drawImage(image, 0, 0, width, height);
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((result) => resolve(result), "image/png");
+  });
+  if (!blob) {
+    throw new Error("png conversion failed");
+  }
+  return new File([blob], buildPngFileName(file.name), { type: "image/png" });
+}
+
+/** Convert a file to PNG when needed, otherwise return the original file. */
+export async function convertImageFileToPngIfNeeded(
+  file: File
+): Promise<{ file: File; converted: boolean }> {
+  if (isJpegOrPng(file)) {
+    return { file, converted: false };
+  }
+  if (isHeicLike(file)) {
+    // 逻辑：动态加载 heic2any，避免首屏增包。
+    const heic2any = (await import("heic2any")).default as (args: {
+      blob: Blob;
+      toType: string;
+    }) => Promise<Blob | Blob[]>;
+    const result = await heic2any({ blob: file, toType: "image/png" });
+    const blob = Array.isArray(result) ? result[0] : result;
+    if (!blob) {
+      throw new Error("heic conversion failed");
+    }
+    return {
+      file: new File([blob], buildPngFileName(file.name), { type: "image/png" }),
+      converted: true,
+    };
+  }
+  return { file: await convertImageFileToPng(file), converted: true };
 }
 
 /** Compute a fitted size that preserves aspect ratio. */

@@ -7,10 +7,15 @@ import { HocuspocusProvider } from "@hocuspocus/provider";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CanvasConnectorElement, CanvasElement, CanvasNodeElement } from "../engine/types";
 import type { CanvasEngine } from "../engine/CanvasEngine";
-import { buildImageNodePayloadFromFile } from "../utils/image";
+import {
+  buildImageNodePayloadFromFile,
+  convertImageFileToPngIfNeeded,
+  shouldConvertImageToPng,
+} from "../utils/image";
 import { buildLinkNodePayloadFromUrl } from "../utils/link";
 import { fetchWebMeta } from "@/lib/web-meta";
 import { fileToBase64 } from "../utils/base64";
+import { toast } from "sonner";
 import { readBoardDocPayload, writeBoardDocPayload } from "./boardYjsStore";
 import {
   normalizeRelativePath,
@@ -21,6 +26,8 @@ import {
   BOARD_ASSETS_DIR_NAME,
   BOARD_META_FILE_NAME,
 } from "@/lib/file-name";
+import { DEFAULT_NODE_SIZE } from "../engine/constants";
+import type { ImageNodeProps } from "../nodes/ImageNode";
 import {
   buildChildUri,
   formatScopedProjectPath,
@@ -231,6 +238,10 @@ export function BoardCanvasCollab({
   const syncRafRef = useRef<number | null>(null);
   /** Pending timer id for manual flush. */
   const syncTimerRef = useRef<number | null>(null);
+  /** Transcoding tasks keyed by task id. */
+  const transcodeTasksRef = useRef(
+    new Map<string, { file: File; started: boolean }>()
+  );
   const boardFolderScope = useMemo(
     () =>
       resolveBoardFolderScope({
@@ -363,12 +374,138 @@ export function BoardCanvasCollab({
     return `${BOARD_ASSETS_DIR_NAME}/${uniqueName}`;
   }, [assetsFolderUri, projectId, resolveUniqueAssetName, workspaceId]);
 
+  /** Register a new transcoding task and return its id. */
+  const registerTranscodeTask = useCallback(
+    (file: File) => {
+      const taskId = engine.generateId("transcode");
+      transcodeTasksRef.current.set(taskId, { file, started: false });
+      return taskId;
+    },
+    [engine]
+  );
+
+  /** Run a single transcoding task and update its node when done. */
+  const runTranscodeTask = useCallback(
+    async (nodeId: string, taskId: string, file: File) => {
+      let targetFile = file;
+      try {
+        // 逻辑：后台转码失败时回退原文件插入，并提示用户。
+        targetFile = (await convertImageFileToPngIfNeeded(file)).file;
+      } catch {
+        toast.error("图片转码失败，已使用原始文件插入");
+        targetFile = file;
+      }
+
+      let payload = {
+        props: {
+          previewSrc: "",
+          originalSrc: "",
+          mimeType: targetFile.type || "image/png",
+          fileName: targetFile.name || "Image",
+          naturalWidth: 1,
+          naturalHeight: 1,
+        },
+        size: DEFAULT_NODE_SIZE as [number, number],
+      };
+      try {
+        payload = await buildImageNodePayloadFromFile(targetFile);
+      } catch {
+        // 逻辑：解码失败时保留占位图，避免阻断 UI。
+      }
+
+      let relativePath = "";
+      try {
+        relativePath = await saveBoardAssetFile(targetFile);
+      } catch {
+        // 逻辑：写入失败时继续使用 data url 预览。
+      }
+
+      const current = engine.doc.getElementById(nodeId);
+      if (!current || current.kind !== "node") {
+        transcodeTasksRef.current.delete(taskId);
+        return;
+      }
+      const currentProps = current.props as ImageNodeProps;
+      if (currentProps.transcodingId !== taskId) {
+        transcodeTasksRef.current.delete(taskId);
+        return;
+      }
+
+      const [x, y, w, h] = current.xywh;
+      const [nextW, nextH] = payload.size;
+      const centerX = x + w / 2;
+      const centerY = y + h / 2;
+      const nextRect: [number, number, number, number] = [
+        centerX - nextW / 2,
+        centerY - nextH / 2,
+        nextW,
+        nextH,
+      ];
+
+      engine.doc.updateElement(nodeId, {
+        xywh: nextRect,
+        props: {
+          ...payload.props,
+          originalSrc: relativePath || payload.props.originalSrc,
+          isTranscoding: false,
+          transcodingLabel: "",
+          transcodingId: "",
+        },
+      });
+      transcodeTasksRef.current.delete(taskId);
+    },
+    [engine, saveBoardAssetFile]
+  );
+
+  useEffect(() => {
+    const scanTranscodingNodes = () => {
+      const elements = engine.doc.getElements();
+      elements.forEach((element) => {
+        if (element.kind !== "node" || element.type !== "image") return;
+        const props = element.props as ImageNodeProps;
+        if (!props.isTranscoding) return;
+        const taskId = props.transcodingId?.trim();
+        if (!taskId) return;
+        const task = transcodeTasksRef.current.get(taskId);
+        if (!task || task.started) return;
+        task.started = true;
+        void runTranscodeTask(element.id, taskId, task.file);
+      });
+    };
+
+    const unsubscribe = engine.subscribe(() => {
+      // 逻辑：节点入库后扫描一次，触发转码。
+      scanTranscodingNodes();
+    });
+    scanTranscodingNodes();
+    return () => {
+      unsubscribe();
+    };
+  }, [engine, runTranscodeTask]);
+
   useEffect(() => {
     if (!workspaceId || !boardFolderUri) {
       engine.setImagePayloadBuilder(null);
       return;
     }
     const buildImagePayload = async (file: File) => {
+      if (shouldConvertImageToPng(file)) {
+        const taskId = registerTranscodeTask(file);
+        return {
+          props: {
+            previewSrc: "",
+            originalSrc: "",
+            mimeType: "image/png",
+            fileName: file.name || "Image",
+            naturalWidth: 1,
+            naturalHeight: 1,
+            isTranscoding: true,
+            transcodingLabel: "转码中",
+            transcodingId: taskId,
+          },
+          size: DEFAULT_NODE_SIZE,
+        };
+      }
       const payload = await buildImageNodePayloadFromFile(file);
       try {
         const relativePath = await saveBoardAssetFile(file);

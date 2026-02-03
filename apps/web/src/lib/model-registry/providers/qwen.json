@@ -17,16 +17,6 @@
         "image_multi_input"
       ],
       "maxContextK": 0,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "¥",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ],
       "parameters": {
         "features": [
           "prompt"
@@ -62,16 +52,6 @@
         "image_generation"
       ],
       "maxContextK": 0,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "¥",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ],
       "parameters": {
         "features": [
           "prompt"
@@ -121,16 +101,6 @@
         "image_generation"
       ],
       "maxContextK": 0,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "¥",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ],
       "parameters": {
         "features": [
           "prompt"
@@ -180,16 +150,6 @@
         "image_generation"
       ],
       "maxContextK": 0,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "¥",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ],
       "parameters": {
         "features": [
           "prompt"
@@ -252,16 +212,6 @@
         "image_multi_generation"
       ],
       "maxContextK": 0,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "¥",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ],
       "parameters": {
         "features": [
           "prompt"
@@ -346,16 +296,6 @@
         "image_generation"
       ],
       "maxContextK": 0,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "¥",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ],
       "parameters": {
         "features": [
           "prompt"
@@ -390,16 +330,6 @@
         "image_generation"
       ],
       "maxContextK": 0,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "¥",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ],
       "parameters": {
         "features": [
           "prompt"
@@ -435,16 +365,6 @@
         "video_generation"
       ],
       "maxContextK": 0,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "¥",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ],
       "parameters": {
         "features": [
           "prompt",
@@ -485,16 +405,6 @@
         "video_generation"
       ],
       "maxContextK": 0,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "¥",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ],
       "parameters": {
         "features": [
           "prompt",

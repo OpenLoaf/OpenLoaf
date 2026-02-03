@@ -158,6 +158,10 @@ export type CanvasConnectorElement = CanvasElementBase & {
   target: CanvasConnectorEnd;
   /** Connector visual style key. */
   style?: CanvasConnectorStyle;
+  /** Connector stroke color override. */
+  color?: string;
+  /** Whether the connector uses a dashed stroke. */
+  dashed?: boolean;
 };
 
 /** Draft connector used for interactive linking. */
@@ -168,6 +172,10 @@ export type CanvasConnectorDraft = {
   target: CanvasConnectorEnd;
   /** Draft style for previews. */
   style?: CanvasConnectorStyle;
+  /** Draft stroke color override. */
+  color?: string;
+  /** Whether the draft uses a dashed stroke. */
+  dashed?: boolean;
 };
 
 /** Pending connector drop information for node creation. */
@@ -282,6 +290,8 @@ export type CanvasSnapshot = {
   connectorHoverId: string | null;
   /** Active connector style for tooling. */
   connectorStyle: CanvasConnectorStyle;
+  /** Whether new connectors use dashed strokes. */
+  connectorDashed: boolean;
   /** Pending connector drop used for node creation. */
   connectorDrop: CanvasConnectorDrop | null;
   /** Pending insert request for one-shot placement. */
@@ -330,6 +340,8 @@ export type CanvasToolbarItem = {
   label: string;
   /** Whether to show the label below the icon. */
   showLabel?: boolean;
+  /** Whether the item is active. */
+  active?: boolean;
   /** Toolbar action icon. */
   icon: ReactNode;
   /** Toolbar action handler. */

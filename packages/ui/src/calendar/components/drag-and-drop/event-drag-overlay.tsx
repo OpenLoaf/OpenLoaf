@@ -100,11 +100,16 @@ export const EventDragOverlay = forwardRef<EventDragOverlayHandle, {}>(
 		}, [activeEvent])
 
 		useEffect(() => {
+			const overlayRect =
+				dragOverlay && 'rect' in dragOverlay
+					? (dragOverlay as unknown as { rect?: DOMRect | ClientRect | null })
+							.rect ?? null
+					: null
 			console.info('[dnd] dnd-context-active', {
 				activeId: active?.id ?? null,
 				hasActive: Boolean(active),
 				activeNodeRect,
-				dragOverlayRect: dragOverlay?.rect ?? null,
+				dragOverlayRect: overlayRect,
 				hasOverlayNode: Boolean(dragOverlay?.nodeRef?.current),
 				hasDraggableNode: active ? draggableNodes?.has(active.id) : false,
 			})
@@ -112,7 +117,10 @@ export const EventDragOverlay = forwardRef<EventDragOverlayHandle, {}>(
 				const entry = draggableNodes?.get(active.id)
 				const node = entry?.node?.current ?? null
 				const activator = entry?.activatorNode?.current ?? null
-				const entryRect = entry?.rect?.current ?? null
+				const entryRect =
+					(entry as unknown as {
+						rect?: { current?: DOMRect | ClientRect | null }
+					} | null)?.rect?.current ?? null
 				const isConnected = node ? node.isConnected : null
 				const rect = node ? node.getBoundingClientRect() : null
 				console.info('[dnd] active-node', {

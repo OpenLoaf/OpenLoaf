@@ -33,6 +33,16 @@ export const PASTE_OFFSET_STEP = 24;
 export const LAYOUT_GAP = 32;
 export const DEFAULT_FIT_PADDING = 120;
 export const ERASER_RADIUS = 12;
+export const MINDMAP_NODE_VERTICAL_SPACING = 45;
+export const MINDMAP_NODE_HORIZONTAL_SPACING = 110;
+export const MINDMAP_FIRST_LEVEL_HORIZONTAL_SPACING = 200;
+export const MINDMAP_BRANCH_COLORS = [
+  "#111827",
+  "#1d4ed8",
+  "#f59e0b",
+  "#ef4444",
+  "#16a34a",
+];
 
 export const MINIMAP_WIDTH = 180;
 export const MINIMAP_HEIGHT = 120;

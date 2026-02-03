@@ -428,7 +428,7 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
   });
 
   // 逻辑：把连通子图当作整体做全局避障，避免互相重叠。
-  const getRectWithPosition = (node: LayoutNode): RectTuple => {
+  const getRectWithLayoutPosition = (node: LayoutNode): RectTuple => {
     const pos = layoutPositions.get(node.id);
     const [x, y, w, h] = node.xywh;
     return pos ? [pos[0], pos[1], w, h] : [x, y, w, h];
@@ -472,7 +472,7 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
         component.nodeIds.forEach(nodeId => {
           const node = layoutNodes.get(nodeId);
           if (!node) return;
-          const [x, y, w, h] = getRectWithPosition(node);
+        const [x, y, w, h] = getRectWithLayoutPosition(node);
           layoutPositions.set(nodeId, [x + deltaX, y + deltaY]);
         });
       }
@@ -519,7 +519,7 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
     component.nodeIds.forEach(nodeId => {
       const node = layoutNodes.get(nodeId);
       if (!node) return;
-      const [x, y, w, h] = getRectWithPosition(node);
+      const [x, y, w, h] = getRectWithLayoutPosition(node);
       layoutPositions.set(nodeId, [x + deltaX, y + deltaY]);
     });
     const nextRect: RectTuple = [nextX, nextY, rect[2], rect[3]];

@@ -4,9 +4,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { setWorkspaces, type Workspace } from "@tenas-ai/api/services/workspaceConfig";
+import { setWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
+import type { Workspace } from "@tenas-ai/api/types/workspace";
 import { setEmailEnvValue } from "../emailEnvStore";
-import { writeEmailConfigFile } from "../emailConfigStore";
+import { writeEmailConfigFile, type EmailConfigFile } from "../emailConfigStore";
 import {
   getEmailIdleManagerSnapshot,
   startEmailIdleManager,
@@ -35,22 +36,22 @@ const workspace: Workspace = {
 
 setWorkspaces([workspace]);
 
-writeEmailConfigFile(
-  {
-    emailAccounts: [
-      {
-        emailAddress: "idle@example.com",
-        label: "Idle",
-        imap: { host: "imap.example.com", port: 993, tls: true },
-        smtp: { host: "smtp.example.com", port: 465, tls: true },
-        auth: { type: "password", envKey: "EMAIL_IDLE_SECRET" },
-        sync: { mailboxes: {} },
-        status: {},
-      },
-    ],
-  },
-  workspaceId,
-);
+const emailConfigPayload: EmailConfigFile = {
+  emailAccounts: [
+    {
+      emailAddress: "idle@example.com",
+      label: "Idle",
+      imap: { host: "imap.example.com", port: 993, tls: true },
+      smtp: { host: "smtp.example.com", port: 465, tls: true },
+      auth: { type: "password", envKey: "EMAIL_IDLE_SECRET" },
+      sync: { mailboxes: {} },
+      status: {},
+    },
+  ],
+  privateSenders: [],
+};
+
+writeEmailConfigFile(emailConfigPayload, workspaceId);
 
 setEmailEnvValue("EMAIL_IDLE_SECRET", "secret");
 

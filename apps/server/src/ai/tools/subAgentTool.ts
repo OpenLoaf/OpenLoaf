@@ -215,13 +215,6 @@ export const subAgentTool = tool({
         onFinish: ({ responseMessage }) => {
           const parts = Array.isArray(responseMessage?.parts) ? responseMessage.parts : [];
           responseParts = parts;
-          approvalGate = resolveApprovalGate(parts);
-          if (approvalGate) {
-            const timeoutValue = (approvalGate.part as { timeoutSec?: unknown }).timeoutSec;
-            if (Number.isFinite(timeoutValue)) {
-              approvalWaitTimeoutSec = Math.max(1, Math.floor(Number(timeoutValue)));
-            }
-          }
         },
       });
 
@@ -251,8 +244,12 @@ export const subAgentTool = tool({
     try {
       // 逻辑：转发子Agent的 UIMessageChunk，让前端复用渲染逻辑。
       await runSubAgentStream();
-
+      approvalGate = resolveApprovalGate(responseParts);
       if (approvalGate) {
+        const timeoutValue = (approvalGate.part as { timeoutSec?: unknown }).timeoutSec;
+        if (Number.isFinite(timeoutValue)) {
+          approvalWaitTimeoutSec = Math.max(1, Math.floor(Number(timeoutValue)));
+        }
         logger.info(
           { toolCallId, approvalId: approvalGate.approvalId },
           "[sub-agent] approval requested",
@@ -264,10 +261,11 @@ export const subAgentTool = tool({
         if (ack.status !== "success") {
           throw new Error(ack.errorText || "sub-agent approval failed");
         }
-        const approved =
+        const approved = Boolean(
           ack.output &&
-          typeof ack.output === "object" &&
-          (ack.output as { approved?: unknown }).approved === true;
+            typeof ack.output === "object" &&
+            (ack.output as { approved?: unknown }).approved === true,
+        );
         applyApprovalDecision({
           parts: responseParts,
           approvalId: approvalGate.approvalId,
@@ -293,7 +291,7 @@ export const subAgentTool = tool({
         } as any);
       }
       if (sessionId) {
-        let assistantMessagePath = getAssistantMessagePath();
+        let assistantMessagePath: string | null | undefined = getAssistantMessagePath();
         if (!assistantMessagePath && assistantMessageId) {
           assistantMessagePath = await resolveMessagePathById({
             sessionId,
@@ -336,7 +334,7 @@ export const subAgentTool = tool({
           : [];
 
     if (sessionId) {
-      let assistantMessagePath = getAssistantMessagePath();
+        let assistantMessagePath: string | null | undefined = getAssistantMessagePath();
       if (!assistantMessagePath && assistantMessageId) {
         assistantMessagePath = await resolveMessagePathById({
           sessionId,

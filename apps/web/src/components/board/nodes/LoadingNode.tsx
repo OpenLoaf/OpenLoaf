@@ -286,7 +286,7 @@ export const LoadingNodeDefinition: CanvasNodeDefinition<LoadingNodeProps> = {
   capabilities: {
     resizable: false,
     rotatable: false,
-    connectable: false,
+    connectable: "none",
     minSize: { w: LOADING_NODE_SIZE[0], h: LOADING_NODE_SIZE[1] },
     maxSize: { w: LOADING_NODE_SIZE[0], h: LOADING_NODE_SIZE[1] },
   },

@@ -36,8 +36,14 @@ export default function MessageTool({
   const { toolParts } = useChatTools();
   const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
   const toolSnapshot = toolCallId ? toolParts[toolCallId] : undefined;
+  const safeSnapshot = toolSnapshot
+    ? ({
+        ...toolSnapshot,
+        errorText: toolSnapshot.errorText ?? undefined,
+      } as Partial<AnyToolPart>)
+    : undefined;
   // 逻辑：tool streaming 状态以 toolParts 为准，覆盖 message part。
-  let resolvedPart = toolSnapshot ? { ...part, ...toolSnapshot } : part;
+  let resolvedPart: AnyToolPart = safeSnapshot ? { ...part, ...safeSnapshot } : part;
   if (
     status === "ready" &&
     (resolvedPart.state === "input-streaming" || resolvedPart.state === "output-streaming")

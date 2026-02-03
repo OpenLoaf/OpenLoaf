@@ -1,10 +1,17 @@
 import Imap from "imap";
 import { simpleParser } from "mailparser";
-import sanitizeHtml from "sanitize-html";
+import sanitizeHtml, { type IOptions } from "sanitize-html";
 
-import type { PrismaClient } from "@tenas-ai/db";
+import { Prisma, type PrismaClient } from "@tenas-ai/db";
 import { logger } from "@/common/logger";
-import { ensureSeenFlag, hasSeenFlag, normalizeEmailFlags } from "./emailFlags";
+import {
+  ensureFlaggedFlag,
+  ensureSeenFlag,
+  hasFlag,
+  hasSeenFlag,
+  normalizeEmailFlags,
+  removeFlaggedFlag,
+} from "./emailFlags";
 import { readEmailConfigFile, writeEmailConfigFile } from "./emailConfigStore";
 import { getEmailEnvValue } from "./emailEnvStore";
 
@@ -14,9 +21,11 @@ const AUTO_SYNC_ENV_KEY = "EMAIL_SYNC_ON_ADD";
 const SKIP_IMAP_ENV_KEY = "EMAIL_IMAP_SKIP";
 /** Default count for initial sync. */
 export const DEFAULT_INITIAL_SYNC_LIMIT = 50;
+/** IMAP close timeout in ms. */
+const CLOSE_TIMEOUT_MS = 5000;
 
 /** Sanitize options for HTML email content. */
-const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+const SANITIZE_OPTIONS: IOptions = {
   allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
   allowedAttributes: {
     a: ["href", "name", "target", "rel"],
@@ -25,6 +34,14 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedSchemes: ["http", "https", "cid"],
   allowProtocolRelative: false,
 };
+
+/** Normalize nullable JSON payload for Prisma. */
+function toNullableJsonValue(
+  value: unknown,
+): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput {
+  if (value === undefined || value === null) return Prisma.DbNull;
+  return value as Prisma.InputJsonValue;
+}
 
 /** Check if auto sync on add is enabled. */
 export function shouldAutoSyncOnAdd(): boolean {
@@ -232,12 +249,19 @@ async function parseMessages(imap: Imap, uids: number[]) {
           const bodyHtml = parsed.html
             ? sanitizeHtml(String(parsed.html), SANITIZE_OPTIONS)
             : undefined;
-          const attachments = parsed.attachments?.map((attachment) => ({
+          const attachments = parsed.attachments?.map(
+            (attachment: {
+              filename?: string;
+              contentType?: string;
+              size?: number;
+              cid?: string;
+            }) => ({
             filename: attachment.filename ?? undefined,
             contentType: attachment.contentType ?? undefined,
             size: typeof attachment.size === "number" ? attachment.size : undefined,
             cid: attachment.cid ?? undefined,
-          }));
+          }),
+          );
           resolve({
             uid,
             flags,
@@ -275,6 +299,19 @@ async function parseMessages(imap: Imap, uids: number[]) {
 async function addImapFlags(imap: Imap, uid: number, flags: string[]) {
   await new Promise<void>((resolve, reject) => {
     imap.addFlags(uid, flags, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+/** Remove flags from IMAP message. */
+async function removeImapFlags(imap: Imap, uid: number, flags: string[]) {
+  await new Promise<void>((resolve, reject) => {
+    imap.delFlags(uid, flags, (error) => {
       if (error) {
         reject(error);
         return;
@@ -494,32 +531,32 @@ export async function syncRecentMailboxMessages(input: {
           uid: message.uid,
           messageId: message.messageId ?? null,
           subject: message.subject ?? null,
-          from: message.from ?? {},
-          to: message.to ?? {},
-          cc: message.cc ?? null,
-          bcc: message.bcc ?? null,
+          from: (message.from ?? {}) as Prisma.InputJsonValue,
+          to: (message.to ?? {}) as Prisma.InputJsonValue,
+          cc: toNullableJsonValue(message.cc),
+          bcc: toNullableJsonValue(message.bcc),
           date: message.date ?? null,
           flags: message.flags ?? [],
           snippet: message.snippet ?? null,
           bodyHtml: message.bodyHtml ?? null,
           bodyText: message.bodyText ?? null,
-          attachments: message.attachments ?? null,
+          attachments: toNullableJsonValue(message.attachments),
           rawRfc822: message.raw ?? null,
           size: message.size ?? null,
         },
         update: {
           messageId: message.messageId ?? null,
           subject: message.subject ?? null,
-          from: message.from ?? {},
-          to: message.to ?? {},
-          cc: message.cc ?? null,
-          bcc: message.bcc ?? null,
+          from: (message.from ?? {}) as Prisma.InputJsonValue,
+          to: (message.to ?? {}) as Prisma.InputJsonValue,
+          cc: toNullableJsonValue(message.cc),
+          bcc: toNullableJsonValue(message.bcc),
           date: message.date ?? null,
           flags: message.flags ?? [],
           snippet: message.snippet ?? null,
           bodyHtml: message.bodyHtml ?? null,
           bodyText: message.bodyText ?? null,
-          attachments: message.attachments ?? null,
+          attachments: toNullableJsonValue(message.attachments),
           rawRfc822: message.raw ?? null,
           size: message.size ?? null,
         },
@@ -746,6 +783,149 @@ export async function markEmailMessageRead(input: {
       });
       imap.end();
       await endPromise;
+    }
+  }
+}
+
+/** Set flagged state for a single message in IMAP and database. */
+export async function setEmailMessageFlagged(input: {
+  prisma: PrismaClient;
+  workspaceId: string;
+  id: string;
+  flagged: boolean;
+}): Promise<void> {
+  const startedAt = Date.now();
+  let imap: Imap | null = null;
+  let closeContext: { accountEmail?: string; mailboxPath?: string; uid?: number } = {};
+  try {
+    const row = await input.prisma.emailMessage.findFirst({
+      where: { id: input.id, workspaceId: input.workspaceId },
+    });
+    if (!row) {
+      throw new Error("邮件不存在。");
+    }
+    closeContext = {
+      accountEmail: row.accountEmail,
+      mailboxPath: row.mailboxPath,
+      uid: row.uid,
+    };
+    const existingFlags = normalizeEmailFlags(row.flags);
+    const hasFlagged = hasFlag(existingFlags, "FLAGGED");
+    if (hasFlagged === input.flagged) {
+      return;
+    }
+    const { account, password, normalizedEmail } = resolveEmailAccountCredential(
+      input.workspaceId,
+      row.accountEmail,
+    );
+    if (shouldSkipImapOperations()) {
+      logger.warn(
+        { accountEmail: normalizedEmail, mailboxPath: row.mailboxPath },
+        "email imap set flagged skipped",
+      );
+    } else {
+      imap = new Imap({
+        user: account.emailAddress,
+        password,
+        host: account.imap.host,
+        port: account.imap.port,
+        tls: account.imap.tls,
+      });
+      imap.on("error", (error) => {
+        logger.error(
+          { err: error, accountEmail: normalizedEmail, mailboxPath: row.mailboxPath },
+          "email imap error",
+        );
+      });
+      logger.debug(
+        {
+          host: account.imap.host,
+          port: account.imap.port,
+          tls: account.imap.tls,
+          accountEmail: normalizedEmail,
+        },
+        "email imap connecting",
+      );
+      await connectImap(imap);
+      logger.debug(
+        { accountEmail: normalizedEmail, mailboxPath: row.mailboxPath },
+        "email imap ready",
+      );
+      await openMailbox(imap, row.mailboxPath, false);
+      // 逻辑：根据目标状态添加或移除星标。
+      if (input.flagged) {
+        await addImapFlags(imap, row.uid, ["\\Flagged"]);
+      } else {
+        await removeImapFlags(imap, row.uid, ["\\Flagged"]);
+      }
+      logger.debug(
+        {
+          accountEmail: normalizedEmail,
+          mailboxPath: row.mailboxPath,
+          uid: row.uid,
+          flagged: input.flagged,
+        },
+        "email message flagged updated",
+      );
+    }
+    await input.prisma.emailMessage.update({
+      where: { id: row.id },
+      data: {
+        flags: input.flagged
+          ? ensureFlaggedFlag(existingFlags)
+          : removeFlaggedFlag(existingFlags),
+      },
+    });
+    logger.info(
+      {
+        accountEmail: row.accountEmail,
+        mailboxPath: row.mailboxPath,
+        uid: row.uid,
+        flagged: input.flagged,
+        durationMs: Date.now() - startedAt,
+      },
+      "email set flagged completed",
+    );
+  } catch (error) {
+    logger.error(
+      { err: error, messageId: input.id, workspaceId: input.workspaceId },
+      "email set flagged failed",
+    );
+    throw error;
+  } finally {
+    if (imap) {
+      logger.debug(
+        { ...closeContext },
+        "email imap closing",
+      );
+      // 逻辑：确保连接关闭，避免资源泄漏；超时则强制结束等待。
+      let settled = false;
+      const finish = (reason: "end" | "close" | "timeout") => {
+        if (settled) return;
+        settled = true;
+        logger.debug(
+          { ...closeContext, reason },
+          "email imap closed (finalize)",
+        );
+      };
+      const timeout = setTimeout(() => {
+        finish("timeout");
+      }, CLOSE_TIMEOUT_MS);
+      try {
+        await new Promise<void>((resolve) => {
+          imap?.once("end", () => {
+            finish("end");
+            resolve();
+          });
+          imap?.once("close", () => {
+            finish("close");
+            resolve();
+          });
+          imap?.end();
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
     }
   }
 }

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { create } from "zustand";
 import type { ModelDefinition } from "@tenas-ai/api/common";
 import { resolveServerUrl } from "@/utils/server-url";
+import { getAccessToken } from "@/lib/saas-auth";
 
 type CloudModelState = {
   /** Cloud model list. */
@@ -28,7 +29,11 @@ type CloudModelResponse = {
 /** Fetch cloud model list from server. */
 async function fetchCloudModels(baseUrl: string): Promise<ModelDefinition[]> {
   const requestUrl = baseUrl ? new URL("/llm/models", baseUrl).toString() : "/llm/models";
-  const response = await fetch(requestUrl);
+  const token = await getAccessToken();
+  if (!token) return [];
+  const response = await fetch(requestUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   if (!response.ok) {
     // 中文注释：未登录或请求失败时返回空列表。
     return [];

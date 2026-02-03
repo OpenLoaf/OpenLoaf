@@ -22,18 +22,13 @@ import {
   type ProviderModelOption,
 } from "@/lib/provider-models";
 import { getModelLabel } from "@/lib/model-registry";
-import { resolveServerUrl } from "@/utils/server-url";
+import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { useOptionalChatSession } from "../context";
 import { MODEL_TAG_LABELS, type ModelTag } from "@tenas-ai/api/common";
 
 interface SelectModeProps {
   className?: string;
 }
-
-type AuthSessionResponse = {
-  /** Whether user is logged in. */
-  loggedIn: boolean;
-};
 
 type ProviderGroup = {
   /** Provider group key (settings id or provider id). */
@@ -53,52 +48,16 @@ type FilteredProviderGroup = ProviderGroup & {
   totalCount: number;
 };
 
-/** Fetch the current auth session from server. */
-async function fetchAuthSession(baseUrl: string): Promise<AuthSessionResponse> {
-  const response = await fetch(`${baseUrl}/auth/session`);
-  if (!response.ok) {
-    throw new Error("无法获取登录状态");
-  }
-  return (await response.json()) as AuthSessionResponse;
-}
-
-/** Fetch the SaaS login URL from server. */
-async function fetchLoginUrl(baseUrl: string): Promise<string> {
-  const url = new URL(`${baseUrl}/auth/login-url`);
-  const response = await fetch(url.toString());
-  if (!response.ok) {
-    throw new Error("无法获取登录地址");
-  }
-  const payload = (await response.json()) as { authorizeUrl?: string };
-  if (!payload.authorizeUrl) {
-    throw new Error("登录地址无效");
-  }
-  return payload.authorizeUrl;
-}
-
-/** Open external URL in system browser (Electron) or new tab. */
-async function openExternalUrl(url: string): Promise<void> {
-  if (window.tenasElectron?.openExternal) {
-    const result = await window.tenasElectron.openExternal(url);
-    if (!result.ok) {
-      throw new Error(result.reason ?? "无法打开浏览器");
-    }
-    return;
-  }
-  window.open(url, "_blank", "noopener,noreferrer");
-}
-
 export default function SelectMode({ className }: SelectModeProps) {
   const { providerItems, refresh } = useSettingsValues();
   const { models: cloudModels, refresh: refreshCloudModels } = useCloudModels();
   const { basic, setBasic } = useBasicConfig();
   const [open, setOpen] = useState(false);
-  const [authLoggedIn, setAuthLoggedIn] = useState(false);
+  const { loggedIn: authLoggedIn, startLogin, refreshSession } = useSaasAuth();
   /** Active provider key for the model list. */
   const [activeProviderKey, setActiveProviderKey] = useState<string>("");
   /** Selected tags for model filtering. */
   const [selectedTags, setSelectedTags] = useState<ModelTag[]>([]);
-  const authBaseUrl = resolveServerUrl();
   const chatSession = useOptionalChatSession();
   const activeTabId = useTabs((s) => s.activeTabId);
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
@@ -225,12 +184,10 @@ export default function SelectMode({ className }: SelectModeProps) {
   }, [open, isCloudSource, refreshCloudModels]);
   useEffect(() => {
     if (!open) return;
-    if (!authBaseUrl) return;
+    if (!isCloudSource) return;
     // 展开选择器时刷新登录状态，避免切换设备后状态不一致。
-    fetchAuthSession(authBaseUrl)
-      .then((session) => setAuthLoggedIn(session.loggedIn))
-      .catch(() => setAuthLoggedIn(false));
-  }, [authBaseUrl, open]);
+    void refreshSession();
+  }, [isCloudSource, open, refreshSession]);
   useEffect(() => {
     if (!tabId) return;
     const target = document.querySelector(
@@ -307,13 +264,7 @@ export default function SelectMode({ className }: SelectModeProps) {
 
   /** Trigger login flow for cloud models. */
   const handleLogin = async () => {
-    if (!authBaseUrl) return;
-    try {
-      const loginUrl = await fetchLoginUrl(authBaseUrl);
-      await openExternalUrl(loginUrl);
-    } catch (error) {
-      console.error(error);
-    }
+    await startLogin("google");
   };
 
   /** Open the provider management panel inside the current tab stack. */

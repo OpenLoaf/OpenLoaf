@@ -43,7 +43,7 @@ const NoMemoHorizontalGridRow: React.FC<HorizontalGridRowProps> = ({
 	isLastRow = false,
 }) => {
 	const { renderResource } = useSmartCalendarContext((state) => ({
-		renderResource: state.renderResource,
+		renderResource: 'renderResource' in state ? state.renderResource : undefined,
 	}))
 
 	const isResourceCalendar = variant === 'resource'
@@ -72,7 +72,7 @@ const NoMemoHorizontalGridRow: React.FC<HorizontalGridRowProps> = ({
 			className={cn('flex flex-1 relative', className)}
 			data-testid={`horizontal-row-${id}`}
 		>
-			{isResourceCalendar && (
+			{isResourceCalendar && resource && (
 				<ResourceCell
 					className="w-20 sm:w-40 sticky left-0 bg-background z-20 h-full"
 					data-testid={`horizontal-row-label-${resource?.id}`}
@@ -131,7 +131,7 @@ const NoMemoHorizontalGridRow: React.FC<HorizontalGridRowProps> = ({
 									))}
 								</div>
 
-								{renderEventsLayer(col.days)}
+								{renderEventsLayer(col.days ?? [])}
 							</div>
 						)
 					})}
@@ -139,7 +139,11 @@ const NoMemoHorizontalGridRow: React.FC<HorizontalGridRowProps> = ({
 
 				{/* Events layer positioned absolutely over the row */}
 				{!isGrouped &&
-					renderEventsLayer(columns.map((col) => col.day).filter(Boolean))}
+					renderEventsLayer(
+						columns
+							.map((col) => col.day)
+							.filter((day): day is dayjs.Dayjs => Boolean(day))
+					)}
 			</div>
 		</div>
 	)

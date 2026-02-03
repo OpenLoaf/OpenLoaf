@@ -1,11 +1,15 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settings/settingsService";
-import type { ChatModelSource, ModelDefinition, ModelTag } from "@tenas-ai/api/common";
+import {
+  MODEL_TAG_LABELS,
+  type ChatModelSource,
+  type ModelDefinition,
+  type ModelTag,
+} from "@tenas-ai/api/common";
 import { getModelDefinition, getProviderDefinition } from "@/ai/models/modelRegistry";
 import { PROVIDER_ADAPTERS } from "@/ai/models/providerAdapters";
 import { buildCliProviderEntries } from "@/ai/models/cli/cliProviderEntry";
-import { getAccessToken } from "@/modules/auth/tokenStore";
-import { ensureAccessTokenFresh, getSaasBaseUrl } from "@/modules/auth/authRoutes";
+import { fetchModelList, getSaasBaseUrl } from "@/modules/saas";
 
 type ResolvedChatModel = {
   model: LanguageModelV3;
@@ -52,12 +56,45 @@ function normalizeChatModelSource(raw?: string | null): ChatModelSource {
   return raw === "cloud" ? "cloud" : "local";
 }
 
+type CloudModelListItem = {
+  id: string;
+  provider: string;
+  displayName: string;
+  tags: string[];
+};
+
 type CloudModelListResponse = {
   /** Success flag from SaaS. */
-  success: boolean;
-  /** Cloud model list. */
-  data: ModelDefinition[];
+  success: false;
+  /** Error message from SaaS. */
+  message: string;
+  /** Optional error code. */
+  code?: string;
+} | {
+  /** Success flag from SaaS. */
+  success: true;
+  /** Cloud model list payload. */
+  data: {
+    data: CloudModelListItem[];
+    updatedAt?: string;
+  };
 };
+
+/** Convert SaaS model list into local ModelDefinition. */
+function mapCloudModels(items: CloudModelListItem[]): ModelDefinition[] {
+  const tagSet = new Set(Object.keys(MODEL_TAG_LABELS) as ModelTag[]);
+  const normalizeTags = (tags: string[]): ModelTag[] =>
+    tags.filter((tag): tag is ModelTag => tagSet.has(tag as ModelTag));
+
+  return items.map((item) => ({
+    id: item.id,
+    name: item.displayName,
+    familyId: item.id,
+    providerId: item.provider,
+    tags: normalizeTags(Array.isArray(item.tags) ? item.tags : []),
+    maxContextK: 0,
+  }));
+}
 
 /** Normalize cloud models into provider settings entries. */
 function buildCloudProviderEntries(input: {
@@ -278,39 +315,37 @@ async function resolveLocalChatModel(input: {
 }
 
 /** Resolve chat model from cloud config. */
-async function resolveCloudChatModel(_input: {
+async function resolveCloudChatModel(input: {
   chatModelId?: string | null;
   requiredTags?: ModelTag[];
   preferredChatModelId?: string | null;
+  saasAccessToken?: string | null;
 }): Promise<ResolvedChatModel> {
-  await ensureAccessTokenFresh();
-  const accessToken = getAccessToken();
+  const accessToken = input.saasAccessToken?.trim();
   if (!accessToken) {
     throw new Error("未登录云端账号");
   }
-  const saasBaseUrl = getSaasBaseUrl();
-  if (!saasBaseUrl) {
+  let saasBaseUrl: string;
+  try {
+    saasBaseUrl = getSaasBaseUrl();
+  } catch {
     throw new Error("云端地址未配置");
   }
-  const response = await fetch(`${saasBaseUrl}/api/llm/models`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  const payload = (await response.json().catch(() => null)) as CloudModelListResponse | null;
-  if (!response.ok || !payload || payload.success !== true || !Array.isArray(payload.data)) {
+  const payload = (await fetchModelList(accessToken)) as CloudModelListResponse | null;
+  if (!payload || payload.success !== true || !Array.isArray(payload.data?.data)) {
     throw new Error("云端模型列表获取失败");
   }
+  const models = mapCloudModels(payload.data.data);
   const providers = buildCloudProviderEntries({
-    models: payload.data,
+    models,
     apiUrl: `${saasBaseUrl}/tenas-ai/v1`,
     apiKey: accessToken,
   });
   return resolveChatModelFromProviders({
     providers,
-    chatModelId: _input.chatModelId,
-    requiredTags: _input.requiredTags,
-    preferredChatModelId: _input.preferredChatModelId,
+    chatModelId: input.chatModelId,
+    requiredTags: input.requiredTags,
+    preferredChatModelId: input.preferredChatModelId,
   });
 }
 
@@ -320,6 +355,7 @@ export async function resolveChatModel(input: {
   chatModelSource?: ChatModelSource | null;
   requiredTags?: ModelTag[];
   preferredChatModelId?: string | null;
+  saasAccessToken?: string | null;
 }): Promise<ResolvedChatModel> {
   const source = normalizeChatModelSource(input.chatModelSource);
   if (source === "cloud") {
@@ -327,6 +363,7 @@ export async function resolveChatModel(input: {
       chatModelId: input.chatModelId,
       requiredTags: input.requiredTags,
       preferredChatModelId: input.preferredChatModelId,
+      saasAccessToken: input.saasAccessToken,
     });
   }
   return resolveLocalChatModel({

@@ -7,11 +7,14 @@ import { logger as honoLogger } from "hono/logger";
 import { registerAiExecuteRoutes } from "@/ai/interface/routes/aiExecuteRoutes";
 import { registerChatAttachmentRoutes } from "@/ai/interface/routes/chatAttachmentRoutes";
 import { registerFrontendToolAckRoutes } from "@/ai/interface/routes/frontendToolAckRoutes";
+import { registerSaasMediaRoutes } from "@/ai/interface/routes/saasMediaRoutes";
 import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
 import { registerAuthRoutes } from "@/modules/auth/authRoutes";
 import { registerS3TestRoutes } from "@/modules/storage/s3TestRoutes";
 import { registerCloudModelRoutes } from "@/ai/models/cloudModelRoutes";
 import { registerHlsRoutes } from "@/modules/media/hlsRoutes";
+import { registerLocalAuthRoutes } from "@/modules/local-auth/localAuthRoutes";
+import { localAuthGuard } from "@/modules/local-auth/localAuthGuard";
 import { workspaceRouterImplementation } from "@/routers/workspace";
 import { tabRouterImplementation } from "@/routers/tab";
 import { chatRouterImplementation } from "@/routers/chat";
@@ -71,11 +74,15 @@ export function createApp() {
     }),
   );
 
+  app.use("/*", localAuthGuard);
+
   registerAiExecuteRoutes(app);
   registerChatAttachmentRoutes(app);
   registerFrontendToolAckRoutes(app);
+  registerSaasMediaRoutes(app);
   registerFileSseRoutes(app);
   registerAuthRoutes(app);
+  registerLocalAuthRoutes(app);
   registerCloudModelRoutes(app);
   registerS3TestRoutes(app);
   registerHlsRoutes(app);

@@ -25,6 +25,13 @@ type CalendarResult<T> =
   | { ok: true; data: T }
   | { ok: false; reason: string; code?: string };
 
+type CalendarFailure = { ok: false; reason: string; code?: string };
+
+/** Narrow calendar results to failure payloads. */
+function isCalendarFailure<T>(result: CalendarResult<T>): result is CalendarFailure {
+  return result.ok === false;
+}
+
 type CalendarService = {
   listCalendars: () => Promise<CalendarResult<CalendarItem[]>>;
   listReminders: () => Promise<CalendarResult<CalendarItem[]>>;
@@ -139,18 +146,20 @@ export function createCalendarSync(args: { log: Logger; calendarService: Calenda
     try {
       const range = resolveSyncRange(context.viewRange);
       const [calendarResult, reminderResult, eventsResult, remindersResult] =
-        await Promise.all([
-          args.calendarService.listCalendars(),
-          args.calendarService.listReminders(),
-          args.calendarService.getEvents(range),
-          args.calendarService.getReminders(range),
-        ]);
+        await Promise.all(
+          [
+            args.calendarService.listCalendars(),
+            args.calendarService.listReminders(),
+            args.calendarService.getEvents(range),
+            args.calendarService.getReminders(range),
+          ] as const,
+        );
 
-      if (!calendarResult.ok) {
+      if (isCalendarFailure(calendarResult)) {
         args.log(`[calendar-sync] listCalendars failed: ${calendarResult.reason}`);
         return;
       }
-      if (!eventsResult.ok) {
+      if (isCalendarFailure(eventsResult)) {
         args.log(`[calendar-sync] getEvents failed: ${eventsResult.reason}`);
         return;
       }

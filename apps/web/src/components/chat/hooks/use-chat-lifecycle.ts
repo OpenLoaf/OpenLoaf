@@ -44,10 +44,11 @@ export function useChatLifecycle(input: {
   });
 
   React.useEffect(() => {
-    if (!input.tabId) return;
-    setTabChatStatus(input.tabId, input.status);
+    const tabId = input.tabId;
+    if (!tabId) return;
+    setTabChatStatus(tabId, input.status);
     return () => {
-      setTabChatStatus(input.tabId, null);
+      setTabChatStatus(tabId, null);
     };
   }, [input.tabId, input.status, setTabChatStatus]);
 }

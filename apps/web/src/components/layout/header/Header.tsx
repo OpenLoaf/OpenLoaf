@@ -52,7 +52,7 @@ export const Header = () => {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id;
   const activeTabId = useTabs((s) => s.activeTabId);
-  const activeTab = useTabView(activeTabId);
+  const activeTab = useTabView(activeTabId ?? undefined);
   const setTabRightChatCollapsed = useTabRuntime((s) => s.setTabRightChatCollapsed);
 
   const isElectron =

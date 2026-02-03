@@ -61,6 +61,12 @@ export type ImageNodeProps = {
   naturalWidth: number;
   /** Original image height in pixels. */
   naturalHeight: number;
+  /** Whether the node is waiting on a transcode job. */
+  isTranscoding?: boolean;
+  /** Label shown while the image is transcoding. */
+  transcodingLabel?: string;
+  /** Transcoding task id for async updates. */
+  transcodingId?: string;
 };
 
 /** Resolve a board-scoped uri into a project-scoped path. */
@@ -203,6 +209,8 @@ export function ImageNodeView({
     element.props.previewSrc ||
     resolveImageSource(element.props.originalSrc, fileContext);
   const hasPreview = Boolean(previewSrc);
+  const isTranscoding = element.props.isTranscoding === true;
+  const transcodingLabel = element.props.transcodingLabel || "转码中";
   const projectRelativeOriginal = resolveProjectRelativePath(
     element.props.originalSrc,
     fileContext
@@ -400,9 +408,19 @@ export function ImageNodeView({
           </>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
-            {isPreviewLoading ? <ImageNodeSkeleton /> : "Image"}
+            {isPreviewLoading || isTranscoding ? (
+              <ImageNodeSkeleton />
+            ) : (
+              "Image"
+            )}
           </div>
         )}
+        {isTranscoding ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/70 text-xs text-slate-600">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+            <span>{transcodingLabel}</span>
+          </div>
+        ) : null}
       </div>
       {showDetail ? (
         <div
@@ -439,6 +457,9 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
     fileName: z.string(),
     naturalWidth: z.number(),
     naturalHeight: z.number(),
+    isTranscoding: z.boolean().optional(),
+    transcodingLabel: z.string().optional(),
+    transcodingId: z.string().optional(),
   }),
   defaultProps: {
     previewSrc: "",
@@ -447,6 +468,9 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
     fileName: "Image",
     naturalWidth: 1,
     naturalHeight: 1,
+    isTranscoding: false,
+    transcodingLabel: "转码中",
+    transcodingId: "",
   },
   view: ImageNodeView,
   capabilities: {

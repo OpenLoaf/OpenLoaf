@@ -231,9 +231,8 @@ type OpenUrlInput = {
 /** Register builtin frontend tool handlers. */
 export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecutor) {
   executor.register("open-url", async ({ input, tabId }) => {
-    const url = typeof (input as OpenUrlInput)?.url === "string"
-      ? (input as OpenUrlInput).url
-      : "";
+    const rawUrl = (input as OpenUrlInput)?.url;
+    const url = typeof rawUrl === "string" ? rawUrl : "";
     const title = typeof (input as OpenUrlInput)?.title === "string"
       ? (input as OpenUrlInput).title
       : undefined;

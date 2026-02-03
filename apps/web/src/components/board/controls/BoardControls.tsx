@@ -6,8 +6,8 @@ import { cn } from "@udecode/cn";
 import {
   LayoutGrid,
   Lock,
-  Maximize2,
   Redo2,
+  Scan,
   Undo2,
   Unlock,
   ZoomIn,
@@ -142,7 +142,7 @@ const BoardControls = memo(function BoardControls({
   const redoShortcut = isMac ? "⌘⇧Z" : "Ctrl+Shift+Z / Ctrl+Y";
   const undoTitle = buildControlTitle("撤销", undoShortcut);
   const redoTitle = buildControlTitle("前进", redoShortcut);
-  const fitTitle = buildControlTitle("全屏", "F");
+  const fitTitle = buildControlTitle("最大化视图", "F");
   const autoLayoutShortcut = isMac ? "⌘⇧L" : "Ctrl+Shift+L";
   const autoLayoutTitle = buildControlTitle("自动布局", autoLayoutShortcut);
   const lockTitle = buildControlTitle(snapshot.locked ? "解锁" : "锁定", "L");
@@ -198,9 +198,6 @@ const BoardControls = memo(function BoardControls({
         >
           <ZoomOut size={iconSize} className={controlIconClassName} />
         </IconBtn>
-        <IconBtn title={fitTitle} onPointerDown={handleFitView} tooltipSide="right" className="group h-8 w-8">
-          <Maximize2 size={iconSize} className={controlIconClassName} />
-        </IconBtn>
         <IconBtn
           title={autoLayoutTitle}
           onPointerDown={handleAutoLayout}
@@ -209,6 +206,9 @@ const BoardControls = memo(function BoardControls({
           className="group h-8 w-8"
         >
           <LayoutGrid size={iconSize} className={controlIconClassName} />
+        </IconBtn>
+        <IconBtn title={fitTitle} onPointerDown={handleFitView} tooltipSide="right" className="group h-8 w-8">
+          <Scan size={iconSize} className={controlIconClassName} />
         </IconBtn>
         <IconBtn
           title={lockTitle}

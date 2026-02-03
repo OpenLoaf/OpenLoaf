@@ -9,6 +9,7 @@ import type {
 } from '@tenas-ai/ui/calendar/features/calendar/types'
 import type { Resource } from '@tenas-ai/ui/calendar/features/resource-calendar/types'
 import { useCalendarEngine } from '@tenas-ai/ui/calendar/hooks/use-calendar-engine'
+import { GAP_BETWEEN_ELEMENTS } from '@tenas-ai/ui/calendar/lib/constants'
 import { ResourceCalendarContext } from './context'
 
 const getEventResourceIds = (event: CalendarEvent): (string | number)[] => {
@@ -57,7 +58,7 @@ export const ResourceCalendarProvider: React.FC<
 	disableEventClick,
 	disableDragAndDrop,
 	dayMaxEvents,
-	eventSpacing,
+	eventSpacing = GAP_BETWEEN_ELEMENTS,
 	stickyViewHeader = true,
 	viewHeaderClassName = '',
 	headerComponent,
@@ -294,8 +295,7 @@ export const ResourceCalendarProvider: React.FC<
 			timezone,
 			disableCellClick,
 			disableEventClick,
-			openEventOnCellDoubleClick,
-			disableDragAndDrop,
+				disableDragAndDrop,
 			dayMaxEvents,
 			eventSpacing,
 			stickyViewHeader,

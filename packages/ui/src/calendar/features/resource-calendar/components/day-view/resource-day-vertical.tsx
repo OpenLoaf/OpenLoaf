@@ -27,7 +27,7 @@ export const ResourceDayVertical: React.FC = () => {
 
 	const firstCol = {
 		id: 'time-col',
-		day: undefined,
+		day: currentDate,
 		days: hours,
 		className:
 			'shrink-0 w-16 min-w-16 max-w-16 sticky left-0 bg-background z-20',

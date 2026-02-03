@@ -305,6 +305,41 @@ export async function saveGeneratedImagesToDirectory(input: {
   return savedPaths;
 }
 
+/** Download image urls and save into a local directory. */
+export async function saveImageUrlsToDirectory(input: {
+  /** Image urls from SaaS result. */
+  urls: string[];
+  /** Target directory path. */
+  directory: string;
+}): Promise<string[]> {
+  const savedPaths: string[] = [];
+  await fs.mkdir(input.directory, { recursive: true });
+  const baseTime = Date.now();
+  for (const [index, url] of input.urls.entries()) {
+    let mediaType = "image/png";
+    let buffer: Buffer;
+    if (url.startsWith("data:")) {
+      mediaType = resolveMediaTypeFromDataUrl(url) || mediaType;
+      const bytes = await downloadImageData(url);
+      buffer = Buffer.from(bytes);
+    } else {
+      const response = await fetch(url);
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(`下载图片失败: ${response.status} ${text}`.trim());
+      }
+      mediaType = response.headers.get("content-type") || mediaType;
+      buffer = Buffer.from(await response.arrayBuffer());
+    }
+    const fileName = buildImageFileName(index, mediaType, baseTime);
+    const filePath = path.join(input.directory, fileName);
+    // 逻辑：SaaS 结果不写 metadata，直接落盘原图。
+    await fs.writeFile(filePath, buffer);
+    savedPaths.push(filePath);
+  }
+  return savedPaths;
+}
+
 /** Save generated images and return persisted parts. */
 export async function saveGeneratedImages(input: {
   /** Generated image files from provider. */

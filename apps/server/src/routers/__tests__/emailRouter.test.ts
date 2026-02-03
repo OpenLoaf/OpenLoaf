@@ -73,6 +73,7 @@ await prisma.$executeRawUnsafe(`
     "parentPath" TEXT,
     "delimiter" TEXT,
     "attributes" TEXT,
+    "sort" INTEGER NOT NULL DEFAULT 999,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
   );
@@ -149,9 +150,9 @@ const messages = await caller.listMessages({
   accountEmail: "user@example.com",
   mailbox: "INBOX",
 });
-assert.equal(messages.length, 1);
-assert.equal(messages[0]?.subject, "Hello");
-assert.equal(messages[0]?.unread, true);
+assert.equal(messages.items.length, 1);
+assert.equal(messages.items[0]?.subject, "Hello");
+assert.equal(messages.items[0]?.unread, true);
 
 const markReadResult = await caller.markMessageRead({
   workspaceId,
@@ -164,7 +165,7 @@ const afterMark = await caller.listMessages({
   accountEmail: "user@example.com",
   mailbox: "INBOX",
 });
-assert.equal(afterMark[0]?.unread, false);
+assert.equal(afterMark.items[0]?.unread, false);
 
 await caller.addAccount({
   workspaceId,
@@ -185,6 +186,32 @@ await prisma.emailMailbox.create({
     parentPath: null,
     delimiter: "/",
     attributes: ["\\Inbox"],
+  },
+});
+
+await prisma.emailMailbox.create({
+  data: {
+    id: "mailbox-3",
+    workspaceId,
+    accountEmail: "user@example.com",
+    path: "Drafts",
+    name: "草稿箱",
+    parentPath: null,
+    delimiter: "/",
+    attributes: ["\\Drafts"],
+  },
+});
+
+await prisma.emailMailbox.create({
+  data: {
+    id: "mailbox-4",
+    workspaceId,
+    accountEmail: "user@example.com",
+    path: "Sent",
+    name: "已发送",
+    parentPath: null,
+    delimiter: "/",
+    attributes: ["\\Sent"],
   },
 });
 
@@ -257,8 +284,104 @@ await prisma.emailMessage.create({
   },
 });
 
+await prisma.emailMessage.create({
+  data: {
+    id: "msg-5",
+    workspaceId,
+    accountEmail: "user@example.com",
+    mailboxPath: "Drafts",
+    uid: 3,
+    subject: "Draft",
+    from: {
+      value: [{ address: "user@example.com", name: "User" }],
+      text: "User <user@example.com>",
+    },
+    to: {
+      value: [{ address: "eva@example.com", name: "Eva" }],
+      text: "Eva <eva@example.com>",
+    },
+    date: new Date("2026-01-30T04:00:00Z"),
+    flags: [],
+    snippet: "Draft content",
+    bodyHtml: "<p>Draft</p>",
+  },
+});
+
+await prisma.emailMessage.create({
+  data: {
+    id: "msg-6",
+    workspaceId,
+    accountEmail: "user@example.com",
+    mailboxPath: "Sent",
+    uid: 4,
+    subject: "Sent",
+    from: {
+      value: [{ address: "user@example.com", name: "User" }],
+      text: "User <user@example.com>",
+    },
+    to: {
+      value: [{ address: "frank@example.com", name: "Frank" }],
+      text: "Frank <frank@example.com>",
+    },
+    date: new Date("2026-01-30T05:00:00Z"),
+    flags: ["\\Seen"],
+    snippet: "Sent content",
+    bodyHtml: "<p>Sent</p>",
+  },
+});
+
+await prisma.emailMessage.create({
+  data: {
+    id: "msg-7",
+    workspaceId,
+    accountEmail: "user2@example.com",
+    mailboxPath: "INBOX",
+    uid: 3,
+    subject: "Flagged",
+    from: {
+      value: [{ address: "gina@example.com", name: "Gina" }],
+      text: "Gina <gina@example.com>",
+    },
+    to: {
+      value: [{ address: "user2@example.com", name: "User2" }],
+      text: "User2 <user2@example.com>",
+    },
+    date: new Date("2026-01-30T06:00:00Z"),
+    flags: ["\\Flagged"],
+    snippet: "Flagged content",
+    bodyHtml: "<p>Flagged</p>",
+  },
+});
+
 const unreadCount = await caller.listUnreadCount({ workspaceId });
-assert.equal(unreadCount.count, 2);
+assert.equal(unreadCount.count, 4);
+
+const mailboxUnreadStats = await caller.listMailboxUnreadStats({ workspaceId });
+const inboxStats = mailboxUnreadStats.find(
+  (stat: { accountEmail: string; mailboxPath: string }) =>
+    stat.accountEmail === "user@example.com" && stat.mailboxPath === "INBOX",
+);
+assert.equal(inboxStats?.unreadCount, 1);
+
+const unifiedStats = await caller.listUnifiedUnreadStats({ workspaceId });
+assert.equal(unifiedStats.allInboxes, 3);
+assert.equal(unifiedStats.flagged, 1);
+assert.equal(unifiedStats.drafts, 1);
+assert.equal(unifiedStats.sent, 0);
+
+const unifiedInboxes = await caller.listUnifiedMessages({
+  workspaceId,
+  scope: "all-inboxes",
+});
+assert.ok(unifiedInboxes.items.length >= 3);
+
+const unifiedFlagged = await caller.listUnifiedMessages({
+  workspaceId,
+  scope: "flagged",
+});
+assert.ok(
+  unifiedFlagged.items.some((item: { subject: string }) => item.subject === "Flagged"),
+);
 
 const detail = await caller.getMessage({ workspaceId, id: "msg-1" });
 assert.equal(detail.subject, "Hello");

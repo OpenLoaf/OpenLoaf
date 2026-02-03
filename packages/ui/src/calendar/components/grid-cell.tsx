@@ -58,13 +58,14 @@ const NoMemoGridCell: React.FC<GridProps> = ({
 		currentDate: state.currentDate,
 		firstDayOfWeek: state.firstDayOfWeek,
 		t: state.t,
-		getEventsForResource: state.getEventsForResource,
+		getEventsForResource:
+			'getEventsForResource' in state ? state.getEventsForResource : undefined,
 		businessHours: state.businessHours,
 		currentLocale: state.currentLocale,
 		eventSpacing: state.eventSpacing,
 	}))
 
-	const todayEvents = useMemo(() => {
+	const todayEvents = useMemo<CalendarEvent[]>(() => {
 		if (!shouldRenderEvents) {
 			return []
 		}
@@ -72,13 +73,13 @@ const NoMemoGridCell: React.FC<GridProps> = ({
 		let todayEvents = getEventsForDateRange(
 			day.startOf(gridType),
 			day.endOf(gridType)
-		)
+		) as CalendarEvent[]
 
 		if (allDay) {
 			todayEvents = todayEvents.filter((e) => e.allDay)
 		}
 
-		if (resourceId) {
+		if (resourceId && getEventsForResource) {
 			const resourceEvents = getEventsForResource(resourceId) ?? []
 
 			return todayEvents.filter((event) =>
@@ -149,7 +150,7 @@ const NoMemoGridCell: React.FC<GridProps> = ({
 					{shouldRenderEvents && (
 						<>
 							{/* Render placeholders for events that occur today so that the cell height is according to dayMaxEvents. */}
-							{todayEvents.slice(0, dayMaxEvents).map((event, rowIndex) => (
+							{todayEvents.slice(0, dayMaxEvents).map((event: CalendarEvent, rowIndex: number) => (
 								<div
 									className="w-full shrink-0"
 									data-testid={event?.title}

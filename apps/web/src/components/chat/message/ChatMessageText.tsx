@@ -81,7 +81,7 @@ export default function ChatMessageText({ value, className }: ChatMessageTextPro
       <EditorContainer variant="select" className="h-auto overflow-visible bg-transparent">
         <Editor
           variant="none"
-          className={cn("text-[13px] leading-5", className)}
+          className={cn("text-[13px] leading-5 break-words whitespace-pre-wrap", className)}
           readOnly
           data-tenas-chat-message="true"
         />

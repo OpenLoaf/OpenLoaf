@@ -124,14 +124,6 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
     setDraftModelTags,
     draftModelContextK,
     setDraftModelContextK,
-    draftModelCurrencySymbol,
-    setDraftModelCurrencySymbol,
-    draftModelInputPrice,
-    setDraftModelInputPrice,
-    draftModelInputCachePrice,
-    setDraftModelInputCachePrice,
-    draftModelOutputPrice,
-    setDraftModelOutputPrice,
     error,
     modelError,
     expandedProviders,
@@ -495,20 +487,12 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
         draftModelName={draftModelName}
         draftModelTags={draftModelTags}
         draftModelContextK={draftModelContextK}
-        draftModelCurrencySymbol={draftModelCurrencySymbol}
-        draftModelInputPrice={draftModelInputPrice}
-        draftModelInputCachePrice={draftModelInputCachePrice}
-        draftModelOutputPrice={draftModelOutputPrice}
         modelError={modelError}
         onOpenChange={setModelDialogOpen}
         onDraftModelIdChange={setDraftModelId}
         onDraftModelNameChange={setDraftModelName}
         onDraftModelTagsChange={setDraftModelTags}
         onDraftModelContextKChange={setDraftModelContextK}
-        onDraftModelCurrencySymbolChange={setDraftModelCurrencySymbol}
-        onDraftModelInputPriceChange={setDraftModelInputPrice}
-        onDraftModelInputCachePriceChange={setDraftModelInputCachePrice}
-        onDraftModelOutputPriceChange={setDraftModelOutputPrice}
         onSubmit={submitModelDraft}
       />
 

@@ -303,15 +303,19 @@ export function ProjectFilePickerDialog({
         .map((target) => {
           const fileRef = resolveFileRefFromEntry(target);
           if (!fileRef) return null;
-          return {
+          const selection: ProjectFilePickerSelection = {
             fileRef,
             entry: target,
             thumbnailSrc: thumbnailByUri.get(target.uri),
             projectId: activeProjectId,
             rootUri: activeRootUri ?? undefined,
-          } satisfies ProjectFilePickerSelection;
+          };
+          return selection;
         })
-        .filter((selection): selection is ProjectFilePickerSelection => Boolean(selection));
+        .filter(
+          (selection): selection is ProjectFilePickerSelection =>
+            selection !== null
+        );
       if (selections.length === 0) return;
       if (selections.length !== targetEntries.length) {
         toast.error("无法解析文件路径");

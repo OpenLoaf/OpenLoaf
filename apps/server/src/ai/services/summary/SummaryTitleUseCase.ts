@@ -37,7 +37,18 @@ type SummaryTitleUseCaseInput = {
   requestSignal: AbortSignal;
   /** Optional command args text. */
   commandArgs?: string;
+  /** SaaS access token from request header. */
+  saasAccessToken?: string;
 };
+
+type ModelRole = "user" | "assistant" | "system";
+
+/** Narrow UI messages to model-safe roles. */
+function isModelRoleMessage(
+  message: TenasUIMessage,
+): message is TenasUIMessage & { role: ModelRole } {
+  return message.role === "user" || message.role === "assistant" || message.role === "system";
+}
 
 export class SummaryTitleUseCase {
   /** Execute /summary-title command without persisting messages. */
@@ -75,8 +86,10 @@ export class SummaryTitleUseCase {
 
     const chain = await loadMessageChain({ sessionId, leafMessageId });
     const sessionPrefaceText = await resolveSessionPrefaceText(sessionId);
-    const modelChain = buildModelChain(chain as UIMessage[], { sessionPrefaceText });
-    const modelMessages = await replaceRelativeFileParts(modelChain as UIMessage[]);
+    const modelChain = buildModelChain(chain.filter(isModelRoleMessage), {
+      sessionPrefaceText,
+    });
+    const modelMessages = await replaceRelativeFileParts(modelChain);
     if (modelMessages.length === 0) {
       return createCommandStreamResponse({
         dataParts: [],
@@ -84,32 +97,32 @@ export class SummaryTitleUseCase {
       });
     }
 
-    const promptMessage: TenasUIMessage = {
+    const promptMessage: UIMessage = {
       id: generateId(),
       role: "user",
-      parentMessageId: null,
       parts: [{ type: "text", text: buildSummaryTitlePrompt(input.commandArgs) }],
     };
     const promptChain = stripPromptParts([...modelMessages, promptMessage]);
 
     try {
       const requiredTags = !input.request.chatModelId
-        ? resolveRequiredInputTags(modelMessages as UIMessage[])
+        ? resolveRequiredInputTags(modelMessages)
         : [];
       const preferredChatModelId = !input.request.chatModelId
-        ? resolvePreviousChatModelId(modelMessages as UIMessage[])
+        ? resolvePreviousChatModelId(modelMessages)
         : null;
       const resolved = await resolveChatModel({
         chatModelId: input.request.chatModelId,
         chatModelSource: input.request.chatModelSource,
         requiredTags,
         preferredChatModelId,
+        saasAccessToken: input.saasAccessToken,
       });
 
       setChatModel(resolved.model);
-      setCodexOptions(resolveCodexRequestOptions(modelMessages as UIMessage[]));
+      setCodexOptions(resolveCodexRequestOptions(modelMessages));
 
-      const modelPromptMessages = await buildModelMessages(promptChain as UIMessage[]);
+      const modelPromptMessages = await buildModelMessages(promptChain);
       const result = await generateText({
         model: resolved.model,
         system: buildSummaryTitleSystemPrompt(),

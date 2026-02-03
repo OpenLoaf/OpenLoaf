@@ -2,12 +2,7 @@
 
 import * as React from "react";
 import type { UIMessage } from "@ai-sdk/react";
-import {
-  SUMMARY_HISTORY_COMMAND,
-  estimateModelPrice,
-  resolvePriceTier,
-  type ModelDefinition,
-} from "@tenas-ai/api/common";
+import { SUMMARY_HISTORY_COMMAND } from "@tenas-ai/api/common";
 import { Button } from "@tenas-ai/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -73,16 +68,6 @@ type NormalizedTokenUsage = {
   noCacheTokens?: number;
 };
 
-type UsageCost = {
-  inputCost?: number;
-  outputCost?: number;
-  cachedInputCost?: number;
-  noCacheCost?: number;
-  reasoningCost?: number;
-  totalCost?: number;
-  currencySymbol?: string;
-};
-
 /**
  * Extract token usage from message.metadata (best-effort).
  * - Compatible with totalUsage / usage / tokenUsage plus alternate field names
@@ -128,82 +113,6 @@ function extractTokenUsage(metadata: unknown): NormalizedTokenUsage | undefined 
 }
 
 /**
- * Calculate usage cost from token usage and model pricing.
- */
-function calculateUsageCost(
-  usage: NormalizedTokenUsage | undefined,
-  modelDefinition: ModelDefinition | undefined,
-): UsageCost | undefined {
-  if (!usage || !modelDefinition) return;
-  const priceTiers = modelDefinition.priceTiers ?? [];
-  const hasPricing =
-    priceTiers.length > 0 &&
-    priceTiers.some((tier) =>
-      [tier.input, tier.inputCache, tier.output].some(
-        (value) => typeof value === "number" && value > 0,
-      ),
-    );
-  // 中文注释：没有可用单价或单价全为 0 时，不显示费用。
-  if (!hasPricing) return;
-
-  const { inputTokens, outputTokens, cachedInputTokens, noCacheTokens } = usage;
-  const reasoningTokens = usage.reasoningTokens;
-  const inputTokensValue =
-    typeof noCacheTokens === "number" && Number.isFinite(noCacheTokens)
-      ? noCacheTokens
-      : typeof inputTokens === "number" && Number.isFinite(inputTokens)
-        ? inputTokens
-        : 0;
-  const cacheTokensValue =
-    typeof cachedInputTokens === "number" && Number.isFinite(cachedInputTokens)
-      ? cachedInputTokens
-      : 0;
-  const outputTokensValue =
-    typeof outputTokens === "number" && Number.isFinite(outputTokens)
-      ? outputTokens
-      : 0;
-  const totalTokensValue =
-    typeof usage.totalTokens === "number" && Number.isFinite(usage.totalTokens)
-      ? usage.totalTokens
-      : inputTokensValue + outputTokensValue;
-  const contextK = Math.max(0, Math.ceil(totalTokensValue / 1000));
-
-  const priceResult = estimateModelPrice(modelDefinition, {
-    contextK,
-    inputTokens: inputTokensValue,
-    inputCacheTokens: cacheTokensValue,
-    outputTokens: outputTokensValue,
-  });
-  if (!priceResult) return;
-
-  const cachedInputCost =
-    typeof cachedInputTokens === "number" && Number.isFinite(cachedInputTokens)
-      ? priceResult.inputCacheCost
-      : undefined;
-  const noCacheCost =
-    typeof noCacheTokens === "number" && Number.isFinite(noCacheTokens)
-      ? priceResult.inputCost
-      : undefined;
-
-  const tier = resolvePriceTier(modelDefinition, contextK);
-  // 中文注释：推理 token 暂按输出单价估算，避免遗漏成本显示。
-  const reasoningCost =
-    typeof reasoningTokens === "number" && Number.isFinite(reasoningTokens) && tier
-      ? (reasoningTokens * tier.output) / 1_000_000
-      : undefined;
-
-  return {
-    inputCost: priceResult.inputCost + priceResult.inputCacheCost,
-    outputCost: priceResult.outputCost,
-    cachedInputCost,
-    noCacheCost,
-    reasoningCost,
-    totalCost: priceResult.total,
-    currencySymbol: "",
-  };
-}
-
-/**
  * Extract assistant elapsed time (ms) from metadata.tenas.
  */
 function extractAssistantElapsedMs(metadata: unknown): number | undefined {
@@ -228,31 +137,6 @@ function formatDurationMs(value?: number): string {
     return `${minutes}m ${restSeconds.toFixed(1)}s`;
   }
   return `${seconds.toFixed(1)}s`;
-}
-
-/**
- * Format currency amount with a compact precision.
- */
-function formatCurrencyAmount(value: number | undefined, currencySymbol = ""): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return "-";
-  const abs = Math.abs(value);
-  const decimals = abs >= 1 ? 2 : abs >= 0.1 ? 3 : abs >= 0.01 ? 4 : 6;
-  const formatted = value.toFixed(decimals);
-  return currencySymbol ? `${currencySymbol}${formatted}` : formatted;
-}
-
-/**
- * Format token count with optional cost suffix.
- */
-function formatTokenWithCost(
-  tokenValue: unknown,
-  costValue: number | undefined,
-  currencySymbol = "",
-): string {
-  const tokenText = formatTokenCount(tokenValue);
-  if (typeof costValue !== "number" || !Number.isFinite(costValue)) return tokenText;
-  const costText = formatCurrencyAmount(costValue, currencySymbol);
-  return `${tokenText} (${costText})`;
 }
 
 /**
@@ -345,12 +229,9 @@ export default function MessageAiAction({
   const assistantElapsedMs = extractAssistantElapsedMs(message.metadata);
 
   const agentInfo = ((message as any)?.agent ?? (message.metadata as any)?.agent) as
-    | { model?: { provider?: string; modelId?: string }; modelDefinition?: ModelDefinition }
+    | { model?: { provider?: string; modelId?: string } }
     | undefined;
   const agentModel = agentInfo?.model as { provider?: string; modelId?: string } | undefined;
-  const agentModelDefinition = agentInfo?.modelDefinition;
-  const usageCost = calculateUsageCost(usage, agentModelDefinition);
-  const usageCurrency = usageCost?.currencySymbol ?? "";
 
   const buildNextMetadata = (nextIsGood: boolean | null) => {
     // 点赞/点踩为“单选”状态；重复点击同一选项则取消（回到 null）
@@ -398,7 +279,7 @@ export default function MessageAiAction({
   }, [clearError, isBusy, sendMessage, status]);
 
   return (
-    <div className={cn("group flex ml-1 select-none items-center justify-start gap-0.5", className)}>
+    <div className={cn("group flex select-none items-center justify-start gap-0.5", className)}>
       <Button
         type="button"
         variant="ghost"
@@ -531,8 +412,8 @@ export default function MessageAiAction({
             size="icon-sm"
             className={messageActionIconButtonClassName}
             disabled={!usage}
-            aria-label="查看 token 用量与费用"
-            title="Token 用量与费用"
+            aria-label="查看 token 用量"
+            title="Token 用量"
           >
             <BarChart3 className="size-3" />
           </Button>
@@ -540,7 +421,7 @@ export default function MessageAiAction({
         <TooltipContent side="top" sideOffset={6} className="max-w-xs">
           {usage ? (
             <div className="space-y-1">
-              <div className="font-medium">Token 用量与费用</div>
+              <div className="font-medium">Token 用量</div>
               {agentModel?.provider || agentModel?.modelId ? (
                 <div className="opacity-90">
                   {agentModel?.provider ?? "-"} / {agentModel?.modelId ?? "-"}
@@ -549,17 +430,13 @@ export default function MessageAiAction({
               <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 opacity-95">
                 <div>输入</div>
                 <div className="text-right tabular-nums">
-                  {formatTokenWithCost(usage.inputTokens, usageCost?.inputCost, usageCurrency)}
+                  {formatTokenCount(usage.inputTokens)}
                 </div>
                 {typeof usage.cachedInputTokens === "number" ? (
                   <>
                     <div>缓存输入</div>
                     <div className="text-right tabular-nums">
-                      {formatTokenWithCost(
-                        usage.cachedInputTokens,
-                        usageCost?.cachedInputCost,
-                        usageCurrency,
-                      )}
+                      {formatTokenCount(usage.cachedInputTokens)}
                     </div>
                   </>
                 ) : null}
@@ -567,11 +444,7 @@ export default function MessageAiAction({
                   <>
                     <div>非缓存</div>
                     <div className="text-right tabular-nums">
-                      {formatTokenWithCost(
-                        usage.noCacheTokens,
-                        usageCost?.noCacheCost,
-                        usageCurrency,
-                      )}
+                      {formatTokenCount(usage.noCacheTokens)}
                     </div>
                   </>
                 ) : null}
@@ -579,21 +452,17 @@ export default function MessageAiAction({
                   <>
                     <div>推理</div>
                     <div className="text-right tabular-nums">
-                      {formatTokenWithCost(
-                        usage.reasoningTokens,
-                        usageCost?.reasoningCost,
-                        usageCurrency,
-                      )}
+                      {formatTokenCount(usage.reasoningTokens)}
                     </div>
                   </>
                 ) : null}
                 <div>输出</div>
                 <div className="text-right tabular-nums">
-                  {formatTokenWithCost(usage.outputTokens, usageCost?.outputCost, usageCurrency)}
+                  {formatTokenCount(usage.outputTokens)}
                 </div>
                 <div>总计</div>
                 <div className="text-right tabular-nums">
-                  {formatTokenWithCost(usage.totalTokens, usageCost?.totalCost, usageCurrency)}
+                  {formatTokenCount(usage.totalTokens)}
                 </div>
               </div>
             </div>

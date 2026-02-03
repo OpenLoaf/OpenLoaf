@@ -21,9 +21,10 @@ const NoMemoVerticalGridEventsLayer: React.FC<VerticalGridEventsLayerProps> = ({
 	resource,
 	'data-testid': dataTestId,
 }) => {
+	if (days.length === 0) return null
 	const todayEvents = useProcessedDayEvents({ days, gridType, resourceId })
-	const rangeStart = days.at(0)
-	const rangeEnd = days.at(-1)?.add(1, gridType)
+	const rangeStart = days[0]
+	const rangeEnd = days[days.length - 1]?.add(1, gridType)
 
 	return (
 		<div
@@ -38,7 +39,7 @@ const NoMemoVerticalGridEventsLayer: React.FC<VerticalGridEventsLayerProps> = ({
 				/>
 			)}
 			{todayEvents.map((event, index) => {
-				const eventKey = `event-${event.id}-${index}-${days.at(0).toISOString()}-${resourceId ?? 'no-resource'}`
+				const eventKey = `event-${event.id}-${index}-${rangeStart.toISOString()}-${resourceId ?? 'no-resource'}`
 				const isShortEvent = event.end.diff(event.start, 'minute') <= 15
 
 				return (

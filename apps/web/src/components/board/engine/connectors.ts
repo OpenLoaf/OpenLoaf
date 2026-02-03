@@ -56,6 +56,8 @@ function buildConnectorElement(
     source: normalizedSource,
     target: normalizedTarget,
     style,
+    color: draft.color,
+    dashed: draft.dashed,
     zIndex: 0,
   };
 }

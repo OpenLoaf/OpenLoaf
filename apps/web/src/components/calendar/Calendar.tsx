@@ -9,6 +9,7 @@ import dayjs from "@tenas-ai/ui/calendar/lib/configs/dayjs-config";
 import { Button } from "@tenas-ai/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@tenas-ai/ui/calendar/components/ui/dialog";
 import { EventForm, type EventFormProps } from "@tenas-ai/ui/calendar/components/event-form/event-form";
+import type { CalendarEvent as UiCalendarEvent } from "@tenas-ai/ui/calendar/components/types";
 import {
   Select,
   SelectContent,
@@ -62,7 +63,7 @@ type CalendarItemRecord = {
   sourceUpdatedAt?: string | null;
   deletedAt?: string | null;
 };
-type CalendarEvent = NonNullable<IlamyCalendarProps["events"]>[number];
+type CalendarEvent = UiCalendarEvent;
 
 /** Convert system event payload into calendar UI event. */
 function toCalendarEvent(

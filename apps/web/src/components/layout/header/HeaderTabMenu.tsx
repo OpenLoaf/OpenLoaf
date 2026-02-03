@@ -6,13 +6,13 @@ import {
   ContextMenuItem,
   ContextMenuShortcut,
 } from "@tenas-ai/ui/context-menu";
-import type { Tab } from "@tenas-ai/api/common";
+import type { TabMeta } from "@/hooks/tab-types";
 import type { ReactNode } from "react";
 
 interface TabMenuProps {
-  tab: Tab;
+  tab: TabMeta;
   closeTab: (tabId: string) => void;
-  workspaceTabs: Tab[];
+  workspaceTabs: TabMeta[];
   isPinned?: boolean;
   onTogglePin?: (tabId: string, pin: boolean) => void;
   children: ReactNode;

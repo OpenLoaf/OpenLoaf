@@ -20,7 +20,6 @@ import { Eye, EyeOff, ChevronDown, Plus, Copy, Check, Pencil } from "lucide-reac
 import { getModelLabel } from "@/lib/model-registry";
 import { ModelIcon } from "@/components/setting/menus/provider/ModelIcon";
 import {
-  formatModelPriceLabel,
   getDefaultApiUrl,
   getDefaultModelIds,
   getDefaultProviderName,
@@ -477,12 +476,6 @@ export function ProviderDialog({
                           <div className="min-w-0 flex-1">
                             {renderModelTags(focusedModel.tags)}
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">价格：</span>
-                          <span className="text-xs text-muted-foreground">
-                            {formatModelPriceLabel(focusedModel)}
-                          </span>
                         </div>
                       </div>
                     </div>

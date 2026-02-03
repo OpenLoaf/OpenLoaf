@@ -1,8 +1,6 @@
-import type { Hono } from "hono";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
+import type { Context, Hono } from "hono";
 import { logger } from "@/common/logger";
-import { ensureAccessTokenFresh, getSaasBaseUrl } from "@/modules/auth/authRoutes";
-import { getAccessToken } from "@/modules/auth/tokenStore";
+import { fetchModelList } from "@/modules/saas";
 
 type CloudModelResponse = {
   /** Response success flag. */
@@ -11,34 +9,30 @@ type CloudModelResponse = {
   data: unknown;
 };
 
+/** Extract bearer token from request headers. */
+function resolveBearerToken(c: Context): string | null {
+  const authHeader = c.req.header("authorization") ?? c.req.header("Authorization");
+  if (!authHeader) return null;
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
 /**
  * Register SaaS cloud model routes.
  */
 export function registerCloudModelRoutes(app: Hono): void {
   app.get("/llm/models", async (c) => {
-    await ensureAccessTokenFresh();
-    const saasBaseUrl = getSaasBaseUrl();
-    if (!saasBaseUrl) {
-      return c.json({ error: "saas_url_missing" }, 500);
+    const accessToken = resolveBearerToken(c);
+    if (!accessToken) {
+      return c.json({ error: "saas_auth_required" }, 401);
     }
     try {
-      // 中文注释：允许匿名访问，存在 access token 时再附带鉴权头。
-      const accessToken = getAccessToken();
-      const headers: Record<string, string> = {};
-      if (accessToken) {
-        headers.Authorization = `Bearer ${accessToken}`;
-      }
-      const response = await fetch(`${saasBaseUrl}/api/llm/models`, {
-        headers,
-      });
-      const payload = (await response.json().catch(() => null)) as CloudModelResponse | null;
-      if (!response.ok) {
-        // 中文注释：SaaS 返回非 2xx 时记录状态码便于排查。
-        logger.warn({ status: response.status, payload }, "SaaS models request failed");
-        return c.json({ error: "saas_request_failed" }, response.status as ContentfulStatusCode);
-      }
+      const payload = (await fetchModelList(accessToken)) as CloudModelResponse | null;
       return c.json(payload ?? { success: false, data: [] });
     } catch (error) {
+      if (error instanceof Error && error.message === "saas_url_missing") {
+        return c.json({ error: "saas_url_missing" }, 500);
+      }
       logger.error({ err: error }, "SaaS models request failed");
       return c.json({ error: "saas_request_failed" }, 502);
     }

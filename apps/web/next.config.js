@@ -7,7 +7,7 @@ const d3PathEsmEntry = resolveFromWeb("d3-path");
 const nextConfig = {
   typedRoutes: true,
   reactCompiler: true,
-  transpilePackages: ["@tenas-ai/ui"],
+  transpilePackages: ["@tenas-ai/ui", "@tenas-saas/sdk"],
   output: "export",
   turbopack: {
     // Monorepo: ensure Next picks the workspace root (pnpm-lock.yaml) instead of
@@ -17,12 +17,16 @@ const nextConfig = {
       "d3-path": "d3-path/src/index.js",
     },
   },
-  webpack: (config) => {
+  webpack: (config, { dev }) => {
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
       "d3-path": d3PathEsmEntry,
     };
+    if (dev) {
+      // 开发环境禁用 eval source map，避免 CSP 阻止 webpack runtime。
+      config.devtool = "source-map";
+    }
     return config;
   },
   images: {

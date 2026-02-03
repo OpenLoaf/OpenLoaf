@@ -13,11 +13,12 @@ export const ResourceMonthVertical: React.FC = () => {
 		{ length: currentDate.daysInMonth() },
 		(_, i) => startOfMonth.add(i, 'day')
 	)
+	const anchorDay = daysInMonth[0] ?? currentDate
 
 	const firstCol = {
 		id: 'date-col',
 		days: daysInMonth,
-		day: undefined,
+		day: anchorDay,
 		className:
 			'shrink-0 w-16 min-w-16 max-w-16 sticky left-0 bg-background z-20',
 		gridType: 'day' as const,
@@ -32,7 +33,7 @@ export const ResourceMonthVertical: React.FC = () => {
 
 	const columns = resources.map((resource) => ({
 		id: `month-col-resource-${resource.id}`,
-		day: undefined,
+		day: anchorDay,
 		resourceId: resource.id,
 		days: daysInMonth,
 		gridType: 'day' as const,

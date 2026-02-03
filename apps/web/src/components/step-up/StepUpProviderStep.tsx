@@ -21,12 +21,16 @@ type StepUpProviderEntry = {
 };
 
 export type StepUpProviderSelection = {
+  /** Settings key for the provider entry. */
   key: string;
+  /** Display label for the selected provider. */
   display: string;
 };
 
 type StepUpProviderStepProps = {
+  /** Currently selected provider key. */
   selectedKey: string | null;
+  /** Selection change handler. */
   onSelect: (selection: StepUpProviderSelection) => void;
 };
 
@@ -39,6 +43,7 @@ export function StepUpProviderStep({
   const { providerItems, setValue } = useSettingsValues();
 
   const entries = useMemo(() => {
+    // 过滤出有效的供应商配置，保障列表渲染稳定。
     const list: StepUpProviderEntry[] = [];
     for (const item of providerItems) {
       if ((item.category ?? "general") !== "provider") continue;
@@ -56,6 +61,7 @@ export function StepUpProviderStep({
     return list;
   }, [providerItems]);
 
+  // 基于当前 key 找到选中的供应商条目。
   const selectedEntry = entries.find((entry) => entry.key === selectedKey) ?? null;
 
   return (
@@ -91,6 +97,7 @@ export function StepUpProviderStep({
           ))}
           {entries.length === 0 ? (
             <div className="rounded-2xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+              {/* 当前无可用供应商时提示用户先新增。 */}
               暂无模型供应商，请先新增。
             </div>
           ) : null}
@@ -101,6 +108,7 @@ export function StepUpProviderStep({
         onOpenChange={setDialogOpen}
         existingKeys={entries.map((entry) => entry.key)}
         onSubmit={async (payload) => {
+          // 保存新增供应商后立即选中，减少用户操作步骤。
           await setValue(payload.key, payload, "provider");
           onSelect({ key: payload.key, display: payload.key });
         }}

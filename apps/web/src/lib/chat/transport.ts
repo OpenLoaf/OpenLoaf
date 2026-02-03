@@ -7,6 +7,7 @@ import type { ChatRequestBody } from "@tenas-ai/api/types/message";
 import { getWebClientId } from "./streamClientId";
 import { resolveServerUrl } from "@/utils/server-url";
 import { getClientTimeZone } from "@/utils/time-zone";
+import { getCachedAccessToken } from "@/lib/saas-auth";
 
 function stripTotalUsageFromMetadata(message: any) {
   if (!message || typeof message !== "object") return message;
@@ -36,6 +37,13 @@ export function createChatTransport({
     api: apiBase,
     credentials: "include",
     prepareSendMessagesRequest({ id, messages, body, messageId, headers }) {
+      const accessToken = getCachedAccessToken();
+      const nextHeaders =
+        accessToken && headers
+          ? { ...headers, Authorization: `Bearer ${accessToken}` }
+          : accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : headers;
       const baseParams = { ...(paramsRef.current ?? {}) };
       const clientId = getWebClientId();
       const tabId = typeof tabIdRef.current === "string" ? tabIdRef.current : undefined;
@@ -91,7 +99,7 @@ export function createChatTransport({
             ...payloadBase,
             messages: [],
           },
-          headers,
+          headers: nextHeaders,
         };
       }
 
@@ -105,7 +113,7 @@ export function createChatTransport({
           ...payloadBase,
           messages: messagesPayload,
         },
-        headers,
+        headers: nextHeaders,
       };
     },
   });

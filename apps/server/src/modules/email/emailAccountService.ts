@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { readEmailConfigFile, writeEmailConfigFile } from "./emailConfigStore";
+import type { EmailConfigFile } from "./emailConfigStore";
 import { setEmailEnvValue } from "./emailEnvStore";
 
 const emailAccountInputSchema = z.object({
@@ -54,7 +55,7 @@ export function addEmailAccount(input: EmailAccountInput) {
     throw new Error("邮箱账号已存在。");
   }
 
-  const nextAccount = {
+  const nextAccount: EmailConfigFile["emailAccounts"][number] = {
     emailAddress: normalizedEmail,
     label: parsed.label,
     imap: parsed.imap,
@@ -77,6 +78,7 @@ export function addEmailAccount(input: EmailAccountInput) {
   const nextConfig = {
     ...config,
     emailAccounts: [...config.emailAccounts, nextAccount],
+    privateSenders: config.privateSenders ?? [],
   };
   writeEmailConfigFile(nextConfig, parsed.workspaceId);
 

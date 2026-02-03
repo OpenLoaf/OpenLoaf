@@ -196,10 +196,10 @@ contextBridge.exposeInMainWorld('tenasElectron', {
       };
       ipcRenderer.on('tenas:calendar:changed', listener);
       // 逻辑：首次订阅时告知主进程开始监听系统日历。
-      ipcRenderer.invoke('tenas:calendar:watch').catch(() => null);
+      ipcRenderer.invoke('tenas:calendar:watch').catch((): void => {});
       return () => {
         ipcRenderer.removeListener('tenas:calendar:changed', listener);
-        ipcRenderer.invoke('tenas:calendar:unwatch').catch(() => null);
+        ipcRenderer.invoke('tenas:calendar:unwatch').catch((): void => {});
       };
     },
   },

@@ -465,7 +465,7 @@ export default function ExcelViewer({
               rows={gridRows}
               rowKeyGetter={(row) => row.id}
               onRowsChange={isReadOnly ? undefined : handleRowsChange}
-              defaultColumnOptions={{ editable: !isReadOnly, resizable: true }}
+              defaultColumnOptions={{ resizable: true }}
             />
           </div>
           <div className="flex items-center gap-1 overflow-x-auto border-t border-border/60 bg-muted/30 px-2 py-2 show-scrollbar">

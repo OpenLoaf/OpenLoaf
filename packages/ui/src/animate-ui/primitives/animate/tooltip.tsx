@@ -401,8 +401,9 @@ function shallowEqualWithoutChildren(
   const keysB = Object.keys(b).filter((k) => k !== 'children');
   if (keysA.length !== keysB.length) return false;
   for (const k of keysA) {
-    // @ts-expect-error index
-    if (a[k] !== b[k]) return false;
+    if ((a as Record<string, unknown>)[k] !== (b as Record<string, unknown>)[k]) {
+      return false;
+    }
   }
   return true;
 }

@@ -43,6 +43,22 @@ const fromFloatingDate = (date: Date, reference: dayjs.Dayjs): dayjs.Dayjs => {
 		.millisecond(date.getUTCMilliseconds())
 }
 
+const buildRruleWithDefaults = (
+	baseEvent: CalendarEvent,
+	overrides: Partial<RRuleOptions>
+): RRuleOptions | undefined => {
+	const base = baseEvent.rrule
+	const freq = overrides.freq ?? base?.freq
+	if (freq === undefined) return undefined
+	const dtstart = overrides.dtstart ?? base?.dtstart ?? baseEvent.start.toDate()
+	return {
+		...base,
+		...overrides,
+		freq,
+		dtstart,
+	}
+}
+
 export const isRecurringEvent = (event: CalendarEvent): boolean => {
 	return Boolean(event.rrule || event.recurrenceId || event.uid)
 }
@@ -131,10 +147,10 @@ export const generateRecurringEvents = ({
 			})
 			.filter((recurringEvent) => {
 				// Filter out EXDATE exclusions
-				const hasExdates = event.exdates && event.exdates.length > 0
-				if (hasExdates) {
+				const exdates = event.exdates ?? []
+				if (exdates.length > 0) {
 					const eventStartISO = recurringEvent.start.toISOString()
-					const isExcluded = event.exdates.includes(eventStartISO)
+					const isExcluded = exdates.includes(eventStartISO)
 					if (isExcluded) {
 						return false
 					}
@@ -223,14 +239,15 @@ export const updateRecurringEvent = ({
 			const terminationDate = dayBeforeTarget.endOf('day').toDate()
 
 			// Update original series with UNTIL to end before target date
-			const terminatedEvent = {
-				...baseEvent,
-				rrule: {
-					...baseEvent.rrule,
+				const terminatedRrule = buildRruleWithDefaults(baseEvent, {
+					...(baseEvent.rrule ?? {}),
 					until: terminationDate,
-				},
-			}
-			updatedEvents[baseEventIndex] = terminatedEvent
+				})
+				const terminatedEvent = {
+					...baseEvent,
+					rrule: terminatedRrule ?? baseEvent.rrule,
+				}
+				updatedEvents[baseEventIndex] = terminatedEvent
 
 			// Create new series starting from target date
 			const originalDuration = baseEvent.end.diff(baseEvent.start)
@@ -240,16 +257,17 @@ export const updateRecurringEvent = ({
 			const newSeriesId = `${baseEvent.id}_following`
 			const newSeriesUID = `${newSeriesId}@ilamy.calendar`
 
-			const newSeriesEvent: CalendarEvent = {
-				...baseEvent,
-				...updates,
-				rrule: {
-					...baseEvent.rrule,
-					...updates.rrule,
+				const newSeriesRrule = buildRruleWithDefaults(baseEvent, {
+					...(baseEvent.rrule ?? {}),
+					...(updates.rrule ?? {}),
 					dtstart: newSeriesStartTime.toDate(),
-				},
-				id: newSeriesId,
-				uid: newSeriesUID, // New UID for new series
+				})
+				const newSeriesEvent: CalendarEvent = {
+					...baseEvent,
+					...updates,
+					rrule: newSeriesRrule,
+					id: newSeriesId,
+					uid: newSeriesUID, // New UID for new series
 				start: newSeriesStartTime,
 				end: newSeriesEndTime,
 				recurrenceId: undefined, // This is a new base event, not an instance
@@ -322,14 +340,15 @@ export const deleteRecurringEvent = ({
 			const dayBeforeTarget = targetEvent.start.subtract(1, 'day')
 			const terminationDate = dayBeforeTarget.endOf('day').toDate()
 
-			const terminatedEvent = {
-				...baseEvent,
-				rrule: {
-					...baseEvent.rrule,
+				const terminatedRrule = buildRruleWithDefaults(baseEvent, {
+					...(baseEvent.rrule ?? {}),
 					until: terminationDate,
-				},
-			}
-			updatedEvents[baseEventIndex] = terminatedEvent
+				})
+				const terminatedEvent = {
+					...baseEvent,
+					rrule: terminatedRrule ?? baseEvent.rrule,
+				}
+				updatedEvents[baseEventIndex] = terminatedEvent
 			break
 		}
 

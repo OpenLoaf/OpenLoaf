@@ -26,14 +26,6 @@ export type ModelDialogProps = {
   draftModelTags: ModelTag[];
   /** Draft context size. */
   draftModelContextK: string;
-  /** Draft currency symbol. */
-  draftModelCurrencySymbol: string;
-  /** Draft input price. */
-  draftModelInputPrice: string;
-  /** Draft cached input price. */
-  draftModelInputCachePrice: string;
-  /** Draft output price. */
-  draftModelOutputPrice: string;
   /** Validation error. */
   modelError: string | null;
   /** Close dialog callback. */
@@ -46,14 +38,6 @@ export type ModelDialogProps = {
   onDraftModelTagsChange: (value: ModelTag[]) => void;
   /** Update context size. */
   onDraftModelContextKChange: (value: string) => void;
-  /** Update currency symbol. */
-  onDraftModelCurrencySymbolChange: (value: string) => void;
-  /** Update input price. */
-  onDraftModelInputPriceChange: (value: string) => void;
-  /** Update cached input price. */
-  onDraftModelInputCachePriceChange: (value: string) => void;
-  /** Update output price. */
-  onDraftModelOutputPriceChange: (value: string) => void;
   /** Submit callback. */
   onSubmit: () => Promise<void> | void;
 };
@@ -68,20 +52,12 @@ export function ModelDialog({
   draftModelName,
   draftModelTags,
   draftModelContextK,
-  draftModelCurrencySymbol,
-  draftModelInputPrice,
-  draftModelInputCachePrice,
-  draftModelOutputPrice,
   modelError,
   onOpenChange,
   onDraftModelIdChange,
   onDraftModelNameChange,
   onDraftModelTagsChange,
   onDraftModelContextKChange,
-  onDraftModelCurrencySymbolChange,
-  onDraftModelInputPriceChange,
-  onDraftModelInputCachePriceChange,
-  onDraftModelOutputPriceChange,
   onSubmit,
 }: ModelDialogProps) {
   const isEditing = Boolean(editingModelId);
@@ -132,50 +108,13 @@ export function ModelDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 md:col-span-2">
-            <div className="space-y-2">
-              <div className="text-sm font-medium">上下文长度 (K)</div>
-              <Input
-                value={draftModelContextK}
-                placeholder="例如：128"
-                onChange={(event) => onDraftModelContextKChange(event.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="text-sm font-medium">币种</div>
-              <Input
-                value={draftModelCurrencySymbol}
-                placeholder="例如：¥ 或 $"
-                onChange={(event) => onDraftModelCurrencySymbolChange(event.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 md:col-span-2">
-            <div className="space-y-2">
-              <div className="text-sm font-medium">输入价格</div>
-              <Input
-                value={draftModelInputPrice}
-                placeholder="例如：1.2"
-                onChange={(event) => onDraftModelInputPriceChange(event.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="text-sm font-medium">缓存输入</div>
-              <Input
-                value={draftModelInputCachePrice}
-                placeholder="例如：0.2"
-                onChange={(event) => onDraftModelInputCachePriceChange(event.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="text-sm font-medium">输出价格</div>
-              <Input
-                value={draftModelOutputPrice}
-                placeholder="例如：2.5"
-                onChange={(event) => onDraftModelOutputPriceChange(event.target.value)}
-              />
-            </div>
+          <div className="space-y-2 md:col-span-2">
+            <div className="text-sm font-medium">上下文长度 (K)</div>
+            <Input
+              value={draftModelContextK}
+              placeholder="例如：128"
+              onChange={(event) => onDraftModelContextKChange(event.target.value)}
+            />
           </div>
 
           {modelError ? <div className="text-sm text-destructive md:col-span-2">{modelError}</div> : null}

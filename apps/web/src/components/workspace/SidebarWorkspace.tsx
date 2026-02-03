@@ -39,17 +39,9 @@ import {
   DialogTitle,
 } from "@tenas-ai/ui/dialog";
 import { Input } from "@tenas-ai/ui/input";
-import { resolveServerUrl } from "@/utils/server-url";
-
-function readCookie(name: string) {
-  if (typeof document === "undefined") return undefined;
-  const cookie = document.cookie
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${name}=`));
-  if (!cookie) return undefined;
-  return decodeURIComponent(cookie.slice(name.length + 1));
-}
+import { Switch } from "@tenas-ai/ui/switch";
+import { Label } from "@tenas-ai/ui/label";
+import { useSaasAuth } from "@/hooks/use-saas-auth";
 
 export const SidebarWorkspace = () => {
   const { workspace } = useWorkspace();
@@ -57,190 +49,34 @@ export const SidebarWorkspace = () => {
   const [createOpen, setCreateOpen] = React.useState(false);
   // Workspace name input value.
   const [newWorkspaceName, setNewWorkspaceName] = React.useState("");
-  // Stored user email fallback.
-  const [userEmail, setUserEmail] = React.useState<string | undefined>();
-  // Stored user avatar fallback.
-  const [userAvatarUrl, setUserAvatarUrl] = React.useState<string | undefined>();
   // Login dialog open state.
   const [loginOpen, setLoginOpen] = React.useState(false);
+  // Login provider selection.
+  const [loginProvider, setLoginProvider] = React.useState<"google" | "wechat">("google");
   // Workspace dropdown open state.
   const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
-  // Login flow status.
-  const [loginStatus, setLoginStatus] = React.useState<
-    "idle" | "opening" | "polling" | "error"
-  >("idle");
-  // Login error message.
-  const [loginError, setLoginError] = React.useState<string | null>(null);
-  // Auth user profile from server.
-  const [authUser, setAuthUser] = React.useState<{
-    email?: string;
-    name?: string;
-    avatarUrl?: string;
-  } | null>(null);
-  // Auth login status from server.
-  const [authLoggedIn, setAuthLoggedIn] = React.useState(false);
-  // SaaS balance snapshot.
-  const [balanceInfo, setBalanceInfo] = React.useState<BalanceData | null>(null);
-  // Balance error message.
-  const [balanceError, setBalanceError] = React.useState<string | null>(null);
-  // Polling timer id.
-  const pollingRef = React.useRef<number | null>(null);
-  // Balance polling timer id.
-  const balancePollingRef = React.useRef<number | null>(null);
-  // Server base URL for auth endpoints.
-  const authBaseUrl = resolveServerUrl();
+  const {
+    loggedIn: authLoggedIn,
+    user: authUser,
+    loginStatus,
+    loginError,
+    remember,
+    setRemember,
+    startLogin,
+    cancelLogin,
+    refreshSession,
+    logout,
+  } = useSaasAuth();
 
   React.useEffect(() => {
-    const fromStorageEmail = window.localStorage.getItem("user-email") ?? "";
-    const fromCookieEmail = readCookie("user-email") ?? "";
-    const email = fromStorageEmail || fromCookieEmail;
-    setUserEmail(email || undefined);
-
-    const fromStorageAvatar = window.localStorage.getItem("user-avatar") ?? "";
-    const fromCookieAvatar = readCookie("user-avatar") ?? "";
-    const avatar = fromStorageAvatar || fromCookieAvatar;
-    setUserAvatarUrl(avatar || undefined);
-  }, []);
+    void refreshSession();
+  }, [refreshSession]);
 
   React.useEffect(() => {
-    let canceled = false;
-    const loadSession = async () => {
-      if (!authBaseUrl) return;
-      try {
-        const session = await fetchAuthSession(authBaseUrl);
-        if (canceled) return;
-        if (session.loggedIn) {
-          if (session.user) {
-            setAuthUser({
-              email: session.user.email,
-              name: session.user.name,
-              avatarUrl: session.user.avatarUrl,
-            });
-          } else {
-            setAuthUser(null);
-          }
-          setAuthLoggedIn(true);
-        } else {
-          setAuthUser(null);
-          setAuthLoggedIn(false);
-          setBalanceInfo(null);
-          setBalanceError(null);
-        }
-      } catch {
-        // ignore
-      }
-    };
-    void loadSession();
-    return () => {
-      canceled = true;
-    };
-  }, [authBaseUrl]);
-
-  /** Stop the login status polling loop. */
-  const stopLoginPolling = React.useCallback(() => {
-    if (pollingRef.current != null) {
-      window.clearInterval(pollingRef.current);
-      pollingRef.current = null;
+    if (authLoggedIn && loginOpen) {
+      setLoginOpen(false);
     }
-  }, []);
-
-  /** Stop the balance polling loop. */
-  const stopBalancePolling = React.useCallback(() => {
-    if (balancePollingRef.current != null) {
-      window.clearInterval(balancePollingRef.current);
-      balancePollingRef.current = null;
-    }
-  }, []);
-
-  /** Fetch balance once. */
-  const pollBalanceOnce = React.useCallback(async () => {
-    if (!authBaseUrl) return;
-    try {
-      const payload = await fetchAuthBalance(authBaseUrl);
-      // 中文注释：仅在成功时刷新余额，失败保留上次值。
-      if (payload?.success && payload.data) {
-        setBalanceInfo(payload.data);
-        setBalanceError(null);
-        if (payload.user) {
-          setAuthUser({
-            email: payload.user.email,
-            name: payload.user.name,
-            avatarUrl: payload.user.avatarUrl,
-          });
-          setAuthLoggedIn(true);
-        }
-      } else {
-        setBalanceError("余额返回异常");
-      }
-    } catch (error) {
-      setBalanceError((error as Error)?.message ?? "余额获取失败");
-    }
-  }, [authBaseUrl]);
-
-  /** Start polling auth session until login completes or fails. */
-  const startLoginPolling = React.useCallback(() => {
-    stopLoginPolling();
-    pollingRef.current = window.setInterval(async () => {
-      if (!authBaseUrl) return;
-      try {
-        const session = await fetchAuthSession(authBaseUrl);
-        if (session.loggedIn) {
-          if (session.user) {
-            setAuthUser({
-              email: session.user.email,
-              name: session.user.name,
-              avatarUrl: session.user.avatarUrl,
-            });
-          } else {
-            setAuthUser(null);
-          }
-          setAuthLoggedIn(true);
-          setLoginOpen(false);
-          setLoginStatus("idle");
-          setLoginError(null);
-          stopLoginPolling();
-          toast.success("登录成功");
-        }
-      } catch (error) {
-        setLoginStatus("error");
-        setLoginError((error as Error)?.message ?? "登录状态获取失败");
-        stopLoginPolling();
-      }
-    }, 1000);
-  }, [authBaseUrl, stopLoginPolling]);
-
-  React.useEffect(() => {
-    return () => {
-      stopLoginPolling();
-      stopBalancePolling();
-    };
-  }, [stopBalancePolling, stopLoginPolling]);
-
-  /** Start polling SaaS balance once logged in. */
-  const startBalancePolling = React.useCallback(() => {
-    stopBalancePolling();
-    balancePollingRef.current = window.setInterval(() => {
-      void pollBalanceOnce();
-    }, 60000);
-  }, [pollBalanceOnce, stopBalancePolling]);
-
-  React.useEffect(() => {
-    if (!authLoggedIn) {
-      stopBalancePolling();
-      setBalanceInfo(null);
-      setBalanceError(null);
-      return;
-    }
-    startBalancePolling();
-    return () => {
-      stopBalancePolling();
-    };
-  }, [authLoggedIn, startBalancePolling, stopBalancePolling]);
-
-  React.useEffect(() => {
-    if (!authLoggedIn || !workspaceOpen) return;
-    void pollBalanceOnce();
-  }, [authLoggedIn, pollBalanceOnce, workspaceOpen]);
+  }, [authLoggedIn, loginOpen]);
 
   React.useEffect(() => {
     if (!createOpen) return;
@@ -249,8 +85,8 @@ export const SidebarWorkspace = () => {
 
   const workspacesQuery = useQuery(trpc.workspace.getList.queryOptions());
   const displayEmail =
-    authUser?.email ?? authUser?.name ?? userEmail ?? (authLoggedIn ? "已登录" : undefined);
-  const displayAvatar = authUser?.avatarUrl ?? userAvatarUrl;
+    authUser?.email ?? authUser?.name ?? (authLoggedIn ? "已登录" : undefined);
+  const displayAvatar = authUser?.avatarUrl;
 
   const activateWorkspace = useMutation(
     trpc.workspace.activate.mutationOptions({
@@ -292,54 +128,27 @@ export const SidebarWorkspace = () => {
     await createWorkspace.mutateAsync({ name });
   };
 
-  /** Begin the SaaS login flow. */
-  const handleLogin = async () => {
-    if (!authBaseUrl) {
-      toast.error("登录未配置");
-      return;
-    }
-    setLoginError(null);
-    setLoginStatus("opening");
+  /** Open SaaS login dialog. */
+  const handleOpenLogin = () => {
     setLoginOpen(true);
+  };
 
-    try {
-      const loginUrl = await fetchLoginUrl(authBaseUrl);
-      await openExternalUrl(loginUrl);
-      setLoginStatus("polling");
-      startLoginPolling();
-    } catch (error) {
-      setLoginStatus("error");
-      setLoginError((error as Error)?.message ?? "无法打开登录页面");
-    }
+  /** Begin the SaaS login flow. */
+  const handleStartLogin = async () => {
+    setLoginOpen(true);
+    await startLogin(loginProvider);
   };
 
   /** Cancel the login flow and stop polling. */
-  const handleCancelLogin = async () => {
-    stopLoginPolling();
+  const handleCancelLogin = () => {
+    cancelLogin();
     setLoginOpen(false);
-    setLoginStatus("idle");
-    setLoginError(null);
-    if (!authBaseUrl) return;
-    try {
-      await fetch(`${authBaseUrl}/auth/cancel`, { method: "POST" });
-    } catch {
-      // ignore
-    }
   };
 
-  /** Clear server-side login and local UI state. */
+  /** Clear SaaS login and local UI state. */
   const handleLogout = async () => {
-    if (!authBaseUrl) return;
     try {
-      await fetch(`${authBaseUrl}/auth/logout`, { method: "POST" });
-      setAuthUser(null);
-      setAuthLoggedIn(false);
-      setUserEmail(undefined);
-      setUserAvatarUrl(undefined);
-      setBalanceInfo(null);
-      setBalanceError(null);
-      window.localStorage.removeItem("user-email");
-      window.localStorage.removeItem("user-avatar");
+      await logout();
       toast.success("已退出登录");
     } catch (error) {
       toast.error((error as Error)?.message ?? "退出登录失败");
@@ -352,20 +161,50 @@ export const SidebarWorkspace = () => {
         <Dialog open={loginOpen} onOpenChange={(open) => !open && void handleCancelLogin()}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>正在登录</DialogTitle>
+              <DialogTitle>登录云端账号</DialogTitle>
               <DialogDescription>
                 {loginStatus === "opening" && "正在打开系统浏览器…"}
                 {loginStatus === "polling" && "等待登录完成…"}
-                {loginStatus === "error" &&
-                  (loginError ?? "登录失败，请重试")}
+                {loginStatus === "error" && (loginError ?? "登录失败，请重试")}
+                {loginStatus === "idle" && "选择登录方式并继续"}
               </DialogDescription>
             </DialogHeader>
+            {loginStatus === "idle" || loginStatus === "error" ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={loginProvider === "google" ? "default" : "outline"}
+                    onClick={() => setLoginProvider("google")}
+                  >
+                    Google
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={loginProvider === "wechat" ? "default" : "outline"}
+                    onClick={() => setLoginProvider("wechat")}
+                  >
+                    微信
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2">
+                  <Label htmlFor="saas-remember" className="text-sm">
+                    记住登录
+                  </Label>
+                  <Switch
+                    id="saas-remember"
+                    checked={remember}
+                    onCheckedChange={setRemember}
+                  />
+                </div>
+              </div>
+            ) : null}
             <DialogFooter className="gap-2">
-              {loginStatus === "error" ? (
-                <Button type="button" onClick={handleLogin}>
-                  重新打开登录页
+              {loginStatus === "polling" || loginStatus === "opening" ? null : (
+                <Button type="button" onClick={handleStartLogin}>
+                  {loginStatus === "error" ? "重新打开登录页" : "开始登录"}
                 </Button>
-              ) : null}
+              )}
               <Button type="button" variant="outline" onClick={handleCancelLogin}>
                 取消登录
               </Button>
@@ -421,15 +260,6 @@ export const SidebarWorkspace = () => {
                   <div className="truncate text-xs text-muted-foreground leading-4">
                     {displayEmail ?? "未登录"}
                   </div>
-                  {authLoggedIn ? (
-                    <div className="truncate text-xs text-muted-foreground leading-4">
-                      {balanceInfo
-                        ? `余额：${balanceInfo.remainQuota}`
-                        : balanceError
-                          ? "余额获取失败"
-                          : "余额获取中…"}
-                    </div>
-                  ) : null}
                 </div>
               </div>
 
@@ -447,7 +277,7 @@ export const SidebarWorkspace = () => {
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem
-                    onSelect={() => void handleLogin()}
+                    onSelect={() => handleOpenLogin()}
                     className="rounded-lg"
                   >
                     <LogIn className="size-4" />
@@ -556,88 +386,3 @@ export const SidebarWorkspace = () => {
     </SidebarMenu>
   );
 };
-
-type AuthSessionResponse = {
-  /** Whether user is logged in. */
-  loggedIn: boolean;
-  /** User profile (optional). */
-  user?: {
-    /** User email. */
-    email?: string;
-    /** User display name. */
-    name?: string;
-    /** User avatar URL. */
-    avatarUrl?: string;
-  };
-};
-
-type BalanceData = {
-  /** SaaS user id. */
-  newApiUserId: string;
-  /** Total quota. */
-  quota: number;
-  /** Used quota. */
-  usedQuota: number;
-  /** Remaining quota. */
-  remainQuota: number;
-};
-
-type BalanceResponse = {
-  /** Request success flag. */
-  success: boolean;
-  /** Balance payload. */
-  data?: BalanceData;
-  /** User profile (optional). */
-  user?: {
-    /** User email. */
-    email?: string;
-    /** User display name. */
-    name?: string;
-    /** Avatar URL. */
-    avatarUrl?: string;
-  };
-};
-
-/** Fetch the SaaS login URL from server. */
-async function fetchLoginUrl(baseUrl: string): Promise<string> {
-  const url = new URL(`${baseUrl}/auth/login-url`);
-  const response = await fetch(url.toString());
-  if (!response.ok) {
-    throw new Error("无法获取登录地址");
-  }
-  const payload = (await response.json()) as { authorizeUrl?: string };
-  if (!payload.authorizeUrl) {
-    throw new Error("登录地址无效");
-  }
-  return payload.authorizeUrl;
-}
-
-/** Fetch the current auth session from server. */
-async function fetchAuthSession(baseUrl: string): Promise<AuthSessionResponse> {
-  const response = await fetch(`${baseUrl}/auth/session`);
-  if (!response.ok) {
-    throw new Error("无法获取登录状态");
-  }
-  return (await response.json()) as AuthSessionResponse;
-}
-
-/** Fetch auth profile and balance snapshot from server. */
-async function fetchAuthBalance(baseUrl: string): Promise<BalanceResponse> {
-  const response = await fetch(`${baseUrl}/auth/balance`);
-  if (!response.ok) {
-    throw new Error("无法获取余额");
-  }
-  return (await response.json()) as BalanceResponse;
-}
-
-/** Open external URL in system browser (Electron) or new tab. */
-async function openExternalUrl(url: string): Promise<void> {
-  if (window.tenasElectron?.openExternal) {
-    const result = await window.tenasElectron.openExternal(url);
-    if (!result.ok) {
-      throw new Error(result.reason ?? "无法打开浏览器");
-    }
-    return;
-  }
-  window.open(url, "_blank", "noopener,noreferrer");
-}

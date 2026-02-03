@@ -238,9 +238,10 @@ function DropdownMenuSubContent({
 
 type DropdownMenuHighlightProps = Omit<
   HighlightProps,
-  'controlledItems' | 'enabled' | 'hover'
+  'controlledItems' | 'enabled' | 'hover' | 'mode'
 > & {
   animateOnHover?: boolean;
+  mode?: 'children';
 };
 
 function DropdownMenuHighlight({
@@ -254,6 +255,7 @@ function DropdownMenuHighlight({
       data-slot="dropdown-menu-highlight"
       click={false}
       controlledItems
+      mode="children"
       transition={transition}
       value={highlightedValue}
       {...props}

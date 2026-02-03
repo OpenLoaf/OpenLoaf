@@ -31,7 +31,7 @@ function preprocessText(text: string) {
 
 export const MESSAGE_TEXT_CLASSNAME = cn(
   // Avoid `w-full` + horizontal margins causing width overflow.
-  "min-w-0 w-full max-w-full px-3 font-sans prose prose-neutral dark:prose-invert break-words [overflow-wrap:anywhere]",
+  "min-w-0 w-full max-w-full px-1 font-sans prose prose-neutral dark:prose-invert break-words [overflow-wrap:anywhere]",
   // Base text settings
   "text-sm leading-relaxed",
   // Element spacing adjustments
@@ -53,21 +53,21 @@ export const MESSAGE_TEXT_CLASSNAME = cn(
 
 /** Styling for reasoning parts. */
 export const MESSAGE_REASONING_CLASSNAME = cn(
-  "min-w-0 w-full max-w-full px-3 font-sans text-xs leading-relaxed text-muted-foreground",
+  "min-w-0 w-full max-w-full px-1 font-sans text-xs leading-relaxed text-muted-foreground",
   "whitespace-pre-wrap break-words [overflow-wrap:anywhere] italic",
   "rounded-md border border-dashed border-muted-foreground/30 bg-muted/30",
 );
 
 /** 改写提示词的样式。 */
 export const MESSAGE_REVISED_PROMPT_CLASSNAME = cn(
-  "min-w-0 w-full max-w-full px-3 font-sans text-xs leading-relaxed text-muted-foreground",
+  "min-w-0 w-full max-w-full px-1 font-sans text-xs leading-relaxed text-muted-foreground",
   "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
   "rounded-md border border-dashed border-muted-foreground/30 bg-muted/20",
 );
 
 /** Styling for file parts. */
 export const MESSAGE_FILE_CLASSNAME = cn(
-  "min-w-0 w-full max-w-full px-3",
+  "min-w-0 w-full max-w-full px-1",
   "flex flex-wrap gap-2",
 );
 

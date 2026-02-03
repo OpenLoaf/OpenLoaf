@@ -1,4 +1,4 @@
-import type { IlamyCalendarProps } from "@tenas-ai/ui/calendar";
+import type { CalendarEvent as UiCalendarEvent } from "@tenas-ai/ui/calendar/components/types";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,7 +19,7 @@ import {
 
 type CalendarPermissionState = TenasCalendarPermissionState;
 type CalendarRange = TenasCalendarRange;
-type CalendarEvent = NonNullable<IlamyCalendarProps["events"]>[number];
+type CalendarEvent = UiCalendarEvent;
 type CalendarKind = "event" | "reminder";
 type CalendarSourceFilter = "all" | "local" | "system";
 
@@ -471,7 +471,7 @@ export function useCalendarPageState({
         location: event.location ?? null,
         startAt: event.start.toISOString(),
         endAt: event.end.toISOString(),
-        allDay: event.allDay,
+        allDay: event.allDay ?? false,
         recurrenceRule: meta?.recurrence ?? null,
         completedAt: meta?.completedAt ?? (meta?.completed ? new Date().toISOString() : null),
         externalId: meta?.externalId ?? null,

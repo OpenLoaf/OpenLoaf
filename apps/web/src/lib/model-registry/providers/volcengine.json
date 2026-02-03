@@ -19,16 +19,6 @@
         "image_multi_input"
       ],
       "maxContextK": 1,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "¥",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ],
       "parameters": {
         "features": [
           "prompt"
@@ -57,16 +47,6 @@
         "image_multi_generation"
       ],
       "maxContextK": 1,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "¥",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ],
       "parameters": {
         "features": [
           "prompt"
@@ -92,17 +72,7 @@
       "tags": [
         "image_edit"
       ],
-      "maxContextK": 1,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "¥",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ]
+      "maxContextK": 1
     },
     {
       "id": "i2i_material_extraction",
@@ -113,17 +83,7 @@
       "tags": [
         "image_edit"
       ],
-      "maxContextK": 1,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "¥",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ]
+      "maxContextK": 1
     },
     {
       "id": "jimeng_ti2v_v30_pro",
@@ -135,16 +95,6 @@
         "video_generation"
       ],
       "maxContextK": 1,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "¥",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ],
       "parameters": {
         "features": [
           "prompt",

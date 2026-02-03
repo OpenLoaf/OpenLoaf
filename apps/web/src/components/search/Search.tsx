@@ -467,7 +467,7 @@ export function Search({
           : skipToken,
       );
       return {
-        ...(queryOptions as Record<string, unknown>),
+        ...(queryOptions as unknown as Record<string, unknown>),
         queryKey: queryOptions.queryKey,
         queryFn: queryOptions.queryFn,
         enabled: Boolean(group.uris.length) && Boolean(activeWorkspace?.id),

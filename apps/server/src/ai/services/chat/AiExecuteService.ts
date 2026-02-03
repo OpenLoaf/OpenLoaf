@@ -22,6 +22,8 @@ type AiExecuteServiceInput = {
   cookies: Record<string, string>;
   /** Raw request signal. */
   requestSignal: AbortSignal;
+  /** SaaS access token from request header. */
+  saasAccessToken?: string;
 };
 
 export class AiExecuteService {
@@ -51,6 +53,7 @@ export class AiExecuteService {
         cookies: input.cookies,
         requestSignal: input.requestSignal,
         commandArgs: commandContext.argsText,
+        saasAccessToken: input.saasAccessToken,
       });
     }
 
@@ -90,6 +93,7 @@ export class AiExecuteService {
         request: imageRequest,
         cookies: input.cookies,
         requestSignal: input.requestSignal,
+        saasAccessToken: input.saasAccessToken,
       });
       if (!result.ok) {
         return new Response(JSON.stringify({ error: result.error }), {
@@ -113,6 +117,7 @@ export class AiExecuteService {
       request: chatRequest,
       cookies: input.cookies,
       requestSignal: input.requestSignal,
+      saasAccessToken: input.saasAccessToken,
     });
   }
 }

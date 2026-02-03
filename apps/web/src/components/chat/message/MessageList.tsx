@@ -43,7 +43,17 @@ export default function MessageList({ className }: MessageListProps) {
     () => (messages as any[]).findLastIndex((m) => m?.role !== "user"),
     [messages]
   );
+  const lastVisibleAiIndex = React.useMemo(
+    () =>
+      (messages as any[]).findLastIndex(
+        (m) => m?.role !== "user" && messageHasVisibleContent(m)
+      ),
+    [messages]
+  );
+  // 中文注释：动作栏的“最后一条 assistant”以可见内容为准，避免空占位导致闪烁。
+  const lastAiActionIndex = lastVisibleAiIndex >= 0 ? lastVisibleAiIndex : lastAiIndex;
   const hideAiActions = status === "submitted" || status === "streaming";
+  const lastMessageIsAssistant = messages[messages.length - 1]?.role !== "user";
   // 空态时展示提示卡片。
   const shouldShowHelper = !isHistoryLoading && messages.length === 0;
 
@@ -111,7 +121,9 @@ export default function MessageList({ className }: MessageListProps) {
                   message={message}
                   isLastHumanMessage={index === lastHumanIndex}
                   isLastAiMessage={index === lastAiIndex}
-                  hideAiActions={hideAiActions}
+                  isLastAiActionMessage={index === lastAiActionIndex}
+                  // 中文注释：流式/提交中仅隐藏“当前最后一条 assistant”的操作，不影响历史消息。
+                  hideAiActions={hideAiActions && lastMessageIsAssistant && index === lastAiIndex}
                 />
               ))}
 

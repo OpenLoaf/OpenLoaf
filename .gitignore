@@ -85,8 +85,7 @@ update_codex_cdp.sh
 .serena/memories/style_conventions.md
 .serena/memories/suggested_commands.md
 .serena/memories/tool_ui_event_rules.md
-docs/canvas-architecture-spec.md
-docs/canvas/board-user-manual.md
+docs
 .history
 .tenas/chat/
 apps/server/auth.json

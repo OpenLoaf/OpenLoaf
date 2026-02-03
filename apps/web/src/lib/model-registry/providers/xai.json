@@ -17,17 +17,7 @@
         "tool_call",
         "web_search"
       ],
-      "maxContextK": 128,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "$",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ]
+      "maxContextK": 128
     },
     {
       "id": "grok-4-fast-non-reasoning",
@@ -39,17 +29,7 @@
         "tool_call",
         "web_search"
       ],
-      "maxContextK": 128,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "$",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ]
+      "maxContextK": 128
     },
     {
       "id": "grok-code-fast-1",
@@ -61,17 +41,7 @@
         "tool_call",
         "code"
       ],
-      "maxContextK": 128,
-      "priceStrategyId": "tiered_token",
-      "currencySymbol": "$",
-      "priceTiers": [
-        {
-          "minContextK": 0,
-          "input": 0,
-          "inputCache": 0,
-          "output": 0
-        }
-      ]
+      "maxContextK": 128
     }
   ]
 }
