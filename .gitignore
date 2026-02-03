@@ -91,6 +91,12 @@ docs/canvas/board-user-manual.md
 .tenas/chat/
 apps/server/auth.json
 apps/electron/resources/speech/windows/publish
+apps/electron/resources/calendar/windows/bin/
+apps/electron/resources/calendar/windows/obj/
+apps/electron/resources/calendar/windows/tenas-calendar.exe
+apps/electron/resources/speech/windows/bin/
+apps/electron/resources/speech/windows/obj/
+apps/electron/resources/speech/windows/tenas-speech.exe
 .tenas/download-svgrepo-file-formats-text.py
 .tenas/svgrepo-file-formats-text-urls.txt
 .tenas/svgrepo-file-formats-text.md
@@ -104,3 +110,4 @@ apps/electron/resources/speech/windows/publish
 .pnpm-store/*
 apps/web/public/monaco/
 apps/tenas-office-plugins
+.data/tenas.db

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.Appointments;
 using Windows.Foundation;
-using Windows.UI;
 
 namespace TenasCalendar;
 
@@ -126,7 +125,7 @@ internal sealed class Program
             {
                 Id = calendar.LocalId,
                 Title = calendar.DisplayName ?? string.Empty,
-                Color = ToHex(calendar.Color),
+                Color = null,
                 ReadOnly = calendar.OtherAppWriteAccess == AppointmentCalendarOtherAppWriteAccess.None,
                 // 逻辑：Windows API 未提供订阅日历标识，先返回 false。
                 IsSubscribed = false,
@@ -228,15 +227,20 @@ internal sealed class Program
             Details = payload.Description,
         };
 
-        var savedId = await calendar.SaveAppointmentAsync(appointment);
-        var saved = await store.GetAppointmentAsync(savedId);
-        if (saved == null)
+        await calendar.SaveAppointmentAsync(appointment);
+
+        var savedId = appointment.LocalId;
+        if (!string.IsNullOrWhiteSpace(savedId))
         {
-            WriteError("创建事件失败。", "create_failed");
-            return;
+            var saved = await store.GetAppointmentAsync(savedId);
+            if (saved != null)
+            {
+                WriteSuccess(ToResult(saved));
+                return;
+            }
         }
 
-        WriteSuccess(ToResult(saved));
+        WriteSuccess(ToResult(appointment));
     }
 
     /// <summary>Handle event update.</summary>
@@ -310,7 +314,21 @@ internal sealed class Program
             return;
         }
 
-        await store.DeleteAppointmentAsync(payload.Id);
+        var appointment = await store.GetAppointmentAsync(payload.Id);
+        if (appointment == null)
+        {
+            WriteError("未找到事件。", "event_not_found");
+            return;
+        }
+
+        var calendar = await ResolveCalendarAsync(store, appointment.CalendarId);
+        if (calendar == null)
+        {
+            WriteError("未找到目标日历。", "calendar_not_found");
+            return;
+        }
+
+        await calendar.DeleteAppointmentAsync(appointment.LocalId);
         WriteSuccess(new { id = payload.Id });
     }
 
@@ -373,7 +391,23 @@ internal sealed class Program
 
         try
         {
-            return await store.GetDefaultAppointmentCalendarAsync();
+            var calendars = await store.FindAppointmentCalendarsAsync();
+            AppointmentCalendar? selected = null;
+            foreach (var calendar in calendars)
+            {
+                if (selected == null)
+                {
+                    selected = calendar;
+                }
+
+                if (calendar.OtherAppWriteAccess != AppointmentCalendarOtherAppWriteAccess.None)
+                {
+                    selected = calendar;
+                    break;
+                }
+            }
+
+            return selected;
         }
         catch
         {
@@ -412,17 +446,7 @@ internal sealed class Program
         }
     }
 
-    /// <summary>Convert Windows color to hex string.</summary>
-    private static string? ToHex(Color color)
-    {
-        if (color.A == 0 && color.R == 0 && color.G == 0 && color.B == 0)
-        {
-            return null;
-        }
-        return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
-    }
-
-    /// <summary>Emit success payload.</summary>
+/// <summary>Emit success payload.</summary>
     private static void WriteSuccess(object data)
     {
         var payload = new { ok = true, data };
