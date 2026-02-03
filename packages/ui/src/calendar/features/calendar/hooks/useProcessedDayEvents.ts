@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
+import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
+import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
 import {
 	getPositionedDayEvents,
 	type PositionedEvent,
@@ -20,14 +21,16 @@ export const useProcessedDayEvents = ({
 	const { getEventsForDateRange, getEventsForResource } =
 		useSmartCalendarContext((state) => ({
 			getEventsForDateRange: state.getEventsForDateRange,
-			getEventsForResource: state.getEventsForResource,
+			getEventsForResource:
+				'getEventsForResource' in state ? state.getEventsForResource : undefined,
 		}))
-	const dayStart = days.at(0).startOf('day')
-	const dayEnd = days.at(-1).endOf('day')
+	const dayStart = days[0]?.startOf('day') ?? dayjs()
+	const dayEnd = days[days.length - 1]?.endOf('day') ?? dayjs()
 
-	const events = useMemo(() => {
-		let dayEvents = getEventsForDateRange(dayStart, dayEnd)
-		if (resourceId) {
+	const events = useMemo<CalendarEvent[]>(() => {
+		if (days.length === 0) return []
+		let dayEvents = getEventsForDateRange(dayStart, dayEnd) as CalendarEvent[]
+		if (resourceId && getEventsForResource) {
 			const resourceEvents = getEventsForResource(resourceId)
 			dayEvents = dayEvents.filter((event) =>
 				resourceEvents.some((re) => String(re.id) === String(event.id))

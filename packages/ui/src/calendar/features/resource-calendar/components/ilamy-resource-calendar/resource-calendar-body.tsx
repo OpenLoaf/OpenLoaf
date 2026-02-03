@@ -18,6 +18,8 @@ export const ResourceCalendarBody: React.FC = () => {
 		week: <ResourceWeekView key="week" />,
 		day: <ResourceDayView key="day" />,
 	}
+	const viewContent =
+		viewMap[view as keyof typeof viewMap] ?? viewMap.month
 
 	return (
 		<div className="flex w-full h-full" data-testid="ilamy-resource-calendar">
@@ -40,7 +42,7 @@ export const ResourceCalendarBody: React.FC = () => {
 						transitionKey={view}
 					>
 						<div className="border h-full w-full" data-testid="calendar-body">
-							{viewMap[view]}
+							{viewContent}
 						</div>
 					</AnimatedSection>
 				</CalendarDndContext>

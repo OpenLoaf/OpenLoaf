@@ -29,7 +29,7 @@ const ViewControls: React.FC<ViewControlsProps> = ({
 }) => {
 	const { t, resources } = useSmartCalendarContext((context) => ({
 		t: context.t,
-		resources: context.resources,
+		resources: 'resources' in context ? context.resources : undefined,
 	}))
 	const isGrid = variant === 'grid'
 	const isResourceCalendar = resources && resources.length > 0

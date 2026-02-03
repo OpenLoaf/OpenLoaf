@@ -605,8 +605,6 @@ export function ImageGenerateNodeView({
         ? "需要配置模型"
       : viewStatus === "needs_prompt"
         ? "需要提示词"
-      : viewStatus === "missing_parameters"
-        ? "参数未填写"
       : viewStatus === "too_many_images"
         ? "图片数量过多"
       : viewStatus === "invalid_image"

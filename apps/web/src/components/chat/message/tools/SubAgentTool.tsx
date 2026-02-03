@@ -69,7 +69,13 @@ export default function SubAgentTool({
   const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
   const stream = toolCallId ? subAgentStreams[toolCallId] : undefined;
   const toolSnapshot = toolCallId ? toolParts?.[toolCallId] : undefined;
-  const resolvedPart = toolSnapshot ? { ...part, ...toolSnapshot } : part;
+  const safeSnapshot = toolSnapshot
+    ? ({
+        ...toolSnapshot,
+        errorText: toolSnapshot.errorText ?? undefined,
+      } as Partial<AnyToolPart>)
+    : undefined;
+  const resolvedPart: AnyToolPart = safeSnapshot ? { ...part, ...safeSnapshot } : part;
   const [isOpen, setIsOpen] = React.useState(true);
 
   const actionName = getActionName(resolvedPart);
@@ -131,7 +137,7 @@ export default function SubAgentTool({
   const streamParts = Array.isArray(stream?.parts) ? stream?.parts : undefined;
   const historyParts =
     isOpen && Array.isArray(historyMessage?.parts) ? historyMessage?.parts : undefined;
-  const fallbackParts = buildFallbackParts({ errorText });
+  const fallbackParts = buildFallbackParts({ errorText: errorText ?? undefined });
   const renderParts = streamParts ?? historyParts ?? fallbackParts;
   const streamingParts = renderParts;
   const renderMessageId = historyMessage?.id;

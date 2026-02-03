@@ -1,5 +1,6 @@
 import type {
   CanvasAnchorHit,
+  CanvasConnectorElement,
   CanvasNodeElement,
   CanvasPoint,
   CanvasSnapshot,
@@ -309,17 +310,19 @@ function resolveMindmapCollapseAnchor(
 ): "left" | "right" {
   const [x, y, w, h] = element.xywh;
   const centerX = x + w / 2;
-  const outbound = snapshot.elements.filter(item => {
-    if (item.kind !== "connector") return false;
-    if (!("elementId" in item.source)) return false;
-    return item.source.elementId === element.id;
-  });
+  const outbound = snapshot.elements.filter(
+    (item): item is CanvasConnectorElement =>
+      item.kind === "connector" &&
+      "elementId" in item.source &&
+      item.source.elementId === element.id
+  );
   let leftCount = 0;
   let rightCount = 0;
   outbound.forEach(connector => {
-    if ("elementId" in connector.target) {
+    const targetEnd = connector.target;
+    if ("elementId" in targetEnd) {
       const target = snapshot.elements.find(
-        item => item.kind === "node" && item.id === connector.target.elementId
+        item => item.kind === "node" && item.id === targetEnd.elementId
       );
       if (!target) return;
       const targetCenterX = target.xywh[0] + target.xywh[2] / 2;
@@ -330,7 +333,7 @@ function resolveMindmapCollapseAnchor(
       }
       return;
     }
-    const targetX = connector.target.point[0];
+    const targetX = targetEnd.point[0];
     if (targetX >= centerX) {
       rightCount += 1;
     } else {

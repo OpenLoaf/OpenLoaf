@@ -22,7 +22,7 @@ export type AnyToolPart = {
   /** Tool output payload. */
   output?: unknown;
   /** Tool error text. */
-  errorText?: string;
+  errorText?: string | null;
   /** Tool approval status. */
   approval?: { id?: string; approved?: boolean; reason?: string };
   /** Rendering variant for specialized tool UI. */

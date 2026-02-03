@@ -1738,7 +1738,7 @@ export function useProjectFileSystemModel({
         let sourceUri = rawSourceUri;
         const parsed = parseScopedProjectPath(rawSourceUri);
         if (parsed) {
-          const sourceProjectId = parsed.projectId ?? projectId;
+          const sourceProjectId: string | undefined = parsed.projectId ?? projectId;
           if (
             !sourceProjectId ||
             !projectId ||

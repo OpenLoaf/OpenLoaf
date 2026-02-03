@@ -25,7 +25,8 @@ export default function AuthCallbackPage() {
           return;
         }
         setStatus("success");
-        router.replace(returnTo);
+        const nextPath = returnTo as unknown as Parameters<typeof router.replace>[0];
+        router.replace(nextPath);
       })
       .catch(() => setStatus("error"));
   }, [router, search]);

@@ -26,10 +26,9 @@ const TestSetting = memo(function TestSetting() {
   const { workspace } = useWorkspace();
   const { basic, setBasic } = useBasicConfig();
   const activeTabId = useTabs((s) => s.activeTabId);
-  const activeStackCount = useTabs((s) => {
-    const id = s.activeTabId;
-    const tab = id ? s.tabs.find((t) => t.id === id) : undefined;
-    return tab?.stack?.length ?? 0;
+  const activeStackCount = useTabRuntime((s) => {
+    const runtime = activeTabId ? s.runtimeByTabId[activeTabId] : undefined;
+    return runtime?.stack?.length ?? 0;
   });
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
   const clearStack = useTabRuntime((s) => s.clearStack);

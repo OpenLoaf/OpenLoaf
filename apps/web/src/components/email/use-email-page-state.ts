@@ -122,8 +122,8 @@ export type MessageListState = {
   messagesLoading: boolean;
   messagesFetchingNextPage: boolean;
   hasNextPage: boolean;
-  messagesListRef: React.RefObject<HTMLDivElement>;
-  loadMoreRef: React.RefObject<HTMLDivElement>;
+  messagesListRef: React.RefObject<HTMLDivElement | null>;
+  loadMoreRef: React.RefObject<HTMLDivElement | null>;
 };
 
 export type DetailState = {
@@ -745,7 +745,7 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
       },
       onError: (_error, _variables, context) => {
         if (!context?.queryKey) return;
-        queryClient.setQueryData(context.queryKey, context.previous);
+        queryClient.setQueryData(context.queryKey, context.previous as any);
         if (context.unreadCountKey) {
           queryClient.setQueryData(context.unreadCountKey, context.previousUnreadCount);
         }
@@ -865,7 +865,7 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
         if (context.unifiedMessagesKey) {
           queryClient.setQueryData(
             context.unifiedMessagesKey,
-            context.previousUnifiedMessages,
+            context.previousUnifiedMessages as any,
           );
         }
         if (context.unifiedUnreadStatsKey) {

@@ -16,6 +16,7 @@ import {
 import type { RRuleOptions } from '@tenas-ai/ui/calendar/features/recurrence/types'
 import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
 import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
+import type { Translations } from '@tenas-ai/ui/calendar/lib/translations/types'
 
 const FREQ_MAP = {
 	DAILY: RRule.DAILY,
@@ -35,12 +36,12 @@ const WEEKDAYS = [
 	RRule.FR,
 	RRule.SA,
 ]
-const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const satisfies ReadonlyArray<keyof Translations>
 const parseNum = (v: string) => Math.max(1, Number.parseInt(v, 10) || 1)
 
 const getDescription = (
 	opts: RRuleOptions | null,
-	t: (k: string) => string
+	t: (k: keyof Translations) => string
 ) => {
 	if (!opts) {
 		return t('customRecurrence')
@@ -169,13 +170,13 @@ export const RecurrenceEditor: React.FC<Props> = ({ value, onChange }) => {
 									>
 										<SelectValue />
 									</SelectTrigger>
-									<SelectContent>
-										{Object.keys(FREQ_MAP).map((f) => (
-											<SelectItem key={f} value={f}>
-												{t(f.toLowerCase())}
-											</SelectItem>
-										))}
-									</SelectContent>
+										<SelectContent>
+											{Object.keys(FREQ_MAP).map((f) => (
+												<SelectItem key={f} value={f}>
+													{t(f.toLowerCase() as keyof Translations)}
+												</SelectItem>
+											))}
+										</SelectContent>
 								</Select>
 							</div>
 							<div>
@@ -263,14 +264,14 @@ export const RecurrenceEditor: React.FC<Props> = ({ value, onChange }) => {
 									<Label className="text-xs" htmlFor="on">
 										{t('on')}
 									</Label>
-									{endType === 'until' && (
-										<DatePicker
-											className="h-6"
-											date={opts?.until}
-											onChange={(d) =>
-												update({
-													until: d ? dayjs(d).endOf('day').toDate() : undefined,
-												})
+										{endType === 'until' && (
+											<DatePicker
+												className="h-6"
+												date={opts?.until ?? undefined}
+												onChange={(d) =>
+													update({
+														until: d ? dayjs(d).endOf('day').toDate() : undefined,
+													})
 											}
 										/>
 									)}

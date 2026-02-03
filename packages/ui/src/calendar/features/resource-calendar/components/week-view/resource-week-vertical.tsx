@@ -45,7 +45,7 @@ export const ResourceWeekVertical: React.FC = () => {
 		() => ({
 			id: 'time-col',
 			days: hours,
-			day: undefined,
+			day: currentDate,
 			className:
 				'shrink-0 w-16 min-w-16 max-w-16 sticky left-0 bg-background z-20',
 			gridType: 'hour' as const,

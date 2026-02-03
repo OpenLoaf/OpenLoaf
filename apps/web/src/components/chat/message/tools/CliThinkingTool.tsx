@@ -17,7 +17,7 @@ type CliThinkingToolPart = {
   /** Tool running state. */
   state?: string;
   /** Tool error message. */
-  errorText?: string;
+  errorText?: string | null;
 };
 
 /** Normalize output text for CLI rendering. */

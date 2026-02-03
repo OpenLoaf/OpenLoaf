@@ -44,7 +44,7 @@ const WeekView: React.FC = () => {
 	const firstCol = {
 		id: 'time-col',
 		days: hours,
-		day: undefined,
+		day: currentDate,
 		className: `shrink-0 ${LEFT_COL_WIDTH} sticky left-0 bg-background z-20`,
 		gridType: 'hour' as const,
 		noEvents: true,

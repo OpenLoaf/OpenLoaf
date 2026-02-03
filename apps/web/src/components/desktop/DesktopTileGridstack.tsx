@@ -136,8 +136,11 @@ export default function DesktopTileGridstack({
 
   const allowOverflow = widgetKey === "3d-folder";
   const isWebStack = item.kind === "widget" && item.widgetKey === "web-stack";
+  const webUrl = item.kind === "widget" ? item.webUrl : undefined;
+  const webTitle = item.kind === "widget" ? item.webTitle : undefined;
+  const webMetaStatus = item.kind === "widget" ? item.webMetaStatus : undefined;
   const canFetchWebMeta =
-    isWebStack && item.webMetaStatus === "loading" && Boolean(item.webUrl) && Boolean(defaultRootUri);
+    isWebStack && webMetaStatus === "loading" && Boolean(webUrl) && Boolean(defaultRootUri);
 
   // 中文注释：元数据抓取结果需要持久化时优先使用持久化更新回调。
   const applyWebMetaUpdate = onPersistItemUpdate ?? onUpdateItem;
@@ -181,10 +184,10 @@ export default function DesktopTileGridstack({
     if (!canFetchWebMeta) return;
     if (webMetaFetchRef.current) return;
     webMetaFetchRef.current = true;
-    void runWebMetaFetch(item.webUrl ?? "").finally(() => {
+    void runWebMetaFetch(webUrl ?? "").finally(() => {
       webMetaFetchRef.current = false;
     });
-  }, [canFetchWebMeta, item.webUrl, runWebMetaFetch]);
+  }, [canFetchWebMeta, runWebMetaFetch, webUrl]);
 
   const handleWebMetaRefresh = React.useCallback(() => {
     if (!isWebStack) return;
@@ -200,14 +203,14 @@ export default function DesktopTileGridstack({
       setIsWebDialogOpen(open);
       if (open) {
         if (!isWebStack || item.kind !== "widget") return;
-        setWebUrlInput(item.webUrl ?? "");
-        setWebTitleInput(item.title || item.webTitle || "");
+        setWebUrlInput(webUrl ?? "");
+        setWebTitleInput(item.title || webTitle || "");
         setWebError(null);
         return;
       }
       setWebError(null);
     },
-    [isWebStack, item.kind, item.title, item.webTitle, item.webUrl]
+    [isWebStack, item.kind, item.title, webTitle, webUrl]
   );
 
   /** Save web widget edits and trigger metadata refresh when url changes. */
@@ -259,7 +262,7 @@ export default function DesktopTileGridstack({
   ]);
   const handleWebOpen = React.useCallback(() => {
     if (!isWebStack) return;
-    const normalizedUrl = normalizeUrl(item.webUrl ?? "");
+    const normalizedUrl = normalizeUrl(webUrl ?? "");
     if (!activeTabId || !normalizedUrl) return;
     const tab = useTabs.getState().getTabById(activeTabId);
     if (!tab) return;
@@ -278,7 +281,7 @@ export default function DesktopTileGridstack({
       if (current.kind !== "widget" || current.widgetKey !== "web-stack") return current;
       return { ...current, webMetaStatus: "loading" };
     });
-  }, [activeTabId, isWebStack, item.id, item.title, item.webUrl, onUpdateItem]);
+  }, [activeTabId, isWebStack, item.id, item.title, onUpdateItem, webUrl]);
 
   const tileBody = (
     <motion.div
@@ -438,7 +441,7 @@ export default function DesktopTileGridstack({
             <ContextMenuItem
               icon={RotateCw}
               onClick={handleWebMetaRefresh}
-              disabled={!item.webUrl}
+              disabled={!webUrl}
             >
               刷新
             </ContextMenuItem>

@@ -512,13 +512,18 @@ export function BoardCanvasInteraction({
       isPointerDownRef.current = false;
       applyCursorRef.current();
     };
+    const handleWindowBlur = () => {
+      if (!isPointerDownRef.current) return;
+      isPointerDownRef.current = false;
+      applyCursorRef.current();
+    };
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerUp);
-    window.addEventListener("blur", handlePointerUp);
+    window.addEventListener("blur", handleWindowBlur);
     return () => {
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
-      window.removeEventListener("blur", handlePointerUp);
+      window.removeEventListener("blur", handleWindowBlur);
     };
   }, [showUi]);
 

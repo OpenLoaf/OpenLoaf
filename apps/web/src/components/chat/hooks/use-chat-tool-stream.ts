@@ -9,7 +9,7 @@ import {
 } from "@/lib/chat/frontend-tool-executor";
 
 export function useChatToolStream() {
-  const executorRef = React.useRef<ReturnType<typeof createFrontendToolExecutor>>();
+  const executorRef = React.useRef<ReturnType<typeof createFrontendToolExecutor> | null>(null);
   if (!executorRef.current) {
     const executor = createFrontendToolExecutor();
     registerDefaultFrontendToolHandlers(executor);

@@ -1,4 +1,4 @@
-import type { MediaModelDefinition, ModelTag } from "@tenas-ai/api/common";
+import type { MediaModelDefinition, MediaModelTag, ModelTag } from "@tenas-ai/api/common";
 
 import type { ProviderModelOption } from "@/lib/provider-models";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -33,11 +33,16 @@ function extractSseData(chunk: string): string | null {
 /** Stream SSE events from the unified AI endpoint. */
 export async function runChatSseRequest({ payload, signal, onEvent }: ChatSseRequest) {
   const token = await getAccessToken();
-  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
   const response = await fetch(`${resolveServerUrl()}/ai/execute`, {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...authHeaders },
+    headers,
     body: JSON.stringify(payload),
     signal,
   });
@@ -144,9 +149,9 @@ export function resolveImageGenerationRequiredTags(input: {
 }
 
 /** Check whether a model has a specific media tag. */
-function hasMediaTag(model: MediaModelDefinition, tag: string): boolean {
+function hasMediaTag(model: MediaModelDefinition, tag: MediaModelTag | ModelTag): boolean {
   const tags = Array.isArray(model.tags) ? model.tags : [];
-  return tags.includes(tag);
+  return tags.includes(tag as MediaModelTag);
 }
 
 /** Filter image media models based on input/output requirements. */

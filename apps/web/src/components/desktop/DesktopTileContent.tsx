@@ -54,6 +54,10 @@ export default function DesktopTileContent({
       const activeTab = tabs.find(
         (tab) => tab.id === activeTabId && tab.workspaceId === workspace.id
       );
+      if (!activeTab) {
+        toast.error("未找到标签页");
+        return;
+      }
       const runtime = activeTab ? useTabRuntime.getState().runtimeByTabId[activeTab.id] : undefined;
       if (!runtime?.base?.id?.startsWith("project:")) {
         toast.error("请先打开一个项目标签页");
