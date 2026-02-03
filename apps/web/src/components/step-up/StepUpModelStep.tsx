@@ -4,7 +4,9 @@ import { StepUpChoiceStep } from "@/components/step-up/StepUpChoiceStep";
 export type StepUpModelChoice = "custom" | "cloud";
 
 type StepUpModelStepProps = {
+  /** Current selection. */
   value: StepUpModelChoice | null;
+  /** Selection change handler. */
   onSelect: (next: StepUpModelChoice) => void;
 };
 

@@ -4,7 +4,9 @@ import { StepUpChoiceStep } from "@/components/step-up/StepUpChoiceStep";
 export type StepUpWorkspaceChoice = "local" | "cloud";
 
 type StepUpWorkspaceStepProps = {
+  /** Current selection. */
   value: StepUpWorkspaceChoice | null;
+  /** Selection change handler. */
   onSelect: (next: StepUpWorkspaceChoice) => void;
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { SaaSClient } from "@tenas-saas/sdk/web";
+import { SaaSClient } from "@tenas-saas/sdk";
 import { resolveServerUrl } from "@/utils/server-url";
 
 type StorageType = "local" | "session";

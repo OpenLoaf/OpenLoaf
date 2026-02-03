@@ -2,23 +2,35 @@ import { StepUpOptionCard } from "@/components/step-up/StepUpOptionCard";
 import { StepUpStepShell } from "@/components/step-up/StepUpStepShell";
 
 export type StepUpLoginProviderOption = {
+  /** Provider id. */
   id: string;
+  /** Provider label. */
   label: string;
+  /** Provider description. */
   description: string;
 };
 
 export type StepUpLoginRegionOption = {
+  /** Region id. */
   id: string;
+  /** Region label. */
   label: string;
+  /** Region description. */
   description: string;
 };
 
 type StepUpLoginStepProps = {
+  /** Available login providers. */
   loginProviders: StepUpLoginProviderOption[];
+  /** Available login regions. */
   loginRegions: StepUpLoginRegionOption[];
+  /** Selected provider id. */
   selectedProvider: string | null;
+  /** Selected region id. */
   selectedRegion: string | null;
+  /** Provider selection handler. */
   onSelectProvider: (next: string) => void;
+  /** Region selection handler. */
   onSelectRegion: (next: string) => void;
 };
 
@@ -31,6 +43,7 @@ export function StepUpLoginStep({
   onSelectProvider,
   onSelectRegion,
 }: StepUpLoginStepProps) {
+  // 解析当前选择的展示文案，供提示条使用。
   const loginProviderLabel =
     loginProviders.find((item) => item.id === selectedProvider)?.label ?? "";
   const loginRegionLabel =
@@ -68,6 +81,7 @@ export function StepUpLoginStep({
               : "border-dashed text-muted-foreground"
           }`}
         >
+          {/* 根据选择状态提示是否可继续。 */}
           {selectedProvider && selectedRegion
             ? `已选择 ${loginRegionLabel} / ${loginProviderLabel} 登录`
             : "未选择登录区域或登录方式，无法继续"}

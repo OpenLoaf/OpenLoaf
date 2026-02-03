@@ -2,10 +2,15 @@ import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type StepUpOptionCardProps = ComponentProps<"button"> & {
+  /** Card title text. */
   title: string;
+  /** Card description text. */
   description: string;
+  /** Whether this option is selected. */
   selected: boolean;
+  /** Optional leading icon. */
   icon?: ReactNode;
+  /** Optional corner badge label. */
   cornerBadge?: string;
 };
 

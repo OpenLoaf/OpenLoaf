@@ -1,12 +1,16 @@
 import { StepUpStepShell } from "@/components/step-up/StepUpStepShell";
 
 export type StepUpFinishSummary = {
+  /** Selected workspace label. */
   workspace: string;
+  /** Selected model source label. */
   model: string;
+  /** Selected provider label. */
   provider: string;
 };
 
 type StepUpFinishStepProps = {
+  /** Summary data for final confirmation. */
   summary: StepUpFinishSummary;
 };
 

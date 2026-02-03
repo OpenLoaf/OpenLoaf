@@ -6,18 +6,28 @@ import { StepUpOptionCard } from "@/components/step-up/StepUpOptionCard";
 import { StepUpStepShell } from "@/components/step-up/StepUpStepShell";
 
 export type StepUpChoiceOption = {
+  /** Stable option id. */
   id: string;
+  /** Title shown in the option card. */
   title: string;
+  /** Supporting description text. */
   description: string;
+  /** Optional leading icon. */
   icon?: ReactNode;
+  /** Optional corner badge label. */
   badge?: string;
 };
 
 type StepUpChoiceStepProps = {
+  /** Step title. */
   title: string;
+  /** Step subtitle. */
   subtitle: string;
+  /** All selectable options. */
   options: StepUpChoiceOption[];
+  /** Currently selected option id. */
   value: string | null;
+  /** Selection change handler. */
   onSelect: (next: string) => void;
 };
 
@@ -51,6 +61,7 @@ export function StepUpChoiceStep({
 
   /** Cancel hover state when pointer leaves. */
   const handleHoverEnd = () => {
+    // 离开时清理延时，保证 hover 状态及时复位。
     if (hoverTimerRef.current !== null) {
       window.clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;

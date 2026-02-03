@@ -3,9 +3,13 @@
 import type { ReactNode } from "react";
 
 type StepUpStepShellProps = {
+  /** Step title shown in the header. */
   title: string;
+  /** Optional subtitle shown under the title. */
   subtitle?: string;
+  /** Main content area for the step. */
   children: ReactNode;
+  /** Optional footer slot rendered at the bottom. */
   footer?: ReactNode;
 };
 
