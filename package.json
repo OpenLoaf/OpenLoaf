@@ -5,7 +5,7 @@
   "scripts": {
     "prepare": "husky",
     "ruler:apply": "pnpm dlx @intellectronica/ruler@latest apply --local-only",
-    "dev": "cross-env NODE_OPTIONS=--conditions=development turbo dev",
+    "dev": "cross-env NODE_OPTIONS=--conditions=development CI=1 turbo dev",
     "build": "turbo build",
     "check-types": "CI=1 turbo check-types",
     "dev:native": "cross-env NODE_OPTIONS=--conditions=development turbo -F native dev",
@@ -36,7 +36,7 @@
     "@tenas-ai/api": "workspace:*",
     "@tenas-ai/config": "workspace:*",
     "@tenas-ai/db": "workspace:*",
-    "@tenas-saas/sdk": "link:/Users/zhao/Documents/01.Code/Hex/Tenas-saas/packages/sdk",
+    "@tenas-saas/sdk": "file:../Tenas-saas/packages/sdk",
     "@types/node": "^25.0.10",
     "biome": "^0.3.3",
     "cross-env": "^10.1.0",
@@ -54,12 +54,5 @@
   "lint-staged": {
     "**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,vue,astro,svelte}": "biome check --apply --write"
   },
-  "packageManager": "pnpm@10.27.0",
-  "pnpm": {
-    "overrides": {
-      "@types/react": "19.2.7",
-      "@types/react-dom": "19.2.3",
-      "@tenas-saas/sdk": "link:../../../../.pnpm-global/5/node_modules/@tenas-saas/sdk"
-    }
-  }
+  "packageManager": "pnpm@10.27.0"
 }

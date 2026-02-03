@@ -24,7 +24,7 @@
     "@ai-sdk/openai": "^3.0.18",
     "@json-render/core": "^0.3.0",
     "@platejs/markdown": "^52.1.0",
-    "@tenas-saas/sdk": "link:/Users/zhao/Documents/01.Code/Hex/Tenas-saas/packages/sdk",
+    "@tenas-saas/sdk": "file:../../../Tenas-saas/packages/sdk",
     "@tenas-ai/db": "workspace:*",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",

@@ -84,7 +84,7 @@
     "@tanstack/react-query": "^5.90.20",
     "@tenas-ai/api": "workspace:*",
     "@tenas-ai/ui": "workspace:*",
-    "@tenas-saas/sdk": "link:/Users/zhao/Documents/01.Code/Hex/Tenas-saas/packages/sdk",
+    "@tenas-saas/sdk": "file:../../../Tenas-saas/packages/sdk",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "@trpc/tanstack-react-query": "^11.8.1",
