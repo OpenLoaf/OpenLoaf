@@ -32,11 +32,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
-    "@tenas-ai/config": "workspace:*",
+    "@tailwindcss/cli": "^4.1.18",
     "@tenas-ai/api": "workspace:*",
+    "@tenas-ai/config": "workspace:*",
     "@tenas-ai/db": "workspace:*",
     "@tenas-saas/sdk": "link:/Users/zhao/Documents/01.Code/Hex/Tenas-saas/packages/sdk",
-    "@tailwindcss/cli": "^4.1.18",
     "@types/node": "^25.0.10",
     "biome": "^0.3.3",
     "cross-env": "^10.1.0",
@@ -58,7 +58,8 @@
   "pnpm": {
     "overrides": {
       "@types/react": "19.2.7",
-      "@types/react-dom": "19.2.3"
+      "@types/react-dom": "19.2.3",
+      "@tenas-saas/sdk": "link:../../../../.pnpm-global/5/node_modules/@tenas-saas/sdk"
     }
   }
 }

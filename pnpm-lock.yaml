@@ -28,6 +28,7 @@ catalogs:
 overrides:
   '@types/react': 19.2.7
   '@types/react-dom': 19.2.3
+  '@tenas-saas/sdk': link:../../../../.pnpm-global/5/node_modules/@tenas-saas/sdk
 
 importers:
 
@@ -62,8 +63,8 @@ importers:
         specifier: workspace:*
         version: link:packages/db
       '@tenas-saas/sdk':
-        specifier: link:/Users/zhao/Documents/01.Code/Hex/Tenas-saas/packages/sdk
-        version: link:../Tenas-saas/packages/sdk
+        specifier: link:../../../../.pnpm-global/5/node_modules/@tenas-saas/sdk
+        version: link:../../../../.pnpm-global/5/node_modules/@tenas-saas/sdk
       '@types/node':
         specifier: ^25.0.10
         version: 25.0.10
@@ -201,8 +202,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/db
       '@tenas-saas/sdk':
-        specifier: link:/Users/zhao/Documents/01.Code/Hex/Tenas-saas/packages/sdk
-        version: link:../../../Tenas-saas/packages/sdk
+        specifier: link:../../../../../../.pnpm-global/5/node_modules/@tenas-saas/sdk
+        version: link:../../../../../../.pnpm-global/5/node_modules/@tenas-saas/sdk
       '@trpc/server':
         specifier: 'catalog:'
         version: 11.8.1(typescript@5.9.3)
@@ -522,9 +523,6 @@ importers:
       '@tenas-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@tenas-saas/sdk':
-        specifier: link:/Users/zhao/Documents/01.Code/Hex/Tenas-saas/packages/sdk
-        version: link:../../../Tenas-saas/packages/sdk
       '@trpc/client':
         specifier: 'catalog:'
         version: 11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3)
@@ -818,8 +816,8 @@ importers:
         specifier: workspace:*
         version: link:../db
       '@tenas-saas/sdk':
-        specifier: link:/Users/zhao/Documents/01.Code/Hex/Tenas-saas/packages/sdk
-        version: link:../../../Tenas-saas/packages/sdk
+        specifier: link:../../../../../../.pnpm-global/5/node_modules/@tenas-saas/sdk
+        version: link:../../../../../../.pnpm-global/5/node_modules/@tenas-saas/sdk
       '@trpc/client':
         specifier: 'catalog:'
         version: 11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3)
