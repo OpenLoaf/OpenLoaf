@@ -27,7 +27,7 @@ export default defineConfig({
   entry: ["src/**/*.ts", "src/**/*.tsx", "!src/**/*.d.ts"],
   outDir: "dist",
   format: ["esm", "cjs"],
-  dts: true,
+  dts: false,
   sourcemap: true,
   clean: true,
   splitting: false,

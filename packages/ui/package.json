@@ -31,7 +31,8 @@
     "tsup": "^8.3.0"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && pnpm -w exec tsc -p packages/ui/tsconfig.build.json",
+    "build:types": "pnpm -w exec tsc -p packages/ui/tsconfig.build.json",
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm run build",
     "check-types": "pnpm -w exec tsc -p packages/ui/tsconfig.check.json",

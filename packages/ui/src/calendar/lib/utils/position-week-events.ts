@@ -6,7 +6,7 @@ import {
 	GAP_BETWEEN_ELEMENTS,
 } from '@tenas-ai/ui/calendar/lib/constants'
 
-interface PositionedEvent extends CalendarEvent {
+export interface PositionedEvent extends CalendarEvent {
 	left: number // Left position in percentage
 	width: number // Width in percentage
 	top: number // Top position in percentage
