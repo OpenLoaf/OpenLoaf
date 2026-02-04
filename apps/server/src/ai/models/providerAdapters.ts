@@ -95,6 +95,9 @@ type VideoGenerateInput = {
   parameters?: Record<string, string | number | boolean>;
 };
 
+/** SaaS adapter id. */
+const SAAS_ADAPTER_ID = "tenas-saas";
+
 export type ProviderRequestInput =
   | { kind: "textToImage"; payload: TextToImageInput }
   | { kind: "inpaint"; payload: InpaintInput }
@@ -143,6 +146,28 @@ function buildAiSdkAdapter(
       // auth 或 apiUrl 缺失时直接返回 null，交由上层判定失败。
       if (!apiKey || !resolvedApiUrl) return null;
       return factory({ apiUrl: resolvedApiUrl, apiKey, fetch: debugFetch })(modelId);
+    },
+    buildImageModel: () => null,
+    buildRequest: () => null,
+  };
+}
+
+/** Build SaaS AI SDK adapter (OpenAI compatible). */
+function buildSaasAdapter(): ProviderAdapter {
+  return {
+    id: SAAS_ADAPTER_ID,
+    buildAiSdkModel: ({ provider, modelId }) => {
+      const apiKey = readApiKey(provider.authConfig);
+      const resolvedApiUrl = provider.apiUrl.trim();
+      const debugFetch = buildAiDebugFetch();
+      // 中文注释：SaaS 必须带 token 与固定 apiUrl。
+      if (!apiKey || !resolvedApiUrl) return null;
+      const openaiProvider = createOpenAI({
+        baseURL: ensureOpenAiCompatibleBaseUrl(resolvedApiUrl),
+        apiKey,
+        fetch: debugFetch,
+      });
+      return openaiProvider.chat(modelId);
     },
     buildImageModel: () => null,
     buildRequest: () => null,
@@ -201,6 +226,7 @@ export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
   xai: buildAiSdkAdapter("xai", ({ apiUrl, apiKey, fetch }) =>
     createXai({ baseURL: ensureOpenAiCompatibleBaseUrl(apiUrl), apiKey, fetch }),
   ),
+  "tenas-saas": buildSaasAdapter(),
   cli: cliAdapter,
   qwenAdapter,
   volcengine: volcengineAdapter,

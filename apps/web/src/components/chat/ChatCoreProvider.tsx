@@ -2,7 +2,12 @@
 
 import React, { type ReactNode } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
-import { generateId, readUIMessageStream, type UIMessageChunk } from "ai";
+import {
+  generateId,
+  lastAssistantMessageIsCompleteWithApprovalResponses,
+  readUIMessageStream,
+  type UIMessageChunk,
+} from "ai";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
@@ -546,6 +551,8 @@ export default function ChatCoreProvider({
       id: sessionId,
       // 关键：不要用 useChat 的自动续接，保持流程可控。
       resume: false,
+      // 中文注释：审批响应齐备后自动续接，避免手动 sendMessage 导致 parentMessageId 缺失。
+      sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
       transport,
       onToolCall: (payload: { toolCall: any }) => {
         void toolStream.handleToolCall({ toolCall: payload.toolCall, tabId });

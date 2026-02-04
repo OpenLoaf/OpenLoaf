@@ -19,6 +19,13 @@ const config: ForgeConfig = {
     icon: packagerIcon,
     asar: true,
     appBundleId: 'com.hexems.tenas',
+    // 中文注释：注册自定义协议，支持 tenas:// 唤起。
+    protocols: [
+      {
+        name: 'Tenas',
+        schemes: ['tenas'],
+      },
+    ],
     extendInfo: {
       NSMicrophoneUsageDescription: '语音输入需要访问麦克风。',
       NSSpeechRecognitionUsageDescription: '语音输入需要使用系统语音识别。',

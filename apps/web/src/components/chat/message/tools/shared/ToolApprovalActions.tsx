@@ -3,7 +3,6 @@
 import * as React from "react";
 import { Button } from "@tenas-ai/ui/button";
 import { useChatActions, useChatState, useChatTools } from "../../../context";
-import { countPendingToolApprovals, hasRejectedToolApproval } from "./tool-utils";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -16,7 +15,7 @@ interface ToolApprovalActionsProps {
 /** Render approval actions for a tool request. */
 export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsProps) {
   const { messages, status } = useChatState();
-  const { updateMessage, addToolApprovalResponse, sendMessage } = useChatActions();
+  const { updateMessage, addToolApprovalResponse } = useChatActions();
   const { toolParts, upsertToolPart } = useChatTools();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const toolSnapshot = React.useMemo(
@@ -25,9 +24,12 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
   );
   const isDecided =
     toolSnapshot?.approval?.approved === true || toolSnapshot?.approval?.approved === false;
-  // 中文注释：流结束后禁止审批，仅允许在流式阶段执行审批。
-  const isStreamActive = status === "streaming" || status === "submitted";
-  const disabled = isSubmitting || isDecided || !isStreamActive;
+  // 中文注释：子代理审批会阻塞主流式，需允许在 streaming 状态下交互。
+  const isSubAgentApproval = Boolean(toolSnapshot?.subAgentToolCallId);
+  const disabled =
+    isSubmitting ||
+    isDecided ||
+    (!isSubAgentApproval && (status === "streaming" || status === "submitted"));
   const updateApprovalMutation = useMutation({
     ...trpc.chatmessage.updateOneChatMessage.mutationOptions(),
   });
@@ -102,8 +104,6 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
       setIsSubmitting(true);
       updateApprovalSnapshot(true);
       updateApprovalInMessages(true);
-      const pendingBefore = countPendingToolApprovals(messages ?? []);
-      const hasRejected = hasRejectedToolApproval(messages ?? []);
       const subAgentToolCallId =
         typeof toolSnapshot?.subAgentToolCallId === "string"
           ? toolSnapshot.subAgentToolCallId
@@ -114,10 +114,6 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
           await postSubAgentApprovalAck(true, subAgentToolCallId);
         } else {
           await addToolApprovalResponse({ id: approvalId, approved: true });
-          if (pendingBefore <= 1 && !hasRejected) {
-            // 中文注释：仅在最后一个审批完成后继续执行，避免多审批被一次通过。
-            await sendMessage(undefined as any);
-          }
         }
       } finally {
         setIsSubmitting(false);
@@ -129,9 +125,7 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
       isDecided,
       updateApprovalSnapshot,
       updateApprovalInMessages,
-      messages,
       addToolApprovalResponse,
-      sendMessage,
     ],
   );
 

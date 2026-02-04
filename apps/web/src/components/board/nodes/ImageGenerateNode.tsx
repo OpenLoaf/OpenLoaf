@@ -114,7 +114,6 @@ function normalizeOutputSize(value: string | undefined): string {
 /** Render the image generation node. */
 export function ImageGenerateNodeView({
   element,
-  selected,
   onSelect,
   onUpdate,
 }: CanvasNodeViewProps<ImageGenerateNodeProps>) {
@@ -502,7 +501,6 @@ export function ImageGenerateNodeView({
     "bg-[radial-gradient(180px_circle_at_top_left,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_85%_15%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
     "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100 dark:shadow-[0_12px_30px_rgba(0,0,0,0.5)]",
     "dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
-    selected ? "ring-1 ring-slate-300 dark:ring-slate-600" : "",
     viewStatus === "running"
       ? "tenas-thinking-border tenas-thinking-border-on border-transparent"
       : "",

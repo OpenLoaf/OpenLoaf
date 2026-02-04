@@ -1,12 +1,19 @@
 import type { Context, Hono } from "hono";
 import { logger } from "@/common/logger";
 import { fetchModelList } from "@/modules/saas";
+import type { ModelDefinition } from "@tenas-ai/api/common";
+import {
+  normalizeCloudChatModels,
+  type CloudChatModelsResponse,
+} from "@/ai/models/cloudModelMapper";
 
 type CloudModelResponse = {
   /** Response success flag. */
   success: boolean;
   /** Cloud model list payload. */
-  data: unknown;
+  data: ModelDefinition[];
+  /** Optional error message. */
+  message?: string;
 };
 
 /** Extract bearer token from request headers. */
@@ -27,8 +34,16 @@ export function registerCloudModelRoutes(app: Hono): void {
       return c.json({ error: "saas_auth_required" }, 401);
     }
     try {
-      const payload = (await fetchModelList(accessToken)) as CloudModelResponse | null;
-      return c.json(payload ?? { success: false, data: [] });
+      const payload = (await fetchModelList(accessToken)) as CloudChatModelsResponse | null;
+      const models = normalizeCloudChatModels(payload);
+      if (!payload || payload.success !== true) {
+        return c.json({
+          success: false,
+          data: [],
+          message: payload && "message" in payload ? payload.message : "saas_request_failed",
+        } satisfies CloudModelResponse);
+      }
+      return c.json({ success: true, data: models } satisfies CloudModelResponse);
     } catch (error) {
       if (error instanceof Error && error.message === "saas_url_missing") {
         return c.json({ error: "saas_url_missing" }, 500);

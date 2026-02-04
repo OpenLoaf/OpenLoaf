@@ -18,9 +18,6 @@ const STROKE_COLORS = [
   { label: "绿", value: "#16a34a" },
 ] as const;
 
-/** 选中高亮的外扩距离（世界坐标）。 */
-const STROKE_HIGHLIGHT_GROW = 6;
-
 /** Build a smooth SVG path from stroke outline points. */
 function buildPath(points: [number, number][]): string {
   if (points.length === 0) return "";
@@ -66,11 +63,10 @@ function createStrokeToolbarItems(ctx: CanvasToolbarContext<StrokeNodeProps>) {
 }
 
 /** 使用 SVG 路径渲染笔迹节点。 */
-export function StrokeNodeView({ element, selected }: CanvasNodeViewProps<StrokeNodeProps>) {
+export function StrokeNodeView({ element }: CanvasNodeViewProps<StrokeNodeProps>) {
   const { points, color, size, opacity, tool } = element.props;
   const width = element.xywh[2];
   const height = element.xywh[3];
-  const highlightAlpha = Math.min(0.35, opacity + 0.2);
 
   if (points.length === 0) return null;
 
@@ -82,15 +78,6 @@ export function StrokeNodeView({ element, selected }: CanvasNodeViewProps<Stroke
         viewBox={`0 0 ${width} ${height}`}
         aria-hidden
       >
-        {selected ? (
-          <circle
-            cx={px}
-            cy={py}
-            r={size / 2 + STROKE_HIGHLIGHT_GROW}
-            fill={color}
-            fillOpacity={highlightAlpha}
-          />
-        ) : null}
         <circle cx={px} cy={py} r={size / 2} fill={color} fillOpacity={opacity} />
       </svg>
     );
@@ -99,10 +86,6 @@ export function StrokeNodeView({ element, selected }: CanvasNodeViewProps<Stroke
   // 逻辑：笔迹路径使用轮廓填充，保证和 Canvas 渲染一致。
   const outline = buildStrokeOutline(points, { size, tool });
   const path = buildPath(outline);
-  const highlightOutline = selected
-    ? buildStrokeOutline(points, { size: size + STROKE_HIGHLIGHT_GROW, tool })
-    : [];
-  const highlightPath = selected ? buildPath(highlightOutline) : "";
 
   return (
     <svg
@@ -110,9 +93,6 @@ export function StrokeNodeView({ element, selected }: CanvasNodeViewProps<Stroke
       viewBox={`0 0 ${width} ${height}`}
       aria-hidden
     >
-      {selected && highlightPath ? (
-        <path d={highlightPath} fill={color} fillOpacity={highlightAlpha} />
-      ) : null}
       {path ? <path d={path} fill={color} fillOpacity={opacity} /> : null}
     </svg>
   );

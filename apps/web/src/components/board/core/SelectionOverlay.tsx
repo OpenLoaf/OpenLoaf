@@ -1,5 +1,5 @@
-import { Columns2, LayoutGrid, Layers, ArrowDown, ArrowUp, Copy, Lock, Rows2, Trash2, Unlock, Maximize2, MoveDiagonal2 } from "lucide-react";
-import { useRef } from "react";
+import { Columns2, LayoutGrid, Layers, ArrowDown, ArrowUp, Copy, Lock, Rows2, Trash2, Unlock, Maximize2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type {
   CanvasElement,
@@ -71,6 +71,7 @@ export function SingleSelectionToolbar({
   });
   const mindmapLayoutItems = buildMindmapLayoutItems(engine, element, snapshot);
   const customItems = items ?? [];
+  const [openPanelId, setOpenPanelId] = useState<string | null>(null);
   if (
     customItems.length === 0
     && commonItems.length === 0
@@ -80,6 +81,17 @@ export function SingleSelectionToolbar({
   }
 
   const bounds = computeSelectionBounds([element], snapshot.viewport.zoom);
+  useEffect(() => {
+    if (!openPanelId) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-node-toolbar]")) return;
+      // 逻辑：点击工具条外部时收起二级面板。
+      setOpenPanelId(null);
+    };
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [openPanelId]);
 
   return (
     <SelectionToolbarContainer
@@ -93,6 +105,8 @@ export function SingleSelectionToolbar({
       <div className="flex items-center gap-1">
         <ToolbarGroup
           items={mindmapLayoutItems}
+          openPanelId={openPanelId}
+          setOpenPanelId={setOpenPanelId}
           showDivider={
             mindmapLayoutItems.length > 0
             && (customItems.length > 0 || commonItems.length > 0)
@@ -100,11 +114,17 @@ export function SingleSelectionToolbar({
         />
         <ToolbarGroup
           items={customItems}
+          openPanelId={openPanelId}
+          setOpenPanelId={setOpenPanelId}
           showDivider={
             customItems.length > 0 && commonItems.length > 0
           }
         />
-        <ToolbarGroup items={commonItems} />
+        <ToolbarGroup
+          items={commonItems}
+          openPanelId={openPanelId}
+          setOpenPanelId={setOpenPanelId}
+        />
       </div>
     </SelectionToolbarContainer>
   );
@@ -189,8 +209,20 @@ export function MultiSelectionToolbar({
     : isUniformColumn
       ? <Columns2 size={14} />
       : <LayoutGrid size={14} />;
+  const [openPanelId, setOpenPanelId] = useState<string | null>(null);
 
   const bounds = computeSelectionBounds(selectedNodes, snapshot.viewport.zoom);
+  useEffect(() => {
+    if (!openPanelId) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-node-toolbar]")) return;
+      // 逻辑：点击工具条外部时收起二级面板。
+      setOpenPanelId(null);
+    };
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [openPanelId]);
 
   return (
     <SelectionToolbarContainer
@@ -204,6 +236,8 @@ export function MultiSelectionToolbar({
       <div className="flex items-center gap-1">
         <ToolbarGroup
           items={customItems}
+          openPanelId={openPanelId}
+          setOpenPanelId={setOpenPanelId}
           showDivider={customItems.length > 0}
         />
         <ToolbarGroup
@@ -227,6 +261,8 @@ export function MultiSelectionToolbar({
               onSelect: () => engine.deleteSelection(),
             },
           ]}
+          openPanelId={openPanelId}
+          setOpenPanelId={setOpenPanelId}
         />
       </div>
     </SelectionToolbarContainer>
@@ -294,7 +330,7 @@ export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlin
   );
 }
 
-type SingleSelectionResizeHandleProps = {
+type SingleSelectionOutlineProps = {
   /** Canvas engine instance. */
   engine: CanvasEngine;
   /** Target node element. */
@@ -303,165 +339,246 @@ type SingleSelectionResizeHandleProps = {
   snapshot: CanvasSnapshot;
 };
 
-/** Render a resize handle for a single selected node. */
-export function SingleSelectionResizeHandle({
+type ResizeCorner = "top-left" | "top-right" | "bottom-right" | "bottom-left";
+
+/** Corner handle size in screen pixels. */
+const SINGLE_SELECTION_HANDLE_SIZE = 10;
+/** Corner handle metadata for single selection resizing. */
+const SINGLE_SELECTION_CORNERS: Array<{ id: ResizeCorner; cursorClass: string }> = [
+  { id: "top-left", cursorClass: "cursor-nwse-resize" },
+  { id: "top-right", cursorClass: "cursor-nesw-resize" },
+  { id: "bottom-right", cursorClass: "cursor-nwse-resize" },
+  { id: "bottom-left", cursorClass: "cursor-nesw-resize" },
+];
+
+/** Cached anchor data for a corner resize gesture. */
+type CornerMeta = {
+  /** Anchor x position in world space. */
+  anchorX: number;
+  /** Anchor y position in world space. */
+  anchorY: number;
+  /** Whether handle is on the right side. */
+  isRight: boolean;
+  /** Whether handle is on the bottom side. */
+  isBottom: boolean;
+};
+
+/** Resolve anchor and direction metadata for a corner resize. */
+function resolveCornerMeta(
+  corner: ResizeCorner,
+  rect: { x: number; y: number; w: number; h: number }
+): CornerMeta {
+  const isRight = corner === "top-right" || corner === "bottom-right";
+  const isBottom = corner === "bottom-left" || corner === "bottom-right";
+  return {
+    isRight,
+    isBottom,
+    anchorX: isRight ? rect.x : rect.x + rect.w,
+    anchorY: isBottom ? rect.y : rect.y + rect.h,
+  };
+}
+
+/** Render selection outline and resize handles for a single node. */
+export function SingleSelectionOutline({
   engine,
   element,
   snapshot,
-}: SingleSelectionResizeHandleProps) {
+}: SingleSelectionOutlineProps) {
   const definition = engine.nodes.getDefinition(element.type);
   const canResize = definition?.capabilities?.resizable !== false;
-  if (!canResize || snapshot.locked || element.locked) return null;
 
   // 逻辑：视图变化时单独更新控制柄位置，避免全量快照渲染。
   const viewState = useBoardViewState(engine);
   const { zoom, offset } = viewState.viewport;
-  const left = element.xywh[0] * zoom + offset[0];
-  const top = element.xywh[1] * zoom + offset[1];
-  const width = element.xywh[2] * zoom;
-  const height = element.xywh[3] * zoom;
-  const size = 16;
-  const padding = 6;
-  const x = left + width - size - padding;
-  const y = top + height - size - padding;
+  const bounds = computeSelectionBounds([element], viewState.viewport.zoom);
+  const left = bounds.x * zoom + offset[0];
+  const top = bounds.y * zoom + offset[1];
+  const width = bounds.w * zoom;
+  const height = bounds.h * zoom;
+  const allowHandles = canResize && !snapshot.locked && !element.locked;
 
-  const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (engine.isLocked()) return;
-    event.stopPropagation();
-    event.preventDefault();
+  const handlePointerDown = (corner: ResizeCorner) => {
+    return (event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (engine.isLocked()) return;
+      event.stopPropagation();
+      event.preventDefault();
 
-    const container = engine.getContainer();
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const startPoint: [number, number] = [
-      event.clientX - rect.left,
-      event.clientY - rect.top,
-    ];
-    const startWorld = engine.screenToWorld(startPoint);
-    const [startX, startY, startW, startH] = element.xywh;
-    const minSize = definition?.capabilities?.minSize ?? { w: 80, h: 60 };
-    const maxSize = definition?.capabilities?.maxSize;
-    const resizeMode = definition?.capabilities?.resizeMode ?? "free";
-    const useRatioRange = resizeMode === "ratio-range" && Boolean(maxSize);
-    const useUniformResize =
-      resizeMode === "uniform" || (resizeMode === "ratio-range" && !maxSize);
-
-    engine.setDraggingElementId(element.id);
-    engine.setAlignmentGuides([]);
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const nextPoint: [number, number] = [
-        moveEvent.clientX - rect.left,
-        moveEvent.clientY - rect.top,
+      const container = engine.getContainer();
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const startPoint: [number, number] = [
+        event.clientX - rect.left,
+        event.clientY - rect.top,
       ];
-      const nextWorld = engine.screenToWorld(nextPoint);
-      const dx = nextWorld[0] - startWorld[0];
-      const dy = nextWorld[1] - startWorld[1];
-      const useWidth = Math.abs(dx) >= Math.abs(dy);
-      let nextW = startW + dx;
-      let nextH = startH + dy;
-      if (useUniformResize) {
-        // 逻辑：等比例缩放时按统一比例计算，确保宽高比不变。
-        const rawScale = useWidth
-          ? (startW + dx) / startW
-          : (startH + dy) / startH;
-        const minScale = Math.max(
-          minSize.w / startW,
-          minSize.h / startH
-        );
-        const maxScale = maxSize
-          ? Math.min(maxSize.w / startW, maxSize.h / startH)
-          : Number.POSITIVE_INFINITY;
-        const scale = Math.min(maxScale, Math.max(minScale, rawScale));
-        nextW = startW * scale;
-        nextH = startH * scale;
-      } else if (useRatioRange && maxSize) {
-        // 逻辑：按拖拽主轴在 min/max 区间线性插值宽高比。
-        const minRatio = minSize.w / Math.max(minSize.h, 1);
-        const maxRatio = maxSize.w / Math.max(maxSize.h, 1);
-        if (useWidth) {
-          const clampedW = Math.min(maxSize.w, Math.max(minSize.w, nextW));
-          const widthRange = maxSize.w - minSize.w;
-          const t = widthRange === 0 ? 0 : (clampedW - minSize.w) / widthRange;
-          const ratio = minRatio + (maxRatio - minRatio) * t;
-          nextW = clampedW;
-          nextH = clampedW / Math.max(ratio, 0.001);
-        } else {
-          const clampedH = Math.min(maxSize.h, Math.max(minSize.h, nextH));
-          const heightRange = maxSize.h - minSize.h;
-          const t = heightRange === 0 ? 0 : (clampedH - minSize.h) / heightRange;
-          const ratio = minRatio + (maxRatio - minRatio) * t;
-          nextH = clampedH;
-          nextW = clampedH * ratio;
-        }
-      }
-      // 逻辑：保持最小尺寸，避免节点缩放到不可操作。
-      const baseRect = {
-        x: startX,
-        y: startY,
-        w: Math.max(minSize.w, nextW),
-        h: Math.max(minSize.h, nextH),
-      };
-      const clampedRect = maxSize
-        ? {
-            x: baseRect.x,
-            y: baseRect.y,
-            w: Math.min(maxSize.w, baseRect.w),
-            h: Math.min(maxSize.h, baseRect.h),
-          }
-        : baseRect;
-      const { zoom } = engine.viewport.getState();
-      // 逻辑：缩放下按屏幕像素换算吸附阈值。
-      const threshold = SNAP_PIXEL / Math.max(zoom, MIN_ZOOM);
-      const margin = GUIDE_MARGIN / Math.max(zoom, MIN_ZOOM);
-      const others = engine.doc
-        .getElements()
-        .filter(
-          current => current.kind === "node" && current.id !== element.id
-        )
-        .map(current => {
-          const [x, y, width, height] = current.xywh;
-          return { x, y, w: width, h: height };
-        });
+      const startWorld = engine.screenToWorld(startPoint);
+      const [startX, startY, startW, startH] = element.xywh;
+      const minSize = definition?.capabilities?.minSize ?? { w: 80, h: 60 };
+      const maxSize = definition?.capabilities?.maxSize;
+      const resizeMode = definition?.capabilities?.resizeMode ?? "free";
+      const useRatioRange = resizeMode === "ratio-range" && Boolean(maxSize);
+      const useUniformResize =
+        resizeMode === "uniform" || (resizeMode === "ratio-range" && !maxSize);
+      const meta = resolveCornerMeta(corner, { x: startX, y: startY, w: startW, h: startH });
 
-      if (useUniformResize || useRatioRange) {
-        // 逻辑：等比例/比例区间缩放时不参与吸附，避免破坏比例。
+      engine.setDraggingElementId(element.id);
+      engine.setAlignmentGuides([]);
+
+      const handlePointerMove = (moveEvent: PointerEvent) => {
+        const nextPoint: [number, number] = [
+          moveEvent.clientX - rect.left,
+          moveEvent.clientY - rect.top,
+        ];
+        const nextWorld = engine.screenToWorld(nextPoint);
+        const dx = nextWorld[0] - startWorld[0];
+        const dy = nextWorld[1] - startWorld[1];
+        const useWidth = Math.abs(dx) >= Math.abs(dy);
+        const horizontalSign = meta.isRight ? 1 : -1;
+        const verticalSign = meta.isBottom ? 1 : -1;
+        let nextW = startW + dx * horizontalSign;
+        let nextH = startH + dy * verticalSign;
+        if (useUniformResize) {
+          // 逻辑：等比例缩放时按统一比例计算，确保宽高比不变。
+          const rawScale = useWidth
+            ? nextW / startW
+            : nextH / startH;
+          const minScale = Math.max(
+            minSize.w / startW,
+            minSize.h / startH
+          );
+          const maxScale = maxSize
+            ? Math.min(maxSize.w / startW, maxSize.h / startH)
+            : Number.POSITIVE_INFINITY;
+          const scale = Math.min(maxScale, Math.max(minScale, rawScale));
+          nextW = startW * scale;
+          nextH = startH * scale;
+        } else if (useRatioRange && maxSize) {
+          // 逻辑：按拖拽主轴在 min/max 区间线性插值宽高比。
+          const minRatio = minSize.w / Math.max(minSize.h, 1);
+          const maxRatio = maxSize.w / Math.max(maxSize.h, 1);
+          if (useWidth) {
+            const clampedW = Math.min(maxSize.w, Math.max(minSize.w, nextW));
+            const widthRange = maxSize.w - minSize.w;
+            const t = widthRange === 0 ? 0 : (clampedW - minSize.w) / widthRange;
+            const ratio = minRatio + (maxRatio - minRatio) * t;
+            nextW = clampedW;
+            nextH = clampedW / Math.max(ratio, 0.001);
+          } else {
+            const clampedH = Math.min(maxSize.h, Math.max(minSize.h, nextH));
+            const heightRange = maxSize.h - minSize.h;
+            const t = heightRange === 0 ? 0 : (clampedH - minSize.h) / heightRange;
+            const ratio = minRatio + (maxRatio - minRatio) * t;
+            nextH = clampedH;
+            nextW = clampedH * ratio;
+          }
+        }
+        // 逻辑：保持最小尺寸，避免节点缩放到不可操作。
+        const baseRect = {
+          w: Math.max(minSize.w, nextW),
+          h: Math.max(minSize.h, nextH),
+        };
+        const clampedRect = maxSize
+          ? {
+              w: Math.min(maxSize.w, baseRect.w),
+              h: Math.min(maxSize.h, baseRect.h),
+            }
+          : baseRect;
+        const nextX = meta.isRight ? meta.anchorX : meta.anchorX - clampedRect.w;
+        const nextY = meta.isBottom ? meta.anchorY : meta.anchorY - clampedRect.h;
+
+        if (useUniformResize || useRatioRange) {
+          // 逻辑：等比例/比例区间缩放时不参与吸附，避免破坏比例。
+          engine.doc.updateElement(element.id, {
+            xywh: [nextX, nextY, clampedRect.w, clampedRect.h],
+          });
+          engine.setAlignmentGuides([]);
+          return;
+        }
+        if (corner === "bottom-right") {
+          const { zoom: currentZoom } = engine.viewport.getState();
+          // 逻辑：缩放下按屏幕像素换算吸附阈值。
+          const threshold = SNAP_PIXEL / Math.max(currentZoom, MIN_ZOOM);
+          const margin = GUIDE_MARGIN / Math.max(currentZoom, MIN_ZOOM);
+          const others = engine.doc
+            .getElements()
+            .filter(
+              current => current.kind === "node" && current.id !== element.id
+            )
+            .map(current => {
+              const [x, y, widthValue, heightValue] = current.xywh;
+              return { x, y, w: widthValue, h: heightValue };
+            });
+          const snapped = snapResizeRectSE(
+            { x: nextX, y: nextY, w: clampedRect.w, h: clampedRect.h },
+            others,
+            threshold,
+            margin,
+            minSize
+          );
+          engine.doc.updateElement(element.id, {
+            xywh: [snapped.rect.x, snapped.rect.y, snapped.rect.w, snapped.rect.h],
+          });
+          engine.setAlignmentGuides(snapped.guides);
+          return;
+        }
         engine.doc.updateElement(element.id, {
-          xywh: [clampedRect.x, clampedRect.y, clampedRect.w, clampedRect.h],
+          xywh: [nextX, nextY, clampedRect.w, clampedRect.h],
         });
         engine.setAlignmentGuides([]);
-        return;
-      }
-      const snapped = snapResizeRectSE(clampedRect, others, threshold, margin, minSize);
-      engine.doc.updateElement(element.id, {
-        xywh: [snapped.rect.x, snapped.rect.y, snapped.rect.w, snapped.rect.h],
-      });
-      engine.setAlignmentGuides(snapped.guides);
-    };
+      };
 
-    const handlePointerUp = () => {
-      engine.setDraggingElementId(null);
-      engine.setAlignmentGuides([]);
-      engine.commitHistory();
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-    };
+      const handlePointerUp = () => {
+        engine.setDraggingElementId(null);
+        engine.setAlignmentGuides([]);
+        engine.commitHistory();
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerUp);
+      };
 
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
+      window.addEventListener("pointermove", handlePointerMove);
+      window.addEventListener("pointerup", handlePointerUp);
+    };
+  };
+
+  const cornerPoints: Record<ResizeCorner, { x: number; y: number }> = {
+    "top-left": { x: left, y: top },
+    "top-right": { x: left + width, y: top },
+    "bottom-right": { x: left + width, y: top + height },
+    "bottom-left": { x: left, y: top + height },
   };
 
   return (
-    <button
-      type="button"
-      aria-label="Resize"
-      data-resize-handle
-      onPointerDown={handlePointerDown}
-      className="pointer-events-auto absolute z-20 flex items-center justify-center rounded-md border border-slate-300/70 bg-background/90 text-slate-500 shadow-[0_6px_12px_rgba(15,23,42,0.12)] transition hover:text-slate-800 dark:border-slate-300/60 dark:text-slate-200"
-      style={{ left: x, top: y, width: size, height: size }}
-    >
-      <MoveDiagonal2 size={14} className="pointer-events-none" />
-    </button>
+    <>
+      <div
+        data-board-selection-outline
+        className="pointer-events-none absolute z-10 box-border rounded-none border-2 border-primary"
+        style={{ left, top, width, height }}
+      />
+      {allowHandles
+        ? SINGLE_SELECTION_CORNERS.map((corner) => {
+            const point = cornerPoints[corner.id];
+            return (
+              <button
+                key={corner.id}
+                type="button"
+                aria-label={`Resize ${corner.id}`}
+                data-resize-handle
+                onPointerDown={handlePointerDown(corner.id)}
+                className={[
+                  "pointer-events-auto absolute z-20 box-border rounded-[2px] border-2 border-primary bg-background",
+                  "touch-none -translate-x-1/2 -translate-y-1/2",
+                  corner.cursorClass,
+                ].join(" ")}
+                style={{
+                  left: point.x,
+                  top: point.y,
+                  width: SINGLE_SELECTION_HANDLE_SIZE,
+                  height: SINGLE_SELECTION_HANDLE_SIZE,
+                }}
+              />
+            );
+          })
+        : null}
+    </>
   );
 }
 

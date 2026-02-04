@@ -82,7 +82,6 @@ function createLinkToolbarItems(ctx: CanvasToolbarContext<LinkNodeProps>) {
 /** Render a link node with different display modes. */
 export function LinkNodeView({
   element,
-  selected,
   onUpdate: _onUpdate,
 }: CanvasNodeViewProps<LinkNodeProps>) {
   const { fileContext } = useBoardContext();
@@ -119,9 +118,6 @@ export function LinkNodeView({
 
   return (
     <NodeFrame
-      className={[
-        selected ? "ring-2 ring-primary/30 shadow-[0_10px_24px_rgba(15,23,42,0.18)]" : "",
-      ].join(" ")}
       onDoubleClick={(event) => {
         event.stopPropagation();
         openLinkInStack();

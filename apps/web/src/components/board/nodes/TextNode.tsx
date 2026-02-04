@@ -2,21 +2,43 @@ import type {
   CanvasConnectorTemplateDefinition,
   CanvasNodeDefinition,
   CanvasNodeViewProps,
+  CanvasToolbarContext,
 } from "../engine/types";
 import type {
   ChangeEvent as ReactChangeEvent,
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
+  ReactNode,
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { Play } from "lucide-react";
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  Bold,
+  Italic,
+  Palette,
+  PaintBucket,
+  Play,
+  Strikethrough,
+  Type,
+  Underline,
+} from "lucide-react";
+import { cn } from "@udecode/cn";
 import { useBoardContext } from "../core/BoardProvider";
 import { VIDEO_GENERATE_NODE_TYPE } from "./VideoGenerateNode";
 import { MINDMAP_META } from "../engine/mindmap-layout";
 
 /** Text value stored on the text node. */
 export type TextNodeValue = string;
+
+/** Supported font style for text nodes. */
+export type TextNodeFontStyle = "normal" | "italic";
+/** Supported text decoration for text nodes. */
+export type TextNodeDecoration = "none" | "underline" | "line-through";
+/** Supported text alignment for text nodes. */
+export type TextNodeTextAlign = "left" | "center" | "right";
 
 export type TextNodeProps = {
   /** Text content stored on the node. */
@@ -25,6 +47,20 @@ export type TextNodeProps = {
   autoFocus?: boolean;
   /** Collapsed height stored as view baseline size. */
   collapsedHeight?: number;
+  /** Font size for the text node. */
+  fontSize?: number;
+  /** Font weight for the text node. */
+  fontWeight?: number;
+  /** Font style for the text node. */
+  fontStyle?: TextNodeFontStyle;
+  /** Text decoration for the text node. */
+  textDecoration?: TextNodeDecoration;
+  /** Text alignment for the text node. */
+  textAlign?: TextNodeTextAlign;
+  /** Custom text color for the text node. */
+  color?: string;
+  /** Custom background color for the text node. */
+  backgroundColor?: string;
 };
 
 /** Default text content for new text nodes. */
@@ -33,7 +69,7 @@ const DEFAULT_TEXT_VALUE = "";
 const TEXT_NODE_PLACEHOLDER = "输入文字内容";
 /** Shared text styling for text node content. */
 const TEXT_CONTENT_CLASSNAME =
-  "text-[11px] leading-4 text-slate-600 dark:text-slate-200 md:text-[11px]";
+  "text-[11px] leading-4 text-slate-900 dark:text-slate-100 md:text-[11px]";
 /** Text styling for view mode. */
 const TEXT_VIEW_CLASSNAME = `${TEXT_CONTENT_CLASSNAME} whitespace-pre-wrap break-words`;
 /** Text styling for edit mode. */
@@ -43,10 +79,61 @@ const TEXT_EDIT_CLASSNAME =
 const TEXT_NODE_VERTICAL_PADDING = 32;
 /** Ignore tiny resize deltas to avoid jitter. */
 const TEXT_NODE_RESIZE_EPSILON = 2;
+/** Default font size for text nodes. */
+const TEXT_NODE_DEFAULT_FONT_SIZE = 14;
+/** Default line height multiplier for text nodes. */
+const TEXT_NODE_LINE_HEIGHT = 1.4;
+/** Default height for a single-line text node. */
+export const TEXT_NODE_DEFAULT_HEIGHT = Math.ceil(
+  TEXT_NODE_DEFAULT_FONT_SIZE * TEXT_NODE_LINE_HEIGHT + TEXT_NODE_VERTICAL_PADDING
+);
 /** Minimum size for text nodes. */
-const TEXT_NODE_MIN_SIZE = { w: 200, h: 100 };
+const TEXT_NODE_MIN_SIZE = { w: 200, h: TEXT_NODE_DEFAULT_HEIGHT };
 /** Maximum size for text nodes. */
 const TEXT_NODE_MAX_SIZE = { w: 720, h: 420 };
+/** Default font weight for text nodes. */
+const TEXT_NODE_DEFAULT_FONT_WEIGHT = 400;
+/** Default font style for text nodes. */
+const TEXT_NODE_DEFAULT_FONT_STYLE: TextNodeFontStyle = "normal";
+/** Default text decoration for text nodes. */
+const TEXT_NODE_DEFAULT_TEXT_DECORATION: TextNodeDecoration = "none";
+/** Default text alignment for text nodes. */
+const TEXT_NODE_DEFAULT_TEXT_ALIGN: TextNodeTextAlign = "left";
+/** Auto text color when background is light. */
+const TEXT_NODE_AUTO_TEXT_LIGHT = "#111827";
+/** Auto text color when background is dark. */
+const TEXT_NODE_AUTO_TEXT_DARK = "#ffffff";
+/** Preset font size options for text toolbar. */
+const TEXT_NODE_FONT_SIZES = [12, 14, 16, 18, 20, 24] as const;
+/** Preset font weight options for text toolbar. */
+const TEXT_NODE_FONT_WEIGHTS = [
+  { label: "常规", value: 400 },
+  { label: "中等", value: 500 },
+  { label: "半粗", value: 600 },
+  { label: "加粗", value: 700 },
+] as const;
+/** Preset color options for text toolbar. */
+const TEXT_NODE_COLOR_PRESETS: Array<{ label: string; value?: string }> = [
+  { label: "默认", value: undefined },
+  { label: "黑", value: "#111827" },
+  { label: "蓝", value: "#1d4ed8" },
+  { label: "橙", value: "#f59e0b" },
+  { label: "红", value: "#ef4444" },
+  { label: "绿", value: "#16a34a" },
+  { label: "紫", value: "#7c3aed" },
+  { label: "灰", value: "#6b7280" },
+] as const;
+/** Preset background color options for text toolbar. */
+const TEXT_NODE_BACKGROUND_PRESETS: Array<{ label: string; value?: string }> = [
+  { label: "透明", value: undefined },
+  { label: "黑", value: "#111827" },
+  { label: "蓝", value: "#1d4ed8" },
+  { label: "橙", value: "#f59e0b" },
+  { label: "红", value: "#ef4444" },
+  { label: "绿", value: "#16a34a" },
+  { label: "紫", value: "#7c3aed" },
+  { label: "灰", value: "#6b7280" },
+] as const;
 /** Connector templates offered by the text node. */
 const TEXT_NODE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefinition[] = [
   {
@@ -142,6 +229,302 @@ function getContentScrollHeight(content: HTMLElement): number {
   return measured;
 }
 
+/** Parse hex color to RGB if possible. */
+function parseHexColor(value: string): { r: number; g: number; b: number } | null {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("#")) return null;
+  const hex = trimmed.slice(1);
+  if (hex.length !== 3 && hex.length !== 6) return null;
+  const normalized =
+    hex.length === 3 ? hex.split("").map(char => char + char).join("") : hex;
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+  return { r, g, b };
+}
+
+/** Resolve auto text color based on background brightness. */
+function getAutoTextColor(backgroundColor?: string): string | undefined {
+  if (!backgroundColor) return undefined;
+  const rgb = parseHexColor(backgroundColor);
+  if (!rgb) return undefined;
+  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+  // 逻辑：背景偏暗则使用白字，偏亮则使用黑字。
+  return luminance < 0.5 ? TEXT_NODE_AUTO_TEXT_DARK : TEXT_NODE_AUTO_TEXT_LIGHT;
+}
+
+type TextToolbarPanelButtonProps = {
+  /** Accessible label for the button. */
+  title: string;
+  /** Active state for button styling. */
+  active?: boolean;
+  /** Click handler for the button. */
+  onSelect: () => void;
+  /** Button contents. */
+  children: ReactNode;
+  /** Extra class names for styling. */
+  className?: string;
+};
+
+/** Render a compact button for text toolbar panels. */
+function TextToolbarPanelButton({
+  title,
+  active,
+  onSelect,
+  children,
+  className,
+}: TextToolbarPanelButtonProps) {
+  return (
+    <button
+      type="button"
+      aria-label={title}
+      title={title}
+      onPointerDown={event => {
+        event.preventDefault();
+        event.stopPropagation();
+        // 逻辑：使用 pointerdown 触发，避免 click 被画布层吞掉。
+        onSelect();
+      }}
+      className={cn(
+        "inline-flex h-8 min-w-[32px] items-center justify-center rounded-md px-2 text-[11px] font-medium",
+        "transition-colors",
+        active
+          ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-background"
+          : "hover:bg-accent/70",
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Build toolbar items for text nodes. */
+function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
+  const fontSize = ctx.element.props.fontSize ?? TEXT_NODE_DEFAULT_FONT_SIZE;
+  const fontWeight = ctx.element.props.fontWeight ?? TEXT_NODE_DEFAULT_FONT_WEIGHT;
+  const fontStyle = ctx.element.props.fontStyle ?? TEXT_NODE_DEFAULT_FONT_STYLE;
+  const textDecoration =
+    ctx.element.props.textDecoration ?? TEXT_NODE_DEFAULT_TEXT_DECORATION;
+  const textAlign = ctx.element.props.textAlign ?? TEXT_NODE_DEFAULT_TEXT_ALIGN;
+  const textColor = ctx.element.props.color;
+  const backgroundColor = ctx.element.props.backgroundColor;
+  const autoTextColor = getAutoTextColor(backgroundColor);
+
+  return [
+    {
+      id: "text-size",
+      label: "字号",
+      showLabel: false,
+      icon: <Type size={14} />,
+      panel: (
+        <div className="flex items-center gap-1">
+          {TEXT_NODE_FONT_SIZES.map(size => (
+            <TextToolbarPanelButton
+              key={size}
+              title={`${size}px`}
+              active={fontSize === size}
+              onSelect={() => ctx.updateNodeProps({ fontSize: size })}
+            >
+              {size}
+            </TextToolbarPanelButton>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "text-weight",
+      label: "字重",
+      showLabel: false,
+      icon: <Bold size={14} />,
+      panel: (
+        <div className="flex items-center gap-1">
+          {TEXT_NODE_FONT_WEIGHTS.map(weight => (
+            <TextToolbarPanelButton
+              key={weight.value}
+              title={weight.label}
+              active={fontWeight === weight.value}
+              onSelect={() => ctx.updateNodeProps({ fontWeight: weight.value })}
+            >
+              {weight.label}
+            </TextToolbarPanelButton>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "text-style",
+      label: "样式",
+      showLabel: false,
+      icon: <Italic size={14} />,
+      panel: (
+        <div className="flex items-center gap-1">
+          <TextToolbarPanelButton
+            title="斜体"
+            active={fontStyle === "italic"}
+            onSelect={() =>
+              ctx.updateNodeProps({
+                fontStyle: fontStyle === "italic" ? "normal" : "italic",
+              })
+            }
+          >
+            <Italic size={14} />
+          </TextToolbarPanelButton>
+          <TextToolbarPanelButton
+            title="下划线"
+            active={textDecoration === "underline"}
+            onSelect={() => {
+              const nextDecoration =
+                textDecoration === "underline" ? "none" : "underline";
+              // 逻辑：下划线与删除线互斥，点击切换当前状态。
+              ctx.updateNodeProps({ textDecoration: nextDecoration });
+            }}
+          >
+            <Underline size={14} />
+          </TextToolbarPanelButton>
+          <TextToolbarPanelButton
+            title="删除线"
+            active={textDecoration === "line-through"}
+            onSelect={() => {
+              const nextDecoration =
+                textDecoration === "line-through" ? "none" : "line-through";
+              // 逻辑：删除线与下划线互斥，点击切换当前状态。
+              ctx.updateNodeProps({ textDecoration: nextDecoration });
+            }}
+          >
+            <Strikethrough size={14} />
+          </TextToolbarPanelButton>
+        </div>
+      ),
+    },
+    {
+      id: "text-align",
+      label: "对齐",
+      showLabel: false,
+      icon: <AlignLeft size={14} />,
+      panel: (
+        <div className="flex items-center gap-1">
+          <TextToolbarPanelButton
+            title="左对齐"
+            active={textAlign === "left"}
+            onSelect={() => ctx.updateNodeProps({ textAlign: "left" })}
+          >
+            <AlignLeft size={14} />
+          </TextToolbarPanelButton>
+          <TextToolbarPanelButton
+            title="居中"
+            active={textAlign === "center"}
+            onSelect={() => ctx.updateNodeProps({ textAlign: "center" })}
+          >
+            <AlignCenter size={14} />
+          </TextToolbarPanelButton>
+          <TextToolbarPanelButton
+            title="右对齐"
+            active={textAlign === "right"}
+            onSelect={() => ctx.updateNodeProps({ textAlign: "right" })}
+          >
+            <AlignRight size={14} />
+          </TextToolbarPanelButton>
+        </div>
+      ),
+    },
+    {
+      id: "text-color",
+      label: "文字颜色",
+      showLabel: false,
+      icon: <Palette size={14} />,
+      panel: (
+        <div className="grid grid-cols-4 gap-1">
+          {TEXT_NODE_COLOR_PRESETS.map(color => {
+            const isActive = (color.value ?? undefined) === (textColor ?? undefined);
+            return (
+              <TextToolbarPanelButton
+                key={color.label}
+                title={color.label}
+                active={isActive}
+                onSelect={() => ctx.updateNodeProps({ color: color.value })}
+                className="h-8 w-8 p-0"
+              >
+                {color.value ? (
+                  <span
+                    className={cn(
+                      "h-5 w-5 rounded-full ring-1 ring-border",
+                      isActive
+                        ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
+                        : ""
+                    )}
+                    style={{ backgroundColor: color.value }}
+                  />
+                ) : (
+                  <span
+                    className={cn(
+                      "inline-flex h-5 w-5 items-center justify-center rounded-full ring-1 ring-border text-[10px]",
+                      autoTextColor ? "" : "text-slate-900 dark:text-slate-100",
+                      isActive
+                        ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
+                        : ""
+                    )}
+                    style={autoTextColor ? { color: autoTextColor } : undefined}
+                  >
+                    A
+                  </span>
+                )}
+              </TextToolbarPanelButton>
+            );
+          })}
+        </div>
+      ),
+    },
+    {
+      id: "text-background",
+      label: "背景色",
+      showLabel: false,
+      icon: <PaintBucket size={14} />,
+      panel: (
+        <div className="grid grid-cols-4 gap-1">
+          {TEXT_NODE_BACKGROUND_PRESETS.map(color => {
+            const isActive =
+              (color.value ?? undefined) === (backgroundColor ?? undefined);
+            return (
+              <TextToolbarPanelButton
+                key={color.label}
+                title={color.label}
+                active={isActive}
+                onSelect={() => ctx.updateNodeProps({ backgroundColor: color.value })}
+                className="h-8 w-8 p-0"
+              >
+                {color.value ? (
+                  <span
+                    className={cn(
+                      "h-5 w-5 rounded-sm ring-1 ring-border",
+                      isActive
+                        ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
+                        : ""
+                    )}
+                    style={{ backgroundColor: color.value }}
+                  />
+                ) : (
+                  <span
+                    className={cn(
+                      "inline-flex h-5 w-5 items-center justify-center rounded-sm ring-1 ring-border text-[10px] text-slate-500",
+                      isActive
+                        ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
+                        : ""
+                    )}
+                  >
+                    透
+                  </span>
+                )}
+              </TextToolbarPanelButton>
+            );
+          })}
+        </div>
+      ),
+    },
+  ];
+}
+
 /** Render a text node with plain textarea editing. */
 export function TextNodeView({
   element,
@@ -195,6 +578,35 @@ export function TextNodeView({
     () => normalizeTextValue(element.props.value),
     [element.props.value]
   );
+  /** Resolved text alignment for view/edit modes. */
+  const textAlign = element.props.textAlign ?? TEXT_NODE_DEFAULT_TEXT_ALIGN;
+  const backgroundColor = element.props.backgroundColor;
+  const autoTextColor = useMemo(
+    () => getAutoTextColor(backgroundColor),
+    [backgroundColor]
+  );
+  /** Resolved text style for view/edit modes. */
+  const textStyle = useMemo(() => {
+    const resolvedColor = element.props.color ?? autoTextColor;
+    return {
+      fontSize: element.props.fontSize ?? TEXT_NODE_DEFAULT_FONT_SIZE,
+      fontWeight: element.props.fontWeight ?? TEXT_NODE_DEFAULT_FONT_WEIGHT,
+      fontStyle: element.props.fontStyle ?? TEXT_NODE_DEFAULT_FONT_STYLE,
+      textDecoration: element.props.textDecoration ?? TEXT_NODE_DEFAULT_TEXT_DECORATION,
+      textAlign,
+      lineHeight: TEXT_NODE_LINE_HEIGHT,
+      color: resolvedColor || undefined,
+    } as const;
+  }, [
+    autoTextColor,
+    element.props.color,
+    element.props.fontSize,
+    element.props.fontStyle,
+    element.props.fontWeight,
+    element.props.textAlign,
+    element.props.textDecoration,
+    textAlign,
+  ]);
   /** Local draft text for editing. */
   const [draftText, setDraftText] = useState(normalizedValue);
   /** Whether the text node has any real content. */
@@ -500,19 +912,24 @@ export function TextNodeView({
     [expandToContent, isEditing, isGhost, onUpdate]
   );
 
+  const containerStyle = backgroundColor ? { backgroundColor } : undefined;
+  const overflowOverlayStyle = backgroundColor
+    ? { backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0), ${backgroundColor})` }
+    : undefined;
+  const overflowOverlayClassName = cn(
+    "pointer-events-none absolute bottom-0 left-0 h-10 w-full rounded-b-sm",
+    backgroundColor
+      ? ""
+      : "bg-gradient-to-b from-transparent to-white dark:to-slate-900"
+  );
   const containerClasses = [
-    "relative h-full w-full rounded-sm border box-border p-2.5",
-    "border-slate-300 bg-white",
-    "dark:border-slate-700 dark:bg-slate-900",
+    "relative h-full w-full rounded-sm box-border p-2.5",
+    isEditing && !backgroundColor
+      ? "bg-white/90 dark:bg-slate-900/80"
+      : "bg-transparent",
     "text-slate-900 dark:text-slate-100",
     isEditing ? "cursor-text overflow-visible" : "cursor-default overflow-hidden",
-    selected
-      ? "dark:border-sky-400 dark:shadow-[0_6px_14px_rgba(0,0,0,0.35)]"
-      : "",
   ].join(" ");
-
-  const containerStyle =
-    !isEditing && branchColor ? ({ borderColor: branchColor } as const) : undefined;
   if (isGhost) {
     return (
       <button
@@ -536,12 +953,14 @@ export function TextNodeView({
       <div
         ref={containerRef}
         className={containerClasses}
+        style={containerStyle}
         data-board-editor="true"
         onDoubleClick={handleDoubleClick}
       >
         <textarea
           ref={setTextareaRef}
           className={TEXT_EDIT_CLASSNAME}
+          style={textStyle}
           value={draftText}
           onChange={handleTextChange}
           onBlur={handleEditorBlur}
@@ -549,7 +968,10 @@ export function TextNodeView({
           data-allow-context-menu
         />
         {isEmpty ? (
-          <div className="pointer-events-none absolute left-4 top-3 text-[11px] leading-4 text-slate-400 dark:text-slate-500">
+          <div
+            className="pointer-events-none absolute left-4 right-4 top-3 text-[11px] leading-4 text-slate-400 dark:text-slate-500"
+            style={{ textAlign }}
+          >
             {TEXT_NODE_PLACEHOLDER}
           </div>
         ) : null}
@@ -564,16 +986,19 @@ export function TextNodeView({
       style={containerStyle}
       onDoubleClick={handleDoubleClick}
     >
-      <div ref={setContentDivRef} className={TEXT_VIEW_CLASSNAME}>
+      <div ref={setContentDivRef} className={TEXT_VIEW_CLASSNAME} style={textStyle}>
         {draftText}
       </div>
       {isEmpty ? (
-        <div className="pointer-events-none absolute left-4 top-3 text-[11px] leading-4 text-slate-400 dark:text-slate-500">
+        <div
+          className="pointer-events-none absolute left-4 right-4 top-3 text-[11px] leading-4 text-slate-400 dark:text-slate-500"
+          style={{ textAlign }}
+        >
           {TEXT_NODE_PLACEHOLDER}
         </div>
       ) : null}
       {!isEditing && isOverflowing ? (
-        <div className="pointer-events-none absolute bottom-0 left-0 h-10 w-full rounded-b-sm bg-gradient-to-b from-transparent to-white dark:to-slate-900" />
+        <div className={overflowOverlayClassName} style={overflowOverlayStyle} />
       ) : null}
     </div>
   );
@@ -586,14 +1011,29 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     value: z.string(),
     autoFocus: z.boolean().optional(),
     collapsedHeight: z.number().optional(),
+    fontSize: z.number().optional(),
+    fontWeight: z.number().optional(),
+    fontStyle: z.enum(["normal", "italic"]).optional(),
+    textDecoration: z.enum(["none", "underline", "line-through"]).optional(),
+    textAlign: z.enum(["left", "center", "right"]).optional(),
+    color: z.string().optional(),
+    backgroundColor: z.string().optional(),
   }),
   defaultProps: {
     value: DEFAULT_TEXT_VALUE,
     autoFocus: false,
     collapsedHeight: undefined,
+    fontSize: TEXT_NODE_DEFAULT_FONT_SIZE,
+    fontWeight: TEXT_NODE_DEFAULT_FONT_WEIGHT,
+    fontStyle: TEXT_NODE_DEFAULT_FONT_STYLE,
+    textDecoration: TEXT_NODE_DEFAULT_TEXT_DECORATION,
+    textAlign: TEXT_NODE_DEFAULT_TEXT_ALIGN,
+    color: undefined,
+    backgroundColor: undefined,
   },
   view: TextNodeView,
   connectorTemplates: () => TEXT_NODE_CONNECTOR_TEMPLATES,
+  toolbar: ctx => createTextToolbarItems(ctx),
   capabilities: {
     resizable: true,
     rotatable: false,

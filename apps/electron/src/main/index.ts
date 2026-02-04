@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, session, nativeImage } from 'electron';
 import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
+import path from 'path';
 import { installAutoUpdate } from './autoUpdate';
 import {
   createStartupLogger,
@@ -18,6 +19,10 @@ import {
 } from './resolveWindowIcon';
 
 const APP_DISPLAY_NAME = 'Tenas';
+// 中文注释：桌面端协议名称，用于从浏览器唤起应用。
+const APP_PROTOCOL = 'tenas';
+// 中文注释：协议唤起 URL 前缀。
+const APP_PROTOCOL_PREFIX = `${APP_PROTOCOL}://`;
 
 /**
  * A 方案架构说明：
@@ -32,6 +37,7 @@ registerProcessErrorLogging(log);
 app.setName(APP_DISPLAY_NAME);
 // 同步 macOS 关于面板的应用显示名，避免 dev 模式仍显示 Electron。
 app.setAboutPanelOptions({ applicationName: APP_DISPLAY_NAME });
+registerProtocolClient(log);
 
 log(`App starting. UserData: ${app.getPath('userData')}`);
 log(`Executable: ${process.execPath}`);
@@ -62,6 +68,59 @@ let services: ServiceManager | null = null;
 let mainWindow: BrowserWindow | null = null;
 /** Whether React DevTools has been installed in this session. */
 let reactDevToolsInstalled = false;
+// 中文注释：应用未就绪前缓存的协议唤起链接。
+let pendingProtocolUrl: string | null = null;
+
+/** Extract protocol URL from a argv list. */
+function extractProtocolUrl(argv: string[]): string | null {
+  return argv.find((arg) => arg.startsWith(APP_PROTOCOL_PREFIX)) ?? null;
+}
+
+/** Register the app as the default protocol client. */
+function registerProtocolClient(log: Logger): void {
+  if (app.isPackaged) {
+    const registered = app.setAsDefaultProtocolClient(APP_PROTOCOL);
+    log(`Protocol client registration (${APP_PROTOCOL}): ${registered ? 'ok' : 'failed'}`);
+    return;
+  }
+  const appEntry = process.argv[1];
+  if (!appEntry) {
+    const registered = app.setAsDefaultProtocolClient(APP_PROTOCOL);
+    log(`Protocol client registration (${APP_PROTOCOL}): ${registered ? 'ok' : 'failed'}`);
+    return;
+  }
+  const registered = app.setAsDefaultProtocolClient(APP_PROTOCOL, process.execPath, [
+    path.resolve(appEntry),
+  ]);
+  log(`Protocol client registration (${APP_PROTOCOL}): ${registered ? 'ok' : 'failed'}`);
+}
+
+/** Focus the existing main window if possible. */
+function focusMainWindow(): BrowserWindow | null {
+  const win = mainWindow ?? BrowserWindow.getAllWindows()[0] ?? null;
+  if (!win) return null;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+  return win;
+}
+
+/** Handle incoming protocol URL. */
+function handleProtocolUrl(url: string): void {
+  // 中文注释：协议唤起时优先聚焦主窗口，后续可扩展为路由跳转。
+  if (!focusMainWindow()) {
+    pendingProtocolUrl = url;
+    return;
+  }
+  pendingProtocolUrl = null;
+  log(`Protocol URL handled: ${url}`);
+}
+
+// 中文注释：记录启动时传入的协议链接，待窗口准备就绪后处理。
+const initialProtocolUrl = extractProtocolUrl(process.argv);
+if (initialProtocolUrl) {
+  pendingProtocolUrl = initialProtocolUrl;
+}
 
 type ProxyConfig = {
   rules: string;
@@ -339,6 +398,9 @@ async function boot() {
     initialCdpPort,
   });
   mainWindow = created.win;
+  if (pendingProtocolUrl) {
+    handleProtocolUrl(pendingProtocolUrl);
+  }
 
   // 打包版自动检查更新；dev 模式会自动跳过。
   installAutoUpdate({ log });
@@ -357,13 +419,21 @@ if (!gotTheLock) {
   log('Could not get single instance lock. Quitting.');
   app.quit();
 } else {
+  app.on('open-url', (event, url) => {
+    // 中文注释：macOS 协议唤起回调。
+    event.preventDefault();
+    handleProtocolUrl(url);
+  });
+
   // 第二个实例启动时：把现有窗口拉到前台即可。
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
     log('Second instance detected.');
-    const win = mainWindow ?? BrowserWindow.getAllWindows()[0] ?? null;
-    if (!win) return;
-    if (win.isMinimized()) win.restore();
-    win.focus();
+    const protocolUrl = extractProtocolUrl(argv);
+    if (protocolUrl) {
+      handleProtocolUrl(protocolUrl);
+      return;
+    }
+    focusMainWindow();
   });
 
   // 退出前：清理子进程/本地服务。

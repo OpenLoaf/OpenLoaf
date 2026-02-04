@@ -8,16 +8,13 @@ import { NodeFrame } from "./NodeFrame";
 export type CalendarNodeProps = Record<string, never>;
 
 /** Render a calendar node with internal size toolbar. */
-export function CalendarNodeView({
-  selected,
-}: CanvasNodeViewProps<CalendarNodeProps>) {
+export function CalendarNodeView(_props: CanvasNodeViewProps<CalendarNodeProps>) {
   return (
     <NodeFrame>
       <div
         className={[
           "h-full w-full min-h-0 min-w-0 rounded-sm border border-slate-300 box-border",
           "bg-white/95 dark:border-slate-700 dark:bg-slate-900/90",
-          selected ? "shadow-[0_8px_18px_rgba(15,23,42,0.18)]" : "shadow-none",
         ].join(" ")}
       >
         {/* 逻辑：日历直接填充节点容器。 */}

@@ -345,7 +345,11 @@ export type CanvasToolbarItem = {
   /** Toolbar action icon. */
   icon: ReactNode;
   /** Toolbar action handler. */
-  onSelect: () => void;
+  onSelect?: () => void;
+  /** Optional panel content for secondary toolbar controls. */
+  panel?: ReactNode | ((ctx: { closePanel: () => void }) => ReactNode);
+  /** Optional className for the panel container. */
+  panelClassName?: string;
 };
 
 /** Toolbar context passed to node definitions. */

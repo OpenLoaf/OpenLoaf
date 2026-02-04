@@ -8,6 +8,14 @@
     "appId": "com.hexems.tenas",
     "productName": "Tenas",
     "asar": true,
+    "protocols": [
+      {
+        "name": "Tenas",
+        "schemes": [
+          "tenas"
+        ]
+      }
+    ],
     "extraMetadata": {
       "main": ".webpack/arm64/main/index.js"
     },

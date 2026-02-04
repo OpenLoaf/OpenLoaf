@@ -15,15 +15,13 @@ export type GroupNodeProps = {
 };
 
 /** Render a transparent group container. */
-function GroupNodeView({ selected }: CanvasNodeViewProps<GroupNodeProps>) {
+function GroupNodeView(_props: CanvasNodeViewProps<GroupNodeProps>) {
   return (
     <NodeFrame>
       <div
         className={cn(
           "pointer-events-none absolute inset-0 rounded-sm border-[4px] border-dashed",
-          selected
-            ? "border-slate-600/90 dark:border-slate-200/90"
-            : "border-slate-500/70 dark:border-slate-300/70"
+          "border-slate-500/70 dark:border-slate-300/70"
         )}
       />
     </NodeFrame>

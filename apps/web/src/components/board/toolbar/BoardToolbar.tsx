@@ -21,6 +21,7 @@ import { HoverPanel, IconBtn, PanelItem, toolbarSurfaceClassName } from "../ui/T
 import { IMAGE_GENERATE_NODE_TYPE } from "../nodes/ImageGenerateNode";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "../nodes/ImagePromptGenerateNode";
 import { VIDEO_GENERATE_NODE_TYPE } from "../nodes/VideoGenerateNode";
+import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
 import { useBoardContext } from "../core/BoardProvider";
 import { fileToBase64 } from "../utils/base64";
 import {
@@ -341,7 +342,7 @@ const INSERT_ITEMS: InsertItem[] = [
     icon: PageIcon,
     nodeType: "text",
     props: { autoFocus: true },
-    size: [200, 100],
+    size: [200, TEXT_NODE_DEFAULT_HEIGHT],
   },
   {
     id: "image",

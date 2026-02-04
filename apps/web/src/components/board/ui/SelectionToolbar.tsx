@@ -9,7 +9,7 @@ import type {
   CanvasToolbarItem,
 } from "../engine/types";
 import { toScreenPoint } from "../utils/coordinates";
-import { PanelItem, toolbarSurfaceClassName } from "./ToolbarParts";
+import { HoverPanel, PanelItem, toolbarSurfaceClassName } from "./ToolbarParts";
 import { useBoardEngine } from "../core/BoardProvider";
 import { useBoardViewState } from "../core/useBoardViewState";
 
@@ -58,28 +58,58 @@ function SelectionToolbarContainer({
 type ToolbarGroupProps = {
   /** Items to render in the toolbar group. */
   items: CanvasToolbarItem[];
+  /** Currently open panel id. */
+  openPanelId: string | null;
+  /** Update panel open state. */
+  setOpenPanelId: (panelId: string | null) => void;
   /** Whether to render a trailing divider. */
   showDivider?: boolean;
 };
 
 /** Render a group of toolbar items with optional divider. */
-function ToolbarGroup({ items, showDivider }: ToolbarGroupProps) {
+function ToolbarGroup({ items, openPanelId, setOpenPanelId, showDivider }: ToolbarGroupProps) {
   if (items.length === 0) return null;
   return (
     <>
-      {items.map(item => (
-        <PanelItem
-          key={item.id}
-          title={item.label}
-          size="sm"
-          active={item.active}
-          onClick={() => item.onSelect()}
-          showLabel={item.showLabel}
-          className={item.id === "delete" ? "text-destructive hover:bg-destructive/10" : ""}
-        >
-          {item.icon}
-        </PanelItem>
-      ))}
+      {items.map(item => {
+        const hasPanel = Boolean(item.panel);
+        const isPanelOpen = openPanelId === item.id;
+        const panelContent = item.panel
+          ? typeof item.panel === "function"
+            ? item.panel({ closePanel: () => setOpenPanelId(null) })
+            : item.panel
+          : null;
+        const isActive = Boolean(item.active) || isPanelOpen;
+        return (
+          <div key={item.id} className="relative">
+            <PanelItem
+              title={item.label}
+              size="sm"
+              active={isActive}
+              onClick={() => {
+                if (hasPanel) {
+                  setOpenPanelId(isPanelOpen ? null : item.id);
+                  return;
+                }
+                setOpenPanelId(null);
+                item.onSelect?.();
+              }}
+              showLabel={item.showLabel}
+              className={item.id === "delete" ? "text-destructive hover:bg-destructive/10" : ""}
+            >
+              {item.icon}
+            </PanelItem>
+            {panelContent ? (
+              <HoverPanel
+                open={isPanelOpen}
+                className={cn("w-max", item.panelClassName)}
+              >
+                {panelContent}
+              </HoverPanel>
+            ) : null}
+          </div>
+        );
+      })}
       {showDivider ? <span className="mx-1 h-5 w-px bg-border" /> : null}
     </>
   );

@@ -57,7 +57,6 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
 /** Render a video node card. */
 export function VideoNodeView({
   element,
-  selected,
 }: CanvasNodeViewProps<VideoNodeProps>) {
   const { fileContext } = useBoardContext();
   const { workspace } = useWorkspace();
@@ -122,7 +121,6 @@ export function VideoNodeView({
           "flex h-full w-full items-center justify-center rounded-sm border box-border",
           "border-slate-200 bg-white text-slate-900",
           "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
-          selected ? "shadow-[0_8px_18px_rgba(15,23,42,0.18)]" : "shadow-none",
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();

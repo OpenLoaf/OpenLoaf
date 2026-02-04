@@ -1,15 +1,14 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settings/settingsService";
-import {
-  MODEL_TAG_LABELS,
-  type ChatModelSource,
-  type ModelDefinition,
-  type ModelTag,
-} from "@tenas-ai/api/common";
+import { type ChatModelSource, type ModelDefinition, type ModelTag } from "@tenas-ai/api/common";
 import { getModelDefinition, getProviderDefinition } from "@/ai/models/modelRegistry";
 import { PROVIDER_ADAPTERS } from "@/ai/models/providerAdapters";
 import { buildCliProviderEntries } from "@/ai/models/cli/cliProviderEntry";
 import { fetchModelList, getSaasBaseUrl } from "@/modules/saas";
+import {
+  mapCloudChatModels,
+  type CloudChatModelsResponse,
+} from "@/ai/models/cloudModelMapper";
 
 type ResolvedChatModel = {
   model: LanguageModelV3;
@@ -56,76 +55,39 @@ function normalizeChatModelSource(raw?: string | null): ChatModelSource {
   return raw === "cloud" ? "cloud" : "local";
 }
 
-type CloudModelListItem = {
-  id: string;
-  provider: string;
-  displayName: string;
-  tags: string[];
-};
-
-type CloudModelListResponse = {
-  /** Success flag from SaaS. */
-  success: false;
-  /** Error message from SaaS. */
-  message: string;
-  /** Optional error code. */
-  code?: string;
-} | {
-  /** Success flag from SaaS. */
-  success: true;
-  /** Cloud model list payload. */
-  data: {
-    data: CloudModelListItem[];
-    updatedAt?: string;
-  };
-};
-
-/** Convert SaaS model list into local ModelDefinition. */
-function mapCloudModels(items: CloudModelListItem[]): ModelDefinition[] {
-  const tagSet = new Set(Object.keys(MODEL_TAG_LABELS) as ModelTag[]);
-  const normalizeTags = (tags: string[]): ModelTag[] =>
-    tags.filter((tag): tag is ModelTag => tagSet.has(tag as ModelTag));
-
-  return items.map((item) => ({
-    id: item.id,
-    name: item.displayName,
-    familyId: item.id,
-    providerId: item.provider,
-    tags: normalizeTags(Array.isArray(item.tags) ? item.tags : []),
-    maxContextK: 0,
-  }));
-}
-
 /** Normalize cloud models into provider settings entries. */
 function buildCloudProviderEntries(input: {
   models: ModelDefinition[];
   apiUrl: string;
   apiKey: string;
+  adapterId: string;
 }): ProviderSettingEntry[] {
   const providerMap = new Map<string, ProviderSettingEntry>();
   const now = new Date();
 
   for (const model of input.models) {
     if (!model || typeof model.id !== "string" || !model.providerId) continue;
-    const providerId = model.providerId;
-    let entry = providerMap.get(providerId);
+    const providerKey = model.providerId;
+    let entry = providerMap.get(providerKey);
     if (!entry) {
-      const providerDefinition = getProviderDefinition(providerId);
+      const providerDefinition = getProviderDefinition(providerKey);
       entry = {
-        id: providerId,
-        key: providerDefinition?.label ?? providerId,
-        providerId,
+        id: providerKey,
+        key: providerDefinition?.label ?? providerKey,
+        // 中文注释：云端调用统一走 SaaS adapter，保留 providerKey 仅用于分组与 chatModelId。
+        providerId: input.adapterId,
         apiUrl: input.apiUrl,
         authConfig: { apiKey: input.apiKey },
         models: {},
         updatedAt: now,
       };
-      providerMap.set(providerId, entry);
+      providerMap.set(providerKey, entry);
     }
     // 中文注释：确保模型列表中包含 providerId，避免 SaaS 返回空值。
     entry.models[model.id] = {
       ...model,
-      providerId,
+      // 中文注释：模型定义改写为 SaaS adapter，避免解析时回退到真实 provider。
+      providerId: input.adapterId,
       tags: Array.isArray(model.tags) ? model.tags : [],
     };
   }
@@ -331,15 +293,16 @@ async function resolveCloudChatModel(input: {
   } catch {
     throw new Error("云端地址未配置");
   }
-  const payload = (await fetchModelList(accessToken)) as CloudModelListResponse | null;
+  const payload = (await fetchModelList(accessToken)) as CloudChatModelsResponse | null;
   if (!payload || payload.success !== true || !Array.isArray(payload.data?.data)) {
     throw new Error("云端模型列表获取失败");
   }
-  const models = mapCloudModels(payload.data.data);
+  const models = mapCloudChatModels(payload.data.data);
   const providers = buildCloudProviderEntries({
     models,
-    apiUrl: `${saasBaseUrl}/tenas-ai/v1`,
+    apiUrl: `${saasBaseUrl}/api`,
     apiKey: accessToken,
+    adapterId: "tenas-saas",
   });
   return resolveChatModelFromProviders({
     providers,

@@ -374,7 +374,6 @@ export function ImageNodeView({
       <div
         className={[
           "relative h-full w-full overflow-hidden rounded-sm box-border",
-          selected ? "shadow-[0_8px_18px_rgba(15,23,42,0.18)]" : "shadow-none",
         ].join(" ")}
         onPointerDownCapture={event => {
           if (isLocked) return;

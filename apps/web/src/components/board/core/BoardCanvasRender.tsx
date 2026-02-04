@@ -16,7 +16,7 @@ import { MiniMap } from "./MiniMap";
 import {
   MultiSelectionOutline,
   MultiSelectionToolbar,
-  SingleSelectionResizeHandle,
+  SingleSelectionOutline,
   SingleSelectionToolbar,
 } from "./SelectionOverlay";
 import { useBoardViewState } from "./useBoardViewState";
@@ -137,7 +137,7 @@ export function BoardCanvasRender({
       ) : null}
       {showUi ? <MultiSelectionOutline snapshot={snapshot} engine={engine} /> : null}
       {showUi && selectedNode ? (
-        <SingleSelectionResizeHandle snapshot={snapshot} engine={engine} element={selectedNode} />
+        <SingleSelectionOutline snapshot={snapshot} engine={engine} element={selectedNode} />
       ) : null}
       {showUi && selectedNode ? (
         <SingleSelectionToolbar
