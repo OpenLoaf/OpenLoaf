@@ -18,6 +18,8 @@ export function waitForWebContentsViewReady(viewKey: string): Promise<WebContent
   }
 
   return new Promise((resolve) => {
+    // 中文注释：必须先观察到 loading=true，避免初始状态 loading=false 导致过早回执。
+    let sawLoading = false;
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<TenasWebContentsViewStatus>).detail;
       if (!detail || detail.key !== key) return;
@@ -27,7 +29,10 @@ export function waitForWebContentsViewReady(viewKey: string): Promise<WebContent
         resolve({ status: "failed", detail });
         return;
       }
-      const isReady = detail.ready === true || detail.loading === false;
+      if (detail.loading === true) {
+        sawLoading = true;
+      }
+      const isReady = detail.ready === true || (detail.loading === false && sawLoading);
       if (!isReady) return;
       window.removeEventListener("tenas:webcontents-view:status", handler);
       resolve({ status: "ready", detail });

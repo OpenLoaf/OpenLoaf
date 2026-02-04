@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { Streamdown, defaultRemarkPlugins } from "streamdown";
 import type { BundledTheme } from "shiki";
@@ -14,6 +21,7 @@ import { trpc } from "@/utils/trpc";
 import CodeViewer, { type CodeViewerActions, type CodeViewerStatus } from "@/components/file/CodeViewer";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { ReadFileErrorFallback } from "@/components/file/lib/read-file-error";
+import { stopFindShortcutPropagation } from "@/components/file/lib/viewer-shortcuts";
 
 import "./style/streamdown-viewer.css";
 
@@ -368,6 +376,12 @@ export default function MarkdownViewer({
   /** Trigger undo from the stack header. */
   const handleUndo = () => codeActionsRef.current?.undo();
 
+  /** Intercept Cmd/Ctrl+F to avoid triggering global search overlay. */
+  const handleFindShortcut = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    // 逻辑：在 Markdown 预览/编辑区域阻止 Cmd/Ctrl+F 冒泡，让浏览器默认查找生效。
+    stopFindShortcutPropagation(event);
+  }, []);
+
   const previewContent = !hasInlineContent && fileQuery.isLoading ? (
     <div className="h-full w-full p-4 text-muted-foreground">加载中…</div>
   ) : !hasInlineContent && fileQuery.data?.tooLarge ? (
@@ -425,7 +439,7 @@ export default function MarkdownViewer({
   );
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden">
+    <div className="flex h-full w-full flex-col overflow-hidden" onKeyDown={handleFindShortcut}>
       {shouldRenderStackHeader ? (
         <StackHeader
           title={displayTitle}

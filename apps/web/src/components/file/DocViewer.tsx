@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { exportToDocx, importDocx } from "@platejs/docx-io";
 import { DocxPlugin } from "@platejs/docx";
@@ -36,6 +43,7 @@ import { Toolbar, ToolbarButton, ToolbarGroup } from "@tenas-ai/ui/toolbar";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
+import { stopFindShortcutPropagation } from "@/components/file/lib/viewer-shortcuts";
 
 interface DocViewerProps {
   /** File uri to preview. */
@@ -288,6 +296,12 @@ export default function DocViewer({
     setMode((prev) => (prev === "preview" ? "edit" : "preview"));
   };
 
+  /** Intercept Cmd/Ctrl+F to avoid triggering global search overlay. */
+  const handleFindShortcut = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    // 逻辑：在文档预览/编辑区域阻止 Cmd/Ctrl+F 冒泡，让浏览器默认查找生效。
+    stopFindShortcutPropagation(event);
+  }, []);
+
   /** Save current document to docx file. */
   const handleSave = async () => {
     // 逻辑：仅在可编辑且内容变更时保存。
@@ -325,7 +339,7 @@ export default function DocViewer({
   }
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden">
+    <div className="flex h-full w-full flex-col overflow-hidden" onKeyDown={handleFindShortcut}>
       {shouldRenderStackHeader ? (
         <StackHeader
           title={displayTitle}

@@ -39,9 +39,8 @@ import {
   DialogTitle,
 } from "@tenas-ai/ui/dialog";
 import { Input } from "@tenas-ai/ui/input";
-import { Switch } from "@tenas-ai/ui/switch";
-import { Label } from "@tenas-ai/ui/label";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
+import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 
 export const SidebarWorkspace = () => {
   const { workspace } = useWorkspace();
@@ -51,19 +50,11 @@ export const SidebarWorkspace = () => {
   const [newWorkspaceName, setNewWorkspaceName] = React.useState("");
   // Login dialog open state.
   const [loginOpen, setLoginOpen] = React.useState(false);
-  // Login provider selection.
-  const [loginProvider, setLoginProvider] = React.useState<"google" | "wechat">("google");
   // Workspace dropdown open state.
   const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
   const {
     loggedIn: authLoggedIn,
     user: authUser,
-    loginStatus,
-    loginError,
-    remember,
-    setRemember,
-    startLogin,
-    cancelLogin,
     refreshSession,
     logout,
   } = useSaasAuth();
@@ -133,18 +124,6 @@ export const SidebarWorkspace = () => {
     setLoginOpen(true);
   };
 
-  /** Begin the SaaS login flow. */
-  const handleStartLogin = async () => {
-    setLoginOpen(true);
-    await startLogin(loginProvider);
-  };
-
-  /** Cancel the login flow and stop polling. */
-  const handleCancelLogin = () => {
-    cancelLogin();
-    setLoginOpen(false);
-  };
-
   /** Clear SaaS login and local UI state. */
   const handleLogout = async () => {
     try {
@@ -158,59 +137,7 @@ export const SidebarWorkspace = () => {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <Dialog open={loginOpen} onOpenChange={(open) => !open && void handleCancelLogin()}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>登录云端账号</DialogTitle>
-              <DialogDescription>
-                {loginStatus === "opening" && "正在打开系统浏览器…"}
-                {loginStatus === "polling" && "等待登录完成…"}
-                {loginStatus === "error" && (loginError ?? "登录失败，请重试")}
-                {loginStatus === "idle" && "选择登录方式并继续"}
-              </DialogDescription>
-            </DialogHeader>
-            {loginStatus === "idle" || loginStatus === "error" ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant={loginProvider === "google" ? "default" : "outline"}
-                    onClick={() => setLoginProvider("google")}
-                  >
-                    Google
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={loginProvider === "wechat" ? "default" : "outline"}
-                    onClick={() => setLoginProvider("wechat")}
-                  >
-                    微信
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2">
-                  <Label htmlFor="saas-remember" className="text-sm">
-                    记住登录
-                  </Label>
-                  <Switch
-                    id="saas-remember"
-                    checked={remember}
-                    onCheckedChange={setRemember}
-                  />
-                </div>
-              </div>
-            ) : null}
-            <DialogFooter className="gap-2">
-              {loginStatus === "polling" || loginStatus === "opening" ? null : (
-                <Button type="button" onClick={handleStartLogin}>
-                  {loginStatus === "error" ? "重新打开登录页" : "开始登录"}
-                </Button>
-              )}
-              <Button type="button" variant="outline" onClick={handleCancelLogin}>
-                取消登录
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
 
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DropdownMenu open={workspaceOpen} onOpenChange={setWorkspaceOpen}>

@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MutableRefObject,
+} from "react";
 import { useTheme } from "next-themes";
 import type { PointerEvent } from "react";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +23,7 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { ReadFileErrorFallback } from "@/components/file/lib/read-file-error";
+import { stopFindShortcutPropagation } from "@/components/file/lib/viewer-shortcuts";
 
 export type CodeViewerActions = {
   save: () => void;
@@ -438,6 +447,12 @@ export default function CodeViewer({
     toolbarPointerDownRef.current = false;
   }, []);
 
+  /** Intercept Cmd/Ctrl+F to avoid triggering global search overlay. */
+  const handleFindShortcut = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    // 逻辑：在代码预览内阻止 Cmd/Ctrl+F 冒泡，让 Monaco 自己处理查找。
+    stopFindShortcutPropagation(event);
+  }, []);
+
   /** Copy selection to clipboard. */
   const handleCopy = useCallback(async () => {
     const range = selectionOffsetRef.current;
@@ -602,7 +617,7 @@ export default function CodeViewer({
   }`;
 
   return (
-    <div ref={containerRef} className={containerClassName}>
+    <div ref={containerRef} className={containerClassName} onKeyDown={handleFindShortcut}>
       {selectionRect ? (
         <div
           className="absolute z-10 flex items-center gap-1 rounded-md border border-border/70 bg-background/95 px-1.5 py-1 shadow-sm"

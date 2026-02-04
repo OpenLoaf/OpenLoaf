@@ -268,6 +268,9 @@ export default function ChatCoreProvider({
   const deleteMessageSubtreeMutation = useMutation(
     trpc.chatmessage.deleteManyChatMessage.mutationOptions()
   );
+  const updateApprovalMutation = useMutation({
+    ...trpc.chatmessage.updateOneChatMessage.mutationOptions(),
+  });
   const sessionIdRef = React.useRef(sessionId);
   sessionIdRef.current = sessionId;
   const chatModelIdRef = React.useRef<string | null>(
@@ -1085,11 +1088,6 @@ export default function ChatCoreProvider({
     ]
   );
 
-  const stopGenerating = React.useCallback(() => {
-    // 中文注释：使用 AI SDK 内置中断，直接终止当前请求。
-    chat.stop();
-  }, [chat]);
-
   const toolParts = useChatRuntime((state) => {
     if (!tabId) return EMPTY_TOOL_PARTS;
     return state.toolPartsByTabId[tabId] ?? EMPTY_TOOL_PARTS;
@@ -1102,6 +1100,67 @@ export default function ChatCoreProvider({
     },
     [tabId, upsertToolPart]
   );
+
+  /** Reject pending tool approvals after manual stop. */
+  const rejectPendingToolApprovals = React.useCallback(async () => {
+    const messages = (chat.messages ?? []) as UIMessage[];
+    if (messages.length === 0) return;
+    const updates: Array<{ messageId: string; nextParts: unknown[] }> = [];
+    for (const message of messages) {
+      const parts = Array.isArray((message as any)?.parts) ? (message as any).parts : [];
+      if (parts.length === 0) continue;
+      let changed = false;
+      const nextParts = parts.map((part: any) => {
+        if (!part || typeof part !== "object") return part;
+        const type = typeof part.type === "string" ? part.type : "";
+        const isTool =
+          type === "dynamic-tool" ||
+          type.startsWith("tool-") ||
+          typeof part.toolName === "string";
+        if (!isTool) return part;
+        const approval = part.approval;
+        const approvalId = typeof approval?.id === "string" ? approval.id : "";
+        if (!approvalId) return part;
+        if (approval?.approved === true || approval?.approved === false) return part;
+        // 中文注释：手动中止时直接拒绝所有待审批工具，避免残留不可用状态。
+        changed = true;
+        return {
+          ...part,
+          state: "output-denied",
+          approval: { ...approval, approved: false },
+        };
+      });
+      if (!changed) continue;
+      const messageId = String((message as any)?.id ?? "");
+      if (!messageId) continue;
+      updates.push({ messageId, nextParts });
+      updateMessage(messageId, { parts: nextParts });
+      for (const part of nextParts) {
+        const toolCallId =
+          typeof (part as any)?.toolCallId === "string" ? String((part as any).toolCallId) : "";
+        if (!toolCallId) continue;
+        if ((part as any)?.approval?.approved !== false) continue;
+        upsertToolPartForTab(toolCallId, part as any);
+      }
+    }
+    if (updates.length === 0) return;
+    for (const update of updates) {
+      try {
+        await updateApprovalMutation.mutateAsync({
+          where: { id: update.messageId },
+          data: { parts: update.nextParts as any },
+        });
+      } catch {
+        // 中文注释：落库失败时保留本地状态，避免阻断中止流程。
+      }
+    }
+  }, [chat.messages, updateMessage, upsertToolPartForTab, updateApprovalMutation]);
+
+  const stopGenerating = React.useCallback(() => {
+    // 中文注释：先停止流式，再自动拒绝当前待审批工具。
+    chat.stop();
+    void rejectPendingToolApprovals();
+  }, [chat, rejectPendingToolApprovals]);
 
   const markToolStreaming = React.useCallback(
     (toolCallId: string) => {

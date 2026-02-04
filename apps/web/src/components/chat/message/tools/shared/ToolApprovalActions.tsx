@@ -25,12 +25,9 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
   );
   const isDecided =
     toolSnapshot?.approval?.approved === true || toolSnapshot?.approval?.approved === false;
-  // 逻辑：子代理审批会阻塞主流式，需允许在 streaming 状态下交互。
-  const isSubAgentApproval = Boolean(toolSnapshot?.subAgentToolCallId);
-  const disabled =
-    isSubmitting ||
-    isDecided ||
-    (!isSubAgentApproval && (status === "streaming" || status === "submitted"));
+  // 中文注释：流结束后禁止审批，仅允许在流式阶段执行审批。
+  const isStreamActive = status === "streaming" || status === "submitted";
+  const disabled = isSubmitting || isDecided || !isStreamActive;
   const updateApprovalMutation = useMutation({
     ...trpc.chatmessage.updateOneChatMessage.mutationOptions(),
   });

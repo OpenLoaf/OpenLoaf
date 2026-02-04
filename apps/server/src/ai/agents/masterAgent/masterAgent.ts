@@ -43,7 +43,7 @@ const writeStdinToolDef = isWindows ? writeStdinToolDefWin : writeStdinToolDefUn
 const MASTER_AGENT_TOOL_IDS = [
   timeNowToolDef.id,
   jsonRenderToolDef.id,
-  subAgentToolDef.id,
+  // subAgentToolDef.id,
   openUrlToolDef.id,
   browserSnapshotToolDef.id,
   browserObserveToolDef.id,
@@ -57,7 +57,7 @@ const MASTER_AGENT_TOOL_IDS = [
   readFileToolDef.id,
   writeFileToolDef.id,
   listDirToolDef.id,
-  updatePlanToolDef.id,
+  // updatePlanToolDef.id,
 ] as const;
 
 /** Master agent base prompt url. */
@@ -78,7 +78,7 @@ type CreateMasterAgentInput = {
 };
 
 /** Read base system prompt markdown content. */
-function readMasterAgentBasePrompt(): string {
+export function readMasterAgentBasePrompt(): string {
   try {
     // 逻辑：基础提示词固定在 masterAgent 目录下的 md 文件。
     return readFileSync(MASTER_AGENT_PROMPT_URL, "utf8").trim();

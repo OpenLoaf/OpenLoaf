@@ -269,7 +269,8 @@ export function buildSaasLoginUrl(input: {
   if (!baseUrl) {
     throw new Error("saas_url_missing");
   }
-  const url = new URL(`/auth/${input.provider}/start`, baseUrl);
+  // 关键逻辑：SaaS 后端 OAuth 路由挂在 /api 下，避免缺少 /api 导致 404。
+  const url = new URL(`/api/auth/${input.provider}/start`, baseUrl);
   const returnTo = input.returnTo ?? "/dashboard";
   url.searchParams.set("returnTo", returnTo);
   if (input.from) {
