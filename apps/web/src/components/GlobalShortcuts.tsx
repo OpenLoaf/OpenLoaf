@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { handleGlobalKeyDown } from "@/lib/globalShortcuts";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 /** 从 Cookie 中读取指定值，用于获取当前 workspaceId。 */
 function getCookieValue(name: string) {
@@ -17,12 +18,7 @@ function getCookieValue(name: string) {
 
 /** 绑定全局快捷键监听器（仅在客户端运行）。 */
 export default function GlobalShortcuts() {
-  const isElectron = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_ELECTRON === "1" ||
-      (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron")),
-    [],
-  );
+  const isElectron = useMemo(() => isElectronEnv(), []);
   const isMac = useMemo(
     () =>
       typeof navigator !== "undefined" &&

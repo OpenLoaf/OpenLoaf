@@ -7,6 +7,7 @@ import * as React from "react";
 import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
 import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
 import { useBasicConfig } from "@/hooks/use-basic-config";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 const STEP_UP_ROUTE = "/step-up";
 
@@ -28,12 +29,7 @@ export function AboutTenas() {
   const [updateStatus, setUpdateStatus] = React.useState<TenasAutoUpdateStatus | null>(
     null,
   );
-  const isElectron = React.useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_ELECTRON === "1" ||
-      (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron")),
-    [],
-  );
+  const isElectron = React.useMemo(() => isElectronEnv(), []);
 
   /** 复制到剪贴板（navigator.clipboard 不可用时做降级）。 */
   const copyToClipboard = async (text: string, key: "clientId") => {

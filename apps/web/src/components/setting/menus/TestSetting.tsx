@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useTerminalStatus } from "@/hooks/use-terminal-status";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { Switch } from "@tenas-ai/ui/switch";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 /** Setup entry route. */
 const STEP_UP_ROUTE = "/step-up";
@@ -36,10 +37,7 @@ const TestSetting = memo(function TestSetting() {
 
   /** Terminal feature status reported by server. */
   const terminalStatus = useTerminalStatus();
-  const isElectron =
-    process.env.NEXT_PUBLIC_ELECTRON === "1" ||
-    (typeof navigator !== "undefined" &&
-      navigator.userAgent.includes("Electron"));
+  const isElectron = isElectronEnv();
 
   /**
    * Pushes 3 demo stack items into the active tab for quick UI testing.

@@ -17,6 +17,7 @@ import { BrowserErrorOverlay } from "@/components/browser/BrowserErrorOverlay";
 import { BrowserHome } from "@/components/browser/BrowserHome";
 import { Button } from "@tenas-ai/ui/button";
 import { normalizeUrl } from "@/components/browser/browser-utils";
+import { isElectronEnv } from "@/utils/is-electron-env";
 import {
   addFavoriteSite,
   addRecentlyClosedSite,
@@ -100,13 +101,7 @@ export default function ElectrronBrowserWindow({
   const overlayIdsRef = useRef<Set<string>>(new Set());
   const viewStatusByKeyRef = useRef<Map<string, TenasWebContentsViewStatus>>(new Map());
   const [activeViewStatus, setActiveViewStatus] = useState<TenasWebContentsViewStatus | null>(null);
-  const isElectron = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_ELECTRON === "1" ||
-      (typeof navigator !== "undefined" &&
-        navigator.userAgent.includes("Electron")),
-    []
-  );
+  const isElectron = useMemo(() => isElectronEnv(), []);
   // 中文注释：记录当前是否离线。
   const [isOffline, setIsOffline] = useState(() => {
     if (typeof navigator === "undefined") return false;

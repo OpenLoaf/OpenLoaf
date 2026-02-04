@@ -6,6 +6,7 @@ import { Input } from "@tenas-ai/ui/input";
 import { Switch } from "@tenas-ai/ui/switch";
 import { Label } from "@tenas-ai/ui/label";
 import { resolveServerUrl } from "@/utils/server-url";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 type LocalAuthSessionResponse = {
   /** Whether request is local. */
@@ -38,6 +39,7 @@ async function fetchLocalAuthSession(baseUrl: string): Promise<LocalAuthSessionR
 /** Render local auth gate overlay. */
 export default function LocalAuthGate({ children }: { children: React.ReactNode }) {
   const baseUrl = resolveServerUrl();
+  const isElectron = isElectronEnv();
   const [status, setStatus] = useState<GateStatus>("checking");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
@@ -45,6 +47,11 @@ export default function LocalAuthGate({ children }: { children: React.ReactNode 
   const [submitting, setSubmitting] = useState(false);
 
   const loadSession = useCallback(async () => {
+    if (isElectron) {
+      // 逻辑：桌面端直接放行，避免启动/热更新出现遮罩闪屏。
+      setStatus("ready");
+      return;
+    }
     if (!baseUrl) {
       setStatus("ready");
       return;
@@ -68,7 +75,7 @@ export default function LocalAuthGate({ children }: { children: React.ReactNode 
       setStatus("error");
       setError((err as Error)?.message ?? "本地认证失败");
     }
-  }, [baseUrl]);
+  }, [baseUrl, isElectron]);
 
   useEffect(() => {
     void loadSession();
@@ -105,7 +112,7 @@ export default function LocalAuthGate({ children }: { children: React.ReactNode 
     }
   }, [baseUrl, loadSession, password, remember]);
 
-  if (status === "ready") {
+  if (isElectron || status === "ready") {
     return <>{children}</>;
   }
 

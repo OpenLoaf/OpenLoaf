@@ -8,6 +8,7 @@ import { AlertTriangle, Download, ExternalLink } from "lucide-react";
 import { Button } from "@tenas-ai/ui/button";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { createFileEntryFromUri, openWithDefaultApp } from "./open-file";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 type ReadFileErrorFallbackProps = {
   uri?: string;
@@ -24,15 +25,6 @@ type ReadFileErrorFallbackProps = {
   forceAction?: boolean;
   className?: string;
 };
-
-/** Resolve whether the runtime is Electron. */
-function isElectronEnv(): boolean {
-  // 逻辑：优先检查注入的 Electron API，再回退到环境标记与 UA。
-  if (typeof window !== "undefined" && window.tenasElectron) return true;
-  if (process.env.NEXT_PUBLIC_ELECTRON === "1") return true;
-  if (typeof navigator === "undefined") return false;
-  return navigator.userAgent.includes("Electron");
-}
 
 /** Normalize a friendly error message from unknown error input. */
 function resolveErrorMessage(error?: unknown): string {

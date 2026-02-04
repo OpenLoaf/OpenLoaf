@@ -1,17 +1,10 @@
+import { isElectronEnv } from "@/utils/is-electron-env";
+
 type CalendarPermissionState = TenasCalendarPermissionState;
 type CalendarRange = TenasCalendarRange;
 type CalendarItem = TenasCalendarItem;
 type CalendarEvent = TenasCalendarEvent;
 type CalendarResult<T> = TenasCalendarResult<T>;
-
-/** Resolve whether the runtime is Electron. */
-function isElectronEnv(): boolean {
-  // 逻辑：优先检查注入的 Electron API，再回退到环境标记与 UA。
-  if (typeof window !== "undefined" && window.tenasElectron) return true;
-  if (process.env.NEXT_PUBLIC_ELECTRON === "1") return true;
-  if (typeof navigator === "undefined") return false;
-  return navigator.userAgent.includes("Electron");
-}
 
 /** Resolve calendar API from Electron preload. */
 function getCalendarApi() {

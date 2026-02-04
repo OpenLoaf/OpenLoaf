@@ -11,6 +11,7 @@ import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { motion } from "motion/react";
 import type { CSSProperties } from "react";
 import { openSettingsTab } from "@/lib/globalShortcuts";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 import { HeaderTabs } from "./HeaderTabs";
 import { ModeToggle } from "./ModeToggle";
@@ -55,9 +56,7 @@ export const Header = () => {
   const activeTab = useTabView(activeTabId ?? undefined);
   const setTabRightChatCollapsed = useTabRuntime((s) => s.setTabRightChatCollapsed);
 
-  const isElectron =
-    process.env.NEXT_PUBLIC_ELECTRON === "1" ||
-    (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron"));
+  const isElectron = isElectronEnv();
   const isMac =
     typeof navigator !== "undefined" &&
     (navigator.platform.includes("Mac") || navigator.userAgent.includes("Mac"));

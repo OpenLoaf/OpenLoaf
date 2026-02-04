@@ -16,6 +16,7 @@ import {
   getEntryExt,
   getRelativePathFromUri,
 } from "../utils/file-system-utils";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 /** Image filename matcher. */
 const IMAGE_FILE_NAME_REGEX = /\.(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i;
@@ -194,7 +195,7 @@ function useFileSystemDrag({
           dragRootUriRef.current
         )
       );
-      const isElectron = typeof window !== "undefined" && Boolean(window.tenasElectron?.startDrag);
+      const isElectron = isElectronEnv() && Boolean(window.tenasElectron?.startDrag);
       console.log("[drag-out] renderer dragstart", {
         isElectron,
         hasApi: Boolean(window.tenasElectron?.startDrag),

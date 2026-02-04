@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PlateEditor } from "platejs/react";
 import { Editor as SlateEditor, type BaseEditor } from "slate";
 import { playNotificationSound } from "@/lib/notification-sound";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 /** Default error message for dictation failures. */
 const DEFAULT_ERROR_MESSAGE = "语音识别不可用";
@@ -50,12 +51,7 @@ export function useSpeechDictation({
   const isListeningRef = useRef(false);
   /** Track the last interim text to replace it on updates. */
   const lastInterimRef = useRef("");
-  const isElectron = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_ELECTRON === "1" ||
-      (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron")),
-    [],
-  );
+  const isElectron = useMemo(() => isElectronEnv(), []);
   const isSupported = Boolean(
     isElectron &&
       typeof window !== "undefined" &&

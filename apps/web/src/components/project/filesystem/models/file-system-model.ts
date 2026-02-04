@@ -22,6 +22,7 @@ import {
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { resolveServerUrl } from "@/utils/server-url";
+import { isElectronEnv } from "@/utils/is-electron-env";
 import { openFilePreview } from "@/components/file/lib/open-file";
 import {
   BOARD_ASSETS_DIR_NAME,
@@ -369,12 +370,7 @@ export function useProjectFileSystemModel({
   const activeUri = normalizedCurrentUri ?? (rootUri ? normalizedRootUri : null);
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
-  const isElectron = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_ELECTRON === "1" ||
-      (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron")),
-    []
-  );
+  const isElectron = useMemo(() => isElectronEnv(), []);
   const terminalStatus = useTerminalStatus();
   const isTerminalEnabled = terminalStatus.enabled;
   const searchContainerRef = useRef<HTMLDivElement>(null);

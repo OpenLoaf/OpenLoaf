@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@tenas-ai/ui/dialog";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 type AutoUpdateGateState = {
   status: TenasAutoUpdateStatus | null;
@@ -25,12 +26,7 @@ export default function AutoUpdateGate() {
     open: false,
   });
   const lastDownloadedTsRef = React.useRef<number | null>(null);
-  const isElectron = React.useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_ELECTRON === "1" ||
-      (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron")),
-    [],
-  );
+  const isElectron = React.useMemo(() => isElectronEnv(), []);
 
   /** Fetch initial update status from the main process. */
   const fetchInitialStatus = React.useCallback(async () => {

@@ -18,6 +18,7 @@ import { BROWSER_WINDOW_COMPONENT, type DockItem } from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { getStackMinimizeSignal } from "@/lib/stack-dock-animation";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 // 保持空数组引用稳定，避免 useSyncExternalStore 报错。
 const EMPTY_STACK: DockItem[] = [];
@@ -29,9 +30,7 @@ function getStackItemTitle(item: DockItem): string {
 function destroyBrowserViewsIfNeeded(item: DockItem) {
   if (item.component !== BROWSER_WINDOW_COMPONENT) return;
 
-  const isElectron =
-    process.env.NEXT_PUBLIC_ELECTRON === "1" ||
-    (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron"));
+  const isElectron = isElectronEnv();
   if (!isElectron) return;
 
   const api = window.tenasElectron;

@@ -16,6 +16,7 @@ import AutoUpdateGate from "@/components/layout/AutoUpdateGate";
 import { clearThemeOverride, readThemeOverride } from "@/lib/theme-override";
 import FilePreviewDialog from "@/components/file/FilePreviewDialog";
 import LocalAuthGate from "@/components/local-auth/LocalAuthGate";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 type ThemeSelection = "light" | "dark" | "system";
 type FontSizeSelection = "small" | "medium" | "large" | "xlarge";
@@ -119,9 +120,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   usePrewarmPlate();
 
   useEffect(() => {
-    const isElectron =
-      process.env.NEXT_PUBLIC_ELECTRON === "1" ||
-      (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron"));
+    const isElectron = isElectronEnv();
 
     document.documentElement.classList.toggle(
       "macos",

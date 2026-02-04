@@ -18,6 +18,7 @@ import { useSettingsValues } from "@/hooks/use-settings";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { buildStrokeOutline } from "@/components/board/utils/stroke-path";
+import { isElectronEnv } from "@/utils/is-electron-env";
 import type { CanvasStrokePoint, CanvasStrokeTool } from "@/components/board/engine/types";
 import type { MaskedAttachmentInput } from "@/components/chat/input/chat-attachments";
 import { fetchBlobFromUri, loadImageFromUri } from "@/lib/image/uri";
@@ -242,12 +243,7 @@ export default function ImageViewer({
   const { basic, setBasic } = useBasicConfig();
   const { providerItems, s3ProviderItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
-  const isElectron = React.useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_ELECTRON === "1" ||
-      (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron")),
-    []
-  );
+  const isElectron = React.useMemo(() => isElectronEnv(), []);
   const rawChatSource = basic.chatSource;
   const chatSource = normalizeChatModelSource(rawChatSource);
   const modelOptions = React.useMemo(

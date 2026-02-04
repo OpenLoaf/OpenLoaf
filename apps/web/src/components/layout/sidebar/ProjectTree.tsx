@@ -4,6 +4,7 @@ import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
+import { isElectronEnv } from "@/utils/is-electron-env";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   SidebarMenuAction,
@@ -509,9 +510,7 @@ export const PageTreeMenu = ({
   const tabs = useTabs((s) => s.tabs);
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
-  const isElectron =
-    process.env.NEXT_PUBLIC_ELECTRON === "1" ||
-    (typeof navigator !== "undefined" && navigator.userAgent.includes("Electron"));
+  const isElectron = isElectronEnv();
   const queryClient = useQueryClient();
   const renameProject = useMutation(trpc.project.update.mutationOptions());
   const createProject = useMutation(trpc.project.create.mutationOptions());
