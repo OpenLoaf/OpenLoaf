@@ -6,6 +6,7 @@ import {
   DataProvider,
   Renderer,
   VisibilityProvider,
+  useActions,
   useDataBinding,
   type ComponentRegistry,
   type ComponentRenderProps,
@@ -28,6 +29,7 @@ import type { AnyToolPart } from "./shared/tool-utils";
 import {
   asPlainObject,
   getApprovalId,
+  isApprovalPending,
   isToolStreaming,
   normalizeToolInput,
 } from "./shared/tool-utils";
@@ -358,6 +360,20 @@ function createRegistry(options: {
   } as ComponentRegistry;
 }
 
+function ActionHandlersBinder({
+  handlers,
+}: {
+  handlers: Record<string, (params?: Record<string, unknown>) => void | Promise<void>>;
+}) {
+  const { registerHandler } = useActions();
+  React.useEffect(() => {
+    for (const [name, handler] of Object.entries(handlers)) {
+      registerHandler(name, handler);
+    }
+  }, [handlers, registerHandler]);
+  return null;
+}
+
 /** Render json-render tool UI. */
 export default function JsonRenderTool({
   part,
@@ -378,6 +394,7 @@ export default function JsonRenderTool({
   const isReadonly =
     isRejected || isApproved || hasOutput || part.state === "output-available";
   const isStreaming = isToolStreaming(part);
+  const isApprovalPendingForPart = isApprovalPending(part);
 
   const normalizedInput = normalizeToolInput(part.input);
   const inputObject = asPlainObject(normalizedInput) as JsonRenderInput | null;
@@ -448,7 +465,10 @@ export default function JsonRenderTool({
 
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const isActionDisabled =
-    isSubmitting || isReadonly || status === "streaming" || status === "submitted";
+    isSubmitting ||
+    isReadonly ||
+    status === "submitted" ||
+    (status === "streaming" && !isApprovalPendingForPart);
   /** Persist data changes to the local ref. */
   const handleDataChange = React.useCallback((path: string, value: unknown) => {
     if (!path) return;
@@ -559,6 +579,7 @@ export default function JsonRenderTool({
               >
                 <VisibilityProvider>
                   <ActionProvider handlers={actionHandlers}>
+                    <ActionHandlersBinder handlers={actionHandlers} />
                     <Renderer
                       tree={tree}
                       registry={registry}

@@ -80,9 +80,11 @@ const TEXT_NODE_VERTICAL_PADDING = 32;
 /** Ignore tiny resize deltas to avoid jitter. */
 const TEXT_NODE_RESIZE_EPSILON = 2;
 /** Default font size for text nodes. */
-const TEXT_NODE_DEFAULT_FONT_SIZE = 14;
+const TEXT_NODE_DEFAULT_FONT_SIZE = 18;
 /** Default line height multiplier for text nodes. */
 const TEXT_NODE_LINE_HEIGHT = 1.4;
+/** Maximum font size for text nodes. */
+const TEXT_NODE_MAX_FONT_SIZE = 52;
 /** Default height for a single-line text node. */
 export const TEXT_NODE_DEFAULT_HEIGHT = Math.ceil(
   TEXT_NODE_DEFAULT_FONT_SIZE * TEXT_NODE_LINE_HEIGHT + TEXT_NODE_VERTICAL_PADDING
@@ -103,8 +105,16 @@ const TEXT_NODE_DEFAULT_TEXT_ALIGN: TextNodeTextAlign = "left";
 const TEXT_NODE_AUTO_TEXT_LIGHT = "#111827";
 /** Auto text color when background is dark. */
 const TEXT_NODE_AUTO_TEXT_DARK = "#ffffff";
-/** Preset font size options for text toolbar. */
-const TEXT_NODE_FONT_SIZES = [12, 14, 16, 18, 20, 24] as const;
+/** Preset font size options (H1-H5) for text toolbar. */
+const TEXT_NODE_FONT_SIZES = [
+  { label: "H1", value: 52 },
+  { label: "H2", value: 40 },
+  { label: "H3", value: 32 },
+  { label: "H4", value: 24 },
+  { label: "H5", value: 18 },
+] as const;
+/** Raw size values used for heading font sizing. */
+const TEXT_NODE_FONT_SIZE_VALUES = TEXT_NODE_FONT_SIZES.map(option => option.value);
 /** Preset font weight options for text toolbar. */
 const TEXT_NODE_FONT_WEIGHTS = [
   { label: "常规", value: 400 },
@@ -157,6 +167,25 @@ function normalizeTextValue(value?: TextNodeValue): string {
 /** Detect whether the text value is effectively empty. */
 function isTextValueEmpty(value: string): boolean {
   return value.trim().length === 0;
+}
+
+/** Resolve font size to the closest heading size. */
+function resolveHeadingFontSize(fontSize?: number): number {
+  const fallback = TEXT_NODE_DEFAULT_FONT_SIZE;
+  const candidate =
+    typeof fontSize === "number" && Number.isFinite(fontSize) ? fontSize : fallback;
+  const clamped = Math.min(TEXT_NODE_MAX_FONT_SIZE, candidate);
+  let closest = TEXT_NODE_FONT_SIZE_VALUES[0];
+  let minDelta = Math.abs(clamped - closest);
+  for (const size of TEXT_NODE_FONT_SIZE_VALUES.slice(1)) {
+    const delta = Math.abs(clamped - size);
+    if (delta < minDelta) {
+      // 逻辑：选择最接近的 H1-H5 字号作为实际渲染值。
+      closest = size;
+      minDelta = delta;
+    }
+  }
+  return closest;
 }
 
 /** Read element padding sizes in pixels. */
@@ -302,7 +331,7 @@ function TextToolbarPanelButton({
 
 /** Build toolbar items for text nodes. */
 function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
-  const fontSize = ctx.element.props.fontSize ?? TEXT_NODE_DEFAULT_FONT_SIZE;
+  const fontSize = resolveHeadingFontSize(ctx.element.props.fontSize);
   const fontWeight = ctx.element.props.fontWeight ?? TEXT_NODE_DEFAULT_FONT_WEIGHT;
   const fontStyle = ctx.element.props.fontStyle ?? TEXT_NODE_DEFAULT_FONT_STYLE;
   const textDecoration =
@@ -322,12 +351,12 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
         <div className="flex items-center gap-1">
           {TEXT_NODE_FONT_SIZES.map(size => (
             <TextToolbarPanelButton
-              key={size}
-              title={`${size}px`}
-              active={fontSize === size}
-              onSelect={() => ctx.updateNodeProps({ fontSize: size })}
+              key={size.label}
+              title={size.label}
+              active={fontSize === size.value}
+              onSelect={() => ctx.updateNodeProps({ fontSize: size.value })}
             >
-              {size}
+              {size.label}
             </TextToolbarPanelButton>
           ))}
         </div>
@@ -588,8 +617,9 @@ export function TextNodeView({
   /** Resolved text style for view/edit modes. */
   const textStyle = useMemo(() => {
     const resolvedColor = element.props.color ?? autoTextColor;
+    const resolvedFontSize = resolveHeadingFontSize(element.props.fontSize);
     return {
-      fontSize: element.props.fontSize ?? TEXT_NODE_DEFAULT_FONT_SIZE,
+      fontSize: resolvedFontSize,
       fontWeight: element.props.fontWeight ?? TEXT_NODE_DEFAULT_FONT_WEIGHT,
       fontStyle: element.props.fontStyle ?? TEXT_NODE_DEFAULT_FONT_STYLE,
       textDecoration: element.props.textDecoration ?? TEXT_NODE_DEFAULT_TEXT_DECORATION,
@@ -611,8 +641,6 @@ export function TextNodeView({
   const [draftText, setDraftText] = useState(normalizedValue);
   /** Whether the text node has any real content. */
   const isEmpty = useMemo(() => isTextValueEmpty(draftText), [draftText]);
-  /** Whether the current content overflows the collapsed height. */
-  const [isOverflowing, setIsOverflowing] = useState(false);
 
   useEffect(() => {
     if (isGhost) return;
@@ -770,20 +798,6 @@ export function TextNodeView({
     element.xywh,
   ]);
 
-  /** Recalculate whether the content overflows the collapsed height. */
-  const updateOverflowState = useCallback(() => {
-    const content = contentRef.current;
-    if (!content) return;
-    if (isEditing) {
-      setIsOverflowing(false);
-      return;
-    }
-    const availableHeight = element.xywh[3] - TEXT_NODE_VERTICAL_PADDING;
-    const isOverflow =
-      content.scrollHeight > availableHeight + TEXT_NODE_RESIZE_EPSILON;
-    setIsOverflowing(isOverflow);
-  }, [element.xywh, isEditing]);
-
   useEffect(() => {
     if (isGhost) return;
     if (isEditing) {
@@ -833,25 +847,11 @@ export function TextNodeView({
 
   useEffect(() => {
     if (isGhost) return;
-    updateOverflowState();
-  }, [draftText, element.xywh, isEditing, isGhost, updateOverflowState]);
-
-  useEffect(() => {
-    if (isGhost) return;
     if (!isEditing && resizeRafRef.current !== null) {
       window.cancelAnimationFrame(resizeRafRef.current);
       resizeRafRef.current = null;
     }
   }, [isEditing, isGhost]);
-
-  useEffect(() => {
-    if (isGhost) return;
-    const content = contentRef.current;
-    if (!content) return;
-    const observer = new ResizeObserver(() => updateOverflowState());
-    observer.observe(content);
-    return () => observer.disconnect();
-  }, [isGhost, updateOverflowState]);
 
   useEffect(() => {
     if (isGhost) return;
@@ -913,15 +913,6 @@ export function TextNodeView({
   );
 
   const containerStyle = backgroundColor ? { backgroundColor } : undefined;
-  const overflowOverlayStyle = backgroundColor
-    ? { backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0), ${backgroundColor})` }
-    : undefined;
-  const overflowOverlayClassName = cn(
-    "pointer-events-none absolute bottom-0 left-0 h-10 w-full rounded-b-sm",
-    backgroundColor
-      ? ""
-      : "bg-gradient-to-b from-transparent to-white dark:to-slate-900"
-  );
   const containerClasses = [
     "relative h-full w-full rounded-sm box-border p-2.5",
     isEditing && !backgroundColor
@@ -996,9 +987,6 @@ export function TextNodeView({
         >
           {TEXT_NODE_PLACEHOLDER}
         </div>
-      ) : null}
-      {!isEditing && isOverflowing ? (
-        <div className={overflowOverlayClassName} style={overflowOverlayStyle} />
       ) : null}
     </div>
   );

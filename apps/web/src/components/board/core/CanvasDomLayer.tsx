@@ -362,9 +362,7 @@ function CanvasDomLayerBase({
       >
         <div
           className={cn(
-            "h-full w-full transition-transform duration-150 ease-out",
-            isDragging &&
-              "scale-[1.02] drop-shadow-[0_18px_40px_var(--canvas-drag-shadow)]"
+            "h-full w-full transition-transform duration-150 ease-out"
           )}
         >
           <View

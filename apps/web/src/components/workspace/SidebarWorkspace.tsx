@@ -75,8 +75,15 @@ export const SidebarWorkspace = () => {
   }, [createOpen]);
 
   const workspacesQuery = useQuery(trpc.workspace.getList.queryOptions());
-  const displayEmail =
+  // 微信登录账号展示规则。
+  const isWechatLogin = Boolean(authUser?.email?.endsWith("@wechat.local"));
+  const baseAccountLabel =
     authUser?.email ?? authUser?.name ?? (authLoggedIn ? "已登录" : undefined);
+  const sidebarAccountLabel = isWechatLogin
+    ? authUser?.name?.trim() || "微信用户"
+    : baseAccountLabel;
+  const dropdownAccountLabel = isWechatLogin ? "微信登录" : baseAccountLabel;
+  const avatarAlt = sidebarAccountLabel ?? "User";
   const displayAvatar = authUser?.avatarUrl;
 
   const activateWorkspace = useMutation(
@@ -148,7 +155,7 @@ export const SidebarWorkspace = () => {
               >
                 <Avatar className="size-8 rounded-md">
                   {displayAvatar ? (
-                    <AvatarImage src={displayAvatar} alt={displayEmail ?? "User"} />
+                    <AvatarImage src={displayAvatar} alt={avatarAlt} />
                   ) : null}
                   <AvatarFallback className="bg-transparent">
                     <img src="/head_s.png" alt="Tenas" className="size-full object-contain" />
@@ -159,7 +166,7 @@ export const SidebarWorkspace = () => {
                     {workspace.name}
                   </div>
                   <div className="truncate text-[11px] text-muted-foreground leading-4">
-                    {displayEmail ?? "未登录"}
+                    {sidebarAccountLabel ?? "未登录"}
                   </div>
                 </div>
                 <ChevronsUpDown className="text-muted-foreground size-4 group-data-[collapsible=icon]:hidden" />
@@ -174,7 +181,7 @@ export const SidebarWorkspace = () => {
               <div className="flex items-center gap-3 px-2 py-2">
                 <Avatar className="size-9">
                   {displayAvatar ? (
-                    <AvatarImage src={displayAvatar} alt={displayEmail ?? "User"} />
+                    <AvatarImage src={displayAvatar} alt={avatarAlt} />
                   ) : null}
                   <AvatarFallback>
                     <img src="/logo.svg" alt="Tenas" className="size-full object-cover" />
@@ -185,7 +192,7 @@ export const SidebarWorkspace = () => {
                     {authUser?.name || "当前账号"}
                   </div>
                   <div className="truncate text-xs text-muted-foreground leading-4">
-                    {displayEmail ?? "未登录"}
+                    {dropdownAccountLabel ?? "未登录"}
                   </div>
                 </div>
               </div>

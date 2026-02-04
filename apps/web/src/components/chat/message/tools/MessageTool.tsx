@@ -32,6 +32,7 @@ export default function MessageTool({
   /** Message id for fetching tool output. */
   messageId?: string;
 }) {
+  if (!part) return null;
   const { status } = useChatState();
   const { toolParts } = useChatTools();
   const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";

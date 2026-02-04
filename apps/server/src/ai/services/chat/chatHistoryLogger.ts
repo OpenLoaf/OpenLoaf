@@ -32,17 +32,6 @@ function isDevelopment(): boolean {
   return process.env.NODE_ENV !== "production";
 }
 
-/** Format a timestamp for chat history folder naming. */
-function formatChatHistoryTimestamp(value: Date): string {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-  const hour = String(value.getHours()).padStart(2, "0");
-  const minute = String(value.getMinutes()).padStart(2, "0");
-  const second = String(value.getSeconds()).padStart(2, "0");
-  return `${year}-${month}-${day}_${hour}:${minute}:${second}`;
-}
-
 /** Convert a message path into a safe file name. */
 function formatMessagePathFileName(value: string): string {
   return value.replace(/[\\/]/g, "_");
@@ -63,8 +52,8 @@ export async function persistChatRequestSnapshot(input: ChatRequestSnapshotInput
     });
     if (!messagePath) return;
 
-    const timestamp = formatChatHistoryTimestamp(input.requestStartAt);
-    const dirPath = path.join(workspaceRoot, CHAT_HISTORY_DIR, `${timestamp}_${input.sessionId}`);
+    // 中文注释：目录以 sessionId 命名，避免时间戳导致路径过长或不稳定。
+    const dirPath = path.join(workspaceRoot, CHAT_HISTORY_DIR, input.sessionId);
     // 中文注释：确保输出目录存在，避免并发写入时报错。
     await fs.mkdir(dirPath, { recursive: true });
 

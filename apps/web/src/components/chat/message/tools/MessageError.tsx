@@ -132,15 +132,13 @@ export default function MessageError({ error }: MessageErrorProps) {
       }}
       className="flex justify-start"
     >
-      <div className="w-full min-w-0 max-w-full p-3 rounded-lg bg-destructive/10 text-destructive">
+      <div className="min-w-0 max-w-[80%] p-3 rounded-lg bg-destructive/10 text-destructive">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium">{parsed.title}</span>
         </div>
-        <p className="text-xs mt-1 break-words">{parsed.displayMessage}</p>
-        <div className="mt-2 text-[11px] text-destructive/90">
-          <div className="text-[11px] font-medium">错误详情</div>
-          <div className="mt-1 whitespace-pre-wrap break-words">{parsed.message}</div>
-        </div>
+        <p className="text-xs mt-1 whitespace-pre-wrap break-words text-destructive/90">
+          {parsed.message}
+        </p>
 
         <div className="mt-2 flex justify-end gap-2">
           <Button

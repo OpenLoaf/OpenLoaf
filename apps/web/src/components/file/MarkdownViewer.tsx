@@ -12,7 +12,7 @@ import { skipToken, useQuery } from "@tanstack/react-query";
 import { Streamdown, defaultRemarkPlugins } from "streamdown";
 import type { BundledTheme } from "shiki";
 import remarkMdx from "remark-mdx";
-import { Eye, PencilLine, Save, Undo2 } from "lucide-react";
+import { Eye, FolderOpen, PencilLine, Save, Undo2 } from "lucide-react";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { Button } from "@tenas-ai/ui/button";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
@@ -22,6 +22,8 @@ import CodeViewer, { type CodeViewerActions, type CodeViewerStatus } from "@/com
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { ReadFileErrorFallback } from "@/components/file/lib/read-file-error";
 import { stopFindShortcutPropagation } from "@/components/file/lib/viewer-shortcuts";
+import { buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
+import { toast } from "sonner";
 
 import "./style/streamdown-viewer.css";
 
@@ -40,6 +42,8 @@ interface MarkdownViewerProps {
   projectId?: string;
   /** Whether the viewer is read-only. */
   readOnly?: boolean;
+  /** Chat session id for resolving chat history folder. */
+  __chatHistorySessionId?: string;
 }
 
 type MdxAttribute = { name?: string };
@@ -309,10 +313,14 @@ export default function MarkdownViewer({
   rootUri,
   projectId,
   readOnly,
+  __chatHistorySessionId,
 }: MarkdownViewerProps) {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
+  const workspaceRootUri = workspace?.rootUri ?? "";
   const hasInlineContent = typeof inlineContent === "string";
+  const chatHistorySessionId =
+    typeof __chatHistorySessionId === "string" ? __chatHistorySessionId.trim() : "";
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(
       !hasInlineContent && uri && workspaceId ? { workspaceId, projectId, uri } : skipToken
@@ -375,6 +383,33 @@ export default function MarkdownViewer({
   const handleSave = () => codeActionsRef.current?.save();
   /** Trigger undo from the stack header. */
   const handleUndo = () => codeActionsRef.current?.undo();
+
+  /** Open the chat history folder for the current session. */
+  const handleOpenChatHistoryFolder = useCallback(async () => {
+    if (!chatHistorySessionId) return;
+    if (!workspaceRootUri) {
+      toast.error("未找到工作空间路径");
+      return;
+    }
+    const api = window.tenasElectron;
+    if (!api?.openPath) {
+      toast.error("网页版不支持打开文件管理器");
+      return;
+    }
+    // 中文注释：日志目录固定在工作空间下的 .tenas/chat_history/{sessionId}。
+    const targetUri = buildFileUriFromRoot(
+      workspaceRootUri,
+      `.tenas/chat_history/${chatHistorySessionId}`
+    );
+    if (!targetUri) {
+      toast.error("未找到日志目录");
+      return;
+    }
+    const res = await api.openPath({ uri: targetUri });
+    if (!res?.ok) {
+      toast.error(res?.reason ?? "无法打开文件管理器");
+    }
+  }, [chatHistorySessionId, workspaceRootUri]);
 
   /** Intercept Cmd/Ctrl+F to avoid triggering global search overlay. */
   const handleFindShortcut = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -487,6 +522,19 @@ export default function MarkdownViewer({
                 </Button>
               ) : null}
             </div>
+          }
+          rightSlotBeforeClose={
+            chatHistorySessionId ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleOpenChatHistoryFolder}
+                aria-label="打开日志目录"
+                title="打开日志目录"
+              >
+                <FolderOpen className="h-4 w-4" />
+              </Button>
+            ) : null
           }
           showMinimize
           onMinimize={() => {

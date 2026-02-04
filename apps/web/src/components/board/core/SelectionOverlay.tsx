@@ -343,6 +343,8 @@ type ResizeCorner = "top-left" | "top-right" | "bottom-right" | "bottom-left";
 
 /** Corner handle size in screen pixels. */
 const SINGLE_SELECTION_HANDLE_SIZE = 10;
+/** Drag scale used by node visuals while moving. */
+const DRAGGING_OUTLINE_SCALE = 1.02;
 /** Corner handle metadata for single selection resizing. */
 const SINGLE_SELECTION_CORNERS: Array<{ id: ResizeCorner; cursorClass: string }> = [
   { id: "top-left", cursorClass: "cursor-nwse-resize" },
@@ -396,6 +398,14 @@ export function SingleSelectionOutline({
   const width = bounds.w * zoom;
   const height = bounds.h * zoom;
   const allowHandles = canResize && !snapshot.locked && !element.locked;
+  const isDragging = snapshot.draggingId === element.id;
+  const dragScale = isDragging ? DRAGGING_OUTLINE_SCALE : 1;
+  const centerX = left + width / 2;
+  const centerY = top + height / 2;
+  const scaledLeft = centerX + (left - centerX) * dragScale;
+  const scaledTop = centerY + (top - centerY) * dragScale;
+  const scaledWidth = width * dragScale;
+  const scaledHeight = height * dragScale;
 
   const handlePointerDown = (corner: ResizeCorner) => {
     return (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -420,7 +430,6 @@ export function SingleSelectionOutline({
         resizeMode === "uniform" || (resizeMode === "ratio-range" && !maxSize);
       const meta = resolveCornerMeta(corner, { x: startX, y: startY, w: startW, h: startH });
 
-      engine.setDraggingElementId(element.id);
       engine.setAlignmentGuides([]);
 
       const handlePointerMove = (moveEvent: PointerEvent) => {
@@ -527,7 +536,6 @@ export function SingleSelectionOutline({
       };
 
       const handlePointerUp = () => {
-        engine.setDraggingElementId(null);
         engine.setAlignmentGuides([]);
         engine.commitHistory();
         window.removeEventListener("pointermove", handlePointerMove);
@@ -540,18 +548,18 @@ export function SingleSelectionOutline({
   };
 
   const cornerPoints: Record<ResizeCorner, { x: number; y: number }> = {
-    "top-left": { x: left, y: top },
-    "top-right": { x: left + width, y: top },
-    "bottom-right": { x: left + width, y: top + height },
-    "bottom-left": { x: left, y: top + height },
+    "top-left": { x: scaledLeft, y: scaledTop },
+    "top-right": { x: scaledLeft + scaledWidth, y: scaledTop },
+    "bottom-right": { x: scaledLeft + scaledWidth, y: scaledTop + scaledHeight },
+    "bottom-left": { x: scaledLeft, y: scaledTop + scaledHeight },
   };
 
   return (
     <>
       <div
         data-board-selection-outline
-        className="pointer-events-none absolute z-10 box-border rounded-none border-2 border-primary"
-        style={{ left, top, width, height }}
+        className="pointer-events-none absolute z-10 box-border rounded-none border-2 border-[#1E96EB]"
+        style={{ left: scaledLeft, top: scaledTop, width: scaledWidth, height: scaledHeight }}
       />
       {allowHandles
         ? SINGLE_SELECTION_CORNERS.map((corner) => {
@@ -564,7 +572,7 @@ export function SingleSelectionOutline({
                 data-resize-handle
                 onPointerDown={handlePointerDown(corner.id)}
                 className={[
-                  "pointer-events-auto absolute z-20 box-border rounded-[2px] border-2 border-primary bg-background",
+                  "pointer-events-auto absolute z-20 box-border rounded-[2px] border-2 border-[#1E96EB] bg-background",
                   "touch-none -translate-x-1/2 -translate-y-1/2",
                   corner.cursorClass,
                 ].join(" ")}
@@ -636,8 +644,6 @@ function MultiSelectionResizeHandle({
       startRects,
     };
 
-    engine.setDraggingElementId(nodes[0]?.id ?? null);
-
     const handlePointerMove = (moveEvent: PointerEvent) => {
       if (!startRef.current) return;
       const nextScreen: [number, number] = [
@@ -673,7 +679,6 @@ function MultiSelectionResizeHandle({
     };
 
     const handlePointerUp = () => {
-      engine.setDraggingElementId(null);
       engine.commitHistory();
       startRef.current = null;
       window.removeEventListener("pointermove", handlePointerMove);

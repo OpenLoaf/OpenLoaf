@@ -93,6 +93,7 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
           ext: "md",
           content,
           __customHeader: true,
+          __chatHistorySessionId: activeSessionId,
         },
       });
     } catch (error) {

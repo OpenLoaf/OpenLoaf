@@ -38,38 +38,53 @@ export function renderAuthCallbackPage(options: AuthCallbackPageOptions): string
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="dark" />
     <title>Tenas 登录</title>
     <style>
       :root {
-        color-scheme: light;
-        --bg: #f7f2ec;
-        --bg-2: #efe7dc;
-        --card: #ffffff;
-        --ink: #1f1b16;
-        --muted: #6c6257;
-        --line: rgba(31, 27, 22, 0.12);
-        --accent: #b48a4a;
-        --accent-deep: #6e4d1e;
-        --shadow: 0 24px 60px rgba(20, 16, 12, 0.12);
+        color-scheme: dark;
+        --bg: #0b0c0f;
+        --bg-2: #12141b;
+        --card: #171a22;
+        --ink: #f0eee9;
+        --muted: #a39a8f;
+        --line: rgba(255, 255, 255, 0.08);
+        --accent: #d8b272;
+        --accent-deep: #f1d9a3;
+        --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
       }
       * { box-sizing: border-box; }
+      html,
+      body {
+        height: 100%;
+      }
+      html {
+        background: var(--bg);
+      }
       body {
         margin: 0;
         min-height: 100vh;
-        display: grid;
-        place-items: center;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         padding: 32px;
         background:
-          radial-gradient(1200px 600px at 15% -10%, rgba(180, 138, 74, 0.18), transparent 60%),
-          radial-gradient(900px 520px at 100% 10%, rgba(37, 64, 115, 0.12), transparent 55%),
+          radial-gradient(1200px 600px at 12% -10%, rgba(216, 178, 114, 0.16), transparent 60%),
+          radial-gradient(900px 520px at 100% 10%, rgba(97, 119, 160, 0.12), transparent 55%),
           linear-gradient(135deg, var(--bg), var(--bg-2));
         font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
         color: var(--ink);
       }
+      @supports (height: 100svh) {
+        body {
+          min-height: 100svh;
+          height: 100svh;
+        }
+      }
       .card {
         width: min(560px, 100%);
-        background: var(--card);
+        background: linear-gradient(180deg, rgba(23, 26, 34, 0.92), rgba(17, 20, 28, 0.98));
         border: 1px solid var(--line);
         border-radius: 22px;
         padding: 34px 32px 28px;
@@ -82,14 +97,14 @@ export function renderAuthCallbackPage(options: AuthCallbackPageOptions): string
         position: absolute;
         inset: 0;
         border-radius: 22px;
-        border: 1px solid rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.06);
         pointer-events: none;
       }
       .badge {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        border: 1px solid var(--line);
+        border: 1px solid rgba(216, 178, 114, 0.2);
         padding: 6px 12px;
         border-radius: 999px;
         font-size: 12px;
@@ -97,7 +112,7 @@ export function renderAuthCallbackPage(options: AuthCallbackPageOptions): string
         text-transform: uppercase;
         font-family: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
         color: var(--accent-deep);
-        background: rgba(255, 255, 255, 0.7);
+        background: rgba(216, 178, 114, 0.12);
       }
       h1 {
         margin: 18px 0 10px;
@@ -123,9 +138,9 @@ export function renderAuthCallbackPage(options: AuthCallbackPageOptions): string
         justify-content: center;
         padding: 10px 22px;
         border-radius: 999px;
-        border: 1px solid var(--accent);
+        border: 1px solid rgba(216, 178, 114, 0.45);
         color: var(--accent-deep);
-        background: transparent;
+        background: rgba(216, 178, 114, 0.08);
         text-decoration: none;
         font-family: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
         font-size: 14px;
@@ -133,8 +148,8 @@ export function renderAuthCallbackPage(options: AuthCallbackPageOptions): string
         transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
       }
       .primary:hover {
-        background: rgba(180, 138, 74, 0.12);
-        box-shadow: 0 12px 24px rgba(31, 27, 22, 0.12);
+        background: rgba(216, 178, 114, 0.18);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
         transform: translateY(-1px);
       }
       .footnote {
@@ -154,13 +169,11 @@ export function renderAuthCallbackPage(options: AuthCallbackPageOptions): string
   </head>
   <body>
     <main class="card">
-      <div class="badge">Tenas Auth</div>
       <h1>${safeMessage}</h1>
       <p>若已打开桌面端，请继续操作；未打开请点击下方按钮。</p>
       <div class="actions">
-        <a class="primary" href="${safeReturnUrl}" data-open-app>返回 Tenas AI</a>
+        <a class="primary" href="${safeReturnUrl}" data-open-app>打开 Tenas AI</a>
       </div>
-      <div class="footnote">点击按钮后将尝试关闭此页。</div>
       <div class="manual-close" data-close-hint>未能自动关闭，请手动关闭此标签页。</div>
     </main>
     <script>

@@ -78,8 +78,11 @@ function handleToolChunk({
       break;
     }
     case "tool-approval-request": {
+      const approvalId =
+        typeof dataPart?.approvalId === "string" ? dataPart.approvalId : "";
       upsertToolPartMerged(String(dataPart.toolCallId), {
         state: "approval-requested",
+        ...(approvalId ? { approval: { id: approvalId } } : {}),
       });
       break;
     }

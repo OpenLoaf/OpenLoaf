@@ -18,6 +18,7 @@ export function StackHeader({
   children,
   rightSlot,
   rightSlotAfter,
+  rightSlotBeforeClose,
   openUri,
   openRootUri,
   onRefresh,
@@ -32,6 +33,8 @@ export function StackHeader({
   rightSlot?: React.ReactNode;
   /** Optional slot rendered after the refresh button. */
   rightSlotAfter?: React.ReactNode;
+  /** Optional slot rendered before the close button. */
+  rightSlotBeforeClose?: React.ReactNode;
   openUri?: string;
   /** Optional root uri for resolving relative file paths. */
   openRootUri?: string;
@@ -104,6 +107,7 @@ export function StackHeader({
             </Tooltip>
           ) : null}
           {rightSlotAfter}
+          {rightSlotBeforeClose}
           {showMinimize ? (
             <Button
               size="sm"
