@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronUp, HardDrive, Sparkles } from "lucide-react";
 import {
   Popover,
@@ -29,6 +29,81 @@ import { MODEL_TAG_LABELS, type ModelTag } from "@tenas-ai/api/common";
 
 interface SelectModeProps {
   className?: string;
+}
+
+const MODEL_SELECTION_STORAGE_KEY = "tenas.chat-model-selection";
+
+type ModelSourceKey = "local" | "cloud";
+
+type StoredModelSelection = {
+  /** Last manually selected model id. */
+  lastModelId: string;
+  /** Auto toggle state for the source. */
+  isAuto: boolean;
+};
+
+type StoredModelSelections = Record<ModelSourceKey, StoredModelSelection>;
+
+/** Create a fresh default selection entry. */
+function createDefaultStoredSelection(): StoredModelSelection {
+  return {
+    lastModelId: "",
+    isAuto: true,
+  };
+}
+
+/** Create a fresh default selection map. */
+function createDefaultStoredSelections(): StoredModelSelections {
+  return {
+    local: createDefaultStoredSelection(),
+    cloud: createDefaultStoredSelection(),
+  };
+}
+
+/** Normalize stored selection entry. */
+function normalizeStoredSelection(value: unknown): StoredModelSelection {
+  if (!value || typeof value !== "object") {
+    return createDefaultStoredSelection();
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    lastModelId: typeof record.lastModelId === "string" ? record.lastModelId : "",
+    isAuto: typeof record.isAuto === "boolean" ? record.isAuto : true,
+  };
+}
+
+/** Normalize stored selection map. */
+function normalizeStoredSelections(value: unknown): StoredModelSelections {
+  if (!value || typeof value !== "object") {
+    return createDefaultStoredSelections();
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    local: normalizeStoredSelection(record.local),
+    cloud: normalizeStoredSelection(record.cloud),
+  };
+}
+
+/** Read stored selection map from local storage. */
+function readStoredSelections(): { value: StoredModelSelections; hasStorage: boolean } {
+  if (typeof window === "undefined") {
+    return { value: createDefaultStoredSelections(), hasStorage: false };
+  }
+  const raw = window.localStorage.getItem(MODEL_SELECTION_STORAGE_KEY);
+  if (!raw) {
+    return { value: createDefaultStoredSelections(), hasStorage: false };
+  }
+  try {
+    return { value: normalizeStoredSelections(JSON.parse(raw)), hasStorage: true };
+  } catch {
+    return { value: createDefaultStoredSelections(), hasStorage: false };
+  }
+}
+
+/** Persist selection map into local storage. */
+function writeStoredSelections(value: StoredModelSelections) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(MODEL_SELECTION_STORAGE_KEY, JSON.stringify(value));
 }
 
 type ProviderGroup = {
@@ -68,6 +143,10 @@ export default function SelectMode({ className }: SelectModeProps) {
   const tabId = chatSession?.tabId ?? activeTabId;
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
   const isCloudSource = chatModelSource === "cloud";
+  const sourceKey: ModelSourceKey = isCloudSource ? "cloud" : "local";
+  const storedSelectionsRef = useRef<StoredModelSelections>(createDefaultStoredSelections());
+  const storedLoadedRef = useRef(false);
+  const prevSourceKeyRef = useRef<ModelSourceKey | null>(null);
   const modelOptions = useMemo(
     () => buildChatModelOptions(chatModelSource, providerItems, cloudModels),
     [chatModelSource, providerItems, cloudModels],

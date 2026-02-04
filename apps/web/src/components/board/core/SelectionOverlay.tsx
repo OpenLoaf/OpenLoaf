@@ -159,6 +159,20 @@ export function MultiSelectionToolbar({
   onInspect,
 }: MultiSelectionToolbarProps) {
   const { fileContext } = useBoardContext();
+  // 逻辑：Hook 必须在条件 return 之前调用，避免 Hook 顺序变化。
+  const [openPanelId, setOpenPanelId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!openPanelId) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-node-toolbar]")) return;
+      // 逻辑：点击工具条外部时收起二级面板。
+      setOpenPanelId(null);
+    };
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [openPanelId]);
+
   // 逻辑：画布锁定时隐藏节点工具条。
   if (snapshot.locked) return null;
   const selectedNodes = snapshot.selectedIds
@@ -177,7 +191,12 @@ export function MultiSelectionToolbar({
       fileContext,
       openInspector: onInspect,
       updateNodeProps: patch => {
-        engine.doc.updateNodeProps(firstNode.id, patch);
+        engine.doc.transact(() => {
+          // 逻辑：多选同类节点时批量更新样式，确保一次操作同步所有节点。
+          selectedNodes.forEach(node => {
+            engine.doc.updateNodeProps(node.id, patch);
+          });
+        });
         engine.commitHistory();
       },
       ungroupSelection: () => engine.ungroupSelection(),
@@ -209,20 +228,7 @@ export function MultiSelectionToolbar({
     : isUniformColumn
       ? <Columns2 size={14} />
       : <LayoutGrid size={14} />;
-  const [openPanelId, setOpenPanelId] = useState<string | null>(null);
-
   const bounds = computeSelectionBounds(selectedNodes, snapshot.viewport.zoom);
-  useEffect(() => {
-    if (!openPanelId) return;
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("[data-node-toolbar]")) return;
-      // 逻辑：点击工具条外部时收起二级面板。
-      setOpenPanelId(null);
-    };
-    window.addEventListener("pointerdown", handlePointerDown);
-    return () => window.removeEventListener("pointerdown", handlePointerDown);
-  }, [openPanelId]);
 
   return (
     <SelectionToolbarContainer

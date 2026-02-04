@@ -108,6 +108,64 @@ function normalizeElementType(rawType: string): string {
   return trimmed;
 }
 
+/** Resolve a json-render action from props. */
+function resolveAction(
+  value: unknown,
+  params?: Record<string, unknown>,
+): Action | null {
+  if (!value) return null;
+  if (typeof value === "string") {
+    const name = value.trim();
+    if (!name) return null;
+    return params && Object.keys(params).length > 0 ? { name, params } : { name };
+  }
+  if (typeof value === "object" && !Array.isArray(value)) {
+    const action = value as Action;
+    return typeof action.name === "string" && action.name.trim() ? action : null;
+  }
+  return null;
+}
+
+/** Resolve action name from element props. */
+function resolveActionNameFromProps(props: Record<string, unknown>): string {
+  const params = asPlainObject(props.params) ?? undefined;
+  const rawAction = props.action ?? props.actionName ?? props.onAction;
+  const action = resolveAction(rawAction, params ?? undefined);
+  return typeof action?.name === "string" ? action.name : "";
+}
+
+/** Ensure only one submit action is rendered. */
+function limitSubmitActions(tree: UITree): UITree {
+  const visited = new Set<string>();
+  let hasSubmit = false;
+
+  const visit = (key: string) => {
+    if (visited.has(key)) return;
+    visited.add(key);
+    const element = tree.elements[key];
+    if (!element) return;
+    if (element.type === "Button") {
+      const props = asPlainObject(element.props) ?? {};
+      const actionName = resolveActionNameFromProps(props);
+      if (actionName === "submit") {
+        if (hasSubmit) {
+          // 逻辑：只保留首个 submit，后续 submit 直接隐藏。
+          element.visible = false;
+        } else {
+          hasSubmit = true;
+        }
+      }
+    }
+    const children = Array.isArray(element.children) ? element.children : [];
+    for (const childKey of children) {
+      visit(childKey);
+    }
+  };
+
+  visit(tree.root);
+  return tree;
+}
+
 /** Normalize raw UITree into @json-render/core shape. */
 function normalizeTree(rawTree: unknown): UITree | null {
   if (!rawTree || typeof rawTree !== "object" || Array.isArray(rawTree)) return null;
@@ -145,7 +203,7 @@ function normalizeTree(rawTree: unknown): UITree | null {
   const root = rootCandidate && elements[rootCandidate] ? rootCandidate : fallbackRoot;
   if (!root) return null;
 
-  return { root, elements };
+  return limitSubmitActions({ root, elements });
 }
 
 /** Resolve initial data from tool input or output. */
@@ -167,24 +225,6 @@ function buildDataKey(toolCallId: string, data: Record<string, unknown>): string
   } catch {
     return toolCallId || "fallback";
   }
-}
-
-/** Resolve a json-render action from props. */
-function resolveAction(
-  value: unknown,
-  params?: Record<string, unknown>,
-): Action | null {
-  if (!value) return null;
-  if (typeof value === "string") {
-    const name = value.trim();
-    if (!name) return null;
-    return params && Object.keys(params).length > 0 ? { name, params } : { name };
-  }
-  if (typeof value === "object" && !Array.isArray(value)) {
-    const action = value as Action;
-    return typeof action.name === "string" && action.name.trim() ? action : null;
-  }
-  return null;
 }
 
 /** Create the component registry for the json-render tool. */

@@ -914,7 +914,7 @@ export function TextNodeView({
 
   const containerStyle = backgroundColor ? { backgroundColor } : undefined;
   const containerClasses = [
-    "relative h-full w-full rounded-sm box-border p-2.5",
+    "relative h-full w-full rounded-lg box-border p-2.5",
     isEditing && !backgroundColor
       ? "bg-white/90 dark:bg-slate-900/80"
       : "bg-transparent",

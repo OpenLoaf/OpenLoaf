@@ -126,6 +126,16 @@ const DEFAULT_FOCUS_DURATION_MS = 280;
 const FOCUS_VIEWPORT_DELTA_EPS = 0.005;
 /** Pixel threshold for skipping tiny offset changes. */
 const FOCUS_VIEWPORT_OFFSET_EPS = 2;
+/** Text node style keys to inherit for mindmap children. */
+const TEXT_NODE_INHERITABLE_STYLE_KEYS = [
+  "fontSize",
+  "fontWeight",
+  "fontStyle",
+  "textDecoration",
+  "textAlign",
+  "color",
+  "backgroundColor",
+] as const;
 
 export class CanvasEngine {
   /** Document model storing elements. */
@@ -1507,6 +1517,20 @@ export class CanvasEngine {
     }
   }
 
+  /** Extract inheritable text style props from a text node element. */
+  private getInheritableTextProps(element: CanvasNodeElement): Record<string, unknown> {
+    if (element.type !== "text") return {};
+    const props = element.props as Record<string, unknown>;
+    const next: Record<string, unknown> = {};
+    TEXT_NODE_INHERITABLE_STYLE_KEYS.forEach(key => {
+      if (props[key] !== undefined) {
+        // 逻辑：仅复制显式设置过的样式，避免覆盖默认值。
+        next[key] = props[key];
+      }
+    });
+    return next;
+  }
+
   /** Create a new child text node for mindmap editing. */
   createMindmapChild(parentId: string): string | null {
     if (this.locked) return null;
@@ -1514,6 +1538,8 @@ export class CanvasEngine {
     if (!parent || parent.kind !== "node") return null;
     if (this.getMindmapFlag(parent, MINDMAP_META.ghost)) return null;
 
+    // 逻辑：子节点继承父节点文本样式，保持视觉一致性。
+    const inheritedTextProps = this.getInheritableTextProps(parent);
     const parentHasParent = this.getMindmapInboundConnectors(parentId).length > 0;
     const spacingX = parentHasParent
       ? MINDMAP_NODE_HORIZONTAL_SPACING
@@ -1532,7 +1558,7 @@ export class CanvasEngine {
     ];
     const childId = this.addNodeElement(
       "text",
-      { value: "", autoFocus: true },
+      { value: "", autoFocus: true, ...inheritedTextProps },
       nextXYWH,
       { skipHistory: true, skipMindmapLayout: true }
     );
@@ -1560,6 +1586,8 @@ export class CanvasEngine {
     if (!element || element.kind !== "node") return null;
     if (this.getMindmapFlag(element, MINDMAP_META.ghost)) return null;
 
+    // 逻辑：根节点创建同级节点时继承当前节点的文本样式。
+    const inheritedTextProps = this.getInheritableTextProps(element);
     const inbound = this.getMindmapInboundConnectors(nodeId);
     if (inbound.length === 0) {
       const [x, y, , h] = element.xywh;
@@ -1572,7 +1600,7 @@ export class CanvasEngine {
       ];
       const siblingId = this.addNodeElement(
         "text",
-        { value: "", autoFocus: true },
+        { value: "", autoFocus: true, ...inheritedTextProps },
         nextXYWH,
         { skipHistory: true, skipMindmapLayout: true }
       );
