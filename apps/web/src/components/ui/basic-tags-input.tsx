@@ -50,15 +50,12 @@ export default function TagsInputBasic({
   const inputClassName = dense
     ? "flex-1 min-w-[60px] bg-transparent border-none outline-none text-[11px] text-gray-900 placeholder-gray-500 dark:text-gray-100 dark:placeholder-gray-400"
     : "flex-1 min-w-[80px] bg-transparent border-none outline-none text-xs text-gray-900 placeholder-gray-500 dark:text-gray-100 dark:placeholder-gray-400";
-  const clearClassName = dense
-    ? "mt-1 text-[11px] text-gray-500 hover:text-gray-700 transition-colors dark:text-gray-400 dark:hover:text-gray-200"
-    : "mt-1 text-xs text-gray-500 hover:text-gray-700 transition-colors dark:text-gray-400 dark:hover:text-gray-200";
-  const suggestionsClassName = dense
-    ? "mt-1 flex flex-wrap gap-1"
-    : "mt-2 flex flex-wrap gap-1.5";
+  const suggestionsPanelClassName = dense
+    ? "absolute left-0 right-0 mt-1 hidden rounded-md border border-gray-200 bg-white p-1 shadow-none group-focus-within:block dark:border-gray-700 dark:bg-gray-800"
+    : "absolute left-0 right-0 mt-1 hidden rounded-md border border-gray-200 bg-white p-2 shadow-none group-focus-within:block dark:border-gray-700 dark:bg-gray-800";
   const suggestionItemClassName = dense
-    ? "rounded-full border px-1.5 py-0.5 text-[11px] text-gray-600 hover:border-gray-300 hover:text-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:text-gray-100"
-    : "rounded-full border px-2 py-1 text-xs text-gray-600 hover:border-gray-300 hover:text-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:text-gray-100";
+    ? "flex w-full items-center rounded px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
+    : "flex w-full items-center rounded px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700";
 
   return (
     <div className={containerClassName}>
@@ -75,7 +72,8 @@ export default function TagsInputBasic({
           {(tagsInput) => (
             <>
               <TagsInput.Label className={labelClassName}>{label}</TagsInput.Label>
-              <TagsInput.Control className={controlClassName}>
+              <div className="relative group">
+                <TagsInput.Control className={controlClassName}>
                 {tagsInput.value.map((tag, index) => (
                   <TagsInput.Item
                     key={`${tag}-${index}`}
@@ -93,37 +91,33 @@ export default function TagsInputBasic({
                   </TagsInput.Item>
                 ))}
                 <TagsInput.Input placeholder={placeholder} className={inputClassName} />
-              </TagsInput.Control>
-              {suggestions.length > 0 ? (
-                <div className={suggestionsClassName}>
-                  {suggestions.map((tag) => {
-                    const isActive = tagsInput.value.includes(tag);
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        disabled={disabled || isActive}
-                        className={[
-                          suggestionItemClassName,
-                          isActive ? "opacity-50" : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                        onClick={() => {
-                          tagsInput.addValue(tag);
-                        }}
-                      >
-                        {tag}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-              {tagsInput.value.length > 0 && (
-                <TagsInput.ClearTrigger className={clearClassName}>
-                  Clear all
-                </TagsInput.ClearTrigger>
-              )}
+                </TagsInput.Control>
+                {suggestions.length > 0 ? (
+                  <div className={suggestionsPanelClassName}>
+                    {suggestions.map((tag) => {
+                      const isActive = tagsInput.value.includes(tag);
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          disabled={disabled || isActive}
+                          className={[
+                            suggestionItemClassName,
+                            isActive ? "opacity-50" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                          onClick={() => {
+                            tagsInput.addValue(tag);
+                          }}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
             </>
           )}
         </TagsInput.Context>
