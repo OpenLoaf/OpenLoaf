@@ -1,6 +1,7 @@
 import type { Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { mapSaasError } from "@/modules/saas/core/errors";
+import { logger } from "@/common/logger";
 import {
   cancelMediaProxy,
   fetchImageModelsProxy,
@@ -41,17 +42,24 @@ function buildSaasErrorPayload(code: string, message: string): SaasErrorPayload 
   return { success: false, code, message };
 }
 
+type SaasMediaRouteOptions = {
+  /** Allow missing access token. */
+  allowAnonymous?: boolean;
+};
+
 /** Execute SaaS media handler with unified error handling. */
-async function handleSaasMediaRoute(
+export async function handleSaasMediaRoute(
   c: Context,
   handler: (accessToken: string) => Promise<unknown>,
+  options?: SaasMediaRouteOptions,
 ): Promise<Response> {
   const accessToken = resolveBearerToken(c);
-  if (!accessToken) {
+  if (!accessToken && !options?.allowAnonymous) {
     return c.json(buildSaasErrorPayload("saas_auth_required", "请先登录云端账号"), 401);
   }
+  const token = accessToken ?? "";
   try {
-    const payload = await handler(accessToken);
+    const payload = await handler(token);
     return c.json(payload, 200);
   } catch (error) {
     if (isMediaProxyHttpError(error)) {
@@ -62,6 +70,16 @@ async function handleSaasMediaRoute(
     }
     const mapped = mapSaasError(error);
     if (mapped) {
+      // 逻辑：输出 SaaS 返回内容，便于排查失败原因。
+      logger.error(
+        {
+          err: error,
+          code: mapped.code,
+          status: mapped.status,
+          payload: mapped.payload,
+        },
+        "SaaS request failed",
+      );
       return c.json(
         buildSaasErrorPayload(mapped.code, "SaaS 请求失败"),
         normalizeStatus(mapped.status),
@@ -71,8 +89,21 @@ async function handleSaasMediaRoute(
   }
 }
 
+type SaasMediaRouteDeps = {
+  /** Override image model fetcher for tests. */
+  fetchImageModelsProxy?: typeof fetchImageModelsProxy;
+  /** Override video model fetcher for tests. */
+  fetchVideoModelsProxy?: typeof fetchVideoModelsProxy;
+};
+
 /** Register SaaS media proxy routes. */
-export function registerSaasMediaRoutes(app: Hono): void {
+export function registerSaasMediaRoutes(
+  app: Hono,
+  deps: SaasMediaRouteDeps = {},
+): void {
+  const fetchImageModelsHandler = deps.fetchImageModelsProxy ?? fetchImageModelsProxy;
+  const fetchVideoModelsHandler = deps.fetchVideoModelsProxy ?? fetchVideoModelsProxy;
+
   app.post("/ai/image", async (c) => {
     return handleSaasMediaRoute(c, async (accessToken) => {
       const body = await c.req.json().catch(() => null);
@@ -100,14 +131,18 @@ export function registerSaasMediaRoutes(app: Hono): void {
   });
 
   app.get("/ai/image/models", async (c) => {
-    return handleSaasMediaRoute(c, async (accessToken) =>
-      fetchImageModelsProxy(accessToken),
+    return handleSaasMediaRoute(
+      c,
+      async (accessToken) => fetchImageModelsHandler(accessToken),
+      { allowAnonymous: true },
     );
   });
 
   app.get("/ai/vedio/models", async (c) => {
-    return handleSaasMediaRoute(c, async (accessToken) =>
-      fetchVideoModelsProxy(accessToken),
+    return handleSaasMediaRoute(
+      c,
+      async (accessToken) => fetchVideoModelsHandler(accessToken),
+      { allowAnonymous: true },
     );
   });
 }

@@ -16,6 +16,11 @@ type CloudModelResponse = {
   message?: string;
 };
 
+type CloudModelRouteDeps = {
+  /** Override SaaS model list fetcher for tests. */
+  fetchModelList?: typeof fetchModelList;
+};
+
 /** Extract bearer token from request headers. */
 function resolveBearerToken(c: Context): string | null {
   const authHeader = c.req.header("authorization") ?? c.req.header("Authorization");
@@ -27,14 +32,16 @@ function resolveBearerToken(c: Context): string | null {
 /**
  * Register SaaS cloud model routes.
  */
-export function registerCloudModelRoutes(app: Hono): void {
+export function registerCloudModelRoutes(
+  app: Hono,
+  deps: CloudModelRouteDeps = {},
+): void {
+  const fetchModelListHandler = deps.fetchModelList ?? fetchModelList;
+
   app.get("/llm/models", async (c) => {
-    const accessToken = resolveBearerToken(c);
-    if (!accessToken) {
-      return c.json({ error: "saas_auth_required" }, 401);
-    }
+    const accessToken = resolveBearerToken(c) ?? "";
     try {
-      const payload = (await fetchModelList(accessToken)) as CloudChatModelsResponse | null;
+      const payload = (await fetchModelListHandler(accessToken)) as CloudChatModelsResponse | null;
       const models = normalizeCloudChatModels(payload);
       if (!payload || payload.success !== true) {
         return c.json({
