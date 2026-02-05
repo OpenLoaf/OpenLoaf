@@ -61,6 +61,9 @@ export const Header = () => {
     typeof navigator !== "undefined" &&
     (navigator.platform.includes("Mac") || navigator.userAgent.includes("Mac"));
   const trafficLightsWidth = isElectron && isMac ? "72px" : "0px";
+  const collapsedSidebarWidthClass = isMac
+    ? "w-[max(5rem,calc(6rem-var(--macos-traffic-lights-width)))] "
+    : "w-[4.5rem] ";
 
   const canToggleChat = Boolean(activeTab?.base);
   const isChatCollapsed = Boolean(activeTab?.rightChatCollapsed);
@@ -85,7 +88,7 @@ export const Header = () => {
         className={`flex shrink-0 h-(--header-height) items-center transition-[width] duration-200 ease-linear ${
           leftOpen
             ? "w-[calc(var(--sidebar-width)-var(--macos-traffic-lights-width))] "
-            : "w-[max(5rem,calc(6rem-var(--macos-traffic-lights-width)))] "
+            : collapsedSidebarWidthClass
         }`}
       >
         <Tooltip>

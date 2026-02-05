@@ -261,6 +261,48 @@ export function registerIpcHandlers(args: { log: Logger }) {
     event.returnValue = { ok: Boolean(serverUrl), serverUrl, webUrl };
   });
 
+  // Update Windows title bar button symbol color.
+  ipcMain.handle(
+    'tenas:window:set-titlebar-symbol-color',
+    async (event, payload: { symbolColor?: string }) => {
+      if (process.platform !== 'win32') {
+        return { ok: false as const, reason: 'Unsupported platform' };
+      }
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (!win) return { ok: false as const, reason: 'No window for sender' };
+      if (typeof win.setTitleBarOverlay !== 'function') {
+        return { ok: false as const, reason: 'Unsupported window API' };
+      }
+      const symbolColor = String(payload?.symbolColor ?? '').trim();
+      if (!symbolColor) {
+        return { ok: false as const, reason: 'Missing symbolColor' };
+      }
+      win.setTitleBarOverlay({ symbolColor });
+      return { ok: true as const };
+    }
+  );
+
+  // Update Windows title bar overlay height.
+  ipcMain.handle(
+    'tenas:window:set-titlebar-overlay-height',
+    async (event, payload: { height?: number }) => {
+      if (process.platform !== 'win32') {
+        return { ok: false as const, reason: 'Unsupported platform' };
+      }
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (!win) return { ok: false as const, reason: 'No window for sender' };
+      if (typeof win.setTitleBarOverlay !== 'function') {
+        return { ok: false as const, reason: 'Unsupported window API' };
+      }
+      const height = Number(payload?.height);
+      if (!Number.isFinite(height) || height <= 0) {
+        return { ok: false as const, reason: 'Invalid height' };
+      }
+      win.setTitleBarOverlay({ height: Math.round(height) });
+      return { ok: true as const };
+    }
+  );
+
   // 为用户输入的 URL 打开独立窗口（通常用于外部链接）。
   ipcMain.handle('tenas:open-browser-window', async (_event, payload: { url: string }) => {
     const win = createBrowserWindowForUrl(payload?.url ?? '');

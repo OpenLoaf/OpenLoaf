@@ -105,7 +105,8 @@ export async function createMainWindow(args: {
       : {}),
     ...(isWindows
       ? {
-          titleBarOverlay: true,
+          titleBarStyle: 'hidden' as const,
+          titleBarOverlay: { color: 'rgba(0, 0, 0, 0)' },
         }
       : {}),
     webPreferences: {

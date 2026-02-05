@@ -21,6 +21,9 @@ import { isElectronEnv } from "@/utils/is-electron-env";
 type ThemeSelection = "light" | "dark" | "system";
 type FontSizeSelection = "small" | "medium" | "large" | "xlarge";
 
+const WINDOWS_TITLEBAR_SYMBOL_LIGHT = "#1c1c1c";
+const WINDOWS_TITLEBAR_SYMBOL_DARK = "#f2f2f0";
+
 /** Normalize theme selection from unknown input. */
 function normalizeThemeSelection(value: unknown): ThemeSelection | null {
   if (value === "light" || value === "dark" || value === "system") {
@@ -110,6 +113,100 @@ function AnimationSettingsBootstrap() {
     // 逻辑：统一写入到根节点，供非 React 模块读取。
     document.documentElement.dataset.uiAnimationLevel = next;
   }, [basic.uiAnimationLevel, isLoading]);
+
+  return null;
+}
+
+function WindowsTitlebarSymbolColorBootstrap() {
+  const { resolvedTheme } = useTheme();
+
+  useEffect(() => {
+    const api = window.tenasElectron;
+    if (!api?.setTitleBarSymbolColor) return;
+    const isElectron = isElectronEnv();
+    if (!isElectron) return;
+    const isWindows =
+      typeof navigator !== "undefined" && navigator.platform.toLowerCase().includes("win");
+    if (!isWindows) return;
+
+    const themeValue = typeof resolvedTheme === "string" ? resolvedTheme.toLowerCase() : "";
+    const isDark =
+      themeValue === "dark" ||
+      (themeValue !== "light" && document.documentElement.classList.contains("dark"));
+    const symbolColor = isDark
+      ? WINDOWS_TITLEBAR_SYMBOL_DARK
+      : WINDOWS_TITLEBAR_SYMBOL_LIGHT;
+    api.setTitleBarSymbolColor({ symbolColor }).catch(() => {});
+  }, [resolvedTheme]);
+
+  return null;
+}
+
+function WindowsTitlebarHeightBootstrap() {
+  useEffect(() => {
+    const api = window.tenasElectron;
+    if (!api?.setTitleBarOverlayHeight) return;
+    const isElectron = isElectronEnv();
+    if (!isElectron) return;
+    const isWindows =
+      typeof navigator !== "undefined" && navigator.platform.toLowerCase().includes("win");
+    if (!isWindows) return;
+
+    let headerEl: HTMLElement | null = null;
+    let rafId = 0;
+    let retryId: number | null = null;
+    let lastHeight = 0;
+    let observed = false;
+
+    const schedule = () => {
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        sync();
+      });
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
+    const mutationObserver = new MutationObserver(schedule);
+
+    const sync = () => {
+      if (!headerEl || !document.contains(headerEl)) {
+        headerEl = document.querySelector<HTMLElement>('[data-slot="app-header"]');
+        if (!headerEl && retryId == null) {
+          retryId = window.setTimeout(() => {
+            retryId = null;
+            schedule();
+          }, 120);
+          return;
+        }
+      }
+      if (headerEl && resizeObserver && !observed) {
+        resizeObserver.observe(headerEl);
+        observed = true;
+      }
+      if (!headerEl) return;
+      const height = Math.max(0, Math.round(headerEl.getBoundingClientRect().height));
+      if (!height || height === lastHeight) return;
+      lastHeight = height;
+      api.setTitleBarOverlayHeight({ height }).catch(() => {});
+    };
+
+    mutationObserver.observe(document.body ?? document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+    window.addEventListener("resize", schedule);
+    schedule();
+
+    return () => {
+      window.removeEventListener("resize", schedule);
+      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
+      if (rafId) window.cancelAnimationFrame(rafId);
+      if (retryId != null) window.clearTimeout(retryId);
+    };
+  }, []);
 
   return null;
 }
@@ -232,6 +329,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         <ThemeSettingsBootstrap />
         <FontSizeSettingsBootstrap />
         <AnimationSettingsBootstrap />
+        <WindowsTitlebarSymbolColorBootstrap />
+        <WindowsTitlebarHeightBootstrap />
         <MotionSettingsBootstrap>
           <LocalAuthGate>
             {children}

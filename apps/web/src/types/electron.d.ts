@@ -144,6 +144,14 @@ declare global {
       getAppVersion?: () => Promise<string>;
       /** Get runtime port info for backend connectivity. */
       getRuntimePortsSync?: () => { ok: boolean; serverUrl?: string; webUrl?: string };
+      /** Update Windows title bar button symbol color. */
+      setTitleBarSymbolColor?: (payload: {
+        symbolColor: string;
+      }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
+      /** Update Windows title bar overlay height. */
+      setTitleBarOverlayHeight?: (payload: {
+        height: number;
+      }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       checkForUpdates?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
       getAutoUpdateStatus?: () => Promise<TenasAutoUpdateStatus>;
       installUpdate?: () => Promise<{ ok: true } | { ok: false; reason: string }>;

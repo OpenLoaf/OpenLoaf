@@ -102,6 +102,16 @@ contextBridge.exposeInMainWorld('tenasElectron', {
   // Fetch runtime server/web URLs synchronously for early init.
   getRuntimePortsSync: (): { ok: boolean; serverUrl?: string; webUrl?: string } =>
     ipcRenderer.sendSync('tenas:runtime:ports'),
+  // Update Windows title bar button symbol color.
+  setTitleBarSymbolColor: (payload: {
+    symbolColor: string;
+  }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
+    ipcRenderer.invoke('tenas:window:set-titlebar-symbol-color', payload),
+  // Update Windows title bar overlay height.
+  setTitleBarOverlayHeight: (payload: {
+    height: number;
+  }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
+    ipcRenderer.invoke('tenas:window:set-titlebar-overlay-height', payload),
   // 手动触发更新检查。
   checkForUpdates: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
     ipcRenderer.invoke('tenas:auto-update:check'),
