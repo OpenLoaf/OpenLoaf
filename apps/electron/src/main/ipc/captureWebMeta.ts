@@ -109,6 +109,8 @@ export async function captureWebMeta(input: WebMetaCaptureInput): Promise<WebMet
       width: 1280,
       height: 720,
       webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
         sandbox: true,
       },
     });

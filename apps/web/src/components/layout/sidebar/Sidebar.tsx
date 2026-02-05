@@ -273,7 +273,6 @@ export const AppSidebar = ({
       <SidebarContent>
         <SidebarProject />
       </SidebarContent>
-      <SidebarSeparator />
       <SidebarFooter>
         <SidebarFeedback />
       </SidebarFooter>

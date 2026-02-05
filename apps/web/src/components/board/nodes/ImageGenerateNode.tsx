@@ -1,7 +1,7 @@
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { Check, Copy, LogIn, RotateCcw, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Copy, LogIn, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { useBoardContext } from "../core/BoardProvider";
@@ -19,6 +19,7 @@ import {
 } from "@tenas-ai/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@tenas-ai/ui/card";
 import { Input } from "@tenas-ai/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
 import { Textarea } from "@tenas-ai/ui/textarea";
 import TagsInputBasic from "@/components/ui/basic-tags-input";
@@ -41,6 +42,7 @@ import { submitImageTask } from "@/lib/saas-media";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";
 import { LOADING_NODE_TYPE } from "./LoadingNode";
 import { NodeFrame } from "./NodeFrame";
+import { getPreviewEndpoint } from "@/lib/image/uri";
 
 /** Node type identifier for image generation. */
 export const IMAGE_GENERATE_NODE_TYPE = "image_generate";
@@ -48,6 +50,8 @@ export const IMAGE_GENERATE_NODE_TYPE = "image_generate";
 const GENERATED_IMAGE_NODE_GAP = 32;
 /** Extra horizontal gap for the first generated image node. */
 const GENERATED_IMAGE_NODE_FIRST_GAP = 120;
+/** Advanced panel width in pixels (w-60 + ml-4). */
+const ADVANCED_PANEL_OFFSET_PX = 240 + 16;
 /** Available aspect ratio options. */
 const IMAGE_GENERATE_ASPECT_RATIO_OPTIONS = ["1:1", "16:9", "9:16", "4:3"] as const;
 const IMAGE_GENERATE_COUNT_OPTIONS = Array.from({ length: 5 }, (_, index) => index + 1);
@@ -149,6 +153,7 @@ export function ImageGenerateNodeView({
   const isLoginBusy = loginStatus === "opening" || loginStatus === "polling";
   const [copied, setCopied] = useState(false);
   const copyTimerRef = useRef<number | null>(null);
+  const [modelSelectOpen, setModelSelectOpen] = useState(false);
 
   useEffect(() => {
     void refreshSession();
@@ -182,6 +187,10 @@ export function ImageGenerateNodeView({
   const styleTags = useMemo(
     () => styleText.split(/[,，、\n]/).map((tag) => tag.trim()).filter(Boolean),
     [styleText]
+  );
+  const normalizedStyleText = useMemo(
+    () => styleTags.join(","),
+    [styleTags]
   );
 
   // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
@@ -257,19 +266,39 @@ export function ImageGenerateNodeView({
   let invalidImageCount = 0;
 
   for (const imageProps of limitedInputImages) {
-    const rawUri = imageProps?.originalSrc ?? "";
-    const resolvedUri = resolveProjectPathFromBoardUri({
-      uri: rawUri,
-      boardFolderScope,
-      currentProjectId,
-      rootUri: fileContext?.rootUri,
-    });
-    if (!resolvedUri) {
+    const rawUri = (imageProps?.originalSrc ?? "").trim();
+    if (!rawUri) {
+      invalidImageCount += 1;
+      continue;
+    }
+    let resolvedUrl = "";
+    if (rawUri.startsWith("http://") || rawUri.startsWith("https://")) {
+      resolvedUrl = rawUri;
+    } else {
+      const projectPath = resolveProjectPathFromBoardUri({
+        uri: rawUri,
+        boardFolderScope,
+        currentProjectId,
+        rootUri: fileContext?.rootUri,
+      });
+      if (projectPath) {
+        const previewUrl = getPreviewEndpoint(projectPath, {
+          projectId: currentProjectId,
+          workspaceId: resolvedWorkspaceId || undefined,
+        });
+        if (previewUrl.startsWith("/") && typeof window !== "undefined") {
+          resolvedUrl = `${window.location.origin}${previewUrl}`;
+        } else {
+          resolvedUrl = previewUrl;
+        }
+      }
+    }
+    if (!resolvedUrl) {
       invalidImageCount += 1;
       continue;
     }
     resolvedImages.push({
-      url: resolvedUri,
+      url: resolvedUrl,
       mediaType: imageProps?.mimeType || "application/octet-stream",
     });
   }
@@ -322,6 +351,9 @@ export function ImageGenerateNodeView({
     const sourceNode = engine.doc.getElementById(element.id);
     if (!sourceNode || sourceNode.kind !== "node") return null;
     const [nodeX, nodeY, nodeW, nodeH] = sourceNode.xywh;
+    const sideGap = isAdvancedOpen
+      ? GENERATED_IMAGE_NODE_FIRST_GAP + ADVANCED_PANEL_OFFSET_PX
+      : GENERATED_IMAGE_NODE_FIRST_GAP;
     const existingOutputs = engine.doc.getElements().reduce((nodes, item) => {
       if (item.kind !== "connector") return nodes;
       if (!("elementId" in item.source)) return nodes;
@@ -336,14 +368,14 @@ export function ImageGenerateNodeView({
       [nodeX, nodeY, nodeW, nodeH],
       existingOutputs.map((target) => target.xywh),
       {
-        sideGap: GENERATED_IMAGE_NODE_FIRST_GAP,
+        sideGap,
         stackGap: GENERATED_IMAGE_NODE_GAP,
         outputHeights: [DEFAULT_NODE_SIZE[1]],
       }
     );
     if (placement) return { baseX: placement.baseX, startY: placement.startY };
-    return { baseX: nodeX + nodeW + GENERATED_IMAGE_NODE_FIRST_GAP, startY: nodeY };
-  }, [element.id, engine.doc]);
+    return { baseX: nodeX + nodeW + sideGap, startY: nodeY };
+  }, [element.id, engine.doc, isAdvancedOpen]);
 
   /** Run an image generation request via SaaS. */
   const runImageGenerate = useCallback(async () => {
@@ -435,7 +467,7 @@ export function ImageGenerateNodeView({
         modelId,
         prompt: promptText,
         negativePrompt: negativePromptText || undefined,
-        style: styleText || undefined,
+        style: normalizedStyleText || undefined,
         inputs,
         output: {
           count: outputCount,
@@ -645,6 +677,11 @@ export function ImageGenerateNodeView({
         event.stopPropagation();
         onSelect();
       }}
+      onContextMenu={(event) => {
+        // 逻辑：禁用当前节点右键菜单，避免误触画布菜单。
+        event.preventDefault();
+        event.stopPropagation();
+      }}
       onDoubleClick={(event) => {
         // 逻辑：双击节点聚焦视口，避免单击误触发。
         event.stopPropagation();
@@ -696,29 +733,70 @@ export function ImageGenerateNodeView({
             <div className="text-[13px] text-slate-500 dark:text-slate-400">模型</div>
             <div className="min-w-0 flex-1">
               {authLoggedIn ? (
-                <Select
-                  value={effectiveModelId}
-                  onValueChange={(value) => {
-                    onUpdate({ modelId: value });
+                <Popover
+                  open={modelSelectOpen}
+                  onOpenChange={(open) => {
+                    if (engine.isLocked() || element.locked) return;
+                    if (candidates.length === 0) {
+                      setModelSelectOpen(false);
+                      return;
+                    }
+                    setModelSelectOpen(open);
                   }}
-                  disabled={candidates.length === 0 || engine.isLocked() || element.locked}
                 >
-                  <SelectTrigger className="h-9 w-full px-3 text-[13px]">
-                    <SelectValue placeholder="无可用模型" />
-                  </SelectTrigger>
-                  <SelectContent className="text-[13px]">
-                    {candidates.length ? null : (
-                      <SelectItem value="__none__" disabled className="text-[13px]">
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={candidates.length === 0 || engine.isLocked() || element.locked}
+                      className={[
+                        "flex h-7 w-full items-center justify-between rounded-md border border-slate-200/80 bg-white/90 px-2 text-[11px] text-slate-600",
+                        "hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60",
+                        "dark:border-slate-700/80 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-800",
+                      ].join(" ")}
+                      onPointerDown={(event) => {
+                        event.stopPropagation();
+                        onSelect();
+                      }}
+                    >
+                      <span className="truncate">
+                        {selectedModel?.name || selectedModel?.id || "无可用模型"}
+                      </span>
+                      <ChevronDown size={14} />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    side="bottom"
+                    align="start"
+                    sideOffset={4}
+                    className="w-[var(--radix-popover-trigger-width)] max-h-40 overflow-auto rounded-md border border-slate-200/80 bg-white p-1 text-[11px] text-slate-700 shadow-none dark:border-slate-700/80 dark:bg-slate-900 dark:text-slate-100"
+                  >
+                    {candidates.length === 0 ? (
+                      <div className="px-2 py-1.5 text-[12px] text-slate-500 dark:text-slate-400">
                         无可用模型
-                      </SelectItem>
+                      </div>
+                    ) : (
+                      candidates.map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className={[
+                            "flex w-full items-center rounded px-2 py-1.5 text-left text-[11px]",
+                            "hover:bg-slate-100 dark:hover:bg-slate-800",
+                            option.id === effectiveModelId
+                              ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-50"
+                              : "text-slate-700 dark:text-slate-200",
+                          ].join(" ")}
+                          onClick={() => {
+                            onUpdate({ modelId: option.id });
+                            setModelSelectOpen(false);
+                          }}
+                        >
+                          {option.name || option.id}
+                        </button>
+                      ))
                     )}
-                    {candidates.map((option) => (
-                      <SelectItem key={option.id} value={option.id} className="text-[13px]">
-                        {option.name || option.id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  </PopoverContent>
+                </Popover>
               ) : (
                 <button
                   type="button"
@@ -741,10 +819,13 @@ export function ImageGenerateNodeView({
             </div>
           </div>
           <div className="min-w-0 flex min-h-0 flex-1 flex-col gap-2">
+            <div className="text-[12px] text-slate-500 dark:text-slate-400">
+              提示词
+            </div>
             <Textarea
               value={localPromptText}
               maxLength={500}
-              placeholder="输入补充提示词（最多 500 字）"
+              placeholder="请输入提示词"
               onChange={(event) => {
                 const next = event.target.value.slice(0, 500);
                 onUpdate({ promptText: next });
@@ -810,15 +891,15 @@ export function ImageGenerateNodeView({
             event.stopPropagation();
           }}
         >
-          <CardHeader className="border-b border-slate-200/70 px-3 py-1 !pb-1 !gap-0 dark:border-slate-700/70">
-            <CardTitle className="text-[13px] font-semibold text-slate-600 dark:text-slate-200">
+          <CardHeader className="border-b border-slate-200/70 px-2.5 py-1 !pb-1 !gap-0 dark:border-slate-700/70">
+            <CardTitle className="text-[12px] font-semibold text-slate-600 dark:text-slate-200">
               高级设置
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-3 pb-2.5 pt-2">
-            <div className="flex flex-col gap-2.5">
-              <div className="flex items-center gap-1.5">
-                <div className="min-w-0 flex-1 text-[12px] text-slate-500 dark:text-slate-300">
+          <CardContent className="px-2.5 pb-2 pt-1.5">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-1">
+                <div className="min-w-0 flex-1 text-[11px] text-slate-500 dark:text-slate-300">
                   数量
                 </div>
                 <Tabs
@@ -828,12 +909,12 @@ export function ImageGenerateNodeView({
                     onUpdate({ outputCount: normalizeOutputCount(parsed) });
                   }}
                 >
-                  <TabsList className="grid h-7 w-32 grid-cols-5 rounded-md bg-slate-100/80 p-0.5 dark:bg-slate-800/80">
+                  <TabsList className="grid h-6 w-28 grid-cols-5 rounded-md bg-slate-100/80 p-0.5 dark:bg-slate-800/80">
                     {IMAGE_GENERATE_COUNT_OPTIONS.map((option) => (
                       <TabsTrigger
                         key={option}
                         value={String(option)}
-                        className="h-6 text-[11px] text-slate-600 data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:text-slate-300 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-50"
+                        className="h-5 text-[10px] text-slate-600 data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:text-slate-300 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-50"
                         disabled={engine.isLocked() || element.locked}
                       >
                         {option}
@@ -842,8 +923,8 @@ export function ImageGenerateNodeView({
                   </TabsList>
                 </Tabs>
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="min-w-0 flex-1 text-[12px] text-slate-500 dark:text-slate-300">
+              <div className="flex items-center gap-1">
+                <div className="min-w-0 flex-1 text-[11px] text-slate-500 dark:text-slate-300">
                   宽高比
                 </div>
                 <Select
@@ -855,47 +936,47 @@ export function ImageGenerateNodeView({
                   }}
                   disabled={engine.isLocked() || element.locked}
                 >
-                  <SelectTrigger className="h-7 w-28 px-2 text-[12px] shadow-none">
+                  <SelectTrigger className="h-6 w-26 px-2 text-[11px] shadow-none">
                     <SelectValue placeholder="自动" />
                   </SelectTrigger>
-                  <SelectContent className="text-[12px] shadow-none">
-                    <SelectItem value="auto" className="text-[12px]">
+                  <SelectContent className="text-[11px] shadow-none">
+                    <SelectItem value="auto" className="text-[11px]">
                       自动
                     </SelectItem>
                     {IMAGE_GENERATE_ASPECT_RATIO_OPTIONS.map((option) => (
-                      <SelectItem key={option} value={option} className="text-[12px]">
+                      <SelectItem key={option} value={option} className="text-[11px]">
                         {option}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <TagsInputBasic
                   dense
                   label="风格"
-                  placeholder="写实 / 动漫 / 插画..."
+                  placeholder={styleTags.length ? "" : "回车可自定义风格"}
                   suggestions={[...IMAGE_GENERATE_STYLE_SUGGESTIONS]}
                   value={styleTags}
                   onValueChange={(value) => {
-                    // 逻辑：用顿号连接，保持风格字段可读性。
-                    onUpdate({ style: value.join("、") });
+                    // 逻辑：风格字段按逗号分隔。
+                    onUpdate({ style: value.join(",") });
                   }}
                   className="w-32"
                   disabled={engine.isLocked() || element.locked}
                 />
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="min-w-0 flex-1 text-[12px] text-slate-500 dark:text-slate-300">
-                  不希望出现
-                </div>
-                <Input
+              <div className="min-w-0">
+                <Textarea
                   value={negativePromptText}
-                  onChange={(event) => {
-                    onUpdate({ negativePrompt: event.target.value });
-                  }}
+                  maxLength={200}
                   placeholder="不希望出现"
-                  className="h-8 w-28 px-2 text-[12px]"
+                  onChange={(event) => {
+                    const next = event.target.value.slice(0, 200);
+                    onUpdate({ negativePrompt: next });
+                  }}
+                  data-board-scroll
+                  className="min-h-[48px] w-full resize-none overflow-y-auto px-2.5 py-1.5 text-[10px] leading-4 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500"
                   disabled={engine.isLocked() || element.locked}
                 />
               </div>

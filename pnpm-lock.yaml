@@ -60,9 +60,6 @@ importers:
       '@tenas-ai/db':
         specifier: workspace:*
         version: link:packages/db
-      '@tenas-saas/sdk':
-        specifier: file:../Tenas-saas/packages/sdk
-        version: file:../Tenas-saas/packages/sdk(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3)
       '@types/node':
         specifier: ^25.0.10
         version: 25.0.10

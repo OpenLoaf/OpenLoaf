@@ -1,7 +1,9 @@
 "use client";
 
 import { TagsInput } from "@ark-ui/react/tags-input";
+import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
 import { X } from "lucide-react";
+import { useCallback, useState } from "react";
 
 type TagsInputBasicProps = {
   value?: string[];
@@ -38,6 +40,12 @@ export default function TagsInputBasic({
   const labelClassName = dense
     ? "block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1"
     : "block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1";
+  const labelRowClassName = dense
+    ? "mb-1 flex items-center justify-between"
+    : "mb-1 flex items-center justify-between";
+  const clearClassName = dense
+    ? "text-[10px] text-gray-500 hover:text-gray-700 transition-colors dark:text-gray-400 dark:hover:text-gray-200"
+    : "text-xs text-gray-500 hover:text-gray-700 transition-colors dark:text-gray-400 dark:hover:text-gray-200";
   const controlClassName = dense
     ? "flex flex-wrap gap-1 p-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 min-h-7 focus-within:outline-hidden focus-within:ring-2 focus-within:ring-blue-500/50 dark:focus-within:ring-blue-400/50 focus-within:border-blue-500 dark:focus-within:border-blue-400"
     : "flex flex-wrap gap-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 min-h-8 focus-within:outline-hidden focus-within:ring-2 focus-within:ring-blue-500/50 dark:focus-within:ring-blue-400/50 focus-within:border-blue-500 dark:focus-within:border-blue-400";
@@ -51,11 +59,23 @@ export default function TagsInputBasic({
     ? "flex-1 min-w-[60px] bg-transparent border-none outline-none text-[11px] text-gray-900 placeholder-gray-500 dark:text-gray-100 dark:placeholder-gray-400"
     : "flex-1 min-w-[80px] bg-transparent border-none outline-none text-xs text-gray-900 placeholder-gray-500 dark:text-gray-100 dark:placeholder-gray-400";
   const suggestionsPanelClassName = dense
-    ? "absolute left-0 right-0 mt-1 hidden rounded-md border border-gray-200 bg-white p-1 shadow-none group-focus-within:block dark:border-gray-700 dark:bg-gray-800"
-    : "absolute left-0 right-0 mt-1 hidden rounded-md border border-gray-200 bg-white p-2 shadow-none group-focus-within:block dark:border-gray-700 dark:bg-gray-800";
+    ? "z-50 w-full rounded-md border border-gray-200 bg-white p-1 shadow-none dark:border-gray-700 dark:bg-gray-800"
+    : "z-50 w-full rounded-md border border-gray-200 bg-white p-2 shadow-none dark:border-gray-700 dark:bg-gray-800";
   const suggestionItemClassName = dense
     ? "flex w-full items-center rounded px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
     : "flex w-full items-center rounded px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700";
+
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (disabled) {
+        setSuggestionsOpen(false);
+        return;
+      }
+      setSuggestionsOpen(nextOpen);
+    },
+    [disabled]
+  );
 
   return (
     <div className={containerClassName}>
@@ -71,29 +91,58 @@ export default function TagsInputBasic({
         <TagsInput.Context>
           {(tagsInput) => (
             <>
-              <TagsInput.Label className={labelClassName}>{label}</TagsInput.Label>
-              <div className="relative group">
-                <TagsInput.Control className={controlClassName}>
-                {tagsInput.value.map((tag, index) => (
-                  <TagsInput.Item
-                    key={`${tag}-${index}`}
-                    index={index}
-                    value={tag}
-                    className={itemClassName}
+              <div className={labelRowClassName}>
+                <TagsInput.Label className={labelClassName}>{label}</TagsInput.Label>
+                {tagsInput.value.length > 0 && !disabled ? (
+                  <TagsInput.ClearTrigger className={clearClassName}>
+                    清除
+                  </TagsInput.ClearTrigger>
+                ) : null}
+              </div>
+              <Popover open={suggestionsOpen} onOpenChange={handleOpenChange}>
+                <PopoverTrigger asChild>
+                  <TagsInput.Control
+                    className={controlClassName}
+                    onPointerDown={() => {
+                      if (suggestions.length > 0 && !disabled) {
+                        setSuggestionsOpen(true);
+                      }
+                    }}
                   >
-                    <TagsInput.ItemPreview className="flex items-center gap-1">
-                      <TagsInput.ItemText>{tag}</TagsInput.ItemText>
-                      <TagsInput.ItemDeleteTrigger className="flex items-center justify-center w-3 h-3 hover:bg-gray-200 rounded transition-colors dark:hover:bg-gray-600">
-                        <X className="w-2 h-2" />
-                      </TagsInput.ItemDeleteTrigger>
-                    </TagsInput.ItemPreview>
-                    <TagsInput.ItemInput className={itemInputClassName} />
-                  </TagsInput.Item>
-                ))}
-                <TagsInput.Input placeholder={placeholder} className={inputClassName} />
-                </TagsInput.Control>
+                    {tagsInput.value.map((tag, index) => (
+                      <TagsInput.Item
+                        key={`${tag}-${index}`}
+                        index={index}
+                        value={tag}
+                        className={itemClassName}
+                      >
+                        <TagsInput.ItemPreview className="flex items-center gap-1">
+                          <TagsInput.ItemText>{tag}</TagsInput.ItemText>
+                          <TagsInput.ItemDeleteTrigger className="flex items-center justify-center w-3 h-3 hover:bg-gray-200 rounded transition-colors dark:hover:bg-gray-600">
+                            <X className="w-2 h-2" />
+                          </TagsInput.ItemDeleteTrigger>
+                        </TagsInput.ItemPreview>
+                        <TagsInput.ItemInput className={itemInputClassName} />
+                      </TagsInput.Item>
+                    ))}
+                    <TagsInput.Input
+                      placeholder={placeholder}
+                      className={inputClassName}
+                      onFocus={() => {
+                        if (suggestions.length > 0 && !disabled) {
+                          setSuggestionsOpen(true);
+                        }
+                      }}
+                    />
+                  </TagsInput.Control>
+                </PopoverTrigger>
                 {suggestions.length > 0 ? (
-                  <div className={suggestionsPanelClassName}>
+                  <PopoverContent
+                    side="bottom"
+                    align="start"
+                    sideOffset={4}
+                    className={suggestionsPanelClassName}
+                  >
                     {suggestions.map((tag) => {
                       const isActive = tagsInput.value.includes(tag);
                       return (
@@ -115,9 +164,9 @@ export default function TagsInputBasic({
                         </button>
                       );
                     })}
-                  </div>
+                  </PopoverContent>
                 ) : null}
-              </div>
+              </Popover>
             </>
           )}
         </TagsInput.Context>

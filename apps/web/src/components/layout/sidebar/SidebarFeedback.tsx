@@ -19,6 +19,7 @@ import { Textarea } from "@tenas-ai/ui/textarea";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { resolveSaasBaseUrl, getCachedAccessToken } from "@/lib/saas-auth";
 import { isElectronEnv } from "@/utils/is-electron-env";
 
@@ -59,6 +60,8 @@ export function SidebarFeedback() {
   const activeTabId = useTabs((state) => state.activeTabId);
   const tabs = useTabs((state) => state.tabs);
   const runtimeByTabId = useTabRuntime((state) => state.runtimeByTabId);
+  // 登录状态：用于决定是否显示邮箱输入框。
+  const { loggedIn: authLoggedIn } = useSaasAuth();
 
   // Form state fields.
   const [open, setOpen] = React.useState(false);
@@ -129,7 +132,7 @@ export function SidebarFeedback() {
       toast.error("请填写反馈内容");
       return;
     }
-    if (!isEmailValid) {
+    if (!authLoggedIn && !isEmailValid) {
       toast.error("邮箱格式不正确");
       return;
     }
@@ -152,7 +155,7 @@ export function SidebarFeedback() {
         type,
         content: trimmed,
         context,
-        email: email.trim() || undefined,
+        email: authLoggedIn ? undefined : email.trim() || undefined,
       });
       toast.success("反馈已提交");
       setContent("");
@@ -171,21 +174,21 @@ export function SidebarFeedback() {
     } finally {
       setSubmitting(false);
     }
-  }, [buildContext, content, email, isEmailValid, type]);
+  }, [authLoggedIn, buildContext, content, email, isEmailValid, type]);
 
   return (
     <SidebarMenu>
       <SidebarMenuItem>
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
-            <SidebarMenuButton type="button" tooltip="反馈问题">
+            <SidebarMenuButton type="button" tooltip="反馈与建议">
               <MessageSquare />
-              <span className="flex-1 truncate">反馈问题</span>
+              <span className="flex-1 truncate">反馈与建议</span>
             </SidebarMenuButton>
           </PopoverTrigger>
           <PopoverContent side="top" align="start" className="w-80 p-3">
             <div className="flex flex-col gap-3">
-              <div className="text-sm font-medium">反馈问题</div>
+              <div className="text-sm font-medium">反馈与建议</div>
               <Select value={type} onValueChange={(value) => setType(value as FeedbackType)}>
                 <SelectTrigger aria-label="反馈类型">
                   <SelectValue placeholder="选择类型" />
@@ -204,15 +207,19 @@ export function SidebarFeedback() {
                 placeholder="请描述你遇到的问题或建议"
                 className="min-h-[96px]"
               />
-              <Input
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="可选邮箱，用于后续联系"
-                type="email"
-              />
-              {!isEmailValid ? (
-                <div className="text-xs text-destructive">邮箱格式不正确</div>
-              ) : null}
+              {authLoggedIn ? null : (
+                <>
+                  <Input
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="可选邮箱，用于后续联系"
+                    type="email"
+                  />
+                  {!isEmailValid ? (
+                    <div className="text-xs text-destructive">邮箱格式不正确</div>
+                  ) : null}
+                </>
+              )}
               <div className="flex items-center justify-end gap-2">
                 <Button
                   variant="ghost"
