@@ -21,7 +21,7 @@ const root = getTenasRootDir();
 assert.equal(root, tempRoot);
 assert.ok(existsSync(root));
 
-const workspaceRoot = mkdtempSync(path.join(tmpdir(), "tenas-workspace-root-"));
+const workspaceRoot = mkdtempSync(path.join(tmpdir(), "TenasWorkspace-root-"));
 setDefaultWorkspaceRootOverride(workspaceRoot);
 assert.equal(getDefaultWorkspaceRootDir(), workspaceRoot);
 assert.ok(existsSync(workspaceRoot));

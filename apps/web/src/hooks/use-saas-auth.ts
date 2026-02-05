@@ -30,6 +30,8 @@ type SaasAuthState = {
   loginStatus: LoginStatus;
   /** Login error message. */
   loginError: string | null;
+  /** WeChat QR login url for embedded login flow. */
+  wechatLoginUrl: string | null;
   /** Remember login preference. */
   remember: boolean;
   /** Update remember preference. */
@@ -78,6 +80,7 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
   user: null,
   loginStatus: "idle",
   loginError: null,
+  wechatLoginUrl: null,
   remember: true,
   setRemember: (value) => set({ remember: value }),
   refreshSession: async () => {
@@ -148,15 +151,23 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
       port,
     });
 
-    set({ loginStatus: "opening", loginError: null });
-    try {
-      await openExternalUrl(loginUrl);
-    } catch (error) {
-      set({
-        loginStatus: "error",
-        loginError: (error as Error)?.message ?? "无法打开登录页面",
-      });
-      return;
+    set({
+      loginStatus: "opening",
+      loginError: null,
+      // 逻辑：微信登录走弹窗内嵌二维码，避免打开系统浏览器。
+      wechatLoginUrl: provider === "wechat" ? loginUrl : null,
+    });
+    if (provider !== "wechat") {
+      try {
+        await openExternalUrl(loginUrl);
+      } catch (error) {
+        set({
+          loginStatus: "error",
+          loginError: (error as Error)?.message ?? "无法打开登录页面",
+          wechatLoginUrl: null,
+        });
+        return;
+      }
     }
 
     stopLoginPolling();
@@ -170,6 +181,7 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
         set({
           loginStatus: "error",
           loginError: "登录超时，请重试",
+          wechatLoginUrl: null,
         });
         return;
       }
@@ -180,17 +192,21 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
       const user = await exchangeLoginCode({ loginCode: code, remember });
       if (!user) {
         // 逻辑：返回 null 说明换码失败或未拿到 token。
-        set({ loginStatus: "error", loginError: "登录失败，请重试" });
+        set({
+          loginStatus: "error",
+          loginError: "登录失败，请重试",
+          wechatLoginUrl: null,
+        });
         return;
       }
       await get().refreshSession();
-      set({ loginStatus: "idle", loginError: null });
+      set({ loginStatus: "idle", loginError: null, wechatLoginUrl: null });
       toast.success("登录成功");
     }, 1000);
   },
   cancelLogin: () => {
     stopLoginPolling();
-    set({ loginStatus: "idle", loginError: null });
+    set({ loginStatus: "idle", loginError: null, wechatLoginUrl: null });
   },
   logout: async () => {
     await logoutFromSaas();

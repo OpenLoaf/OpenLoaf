@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@tenas-ai/ui/card";
 import { Input } from "@tenas-ai/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
 import { Textarea } from "@tenas-ai/ui/textarea";
+import TagsInputBasic from "@/components/ui/basic-tags-input";
 import {
   IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
   IMAGE_GENERATE_MAX_INPUT_IMAGES,
@@ -47,19 +48,10 @@ export const IMAGE_GENERATE_NODE_TYPE = "image_generate";
 const GENERATED_IMAGE_NODE_GAP = 32;
 /** Extra horizontal gap for the first generated image node. */
 const GENERATED_IMAGE_NODE_FIRST_GAP = 120;
-/** Default output size for image generation. */
-const IMAGE_GENERATE_DEFAULT_SIZE = "1024x1024";
-/** Available output size options. */
-const IMAGE_GENERATE_SIZE_OPTIONS = [
-  "1024x1024",
-  "1152x896",
-  "896x1152",
-  "1280x720",
-  "720x1280",
-] as const;
+/** Available aspect ratio options. */
+const IMAGE_GENERATE_ASPECT_RATIO_OPTIONS = ["1:1", "16:9", "9:16", "4:3"] as const;
 const IMAGE_GENERATE_COUNT_OPTIONS = Array.from({ length: 5 }, (_, index) => index + 1);
-/** 可选风格标签列表。 */
-const IMAGE_GENERATE_STYLE_TAGS = ["写实", "动漫", "插画", "3D", "赛博朋克", "水彩"] as const;
+const IMAGE_GENERATE_STYLE_SUGGESTIONS = ["写实", "动漫", "插画", "3D", "赛博朋克", "水彩"] as const;
 
 
 export type ImageGenerateNodeProps = {
@@ -73,8 +65,8 @@ export type ImageGenerateNodeProps = {
   style?: string;
   /** Negative prompt text. */
   negativePrompt?: string;
-  /** Output size for generated images. */
-  outputSize?: string;
+  /** Output aspect ratio for generated images. */
+  outputAspectRatio?: string;
   /** Requested output image count. */
   outputCount?: number;
   /** Model parameters. */
@@ -92,7 +84,7 @@ const ImageGenerateNodeSchema = z.object({
   promptText: z.string().optional(),
   style: z.string().optional(),
   negativePrompt: z.string().optional(),
-  outputSize: z.string().optional(),
+  outputAspectRatio: z.string().optional(),
   outputCount: z.number().optional(),
   parameters: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
   resultImages: z.array(z.string()).optional(),
@@ -114,12 +106,6 @@ function normalizeOutputCount(value: number | undefined) {
     IMAGE_GENERATE_COUNT_OPTIONS.length
   );
   return Math.min(Math.max(rounded, 1), maxCount);
-}
-
-/** Normalize output size string. */
-function normalizeOutputSize(value: string | undefined): string {
-  const trimmed = typeof value === "string" ? value.trim() : "";
-  return trimmed || IMAGE_GENERATE_DEFAULT_SIZE;
 }
 
 /** Render the image generation node. */
@@ -183,7 +169,13 @@ export function ImageGenerateNodeView({
 
   const errorText = element.props.errorText ?? "";
   const outputCount = normalizeOutputCount(element.props.outputCount);
-  const outputSize = normalizeOutputSize(element.props.outputSize);
+  const outputAspectRatioValue =
+    typeof element.props.outputAspectRatio === "string" &&
+    element.props.outputAspectRatio.trim()
+      ? element.props.outputAspectRatio.trim()
+      : "auto";
+  const outputAspectRatio =
+    outputAspectRatioValue === "auto" ? undefined : outputAspectRatioValue;
   const localPromptText = normalizeTextValue(element.props.promptText);
   const styleText = normalizeTextValue(element.props.style);
   const negativePromptText = normalizeTextValue(element.props.negativePrompt);
@@ -191,7 +183,6 @@ export function ImageGenerateNodeView({
     () => styleText.split(/[,，、\n]/).map((tag) => tag.trim()).filter(Boolean),
     [styleText]
   );
-  const styleTagSet = useMemo(() => new Set(styleTags), [styleTags]);
 
   // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
   const inputImageNodes: ImageNodeProps[] = [];
@@ -448,7 +439,7 @@ export function ImageGenerateNodeView({
         inputs,
         output: {
           count: outputCount,
-          size: outputSize,
+          aspectRatio: outputAspectRatio || undefined,
         },
         parameters: element.props.parameters ?? undefined,
         workspaceId: resolvedWorkspaceId || undefined,
@@ -492,7 +483,7 @@ export function ImageGenerateNodeView({
     maxInputImages,
     negativePromptText,
     outputCount,
-    outputSize,
+    outputAspectRatio,
     promptText,
     resolvedImages,
     resolvedWorkspaceId,
@@ -631,20 +622,6 @@ export function ImageGenerateNodeView({
     }
   }, [errorText]);
 
-  /** Toggle a style tag in the advanced panel. */
-  const handleToggleStyleTag = useCallback(
-    (tag: string) => {
-      const nextTags = new Set(styleTags);
-      if (nextTags.has(tag)) {
-        nextTags.delete(tag);
-      } else {
-        nextTags.add(tag);
-      }
-      // 逻辑：用顿号连接，保持风格字段可读性。
-      onUpdate({ style: Array.from(nextTags).join("、") });
-    },
-    [onUpdate, styleTags]
-  );
 
   /** Focus viewport to the node when the node is interacted with. */
   const handleNodeFocus = useCallback(() => {
@@ -867,20 +844,25 @@ export function ImageGenerateNodeView({
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="min-w-0 flex-1 text-[12px] text-slate-500 dark:text-slate-300">
-                  尺寸
+                  宽高比
                 </div>
                 <Select
-                  value={outputSize}
+                  value={outputAspectRatioValue}
                   onValueChange={(value) => {
-                    onUpdate({ outputSize: value });
+                    onUpdate({
+                      outputAspectRatio: value === "auto" ? undefined : value,
+                    });
                   }}
                   disabled={engine.isLocked() || element.locked}
                 >
-                  <SelectTrigger className="h-8 w-28 px-2 text-[12px]">
-                    <SelectValue placeholder="选择尺寸" />
+                  <SelectTrigger className="h-7 w-28 px-2 text-[12px] shadow-none">
+                    <SelectValue placeholder="自动" />
                   </SelectTrigger>
-                  <SelectContent className="text-[12px]">
-                    {IMAGE_GENERATE_SIZE_OPTIONS.map((option) => (
+                  <SelectContent className="text-[12px] shadow-none">
+                    <SelectItem value="auto" className="text-[12px]">
+                      自动
+                    </SelectItem>
+                    {IMAGE_GENERATE_ASPECT_RATIO_OPTIONS.map((option) => (
                       <SelectItem key={option} value={option} className="text-[12px]">
                         {option}
                       </SelectItem>
@@ -888,34 +870,20 @@ export function ImageGenerateNodeView({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-start gap-1.5">
-                <div className="min-w-0 flex-1 pt-0.5 text-[12px] text-slate-500 dark:text-slate-300">
-                  风格
-                </div>
-                <div className="flex w-32 flex-wrap gap-1.5">
-                  {IMAGE_GENERATE_STYLE_TAGS.map((tag) => {
-                    const isActive = styleTagSet.has(tag);
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        disabled={engine.isLocked() || element.locked}
-                        className={[
-                          "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] leading-none transition",
-                          isActive
-                            ? "border-slate-900/70 bg-slate-900 text-white dark:border-slate-200 dark:bg-slate-100 dark:text-slate-900"
-                            : "border-slate-200/80 bg-white/70 text-slate-600 hover:border-slate-300 hover:text-slate-800 dark:border-slate-700/80 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:text-slate-100",
-                          "disabled:opacity-60",
-                        ].join(" ")}
-                        onClick={() => {
-                          handleToggleStyleTag(tag);
-                        }}
-                      >
-                        {tag}
-                      </button>
-                    );
-                  })}
-                </div>
+              <div className="flex items-center gap-1.5">
+                <TagsInputBasic
+                  dense
+                  label="风格"
+                  placeholder="写实 / 动漫 / 插画..."
+                  suggestions={[...IMAGE_GENERATE_STYLE_SUGGESTIONS]}
+                  value={styleTags}
+                  onValueChange={(value) => {
+                    // 逻辑：用顿号连接，保持风格字段可读性。
+                    onUpdate({ style: value.join("、") });
+                  }}
+                  className="w-32"
+                  disabled={engine.isLocked() || element.locked}
+                />
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="min-w-0 flex-1 text-[12px] text-slate-500 dark:text-slate-300">
@@ -945,7 +913,6 @@ export const ImageGenerateNodeDefinition: CanvasNodeDefinition<ImageGenerateNode
   schema: ImageGenerateNodeSchema,
   defaultProps: {
     outputCount: IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
-    outputSize: IMAGE_GENERATE_DEFAULT_SIZE,
     promptText: "",
     style: "",
     negativePrompt: "",

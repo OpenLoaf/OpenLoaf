@@ -27,6 +27,7 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
   const {
     loginStatus,
     loginError,
+    wechatLoginUrl,
     startLogin,
     cancelLogin,
   } = useSaasAuth();
@@ -43,7 +44,9 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
         : null;
   const subtitleText =
     loginStatus === "opening"
-      ? "正在打开系统浏览器…"
+      ? selectedProvider === "wechat"
+        ? "正在加载微信扫码登录…"
+        : "正在打开系统浏览器…"
       : loginStatus === "polling"
         ? "等待登录完成…"
         : loginStatus === "error"
@@ -128,20 +131,31 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
 
           <div className="space-y-4 px-8 pb-6">
             {isLoginInProgress ? (
-              <button
-                type="button"
-                className={cn(
-                  "flex w-full items-center justify-center gap-2 rounded-full border border-border/70 bg-muted/40 px-4 py-3 text-foreground transition-colors",
-                  "hover:bg-muted/60",
-                )}
-                onClick={() => {
-                  cancelLogin();
-                  setSelectedProvider(null);
-                  onOpenChange(false);
-                }}
-              >
-                取消登录
-              </button>
+              <div className="space-y-3">
+                {selectedProvider === "wechat" ? (
+                  <div className="flex justify-center">
+                    <iframe
+                      title="wechat-login"
+                      src={wechatLoginUrl ?? undefined}
+                      className="h-[400px] w-[300px] rounded-lg border border-border/70 bg-background"
+                    />
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  className={cn(
+                    "flex w-full items-center justify-center gap-2 rounded-full border border-border/70 bg-muted/40 px-4 py-3 text-foreground transition-colors",
+                    "hover:bg-muted/60",
+                  )}
+                  onClick={() => {
+                    cancelLogin();
+                    setSelectedProvider(null);
+                    onOpenChange(false);
+                  }}
+                >
+                  取消登录
+                </button>
+              </div>
             ) : (
               <>
                 <button

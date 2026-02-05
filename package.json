@@ -25,6 +25,7 @@
     "check": "biome check ."
   },
   "dependencies": {
+    "@ark-ui/react": "^5.31.0",
     "dotenv": "^17.2.3",
     "simplebar-react": "^3.3.2",
     "zod": "^4.3.6",

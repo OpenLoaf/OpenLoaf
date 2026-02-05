@@ -142,15 +142,15 @@ export function migrateLegacyServerData(
 }
 
 function resolveUnixWorkspaceRoot(): string {
-  return path.join(homedir(), process.platform === "darwin" ? "Documents" : "", "tenas-workspace");
+  return path.join(homedir(), process.platform === "darwin" ? "Documents" : "", "TenasWorkspace");
 }
 
 function resolveWindowsWorkspaceRoot(): string {
-  const dDriveRoot = "D:\\\\tenas-workspace";
+  const dDriveRoot = "D:\\\\TenasWorkspace";
   if (fs.existsSync("D:\\\\")) {
     return dDriveRoot;
   }
-  return path.join(homedir(), "tenas-workspace");
+  return path.join(homedir(), "TenasWorkspace");
 }
 
 function resolveLegacyServerRoot(): string | null {

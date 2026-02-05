@@ -108,6 +108,6 @@ tenas-ai/
 * Default DB path: `~/.tenas/tenas.db` (auto-initialized on first run)
 
 * Default workspace directory:
-  * macOS: `~/Documents/tenas-workspace`
-  * Linux: `~/tenas-workspace`
-  * Windows: `D:\tenas-workspace` (fallback to `%USERPROFILE%\\tenas-workspace` if no D drive)
+  * macOS: `~/Documents/TenasWorkspace`
+  * Linux: `~/TenasWorkspace`
+  * Windows: `D:\TenasWorkspace` (fallback to `%USERPROFILE%\\TenasWorkspace` if no D drive)
