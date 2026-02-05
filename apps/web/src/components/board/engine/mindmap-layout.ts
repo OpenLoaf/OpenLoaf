@@ -20,6 +20,7 @@ export const MINDMAP_META = {
   ghostConnector: "mindmapGhostConnector",
   ghostConnectorParentId: "mindmapGhostConnectorParentId",
   hidden: "mindmapHidden",
+  layoutDirection: "mindmapLayoutDirection",
   multiParent: "mindmapMultiParent",
 } as const;
 
@@ -71,7 +72,8 @@ type NodeOrderResolver = (nodeId: string) => number;
 /** Compute layout updates for a global mindmap tree. */
 export function computeMindmapLayout(
   elements: CanvasElement[],
-  direction: MindmapLayoutDirection
+  defaultDirection: MindmapLayoutDirection,
+  rootDirections?: Map<string, MindmapLayoutDirection>
 ): {
   updates: MindmapLayoutUpdate[];
   ghostUpdates: MindmapLayoutUpdate[];
@@ -365,10 +367,16 @@ export function computeMindmapLayout(
   const rootNodes = realNodes.filter(node => !treeParentMap.has(node.id));
   rootNodes.sort((a, b) => resolveOrder(a.id) - resolveOrder(b.id));
 
+  const resolveRootDirection = (rootId: string): MindmapLayoutDirection => {
+    const customDirection = rootDirections?.get(rootId);
+    return customDirection ?? defaultDirection;
+  };
+
   rootNodes.forEach(root => {
     if (hiddenSet.has(root.id)) return;
     const children = treeChildrenMap.get(root.id) ?? [];
-    if (direction === "balanced" && children.length > 0 && !collapsedSet.has(root.id)) {
+    const rootDirection = resolveRootDirection(root.id);
+    if (rootDirection === "balanced" && children.length > 0 && !collapsedSet.has(root.id)) {
       const leftChildren: string[] = [];
       const rightChildren: string[] = [];
       children.forEach((childId, index) => {
@@ -389,7 +397,7 @@ export function computeMindmapLayout(
       return;
     }
     const tree = buildTree(root.id, null);
-    const layoutDirection = direction === "left" ? "left" : "right";
+    const layoutDirection = rootDirection === "left" ? "left" : "right";
     layoutTree(tree, layoutDirection, root.xywh, true);
   });
 

@@ -1,5 +1,5 @@
-import { Columns2, LayoutGrid, Layers, ArrowDown, ArrowUp, Copy, Lock, Rows2, Trash2, Unlock, Maximize2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Columns2, LayoutGrid, Layers, ArrowDown, ArrowUp, Copy, Lock, Rows2, Trash2, Unlock, Maximize2, ArrowLeft, ArrowRight, ArrowLeftRight } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode, type SVGProps } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type {
   CanvasElement,
@@ -22,6 +22,7 @@ import { MINDMAP_META } from "../engine/mindmap-layout";
 import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
 import { snapResizeRectSE } from "../utils/alignment-guides";
 import { SelectionToolbarContainer, ToolbarGroup } from "../ui/SelectionToolbar";
+import { PanelItem } from "../ui/ToolbarParts";
 import { useBoardContext } from "./BoardProvider";
 import { useBoardViewState } from "./useBoardViewState";
 
@@ -104,20 +105,19 @@ export function SingleSelectionToolbar({
     >
       <div className="flex items-center gap-1">
         <ToolbarGroup
-          items={mindmapLayoutItems}
-          openPanelId={openPanelId}
-          setOpenPanelId={setOpenPanelId}
-          showDivider={
-            mindmapLayoutItems.length > 0
-            && (customItems.length > 0 || commonItems.length > 0)
-          }
-        />
-        <ToolbarGroup
           items={customItems}
           openPanelId={openPanelId}
           setOpenPanelId={setOpenPanelId}
           showDivider={
-            customItems.length > 0 && commonItems.length > 0
+            customItems.length > 0 && mindmapLayoutItems.length > 0
+          }
+        />
+        <ToolbarGroup
+          items={mindmapLayoutItems}
+          openPanelId={openPanelId}
+          setOpenPanelId={setOpenPanelId}
+          showDivider={
+            mindmapLayoutItems.length > 0 && commonItems.length > 0
           }
         />
         <ToolbarGroup
@@ -144,13 +144,34 @@ const LAYOUT_SPACING_TOLERANCE = 2;
 type MindmapLayoutDirection = "right" | "left" | "balanced";
 const MINDMAP_LAYOUT_ITEMS: Array<{
   id: MindmapLayoutDirection;
-  label: string;
   title: string;
+  icon: ReactNode;
 }> = [
-  { id: "right", label: "右", title: "右向" },
-  { id: "left", label: "左", title: "左向" },
-  { id: "balanced", label: "均", title: "均衡" },
+  { id: "right", title: "右向", icon: <ArrowRight size={14} /> },
+  { id: "left", title: "左向", icon: <ArrowLeft size={14} /> },
+  { id: "balanced", title: "均衡", icon: <ArrowLeftRight size={14} /> },
 ];
+
+function MindmapIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width="1em"
+      height="1em"
+      fill="none"
+      style={{ userSelect: "none", flexShrink: 0 }}
+      {...props}
+    >
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M10.458 5.95H8.5c-.69 0-1.25.56-1.25 1.25V10c0 .45-.108.875-.3 1.25h3.467a2.5 2.5 0 0 1 2.333-1.6h5.5a2.5 2.5 0 0 1 0 5h-5.5a2.5 2.5 0 0 1-2.427-1.9H6.95c.192.375.3.8.3 1.25v2.809c0 .69.56 1.25 1.25 1.25h1.914a2.5 2.5 0 0 1 2.336-1.609h5.5a2.5 2.5 0 0 1 0 5h-5.5a2.5 2.5 0 0 1-2.425-1.891H8.5a2.75 2.75 0 0 1-2.75-2.75V14c0-.69-.56-1.25-1.25-1.25H2v-1.5h2.512A1.25 1.25 0 0 0 5.75 10V7.2A2.75 2.75 0 0 1 8.5 4.45h1.8a2.5 2.5 0 0 1 2.45-2h5.5a2.5 2.5 0 0 1 0 5h-5.5a2.5 2.5 0 0 1-2.292-1.5m1.292-1a1 1 0 0 1 1-1h5.5a1 1 0 1 1 0 2h-5.5a1 1 0 0 1-1-1m0 7.2a1 1 0 0 1 1-1h5.5a1 1 0 1 1 0 2h-5.5a1 1 0 0 1-1-1m1 5.8a1 1 0 1 0 0 2h5.5a1 1 0 1 0 0-2z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
 
 /** Render a toolbar for multi-selected nodes. */
 export function MultiSelectionToolbar({
@@ -944,18 +965,34 @@ function buildMindmapLayoutItems(
   });
   // 逻辑：仅根节点显示布局切换按钮。
   if (inbound.length > 0) return [];
-  const active = engine.getMindmapLayoutDirection();
-  return MINDMAP_LAYOUT_ITEMS.map(option => ({
-    id: `mindmap-layout-${option.id}`,
-    label: option.title,
-    active: active === option.id,
-    icon: (
-      <span className="text-[10px] font-medium leading-none">
-        {option.label}
-      </span>
-    ),
-    onSelect: () => engine.setMindmapLayoutDirection(option.id),
-  }));
+  const active = engine.getMindmapLayoutDirectionForRoot(element.id);
+  return [
+    {
+      id: "mindmap-layout",
+      label: "方向",
+      showLabel: true,
+      icon: <MindmapIcon className="h-3.5 w-3.5" />,
+      panel: ({ closePanel }) => (
+        <div className="flex items-center gap-1">
+          {MINDMAP_LAYOUT_ITEMS.map(option => (
+            <PanelItem
+              key={option.id}
+              title={option.title}
+              active={active === option.id}
+              size="sm"
+              showLabel={false}
+              onClick={() => {
+                engine.setMindmapLayoutDirectionForRoot(element.id, option.id);
+                closePanel();
+              }}
+            >
+              {option.icon}
+            </PanelItem>
+          ))}
+        </div>
+      ),
+    },
+  ];
 }
 
 /** Check whether the selected node overlaps any other node. */

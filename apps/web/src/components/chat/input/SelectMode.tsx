@@ -127,7 +127,7 @@ type FilteredProviderGroup = ProviderGroup & {
 export default function SelectMode({ className }: SelectModeProps) {
   const { providerItems, refresh } = useSettingsValues();
   const { models: cloudModels, refresh: refreshCloudModels } = useCloudModels();
-  const { basic, setBasic } = useBasicConfig();
+  const { basic, setBasic, isLoading: basicLoading } = useBasicConfig();
   const [open, setOpen] = useState(false);
   const { loggedIn: authLoggedIn, refreshSession } = useSaasAuth();
   /** Login dialog open state. */
@@ -143,9 +143,19 @@ export default function SelectMode({ className }: SelectModeProps) {
   const tabId = chatSession?.tabId ?? activeTabId;
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
   const isCloudSource = chatModelSource === "cloud";
+  /** Current source key for storage mapping. */
   const sourceKey: ModelSourceKey = isCloudSource ? "cloud" : "local";
+  /** Cached selections loaded from local storage. */
   const storedSelectionsRef = useRef<StoredModelSelections>(createDefaultStoredSelections());
+  /** Whether local storage has been read at least once. */
   const storedLoadedRef = useRef(false);
+  /** Whether we already have stored data. */
+  const storedHasDataRef = useRef(false);
+  /** Pending model id update to avoid syncing stale config. */
+  const pendingModelIdRef = useRef<string | null>(null);
+  /** Pending provider restore when model list is not ready yet. */
+  const pendingProviderRestoreRef = useRef<string | null>(null);
+  /** Track source switching to avoid cross-updating storage. */
   const prevSourceKeyRef = useRef<ModelSourceKey | null>(null);
   const modelOptions = useMemo(
     () => buildChatModelOptions(chatModelSource, providerItems, cloudModels),
@@ -217,6 +227,8 @@ export default function SelectMode({ className }: SelectModeProps) {
       ? getModelLabel(selectedModel.modelDefinition)
       : selectedModel?.modelId ?? "Auto";
   const isAuto = !selectedModelId;
+  /** Auto state derived from config value. */
+  const isAutoConfig = rawSelectedModelId.length === 0;
   const hasModels = modelOptions.length > 0;
   const showCloudEmpty = isCloudSource && !hasModels;
   const showAuto = isCloudSource ? true : hasModels;
@@ -234,8 +246,47 @@ export default function SelectMode({ className }: SelectModeProps) {
   const persistModelDefaultId = useCallback((nextModelId: string) => {
     const normalized = typeof nextModelId === "string" ? nextModelId : "";
     if (normalized === rawSelectedModelId) return;
-    void setBasic({ modelDefaultChatModelId: normalized });
+    pendingModelIdRef.current = normalized;
+    void setBasic({ modelDefaultChatModelId: normalized }).catch(() => {
+      pendingModelIdRef.current = null;
+    });
   }, [rawSelectedModelId, setBasic]);
+  /** Load stored selections from local storage when needed. */
+  const ensureStoredSelectionsLoaded = useCallback(() => {
+    if (storedLoadedRef.current) return;
+    const { value, hasStorage } = readStoredSelections();
+    storedSelectionsRef.current = value;
+    storedLoadedRef.current = true;
+    storedHasDataRef.current = hasStorage;
+  }, []);
+  /** Update stored selection for a specific source. */
+  const updateStoredSelection = useCallback(
+    (key: ModelSourceKey, updates: Partial<StoredModelSelection>) => {
+      ensureStoredSelectionsLoaded();
+      const current = storedSelectionsRef.current;
+      const prev = current[key];
+      const next = { ...prev, ...updates };
+      if (prev.lastModelId === next.lastModelId && prev.isAuto === next.isAuto) return;
+      const updated = { ...current, [key]: next };
+      storedSelectionsRef.current = updated;
+      storedHasDataRef.current = true;
+      writeStoredSelections(updated);
+    },
+    [ensureStoredSelectionsLoaded],
+  );
+  /** Resolve a manual model selection for the current source. */
+  const resolveManualModelId = useCallback(
+    (storedModelId: string) => {
+      const trimmed = storedModelId.trim();
+      if (!hasModels) return trimmed;
+      if (trimmed) {
+        const matched = modelOptions.find((option) => option.id === trimmed);
+        if (matched) return matched.id;
+      }
+      return modelOptions[0]?.id ?? "";
+    },
+    [hasModels, modelOptions],
+  );
   /** Toggle tag selection for filtering. */
   const handleToggleTag = useCallback((tag: ModelTag) => {
     setSelectedTags((prev) => {
@@ -254,6 +305,100 @@ export default function SelectMode({ className }: SelectModeProps) {
     setActiveProviderKey(providerKey);
   }, []);
   useEffect(() => {
+    ensureStoredSelectionsLoaded();
+  }, [ensureStoredSelectionsLoaded]);
+  useEffect(() => {
+    if (basicLoading) return;
+    ensureStoredSelectionsLoaded();
+    if (storedHasDataRef.current) return;
+    const nextSelections: StoredModelSelections = {
+      ...storedSelectionsRef.current,
+      [sourceKey]: {
+        lastModelId: rawSelectedModelId,
+        isAuto: isAutoConfig,
+      },
+    };
+    storedSelectionsRef.current = nextSelections;
+    storedHasDataRef.current = true;
+    writeStoredSelections(nextSelections);
+  }, [basicLoading, ensureStoredSelectionsLoaded, isAutoConfig, rawSelectedModelId, sourceKey]);
+  useEffect(() => {
+    if (basicLoading) return;
+    ensureStoredSelectionsLoaded();
+    if (!storedHasDataRef.current) return;
+    if (isCloudSource && !authLoggedIn) {
+      prevSourceKeyRef.current = sourceKey;
+      return;
+    }
+    const stored = storedSelectionsRef.current[sourceKey];
+    if (!stored) return;
+    const sourceChanged = prevSourceKeyRef.current !== sourceKey;
+    const resolvedModelId = stored.isAuto ? "" : resolveManualModelId(stored.lastModelId);
+    const shouldSync = sourceChanged || rawSelectedModelId !== resolvedModelId;
+    if (stored.isAuto) {
+      if (shouldSync && rawSelectedModelId) {
+        persistModelDefaultId("");
+      }
+      prevSourceKeyRef.current = sourceKey;
+      return;
+    }
+    if (shouldSync) {
+      if (hasModels && resolvedModelId) {
+        const targetOption = modelOptions.find((option) => option.id === resolvedModelId);
+        if (targetOption) {
+          setActiveProviderKey(
+            targetOption.providerSettingsId ?? targetOption.providerId,
+          );
+        }
+      } else if (resolvedModelId) {
+        pendingProviderRestoreRef.current = resolvedModelId;
+      }
+      persistModelDefaultId(resolvedModelId);
+    }
+    if (resolvedModelId && resolvedModelId !== stored.lastModelId && hasModels) {
+      updateStoredSelection(sourceKey, { lastModelId: resolvedModelId, isAuto: false });
+    }
+    prevSourceKeyRef.current = sourceKey;
+  }, [
+    authLoggedIn,
+    basicLoading,
+    ensureStoredSelectionsLoaded,
+    hasModels,
+    isCloudSource,
+    modelOptions,
+    persistModelDefaultId,
+    rawSelectedModelId,
+    resolveManualModelId,
+    sourceKey,
+    updateStoredSelection,
+  ]);
+  useEffect(() => {
+    if (basicLoading) return;
+    ensureStoredSelectionsLoaded();
+    if (prevSourceKeyRef.current !== sourceKey) return;
+    const pendingModelId = pendingModelIdRef.current;
+    if (pendingModelId && pendingModelId !== rawSelectedModelId) return;
+    if (pendingModelId && pendingModelId === rawSelectedModelId) {
+      pendingModelIdRef.current = null;
+    }
+    if (isAutoConfig) {
+      updateStoredSelection(sourceKey, { isAuto: true });
+      return;
+    }
+    if (!rawSelectedModelId) return;
+    updateStoredSelection(sourceKey, {
+      isAuto: false,
+      lastModelId: rawSelectedModelId,
+    });
+  }, [
+    basicLoading,
+    ensureStoredSelectionsLoaded,
+    isAutoConfig,
+    rawSelectedModelId,
+    sourceKey,
+    updateStoredSelection,
+  ]);
+  useEffect(() => {
     if (!open) return;
     // 展开模型列表时刷新服务端配置，确保展示最新模型。
     void refresh();
@@ -270,6 +415,17 @@ export default function SelectMode({ className }: SelectModeProps) {
     // 展开选择器时刷新登录状态，避免切换设备后状态不一致。
     void refreshSession();
   }, [isCloudSource, open, refreshSession]);
+  useEffect(() => {
+    if (!hasModels) return;
+    const pendingModelId = pendingProviderRestoreRef.current;
+    if (!pendingModelId) return;
+    const targetOption = modelOptions.find((option) => option.id === pendingModelId);
+    if (!targetOption) return;
+    setActiveProviderKey(
+      targetOption.providerSettingsId ?? targetOption.providerId,
+    );
+    pendingProviderRestoreRef.current = null;
+  }, [hasModels, modelOptions]);
   useEffect(() => {
     if (!tabId) return;
     const target = document.querySelector(
@@ -377,10 +533,6 @@ export default function SelectMode({ className }: SelectModeProps) {
   const handleToggleCloudSource = (next: boolean) => {
     const normalized = next ? "cloud" : "local";
     void setBasic({ chatSource: normalized });
-    if (normalized === "cloud") {
-      // 切换到云端时清空本地选择，避免透传无效 modelId。
-      persistModelDefaultId("");
-    }
   };
 
   /** Active provider group for rendering. */
@@ -471,15 +623,27 @@ export default function SelectMode({ className }: SelectModeProps) {
                         checked={isAuto}
                         onCheckedChange={(next) => {
                           if (next) {
+                            updateStoredSelection(sourceKey, { isAuto: true });
                             persistModelDefaultId("");
                             return;
                           }
                           if (modelOptions.length === 0) return;
-                          // 从 Auto 切换到手动时，默认定位到首个模型所在 provider。
+                          ensureStoredSelectionsLoaded();
+                          const stored = storedSelectionsRef.current[sourceKey];
+                          const resolvedModelId = resolveManualModelId(stored?.lastModelId ?? "");
+                          if (!resolvedModelId) return;
+                          const targetOption =
+                            modelOptions.find((option) => option.id === resolvedModelId) ??
+                            modelOptions[0]!;
+                          // 从 Auto 切换到手动时，优先恢复上次选择。
                           setActiveProviderKey(
-                            modelOptions[0]!.providerSettingsId ?? modelOptions[0]!.providerId
+                            targetOption.providerSettingsId ?? targetOption.providerId
                           );
-                          persistModelDefaultId(modelOptions[0]!.id);
+                          updateStoredSelection(sourceKey, {
+                            isAuto: false,
+                            lastModelId: resolvedModelId,
+                          });
+                          persistModelDefaultId(resolvedModelId);
                         }}
                       />
                     </div>
@@ -601,7 +765,13 @@ export default function SelectMode({ className }: SelectModeProps) {
                                       <button
                                         key={option.id}
                                         type="button"
-                                        onClick={() => persistModelDefaultId(option.id)}
+                                        onClick={() => {
+                                          updateStoredSelection(sourceKey, {
+                                            isAuto: false,
+                                            lastModelId: option.id,
+                                          });
+                                          persistModelDefaultId(option.id);
+                                        }}
                                         className={cn(
                                           "h-12 w-full rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-border/70 hover:bg-muted/60",
                                           selectedModelId === option.id &&

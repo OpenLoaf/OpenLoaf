@@ -41,7 +41,8 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
   const engine = useBoardEngine();
   const viewState = useBoardViewState(engine);
   const groupPadding = getGroupOutlinePadding(viewState.viewport.zoom);
-  const mindmapLayoutDirection = engine.getMindmapLayoutDirection();
+  const resolveMindmapLayoutDirection = (nodeId: string) =>
+    engine.getMindmapLayoutDirectionForNode(nodeId);
   const hoverAnchor = snapshot.connectorHover;
   const hoverNodeId = snapshot.nodeHoverId;
   const selectedAnchors = getSelectedImageAnchors(snapshot);
@@ -51,7 +52,7 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
   }
   const collapseTargets = getMindmapCollapseTargets(
     snapshot,
-    mindmapLayoutDirection,
+    resolveMindmapLayoutDirection,
     hoverNodeId
   );
 
@@ -253,7 +254,7 @@ type MindmapCollapseTarget = {
 /** Collect mindmap collapse anchors for nodes with children. */
 function getMindmapCollapseTargets(
   snapshot: CanvasSnapshot,
-  layoutDirection: MindmapLayoutDirection,
+  resolveLayoutDirection: (nodeId: string) => MindmapLayoutDirection,
   hoverNodeId?: string | null
 ): Map<string, MindmapCollapseTarget> {
   const targets = new Map<string, MindmapCollapseTarget>();
@@ -268,6 +269,7 @@ function getMindmapCollapseTargets(
         ? (meta?.[MINDMAP_META.childCount] as number)
         : 0;
     if (childCount <= 0) return;
+    const layoutDirection = resolveLayoutDirection(element.id);
     const anchorId = resolveMindmapCollapseAnchor(
       element,
       snapshot,
@@ -291,6 +293,7 @@ function getMindmapCollapseTargets(
         : 0;
     if (childCount <= 0) return targets;
     // 逻辑：文本节点悬停时也需要显示折叠按钮。
+    const layoutDirection = resolveLayoutDirection(element.id);
     const anchorId = resolveMindmapCollapseAnchor(
       element,
       snapshot,

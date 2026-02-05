@@ -126,6 +126,9 @@ const DEFAULT_FOCUS_DURATION_MS = 280;
 const FOCUS_VIEWPORT_DELTA_EPS = 0.005;
 /** Pixel threshold for skipping tiny offset changes. */
 const FOCUS_VIEWPORT_OFFSET_EPS = 2;
+/** Check whether a value is a supported mindmap layout direction. */
+const isMindmapLayoutDirection = (value: unknown): value is MindmapLayoutDirection =>
+  value === "left" || value === "right" || value === "balanced";
 /** Text node style keys to inherit for mindmap children. */
 const TEXT_NODE_INHERITABLE_STYLE_KEYS = [
   "fontSize",
@@ -1304,18 +1307,60 @@ export class CanvasEngine {
     this.emitChange();
   }
 
+  /** Update the layout direction for a specific root node. */
+  setMindmapLayoutDirectionForRoot(
+    rootId: string,
+    direction: MindmapLayoutDirection
+  ): void {
+    if (this.locked) return;
+    const element = this.doc.getElementById(rootId);
+    if (!element || element.kind !== "node") return;
+    if (this.getMindmapFlag(element, MINDMAP_META.ghost)) return;
+    const changed = this.updateMindmapMeta(element, {
+      [MINDMAP_META.layoutDirection]: direction,
+    });
+    if (!changed) return;
+    this.commitHistory();
+    this.autoLayoutMindmap();
+  }
+
   /** Return the current mindmap layout direction. */
   getMindmapLayoutDirection(): MindmapLayoutDirection {
     return this.mindmapLayoutDirection;
+  }
+
+  /** Resolve the layout direction for a root node. */
+  getMindmapLayoutDirectionForRoot(rootId: string): MindmapLayoutDirection {
+    const element = this.doc.getElementById(rootId);
+    const metaDirection = this.getMindmapString(element, MINDMAP_META.layoutDirection);
+    if (isMindmapLayoutDirection(metaDirection)) {
+      return metaDirection;
+    }
+    return this.mindmapLayoutDirection;
+  }
+
+  /** Resolve the layout direction for any node based on its root. */
+  getMindmapLayoutDirectionForNode(nodeId: string): MindmapLayoutDirection {
+    const rootId = this.resolveMindmapRootId(nodeId);
+    return this.getMindmapLayoutDirectionForRoot(rootId);
   }
 
   /** Auto layout all nodes using the mindmap tree. */
   autoLayoutMindmap(): void {
     if (this.locked) return;
     const elements = this.doc.getElements();
+    const rootDirections = new Map<string, MindmapLayoutDirection>();
+    elements.forEach(element => {
+      if (element.kind !== "node") return;
+      const metaDirection = this.getMindmapString(element, MINDMAP_META.layoutDirection);
+      if (isMindmapLayoutDirection(metaDirection)) {
+        rootDirections.set(element.id, metaDirection);
+      }
+    });
     const { updates, nodeMeta, ghostPlans } = computeMindmapLayout(
       elements,
-      this.mindmapLayoutDirection
+      this.mindmapLayoutDirection,
+      rootDirections
     );
     if (updates.length === 0 && nodeMeta.size === 0 && ghostPlans.length === 0) return;
 
@@ -1546,8 +1591,9 @@ export class CanvasEngine {
       : MINDMAP_FIRST_LEVEL_HORIZONTAL_SPACING;
     const [x, y, w] = parent.xywh;
     const [defaultW, defaultH] = DEFAULT_NODE_SIZE;
+    const parentDirection = this.getMindmapLayoutDirectionForNode(parentId);
     const offsetX =
-      this.mindmapLayoutDirection === "left"
+      parentDirection === "left"
         ? -(spacingX + defaultW)
         : w + spacingX;
     const nextXYWH: [number, number, number, number] = [
@@ -2249,6 +2295,24 @@ export class CanvasEngine {
       element?.kind === "node" &&
       this.getMindmapFlag(element, MINDMAP_META.ghost)
     );
+  }
+
+  /** Resolve the root node id for a mindmap node. */
+  private resolveMindmapRootId(nodeId: string): string {
+    let currentId = nodeId;
+    const visited = new Set<string>();
+    while (currentId) {
+      if (visited.has(currentId)) return currentId;
+      visited.add(currentId);
+      const inbound = this.getMindmapInboundConnectors(currentId);
+      if (inbound.length !== 1) return currentId;
+      const connector = inbound[0];
+      if (!connector || !("elementId" in connector.source)) return currentId;
+      const parentId = connector.source.elementId;
+      if (this.isMindmapGhostId(parentId)) return currentId;
+      currentId = parentId;
+    }
+    return nodeId;
   }
 
   /** Return inbound connectors for mindmap operations. */
