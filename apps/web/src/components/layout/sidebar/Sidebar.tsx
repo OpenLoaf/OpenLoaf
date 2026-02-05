@@ -125,35 +125,38 @@ export const AppSidebar = ({
               </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="模版"
-              className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
-              isActive={isMenuActive({
-                baseId: "base:template",
-                component: "template-page",
-                title: "模版",
-              })}
-              onClick={() =>
-                openSingletonTab({
+          {/* 先隐藏模版入口，后续再开放。 */}
+          {false ? (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="模版"
+                className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+                isActive={isMenuActive({
                   baseId: "base:template",
                   component: "template-page",
                   title: "模版",
-                  icon: "📄",
-                })
-              }
-              type="button"
-            >
-              <LayoutTemplate />
-              <span className="flex-1 truncate">模版</span>
-              <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
-                <KbdGroup className="gap-1">
-                  <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
-                  <Kbd className="bg-transparent px-0 h-auto rounded-none">J</Kbd>
-                </KbdGroup>
-              </span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+                })}
+                onClick={() =>
+                  openSingletonTab({
+                    baseId: "base:template",
+                    component: "template-page",
+                    title: "模版",
+                    icon: "📄",
+                  })
+                }
+                type="button"
+              >
+                <LayoutTemplate />
+                <span className="flex-1 truncate">模版</span>
+                <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
+                  <KbdGroup className="gap-1">
+                    <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
+                    <Kbd className="bg-transparent px-0 h-auto rounded-none">J</Kbd>
+                  </KbdGroup>
+                </span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ) : null}
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="日历"
@@ -232,35 +235,38 @@ export const AppSidebar = ({
               ) : null}
             </SidebarMenuButton>
           </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="收集箱"
-              className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
-              isActive={isMenuActive({
-                baseId: "base:inbox",
-                component: "inbox-page",
-                title: "收集箱",
-              })}
-              onClick={() =>
-                openSingletonTab({
+          {/* 先隐藏收集箱入口，后续再开放。 */}
+          {false ? (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="收集箱"
+                className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+                isActive={isMenuActive({
                   baseId: "base:inbox",
                   component: "inbox-page",
                   title: "收集箱",
-                  icon: "📥",
-                })
-              }
-              type="button"
-            >
-              <Inbox />
-              <span className="flex-1 truncate">收集箱</span>
-              <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
-                <KbdGroup className="gap-1">
-                  <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
-                  <Kbd className="bg-transparent px-0 h-auto rounded-none">I</Kbd>
-                </KbdGroup>
-              </span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+                })}
+                onClick={() =>
+                  openSingletonTab({
+                    baseId: "base:inbox",
+                    component: "inbox-page",
+                    title: "收集箱",
+                    icon: "📥",
+                  })
+                }
+                type="button"
+              >
+                <Inbox />
+                <span className="flex-1 truncate">收集箱</span>
+                <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
+                  <KbdGroup className="gap-1">
+                    <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
+                    <Kbd className="bg-transparent px-0 h-auto rounded-none">I</Kbd>
+                  </KbdGroup>
+                </span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ) : null}
         </SidebarMenu>
         <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
       </SidebarHeader>

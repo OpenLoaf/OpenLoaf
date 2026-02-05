@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { getTenasRootDir } from "@tenas-ai/config";
+import { getDefaultWorkspaceRootDir, getLegacyWorkspaceRootDir, getTenasRootDir } from "@tenas-ai/config";
 import { workspaceBase, type Workspace } from "../types/workspace";
 
 /** Schema for workspaces.json. */
@@ -28,10 +28,27 @@ function getWorkspacesPath(): string {
 
 /** Build default workspace root uri under config directory. */
 function resolveDefaultWorkspaceRootUri(): string {
-  const rootPath = path.join(getConfigDir(), "workspace");
-  // 逻辑：默认工作区目录固定在配置同级目录，便于本地迁移。
+  const rootPath = getDefaultWorkspaceRootDir();
+  // 逻辑：默认工作区目录固定在用户路径，便于统一管理。
   mkdirSync(rootPath, { recursive: true });
   return pathToFileURL(rootPath).href;
+}
+
+function normalizeLegacyWorkspaceUri(value?: string): string | undefined {
+  if (!value) return value;
+  const legacyRoot = pathToFileURL(getLegacyWorkspaceRootDir()).href;
+  const nextRoot = resolveDefaultWorkspaceRootUri();
+  if (!value.startsWith(legacyRoot)) return value;
+  return value.replace(legacyRoot, nextRoot);
+}
+
+function normalizeProjectRoots(projects?: Record<string, string>): Record<string, string> {
+  if (!projects) return {};
+  const normalized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(projects)) {
+    normalized[key] = normalizeLegacyWorkspaceUri(value) ?? value;
+  }
+  return normalized;
 }
 
 /** Ensure workspaces.json exists with a default workspace. */
@@ -62,8 +79,8 @@ function readWorkspacesFile(): WorkspacesFile {
     const normalized: WorkspacesFile = {
       workspaces: parsed.workspaces.map((workspace) => ({
         ...workspace,
-        rootUri: workspace.rootUri || resolveDefaultWorkspaceRootUri(),
-        projects: workspace.projects ?? {},
+        rootUri: normalizeLegacyWorkspaceUri(workspace.rootUri) || resolveDefaultWorkspaceRootUri(),
+        projects: normalizeProjectRoots(workspace.projects),
         ignoreSkills: workspace.ignoreSkills ?? [],
       })),
     };
@@ -95,8 +112,8 @@ export function getWorkspaces(): Workspace[] {
 export function setWorkspaces(workspaces: Workspace[]): void {
   const normalized = workspaces.map((workspace) => ({
     ...workspace,
-    rootUri: workspace.rootUri || resolveDefaultWorkspaceRootUri(),
-    projects: workspace.projects ?? {},
+    rootUri: normalizeLegacyWorkspaceUri(workspace.rootUri) || resolveDefaultWorkspaceRootUri(),
+    projects: normalizeProjectRoots(workspace.projects),
     ignoreSkills: workspace.ignoreSkills ?? [],
   }));
   writeWorkspacesFile({ workspaces: normalized });

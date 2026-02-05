@@ -6,9 +6,11 @@ import path from "node:path";
 
 import {
   getTenasRootDir,
+  getDefaultWorkspaceRootDir,
   migrateLegacyServerData,
   resolveTenasDbPath,
   resolveTenasPath,
+  setDefaultWorkspaceRootOverride,
   setTenasRootOverride,
 } from "../tenas-paths";
 
@@ -18,6 +20,11 @@ setTenasRootOverride(tempRoot);
 const root = getTenasRootDir();
 assert.equal(root, tempRoot);
 assert.ok(existsSync(root));
+
+const workspaceRoot = mkdtempSync(path.join(tmpdir(), "tenas-workspace-root-"));
+setDefaultWorkspaceRootOverride(workspaceRoot);
+assert.equal(getDefaultWorkspaceRootDir(), workspaceRoot);
+assert.ok(existsSync(workspaceRoot));
 
 assert.equal(resolveTenasDbPath(), path.join(tempRoot, "tenas.db"));
 assert.equal(resolveTenasPath("settings.json"), path.join(tempRoot, "settings.json"));
@@ -35,7 +42,11 @@ writeFileSync(path.join(legacyWorkspace, "project.txt"), "legacy-workspace", "ut
 const existingTarget = path.join(tempRoot, "providers.json");
 writeFileSync(existingTarget, "current-providers", "utf-8");
 
-const result = migrateLegacyServerData({ legacyRoot, targetRoot: tempRoot });
+const result = migrateLegacyServerData({
+  legacyRoot,
+  targetRoot: tempRoot,
+  workspaceRoot,
+});
 
 assert.ok(result.moved.includes("settings.json"));
 assert.ok(result.moved.includes("auth.json"));
@@ -47,11 +58,12 @@ assert.ok(result.skipped.includes("providers.json"));
 assert.equal(readFileSync(path.join(tempRoot, "settings.json"), "utf-8"), "legacy-settings.json");
 assert.equal(readFileSync(path.join(tempRoot, "providers.json"), "utf-8"), "current-providers");
 assert.equal(readFileSync(path.join(tempRoot, "tenas.db"), "utf-8"), "legacy-local.db");
-assert.equal(readFileSync(path.join(tempRoot, "workspace", "project.txt"), "utf-8"), "legacy-workspace");
+assert.equal(readFileSync(path.join(workspaceRoot, "project.txt"), "utf-8"), "legacy-workspace");
 
 assert.ok(!existsSync(path.join(legacyRoot, "settings.json")));
 assert.ok(!existsSync(path.join(legacyRoot, "workspace")));
 
+setDefaultWorkspaceRootOverride(null);
 setTenasRootOverride(null);
 
 console.log("tenas path tests passed.");

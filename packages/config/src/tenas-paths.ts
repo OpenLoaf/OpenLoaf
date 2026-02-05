@@ -3,10 +3,16 @@ import { homedir } from "node:os";
 import path from "node:path";
 
 let rootOverride: string | null = null;
+let workspaceRootOverride: string | null = null;
 
 /** Override the Tenas root directory (tests only). */
 export function setTenasRootOverride(root: string | null): void {
   rootOverride = root;
+}
+
+/** Override the default workspace root directory (tests only). */
+export function setDefaultWorkspaceRootOverride(root: string | null): void {
+  workspaceRootOverride = root;
 }
 
 /** Resolve the Tenas root directory and ensure it exists. */
@@ -15,6 +21,23 @@ export function getTenasRootDir(): string {
   // 中文注释：统一根目录，缺失时自动创建。
   fs.mkdirSync(root, { recursive: true });
   return root;
+}
+
+/** Resolve the default workspace root directory and ensure it exists. */
+export function getDefaultWorkspaceRootDir(): string {
+  const root =
+    workspaceRootOverride ??
+    (process.platform === "win32"
+      ? resolveWindowsWorkspaceRoot()
+      : resolveUnixWorkspaceRoot());
+  // 中文注释：默认工作区目录固定，缺失时自动创建。
+  fs.mkdirSync(root, { recursive: true });
+  return root;
+}
+
+/** Resolve legacy workspace root directory used by older builds. */
+export function getLegacyWorkspaceRootDir(): string {
+  return path.join(getTenasRootDir(), "workspace");
 }
 
 /** Resolve a file path under the Tenas root directory. */
@@ -40,6 +63,7 @@ export type LegacyMigrationResult = {
 export type LegacyMigrationOptions = {
   legacyRoot?: string;
   targetRoot?: string;
+  workspaceRoot?: string;
   logger?: (message: string) => void;
 };
 
@@ -52,6 +76,7 @@ export function migrateLegacyServerData(
   const moved: string[] = [];
   const skipped: string[] = [];
   const targetRoot = options.targetRoot ?? getTenasRootDir();
+  const workspaceRoot = options.workspaceRoot ?? getDefaultWorkspaceRootDir();
   const legacyRoot = options.legacyRoot ?? resolveLegacyServerRoot();
 
   if (!legacyRoot || !fs.existsSync(legacyRoot)) {
@@ -86,14 +111,25 @@ export function migrateLegacyServerData(
   moveFile("local-auth.json");
 
   const legacyWorkspace = path.join(legacyRoot, "workspace");
-  const targetWorkspace = path.join(targetRoot, "workspace");
-  if (fs.existsSync(legacyWorkspace)) {
-    const workspaceResult = moveDirectoryContents(legacyWorkspace, targetWorkspace);
+  const targetWorkspace = workspaceRoot;
+  const moveWorkspaceOnce = (sourcePath: string) => {
+    if (!fs.existsSync(sourcePath)) return;
+    const workspaceResult = moveDirectoryContents(sourcePath, targetWorkspace);
     if (workspaceResult === "moved") {
       moved.push("workspace");
     } else if (workspaceResult === "skipped") {
       skipped.push("workspace");
     }
+  };
+
+  moveWorkspaceOnce(legacyWorkspace);
+
+  const legacyWorkspaceRoot = getLegacyWorkspaceRootDir();
+  if (
+    legacyWorkspaceRoot !== targetWorkspace &&
+    legacyWorkspaceRoot !== legacyWorkspace
+  ) {
+    moveWorkspaceOnce(legacyWorkspaceRoot);
   }
 
   if (options.logger) {
@@ -103,6 +139,18 @@ export function migrateLegacyServerData(
   }
 
   return { moved, skipped };
+}
+
+function resolveUnixWorkspaceRoot(): string {
+  return path.join(homedir(), process.platform === "darwin" ? "Documents" : "", "tenas-workspace");
+}
+
+function resolveWindowsWorkspaceRoot(): string {
+  const dDriveRoot = "D:\\\\tenas-workspace";
+  if (fs.existsSync("D:\\\\")) {
+    return dDriveRoot;
+  }
+  return path.join(homedir(), "tenas-workspace");
 }
 
 function resolveLegacyServerRoot(): string | null {
