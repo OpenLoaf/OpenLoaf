@@ -88,6 +88,7 @@ export async function createMainWindow(args: {
 
   const { width, height } = getDefaultWindowSize();
   const isMac = process.platform === 'darwin';
+  const isWindows = process.platform === 'win32';
   const windowIcon = resolveWindowIconPath();
 
   const mainWindow = new BrowserWindow({
@@ -100,6 +101,11 @@ export async function createMainWindow(args: {
       ? {
           titleBarStyle: 'hiddenInset' as const,
           trafficLightPosition: { x: 12, y: 12 },
+        }
+      : {}),
+    ...(isWindows
+      ? {
+          titleBarOverlay: true,
         }
       : {}),
     webPreferences: {

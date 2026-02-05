@@ -303,8 +303,6 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
-  apps/tenas-office-plugins: {}
-
   apps/web:
     dependencies:
       '@ai-sdk/react':

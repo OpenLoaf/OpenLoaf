@@ -3,10 +3,13 @@ import type { Configuration } from 'webpack';
 import { rules } from './webpack.rules';
 import { plugins } from './webpack.plugins';
 
+const isProd = process.env.NODE_ENV === 'production';
+
 export const rendererConfig: Configuration = {
   module: {
     rules,
   },
+  devtool: isProd ? false : 'source-map',
   plugins,
   resolve: {
     extensions: ['.js', '.ts', '.jsx', '.tsx'],

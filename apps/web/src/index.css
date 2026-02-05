@@ -125,9 +125,17 @@ body {
   user-select: auto;
 }
 
+.electron.titlebar-overlay {
+  --titlebar-controls-width: calc(
+    100vw -
+      (env(titlebar-area-width, 100vw) + env(titlebar-area-x, 0px))
+  );
+}
+
 :root {
   --radius: 0.625rem;
   --macos-traffic-lights-width: 0px;
+  --titlebar-controls-width: 0px;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

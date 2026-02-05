@@ -121,14 +121,22 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const isElectron = isElectronEnv();
+    const isMac =
+      typeof navigator !== "undefined" &&
+      navigator.platform.toLowerCase().includes("mac");
+    const isWindows =
+      typeof navigator !== "undefined" &&
+      navigator.platform.toLowerCase().includes("win");
+    const hasTitlebarOverlay =
+      isElectron && isWindows && "windowControlsOverlay" in navigator;
 
     document.documentElement.classList.toggle(
       "macos",
-      typeof navigator !== "undefined" &&
-        navigator.platform.toLowerCase().includes("mac")
+      isMac
     );
 
     document.documentElement.classList.toggle("electron", isElectron);
+    document.documentElement.classList.toggle("titlebar-overlay", hasTitlebarOverlay);
   }, []);
 
   useEffect(() => {
