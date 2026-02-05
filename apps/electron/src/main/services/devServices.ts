@@ -29,7 +29,9 @@ function findRepoRoot(startDir: string): string | null {
  * 兼容 Windows 的命令名（.cmd）。
  */
 function commandName(base: string): string {
-  return process.platform === 'win32' ? `${base}.cmd` : base;
+  if (process.platform !== 'win32') return base;
+  if (base === 'node') return 'node';
+  return `${base}.cmd`;
 }
 
 /**
@@ -41,7 +43,13 @@ function spawnLogged(
   args: string[],
   opts: { cwd: string; env: NodeJS.ProcessEnv }
 ): ChildProcess {
-  const child = spawn(command, args, {
+  const isWin = process.platform === 'win32';
+  // Node 25 on Windows can throw EINVAL when spawning .cmd directly.
+  const useCmdShim = isWin && /\.(cmd|bat)$/i.test(command);
+  const spawnCommand = useCmdShim ? 'cmd.exe' : command;
+  const spawnArgs = useCmdShim ? ['/d', '/s', '/c', command, ...args] : args;
+
+  const child = spawn(spawnCommand, spawnArgs, {
     cwd: opts.cwd,
     env: opts.env,
     stdio: ['ignore', 'pipe', 'pipe'],

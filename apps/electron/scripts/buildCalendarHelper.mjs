@@ -29,6 +29,18 @@ function assertFileExists(filePath, label) {
 }
 
 /**
+ * Best-effort removal for build output directories on Windows.
+ */
+function removeDirSafe(dirPath) {
+  try {
+    rmSync(dirPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  } catch (error) {
+    console.warn(`Warning: failed to remove ${dirPath}. Delete it manually if needed.`);
+    console.warn(String(error));
+  }
+}
+
+/**
  * Build the macOS calendar helper via swiftc.
  */
 function buildMacHelper() {
@@ -82,7 +94,7 @@ function buildWindowsHelper() {
   assertFileExists(builtBinary, "Calendar helper binary");
   // 逻辑：从 publish 输出物中提取单文件可执行程序。
   copyFileSync(builtBinary, outputBinary);
-  rmSync(outputDir, { recursive: true, force: true });
+  removeDirSafe(outputDir);
   console.log(`Built calendar helper: ${outputBinary}`);
 }
 
