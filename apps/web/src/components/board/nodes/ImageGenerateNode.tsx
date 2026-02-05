@@ -1,12 +1,14 @@
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { Copy, RotateCcw, Sparkles } from "lucide-react";
+import { Check, Copy, LogIn, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { useBoardContext } from "../core/BoardProvider";
 import { useMediaModels } from "@/hooks/use-media-models";
 import { getWorkspaceIdFromCookie } from "../core/boardSession";
+import { useSaasAuth } from "@/hooks/use-saas-auth";
+import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import type { ImageNodeProps } from "./ImageNode";
 import {
   Select,
@@ -17,6 +19,7 @@ import {
 } from "@tenas-ai/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@tenas-ai/ui/card";
 import { Input } from "@tenas-ai/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
 import { Textarea } from "@tenas-ai/ui/textarea";
 import {
   IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
@@ -54,7 +57,9 @@ const IMAGE_GENERATE_SIZE_OPTIONS = [
   "1280x720",
   "720x1280",
 ] as const;
-const IMAGE_GENERATE_COUNT_OPTIONS = Array.from({ length: 9 }, (_, index) => index + 1);
+const IMAGE_GENERATE_COUNT_OPTIONS = Array.from({ length: 5 }, (_, index) => index + 1);
+/** 可选风格标签列表。 */
+const IMAGE_GENERATE_STYLE_TAGS = ["写实", "动漫", "插画", "3D", "赛博朋克", "水彩"] as const;
 
 
 export type ImageGenerateNodeProps = {
@@ -104,7 +109,11 @@ function normalizeOutputCount(value: number | undefined) {
   if (!Number.isFinite(value)) return IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT;
   const rounded = Math.round(value as number);
   // 逻辑：限制在允许范围内，避免无效请求数量。
-  return Math.min(Math.max(rounded, 1), IMAGE_GENERATE_MAX_OUTPUT_IMAGES);
+  const maxCount = Math.min(
+    IMAGE_GENERATE_MAX_OUTPUT_IMAGES,
+    IMAGE_GENERATE_COUNT_OPTIONS.length
+  );
+  return Math.min(Math.max(rounded, 1), maxCount);
 }
 
 /** Normalize output size string. */
@@ -149,6 +158,28 @@ export function ImageGenerateNodeView({
   /** Workspace id used for requests. */
   const resolvedWorkspaceId = useMemo(() => getWorkspaceIdFromCookie(), []);
   const isAdvancedOpen = selected;
+  const [loginOpen, setLoginOpen] = useState(false);
+  const { loggedIn: authLoggedIn, loginStatus, refreshSession } = useSaasAuth();
+  const isLoginBusy = loginStatus === "opening" || loginStatus === "polling";
+  const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    void refreshSession();
+  }, [refreshSession]);
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) {
+        window.clearTimeout(copyTimerRef.current);
+        copyTimerRef.current = null;
+      }
+    };
+  }, []);
+  useEffect(() => {
+    if (!authLoggedIn) return;
+    if (!loginOpen) return;
+    setLoginOpen(false);
+  }, [authLoggedIn, loginOpen]);
 
   const errorText = element.props.errorText ?? "";
   const outputCount = normalizeOutputCount(element.props.outputCount);
@@ -156,6 +187,11 @@ export function ImageGenerateNodeView({
   const localPromptText = normalizeTextValue(element.props.promptText);
   const styleText = normalizeTextValue(element.props.style);
   const negativePromptText = normalizeTextValue(element.props.negativePrompt);
+  const styleTags = useMemo(
+    () => styleText.split(/[,，、\n]/).map((tag) => tag.trim()).filter(Boolean),
+    [styleText]
+  );
+  const styleTagSet = useMemo(() => new Set(styleTags), [styleTags]);
 
   // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
   const inputImageNodes: ImageNodeProps[] = [];
@@ -486,7 +522,7 @@ export function ImageGenerateNodeView({
   ]);
 
   const containerClassName = [
-    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-3 rounded-xl border border-slate-300/80 bg-white/90 p-5 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
+    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-3 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
     "bg-[radial-gradient(180px_circle_at_top_left,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_85%_15%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
     "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100 dark:shadow-[0_12px_30px_rgba(0,0,0,0.5)]",
     "dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
@@ -538,6 +574,33 @@ export function ImageGenerateNodeView({
     Boolean(effectiveModelId) &&
     !engine.isLocked() &&
     !element.locked;
+  const canGenerate = authLoggedIn && canRun;
+  const primaryLabel = authLoggedIn
+    ? viewStatus === "error"
+      ? "重试"
+      : "生成"
+    : isLoginBusy
+      ? "登录中"
+      : "登录";
+  const primaryIcon = authLoggedIn
+    ? viewStatus === "error"
+      ? RotateCcw
+      : Sparkles
+    : LogIn;
+  const PrimaryIcon = primaryIcon;
+
+  const handleOpenLogin = useCallback(() => {
+    if (isLoginBusy) return;
+    setLoginOpen(true);
+  }, [isLoginBusy]);
+  const handlePrimaryAction = useCallback(() => {
+    if (!authLoggedIn) {
+      handleOpenLogin();
+      return;
+    }
+    if (!canRun) return;
+    void runImageGenerate();
+  }, [authLoggedIn, canRun, handleOpenLogin, runImageGenerate]);
 
   const handleCopyError = useCallback(async () => {
     const copyText = errorText.trim() || "生成图片失败，请重试。";
@@ -555,11 +618,33 @@ export function ImageGenerateNodeView({
         document.execCommand("copy");
         document.body.removeChild(textarea);
       }
-      toast.success("已复制错误信息");
+      setCopied(true);
+      if (copyTimerRef.current) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+      copyTimerRef.current = window.setTimeout(() => {
+        setCopied(false);
+        copyTimerRef.current = null;
+      }, 1600);
     } catch {
       toast.error("复制失败");
     }
   }, [errorText]);
+
+  /** Toggle a style tag in the advanced panel. */
+  const handleToggleStyleTag = useCallback(
+    (tag: string) => {
+      const nextTags = new Set(styleTags);
+      if (nextTags.has(tag)) {
+        nextTags.delete(tag);
+      } else {
+        nextTags.add(tag);
+      }
+      // 逻辑：用顿号连接，保持风格字段可读性。
+      onUpdate({ style: Array.from(nextTags).join("、") });
+    },
+    [onUpdate, styleTags]
+  );
 
   /** Focus viewport to the node when the node is interacted with. */
   const handleNodeFocus = useCallback(() => {
@@ -589,6 +674,7 @@ export function ImageGenerateNodeView({
         handleNodeFocus();
       }}
     >
+      <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <div className={containerClassName}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -612,17 +698,17 @@ export function ImageGenerateNodeView({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            disabled={!canRun}
-            className="rounded-md border border-slate-200/80 bg-background px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
+            disabled={authLoggedIn ? !canGenerate : isLoginBusy}
+            className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200/80 bg-background px-3 text-[13px] leading-none text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
             onPointerDown={(event) => {
               event.stopPropagation();
               onSelect();
-              runImageGenerate();
+              handlePrimaryAction();
             }}
           >
             <span className="inline-flex items-center gap-1">
-              {viewStatus === "error" ? <RotateCcw size={16} /> : <Sparkles size={16} />}
-              {viewStatus === "error" ? "重试" : "生成"}
+              {PrimaryIcon ? <PrimaryIcon size={16} /> : null}
+              {primaryLabel}
             </span>
           </button>
         </div>
@@ -632,29 +718,49 @@ export function ImageGenerateNodeView({
           <div className="flex items-center gap-3">
             <div className="text-[13px] text-slate-500 dark:text-slate-400">模型</div>
             <div className="min-w-0 flex-1">
-              <Select
-                value={effectiveModelId}
-                onValueChange={(value) => {
-                  onUpdate({ modelId: value });
-                }}
-                disabled={candidates.length === 0}
-              >
-                <SelectTrigger className="h-9 w-full px-3 text-[13px]">
-                  <SelectValue placeholder="无可用模型" />
-                </SelectTrigger>
-                <SelectContent className="text-[13px]">
-                  {candidates.length ? null : (
-                    <SelectItem value="__none__" disabled className="text-[13px]">
-                      无可用模型
-                    </SelectItem>
-                  )}
-                  {candidates.map((option) => (
-                    <SelectItem key={option.id} value={option.id} className="text-[13px]">
-                      {option.name || option.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {authLoggedIn ? (
+                <Select
+                  value={effectiveModelId}
+                  onValueChange={(value) => {
+                    onUpdate({ modelId: value });
+                  }}
+                  disabled={candidates.length === 0 || engine.isLocked() || element.locked}
+                >
+                  <SelectTrigger className="h-9 w-full px-3 text-[13px]">
+                    <SelectValue placeholder="无可用模型" />
+                  </SelectTrigger>
+                  <SelectContent className="text-[13px]">
+                    {candidates.length ? null : (
+                      <SelectItem value="__none__" disabled className="text-[13px]">
+                        无可用模型
+                      </SelectItem>
+                    )}
+                    {candidates.map((option) => (
+                      <SelectItem key={option.id} value={option.id} className="text-[13px]">
+                        {option.name || option.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isLoginBusy}
+                  className={[
+                    "flex h-9 w-full items-center justify-between rounded-md border border-slate-200/80 bg-slate-50/90 px-3 text-[13px] text-slate-500",
+                    "hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60",
+                    "dark:border-slate-700/80 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800",
+                  ].join(" ")}
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    onSelect();
+                    handleOpenLogin();
+                  }}
+                >
+                  <span className="truncate">登录账户后选择模型</span>
+                  <LogIn size={14} />
+                </button>
+              )}
             </div>
           </div>
           <div className="min-w-0 flex min-h-0 flex-1 flex-col gap-2">
@@ -667,7 +773,7 @@ export function ImageGenerateNodeView({
                 onUpdate({ promptText: next });
               }}
               data-board-scroll
-              className="h-full min-h-[96px] flex-1 overflow-y-auto px-3.5 py-2.5 text-[16px] leading-6 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[16px]"
+              className="min-h-[96px] flex-1 overflow-y-auto px-3.5 py-2.5 text-[16px] leading-6 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[16px]"
               disabled={engine.isLocked() || element.locked}
             />
           </div>
@@ -695,16 +801,18 @@ export function ImageGenerateNodeView({
               <>
                 <button
                   type="button"
-                  className="absolute right-3 top-2 rounded-md border border-current/20 bg-background/70 px-2.5 py-1 text-[12px] hover:bg-white/70 dark:hover:bg-slate-900/70"
+                  className={[
+                    "absolute right-3 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-md text-[12px] leading-none",
+                    copied
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-current/70 hover:text-current",
+                  ].join(" ")}
                   onPointerDown={(event) => {
                     event.stopPropagation();
                   }}
                   onClick={handleCopyError}
                 >
-                  <span className="inline-flex items-center gap-1">
-                    <Copy size={14} />
-                    复制
-                  </span>
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
                 </button>
                 <div className="whitespace-pre-wrap break-words pr-16 font-sans text-[13px] leading-5">
                   {statusHint.text}
@@ -719,45 +827,46 @@ export function ImageGenerateNodeView({
 
       {isAdvancedOpen ? (
         <Card
-          className="absolute left-full top-0 z-20 ml-4 w-96 gap-3 border-slate-200/80 bg-white/95 py-2.5 text-slate-700 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-lg dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-100"
+          className="absolute left-full top-0 z-20 ml-4 w-60 gap-3 border-slate-200/80 bg-white/95 py-0 text-slate-700 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-lg dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-100"
           data-board-editor
           onPointerDown={(event) => {
             event.stopPropagation();
           }}
         >
-          <CardHeader className="border-b border-slate-200/70 px-6 pb-2 pt-2 dark:border-slate-700/70">
-            <CardTitle className="text-[15px] font-semibold text-slate-600 dark:text-slate-200">
+          <CardHeader className="border-b border-slate-200/70 px-3 py-1 !pb-1 !gap-0 dark:border-slate-700/70">
+            <CardTitle className="text-[13px] font-semibold text-slate-600 dark:text-slate-200">
               高级设置
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-6 pb-4 pt-3">
-            <div className="flex flex-col gap-5">
-              <div className="flex items-center gap-3">
-                <div className="min-w-0 flex-1 text-[13px] text-slate-500 dark:text-slate-300">
+          <CardContent className="px-3 pb-2.5 pt-2">
+            <div className="flex flex-col gap-2.5">
+              <div className="flex items-center gap-1.5">
+                <div className="min-w-0 flex-1 text-[12px] text-slate-500 dark:text-slate-300">
                   数量
                 </div>
-                <Select
+                <Tabs
                   value={String(outputCount)}
                   onValueChange={(value) => {
                     const parsed = Number(value);
                     onUpdate({ outputCount: normalizeOutputCount(parsed) });
                   }}
-                  disabled={engine.isLocked() || element.locked}
                 >
-                  <SelectTrigger className="h-9 w-28 px-2 text-[13px]">
-                    <SelectValue placeholder="选择" />
-                  </SelectTrigger>
-                  <SelectContent className="text-[13px]">
+                  <TabsList className="grid h-7 w-32 grid-cols-5 rounded-md bg-slate-100/80 p-0.5 dark:bg-slate-800/80">
                     {IMAGE_GENERATE_COUNT_OPTIONS.map((option) => (
-                      <SelectItem key={option} value={String(option)} className="text-[13px]">
+                      <TabsTrigger
+                        key={option}
+                        value={String(option)}
+                        className="h-6 text-[11px] text-slate-600 data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:text-slate-300 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-50"
+                        disabled={engine.isLocked() || element.locked}
+                      >
                         {option}
-                      </SelectItem>
+                      </TabsTrigger>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </TabsList>
+                </Tabs>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="min-w-0 flex-1 text-[13px] text-slate-500 dark:text-slate-300">
+              <div className="flex items-center gap-1.5">
+                <div className="min-w-0 flex-1 text-[12px] text-slate-500 dark:text-slate-300">
                   尺寸
                 </div>
                 <Select
@@ -767,43 +876,58 @@ export function ImageGenerateNodeView({
                   }}
                   disabled={engine.isLocked() || element.locked}
                 >
-                  <SelectTrigger className="h-9 w-32 px-2 text-[13px]">
+                  <SelectTrigger className="h-8 w-28 px-2 text-[12px]">
                     <SelectValue placeholder="选择尺寸" />
                   </SelectTrigger>
-                  <SelectContent className="text-[13px]">
+                  <SelectContent className="text-[12px]">
                     {IMAGE_GENERATE_SIZE_OPTIONS.map((option) => (
-                      <SelectItem key={option} value={option} className="text-[13px]">
+                      <SelectItem key={option} value={option} className="text-[12px]">
                         {option}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-start gap-3">
-                <div className="min-w-0 flex-1 text-[13px] text-slate-500 dark:text-slate-300">
+              <div className="flex items-start gap-1.5">
+                <div className="min-w-0 flex-1 pt-0.5 text-[12px] text-slate-500 dark:text-slate-300">
                   风格
                 </div>
-                <Input
-                  value={styleText}
-                  onChange={(event) => {
-                    onUpdate({ style: event.target.value });
-                  }}
-                  placeholder="可选"
-                  className="h-9 w-32 px-2 text-[13px]"
-                  disabled={engine.isLocked() || element.locked}
-                />
+                <div className="flex w-32 flex-wrap gap-1.5">
+                  {IMAGE_GENERATE_STYLE_TAGS.map((tag) => {
+                    const isActive = styleTagSet.has(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        disabled={engine.isLocked() || element.locked}
+                        className={[
+                          "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] leading-none transition",
+                          isActive
+                            ? "border-slate-900/70 bg-slate-900 text-white dark:border-slate-200 dark:bg-slate-100 dark:text-slate-900"
+                            : "border-slate-200/80 bg-white/70 text-slate-600 hover:border-slate-300 hover:text-slate-800 dark:border-slate-700/80 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:text-slate-100",
+                          "disabled:opacity-60",
+                        ].join(" ")}
+                        onClick={() => {
+                          handleToggleStyleTag(tag);
+                        }}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="flex items-start gap-3">
-                <div className="min-w-0 flex-1 text-[13px] text-slate-500 dark:text-slate-300">
-                  负向提示词
+              <div className="flex items-center gap-1.5">
+                <div className="min-w-0 flex-1 text-[12px] text-slate-500 dark:text-slate-300">
+                  不希望出现
                 </div>
                 <Input
                   value={negativePromptText}
                   onChange={(event) => {
                     onUpdate({ negativePrompt: event.target.value });
                   }}
-                  placeholder="可选"
-                  className="h-9 w-32 px-2 text-[13px]"
+                  placeholder="不希望出现"
+                  className="h-8 w-28 px-2 text-[12px]"
                   disabled={engine.isLocked() || element.locked}
                 />
               </div>
