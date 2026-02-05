@@ -486,7 +486,7 @@ export function ImageGenerateNodeView({
   ]);
 
   const containerClassName = [
-    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-4 rounded-xl border border-slate-300/80 bg-white/90 p-5 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
+    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-3 rounded-xl border border-slate-300/80 bg-white/90 p-5 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
     "bg-[radial-gradient(180px_circle_at_top_left,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_85%_15%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
     "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100 dark:shadow-[0_12px_30px_rgba(0,0,0,0.5)]",
     "dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
@@ -628,7 +628,7 @@ export function ImageGenerateNodeView({
         </div>
       </div>
 
-        <div className="mt-1 flex min-h-0 flex-1 flex-col gap-4" data-board-editor>
+        <div className="mt-1 flex min-h-0 flex-1 flex-col gap-3" data-board-editor>
           <div className="flex items-center gap-3">
             <div className="text-[13px] text-slate-500 dark:text-slate-400">模型</div>
             <div className="min-w-0 flex-1">
@@ -657,7 +657,7 @@ export function ImageGenerateNodeView({
               </Select>
             </div>
           </div>
-          <div className="min-w-0 flex min-h-0 flex-1 flex-col gap-1">
+          <div className="min-w-0 flex min-h-0 flex-1 flex-col gap-2">
             <Textarea
               value={localPromptText}
               maxLength={500}
@@ -667,7 +667,7 @@ export function ImageGenerateNodeView({
                 onUpdate({ promptText: next });
               }}
               data-board-scroll
-              className="h-full min-h-[130px] flex-1 overflow-y-auto px-3.5 py-2.5 text-[16px] leading-6 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[16px]"
+              className="h-full min-h-[96px] flex-1 overflow-y-auto px-3.5 py-2.5 text-[16px] leading-6 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[16px]"
               disabled={engine.isLocked() || element.locked}
             />
           </div>

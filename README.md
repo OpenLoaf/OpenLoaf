@@ -101,11 +101,8 @@ tenas-ai/
 
 ## Desktop Production Config
 
-* Packaged app reads env from `~/Library/Application Support/Tenas/.env` (API keys, paths, etc.)
+* Packaged app reads env from `~/.tenas/.env` (API keys, etc.)
 
-* Default data directory: `~/Library/Application Support/Tenas/data`
+* Unified data directory: `~/.tenas` (Windows: `%USERPROFILE%\\.tenas`)
 
-* Default DB path: `~/Library/Application Support/Tenas/data/tenas.db` (auto-initialized on first run)
-
-* Optional overrides in that `.env`: `TENAS_DATA_DIR`, `TENAS_DB_PATH`, `DATABASE_URL`, `TENAS_CONF_PATH`
-
+* Default DB path: `~/.tenas/tenas.db` (auto-initialized on first run)

@@ -1,7 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { getEnvString } from "@tenas-ai/config";
+import { getTenasRootDir } from "@tenas-ai/config";
 import type { ChatModelSource } from "@tenas-ai/api/common";
 import type {
   AuthConf,
@@ -368,14 +367,9 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
   };
 }
 
-/** Resolve config directory from environment. */
+/** Resolve config directory. */
 function getConfigDir(): string {
-  const defaultConfPath = path.join(homedir(), ".tenas", "tenas.conf");
-  const confPath = getEnvString(process.env, "TENAS_CONF_PATH", { defaultValue: defaultConfPath });
-  const dir = path.dirname(confPath!);
-  // 逻辑：确保配置目录存在，便于写入拆分文件。
-  mkdirSync(dir, { recursive: true });
-  return dir;
+  return getTenasRootDir();
 }
 
 /** Resolve settings.json path. */

@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 
 import { setWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
 import type { Workspace } from "@tenas-ai/api";
+import { setTenasRootOverride } from "@tenas-ai/config";
 import type { EmailConfigFile } from "../emailConfigStore";
 
 let emailConfig: typeof import("../emailConfigStore");
@@ -19,7 +20,7 @@ try {
 const { getEmailConfigPath, readEmailConfigFile, writeEmailConfigFile } = emailConfig;
 
 const configRoot = mkdtempSync(path.join(tmpdir(), "tenas-email-config-"));
-process.env.TENAS_CONF_PATH = path.join(configRoot, "config.json");
+setTenasRootOverride(configRoot);
 
 const workspaceRoot = path.join(configRoot, "workspace-root");
 const workspace: Workspace = {
@@ -72,5 +73,7 @@ assert.equal(fallback.emailAccounts.length, 1);
 
 const raw = readFileSync(configPath, "utf-8");
 assert.ok(raw.includes("emailAccounts"));
+
+setTenasRootOverride(null);
 
 console.log("email config store tests passed.");

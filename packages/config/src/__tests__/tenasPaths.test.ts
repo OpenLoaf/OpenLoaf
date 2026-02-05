@@ -10,7 +10,7 @@ import {
   resolveTenasDbPath,
   resolveTenasPath,
   setTenasRootOverride,
-} from "../tenasPaths";
+} from "../tenas-paths";
 
 const tempRoot = mkdtempSync(path.join(tmpdir(), "tenas-config-test-"));
 setTenasRootOverride(tempRoot);
@@ -40,12 +40,13 @@ const result = migrateLegacyServerData({ legacyRoot, targetRoot: tempRoot });
 assert.ok(result.moved.includes("settings.json"));
 assert.ok(result.moved.includes("auth.json"));
 assert.ok(result.moved.includes("workspaces.json"));
-assert.ok(result.moved.includes("local.db"));
+assert.ok(result.moved.includes("tenas.db"));
 assert.ok(result.moved.includes("workspace"));
 assert.ok(result.skipped.includes("providers.json"));
 
 assert.equal(readFileSync(path.join(tempRoot, "settings.json"), "utf-8"), "legacy-settings.json");
 assert.equal(readFileSync(path.join(tempRoot, "providers.json"), "utf-8"), "current-providers");
+assert.equal(readFileSync(path.join(tempRoot, "tenas.db"), "utf-8"), "legacy-local.db");
 assert.equal(readFileSync(path.join(tempRoot, "workspace", "project.txt"), "utf-8"), "legacy-workspace");
 
 assert.ok(!existsSync(path.join(legacyRoot, "settings.json")));

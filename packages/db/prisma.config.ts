@@ -1,10 +1,6 @@
 import path from "node:path";
-import { defineConfig, env } from "prisma/config";
-import dotenv from "dotenv";
-
-dotenv.config({
-	path: "../../apps/server/.env",
-});
+import { defineConfig } from "prisma/config";
+import { resolveTenasDatabaseUrl } from "@tenas-ai/config";
 
 export default defineConfig({
 	schema: path.join("prisma", "schema"),
@@ -12,6 +8,6 @@ export default defineConfig({
 		path: path.join("prisma", "migrations"),
 	},
 	datasource: {
-		url: env("DATABASE_URL"),
+		url: resolveTenasDatabaseUrl(),
 	},
 });

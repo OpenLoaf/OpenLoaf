@@ -7,10 +7,11 @@ import { pathToFileURL } from "node:url";
 
 import { setWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
 import type { Workspace } from "@tenas-ai/api";
+import { setTenasRootOverride } from "@tenas-ai/config";
 
 const tempRoot = mkdtempSync(path.join(tmpdir(), "tenas-email-account-"));
-process.env.TENAS_CONF_PATH = path.join(tempRoot, "config.json");
 process.env.TENAS_SERVER_ENV_PATH = path.join(tempRoot, ".env");
+setTenasRootOverride(tempRoot);
 
 const workspaceRoot = path.join(tempRoot, "workspace");
 const workspaceId = "workspace-test";
@@ -73,5 +74,7 @@ try {
 }
 
 assert.ok(duplicateError instanceof Error);
+
+setTenasRootOverride(null);
 
 console.log("email account service tests passed.");

@@ -3,6 +3,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
+import { getTenasRootDir, resolveTenasDatabaseUrl, resolveTenasDbPath } from '@tenas-ai/config';
 import type { Logger } from '../logging/startupLogger';
 
 const MIME_TYPES: Record<string, string> = {
@@ -190,29 +191,15 @@ export async function startProductionServices(args: {
   log('Starting production services...');
 
   const resourcesPath = process.resourcesPath;
-  const userDataPath = app.getPath('userData');
+  const tenasRoot = getTenasRootDir();
+  const dataDir = tenasRoot;
 
-  // Packaged app config is expected to live in userData (editable by user, survives upgrades).
-  const userEnvPath = path.join(userDataPath, '.env');
+  // Packaged app config is expected to live under the unified Tenas root.
+  const userEnvPath = path.join(tenasRoot, '.env');
   const userEnv = parseEnvFile(userEnvPath);
   // 中文注释：打包内的 runtime.env 作为强制覆盖配置，优先生效。
   const packagedEnvPath = path.join(resourcesPath, 'runtime.env');
   const packagedEnv = parseEnvFile(packagedEnvPath);
-
-  /**
-   * Resolve environment value with packaged overrides, then user config, then process env.
-   */
-  const resolveEnvValue = (key: string, fallback?: string): string | undefined =>
-    packagedEnv[key] ?? userEnv[key] ?? process.env[key] ?? fallback;
-
-  const dataDir = resolveEnvValue('TENAS_DATA_DIR', path.join(userDataPath, 'data'))!;
-  ensureDir(dataDir);
-
-  const defaultDbPath = path.join(dataDir, 'tenas.db');
-  const dbPath = resolveEnvValue('TENAS_DB_PATH', defaultDbPath)!;
-
-  const defaultConfPath = path.join(dataDir, 'tenas.conf');
-  const confPath = resolveEnvValue('TENAS_CONF_PATH', defaultConfPath)!;
 
   // If user didn't create a `.env` yet, write a small template to guide production configuration.
   try {
@@ -224,9 +211,6 @@ export async function startProductionServices(args: {
           '# Examples:',
           '# OPENAI_API_KEY=sk-...',
           '# DEEPSEEK_API_KEY=...',
-          `# TENAS_DATA_DIR=${dataDir}`,
-          `# TENAS_DB_PATH=${dbPath}`,
-          `# TENAS_CONF_PATH=${confPath}`,
           '',
         ].join('\n'),
         { encoding: 'utf-8', flag: 'wx' }
@@ -236,8 +220,8 @@ export async function startProductionServices(args: {
     // ignore
   }
 
-  const defaultDatabaseUrl = `file:${dbPath}`;
-  const databaseUrl = resolveEnvValue('DATABASE_URL', defaultDatabaseUrl)!;
+  const dbPath = resolveTenasDbPath();
+  const databaseUrl = resolveTenasDatabaseUrl();
   const localDbPath = resolveFilePathFromDatabaseUrl(databaseUrl, dataDir);
 
   // Initialize DB on first run by copying a pre-built seed DB (schema already applied).
@@ -278,8 +262,6 @@ export async function startProductionServices(args: {
           ELECTRON_RUN_AS_NODE: '1',
           PORT: String(serverPort),
           HOST: serverHost,
-          DATABASE_URL: databaseUrl,
-          TENAS_CONF_PATH: confPath,
           // 中文注释：生产环境需要显式放行 webUrl 作为 CORS origin。
           CORS_ORIGIN: `${args.webUrl},${process.env.CORS_ORIGIN ?? ''}`,
           // Allow the bundled server to resolve shipped native deps (e.g. `@libsql/darwin-arm64`)

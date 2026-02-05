@@ -1,7 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { getEnvString } from "@tenas-ai/config";
+import { getTenasRootDir } from "@tenas-ai/config";
 
 type LocalAuthFile = {
   /** Local auth configuration payload. */
@@ -26,13 +26,9 @@ const KEY_LENGTH = 64;
 /** Session secret byte length. */
 const SESSION_SECRET_LENGTH = 32;
 
-/** Resolve config directory from environment. */
+/** Resolve config directory. */
 function getConfigDir(): string {
-  const confPath = getEnvString(process.env, "TENAS_CONF_PATH", { required: true });
-  const dir = path.dirname(confPath!);
-  // 逻辑：确保配置目录存在，避免首次写入失败。
-  mkdirSync(dir, { recursive: true });
-  return dir;
+  return getTenasRootDir();
 }
 
 /** Resolve local-auth.json path. */

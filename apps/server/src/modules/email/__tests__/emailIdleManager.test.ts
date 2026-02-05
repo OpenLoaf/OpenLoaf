@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 
 import { setWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
 import type { Workspace } from "@tenas-ai/api/types/workspace";
+import { setTenasRootOverride } from "@tenas-ai/config";
 import { setEmailEnvValue } from "../emailEnvStore";
 import { writeEmailConfigFile, type EmailConfigFile } from "../emailConfigStore";
 import {
@@ -15,11 +16,10 @@ import {
 } from "../emailIdleManager";
 
 const tempRoot = mkdtempSync(path.join(tmpdir(), "tenas-email-idle-"));
-process.env.TENAS_CONF_PATH = path.join(tempRoot, "config.json");
 process.env.TENAS_SERVER_ENV_PATH = path.join(tempRoot, ".env");
-process.env.DATABASE_URL = `file:${path.join(tempRoot, "email.db")}`;
 process.env.EMAIL_IDLE_ENABLED = "1";
 process.env.EMAIL_IMAP_SKIP = "1";
+setTenasRootOverride(tempRoot);
 
 const workspaceRoot = path.join(tempRoot, "workspace");
 const workspaceId = "workspace-idle-test";
@@ -63,5 +63,7 @@ assert.equal(snapshot.workerCount, 1);
 assert.equal(snapshot.workers[0]?.status, "skipped");
 
 await stopEmailIdleManager();
+
+setTenasRootOverride(null);
 
 console.log("email idle manager tests passed.");
