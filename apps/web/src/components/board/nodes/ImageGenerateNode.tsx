@@ -1,7 +1,7 @@
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { z } from "zod";
-import { Copy, Play, RotateCcw } from "lucide-react";
+import { Copy, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { useBoardContext } from "../core/BoardProvider";
@@ -621,42 +621,55 @@ export function ImageGenerateNodeView({
             }}
           >
             <span className="inline-flex items-center gap-1">
-              {viewStatus === "error" ? <RotateCcw size={16} /> : <Play size={16} />}
-              {viewStatus === "error" ? "重试" : "运行"}
+              {viewStatus === "error" ? <RotateCcw size={16} /> : <Sparkles size={16} />}
+              {viewStatus === "error" ? "重试" : "生成"}
             </span>
           </button>
         </div>
       </div>
 
         <div className="mt-1 flex min-h-0 flex-1 flex-col gap-4" data-board-editor>
-          <div className="flex min-h-0 flex-1 flex-col gap-1">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-[13px] text-slate-500 dark:text-slate-400">
-                <span>提示词</span>
-                <span className="text-[12px] text-slate-400 dark:text-slate-500">
-                  {localPromptText.length}/500
-                </span>
-              </div>
-              {upstreamPromptText ? (
-                <div className="rounded-md border border-slate-200/70 bg-white/70 px-2.5 py-[3px] text-[12px] leading-[14px] text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300">
-                  已加载上游提示词
-                </div>
-              ) : null}
-            </div>
-            <div className="min-w-0 flex min-h-0 flex-1 flex-col gap-1">
-              <Textarea
-                value={localPromptText}
-                maxLength={500}
-                placeholder="输入补充提示词（最多 500 字）"
-                onChange={(event) => {
-                  const next = event.target.value.slice(0, 500);
-                  onUpdate({ promptText: next });
+          <div className="flex items-center gap-3">
+            <div className="text-[13px] text-slate-500 dark:text-slate-400">模型</div>
+            <div className="min-w-0 flex-1">
+              <Select
+                value={effectiveModelId}
+                onValueChange={(value) => {
+                  onUpdate({ modelId: value });
                 }}
-                data-board-scroll
-                className="h-full min-h-[130px] flex-1 overflow-y-auto px-3.5 py-2.5 text-[16px] leading-6 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[16px]"
-                disabled={engine.isLocked() || element.locked}
-              />
+                disabled={candidates.length === 0}
+              >
+                <SelectTrigger className="h-9 w-full px-3 text-[13px]">
+                  <SelectValue placeholder="无可用模型" />
+                </SelectTrigger>
+                <SelectContent className="text-[13px]">
+                  {candidates.length ? null : (
+                    <SelectItem value="__none__" disabled className="text-[13px]">
+                      无可用模型
+                    </SelectItem>
+                  )}
+                  {candidates.map((option) => (
+                    <SelectItem key={option.id} value={option.id} className="text-[13px]">
+                      {option.name || option.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+          <div className="min-w-0 flex min-h-0 flex-1 flex-col gap-1">
+            <Textarea
+              value={localPromptText}
+              maxLength={500}
+              placeholder="输入补充提示词（最多 500 字）"
+              onChange={(event) => {
+                const next = event.target.value.slice(0, 500);
+                onUpdate({ promptText: next });
+              }}
+              data-board-scroll
+              className="h-full min-h-[130px] flex-1 overflow-y-auto px-3.5 py-2.5 text-[16px] leading-6 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[16px]"
+              disabled={engine.isLocked() || element.locked}
+            />
           </div>
         </div>
 
@@ -793,34 +806,6 @@ export function ImageGenerateNodeView({
                   className="h-9 w-32 px-2 text-[13px]"
                   disabled={engine.isLocked() || element.locked}
                 />
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="min-w-0 flex-1 text-[13px] text-slate-500 dark:text-slate-300">
-                  模型
-                </div>
-                <Select
-                  value={effectiveModelId}
-                  onValueChange={(value) => {
-                    onUpdate({ modelId: value });
-                  }}
-                  disabled={candidates.length === 0}
-                >
-                  <SelectTrigger className="h-9 w-32 px-2 text-[13px]">
-                    <SelectValue placeholder="无可用模型" />
-                  </SelectTrigger>
-                  <SelectContent className="text-[13px]">
-                    {candidates.length ? null : (
-                      <SelectItem value="__none__" disabled className="text-[13px]">
-                        无可用模型
-                      </SelectItem>
-                    )}
-                    {candidates.map((option) => (
-                      <SelectItem key={option.id} value={option.id} className="text-[13px]">
-                        {option.name || option.id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </CardContent>

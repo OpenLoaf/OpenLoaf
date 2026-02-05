@@ -2,7 +2,6 @@ import "dotenv/config";
 import { startServer } from "@/bootstrap/startServer";
 import { installHttpProxy } from "@/modules/proxy/httpProxy";
 import { syncSystemProxySettings } from "@/modules/proxy/systemProxySync";
-import { initSummaryScheduler } from "@/modules/summary/summaryBootstrap";
 import { getWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
 
 installHttpProxy();
@@ -12,6 +11,7 @@ void syncSystemProxySettings();
 getWorkspaces();
 
 const { app } = startServer();
-void initSummaryScheduler();
+// 暂停启动时自动总结调度，避免无 workspace/project 上下文触发总结流程。
+// void initSummaryScheduler();
 
 export default app;
