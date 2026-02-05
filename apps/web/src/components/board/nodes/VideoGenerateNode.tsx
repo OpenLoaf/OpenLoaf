@@ -1,20 +1,16 @@
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, type ChangeEvent } from "react";
 import { z } from "zod";
-import { Copy, Play, RotateCcw, Square } from "lucide-react";
+import { Copy, Play, RotateCcw } from "lucide-react";
 import type {
   ModelParameterDefinition,
   ModelParameterFeature,
-  ModelTag,
 } from "@tenas-ai/api/common";
 import { toast } from "sonner";
 
 import { useBoardContext } from "../core/BoardProvider";
-import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
-import { useBasicConfig } from "@/hooks/use-basic-config";
-import { useSettingsValues } from "@/hooks/use-settings";
-import { useCloudModels } from "@/hooks/use-cloud-models";
-import { filterModelOptionsByTags } from "./lib/image-generation";
+import { useMediaModels } from "@/hooks/use-media-models";
+import { filterVideoMediaModels } from "./lib/image-generation";
 import { Input } from "@tenas-ai/ui/input";
 import { Textarea } from "@tenas-ai/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@tenas-ai/ui/card";
@@ -25,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@tenas-ai/ui/select";
-import { trpcClient } from "@/utils/trpc";
 import { getWorkspaceIdFromCookie } from "../core/boardSession";
 import type { ImageNodeProps } from "./ImageNode";
 import { normalizeProjectRelativePath } from "@/components/project/filesystem/utils/file-system-utils";
@@ -34,6 +29,7 @@ import {
   resolveProjectPathFromBoardUri,
 } from "../core/boardFilePath";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import { submitVideoTask } from "@/lib/saas-media";
 import { LOADING_NODE_TYPE } from "./LoadingNode";
 import { NodeFrame } from "./NodeFrame";
 import { resolveRightStackPlacement } from "../utils/output-placement";
@@ -53,7 +49,9 @@ const VIDEO_GENERATE_OUTPUT_HEIGHT = 180;
 
 
 export type VideoGenerateNodeProps = {
-  /** Selected chat model id (profileId:modelId). */
+  /** Selected SaaS model id. */
+  modelId?: string;
+  /** Legacy chat model id for migration. */
   chatModelId?: string;
   /** Prompt text entered in the node. */
   promptText?: string;
@@ -71,6 +69,7 @@ export type VideoGenerateNodeProps = {
 
 /** Schema for video generation node props. */
 const VideoGenerateNodeSchema = z.object({
+  modelId: z.string().optional(),
   chatModelId: z.string().optional(),
   promptText: z.string().optional(),
   durationSeconds: z.number().optional(),
@@ -79,9 +78,6 @@ const VideoGenerateNodeSchema = z.object({
   resultVideo: z.string().optional(),
   errorText: z.string().optional(),
 });
-
-/** Required tags for video generation models. */
-const REQUIRED_TAGS: ModelTag[] = ["video_generation"];
 
 /** Normalize the stored value to a plain text string. */
 function normalizeTextValue(value?: unknown): string {
@@ -124,22 +120,8 @@ export function VideoGenerateNodeView({
 }: CanvasNodeViewProps<VideoGenerateNodeProps>) {
   /** Board engine used for lock checks. */
   const { engine, fileContext } = useBoardContext();
-  /** Basic config for default model selection. */
-  const { basic } = useBasicConfig();
-  /** Provider settings for local model list. */
-  const { providerItems } = useSettingsValues();
-  /** Cloud model registry for cloud source. */
-  const { models: cloudModels } = useCloudModels();
-  /** Chat model source derived from settings. */
-  const chatSource = normalizeChatModelSource(basic.chatSource);
-  /** All available chat model options. */
-  const modelOptions = useMemo(
-    () => buildChatModelOptions(chatSource, providerItems, cloudModels),
-    [chatSource, providerItems, cloudModels]
-  );
-  const candidates = useMemo(() => {
-    return filterModelOptionsByTags(modelOptions, { required: REQUIRED_TAGS });
-  }, [modelOptions]);
+  /** SaaS video model list for selection. */
+  const { videoModels } = useMediaModels();
   /** Board folder scope used for resolving relative asset uris. */
   const boardFolderScope = useMemo(
     () => resolveBoardFolderScope(fileContext),
@@ -155,43 +137,81 @@ export function VideoGenerateNodeView({
     }
     return "";
   }, [boardFolderScope]);
-  const selectedModelId = (element.props.chatModelId ?? "").trim();
-  const defaultModelId =
-    typeof basic.modelDefaultChatModelId === "string"
-      ? basic.modelDefaultChatModelId.trim()
-      : "";
 
-  const effectiveModelId = useMemo(() => {
-    if (selectedModelId) return selectedModelId;
-    if (defaultModelId && candidates.some((item) => item.id === defaultModelId)) {
-      return defaultModelId;
+  // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
+  const inputImageNodes: ImageNodeProps[] = [];
+  const inputTextSegments: string[] = [];
+  const seenSourceIds = new Set<string>();
+  for (const item of engine.doc.getElements()) {
+    if (item.kind !== "connector") continue;
+    if (!item.target || !("elementId" in item.target)) continue;
+    if (item.target.elementId !== element.id) continue;
+    if (!item.source || !("elementId" in item.source)) continue;
+    const sourceElementId = item.source.elementId;
+    if (!sourceElementId || seenSourceIds.has(sourceElementId)) continue;
+    const source = engine.doc.getElementById(sourceElementId);
+    if (!source || source.kind !== "node") continue;
+    seenSourceIds.add(sourceElementId);
+    if (source.type === "image") {
+      inputImageNodes.push(source.props as ImageNodeProps);
+      continue;
     }
-    return candidates[0]?.id ?? "";
-  }, [candidates, defaultModelId, selectedModelId]);
+    if (source.type === "text") {
+      const rawText = normalizeTextValue((source.props as any)?.value);
+      if (rawText.trim()) inputTextSegments.push(rawText.trim());
+      continue;
+    }
+    if (source.type === "image_prompt_generate") {
+      const rawText =
+        typeof (source.props as any)?.resultText === "string"
+          ? ((source.props as any).resultText as string)
+          : "";
+      if (rawText.trim()) inputTextSegments.push(rawText.trim());
+    }
+  }
 
-  const selectedModelOption = useMemo(
+  const inputImageCount = inputImageNodes.length;
+  const candidates = useMemo(() => {
+    return filterVideoMediaModels(videoModels, {
+      imageCount: inputImageCount,
+      hasReference: false,
+      hasStartEnd: inputImageCount >= 2,
+      withAudio: false,
+    });
+  }, [inputImageCount, videoModels]);
+  const selectedModelId = (element.props.modelId ?? element.props.chatModelId ?? "").trim();
+  const hasSelectedModel = useMemo(
+    () => candidates.some((item) => item.id === selectedModelId),
+    [candidates, selectedModelId]
+  );
+  const effectiveModelId = useMemo(() => {
+    if (selectedModelId && hasSelectedModel) return selectedModelId;
+    return candidates[0]?.id ?? "";
+  }, [candidates, hasSelectedModel, selectedModelId]);
+  const selectedModel = useMemo(
     () => candidates.find((item) => item.id === effectiveModelId),
     [candidates, effectiveModelId]
   );
   const parameterFields = useMemo(
-    () => selectedModelOption?.modelDefinition?.parameters?.fields ?? [],
-    [selectedModelOption]
+    () => selectedModel?.parameters?.fields ?? [],
+    [selectedModel]
   );
   const parameterFeatures = useMemo<ModelParameterFeature[]>(
-    () => selectedModelOption?.modelDefinition?.parameters?.features ?? [],
-    [selectedModelOption]
+    () => selectedModel?.parameters?.features ?? [],
+    [selectedModel]
   );
   const allowsPrompt = parameterFeatures.includes("prompt");
-  const maxInputImages = parameterFeatures.includes("last_frame_support")
-    ? 2
-    : VIDEO_GENERATE_DEFAULT_MAX_INPUT_IMAGES;
+  const supportsStartEnd = selectedModel?.capabilities?.input?.supportsStartEnd === true;
+  const maxInputImages =
+    selectedModel?.capabilities?.input?.maxImages ??
+    (supportsStartEnd ? 2 : VIDEO_GENERATE_DEFAULT_MAX_INPUT_IMAGES);
 
   useEffect(() => {
     // 逻辑：当默认模型可用时自动写入节点，避免用户每次重复选择。
     if (!effectiveModelId) return;
-    if (selectedModelId) return;
-    onUpdate({ chatModelId: effectiveModelId });
-  }, [effectiveModelId, onUpdate, selectedModelId]);
+    if (hasSelectedModel) return;
+    onUpdate({ modelId: effectiveModelId });
+  }, [effectiveModelId, hasSelectedModel, onUpdate]);
 
   const errorText = element.props.errorText ?? "";
   const localPromptText = normalizeTextValue(element.props.promptText);
@@ -229,7 +249,10 @@ export function VideoGenerateNodeView({
       if (item.source.elementId !== element.id) return nodes;
       if (!("elementId" in item.target)) return nodes;
       const target = engine.doc.getElementById(item.target.elementId);
-      if (!target || target.kind !== "node" || target.type !== "video") {
+      if (!target || target.kind !== "node") {
+        return nodes;
+      }
+      if (target.type !== "video" && target.type !== LOADING_NODE_TYPE) {
         return nodes;
       }
       return [...nodes, target];
@@ -271,42 +294,8 @@ export function VideoGenerateNodeView({
   const abortControllerRef = useRef<AbortController | null>(null);
   /** Loading node id for the current generation. */
   const loadingNodeIdRef = useRef<string | null>(null);
-  /** Runtime running flag for this node. */
-  const [isRunning, setIsRunning] = useState(false);
   /** Workspace id used for requests. */
   const resolvedWorkspaceId = useMemo(() => getWorkspaceIdFromCookie(), []);
-
-  // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
-  const inputImageNodes: ImageNodeProps[] = [];
-  const inputTextSegments: string[] = [];
-  const seenSourceIds = new Set<string>();
-  for (const item of engine.doc.getElements()) {
-    if (item.kind !== "connector") continue;
-    if (!item.target || !("elementId" in item.target)) continue;
-    if (item.target.elementId !== element.id) continue;
-    if (!item.source || !("elementId" in item.source)) continue;
-    const sourceElementId = item.source.elementId;
-    if (!sourceElementId || seenSourceIds.has(sourceElementId)) continue;
-    const source = engine.doc.getElementById(sourceElementId);
-    if (!source || source.kind !== "node") continue;
-    seenSourceIds.add(sourceElementId);
-    if (source.type === "image") {
-      inputImageNodes.push(source.props as ImageNodeProps);
-      continue;
-    }
-    if (source.type === "text") {
-      const rawText = normalizeTextValue((source.props as any)?.value);
-      if (rawText.trim()) inputTextSegments.push(rawText.trim());
-      continue;
-    }
-    if (source.type === "image_prompt_generate") {
-      const rawText =
-        typeof (source.props as any)?.resultText === "string"
-          ? ((source.props as any).resultText as string)
-          : "";
-      if (rawText.trim()) inputTextSegments.push(rawText.trim());
-    }
-  }
 
   const upstreamPromptText = allowsPrompt ? inputTextSegments.join("\n").trim() : "";
   const sanitizedLocalPrompt = allowsPrompt ? localPromptText.trim() : "";
@@ -315,7 +304,7 @@ export function VideoGenerateNodeView({
     ? [upstreamPromptText, sanitizedLocalPrompt].filter(Boolean).join("\n")
     : "";
   const hasPrompt = allowsPrompt ? Boolean(promptText) : true;
-  const overflowCount = Math.max(0, inputImageNodes.length - maxInputImages);
+  const overflowCount = Math.max(0, inputImageCount - maxInputImages);
   const limitedInputImages = inputImageNodes.slice(0, maxInputImages);
   const resolvedImages: Array<{ url: string; mediaType: string }> = [];
   let invalidImageCount = 0;
@@ -338,13 +327,12 @@ export function VideoGenerateNodeView({
     });
   }
 
-  const hasAnyImageInput = inputImageNodes.length > 0;
+  const hasAnyImageInput = inputImageCount > 0;
   const hasInvalidImages = invalidImageCount > 0;
   const hasTooManyImages = overflowCount > 0;
   const resultVideo = typeof element.props.resultVideo === "string" ? element.props.resultVideo : "";
 
   const viewStatus = useMemo(() => {
-    if (isRunning) return "running";
     if (errorText) return "error";
     if (!effectiveModelId || candidates.length === 0) return "needs_model";
     if (!hasPrompt && !hasAnyImageInput) return "needs_prompt";
@@ -362,12 +350,10 @@ export function VideoGenerateNodeView({
     hasMissingRequiredParameters,
     hasPrompt,
     hasTooManyImages,
-    isRunning,
     resultVideo,
   ]);
 
   const canRun =
-    !isRunning &&
     (hasPrompt || hasAnyImageInput) &&
     !hasMissingRequiredParameters &&
     !hasTooManyImages &&
@@ -408,16 +394,6 @@ export function VideoGenerateNodeView({
     }
   }, [errorText]);
 
-  /** Stop the current video generation request. */
-  const stopVideoGenerate = useCallback(() => {
-    // 逻辑：先结束运行态再中止请求，避免 UI 卡死。
-    setIsRunning(false);
-    clearLoadingNode();
-    if (!abortControllerRef.current) return;
-    abortControllerRef.current.abort();
-    abortControllerRef.current = null;
-  }, [clearLoadingNode]);
-
   useEffect(() => {
     return () => {
       if (!abortControllerRef.current) return;
@@ -431,15 +407,15 @@ export function VideoGenerateNodeView({
 
   /** Run a video generation request and poll result. */
   const runVideoGenerate = useCallback(
-    async (input: { chatModelId?: string; chatModelSource?: "local" | "cloud" }) => {
+    async () => {
       const nodeId = element.id;
       const node = engine.doc.getElementById(nodeId);
       if (!node || node.kind !== "node" || node.type !== VIDEO_GENERATE_NODE_TYPE) {
         return;
       }
 
-      const chatModelId = (input.chatModelId ?? (node.props as any)?.chatModelId ?? "").trim();
-      if (!chatModelId) {
+      const modelId = (effectiveModelId || (node.props as any)?.modelId || "").trim();
+      if (!modelId) {
         engine.doc.updateNodeProps(nodeId, {
           errorText: "请选择支持「视频生成」的模型",
         });
@@ -487,11 +463,10 @@ export function VideoGenerateNodeView({
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      setIsRunning(true);
       engine.doc.updateNodeProps(nodeId, {
         errorText: "",
         resultVideo: "",
-        chatModelId,
+        modelId,
       });
 
       try {
@@ -504,7 +479,6 @@ export function VideoGenerateNodeView({
               taskType: "video_generate",
               sourceNodeId: nodeId,
               promptText: promptText,
-              chatModelId,
               workspaceId: resolvedWorkspaceId || undefined,
               projectId: currentProjectId || undefined,
               saveDir: videoSaveDir || undefined,
@@ -528,22 +502,37 @@ export function VideoGenerateNodeView({
           }
           loadingNodeIdRef.current = loadingNodeId ?? null;
         }
-        const imageUrls = resolvedImages.map((image) => image.url);
+        const inputs = supportsStartEnd
+          ? resolvedImages.length > 0
+            ? {
+                ...(resolvedImages[0] ? { startImage: resolvedImages[0] } : {}),
+                ...(resolvedImages[1] ? { endImage: resolvedImages[1] } : {}),
+              }
+            : undefined
+          : resolvedImages.length > 0
+            ? { images: resolvedImages }
+            : undefined;
         const requestParameters = parameterFields.length > 0 ? resolvedParameters : undefined;
-        const result = await trpcClient.ai.videoGenerate.mutate({
-          prompt: hasPrompt ? promptText : undefined,
-          imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+        const result = await submitVideoTask({
+          modelId,
+          prompt: hasPrompt ? promptText : "",
+          inputs,
+          output: {
+            aspectRatio: element.props.aspectRatio || undefined,
+            duration: element.props.durationSeconds || undefined,
+          },
           parameters: requestParameters,
-          chatModelId,
           workspaceId: resolvedWorkspaceId || undefined,
           projectId: currentProjectId || undefined,
+          saveDir: videoSaveDir || undefined,
+          sourceNodeId: nodeId,
         });
-        if (!result?.taskId) {
+        if (!result?.success || !result?.data?.taskId) {
           throw new Error("视频任务提交失败");
         }
         if (loadingNodeIdRef.current) {
           engine.doc.updateNodeProps(loadingNodeIdRef.current, {
-            taskId: result.taskId,
+            taskId: result.data.taskId,
           });
         }
         return;
@@ -559,13 +548,15 @@ export function VideoGenerateNodeView({
         if (abortControllerRef.current === controller) {
           abortControllerRef.current = null;
         }
-        setIsRunning(false);
       }
     },
     [
       currentProjectId,
       engine,
       element.id,
+      element.props.aspectRatio,
+      element.props.durationSeconds,
+      effectiveModelId,
       hasAnyImageInput,
       hasInvalidImages,
       hasMissingRequiredParameters,
@@ -576,6 +567,7 @@ export function VideoGenerateNodeView({
       parameterFields.length,
       resolvedImages,
       resolvedWorkspaceId,
+      supportsStartEnd,
       videoSaveDir,
       maxInputImages,
       clearLoadingNode,
@@ -597,23 +589,21 @@ export function VideoGenerateNodeView({
   }, [engine, element.xywh]);
 
   const statusLabel =
-    viewStatus === "running"
-      ? "生成中…"
-      : viewStatus === "done"
-        ? "已完成"
-      : viewStatus === "error"
-        ? "生成失败"
-      : viewStatus === "needs_model"
-        ? "需要配置模型"
-      : viewStatus === "needs_prompt"
-        ? "需要提示词"
-      : viewStatus === "missing_parameters"
-        ? "参数未填写"
-      : viewStatus === "too_many_images"
-        ? "图片数量过多"
-      : viewStatus === "invalid_image"
-        ? "图片地址不可用"
-      : "待运行";
+    viewStatus === "done"
+      ? "已完成"
+    : viewStatus === "error"
+      ? "生成失败"
+    : viewStatus === "needs_model"
+      ? "需要配置模型"
+    : viewStatus === "needs_prompt"
+      ? "需要提示词"
+    : viewStatus === "missing_parameters"
+      ? "参数未填写"
+    : viewStatus === "too_many_images"
+      ? "图片数量过多"
+    : viewStatus === "invalid_image"
+      ? "图片地址不可用"
+    : "待运行";
 
   const statusHint = useMemo(() => {
     if (viewStatus === "needs_prompt") {
@@ -628,7 +618,7 @@ export function VideoGenerateNodeView({
     if (viewStatus === "too_many_images") {
       return {
         tone: "warn",
-        text: `最多支持 ${maxInputImages} 张图片输入，已连接 ${inputImageNodes.length} 张。`,
+        text: `最多支持 ${maxInputImages} 张图片输入，已连接 ${inputImageCount} 张。`,
       };
     }
     if (viewStatus === "invalid_image") {
@@ -643,9 +633,6 @@ export function VideoGenerateNodeView({
     if (viewStatus === "error") {
       return { tone: "error", text: errorText || "生成视频失败，请重试。" };
     }
-    if (viewStatus === "running") {
-      return { tone: "info", text: "正在准备生成视频，请稍等…" };
-    }
     if (viewStatus === "done") return null;
     if (!hasAnyImageInput && allowsPrompt) {
       return { tone: "info", text: "未连接图片，将以纯文本生成视频。" };
@@ -655,7 +642,7 @@ export function VideoGenerateNodeView({
     allowsPrompt,
     errorText,
     hasAnyImageInput,
-    inputImageNodes.length,
+    inputImageCount,
     maxInputImages,
     missingRequiredParameters,
     viewStatus,
@@ -666,9 +653,6 @@ export function VideoGenerateNodeView({
     "bg-[radial-gradient(180px_circle_at_top_left,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_85%_15%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
     "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100 dark:shadow-[0_12px_30px_rgba(0,0,0,0.5)]",
     "dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
-    viewStatus === "running"
-      ? "tenas-thinking-border tenas-thinking-border-on border-transparent"
-      : "",
     viewStatus === "error"
       ? "border-rose-400/80 bg-rose-50/60 dark:border-rose-400/70 dark:bg-rose-950/30"
       : "",
@@ -701,40 +685,21 @@ export function VideoGenerateNodeView({
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {isRunning ? (
-            <button
-              type="button"
-              className="rounded-md border border-slate-200/80 bg-background px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                stopVideoGenerate();
-              }}
-            >
-              <span className="inline-flex items-center gap-1">
-                <Square size={12} />
-                停止
-              </span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={!canRun}
-              className="rounded-md border border-slate-200/80 bg-background px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                onSelect();
-                runVideoGenerate({
-                  chatModelId: effectiveModelId,
-                  chatModelSource: chatSource,
-                });
-              }}
-            >
-              <span className="inline-flex items-center gap-1">
-                {viewStatus === "error" ? <RotateCcw size={12} /> : <Play size={12} />}
-                {viewStatus === "error" ? "重试" : "运行"}
-              </span>
-            </button>
-          )}
+          <button
+            type="button"
+            disabled={!canRun}
+            className="rounded-md border border-slate-200/80 bg-background px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onSelect();
+              runVideoGenerate();
+            }}
+          >
+            <span className="inline-flex items-center gap-1">
+              {viewStatus === "error" ? <RotateCcw size={12} /> : <Play size={12} />}
+              {viewStatus === "error" ? "重试" : "运行"}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -745,9 +710,9 @@ export function VideoGenerateNodeView({
             <Select
               value={effectiveModelId}
               onValueChange={(value) => {
-                onUpdate({ chatModelId: value });
+                onUpdate({ modelId: value });
               }}
-              disabled={candidates.length === 0 || isRunning}
+              disabled={candidates.length === 0}
             >
               <SelectTrigger className="h-7 w-full px-2 text-[11px] shadow-none">
                 <SelectValue placeholder="无可用模型" />
@@ -760,7 +725,7 @@ export function VideoGenerateNodeView({
                 )}
                 {candidates.map((option) => (
                   <SelectItem key={option.id} value={option.id} className="text-[11px]">
-                    {option.providerName}:{option.modelDefinition?.name || option.modelId}
+                    {option.name || option.id}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -794,7 +759,7 @@ export function VideoGenerateNodeView({
                   }}
                   data-board-scroll
                   className="h-full min-h-[88px] flex-1 overflow-y-auto px-2 py-1 text-[13px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[13px]"
-                  disabled={engine.isLocked() || element.locked || isRunning}
+                  disabled={engine.isLocked() || element.locked}
                 />
               </div>
             </>
@@ -853,7 +818,7 @@ export function VideoGenerateNodeView({
             {parameterFields.map((field) => {
               const value = resolvedParameters[field.key];
               const valueString = value === undefined ? "" : String(value);
-              const disabled = engine.isLocked() || element.locked || isRunning;
+              const disabled = engine.isLocked() || element.locked;
               const label = (
                 <div className="min-w-0 flex-1 space-y-0.5">
                   <div className="text-[11px] text-slate-500 dark:text-slate-300">

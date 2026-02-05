@@ -95,7 +95,7 @@ function HoverPanel(props: {
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       className={cn(
-        "pointer-events-auto absolute bottom-full left-1/2 z-10 -translate-x-1/2 -translate-y-3",
+        "pointer-events-auto absolute bottom-full left-1/2 z-10 -translate-x-1/2 -translate-y-4",
         // 使用接近 AFFiNE 的上弹菜单风格
         "rounded-xl p-2",
         toolbarSurfaceClassName,

@@ -1,3 +1,5 @@
+import type { ModelParameterDefinition, ModelParameterFeature } from "./modelTypes";
+
 export type MediaModelTag =
   | "image_generation"
   | "video_generation"
@@ -43,4 +45,11 @@ export type MediaModelDefinition = {
   tags?: MediaModelTag[];
   /** Structured capability metadata. */
   capabilities?: MediaModelCapabilities;
+  /** Optional parameter definitions for advanced options. */
+  parameters?: {
+    /** Feature flags for canvas behaviors. */
+    features: ModelParameterFeature[];
+    /** Field definitions for UI and validation. */
+    fields: ModelParameterDefinition[];
+  };
 };

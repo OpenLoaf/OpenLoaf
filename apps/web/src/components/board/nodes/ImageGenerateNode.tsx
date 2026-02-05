@@ -1,7 +1,7 @@
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { z } from "zod";
-import { Copy, Play, RotateCcw, Square } from "lucide-react";
+import { Copy, Play, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { useBoardContext } from "../core/BoardProvider";
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@tenas-ai/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@tenas-ai/ui/card";
 import { Input } from "@tenas-ai/ui/input";
 import { Textarea } from "@tenas-ai/ui/textarea";
 import {
@@ -53,6 +54,7 @@ const IMAGE_GENERATE_SIZE_OPTIONS = [
   "1280x720",
   "720x1280",
 ] as const;
+const IMAGE_GENERATE_COUNT_OPTIONS = Array.from({ length: 9 }, (_, index) => index + 1);
 
 
 export type ImageGenerateNodeProps = {
@@ -114,6 +116,7 @@ function normalizeOutputSize(value: string | undefined): string {
 /** Render the image generation node. */
 export function ImageGenerateNodeView({
   element,
+  selected,
   onSelect,
   onUpdate,
 }: CanvasNodeViewProps<ImageGenerateNodeProps>) {
@@ -142,11 +145,10 @@ export function ImageGenerateNodeView({
   const focusThrottleRef = useRef(0);
   /** Loading node id for the current generation. */
   const loadingNodeIdRef = useRef<string | null>(null);
-  /** Runtime running flag for this node. */
-  const [isRunning, setIsRunning] = useState(false);
   /** Advanced panel open state. */
   /** Workspace id used for requests. */
   const resolvedWorkspaceId = useMemo(() => getWorkspaceIdFromCookie(), []);
+  const isAdvancedOpen = selected;
 
   const errorText = element.props.errorText ?? "";
   const outputCount = normalizeOutputCount(element.props.outputCount);
@@ -280,15 +282,6 @@ export function ImageGenerateNodeView({
     loadingNodeIdRef.current = null;
   }, [engine.doc]);
 
-  /** Stop the current image generation request. */
-  const stopImageGenerate = useCallback(() => {
-    // 逻辑：先结束运行态再中止请求，避免 UI 卡死。
-    setIsRunning(false);
-    if (!abortControllerRef.current) return;
-    abortControllerRef.current.abort();
-    abortControllerRef.current = null;
-  }, []);
-
   useEffect(() => {
     return () => {
       if (!abortControllerRef.current) return;
@@ -368,7 +361,6 @@ export function ImageGenerateNodeView({
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    setIsRunning(true);
     engine.doc.updateNodeProps(nodeId, {
       errorText: "",
       modelId,
@@ -450,7 +442,6 @@ export function ImageGenerateNodeView({
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null;
       }
-      setIsRunning(false);
     }
   }, [
     clearLoadingNode,
@@ -478,7 +469,6 @@ export function ImageGenerateNodeView({
     : [];
 
   const viewStatus = useMemo(() => {
-    if (isRunning) return "running";
     if (!hasPrompt) return "needs_prompt";
     if (hasTooManyImages) return "too_many_images";
     if (hasInvalidImages) return "invalid_image";
@@ -492,18 +482,14 @@ export function ImageGenerateNodeView({
     hasInvalidImages,
     hasPrompt,
     hasTooManyImages,
-    isRunning,
     outputImages.length,
   ]);
 
   const containerClassName = [
-    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-2 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
+    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-4 rounded-xl border border-slate-300/80 bg-white/90 p-5 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
     "bg-[radial-gradient(180px_circle_at_top_left,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_85%_15%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
     "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100 dark:shadow-[0_12px_30px_rgba(0,0,0,0.5)]",
     "dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
-    viewStatus === "running"
-      ? "tenas-thinking-border tenas-thinking-border-on border-transparent"
-      : "",
     viewStatus === "error"
       ? "border-rose-400/80 bg-rose-50/60 dark:border-rose-400/70 dark:bg-rose-950/30"
       : "",
@@ -531,9 +517,6 @@ export function ImageGenerateNodeView({
     if (viewStatus === "error") {
       return { tone: "error", text: errorText || "生成图片失败，请重试。" };
     }
-    if (viewStatus === "running") {
-      return { tone: "info", text: "正在生成图片，请稍等…" };
-    }
     if (viewStatus === "done") return null;
     if (!hasAnyImageInput) {
       return { tone: "info", text: "未连接图片，将以纯文本生成。" };
@@ -548,7 +531,6 @@ export function ImageGenerateNodeView({
   ]);
 
   const canRun =
-    !isRunning &&
     hasPrompt &&
     !hasTooManyImages &&
     !hasInvalidImages &&
@@ -592,22 +574,7 @@ export function ImageGenerateNodeView({
     engine.focusViewportToRect({ x, y, w, h }, { padding: 240, durationMs: 280 });
   }, [engine, element.xywh]);
 
-  const statusLabel =
-    viewStatus === "running"
-      ? "生成中…"
-      : viewStatus === "done"
-      ? "已完成"
-      : viewStatus === "error"
-        ? "生成失败"
-      : viewStatus === "needs_model"
-        ? "需要配置模型"
-      : viewStatus === "needs_prompt"
-        ? "需要提示词"
-      : viewStatus === "too_many_images"
-        ? "图片数量过多"
-      : viewStatus === "invalid_image"
-        ? "图片地址不可用"
-      : "待运行";
+  const subtitleText = inputSummaryText;
 
   return (
     <NodeFrame
@@ -623,226 +590,242 @@ export function ImageGenerateNodeView({
       }}
     >
       <div className={containerClassName}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-8 w-8 items-center justify-center overflow-visible text-slate-500 dark:text-slate-300">
-            <img
-              src="/board/pictures-svgrepo-com.svg"
-              alt=""
-              aria-hidden="true"
-              className="absolute -left-6 h-[56px] w-[56px] max-h-none max-w-none"
-              style={{ top: -25 }}
-              draggable={false}
-            />
-          </span>
-          <div className="min-w-0 ml-1">
-            <div className="text-[12px] font-semibold leading-4">图片生成</div>
-            <div className="mt-0.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
-              {statusLabel}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-8 w-8 items-center justify-center overflow-visible text-slate-500 dark:text-slate-300">
+              <img
+                src="/board/pictures-svgrepo-com.svg"
+                alt=""
+                aria-hidden="true"
+                className="absolute -left-6 h-[56px] w-[56px] max-h-none max-w-none"
+                style={{ top: -25 }}
+                draggable={false}
+              />
+            </span>
+            <div className="min-w-0 ml-1">
+            <div className="text-[16px] font-semibold leading-6">图片生成</div>
+            <div className="mt-0.5 text-[13px] leading-4 text-slate-500 dark:text-slate-400">
+              {subtitleText}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {isRunning ? (
-            <button
-              type="button"
-              className="rounded-md border border-slate-200/80 bg-background px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                stopImageGenerate();
-              }}
-            >
-              <span className="inline-flex items-center gap-1">
-                <Square size={12} />
-                停止
-              </span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={!canRun}
-              className="rounded-md border border-slate-200/80 bg-background px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                onSelect();
-                runImageGenerate();
-              }}
-            >
-              <span className="inline-flex items-center gap-1">
-                {viewStatus === "error" ? <RotateCcw size={12} /> : <Play size={12} />}
-                {viewStatus === "error" ? "重试" : "运行"}
-              </span>
-            </button>
-          )}
+          <button
+            type="button"
+            disabled={!canRun}
+            className="rounded-md border border-slate-200/80 bg-background px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onSelect();
+              runImageGenerate();
+            }}
+          >
+            <span className="inline-flex items-center gap-1">
+              {viewStatus === "error" ? <RotateCcw size={16} /> : <Play size={16} />}
+              {viewStatus === "error" ? "重试" : "运行"}
+            </span>
+          </button>
         </div>
       </div>
 
-      <div className="mt-1 flex min-h-0 flex-1 flex-col gap-2" data-board-editor>
-          <div className="flex items-center gap-2">
-            <div className="text-[11px] text-slate-500 dark:text-slate-400">模型</div>
-            <div className="min-w-0 flex-1">
-              <Select
-                value={effectiveModelId}
-                onValueChange={(value) => {
-                  onUpdate({ modelId: value });
-                }}
-                disabled={candidates.length === 0 || isRunning}
-              >
-              <SelectTrigger className="h-7 w-full px-2 text-[11px] shadow-none">
-                <SelectValue placeholder="无可用模型" />
-              </SelectTrigger>
-              <SelectContent className="text-[11px]">
-                {candidates.length ? null : (
-                  <SelectItem value="__none__" disabled className="text-[11px]">
-                    无可用模型
-                  </SelectItem>
-                )}
-                {candidates.map((option) => (
-                  <SelectItem key={option.id} value={option.id} className="text-[11px]">
-                    {option.name || option.id}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500 dark:text-slate-400">
-          <div className="flex items-center gap-2">
-            <span>输入</span>
-            <span className="rounded-md border border-slate-200/70 bg-white/80 px-1.5 py-[1px] text-[10px] text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300">
-              {inputSummaryText}
-            </span>
-          </div>
-          <span>最多 {maxInputImages} 张</span>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex items-center gap-2">
-            <div className="text-[11px] text-slate-500 dark:text-slate-400">数量</div>
-            <Input
-              type="number"
-              min={1}
-              max={IMAGE_GENERATE_MAX_OUTPUT_IMAGES}
-              value={outputCount}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                const raw = event.target.value;
-                const parsed = Number(raw);
-                if (!Number.isFinite(parsed)) {
-                  onUpdate({ outputCount: IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT });
-                  return;
-                }
-                onUpdate({ outputCount: normalizeOutputCount(parsed) });
-              }}
-              className="h-7 w-full px-2 text-[11px]"
-              disabled={engine.isLocked() || element.locked || isRunning}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="text-[11px] text-slate-500 dark:text-slate-400">尺寸</div>
-            <Select
-              value={outputSize}
-              onValueChange={(value) => {
-                onUpdate({ outputSize: value });
-              }}
-              disabled={engine.isLocked() || element.locked || isRunning}
-            >
-              <SelectTrigger className="h-7 w-full px-2 text-[11px] shadow-none">
-                <SelectValue placeholder="选择尺寸" />
-              </SelectTrigger>
-              <SelectContent className="text-[11px]">
-                {IMAGE_GENERATE_SIZE_OPTIONS.map((option) => (
-                  <SelectItem key={option} value={option} className="text-[11px]">
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Input
-            value={styleText}
-            onChange={(event) => {
-              onUpdate({ style: event.target.value });
-            }}
-            placeholder="风格（可选）"
-            className="h-7 px-2 text-[11px]"
-            disabled={engine.isLocked() || element.locked || isRunning}
-          />
-          <Input
-            value={negativePromptText}
-            onChange={(event) => {
-              onUpdate({ negativePrompt: event.target.value });
-            }}
-            placeholder="负向提示词（可选）"
-            className="h-7 px-2 text-[11px]"
-            disabled={engine.isLocked() || element.locked || isRunning}
-          />
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-1">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-              <span>提示词</span>
-              <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                {localPromptText.length}/500
-              </span>
-            </div>
-            {upstreamPromptText ? (
-              <div className="rounded-md border border-slate-200/70 bg-white/70 px-1.5 py-[1px] text-[10px] leading-[14px] text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300">
-                已加载上游提示词
+        <div className="mt-1 flex min-h-0 flex-1 flex-col gap-4" data-board-editor>
+          <div className="flex min-h-0 flex-1 flex-col gap-1">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-[13px] text-slate-500 dark:text-slate-400">
+                <span>提示词</span>
+                <span className="text-[12px] text-slate-400 dark:text-slate-500">
+                  {localPromptText.length}/500
+                </span>
               </div>
-            ) : null}
-          </div>
-          <div className="min-w-0 flex min-h-0 flex-1 flex-col gap-1">
-            <Textarea
-              value={localPromptText}
-              maxLength={500}
-              placeholder="输入补充提示词（最多 500 字）"
-              onChange={(event) => {
-                const next = event.target.value.slice(0, 500);
-                onUpdate({ promptText: next });
-              }}
-              data-board-scroll
-              className="h-full min-h-[88px] flex-1 overflow-y-auto px-2 py-1 text-[13px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[13px]"
-              disabled={engine.isLocked() || element.locked || isRunning}
-            />
+              {upstreamPromptText ? (
+                <div className="rounded-md border border-slate-200/70 bg-white/70 px-2.5 py-[3px] text-[12px] leading-[14px] text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300">
+                  已加载上游提示词
+                </div>
+              ) : null}
+            </div>
+            <div className="min-w-0 flex min-h-0 flex-1 flex-col gap-1">
+              <Textarea
+                value={localPromptText}
+                maxLength={500}
+                placeholder="输入补充提示词（最多 500 字）"
+                onChange={(event) => {
+                  const next = event.target.value.slice(0, 500);
+                  onUpdate({ promptText: next });
+                }}
+                data-board-scroll
+                className="h-full min-h-[130px] flex-1 overflow-y-auto px-3.5 py-2.5 text-[16px] leading-6 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[16px]"
+                disabled={engine.isLocked() || element.locked}
+              />
+            </div>
           </div>
         </div>
+
       </div>
 
       {statusHint ? (
-        statusHint.tone === "error" ? (
-          <div className="relative rounded-md border border-rose-200/70 bg-rose-50 p-2 text-[11px] leading-4 text-rose-600 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
-            <button
-              type="button"
-              className="absolute right-2 top-2 rounded-md border border-rose-200/70 bg-background px-2 py-0.5 text-[10px] text-rose-600 hover:bg-rose-50 dark:border-rose-900/50 dark:text-rose-200 dark:hover:bg-rose-950/60"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-              }}
-              onClick={handleCopyError}
-            >
-              <span className="inline-flex items-center gap-1">
-                <Copy size={10} />
-                复制
-              </span>
-            </button>
-            <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words pr-14 font-sans">
-              {statusHint.text}
-            </pre>
+        <div
+          className={[
+            "absolute left-0 top-full z-10 mt-2 w-full rounded-xl border text-slate-700 shadow-[0_10px_20px_rgba(15,23,42,0.12)] backdrop-blur-lg dark:text-slate-100",
+            statusHint.tone === "error"
+              ? "border-rose-200/70 bg-rose-100/95 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/70 dark:text-rose-200"
+              : statusHint.tone === "warn"
+                ? "border-amber-200/70 bg-amber-100/95 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/70 dark:text-amber-200"
+                : "border-sky-200/70 bg-sky-100/95 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/70 dark:text-sky-200",
+          ].join(" ")}
+          data-board-editor
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <div className="relative px-3 py-2.5">
+            {statusHint.tone === "error" ? (
+              <>
+                <button
+                  type="button"
+                  className="absolute right-3 top-2 rounded-md border border-current/20 bg-background/70 px-2.5 py-1 text-[12px] hover:bg-white/70 dark:hover:bg-slate-900/70"
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                  }}
+                  onClick={handleCopyError}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <Copy size={14} />
+                    复制
+                  </span>
+                </button>
+                <div className="whitespace-pre-wrap break-words pr-16 font-sans text-[13px] leading-5">
+                  {statusHint.text}
+                </div>
+              </>
+            ) : (
+              <div className="text-[13px] leading-5">{statusHint.text}</div>
+            )}
           </div>
-        ) : (
-          <div
-            className={[
-              "rounded-md border px-2 py-1 text-[11px] leading-4",
-              statusHint.tone === "warn"
-                ? "border-amber-200/70 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
-                : "border-sky-200/70 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-200",
-            ].join(" ")}
-          >
-            {statusHint.text}
-          </div>
-        )
+        </div>
       ) : null}
-      </div>
+
+      {isAdvancedOpen ? (
+        <Card
+          className="absolute left-full top-0 z-20 ml-4 w-96 gap-3 border-slate-200/80 bg-white/95 py-2.5 text-slate-700 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-lg dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-100"
+          data-board-editor
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <CardHeader className="border-b border-slate-200/70 px-6 pb-2 pt-2 dark:border-slate-700/70">
+            <CardTitle className="text-[15px] font-semibold text-slate-600 dark:text-slate-200">
+              高级设置
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-6 pb-4 pt-3">
+            <div className="flex flex-col gap-5">
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1 text-[13px] text-slate-500 dark:text-slate-300">
+                  数量
+                </div>
+                <Select
+                  value={String(outputCount)}
+                  onValueChange={(value) => {
+                    const parsed = Number(value);
+                    onUpdate({ outputCount: normalizeOutputCount(parsed) });
+                  }}
+                  disabled={engine.isLocked() || element.locked}
+                >
+                  <SelectTrigger className="h-9 w-28 px-2 text-[13px]">
+                    <SelectValue placeholder="选择" />
+                  </SelectTrigger>
+                  <SelectContent className="text-[13px]">
+                    {IMAGE_GENERATE_COUNT_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={String(option)} className="text-[13px]">
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1 text-[13px] text-slate-500 dark:text-slate-300">
+                  尺寸
+                </div>
+                <Select
+                  value={outputSize}
+                  onValueChange={(value) => {
+                    onUpdate({ outputSize: value });
+                  }}
+                  disabled={engine.isLocked() || element.locked}
+                >
+                  <SelectTrigger className="h-9 w-32 px-2 text-[13px]">
+                    <SelectValue placeholder="选择尺寸" />
+                  </SelectTrigger>
+                  <SelectContent className="text-[13px]">
+                    {IMAGE_GENERATE_SIZE_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option} className="text-[13px]">
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1 text-[13px] text-slate-500 dark:text-slate-300">
+                  风格
+                </div>
+                <Input
+                  value={styleText}
+                  onChange={(event) => {
+                    onUpdate({ style: event.target.value });
+                  }}
+                  placeholder="可选"
+                  className="h-9 w-32 px-2 text-[13px]"
+                  disabled={engine.isLocked() || element.locked}
+                />
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1 text-[13px] text-slate-500 dark:text-slate-300">
+                  负向提示词
+                </div>
+                <Input
+                  value={negativePromptText}
+                  onChange={(event) => {
+                    onUpdate({ negativePrompt: event.target.value });
+                  }}
+                  placeholder="可选"
+                  className="h-9 w-32 px-2 text-[13px]"
+                  disabled={engine.isLocked() || element.locked}
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1 text-[13px] text-slate-500 dark:text-slate-300">
+                  模型
+                </div>
+                <Select
+                  value={effectiveModelId}
+                  onValueChange={(value) => {
+                    onUpdate({ modelId: value });
+                  }}
+                  disabled={candidates.length === 0}
+                >
+                  <SelectTrigger className="h-9 w-32 px-2 text-[13px]">
+                    <SelectValue placeholder="无可用模型" />
+                  </SelectTrigger>
+                  <SelectContent className="text-[13px]">
+                    {candidates.length ? null : (
+                      <SelectItem value="__none__" disabled className="text-[13px]">
+                        无可用模型
+                      </SelectItem>
+                    )}
+                    {candidates.map((option) => (
+                      <SelectItem key={option.id} value={option.id} className="text-[13px]">
+                        {option.name || option.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
     </NodeFrame>
   );
 }
@@ -862,6 +845,6 @@ export const ImageGenerateNodeDefinition: CanvasNodeDefinition<ImageGenerateNode
   capabilities: {
     resizable: false,
     connectable: "auto",
-    minSize: { w: 300, h: 260 },
+    minSize: { w: 380, h: 330 },
   },
 };

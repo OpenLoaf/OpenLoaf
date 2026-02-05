@@ -3,14 +3,17 @@
 import { startTransition, useCallback } from "react";
 import { useQuery, skipToken } from "@tanstack/react-query";
 import { SidebarProject } from "@/components/layout/sidebar/SidebarProject";
+import { SidebarFeedback } from "@/components/layout/sidebar/SidebarFeedback";
 import { SidebarWorkspace } from "../../workspace/SidebarWorkspace";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
 } from "@tenas-ai/ui/sidebar";
 import { CalendarDays, Inbox, LayoutTemplate, Mail, Search, Sparkles } from "lucide-react";
 import { useTabs } from "@/hooks/use-tabs";
@@ -264,6 +267,10 @@ export const AppSidebar = ({
       <SidebarContent>
         <SidebarProject />
       </SidebarContent>
+      <SidebarSeparator />
+      <SidebarFooter>
+        <SidebarFeedback />
+      </SidebarFooter>
     </Sidebar>
   );
 };

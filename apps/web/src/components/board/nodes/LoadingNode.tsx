@@ -4,6 +4,7 @@ import { z } from "zod";
 import { Loader2 } from "lucide-react";
 import { trpcClient } from "@/utils/trpc";
 import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
+import { cancelTask, pollTask } from "@/lib/saas-media";
 import {
   formatScopedProjectPath,
   normalizeProjectRelativePath,
@@ -11,12 +12,13 @@ import {
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { useBoardContext } from "../core/BoardProvider";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";
+import { buildImageNodePayloadFromUri } from "../utils/image";
 import { NodeFrame } from "./NodeFrame";
 
 /** Loading node type identifier. */
 export const LOADING_NODE_TYPE = "loading";
 
-export type LoadingTaskType = "video_generate";
+export type LoadingTaskType = "video_generate" | "image_generate";
 
 export type LoadingNodeProps = {
   /** Loading task id. */
@@ -39,7 +41,7 @@ export type LoadingNodeProps = {
 
 const LoadingNodeSchema = z.object({
   taskId: z.string().optional(),
-  taskType: z.enum(["video_generate"]).optional(),
+  taskType: z.enum(["video_generate", "image_generate"]).optional(),
   sourceNodeId: z.string().optional(),
   promptText: z.string().optional(),
   chatModelId: z.string().optional(),
@@ -81,14 +83,14 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
   const taskType = element.props.taskType ?? "video_generate";
   const promptText = (element.props.promptText ?? "").trim();
   const sourceNodeId = element.props.sourceNodeId ?? "";
-  const chatModelId = (element.props.chatModelId ?? "").trim();
   const workspaceId = element.props.workspaceId ?? "";
   const projectId = element.props.projectId ?? "";
-  const saveDir = element.props.saveDir ?? "";
 
   const promptLabel = promptText || LOADING_FALLBACK_TEXT;
 
-  const canRun = Boolean(taskId && taskType === "video_generate");
+  const canRun = Boolean(
+    taskId && (taskType === "video_generate" || taskType === "image_generate")
+  );
 
   useEffect(() => {
     if (!canRun) return;
@@ -97,6 +99,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
     abortControllerRef.current = controller;
     setIsRunning(true);
     setErrorText("");
+    let finished = false;
 
     const run = async () => {
       try {
@@ -105,16 +108,77 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
           if (controller.signal.aborted) {
             throw new Error("请求已取消");
           }
-          const status = await trpcClient.ai.videoGenerateResult.mutate({
-            taskId,
-            chatModelId,
-            workspaceId: workspaceId || undefined,
-            projectId: projectId || undefined,
-            saveDir: saveDir || undefined,
-          });
+          const status = await pollTask(taskId);
+          if (!status || status.success !== true || !status.data) {
+            throw new Error("任务查询失败");
+          }
 
-          if (status.status === "done") {
-            const savedPath = status.savedPath?.trim() || "";
+          if (status.data.status === "succeeded") {
+            const resultUrls = Array.isArray(status.data.resultUrls)
+              ? status.data.resultUrls.filter(
+                  (url): url is string => typeof url === "string" && url.trim().length > 0
+                )
+              : [];
+            if (resultUrls.length === 0) {
+              throw new Error(taskType === "image_generate" ? "图片生成失败" : "视频生成失败");
+            }
+
+            if (taskType === "image_generate") {
+              if (sourceNodeId) {
+                // 逻辑：输出成功后同步更新源节点状态。
+                engine.doc.updateNodeProps(sourceNodeId, {
+                  resultImages: resultUrls,
+                  errorText: "",
+                });
+              }
+
+              const selectionSnapshot = engine.selection.getSelectedIds();
+              const [x, y, w] = element.xywh;
+              const baseX = x + (w || LOADING_NODE_SIZE[0]) + 32;
+              let cursorY = y;
+              const imageNodeIds: string[] = [];
+
+              for (const resultUrl of resultUrls) {
+                const payload = await buildImageNodePayloadFromUri(resultUrl, {
+                  projectId: projectId || undefined,
+                });
+                const [nodeW, nodeH] = payload.size;
+                const nodeId = engine.addNodeElement(
+                  "image",
+                  payload.props,
+                  [baseX, cursorY, nodeW, nodeH]
+                );
+                if (nodeId) {
+                  imageNodeIds.push(nodeId);
+                  cursorY += nodeH + 24;
+                  if (sourceNodeId) {
+                    engine.addConnectorElement({
+                      source: { elementId: sourceNodeId },
+                      target: { elementId: nodeId },
+                      style: engine.getConnectorStyle(),
+                    });
+                  }
+                }
+              }
+
+              if (imageNodeIds.length > 1) {
+                engine.selection.setSelection(imageNodeIds);
+                engine.groupSelection();
+                const [groupId] = engine.selection.getSelectedIds();
+                if (groupId) {
+                  engine.layoutGroup(groupId, "row");
+                }
+              }
+              if (selectionSnapshot.length > 0) {
+                engine.selection.setSelection(selectionSnapshot);
+              }
+
+              finished = true;
+              clearLoadingNode(engine, element.id);
+              return;
+            }
+
+            const savedPath = resultUrls[0]?.trim() || "";
             const scopedPath = (() => {
               if (!savedPath) return "";
               const parsed = parseScopedProjectPath(savedPath);
@@ -161,6 +225,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
               thumbnailResult?.items?.find((item) => item.uri === relativePath)?.dataUrl ?? "";
             const naturalWidth = metadata?.width ?? 16;
             const naturalHeight = metadata?.height ?? 9;
+            const fileName = savedPath.split("/").pop() || "";
 
             const selectionSnapshot = engine.selection.getSelectedIds();
             const [x, y, w, h] = element.xywh;
@@ -168,7 +233,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
               "video",
               {
                 sourcePath: scopedPath,
-                fileName: status.fileName,
+                fileName: fileName || undefined,
                 posterPath: posterPath || undefined,
                 naturalWidth,
                 naturalHeight,
@@ -186,29 +251,34 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
               engine.selection.setSelection(selectionSnapshot);
             }
 
+            finished = true;
             clearLoadingNode(engine, element.id);
             return;
           }
 
-          if (
-            status.status === "not_found" ||
-            status.status === "expired" ||
-            status.status === "failed"
-          ) {
-            throw new Error("生成视频失败");
+          if (status.data.status === "failed" || status.data.status === "canceled") {
+            const fallbackMessage =
+              status.data.status === "canceled" ? "任务已取消" : "生成失败";
+            throw new Error(status.data.error?.message || fallbackMessage);
           }
 
           await new Promise((resolve) => setTimeout(resolve, 2000));
         }
 
-        throw new Error("视频生成超时");
+        throw new Error(taskType === "image_generate" ? "图片生成超时" : "视频生成超时");
       } catch (error) {
         if (!controller.signal.aborted) {
-          const message = error instanceof Error ? error.message : "生成视频失败";
+          const message =
+            error instanceof Error
+              ? error.message
+              : taskType === "image_generate"
+                ? "生成图片失败"
+                : "生成视频失败";
           setErrorText(message);
           if (sourceNodeId) {
             engine.doc.updateNodeProps(sourceNodeId, { errorText: message });
           }
+          finished = true;
           clearLoadingNode(engine, element.id);
         }
       } finally {
@@ -223,15 +293,16 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
 
     return () => {
       controller.abort();
+      if (!finished) {
+        void cancelTask(taskId).catch(() => undefined);
+      }
     };
   }, [
     canRun,
-    chatModelId,
     engine,
     element.id,
     element.xywh,
     projectId,
-    saveDir,
     sourceNodeId,
     taskId,
     taskType,

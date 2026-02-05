@@ -10,7 +10,7 @@ export const IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT = 1;
 /** Maximum number of input images supported by image generation nodes. */
 export const IMAGE_GENERATE_MAX_INPUT_IMAGES = 9;
 /** Maximum number of output images supported by image generation nodes. */
-export const IMAGE_GENERATE_MAX_OUTPUT_IMAGES = 4;
+export const IMAGE_GENERATE_MAX_OUTPUT_IMAGES = 9;
 export type ChatSseRequest = {
   /** Payload posted to the SSE endpoint. */
   payload: unknown;

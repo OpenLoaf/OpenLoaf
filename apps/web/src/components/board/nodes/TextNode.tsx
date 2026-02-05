@@ -345,7 +345,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
     {
       id: "text-size",
       label: "字号",
-      showLabel: false,
+      showLabel: true,
       icon: <Type size={14} />,
       panel: (
         <div className="flex items-center gap-1">
@@ -365,7 +365,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
     {
       id: "text-weight",
       label: "字重",
-      showLabel: false,
+      showLabel: true,
       icon: <Bold size={14} />,
       panel: (
         <div className="flex items-center gap-1">
@@ -385,7 +385,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
     {
       id: "text-style",
       label: "样式",
-      showLabel: false,
+      showLabel: true,
       icon: <Italic size={14} />,
       panel: (
         <div className="flex items-center gap-1">
@@ -430,7 +430,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
     {
       id: "text-align",
       label: "对齐",
-      showLabel: false,
+      showLabel: true,
       icon: <AlignLeft size={14} />,
       panel: (
         <div className="flex items-center gap-1">
@@ -461,7 +461,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
     {
       id: "text-color",
       label: "文字颜色",
-      showLabel: false,
+      showLabel: true,
       icon: <Palette size={14} />,
       panel: (
         <div className="grid grid-cols-4 gap-1">
@@ -508,7 +508,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
     {
       id: "text-background",
       label: "背景色",
-      showLabel: false,
+      showLabel: true,
       icon: <PaintBucket size={14} />,
       panel: (
         <div className="grid grid-cols-4 gap-1">
