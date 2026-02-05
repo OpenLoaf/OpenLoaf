@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { delay, isUrlOk, waitForUrlOk } from './urlHealth';
@@ -9,7 +9,7 @@ import { getFreePort, isPortFree } from './portAllocation';
  * 从当前工作目录向上查找 monorepo 根目录。
  * 用于在 dev 环境下定位 `pnpm-workspace.yaml`/`turbo.json` 并从根目录拉起子进程。
  */
-function findRepoRoot(startDir: string): string | null {
+export function findRepoRoot(startDir: string): string | null {
   let current = startDir;
   for (let i = 0; i < 12; i++) {
     if (
@@ -32,6 +32,45 @@ function commandName(base: string): string {
   if (process.platform !== 'win32') return base;
   if (base === 'node') return 'node';
   return `${base}.cmd`;
+}
+
+export function cleanupNextDevLock(args: {
+  repoRoot: string;
+  log?: Logger;
+  killProcesses?: boolean;
+}): void {
+  const log = args.log;
+  const lockPath = path.join(args.repoRoot, 'apps/web/.next/dev/lock');
+  if (!fs.existsSync(lockPath)) return;
+
+  log?.(`Detected Next dev lock at ${lockPath}. Attempting cleanup.`);
+
+  const shouldKill = args.killProcesses ?? true;
+  if (process.platform === 'win32' && shouldKill) {
+    const webPath = path.join(args.repoRoot, 'apps', 'web');
+    const safeWebPath = webPath.replace(/'/g, "''");
+    const safeLockPath = lockPath.replace(/'/g, "''");
+    const script = [
+      `$procs = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine -like '*${safeWebPath}*' -and $_.CommandLine -match 'next' }`,
+      `if ($procs) { $procs | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } }`,
+      `Remove-Item -Force -ErrorAction SilentlyContinue '${safeLockPath}'`,
+    ].join('; ');
+    const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', script], {
+      stdio: 'ignore',
+    });
+    if (result.error) {
+      log?.(`Failed to cleanup Next dev lock via PowerShell: ${String(result.error)}`);
+    } else if (typeof result.status === 'number' && result.status !== 0) {
+      log?.(`PowerShell cleanup exited with code ${result.status}.`);
+    }
+  }
+
+  if (!fs.existsSync(lockPath)) return;
+  try {
+    fs.unlinkSync(lockPath);
+  } catch (error) {
+    log?.(`Failed to remove Next dev lock: ${String(error)}`);
+  }
 }
 
 /**
@@ -108,6 +147,10 @@ export async function ensureDevServices(args: {
   }
   if (serverOk && webOk) {
     return { serverUrl, webUrl, managedServer: null, managedWeb: null };
+  }
+
+  if (!webOk) {
+    cleanupNextDevLock({ repoRoot, log: args.log, killProcesses: true });
   }
 
   const pnpm = commandName('pnpm');

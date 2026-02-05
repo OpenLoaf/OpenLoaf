@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
 import type { BasicConfig, BasicConfigUpdate } from "@tenas-ai/api/types/basic";
@@ -77,9 +78,41 @@ export function useBasicConfig() {
     ...(query.data ?? {}),
   };
 
-  const setBasic = async (update: BasicConfigUpdate) => {
-    await mutation.mutateAsync(update);
-  };
+  const basicRef = useRef<BasicConfig>(basic);
+  const pendingRef = useRef<Partial<BasicConfig>>({});
+
+  useEffect(() => {
+    basicRef.current = basic;
+    const pending = pendingRef.current;
+    for (const key of Object.keys(pending) as Array<keyof BasicConfig>) {
+      if (basic[key] === pending[key]) {
+        delete pending[key];
+      }
+    }
+  }, [basic]);
+
+  const setBasic = useCallback(
+    async (update: BasicConfigUpdate) => {
+      if (!update) return;
+      const entries = Object.entries(update) as Array<[keyof BasicConfig, BasicConfig[keyof BasicConfig]]>;
+      if (entries.length === 0) return;
+      const current = basicRef.current;
+      let shouldSend = false;
+      for (const [key, value] of entries) {
+        if (pendingRef.current[key] === value) continue;
+        if (current[key] !== value) {
+          shouldSend = true;
+          break;
+        }
+      }
+      if (!shouldSend) return;
+      for (const [key, value] of entries) {
+        pendingRef.current[key] = value as BasicConfig[keyof BasicConfig];
+      }
+      await mutation.mutateAsync(update);
+    },
+    [mutation],
+  );
 
   return {
     basic,

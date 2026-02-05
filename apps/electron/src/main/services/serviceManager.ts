@@ -1,7 +1,7 @@
-import type { ChildProcess } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { app } from 'electron';
 import type { Logger } from '../logging/startupLogger';
-import { ensureDevServices } from './devServices';
+import { cleanupNextDevLock, ensureDevServices, findRepoRoot } from './devServices';
 import { startProductionServices } from './prodServices';
 
 export type ServiceManager = {
@@ -22,6 +22,22 @@ export type ServiceManager = {
 function stopManaged(child: ChildProcess | null) {
   if (!child) return;
   if (child.killed) return;
+  const pid = child.pid;
+  if (!pid) return;
+
+  if (process.platform === 'win32') {
+    try {
+      // Kill the entire process tree on Windows (pnpm -> node -> next/turbopack).
+      spawn('taskkill', ['/pid', String(pid), '/t', '/f'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+      return;
+    } catch {
+      // Fall through to best-effort kill below.
+    }
+  }
+
   try {
     child.kill('SIGTERM');
   } catch {
@@ -87,6 +103,12 @@ export function createServiceManager(log: Logger): ServiceManager {
     // 尽力关闭：不要求每次都成功，但要避免退出时卡住。
     stopManaged(managedWeb);
     stopManaged(managedServer);
+    if (!app.isPackaged && managedWeb) {
+      const repoRoot = findRepoRoot(process.cwd());
+      if (repoRoot) {
+        cleanupNextDevLock({ repoRoot, log, killProcesses: false });
+      }
+    }
     productionWebServer?.close();
   };
 

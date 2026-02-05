@@ -70,6 +70,14 @@ let mainWindow: BrowserWindow | null = null;
 let reactDevToolsInstalled = false;
 // 中文注释：应用未就绪前缓存的协议唤起链接。
 let pendingProtocolUrl: string | null = null;
+let servicesStopped = false;
+
+function stopServices(reason: string) {
+  if (servicesStopped) return;
+  servicesStopped = true;
+  log(`Stopping managed services (${reason}).`);
+  services?.stop();
+}
 
 /** Extract protocol URL from a argv list. */
 function extractProtocolUrl(argv: string[]): string | null {
@@ -287,7 +295,10 @@ function installApplicationMenu() {
   // with the `Cmd+W` accelerator. This conflicts with our app-level shortcut
   // (Cmd+W closes a tab/stack in the renderer). Provide an explicit app menu and
   // rebind "Close Window" to `Cmd+Shift+W` instead.
-  if (process.platform !== 'darwin') return;
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null);
+    return;
+  }
 
   const template: Electron.MenuItemConstructorOptions[] = [
     {
@@ -440,8 +451,19 @@ if (!gotTheLock) {
   app.on('before-quit', () => {
     log('Before quit.');
     // 尽力清理：关闭我们启动的子进程/本地服务，避免退出卡住。
-    services?.stop();
+    stopServices('before-quit');
   });
+
+  app.on('will-quit', () => stopServices('will-quit'));
+  app.on('quit', () => stopServices('quit'));
+
+  const handleSignal = (signal: NodeJS.Signals) => {
+    log(`Received ${signal}.`);
+    stopServices(`signal:${signal}`);
+  };
+  process.on('SIGINT', handleSignal);
+  process.on('SIGTERM', handleSignal);
+  process.on('SIGHUP', handleSignal);
 
   app.whenReady().then(() => {
     log('App ready.');
@@ -465,6 +487,7 @@ if (!gotTheLock) {
   app.on('window-all-closed', () => {
     log('All windows closed.');
     if (process.platform !== 'darwin') {
+      stopServices('window-all-closed');
       app.quit();
     }
   });

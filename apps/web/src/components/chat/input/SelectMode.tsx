@@ -246,6 +246,7 @@ export default function SelectMode({ className }: SelectModeProps) {
   const persistModelDefaultId = useCallback((nextModelId: string) => {
     const normalized = typeof nextModelId === "string" ? nextModelId : "";
     if (normalized === rawSelectedModelId) return;
+    if (pendingModelIdRef.current === normalized) return;
     pendingModelIdRef.current = normalized;
     void setBasic({ modelDefaultChatModelId: normalized }).catch(() => {
       pendingModelIdRef.current = null;
@@ -333,26 +334,35 @@ export default function SelectMode({ className }: SelectModeProps) {
     const stored = storedSelectionsRef.current[sourceKey];
     if (!stored) return;
     const sourceChanged = prevSourceKeyRef.current !== sourceKey;
+    if (!sourceChanged) {
+      return;
+    }
     const resolvedModelId = stored.isAuto ? "" : resolveManualModelId(stored.lastModelId);
-    const shouldSync = sourceChanged || rawSelectedModelId !== resolvedModelId;
+    if (!hasModels && !stored.isAuto) {
+      if (resolvedModelId) {
+        pendingProviderRestoreRef.current = resolvedModelId;
+      }
+      prevSourceKeyRef.current = sourceKey;
+      return;
+    }
     if (stored.isAuto) {
-      if (shouldSync && rawSelectedModelId) {
+      if (rawSelectedModelId) {
         persistModelDefaultId("");
       }
       prevSourceKeyRef.current = sourceKey;
       return;
     }
-    if (shouldSync) {
-      if (hasModels && resolvedModelId) {
-        const targetOption = modelOptions.find((option) => option.id === resolvedModelId);
-        if (targetOption) {
-          setActiveProviderKey(
-            targetOption.providerSettingsId ?? targetOption.providerId,
-          );
-        }
-      } else if (resolvedModelId) {
-        pendingProviderRestoreRef.current = resolvedModelId;
+    if (hasModels && resolvedModelId) {
+      const targetOption = modelOptions.find((option) => option.id === resolvedModelId);
+      if (targetOption) {
+        setActiveProviderKey(
+          targetOption.providerSettingsId ?? targetOption.providerId,
+        );
       }
+    } else if (resolvedModelId) {
+      pendingProviderRestoreRef.current = resolvedModelId;
+    }
+    if (resolvedModelId && rawSelectedModelId !== resolvedModelId) {
       persistModelDefaultId(resolvedModelId);
     }
     if (resolvedModelId && resolvedModelId !== stored.lastModelId && hasModels) {
@@ -419,13 +429,22 @@ export default function SelectMode({ className }: SelectModeProps) {
     if (!hasModels) return;
     const pendingModelId = pendingProviderRestoreRef.current;
     if (!pendingModelId) return;
-    const targetOption = modelOptions.find((option) => option.id === pendingModelId);
-    if (!targetOption) return;
-    setActiveProviderKey(
-      targetOption.providerSettingsId ?? targetOption.providerId,
-    );
+    const resolvedModelId = resolveManualModelId(pendingModelId);
+    if (!resolvedModelId) {
+      pendingProviderRestoreRef.current = null;
+      return;
+    }
+    const targetOption = modelOptions.find((option) => option.id === resolvedModelId);
+    if (targetOption) {
+      setActiveProviderKey(
+        targetOption.providerSettingsId ?? targetOption.providerId,
+      );
+    }
+    if (rawSelectedModelId !== resolvedModelId) {
+      persistModelDefaultId(resolvedModelId);
+    }
     pendingProviderRestoreRef.current = null;
-  }, [hasModels, modelOptions]);
+  }, [hasModels, modelOptions, persistModelDefaultId, rawSelectedModelId, resolveManualModelId]);
   useEffect(() => {
     if (!tabId) return;
     const target = document.querySelector(
