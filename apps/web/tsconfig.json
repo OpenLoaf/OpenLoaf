@@ -45,6 +45,7 @@
     ".next/dev/types/**/*.ts"
 , "src/components/editor/editor-kit.tsx2"  ],
   "exclude": [
-    "./node_modules"
+    "./node_modules",
+    "./out"
   ]
 }
