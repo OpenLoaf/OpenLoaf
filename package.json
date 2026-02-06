@@ -55,5 +55,13 @@
   "lint-staged": {
     "**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,vue,astro,svelte}": "biome check --apply --write"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "macos-alias",
+      "ds-store",
+      "appdmg",
+      "fs-xattr"
+    ]
+  },
   "packageManager": "pnpm@10.27.0"
 }

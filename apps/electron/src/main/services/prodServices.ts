@@ -265,8 +265,8 @@ export async function startProductionServices(args: {
           // 中文注释：生产环境需要显式放行 webUrl 作为 CORS origin。
           CORS_ORIGIN: `${args.webUrl},${process.env.CORS_ORIGIN ?? ''}`,
           // Allow the bundled server to resolve shipped native deps (e.g. `@libsql/darwin-arm64`)
-          // that are copied into `process.resourcesPath` via Forge `extraResource`.
-          NODE_PATH: process.resourcesPath,
+          // that are copied into `process.resourcesPath/node_modules` via Forge `extraResource`.
+          NODE_PATH: path.join(process.resourcesPath, 'node_modules'),
           NODE_ENV: 'production',
           DOTENV_CONFIG_PATH: userEnvPath,
           DOTENV_CONFIG_OVERRIDE: '1',

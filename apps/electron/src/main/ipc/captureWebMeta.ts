@@ -4,7 +4,6 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { BrowserWindow } from "electron";
-import sharp from "sharp";
 import { parseWebMetadataFromHtml } from "@tenas-ai/api";
 
 const META_USER_AGENT =
@@ -75,6 +74,7 @@ async function downloadIconAsPng(
   try {
     const buffer = await fetchIconBuffer(iconUrl, fetcher);
     if (!buffer) return false;
+    const sharp = (await import("sharp")).default;
     await sharp(buffer).png().toFile(targetPath);
     return true;
   } catch {

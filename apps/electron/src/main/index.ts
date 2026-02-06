@@ -1,7 +1,15 @@
 import { app, BrowserWindow, Menu, session, nativeImage } from 'electron';
 import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
+import Module from 'node:module';
 import path from 'path';
 import { installAutoUpdate } from './autoUpdate';
+
+// 打包后原生模块（sharp、@libsql 等）位于 Resources/node_modules 目录。
+// Node.js 标准解析会从 asar 向上查找到 Resources/node_modules/，
+// globalPaths 作为额外保障。
+if (app.isPackaged) {
+  Module.globalPaths.push(path.join(process.resourcesPath, 'node_modules'));
+}
 import {
   createStartupLogger,
   registerProcessErrorLogging,
@@ -266,15 +274,35 @@ function resolveProxyConfig(): ProxyConfig | null {
 /**
  * Applies proxy configuration to the default Electron session.
  */
+/** Hosts that must never go through a proxy (Electron → local server). */
+const LOCAL_BYPASS_RULES = 'localhost,127.0.0.1,::1';
+
 async function configureProxy(log: Logger) {
   const config = resolveProxyConfig();
-  if (!config) return;
+  if (!config) {
+    // 即使没有显式代理环境变量，macOS 系统代理（ClashX/Surge 等）也会生效。
+    // 强制绕过本地回环，避免 Electron 到本地 server 的请求被代理转发，
+    // 导致 server 看到的 remote address 不是 127.0.0.1。
+    try {
+      await session.defaultSession.setProxy({
+        proxyBypassRules: LOCAL_BYPASS_RULES,
+      });
+      log(`Local proxy bypass configured: ${LOCAL_BYPASS_RULES}`);
+    } catch (error) {
+      log(`Local proxy bypass failed: ${String(error)}`);
+    }
+    return;
+  }
 
-  // 仅当环境变量提供代理时才显式设置，避免覆盖用户系统代理。
+  // 显式代理模式：合并用户 bypass 规则与本地回环绕过。
+  const mergedBypass = config.bypassRules
+    ? `${config.bypassRules},${LOCAL_BYPASS_RULES}`
+    : LOCAL_BYPASS_RULES;
+
   try {
     await session.defaultSession.setProxy({
       proxyRules: config.rules,
-      proxyBypassRules: config.bypassRules,
+      proxyBypassRules: mergedBypass,
     });
     const maskedRules = maskProxyValue(config.rules);
     const maskedBypass = config.bypassRules ? maskProxyValue(config.bypassRules) : undefined;
