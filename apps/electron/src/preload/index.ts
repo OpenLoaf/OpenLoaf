@@ -26,6 +26,21 @@ type AutoUpdateStatus = {
   error?: string;
   ts: number;
 };
+type IncrementalUpdateComponentInfo = {
+  version: string;
+  source: 'bundled' | 'updated';
+  newVersion?: string;
+  releaseNotes?: string;
+};
+type IncrementalUpdateStatus = {
+  state: 'idle' | 'checking' | 'downloading' | 'ready' | 'error';
+  server: IncrementalUpdateComponentInfo;
+  web: IncrementalUpdateComponentInfo;
+  progress?: { component: 'server' | 'web'; percent: number };
+  lastCheckedAt?: number;
+  error?: string;
+  ts: number;
+};
 type WebMetaCaptureResult = {
   ok: boolean;
   url: string;
@@ -121,6 +136,15 @@ contextBridge.exposeInMainWorld('tenasElectron', {
   // 安装已下载的更新并重启。
   installUpdate: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
     ipcRenderer.invoke('tenas:auto-update:install'),
+  // 手动触发增量更新检查（server/web）。
+  checkIncrementalUpdate: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('tenas:incremental-update:check'),
+  // 获取增量更新状态快照。
+  getIncrementalUpdateStatus: (): Promise<IncrementalUpdateStatus> =>
+    ipcRenderer.invoke('tenas:incremental-update:get-status'),
+  // 重置增量更新到打包版本。
+  resetIncrementalUpdate: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('tenas:incremental-update:reset'),
   // 使用系统默认程序打开文件/目录。
   openPath: (payload: { uri: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
     ipcRenderer.invoke('tenas:fs:open-path', payload),
@@ -280,6 +304,16 @@ ipcRenderer.on('tenas:auto-update:status', (_event, detail) => {
   try {
     window.dispatchEvent(
       new CustomEvent('tenas:auto-update:status', { detail })
+    );
+  } catch {
+    // ignore
+  }
+});
+
+ipcRenderer.on('tenas:incremental-update:status', (_event, detail) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('tenas:incremental-update:status', { detail })
     );
   } catch {
     // ignore

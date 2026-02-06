@@ -123,6 +123,19 @@ export async function createMainWindow(args: {
 
   bindWindowTitle(mainWindow);
   disableZoom(mainWindow);
+
+  // 拦截 OAuth 回调导航：微信登录 iframe 完成授权后，WeChat SDK 会尝试
+  // 将 window.top 导航到 SaaS 回调地址，导致主窗口被跳转到回调页面。
+  // 此处阻止主窗口跳转，改为后台 fetch 完成回调链
+  // （SaaS 后端 → 本地服务 /auth/callback → storeLoginCode），
+  // 前端轮询 fetchLoginCode() 照常检测到 code 并完成登录。
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (/\/auth\/(?:wechat\/)?callback\b/.test(url)) {
+      event.preventDefault();
+      fetch(url, { redirect: 'follow' }).catch(() => undefined);
+    }
+  });
+
   let allowClose = false;
   let quitConfirming = false;
   const confirmQuit = () => {

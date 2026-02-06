@@ -23,7 +23,9 @@
     "lint:biome:fix": "biome lint --fix .",
     "format": "biome format .",
     "format:fix": "biome format --write .",
-    "check": "biome check ."
+    "check": "biome check .",
+    "publish:server": "pnpm --filter server run publish-update",
+    "publish:web": "pnpm --filter web run publish-update"
   },
   "dependencies": {
     "@ark-ui/react": "^5.31.0",

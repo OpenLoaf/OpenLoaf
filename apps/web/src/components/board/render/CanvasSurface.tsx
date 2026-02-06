@@ -231,8 +231,18 @@ export function CanvasSurface({ snapshot, onStats }: CanvasSurfaceProps) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const worker = buildWorker();
+    let worker: Worker;
+    try {
+      worker = buildWorker();
+    } catch (err) {
+      console.error("[board] failed to create webgpu worker", err);
+      return;
+    }
     workerRef.current = worker;
+
+    worker.onerror = (event) => {
+      console.error("[board] webgpu worker uncaught error", event.message, event);
+    };
 
     worker.onmessage = (event: MessageEvent<GpuWorkerEvent>) => {
       if (event.data.type === "ready") {
@@ -253,7 +263,15 @@ export function CanvasSurface({ snapshot, onStats }: CanvasSurfaceProps) {
       }
     };
 
-    const offscreen = canvas.transferControlToOffscreen();
+    let offscreen: OffscreenCanvas;
+    try {
+      offscreen = canvas.transferControlToOffscreen();
+    } catch (err) {
+      console.error("[board] transferControlToOffscreen failed", err);
+      worker.terminate();
+      workerRef.current = null;
+      return;
+    }
     const dpr = window.devicePixelRatio || 1;
     const size: [number, number] = [
       Math.max(1, Math.floor(latestViewRef.current.viewport.size[0])),

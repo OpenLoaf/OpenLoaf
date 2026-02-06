@@ -5,6 +5,11 @@ import { fileURLToPath } from 'node:url';
 import type { Logger } from '../logging/startupLogger';
 import { checkForUpdates, getAutoUpdateStatus, installUpdate } from '../autoUpdate';
 import {
+  checkForIncrementalUpdates,
+  getIncrementalUpdateStatus,
+  resetToBuiltinVersion,
+} from '../incrementalUpdate';
+import {
   createBrowserWindowForUrl,
   destroyAllWebContentsViews,
   destroyWebContentsView,
@@ -520,6 +525,21 @@ export function registerIpcHandlers(args: { log: Logger }) {
   // 安装已下载的更新并重启。
   ipcMain.handle('tenas:auto-update:install', async () => {
     return installUpdate();
+  });
+
+  // 手动触发增量更新检查（server/web 增量更新）。
+  ipcMain.handle('tenas:incremental-update:check', async () => {
+    return await checkForIncrementalUpdates('manual');
+  });
+
+  // 获取增量更新状态快照。
+  ipcMain.handle('tenas:incremental-update:get-status', async () => {
+    return getIncrementalUpdateStatus();
+  });
+
+  // 重置到打包版本（删除所有增量更新文件）。
+  ipcMain.handle('tenas:incremental-update:reset', async () => {
+    return resetToBuiltinVersion();
   });
 
   // 使用系统默认程序打开文件/目录。

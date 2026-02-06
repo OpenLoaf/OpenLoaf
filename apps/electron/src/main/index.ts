@@ -3,6 +3,7 @@ import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-insta
 import Module from 'node:module';
 import path from 'path';
 import { installAutoUpdate } from './autoUpdate';
+import { installIncrementalUpdate } from './incrementalUpdate';
 
 // 打包后原生模块（sharp、@libsql 等）位于 Resources/node_modules 目录。
 // Node.js 标准解析会从 asar 向上查找到 Resources/node_modules/，
@@ -443,6 +444,8 @@ async function boot() {
 
   // 打包版自动检查更新；dev 模式会自动跳过。
   installAutoUpdate({ log });
+  // 增量更新（server/web）；dev 模式会自动跳过。
+  installIncrementalUpdate({ log });
 
   if (!app.isPackaged) {
     // 逻辑：开发环境默认打开 DevTools，方便调试。

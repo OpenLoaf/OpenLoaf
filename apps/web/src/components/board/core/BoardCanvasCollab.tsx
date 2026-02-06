@@ -633,11 +633,21 @@ export function BoardCanvasCollab({
         boardFolderUri: boardFolderRef || undefined,
         docId,
       });
+      console.log("[board] collab connecting", { wsUrl, docId });
       provider = new HocuspocusProvider({
         url: wsUrl,
         name: docId,
         document: doc,
         awareness,
+        onOpen: () => {
+          console.log("[board] collab websocket opened");
+        },
+        onClose: ({ event }) => {
+          console.warn("[board] collab websocket closed", event.code, event.reason);
+        },
+        onDisconnect: ({ event }) => {
+          console.warn("[board] collab disconnected", event);
+        },
       });
       webrtc = null;
 
@@ -646,6 +656,7 @@ export function BoardCanvasCollab({
         applyDocToEngine(doc!);
       });
       provider.on("synced", () => {
+        console.log("[board] collab synced");
         if (!doc) return;
         applyDocToEngine(doc);
       });
@@ -675,9 +686,13 @@ export function BoardCanvasCollab({
     };
 
     let cleanup: (() => void) | null = null;
-    void start().then((dispose) => {
-      cleanup = dispose ?? null;
-    });
+    void start()
+      .then((dispose) => {
+        cleanup = dispose ?? null;
+      })
+      .catch((err) => {
+        console.error("[board] collab start failed", err);
+      });
 
     return () => {
       disposed = true;

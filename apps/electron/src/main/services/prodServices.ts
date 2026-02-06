@@ -5,6 +5,8 @@ import http from 'node:http';
 import path from 'node:path';
 import { getTenasRootDir, resolveTenasDatabaseUrl, resolveTenasDbPath } from '@tenas-ai/config';
 import type { Logger } from '../logging/startupLogger';
+import { recordServerCrash } from '../incrementalUpdate';
+import { resolveServerPath, resolveWebRoot } from '../incrementalUpdatePaths';
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
@@ -246,7 +248,7 @@ export async function startProductionServices(args: {
    * - `server.mjs` 通过 Forge `extraResource` 被放进 `process.resourcesPath`
    * - 使用当前 Electron 自带的 Node 运行时启动，并设置 `ELECTRON_RUN_AS_NODE=1`
    */
-  const serverPath = path.join(resourcesPath, 'server.mjs');
+  const serverPath = resolveServerPath();
   log(`Looking for server at: ${serverPath}`);
 
   const serverHost = resolveHost(args.serverUrl, '127.0.0.1');
@@ -281,9 +283,16 @@ export async function startProductionServices(args: {
       managedServer.stdout?.on('data', (d) => log(`[Server Output] ${d}`));
       managedServer.stderr?.on('data', (d) => log(`[Server Error] ${d}`));
       managedServer.on('error', (err) => log(`[Server Spawn Error] ${err.message}`));
-      managedServer.on('exit', (code, signal) =>
-        log(`[Server Exited] code=${code} signal=${signal}`)
-      );
+      managedServer.on('exit', (code, signal) => {
+        log(`[Server Exited] code=${code} signal=${signal}`);
+        // 非正常退出时记录崩溃，连续崩溃将自动回滚到打包版本。
+        if (code !== 0 && code !== null) {
+          const rolledBack = recordServerCrash();
+          if (rolledBack) {
+            log('[Server] Rolled back to bundled server.mjs due to repeated crashes.');
+          }
+        }
+      });
 
       log('Server process spawned');
     } catch (err) {
@@ -293,7 +302,7 @@ export async function startProductionServices(args: {
     log(`[Error] Server binary not found at ${serverPath}`);
   }
 
-  const webRoot = path.join(resourcesPath, 'out');
+  const webRoot = resolveWebRoot();
   log(`Looking for web root at: ${webRoot}`);
 
   const webHost = resolveHost(args.webUrl, '127.0.0.1');
