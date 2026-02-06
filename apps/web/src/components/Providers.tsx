@@ -145,7 +145,8 @@ function WindowsTitlebarSymbolColorBootstrap() {
 function WindowsTitlebarHeightBootstrap() {
   useEffect(() => {
     const api = window.tenasElectron;
-    if (!api?.setTitleBarOverlayHeight) return;
+    const setTitleBarOverlayHeight = api?.setTitleBarOverlayHeight;
+    if (!setTitleBarOverlayHeight) return;
     const isElectron = isElectronEnv();
     if (!isElectron) return;
     const isWindows =
@@ -189,7 +190,7 @@ function WindowsTitlebarHeightBootstrap() {
       const height = Math.max(0, Math.round(headerEl.getBoundingClientRect().height));
       if (!height || height === lastHeight) return;
       lastHeight = height;
-      api.setTitleBarOverlayHeight({ height }).catch(() => {});
+      setTitleBarOverlayHeight({ height }).catch(() => {});
     };
 
     mutationObserver.observe(document.body ?? document.documentElement, {

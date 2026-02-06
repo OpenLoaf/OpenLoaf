@@ -52,6 +52,11 @@ export function resolveTenasDbPath(): string {
 
 /** Resolve the default database URL for Prisma/libsql. */
 export function resolveTenasDatabaseUrl(): string {
+  const override = process.env.TENAS_DATABASE_URL || process.env.DATABASE_URL;
+  // 中文注释：允许打包/测试时通过环境变量覆盖数据库地址。
+  if (override && override.trim()) {
+    return override.trim();
+  }
   return `file:${resolveTenasDbPath()}`;
 }
 

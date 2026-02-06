@@ -35,6 +35,7 @@ import {
   ADVANCED_PANEL_OFFSET_PX,
   GENERATED_IMAGE_NODE_FIRST_GAP,
   GENERATED_IMAGE_NODE_GAP,
+  IMAGE_GENERATE_ASPECT_RATIO_OPTIONS,
   IMAGE_GENERATE_NODE_TYPE,
 } from "./constants";
 import { ImageGenerateNodeSchema, type ImageGenerateNodeProps } from "./types";
@@ -80,6 +81,7 @@ export function ImageGenerateNodeView({
   /** Workspace id used for requests. */
   const resolvedWorkspaceId = useMemo(() => getWorkspaceIdFromCookie(), []);
   const isAdvancedOpen = selected;
+  const isLocked = engine.isLocked() || element.locked === true;
   const [loginOpen, setLoginOpen] = useState(false);
   const { loggedIn: authLoggedIn, loginStatus, refreshSession } = useSaasAuth();
   const isLoginBusy = loginStatus === "opening" || loginStatus === "polling";
@@ -113,7 +115,13 @@ export function ImageGenerateNodeView({
       ? element.props.outputAspectRatio.trim()
       : "auto";
   const outputAspectRatio =
-    outputAspectRatioValue === "auto" ? undefined : outputAspectRatioValue;
+    outputAspectRatioValue === "auto"
+      ? undefined
+      : IMAGE_GENERATE_ASPECT_RATIO_OPTIONS.includes(
+            outputAspectRatioValue as (typeof IMAGE_GENERATE_ASPECT_RATIO_OPTIONS)[number]
+          )
+        ? (outputAspectRatioValue as (typeof IMAGE_GENERATE_ASPECT_RATIO_OPTIONS)[number])
+        : undefined;
   const localPromptText = normalizeTextValue(element.props.promptText);
   const styleText = normalizeTextValue(element.props.style);
   const negativePromptText = normalizeTextValue(element.props.negativePrompt);
@@ -681,7 +689,7 @@ export function ImageGenerateNodeView({
                 candidates={candidates}
                 selectedModel={selectedModel}
                 effectiveModelId={effectiveModelId}
-                disabled={engine.isLocked() || element.locked}
+                disabled={isLocked}
                 modelSelectOpen={modelSelectOpen}
                 onOpenChange={setModelSelectOpen}
                 onSelect={onSelect}
@@ -706,7 +714,7 @@ export function ImageGenerateNodeView({
               }}
               data-board-scroll
               className="min-h-[96px] flex-1 overflow-y-auto px-3.5 py-2.5 text-[16px] leading-6 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[16px]"
-              disabled={engine.isLocked() || element.locked}
+              disabled={isLocked}
             />
           </div>
         </div>
@@ -779,7 +787,7 @@ export function ImageGenerateNodeView({
         onNegativePromptChange={(value) => {
           onUpdate({ negativePrompt: value });
         }}
-        disabled={engine.isLocked() || element.locked}
+        disabled={isLocked}
       />
     </NodeFrame>
   );

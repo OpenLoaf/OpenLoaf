@@ -79,7 +79,9 @@ export function useBasicConfig() {
   };
 
   const basicRef = useRef<BasicConfig>(basic);
-  const pendingRef = useRef<Partial<BasicConfig>>({});
+  const pendingRef = useRef<
+    Record<keyof BasicConfig, BasicConfig[keyof BasicConfig] | undefined>
+  >({} as Record<keyof BasicConfig, BasicConfig[keyof BasicConfig] | undefined>);
 
   useEffect(() => {
     basicRef.current = basic;
@@ -94,11 +96,14 @@ export function useBasicConfig() {
   const setBasic = useCallback(
     async (update: BasicConfigUpdate) => {
       if (!update) return;
-      const entries = Object.entries(update) as Array<[keyof BasicConfig, BasicConfig[keyof BasicConfig]]>;
+      const entries = Object.entries(update) as Array<
+        [keyof BasicConfig, BasicConfig[keyof BasicConfig] | undefined]
+      >;
       if (entries.length === 0) return;
       const current = basicRef.current;
       let shouldSend = false;
       for (const [key, value] of entries) {
+        if (typeof value === "undefined") continue;
         if (pendingRef.current[key] === value) continue;
         if (current[key] !== value) {
           shouldSend = true;
@@ -107,7 +112,8 @@ export function useBasicConfig() {
       }
       if (!shouldSend) return;
       for (const [key, value] of entries) {
-        pendingRef.current[key] = value as BasicConfig[keyof BasicConfig];
+        if (typeof value === "undefined") continue;
+        pendingRef.current[key] = value;
       }
       await mutation.mutateAsync(update);
     },

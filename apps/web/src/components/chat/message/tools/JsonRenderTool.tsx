@@ -583,7 +583,7 @@ export default function JsonRenderTool({
 
   const actionHandlers = React.useMemo(
     () => ({
-      submit: (params: Record<string, unknown>) => handleSubmit(params),
+      submit: (params?: Record<string, unknown>) => handleSubmit(params ?? {}),
       cancel: () => handleCancel(),
     }),
     [handleSubmit, handleCancel],

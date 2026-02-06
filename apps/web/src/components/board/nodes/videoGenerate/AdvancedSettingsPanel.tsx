@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@tenas-ai/ui/select";
+import { Input } from "@tenas-ai/ui/input";
 import { Textarea } from "@tenas-ai/ui/textarea";
 import TagsInputBasic from "@/components/ui/basic-tags-input";
 import {

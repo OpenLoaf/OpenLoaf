@@ -116,7 +116,8 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
           if (status.data.status === "succeeded") {
             const resultUrls = Array.isArray(status.data.resultUrls)
               ? status.data.resultUrls.filter(
-                  (url): url is string => typeof url === "string" && url.trim().length > 0
+                  (url: unknown): url is string =>
+                    typeof url === "string" && url.trim().length > 0
                 )
               : [];
             if (resultUrls.length === 0) {

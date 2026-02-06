@@ -77,6 +77,7 @@ export function VideoGenerateNodeView({
   /** Workspace id used for requests. */
   const resolvedWorkspaceId = useMemo(() => getWorkspaceIdFromCookie(), []);
   const isAdvancedOpen = selected;
+  const isLocked = engine.isLocked() || element.locked === true;
   const [loginOpen, setLoginOpen] = useState(false);
   const { loggedIn: authLoggedIn, loginStatus, refreshSession } = useSaasAuth();
   const isLoginBusy = loginStatus === "opening" || loginStatus === "polling";
@@ -756,7 +757,7 @@ export function VideoGenerateNodeView({
             onCheckedChange={(checked) => {
               onUpdate({ outputAudio: checked });
             }}
-            disabled={engine.isLocked() || element.locked}
+            disabled={isLocked}
             aria-label="输出音频"
           />
         </div>
@@ -769,7 +770,7 @@ export function VideoGenerateNodeView({
               candidates={candidates}
               selectedModel={selectedModel}
               effectiveModelId={effectiveModelId}
-              disabled={engine.isLocked() || element.locked}
+              disabled={isLocked}
               modelSelectOpen={modelSelectOpen}
               onOpenChange={setModelSelectOpen}
               onSelect={onSelect}
@@ -795,7 +796,7 @@ export function VideoGenerateNodeView({
                   }}
                   data-board-scroll
                   className="h-full min-h-[96px] flex-1 overflow-y-auto px-3 py-2 text-[13px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[13px]"
-                  disabled={engine.isLocked() || element.locked}
+                  disabled={isLocked}
                 />
               </div>
             </>
@@ -860,7 +861,7 @@ export function VideoGenerateNodeView({
         onNegativePromptChange={(value) => {
           onUpdate({ negativePrompt: value });
         }}
-        disabled={engine.isLocked() || element.locked}
+        disabled={isLocked}
       />
       </div>
     </NodeFrame>
