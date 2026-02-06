@@ -29,6 +29,8 @@ export type TabRuntime = {
   minLeftWidth?: number;
   /** Whether right chat is collapsed. */
   rightChatCollapsed?: boolean;
+  /** Snapshot of right chat collapsed state before opening a board. */
+  rightChatCollapsedSnapshot?: boolean;
   /** Whether the stack is hidden (minimized). */
   stackHidden?: boolean;
   /** Active stack item id. */

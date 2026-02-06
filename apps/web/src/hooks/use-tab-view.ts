@@ -9,6 +9,7 @@ const EMPTY_RUNTIME: TabRuntime = {
   stack: [],
   leftWidthPercent: 0,
   rightChatCollapsed: false,
+  rightChatCollapsedSnapshot: undefined,
   stackHidden: false,
   activeStackItemId: "",
 };
@@ -43,6 +44,7 @@ function buildTabView(meta?: TabMeta, runtime?: TabRuntime): TabView | undefined
     leftWidthPercent: safeRuntime.leftWidthPercent ?? 0,
     minLeftWidth: safeRuntime.minLeftWidth,
     rightChatCollapsed: safeRuntime.rightChatCollapsed ?? false,
+    rightChatCollapsedSnapshot: safeRuntime.rightChatCollapsedSnapshot,
     stackHidden: safeRuntime.stackHidden ?? false,
     activeStackItemId: safeRuntime.activeStackItemId ?? "",
   };
