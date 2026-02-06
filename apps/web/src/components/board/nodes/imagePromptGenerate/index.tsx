@@ -2,13 +2,12 @@ import type {
   CanvasConnectorTemplateDefinition,
   CanvasNodeDefinition,
   CanvasNodeViewProps,
-} from "../engine/types";
+} from "../../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { z } from "zod";
 import { Copy, Play, RotateCcw, Square } from "lucide-react";
 import { generateId } from "ai";
 
-import { useBoardContext } from "../core/BoardProvider";
+import { useBoardContext } from "../../core/BoardProvider";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSettingsValues } from "@/hooks/use-settings";
@@ -17,9 +16,8 @@ import { createChatSessionId } from "@/lib/chat-session-id";
 import { getWebClientId } from "@/lib/chat/streamClientId";
 import { getClientTimeZone } from "@/utils/time-zone";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
-import type { ImageNodeProps } from "./ImageNode";
-import type { ModelTag } from "@tenas-ai/api/common";
-import { getWorkspaceIdFromCookie } from "../core/boardSession";
+import type { ImageNodeProps } from "../ImageNode";
+import { getWorkspaceIdFromCookie } from "../../core/boardSession";
 import { toast } from "sonner";
 import {
   Select,
@@ -28,70 +26,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@tenas-ai/ui/select";
-import { IMAGE_GENERATE_NODE_TYPE } from "./ImageGenerateNode";
+import { IMAGE_GENERATE_NODE_TYPE } from "../imageGenerate/constants";
 import {
   filterModelOptionsByTags,
   runChatSseRequest,
-} from "./lib/image-generation";
-import { resolveBoardFolderScope, resolveProjectPathFromBoardUri } from "../core/boardFilePath";
-import { NodeFrame } from "./NodeFrame";
+} from "../lib/image-generation";
+import { resolveBoardFolderScope, resolveProjectPathFromBoardUri } from "../../core/boardFilePath";
+import { NodeFrame } from "../NodeFrame";
+import {
+  EXCLUDED_TAGS,
+  IMAGE_PROMPT_GENERATE_MIN_HEIGHT,
+  IMAGE_PROMPT_GENERATE_NODE_TYPE,
+  IMAGE_PROMPT_TEXT,
+  REQUIRED_TAGS,
+} from "./constants";
+import { ImagePromptGenerateNodeSchema, type ImagePromptGenerateNodeProps } from "./types";
+import { measureContainerHeight } from "./utils";
 
-/** Node type identifier for image prompt generation. */
-export const IMAGE_PROMPT_GENERATE_NODE_TYPE = "image_prompt_generate";
-/** Default prompt for image understanding in text generation. */
-export const IMAGE_PROMPT_TEXT = `你是一位顶级图像视觉分析师，精通**所有类型图片**的详细结构化描述，用于AI图像生成（如Midjourney/DALL-E）。根据提供的图片，输出**高度详细的中文描述**，**智能适配图片类型**。
-
-### 支持类型（自动识别，无需指定）：
-- **人物**：肖像、人物、模特、名人、自拍
-- **美食**：食物、料理、甜点、餐桌
-- **动物/宠物**：猫狗、野生动物、宠物照
-- **风光**：山水、城市、建筑、日落、云海
-- **物品**：静物、产品、日用品、艺术品
-- **表情包/Meme**：卡通、搞笑图、表情
-- **文字/扫描**：文档、海报、书籍、OCR内容
-- **抽象/艺术**：画作、设计、图案、数字艺术
-- **其他**：车辆、室内、运动、事件等任意类型
-
-### 输出格式（严格逐字使用此模板）：
-[主体物体/场景]，[数量/规模/类型描述]，[姿态/布局/分布]。  
-[环境/背景描述]，[氛围效果如光影、天气、粒子]。  
-[光线/色彩描述]，照亮/突出[具体细节]。  
-细节包括[列出4-6个关键特征：材质、纹理、颜色、形状、装饰]。  
-[构图视角]视角，[前景/中景/背景三层分明描述]。  
-整体色调：[主色+2-3个辅助色]，[明暗对比/饱和度]。  
-[动态感/空间感/情绪氛围总结]，[独特卖点或视觉焦点]。
-
-### 核心要求：
-1. **长度**：50-200字，信息密集。
-2. **超详细**：材质（如丝绸、光滑金属）、光影（如柔和侧光、逆光轮廓）、微细节（如汗珠、纹路）。
-3. **智能适配**：人物强调表情/服装，美食强调质感/摆盘，文字强调内容/字体。
-4. **图像生成优化**：分层构图、色彩精确、氛围强烈。
-5. **纯中文**：专业视觉语言，无口语化。输出纯文本，禁止输出markdown格式，代码块，标签，序号等。`;
-
-/** Maximum height for prompt output before scrolling. */
-const IMAGE_PROMPT_GENERATE_RESULT_MAX_HEIGHT = 180;
-/** Minimum height for image prompt node. */
-const IMAGE_PROMPT_GENERATE_MIN_HEIGHT = 0;
-
-export type ImagePromptGenerateNodeProps = {
-  /** Selected chatModelId (profileId:modelId). */
-  chatModelId?: string;
-  /** Generated result text. */
-  resultText?: string;
-  /** Error text for failed runs. */
-  errorText?: string;
-};
-
-const ImagePromptGenerateNodeSchema = z.object({
-  chatModelId: z.string().optional(),
-  resultText: z.string().optional(),
-  errorText: z.string().optional(),
-});
-
-/** Required tags for image prompt models. */
-const REQUIRED_TAGS: ModelTag[] = ["image_input", "text_generation"];
-/** Excluded tags for image prompt models. */
-const EXCLUDED_TAGS: ModelTag[] = ["image_edit", "image_generation", "code"];
+export { IMAGE_PROMPT_GENERATE_NODE_TYPE };
+export type { ImagePromptGenerateNodeProps };
 
 /** Connector templates offered by the image prompt node. */
 const IMAGE_PROMPT_GENERATE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefinition[] = [
@@ -149,6 +102,10 @@ export function ImagePromptGenerateNodeView({
   const abortControllerRef = useRef<AbortController | null>(null);
   /** Throttle timestamp for focus-driven viewport moves. */
   const focusThrottleRef = useRef(0);
+  /** Container ref for auto height measurements. */
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  /** Pending auto height resize animation frame id. */
+  const resizeRafRef = useRef<number | null>(null);
   /** Runtime running flag for this node. */
   const [isRunning, setIsRunning] = useState(false);
   /** Workspace id used for SSE payload metadata. */
@@ -367,6 +324,36 @@ export function ImagePromptGenerateNodeView({
     return "idle";
   }, [candidates.length, errorText, hasValidInput, isRunning, resultText]);
 
+  /** Resize the node height to fit content. */
+  const scheduleAutoHeight = useCallback(() => {
+    if (resizeRafRef.current !== null) return;
+    resizeRafRef.current = window.requestAnimationFrame(() => {
+      resizeRafRef.current = null;
+      const container = containerRef.current;
+      if (!container) return;
+      if (engine.isLocked() || element.locked) return;
+      const snapshot = engine.getSnapshot();
+      if (snapshot.draggingId === element.id || snapshot.toolbarDragging) return;
+      const measuredHeight = Math.ceil(measureContainerHeight(container));
+      const [x, y, w, h] = element.xywh;
+      if (Math.abs(measuredHeight - h) <= 1) return;
+      // 逻辑：按内容高度更新节点，空内容时也能收缩。
+      engine.doc.updateElement(element.id, { xywh: [x, y, w, measuredHeight] });
+    });
+  }, [element.id, element.locked, element.xywh, engine]);
+
+  useEffect(() => {
+    scheduleAutoHeight();
+  }, [resultText, scheduleAutoHeight, viewStatus]);
+
+  useEffect(() => {
+    return () => {
+      if (resizeRafRef.current !== null) {
+        window.cancelAnimationFrame(resizeRafRef.current);
+      }
+    };
+  }, []);
+
   const containerClassName = [
     "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-2 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
     "bg-[radial-gradient(180px_circle_at_top_right,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_15%_85%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
@@ -428,7 +415,7 @@ export function ImagePromptGenerateNodeView({
         handleNodeFocus();
       }}
     >
-      <div className={containerClassName}>
+      <div className={containerClassName} ref={containerRef}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="relative flex h-8 w-8 items-center justify-center overflow-visible text-slate-500 dark:text-slate-300">
@@ -548,8 +535,7 @@ export function ImagePromptGenerateNodeView({
           </div>
           <div
             data-board-scroll
-            className="show-scrollbar rounded-md border border-slate-200/70 p-2 text-[12px] leading-5 text-slate-700 dark:border-slate-700/70 dark:text-slate-200 overflow-y-auto"
-            style={{ maxHeight: IMAGE_PROMPT_GENERATE_RESULT_MAX_HEIGHT }}
+            className="rounded-md border border-slate-200/70 p-2 text-[12px] leading-5 text-slate-700 dark:border-slate-700/70 dark:text-slate-200"
           >
             <pre className="whitespace-pre-wrap break-words font-sans">
               {resultText}

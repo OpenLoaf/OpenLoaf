@@ -15,9 +15,9 @@ import {
 import { useBoardContext } from "../core/BoardProvider";
 import { buildImageNodePayloadFromUri } from "../utils/image";
 import { ImageNodeDetail } from "./ImageNodeDetail";
-import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./ImagePromptGenerateNode";
-import { IMAGE_GENERATE_NODE_TYPE } from "./ImageGenerateNode";
-import { VIDEO_GENERATE_NODE_TYPE } from "./VideoGenerateNode";
+import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./imagePromptGenerate";
+import { IMAGE_GENERATE_NODE_TYPE } from "./imageGenerate";
+import { VIDEO_GENERATE_NODE_TYPE } from "./videoGenerate";
 import { NodeFrame } from "./NodeFrame";
 import type { BoardFileContext } from "../core/BoardProvider";
 import {

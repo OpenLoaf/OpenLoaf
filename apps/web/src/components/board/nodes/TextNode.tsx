@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { cn } from "@udecode/cn";
 import { useBoardContext } from "../core/BoardProvider";
-import { VIDEO_GENERATE_NODE_TYPE } from "./VideoGenerateNode";
+import { VIDEO_GENERATE_NODE_TYPE } from "./videoGenerate";
 import { MINDMAP_META } from "../engine/mindmap-layout";
 
 /** Text value stored on the text node. */

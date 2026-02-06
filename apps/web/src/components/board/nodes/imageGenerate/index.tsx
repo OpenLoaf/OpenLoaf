@@ -1,116 +1,48 @@
-import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
+import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { z } from "zod";
-import { Check, ChevronDown, Copy, LogIn, RotateCcw, Sparkles } from "lucide-react";
+import { Check, Copy, LogIn, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
-import { useBoardContext } from "../core/BoardProvider";
+import { useBoardContext } from "../../core/BoardProvider";
 import { useMediaModels } from "@/hooks/use-media-models";
-import { getWorkspaceIdFromCookie } from "../core/boardSession";
+import { getWorkspaceIdFromCookie } from "../../core/boardSession";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
-import type { ImageNodeProps } from "./ImageNode";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@tenas-ai/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@tenas-ai/ui/card";
+import type { ImageNodeProps } from "../ImageNode";
 import { Input } from "@tenas-ai/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
-import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
 import { Textarea } from "@tenas-ai/ui/textarea";
-import TagsInputBasic from "@/components/ui/basic-tags-input";
 import {
   IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
   IMAGE_GENERATE_MAX_INPUT_IMAGES,
-  IMAGE_GENERATE_MAX_OUTPUT_IMAGES,
   filterImageMediaModels,
-} from "./lib/image-generation";
-import { resolveRightStackPlacement } from "../utils/output-placement";
+} from "../lib/image-generation";
+import { resolveRightStackPlacement } from "../../utils/output-placement";
 import {
   normalizeProjectRelativePath,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import {
   resolveBoardFolderScope,
   resolveProjectPathFromBoardUri,
-} from "../core/boardFilePath";
+} from "../../core/boardFilePath";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import { submitImageTask } from "@/lib/saas-media";
-import { DEFAULT_NODE_SIZE } from "../engine/constants";
-import { LOADING_NODE_TYPE } from "./LoadingNode";
-import { NodeFrame } from "./NodeFrame";
+import { DEFAULT_NODE_SIZE } from "../../engine/constants";
+import { LOADING_NODE_TYPE } from "../LoadingNode";
+import { NodeFrame } from "../NodeFrame";
 import { getPreviewEndpoint } from "@/lib/image/uri";
+import { blobToBase64 } from "../../utils/base64";
+import {
+  ADVANCED_PANEL_OFFSET_PX,
+  GENERATED_IMAGE_NODE_FIRST_GAP,
+  GENERATED_IMAGE_NODE_GAP,
+  IMAGE_GENERATE_NODE_TYPE,
+} from "./constants";
+import { ImageGenerateNodeSchema, type ImageGenerateNodeProps } from "./types";
+import { normalizeOutputCount, normalizeTextValue } from "./utils";
+import { AdvancedSettingsPanel } from "./AdvancedSettingsPanel";
+import { ModelSelect } from "./ModelSelect";
 
-/** Node type identifier for image generation. */
-export const IMAGE_GENERATE_NODE_TYPE = "image_generate";
-/** Gap between generated image nodes. */
-const GENERATED_IMAGE_NODE_GAP = 32;
-/** Extra horizontal gap for the first generated image node. */
-const GENERATED_IMAGE_NODE_FIRST_GAP = 120;
-/** Advanced panel width in pixels (w-60 + ml-4). */
-const ADVANCED_PANEL_OFFSET_PX = 240 + 16;
-/** Available aspect ratio options. */
-const IMAGE_GENERATE_ASPECT_RATIO_OPTIONS = ["1:1", "16:9", "9:16", "4:3"] as const;
-const IMAGE_GENERATE_COUNT_OPTIONS = Array.from({ length: 5 }, (_, index) => index + 1);
-const IMAGE_GENERATE_STYLE_SUGGESTIONS = ["写实", "动漫", "插画", "3D", "赛博朋克", "水彩"] as const;
-
-
-export type ImageGenerateNodeProps = {
-  /** Selected SaaS model id. */
-  modelId?: string;
-  /** Legacy chat model id for migration. */
-  chatModelId?: string;
-  /** Local prompt text entered in the node. */
-  promptText?: string;
-  /** Style prompt for image generation. */
-  style?: string;
-  /** Negative prompt text. */
-  negativePrompt?: string;
-  /** Output aspect ratio for generated images. */
-  outputAspectRatio?: string;
-  /** Requested output image count. */
-  outputCount?: number;
-  /** Model parameters. */
-  parameters?: Record<string, string | number | boolean>;
-  /** Generated image urls. */
-  resultImages?: string[];
-  /** Error text for failed runs. */
-  errorText?: string;
-};
-
-/** Schema for image generation node props. */
-const ImageGenerateNodeSchema = z.object({
-  modelId: z.string().optional(),
-  chatModelId: z.string().optional(),
-  promptText: z.string().optional(),
-  style: z.string().optional(),
-  negativePrompt: z.string().optional(),
-  outputAspectRatio: z.string().optional(),
-  outputCount: z.number().optional(),
-  parameters: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-  resultImages: z.array(z.string()).optional(),
-  errorText: z.string().optional(),
-});
-
-/** Normalize the stored value to a plain text string. */
-function normalizeTextValue(value?: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-/** Normalize the output count within supported bounds. */
-function normalizeOutputCount(value: number | undefined) {
-  if (!Number.isFinite(value)) return IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT;
-  const rounded = Math.round(value as number);
-  // 逻辑：限制在允许范围内，避免无效请求数量。
-  const maxCount = Math.min(
-    IMAGE_GENERATE_MAX_OUTPUT_IMAGES,
-    IMAGE_GENERATE_COUNT_OPTIONS.length
-  );
-  return Math.min(Math.max(rounded, 1), maxCount);
-}
+export { IMAGE_GENERATE_NODE_TYPE };
 
 /** Render the image generation node. */
 export function ImageGenerateNodeView({
@@ -154,6 +86,7 @@ export function ImageGenerateNodeView({
   const [copied, setCopied] = useState(false);
   const copyTimerRef = useRef<number | null>(null);
   const [modelSelectOpen, setModelSelectOpen] = useState(false);
+  const [aspectRatioOpen, setAspectRatioOpen] = useState(false);
 
   useEffect(() => {
     void refreshSession();
@@ -262,7 +195,7 @@ export function ImageGenerateNodeView({
     selectedModel?.capabilities?.input?.maxImages ?? IMAGE_GENERATE_MAX_INPUT_IMAGES;
   const overflowCount = Math.max(0, inputImageNodes.length - maxInputImages);
   const limitedInputImages = inputImageNodes.slice(0, maxInputImages);
-  const resolvedImages: Array<{ url: string; mediaType: string }> = [];
+  const resolvedImages: Array<{ url?: string; base64?: string; mediaType: string }> = [];
   let invalidImageCount = 0;
 
   for (const imageProps of limitedInputImages) {
@@ -271,34 +204,26 @@ export function ImageGenerateNodeView({
       invalidImageCount += 1;
       continue;
     }
-    let resolvedUrl = "";
-    if (rawUri.startsWith("http://") || rawUri.startsWith("https://")) {
-      resolvedUrl = rawUri;
-    } else {
-      const projectPath = resolveProjectPathFromBoardUri({
-        uri: rawUri,
-        boardFolderScope,
-        currentProjectId,
-        rootUri: fileContext?.rootUri,
-      });
-      if (projectPath) {
-        const previewUrl = getPreviewEndpoint(projectPath, {
-          projectId: currentProjectId,
-          workspaceId: resolvedWorkspaceId || undefined,
-        });
-        if (previewUrl.startsWith("/") && typeof window !== "undefined") {
-          resolvedUrl = `${window.location.origin}${previewUrl}`;
-        } else {
-          resolvedUrl = previewUrl;
-        }
-      }
+    const projectPath = resolveProjectPathFromBoardUri({
+      uri: rawUri,
+      boardFolderScope,
+      currentProjectId,
+      rootUri: fileContext?.rootUri,
+    });
+    if (!projectPath) {
+      invalidImageCount += 1;
+      continue;
     }
-    if (!resolvedUrl) {
+    const previewUrl = getPreviewEndpoint(projectPath, {
+      projectId: currentProjectId,
+      workspaceId: resolvedWorkspaceId || undefined,
+    });
+    if (!previewUrl) {
       invalidImageCount += 1;
       continue;
     }
     resolvedImages.push({
-      url: resolvedUrl,
+      url: previewUrl,
       mediaType: imageProps?.mimeType || "application/octet-stream",
     });
   }
@@ -459,10 +384,28 @@ export function ImageGenerateNodeView({
         loadingNodeIdRef.current = loadingNodeId ?? null;
       }
 
-      const inputs =
-        resolvedImages.length > 0
-          ? { images: resolvedImages.map((image) => ({ url: image.url, mediaType: image.mediaType })) }
-          : undefined;
+      let inputs:
+        | {
+            images: Array<{ base64: string; mediaType: string }>;
+          }
+        | undefined;
+      if (resolvedImages.length > 0) {
+        const encodedImages = await Promise.all(
+          resolvedImages.map(async (image) => {
+            const res = await fetch(image.url ?? "");
+            if (!res.ok) {
+              throw new Error("图片读取失败");
+            }
+            const blob = await res.blob();
+            const base64 = await blobToBase64(blob);
+            return {
+              base64,
+              mediaType: image.mediaType,
+            };
+          })
+        );
+        inputs = { images: encodedImages };
+      }
       const payload = {
         modelId,
         prompt: promptText,
@@ -732,90 +675,21 @@ export function ImageGenerateNodeView({
           <div className="flex items-center gap-3">
             <div className="text-[13px] text-slate-500 dark:text-slate-400">模型</div>
             <div className="min-w-0 flex-1">
-              {authLoggedIn ? (
-                <Popover
-                  open={modelSelectOpen}
-                  onOpenChange={(open) => {
-                    if (engine.isLocked() || element.locked) return;
-                    if (candidates.length === 0) {
-                      setModelSelectOpen(false);
-                      return;
-                    }
-                    setModelSelectOpen(open);
-                  }}
-                >
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      disabled={candidates.length === 0 || engine.isLocked() || element.locked}
-                      className={[
-                        "flex h-7 w-full items-center justify-between rounded-md border border-slate-200/80 bg-white/90 px-2 text-[11px] text-slate-600",
-                        "hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60",
-                        "dark:border-slate-700/80 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-800",
-                      ].join(" ")}
-                      onPointerDown={(event) => {
-                        event.stopPropagation();
-                        onSelect();
-                      }}
-                    >
-                      <span className="truncate">
-                        {selectedModel?.name || selectedModel?.id || "无可用模型"}
-                      </span>
-                      <ChevronDown size={14} />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    side="bottom"
-                    align="start"
-                    sideOffset={4}
-                    className="w-[var(--radix-popover-trigger-width)] max-h-40 overflow-auto rounded-md border border-slate-200/80 bg-white p-1 text-[11px] text-slate-700 shadow-none dark:border-slate-700/80 dark:bg-slate-900 dark:text-slate-100"
-                  >
-                    {candidates.length === 0 ? (
-                      <div className="px-2 py-1.5 text-[12px] text-slate-500 dark:text-slate-400">
-                        无可用模型
-                      </div>
-                    ) : (
-                      candidates.map((option) => (
-                        <button
-                          key={option.id}
-                          type="button"
-                          className={[
-                            "flex w-full items-center rounded px-2 py-1.5 text-left text-[11px]",
-                            "hover:bg-slate-100 dark:hover:bg-slate-800",
-                            option.id === effectiveModelId
-                              ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-50"
-                              : "text-slate-700 dark:text-slate-200",
-                          ].join(" ")}
-                          onClick={() => {
-                            onUpdate({ modelId: option.id });
-                            setModelSelectOpen(false);
-                          }}
-                        >
-                          {option.name || option.id}
-                        </button>
-                      ))
-                    )}
-                  </PopoverContent>
-                </Popover>
-              ) : (
-                <button
-                  type="button"
-                  disabled={isLoginBusy}
-                  className={[
-                    "flex h-9 w-full items-center justify-between rounded-md border border-slate-200/80 bg-slate-50/90 px-3 text-[13px] text-slate-500",
-                    "hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60",
-                    "dark:border-slate-700/80 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800",
-                  ].join(" ")}
-                  onPointerDown={(event) => {
-                    event.stopPropagation();
-                    onSelect();
-                    handleOpenLogin();
-                  }}
-                >
-                  <span className="truncate">登录账户后选择模型</span>
-                  <LogIn size={14} />
-                </button>
-              )}
+              <ModelSelect
+                authLoggedIn={authLoggedIn}
+                isLoginBusy={isLoginBusy}
+                candidates={candidates}
+                selectedModel={selectedModel}
+                effectiveModelId={effectiveModelId}
+                disabled={engine.isLocked() || element.locked}
+                modelSelectOpen={modelSelectOpen}
+                onOpenChange={setModelSelectOpen}
+                onSelect={onSelect}
+                onSelectModel={(modelId) => {
+                  onUpdate({ modelId });
+                }}
+                onOpenLogin={handleOpenLogin}
+              />
             </div>
           </div>
           <div className="min-w-0 flex min-h-0 flex-1 flex-col gap-2">
@@ -883,107 +757,30 @@ export function ImageGenerateNodeView({
         </div>
       ) : null}
 
-      {isAdvancedOpen ? (
-        <Card
-          className="absolute left-full top-0 z-20 ml-4 w-60 gap-3 border-slate-200/80 bg-white/95 py-0 text-slate-700 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-lg dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-100"
-          data-board-editor
-          onPointerDown={(event) => {
-            event.stopPropagation();
-          }}
-        >
-          <CardHeader className="border-b border-slate-200/70 px-2.5 py-1 !pb-1 !gap-0 dark:border-slate-700/70">
-            <CardTitle className="text-[12px] font-semibold text-slate-600 dark:text-slate-200">
-              高级设置
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-2.5 pb-2 pt-1.5">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-1">
-                <div className="min-w-0 flex-1 text-[11px] text-slate-500 dark:text-slate-300">
-                  数量
-                </div>
-                <Tabs
-                  value={String(outputCount)}
-                  onValueChange={(value) => {
-                    const parsed = Number(value);
-                    onUpdate({ outputCount: normalizeOutputCount(parsed) });
-                  }}
-                >
-                  <TabsList className="grid h-6 w-28 grid-cols-5 rounded-md bg-slate-100/80 p-0.5 dark:bg-slate-800/80">
-                    {IMAGE_GENERATE_COUNT_OPTIONS.map((option) => (
-                      <TabsTrigger
-                        key={option}
-                        value={String(option)}
-                        className="h-5 text-[10px] text-slate-600 data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:text-slate-300 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-50"
-                        disabled={engine.isLocked() || element.locked}
-                      >
-                        {option}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="min-w-0 flex-1 text-[11px] text-slate-500 dark:text-slate-300">
-                  宽高比
-                </div>
-                <Select
-                  value={outputAspectRatioValue}
-                  onValueChange={(value) => {
-                    onUpdate({
-                      outputAspectRatio: value === "auto" ? undefined : value,
-                    });
-                  }}
-                  disabled={engine.isLocked() || element.locked}
-                >
-                  <SelectTrigger className="h-6 w-26 px-2 text-[11px] shadow-none">
-                    <SelectValue placeholder="自动" />
-                  </SelectTrigger>
-                  <SelectContent className="text-[11px] shadow-none">
-                    <SelectItem value="auto" className="text-[11px]">
-                      自动
-                    </SelectItem>
-                    {IMAGE_GENERATE_ASPECT_RATIO_OPTIONS.map((option) => (
-                      <SelectItem key={option} value={option} className="text-[11px]">
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-1">
-                <TagsInputBasic
-                  dense
-                  label="风格"
-                  placeholder={styleTags.length ? "" : "回车可自定义风格"}
-                  suggestions={[...IMAGE_GENERATE_STYLE_SUGGESTIONS]}
-                  value={styleTags}
-                  onValueChange={(value) => {
-                    // 逻辑：风格字段按逗号分隔。
-                    onUpdate({ style: value.join(",") });
-                  }}
-                  className="w-32"
-                  disabled={engine.isLocked() || element.locked}
-                />
-              </div>
-              <div className="min-w-0">
-                <Textarea
-                  value={negativePromptText}
-                  maxLength={200}
-                  placeholder="不希望出现"
-                  onChange={(event) => {
-                    const next = event.target.value.slice(0, 200);
-                    onUpdate({ negativePrompt: next });
-                  }}
-                  data-board-scroll
-                  className="min-h-[48px] w-full resize-none overflow-y-auto px-2.5 py-1.5 text-[10px] leading-4 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500"
-                  disabled={engine.isLocked() || element.locked}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
+      <AdvancedSettingsPanel
+        open={isAdvancedOpen}
+        outputCount={outputCount}
+        outputAspectRatioValue={outputAspectRatioValue}
+        aspectRatioOpen={aspectRatioOpen}
+        styleTags={styleTags}
+        negativePromptText={negativePromptText}
+        onSelect={onSelect}
+        onOutputCountChange={(count) => {
+          onUpdate({ outputCount: normalizeOutputCount(count) });
+        }}
+        onAspectRatioOpenChange={setAspectRatioOpen}
+        onAspectRatioChange={(value) => {
+          onUpdate({ outputAspectRatio: value });
+        }}
+        onStyleChange={(value) => {
+          // 逻辑：风格字段按逗号分隔。
+          onUpdate({ style: value.join(",") });
+        }}
+        onNegativePromptChange={(value) => {
+          onUpdate({ negativePrompt: value });
+        }}
+        disabled={engine.isLocked() || element.locked}
+      />
     </NodeFrame>
   );
 }
