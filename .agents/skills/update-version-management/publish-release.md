@@ -94,8 +94,8 @@ date: 2026-02-08
 - 修复了 YY 问题
 ```
 
-- 文件名格式：`{version}.{lang}.md`（如 `0.1.0.zh.md`、`0.1.0.en.md`）
-- 每个版本必须有 `.zh.md`（默认语言），`.en.md` 等其他语言可选
+- 目录结构：`changelogs/{version}/{lang}.md`（如 `changelogs/0.1.0/zh.md`、`changelogs/0.1.0/en.md`）
+- 每个版本必须有 `zh.md`（默认语言），`en.md` 等其他语言可选
 - `version` 字段不需要 `channel`（从版本号推断）
 - 发布时所有 changelog 文件都会上传到 R2
 - manifest 中 `changelogUrl` 不含语言后缀和扩展名（客户端拼接 `.{lang}.md`）

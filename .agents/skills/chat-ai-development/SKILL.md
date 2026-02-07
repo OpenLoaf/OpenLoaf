@@ -58,7 +58,7 @@ Chat & AI 系统分为前端 Chat UI 和后端 AI Agent 两层。前端基于 Ve
 |------|------|----------|
 | [chat-frontend.md](chat-frontend.md) | Context 架构、消息渲染管线、输入区、分支导航、Hooks 速查 | 修改前端聊天 UI |
 | [ai-backend.md](ai-backend.md) | Agent 系统、工具注册、SSE 流式管线、RequestContext、审批机制 | 修改后端 AI 逻辑 |
-| [fullstack-patterns.md](fullstack-patterns.md) | 添加新工具全流程、添加子代理、修改 Prompt、Skills 系统 | 新增功能或全栈修改 |
+| [fullstack-patterns.md](fullstack-patterns.md) | 添加新工具全流程（含前端执行/审批/UI 事件）、添加子代理、修改 Prompt、Skills 系统 | 新增功能或全栈修改 |
 
 ## Key Files Map
 

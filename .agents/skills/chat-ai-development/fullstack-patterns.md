@@ -60,6 +60,107 @@ const MASTER_AGENT_TOOL_IDS = [
 
 大部分工具自动使用 `UnifiedTool` 通用卡片。如需自定义渲染，在 `message/tools/MessageTool.tsx` 添加路由分支。
 
+## 新工具开发教程（详细版）
+
+> 目标：给“从 0 添加工具”一个可执行的完整路径（含前端执行、审批、UI 事件控制）。
+
+### 0) 先判断工具类型
+
+- **纯后端工具**：只在 server 执行，返回结果 → 走 Step 1~4
+- **前端执行工具**：需要前端做 UI/系统操作并回执 → 走 Step 1~5
+- **控制类工具（UI Event）**：只改变 UI 状态（打开面板/关闭 overlay/刷新）→ 走 Step 1~4 + Step 6
+
+### 1) 定义 ToolDef（唯一事实来源）
+
+位置：`packages/api/src/types/tools/<domain>.ts`
+
+**必填字段：**
+- `id` / `name` / `description`
+- `parameters`（zod）
+- `component: null`
+- 需要审批时增加 `needsApproval: true`
+
+**约定：**
+- 业务侧不手写工具 ID，统一引用 `xxxToolDef.id`
+- `actionName` 必须作为参数字段，用于 LLM 说明调用目的
+- 新文件需在 `packages/api/src/types/tools/index.ts` 导出
+- 如果是 System 工具，补齐 `systemToolMeta` 的风险分级（`RiskType`）
+
+### 2) 后端实现（server tool）
+
+位置：`apps/server/src/ai/tools/<toolName>.ts`
+
+**关键点：**
+- 使用 `tool()` + `zodSchema(xxxToolDef.parameters)`
+- `description` 必须来自 `xxxToolDef.description`
+- 需要审批时，在 `tool()` 中设置 `needsApproval`（可为 boolean 或 function）
+- 需要 session/tab 上下文时通过 `requestContext` getter 或辅助函数读取
+
+### 3) 注册 & 授权范围
+
+**注册表**：`apps/server/src/ai/tools/toolRegistry.ts`
+
+```
+[xxxToolDef.id]: { tool: xxxTool }
+```
+
+**Agent 可用工具**：
+- MasterAgent：`apps/server/src/ai/agents/masterAgent/masterAgent.ts` → `MASTER_AGENT_TOOL_IDS`
+- 子代理：各自文件内的工具集（仅暴露必要工具）
+
+### 4) 前端渲染（可选）
+
+- 默认走 `UnifiedTool`（无需额外操作）
+- 自定义 UI：在 `apps/web/src/components/chat/message/tools/` 新建卡片组件，并在 `MessageTool.tsx` 添加路由分支
+
+### 5) 前端执行工具（需要 Ack）
+
+**后端：**
+- `execute` 内调用 `registerFrontendToolPending({ toolCallId, timeoutSec })`
+- 前端执行类工具必须 `requireTabId()`（否则无法定位 UI）
+- 超时/失败需要返回明确错误，避免卡住循环
+
+**前端：**
+- `apps/web/src/lib/chat/frontend-tool-executor.ts`
+  - 在 `registerDefaultFrontendToolHandlers()` 中注册 handler
+  - handler 返回 `{ status, output, errorText? }`
+  - executor 会自动 `POST /ai/tools/ack`
+
+**后端回执路由：**
+`apps/server/src/ai/interface/routes/frontendToolAckRoutes.ts`（通常无需改动）
+
+### 6) 控制类工具（UI Event）
+
+**适用场景：** 只需要改变 UI 状态（打开/关闭面板、刷新树、切换视图）
+
+**必做清单：**
+1. `packages/api/src/types/event.ts`
+   - 增加 `UiEventKind`
+   - 扩展 `UiEvent` 联合类型
+   - 在 `uiEvents` 工厂补齐生成函数
+   - 在 `uiEventSchema` 补齐 zod 校验
+2. `apps/web/src/lib/chat/uiEvent.ts`
+   - 在 handlers 分发表中新增处理逻辑
+3. `apps/web/src/components/Providers.tsx`
+   - 确保监听 `tenas:ui-event` 并分发到 `handleUiEvent`
+
+**IPC 入口约定（新增或改造时）：**
+- 任何 Electron IPC 入口/桥接/监听文件命名必须以 `*ElectronIpc` 结尾
+- `handleUiEvent` 保持传输层无关，仅负责应用 UI 状态
+
+**注意：**
+- 不要通过 SSE custom data 下发 UI 事件
+- UI 控制不做“历史重放”，需要重做就重新调用工具
+
+### 7) 快速自检清单
+
+- ToolDef 已导出、`id` 唯一、`component: null`
+- toolRegistry + Agent 工具集已注册
+- 需要审批的工具：ToolDef 和 tool() 都设置 `needsApproval`
+- 前端执行工具：pendingRegistry + executor handler 已补齐
+- 控制类工具：UiEvent kind + handlers + IPC 入口齐全
+- 最后跑一次 `pnpm check-types`
+
 ## Adding a New Sub-Agent
 
 ### Step 1: 在 API 类型中注册名称
