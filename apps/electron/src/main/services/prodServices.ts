@@ -248,8 +248,28 @@ export async function startProductionServices(args: {
    * - `server.mjs` 通过 Forge `extraResource` 被放进 `process.resourcesPath`
    * - 使用当前 Electron 自带的 Node 运行时启动，并设置 `ELECTRON_RUN_AS_NODE=1`
    */
+  // serverCrashed: 当 server 进程异常退出时 resolve 并携带 stderr 摘要，永不 resolve 表示正常运行。
+  let serverCrashed: Promise<string> = new Promise<string>(() => {});
   const serverPath = resolveServerPath();
   log(`Looking for server at: ${serverPath}`);
+
+  // ESM `import` 不使用 NODE_PATH，只沿目录层级查找 node_modules。
+  // 当 server.mjs 来自增量更新目录（~/.tenas/updates/server/current/）时，
+  // 需要软链接 node_modules → Resources/node_modules 以解析 external 依赖（如 playwright-core）。
+  const bundledServerPath = path.join(process.resourcesPath, 'server.mjs');
+  if (serverPath !== bundledServerPath) {
+    const serverDir = path.dirname(serverPath);
+    const nmLink = path.join(serverDir, 'node_modules');
+    const nmTarget = path.join(process.resourcesPath, 'node_modules');
+    if (!fs.existsSync(nmLink) && fs.existsSync(nmTarget)) {
+      try {
+        fs.symlinkSync(nmTarget, nmLink, 'dir');
+        log(`Symlinked ${nmLink} → ${nmTarget}`);
+      } catch (e) {
+        log(`Failed to symlink node_modules: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+  }
 
   const serverHost = resolveHost(args.serverUrl, '127.0.0.1');
   const serverPort = resolvePort(args.serverUrl, 23333);
@@ -280,26 +300,40 @@ export async function startProductionServices(args: {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 
+      const stderrChunks: string[] = [];
       managedServer.stdout?.on('data', (d) => log(`[Server Output] ${d}`));
-      managedServer.stderr?.on('data', (d) => log(`[Server Error] ${d}`));
+      managedServer.stderr?.on('data', (d) => {
+        const text = String(d);
+        stderrChunks.push(text);
+        log(`[Server Error] ${text}`);
+      });
       managedServer.on('error', (err) => log(`[Server Spawn Error] ${err.message}`));
-      managedServer.on('exit', (code, signal) => {
-        log(`[Server Exited] code=${code} signal=${signal}`);
-        // 非正常退出时记录崩溃，连续崩溃将自动回滚到打包版本。
-        if (code !== 0 && code !== null) {
-          const rolledBack = recordServerCrash();
-          if (rolledBack) {
-            log('[Server] Rolled back to bundled server.mjs due to repeated crashes.');
+
+      // 当 server 进程异常退出时 resolve，用于提前终止健康检查轮询。
+      serverCrashed = new Promise<string>((resolve) => {
+        managedServer!.on('exit', (code, signal) => {
+          log(`[Server Exited] code=${code} signal=${signal}`);
+          if (code !== 0 && code !== null) {
+            const rolledBack = recordServerCrash();
+            if (rolledBack) {
+              log('[Server] Rolled back to bundled server.mjs due to repeated crashes.');
+            }
+            // 取 stderr 最后 500 字符作为错误摘要。
+            const stderr = stderrChunks.join('').trim();
+            const summary = stderr.length > 500 ? `…${stderr.slice(-500)}` : stderr;
+            resolve(summary || `Server exited with code ${code}`);
           }
-        }
+        });
       });
 
       log('Server process spawned');
     } catch (err) {
       log(`Failed to spawn server: ${err instanceof Error ? err.message : String(err)}`);
+      serverCrashed = Promise.resolve(`Failed to spawn server: ${err instanceof Error ? err.message : String(err)}`);
     }
   } else {
     log(`[Error] Server binary not found at ${serverPath}`);
+    serverCrashed = Promise.resolve(`Server binary not found at ${serverPath}`);
   }
 
   const webRoot = resolveWebRoot();
@@ -334,5 +368,5 @@ export async function startProductionServices(args: {
     log(`[Error] Web root not found at ${webRoot}`);
   }
 
-  return { managedServer, productionWebServer };
+  return { managedServer, productionWebServer, serverCrashed };
 }

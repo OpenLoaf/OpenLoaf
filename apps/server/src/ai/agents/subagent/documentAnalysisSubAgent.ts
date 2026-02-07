@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { ToolLoopAgent } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import {
@@ -12,6 +11,7 @@ import {
 import { documentAnalysisSubAgentName } from "@tenas-ai/api/types/tools/subAgent";
 import { buildToolset } from "@/ai/tools/toolRegistry";
 import { createToolCallRepair } from "@/ai/agents/repairToolCall";
+import DOCUMENT_ANALYSIS_SUB_AGENT_PROMPT_RAW from "./documentAnalysisSubAgent.zh.md";
 
 /** Document analysis sub-agent display name. */
 export const DOCUMENT_ANALYSIS_SUB_AGENT_NAME = documentAnalysisSubAgentName;
@@ -27,14 +27,7 @@ const DOCUMENT_ANALYSIS_SUB_AGENT_TOOL_IDS = [
   shellCommandToolDefWin.id,
 ] as const;
 /** Default document analysis sub-agent system prompt. */
-const DOCUMENT_ANALYSIS_SUB_AGENT_PROMPT_URL = new URL(
-  "./documentAnalysisSubAgent.zh.md",
-  import.meta.url,
-);
-const DEFAULT_DOCUMENT_ANALYSIS_SUB_AGENT_SYSTEM_PROMPT = readFileSync(
-  DOCUMENT_ANALYSIS_SUB_AGENT_PROMPT_URL,
-  "utf8",
-).trim();
+const DEFAULT_DOCUMENT_ANALYSIS_SUB_AGENT_SYSTEM_PROMPT = DOCUMENT_ANALYSIS_SUB_AGENT_PROMPT_RAW.trim();
 
 type CreateDocumentAnalysisSubAgentInput = {
   /** Model instance for the sub-agent. */

@@ -40,6 +40,8 @@ type ComponentManifest = {
   url: string
   sha256: string
   size: number
+  /** 更新时间（UTC ISO 8601） */
+  updatedAt?: string
   releaseNotes?: string
 }
 
@@ -112,6 +114,27 @@ function readLocalManifest(): LocalManifest {
   }
 }
 
+/** Resolve bundled component version from packaged metadata. */
+function resolveBundledVersion(component: 'server' | 'web'): string | null {
+  const packagedName = component === 'server' ? 'server.package.json' : 'web.package.json'
+  const packagedPath = path.join(process.resourcesPath, packagedName)
+  const devPath = path.resolve(process.cwd(), 'apps', component, 'package.json')
+  const devPathAlt = path.resolve(process.cwd(), '..', 'apps', component, 'package.json')
+  const candidates = [packagedPath, devPath, devPathAlt]
+
+  for (const candidate of candidates) {
+    try {
+      if (!fs.existsSync(candidate)) continue
+      const raw = fs.readFileSync(candidate, 'utf-8')
+      const parsed = JSON.parse(raw) as { version?: string }
+      if (parsed.version) return parsed.version
+    } catch {
+      // 中文注释：读取版本失败时忽略，继续尝试其他候选路径。
+    }
+  }
+  return null
+}
+
 function writeLocalManifest(manifest: LocalManifest): void {
   const dir = path.dirname(localManifestPath())
   fs.mkdirSync(dir, { recursive: true })
@@ -124,9 +147,9 @@ function getComponentInfo(component: 'server' | 'web'): ComponentInfo {
   if (state) {
     return { version: state.version, source: 'updated' }
   }
-  // 打包版本从 electron app 的 package.json 中读取无法区分 server/web，
-  // 因此使用固定标记 "bundled"。
-  return { version: 'bundled', source: 'bundled' }
+  const bundledVersion = resolveBundledVersion(component)
+  // 中文注释：未更新时回退到打包时的版本号（若无则标记 bundled）。
+  return { version: bundledVersion ?? 'bundled', source: 'bundled' }
 }
 
 function buildIdleStatus(): IncrementalUpdateStatus {

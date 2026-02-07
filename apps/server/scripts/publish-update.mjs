@@ -188,11 +188,14 @@ async function main() {
     console.log('   (No existing manifest found, creating new one)')
   }
 
+  const updatedAt = new Date().toISOString()
   manifest.server = {
     version,
     url: `${R2_PUBLIC_URL}/${r2Key}`,
     sha256,
     size,
+    // 更新时间（UTC ISO 8601）
+    updatedAt,
   }
 
   await uploadJson('manifest.json', manifest)

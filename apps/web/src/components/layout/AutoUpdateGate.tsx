@@ -13,45 +13,46 @@ import {
 import { isElectronEnv } from "@/utils/is-electron-env";
 
 type AutoUpdateGateState = {
-  status: TenasAutoUpdateStatus | null;
+  status: TenasIncrementalUpdateStatus | null;
   open: boolean;
 };
 
 /**
- * Shows a global update prompt when a new version is downloaded.
+ * Shows a global update prompt when incremental updates are ready.
  */
 export default function AutoUpdateGate() {
   const [state, setState] = React.useState<AutoUpdateGateState>({
     status: null,
     open: false,
   });
-  const lastDownloadedTsRef = React.useRef<number | null>(null);
+  /** Last ready timestamp to avoid duplicate prompts. */
+  const lastReadyTsRef = React.useRef<number | null>(null);
   const isElectron = React.useMemo(() => isElectronEnv(), []);
 
-  /** Fetch initial update status from the main process. */
+  /** Fetch initial incremental update status from the main process. */
   const fetchInitialStatus = React.useCallback(async () => {
     const api = window.tenasElectron;
-    if (!isElectron || !api?.getAutoUpdateStatus) return;
+    if (!isElectron || !api?.getIncrementalUpdateStatus) return;
     try {
-      const status = await api.getAutoUpdateStatus();
+      const status = await api.getIncrementalUpdateStatus();
       if (status) setState((prev) => ({ ...prev, status }));
     } catch {
       // ignore
     }
   }, [isElectron]);
 
-  /** Handle update status events from Electron main process. */
+  /** Handle incremental update status events from Electron main process. */
   const handleStatusEvent = React.useCallback((event: Event) => {
-    const detail = (event as CustomEvent<TenasAutoUpdateStatus>).detail;
+    const detail = (event as CustomEvent<TenasIncrementalUpdateStatus>).detail;
     if (!detail) return;
     setState((prev) => ({ ...prev, status: detail }));
   }, []);
 
-  /** Install the downloaded update and restart the app. */
-  const installDownloadedUpdate = React.useCallback(async () => {
+  /** Restart the app to apply updates. */
+  const handleRelaunch = React.useCallback(async () => {
     const api = window.tenasElectron;
-    if (!isElectron || !api?.installUpdate) return;
-    await api.installUpdate();
+    if (!isElectron || !api?.relaunchApp) return;
+    await api.relaunchApp();
   }, [isElectron]);
 
   React.useEffect(() => {
@@ -61,24 +62,33 @@ export default function AutoUpdateGate() {
 
   React.useEffect(() => {
     if (!isElectron) return;
-    window.addEventListener("tenas:auto-update:status", handleStatusEvent);
+    window.addEventListener("tenas:incremental-update:status", handleStatusEvent);
     return () =>
-      window.removeEventListener("tenas:auto-update:status", handleStatusEvent);
+      window.removeEventListener("tenas:incremental-update:status", handleStatusEvent);
   }, [isElectron, handleStatusEvent]);
 
   React.useEffect(() => {
-    if (!state.status || state.status.state !== "downloaded") return;
+    if (!state.status || state.status.state !== "ready") return;
     // 防止重复弹窗；同一条下载事件只提示一次。
-    if (state.status.ts === lastDownloadedTsRef.current) return;
-    lastDownloadedTsRef.current = state.status.ts;
+    if (state.status.ts === lastReadyTsRef.current) return;
+    lastReadyTsRef.current = state.status.ts;
     setState((prev) => ({ ...prev, open: true }));
   }, [state.status]);
 
   if (!isElectron) return null;
 
-  const nextVersionLabel = state.status?.nextVersion
-    ? `v${state.status.nextVersion}`
-    : "新版本";
+  // 中文注释：从已更新的组件版本拼接展示文案。
+  const nextVersionLabel = React.useMemo(() => {
+    if (!state.status) return "新版本";
+    const parts: string[] = [];
+    if (state.status.server?.newVersion) {
+      parts.push(`服务端 v${state.status.server.newVersion}`);
+    }
+    if (state.status.web?.newVersion) {
+      parts.push(`Web v${state.status.web.newVersion}`);
+    }
+    return parts.length > 0 ? parts.join(" / ") : "新版本";
+  }, [state.status]);
 
   return (
     <Dialog
@@ -89,14 +99,17 @@ export default function AutoUpdateGate() {
         <DialogHeader>
           <DialogTitle>更新已准备好</DialogTitle>
           <DialogDescription>
-            {nextVersionLabel} 已下载完成，重启后即可完成更新。
+            {nextVersionLabel} 已准备好，重启后即可完成更新。
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setState((prev) => ({ ...prev, open: false }))}>
+          <Button
+            variant="ghost"
+            onClick={() => setState((prev) => ({ ...prev, open: false }))}
+          >
             稍后
           </Button>
-          <Button onClick={() => void installDownloadedUpdate()}>立即重启</Button>
+          <Button onClick={() => void handleRelaunch()}>立即重启</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -21,7 +21,6 @@ pnpm run desktop
 | `package` | 构建 server + web + electron-forge 打包 | `.app` | `.exe` | binary |
 | `dist:dev` | 完整打包 + 出安装包（本地测试，无签名） | DMG/ZIP | NSIS | AppImage |
 | `dist:production` | 完整打包 + 签名 + 公证 | DMG/ZIP | NSIS | AppImage |
-| `dist:production:publish` | 同 production + 发布到 GitHub Releases | DMG/ZIP | NSIS | AppImage |
 | `dist:resign` | 跳过 server/web 重新构建，直接重签名打包 | DMG/ZIP | NSIS | AppImage |
 
 ```bash
@@ -31,12 +30,19 @@ pnpm run dist:dev
 # 正式发布
 pnpm run dist:production
 
-# 正式发布 + 推送 GitHub
-pnpm run dist:production:publish
-
 # 只重签名（不重新构建 server/web）
 pnpm run dist:resign
 ```
+
+## Electron 自动更新（R2）
+
+Electron 本体更新使用 `electron-updater` 的 generic provider，更新源由 `TENAS_ELECTRON_UPDATE_URL` 指定（见 `resources/runtime.env`）。
+
+发布流程（概念）：
+
+1) 运行 `pnpm run dist:production` 生成安装包与 `latest*.yml` 元数据  
+2) 将 `dist/` 下对应平台的安装包与元数据上传到 R2 的更新目录  
+3) 客户端启动后自动检查并下载更新
 
 ## 产物目录
 
@@ -46,7 +52,7 @@ pnpm run dist:resign
 | `out/Tenas-darwin-arm64/` | electron-forge package 产物（未签名 `.app`） |
 | `dist/mac-arm64/Tenas.app` | electron-builder 最终产物 |
 | `dist/Tenas-*.dmg` | DMG 安装包 |
-| `dist/Tenas-*-mac.zip` | ZIP 包（用于 auto-updater） |
+| `dist/Tenas-*-mac.zip` | ZIP 包 |
 
 ### Windows
 | 路径 | 说明 |
@@ -67,8 +73,10 @@ pnpm run dist:resign
 {Resources}/
   app.asar                  # Electron 主进程代码（webpack 打包）
   server.mjs                # Server 端 esbuild 产物
+  server.package.json       # Server 版本信息
   seed.db                   # 初始数据库
   out/                      # Next.js 静态导出
+  web.package.json          # Web 版本信息
   runtime.env               # 运行时环境变量
   icon.png                  # 应用图标（通用）
   *.zh.md                   # AI Agent prompt 文件

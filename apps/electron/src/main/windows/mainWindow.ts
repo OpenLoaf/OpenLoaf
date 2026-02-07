@@ -6,6 +6,49 @@ import { waitForUrlOk } from '../services/urlHealth';
 import { WEBPACK_ENTRIES } from '../webpackEntries';
 
 /**
+ * 在 loading 页面上显示错误信息，替换 "Launching" 文本和动画。
+ */
+async function showErrorOnLoadingPage(win: BrowserWindow, error: string): Promise<void> {
+  const escaped = error
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, '\\n');
+  await win.webContents.executeJavaScript(`
+    (function() {
+      var dots = document.querySelector('.dots');
+      if (dots) dots.style.display = 'none';
+      var text = document.querySelector('.text');
+      if (text) {
+        text.textContent = 'Failed to start';
+        text.style.color = '#ef4444';
+      }
+      var container = document.querySelector('.loader-container');
+      if (container) {
+        var wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position:relative;max-width:90vw;margin-top:12px;';
+        var pre = document.createElement('pre');
+        pre.textContent = '${escaped}';
+        pre.style.cssText = 'max-height:50vh;overflow:auto;font-size:11px;color:#9c9ea4;white-space:pre-wrap;word-break:break-all;text-align:left;padding:12px;padding-top:36px;background:rgba(255,255,255,0.05);border-radius:8px;';
+        var btn = document.createElement('button');
+        btn.textContent = 'Copy';
+        btn.style.cssText = 'position:absolute;top:14px;right:8px;padding:3px 10px;font-size:11px;color:#9c9ea4;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:4px;cursor:pointer;z-index:1;';
+        btn.onmouseenter = function() { btn.style.background = 'rgba(255,255,255,0.15)'; };
+        btn.onmouseleave = function() { btn.style.background = 'rgba(255,255,255,0.08)'; };
+        btn.onclick = function() {
+          navigator.clipboard.writeText(pre.textContent || '').then(function() {
+            btn.textContent = 'Copied!';
+            setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+          });
+        };
+        wrapper.appendChild(btn);
+        wrapper.appendChild(pre);
+        container.appendChild(wrapper);
+      }
+    })();
+  `);
+}
+
+/**
  * 根据当前屏幕工作区估算一个合适的默认窗口大小，并限制最小/最大值与宽高比。
  */
 function getDefaultWindowSize(): { width: number; height: number } {
@@ -176,10 +219,18 @@ export async function createMainWindow(args: {
 
   try {
     // 确保服务可用：dev 下复用/启动 server & web；prod 下启动 server.mjs + 本地静态站点服务。该调用是幂等的。
-    const { webUrl, serverUrl } = await args.services.start({
+    const { webUrl, serverUrl, serverCrashed } = await args.services.start({
       initialServerUrl: args.initialServerUrl,
       initialWebUrl: args.initialWebUrl,
       cdpPort: args.initialCdpPort,
+    });
+
+    // 当 server 进程崩溃时提前中止健康检查，并在 loading 页面显示错误。
+    const abortController = new AbortController();
+    let crashError: string | undefined;
+    serverCrashed?.then((stderr) => {
+      crashError = stderr;
+      abortController.abort();
     });
 
     const targetUrl = `${webUrl}/`;
@@ -189,6 +240,7 @@ export async function createMainWindow(args: {
     const ok = await waitForUrlOk(targetUrl, {
       timeoutMs: 60_000,
       intervalMs: 300,
+      signal: abortController.signal,
     });
 
     if (ok) {
@@ -198,8 +250,14 @@ export async function createMainWindow(args: {
       const healthOk = await waitForUrlOk(healthUrl, {
         timeoutMs: 60_000,
         intervalMs: 300,
+        signal: abortController.signal,
       });
       if (!healthOk) {
+        if (crashError) {
+          args.log(`Server crashed during startup: ${crashError}`);
+          await showErrorOnLoadingPage(mainWindow, crashError);
+          return { win: mainWindow, serverUrl, webUrl };
+        }
         args.log('Server health check failed. Loading fallback renderer entry.');
         await mainWindow.loadURL(args.entries.mainWindow);
         return { win: mainWindow, serverUrl, webUrl };
@@ -209,13 +267,19 @@ export async function createMainWindow(args: {
       return { win: mainWindow, serverUrl, webUrl };
     }
 
+    if (crashError) {
+      args.log(`Server crashed during startup: ${crashError}`);
+      await showErrorOnLoadingPage(mainWindow, crashError);
+      return { win: mainWindow, serverUrl, webUrl };
+    }
+
     args.log('Web URL check failed. Loading fallback renderer entry.');
-    // fallback 是 Forge 打包进来的极小本地页面，用于排查“为什么 web 没启动/没加载”。
+    // fallback 是 Forge 打包进来的极小本地页面，用于排查"为什么 web 没启动/没加载"。
     await mainWindow.loadURL(args.entries.mainWindow);
     return { win: mainWindow, serverUrl, webUrl };
   } catch (err) {
     args.log(`Failed to start/load services: ${String(err)}`);
-    await mainWindow.loadURL(args.entries.mainWindow);
+    await showErrorOnLoadingPage(mainWindow, String(err));
     return { win: mainWindow, serverUrl: args.initialServerUrl, webUrl: args.initialWebUrl };
   }
 }

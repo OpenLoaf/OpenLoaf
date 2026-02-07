@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { ToolLoopAgent } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
@@ -6,6 +5,7 @@ import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 import { testApprovalSubAgentName } from "@tenas-ai/api/types/tools/subAgent";
 import { buildToolset } from "@/ai/tools/toolRegistry";
 import { createToolCallRepair } from "@/ai/agents/repairToolCall";
+import TEST_APPROVAL_SUB_AGENT_PROMPT_RAW from "./testApprovalSubAgent.zh.md";
 
 /** Test approval sub-agent display name. */
 export const TEST_APPROVAL_SUB_AGENT_NAME = testApprovalSubAgentName;
@@ -17,14 +17,7 @@ const TEST_APPROVAL_SUB_AGENT_TOOL_IDS = [
   timeNowToolDef.id,
 ] as const;
 /** Default test approval sub-agent system prompt. */
-const TEST_APPROVAL_SUB_AGENT_PROMPT_URL = new URL(
-  "./testApprovalSubAgent.zh.md",
-  import.meta.url,
-);
-const DEFAULT_TEST_APPROVAL_SUB_AGENT_SYSTEM_PROMPT = readFileSync(
-  TEST_APPROVAL_SUB_AGENT_PROMPT_URL,
-  "utf8",
-).trim();
+const DEFAULT_TEST_APPROVAL_SUB_AGENT_SYSTEM_PROMPT = TEST_APPROVAL_SUB_AGENT_PROMPT_RAW.trim();
 
 type CreateTestApprovalSubAgentInput = {
   /** Model instance for the sub-agent. */

@@ -141,6 +141,24 @@ export const SidebarWorkspace = () => {
     }
   };
 
+  /** Trigger incremental update check for Electron. */
+  const handleCheckUpdate = React.useCallback(async () => {
+    const api = window.tenasElectron;
+    if (!api?.checkIncrementalUpdate) {
+      toast.message("当前环境不支持更新检查");
+      return;
+    }
+    const result = await api.checkIncrementalUpdate();
+    if (result.ok) {
+      toast.success("已触发更新检查");
+      return;
+    }
+    // 中文注释：未打包环境的错误提示需要转换为可读文案。
+    const reason =
+      result.reason === "not-packaged" ? "当前环境不支持更新检查" : result.reason;
+    toast.error(reason ? `更新检查失败：${reason}` : "更新检查失败");
+  }, []);
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -219,7 +237,7 @@ export const SidebarWorkspace = () => {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
-                  onSelect={() => toast.message("暂未接入更新检查")}
+                  onSelect={() => void handleCheckUpdate()}
                   className="rounded-lg"
                 >
                   <RefreshCcw className="size-4" />

@@ -31,14 +31,15 @@ export async function isUrlOk(
 }
 
 /**
- * 轮询等待 URL 可访问，直到超时或成功。
+ * 轮询等待 URL 可访问，直到超时、成功或被 abort。
  */
 export async function waitForUrlOk(
   url: string,
-  { timeoutMs, intervalMs }: { timeoutMs: number; intervalMs: number }
+  { timeoutMs, intervalMs, signal }: { timeoutMs: number; intervalMs: number; signal?: AbortSignal }
 ): Promise<boolean> {
   const start = Date.now();
   for (;;) {
+    if (signal?.aborted) return false;
     if (await isUrlOk(url)) return true;
     if (Date.now() - start > timeoutMs) return false;
     await sleep(intervalMs);

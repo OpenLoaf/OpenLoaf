@@ -6,10 +6,12 @@ import { installAutoUpdate } from './autoUpdate';
 import { installIncrementalUpdate } from './incrementalUpdate';
 
 // 打包后原生模块（sharp、@libsql 等）位于 Resources/node_modules 目录。
-// Node.js 标准解析会从 asar 向上查找到 Resources/node_modules/，
-// globalPaths 作为额外保障。
+// electron-builder 将依赖放在 Resources/node_modules/（标准解析可达），
+// Forge package 则平铺在 Resources/（如 Resources/sharp/）。
+// 同时添加两个路径，确保两种打包方式都能正确解析。
 if (app.isPackaged) {
   Module.globalPaths.push(path.join(process.resourcesPath, 'node_modules'));
+  Module.globalPaths.push(process.resourcesPath);
 }
 import {
   createStartupLogger,
@@ -442,7 +444,7 @@ async function boot() {
     handleProtocolUrl(pendingProtocolUrl);
   }
 
-  // 打包版自动检查更新；dev 模式会自动跳过。
+  // 打包版自动检查 Electron 本体更新；dev 模式会自动跳过。
   installAutoUpdate({ log });
   // 增量更新（server/web）；dev 模式会自动跳过。
   installIncrementalUpdate({ log });

@@ -19,6 +19,7 @@ await build({
   format: "esm",
   outfile: "dist/server.mjs",
   external: ["playwright-core"],
+  loader: { ".md": "text" },
   banner: {
     js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
   },

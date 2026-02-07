@@ -45,6 +45,8 @@ const config: ForgeConfig = {
       '../../node_modules/@img',
       // node-pty 依赖 native prebuilds（pty.node 与 spawn-helper），需要随应用打包。
       '../../node_modules/node-pty/prebuilds',
+      // Playwright core 用于网页元数据截图。
+      '../../node_modules/playwright-core',
       // Prisma libsql adapter loads a native binding at runtime (e.g. `@libsql/darwin-arm64`).
       // Since `server.mjs` is executed from `process.resourcesPath`, ship the `@libsql/*` packages
       // into Resources as well (resolved via NODE_PATH in prodServices).

@@ -26,7 +26,7 @@ export function AboutTenas() {
   const [copiedKey, setCopiedKey] = React.useState<"clientId" | null>(null);
   const [webContentsViewCount, setWebContentsViewCount] = React.useState<number | null>(null);
   const [appVersion, setAppVersion] = React.useState<string | null>(null);
-  const [updateStatus, setUpdateStatus] = React.useState<TenasAutoUpdateStatus | null>(
+  const [updateStatus, setUpdateStatus] = React.useState<TenasIncrementalUpdateStatus | null>(
     null,
   );
   const isElectron = React.useMemo(() => isElectronEnv(), []);
@@ -63,29 +63,24 @@ export function AboutTenas() {
     }
   }, [isElectron]);
 
-  /** Fetch latest update status snapshot from Electron main process. */
+  /** Fetch latest incremental update status snapshot from Electron main process. */
   const fetchUpdateStatus = React.useCallback(async () => {
     const api = window.tenasElectron;
-    if (!isElectron || !api?.getAutoUpdateStatus) return;
+    if (!isElectron || !api?.getIncrementalUpdateStatus) return;
     try {
-      const status = await api.getAutoUpdateStatus();
+      const status = await api.getIncrementalUpdateStatus();
       if (status) setUpdateStatus(status);
     } catch {
       // ignore
     }
   }, [isElectron]);
 
-  /** Trigger update check or install depending on current state. */
+  /** Trigger incremental update check. */
   const triggerUpdateAction = React.useCallback(async () => {
     const api = window.tenasElectron;
     if (!isElectron || !api) return;
-    // 已下载则直接重启安装，否则触发更新检查。
-    if (updateStatus?.state === "downloaded") {
-      await api.installUpdate?.();
-      return;
-    }
-    await api.checkForUpdates?.();
-  }, [isElectron, updateStatus?.state]);
+    await api.checkIncrementalUpdate?.();
+  }, [isElectron]);
 
   /** Fetch WebContentsView count from Electron main process via IPC. */
   const fetchWebContentsViewCount = React.useCallback(async () => {
@@ -142,13 +137,14 @@ export function AboutTenas() {
     if (!isElectron) return;
 
     const onUpdateStatus = (event: Event) => {
-      const detail = (event as CustomEvent<TenasAutoUpdateStatus>).detail;
+      const detail = (event as CustomEvent<TenasIncrementalUpdateStatus>).detail;
       if (!detail) return;
       setUpdateStatus(detail);
     };
 
-    window.addEventListener("tenas:auto-update:status", onUpdateStatus);
-    return () => window.removeEventListener("tenas:auto-update:status", onUpdateStatus);
+    window.addEventListener("tenas:incremental-update:status", onUpdateStatus);
+    return () =>
+      window.removeEventListener("tenas:incremental-update:status", onUpdateStatus);
   }, [isElectron]);
 
   /** Reload the current page. */
@@ -170,60 +166,74 @@ export function AboutTenas() {
     }
   }, []);
 
-  const currentVersion = appVersion ?? updateStatus?.currentVersion ?? "—";
+  const currentVersion = appVersion ?? "—";
   const downloadPercent = updateStatus?.progress?.percent;
   const updateLabel = React.useMemo(() => {
-    if (!isElectron) return "网页版不支持自动更新";
+    if (!isElectron) return "网页版不支持增量更新";
     if (!updateStatus) return "等待检测更新";
-    const next = updateStatus.nextVersion ? `v${updateStatus.nextVersion}` : "新版本";
+    const componentLabel =
+      updateStatus.progress?.component === "server" ? "服务端" : "Web";
+    // 兼容 idle 状态下仍有错误提示的情况（例如 Electron 版本过低）。
+    if (updateStatus.state === "idle" && updateStatus.error) {
+      return `更新失败：${updateStatus.error}`;
+    }
     switch (updateStatus.state) {
       case "checking":
         return "正在检查更新...";
-      case "available":
-        return `发现 ${next}，正在下载`;
       case "downloading":
-        return `正在下载更新 ${Math.round(downloadPercent ?? 0)}%`;
-      case "downloaded":
-        return `${next} 已下载，等待重启`;
-      case "not-available":
-        return "当前已是最新版本";
+        return updateStatus.progress
+          ? `正在下载${componentLabel}更新 ${Math.round(downloadPercent ?? 0)}%`
+          : "正在下载更新...";
+      case "ready":
+        return "更新已准备好，重启后生效";
       case "error":
         return updateStatus.error ? `更新失败：${updateStatus.error}` : "更新失败";
       case "idle":
       default:
-        return "等待检测更新";
+        return updateStatus.lastCheckedAt ? "当前已是最新版本" : "等待检测更新";
     }
   }, [isElectron, updateStatus, downloadPercent]);
 
-  const updateActionLabel = updateStatus?.state === "downloaded" ? "立即重启" : "检测更新";
+  const updateActionLabel =
+    updateStatus?.state === "ready" ? "更新已就绪" : "检测更新";
   const updateActionDisabled =
     !isElectron ||
     updateStatus?.state === "checking" ||
-    updateStatus?.state === "available" ||
-    updateStatus?.state === "downloading";
+    updateStatus?.state === "downloading" ||
+    updateStatus?.state === "ready";
+  const serverVersion = updateStatus?.server?.version ?? "—";
+  const webVersion = updateStatus?.web?.version ?? "—";
 
   return (
     <div className="space-y-6">
       <TenasSettingsGroup title="版本">
-        <div className="flex flex-wrap items-start gap-3 py-3">
-          <div className="min-w-0">
-            <div className="flex items-baseline gap-2">
-              <div className="text-sm font-medium">Tenas</div>
-              <div className="text-xs text-muted-foreground">v{currentVersion}</div>
+        <div className="space-y-3 py-3">
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="min-w-0">
+              <div className="flex items-baseline gap-2">
+                <div className="text-sm font-medium">Tenas</div>
+                <div className="text-xs text-muted-foreground">v{currentVersion}</div>
+              </div>
+              <div className="text-xs text-muted-foreground">{updateLabel}</div>
             </div>
-            <div className="text-xs text-muted-foreground">{updateLabel}</div>
+
+            <TenasSettingsField>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={updateActionDisabled}
+                onClick={() => void triggerUpdateAction()}
+              >
+                {updateActionLabel}
+              </Button>
+            </TenasSettingsField>
           </div>
 
-          <TenasSettingsField>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={updateActionDisabled}
-              onClick={() => void triggerUpdateAction()}
-            >
-              {updateActionLabel}
-            </Button>
-          </TenasSettingsField>
+          <div className="space-y-1 text-xs text-muted-foreground">
+            <div>桌面端：v{currentVersion}</div>
+            <div>服务端：v{serverVersion}</div>
+            <div>Web：v{webVersion}</div>
+          </div>
         </div>
       </TenasSettingsGroup>
 

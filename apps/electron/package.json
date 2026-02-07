@@ -35,6 +35,10 @@
         "to": "server.mjs"
       },
       {
+        "from": "../../apps/server/package.json",
+        "to": "server.package.json"
+      },
+      {
         "from": "../../apps/server/dist/seed.db",
         "to": "seed.db"
       },
@@ -43,20 +47,8 @@
         "to": "out"
       },
       {
-        "from": "../../apps/server/src/ai/agents/subagent/browserSubAgent.zh.md",
-        "to": "browserSubAgent.zh.md"
-      },
-      {
-        "from": "../../apps/server/src/ai/agents/subagent/documentAnalysisSubAgent.zh.md",
-        "to": "documentAnalysisSubAgent.zh.md"
-      },
-      {
-        "from": "../../apps/server/src/ai/agents/subagent/testApprovalSubAgent.zh.md",
-        "to": "testApprovalSubAgent.zh.md"
-      },
-      {
-        "from": "../../apps/server/src/ai/agents/masterAgent/masterAgentPrompt.zh.md",
-        "to": "masterAgentPrompt.zh.md"
+        "from": "../../apps/web/package.json",
+        "to": "web.package.json"
       },
       {
         "from": "../../node_modules/sharp",
@@ -232,9 +224,8 @@
     },
     "publish": [
       {
-        "provider": "github",
-        "owner": "YOUR_GITHUB_OWNER",
-        "repo": "YOUR_GITHUB_REPO"
+        "provider": "generic",
+        "url": "https://r2-tenas-update.hexems.com/electron"
       }
     ]
   },
@@ -246,7 +237,6 @@
     "package": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge package",
     "dist:dev": "pnpm run package && node scripts/dist.mjs --config.mac.identity=null",
     "dist:production": "pnpm run package && node scripts/dist.mjs",
-    "dist:production:publish": "pnpm run package && node scripts/dist.mjs --publish=always",
     "dist:resign": "node scripts/dist.mjs",
     "check-types": "pnpm -w exec tsc -p apps/electron/tsconfig.json --noEmit",
     "lint": "eslint src"

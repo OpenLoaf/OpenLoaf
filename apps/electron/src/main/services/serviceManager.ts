@@ -12,6 +12,8 @@ export type ServiceManager = {
   }) => Promise<{
     serverUrl: string;
     webUrl: string;
+    /** Resolves with stderr summary when server process crashes; never resolves if healthy. */
+    serverCrashed?: Promise<string>;
   }>;
   stop: () => void;
 };
@@ -81,7 +83,7 @@ export function createServiceManager(log: Logger): ServiceManager {
       });
       managedServer = prod.managedServer;
       productionWebServer = prod.productionWebServer;
-      return { serverUrl: initialServerUrl, webUrl: initialWebUrl };
+      return { serverUrl: initialServerUrl, webUrl: initialWebUrl, serverCrashed: prod.serverCrashed };
     }
 
     // 开发环境：优先复用已在跑的服务，否则通过 pnpm workspaces 拉起。

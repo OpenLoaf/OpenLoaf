@@ -251,13 +251,11 @@ export function BoardCanvas({
     writeThumbnailRef.current = writeThumbnailMutation.mutateAsync;
   }, [writeThumbnailMutation.mutateAsync]);
 
-  useEffect(() => {
-    if (nodesRegisteredRef.current) return;
-    if (!nodes || nodes.length === 0) return;
-    // 只在首次挂载时注册节点定义，避免重复注册报错。
+  if (!nodesRegisteredRef.current && nodes && nodes.length > 0) {
+    // 逻辑：在首帧前注册节点定义，避免协作数据先到导致空白渲染。
     engine.registerNodes(nodes);
     nodesRegisteredRef.current = true;
-  }, [engine, nodes]);
+  }
 
   const openImagePreview = (payload: ImagePreviewPayload) => {
     // 逻辑：画布预览统一走全屏弹窗，避免节点内各自实现。

@@ -3,7 +3,7 @@ import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Logger } from '../logging/startupLogger';
-import { checkForUpdates, getAutoUpdateStatus, installUpdate } from '../autoUpdate';
+import { restartForUpdates } from '../autoUpdate';
 import {
   checkForIncrementalUpdates,
   getIncrementalUpdateStatus,
@@ -258,6 +258,8 @@ export function registerIpcHandlers(args: { log: Logger }) {
 
   // 提供应用版本号给渲染端展示。
   ipcMain.handle('tenas:app:version', async () => app.getVersion());
+  // 重启应用以应用更新。
+  ipcMain.handle('tenas:app:relaunch', async () => restartForUpdates());
 
   // Provide runtime port info for renderer initialization.
   ipcMain.on('tenas:runtime:ports', (event) => {
@@ -510,21 +512,6 @@ export function registerIpcHandlers(args: { log: Logger }) {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return { ok: false as const };
     return { ok: true as const, count: getWebContentsViewCount(win) };
-  });
-
-  // 手动触发更新检查（用于设置页“检测更新”按钮）。
-  ipcMain.handle('tenas:auto-update:check', async () => {
-    return await checkForUpdates('manual');
-  });
-
-  // 获取最新更新状态快照（用于设置页首次渲染）。
-  ipcMain.handle('tenas:auto-update:status', async () => {
-    return getAutoUpdateStatus();
-  });
-
-  // 安装已下载的更新并重启。
-  ipcMain.handle('tenas:auto-update:install', async () => {
-    return installUpdate();
   });
 
   // 手动触发增量更新检查（server/web 增量更新）。
