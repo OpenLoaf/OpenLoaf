@@ -125,6 +125,14 @@ export async function createMainWindow(args: {
   disableZoom(mainWindow);
   let allowClose = false;
   let quitConfirming = false;
+  let forceExitTimer: ReturnType<typeof setTimeout> | null = null;
+  const scheduleForceExit = () => {
+    if (forceExitTimer) return;
+    forceExitTimer = setTimeout(() => {
+      args.log('Graceful quit timed out. Forcing app exit.');
+      app.exit(0);
+    }, 5000);
+  };
   const confirmQuit = () => {
     if (quitConfirming) return false;
     quitConfirming = true;
@@ -139,6 +147,7 @@ export async function createMainWindow(args: {
     quitConfirming = false;
     if (response === 1) {
       allowClose = true;
+      scheduleForceExit();
       return true;
     }
     return false;

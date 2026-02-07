@@ -457,6 +457,11 @@ if (!gotTheLock) {
   app.on('will-quit', () => stopServices('will-quit'));
   app.on('quit', () => stopServices('quit'));
 
+  const handleProcessTermination = (reason: string) => {
+    log(`Process shutdown (${reason}).`);
+    stopServices(`process:${reason}`);
+  };
+
   const handleSignal = (signal: NodeJS.Signals) => {
     log(`Received ${signal}.`);
     stopServices(`signal:${signal}`);
@@ -464,6 +469,9 @@ if (!gotTheLock) {
   process.on('SIGINT', handleSignal);
   process.on('SIGTERM', handleSignal);
   process.on('SIGHUP', handleSignal);
+  process.once('exit', (code) => handleProcessTermination(`exit:${code ?? 'null'}`));
+  process.once('uncaughtException', () => handleProcessTermination('uncaughtException'));
+  process.once('unhandledRejection', () => handleProcessTermination('unhandledRejection'));
 
   app.whenReady().then(() => {
     log('App ready.');
