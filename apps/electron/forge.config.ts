@@ -133,15 +133,16 @@ const postPackageHook: ForgeConfig['hooks'] = {
         console.log(`[postPackage]   + ${pkg}`);
       }
 
-      // 3) node-pty: 仅需 prebuilds/（JS 由 webpack 打包）
+      // 3) node-pty prebuilds：
+      //    node-pty 被 esbuild 打包进 server.mjs，加载 pty.node 时用
+      //    相对于 server.mjs 的路径 ./prebuilds/darwin-arm64/pty.node，
+      //    即 Resources/prebuilds/（不是 node_modules/node-pty/prebuilds/）。
       const prebuildsSrc = path.join(MONOREPO_NODE_MODULES, 'node-pty', 'prebuilds');
       if (fs.existsSync(prebuildsSrc)) {
-        const ptyDir = path.join(destNmDir, 'node-pty');
-        fs.mkdirSync(ptyDir, { recursive: true });
-        const prebuildsDest = path.join(ptyDir, 'prebuilds');
+        const prebuildsDest = path.join(resourcesDir, 'prebuilds');
         if (!fs.existsSync(prebuildsDest)) {
           fs.cpSync(prebuildsSrc, prebuildsDest, { recursive: true });
-          console.log('[postPackage]   + node-pty/prebuilds');
+          console.log('[postPackage]   + prebuilds/ (node-pty)');
         }
       }
     }

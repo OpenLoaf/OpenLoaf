@@ -29,20 +29,44 @@ function stripFrontmatter(raw: string): string {
 }
 
 /**
- * Fetch and merge changelogs from multiple URLs.
+ * Detect user language code (e.g. 'zh', 'en').
  */
-async function fetchChangelogs(urls: string[]): Promise<string | null> {
-  const parts: string[] = [];
-  for (const url of urls) {
+function detectLang(): string {
+  const raw = typeof navigator !== "undefined" ? navigator.language : "zh-CN";
+  const primary = raw.split("-")[0].toLowerCase();
+  return primary || "zh";
+}
+
+/**
+ * Fetch a single changelog with language fallback.
+ * changelogUrl is a base URL without extension (e.g. https://r2.../changelogs/server/0.1.0).
+ * Tries {base}.{lang}.md first, falls back to {base}.zh.md.
+ */
+async function fetchChangelogWithLang(baseUrl: string, lang: string): Promise<string | null> {
+  const candidates = lang === "zh" ? [`${baseUrl}.zh.md`] : [`${baseUrl}.${lang}.md`, `${baseUrl}.zh.md`];
+  for (const url of candidates) {
     try {
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) continue;
       const raw = await res.text();
       const body = stripFrontmatter(raw);
-      if (body) parts.push(body);
+      if (body) return body;
     } catch {
-      // ignore individual failures
+      // ignore
     }
+  }
+  return null;
+}
+
+/**
+ * Fetch and merge changelogs from multiple base URLs.
+ */
+async function fetchChangelogs(baseUrls: string[]): Promise<string | null> {
+  const lang = detectLang();
+  const parts: string[] = [];
+  for (const url of baseUrls) {
+    const body = await fetchChangelogWithLang(url, lang);
+    if (body) parts.push(body);
   }
   return parts.length > 0 ? parts.join("\n\n---\n\n") : null;
 }

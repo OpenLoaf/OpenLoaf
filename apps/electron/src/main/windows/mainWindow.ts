@@ -33,10 +33,10 @@ async function showErrorOnLoadingPage(win: BrowserWindow, error: string): Promis
         wrapper.style.cssText = 'position:relative;max-width:90vw;margin-top:12px;';
         var pre = document.createElement('pre');
         pre.textContent = '${escaped}';
-        pre.style.cssText = 'max-height:50vh;overflow:auto;font-size:11px;color:#9c9ea4;white-space:pre-wrap;word-break:break-all;text-align:left;padding:12px;padding-top:36px;background:rgba(255,255,255,0.05);border-radius:8px;';
+        pre.style.cssText = 'max-height:50vh;overflow:auto;font-size:11px;color:#9c9ea4;white-space:pre-wrap;word-break:break-all;text-align:left;padding:12px;background:rgba(255,255,255,0.05);border-radius:8px;';
         var btn = document.createElement('button');
         btn.textContent = 'Copy';
-        btn.style.cssText = 'position:absolute;top:14px;right:8px;padding:3px 10px;font-size:11px;color:#9c9ea4;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:4px;cursor:pointer;z-index:1;';
+        btn.style.cssText = 'position:absolute;top:20px;right:8px;padding:3px 10px;font-size:11px;color:#9c9ea4;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:4px;cursor:pointer;z-index:1;';
         btn.onmouseenter = function() { btn.style.background = 'rgba(255,255,255,0.15)'; };
         btn.onmouseleave = function() { btn.style.background = 'rgba(255,255,255,0.08)'; };
         btn.onclick = function() {

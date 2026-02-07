@@ -172,7 +172,18 @@ export function resolveChannel(args, version) {
 // ---------------------------------------------------------------------------
 
 /**
+ * 解析 changelog 文件名：{version}.{lang}.md → { version, lang }
+ * 例如 0.1.0.zh.md → { version: '0.1.0', lang: 'zh' }
+ */
+function parseChangelogFilename(filename) {
+  const match = filename.match(/^(.+?)\.([a-z]{2})\.md$/)
+  if (!match) return null
+  return { version: match[1], lang: match[2] }
+}
+
+/**
  * 扫描本地 changelogs 目录并上传到 R2。
+ * 文件名格式：{version}.{lang}.md（如 0.1.0.zh.md、0.1.0.en.md）
  * 同时更新 changelogs/index.json。
  *
  * @param {object} opts
@@ -194,11 +205,18 @@ export async function uploadChangelogs({ s3, bucket, component, changelogsDir, p
     return
   }
 
-  // 上传每个 changelog 文件
-  const entries = []
+  // 上传每个 changelog 文件，按版本号聚合索引条目
+  /** @type {Map<string, { version: string, date: string, langs: string[] }>} */
+  const versionMap = new Map()
+
   for (const file of files) {
     const filePath = path.join(changelogsDir, file)
-    const version = file.replace(/\.md$/, '')
+    const parsed = parseChangelogFilename(file)
+    if (!parsed) {
+      console.log(`   Skipping ${file} (unexpected filename format, expected {version}.{lang}.md)`)
+      continue
+    }
+
     const r2Key = `changelogs/${component}/${file}`
     console.log(`   Uploading changelog: ${r2Key}`)
     const content = readFileSync(filePath)
@@ -211,14 +229,23 @@ export async function uploadChangelogs({ s3, bucket, component, changelogsDir, p
       })
     )
 
-    // 从 frontmatter 提取 date
+    // 从 frontmatter 提取 date，聚合到版本条目
     const raw = readFileSync(filePath, 'utf-8')
     const dateMatch = raw.match(/^---[\s\S]*?date:\s*(\S+)[\s\S]*?---/)
     const date = dateMatch ? dateMatch[1] : new Date().toISOString().slice(0, 10)
-    entries.push({ version, date })
+
+    const existing = versionMap.get(parsed.version)
+    if (existing) {
+      if (!existing.langs.includes(parsed.lang)) {
+        existing.langs.push(parsed.lang)
+      }
+    } else {
+      versionMap.set(parsed.version, { version: parsed.version, date, langs: [parsed.lang] })
+    }
   }
 
   // 按版本号降序排列
+  const entries = Array.from(versionMap.values())
   entries.sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))
 
   // 更新 changelogs/index.json
@@ -234,8 +261,9 @@ export async function uploadChangelogs({ s3, bucket, component, changelogsDir, p
 }
 
 /**
- * 为组件的 manifest 条目生成 changelogUrl。
+ * 为组件的 manifest 条目生成 changelogUrl（不含语言后缀和扩展名）。
+ * 客户端负责拼接 .{lang}.md 后缀。
  */
 export function buildChangelogUrl(publicUrl, component, version) {
-  return `${publicUrl}/changelogs/${component}/${version}.md`
+  return `${publicUrl}/changelogs/${component}/${version}`
 }
