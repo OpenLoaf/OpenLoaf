@@ -95,15 +95,35 @@ Electron 本体发布：`cd apps/electron && pnpm run dist:production`
 
 **如果任何命令失败，立即停止，报告错误，不继续后续步骤。**
 
-### Step 6: 提交所有发布变更
+### Step 6: 提交所有发布变更并推送
+
+publish 完成后，将本次发布产生的所有变更（package.json 版本号、changelog 文件等）提交并推送。
+
+**Commit message 格式：** 标题行为版本号，正文为英文 changelog 内容。
+
+```
+release: server@{version}, web@{version}
+
+### Server {version}
+
+- Feature A
+- Fix B
+
+### Web {version}
+
+- Feature C
+- Improvement D
+```
+
+单个 app 发布时省略另一个 section。
 
 ```bash
 git add -A
-git commit -m "release: {app}@{newVersion}"
+git commit -m "release: {app}@{newVersion}
+
+{英文 changelog 正文，去掉 front matter}"
 git push
 ```
-
-多个 app 同时发布：`release: server@{version}, web@{version}`
 
 ---
 
