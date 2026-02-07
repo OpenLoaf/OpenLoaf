@@ -62,9 +62,16 @@ const DEFAULT_RUNTIME: TabRuntime = {
   stack: [],
   leftWidthPercent: 0,
   rightChatCollapsed: false,
+  rightChatCollapsedSnapshot: undefined,
   stackHidden: false,
   activeStackItemId: "",
 };
+
+/** Return true when the stack contains a board viewer item. */
+function hasBoardStackItem(stack?: DockItem[]) {
+  // 逻辑：只要存在 board-viewer，就认为画布处于打开状态。
+  return (stack ?? []).some((item) => item.component === BOARD_VIEWER_COMPONENT);
+}
 
 function normalizeRuntime(input?: TabRuntime): TabRuntime {
   const base = input?.base;
@@ -80,6 +87,11 @@ function normalizeRuntime(input?: TabRuntime): TabRuntime {
   const minLeftWidth = Number.isFinite(input?.minLeftWidth)
     ? (input?.minLeftWidth as number)
     : undefined;
+  const hasBoard = hasBoardStackItem(stack);
+  const rightChatCollapsedSnapshot =
+    hasBoard && typeof input?.rightChatCollapsedSnapshot === "boolean"
+      ? input.rightChatCollapsedSnapshot
+      : undefined;
 
   return {
     base,
@@ -87,6 +99,7 @@ function normalizeRuntime(input?: TabRuntime): TabRuntime {
     leftWidthPercent,
     minLeftWidth,
     rightChatCollapsed: base ? Boolean(input?.rightChatCollapsed) : false,
+    rightChatCollapsedSnapshot,
     stackHidden: Boolean(input?.stackHidden),
     activeStackItemId:
       typeof input?.activeStackItemId === "string" ? input.activeStackItemId : "",
@@ -248,11 +261,17 @@ export const useTabRuntime = create<TabRuntimeState>()(
         let shouldRestoreFull = false;
         set((state) => {
           const current = resolveRuntime(state.runtimeByTabId[tabId]);
+          const wasBoardOpen = hasBoardStackItem(current.stack);
+          const isBoardItem = item.component === BOARD_VIEWER_COMPONENT;
+          const shouldCaptureSnapshot = isBoardItem && !wasBoardOpen;
           const wasHidden = Boolean(current.stackHidden);
           shouldRestoreFull =
             wasHidden &&
             item.component === BOARD_VIEWER_COMPONENT &&
             Boolean((item.params as any)?.__boardFull);
+          const nextRightChatCollapsedSnapshot = shouldCaptureSnapshot
+            ? Boolean(current.rightChatCollapsed)
+            : current.rightChatCollapsedSnapshot;
           // 中文注释：如果之前是最小化状态，标记本次打开用于关闭时恢复隐藏。
           const nextItem = wasHidden
             ? {
@@ -335,8 +354,13 @@ export const useTabRuntime = create<TabRuntimeState>()(
                   ? current.leftWidthPercent
                   : LEFT_DOCK_DEFAULT_PERCENT,
             ),
-            // 中文注释：恢复画布全屏时同步收起右侧面板，避免恢复后宽度闪动。
-            rightChatCollapsed: shouldRestoreFull ? true : current.rightChatCollapsed,
+            // 中文注释：打开画布时记录右侧栏原状态，并强制收起右侧栏。
+            rightChatCollapsed: shouldRestoreFull
+              ? true
+              : isBoardItem
+                ? true
+                : current.rightChatCollapsed,
+            rightChatCollapsedSnapshot: nextRightChatCollapsedSnapshot,
           });
 
           return {
@@ -355,6 +379,9 @@ export const useTabRuntime = create<TabRuntimeState>()(
           shouldExitFull = shouldExitBoardFullOnClose(current, itemId);
           const targetItem = current.stack.find((item) => item.id === itemId);
           const nextStack = current.stack.filter((item) => item.id !== itemId);
+          const hasBoardAfter = hasBoardStackItem(nextStack);
+          const shouldRestoreRight =
+            !hasBoardAfter && typeof current.rightChatCollapsedSnapshot === "boolean";
           const shouldRestoreHidden = Boolean(
             (targetItem?.params as any)?.__restoreStackHidden,
           );
@@ -374,7 +401,15 @@ export const useTabRuntime = create<TabRuntimeState>()(
                 : shouldRestoreHidden
                   ? true
                   : current.stackHidden,
-            rightChatCollapsed: shouldExitFull ? false : current.rightChatCollapsed,
+            // 中文注释：关闭最后一个画布时恢复右侧栏到打开前状态。
+            rightChatCollapsed: shouldRestoreRight
+              ? current.rightChatCollapsedSnapshot
+              : shouldExitFull
+                ? false
+                : current.rightChatCollapsed,
+            rightChatCollapsedSnapshot: hasBoardAfter
+              ? current.rightChatCollapsedSnapshot
+              : undefined,
           });
 
           return {
@@ -391,12 +426,20 @@ export const useTabRuntime = create<TabRuntimeState>()(
         set((state) => {
           const current = resolveRuntime(state.runtimeByTabId[tabId]);
           shouldExitFull = shouldExitBoardFullOnClose(current);
+          const shouldRestoreRight =
+            typeof current.rightChatCollapsedSnapshot === "boolean";
           const nextRuntime = normalizeRuntime({
             ...current,
             stack: [],
             activeStackItemId: "",
             stackHidden: false,
-            rightChatCollapsed: shouldExitFull ? false : current.rightChatCollapsed,
+            // 中文注释：清空所有 stack 时，如果存在画布快照则还原右侧栏状态。
+            rightChatCollapsed: shouldRestoreRight
+              ? current.rightChatCollapsedSnapshot
+              : shouldExitFull
+                ? false
+                : current.rightChatCollapsed,
+            rightChatCollapsedSnapshot: undefined,
           });
           return {
             runtimeByTabId: { ...state.runtimeByTabId, [tabId]: nextRuntime },

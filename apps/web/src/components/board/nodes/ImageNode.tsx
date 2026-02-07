@@ -15,9 +15,9 @@ import {
 import { useBoardContext } from "../core/BoardProvider";
 import { buildImageNodePayloadFromUri } from "../utils/image";
 import { ImageNodeDetail } from "./ImageNodeDetail";
-import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./ImagePromptGenerateNode";
-import { IMAGE_GENERATE_NODE_TYPE } from "./ImageGenerateNode";
-import { VIDEO_GENERATE_NODE_TYPE } from "./VideoGenerateNode";
+import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./imagePromptGenerate";
+import { IMAGE_GENERATE_NODE_TYPE } from "./imageGenerate";
+import { VIDEO_GENERATE_NODE_TYPE } from "./videoGenerate";
 import { NodeFrame } from "./NodeFrame";
 import type { BoardFileContext } from "../core/BoardProvider";
 import {
@@ -28,6 +28,7 @@ import {
 import { arrayBufferToBase64 } from "../utils/base64";
 import { getPreviewEndpoint } from "@/lib/image/uri";
 import { isProjectAbsolutePath } from "@/components/project/filesystem/utils/file-system-utils";
+import { IMAGE_NODE_MAX_SIZE, IMAGE_NODE_MIN_SIZE } from "./node-config";
 
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
@@ -477,8 +478,8 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
     resizeMode: "uniform",
     rotatable: false,
     connectable: "anchors",
-    minSize: { w: 120, h: 90 },
-    maxSize: { w: 960, h: 720 },
+    minSize: IMAGE_NODE_MIN_SIZE,
+    maxSize: IMAGE_NODE_MAX_SIZE,
   },
   connectorTemplates: () => IMAGE_NODE_CONNECTOR_TEMPLATES,
   // 逻辑：图片节点提供下载/复制原图入口，保持编辑与导出分离。

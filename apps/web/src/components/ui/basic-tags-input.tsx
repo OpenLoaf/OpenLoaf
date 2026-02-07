@@ -1,9 +1,9 @@
 "use client";
 
 import { TagsInput } from "@ark-ui/react/tags-input";
-import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent } from "@tenas-ai/ui/popover";
 import { X } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 type TagsInputBasicProps = {
   value?: string[];
@@ -59,13 +59,14 @@ export default function TagsInputBasic({
     ? "flex-1 min-w-[60px] bg-transparent border-none outline-none text-[11px] text-gray-900 placeholder-gray-500 dark:text-gray-100 dark:placeholder-gray-400"
     : "flex-1 min-w-[80px] bg-transparent border-none outline-none text-xs text-gray-900 placeholder-gray-500 dark:text-gray-100 dark:placeholder-gray-400";
   const suggestionsPanelClassName = dense
-    ? "z-50 w-full rounded-md border border-gray-200 bg-white p-1 shadow-none dark:border-gray-700 dark:bg-gray-800"
-    : "z-50 w-full rounded-md border border-gray-200 bg-white p-2 shadow-none dark:border-gray-700 dark:bg-gray-800";
+    ? "z-50 w-[var(--radix-popover-trigger-width)] rounded-md border border-gray-200 bg-white p-1 shadow-none dark:border-gray-700 dark:bg-gray-800"
+    : "z-50 w-[var(--radix-popover-trigger-width)] rounded-md border border-gray-200 bg-white p-2 shadow-none dark:border-gray-700 dark:bg-gray-800";
   const suggestionItemClassName = dense
     ? "flex w-full items-center rounded px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
     : "flex w-full items-center rounded px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700";
 
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const controlRef = useRef<HTMLDivElement | null>(null);
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       if (disabled) {
@@ -100,48 +101,61 @@ export default function TagsInputBasic({
                 ) : null}
               </div>
               <Popover open={suggestionsOpen} onOpenChange={handleOpenChange}>
-                <PopoverTrigger asChild>
-                  <TagsInput.Control
-                    className={controlClassName}
-                    onPointerDown={() => {
-                      if (suggestions.length > 0 && !disabled) {
-                        setSuggestionsOpen(true);
-                      }
-                    }}
-                  >
-                    {tagsInput.value.map((tag, index) => (
-                      <TagsInput.Item
-                        key={`${tag}-${index}`}
-                        index={index}
-                        value={tag}
-                        className={itemClassName}
-                      >
-                        <TagsInput.ItemPreview className="flex items-center gap-1">
-                          <TagsInput.ItemText>{tag}</TagsInput.ItemText>
-                          <TagsInput.ItemDeleteTrigger className="flex items-center justify-center w-3 h-3 hover:bg-gray-200 rounded transition-colors dark:hover:bg-gray-600">
-                            <X className="w-2 h-2" />
-                          </TagsInput.ItemDeleteTrigger>
-                        </TagsInput.ItemPreview>
-                        <TagsInput.ItemInput className={itemInputClassName} />
-                      </TagsInput.Item>
-                    ))}
-                    <TagsInput.Input
-                      placeholder={placeholder}
-                      className={inputClassName}
-                      onFocus={() => {
+                <PopoverAnchor asChild>
+                  <div ref={controlRef}>
+                    <TagsInput.Control
+                      className={controlClassName}
+                      onPointerDown={() => {
                         if (suggestions.length > 0 && !disabled) {
                           setSuggestionsOpen(true);
                         }
                       }}
-                    />
-                  </TagsInput.Control>
-                </PopoverTrigger>
+                    >
+                      {tagsInput.value.map((tag, index) => (
+                        <TagsInput.Item
+                          key={`${tag}-${index}`}
+                          index={index}
+                          value={tag}
+                          className={itemClassName}
+                        >
+                          <TagsInput.ItemPreview className="flex items-center gap-1">
+                            <TagsInput.ItemText>{tag}</TagsInput.ItemText>
+                            <TagsInput.ItemDeleteTrigger className="flex items-center justify-center w-3 h-3 hover:bg-gray-200 rounded transition-colors dark:hover:bg-gray-600">
+                              <X className="w-2 h-2" />
+                            </TagsInput.ItemDeleteTrigger>
+                          </TagsInput.ItemPreview>
+                          <TagsInput.ItemInput className={itemInputClassName} />
+                        </TagsInput.Item>
+                      ))}
+                      <TagsInput.Input
+                        placeholder={placeholder}
+                        className={inputClassName}
+                        onFocus={() => {
+                          if (suggestions.length > 0 && !disabled) {
+                            setSuggestionsOpen(true);
+                          }
+                        }}
+                      />
+                    </TagsInput.Control>
+                  </div>
+                </PopoverAnchor>
                 {suggestions.length > 0 ? (
                   <PopoverContent
                     side="bottom"
                     align="start"
                     sideOffset={4}
                     className={suggestionsPanelClassName}
+                    onInteractOutside={(event) => {
+                      const target = event.target as Node | null;
+                      if (target && controlRef.current?.contains(target)) {
+                        event.preventDefault();
+                        return;
+                      }
+                      setSuggestionsOpen(false);
+                    }}
+                    onEscapeKeyDown={() => {
+                      setSuggestionsOpen(false);
+                    }}
                   >
                     {suggestions.map((tag) => {
                       const isActive = tagsInput.value.includes(tag);
@@ -158,6 +172,7 @@ export default function TagsInputBasic({
                             .join(" ")}
                           onClick={() => {
                             tagsInput.addValue(tag);
+                            setSuggestionsOpen(false);
                           }}
                         >
                           {tag}

@@ -1,3 +1,8 @@
+declare module "*.md" {
+  const content: string;
+  export default content;
+}
+
 declare module "mailparser" {
   export type ParsedMailAttachment = {
     filename?: string;

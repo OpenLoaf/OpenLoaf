@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { ToolLoopAgent } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { AgentFrame } from "@/ai/shared/context/requestContext";
@@ -29,6 +28,7 @@ import {
   writeStdinToolDefWin,
   updatePlanToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
+import MASTER_AGENT_PROMPT_RAW from "./masterAgentPrompt.zh.md";
 
 /** Master agent display name. */
 const MASTER_AGENT_NAME = "MasterAgent";
@@ -60,9 +60,6 @@ const MASTER_AGENT_TOOL_IDS = [
   // updatePlanToolDef.id,
 ] as const;
 
-/** Master agent base prompt url. */
-const MASTER_AGENT_PROMPT_URL = new URL("./masterAgentPrompt.zh.md", import.meta.url);
-
 export type MasterAgentModelInfo = {
   /** Model provider name. */
   provider: string;
@@ -79,12 +76,7 @@ type CreateMasterAgentInput = {
 
 /** Read base system prompt markdown content. */
 export function readMasterAgentBasePrompt(): string {
-  try {
-    // 逻辑：基础提示词固定在 masterAgent 目录下的 md 文件。
-    return readFileSync(MASTER_AGENT_PROMPT_URL, "utf8").trim();
-  } catch {
-    return "";
-  }
+  return MASTER_AGENT_PROMPT_RAW.trim();
 }
 
 /**

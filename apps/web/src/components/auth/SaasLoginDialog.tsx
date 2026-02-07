@@ -56,9 +56,13 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
   /** Handle dialog open state changes. */
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
-      // 关键逻辑：关闭弹窗时需要取消轮询，避免遗留状态。
-      cancelLogin();
-      setSelectedProvider(null);
+      // 先关闭 dialog，延迟重置所有状态，避免关闭动画期间闪现登录按钮。
+      onOpenChange(false);
+      setTimeout(() => {
+        cancelLogin();
+        setSelectedProvider(null);
+      }, 200);
+      return;
     }
     onOpenChange(nextOpen);
   };
@@ -93,51 +97,54 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
           <DialogDescription>选择登录方式并继续</DialogDescription>
         </DialogHeader>
         <div className="bg-card text-card-foreground">
-          <div className="space-y-2 px-8 pt-8 pb-6 text-center">
-            <h1
-              className={cn(
-                "text-[1.9rem] font-semibold leading-tight tracking-tight",
-                isLoginInProgress && "flex justify-center",
-              )}
-            >
-              {isLoginInProgress && providerMeta ? (
-                <>
-                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-muted/40">
-                    <img
-                      src={providerMeta.src}
-                      alt={providerMeta.alt}
-                      width={28}
-                      height={28}
-                      className="h-7 w-7 object-contain"
-                    />
-                  </span>
-                  <span className="sr-only">欢迎使用 Tenas</span>
-                </>
-              ) : (
-                "欢迎使用 Tenas"
-              )}
-            </h1>
-            <p
-              className={cn(
-                "text-sm",
-                loginStatus === "error"
-                  ? "text-destructive"
-                  : "text-muted-foreground",
-              )}
-            >
-              {subtitleText}
-            </p>
-          </div>
+          {!(isLoginInProgress && selectedProvider === "wechat") && (
+            <div className="space-y-2 px-8 pt-8 pb-6 text-center">
+              <h1
+                className={cn(
+                  "text-[1.9rem] font-semibold leading-tight tracking-tight",
+                  isLoginInProgress && "flex justify-center",
+                )}
+              >
+                {isLoginInProgress && providerMeta ? (
+                  <>
+                    <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-muted/40">
+                      <img
+                        src={providerMeta.src}
+                        alt={providerMeta.alt}
+                        width={28}
+                        height={28}
+                        className="h-7 w-7 object-contain"
+                      />
+                    </span>
+                    <span className="sr-only">欢迎使用 Tenas</span>
+                  </>
+                ) : (
+                  "欢迎使用 Tenas"
+                )}
+              </h1>
+              <p
+                className={cn(
+                  "text-sm",
+                  loginStatus === "error"
+                    ? "text-destructive"
+                    : "text-muted-foreground",
+                )}
+              >
+                {subtitleText}
+              </p>
+            </div>
+          )}
 
-          <div className="space-y-4 px-8 pb-6">
+          <div className={cn("space-y-4 px-8 pb-6", isLoginInProgress && selectedProvider === "wechat" && "pt-6")}>
             {isLoginInProgress ? (
               <div className="space-y-3">
                 {selectedProvider === "wechat" ? (
-                  <div className="flex justify-center">
+                  <div className="-mx-8 flex justify-center overflow-hidden">
                     <iframe
                       title="wechat-login"
                       src={wechatLoginUrl ?? undefined}
-                      className="h-[400px] w-[300px] rounded-lg border border-border/70 bg-background"
+                      scrolling="no"
+                      className="h-[340px] w-[540px] border-none bg-background"
                     />
                   </div>
                 ) : null}
@@ -148,9 +155,11 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
                     "hover:bg-muted/60",
                   )}
                   onClick={() => {
-                    cancelLogin();
-                    setSelectedProvider(null);
                     onOpenChange(false);
+                    setTimeout(() => {
+                      cancelLogin();
+                      setSelectedProvider(null);
+                    }, 200);
                   }}
                 >
                   取消登录

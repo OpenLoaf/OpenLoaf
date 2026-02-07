@@ -260,8 +260,8 @@ async function resolveLocalChatModel(input: {
   preferredChatModelId?: string | null;
 }): Promise<ResolvedChatModel> {
   const providers = await getProviderSettings();
-  const cliProviders = buildCliProviderEntries();
-  // 逻辑：CLI provider 作为内置项注入，避免依赖用户手动配置。
+  const cliProviders = await buildCliProviderEntries();
+  // 逻辑：CLI provider 仅在工具已安装时注入，避免 Auto 模式误选未安装的工具。
   const mergedProviders = [
     ...cliProviders.filter(
       (cliEntry) => !providers.some((entry) => entry.id === cliEntry.id),

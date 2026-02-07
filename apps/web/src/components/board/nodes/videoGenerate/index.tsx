@@ -1,114 +1,45 @@
-import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
-import { useCallback, useEffect, useMemo, useRef, type ChangeEvent } from "react";
-import { z } from "zod";
-import { Copy, Play, RotateCcw } from "lucide-react";
-import type {
-  ModelParameterDefinition,
-  ModelParameterFeature,
-} from "@tenas-ai/api/common";
+import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../../engine/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Copy, LogIn, Play, RotateCcw } from "lucide-react";
+import type { ModelParameterFeature } from "@tenas-ai/api/common";
 import { toast } from "sonner";
 
-import { useBoardContext } from "../core/BoardProvider";
+import { useBoardContext } from "../../core/BoardProvider";
 import { useMediaModels } from "@/hooks/use-media-models";
-import { filterVideoMediaModels } from "./lib/image-generation";
-import { Input } from "@tenas-ai/ui/input";
+import { filterVideoMediaModels } from "../lib/image-generation";
 import { Textarea } from "@tenas-ai/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@tenas-ai/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@tenas-ai/ui/select";
-import { getWorkspaceIdFromCookie } from "../core/boardSession";
-import type { ImageNodeProps } from "./ImageNode";
+import { Switch } from "@tenas-ai/ui/switch";
+import { getWorkspaceIdFromCookie } from "../../core/boardSession";
+import type { ImageNodeProps } from "../ImageNode";
 import { normalizeProjectRelativePath } from "@/components/project/filesystem/utils/file-system-utils";
 import {
   resolveBoardFolderScope,
   resolveProjectPathFromBoardUri,
-} from "../core/boardFilePath";
+} from "../../core/boardFilePath";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import { submitVideoTask } from "@/lib/saas-media";
-import { LOADING_NODE_TYPE } from "./LoadingNode";
-import { NodeFrame } from "./NodeFrame";
-import { resolveRightStackPlacement } from "../utils/output-placement";
+import { LOADING_NODE_TYPE } from "../LoadingNode";
+import { NodeFrame } from "../NodeFrame";
+import { resolveRightStackPlacement } from "../../utils/output-placement";
+import { getPreviewEndpoint } from "@/lib/image/uri";
+import { blobToBase64 } from "../../utils/base64";
+import { useSaasAuth } from "@/hooks/use-saas-auth";
+import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
+import {
+  ADVANCED_PANEL_OFFSET_PX,
+  VIDEO_GENERATE_DEFAULT_MAX_INPUT_IMAGES,
+  VIDEO_GENERATE_NODE_FIRST_GAP,
+  VIDEO_GENERATE_NODE_GAP,
+  VIDEO_GENERATE_NODE_TYPE,
+  VIDEO_GENERATE_OUTPUT_HEIGHT,
+  VIDEO_GENERATE_OUTPUT_WIDTH,
+} from "./constants";
+import { VideoGenerateNodeSchema, type VideoGenerateNodeProps } from "./types";
+import { isEmptyParamValue, normalizeTextValue, resolveParameterDefaults } from "./utils";
+import { ModelSelect } from "./ModelSelect";
+import { AdvancedSettingsPanel } from "./AdvancedSettingsPanel";
 
-/** Node type identifier for video generation. */
-export const VIDEO_GENERATE_NODE_TYPE = "video_generate";
-/** Maximum number of input images supported by video generation by default. */
-const VIDEO_GENERATE_DEFAULT_MAX_INPUT_IMAGES = 1;
-/** Gap between generated video nodes. */
-const VIDEO_GENERATE_NODE_GAP = 32;
-/** Extra horizontal gap for the first generated video node. */
-const VIDEO_GENERATE_NODE_FIRST_GAP = 120;
-/** Default width for generated video placeholders. */
-const VIDEO_GENERATE_OUTPUT_WIDTH = 320;
-/** Default height for generated video placeholders. */
-const VIDEO_GENERATE_OUTPUT_HEIGHT = 180;
-
-
-export type VideoGenerateNodeProps = {
-  /** Selected SaaS model id. */
-  modelId?: string;
-  /** Legacy chat model id for migration. */
-  chatModelId?: string;
-  /** Prompt text entered in the node. */
-  promptText?: string;
-  /** Legacy duration in seconds. */
-  durationSeconds?: number;
-  /** Legacy aspect ratio preset value. */
-  aspectRatio?: string;
-  /** Model parameters. */
-  parameters?: Record<string, string | number | boolean>;
-  /** Generated video path. */
-  resultVideo?: string;
-  /** Error text for failed runs. */
-  errorText?: string;
-};
-
-/** Schema for video generation node props. */
-const VideoGenerateNodeSchema = z.object({
-  modelId: z.string().optional(),
-  chatModelId: z.string().optional(),
-  promptText: z.string().optional(),
-  durationSeconds: z.number().optional(),
-  aspectRatio: z.string().optional(),
-  parameters: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-  resultVideo: z.string().optional(),
-  errorText: z.string().optional(),
-});
-
-/** Normalize the stored value to a plain text string. */
-function normalizeTextValue(value?: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-/** Check whether a parameter value is empty. */
-function isEmptyParamValue(value: unknown) {
-  if (value === undefined || value === null) return true;
-  if (typeof value === "string") return value.trim() === "";
-  return false;
-}
-
-/** Resolve parameter defaults based on model definition. */
-function resolveParameterDefaults(
-  fields: ModelParameterDefinition[],
-  input: Record<string, string | number | boolean> | undefined
-) {
-  const raw = input ?? {};
-  const resolved: Record<string, string | number | boolean> = { ...raw };
-  let changed = false;
-  for (const field of fields) {
-    const value = raw[field.key];
-    if (!isEmptyParamValue(value)) continue;
-    if (field.default !== undefined) {
-      resolved[field.key] = field.default;
-      changed = true;
-    }
-  }
-  return { resolved, changed };
-}
+export { VIDEO_GENERATE_NODE_TYPE };
 
 
 /** Render the video generation node. */
@@ -121,7 +52,7 @@ export function VideoGenerateNodeView({
   /** Board engine used for lock checks. */
   const { engine, fileContext } = useBoardContext();
   /** SaaS video model list for selection. */
-  const { videoModels } = useMediaModels();
+  const { videoModels, refresh: refreshMediaModels } = useMediaModels();
   /** Board folder scope used for resolving relative asset uris. */
   const boardFolderScope = useMemo(
     () => resolveBoardFolderScope(fileContext),
@@ -137,6 +68,20 @@ export function VideoGenerateNodeView({
     }
     return "";
   }, [boardFolderScope]);
+  /** Throttle timestamp for focus-driven viewport moves. */
+  const focusThrottleRef = useRef(0);
+  /** Abort controller for the active request. */
+  const abortControllerRef = useRef<AbortController | null>(null);
+  /** Loading node id for the current generation. */
+  const loadingNodeIdRef = useRef<string | null>(null);
+  /** Workspace id used for requests. */
+  const resolvedWorkspaceId = useMemo(() => getWorkspaceIdFromCookie(), []);
+  const isAdvancedOpen = selected;
+  const isLocked = engine.isLocked() || element.locked === true;
+  const [loginOpen, setLoginOpen] = useState(false);
+  const { loggedIn: authLoggedIn, loginStatus, refreshSession } = useSaasAuth();
+  const isLoginBusy = loginStatus === "opening" || loginStatus === "polling";
+  const [modelSelectOpen, setModelSelectOpen] = useState(false);
 
   // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
   const inputImageNodes: ImageNodeProps[] = [];
@@ -170,15 +115,44 @@ export function VideoGenerateNodeView({
     }
   }
 
+  useEffect(() => {
+    void refreshSession();
+  }, [refreshSession]);
+  useEffect(() => {
+    // 逻辑：挂载时主动拉取模型，避免首次加载失败后一直为空。
+    void refreshMediaModels();
+  }, [refreshMediaModels]);
+  useEffect(() => {
+    if (!authLoggedIn) return;
+    // 逻辑：登录后刷新模型列表，避免首次未登录导致列表为空。
+    void refreshMediaModels();
+  }, [authLoggedIn, refreshMediaModels]);
+  useEffect(() => {
+    if (!authLoggedIn) return;
+    if (!loginOpen) return;
+    setLoginOpen(false);
+  }, [authLoggedIn, loginOpen]);
+
   const inputImageCount = inputImageNodes.length;
+  const outputAudio = element.props.outputAudio === true;
   const candidates = useMemo(() => {
-    return filterVideoMediaModels(videoModels, {
+    const filtered = filterVideoMediaModels(videoModels, {
       imageCount: inputImageCount,
       hasReference: false,
       hasStartEnd: inputImageCount >= 2,
-      withAudio: false,
+      withAudio: outputAudio,
     });
-  }, [inputImageCount, videoModels]);
+    // 逻辑：单图场景下若过滤为空，回退使用全部视频模型避免标签不一致导致无可用模型。
+    if (
+      !outputAudio &&
+      filtered.length === 0 &&
+      inputImageCount <= 1 &&
+      videoModels.length > 0
+    ) {
+      return videoModels;
+    }
+    return filtered;
+  }, [inputImageCount, outputAudio, videoModels]);
   const selectedModelId = (element.props.modelId ?? element.props.chatModelId ?? "").trim();
   const hasSelectedModel = useMemo(
     () => candidates.some((item) => item.id === selectedModelId),
@@ -200,7 +174,8 @@ export function VideoGenerateNodeView({
     () => selectedModel?.parameters?.features ?? [],
     [selectedModel]
   );
-  const allowsPrompt = parameterFeatures.includes("prompt");
+  const allowsPrompt =
+    parameterFeatures.includes("prompt") || parameterFeatures.length === 0;
   const supportsStartEnd = selectedModel?.capabilities?.input?.supportsStartEnd === true;
   const maxInputImages =
     selectedModel?.capabilities?.input?.maxImages ??
@@ -215,6 +190,24 @@ export function VideoGenerateNodeView({
 
   const errorText = element.props.errorText ?? "";
   const localPromptText = normalizeTextValue(element.props.promptText);
+  const negativePromptText = normalizeTextValue(element.props.negativePrompt);
+  const styleText = normalizeTextValue(element.props.style);
+  const styleTags = useMemo(
+    () => styleText.split(/[,，、\n]/).map((tag) => tag.trim()).filter(Boolean),
+    [styleText]
+  );
+  const normalizedStyleText = useMemo(() => styleTags.join(","), [styleTags]);
+  const outputAspectRatioValue =
+    typeof element.props.aspectRatio === "string" && element.props.aspectRatio.trim()
+      ? element.props.aspectRatio.trim()
+      : "auto";
+  const outputAspectRatio =
+    outputAspectRatioValue === "auto" ? undefined : outputAspectRatioValue;
+  const durationSeconds =
+    typeof element.props.durationSeconds === "number" &&
+    Number.isFinite(element.props.durationSeconds)
+      ? element.props.durationSeconds
+      : undefined;
   const rawParameters =
     element.props.parameters && typeof element.props.parameters === "object"
       ? element.props.parameters
@@ -229,6 +222,7 @@ export function VideoGenerateNodeView({
     if (!resolvedParameterResult.changed) return;
     onUpdate({ parameters: resolvedParameterResult.resolved });
   }, [onUpdate, resolvedParameterResult]);
+  const [aspectRatioOpen, setAspectRatioOpen] = useState(false);
 
   const missingRequiredParameters = useMemo(() => {
     return parameterFields.filter((field) => {
@@ -243,6 +237,9 @@ export function VideoGenerateNodeView({
     const sourceNode = engine.doc.getElementById(element.id);
     if (!sourceNode || sourceNode.kind !== "node") return null;
     const [nodeX, nodeY, nodeW, nodeH] = sourceNode.xywh;
+    const sideGap = isAdvancedOpen && parameterFields.length > 0
+      ? VIDEO_GENERATE_NODE_FIRST_GAP + ADVANCED_PANEL_OFFSET_PX
+      : VIDEO_GENERATE_NODE_FIRST_GAP;
     const existingOutputs = engine.doc.getElements().reduce((nodes, item) => {
       if (item.kind !== "connector") return nodes;
       if (!("elementId" in item.source)) return nodes;
@@ -261,14 +258,14 @@ export function VideoGenerateNodeView({
       [nodeX, nodeY, nodeW, nodeH],
       existingOutputs.map((target) => target.xywh),
       {
-        sideGap: VIDEO_GENERATE_NODE_FIRST_GAP,
+        sideGap,
         stackGap: VIDEO_GENERATE_NODE_GAP,
         outputHeights: [VIDEO_GENERATE_OUTPUT_HEIGHT],
       }
     );
     if (!placement) return null;
     return { baseX: placement.baseX, startY: placement.startY };
-  }, [element.id, engine.doc]);
+  }, [element.id, engine.doc, isAdvancedOpen, parameterFields.length]);
 
   const clearLoadingNode = useCallback(() => {
     if (!loadingNodeIdRef.current) return;
@@ -288,15 +285,6 @@ export function VideoGenerateNodeView({
     loadingNodeIdRef.current = null;
   }, [engine.doc]);
 
-  /** Throttle timestamp for focus-driven viewport moves. */
-  const focusThrottleRef = useRef(0);
-  /** Abort controller for the active request. */
-  const abortControllerRef = useRef<AbortController | null>(null);
-  /** Loading node id for the current generation. */
-  const loadingNodeIdRef = useRef<string | null>(null);
-  /** Workspace id used for requests. */
-  const resolvedWorkspaceId = useMemo(() => getWorkspaceIdFromCookie(), []);
-
   const upstreamPromptText = allowsPrompt ? inputTextSegments.join("\n").trim() : "";
   const sanitizedLocalPrompt = allowsPrompt ? localPromptText.trim() : "";
   // 逻辑：合并上游与本地提示词，保证两者都参与生成。
@@ -310,19 +298,31 @@ export function VideoGenerateNodeView({
   let invalidImageCount = 0;
 
   for (const imageProps of limitedInputImages) {
-    const rawUri = imageProps?.originalSrc ?? "";
-    const resolvedUri = resolveProjectPathFromBoardUri({
+    const rawUri = (imageProps?.originalSrc ?? "").trim();
+    if (!rawUri) {
+      invalidImageCount += 1;
+      continue;
+    }
+    const projectPath = resolveProjectPathFromBoardUri({
       uri: rawUri,
       boardFolderScope,
       currentProjectId,
       rootUri: fileContext?.rootUri,
     });
-    if (!resolvedUri) {
+    if (!projectPath) {
+      invalidImageCount += 1;
+      continue;
+    }
+    const previewUrl = getPreviewEndpoint(projectPath, {
+      projectId: currentProjectId,
+      workspaceId: resolvedWorkspaceId || undefined,
+    });
+    if (!previewUrl) {
       invalidImageCount += 1;
       continue;
     }
     resolvedImages.push({
-      url: resolvedUri,
+      url: previewUrl,
       mediaType: imageProps?.mimeType || "application/octet-stream",
     });
   }
@@ -362,6 +362,21 @@ export function VideoGenerateNodeView({
     Boolean(effectiveModelId) &&
     !engine.isLocked() &&
     !element.locked;
+  const canGenerate = authLoggedIn && canRun;
+  const primaryLabel = authLoggedIn
+    ? viewStatus === "error"
+      ? "重试"
+      : "生成"
+    : isLoginBusy
+      ? "登录中"
+      : "登录";
+  const primaryIcon = authLoggedIn ? (viewStatus === "error" ? RotateCcw : Play) : LogIn;
+  const PrimaryIcon = primaryIcon;
+
+  const handleOpenLogin = useCallback(() => {
+    if (isLoginBusy) return;
+    setLoginOpen(true);
+  }, [isLoginBusy]);
 
   /** Update a parameter value. */
   const handleParameterChange = useCallback(
@@ -402,8 +417,6 @@ export function VideoGenerateNodeView({
       abortControllerRef.current = null;
     };
   }, []);
-
-  const isAdvancedOpen = selected;
 
   /** Run a video generation request and poll result. */
   const runVideoGenerate = useCallback(
@@ -502,24 +515,45 @@ export function VideoGenerateNodeView({
           }
           loadingNodeIdRef.current = loadingNodeId ?? null;
         }
-        const inputs = supportsStartEnd
-          ? resolvedImages.length > 0
-            ? {
-                ...(resolvedImages[0] ? { startImage: resolvedImages[0] } : {}),
-                ...(resolvedImages[1] ? { endImage: resolvedImages[1] } : {}),
+        let inputs:
+          | {
+              images?: Array<{ base64: string; mediaType: string }>;
+              startImage?: { base64: string; mediaType: string };
+              endImage?: { base64: string; mediaType: string };
+            }
+          | undefined;
+        if (resolvedImages.length > 0) {
+          const encodedImages = await Promise.all(
+            resolvedImages.map(async (image) => {
+              const res = await fetch(image.url ?? "");
+              if (!res.ok) {
+                throw new Error("图片读取失败");
               }
-            : undefined
-          : resolvedImages.length > 0
-            ? { images: resolvedImages }
-            : undefined;
+              const blob = await res.blob();
+              const base64 = await blobToBase64(blob);
+              return {
+                base64,
+                mediaType: image.mediaType,
+              };
+            })
+          );
+          inputs = supportsStartEnd
+            ? {
+                ...(encodedImages[0] ? { startImage: encodedImages[0] } : {}),
+                ...(encodedImages[1] ? { endImage: encodedImages[1] } : {}),
+              }
+            : { images: encodedImages };
+        }
         const requestParameters = parameterFields.length > 0 ? resolvedParameters : undefined;
         const result = await submitVideoTask({
           modelId,
           prompt: hasPrompt ? promptText : "",
+          negativePrompt: negativePromptText || undefined,
+          style: normalizedStyleText || undefined,
           inputs,
           output: {
-            aspectRatio: element.props.aspectRatio || undefined,
-            duration: element.props.durationSeconds || undefined,
+            aspectRatio: outputAspectRatio || undefined,
+            duration: durationSeconds || undefined,
           },
           parameters: requestParameters,
           workspaceId: resolvedWorkspaceId || undefined,
@@ -554,8 +588,8 @@ export function VideoGenerateNodeView({
       currentProjectId,
       engine,
       element.id,
-      element.props.aspectRatio,
-      element.props.durationSeconds,
+      outputAspectRatio,
+      durationSeconds,
       effectiveModelId,
       hasAnyImageInput,
       hasInvalidImages,
@@ -572,8 +606,19 @@ export function VideoGenerateNodeView({
       maxInputImages,
       clearLoadingNode,
       resolveOutputPlacement,
+      normalizedStyleText,
+      negativePromptText,
     ]
   );
+
+  const handlePrimaryAction = useCallback(() => {
+    if (!authLoggedIn) {
+      handleOpenLogin();
+      return;
+    }
+    if (!canRun) return;
+    void runVideoGenerate();
+  }, [authLoggedIn, canRun, handleOpenLogin, runVideoGenerate]);
 
   /** Focus viewport to the node when the node is interacted with. */
   const handleNodeFocus = useCallback(() => {
@@ -671,6 +716,7 @@ export function VideoGenerateNodeView({
         handleNodeFocus();
       }}
     >
+      <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <div className={containerClassName}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -687,79 +733,70 @@ export function VideoGenerateNodeView({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            disabled={!canRun}
-            className="rounded-md border border-slate-200/80 bg-background px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
+            disabled={authLoggedIn ? !canGenerate : isLoginBusy}
+            className="inline-flex h-7 items-center justify-center rounded-md border border-slate-200/80 bg-background px-2.5 text-[11px] text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
             onPointerDown={(event) => {
               event.stopPropagation();
               onSelect();
-              runVideoGenerate();
+              handlePrimaryAction();
             }}
           >
             <span className="inline-flex items-center gap-1">
-              {viewStatus === "error" ? <RotateCcw size={12} /> : <Play size={12} />}
-              {viewStatus === "error" ? "重试" : "运行"}
+              {PrimaryIcon ? <PrimaryIcon size={12} /> : null}
+              {primaryLabel}
             </span>
           </button>
         </div>
       </div>
 
       <div className="mt-1 flex min-h-0 flex-1 flex-col gap-2" data-board-editor>
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">输出音频</div>
+          <Switch
+            checked={outputAudio}
+            onCheckedChange={(checked) => {
+              onUpdate({ outputAudio: checked });
+            }}
+            disabled={isLocked}
+            aria-label="输出音频"
+          />
+        </div>
         <div className="flex items-center gap-2">
           <div className="text-[11px] text-slate-500 dark:text-slate-400">模型</div>
           <div className="min-w-0 flex-1">
-            <Select
-              value={effectiveModelId}
-              onValueChange={(value) => {
-                onUpdate({ modelId: value });
+            <ModelSelect
+              authLoggedIn={authLoggedIn}
+              isLoginBusy={isLoginBusy}
+              candidates={candidates}
+              selectedModel={selectedModel}
+              effectiveModelId={effectiveModelId}
+              disabled={isLocked}
+              modelSelectOpen={modelSelectOpen}
+              onOpenChange={setModelSelectOpen}
+              onSelect={onSelect}
+              onSelectModel={(modelId) => {
+                onUpdate({ modelId });
               }}
-              disabled={candidates.length === 0}
-            >
-              <SelectTrigger className="h-7 w-full px-2 text-[11px] shadow-none">
-                <SelectValue placeholder="无可用模型" />
-              </SelectTrigger>
-              <SelectContent className="text-[11px]">
-                {candidates.length ? null : (
-                  <SelectItem value="__none__" disabled className="text-[11px]">
-                    无可用模型
-                  </SelectItem>
-                )}
-                {candidates.map((option) => (
-                  <SelectItem key={option.id} value={option.id} className="text-[11px]">
-                    {option.name || option.id}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onOpenLogin={handleOpenLogin}
+            />
           </div>
         </div>
         <div className="flex min-h-0 flex-1 flex-col gap-1">
           {allowsPrompt ? (
             <>
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                  <span>提示词</span>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                    {localPromptText.length}/500
-                  </span>
-                </div>
-                {upstreamPromptText ? (
-                  <div className="rounded-md border border-slate-200/70 bg-white/70 px-1.5 py-[1px] text-[10px] leading-[14px] text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-300">
-                    已加载上游提示词
-                  </div>
-                ) : null}
-              </div>
+              <div className="text-[12px] text-slate-500 dark:text-slate-400">提示词</div>
               <div className="min-w-0 flex min-h-0 flex-1 flex-col gap-1">
                 <Textarea
                   value={localPromptText}
                   maxLength={500}
-                  placeholder="输入补充提示词（最多 500 字）"
+                  placeholder="请输入提示词"
                   onChange={(event) => {
                     const next = event.target.value.slice(0, 500);
                     onUpdate({ promptText: next });
                   }}
                   data-board-scroll
-                  className="h-full min-h-[88px] flex-1 overflow-y-auto px-2 py-1 text-[13px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[13px]"
-                  disabled={engine.isLocked() || element.locked}
+                  className="h-full min-h-[96px] flex-1 overflow-y-auto px-3 py-2 text-[13px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[13px]"
+                  disabled={isLocked}
                 />
               </div>
             </>
@@ -800,153 +837,32 @@ export function VideoGenerateNodeView({
           </div>
         )
       ) : null}
-      {isAdvancedOpen && parameterFields.length > 0 ? (
-        <Card
-          className="absolute left-full top-0 z-20 ml-2 w-72 gap-3 border-slate-200/80 bg-white/95 py-3 text-slate-700 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-lg dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-100"
-          data-board-editor
-          onPointerDown={(event) => {
-            event.stopPropagation();
-          }}
-        >
-          <CardHeader className="border-b border-slate-200/70 px-4 pb-2 pt-0 dark:border-slate-700/70">
-            <CardTitle className="text-[12px] font-semibold text-slate-600 dark:text-slate-200">
-              高级选项
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-2 pt-0">
-            <div className="flex flex-col gap-3">
-            {parameterFields.map((field) => {
-              const value = resolvedParameters[field.key];
-              const valueString = value === undefined ? "" : String(value);
-              const disabled = engine.isLocked() || element.locked;
-              const label = (
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <div className="text-[11px] text-slate-500 dark:text-slate-300">
-                    {field.title}
-                  </div>
-                  {field.description ? (
-                    <div className="text-[10px] leading-[14px] text-slate-400 dark:text-slate-500">
-                      {field.description}
-                    </div>
-                  ) : null}
-                </div>
-              );
-              if (field.type === "select") {
-                const options = Array.isArray(field.values) ? field.values : [];
-                return (
-                  <div className="flex items-start gap-3" key={field.key}>
-                    {label}
-                    <Select
-                      value={valueString}
-                      onValueChange={(nextValue) => {
-                        const matched = options.find(
-                          (option) => String(option) === nextValue
-                        );
-                        handleParameterChange(field.key, matched ?? nextValue);
-                      }}
-                      disabled={disabled}
-                    >
-                      <SelectTrigger className="h-7 w-28 px-2 text-[11px]">
-                        <SelectValue placeholder="请选择" />
-                      </SelectTrigger>
-                      <SelectContent className="text-[11px]">
-                        {options.map((option) => (
-                          <SelectItem
-                            key={`${field.key}-${String(option)}`}
-                            value={String(option)}
-                            className="text-[11px]"
-                          >
-                            {String(option)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                );
-              }
-              if (field.type === "number") {
-                const numericValue =
-                  typeof value === "number"
-                    ? value
-                    : typeof value === "string" && value.trim()
-                      ? Number(value)
-                      : "";
-                return (
-                  <div className="flex items-start gap-3" key={field.key}>
-                    {label}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Input
-                        type="number"
-                        min={typeof field.min === "number" ? field.min : undefined}
-                        max={typeof field.max === "number" ? field.max : undefined}
-                        step={typeof field.step === "number" ? field.step : undefined}
-                        value={Number.isFinite(numericValue as number) ? numericValue : ""}
-                        disabled={disabled}
-                        onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                          const raw = event.target.value;
-                          const nextValue =
-                            raw.trim() === "" ? "" : Number.parseFloat(raw);
-                          handleParameterChange(
-                            field.key,
-                            Number.isFinite(nextValue) ? nextValue : ""
-                          );
-                        }}
-                        className="h-7 w-20 px-2 text-[11px]"
-                      />
-                      {field.unit ? (
-                        <div className="text-[11px] text-slate-400 dark:text-slate-500">
-                          {field.unit}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              }
-              if (field.type === "boolean") {
-                return (
-                  <div className="flex items-start gap-3" key={field.key}>
-                    {label}
-                    <Select
-                      value={valueString}
-                      onValueChange={(nextValue) => {
-                        handleParameterChange(field.key, nextValue === "true");
-                      }}
-                      disabled={disabled}
-                    >
-                      <SelectTrigger className="h-7 w-24 px-2 text-[11px]">
-                        <SelectValue placeholder="请选择" />
-                      </SelectTrigger>
-                      <SelectContent className="text-[11px]">
-                        <SelectItem value="true" className="text-[11px]">
-                          是
-                        </SelectItem>
-                        <SelectItem value="false" className="text-[11px]">
-                          否
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                );
-              }
-              return (
-                <div className="flex items-start gap-3" key={field.key}>
-                  {label}
-                  <Input
-                    type="text"
-                    value={valueString}
-                    disabled={disabled}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                      handleParameterChange(field.key, event.target.value);
-                    }}
-                    className="h-7 w-28 px-2 text-[11px] shrink-0"
-                  />
-                </div>
-              );
-            })}
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
+      <AdvancedSettingsPanel
+        open={isAdvancedOpen}
+        parameterFields={parameterFields}
+        resolvedParameters={resolvedParameters}
+        onParameterChange={handleParameterChange}
+        aspectRatioValue={outputAspectRatioValue}
+        aspectRatioOpen={aspectRatioOpen}
+        onAspectRatioOpenChange={setAspectRatioOpen}
+        onAspectRatioChange={(value) => {
+          onUpdate({ aspectRatio: value });
+        }}
+        durationSeconds={durationSeconds}
+        onDurationChange={(value) => {
+          onUpdate({ durationSeconds: value });
+        }}
+        styleTags={styleTags}
+        onStyleChange={(value) => {
+          // 逻辑：风格字段按逗号分隔。
+          onUpdate({ style: value.join(",") });
+        }}
+        negativePromptText={negativePromptText}
+        onNegativePromptChange={(value) => {
+          onUpdate({ negativePrompt: value });
+        }}
+        disabled={isLocked}
+      />
       </div>
     </NodeFrame>
   );
@@ -958,6 +874,7 @@ export const VideoGenerateNodeDefinition: CanvasNodeDefinition<VideoGenerateNode
   schema: VideoGenerateNodeSchema,
   defaultProps: {
     promptText: "",
+    outputAudio: false,
     resultVideo: "",
   },
   view: VideoGenerateNodeView,

@@ -233,8 +233,8 @@ export function BasicSettings() {
                       }}
                     >
                       <TabsList>
-                        <TabsTrigger value="dark">淡色</TabsTrigger>
-                        <TabsTrigger value="light">浅色</TabsTrigger>
+                        <TabsTrigger value="dark">黑夜</TabsTrigger>
+                        <TabsTrigger value="light">白天</TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </TenasSettingsField>

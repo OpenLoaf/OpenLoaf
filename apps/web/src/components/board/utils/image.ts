@@ -4,6 +4,11 @@ import {
   resolveBaseName,
   resolveFileName,
 } from "@/lib/image/uri";
+import {
+  IMAGE_NODE_DEFAULT_MAX_SIZE,
+  IMAGE_PREVIEW_MAX_DIMENSION,
+  IMAGE_PREVIEW_QUALITY,
+} from "../nodes/node-config";
 
 export type ImageNodePayload = {
   /** Props used by the image node component. */
@@ -24,10 +29,6 @@ export type ImageNodePayload = {
   /** Suggested node size in world coordinates. */
   size: [number, number];
 };
-
-const DEFAULT_PREVIEW_MAX = 1024;
-const DEFAULT_NODE_MAX = 480;
-const DEFAULT_PREVIEW_QUALITY = 0.82;
 
 /** Extract a lowercase file extension from a name. */
 function getFileExtension(fileName: string): string {
@@ -206,13 +207,13 @@ export async function buildImageNodePayloadFromFile(
   const naturalWidth = image.naturalWidth || 1;
   const naturalHeight = image.naturalHeight || 1;
   const { previewSrc } = await buildPreviewDataUrl(image, file.type, {
-    maxDimension: options?.maxPreviewDimension ?? DEFAULT_PREVIEW_MAX,
-    quality: options?.quality ?? DEFAULT_PREVIEW_QUALITY,
+    maxDimension: options?.maxPreviewDimension ?? IMAGE_PREVIEW_MAX_DIMENSION,
+    quality: options?.quality ?? IMAGE_PREVIEW_QUALITY,
   });
   const [nodeWidth, nodeHeight] = fitSize(
     naturalWidth,
     naturalHeight,
-    options?.maxNodeDimension ?? DEFAULT_NODE_MAX
+    options?.maxNodeDimension ?? IMAGE_NODE_DEFAULT_MAX_SIZE
   );
 
   return {
@@ -263,14 +264,14 @@ export async function buildImageNodePayloadFromUri(
       ? ""
       : (
           await buildPreviewDataUrl(image, mimeType, {
-            maxDimension: options?.maxPreviewDimension ?? DEFAULT_PREVIEW_MAX,
-            quality: options?.quality ?? DEFAULT_PREVIEW_QUALITY,
+            maxDimension: options?.maxPreviewDimension ?? IMAGE_PREVIEW_MAX_DIMENSION,
+            quality: options?.quality ?? IMAGE_PREVIEW_QUALITY,
           })
         ).previewSrc;
   const [nodeWidth, nodeHeight] = fitSize(
     naturalWidth,
     naturalHeight,
-    options?.maxNodeDimension ?? DEFAULT_NODE_MAX
+    options?.maxNodeDimension ?? IMAGE_NODE_DEFAULT_MAX_SIZE
   );
 
   return {

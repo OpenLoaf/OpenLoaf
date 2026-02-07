@@ -1,7 +1,7 @@
 {
   "name": "tenas",
   "productName": "Tenas",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Tenas desktop app",
   "main": ".webpack/main",
   "build": {
@@ -16,33 +16,15 @@
         ]
       }
     ],
-    "extraMetadata": {
-      "main": ".webpack/arm64/main/index.js"
-    },
     "files": [
       ".webpack/**",
       "package.json"
     ],
+    "afterPack": "./scripts/afterPack.js",
     "extraResources": [
       {
         "from": "resources/runtime.env",
         "to": "runtime.env"
-      },
-      {
-        "from": "resources/speech",
-        "to": "speech"
-      },
-      {
-        "from": "resources/calendar",
-        "to": "calendar"
-      },
-      {
-        "from": "resources/icon.icns",
-        "to": "icon.icns"
-      },
-      {
-        "from": "resources/icon.ico",
-        "to": "icon.ico"
       },
       {
         "from": "resources/icon.png",
@@ -53,6 +35,10 @@
         "to": "server.mjs"
       },
       {
+        "from": "../../apps/server/package.json",
+        "to": "server.package.json"
+      },
+      {
         "from": "../../apps/server/dist/seed.db",
         "to": "seed.db"
       },
@@ -61,50 +47,191 @@
         "to": "out"
       },
       {
+        "from": "../../apps/web/package.json",
+        "to": "web.package.json"
+      },
+      {
         "from": "../../node_modules/sharp",
-        "to": "sharp",
+        "to": "node_modules/sharp",
         "filter": [
-          "**/*",
-          "!**/node_modules/.bin/**"
+          "lib/**",
+          "package.json"
         ]
       },
       {
         "from": "../../node_modules/@img",
-        "to": "@img"
+        "to": "node_modules/@img"
       },
       {
-        "from": "../../node_modules/node-pty/prebuilds",
-        "to": "prebuilds"
+        "from": "../../node_modules/detect-libc",
+        "to": "node_modules/detect-libc",
+        "filter": [
+          "lib/**",
+          "package.json"
+        ]
+      },
+      {
+        "from": "../../node_modules/semver",
+        "to": "node_modules/semver",
+        "filter": [
+          "functions/**",
+          "internal/**",
+          "classes/**",
+          "ranges/**",
+          "index.js",
+          "preload.js",
+          "range.bnf",
+          "package.json"
+        ]
+      },
+      {
+        "from": "../../node_modules/playwright-core",
+        "to": "node_modules/playwright-core"
       },
       {
         "from": "../../node_modules/@libsql",
-        "to": "@libsql"
+        "to": "node_modules/@libsql"
       }
     ],
     "mac": {
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
       ],
       "icon": "resources/icon.icns",
+      "identity": "Haikesen Energy Technology (Shanghai) Co., Ltd (3S76858939)",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "signIgnore": [
+        "\\.js$",
+        "\\.json$",
+        "\\.html$",
+        "\\.css$",
+        "\\.map$",
+        "\\.md$",
+        "\\.txt$",
+        "\\.swift$",
+        "\\.cs$",
+        "\\.csproj$",
+        "\\.pdb$"
+      ],
+      "notarize": {
+        "teamId": "3S76858939"
+      },
       "extendInfo": {
         "NSMicrophoneUsageDescription": "语音输入需要访问麦克风。",
         "NSSpeechRecognitionUsageDescription": "语音输入需要使用系统语音识别。",
         "NSCalendarsUsageDescription": "日历同步需要访问系统日历。",
         "NSRemindersUsageDescription": "提醒事项同步需要访问系统提醒事项。"
-      }
+      },
+      "extraResources": [
+        {
+          "from": "resources/icon.icns",
+          "to": "icon.icns"
+        },
+        {
+          "from": "resources/speech",
+          "to": "speech",
+          "filter": [
+            "macos/tenas-speech"
+          ]
+        },
+        {
+          "from": "resources/calendar",
+          "to": "calendar",
+          "filter": [
+            "macos/tenas-calendar"
+          ]
+        },
+        {
+          "from": "../../node_modules/node-pty/prebuilds",
+          "to": "prebuilds",
+          "filter": [
+            "darwin-arm64/**"
+          ]
+        }
+      ]
     },
     "win": {
-      "icon": "resources/icon.ico"
+      "icon": "resources/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "msi",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "extraResources": [
+        {
+          "from": "resources/icon.ico",
+          "to": "icon.ico"
+        },
+        {
+          "from": "resources/speech",
+          "to": "speech",
+          "filter": [
+            "windows/tenas-speech.exe"
+          ]
+        },
+        {
+          "from": "resources/calendar",
+          "to": "calendar",
+          "filter": [
+            "windows/tenas-calendar.exe"
+          ]
+        },
+        {
+          "from": "../../node_modules/node-pty/prebuilds",
+          "to": "prebuilds",
+          "filter": [
+            "win32-x64/**"
+          ]
+        }
+      ]
     },
     "linux": {
-      "icon": "resources/icon.png"
+      "icon": "resources/icon.png",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "extraResources": [
+        {
+          "from": "../../node_modules/node-pty/prebuilds",
+          "to": "prebuilds",
+          "filter": [
+            "linux-x64/**"
+          ]
+        }
+      ]
     },
     "publish": [
       {
-        "provider": "github",
-        "owner": "YOUR_GITHUB_OWNER",
-        "repo": "YOUR_GITHUB_REPO"
+        "provider": "generic",
+        "url": "https://r2-tenas-update.hexems.com/electron"
       }
     ]
   },
@@ -114,12 +241,12 @@
     "build:speech-helper": "node scripts/buildSpeechHelper.mjs",
     "build:calendar-helper": "node scripts/buildCalendarHelper.mjs",
     "package": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge package",
-    "package:noproxy": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u all_proxy -u ALL_PROXY -u no_proxy -u NO_PROXY electron-forge package",
-    "make": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge make",
-    "make:noproxy": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u all_proxy -u ALL_PROXY -u no_proxy -u NO_PROXY electron-forge make",
-    "build": "pnpm run package",
-    "dist:builder": "pnpm run package && electron-builder",
-    "dist:builder:publish": "pnpm run package && electron-builder --publish=always",
+    "dist:dev": "pnpm run package && node scripts/dist.mjs --config.mac.identity=null",
+    "dist:production": "pnpm run package && node scripts/dist.mjs",
+    "dist:all:dev": "pnpm run package && node scripts/dist.mjs --config.mac.identity=null --mac --win --linux",
+    "dist:all": "pnpm run package && node scripts/dist.mjs --mac --win --linux",
+    "dist:win:msi": "pnpm run package && node scripts/dist.mjs --config.mac.identity=null --win --x64 --config.win.target=msi",
+    "dist:resign": "node scripts/dist.mjs",
     "check-types": "pnpm -w exec tsc -p apps/electron/tsconfig.json --noEmit",
     "lint": "eslint src"
   },
@@ -141,7 +268,8 @@
     "@electron-forge/maker-zip": "^7.11.1",
     "@electron-forge/plugin-webpack": "^7.11.1",
     "@electron-forge/shared-types": "^7.11.1",
-    "electron": "40.0.0",
+    "dotenv-cli": "^11.0.0",
+    "electron": "40.1.0",
     "electron-builder": "^24.13.3",
     "electron-devtools-installer": "^4.0.0",
     "ts-loader": "^9.5.4",

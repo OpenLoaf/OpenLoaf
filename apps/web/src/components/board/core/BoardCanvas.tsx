@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
+import { Component, useCallback, useEffect, useMemo, useRef, useState, useId, type ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
@@ -59,6 +59,43 @@ export type BoardCanvasProps = {
   /** Optional container class name. */
   className?: string;
 };
+
+/** Error boundary for the board canvas tree. */
+class BoardErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[board] render error", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex h-full w-full items-center justify-center p-8 text-sm text-muted-foreground">
+          <div className="max-w-md text-center">
+            <p className="mb-2 font-medium">画布渲染出错</p>
+            <p className="mb-4 text-xs opacity-70">{this.state.error.message}</p>
+            <button
+              type="button"
+              className="rounded-md border px-3 py-1.5 text-xs hover:bg-accent"
+              onClick={() => this.setState({ error: null })}
+            >
+              重试
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /** Scheme matcher for absolute URIs. */
 const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
@@ -214,13 +251,11 @@ export function BoardCanvas({
     writeThumbnailRef.current = writeThumbnailMutation.mutateAsync;
   }, [writeThumbnailMutation.mutateAsync]);
 
-  useEffect(() => {
-    if (nodesRegisteredRef.current) return;
-    if (!nodes || nodes.length === 0) return;
-    // 只在首次挂载时注册节点定义，避免重复注册报错。
+  if (!nodesRegisteredRef.current && nodes && nodes.length > 0) {
+    // 逻辑：在首帧前注册节点定义，避免协作数据先到导致空白渲染。
     engine.registerNodes(nodes);
     nodesRegisteredRef.current = true;
-  }, [engine, nodes]);
+  }
 
   const openImagePreview = (payload: ImagePreviewPayload) => {
     // 逻辑：画布预览统一走全屏弹窗，避免节点内各自实现。
@@ -322,54 +357,56 @@ export function BoardCanvas({
 
   // 逻辑：预览优先使用原图地址，缺失时回退到压缩预览。
   return (
-    <BoardProvider
-      engine={engine}
-      actions={{
-        openImagePreview,
-        closeImagePreview,
-      }}
-      fileContext={{
-        workspaceId: resolvedWorkspaceId || undefined,
-        projectId,
-        rootUri,
-        boardId: resolvedBoardId || undefined,
-        boardFolderUri,
-      }}
-    >
-      <BoardCanvasCollab
+    <BoardErrorBoundary>
+      <BoardProvider
         engine={engine}
-        initialElements={initialElements}
-        workspaceId={resolvedWorkspaceId}
-        projectId={projectId}
-        rootUri={rootUri}
-        boardFolderUri={boardFolderUri}
-        boardFileUri={boardFileUri}
-        onSyncLogChange={setSyncLogState}
-      />
-      <BoardCanvasInteraction
-        engine={engine}
-        snapshot={snapshot}
-        containerRef={containerRef}
-        projectId={projectId}
-        rootUri={rootUri}
-        tabId={tabId}
-        panelKey={panelKey}
-        uiHidden={uiHidden}
-        className={className}
-        boardFolderUri={boardFolderUri}
-        onAutoLayout={scheduleAutoLayoutThumbnail}
-        onOpenImagePreview={openImagePreview}
+        actions={{
+          openImagePreview,
+          closeImagePreview,
+        }}
+        fileContext={{
+          workspaceId: resolvedWorkspaceId || undefined,
+          projectId,
+          rootUri,
+          boardId: resolvedBoardId || undefined,
+          boardFolderUri,
+        }}
       >
-        <BoardCanvasRender
+        <BoardCanvasCollab
+          engine={engine}
+          initialElements={initialElements}
+          workspaceId={resolvedWorkspaceId}
+          projectId={projectId}
+          rootUri={rootUri}
+          boardFolderUri={boardFolderUri}
+          boardFileUri={boardFileUri}
+          onSyncLogChange={setSyncLogState}
+        />
+        <BoardCanvasInteraction
           engine={engine}
           snapshot={snapshot}
-          showUi={showUi}
-          showPerfOverlay={showPerfOverlay}
           containerRef={containerRef}
-          onSyncLog={syncLogState.canSyncLog ? syncLogState.onSyncLog : undefined}
+          projectId={projectId}
+          rootUri={rootUri}
+          tabId={tabId}
+          panelKey={panelKey}
+          uiHidden={uiHidden}
+          className={className}
+          boardFolderUri={boardFolderUri}
           onAutoLayout={scheduleAutoLayoutThumbnail}
-        />
-      </BoardCanvasInteraction>
-    </BoardProvider>
+          onOpenImagePreview={openImagePreview}
+        >
+          <BoardCanvasRender
+            engine={engine}
+            snapshot={snapshot}
+            showUi={showUi}
+            showPerfOverlay={showPerfOverlay}
+            containerRef={containerRef}
+            onSyncLog={syncLogState.canSyncLog ? syncLogState.onSyncLog : undefined}
+            onAutoLayout={scheduleAutoLayoutThumbnail}
+          />
+        </BoardCanvasInteraction>
+      </BoardProvider>
+    </BoardErrorBoundary>
   );
 }

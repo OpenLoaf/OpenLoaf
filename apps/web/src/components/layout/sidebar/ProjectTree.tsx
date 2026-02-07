@@ -159,6 +159,10 @@ interface PageTreeMenuProps {
   projects: ProjectInfo[];
   expandedNodes: Record<string, boolean>;
   setExpandedNodes: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  /** Callback for creating a new project. */
+  onCreateProject?: () => void;
+  /** Callback for importing a project. */
+  onImportProject?: () => void;
 }
 
 interface FileTreeNodeProps {
@@ -502,6 +506,8 @@ export const PageTreeMenu = ({
   projects,
   expandedNodes,
   setExpandedNodes,
+  onCreateProject,
+  onImportProject,
 }: PageTreeMenuProps) => {
   const addTab = useTabs((s) => s.addTab);
   const setActiveTab = useTabs((s) => s.setActiveTab);
@@ -1594,6 +1600,25 @@ export const PageTreeMenu = ({
           onProjectPointerDown={handleProjectPointerDown}
         />
       ))}
+      {/* 逻辑：项目列表末尾追加弱化样式的快捷入口，复用外层弹窗逻辑。 */}
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          className="h-auto flex-col items-center justify-center gap-1 border border-dashed border-border/60 py-2 text-center text-muted-foreground/80 hover:bg-sidebar-accent/30 hover:text-muted-foreground [&>svg]:text-muted-foreground/70"
+          onClick={() => onCreateProject?.()}
+        >
+          <FolderPlus className="h-4 w-4" />
+          <span className="text-xs leading-tight">新增项目</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          className="h-auto flex-col items-center justify-center gap-1 border border-dashed border-border/60 py-2 text-center text-muted-foreground/80 hover:bg-sidebar-accent/30 hover:text-muted-foreground [&>svg]:text-muted-foreground/70"
+          onClick={() => onImportProject?.()}
+        >
+          <FolderOpen className="h-4 w-4" />
+          <span className="text-xs leading-tight">导入项目</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
       <SidebarMenuItem
         aria-hidden={!draggingProject}
         className={cn(!draggingProject && "h-0 overflow-hidden")}

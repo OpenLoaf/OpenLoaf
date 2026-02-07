@@ -5,6 +5,8 @@ import http from 'node:http';
 import path from 'node:path';
 import { getTenasRootDir, resolveTenasDatabaseUrl, resolveTenasDbPath } from '@tenas-ai/config';
 import type { Logger } from '../logging/startupLogger';
+import { recordServerCrash } from '../incrementalUpdate';
+import { resolveServerPath, resolveWebRoot } from '../incrementalUpdatePaths';
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
@@ -246,8 +248,39 @@ export async function startProductionServices(args: {
    * - `server.mjs` 通过 Forge `extraResource` 被放进 `process.resourcesPath`
    * - 使用当前 Electron 自带的 Node 运行时启动，并设置 `ELECTRON_RUN_AS_NODE=1`
    */
-  const serverPath = path.join(resourcesPath, 'server.mjs');
+  // serverCrashed: 当 server 进程异常退出时 resolve 并携带 stderr 摘要，永不 resolve 表示正常运行。
+  let serverCrashed: Promise<string> = new Promise<string>(() => {});
+  const serverPath = resolveServerPath();
   log(`Looking for server at: ${serverPath}`);
+
+  // ESM `import` 不使用 NODE_PATH，只沿目录层级查找 node_modules。
+  // 当 server.mjs 来自增量更新目录（~/.tenas/updates/server/current/）时，
+  // 需要软链接 node_modules → Resources/node_modules 以解析 external 依赖（如 playwright-core）。
+  const bundledServerPath = path.join(process.resourcesPath, 'server.mjs');
+  if (serverPath !== bundledServerPath) {
+    const serverDir = path.dirname(serverPath);
+    const nmLink = path.join(serverDir, 'node_modules');
+    const nmTarget = path.join(process.resourcesPath, 'node_modules');
+    // 中文注释：增量更新目录缺少 prebuilds 时，软链到 Resources/prebuilds（node-pty 需要）。
+    const prebuildsLink = path.join(serverDir, 'prebuilds');
+    const prebuildsTarget = path.join(process.resourcesPath, 'prebuilds');
+    if (!fs.existsSync(nmLink) && fs.existsSync(nmTarget)) {
+      try {
+        fs.symlinkSync(nmTarget, nmLink, 'dir');
+        log(`Symlinked ${nmLink} → ${nmTarget}`);
+      } catch (e) {
+        log(`Failed to symlink node_modules: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    if (!fs.existsSync(prebuildsLink) && fs.existsSync(prebuildsTarget)) {
+      try {
+        fs.symlinkSync(prebuildsTarget, prebuildsLink, 'dir');
+        log(`Symlinked ${prebuildsLink} → ${prebuildsTarget}`);
+      } catch (e) {
+        log(`Failed to symlink prebuilds: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+  }
 
   const serverHost = resolveHost(args.serverUrl, '127.0.0.1');
   const serverPort = resolvePort(args.serverUrl, 23333);
@@ -265,8 +298,8 @@ export async function startProductionServices(args: {
           // 中文注释：生产环境需要显式放行 webUrl 作为 CORS origin。
           CORS_ORIGIN: `${args.webUrl},${process.env.CORS_ORIGIN ?? ''}`,
           // Allow the bundled server to resolve shipped native deps (e.g. `@libsql/darwin-arm64`)
-          // that are copied into `process.resourcesPath` via Forge `extraResource`.
-          NODE_PATH: process.resourcesPath,
+          // that are copied into `process.resourcesPath/node_modules` via Forge `extraResource`.
+          NODE_PATH: path.join(process.resourcesPath, 'node_modules'),
           NODE_ENV: 'production',
           DOTENV_CONFIG_PATH: userEnvPath,
           DOTENV_CONFIG_OVERRIDE: '1',
@@ -278,22 +311,43 @@ export async function startProductionServices(args: {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 
+      const stderrChunks: string[] = [];
       managedServer.stdout?.on('data', (d) => log(`[Server Output] ${d}`));
-      managedServer.stderr?.on('data', (d) => log(`[Server Error] ${d}`));
+      managedServer.stderr?.on('data', (d) => {
+        const text = String(d);
+        stderrChunks.push(text);
+        log(`[Server Error] ${text}`);
+      });
       managedServer.on('error', (err) => log(`[Server Spawn Error] ${err.message}`));
-      managedServer.on('exit', (code, signal) =>
-        log(`[Server Exited] code=${code} signal=${signal}`)
-      );
+
+      // 当 server 进程异常退出时 resolve，用于提前终止健康检查轮询。
+      serverCrashed = new Promise<string>((resolve) => {
+        managedServer!.on('exit', (code, signal) => {
+          log(`[Server Exited] code=${code} signal=${signal}`);
+          if (code !== 0 && code !== null) {
+            const rolledBack = recordServerCrash();
+            if (rolledBack) {
+              log('[Server] Rolled back to bundled server.mjs due to repeated crashes.');
+            }
+            // 取 stderr 最后 500 字符作为错误摘要。
+            const stderr = stderrChunks.join('').trim();
+            const summary = stderr.length > 500 ? `…${stderr.slice(-500)}` : stderr;
+            resolve(summary || `Server exited with code ${code}`);
+          }
+        });
+      });
 
       log('Server process spawned');
     } catch (err) {
       log(`Failed to spawn server: ${err instanceof Error ? err.message : String(err)}`);
+      serverCrashed = Promise.resolve(`Failed to spawn server: ${err instanceof Error ? err.message : String(err)}`);
     }
   } else {
     log(`[Error] Server binary not found at ${serverPath}`);
+    serverCrashed = Promise.resolve(`Server binary not found at ${serverPath}`);
   }
 
-  const webRoot = path.join(resourcesPath, 'out');
+  const webRoot = resolveWebRoot();
   log(`Looking for web root at: ${webRoot}`);
 
   const webHost = resolveHost(args.webUrl, '127.0.0.1');
@@ -325,5 +379,5 @@ export async function startProductionServices(args: {
     log(`[Error] Web root not found at ${webRoot}`);
   }
 
-  return { managedServer, productionWebServer };
+  return { managedServer, productionWebServer, serverCrashed };
 }

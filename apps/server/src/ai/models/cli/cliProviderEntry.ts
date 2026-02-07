@@ -2,6 +2,7 @@ import type { ProviderDefinition, ModelDefinition } from "@tenas-ai/api/common";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { getProviderDefinition } from "@/ai/models/modelRegistry";
+import { getCliToolStatus } from "@/ai/models/cli/cliToolService";
 type CliProviderBinding = {
   /** Provider id in registry. */
   providerId: string;
@@ -26,9 +27,12 @@ function buildModelMap(definition: ProviderDefinition): Record<string, ModelDefi
 }
 
 /** Build CLI provider settings entry for runtime. */
-function buildCliProviderEntry(binding: CliProviderBinding): ProviderSettingEntry | null {
+async function buildCliProviderEntry(binding: CliProviderBinding): Promise<ProviderSettingEntry | null> {
   const definition = getProviderDefinition(binding.providerId);
   if (!definition) return null;
+  // 逻辑：未安装的 CLI 工具不注入 provider，避免 Auto 模式误选。
+  const status = await getCliToolStatus(binding.configKey);
+  if (!status.installed) return null;
   const models = buildModelMap(definition);
   if (Object.keys(models).length === 0) return null;
   const basic = readBasicConf();
@@ -49,10 +53,10 @@ function buildCliProviderEntry(binding: CliProviderBinding): ProviderSettingEntr
 }
 
 /** Build CLI provider entries for model resolution. */
-export function buildCliProviderEntries(): ProviderSettingEntry[] {
+export async function buildCliProviderEntries(): Promise<ProviderSettingEntry[]> {
   const entries: ProviderSettingEntry[] = [];
   for (const binding of CLI_PROVIDER_BINDINGS) {
-    const entry = buildCliProviderEntry(binding);
+    const entry = await buildCliProviderEntry(binding);
     if (!entry) continue;
     entries.push(entry);
   }

@@ -10,7 +10,8 @@
     "start": "next start",
     "postinstall": "node scripts/copy-monaco-assets.mjs",
     "check-types": "pnpm exec tsc -p tsconfig.json --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "publish-update": "node scripts/publish-update.mjs"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.51",
@@ -168,6 +169,7 @@
     "zustand": "^5.0.10"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.975.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@tanstack/react-query-devtools": "^5.91.2",
     "@tenas-ai/config": "workspace:*",

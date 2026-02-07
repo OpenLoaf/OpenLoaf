@@ -23,7 +23,9 @@
     "lint:biome:fix": "biome lint --fix .",
     "format": "biome format .",
     "format:fix": "biome format --write .",
-    "check": "biome check ."
+    "check": "biome check .",
+    "publish:server": "pnpm --filter server run publish-update",
+    "publish:web": "pnpm --filter web run publish-update"
   },
   "dependencies": {
     "@ark-ui/react": "^5.31.0",
@@ -54,6 +56,28 @@
   },
   "lint-staged": {
     "**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,vue,astro,svelte}": "biome check --apply --write"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "macos-alias",
+      "ds-store",
+      "appdmg",
+      "fs-xattr"
+    ],
+    "supportedArchitectures": {
+      "os": [
+        "darwin",
+        "win32",
+        "linux"
+      ],
+      "cpu": [
+        "arm64",
+        "x64"
+      ],
+      "libc": [
+        "glibc"
+      ]
+    }
   },
   "packageManager": "pnpm@10.27.0"
 }

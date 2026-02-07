@@ -2,27 +2,38 @@ export {};
 
 declare global {
   type TenasViewBounds = { x: number; y: number; width: number; height: number };
-  type TenasAutoUpdateState =
+  type TenasIncrementalUpdateState =
     | "idle"
     | "checking"
-    | "available"
-    | "not-available"
     | "downloading"
-    | "downloaded"
+    | "ready"
     | "error";
-  type TenasAutoUpdateStatus = {
-    state: TenasAutoUpdateState;
-    currentVersion: string;
-    nextVersion?: string;
+  type TenasIncrementalComponentInfo = {
+    /** Current version or "bundled" label. */
+    version: string;
+    /** Source label: bundled or updated. */
+    source: "bundled" | "updated";
+    /** New version if an update was detected. */
+    newVersion?: string;
+    /** Optional release notes. */
     releaseNotes?: string;
+    /** Changelog URL (markdown file). */
+    changelogUrl?: string;
+  };
+  type TenasIncrementalUpdateStatus = {
+    /** Current incremental update state. */
+    state: TenasIncrementalUpdateState;
+    /** Server component info. */
+    server: TenasIncrementalComponentInfo;
+    /** Web component info. */
+    web: TenasIncrementalComponentInfo;
+    /** Download progress (only when downloading). */
+    progress?: { component: "server" | "web"; percent: number };
+    /** Last check timestamp. */
     lastCheckedAt?: number;
-    progress?: {
-      percent: number;
-      transferred: number;
-      total: number;
-      bytesPerSecond: number;
-    };
+    /** Error message if any. */
     error?: string;
+    /** Status timestamp. */
     ts: number;
   };
   type TenasSpeechResult = {
@@ -142,6 +153,8 @@ declare global {
       clearWebContentsViews?: () => Promise<{ ok: true }>;
       getWebContentsViewCount?: () => Promise<{ ok: true; count: number } | { ok: false }>;
       getAppVersion?: () => Promise<string>;
+      /** Restart the app to apply updates. */
+      relaunchApp?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
       /** Get runtime port info for backend connectivity. */
       getRuntimePortsSync?: () => { ok: boolean; serverUrl?: string; webUrl?: string };
       /** Update Windows title bar button symbol color. */
@@ -152,9 +165,16 @@ declare global {
       setTitleBarOverlayHeight?: (payload: {
         height: number;
       }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
-      checkForUpdates?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
-      getAutoUpdateStatus?: () => Promise<TenasAutoUpdateStatus>;
-      installUpdate?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
+      /** Trigger incremental update check (server/web). */
+      checkIncrementalUpdate?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
+      /** Get incremental update status snapshot. */
+      getIncrementalUpdateStatus?: () => Promise<TenasIncrementalUpdateStatus>;
+      /** Reset incremental updates to bundled version. */
+      resetIncrementalUpdate?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
+      /** Get current update channel (stable / beta). */
+      getUpdateChannel?: () => Promise<"stable" | "beta">;
+      /** Switch update channel and trigger check. */
+      switchUpdateChannel?: (channel: "stable" | "beta") => Promise<{ ok: true } | { ok: false; reason: string }>;
       openPath?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       showItemInFolder?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       trashItem?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;

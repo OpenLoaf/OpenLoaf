@@ -17,6 +17,7 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
+import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
 import { buildStrokeOutline } from "@/components/board/utils/stroke-path";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import type { CanvasStrokePoint, CanvasStrokeTool } from "@/components/board/engine/types";
@@ -243,12 +244,13 @@ export default function ImageViewer({
   const { basic, setBasic } = useBasicConfig();
   const { providerItems, s3ProviderItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
+  const installedCliProviderIds = useInstalledCliProviderIds();
   const isElectron = React.useMemo(() => isElectronEnv(), []);
   const rawChatSource = basic.chatSource;
   const chatSource = normalizeChatModelSource(rawChatSource);
   const modelOptions = React.useMemo(
-    () => buildChatModelOptions(chatSource, providerItems, cloudModels),
-    [chatSource, providerItems, cloudModels],
+    () => buildChatModelOptions(chatSource, providerItems, cloudModels, installedCliProviderIds),
+    [chatSource, providerItems, cloudModels, installedCliProviderIds],
   );
   const hasS3Storage = React.useMemo(() => {
     if (!basic.activeS3Id) return false;

@@ -3,14 +3,18 @@ import type { MediaModelDefinition, MediaModelTag, ModelTag } from "@tenas-ai/ap
 import type { ProviderModelOption } from "@/lib/provider-models";
 import { resolveServerUrl } from "@/utils/server-url";
 import { getAccessToken } from "@/lib/saas-auth";
+import {
+  IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
+  IMAGE_GENERATE_MAX_INPUT_IMAGES,
+  IMAGE_GENERATE_MAX_OUTPUT_IMAGES,
+} from "../node-config";
 
 /** Shared helpers for image generation nodes (SSE/model selection). */
-/** Default output count for image generation nodes. */
-export const IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT = 1;
-/** Maximum number of input images supported by image generation nodes. */
-export const IMAGE_GENERATE_MAX_INPUT_IMAGES = 9;
-/** Maximum number of output images supported by image generation nodes. */
-export const IMAGE_GENERATE_MAX_OUTPUT_IMAGES = 9;
+export {
+  IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
+  IMAGE_GENERATE_MAX_INPUT_IMAGES,
+  IMAGE_GENERATE_MAX_OUTPUT_IMAGES,
+} from "../node-config";
 export type ChatSseRequest = {
   /** Payload posted to the SSE endpoint. */
   payload: unknown;

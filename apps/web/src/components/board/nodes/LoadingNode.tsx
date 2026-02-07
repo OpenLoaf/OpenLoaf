@@ -116,7 +116,8 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
           if (status.data.status === "succeeded") {
             const resultUrls = Array.isArray(status.data.resultUrls)
               ? status.data.resultUrls.filter(
-                  (url): url is string => typeof url === "string" && url.trim().length > 0
+                  (url: unknown): url is string =>
+                    typeof url === "string" && url.trim().length > 0
                 )
               : [];
             if (resultUrls.length === 0) {
@@ -319,21 +320,21 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
     <NodeFrame>
       <div
         className={[
-          "relative flex h-full w-full min-h-0 min-w-0 flex-col justify-between rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.12)]",
+          "relative flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-center text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.12)]",
           "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100",
-          isRunning ? "tenas-thinking-border tenas-thinking-border-on border-transparent" : "",
+          !errorText ? "tenas-thinking-border tenas-thinking-border-on border-transparent" : "",
           errorText
             ? "border-rose-400/80 bg-rose-50/60 dark:border-rose-400/70 dark:bg-rose-950/30"
             : "",
         ].join(" ")}
       >
-      <div className="flex items-center gap-2 text-xs font-medium">
-        <Loader2 className={isRunning ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
-        <span>{statusText}</span>
-      </div>
-      <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-3">
-        {promptLabel}
-      </div>
+        <div className="flex items-center justify-center gap-2 text-xs font-medium">
+          <Loader2 className={isRunning ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+          <span>{statusText}</span>
+        </div>
+        <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-3">
+          {promptLabel}
+        </div>
       </div>
     </NodeFrame>
   );
@@ -357,7 +358,7 @@ export const LoadingNodeDefinition: CanvasNodeDefinition<LoadingNodeProps> = {
   capabilities: {
     resizable: false,
     rotatable: false,
-    connectable: "none",
+    connectable: "anchors",
     minSize: { w: LOADING_NODE_SIZE[0], h: LOADING_NODE_SIZE[1] },
     maxSize: { w: LOADING_NODE_SIZE[0], h: LOADING_NODE_SIZE[1] },
   },

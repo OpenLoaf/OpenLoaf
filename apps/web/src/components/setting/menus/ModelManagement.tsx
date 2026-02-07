@@ -16,6 +16,7 @@ import { useSettingsValues } from "@/hooks/use-settings";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
+import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
 import { TenasAutoWidthInput } from "@tenas-ai/ui/tenas/TenasAutoWidthInput";
 import { getModelLabel } from "@/lib/model-registry";
 
@@ -23,6 +24,7 @@ export function ModelManagement() {
   const { providerItems } = useSettingsValues();
   const { basic, setBasic } = useBasicConfig();
   const { models: cloudModels } = useCloudModels();
+  const installedCliProviderIds = useInstalledCliProviderIds();
 
   const workspaceProjectRule =
     typeof basic.appProjectRule === "string" ? basic.appProjectRule : "";
@@ -31,8 +33,8 @@ export function ModelManagement() {
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
 
   const modelOptions = useMemo(
-    () => buildChatModelOptions(chatModelSource, providerItems, cloudModels),
-    [chatModelSource, providerItems, cloudModels],
+    () => buildChatModelOptions(chatModelSource, providerItems, cloudModels, installedCliProviderIds),
+    [chatModelSource, providerItems, cloudModels, installedCliProviderIds],
   );
   const emptyModelLabel = chatModelSource === "cloud" ? "云端模型暂未开放" : "暂无模型";
 

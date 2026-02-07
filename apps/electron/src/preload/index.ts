@@ -4,25 +4,19 @@ type OpenBrowserWindowResult = { id: number };
 type OkResult = { ok: true };
 type CountResult = { ok: true; count: number } | { ok: false };
 type ViewBounds = { x: number; y: number; width: number; height: number };
-type AutoUpdateStatus = {
-  state:
-    | 'idle'
-    | 'checking'
-    | 'available'
-    | 'not-available'
-    | 'downloading'
-    | 'downloaded'
-    | 'error';
-  currentVersion: string;
-  nextVersion?: string;
+type IncrementalUpdateComponentInfo = {
+  version: string;
+  source: 'bundled' | 'updated';
+  newVersion?: string;
   releaseNotes?: string;
+  changelogUrl?: string;
+};
+type IncrementalUpdateStatus = {
+  state: 'idle' | 'checking' | 'downloading' | 'ready' | 'error';
+  server: IncrementalUpdateComponentInfo;
+  web: IncrementalUpdateComponentInfo;
+  progress?: { component: 'server' | 'web'; percent: number };
   lastCheckedAt?: number;
-  progress?: {
-    percent: number;
-    transferred: number;
-    total: number;
-    bytesPerSecond: number;
-  };
   error?: string;
   ts: number;
 };
@@ -99,6 +93,9 @@ contextBridge.exposeInMainWorld('tenasElectron', {
     ipcRenderer.invoke('tenas:webcontents-view:count'),
   // 获取应用版本号。
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('tenas:app:version'),
+  // Restart the app to apply updates.
+  relaunchApp: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('tenas:app:relaunch'),
   // Fetch runtime server/web URLs synchronously for early init.
   getRuntimePortsSync: (): { ok: boolean; serverUrl?: string; webUrl?: string } =>
     ipcRenderer.sendSync('tenas:runtime:ports'),
@@ -112,15 +109,21 @@ contextBridge.exposeInMainWorld('tenasElectron', {
     height: number;
   }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
     ipcRenderer.invoke('tenas:window:set-titlebar-overlay-height', payload),
-  // 手动触发更新检查。
-  checkForUpdates: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
-    ipcRenderer.invoke('tenas:auto-update:check'),
-  // 获取最新更新状态快照。
-  getAutoUpdateStatus: (): Promise<AutoUpdateStatus> =>
-    ipcRenderer.invoke('tenas:auto-update:status'),
-  // 安装已下载的更新并重启。
-  installUpdate: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
-    ipcRenderer.invoke('tenas:auto-update:install'),
+  // 手动触发增量更新检查（server/web）。
+  checkIncrementalUpdate: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('tenas:incremental-update:check'),
+  // 获取增量更新状态快照。
+  getIncrementalUpdateStatus: (): Promise<IncrementalUpdateStatus> =>
+    ipcRenderer.invoke('tenas:incremental-update:get-status'),
+  // 重置增量更新到打包版本。
+  resetIncrementalUpdate: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('tenas:incremental-update:reset'),
+  // 获取当前更新渠道（stable / beta）。
+  getUpdateChannel: (): Promise<'stable' | 'beta'> =>
+    ipcRenderer.invoke('tenas:app:get-update-channel'),
+  // 切换更新渠道（stable / beta）并立即触发检查。
+  switchUpdateChannel: (channel: 'stable' | 'beta'): Promise<{ ok: true } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('tenas:app:switch-update-channel', { channel }),
   // 使用系统默认程序打开文件/目录。
   openPath: (payload: { uri: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
     ipcRenderer.invoke('tenas:fs:open-path', payload),
@@ -276,10 +279,10 @@ ipcRenderer.on('tenas:fs:transfer-complete', (_event, detail) => {
   }
 });
 
-ipcRenderer.on('tenas:auto-update:status', (_event, detail) => {
+ipcRenderer.on('tenas:incremental-update:status', (_event, detail) => {
   try {
     window.dispatchEvent(
-      new CustomEvent('tenas:auto-update:status', { detail })
+      new CustomEvent('tenas:incremental-update:status', { detail })
     );
   } catch {
     // ignore

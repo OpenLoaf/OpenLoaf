@@ -1,10 +1,10 @@
 import { CalendarNodeDefinition } from "../nodes/CalendarNode";
 import { GroupNodeDefinition, ImageGroupNodeDefinition } from "../nodes/GroupNode";
-import { ImageGenerateNodeDefinition } from "../nodes/ImageGenerateNode";
-import { VideoGenerateNodeDefinition } from "../nodes/VideoGenerateNode";
+import { ImageGenerateNodeDefinition } from "../nodes/imageGenerate";
+import { VideoGenerateNodeDefinition } from "../nodes/videoGenerate";
 import { ImageNodeDefinition } from "../nodes/ImageNode";
 import { VideoNodeDefinition } from "../nodes/VideoNode";
-import { ImagePromptGenerateNodeDefinition } from "../nodes/ImagePromptGenerateNode";
+import { ImagePromptGenerateNodeDefinition } from "../nodes/imagePromptGenerate";
 import { LinkNodeDefinition } from "../nodes/LinkNode";
 import { StrokeNodeDefinition } from "../nodes/StrokeNode";
 import { TextNodeDefinition } from "../nodes/TextNode";

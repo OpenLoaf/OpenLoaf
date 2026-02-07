@@ -40,11 +40,16 @@ async function fetchLocalAuthSession(baseUrl: string): Promise<LocalAuthSessionR
 export default function LocalAuthGate({ children }: { children: React.ReactNode }) {
   const baseUrl = resolveServerUrl();
   const isElectron = isElectronEnv();
+  // 逻辑：SSG 时 isElectron 为 false，会将遮罩烘焙进静态 HTML。
+  // 使用 mounted 标记跳过首帧，确保静态 HTML 不包含遮罩，消除水合前的闪屏。
+  const [mounted, setMounted] = useState(false);
   const [status, setStatus] = useState<GateStatus>("checking");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   const loadSession = useCallback(async () => {
     if (isElectron) {
@@ -112,7 +117,7 @@ export default function LocalAuthGate({ children }: { children: React.ReactNode 
     }
   }, [baseUrl, loadSession, password, remember]);
 
-  if (isElectron || status === "ready") {
+  if (!mounted || isElectron || status === "ready") {
     return <>{children}</>;
   }
 

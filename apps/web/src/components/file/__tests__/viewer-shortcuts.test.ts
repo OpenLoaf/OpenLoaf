@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { isFindShortcutEvent, stopFindShortcutPropagation } from "../lib/viewer-shortcuts.ts";
+import { isFindShortcutEvent, stopFindShortcutPropagation } from "../lib/viewer-shortcuts";
 
 type PartialKeyEvent = {
   key: string;

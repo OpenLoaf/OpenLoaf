@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { ToolLoopAgent } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
@@ -12,6 +11,7 @@ import {
 import { browserSubAgentName } from "@tenas-ai/api/types/tools/subAgent";
 import { buildToolset } from "@/ai/tools/toolRegistry";
 import { createToolCallRepair } from "@/ai/agents/repairToolCall";
+import BROWSER_SUB_AGENT_PROMPT_RAW from "./browserSubAgent.zh.md";
 
 /** Browser sub-agent display name. */
 export const BROWSER_SUB_AGENT_NAME = browserSubAgentName;
@@ -27,14 +27,7 @@ const BROWSER_SUB_AGENT_TOOL_IDS = [
   browserWaitToolDef.id,
 ] as const;
 /** Default browser sub-agent system prompt. */
-const BROWSER_SUB_AGENT_PROMPT_URL = new URL(
-  "./browserSubAgent.zh.md",
-  import.meta.url,
-);
-const DEFAULT_BROWSER_SUB_AGENT_SYSTEM_PROMPT = readFileSync(
-  BROWSER_SUB_AGENT_PROMPT_URL,
-  "utf8",
-).trim();
+const DEFAULT_BROWSER_SUB_AGENT_SYSTEM_PROMPT = BROWSER_SUB_AGENT_PROMPT_RAW.trim();
 
 type CreateBrowserSubAgentInput = {
   /** Model instance for the sub-agent. */

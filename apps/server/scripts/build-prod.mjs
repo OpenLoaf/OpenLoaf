@@ -18,6 +18,8 @@ await build({
   target: "node20",
   format: "esm",
   outfile: "dist/server.mjs",
+  external: ["playwright-core"],
+  loader: { ".md": "text" },
   banner: {
     js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
   },
@@ -27,16 +29,30 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const serverRoot = path.resolve(__dirname, "..");
-const localDbPath = path.join(serverRoot, "local.db");
+const repoRoot = path.resolve(serverRoot, "..", "..");
 const seedDbPath = path.join(serverRoot, "dist", "seed.db");
 
 try {
   fs.mkdirSync(path.dirname(seedDbPath), { recursive: true });
-  fs.copyFileSync(localDbPath, seedDbPath);
+  // 中文注释：打包时自动生成空库并写入 schema，避免依赖本地 local.db。
+  if (fs.existsSync(seedDbPath)) {
+    fs.rmSync(seedDbPath);
+  }
+  const push = spawnSync("pnpm", ["--filter", "@tenas-ai/db", "db:push"], {
+    cwd: repoRoot,
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      TENAS_DATABASE_URL: `file:${seedDbPath}`,
+    },
+  });
+  if (push.status !== 0) {
+    process.exit(push.status ?? 1);
+  }
 } catch (err) {
   logger.error(
-    { err, localDbPath, seedDbPath },
-    `[build-prod] Failed to copy seed DB from ${localDbPath} -> ${seedDbPath}`,
+    { err, seedDbPath },
+    `[build-prod] Failed to generate seed DB at ${seedDbPath}`,
   );
   process.exit(1);
 }
