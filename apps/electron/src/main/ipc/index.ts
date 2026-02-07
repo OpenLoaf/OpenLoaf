@@ -10,6 +10,11 @@ import {
   resetToBuiltinVersion,
 } from '../incrementalUpdate';
 import {
+  resolveUpdateChannel,
+  switchUpdateChannel,
+  type UpdateChannel,
+} from '../updateConfig';
+import {
   createBrowserWindowForUrl,
   destroyAllWebContentsViews,
   destroyWebContentsView,
@@ -528,6 +533,27 @@ export function registerIpcHandlers(args: { log: Logger }) {
   ipcMain.handle('tenas:incremental-update:reset', async () => {
     return resetToBuiltinVersion();
   });
+
+  // 获取当前更新渠道（stable / beta）。
+  ipcMain.handle('tenas:app:get-update-channel', async () => {
+    return resolveUpdateChannel();
+  });
+
+  // 切换更新渠道并立即触发增量更新检查。
+  ipcMain.handle(
+    'tenas:app:switch-update-channel',
+    async (_event, payload: { channel: UpdateChannel }) => {
+      const channel = payload?.channel;
+      if (channel !== 'stable' && channel !== 'beta') {
+        return { ok: false as const, reason: 'Invalid channel' };
+      }
+      switchUpdateChannel(channel);
+      args.log(`[update-channel] Switched to ${channel}`);
+      // 切换后立即触发增量更新检查
+      void checkForIncrementalUpdates('channel-switch');
+      return { ok: true as const };
+    }
+  );
 
   // 使用系统默认程序打开文件/目录。
   ipcMain.handle('tenas:fs:open-path', async (_event, payload: { uri: string }) => {

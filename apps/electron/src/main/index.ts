@@ -6,12 +6,10 @@ import { installAutoUpdate } from './autoUpdate';
 import { installIncrementalUpdate } from './incrementalUpdate';
 
 // 打包后原生模块（sharp、@libsql 等）位于 Resources/node_modules 目录。
-// electron-builder 将依赖放在 Resources/node_modules/（标准解析可达），
-// Forge package 则平铺在 Resources/（如 Resources/sharp/）。
-// 同时添加两个路径，确保两种打包方式都能正确解析。
+// Node.js 标准解析会从 asar 向上查找到 Resources/node_modules/，
+// globalPaths 作为额外保障。
 if (app.isPackaged) {
   Module.globalPaths.push(path.join(process.resourcesPath, 'node_modules'));
-  Module.globalPaths.push(process.resourcesPath);
 }
 import {
   createStartupLogger,

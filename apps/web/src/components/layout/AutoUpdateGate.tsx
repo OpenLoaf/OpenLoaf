@@ -15,7 +15,37 @@ import { isElectronEnv } from "@/utils/is-electron-env";
 type AutoUpdateGateState = {
   status: TenasIncrementalUpdateStatus | null;
   open: boolean;
+  changelog: string | null;
+  changelogLoading: boolean;
 };
+
+/**
+ * Strip YAML frontmatter (--- ... ---) from a markdown string.
+ */
+function stripFrontmatter(raw: string): string {
+  const match = raw.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  if (match) return raw.slice(match[0].length).trim();
+  return raw.trim();
+}
+
+/**
+ * Fetch and merge changelogs from multiple URLs.
+ */
+async function fetchChangelogs(urls: string[]): Promise<string | null> {
+  const parts: string[] = [];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) continue;
+      const raw = await res.text();
+      const body = stripFrontmatter(raw);
+      if (body) parts.push(body);
+    } catch {
+      // ignore individual failures
+    }
+  }
+  return parts.length > 0 ? parts.join("\n\n---\n\n") : null;
+}
 
 /**
  * Shows a global update prompt when incremental updates are ready.
@@ -24,6 +54,8 @@ export default function AutoUpdateGate() {
   const [state, setState] = React.useState<AutoUpdateGateState>({
     status: null,
     open: false,
+    changelog: null,
+    changelogLoading: false,
   });
   /** Last ready timestamp to avoid duplicate prompts. */
   const lastReadyTsRef = React.useRef<number | null>(null);
@@ -72,12 +104,24 @@ export default function AutoUpdateGate() {
     // 防止重复弹窗；同一条下载事件只提示一次。
     if (state.status.ts === lastReadyTsRef.current) return;
     lastReadyTsRef.current = state.status.ts;
-    setState((prev) => ({ ...prev, open: true }));
+
+    // 收集 changelog URLs
+    const urls: string[] = [];
+    if (state.status.server?.changelogUrl) urls.push(state.status.server.changelogUrl);
+    if (state.status.web?.changelogUrl) urls.push(state.status.web.changelogUrl);
+
+    if (urls.length > 0) {
+      setState((prev) => ({ ...prev, open: true, changelog: null, changelogLoading: true }));
+      void fetchChangelogs(urls).then((changelog) => {
+        setState((prev) => ({ ...prev, changelog, changelogLoading: false }));
+      });
+    } else {
+      setState((prev) => ({ ...prev, open: true, changelog: null, changelogLoading: false }));
+    }
   }, [state.status]);
 
   if (!isElectron) return null;
 
-  // 中文注释：从已更新的组件版本拼接展示文案。
   const nextVersionLabel = React.useMemo(() => {
     if (!state.status) return "新版本";
     const parts: string[] = [];
@@ -95,13 +139,22 @@ export default function AutoUpdateGate() {
       open={state.open}
       onOpenChange={(open) => setState((prev) => ({ ...prev, open }))}
     >
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>更新已准备好</DialogTitle>
           <DialogDescription>
             {nextVersionLabel} 已准备好，重启后即可完成更新。
           </DialogDescription>
         </DialogHeader>
+        {state.changelogLoading ? (
+          <div className="py-2 text-xs text-muted-foreground">加载更新日志...</div>
+        ) : state.changelog ? (
+          <div className="max-h-48 overflow-y-auto rounded-md border p-3">
+            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-xs">
+              {state.changelog}
+            </div>
+          </div>
+        ) : null}
         <DialogFooter>
           <Button
             variant="ghost"

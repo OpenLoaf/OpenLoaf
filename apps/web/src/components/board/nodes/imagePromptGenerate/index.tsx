@@ -9,6 +9,7 @@ import { generateId } from "ai";
 
 import { useBoardContext } from "../../core/BoardProvider";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
+import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useCloudModels } from "@/hooks/use-cloud-models";
@@ -79,10 +80,11 @@ export function ImagePromptGenerateNodeView({
   const { basic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
+  const installedCliProviderIds = useInstalledCliProviderIds();
   const chatSource = normalizeChatModelSource(basic.chatSource);
   const modelOptions = useMemo(
-    () => buildChatModelOptions(chatSource, providerItems, cloudModels),
-    [chatSource, providerItems, cloudModels]
+    () => buildChatModelOptions(chatSource, providerItems, cloudModels, installedCliProviderIds),
+    [chatSource, providerItems, cloudModels, installedCliProviderIds]
   );
   const candidates = useMemo(() => {
     return filterModelOptionsByTags(modelOptions, {

@@ -9,10 +9,15 @@ import { WEBPACK_ENTRIES } from '../webpackEntries';
  * 在 loading 页面上显示错误信息，替换 "Launching" 文本和动画。
  */
 async function showErrorOnLoadingPage(win: BrowserWindow, error: string): Promise<void> {
+  // 确保窗口可见并获得焦点。
+  if (!win.isVisible()) win.show();
+  win.focus();
+
   const escaped = error
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "\\'")
     .replace(/\n/g, '\\n');
+  try {
   await win.webContents.executeJavaScript(`
     (function() {
       var dots = document.querySelector('.dots');
@@ -46,6 +51,9 @@ async function showErrorOnLoadingPage(win: BrowserWindow, error: string): Promis
       }
     })();
   `);
+  } catch {
+    // executeJavaScript 失败时不阻塞启动流程。
+  }
 }
 
 /**

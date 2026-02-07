@@ -5,6 +5,7 @@ import { useSettingsValues } from "@/hooks/use-settings";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
+import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
 import {
   supportsCode,
   supportsImageEdit,
@@ -17,10 +18,11 @@ export function useChatModelSelection() {
   const { basic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
+  const installedCliProviderIds = useInstalledCliProviderIds();
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
   const modelOptions = React.useMemo(
-    () => buildChatModelOptions(chatModelSource, providerItems, cloudModels),
-    [chatModelSource, providerItems, cloudModels]
+    () => buildChatModelOptions(chatModelSource, providerItems, cloudModels, installedCliProviderIds),
+    [chatModelSource, providerItems, cloudModels, installedCliProviderIds]
   );
   const rawSelectedModelId =
     typeof basic.modelDefaultChatModelId === "string"

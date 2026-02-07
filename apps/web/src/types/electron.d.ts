@@ -17,6 +17,8 @@ declare global {
     newVersion?: string;
     /** Optional release notes. */
     releaseNotes?: string;
+    /** Changelog URL (markdown file). */
+    changelogUrl?: string;
   };
   type TenasIncrementalUpdateStatus = {
     /** Current incremental update state. */
@@ -169,6 +171,10 @@ declare global {
       getIncrementalUpdateStatus?: () => Promise<TenasIncrementalUpdateStatus>;
       /** Reset incremental updates to bundled version. */
       resetIncrementalUpdate?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
+      /** Get current update channel (stable / beta). */
+      getUpdateChannel?: () => Promise<"stable" | "beta">;
+      /** Switch update channel and trigger check. */
+      switchUpdateChannel?: (channel: "stable" | "beta") => Promise<{ ok: true } | { ok: false; reason: string }>;
       openPath?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       showItemInFolder?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       trashItem?: (payload: { uri: string }) => Promise<{ ok: true } | { ok: false; reason?: string }>;

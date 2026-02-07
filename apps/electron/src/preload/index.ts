@@ -9,6 +9,7 @@ type IncrementalUpdateComponentInfo = {
   source: 'bundled' | 'updated';
   newVersion?: string;
   releaseNotes?: string;
+  changelogUrl?: string;
 };
 type IncrementalUpdateStatus = {
   state: 'idle' | 'checking' | 'downloading' | 'ready' | 'error';
@@ -117,6 +118,12 @@ contextBridge.exposeInMainWorld('tenasElectron', {
   // 重置增量更新到打包版本。
   resetIncrementalUpdate: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
     ipcRenderer.invoke('tenas:incremental-update:reset'),
+  // 获取当前更新渠道（stable / beta）。
+  getUpdateChannel: (): Promise<'stable' | 'beta'> =>
+    ipcRenderer.invoke('tenas:app:get-update-channel'),
+  // 切换更新渠道（stable / beta）并立即触发检查。
+  switchUpdateChannel: (channel: 'stable' | 'beta'): Promise<{ ok: true } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('tenas:app:switch-update-channel', { channel }),
   // 使用系统默认程序打开文件/目录。
   openPath: (payload: { uri: string }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
     ipcRenderer.invoke('tenas:fs:open-path', payload),

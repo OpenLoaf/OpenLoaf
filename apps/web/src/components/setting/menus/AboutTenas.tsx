@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@tenas-ai/ui/button";
+import { Switch } from "@tenas-ai/ui/switch";
 import { getWebClientId } from "@/lib/chat/streamClientId";
 import { ChevronRight } from "lucide-react";
 import * as React from "react";
@@ -29,6 +30,8 @@ export function AboutTenas() {
   const [updateStatus, setUpdateStatus] = React.useState<TenasIncrementalUpdateStatus | null>(
     null,
   );
+  const [updateChannel, setUpdateChannel] = React.useState<"stable" | "beta">("stable");
+  const [channelSwitching, setChannelSwitching] = React.useState(false);
   const isElectron = React.useMemo(() => isElectronEnv(), []);
 
   /** 复制到剪贴板（navigator.clipboard 不可用时做降级）。 */
@@ -72,6 +75,34 @@ export function AboutTenas() {
       if (status) setUpdateStatus(status);
     } catch {
       // ignore
+    }
+  }, [isElectron]);
+
+  /** Fetch current update channel from Electron main process. */
+  const fetchUpdateChannel = React.useCallback(async () => {
+    const api = window.tenasElectron;
+    if (!isElectron || !api?.getUpdateChannel) return;
+    try {
+      const channel = await api.getUpdateChannel();
+      if (channel) setUpdateChannel(channel);
+    } catch {
+      // ignore
+    }
+  }, [isElectron]);
+
+  /** Toggle update channel between stable and beta. */
+  const toggleUpdateChannel = React.useCallback(async (checked: boolean) => {
+    const api = window.tenasElectron;
+    if (!isElectron || !api?.switchUpdateChannel) return;
+    const newChannel = checked ? "beta" : "stable";
+    setChannelSwitching(true);
+    try {
+      const result = await api.switchUpdateChannel(newChannel);
+      if (result?.ok) setUpdateChannel(newChannel);
+    } catch {
+      // ignore
+    } finally {
+      setChannelSwitching(false);
     }
   }, [isElectron]);
 
@@ -131,7 +162,8 @@ export function AboutTenas() {
     if (!isElectron) return;
     void fetchAppVersion();
     void fetchUpdateStatus();
-  }, [isElectron, fetchAppVersion, fetchUpdateStatus]);
+    void fetchUpdateChannel();
+  }, [isElectron, fetchAppVersion, fetchUpdateStatus, fetchUpdateChannel]);
 
   React.useEffect(() => {
     if (!isElectron) return;
@@ -234,6 +266,24 @@ export function AboutTenas() {
             <div>服务端：v{serverVersion}</div>
             <div>Web：v{webVersion}</div>
           </div>
+
+          {isElectron ? (
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Beta 体验</div>
+                <div className="text-xs text-muted-foreground">
+                  接收 Web 和服务端的 Beta 版本更新
+                </div>
+              </div>
+              <TenasSettingsField>
+                <Switch
+                  checked={updateChannel === "beta"}
+                  disabled={channelSwitching}
+                  onCheckedChange={toggleUpdateChannel}
+                />
+              </TenasSettingsField>
+            </div>
+          ) : null}
         </div>
       </TenasSettingsGroup>
 

@@ -6,13 +6,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
-const expectedFrom = "../../node_modules/playwright-core";
-const expectedTo = "node_modules/playwright-core";
-
+// Forge: playwright-core 通过 NATIVE_DEP_ROOTS 递归解析（postPackage 钩子处理）
 const forgeConfigPath = path.join(repoRoot, "apps", "electron", "forge.config.ts");
 const forgeConfig = fs.readFileSync(forgeConfigPath, "utf-8");
-const hasForgeEntry = forgeConfig.includes(expectedFrom);
+const hasForgeEntry = forgeConfig.includes("'playwright-core'");
 
+// electron-builder: playwright-core 在 package.json build.extraResources 中显式列出
+const expectedFrom = "../../node_modules/playwright-core";
+const expectedTo = "node_modules/playwright-core";
 const builderPkgPath = path.join(repoRoot, "apps", "electron", "package.json");
 const builderPkg = JSON.parse(fs.readFileSync(builderPkgPath, "utf-8"));
 const builderExtra = builderPkg?.build?.extraResources ?? [];
@@ -23,7 +24,7 @@ const hasBuilderEntry = builderExtra.some(
 if (!hasForgeEntry || !hasBuilderEntry) {
   if (!hasForgeEntry) {
     console.error(
-      `[check-extra-resources] Missing ${expectedFrom} in apps/electron/forge.config.ts extraResource.`
+      "[check-extra-resources] Missing 'playwright-core' in NATIVE_DEP_ROOTS (forge.config.ts)."
     );
   }
   if (!hasBuilderEntry) {

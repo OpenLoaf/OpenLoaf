@@ -6,19 +6,35 @@
  * 2. gzip 压缩
  * 3. 计算 SHA-256
  * 4. 上传到 Cloudflare R2
- * 5. 更新 manifest.json
+ * 5. 更新 ${channel}/manifest.json
+ * 6. 上传 changelogs
+ *
+ * 用法：
+ *   node scripts/publish-update.mjs                   # 自动检测渠道
+ *   node scripts/publish-update.mjs --channel=beta    # 强制 beta 渠道
+ *   node scripts/publish-update.mjs --channel=stable  # 强制 stable 渠道
  *
  * 配置来自 apps/server/.env.prod（自动加载，命令行环境变量优先）
  */
 
-import { createHash } from 'node:crypto'
 import { createReadStream, createWriteStream, readFileSync, statSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { pipeline } from 'node:stream/promises'
 import { createGzip } from 'node:zlib'
 import { execSync } from 'node:child_process'
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+import {
+  loadEnvFile,
+  validateR2Config,
+  createS3Client,
+  uploadFile,
+  downloadJson,
+  uploadJson,
+  computeSha256,
+  resolveChannel,
+  uploadChangelogs,
+  buildChangelogUrl,
+} from '../../../scripts/shared/publishUtils.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -28,109 +44,18 @@ const serverRoot = path.resolve(__dirname, '..')
 // 自动加载 .env.prod
 // ---------------------------------------------------------------------------
 
-function loadEnvFile(filePath) {
-  if (!existsSync(filePath)) return
-  const raw = readFileSync(filePath, 'utf-8')
-  for (const line of raw.split(/\r?\n/)) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const eq = trimmed.indexOf('=')
-    if (eq <= 0) continue
-    const key = trimmed.slice(0, eq).trim()
-    let value = trimmed.slice(eq + 1).trim()
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1)
-    }
-    if (!(key in process.env)) {
-      process.env[key] = value
-    }
-  }
-}
-
 loadEnvFile(path.join(serverRoot, '.env.prod'))
 
 // ---------------------------------------------------------------------------
 // 配置校验
 // ---------------------------------------------------------------------------
 
-const R2_BUCKET = process.env.R2_BUCKET
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL
-const R2_ENDPOINT = process.env.R2_ENDPOINT
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY
-
-const missing = []
-if (!R2_BUCKET) missing.push('R2_BUCKET')
-if (!R2_PUBLIC_URL) missing.push('R2_PUBLIC_URL')
-if (!R2_ENDPOINT) missing.push('R2_ENDPOINT')
-if (!R2_ACCESS_KEY_ID) missing.push('R2_ACCESS_KEY_ID')
-if (!R2_SECRET_ACCESS_KEY) missing.push('R2_SECRET_ACCESS_KEY')
-
-if (missing.length > 0) {
-  console.error(`❌ 缺少配置: ${missing.join(', ')}`)
-  console.error('   请在 apps/server/.env.prod 中设置：')
-  console.error('   R2_BUCKET=tenas-updates')
-  console.error('   R2_PUBLIC_URL=https://pub-xxx.r2.dev')
-  console.error('   R2_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com')
-  console.error('   R2_ACCESS_KEY_ID=xxx')
-  console.error('   R2_SECRET_ACCESS_KEY=xxx')
-  process.exit(1)
-}
-
-// ---------------------------------------------------------------------------
-// S3 Client（兼容 Cloudflare R2）
-// ---------------------------------------------------------------------------
-
-const s3 = new S3Client({
-  region: 'auto',
-  endpoint: R2_ENDPOINT,
-  credentials: {
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_ACCESS_KEY,
-  },
-})
-
-async function uploadFile(key, filePath) {
-  const body = readFileSync(filePath)
-  await s3.send(new PutObjectCommand({
-    Bucket: R2_BUCKET,
-    Key: key,
-    Body: body,
-  }))
-}
-
-async function downloadJson(key) {
-  const res = await s3.send(new GetObjectCommand({
-    Bucket: R2_BUCKET,
-    Key: key,
-  }))
-  const text = await res.Body.transformToString()
-  return JSON.parse(text)
-}
-
-async function uploadJson(key, data) {
-  await s3.send(new PutObjectCommand({
-    Bucket: R2_BUCKET,
-    Key: key,
-    Body: JSON.stringify(data, null, 2),
-    ContentType: 'application/json',
-  }))
-}
+const r2Config = validateR2Config()
+const s3 = createS3Client(r2Config)
 
 // ---------------------------------------------------------------------------
 // 辅助
 // ---------------------------------------------------------------------------
-
-function computeSha256(filePath) {
-  return new Promise((resolve, reject) => {
-    const hash = createHash('sha256')
-    const stream = createReadStream(filePath)
-    stream.on('data', (chunk) => hash.update(chunk))
-    stream.on('end', () => resolve(hash.digest('hex')))
-    stream.on('error', reject)
-  })
-}
 
 async function gzipFile(srcPath, destPath) {
   const src = createReadStream(srcPath)
@@ -151,7 +76,11 @@ async function main() {
     console.error('❌ package.json 缺少 version 字段。请先执行 npm version patch')
     process.exit(1)
   }
+
+  // 解析渠道
+  const channel = resolveChannel(process.argv.slice(2), version)
   console.log(`📦 Server version: ${version}`)
+  console.log(`📡 Channel: ${channel}`)
 
   // 2. 构建
   console.log('🔨 Building server...')
@@ -174,34 +103,46 @@ async function main() {
   console.log(`✅ SHA-256: ${sha256}`)
   console.log(`✅ Size: ${(size / 1024 / 1024).toFixed(2)} MB`)
 
-  // 5. 上传到 R2
+  // 5. 上传到 R2（共享构件池，不分渠道）
   const r2Key = `server/${version}/server.mjs.gz`
   console.log(`☁️  Uploading to R2: ${r2Key}`)
-  await uploadFile(r2Key, gzPath)
+  await uploadFile(s3, r2Config.bucket, r2Key, gzPath)
 
-  // 6. 更新 manifest.json
-  console.log('📋 Updating manifest.json...')
+  // 6. 更新 ${channel}/manifest.json
+  const manifestKey = `${channel}/manifest.json`
+  console.log(`📋 Updating ${manifestKey}...`)
   let manifest = { schemaVersion: 1 }
   try {
-    manifest = await downloadJson('manifest.json')
+    manifest = await downloadJson(s3, r2Config.bucket, manifestKey)
   } catch {
     console.log('   (No existing manifest found, creating new one)')
   }
 
   const updatedAt = new Date().toISOString()
+  const changelogUrl = buildChangelogUrl(r2Config.publicUrl, 'server', version)
   manifest.server = {
     version,
-    url: `${R2_PUBLIC_URL}/${r2Key}`,
+    url: `${r2Config.publicUrl}/${r2Key}`,
     sha256,
     size,
-    // 更新时间（UTC ISO 8601）
     updatedAt,
+    changelogUrl,
   }
 
-  await uploadJson('manifest.json', manifest)
+  await uploadJson(s3, r2Config.bucket, manifestKey, manifest)
 
-  console.log(`\n🎉 Server v${version} published successfully!`)
-  console.log(`   URL: ${R2_PUBLIC_URL}/${r2Key}`)
+  // 7. 上传 changelogs
+  console.log('📝 Uploading changelogs...')
+  await uploadChangelogs({
+    s3,
+    bucket: r2Config.bucket,
+    component: 'server',
+    changelogsDir: path.join(serverRoot, 'changelogs'),
+    publicUrl: r2Config.publicUrl,
+  })
+
+  console.log(`\n🎉 Server v${version} published to ${channel} successfully!`)
+  console.log(`   URL: ${r2Config.publicUrl}/${r2Key}`)
 }
 
 main().catch((err) => {

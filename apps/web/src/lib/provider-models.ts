@@ -36,13 +36,18 @@ const CLI_ADAPTER_ID = "cli";
 
 /**
  * Build CLI provider model options from registry definitions.
+ * 仅包含已安装的 CLI 工具对应的模型。
  */
-export function buildCliModelOptions(): ProviderModelOption[] {
+export function buildCliModelOptions(
+  installedCliProviderIds?: Set<string>,
+): ProviderModelOption[] {
   const options: ProviderModelOption[] = [];
   const providers = getProviderDefinitions().filter(
     (provider) => provider.adapterId === CLI_ADAPTER_ID,
   );
   for (const provider of providers) {
+    // 逻辑：有安装状态信息时，跳过未安装的 CLI 工具。
+    if (installedCliProviderIds && !installedCliProviderIds.has(provider.id)) continue;
     const providerName = provider.label || provider.id;
     const models = Array.isArray(provider.models) ? provider.models : [];
     for (const model of models) {
@@ -126,11 +131,12 @@ export function buildChatModelOptions(
   source: ChatModelSource,
   items: Array<{ key: string; value: unknown; category?: string }>,
   cloudModels: ModelDefinition[] = [],
+  installedCliProviderIds?: Set<string>,
 ) {
   // 中文注释：云端模式不读取本地服务商配置。
   if (source === "cloud") return buildCloudModelOptions(cloudModels);
   const localOptions = buildProviderModelOptions(items);
-  const cliOptions = buildCliModelOptions();
+  const cliOptions = buildCliModelOptions(installedCliProviderIds);
   if (cliOptions.length === 0) return localOptions;
   // 中文注释：合并 CLI 与本地配置，避免 id 重复。
   const merged = new Map<string, ProviderModelOption>();

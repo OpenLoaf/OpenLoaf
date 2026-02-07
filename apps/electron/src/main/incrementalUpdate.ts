@@ -10,14 +10,11 @@ import zlib from 'node:zlib'
 const execFileAsync = promisify(execFile)
 import type { Logger } from './logging/startupLogger'
 import { getUpdatesRoot } from './incrementalUpdatePaths'
+import { resolveManifestUrl } from './updateConfig'
 
 // ---------------------------------------------------------------------------
 // 常量
 // ---------------------------------------------------------------------------
-
-/** 远端版本清单 URL（通过环境变量或默认值配置） */
-const MANIFEST_URL =
-  process.env.TENAS_UPDATE_MANIFEST_URL || 'https://r2-tenas-update.hexems.com/manifest.json'
 
 /** 首次检查延迟 */
 const INITIAL_CHECK_DELAY_MS = 10_000
@@ -43,6 +40,8 @@ type ComponentManifest = {
   /** 更新时间（UTC ISO 8601） */
   updatedAt?: string
   releaseNotes?: string
+  /** Changelog URL (markdown file) */
+  changelogUrl?: string
 }
 
 type RemoteManifest = {
@@ -67,6 +66,7 @@ type ComponentInfo = {
   source: 'bundled' | 'updated'
   newVersion?: string
   releaseNotes?: string
+  changelogUrl?: string
 }
 
 export type IncrementalUpdateStatus = {
@@ -444,8 +444,9 @@ export async function checkForIncrementalUpdates(
       lastCheckedAt: Date.now(),
     })
 
-    cachedLog?.(`[incremental-update] Checking for updates (${reason})...`)
-    const remote = (await fetchJson(MANIFEST_URL)) as RemoteManifest
+    const manifestUrl = resolveManifestUrl()
+    cachedLog?.(`[incremental-update] Checking for updates (${reason}) from ${manifestUrl}...`)
+    const remote = (await fetchJson(manifestUrl)) as RemoteManifest
 
     if (remote.schemaVersion !== 1) {
       throw new Error(`Unsupported manifest schemaVersion: ${remote.schemaVersion}`)
@@ -527,12 +528,14 @@ export async function checkForIncrementalUpdates(
     if (remote.server && (preUpdateLocal.server?.version ?? 'bundled') !== remote.server.version) {
       serverInfo.newVersion = remote.server.version
       serverInfo.releaseNotes = remote.server.releaseNotes
+      serverInfo.changelogUrl = remote.server.changelogUrl
     }
 
     const webInfo = getComponentInfo('web')
     if (remote.web && (preUpdateLocal.web?.version ?? 'bundled') !== remote.web.version) {
       webInfo.newVersion = remote.web.version
       webInfo.releaseNotes = remote.web.releaseNotes
+      webInfo.changelogUrl = remote.web.changelogUrl
     }
 
     emitStatus({

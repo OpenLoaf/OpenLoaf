@@ -21,6 +21,7 @@ import {
   normalizeChatModelSource,
   type ProviderModelOption,
 } from "@/lib/provider-models";
+import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
 import { getModelLabel } from "@/lib/model-registry";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
@@ -127,6 +128,7 @@ type FilteredProviderGroup = ProviderGroup & {
 export default function SelectMode({ className }: SelectModeProps) {
   const { providerItems, refresh } = useSettingsValues();
   const { models: cloudModels, refresh: refreshCloudModels } = useCloudModels();
+  const installedCliProviderIds = useInstalledCliProviderIds();
   const { basic, setBasic, isLoading: basicLoading } = useBasicConfig();
   const [open, setOpen] = useState(false);
   const { loggedIn: authLoggedIn, refreshSession } = useSaasAuth();
@@ -158,8 +160,8 @@ export default function SelectMode({ className }: SelectModeProps) {
   /** Track source switching to avoid cross-updating storage. */
   const prevSourceKeyRef = useRef<ModelSourceKey | null>(null);
   const modelOptions = useMemo(
-    () => buildChatModelOptions(chatModelSource, providerItems, cloudModels),
-    [chatModelSource, providerItems, cloudModels],
+    () => buildChatModelOptions(chatModelSource, providerItems, cloudModels, installedCliProviderIds),
+    [chatModelSource, providerItems, cloudModels, installedCliProviderIds],
   );
   /** Provider groups derived from model options. */
   const providerGroups = useMemo<ProviderGroup[]>(() => {
@@ -230,6 +232,13 @@ export default function SelectMode({ className }: SelectModeProps) {
   /** Auto state derived from config value. */
   const isAutoConfig = rawSelectedModelId.length === 0;
   const hasModels = modelOptions.length > 0;
+  // 逻辑：检查用户是否配置了至少一个本地 provider（排除注册表默认 CLI 项）。
+  const hasConfiguredProviders = useMemo(
+    () => providerItems.some((item) => (item.category ?? "general") === "provider"),
+    [providerItems],
+  );
+  // 逻辑：未登录且无本地配置时，视为"未就绪"状态，引导用户配置。
+  const isUnconfigured = !authLoggedIn && !hasConfiguredProviders;
   const showCloudEmpty = isCloudSource && !hasModels;
   const showAuto = isCloudSource ? true : hasModels;
   const showAddButton = !isCloudSource;
@@ -575,7 +584,9 @@ export default function SelectMode({ className }: SelectModeProps) {
             )}
           >
             <span className="min-w-0 flex-1 truncate whitespace-nowrap text-right">
-              {isAuto ? (
+              {isUnconfigured ? (
+                <span className="truncate">配置模型</span>
+              ) : isAuto ? (
                 <span className="flex items-center justify-end gap-1">
                   {!isCloudSource ? (
                     <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />

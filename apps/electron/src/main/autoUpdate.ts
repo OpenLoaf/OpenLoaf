@@ -4,9 +4,8 @@ import {
   type ProgressInfo,
   type UpdateInfo,
 } from 'electron-updater'
-import fs from 'node:fs'
-import path from 'node:path'
 import type { Logger } from './logging/startupLogger'
+import { resolveElectronFeedUrl } from './updateConfig'
 
 /** Auto update options. */
 type AutoUpdateOptions = {
@@ -46,9 +45,6 @@ type AutoUpdateResult = { ok: true } | { ok: false; reason: string }
 // ---------------------------------------------------------------------------
 // 常量
 // ---------------------------------------------------------------------------
-
-/** 默认 Electron 更新源（generic provider）。 */
-const DEFAULT_ELECTRON_UPDATE_URL = 'https://r2-tenas-update.hexems.com/electron'
 
 /** 首次检查延迟。 */
 const INITIAL_CHECK_DELAY_MS = 8_000
@@ -133,7 +129,7 @@ function toProgressStatus(progress: ProgressInfo): AutoUpdateStatus {
 
 /** Configure auto updater feed URL when provided. */
 function configureFeedUrl(log: Logger): void {
-  const url = resolveElectronUpdateUrl()
+  const url = resolveElectronFeedUrl()
   try {
     autoUpdater.setFeedURL({ provider: 'generic', url })
     log(`Auto update feed URL set: ${url}`)
@@ -141,41 +137,6 @@ function configureFeedUrl(log: Logger): void {
     const message = error instanceof Error ? error.message : String(error)
     log(`Auto update feed URL set failed: ${message}`)
   }
-}
-
-/** Resolve electron update URL from env/runtime.env with a fallback. */
-function resolveElectronUpdateUrl(): string {
-  const fromEnv = process.env.TENAS_ELECTRON_UPDATE_URL?.trim()
-  if (fromEnv) return fromEnv
-
-  try {
-    const runtimeEnvPath = path.join(process.resourcesPath, 'runtime.env')
-    if (fs.existsSync(runtimeEnvPath)) {
-      const raw = fs.readFileSync(runtimeEnvPath, 'utf-8')
-      for (const line of raw.split(/\r?\n/)) {
-        const trimmed = line.trim()
-        if (!trimmed || trimmed.startsWith('#')) continue
-        const eq = trimmed.indexOf('=')
-        if (eq <= 0) continue
-        const key = trimmed.slice(0, eq).trim()
-        let value = trimmed.slice(eq + 1).trim()
-        if (
-          (value.startsWith('"') && value.endsWith('"')) ||
-          (value.startsWith("'") && value.endsWith("'"))
-        ) {
-          value = value.slice(1, -1)
-        }
-        if (key === 'TENAS_ELECTRON_UPDATE_URL' && value) {
-          return value
-        }
-      }
-    }
-  } catch {
-    // 中文注释：读取 runtime.env 失败时忽略，继续使用默认地址。
-  }
-
-  // 中文注释：兜底使用默认 R2 地址。
-  return DEFAULT_ELECTRON_UPDATE_URL
 }
 
 // ---------------------------------------------------------------------------
