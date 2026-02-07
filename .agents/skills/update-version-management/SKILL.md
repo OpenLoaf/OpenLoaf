@@ -1,103 +1,136 @@
 ---
 name: update-version-management
 description: >
-  Use when developing, extending, or debugging the update system, version
-  management, or release pipeline — Electron auto-update, server/web
-  incremental updates, update channels, changelog files, publish scripts,
-  or version bumps across apps
+  Use when the user wants to release a new version, bump versions, publish
+  updates, or create changelogs for server/web/electron apps.
+  Also use when modifying update-related code: publish scripts, manifest
+  structure, incremental update logic, crash rollback, or update UI components.
 ---
 
 # Update & Version Management
 
 ## Overview
 
-Tenas 采用双层更新机制：
-1. **Electron 本体更新** — `electron-updater` generic provider，从 R2 拉取 dmg/exe/AppImage
-2. **增量更新** — server.mjs + web out/ 独立版本管理，gzip/tar.gz 下载 → SHA-256 校验 → 原子替换
-
-两层更新共享同一个 R2 基础 URL (`TENAS_UPDATE_URL`)，但 Electron 本体始终走 stable，增量更新支持 stable/beta 渠道切换。
+Tenas 的版本发布通过 6 步流程完成：提交变更 → 读取上次 commitId → 收集 commit → 升版本 + 写 changelog → publish → 提交发布。changelog front matter 中的 `commitId` 是串联两次发布的关键——它记录上次发布时的 git commit，下次发布时用它确定 commit 范围。
 
 ## When to Use
 
-- 修改更新检查、下载、校验、安装逻辑
-- 添加/修改更新渠道（stable/beta）
-- 修改 manifest.json 结构或版本比较逻辑
-- 添加新组件到增量更新系统
-- 修改发布脚本（publish-update.mjs）
-- 版本号升级（patch/minor/major/beta）
-- 编写 changelog
-- 修改 AutoUpdateGate 或 AboutTenas 中的更新 UI
-- 调试崩溃回滚机制
-- 修改 electron-builder 打包配置
+- 用户要求发布新版本、升级版本号、写 changelog
+- 用户要求运行 publish-update 或 dist:production
+- 修改发布脚本（publish-update.mjs）、共享工具（publishUtils.mjs）
+- 修改更新检查/下载/校验/安装逻辑、manifest 结构
+- 修改渠道管理（stable/beta）、崩溃回滚
+- 修改 AutoUpdateGate 或 AboutTenas 更新 UI
 
-## Architecture
+**不适用：** 普通功能开发、bug 修复（除非涉及上述更新系统代码）
 
-```
-┌────────────────────────────────────────────────┐
-│  R2 Storage (r2-tenas-update.hexems.com)       │
-│  ├── stable/manifest.json                      │
-│  ├── beta/manifest.json                        │
-│  ├── electron/latest-mac.yml, *.dmg, *.zip     │
-│  ├── server/{version}/server.mjs.gz            │
-│  ├── web/{version}/out.tar.gz                  │
-│  └── changelogs/{component}/{version}.md       │
-└────────────────────────────────────────────────┘
-         ↑ publish scripts         ↓ electron-updater / incrementalUpdate
-┌──────────────────┐    ┌──────────────────────────────────┐
-│  发布脚本         │    │  Electron Main Process           │
-│  server/publish   │    │  ├── updateConfig.ts   (URL/渠道) │
-│  web/publish      │    │  ├── autoUpdate.ts     (本体)    │
-│  shared/utils     │    │  ├── incrementalUpdate.ts (增量) │
-└──────────────────┘    │  └── ipc/index.ts      (IPC)    │
-                        └──────────────────────────────────┘
-                                     ↓ IPC
-                        ┌──────────────────────────────────┐
-                        │  Renderer (Web)                   │
-                        │  ├── AutoUpdateGate.tsx (弹窗)    │
-                        │  └── AboutTenas.tsx    (设置页)   │
-                        └──────────────────────────────────┘
+---
+
+## Release Workflow（版本发布流程）
+
+当用户要求发布新版本时，**严格按以下步骤顺序执行**：
+
+### Step 1: 提交未暂存的变更
+
+```bash
+git status
 ```
 
-## Key Files
+- 有未提交变更 → 总结内容，`git add -A && git commit -m "<summary>" && git push`
+- 工作区干净 → 跳过
 
-### Electron 主进程
+### Step 2: 读取当前版本与上次发布的 commitId
 
-| 文件 | 职责 |
+对每个要发布的 app（`server`/`web`/`electron`）：
+
+1. 读取 `apps/{app}/package.json` → `version` 字段 → `currentVersion`
+2. 读取 `apps/{app}/changelogs/{currentVersion}/zh.md` → front matter → `commitId`
+
+如果 changelog 不存在或无 `commitId`，用 `git log --oneline -20` 让用户确认范围。
+
+### Step 3: 收集并总结 commit 历史
+
+```bash
+git log {commitId}..HEAD --oneline --no-merges
+```
+
+- 按类别分组（新功能、修复、改进等）
+- 生成中文和英文两个版本
+- **展示给用户确认后再继续**
+
+### Step 4: 更新版本号并创建 changelog
+
+1. **询问用户** patch/minor/major 或具体版本号
+2. 更新 package.json：
+   ```bash
+   cd apps/{app} && npm version {type} --no-git-tag-version
+   ```
+3. 获取 commitId：`git rev-parse HEAD`
+4. 创建 `apps/{app}/changelogs/{newVersion}/zh.md` 和 `en.md`
+
+**Changelog front matter 格式：**
+
+```markdown
+---
+version: {newVersion}
+date: {YYYY-MM-DD}
+commitId: {git rev-parse HEAD 的完整 40 字符 hash}
+---
+
+## 新功能
+- ...
+
+## 修复
+- ...
+```
+
+### Step 5: 运行 publish-update
+
+```bash
+cd apps/server && pnpm run publish-update
+cd apps/web && pnpm run publish-update
+```
+
+Electron 本体发布：`cd apps/electron && pnpm run dist:production`
+
+**如果任何命令失败，立即停止，报告错误，不继续后续步骤。**
+
+### Step 6: 提交所有发布变更
+
+```bash
+git add -A
+git commit -m "release: {app}@{newVersion}"
+git push
+```
+
+多个 app 同时发布：`release: server@{version}, web@{version}`
+
+---
+
+## Quick Reference
+
+| 操作 | 命令 |
 |------|------|
-| `apps/electron/src/main/updateConfig.ts` | URL 解析、渠道读写、`.settings.json` 持久化 |
-| `apps/electron/src/main/autoUpdate.ts` | electron-updater 封装，本体更新检查/下载/安装 |
-| `apps/electron/src/main/incrementalUpdate.ts` | 增量更新核心：manifest 获取、下载、SHA-256 校验、解压、原子替换、崩溃回滚 |
-| `apps/electron/src/main/incrementalUpdatePaths.ts` | 路径解析：`~/.tenas/updates/` → `process.resourcesPath` 回退 |
-| `apps/electron/src/main/ipc/index.ts` | 更新相关 IPC handlers 注册 |
-| `apps/electron/src/preload/index.ts` | 暴露 `checkIncrementalUpdate` / `getUpdateChannel` / `switchUpdateChannel` 等 API |
+| Server 增量发布 | `cd apps/server && pnpm run publish-update` |
+| Web 增量发布 | `cd apps/web && pnpm run publish-update` |
+| Electron 本体发布 | `cd apps/electron && pnpm run dist:production` |
+| 升 patch 版本 | `npm version patch --no-git-tag-version` |
+| 升 minor 版本 | `npm version minor --no-git-tag-version` |
+| 升 major 版本 | `npm version major --no-git-tag-version` |
+| Beta 版本号 | `x.y.z-beta.n`（自动归入 beta 渠道） |
 
-### 前端 UI
+## Common Mistakes
 
-| 文件 | 职责 |
-|------|------|
-| `apps/web/src/components/layout/AutoUpdateGate.tsx` | 更新就绪弹窗 + changelog 展示 |
-| `apps/web/src/components/setting/menus/AboutTenas.tsx` | 版本信息 + Beta 开关 + 手动检查更新 |
-| `apps/web/src/types/electron.d.ts` | `TenasIncrementalUpdateStatus` 等类型定义 |
+| 错误 | 后果 | 正确做法 |
+|------|------|----------|
+| changelog 漏写 `commitId` | 下次发布无法自动确定 commit 范围 | 始终用 `git rev-parse HEAD` 写入 front matter |
+| 未等 publish 完成就继续 | 发布不完整，manifest 未更新 | 等每个命令成功后再继续 |
+| 未询问用户就决定版本号 | 版本号不符合预期 | 始终先询问 patch/minor/major |
+| 用当前 HEAD 作为旧版本 commitId | commit 范围错误 | commitId 必须从上一版本的 changelog 中读取 |
 
-### 发布脚本
+## Detailed References
 
-| 文件 | 职责 |
-|------|------|
-| `scripts/shared/publishUtils.mjs` | 共享工具：env 加载、S3 客户端、SHA-256、changelog 上传、渠道检测 |
-| `apps/server/scripts/publish-update.mjs` | Server 增量更新发布：构建 → gzip → 上传 → 更新 manifest |
-| `apps/web/scripts/publish-update.mjs` | Web 增量更新发布：构建 → tar.gz → 上传 → 更新 manifest |
-
-### 配置与 Changelog
-
-| 文件 | 职责 |
-|------|------|
-| `apps/electron/resources/runtime.env` | 生产环境 `TENAS_UPDATE_URL` |
-| `apps/electron/package.json` | `build.publish` 配置 electron-updater 源 |
-| `apps/{server,web,electron}/changelogs/*.md` | YAML frontmatter + markdown 更新日志 |
-
-## Critical Patterns
-
-详见各专题文档：
-
-- [update-system.md](update-system.md) — 更新系统核心逻辑与数据流
-- [publish-release.md](publish-release.md) — 发布流程与版本管理
+| 文件 | 查阅时机 |
+|------|----------|
+| [publish-release.md](publish-release.md) | 执行 Release Workflow、修改发布脚本、配置 R2 环境变量、了解 changelog 格式细节 |
+| [update-system.md](update-system.md) | 修改更新检查/下载/校验/安装逻辑、调试崩溃回滚、修改 IPC 通道、修改 manifest 结构 |

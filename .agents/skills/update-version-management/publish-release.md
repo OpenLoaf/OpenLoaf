@@ -85,6 +85,7 @@ r2-tenas-update.hexems.com/
 ---
 version: 1.0.1
 date: 2026-02-08
+commitId: 9f7d1b84c2fec4488ba54ba90a806982d8fa4cc6
 ---
 
 ## 新功能
@@ -97,6 +98,7 @@ date: 2026-02-08
 - 目录结构：`changelogs/{version}/{lang}.md`（如 `changelogs/0.1.0/zh.md`、`changelogs/0.1.0/en.md`）
 - 每个版本必须有 `zh.md`（默认语言），`en.md` 等其他语言可选
 - `version` 字段不需要 `channel`（从版本号推断）
+- `commitId` 字段记录该版本发布时的 git commit hash（完整 40 字符），用于下次发布时确定 commit 范围
 - 发布时所有 changelog 文件都会上传到 R2
 - manifest 中 `changelogUrl` 不含语言后缀和扩展名（客户端拼接 `.{lang}.md`）
 

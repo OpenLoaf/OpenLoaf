@@ -31,6 +31,7 @@ import {
   getDisplayFileName,
   isBoardFolderName,
 } from "@/lib/file-name";
+import { isBoardEmpty } from "@/components/board/core/boardContentTracker";
 import {
   getParentRelativePath,
   isProjectAbsolutePath,
@@ -243,7 +244,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const floating = Boolean(base);
 
   const requestCloseStackItem = React.useCallback(
-    (item: DockItem | undefined) => {
+    async (item: DockItem | undefined) => {
       if (!item) return;
       const params = item.params as any;
       const uri = typeof params?.uri === "string" ? params.uri : "";
@@ -259,10 +260,32 @@ export function LeftDock({ tabId }: { tabId: string }) {
         removeStackItem(tabId, item.id);
         return;
       }
+      // 逻辑：空画布直接删除，不弹重命名对话框。
+      if (isBoardEmpty(uri)) {
+        try {
+          await deleteMutation.mutateAsync({
+            workspaceId,
+            projectId,
+            uri,
+            recursive: true,
+          });
+          await queryClient.invalidateQueries({
+            queryKey: trpc.fs.list.queryOptions({
+              workspaceId,
+              projectId,
+              uri: getParentUri(uri),
+            }).queryKey,
+          });
+        } catch (error) {
+          console.warn("[LeftDock] delete empty board failed", error);
+        }
+        removeStackItem(tabId, item.id);
+        return;
+      }
       setRenameValue(getBoardDisplayName(name));
       setRenameDialog({ tabId, itemId: item.id, uri, name, ext, projectId });
     },
-    [removeStackItem, tabId]
+    [removeStackItem, tabId, deleteMutation, workspaceId, queryClient]
   );
 
   const handleRenameConfirm = React.useCallback(async () => {

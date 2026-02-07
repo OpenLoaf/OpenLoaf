@@ -17,6 +17,7 @@ import { fetchWebMeta } from "@/lib/web-meta";
 import { fileToBase64 } from "../utils/base64";
 import { toast } from "sonner";
 import { readBoardDocPayload, writeBoardDocPayload } from "./boardYjsStore";
+import { setBoardElementCount, clearBoardTracking } from "./boardContentTracker";
 import {
   normalizeRelativePath,
   resolveBoardFolderScope,
@@ -482,6 +483,20 @@ export function BoardCanvasCollab({
       unsubscribe();
     };
   }, [engine, runTranscodeTask]);
+
+  // 逻辑：追踪画布元素数量，供关闭时判断是否为空画布。
+  useEffect(() => {
+    if (!boardFolderUri) return;
+    const sync = () => {
+      setBoardElementCount(boardFolderUri, engine.doc.getElements().length);
+    };
+    const unsubscribe = engine.subscribe(sync);
+    sync();
+    return () => {
+      unsubscribe();
+      clearBoardTracking(boardFolderUri);
+    };
+  }, [engine, boardFolderUri]);
 
   useEffect(() => {
     if (!workspaceId || !boardFolderUri) {
