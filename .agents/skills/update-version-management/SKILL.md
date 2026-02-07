@@ -122,8 +122,11 @@ git add -A
 git commit -m "release: {app}@{newVersion}
 
 {英文 changelog 正文，去掉 front matter}"
-git push
+git tag -a v{newVersion} -m "release: {app}@{newVersion}"
+git push && git push origin v{newVersion}
 ```
+
+**Tag 命名规则：** `v{newVersion}`（如 `v0.1.1`）。多个 app 同版本号时只打一个 tag。
 
 ---
 
