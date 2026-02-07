@@ -76,13 +76,25 @@ const PRUNE_PATHS_LINUX = [
 ]
 
 /**
- * Resolves the Resources directory path based on platform.
+ * Resolves the target platform from electron-builder context.
+ * @param {import('electron-builder').AfterPackContext} context
+ * @returns {string}
+ */
+function resolveTargetPlatform(context) {
+  // 使用打包目标平台，避免跨平台构建时误用宿主平台。
+  return context.electronPlatformName || process.platform
+}
+
+/**
+ * Resolves the Resources directory path based on target platform.
  *
  * macOS:         {appOutDir}/Tenas.app/Contents/Resources
  * Windows/Linux: {appOutDir}/resources
+ * @param {import('electron-builder').AfterPackContext} context
+ * @param {string} targetPlatform
  */
-function resolveResourcesDir(context) {
-  if (process.platform === 'darwin') {
+function resolveResourcesDir(context, targetPlatform) {
+  if (targetPlatform === 'darwin') {
     return path.join(
       context.appOutDir,
       `${context.packager.appInfo.productFilename}.app`,
@@ -97,12 +109,13 @@ function resolveResourcesDir(context) {
  * @param {import('electron-builder').AfterPackContext} context
  */
 exports.default = async function afterPack(context) {
-  const resourcesDir = resolveResourcesDir(context)
+  const targetPlatform = resolveTargetPlatform(context)
+  const resourcesDir = resolveResourcesDir(context, targetPlatform)
 
   let prunePaths
-  if (process.platform === 'darwin') {
+  if (targetPlatform === 'darwin') {
     prunePaths = PRUNE_PATHS_MAC
-  } else if (process.platform === 'win32') {
+  } else if (targetPlatform === 'win32') {
     prunePaths = PRUNE_PATHS_WIN
   } else {
     prunePaths = PRUNE_PATHS_LINUX
@@ -122,5 +135,5 @@ exports.default = async function afterPack(context) {
     }
   }
 
-  console.log(`  [afterPack] pruned ${removedCount} items from Resources/ (${process.platform})`)
+  console.log(`  [afterPack] pruned ${removedCount} items from Resources/ (${targetPlatform})`)
 }

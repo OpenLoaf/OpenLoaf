@@ -43,7 +43,7 @@ function detectLang(): string {
  * Tries {base}.{lang}.md first, falls back to {base}.zh.md.
  */
 async function fetchChangelogWithLang(baseUrl: string, lang: string): Promise<string | null> {
-  const candidates = lang === "zh" ? [`${baseUrl}.zh.md`] : [`${baseUrl}.${lang}.md`, `${baseUrl}.zh.md`];
+  const candidates = lang === "zh" ? [`${baseUrl}/zh.md`] : [`${baseUrl}/${lang}.md`, `${baseUrl}/zh.md`];
   for (const url of candidates) {
     try {
       const res = await fetch(url, { cache: "no-store" });

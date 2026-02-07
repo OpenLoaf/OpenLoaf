@@ -237,6 +237,8 @@
     "package": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge package",
     "dist:dev": "pnpm run package && node scripts/dist.mjs --config.mac.identity=null",
     "dist:production": "pnpm run package && node scripts/dist.mjs",
+    "dist:all:dev": "pnpm run package && node scripts/dist.mjs --config.mac.identity=null --mac --win --linux",
+    "dist:all": "pnpm run package && node scripts/dist.mjs --mac --win --linux",
     "dist:resign": "node scripts/dist.mjs",
     "check-types": "pnpm -w exec tsc -p apps/electron/tsconfig.json --noEmit",
     "lint": "eslint src"

@@ -207,7 +207,7 @@ export function AboutTenas() {
       updateStatus.progress?.component === "server" ? "服务端" : "Web";
     // 兼容 idle 状态下仍有错误提示的情况（例如 Electron 版本过低）。
     if (updateStatus.state === "idle" && updateStatus.error) {
-      return `更新失败：${updateStatus.error}`;
+      return `更新检查失败：${updateStatus.error}`;
     }
     switch (updateStatus.state) {
       case "checking":
@@ -219,7 +219,9 @@ export function AboutTenas() {
       case "ready":
         return "更新已准备好，重启后生效";
       case "error":
-        return updateStatus.error ? `更新失败：${updateStatus.error}` : "更新失败";
+        return updateStatus.error
+          ? `更新检查失败：${updateStatus.error}`
+          : "更新检查失败，请稍后重试";
       case "idle":
       default:
         return updateStatus.lastCheckedAt ? "当前已是最新版本" : "等待检测更新";

@@ -10,7 +10,13 @@ import zlib from 'node:zlib'
 const execFileAsync = promisify(execFile)
 import type { Logger } from './logging/startupLogger'
 import { getUpdatesRoot } from './incrementalUpdatePaths'
-import { resolveManifestUrl } from './updateConfig'
+import { resolveUpdateBaseUrl, resolveUpdateChannel } from './updateConfig'
+import {
+  compareVersions,
+  gateBetaManifest,
+  isRemoteNewer,
+  shouldUseBundled,
+} from './incrementalUpdatePolicy'
 
 // ---------------------------------------------------------------------------
 // 常量
@@ -115,6 +121,7 @@ function readLocalManifest(): LocalManifest {
 }
 
 /** Resolve bundled component version from packaged metadata. */
+/** Resolve bundled component version from packaged metadata. */
 function resolveBundledVersion(component: 'server' | 'web'): string | null {
   const packagedName = component === 'server' ? 'server.package.json' : 'web.package.json'
   const packagedPath = path.join(process.resourcesPath, packagedName)
@@ -133,6 +140,47 @@ function resolveBundledVersion(component: 'server' | 'web'): string | null {
     }
   }
   return null
+}
+
+/** Resolve current component version, prefer local manifest then bundled metadata. */
+function resolveCurrentVersion(
+  component: 'server' | 'web',
+  local: LocalManifest
+): string | null {
+  const localVersion = local[component]?.version
+  if (localVersion) return localVersion
+  return resolveBundledVersion(component)
+}
+
+/** Remove outdated incremental updates when bundled version is newer. */
+function pruneOutdatedUpdates(log: Logger): void {
+  const local = readLocalManifest()
+  let changed = false
+
+  const components: Array<'server' | 'web'> = ['server', 'web']
+  for (const component of components) {
+    const updatedVersion = local[component]?.version
+    if (!updatedVersion) continue
+    const bundledVersion = resolveBundledVersion(component)
+    if (!bundledVersion) continue
+
+    if (!shouldUseBundled(bundledVersion, updatedVersion)) continue
+
+    // 逻辑：打包版本高于增量更新版本时，清理更新目录并回退到打包版本。
+    const currentDir = path.join(updatesRoot(), component, 'current')
+    if (fs.existsSync(currentDir)) {
+      fs.rmSync(currentDir, { recursive: true, force: true })
+    }
+    delete local[component]
+    changed = true
+    log(
+      `[incremental-update] Bundled ${component} v${bundledVersion} newer than updated v${updatedVersion}. Resetting to bundled.`
+    )
+  }
+
+  if (changed) {
+    writeLocalManifest(local)
+  }
 }
 
 function writeLocalManifest(manifest: LocalManifest): void {
@@ -220,6 +268,17 @@ function fetchJson(url: string): Promise<unknown> {
   })
 }
 
+function withCacheBust(url: string, token: string): string {
+  try {
+    const parsed = new URL(url)
+    parsed.searchParams.set('_cb', token)
+    return parsed.toString()
+  } catch {
+    const sep = url.includes('?') ? '&' : '?'
+    return `${url}${sep}_cb=${encodeURIComponent(token)}`
+  }
+}
+
 function downloadFile(
   url: string,
   destPath: string,
@@ -228,6 +287,7 @@ function downloadFile(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = net.request({ url, method: 'GET' })
+    request.setHeader('Cache-Control', 'no-cache')
 
     request.on('response', (response) => {
       if (response.statusCode !== 200) {
@@ -378,7 +438,8 @@ async function updateComponent(
     progress: { component, percent: 0 },
   })
 
-  await downloadFile(manifest.url, downloadPath, manifest.size, (percent) => {
+  const downloadUrl = withCacheBust(manifest.url, manifest.sha256)
+  await downloadFile(downloadUrl, downloadPath, manifest.size, (percent) => {
     emitStatus({
       state: 'downloading',
       progress: { component, percent },
@@ -444,19 +505,50 @@ export async function checkForIncrementalUpdates(
       lastCheckedAt: Date.now(),
     })
 
-    const manifestUrl = resolveManifestUrl()
-    cachedLog?.(`[incremental-update] Checking for updates (${reason}) from ${manifestUrl}...`)
-    const remote = (await fetchJson(manifestUrl)) as RemoteManifest
+    const log = cachedLog ?? (() => {})
+    const updateBaseUrl = resolveUpdateBaseUrl()
+    const updateChannel = resolveUpdateChannel()
+    const manifestUrl = `${updateBaseUrl}/${updateChannel}/manifest.json`
+    log(`[incremental-update] Checking for updates (${reason}) from ${manifestUrl}...`)
+    const remoteRaw = (await fetchJson(manifestUrl)) as RemoteManifest
 
-    if (remote.schemaVersion !== 1) {
-      throw new Error(`Unsupported manifest schemaVersion: ${remote.schemaVersion}`)
+    if (remoteRaw.schemaVersion !== 1) {
+      throw new Error(`Unsupported manifest schemaVersion: ${remoteRaw.schemaVersion}`)
+    }
+
+    let remote = remoteRaw
+    if (updateChannel === 'beta') {
+      let stable: RemoteManifest | null = null
+      const stableUrl = `${updateBaseUrl}/stable/manifest.json`
+      try {
+        const stableRaw = (await fetchJson(stableUrl)) as RemoteManifest
+        if (stableRaw.schemaVersion === 1) {
+          stable = stableRaw
+        } else {
+          log(
+            `[incremental-update] Ignoring stable manifest with schemaVersion ${stableRaw.schemaVersion}`
+          )
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        log(`[incremental-update] Failed to fetch stable manifest: ${message}`)
+      }
+
+      // 中文注释：beta 渠道缺版本或落后于 stable 时，跳过本次增量更新。
+      const decision = gateBetaManifest({ beta: remoteRaw, stable })
+      if (decision.skipped) {
+        log(
+          `[incremental-update] Beta updates skipped (${decision.reason ?? 'beta-unavailable-or-older'}).`
+        )
+      }
+      remote = decision.manifest
     }
 
     // 检查 electron 最低版本要求
     if (remote.electron?.minVersion) {
       const currentElectronVersion = app.getVersion()
       if (compareVersions(currentElectronVersion, remote.electron.minVersion) < 0) {
-        cachedLog?.(
+        log(
           `[incremental-update] Electron version ${currentElectronVersion} < minVersion ${remote.electron.minVersion}. Need full update.`
         )
         emitStatus({
@@ -469,32 +561,28 @@ export async function checkForIncrementalUpdates(
     }
 
     const local = readLocalManifest()
+    const currentServerVersion = resolveCurrentVersion('server', local)
+    const currentWebVersion = resolveCurrentVersion('web', local)
     let hasUpdate = false
 
     // 检查 server 更新
-    if (remote.server) {
-      const localVersion = local.server?.version ?? 'bundled'
-      if (localVersion !== remote.server.version) {
-        cachedLog?.(
-          `[incremental-update] Server update available: ${localVersion} → ${remote.server.version}`
-        )
-        hasUpdate = true
-      }
+    if (remote.server && isRemoteNewer(currentServerVersion, remote.server.version)) {
+      log(
+        `[incremental-update] Server update available: ${currentServerVersion ?? 'unknown'} → ${remote.server.version}`
+      )
+      hasUpdate = true
     }
 
     // 检查 web 更新
-    if (remote.web) {
-      const localVersion = local.web?.version ?? 'bundled'
-      if (localVersion !== remote.web.version) {
-        cachedLog?.(
-          `[incremental-update] Web update available: ${localVersion} → ${remote.web.version}`
-        )
-        hasUpdate = true
-      }
+    if (remote.web && isRemoteNewer(currentWebVersion, remote.web.version)) {
+      log(
+        `[incremental-update] Web update available: ${currentWebVersion ?? 'unknown'} → ${remote.web.version}`
+      )
+      hasUpdate = true
     }
 
     if (!hasUpdate) {
-      cachedLog?.(`[incremental-update] No updates available.`)
+      log(`[incremental-update] No updates available.`)
       emitStatus({
         state: 'idle',
         error: undefined,
@@ -506,33 +594,31 @@ export async function checkForIncrementalUpdates(
 
     // 记录更新前版本，用于状态通知
     const preUpdateLocal = { ...local }
-    const log = cachedLog ?? (() => {})
-
+    const preUpdateServerVersion = resolveCurrentVersion('server', preUpdateLocal)
+    const preUpdateWebVersion = resolveCurrentVersion('web', preUpdateLocal)
     // 下载并应用更新
     if (remote.server) {
-      const localVersion = local.server?.version ?? 'bundled'
-      if (localVersion !== remote.server.version) {
+      if (isRemoteNewer(currentServerVersion, remote.server.version)) {
         await updateComponent('server', remote.server, log)
       }
     }
 
     if (remote.web) {
-      const localVersion = local.web?.version ?? 'bundled'
-      if (localVersion !== remote.web.version) {
+      if (isRemoteNewer(currentWebVersion, remote.web.version)) {
         await updateComponent('web', remote.web, log)
       }
     }
 
     // 构建带 newVersion/releaseNotes 的状态（对比更新前版本）
     const serverInfo = getComponentInfo('server')
-    if (remote.server && (preUpdateLocal.server?.version ?? 'bundled') !== remote.server.version) {
+    if (remote.server && isRemoteNewer(preUpdateServerVersion, remote.server.version)) {
       serverInfo.newVersion = remote.server.version
       serverInfo.releaseNotes = remote.server.releaseNotes
       serverInfo.changelogUrl = remote.server.changelogUrl
     }
 
     const webInfo = getComponentInfo('web')
-    if (remote.web && (preUpdateLocal.web?.version ?? 'bundled') !== remote.web.version) {
+    if (remote.web && isRemoteNewer(preUpdateWebVersion, remote.web.version)) {
       webInfo.newVersion = remote.web.version
       webInfo.releaseNotes = remote.web.releaseNotes
       webInfo.changelogUrl = remote.web.changelogUrl
@@ -637,23 +723,6 @@ export function recordServerCrash(): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// 版本比较
-// ---------------------------------------------------------------------------
-
-function compareVersions(a: string, b: string): number {
-  const pa = a.split('.').map(Number)
-  const pb = b.split('.').map(Number)
-  const len = Math.max(pa.length, pb.length)
-  for (let i = 0; i < len; i++) {
-    const na = pa[i] ?? 0
-    const nb = pb[i] ?? 0
-    if (na < nb) return -1
-    if (na > nb) return 1
-  }
-  return 0
-}
-
-// ---------------------------------------------------------------------------
 // 初始化
 // ---------------------------------------------------------------------------
 
@@ -674,6 +743,9 @@ export function installIncrementalUpdate(options: { log: Logger }): void {
 
   // 启动时清理残留的 pending 目录
   cleanPending()
+
+  // 启动时清理比打包版本更旧的增量更新
+  pruneOutdatedUpdates(log)
 
   // 初始化状态
   lastStatus = buildIdleStatus()

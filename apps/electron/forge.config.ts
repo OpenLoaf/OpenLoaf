@@ -19,7 +19,8 @@ import { rendererConfig } from './webpack.renderer.config';
 // 递归遍历依赖树，从 monorepo 的 node_modules/ 直接复制到 Resources/node_modules/。
 // ---------------------------------------------------------------------------
 
-const MONOREPO_NODE_MODULES = path.resolve(__dirname, '..', '..', 'node_modules');
+const REPO_ROOT = path.resolve(__dirname, '..', '..');
+const MONOREPO_NODE_MODULES = path.resolve(REPO_ROOT, 'node_modules');
 
 /**
  * 需要随应用打包的原生/运行时依赖根节点。
@@ -93,17 +94,30 @@ function collectRoot(
   }
 }
 
+/**
+ * 根据打包平台定位 Resources 目录。
+ * - macOS:   out/Tenas-darwin-arm64/Tenas.app/Contents/Resources/
+ * - Windows: out/Tenas-win32-x64/resources/
+ * - Linux:   out/Tenas-linux-x64/resources/
+ */
+function resolveResourcesDir(outputPath: string, platform: string): string | null {
+  if (platform === 'darwin') {
+    const appDir = fs.readdirSync(outputPath).find((f) => f.endsWith('.app'));
+    if (!appDir) return null;
+    return path.join(outputPath, appDir, 'Contents', 'Resources');
+  }
+  // Windows / Linux: resources/ (小写)
+  return path.join(outputPath, 'resources');
+}
+
 const postPackageHook: ForgeConfig['hooks'] = {
   postPackage: async (_config, options) => {
+    const platform = options.platform as string;
     for (const outputPath of options.outputPaths) {
-      console.log(`[postPackage] outputPath: ${outputPath}`);
+      console.log(`[postPackage] platform=${platform} outputPath: ${outputPath}`);
 
-      // macOS: 查找 .app/Contents/Resources
-      const appDir = fs.readdirSync(outputPath).find((f) => f.endsWith('.app'));
-      const resourcesDir = appDir
-        ? path.join(outputPath, appDir, 'Contents', 'Resources')
-        : path.join(outputPath, 'Contents', 'Resources');
-      if (!fs.existsSync(resourcesDir)) continue;
+      const resourcesDir = resolveResourcesDir(outputPath, platform);
+      if (!resourcesDir || !fs.existsSync(resourcesDir)) continue;
 
       const destNmDir = path.join(resourcesDir, 'node_modules');
       fs.mkdirSync(destNmDir, { recursive: true });
@@ -144,6 +158,24 @@ const postPackageHook: ForgeConfig['hooks'] = {
           fs.cpSync(prebuildsSrc, prebuildsDest, { recursive: true });
           console.log('[postPackage]   + prebuilds/ (node-pty)');
         }
+      }
+
+      // 4) 版本信息：extraResource 会按 basename 平铺，这里手动复制并改名。
+      const serverPkgSrc = path.join(REPO_ROOT, 'apps', 'server', 'package.json');
+      const webPkgSrc = path.join(REPO_ROOT, 'apps', 'web', 'package.json');
+      const serverPkgDest = path.join(resourcesDir, 'server.package.json');
+      const webPkgDest = path.join(resourcesDir, 'web.package.json');
+      try {
+        if (fs.existsSync(serverPkgSrc)) {
+          fs.copyFileSync(serverPkgSrc, serverPkgDest);
+          console.log('[postPackage]   + server.package.json');
+        }
+        if (fs.existsSync(webPkgSrc)) {
+          fs.copyFileSync(webPkgSrc, webPkgDest);
+          console.log('[postPackage]   + web.package.json');
+        }
+      } catch (err) {
+        console.warn('[postPackage] Failed to copy version metadata:', err);
       }
     }
   },

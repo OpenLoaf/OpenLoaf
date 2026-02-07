@@ -21,6 +21,8 @@ pnpm run desktop
 | `package` | 构建 server + web + electron-forge 打包 | `.app` | `.exe` | binary |
 | `dist:dev` | 完整打包 + 出安装包（本地测试，无签名） | DMG/ZIP | NSIS | AppImage |
 | `dist:production` | 完整打包 + 签名 + 公证 | DMG/ZIP | NSIS | AppImage |
+| `dist:all:dev` | 全平台打包（本地测试，无签名） | DMG/ZIP | NSIS | AppImage |
+| `dist:all` | 全平台打包（签名 + 公证） | DMG/ZIP | NSIS | AppImage |
 | `dist:resign` | 跳过 server/web 重新构建，直接重签名打包 | DMG/ZIP | NSIS | AppImage |
 
 ```bash
@@ -30,9 +32,18 @@ pnpm run dist:dev
 # 正式发布
 pnpm run dist:production
 
+# 全平台打包（本地测试）
+pnpm run dist:all:dev
+
+# 全平台打包（签名 + 公证）
+pnpm run dist:all
+
 # 只重签名（不重新构建 server/web）
 pnpm run dist:resign
 ```
+
+> 注意：全平台打包需要目标平台对应的原生依赖（如 sharp/@img/@libsql 预编译包）。
+> 建议在 macOS / Windows / Linux 各自的 Runner 上分别执行，避免跨平台依赖缺失导致运行时问题。
 
 ## Electron 自动更新（R2）
 

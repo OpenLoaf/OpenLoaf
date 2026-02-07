@@ -195,6 +195,11 @@ export async function ensureDevServices(args: {
     // 逻辑：避免 pnpm/tsx watch 管理进程占用调试端口，直接启动 server 进程。
     const serverEntry = path.join(repoRoot, 'apps/server/src/index.ts');
     const serverTsconfig = path.join(repoRoot, 'apps/server/tsconfig.json');
+    // 逻辑：开发态注入 markdown 文本 loader。
+    const serverMdLoaderRegister = path.join(
+      repoRoot,
+      'apps/server/scripts/registerMdTextLoader.mjs'
+    );
     const serverEnv: NodeJS.ProcessEnv = {
       ...envBase,
       PORT: String(serverPort),
@@ -219,6 +224,8 @@ export async function ensureDevServices(args: {
         '--enable-source-maps',
         '--import',
         'tsx/esm',
+        '--import',
+        serverMdLoaderRegister,
         '--watch',
         serverEntry,
       ],

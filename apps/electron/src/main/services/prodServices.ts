@@ -261,12 +261,23 @@ export async function startProductionServices(args: {
     const serverDir = path.dirname(serverPath);
     const nmLink = path.join(serverDir, 'node_modules');
     const nmTarget = path.join(process.resourcesPath, 'node_modules');
+    // 中文注释：增量更新目录缺少 prebuilds 时，软链到 Resources/prebuilds（node-pty 需要）。
+    const prebuildsLink = path.join(serverDir, 'prebuilds');
+    const prebuildsTarget = path.join(process.resourcesPath, 'prebuilds');
     if (!fs.existsSync(nmLink) && fs.existsSync(nmTarget)) {
       try {
         fs.symlinkSync(nmTarget, nmLink, 'dir');
         log(`Symlinked ${nmLink} → ${nmTarget}`);
       } catch (e) {
         log(`Failed to symlink node_modules: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    if (!fs.existsSync(prebuildsLink) && fs.existsSync(prebuildsTarget)) {
+      try {
+        fs.symlinkSync(prebuildsTarget, prebuildsLink, 'dir');
+        log(`Symlinked ${prebuildsLink} → ${prebuildsTarget}`);
+      } catch (e) {
+        log(`Failed to symlink prebuilds: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
   }

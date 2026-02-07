@@ -239,10 +239,9 @@ export function attachBoardCollabWebSocket(server: ServerType): void {
       (document as BoardDocument).boardCollabContext = boardContext;
       const snapshot = await readBoardSnapshot(boardContext.boardFilePath);
       if (!snapshot) return null;
-      // 中文注释：用已有快照初始化新文档，避免直接修改运行中的实例。
-      const loaded = new Y.Doc();
-      Y.applyUpdate(loaded, snapshot);
-      return loaded;
+      // 逻辑：在当前文档上应用快照，保持上下文与持久化路径一致。
+      Y.applyUpdate(document, snapshot);
+      return document;
     },
     onStoreDocument: async ({ document }) => {
       await storeBoardDocument(document as BoardDocument);
