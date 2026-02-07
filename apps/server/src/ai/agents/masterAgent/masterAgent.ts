@@ -14,6 +14,7 @@ import {
   browserSnapshotToolDef,
   browserWaitToolDef,
 } from "@tenas-ai/api/types/tools/browserAutomation";
+import { projectMutateToolDef, projectQueryToolDef } from "@tenas-ai/api/types/tools/db";
 import {
   listDirToolDef,
   readFileToolDef,
@@ -43,6 +44,8 @@ const writeStdinToolDef = isWindows ? writeStdinToolDefWin : writeStdinToolDefUn
 const MASTER_AGENT_TOOL_IDS = [
   timeNowToolDef.id,
   jsonRenderToolDef.id,
+  projectQueryToolDef.id,
+  projectMutateToolDef.id,
   // subAgentToolDef.id,
   openUrlToolDef.id,
   browserSnapshotToolDef.id,

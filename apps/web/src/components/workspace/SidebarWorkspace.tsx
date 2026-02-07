@@ -143,6 +143,11 @@ export const SidebarWorkspace = () => {
 
   /** Trigger incremental update check for Electron. */
   const handleCheckUpdate = React.useCallback(async () => {
+    // 开发模式禁用更新检查，避免触发无效请求。
+    if (process.env.NODE_ENV !== "production") {
+      toast.message("开发模式不支持更新检查");
+      return;
+    }
     const api = window.tenasElectron;
     if (!api?.checkIncrementalUpdate) {
       toast.message("当前环境不支持更新检查");

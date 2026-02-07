@@ -239,7 +239,7 @@ export const SidebarProject = () => {
               <SidebarGroup className="group pt-0">
                 <CollapsiblePrimitive.Trigger asChild>
                   <SidebarGroupLabel className="cursor-pointer">
-                    <span className="text-muted-foreground">项目</span>
+                    <span className="text-muted-foreground">项目文件夹</span>
                   </SidebarGroupLabel>
                 </CollapsiblePrimitive.Trigger>
                 <CollapsiblePrimitive.Content className="data-[state=closed]:overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down data-[state=open]:overflow-visible">

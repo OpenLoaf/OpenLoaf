@@ -19,7 +19,7 @@ import {
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { toast } from "sonner";
 
-type SkillScope = "workspace" | "project";
+type SkillScope = "workspace" | "project" | "global";
 
 type SkillSummary = {
   /** Skill name. */
@@ -49,12 +49,14 @@ type SkillsSettingsPanelProps = {
 const SCOPE_LABELS: Record<SkillScope, string> = {
   workspace: "工作空间",
   project: "项目",
+  global: "全局",
 };
 
 /** Tag styles per scope. */
 const SCOPE_TAG_CLASS: Record<SkillScope, string> = {
   workspace: "border-border bg-muted text-muted-foreground",
   project: "border-border bg-background text-foreground/80",
+  global: "border-border bg-muted/60 text-muted-foreground/80",
 };
 
 /** Normalize a local path string for URI building. */
@@ -167,20 +169,25 @@ function buildSkillSummaryText(input: {
   if (isLoading) return "读取中...";
   if (isError) return "读取失败";
   if (!skills.length) return "未发现技能";
-  // 统计 workspace/project 的数量，输出摘要信息。
+  // 统计 workspace/project/global 的数量，输出摘要信息。
   const counts = skills.reduce(
     (acc, skill) => {
       if (skill.scope === "project") {
         acc.project += 1;
+      } else if (skill.scope === "global") {
+        acc.global += 1;
       } else {
         acc.workspace += 1;
       }
       return acc;
     },
-    { workspace: 0, project: 0 },
+    { workspace: 0, project: 0, global: 0 },
   );
   if (projectId) {
-    return `共 ${skills.length} 条（工作空间 ${counts.workspace} / 项目 ${counts.project}）`;
+    return `共 ${skills.length} 条（全局 ${counts.global} / 工作空间 ${counts.workspace} / 项目 ${counts.project}）`;
+  }
+  if (counts.global > 0) {
+    return `共 ${skills.length} 条（全局 ${counts.global} / 工作空间 ${counts.workspace}）`;
   }
   return `共 ${skills.length} 条`;
 }
@@ -301,12 +308,22 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     (skill: SkillSummary) => {
       if (!activeTabId) return;
       const isProjectSkill = skill.scope === "project";
-      const baseRootUri = isProjectSkill ? projectData?.project?.rootUri : workspace?.rootUri;
+      const isGlobalSkill = skill.scope === "global";
+      // 全局技能路径为绝对路径，不依赖 workspace/project rootUri。
+      const baseRootUri = isGlobalSkill
+        ? undefined
+        : isProjectSkill
+          ? projectData?.project?.rootUri
+          : workspace?.rootUri;
       const rootUri = resolveSkillFolderUri(skill.path, baseRootUri);
       if (!rootUri) return;
       const currentUri = resolveSkillUri(skill.path, rootUri);
       const stackKey = skill.ignoreKey.trim() || skill.path || skill.name;
-      const titlePrefix = isProjectSkill ? "项目技能" : "工作空间技能";
+      const titlePrefix = isGlobalSkill
+        ? "全局技能"
+        : isProjectSkill
+          ? "项目技能"
+          : "工作空间技能";
       // 打开左侧 stack 的文件系统预览，根目录固定为技能所在目录。
       pushStackItem(activeTabId, {
         id: `skill:${skill.scope}:${stackKey}`,
@@ -426,9 +443,11 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                             !activeTabId ||
                             !resolveSkillFolderUri(
                               skill.path,
-                              skill.scope === "project"
-                                ? projectData?.project?.rootUri
-                                : workspace?.rootUri,
+                              skill.scope === "global"
+                                ? undefined
+                                : skill.scope === "project"
+                                  ? projectData?.project?.rootUri
+                                  : workspace?.rootUri,
                             )
                           }
                         >
@@ -462,7 +481,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
           !skillsQuery.isError &&
           skills.length === 0 ? (
             <div className="p-6 text-sm text-muted-foreground">
-              暂无可用技能，请在 .tenas/skills 中添加 SKILL.md。
+              暂无可用技能，请在 .tenas/skills 或 ~/.agents/skills 中添加 SKILL.md。
             </div>
           ) : null}
 

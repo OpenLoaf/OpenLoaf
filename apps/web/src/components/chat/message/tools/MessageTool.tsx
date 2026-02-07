@@ -4,6 +4,7 @@ import CliThinkingTool from "./CliThinkingTool";
 import JsonRenderTool from "./JsonRenderTool";
 import UnifiedTool from "./UnifiedTool";
 import PlanTool from "./PlanTool";
+import ProjectTool from "./ProjectTool";
 import { useChatState, useChatTools } from "../../context";
 import type { AnyToolPart, ToolVariant } from "./shared/tool-utils";
 
@@ -71,6 +72,17 @@ export default function MessageTool({
 
   if (toolKind === "json-render") {
     return <JsonRenderTool part={resolvedPart} className={className} messageId={messageId} />;
+  }
+
+  if (toolKind === "project-mutate") {
+    return (
+      <ProjectTool
+        part={resolvedPart}
+        className={className}
+        variant={variant}
+        messageId={messageId}
+      />
+    );
   }
 
   return (

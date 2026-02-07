@@ -221,6 +221,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const removeStackItem = useTabRuntime((s) => s.removeStackItem);
   const queryClient = useQueryClient();
   const renameMutation = useMutation(trpc.fs.rename.mutationOptions());
+  const deleteMutation = useMutation(trpc.fs.delete.mutationOptions());
   const [renameDialog, setRenameDialog] = React.useState<{
     tabId: string;
     itemId: string;
@@ -231,6 +232,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
     projectId?: string;
   } | null>(null);
   const [renameValue, setRenameValue] = React.useState("");
+  const [confirmingDelete, setConfirmingDelete] = React.useState(false);
 
   // 只订阅面板渲染必需字段，避免切换 tab 时触发无关渲染。
   const base = tab?.base;
@@ -291,6 +293,33 @@ export function LeftDock({ tabId }: { tabId: string }) {
       toast.error("重命名失败");
     }
   }, [removeStackItem, renameDialog, renameMutation, renameValue, workspaceId, queryClient]);
+
+  /** Delete the board folder and close the stack item. */
+  const handleDeleteBoard = React.useCallback(async () => {
+    if (!renameDialog) return;
+    if (!workspaceId) return;
+    try {
+      await deleteMutation.mutateAsync({
+        workspaceId,
+        projectId: renameDialog.projectId,
+        uri: renameDialog.uri,
+        recursive: true,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: trpc.fs.list.queryOptions({
+          workspaceId,
+          projectId: renameDialog.projectId,
+          uri: getParentUri(renameDialog.uri),
+        }).queryKey,
+      });
+      setConfirmingDelete(false);
+      setRenameDialog(null);
+      removeStackItem(renameDialog.tabId, renameDialog.itemId);
+    } catch (error) {
+      console.warn("[LeftDock] delete board failed", error);
+      toast.error("删除画布失败");
+    }
+  }, [removeStackItem, renameDialog, deleteMutation, workspaceId, queryClient]);
 
   React.useEffect(() => {
     if (stack.length === 0) return;
@@ -372,6 +401,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
         open={Boolean(renameDialog)}
         onOpenChange={(open) => {
           if (open) return;
+          setConfirmingDelete(false);
           setRenameDialog(null);
         }}
       >
@@ -392,15 +422,49 @@ export function LeftDock({ tabId }: { tabId: string }) {
               }}
             />
           </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" type="button">
-                取消
-              </Button>
-            </DialogClose>
-            <Button onClick={handleRenameConfirm} disabled={renameMutation.isPending}>
-              确定
-            </Button>
+          <DialogFooter className="flex items-center justify-between sm:justify-between">
+            {confirmingDelete ? (
+              <>
+                <span className="text-sm text-destructive">确定要删除此画布吗？</span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => setConfirmingDelete(false)}
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleDeleteBoard}
+                    disabled={deleteMutation.isPending}
+                  >
+                    确定删除
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  type="button"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => setConfirmingDelete(true)}
+                >
+                  删除画布
+                </Button>
+                <div className="flex gap-2">
+                  <DialogClose asChild>
+                    <Button variant="outline" type="button">
+                      取消
+                    </Button>
+                  </DialogClose>
+                  <Button onClick={handleRenameConfirm} disabled={renameMutation.isPending}>
+                    确定
+                  </Button>
+                </div>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

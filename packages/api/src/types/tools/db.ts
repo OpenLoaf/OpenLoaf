@@ -1,73 +1,78 @@
 import { z } from "zod";
 
-export const projectListToolDef = {
-  id: "project-list",
-  name: "项目列表",
+export const projectQueryToolDef = {
+  id: "project-query",
+  name: "项目查询",
   description:
-    "读取当前 workspace 配置中的 projects 映射，返回项目列表及 rootUri。当需要查看所有可用项目或选择特定项目进行操作时调用此工具。",
+    "查询项目树或单个项目详情。当需要查看所有项目或读取指定项目配置时调用此工具。",
   parameters: z.object({
     actionName: z
       .string()
       .min(1)
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：获取可用项目列表。"),
-  }),
-  component: null,
-} as const;
-
-export const projectGetToolDef = {
-  id: "project-get",
-  name: "获取项目",
-  description:
-    "根据 projectId 读取项目根目录下的 .tenas/project.json 配置。当需要查看特定项目的详细内容或修改项目前获取当前状态时调用此工具。",
-  parameters: z.object({
-    actionName: z
-      .string()
-      .min(1)
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：读取指定项目配置。"),
-    projectId: z.string().describe("项目 ID（用于定位 projects 映射）"),
-  }),
-  component: null,
-} as const;
-
-export const projectCreateToolDef = {
-  id: "project-create",
-  name: "创建项目",
-  description:
-    "在指定 rootUri（可选）创建 .tenas/project.json 并登记到 workspace 配置。当需要添加新的项目时调用此工具。",
-  parameters: z.object({
-    actionName: z
-      .string()
-      .min(1)
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：创建新的项目记录。"),
-    rootUri: z
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：查看项目列表。"),
+    mode: z
+      .enum(["list", "get"])
+      .optional()
+      .describe("查询模式：list 返回项目树，get 返回指定项目"),
+    projectId: z
       .string()
       .optional()
-      .describe("项目根目录 URI（file://...，将写入 .tenas/project.json）"),
+      .describe("项目 ID（get 模式可选，默认使用当前上下文项目）"),
+  }),
+  component: null,
+} as const;
+
+export const projectMutateToolDef = {
+  id: "project-mutate",
+  name: "项目变更",
+  description:
+    "创建、更新、移动或移除项目（remove 仅从列表移除，不删除磁盘）。当需要修改项目树结构或项目元信息时调用此工具。",
+  parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：创建新项目。"),
+    action: z
+      .enum(["create", "update", "move", "remove"])
+      .describe("变更类型：create/update/move/remove"),
+    projectId: z
+      .string()
+      .optional()
+      .describe("项目 ID（update/move/remove 可选，默认使用当前上下文项目）"),
     title: z.string().nullable().optional().describe("项目标题（可选）"),
     folderName: z.string().nullable().optional().describe("项目目录名称（可选）"),
     icon: z.string().nullable().optional().describe("项目图标（可选）"),
+    rootUri: z
+      .string()
+      .optional()
+      .describe("项目根目录 URI（file://...，创建时可指定）"),
+    parentProjectId: z
+      .string()
+      .optional()
+      .describe("父项目 ID（create 时可选，指定后创建为子项目）"),
+    createAsChild: z
+      .boolean()
+      .optional()
+      .describe("create 时未传 parentProjectId 且为 true，则使用当前上下文项目作为父项目"),
     enableVersionControl: z
       .boolean()
       .optional()
-      .describe("是否启用项目版本控制（默认开启）"),
+      .describe("是否启用项目版本控制（create 时生效，默认开启）"),
+    targetParentProjectId: z
+      .string()
+      .nullable()
+      .optional()
+      .describe("move 时目标父项目 ID（null 表示移动到根项目）"),
+    targetSiblingProjectId: z
+      .string()
+      .nullable()
+      .optional()
+      .describe("move 时目标兄弟项目 ID（用于在同一父项目内排序）"),
+    targetPosition: z
+      .enum(["before", "after"])
+      .optional()
+      .describe("move 时相对目标兄弟项目的插入位置"),
   }),
   needsApproval: true,
-  component: null,
-} as const;
-
-export const projectUpdateToolDef = {
-  id: "project-update",
-  name: "更新项目",
-  description:
-    "根据 projectId 更新 .tenas/project.json 的属性。当需要修改现有项目的信息时调用此工具。",
-  parameters: z.object({
-    actionName: z
-      .string()
-      .min(1)
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：更新项目标题或图标。"),
-    projectId: z.string().describe("项目 ID（用于定位 projects 映射）"),
-    title: z.string().nullable().optional().describe("项目标题（可选）"),
-    icon: z.string().nullable().optional().describe("项目图标（可选）"),
-  }),
   component: null,
 } as const;

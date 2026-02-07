@@ -40,7 +40,7 @@ const systemCliInfoSchema = z.object({
 });
 
 /** Skill scope enum. */
-const skillScopeSchema = z.enum(["workspace", "project"]);
+const skillScopeSchema = z.enum(["workspace", "project", "global"]);
 
 /** Skill summary payload. */
 const skillSummarySchema = z.object({

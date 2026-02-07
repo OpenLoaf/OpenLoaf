@@ -33,6 +33,8 @@ export function AboutTenas() {
   const [updateChannel, setUpdateChannel] = React.useState<"stable" | "beta">("stable");
   const [channelSwitching, setChannelSwitching] = React.useState(false);
   const isElectron = React.useMemo(() => isElectronEnv(), []);
+  // 开发模式下禁用更新功能（pnpm desktop）。
+  const isDevDesktop = isElectron && process.env.NODE_ENV !== "production";
 
   /** 复制到剪贴板（navigator.clipboard 不可用时做降级）。 */
   const copyToClipboard = async (text: string, key: "clientId") => {
@@ -93,7 +95,7 @@ export function AboutTenas() {
   /** Toggle update channel between stable and beta. */
   const toggleUpdateChannel = React.useCallback(async (checked: boolean) => {
     const api = window.tenasElectron;
-    if (!isElectron || !api?.switchUpdateChannel) return;
+    if (!isElectron || isDevDesktop || !api?.switchUpdateChannel) return;
     const newChannel = checked ? "beta" : "stable";
     setChannelSwitching(true);
     try {
@@ -109,9 +111,10 @@ export function AboutTenas() {
   /** Trigger incremental update check. */
   const triggerUpdateAction = React.useCallback(async () => {
     const api = window.tenasElectron;
-    if (!isElectron || !api) return;
+    // 开发模式禁用更新检查，避免触发无效请求。
+    if (!isElectron || isDevDesktop || !api) return;
     await api.checkIncrementalUpdate?.();
-  }, [isElectron]);
+  }, [isElectron, isDevDesktop]);
 
   /** Fetch WebContentsView count from Electron main process via IPC. */
   const fetchWebContentsViewCount = React.useCallback(async () => {
@@ -202,6 +205,7 @@ export function AboutTenas() {
   const downloadPercent = updateStatus?.progress?.percent;
   const updateLabel = React.useMemo(() => {
     if (!isElectron) return "网页版不支持增量更新";
+    if (isDevDesktop) return "开发模式已关闭更新检测";
     if (!updateStatus) return "等待检测更新";
     const componentLabel =
       updateStatus.progress?.component === "server" ? "服务端" : "Web";
@@ -226,12 +230,16 @@ export function AboutTenas() {
       default:
         return updateStatus.lastCheckedAt ? "当前已是最新版本" : "等待检测更新";
     }
-  }, [isElectron, updateStatus, downloadPercent]);
+  }, [isElectron, isDevDesktop, updateStatus, downloadPercent]);
 
-  const updateActionLabel =
-    updateStatus?.state === "ready" ? "更新已就绪" : "检测更新";
+  const updateActionLabel = isDevDesktop
+    ? "开发模式不可用"
+    : updateStatus?.state === "ready"
+      ? "更新已就绪"
+      : "检测更新";
   const updateActionDisabled =
     !isElectron ||
+    isDevDesktop ||
     updateStatus?.state === "checking" ||
     updateStatus?.state === "downloading" ||
     updateStatus?.state === "ready";
@@ -280,7 +288,7 @@ export function AboutTenas() {
               <TenasSettingsField>
                 <Switch
                   checked={updateChannel === "beta"}
-                  disabled={channelSwitching}
+                  disabled={channelSwitching || isDevDesktop}
                   onCheckedChange={toggleUpdateChannel}
                 />
               </TenasSettingsField>

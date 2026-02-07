@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { homedir } from "node:os";
 import {
   BaseSettingRouter,
   getProjectRootPath,
@@ -46,25 +47,40 @@ function normalizeIgnoreSkills(values?: unknown): string[] {
   return Array.from(new Set(trimmed));
 }
 
-/** Normalize workspace ignore keys to workspace: prefix. */
+/** Normalize workspace ignore keys to workspace: or global: prefix. */
 function normalizeWorkspaceIgnoreKeys(values?: unknown): string[] {
   const keys = normalizeIgnoreSkills(values);
   return keys
-    .map((key) => (key.startsWith("workspace:") ? key : `workspace:${key}`))
-    .filter((key) => key.startsWith("workspace:"));
+    .map((key) => {
+      if (key.startsWith("workspace:") || key.startsWith("global:")) return key;
+      return `workspace:${key}`;
+    })
+    .filter((key) => key.startsWith("workspace:") || key.startsWith("global:"));
 }
 
-/** Normalize a workspace ignore key. */
+/** Normalize a workspace-level ignore key (workspace: or global: prefix). */
 function normalizeWorkspaceIgnoreKey(ignoreKey: string): string {
   const trimmed = ignoreKey.trim();
   if (!trimmed) return "";
-  return trimmed.startsWith("workspace:") ? trimmed : `workspace:${trimmed}`;
+  if (trimmed.startsWith("workspace:") || trimmed.startsWith("global:")) return trimmed;
+  return `workspace:${trimmed}`;
 }
 
 /** Build workspace ignore key from folder name. */
 function buildWorkspaceIgnoreKey(folderName: string): string {
   const trimmed = folderName.trim();
   return trimmed ? `workspace:${trimmed}` : "";
+}
+
+/** Build global ignore key from folder name. */
+function buildGlobalIgnoreKey(folderName: string): string {
+  const trimmed = folderName.trim();
+  return trimmed ? `global:${trimmed}` : "";
+}
+
+/** Resolve the global skills directory path (~/.agents/skills). */
+function resolveGlobalSkillsPath(): string {
+  return path.join(homedir(), ".agents", "skills");
 }
 
 /** Build project ignore key from folder name. */
@@ -296,6 +312,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
             workspaceRootPath,
             projectRootPath,
             parentProjectRootPaths,
+            globalSkillsPath: resolveGlobalSkillsPath(),
           });
           const projectCandidates: Array<{ rootPath: string; projectId: string }> = [];
           if (projectRootPath && input?.projectId) {
@@ -334,29 +351,38 @@ export class SettingRouterImpl extends BaseSettingRouter {
                   })
                 : null;
             const ignoreKey =
-              summary.scope === "workspace"
-                ? buildWorkspaceIgnoreKey(summary.folderName)
-                : buildProjectIgnoreKey({
-                    folderName: summary.folderName,
-                    ownerProjectId,
-                    currentProjectId: input?.projectId ?? null,
-                  });
+              summary.scope === "global"
+                ? buildGlobalIgnoreKey(summary.folderName)
+                : summary.scope === "workspace"
+                  ? buildWorkspaceIgnoreKey(summary.folderName)
+                  : buildProjectIgnoreKey({
+                      folderName: summary.folderName,
+                      ownerProjectId,
+                      currentProjectId: input?.projectId ?? null,
+                    });
             const isEnabled =
-              summary.scope === "workspace"
+              summary.scope === "global"
                 ? input?.projectId
                   ? !projectIgnoreSkills.includes(ignoreKey)
                   : !workspaceIgnoreSkills.includes(ignoreKey)
-                : !projectIgnoreSkills.includes(ignoreKey);
-            const isDeletable = input?.projectId
-              ? summary.scope === "project" && ownerProjectId === input.projectId
-              : summary.scope === "workspace";
+                : summary.scope === "workspace"
+                  ? input?.projectId
+                    ? !projectIgnoreSkills.includes(ignoreKey)
+                    : !workspaceIgnoreSkills.includes(ignoreKey)
+                  : !projectIgnoreSkills.includes(ignoreKey);
+            // 全局技能不可删除（位于用户主目录）。
+            const isDeletable = summary.scope === "global"
+              ? false
+              : input?.projectId
+                ? summary.scope === "project" && ownerProjectId === input.projectId
+                : summary.scope === "workspace";
             return { ...summary, ignoreKey, isEnabled, isDeletable };
           });
-          // 工作空间级别关闭后不在项目列表展示。
+          // 工作空间级别或全局级别关闭后不在项目列表展示。
           if (input?.projectId) {
             return items.filter(
               (item) =>
-                item.scope !== "workspace" ||
+                (item.scope !== "workspace" && item.scope !== "global") ||
                 !workspaceIgnoreSkills.includes(item.ignoreKey)
             );
           }
@@ -370,9 +396,10 @@ export class SettingRouterImpl extends BaseSettingRouter {
           if (!ignoreKey) {
             throw new Error("Ignore key is required.");
           }
-          if (input.scope === "workspace") {
+          // 全局技能与工作空间技能共用 workspace 级别的 ignoreSkills 列表。
+          if (input.scope === "workspace" || input.scope === "global") {
             updateWorkspaceIgnoreSkills({
-              ignoreKey: normalizeWorkspaceIgnoreKey(ignoreKey),
+              ignoreKey,
               enabled: input.enabled,
             });
             return { ok: true };
@@ -399,6 +426,10 @@ export class SettingRouterImpl extends BaseSettingRouter {
           const ignoreKey = input.ignoreKey.trim();
           if (!ignoreKey) {
             throw new Error("Ignore key is required.");
+          }
+          // 全局技能不允许从设置面板删除。
+          if (input.scope === "global") {
+            throw new Error("Global skills cannot be deleted from settings.");
           }
           if (input.scope === "project") {
             // 项目页只允许删除当前项目技能，禁止 workspace/父项目。

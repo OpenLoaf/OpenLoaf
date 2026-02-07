@@ -9,6 +9,7 @@ import { shellCommandTool } from "@/ai/tools/shellCommandTool";
 import { writeStdinTool } from "@/ai/tools/writeStdinTool";
 import { listDirTool, readFileTool, writeFileTool } from "@/ai/tools/fileTools";
 import { updatePlanTool } from "@/ai/tools/updatePlanTool";
+import { projectMutateTool, projectQueryTool } from "@/ai/tools/projectTools";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import {
   browserActToolDef,
@@ -21,6 +22,7 @@ import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
 import { jsonRenderToolDef } from "@tenas-ai/api/types/tools/jsonRender";
 import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
+import { projectMutateToolDef, projectQueryToolDef } from "@tenas-ai/api/types/tools/db";
 import {
   listDirToolDef,
   readFileToolDef,
@@ -105,6 +107,12 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [updatePlanToolDef.id]: {
     tool: updatePlanTool,
+  },
+  [projectQueryToolDef.id]: {
+    tool: projectQueryTool,
+  },
+  [projectMutateToolDef.id]: {
+    tool: projectMutateTool,
   },
 };
 

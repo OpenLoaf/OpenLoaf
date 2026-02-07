@@ -1575,49 +1575,74 @@ export const PageTreeMenu = ({
           </div>
         </div>
       ) : null}
-      {projects.map((project) => (
-        <FileTreeNode
-          key={project.rootUri}
-          node={buildProjectNode(project)}
-          depth={0}
-          activeUri={activeUri}
-          activeProjectRootUri={activeProjectRootUri}
-          expandedNodes={expandedNodes}
-          setExpanded={setExpanded}
-          onPrimaryClick={handlePrimaryClick}
-          renderContextMenuContent={renderContextMenuContent}
-          contextSelectedUri={contextSelectedUri}
-          onContextMenuOpenChange={handleContextMenuOpenChange}
-          dragOverProjectId={dragOverProjectId ?? null}
-          dragInsertTarget={dragInsertTarget ?? null}
-          draggingProjectId={draggingProject?.projectId ?? null}
-          disableNativeDrag={isElectron}
-          onProjectDragStart={handleProjectDragStart}
-          onProjectDragOver={handleProjectDragOver}
-          onProjectDragLeave={handleProjectDragLeave}
-          onProjectDrop={handleProjectDrop}
-          onProjectDragEnd={handleProjectDragEnd}
-          onProjectPointerDown={handleProjectPointerDown}
-        />
-      ))}
-      {/* 逻辑：项目列表末尾追加弱化样式的快捷入口，复用外层弹窗逻辑。 */}
+      {projects.length === 0 ? (
+        <SidebarMenuItem>
+          <div className="w-full px-2 py-3 text-center text-xs text-muted-foreground/70">
+            {/* 逻辑：无项目时显示空态文案。 */}
+            <div>暂无项目</div>
+            <div className="mt-1">请新增或导入项目</div>
+          </div>
+        </SidebarMenuItem>
+      ) : (
+        projects.map((project) => (
+          <FileTreeNode
+            key={project.rootUri}
+            node={buildProjectNode(project)}
+            depth={0}
+            activeUri={activeUri}
+            activeProjectRootUri={activeProjectRootUri}
+            expandedNodes={expandedNodes}
+            setExpanded={setExpanded}
+            onPrimaryClick={handlePrimaryClick}
+            renderContextMenuContent={renderContextMenuContent}
+            contextSelectedUri={contextSelectedUri}
+            onContextMenuOpenChange={handleContextMenuOpenChange}
+            dragOverProjectId={dragOverProjectId ?? null}
+            dragInsertTarget={dragInsertTarget ?? null}
+            draggingProjectId={draggingProject?.projectId ?? null}
+            disableNativeDrag={isElectron}
+            onProjectDragStart={handleProjectDragStart}
+            onProjectDragOver={handleProjectDragOver}
+            onProjectDragLeave={handleProjectDragLeave}
+            onProjectDrop={handleProjectDrop}
+            onProjectDragEnd={handleProjectDragEnd}
+            onProjectPointerDown={handleProjectPointerDown}
+          />
+        ))
+      )}
+      {projects.length > 0 ? (
+        <SidebarMenuItem>
+          <div className="w-full px-2 pt-2">
+            <div className="border-t border-border/60" />
+          </div>
+        </SidebarMenuItem>
+      ) : null}
+      {/* 逻辑：项目列表末尾追加操作条入口，复用外层弹窗逻辑。 */}
       <SidebarMenuItem>
-        <SidebarMenuButton
-          className="h-auto flex-col items-center justify-center gap-1 border border-dashed border-border/60 py-2 text-center text-muted-foreground/80 hover:bg-sidebar-accent/30 hover:text-muted-foreground [&>svg]:text-muted-foreground/70"
-          onClick={() => onCreateProject?.()}
-        >
-          <FolderPlus className="h-4 w-4" />
-          <span className="text-xs leading-tight">新增项目</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          className="h-auto flex-col items-center justify-center gap-1 border border-dashed border-border/60 py-2 text-center text-muted-foreground/80 hover:bg-sidebar-accent/30 hover:text-muted-foreground [&>svg]:text-muted-foreground/70"
-          onClick={() => onImportProject?.()}
-        >
-          <FolderOpen className="h-4 w-4" />
-          <span className="text-xs leading-tight">导入项目</span>
-        </SidebarMenuButton>
+        <div className="w-full px-2 pt-2">
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 w-full justify-center gap-1 text-[11px] text-muted-foreground/70 hover:bg-sidebar-accent/20 hover:text-muted-foreground"
+              onClick={() => onCreateProject?.()}
+            >
+              <FolderPlus className="h-3 w-3" />
+              <span>新增项目</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 w-full justify-center gap-1 text-[11px] text-muted-foreground/70 hover:bg-sidebar-accent/20 hover:text-muted-foreground"
+              onClick={() => onImportProject?.()}
+            >
+              <FolderOpen className="h-3 w-3" />
+              <span>导入项目</span>
+            </Button>
+          </div>
+        </div>
       </SidebarMenuItem>
       <SidebarMenuItem
         aria-hidden={!draggingProject}
