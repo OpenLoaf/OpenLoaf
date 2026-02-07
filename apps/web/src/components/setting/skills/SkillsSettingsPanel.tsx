@@ -136,6 +136,11 @@ function resolveSkillUri(skillPath: string, rootUri?: string): string | undefine
       // 优先使用 rootUri + 相对路径拼接，保持 URI 编码一致。
       const relative = normalizedSkillPath.slice(rootPath.length).replace(/^\/+/, "");
       if (!relative) return rootUri;
+      // file:// URI 需要用 buildFileUriFromRoot 拼接完整 URI，
+      // 否则 buildUriFromRoot 只返回裸相对路径，导致服务端解析到工作空间根目录。
+      if (rootUri.startsWith("file://")) {
+        return buildFileUriFromRoot(rootUri, relative);
+      }
       return buildUriFromRoot(rootUri, relative);
     }
   } catch {

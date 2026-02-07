@@ -555,10 +555,13 @@ export default function FileSystemGitTree({
     () => resolveRootLabel(rootUri, projectTitle),
     [projectTitle, rootUri]
   );
-  const rootRelative = useMemo(
-    () => getRelativePathFromUri(rootUri, rootUri),
-    [rootUri]
-  );
+  const rootRelative = useMemo(() => {
+    const relative = getRelativePathFromUri(rootUri, rootUri);
+    // file:// URI 的自身相对路径为空，但空字符串会被服务端解析为工作空间根目录。
+    // 直接使用 file:// URI 作为根节点 URI，服务端 resolveScopedPath 支持 file: 协议。
+    if (!relative && rootUri.startsWith("file://")) return rootUri;
+    return relative;
+  }, [rootUri]);
   const rootNode = useMemo<GitTreeNode>(
     () => ({
       entry: {

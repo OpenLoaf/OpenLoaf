@@ -11,7 +11,7 @@ description: >
 
 ## Overview
 
-Tenas 的版本发布通过 6 步流程完成：提交变更 → 读取上次 commitId → 收集 commit → 升版本 + 写 changelog → publish → 提交发布。changelog front matter 中的 `commitId` 是串联两次发布的关键——它记录上次发布时的 git commit，下次发布时用它确定 commit 范围。
+Tenas 的版本发布通过 6 步流程完成：提交变更 → 通过 git tag 定位上次发布 → 收集 commit → 升版本 + 写 changelog → publish → 提交发布并打 tag。每个 app 使用独立的 tag（`server-v0.1.1`、`web-v0.1.2`、`electron-v1.0.0`），通过 `git describe --match "{app}-v*"` 定位上次发布点，支持各 app 独立版本节奏。
 
 ## When to Use
 
@@ -66,21 +66,25 @@ git status
 - 有未提交变更 → 总结内容，`git add -A && git commit -m "<summary>" && git push`
 - 工作区干净 → 跳过
 
-### Step 2: 读取当前版本与上次发布的 commitId
+### Step 2: 通过 git tag 定位上次发布点
 
 对每个要发布的 app（`server`/`web`/`electron`）：
 
-1. 读取 `apps/{app}/package.json` → `version` 字段 → `currentVersion`
-2. 读取 `apps/{app}/changelogs/{currentVersion}/zh.md` → front matter → `commitId`
+```bash
+git describe --match "{app}-v*" --abbrev=0
+# 例：git describe --match "web-v*" --abbrev=0 → web-v0.1.1
+```
 
-如果 changelog 不存在或无 `commitId`，用 `git log --oneline -20` 让用户确认范围。
+如果没有找到 tag（首次发布），用 `git log --oneline -20` 让用户确认范围。
 
 ### Step 3: 收集并总结 commit 历史
 
 ```bash
-git log {commitId}..HEAD --oneline --no-merges
+git log {app}-v{lastVersion}..HEAD --oneline --no-merges -- apps/{app}/ packages/
 ```
 
+- 使用路径过滤（`-- apps/{app}/ packages/`）只看该 app 相关的变更
+- `packages/` 包含共享代码（db、ui、api、config），变更可能影响所有 app
 - 按类别分组（新功能、修复、改进等）
 - 生成中文和英文两个版本
 - **展示给用户确认后再继续**
@@ -92,7 +96,7 @@ git log {commitId}..HEAD --oneline --no-merges
    ```bash
    cd apps/{app} && npm version {type} --no-git-tag-version
    ```
-3. 获取 commitId：`git rev-parse HEAD`
+3. 获取当前 HEAD 用于记录（可选）
 4. 创建 `apps/{app}/changelogs/{newVersion}/zh.md` 和 `en.md`
 
 **Changelog front matter 格式：**
@@ -101,7 +105,6 @@ git log {commitId}..HEAD --oneline --no-merges
 ---
 version: {newVersion}
 date: {YYYY-MM-DD}
-commitId: {git rev-parse HEAD 的完整 40 字符 hash}
 ---
 
 ## 新功能
@@ -149,11 +152,13 @@ git add -A
 git commit -m "release: {app}@{newVersion}
 
 {英文 changelog 正文，去掉 front matter}"
-git tag -a v{newVersion} -m "release: {app}@{newVersion}"
-git push && git push origin v{newVersion}
+# 为每个发布的 app 打独立 tag
+git tag -a server-v{newVersion} -m "release: server@{newVersion}"
+git tag -a web-v{newVersion} -m "release: web@{newVersion}"
+git push && git push origin --tags
 ```
 
-**Tag 命名规则：** `v{newVersion}`（如 `v0.1.1`）。多个 app 同版本号时只打一个 tag。
+**Tag 命名规则：** `{app}-v{version}`（如 `server-v0.1.2`、`web-v0.1.3`、`electron-v1.0.0`）。同一个 commit 可挂多个 tag，通过 commit message 体现一起发布的关系。只为本次实际发布的 app 打 tag。
 
 ---
 
@@ -173,10 +178,10 @@ git push && git push origin v{newVersion}
 
 | 错误 | 后果 | 正确做法 |
 |------|------|----------|
-| changelog 漏写 `commitId` | 下次发布无法自动确定 commit 范围 | 始终用 `git rev-parse HEAD` 写入 front matter |
+| 未打 app 前缀 tag | 下次发布 `git describe --match` 找不到上次发布点 | 始终为每个发布的 app 打 `{app}-v{version}` tag |
 | 未等 publish 完成就继续 | 发布不完整，manifest 未更新 | 等每个命令成功后再继续 |
 | 未询问用户就决定版本号 | 版本号不符合预期 | 始终先询问 patch/minor/major |
-| 用当前 HEAD 作为旧版本 commitId | commit 范围错误 | commitId 必须从上一版本的 changelog 中读取 |
+| commit 范围未加路径过滤 | changelog 包含不相关的变更 | 使用 `-- apps/{app}/ packages/` 过滤 |
 
 ## Detailed References
 

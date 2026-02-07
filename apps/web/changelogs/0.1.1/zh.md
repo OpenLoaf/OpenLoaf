@@ -1,7 +1,6 @@
 ---
 version: 0.1.1
 date: 2026-02-08
-commitId: a3630ecadbe029a7aa6226510a6ded9920ae18ad
 ---
 
 ## 新功能
