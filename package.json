@@ -63,7 +63,21 @@
       "ds-store",
       "appdmg",
       "fs-xattr"
-    ]
+    ],
+    "supportedArchitectures": {
+      "os": [
+        "darwin",
+        "win32",
+        "linux"
+      ],
+      "cpu": [
+        "arm64",
+        "x64"
+      ],
+      "libc": [
+        "glibc"
+      ]
+    }
   },
   "packageManager": "pnpm@10.27.0"
 }

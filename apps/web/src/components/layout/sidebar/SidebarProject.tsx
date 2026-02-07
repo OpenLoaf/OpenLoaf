@@ -251,6 +251,8 @@ export const SidebarProject = () => {
                         projects={projects}
                         expandedNodes={expandedNodes}
                         setExpandedNodes={setExpandedNodes}
+                        onCreateProject={() => setIsCreateOpen(true)}
+                        onImportProject={() => setIsImportOpen(true)}
                       />
                     )}
                   </SidebarMenu>

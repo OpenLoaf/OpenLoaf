@@ -172,6 +172,12 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "msi",
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "extraResources": [
@@ -239,6 +245,7 @@
     "dist:production": "pnpm run package && node scripts/dist.mjs",
     "dist:all:dev": "pnpm run package && node scripts/dist.mjs --config.mac.identity=null --mac --win --linux",
     "dist:all": "pnpm run package && node scripts/dist.mjs --mac --win --linux",
+    "dist:win:msi": "pnpm run package && node scripts/dist.mjs --config.mac.identity=null --win --x64 --config.win.target=msi",
     "dist:resign": "node scripts/dist.mjs",
     "check-types": "pnpm -w exec tsc -p apps/electron/tsconfig.json --noEmit",
     "lint": "eslint src"
