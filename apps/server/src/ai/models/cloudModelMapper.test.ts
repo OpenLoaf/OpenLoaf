@@ -7,7 +7,7 @@ const rawItems = [
     id: "gpt-4o",
     provider: "openai",
     displayName: "GPT-4o",
-    tags: ["text_generation", "invalid_tag"],
+    tags: ["chat", "invalid_tag"],
   },
 ];
 
@@ -17,7 +17,7 @@ assert.equal(mapped[0]?.id, "gpt-4o");
 assert.equal(mapped[0]?.name, "GPT-4o");
 assert.equal(mapped[0]?.providerId, "openai");
 assert.equal(mapped[0]?.familyId, "gpt-4o");
-assert.deepEqual(mapped[0]?.tags, ["text_generation"]);
+assert.deepEqual(mapped[0]?.tags, ["chat"]);
 assert.equal(mapped[0]?.maxContextK, 0);
 
 const normalized = normalizeCloudChatModels({

@@ -13,7 +13,7 @@
       "providerId": "codex-cli",
       "icon": "OpenAI",
       "tags": [
-        "text_generation",
+        "chat",
         "code",
         "image_input"
       ],

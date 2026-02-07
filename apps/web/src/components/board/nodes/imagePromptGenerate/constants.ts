@@ -35,6 +35,6 @@ export const IMAGE_PROMPT_TEXT = `你是一位顶级图像视觉分析师，精�
 /** Minimum height for image prompt node. */
 export const IMAGE_PROMPT_GENERATE_MIN_HEIGHT = 0;
 /** Required tags for image prompt models. */
-export const REQUIRED_TAGS: ModelTag[] = ["image_input", "text_generation"];
+export const REQUIRED_TAGS: ModelTag[] = ["image_input", "chat"];
 /** Excluded tags for image prompt models. */
 export const EXCLUDED_TAGS: ModelTag[] = ["image_edit", "image_generation", "code"];

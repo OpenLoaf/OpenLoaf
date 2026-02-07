@@ -42,8 +42,8 @@ export async function resolveExplicitModelDefinition(
 /** Resolve required input tags from message parts. */
 export function resolveRequiredInputTags(messages: UIMessage[]): ModelTag[] {
   const required = new Set<ModelTag>();
-  // 中文注释：/chat/sse 默认走文本对话链路，因此至少需要文本生成能力。
-  required.add("text_generation");
+  // 中文注释：/chat/sse 默认走文本对话链路，因此至少需要对话能力。
+  required.add("chat");
   for (const message of messages) {
     const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
     for (const part of parts) {

@@ -11,7 +11,7 @@ function hasTag(model: ModelWithTags | null | undefined, tag: string) {
 
 /** Return true when the model supports text generation. */
 export function supportsTextGeneration(model: ModelWithTags | null | undefined) {
-  return hasTag(model, "text_generation");
+  return hasTag(model, "chat");
 }
 
 /** Return true when the model supports image generation. */

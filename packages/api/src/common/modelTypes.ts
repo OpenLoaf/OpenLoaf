@@ -1,7 +1,8 @@
 export type ChatModelSource = "local" | "cloud";
 
 export type ModelTag =
-  | "text_generation"
+  | "chat"
+  | "reasoning"
   | "image_input"
   | "image_generation"
   | "image_multi_input"
@@ -48,7 +49,8 @@ export type ModelParameterDefinition = {
 
 // 标签显示文案映射。
 export const MODEL_TAG_LABELS: Record<ModelTag, string> = {
-  text_generation: "文字生成",
+  chat: "对话",
+  reasoning: "推理",
   image_input: "图片输入",
   image_generation: "文生图",
   image_multi_input: "多图输入",

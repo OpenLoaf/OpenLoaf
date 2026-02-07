@@ -13,7 +13,7 @@
       "providerId": "deepseek",
       "icon": "DeepSeek",
       "tags": [
-        "text_generation",
+        "chat",
         "tool_call"
       ],
       "maxContextK": 128
@@ -24,7 +24,8 @@
       "providerId": "deepseek",
       "icon": "DeepSeek",
       "tags": [
-        "text_generation",
+        "chat",
+        "reasoning",
         "tool_call"
       ],
       "maxContextK": 128

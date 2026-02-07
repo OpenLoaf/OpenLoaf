@@ -13,7 +13,7 @@
       "providerId": "xai",
       "icon": "Grok",
       "tags": [
-        "text_generation",
+        "chat",
         "tool_call",
         "web_search"
       ],
@@ -25,7 +25,7 @@
       "providerId": "xai",
       "icon": "Grok",
       "tags": [
-        "text_generation",
+        "chat",
         "tool_call",
         "web_search"
       ],
@@ -37,7 +37,7 @@
       "providerId": "xai",
       "icon": "Grok",
       "tags": [
-        "text_generation",
+        "chat",
         "tool_call",
         "code"
       ],

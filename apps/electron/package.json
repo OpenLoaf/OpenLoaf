@@ -247,6 +247,7 @@
     "dist:all": "pnpm run package && node scripts/dist.mjs --mac --win --linux",
     "dist:win:msi": "pnpm run package && node scripts/dist.mjs --config.mac.identity=null --win --x64 --config.win.target=msi",
     "dist:resign": "node scripts/dist.mjs",
+    "publish-update:mac": "node scripts/publish-update.mjs",
     "check-types": "pnpm -w exec tsc -p apps/electron/tsconfig.json --noEmit",
     "lint": "eslint src"
   },

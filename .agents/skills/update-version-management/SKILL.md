@@ -26,6 +26,33 @@ Tenas 的版本发布通过 6 步流程完成：提交变更 → 读取上次 co
 
 ---
 
+## 发布范围判断
+
+用户要求发布时，先根据本次变更内容判断需要发布哪些 app：
+
+### 仅 Server/Web 增量更新（不需要发布 Electron）
+
+- 业务逻辑、UI 组件、页面变更
+- tRPC 路由、API 接口变更
+- 数据库 schema 变更
+- AI 功能、编辑器、协作等应用层变更
+- 样式、文案、配置项调整
+
+### 需要同时发布 Electron 本体
+
+- 主进程代码变更（`apps/electron/src/main/`）
+- Preload 脚本变更（`apps/electron/src/preload/`）
+- IPC 通道新增或修改
+- 原生功能变更（窗口管理、托盘、菜单、系统通知、快捷键）
+- Electron 或原生依赖版本升级（electron、electron-builder 等）
+- 增量更新系统本身的逻辑变更（下载、校验、回滚、路径解析）
+- `extraResources` 配置变更
+- 打包/签名/公证配置变更
+
+> **原则：** Server/Web 通过增量更新热替换，不需要用户重新安装。Electron 本体更新需要用户下载安装包，成本高，仅在必要时发布。
+
+---
+
 ## Release Workflow（版本发布流程）
 
 当用户要求发布新版本时，**严格按以下步骤顺序执行**：

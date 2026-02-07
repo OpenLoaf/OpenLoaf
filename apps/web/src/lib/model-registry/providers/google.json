@@ -13,7 +13,7 @@
       "providerId": "google",
       "icon": "Gemini",
       "tags": [
-        "text_generation",
+        "chat",
         "image_generation"
       ],
       "maxContextK": 0,
@@ -61,7 +61,7 @@
       "providerId": "google",
       "icon": "Gemini",
       "tags": [
-        "text_generation"
+        "chat"
       ],
       "maxContextK": 0
     }
