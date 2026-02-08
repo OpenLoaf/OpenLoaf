@@ -300,6 +300,7 @@ function downloadFile(
       const writer = fs.createWriteStream(destPath)
       let received = 0
 
+      const responseStream = response as unknown as NodeJS.ReadableStream
       response.on('data', (chunk) => {
         received += chunk.length
         const ok = writer.write(chunk)
@@ -308,8 +309,8 @@ function downloadFile(
         }
         // 处理写入背压：暂停响应流，等 writer drain 后恢复
         if (!ok) {
-          response.pause()
-          writer.once('drain', () => response.resume())
+          responseStream.pause()
+          writer.once('drain', () => responseStream.resume())
         }
       })
 
@@ -428,7 +429,7 @@ async function updateComponent(
   }
   fs.mkdirSync(pendingDir, { recursive: true })
 
-  const fileName = component === 'server' ? 'server.mjs.gz' : 'out.tar.gz'
+  const fileName = component === 'server' ? 'server.mjs.gz' : 'web.tar.gz'
   const downloadPath = path.join(pendingDir, fileName)
 
   // 下载
@@ -535,7 +536,7 @@ export async function checkForIncrementalUpdates(
       }
 
       // 中文注释：beta 渠道缺版本或落后于 stable 时，跳过本次增量更新。
-      const decision = gateBetaManifest({ beta: remoteRaw, stable })
+      const decision = gateBetaManifest<ComponentManifest>({ beta: remoteRaw, stable })
       if (decision.skipped) {
         log(
           `[incremental-update] Beta updates skipped (${decision.reason ?? 'beta-unavailable-or-older'}).`

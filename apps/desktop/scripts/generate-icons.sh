@@ -3,7 +3,7 @@ set -euo pipefail
 
 # 输入 SVG 路径（默认使用 apps/web/public/logo.svg）。
 INPUT_SVG=""
-# 输出目录（默认使用 apps/electron/resources）。
+# 输出目录（默认使用 apps/desktop/resources）。
 OUTPUT_DIR=""
 # 是否保留 icon.iconset 目录。
 KEEP_ICONSET="true"
@@ -15,11 +15,11 @@ CORNER_RATIO="0.2"
 # Print usage for this script.
 usage() {
   cat <<'EOF'
-Usage: apps/electron/scripts/generate-icons.sh [options]
+Usage: apps/desktop/scripts/generate-icons.sh [options]
 
 Options:
   -i, --input <path>    Input SVG path (default: apps/web/public/logo.svg)
-  -o, --output <path>   Output directory (default: apps/electron/resources)
+  -o, --output <path>   Output directory (default: apps/desktop/resources)
   --padding <ratio>     Add padding around SVG (default: 0.1)
   --corner <ratio>      Rounded corner ratio for PNG (default: 0.2)
   --clean               Remove icon.iconset after generating icons
@@ -79,7 +79,7 @@ SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
 
 INPUT_SVG="${REPO_ROOT}/apps/web/public/logo.svg"
-OUTPUT_DIR="${REPO_ROOT}/apps/electron/resources"
+OUTPUT_DIR="${REPO_ROOT}/apps/desktop/resources"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

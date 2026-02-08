@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { readEmailConfigFile, writeEmailConfigFile } from "./emailConfigStore";
 import type { EmailConfigFile } from "./emailConfigStore";
-import { setEmailEnvValue } from "./emailEnvStore";
+import { removeEmailEnvValue, setEmailEnvValue } from "./emailEnvStore";
 
 const emailAccountInputSchema = z.object({
   workspaceId: z.string().min(1),
@@ -83,4 +83,32 @@ export function addEmailAccount(input: EmailAccountInput) {
   writeEmailConfigFile(nextConfig, parsed.workspaceId);
 
   return nextAccount;
+}
+
+/** Remove an email account from email.json and clean up its env password. */
+export function removeEmailAccount(input: {
+  workspaceId: string;
+  emailAddress: string;
+}): void {
+  const normalizedEmail = normalizeEmailAddress(input.emailAddress);
+  const config = readEmailConfigFile(input.workspaceId);
+  const account = config.emailAccounts.find(
+    (item) => normalizeEmailAddress(item.emailAddress) === normalizedEmail,
+  );
+  if (!account) {
+    throw new Error("邮箱账号不存在。");
+  }
+
+  const nextConfig = {
+    ...config,
+    emailAccounts: config.emailAccounts.filter(
+      (item) => normalizeEmailAddress(item.emailAddress) !== normalizedEmail,
+    ),
+  };
+  writeEmailConfigFile(nextConfig, input.workspaceId);
+
+  // 逻辑：清理 .env 中的密码条目。
+  if (account.auth.envKey) {
+    removeEmailEnvValue(account.auth.envKey);
+  }
 }

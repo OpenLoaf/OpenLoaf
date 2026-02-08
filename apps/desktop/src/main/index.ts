@@ -9,7 +9,8 @@ import { installIncrementalUpdate } from './incrementalUpdate';
 // Node.js 标准解析会从 asar 向上查找到 Resources/node_modules/，
 // globalPaths 作为额外保障。
 if (app.isPackaged) {
-  Module.globalPaths.push(path.join(process.resourcesPath, 'node_modules'));
+  const moduleGlobalPaths = (Module as unknown as { globalPaths: string[] }).globalPaths;
+  moduleGlobalPaths.push(path.join(process.resourcesPath, 'node_modules'));
 }
 import {
   createStartupLogger,

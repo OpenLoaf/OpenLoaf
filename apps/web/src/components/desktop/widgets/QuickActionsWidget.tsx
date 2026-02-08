@@ -9,13 +9,22 @@ import { trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useTerminalStatus } from "@/hooks/use-terminal-status";
 import {
   ensureBoardFolderName,
   BOARD_INDEX_FILE_NAME,
   BOARD_ASSETS_DIR_NAME,
   getBoardDisplayName,
 } from "@/lib/file-name";
-import { buildChildUri } from "@/components/project/filesystem/utils/file-system-utils";
+import { useGlobalOverlay } from "@/lib/globalShortcuts";
+import {
+  buildChildUri,
+  resolveFileUriFromRoot,
+} from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  TERMINAL_WINDOW_COMPONENT,
+  TERMINAL_WINDOW_PANEL_ID,
+} from "@tenas-ai/api/common";
 
 /** Render a quick actions widget (MVP placeholder). */
 export default function QuickActionsWidget() {
@@ -26,6 +35,7 @@ export default function QuickActionsWidget() {
   const mkdirMutation = useMutation(trpc.fs.mkdir.mutationOptions());
   const writeBinaryMutation = useMutation(trpc.fs.writeBinary.mutationOptions());
   const [creating, setCreating] = React.useState(false);
+  const terminalStatus = useTerminalStatus();
 
   /** Create a new board and open it in the current tab stack. */
   const handleCreateCanvas = React.useCallback(async () => {
@@ -108,6 +118,89 @@ export default function QuickActionsWidget() {
     }
   }, [workspaceId, activeTabId, tabs, mkdirMutation, writeBinaryMutation]);
 
+  /** Open the global search overlay. */
+  const handleOpenSearch = React.useCallback(() => {
+    useGlobalOverlay.getState().setSearchOpen(true);
+  }, []);
+
+  /** Open a terminal inside the current tab stack. */
+  const handleOpenTerminal = React.useCallback(() => {
+    if (!activeTabId) {
+      toast.error("未找到当前标签页");
+      return;
+    }
+    if (terminalStatus.isLoading) {
+      toast.message("正在获取终端状态");
+      return;
+    }
+    if (!terminalStatus.enabled) {
+      toast.error("终端功能未开启");
+      return;
+    }
+
+    // 逻辑：优先使用当前项目标签页的 rootUri，否则回退到工作区根目录。
+    const activeTab = tabs.find(
+      (tab) => tab.id === activeTabId && tab.workspaceId === workspaceId,
+    );
+    const runtime = activeTab ? useTabRuntime.getState().runtimeByTabId[activeTab.id] : null;
+    const baseParams = (runtime?.base?.params ?? {}) as Record<string, unknown>;
+    const rootUri =
+      (typeof baseParams.rootUri === "string" ? baseParams.rootUri : undefined) ??
+      workspace?.rootUri ??
+      "";
+    const pwdUri = rootUri ? resolveFileUriFromRoot(rootUri, rootUri) : "";
+    if (!pwdUri) {
+      toast.error("未找到工作区目录");
+      return;
+    }
+
+    useTabRuntime.getState().pushStackItem(activeTabId, {
+      id: TERMINAL_WINDOW_PANEL_ID,
+      sourceKey: TERMINAL_WINDOW_PANEL_ID,
+      component: TERMINAL_WINDOW_COMPONENT,
+      title: "Terminal",
+      params: {
+        __customHeader: true,
+        __open: { pwdUri },
+      },
+    });
+  }, [activeTabId, terminalStatus, tabs, workspace?.rootUri, workspaceId]);
+
+  /** Open/ensure right AI chat panel visible and focus the input. */
+  const handleOpenAiChat = React.useCallback(() => {
+    if (!activeTabId) {
+      toast.error("未找到当前标签页");
+      return;
+    }
+    const runtime = useTabRuntime.getState().runtimeByTabId[activeTabId];
+    if (!runtime) {
+      toast.error("当前标签页无运行时上下文");
+      return;
+    }
+    // 逻辑：仅在 collapsed 时展开右侧 chat panel（已展开则保持）；Mod+B toggle 逻辑同源。
+    if (runtime.rightChatCollapsed) {
+      useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, false);
+    }
+    // 逻辑：延迟 focus chat input，等待 panel 展开动画与 DOM 渲染完成。
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        const input = document.querySelector<HTMLElement>(
+          '[data-tenas-chat-input="true"]'
+        );
+        if (!input) return;
+        input.focus();
+        // 逻辑：将光标移动到末尾，便于直接输入。
+        const selection = window.getSelection();
+        if (!selection) return;
+        const range = document.createRange();
+        range.selectNodeContents(input);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      });
+    }, 150);
+  }, [activeTabId]);
+
   return (
     <div className="flex h-full w-full flex-col gap-3">
       <div className="grid grid-cols-2 gap-2">
@@ -115,6 +208,7 @@ export default function QuickActionsWidget() {
           type="button"
           variant="secondary"
           className="h-11 justify-start gap-2"
+          onClick={handleOpenSearch}
         >
           <Search className="size-4" />
           Search
@@ -123,6 +217,7 @@ export default function QuickActionsWidget() {
           type="button"
           variant="secondary"
           className="h-11 justify-start gap-2"
+          onClick={handleOpenTerminal}
         >
           <Terminal className="size-4" />
           Terminal
@@ -141,6 +236,7 @@ export default function QuickActionsWidget() {
           type="button"
           variant="secondary"
           className="h-11 justify-start gap-2"
+          onClick={handleOpenAiChat}
         >
           <Sparkles className="size-4" />
           Ask AI

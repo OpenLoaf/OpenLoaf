@@ -183,7 +183,7 @@ export async function createMainWindow(args: {
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (/\/auth\/(?:wechat\/)?callback\b/.test(url)) {
       event.preventDefault();
-      fetch(url, { redirect: 'follow' }).catch(() => undefined);
+      fetch(url, { redirect: 'follow' }).catch((): void => {});
     }
   });
 

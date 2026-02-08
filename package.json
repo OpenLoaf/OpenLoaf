@@ -11,7 +11,7 @@
     "dev:native": "cross-env NODE_OPTIONS=--conditions=development turbo -F native dev",
     "dev:web": "cross-env NODE_OPTIONS=--conditions=development turbo -F web dev",
     "dev:server": "cross-env NODE_OPTIONS=--conditions=development turbo -F server dev",
-    "desktop": "cross-env NODE_OPTIONS=--conditions=development pnpm --filter tenas desktop",
+    "desktop": "cross-env NODE_OPTIONS=--conditions=development pnpm --filter desktop desktop",
     "db:push": "turbo -F @tenas-ai/db db:push",
     "db:studio": "turbo -F @tenas-ai/db db:studio",
     "db:generate": "turbo -F @tenas-ai/db db:generate",

@@ -40,8 +40,8 @@ Tenas 的版本发布通过 6 步流程完成：提交变更 → 通过 git tag 
 
 ### 需要同时发布 Electron 本体
 
-- 主进程代码变更（`apps/electron/src/main/`）
-- Preload 脚本变更（`apps/electron/src/preload/`）
+- 主进程代码变更（`apps/desktop/src/main/`）
+- Preload 脚本变更（`apps/desktop/src/preload/`）
 - IPC 通道新增或修改
 - 原生功能变更（窗口管理、托盘、菜单、系统通知、快捷键）
 - Electron 或原生依赖版本升级（electron、electron-builder 等）
@@ -121,7 +121,7 @@ cd apps/server && pnpm run publish-update
 cd apps/web && pnpm run publish-update
 ```
 
-Electron 本体发布：`cd apps/electron && pnpm run dist:production`
+Electron 本体发布：`cd apps/desktop && pnpm run dist:production`
 
 **如果任何命令失败，立即停止，报告错误，不继续后续步骤。**
 
@@ -168,7 +168,7 @@ git push && git push origin --tags
 |------|------|
 | Server 增量发布 | `cd apps/server && pnpm run publish-update` |
 | Web 增量发布 | `cd apps/web && pnpm run publish-update` |
-| Electron 本体发布 | `cd apps/electron && pnpm run dist:production` |
+| Electron 本体发布 | `cd apps/desktop && pnpm run dist:production` |
 | 升 patch 版本 | `npm version patch --no-git-tag-version` |
 | 升 minor 版本 | `npm version minor --no-git-tag-version` |
 | 升 major 版本 | `npm version major --no-git-tag-version` |

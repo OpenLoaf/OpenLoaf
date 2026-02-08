@@ -25,6 +25,7 @@ import ProjectFileSystem, {
 import ProjectSettingsPage, {
   ProjectSettingsHeader,
 } from "./settings/ProjectSettingsPage";
+import ProjectSkillsPage, { ProjectSkillsHeader } from "./skills/ProjectSkillsPage";
 
 interface ProjectPageProps {
   tabId?: string;
@@ -192,6 +193,7 @@ export default function ProjectPage({
   const shouldRenderIndex = activeTab === "index" || mountedTabs.has("index");
   const shouldRenderFiles = activeTab === "files" || mountedTabs.has("files");
   const shouldRenderTasks = activeTab === "tasks" || mountedTabs.has("tasks");
+  const shouldRenderSkills = activeTab === "skills" || mountedTabs.has("skills");
   const shouldRenderSettings = activeTab === "settings" || mountedTabs.has("settings");
 
   const updateProject = useMutation(
@@ -456,6 +458,16 @@ export default function ProjectPage({
           </div>
           <div
             className={`${headerBaseClass} ${
+              activeTab === "skills"
+                ? "relative opacity-100 pointer-events-auto w-full"
+                : "absolute inset-0 opacity-0 pointer-events-none"
+            }`}
+            aria-hidden={activeTab !== "skills"}
+          >
+            <ProjectSkillsHeader isLoading={isLoading} pageTitle={pageTitle} />
+          </div>
+          <div
+            className={`${headerBaseClass} ${
               activeTab === "settings"
                 ? "relative opacity-100 pointer-events-auto w-full"
                 : "absolute inset-0 opacity-0 pointer-events-none"
@@ -541,6 +553,21 @@ export default function ProjectPage({
               >
                 {shouldRenderTasks ? (
                   <ProjectHistory isLoading={isLoading} />
+                ) : null}
+              </div>
+              <div
+                id="project-panel-skills"
+                role="tabpanel"
+                aria-labelledby="project-tab-skills"
+                className={`${panelBaseClass} ${
+                  activeTab === "skills"
+                    ? "opacity-100 pointer-events-auto"
+                    : "opacity-0 pointer-events-none"
+                }`}
+                aria-hidden={activeTab !== "skills"}
+              >
+                {shouldRenderSkills ? (
+                  <ProjectSkillsPage projectId={projectId} />
                 ) : null}
               </div>
               <div

@@ -31,6 +31,11 @@ const emailAccountViewSchema = z.object({
   }),
 });
 
+const removeAccountInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  emailAddress: z.string().min(1),
+});
+
 const listMessagesInputSchema = z.object({
   workspaceId: z.string().min(1),
   accountEmail: z.string().min(1),
@@ -223,6 +228,10 @@ export const emailSchemas = {
     input: emailAccountInputSchema,
     output: emailAccountViewSchema,
   },
+  removeAccount: {
+    input: removeAccountInputSchema,
+    output: syncMailboxOutputSchema,
+  },
   listMessages: {
     input: listMessagesInputSchema,
     output: emailMessagePageSchema,
@@ -300,6 +309,12 @@ export abstract class BaseEmailRouter {
       addAccount: shieldedProcedure
         .input(emailSchemas.addAccount.input)
         .output(emailSchemas.addAccount.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      removeAccount: shieldedProcedure
+        .input(emailSchemas.removeAccount.input)
+        .output(emailSchemas.removeAccount.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

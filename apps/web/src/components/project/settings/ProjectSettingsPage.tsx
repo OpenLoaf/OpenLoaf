@@ -5,14 +5,13 @@ import type { ComponentType } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { TenasSettingsLayout } from "@tenas-ai/ui/tenas/TenasSettingsLayout";
 import { TenasSettingsMenu } from "@tenas-ai/ui/tenas/TenasSettingsMenu";
-import { BarChart3, Bot, GitBranch, SlidersHorizontal, Sparkles } from "lucide-react";
+import { BarChart3, Bot, GitBranch, SlidersHorizontal } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 
 import { ProjectBasicSettings } from "./menus/ProjectBasicSettings";
 import { ProjectAiSettings } from "./menus/ProjectAiSettings";
 import { ProjectGitSettings } from "./menus/ProjectGitSettings";
-import { ProjectSkillSettings } from "./menus/ProjectSkillSettings";
 import { ProjectStatsSettings } from "./menus/ProjectStatsSettings";
 
 type ProjectSettingsPanelProps = {
@@ -20,7 +19,7 @@ type ProjectSettingsPanelProps = {
   rootUri?: string;
 };
 
-type ProjectSettingsMenuKey = "basic" | "ai" | "skills" | "stats" | "git";
+type ProjectSettingsMenuKey = "basic" | "ai" | "stats" | "git";
 
 const BASE_MENU: Array<{
   key: ProjectSettingsMenuKey;
@@ -39,12 +38,6 @@ const BASE_MENU: Array<{
     label: "AI设置",
     Icon: Bot,
     Component: ProjectAiSettings,
-  },
-  {
-    key: "skills",
-    label: "技能",
-    Icon: Sparkles,
-    Component: ProjectSkillSettings,
   },
   {
     key: "stats",

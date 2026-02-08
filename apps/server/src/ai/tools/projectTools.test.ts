@@ -42,9 +42,12 @@ const parentResult = await executeProjectMutate({
 });
 
 assert.equal(parentResult.data.action, "create");
-const parentProjectId = parentResult.data.project?.projectId ?? "";
+if (parentResult.data.action !== "create") {
+  throw new Error("Expected create result.");
+}
+const parentProjectId = parentResult.data.project.projectId;
 assert.ok(parentProjectId, "projectId should be returned");
-assert.equal(parentResult.data.project?.title, "Alpha");
+assert.equal(parentResult.data.project.title, "Alpha");
 
 const listResult = await executeProjectQuery({
   actionName: "list projects",
@@ -61,8 +64,11 @@ const childResult = await executeProjectMutate({
   createAsChild: true,
 });
 
-const childProjectId = childResult.data.project?.projectId ?? "";
-const childRootUri = childResult.data.project?.rootUri ?? "";
+if (childResult.data.action !== "create") {
+  throw new Error("Expected create result.");
+}
+const childProjectId = childResult.data.project.projectId;
+const childRootUri = childResult.data.project.rootUri;
 assert.ok(childProjectId);
 assert.ok(childRootUri);
 const childGet = await executeProjectQuery({

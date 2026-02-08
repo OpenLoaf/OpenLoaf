@@ -1,5 +1,5 @@
 import { DndProvider } from "react-dnd";
-import { ChevronDown, ChevronRight, Plus, RefreshCw, Unplug } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, RefreshCw, Trash2, Unplug } from "lucide-react";
 
 import { Button } from "@tenas-ai/ui/button";
 import { dndManager } from "@/lib/dnd-manager";
@@ -86,26 +86,42 @@ export function EmailSidebar({ sidebar }: EmailSidebarProps) {
               {sidebar.accountGroups.map((group) => {
                 const expanded = sidebar.expandedAccounts[group.key] ?? true;
                 return (
-                  <div key={group.account.emailAddress} className="rounded-md py-2">
-                    <button
-                      type="button"
-                      onClick={() => sidebar.onToggleAccount(group.account.emailAddress)}
-                      className="flex w-full items-center justify-between text-xs text-muted-foreground"
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
+                  <div key={group.account.emailAddress} className="group/account rounded-md py-2">
+                    <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => sidebar.onToggleAccount(group.account.emailAddress)}
+                        className="flex min-w-0 flex-1 items-center gap-2"
+                      >
                         {expanded ? (
-                          <ChevronDown className="h-3.5 w-3.5" />
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0" />
                         ) : (
-                          <ChevronRight className="h-3.5 w-3.5" />
+                          <ChevronRight className="h-3.5 w-3.5 shrink-0" />
                         )}
                         <span className="truncate font-semibold text-foreground">
                           {group.account.label ?? group.account.emailAddress}
                         </span>
+                      </button>
+                      <span className="flex shrink-0 items-center gap-1">
+                        {group.account.status?.lastError ? (
+                          <Unplug className="h-3.5 w-3.5 text-muted-foreground" />
+                        ) : null}
+                        <button
+                          type="button"
+                          className="hidden h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-destructive group-hover/account:flex"
+                          title="删除邮箱账户"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const label = group.account.label ?? group.account.emailAddress;
+                            if (window.confirm(`确定要删除邮箱账户「${label}」吗？该账户的所有邮件数据将被清除。`)) {
+                              sidebar.onRemoveAccount(group.account.emailAddress);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
                       </span>
-                      {group.account.status?.lastError ? (
-                        <Unplug className="h-3.5 w-3.5 text-muted-foreground" />
-                      ) : null}
-                    </button>
+                    </div>
                     {expanded ? (
                       <div className="mt-2 space-y-1">
                         {group.isLoading ? (

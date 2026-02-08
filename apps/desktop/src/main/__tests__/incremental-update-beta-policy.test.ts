@@ -5,7 +5,7 @@ import {
   gateBetaManifest,
   isRemoteNewer,
   shouldUseBundled,
-} from "../incrementalUpdatePolicy.ts";
+} from "../incrementalUpdatePolicy";
 
 const stableManifest = {
   schemaVersion: 1,

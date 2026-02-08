@@ -32,7 +32,7 @@ Renderer (apps/web)
     ├─ listen: tenas:webcontents-view:status / window-open
     └─ update browserTabs + upsertTabSnapshotNow
           ↓
-Electron Main (apps/electron)
+Electron Main (apps/desktop)
   webContentsViews.ts
     ├─ manage WebContentsView lifecycle
     ├─ emit status/window-open
@@ -76,11 +76,11 @@ apps/web/src/lib/chat/frontend-tool-executor.ts
 apps/web/src/lib/chat/open-url-ack.ts
 apps/web/src/lib/tab-snapshot.ts
 
-apps/electron/src/preload/index.ts
-apps/electron/src/main/ipc/index.ts
-apps/electron/src/main/ipc/webContentsViews.ts
-apps/electron/src/main/windows/mainWindow.ts
-apps/electron/src/main/services/portAllocation.ts
+apps/desktop/src/preload/index.ts
+apps/desktop/src/main/ipc/index.ts
+apps/desktop/src/main/ipc/webContentsViews.ts
+apps/desktop/src/main/windows/mainWindow.ts
+apps/desktop/src/main/services/portAllocation.ts
 
 apps/server/src/ai/tools/openUrl.ts
 apps/server/src/ai/tools/browserAutomationTools.ts
@@ -104,7 +104,7 @@ packages/api/src/types/event.ts
 | Add/adjust browser UI | `apps/web/src/components/browser/*` |
 | Change browserTabs merge logic | `apps/web/src/hooks/browser-panel.ts` |
 | Open URL tool flow | `apps/server/src/ai/tools/openUrl.ts`, `apps/web/src/lib/chat/frontend-tool-executor.ts` |
-| WebContentsView behavior | `apps/electron/src/main/ipc/webContentsViews.ts` |
+| WebContentsView behavior | `apps/desktop/src/main/ipc/webContentsViews.ts` |
 | CDP automation errors | `apps/server/src/ai/tools/browserAutomationTools.ts`, `apps/server/src/modules/browser/cdpClient.ts` |
 | Tab snapshot/cdpTargetId | `apps/web/src/lib/tab-snapshot.ts`, `apps/server/src/modules/tab/TabSnapshotStoreAdapter.ts` |
 

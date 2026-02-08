@@ -36,6 +36,40 @@ const NATIVE_DEP_ROOTS = [
 ];
 
 /**
+ * 平台特定包名模式 - 用于过滤不属于目标平台的包。
+ * 这些包名包含平台/架构标识符，需要按目标平台过滤。
+ * 每个模式使用命名捕获组 platform 和 arch。
+ */
+const PLATFORM_PACKAGE_PATTERNS = [
+  // @img/sharp-{os}-{arch}, @img/sharp-libvips-{os}-{arch}
+  /^@img\/sharp(-libvips)?-(?<platform>darwin|linux|linuxmusl|win32)-(?<arch>arm64|x64)$/,
+  // @libsql/{os}-{arch}[-variant]
+  /^@libsql\/(?<platform>darwin|linux|win32)-(?<arch>arm64|x64)(-gnu|-musl|-msvc)?$/,
+];
+
+/**
+ * 检查包名是否是平台特定包，如果是，检查是否匹配目标平台。
+ * @returns true 如果应该包含该包（非平台特定包，或匹配目标平台）
+ */
+function shouldIncludePackage(
+  packageName: string,
+  targetPlatform: string,
+  targetArch: string,
+): boolean {
+  for (const pattern of PLATFORM_PACKAGE_PATTERNS) {
+    const match = packageName.match(pattern);
+    if (match?.groups) {
+      const { platform: pkgPlatform, arch: pkgArch } = match.groups;
+      // linuxmusl 视为 linux
+      const normalizedPkgPlatform = pkgPlatform === 'linuxmusl' ? 'linux' : pkgPlatform;
+      return normalizedPkgPlatform === targetPlatform && pkgArch === targetArch;
+    }
+  }
+  // 非平台特定包，始终包含
+  return true;
+}
+
+/**
  * 递归收集指定包的所有 production 依赖（dependencies + optionalDependencies）。
  * 仅收集当前平台已安装的可选依赖（不存在则跳过）。
  */
@@ -113,8 +147,9 @@ function resolveResourcesDir(outputPath: string, platform: string): string | nul
 const postPackageHook: ForgeConfig['hooks'] = {
   postPackage: async (_config, options) => {
     const platform = options.platform as string;
+    const arch = options.arch as string;
     for (const outputPath of options.outputPaths) {
-      console.log(`[postPackage] platform=${platform} outputPath: ${outputPath}`);
+      console.log(`[postPackage] platform=${platform} arch=${arch} outputPath: ${outputPath}`);
 
       const resourcesDir = resolveResourcesDir(outputPath, platform);
       if (!resourcesDir || !fs.existsSync(resourcesDir)) continue;
@@ -128,12 +163,17 @@ const postPackageHook: ForgeConfig['hooks'] = {
         collectRoot(root, MONOREPO_NODE_MODULES, allPackages);
       }
 
-      console.log(
-        `[postPackage] Resolved ${allPackages.size} packages from ${NATIVE_DEP_ROOTS.length} roots: ${[...allPackages].join(', ')}`,
+      // 2) 按目标平台过滤平台特定包
+      const filteredPackages = [...allPackages].filter((pkg) =>
+        shouldIncludePackage(pkg, platform, arch),
       );
 
-      // 2) 从 monorepo node_modules 复制到 Resources/node_modules/
-      for (const pkg of allPackages) {
+      console.log(
+        `[postPackage] Resolved ${allPackages.size} packages, ${filteredPackages.length} after platform filtering (${platform}-${arch})`,
+      );
+
+      // 3) 从 monorepo node_modules 复制到 Resources/node_modules/
+      for (const pkg of filteredPackages) {
         const src = path.join(MONOREPO_NODE_MODULES, pkg);
         const dest = path.join(destNmDir, pkg);
         if (fs.existsSync(dest)) continue;
@@ -147,20 +187,26 @@ const postPackageHook: ForgeConfig['hooks'] = {
         console.log(`[postPackage]   + ${pkg}`);
       }
 
-      // 3) node-pty prebuilds：
+      // 4) node-pty prebuilds：按目标平台只复制对应的 prebuild
       //    node-pty 被 esbuild 打包进 server.mjs，加载 pty.node 时用
-      //    相对于 server.mjs 的路径 ./prebuilds/darwin-arm64/pty.node，
-      //    即 Resources/prebuilds/（不是 node_modules/node-pty/prebuilds/）。
+      //    相对于 server.mjs 的路径 ./prebuilds/{platform}-{arch}/pty.node
       const prebuildsSrc = path.join(MONOREPO_NODE_MODULES, 'node-pty', 'prebuilds');
       if (fs.existsSync(prebuildsSrc)) {
         const prebuildsDest = path.join(resourcesDir, 'prebuilds');
-        if (!fs.existsSync(prebuildsDest)) {
-          fs.cpSync(prebuildsSrc, prebuildsDest, { recursive: true });
-          console.log('[postPackage]   + prebuilds/ (node-pty)');
+        const targetPrebuild = `${platform}-${arch}`;
+        const targetPrebuildSrc = path.join(prebuildsSrc, targetPrebuild);
+
+        if (fs.existsSync(targetPrebuildSrc)) {
+          const targetPrebuildDest = path.join(prebuildsDest, targetPrebuild);
+          fs.mkdirSync(targetPrebuildDest, { recursive: true });
+          fs.cpSync(targetPrebuildSrc, targetPrebuildDest, { recursive: true });
+          console.log(`[postPackage]   + prebuilds/${targetPrebuild}/ (node-pty)`);
+        } else {
+          console.warn(`[postPackage] node-pty prebuild not found for ${targetPrebuild}`);
         }
       }
 
-      // 4) 版本信息：extraResource 会按 basename 平铺，这里手动复制并改名。
+      // 5) 版本信息：extraResource 会按 basename 平铺，这里手动复制并改名。
       const serverPkgSrc = path.join(REPO_ROOT, 'apps', 'server', 'package.json');
       const webPkgSrc = path.join(REPO_ROOT, 'apps', 'web', 'package.json');
       const serverPkgDest = path.join(resourcesDir, 'server.package.json');
@@ -209,11 +255,11 @@ const config: ForgeConfig = {
       // Pre-built SQLite DB with schema applied (copied to userData on first run).
       '../../apps/server/dist/seed.db',
       '../../apps/web/out',
-      '../../apps/electron/resources/speech',
-      '../../apps/electron/resources/runtime.env',
-      '../../apps/electron/resources/icon.icns',
-      '../../apps/electron/resources/icon.ico',
-      '../../apps/electron/resources/icon.png',
+      '../../apps/desktop/resources/speech',
+      '../../apps/desktop/resources/runtime.env',
+      '../../apps/desktop/resources/icon.icns',
+      '../../apps/desktop/resources/icon.ico',
+      '../../apps/desktop/resources/icon.png',
       // npm 包（sharp、@libsql、playwright-core 等）及其所有传递依赖
       // 由 postPackage 钩子递归解析并复制到 Resources/node_modules/，
       // 不再在此手动列出，避免遗漏传递依赖导致运行时 module not found。

@@ -55,7 +55,7 @@ function resolveSpeechHelperPath(): string | null {
   } else {
     return null;
   }
-  // 中文注释：生产环境从 resources 读取，开发环境从 apps/electron/resources 读取。
+  // 中文注释：生产环境从 resources 读取，开发环境从 apps/desktop/resources 读取。
   if (app.isPackaged) {
     return path.join(process.resourcesPath, "speech", relativeDir, binaryName);
   }
@@ -138,7 +138,7 @@ export function createSpeechRecognitionManager(args: { log: Logger }) {
 
     const helperPath = resolveSpeechHelperPath();
     if (!helperPath || !fs.existsSync(helperPath)) {
-      return { ok: false, reason: "语音识别组件未构建，请先运行 pnpm --filter tenas run build:speech-helper。" };
+      return { ok: false, reason: "语音识别组件未构建，请先运行 pnpm --filter desktop run build:speech-helper。" };
     }
 
     // 中文注释：每次启动只保留一个会话，避免多进程抢占麦克风。

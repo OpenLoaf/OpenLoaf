@@ -2,16 +2,16 @@
 
 /**
  * Electron 整包更新发布脚本：
- * 1. （可选）运行 dist:production 构建签名后的安装包
+ * 1. （可选）运行 dist:mac 构建签名后的安装包
  * 2. 扫描 dist/ 目录中的构建产物和 latest-*.yml
- * 3. 上传到 Cloudflare R2 的 electron/ 路径下
+ * 3. 上传到 Cloudflare R2 的 desktop/ 路径下
  * 4. 上传 changelogs
  *
  * 用法：
  *   node scripts/publish-update.mjs                   # 先构建再上传
  *   node scripts/publish-update.mjs --skip-build      # 跳过构建，仅上传已有产物
  *
- * 配置来自 apps/electron/.env.prod（自动加载，命令行环境变量优先）
+ * 配置来自 apps/desktop/.env.prod（自动加载，命令行环境变量优先）
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
@@ -71,8 +71,8 @@ async function main() {
 
   // 2. 构建（可选）
   if (!skipBuild) {
-    console.log('🔨 Building Electron app (dist:production)...')
-    execSync('pnpm run dist:production', { cwd: electronRoot, stdio: 'inherit' })
+    console.log('🔨 Building Electron app (dist:mac)...')
+    execSync('pnpm run dist:mac', { cwd: electronRoot, stdio: 'inherit' })
   }
 
   // 3. 扫描 dist/ 目录
@@ -90,7 +90,7 @@ async function main() {
     process.exit(1)
   }
 
-  console.log(`\n📋 将上传 ${filesToUpload.length} 个文件到 R2 electron/ 路径：`)
+  console.log(`\n📋 将上传 ${filesToUpload.length} 个文件到 R2 desktop/ 路径：`)
   for (const f of filesToUpload) {
     console.log(`   - ${f}`)
   }
@@ -98,7 +98,7 @@ async function main() {
 
   // 4. 上传到 R2
   for (const file of filesToUpload) {
-    const r2Key = `electron/${file}`
+    const r2Key = `desktop/${file}`
     const filePath = path.join(distDir, file)
     console.log(`☁️  Uploading: ${r2Key}`)
     await uploadFile(s3, r2Config.bucket, r2Key, filePath)
@@ -109,13 +109,13 @@ async function main() {
   await uploadChangelogs({
     s3,
     bucket: r2Config.bucket,
-    component: 'electron',
+    component: 'desktop',
     changelogsDir: path.join(electronRoot, 'changelogs'),
     publicUrl: r2Config.publicUrl,
   })
 
   console.log(`\n🎉 Electron v${version} published successfully!`)
-  console.log(`   Feed URL: ${r2Config.publicUrl}/electron/`)
+  console.log(`   Feed URL: ${r2Config.publicUrl}/desktop/`)
 }
 
 main().catch((err) => {

@@ -6,7 +6,7 @@ Electron 主进程负责创建/管理 WebContentsView，并通过 IPC 向 Render
 
 ## Preload API (tenasElectron)
 
-来自 `apps/electron/src/preload/index.ts`：
+来自 `apps/desktop/src/preload/index.ts`：
 
 - `ensureWebContentsView({ key, url })`
   - 确保 viewKey 对应的 WebContentsView 存在，并返回 `cdpTargetId`。
@@ -27,7 +27,7 @@ Electron 主进程负责创建/管理 WebContentsView，并通过 IPC 向 Render
 
 ## WebContentsView Lifecycle
 
-核心逻辑位于 `apps/electron/src/main/ipc/webContentsViews.ts`：
+核心逻辑位于 `apps/desktop/src/main/ipc/webContentsViews.ts`：
 
 - `upsertWebContentsView` 创建并复用 `WebContentsView`。
 - 监听 `did-start-loading` / `dom-ready` / `did-fail-load` 推送 status。

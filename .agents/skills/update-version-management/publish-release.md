@@ -2,7 +2,7 @@
 
 ## 版本号约定
 
-- 三个独立版本号：`apps/server/package.json`、`apps/web/package.json`、`apps/electron/package.json`
+- 三个独立版本号：`apps/server/package.json`、`apps/web/package.json`、`apps/desktop/package.json`
 - 语义化版本 + prerelease 标签：`1.0.0`（stable）、`1.0.1-beta.1`（beta）
 - 版本号含 `-beta` 自动归入 beta 渠道
 
@@ -35,7 +35,7 @@ node scripts/publish-update.mjs
 ### Electron 本体发布
 
 ```bash
-cd apps/electron
+cd apps/desktop
 pnpm run dist:production    # package + sign + notarize + upload
 ```
 
@@ -66,13 +66,13 @@ r2-tenas-update.hexems.com/
 │   ├── 1.0.0/server.mjs.gz
 │   └── 1.0.1-beta.1/server.mjs.gz
 ├── web/                         # Web 构件共享池
-│   ├── 0.1.0/out.tar.gz
-│   └── 0.1.1-beta.1/out.tar.gz
+│   ├── 0.1.0/web.tar.gz
+│   └── 0.1.1-beta.1/web.tar.gz
 └── changelogs/                  # 更新日志
     ├── index.json
     ├── server/1.0.0.md
     ├── web/0.1.0.md
-    └── electron/1.0.0.md
+    └── desktop/1.0.0.md
 ```
 
 构件按版本号存储在共享池，beta 版"转正"只需将 stable/manifest.json 指向同一 URL。

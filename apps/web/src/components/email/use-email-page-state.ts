@@ -99,6 +99,7 @@ export type SidebarState = {
   onSelectMailbox: (accountEmail: string, mailboxPath: string, label: string) => void;
   onToggleAccount: (accountEmail: string) => void;
   onOpenAddAccount: () => void;
+  onRemoveAccount: (emailAddress: string) => void;
   onSyncMailbox: () => void;
   onHoverMailbox: (input: MailboxHoverInput) => void;
   onClearHover: (input: MailboxOrderKeyInput) => void;
@@ -560,6 +561,32 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
       },
       onError: (error) => {
         setFormError(error.message || "新增邮箱失败，请稍后再试。");
+      },
+    }),
+  );
+
+  const removeAccountMutation = useMutation(
+    trpc.email.removeAccount.mutationOptions({
+      onSuccess: () => {
+        if (workspaceId) {
+          queryClient.invalidateQueries({
+            queryKey: trpc.email.listAccounts.queryOptions({ workspaceId }).queryKey,
+          });
+          queryClient.invalidateQueries({
+            queryKey: trpc.email.listUnifiedMessages.pathKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: trpc.email.listUnifiedUnreadStats.queryOptions({ workspaceId }).queryKey,
+          });
+          queryClient.invalidateQueries({
+            queryKey: trpc.email.listMailboxUnreadStats.queryOptions({ workspaceId }).queryKey,
+          });
+          queryClient.invalidateQueries({
+            queryKey: trpc.email.listUnreadCount.queryOptions({ workspaceId }).queryKey,
+          });
+        }
+        setActiveAccountEmail(null);
+        setActiveMailbox(null);
       },
     }),
   );
@@ -1066,6 +1093,12 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     setExpandedAccounts((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
+  /** Handle remove account. */
+  function handleRemoveAccount(emailAddress: string) {
+    if (!workspaceId) return;
+    removeAccountMutation.mutate({ workspaceId, emailAddress });
+  }
+
   /** Build order key for mailbox siblings. */
   function getMailboxOrderKey(accountEmail: string, parentPath: string | null) {
     return `${normalizeEmail(accountEmail)}::${parentPath ?? "__root__"}`;
@@ -1263,6 +1296,7 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     onSelectMailbox: handleSelectMailbox,
     onToggleAccount: handleToggleAccount,
     onOpenAddAccount: () => setAddDialogOpen(true),
+    onRemoveAccount: handleRemoveAccount,
     onSyncMailbox: handleSyncMailbox,
     onHoverMailbox: handleHoverMailbox,
     onClearHover: handleClearHover,

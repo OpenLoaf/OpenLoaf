@@ -29,7 +29,7 @@ if (!hasForgeEntry || !hasBuilderEntry) {
   }
   if (!hasBuilderEntry) {
     console.error(
-      `[check-extra-resources] Missing ${expectedFrom} -> ${expectedTo} in apps/electron/package.json build.extraResources.`
+      `[check-extra-resources] Missing ${expectedFrom} -> ${expectedTo} in apps/desktop/package.json build.extraResources.`
     );
   }
   process.exit(1);

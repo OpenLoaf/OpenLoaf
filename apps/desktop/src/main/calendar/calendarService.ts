@@ -49,7 +49,7 @@ function resolveCalendarHelperPath(): string | null {
   } else {
     return null;
   }
-  // 逻辑：生产环境从 resources 读取，开发环境从 apps/electron/resources 读取。
+  // 逻辑：生产环境从 resources 读取，开发环境从 apps/desktop/resources 读取。
   if (app.isPackaged) {
     return path.join(process.resourcesPath, "calendar", relativeDir, binaryName);
   }

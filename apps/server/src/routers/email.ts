@@ -5,7 +5,7 @@ import {
   emailSchemas,
 } from "@tenas-ai/api";
 import type { PrismaClient } from "@tenas-ai/db";
-import { addEmailAccount } from "@/modules/email/emailAccountService";
+import { addEmailAccount, removeEmailAccount } from "@/modules/email/emailAccountService";
 import {
   addPrivateSender,
   listPrivateSenders,
@@ -313,6 +313,14 @@ function normalizeAttachments(value: unknown): AttachmentMeta[] {
 export class EmailRouterImpl extends BaseEmailRouter {
   /** Define email router implementation. */
   public static createRouter() {
+    /** Get active account emails from config for defensive filtering. */
+    function getActiveAccountEmails(workspaceId: string): Set<string> {
+      const config = readEmailConfigFile(workspaceId);
+      return new Set(
+        config.emailAccounts.map((a) => a.emailAddress.trim().toLowerCase()),
+      );
+    }
+
     return t.router({
       listAccounts: shieldedProcedure
         .input(emailSchemas.listAccounts.input)
@@ -357,6 +365,31 @@ export class EmailRouterImpl extends BaseEmailRouter {
             label: created.label,
             status: created.status,
           });
+        }),
+
+      removeAccount: shieldedProcedure
+        .input(emailSchemas.removeAccount.input)
+        .output(emailSchemas.removeAccount.output)
+        .mutation(async ({ input, ctx }) => {
+          removeEmailAccount({
+            workspaceId: input.workspaceId,
+            emailAddress: input.emailAddress,
+          });
+          const normalizedEmail = input.emailAddress.trim().toLowerCase();
+          // 逻辑：清理数据库中该账号的邮件和邮箱文件夹记录。
+          await ctx.prisma.emailMessage.deleteMany({
+            where: {
+              workspaceId: input.workspaceId,
+              accountEmail: normalizedEmail,
+            },
+          });
+          await ctx.prisma.emailMailbox.deleteMany({
+            where: {
+              workspaceId: input.workspaceId,
+              accountEmail: normalizedEmail,
+            },
+          });
+          return { ok: true };
         }),
 
       listMessages: shieldedProcedure
@@ -462,8 +495,12 @@ export class EmailRouterImpl extends BaseEmailRouter {
         .input(emailSchemas.listUnreadCount.input)
         .output(emailSchemas.listUnreadCount.output)
         .query(async ({ input, ctx }) => {
+          const activeEmails = getActiveAccountEmails(input.workspaceId);
           const rows = await ctx.prisma.emailMessage.findMany({
-            where: { workspaceId: input.workspaceId },
+            where: {
+              workspaceId: input.workspaceId,
+              accountEmail: { in: [...activeEmails] },
+            },
             select: { flags: true },
           });
           // 逻辑：以 \\Seen 为已读标记，未包含则视为未读。
@@ -478,8 +515,12 @@ export class EmailRouterImpl extends BaseEmailRouter {
         .input(emailSchemas.listMailboxUnreadStats.input)
         .output(emailSchemas.listMailboxUnreadStats.output)
         .query(async ({ input, ctx }) => {
+          const activeEmails = getActiveAccountEmails(input.workspaceId);
           const rows = await ctx.prisma.emailMessage.findMany({
-            where: { workspaceId: input.workspaceId },
+            where: {
+              workspaceId: input.workspaceId,
+              accountEmail: { in: [...activeEmails] },
+            },
             select: { accountEmail: true, mailboxPath: true, flags: true },
           });
           const counts = new Map<string, { accountEmail: string; mailboxPath: string; unreadCount: number }>();
@@ -539,8 +580,13 @@ export class EmailRouterImpl extends BaseEmailRouter {
             };
           }
 
+          const activeEmails = getActiveAccountEmails(input.workspaceId);
+
           const mailboxes = await ctx.prisma.emailMailbox.findMany({
-            where: { workspaceId: input.workspaceId },
+            where: {
+              workspaceId: input.workspaceId,
+              accountEmail: { in: [...activeEmails] },
+            },
             select: { accountEmail: true, path: true, attributes: true },
           });
 
@@ -564,7 +610,10 @@ export class EmailRouterImpl extends BaseEmailRouter {
             while (collected.length < targetCount && iterations < 8) {
               const { rows, nextCursor, hasMore } = await fetchMessageRowsPage({
                 prisma: ctx.prisma,
-                where: { workspaceId: input.workspaceId },
+                where: {
+                  workspaceId: input.workspaceId,
+                  accountEmail: { in: [...activeEmails] },
+                },
                 pageSize: batchSize,
                 cursor,
               });
@@ -656,8 +705,12 @@ export class EmailRouterImpl extends BaseEmailRouter {
         .input(emailSchemas.listUnifiedUnreadStats.input)
         .output(emailSchemas.listUnifiedUnreadStats.output)
         .query(async ({ input, ctx }) => {
+          const activeEmails = getActiveAccountEmails(input.workspaceId);
           const mailboxes = await ctx.prisma.emailMailbox.findMany({
-            where: { workspaceId: input.workspaceId },
+            where: {
+              workspaceId: input.workspaceId,
+              accountEmail: { in: [...activeEmails] },
+            },
             select: { accountEmail: true, path: true, attributes: true },
           });
 
@@ -709,7 +762,10 @@ export class EmailRouterImpl extends BaseEmailRouter {
           ]);
 
           const flaggedRows = await ctx.prisma.emailMessage.findMany({
-            where: { workspaceId: input.workspaceId },
+            where: {
+              workspaceId: input.workspaceId,
+              accountEmail: { in: [...activeEmails] },
+            },
             select: { flags: true },
           });
           const flagged = flaggedRows.reduce((total, row) => {

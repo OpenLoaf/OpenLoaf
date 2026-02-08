@@ -1,4 +1,4 @@
-import { CalendarDays, Folder, Info, Settings } from "lucide-react";
+import { CalendarDays, Folder, Info, Settings, Wand2 } from "lucide-react";
 import { useMemo } from "react";
 import { ExpandableTabs } from "@tenas-ai/ui/expandable-tabs";
 
@@ -50,6 +50,11 @@ export const PROJECT_TABS = [
     value: "tasks",
     icon: CalendarDays,
     label: "历史",
+  },
+  {
+    value: "skills",
+    icon: Wand2,
+    label: "技能",
   },
   {
     value: "settings",

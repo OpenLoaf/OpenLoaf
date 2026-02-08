@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,9 @@ import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { Button } from "@tenas-ai/ui/button";
 import { Switch } from "@tenas-ai/ui/switch";
-import { Eye, FolderOpen, Trash2 } from "lucide-react";
+import { Input } from "@tenas-ai/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
+import { Eye, FolderOpen, Search, Trash2, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useProject } from "@/hooks/use-project";
@@ -44,6 +46,12 @@ type SkillsSettingsPanelProps = {
   /** Project id for loading project-scoped skills. */
   projectId?: string;
 };
+
+/** Filter option for skill scope. */
+type ScopeFilter = "all" | SkillScope;
+
+/** Filter option for skill enabled status. */
+type StatusFilter = "all" | "enabled" | "disabled";
 
 /** Label text for each skill scope. */
 const SCOPE_LABELS: Record<SkillScope, string> = {
@@ -200,6 +208,10 @@ function buildSkillSummaryText(input: {
 /** Shared skills settings panel. */
 export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   const isProjectList = Boolean(projectId);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
   const queryOptions = projectId
     ? trpc.settings.getSkills.queryOptions({ projectId })
     : trpc.settings.getSkills.queryOptions();
@@ -210,6 +222,36 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   const activeTabId = useTabs((state) => state.activeTabId);
   const pushStackItem = useTabRuntime((state) => state.pushStackItem);
   const workspaceId = workspace?.id ?? "";
+
+  /** Filtered skills based on search query and filters. */
+  const filteredSkills = useMemo(() => {
+    return skills.filter((skill) => {
+      // 搜索过滤：匹配名称或描述
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchName = skill.name.toLowerCase().includes(query);
+        const matchDesc = skill.description.toLowerCase().includes(query);
+        if (!matchName && !matchDesc) return false;
+      }
+      // 作用域过滤
+      if (scopeFilter !== "all" && skill.scope !== scopeFilter) return false;
+      // 启用状态过滤
+      if (statusFilter === "enabled" && !skill.isEnabled) return false;
+      if (statusFilter === "disabled" && skill.isEnabled) return false;
+      return true;
+    });
+  }, [skills, searchQuery, scopeFilter, statusFilter]);
+
+  /** Whether any filter is active. */
+  const hasActiveFilter = searchQuery.trim() || scopeFilter !== "all" || statusFilter !== "all";
+
+  /** Clear all filters. */
+  const clearFilters = useCallback(() => {
+    setSearchQuery("");
+    setScopeFilter("all");
+    setStatusFilter("all");
+  }, []);
+
   /** Skills root uri for system file manager open. */
   const skillsRootUri = useMemo(() => {
     const baseRootUri = isProjectList ? projectData?.project?.rootUri : workspace?.rootUri;
@@ -406,8 +448,105 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
           </Tooltip>
         }
       >
+        {/* 搜索和过滤栏 */}
+        <div className="flex flex-col gap-3 px-3 py-3 border-b border-border">
+          {/* 搜索框 */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="搜索技能名称或描述..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9 h-9"
+            />
+            {searchQuery && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => setSearchQuery("")}
+                aria-label="清除搜索"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+
+          {/* 过滤器 */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* 作用域过滤 */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">作用域:</span>
+              <Tabs
+                value={scopeFilter}
+                onValueChange={(v) => setScopeFilter(v as ScopeFilter)}
+              >
+                <TabsList className="h-7">
+                  <TabsTrigger value="all" className="text-xs px-2 h-6">
+                    全部
+                  </TabsTrigger>
+                  {isProjectList ? (
+                    <TabsTrigger value="project" className="text-xs px-2 h-6">
+                      项目
+                    </TabsTrigger>
+                  ) : null}
+                  <TabsTrigger value="workspace" className="text-xs px-2 h-6">
+                    工作空间
+                  </TabsTrigger>
+                  <TabsTrigger value="global" className="text-xs px-2 h-6">
+                    全局
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+
+            {/* 启用状态过滤 */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">状态:</span>
+              <Tabs
+                value={statusFilter}
+                onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+              >
+                <TabsList className="h-7">
+                  <TabsTrigger value="all" className="text-xs px-2 h-6">
+                    全部
+                  </TabsTrigger>
+                  <TabsTrigger value="enabled" className="text-xs px-2 h-6">
+                    已启用
+                  </TabsTrigger>
+                  <TabsTrigger value="disabled" className="text-xs px-2 h-6">
+                    已禁用
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+
+            {/* 清除过滤按钮 */}
+            {hasActiveFilter ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-muted-foreground"
+                onClick={clearFilters}
+              >
+                清除过滤
+              </Button>
+            ) : null}
+          </div>
+
+          {/* 过滤结果提示 */}
+          {hasActiveFilter && !skillsQuery.isLoading ? (
+            <div className="text-xs text-muted-foreground">
+              显示 {filteredSkills.length} / {skills.length} 条结果
+            </div>
+          ) : null}
+        </div>
+
         <div className="divide-y divide-border">
-          {skills.map((skill) => (
+          {filteredSkills.map((skill) => (
             <div
               key={skill.ignoreKey || skill.path || `${skill.scope}:${skill.name}`}
               className="flex flex-wrap items-start gap-3 px-3 py-3"
@@ -487,6 +626,15 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
           skills.length === 0 ? (
             <div className="p-6 text-sm text-muted-foreground">
               暂无可用技能，请在 .tenas/skills 或 ~/.agents/skills 中添加 SKILL.md。
+            </div>
+          ) : null}
+
+          {!skillsQuery.isLoading &&
+          !skillsQuery.isError &&
+          skills.length > 0 &&
+          filteredSkills.length === 0 ? (
+            <div className="p-6 text-sm text-muted-foreground">
+              没有匹配的技能
             </div>
           ) : null}
 

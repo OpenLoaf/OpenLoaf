@@ -172,6 +172,7 @@ function serveStatic(
 export type ProdServices = {
   managedServer: ChildProcess | null;
   productionWebServer: http.Server | null;
+  serverCrashed?: Promise<string>;
 };
 
 /**
@@ -187,7 +188,7 @@ export async function startProductionServices(args: {
 }): Promise<ProdServices> {
   const log = args.log;
   if (!app.isPackaged) {
-    return { managedServer: null, productionWebServer: null };
+    return { managedServer: null, productionWebServer: null, serverCrashed: undefined };
   }
 
   log('Starting production services...');

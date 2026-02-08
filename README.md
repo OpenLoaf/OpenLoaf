@@ -87,9 +87,9 @@ tenas-ai/
 
 * `pnpm run desktop`: Start the Electron app (dev)
 
-* `pnpm --filter tenas run make`: Build Electron distributables (DMG/ZIP) to `apps/electron/out/make`
+* `pnpm --filter desktop run make`: Build Electron distributables (DMG/ZIP) to `apps/desktop/out/make`
 
-* `pnpm --filter tenas run make:noproxy`: Same as above but ignores proxy env vars (`http_proxy` / `https_proxy`)
+* `pnpm --filter desktop run make:noproxy`: Same as above but ignores proxy env vars (`http_proxy` / `https_proxy`)
 
 * `pnpm run check-types`: Check TypeScript types across all apps
 

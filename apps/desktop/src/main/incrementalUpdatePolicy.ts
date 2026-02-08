@@ -2,23 +2,27 @@ export type IncrementalComponentManifest = {
   version: string;
 };
 
-export type IncrementalRemoteManifest = {
+export type IncrementalRemoteManifest<
+  TComponent extends IncrementalComponentManifest = IncrementalComponentManifest,
+> = {
   schemaVersion: number;
-  server?: IncrementalComponentManifest;
-  web?: IncrementalComponentManifest;
+  server?: TComponent;
+  web?: TComponent;
   electron?: { minVersion?: string };
 };
 
-export type BetaGateResult = {
-  manifest: IncrementalRemoteManifest;
+export type BetaGateResult<
+  TComponent extends IncrementalComponentManifest = IncrementalComponentManifest,
+> = {
+  manifest: IncrementalRemoteManifest<TComponent>;
   skipped: boolean;
   reason?: string;
 };
 
 /** Return a manifest that keeps metadata but drops updateable components. */
-function stripUpdateComponents(
-  manifest: IncrementalRemoteManifest,
-): IncrementalRemoteManifest {
+function stripUpdateComponents<TComponent extends IncrementalComponentManifest>(
+  manifest: IncrementalRemoteManifest<TComponent>,
+): IncrementalRemoteManifest<TComponent> {
   return {
     schemaVersion: manifest.schemaVersion,
     electron: manifest.electron,
@@ -112,10 +116,12 @@ export function shouldUseBundled(
  * Gate beta manifest updates against the stable manifest.
  * Returns a sanitized manifest and whether updates should be skipped.
  */
-export function gateBetaManifest(args: {
-  beta: IncrementalRemoteManifest;
-  stable?: IncrementalRemoteManifest | null;
-}): BetaGateResult {
+export function gateBetaManifest<
+  TComponent extends IncrementalComponentManifest,
+>(args: {
+  beta: IncrementalRemoteManifest<TComponent>;
+  stable?: IncrementalRemoteManifest<TComponent> | null;
+}): BetaGateResult<TComponent> {
   const { beta } = args;
   const stable = args.stable ?? null;
 

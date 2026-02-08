@@ -73,6 +73,19 @@ export function getEmailEnvValue(envKey: string): string | undefined {
   return undefined;
 }
 
+/** Remove env key from .env file. */
+export function removeEmailEnvValue(envKey: string): void {
+  const envPath = getEmailEnvPath();
+  const content = readEnvContent(envPath);
+  if (!content) return;
+  const keyPattern = new RegExp(`^\\s*${escapeRegExp(envKey)}=.*$`);
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const filtered = lines.filter((line) => !keyPattern.test(line));
+  const next = filtered.join("\n");
+  writeFileSync(envPath, next.endsWith("\n") ? next : `${next}\n`, "utf-8");
+  delete process.env[envKey];
+}
+
 /** Set env value for a specific key, ensuring file exists. */
 export function setEmailEnvValue(envKey: string, value: string): void {
   const envPath = getEmailEnvPath();

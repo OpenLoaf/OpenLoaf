@@ -55,8 +55,8 @@ export function resolveUpdateBaseUrl(): string {
 
       const oldElectron = vars.TENAS_ELECTRON_UPDATE_URL
       if (oldElectron) {
-        // 例如 https://r2-tenas-update.hexems.com/electron → https://r2-tenas-update.hexems.com
-        return oldElectron.replace(/\/electron\/?$/, '')
+        // 例如 https://r2-tenas-update.hexems.com/desktop → https://r2-tenas-update.hexems.com
+        return oldElectron.replace(/\/(?:electron|desktop)\/?$/, '')
       }
     }
   } catch {
@@ -115,10 +115,10 @@ export function resolveManifestUrl(): string {
   return `${base}/${channel}/manifest.json`
 }
 
-/** Electron 本体更新源 URL：${baseUrl}/electron（固定，不分渠道） */
+/** Electron 本体更新源 URL：${baseUrl}/desktop（固定，不分渠道） */
 export function resolveElectronFeedUrl(): string {
   const base = resolveUpdateBaseUrl()
-  return `${base}/electron`
+  return `${base}/desktop`
 }
 
 // ---------------------------------------------------------------------------

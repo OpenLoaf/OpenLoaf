@@ -82,7 +82,7 @@ async function main() {
   // 3. tar.gz 压缩
   const distDir = path.join(webRoot, 'dist')
   mkdirSync(distDir, { recursive: true })
-  const tarPath = path.join(distDir, 'out.tar.gz')
+  const tarPath = path.join(distDir, 'web.tar.gz')
   console.log('📝 Compressing with tar.gz...')
   // -C 指向 out/ 目录内部，打包 "." 而非 "out"，避免解压后双层嵌套
   execSync(`tar -czf "${tarPath}" -C "${outDir}" .`, { stdio: 'inherit' })
@@ -94,7 +94,7 @@ async function main() {
   console.log(`✅ Size: ${(size / 1024 / 1024).toFixed(2)} MB`)
 
   // 5. 上传到 R2（共享构件池，不分渠道）
-  const r2Key = `web/${version}/out.tar.gz`
+  const r2Key = `web/${version}/web.tar.gz`
   console.log(`☁️  Uploading to R2: ${r2Key}`)
   await uploadFile(s3, r2Config.bucket, r2Key, tarPath)
 

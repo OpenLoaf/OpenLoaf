@@ -113,6 +113,25 @@ type ProjectMutateToolOutput = {
       };
 };
 
+/** Normalize project summary from API responses. */
+function normalizeProjectSummary(project: {
+  projectId?: string;
+  title?: string | null;
+  icon?: string | null;
+  rootUri?: string;
+}): { projectId: string; title: string; icon?: string; rootUri: string } {
+  // 中文注释：项目元信息不完整时直接报错，避免返回无效数据。
+  if (!project.projectId || project.title == null || !project.rootUri) {
+    throw new Error("Project summary is incomplete.");
+  }
+  return {
+    projectId: project.projectId,
+    title: project.title,
+    icon: project.icon ?? undefined,
+    rootUri: project.rootUri,
+  };
+}
+
 /** Input payload for project-query tool. */
 type ProjectQueryInput = {
   /** Action name for tool call (display only). */
@@ -234,7 +253,7 @@ async function executeProjectGet(projectId?: string) {
   const caller = await createProjectCaller();
   const resolvedId = resolveProjectId(projectId);
   const result = await caller.get({ projectId: resolvedId });
-  return { project: result.project };
+  return { project: normalizeProjectSummary(result.project) };
 }
 
 /** Execute create operation. */
@@ -252,7 +271,7 @@ async function executeProjectCreate(input: ProjectMutateInput) {
     parentProjectId: parentProjectId ?? undefined,
     enableVersionControl: input.enableVersionControl,
   });
-  return { project: result.project, parentProjectId };
+  return { project: normalizeProjectSummary(result.project), parentProjectId };
 }
 
 /** Execute update operation. */
@@ -267,11 +286,11 @@ async function executeProjectUpdate(input: ProjectMutateInput) {
   }
   await caller.update({
     projectId,
-    ...(hasTitle ? { title: input.title } : {}),
+    ...(hasTitle ? { title: input.title ?? undefined } : {}),
     ...(hasIcon ? { icon: input.icon } : {}),
   });
   const updated = await caller.get({ projectId });
-  return { project: updated.project };
+  return { project: normalizeProjectSummary(updated.project) };
 }
 
 /** Execute move operation. */

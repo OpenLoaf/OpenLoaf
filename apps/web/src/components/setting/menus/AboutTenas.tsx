@@ -1,16 +1,32 @@
 "use client";
 
 import { Button } from "@tenas-ai/ui/button";
-import { Switch } from "@tenas-ai/ui/switch";
 import { getWebClientId } from "@/lib/chat/streamClientId";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Download, FileText, Loader2 } from "lucide-react";
 import * as React from "react";
 import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
 import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { isElectronEnv } from "@/utils/is-electron-env";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@tenas-ai/ui/sheet";
+import { Streamdown } from "streamdown";
 
 const STEP_UP_ROUTE = "/step-up";
+const UPDATE_BASE_URL = process.env.NEXT_PUBLIC_UPDATE_BASE_URL;
+
+/**
+ * Build changelog URL for a given component and version.
+ */
+function buildChangelogUrl(component: "server" | "web", version: string): string | undefined {
+  if (!UPDATE_BASE_URL || version === "—" || version === "bundled") return undefined;
+  return `${UPDATE_BASE_URL}/changelogs/${component}/${version}`;
+}
 
 const ITEMS: Array<{ key: string; label: string }> = [
   { key: "license", label: "用户协议" },
@@ -21,8 +37,45 @@ const ITEMS: Array<{ key: string; label: string }> = [
   { key: "issues", label: "报告问题" },
 ];
 
+/**
+ * Strip YAML frontmatter (--- ... ---) from a markdown string.
+ */
+function stripFrontmatter(raw: string): string {
+  const match = raw.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  if (match) return raw.slice(match[0].length).trim();
+  return raw.trim();
+}
+
+/**
+ * Extract primary language code from a locale string (e.g. 'zh-CN' → 'zh').
+ */
+function primaryLang(locale: string): string {
+  const primary = locale.split("-")[0].toLowerCase();
+  return primary || "zh";
+}
+
+/**
+ * Fetch a single changelog with language fallback (fallback to English).
+ */
+async function fetchChangelogWithLang(baseUrl: string, lang: string): Promise<string | null> {
+  const candidates =
+    lang === "en" ? [`${baseUrl}/en.md`] : [`${baseUrl}/${lang}.md`, `${baseUrl}/en.md`];
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) continue;
+      const raw = await res.text();
+      const body = stripFrontmatter(raw);
+      if (body) return body;
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
+
 export function AboutTenas() {
-  const { setBasic } = useBasicConfig();
+  const { basic, setBasic } = useBasicConfig();
   const clientId = getWebClientId();
   const [copiedKey, setCopiedKey] = React.useState<"clientId" | null>(null);
   const [webContentsViewCount, setWebContentsViewCount] = React.useState<number | null>(null);
@@ -30,8 +83,19 @@ export function AboutTenas() {
   const [updateStatus, setUpdateStatus] = React.useState<TenasIncrementalUpdateStatus | null>(
     null,
   );
-  const [updateChannel, setUpdateChannel] = React.useState<"stable" | "beta">("stable");
-  const [channelSwitching, setChannelSwitching] = React.useState(false);
+  const [changelogSheet, setChangelogSheet] = React.useState<{
+    open: boolean;
+    component: "server" | "web" | null;
+    version: string | null;
+    content: string | null;
+    loading: boolean;
+  }>({
+    open: false,
+    component: null,
+    version: null,
+    content: null,
+    loading: false,
+  });
   const isElectron = React.useMemo(() => isElectronEnv(), []);
   // 开发模式下禁用更新功能（pnpm desktop）。
   const isDevDesktop = isElectron && process.env.NODE_ENV !== "production";
@@ -80,34 +144,6 @@ export function AboutTenas() {
     }
   }, [isElectron]);
 
-  /** Fetch current update channel from Electron main process. */
-  const fetchUpdateChannel = React.useCallback(async () => {
-    const api = window.tenasElectron;
-    if (!isElectron || !api?.getUpdateChannel) return;
-    try {
-      const channel = await api.getUpdateChannel();
-      if (channel) setUpdateChannel(channel);
-    } catch {
-      // ignore
-    }
-  }, [isElectron]);
-
-  /** Toggle update channel between stable and beta. */
-  const toggleUpdateChannel = React.useCallback(async (checked: boolean) => {
-    const api = window.tenasElectron;
-    if (!isElectron || isDevDesktop || !api?.switchUpdateChannel) return;
-    const newChannel = checked ? "beta" : "stable";
-    setChannelSwitching(true);
-    try {
-      const result = await api.switchUpdateChannel(newChannel);
-      if (result?.ok) setUpdateChannel(newChannel);
-    } catch {
-      // ignore
-    } finally {
-      setChannelSwitching(false);
-    }
-  }, [isElectron]);
-
   /** Trigger incremental update check. */
   const triggerUpdateAction = React.useCallback(async () => {
     const api = window.tenasElectron;
@@ -142,6 +178,34 @@ export function AboutTenas() {
     }
   }, [isElectron, fetchWebContentsViewCount]);
 
+  /** Open changelog sheet and fetch content. */
+  const openChangelog = React.useCallback(async (component: "server" | "web", version: string) => {
+    setChangelogSheet({
+      open: true,
+      component,
+      version,
+      content: null,
+      loading: true,
+    });
+
+    const changelogUrl = buildChangelogUrl(component, version);
+    if (changelogUrl) {
+      const lang = primaryLang(basic.uiLanguage);
+      const content = await fetchChangelogWithLang(changelogUrl, lang);
+      setChangelogSheet((prev) => ({
+        ...prev,
+        content: content || "无法加载更新日志",
+        loading: false,
+      }));
+    } else {
+      setChangelogSheet((prev) => ({
+        ...prev,
+        content: "当前版本暂无更新日志",
+        loading: false,
+      }));
+    }
+  }, []);
+
   React.useEffect(() => {
     if (!isElectron) return;
 
@@ -165,8 +229,7 @@ export function AboutTenas() {
     if (!isElectron) return;
     void fetchAppVersion();
     void fetchUpdateStatus();
-    void fetchUpdateChannel();
-  }, [isElectron, fetchAppVersion, fetchUpdateStatus, fetchUpdateChannel]);
+  }, [isElectron, fetchAppVersion, fetchUpdateStatus]);
 
   React.useEffect(() => {
     if (!isElectron) return;
@@ -199,7 +262,7 @@ export function AboutTenas() {
         window.location.assign(STEP_UP_ROUTE);
       }
     }
-  }, []);
+  }, [setBasic]);
 
   const currentVersion = appVersion ?? "—";
   const downloadPercent = updateStatus?.progress?.percent;
@@ -246,20 +309,89 @@ export function AboutTenas() {
   const serverVersion = updateStatus?.server?.version ?? "—";
   const webVersion = updateStatus?.web?.version ?? "—";
 
+  const hasNewUpdate = updateStatus?.state === "ready";
+  const serverHasUpdate = hasNewUpdate && updateStatus?.server?.newVersion;
+  const webHasUpdate = hasNewUpdate && updateStatus?.web?.newVersion;
+
   return (
     <div className="space-y-6">
-      <TenasSettingsGroup title="版本">
-        <div className="space-y-3 py-3">
-          <div className="flex flex-wrap items-start gap-3">
-            <div className="min-w-0">
-              <div className="flex items-baseline gap-2">
-                <div className="text-sm font-medium">Tenas</div>
-                <div className="text-xs text-muted-foreground">v{currentVersion}</div>
-              </div>
-              <div className="text-xs text-muted-foreground">{updateLabel}</div>
+      <TenasSettingsGroup title="版本信息">
+        <div className="divide-y divide-border">
+          {/* Electron 版本 */}
+          <div className="flex items-center justify-between px-3 py-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium">桌面端</div>
+              <div className="text-xs text-muted-foreground">v{currentVersion}</div>
             </div>
+          </div>
 
-            <TenasSettingsField>
+          {/* Server 版本 */}
+          <div className="flex items-center justify-between px-3 py-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium">服务端</div>
+                {serverHasUpdate && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">
+                    <Download className="h-3 w-3" />
+                    有更新
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                v{serverVersion}
+                {serverHasUpdate && ` → v${updateStatus?.server?.newVersion}`}
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => void openChangelog("server", serverVersion)}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              更新日志
+            </Button>
+          </div>
+
+          {/* Web 版本 */}
+          <div className="flex items-center justify-between px-3 py-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium">Web</div>
+                {webHasUpdate && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">
+                    <Download className="h-3 w-3" />
+                    有更新
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                v{webVersion}
+                {webHasUpdate && ` → v${updateStatus?.web?.newVersion}`}
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => void openChangelog("web", webVersion)}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              更新日志
+            </Button>
+          </div>
+        </div>
+      </TenasSettingsGroup>
+
+      {/* 更新检查 */}
+      {isElectron && (
+        <TenasSettingsGroup title="更新">
+          <div className="px-3 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium mb-1">增量更新</div>
+                <div className="text-xs text-muted-foreground">{updateLabel}</div>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
@@ -268,34 +400,10 @@ export function AboutTenas() {
               >
                 {updateActionLabel}
               </Button>
-            </TenasSettingsField>
-          </div>
-
-          <div className="space-y-1 text-xs text-muted-foreground">
-            <div>桌面端：v{currentVersion}</div>
-            <div>服务端：v{serverVersion}</div>
-            <div>Web：v{webVersion}</div>
-          </div>
-
-          {isElectron ? (
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <div className="min-w-0">
-                <div className="text-sm font-medium">Beta 体验</div>
-                <div className="text-xs text-muted-foreground">
-                  接收 Web 和服务端的 Beta 版本更新
-                </div>
-              </div>
-              <TenasSettingsField>
-                <Switch
-                  checked={updateChannel === "beta"}
-                  disabled={channelSwitching || isDevDesktop}
-                  onCheckedChange={toggleUpdateChannel}
-                />
-              </TenasSettingsField>
             </div>
-          ) : null}
-        </div>
-      </TenasSettingsGroup>
+          </div>
+        </TenasSettingsGroup>
+      )}
 
       <TenasSettingsGroup title="状态">
         <div className="divide-y divide-border">
@@ -396,6 +504,32 @@ export function AboutTenas() {
           ))}
         </div>
       </TenasSettingsGroup>
+
+      {/* Changelog Sheet */}
+      <Sheet open={changelogSheet.open} onOpenChange={(open) => setChangelogSheet((prev) => ({ ...prev, open }))}>
+        <SheetContent side="right" className="w-full sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>
+              {changelogSheet.component === "server" ? "服务端" : "Web"} 更新日志
+            </SheetTitle>
+            <SheetDescription>
+              版本 {changelogSheet.version}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6">
+            {changelogSheet.loading ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                加载中...
+              </div>
+            ) : (
+              <Streamdown mode="static" className="prose prose-sm dark:prose-invert max-w-none">
+                {changelogSheet.content ?? ""}
+              </Streamdown>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
