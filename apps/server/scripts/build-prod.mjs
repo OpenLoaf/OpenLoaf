@@ -31,6 +31,11 @@ const __dirname = path.dirname(__filename);
 const serverRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(serverRoot, "..", "..");
 const seedDbPath = path.join(serverRoot, "dist", "seed.db");
+const pnpmArgs = ["--filter", "@tenas-ai/db", "db:push"];
+const pnpmEnv = {
+  ...process.env,
+  TENAS_DATABASE_URL: `file:${seedDbPath}`,
+};
 
 try {
   fs.mkdirSync(path.dirname(seedDbPath), { recursive: true });
@@ -38,14 +43,22 @@ try {
   if (fs.existsSync(seedDbPath)) {
     fs.rmSync(seedDbPath);
   }
-  const push = spawnSync("pnpm", ["--filter", "@tenas-ai/db", "db:push"], {
-    cwd: repoRoot,
-    stdio: "inherit",
-    env: {
-      ...process.env,
-      TENAS_DATABASE_URL: `file:${seedDbPath}`,
-    },
-  });
+  const push =
+    process.platform === "win32"
+      ? spawnSync("cmd.exe", ["/d", "/s", "/c", "pnpm", ...pnpmArgs], {
+          cwd: repoRoot,
+          stdio: "inherit",
+          env: pnpmEnv,
+        })
+      : spawnSync("pnpm", pnpmArgs, {
+          cwd: repoRoot,
+          stdio: "inherit",
+          env: pnpmEnv,
+        });
+  if (push.error) {
+    logger.error({ err: push.error }, "[build-prod] Failed to spawn pnpm");
+    process.exit(1);
+  }
   if (push.status !== 0) {
     process.exit(push.status ?? 1);
   }

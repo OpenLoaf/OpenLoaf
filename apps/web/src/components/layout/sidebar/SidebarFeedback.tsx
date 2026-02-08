@@ -26,6 +26,14 @@ import { isElectronEnv } from "@/utils/is-electron-env";
 /** Feedback category values supported by SaaS. */
 type FeedbackType = "ui" | "performance" | "bug" | "feature" | "other";
 
+type FeedbackRequest = {
+  source: string;
+  type: FeedbackType;
+  content: string;
+  context?: Record<string, unknown>;
+  email?: string;
+};
+
 /** Feedback type options for rendering. */
 const FEEDBACK_TYPE_OPTIONS: Array<{ value: FeedbackType; label: string }> = [
   { value: "ui", label: "界面体验" },
@@ -150,7 +158,13 @@ export function SidebarFeedback() {
         getAccessToken: () => getCachedAccessToken() ?? "",
       });
       const context = await buildContext();
-      await client.feedback.submit({
+      const feedbackApi = (client as unknown as { feedback?: { submit: (input: FeedbackRequest) => Promise<unknown> } })
+        .feedback;
+      if (!feedbackApi?.submit) {
+        toast.error("反馈服务暂不可用");
+        return;
+      }
+      await feedbackApi.submit({
         source: "tenas",
         type,
         content: trimmed,
