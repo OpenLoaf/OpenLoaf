@@ -90,7 +90,7 @@ export function ModelSelect({
         side="bottom"
         align="start"
         sideOffset={4}
-        className="w-[var(--radix-popover-trigger-width)] max-h-40 overflow-auto rounded-md border border-slate-200/80 bg-white p-1 text-[11px] text-slate-700 shadow-none dark:border-slate-700/80 dark:bg-slate-900 dark:text-slate-100"
+        className="w-[var(--radix-popover-trigger-width)] max-h-40 overflow-auto rounded-md border border-slate-200/80 bg-white p-1 text-[11px] text-slate-700 shadow-none backdrop-blur-none dark:border-slate-700/80 dark:bg-slate-900 dark:text-slate-100"
       >
         {candidates.length === 0 ? (
           <div className="px-2 py-1.5 text-[12px] text-slate-500 dark:text-slate-400">

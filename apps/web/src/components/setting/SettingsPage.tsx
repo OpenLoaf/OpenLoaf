@@ -84,11 +84,18 @@ const MENU: Array<{
 ];
 
 const MENU_KEY_SET = new Set<SettingsMenuKey>(MENU.map((item) => item.key));
+const HIDDEN_MENU_KEYS = new Set<SettingsMenuKey>(["skills"]);
 
 /** Check whether the value is a valid settings menu key. */
 function isSettingsMenuKey(value: unknown): value is SettingsMenuKey {
   if (typeof value !== "string") return false;
   return MENU_KEY_SET.has(value as SettingsMenuKey);
+}
+
+/** Check whether the value is a visible settings menu key. */
+function isVisibleSettingsMenuKey(value: unknown): value is SettingsMenuKey {
+  if (!isSettingsMenuKey(value)) return false;
+  return !HIDDEN_MENU_KEYS.has(value);
 }
 
 type SettingsPageProps = {
@@ -103,7 +110,7 @@ export default function SettingsPage({
   settingsMenu,
 }: SettingsPageProps) {
   const [activeKey, setActiveKey] = useState<SettingsMenuKey>(() =>
-    isSettingsMenuKey(settingsMenu) ? settingsMenu : "basic",
+    isVisibleSettingsMenuKey(settingsMenu) ? settingsMenu : "basic",
   );
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openTooltipKey, setOpenTooltipKey] = useState<SettingsMenuKey | null>(
@@ -132,7 +139,7 @@ export default function SettingsPage({
   }, [isActiveTab]);
 
   useEffect(() => {
-    if (!isSettingsMenuKey(settingsMenu)) return;
+    if (!isVisibleSettingsMenuKey(settingsMenu)) return;
     if (settingsMenu === activeKey) return;
     // 从持久化参数恢复上次选中的菜单，刷新后保持位置。
     setActiveKey(settingsMenu);
@@ -182,24 +189,26 @@ export default function SettingsPage({
 
   const menuGroups = useMemo(() => {
     const byKey = new Map(MENU.map((item) => [item.key, item]));
+    const filterVisible = (item?: TenasSettingsMenuItem | null) =>
+      Boolean(item && !HIDDEN_MENU_KEYS.has(item.key as SettingsMenuKey));
     const group1 = [
       byKey.get("basic"),
       byKey.get("localAccess"),
       byKey.get("workspace"),
-    ].filter(Boolean);
+    ].filter(filterVisible);
     const group2 = [
       byKey.get("skills"),
       byKey.get("thirdPartyTools"),
       byKey.get("keys"),
       byKey.get("storage"),
       byKey.get("agents"),
-    ].filter(Boolean);
+    ].filter(filterVisible);
     const group3 = [
       byKey.get("shortcuts"),
       byKey.get("projectTest"),
       byKey.get("about"),
-    ].filter(Boolean);
-    return [group1, group2, group3] as TenasSettingsMenuItem[][];
+    ].filter(filterVisible);
+    return [group1, group2, group3].filter((group) => group.length > 0) as TenasSettingsMenuItem[][];
   }, []);
 
   /** Persist the active menu into the dock base params. */

@@ -2,16 +2,22 @@
 
 import * as React from "react";
 import {
+  AnimatePresence,
+  LayoutGroup,
   motion,
   useSpring,
   useTransform,
   useReducedMotion,
 } from "motion/react";
+import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Chat } from "@/components/chat/Chat";
+import { ChatSessionBarItem } from "@/components/chat/session/ChatSessionBar";
 import { useTabs, LEFT_DOCK_MIN_PX } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useTabView } from "@/hooks/use-tab-view";
+import { createChatSessionId } from "@/lib/chat-session-id";
+import { useChatSessions } from "@/hooks/use-chat-sessions";
 import { LeftDock } from "./LeftDock";
 import type { TabMeta } from "@/hooks/tab-types";
 import {
@@ -27,33 +33,210 @@ const DIVIDER_GAP_PX = 10;
 const SPRING_CONFIG = { type: "spring", stiffness: 140, damping: 30 };
 const PANEL_SWITCH_DELAY_MS = 180;
 
-// Render the chat panel for a tab.
-function ChatPanel({ tabId }: { tabId: string }) {
+/** Session item in multi-session accordion. */
+type SessionListItem = {
+  sessionId: string;
+  title: string;
+};
+
+// Render the right chat panel for a tab.
+function RightChatPanel({ tabId }: { tabId: string }) {
   const tab = useTabs((s) => s.getTabById(tabId));
   const setTabChatSession = useTabs((s) => s.setTabChatSession);
+  const { sessions: remoteSessions } = useChatSessions({ tabId });
+  const [sessionList, setSessionList] = React.useState<SessionListItem[]>([]);
 
+  const activeSessionId = tab?.chatSessionId;
   const handleSessionChange = React.useCallback(
-    (sessionId: string, options?: { loadHistory?: boolean }) => {
+    (sessionId: string, options?: { loadHistory?: boolean; replaceCurrent?: boolean }) => {
+      setSessionList((prev) => {
+        if (prev.some((item) => item.sessionId === sessionId)) return prev;
+        if (
+          (options?.replaceCurrent || options?.loadHistory) &&
+          activeSessionId &&
+          activeSessionId !== sessionId
+        ) {
+          const activeIndex = prev.findIndex((item) => item.sessionId === activeSessionId);
+          if (activeIndex >= 0) {
+            const next = [...prev];
+            // 中文注释：从历史/清理切换时替换当前会话，避免新增折叠条。
+            next[activeIndex] = { sessionId, title: "新对话" };
+            return next;
+          }
+        }
+        return prev;
+      });
       setTabChatSession(tabId, sessionId, options);
     },
-    [setTabChatSession, tabId],
+    [activeSessionId, setTabChatSession, tabId],
+  );
+
+  // 自动注册当前会话到 sessionList
+  React.useEffect(() => {
+    if (!activeSessionId) return;
+    setSessionList((prev) => {
+      if (prev.some((s) => s.sessionId === activeSessionId)) return prev;
+      return [...prev, { sessionId: activeSessionId, title: "新对话" }];
+    });
+  }, [activeSessionId]);
+
+  // 从服务端同步会话标题
+  React.useEffect(() => {
+    if (remoteSessions.length === 0) return;
+    setSessionList((prev) =>
+      prev.map((item) => {
+        const remote = remoteSessions.find((s) => s.id === item.sessionId);
+        if (!remote) return item;
+        const title = remote.title?.trim() || "新对话";
+        if (title === item.title) return item;
+        return { ...item, title };
+      })
+    );
+  }, [remoteSessions]);
+
+  // 新建会话
+  const handleNewSession = React.useCallback(() => {
+    const newId = createChatSessionId();
+    setSessionList((prev) => [...prev, { sessionId: newId, title: "新对话" }]);
+    handleSessionChange(newId, { loadHistory: false });
+  }, [handleSessionChange]);
+
+  // 选择会话
+  const handleSelectSession = React.useCallback(
+    (id: string) => {
+      handleSessionChange(id, { loadHistory: true });
+    },
+    [handleSessionChange]
+  );
+
+  // 移除会话（从本地列表移除，不删除服务端数据）
+  const handleRemoveSession = React.useCallback(
+    (id: string) => {
+      setSessionList((prev) => {
+        const filtered = prev.filter((s) => s.sessionId !== id);
+        // 如果移除的是当前活跃会话，切换到相邻的
+        if (id === activeSessionId && filtered.length > 0) {
+          const removedIndex = prev.findIndex((s) => s.sessionId === id);
+          const nextIndex = Math.min(removedIndex, filtered.length - 1);
+          const nextSession = filtered[nextIndex];
+          if (nextSession) {
+            // 延迟调用避免在 setState 中触发
+            setTimeout(() => {
+              handleSessionChange(nextSession.sessionId, { loadHistory: true });
+            }, 0);
+          }
+        }
+        return filtered;
+      });
+    },
+    [activeSessionId, handleSessionChange]
+  );
+  const handleCloseActiveSession = React.useCallback(() => {
+    if (!activeSessionId) return;
+    handleRemoveSession(activeSessionId);
+  }, [activeSessionId, handleRemoveSession]);
+
+  const showNewSessionButton = sessionList.length > 0;
+  const showCloseSessionButton = sessionList.length > 1;
+  const activeIndex = sessionList.findIndex((s) => s.sessionId === activeSessionId);
+  const useAccordion = sessionList.length > 1 && activeIndex >= 0;
+  const sessionsAbove = useAccordion ? sessionList.slice(0, activeIndex) : [];
+  const sessionsBelow = useAccordion ? sessionList.slice(activeIndex + 1) : [];
+  // Render the pinned new-session bar.
+  const newSessionBar = (
+    <button
+      type="button"
+      className={cn(
+        "group flex h-8 w-full items-center gap-1 rounded-lg bg-background px-2",
+        "text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      )}
+      onClick={handleNewSession}
+    >
+      <Plus size={14} className="shrink-0" />
+      <span className="truncate">新建会话</span>
+    </button>
   );
 
   if (!tab) return null;
 
   return (
     <div
-      className="h-full w-full min-h-0 min-w-0 p-2"
+      className="flex h-full w-full min-h-0 min-w-0 flex-col bg-sidebar"
       style={{ minWidth: RIGHT_CHAT_MIN_PX }}
     >
-      <Chat
-        panelKey={`chat:${tab.id}`}
-        sessionId={tab.chatSessionId}
-        loadHistory={tab.chatLoadHistory}
-        tabId={tab.id}
-        {...(tab.chatParams ?? {})}
-        onSessionChange={handleSessionChange}
-      />
+      {useAccordion ? (
+        <LayoutGroup>
+          <div className="flex min-h-0 flex-1 flex-col">
+            {newSessionBar}
+            <div className="shrink-0 h-[6px] bg-sidebar" />
+            <AnimatePresence mode="popLayout">
+              {sessionsAbove.map((session) => (
+                <React.Fragment key={session.sessionId}>
+                  <ChatSessionBarItem
+                    sessionId={session.sessionId}
+                    title={session.title}
+                    onSelect={() => handleSelectSession(session.sessionId)}
+                    onRemove={() => handleRemoveSession(session.sessionId)}
+                    className="rounded-lg bg-background"
+                  />
+                  <div className="shrink-0 h-[6px] bg-sidebar" />
+                </React.Fragment>
+              ))}
+            </AnimatePresence>
+
+            <div className="flex min-h-0 flex-1 flex-col rounded-lg bg-background overflow-hidden">
+              <Chat
+                className="flex-1 min-h-0"
+                panelKey={`chat:${tab.id}`}
+                sessionId={tab.chatSessionId}
+                loadHistory={tab.chatLoadHistory}
+                tabId={tab.id}
+                {...(tab.chatParams ?? {})}
+                onSessionChange={handleSessionChange}
+                onNewSession={showNewSessionButton ? handleNewSession : undefined}
+                onCloseSession={
+                  showCloseSessionButton ? handleCloseActiveSession : undefined
+                }
+              />
+            </div>
+
+            <AnimatePresence mode="popLayout">
+              {sessionsBelow.map((session) => (
+                <React.Fragment key={session.sessionId}>
+                  <div className="shrink-0 h-[6px] bg-sidebar" />
+                  <ChatSessionBarItem
+                    sessionId={session.sessionId}
+                    title={session.title}
+                    onSelect={() => handleSelectSession(session.sessionId)}
+                    onRemove={() => handleRemoveSession(session.sessionId)}
+                    className="rounded-lg bg-background"
+                  />
+                </React.Fragment>
+              ))}
+            </AnimatePresence>
+          </div>
+        </LayoutGroup>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col">
+          {newSessionBar}
+          <div className="shrink-0 h-[6px] bg-sidebar" />
+          <div className="flex min-h-0 flex-1 flex-col rounded-lg bg-background overflow-hidden">
+            <Chat
+              className="flex-1 min-h-0"
+              panelKey={`chat:${tab.id}`}
+              sessionId={tab.chatSessionId}
+              loadHistory={tab.chatLoadHistory}
+              tabId={tab.id}
+              {...(tab.chatParams ?? {})}
+              onSessionChange={handleSessionChange}
+              onNewSession={showNewSessionButton ? handleNewSession : undefined}
+              onCloseSession={
+                showCloseSessionButton ? handleCloseActiveSession : undefined
+              }
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -130,7 +313,7 @@ export function TabLayout({
       }
 
       if (!hasPanel("right", activeTabId)) {
-        renderPanel("right", activeTabId, <ChatPanel tabId={activeTabId} />, true);
+        renderPanel("right", activeTabId, <RightChatPanel tabId={activeTabId} />, true);
       } else {
         setPanelActive("right", activeTabId, true);
       }
@@ -353,7 +536,7 @@ export function TabLayout({
       onPointerLeave={handleDragEnd}
     >
       <motion.div
-        className="relative z-10 flex min-h-0 min-w-0 flex-col rounded-xl bg-background overflow-hidden"
+        className="relative z-10 flex min-h-0 min-w-0 flex-col rounded-lg bg-background overflow-hidden"
         style={{
           width: useTransform(splitPercent, (v) => `${v}%`),
           minWidth: isLeftVisible && minLeftEnabled ? effectiveMinLeft : 0,
@@ -385,7 +568,7 @@ export function TabLayout({
       </motion.div>
 
       <motion.div
-        className="flex-1 min-w-0 relative z-10 flex flex-col rounded-xl bg-background overflow-hidden"
+        className="flex-1 min-w-0 relative z-10 flex flex-col"
         animate={{ opacity: isRightVisible ? 1 : 0 }}
         transition={
           reduceMotion

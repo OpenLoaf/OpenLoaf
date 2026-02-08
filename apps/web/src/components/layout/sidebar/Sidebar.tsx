@@ -15,7 +15,7 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@tenas-ai/ui/sidebar";
-import { CalendarDays, Inbox, LayoutTemplate, Mail, Search, Sparkles } from "lucide-react";
+import { CalendarDays, Inbox, LayoutTemplate, Mail, Search, Sparkles, Wand2 } from "lucide-react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
@@ -64,6 +64,7 @@ export const AppSidebar = ({
     return false;
   };
 
+
   const openSingletonTab = useCallback(
     (input: { baseId: string; component: string; title: string; icon: string }) => {
       if (!activeWorkspace) return;
@@ -98,6 +99,7 @@ export const AppSidebar = ({
     },
     [activeWorkspace, addTab, setActiveTab],
   );
+
 
   return (
     <Sidebar
@@ -233,6 +235,29 @@ export const AppSidebar = ({
                   {unreadCount}
                 </Badge>
               ) : null}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="技能"
+              className="group/menu-item text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              isActive={isMenuActive({
+                baseId: "base:skills",
+                component: "skills-page",
+                title: "技能",
+              })}
+              onClick={() =>
+                openSingletonTab({
+                  baseId: "base:skills",
+                  component: "skills-page",
+                  title: "技能",
+                  icon: "🪄",
+                })
+              }
+              type="button"
+            >
+              <Wand2 />
+              <span className="flex-1 truncate">技能</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           {/* 先隐藏收集箱入口，后续再开放。 */}

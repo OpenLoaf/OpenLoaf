@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils";
-import { Bug, PlusCircle, History } from "lucide-react";
+import { Bug, BrushCleaning, History, X } from "lucide-react";
 import { Button } from "@tenas-ai/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
@@ -19,9 +19,15 @@ import { toast } from "sonner";
 
 interface ChatHeaderProps {
   className?: string;
+  onNewSession?: () => void;
+  onCloseSession?: () => void;
 }
 
-export default function ChatHeader({ className }: ChatHeaderProps) {
+export default function ChatHeader({
+  className,
+  onNewSession,
+  onCloseSession,
+}: ChatHeaderProps) {
   const { sessionId: activeSessionId, tabId } = useChatSession();
   const { newSession, selectSession } = useChatActions();
   const { messages } = useChatState();
@@ -107,15 +113,14 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
   return (
     <div
       className={cn(
-        "grid w-full min-w-0 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center px-2 py-0",
+        "grid w-full min-w-0 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center p-1 pl-2",
         className
       )}
     >
-      <div className="min-w-0 text-lg font-semibold">AI助手</div>
-      <div className="min-w-0 w-full truncate px-2 text-center text-sm font-medium">
+      <div className="min-w-0 w-full truncate pr-2 text-left text-sm font-medium">
         {sessionTitle.length > 0 ? sessionTitle : null}
       </div>
-      <div className="min-w-0 flex items-center justify-end gap-0.5">
+      <div className="min-w-0 flex items-center justify-end gap-0">
         {showPrefaceButton ? (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -140,18 +145,18 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="New Session"
+                aria-label="清理会话"
                 onClick={() => {
                   setHistoryOpen(false);
                   menuLockRef.current = false;
                   newSession();
                 }}
               >
-                <PlusCircle size={20} />
+                <BrushCleaning size={20} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
-              新建对话
+              清理会话
             </TooltipContent>
           </Tooltip>
         )}
@@ -218,6 +223,23 @@ export default function ChatHeader({ className }: ChatHeaderProps) {
             />
           </PopoverContent>
         </Popover>
+        {onCloseSession && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="关闭会话"
+                onClick={onCloseSession}
+              >
+                <X size={20} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              关闭会话
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </div>
   );

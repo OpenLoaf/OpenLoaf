@@ -7,7 +7,7 @@ import type { ChatAttachmentInput, MaskedAttachmentInput } from "../input/chat-a
 
 export type ChatOptionsContextValue = {
   input: string;
-  setInput: (value: string) => void;
+  setInput: React.Dispatch<React.SetStateAction<string>>;
   imageOptions?: ImageGenerateOptions;
   setImageOptions: React.Dispatch<React.SetStateAction<ImageGenerateOptions | undefined>>;
   codexOptions?: CodexOptions;

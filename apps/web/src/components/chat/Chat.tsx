@@ -7,6 +7,7 @@ import ChatInput from "./input/ChatInput";
 import ChatHeader from "./ChatHeader";
 import { generateId } from "ai";
 import * as React from "react";
+import { motion } from "motion/react";
 import {
   CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES,
   formatFileSize,
@@ -41,9 +42,13 @@ type ChatProps = {
   tabId?: string;
   sessionId?: string;
   loadHistory?: boolean;
+  /** Callback for the header "new session" action. */
+  onNewSession?: () => void;
+  /** Callback for the header "close session" action. */
+  onCloseSession?: () => void;
   onSessionChange?: (
     sessionId: string,
-    options?: { loadHistory?: boolean }
+    options?: { loadHistory?: boolean; replaceCurrent?: boolean }
   ) => void;
 } & Record<string, unknown>;
 
@@ -103,6 +108,8 @@ export function Chat({
   tabId,
   sessionId,
   loadHistory,
+  onNewSession,
+  onCloseSession,
   onSessionChange,
   ...params
 }: ChatProps) {
@@ -700,7 +707,8 @@ export function Chat({
     [addAttachments, addMaskedAttachment, canAttachAll, canAttachImage, projectId]
   );
 
-  return (
+  // 渲染单个会话内容（活跃状态）
+  const renderActiveSession = () => (
     <ChatCoreProvider
       tabId={tabId}
       sessionId={effectiveSessionId}
@@ -712,20 +720,17 @@ export function Chat({
       addAttachments={addAttachments}
       addMaskedAttachment={addMaskedAttachment}
     >
-      <div
-        ref={rootRef}
-        className={cn(
-          "relative flex h-full w-full flex-col min-h-0 min-w-0 overflow-x-hidden overflow-y-hidden",
-          className
-        )}
-        data-tenas-chat-root
-        data-tab-id={tabId}
+      <motion.div
+        layout
+        layoutId={`session-content-${effectiveSessionId}`}
+        className="relative flex flex-1 w-full flex-col min-h-0 min-w-0"
+        transition={{ layout: { type: "spring", stiffness: 300, damping: 30 } }}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <ChatHeader />
+        <ChatHeader onNewSession={onNewSession} onCloseSession={onCloseSession} />
         <MessageList className="flex-1 min-h-0" />
         <ChatInput
           className="mx-2 mb-2"
@@ -743,42 +748,56 @@ export function Chat({
           isCodexProvider={isCodexProvider}
           onDropHandled={resetDragState}
         />
-
-        <div
-          data-tenas-chat-mask
-          className="absolute inset-0 z-30 hidden bg-transparent"
-          aria-hidden="true"
-        />
-
-        <DragDropOverlay
-          open={isDragActive}
-          title={
-            dragMode === "deny"
-              ? dragHint === "image"
-                ? "当前模型不支持图片"
-                : "当前模型不支持文件"
-              : dragHint === "image"
-                ? "松开鼠标即可添加图片"
-                : "松开鼠标即可添加文件"
-          }
-          variant={dragMode === "deny" ? "warning" : "default"}
-          radiusClassName="rounded-2xl"
-          description={
-            dragMode === "deny" ? (
-              dragHint === "image"
-                ? "请切换到支持图片输入的模型"
-                : "仅支持拖入项目文件引用"
-            ) : dragHint === "image" ? (
-              <>
-                支持 PNG / JPEG / WebP，单文件不超过{" "}
-                {formatFileSize(CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES)}，可多选
-              </>
-            ) : (
-              "支持拖入项目文件引用"
-            )
-          }
-        />
-      </div>
+      </motion.div>
     </ChatCoreProvider>
+  );
+
+  return (
+    <div
+      ref={rootRef}
+      className={cn(
+        "relative flex h-full w-full flex-col min-h-0 min-w-0 overflow-x-hidden overflow-y-hidden",
+        className
+      )}
+      data-tenas-chat-root
+      data-tab-id={tabId}
+    >
+      {renderActiveSession()}
+
+      <div
+        data-tenas-chat-mask
+        className="absolute inset-0 z-30 hidden bg-transparent"
+        aria-hidden="true"
+      />
+
+      <DragDropOverlay
+        open={isDragActive}
+        title={
+          dragMode === "deny"
+            ? dragHint === "image"
+              ? "当前模型不支持图片"
+              : "当前模型不支持文件"
+            : dragHint === "image"
+              ? "松开鼠标即可添加图片"
+              : "松开鼠标即可添加文件"
+        }
+        variant={dragMode === "deny" ? "warning" : "default"}
+        radiusClassName="rounded-2xl"
+        description={
+          dragMode === "deny" ? (
+            dragHint === "image"
+              ? "请切换到支持图片输入的模型"
+              : "仅支持拖入项目文件引用"
+          ) : dragHint === "image" ? (
+            <>
+              支持 PNG / JPEG / WebP，单文件不超过{" "}
+              {formatFileSize(CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES)}，可多选
+            </>
+          ) : (
+            "支持拖入项目文件引用"
+          )
+        }
+      />
+    </div>
   );
 }

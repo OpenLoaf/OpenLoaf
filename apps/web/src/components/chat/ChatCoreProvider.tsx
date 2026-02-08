@@ -216,7 +216,7 @@ type ChatCoreProviderProps = {
   /** Session change handler. */
   onSessionChange?: (
     sessionId: string,
-    options?: { loadHistory?: boolean }
+    options?: { loadHistory?: boolean; replaceCurrent?: boolean }
   ) => void;
   /** Selected chat model id. */
   chatModelId?: string | null;
@@ -748,7 +748,10 @@ export default function ChatCoreProvider({
   const newSession = React.useCallback(() => {
     // 中文注释：立即清空，避免 UI 闪回旧消息。
     stopAndResetSession(true);
-    onSessionChange?.(createChatSessionId(), { loadHistory: false });
+    onSessionChange?.(createChatSessionId(), {
+      loadHistory: false,
+      replaceCurrent: true,
+    });
   }, [stopAndResetSession, onSessionChange]);
 
   const selectSession = React.useCallback(

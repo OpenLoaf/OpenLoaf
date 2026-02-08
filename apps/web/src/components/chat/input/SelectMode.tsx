@@ -461,9 +461,6 @@ export default function SelectMode({ className }: SelectModeProps) {
     );
     if (!target) return;
     const mask = target.querySelector<HTMLElement>("[data-tenas-chat-mask]");
-    // 弹出层打开时为 chat 主区域添加模糊效果。
-    target.classList.toggle("blur-sm", open);
-    target.classList.toggle("opacity-80", open);
     if (mask) {
       if (open) {
         // 遮罩打开时拦截交互，避免触发底层事件。
@@ -475,7 +472,6 @@ export default function SelectMode({ className }: SelectModeProps) {
       }
     }
     return () => {
-      target.classList.remove("blur-sm", "opacity-80");
       if (mask) {
         mask.classList.add("hidden");
         mask.style.pointerEvents = "none";
@@ -611,7 +607,7 @@ export default function SelectMode({ className }: SelectModeProps) {
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[27rem] max-w-[94vw] -translate-x-8 rounded-xl border-border bg-background/95 p-2 shadow-2xl backdrop-blur-sm">
+        <PopoverContent className="w-[36rem] max-w-[94vw] -translate-x-8 rounded-xl border-border bg-background/95 p-2 shadow-2xl backdrop-blur-sm">
           <div className="space-y-2">
             <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
               <div className="flex items-center justify-between">

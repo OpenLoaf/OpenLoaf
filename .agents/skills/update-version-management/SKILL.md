@@ -11,7 +11,7 @@ description: >
 
 ## Overview
 
-Tenas 的版本发布采用“先发布、后加一”的流程：提交变更 → 打 git tag → 直接打包并更新 → 发布完成后版本号自动加一并提交。这样每次代码改动都在新版本上进行，不需要再手动标记“是否改过代码”。每个 app 使用独立 tag（`server-v0.1.1`、`web-v0.1.2`、`electron-v1.0.0`），通过 `git describe --match "{app}-v*"` 定位上次发布点，支持各 app 独立版本节奏。
+Tenas 的版本发布采用“先发布、后加一”的流程：提交变更 → 直接打包并更新 → 发布成功后打 git tag → 发布完成后版本号自动加一并提交。这样每次代码改动都在新版本上进行，不需要再手动标记“是否改过代码”。每个 app 使用独立 tag（`server-v0.1.1`、`web-v0.1.2`、`electron-v1.0.0`），通过 `git describe --match "{app}-v*"` 定位上次发布点，支持各 app 独立版本节奏。
 
 ## When to Use
 
@@ -122,18 +122,7 @@ date: {YYYY-MM-DD}
 - ...
 ```
 
-### Step 4: 打 git tag（发布前）
-
-为本次实际发布的 app 打 tag（tag 指向当前发布的 commit）：
-
-```bash
-git tag -a server-v{currentVersion} -m "release: server@{currentVersion}"
-git tag -a web-v{currentVersion} -m "release: web@{currentVersion}"
-git tag -a electron-v{currentVersion} -m "release: electron@{currentVersion}"
-git push && git push origin --tags
-```
-
-### Step 4.5: 打包前执行类型检查并修复
+### Step 4: 打包前执行类型检查并修复
 
 ```bash
 pnpm check-types
@@ -161,7 +150,18 @@ cd apps/desktop && pnpm run dist:production
 
 > 说明：当前版本号用于本次发布，不做提前升版本号。
 
-### Step 6: 发布完成后版本号自动加一并提交（开始下一版本开发）
+### Step 6: 发布成功后打 git tag 并推送
+
+为本次实际发布的 app 打 tag（tag 指向当前发布的 commit）：
+
+```bash
+git tag -a server-v{currentVersion} -m "release: server@{currentVersion}"
+git tag -a web-v{currentVersion} -m "release: web@{currentVersion}"
+git tag -a electron-v{currentVersion} -m "release: electron@{currentVersion}"
+git push && git push origin --tags
+```
+
+### Step 7: 发布完成后版本号自动加一并提交（开始下一版本开发）
 
 1. **询问用户** patch/minor/major 或具体版本号（通常是 patch）
 2. 更新 package.json：

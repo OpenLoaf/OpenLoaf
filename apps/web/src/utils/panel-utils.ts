@@ -6,6 +6,7 @@ import { Chat } from "@/components/chat/Chat";
 import ElectrronBrowserWindow from "@/components/browser/ElectrronBrowserWindow";
 import ToolResultPanel from "@/components/tools/ToolResultPanel";
 import SettingsPage from "@/components/setting/SettingsPage";
+import SkillsPage from "@/components/skills/SkillsPage";
 import { ProviderManagement } from "@/components/setting/menus/ProviderManagement";
 import CalendarPage from "@/components/calendar/Calendar";
 import EmailPage from "@/components/email/EmailPage";
@@ -40,6 +41,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "electron-browser-window": ElectrronBrowserWindow, // 新窗口浏览器组件
   "tool-result": ToolResultPanel,
   "settings-page": SettingsPage,
+  "skills-page": SkillsPage,
   "provider-management": ProviderManagement,
   "calendar-page": CalendarPage,
   "email-page": EmailPage,
@@ -77,6 +79,8 @@ export const getPanelTitle = (componentName: string) => {
       return "Tool Result";
     case "settings-page":
       return "Settings";
+    case "skills-page":
+      return "Skills";
     case "provider-management":
       return "Provider Management";
     case "calendar-page":

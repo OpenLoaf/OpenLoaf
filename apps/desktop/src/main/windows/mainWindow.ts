@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, screen } from 'electron';
+import { app, BrowserWindow, dialog, screen, shell } from 'electron';
 import { resolveWindowIconPath } from '../resolveWindowIcon';
 import type { Logger } from '../logging/startupLogger';
 import type { ServiceManager } from '../services/serviceManager';
@@ -174,6 +174,16 @@ export async function createMainWindow(args: {
 
   bindWindowTitle(mainWindow);
   disableZoom(mainWindow);
+
+  // 中文注释：拦截渲染端 window.open，统一交给系统浏览器处理。
+  mainWindow.webContents.setWindowOpenHandler((details) => {
+    const targetUrl = String(details?.url ?? '').trim();
+    if (targetUrl && /^https?:/i.test(targetUrl)) {
+      args.log(`[window-open] ${targetUrl}`);
+      void shell.openExternal(targetUrl);
+    }
+    return { action: 'deny' };
+  });
 
   // 拦截 OAuth 回调导航：微信登录 iframe 完成授权后，WeChat SDK 会尝试
   // 将 window.top 导航到 SaaS 回调地址，导致主窗口被跳转到回调页面。

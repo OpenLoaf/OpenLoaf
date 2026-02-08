@@ -25,6 +25,7 @@ type SaasLoginDialogProps = {
 export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
   // Login status from SaaS auth store.
   const {
+    loggedIn,
     loginStatus,
     loginError,
     wechatLoginUrl,
@@ -33,9 +34,17 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
   } = useSaasAuth();
   // 当前登录入口，用于展示对应 icon。
   const [selectedProvider, setSelectedProvider] = React.useState<SaasLoginProvider | null>(null);
+  // 关闭动画期间的状态。
+  const [isClosing, setIsClosing] = React.useState(false);
+  // 关闭动画清理计时器。
+  const closeTimerRef = React.useRef<number | null>(null);
+  // 记录上一次 open，用于检测外部关闭。
+  const wasOpenRef = React.useRef(open);
 
   const isBusy = loginStatus === "opening" || loginStatus === "polling";
-  const isLoginInProgress = isBusy;
+  const isClosingAfterLogin = open && loggedIn && selectedProvider !== null && loginStatus === "idle";
+  const isLoginInProgress = isBusy || isClosingAfterLogin || isClosing;
+  const hideHeaderForWechat = isBusy && selectedProvider === "wechat";
   const providerMeta =
     selectedProvider === "google"
       ? { src: "/icons/google.png", alt: "Google" }
@@ -43,7 +52,9 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
         ? { src: "/icons/wechat.png", alt: "WeChat" }
         : null;
   const subtitleText =
-    loginStatus === "opening"
+    isClosingAfterLogin
+      ? "登录成功，正在关闭…"
+      : loginStatus === "opening"
       ? selectedProvider === "wechat"
         ? "正在加载微信扫码登录…"
         : "正在打开系统浏览器…"
@@ -55,17 +66,36 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
 
   /** Handle dialog open state changes. */
   const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      // 先关闭 dialog，延迟重置所有状态，避免关闭动画期间闪现登录按钮。
-      onOpenChange(false);
-      setTimeout(() => {
-        cancelLogin();
-        setSelectedProvider(null);
-      }, 200);
-      return;
-    }
     onOpenChange(nextOpen);
   };
+
+  const clearCloseTimer = React.useCallback(() => {
+    if (closeTimerRef.current != null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  React.useEffect(() => {
+    const wasOpen = wasOpenRef.current;
+    if (open) {
+      clearCloseTimer();
+      setIsClosing(false);
+    } else if (wasOpen) {
+      // 关闭动画期间保持登录 UI，避免闪现登录按钮。
+      setIsClosing(true);
+      clearCloseTimer();
+      closeTimerRef.current = window.setTimeout(() => {
+        setIsClosing(false);
+        cancelLogin();
+        setSelectedProvider(null);
+        closeTimerRef.current = null;
+      }, 200);
+    }
+    wasOpenRef.current = open;
+  }, [open, cancelLogin, clearCloseTimer]);
+
+  React.useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
 
   /** Begin the SaaS login flow for provider. */
   const handleLogin = async (provider: SaasLoginProvider) => {
@@ -97,7 +127,7 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
           <DialogDescription>选择登录方式并继续</DialogDescription>
         </DialogHeader>
         <div className="bg-card text-card-foreground">
-          {!(isLoginInProgress && selectedProvider === "wechat") && (
+          {!hideHeaderForWechat && (
             <div className="space-y-2 px-8 pt-8 pb-6 text-center">
               <h1
                 className={cn(
@@ -138,7 +168,7 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
           <div className={cn("space-y-4 px-8 pb-6", isLoginInProgress && selectedProvider === "wechat" && "pt-6")}>
             {isLoginInProgress ? (
               <div className="space-y-3">
-                {selectedProvider === "wechat" ? (
+                {selectedProvider === "wechat" && !isClosingAfterLogin ? (
                   <div className="-mx-8 flex justify-center overflow-hidden">
                     <iframe
                       title="wechat-login"
@@ -148,22 +178,24 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
                     />
                   </div>
                 ) : null}
-                <button
-                  type="button"
-                  className={cn(
-                    "flex w-full items-center justify-center gap-2 rounded-full border border-border/70 bg-muted/40 px-4 py-3 text-foreground transition-colors",
-                    "hover:bg-muted/60",
-                  )}
-                  onClick={() => {
-                    onOpenChange(false);
-                    setTimeout(() => {
-                      cancelLogin();
-                      setSelectedProvider(null);
-                    }, 200);
-                  }}
-                >
-                  取消登录
-                </button>
+                {isClosingAfterLogin ? (
+                  <div className="py-2 text-center text-sm text-muted-foreground">
+                    登录成功，正在关闭…
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex w-full items-center justify-center gap-2 rounded-full border border-border/70 bg-muted/40 px-4 py-3 text-foreground transition-colors",
+                      "hover:bg-muted/60",
+                    )}
+                    onClick={() => {
+                      onOpenChange(false);
+                    }}
+                  >
+                    取消登录
+                  </button>
+                )}
               </div>
             ) : (
               <>

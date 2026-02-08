@@ -288,7 +288,7 @@
     "desktop": "electron-forge start",
     "build:speech-helper": "node scripts/buildSpeechHelper.mjs",
     "build:calendar-helper": "node scripts/buildCalendarHelper.mjs",
-    "package": "pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge package",
+    "package": "pnpm run predesktop && pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge package",
     "dist:mac": "pnpm run package && node scripts/dist.mjs --mac",
     "dist:mac:dev": "pnpm run package && node scripts/dist.mjs --mac --config.mac.identity=null",
     "dist:win": "pnpm run package && node scripts/dist.mjs --win",
