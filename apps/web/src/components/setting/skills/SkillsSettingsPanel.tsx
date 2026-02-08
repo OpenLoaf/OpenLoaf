@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
+import { TenasSettingsCard } from "@tenas-ai/ui/tenas/TenasSettingsCard";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { Button } from "@tenas-ai/ui/button";
@@ -62,9 +62,12 @@ const SCOPE_LABELS: Record<SkillScope, string> = {
 
 /** Tag styles per scope. */
 const SCOPE_TAG_CLASS: Record<SkillScope, string> = {
-  workspace: "border-border bg-muted text-muted-foreground",
-  project: "border-border bg-background text-foreground/80",
-  global: "border-border bg-muted/60 text-muted-foreground/80",
+  workspace:
+    "border-sky-200/70 bg-sky-500/10 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300",
+  project:
+    "border-emerald-200/70 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300",
+  global:
+    "border-amber-200/70 bg-amber-500/10 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300",
 };
 
 /** Normalize a local path string for URI building. */
@@ -171,40 +174,6 @@ function ScopeTag({ scope }: { scope: SkillScope }) {
   );
 }
 
-/** Build summary text for the current skills list. */
-function buildSkillSummaryText(input: {
-  skills: SkillSummary[];
-  projectId?: string;
-  isLoading: boolean;
-  isError: boolean;
-}): string {
-  const { skills, projectId, isLoading, isError } = input;
-  if (isLoading) return "读取中...";
-  if (isError) return "读取失败";
-  if (!skills.length) return "未发现技能";
-  // 统计 workspace/project/global 的数量，输出摘要信息。
-  const counts = skills.reduce(
-    (acc, skill) => {
-      if (skill.scope === "project") {
-        acc.project += 1;
-      } else if (skill.scope === "global") {
-        acc.global += 1;
-      } else {
-        acc.workspace += 1;
-      }
-      return acc;
-    },
-    { workspace: 0, project: 0, global: 0 },
-  );
-  if (projectId) {
-    return `共 ${skills.length} 条（全局 ${counts.global} / 工作空间 ${counts.workspace} / 项目 ${counts.project}）`;
-  }
-  if (counts.global > 0) {
-    return `共 ${skills.length} 条（全局 ${counts.global} / 工作空间 ${counts.workspace}）`;
-  }
-  return `共 ${skills.length} 条`;
-}
-
 /** Shared skills settings panel. */
 export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   const isProjectList = Boolean(projectId);
@@ -221,6 +190,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   const { data: projectData } = useProject(projectId);
   const activeTabId = useTabs((state) => state.activeTabId);
   const pushStackItem = useTabRuntime((state) => state.pushStackItem);
+  const setTabRightChatCollapsed = useTabRuntime((state) => state.setTabRightChatCollapsed);
   const workspaceId = workspace?.id ?? "";
 
   /** Filtered skills based on search query and filters. */
@@ -305,17 +275,6 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
         toast.error(error.message);
       },
     }),
-  );
-
-  const summaryText = useMemo(
-    () =>
-      buildSkillSummaryText({
-        skills,
-        projectId,
-        isLoading: skillsQuery.isLoading,
-        isError: skillsQuery.isError,
-      }),
-    [projectId, skills, skillsQuery.isLoading, skillsQuery.isError],
   );
 
   /** Open skills folder in system file manager. */
@@ -405,6 +364,24 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     [isProjectList, projectId, updateSkillMutation],
   );
 
+  /** Insert skill command into chat input. */
+  const handleInsertSkillCommand = useCallback(
+    (skill: SkillSummary) => {
+      const skillName = skill.name.trim();
+      if (!skillName) return;
+      window.dispatchEvent(
+        new CustomEvent("tenas:chat-insert-skill", {
+          detail: { skillName },
+        })
+      );
+      window.dispatchEvent(new CustomEvent("tenas:chat-focus-input"));
+      if (activeTabId) {
+        setTabRightChatCollapsed(activeTabId, false);
+      }
+    },
+    [activeTabId, setTabRightChatCollapsed],
+  );
+
   /** Delete a skill folder with confirmation. */
   const handleDeleteSkill = useCallback(
     async (skill: SkillSummary) => {
@@ -424,30 +401,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
 
   return (
     <div className="space-y-4">
-      <TenasSettingsGroup
-        title="技能列表"
-        subtitle={summaryText}
-        action={
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8"
-                onClick={() => void handleOpenSkillsRoot()}
-                disabled={!skillsRootUri || !workspaceId || (isProjectList && !projectId)}
-                aria-label="打开技能目录"
-              >
-                <FolderOpen className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={6}>
-              打开技能目录
-            </TooltipContent>
-          </Tooltip>
-        }
-      >
+      <TenasSettingsCard className="border-0 bg-transparent" padding="none">
         {/* 搜索和过滤栏 */}
         <div className="flex flex-col gap-3 px-3 py-3 border-b border-border">
           {/* 搜索框 */}
@@ -535,6 +489,27 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                 清除过滤
               </Button>
             ) : null}
+
+            <div className="ml-auto flex items-center">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    onClick={() => void handleOpenSkillsRoot()}
+                    disabled={!skillsRootUri || !workspaceId || (isProjectList && !projectId)}
+                    aria-label="打开技能目录"
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6}>
+                  打开技能目录
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
 
           {/* 过滤结果提示 */}
@@ -610,8 +585,19 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                     />
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground line-clamp-2">
-                  {skill.description}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="text-xs text-muted-foreground line-clamp-2 flex-1">
+                    {skill.description}
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => handleInsertSkillCommand(skill)}
+                  >
+                    立即使用
+                  </Button>
                 </div>
               </div>
             </div>
@@ -644,7 +630,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
             </div>
           ) : null}
         </div>
-      </TenasSettingsGroup>
+      </TenasSettingsCard>
     </div>
   );
 }

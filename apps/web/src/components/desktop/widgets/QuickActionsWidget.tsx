@@ -181,24 +181,16 @@ export default function QuickActionsWidget() {
     if (runtime.rightChatCollapsed) {
       useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, false);
     }
-    // 逻辑：延迟 focus chat input，等待 panel 展开动画与 DOM 渲染完成。
-    setTimeout(() => {
-      requestAnimationFrame(() => {
-        const input = document.querySelector<HTMLElement>(
-          '[data-tenas-chat-input="true"]'
-        );
-        if (!input) return;
-        input.focus();
-        // 逻辑：将光标移动到末尾，便于直接输入。
-        const selection = window.getSelection();
-        if (!selection) return;
-        const range = document.createRange();
-        range.selectNodeContents(input);
-        range.collapse(false);
-        selection.removeAllRanges();
-        selection.addRange(range);
-      });
-    }, 150);
+    // 逻辑：延迟发出 focus 请求，等待 panel 展开动画与输入框挂载完成。
+    const requestFocus = () => {
+      window.dispatchEvent(new CustomEvent("tenas:chat-focus-input"));
+    };
+    if (runtime.rightChatCollapsed) {
+      setTimeout(requestFocus, 180);
+      setTimeout(requestFocus, 360);
+      return;
+    }
+    requestFocus();
   }, [activeTabId]);
 
   return (

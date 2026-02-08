@@ -1,6 +1,5 @@
 {
   "name": "@tenas-ai/ui",
-  "version": "0.0.0",
   "private": true,
   "type": "module",
   "peerDependencies": {

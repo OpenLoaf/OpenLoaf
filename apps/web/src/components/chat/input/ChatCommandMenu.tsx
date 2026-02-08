@@ -2,10 +2,11 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import type { ChatCommand } from "@tenas-ai/api/common";
-import { CHAT_COMMANDS, SKILL_COMMAND_PREFIX } from "@tenas-ai/api/common";
+import { CHAT_COMMANDS } from "@tenas-ai/api/common";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
+import { buildSkillCommandText } from "./chat-input-utils";
 
 type SkillSummary = {
   name: string;
@@ -196,7 +197,7 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
       const replacement =
         item.kind === "command"
           ? item.command
-          : `${SKILL_COMMAND_PREFIX}${item.skillName}`;
+          : buildSkillCommandText(item.skillName);
       onChange(replaceSlashToken(value, replacement));
       onRequestFocus?.();
       setMenuLevel("root");

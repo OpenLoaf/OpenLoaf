@@ -340,14 +340,15 @@ export default function DesktopTileGridstack({
     >
       {enableGlow ? (
         <GlowingEffect
-          blur={10}
-          spread={60}
+          blur={20}
+          spread={100}
           glow={true}
           disabled={false}
-          proximity={120}
+          proximity={160}
           inactiveZone={0}
-          borderWidth={3}
-          className="opacity-95 mix-blend-multiply brightness-110 dark:opacity-85 dark:mix-blend-normal"
+          borderWidth={5}
+          movementDuration={1}
+          className="brightness-125 dark:brightness-110"
         />
       ) : null}
         <div className={cn("relative h-full w-full", editMode ? "pointer-events-none" : "")}>

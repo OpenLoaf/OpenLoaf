@@ -80,13 +80,19 @@ export async function resolveRuntimePorts(args: {
   cdpPortEnv?: string;
   cdpHostEnv?: string;
   defaultHost?: string;
+  /** Whether the app is running in packaged production mode. */
+  isPackaged?: boolean;
 }): Promise<RuntimePorts> {
   const defaultHost = args.defaultHost ?? '127.0.0.1';
   const usedPorts = new Set<number>();
 
-  const defaultServerPort = 23333;
-  const defaultWebPort = 53663;
-  const defaultCdpPort = 53664;
+  // 中文注释：区分开发/生产默认端口，避免两种模式同时启动时端口冲突。
+  const defaults = args.isPackaged
+    ? { server: 23333, web: 53663, cdp: 53664 }
+    : { server: 23334, web: 53665, cdp: 53666 };
+  const defaultServerPort = defaults.server;
+  const defaultWebPort = defaults.web;
+  const defaultCdpPort = defaults.cdp;
 
   // 中文注释：如果用户显式提供 URL，则直接复用，默认情况下才随机分配。
   let serverUrl = args.serverUrlEnv?.trim() ?? '';

@@ -583,6 +583,15 @@ export const PageTreeMenu = ({
   /** Track whether next click should be ignored after pointer drag. */
   const suppressNextClickRef = useRef(false);
 
+  /** Check whether the error indicates a missing project. */
+  const isProjectMissingError = (err: unknown) => {
+    const message =
+      typeof err === "object" && err && "message" in err
+        ? String((err as { message?: string }).message ?? "")
+        : "";
+    return /project not found/i.test(message);
+  };
+
   const activeRuntime = useTabRuntime((state) =>
     activeTabId ? state.runtimeByTabId[activeTabId] : undefined,
   );
@@ -989,6 +998,14 @@ export const PageTreeMenu = ({
         queryKey: getProjectsQueryKey(),
       });
     } catch (err: any) {
+      // 逻辑：项目不存在时直接刷新列表，避免弹错影响用户体验。
+      if (isProjectMissingError(err)) {
+        resetRemoveDialogState();
+        await queryClient.invalidateQueries({
+          queryKey: getProjectsQueryKey(),
+        });
+        return;
+      }
       toast.error(err?.message ?? "移除失败");
     } finally {
       setIsRemoveBusy(false);
@@ -1010,6 +1027,14 @@ export const PageTreeMenu = ({
         queryKey: getProjectsQueryKey(),
       });
     } catch (err: any) {
+      // 逻辑：项目不存在时直接刷新列表，避免弹错影响用户体验。
+      if (isProjectMissingError(err)) {
+        resetRemoveDialogState();
+        await queryClient.invalidateQueries({
+          queryKey: getProjectsQueryKey(),
+        });
+        return;
+      }
       toast.error(err?.message ?? "彻底删除失败");
     } finally {
       setIsRemoveBusy(false);

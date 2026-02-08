@@ -11,7 +11,7 @@ description: >
 
 ## Overview
 
-Tenas 的版本发布通过 6 步流程完成：提交变更 → 通过 git tag 定位上次发布 → 收集 commit → 升版本 + 写 changelog → publish → 提交发布并打 tag。每个 app 使用独立的 tag（`server-v0.1.1`、`web-v0.1.2`、`electron-v1.0.0`），通过 `git describe --match "{app}-v*"` 定位上次发布点，支持各 app 独立版本节奏。
+Tenas 的版本发布采用“先发布、后加一”的流程：提交变更 → 打 git tag → 直接打包并更新 → 发布完成后版本号自动加一并提交。这样每次代码改动都在新版本上进行，不需要再手动标记“是否改过代码”。每个 app 使用独立 tag（`server-v0.1.1`、`web-v0.1.2`、`electron-v1.0.0`），通过 `git describe --match "{app}-v*"` 定位上次发布点，支持各 app 独立版本节奏。
 
 ## When to Use
 
@@ -66,7 +66,7 @@ git status
 - 有未提交变更 → 总结内容，`git add -A && git commit -m "<summary>" && git push`
 - 工作区干净 → 跳过
 
-### Step 2: 通过 git tag 定位上次发布点
+### Step 2: 通过 git tag 定位上次发布点（用于生成发布说明）
 
 对每个要发布的 app（`server`/`web`/`electron`）：
 
@@ -77,7 +77,23 @@ git describe --match "{app}-v*" --abbrev=0
 
 如果没有找到 tag（首次发布），用 `git log --oneline -20` 让用户确认范围。
 
-### Step 3: 收集并总结 commit 历史
+### Step 2.5: 未明确发布范围时，自动分析改动范围并确认
+
+如果用户没有特别说明要发布哪些服务，先自动分析上个版本到当前的改动范围，并询问是否需要推送对应服务：
+
+```bash
+# server
+git log server-v{lastVersion}..HEAD --oneline --no-merges -- apps/server/ packages/
+# web
+git log web-v{lastVersion}..HEAD --oneline --no-merges -- apps/web/ packages/
+# desktop
+git log electron-v{lastVersion}..HEAD --oneline --no-merges -- apps/desktop/ packages/
+```
+
+- 若某个服务无改动，明确标记为“无变更”
+- 若有改动，列出简要变更并**询问用户是否需要推送该服务**
+
+### Step 3: 收集并总结 commit 历史（可选但推荐）
 
 ```bash
 git log {app}-v{lastVersion}..HEAD --oneline --no-merges -- apps/{app}/ packages/
@@ -89,21 +105,13 @@ git log {app}-v{lastVersion}..HEAD --oneline --no-merges -- apps/{app}/ packages
 - 生成中文和英文两个版本
 - **展示给用户确认后再继续**
 
-### Step 4: 更新版本号并创建 changelog
-
-1. **询问用户** patch/minor/major 或具体版本号
-2. 更新 package.json：
-   ```bash
-   cd apps/{app} && npm version {type} --no-git-tag-version
-   ```
-3. 获取当前 HEAD 用于记录（可选）
-4. 创建 `apps/{app}/changelogs/{newVersion}/zh.md` 和 `en.md`
+可选：如需维护 changelog，请在打 tag 前创建 `apps/{app}/changelogs/{currentVersion}/zh.md` 和 `en.md`。
 
 **Changelog front matter 格式：**
 
 ```markdown
 ---
-version: {newVersion}
+version: {currentVersion}
 date: {YYYY-MM-DD}
 ---
 
@@ -114,51 +122,64 @@ date: {YYYY-MM-DD}
 - ...
 ```
 
-### Step 5: 运行 publish-update
+### Step 4: 打 git tag（发布前）
+
+为本次实际发布的 app 打 tag（tag 指向当前发布的 commit）：
+
+```bash
+git tag -a server-v{currentVersion} -m "release: server@{currentVersion}"
+git tag -a web-v{currentVersion} -m "release: web@{currentVersion}"
+git tag -a electron-v{currentVersion} -m "release: electron@{currentVersion}"
+git push && git push origin --tags
+```
+
+### Step 4.5: 打包前执行类型检查并修复
+
+```bash
+pnpm check-types
+```
+
+- 发现问题必须先修复再继续
+- **优先使用 sub agent 代理执行修复**
+
+### Step 5: 直接打包并更新（使用当前版本号）
+
+按发布范围执行（publish-update 内含打包与上传）：
 
 ```bash
 cd apps/server && pnpm run publish-update
 cd apps/web && pnpm run publish-update
 ```
 
-Electron 本体发布：`cd apps/desktop && pnpm run dist:production`
+Electron 本体发布：
+
+```bash
+cd apps/desktop && pnpm run dist:production
+```
 
 **如果任何命令失败，立即停止，报告错误，不继续后续步骤。**
 
-### Step 6: 提交所有发布变更并推送
+> 说明：当前版本号用于本次发布，不做提前升版本号。
 
-publish 完成后，将本次发布产生的所有变更（package.json 版本号、changelog 文件等）提交并推送。
+### Step 6: 发布完成后版本号自动加一并提交（开始下一版本开发）
 
-**Commit message 格式：** 标题行为版本号，正文为英文 changelog 内容。
+1. **询问用户** patch/minor/major 或具体版本号（通常是 patch）
+2. 更新 package.json：
+   ```bash
+   cd apps/{app} && npm version {type} --no-git-tag-version
+   ```
+3. 创建下一版本的 changelog 目录（可选）：
+   ```bash
+   mkdir -p apps/{app}/changelogs/{nextVersion}
+   ```
+4. 提交并推送：
+   ```bash
+   git add -A
+   git commit -m "chore: bump {app} to {nextVersion}"
+   git push
+   ```
 
-```
-release: server@{version}, web@{version}
-
-### Server {version}
-
-- Feature A
-- Fix B
-
-### Web {version}
-
-- Feature C
-- Improvement D
-```
-
-单个 app 发布时省略另一个 section。
-
-```bash
-git add -A
-git commit -m "release: {app}@{newVersion}
-
-{英文 changelog 正文，去掉 front matter}"
-# 为每个发布的 app 打独立 tag
-git tag -a server-v{newVersion} -m "release: server@{newVersion}"
-git tag -a web-v{newVersion} -m "release: web@{newVersion}"
-git push && git push origin --tags
-```
-
-**Tag 命名规则：** `{app}-v{version}`（如 `server-v0.1.2`、`web-v0.1.3`、`electron-v1.0.0`）。同一个 commit 可挂多个 tag，通过 commit message 体现一起发布的关系。只为本次实际发布的 app 打 tag。
+**Tag 命名规则：** `{app}-v{version}`（如 `server-v0.1.2`、`web-v0.1.3`、`electron-v1.0.0`）。同一个 commit 可挂多个 tag。只为本次实际发布的 app 打 tag。
 
 ---
 
@@ -169,9 +190,9 @@ git push && git push origin --tags
 | Server 增量发布 | `cd apps/server && pnpm run publish-update` |
 | Web 增量发布 | `cd apps/web && pnpm run publish-update` |
 | Electron 本体发布 | `cd apps/desktop && pnpm run dist:production` |
-| 升 patch 版本 | `npm version patch --no-git-tag-version` |
-| 升 minor 版本 | `npm version minor --no-git-tag-version` |
-| 升 major 版本 | `npm version major --no-git-tag-version` |
+| 版本号加一（发布后） | `npm version patch --no-git-tag-version` |
+| 版本号加一（minor） | `npm version minor --no-git-tag-version` |
+| 版本号加一（major） | `npm version major --no-git-tag-version` |
 | Beta 版本号 | `x.y.z-beta.n`（自动归入 beta 渠道） |
 
 ## Common Mistakes
@@ -180,6 +201,7 @@ git push && git push origin --tags
 |------|------|----------|
 | 未打 app 前缀 tag | 下次发布 `git describe --match` 找不到上次发布点 | 始终为每个发布的 app 打 `{app}-v{version}` tag |
 | 未等 publish 完成就继续 | 发布不完整，manifest 未更新 | 等每个命令成功后再继续 |
+| 发布前先改版本号 | 版本号与发布产物不一致 | 先发布，发布后再加一 |
 | 未询问用户就决定版本号 | 版本号不符合预期 | 始终先询问 patch/minor/major |
 | commit 范围未加路径过滤 | changelog 包含不相关的变更 | 使用 `-- apps/{app}/ packages/` 过滤 |
 

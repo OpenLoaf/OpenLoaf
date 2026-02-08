@@ -47,7 +47,9 @@ import { Editor, EditorContainer } from "@tenas-ai/ui/editor";
 import { ParagraphElement } from "@tenas-ai/ui/paragraph-node";
 import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
 import {
+  appendChatInputText,
   buildMentionNode,
+  buildSkillCommandText,
   getPlainTextValue,
   parseChatValue,
   normalizeFileMentionSpacing,
@@ -393,11 +395,51 @@ export function ChatInputBox({
   /** Focus the editor without throwing when DOM is unavailable. */
   const focusEditorSafely = useCallback(() => {
     try {
+      if (!editor.selection) {
+        // 中文注释：没有选区时补到末尾，确保显示输入光标。
+        const endPoint = SlateEditor.end(editor as unknown as BaseEditor, []);
+        editor.tf.select(endPoint);
+      }
       editor.tf.focus();
     } catch (error) {
       console.warn("[ChatInput] focus failed", error);
     }
   }, [editor]);
+
+  /** Focus the editor and move caret to end. */
+  const focusEditorAtEndSafely = useCallback(() => {
+    try {
+      const endPoint = SlateEditor.end(editor as unknown as BaseEditor, []);
+      editor.tf.select(endPoint);
+      editor.tf.focus();
+    } catch (error) {
+      console.warn("[ChatInput] focus end failed", error);
+    }
+  }, [editor]);
+
+  useEffect(() => {
+    /** Handle external focus requests for the chat input. */
+    const handleFocusRequest = () => {
+      // 逻辑：通过 editor API 聚焦，确保 Slate 选区与输入状态同步。
+      focusEditorSafely();
+    };
+    window.addEventListener("tenas:chat-focus-input", handleFocusRequest);
+    return () => {
+      window.removeEventListener("tenas:chat-focus-input", handleFocusRequest);
+    };
+  }, [focusEditorSafely]);
+
+  useEffect(() => {
+    /** Handle external focus requests that require caret at end. */
+    const handleFocusToEnd = () => {
+      // 中文注释：强制光标移动到输入末尾。
+      focusEditorAtEndSafely();
+    };
+    window.addEventListener("tenas:chat-focus-input-end", handleFocusToEnd);
+    return () => {
+      window.removeEventListener("tenas:chat-focus-input-end", handleFocusToEnd);
+    };
+  }, [focusEditorAtEndSafely]);
 
   /** Normalize a file reference string to a scoped path. */
   const normalizeFileRef = useCallback((value: string) => {
@@ -903,6 +945,7 @@ export default function ChatInput({
   const { status, isHistoryLoading } = useChatState();
   const { input, setInput, imageOptions, codexOptions, addMaskedAttachment } = useChatOptions();
   const { projectId, workspaceId, tabId } = useChatSession();
+  const activeTabId = useTabs((state) => state.activeTabId);
   const { basic } = useBasicConfig();
   const setTabDictationStatus = useChatRuntime((s) => s.setTabDictationStatus);
   const dictationLanguage = basic.modelResponseLanguage;
@@ -913,6 +956,29 @@ export default function ChatInput({
       setTabDictationStatus(tabId, false);
     };
   }, [setTabDictationStatus, tabId]);
+
+  /** Handle skill insert events. */
+  useEffect(() => {
+    const handleInsertSkill = (event: Event) => {
+      // 中文注释：仅活跃标签页响应插入事件，避免隐藏面板写入输入内容。
+      if (tabId) {
+        if (!activeTabId || activeTabId !== tabId) return;
+      }
+      const detail = (event as CustomEvent<{ skillName?: string }>).detail;
+      const skillName = detail?.skillName?.trim() ?? "";
+      if (!skillName) return;
+      const nextToken = buildSkillCommandText(skillName);
+      if (!nextToken) return;
+      setInput((prev) => appendChatInputText(prev, nextToken));
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new CustomEvent("tenas:chat-focus-input-end"));
+      });
+    };
+    window.addEventListener("tenas:chat-insert-skill", handleInsertSkill);
+    return () => {
+      window.removeEventListener("tenas:chat-insert-skill", handleInsertSkill);
+    };
+  }, [activeTabId, setInput, tabId]);
   const resolvedIsAutoModel = Boolean(isAutoModel);
   const resolvedCanImageGeneration = Boolean(canImageGeneration);
   const resolvedCanImageEdit = Boolean(canImageEdit);

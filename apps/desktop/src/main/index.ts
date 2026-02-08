@@ -2,8 +2,15 @@ import { app, BrowserWindow, Menu, session, nativeImage } from 'electron';
 import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import Module from 'node:module';
 import path from 'path';
+import { fixPath } from './fixPath';
 import { installAutoUpdate } from './autoUpdate';
 import { installIncrementalUpdate } from './incrementalUpdate';
+
+// 中文注释：在最早期修复 PATH，确保后续 spawn 的进程能找到用户级命令（npm global、homebrew 等）。
+// 必须在 app.isPackaged 检查之前执行，因为 fixPath 内部会根据打包状态选择策略。
+if (app.isPackaged) {
+  fixPath();
+}
 
 // 打包后原生模块（sharp、@libsql 等）位于 Resources/node_modules 目录。
 // Node.js 标准解析会从 asar 向上查找到 Resources/node_modules/，
@@ -28,7 +35,10 @@ import {
   resolveWindowIconPath,
 } from './resolveWindowIcon';
 
-const APP_DISPLAY_NAME = 'Tenas';
+// 中文注释：开发态追加 Dev 后缀，避免与打包版名称混淆。
+const APP_DISPLAY_NAME = app.isPackaged ? 'Tenas' : 'Tenas Development';
+// 中文注释：开发版 userData 目录名，避免与打包版共享数据与单实例锁。
+const DEV_USER_DATA_DIR = 'Tenas Development';
 // 中文注释：桌面端协议名称，用于从浏览器唤起应用。
 const APP_PROTOCOL = 'tenas';
 // 中文注释：协议唤起 URL 前缀。
@@ -40,11 +50,16 @@ const APP_PROTOCOL_PREFIX = `${APP_PROTOCOL}://`;
  * - UI 来自 `apps/web` (Next.js)，通过 `webUrl` 加载（dev: next dev；prod: 本地静态导出并由 Electron 内置 http 服务提供）
  * - Backend 来自 `apps/server`，通过 `serverUrl` 访问（dev: `pnpm --filter server dev`；prod: `server.mjs`）
  */
+// 强制对齐 macOS 菜单栏与 Dock 的应用显示名（dev 模式默认会显示 Electron）。
+app.setName(APP_DISPLAY_NAME);
+if (!app.isPackaged) {
+  // 中文注释：必须在读取 userData 之前设置，确保开发版独立目录生效。
+  app.setPath('userData', path.join(app.getPath('appData'), DEV_USER_DATA_DIR));
+}
+
 const { log } = createStartupLogger();
 registerProcessErrorLogging(log);
 
-// 强制对齐 macOS 菜单栏与 Dock 的应用显示名（dev 模式默认会显示 Electron）。
-app.setName(APP_DISPLAY_NAME);
 // 同步 macOS 关于面板的应用显示名，避免 dev 模式仍显示 Electron。
 app.setAboutPanelOptions({ applicationName: APP_DISPLAY_NAME });
 registerProtocolClient(log);
@@ -52,6 +67,11 @@ registerProtocolClient(log);
 log(`App starting. UserData: ${app.getPath('userData')}`);
 log(`Executable: ${process.execPath}`);
 log(`Resources Path: ${process.resourcesPath}`);
+// 中文注释：记录 PATH 修复结果，方便排查 CLI 工具检测问题。
+if (app.isPackaged) {
+  const pathSample = (process.env.PATH ?? '').split(path.delimiter).slice(0, 10).join(path.delimiter);
+  log(`PATH (first 10): ${pathSample}`);
+}
 
 let runtimePorts: RuntimePorts | null = null;
 const runtimePortsReady = resolveRuntimePorts({
@@ -59,6 +79,7 @@ const runtimePortsReady = resolveRuntimePorts({
   webUrlEnv: process.env.TENAS_WEB_URL,
   cdpPortEnv: process.env.TENAS_REMOTE_DEBUGGING_PORT,
   cdpHostEnv: process.env.TENAS_REMOTE_DEBUGGING_HOST,
+  isPackaged: app.isPackaged,
 })
   .then((ports) => {
     // 中文注释：提前锁定随机端口并写回环境变量，保证 web/server/CDP 同步。

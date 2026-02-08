@@ -2,6 +2,7 @@
 
 import type { Value } from "platejs";
 import { KEYS } from "platejs";
+import { SKILL_COMMAND_PREFIX } from "@tenas-ai/api/common";
 import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
 
 // 逻辑：允许非 URL 编码的路径，使用非空白字符匹配文件引用。
@@ -40,6 +41,21 @@ export const buildMentionNode = (value: string): MentionNode => ({
   value: normalizeMentionValue(value),
   children: [{ text: "" }],
 });
+
+/** Build skill command text for chat input. */
+export const buildSkillCommandText = (skillName: string) => {
+  const trimmed = skillName.trim();
+  return trimmed ? `${SKILL_COMMAND_PREFIX}${trimmed}` : "";
+};
+
+/** Append text to chat input with proper spacing. */
+export const appendChatInputText = (current: string, insert: string) => {
+  const trimmedInsert = insert.trim();
+  if (!trimmedInsert) return current;
+  const needsLeadingSpace = current.length > 0 && !/\s$/.test(current);
+  const base = `${current}${needsLeadingSpace ? " " : ""}${trimmedInsert}`;
+  return /\s$/.test(base) ? base : `${base} `;
+};
 
 /** Get the visible label for a file reference. */
 export const getFileLabel = (value: string) => {
