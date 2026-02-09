@@ -81,13 +81,6 @@ interface DesktopHistorySnapshot {
   suspended: boolean;
 }
 
-type PlacementPointer = {
-  /** Placement pointer X. */
-  clientX: number;
-  /** Placement pointer Y. */
-  clientY: number;
-};
-
 /** Render the project index header for the new desktop MVP. */
 const ProjectIndexHeader = React.memo(function ProjectIndexHeader({
   isLoading,
@@ -142,10 +135,6 @@ const ProjectIndex = React.memo(function ProjectIndex({
     ensureLayoutByBreakpoint(getInitialDesktopItems("project"))
   );
   const [editMode, setEditMode] = React.useState(false);
-  /** Pending placement item id for add mode. */
-  const [placementItemId, setPlacementItemId] = React.useState<string | null>(null);
-  /** Placement pointer from the palette click. */
-  const [placementPointer, setPlacementPointer] = React.useState<PlacementPointer | null>(null);
   const [viewBreakpoint, setViewBreakpoint] = React.useState<DesktopBreakpoint>("lg");
   const [editBreakpoint, setEditBreakpoint] = React.useState<DesktopBreakpoint>("lg");
   /** Signal value used for triggering grid compact. */
@@ -213,13 +202,6 @@ const ProjectIndex = React.memo(function ProjectIndex({
     onEditModeChange?.(editMode);
   }, [editMode, onEditModeChange]);
 
-  React.useEffect(() => {
-    if (editMode) return;
-    // 逻辑：退出编辑态时清理放置状态。
-    setPlacementItemId(null);
-    setPlacementPointer(null);
-  }, [editMode]);
-
   const handleSetEditMode = React.useCallback(
     (nextEditMode: boolean) => {
       setEditMode((prev) => {
@@ -240,20 +222,6 @@ const ProjectIndex = React.memo(function ProjectIndex({
   /** Append a new desktop item. */
   const handleAddItem = React.useCallback((item: DesktopItem) => {
     setItems((prev) => [...prev, item]);
-  }, []);
-
-  /** Start placement mode for a newly added item. */
-  const handleStartPlacement = React.useCallback((itemId: string, pointer?: PlacementPointer) => {
-    // 逻辑：进入放置模式，允许鼠标选择位置。
-    setPlacementItemId(itemId);
-    setPlacementPointer(pointer ?? null);
-  }, []);
-
-  /** Handle placement mode completion. */
-  const handlePlacementEnd = React.useCallback(() => {
-    // 逻辑：结束放置模式，清理状态。
-    setPlacementItemId(null);
-    setPlacementPointer(null);
   }, []);
 
   /** Update a single desktop item. */
@@ -418,7 +386,6 @@ const ProjectIndex = React.memo(function ProjectIndex({
         items={items}
         onChangeBreakpoint={setEditBreakpoint}
         onAddItem={handleAddItem}
-        onStartPlacement={handleStartPlacement}
         onCompact={handleCompact}
         onCancel={handleCancel}
         onDone={handleDone}
@@ -435,9 +402,6 @@ const ProjectIndex = React.memo(function ProjectIndex({
         onPersistItemUpdate={handleUpdateItemPersist}
         onChangeItems={setItems}
         compactSignal={compactSignal}
-        placementItemId={placementItemId}
-        placementPointer={placementPointer}
-        onPlacementEnd={handlePlacementEnd}
       />
     </>
   );

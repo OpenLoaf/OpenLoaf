@@ -56,10 +56,6 @@ export type DesktopWidgetSelectedDetail = {
   webPreview?: string;
   /** Optional web meta status for web-stack widget. */
   webMetaStatus?: DesktopWidgetItem["webMetaStatus"];
-  /** Optional pointer X for placement start. */
-  clientX?: number;
-  /** Optional pointer Y for placement start. */
-  clientY?: number;
 };
 
 /** Emit a desktop widget selection event (stack -> desktop page bridge). */
@@ -326,8 +322,6 @@ export default function DesktopWidgetLibraryPanel({
                 emitDesktopWidgetSelected({
                   tabId,
                   widgetKey: item.widgetKey,
-                  clientX: event.clientX,
-                  clientY: event.clientY,
                 });
                 removeStackItem(tabId, panelKey);
               }}

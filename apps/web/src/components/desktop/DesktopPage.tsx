@@ -164,12 +164,6 @@ interface DesktopPageProps {
   onChangeItems: (nextItems: DesktopItem[]) => void;
   /** Signal value for triggering compact. */
   compactSignal: number;
-  /** Pending placement item id for add mode. */
-  placementItemId?: string | null;
-  /** Placement pointer from palette click. */
-  placementPointer?: { clientX: number; clientY: number } | null;
-  /** Notify parent when placement mode ends. */
-  onPlacementEnd?: (reason: "commit" | "cancel", itemId: string) => void;
 }
 
 /** Render a single-page desktop (MVP). */
@@ -184,9 +178,6 @@ export default function DesktopPage({
   onPersistItemUpdate,
   onChangeItems,
   compactSignal,
-  placementItemId,
-  placementPointer,
-  onPlacementEnd,
 }: DesktopPageProps) {
   const editMaxWidth = editMode ? getEditMaxWidth(activeBreakpoint) : undefined;
   const projectListQuery = useProjects();
@@ -278,9 +269,6 @@ export default function DesktopPage({
             setIsFolderDialogOpen(true);
           }}
           compactSignal={compactSignal}
-          placementItemId={placementItemId}
-          placementPointer={placementPointer}
-          onPlacementEnd={onPlacementEnd}
         />
       </div>
     </div>

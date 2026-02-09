@@ -31,13 +31,6 @@ interface DesktopHistorySnapshot {
   suspended: boolean;
 }
 
-type PlacementPointer = {
-  /** Placement pointer X. */
-  clientX: number;
-  /** Placement pointer Y. */
-  clientY: number;
-};
-
 /** Render workspace-level desktop with persistence at workspace root. */
 const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
   const { workspace } = useWorkspace();
@@ -49,10 +42,6 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
     ensureLayoutByBreakpoint(getInitialDesktopItems("workspace"))
   );
   const [editMode, setEditMode] = React.useState(false);
-  /** Pending placement item id for add mode. */
-  const [placementItemId, setPlacementItemId] = React.useState<string | null>(null);
-  /** Placement pointer from the palette click. */
-  const [placementPointer, setPlacementPointer] = React.useState<PlacementPointer | null>(null);
   const [viewBreakpoint, setViewBreakpoint] = React.useState<DesktopBreakpoint>("lg");
   const [editBreakpoint, setEditBreakpoint] = React.useState<DesktopBreakpoint>("lg");
   /** Signal value used for triggering grid compact. */
@@ -118,13 +107,6 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
     setControlsTarget(controlsSlotRef.current);
   }, []);
 
-  React.useEffect(() => {
-    if (editMode) return;
-    // 逻辑：退出编辑态时清理放置状态。
-    setPlacementItemId(null);
-    setPlacementPointer(null);
-  }, [editMode]);
-
   /** Update edit mode state. */
   const handleSetEditMode = React.useCallback(
     (nextEditMode: boolean) => {
@@ -146,20 +128,6 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
   /** Append a new desktop item. */
   const handleAddItem = React.useCallback((item: DesktopItem) => {
     setItems((prev) => [...prev, item]);
-  }, []);
-
-  /** Start placement mode for a newly added item. */
-  const handleStartPlacement = React.useCallback((itemId: string, pointer?: PlacementPointer) => {
-    // 逻辑：进入放置模式，允许鼠标选择位置。
-    setPlacementItemId(itemId);
-    setPlacementPointer(pointer ?? null);
-  }, []);
-
-  /** Handle placement mode completion. */
-  const handlePlacementEnd = React.useCallback(() => {
-    // 逻辑：结束放置模式，清理状态。
-    setPlacementItemId(null);
-    setPlacementPointer(null);
   }, []);
 
   /** Update a single desktop item. */
@@ -328,7 +296,6 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
           items={items}
           onChangeBreakpoint={setEditBreakpoint}
           onAddItem={handleAddItem}
-          onStartPlacement={handleStartPlacement}
           onCompact={handleCompact}
           onCancel={handleCancel}
           onDone={handleDone}
@@ -344,9 +311,6 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
           onPersistItemUpdate={handleUpdateItemPersist}
           onChangeItems={setItems}
           compactSignal={compactSignal}
-          placementItemId={placementItemId}
-          placementPointer={placementPointer}
-          onPlacementEnd={handlePlacementEnd}
         />
       </div>
     </div>

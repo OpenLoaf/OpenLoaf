@@ -50,10 +50,6 @@ export default function DesktopDemoPage() {
   );
   // 是否进入编辑模式。
   const [editMode, setEditMode] = React.useState(false);
-  // 放置模式下的目标组件 id。
-  const [placementItemId, setPlacementItemId] = React.useState<string | null>(null);
-  // 放置模式下的起始指针坐标。
-  const [placementPointer, setPlacementPointer] = React.useState<{ clientX: number; clientY: number } | null>(null);
   // 当前断点。
   const [activeBreakpoint, setActiveBreakpoint] = React.useState<DesktopBreakpoint>("lg");
   // 触发整理布局的信号。
@@ -81,20 +77,6 @@ export default function DesktopDemoPage() {
       return nextEditMode;
     });
   }, [items]);
-
-  React.useEffect(() => {
-    if (editMode) return;
-    // 逻辑：退出编辑态时清理放置状态。
-    setPlacementItemId(null);
-    setPlacementPointer(null);
-  }, [editMode]);
-
-  /** Handle placement mode completion. */
-  const handlePlacementEnd = React.useCallback(() => {
-    // 逻辑：结束放置模式，清理状态。
-    setPlacementItemId(null);
-    setPlacementPointer(null);
-  }, []);
 
   /** Update a single desktop item. */
   const handleUpdateItem = React.useCallback(
@@ -160,22 +142,12 @@ export default function DesktopDemoPage() {
       if (!detail) return;
       if (!activeTabId || detail.tabId !== activeTabId) return;
 
-      // 逻辑：用同步变量承接新建组件 id，供放置模式使用。
-      let nextPlacementId: string | null = null;
-      let nextPlacementPointer: { clientX: number; clientY: number } | null = null;
+      // 逻辑：直接将新组件追加到列表末尾。
       setItems((prev) => {
         const nextItem = createWidgetItem(detail.widgetKey, prev);
         if (!nextItem) return prev;
-        nextPlacementId = nextItem.id;
         return [...prev, nextItem];
       });
-      if (detail.clientX != null && detail.clientY != null) {
-        nextPlacementPointer = { clientX: detail.clientX, clientY: detail.clientY };
-      }
-      if (nextPlacementId) {
-        setPlacementItemId(nextPlacementId);
-        setPlacementPointer(nextPlacementPointer);
-      }
     };
 
     window.addEventListener(DESKTOP_WIDGET_SELECTED_EVENT, handleWidgetSelected as EventListener);
@@ -301,9 +273,6 @@ export default function DesktopDemoPage() {
           onPersistItemUpdate={undefined}
           onChangeItems={setItems}
           compactSignal={compactSignal}
-          placementItemId={placementItemId}
-          placementPointer={placementPointer}
-          onPlacementEnd={handlePlacementEnd}
         />
       </div>
     </div>

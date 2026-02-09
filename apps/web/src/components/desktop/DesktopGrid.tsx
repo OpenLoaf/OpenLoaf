@@ -14,7 +14,6 @@ import {
 import DesktopTileGridstack from "./DesktopTileGridstack";
 
 type GridstackElement = HTMLDivElement & { gridstackNode?: GridStackNode };
-type GridStackWithCancel = GridStack & { cancelDrag?: () => void };
 
 function sameLayout(
   a: { x: number; y: number; w: number; h: number },
@@ -80,12 +79,6 @@ interface DesktopGridProps {
   onSelectFolder: (itemId: string) => void;
   /** Signal value for triggering compact. */
   compactSignal: number;
-  /** Pending placement item id for add mode. */
-  placementItemId?: string | null;
-  /** Placement pointer from palette click. */
-  placementPointer?: { clientX: number; clientY: number } | null;
-  /** Notify parent when placement mode ends. */
-  onPlacementEnd?: (reason: "commit" | "cancel", itemId: string) => void;
 }
 
 /** Render a responsive Gridstack desktop grid; edit mode enables drag & resize. */
@@ -102,9 +95,6 @@ export default function DesktopGrid({
   onDeleteItem,
   onSelectFolder,
   compactSignal,
-  placementItemId,
-  placementPointer,
-  onPlacementEnd,
 }: DesktopGridProps) {
   const { basic } = useBasicConfig();
   // 中文注释：动画等级为低时禁用 Gridstack 动画。
@@ -125,24 +115,6 @@ export default function DesktopGrid({
     editModeRef.current = editMode;
   }, [editMode]);
 
-  React.useEffect(() => {
-    placementItemIdRef.current = placementItemId ?? null;
-  }, [placementItemId]);
-
-  React.useEffect(() => {
-    placementEndRef.current = onPlacementEnd;
-  }, [onPlacementEnd]);
-
-  React.useEffect(() => {
-    placementDragStartedRef.current = false;
-    placementCanceledRef.current = false;
-    placementDragAttemptsRef.current = 0;
-    if (placementDragFrameRef.current != null) {
-      window.cancelAnimationFrame(placementDragFrameRef.current);
-      placementDragFrameRef.current = null;
-    }
-  }, [editMode, placementItemId]);
-
   const wrapperRef = React.useRef<HTMLDivElement | null>(null);
   const gridContainerRef = React.useRef<HTMLDivElement | null>(null);
   const gridRef = React.useRef<GridStack | null>(null);
@@ -154,20 +126,6 @@ export default function DesktopGrid({
   const suppressChangeRef = React.useRef(false);
   // 记录上次 compact 信号，避免进入编辑态时自动整理。
   const lastCompactSignalRef = React.useRef<number>(-1);
-  const placementFrameRef = React.useRef<number | null>(null);
-  const placementPendingRef = React.useRef<{ x: number; y: number } | null>(null);
-  // 逻辑：放置模式拖拽启动的帧调度句柄。
-  const placementDragFrameRef = React.useRef<number | null>(null);
-  // 逻辑：放置模式拖拽启动的重试计数，避免无限循环。
-  const placementDragAttemptsRef = React.useRef(0);
-  // 逻辑：标记放置拖拽是否已启动。
-  const placementDragStartedRef = React.useRef(false);
-  // 逻辑：标记放置模式是否被取消，用于跳过提交。
-  const placementCanceledRef = React.useRef(false);
-  // 逻辑：缓存放置中的 itemId，供 GridStack 事件读取。
-  const placementItemIdRef = React.useRef<string | null>(placementItemId ?? null);
-  // 逻辑：缓存放置结束回调，避免闭包过期。
-  const placementEndRef = React.useRef(onPlacementEnd);
 
   const [containerWidth, setContainerWidth] = React.useState<number>(0);
   React.useEffect(() => {
@@ -222,237 +180,6 @@ export default function DesktopGrid({
       padding: scaleMetric(config.padding),
     };
   }, [fontScale, resolvedBreakpoint]);
-
-  /** Update placement item position based on pointer location. */
-  const updatePlacementFromPointer = React.useCallback(
-    (clientX: number, clientY: number) => {
-      if (!editModeRef.current) return;
-      if (!placementItemId) return;
-      const grid = gridRef.current;
-      if (!grid) return;
-      const target = itemsRef.current.find((item) => item.id === placementItemId);
-      if (!target) return;
-      const active = breakpointRef.current;
-      const currentLayout = getItemLayoutForBreakpoint(target, active);
-      const scrollTop =
-        document.documentElement.scrollTop || document.body.scrollTop || 0;
-      const cell = grid.getCellFromPixel(
-        { left: clientX, top: clientY + scrollTop },
-        true
-      );
-      if (!cell) return;
-      // 逻辑：指针位置映射为网格坐标，并限制在可用列范围内。
-      const clampedX = Math.max(
-        0,
-        Math.min(metrics.cols - currentLayout.w, cell.x)
-      );
-      const clampedY = Math.max(0, cell.y);
-      const nextLayout = {
-        x: clampedX,
-        y: clampedY,
-        w: currentLayout.w,
-        h: currentLayout.h,
-      };
-      if (sameLayout(currentLayout, nextLayout)) return;
-      onUpdateItem(placementItemId, (item) =>
-        updateItemLayoutForBreakpoint(item, active, nextLayout)
-      );
-    },
-    [metrics.cols, onUpdateItem, placementItemId]
-  );
-
-  /** Schedule placement updates on animation frames. */
-  const schedulePlacementUpdate = React.useCallback(
-    (clientX: number, clientY: number) => {
-      placementPendingRef.current = { x: clientX, y: clientY };
-      if (placementFrameRef.current != null) return;
-      placementFrameRef.current = window.requestAnimationFrame(() => {
-        placementFrameRef.current = null;
-        const pending = placementPendingRef.current;
-        if (!pending) return;
-        placementPendingRef.current = null;
-        updatePlacementFromPointer(pending.x, pending.y);
-      });
-    },
-    [updatePlacementFromPointer]
-  );
-
-  /** Attempt to start native drag for the placement item. */
-  const tryStartPlacementDrag = React.useCallback(
-    (pointer?: { clientX: number; clientY: number }) => {
-      if (!editModeRef.current) return false;
-      if (placementCanceledRef.current) return true;
-      if (placementDragStartedRef.current) return true;
-      const itemId = placementItemIdRef.current;
-      if (!itemId) return false;
-      const grid = gridRef.current;
-      if (!grid) return false;
-      const el = itemElByIdRef.current.get(itemId);
-      if (!el) return false;
-      const node = (el as GridstackElement).gridstackNode;
-      if (!node || node.grid !== grid) return false;
-      // 跳过 CSS 过渡动画，确保元素立即到达目标尺寸/位置，
-      // 否则 getBoundingClientRect() 会读到动画中间值（接近 1x1 / 左上角）。
-      el.style.transition = "none";
-
-      // 同步将元素移到鼠标对应的网格位置（居中对齐）。
-      // createWidgetItem 初始位置是 y:maxY（底部），而 schedulePlacementUpdate 的
-      // React setState → re-render → grid.update 异步链尚未完成，元素仍在底部。
-      // 此处直接调用 grid.update 避免 dragOffset 计算偏移。
-      if (pointer) {
-        const scrollTop =
-          document.documentElement.scrollTop || document.body.scrollTop || 0;
-        const cell = grid.getCellFromPixel(
-          { left: pointer.clientX, top: pointer.clientY + scrollTop },
-          true
-        );
-        if (cell) {
-          const currentW = node.w ?? 1;
-          const currentH = node.h ?? 1;
-          const cols = grid.getColumn();
-          // 偏移半个组件尺寸，使组件中心对齐鼠标而非左上角对齐。
-          const centerX = Math.max(0, Math.min(cols - currentW, cell.x - Math.floor(currentW / 2)));
-          const centerY = Math.max(0, cell.y - Math.floor(currentH / 2));
-          grid.update(el, { x: centerX, y: centerY, w: currentW, h: currentH });
-        }
-      }
-
-      el.offsetHeight; // force reflow
-
-      const rect = el.getBoundingClientRect();
-      if (rect.width < 2 || rect.height < 2) {
-        return false;
-      }
-
-      grid.prepareDragDrop(el, true);
-
-      const dragHandle = el.querySelector(".desktop-tile-handle") as HTMLElement | null;
-      const target = dragHandle ?? el;
-      const targetRect = target.getBoundingClientRect();
-      // 始终以元素中心作为合成点击位置，使 GridStack 计算出
-      // dragOffset = (width/2, height/2)，后续拖拽时组件中心始终跟随鼠标。
-      const startX = targetRect.left + targetRect.width / 2;
-      const startY = targetRect.top + targetRect.height / 2;
-
-      // 逻辑：派发一次虚拟 mousedown + mousemove，触发 GridStack 原生拖拽状态。
-      // mousedown 在元素中心，使 dragOffset = (width/2, height/2)；
-      // mousemove 到真实鼠标位置，让元素立即居中对齐鼠标。
-      const downEvent = new MouseEvent("mousedown", {
-        bubbles: true,
-        cancelable: true,
-        clientX: startX,
-        clientY: startY,
-        button: 0,
-        buttons: 1,
-      });
-      target.dispatchEvent(downEvent);
-      const moveX = pointer?.clientX ?? startX + 2;
-      const moveY = pointer?.clientY ?? startY + 2;
-      const moveEvent = new MouseEvent("mousemove", {
-        bubbles: true,
-        cancelable: true,
-        clientX: moveX,
-        clientY: moveY,
-        buttons: 1,
-      });
-      document.dispatchEvent(moveEvent);
-
-      placementDragStartedRef.current = true;
-      return true;
-    },
-    []
-  );
-
-  /** Schedule native drag start for placement mode. */
-  const schedulePlacementDragStart = React.useCallback(
-    (pointer?: { clientX: number; clientY: number }) => {
-      if (placementDragFrameRef.current != null) return;
-      if (placementDragStartedRef.current) return;
-      if (placementCanceledRef.current) return;
-      if (!placementItemIdRef.current) return;
-      placementDragFrameRef.current = window.requestAnimationFrame(() => {
-        placementDragFrameRef.current = null;
-        if (placementDragStartedRef.current) return;
-        if (placementCanceledRef.current) return;
-        if (!placementItemIdRef.current) return;
-        const started = tryStartPlacementDrag(pointer);
-        if (started) return;
-        placementDragAttemptsRef.current += 1;
-        if (placementDragAttemptsRef.current >= 12) return;
-        schedulePlacementDragStart(pointer);
-      });
-    },
-    [tryStartPlacementDrag]
-  );
-
-  /** Cancel placement mode and remove item. */
-  const handlePlacementCancel = React.useCallback(() => {
-    if (!placementItemId) return;
-    placementCanceledRef.current = true;
-    placementDragStartedRef.current = false;
-    if (placementDragFrameRef.current != null) {
-      window.cancelAnimationFrame(placementDragFrameRef.current);
-      placementDragFrameRef.current = null;
-    }
-    const grid = gridRef.current as GridStackWithCancel | null;
-    grid?.cancelDrag?.();
-    // 逻辑：取消放置时移除临时组件。
-    const el = itemElByIdRef.current.get(placementItemId);
-    if (el && gridRef.current) gridRef.current.removeWidget(el, false);
-    onDeleteItem(placementItemId);
-    onPlacementEnd?.("cancel", placementItemId);
-  }, [onDeleteItem, onPlacementEnd, placementItemId]);
-
-  React.useEffect(() => {
-    if (placementItemId) return;
-    // 逻辑：退出放置模式时清理挂起的指针更新。
-    if (placementFrameRef.current != null) {
-      window.cancelAnimationFrame(placementFrameRef.current);
-      placementFrameRef.current = null;
-    }
-    placementPendingRef.current = null;
-    if (placementDragFrameRef.current != null) {
-      window.cancelAnimationFrame(placementDragFrameRef.current);
-      placementDragFrameRef.current = null;
-    }
-  }, [placementItemId]);
-
-  React.useEffect(() => {
-    if (!editMode || !placementItemId) return;
-    if (!placementPointer) return;
-    // 逻辑：初始放置时把组件贴到当前鼠标位置。
-    schedulePlacementUpdate(placementPointer.clientX, placementPointer.clientY);
-  }, [editMode, placementItemId, placementPointer, schedulePlacementUpdate]);
-
-  React.useEffect(() => {
-    if (!editMode || !placementItemId) return;
-    schedulePlacementDragStart(placementPointer ?? undefined);
-  }, [editMode, placementItemId, placementPointer, schedulePlacementDragStart]);
-
-  React.useEffect(() => {
-    if (!editMode || !placementItemId) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      handlePlacementCancel();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [editMode, handlePlacementCancel, placementItemId]);
-
-  React.useEffect(() => {
-    if (!editMode || !placementItemId) return;
-    const handleContextMenu = (event: MouseEvent) => {
-      event.preventDefault();
-      handlePlacementCancel();
-    };
-    window.addEventListener("contextmenu", handleContextMenu);
-    return () => {
-      window.removeEventListener("contextmenu", handleContextMenu);
-    };
-  }, [editMode, handlePlacementCancel, placementItemId]);
 
   React.useEffect(() => {
     const el = gridContainerRef.current;
@@ -546,25 +273,13 @@ export default function DesktopGrid({
     };
 
     /** Sync layout after drag stop. */
-    const onDragStop = (_event: Event, el?: HTMLElement) => {
+    const onDragStop = () => {
       if (!editModeRef.current) return;
       syncItemsFromGrid();
-      const placementId = placementItemIdRef.current;
-      if (!placementId) return;
-      if (placementCanceledRef.current) {
-        placementCanceledRef.current = false;
-        return;
-      }
-      const gridEl = el as GridstackElement | undefined;
-      const dragId =
-        el?.getAttribute("gs-id") ??
-        (gridEl?.gridstackNode?.id != null ? String(gridEl.gridstackNode.id) : null);
-      if (!dragId || dragId !== placementId) return;
-      placementEndRef.current?.("commit", placementId);
     };
 
     /** Sync layout after resize stop. */
-    const onResizeStop = (_event: Event, el?: HTMLElement) => {
+    const onResizeStop = () => {
       if (!editModeRef.current) return;
       syncItemsFromGrid();
     };
