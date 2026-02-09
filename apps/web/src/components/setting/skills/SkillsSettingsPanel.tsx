@@ -11,7 +11,7 @@ import { Button } from "@tenas-ai/ui/button";
 import { Switch } from "@tenas-ai/ui/switch";
 import { Input } from "@tenas-ai/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
-import { Eye, FolderOpen, Search, Trash2, X } from "lucide-react";
+import { Eye, FolderOpen, Search, Sparkles, Trash2, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useProject } from "@/hooks/use-project";
@@ -495,14 +495,15 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                 <TooltipTrigger asChild>
                   <Button
                     type="button"
-                    size="icon"
+                    size="sm"
                     variant="ghost"
-                    className="h-8 w-8"
+                    className="h-8 px-2 text-xs"
                     onClick={() => void handleOpenSkillsRoot()}
                     disabled={!skillsRootUri || !workspaceId || (isProjectList && !projectId)}
                     aria-label="打开技能目录"
                   >
                     <FolderOpen className="h-4 w-4" />
+                    <span className="ml-1.5">打开文件夹</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" sideOffset={6}>
@@ -535,6 +536,23 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                     <ScopeTag scope={skill.scope} />
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="h-7 px-2 text-xs gap-1"
+                      onClick={() => handleInsertSkillCommand(skill)}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      使用此技能
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="text-xs text-muted-foreground line-clamp-2 flex-1">
+                    {skill.description?.trim() ? skill.description : skill.name}
+                  </div>
+                  <div className="flex items-center gap-2">
                     {skill.isDeletable ? (
                       <Button
                         type="button"
@@ -542,11 +560,11 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                         variant="ghost"
                         aria-label="删除技能"
                         title="删除技能"
-                        className="h-8 w-8 text-destructive"
+                        className="h-7 w-7 text-destructive"
                         onClick={() => handleDeleteSkill(skill)}
                         disabled={deleteSkillMutation.isPending}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     ) : null}
                     <Tooltip>
@@ -556,7 +574,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                           size="icon"
                           variant="ghost"
                           aria-label="查看技能目录"
-                          className="h-8 w-8"
+                          className="h-7 w-7"
                           onClick={() => handleOpenSkill(skill)}
                           disabled={
                             !activeTabId ||
@@ -570,7 +588,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                             )
                           }
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-3.5 w-3.5" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" sideOffset={6}>
@@ -584,20 +602,6 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                       disabled={updateSkillMutation.isPending}
                     />
                   </div>
-                </div>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="text-xs text-muted-foreground line-clamp-2 flex-1">
-                    {skill.description}
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => handleInsertSkillCommand(skill)}
-                  >
-                    立即使用
-                  </Button>
                 </div>
               </div>
             </div>

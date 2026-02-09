@@ -44,10 +44,20 @@ export interface TabsState {
   setTabTitle: (tabId: string, title: string) => void;
   /** Update tab icon. */
   setTabIcon: (tabId: string, icon?: string | null) => void;
+  setTabSessionTitles: (tabId: string, titles: Record<string, string>) => void;
+  addTabSession: (tabId: string, sessionId: string) => void;
+  removeTabSession: (tabId: string, sessionId: string) => void;
+  /** Move a tab session within its list. */
+  moveTabSession: (tabId: string, sessionId: string, direction: "up" | "down") => void;
+  setActiveTabSession: (
+    tabId: string,
+    sessionId: string,
+    options?: { loadHistory?: boolean; replaceCurrent?: boolean },
+  ) => void;
   setTabChatSession: (
     tabId: string,
     chatSessionId: string,
-    options?: { loadHistory?: boolean },
+    options?: { loadHistory?: boolean; replaceCurrent?: boolean },
   ) => void;
 }
 
@@ -78,6 +88,28 @@ function updateTabById(tabs: TabMeta[], tabId: string, updater: (tab: TabMeta) =
   const nextTabs = [...tabs];
   nextTabs[index] = updater(nextTabs[index]!);
   return nextTabs;
+}
+
+function normalizeTabSessionState(tab: TabMeta) {
+  const rawIds =
+    Array.isArray(tab.chatSessionIds) && tab.chatSessionIds.length > 0
+      ? tab.chatSessionIds
+      : [tab.chatSessionId];
+  const ids = rawIds.filter((id) => typeof id === "string" && id.length > 0);
+  const fallbackIds = ids.length > 0 ? ids : [tab.chatSessionId];
+  let activeIndex =
+    typeof tab.activeSessionIndex === "number" ? tab.activeSessionIndex : -1;
+  if (activeIndex < 0 || activeIndex >= fallbackIds.length) {
+    activeIndex = Math.max(0, fallbackIds.indexOf(tab.chatSessionId));
+  }
+  if (activeIndex < 0 || activeIndex >= fallbackIds.length) {
+    activeIndex = 0;
+  }
+  return {
+    ids: fallbackIds,
+    activeIndex,
+    activeSessionId: fallbackIds[activeIndex] ?? tab.chatSessionId,
+  };
 }
 
 export const useTabs = create<TabsState>()(
@@ -116,6 +148,8 @@ export const useTabs = create<TabsState>()(
           icon: icon ?? DEFAULT_TAB_INFO.icon,
           isPin: isPin ?? false,
           chatSessionId: createdChatSessionId,
+          chatSessionIds: [createdChatSessionId],
+          activeSessionIndex: 0,
           chatParams,
           chatLoadHistory: createdChatLoadHistory,
           createdAt: now,
@@ -280,22 +314,157 @@ export const useTabs = create<TabsState>()(
           })),
         }));
       },
+      setTabSessionTitles: (tabId, titles) => {
+        set((state) => ({
+          tabs: updateTabById(state.tabs, tabId, (tab) => {
+            const nextTitles = { ...(tab.chatSessionTitles ?? {}), ...titles };
+            const prevTitles = tab.chatSessionTitles ?? {};
+            const prevKeys = Object.keys(prevTitles);
+            const nextKeys = Object.keys(nextTitles);
+            if (prevKeys.length === nextKeys.length) {
+              let same = true;
+              for (const key of nextKeys) {
+                if (prevTitles[key] !== nextTitles[key]) {
+                  same = false;
+                  break;
+                }
+              }
+              if (same) return tab;
+            }
+            return {
+              ...tab,
+              chatSessionTitles: nextTitles,
+            };
+          }),
+        }));
+      },
+
+      addTabSession: (tabId, sessionId) => {
+        set((state) => ({
+          tabs: updateTabById(state.tabs, tabId, (tab) => {
+            const { ids } = normalizeTabSessionState(tab);
+            const existingIndex = ids.indexOf(sessionId);
+            if (existingIndex >= 0) {
+              return {
+                ...tab,
+                chatSessionIds: ids,
+                activeSessionIndex: existingIndex,
+                chatSessionId: sessionId,
+                chatLoadHistory: false,
+              };
+            }
+            const nextIds = [...ids, sessionId];
+            return {
+              ...tab,
+              chatSessionIds: nextIds,
+              activeSessionIndex: nextIds.length - 1,
+              chatSessionId: sessionId,
+              chatLoadHistory: false,
+            };
+          }),
+        }));
+      },
+
+      removeTabSession: (tabId, sessionId) => {
+        set((state) => ({
+          tabs: updateTabById(state.tabs, tabId, (tab) => {
+            const { ids, activeIndex } = normalizeTabSessionState(tab);
+            const targetIndex = ids.indexOf(sessionId);
+            if (targetIndex === -1) return tab;
+            const nextIds = ids.filter((id) => id !== sessionId);
+            const nextTitles = { ...(tab.chatSessionTitles ?? {}) };
+            if (nextTitles[sessionId]) delete nextTitles[sessionId];
+            if (nextIds.length === 0) {
+              const fallbackSessionId = createChatSessionId();
+              return {
+                ...tab,
+                chatSessionIds: [fallbackSessionId],
+                activeSessionIndex: 0,
+                chatSessionId: fallbackSessionId,
+                chatSessionTitles: nextTitles,
+                chatLoadHistory: false,
+              };
+            }
+            let nextActiveIndex = activeIndex;
+            if (targetIndex < activeIndex) nextActiveIndex = activeIndex - 1;
+            if (targetIndex === activeIndex) {
+              nextActiveIndex = Math.min(targetIndex, nextIds.length - 1);
+            }
+            const nextActiveSessionId = nextIds[nextActiveIndex] ?? nextIds[0]!;
+            return {
+              ...tab,
+              chatSessionIds: nextIds,
+              activeSessionIndex: nextActiveIndex,
+              chatSessionId: nextActiveSessionId,
+              chatSessionTitles: nextTitles,
+              chatLoadHistory: targetIndex === activeIndex ? true : tab.chatLoadHistory,
+            };
+          }),
+        }));
+      },
+      moveTabSession: (tabId, sessionId, direction) => {
+        set((state) => ({
+          tabs: updateTabById(state.tabs, tabId, (tab) => {
+            const { ids, activeIndex, activeSessionId } = normalizeTabSessionState(tab);
+            const currentIndex = ids.indexOf(sessionId);
+            if (currentIndex === -1) return tab;
+            const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+            if (nextIndex < 0 || nextIndex >= ids.length) return tab;
+            const nextIds = [...ids];
+            // 中文注释：交换相邻会话位置，保持活跃会话不变。
+            [nextIds[currentIndex], nextIds[nextIndex]] = [
+              nextIds[nextIndex]!,
+              nextIds[currentIndex]!,
+            ];
+            const resolvedActiveIndex = nextIds.indexOf(activeSessionId ?? "");
+            const nextActiveIndex =
+              resolvedActiveIndex >= 0 ? resolvedActiveIndex : Math.min(activeIndex, nextIds.length - 1);
+            const nextActiveSessionId = nextIds[nextActiveIndex] ?? tab.chatSessionId;
+            return {
+              ...tab,
+              chatSessionIds: nextIds,
+              activeSessionIndex: nextActiveIndex,
+              chatSessionId: nextActiveSessionId,
+            };
+          }),
+        }));
+      },
+
+      setActiveTabSession: (tabId, sessionId, options) => {
+        set((state) => ({
+          tabs: updateTabById(state.tabs, tabId, (tab) => {
+            const { ids, activeIndex } = normalizeTabSessionState(tab);
+            const existingIndex = ids.indexOf(sessionId);
+            let nextIds = ids;
+            let nextActiveIndex = activeIndex;
+            if (existingIndex >= 0) {
+              nextActiveIndex = existingIndex;
+            } else if (options?.replaceCurrent && ids.length > 0) {
+              nextIds = [...ids];
+              nextIds[activeIndex] = sessionId;
+            } else {
+              nextIds = [...ids, sessionId];
+              nextActiveIndex = nextIds.length - 1;
+            }
+            return {
+              ...tab,
+              chatSessionIds: nextIds,
+              activeSessionIndex: nextActiveIndex,
+              chatSessionId: sessionId,
+              chatLoadHistory: options?.loadHistory,
+            };
+          }),
+        }));
+      },
 
       setTabChatSession: (tabId, chatSessionId, options) => {
-        set((state) => ({
-          tabs: updateTabById(state.tabs, tabId, (tab) => ({
-            ...tab,
-            chatSessionId,
-            // loadHistory 是一次性的“下一次是否补历史”的开关，由 Chat 侧消费。
-            chatLoadHistory: options?.loadHistory,
-          })),
-        }));
+        get().setActiveTabSession(tabId, chatSessionId, options);
       },
     }),
     {
       name: TABS_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      version: 6,
+      version: 7,
       migrate: (persisted: any) => {
         const now = Date.now();
         const tabs = Array.isArray(persisted?.tabs) ? persisted.tabs : [];
@@ -319,13 +488,31 @@ export const useTabs = create<TabsState>()(
               typeof tab?.chatSessionId === "string" && tab.chatSessionId
                 ? tab.chatSessionId
                 : createChatSessionId(),
+            chatSessionIds:
+              Array.isArray(tab?.chatSessionIds) && tab.chatSessionIds.length > 0
+                ? tab.chatSessionIds.filter((id: unknown) => typeof id === "string")
+                : undefined,
+            activeSessionIndex:
+              typeof tab?.activeSessionIndex === "number" ? tab.activeSessionIndex : undefined,
+            chatSessionTitles:
+              typeof tab?.chatSessionTitles === "object" && tab.chatSessionTitles
+                ? (tab.chatSessionTitles as Record<string, string>)
+                : undefined,
             chatParams:
               typeof tab?.chatParams === "object" && tab.chatParams ? tab.chatParams : undefined,
             chatLoadHistory:
               typeof tab?.chatLoadHistory === "boolean" ? tab.chatLoadHistory : undefined,
             createdAt: Number.isFinite(tab?.createdAt) ? tab.createdAt : now,
             lastActiveAt: Number.isFinite(tab?.lastActiveAt) ? tab.lastActiveAt : now,
-          })),
+          })).map((tab: TabMeta) => {
+            const { ids, activeIndex, activeSessionId } = normalizeTabSessionState(tab);
+            return {
+              ...tab,
+              chatSessionIds: ids,
+              activeSessionIndex: activeIndex,
+              chatSessionId: activeSessionId,
+            };
+          }),
         };
       },
       // 只落盘 tabs 与 activeTabId。

@@ -1,7 +1,7 @@
 /**
  * Available calendar view types.
  */
-export type CalendarView = 'month' | 'week' | 'day' | 'year'
+export type CalendarView = 'month' | 'week' | 'day'
 
 /**
  * Time format options for displaying times in the calendar.

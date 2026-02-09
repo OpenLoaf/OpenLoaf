@@ -9,7 +9,7 @@ import {
   useTransform,
   useReducedMotion,
 } from "motion/react";
-import { Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, PencilLine, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Chat } from "@/components/chat/Chat";
 import { ChatSessionBarItem } from "@/components/chat/session/ChatSessionBar";
@@ -17,9 +17,33 @@ import { useTabs, LEFT_DOCK_MIN_PX } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useTabView } from "@/hooks/use-tab-view";
 import { createChatSessionId } from "@/lib/chat-session-id";
-import { useChatSessions } from "@/hooks/use-chat-sessions";
+import { useChatRuntime, type ChatStatus } from "@/hooks/use-chat-runtime";
+import { invalidateChatSessions, useChatSessions } from "@/hooks/use-chat-sessions";
+import { useSessionTitles } from "@/hooks/use-session-titles";
 import { LeftDock } from "./LeftDock";
 import type { TabMeta } from "@/hooks/tab-types";
+import { Button } from "@tenas-ai/ui/button";
+import { Input } from "@tenas-ai/ui/input";
+import { Label } from "@tenas-ai/ui/label";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@tenas-ai/ui/dialog";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@tenas-ai/ui/context-menu";
+import { useMutation } from "@tanstack/react-query";
+import { queryClient, trpc } from "@/utils/trpc";
+import { toast } from "sonner";
 import {
   bindPanelHost,
   hasPanel,
@@ -37,69 +61,163 @@ const PANEL_SWITCH_DELAY_MS = 180;
 type SessionListItem = {
   sessionId: string;
   title: string;
+  index: number;
+};
+type SessionIndicator = {
+  hasUnread?: boolean;
+  lastSeenAt?: number;
+  lastUpdatedAt?: number;
 };
 
 // Render the right chat panel for a tab.
 function RightChatPanel({ tabId }: { tabId: string }) {
-  const tab = useTabs((s) => s.getTabById(tabId));
-  const setTabChatSession = useTabs((s) => s.setTabChatSession);
+  const tab = useTabView(tabId);
+  const addTabSession = useTabs((s) => s.addTabSession);
+  const removeTabSession = useTabs((s) => s.removeTabSession);
+  const setActiveTabSession = useTabs((s) => s.setActiveTabSession);
+  const moveTabSession = useTabs((s) => s.moveTabSession);
+  const setTabSessionTitles = useTabs((s) => s.setTabSessionTitles);
   const { sessions: remoteSessions } = useChatSessions({ tabId });
-  const [sessionList, setSessionList] = React.useState<SessionListItem[]>([]);
+  useSessionTitles({ tabId, sessions: remoteSessions });
+  const chatStatusBySessionId = useChatRuntime((s) => s.chatStatusBySessionId);
+  const [sessionIndicators, setSessionIndicators] = React.useState<
+    Record<string, SessionIndicator>
+  >({});
+  const prevSessionStatusRef = React.useRef<Record<string, ChatStatus | null | undefined>>({});
+  const [renameOpen, setRenameOpen] = React.useState(false);
+  const [renameSessionId, setRenameSessionId] = React.useState<string | null>(null);
+  const [renameValue, setRenameValue] = React.useState("");
 
   const activeSessionId = tab?.chatSessionId;
+  const activeSessionUpdatedAt = React.useMemo(() => {
+    if (!activeSessionId) return undefined;
+    const match = remoteSessions.find((session) => session.id === activeSessionId);
+    if (!match) return undefined;
+    return new Date(match.updatedAt).getTime();
+  }, [activeSessionId, remoteSessions]);
+  const sessionIds = React.useMemo(() => {
+    if (!tab) return [];
+    const ids =
+      Array.isArray(tab.chatSessionIds) && tab.chatSessionIds.length > 0
+        ? tab.chatSessionIds
+        : tab.chatSessionId
+          ? [tab.chatSessionId]
+          : [];
+    return ids.filter((id): id is string => typeof id === "string" && id.length > 0);
+  }, [tab]);
+  const sessionList = React.useMemo<SessionListItem[]>(() => {
+    const titleMap = tab?.chatSessionTitles ?? {};
+    return sessionIds.map((sessionId, index) => {
+      const title = titleMap[sessionId];
+      return { sessionId, title: title?.trim() || "新对话", index };
+    });
+  }, [sessionIds, tab?.chatSessionTitles]);
   const handleSessionChange = React.useCallback(
     (sessionId: string, options?: { loadHistory?: boolean; replaceCurrent?: boolean }) => {
-      setSessionList((prev) => {
-        if (prev.some((item) => item.sessionId === sessionId)) return prev;
-        if (
-          (options?.replaceCurrent || options?.loadHistory) &&
-          activeSessionId &&
-          activeSessionId !== sessionId
-        ) {
-          const activeIndex = prev.findIndex((item) => item.sessionId === activeSessionId);
-          if (activeIndex >= 0) {
-            const next = [...prev];
-            // 中文注释：从历史/清理切换时替换当前会话，避免新增折叠条。
-            next[activeIndex] = { sessionId, title: "新对话" };
-            return next;
-          }
-        }
-        return prev;
-      });
-      setTabChatSession(tabId, sessionId, options);
+      if (!tabId) return;
+      setActiveTabSession(tabId, sessionId, options);
     },
-    [activeSessionId, setTabChatSession, tabId],
+    [setActiveTabSession, tabId],
   );
 
-  // 自动注册当前会话到 sessionList
+  // 清理不存在的会话状态
+  React.useEffect(() => {
+    if (sessionIds.length === 0) return;
+    setSessionIndicators((prev) => {
+      const validIds = new Set(sessionIds);
+      const next = Object.fromEntries(
+        Object.entries(prev).filter(([id]) => validIds.has(id))
+      );
+      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+    });
+  }, [sessionIds]);
+
+  // 记录活跃会话已读时间（使用服务端 updatedAt，避免客户端/服务端时钟偏差）
   React.useEffect(() => {
     if (!activeSessionId) return;
-    setSessionList((prev) => {
-      if (prev.some((s) => s.sessionId === activeSessionId)) return prev;
-      return [...prev, { sessionId: activeSessionId, title: "新对话" }];
+    setSessionIndicators((prev) => {
+      const current = prev[activeSessionId] ?? {};
+      const nextSeenAt =
+        typeof activeSessionUpdatedAt === "number" ? activeSessionUpdatedAt : Date.now();
+      if (current.lastSeenAt === nextSeenAt && current.hasUnread === false) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [activeSessionId]: {
+          ...current,
+          lastSeenAt: nextSeenAt,
+          hasUnread: false,
+        },
+      };
     });
-  }, [activeSessionId]);
+  }, [activeSessionId, activeSessionUpdatedAt]);
 
-  // 从服务端同步会话标题
+  // 根据远端更新时间推断未读与 streaming 完成
   React.useEffect(() => {
     if (remoteSessions.length === 0) return;
-    setSessionList((prev) =>
-      prev.map((item) => {
-        const remote = remoteSessions.find((s) => s.id === item.sessionId);
-        if (!remote) return item;
-        const title = remote.title?.trim() || "新对话";
-        if (title === item.title) return item;
-        return { ...item, title };
-      })
-    );
-  }, [remoteSessions]);
+    setSessionIndicators((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const session of remoteSessions) {
+        const updatedAtMs = new Date(session.updatedAt).getTime();
+        const current = next[session.id] ?? {};
+        if (current.lastUpdatedAt !== updatedAtMs) {
+          next[session.id] = {
+            ...current,
+            lastUpdatedAt: updatedAtMs,
+          };
+          changed = true;
+        }
+        if (session.id !== activeSessionId) {
+          const lastSeenAt = current.lastSeenAt ?? 0;
+          if (updatedAtMs > lastSeenAt && current.hasUnread !== true) {
+            next[session.id] = {
+              ...next[session.id],
+              hasUnread: true,
+            };
+            changed = true;
+          }
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [activeSessionId, remoteSessions]);
+
+  // 基于流状态完成时标记未读，避免依赖列表刷新。
+  React.useEffect(() => {
+    const prevStatuses = prevSessionStatusRef.current;
+    const nextStatuses = chatStatusBySessionId;
+    prevSessionStatusRef.current = nextStatuses;
+
+    let changed = false;
+    setSessionIndicators((prev) => {
+      let next = prev;
+      for (const [sessionId, status] of Object.entries(nextStatuses)) {
+        const prevStatus = prevStatuses[sessionId];
+        const wasStreaming =
+          prevStatus === "submitted" || prevStatus === "streaming";
+        const isStreaming = status === "submitted" || status === "streaming";
+        if (!wasStreaming || isStreaming) continue;
+        if (sessionId === activeSessionId) continue;
+        const current = next[sessionId] ?? {};
+        if (current.hasUnread === true) continue;
+        if (next === prev) next = { ...prev };
+        next[sessionId] = {
+          ...current,
+          hasUnread: true,
+        };
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [activeSessionId, chatStatusBySessionId]);
 
   // 新建会话
   const handleNewSession = React.useCallback(() => {
     const newId = createChatSessionId();
-    setSessionList((prev) => [...prev, { sessionId: newId, title: "新对话" }]);
-    handleSessionChange(newId, { loadHistory: false });
-  }, [handleSessionChange]);
+    addTabSession(tabId, newId);
+  }, [addTabSession, tabId]);
 
   // 选择会话
   const handleSelectSession = React.useCallback(
@@ -112,36 +230,124 @@ function RightChatPanel({ tabId }: { tabId: string }) {
   // 移除会话（从本地列表移除，不删除服务端数据）
   const handleRemoveSession = React.useCallback(
     (id: string) => {
-      setSessionList((prev) => {
-        const filtered = prev.filter((s) => s.sessionId !== id);
-        // 如果移除的是当前活跃会话，切换到相邻的
-        if (id === activeSessionId && filtered.length > 0) {
-          const removedIndex = prev.findIndex((s) => s.sessionId === id);
-          const nextIndex = Math.min(removedIndex, filtered.length - 1);
-          const nextSession = filtered[nextIndex];
-          if (nextSession) {
-            // 延迟调用避免在 setState 中触发
-            setTimeout(() => {
-              handleSessionChange(nextSession.sessionId, { loadHistory: true });
-            }, 0);
-          }
-        }
-        return filtered;
+      removeTabSession(tabId, id);
+      setSessionIndicators((prev) => {
+        if (!prev[id]) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
       });
     },
-    [activeSessionId, handleSessionChange]
+    [removeTabSession, tabId]
   );
   const handleCloseActiveSession = React.useCallback(() => {
     if (!activeSessionId) return;
     handleRemoveSession(activeSessionId);
   }, [activeSessionId, handleRemoveSession]);
 
+  const updateSession = useMutation({
+    ...(trpc.chatsession.updateOneChatSession.mutationOptions() as any),
+    onSuccess: () => {
+      invalidateChatSessions(queryClient);
+    },
+  });
+
+  const openRenameDialog = React.useCallback((session: SessionListItem) => {
+    setRenameSessionId(session.sessionId);
+    setRenameValue(session.title);
+    setRenameOpen(true);
+  }, []);
+
+  const handleRenameConfirm = React.useCallback(async () => {
+    const sessionId = renameSessionId;
+    const title = renameValue.trim();
+    if (!sessionId || !title) return;
+    try {
+      await updateSession.mutateAsync({
+        where: { id: sessionId },
+        data: { title, isUserRename: true },
+      } as any);
+      if (tabId) setTabSessionTitles(tabId, { [sessionId]: title });
+      toast.success("重命名成功");
+      setRenameOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "重命名失败";
+      toast.error(message);
+    }
+  }, [renameSessionId, renameValue, setTabSessionTitles, tabId, updateSession]);
+
+
   const showNewSessionButton = sessionList.length > 0;
   const showCloseSessionButton = sessionList.length > 1;
+  const showSessionIndex = sessionList.length > 1;
   const activeIndex = sessionList.findIndex((s) => s.sessionId === activeSessionId);
   const useAccordion = sessionList.length > 1 && activeIndex >= 0;
   const sessionsAbove = useAccordion ? sessionList.slice(0, activeIndex) : [];
   const sessionsBelow = useAccordion ? sessionList.slice(activeIndex + 1) : [];
+  const resolvedActiveSessionId =
+    activeSessionId ?? sessionList[0]?.sessionId ?? "";
+  const renderSessionItem = React.useCallback(
+    (session: SessionListItem) => {
+      const canMoveUp = session.index > 0;
+      const canMoveDown = session.index < sessionList.length - 1;
+      return (
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div className="w-full">
+              <ChatSessionBarItem
+                sessionId={session.sessionId}
+                title={session.title}
+                index={session.index}
+                showIndex={showSessionIndex}
+                onSelect={() => handleSelectSession(session.sessionId)}
+                onRemove={() => handleRemoveSession(session.sessionId)}
+                isStreaming={
+                  chatStatusBySessionId[session.sessionId] === "submitted" ||
+                  chatStatusBySessionId[session.sessionId] === "streaming"
+                }
+                hasUnread={Boolean(sessionIndicators[session.sessionId]?.hasUnread)}
+                className="rounded-lg bg-background"
+              />
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent className="w-44">
+            <ContextMenuItem icon={PencilLine} onSelect={() => openRenameDialog(session)}>
+              重命名
+            </ContextMenuItem>
+            <ContextMenuItem
+              icon={ArrowUp}
+              disabled={!canMoveUp}
+              onSelect={() => moveTabSession(tabId, session.sessionId, "up")}
+            >
+              上移
+            </ContextMenuItem>
+            <ContextMenuItem
+              icon={ArrowDown}
+              disabled={!canMoveDown}
+              onSelect={() => moveTabSession(tabId, session.sessionId, "down")}
+            >
+              下移
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem icon={Trash2} onSelect={() => handleRemoveSession(session.sessionId)}>
+              关闭
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+      );
+    },
+    [
+      chatStatusBySessionId,
+      handleRemoveSession,
+      handleSelectSession,
+      moveTabSession,
+      openRenameDialog,
+      sessionIndicators,
+      sessionList.length,
+      showSessionIndex,
+      tabId,
+    ]
+  );
   // Render the pinned new-session bar.
   const newSessionBar = (
     <button
@@ -154,7 +360,42 @@ function RightChatPanel({ tabId }: { tabId: string }) {
     >
       <Plus size={14} className="shrink-0" />
       <span className="truncate">新建会话</span>
-    </button>
+      </button>
+  );
+  const renderSessionStack = () => (
+    <div className="relative flex min-h-0 flex-1 flex-col rounded-lg bg-background overflow-hidden">
+      {sessionList.map((session) => {
+        const isActive = session.sessionId === resolvedActiveSessionId;
+        const shouldLoadHistory = isActive ? Boolean(tab?.chatLoadHistory) : false;
+        return (
+          <div
+            key={session.sessionId}
+            className={cn(
+              "absolute inset-0 flex min-h-0 flex-col",
+              isActive ? "opacity-100" : "opacity-0 pointer-events-none",
+            )}
+            aria-hidden={isActive ? undefined : true}
+          >
+            <Chat
+              className="flex-1 min-h-0"
+              panelKey={`chat:${tab?.id ?? ""}`}
+              sessionId={session.sessionId}
+              loadHistory={shouldLoadHistory}
+              tabId={tab?.id}
+              {...(tab?.chatParams ?? {})}
+              onSessionChange={handleSessionChange}
+              onNewSession={showNewSessionButton ? handleNewSession : undefined}
+              onCloseSession={
+                showCloseSessionButton && isActive
+                  ? handleCloseActiveSession
+                  : undefined
+              }
+              active={isActive}
+            />
+          </div>
+        );
+      })}
+    </div>
   );
 
   if (!tab) return null;
@@ -172,45 +413,19 @@ function RightChatPanel({ tabId }: { tabId: string }) {
             <AnimatePresence mode="popLayout">
               {sessionsAbove.map((session) => (
                 <React.Fragment key={session.sessionId}>
-                  <ChatSessionBarItem
-                    sessionId={session.sessionId}
-                    title={session.title}
-                    onSelect={() => handleSelectSession(session.sessionId)}
-                    onRemove={() => handleRemoveSession(session.sessionId)}
-                    className="rounded-lg bg-background"
-                  />
+                  {renderSessionItem(session)}
                   <div className="shrink-0 h-[6px] bg-sidebar" />
                 </React.Fragment>
               ))}
             </AnimatePresence>
 
-            <div className="flex min-h-0 flex-1 flex-col rounded-lg bg-background overflow-hidden">
-              <Chat
-                className="flex-1 min-h-0"
-                panelKey={`chat:${tab.id}`}
-                sessionId={tab.chatSessionId}
-                loadHistory={tab.chatLoadHistory}
-                tabId={tab.id}
-                {...(tab.chatParams ?? {})}
-                onSessionChange={handleSessionChange}
-                onNewSession={showNewSessionButton ? handleNewSession : undefined}
-                onCloseSession={
-                  showCloseSessionButton ? handleCloseActiveSession : undefined
-                }
-              />
-            </div>
+            {renderSessionStack()}
 
             <AnimatePresence mode="popLayout">
               {sessionsBelow.map((session) => (
                 <React.Fragment key={session.sessionId}>
                   <div className="shrink-0 h-[6px] bg-sidebar" />
-                  <ChatSessionBarItem
-                    sessionId={session.sessionId}
-                    title={session.title}
-                    onSelect={() => handleSelectSession(session.sessionId)}
-                    onRemove={() => handleRemoveSession(session.sessionId)}
-                    className="rounded-lg bg-background"
-                  />
+                  {renderSessionItem(session)}
                 </React.Fragment>
               ))}
             </AnimatePresence>
@@ -220,23 +435,48 @@ function RightChatPanel({ tabId }: { tabId: string }) {
         <div className="flex min-h-0 flex-1 flex-col">
           {newSessionBar}
           <div className="shrink-0 h-[6px] bg-sidebar" />
-          <div className="flex min-h-0 flex-1 flex-col rounded-lg bg-background overflow-hidden">
-            <Chat
-              className="flex-1 min-h-0"
-              panelKey={`chat:${tab.id}`}
-              sessionId={tab.chatSessionId}
-              loadHistory={tab.chatLoadHistory}
-              tabId={tab.id}
-              {...(tab.chatParams ?? {})}
-              onSessionChange={handleSessionChange}
-              onNewSession={showNewSessionButton ? handleNewSession : undefined}
-              onCloseSession={
-                showCloseSessionButton ? handleCloseActiveSession : undefined
-              }
-            />
-          </div>
+          {renderSessionStack()}
         </div>
       )}
+
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>重命名会话</DialogTitle>
+            <DialogDescription>请输入新的会话名称。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="session-rename" className="text-right">
+                名称
+              </Label>
+              <Input
+                id="session-rename"
+                value={renameValue}
+                onChange={(event) => setRenameValue(event.target.value)}
+                className="col-span-3"
+                autoFocus
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    handleRenameConfirm();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" type="button">
+                取消
+              </Button>
+            </DialogClose>
+            <Button onClick={handleRenameConfirm} disabled={updateSession.isPending}>
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { AllDayRow } from '@tenas-ai/ui/calendar/components/all-day-row/all-day-row'
-import { AnimatedSection } from '@tenas-ai/ui/calendar/components/animations/animated-section'
 import { VerticalGrid } from '@tenas-ai/ui/calendar/components/vertical-grid/vertical-grid'
 import { useCalendarContext } from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/context'
 import { getViewHours } from '@tenas-ai/ui/calendar/features/calendar/utils/view-hours'
@@ -29,7 +28,7 @@ const DayView = () => {
 		day: currentDate,
 		days: hours,
 		className:
-			'shrink-0 w-16 min-w-16 max-w-16 sticky left-0 bg-background z-20',
+			'shrink-0 w-14 sm:w-20 min-w-14 sm:min-w-20 max-w-14 sm:max-w-20 sticky left-0 bg-background z-20',
 		gridType: 'hour' as const,
 		noEvents: true,
 		renderCell: (date: dayjs.Dayjs) => {
@@ -45,7 +44,7 @@ const DayView = () => {
 						hour12: timeFormat === '12-hour',
 					}).format(date.toDate())
 			return (
-				<div className="text-muted-foreground p-2 text-right text-[10px] sm:text-xs flex flex-col items-center">
+				<div className="text-muted-foreground border-r p-1 sm:p-2 text-right text-[10px] sm:text-xs flex flex-col items-center">
 					{label}
 				</div>
 			)
@@ -56,7 +55,7 @@ const DayView = () => {
 		id: `day-col-${currentDate.format('YYYY-MM-DD')}`,
 		day: currentDate,
 		days: hours,
-		className: 'w-[calc(100%-4rem)] flex-1',
+		className: 'w-[calc(100%-3.5rem)] sm:w-[calc(100%-5rem)] flex-1',
 		gridType: 'hour' as const,
 	}
 
@@ -74,12 +73,11 @@ const DayView = () => {
 				className={'flex h-full flex-1 justify-center items-center'}
 				data-testid="day-view-header"
 			>
-				<AnimatedSection
+				<div
 					className={cn(
 						'flex justify-center items-center text-center text-base font-semibold sm:text-xl',
 						isToday && 'text-primary'
 					)}
-					transitionKey={currentDate.format('YYYY-MM-DD')}
 				>
 					<span className="xs:inline hidden">
 						{currentDate.format('dddd, ')}
@@ -90,7 +88,7 @@ const DayView = () => {
 							{t('today')}
 						</span>
 					)}
-				</AnimatedSection>
+				</div>
 			</div>
 		</VerticalGrid>
 	)

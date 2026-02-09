@@ -121,7 +121,11 @@ export type MailboxDragItem = {
   mailboxPath: string;
 };
 
+export type EmailAccountFormStep = "select-provider" | "configure";
+
 export type EmailAccountFormState = {
+  step: EmailAccountFormStep;
+  selectedProviderId: string | null;
   emailAddress: string;
   label: string;
   imapHost: string;
@@ -134,6 +138,8 @@ export type EmailAccountFormState = {
 };
 
 export const DEFAULT_FORM: EmailAccountFormState = {
+  step: "select-provider",
+  selectedProviderId: null,
   emailAddress: "",
   label: "",
   imapHost: "",

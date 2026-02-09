@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import DesktopPage, { initialItems } from "@/components/desktop/DesktopPage";
+import DesktopPage, { getInitialDesktopItems } from "@/components/desktop/DesktopPage";
 import {
   DESKTOP_WIDGET_SELECTED_EVENT,
   type DesktopWidgetSelectedDetail,
@@ -45,7 +45,9 @@ function createWidgetItem(widgetKey: DesktopWidgetSelectedDetail["widgetKey"], i
 /** Render a standalone desktop demo page for UI verification. */
 export default function DesktopDemoPage() {
   // 当前桌面组件列表。
-  const [items, setItems] = React.useState<DesktopItem[]>(() => initialItems);
+  const [items, setItems] = React.useState<DesktopItem[]>(() =>
+    getInitialDesktopItems("workspace")
+  );
   // 是否进入编辑模式。
   const [editMode, setEditMode] = React.useState(false);
   // 放置模式下的目标组件 id。
@@ -290,6 +292,7 @@ export default function DesktopDemoPage() {
       <div className="min-h-0 flex-1">
         <DesktopPage
           items={items}
+          scope="workspace"
           editMode={editMode}
           activeBreakpoint={activeBreakpoint}
           onViewBreakpointChange={setActiveBreakpoint}

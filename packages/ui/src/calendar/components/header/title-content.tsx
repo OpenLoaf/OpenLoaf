@@ -156,7 +156,7 @@ const TitleContent = () => {
 	const popovers = [
 		{
 			id: 'month',
-			hidden: view === 'year',
+			hidden: false,
 			title: currentDate.format('MMMM'),
 			render: renderMonthContent,
 		},
@@ -179,7 +179,7 @@ const TitleContent = () => {
 			render: renderDayContent,
 		},
 	]
-	// 逻辑：中文下调整顶部工具栏顺序为“年-月-日”。
+	// 逻辑：中文下调整顶部工具栏顺序为"年-月-日"。
 	const orderIds =
 		currentLocale?.toLowerCase().startsWith('zh') ||
 		currentLocale?.toLowerCase().startsWith('ja') ||

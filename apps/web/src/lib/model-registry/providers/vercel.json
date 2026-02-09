@@ -1,0 +1,41 @@
+{
+  "id": "vercel",
+  "label": "Vercel",
+  "adapterId": "vercel",
+  "apiUrl": "https://api.v0.dev/v1",
+  "authConfig": {
+    "apiKey": "${VERCEL_API_KEY}"
+  },
+  "models": [
+    {
+      "id": "v0-1.5-md",
+      "familyId": "LobeHub",
+      "providerId": "vercel",
+      "icon": "LobeHub",
+      "tags": [
+        "chat"
+      ],
+      "maxContextK": 0
+    },
+    {
+      "id": "v0-1.5-lg",
+      "familyId": "LobeHub",
+      "providerId": "vercel",
+      "icon": "LobeHub",
+      "tags": [
+        "chat"
+      ],
+      "maxContextK": 0
+    },
+    {
+      "id": "v0-1.0-md",
+      "familyId": "LobeHub",
+      "providerId": "vercel",
+      "icon": "LobeHub",
+      "tags": [
+        "chat"
+      ],
+      "maxContextK": 0
+    }
+  ]
+}

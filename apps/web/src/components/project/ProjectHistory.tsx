@@ -201,7 +201,10 @@ const ProjectHistory = memo(function ProjectHistory({
       if (!activeTabId) return;
       if (activeChatSessionId === sessionId) return;
       // 中文注释：点击历史会话后切换右侧聊天并加载历史记录。
-      setTabChatSession(activeTabId, sessionId, { loadHistory: true });
+      setTabChatSession(activeTabId, sessionId, {
+        loadHistory: true,
+        replaceCurrent: true,
+      });
     },
     [activeChatSessionId, activeTabId, setTabChatSession]
   );

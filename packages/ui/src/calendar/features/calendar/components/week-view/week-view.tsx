@@ -1,7 +1,6 @@
 import type React from 'react'
 import { useMemo } from 'react'
 import { AllDayRow } from '@tenas-ai/ui/calendar/components/all-day-row/all-day-row'
-import { AnimatedSection } from '@tenas-ai/ui/calendar/components/animations/animated-section'
 import { VerticalGrid } from '@tenas-ai/ui/calendar/components/vertical-grid/vertical-grid'
 import { useCalendarContext } from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/context'
 import { getViewHours } from '@tenas-ai/ui/calendar/features/calendar/utils/view-hours'
@@ -61,7 +60,7 @@ const WeekView: React.FC = () => {
 						hour12: timeFormat === '12-hour',
 					}).format(date.toDate())
 			return (
-				<div className="text-muted-foreground p-2 text-right text-[10px] sm:text-xs flex flex-col items-center">
+				<div className="text-muted-foreground border-r p-1 sm:p-2 text-right text-[10px] sm:text-xs flex flex-col items-center">
 					{label}
 				</div>
 			)
@@ -105,30 +104,26 @@ const WeekView: React.FC = () => {
 				</div>
 
 				{/* Day header cells */}
-				{weekDays.map((day, index) => {
+				{weekDays.map((day) => {
 					const isToday = day.isSame(dayjs(), 'day')
-					const key = `week-day-header-${day.toISOString()}`
 
 					return (
-						<AnimatedSection
+						<div
 							className={cn(
-								'hover:bg-accent flex-1 flex flex-col justify-center cursor-pointer p-1 text-center sm:p-2 border-r last:border-r-0 w-50 h-full',
-								isToday && 'bg-primary/10 font-bold'
+								'hover:bg-accent/50 flex-1 flex flex-col justify-center cursor-pointer p-1 text-center sm:p-2 border-r last:border-r-0 w-50 h-full transition-colors',
+								isToday && 'bg-primary/5 font-bold'
 							)}
 							data-testid={`week-day-header-${day.format('dddd').toLowerCase()}`}
-							direction="fade"
-							delay={index * 0.05}
-							key={key}
+							key={`week-day-header-${day.toISOString()}`}
 							onClick={() => {
 								selectDate(day)
 								openEventForm({ start: day })
 							}}
-							transitionKey={key}
 						>
-							<div className="text-xs sm:text-sm">{day.format('ddd')}</div>
+							<div className="text-xs sm:text-sm text-muted-foreground">{day.format('ddd')}</div>
 							<div
 								className={cn(
-									'mx-auto mt-1 flex h-5 w-5 items-center justify-center rounded-full text-xs',
+									'mx-auto mt-1 flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full text-xs',
 									isToday && 'bg-primary text-primary-foreground'
 								)}
 							>
@@ -138,7 +133,7 @@ const WeekView: React.FC = () => {
 									}).format(day.toDate())
 								)}
 							</div>
-						</AnimatedSection>
+						</div>
 					)
 				})}
 			</div>

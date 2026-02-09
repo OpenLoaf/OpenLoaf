@@ -60,11 +60,11 @@ export const AllEventDialog: React.FC<AllEventDialogProps> = ({ ref }) => {
 							: null}
 					</DialogTitle>
 				</DialogHeader>
-				<div className="mt-4 space-y-3">
+				<div className="mt-4 space-y-2">
 					{selectedDayEvents?.events.map((event) => {
 						return (
 							<DraggableEvent
-								className="relative my-1 h-[30px]" // Use event ID for unique identification
+								className="relative my-1 h-[30px] rounded-md transition-shadow hover:shadow-md"
 								elementId={`all-events-dialog-event-$${event.id}`}
 								event={event}
 								key={event.id}

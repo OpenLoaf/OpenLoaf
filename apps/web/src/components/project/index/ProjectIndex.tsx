@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useMutation } from "@tanstack/react-query";
 import ProjectTitle from "../ProjectTitle";
-import DesktopPage, { initialItems } from "@/components/desktop/DesktopPage";
+import DesktopPage, { getInitialDesktopItems } from "@/components/desktop/DesktopPage";
 import DesktopEditToolbar from "@/components/desktop/DesktopEditToolbar";
 import type { DesktopItem } from "@/components/desktop/types";
 import { areDesktopItemsEqual, cloneDesktopItems } from "@/components/desktop/desktop-history";
@@ -11,6 +11,7 @@ import {
   ensureLayoutByBreakpoint,
   type DesktopBreakpoint,
 } from "@/components/desktop/desktop-breakpoints";
+import { filterDesktopItemsByScope } from "@/components/desktop/desktop-support";
 import {
   deserializeDesktopItems,
   getDesktopFileUri,
@@ -138,7 +139,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
   const [items, setItems] = React.useState<DesktopItem[]>(() =>
-    ensureLayoutByBreakpoint(initialItems)
+    ensureLayoutByBreakpoint(getInitialDesktopItems("project"))
   );
   const [editMode, setEditMode] = React.useState(false);
   /** Pending placement item id for add mode. */
@@ -184,7 +185,8 @@ const ProjectIndex = React.memo(function ProjectIndex({
         );
         const parsed = deserializeDesktopItems(result.content);
         if (!parsed || !alive) return;
-        setItems(ensureLayoutByBreakpoint(parsed));
+        const scopedItems = filterDesktopItemsByScope("project", parsed);
+        setItems(ensureLayoutByBreakpoint(scopedItems));
       } catch {
         // ignore missing desktop file
       }
@@ -424,6 +426,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
 
       <DesktopPage
         items={items}
+        scope="project"
         editMode={editMode}
         activeBreakpoint={editBreakpoint}
         onViewBreakpointChange={setViewBreakpoint}

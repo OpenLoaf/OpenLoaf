@@ -3,7 +3,7 @@ import { AnimatedTabs } from "@tenas-ai/ui/animated-tabs";
 import { useTabs } from "@/hooks/use-tabs";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { DEFAULT_TAB_INFO } from "@tenas-ai/api/common";
+import { DEFAULT_TAB_INFO, WORKBENCH_TAB_INPUT } from "@tenas-ai/api/common";
 import type { TabMeta } from "@/hooks/tab-types";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Button } from "@tenas-ai/ui/button";
@@ -207,6 +207,8 @@ export const HeaderTabs = () => {
         createNew: true,
         title: DEFAULT_TAB_INFO.title,
         icon: DEFAULT_TAB_INFO.icon,
+        leftWidthPercent: 70,
+        base: { id: WORKBENCH_TAB_INPUT.baseId, component: WORKBENCH_TAB_INPUT.component },
       });
     }
   }, [activeWorkspace, tabs, addTab]);
@@ -300,6 +302,8 @@ export const HeaderTabs = () => {
       createNew: true,
       title: DEFAULT_TAB_INFO.title,
       icon: DEFAULT_TAB_INFO.icon,
+      leftWidthPercent: 70,
+      base: { id: WORKBENCH_TAB_INPUT.baseId, component: WORKBENCH_TAB_INPUT.component },
     });
   }, [activeWorkspace, addTab]);
 

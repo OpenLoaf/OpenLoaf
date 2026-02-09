@@ -26,7 +26,7 @@ import {
   DialogTitle,
 } from "@tenas-ai/ui/dialog";
 import { Input } from "@tenas-ai/ui/input";
-import type { DesktopItem } from "./types";
+import type { DesktopItem, DesktopScope } from "./types";
 import DesktopTileContent from "./DesktopTileContent";
 import DesktopTileDeleteButton from "./DesktopTileDeleteButton";
 import { useTabs } from "@/hooks/use-tabs";
@@ -35,6 +35,8 @@ import { createBrowserTabId } from "@/hooks/tab-id";
 
 interface DesktopTileGridstackProps {
   item: DesktopItem;
+  /** Desktop scope (workspace or project). */
+  scope: DesktopScope;
   editMode: boolean;
   onEnterEditMode: () => void;
   /** Update a single desktop item. */
@@ -50,6 +52,7 @@ interface DesktopTileGridstackProps {
 /** Render a Gridstack tile UI (no dnd-kit). */
 export default function DesktopTileGridstack({
   item,
+  scope,
   editMode,
   onEnterEditMode,
   onUpdateItem,
@@ -354,6 +357,7 @@ export default function DesktopTileGridstack({
         <div className={cn("relative h-full w-full", editMode ? "pointer-events-none" : "")}>
           <DesktopTileContent
             item={item}
+            scope={scope}
             webContext={{ projectId, workspaceId }}
             onWebOpen={handleWebOpen}
           />

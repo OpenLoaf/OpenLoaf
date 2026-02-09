@@ -44,18 +44,18 @@ export interface Tab {
 };
 
 /**
- * AI 助手的“单例 Tab”输入定义（统一单一事实来源）。
+ * Workbench 的“单例 Tab”输入定义（统一单一事实来源）。
  * - baseId 用于在业务侧做“单例”去重判断
  * - component 用于渲染注册表组件
  */
-export const AI_CHAT_TAB_INPUT = {
-  baseId: "base:ai-chat",
-  component: "ai-chat",
-  title: "AI助手",
+export const WORKBENCH_TAB_INPUT = {
+  baseId: "base:workbench",
+  component: "workspace-desktop",
+  title: "工作台",
   icon: "bot",
 } as const;
 
 export const DEFAULT_TAB_INFO = {
-  title: AI_CHAT_TAB_INPUT.title,
-  icon: AI_CHAT_TAB_INPUT.icon,
+  title: WORKBENCH_TAB_INPUT.title,
+  icon: WORKBENCH_TAB_INPUT.icon,
 } as const;

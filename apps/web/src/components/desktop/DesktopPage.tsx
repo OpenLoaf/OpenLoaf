@@ -10,11 +10,12 @@ import {
   getRelativePathFromUri,
   parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
-import type { DesktopItem } from "./types";
+import type { DesktopIconKey, DesktopItem, DesktopScope } from "./types";
 import type { DesktopBreakpoint } from "./desktop-breakpoints";
 import { getBreakpointConfig } from "./desktop-breakpoints";
 import DesktopGrid from "./DesktopGrid";
-import { getDesktopIconByKey } from "./widgets/DesktopIconWidget";
+import { desktopIconCatalog, getDesktopIconNode } from "./desktop-icon-catalog";
+import { filterDesktopItemsByScope } from "./desktop-support";
 import { PencilLine } from "lucide-react";
 import {
   ContextMenu,
@@ -31,7 +32,10 @@ function getEditMaxWidth(breakpoint: DesktopBreakpoint) {
   return config.columns * config.rowHeight + (config.columns - 1) * config.gap + config.padding * 2;
 }
 
-const initialItems: DesktopItem[] = [
+const resolveIconTitle = (iconKey: DesktopIconKey) =>
+  desktopIconCatalog.find((item) => item.iconKey === iconKey)?.title ?? "Icon";
+
+const BASE_DESKTOP_ITEMS: DesktopItem[] = [
   {
     id: "w-flip-clock",
     kind: "widget",
@@ -63,36 +67,41 @@ const initialItems: DesktopItem[] = [
   {
     id: "i-files",
     kind: "icon",
-    title: "Files",
+    title: resolveIconTitle("files"),
     iconKey: "files",
-    icon: getDesktopIconByKey("files"),
+    icon: getDesktopIconNode("files"),
     layout: { x: 2, y: 2, w: 1, h: 1 },
   },
   {
     id: "i-tasks",
     kind: "icon",
-    title: "Tasks",
+    title: resolveIconTitle("tasks"),
     iconKey: "tasks",
-    icon: getDesktopIconByKey("tasks"),
+    icon: getDesktopIconNode("tasks"),
     layout: { x: 3, y: 2, w: 1, h: 1 },
   },
   {
     id: "i-search",
     kind: "icon",
-    title: "Search",
+    title: resolveIconTitle("search"),
     iconKey: "search",
-    icon: getDesktopIconByKey("search"),
+    icon: getDesktopIconNode("search"),
     layout: { x: 2, y: 3, w: 1, h: 1 },
   },
   {
     id: "i-settings",
     kind: "icon",
-    title: "Settings",
+    title: resolveIconTitle("settings"),
     iconKey: "settings",
-    icon: getDesktopIconByKey("settings"),
+    icon: getDesktopIconNode("settings"),
     layout: { x: 3, y: 3, w: 1, h: 1 },
   },
 ];
+
+/** Build default desktop items for the given scope. */
+function getInitialDesktopItems(scope: DesktopScope) {
+  return filterDesktopItemsByScope(scope, BASE_DESKTOP_ITEMS);
+}
 
 type ProjectRootInfo = {
   /** Project id. */
@@ -137,6 +146,8 @@ function isUriUnderRoot(rootUri: string, targetUri: string) {
 interface DesktopPageProps {
   /** Items in rendering order. */
   items: DesktopItem[];
+  /** Desktop scope (workspace or project). */
+  scope: DesktopScope;
   /** Whether desktop is in edit mode. */
   editMode: boolean;
   /** Active breakpoint when editing. */
@@ -164,6 +175,7 @@ interface DesktopPageProps {
 /** Render a single-page desktop (MVP). */
 export default function DesktopPage({
   items,
+  scope,
   editMode,
   activeBreakpoint,
   onViewBreakpointChange,
@@ -237,6 +249,11 @@ export default function DesktopPage({
     [projectRoots]
   );
 
+  const scopedItems = React.useMemo(
+    () => filterDesktopItemsByScope(scope, items),
+    [items, scope]
+  );
+
   const desktopBody = (
     <div className="min-h-full w-full bg-gradient-to-b from-background">
       <div
@@ -244,7 +261,8 @@ export default function DesktopPage({
         style={editMaxWidth ? { maxWidth: editMaxWidth, margin: "0 auto" } : undefined}
       >
         <DesktopGrid
-          items={items}
+          items={scopedItems}
+          scope={scope}
           editMode={editMode}
           activeBreakpoint={activeBreakpoint}
           onViewBreakpointChange={onViewBreakpointChange}
@@ -252,7 +270,9 @@ export default function DesktopPage({
           onUpdateItem={onUpdateItem}
           onPersistItemUpdate={onPersistItemUpdate}
           onChangeItems={onChangeItems}
-          onDeleteItem={(itemId) => onChangeItems(items.filter((item) => item.id !== itemId))}
+          onDeleteItem={(itemId) =>
+            onChangeItems(scopedItems.filter((item) => item.id !== itemId))
+          }
           onSelectFolder={(itemId) => {
             setActiveFolderItemId(itemId);
             setIsFolderDialogOpen(true);
@@ -290,7 +310,7 @@ export default function DesktopPage({
         mode="select"
         selectTarget="folder"
         {...(() => {
-          const targetItem = items.find((item) => item.id === activeFolderItemId);
+          const targetItem = scopedItems.find((item) => item.id === activeFolderItemId);
           const defaultUris = resolveDefaultFolderUris(
             targetItem && targetItem.kind === "widget" && targetItem.widgetKey === "3d-folder"
               ? targetItem.folderUri
@@ -318,4 +338,4 @@ export default function DesktopPage({
   );
 }
 
-export { initialItems };
+export { getInitialDesktopItems };

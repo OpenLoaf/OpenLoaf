@@ -1,0 +1,31 @@
+{
+  "id": "moonshot",
+  "label": "Moonshot",
+  "adapterId": "moonshot",
+  "apiUrl": "https://api.moonshot.ai/v1",
+  "authConfig": {
+    "apiKey": "${MOONSHOT_API_KEY}"
+  },
+  "models": [
+    {
+      "id": "kimi-k2.5",
+      "familyId": "LobeHub",
+      "providerId": "moonshot",
+      "icon": "LobeHub",
+      "tags": [
+        "chat"
+      ],
+      "maxContextK": 0
+    },
+    {
+      "id": "moonshot-v1-32k",
+      "familyId": "LobeHub",
+      "providerId": "moonshot",
+      "icon": "LobeHub",
+      "tags": [
+        "chat"
+      ],
+      "maxContextK": 0
+    }
+  ]
+}

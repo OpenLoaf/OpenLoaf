@@ -9,7 +9,7 @@
   "models": [
     {
       "id": "deepseek-chat",
-      "familyId": "deepseek-chat",
+      "familyId": "DeepSeek",
       "providerId": "deepseek",
       "icon": "DeepSeek",
       "tags": [
@@ -20,7 +20,7 @@
     },
     {
       "id": "deepseek-reasoner",
-      "familyId": "deepseek-reasoner",
+      "familyId": "DeepSeek",
       "providerId": "deepseek",
       "icon": "DeepSeek",
       "tags": [

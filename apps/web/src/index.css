@@ -78,6 +78,16 @@
     animation: settings-enter var(--tw-animation-duration, var(--tw-duration, 0.15s))
       var(--tw-ease, ease) both;
   }
+  .sidebar-menu-icon-tilt > svg,
+  .sidebar-menu-icon-tilt > img {
+    transition: transform 0.2s ease;
+  }
+  .sidebar-menu-icon-tilt:hover > svg,
+  .sidebar-menu-icon-tilt:focus-visible > svg,
+  .sidebar-menu-icon-tilt:hover > img,
+  .sidebar-menu-icon-tilt:focus-visible > img {
+    transform: rotate(15deg);
+  }
 
 }
 

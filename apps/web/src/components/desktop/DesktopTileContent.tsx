@@ -3,12 +3,14 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
-import { useGlobalOverlay } from "@/lib/globalShortcuts";
+import { openSettingsTab, useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import type { DesktopItem } from "./types";
+import type { DesktopItem, DesktopScope } from "./types";
 import DesktopIconLabel from "./DesktopIconLabel";
 import ClockWidget from "./widgets/ClockWidget";
+import ChatHistoryWidget from "./widgets/ChatHistoryWidget";
+import EmailInboxWidget from "./widgets/EmailInboxWidget";
 import FlipClockWidget from "./widgets/FlipClockWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
@@ -18,6 +20,7 @@ import type { DesktopIconKey } from "./types";
 
 interface DesktopTileContentProps {
   item: DesktopItem;
+  scope: DesktopScope;
   webContext?: { projectId?: string; workspaceId?: string };
   onWebOpen?: () => void;
 }
@@ -25,6 +28,7 @@ interface DesktopTileContentProps {
 /** Render tile content (icon or widget) with shared layout styles. */
 export default function DesktopTileContent({
   item,
+  scope,
   webContext,
   onWebOpen,
 }: DesktopTileContentProps) {
@@ -51,6 +55,10 @@ export default function DesktopTileContent({
         toast.error("未找到工作区");
         return;
       }
+      if (iconKey === "settings" && scope === "workspace") {
+        openSettingsTab(workspace.id);
+        return;
+      }
       const activeTab = tabs.find(
         (tab) => tab.id === activeTabId && tab.workspaceId === workspace.id
       );
@@ -68,7 +76,7 @@ export default function DesktopTileContent({
       // 中文注释：仅更新当前激活的项目 tab 子页签。
       setTabBaseParams(activeTab.id, { projectTab: nextTab });
     },
-    [activeTabId, setSearchOpen, setTabBaseParams, tabs, workspace?.id]
+    [activeTabId, scope, setSearchOpen, setTabBaseParams, tabs, workspace?.id]
   );
 
   React.useEffect(() => {
@@ -153,6 +161,22 @@ export default function DesktopTileContent({
     );
   }
 
+  if (widgetKey === "chat-history") {
+    return (
+      <div className="h-full w-full p-2">
+        <ChatHistoryWidget />
+      </div>
+    );
+  }
+
+  if (widgetKey === "email-inbox") {
+    return (
+      <div className="h-full w-full p-2">
+        <EmailInboxWidget />
+      </div>
+    );
+  }
+
   if (widgetKey === "3d-folder") {
     return (
       <div
@@ -198,7 +222,7 @@ export default function DesktopTileContent({
         <div className="truncate text-sm font-medium">{item.title}</div>
       </div>
       <div className="mt-3 min-h-0 flex-1">
-        {widgetKey === "clock" ? <ClockWidget /> : <QuickActionsWidget />}
+        {widgetKey === "clock" ? <ClockWidget /> : <QuickActionsWidget scope={scope} />}
       </div>
     </div>
   );

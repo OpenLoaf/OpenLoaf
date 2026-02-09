@@ -15,7 +15,14 @@ export type TabMeta = Pick<
   | "chatLoadHistory"
   | "createdAt"
   | "lastActiveAt"
->;
+> & {
+  /** Multi-session ids for the tab. */
+  chatSessionIds?: string[];
+  /** Active session index in chatSessionIds. */
+  activeSessionIndex?: number;
+  /** Session title overrides keyed by session id. */
+  chatSessionTitles?: Record<string, string>;
+};
 
 /** Tab runtime state stored in memory only. */
 export type TabRuntime = {

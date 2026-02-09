@@ -1,5 +1,4 @@
 import type React from 'react'
-import { AnimatedSection } from '@tenas-ai/ui/calendar/components/animations/animated-section'
 import { useCalendarContext } from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/context'
 import { cn } from '@tenas-ai/ui/calendar/lib/utils'
 import { getWeekDays } from '@tenas-ai/ui/calendar/lib/utils/date-utils'
@@ -25,17 +24,15 @@ export const MonthHeader: React.FC<MonthHeaderProps> = ({ className }) => {
 			)}
 			data-testid="month-header"
 		>
-			{weekDays.map((weekDay, index) => (
-				<AnimatedSection
-					className="py-2 text-center font-medium border-r last:border-r-0 border-b flex-1"
+			{weekDays.map((weekDay) => (
+				<div
+					className="py-2 text-center font-medium border-r last:border-r-0 border-b flex-1 text-muted-foreground"
 					data-testid={`weekday-header-${weekDay.format('ddd').toLowerCase()}`}
-					direction="fade"
-					delay={index * 0.05}
 					key={weekDay.toISOString()}
-					transitionKey={weekDay.toISOString()}
 				>
-					<span className="text-sm capitalize">{weekDay.format('ddd')}</span>
-				</AnimatedSection>
+					<span className="hidden sm:inline text-sm capitalize">{weekDay.format('ddd')}</span>
+					<span className="sm:hidden text-xs capitalize">{weekDay.format('dd')}</span>
+				</div>
 			))}
 		</div>
 	)

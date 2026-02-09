@@ -1,0 +1,31 @@
+{
+  "id": "anthropic",
+  "label": "Anthropic",
+  "adapterId": "anthropic",
+  "apiUrl": "https://api.anthropic.com/v1",
+  "authConfig": {
+    "apiKey": "${ANTHROPIC_API_KEY}"
+  },
+  "models": [
+    {
+      "id": "claude-3-7-sonnet-latest",
+      "familyId": "LobeHub",
+      "providerId": "anthropic",
+      "icon": "LobeHub",
+      "tags": [
+        "chat"
+      ],
+      "maxContextK": 0
+    },
+    {
+      "id": "claude-3-5-haiku-latest",
+      "familyId": "LobeHub",
+      "providerId": "anthropic",
+      "icon": "LobeHub",
+      "tags": [
+        "chat"
+      ],
+      "maxContextK": 0
+    }
+  ]
+}

@@ -77,7 +77,6 @@ const VIEW_UNITS: Record<CalendarView, dayjs.ManipulateType> = {
 	day: 'day',
 	week: 'week',
 	month: 'month',
-	year: 'year',
 }
 
 export const useCalendarEngine = (
@@ -156,12 +155,6 @@ export const useCalendarEngine = (
 			return {
 				start: currentDate.startOf('day'),
 				end: currentDate.endOf('day'),
-			}
-		}
-		if (view === 'year') {
-			return {
-				start: currentDate.startOf('year'),
-				end: currentDate.endOf('year'),
 			}
 		}
 		if (view === 'week') {

@@ -4,7 +4,7 @@ import { startTransition } from "react";
 import { create } from "zustand";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { AI_CHAT_TAB_INPUT } from "@tenas-ai/api/common";
+import { WORKBENCH_TAB_INPUT } from "@tenas-ai/api/common";
 
 export type GlobalShortcutDefinition = {
   id: string;
@@ -19,7 +19,7 @@ export const GLOBAL_SHORTCUTS: GlobalShortcutDefinition[] = [
   { id: "search.toggle", label: "Search", keys: "Mod+F" },
   { id: "open.calendar", label: "Open Calendar", keys: "Mod+L" },
   { id: "open.inbox", label: "Open Inbox", keys: "Mod+I" },
-  { id: "open.ai", label: "Open AI", keys: "Mod+T" },
+  { id: "open.ai", label: "Open Workbench", keys: "Mod+T" },
   { id: "open.template", label: "Open Template", keys: "Mod+J" },
   { id: "tab.new", label: "New tab", keys: "Mod+0" },
   { id: "tab.switch", label: "Switch tabs", keys: "Mod+1..9" },
@@ -172,14 +172,14 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
     return;
   }
 
-  // Cmd/Ctrl + T 也应视为“全局快捷键”，即使当前焦点在输入框里也要生效（打开 AI 助手）。
+  // Cmd/Ctrl + T 也应视为“全局快捷键”，即使当前焦点在输入框里也要生效（打开工作台）。
   // 注意：浏览器环境可能会被系统/浏览器占用；这里仍然尽量拦截并执行应用内行为。
   if (ctx.workspaceId && keyLower === "t" && withMod && !event.shiftKey && !event.altKey) {
     const quickOpenLeftWidthPercent = overlay.searchOpen ? 70 : 100;
     event.preventDefault();
     openSingletonTab(
       ctx.workspaceId,
-      AI_CHAT_TAB_INPUT,
+      WORKBENCH_TAB_INPUT,
       { leftWidthPercent: quickOpenLeftWidthPercent, closeSearch: true },
     );
     return;

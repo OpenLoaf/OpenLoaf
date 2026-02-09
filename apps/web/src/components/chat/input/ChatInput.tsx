@@ -8,8 +8,6 @@ import {
   X,
   Mic,
   AtSign,
-  Hash,
-  Image,
 } from "lucide-react";
 import { useChatActions, useChatOptions, useChatSession, useChatState } from "../context";
 import { cn } from "@/lib/utils";
@@ -783,7 +781,7 @@ export function ChatInputBox({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-2 px-1.5 pb-1.5 shrink-0 min-w-0">
+        <div className="flex flex-wrap items-end gap-x-2 gap-y-2 px-1.5 pb-1.5 shrink-0 min-w-0">
           {!compact ? (
             <div className="flex shrink-0 items-center gap-0.5">
               <Button
@@ -796,45 +794,29 @@ export function ChatInputBox({
               >
                 <AtSign className="w-4 h-4" />
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <Hash className="w-4 h-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                onClick={() => imageAttachmentsRef.current?.openPicker()}
-                disabled={!onAddAttachments}
-              >
-                <Image className="w-4 h-4" />
-              </Button>
             </div>
           ) : (
             <div />
           )}
 
-          <div className="flex min-w-0 flex-1 flex-nowrap items-center justify-end gap-1.5 overflow-hidden">
+          {!compact ? (
+            <div className="min-w-0 flex-1 flex items-center justify-end overflow-hidden">
+              <SelectMode className="w-full max-w-full justify-end" />
+            </div>
+          ) : (
+            <div className="min-w-0 flex-1" />
+          )}
+
+          <div className="flex shrink-0 items-center gap-1.5">
             {isOverLimit && (
               <span
                 className={cn(
-                  "text-[10px] font-medium transition-colors mr-2",
+                  "text-[10px] font-medium transition-colors mr-1",
                   "text-destructive"
                 )}
               >
                 {plainTextValue.length} / {MAX_CHARS}
               </span>
-            )}
-            
-            {!compact && (
-              <div className="min-w-0 shrink">
-                <SelectMode />
-              </div>
             )}
 
             {!compact && (
@@ -883,12 +865,12 @@ export function ChatInputBox({
                 {submitLabel}
               </Button>
             ) : (
-                <Button
-                  type={isLoading ? "button" : canSubmit ? "submit" : "button"}
-                  onClick={isLoading ? onStop : undefined}
-                  disabled={isSendDisabled || (isLoading && !onStop)}
-                  size="icon"
-                  className={cn(
+              <Button
+                type={isLoading ? "button" : canSubmit ? "submit" : "button"}
+                onClick={isLoading ? onStop : undefined}
+                disabled={isSendDisabled || (isLoading && !onStop)}
+                size="icon"
+                className={cn(
                   "h-7 w-7 rounded-full shrink-0 transition-all duration-200 shadow-none",
                   isLoading
                     ? "bg-destructive/10 text-destructive hover:bg-destructive/15"

@@ -12,6 +12,19 @@
 | `ChatOptionsProvider` | `useChatOptions()` | `input`, `setInput`, `imageOptions`, `codexOptions`, `addAttachments` |
 | `ChatToolProvider` | `useChatTools()` | `toolParts`（流式快照）, `subAgentStreams` |
 
+## 多会话右侧栏（TabLayout RightChatPanel）
+
+多会话 UI 不在 Chat 组件内部，而是统一由 `TabLayout.tsx` 的 `RightChatPanel` 渲染，保证会话栏与会话内容在同一层级管理：
+
+- 会话列表来源：`tab.chatSessionIds` + `tab.activeSessionIndex`（见 `use-tabs.ts`）
+- 右侧栏结构：顶部固定“新建会话”，中间为会话列表，底部为会话内容堆叠
+- 会话内容：每个 session 都渲染一个 `Chat`，使用绝对定位叠在一起，非活跃会话保持挂载但 `opacity-0 pointer-events-none`
+- 右键菜单（SessionBar）：重命名 / 上移 / 下移 / 关闭（仅移除本地 bar）
+- 指示状态：
+  - streaming：来自 `useChatRuntime().chatStatusBySessionId`
+  - 未读：`updatedAt > lastSeenAt` + streaming 结束后补标
+- `Chat` 根节点挂 `data-chat-active`，`SelectMode` 只遮罩活跃会话，避免其它会话被模糊
+
 ## 消息渲染管线
 
 ```

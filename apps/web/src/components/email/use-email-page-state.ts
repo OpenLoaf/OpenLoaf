@@ -24,6 +24,7 @@ import {
   type UnifiedMailboxScope,
   type UnifiedMailboxView,
 } from "./email-types";
+import { getProviderById } from "./email-provider-presets";
 import {
   buildForwardBody,
   buildForwardSubject,
@@ -163,6 +164,10 @@ export type AddDialogState = {
   onTestConnection: () => void;
   onAddAccount: () => void;
   addAccountPending: boolean;
+  onSelectProvider: (providerId: string) => void;
+  onBackToProviderSelect: () => void;
+  selectedProviderPasswordLabel: string;
+  selectedProviderAppPasswordUrl: string | null;
 };
 
 type EmailPageState = {
@@ -984,13 +989,57 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     setTestStatus("idle");
   }
 
+  /** Handle provider selection - fills in preset config. */
+  function handleSelectProvider(providerId: string) {
+    const provider = getProviderById(providerId);
+    if (!provider) return;
+    setFormState((prev) => ({
+      ...prev,
+      step: "configure",
+      selectedProviderId: providerId,
+      imapHost: provider.imap.host,
+      imapPort: provider.imap.port,
+      imapTls: provider.imap.tls,
+      smtpHost: provider.smtp.host,
+      smtpPort: provider.smtp.port,
+      smtpTls: provider.smtp.tls,
+    }));
+    setFormError(null);
+    setTestStatus("idle");
+  }
+
+  /** Go back to provider selection step. */
+  function handleBackToProviderSelect() {
+    setFormState((prev) => ({
+      ...prev,
+      step: "select-provider",
+      selectedProviderId: null,
+    }));
+    setFormError(null);
+    setTestStatus("idle");
+  }
+
+  /** Get selected provider's password label. */
+  const selectedProviderPasswordLabel = React.useMemo(() => {
+    if (!formState.selectedProviderId) return "密码";
+    const provider = getProviderById(formState.selectedProviderId);
+    return provider?.passwordLabel ?? "密码";
+  }, [formState.selectedProviderId]);
+
+  /** Get selected provider's app password URL. */
+  const selectedProviderAppPasswordUrl = React.useMemo(() => {
+    if (!formState.selectedProviderId) return null;
+    const provider = getProviderById(formState.selectedProviderId);
+    return provider?.appPasswordUrl ?? null;
+  }, [formState.selectedProviderId]);
+
   /** Validate add-account form and return error message. */
   function validateFormState(): string | null {
     const email = formState.emailAddress.trim();
     if (!email || !email.includes("@")) return "请填写有效的邮箱地址。";
     if (!formState.imapHost.trim()) return "请填写 IMAP 服务器地址。";
     if (!formState.smtpHost.trim()) return "请填写 SMTP 服务器地址。";
-    if (!formState.password.trim()) return "请填写应用专用密码。";
+    if (!formState.password.trim()) return `请填写${selectedProviderPasswordLabel}。`;
     if (!Number.isFinite(formState.imapPort) || formState.imapPort <= 0) {
       return "IMAP 端口不正确。";
     }
@@ -1359,6 +1408,10 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     onTestConnection: handleTestConnection,
     onAddAccount: handleAddAccount,
     addAccountPending: addAccountMutation.isPending,
+    onSelectProvider: handleSelectProvider,
+    onBackToProviderSelect: handleBackToProviderSelect,
+    selectedProviderPasswordLabel,
+    selectedProviderAppPasswordUrl,
   };
 
   return {

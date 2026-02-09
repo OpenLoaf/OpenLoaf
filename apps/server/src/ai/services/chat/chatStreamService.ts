@@ -1,11 +1,11 @@
-import { generateImage, type UIMessage } from "ai";
+import { type UIMessage } from "ai";
 import { type ChatModelSource, type ModelDefinition } from "@tenas-ai/api/common";
-import type { TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
+import type { ImageGenerateOptions, TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
+import type { AiImageRequest } from "@tenas-saas/sdk";
 import type { TenasUIMessage, TokenUsage } from "@tenas-ai/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
 import { readMasterAgentBasePrompt } from "@/ai/agents/masterAgent/masterAgent";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
-import { resolveImageModel } from "@/ai/models/resolveImageModel";
 import {
   setChatModel,
   setAbortSignal,
@@ -16,16 +16,20 @@ import {
   getProjectId,
 } from "@/ai/shared/context/requestContext";
 import { logger } from "@/common/logger";
-import { resolveParentProjectRootPaths } from "@/ai/shared/util";
+import { downloadImageData, resolveParentProjectRootPaths } from "@/ai/shared/util";
 import { parseCommandAtStart } from "@/ai/tools/CommandParser";
 import { buildSessionPrefaceText } from "@/ai/shared/prefaceBuilder";
-import { normalizePromptForImageEdit } from "@/ai/services/image/imageEditNormalizer";
 import { resolveImagePrompt, type GenerateImagePrompt } from "@/ai/services/image/imagePrompt";
+import { saveChatImageAttachment } from "@/ai/services/image/attachmentResolver";
 import {
+  resolveBaseNameFromUrl,
+  resolveImageExtension,
+  resolveImageInputBuffer,
   resolveImageSaveDirectory,
-  saveGeneratedImages,
-  saveGeneratedImagesToDirectory,
+  resolveMediaTypeFromDataUrl,
+  saveImageUrlsToDirectory,
 } from "@/ai/services/image/imageStorage";
+import { getSaasClient } from "@/modules/saas";
 import {
   createChatImageErrorResult,
   formatImageErrorMessage,
@@ -57,28 +61,10 @@ import {
   createImageStreamResponse,
 } from "./streamOrchestrator";
 
-/** Max seed value supported by Volcengine image models. */
-const VOLCENGINE_IMAGE_SEED_MAX = 99_999_999;
-
-/** Normalize image seed to the provider-supported range. */
-function normalizeImageSeed(value: number, providerId?: string): number {
-  const safeValue = Math.trunc(value);
-  if (providerId !== "volcengine") return safeValue;
-  const min = -VOLCENGINE_IMAGE_SEED_MAX;
-  const max = VOLCENGINE_IMAGE_SEED_MAX;
-  // 逻辑：即梦限制 seed 范围，超出时裁剪到允许区间。
-  return Math.min(Math.max(safeValue, min), max);
-}
-
-/** Generate a random seed for image models. */
-function generateImageSeed(providerId?: string): number {
-  if (providerId === "volcengine") {
-    // 逻辑：即梦 seed 范围较小，按允许区间生成。
-    return Math.floor(Math.random() * (VOLCENGINE_IMAGE_SEED_MAX + 1));
-  }
-  // 逻辑：取 0-2147483647 的整数，避免超出模型支持范围。
-  return Math.floor(Math.random() * 2147483648);
-}
+/** Max wait time for SaaS image tasks (ms). */
+const SAAS_IMAGE_TASK_TIMEOUT_MS = 5 * 60 * 1000;
+/** Poll interval for SaaS image tasks (ms). */
+const SAAS_IMAGE_TASK_POLL_MS = 1500;
 
 type ImageModelRequest = {
   /** Session id. */
@@ -105,6 +91,8 @@ type ImageModelRequest = {
   boardId?: string | null;
   /** Optional image save directory uri. */
   imageSaveDir?: string;
+  /** SaaS access token for media generation. */
+  saasAccessToken?: string;
 };
 
 type ImageModelResult = {
@@ -406,6 +394,7 @@ export async function runChatStream(input: {
         responseMessageId: assistantMessageId,
         trigger,
         boardId,
+        saasAccessToken: input.saasAccessToken,
       });
     }
 
@@ -580,6 +569,7 @@ export async function runChatImageRequest(input: {
       trigger,
       boardId,
       imageSaveDir,
+      saasAccessToken: input.saasAccessToken,
     });
 
     const timingMetadata = buildTimingMetadata({
@@ -642,30 +632,23 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
   if (!resolvedPrompt) {
     throw new ChatImageRequestError("缺少图片生成提示词。", 400);
   }
-  const modelId = input.chatModelId?.trim() ?? "";
-  if (!modelId) {
+  const rawModelId = input.chatModelId?.trim() ?? "";
+  if (!rawModelId) {
     throw new ChatImageRequestError("未指定图片模型。", 400);
+  }
+  const accessToken = input.saasAccessToken?.trim() ?? "";
+  if (!accessToken) {
+    throw new ChatImageRequestError("缺少 SaaS 访问令牌。", 401);
   }
 
   setAbortSignal(input.abortSignal);
-  const resolved = await resolveImageModel({ imageModelId: modelId });
-  let prompt = resolvedPrompt.prompt;
-  if (resolvedPrompt.hasMask && typeof prompt !== "string") {
-    prompt = await normalizePromptForImageEdit({
-      prompt,
-      images: resolvedPrompt.images,
-      mask: resolvedPrompt.mask,
-      sessionId: input.sessionId,
-      modelProviderId: resolved.modelInfo.provider,
-      modelAdapterId: resolved.modelInfo.adapterId,
-      abortSignal: input.abortSignal,
-    });
-  }
+  const resolvedModelId = resolveChatModelSuffix(rawModelId);
+  const prompt = resolvedPrompt.prompt;
   const promptText = resolvePromptText(prompt);
   const promptTextLength =
     typeof prompt === "string" ? prompt.length : prompt.text?.length ?? 0;
-  const promptImageCount = typeof prompt === "string" ? 0 : prompt.images.length;
-  const promptHasMask = typeof prompt === "string" ? false : Boolean(prompt.mask);
+  const promptImageCount = resolvedPrompt.images.length;
+  const promptHasMask = Boolean(resolvedPrompt.mask);
   logger.debug(
     {
       promptLength: promptTextLength,
@@ -675,71 +658,44 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
     "[chat] start image stream",
   );
   const imageOptions = resolveImageGenerateOptions(input.messages as UIMessage[]);
-  const requestedCount = imageOptions?.n ?? 1;
-  const maxImagesPerCall =
-    typeof (resolved.model as any).maxImagesPerCall === "number"
-      ? Math.max(1, Math.floor((resolved.model as any).maxImagesPerCall))
-      : undefined;
-  // 中文注释：模型可能限制单次图片数量，超出则向下裁剪。
-  const safeCount = maxImagesPerCall
-    ? Math.min(Math.max(1, requestedCount), maxImagesPerCall)
-    : Math.max(1, requestedCount);
-  const {
-    n: _ignoredCount,
-    size: rawSize,
-    aspectRatio: rawAspectRatio,
-    seed: rawSeed,
-    ...restImageOptions
-  } = imageOptions ?? {};
-  // 中文注释：SDK 需要 size 为 "{number}x{number}" 模板字面量类型，运行时仍用正则兜底。
-  const safeSize =
-    typeof rawSize === "string" && /^\d+x\d+$/u.test(rawSize)
-      ? (rawSize as `${number}x${number}`)
-      : undefined;
-  // 中文注释：SDK 需要 aspectRatio 为 "{number}:{number}" 模板字面量类型，运行时仍用正则兜底。
-  const safeAspectRatio =
-    typeof rawAspectRatio === "string" && /^\d+:\d+$/u.test(rawAspectRatio)
-      ? (rawAspectRatio as `${number}:${number}`)
-      : undefined;
-  const providerId = resolved.modelInfo.provider;
-  const seedCandidate =
-    typeof rawSeed === "number" && Number.isFinite(rawSeed)
-      ? rawSeed
-      : generateImageSeed(providerId);
-  const safeSeed = normalizeImageSeed(seedCandidate, providerId);
-  const result = await generateImage({
-    model: resolved.model,
-    prompt,
-    n: safeCount,
-    ...(restImageOptions ?? {}),
-    ...(safeSize ? { size: safeSize } : {}),
-    ...(safeAspectRatio ? { aspectRatio: safeAspectRatio } : {}),
-    seed: safeSeed,
+  const output = resolveSaasImageOutput(imageOptions);
+  const { style, negativePrompt, parameters } = resolveSaasImageParameters(imageOptions);
+  const inputs = await resolveSaasImageInputs({
+    images: resolvedPrompt.images,
+    mask: resolvedPrompt.mask,
     abortSignal: input.abortSignal,
   });
-  const revisedPrompt = resolveRevisedPrompt(result.providerMetadata);
-  const imageParts = result.images.flatMap((image) => {
-    const mediaType = image.mediaType || "image/png";
-    const base64 = image.base64?.trim();
-    if (!base64) return [];
-    const url = base64.startsWith("data:")
-      ? base64
-      : `data:${mediaType};base64,${base64}`;
-    return [
-      {
-        type: "file" as const,
-        url,
-        mediaType,
-      },
-    ];
+  const payload: AiImageRequest = {
+    modelId: resolvedModelId,
+    prompt: promptText,
+    ...(negativePrompt ? { negativePrompt } : {}),
+    ...(style ? { style } : {}),
+    ...(inputs ? { inputs } : {}),
+    ...(output ? { output } : {}),
+    ...(parameters ? { parameters } : {}),
+  };
+
+  const client = getSaasClient(accessToken);
+  const submitResult = await client.ai.image(payload);
+  if (!submitResult || submitResult.success !== true || !submitResult.data?.taskId) {
+    const fallbackMessage = "图片任务创建失败。";
+    const message =
+      submitResult && submitResult.success === false
+        ? submitResult.message
+        : fallbackMessage;
+    throw new ChatImageRequestError(message, 502);
+  }
+  const taskId = submitResult.data.taskId;
+  const taskResult = await waitForSaasImageTask({
+    client,
+    taskId,
+    abortSignal: input.abortSignal,
   });
-  logger.debug(
-    {
-      imageCount: imageParts.length,
-    },
-    "[chat] image parts prepared",
-  );
-  if (imageParts.length === 0) {
+  const resultUrls = (taskResult.resultUrls ?? [])
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (resultUrls.length === 0) {
     throw new Error("图片生成结果为空。");
   }
 
@@ -747,32 +703,23 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
   const metadataPayload = buildImageMetadata({
     sessionId: input.sessionId,
     prompt: promptText,
-    revisedPrompt,
-    modelId: resolved.modelInfo.modelId,
+    modelId: resolvedModelId,
     chatModelId: input.chatModelId,
     chatModelSource: input.chatModelSource,
-    providerId: resolved.modelInfo.provider,
+    providerId: "tenas-saas",
     requestMessageId: input.requestMessageId,
     responseMessageId: input.responseMessageId,
     trigger: input.trigger,
     boardId: input.boardId,
-    imageOptions: {
-      n: safeCount,
-      size: safeSize,
-      aspectRatio: safeAspectRatio,
-    },
+    imageOptions: imageOptions
+      ? {
+          n: imageOptions.n,
+          size: imageOptions.size,
+          aspectRatio: imageOptions.aspectRatio,
+        }
+      : undefined,
     messages: input.metadataMessages ?? input.messages,
   });
-
-  const usage = result.usage ?? undefined;
-  const totalUsage: TokenUsage | undefined =
-    usage && (usage.inputTokens ?? usage.outputTokens ?? usage.totalTokens) != null
-      ? {
-          inputTokens: usage.inputTokens,
-          outputTokens: usage.outputTokens,
-          totalTokens: usage.totalTokens,
-        }
-      : undefined;
   const workspaceId = getWorkspaceId();
   if (!workspaceId) {
     throw new Error("workspaceId 缺失，无法保存图片");
@@ -789,21 +736,35 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
     if (!resolvedSaveDir) {
       throw new ChatImageRequestError("imageSaveDir 无效。", 400);
     }
-    // 按用户指定目录落盘，失败时直接抛错反馈。
-    await saveGeneratedImagesToDirectory({
-      images: result.images,
+    await saveImageUrlsToDirectory({
+      urls: resultUrls,
       directory: resolvedSaveDir,
-      metadata: metadataPayload,
     });
   }
-  // 保存到本地磁盘，落库使用相对路径。
-  const persistedImageParts = await saveGeneratedImages({
-    images: result.images,
-    workspaceId,
-    sessionId: input.sessionId,
-    projectId: projectId || undefined,
-    metadata: metadataPayload,
-  });
+  const persistedImageParts: Array<{ type: "file"; url: string; mediaType: string }> = [];
+  for (const [index, url] of resultUrls.entries()) {
+    const downloaded = await downloadImageWithType({
+      url,
+      abortSignal: input.abortSignal,
+    });
+    const baseName = resolveBaseNameFromUrl(url, `image-${index + 1}`);
+    const ext = resolveImageExtension(downloaded.mediaType);
+    const fileName = `${baseName}.${ext}`;
+    const saved = await saveChatImageAttachment({
+      workspaceId,
+      projectId: projectId || undefined,
+      sessionId: input.sessionId,
+      fileName,
+      mediaType: downloaded.mediaType,
+      buffer: downloaded.buffer,
+      metadata: metadataPayload,
+    });
+    persistedImageParts.push({
+      type: "file",
+      url: saved.url,
+      mediaType: saved.mediaType,
+    });
+  }
   logger.debug(
     {
       persistedImageCount: persistedImageParts.length,
@@ -815,17 +776,18 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
     id: "master-agent",
     name: "MasterAgent",
     kind: "master",
-    model: resolved.modelInfo,
-    chatModelId: resolved.imageModelId,
-    modelDefinition: resolved.modelDefinition ?? input.modelDefinition,
+    model: {
+      provider: "tenas-saas",
+      modelId: resolvedModelId,
+    },
+    chatModelId: input.chatModelId,
+    modelDefinition: input.modelDefinition,
   };
 
   return {
-    imageParts,
+    imageParts: persistedImageParts,
     persistedImageParts,
-    revisedPrompt,
     agentMetadata,
-    totalUsage,
   };
 }
 
@@ -846,6 +808,7 @@ async function runImageModelStream(input: {
   responseMessageId?: string;
   trigger?: string;
   boardId?: string | null;
+  saasAccessToken?: string;
 }): Promise<Response> {
   try {
     const imageResult = await generateImageModelResult({
@@ -860,6 +823,7 @@ async function runImageModelStream(input: {
       responseMessageId: input.responseMessageId,
       trigger: input.trigger,
       boardId: input.boardId,
+      saasAccessToken: input.saasAccessToken,
     });
     return await createImageStreamResponse({
       sessionId: input.sessionId,
@@ -885,28 +849,6 @@ async function runImageModelStream(input: {
   }
 }
 
-/** Resolve revised prompt from provider metadata. */
-function resolveRevisedPrompt(metadata: unknown): string | undefined {
-  if (!metadata || typeof metadata !== "object") return undefined;
-  const providers = Object.values(metadata as Record<string, any>);
-  for (const provider of providers) {
-    const images = provider?.images;
-    if (!Array.isArray(images)) continue;
-    for (const image of images) {
-      if (!image || typeof image !== "object") continue;
-      const revisedPrompt =
-        typeof image.revisedPrompt === "string"
-          ? image.revisedPrompt
-          : typeof image.revised_prompt === "string"
-            ? image.revised_prompt
-            : "";
-      const trimmed = revisedPrompt.trim();
-      if (trimmed) return trimmed;
-    }
-  }
-  return undefined;
-}
-
 type SanitizedRequestParts = {
   /** Sanitized parts for metadata. */
   parts: Array<{ type: string; text?: string; url?: string; mediaType?: string }>;
@@ -920,6 +862,202 @@ type SanitizedRequestParts = {
 function resolvePromptText(prompt: GenerateImagePrompt): string {
   if (typeof prompt === "string") return prompt.trim();
   return typeof prompt.text === "string" ? prompt.text.trim() : "";
+}
+
+/** Resolve model id suffix from chatModelId. */
+function resolveChatModelSuffix(chatModelId: string): string {
+  const trimmed = chatModelId.trim();
+  const separatorIndex = trimmed.indexOf(":");
+  if (separatorIndex <= 0 || separatorIndex >= trimmed.length - 1) return trimmed;
+  return trimmed.slice(separatorIndex + 1).trim() || trimmed;
+}
+
+/** Map size/aspectRatio to SaaS aspectRatio enum. */
+function resolveSaasAspectRatio(options?: ImageGenerateOptions): "1:1" | "16:9" | "9:16" | "4:3" | undefined {
+  const rawSize = typeof options?.size === "string" ? options?.size.trim() : "";
+  if (rawSize && /^\d+x\d+$/u.test(rawSize)) {
+    const [widthText, heightText] = rawSize.split("x");
+    const width = Number(widthText);
+    const height = Number(heightText);
+    if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+      if (width === height) return "1:1";
+      if (width * 9 === height * 16) return "16:9";
+      if (width * 16 === height * 9) return "9:16";
+      if (width * 3 === height * 4) return "4:3";
+    }
+  }
+  const rawAspectRatio = typeof options?.aspectRatio === "string" ? options?.aspectRatio.trim() : "";
+  if (
+    rawAspectRatio === "1:1" ||
+    rawAspectRatio === "16:9" ||
+    rawAspectRatio === "9:16" ||
+    rawAspectRatio === "4:3"
+  ) {
+    return rawAspectRatio;
+  }
+  return undefined;
+}
+
+/** Build SaaS image output payload. */
+function resolveSaasImageOutput(
+  options?: ImageGenerateOptions,
+): AiImageRequest["output"] | undefined {
+  const count = typeof options?.n === "number" ? options.n : undefined;
+  const aspectRatio = resolveSaasAspectRatio(options);
+  const qualityRaw = options?.providerOptions?.openai?.quality?.trim();
+  const quality =
+    qualityRaw === "standard" || qualityRaw === "hd" ? qualityRaw : undefined;
+  if (count === undefined && !aspectRatio && !quality) return undefined;
+  return {
+    ...(count !== undefined ? { count } : {}),
+    ...(aspectRatio ? { aspectRatio } : {}),
+    ...(quality ? { quality } : {}),
+  };
+}
+
+/** Resolve SaaS optional parameters and style. */
+function resolveSaasImageParameters(
+  options?: ImageGenerateOptions,
+): { style?: string; negativePrompt?: string; parameters?: Record<string, unknown> } {
+  const style = options?.providerOptions?.openai?.style?.trim() || undefined;
+  const negativePrompt = options?.providerOptions?.qwen?.negative_prompt?.trim() || undefined;
+  const parameters: Record<string, unknown> = {};
+  if (typeof options?.seed === "number" && Number.isFinite(options.seed)) {
+    parameters.seed = options.seed;
+  }
+  if (options?.providerOptions && Object.keys(options.providerOptions).length > 0) {
+    parameters.providerOptions = options.providerOptions;
+  }
+  return {
+    ...(style ? { style } : {}),
+    ...(negativePrompt ? { negativePrompt } : {}),
+    ...(Object.keys(parameters).length > 0 ? { parameters } : {}),
+  };
+}
+
+/** Resolve prompt images into SaaS inputs. */
+async function resolveSaasImageInputs(input: {
+  images: Array<{ data: unknown; mediaType?: string }>;
+  mask?: { data: unknown; mediaType?: string };
+  abortSignal: AbortSignal;
+}): Promise<AiImageRequest["inputs"] | undefined> {
+  if (input.images.length === 0 && !input.mask) return undefined;
+  const workspaceId = getWorkspaceId();
+  const projectId = getProjectId();
+  const resolvedImages = await Promise.all(
+    input.images.map((image, index) =>
+      resolveImageInputBuffer({
+        data: image.data as any,
+        mediaType: image.mediaType,
+        fallbackName: `image-${index + 1}`,
+        projectId: projectId || undefined,
+        workspaceId: workspaceId || undefined,
+        abortSignal: input.abortSignal,
+      }).then((resolved) => ({
+        base64: resolved.buffer.toString("base64"),
+        mediaType: resolved.mediaType,
+      })),
+    ),
+  );
+  const resolvedMask = input.mask
+    ? await resolveImageInputBuffer({
+        data: input.mask.data as any,
+        mediaType: input.mask.mediaType,
+        fallbackName: "mask",
+        projectId: projectId || undefined,
+        workspaceId: workspaceId || undefined,
+        abortSignal: input.abortSignal,
+      }).then((resolved) => ({
+        base64: resolved.buffer.toString("base64"),
+        mediaType: resolved.mediaType,
+      }))
+    : undefined;
+  return {
+    ...(resolvedImages.length > 0 ? { images: resolvedImages } : {}),
+    ...(resolvedMask ? { mask: resolvedMask } : {}),
+  };
+}
+
+/** Sleep for a short duration or abort early. */
+async function sleepWithAbort(ms: number, abortSignal: AbortSignal): Promise<void> {
+  if (abortSignal.aborted) {
+    throw new ChatImageRequestError("请求已取消。", 499);
+  }
+  await new Promise<void>((resolve, reject) => {
+    const onAbort = () => {
+      abortSignal.removeEventListener("abort", onAbort);
+      reject(new ChatImageRequestError("请求已取消。", 499));
+    };
+    const timer = setTimeout(() => {
+      abortSignal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    abortSignal.addEventListener("abort", onAbort);
+  });
+}
+
+/** Poll SaaS image task until completion. */
+async function waitForSaasImageTask(input: {
+  client: ReturnType<typeof getSaasClient>;
+  taskId: string;
+  abortSignal: AbortSignal;
+}): Promise<{
+  status: "queued" | "running" | "succeeded" | "failed" | "canceled";
+  resultUrls?: string[];
+  error?: { message?: string; code?: string };
+}> {
+  const startAt = Date.now();
+  while (true) {
+    if (input.abortSignal.aborted) {
+      try {
+        await input.client.ai.cancelTask(input.taskId);
+      } catch {
+        // 忽略取消失败。
+      }
+      throw new ChatImageRequestError("请求已取消。", 499);
+    }
+    const response = await input.client.ai.task(input.taskId);
+    if (!response || response.success !== true) {
+      const message = response?.message || "任务查询失败。";
+      throw new ChatImageRequestError(message, 502);
+    }
+    const data = response.data;
+    if (data.status === "succeeded") {
+      return {
+        status: data.status,
+        resultUrls: data.resultUrls ?? undefined,
+        error: data.error ?? undefined,
+      };
+    }
+    if (data.status === "failed" || data.status === "canceled") {
+      const message = data.error?.message || "图片生成失败。";
+      throw new ChatImageRequestError(message, 502);
+    }
+    if (Date.now() - startAt > SAAS_IMAGE_TASK_TIMEOUT_MS) {
+      throw new ChatImageRequestError("图片生成超时。", 504);
+    }
+    await sleepWithAbort(SAAS_IMAGE_TASK_POLL_MS, input.abortSignal);
+  }
+}
+
+/** Download image data and resolve media type. */
+async function downloadImageWithType(input: {
+  url: string;
+  abortSignal: AbortSignal;
+}): Promise<{ buffer: Buffer; mediaType: string }> {
+  if (input.url.startsWith("data:")) {
+    const mediaType = resolveMediaTypeFromDataUrl(input.url) || "image/png";
+    const bytes = await downloadImageData(input.url, input.abortSignal);
+    return { buffer: Buffer.from(bytes), mediaType };
+  }
+  const response = await fetch(input.url, { signal: input.abortSignal });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`下载图片失败: ${response.status} ${text}`.trim());
+  }
+  const mediaType = response.headers.get("content-type") || "image/png";
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return { buffer, mediaType };
 }
 
 /** Resolve the latest user message in a message list. */

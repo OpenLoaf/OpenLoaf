@@ -86,6 +86,9 @@ apps/web/src/lib/chat/
 ├── frontend-tool-executor.ts   ← 前端工具执行器 + handler 注册
 └── open-url-ack.ts             ← Electron WebContentsView 加载等待
 │
+apps/web/src/components/layout/
+└── TabLayout.tsx               ← 右侧多会话栏（RightChatPanel + 会话堆叠）
+│
 apps/server/src/ai/
 ├── bootstrap.ts                ← 依赖组装入口
 ├── interface/controllers/AiExecuteController.ts
@@ -129,6 +132,7 @@ packages/api/src/types/tools/    ← 前后端共享工具类型定义 (ToolDef)
 |----------|-------------|
 | `context/*.tsx` Context 类型变更 | chat-frontend.md |
 | `ChatCoreProvider.tsx` 核心逻辑变更 | chat-frontend.md |
+| `components/layout/TabLayout.tsx` 多会话栏变更 | chat-frontend.md |
 | `message/tools/` 新增或修改工具卡片 | chat-frontend.md |
 | `hooks/` 新增或修改 hooks | chat-frontend.md |
 | `tools/toolRegistry.ts` 工具注册变更 | ai-backend.md, fullstack-patterns.md |

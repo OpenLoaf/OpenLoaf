@@ -22,7 +22,15 @@ type DesktopFileItem = {
   id: string;
   kind: "icon" | "widget";
   title: string;
-  widgetKey?: "clock" | "flip-clock" | "quick-actions" | "3d-folder" | "video" | "web-stack";
+  widgetKey?:
+    | "clock"
+    | "flip-clock"
+    | "quick-actions"
+    | "chat-history"
+    | "email-inbox"
+    | "3d-folder"
+    | "video"
+    | "web-stack";
   size?: "1x1" | "2x2" | "4x2" | "4x3";
   constraints?: DesktopWidgetConstraints;
   pinned?: boolean;
@@ -59,6 +67,11 @@ function resolveFallbackLayout(layouts: Record<DesktopBreakpoint, DesktopItemLay
 export function getDesktopFileUri(rootUri: string): string {
   const metaDir = buildChildUri(rootUri, ".tenas");
   return buildChildUri(metaDir, DESKTOP_FILE_NAME);
+}
+
+/** Build the desktop persistence file uri under the workspace root. */
+export function getWorkspaceDesktopFileUri(rootUri: string): string {
+  return buildChildUri(rootUri, DESKTOP_FILE_NAME);
 }
 
 /** Convert desktop items into a serializable payload. */

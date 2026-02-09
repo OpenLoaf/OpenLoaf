@@ -16,7 +16,7 @@ import { useTabView } from "@/hooks/use-tab-view";
 import { useProjects } from "@/hooks/use-projects";
 import { useDebounce } from "@/hooks/use-debounce";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
-import { AI_CHAT_TAB_INPUT } from "@tenas-ai/api/common";
+import { WORKBENCH_TAB_INPUT } from "@tenas-ai/api/common";
 import { trpc } from "@/utils/trpc";
 import { useQueries, skipToken, useQuery } from "@tanstack/react-query";
 import { CalendarDays, Inbox, LayoutTemplate, Sparkles } from "lucide-react";
@@ -260,7 +260,7 @@ export function Search({
   const handleAiFallback = React.useCallback(() => {
     const query = committedSearchValue.trim() || searchValue.trim();
     if (!query) return;
-    openSingletonTab(AI_CHAT_TAB_INPUT);
+    openSingletonTab(WORKBENCH_TAB_INPUT);
     // 逻辑：等待 ChatInput 挂载后再触发发送。
     window.setTimeout(() => {
       window.dispatchEvent(
@@ -681,13 +681,16 @@ export function Search({
                   </KbdGroup>
                 </CommandShortcut>
               </CommandItem>
-              <CommandItem value="ai" onSelect={() => openSingletonTab(AI_CHAT_TAB_INPUT)}>
+              <CommandItem
+                value="workbench"
+                onSelect={() => openSingletonTab(WORKBENCH_TAB_INPUT)}
+              >
                 <Sparkles className="h-5 w-5" />
-                <span>AI助手</span>
+                <span>工作台</span>
                 <CommandShortcut>
                   <KbdGroup className="gap-1">
                     <Kbd>⌘</Kbd>
-                    <Kbd>J</Kbd>
+                    <Kbd>T</Kbd>
                   </KbdGroup>
                 </CommandShortcut>
               </CommandItem>
@@ -707,7 +710,7 @@ export function Search({
                 <CommandShortcut>
                   <KbdGroup className="gap-1">
                     <Kbd>⌘</Kbd>
-                    <Kbd>T</Kbd>
+                    <Kbd>J</Kbd>
                   </KbdGroup>
                 </CommandShortcut>
               </CommandItem>

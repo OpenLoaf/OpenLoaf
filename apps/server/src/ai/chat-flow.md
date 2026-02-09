@@ -68,11 +68,11 @@
 
 * 解析提示词（文本 + 图片 + 可选 mask）。
 
-* 解析图片模型（`chatModelId`）。
+* 解析图片模型（`chatModelId`），提取 SaaS modelId。
 
-* 若为图片编辑，进行遮罩规范化并上传至 S3。
+* 将图片输入转为 base64（包含可选 mask）。
 
-* 调用 `generateImage`，生成图片并写入相对路径。
+* 调用 SaaS SDK 提交任务并轮询完成，下载结果并写入相对路径。
 
 ## 持久化与元数据
 
@@ -82,17 +82,17 @@
 
 ## 图片生成子流程（共享）
 
-该流程被 `/chat/sse`（图片标签分支）与 `/ai/image` 共用：
+该流程用于聊天图片分支（`/chat/sse` 或 `/ai/execute` intent=image）：
 
 * 从最后一条 user 消息解析提示词（文本 + 图片 + 可选 mask）。
 
-* 校验 `chatModelId` 并解析图片模型。
-
-* 若包含 mask，按模型要求生成 alpha/grey 遮罩并上传到 S3。
+* 校验 `chatModelId` 并提取 SaaS `modelId`。
 
 * 从 metadata 解析图片参数（数量、尺寸、比例、provider options）。
 
-* 调用 `generateImage`，生成图片并保存为相对路径。
+* 通过 SaaS SDK 提交任务并轮询完成。
+
+* 下载结果并保存为相对路径（同时可按 `imageSaveDir` 额外落盘）。
 
 ## 持久化与元数据
 
@@ -104,13 +104,11 @@
 
 ## 模型构建流程（通过 model id 构建模型对象）
 
-该流程说明如何从 `chatModelId`/`imageModelId` 构建出 AI SDK 模型实例。
+该流程说明如何从 `chatModelId` 构建出 AI SDK 聊天模型实例。
 
 关键入口：
 
 * 聊天模型：`apps/server/src/ai/models/resolveChatModel.ts`
-
-* 图片模型：`apps/server/src/ai/models/resolveImageModel.ts`
 
 * 显式模型定义：`apps/server/src/ai/services/chat/modelResolution.ts`
 
@@ -128,11 +126,9 @@
 
 * 未显式指定模型时，会根据输入能力（文本/图片/编辑）过滤候选模型。
 
-图片模型特殊点：
+图片模型：
 
-* 不区分 cloud/local，仅从本地 provider 配置构建。
-
-* `custom` provider 强制走 `openai` 适配器。
+* 图片/视频模型不在本地构建，统一通过 SaaS SDK 走任务接口。
 
 ### 流程图（模型构建）
 

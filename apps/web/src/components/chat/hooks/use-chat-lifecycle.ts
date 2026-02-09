@@ -13,7 +13,8 @@ export function useChatLifecycle(input: {
   soundEnabled: boolean;
   snapshotEnabled: boolean;
 }) {
-  const setTabChatStatus = useChatRuntime((s) => s.setTabChatStatus);
+  const setSessionChatStatus = useChatRuntime((s) => s.setSessionChatStatus);
+  const clearSessionChatStatus = useChatRuntime((s) => s.clearSessionChatStatus);
   const prevStatusRef = React.useRef(input.status);
 
   React.useEffect(() => {
@@ -46,9 +47,10 @@ export function useChatLifecycle(input: {
   React.useEffect(() => {
     const tabId = input.tabId;
     if (!tabId) return;
-    setTabChatStatus(tabId, input.status);
+    if (!input.sessionId) return;
+    setSessionChatStatus(tabId, input.sessionId, input.status);
     return () => {
-      setTabChatStatus(tabId, null);
+      clearSessionChatStatus(input.sessionId);
     };
-  }, [input.tabId, input.status, setTabChatStatus]);
+  }, [clearSessionChatStatus, input.sessionId, input.status, input.tabId, setSessionChatStatus]);
 }

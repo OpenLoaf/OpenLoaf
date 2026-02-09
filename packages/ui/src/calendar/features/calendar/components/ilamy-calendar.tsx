@@ -7,7 +7,6 @@ import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
 import DayView from '@tenas-ai/ui/calendar/features/calendar/components/day-view/day-view'
 import { MonthView } from '@tenas-ai/ui/calendar/features/calendar/components/month-view/month-view'
 import WeekView from '@tenas-ai/ui/calendar/features/calendar/components/week-view/week-view'
-import YearView from '@tenas-ai/ui/calendar/features/calendar/components/year-view/year-view'
 import { useCalendarContext } from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/context'
 import { CalendarProvider } from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/provider'
 // oxlint-disable-next-line no-duplicates
@@ -31,7 +30,6 @@ const CalendarContent: React.FC = () => {
 		month: <MonthView dayMaxEvents={dayMaxEvents} key="month" />,
 		week: <WeekView key="week" />,
 		day: <DayView key="day" />,
-		year: <YearView key="year" />,
 	}
 
 	return (
@@ -53,7 +51,7 @@ const CalendarContent: React.FC = () => {
 						direction="horizontal"
 						transitionKey={view}
 					>
-						<div className="border h-full w-full" data-testid="calendar-body">
+						<div className="border h-full w-full rounded-lg overflow-hidden" data-testid="calendar-body">
 							{viewMap[view]}
 						</div>
 					</AnimatedSection>

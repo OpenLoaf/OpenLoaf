@@ -26,6 +26,13 @@ function normalizeTabMeta(input: unknown): TabMeta | undefined {
     icon: tab.icon,
     isPin: tab.isPin,
     chatSessionId: tab.chatSessionId,
+    chatSessionIds: Array.isArray(tab.chatSessionIds) ? tab.chatSessionIds : undefined,
+    activeSessionIndex:
+      typeof tab.activeSessionIndex === "number" ? tab.activeSessionIndex : undefined,
+    chatSessionTitles:
+      typeof tab.chatSessionTitles === "object" && tab.chatSessionTitles
+        ? (tab.chatSessionTitles as Record<string, string>)
+        : undefined,
     chatParams: tab.chatParams,
     chatLoadHistory: tab.chatLoadHistory,
     createdAt: tab.createdAt,

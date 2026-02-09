@@ -50,6 +50,53 @@ const getBorderRadiusClass = (
 	return 'rounded-sm'
 }
 
+/** Format duration between two dayjs dates. */
+const formatDuration = (start: CalendarEvent['start'], end: CalendarEvent['end']) => {
+	const diffMin = end.diff(start, 'minute')
+	if (diffMin < 60) return `${diffMin}m`
+	const h = Math.floor(diffMin / 60)
+	const m = diffMin % 60
+	return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
+
+function EventHoverCard({ event }: { event: CalendarEvent }) {
+	const background = resolveEventColor(
+		event.backgroundColor,
+		'bg-blue-500',
+		'backgroundColor'
+	)
+
+	return (
+		<div className="w-64 rounded-lg border bg-popover p-3 text-popover-foreground shadow-md">
+			<div className="flex items-center gap-2 mb-2">
+				<div
+					className={cn('h-3 w-3 rounded-full shrink-0', background.className)}
+					style={background.style}
+				/>
+				<p className="font-semibold text-sm truncate">{event.title}</p>
+			</div>
+			{event.description && (
+				<p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+					{event.description}
+				</p>
+			)}
+			<div className="flex items-center gap-1 text-xs text-muted-foreground">
+				<span>{event.start.format('HH:mm')}</span>
+				<span>-</span>
+				<span>{event.end.format('HH:mm')}</span>
+				<span className="ml-1 text-muted-foreground/70">
+					({formatDuration(event.start, event.end)})
+				</span>
+			</div>
+			{event.location && (
+				<p className="text-xs text-muted-foreground mt-1 truncate">
+					📍 {event.location}
+				</p>
+			)}
+		</div>
+	)
+}
+
 function DraggableEventUnmemoized({
 	elementId,
 	event,
@@ -96,10 +143,34 @@ function DraggableEventUnmemoized({
 	const [dragRect, setDragRect] = useState<DOMRect | null>(null)
 	const dragTransform = transform ? CSS.Translate.toString(transform) : undefined
 
+	// Hover state for tooltip card
+	const [isHovered, setIsHovered] = useState(false)
+	const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+	const handleMouseEnter = () => {
+		hoverTimeoutRef.current = setTimeout(() => {
+			setIsHovered(true)
+		}, 400)
+	}
+
+	const handleMouseLeave = () => {
+		if (hoverTimeoutRef.current) {
+			clearTimeout(hoverTimeoutRef.current)
+			hoverTimeoutRef.current = null
+		}
+		setIsHovered(false)
+	}
+
 	useEffect(() => {
 		if (!isDragging) {
 			setDragRect(null)
 			return
+		}
+		// Hide hover card when dragging starts
+		setIsHovered(false)
+		if (hoverTimeoutRef.current) {
+			clearTimeout(hoverTimeoutRef.current)
+			hoverTimeoutRef.current = null
 		}
 		const node = nodeRef.current
 		if (!node) {
@@ -107,6 +178,15 @@ function DraggableEventUnmemoized({
 		}
 		setDragRect(node.getBoundingClientRect())
 	}, [isDragging])
+
+	// Cleanup timeout on unmount
+	useEffect(() => {
+		return () => {
+			if (hoverTimeoutRef.current) {
+				clearTimeout(hoverTimeoutRef.current)
+			}
+		}
+	}, [])
 
 	const overlayStyle: React.CSSProperties | undefined =
 		isDragging && dragRect
@@ -182,7 +262,7 @@ function DraggableEventUnmemoized({
 		<>
 			<div
 				className={cn(
-					'truncate h-full w-full',
+					'truncate h-full w-full relative',
 					'cursor-default',
 					isDragging && !isDragDisabled && 'shadow-lg',
 					className
@@ -195,6 +275,8 @@ function DraggableEventUnmemoized({
 					e.stopPropagation()
 					onEventDoubleClick?.(event)
 				}}
+				onMouseEnter={handleMouseEnter}
+				onMouseLeave={handleMouseLeave}
 				ref={(node) => {
 					nodeRef.current = node
 					setNodeRef(node)
@@ -205,6 +287,13 @@ function DraggableEventUnmemoized({
 			>
 				{/* Use custom renderEvent from context if available, otherwise use default */}
 				{renderEvent ? renderEvent(event) : <DefaultEventContent />}
+
+				{/* Hover card */}
+				{isHovered && !isDragging && (
+					<div className="absolute left-0 top-full mt-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-none">
+						<EventHoverCard event={event} />
+					</div>
+				)}
 			</div>
 			{isDragging &&
 				overlayStyle &&

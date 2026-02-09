@@ -5,6 +5,15 @@ import type { DesktopBreakpoint } from "./desktop-breakpoints";
 
 export type DesktopItemKind = "icon" | "widget";
 
+export type DesktopScope = "workspace" | "project";
+
+export interface DesktopScopeSupport {
+  /** Whether the item is available in workspace scope. */
+  workspace: boolean;
+  /** Whether the item is available in project scope. */
+  project: boolean;
+}
+
 export type DesktopWidgetSize = "1x1" | "2x2" | "4x2" | "4x3";
 
 export interface DesktopWidgetConstraints {
@@ -66,7 +75,15 @@ export interface DesktopIconItem extends DesktopItemBase {
 export interface DesktopWidgetItem extends DesktopItemBase {
   kind: "widget";
   /** Widget implementation key (built-in for MVP). */
-  widgetKey: "clock" | "flip-clock" | "quick-actions" | "3d-folder" | "video" | "web-stack";
+  widgetKey:
+    | "clock"
+    | "flip-clock"
+    | "quick-actions"
+    | "chat-history"
+    | "email-inbox"
+    | "3d-folder"
+    | "video"
+    | "web-stack";
   /** Widget size in grid units (MVP uses presets). */
   size: DesktopWidgetSize;
   /** Widget layout constraints for resizing. */

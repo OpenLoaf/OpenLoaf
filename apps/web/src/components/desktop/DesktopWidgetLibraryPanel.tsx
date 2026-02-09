@@ -16,9 +16,10 @@ import {
   DialogTitle,
 } from "@tenas-ai/ui/dialog";
 import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
-import type { DesktopWidgetItem } from "./types";
+import type { DesktopScope, DesktopWidgetItem } from "./types";
 import { desktopWidgetCatalog } from "./widget-catalog";
 import ClockWidget from "./widgets/ClockWidget";
+import ChatHistoryWidget from "./widgets/ChatHistoryWidget";
 import FlipClockWidget from "./widgets/FlipClockWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
@@ -68,10 +69,24 @@ function emitDesktopWidgetSelected(detail: DesktopWidgetSelectedDetail) {
 }
 
 /** Render a widget entity preview for the catalog grid. */
-function WidgetEntityPreview({ widgetKey }: { widgetKey: DesktopWidgetItem["widgetKey"] }) {
+function WidgetEntityPreview({
+  widgetKey,
+  scope,
+}: {
+  widgetKey: DesktopWidgetItem["widgetKey"];
+  scope: DesktopScope;
+}) {
   if (widgetKey === "clock") return <ClockWidget />;
+  if (widgetKey === "chat-history") return <ChatHistoryWidget />;
+  if (widgetKey === "email-inbox") {
+    return (
+      <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/30 text-xs text-muted-foreground">
+        邮箱
+      </div>
+    );
+  }
   if (widgetKey === "flip-clock") return <FlipClockWidget />;
-  if (widgetKey === "quick-actions") return <QuickActionsWidget />;
+  if (widgetKey === "quick-actions") return <QuickActionsWidget scope={scope} />;
   if (widgetKey === "3d-folder") return <ThreeDFolderWidget />;
   if (widgetKey === "video") return <VideoWidget />;
   if (widgetKey === "web-stack") {
@@ -153,6 +168,9 @@ export default function DesktopWidgetLibraryPanel({
   const tabBaseParams = tabRuntime?.base?.params as Record<string, unknown> | undefined;
   const projectRootUri =
     typeof tabBaseParams?.rootUri === "string" ? String(tabBaseParams.rootUri) : undefined;
+  // 中文注释：根据 tab base 是否包含 projectId 判断作用域。
+  const scope: DesktopScope =
+    typeof tabBaseParams?.projectId === "string" ? "project" : "workspace";
   const defaultRootUri = projectRootUri || workspace?.rootUri;
   // 3D 文件夹选择对话框状态。
   const [isFolderDialogOpen, setIsFolderDialogOpen] = React.useState(false);
@@ -275,9 +293,10 @@ export default function DesktopWidgetLibraryPanel({
   // 过滤后的组件列表。
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return desktopWidgetCatalog;
-    return desktopWidgetCatalog.filter((item) => item.title.toLowerCase().includes(q));
-  }, [query]);
+    const scopedCatalog = desktopWidgetCatalog.filter((item) => item.support[scope]);
+    if (!q) return scopedCatalog;
+    return scopedCatalog.filter((item) => item.title.toLowerCase().includes(q));
+  }, [query, scope]);
   const canSubmitWeb = Boolean(normalizeUrl(webUrlInput));
 
   return (
@@ -335,7 +354,7 @@ export default function DesktopWidgetLibraryPanel({
             >
               <div className="pointer-events-none flex h-28 items-center justify-center overflow-hidden rounded-lg border border-border bg-card p-2">
                 <div className="h-full w-full origin-center scale-[0.8]">
-                  <WidgetEntityPreview widgetKey={item.widgetKey} />
+                  <WidgetEntityPreview widgetKey={item.widgetKey} scope={scope} />
                 </div>
               </div>
               <div className="min-w-0">

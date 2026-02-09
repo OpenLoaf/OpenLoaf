@@ -9,7 +9,7 @@
   "models": [
     {
       "id": "gemini-3-pro-image-preview",
-      "familyId": "gemini-3-pro-image-preview",
+      "familyId": "Gemini",
       "providerId": "google",
       "icon": "Gemini",
       "tags": [
@@ -57,7 +57,7 @@
     },
     {
       "id": "gemini-3-flash-preview",
-      "familyId": "gemini-3-flash-preview",
+      "familyId": "Gemini",
       "providerId": "google",
       "icon": "Gemini",
       "tags": [

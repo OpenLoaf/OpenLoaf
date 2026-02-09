@@ -25,9 +25,15 @@ import {
   TERMINAL_WINDOW_COMPONENT,
   TERMINAL_WINDOW_PANEL_ID,
 } from "@tenas-ai/api/common";
+import type { DesktopScope } from "../types";
+
+export interface QuickActionsWidgetProps {
+  /** Desktop scope (workspace or project). */
+  scope: DesktopScope;
+}
 
 /** Render a quick actions widget (MVP placeholder). */
-export default function QuickActionsWidget() {
+export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
   const activeTabId = useTabs((state) => state.activeTabId);
@@ -39,6 +45,10 @@ export default function QuickActionsWidget() {
 
   /** Create a new board and open it in the current tab stack. */
   const handleCreateCanvas = React.useCallback(async () => {
+    if (scope !== "project") {
+      toast.error("当前工作台不支持创建画布");
+      return;
+    }
     if (!workspaceId) {
       toast.error("未找到工作区");
       return;
@@ -116,7 +126,7 @@ export default function QuickActionsWidget() {
     } finally {
       setCreating(false);
     }
-  }, [workspaceId, activeTabId, tabs, mkdirMutation, writeBinaryMutation]);
+  }, [scope, workspaceId, activeTabId, tabs, mkdirMutation, writeBinaryMutation]);
 
   /** Open the global search overlay. */
   const handleOpenSearch = React.useCallback(() => {
@@ -214,16 +224,18 @@ export default function QuickActionsWidget() {
           <Terminal className="size-4" />
           Terminal
         </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          className="h-11 justify-start gap-2"
-          onClick={handleCreateCanvas}
-          disabled={creating}
-        >
-          <LayoutDashboard className="size-4" />
-          {creating ? "创建中…" : "Canvas"}
-        </Button>
+        {scope === "project" ? (
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-11 justify-start gap-2"
+            onClick={handleCreateCanvas}
+            disabled={creating}
+          >
+            <LayoutDashboard className="size-4" />
+            {creating ? "创建中…" : "Canvas"}
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="secondary"

@@ -682,9 +682,12 @@ export default function ChatCoreProvider({
     ]
   );
 
+  const prevSessionIdRef = React.useRef(sessionId);
+
   React.useLayoutEffect(() => {
-    // 关键：sessionId 可能由外部状态直接切换（不一定走 newSession/selectSession）。
-    // 必须在浏览器可交互前完成清理，否则首条消息会错误复用旧 leaf 作为 parentMessageId。
+    if (prevSessionIdRef.current === sessionId) return;
+    // 中文注释：仅在复用组件且 sessionId 确实变化时清理，避免多会话常驻被误清空。
+    prevSessionIdRef.current = sessionId;
     stopAndResetSession(true);
   }, [sessionId, stopAndResetSession]);
 
@@ -758,7 +761,10 @@ export default function ChatCoreProvider({
     (nextSessionId: string) => {
       // 中文注释：立即清空，避免 UI 闪回旧消息。
       stopAndResetSession(true);
-      onSessionChange?.(nextSessionId, { loadHistory: true });
+      onSessionChange?.(nextSessionId, {
+        loadHistory: true,
+        replaceCurrent: true,
+      });
     },
     [stopAndResetSession, onSessionChange]
   );

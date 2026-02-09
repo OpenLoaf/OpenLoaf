@@ -9,7 +9,7 @@
   "models": [
     {
       "id": "gpt-5.2-codex",
-      "familyId": "gpt-5.2-codex",
+      "familyId": "OpenAI",
       "providerId": "codex-cli",
       "icon": "OpenAI",
       "tags": [

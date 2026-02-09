@@ -8,6 +8,10 @@ type ModelIconProps = {
   size?: number;
   /** Additional class name. */
   className?: string;
+  /** Fallback image src when icon name is not supported. */
+  fallbackSrc?: string;
+  /** Fallback image alt text. */
+  fallbackAlt?: string;
 };
 
 /** Map model icon names to Lobe icon components. */
@@ -23,6 +27,14 @@ const MODEL_ICON_MAP = {
 
 /** Supported icon names from @lobehub/icons. */
 type ModelIconName = keyof typeof MODEL_ICON_MAP;
+
+/**
+ * Check whether icon name is supported.
+ */
+function isModelIconName(icon?: string | null): icon is ModelIconName {
+  // 逻辑：只允许已映射的图标名称，避免渲染空组件。
+  return typeof icon === "string" && icon in MODEL_ICON_MAP;
+}
 
 /**
  * Resolve icon name with fallback.
@@ -64,7 +76,25 @@ function resolveModelIconStyle(
 /**
  * Render the colored model icon by name.
  */
-export function ModelIcon({ icon, size = 16, className }: ModelIconProps) {
+export function ModelIcon({
+  icon,
+  size = 16,
+  className,
+  fallbackSrc,
+  fallbackAlt,
+}: ModelIconProps) {
+  if (!isModelIconName(icon) && fallbackSrc) {
+    // 逻辑：没有匹配图标时使用兜底图片，确保列表视觉一致。
+    return (
+      <img
+        src={fallbackSrc}
+        alt={fallbackAlt ?? ""}
+        width={size}
+        height={size}
+        className={className}
+      />
+    );
+  }
   const resolved = resolveModelIconName(icon);
   const baseIcon = MODEL_ICON_MAP[resolved];
   if (!baseIcon) return null;

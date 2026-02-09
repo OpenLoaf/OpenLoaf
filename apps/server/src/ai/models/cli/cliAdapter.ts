@@ -23,8 +23,4 @@ export const cliAdapter: ProviderAdapter = {
       forceCustomApiKey,
     });
   },
-  /** CLI providers do not support image generation. */
-  buildImageModel: () => null,
-  /** CLI providers do not expose raw HTTP requests. */
-  buildRequest: () => null,
 };

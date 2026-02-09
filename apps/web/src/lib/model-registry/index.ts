@@ -3,20 +3,22 @@ import {
   type ModelDefinition,
   type ProviderDefinition,
 } from "@tenas-ai/api/common";
-import qwenProvider from "./providers/qwen.json";
-import xaiProvider from "./providers/xai.json";
-import deepseekProvider from "./providers/deepseek.json";
-import volcengineProvider from "./providers/volcengine.json";
-import googleProvider from "./providers/google.json";
-import customProvider from "./providers/custom.json";
+import anthropicProvider from "./providers/anthropic.json";
 import codexCliProvider from "./providers/codex-cli.json";
+import customProvider from "./providers/custom.json";
+import deepseekProvider from "./providers/deepseek.json";
+import googleProvider from "./providers/google.json";
+import moonshotProvider from "./providers/moonshot.json";
+import vercelProvider from "./providers/vercel.json";
+import xaiProvider from "./providers/xai.json";
 
 const providers = [
-  qwenProvider,
+  anthropicProvider,
   xaiProvider,
   deepseekProvider,
-  volcengineProvider,
   googleProvider,
+  moonshotProvider,
+  vercelProvider,
   codexCliProvider,
   customProvider,
 ] as ProviderDefinition[];

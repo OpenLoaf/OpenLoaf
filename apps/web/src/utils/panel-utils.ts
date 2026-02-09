@@ -23,6 +23,7 @@ import VideoViewer from "@/components/file/VideoViewer";
 import BoardFileViewer from "@/components/board/BoardFileViewer";
 import TerminalViewer from "@/components/file/TerminalViewer";
 import DesktopWidgetLibraryPanel from "@/components/desktop/DesktopWidgetLibraryPanel";
+import WorkspaceDesktop from "@/components/workspace/WorkspaceDesktop";
 import FolderTreePreview from "@/components/project/filesystem/FolderTreePreview";
 import { SchedulerTaskHistoryStackPanel } from "@/components/summary/SchedulerTaskHistoryStackPanel";
 
@@ -58,6 +59,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "board-viewer": BoardFileViewer,
   "terminal-viewer": TerminalViewer,
   "desktop-widget-library": DesktopWidgetLibraryPanel,
+  "workspace-desktop": WorkspaceDesktop,
   "folder-tree-preview": FolderTreePreview,
   "scheduler-task-history": SchedulerTaskHistoryStackPanel,
 };
@@ -113,6 +115,8 @@ export const getPanelTitle = (componentName: string) => {
       return "Terminal";
     case "desktop-widget-library":
       return "Widget Library";
+    case "workspace-desktop":
+      return "工作台";
     case "folder-tree-preview":
       return "Folder";
     case "scheduler-task-history":

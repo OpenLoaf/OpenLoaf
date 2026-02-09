@@ -12,7 +12,7 @@ const SHORTCUT_TRANSLATIONS: Record<string, { label: string; note?: string }> = 
   "search.toggle": { label: "搜索" },
   "open.calendar": { label: "打开日历" },
   "open.inbox": { label: "打开收件箱" },
-  "open.ai": { label: "打开 AI" },
+  "open.ai": { label: "打开工作台" },
   "open.template": { label: "打开模板" },
   "tab.new": { label: "新建标签页" },
   "tab.switch": { label: "切换标签页" },

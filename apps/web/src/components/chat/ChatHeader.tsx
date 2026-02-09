@@ -46,6 +46,18 @@ export default function ChatHeader({
     [sessions, activeSessionId]
   );
   const sessionTitle = String(activeSession?.title ?? "").trim();
+  const sessionIndex = React.useMemo(() => {
+    const ids =
+      Array.isArray(tabView?.chatSessionIds) && tabView.chatSessionIds.length > 0
+        ? tabView.chatSessionIds
+        : tabView?.chatSessionId
+          ? [tabView.chatSessionId]
+          : [];
+    if (!activeSessionId) return null;
+    const idx = ids.indexOf(activeSessionId);
+    return idx >= 0 ? idx + 1 : null;
+  }, [activeSessionId, tabView?.chatSessionId, tabView?.chatSessionIds]);
+  const showSessionIndex = (tabView?.chatSessionIds?.length ?? 0) > 1;
 
   // 逻辑：仅在存在历史消息时显示 Preface 查看按钮。
   const showPrefaceButton = Boolean(basic.chatPrefaceEnabled) && messages.length > 0;
@@ -118,6 +130,11 @@ export default function ChatHeader({
       )}
     >
       <div className="min-w-0 w-full truncate pr-2 text-left text-sm font-medium">
+        {showSessionIndex && sessionIndex ? (
+          <span className="mr-1 text-[11px] text-muted-foreground/70 tabular-nums">
+            #{sessionIndex}
+          </span>
+        ) : null}
         {sessionTitle.length > 0 ? sessionTitle : null}
       </div>
       <div className="min-w-0 flex items-center justify-end gap-0">

@@ -1,12 +1,7 @@
-import { Menu, PanelLeft, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, PanelLeft, Plus } from 'lucide-react'
 import type React from 'react'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Button } from '@tenas-ai/ui/calendar/components/ui/button'
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from '@tenas-ai/ui/calendar/components/ui/popover'
 import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
 import { cn } from '@tenas-ai/ui/calendar/lib/utils'
 import { getMonthWeeks, getWeekDays } from '@tenas-ai/ui/calendar/lib/utils/date-utils'
@@ -53,7 +48,6 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 		currentDate: ctx.currentDate,
 	}))
 
-	const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 	const isTodayInView = useMemo(() => {
 		const now = dayjs()
 		if (view === 'day') {
@@ -68,25 +62,8 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 			const weeks = getMonthWeeks(currentDate, firstDayOfWeek)
 			return weeks.flat().some((day) => day.isSame(now, 'day'))
 		}
-		if (view === 'year') {
-			return now.isSame(currentDate, 'year')
-		}
 		return false
 	}, [view, firstDayOfWeek, currentDate])
-
-	const closeMobileMenu = () => setMobileMenuOpen(false)
-
-	const NewEventButton = () => (
-		<Button
-			className="flex items-center gap-1"
-			onClick={() => openEventForm()}
-			size="sm"
-			variant="default"
-		>
-			<Plus className="h-4 w-4" />
-			<span className="hidden @4xl:inline">{t('new')}</span>
-		</Button>
-	)
 
 	if (headerComponent) {
 		return headerComponent
@@ -99,12 +76,13 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 		>
 			<div
 				className={cn(
-					'flex justify-center @2xl/base-header:justify-between flex-wrap items-center gap-2',
+					'flex justify-between items-center gap-2',
 					className,
 					headerClassName
 				)}
 			>
-				<div className="flex flex-wrap items-center justify-center gap-1 @2xl/base-header:justify-start">
+				{/* Left section: sidebar toggle + title + nav */}
+				<div className="flex items-center gap-1">
 					<Button
 						aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
 						aria-pressed={isSidebarOpen}
@@ -128,62 +106,47 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 						/>
 					</Button>
 					<TitleContent />
+					<Button
+						className="h-7 w-7"
+						onClick={prevPeriod}
+						size="icon"
+						variant="ghost"
+					>
+						<ChevronLeft className="h-4 w-4" />
+					</Button>
 					{!isTodayInView && (
-						<Button onClick={today} size="sm" variant="outline">
+						<Button className="h-7" onClick={today} size="sm" variant="outline">
 							{t('today')}
 						</Button>
 					)}
+					<Button
+						className="h-7 w-7"
+						onClick={nextPeriod}
+						size="icon"
+						variant="ghost"
+					>
+						<ChevronRight className="h-4 w-4" />
+					</Button>
 				</div>
 
-				<div className="flex flex-wrap justify-start @xl/base-header:justify-center gap-1 @4xl/base-header:justify-end overflow-x-auto">
-					<div className="hidden @md/base-header:flex items-center justify-start gap-1">
-						{headerLeadingSlot ? (
-							<div className="flex items-center">{headerLeadingSlot}</div>
-						) : null}
-						<ViewControls
-							className="justify-end"
-							currentView={view}
-							onChange={setView}
-							onNext={nextPeriod}
-							onPrevious={prevPeriod}
-							variant="default"
-						/>
-						<NewEventButton />
-					</div>
-
-					<div className="flex items-center justify-end gap-1 @md/base-header:hidden">
-						{headerLeadingSlot ? (
-							<div className="flex items-center">{headerLeadingSlot}</div>
-						) : null}
-						<NewEventButton />
-						<Popover onOpenChange={setMobileMenuOpen} open={mobileMenuOpen}>
-							<PopoverTrigger asChild>
-								<Button size="sm" variant="outline">
-									<Menu className="h-4 w-4" />
-								</Button>
-							</PopoverTrigger>
-							<PopoverContent align="end" className="w-[240px] p-2">
-								<div className="space-y-2">
-									<ViewControls
-										currentView={view}
-										onChange={(v) => {
-											setView(v)
-											closeMobileMenu()
-										}}
-										onNext={() => {
-											nextPeriod()
-											closeMobileMenu()
-										}}
-										onPrevious={() => {
-											prevPeriod()
-											closeMobileMenu()
-										}}
-										variant="grid"
-									/>
-								</div>
-							</PopoverContent>
-						</Popover>
-					</div>
+				{/* Right section: leading slot + view controls + new event */}
+				<div className="flex items-center gap-2">
+					{headerLeadingSlot ? (
+						<div className="flex items-center">{headerLeadingSlot}</div>
+					) : null}
+					<ViewControls
+						currentView={view}
+						onChange={setView}
+					/>
+					<Button
+						className="flex items-center gap-1"
+						onClick={() => openEventForm()}
+						size="sm"
+						variant="default"
+					>
+						<Plus className="h-4 w-4" />
+						<span className="hidden @xl/base-header:inline">{t('new')}</span>
+					</Button>
 				</div>
 			</div>
 		</div>

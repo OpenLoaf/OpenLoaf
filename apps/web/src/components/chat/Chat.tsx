@@ -42,6 +42,7 @@ type ChatProps = {
   tabId?: string;
   sessionId?: string;
   loadHistory?: boolean;
+  active?: boolean;
   /** Callback for the header "new session" action. */
   onNewSession?: () => void;
   /** Callback for the header "close session" action. */
@@ -108,6 +109,7 @@ export function Chat({
   tabId,
   sessionId,
   loadHistory,
+  active = true,
   onNewSession,
   onCloseSession,
   onSessionChange,
@@ -761,6 +763,7 @@ export function Chat({
       )}
       data-tenas-chat-root
       data-tab-id={tabId}
+      data-chat-active={active ? "true" : "false"}
     >
       {renderActiveSession()}
 

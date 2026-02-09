@@ -95,11 +95,29 @@ export function buildToolset(toolIds: string[]) → Record<string, tool>
 模型定义存放在 `apps/web/src/lib/model-registry/providers/*.json`，服务端通过 `modelRegistry.ts` 加载：
 
 ```typescript
-getModelDefinition("openai", "gpt-4o")   → ModelDefinition
-getProviderDefinition("openai")           → ProviderDefinition
+getModelDefinition("deepseek", "deepseek-chat")   → ModelDefinition
+getProviderDefinition("deepseek")                → ProviderDefinition
 ```
 
+内置 provider（默认 JSON 定义）：anthropic / moonshot / vercel / google / deepseek / xai / codex-cli / custom。
+
 **解析链**: 请求中的 `chatModelId + chatModelSource` → `resolveChatModel()` → `LanguageModelV3` 实例
+
+## Media (Image/Video) via SaaS
+
+聊天侧的图片生成不再构建本地 image 模型，统一走 SaaS SDK：
+
+- 入口：`apps/server/src/ai/services/chat/chatStreamService.ts`
+- 调用：`getSaasClient(accessToken).ai.image(payload)` → `ai.task(taskId)` 轮询
+- 落盘：`saveChatImageAttachment()`（聊天附件）+ `saveImageUrlsToDirectory()`（imageSaveDir）
+
+媒体 API 统一从 `apps/server/src/ai/interface/routes/saasMediaRoutes.ts` 暴露：
+
+- `POST /ai/image` / `POST /ai/vedio`
+- `GET /ai/task/:taskId`
+- `GET /ai/image/models` / `GET /ai/vedio/models`
+
+**注意**：tRPC 的 `ai` 路由已弃用（`apps/server/src/routers/ai.ts`），仅保留错误提示。
 
 ## Prompt Building
 

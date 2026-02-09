@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { GridStack, type GridStackNode } from "gridstack";
-import type { DesktopItem, DesktopItemLayout } from "./types";
+import type { DesktopItem, DesktopItemLayout, DesktopScope } from "./types";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import {
   getBreakpointConfig,
@@ -62,6 +62,8 @@ function clampItemToCols(item: DesktopItem, cols: number, layout: DesktopItemLay
 
 interface DesktopGridProps {
   items: DesktopItem[];
+  /** Desktop scope (workspace or project). */
+  scope: DesktopScope;
   editMode: boolean;
   /** Active breakpoint when editing. */
   activeBreakpoint: DesktopBreakpoint;
@@ -89,6 +91,7 @@ interface DesktopGridProps {
 /** Render a responsive Gridstack desktop grid; edit mode enables drag & resize. */
 export default function DesktopGrid({
   items,
+  scope,
   editMode,
   activeBreakpoint,
   onViewBreakpointChange,
@@ -722,6 +725,7 @@ export default function DesktopGrid({
               <div className="grid-stack-item-content !overflow-x-visible !overflow-y-visible bg-transparent">
               <DesktopTileGridstack
                 item={item}
+                scope={scope}
                 editMode={editMode}
                 onEnterEditMode={() => onSetEditMode(true)}
                 onUpdateItem={onUpdateItem}
