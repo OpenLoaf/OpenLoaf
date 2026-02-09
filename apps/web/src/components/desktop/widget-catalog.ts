@@ -39,6 +39,13 @@ export const desktopWidgetCatalog: DesktopWidgetCatalogItem[] = [
     support: { workspace: true, project: true },
   },
   {
+    widgetKey: "calendar",
+    title: "日历",
+    size: "5x6",
+    constraints: { defaultW: 5, defaultH: 6, minW: 4, minH: 3, maxW: 8, maxH: 6 },
+    support: { workspace: true, project: true },
+  },
+  {
     widgetKey: "chat-history",
     title: "聊天历史",
     size: "4x3",

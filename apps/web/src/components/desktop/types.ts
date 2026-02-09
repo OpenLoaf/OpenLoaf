@@ -14,7 +14,7 @@ export interface DesktopScopeSupport {
   project: boolean;
 }
 
-export type DesktopWidgetSize = "1x1" | "2x2" | "4x2" | "4x3";
+export type DesktopWidgetSize = "1x1" | "2x2" | "4x2" | "4x3" | "5x6";
 
 export interface DesktopWidgetConstraints {
   /** Default grid width in columns. */
@@ -79,6 +79,7 @@ export interface DesktopWidgetItem extends DesktopItemBase {
     | "clock"
     | "flip-clock"
     | "quick-actions"
+    | "calendar"
     | "chat-history"
     | "email-inbox"
     | "3d-folder"

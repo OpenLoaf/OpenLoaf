@@ -26,12 +26,13 @@ type DesktopFileItem = {
     | "clock"
     | "flip-clock"
     | "quick-actions"
+    | "calendar"
     | "chat-history"
     | "email-inbox"
     | "3d-folder"
     | "video"
     | "web-stack";
-  size?: "1x1" | "2x2" | "4x2" | "4x3";
+  size?: "1x1" | "2x2" | "4x2" | "4x3" | "5x6";
   constraints?: DesktopWidgetConstraints;
   pinned?: boolean;
   iconKey?: DesktopIconKey;

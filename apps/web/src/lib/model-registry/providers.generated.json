@@ -291,8 +291,7 @@
           "icon": "Grok",
           "tags": [
             "chat",
-            "tool_call",
-            "web_search"
+            "tool_call"
           ],
           "capabilities": {
             "common": {
@@ -307,8 +306,7 @@
           "icon": "Grok",
           "tags": [
             "chat",
-            "tool_call",
-            "web_search"
+            "tool_call"
           ],
           "capabilities": {
             "common": {

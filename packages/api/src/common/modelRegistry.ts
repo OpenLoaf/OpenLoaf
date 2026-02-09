@@ -35,7 +35,7 @@ export function createProviderRegistry(providers: ProviderDefinition[]): Provide
 
 /** Build a model spec for a specific tag. */
 export function byTag(tag: ModelTag): ModelSpec {
-  return (definition) => definition.tags.includes(tag);
+  return (definition) => (definition.tags ?? []).includes(tag);
 }
 
 /** Build an AND spec composition. */

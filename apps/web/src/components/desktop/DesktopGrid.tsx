@@ -124,8 +124,8 @@ export default function DesktopGrid({
   const registeredIdsRef = React.useRef(new Set<string>());
   // 逻辑：恢复布局后短暂屏蔽 change 事件，避免被 Gridstack 的最终布局覆盖。
   const suppressChangeRef = React.useRef(false);
-  // 记录上次 compact 信号，避免进入编辑态时自动整理。
-  const lastCompactSignalRef = React.useRef<number>(-1);
+  // 记录上次 compact 信号，避免首次挂载/切换编辑态时自动整理。
+  const lastCompactSignalRef = React.useRef<number>(compactSignal);
 
   const [containerWidth, setContainerWidth] = React.useState<number>(0);
   React.useEffect(() => {

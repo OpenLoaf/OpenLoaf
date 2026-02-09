@@ -74,6 +74,13 @@ function WidgetEntityPreview({
 }) {
   if (widgetKey === "clock") return <ClockWidget />;
   if (widgetKey === "chat-history") return <ChatHistoryWidget />;
+  if (widgetKey === "calendar") {
+    return (
+      <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/30 text-xs text-muted-foreground">
+        日历
+      </div>
+    );
+  }
   if (widgetKey === "email-inbox") {
     return (
       <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/30 text-xs text-muted-foreground">

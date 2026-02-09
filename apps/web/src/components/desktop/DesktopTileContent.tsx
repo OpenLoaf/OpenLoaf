@@ -10,6 +10,7 @@ import type { DesktopItem, DesktopScope } from "./types";
 import DesktopIconLabel from "./DesktopIconLabel";
 import ClockWidget from "./widgets/ClockWidget";
 import ChatHistoryWidget from "./widgets/ChatHistoryWidget";
+import CalendarWidget from "./widgets/CalendarWidget";
 import EmailInboxWidget from "./widgets/EmailInboxWidget";
 import FlipClockWidget from "./widgets/FlipClockWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
@@ -165,6 +166,14 @@ export default function DesktopTileContent({
     return (
       <div className="h-full w-full p-2">
         <ChatHistoryWidget />
+      </div>
+    );
+  }
+
+  if (widgetKey === "calendar") {
+    return (
+      <div className="h-full w-full p-2">
+        <CalendarWidget tabId={activeTabId ?? undefined} />
       </div>
     );
   }

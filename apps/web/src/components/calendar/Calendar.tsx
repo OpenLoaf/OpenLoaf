@@ -341,9 +341,12 @@ function SystemEventFormDialog({
 export default function CalendarPage({
   panelKey: _panelKey,
   tabId: _tabId,
+  compact = false,
 }: {
   panelKey: string;
   tabId: string;
+  /** Whether to render the calendar in compact mode. */
+  compact?: boolean;
 }) {
   const { basic } = useBasicConfig();
   const { workspace } = useWorkspace();
@@ -376,6 +379,13 @@ export default function CalendarPage({
   );
   const projectSelectionInitializedRef = useRef(false);
   const [sourceFilter, setSourceFilter] = useState<CalendarSourceFilter>("all");
+  // 逻辑：桌面嵌入版隐藏侧边栏，保留日历主体。
+  const showSidebar = !compact;
+  // 逻辑：紧凑模式下缩小事件样式，提升小组件可读性。
+  const eventPaddingClassName = compact ? "px-0.5" : "px-1";
+  const eventTextClassName = compact ? "text-[9px] sm:text-[10px]" : "text-[10px] sm:text-xs";
+  const reminderGapClassName = compact ? "gap-0.5" : "gap-1";
+  const reminderDotClassName = compact ? "h-1 w-1" : "h-2 w-2";
 
   useEffect(() => {
     if (projectSelectionInitializedRef.current) return;
@@ -591,10 +601,10 @@ export default function CalendarPage({
             if (meta?.kind !== "reminder") {
               return (
                 <div
-                  className="h-full w-full px-1 border-[1.5px] border-card text-left overflow-clip relative rounded-sm flex items-center"
+                  className={`h-full w-full ${eventPaddingClassName} border-[1.5px] border-card text-left overflow-clip relative rounded-sm flex items-center`}
                   style={{ backgroundColor: event.backgroundColor, color: event.color }}
                 >
-                  <span className="text-[10px] font-semibold sm:text-xs">
+                  <span className={`${eventTextClassName} font-semibold`}>
                     {event.title}
                   </span>
                 </div>
@@ -604,7 +614,7 @@ export default function CalendarPage({
             const isReadOnly = meta?.readOnly === true || meta?.isSubscribed === true;
             return (
               <div
-                className={`h-full w-full px-1 text-left overflow-clip relative rounded-sm flex items-center gap-1 ${
+                className={`h-full w-full ${eventPaddingClassName} text-left overflow-clip relative rounded-sm flex items-center ${reminderGapClassName} ${
                   isCompleted ? "text-muted-foreground" : "text-foreground"
                 }`}
                 style={{
@@ -612,7 +622,7 @@ export default function CalendarPage({
                 }}
               >
                 <span
-                  className={`inline-flex h-2 w-2 items-center justify-center rounded-full border border-current cursor-default`}
+                  className={`inline-flex ${reminderDotClassName} items-center justify-center rounded-full border border-current cursor-default`}
                   style={{
                     color: event.backgroundColor ?? "rgb(59, 130, 246)",
                     opacity: isCompleted ? 0.65 : 1,
@@ -630,52 +640,54 @@ export default function CalendarPage({
                     <span className="h-1 w-1 rounded-full bg-current" />
                   )}
                 </span>
-                <span className="text-[10px] font-semibold sm:text-xs">
+                <span className={`${eventTextClassName} font-semibold`}>
                   {event.title}
                 </span>
               </div>
             );
           }}
           sidebar={
-            <CalendarFilterPanel
-              calendars={filteredCalendars}
-              reminderLists={filteredReminderLists}
-              projects={projectTree}
-              projectIdList={projectIdList}
-              projectDescendantsById={projectHierarchy.descendantsById}
-              calendarColorMap={calendarColorMap}
-              reminderColorMap={reminderColorMap}
-              permissionState={permissionState}
-              sourceFilter={sourceFilter}
-              hasSystemCalendars={hasSystemCalendars}
-              hasSystemReminders={hasSystemReminders}
-              selectedCalendarIds={selectedCalendarIds}
-              selectedReminderListIds={selectedReminderListIds}
-              selectedProjectIds={selectedProjectIds}
-              className="h-full overflow-auto"
-              onSourceFilterChange={setSourceFilter}
-              onToggleCalendar={handleToggleCalendar}
-              onSelectAllCalendars={handleSelectAllCalendarsFiltered}
-              onClearCalendars={handleClearCalendarsFiltered}
-              onSelectAllReminders={handleSelectAllRemindersFiltered}
-              onClearReminders={handleClearRemindersFiltered}
-              onToggleReminder={(calendarId) =>
-                setSelectedReminderListIds((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(calendarId)) {
-                    next.delete(calendarId);
-                  } else {
-                    next.add(calendarId);
-                  }
-                  return next;
-                })
-              }
-              onSelectAllProjects={handleSelectAllProjects}
-              onClearProjects={handleClearProjects}
-              onToggleProject={handleToggleProject}
-            />
+            showSidebar ? (
+              <CalendarFilterPanel
+                calendars={filteredCalendars}
+                reminderLists={filteredReminderLists}
+                projects={projectTree}
+                projectIdList={projectIdList}
+                projectDescendantsById={projectHierarchy.descendantsById}
+                calendarColorMap={calendarColorMap}
+                reminderColorMap={reminderColorMap}
+                permissionState={permissionState}
+                sourceFilter={sourceFilter}
+                hasSystemCalendars={hasSystemCalendars}
+                hasSystemReminders={hasSystemReminders}
+                selectedCalendarIds={selectedCalendarIds}
+                selectedReminderListIds={selectedReminderListIds}
+                selectedProjectIds={selectedProjectIds}
+                className="h-full overflow-auto"
+                onSourceFilterChange={setSourceFilter}
+                onToggleCalendar={handleToggleCalendar}
+                onSelectAllCalendars={handleSelectAllCalendarsFiltered}
+                onClearCalendars={handleClearCalendarsFiltered}
+                onSelectAllReminders={handleSelectAllRemindersFiltered}
+                onClearReminders={handleClearRemindersFiltered}
+                onToggleReminder={(calendarId) =>
+                  setSelectedReminderListIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(calendarId)) {
+                      next.delete(calendarId);
+                    } else {
+                      next.add(calendarId);
+                    }
+                    return next;
+                  })
+                }
+                onSelectAllProjects={handleSelectAllProjects}
+                onClearProjects={handleClearProjects}
+                onToggleProject={handleToggleProject}
+              />
+            ) : undefined
           }
-          sidebarClassName="h-full"
+          sidebarClassName={showSidebar ? "h-full" : "hidden"}
           renderEventForm={(props) => {
             const selectedMeta = props.selectedEvent?.data as { calendarId?: string; kind?: CalendarKind } | undefined;
             const kind = selectedMeta?.kind === "reminder" ? "reminder" : "event";

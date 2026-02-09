@@ -35,10 +35,5 @@ export function supportsCode(model: ModelWithTags | null | undefined) {
 
 /** Return true when the model supports web search. */
 export function supportsWebSearch(model: ModelWithTags | null | undefined) {
-  return hasTag(model, "web_search");
-}
-
-/** Return true when the model supports speech generation. */
-export function supportsSpeechGeneration(model: ModelWithTags | null | undefined) {
-  return hasTag(model, "speech_generation");
+  return model?.capabilities?.common?.supportsWebSearch === true;
 }
