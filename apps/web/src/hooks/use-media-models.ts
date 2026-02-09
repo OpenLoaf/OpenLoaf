@@ -2,14 +2,14 @@
 
 import { useEffect } from "react";
 import { create } from "zustand";
-import type { MediaModelDefinition } from "@tenas-ai/api/common";
+import type { AiModel } from "@tenas-saas/sdk";
 import { fetchImageModels, fetchVideoModels } from "@/lib/saas-media";
 
 type MediaModelState = {
   /** Image model list. */
-  imageModels: MediaModelDefinition[];
+  imageModels: AiModel[];
   /** Video model list. */
-  videoModels: MediaModelDefinition[];
+  videoModels: AiModel[];
   /** Loading flag to avoid duplicate requests. */
   loading: boolean;
   /** Whether the list has been loaded at least once. */
@@ -26,11 +26,11 @@ type MediaModelResponse = {
   /** Response payload. */
   data?: {
     /** Model list payload. */
-    data?: MediaModelDefinition[];
+    data?: AiModel[];
   };
 };
 
-function resolveModelList(payload: unknown): MediaModelDefinition[] {
+function resolveModelList(payload: unknown): AiModel[] {
   const response = payload as MediaModelResponse | null;
   if (!response || response.success !== true) return [];
   const list = response.data?.data;

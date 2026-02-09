@@ -207,7 +207,7 @@ export default function DesktopGrid({
     );
 
     gridRef.current = grid;
-    grid.setStatic(!editMode);
+    grid.setStatic(!editModeRef.current);
 
     /** Handle layout changes from Gridstack. */
     const onChange = (_event: Event, nodes: GridStackNode[]) => {
@@ -296,7 +296,7 @@ export default function DesktopGrid({
       gridRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enableGridAnimation, editMode]);
+  }, [enableGridAnimation]);
 
   React.useEffect(() => {
     const el = gridContainerRef.current;

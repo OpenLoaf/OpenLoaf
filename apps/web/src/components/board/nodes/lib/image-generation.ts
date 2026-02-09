@@ -1,4 +1,5 @@
-import type { MediaModelDefinition, MediaModelTag, ModelTag } from "@tenas-ai/api/common";
+import type { ModelTag } from "@tenas-ai/api/common";
+import type { AiModel } from "@tenas-saas/sdk";
 
 import type { ProviderModelOption } from "@/lib/provider-models";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -107,36 +108,30 @@ export function filterModelOptionsByTags(
 }
 
 /** Check whether a model has a specific media tag. */
-function hasMediaTag(model: MediaModelDefinition, tag: MediaModelTag): boolean {
+function hasModelTag(model: AiModel, tag: string): boolean {
   const tags = Array.isArray(model.tags) ? model.tags : [];
-  return tags.includes(tag as MediaModelTag);
+  return tags.includes(tag);
 }
 
 /** Filter image media models based on input/output requirements. */
 export function filterImageMediaModels(
-  models: MediaModelDefinition[],
+  models: AiModel[],
   input: { imageCount: number; hasMask: boolean; outputCount: number },
 ) {
   return models.filter((model) => {
     const tags = Array.isArray(model.tags) ? model.tags : [];
     const inputCaps = model.capabilities?.input;
     const outputCaps = model.capabilities?.output;
-    if (tags.length > 0 && !hasMediaTag(model, "image_generation")) return false;
-    if (input.hasMask) {
-      if (inputCaps?.supportsMask === false) return false;
-      if (tags.length > 0 && !hasMediaTag(model, "image_edit")) return false;
+    if (
+      tags.length > 0 &&
+      !hasModelTag(model, "image_generation") &&
+      !hasModelTag(model, "image_edit")
+    ) {
+      return false;
     }
+    if (input.hasMask && inputCaps?.supportsMask === false) return false;
     if (input.imageCount > 1) {
       if (inputCaps?.maxImages !== undefined && inputCaps.maxImages < input.imageCount) {
-        return false;
-      }
-      if (tags.length > 0 && !hasMediaTag(model, "image_multi_input")) return false;
-    } else if (input.imageCount === 1) {
-      if (
-        tags.length > 0 &&
-        !hasMediaTag(model, "image_input") &&
-        !hasMediaTag(model, "image_multi_input")
-      ) {
         return false;
       }
     }
@@ -147,7 +142,7 @@ export function filterImageMediaModels(
 
 /** Filter video media models based on input/output requirements. */
 export function filterVideoMediaModels(
-  models: MediaModelDefinition[],
+  models: AiModel[],
   input: {
     imageCount: number;
     hasReference: boolean;
@@ -159,33 +154,15 @@ export function filterVideoMediaModels(
     const tags = Array.isArray(model.tags) ? model.tags : [];
     const inputCaps = model.capabilities?.input;
     const outputCaps = model.capabilities?.output;
-    if (tags.length > 0 && !hasMediaTag(model, "video_generation")) return false;
-    if (input.hasReference) {
-      if (inputCaps?.supportsReferenceVideo === false) return false;
-      if (tags.length > 0 && !hasMediaTag(model, "video_reference")) return false;
-    }
-    if (input.hasStartEnd) {
-      if (inputCaps?.supportsStartEnd === false) return false;
-      if (tags.length > 0 && !hasMediaTag(model, "video_start_end")) return false;
-    }
+    if (tags.length > 0 && !hasModelTag(model, "video_generation")) return false;
+    if (input.hasReference && inputCaps?.supportsReferenceVideo === false) return false;
+    if (input.hasStartEnd && inputCaps?.supportsStartEnd === false) return false;
     if (input.imageCount > 1) {
       if (inputCaps?.maxImages !== undefined && inputCaps.maxImages < input.imageCount) {
         return false;
       }
-      if (tags.length > 0 && !hasMediaTag(model, "image_multi_input")) return false;
-    } else if (input.imageCount === 1) {
-      if (
-        tags.length > 0 &&
-        !hasMediaTag(model, "image_input") &&
-        !hasMediaTag(model, "image_multi_input")
-      ) {
-        return false;
-      }
     }
-    if (input.withAudio) {
-      if (outputCaps?.supportsAudio === false) return false;
-      if (tags.length > 0 && !hasMediaTag(model, "video_audio_output")) return false;
-    }
+    if (input.withAudio && outputCaps?.supportsAudio === false) return false;
     return true;
   });
 }

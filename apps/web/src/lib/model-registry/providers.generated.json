@@ -1,0 +1,338 @@
+{
+  "updatedAt": "2026-02-09T07:19:23.184Z",
+  "providers": [
+    {
+      "id": "anthropic",
+      "label": "Anthropic",
+      "adapterId": "anthropic",
+      "apiUrl": "https://api.anthropic.com/v1",
+      "authConfig": {
+        "apiKey": "${ANTHROPIC_API_KEY}"
+      },
+      "models": [
+        {
+          "id": "claude-3-7-sonnet-latest",
+          "familyId": "Claude",
+          "providerId": "anthropic",
+          "icon": "Claude",
+          "tags": [
+            "chat"
+          ],
+          "capabilities": {
+            "common": {
+              "maxContextK": 0
+            }
+          }
+        },
+        {
+          "id": "claude-3-5-haiku-latest",
+          "familyId": "Claude",
+          "providerId": "anthropic",
+          "icon": "Claude",
+          "tags": [
+            "chat"
+          ],
+          "capabilities": {
+            "common": {
+              "maxContextK": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "codex-cli",
+      "label": "Codex CLI",
+      "adapterId": "cli",
+      "apiUrl": "",
+      "authConfig": {
+        "apiKey": "${CODEX_API_KEY}"
+      },
+      "models": [
+        {
+          "id": "gpt-5.2-codex",
+          "familyId": "OpenAI",
+          "providerId": "codex-cli",
+          "icon": "OpenAI",
+          "tags": [
+            "chat",
+            "code"
+          ],
+          "capabilities": {
+            "common": {
+              "maxContextK": 128
+            },
+            "params": {
+              "features": [],
+              "fields": [
+                {
+                  "key": "mode",
+                  "title": "模式",
+                  "type": "select",
+                  "values": [
+                    "chat",
+                    "agent",
+                    "agent_full_access"
+                  ],
+                  "default": "chat",
+                  "request": false
+                },
+                {
+                  "key": "reasoningEffort",
+                  "title": "思考等级",
+                  "type": "select",
+                  "values": [
+                    "low",
+                    "medium",
+                    "high",
+                    "xhigh"
+                  ],
+                  "default": "medium",
+                  "request": false
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "custom",
+      "label": "自定义服务商",
+      "adapterId": "openai",
+      "apiUrl": "",
+      "authConfig": {
+        "apiKey": "${CUSTOM_API_KEY}"
+      },
+      "models": []
+    },
+    {
+      "id": "deepseek",
+      "label": "DeepSeek",
+      "adapterId": "deepseek",
+      "apiUrl": "https://api.deepseek.com",
+      "authConfig": {
+        "apiKey": "${DEEPSEEK_API_KEY}"
+      },
+      "models": [
+        {
+          "id": "deepseek-chat",
+          "familyId": "DeepSeek",
+          "providerId": "deepseek",
+          "icon": "DeepSeek",
+          "tags": [
+            "chat",
+            "tool_call"
+          ],
+          "capabilities": {
+            "common": {
+              "maxContextK": 128
+            }
+          }
+        },
+        {
+          "id": "deepseek-reasoner",
+          "familyId": "DeepSeek",
+          "providerId": "deepseek",
+          "icon": "DeepSeek",
+          "tags": [
+            "chat",
+            "reasoning",
+            "tool_call"
+          ],
+          "capabilities": {
+            "common": {
+              "maxContextK": 128
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "google",
+      "label": "Google",
+      "adapterId": "google",
+      "apiUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "authConfig": {
+        "apiKey": "${GOOGLE_API_KEY}"
+      },
+      "models": [
+        {
+          "id": "gemini-3-flash-preview",
+          "familyId": "Gemini",
+          "providerId": "google",
+          "icon": "Gemini",
+          "tags": [
+            "chat"
+          ],
+          "capabilities": {
+            "common": {
+              "maxContextK": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "moonshot",
+      "label": "Moonshot",
+      "adapterId": "moonshot",
+      "apiUrl": "https://api.moonshot.ai/v1",
+      "authConfig": {
+        "apiKey": "${MOONSHOT_API_KEY}"
+      },
+      "models": [
+        {
+          "id": "kimi-k2.5",
+          "familyId": "Kimi",
+          "providerId": "moonshot",
+          "icon": "Kimi",
+          "tags": [
+            "chat"
+          ],
+          "capabilities": {
+            "common": {
+              "maxContextK": 0
+            }
+          }
+        },
+        {
+          "id": "moonshot-v1-32k",
+          "familyId": "Moonshot",
+          "providerId": "moonshot",
+          "icon": "Moonshot",
+          "tags": [
+            "chat"
+          ],
+          "capabilities": {
+            "common": {
+              "maxContextK": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "qwen",
+      "label": "阿里百炼",
+      "adapterId": "qwen",
+      "apiUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "authConfig": {
+        "apiKey": "${DASHSCOPE_API_KEY}"
+      },
+      "models": []
+    },
+    {
+      "id": "vercel",
+      "label": "Vercel",
+      "adapterId": "vercel",
+      "apiUrl": "https://api.v0.dev/v1",
+      "authConfig": {
+        "apiKey": "${VERCEL_API_KEY}"
+      },
+      "models": [
+        {
+          "id": "v0-1.5-md",
+          "familyId": "V0",
+          "providerId": "vercel",
+          "icon": "V0",
+          "tags": [
+            "chat"
+          ],
+          "capabilities": {
+            "common": {
+              "maxContextK": 0
+            }
+          }
+        },
+        {
+          "id": "v0-1.5-lg",
+          "familyId": "V0",
+          "providerId": "vercel",
+          "icon": "V0",
+          "tags": [
+            "chat"
+          ],
+          "capabilities": {
+            "common": {
+              "maxContextK": 0
+            }
+          }
+        },
+        {
+          "id": "v0-1.0-md",
+          "familyId": "V0",
+          "providerId": "vercel",
+          "icon": "V0",
+          "tags": [
+            "chat"
+          ],
+          "capabilities": {
+            "common": {
+              "maxContextK": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "xai",
+      "label": "xAI",
+      "adapterId": "xai",
+      "apiUrl": "https://api.x.ai/v1",
+      "authConfig": {
+        "apiKey": "${XAI_API_KEY}"
+      },
+      "models": [
+        {
+          "id": "grok-4-1-fast-reasoning",
+          "familyId": "Grok",
+          "providerId": "xai",
+          "icon": "Grok",
+          "tags": [
+            "chat",
+            "tool_call",
+            "web_search"
+          ],
+          "capabilities": {
+            "common": {
+              "maxContextK": 128
+            }
+          }
+        },
+        {
+          "id": "grok-4-fast-non-reasoning",
+          "familyId": "Grok",
+          "providerId": "xai",
+          "icon": "Grok",
+          "tags": [
+            "chat",
+            "tool_call",
+            "web_search"
+          ],
+          "capabilities": {
+            "common": {
+              "maxContextK": 128
+            }
+          }
+        },
+        {
+          "id": "grok-code-fast-1",
+          "familyId": "Grok",
+          "providerId": "xai",
+          "icon": "Grok",
+          "tags": [
+            "chat",
+            "tool_call",
+            "code"
+          ],
+          "capabilities": {
+            "common": {
+              "maxContextK": 128
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

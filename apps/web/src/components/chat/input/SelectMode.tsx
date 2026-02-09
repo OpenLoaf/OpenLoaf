@@ -37,7 +37,8 @@ import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import { ModelIcon } from "@/components/setting/menus/provider/ModelIcon";
 import { useOptionalChatSession } from "../context";
-import { MODEL_TAG_LABELS, type MediaModelDefinition } from "@tenas-ai/api/common";
+import { MODEL_TAG_LABELS } from "@tenas-ai/api/common";
+import type { AiModel } from "@tenas-saas/sdk";
 import {
   CHAT_MODEL_SELECTION_EVENT,
   MODEL_SELECTION_STORAGE_KEY,
@@ -275,8 +276,8 @@ export default function SelectMode({ className }: SelectModeProps) {
     }));
   }, [activeProviderModels]);
   /** Group media models by provider label. */
-  const groupMediaModels = useCallback((models: MediaModelDefinition[]) => {
-    const groups = new Map<string, MediaModelDefinition[]>();
+  const groupMediaModels = useCallback((models: AiModel[]) => {
+    const groups = new Map<string, AiModel[]>();
     models.forEach((model) => {
       const providerId = model.providerId ?? "";
       const providerLabel = providerId
@@ -303,7 +304,7 @@ export default function SelectMode({ className }: SelectModeProps) {
 
   /** Render display-only media model groups. */
   const renderMediaGroups = (
-    groups: Array<{ label: string; models: MediaModelDefinition[] }>,
+    groups: Array<{ label: string; models: AiModel[] }>,
     emptyText: string,
   ) => {
     if (showCloudLogin) {

@@ -58,6 +58,15 @@
     "**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,vue,astro,svelte}": "biome check --apply --write"
   },
   "pnpm": {
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "react": "^19.0.0"
+      }
+    },
+    "overrides": {
+      "@radix-ui/react-popover": "1.1.15",
+      "@radix-ui/react-tabs": "1.1.13"
+    },
     "onlyBuiltDependencies": [
       "macos-alias",
       "ds-store",

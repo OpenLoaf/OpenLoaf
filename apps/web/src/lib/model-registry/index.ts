@@ -3,27 +3,13 @@ import {
   type ModelDefinition,
   type ProviderDefinition,
 } from "@tenas-ai/api/common";
-import anthropicProvider from "./providers/anthropic.json";
-import codexCliProvider from "./providers/codex-cli.json";
-import customProvider from "./providers/custom.json";
-import deepseekProvider from "./providers/deepseek.json";
-import googleProvider from "./providers/google.json";
-import moonshotProvider from "./providers/moonshot.json";
-import qwenProvider from "./providers/qwen.json";
-import vercelProvider from "./providers/vercel.json";
-import xaiProvider from "./providers/xai.json";
+import providerPayload from "./providers.generated.json";
 
-const providers = [
-  anthropicProvider,
-  xaiProvider,
-  deepseekProvider,
-  googleProvider,
-  moonshotProvider,
-  qwenProvider,
-  vercelProvider,
-  codexCliProvider,
-  customProvider,
-] as ProviderDefinition[];
+const providers = (Array.isArray(providerPayload)
+  ? providerPayload
+  : Array.isArray(providerPayload.providers)
+    ? providerPayload.providers
+    : []) as ProviderDefinition[];
 
 const normalizedProviders = providers.map((provider) => ({
   ...provider,

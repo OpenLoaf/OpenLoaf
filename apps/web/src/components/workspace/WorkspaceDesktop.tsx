@@ -281,14 +281,14 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col">
-      <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-3 py-2 backdrop-blur-sm">
+      <div className="flex items-center justify-between gap-3 bg-background/80 px-3 py-2 backdrop-blur-sm">
         <div className="flex items-center gap-2 text-sm font-medium">
           <Image src="/head_s.png" alt="" width={16} height={16} className="h-4 w-4" />
           <span>工作台</span>
         </div>
         <div ref={controlsSlotRef} className="flex items-center gap-2" />
       </div>
-      <div className="min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col">
         <DesktopEditToolbar
           controlsTarget={controlsTarget}
           editMode={editMode}
@@ -300,18 +300,20 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
           onCancel={handleCancel}
           onDone={handleDone}
         />
-        <DesktopPage
-          items={items}
-          scope="workspace"
-          editMode={editMode}
-          activeBreakpoint={editBreakpoint}
-          onViewBreakpointChange={setViewBreakpoint}
-          onSetEditMode={handleSetEditMode}
-          onUpdateItem={handleUpdateItem}
-          onPersistItemUpdate={handleUpdateItemPersist}
-          onChangeItems={setItems}
-          compactSignal={compactSignal}
-        />
+        <div className="min-h-0 flex-1">
+          <DesktopPage
+            items={items}
+            scope="workspace"
+            editMode={editMode}
+            activeBreakpoint={editBreakpoint}
+            onViewBreakpointChange={setViewBreakpoint}
+            onSetEditMode={handleSetEditMode}
+            onUpdateItem={handleUpdateItem}
+            onPersistItemUpdate={handleUpdateItemPersist}
+            onChangeItems={setItems}
+            compactSignal={compactSignal}
+          />
+        </div>
       </div>
     </div>
   );

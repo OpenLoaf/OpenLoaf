@@ -1,14 +1,14 @@
 "use client";
 
-import type { MediaModelDefinition } from "@tenas-ai/api/common";
+import type { AiModel } from "@tenas-saas/sdk";
 import { ChevronDown, LogIn } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
 
 type ModelSelectProps = {
   authLoggedIn: boolean;
   isLoginBusy: boolean;
-  candidates: MediaModelDefinition[];
-  selectedModel: MediaModelDefinition | undefined;
+  candidates: AiModel[];
+  selectedModel: AiModel | undefined;
   effectiveModelId: string;
   disabled: boolean;
   modelSelectOpen: boolean;
