@@ -1,6 +1,6 @@
 import { CalendarDays, Folder, Info, Settings, Wand2 } from "lucide-react";
 import { useMemo } from "react";
-import { ExpandableTabs } from "@tenas-ai/ui/expandable-tabs";
+import { ExpandableDockTabs } from "@/components/ui/ExpandableDockTabs";
 
 /** Format a shortcut string for tooltip display. */
 function formatShortcutLabel(shortcut: string, isMac: boolean): string {
@@ -40,26 +40,31 @@ export const PROJECT_TABS = [
     value: "index",
     icon: Info,
     label: "首页",
+    tone: "sky",
   },
   {
     value: "files",
     icon: Folder,
     label: "文件",
+    tone: "emerald",
   },
   {
     value: "tasks",
     icon: CalendarDays,
     label: "历史",
+    tone: "amber",
   },
   {
     value: "skills",
     icon: Wand2,
     label: "技能",
+    tone: "violet",
   },
   {
     value: "settings",
     icon: Settings,
     label: "设置",
+    tone: "slate",
   },
 ] as const;
 
@@ -79,7 +84,7 @@ export default function ProjectTabs({
   value,
   onValueChange,
   isActive = true,
-  size = "md",
+  size = "sm",
 }: ProjectTabsProps) {
   // 根据当前值映射到选中索引
   const selectedIndex = useMemo(() => {
@@ -97,8 +102,10 @@ export default function ProjectTabs({
   const tabs = useMemo(
     () =>
       PROJECT_TABS.map((tab) => ({
-        title: tab.label,
+        id: tab.value,
+        label: tab.label,
         icon: tab.icon,
+        tone: tab.tone,
       })),
     []
   );
@@ -113,13 +120,13 @@ export default function ProjectTabs({
 
   return (
     <div className="flex justify-center flex-1 min-w-0" aria-hidden={!isActive}>
-      <ExpandableTabs
+      <ExpandableDockTabs
         tabs={tabs}
         selectedIndex={selectedIndex}
         onChange={handleChange}
         size={size}
         getTooltip={(tab, index) =>
-          `${tab.title} (${formatShortcutLabel(`Alt+${index + 1}`, isMac)})`
+          `${tab.label} (${formatShortcutLabel(`Alt+${index + 1}`, isMac)})`
         }
       />
     </div>

@@ -29,6 +29,8 @@ interface ExpandableTabsProps {
   activeColor?: string;
   /** Tabs 尺寸。 */
   size?: "sm" | "md" | "lg";
+  /** Tabs 外观风格。 */
+  variant?: "default" | "dock";
   onChange?: (index: number | null) => void;
   selectedIndex?: number | null;
   defaultSelectedIndex?: number | null;
@@ -65,6 +67,7 @@ export function ExpandableTabs({
   className,
   activeColor = "text-primary",
   size = "md",
+  variant = "default",
   onChange,
   selectedIndex,
   defaultSelectedIndex = null,
@@ -111,19 +114,37 @@ export function ExpandableTabs({
       icon: 16,
     },
     lg: {
-      container: "h-12 p-1 gap-2",
-      button: "h-10 text-[16px]",
-      icon: 20,
+      container: "gap-2 px-3 py-1",
+      button: "h-9 text-[15px]",
+      icon: 18,
     },
   } as const;
   const sizeToken = sizeConfig[size];
+  const variantConfig = {
+    default: {
+      container: "rounded-lg border bg-background",
+      button: "rounded-md",
+      selected: "bg-muted",
+      unselected: "text-muted-foreground hover:bg-muted hover:text-foreground",
+    },
+    dock: {
+      container:
+        "rounded-full border border-border/60 bg-background/90 shadow-[0_16px_40px_rgba(0,0,0,0.2)] backdrop-blur",
+      button: "rounded-full",
+      selected: "bg-background text-foreground shadow-sm",
+      unselected:
+        "text-muted-foreground/80 hover:bg-background/80 hover:text-foreground",
+    },
+  } as const;
+  const variantToken = variantConfig[variant];
 
   return (
     <div
       ref={outsideClickRef}
       className={cn(
-        "flex flex-wrap items-center rounded-lg border bg-background",
+        "flex flex-wrap items-center",
         sizeToken.container,
+        variantToken.container,
         className
       )}
     >
@@ -146,11 +167,12 @@ export function ExpandableTabs({
             onClick={() => handleSelect(index)}
             transition={transition}
             className={cn(
-              "relative flex items-center rounded-md px-3 py-1 font-medium transition-colors duration-300",
+              "relative flex items-center px-3 py-1 font-medium transition-colors duration-300",
               sizeToken.button,
+              variantToken.button,
               isSelected
-                ? cn("bg-muted", activeColor)
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? cn(variantToken.selected, activeColor)
+                : variantToken.unselected
             )}
           >
             <Icon size={sizeToken.icon} />

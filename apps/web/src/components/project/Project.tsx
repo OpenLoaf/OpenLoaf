@@ -481,13 +481,13 @@ export default function ProjectPage({
 
       <div className="relative flex-1 min-h-0 w-full">
         <div className="pointer-events-none absolute bottom-2 left-1/2 z-20 -translate-x-1/2">
-          <div className="pointer-events-auto rounded-lg shadow-[0_10px_30px_rgba(0,0,0,0.18)] transition-transform duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_14px_36px_rgba(0,0,0,0.22)]">
+          <div className="pointer-events-auto">
             <ProjectTabs
               value={activeTab}
               onValueChange={handleProjectTabChange}
               isActive={tabActive}
               revealDelayMs={800}
-              size="lg"
+              size="sm"
             />
           </div>
         </div>
@@ -495,105 +495,105 @@ export default function ProjectPage({
           <div className="w-full h-full min-h-0 min-w-0 flex flex-col [&>div]:!min-w-0 [&>div]:!w-full [&>div]:!h-full [&>div]:!block">
             <div className="flex-1 min-h-0 w-full h-full">
               <div className="relative w-full h-full min-h-0 overflow-hidden rounded-lg bg-background">
-              <div
-                id="project-panel-index"
-                role="tabpanel"
-                aria-labelledby="project-tab-index"
-                className={`${panelBaseClass} ${
-                  activeTab === "index"
-                    ? "opacity-100 pointer-events-auto"
-                    : "opacity-0 pointer-events-none"
-                }`}
-                aria-hidden={activeTab !== "index"}
-              >
-                {shouldRenderIndex ? (
-                  <ProjectIndex
-                    isLoading={isLoading}
-                    isActive={tabActive && activeTab === "index"}
-                    projectId={projectId}
-                    rootUri={rootUri}
-                    projectTitle={pageTitle}
-                    readOnly={indexReadOnly}
-                    onDirtyChange={setIndexDirty}
-                    onPublishSuccess={handleIndexPublish}
-                    controlsSlotRef={indexControlsRef}
-                    onEditModeChange={setIndexEditMode}
-                  />
-                ) : null}
-              </div>
-              <div
-                id="project-panel-files"
-                role="tabpanel"
-                aria-labelledby="project-tab-files"
-                className={`${panelBaseClass} ${
-                  activeTab === "files"
-                    ? "opacity-100 pointer-events-auto"
-                    : "opacity-0 pointer-events-none"
-                }`}
-                aria-hidden={activeTab !== "files"}
-              >
-                {shouldRenderFiles ? (
-                  <ProjectFileSystem
-                    projectId={projectId}
-                    rootUri={rootUri}
-                    currentUri={fileUri}
-                    isLoading={isLoading}
-                    isGitProject={isGitProject}
-                    projectLookup={projectLookup}
-                    onNavigate={setFileUri}
-                  />
-                ) : null}
-              </div>
-              <div
-                id="project-panel-tasks"
-                role="tabpanel"
-                aria-labelledby="project-tab-tasks"
-                className={`${panelBaseClass} ${
-                  activeTab === "tasks"
-                    ? "opacity-100 pointer-events-auto"
-                    : "opacity-0 pointer-events-none"
-                }`}
-                aria-hidden={activeTab !== "tasks"}
-              >
-                {shouldRenderTasks ? (
-                  <ProjectHistory isLoading={isLoading} />
-                ) : null}
-              </div>
-              <div
-                id="project-panel-skills"
-                role="tabpanel"
-                aria-labelledby="project-tab-skills"
-                className={`${panelBaseClass} ${
-                  activeTab === "skills"
-                    ? "opacity-100 pointer-events-auto"
-                    : "opacity-0 pointer-events-none"
-                }`}
-                aria-hidden={activeTab !== "skills"}
-              >
-                {shouldRenderSkills ? (
-                  <ProjectSkillsPage projectId={projectId} />
-                ) : null}
-              </div>
-              <div
-                id="project-panel-settings"
-                role="tabpanel"
-                aria-labelledby="project-tab-settings"
-                className={`${panelBaseClass} ${
-                  activeTab === "settings"
-                    ? "opacity-100 pointer-events-auto"
-                    : "opacity-0 pointer-events-none"
-                }`}
-                aria-hidden={activeTab !== "settings"}
-              >
-                {shouldRenderSettings ? (
-                  <ProjectSettingsPage projectId={projectId} rootUri={rootUri} />
-                ) : null}
+                <div
+                  id="project-panel-index"
+                  role="tabpanel"
+                  aria-labelledby="project-tab-index"
+                  className={`${panelBaseClass} ${
+                    activeTab === "index"
+                      ? "opacity-100 pointer-events-auto"
+                      : "opacity-0 pointer-events-none"
+                  }`}
+                  aria-hidden={activeTab !== "index"}
+                >
+                  {shouldRenderIndex ? (
+                    <ProjectIndex
+                      isLoading={isLoading}
+                      isActive={tabActive && activeTab === "index"}
+                      projectId={projectId}
+                      rootUri={rootUri}
+                      projectTitle={pageTitle}
+                      readOnly={indexReadOnly}
+                      onDirtyChange={setIndexDirty}
+                      onPublishSuccess={handleIndexPublish}
+                      controlsSlotRef={indexControlsRef}
+                      onEditModeChange={setIndexEditMode}
+                    />
+                  ) : null}
+                </div>
+                <div
+                  id="project-panel-files"
+                  role="tabpanel"
+                  aria-labelledby="project-tab-files"
+                  className={`${panelBaseClass} ${
+                    activeTab === "files"
+                      ? "opacity-100 pointer-events-auto"
+                      : "opacity-0 pointer-events-none"
+                  }`}
+                  aria-hidden={activeTab !== "files"}
+                >
+                  {shouldRenderFiles ? (
+                    <ProjectFileSystem
+                      projectId={projectId}
+                      rootUri={rootUri}
+                      currentUri={fileUri}
+                      isLoading={isLoading}
+                      isGitProject={isGitProject}
+                      projectLookup={projectLookup}
+                      onNavigate={setFileUri}
+                    />
+                  ) : null}
+                </div>
+                <div
+                  id="project-panel-tasks"
+                  role="tabpanel"
+                  aria-labelledby="project-tab-tasks"
+                  className={`${panelBaseClass} ${
+                    activeTab === "tasks"
+                      ? "opacity-100 pointer-events-auto"
+                      : "opacity-0 pointer-events-none"
+                  }`}
+                  aria-hidden={activeTab !== "tasks"}
+                >
+                  {shouldRenderTasks ? (
+                    <ProjectHistory isLoading={isLoading} />
+                  ) : null}
+                </div>
+                <div
+                  id="project-panel-skills"
+                  role="tabpanel"
+                  aria-labelledby="project-tab-skills"
+                  className={`${panelBaseClass} ${
+                    activeTab === "skills"
+                      ? "opacity-100 pointer-events-auto"
+                      : "opacity-0 pointer-events-none"
+                  }`}
+                  aria-hidden={activeTab !== "skills"}
+                >
+                  {shouldRenderSkills ? (
+                    <ProjectSkillsPage projectId={projectId} />
+                  ) : null}
+                </div>
+                <div
+                  id="project-panel-settings"
+                  role="tabpanel"
+                  aria-labelledby="project-tab-settings"
+                  className={`${panelBaseClass} ${
+                    activeTab === "settings"
+                      ? "opacity-100 pointer-events-auto"
+                      : "opacity-0 pointer-events-none"
+                  }`}
+                  aria-hidden={activeTab !== "settings"}
+                >
+                  {shouldRenderSettings ? (
+                    <ProjectSettingsPage projectId={projectId} rootUri={rootUri} />
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
     </div>
   );
 }
