@@ -129,10 +129,6 @@ function buildChatModelCandidates(input: {
 
 /** Build a readable error for required input types. */
 function buildRequiredTagError(requiredTags: ModelTag[]): Error {
-  const requiredSet = new Set(requiredTags);
-  if (requiredSet.has("image_edit")) {
-    return new Error("未找到支持图片编辑的模型");
-  }
   return new Error("未找到满足输入条件的模型");
 }
 

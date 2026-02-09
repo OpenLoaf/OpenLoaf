@@ -17,6 +17,8 @@ type ModelListPayload = {
       provider: string;
       displayName: string;
       tags: string[];
+      /** Model capabilities. */
+      capabilities?: Record<string, unknown>;
     }>;
     updatedAt?: string;
   };

@@ -9,33 +9,45 @@
   "models": [
     {
       "id": "v0-1.5-md",
-      "familyId": "LobeHub",
+      "familyId": "V0",
       "providerId": "vercel",
-      "icon": "LobeHub",
+      "icon": "V0",
       "tags": [
         "chat"
       ],
-      "maxContextK": 0
+      "capabilities": {
+        "common": {
+          "maxContextK": 0
+        }
+      }
     },
     {
       "id": "v0-1.5-lg",
-      "familyId": "LobeHub",
+      "familyId": "V0",
       "providerId": "vercel",
-      "icon": "LobeHub",
+      "icon": "V0",
       "tags": [
         "chat"
       ],
-      "maxContextK": 0
+      "capabilities": {
+        "common": {
+          "maxContextK": 0
+        }
+      }
     },
     {
       "id": "v0-1.0-md",
-      "familyId": "LobeHub",
+      "familyId": "V0",
       "providerId": "vercel",
-      "icon": "LobeHub",
+      "icon": "V0",
       "tags": [
         "chat"
       ],
-      "maxContextK": 0
+      "capabilities": {
+        "common": {
+          "maxContextK": 0
+        }
+      }
     }
   ]
 }

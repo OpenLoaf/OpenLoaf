@@ -106,54 +106,8 @@ export function filterModelOptionsByTags(
   });
 }
 
-/** Filter model options for image generation rules. */
-export function filterImageGenerationModelOptions(
-  options: ProviderModelOption[],
-  input: { imageCount: number; outputCount: number },
-) {
-  const requiredTags: ModelTag[] = ["image_generation"];
-  // 逻辑：纯文本生成时只要求 image_generation，避免过度过滤模型。
-  if (input.imageCount > 0 && input.outputCount > 1) {
-    requiredTags.push("image_multi_generation");
-  }
-  return options.filter((option) => {
-    const tags = Array.isArray(option.tags) ? option.tags : [];
-    // 逻辑：必须命中基础生成标签。
-    if (!requiredTags.every((tag) => tags.includes(tag))) return false;
-    if (input.imageCount > 1) {
-      // 逻辑：多图输入必须支持 image_multi_input。
-      return tags.includes("image_multi_input");
-    }
-    if (input.imageCount === 1) {
-      // 逻辑：单图输入允许 image_input 或 image_multi_input。
-      return tags.includes("image_input") || tags.includes("image_multi_input");
-    }
-    return true;
-  });
-}
-
-/** Resolve required tags for image generation model selection. */
-export function resolveImageGenerationRequiredTags(input: {
-  imageCount: number;
-  outputCount: number;
-}) {
-  const requiredTags: ModelTag[] = ["image_generation"];
-  // 逻辑：多图输出时需要 image_multi_generation。
-  if (input.imageCount > 0 && input.outputCount > 1) {
-    requiredTags.push("image_multi_generation");
-  }
-  if (input.imageCount > 1) {
-    // 逻辑：多图输入必须包含 image_multi_input。
-    requiredTags.push("image_multi_input");
-  } else if (input.imageCount === 1) {
-    // 逻辑：单图输入优先匹配 image_input（兼容 image_multi_input）。
-    requiredTags.push("image_input");
-  }
-  return requiredTags;
-}
-
 /** Check whether a model has a specific media tag. */
-function hasMediaTag(model: MediaModelDefinition, tag: MediaModelTag | ModelTag): boolean {
+function hasMediaTag(model: MediaModelDefinition, tag: MediaModelTag): boolean {
   const tags = Array.isArray(model.tags) ? model.tags : [];
   return tags.includes(tag as MediaModelTag);
 }

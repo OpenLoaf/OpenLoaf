@@ -24,7 +24,7 @@ import type { CanvasStrokePoint, CanvasStrokeTool } from "@/components/board/eng
 import type { MaskedAttachmentInput } from "@/components/chat/input/chat-attachments";
 import { fetchBlobFromUri, loadImageFromUri } from "@/lib/image/uri";
 import { resolveMaskFileName } from "@/lib/image/mask";
-import { supportsImageEdit } from "@/lib/model-capabilities";
+import { supportsImageInput } from "@/lib/model-capabilities";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 interface ImageViewerProps {
@@ -774,7 +774,7 @@ export default function ImageViewer({
       toast.error("没有可用的图片调整模型，请添加或者使用云端模型");
       return;
     }
-    const maskModels = modelOptions.filter((option) => supportsImageEdit(option));
+    const maskModels = modelOptions.filter((option) => supportsImageInput(option));
     if (maskModels.length === 0) {
       toast.error("没有可用的图片调整模型，请添加或者使用云端模型");
       return;

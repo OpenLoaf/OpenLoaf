@@ -16,7 +16,11 @@
         "chat",
         "tool_call"
       ],
-      "maxContextK": 128
+      "capabilities": {
+        "common": {
+          "maxContextK": 128
+        }
+      }
     },
     {
       "id": "deepseek-reasoner",
@@ -28,7 +32,11 @@
         "reasoning",
         "tool_call"
       ],
-      "maxContextK": 128
+      "capabilities": {
+        "common": {
+          "maxContextK": 128
+        }
+      }
     }
   ]
 }

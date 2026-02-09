@@ -37,4 +37,4 @@ export const IMAGE_PROMPT_GENERATE_MIN_HEIGHT = 0;
 /** Required tags for image prompt models. */
 export const REQUIRED_TAGS: ModelTag[] = ["image_input", "chat"];
 /** Excluded tags for image prompt models. */
-export const EXCLUDED_TAGS: ModelTag[] = ["image_edit", "image_generation", "code"];
+export const EXCLUDED_TAGS: ModelTag[] = ["code"];

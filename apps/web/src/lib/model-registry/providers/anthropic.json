@@ -9,23 +9,31 @@
   "models": [
     {
       "id": "claude-3-7-sonnet-latest",
-      "familyId": "LobeHub",
+      "familyId": "Claude",
       "providerId": "anthropic",
-      "icon": "LobeHub",
+      "icon": "Claude",
       "tags": [
         "chat"
       ],
-      "maxContextK": 0
+      "capabilities": {
+        "common": {
+          "maxContextK": 0
+        }
+      }
     },
     {
       "id": "claude-3-5-haiku-latest",
-      "familyId": "LobeHub",
+      "familyId": "Claude",
       "providerId": "anthropic",
-      "icon": "LobeHub",
+      "icon": "Claude",
       "tags": [
         "chat"
       ],
-      "maxContextK": 0
+      "capabilities": {
+        "common": {
+          "maxContextK": 0
+        }
+      }
     }
   ]
 }

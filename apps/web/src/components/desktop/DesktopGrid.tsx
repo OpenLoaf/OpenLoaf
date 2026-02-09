@@ -291,18 +291,52 @@ export default function DesktopGrid({
       if (!el) return false;
       const node = (el as GridstackElement).gridstackNode;
       if (!node || node.grid !== grid) return false;
+      // 跳过 CSS 过渡动画，确保元素立即到达目标尺寸/位置，
+      // 否则 getBoundingClientRect() 会读到动画中间值（接近 1x1 / 左上角）。
+      el.style.transition = "none";
+
+      // 同步将元素移到鼠标对应的网格位置（居中对齐）。
+      // createWidgetItem 初始位置是 y:maxY（底部），而 schedulePlacementUpdate 的
+      // React setState → re-render → grid.update 异步链尚未完成，元素仍在底部。
+      // 此处直接调用 grid.update 避免 dragOffset 计算偏移。
+      if (pointer) {
+        const scrollTop =
+          document.documentElement.scrollTop || document.body.scrollTop || 0;
+        const cell = grid.getCellFromPixel(
+          { left: pointer.clientX, top: pointer.clientY + scrollTop },
+          true
+        );
+        if (cell) {
+          const currentW = node.w ?? 1;
+          const currentH = node.h ?? 1;
+          const cols = grid.getColumn();
+          // 偏移半个组件尺寸，使组件中心对齐鼠标而非左上角对齐。
+          const centerX = Math.max(0, Math.min(cols - currentW, cell.x - Math.floor(currentW / 2)));
+          const centerY = Math.max(0, cell.y - Math.floor(currentH / 2));
+          grid.update(el, { x: centerX, y: centerY, w: currentW, h: currentH });
+        }
+      }
+
+      el.offsetHeight; // force reflow
+
       const rect = el.getBoundingClientRect();
-      if (rect.width < 2 || rect.height < 2) return false;
+      if (rect.width < 2 || rect.height < 2) {
+        return false;
+      }
 
       grid.prepareDragDrop(el, true);
 
       const dragHandle = el.querySelector(".desktop-tile-handle") as HTMLElement | null;
       const target = dragHandle ?? el;
       const targetRect = target.getBoundingClientRect();
-      const startX = pointer?.clientX ?? targetRect.left + targetRect.width / 2;
-      const startY = pointer?.clientY ?? targetRect.top + targetRect.height / 2;
+      // 始终以元素中心作为合成点击位置，使 GridStack 计算出
+      // dragOffset = (width/2, height/2)，后续拖拽时组件中心始终跟随鼠标。
+      const startX = targetRect.left + targetRect.width / 2;
+      const startY = targetRect.top + targetRect.height / 2;
 
       // 逻辑：派发一次虚拟 mousedown + mousemove，触发 GridStack 原生拖拽状态。
+      // mousedown 在元素中心，使 dragOffset = (width/2, height/2)；
+      // mousemove 到真实鼠标位置，让元素立即居中对齐鼠标。
       const downEvent = new MouseEvent("mousedown", {
         bubbles: true,
         cancelable: true,
@@ -312,11 +346,13 @@ export default function DesktopGrid({
         buttons: 1,
       });
       target.dispatchEvent(downEvent);
+      const moveX = pointer?.clientX ?? startX + 2;
+      const moveY = pointer?.clientY ?? startY + 2;
       const moveEvent = new MouseEvent("mousemove", {
         bubbles: true,
         cancelable: true,
-        clientX: startX + 2,
-        clientY: startY + 2,
+        clientX: moveX,
+        clientY: moveY,
         buttons: 1,
       });
       document.dispatchEvent(moveEvent);

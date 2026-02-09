@@ -15,7 +15,11 @@
       "tags": [
         "chat"
       ],
-      "maxContextK": 0
+      "capabilities": {
+        "common": {
+          "maxContextK": 0
+        }
+      }
     }
   ]
 }

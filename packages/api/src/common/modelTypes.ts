@@ -4,11 +4,7 @@ export type ModelTag =
   | "chat"
   | "reasoning"
   | "image_input"
-  | "image_generation"
   | "image_multi_input"
-  | "image_multi_generation"
-  | "image_edit"
-  | "video_generation"
   | "tool_call"
   | "code"
   | "web_search"
@@ -47,16 +43,53 @@ export type ModelParameterDefinition = {
   request: boolean;
 };
 
+export type ModelCapabilityCommon = {
+  /** Maximum context window (K). */
+  maxContextK?: number;
+};
+
+export type ModelCapabilityParams = {
+  /** Feature flags for canvas behaviors. */
+  features: ModelParameterFeature[];
+  /** Field definitions for UI and validation. */
+  fields: ModelParameterDefinition[];
+};
+
+export type ModelCapabilityInput = {
+  /** Maximum number of images supported. */
+  maxImages?: number;
+  /** Whether mask-based editing is supported. */
+  supportsMask?: boolean;
+  /** Whether reference video input is supported. */
+  supportsReferenceVideo?: boolean;
+  /** Whether start/end frame input is supported. */
+  supportsStartEnd?: boolean;
+};
+
+export type ModelCapabilityOutput = {
+  /** Whether multiple outputs are supported. */
+  supportsMulti?: boolean;
+  /** Whether audio output is supported. */
+  supportsAudio?: boolean;
+};
+
+export type ModelCapabilities = {
+  /** Common capability metadata. */
+  common?: ModelCapabilityCommon;
+  /** User configurable parameters. */
+  params?: ModelCapabilityParams;
+  /** Input capabilities for the model. */
+  input?: ModelCapabilityInput;
+  /** Output capabilities for the model. */
+  output?: ModelCapabilityOutput;
+};
+
 // 标签显示文案映射。
 export const MODEL_TAG_LABELS: Record<ModelTag, string> = {
   chat: "对话",
   reasoning: "推理",
   image_input: "图片输入",
-  image_generation: "文生图",
   image_multi_input: "多图输入",
-  image_multi_generation: "多图生成",
-  image_edit: "图片编辑",
-  video_generation: "视频生成",
   tool_call: "工具调用",
   code: "代码",
   web_search: "网络搜索",
@@ -68,7 +101,7 @@ export type ModelDefinition = {
   id: string;
   /** Display name for UI. */
   name?: string;
-  /** Model family id. */
+  /** Model family id (used by UI icon; prefer @lobehub/icons name). */
   familyId: string;
   /** Provider id owning the model. */
   providerId: string;
@@ -76,15 +109,8 @@ export type ModelDefinition = {
   icon?: string;
   /** Tags for filtering. */
   tags: ModelTag[];
-  /** Max context window (K). */
-  maxContextK: number;
-  /** Parameter definitions for the model. */
-  parameters?: {
-    /** Feature flags for canvas behaviors. */
-    features: ModelParameterFeature[];
-    /** Field definitions for UI and validation. */
-    fields: ModelParameterDefinition[];
-  };
+  /** Capability metadata for model behaviors and parameters. */
+  capabilities?: ModelCapabilities;
 };
 
 export type ProviderDefinition = {

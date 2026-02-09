@@ -16,7 +16,41 @@
         "chat",
         "code"
       ],
-      "maxContextK": 128
+      "capabilities": {
+        "common": {
+          "maxContextK": 128
+        },
+        "params": {
+          "features": [],
+          "fields": [
+            {
+              "key": "mode",
+              "title": "模式",
+              "type": "select",
+              "values": [
+                "chat",
+                "agent",
+                "agent_full_access"
+              ],
+              "default": "chat",
+              "request": false
+            },
+            {
+              "key": "reasoningEffort",
+              "title": "思考等级",
+              "type": "select",
+              "values": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "default": "medium",
+              "request": false
+            }
+          ]
+        }
+      }
     }
   ]
 }

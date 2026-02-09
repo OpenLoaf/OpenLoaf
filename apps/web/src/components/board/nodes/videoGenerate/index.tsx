@@ -167,11 +167,11 @@ export function VideoGenerateNodeView({
     [candidates, effectiveModelId]
   );
   const parameterFields = useMemo(
-    () => selectedModel?.parameters?.fields ?? [],
+    () => selectedModel?.capabilities?.params?.fields ?? [],
     [selectedModel]
   );
   const parameterFeatures = useMemo<ModelParameterFeature[]>(
-    () => selectedModel?.parameters?.features ?? [],
+    () => selectedModel?.capabilities?.params?.features ?? [],
     [selectedModel]
   );
   const allowsPrompt =

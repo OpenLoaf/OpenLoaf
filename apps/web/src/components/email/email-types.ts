@@ -126,6 +126,10 @@ export type EmailAccountFormStep = "select-provider" | "configure";
 export type EmailAccountFormState = {
   step: EmailAccountFormStep;
   selectedProviderId: string | null;
+  authType: "password" | "oauth2";
+  oauthProvider?: "microsoft" | "google";
+  oauthAuthorized: boolean;
+  oauthEmail?: string;
   emailAddress: string;
   label: string;
   imapHost: string;
@@ -140,6 +144,8 @@ export type EmailAccountFormState = {
 export const DEFAULT_FORM: EmailAccountFormState = {
   step: "select-provider",
   selectedProviderId: null,
+  authType: "password",
+  oauthAuthorized: false,
   emailAddress: "",
   label: "",
   imapHost: "",

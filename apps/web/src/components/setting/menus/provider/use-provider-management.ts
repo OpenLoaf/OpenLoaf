@@ -8,6 +8,7 @@ import {
 } from "@/lib/model-registry";
 import {
   MODEL_TAG_LABELS,
+  type ModelCapabilityParams,
   type ModelDefinition,
   type ModelTag,
 } from "@tenas-ai/api/common";
@@ -206,7 +207,27 @@ function normalizeModelMap(value: unknown): Record<string, ModelDefinition> {
     const rawId = typeof (raw as { id?: unknown }).id === "string" ? (raw as { id: string }).id : "";
     const modelId = (rawId || key).trim();
     if (!modelId) continue;
-    models[modelId] = { ...(raw as ModelDefinition), id: modelId };
+    const model = { ...(raw as ModelDefinition), id: modelId };
+    const legacyMaxContextK = (raw as { maxContextK?: unknown }).maxContextK;
+    if (typeof legacyMaxContextK === "number") {
+      model.capabilities = {
+        ...(model.capabilities ?? {}),
+        common: {
+          ...(model.capabilities?.common ?? {}),
+          maxContextK: legacyMaxContextK,
+        },
+      };
+      delete (model as { maxContextK?: number }).maxContextK;
+    }
+    const legacyParameters = (raw as { parameters?: unknown }).parameters;
+    if (legacyParameters && typeof legacyParameters === "object") {
+      model.capabilities = {
+        ...(model.capabilities ?? {}),
+        params: legacyParameters as ModelCapabilityParams,
+      };
+      delete (model as { parameters?: unknown }).parameters;
+    }
+    models[modelId] = model;
   }
   return models;
 }
@@ -632,7 +653,8 @@ export function useProviderManagement() {
     setDraftModelId(model.id);
     setDraftModelName(model.name ?? "");
     setDraftModelTags(model.tags ?? []);
-    setDraftModelContextK(Number.isFinite(model.maxContextK) ? String(model.maxContextK) : "0");
+    const maxContextK = model.capabilities?.common?.maxContextK;
+    setDraftModelContextK(Number.isFinite(maxContextK) ? String(maxContextK) : "0");
     setModelDialogOpen(true);
   }
 
@@ -678,6 +700,9 @@ export function useProviderManagement() {
     delete (baseModelRest as { priceStrategyId?: string }).priceStrategyId;
     delete (baseModelRest as { priceTiers?: unknown }).priceTiers;
     delete (baseModelRest as { currencySymbol?: string }).currencySymbol;
+    delete (baseModelRest as { maxContextK?: number }).maxContextK;
+    delete (baseModelRest as { parameters?: unknown }).parameters;
+    const baseCapabilities = (baseModelRest as ModelDefinition).capabilities ?? {};
     const newModel: ModelDefinition = {
       ...(baseModelRest as ModelDefinition),
       id: modelId,
@@ -685,7 +710,13 @@ export function useProviderManagement() {
       familyId: modelId,
       providerId: draftProvider,
       tags: draftModelTags,
-      maxContextK,
+      capabilities: {
+        ...baseCapabilities,
+        common: {
+          ...baseCapabilities.common,
+          maxContextK,
+        },
+      },
     };
     if (editingModelEntry) {
       const nextModels = {

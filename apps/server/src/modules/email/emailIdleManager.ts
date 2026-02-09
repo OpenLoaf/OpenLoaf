@@ -16,8 +16,10 @@ const DEFAULT_IDLE_MAILBOX = "INBOX";
 const DEFAULT_IDLE_SYNC_LIMIT = 50;
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 60000;
+/** Polling interval for OAuth accounts (30 seconds). */
+const POLL_INTERVAL_MS = 30_000;
 
-type WorkerStatus = "idle" | "connecting" | "error" | "stopped" | "skipped";
+type WorkerStatus = "idle" | "connecting" | "error" | "stopped" | "skipped" | "polling";
 
 type EmailIdleWorker = {
   key: string;
@@ -27,6 +29,7 @@ type EmailIdleWorker = {
   lastError?: string;
   reconnectDelayMs: number;
   reconnectTimer?: NodeJS.Timeout;
+  pollTimer?: NodeJS.Timeout;
   imap?: Imap;
   stopRequested: boolean;
   isSyncing: boolean;
@@ -87,11 +90,25 @@ function resolveEmailAccountCredential(workspaceId: string, accountEmail: string
   if (!account) {
     throw new Error("Email account not found.");
   }
+  if (account.auth.type !== "password") {
+    throw new Error("此账号不使用密码认证。");
+  }
   const password = getEmailEnvValue(account.auth.envKey);
   if (!password) {
     throw new Error("Email password not configured.");
   }
   return { account, password, normalizedEmail };
+}
+
+/** Check if account uses OAuth auth. */
+function isOAuthAccount(workspaceId: string, accountEmail: string): boolean {
+  const normalizedEmail = normalizeEmailAddress(accountEmail);
+  const config = readEmailConfigFile(workspaceId);
+  const account = config.emailAccounts.find(
+    (item) => normalizeEmailAddress(item.emailAddress) === normalizedEmail,
+  );
+  if (!account) return false;
+  return account.auth.type === "oauth2-graph" || account.auth.type === "oauth2-gmail";
 }
 
 /** Connect to IMAP server and wait until ready. */
@@ -172,18 +189,27 @@ class EmailIdleManager {
           pendingSync: false,
         };
         this.workers.set(key, worker);
-        this.connectWorker(worker);
+        // 逻辑：根据账号认证类型选择 IMAP IDLE 或轮询。
+        const isOAuth = account.auth.type === "oauth2-graph" || account.auth.type === "oauth2-gmail";
+        if (isOAuth) {
+          this.startPollingWorker(worker);
+        } else {
+          this.connectWorker(worker);
+        }
       }
     }
   }
 
-  /** Stop idle connections. */
+  /** Stop idle connections and polling timers. */
   public async stop(): Promise<void> {
     const workers = Array.from(this.workers.values());
     for (const worker of workers) {
       worker.stopRequested = true;
       if (worker.reconnectTimer) {
         clearTimeout(worker.reconnectTimer);
+      }
+      if (worker.pollTimer) {
+        clearTimeout(worker.pollTimer);
       }
       if (worker.imap) {
         try {
@@ -202,18 +228,40 @@ class EmailIdleManager {
     return toSnapshot(this.enabled, this.workers);
   }
 
+  /** Start polling worker for OAuth accounts. */
+  private startPollingWorker(worker: EmailIdleWorker) {
+    if (worker.stopRequested) return;
+    worker.status = "polling";
+    logger.info(
+      { accountEmail: worker.accountEmail, intervalMs: POLL_INTERVAL_MS },
+      "email poll worker started",
+    );
+    // 逻辑：立即执行一次同步，然后按间隔轮询。
+    this.triggerSync(worker);
+    this.schedulePoll(worker);
+  }
+
+  /** Schedule next poll cycle. */
+  private schedulePoll(worker: EmailIdleWorker) {
+    if (worker.stopRequested) return;
+    worker.pollTimer = setTimeout(() => {
+      if (worker.stopRequested) return;
+      this.triggerSync(worker);
+      this.schedulePoll(worker);
+    }, POLL_INTERVAL_MS);
+  }
+
   private scheduleReconnect(worker: EmailIdleWorker, reason: string) {
     if (worker.stopRequested) return;
-    if (worker.reconnectTimer) return;
+    const delay = Math.min(worker.reconnectDelayMs, RECONNECT_MAX_MS);
+    worker.reconnectDelayMs = Math.min(delay * 2, RECONNECT_MAX_MS);
     worker.status = "error";
-    logger.warn(
-      { accountEmail: worker.accountEmail, reason, delayMs: worker.reconnectDelayMs },
+    logger.info(
+      { accountEmail: worker.accountEmail, delayMs: delay, reason },
       "email idle reconnect scheduled",
     );
-    const delay = worker.reconnectDelayMs;
-    worker.reconnectDelayMs = Math.min(worker.reconnectDelayMs * 2, RECONNECT_MAX_MS);
     worker.reconnectTimer = setTimeout(() => {
-      worker.reconnectTimer = undefined;
+      if (worker.stopRequested) return;
       this.connectWorker(worker);
     }, delay);
   }
@@ -233,9 +281,9 @@ class EmailIdleManager {
       const imap = new Imap({
         user: account.emailAddress,
         password,
-        host: account.imap.host,
-        port: account.imap.port,
-        tls: account.imap.tls,
+        host: account.imap!.host,
+        port: account.imap!.port,
+        tls: account.imap!.tls,
       });
       worker.imap = imap;
       imap.on("error", (error) => {
@@ -244,25 +292,21 @@ class EmailIdleManager {
           { err: error, accountEmail: normalizedEmail },
           "email idle imap error",
         );
-        this.scheduleReconnect(worker, "error");
       });
       imap.on("close", (hadError) => {
         if (worker.stopRequested) {
-          logger.debug(
+          logger.info(
             { accountEmail: normalizedEmail, hadError },
             "email idle imap closed (stopped)",
           );
           return;
         }
-        logger.warn(
-          { accountEmail: normalizedEmail, hadError },
-          "email idle imap closed",
-        );
+        logger.warn({ accountEmail: normalizedEmail, hadError }, "email idle imap closed");
         this.scheduleReconnect(worker, "close");
       });
       imap.on("end", () => {
         if (worker.stopRequested) {
-          logger.debug(
+          logger.info(
             { accountEmail: normalizedEmail },
             "email idle imap ended (stopped)",
           );

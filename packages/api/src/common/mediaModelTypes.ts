@@ -12,6 +12,11 @@ export type MediaModelTag =
   | "video_audio_output";
 
 export type MediaModelCapabilities = {
+  /** Common capability metadata. */
+  common?: {
+    /** Maximum context window (K). */
+    maxContextK?: number;
+  };
   /** Input capabilities for the model. */
   input?: {
     /** Maximum number of images supported. */
@@ -30,6 +35,13 @@ export type MediaModelCapabilities = {
     /** Whether audio output is supported. */
     supportsAudio?: boolean;
   };
+  /** User configurable parameters. */
+  params?: {
+    /** Feature flags for canvas behaviors. */
+    features: ModelParameterFeature[];
+    /** Field definitions for UI and validation. */
+    fields: ModelParameterDefinition[];
+  };
 };
 
 export type MediaModelDefinition = {
@@ -45,11 +57,4 @@ export type MediaModelDefinition = {
   tags?: MediaModelTag[];
   /** Structured capability metadata. */
   capabilities?: MediaModelCapabilities;
-  /** Optional parameter definitions for advanced options. */
-  parameters?: {
-    /** Feature flags for canvas behaviors. */
-    features: ModelParameterFeature[];
-    /** Field definitions for UI and validation. */
-    fields: ModelParameterDefinition[];
-  };
 };

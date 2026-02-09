@@ -9,23 +9,31 @@
   "models": [
     {
       "id": "kimi-k2.5",
-      "familyId": "LobeHub",
+      "familyId": "Kimi",
       "providerId": "moonshot",
-      "icon": "LobeHub",
+      "icon": "Kimi",
       "tags": [
         "chat"
       ],
-      "maxContextK": 0
+      "capabilities": {
+        "common": {
+          "maxContextK": 0
+        }
+      }
     },
     {
       "id": "moonshot-v1-32k",
-      "familyId": "LobeHub",
+      "familyId": "Moonshot",
       "providerId": "moonshot",
-      "icon": "LobeHub",
+      "icon": "Moonshot",
       "tags": [
         "chat"
       ],
-      "maxContextK": 0
+      "capabilities": {
+        "common": {
+          "maxContextK": 0
+        }
+      }
     }
   ]
 }

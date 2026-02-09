@@ -2,8 +2,8 @@ model EmailMessage {
   id           String   @id /// 记录 ID
   workspaceId  String /// 工作空间 ID
   accountEmail String /// 邮箱账号
-  mailboxPath  String /// 邮件夹路径（IMAP mailbox）
-  uid          Int /// IMAP UID
+  mailboxPath  String /// 邮件夹路径（IMAP mailbox 或 API folder ID）
+  externalId   String /// 外部标识（IMAP UID 字符串化 或 API message ID）
 
   messageId    String? /// 邮件 Message-Id
   subject      String? /// 主题
@@ -12,7 +12,7 @@ model EmailMessage {
   cc           Json? /// 抄送信息
   bcc          Json? /// 密送信息
   date         DateTime? /// 邮件时间
-  flags        Json? /// IMAP flags
+  flags        Json? /// IMAP flags 或统一标志
   snippet      String? /// 正文摘要
 
   bodyHtml     String? /// HTML 正文（已清洗）
@@ -24,7 +24,7 @@ model EmailMessage {
   createdAt    DateTime @default(now()) /// 创建时间
   updatedAt    DateTime @updatedAt /// 更新时间
 
-  @@unique([workspaceId, accountEmail, mailboxPath, uid])
+  @@unique([workspaceId, accountEmail, mailboxPath, externalId])
   @@index([workspaceId, accountEmail, date])
 }
 

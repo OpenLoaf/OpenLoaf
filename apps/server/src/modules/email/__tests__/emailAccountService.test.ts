@@ -55,7 +55,10 @@ const expectedSlug = emailAddress
   .replace(/^_+|_+$/g, "");
 const expectedEnvKey = `EMAIL_PASSWORD__${workspaceId}__${expectedSlug}`;
 
-assert.equal(account.auth.envKey, expectedEnvKey);
+assert.equal(account.auth.type, "password");
+if (account.auth.type === "password") {
+  assert.equal(account.auth.envKey, expectedEnvKey);
+}
 
 const envContent = readFileSync(process.env.TENAS_SERVER_ENV_PATH!, "utf-8");
 assert.ok(envContent.includes(`${expectedEnvKey}=${password}`));

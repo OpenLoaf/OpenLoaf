@@ -1,11 +1,15 @@
+import type { ModelCapabilities, ModelTag } from "@tenas-ai/api/common";
+
 type ModelWithTags = {
   /** Model tags declared by the provider. */
-  tags?: readonly string[] | null;
+  tags?: readonly ModelTag[] | null;
+  /** Model capabilities resolved from provider. */
+  capabilities?: ModelCapabilities | null;
 };
 
 /** Return true when the model declares the given tag. */
-function hasTag(model: ModelWithTags | null | undefined, tag: string) {
-  // 中文注释：统一处理 tags 为空的情况。
+function hasTag(model: ModelWithTags | null | undefined, tag: ModelTag) {
+  // 中文注释：能力标签仍以 tags 为准。
   return Boolean(model?.tags?.includes(tag));
 }
 
@@ -15,23 +19,8 @@ export function supportsTextGeneration(model: ModelWithTags | null | undefined) 
 }
 
 /** Return true when the model supports image generation. */
-export function supportsImageGeneration(model: ModelWithTags | null | undefined) {
-  return hasTag(model, "image_generation");
-}
-
-/** Return true when the model supports image editing. */
-export function supportsImageEdit(model: ModelWithTags | null | undefined) {
-  return hasTag(model, "image_edit");
-}
-
-/** Return true when the model supports image input. */
 export function supportsImageInput(model: ModelWithTags | null | undefined) {
   return hasTag(model, "image_input");
-}
-
-/** Return true when the model supports video generation. */
-export function supportsVideoGeneration(model: ModelWithTags | null | undefined) {
-  return hasTag(model, "video_generation");
 }
 
 /** Return true when the model supports tool calling. */

@@ -1,5 +1,19 @@
 import type { ComponentType, CSSProperties } from "react";
-import { DeepSeek, Gemini, Grok, LobeHub, OpenAI, Qwen, Volcengine } from "@lobehub/icons";
+import {
+  Anthropic,
+  Claude,
+  DeepSeek,
+  Gemini,
+  Grok,
+  Kimi,
+  LobeHub,
+  Moonshot,
+  OpenAI,
+  Qwen,
+  V0,
+  Vercel,
+  Volcengine,
+} from "@lobehub/icons";
 
 type ModelIconProps = {
   /** Icon name from model definition. */
@@ -16,12 +30,18 @@ type ModelIconProps = {
 
 /** Map model icon names to Lobe icon components. */
 const MODEL_ICON_MAP = {
+  Anthropic,
+  Claude,
   DeepSeek,
   Gemini,
   Grok,
+  Kimi,
   LobeHub,
+  Moonshot,
   OpenAI,
   Qwen,
+  V0,
+  Vercel,
   Volcengine,
 } as const;
 

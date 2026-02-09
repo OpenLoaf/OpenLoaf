@@ -1,4 +1,30 @@
-import { MODEL_TAG_LABELS, type ModelDefinition, type ModelTag } from "@tenas-ai/api/common";
+import {
+  MODEL_TAG_LABELS,
+  type ModelCapabilities,
+  type ModelDefinition,
+  type ModelTag,
+} from "@tenas-ai/api/common";
+
+const PROVIDER_ICON_MAP: Record<string, string> = {
+  anthropic: "Claude",
+  deepseek: "DeepSeek",
+  google: "Gemini",
+  grok: "Grok",
+  moonshot: "Moonshot",
+  openai: "OpenAI",
+  qwen: "Qwen",
+  vercel: "V0",
+  xai: "Grok",
+};
+
+/** Resolve icon-family id for cloud models. */
+function resolveCloudFamilyId(item: CloudChatModelItem): string {
+  const providerKey = typeof item.provider === "string" ? item.provider.trim().toLowerCase() : "";
+  const providerIcon = providerKey ? PROVIDER_ICON_MAP[providerKey] : undefined;
+  if (providerIcon) return providerIcon;
+  // 中文注释：无法识别 provider 时回退到模型 id，至少保证唯一性。
+  return typeof item.id === "string" && item.id.trim().length > 0 ? item.id : "LobeHub";
+}
 
 export type CloudChatModelItem = {
   /** Model id from SaaS. */
@@ -9,6 +35,8 @@ export type CloudChatModelItem = {
   displayName: string;
   /** Raw tags from SaaS. */
   tags: string[];
+  /** Raw capabilities from SaaS. */
+  capabilities?: ModelCapabilities;
 };
 
 export type CloudChatModelsResponse = {
@@ -47,11 +75,12 @@ export function mapCloudChatModels(items: CloudChatModelItem[]): ModelDefinition
     .map((item) => ({
       id: item.id,
       name: item.displayName,
-      familyId: item.id,
+      familyId: resolveCloudFamilyId(item),
       providerId: item.provider,
       // 中文注释：仅保留系统支持的标签，避免未知标签污染筛选。
       tags: normalizeTags(Array.isArray(item.tags) ? item.tags : []),
-      maxContextK: 0,
+      // 中文注释：能力字段直接透传 SaaS 定义，避免本地推断。
+      capabilities: item.capabilities,
     }));
 }
 

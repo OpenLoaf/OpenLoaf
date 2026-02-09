@@ -14,8 +14,6 @@ import {
 } from "../input/chat-model-selection-storage";
 import {
   supportsCode,
-  supportsImageEdit,
-  supportsImageGeneration,
   supportsImageInput,
   supportsToolCall,
 } from "@/lib/model-capabilities";
@@ -62,10 +60,9 @@ export function useChatModelSelection() {
   const canAttachImage =
     isAutoModel ||
     supportsImageInput(selectedModel) ||
-    supportsImageEdit(selectedModel) ||
     (supportsToolCall(selectedModel) && !isCodeModel);
-  const canImageGeneration = supportsImageGeneration(selectedModel);
-  const canImageEdit = supportsImageEdit(selectedModel);
+  const canImageGeneration = false;
+  const canImageEdit = supportsImageInput(selectedModel);
   const isCodexProvider = selectedModel?.providerId === "codex-cli";
 
   return {

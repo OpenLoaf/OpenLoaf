@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 
-const emailAccountInputSchema = z.object({
+const passwordAccountInputSchema = z.object({
+  authType: z.literal("password"),
   workspaceId: z.string().min(1),
   emailAddress: z.string().min(1),
   label: z.string().optional(),
@@ -17,6 +18,18 @@ const emailAccountInputSchema = z.object({
   }),
   password: z.string().min(1),
 });
+
+const oauthAccountInputSchema = z.object({
+  authType: z.enum(["oauth2-graph", "oauth2-gmail"]),
+  workspaceId: z.string().min(1),
+  emailAddress: z.string().min(1),
+  label: z.string().optional(),
+});
+
+const emailAccountInputSchema = z.discriminatedUnion("authType", [
+  passwordAccountInputSchema,
+  oauthAccountInputSchema,
+]);
 
 const listAccountsInputSchema = z.object({
   workspaceId: z.string().min(1),

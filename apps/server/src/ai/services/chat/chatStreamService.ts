@@ -373,31 +373,6 @@ export async function runChatStream(input: {
   let masterAgent: ReturnType<typeof createMasterAgentRunner>;
 
   try {
-    const explicitModelDefinition = await resolveExplicitModelDefinition(chatModelId);
-    if (
-      explicitModelDefinition?.tags?.includes("image_generation") ||
-      explicitModelDefinition?.tags?.includes("image_edit")
-    ) {
-      logger.debug({}, "[chat] route to image stream");
-      return await runImageModelStream({
-        sessionId,
-        assistantMessageId,
-        parentMessageId,
-        requestStartAt,
-        messages: modelMessages as UIMessage[],
-        metadataMessages: messages as UIMessage[],
-        abortSignal: abortController.signal,
-        chatModelId: chatModelId ?? undefined,
-        chatModelSource,
-        modelDefinition: explicitModelDefinition,
-        requestMessageId: parentMessageId,
-        responseMessageId: assistantMessageId,
-        trigger,
-        boardId,
-        saasAccessToken: input.saasAccessToken,
-      });
-    }
-
     // 按输入能力与历史偏好选择模型，失败时直接返回错误流。
     const requiredTags = !chatModelId ? resolveRequiredInputTags(messages as UIMessage[]) : [];
     const preferredChatModelId = !chatModelId

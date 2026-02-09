@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ChevronRight, ExternalLink, Plus, Settings2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronRight, ExternalLink, Plus, Settings2 } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@tenas-ai/ui/button";
@@ -83,6 +83,7 @@ function ProviderSelectStep({
 
 function ConfigureStep({ addDialog }: { addDialog: AddDialogState }) {
   const isCustomProvider = addDialog.formState.selectedProviderId === "custom";
+  const isOAuth = addDialog.formState.authType === "oauth2";
   const [advancedOpen, setAdvancedOpen] = useState(isCustomProvider);
   const [customLabelMode, setCustomLabelMode] = useState(false);
   const [customInputValue, setCustomInputValue] = useState("");
@@ -139,24 +140,202 @@ function ConfigureStep({ addDialog }: { addDialog: AddDialogState }) {
     addDialog.setFormState((prev) => ({ ...prev, label: nextLabels.join(", ") }));
   };
 
+  const oauthButtonLabel =
+    addDialog.formState.oauthProvider === "google"
+      ? "使用 Google 账号登录"
+      : "使用 Microsoft 账号登录";
+
+  const isGmailProvider = addDialog.formState.selectedProviderId === "gmail";
+
   return (
     <div className="space-y-4 py-2">
-      {/* 邮箱地址 */}
-      <div className="space-y-2">
-        <Label className="text-xs font-medium text-foreground/80">邮箱地址</Label>
-        <Input
-          value={addDialog.formState.emailAddress}
-          onChange={(event) =>
-            addDialog.setFormState((prev) => ({
-              ...prev,
-              emailAddress: event.target.value,
-            }))
-          }
-          placeholder="name@example.com"
-          className="h-9 text-sm"
-          autoFocus
-        />
-      </div>
+      {/* OAuth 授权区域 */}
+      {isOAuth ? (
+        <>
+          {addDialog.formState.oauthAuthorized ? (
+            <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2.5">
+              <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                已授权{addDialog.formState.oauthEmail ? ` ${addDialog.formState.oauthEmail}` : ""}
+              </span>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 w-full text-sm"
+              onClick={addDialog.onOAuthLogin}
+            >
+              {oauthButtonLabel}
+            </Button>
+          )}
+          {/* Gmail 切换到应用专用密码 */}
+          {isGmailProvider ? (
+            <button
+              type="button"
+              onClick={addDialog.onSwitchToPassword}
+              className="inline-flex items-center gap-1 text-[11px] text-primary/70 transition-colors hover:text-primary"
+            >
+              使用应用专用密码
+              <ExternalLink className="size-3" />
+            </button>
+          ) : null}
+        </>
+      ) : (
+        <>
+          {/* 邮箱地址 */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-foreground/80">邮箱地址</Label>
+            <Input
+              value={addDialog.formState.emailAddress}
+              onChange={(event) =>
+                addDialog.setFormState((prev) => ({
+                  ...prev,
+                  emailAddress: event.target.value,
+                }))
+              }
+              placeholder="name@example.com"
+              className="h-9 text-sm"
+              autoFocus
+            />
+          </div>
+
+          {/* 密码/授权码 */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-medium text-foreground/80">
+                {addDialog.selectedProviderPasswordLabel}
+              </Label>
+              {addDialog.selectedProviderAppPasswordUrl ? (
+                <a
+                  href={addDialog.selectedProviderAppPasswordUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] text-primary/70 transition-colors hover:text-primary"
+                >
+                  如何获取？
+                  <ExternalLink className="size-3" />
+                </a>
+              ) : null}
+            </div>
+            <Input
+              type="password"
+              value={addDialog.formState.password}
+              onChange={(event) =>
+                addDialog.setFormState((prev) => ({ ...prev, password: event.target.value }))
+              }
+              placeholder={`输入${addDialog.selectedProviderPasswordLabel}`}
+              className="h-9 text-sm"
+            />
+          </div>
+
+          {/* 高级设置 */}
+          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              >
+                <span className="flex items-center gap-2">
+                  <Settings2 className="size-3.5" />
+                  服务器配置
+                </span>
+                <ChevronRight
+                  className={cn(
+                    "size-3.5 transition-transform duration-200",
+                    advancedOpen && "rotate-90",
+                  )}
+                />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3 space-y-4">
+              {/* IMAP */}
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2 text-xs font-medium text-foreground/70">
+                  <span className="size-1.5 rounded-full bg-blue-500" />
+                  IMAP 收信
+                </div>
+                <div className="grid grid-cols-[1fr,90px] gap-2">
+                  <Input
+                    value={addDialog.formState.imapHost}
+                    onChange={(event) =>
+                      addDialog.setFormState((prev) => ({
+                        ...prev,
+                        imapHost: event.target.value,
+                      }))
+                    }
+                    placeholder="imap.example.com"
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    type="number"
+                    value={addDialog.formState.imapPort}
+                    onChange={(event) =>
+                      addDialog.setFormState((prev) => ({
+                        ...prev,
+                        imapPort: Number(event.target.value || 0),
+                      }))
+                    }
+                    placeholder="端口"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[11px] text-muted-foreground">SSL/TLS</span>
+                  <Switch
+                    checked={addDialog.formState.imapTls}
+                    onCheckedChange={(checked) =>
+                      addDialog.setFormState((prev) => ({ ...prev, imapTls: checked }))
+                    }
+                  />
+                </div>
+              </div>
+
+              {/* SMTP */}
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2 text-xs font-medium text-foreground/70">
+                  <span className="size-1.5 rounded-full bg-green-500" />
+                  SMTP 发信
+                </div>
+                <div className="grid grid-cols-[1fr,90px] gap-2">
+                  <Input
+                    value={addDialog.formState.smtpHost}
+                    onChange={(event) =>
+                      addDialog.setFormState((prev) => ({
+                        ...prev,
+                        smtpHost: event.target.value,
+                      }))
+                    }
+                    placeholder="smtp.example.com"
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    type="number"
+                    value={addDialog.formState.smtpPort}
+                    onChange={(event) =>
+                      addDialog.setFormState((prev) => ({
+                        ...prev,
+                        smtpPort: Number(event.target.value || 0),
+                      }))
+                    }
+                    placeholder="端口"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[11px] text-muted-foreground">SSL/TLS</span>
+                  <Switch
+                    checked={addDialog.formState.smtpTls}
+                    onCheckedChange={(checked) =>
+                      addDialog.setFormState((prev) => ({ ...prev, smtpTls: checked }))
+                    }
+                  />
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </>
+      )}
 
       {/* 账户类型 */}
       <div className="space-y-2">
@@ -220,141 +399,6 @@ function ConfigureStep({ addDialog }: { addDialog: AddDialogState }) {
         </div>
       </div>
 
-      {/* 密码/授权码 */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs font-medium text-foreground/80">
-            {addDialog.selectedProviderPasswordLabel}
-          </Label>
-          {addDialog.selectedProviderAppPasswordUrl ? (
-            <a
-              href={addDialog.selectedProviderAppPasswordUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] text-primary/70 transition-colors hover:text-primary"
-            >
-              如何获取？
-              <ExternalLink className="size-3" />
-            </a>
-          ) : null}
-        </div>
-        <Input
-          type="password"
-          value={addDialog.formState.password}
-          onChange={(event) =>
-            addDialog.setFormState((prev) => ({ ...prev, password: event.target.value }))
-          }
-          placeholder={`输入${addDialog.selectedProviderPasswordLabel}`}
-          className="h-9 text-sm"
-        />
-      </div>
-
-      {/* 高级设置 */}
-      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-        <CollapsibleTrigger asChild>
-          <button
-            type="button"
-            className="flex w-full items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-          >
-            <span className="flex items-center gap-2">
-              <Settings2 className="size-3.5" />
-              服务器配置
-            </span>
-            <ChevronRight
-              className={cn(
-                "size-3.5 transition-transform duration-200",
-                advancedOpen && "rotate-90",
-              )}
-            />
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="mt-3 space-y-4">
-          {/* IMAP */}
-          <div className="space-y-2.5">
-            <div className="flex items-center gap-2 text-xs font-medium text-foreground/70">
-              <span className="size-1.5 rounded-full bg-blue-500" />
-              IMAP 收信
-            </div>
-            <div className="grid grid-cols-[1fr,90px] gap-2">
-              <Input
-                value={addDialog.formState.imapHost}
-                onChange={(event) =>
-                  addDialog.setFormState((prev) => ({
-                    ...prev,
-                    imapHost: event.target.value,
-                  }))
-                }
-                placeholder="imap.example.com"
-                className="h-8 text-xs"
-              />
-              <Input
-                type="number"
-                value={addDialog.formState.imapPort}
-                onChange={(event) =>
-                  addDialog.setFormState((prev) => ({
-                    ...prev,
-                    imapPort: Number(event.target.value || 0),
-                  }))
-                }
-                placeholder="端口"
-                className="h-8 text-xs"
-              />
-            </div>
-            <div className="flex items-center justify-between px-1">
-              <span className="text-[11px] text-muted-foreground">SSL/TLS</span>
-              <Switch
-                checked={addDialog.formState.imapTls}
-                onCheckedChange={(checked) =>
-                  addDialog.setFormState((prev) => ({ ...prev, imapTls: checked }))
-                }
-              />
-            </div>
-          </div>
-
-          {/* SMTP */}
-          <div className="space-y-2.5">
-            <div className="flex items-center gap-2 text-xs font-medium text-foreground/70">
-              <span className="size-1.5 rounded-full bg-green-500" />
-              SMTP 发信
-            </div>
-            <div className="grid grid-cols-[1fr,90px] gap-2">
-              <Input
-                value={addDialog.formState.smtpHost}
-                onChange={(event) =>
-                  addDialog.setFormState((prev) => ({
-                    ...prev,
-                    smtpHost: event.target.value,
-                  }))
-                }
-                placeholder="smtp.example.com"
-                className="h-8 text-xs"
-              />
-              <Input
-                type="number"
-                value={addDialog.formState.smtpPort}
-                onChange={(event) =>
-                  addDialog.setFormState((prev) => ({
-                    ...prev,
-                    smtpPort: Number(event.target.value || 0),
-                  }))
-                }
-                placeholder="端口"
-                className="h-8 text-xs"
-              />
-            </div>
-            <div className="flex items-center justify-between px-1">
-              <span className="text-[11px] text-muted-foreground">SSL/TLS</span>
-              <Switch
-                checked={addDialog.formState.smtpTls}
-                onCheckedChange={(checked) =>
-                  addDialog.setFormState((prev) => ({ ...prev, smtpTls: checked }))
-                }
-              />
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-
       {/* 状态提示 */}
       {addDialog.formError ? (
         <div className="rounded-lg bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
@@ -372,6 +416,7 @@ function ConfigureStep({ addDialog }: { addDialog: AddDialogState }) {
 
 export function EmailAddAccountDialog({ addDialog }: EmailAddAccountDialogProps) {
   const isSelectStep = addDialog.formState.step === "select-provider";
+  const isOAuth = addDialog.formState.authType === "oauth2";
   const selectedProvider = addDialog.formState.selectedProviderId
     ? getProviderById(addDialog.formState.selectedProviderId)
     : null;
@@ -410,7 +455,9 @@ export function EmailAddAccountDialog({ addDialog }: EmailAddAccountDialogProps)
                 </div>
               </div>
               <DialogDescription className="text-xs">
-                填写邮箱地址与{addDialog.selectedProviderPasswordLabel}进行连接
+                {isOAuth
+                  ? "通过 OAuth 授权连接邮箱"
+                  : `填写邮箱地址与${addDialog.selectedProviderPasswordLabel}进行连接`}
               </DialogDescription>
             </>
           )}
@@ -429,16 +476,20 @@ export function EmailAddAccountDialog({ addDialog }: EmailAddAccountDialogProps)
         {!isSelectStep ? (
           <DialogFooter className="px-5 pb-5 pt-2">
             <div className="flex w-full items-center justify-between">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={addDialog.onTestConnection}
-                disabled={addDialog.testStatus === "checking"}
-                className="h-8 text-xs text-muted-foreground hover:text-foreground"
-              >
-                {addDialog.testStatus === "checking" ? "测试中..." : "测试连接"}
-              </Button>
+              {isOAuth ? (
+                <span />
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={addDialog.onTestConnection}
+                  disabled={addDialog.testStatus === "checking"}
+                  className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {addDialog.testStatus === "checking" ? "测试中..." : "测试连接"}
+                </Button>
+              )}
               <div className="flex items-center gap-2">
                 <Button
                   type="button"

@@ -110,6 +110,8 @@ if (resolvedPart.toolName === "my_tool") {
 | `input/chat-attachments.ts` | 附件类型定义 |
 | `input/chat-input-utils.ts` | FILE_TOKEN_REGEX 等工具函数 |
 
+**能力标签渲染**: SelectMode 与设置页模型列表使用 `ModelDefinition.tags` 生成标签；`capabilities` 仅用于参数/媒体信息，不参与标签渲染。
+
 **发送流程**: ChatInput 收集 input + attachments + options → `useChatMessageComposer` 组装 parts → `sendMessage()` → SSE transport
 
 **图标主题适配**: `ModelIcon.tsx` 对非 Color 版本使用 `currentColor`，确保黑白图标在明暗主题下可见。

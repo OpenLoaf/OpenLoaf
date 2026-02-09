@@ -56,6 +56,9 @@ function resolveEmailAccountCredential(workspaceId: string, accountEmail: string
   if (!account) {
     throw new Error("邮箱账号不存在。");
   }
+  if (account.auth.type !== "password") {
+    throw new Error("此账号不使用密码认证。");
+  }
   const password = getEmailEnvValue(account.auth.envKey);
   if (!password) {
     throw new Error("邮箱密码未配置。");
@@ -174,18 +177,18 @@ export async function syncEmailMailboxes(input: {
     imap = new Imap({
       user: account.emailAddress,
       password,
-      host: account.imap.host,
-      port: account.imap.port,
-      tls: account.imap.tls,
+      host: account.imap!.host,
+      port: account.imap!.port,
+      tls: account.imap!.tls,
     });
     imap.on("error", (error) => {
       logger.error({ err: error, accountEmail: normalizedEmail }, "email imap error");
     });
     logger.debug(
       {
-        host: account.imap.host,
-        port: account.imap.port,
-        tls: account.imap.tls,
+        host: account.imap!.host,
+        port: account.imap!.port,
+        tls: account.imap!.tls,
         accountEmail: normalizedEmail,
       },
       "email imap connecting",

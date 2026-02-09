@@ -149,6 +149,11 @@ function renderModelTagsCompact(tags?: (keyof typeof MODEL_TAG_LABELS)[]) {
   );
 }
 
+/** Resolve tag list for display. */
+function resolveDisplayTags(model?: ModelDefinition | null) {
+  return model?.tags ?? [];
+}
+
 /**
  * Render provider dialog.
  */
@@ -397,7 +402,9 @@ export function ProviderDialog({
                               <ModelIcon icon={model.familyId ?? model.icon} />
                               <div className="text-foreground">{getModelLabel(model)}</div>
                             </div>
-                            <div className="mt-1">{renderModelTagsCompact(model.tags)}</div>
+                            <div className="mt-1">
+                              {renderModelTagsCompact(resolveDisplayTags(model))}
+                            </div>
                           </div>
                           <Switch
                             checked={draftModelIds.includes(model.id)}
@@ -474,7 +481,7 @@ export function ProviderDialog({
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">能力：</span>
                           <div className="min-w-0 flex-1">
-                            {renderModelTags(focusedModel.tags)}
+                            {renderModelTags(resolveDisplayTags(focusedModel))}
                           </div>
                         </div>
                       </div>

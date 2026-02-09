@@ -13,6 +13,7 @@ import {
 const EmailMailboxSyncSchema = z.object({
   uidValidity: z.number().int().optional().describe("IMAP UIDVALIDITY value."),
   highestUid: z.number().int().optional().describe("Highest synced UID."),
+  highestExternalId: z.string().optional().describe("Highest synced external ID."),
 });
 
 /** Schema for email account sync info. */
@@ -43,11 +44,34 @@ const EmailAccountStatusSchema = z
   })
   .default({});
 
-/** Schema for email account auth. */
-const EmailAccountAuthSchema = z.object({
-  type: z.enum(["password"]).describe("Auth type for email account."),
+/** Schema for password auth. */
+const PasswordAuthSchema = z.object({
+  type: z.literal("password").describe("Password auth type."),
   envKey: z.string().min(1).describe("Env key storing the password."),
 });
+
+/** Schema for OAuth2 Graph auth (Microsoft). */
+const OAuth2GraphAuthSchema = z.object({
+  type: z.literal("oauth2-graph").describe("Microsoft Graph OAuth2 auth type."),
+  refreshTokenEnvKey: z.string().min(1).describe("Env key for refresh token."),
+  accessTokenEnvKey: z.string().min(1).describe("Env key for access token."),
+  expiresAtEnvKey: z.string().min(1).describe("Env key for token expiry timestamp."),
+});
+
+/** Schema for OAuth2 Gmail auth (Google). */
+const OAuth2GmailAuthSchema = z.object({
+  type: z.literal("oauth2-gmail").describe("Google Gmail OAuth2 auth type."),
+  refreshTokenEnvKey: z.string().min(1).describe("Env key for refresh token."),
+  accessTokenEnvKey: z.string().min(1).describe("Env key for access token."),
+  expiresAtEnvKey: z.string().min(1).describe("Env key for token expiry timestamp."),
+});
+
+/** Schema for email account auth (discriminated union). */
+const EmailAccountAuthSchema = z.discriminatedUnion("type", [
+  PasswordAuthSchema,
+  OAuth2GraphAuthSchema,
+  OAuth2GmailAuthSchema,
+]);
 
 /** Schema for IMAP configuration. */
 const EmailAccountImapSchema = z.object({
@@ -67,8 +91,8 @@ const EmailAccountSmtpSchema = z.object({
 const EmailAccountSchema = z.object({
   emailAddress: z.string().min(1).describe("Email address."),
   label: z.string().optional().describe("Account label."),
-  imap: EmailAccountImapSchema,
-  smtp: EmailAccountSmtpSchema,
+  imap: EmailAccountImapSchema.optional(),
+  smtp: EmailAccountSmtpSchema.optional(),
   auth: EmailAccountAuthSchema,
   sync: EmailAccountSyncSchema.optional().default({ mailboxes: {} }),
   status: EmailAccountStatusSchema.optional().default({}),

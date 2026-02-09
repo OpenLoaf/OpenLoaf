@@ -11,6 +11,7 @@ import type { InfiniteData } from "@tanstack/react-query";
 import { FileText, Inbox, Send, Star } from "lucide-react";
 
 import { trpc } from "@/utils/trpc";
+import { resolveServerUrl } from "@/utils/server-url";
 import {
   DEFAULT_FORM,
   MESSAGE_PAGE_SIZE,
@@ -168,6 +169,8 @@ export type AddDialogState = {
   onBackToProviderSelect: () => void;
   selectedProviderPasswordLabel: string;
   selectedProviderAppPasswordUrl: string | null;
+  onOAuthLogin: () => void;
+  onSwitchToPassword: () => void;
 };
 
 type EmailPageState = {
@@ -997,12 +1000,16 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
       ...prev,
       step: "configure",
       selectedProviderId: providerId,
-      imapHost: provider.imap.host,
-      imapPort: provider.imap.port,
-      imapTls: provider.imap.tls,
-      smtpHost: provider.smtp.host,
-      smtpPort: provider.smtp.port,
-      smtpTls: provider.smtp.tls,
+      authType: provider.authType,
+      oauthProvider: provider.oauthProvider,
+      oauthAuthorized: false,
+      oauthEmail: undefined,
+      imapHost: provider.imap?.host ?? "",
+      imapPort: provider.imap?.port ?? 993,
+      imapTls: provider.imap?.tls ?? true,
+      smtpHost: provider.smtp?.host ?? "",
+      smtpPort: provider.smtp?.port ?? 465,
+      smtpTls: provider.smtp?.tls ?? true,
     }));
     setFormError(null);
     setTestStatus("idle");
@@ -1035,6 +1042,12 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
 
   /** Validate add-account form and return error message. */
   function validateFormState(): string | null {
+    if (formState.authType === "oauth2") {
+      if (!formState.oauthAuthorized || !formState.oauthEmail) {
+        return "请先完成 OAuth 授权登录。";
+      }
+      return null;
+    }
     const email = formState.emailAddress.trim();
     if (!email || !email.includes("@")) return "请填写有效的邮箱地址。";
     if (!formState.imapHost.trim()) return "请填写 IMAP 服务器地址。";
@@ -1076,8 +1089,21 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
       setFormError("工作空间未加载，请稍后再试。");
       return;
     }
+    if (formState.authType === "oauth2") {
+      // 逻辑：OAuth 账号仅需提交 authType、邮箱地址和标签。
+      const oauthAuthType =
+        formState.oauthProvider === "google" ? "oauth2-gmail" : "oauth2-graph";
+      addAccountMutation.mutate({
+        authType: oauthAuthType,
+        workspaceId,
+        emailAddress: (formState.oauthEmail ?? formState.emailAddress).trim(),
+        label: formState.label.trim() || undefined,
+      });
+      return;
+    }
     // 逻辑：调用服务端接口写入账号与密码配置。
     addAccountMutation.mutate({
+      authType: "password",
       workspaceId,
       emailAddress: formState.emailAddress.trim(),
       label: formState.label.trim() || undefined,
@@ -1093,6 +1119,56 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
       },
       password: formState.password,
     });
+  }
+
+  /** Handle OAuth login - opens popup for authorization. */
+  function handleOAuthLogin() {
+    if (!workspaceId || !formState.oauthProvider) return;
+    const serverUrl = resolveServerUrl();
+    const oauthUrl = `${serverUrl}/auth/email/${formState.oauthProvider}/start?workspaceId=${encodeURIComponent(workspaceId)}`;
+    const popup = window.open(oauthUrl, "oauth", "width=600,height=700");
+    if (!popup) {
+      setFormError("无法打开授权窗口，请检查浏览器弹窗设置。");
+      return;
+    }
+    // 逻辑：轮询检测弹窗关闭，关闭后查询授权结果。
+    const timer = window.setInterval(() => {
+      if (!popup.closed) return;
+      window.clearInterval(timer);
+      // 逻辑：弹窗关闭后刷新账号列表以检测授权是否成功。
+      if (workspaceId) {
+        queryClient.invalidateQueries({
+          queryKey: trpc.email.listAccounts.queryOptions({ workspaceId }).queryKey,
+        });
+      }
+      setFormState((prev) => ({
+        ...prev,
+        oauthAuthorized: true,
+        oauthEmail: prev.emailAddress || undefined,
+      }));
+    }, 500);
+  }
+
+  /** Handle switching from OAuth to password mode (Gmail fallback). */
+  function handleSwitchToPassword() {
+    const provider = formState.selectedProviderId
+      ? getProviderById(formState.selectedProviderId)
+      : null;
+    setFormState((prev) => ({
+      ...prev,
+      authType: "password",
+      oauthProvider: undefined,
+      oauthAuthorized: false,
+      oauthEmail: undefined,
+      imapHost: provider?.imap?.host ?? prev.imapHost,
+      imapPort: provider?.imap?.port ?? prev.imapPort,
+      imapTls: provider?.imap?.tls ?? prev.imapTls,
+      smtpHost: provider?.smtp?.host ?? prev.smtpHost,
+      smtpPort: provider?.smtp?.port ?? prev.smtpPort,
+      smtpTls: provider?.smtp?.tls ?? prev.smtpTls,
+    }));
+    setFormError(null);
+    setTestStatus("idle");
   }
 
   /** Handle unified view selection. */
@@ -1412,6 +1488,8 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     onBackToProviderSelect: handleBackToProviderSelect,
     selectedProviderPasswordLabel,
     selectedProviderAppPasswordUrl,
+    onOAuthLogin: handleOAuthLogin,
+    onSwitchToPassword: handleSwitchToPassword,
   };
 
   return {

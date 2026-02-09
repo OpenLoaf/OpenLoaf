@@ -44,7 +44,7 @@ await prisma.$executeRawUnsafe(`
     "workspaceId" TEXT NOT NULL,
     "accountEmail" TEXT NOT NULL,
     "mailboxPath" TEXT NOT NULL,
-    "uid" INTEGER NOT NULL,
+    "externalId" TEXT NOT NULL,
     "messageId" TEXT,
     "subject" TEXT,
     "from" TEXT NOT NULL,
@@ -88,6 +88,7 @@ const empty = await caller.listAccounts({ workspaceId });
 assert.equal(empty.length, 0);
 
 const created = await caller.addAccount({
+  authType: "password",
   workspaceId,
   emailAddress: "user@example.com",
   label: "Work",
@@ -128,7 +129,7 @@ await prisma.emailMessage.create({
     workspaceId,
     accountEmail: "user@example.com",
     mailboxPath: "INBOX",
-    uid: 1,
+    externalId: "1",
     subject: "Hello",
     from: {
       value: [{ address: "alice@example.com", name: "Alice" }],
@@ -221,7 +222,7 @@ await prisma.emailMessage.create({
     workspaceId,
     accountEmail: "user@example.com",
     mailboxPath: "INBOX",
-    uid: 2,
+    externalId: "2",
     subject: "Unread 1",
     from: {
       value: [{ address: "bob@example.com", name: "Bob" }],
@@ -244,7 +245,7 @@ await prisma.emailMessage.create({
     workspaceId,
     accountEmail: "user2@example.com",
     mailboxPath: "INBOX",
-    uid: 1,
+    externalId: "1",
     subject: "Unread 2",
     from: {
       value: [{ address: "carol@example.com", name: "Carol" }],
@@ -267,7 +268,7 @@ await prisma.emailMessage.create({
     workspaceId,
     accountEmail: "user2@example.com",
     mailboxPath: "INBOX",
-    uid: 2,
+    externalId: "2",
     subject: "Seen",
     from: {
       value: [{ address: "dan@example.com", name: "Dan" }],
@@ -290,7 +291,7 @@ await prisma.emailMessage.create({
     workspaceId,
     accountEmail: "user@example.com",
     mailboxPath: "Drafts",
-    uid: 3,
+    externalId: "3",
     subject: "Draft",
     from: {
       value: [{ address: "user@example.com", name: "User" }],
@@ -313,7 +314,7 @@ await prisma.emailMessage.create({
     workspaceId,
     accountEmail: "user@example.com",
     mailboxPath: "Sent",
-    uid: 4,
+    externalId: "4",
     subject: "Sent",
     from: {
       value: [{ address: "user@example.com", name: "User" }],
@@ -336,7 +337,7 @@ await prisma.emailMessage.create({
     workspaceId,
     accountEmail: "user2@example.com",
     mailboxPath: "INBOX",
-    uid: 3,
+    externalId: "3",
     subject: "Flagged",
     from: {
       value: [{ address: "gina@example.com", name: "Gina" }],

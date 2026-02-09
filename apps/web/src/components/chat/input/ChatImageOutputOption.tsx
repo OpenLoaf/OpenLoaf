@@ -6,7 +6,6 @@ import type { ModelTag } from "@tenas-ai/api/common";
 import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
 import { mergeImageOptions } from "@/lib/chat/image-options";
 import { useChatOptions } from "../context";
-import { supportsImageGeneration } from "@/lib/model-capabilities";
 import {
   Select,
   SelectContent,
@@ -124,11 +123,6 @@ function isOpenAiProvider(providerId?: string | null): boolean {
   return providerId.toLowerCase().includes("openai");
 }
 
-/** Check whether the model supports image generation. */
-function isImageGenerationModel(model?: ChatImageOutputTarget | null): boolean {
-  return supportsImageGeneration(model);
-}
-
 /** Resolve OpenAI quality options based on model id. */
 function resolveQualityOptions(modelId?: string | null): string[] {
   const normalized = (modelId ?? "").toLowerCase();
@@ -147,7 +141,7 @@ export default function ChatImageOutputOption({
 }: ChatImageOutputOptionProps) {
   const { imageOptions, setImageOptions } = useChatOptions();
   const isOpenAi = isOpenAiProvider(model?.providerId);
-  const canSelectCount = isImageGenerationModel(model);
+  const canSelectCount = true;
   const showAspectRatio = !hideAspectRatio;
   const qualityOptions = React.useMemo(
     () => resolveQualityOptions(model?.id),

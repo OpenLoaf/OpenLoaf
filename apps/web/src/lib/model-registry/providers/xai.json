@@ -17,7 +17,11 @@
         "tool_call",
         "web_search"
       ],
-      "maxContextK": 128
+      "capabilities": {
+        "common": {
+          "maxContextK": 128
+        }
+      }
     },
     {
       "id": "grok-4-fast-non-reasoning",
@@ -29,7 +33,11 @@
         "tool_call",
         "web_search"
       ],
-      "maxContextK": 128
+      "capabilities": {
+        "common": {
+          "maxContextK": 128
+        }
+      }
     },
     {
       "id": "grok-code-fast-1",
@@ -41,7 +49,11 @@
         "tool_call",
         "code"
       ],
-      "maxContextK": 128
+      "capabilities": {
+        "common": {
+          "maxContextK": 128
+        }
+      }
     }
   ]
 }

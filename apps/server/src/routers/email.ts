@@ -5,7 +5,7 @@ import {
   emailSchemas,
 } from "@tenas-ai/api";
 import type { PrismaClient } from "@tenas-ai/db";
-import { addEmailAccount, removeEmailAccount } from "@/modules/email/emailAccountService";
+import { addEmailAccount, addOAuthEmailAccount, removeEmailAccount } from "@/modules/email/emailAccountService";
 import {
   addPrivateSender,
   listPrivateSenders,
@@ -340,7 +340,25 @@ export class EmailRouterImpl extends BaseEmailRouter {
         .input(emailSchemas.addAccount.input)
         .output(emailSchemas.addAccount.output)
         .mutation(async ({ input, ctx }) => {
-          const created = addEmailAccount(input);
+          let created: { emailAddress: string; label?: string; status?: { lastSyncAt?: string; lastError?: string | null } };
+          if (input.authType === "oauth2-graph" || input.authType === "oauth2-gmail") {
+            created = addOAuthEmailAccount({
+              workspaceId: input.workspaceId,
+              emailAddress: input.emailAddress,
+              label: input.label,
+              authType: input.authType,
+            });
+          } else {
+            const pwInput = input as { workspaceId: string; emailAddress: string; label?: string; imap: { host: string; port: number; tls: boolean }; smtp: { host: string; port: number; tls: boolean }; password: string };
+            created = addEmailAccount({
+              workspaceId: pwInput.workspaceId,
+              emailAddress: pwInput.emailAddress,
+              label: pwInput.label,
+              imap: pwInput.imap,
+              smtp: pwInput.smtp,
+              password: pwInput.password,
+            });
+          }
           if (shouldAutoSyncOnAdd()) {
             // 逻辑：异步触发首次同步，避免阻塞新增流程。
             void syncRecentMailboxMessages({

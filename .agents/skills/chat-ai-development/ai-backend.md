@@ -104,6 +104,8 @@ getProviderDefinition("deepseek")                → ProviderDefinition
 
 **解析链**: 请求中的 `chatModelId + chatModelSource` → `resolveChatModel()` → `LanguageModelV3` 实例
 
+**能力字段**: `ModelDefinition.capabilities` 为结构化能力元数据（`common/params/input/output`）。chat 模型的筛选与标签展示仍以 `tags` 为准；`capabilities` 仅用于可调参数或媒体能力补充（例如 codex 的参数面板），云端模型的 `capabilities` 直接透传不做本地推断。
+
 ## Media (Image/Video) via SaaS
 
 聊天侧的图片生成不再构建本地 image 模型，统一走 SaaS SDK：

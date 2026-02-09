@@ -74,6 +74,9 @@ function resolveEmailAccountCredential(workspaceId: string, accountEmail: string
   if (!account) {
     throw new Error("邮箱账号不存在。");
   }
+  if (account.auth.type !== "password") {
+    throw new Error("此账号不使用密码认证。");
+  }
   const password = getEmailEnvValue(account.auth.envKey);
   if (!password) {
     throw new Error("邮箱密码未配置。");
@@ -356,9 +359,9 @@ export async function syncRecentMailboxMessages(input: {
     imap = new Imap({
       user: account.emailAddress,
       password,
-      host: account.imap.host,
-      port: account.imap.port,
-      tls: account.imap.tls,
+      host: account.imap!.host,
+      port: account.imap!.port,
+      tls: account.imap!.tls,
     });
 
     imap.on("error", (error) => {
@@ -382,9 +385,9 @@ export async function syncRecentMailboxMessages(input: {
 
     logger.debug(
       {
-        host: account.imap.host,
-        port: account.imap.port,
-        tls: account.imap.tls,
+        host: account.imap!.host,
+        port: account.imap!.port,
+        tls: account.imap!.tls,
         accountEmail: normalizedEmail,
       },
       "email imap connecting",
@@ -454,12 +457,12 @@ export async function syncRecentMailboxMessages(input: {
         workspaceId: input.workspaceId,
         accountEmail: normalizedEmail,
         mailboxPath: input.mailboxPath,
-        uid: { in: recentUids },
+        externalId: { in: recentUids.map(String) },
       },
-      select: { uid: true },
+      select: { externalId: true },
     });
-    const existingUidSet = new Set(existingRows.map((row) => row.uid));
-    const pendingUids = recentUids.filter((uid) => !existingUidSet.has(uid));
+    const existingIdSet = new Set(existingRows.map((row) => row.externalId));
+    const pendingUids = recentUids.filter((uid) => !existingIdSet.has(String(uid)));
     logger.debug(
       {
         accountEmail: normalizedEmail,
@@ -504,11 +507,12 @@ export async function syncRecentMailboxMessages(input: {
 
     for (const message of parsedMessages) {
       if (!message.uid) continue;
+      const externalId = String(message.uid);
       logger.debug(
         {
           accountEmail: normalizedEmail,
           mailboxPath: input.mailboxPath,
-          uid: message.uid,
+          externalId,
           subject: message.subject,
         },
         "email message upsert",
@@ -516,19 +520,19 @@ export async function syncRecentMailboxMessages(input: {
       highestUid = Math.max(highestUid, message.uid);
       await input.prisma.emailMessage.upsert({
         where: {
-          workspaceId_accountEmail_mailboxPath_uid: {
+          workspaceId_accountEmail_mailboxPath_externalId: {
             workspaceId: input.workspaceId,
             accountEmail: normalizedEmail,
             mailboxPath: input.mailboxPath,
-            uid: message.uid,
+            externalId,
           },
         },
         create: {
-          id: `${input.workspaceId}-${normalizedEmail}-${input.mailboxPath}-${message.uid}`,
+          id: `${input.workspaceId}-${normalizedEmail}-${input.mailboxPath}-${externalId}`,
           workspaceId: input.workspaceId,
           accountEmail: normalizedEmail,
           mailboxPath: input.mailboxPath,
-          uid: message.uid,
+          externalId,
           messageId: message.messageId ?? null,
           subject: message.subject ?? null,
           from: (message.from ?? {}) as Prisma.InputJsonValue,
@@ -654,7 +658,7 @@ export async function markEmailMessageRead(input: {
 }): Promise<void> {
   const startedAt = Date.now();
   let imap: Imap | null = null;
-  let closeContext: { accountEmail?: string; mailboxPath?: string; uid?: number } = {};
+  let closeContext: { accountEmail?: string; mailboxPath?: string; externalId?: string } = {};
   try {
     const row = await input.prisma.emailMessage.findFirst({
       where: { id: input.id, workspaceId: input.workspaceId },
@@ -665,7 +669,7 @@ export async function markEmailMessageRead(input: {
     closeContext = {
       accountEmail: row.accountEmail,
       mailboxPath: row.mailboxPath,
-      uid: row.uid,
+      externalId: row.externalId,
     };
     const existingFlags = normalizeEmailFlags(row.flags);
     if (hasSeenFlag(existingFlags)) {
@@ -684,9 +688,9 @@ export async function markEmailMessageRead(input: {
       imap = new Imap({
         user: account.emailAddress,
         password,
-        host: account.imap.host,
-        port: account.imap.port,
-        tls: account.imap.tls,
+        host: account.imap!.host,
+        port: account.imap!.port,
+        tls: account.imap!.tls,
       });
       imap.on("error", (error) => {
         logger.error(
@@ -696,9 +700,9 @@ export async function markEmailMessageRead(input: {
       });
       logger.debug(
         {
-          host: account.imap.host,
-          port: account.imap.port,
-          tls: account.imap.tls,
+          host: account.imap!.host,
+          port: account.imap!.port,
+          tls: account.imap!.tls,
           accountEmail: normalizedEmail,
         },
         "email imap connecting",
@@ -709,12 +713,13 @@ export async function markEmailMessageRead(input: {
         "email imap ready",
       );
       await openMailbox(imap, row.mailboxPath, false);
-      await addImapFlags(imap, row.uid, ["\\Seen"]);
+      const imapUid = Number.parseInt(row.externalId, 10);
+      await addImapFlags(imap, imapUid, ["\\Seen"]);
       logger.debug(
         {
           accountEmail: normalizedEmail,
           mailboxPath: row.mailboxPath,
-          uid: row.uid,
+          externalId: row.externalId,
         },
         "email message marked read",
       );
@@ -727,7 +732,7 @@ export async function markEmailMessageRead(input: {
       {
         accountEmail: row.accountEmail,
         mailboxPath: row.mailboxPath,
-        uid: row.uid,
+        externalId: row.externalId,
         durationMs: Date.now() - startedAt,
       },
       "email mark read completed",
@@ -796,7 +801,7 @@ export async function setEmailMessageFlagged(input: {
 }): Promise<void> {
   const startedAt = Date.now();
   let imap: Imap | null = null;
-  let closeContext: { accountEmail?: string; mailboxPath?: string; uid?: number } = {};
+  let closeContext: { accountEmail?: string; mailboxPath?: string; externalId?: string } = {};
   try {
     const row = await input.prisma.emailMessage.findFirst({
       where: { id: input.id, workspaceId: input.workspaceId },
@@ -807,7 +812,7 @@ export async function setEmailMessageFlagged(input: {
     closeContext = {
       accountEmail: row.accountEmail,
       mailboxPath: row.mailboxPath,
-      uid: row.uid,
+      externalId: row.externalId,
     };
     const existingFlags = normalizeEmailFlags(row.flags);
     const hasFlagged = hasFlag(existingFlags, "FLAGGED");
@@ -827,9 +832,9 @@ export async function setEmailMessageFlagged(input: {
       imap = new Imap({
         user: account.emailAddress,
         password,
-        host: account.imap.host,
-        port: account.imap.port,
-        tls: account.imap.tls,
+        host: account.imap!.host,
+        port: account.imap!.port,
+        tls: account.imap!.tls,
       });
       imap.on("error", (error) => {
         logger.error(
@@ -839,9 +844,9 @@ export async function setEmailMessageFlagged(input: {
       });
       logger.debug(
         {
-          host: account.imap.host,
-          port: account.imap.port,
-          tls: account.imap.tls,
+          host: account.imap!.host,
+          port: account.imap!.port,
+          tls: account.imap!.tls,
           accountEmail: normalizedEmail,
         },
         "email imap connecting",
@@ -852,17 +857,18 @@ export async function setEmailMessageFlagged(input: {
         "email imap ready",
       );
       await openMailbox(imap, row.mailboxPath, false);
+      const imapUid = Number.parseInt(row.externalId, 10);
       // 逻辑：根据目标状态添加或移除星标。
       if (input.flagged) {
-        await addImapFlags(imap, row.uid, ["\\Flagged"]);
+        await addImapFlags(imap, imapUid, ["\\Flagged"]);
       } else {
-        await removeImapFlags(imap, row.uid, ["\\Flagged"]);
+        await removeImapFlags(imap, imapUid, ["\\Flagged"]);
       }
       logger.debug(
         {
           accountEmail: normalizedEmail,
           mailboxPath: row.mailboxPath,
-          uid: row.uid,
+          externalId: row.externalId,
           flagged: input.flagged,
         },
         "email message flagged updated",
@@ -880,7 +886,7 @@ export async function setEmailMessageFlagged(input: {
       {
         accountEmail: row.accountEmail,
         mailboxPath: row.mailboxPath,
-        uid: row.uid,
+        externalId: row.externalId,
         flagged: input.flagged,
         durationMs: Date.now() - startedAt,
       },

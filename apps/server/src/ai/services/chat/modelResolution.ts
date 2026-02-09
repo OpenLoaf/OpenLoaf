@@ -32,7 +32,17 @@ export async function resolveExplicitModelDefinition(
     const registryModel = getModelDefinition(providerEntry.providerId, modelId) ?? null;
     return registryModel;
   }
-  if (Array.isArray(fromConfig.tags) && fromConfig.tags.length > 0) {
+  const hasTags = Array.isArray(fromConfig.tags) && fromConfig.tags.length > 0;
+  const capabilities = fromConfig.capabilities;
+  // 中文注释：任一能力字段有值就视为配置包含能力信息。
+  const hasCapabilities = Boolean(
+    capabilities &&
+      (Object.keys(capabilities.common ?? {}).length > 0 ||
+        Object.keys(capabilities.params ?? {}).length > 0 ||
+        Object.keys(capabilities.input ?? {}).length > 0 ||
+        Object.keys(capabilities.output ?? {}).length > 0)
+  );
+  if (hasTags || hasCapabilities) {
     return fromConfig;
   }
   const registryModel = getModelDefinition(providerEntry.providerId, modelId) ?? fromConfig;
@@ -53,7 +63,8 @@ export function resolveRequiredInputTags(messages: UIMessage[]): ModelTag[] {
       if (!url) continue;
       const purpose = typeof (part as any).purpose === "string" ? (part as any).purpose : "";
       if (purpose === "mask") {
-        required.add("image_edit");
+        // 中文注释：mask 也按图片输入处理，能力判断交由媒体模型侧完成。
+        required.add("image_input");
         continue;
       }
       // 中文注释：普通图片输入只要求 image_input，避免误判为图片编辑。
