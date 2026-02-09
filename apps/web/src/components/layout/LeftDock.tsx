@@ -95,7 +95,11 @@ function renderDockItem(tabId: string, item: DockItem, refreshKey = 0) {
       {/* 懒加载的面板通过 Suspense 隔离，避免阻塞其他区域渲染。 */}
       <React.Suspense fallback={<PanelFallback />}>
         <Component
-          key={derivedRefreshKey > 0 ? `${item.id}-${derivedRefreshKey}` : undefined}
+          key={
+            derivedRefreshKey > 0
+              ? `${item.id}-${derivedRefreshKey}`
+              : undefined
+          }
           panelKey={item.id}
           tabId={tabId}
           {...(item.params ?? {})}
@@ -138,14 +142,14 @@ function PanelFrame({
         floating
           ? "rounded-xl border border-border shadow-2xl"
           : "rounded-none border-0 shadow-none",
-        fillHeight && "h-full w-full"
+        fillHeight && "h-full w-full",
       )}
     >
       <div
         className={cn(
           "flex w-full flex-col pt-2 rounded-xl",
           opaquePanel ? "bg-background" : "bg-background/95 backdrop-blur-sm",
-          fillHeight && "h-full"
+          fillHeight && "h-full",
         )}
       >
         {!customHeader ? (
@@ -155,7 +159,11 @@ function PanelFrame({
             openRootUri={openRootUri}
             onRefresh={() => setRefreshKey((k) => k + 1)}
             rightSlot={
-              <BoardPanelHeaderActions item={item} title={title} tabId={tabId} />
+              <BoardPanelHeaderActions
+                item={item}
+                title={title}
+                tabId={tabId}
+              />
             }
             onClose={canClose ? onClose : undefined}
             showMinimize
@@ -169,7 +177,7 @@ function PanelFrame({
           className={cn(
             customHeader ? "p-0" : "p-2",
             fillHeight && "min-h-0 flex-1",
-            "min-w-0"
+            "min-w-0",
           )}
         >
           {renderDockItem(tabId, item, refreshKey)}
@@ -187,7 +195,9 @@ function buildRenamedUri(uri: string, nextName: string): string {
   if (parts.length === 0) return parsed.prefix || uri;
   parts[parts.length - 1] = nextName;
   const nextRelativePath = parts.join("/");
-  return parsed.prefix ? `${parsed.prefix}${nextRelativePath}` : nextRelativePath;
+  return parsed.prefix
+    ? `${parsed.prefix}${nextRelativePath}`
+    : nextRelativePath;
 }
 
 /** Resolve the parent uri for a file path. */
@@ -207,7 +217,10 @@ function parseRenamePath(uri: string) {
   if (!parsed) return null;
   if (isProjectAbsolutePath(trimmed)) {
     if (!parsed.projectId) return null;
-    return { prefix: `@[${parsed.projectId}]/`, relativePath: parsed.relativePath };
+    return {
+      prefix: `@[${parsed.projectId}]/`,
+      relativePath: parsed.relativePath,
+    };
   }
   // 中文注释：非 @[] 形式一律视为项目相对路径，避免拼出完整 file:// 路径。
   return { prefix: "", relativePath: normalizeProjectRelativePath(trimmed) };
@@ -250,7 +263,8 @@ export function LeftDock({ tabId }: { tabId: string }) {
       const uri = typeof params?.uri === "string" ? params.uri : "";
       const name = typeof params?.name === "string" ? params.name : "";
       const ext = typeof params?.ext === "string" ? params.ext : undefined;
-      const projectId = typeof params?.projectId === "string" ? params.projectId : undefined;
+      const projectId =
+        typeof params?.projectId === "string" ? params.projectId : undefined;
       const shouldPromptRename =
         item.component === "board-viewer" &&
         Boolean(params?.__pendingRename) &&
@@ -285,7 +299,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
       setRenameValue(getBoardDisplayName(name));
       setRenameDialog({ tabId, itemId: item.id, uri, name, ext, projectId });
     },
-    [removeStackItem, tabId, deleteMutation, workspaceId, queryClient]
+    [removeStackItem, tabId, deleteMutation, workspaceId, queryClient],
   );
 
   const handleRenameConfirm = React.useCallback(async () => {
@@ -315,7 +329,14 @@ export function LeftDock({ tabId }: { tabId: string }) {
       console.warn("[LeftDock] rename board failed", error);
       toast.error("重命名失败");
     }
-  }, [removeStackItem, renameDialog, renameMutation, renameValue, workspaceId, queryClient]);
+  }, [
+    removeStackItem,
+    renameDialog,
+    renameMutation,
+    renameValue,
+    workspaceId,
+    queryClient,
+  ]);
 
   /** Delete the board folder and close the stack item. */
   const handleDeleteBoard = React.useCallback(async () => {
@@ -372,7 +393,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
         className={cn(
           "h-full w-full p-2 transition-all duration-200",
           "min-w-0",
-          hasOverlay && "pointer-events-none select-none blur-sm opacity-80"
+          hasOverlay && "pointer-events-none select-none blur-sm opacity-80",
         )}
       >
         {base ? renderDockItem(tabId, base) : null}
@@ -400,7 +421,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
                 className={cn(
                   "absolute inset-0",
                   base ? "px-5 pt-6 pb-4" : "px-2",
-                  visible ? "block" : keepAlive ? "opacity-0" : "hidden"
+                  visible ? "block" : keepAlive ? "opacity-0" : "hidden",
                 )}
                 data-stack-panel={isActive ? tabId : undefined}
                 data-stack-item={isActive ? item.id : undefined}
@@ -448,7 +469,9 @@ export function LeftDock({ tabId }: { tabId: string }) {
           <DialogFooter className="flex items-center justify-between sm:justify-between">
             {confirmingDelete ? (
               <>
-                <span className="text-sm text-destructive">确定要删除此画布吗？</span>
+                <span className="text-sm text-destructive">
+                  确定要删除此画布吗？
+                </span>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -482,7 +505,10 @@ export function LeftDock({ tabId }: { tabId: string }) {
                       取消
                     </Button>
                   </DialogClose>
-                  <Button onClick={handleRenameConfirm} disabled={renameMutation.isPending}>
+                  <Button
+                    onClick={handleRenameConfirm}
+                    disabled={renameMutation.isPending}
+                  >
                     确定
                   </Button>
                 </div>

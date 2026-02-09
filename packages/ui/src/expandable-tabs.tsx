@@ -27,6 +27,8 @@ interface ExpandableTabsProps {
   tabs: TabItem[];
   className?: string;
   activeColor?: string;
+  /** Tabs 尺寸。 */
+  size?: "sm" | "md" | "lg";
   onChange?: (index: number | null) => void;
   selectedIndex?: number | null;
   defaultSelectedIndex?: number | null;
@@ -62,6 +64,7 @@ export function ExpandableTabs({
   tabs,
   className,
   activeColor = "text-primary",
+  size = "md",
   onChange,
   selectedIndex,
   defaultSelectedIndex = null,
@@ -95,11 +98,32 @@ export function ExpandableTabs({
     <div className="mx-1 h-[24px] w-[1.2px] bg-border" aria-hidden="true" />
   );
 
+  // 中文注释：集中管理尺寸差异，避免散落在 className 中。
+  const sizeConfig = {
+    sm: {
+      container: "h-8 p-1 gap-1",
+      button: "h-6 text-xs",
+      icon: 14,
+    },
+    md: {
+      container: "h-9 p-[3px] gap-2",
+      button: "h-7 text-sm",
+      icon: 16,
+    },
+    lg: {
+      container: "h-12 p-1 gap-2",
+      button: "h-10 text-[16px]",
+      icon: 20,
+    },
+  } as const;
+  const sizeToken = sizeConfig[size];
+
   return (
     <div
       ref={outsideClickRef}
       className={cn(
-        "flex flex-wrap items-center gap-2 rounded-lg border bg-background p-[3px] h-9",
+        "flex flex-wrap items-center rounded-lg border bg-background",
+        sizeToken.container,
         className
       )}
     >
@@ -122,13 +146,14 @@ export function ExpandableTabs({
             onClick={() => handleSelect(index)}
             transition={transition}
             className={cn(
-              "relative flex items-center rounded-md px-3 py-1 text-sm font-medium transition-colors duration-300 h-7",
+              "relative flex items-center rounded-md px-3 py-1 font-medium transition-colors duration-300",
+              sizeToken.button,
               isSelected
                 ? cn("bg-muted", activeColor)
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
-            <Icon size={16} />
+            <Icon size={sizeToken.icon} />
             <AnimatePresence initial={false}>
               {isSelected && (
                 <motion.span

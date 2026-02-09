@@ -477,20 +477,24 @@ export default function ProjectPage({
             <ProjectSettingsHeader isLoading={isLoading} pageTitle={pageTitle} />
           </div>
         </div>
-        <div className="project-header-tabs">
-          <ProjectTabs
-            value={activeTab}
-            onValueChange={handleProjectTabChange}
-            isActive={tabActive}
-            revealDelayMs={800}
-          />
-        </div>
       </div>
 
-      <div className="flex-1 min-h-0 w-full overflow-auto show-scrollbar">
-        <div className="w-full h-full min-h-0 min-w-0 flex flex-col [&>div]:!min-w-0 [&>div]:!w-full [&>div]:!h-full [&>div]:!block">
-          <div className="flex-1 min-h-0 w-full h-full">
-            <div className="relative w-full h-full min-h-0">
+      <div className="relative flex-1 min-h-0 w-full">
+        <div className="pointer-events-none absolute bottom-2 left-1/2 z-20 -translate-x-1/2">
+          <div className="pointer-events-auto rounded-lg shadow-[0_10px_30px_rgba(0,0,0,0.18)] transition-transform duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_14px_36px_rgba(0,0,0,0.22)]">
+            <ProjectTabs
+              value={activeTab}
+              onValueChange={handleProjectTabChange}
+              isActive={tabActive}
+              revealDelayMs={800}
+              size="lg"
+            />
+          </div>
+        </div>
+        <div className="h-full w-full overflow-auto show-scrollbar pb-16">
+          <div className="w-full h-full min-h-0 min-w-0 flex flex-col [&>div]:!min-w-0 [&>div]:!w-full [&>div]:!h-full [&>div]:!block">
+            <div className="flex-1 min-h-0 w-full h-full">
+              <div className="relative w-full h-full min-h-0 overflow-hidden rounded-lg bg-background">
               <div
                 id="project-panel-index"
                 role="tabpanel"
@@ -589,6 +593,7 @@ export default function ProjectPage({
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

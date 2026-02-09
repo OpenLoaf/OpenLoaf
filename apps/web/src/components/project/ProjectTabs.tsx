@@ -71,6 +71,7 @@ type ProjectTabsProps = {
   onValueChange: (value: ProjectTabValue) => void;
   isActive?: boolean;
   revealDelayMs?: number;
+  size?: "sm" | "md" | "lg";
 };
 
 /** Render project tabs with expandable tabs UI. */
@@ -78,6 +79,7 @@ export default function ProjectTabs({
   value,
   onValueChange,
   isActive = true,
+  size = "md",
 }: ProjectTabsProps) {
   // 根据当前值映射到选中索引
   const selectedIndex = useMemo(() => {
@@ -110,11 +112,12 @@ export default function ProjectTabs({
   };
 
   return (
-    <div className="flex justify-end flex-1 min-w-0" aria-hidden={!isActive}>
+    <div className="flex justify-center flex-1 min-w-0" aria-hidden={!isActive}>
       <ExpandableTabs
         tabs={tabs}
         selectedIndex={selectedIndex}
         onChange={handleChange}
+        size={size}
         getTooltip={(tab, index) =>
           `${tab.title} (${formatShortcutLabel(`Alt+${index + 1}`, isMac)})`
         }
