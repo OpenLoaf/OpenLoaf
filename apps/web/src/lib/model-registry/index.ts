@@ -9,6 +9,7 @@ import customProvider from "./providers/custom.json";
 import deepseekProvider from "./providers/deepseek.json";
 import googleProvider from "./providers/google.json";
 import moonshotProvider from "./providers/moonshot.json";
+import qwenProvider from "./providers/qwen.json";
 import vercelProvider from "./providers/vercel.json";
 import xaiProvider from "./providers/xai.json";
 
@@ -18,6 +19,7 @@ const providers = [
   deepseekProvider,
   googleProvider,
   moonshotProvider,
+  qwenProvider,
   vercelProvider,
   codexCliProvider,
   customProvider,

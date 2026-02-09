@@ -238,7 +238,7 @@ export const SidebarWorkspace = () => {
                     className="rounded-lg"
                   >
                     <LogIn className="size-4" />
-                    登录账户
+                    登录Teanas账户，使用云端模型
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem

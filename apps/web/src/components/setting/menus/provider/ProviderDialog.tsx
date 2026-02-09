@@ -394,7 +394,7 @@ export function ProviderDialog({
                         >
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <ModelIcon icon={model.icon} />
+                              <ModelIcon icon={model.familyId ?? model.icon} />
                               <div className="text-foreground">{getModelLabel(model)}</div>
                             </div>
                             <div className="mt-1">{renderModelTagsCompact(model.tags)}</div>
@@ -419,7 +419,7 @@ export function ProviderDialog({
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <ModelIcon icon={focusedModel.icon} size={18} />
+                            <ModelIcon icon={focusedModel.familyId ?? focusedModel.icon} size={18} />
                             <div
                               className="text-sm font-medium text-foreground truncate"
                               title={getModelLabel(focusedModel)}

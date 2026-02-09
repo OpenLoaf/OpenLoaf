@@ -106,10 +106,13 @@ if (resolvedPart.toolName === "my_tool") {
 |------|------|
 | `input/ChatInput.tsx` | 主输入框（Plate.js 富文本、mention、拖拽上传） |
 | `input/ChatCommandMenu.tsx` | 命令菜单（/ 触发） |
+| `input/SelectMode.tsx` | 模型选择与图标展示（`familyId` 优先，回退 `icon`） |
 | `input/chat-attachments.ts` | 附件类型定义 |
 | `input/chat-input-utils.ts` | FILE_TOKEN_REGEX 等工具函数 |
 
 **发送流程**: ChatInput 收集 input + attachments + options → `useChatMessageComposer` 组装 parts → `sendMessage()` → SSE transport
+
+**图标主题适配**: `ModelIcon.tsx` 对非 Color 版本使用 `currentColor`，确保黑白图标在明暗主题下可见。
 
 ## Hooks Quick Reference
 

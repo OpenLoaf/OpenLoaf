@@ -75,7 +75,7 @@ export function ProviderSection({
     <>
       <TenasSettingsGroup
         title="AI 服务商"
-        subtitle="配置模型服务商的 API URL 与认证信息。"
+        subtitle="配置模型服务商的 API URL 与认证信息，添加后即可使用 AI 模型服务。"
         showBorder={false}
         action={
           <Button variant="default" onClick={onAdd}>
@@ -190,7 +190,9 @@ export function ProviderSection({
                                 >
                                   <div>
                                     <div className="flex items-center gap-2">
-                                      <ModelIcon icon={modelDefinition.icon} />
+                                      <ModelIcon
+                                        icon={modelDefinition.familyId ?? modelDefinition.icon}
+                                      />
                                       <div className="text-foreground">
                                         {getModelLabel(modelDefinition)}
                                       </div>

@@ -92,14 +92,15 @@ export function buildToolset(toolIds: string[]) → Record<string, tool>
 
 ## Model Registry
 
-模型定义存放在 `apps/web/src/lib/model-registry/providers/*.json`，服务端通过 `modelRegistry.ts` 加载：
+模型定义存放在 `apps/web/src/lib/model-registry/providers/*.json`，当前仅保留聊天模型（无图像/视频），服务端通过 `modelRegistry.ts` 加载：
 
 ```typescript
 getModelDefinition("deepseek", "deepseek-chat")   → ModelDefinition
 getProviderDefinition("deepseek")                → ProviderDefinition
 ```
 
-内置 provider（默认 JSON 定义）：anthropic / moonshot / vercel / google / deepseek / xai / codex-cli / custom。
+内置 provider（默认 JSON 定义）：anthropic / moonshot / vercel / qwen / google / deepseek / xai / codex-cli / custom。
+`familyId` 用于前端模型图标识别，需填 @lobehub/icons 可识别的名称（如 OpenAI/Grok/DeepSeek/Gemini/LobeHub），UI 优先使用 `familyId` 渲染图标。
 
 **解析链**: 请求中的 `chatModelId + chatModelSource` → `resolveChatModel()` → `LanguageModelV3` 实例
 

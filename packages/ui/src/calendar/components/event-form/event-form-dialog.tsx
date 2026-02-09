@@ -53,12 +53,12 @@ export const EventFormDialog = () => {
 
 	return (
 		<Dialog onOpenChange={closeEventForm} open={isEventFormOpen}>
-			<DialogContent className="flex flex-col h-[90vh] w-[90vw] max-w-[500px] p-4 sm:p-6 overflow-hidden gap-0">
-				<DialogHeader className="mb-2 sm:mb-4 shrink-0">
-					<DialogTitle className="text-base sm:text-lg">
+			<DialogContent className="flex flex-col max-h-[90vh] w-[95vw] max-w-md p-0 overflow-hidden gap-0">
+				<DialogHeader className="px-5 pt-5 pb-3 shrink-0 border-b">
+					<DialogTitle className="text-base">
 						{selectedEvent?.id ? t('editEvent') : t('createEvent')}
 					</DialogTitle>
-					<DialogDescription className="text-xs sm:text-sm">
+					<DialogDescription className="text-xs text-muted-foreground">
 						{selectedEvent?.id ? t('editEventDetails') : t('addNewEvent')}
 					</DialogDescription>
 				</DialogHeader>

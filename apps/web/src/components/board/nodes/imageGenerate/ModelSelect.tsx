@@ -48,7 +48,7 @@ export function ModelSelect({
           onOpenLogin();
         }}
       >
-        <span className="truncate">登录账户后选择模型</span>
+        <span className="truncate">登录Teanas账户，使用云端模型后选择模型</span>
         <LogIn size={14} />
       </button>
     );

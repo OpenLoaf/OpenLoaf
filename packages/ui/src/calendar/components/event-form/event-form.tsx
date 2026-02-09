@@ -306,13 +306,11 @@ export const EventForm: React.FC<EventFormProps> = ({
 		<>
 			<form className="flex flex-col flex-1 min-h-0" onSubmit={handleSubmit}>
 				<ScrollArea className="flex-1 min-h-0">
-					<div className="grid gap-3 sm:gap-4 p-1">
-						<div className="grid gap-2">
-							<Label className="text-xs sm:text-sm" htmlFor="title">
-								{t('title')}
-							</Label>
+					<div className="space-y-4 px-5 py-4">
+						{/* Title & Description */}
+						<div className="space-y-3">
 							<Input
-								className="h-8 text-sm sm:h-9"
+								className="h-9 text-sm border-0 border-b rounded-none px-0 shadow-none focus-visible:ring-0 focus-visible:border-primary font-medium"
 								id="title"
 								name="title"
 								onChange={handleInputChange}
@@ -320,14 +318,8 @@ export const EventForm: React.FC<EventFormProps> = ({
 								required
 								value={formValues.title}
 							/>
-						</div>
-
-						<div className="grid gap-1 sm:gap-2">
-							<Label className="text-xs sm:text-sm" htmlFor="description">
-								{t('description')}
-							</Label>
 							<Input
-								className="h-8 text-sm sm:h-9"
+								className="h-8 text-sm border-0 border-b rounded-none px-0 shadow-none focus-visible:ring-0 focus-visible:border-primary text-muted-foreground"
 								id="description"
 								name="description"
 								onChange={handleInputChange}
@@ -336,6 +328,8 @@ export const EventForm: React.FC<EventFormProps> = ({
 							/>
 						</div>
 
+						<div className="h-px bg-border" />
+
 						{!isReminder && (
 							<div className="flex items-center space-x-2">
 								<Checkbox
@@ -343,17 +337,17 @@ export const EventForm: React.FC<EventFormProps> = ({
 									id="allDay"
 									onCheckedChange={(checked) => setIsAllDay(checked === true)}
 								/>
-								<Label className="text-xs sm:text-sm" htmlFor="allDay">
+								<Label className="text-sm" htmlFor="allDay">
 									{t('allDay')}
 								</Label>
 							</div>
 						)}
 
 						{isReminder && (
-							<div className="flex items-center justify-between rounded-md border border-slate-200 bg-white/70 px-3 py-2">
+							<div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
 								<div className="flex flex-col">
-									<span className="text-xs font-medium text-slate-700">时间范围</span>
-									<span className="text-[11px] text-slate-500">
+									<span className="text-xs font-medium">时间范围</span>
+									<span className="text-[11px] text-muted-foreground">
 										开启后可设置开始与结束时间
 									</span>
 								</div>
@@ -369,9 +363,8 @@ export const EventForm: React.FC<EventFormProps> = ({
 
 						{isReminder && reminderTimeEnabledSafe === false ? (
 							<div>
-								<Label className="text-xs sm:text-sm">日期</Label>
+								<Label className="text-xs text-muted-foreground mb-1.5 block">日期</Label>
 								<DatePicker
-									className="mt-1"
 									closeOnSelect
 									date={startDate}
 									disabled={disabledDateMatcher}
@@ -379,11 +372,10 @@ export const EventForm: React.FC<EventFormProps> = ({
 								/>
 							</div>
 						) : (
-							<div className="grid grid-cols-2 gap-2 sm:gap-4">
+							<div className="grid grid-cols-2 gap-3">
 								<div>
-									<Label className="text-xs sm:text-sm">{t('startDate')}</Label>
+									<Label className="text-xs text-muted-foreground mb-1.5 block">{t('startDate')}</Label>
 									<DatePicker
-										className="mt-1"
 										closeOnSelect
 										date={startDate}
 										disabled={disabledDateMatcher}
@@ -391,9 +383,8 @@ export const EventForm: React.FC<EventFormProps> = ({
 									/>
 								</div>
 								<div>
-									<Label className="text-xs sm:text-sm">{t('endDate')}</Label>
+									<Label className="text-xs text-muted-foreground mb-1.5 block">{t('endDate')}</Label>
 									<DatePicker
-										className="mt-1"
 										closeOnSelect
 										date={endDate}
 										disabled={disabledDateMatcher}
@@ -404,11 +395,11 @@ export const EventForm: React.FC<EventFormProps> = ({
 						)}
 
 						{!(isReminder && reminderTimeEnabledSafe === false) && !isAllDay && (
-							<div className="grid grid-cols-2 gap-2 sm:gap-4">
+							<div className="grid grid-cols-2 gap-3">
 								<div>
-									<Label className="text-xs sm:text-sm">{t('startTime')}</Label>
+									<Label className="text-xs text-muted-foreground mb-1.5 block">{t('startTime')}</Label>
 									<TimePicker
-										className="mt-1 h-8 text-sm sm:h-9"
+										className="h-8 text-sm"
 										maxTime={startConstraints.max}
 										minTime={startConstraints.min}
 										name="start-time"
@@ -418,9 +409,9 @@ export const EventForm: React.FC<EventFormProps> = ({
 									/>
 								</div>
 								<div>
-									<Label className="text-xs sm:text-sm">{t('endTime')}</Label>
+									<Label className="text-xs text-muted-foreground mb-1.5 block">{t('endTime')}</Label>
 									<TimePicker
-										className="mt-1 h-8 text-sm sm:h-9"
+										className="h-8 text-sm"
 										maxTime={endConstraints.max}
 										minTime={endConstraints.min}
 										name="end-time"
@@ -432,34 +423,37 @@ export const EventForm: React.FC<EventFormProps> = ({
 							</div>
 						)}
 
+						<div className="h-px bg-border" />
+
 						{!isReminder && (
-							<div className="grid gap-1 sm:gap-2">
-								<Label className="text-xs sm:text-sm">{t('color')}</Label>
+							<div className="space-y-2">
+								<Label className="text-xs text-muted-foreground">{t('color')}</Label>
 								<div className="flex flex-wrap gap-2">
 									{COLOR_OPTIONS.map((color) => (
-										<Button
+										<button
 											aria-label={color.label}
 											className={cn(
-												`${color.value} h-6 w-6 rounded-full sm:h-8 sm:w-8`,
-												selectedColor === color.value &&
-													'ring-2 ring-black ring-offset-1 sm:ring-offset-2'
+												'h-6 w-6 rounded-full transition-all',
+												color.value,
+												selectedColor === color.value
+													? 'ring-2 ring-primary ring-offset-2'
+													: 'hover:scale-110'
 											)}
 											key={color.value}
 											onClick={() => setSelectedColor(color.value)}
 											type="button"
-											variant="ghost"
 										/>
 									))}
 								</div>
 							</div>
 						)}
 
-						<div className="grid gap-1 sm:gap-2">
-							<Label className="text-xs sm:text-sm" htmlFor="location">
+						<div className="space-y-1.5">
+							<Label className="text-xs text-muted-foreground" htmlFor="location">
 								{t('location')}
 							</Label>
 							<Input
-								className="h-8 text-sm sm:h-9"
+								className="h-8 text-sm"
 								id="location"
 								name="location"
 								onChange={handleInputChange}
@@ -470,34 +464,36 @@ export const EventForm: React.FC<EventFormProps> = ({
 
 						{/* Recurrence Section */}
 						{!isReminder && (
-							<RecurrenceEditor onChange={handleRRuleChange} value={rrule} />
+							<>
+								<div className="h-px bg-border" />
+								<RecurrenceEditor onChange={handleRRuleChange} value={rrule} />
+							</>
 						)}
 					</div>
 				</ScrollArea>
 
-				<DialogFooter className="mt-4 shrink-0 flex flex-col-reverse gap-2 sm:flex-row sm:gap-0">
+				<DialogFooter className="shrink-0 flex items-center gap-2 border-t px-5 py-3">
 					{selectedEvent?.id && (
 						<Button
-							className="w-full sm:mr-auto sm:w-auto"
+							className="mr-auto"
 							onClick={handleDelete}
 							size="sm"
 							type="button"
-							variant="destructive"
+							variant="ghost"
 						>
-							{t('delete')}
+							<span className="text-destructive">{t('delete')}</span>
 						</Button>
 					)}
-					<div className="flex w-full gap-2 sm:w-auto">
+					<div className="flex gap-2 ml-auto">
 						<Button
-							className="flex-1 sm:flex-none"
 							onClick={onClose}
 							size="sm"
 							type="button"
-							variant="outline"
+							variant="ghost"
 						>
 							{t('cancel')}
 						</Button>
-						<Button className="flex-1 sm:flex-none" size="sm" type="submit">
+						<Button size="sm" type="submit">
 							{selectedEvent?.id ? t('update') : t('create')}
 						</Button>
 					</div>

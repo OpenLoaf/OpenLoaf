@@ -14,8 +14,7 @@
       "icon": "OpenAI",
       "tags": [
         "chat",
-        "code",
-        "image_input"
+        "code"
       ],
       "maxContextK": 128
     }

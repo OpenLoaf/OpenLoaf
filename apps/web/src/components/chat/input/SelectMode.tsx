@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, ChevronUp, HardDrive } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Cloud, HardDrive } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -271,6 +271,18 @@ export default function SelectMode({ className }: SelectModeProps) {
                   {!isCloudSource ? (
                     <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
                   ) : null}
+                  {selectedModel?.modelDefinition ? (
+                    <ModelIcon
+                      icon={
+                        selectedModel.modelDefinition.familyId ??
+                        selectedModel.modelDefinition.icon
+                      }
+                      size={14}
+                      className="h-3.5 w-3.5 shrink-0"
+                      fallbackSrc={MODEL_ICON_FALLBACK_SRC}
+                      fallbackAlt=""
+                    />
+                  ) : null}
                   <span className="truncate">
                     {selectedModelLabel}
                   </span>
@@ -289,127 +301,125 @@ export default function SelectMode({ className }: SelectModeProps) {
           align="end"
           sideOffset={8}
           avoidCollisions={false}
-          className="w-[21rem] max-w-[94vw] -translate-x-4 rounded-xl border-border bg-background/95 p-2 shadow-2xl backdrop-blur-sm"
+          className="w-[21rem] max-w-[94vw] -translate-x-4 rounded-xl border-border bg-muted/40 p-2 shadow-2xl backdrop-blur-sm"
         >
           <div className="space-y-2">
             {showTopSection ? (
               <div className="space-y-2">
                 {showModelList ? (
-                  <div className="relative flex flex-col gap-2">
-                    <div className="rounded-lg border border-border/70 bg-muted/30">
-                      <div className="max-h-[28rem] space-y-1 overflow-y-auto p-1">
-                        {showCloudLogin ? (
-                          <div className="flex items-center justify-center py-10">
-                            <Button type="button" size="sm" onClick={handleOpenLogin}>
-                              登录账号查看云端模型
-                            </Button>
-                          </div>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                updateStoredSelection(sourceKey, { isAuto: true });
-                              }}
-                              className={cn(
-                                "h-12 w-full rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-border/70 hover:bg-muted/60",
-                                isAuto && "border-border/70 bg-muted/70"
-                              )}
-                            >
-                              <div className="flex h-full items-center justify-between gap-3">
-                                <div className="min-w-0 flex-1 text-left">
-                                  <div className="flex items-center gap-1 truncate text-[13px] font-medium text-foreground">
-                                    {!isCloudSource ? (
-                                      <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
-                                    ) : null}
-                                    <span className="truncate">Auto</span>
-                                  </div>
-                                  <div className="mt-1 text-[10px] text-muted-foreground">
-                                    基于效果与速度帮助您选择最优模型
-                                  </div>
-                                </div>
-                                <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                                  {isAuto ? (
-                                    <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />
-                                  ) : null}
-                                </span>
-                              </div>
-                            </button>
-                            {activeProviderModels.length > 0 ? (
-                              activeProviderModels.map((option) => {
-                                const optionLabel = option.modelDefinition
-                                  ? getModelLabel(option.modelDefinition)
-                                  : option.modelId;
-                                const providerLabel =
-                                  option.providerName || option.providerId || "";
-                                const displayLabel = providerLabel
-                                  ? `${providerLabel} / ${optionLabel}`
-                                  : optionLabel;
-                                const tagLabels =
-                                  option.tags && option.tags.length > 0
-                                    ? option.tags.map((tag) => MODEL_TAG_LABELS[tag] ?? tag)
-                                    : null;
-                                return (
-                                  <button
-                                    key={option.id}
-                                    type="button"
-                                    onClick={() => {
-                                      updateStoredSelection(sourceKey, {
-                                        isAuto: false,
-                                        lastModelId: option.id,
-                                      });
-                                    }}
-                                    className={cn(
-                                      "h-12 w-full rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-border/70 hover:bg-muted/60",
-                                      selectedModelId === option.id &&
-                                        "border-border/70 bg-muted/70"
-                                    )}
-                                  >
-                                    <div className="flex h-full items-center justify-between gap-3">
-                                      <div className="min-w-0 flex-1 text-left">
-                                        <div className="flex items-center gap-2 truncate text-[13px] font-medium text-foreground">
-                                          <ModelIcon
-                                            icon={option.modelDefinition?.icon}
-                                            size={14}
-                                            className="h-3.5 w-3.5 shrink-0"
-                                            fallbackSrc={MODEL_ICON_FALLBACK_SRC}
-                                            fallbackAlt=""
-                                          />
-                                          <span className="truncate">{displayLabel}</span>
-                                        </div>
-                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-                                          <span className="flex flex-wrap items-center gap-1">
-                                            {(tagLabels ?? []).map((label) => (
-                                              <span
-                                                key={`${option.id}-${label}`}
-                                                className="inline-flex items-center rounded-full border border-border/70 bg-background px-2 py-0.5 text-[9px] text-muted-foreground"
-                                              >
-                                                {label}
-                                              </span>
-                                            ))}
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                                        {selectedModelId === option.id ? (
-                                          <Check
-                                            className="h-4 w-4 text-primary"
-                                            strokeWidth={2.5}
-                                          />
-                                        ) : null}
-                                      </span>
-                                    </div>
-                                  </button>
-                                );
-                              })
-                            ) : (
-                              <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-                                {showCloudEmpty ? "云端模型暂未开放" : "暂无可用模型"}
-                              </div>
+                  <>
+                    <div className="max-h-[28rem] space-y-1 overflow-y-auto rounded-lg">
+                      {showCloudLogin ? (
+                        <div className="flex flex-col items-center justify-center gap-2 py-10">
+                          <Button type="button" size="sm" onClick={handleOpenLogin}>
+                            登录Teanas账户，使用云端模型
+                          </Button>
+                          <div className="text-xs text-muted-foreground">使用云端模型</div>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateStoredSelection(sourceKey, { isAuto: true });
+                            }}
+                            className={cn(
+                              "h-12 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-muted/60",
+                              isAuto && "bg-muted/70"
                             )}
-                          </>
-                        )}
-                      </div>
+                          >
+                            <div className="flex h-full items-center justify-between gap-3">
+                              <div className="min-w-0 flex-1 text-left">
+                                <div className="flex items-center gap-1 truncate text-[13px] font-medium text-foreground">
+                                  {!isCloudSource ? (
+                                    <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                                  ) : null}
+                                  <span className="truncate">Auto</span>
+                                </div>
+                                <div className="mt-1 text-[10px] text-muted-foreground">
+                                  基于效果与速度帮助您选择最优模型
+                                </div>
+                              </div>
+                              <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                                {isAuto ? (
+                                  <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />
+                                ) : null}
+                              </span>
+                            </div>
+                          </button>
+                          {activeProviderModels.length > 0 ? (
+                            activeProviderModels.map((option) => {
+                              const optionLabel = option.modelDefinition
+                                ? getModelLabel(option.modelDefinition)
+                                : option.modelId;
+                              const providerLabel =
+                                option.providerName || option.providerId || "";
+                              const displayLabel = providerLabel
+                                ? `${providerLabel} / ${optionLabel}`
+                                : optionLabel;
+                              const tagLabels =
+                                option.tags && option.tags.length > 0
+                                  ? option.tags.map((tag) => MODEL_TAG_LABELS[tag] ?? tag)
+                                  : null;
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  onClick={() => {
+                                    updateStoredSelection(sourceKey, {
+                                      isAuto: false,
+                                      lastModelId: option.id,
+                                    });
+                                  }}
+                                  className={cn(
+                                    "h-12 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-muted/60",
+                                    selectedModelId === option.id && "bg-muted/70"
+                                  )}
+                                >
+                                  <div className="flex h-full items-center justify-between gap-3">
+                                    <div className="min-w-0 flex-1 text-left">
+                                      <div className="flex items-center gap-2 truncate text-[13px] font-medium text-foreground">
+                                        <ModelIcon
+                                          icon={option.modelDefinition?.familyId ?? option.modelDefinition?.icon}
+                                          size={14}
+                                          className="h-3.5 w-3.5 shrink-0"
+                                          fallbackSrc={MODEL_ICON_FALLBACK_SRC}
+                                          fallbackAlt=""
+                                        />
+                                        <span className="truncate">{displayLabel}</span>
+                                      </div>
+                                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                                        <span className="flex flex-wrap items-center gap-1">
+                                          {(tagLabels ?? []).map((label) => (
+                                            <span
+                                              key={`${option.id}-${label}`}
+                                              className="inline-flex items-center rounded-full border border-border/70 bg-background px-2 py-0.5 text-[9px] text-muted-foreground"
+                                            >
+                                              {label}
+                                            </span>
+                                          ))}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                                      {selectedModelId === option.id ? (
+                                        <Check
+                                          className="h-4 w-4 text-primary"
+                                          strokeWidth={2.5}
+                                        />
+                                      ) : null}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+                              {showCloudEmpty ? "云端模型暂未开放" : "暂无可用模型"}
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                     {showAddButton ? (
                       <Button
@@ -420,27 +430,31 @@ export default function SelectMode({ className }: SelectModeProps) {
                         管理模型
                       </Button>
                     ) : null}
-                  </div>
+                  </>
                 ) : null}
 
               </div>
             ) : null}
 
-            <div className="rounded-lg border border-border/70 bg-muted/40 px-1.5 py-1.5">
-              <Tabs
-                value={isCloudSource ? "cloud" : "local"}
-                onValueChange={handleSelectSource}
-              >
-                <TabsList className="h-7 w-full grid grid-cols-2">
-                  <TabsTrigger value="cloud" className="text-xs">
+            <Tabs
+              value={isCloudSource ? "cloud" : "local"}
+              onValueChange={handleSelectSource}
+            >
+              <TabsList className="h-7 w-full grid grid-cols-2 items-center rounded-lg border-0 p-0">
+                <TabsTrigger value="cloud" className="h-7 text-xs leading-none">
+                  <span className="inline-flex items-center gap-1">
+                    <Cloud className="h-3 w-3" />
                     云端模型
-                  </TabsTrigger>
-                  <TabsTrigger value="local" className="text-xs">
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="local" className="h-7 text-xs leading-none">
+                  <span className="inline-flex items-center gap-1">
+                    <HardDrive className="h-3 w-3" />
                     本地模型
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
+                  </span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </PopoverContent>
       </Popover>

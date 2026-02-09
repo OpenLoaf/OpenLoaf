@@ -66,11 +66,10 @@ function resolveModelIconStyle(
   icon: (typeof MODEL_ICON_MAP)[ModelIconName],
   component: ComponentType<{ size?: number | string; className?: string; style?: CSSProperties }>,
 ): CSSProperties | undefined {
-  // 逻辑：Mono/Combine 使用品牌色，Color 版本保持默认。
-  const colorPrimary = "colorPrimary" in icon ? icon.colorPrimary : undefined;
+  // 逻辑：Mono/Combine 使用主题前景色，避免黑白图标在深浅主题下不可见。
   const isColorComponent = "Color" in icon && component === icon.Color;
-  if (!colorPrimary || isColorComponent) return undefined;
-  return { color: colorPrimary };
+  if (isColorComponent) return undefined;
+  return { color: "currentColor" };
 }
 
 /**

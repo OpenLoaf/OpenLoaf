@@ -9,6 +9,7 @@ import { createVercel } from "@ai-sdk/vercel";
 import { createXai } from "@ai-sdk/xai";
 import type { ModelDefinition, ProviderDefinition } from "@tenas-ai/api/common";
 import { cliAdapter } from "@/ai/models/cli/cliAdapter";
+import { qwenAdapter } from "@/ai/models/qwen/qwenAdapter";
 import {
   buildAiDebugFetch,
   ensureOpenAiCompatibleBaseUrl,
@@ -179,4 +180,5 @@ export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
   ),
   "tenas-saas": buildSaasAdapter(),
   cli: cliAdapter,
+  qwen: qwenAdapter,
 };

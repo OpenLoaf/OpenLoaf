@@ -65,6 +65,8 @@ import { useTabs } from "@/hooks/use-tabs";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useBasicConfig } from "@/hooks/use-basic-config";
+import { useSettingsValues } from "@/hooks/use-settings";
+import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { handleChatMentionPointerDown, resolveProjectRootUri } from "@/lib/chat/mention-pointer";
 import { toast } from "sonner";
 import ChatImageOutputOption, { type ChatImageOutputTarget } from "./ChatImageOutputOption";
@@ -72,6 +74,7 @@ import CodexOption from "./CodexOption";
 import { useSpeechDictation } from "@/hooks/use-speech-dictation";
 import ChatCommandMenu, { type ChatCommandMenuHandle } from "./ChatCommandMenu";
 import { useChatMessageComposer } from "../hooks/use-chat-message-composer";
+import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 
 interface ChatInputProps {
   className?: string;
@@ -161,6 +164,12 @@ export interface ChatInputBoxProps {
   canAttachImage?: boolean;
   /** Optional header content above the input form. */
   header?: ReactNode;
+  /** Whether input should be blocked and replaced by action buttons. */
+  blocked?: boolean;
+  /** Open SaaS login dialog when input is blocked. */
+  onRequestLogin?: () => void;
+  /** Open local model configuration when input is blocked. */
+  onRequestLocalConfig?: () => void;
   onDropHandled?: () => void;
   /** Default project id for file selection. */
   defaultProjectId?: string;
@@ -203,6 +212,9 @@ export function ChatInputBox({
   canAttachAll = false,
   canAttachImage = false,
   header,
+  blocked = false,
+  onRequestLogin,
+  onRequestLocalConfig,
   onDropHandled,
   defaultProjectId,
   workspaceId,
@@ -212,6 +224,7 @@ export function ChatInputBox({
   dictationSoundEnabled,
   onDictationListeningChange,
 }: ChatInputBoxProps) {
+  const isBlocked = Boolean(blocked);
   const initialValue = useMemo(() => parseChatValue(value), []);
   const [plainTextValue, setPlainTextValue] = useState(() =>
     getPlainTextValue(initialValue)
@@ -266,6 +279,10 @@ export function ChatInputBox({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isBlocked) {
+      e.preventDefault();
+      return;
+    }
     // 检查是否正在使用输入法进行输入，如果是则不发送消息
     if (e.nativeEvent.isComposing) {
       return;
@@ -300,11 +317,14 @@ export function ChatInputBox({
     },
     [setIsFocused]
   );
-  const canSubmit = Boolean(onSubmit) && !submitDisabled && !isOverLimit;
+  const canSubmit = Boolean(onSubmit) && !submitDisabled && !isOverLimit && !isBlocked;
   // 流式生成时按钮变为“停止”，不应被 submitDisabled 禁用
   const isSendDisabled = isLoading
     ? false
-    : submitDisabled || isOverLimit || (!plainTextValue.trim() && !hasReadyAttachments);
+    : submitDisabled ||
+      isOverLimit ||
+      isBlocked ||
+      (!plainTextValue.trim() && !hasReadyAttachments);
 
   const decorate = useCallback(
     (entry: any) => {
@@ -700,6 +720,7 @@ export function ChatInputBox({
       onBlurCapture={handleContainerBlur}
       onPointerDownCapture={handleMentionPointerDown}
       onDragOver={(event) => {
+        if (isBlocked) return;
         const hasImageDrag =
           event.dataTransfer.types.includes(FILE_DRAG_URI_MIME) ||
           Boolean(readImageDragPayload(event.dataTransfer));
@@ -710,17 +731,18 @@ export function ChatInputBox({
         event.preventDefault();
       }}
       onDropCapture={(event) => {
-    const fileRef = normalizeFileRef(event.dataTransfer.getData(FILE_DRAG_REF_MIME));
-    const imagePayload = readImageDragPayload(event.dataTransfer);
-    const hasFiles = event.dataTransfer.files?.length > 0;
-    if (!fileRef && !imagePayload && !hasFiles) return;
+        if (isBlocked) return;
+        const fileRef = normalizeFileRef(event.dataTransfer.getData(FILE_DRAG_REF_MIME));
+        const imagePayload = readImageDragPayload(event.dataTransfer);
+        const hasFiles = event.dataTransfer.files?.length > 0;
+        if (!fileRef && !imagePayload && !hasFiles) return;
         event.preventDefault();
         event.stopPropagation();
         onDropHandled?.();
         void handleDrop(event);
       }}
     >
-      {commandMenuEnabled ? (
+      {commandMenuEnabled && !isBlocked ? (
         <ChatCommandMenu
           ref={commandMenuRef}
           value={value}
@@ -730,7 +752,7 @@ export function ChatInputBox({
           projectId={defaultProjectId}
         />
       ) : null}
-      {header ? (
+      {header && !isBlocked ? (
         <div className="rounded-t-xl border-b border-border bg-muted/30">
           {header}
         </div>
@@ -889,12 +911,43 @@ export function ChatInputBox({
           </div>
         </div>
         
-        {isOverLimit && (
+        {!isBlocked && isOverLimit && (
            <div className="px-4 pb-2 text-xs text-destructive font-medium animate-in fade-in slide-in-from-top-1">
              Content exceeds the {MAX_CHARS} character limit. Please shorten your message.
            </div>
         )}
       </form>
+      {/* 中文注释：未登录且未配置 AI 服务商时，用遮罩引导用户操作。 */}
+      {isBlocked ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/60 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-2 rounded-xl bg-background/85 px-4 py-3 shadow-sm">
+            <div className="text-[11px] text-muted-foreground">
+              需要配置模型后才能发送
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 rounded-full px-3 text-xs"
+              onClick={onRequestLogin}
+              disabled={!onRequestLogin}
+            >
+              登录 Teanas 云端
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 rounded-full px-3 text-xs"
+              onClick={onRequestLocalConfig}
+              disabled={!onRequestLocalConfig}
+            >
+              自定义AI服务商
+            </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <ProjectFileSystemTransferDialog
         open={filePickerOpen}
         onOpenChange={setFilePickerOpen}
@@ -928,16 +981,56 @@ export default function ChatInput({
   const { input, setInput, imageOptions, codexOptions, addMaskedAttachment } = useChatOptions();
   const { projectId, workspaceId, tabId } = useChatSession();
   const activeTabId = useTabs((state) => state.activeTabId);
+  const { providerItems } = useSettingsValues();
+  const { loggedIn: authLoggedIn } = useSaasAuth();
+  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
   const { basic } = useBasicConfig();
   const setTabDictationStatus = useChatRuntime((s) => s.setTabDictationStatus);
   const dictationLanguage = basic.modelResponseLanguage;
   const dictationSoundEnabled = basic.appNotificationSoundEnabled;
+  /** Login dialog open state. */
+  const [loginOpen, setLoginOpen] = useState(false);
+  // 逻辑：聊天场景优先使用上下文 tabId，非聊天场景回退到当前激活 tab。
+  const activeChatTabId = tabId ?? activeTabId;
+  // 逻辑：检查用户是否配置了至少一个本地 provider（排除注册表默认 CLI 项）。
+  const hasConfiguredProviders = useMemo(
+    () => providerItems.some((item) => (item.category ?? "general") === "provider"),
+    [providerItems],
+  );
+  // 逻辑：未登录且无本地配置时禁用输入，改为引导按钮。
+  const isUnconfigured = !authLoggedIn && !hasConfiguredProviders;
   useEffect(() => {
     return () => {
       if (!tabId) return;
       setTabDictationStatus(tabId, false);
     };
   }, [setTabDictationStatus, tabId]);
+  useEffect(() => {
+    if (!authLoggedIn) return;
+    if (!loginOpen) return;
+    setLoginOpen(false);
+  }, [authLoggedIn, loginOpen]);
+
+  /** Open SaaS login dialog. */
+  const handleOpenLogin = () => {
+    setLoginOpen(true);
+  };
+
+  /** Open the provider management panel inside the current tab stack. */
+  const handleOpenProviderSettings = () => {
+    if (!activeChatTabId) return;
+    // 直接打开模型管理面板，避免进入设置菜单列表。
+    pushStackItem(
+      activeChatTabId,
+      {
+        id: "provider-management",
+        sourceKey: "provider-management",
+        component: "provider-management",
+        title: "管理模型",
+      },
+      100,
+    );
+  };
 
   /** Handle skill insert events. */
   useEffect(() => {
@@ -987,6 +1080,8 @@ export default function ChatInput({
   const handleSubmit = async (value: string) => {
     const canSubmit = status === "ready" || status === "error";
     if (!canSubmit) return;
+    // 中文注释：未配置且未登录时禁止发送。
+    if (isUnconfigured) return;
     // 切换 session 的历史加载期间禁止发送，避免 parentMessageId 与当前会话链不一致
     if (isHistoryLoading) return;
     // 中文注释：发送前规范化文件引用的空格，避免路径与后续文本粘连。
@@ -1057,6 +1152,7 @@ export default function ChatInput({
 
   return (
     <>
+      <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <ChatInputBox
         value={input}
         onChange={setInput}
@@ -1065,8 +1161,12 @@ export default function ChatInput({
         compact={false}
         isLoading={isLoading}
         isStreaming={isStreaming}
+        blocked={isUnconfigured}
+        onRequestLogin={handleOpenLogin}
+        onRequestLocalConfig={handleOpenProviderSettings}
         submitDisabled={
           isHistoryLoading ||
+          isUnconfigured ||
           (status !== "ready" && status !== "error") ||
           hasPendingAttachments
         }
@@ -1091,7 +1191,7 @@ export default function ChatInput({
           setTabDictationStatus(tabId, isListening);
         }}
         header={
-          showImageOutputOptions || isCodexProvider ? (
+          !isUnconfigured && (showImageOutputOptions || isCodexProvider) ? (
             <div className="flex flex-col gap-2">
               {showImageOutputOptions ? (
                 <ChatImageOutputOption
