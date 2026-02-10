@@ -9,8 +9,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
-import { Streamdown, defaultRemarkPlugins } from "streamdown";
-import type { BundledTheme } from "shiki";
+import { Streamdown, defaultRemarkPlugins, type StreamdownProps } from "streamdown";
 import remarkMdx from "remark-mdx";
 import { Eye, FolderOpen, PencilLine, Save, Undo2 } from "lucide-react";
 import { StackHeader } from "@/components/layout/StackHeader";
@@ -81,7 +80,7 @@ const DEFAULT_CODE_STATUS: CodeViewerStatus = {
   canUndo: false,
 };
 /** Streamdown 代码高亮主题。 */
-const STREAMDOWN_SHIKI_THEME: [BundledTheme, BundledTheme] = [
+const STREAMDOWN_SHIKI_THEME: NonNullable<StreamdownProps["shikiTheme"]> = [
   "github-light",
   "github-dark-high-contrast",
 ];

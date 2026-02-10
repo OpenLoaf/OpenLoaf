@@ -25,6 +25,7 @@ import {
   getProviderDefinition,
   getProviderModels,
   getProviderOptions,
+  isModelRegistryReady,
 } from "@/lib/model-registry";
 
 export type ProviderEntryPayload = {
@@ -39,11 +40,6 @@ export type ProviderEntryPayload = {
   /** Enabled model definitions keyed by model id. */
   models: Record<string, ReturnType<typeof getProviderModels>[number]>;
 };
-
-const PROVIDER_OPTIONS = getProviderOptions();
-const PROVIDER_LABEL_BY_ID = Object.fromEntries(
-  PROVIDER_OPTIONS.map((provider) => [provider.id, provider.label]),
-) as Record<string, string>;
 
 /**
  * Parse auth config input into a raw object.
@@ -101,6 +97,18 @@ export function ProviderEditorDialog({
   onSubmit,
   existingKeys = [],
 }: ProviderEditorDialogProps) {
+  const registryReady = isModelRegistryReady();
+  const PROVIDER_OPTIONS = useMemo(() => {
+    void registryReady;
+    return getProviderOptions();
+  }, [registryReady]);
+  const PROVIDER_LABEL_BY_ID = useMemo(
+    () =>
+      Object.fromEntries(
+        PROVIDER_OPTIONS.map((provider) => [provider.id, provider.label]),
+      ) as Record<string, string>,
+    [PROVIDER_OPTIONS],
+  );
   const [draftProvider, setDraftProvider] = useState<string>(
     PROVIDER_OPTIONS[0]?.id ?? "",
   );

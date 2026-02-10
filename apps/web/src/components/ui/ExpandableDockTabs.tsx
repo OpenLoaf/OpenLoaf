@@ -137,7 +137,7 @@ export function ExpandableDockTabs({
             key={tab.id}
             type="button"
             className={cn(
-              "flex items-center justify-center rounded-full overflow-hidden",
+              "relative flex items-center justify-center rounded-full",
               colorClass
             )}
             style={{ height: sizeToken.height }}
@@ -153,13 +153,17 @@ export function ExpandableDockTabs({
             }}
           >
             <motion.div
-              className="flex items-center justify-center h-full"
-              initial={{ filter: "blur(10px)" }}
-              animate={{ filter: "blur(0px)" }}
-              exit={{ filter: "blur(10px)" }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="relative z-10 flex items-center justify-center h-full"
+              initial={false}
             >
-              <Icon size={sizeToken.icon} className={textClass} />
+              <motion.span
+                className="flex items-center justify-center"
+                initial={false}
+                animate={{ scale: isActive ? 1 : 0.96 }}
+                transition={{ type: "spring", stiffness: 380, damping: 26 }}
+              >
+                <Icon size={sizeToken.icon} className={textClass} />
+              </motion.span>
               <AnimatePresence initial={false}>
                 {isActive && (
                   <motion.span

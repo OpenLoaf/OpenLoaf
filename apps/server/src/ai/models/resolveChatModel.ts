@@ -23,13 +23,13 @@ const MAX_FALLBACK_TRIES = 2;
 type ProviderEntryMapper = (entry: ProviderSettingEntry) => ProviderSettingEntry;
 
 /** Resolve model definition from registry or settings. */
-function resolveModelDefinition(
+async function resolveModelDefinition(
   providerId: string,
   modelId: string,
   providerEntry?: ProviderSettingEntry,
 ) {
   const fromConfig = providerEntry?.models[modelId];
-  return fromConfig ?? getModelDefinition(providerId, modelId);
+  return fromConfig ?? (await getModelDefinition(providerId, modelId));
 }
 
 /** Normalize chatModelId input. */
@@ -56,12 +56,12 @@ function normalizeChatModelSource(raw?: string | null): ChatModelSource {
 }
 
 /** Normalize cloud models into provider settings entries. */
-function buildCloudProviderEntries(input: {
+async function buildCloudProviderEntries(input: {
   models: ModelDefinition[];
   apiUrl: string;
   apiKey: string;
   adapterId: string;
-}): ProviderSettingEntry[] {
+}): Promise<ProviderSettingEntry[]> {
   const providerMap = new Map<string, ProviderSettingEntry>();
   const now = new Date();
 
@@ -70,7 +70,7 @@ function buildCloudProviderEntries(input: {
     const providerKey = model.providerId;
     let entry = providerMap.get(providerKey);
     if (!entry) {
-      const providerDefinition = getProviderDefinition(providerKey);
+      const providerDefinition = await getProviderDefinition(providerKey);
       entry = {
         id: providerKey,
         key: providerDefinition?.label ?? providerKey,
@@ -96,11 +96,11 @@ function buildCloudProviderEntries(input: {
 }
 
 /** Build chatModelId candidates from provider settings. */
-function buildChatModelCandidates(input: {
+async function buildChatModelCandidates(input: {
   providers: ProviderSettingEntry[];
   exclude?: string | null;
   requiredTags?: ModelTag[];
-}): string[] {
+}): Promise<string[]> {
   const requiredTags = (input.requiredTags ?? []).filter(Boolean);
   const providers = input.providers;
   const exclude = input.exclude;
@@ -110,7 +110,7 @@ function buildChatModelCandidates(input: {
   for (const provider of providers) {
     for (const modelId of Object.keys(provider.models)) {
       if (requiredTags.length > 0) {
-        const definition = resolveModelDefinition(provider.providerId, modelId, provider);
+        const definition = await resolveModelDefinition(provider.providerId, modelId, provider);
         const tags = definition?.tags ?? [];
         if (!requiredTags.every((item) => tags.includes(item))) {
           continue;
@@ -146,14 +146,14 @@ async function resolveChatModelFromProviders(input: {
   const shouldFilterTags = !normalized && (input.requiredTags?.length ?? 0) > 0;
   const providerById = new Map(providers.map((entry) => [entry.id, entry]));
   const preferredCandidateRaw = normalizeChatModelId(input.preferredChatModelId);
-  const hasRequiredTags = (candidate: string): boolean => {
+  const hasRequiredTags = async (candidate: string): Promise<boolean> => {
     const parsed = parseChatModelId(candidate);
     if (!parsed) return false;
     const providerEntry = providerById.get(parsed.profileId);
     if (!providerEntry) return false;
     if (!providerEntry.models[parsed.modelId]) return false;
     if (!shouldFilterTags) return true;
-    const definition = resolveModelDefinition(
+    const definition = await resolveModelDefinition(
       providerEntry.providerId,
       parsed.modelId,
       providerEntry,
@@ -162,14 +162,14 @@ async function resolveChatModelFromProviders(input: {
     return Boolean(input.requiredTags?.every((item) => tags.includes(item)));
   };
   const preferredCandidate =
-    preferredCandidateRaw && hasRequiredTags(preferredCandidateRaw)
+    preferredCandidateRaw && (await hasRequiredTags(preferredCandidateRaw))
       ? preferredCandidateRaw
       : null;
 
-  // 中文注释：显式指定模型时不做 fallback，避免静默切换。
+  // 显式指定模型时不做 fallback，避免静默切换。
   const fallbackCandidates = normalized
     ? []
-    : buildChatModelCandidates({
+    : await buildChatModelCandidates({
         providers,
         exclude: preferredCandidate,
         requiredTags: shouldFilterTags ? input.requiredTags : undefined,
@@ -204,14 +204,14 @@ async function resolveChatModelFromProviders(input: {
       }
 
       const mappedProviderEntry = mapProviderEntry(providerEntry);
-      const modelDefinition = resolveModelDefinition(
+      const modelDefinition = await resolveModelDefinition(
         providerEntry.providerId,
         parsed.modelId,
         providerEntry,
       );
-      // 中文注释：适配器优先使用模型定义里的 providerId，避免配置误配。
+      // 适配器优先使用模型定义里的 providerId，避免配置误配。
       const resolvedProviderId = modelDefinition?.providerId ?? providerEntry.providerId;
-      const providerDefinition = getProviderDefinition(resolvedProviderId);
+      const providerDefinition = await getProviderDefinition(resolvedProviderId);
       const adapterId = providerDefinition?.adapterId ?? resolvedProviderId;
       const adapter = PROVIDER_ADAPTERS[adapterId];
       if (!adapter) throw new Error("不支持的模型服务商");
@@ -294,7 +294,7 @@ async function resolveCloudChatModel(input: {
     throw new Error("云端模型列表获取失败");
   }
   const models = mapCloudChatModels(payload.data.data);
-  const providers = buildCloudProviderEntries({
+  const providers = await buildCloudProviderEntries({
     models,
     apiUrl: `${saasBaseUrl}/api`,
     apiKey: accessToken,

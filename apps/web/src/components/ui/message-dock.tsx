@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion, type TargetAndTransition, type Variants } from "framer-motion";
 import { Menu, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -157,7 +157,7 @@ export function MessageDock({
     };
   }, [closeOnClickOutside, onDockToggle]);
 
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: {
       opacity: 0,
       y: 100,
@@ -178,7 +178,7 @@ export function MessageDock({
     },
   };
 
-  const hoverAnimation = shouldReduceMotion
+  const hoverAnimation: TargetAndTransition = shouldReduceMotion
     ? { scale: 1.02 }
     : {
         scale: 1.05,
@@ -236,7 +236,7 @@ export function MessageDock({
       className={cn(positionClasses, className)}
       initial={enableAnimations ? "hidden" : "visible"}
       animate="visible"
-      variants={enableAnimations ? containerVariants : {}}
+      variants={enableAnimations ? containerVariants : undefined}
     >
       <motion.div
         className="rounded-full px-4 py-2 shadow-2xl border border-gray-200/50"

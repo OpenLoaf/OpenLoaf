@@ -17,6 +17,8 @@ import { clearThemeOverride, readThemeOverride } from "@/lib/theme-override";
 import FilePreviewDialog from "@/components/file/FilePreviewDialog";
 import LocalAuthGate from "@/components/local-auth/LocalAuthGate";
 import { isElectronEnv } from "@/utils/is-electron-env";
+import { initModelRegistry } from "@/lib/model-registry";
+import { resolveSaasBaseUrl } from "@/lib/saas-auth";
 
 type ThemeSelection = "light" | "dark" | "system";
 type FontSizeSelection = "small" | "medium" | "large" | "xlarge";
@@ -330,6 +332,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         <ThemeSettingsBootstrap />
         <FontSizeSettingsBootstrap />
         <AnimationSettingsBootstrap />
+        <ModelRegistryBootstrap />
         <WindowsTitlebarSymbolColorBootstrap />
         <WindowsTitlebarHeightBootstrap />
         <MotionSettingsBootstrap>
@@ -347,7 +350,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
 function MotionSettingsBootstrap({ children }: { children: React.ReactNode }) {
   const { basic } = useBasicConfig();
-  // 逻辑：动画级别为低时全局禁用 motion 动画。
+  // 动画级别为低时全局禁用 motion 动画。
   const reduceMotion = basic.uiAnimationLevel === "low";
 
   return (
@@ -355,4 +358,22 @@ function MotionSettingsBootstrap({ children }: { children: React.ReactNode }) {
       {children}
     </MotionConfig>
   );
+}
+
+/** Initialize model registry from SaaS on app boot. */
+function ModelRegistryBootstrap() {
+  const initRef = useRef(false);
+
+  useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+    const saasUrl = resolveSaasBaseUrl();
+    if (!saasUrl) return;
+    // 启动时从 SaaS 拉取供应商模板，填充本地模型注册表。
+    initModelRegistry(saasUrl).catch((error) => {
+      console.error("[ModelRegistry] 初始化失败:", error);
+    });
+  }, []);
+
+  return null;
 }

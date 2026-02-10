@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import type { ModelDefinition, ModelTag } from "@tenas-ai/api/common";
+import type { ModelCapabilities, ModelDefinition, ModelTag } from "@tenas-ai/api/common";
 import { getModelDefinition } from "@/ai/models/modelRegistry";
 import { getProviderSettings } from "@/modules/settings/settingsService";
 
@@ -24,16 +24,16 @@ export async function resolveExplicitModelDefinition(
   const providers = await getProviderSettings();
   const providerEntry = providers.find((entry) => entry.id === profileId);
   if (!providerEntry) {
-    const registryModel = getModelDefinition(profileId, modelId) ?? null;
+    const registryModel = await getModelDefinition(profileId, modelId) ?? null;
     return registryModel;
   }
   const fromConfig = providerEntry.models[modelId];
   if (!fromConfig) {
-    const registryModel = getModelDefinition(providerEntry.providerId, modelId) ?? null;
+    const registryModel = await getModelDefinition(providerEntry.providerId, modelId) ?? null;
     return registryModel;
   }
   const hasTags = Array.isArray(fromConfig.tags) && fromConfig.tags.length > 0;
-  const capabilities = fromConfig.capabilities;
+  const capabilities = fromConfig.capabilities as ModelCapabilities | undefined;
   // 中文注释：任一能力字段有值就视为配置包含能力信息。
   const hasCapabilities = Boolean(
     capabilities &&
@@ -45,7 +45,7 @@ export async function resolveExplicitModelDefinition(
   if (hasTags || hasCapabilities) {
     return fromConfig;
   }
-  const registryModel = getModelDefinition(providerEntry.providerId, modelId) ?? fromConfig;
+  const registryModel = await getModelDefinition(providerEntry.providerId, modelId) ?? fromConfig;
   return registryModel;
 }
 

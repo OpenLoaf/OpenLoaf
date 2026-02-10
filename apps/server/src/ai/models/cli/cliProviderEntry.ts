@@ -28,7 +28,7 @@ function buildModelMap(definition: ProviderDefinition): Record<string, ModelDefi
 
 /** Build CLI provider settings entry for runtime. */
 async function buildCliProviderEntry(binding: CliProviderBinding): Promise<ProviderSettingEntry | null> {
-  const definition = getProviderDefinition(binding.providerId);
+  const definition = await getProviderDefinition(binding.providerId);
   if (!definition) return null;
   // 逻辑：未安装的 CLI 工具不注入 provider，避免 Auto 模式误选。
   const status = await getCliToolStatus(binding.configKey);

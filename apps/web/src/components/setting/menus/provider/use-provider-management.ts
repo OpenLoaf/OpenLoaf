@@ -5,6 +5,7 @@ import {
   getProviderDefinition,
   getProviderModels,
   getProviderOptions,
+  isModelRegistryReady,
 } from "@/lib/model-registry";
 import {
   MODEL_TAG_LABELS,
@@ -35,10 +36,6 @@ type ProviderEntry = ProviderSettingValue & {
   customModels: ModelDefinition[];
 };
 
-const PROVIDER_OPTIONS = getProviderOptions();
-const PROVIDER_LABEL_BY_ID = Object.fromEntries(
-  PROVIDER_OPTIONS.map((provider) => [provider.id, provider.label]),
-) as Record<string, string>;
 /** Category name for S3 providers stored in settings. */
 const S3_PROVIDER_CATEGORY = "s3Provider";
 
@@ -374,6 +371,20 @@ function formatS3CredentialDisplay(accessKeyId: string, secretAccessKey: string)
 
 export function useProviderManagement() {
   const { providerItems, s3ProviderItems, setValue, removeValue, refresh } = useSettingsValues();
+  // 注册表初始化后重新计算供应商选项，确保异步加载完成后 UI 能刷新。
+  const registryReady = isModelRegistryReady();
+  const PROVIDER_OPTIONS = useMemo(() => {
+    // registryReady 作为依赖触发重新计算。
+    void registryReady;
+    return getProviderOptions();
+  }, [registryReady]);
+  const PROVIDER_LABEL_BY_ID = useMemo(
+    () =>
+      Object.fromEntries(
+        PROVIDER_OPTIONS.map((provider) => [provider.id, provider.label]),
+      ) as Record<string, string>,
+    [PROVIDER_OPTIONS],
+  );
   const entries = useMemo(() => {
     const list: ProviderEntry[] = [];
     for (const item of providerItems) {
