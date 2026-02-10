@@ -396,6 +396,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
         scope="project"
         editMode={editMode}
         activeBreakpoint={editBreakpoint}
+        bottomPadding={56}
         onViewBreakpointChange={setViewBreakpoint}
         onSetEditMode={handleSetEditMode}
         onUpdateItem={handleUpdateItem}

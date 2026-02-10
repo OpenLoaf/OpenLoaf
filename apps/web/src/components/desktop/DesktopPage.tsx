@@ -173,6 +173,8 @@ interface DesktopPageProps {
   onChangeItems: (nextItems: DesktopItem[]) => void;
   /** Signal value for triggering compact. */
   compactSignal: number;
+  /** Extra bottom padding for scroll container (px). */
+  bottomPadding?: number;
 }
 
 /** Render a single-page desktop (MVP). */
@@ -187,6 +189,7 @@ export default function DesktopPage({
   onPersistItemUpdate,
   onChangeItems,
   compactSignal,
+  bottomPadding,
 }: DesktopPageProps) {
   const editMaxWidth = editMode ? getEditMaxWidth(activeBreakpoint) : undefined;
   const projectListQuery = useProjects();
@@ -284,7 +287,11 @@ export default function DesktopPage({
   );
 
   return (
-    <div className="h-full w-full overflow-auto" aria-label="Desktop">
+    <div
+      className="h-full w-full overflow-auto"
+      aria-label="Desktop"
+      style={bottomPadding ? { paddingBottom: bottomPadding } : undefined}
+    >
       {editMode ? (
         desktopBody
       ) : (

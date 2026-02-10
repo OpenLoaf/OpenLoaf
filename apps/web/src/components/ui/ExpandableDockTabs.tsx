@@ -220,7 +220,7 @@ export function ExpandableDockTabs({
       <motion.div
       ref={dockRef}
       className={cn(
-        "relative flex items-center overflow-visible rounded-3xl border border-border/60 bg-background/90 text-secondary-foreground shadow-[0_12px_32px_rgba(0,0,0,0.18)] backdrop-blur",
+        "absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center overflow-visible rounded-3xl border border-border/60 bg-background/90 text-secondary-foreground shadow-[0_12px_32px_rgba(0,0,0,0.18)] backdrop-blur",
         sizeToken.container,
         "gap-1",
         className

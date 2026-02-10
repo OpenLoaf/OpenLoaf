@@ -119,7 +119,7 @@ export default function ProjectTabs({
   };
 
   return (
-    <div className="flex justify-center flex-1 min-w-0" aria-hidden={!isActive}>
+    <div className="flex justify-center min-w-0" aria-hidden={!isActive}>
       <ExpandableDockTabs
         tabs={tabs}
         selectedIndex={selectedIndex}

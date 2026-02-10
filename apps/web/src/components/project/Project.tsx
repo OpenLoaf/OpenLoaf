@@ -480,18 +480,18 @@ export default function ProjectPage({
       </div>
 
       <div className="relative flex-1 min-h-0 w-full">
-        <div className="pointer-events-none absolute bottom-2 left-1/2 z-20 -translate-x-1/2">
-          <div className="pointer-events-auto">
-            <ProjectTabs
-              value={activeTab}
-              onValueChange={handleProjectTabChange}
-              isActive={tabActive}
-              revealDelayMs={800}
-              size="md"
-            />
-          </div>
-        </div>
-        <div className="h-full w-full overflow-auto show-scrollbar pb-16">
+        <ProjectTabs
+          value={activeTab}
+          onValueChange={handleProjectTabChange}
+          isActive={tabActive}
+          revealDelayMs={800}
+          size="md"
+        />
+        <div
+          className={`h-full w-full overflow-auto show-scrollbar ${
+            activeTab === "index" ? "pb-2" : "pb-16"
+          }`}
+        >
           <div className="w-full h-full min-h-0 min-w-0 flex flex-col [&>div]:!min-w-0 [&>div]:!w-full [&>div]:!h-full [&>div]:!block">
             <div className="flex-1 min-h-0 w-full h-full">
               <div className="relative w-full h-full min-h-0 overflow-hidden rounded-lg bg-background">
