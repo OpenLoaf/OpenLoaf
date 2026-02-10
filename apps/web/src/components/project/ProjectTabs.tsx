@@ -84,7 +84,7 @@ export default function ProjectTabs({
   value,
   onValueChange,
   isActive = true,
-  size = "sm",
+  size = "md",
 }: ProjectTabsProps) {
   // 根据当前值映射到选中索引
   const selectedIndex = useMemo(() => {
@@ -125,6 +125,7 @@ export default function ProjectTabs({
         selectedIndex={selectedIndex}
         onChange={handleChange}
         size={size}
+        expandedWidth={size === "lg" ? 460 : size === "sm" ? 380 : 420}
         getTooltip={(tab, index) =>
           `${tab.label} (${formatShortcutLabel(`Alt+${index + 1}`, isMac)})`
         }

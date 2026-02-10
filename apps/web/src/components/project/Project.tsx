@@ -487,7 +487,7 @@ export default function ProjectPage({
               onValueChange={handleProjectTabChange}
               isActive={tabActive}
               revealDelayMs={800}
-              size="sm"
+              size="md"
             />
           </div>
         </div>
