@@ -15,7 +15,6 @@ import { isElectronEnv } from "@/utils/is-electron-env";
 
 import { HeaderTabs } from "./HeaderTabs";
 import { ModeToggle } from "./ModeToggle";
-import { StackDockMenuButton } from "./StackDockMenuButton";
 
 /** Format a shortcut string for tooltip display. */
 function formatShortcutLabel(shortcut: string, isMac: boolean): string {
@@ -138,15 +137,6 @@ export const Header = () => {
         </div>
       </div>
       <div className="flex shrink-0 h-(--header-height) items-center pr-2 relative">
-        {/* 用于 stack 最小化动画的吸附目标。 */}
-        <span
-          aria-hidden="true"
-          data-stack-dock-button="true"
-          className="pointer-events-none absolute left-0 top-1/2 h-8 w-8 -translate-y-1/2 opacity-0"
-        />
-        <div data-no-drag="true">
-          <StackDockMenuButton />
-        </div>
         <div data-no-drag="true">
           <ModeToggle />
         </div>

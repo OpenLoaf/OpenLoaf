@@ -3,6 +3,7 @@
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -10,11 +11,18 @@ import {
 } from "react";
 import { AnimatePresence, motion, type Transition } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
-import { Send, Sparkles } from "lucide-react";
+import { File, Globe, Layers, Send, Sparkles } from "lucide-react";
 import { useOnClickOutside } from "usehooks-ts";
 
+import { BROWSER_WINDOW_COMPONENT, type DockItem } from "@tenas-ai/api/common";
+import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { getStackMinimizeSignal } from "@/lib/stack-dock-animation";
 import { cn } from "@/lib/utils";
+import { getPanelTitle } from "@/utils/panel-utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
+import { getEntryVisual } from "@/components/project/filesystem/components/FileSystemEntryVisual";
+import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
 
 export type DockTabItem = {
   /** Tab id. */
@@ -108,6 +116,66 @@ const toneConfig = {
   },
 } as const;
 
+// 保持空数组引用稳定，避免 useSyncExternalStore 报错。
+const EMPTY_STACK: DockItem[] = [];
+
+const STACK_LIMIT_BY_SIZE = {
+  sm: 3,
+  md: 4,
+  lg: 5,
+} as const;
+
+const FILE_VIEWER_COMPONENTS = new Set([
+  "file-viewer",
+  "image-viewer",
+  "code-viewer",
+  "markdown-viewer",
+  "pdf-viewer",
+  "doc-viewer",
+  "sheet-viewer",
+  "video-viewer",
+]);
+const BOARD_VIEWER_COMPONENT = "board-viewer";
+
+/** Resolve stack item title. */
+function getStackItemTitle(item: DockItem): string {
+  return item.title ?? getPanelTitle(item.component);
+}
+
+/** Resolve stack item icon. */
+function getStackItemIcon(item: DockItem): LucideIcon {
+  if (item.component === BROWSER_WINDOW_COMPONENT) return Globe;
+  if (FILE_VIEWER_COMPONENTS.has(item.component)) return File;
+  return Layers;
+}
+
+/** Resolve a file-system entry from a stack item. */
+function resolveStackFileEntry(item: DockItem): FileSystemEntry | null {
+  if (
+    !FILE_VIEWER_COMPONENTS.has(item.component) &&
+    item.component !== BOARD_VIEWER_COMPONENT
+  ) {
+    return null;
+  }
+  const params = (item.params ?? {}) as Record<string, unknown>;
+  const name =
+    (typeof params.name === "string" && params.name.trim()) ||
+    (typeof item.title === "string" && item.title.trim()) ||
+    String(item.id);
+  if (!name) return null;
+  const ext = typeof params.ext === "string" ? params.ext : undefined;
+  const uri =
+    (typeof params.uri === "string" && params.uri.trim()) || String(item.id);
+  const kind: FileSystemEntry["kind"] =
+    item.component === BOARD_VIEWER_COMPONENT ? "folder" : "file";
+  return {
+    uri,
+    name,
+    ext,
+    kind,
+  };
+}
+
 export function ExpandableDockTabs({
   tabs,
   className,
@@ -129,19 +197,128 @@ export function ExpandableDockTabs({
   const dockRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
-  const [collapsedWidth, setCollapsedWidth] = useState<number | null>(null);
+  const baseMeasureRef = useRef<HTMLDivElement>(null);
+  const countMeasureRef = useRef<HTMLDivElement>(null);
+  const [baseWidth, setBaseWidth] = useState<number | null>(null);
+  const [fullWidth, setFullWidth] = useState<number | null>(null);
+  const [countWidth, setCountWidth] = useState<number | null>(null);
+  const [availableWidth, setAvailableWidth] = useState<number | null>(null);
+  const [stackTrayOpen, setStackTrayOpen] = useState(false);
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const stack = useTabRuntime((s) =>
+    activeTabId ? s.runtimeByTabId[activeTabId]?.stack ?? EMPTY_STACK : EMPTY_STACK,
+  );
+  const activeStackItemId = useTabRuntime((s) =>
+    activeTabId ? s.runtimeByTabId[activeTabId]?.activeStackItemId ?? "" : "",
+  );
+  const stackHidden = useTabRuntime((s) =>
+    activeTabId ? Boolean(s.runtimeByTabId[activeTabId]?.stackHidden) : false,
+  );
+  const lastSignalRef = useRef(0);
+  const stackNudgeRefs = useRef(new Map<string, HTMLSpanElement>());
   const isControlled = selectedIndex !== undefined;
   const selected = isControlled ? selectedIndex : uncontrolledSelected;
   const sizeToken = sizeConfig[size];
+  const fileIconSizeClass =
+    size === "sm" ? "h-5 w-5" : size === "md" ? "h-6 w-6" : "h-7 w-7";
+  const fileIconClassName = "h-full w-full p-0 text-muted-foreground";
+  const stackIconSize = sizeToken.icon + 3;
+  const stackLimit = STACK_LIMIT_BY_SIZE[size] ?? 4;
+  const activeStackItem = useMemo(
+    () =>
+      stack.find((item) => item.id === activeStackItemId) ??
+      stack.at(-1) ??
+      null,
+    [activeStackItemId, stack],
+  );
+  const visibleStack = useMemo(() => {
+    if (stack.length <= stackLimit) return stack;
+    const tail = stack.slice(-stackLimit);
+    if (!activeStackItem) return tail;
+    if (tail.some((item) => item.id === activeStackItem.id)) return tail;
+    return [...stack.slice(-stackLimit + 1), activeStackItem];
+  }, [activeStackItem, stack, stackLimit]);
+  const visibleStackIds = useMemo(
+    () => new Set(visibleStack.map((item) => item.id)),
+    [visibleStack],
+  );
+  const hiddenStackCount = useMemo(
+    () => stack.filter((item) => !visibleStackIds.has(item.id)).length,
+    [stack, visibleStackIds],
+  );
+  const hiddenStackTitles = useMemo(
+    () =>
+      stack
+        .filter((item) => !visibleStackIds.has(item.id))
+        .map((item) => getStackItemTitle(item)),
+    [stack, visibleStackIds],
+  );
+  const topStackId = activeStackItem?.id ?? "";
+  const showStack = !isExpanded && stack.length > 0;
+  const canShowStack = showStack
+    ? !availableWidth || !fullWidth || fullWidth <= availableWidth - 24
+    : false;
+  const showStackResolved = showStack && canShowStack;
+  const showStackCount = showStack && !showStackResolved;
+  const stackTrayItems = showStackCount
+    ? stack
+    : hiddenStackCount > 0
+      ? stack.filter((item) => !visibleStackIds.has(item.id))
+      : [];
+
+  useEffect(() => {
+    if (isExpanded) {
+      setStackTrayOpen(false);
+      return;
+    }
+    if (!showStackResolved && !showStackCount) {
+      setStackTrayOpen(false);
+      return;
+    }
+    if (stackTrayItems.length === 0) {
+      setStackTrayOpen(false);
+    }
+  }, [isExpanded, showStackResolved, showStackCount, stackTrayItems.length]);
 
   // 中文注释：使用隐藏容器测量折叠态真实宽度，避免宽度回弹。
   useLayoutEffect(() => {
     if (!measureRef.current) return;
     const width = measureRef.current.offsetWidth;
-    if (width > 0 && width !== collapsedWidth) {
-      setCollapsedWidth(width);
+    if (width > 0 && width !== fullWidth) {
+      setFullWidth(width);
     }
-  }, [collapsedWidth, selected, size, tabs]);
+  }, [fullWidth, hiddenStackCount, selected, size, stack.length, tabs, visibleStack.length]);
+
+  // 中文注释：测量不含 stack 的基础宽度，用于窄屏折叠。
+  useLayoutEffect(() => {
+    if (!baseMeasureRef.current) return;
+    const width = baseMeasureRef.current.offsetWidth;
+    if (width > 0 && width !== baseWidth) {
+      setBaseWidth(width);
+    }
+  }, [baseWidth, selected, size, tabs]);
+
+  // 中文注释：测量“数量显示”的折叠宽度。
+  useLayoutEffect(() => {
+    if (!countMeasureRef.current) return;
+    const width = countMeasureRef.current.offsetWidth;
+    if (width > 0 && width !== countWidth) {
+      setCountWidth(width);
+    }
+  }, [countWidth, selected, size, tabs]);
+
+  // 中文注释：监听父容器宽度，判断 stack 是否需要折叠。
+  useEffect(() => {
+    const parent = dockRef.current?.parentElement;
+    if (!parent) return;
+    const updateWidth = () => {
+      setAvailableWidth(parent.clientWidth);
+    };
+    updateWidth();
+    const observer = new ResizeObserver(() => updateWidth());
+    observer.observe(parent);
+    return () => observer.disconnect();
+  }, []);
 
   // 中文注释：展开态点击外部，自动收起并恢复 tabs。
   useOnClickOutside(dockRef as RefObject<HTMLElement>, () => {
@@ -158,6 +335,30 @@ export function ExpandableDockTabs({
     });
     return () => cancelAnimationFrame(frame);
   }, [isExpanded]);
+
+  useEffect(() => {
+    if (!activeTabId) return;
+    if (!stackHidden) return;
+    if (stack.length === 0) return;
+    const signal = getStackMinimizeSignal(activeTabId);
+    if (!signal || signal === lastSignalRef.current) return;
+    lastSignalRef.current = signal;
+    const targetId = topStackId || stack.at(-1)?.id || "";
+    if (!targetId) return;
+    const node = stackNudgeRefs.current.get(targetId);
+    if (!node) return;
+    node.animate(
+      [
+        { transform: "translateX(0px) rotate(0deg)" },
+        { transform: "translateX(-2px) rotate(-10deg)" },
+        { transform: "translateX(2px) rotate(10deg)" },
+        { transform: "translateX(-1.5px) rotate(-8deg)" },
+        { transform: "translateX(1.5px) rotate(8deg)" },
+        { transform: "translateX(0px) rotate(0deg)" },
+      ],
+      { duration: 480, easing: "ease-in-out" },
+    );
+  }, [activeTabId, stack.length, stackHidden, topStackId]);
 
   /** Handle tab selection. */
   const handleSelect = (index: number) => {
@@ -179,6 +380,12 @@ export function ExpandableDockTabs({
     setHoveredIndex(null);
   };
 
+  /** Open a stack item. */
+  const openStackItem = (item: DockItem) => {
+    if (!activeTabId) return;
+    useTabRuntime.getState().pushStackItem(activeTabId, item);
+  };
+
   /** Send the current input value. */
   const handleSend = () => {
     const value = inputValue.trim();
@@ -187,9 +394,14 @@ export function ExpandableDockTabs({
     setInputValue("");
   };
 
+  const effectiveCollapsedWidth = showStackResolved
+    ? fullWidth
+    : showStackCount
+      ? countWidth
+      : baseWidth;
   const widthAnimation =
-    collapsedWidth !== null
-      ? { width: isExpanded ? expandedWidth : collapsedWidth }
+    effectiveCollapsedWidth !== null
+      ? { width: isExpanded ? expandedWidth : effectiveCollapsedWidth }
       : {};
   const containerTransition: Transition = {
     opacity: { duration: 0.22, ease: "easeOut" },
@@ -197,6 +409,32 @@ export function ExpandableDockTabs({
     width: { duration: 0.18, ease: "easeOut" },
   };
   const tabWidthTransition: Transition = { duration: 0.18, ease: "easeOut" };
+  const renderStackCountBadge = (
+    count: number,
+    tooltip: ReactNode,
+    label?: string,
+    onClick?: () => void,
+  ) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onClick}
+          className="flex items-center justify-center rounded-full bg-muted/70 text-muted-foreground"
+          style={{
+            height: sizeToken.height,
+            width: sizeToken.height,
+          }}
+          aria-label={`共 ${count} 个`}
+        >
+          <span className="text-[11px] font-medium">{label ?? `+${count}`}</span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={6}>
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  );
 
   return (
     <>
@@ -223,6 +461,79 @@ export function ExpandableDockTabs({
             />
           );
         })}
+        {stack.length > 0 ? (
+          <>
+            <div className="mx-0.5 h-4 w-px bg-transparent" />
+            <div className="flex items-center gap-0.5">
+              {visibleStack.map((item) => (
+                <div
+                  key={item.id}
+                  style={{ height: sizeToken.height, width: sizeToken.height }}
+                  className="rounded-full"
+                />
+              ))}
+              {hiddenStackCount > 0 ? (
+                <div
+                  style={{ height: sizeToken.height, width: sizeToken.height }}
+                  className="rounded-full"
+                />
+              ) : null}
+            </div>
+          </>
+        ) : null}
+      </div>
+      <div
+        ref={baseMeasureRef}
+        className={cn(
+          "pointer-events-none invisible absolute -z-10 flex items-center rounded-3xl border border-transparent",
+          sizeToken.container,
+          "gap-1",
+        )}
+      >
+        <div style={{ height: sizeToken.height, width: sizeToken.sparklesWidth }} />
+        <div className="mx-0.5 h-4 w-px bg-transparent" />
+        {tabs.map((tab, index) => {
+          const isActive = selected === index;
+          const width = isActive
+            ? sizeToken.activeWidth
+            : sizeToken.inactiveWidth;
+          return (
+            <div
+              key={`${tab.id}-base`}
+              style={{ height: sizeToken.height, width }}
+              className="rounded-full"
+            />
+          );
+        })}
+      </div>
+      <div
+        ref={countMeasureRef}
+        className={cn(
+          "pointer-events-none invisible absolute -z-10 flex items-center rounded-3xl border border-transparent",
+          sizeToken.container,
+          "gap-1",
+        )}
+      >
+        <div style={{ height: sizeToken.height, width: sizeToken.sparklesWidth }} />
+        <div className="mx-0.5 h-4 w-px bg-transparent" />
+        {tabs.map((tab, index) => {
+          const isActive = selected === index;
+          const width = isActive
+            ? sizeToken.activeWidth
+            : sizeToken.inactiveWidth;
+          return (
+            <div
+              key={`${tab.id}-count`}
+              style={{ height: sizeToken.height, width }}
+              className="rounded-full"
+            />
+          );
+        })}
+        <div className="mx-0.5 h-4 w-px bg-transparent" />
+        <div
+          style={{ height: sizeToken.height, width: sizeToken.height }}
+          className="rounded-full"
+        />
       </div>
       <motion.div
         ref={dockRef}
@@ -236,23 +547,101 @@ export function ExpandableDockTabs({
         animate={{ opacity: 1, y: 0, ...widthAnimation }}
         transition={containerTransition}
       >
-      <motion.button
-        type="button"
-        className="flex items-center justify-end rounded-full shrink-0 pr-1"
-        style={{ height: sizeToken.height, width: sizeToken.sparklesWidth }}
-        whileHover={{ scale: 1.05, rotate: 8 }}
-        transition={{ type: "spring", stiffness: 360, damping: 24 }}
-        onClick={handleToggleExpand}
-        aria-label="Sparkles"
-      >
+        <AnimatePresence initial={false}>
+          {stackTrayOpen && stackTrayItems.length > 0 ? (
+            <motion.div
+              key="stack-tray"
+              className={cn(
+                "absolute bottom-full right-1 mb-2 flex flex-col items-stretch rounded-3xl border border-white/45 bg-white/40 text-secondary-foreground shadow-[0_18px_40px_rgba(0,0,0,0.16)] backdrop-blur-2xl backdrop-saturate-200 dark:border-white/12 dark:bg-slate-950/40 dark:shadow-[0_18px_40px_rgba(0,0,0,0.7)]",
+                sizeToken.container,
+                "gap-1",
+              )}
+              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.96 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+            >
+              {stackTrayItems.map((item, index) => {
+                const fileEntry = resolveStackFileEntry(item);
+                const iconNode = fileEntry
+                  ? getEntryVisual({
+                      kind: fileEntry.kind,
+                      name: fileEntry.name,
+                      ext: fileEntry.ext,
+                      thumbnailSrc:
+                        typeof (item.params as any)?.thumbnailSrc === "string"
+                          ? ((item.params as any)?.thumbnailSrc as string)
+                          : undefined,
+                      sizeClassName: fileIconSizeClass,
+                      thumbnailIconClassName: fileIconClassName,
+                      forceSquare: true,
+                    })
+                  : null;
+                const FallbackIcon = getStackItemIcon(item);
+                return (
+                  <motion.button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      openStackItem(item);
+                      setStackTrayOpen(false);
+                    }}
+                    className="flex items-center gap-2 rounded-full bg-muted/70 px-3 py-1 text-left text-muted-foreground"
+                    style={{
+                      minHeight: sizeToken.height + 2,
+                    }}
+                    initial={{ opacity: 0, y: 12, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{
+                      delay: Math.min(index * 0.04, 0.2),
+                      type: "spring",
+                      stiffness: 260,
+                      damping: 20,
+                    }}
+                    aria-label={getStackItemTitle(item)}
+                  >
+                    <span className="flex items-center justify-center">
+                      {iconNode ?? (
+                        <FallbackIcon size={stackIconSize} className="text-muted-foreground" />
+                      )}
+                    </span>
+                    <span
+                      className={cn(
+                        "whitespace-nowrap text-foreground",
+                        sizeToken.text,
+                      )}
+                    >
+                      {getStackItemTitle(item)}
+                    </span>
+                  </motion.button>
+                );
+              })}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+        <span
+          aria-hidden="true"
+          data-stack-dock-button="true"
+          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 opacity-0"
+          style={{ height: sizeToken.height, width: sizeToken.height }}
+        />
+        <motion.button
+          type="button"
+          className="flex items-center justify-end rounded-full shrink-0 pr-1"
+          style={{ height: sizeToken.height, width: sizeToken.sparklesWidth }}
+          whileHover={{ scale: 1.05, rotate: 8 }}
+          transition={{ type: "spring", stiffness: 360, damping: 24 }}
+          onClick={handleToggleExpand}
+          aria-label="Sparkles"
+        >
           <Sparkles
             size={sizeToken.icon}
             className="text-amber-500"
             fill="currentColor"
           />
         </motion.button>
-      <motion.div
-        className="mx-0.5 h-4 w-px bg-border/70"
+        <motion.div
+          className="mx-0.5 h-4 w-px bg-border/70"
           aria-hidden="true"
           initial={false}
           animate={{
@@ -309,24 +698,24 @@ export function ExpandableDockTabs({
                     paddingLeft: 0,
                   }}
                 />
-              <motion.button
-                type="button"
-                className="absolute right-0 top-1/2 flex items-center justify-center rounded-full bg-muted/70 text-foreground -translate-y-1/2"
-                style={{ height: sizeToken.height, width: sizeToken.height }}
-                onClick={handleSend}
-                initial={{ opacity: 0, scale: 0, rotate: -90 }}
-                animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                exit={{ opacity: 0, scale: 0, rotate: 90 }}
-                whileHover={{ scale: 1.05 }}
-                transition={{
-                  type: "spring",
-                  stiffness: 360,
-                  damping: 24,
-                  delay: 0.12,
-                }}
-                aria-label="Send"
-                disabled={!inputValue.trim()}
-              >
+                <motion.button
+                  type="button"
+                  className="absolute right-0 top-1/2 flex items-center justify-center rounded-full bg-muted/70 text-foreground -translate-y-1/2"
+                  style={{ height: sizeToken.height, width: sizeToken.height }}
+                  onClick={handleSend}
+                  initial={{ opacity: 0, scale: 0, rotate: -90 }}
+                  animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                  exit={{ opacity: 0, scale: 0, rotate: 90 }}
+                  whileHover={{ scale: 1.05 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 360,
+                    damping: 24,
+                    delay: 0.12,
+                  }}
+                  aria-label="Send"
+                  disabled={!inputValue.trim()}
+                >
                   <Send size={sizeToken.icon} />
                 </motion.button>
               </motion.div>
@@ -438,6 +827,128 @@ export function ExpandableDockTabs({
             )}
           </AnimatePresence>
         </div>
+        {stack.length > 0 ? (
+          <motion.div
+            className="mx-0.5 h-4 w-px bg-border/70"
+            aria-hidden="true"
+            initial={false}
+            animate={{
+              opacity: showStackResolved || showStackCount ? 1 : 0,
+              scaleY: showStackResolved || showStackCount ? 1 : 0,
+              y: showStackResolved || showStackCount ? 0 : 10,
+            }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            style={{ transformOrigin: "center" }}
+          />
+        ) : null}
+        {stack.length > 0 ? (
+          <AnimatePresence initial={false}>
+            {showStackResolved ? (
+              <motion.div
+                key="stack-icons"
+                className="flex items-center gap-0.5 shrink-0"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+              >
+                <div className="flex items-center gap-0.5">
+                  {visibleStack.map((item) => {
+                    const fileEntry = resolveStackFileEntry(item);
+                    const iconNode = fileEntry
+                      ? getEntryVisual({
+                          kind: fileEntry.kind,
+                          name: fileEntry.name,
+                          ext: fileEntry.ext,
+                          thumbnailSrc:
+                            typeof (item.params as any)?.thumbnailSrc === "string"
+                              ? ((item.params as any)?.thumbnailSrc as string)
+                              : undefined,
+                          sizeClassName: fileIconSizeClass,
+                          thumbnailIconClassName: fileIconClassName,
+                          forceSquare: true,
+                        })
+                      : null;
+                    const FallbackIcon = getStackItemIcon(item);
+                    const title = getStackItemTitle(item);
+                    const colorClass = "bg-transparent";
+                    const textClass = "text-muted-foreground";
+                    const tooltipKey = item.id;
+                    const button = (
+                      <motion.button
+                        type="button"
+                        className={cn("flex items-center justify-center", colorClass)}
+                        style={{
+                          height: sizeToken.height,
+                          width: sizeToken.height,
+                        }}
+                        onClick={() => openStackItem(item)}
+                        whileHover={{ scale: 1.06, y: -1 }}
+                        whileTap={{ scale: 0.96 }}
+                        aria-label={title}
+                      >
+                        <span
+                          ref={(node) => {
+                            if (node) {
+                              stackNudgeRefs.current.set(item.id, node);
+                            } else {
+                              stackNudgeRefs.current.delete(item.id);
+                            }
+                          }}
+                          className="flex items-center justify-center"
+                        >
+                          {iconNode ?? (
+                            <FallbackIcon size={stackIconSize} className={textClass} />
+                          )}
+                        </span>
+                      </motion.button>
+                    );
+
+                    return (
+                      <Tooltip key={tooltipKey}>
+                        <TooltipTrigger asChild>{button}</TooltipTrigger>
+                        <TooltipContent side="bottom" sideOffset={6}>
+                          {title}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                  {hiddenStackCount > 0
+                    ? renderStackCountBadge(
+                        hiddenStackCount,
+                        <div className="text-xs text-muted-foreground">
+                          还有 {hiddenStackCount} 个
+                          {hiddenStackTitles.length > 0
+                            ? `：${hiddenStackTitles.join("、")}`
+                            : ""}
+                        </div>,
+                        `+${hiddenStackCount}`,
+                        () => setStackTrayOpen((prev) => !prev),
+                      )
+                    : null}
+                </div>
+              </motion.div>
+            ) : showStackCount ? (
+              <motion.div
+                key="stack-count"
+                className="flex items-center gap-0.5 shrink-0"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+              >
+                {renderStackCountBadge(
+                  stack.length,
+                  <div className="text-xs text-muted-foreground">
+                    {stack.map((item) => getStackItemTitle(item)).join("、")}
+                  </div>,
+                  `+${stack.length}`,
+                  () => setStackTrayOpen((prev) => !prev),
+                )}
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        ) : null}
       </motion.div>
     </>
   );

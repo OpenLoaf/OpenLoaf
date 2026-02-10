@@ -346,7 +346,7 @@ export default function ProjectPage({
   const headerBaseClass =
     "flex min-h-[36px] items-center pl-2 transition-opacity duration-240 ease-out min-w-0";
   const panelBaseClass =
-    "absolute inset-0 box-border pt-0 transition-opacity duration-240 ease-out";
+    "absolute inset-0 box-border pt-0 transform-gpu transition-[opacity,transform] duration-[300ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,transform]";
 
   /** Toggle read-only mode for the homepage editor. */
   const handleSetIndexReadOnly = useCallback(
@@ -501,8 +501,8 @@ export default function ProjectPage({
                   aria-labelledby="project-tab-index"
                   className={`${panelBaseClass} ${
                     activeTab === "index"
-                      ? "opacity-100 pointer-events-auto"
-                      : "opacity-0 pointer-events-none"
+                      ? "opacity-100 pointer-events-auto translate-y-0 scale-100"
+                      : "opacity-0 pointer-events-none translate-y-0.5 scale-[0.995]"
                   }`}
                   aria-hidden={activeTab !== "index"}
                 >
@@ -527,8 +527,8 @@ export default function ProjectPage({
                   aria-labelledby="project-tab-files"
                   className={`${panelBaseClass} ${
                     activeTab === "files"
-                      ? "opacity-100 pointer-events-auto"
-                      : "opacity-0 pointer-events-none"
+                      ? "opacity-100 pointer-events-auto translate-y-0 scale-100"
+                      : "opacity-0 pointer-events-none translate-y-0.5 scale-[0.995]"
                   }`}
                   aria-hidden={activeTab !== "files"}
                 >
@@ -550,8 +550,8 @@ export default function ProjectPage({
                   aria-labelledby="project-tab-tasks"
                   className={`${panelBaseClass} ${
                     activeTab === "tasks"
-                      ? "opacity-100 pointer-events-auto"
-                      : "opacity-0 pointer-events-none"
+                      ? "opacity-100 pointer-events-auto translate-y-0 scale-100"
+                      : "opacity-0 pointer-events-none translate-y-0.5 scale-[0.995]"
                   }`}
                   aria-hidden={activeTab !== "tasks"}
                 >
@@ -565,8 +565,8 @@ export default function ProjectPage({
                   aria-labelledby="project-tab-skills"
                   className={`${panelBaseClass} ${
                     activeTab === "skills"
-                      ? "opacity-100 pointer-events-auto"
-                      : "opacity-0 pointer-events-none"
+                      ? "opacity-100 pointer-events-auto translate-y-0 scale-100"
+                      : "opacity-0 pointer-events-none translate-y-0.5 scale-[0.995]"
                   }`}
                   aria-hidden={activeTab !== "skills"}
                 >
@@ -580,8 +580,8 @@ export default function ProjectPage({
                   aria-labelledby="project-tab-settings"
                   className={`${panelBaseClass} ${
                     activeTab === "settings"
-                      ? "opacity-100 pointer-events-auto"
-                      : "opacity-0 pointer-events-none"
+                      ? "opacity-100 pointer-events-auto translate-y-0 scale-100"
+                      : "opacity-0 pointer-events-none translate-y-0.5 scale-[0.995]"
                   }`}
                   aria-hidden={activeTab !== "settings"}
                 >
