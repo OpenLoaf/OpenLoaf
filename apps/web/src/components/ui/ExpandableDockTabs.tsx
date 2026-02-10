@@ -135,7 +135,6 @@ export function ExpandableDockTabs({
         const button = (
           <motion.button
             key={tab.id}
-            layout
             type="button"
             className={cn(
               "flex items-center justify-center rounded-full overflow-hidden",
@@ -165,15 +164,14 @@ export function ExpandableDockTabs({
                 {isActive && (
                   <motion.span
                     className={cn(
-                      "ml-2 font-medium max-sm:hidden",
+                      "overflow-hidden whitespace-nowrap font-medium max-sm:hidden",
                       sizeToken.text,
                       textClass
                     )}
-                    initial={{ opacity: 0, scaleX: 0.8 }}
-                    animate={{ opacity: 1, scaleX: 1 }}
-                    exit={{ opacity: 0, scaleX: 0.8 }}
+                    initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+                    animate={{ opacity: 1, width: "auto", marginLeft: 8 }}
+                    exit={{ opacity: 0, width: 0, marginLeft: 0 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
-                    style={{ originX: 0 }}
                   >
                     {tab.label}
                   </motion.span>
