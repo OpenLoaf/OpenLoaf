@@ -11,10 +11,14 @@ import {
 } from "react";
 import { AnimatePresence, motion, type Transition } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
-import { File, Globe, Layers, Send, Sparkles } from "lucide-react";
+import { File, Layers, Send, Sparkles } from "lucide-react";
 import { useOnClickOutside } from "usehooks-ts";
 
-import { BROWSER_WINDOW_COMPONENT, type DockItem } from "@tenas-ai/api/common";
+import {
+  BROWSER_WINDOW_COMPONENT,
+  TERMINAL_WINDOW_COMPONENT,
+  type DockItem,
+} from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { getStackMinimizeSignal } from "@/lib/stack-dock-animation";
@@ -54,6 +58,8 @@ type ExpandableDockTabsProps = {
   selectedIndex?: number | null;
   /** Default selected index for uncontrolled mode. */
   defaultSelectedIndex?: number | null;
+  /** Initial reveal delay (ms). */
+  revealDelayMs?: number;
   /** Tooltip content renderer for tabs. */
   getTooltip?: (tab: DockTabItem, index: number) => ReactNode;
 };
@@ -142,11 +148,63 @@ function getStackItemTitle(item: DockItem): string {
   return item.title ?? getPanelTitle(item.component);
 }
 
+type StackFallbackIcon =
+  | {
+      type: "lucide";
+      icon: LucideIcon;
+    }
+  | {
+      type: "image";
+      src: string;
+      alt: string;
+    };
+
 /** Resolve stack item icon. */
-function getStackItemIcon(item: DockItem): LucideIcon {
-  if (item.component === BROWSER_WINDOW_COMPONENT) return Globe;
-  if (FILE_VIEWER_COMPONENTS.has(item.component)) return File;
-  return Layers;
+function getStackItemFallbackIcon(item: DockItem): StackFallbackIcon {
+  if (item.component === BROWSER_WINDOW_COMPONENT) {
+    return {
+      type: "image",
+      src: "/files/chrome-color.svg",
+      alt: "Chrome",
+    };
+  }
+  if (item.component === TERMINAL_WINDOW_COMPONENT) {
+    return {
+      type: "image",
+      src: "/files/terminal.svg",
+      alt: "Terminal",
+    };
+  }
+  if (FILE_VIEWER_COMPONENTS.has(item.component)) {
+    return {
+      type: "lucide",
+      icon: File,
+    };
+  }
+  return {
+    type: "lucide",
+    icon: Layers,
+  };
+}
+
+/** Render stack fallback icon. */
+function renderStackFallbackIcon(
+  icon: StackFallbackIcon,
+  size: number,
+  className?: string,
+) {
+  if (icon.type === "image") {
+    return (
+      <img
+        src={icon.src}
+        alt={icon.alt}
+        className={cn("block object-contain", className)}
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  const Icon = icon.icon;
+  return <Icon size={size} className={className} />;
 }
 
 /** Resolve a file-system entry from a stack item. */
@@ -186,6 +244,7 @@ export function ExpandableDockTabs({
   onChange,
   selectedIndex,
   defaultSelectedIndex = 0,
+  revealDelayMs = 0,
   getTooltip,
 }: ExpandableDockTabsProps) {
   const [uncontrolledSelected, setUncontrolledSelected] = useState<
@@ -199,6 +258,7 @@ export function ExpandableDockTabs({
   const measureRef = useRef<HTMLDivElement>(null);
   const baseMeasureRef = useRef<HTMLDivElement>(null);
   const countMeasureRef = useRef<HTMLDivElement>(null);
+  const firstRevealRef = useRef(true);
   const [baseWidth, setBaseWidth] = useState<number | null>(null);
   const [fullWidth, setFullWidth] = useState<number | null>(null);
   const [countWidth, setCountWidth] = useState<number | null>(null);
@@ -394,6 +454,10 @@ export function ExpandableDockTabs({
     setInputValue("");
   };
 
+  useEffect(() => {
+    firstRevealRef.current = false;
+  }, []);
+
   const effectiveCollapsedWidth = showStackResolved
     ? fullWidth
     : showStackCount
@@ -404,8 +468,16 @@ export function ExpandableDockTabs({
       ? { width: isExpanded ? expandedWidth : effectiveCollapsedWidth }
       : {};
   const containerTransition: Transition = {
-    opacity: { duration: 0.22, ease: "easeOut" },
-    y: { duration: 0.22, ease: "easeOut" },
+    opacity: {
+      duration: 0.22,
+      ease: "easeOut",
+      delay: firstRevealRef.current ? Math.max(0, revealDelayMs) / 1000 : 0,
+    },
+    y: {
+      duration: 0.22,
+      ease: "easeOut",
+      delay: firstRevealRef.current ? Math.max(0, revealDelayMs) / 1000 : 0,
+    },
     width: { duration: 0.18, ease: "easeOut" },
   };
   const tabWidthTransition: Transition = { duration: 0.18, ease: "easeOut" };
@@ -577,7 +649,7 @@ export function ExpandableDockTabs({
                       forceSquare: true,
                     })
                   : null;
-                const FallbackIcon = getStackItemIcon(item);
+                const fallbackIcon = getStackItemFallbackIcon(item);
                 return (
                   <motion.button
                     key={item.id}
@@ -601,9 +673,12 @@ export function ExpandableDockTabs({
                     aria-label={getStackItemTitle(item)}
                   >
                     <span className="flex items-center justify-center">
-                      {iconNode ?? (
-                        <FallbackIcon size={stackIconSize} className="text-muted-foreground" />
-                      )}
+                      {iconNode ??
+                        renderStackFallbackIcon(
+                          fallbackIcon,
+                          stackIconSize,
+                          "text-muted-foreground",
+                        )}
                     </span>
                     <span
                       className={cn(
@@ -869,7 +944,7 @@ export function ExpandableDockTabs({
                           forceSquare: true,
                         })
                       : null;
-                    const FallbackIcon = getStackItemIcon(item);
+                    const fallbackIcon = getStackItemFallbackIcon(item);
                     const title = getStackItemTitle(item);
                     const colorClass = "bg-transparent";
                     const textClass = "text-muted-foreground";
@@ -898,7 +973,11 @@ export function ExpandableDockTabs({
                           className="flex items-center justify-center"
                         >
                           {iconNode ?? (
-                            <FallbackIcon size={stackIconSize} className={textClass} />
+                            renderStackFallbackIcon(
+                              fallbackIcon,
+                              stackIconSize,
+                              textClass,
+                            )
                           )}
                         </span>
                       </motion.button>

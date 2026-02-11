@@ -8,6 +8,7 @@ import { shellTool } from "@/ai/tools/shellTool";
 import { shellCommandTool } from "@/ai/tools/shellCommandTool";
 import { writeStdinTool } from "@/ai/tools/writeStdinTool";
 import { listDirTool, readFileTool, writeFileTool } from "@/ai/tools/fileTools";
+import { generateWidgetTool } from "@/ai/tools/widgetTools";
 import { updatePlanTool } from "@/ai/tools/updatePlanTool";
 import { projectMutateTool, projectQueryTool } from "@/ai/tools/projectTools";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
@@ -37,6 +38,7 @@ import {
   writeStdinToolDefWin,
   updatePlanToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
+import { generateWidgetToolDef } from "@tenas-ai/api/types/tools/widget";
 import {
   browserActTool,
   browserExtractTool,
@@ -113,6 +115,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [projectMutateToolDef.id]: {
     tool: projectMutateTool,
+  },
+  [generateWidgetToolDef.id]: {
+    tool: generateWidgetTool,
   },
 };
 

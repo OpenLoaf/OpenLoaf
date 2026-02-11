@@ -15,16 +15,21 @@ const pendingLoads = new Map<string, Promise<DynamicWidgetComponent>>()
  * The server compiles the widget's .tsx file into an ESM bundle. We create a
  * Blob URL and use dynamic import() to load it as a module.
  */
-async function loadWidgetModule(widgetId: string): Promise<DynamicWidgetComponent> {
-  const cached = moduleCache.get(widgetId)
+async function loadWidgetModule(
+  workspaceId: string,
+  projectId: string | undefined,
+  widgetId: string,
+): Promise<DynamicWidgetComponent> {
+  const cacheKey = `${workspaceId}:${projectId ?? ''}:${widgetId}`
+  const cached = moduleCache.get(cacheKey)
   if (cached) return cached
 
   // Deduplicate concurrent loads for the same widget.
-  const pending = pendingLoads.get(widgetId)
+  const pending = pendingLoads.get(cacheKey)
   if (pending) return pending
 
   const loadPromise = (async () => {
-    const result = await trpcClient.dynamicWidget.compile.query({ widgetId })
+    const result = await trpcClient.dynamicWidget.compile.query({ workspaceId, projectId, widgetId })
     if (!result.ok || !result.code) {
       throw new Error(result.error || 'Compilation failed')
     }
@@ -34,23 +39,23 @@ async function loadWidgetModule(widgetId: string): Promise<DynamicWidgetComponen
     const url = URL.createObjectURL(blob)
 
     try {
-      const mod = await import(/* @vite-ignore */ url)
+      const mod = await import(/* webpackIgnore: true */ url)
       const Component = mod.default as DynamicWidgetComponent
       if (typeof Component !== 'function') {
         throw new Error('Widget module does not export a default React component')
       }
-      moduleCache.set(widgetId, Component)
+      moduleCache.set(cacheKey, Component)
       return Component
     } finally {
       URL.revokeObjectURL(url)
     }
   })()
 
-  pendingLoads.set(widgetId, loadPromise)
+  pendingLoads.set(cacheKey, loadPromise)
   try {
     return await loadPromise
   } finally {
-    pendingLoads.delete(widgetId)
+    pendingLoads.delete(cacheKey)
   }
 }
 
@@ -68,15 +73,19 @@ interface UseLoadDynamicComponentResult {
 /**
  * React hook to load a dynamic widget component by its ID.
  */
-export function useLoadDynamicComponent(widgetId: string | undefined): UseLoadDynamicComponentResult {
+export function useLoadDynamicComponent(
+  workspaceId: string | undefined,
+  projectId: string | undefined,
+  widgetId: string | undefined,
+): UseLoadDynamicComponentResult {
   const [Component, setComponent] = React.useState<DynamicWidgetComponent | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    if (!widgetId) {
+    if (!workspaceId || !widgetId) {
       setLoading(false)
-      setError('No widget ID provided')
+      setError('No widget ID or workspace ID provided')
       return
     }
 
@@ -84,7 +93,7 @@ export function useLoadDynamicComponent(widgetId: string | undefined): UseLoadDy
     setLoading(true)
     setError(null)
 
-    loadWidgetModule(widgetId)
+    loadWidgetModule(workspaceId, projectId, widgetId)
       .then((mod) => {
         if (!cancelled) {
           setComponent(() => mod)
@@ -101,7 +110,7 @@ export function useLoadDynamicComponent(widgetId: string | undefined): UseLoadDy
     return () => {
       cancelled = true
     }
-  }, [widgetId])
+  }, [workspaceId, projectId, widgetId])
 
   return { Component, loading, error }
 }

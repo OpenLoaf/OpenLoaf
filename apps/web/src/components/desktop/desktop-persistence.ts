@@ -111,7 +111,7 @@ export function serializeDesktopItems(items: DesktopItem[]): DesktopFilePayload 
                   webMetaStatus: item.webMetaStatus,
                 }
               : item.widgetKey === "dynamic"
-                ? { dynamicWidgetId: item.dynamicWidgetId }
+                ? { dynamicWidgetId: item.dynamicWidgetId, dynamicProjectId: item.dynamicProjectId }
                 : undefined;
 
     return {
@@ -219,6 +219,10 @@ export function deserializeDesktopItems(raw: string): DesktopItem[] | null {
           dynamicWidgetId:
             item.widgetKey === "dynamic" && typeof params.dynamicWidgetId === "string"
               ? params.dynamicWidgetId
+              : undefined,
+          dynamicProjectId:
+            item.widgetKey === "dynamic" && typeof params.dynamicProjectId === "string"
+              ? params.dynamicProjectId
               : undefined,
           layout: fallbackLayout,
           layoutByBreakpoint,

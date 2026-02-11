@@ -15,6 +15,7 @@ import {
   toFileUriWithoutEncoding,
   upsertActiveWorkspaceProject,
 } from "../services/vfsService";
+import { getWorkspaceProjectEntries } from "../services/workspaceProjectConfig";
 import {
   PROJECT_META_DIR,
   findProjectNodeWithParent,
@@ -309,7 +310,7 @@ function reorderWorkspaceProjectEntry(
 
 /** Return the active workspace project map. */
 function getActiveWorkspaceProjects(): Record<string, string> {
-  return getActiveWorkspace().projects ?? {};
+  return Object.fromEntries(getWorkspaceProjectEntries(getActiveWorkspace().id));
 }
 
 /** Schema for cache management input. */

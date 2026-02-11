@@ -6,13 +6,24 @@ import {
   t,
   shieldedProcedure,
 } from '@tenas-ai/api'
-import { getTenasRootDir } from '@tenas-ai/config/tenas-paths'
+import { getProjectRootPath, getWorkspaceRootPathById } from '@tenas-ai/api/services/vfsService'
 import { executeWidgetFunction } from '@/modules/dynamic-widget/functionExecutor'
 import { compileWidget } from '@/modules/dynamic-widget/widgetCompiler'
 
-/** Resolve the dynamic widgets root directory. */
-function getDynamicWidgetsDir(): string {
-  return path.join(getTenasRootDir(), 'dynamic-widgets')
+/** Resolve the dynamic widgets directory with projectId → workspaceId fallback. */
+function getDynamicWidgetsDir(projectId: string | undefined, workspaceId: string): string {
+  if (projectId) {
+    const projectRoot = getProjectRootPath(projectId)
+    if (!projectRoot) {
+      throw new Error(`Project not found: ${projectId}`)
+    }
+    return path.join(projectRoot, '.tenas', 'dynamic-widgets')
+  }
+  const workspaceRoot = getWorkspaceRootPathById(workspaceId)
+  if (!workspaceRoot) {
+    throw new Error(`Workspace not found: ${workspaceId}`)
+  }
+  return path.join(workspaceRoot, '.tenas', 'dynamic-widgets')
 }
 
 /** Read and parse a widget's package.json. */
@@ -46,8 +57,8 @@ export class DynamicWidgetRouterImpl extends BaseDynamicWidgetRouter {
       list: shieldedProcedure
         .input(dynamicWidgetSchemas.list.input)
         .output(dynamicWidgetSchemas.list.output)
-        .query(async () => {
-          const widgetsDir = getDynamicWidgetsDir()
+        .query(async ({ input }) => {
+          const widgetsDir = getDynamicWidgetsDir(input.projectId, input.workspaceId)
           try {
             await fs.access(widgetsDir)
           } catch {
@@ -79,7 +90,10 @@ export class DynamicWidgetRouterImpl extends BaseDynamicWidgetRouter {
         .input(dynamicWidgetSchemas.get.input)
         .output(dynamicWidgetSchemas.get.output)
         .query(async ({ input }) => {
-          const widgetDir = path.join(getDynamicWidgetsDir(), input.widgetId)
+          const widgetDir = path.join(
+            getDynamicWidgetsDir(input.projectId, input.workspaceId),
+            input.widgetId,
+          )
           try {
             const pkg = await readWidgetPackage(widgetDir)
             return {
@@ -99,12 +113,18 @@ export class DynamicWidgetRouterImpl extends BaseDynamicWidgetRouter {
         .input(dynamicWidgetSchemas.save.input)
         .output(dynamicWidgetSchemas.save.output)
         .mutation(async ({ input }) => {
-          const widgetDir = path.join(getDynamicWidgetsDir(), input.widgetId)
+          const widgetDir = path.join(
+            getDynamicWidgetsDir(input.projectId, input.workspaceId),
+            input.widgetId,
+          )
           await fs.mkdir(widgetDir, { recursive: true })
           for (const [filename, content] of Object.entries(input.files)) {
-            // Prevent path traversal.
             const safeName = path.basename(filename)
-            await fs.writeFile(path.join(widgetDir, safeName), content, 'utf-8')
+            await fs.writeFile(
+              path.join(widgetDir, safeName),
+              content,
+              'utf-8',
+            )
           }
           return { ok: true, widgetId: input.widgetId }
         }),
@@ -113,7 +133,10 @@ export class DynamicWidgetRouterImpl extends BaseDynamicWidgetRouter {
         .input(dynamicWidgetSchemas.delete.input)
         .output(dynamicWidgetSchemas.delete.output)
         .mutation(async ({ input }) => {
-          const widgetDir = path.join(getDynamicWidgetsDir(), input.widgetId)
+          const widgetDir = path.join(
+            getDynamicWidgetsDir(input.projectId, input.workspaceId),
+            input.widgetId,
+          )
           try {
             await fs.rm(widgetDir, { recursive: true, force: true })
             return { ok: true }
@@ -126,19 +149,30 @@ export class DynamicWidgetRouterImpl extends BaseDynamicWidgetRouter {
         .input(dynamicWidgetSchemas.callFunction.input)
         .output(dynamicWidgetSchemas.callFunction.output)
         .mutation(async ({ input }) => {
-          const widgetDir = path.join(getDynamicWidgetsDir(), input.widgetId)
-          return executeWidgetFunction(widgetDir, input.functionName, input.params)
+          const widgetDir = path.join(
+            getDynamicWidgetsDir(input.projectId, input.workspaceId),
+            input.widgetId,
+          )
+          return executeWidgetFunction(
+            widgetDir,
+            input.functionName,
+            input.params,
+          )
         }),
 
       compile: shieldedProcedure
         .input(dynamicWidgetSchemas.compile.input)
         .output(dynamicWidgetSchemas.compile.output)
         .query(async ({ input }) => {
-          const widgetDir = path.join(getDynamicWidgetsDir(), input.widgetId)
+          const widgetDir = path.join(
+            getDynamicWidgetsDir(input.projectId, input.workspaceId),
+            input.widgetId,
+          )
           return compileWidget(widgetDir)
         }),
     })
   }
 }
 
-export const dynamicWidgetRouterImplementation = DynamicWidgetRouterImpl.createRouter()
+export const dynamicWidgetRouterImplementation =
+  DynamicWidgetRouterImpl.createRouter()

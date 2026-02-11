@@ -447,6 +447,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
       {base?.component === "plant-page" ? (
         <div
           data-project-dock-host
+          data-tab-id={tabId}
           className="absolute inset-x-0 bottom-0 h-24 z-[80]"
         />
       ) : null}

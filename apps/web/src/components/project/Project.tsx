@@ -484,8 +484,9 @@ export default function ProjectPage({
           value={activeTab}
           onValueChange={handleProjectTabChange}
           isActive={tabActive}
-          revealDelayMs={800}
+          revealDelayMs={200}
           size="md"
+          tabId={tabId}
         />
         <div
           className={`h-full w-full overflow-auto show-scrollbar ${

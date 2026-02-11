@@ -29,6 +29,7 @@ import {
   writeStdinToolDefWin,
   updatePlanToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
+import { generateWidgetToolDef } from "@tenas-ai/api/types/tools/widget";
 import MASTER_AGENT_PROMPT_RAW from "./masterAgentPrompt.zh.md";
 
 /** Master agent display name. */
@@ -60,6 +61,7 @@ const MASTER_AGENT_TOOL_IDS = [
   readFileToolDef.id,
   writeFileToolDef.id,
   listDirToolDef.id,
+  generateWidgetToolDef.id,
   // updatePlanToolDef.id,
 ] as const;
 

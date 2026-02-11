@@ -229,7 +229,11 @@ export default function DesktopTileContent({
   if (widgetKey === "dynamic" && item.kind === "widget" && item.dynamicWidgetId) {
     return (
       <div className="h-full w-full">
-        <DynamicWidgetRenderer widgetId={item.dynamicWidgetId} />
+        <DynamicWidgetRenderer
+          widgetId={item.dynamicWidgetId}
+          projectId={item.dynamicProjectId}
+          workspaceId={webContext?.workspaceId ?? ''}
+        />
       </div>
     );
   }

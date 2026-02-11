@@ -7,6 +7,7 @@ import {
 
 const PROVIDER_ICON_MAP: Record<string, string> = {
   anthropic: "Claude",
+  dashscope: "Qwen",
   deepseek: "DeepSeek",
   google: "Gemini",
   grok: "Grok",
@@ -14,6 +15,7 @@ const PROVIDER_ICON_MAP: Record<string, string> = {
   openai: "OpenAI",
   qwen: "Qwen",
   vercel: "V0",
+  volcengine: "Volcengine",
   xai: "Grok",
 };
 
@@ -33,6 +35,8 @@ export type CloudChatModelItem = {
   provider: string;
   /** Display name for UI. */
   displayName: string;
+  /** Model family id from SaaS (e.g. "Qwen", "Claude"). */
+  familyId?: string;
   /** Raw tags from SaaS. */
   tags: string[];
   /** Raw capabilities from SaaS. */
@@ -75,7 +79,7 @@ export function mapCloudChatModels(items: CloudChatModelItem[]): ModelDefinition
     .map((item) => ({
       id: item.id,
       name: item.displayName,
-      familyId: resolveCloudFamilyId(item),
+      familyId: item.familyId?.trim() || resolveCloudFamilyId(item),
       providerId: item.provider,
       // 中文注释：仅保留系统支持的标签，避免未知标签污染筛选。
       tags: normalizeTags(Array.isArray(item.tags) ? item.tags : []),

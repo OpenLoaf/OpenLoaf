@@ -1,37 +1,23 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Workspace } from "../types/workspace";
+import { resolveFilePathFromUri, toFileUri, toFileUriWithoutEncoding } from "./fileUri";
 import {
   getActiveWorkspaceConfig,
   getWorkspaceByIdConfig,
-  getWorkspaces,
   resolveWorkspaceRootPath,
-  setWorkspaces,
 } from "./workspaceConfig";
+import {
+  getWorkspaceProjectEntries,
+  removeWorkspaceProjectEntry,
+  setWorkspaceProjectEntries,
+  upsertWorkspaceProjectEntry,
+} from "./workspaceProjectConfig";
 
 const PROJECT_META_DIR = ".tenas";
 const PROJECT_META_FILE = "project.json";
 /** Scoped project path matcher like @[projectId]/path/to/file. */
 const PROJECT_SCOPE_REGEX = /^@?\[([^\]]+)\]\/(.+)$/;
-
-/** Normalize a local path or file:// URI into a file:// URI. */
-function normalizeFileUri(raw: string): string {
-  const trimmed = raw.trim();
-  if (trimmed.startsWith("file://")) return trimmed;
-  return pathToFileURL(path.resolve(trimmed)).href;
-}
-
-/** Normalize project map into file:// URIs. */
-function normalizeProjects(projects?: Record<string, string>): Record<string, string> {
-  if (!projects) return {};
-  const normalized: Record<string, string> = {};
-  for (const [projectId, projectUri] of Object.entries(projects)) {
-    if (!projectId || !projectUri) continue;
-    normalized[projectId] = normalizeFileUri(projectUri);
-  }
-  return normalized;
-}
 
 /** Get the active workspace config. */
 export function getActiveWorkspace(): Workspace {
@@ -89,10 +75,12 @@ function readProjectConfigProjects(rootUri: string): {
 export function getProjectRootUri(projectId: string, workspaceId?: string): string | null {
   const workspace = workspaceId ? getWorkspaceById(workspaceId) : getActiveWorkspace();
   if (!workspace) return null;
-  const direct = workspace.projects?.[projectId];
-  if (direct) return direct;
+  const entries = getWorkspaceProjectEntries(workspaceId);
+  for (const [entryId, rootUri] of entries) {
+    if (entryId === projectId) return rootUri;
+  }
 
-  const queue = Object.values(workspace.projects ?? {});
+  const queue = entries.map((entry) => entry[1]);
   const visited = new Set<string>();
   while (queue.length > 0) {
     const current = queue.shift();
@@ -119,82 +107,23 @@ export function getProjectRootPath(projectId: string, workspaceId?: string): str
 
 /** Upsert project root URI into active workspace config. */
 export function upsertActiveWorkspaceProject(projectId: string, rootUri: string): void {
-  const workspaces = getWorkspaces();
-  const activeIndex = workspaces.findIndex((workspace) => workspace.isActive);
-  const targetIndex = activeIndex >= 0 ? activeIndex : 0;
-  const active = workspaces[targetIndex];
-  if (!active) {
-    throw new Error("Active workspace not found.");
-  }
-  const nextProjects = {
-    ...(active.projects ?? {}),
-    [projectId]: normalizeFileUri(rootUri),
-  };
-  const nextWorkspaces = workspaces.map((workspace, index) =>
-    index === targetIndex ? { ...workspace, projects: nextProjects } : workspace
-  );
-  setWorkspaces(nextWorkspaces);
+  upsertWorkspaceProjectEntry(projectId, rootUri);
 }
 
 /** Remove a project from the active workspace config. */
 export function removeActiveWorkspaceProject(projectId: string): void {
-  const workspaces = getWorkspaces();
-  const activeIndex = workspaces.findIndex((workspace) => workspace.isActive);
-  const targetIndex = activeIndex >= 0 ? activeIndex : 0;
-  const active = workspaces[targetIndex];
-  if (!active) {
-    throw new Error("Active workspace not found.");
-  }
-  const nextProjects = { ...(active.projects ?? {}) };
-  if (!nextProjects[projectId]) return;
-  // 移除项目映射，避免残留在 workspace 列表中。
-  delete nextProjects[projectId];
-  const nextWorkspaces = workspaces.map((workspace, index) =>
-    index === targetIndex ? { ...workspace, projects: nextProjects } : workspace
-  );
-  setWorkspaces(nextWorkspaces);
+  removeWorkspaceProjectEntry(projectId);
 }
 
 /** Replace active workspace project mapping with ordered entries. */
 export function setActiveWorkspaceProjectEntries(
   entries: Array<[string, string]>,
 ): void {
-  const workspaces = getWorkspaces();
-  const activeIndex = workspaces.findIndex((workspace) => workspace.isActive);
-  const targetIndex = activeIndex >= 0 ? activeIndex : 0;
-  const active = workspaces[targetIndex];
-  if (!active) {
-    throw new Error("Active workspace not found.");
-  }
   // 逻辑：按传入顺序重建项目映射，保持根项目排序。
-  const nextProjects = normalizeProjects(Object.fromEntries(entries));
-  const nextWorkspaces = workspaces.map((workspace, index) =>
-    index === targetIndex ? { ...workspace, projects: nextProjects } : workspace
-  );
-  setWorkspaces(nextWorkspaces);
+  setWorkspaceProjectEntries(entries);
 }
 
-/** Convert a local path to file:// URI. */
-export function toFileUri(targetPath: string): string {
-  return pathToFileURL(targetPath).href;
-}
-
-/** Convert a local path to file:// URI without URL encoding. */
-export function toFileUriWithoutEncoding(targetPath: string): string {
-  const resolved = path.resolve(targetPath);
-  const normalized = resolved.replace(/\\/g, "/");
-  if (normalized.startsWith("/")) return `file://${normalized}`;
-  return `file:///${normalized}`;
-}
-
-/** Resolve a file:// URI into a local path. */
-export function resolveFilePathFromUri(uri: string): string {
-  const url = new URL(uri);
-  if (url.protocol !== "file:") {
-    throw new Error("Only file:// URIs are supported.");
-  }
-  return fileURLToPath(url);
-}
+export { toFileUri, toFileUriWithoutEncoding, resolveFilePathFromUri };
 
 /** Resolve a URI into an absolute local path. */
 export function resolveWorkspacePathFromUri(uri: string): string {

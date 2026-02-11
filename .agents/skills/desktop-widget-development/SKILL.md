@@ -83,5 +83,39 @@ description: Desktop 区域与 widget 组件开发指南。用于在 apps/web/sr
 ## 代码规范与注释规则
 
 - 重要逻辑必须添加备注
-- 方法注释使用英文，逻辑注释使用中文（不要加“中文注释:”前缀）
+- 方法注释使用英文，逻辑注释使用中文（不要加"中文注释:"前缀）
 - `apps/web/` React 组件文件名使用 PascalCase
+
+## 动态 Widget 系统
+
+除了内置的静态 widget，系统支持 AI 动态生成的 widget。动态 widget 存储在 `~/.tenas/dynamic-widgets/` 目录下。
+
+### 架构
+
+```
+Widget（React .tsx）
+  ↕ @tenas-ai/widget-sdk（纯桥接，无 UI 依赖）
+  ↕ props callback
+DynamicWidgetRenderer（Client）
+  ↕ tRPC dynamicWidget router
+Server
+  - esbuild 编译 widget.tsx
+  - child_process.spawn 执行 functions.ts
+```
+
+### 关键文件
+
+| 文件 | 说明 |
+|------|------|
+| `packages/widget-sdk/src/index.ts` | SDK 桥接层（WidgetProps, WidgetSDK, createWidgetSDK） |
+| `packages/api/src/routers/absDynamicWidget.ts` | 抽象 tRPC 路由定义 |
+| `apps/server/src/routers/dynamicWidget.ts` | 路由实现（list/get/save/delete/callFunction/compile） |
+| `apps/server/src/modules/dynamic-widget/functionExecutor.ts` | 函数执行器（child_process + .env + 超时） |
+| `apps/server/src/modules/dynamic-widget/widgetCompiler.ts` | esbuild 编译器 |
+| `apps/web/src/components/desktop/dynamic-widgets/DynamicWidgetRenderer.tsx` | 动态组件渲染器 + SDK 实例化 + ErrorBoundary |
+| `apps/web/src/components/desktop/dynamic-widgets/useLoadDynamicComponent.ts` | Blob URL + import() 动态加载 |
+| `.agents/skills/generate-dynamic-widget/SKILL.md` | AI 生成 widget 的技能规范 |
+
+### widgetKey = "dynamic"
+
+动态 widget 使用 `widgetKey: "dynamic"` + `dynamicWidgetId` 字段标识。在 `DesktopTileContent.tsx` 中通过 `DynamicWidgetRenderer` 渲染。

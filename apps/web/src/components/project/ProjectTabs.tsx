@@ -78,6 +78,7 @@ type ProjectTabsProps = {
   isActive?: boolean;
   revealDelayMs?: number;
   size?: "sm" | "md" | "lg";
+  tabId?: string;
 };
 
 /** Render project tabs with expandable tabs UI. */
@@ -86,6 +87,8 @@ export default function ProjectTabs({
   onValueChange,
   isActive = true,
   size = "md",
+  tabId,
+  revealDelayMs = 0,
 }: ProjectTabsProps) {
   const [dockHost, setDockHost] = useState<HTMLElement | null>(null);
   // 根据当前值映射到选中索引
@@ -122,16 +125,19 @@ export default function ProjectTabs({
 
   useEffect(() => {
     if (typeof document === "undefined") return;
+    /** Resolve dock host for the current tab. */
     const resolveHost = () => {
-      setDockHost(
-        document.querySelector("[data-project-dock-host]") as HTMLElement | null,
-      );
+      const selector = tabId
+        ? `[data-project-dock-host][data-tab-id="${typeof CSS !== "undefined" && CSS.escape ? CSS.escape(tabId) : tabId}"]`
+        : "[data-project-dock-host]";
+      // 中文注释：优先定位当前 tab 的 dock host，避免多 Tab 时渲染到隐藏面板。
+      setDockHost(document.querySelector(selector) as HTMLElement | null);
     };
     resolveHost();
     const observer = new MutationObserver(() => resolveHost());
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
-  }, []);
+  }, [tabId]);
 
   const dock = (
     <div className="flex justify-center min-w-0" aria-hidden={!isActive}>
@@ -141,6 +147,7 @@ export default function ProjectTabs({
         onChange={handleChange}
         size={size}
         expandedWidth={size === "lg" ? 460 : size === "sm" ? 380 : 420}
+        revealDelayMs={revealDelayMs}
         getTooltip={(tab, index) =>
           `${tab.label} (${formatShortcutLabel(`Alt+${index + 1}`, isMac)})`
         }

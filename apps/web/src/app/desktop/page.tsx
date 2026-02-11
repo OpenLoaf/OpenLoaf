@@ -156,6 +156,7 @@ export default function DesktopDemoPage() {
             size: "4x2",
             constraints,
             dynamicWidgetId: detail.dynamicWidgetId,
+            dynamicProjectId: detail.dynamicProjectId,
             layout: { x: 0, y: maxY, w: constraints.defaultW, h: constraints.defaultH },
           };
           return [...prev, nextItem];

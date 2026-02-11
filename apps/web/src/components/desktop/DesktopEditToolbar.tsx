@@ -41,6 +41,8 @@ type WidgetCreateOptions = {
   webMetaStatus?: DesktopWidgetItem["webMetaStatus"];
   /** Optional dynamic widget id for dynamic widgets. */
   dynamicWidgetId?: string;
+  /** Optional project id that owns the dynamic widget. */
+  dynamicProjectId?: string;
 };
 
 /** Build a new widget item based on catalog metadata. */
@@ -66,6 +68,7 @@ function createWidgetItem(
       size: "4x2" as const,
       constraints,
       dynamicWidgetId: options.dynamicWidgetId,
+      dynamicProjectId: options.dynamicProjectId,
       layout,
       layoutByBreakpoint: createLayoutByBreakpoint(layout),
     };
@@ -173,6 +176,7 @@ export default function DesktopEditToolbar({
         webPreview: detail.webPreview,
         webMetaStatus: detail.webMetaStatus,
         dynamicWidgetId: detail.dynamicWidgetId,
+        dynamicProjectId: detail.dynamicProjectId,
       });
       if (!nextItem) return;
       onAddItem(nextItem);

@@ -1,20 +1,38 @@
 'use client'
 
 import * as React from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { createWidgetSDK } from '@tenas-ai/widget-sdk'
 import type { WidgetSDK, WidgetHostCallbacks, WidgetTheme } from '@tenas-ai/widget-sdk'
-import { trpcClient } from '@/utils/trpc'
+import { trpc, trpcClient } from '@/utils/trpc'
 import { useLoadDynamicComponent } from './useLoadDynamicComponent'
+
+const APPROVED_WIDGETS_KEY = 'tenas:approved-dynamic-widgets'
+
+/** Read approved widget IDs from localStorage. */
+function getApprovedWidgets(): Set<string> {
+  try {
+    const raw = localStorage.getItem(APPROVED_WIDGETS_KEY)
+    return new Set(raw ? JSON.parse(raw) : [])
+  } catch {
+    return new Set()
+  }
+}
+
+/** Persist an approved widget ID to localStorage. */
+function approveWidget(widgetId: string) {
+  const approved = getApprovedWidgets()
+  approved.add(widgetId)
+  localStorage.setItem(APPROVED_WIDGETS_KEY, JSON.stringify([...approved]))
+}
 
 interface DynamicWidgetRendererProps {
   widgetId: string
-  /** Callback when the widget emits a custom event. */
+  workspaceId: string
+  projectId?: string
   onEmit?: (event: string, payload?: unknown) => void
-  /** Callback when the widget requests navigation. */
   onNavigate?: (target: string, params?: Record<string, unknown>) => void
-  /** Callback when the widget triggers a chat message. */
   onChat?: (message: string) => void
-  /** Callback when the widget requests opening a tab. */
   onOpenTab?: (type: string, params?: Record<string, unknown>) => void
 }
 
@@ -51,20 +69,68 @@ class WidgetErrorBoundary extends React.Component<
   }
 }
 
+/** Inline approval prompt shown before first widget execution. */
+function WidgetApprovalPrompt({
+  scripts,
+  onApprove,
+}: {
+  scripts?: Record<string, string>
+  onApprove: () => void
+}) {
+  const scriptEntries = Object.entries(scripts || {})
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-4 text-center">
+      <div className="text-sm font-medium">启用此 Widget？</div>
+      <div className="text-xs text-muted-foreground">
+        该 Widget 将在服务端执行以下脚本：
+      </div>
+      {scriptEntries.length > 0 ? (
+        <div className="w-full max-w-xs rounded-md border border-border bg-muted/30 p-2 text-left">
+          {scriptEntries.map(([name, cmd]) => (
+            <div key={name} className="truncate text-xs font-mono text-muted-foreground">
+              <span className="text-foreground">{name}</span>: {cmd}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <button
+        type="button"
+        className="mt-1 rounded-md bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        onClick={onApprove}
+      >
+        确认启用
+      </button>
+    </div>
+  )
+}
+
 export default function DynamicWidgetRenderer({
   widgetId,
+  workspaceId,
+  projectId,
   onEmit,
   onNavigate,
   onChat,
   onOpenTab,
 }: DynamicWidgetRendererProps) {
-  const { Component, loading, error } = useLoadDynamicComponent(widgetId)
+  const { Component, loading, error } = useLoadDynamicComponent(workspaceId, projectId, widgetId)
+  const [approved, setApproved] = React.useState(() => getApprovedWidgets().has(widgetId))
+
+  // 获取 widget 元数据（用于确认对话框展示脚本列表）。
+  const metaQuery = useQuery({
+    ...trpc.dynamicWidget.get.queryOptions({ workspaceId, projectId, widgetId }),
+    enabled: !approved,
+  })
+
+  const handleApprove = React.useCallback(() => {
+    approveWidget(widgetId)
+    setApproved(true)
+  }, [widgetId])
 
   // Create a stable SDK instance for this widget.
   const sdk = React.useMemo<WidgetSDK>(() => {
     const themeListeners = new Set<(theme: WidgetTheme) => void>()
 
-    // Observe theme changes via MutationObserver on <html> class.
     if (typeof document !== 'undefined') {
       const observer = new MutationObserver(() => {
         const theme = detectTheme()
@@ -79,6 +145,8 @@ export default function DynamicWidgetRenderer({
     const host: WidgetHostCallbacks = {
       callFunction: async (functionName, params) => {
         const result = await trpcClient.dynamicWidget.callFunction.mutate({
+          workspaceId,
+          projectId,
           widgetId,
           functionName,
           params,
@@ -100,18 +168,38 @@ export default function DynamicWidgetRenderer({
     return createWidgetSDK(host)
   }, [widgetId, onEmit, onNavigate, onChat, onOpenTab])
 
+  // 未确认时展示确认提示。
+  if (!approved) {
+    return (
+      <WidgetApprovalPrompt
+        scripts={metaQuery.data?.scripts ?? undefined}
+        onApprove={handleApprove}
+      />
+    )
+  }
+
   if (loading) {
     return (
       <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-        <div className="text-xs">加载中...</div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+          <div className="text-xs">加载中...</div>
+        </div>
       </div>
     )
   }
 
   if (error || !Component) {
     return (
-      <div className="flex h-full w-full items-center justify-center p-4 text-center">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
         <div className="text-xs text-destructive">{error || '组件加载失败'}</div>
+        <button
+          type="button"
+          className="rounded-md border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-muted"
+          onClick={() => window.location.reload()}
+        >
+          重试
+        </button>
       </div>
     )
   }

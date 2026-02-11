@@ -2,12 +2,9 @@ import { z } from "zod";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { randomUUID } from "node:crypto";
-import {
-  getActiveWorkspace,
-  getWorkspaceById,
-  resolveFilePathFromUri,
-  toFileUriWithoutEncoding,
-} from "./vfsService";
+import { resolveFilePathFromUri, toFileUriWithoutEncoding } from "./fileUri";
+import { getActiveWorkspace, getWorkspaceById } from "./vfsService";
+import { getWorkspaceProjectEntries } from "./workspaceProjectConfig";
 
 /** Directory name for project metadata. */
 export const PROJECT_META_DIR = ".tenas";
@@ -265,7 +262,7 @@ export async function readWorkspaceProjectTrees(workspaceId?: string): Promise<P
   } catch {
     workspaceRootPath = undefined;
   }
-  const projectEntries = Object.entries(workspace.projects ?? {});
+  const projectEntries = getWorkspaceProjectEntries(workspace.id);
   const projects: ProjectNode[] = [];
   for (const [projectId, rootUri] of projectEntries) {
     let rootPath: string;

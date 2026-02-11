@@ -36,27 +36,32 @@ const widgetMetaSchema = z.object({
 export const dynamicWidgetSchemas = {
   list: {
     input: z.object({
-      rootUri: z.string().optional(),
+      workspaceId: z.string(),
+      projectId: z.string().optional(),
     }),
     output: z.array(widgetMetaSchema),
   },
   get: {
-    input: z.object({ widgetId: z.string() }),
+    input: z.object({ workspaceId: z.string(), projectId: z.string().optional(), widgetId: z.string() }),
     output: widgetMetaSchema.nullable(),
   },
   save: {
     input: z.object({
+      workspaceId: z.string(),
+      projectId: z.string().optional(),
       widgetId: z.string(),
       files: z.record(z.string(), z.string()),
     }),
     output: z.object({ ok: z.boolean(), widgetId: z.string() }),
   },
   delete: {
-    input: z.object({ widgetId: z.string() }),
+    input: z.object({ workspaceId: z.string(), projectId: z.string().optional(), widgetId: z.string() }),
     output: z.object({ ok: z.boolean() }),
   },
   callFunction: {
     input: z.object({
+      workspaceId: z.string(),
+      projectId: z.string().optional(),
       widgetId: z.string(),
       functionName: z.string(),
       params: z.record(z.string(), z.unknown()).optional(),
@@ -68,7 +73,7 @@ export const dynamicWidgetSchemas = {
     }),
   },
   compile: {
-    input: z.object({ widgetId: z.string() }),
+    input: z.object({ workspaceId: z.string(), projectId: z.string().optional(), widgetId: z.string() }),
     output: z.object({
       ok: z.boolean(),
       code: z.string().optional(),

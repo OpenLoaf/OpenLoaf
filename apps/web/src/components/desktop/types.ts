@@ -110,6 +110,8 @@ export interface DesktopWidgetItem extends DesktopItemBase {
   webMetaStatus?: "idle" | "loading" | "ready" | "failed";
   /** Dynamic widget id (when widgetKey is dynamic). */
   dynamicWidgetId?: string;
+  /** Project id that owns the dynamic widget (when widgetKey is dynamic). */
+  dynamicProjectId?: string;
 }
 
 export type DesktopItem = DesktopIconItem | DesktopWidgetItem;
