@@ -37,6 +37,11 @@ import {
   BaseTerminalRouter,
   terminalSchemas,
 } from "./routers/terminal";
+import {
+  dynamicWidgetRouter,
+  BaseDynamicWidgetRouter,
+  dynamicWidgetSchemas,
+} from "./routers/absDynamicWidget";
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
@@ -53,6 +58,7 @@ export const appRouterDefine = {
   terminal: terminalRouter,
   email: emailRouter,
   calendar: calendarRouter,
+  dynamicWidget: dynamicWidgetRouter,
 };
 
 export const appRouter = t.router({
@@ -113,6 +119,9 @@ export { BaseEmailRouter, emailSchemas };
 
 // Export calendar router components
 export { BaseCalendarRouter, calendarSchemas };
+
+// Export dynamic widget router components
+export { BaseDynamicWidgetRouter, dynamicWidgetSchemas };
 
 // export const t = initTRPC.context<Context>().create({
 // });

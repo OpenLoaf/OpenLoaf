@@ -1,5 +1,6 @@
 import { CalendarDays, Folder, Info, Settings, Wand2 } from "lucide-react";
-import { useMemo } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useMemo, useState } from "react";
 import { ExpandableDockTabs } from "@/components/ui/ExpandableDockTabs";
 
 /** Format a shortcut string for tooltip display. */
@@ -86,6 +87,7 @@ export default function ProjectTabs({
   isActive = true,
   size = "md",
 }: ProjectTabsProps) {
+  const [dockHost, setDockHost] = useState<HTMLElement | null>(null);
   // 根据当前值映射到选中索引
   const selectedIndex = useMemo(() => {
     const index = PROJECT_TABS.findIndex((tab) => tab.value === value);
@@ -118,7 +120,20 @@ export default function ProjectTabs({
     onValueChange(nextTab.value);
   };
 
-  return (
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const resolveHost = () => {
+      setDockHost(
+        document.querySelector("[data-project-dock-host]") as HTMLElement | null,
+      );
+    };
+    resolveHost();
+    const observer = new MutationObserver(() => resolveHost());
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  const dock = (
     <div className="flex justify-center min-w-0" aria-hidden={!isActive}>
       <ExpandableDockTabs
         tabs={tabs}
@@ -132,4 +147,10 @@ export default function ProjectTabs({
       />
     </div>
   );
+
+  if (dockHost) {
+    return createPortal(dock, dockHost);
+  }
+
+  return dock;
 }

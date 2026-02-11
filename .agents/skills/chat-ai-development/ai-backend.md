@@ -100,6 +100,9 @@ getProviderDefinition("deepseek")                → ProviderDefinition
 ```
 
 内置 provider（默认 JSON 定义）：anthropic / moonshot / vercel / qwen / google / deepseek / xai / codex-cli / custom。
+
+云端模型通过 SaaS SDK `providerTemplates()` 获取供应商模板，转换时使用 `template.adapter ?? template.id` 作为 `adapterId`（`adapter` 字段决定使用哪个 AI SDK 适配器，与供应商 `id` 解耦）。
+
 `familyId` 用于前端模型图标识别，需填 @lobehub/icons 可识别的名称（如 OpenAI/Grok/DeepSeek/Gemini/LobeHub），UI 优先使用 `familyId` 渲染图标。
 
 **解析链**: 请求中的 `chatModelId + chatModelSource` → `resolveChatModel()` → `LanguageModelV3` 实例

@@ -26,6 +26,7 @@ import { webMetaRouterImplementation } from "@/routers/webMeta";
 import { terminalRouterImplementation } from "@/routers/terminal";
 import { emailRouterImplementation } from "@/routers/email";
 import { calendarRouterImplementation } from "@/routers/calendar";
+import { dynamicWidgetRouterImplementation } from "@/routers/dynamicWidget";
 import { logger } from "@/common/logger";
 
 const defaultCorsOrigins = [
@@ -104,6 +105,7 @@ export function createApp() {
         terminal: terminalRouterImplementation,
         email: emailRouterImplementation,
         calendar: calendarRouterImplementation,
+        dynamicWidget: dynamicWidgetRouterImplementation,
       }),
       createContext: (_opts, context) => createContext({ context }),
       onError: ({ error, path, input, type }) => {

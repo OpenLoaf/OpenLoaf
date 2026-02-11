@@ -84,7 +84,8 @@ export interface DesktopWidgetItem extends DesktopItemBase {
     | "email-inbox"
     | "3d-folder"
     | "video"
-    | "web-stack";
+    | "web-stack"
+    | "dynamic";
   /** Widget size in grid units (MVP uses presets). */
   size: DesktopWidgetSize;
   /** Widget layout constraints for resizing. */
@@ -107,6 +108,8 @@ export interface DesktopWidgetItem extends DesktopItemBase {
   webPreview?: string;
   /** Web stack metadata status (when widgetKey is web-stack). */
   webMetaStatus?: "idle" | "loading" | "ready" | "failed";
+  /** Dynamic widget id (when widgetKey is dynamic). */
+  dynamicWidgetId?: string;
 }
 
 export type DesktopItem = DesktopIconItem | DesktopWidgetItem;

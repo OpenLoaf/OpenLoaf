@@ -31,7 +31,8 @@ type DesktopFileItem = {
     | "email-inbox"
     | "3d-folder"
     | "video"
-    | "web-stack";
+    | "web-stack"
+    | "dynamic";
   size?: "1x1" | "2x2" | "4x2" | "4x3" | "5x6";
   constraints?: DesktopWidgetConstraints;
   pinned?: boolean;
@@ -109,7 +110,9 @@ export function serializeDesktopItems(items: DesktopItem[]): DesktopFilePayload 
                   webPreview: item.webPreview,
                   webMetaStatus: item.webMetaStatus,
                 }
-              : undefined;
+              : item.widgetKey === "dynamic"
+                ? { dynamicWidgetId: item.dynamicWidgetId }
+                : undefined;
 
     return {
       id: item.id,
@@ -212,6 +215,10 @@ export function deserializeDesktopItems(raw: string): DesktopItem[] | null {
           flipClock:
             item.widgetKey === "flip-clock"
               ? { showSeconds: params.showSeconds !== false }
+              : undefined,
+          dynamicWidgetId:
+            item.widgetKey === "dynamic" && typeof params.dynamicWidgetId === "string"
+              ? params.dynamicWidgetId
               : undefined,
           layout: fallbackLayout,
           layoutByBreakpoint,

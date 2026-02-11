@@ -17,6 +17,7 @@ import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
 import VideoWidget from "./widgets/VideoWidget";
 import WebStackWidget from "./widgets/WebStackWidget";
+import DynamicWidgetRenderer from "./dynamic-widgets/DynamicWidgetRenderer";
 import type { DesktopIconKey } from "./types";
 
 interface DesktopTileContentProps {
@@ -222,6 +223,14 @@ export default function DesktopTileContent({
         workspaceId={webContext?.workspaceId}
         onOpen={onWebOpen}
       />
+    );
+  }
+
+  if (widgetKey === "dynamic" && item.kind === "widget" && item.dynamicWidgetId) {
+    return (
+      <div className="h-full w-full">
+        <DynamicWidgetRenderer widgetId={item.dynamicWidgetId} />
+      </div>
     );
   }
 

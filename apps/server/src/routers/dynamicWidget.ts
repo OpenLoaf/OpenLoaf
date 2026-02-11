@@ -1,0 +1,144 @@
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import {
+  BaseDynamicWidgetRouter,
+  dynamicWidgetSchemas,
+  t,
+  shieldedProcedure,
+} from '@tenas-ai/api'
+import { getTenasRootDir } from '@tenas-ai/config/tenas-paths'
+import { executeWidgetFunction } from '@/modules/dynamic-widget/functionExecutor'
+import { compileWidget } from '@/modules/dynamic-widget/widgetCompiler'
+
+/** Resolve the dynamic widgets root directory. */
+function getDynamicWidgetsDir(): string {
+  return path.join(getTenasRootDir(), 'dynamic-widgets')
+}
+
+/** Read and parse a widget's package.json. */
+async function readWidgetPackage(widgetDir: string) {
+  const pkgPath = path.join(widgetDir, 'package.json')
+  const raw = await fs.readFile(pkgPath, 'utf-8')
+  return JSON.parse(raw) as {
+    name?: string
+    description?: string
+    main?: string
+    scripts?: Record<string, string>
+    tenas?: {
+      type: 'widget'
+      defaultSize?: string
+      constraints?: {
+        defaultW: number
+        defaultH: number
+        minW: number
+        minH: number
+        maxW: number
+        maxH: number
+      }
+      support?: { workspace: boolean; project: boolean }
+    }
+  }
+}
+
+export class DynamicWidgetRouterImpl extends BaseDynamicWidgetRouter {
+  public static createRouter() {
+    return t.router({
+      list: shieldedProcedure
+        .input(dynamicWidgetSchemas.list.input)
+        .output(dynamicWidgetSchemas.list.output)
+        .query(async () => {
+          const widgetsDir = getDynamicWidgetsDir()
+          try {
+            await fs.access(widgetsDir)
+          } catch {
+            return []
+          }
+          const entries = await fs.readdir(widgetsDir, { withFileTypes: true })
+          const widgets = []
+          for (const entry of entries) {
+            if (!entry.isDirectory()) continue
+            try {
+              const widgetDir = path.join(widgetsDir, entry.name)
+              const pkg = await readWidgetPackage(widgetDir)
+              widgets.push({
+                id: entry.name,
+                name: pkg.name || entry.name,
+                description: pkg.description,
+                main: pkg.main || 'widget.tsx',
+                scripts: pkg.scripts,
+                tenas: pkg.tenas,
+              })
+            } catch {
+              // Skip invalid widget directories.
+            }
+          }
+          return widgets
+        }),
+
+      get: shieldedProcedure
+        .input(dynamicWidgetSchemas.get.input)
+        .output(dynamicWidgetSchemas.get.output)
+        .query(async ({ input }) => {
+          const widgetDir = path.join(getDynamicWidgetsDir(), input.widgetId)
+          try {
+            const pkg = await readWidgetPackage(widgetDir)
+            return {
+              id: input.widgetId,
+              name: pkg.name || input.widgetId,
+              description: pkg.description,
+              main: pkg.main || 'widget.tsx',
+              scripts: pkg.scripts,
+              tenas: pkg.tenas,
+            }
+          } catch {
+            return null
+          }
+        }),
+
+      save: shieldedProcedure
+        .input(dynamicWidgetSchemas.save.input)
+        .output(dynamicWidgetSchemas.save.output)
+        .mutation(async ({ input }) => {
+          const widgetDir = path.join(getDynamicWidgetsDir(), input.widgetId)
+          await fs.mkdir(widgetDir, { recursive: true })
+          for (const [filename, content] of Object.entries(input.files)) {
+            // Prevent path traversal.
+            const safeName = path.basename(filename)
+            await fs.writeFile(path.join(widgetDir, safeName), content, 'utf-8')
+          }
+          return { ok: true, widgetId: input.widgetId }
+        }),
+
+      delete: shieldedProcedure
+        .input(dynamicWidgetSchemas.delete.input)
+        .output(dynamicWidgetSchemas.delete.output)
+        .mutation(async ({ input }) => {
+          const widgetDir = path.join(getDynamicWidgetsDir(), input.widgetId)
+          try {
+            await fs.rm(widgetDir, { recursive: true, force: true })
+            return { ok: true }
+          } catch {
+            return { ok: false }
+          }
+        }),
+
+      callFunction: shieldedProcedure
+        .input(dynamicWidgetSchemas.callFunction.input)
+        .output(dynamicWidgetSchemas.callFunction.output)
+        .mutation(async ({ input }) => {
+          const widgetDir = path.join(getDynamicWidgetsDir(), input.widgetId)
+          return executeWidgetFunction(widgetDir, input.functionName, input.params)
+        }),
+
+      compile: shieldedProcedure
+        .input(dynamicWidgetSchemas.compile.input)
+        .output(dynamicWidgetSchemas.compile.output)
+        .query(async ({ input }) => {
+          const widgetDir = path.join(getDynamicWidgetsDir(), input.widgetId)
+          return compileWidget(widgetDir)
+        }),
+    })
+  }
+}
+
+export const dynamicWidgetRouterImplementation = DynamicWidgetRouterImpl.createRouter()

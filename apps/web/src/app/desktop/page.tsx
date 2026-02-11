@@ -144,6 +144,22 @@ export default function DesktopDemoPage() {
 
       // 逻辑：直接将新组件追加到列表末尾。
       setItems((prev) => {
+        // Dynamic widgets bypass the catalog.
+        if (detail.widgetKey === "dynamic" && detail.dynamicWidgetId) {
+          const maxY = prev.reduce((acc, item) => Math.max(acc, item.layout.y + item.layout.h), 0);
+          const constraints = { defaultW: 4, defaultH: 2, minW: 2, minH: 2, maxW: 6, maxH: 4 };
+          const nextItem: DesktopItem = {
+            id: `w-dynamic-${Date.now()}`,
+            kind: "widget",
+            title: detail.title || detail.dynamicWidgetId,
+            widgetKey: "dynamic",
+            size: "4x2",
+            constraints,
+            dynamicWidgetId: detail.dynamicWidgetId,
+            layout: { x: 0, y: maxY, w: constraints.defaultW, h: constraints.defaultH },
+          };
+          return [...prev, nextItem];
+        }
         const nextItem = createWidgetItem(detail.widgetKey, prev);
         if (!nextItem) return prev;
         return [...prev, nextItem];

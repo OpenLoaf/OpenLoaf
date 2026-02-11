@@ -538,7 +538,7 @@ export function ExpandableDockTabs({
       <motion.div
         ref={dockRef}
         className={cn(
-          "absolute bottom-2 left-1/2 z-30 flex -translate-x-1/2 items-center overflow-visible rounded-3xl border border-white/45 bg-white/40 text-secondary-foreground shadow-[0_18px_40px_rgba(0,0,0,0.16)] backdrop-blur-2xl backdrop-saturate-200 dark:border-white/12 dark:bg-slate-950/40 dark:shadow-[0_18px_40px_rgba(0,0,0,0.7)]",
+          "absolute bottom-2 left-1/2 z-[60] flex -translate-x-1/2 items-center overflow-visible rounded-3xl border border-white/45 bg-white/40 text-secondary-foreground shadow-[0_18px_40px_rgba(0,0,0,0.16)] backdrop-blur-2xl backdrop-saturate-200 dark:border-white/12 dark:bg-slate-950/40 dark:shadow-[0_18px_40px_rgba(0,0,0,0.7)]",
           sizeToken.container,
           "gap-1",
           className,
@@ -552,7 +552,7 @@ export function ExpandableDockTabs({
             <motion.div
               key="stack-tray"
               className={cn(
-                "absolute bottom-full right-1 mb-2 flex flex-col items-stretch rounded-3xl border border-white/45 bg-white/40 text-secondary-foreground shadow-[0_18px_40px_rgba(0,0,0,0.16)] backdrop-blur-2xl backdrop-saturate-200 dark:border-white/12 dark:bg-slate-950/40 dark:shadow-[0_18px_40px_rgba(0,0,0,0.7)]",
+                "absolute bottom-full right-1 mb-2 flex flex-col items-stretch rounded-3xl border border-white/35 bg-white/25 text-secondary-foreground shadow-[0_16px_36px_rgba(0,0,0,0.14)] backdrop-blur-2xl backdrop-saturate-200 dark:border-white/10 dark:bg-slate-950/30 dark:shadow-[0_16px_36px_rgba(0,0,0,0.6)]",
                 sizeToken.container,
                 "gap-1",
               )}

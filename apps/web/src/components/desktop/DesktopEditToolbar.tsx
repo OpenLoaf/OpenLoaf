@@ -39,6 +39,8 @@ type WidgetCreateOptions = {
   webPreview?: string;
   /** Optional web meta status for web-stack widget. */
   webMetaStatus?: DesktopWidgetItem["webMetaStatus"];
+  /** Optional dynamic widget id for dynamic widgets. */
+  dynamicWidgetId?: string;
 };
 
 /** Build a new widget item based on catalog metadata. */
@@ -48,6 +50,27 @@ function createWidgetItem(
   breakpoint: DesktopBreakpoint,
   options?: WidgetCreateOptions
 ) {
+  // Dynamic widgets bypass the catalog.
+  if (widgetKey === "dynamic" && options?.dynamicWidgetId) {
+    const constraints = { defaultW: 4, defaultH: 2, minW: 2, minH: 2, maxW: 6, maxH: 4 };
+    const maxY = items.reduce((acc, item) => {
+      const layout = getItemLayoutForBreakpoint(item, breakpoint);
+      return Math.max(acc, layout.y + layout.h);
+    }, 0);
+    const layout = { x: 0, y: maxY, w: constraints.defaultW, h: constraints.defaultH };
+    return {
+      id: `w-dynamic-${Date.now()}`,
+      kind: "widget" as const,
+      title: options.title || options.dynamicWidgetId,
+      widgetKey: "dynamic" as const,
+      size: "4x2" as const,
+      constraints,
+      dynamicWidgetId: options.dynamicWidgetId,
+      layout,
+      layoutByBreakpoint: createLayoutByBreakpoint(layout),
+    };
+  }
+
   const catalogItem = desktopWidgetCatalog.find((item) => item.widgetKey === widgetKey);
   if (!catalogItem) return null;
 
@@ -149,6 +172,7 @@ export default function DesktopEditToolbar({
         webLogo: detail.webLogo,
         webPreview: detail.webPreview,
         webMetaStatus: detail.webMetaStatus,
+        dynamicWidgetId: detail.dynamicWidgetId,
       });
       if (!nextItem) return;
       onAddItem(nextItem);

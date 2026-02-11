@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useProjects } from "@/hooks/use-projects";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
@@ -25,6 +26,7 @@ import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
 import VideoWidget from "./widgets/VideoWidget";
 import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import { trpc, trpcClient } from "@/utils/trpc";
 import {
   formatScopedProjectPath,
   getRelativePathFromUri,
@@ -56,6 +58,8 @@ export type DesktopWidgetSelectedDetail = {
   webPreview?: string;
   /** Optional web meta status for web-stack widget. */
   webMetaStatus?: DesktopWidgetItem["webMetaStatus"];
+  /** Optional dynamic widget id for dynamic widgets. */
+  dynamicWidgetId?: string;
 };
 
 /** Emit a desktop widget selection event (stack -> desktop page bridge). */
@@ -302,6 +306,17 @@ export default function DesktopWidgetLibraryPanel({
   }, [query, scope]);
   const canSubmitWeb = Boolean(normalizeUrl(webUrlInput));
 
+  // Query dynamic widgets from the server.
+  const dynamicWidgetsQuery = useQuery(trpc.dynamicWidget.list.queryOptions({}))
+  const dynamicWidgets = dynamicWidgetsQuery.data ?? []
+  const filteredDynamic = React.useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return dynamicWidgets
+    return dynamicWidgets.filter(
+      (w) => w.name.toLowerCase().includes(q) || w.description?.toLowerCase().includes(q),
+    )
+  }, [query, dynamicWidgets])
+
   return (
     <div className="flex h-full w-full min-h-0 flex-col gap-3 p-3">
       <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索组件…" />
@@ -370,6 +385,49 @@ export default function DesktopWidgetLibraryPanel({
             </div>
           ) : null}
         </div>
+
+        {filteredDynamic.length > 0 ? (
+          <>
+            <div className="mt-4 mb-2 text-xs font-medium text-muted-foreground">AI 生成</div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredDynamic.map((dw) => (
+                <div
+                  key={dw.id}
+                  role="button"
+                  tabIndex={0}
+                  className="group flex min-w-0 flex-col gap-2 rounded-xl border border-border/60 bg-background p-2 text-left hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  onClick={() => {
+                    emitDesktopWidgetSelected({
+                      tabId,
+                      widgetKey: "dynamic",
+                      title: dw.name,
+                      dynamicWidgetId: dw.id,
+                    });
+                    removeStackItem(tabId, panelKey);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    emitDesktopWidgetSelected({
+                      tabId,
+                      widgetKey: "dynamic",
+                      title: dw.name,
+                      dynamicWidgetId: dw.id,
+                    });
+                    removeStackItem(tabId, panelKey);
+                  }}
+                >
+                  <div className="pointer-events-none flex h-28 items-center justify-center overflow-hidden rounded-lg border border-dashed border-border/60 bg-muted/30 text-xs text-muted-foreground">
+                    {dw.description || dw.name}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{dw.name}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
       </div>
       <ProjectFileSystemTransferDialog
         open={isFolderDialogOpen}

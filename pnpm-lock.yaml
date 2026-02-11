@@ -536,6 +536,9 @@ importers:
       '@tenas-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@tenas-ai/widget-sdk':
+        specifier: workspace:*
+        version: link:../../packages/widget-sdk
       '@tenas-saas/sdk':
         specifier: file:../../../Tenas-saas/packages/sdk
         version: file:../Tenas-saas/packages/sdk(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3)
@@ -1146,6 +1149,15 @@ importers:
       '@types/react':
         specifier: 19.2.3
         version: 19.2.3
+
+  packages/widget-sdk:
+    dependencies:
+      react:
+        specifier: ^19
+        version: 19.2.3
+      typescript:
+        specifier: ^5
+        version: 5.9.3
 
 packages:
 
