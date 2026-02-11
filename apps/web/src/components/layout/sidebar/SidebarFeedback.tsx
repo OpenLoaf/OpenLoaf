@@ -3,7 +3,7 @@
 import * as React from "react";
 import { MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import { SaaSClient, SaaSHttpError } from "@tenas-saas/sdk/web";
+import { SaaSClient, SaaSHttpError } from "@tenas-saas/sdk";
 import { Button } from "@tenas-ai/ui/button";
 import { Input } from "@tenas-ai/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";

@@ -1,6 +1,7 @@
 import path from "node:path";
 import {
   existsSync,
+  mkdirSync,
   readFileSync,
   renameSync,
   writeFileSync,
@@ -13,6 +14,8 @@ import {
 } from "./workspaceConfig";
 import { normalizeFileUri, resolveFilePathFromUri, toFileUriWithoutEncoding } from "./fileUri";
 
+/** Workspace-level project config directory name. */
+const WORKSPACE_PROJECT_CONFIG_DIR = ".tenas";
 /** Workspace-level project config file name. */
 const WORKSPACE_PROJECT_CONFIG_FILE = "workspace.json";
 
@@ -40,7 +43,7 @@ type WorkspaceProjectContext = {
 
 /** Build workspace.json path from workspace root path. */
 function resolveWorkspaceProjectConfigPath(rootPath: string): string {
-  return path.join(rootPath, WORKSPACE_PROJECT_CONFIG_FILE);
+  return path.join(rootPath, WORKSPACE_PROJECT_CONFIG_DIR, WORKSPACE_PROJECT_CONFIG_FILE);
 }
 
 /** Read workspace.json safely. */
@@ -58,6 +61,8 @@ function readWorkspaceProjectConfig(rootPath: string): WorkspaceProjectConfig | 
 /** Write workspace.json atomically. */
 function writeWorkspaceProjectConfig(rootPath: string, payload: WorkspaceProjectConfig): void {
   const filePath = resolveWorkspaceProjectConfigPath(rootPath);
+  const dirPath = path.dirname(filePath);
+  mkdirSync(dirPath, { recursive: true });
   const tmpPath = `${filePath}.${Date.now()}.tmp`;
   // 中文注释：使用原子写入，避免读取到半写入状态。
   writeFileSync(tmpPath, JSON.stringify(payload, null, 2), "utf-8");

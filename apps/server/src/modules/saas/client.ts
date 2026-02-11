@@ -1,4 +1,4 @@
-import { SaaSClient } from "@tenas-saas/sdk/server";
+import { SaaSClient } from "@tenas-saas/sdk";
 import { getSaasBaseUrl } from "./core/config";
 
 /** Cache SaaS client instance by base URL. */

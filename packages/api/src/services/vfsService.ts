@@ -102,7 +102,7 @@ export function getProjectRootUri(projectId: string, workspaceId?: string): stri
 export function getProjectRootPath(projectId: string, workspaceId?: string): string | null {
   const rootUri = getProjectRootUri(projectId, workspaceId);
   if (!rootUri) return null;
-  return fileURLToPath(rootUri);
+  return resolveFilePathFromUri(rootUri);
 }
 
 /** Upsert project root URI into active workspace config. */
