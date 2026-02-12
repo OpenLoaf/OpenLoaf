@@ -1,13 +1,13 @@
 ---
 name: calendar-business-development
-description: Use when developing or debugging calendar business logic in this repo, including event/reminder sources, system calendar sync, recurrence handling, and data mapping in packages/ui/src/calendar and apps/web/src/components/calendar.
+description: Use when developing or debugging calendar business logic in this repo, including event/reminder sources, system calendar sync, recurrence handling, data mapping, and AI calendar tools (calendar-query/calendar-mutate) in packages/ui/src/calendar, apps/web/src/components/calendar, and apps/server/src/ai/tools.
 ---
 
 # Calendar Business Development
 
 ## Overview
 
-聚焦本项目日历业务逻辑：事件/提醒事项、来源与权限、系统日历同步、重复事件处理、数据映射与导出。仅覆盖业务流，不描述界面/样式。
+聚焦本项目日历业务逻辑：事件/提醒事项、来源与权限、系统日历同步、重复事件处理、数据映射与导出、AI 工具集成。仅覆盖业务流，不描述界面/样式。
 
 ## 核心数据模型
 
@@ -59,6 +59,21 @@ description: Use when developing or debugging calendar business logic in this re
 
 - `exportToICalendar` 负责 RRULE/EXDATE/RECURRENCE-ID 输出，`filterEvents` 过滤重复输出。
 
+### 7) AI 工具集成（calendar-query / calendar-mutate）
+
+AI Agent 通过两个工具操作日历数据，定义在 `packages/api/src/types/tools/calendar.ts`，实现在 `apps/server/src/ai/tools/calendarTools.ts`。
+
+- **calendar-query**（只读，无需审批）：
+  - `mode=list-sources`：返回所有日历源（精简字段：id/provider/kind/title/color/readOnly）。
+  - `mode=list-items`：按 `rangeStart/rangeEnd` 查询日程与提醒（精简字段：id/sourceId/kind/title/description/location/startAt/endAt/allDay/completedAt），可选 `sourceIds` 过滤。
+- **calendar-mutate**（写入，需审批 `needsApproval: true`）：
+  - `action=create`：需要 sourceId/kind/title/startAt/endAt，可选 description/location/allDay。
+  - `action=update`：需要 itemId，先查询现有数据再合并用户传入字段（LLM 只需传要修改的字段）。
+  - `action=delete`：需要 itemId，软删除（设置 deletedAt）。
+  - `action=toggle-completed`：需要 itemId + completed，切换提醒事项完成状态。
+- **设计约束**：不暴露 `syncFromSystem`（系统同步由 Electron 层触发）、不暴露 `recurrenceRule`（对 LLM 太复杂）。
+- **数据流**：工具通过 `appRouter.createCaller(ctx).calendar` 调用 tRPC，`getWorkspaceId()` 获取 workspaceId。
+
 ## 实战检查清单（修改业务逻辑时）
 
 - 系统事件必须携带 `externalId/sourceExternalId`，否则更新/删除会失败。
@@ -66,6 +81,8 @@ description: Use when developing or debugging calendar business logic in this re
 - 系统事件的写入必须落库，避免刷新后回滚。
 - 日期范围变更必须同步 `setCalendarSyncRange`。
 - 修改重复事件必须走 `scope` 逻辑，避免破坏原系列。
+- AI 工具返回字段已精简，不含 `workspaceId/createdAt/updatedAt/externalId` 等系统字段。
+- AI 工具 `update` 操作会自动合并现有数据，LLM 只需传要修改的字段。
 
 ## Quick Reference
 
@@ -77,6 +94,8 @@ description: Use when developing or debugging calendar business logic in this re
 | 修改重复事件 | `updateRecurringEvent` | 必须传 `scope` |
 | 删除重复事件 | `deleteRecurringEvent` | `following` 需 `UNTIL` 截断 |
 | 导出 iCal | `exportToICalendar` | 仅导出过滤后的基准/覆盖事件 |
+| AI 查询日历 | `calendar-query` 工具 | mode=list-sources 或 list-items，list-items 需 rangeStart/rangeEnd |
+| AI 变更日历 | `calendar-mutate` 工具 | 需审批，action=create/update/delete/toggle-completed |
 
 ## 关键文件
 
@@ -88,6 +107,8 @@ description: Use when developing or debugging calendar business logic in this re
 - `apps/web/src/components/calendar/use-calendar-page-state.ts`
 - `apps/web/src/components/calendar/Calendar.tsx`（仅业务映射与同步逻辑）
 - `apps/web/src/lib/calendar/electron-calendar.ts`
+- `packages/api/src/types/tools/calendar.ts`（AI 工具类型定义）
+- `apps/server/src/ai/tools/calendarTools.ts`（AI 工具实现）
 
 ## Resources
 

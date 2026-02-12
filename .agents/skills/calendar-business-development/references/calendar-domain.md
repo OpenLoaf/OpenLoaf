@@ -55,3 +55,27 @@
 - **本地来源**：只落库，不触碰系统 API
 - **readOnly/isSubscribed**：直接阻断
 - **缺 `externalId`**：系统更新/删除应报错并提示
+
+## AI 工具数据流
+
+AI Agent 通过 `calendarTools.ts` 中的工具操作日历，数据流：
+
+```
+LLM → calendar-query/calendar-mutate → appRouter.createCaller(ctx).calendar → tRPC routers → Prisma → SQLite
+```
+
+### 返回字段精简策略
+
+AI 工具返回精简视图，去掉对 LLM 无用的系统字段：
+
+- **SourceView**：`id/provider/kind/title/color/readOnly`（去掉 workspaceId/externalId/isSubscribed/createdAt/updatedAt）
+- **ItemView**：`id/sourceId/kind/title/description/location/startAt/endAt/allDay/completedAt`（去掉 workspaceId/externalId/recurrenceRule/sourceUpdatedAt/deletedAt/createdAt/updatedAt）
+
+### update 合并逻辑
+
+`executeUpdateItem` 先通过 `listItems` 查询现有 item（使用极大时间范围），找到后将用户传入字段与现有数据合并，再调用 `updateItem`。LLM 只需传 `itemId` + 要修改的字段。
+
+### 不暴露的能力
+
+- `syncFromSystem`：系统同步由 Electron 层触发，AI 不应干预
+- `recurrenceRule`：重复规则对 LLM 太复杂，暂不暴露

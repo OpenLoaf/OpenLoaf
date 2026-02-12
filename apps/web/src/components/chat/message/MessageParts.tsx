@@ -1,11 +1,12 @@
 "use client";
+import * as React from "react";
 import { useReducedMotion } from "motion/react";
 import { renderMessageParts } from "./renderMessageParts";
 
 type MessagePartsOptions = Parameters<typeof renderMessageParts>[1];
 
 /** Render message parts with motion-aware animation props. */
-export default function MessageParts({
+const MessageParts = React.memo(function MessageParts({
   parts,
   options,
 }: {
@@ -13,13 +14,17 @@ export default function MessageParts({
   options?: MessagePartsOptions;
 }) {
   const reduceMotion = useReducedMotion();
-  const motionProps = reduceMotion
-    ? undefined
-    : {
-        initial: { opacity: 0, y: 6 },
-        animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.2 },
-      };
+  const motionProps = React.useMemo(
+    () =>
+      reduceMotion
+        ? undefined
+        : {
+            initial: { opacity: 0, y: 6 },
+            animate: { opacity: 1, y: 0 },
+            transition: { duration: 0.2 },
+          },
+    [reduceMotion],
+  );
 
   return (
     <>
@@ -29,4 +34,10 @@ export default function MessageParts({
       })}
     </>
   );
-}
+}, (prev, next) => {
+  // 流式输出期间始终重渲染，确保打字机效果正常
+  if (prev.options?.isAnimating || next.options?.isAnimating) return false;
+  return prev.parts === next.parts;
+});
+
+export default MessageParts;

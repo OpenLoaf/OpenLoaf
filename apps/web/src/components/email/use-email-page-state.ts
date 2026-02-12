@@ -15,6 +15,8 @@ import { resolveServerUrl } from "@/utils/server-url";
 import {
   DEFAULT_FORM,
   MESSAGE_PAGE_SIZE,
+  type ComposeMode,
+  type ComposeDraft,
   type EmailAccountFormState,
   type EmailAccountView,
   type EmailMailboxView,
@@ -130,10 +132,15 @@ export type MessageListState = {
 };
 
 export type DetailState = {
+  workspaceId?: string;
   activeMessage: EmailMessageSummary | null;
   isForwarding: boolean;
   forwardDraft: ForwardDraft | null;
   setForwardDraft: React.Dispatch<React.SetStateAction<ForwardDraft | null>>;
+  composeDraft: ComposeDraft | null;
+  setComposeDraft: React.Dispatch<React.SetStateAction<ComposeDraft | null>>;
+  isComposing: boolean;
+  isSending: boolean;
   detailSubject: string;
   detailFrom: string;
   detailTime: string;
@@ -153,6 +160,12 @@ export type DetailState = {
   onToggleFlagged: () => void;
   onSetPrivateSender: () => void;
   onRemovePrivateSender: () => void;
+  onStartReply: () => void;
+  onStartReplyAll: () => void;
+  onStartCompose: () => void;
+  onSendMessage: () => void;
+  onCancelCompose: () => void;
+  onDeleteMessage: () => void;
 };
 
 export type AddDialogState = {
@@ -222,6 +235,8 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
   // 转发编辑状态。
   const [isForwarding, setIsForwarding] = React.useState(false);
   const [forwardDraft, setForwardDraft] = React.useState<ForwardDraft | null>(null);
+  // 撰写/回复编辑状态。
+  const [composeDraft, setComposeDraft] = React.useState<ComposeDraft | null>(null);
   // 收藏状态的本地覆盖，用于提升操作反馈速度。
   const [flagOverrides, setFlagOverrides] = React.useState<Record<string, boolean>>(
     {},
@@ -397,9 +412,10 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
   }, [activeMessageId, visibleMessages]);
 
   React.useEffect(() => {
-    // 逻辑：切换邮件时退出转发编辑。
+    // 逻辑：切换邮件时退出转发/撰写编辑。
     setIsForwarding(false);
     setForwardDraft(null);
+    setComposeDraft(null);
   }, [activeMessageId]);
 
   const mailboxUnreadMap = React.useMemo(() => {
@@ -985,6 +1001,92 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     }),
   );
 
+  const sendMessageMutation = useMutation(
+    trpc.email.sendMessage.mutationOptions({
+      onSuccess: () => {
+        // 逻辑：发送成功后退出编辑模式并刷新已发送列表。
+        setComposeDraft(null);
+        setIsForwarding(false);
+        setForwardDraft(null);
+        if (workspaceId) {
+          queryClient.invalidateQueries({
+            queryKey: trpc.email.listUnifiedMessages.pathKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: trpc.email.listUnifiedUnreadStats.queryOptions({ workspaceId }).queryKey,
+          });
+        }
+      },
+    }),
+  );
+
+  const deleteMessageMutation = useMutation(
+    trpc.email.deleteMessage.mutationOptions({
+      onSuccess: () => {
+        setActiveMessageId(null);
+        if (workspaceId) {
+          queryClient.invalidateQueries({
+            queryKey: trpc.email.listUnifiedMessages.pathKey(),
+          });
+          queryClient.invalidateQueries({
+            queryKey: trpc.email.listUnifiedUnreadStats.queryOptions({ workspaceId }).queryKey,
+          });
+          queryClient.invalidateQueries({
+            queryKey: trpc.email.listMailboxUnreadStats.queryOptions({ workspaceId }).queryKey,
+          });
+        }
+      },
+    }),
+  );
+
+  const testConnectionMutation = useMutation(
+    trpc.email.testConnection.mutationOptions({}),
+  );
+
+  const saveDraftMutation = useMutation(
+    trpc.email.saveDraft.mutationOptions({
+      onSuccess: (data) => {
+        // 逻辑：保存成功后更新草稿 ID，后续 upsert 使用。
+        if (composeDraft && !composeDraft.inReplyTo) {
+          setComposeDraft((prev) =>
+            prev ? { ...prev, inReplyTo: data.id } : prev,
+          );
+        }
+        draftIdRef.current = data.id;
+      },
+    }),
+  );
+
+  const draftIdRef = React.useRef<string | null>(null);
+
+  // 逻辑：自动保存草稿（debounce 3 秒）。
+  React.useEffect(() => {
+    if (!composeDraft || !workspaceId) return;
+    const timer = window.setTimeout(() => {
+      saveDraftMutation.mutate({
+        workspaceId,
+        id: draftIdRef.current ?? undefined,
+        accountEmail: composeDraft.accountEmail ?? accounts[0]?.emailAddress ?? "",
+        mode: composeDraft.mode,
+        to: composeDraft.to,
+        cc: composeDraft.cc,
+        bcc: composeDraft.bcc,
+        subject: composeDraft.subject,
+        body: composeDraft.body,
+        inReplyTo: composeDraft.inReplyTo,
+        references: composeDraft.references,
+      });
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [composeDraft]);
+
+  // 逻辑：退出撰写时清理草稿 ID 引用。
+  React.useEffect(() => {
+    if (!composeDraft) {
+      draftIdRef.current = null;
+    }
+  }, [composeDraft]);
+
   /** Reset add-account form state. */
   function resetFormState() {
     setFormState(DEFAULT_FORM);
@@ -1386,6 +1488,115 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     setForwardDraft(null);
   }
 
+  /** Start reply to sender. */
+  function handleStartReply() {
+    if (!activeMessage || !messageDetail) return;
+    const replyTo = messageDetail.fromAddress ?? detailFrom;
+    const draft: ComposeDraft = {
+      mode: "reply",
+      to: replyTo,
+      cc: "",
+      bcc: "",
+      subject: detailSubject.startsWith("Re:") ? detailSubject : `Re: ${detailSubject}`,
+      body: "",
+      inReplyTo: messageDetail.id,
+      accountEmail: activeMessage.accountEmail,
+    };
+    setComposeDraft(draft);
+    setIsForwarding(true);
+  }
+
+  /** Start reply-all. */
+  function handleStartReplyAll() {
+    if (!activeMessage || !messageDetail) return;
+    const replyTo = messageDetail.fromAddress ?? detailFrom;
+    const ccList = [
+      ...(messageDetail.to ?? []),
+      ...(messageDetail.cc ?? []),
+    ].filter((addr) => {
+      const normalized = addr.toLowerCase().trim();
+      return normalized !== activeMessage.accountEmail.toLowerCase().trim()
+        && normalized !== replyTo.toLowerCase().trim();
+    });
+    const draft: ComposeDraft = {
+      mode: "replyAll",
+      to: replyTo,
+      cc: ccList.join(", "),
+      bcc: "",
+      subject: detailSubject.startsWith("Re:") ? detailSubject : `Re: ${detailSubject}`,
+      body: "",
+      inReplyTo: messageDetail.id,
+      accountEmail: activeMessage.accountEmail,
+    };
+    setComposeDraft(draft);
+    setIsForwarding(true);
+  }
+
+  /** Start composing a new email. */
+  function handleStartCompose() {
+    const accountEmail = accounts[0]?.emailAddress ?? "";
+    const draft: ComposeDraft = {
+      mode: "compose",
+      to: "",
+      cc: "",
+      bcc: "",
+      subject: "",
+      body: "",
+      accountEmail,
+    };
+    setComposeDraft(draft);
+    setIsForwarding(true);
+    setActiveMessageId(null);
+  }
+
+  /** Cancel compose/reply. */
+  function handleCancelCompose() {
+    setComposeDraft(null);
+    setIsForwarding(false);
+    setForwardDraft(null);
+  }
+
+  /** Send the current compose/forward draft. */
+  function handleSendMessage() {
+    if (!workspaceId) return;
+    // 逻辑：优先使用 composeDraft，回退到 forwardDraft（转发场景）。
+    if (composeDraft) {
+      const toList = composeDraft.to.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+      if (!toList.length) return;
+      sendMessageMutation.mutate({
+        workspaceId,
+        accountEmail: composeDraft.accountEmail ?? accounts[0]?.emailAddress ?? "",
+        to: toList,
+        cc: composeDraft.cc ? composeDraft.cc.split(/[,;]/).map((s) => s.trim()).filter(Boolean) : undefined,
+        bcc: composeDraft.bcc ? composeDraft.bcc.split(/[,;]/).map((s) => s.trim()).filter(Boolean) : undefined,
+        subject: composeDraft.subject,
+        bodyText: composeDraft.body,
+        inReplyTo: composeDraft.inReplyTo,
+        references: composeDraft.references,
+      });
+      return;
+    }
+    if (forwardDraft && activeMessage) {
+      const toList = forwardDraft.to.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+      if (!toList.length) return;
+      sendMessageMutation.mutate({
+        workspaceId,
+        accountEmail: activeMessage.accountEmail,
+        to: toList,
+        cc: forwardDraft.cc ? forwardDraft.cc.split(/[,;]/).map((s) => s.trim()).filter(Boolean) : undefined,
+        bcc: forwardDraft.bcc ? forwardDraft.bcc.split(/[,;]/).map((s) => s.trim()).filter(Boolean) : undefined,
+        subject: forwardDraft.subject,
+        bodyText: forwardDraft.body,
+      });
+    }
+  }
+
+  /** Delete the active message. */
+  function handleDeleteMessage() {
+    if (!workspaceId || !activeMessageId) return;
+    deleteMessageMutation.mutate({ workspaceId, id: activeMessageId });
+  }
+
   function handleSetPrivateSender() {
     if (!workspaceId || !detailFromAddress) return;
     setPrivateSenderMutation.mutate({
@@ -1446,10 +1657,15 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
   };
 
   const detail: DetailState = {
+    workspaceId,
     activeMessage,
     isForwarding,
     forwardDraft,
     setForwardDraft,
+    composeDraft,
+    setComposeDraft,
+    isComposing: Boolean(composeDraft),
+    isSending: sendMessageMutation.isPending,
     detailSubject,
     detailFrom,
     detailTime,
@@ -1469,6 +1685,12 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     onToggleFlagged: handleToggleFlagged,
     onSetPrivateSender: handleSetPrivateSender,
     onRemovePrivateSender: handleRemovePrivateSender,
+    onStartReply: handleStartReply,
+    onStartReplyAll: handleStartReplyAll,
+    onStartCompose: handleStartCompose,
+    onSendMessage: handleSendMessage,
+    onCancelCompose: handleCancelCompose,
+    onDeleteMessage: handleDeleteMessage,
   };
 
   const addDialog: AddDialogState = {

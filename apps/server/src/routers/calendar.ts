@@ -5,6 +5,7 @@ import {
   shieldedProcedure,
   t,
 } from "@tenas-ai/api";
+import { resolveProjectAncestorIds } from "@tenas-ai/api/services/projectDbService";
 
 type CalendarSourceRow = {
   id: string;
@@ -16,6 +17,7 @@ type CalendarSourceRow = {
   color: string | null;
   readOnly: boolean;
   isSubscribed: boolean;
+  projectId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -72,6 +74,7 @@ function toCalendarSourceView(row: CalendarSourceRow) {
     color: row.color,
     readOnly: row.readOnly,
     isSubscribed: row.isSubscribed,
+    projectId: row.projectId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -116,6 +119,22 @@ async function assertWritableSource(input: {
   return source as CalendarSourceRow;
 }
 
+/** Resolve project-scoped filter for CalendarSource.projectId. */
+async function resolveVisibleSourceFilter(
+  prisma: any,
+  workspaceId: string,
+  projectId?: string,
+): Promise<{ OR: object[] } | undefined> {
+  if (!projectId) return undefined;
+  const ancestorIds = await resolveProjectAncestorIds(prisma, projectId);
+  return {
+    OR: [
+      { projectId: null },
+      { projectId: { in: [projectId, ...ancestorIds] } },
+    ],
+  };
+}
+
 export class CalendarRouterImpl extends BaseCalendarRouter {
   /** Define calendar router implementation. */
   public static createRouter() {
@@ -124,11 +143,16 @@ export class CalendarRouterImpl extends BaseCalendarRouter {
         .input(calendarSchemas.listSources.input)
         .output(calendarSchemas.listSources.output)
         .query(async ({ input, ctx }) => {
+          const projectFilter = await resolveVisibleSourceFilter(
+            ctx.prisma,
+            input.workspaceId,
+            input.projectId,
+          );
           let rows = await ctx.prisma.calendarSource.findMany({
-            where: { workspaceId: input.workspaceId },
+            where: { workspaceId: input.workspaceId, ...projectFilter },
             orderBy: { title: "asc" },
           });
-          if (rows.length === 0) {
+          if (rows.length === 0 && !input.projectId) {
             // 逻辑：首次进入时自动创建本地日历与提醒事项源。
             const created = await ctx.prisma.$transaction([
               ctx.prisma.calendarSource.create({
@@ -142,6 +166,7 @@ export class CalendarRouterImpl extends BaseCalendarRouter {
                   color: "#60A5FA",
                   readOnly: false,
                   isSubscribed: false,
+                  projectId: null,
                 },
               }),
               ctx.prisma.calendarSource.create({
@@ -155,6 +180,7 @@ export class CalendarRouterImpl extends BaseCalendarRouter {
                   color: "#FBBF24",
                   readOnly: false,
                   isSubscribed: false,
+                  projectId: null,
                 },
               }),
             ]);
@@ -169,13 +195,36 @@ export class CalendarRouterImpl extends BaseCalendarRouter {
         .query(async ({ input, ctx }) => {
           const rangeStart = new Date(input.range.start);
           const rangeEnd = new Date(input.range.end);
+          // 逻辑：有 projectId 时先查可见 sourceId 集合，再取交集过滤。
+          let visibleSourceIds: string[] | undefined;
+          if (input.projectId) {
+            const projectFilter = await resolveVisibleSourceFilter(
+              ctx.prisma,
+              input.workspaceId,
+              input.projectId,
+            );
+            const sources = await ctx.prisma.calendarSource.findMany({
+              where: { workspaceId: input.workspaceId, ...projectFilter },
+              select: { id: true },
+            });
+            visibleSourceIds = sources.map((s: { id: string }) => s.id);
+          }
+          const sourceIdFilter = (() => {
+            if (input.sourceIds?.length && visibleSourceIds) {
+              const intersection = input.sourceIds.filter((id: string) =>
+                visibleSourceIds!.includes(id),
+              );
+              return { sourceId: { in: intersection } };
+            }
+            if (input.sourceIds?.length) return { sourceId: { in: input.sourceIds } };
+            if (visibleSourceIds) return { sourceId: { in: visibleSourceIds } };
+            return {};
+          })();
           const rows = await ctx.prisma.calendarItem.findMany({
             where: {
               workspaceId: input.workspaceId,
               deletedAt: null,
-              ...(input.sourceIds?.length
-                ? { sourceId: { in: input.sourceIds } }
-                : {}),
+              ...sourceIdFilter,
               AND: [
                 { startAt: { lte: rangeEnd } },
                 { endAt: { gte: rangeStart } },
@@ -191,6 +240,26 @@ export class CalendarRouterImpl extends BaseCalendarRouter {
         .output(calendarSchemas.createItem.output)
         .mutation(async ({ input, ctx }) => {
           const item = input.item;
+          // 逻辑：验证目标 source 对当前项目可见。
+          if (input.projectId) {
+            const projectFilter = await resolveVisibleSourceFilter(
+              ctx.prisma,
+              input.workspaceId,
+              input.projectId,
+            );
+            if (projectFilter) {
+              const source = await ctx.prisma.calendarSource.findFirst({
+                where: {
+                  id: item.sourceId,
+                  workspaceId: input.workspaceId,
+                  ...projectFilter,
+                },
+              });
+              if (!source) {
+                throw new Error("Calendar source is not visible in this project.");
+              }
+            }
+          }
           await assertWritableSource({
             prisma: ctx.prisma,
             workspaceId: input.workspaceId,

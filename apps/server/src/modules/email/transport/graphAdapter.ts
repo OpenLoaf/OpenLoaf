@@ -1,7 +1,7 @@
 import sanitizeHtml, { type IOptions } from "sanitize-html";
 
 import { logger } from "@/common/logger";
-import type { EmailTransportAdapter, TransportMailbox, TransportMessage } from "./types";
+import type { DownloadAttachmentResult, EmailTransportAdapter, SendMessageInput, SendMessageResult, TransportMailbox, TransportMessage } from "./types";
 
 /** Sanitize options for HTML email content. */
 const SANITIZE_OPTIONS: IOptions = {
@@ -281,6 +281,124 @@ export class GraphTransportAdapter implements EmailTransportAdapter {
     }
 
     logger.debug({ mailboxPath, externalId, flagged }, "graph setFlagged done");
+  }
+
+  /** Delete message via Graph API. */
+  async deleteMessage(_mailboxPath: string, externalId: string): Promise<void> {
+    logger.debug({ externalId }, "graph deleteMessage start");
+    const headers = await this.authHeaders();
+    const response = await fetch(
+      `${GRAPH_BASE}/me/messages/${encodeURIComponent(externalId)}`,
+      { method: "DELETE", headers },
+    );
+    if (!response.ok && response.status !== 204) {
+      const body = await response.text();
+      logger.error({ status: response.status, body }, "graph deleteMessage failed");
+      throw new Error(`Graph deleteMessage failed: ${response.status}`);
+    }
+    logger.debug({ externalId }, "graph deleteMessage done");
+  }
+
+  /** Move message via Graph API. */
+  async moveMessage(_fromMailbox: string, toMailbox: string, externalId: string): Promise<void> {
+    logger.debug({ toMailbox, externalId }, "graph moveMessage start");
+    const headers = await this.authHeaders();
+    const response = await fetch(
+      `${GRAPH_BASE}/me/messages/${encodeURIComponent(externalId)}/move`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ destinationId: toMailbox }),
+      },
+    );
+    if (!response.ok) {
+      const body = await response.text();
+      logger.error({ status: response.status, body }, "graph moveMessage failed");
+      throw new Error(`Graph moveMessage failed: ${response.status}`);
+    }
+    logger.debug({ toMailbox, externalId }, "graph moveMessage done");
+  }
+
+  /** Download attachment via Graph API. */
+  async downloadAttachment(
+    _mailboxPath: string,
+    externalId: string,
+    attachmentIndex: number,
+  ): Promise<DownloadAttachmentResult> {
+    logger.debug({ externalId, attachmentIndex }, "graph downloadAttachment start");
+    const headers = await this.authHeaders();
+
+    const listResponse = await fetch(
+      `${GRAPH_BASE}/me/messages/${encodeURIComponent(externalId)}/attachments`,
+      { headers },
+    );
+    if (!listResponse.ok) {
+      throw new Error(`Graph listAttachments failed: ${listResponse.status}`);
+    }
+    const listData = (await listResponse.json()) as {
+      value?: Array<{
+        id?: string;
+        name?: string;
+        contentType?: string;
+        contentBytes?: string;
+      }>;
+    };
+    const attachments = listData.value ?? [];
+    if (attachmentIndex < 0 || attachmentIndex >= attachments.length) {
+      throw new Error(`附件索引 ${attachmentIndex} 超出范围。`);
+    }
+    const att = attachments[attachmentIndex]!;
+    const content = Buffer.from(att.contentBytes ?? "", "base64");
+
+    return {
+      filename: att.name ?? "attachment",
+      contentType: att.contentType ?? "application/octet-stream",
+      content,
+    };
+  }
+
+  /** Send email via Microsoft Graph API. */
+  async sendMessage(input: SendMessageInput): Promise<SendMessageResult> {
+    logger.debug({ to: input.to }, "graph sendMessage start");
+    const headers = await this.authHeaders();
+
+    const toRecipients = input.to.map((addr) => ({
+      emailAddress: { address: addr },
+    }));
+    const ccRecipients = input.cc?.map((addr) => ({
+      emailAddress: { address: addr },
+    }));
+    const bccRecipients = input.bcc?.map((addr) => ({
+      emailAddress: { address: addr },
+    }));
+
+    const payload: Record<string, unknown> = {
+      message: {
+        subject: input.subject,
+        body: {
+          contentType: input.bodyHtml ? "HTML" : "Text",
+          content: input.bodyHtml ?? input.bodyText ?? "",
+        },
+        toRecipients,
+        ccRecipients: ccRecipients ?? [],
+        bccRecipients: bccRecipients ?? [],
+      },
+    };
+
+    const response = await fetch(`${GRAPH_BASE}/me/sendMail`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      logger.error({ status: response.status, body }, "graph sendMessage failed");
+      throw new Error(`Graph sendMessage failed: ${response.status}`);
+    }
+
+    logger.debug("graph sendMessage done");
+    return { ok: true };
   }
 
   /** No-op since Graph uses stateless HTTP requests. */

@@ -10,6 +10,7 @@ import { areDesktopItemsEqual, cloneDesktopItems } from "@/components/desktop/de
 import {
   ensureLayoutByBreakpoint,
   type DesktopBreakpoint,
+  type DesktopBreakpointLock,
 } from "@/components/desktop/desktop-breakpoints";
 import { filterDesktopItemsByScope } from "@/components/desktop/desktop-support";
 import {
@@ -43,7 +44,8 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
   );
   const [editMode, setEditMode] = React.useState(false);
   const [viewBreakpoint, setViewBreakpoint] = React.useState<DesktopBreakpoint>("lg");
-  const [editBreakpoint, setEditBreakpoint] = React.useState<DesktopBreakpoint>("lg");
+  // 中文注释：编辑态断点锁定，默认 auto。
+  const [editBreakpointLock, setEditBreakpointLock] = React.useState<DesktopBreakpointLock>("auto");
   /** Signal value used for triggering grid compact. */
   const [compactSignal, setCompactSignal] = React.useState(0);
   const editSnapshotRef = React.useRef<DesktopItem[] | null>(null);
@@ -90,6 +92,7 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
     };
 
     void loadDesktop();
+
     return () => {
       alive = false;
     };
@@ -112,9 +115,8 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
     (nextEditMode: boolean) => {
       setEditMode((prev) => {
         if (!prev && nextEditMode) {
-          // 进入编辑态时记录快照，用于“取消”回滚。
+          // 进入编辑态时记录快照，用于"取消"回滚。
           editSnapshotRef.current = cloneDesktopItems(items);
-          setEditBreakpoint(viewBreakpoint);
         }
         if (prev && !nextEditMode) {
           editSnapshotRef.current = null;
@@ -122,12 +124,19 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
         return nextEditMode;
       });
     },
-    [items, viewBreakpoint]
+    [items]
   );
+
+  React.useEffect(() => {
+    if (editMode) return;
+    if (editBreakpointLock === "auto") return;
+    // 中文注释：退出编辑态时重置断点锁定。
+    setEditBreakpointLock("auto");
+  }, [editMode, editBreakpointLock]);
 
   /** Append a new desktop item. */
   const handleAddItem = React.useCallback((item: DesktopItem) => {
-    setItems((prev) => [...prev, item]);
+    setItems((prev) => ensureLayoutByBreakpoint([...prev, item]));
   }, []);
 
   /** Update a single desktop item. */
@@ -279,6 +288,9 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
     };
   }, [editMode, handleRedo, handleUndo]);
 
+  const effectiveEditBreakpoint =
+    editBreakpointLock === "auto" ? viewBreakpoint : editBreakpointLock;
+
   return (
     <div className="flex h-full w-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-3 bg-background/80 px-3 py-2 backdrop-blur-sm">
@@ -292,20 +304,23 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
         <DesktopEditToolbar
           controlsTarget={controlsTarget}
           editMode={editMode}
-          activeBreakpoint={editBreakpoint}
+          activeBreakpoint={effectiveEditBreakpoint}
+          breakpointLock={editBreakpointLock}
+          onBreakpointLockChange={setEditBreakpointLock}
           items={items}
-          onChangeBreakpoint={setEditBreakpoint}
           onAddItem={handleAddItem}
           onCompact={handleCompact}
           onCancel={handleCancel}
           onDone={handleDone}
+          onEnterEditMode={() => handleSetEditMode(true)}
         />
         <div className="min-h-0 flex-1">
           <DesktopPage
             items={items}
             scope="workspace"
             editMode={editMode}
-            activeBreakpoint={editBreakpoint}
+            activeBreakpoint={viewBreakpoint}
+            editBreakpointLock={editBreakpointLock}
             onViewBreakpointChange={setViewBreakpoint}
             onSetEditMode={handleSetEditMode}
             onUpdateItem={handleUpdateItem}

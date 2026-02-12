@@ -3,14 +3,15 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@tenas-ai/ui/button";
+import { Toolbar, ToolbarToggleGroup, ToolbarToggleItem } from "@tenas-ai/ui/toolbar";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { desktopWidgetCatalog } from "./widget-catalog";
 import type { DesktopItem, DesktopWidgetItem } from "./types";
 import {
-  createLayoutByBreakpoint,
   getItemLayoutForBreakpoint,
   type DesktopBreakpoint,
+  type DesktopBreakpointLock,
 } from "./desktop-breakpoints";
 import {
   DESKTOP_WIDGET_SELECTED_EVENT,
@@ -70,7 +71,6 @@ function createWidgetItem(
       dynamicWidgetId: options.dynamicWidgetId,
       dynamicProjectId: options.dynamicProjectId,
       layout,
-      layoutByBreakpoint: createLayoutByBreakpoint(layout),
     };
   }
 
@@ -105,7 +105,6 @@ function createWidgetItem(
     webPreview: widgetKey === "web-stack" ? options?.webPreview : undefined,
     webMetaStatus: widgetKey === "web-stack" ? options?.webMetaStatus : undefined,
     layout,
-    layoutByBreakpoint: createLayoutByBreakpoint(layout),
   };
 }
 
@@ -114,12 +113,14 @@ export interface DesktopEditToolbarProps {
   controlsTarget: HTMLDivElement | null;
   /** Whether desktop is in edit mode. */
   editMode: boolean;
-  /** Current edit breakpoint. */
+  /** Current active breakpoint (auto-detected from container width). */
   activeBreakpoint: DesktopBreakpoint;
+  /** Breakpoint lock state in edit mode. */
+  breakpointLock: DesktopBreakpointLock;
+  /** Update breakpoint lock state. */
+  onBreakpointLockChange: (value: DesktopBreakpointLock) => void;
   /** Current desktop items. */
   items: DesktopItem[];
-  /** Update breakpoint selection. */
-  onChangeBreakpoint: (breakpoint: DesktopBreakpoint) => void;
   /** Append a new desktop item. */
   onAddItem: (item: DesktopItem) => void;
   /** Compact current layout. */
@@ -128,6 +129,8 @@ export interface DesktopEditToolbarProps {
   onCancel: () => void;
   /** Finish edits and exit edit mode. */
   onDone: () => void;
+  /** Enter edit mode from view mode. */
+  onEnterEditMode: () => void;
 }
 
 /** Render desktop edit toolbar actions in the header slot. */
@@ -135,12 +138,14 @@ export default function DesktopEditToolbar({
   controlsTarget,
   editMode,
   activeBreakpoint,
+  breakpointLock,
+  onBreakpointLockChange,
   items,
-  onChangeBreakpoint,
   onAddItem,
   onCompact,
   onCancel,
   onDone,
+  onEnterEditMode,
 }: DesktopEditToolbarProps) {
   // 当前激活的 tab。
   const activeTabId = useTabs((s) => s.activeTabId);
@@ -188,39 +193,28 @@ export default function DesktopEditToolbar({
     };
   }, [activeBreakpoint, activeTabId, items, onAddItem]);
 
-  if (!controlsTarget || !editMode) return null;
+  if (!controlsTarget) return null;
+
+  // 中文注释：非编辑态在头部展示编辑入口。
+  if (!editMode) {
+    return createPortal(
+      <div className="flex items-center justify-end">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          onClick={onEnterEditMode}
+        >
+          编辑
+        </Button>
+      </div>,
+      controlsTarget
+    );
+  }
 
   return createPortal(
     <div className="flex items-center gap-2">
-      <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
-        <Button
-          type="button"
-          variant={activeBreakpoint === "sm" ? "default" : "ghost"}
-          size="sm"
-          className="h-7 px-2 text-xs"
-          onClick={() => onChangeBreakpoint("sm")}
-        >
-          小屏
-        </Button>
-        <Button
-          type="button"
-          variant={activeBreakpoint === "md" ? "default" : "ghost"}
-          size="sm"
-          className="h-7 px-2 text-xs"
-          onClick={() => onChangeBreakpoint("md")}
-        >
-          中屏
-        </Button>
-        <Button
-          type="button"
-          variant={activeBreakpoint === "lg" ? "default" : "ghost"}
-          size="sm"
-          className="h-7 px-2 text-xs"
-          onClick={() => onChangeBreakpoint("lg")}
-        >
-          大屏
-        </Button>
-      </div>
       <Button
         type="button"
         variant="secondary"
@@ -239,6 +233,49 @@ export default function DesktopEditToolbar({
       >
         整理
       </Button>
+      {/* 中文注释：编辑态断点锁定，只影响预览宽度。 */}
+      <div className="flex items-center rounded-lg border border-border/60 bg-background/70 p-0.5">
+        <Toolbar className="rounded-md">
+          <ToolbarToggleGroup
+            type="single"
+            value={breakpointLock}
+            className="gap-1"
+            onValueChange={(value) => {
+              if (!value) return;
+              onBreakpointLockChange(value as DesktopBreakpointLock);
+            }}
+          >
+            <ToolbarToggleItem
+              value="auto"
+              size="sm"
+              className="h-7 min-w-10 px-2 text-[11px] text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
+            >
+              Auto
+            </ToolbarToggleItem>
+            <ToolbarToggleItem
+              value="sm"
+              size="sm"
+              className="h-7 min-w-8 px-2 text-[11px] text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
+            >
+              SM
+            </ToolbarToggleItem>
+            <ToolbarToggleItem
+              value="md"
+              size="sm"
+              className="h-7 min-w-8 px-2 text-[11px] text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
+            >
+              MD
+            </ToolbarToggleItem>
+            <ToolbarToggleItem
+              value="lg"
+              size="sm"
+              className="h-7 min-w-8 px-2 text-[11px] text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
+            >
+              LG
+            </ToolbarToggleItem>
+          </ToolbarToggleGroup>
+        </Toolbar>
+      </div>
       <Button
         type="button"
         variant="secondary"

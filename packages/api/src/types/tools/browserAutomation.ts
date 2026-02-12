@@ -3,7 +3,8 @@ import { z } from "zod";
 export const browserSnapshotToolDef = {
   id: "browser-snapshot",
   name: "浏览器快照",
-  description: "获取当前可控页面的快照（URL/标题/可见文本/可交互元素）。",
+  description:
+    "触发：当你需要了解当前可控页面的整体状态（URL/标题/可见文本/可交互元素）以决定下一步操作时调用。用途：抓取页面快照。返回：{ ok: true, data: { url, title, readyState, text, elements, frames? } }（文本/元素可能被截断）；无可用页面或执行失败会报错。",
   parameters: z.object({
     actionName: z
       .string()
@@ -16,7 +17,8 @@ export const browserSnapshotToolDef = {
 export const browserObserveToolDef = {
   id: "browser-observe",
   name: "页面观察",
-  description: "观察当前页面并返回快照，可用于寻找下一步动作线索。",
+  description:
+    "触发：当你围绕特定目标观察页面（例如找按钮/表单/关键区块）时调用。用途：基于 task 生成更聚焦的页面快照。返回：{ ok: true, data: { task, snapshot: { url, title, readyState, text, elements, frames? } } }；失败会报错。",
   parameters: z.object({
     actionName: z
       .string()
@@ -30,7 +32,8 @@ export const browserObserveToolDef = {
 export const browserExtractToolDef = {
   id: "browser-extract",
   name: "页面提取",
-  description: "从当前页面提取与 query 相关的文本内容。",
+  description:
+    "触发：当你需要从页面提取与 query 相关的文本信息时调用。用途：抓取页面文本并围绕 query 提取内容。返回：{ ok: true, data: { query, text } }（text 可能被截断）；失败会报错。",
   parameters: z.object({
     actionName: z
       .string()
@@ -44,7 +47,8 @@ export const browserExtractToolDef = {
 export const browserActToolDef = {
   id: "browser-act",
   name: "页面动作",
-  description: "在当前页面执行一个结构化动作（click-css/click-text/type/fill/press/press-on/scroll）。",
+  description:
+    "触发：当你需要在当前页面执行点击/输入/滚动/按键等具体动作时调用（通常先用 snapshot/observe 获取 selector）。用途：按 action 执行动作并返回结果。返回：{ ok: true, data: { action, ... } }（字段随 action 变化，例如 click/press/scroll）；元素不存在或参数不匹配会报错。",
   parameters: z
     .object({
       actionName: z
@@ -89,7 +93,8 @@ export const browserActToolDef = {
 export const browserWaitToolDef = {
   id: "browser-wait",
   name: "页面等待",
-  description: "等待页面满足条件后再返回。",
+  description:
+    "触发：当你需要等待页面加载完成、网络空闲、URL/文本出现，或仅需等待一段时间时调用。用途：等待条件满足后返回。返回：timeout 返回 { waitedMs }；load/networkidle 返回 { type, approx? }；urlIncludes/textIncludes 返回 { type, urlIncludes?/textIncludes? }。若超过 timeoutMs 或参数缺失会报错。",
   parameters: z.object({
     actionName: z
       .string()

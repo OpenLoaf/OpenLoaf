@@ -39,6 +39,38 @@ const SYNTAX_HIGHLIGHTER_CODE_TAG_PROPS = {
   style: { fontFamily: "inherit", textShadow: "none" } as React.CSSProperties,
 };
 
+const SINGLE_LINE_CUSTOM_STYLE: React.CSSProperties = {
+  ...SYNTAX_HIGHLIGHTER_CUSTOM_STYLE,
+  padding: 0,
+  margin: 0,
+  minWidth: 0,
+  width: "auto",
+  maxWidth: "100%",
+  overflowY: "hidden",
+  backgroundColor: "transparent",
+};
+
+const MemoSingleLineSyntaxHighlighter = React.memo(function MemoSingleLineSyntaxHighlighter({
+  code,
+  language,
+}: {
+  code: string;
+  language: string;
+}) {
+  return (
+    <SyntaxHighlighter
+      style={oneDark as any}
+      language={language}
+      PreTag="div"
+      showLineNumbers={false}
+      customStyle={SINGLE_LINE_CUSTOM_STYLE}
+      codeTagProps={SYNTAX_HIGHLIGHTER_CODE_TAG_PROPS}
+    >
+      {code}
+    </SyntaxHighlighter>
+  );
+});
+
 const MemoSyntaxHighlighter = React.memo(function MemoSyntaxHighlighter({
   code,
   language,
@@ -117,25 +149,7 @@ export default function MarkdownCodeBlock({
         </span>
 
         <div className="min-w-0 flex-1 overflow-x-auto font-mono text-[11px] leading-5">
-          <SyntaxHighlighter
-            style={oneDark as any}
-            language={normalizedLanguage}
-            PreTag="div"
-            showLineNumbers={false}
-            customStyle={{
-              ...SYNTAX_HIGHLIGHTER_CUSTOM_STYLE,
-              padding: 0,
-              margin: 0,
-              minWidth: 0,
-              width: "auto",
-              maxWidth: "100%",
-              overflowY: "hidden",
-              backgroundColor: "transparent",
-            }}
-            codeTagProps={SYNTAX_HIGHLIGHTER_CODE_TAG_PROPS}
-          >
-            {code}
-          </SyntaxHighlighter>
+          <MemoSingleLineSyntaxHighlighter code={code} language={normalizedLanguage} />
         </div>
 
         <Button

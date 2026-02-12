@@ -7,3 +7,4 @@ export * from "./subAgent";
 export * from "./system";
 export * from "./runtime";
 export * from "./widget";
+export * from "./calendar";

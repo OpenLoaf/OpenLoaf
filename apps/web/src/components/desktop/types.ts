@@ -60,6 +60,8 @@ export interface DesktopItemBase {
   layoutByBreakpoint?: Partial<Record<DesktopBreakpoint, DesktopItemLayout>>;
   /** Gridstack layout. */
   layout: DesktopItemLayout;
+  /** Breakpoints that have been manually customized by the user. */
+  customizedBreakpoints?: DesktopBreakpoint[];
 }
 
 export type DesktopIconKey = "files" | "tasks" | "search" | "settings";

@@ -11,7 +11,7 @@ import {
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { Streamdown, defaultRemarkPlugins, type StreamdownProps } from "streamdown";
 import remarkMdx from "remark-mdx";
-import { Eye, FolderOpen, PencilLine, Save, Undo2 } from "lucide-react";
+import { Copy, Eye, FolderOpen, PencilLine, Save, Undo2 } from "lucide-react";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { Button } from "@tenas-ai/ui/button";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
@@ -43,6 +43,8 @@ interface MarkdownViewerProps {
   readOnly?: boolean;
   /** Chat session id for resolving chat history folder. */
   __chatHistorySessionId?: string;
+  /** Absolute chat history jsonl file path for the current displayed branch. */
+  __chatHistoryJsonlPath?: string;
 }
 
 type MdxAttribute = { name?: string };
@@ -313,6 +315,7 @@ export default function MarkdownViewer({
   projectId,
   readOnly,
   __chatHistorySessionId,
+  __chatHistoryJsonlPath,
 }: MarkdownViewerProps) {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
@@ -320,6 +323,8 @@ export default function MarkdownViewer({
   const hasInlineContent = typeof inlineContent === "string";
   const chatHistorySessionId =
     typeof __chatHistorySessionId === "string" ? __chatHistorySessionId.trim() : "";
+  const chatHistoryJsonlPath =
+    typeof __chatHistoryJsonlPath === "string" ? __chatHistoryJsonlPath.trim() : "";
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(
       !hasInlineContent && uri && workspaceId ? { workspaceId, projectId, uri } : skipToken
@@ -409,6 +414,29 @@ export default function MarkdownViewer({
       toast.error(res?.reason ?? "无法打开文件管理器");
     }
   }, [chatHistorySessionId, workspaceRootUri]);
+
+  /** Copy chat history jsonl file path for the current branch. */
+  const handleCopyChatHistoryJsonlPath = async () => {
+    if (!chatHistoryJsonlPath) {
+      toast.error("未找到聊天日志文件");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(chatHistoryJsonlPath);
+      toast.success("已复制聊天日志路径");
+    } catch {
+      // 逻辑：剪贴板 API 失败时使用降级复制，保证 Electron/Web 均可复制。
+      const textarea = document.createElement("textarea");
+      textarea.value = chatHistoryJsonlPath;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      toast.success("已复制聊天日志路径");
+    }
+  };
 
   /** Intercept Cmd/Ctrl+F to avoid triggering global search overlay. */
   const handleFindShortcut = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -524,15 +552,26 @@ export default function MarkdownViewer({
           }
           rightSlotBeforeClose={
             chatHistorySessionId ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleOpenChatHistoryFolder}
-                aria-label="打开日志目录"
-                title="打开日志目录"
-              >
-                <FolderOpen className="h-4 w-4" />
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleCopyChatHistoryJsonlPath}
+                  aria-label="复制日志路径"
+                  title="复制日志路径"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleOpenChatHistoryFolder}
+                  aria-label="打开日志目录"
+                  title="打开日志目录"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                </Button>
+              </>
             ) : null
           }
           showMinimize

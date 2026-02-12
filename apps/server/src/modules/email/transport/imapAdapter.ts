@@ -3,7 +3,7 @@ import { simpleParser } from "mailparser";
 import sanitizeHtml, { type IOptions } from "sanitize-html";
 
 import { logger } from "@/common/logger";
-import type { EmailTransportAdapter, TransportMailbox, TransportMessage } from "./types";
+import type { DownloadAttachmentResult, EmailTransportAdapter, TransportMailbox, TransportMessage } from "./types";
 
 /** IMAP close timeout in ms. */
 const CLOSE_TIMEOUT_MS = 5000;
@@ -519,6 +519,137 @@ export class ImapTransportAdapter implements EmailTransportAdapter {
         { accountEmail: this.config.user, mailboxPath, uid, flagged },
         "email message flagged updated",
       );
+    } finally {
+      if (imap) {
+        await safeCloseImap(imap, {
+          accountEmail: this.config.user,
+          mailboxPath,
+          uid,
+        });
+      }
+    }
+  }
+
+  /** Delete message via IMAP (add \Deleted flag + expunge). */
+  async deleteMessage(mailboxPath: string, externalId: string): Promise<void> {
+    const uid = parseInt(externalId, 10);
+    if (Number.isNaN(uid) || uid <= 0) {
+      throw new Error(`Invalid externalId: ${externalId}`);
+    }
+    let imap: Imap | null = null;
+    try {
+      imap = this.createImap();
+      await connectImap(imap);
+      await openMailbox(imap, mailboxPath, false);
+      await addImapFlags(imap, uid, ["\\Deleted"]);
+      await new Promise<void>((resolve, reject) => {
+        imap!.expunge((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+      logger.debug({ mailboxPath, uid }, "imap deleteMessage done");
+    } finally {
+      if (imap) {
+        await safeCloseImap(imap, { accountEmail: this.config.user, mailboxPath, uid });
+      }
+    }
+  }
+
+  /** Move message between IMAP mailboxes (copy + delete). */
+  async moveMessage(fromMailbox: string, toMailbox: string, externalId: string): Promise<void> {
+    const uid = parseInt(externalId, 10);
+    if (Number.isNaN(uid) || uid <= 0) {
+      throw new Error(`Invalid externalId: ${externalId}`);
+    }
+    let imap: Imap | null = null;
+    try {
+      imap = this.createImap();
+      await connectImap(imap);
+      await openMailbox(imap, fromMailbox, false);
+      // 逻辑：先复制到目标邮箱，再在源邮箱标记删除并清除。
+      await new Promise<void>((resolve, reject) => {
+        imap!.copy([uid], toMailbox, (error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+      await addImapFlags(imap, uid, ["\\Deleted"]);
+      await new Promise<void>((resolve, reject) => {
+        imap!.expunge((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+      logger.debug({ fromMailbox, toMailbox, uid }, "imap moveMessage done");
+    } finally {
+      if (imap) {
+        await safeCloseImap(imap, { accountEmail: this.config.user, fromMailbox, toMailbox, uid });
+      }
+    }
+  }
+
+  /** Test IMAP connection by listing mailboxes. */
+  async testConnection(): Promise<{ ok: boolean; error?: string }> {
+    let imap: Imap | null = null;
+    try {
+      imap = this.createImap();
+      await connectImap(imap);
+      await fetchImapMailboxes(imap);
+      return { ok: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: message };
+    } finally {
+      if (imap) {
+        await safeCloseImap(imap, { accountEmail: this.config.user });
+      }
+    }
+  }
+
+  /** Download attachment by index from IMAP message. */
+  async downloadAttachment(
+    mailboxPath: string,
+    externalId: string,
+    attachmentIndex: number,
+  ): Promise<DownloadAttachmentResult> {
+    const uid = parseInt(externalId, 10);
+    if (Number.isNaN(uid) || uid <= 0) {
+      throw new Error(`Invalid externalId: ${externalId}`);
+    }
+    let imap: Imap | null = null;
+    try {
+      imap = this.createImap();
+      await connectImap(imap);
+      await openMailbox(imap, mailboxPath, true);
+
+      const rawBuffer = await new Promise<Buffer>((resolve, reject) => {
+        const fetch = imap!.fetch([uid], { bodies: "", struct: true });
+        let buffer = Buffer.alloc(0);
+        fetch.on("message", (msg) => {
+          msg.on("body", (stream) => {
+            const chunks: Buffer[] = [];
+            stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+            stream.on("end", () => {
+              buffer = Buffer.concat(chunks);
+            });
+          });
+        });
+        fetch.on("error", reject);
+        fetch.on("end", () => resolve(buffer));
+      });
+
+      const parsed = await simpleParser(rawBuffer);
+      const attachments = parsed.attachments ?? [];
+      if (attachmentIndex < 0 || attachmentIndex >= attachments.length) {
+        throw new Error(`附件索引 ${attachmentIndex} 超出范围（共 ${attachments.length} 个附件）。`);
+      }
+      const att = attachments[attachmentIndex]!;
+      return {
+        filename: att.filename ?? "attachment",
+        contentType: att.contentType ?? "application/octet-stream",
+        content: att.content ?? Buffer.alloc(0),
+      };
     } finally {
       if (imap) {
         await safeCloseImap(imap, {

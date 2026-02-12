@@ -1,7 +1,7 @@
 import sanitizeHtml, { type IOptions } from "sanitize-html";
 
 import { logger } from "@/common/logger";
-import type { EmailTransportAdapter, TransportMailbox, TransportMessage } from "./types";
+import type { DownloadAttachmentResult, EmailTransportAdapter, SendMessageInput, SendMessageResult, TransportMailbox, TransportMessage } from "./types";
 
 /** Sanitize options for HTML email content. */
 const SANITIZE_OPTIONS: IOptions = {
@@ -356,6 +356,141 @@ export class GmailTransportAdapter implements EmailTransportAdapter {
     }
 
     logger.debug({ mailboxPath, externalId, flagged }, "gmail setFlagged done");
+  }
+
+  /** Delete message via Gmail API (move to trash). */
+  async deleteMessage(_mailboxPath: string, externalId: string): Promise<void> {
+    logger.debug({ externalId }, "gmail deleteMessage start");
+    const headers = await this.authHeaders();
+    const response = await fetch(
+      `${GMAIL_BASE}/messages/${encodeURIComponent(externalId)}/trash`,
+      { method: "POST", headers },
+    );
+    if (!response.ok) {
+      const body = await response.text();
+      logger.error({ status: response.status, body }, "gmail deleteMessage failed");
+      throw new Error(`Gmail deleteMessage failed: ${response.status}`);
+    }
+    logger.debug({ externalId }, "gmail deleteMessage done");
+  }
+
+  /** Move message via Gmail API (modify labels). */
+  async moveMessage(fromMailbox: string, toMailbox: string, externalId: string): Promise<void> {
+    logger.debug({ fromMailbox, toMailbox, externalId }, "gmail moveMessage start");
+    const headers = await this.authHeaders();
+    const response = await fetch(
+      `${GMAIL_BASE}/messages/${encodeURIComponent(externalId)}/modify`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          addLabelIds: [toMailbox],
+          removeLabelIds: [fromMailbox],
+        }),
+      },
+    );
+    if (!response.ok) {
+      const body = await response.text();
+      logger.error({ status: response.status, body }, "gmail moveMessage failed");
+      throw new Error(`Gmail moveMessage failed: ${response.status}`);
+    }
+    logger.debug({ fromMailbox, toMailbox, externalId }, "gmail moveMessage done");
+  }
+
+  /** Download attachment via Gmail API. */
+  async downloadAttachment(
+    _mailboxPath: string,
+    externalId: string,
+    attachmentIndex: number,
+  ): Promise<DownloadAttachmentResult> {
+    logger.debug({ externalId, attachmentIndex }, "gmail downloadAttachment start");
+    const headers = await this.authHeaders();
+
+    // 逻辑：先获取邮件元数据以找到附件 ID。
+    const msgResponse = await fetch(
+      `${GMAIL_BASE}/messages/${encodeURIComponent(externalId)}?format=full`,
+      { headers },
+    );
+    if (!msgResponse.ok) {
+      throw new Error(`Gmail getMessage failed: ${msgResponse.status}`);
+    }
+    const msgData = (await msgResponse.json()) as {
+      payload?: {
+        parts?: Array<{
+          filename?: string;
+          mimeType?: string;
+          body?: { attachmentId?: string; size?: number };
+        }>;
+      };
+    };
+
+    const parts = (msgData.payload?.parts ?? []).filter(
+      (p) => p.body?.attachmentId,
+    );
+    if (attachmentIndex < 0 || attachmentIndex >= parts.length) {
+      throw new Error(`附件索引 ${attachmentIndex} 超出范围。`);
+    }
+    const part = parts[attachmentIndex]!;
+    const attachmentId = part.body!.attachmentId!;
+
+    const attResponse = await fetch(
+      `${GMAIL_BASE}/messages/${encodeURIComponent(externalId)}/attachments/${encodeURIComponent(attachmentId)}`,
+      { headers },
+    );
+    if (!attResponse.ok) {
+      throw new Error(`Gmail downloadAttachment failed: ${attResponse.status}`);
+    }
+    const attData = (await attResponse.json()) as { data?: string };
+    const base64Data = (attData.data ?? "")
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+    const content = Buffer.from(base64Data, "base64");
+
+    return {
+      filename: part.filename ?? "attachment",
+      contentType: part.mimeType ?? "application/octet-stream",
+      content,
+    };
+  }
+
+  /** Send email via Gmail API. */
+  async sendMessage(input: SendMessageInput): Promise<SendMessageResult> {
+    logger.debug({ to: input.to }, "gmail sendMessage start");
+    const headers = await this.authHeaders();
+
+    const lines: string[] = [];
+    lines.push(`To: ${input.to.join(", ")}`);
+    if (input.cc?.length) lines.push(`Cc: ${input.cc.join(", ")}`);
+    if (input.bcc?.length) lines.push(`Bcc: ${input.bcc.join(", ")}`);
+    lines.push(`Subject: =?UTF-8?B?${Buffer.from(input.subject).toString("base64")}?=`);
+    lines.push("MIME-Version: 1.0");
+    if (input.inReplyTo) lines.push(`In-Reply-To: ${input.inReplyTo}`);
+    if (input.references?.length) lines.push(`References: ${input.references.join(" ")}`);
+    lines.push("Content-Type: text/plain; charset=UTF-8");
+    lines.push("");
+    lines.push(input.bodyText ?? "");
+
+    const raw = Buffer.from(lines.join("\r\n"))
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    const response = await fetch(`${GMAIL_BASE}/messages/send`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ raw }),
+    });
+
+    if (!response.ok) {
+      const respBody = await response.text();
+      logger.error({ status: response.status, body: respBody }, "gmail sendMessage failed");
+      throw new Error(`Gmail sendMessage failed: ${response.status}`);
+    }
+
+    const data = (await response.json()) as { id?: string };
+    logger.debug({ messageId: data.id }, "gmail sendMessage done");
+    return { ok: true, messageId: data.id };
   }
 
   /** No-op since Gmail uses stateless HTTP requests. */

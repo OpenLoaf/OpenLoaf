@@ -20,18 +20,19 @@ export default function EmailPage({
     workspaceId: workspace?.id,
   });
 
+  const showEditor =
+    detail.isForwarding && (detail.forwardDraft || detail.composeDraft);
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background text-foreground">
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <EmailSidebar sidebar={sidebar} />
+        <EmailSidebar sidebar={sidebar} onStartCompose={detail.onStartCompose} />
         <EmailMessageList messageList={messageList} />
         <section className="flex min-w-0 flex-1 flex-col bg-card min-h-0">
-          {detail.activeMessage ? (
-            detail.isForwarding && detail.forwardDraft ? (
-              <EmailForwardEditor detail={detail} />
-            ) : (
-              <EmailMessageDetail detail={detail} />
-            )
+          {showEditor ? (
+            <EmailForwardEditor detail={detail} />
+          ) : detail.activeMessage ? (
+            <EmailMessageDetail detail={detail} />
           ) : (
             <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
               选择一封邮件以查看详情

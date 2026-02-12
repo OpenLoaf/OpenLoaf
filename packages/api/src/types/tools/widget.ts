@@ -4,7 +4,7 @@ export const generateWidgetToolDef = {
   id: 'generate-widget',
   name: '生成动态 Widget',
   description:
-    'Generates a dynamic desktop widget by writing all required files (package.json, widget.tsx, functions.ts, .env) to ~/.tenas/dynamic-widgets/<widgetId>/. The widget will appear in the desktop widget library under "AI 生成" section.',
+    '触发：当你需要生成一个可用的动态桌面 Widget，并把完整文件写入本地时调用。用途：写入 package.json/widget.tsx/functions.ts/.env 等文件并注册到桌面组件库。返回：成功提示字符串，包含生成目录与 .env 填写提示（如有）；失败会报错。不适用：仅需示例代码或不希望写入文件时不要使用。',
   needsApproval: true,
   parameters: z.object({
     actionName: z

@@ -11,7 +11,7 @@ import {
   parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import type { DesktopIconKey, DesktopItem, DesktopScope } from "./types";
-import type { DesktopBreakpoint } from "./desktop-breakpoints";
+import type { DesktopBreakpoint, DesktopBreakpointLock } from "./desktop-breakpoints";
 import { getBreakpointConfig } from "./desktop-breakpoints";
 import DesktopGrid from "./DesktopGrid";
 import { desktopIconCatalog, getDesktopIconNode } from "./desktop-icon-catalog";
@@ -161,6 +161,8 @@ interface DesktopPageProps {
   editMode: boolean;
   /** Active breakpoint when editing. */
   activeBreakpoint: DesktopBreakpoint;
+  /** Optional breakpoint lock in edit mode. */
+  editBreakpointLock?: DesktopBreakpointLock;
   /** Notify view-mode breakpoint changes. */
   onViewBreakpointChange?: (breakpoint: DesktopBreakpoint) => void;
   /** Update edit mode. */
@@ -183,6 +185,7 @@ export default function DesktopPage({
   scope,
   editMode,
   activeBreakpoint,
+  editBreakpointLock,
   onViewBreakpointChange,
   onSetEditMode,
   onUpdateItem,
@@ -191,7 +194,9 @@ export default function DesktopPage({
   compactSignal,
   bottomPadding,
 }: DesktopPageProps) {
-  const editMaxWidth = editMode ? getEditMaxWidth(activeBreakpoint) : undefined;
+  const lock = editBreakpointLock ?? "auto";
+  // 中文注释：只有手动锁定断点时才钳制宽度，避免编辑态自锁。
+  const editMaxWidth = editMode && lock !== "auto" ? getEditMaxWidth(lock) : undefined;
   const projectListQuery = useProjects();
   const projectRoots = React.useMemo(
     () => flattenProjectTree(projectListQuery.data),

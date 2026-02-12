@@ -78,6 +78,21 @@ export type ForwardDraft = {
   body: string;
 };
 
+export type ComposeMode = "compose" | "reply" | "replyAll" | "forward";
+
+export type ComposeDraft = {
+  mode: ComposeMode;
+  to: string;
+  cc: string;
+  bcc: string;
+  subject: string;
+  body: string;
+  inReplyTo?: string;
+  references?: string[];
+  /** 发送时使用的账号邮箱。 */
+  accountEmail?: string;
+};
+
 export type EmailMailboxView = {
   /** Mailbox path. */
   path: string;

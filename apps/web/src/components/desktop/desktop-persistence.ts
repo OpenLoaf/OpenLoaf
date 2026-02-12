@@ -40,6 +40,7 @@ type DesktopFileItem = {
   params?: Record<string, unknown>;
   layout?: DesktopItemLayout;
   layoutByBreakpoint: Record<DesktopBreakpoint, DesktopItemLayout>;
+  customizedBreakpoints?: DesktopBreakpoint[];
 };
 
 const THREE_D_FOLDER_CONSTRAINTS: DesktopWidgetConstraints = {
@@ -92,6 +93,9 @@ export function serializeDesktopItems(items: DesktopItem[]): DesktopFilePayload 
         iconKey: item.iconKey,
         pinned: item.pinned,
         layoutByBreakpoint,
+        customizedBreakpoints: item.customizedBreakpoints?.length
+          ? item.customizedBreakpoints
+          : undefined,
       };
     }
 
@@ -125,6 +129,9 @@ export function serializeDesktopItems(items: DesktopItem[]): DesktopFilePayload 
       pinned: item.pinned,
       params,
       layoutByBreakpoint,
+      customizedBreakpoints: item.customizedBreakpoints?.length
+        ? item.customizedBreakpoints
+        : undefined,
     };
   });
 
@@ -144,6 +151,13 @@ export function deserializeDesktopItems(raw: string): DesktopItem[] | null {
       return null;
     }
 
+    const validBps = new Set<string>(["sm", "md", "lg"]);
+    const parseCustomizedBps = (raw: unknown): DesktopBreakpoint[] | undefined => {
+      if (!Array.isArray(raw)) return undefined;
+      const filtered = raw.filter((v): v is DesktopBreakpoint => validBps.has(v));
+      return filtered.length > 0 ? filtered : undefined;
+    };
+
     return payload.items
       .map((item): DesktopItem | null => {
         if (!item || !item.id || !item.kind) return null;
@@ -162,6 +176,7 @@ export function deserializeDesktopItems(raw: string): DesktopItem[] | null {
             pinned: item.pinned,
             layout: fallbackLayout,
             layoutByBreakpoint,
+            customizedBreakpoints: parseCustomizedBps(item.customizedBreakpoints),
           };
         }
 
@@ -227,6 +242,7 @@ export function deserializeDesktopItems(raw: string): DesktopItem[] | null {
               : undefined,
           layout: fallbackLayout,
           layoutByBreakpoint,
+          customizedBreakpoints: parseCustomizedBps(item.customizedBreakpoints),
         };
       })
       .filter((item): item is DesktopItem => Boolean(item));

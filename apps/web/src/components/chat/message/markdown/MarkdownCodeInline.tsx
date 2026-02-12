@@ -1,8 +1,9 @@
 "use client";
 
+import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export default function MarkdownCode({
+export default React.memo(function MarkdownCodeInline({
   className,
   children,
   ...props
@@ -21,4 +22,4 @@ export default function MarkdownCode({
       {children as any}
     </code>
   );
-}
+});

@@ -14,6 +14,7 @@ import { registerS3TestRoutes } from "@/modules/storage/s3TestRoutes";
 import { registerCloudModelRoutes } from "@/ai/models/cloudModelRoutes";
 import { registerHlsRoutes } from "@/modules/media/hlsRoutes";
 import { registerEmailOAuthRoutes } from "@/modules/email/oauth/emailOAuthRoutes";
+import { registerEmailAttachmentRoutes } from "@/modules/email/emailAttachmentRoutes";
 import { registerLocalAuthRoutes } from "@/modules/local-auth/localAuthRoutes";
 import { localAuthGuard } from "@/modules/local-auth/localAuthGuard";
 import { workspaceRouterImplementation } from "@/routers/workspace";
@@ -89,6 +90,7 @@ export function createApp() {
   registerS3TestRoutes(app);
   registerHlsRoutes(app);
   registerEmailOAuthRoutes(app);
+  registerEmailAttachmentRoutes(app);
 
   app.use(
     "/trpc/*",

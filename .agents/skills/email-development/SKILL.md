@@ -1,15 +1,18 @@
 ---
 name: email-development
-description: Use when developing, extending, or debugging the email module (account config, IMAP/SMTP sync, OAuth2 Graph/Gmail, transport adapters, idle/polling listeners, email router, email DB schema) or its tests
+description: Use when developing, extending, or debugging the email module — covers account config, IMAP/SMTP sync, OAuth2 Graph/Gmail, transport adapters, idle/polling, email sending (SMTP/Gmail/Graph), attachment download, message move/delete, draft auto-save, batch operations, search, compose/reply/forward UI, or related DB schema and tests
 ---
 
 # Email Development
 
 ## Overview
 
-邮箱模块覆盖账号配置、多协议传输（IMAP/SMTP + Microsoft Graph API + Gmail API）、OAuth2 授权流程、邮件夹与消息同步、邮件标记更新，以及 IDLE/轮询监听触发增量同步。
+邮箱模块覆盖完整收发链路：
 
-配置落地在 workspace 根目录的 `email.json`，密码与 OAuth 令牌落入 `apps/server/.env`（可用 `TENAS_SERVER_ENV_PATH` 覆盖）；数据持久化到 Prisma 模型 `EmailMessage` / `EmailMailbox`。Web 端包含 Desktop 收件箱 widget，用于展示统一收件箱列表。
+- **收侧**：账号配置、多协议传输（IMAP/SMTP + Microsoft Graph API + Gmail API）、OAuth2 授权、邮件夹与消息同步、标记更新、IDLE/轮询监听
+- **写侧**：邮件发送（SMTP / Gmail API / Graph API）、撰写/回复/全部回复/转发、附件下载、消息移动/删除、草稿自动保存、批量操作、服务端搜索
+
+配置落地在 workspace 根目录的 `email.json`，密码与 OAuth 令牌落入 `apps/server/.env`（可用 `TENAS_SERVER_ENV_PATH` 覆盖）；数据持久化到 Prisma 模型 `EmailMessage` / `EmailMailbox` / `EmailDraft`。Web 端包含 Desktop 收件箱 widget 和完整的撰写编辑器。
 
 ### 认证方式
 
@@ -29,6 +32,13 @@ description: Use when developing, extending, or debugging the email module (acco
 - 调整 IDLE 监听或 OAuth 轮询逻辑
 - 修改邮件相关 DB schema 或 API schema
 - 修改前端邮箱添加对话框、服务商预设、OAuth 弹窗流程
+- 开发或调试邮件发送功能（SMTP / Gmail API / Graph API）
+- 修改撰写/回复/全部回复/转发编辑器
+- 开发附件下载端点或前端下载链接
+- 修改消息移动/删除逻辑
+- 开发草稿自动保存或草稿管理
+- 修改批量操作（批量标记已读/删除/移动）
+- 修改服务端搜索功能
 
 ## Quick Reference
 
@@ -36,13 +46,16 @@ description: Use when developing, extending, or debugging the email module (acco
 
 | 层 | 路径 | 职责 |
 |----|------|------|
-| **DB Schema** | `packages/db/prisma/schema/email.prisma` | `EmailMessage`（`externalId` 字段）/ `EmailMailbox` |
-| **API Schema** | `packages/api/src/routers/email.ts` | tRPC schema（`addAccount` 为 discriminatedUnion：password / oauth2-graph / oauth2-gmail） |
-| **Transport Types** | `apps/server/src/modules/email/transport/types.ts` | `EmailTransportAdapter` 接口、`TransportMessage`、`TransportMailbox` |
-| **IMAP Adapter** | `apps/server/src/modules/email/transport/imapAdapter.ts` | IMAP 协议传输实现 |
-| **Graph Adapter** | `apps/server/src/modules/email/transport/graphAdapter.ts` | Microsoft Graph API 传输实现 |
-| **Gmail Adapter** | `apps/server/src/modules/email/transport/gmailAdapter.ts` | Gmail API 传输实现 |
+| **DB Schema** | `packages/db/prisma/schema/email.prisma` | `EmailMessage`（`externalId` 字段）/ `EmailMailbox` / `EmailDraft` |
+| **API Schema** | `packages/api/src/routers/email.ts` | tRPC schema（`addAccount` 为 discriminatedUnion；含 `sendMessage`、`deleteMessage`、`moveMessage`、`saveDraft`、`listDrafts`、`batchMarkRead`、`batchDelete`、`batchMove`、`searchMessages` 等） |
+| **Transport Types** | `apps/server/src/modules/email/transport/types.ts` | `EmailTransportAdapter` 接口、`TransportMessage`、`TransportMailbox`、`SendMessageInput`、`DownloadAttachmentResult` |
+| **IMAP Adapter** | `apps/server/src/modules/email/transport/imapAdapter.ts` | IMAP 协议传输实现（含 downloadAttachment / deleteMessage / moveMessage / testConnection） |
+| **Graph Adapter** | `apps/server/src/modules/email/transport/graphAdapter.ts` | Microsoft Graph API 传输实现（含 sendMessage / downloadAttachment / deleteMessage / moveMessage） |
+| **Gmail Adapter** | `apps/server/src/modules/email/transport/gmailAdapter.ts` | Gmail API 传输实现（含 sendMessage / downloadAttachment / deleteMessage / moveMessage） |
+| **SMTP Sender** | `apps/server/src/modules/email/transport/smtpSender.ts` | nodemailer SMTP 发送 + 连接测试 |
 | **Transport Factory** | `apps/server/src/modules/email/transport/factory.ts` | `createTransport(account, options?)` 工厂 |
+| **Send Service** | `apps/server/src/modules/email/emailSendService.ts` | 统一发送路由：password→SMTP，oauth2-gmail→Gmail API，oauth2-graph→Graph API |
+| **Attachment Routes** | `apps/server/src/modules/email/emailAttachmentRoutes.ts` | Hono `GET /api/email/attachment` 二进制下载端点 |
 | **OAuth Types** | `apps/server/src/modules/email/oauth/types.ts` | `OAuthProviderConfig`、`OAuthTokenSet`、`OAuthState` |
 | **OAuth Providers** | `apps/server/src/modules/email/oauth/providers.ts` | Microsoft / Google 提供商配置 |
 | **OAuth Flow** | `apps/server/src/modules/email/oauth/oauthFlow.ts` | PKCE 生成、授权 URL、code 交换、用户邮箱获取 |
@@ -55,12 +68,16 @@ description: Use when developing, extending, or debugging the email module (acco
 | **Idle Manager** | `apps/server/src/modules/email/emailIdleManager.ts` | IMAP IDLE + OAuth 轮询（60s 间隔） |
 | **Env Store** | `apps/server/src/modules/email/emailEnvStore.ts` | `.env` 读写（密码 + OAuth 令牌） |
 | **Flags** | `apps/server/src/modules/email/emailFlags.ts` | 邮件标记工具函数 |
-| **Server Router** | `apps/server/src/routers/email.ts` | tRPC 实现（`EmailRouterImpl`） |
-| **Route Registration** | `apps/server/src/bootstrap/createApp.ts` | `registerEmailOAuthRoutes(app)` |
+| **Server Router** | `apps/server/src/routers/email.ts` | tRPC 实现（`EmailRouterImpl`）— 含 sendMessage / deleteMessage / moveMessage / saveDraft / listDrafts / getDraft / deleteDraft / batchMarkRead / batchDelete / batchMove / searchMessages |
+| **Route Registration** | `apps/server/src/bootstrap/createApp.ts` | `registerEmailOAuthRoutes(app)` + `registerEmailAttachmentRoutes(app)` |
 | **Provider Presets** | `apps/web/src/components/email/email-provider-presets.ts` | 服务商预设（含 `authType` / `oauthProvider`） |
-| **Types (Web)** | `apps/web/src/components/email/email-types.ts` | 前端表单状态（含 `authType` / `oauthAuthorized`） |
+| **Types (Web)** | `apps/web/src/components/email/email-types.ts` | 前端表单状态（含 `authType` / `oauthAuthorized` / `ComposeMode` / `ComposeDraft`） |
 | **Add Dialog** | `apps/web/src/components/email/EmailAddAccountDialog.tsx` | 添加账号对话框（OAuth 弹窗 + 密码表单） |
-| **Page State** | `apps/web/src/components/email/use-email-page-state.ts` | 邮箱页面状态管理（含 OAuth 流程） |
+| **Page State** | `apps/web/src/components/email/use-email-page-state.ts` | 邮箱页面状态管理（含 OAuth 流程、compose/reply/send/delete/draft 状态和 mutations） |
+| **Compose Editor** | `apps/web/src/components/email/EmailForwardEditor.tsx` | 撰写/回复/全部回复/转发编辑器（多模式） |
+| **Message Detail** | `apps/web/src/components/email/EmailMessageDetail.tsx` | 邮件详情（含回复/全部回复/删除按钮、附件下载链接） |
+| **Email Page** | `apps/web/src/components/email/EmailPage.tsx` | 邮箱主页面（含撰写编辑器显示逻辑） |
+| **Sidebar** | `apps/web/src/components/email/EmailSidebar.tsx` | 邮箱侧边栏（含"写邮件"按钮） |
 
 ### Core Flow
 
@@ -80,11 +97,51 @@ IMAP 账号: EmailIdleManager → IMAP IDLE 连接 → 收到 mail 事件 → tr
 OAuth 账号: EmailIdleManager → 60s 轮询定时器 → triggerSync
 ```
 
+#### 邮件发送
+```
+UI 点击发送 → sendMessage mutation → emailSendService.sendEmail(workspaceId, accountEmail, input)
+  → 读取 emailConfigStore 获取账号配置
+  → 根据 auth.type 路由:
+    password → smtpSender.sendViaSMTP(smtpConfig, input)
+    oauth2-gmail → gmailAdapter.sendMessage(input)  (构造 RFC 822 → base64url → POST users.messages.send)
+    oauth2-graph → graphAdapter.sendMessage(input)   (POST /me/sendMail JSON payload)
+```
+
+#### 撰写/回复/转发
+```
+写邮件: onStartCompose → 创建空 ComposeDraft(mode:"compose") → 显示编辑器
+回复:   onStartReply → 从当前消息提取 to/subject/inReplyTo → ComposeDraft(mode:"reply")
+全部回复: onStartReplyAll → 提取 to+cc/subject/inReplyTo → ComposeDraft(mode:"replyAll")
+转发:   已有 forwardDraft 机制 → ComposeDraft(mode:"forward")
+```
+
+#### 附件下载
+```
+前端 <a href="/api/email/attachment?workspaceId=...&messageId=...&index=..."> → Hono 端点
+  → 查 DB 获取 message → createTransport → adapter.downloadAttachment(mailboxPath, externalId, index)
+  → 返回 Buffer + Content-Disposition: attachment
+```
+
+#### 草稿自动保存
+```
+编辑器内容变更 → 3s debounce → saveDraft mutation → DB upsert EmailDraft
+取消/发送成功 → deleteDraft mutation → 清除 DB 记录
+```
+
+#### 批量操作
+```
+batchMarkRead: 遍历 messageIds → adapter.markAsRead + DB 更新
+batchDelete:   遍历 messageIds → adapter.deleteMessage + DB 删除
+batchMove:     遍历 messageIds → adapter.moveMessage + DB 更新 mailboxPath
+```
+
 ### DB Schema 关键字段
 
 - `EmailMessage.externalId` (String): IMAP UID 字符串化 或 API message ID
 - `EmailMessage.mailboxPath` (String): IMAP mailbox 路径 或 API folder ID
 - 唯一约束: `@@unique([workspaceId, accountEmail, mailboxPath, externalId])`
+- `EmailDraft`: 草稿模型，字段含 mode（compose/reply/replyAll/forward）、to/cc/bcc（JSON 数组）、subject、body、inReplyTo、references、accountEmail
+- `EmailDraft` 唯一约束: `@@unique([workspaceId, accountEmail, inReplyTo])`（同一封邮件只保留一份草稿）
 
 ### Auth Schema (email.json)
 
@@ -109,11 +166,18 @@ OAuth 账号: EmailIdleManager → 60s 轮询定时器 → triggerSync
 ```typescript
 interface EmailTransportAdapter {
   type: "imap" | "graph" | "gmail";
+  // 收侧
   listMailboxes(): Promise<TransportMailbox[]>;
   fetchRecentMessages(mailboxPath: string, limit: number, sinceExternalId?: string): Promise<TransportMessage[]>;
   markAsRead(mailboxPath: string, externalId: string): Promise<void>;
   setFlagged(mailboxPath: string, externalId: string, flagged: boolean): Promise<void>;
   dispose(): Promise<void>;
+  // 写侧（可选）
+  sendMessage?(input: SendMessageInput): Promise<SendMessageResult>;
+  downloadAttachment?(mailboxPath: string, externalId: string, attachmentIndex: number): Promise<DownloadAttachmentResult>;
+  moveMessage?(fromMailbox: string, toMailbox: string, externalId: string): Promise<void>;
+  deleteMessage?(mailboxPath: string, externalId: string): Promise<void>;
+  testConnection?(): Promise<{ success: boolean; error?: string }>;
 }
 ```
 
@@ -142,6 +206,13 @@ interface EmailTransportAdapter {
 - OAuth 令牌刷新失败时未正确回退（tokenManager 有 5 分钟缓冲）
 - 新增 OAuth 提供商时忘记在 `providers.ts`、`email-provider-presets.ts`、`emailConfigStore.ts` auth schema 三处同步添加
 - DB 查询使用 `uid` 而非 `externalId`（已从 Int 迁移为 String）
+- Gmail API 发送时 body 必须构造完整 RFC 822 MIME 消息并 base64url 编码（不是普通 base64）
+- 附件下载走 Hono HTTP 端点（`/api/email/attachment`）而非 tRPC — tRPC 不适合传输二进制大文件
+- `emailSendService` 路由逻辑：password→SMTP，oauth2-gmail→Gmail API，oauth2-graph→Graph API，新增认证类型时需同步更新
+- 前端 `ComposeDraft` 的 `mode` 字段决定编辑器行为（compose/reply/replyAll/forward），切换模式时需正确设置 inReplyTo/references
+- 草稿自动保存使用 3s debounce，发送成功或取消时需调用 `deleteDraft` 清理 DB 记录
+- 批量操作需逐条调用 adapter 方法（无批量 API），大量操作时注意性能
+- `searchMessages` 当前为本地 DB 搜索（subject/snippet contains），非服务端 IMAP/API 搜索
 
 ## Skill Sync Policy
 
@@ -158,6 +229,7 @@ interface EmailTransportAdapter {
 - `apps/web/src/components/email/**`
 - `apps/server/src/modules/email/__tests__/**`
 - `apps/server/src/routers/__tests__/emailRouter.test.ts`
-- `apps/server/src/bootstrap/createApp.ts`（OAuth 路由注册）
+- `apps/server/src/bootstrap/createApp.ts`（OAuth 路由 + 附件下载路由注册）
+- `apps/server/package.json`（nodemailer 依赖）
 
 同步要求：提交代码前，确保本 skill 的 Overview / Quick Reference / Core Flow 与实际实现一致。

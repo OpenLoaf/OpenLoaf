@@ -9,6 +9,7 @@ import {
   getBreakpointForWidth,
   getItemLayoutForBreakpoint,
   updateItemLayoutForBreakpoint,
+  reflowItemsFromBreakpoint,
   type DesktopBreakpoint,
 } from "./desktop-breakpoints";
 import DesktopTileGridstack from "./DesktopTileGridstack";
@@ -145,12 +146,10 @@ export default function DesktopGrid({
 
   const resolvedBreakpoint = React.useMemo(
     () =>
-      editMode
-        ? activeBreakpoint
-        : effectiveWidth > 0
-          ? getBreakpointForWidth(effectiveWidth)
-          : "lg",
-    [activeBreakpoint, editMode, effectiveWidth]
+      effectiveWidth > 0
+        ? getBreakpointForWidth(effectiveWidth)
+        : "lg",
+    [effectiveWidth]
   );
 
   const breakpointRef = React.useRef(resolvedBreakpoint);
@@ -159,9 +158,8 @@ export default function DesktopGrid({
   }, [resolvedBreakpoint]);
 
   React.useEffect(() => {
-    if (editMode) return;
     onViewBreakpointChange?.(resolvedBreakpoint);
-  }, [editMode, onViewBreakpointChange, resolvedBreakpoint]);
+  }, [onViewBreakpointChange, resolvedBreakpoint]);
 
   // 逻辑：依据字号档位缩放网格尺寸，避免大字号导致布局溢出。
   const fontScale = React.useMemo(() => {
@@ -226,7 +224,7 @@ export default function DesktopGrid({
       const current = itemsRef.current;
       const active = breakpointRef.current;
       let changed = false;
-      const next = current.map((item) => {
+      let next = current.map((item) => {
         const node = nodeById.get(item.id);
         if (!node) return item;
         const x = node.x ?? 0;
@@ -239,6 +237,11 @@ export default function DesktopGrid({
         changed = true;
         return updateItemLayoutForBreakpoint(item, active, nextLayout);
       });
+
+      // lg 编辑时自动级联 reflow 到非 customized 的 sm/md。
+      if (changed && active === "lg") {
+        next = reflowItemsFromBreakpoint(next, "lg");
+      }
 
       if (changed) onChangeItems(next);
     };
@@ -254,7 +257,7 @@ export default function DesktopGrid({
 
       let changed = false;
       const active = breakpointRef.current;
-      const next = itemsRef.current.map((item) => {
+      let next = itemsRef.current.map((item) => {
         const node = nodeById.get(item.id);
         if (!node) return item;
         const nextLayout = {
@@ -268,6 +271,11 @@ export default function DesktopGrid({
         changed = true;
         return updateItemLayoutForBreakpoint(item, active, nextLayout);
       });
+
+      // lg 编辑时自动级联 reflow 到非 customized 的 sm/md。
+      if (changed && active === "lg") {
+        next = reflowItemsFromBreakpoint(next, "lg");
+      }
 
       if (changed) onChangeItems(next);
     };
@@ -308,24 +316,91 @@ export default function DesktopGrid({
     }
   }, [enableGridAnimation]);
 
-  React.useEffect(() => {
-    const grid = gridRef.current;
-    if (!grid) return;
-    grid.setStatic(!editMode);
-  }, [editMode]);
 
   React.useEffect(() => {
     const grid = gridRef.current;
-    if (!grid) return;
+    const containerEl = gridContainerRef.current;
+    if (!grid || !containerEl) return;
 
+    // 断点切换时临时禁用碰撞检测，确保 item 能精确放到目标断点的存储位置。
+    // 编辑态下 Gridstack 的碰撞检测会把 item 推开，导致恢复 lg 布局时位置错乱。
+    suppressChangeRef.current = true;
     syncingRef.current = true;
-    grid.batchUpdate();
-    grid.column(metrics.cols, "move");
+    // 逻辑：断点切换时临时禁用动画，避免动画期间的中间态 change 事件
+    // 覆盖正确的目标布局（编辑模式下 onChange 会处理 change 事件）。
+    const hadAnimation = containerEl.classList.contains('grid-stack-animate');
+    if (hadAnimation) containerEl.classList.remove('grid-stack-animate');
+    grid.setStatic(true);
+
+    // 逻辑：grid.column() 内部会调用 engine.columnChanged()，
+    // 而 columnChanged() 自己管理 batchUpdate()/batchUpdate(false)。
+    // 如果在外层 batchUpdate 内调用 column()，嵌套 batch 会导致：
+    // 1. 内层 batchUpdate(false) 提前结束 batchMode，后续 update() 不再被 batch
+    // 2. 外层 batchUpdate(false) 时 _prevFloat 已被删除，float 变为 undefined
+    //    → _packNodes() 按非浮动模式执行重力堆叠，破坏目标布局
+    // 因此必须在 batchUpdate() 之前完成 column/cellHeight/margin 的更新。
+    grid.column(metrics.cols, 'none');
     grid.cellHeight(metrics.cell);
     grid.margin(metrics.gap);
+
+    grid.batchUpdate();
+
+    // 仅用于渲染/更新 grid 的"视图布局"，不写回 items，避免窗口尺寸变化污染原始布局。
+    const viewItems = items.map((item) => {
+      const layout = getItemLayoutForBreakpoint(item, resolvedBreakpoint);
+      return clampItemToCols(
+        { ...item, layout },
+        metrics.cols,
+        layout
+      );
+    });
+
+    // 逻辑：新添加的 DOM 需要主动注册到 Gridstack，确保使用完整的尺寸。
+    const registeredIds = registeredIdsRef.current;
+    const nextIds = new Set(viewItems.map((item) => item.id));
+    for (const id of registeredIds) {
+      if (!nextIds.has(id)) registeredIds.delete(id);
+    }
+
+    for (const item of viewItems) {
+      const el = itemElByIdRef.current.get(item.id);
+      if (!el) continue;
+      if (!registeredIds.has(item.id)) {
+        grid.makeWidget(el);
+        registeredIds.add(item.id);
+      }
+      // 逻辑：固定组件禁止拖拽/缩放，且不允许其他组件挤占。
+      const pinned = item.pinned ?? false;
+      grid.update(el, {
+        ...item.layout,
+        noMove: pinned,
+        noResize: pinned,
+        locked: pinned,
+      });
+    }
+
     grid.batchUpdate(false);
+    // 恢复编辑态的可交互状态。
+    grid.setStatic(!editMode);
     syncingRef.current = false;
-  }, [metrics.cell, metrics.cols, metrics.gap]);
+    // 逻辑：先等一帧让位置跳转生效，再恢复动画和取消事件抑制。
+    // setTimeout(0) 太早——动画期间 Gridstack 会触发 change 事件，
+    // 把中间态位置写回 lg 布局，导致编辑模式下缩放后无法恢复。
+    requestAnimationFrame(() => {
+      if (hadAnimation) containerEl.classList.add('grid-stack-animate');
+      suppressChangeRef.current = false;
+    });
+
+    if (!didSetReadyRef.current) {
+      didSetReadyRef.current = true;
+      requestAnimationFrame(() => {
+        setIsGridReady(true);
+        if (!hasShownGridRef.current) {
+          hasShownGridRef.current = true;
+        }
+      });
+    }
+  }, [editMode, items, metrics.cell, metrics.cols, metrics.gap, resolvedBreakpoint]);
 
   React.useEffect(() => {
     const grid = gridRef.current;
@@ -365,59 +440,6 @@ export default function DesktopGrid({
       suppressChangeRef.current = false;
     }, 0);
   }, [compactSignal, editMode, onChangeItems]);
-
-  React.useEffect(() => {
-    const grid = gridRef.current;
-    if (!grid) return;
-
-    // 仅用于渲染/更新 grid 的“视图布局”，不写回 items，避免窗口尺寸变化污染原始布局。
-    const viewItems = items.map((item) => {
-      const layout = getItemLayoutForBreakpoint(item, resolvedBreakpoint);
-      return clampItemToCols(
-        { ...item, layout },
-        metrics.cols,
-        layout
-      );
-    });
-
-    // 逻辑：新添加的 DOM 需要主动注册到 Gridstack，确保使用完整的尺寸。
-    const registeredIds = registeredIdsRef.current;
-    const nextIds = new Set(viewItems.map((item) => item.id));
-    for (const id of registeredIds) {
-      if (!nextIds.has(id)) registeredIds.delete(id);
-    }
-
-    syncingRef.current = true;
-    grid.batchUpdate();
-    for (const item of viewItems) {
-      const el = itemElByIdRef.current.get(item.id);
-      if (!el) continue;
-      if (!registeredIds.has(item.id)) {
-        grid.makeWidget(el);
-        registeredIds.add(item.id);
-      }
-      // 逻辑：固定组件禁止拖拽/缩放，且不允许其他组件挤占。
-      const pinned = item.pinned ?? false;
-      grid.update(el, {
-        ...item.layout,
-        noMove: pinned,
-        noResize: pinned,
-        locked: pinned,
-      });
-    }
-    grid.batchUpdate(false);
-    syncingRef.current = false;
-
-    if (!didSetReadyRef.current) {
-      didSetReadyRef.current = true;
-      requestAnimationFrame(() => {
-        setIsGridReady(true);
-        if (!hasShownGridRef.current) {
-          hasShownGridRef.current = true;
-        }
-      });
-    }
-  }, [editMode, items, metrics.cols, resolvedBreakpoint]);
 
   return (
     <div ref={wrapperRef} className="relative min-h-full w-full">

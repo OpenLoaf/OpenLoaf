@@ -10,6 +10,7 @@ import MessageError from "./tools/MessageError";
 import { AnimatePresence } from "motion/react";
 import { messageHasVisibleContent } from "@/lib/chat/message-visible";
 import { incrementChatPerf } from "@/lib/chat/chat-perf";
+import { useStreamingMessageBuffer } from "../hooks/use-streaming-message-buffer";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -27,6 +28,11 @@ export default function MessageList({ className }: MessageListProps) {
   // 中文注释：统计渲染频率，用于定位流式渲染压力。
   incrementChatPerf("render.messageList");
   const { messages, status, error, isHistoryLoading, stepThinking } = useChatState();
+  const { staticMessages, streamingMessage } = useStreamingMessageBuffer({
+    messages,
+    status,
+    isHistoryLoading,
+  });
   const listContainerRef = React.useRef<HTMLDivElement | null>(null);
   const [selectionText, setSelectionText] = React.useState("");
   const selectionTextRef = React.useRef(selectionText);
@@ -35,25 +41,29 @@ export default function MessageList({ className }: MessageListProps) {
     selectionTextRef.current = selectionText;
   }, [selectionText]);
 
+  const displayMessages = React.useMemo(
+    () => (streamingMessage ? [...staticMessages, streamingMessage] : staticMessages),
+    [staticMessages, streamingMessage]
+  );
   const lastHumanIndex = React.useMemo(
-    () => (messages as any[]).findLastIndex((m) => m?.role === "user"),
-    [messages]
+    () => (displayMessages as any[]).findLastIndex((m) => m?.role === "user"),
+    [displayMessages]
   );
   const lastAiIndex = React.useMemo(
-    () => (messages as any[]).findLastIndex((m) => m?.role !== "user"),
-    [messages]
+    () => (displayMessages as any[]).findLastIndex((m) => m?.role !== "user"),
+    [displayMessages]
   );
   const lastVisibleAiIndex = React.useMemo(
     () =>
-      (messages as any[]).findLastIndex(
+      (displayMessages as any[]).findLastIndex(
         (m) => m?.role !== "user" && messageHasVisibleContent(m)
       ),
-    [messages]
+    [displayMessages]
   );
   // 中文注释：动作栏的“最后一条 assistant”以可见内容为准，避免空占位导致闪烁。
   const lastAiActionIndex = lastVisibleAiIndex >= 0 ? lastVisibleAiIndex : lastAiIndex;
   const hideAiActions = status === "submitted" || status === "streaming";
-  const lastMessageIsAssistant = messages[messages.length - 1]?.role !== "user";
+  const lastMessageIsAssistant = displayMessages[displayMessages.length - 1]?.role !== "user";
   // 空态时展示提示卡片。
   const shouldShowHelper = !isHistoryLoading && messages.length === 0;
 
@@ -81,6 +91,41 @@ export default function MessageList({ className }: MessageListProps) {
       </div>
     );
   }
+
+  const staticNodes = React.useMemo(
+    () =>
+      (staticMessages as any[]).map((message, index) => (
+        <MessageItem
+          key={message?.id ?? `m_${index}`}
+          message={message}
+          isLastHumanMessage={index === lastHumanIndex}
+          isLastAiMessage={index === lastAiIndex}
+          isLastAiActionMessage={index === lastAiActionIndex}
+          // 中文注释：流式/提交中仅隐藏“当前最后一条 assistant”的操作，不影响历史消息。
+          hideAiActions={hideAiActions && lastMessageIsAssistant && index === lastAiIndex}
+        />
+      )),
+    [
+      staticMessages,
+      lastHumanIndex,
+      lastAiIndex,
+      lastAiActionIndex,
+      hideAiActions,
+      lastMessageIsAssistant,
+    ]
+  );
+
+  const streamingNode = streamingMessage ? (
+    <MessageItem
+      key={streamingMessage?.id ?? "m_streaming"}
+      message={streamingMessage as any}
+      isLastHumanMessage={staticMessages.length === lastHumanIndex}
+      isLastAiMessage={staticMessages.length === lastAiIndex}
+      isLastAiActionMessage={staticMessages.length === lastAiActionIndex}
+      // 中文注释：流式态的最后一条 assistant 需要隐藏动作。
+      hideAiActions={hideAiActions && lastMessageIsAssistant}
+    />
+  ) : null;
 
   return (
     <ContextMenu>
@@ -115,17 +160,8 @@ export default function MessageList({ className }: MessageListProps) {
             className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden !select-text [&_*:not(summary)]:!select-text"
           >
             <div className="min-h-full w-full min-w-0 space-y-4 pb-4 flex flex-col">
-              {(messages as any[]).map((message, index) => (
-                <MessageItem
-                  key={message?.id ?? `m_${index}`}
-                  message={message}
-                  isLastHumanMessage={index === lastHumanIndex}
-                  isLastAiMessage={index === lastAiIndex}
-                  isLastAiActionMessage={index === lastAiActionIndex}
-                  // 中文注释：流式/提交中仅隐藏“当前最后一条 assistant”的操作，不影响历史消息。
-                  hideAiActions={hideAiActions && lastMessageIsAssistant && index === lastAiIndex}
-                />
-              ))}
+              {staticNodes}
+              {streamingNode}
 
               <AnimatePresence initial={false}>
                 {shouldShowThinking ? <MessageThinking /> : null}

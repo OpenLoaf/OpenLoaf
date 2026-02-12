@@ -16,6 +16,7 @@ const calendarSourceSchema = z.object({
   color: z.string().nullable().optional(),
   readOnly: z.boolean(),
   isSubscribed: z.boolean(),
+  projectId: z.string().nullable().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });
@@ -79,7 +80,10 @@ const syncItemInputSchema = z.object({
 
 export const calendarSchemas = {
   listSources: {
-    input: z.object({ workspaceId: z.string().min(1) }),
+    input: z.object({
+      workspaceId: z.string().min(1),
+      projectId: z.string().optional(),
+    }),
     output: z.array(calendarSourceSchema),
   },
   listItems: {
@@ -87,6 +91,7 @@ export const calendarSchemas = {
       workspaceId: z.string().min(1),
       range: calendarRangeSchema,
       sourceIds: z.array(z.string()).optional(),
+      projectId: z.string().optional(),
     }),
     output: z.array(calendarItemSchema),
   },
@@ -94,6 +99,7 @@ export const calendarSchemas = {
     input: z.object({
       workspaceId: z.string().min(1),
       item: calendarItemCreateSchema,
+      projectId: z.string().optional(),
     }),
     output: calendarItemSchema,
   },

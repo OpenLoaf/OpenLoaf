@@ -3,7 +3,8 @@ import { z } from "zod";
 export const testApprovalToolDef = {
   id: "test-approval",
   name: "审批测试",
-  description: "用于测试审批流程：触发 needsApproval，并在审批通过后返回一个确认结果。",
+  description:
+    "触发：当你需要验证审批按钮/回执流程是否正常（开发/测试）时调用，不用于真实业务数据收集。用途：强制进入审批流程并等待用户通过/拒绝。返回：通过时 { ok: true, data: { approvedAt, note? } }；若用户拒绝则无结果并终止本次调用。",
   parameters: z.object({
     actionName: z
       .string()

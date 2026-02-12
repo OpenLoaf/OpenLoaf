@@ -28,7 +28,7 @@ export default function ChatHeader({
   onNewSession,
   onCloseSession,
 }: ChatHeaderProps) {
-  const { sessionId: activeSessionId, tabId } = useChatSession();
+  const { sessionId: activeSessionId, tabId, leafMessageId: activeLeafMessageId } = useChatSession();
   const { newSession, selectSession } = useChatActions();
   const { messages } = useChatState();
   const [historyOpen, setHistoryOpen] = React.useState(false);
@@ -58,6 +58,17 @@ export default function ChatHeader({
     return idx >= 0 ? idx + 1 : null;
   }, [activeSessionId, tabView?.chatSessionId, tabView?.chatSessionIds]);
   const showSessionIndex = (tabView?.chatSessionIds?.length ?? 0) > 1;
+  /** Resolve request leaf id from the latest user message in current branch. */
+  const requestLeafMessageId = React.useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message?.role !== "user") continue;
+      const id = typeof message.id === "string" ? message.id.trim() : "";
+      if (id) return id;
+    }
+    const fallback = typeof activeLeafMessageId === "string" ? activeLeafMessageId.trim() : "";
+    return fallback || undefined;
+  }, [activeLeafMessageId, messages]);
 
   // 逻辑：仅在存在历史消息时显示 Preface 查看按钮。
   const showPrefaceButton = Boolean(basic.chatPrefaceEnabled) && messages.length > 0;
@@ -93,8 +104,10 @@ export default function ChatHeader({
     try {
       const res = await trpcClient.chat.getSessionPreface.query({
         sessionId: activeSessionId,
+        leafMessageId: requestLeafMessageId,
       });
       const content = typeof res?.content === "string" ? res.content : "";
+      const jsonlPath = typeof res?.jsonlPath === "string" ? res.jsonlPath : "";
       if (content.trim().length === 0) {
         toast.message("暂无 Preface");
         return;
@@ -112,6 +125,7 @@ export default function ChatHeader({
           content,
           __customHeader: true,
           __chatHistorySessionId: activeSessionId,
+          __chatHistoryJsonlPath: jsonlPath || undefined,
         },
       });
     } catch (error) {
@@ -120,7 +134,7 @@ export default function ChatHeader({
     } finally {
       setPrefaceLoading(false);
     }
-  }, [activeSessionId, prefaceLoading, pushStackItem, tabId]);
+  }, [activeSessionId, prefaceLoading, pushStackItem, requestLeafMessageId, tabId]);
 
   return (
     <div

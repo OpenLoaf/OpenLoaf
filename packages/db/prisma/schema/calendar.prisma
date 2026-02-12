@@ -6,6 +6,7 @@ model CalendarSource {
   externalId   String? /// 系统日历 ID
   title        String /// 日历标题
   color        String? /// 日历颜色
+  projectId    String? /// 关联项目 ID（null 表示公共日历）
   readOnly     Boolean  @default(false) /// 是否只读
   isSubscribed Boolean  @default(false) /// 是否订阅日历
   createdAt    DateTime @default(now()) /// 创建时间
@@ -14,6 +15,7 @@ model CalendarSource {
   items CalendarItem[]
 
   @@index([workspaceId])
+  @@index([workspaceId, projectId])
   @@unique([workspaceId, provider, kind, externalId])
 }
 

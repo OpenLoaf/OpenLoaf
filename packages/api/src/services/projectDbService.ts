@@ -178,3 +178,32 @@ export async function resolveProjectAncestorRootUris(
   `;
   return rows.flatMap((row) => (row.rootUri ? [row.rootUri] : []));
 }
+
+/** Resolve ancestor project IDs (excluding self) from database. */
+export async function resolveProjectAncestorIds(
+  prisma: ProjectDbClient,
+  projectId: string,
+): Promise<string[]> {
+  const normalizedId = projectId.trim();
+  if (!normalizedId) return [];
+  const maxDepth = 64;
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+    WITH RECURSIVE ancestors(id, parentId, depth) AS (
+      SELECT id, parentId, 0
+      FROM Project
+      WHERE id = ${normalizedId} AND isDeleted = 0
+      UNION ALL
+      SELECT p.id, p.parentId, a.depth + 1
+      FROM Project p
+      JOIN ancestors a ON p.id = TRIM(a.parentId)
+      WHERE p.isDeleted = 0
+        AND a.parentId IS NOT NULL
+        AND TRIM(a.parentId) != ''
+        AND a.depth < ${maxDepth}
+    )
+    SELECT id
+    FROM ancestors
+    WHERE depth > 0;
+  `;
+  return rows.map((row) => row.id);
+}

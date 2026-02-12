@@ -22,6 +22,9 @@ export function cloneDesktopItems(items: DesktopItem[]): DesktopItem[] {
                 : undefined,
             }
           : undefined,
+        customizedBreakpoints: item.customizedBreakpoints
+          ? [...item.customizedBreakpoints]
+          : undefined,
       };
     }
 
@@ -43,6 +46,9 @@ export function cloneDesktopItems(items: DesktopItem[]): DesktopItem[] {
         : undefined,
       constraints: { ...item.constraints },
       flipClock: item.flipClock ? { ...item.flipClock } : undefined,
+      customizedBreakpoints: item.customizedBreakpoints
+        ? [...item.customizedBreakpoints]
+        : undefined,
     };
   });
 }
@@ -105,6 +111,13 @@ export function areDesktopItemsEqual(a: DesktopItem[], b: DesktopItem[]): boolea
       const leftFlip = left.flipClock?.showSeconds ?? true;
       const rightFlip = right.flipClock?.showSeconds ?? true;
       if (leftFlip !== rightFlip) return false;
+    }
+
+    const leftCustom = left.customizedBreakpoints ?? [];
+    const rightCustom = right.customizedBreakpoints ?? [];
+    if (leftCustom.length !== rightCustom.length) return false;
+    for (let j = 0; j < leftCustom.length; j += 1) {
+      if (leftCustom[j] !== rightCustom[j]) return false;
     }
   }
 

@@ -4,7 +4,7 @@ export const openUrlToolDef = {
   id: "open-url",
   name: "打开网页",
   description:
-    "在应用内打开一个网页链接（浏览器面板）。适用于需要用户查看指定页面内容的场景。URL 可省略协议，服务端会做规范化处理（例如 example.com -> https://example.com）。",
+    "触发：当你需要在应用内浏览器打开页面，让用户查看或继续操作（如登录、确认页面内容）时调用。用途：打开指定 URL（可省略协议）并等待前端回执。返回：前端回执对象 { toolCallId, status: success|failed|timeout, output?, errorText?, requestedAt }。不适用：不要用它抓取网页内容或自动化操作；要提取/操作页面请用 browser-* 工具。",
   parameters: z.object({
     actionName: z
       .string()

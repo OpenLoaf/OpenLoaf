@@ -74,6 +74,9 @@ function resolveServerPort(baseUrl: string): string | null {
   }
 }
 
+/** Debounce flag to avoid concurrent refreshSession calls. */
+let refreshing = false;
+
 export const useSaasAuth = create<SaasAuthState>((set, get) => ({
   loggedIn: false,
   loading: true,
@@ -84,23 +87,29 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
   remember: true,
   setRemember: (value) => set({ remember: value }),
   refreshSession: async () => {
-    const token = getCachedAccessToken();
-    if (!token) {
-      const ok = await isAuthenticated();
-      const user = ok ? await resolveAuthUser() : null;
+    if (refreshing) return;
+    refreshing = true;
+    try {
+      const token = getCachedAccessToken();
+      if (!token) {
+        const ok = await isAuthenticated();
+        const user = ok ? await resolveAuthUser() : null;
+        set({
+          loggedIn: ok,
+          loading: false,
+          user,
+        });
+        return;
+      }
+      const user = await resolveAuthUser();
       set({
-        loggedIn: ok,
+        loggedIn: true,
         loading: false,
         user,
       });
-      return;
+    } finally {
+      refreshing = false;
     }
-    const user = await resolveAuthUser();
-    set({
-      loggedIn: true,
-      loading: false,
-      user,
-    });
   },
   startLogin: async (provider) => {
     if (get().loginStatus === "opening" || get().loginStatus === "polling") {
@@ -213,3 +222,12 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
     set({ loggedIn: false, user: null });
   },
 }));
+
+// 当页面重新可见时自动刷新会话状态，避免 token 过期后 UI 仍显示已登录。
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      void useSaasAuth.getState().refreshSession();
+    }
+  });
+}

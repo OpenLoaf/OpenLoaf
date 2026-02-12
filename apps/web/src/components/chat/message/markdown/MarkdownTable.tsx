@@ -1,6 +1,8 @@
 "use client";
 
-export default function MarkdownTable({
+import * as React from "react";
+
+export default React.memo(function MarkdownTable({
   className,
   children,
   ...props
@@ -12,5 +14,4 @@ export default function MarkdownTable({
       </table>
     </div>
   );
-}
-
+});

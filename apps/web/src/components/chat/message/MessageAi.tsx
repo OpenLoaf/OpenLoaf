@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { type UIMessage } from "@ai-sdk/react";
 import { cn } from "@/lib/utils";
 import MessageParts from "./MessageParts";
@@ -14,7 +15,7 @@ interface MessageAiProps {
   isAnimating?: boolean;
 }
 
-export default function MessageAi({ message, className, isAnimating }: MessageAiProps) {
+export default React.memo(function MessageAi({ message, className, isAnimating }: MessageAiProps) {
   return (
     <div className={cn("flex justify-start min-w-0", className)}>
       <div className="min-w-0 w-full space-y-2">
@@ -26,4 +27,8 @@ export default function MessageAi({ message, className, isAnimating }: MessageAi
       </div>
     </div>
   );
-}
+}, (prev, next) => {
+  // 流式输出期间始终重渲染，确保打字机效果正常
+  if (prev.isAnimating || next.isAnimating) return false;
+  return prev.message === next.message && prev.className === next.className;
+});

@@ -732,7 +732,7 @@ body {
   align-items: center;
   gap: 0.5rem;
   padding-bottom: 0.5rem;
-  --project-header-tabs-width: 260px;
+  --project-header-tabs-width: 0px;
   --project-header-main-max-width: 100%;
   --project-header-main-min-width: 200px;
 }

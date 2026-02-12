@@ -1,5 +1,5 @@
 import { DndProvider } from "react-dnd";
-import { ChevronDown, ChevronRight, Plus, RefreshCw, Trash2, Unplug } from "lucide-react";
+import { ChevronDown, ChevronRight, PenSquare, Plus, RefreshCw, Trash2, Unplug } from "lucide-react";
 
 import { Button } from "@tenas-ai/ui/button";
 import { dndManager } from "@/lib/dnd-manager";
@@ -8,11 +8,24 @@ import type { SidebarState } from "./use-email-page-state";
 
 type EmailSidebarProps = {
   sidebar: SidebarState;
+  onStartCompose?: () => void;
 };
 
-export function EmailSidebar({ sidebar }: EmailSidebarProps) {
+export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
   return (
     <aside className="flex w-full min-w-0 flex-col gap-4 border-b border-border bg-card p-3 text-sm lg:w-64 lg:border-b-0 lg:border-r">
+      {onStartCompose ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 w-full gap-1.5 text-xs"
+          onClick={onStartCompose}
+        >
+          <PenSquare className="h-3.5 w-3.5" />
+          写邮件
+        </Button>
+      ) : null}
       <div className="flex items-center justify-between">
         <div className="text-xs font-semibold text-muted-foreground">邮箱</div>
         <div className="flex items-center gap-1">

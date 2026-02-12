@@ -5,7 +5,12 @@ import {
   emailSchemas,
 } from "@tenas-ai/api";
 import type { PrismaClient } from "@tenas-ai/db";
-import { addEmailAccount, addOAuthEmailAccount, removeEmailAccount } from "@/modules/email/emailAccountService";
+import {
+  addEmailAccount,
+  addOAuthEmailAccount,
+  removeEmailAccount,
+} from "@/modules/email/emailAccountService";
+import { sendEmail } from "@/modules/email/emailSendService";
 import {
   addPrivateSender,
   listPrivateSenders,
@@ -21,6 +26,8 @@ import {
   syncRecentMailboxMessages,
 } from "@/modules/email/emailSyncService";
 import { hasFlag, hasSeenFlag, normalizeEmailFlags } from "@/modules/email/emailFlags";
+import { getEmailEnvValue } from "@/modules/email/emailEnvStore";
+import { createTransport } from "@/modules/email/transport/factory";
 import { logger } from "@/common/logger";
 
 type EmailAccountView = {
@@ -915,6 +922,370 @@ export class EmailRouterImpl extends BaseEmailRouter {
             senderEmail: input.senderEmail,
           });
           return { ok: true };
+        }),
+      sendMessage: shieldedProcedure
+        .input(emailSchemas.sendMessage.input)
+        .output(emailSchemas.sendMessage.output)
+        .mutation(async ({ input }) => {
+          const result = await sendEmail({
+            workspaceId: input.workspaceId,
+            accountEmail: input.accountEmail,
+            input: {
+              to: input.to,
+              cc: input.cc,
+              bcc: input.bcc,
+              subject: input.subject,
+              bodyText: input.bodyText,
+              bodyHtml: input.bodyHtml,
+              inReplyTo: input.inReplyTo,
+              references: input.references,
+            },
+          });
+          return { ok: result.ok, messageId: result.messageId };
+        }),
+      testConnection: shieldedProcedure
+        .input(emailSchemas.testConnection.input)
+        .output(emailSchemas.testConnection.output)
+        .mutation(async ({ input }) => {
+          const config = readEmailConfigFile(input.workspaceId);
+          const account = config.emailAccounts.find(
+            (a) =>
+              a.emailAddress.trim().toLowerCase() ===
+              input.accountEmail.trim().toLowerCase(),
+          );
+          if (!account) {
+            return { ok: false, error: "账号未找到。" };
+          }
+          const transport = createTransport(
+            {
+              emailAddress: account.emailAddress,
+              auth: account.auth,
+              imap: account.imap,
+              smtp: account.smtp,
+            },
+            {
+              workspaceId: input.workspaceId,
+              password: account.auth.type === "password"
+                ? getEmailEnvValue(account.auth.envKey)
+                : undefined,
+            },
+          );
+          try {
+            if (transport.testConnection) {
+              return await transport.testConnection();
+            }
+            // 逻辑：适配器未实现 testConnection 时尝试列出邮箱作为连通性测试。
+            await transport.listMailboxes();
+            return { ok: true };
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            return { ok: false, error: message };
+          } finally {
+            await transport.dispose();
+          }
+        }),
+      deleteMessage: shieldedProcedure
+        .input(emailSchemas.deleteMessage.input)
+        .output(emailSchemas.deleteMessage.output)
+        .mutation(async ({ input, ctx }) => {
+          const prisma = ctx.prisma as PrismaClient;
+          const row = await prisma.emailMessage.findUnique({
+            where: { id: input.id },
+          });
+          if (!row) throw new Error("邮件未找到。");
+          const config = readEmailConfigFile(input.workspaceId);
+          const account = config.emailAccounts.find(
+            (a) =>
+              a.emailAddress.trim().toLowerCase() ===
+              row.accountEmail.trim().toLowerCase(),
+          );
+          if (!account) throw new Error("账号未找到。");
+          const transport = createTransport(
+            {
+              emailAddress: account.emailAddress,
+              auth: account.auth,
+              imap: account.imap,
+              smtp: account.smtp,
+            },
+            {
+              workspaceId: input.workspaceId,
+              password: account.auth.type === "password"
+                ? getEmailEnvValue(account.auth.envKey)
+                : undefined,
+            },
+          );
+          try {
+            if (!transport.deleteMessage) {
+              throw new Error("当前适配器不支持删除邮件。");
+            }
+            await transport.deleteMessage(row.mailboxPath, row.externalId);
+            await prisma.emailMessage.delete({ where: { id: input.id } });
+            return { ok: true };
+          } finally {
+            await transport.dispose();
+          }
+        }),
+      moveMessage: shieldedProcedure
+        .input(emailSchemas.moveMessage.input)
+        .output(emailSchemas.moveMessage.output)
+        .mutation(async ({ input, ctx }) => {
+          const prisma = ctx.prisma as PrismaClient;
+          const row = await prisma.emailMessage.findUnique({
+            where: { id: input.id },
+          });
+          if (!row) throw new Error("邮件未找到。");
+          const config = readEmailConfigFile(input.workspaceId);
+          const account = config.emailAccounts.find(
+            (a) =>
+              a.emailAddress.trim().toLowerCase() ===
+              row.accountEmail.trim().toLowerCase(),
+          );
+          if (!account) throw new Error("账号未找到。");
+          const transport = createTransport(
+            {
+              emailAddress: account.emailAddress,
+              auth: account.auth,
+              imap: account.imap,
+              smtp: account.smtp,
+            },
+            {
+              workspaceId: input.workspaceId,
+              password: account.auth.type === "password"
+                ? getEmailEnvValue(account.auth.envKey)
+                : undefined,
+            },
+          );
+          try {
+            if (!transport.moveMessage) {
+              throw new Error("当前适配器不支持移动邮件。");
+            }
+            await transport.moveMessage(row.mailboxPath, input.toMailbox, row.externalId);
+            await prisma.emailMessage.update({
+              where: { id: input.id },
+              data: { mailboxPath: input.toMailbox },
+            });
+            return { ok: true };
+          } finally {
+            await transport.dispose();
+          }
+        }),
+      saveDraft: shieldedProcedure
+        .input(emailSchemas.saveDraft.input)
+        .output(emailSchemas.saveDraft.output)
+        .mutation(async ({ input, ctx }) => {
+          const prisma = ctx.prisma as PrismaClient;
+          const id = input.id || crypto.randomUUID();
+          const row = await (prisma as any).emailDraft.upsert({
+            where: { id },
+            create: {
+              id,
+              workspaceId: input.workspaceId,
+              accountEmail: input.accountEmail,
+              mode: input.mode,
+              to: input.to,
+              cc: input.cc,
+              bcc: input.bcc,
+              subject: input.subject,
+              body: input.body,
+              inReplyTo: input.inReplyTo ?? null,
+              references: input.references ?? null,
+            },
+            update: {
+              accountEmail: input.accountEmail,
+              mode: input.mode,
+              to: input.to,
+              cc: input.cc,
+              bcc: input.bcc,
+              subject: input.subject,
+              body: input.body,
+              inReplyTo: input.inReplyTo ?? null,
+              references: input.references ?? null,
+            },
+          });
+          return {
+            id: row.id,
+            accountEmail: row.accountEmail,
+            mode: row.mode,
+            to: row.to,
+            cc: row.cc,
+            bcc: row.bcc,
+            subject: row.subject,
+            body: row.body,
+            inReplyTo: row.inReplyTo ?? undefined,
+            references: row.references ? normalizeStringArray(row.references) : undefined,
+            updatedAt: row.updatedAt.toISOString(),
+          };
+        }),
+      listDrafts: shieldedProcedure
+        .input(emailSchemas.listDrafts.input)
+        .output(emailSchemas.listDrafts.output)
+        .query(async ({ input, ctx }) => {
+          const prisma = ctx.prisma as PrismaClient;
+          const rows = await (prisma as any).emailDraft.findMany({
+            where: { workspaceId: input.workspaceId },
+            orderBy: { updatedAt: "desc" },
+          });
+          return rows.map((row: any) => ({
+            id: row.id,
+            accountEmail: row.accountEmail,
+            mode: row.mode,
+            to: row.to,
+            cc: row.cc,
+            bcc: row.bcc,
+            subject: row.subject,
+            body: row.body,
+            inReplyTo: row.inReplyTo ?? undefined,
+            references: row.references ? normalizeStringArray(row.references) : undefined,
+            updatedAt: row.updatedAt.toISOString(),
+          }));
+        }),
+      getDraft: shieldedProcedure
+        .input(emailSchemas.getDraft.input)
+        .output(emailSchemas.getDraft.output)
+        .query(async ({ input, ctx }) => {
+          const prisma = ctx.prisma as PrismaClient;
+          const row = await (prisma as any).emailDraft.findUnique({
+            where: { id: input.id },
+          });
+          if (!row) throw new Error("草稿未找到。");
+          return {
+            id: row.id,
+            accountEmail: row.accountEmail,
+            mode: row.mode,
+            to: row.to,
+            cc: row.cc,
+            bcc: row.bcc,
+            subject: row.subject,
+            body: row.body,
+            inReplyTo: row.inReplyTo ?? undefined,
+            references: row.references ? normalizeStringArray(row.references) : undefined,
+            updatedAt: row.updatedAt.toISOString(),
+          };
+        }),
+      deleteDraft: shieldedProcedure
+        .input(emailSchemas.deleteDraft.input)
+        .output(emailSchemas.deleteDraft.output)
+        .mutation(async ({ input, ctx }) => {
+          const prisma = ctx.prisma as PrismaClient;
+          await (prisma as any).emailDraft.delete({
+            where: { id: input.id },
+          });
+          return { ok: true };
+        }),
+      batchMarkRead: shieldedProcedure
+        .input(emailSchemas.batchMarkRead.input)
+        .output(emailSchemas.batchMarkRead.output)
+        .mutation(async ({ input, ctx }) => {
+          for (const id of input.ids) {
+            await markEmailMessageRead({
+              prisma: ctx.prisma as PrismaClient,
+              workspaceId: input.workspaceId,
+              id,
+            });
+          }
+          return { ok: true };
+        }),
+      batchDelete: shieldedProcedure
+        .input(emailSchemas.batchDelete.input)
+        .output(emailSchemas.batchDelete.output)
+        .mutation(async ({ input, ctx }) => {
+          const prisma = ctx.prisma as PrismaClient;
+          for (const id of input.ids) {
+            const row = await prisma.emailMessage.findUnique({ where: { id } });
+            if (!row) continue;
+            const config = readEmailConfigFile(input.workspaceId);
+            const account = config.emailAccounts.find(
+              (a) => a.emailAddress.trim().toLowerCase() === row.accountEmail.trim().toLowerCase(),
+            );
+            if (!account) continue;
+            const transport = createTransport(
+              { emailAddress: account.emailAddress, auth: account.auth, imap: account.imap, smtp: account.smtp },
+              { workspaceId: input.workspaceId, password: account.auth.type === "password" ? getEmailEnvValue(account.auth.envKey) : undefined },
+            );
+            try {
+              if (transport.deleteMessage) {
+                await transport.deleteMessage(row.mailboxPath, row.externalId);
+              }
+              await prisma.emailMessage.delete({ where: { id } });
+            } finally {
+              await transport.dispose();
+            }
+          }
+          return { ok: true };
+        }),
+      batchMove: shieldedProcedure
+        .input(emailSchemas.batchMove.input)
+        .output(emailSchemas.batchMove.output)
+        .mutation(async ({ input, ctx }) => {
+          const prisma = ctx.prisma as PrismaClient;
+          for (const id of input.ids) {
+            const row = await prisma.emailMessage.findUnique({ where: { id } });
+            if (!row) continue;
+            const config = readEmailConfigFile(input.workspaceId);
+            const account = config.emailAccounts.find(
+              (a) => a.emailAddress.trim().toLowerCase() === row.accountEmail.trim().toLowerCase(),
+            );
+            if (!account) continue;
+            const transport = createTransport(
+              { emailAddress: account.emailAddress, auth: account.auth, imap: account.imap, smtp: account.smtp },
+              { workspaceId: input.workspaceId, password: account.auth.type === "password" ? getEmailEnvValue(account.auth.envKey) : undefined },
+            );
+            try {
+              if (transport.moveMessage) {
+                await transport.moveMessage(row.mailboxPath, input.toMailbox, row.externalId);
+              }
+              await prisma.emailMessage.update({
+                where: { id },
+                data: { mailboxPath: input.toMailbox },
+              });
+            } finally {
+              await transport.dispose();
+            }
+          }
+          return { ok: true };
+        }),
+      searchMessages: shieldedProcedure
+        .input(emailSchemas.searchMessages.input)
+        .output(emailSchemas.searchMessages.output)
+        .query(async ({ input, ctx }) => {
+          const prisma = ctx.prisma as PrismaClient;
+          const pageSize = input.pageSize ?? 20;
+          const privateSenders = buildPrivateSenderSet(input.workspaceId);
+          // 逻辑：服务端搜索先查本地数据库（subject/snippet 模糊匹配）。
+          const rows = await prisma.emailMessage.findMany({
+            where: {
+              workspaceId: input.workspaceId,
+              accountEmail: input.accountEmail,
+              OR: [
+                { subject: { contains: input.query } },
+                { snippet: { contains: input.query } },
+              ],
+            },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take: pageSize + 1,
+          });
+          const hasMore = rows.length > pageSize;
+          const items = rows.slice(0, pageSize);
+          const nextCursor = hasMore && items.length
+            ? encodeMessageCursor({ createdAt: items[items.length - 1]!.createdAt, id: items[items.length - 1]!.id })
+            : null;
+          return {
+            items: items.map((row) =>
+              toMessageSummary({
+                id: row.id,
+                accountEmail: row.accountEmail,
+                mailboxPath: row.mailboxPath,
+                from: row.from,
+                subject: row.subject,
+                snippet: row.snippet,
+                date: row.date,
+                flags: row.flags,
+                attachments: row.attachments,
+                privateSenders,
+              }),
+            ),
+            nextCursor,
+          };
         }),
     });
   }

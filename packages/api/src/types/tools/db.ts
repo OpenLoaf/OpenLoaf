@@ -4,7 +4,7 @@ export const projectQueryToolDef = {
   id: "project-query",
   name: "项目查询",
   description:
-    "查询项目树或单个项目详情。当需要查看所有项目或读取指定项目配置时调用此工具。",
+    "触发：当你需要读取项目列表/树或某个项目摘要信息时调用。用途：list 返回项目树与扁平列表，get 返回项目摘要。返回：{ ok: true, data: { mode: 'list', projects, tree } | { mode: 'get', project } }；若缺少 projectId 且无上下文会报错。",
   parameters: z.object({
     actionName: z
       .string()
@@ -26,7 +26,7 @@ export const projectMutateToolDef = {
   id: "project-mutate",
   name: "项目变更",
   description:
-    "创建、更新、移动或移除项目（remove 仅从列表移除，不删除磁盘）。当需要修改项目树结构或项目元信息时调用此工具。",
+    "触发：当你需要创建、更新、移动或移除项目时调用（会改变项目树/元信息）。用途：执行项目变更（remove 仅从列表移除，不删除磁盘）。返回：{ ok: true, data: { action: 'create'|'update'|'move'|'remove', ... } }，包含项目摘要或移动信息；权限/参数不合法会报错。不适用：仅需读取时不要使用。",
   parameters: z.object({
     actionName: z
       .string()

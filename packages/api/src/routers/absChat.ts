@@ -22,9 +22,13 @@ export const chatSchemas = {
   getSessionPreface: {
     input: z.object({
       sessionId: z.string().min(1),
+      /** Optional leaf message id from the currently displayed branch. */
+      leafMessageId: z.string().min(1).optional(),
     }),
     output: z.object({
       content: z.string(),
+      /** Absolute jsonl file path for debugging when available. */
+      jsonlPath: z.string().optional(),
     }),
   },
 };

@@ -37,6 +37,7 @@ import {
 /** Json render tool input payload. */
 type JsonRenderInput = {
   actionName?: string;
+  mode?: "approve" | "display";
   tree?: unknown;
   initialData?: Record<string, unknown>;
 };
@@ -232,8 +233,9 @@ function createRegistry(options: {
   readOnly: boolean;
   disableActions: boolean;
   hideSubmit: boolean;
+  hideActions: boolean;
 }): ComponentRegistry {
-  const { readOnly, disableActions, hideSubmit } = options;
+  const { readOnly, disableActions, hideSubmit, hideActions } = options;
 
   /** Render a layout container. */
   function LayoutContainer({ element, children }: ComponentRenderProps) {
@@ -357,6 +359,7 @@ function createRegistry(options: {
       Boolean(loading);
     const actionName = typeof action?.name === "string" ? action.name : "";
 
+    if (hideActions) return null;
     if (actionName === "submit" && hideSubmit) return null;
 
     return (
@@ -431,14 +434,16 @@ export default function JsonRenderTool({
   const isRejected = part.approval?.approved === false;
   const isApproved = part.approval?.approved === true;
   const hasOutput = part.output != null;
-  const isReadonly =
-    isRejected || isApproved || hasOutput || part.state === "output-available";
   const isStreaming = isToolStreaming(part);
   const isApprovalPendingForPart = isApprovalPending(part);
 
   const normalizedInput = normalizeToolInput(part.input);
   const inputObject = asPlainObject(normalizedInput) as JsonRenderInput | null;
   const rawTree = inputObject?.tree;
+  const mode = inputObject?.mode === "display" ? "display" : "approve";
+  const isDisplayMode = mode === "display";
+  const isReadonly =
+    isDisplayMode || isRejected || isApproved || hasOutput || part.state === "output-available";
 
   const tree = React.useMemo(() => normalizeTree(rawTree), [rawTree]);
   const initialData = React.useMemo(
@@ -505,6 +510,7 @@ export default function JsonRenderTool({
 
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const isActionDisabled =
+    isDisplayMode ||
     isSubmitting ||
     isReadonly ||
     status === "submitted" ||
@@ -594,9 +600,10 @@ export default function JsonRenderTool({
       createRegistry({
         readOnly: isReadonly,
         disableActions: isActionDisabled,
-        hideSubmit: isReadonly && !part.errorText,
+        hideSubmit: isDisplayMode || (isReadonly && !part.errorText),
+        hideActions: isDisplayMode,
       }),
-    [isReadonly, isActionDisabled, part.errorText],
+    [isReadonly, isActionDisabled, isDisplayMode, part.errorText],
   );
 
   const containerClassName = "text-foreground";

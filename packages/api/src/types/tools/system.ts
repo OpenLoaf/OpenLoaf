@@ -5,7 +5,7 @@ export const timeNowToolDef = {
   id: "time-now",
   name: "当前时间",
   description:
-    "获取当前服务器时间信息，包括格式化的时间字符串、Unix时间戳（毫秒）和时区。当需要了解当前时间或进行时间相关计算时调用此工具，可通过可选参数指定时区。",
+    "触发：当你需要获取当前服务器时间以做时间计算/对齐时调用。用途：返回当前时间与时区信息，可选按指定时区解析。返回：{ ok: true, data: { iso, unixMs, timeZone } }；时区非法会报错。不适用：时间无关或可直接推断时不要使用。",
   parameters: z.object({
     actionName: z
       .string()

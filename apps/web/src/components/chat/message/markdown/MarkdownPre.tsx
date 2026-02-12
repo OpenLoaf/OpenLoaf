@@ -10,7 +10,7 @@ function toText(children: React.ReactNode): string {
   return "";
 }
 
-export default function MarkdownPre({
+export default React.memo(function MarkdownPre({
   children,
 }: React.ComponentProps<"pre">) {
   const child = React.Children.toArray(children)[0];
@@ -24,4 +24,4 @@ export default function MarkdownPre({
   }
 
   return <pre>{children}</pre>;
-}
+});

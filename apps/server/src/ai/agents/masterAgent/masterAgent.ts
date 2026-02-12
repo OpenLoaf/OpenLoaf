@@ -16,6 +16,10 @@ import {
 } from "@tenas-ai/api/types/tools/browserAutomation";
 import { projectMutateToolDef, projectQueryToolDef } from "@tenas-ai/api/types/tools/db";
 import {
+  calendarMutateToolDef,
+  calendarQueryToolDef,
+} from "@tenas-ai/api/types/tools/calendar";
+import {
   listDirToolDef,
   readFileToolDef,
   writeFileToolDef,
@@ -47,6 +51,8 @@ const MASTER_AGENT_TOOL_IDS = [
   jsonRenderToolDef.id,
   projectQueryToolDef.id,
   projectMutateToolDef.id,
+  calendarQueryToolDef.id,
+  calendarMutateToolDef.id,
   // subAgentToolDef.id,
   openUrlToolDef.id,
   browserSnapshotToolDef.id,

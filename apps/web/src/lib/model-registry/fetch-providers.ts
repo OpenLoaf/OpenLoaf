@@ -38,7 +38,7 @@ function toProviderDefinition(
 ): ProviderDefinition {
   return {
     ...template,
-    adapterId: template.adapter ?? template.id,
+    adapterId: String((template as Record<string, unknown>).adapter ?? template.id),
     authConfig:
       template.authType === "hmac"
         ? { accessKeyId: "", secretAccessKey: "" }

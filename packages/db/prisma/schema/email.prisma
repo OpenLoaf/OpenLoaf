@@ -44,3 +44,21 @@ model EmailMailbox {
   @@unique([workspaceId, accountEmail, path])
   @@index([workspaceId, accountEmail, parentPath])
 }
+
+model EmailDraft {
+  id           String   @id /// 草稿 ID
+  workspaceId  String /// 工作空间 ID
+  accountEmail String /// 发送账号
+  mode         String /// 编辑模式：compose/reply/replyAll/forward
+  to           String   @default("") /// 收件人（逗号分隔）
+  cc           String   @default("") /// 抄送
+  bcc          String   @default("") /// 密送
+  subject      String   @default("") /// 主题
+  body         String   @default("") /// 正文
+  inReplyTo    String? /// 回复的 Message-Id
+  references   Json? /// 引用链
+  createdAt    DateTime @default(now()) /// 创建时间
+  updatedAt    DateTime @updatedAt /// 更新时间
+
+  @@index([workspaceId, accountEmail])
+}

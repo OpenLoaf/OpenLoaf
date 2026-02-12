@@ -1,4 +1,4 @@
-import { Forward, Lock, Reply, Star } from "lucide-react";
+import { Download, Forward, Lock, Reply, ReplyAll, Star, Trash2 } from "lucide-react";
 
 import { Button } from "@tenas-ai/ui/button";
 import {
@@ -7,6 +7,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@tenas-ai/ui/context-menu";
+import { resolveServerUrl } from "@/utils/server-url";
 import type { DetailState } from "./use-email-page-state";
 import { formatAttachmentSize } from "./email-utils";
 
@@ -50,9 +51,25 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
               <div className="truncate">{detail.detailTime}</div>
             </div>
             <div className="flex items-center gap-1 text-[11px]">
-              <Button type="button" variant="outline" size="sm" className="h-7 gap-1 px-2 text-[11px]">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 px-2 text-[11px]"
+                onClick={detail.onStartReply}
+              >
                 <Reply className="h-3 w-3" />
                 回复
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 px-2 text-[11px]"
+                onClick={detail.onStartReplyAll}
+              >
+                <ReplyAll className="h-3 w-3" />
+                全部回复
               </Button>
               <Button
                 type="button"
@@ -75,6 +92,16 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
               >
                 <Star className={`h-3 w-3 ${detail.isFlagged ? "fill-[var(--brand)]" : ""}`} />
                 收藏
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 px-2 text-[11px] text-destructive hover:bg-destructive/10"
+                onClick={detail.onDeleteMessage}
+              >
+                <Trash2 className="h-3 w-3" />
+                删除
               </Button>
             </div>
           </div>
@@ -125,14 +152,21 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
               ) : (
                 detail.messageDetail?.attachments?.map((attachment, index) => {
                   const sizeLabel = formatAttachmentSize(attachment.size);
+                  const downloadUrl = detail.messageDetail && detail.workspaceId
+                    ? `${resolveServerUrl()}/api/email/attachment?workspaceId=${encodeURIComponent(detail.workspaceId)}&messageId=${encodeURIComponent(detail.messageDetail.id)}&index=${index}`
+                    : "#";
                   return (
-                    <span
+                    <a
                       key={`${attachment.filename ?? "attachment"}-${index}`}
-                      className="rounded-md border border-border bg-background px-2 py-1"
+                      href={downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 hover:bg-accent transition-colors"
                     >
+                      <Download className="h-3 w-3" />
                       {attachment.filename ?? "未命名附件"}
                       {sizeLabel ? ` · ${sizeLabel}` : ""}
-                    </span>
+                    </a>
                   );
                 })
               )}

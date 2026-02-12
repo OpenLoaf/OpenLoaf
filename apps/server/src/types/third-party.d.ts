@@ -7,6 +7,7 @@ declare module "mailparser" {
   export type ParsedMailAttachment = {
     filename?: string;
     contentType?: string;
+    content?: Buffer;
     size?: number;
     cid?: string;
   };

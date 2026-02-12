@@ -18,7 +18,7 @@ export const subAgentToolDef = {
   id: "sub-agent",
   name: "子代理",
   description:
-    "创建一个子Agent处理指定任务，并将执行过程与结果流式返回。适用于需要拆分任务、并行探索或执行长步骤的场景。当前支持 BrowserSubAgent、DocumentAnalysisSubAgent 与 TestApprovalSubAgent。",
+    "触发：当任务需要交给子代理独立执行（例如分离浏览/文档分析/审批测试），且你需要获得其最终结果时调用。用途：创建指定子代理执行任务，过程会产生流式事件供系统展示。返回：子代理最后一个响应 part（可能是 text 或工具 part），也可能为 null。不适用：简单任务无需拆分时不要使用。",
   parameters: z.object({
     actionName: z
       .string()

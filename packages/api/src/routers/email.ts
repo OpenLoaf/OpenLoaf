@@ -156,6 +156,110 @@ const removePrivateSenderInputSchema = z.object({
   senderEmail: z.string().min(1),
 });
 
+const sendMessageInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  accountEmail: z.string().min(1),
+  to: z.array(z.string().min(1)).min(1),
+  cc: z.array(z.string()).optional(),
+  bcc: z.array(z.string()).optional(),
+  subject: z.string(),
+  bodyText: z.string().optional(),
+  bodyHtml: z.string().optional(),
+  inReplyTo: z.string().optional(),
+  references: z.array(z.string()).optional(),
+});
+
+const sendMessageOutputSchema = z.object({
+  ok: z.boolean(),
+  messageId: z.string().optional(),
+});
+
+const testConnectionInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  accountEmail: z.string().min(1),
+});
+
+const testConnectionOutputSchema = z.object({
+  ok: z.boolean(),
+  error: z.string().optional(),
+});
+
+const deleteMessageInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  id: z.string().min(1),
+});
+
+const moveMessageInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  id: z.string().min(1),
+  toMailbox: z.string().min(1),
+});
+
+const saveDraftInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  id: z.string().optional(),
+  accountEmail: z.string().min(1),
+  mode: z.enum(["compose", "reply", "replyAll", "forward"]),
+  to: z.string(),
+  cc: z.string(),
+  bcc: z.string(),
+  subject: z.string(),
+  body: z.string(),
+  inReplyTo: z.string().optional(),
+  references: z.array(z.string()).optional(),
+});
+
+const draftViewSchema = z.object({
+  id: z.string(),
+  accountEmail: z.string(),
+  mode: z.string(),
+  to: z.string(),
+  cc: z.string(),
+  bcc: z.string(),
+  subject: z.string(),
+  body: z.string(),
+  inReplyTo: z.string().optional(),
+  references: z.array(z.string()).optional(),
+  updatedAt: z.string(),
+});
+
+const listDraftsInputSchema = z.object({
+  workspaceId: z.string().min(1),
+});
+
+const getDraftInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  id: z.string().min(1),
+});
+
+const deleteDraftInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  id: z.string().min(1),
+});
+
+const batchMarkReadInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  ids: z.array(z.string().min(1)).min(1),
+});
+
+const batchDeleteInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  ids: z.array(z.string().min(1)).min(1),
+});
+
+const batchMoveInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  ids: z.array(z.string().min(1)).min(1),
+  toMailbox: z.string().min(1),
+});
+
+const searchMessagesInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  accountEmail: z.string().min(1),
+  query: z.string().min(1),
+  pageSize: z.number().int().min(1).max(200).optional(),
+});
+
 const emailMessageSummarySchema = z.object({
   id: z.string(),
   accountEmail: z.string(),
@@ -305,6 +409,54 @@ export const emailSchemas = {
     input: removePrivateSenderInputSchema,
     output: syncMailboxOutputSchema,
   },
+  sendMessage: {
+    input: sendMessageInputSchema,
+    output: sendMessageOutputSchema,
+  },
+  testConnection: {
+    input: testConnectionInputSchema,
+    output: testConnectionOutputSchema,
+  },
+  deleteMessage: {
+    input: deleteMessageInputSchema,
+    output: syncMailboxOutputSchema,
+  },
+  moveMessage: {
+    input: moveMessageInputSchema,
+    output: syncMailboxOutputSchema,
+  },
+  saveDraft: {
+    input: saveDraftInputSchema,
+    output: draftViewSchema,
+  },
+  listDrafts: {
+    input: listDraftsInputSchema,
+    output: z.array(draftViewSchema),
+  },
+  getDraft: {
+    input: getDraftInputSchema,
+    output: draftViewSchema,
+  },
+  deleteDraft: {
+    input: deleteDraftInputSchema,
+    output: syncMailboxOutputSchema,
+  },
+  batchMarkRead: {
+    input: batchMarkReadInputSchema,
+    output: syncMailboxOutputSchema,
+  },
+  batchDelete: {
+    input: batchDeleteInputSchema,
+    output: syncMailboxOutputSchema,
+  },
+  batchMove: {
+    input: batchMoveInputSchema,
+    output: syncMailboxOutputSchema,
+  },
+  searchMessages: {
+    input: searchMessagesInputSchema,
+    output: emailMessagePageSchema,
+  },
 };
 
 export abstract class BaseEmailRouter {
@@ -419,6 +571,78 @@ export abstract class BaseEmailRouter {
         .input(emailSchemas.removePrivateSender.input)
         .output(emailSchemas.removePrivateSender.output)
         .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      sendMessage: shieldedProcedure
+        .input(emailSchemas.sendMessage.input)
+        .output(emailSchemas.sendMessage.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      testConnection: shieldedProcedure
+        .input(emailSchemas.testConnection.input)
+        .output(emailSchemas.testConnection.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      deleteMessage: shieldedProcedure
+        .input(emailSchemas.deleteMessage.input)
+        .output(emailSchemas.deleteMessage.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      moveMessage: shieldedProcedure
+        .input(emailSchemas.moveMessage.input)
+        .output(emailSchemas.moveMessage.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      saveDraft: shieldedProcedure
+        .input(emailSchemas.saveDraft.input)
+        .output(emailSchemas.saveDraft.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      listDrafts: shieldedProcedure
+        .input(emailSchemas.listDrafts.input)
+        .output(emailSchemas.listDrafts.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getDraft: shieldedProcedure
+        .input(emailSchemas.getDraft.input)
+        .output(emailSchemas.getDraft.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      deleteDraft: shieldedProcedure
+        .input(emailSchemas.deleteDraft.input)
+        .output(emailSchemas.deleteDraft.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      batchMarkRead: shieldedProcedure
+        .input(emailSchemas.batchMarkRead.input)
+        .output(emailSchemas.batchMarkRead.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      batchDelete: shieldedProcedure
+        .input(emailSchemas.batchDelete.input)
+        .output(emailSchemas.batchDelete.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      batchMove: shieldedProcedure
+        .input(emailSchemas.batchMove.input)
+        .output(emailSchemas.batchMove.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      searchMessages: shieldedProcedure
+        .input(emailSchemas.searchMessages.input)
+        .output(emailSchemas.searchMessages.output)
+        .query(async () => {
           throw new Error("Not implemented in base class");
         }),
     });
