@@ -73,7 +73,8 @@ export function getDesktopFileUri(rootUri: string): string {
 
 /** Build the desktop persistence file uri under the workspace root. */
 export function getWorkspaceDesktopFileUri(rootUri: string): string {
-  return buildChildUri(rootUri, DESKTOP_FILE_NAME);
+  const metaDir = buildChildUri(rootUri, ".tenas");
+  return buildChildUri(metaDir, DESKTOP_FILE_NAME);
 }
 
 /** Convert desktop items into a serializable payload. */
