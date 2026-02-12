@@ -18,10 +18,10 @@
 | 位置 | Scope | 扫描路径 | 说明 |
 |------|-------|----------|------|
 | `~/.agents/skills/` | `global` | 直接扫描该目录 | 用户全局技能，跨所有工作空间/项目共享 |
-| `<workspace>/.tenas/skills/` | `workspace` | `<workspace>/.tenas/skills/` | 工作空间级技能 |
-| `<project>/.tenas/skills/` | `project` | `<project>/.tenas/skills/` | 项目级技能，优先级最高 |
+| `<workspace>/.agents/skills/` | `workspace` | `<workspace>/.agents/skills/` | 工作空间级技能 |
+| `<project>/.agents/skills/` | `project` | `<project>/.agents/skills/` | 项目级技能，优先级最高 |
 
-**关键区别**：全局技能目录 `~/.agents/skills/` 直接作为 skills 根目录扫描；工作空间和项目技能需要在 `.tenas/skills/` 子目录下。
+**关键区别**：全局技能目录 `~/.agents/skills/` 直接作为 skills 根目录扫描；工作空间和项目技能需要在 `.agents/skills/` 子目录下。
 
 ## 前置元数据格式
 
@@ -142,8 +142,8 @@ AI Agent 消费技能时，`readSkillContentFromPath()` 会自动剥离 front ma
 同名技能按以下优先级覆盖（从低到高）：
 
 1. **Global** (`~/.agents/skills/`) — 最低优先级
-2. **Workspace** (`<workspace>/.tenas/skills/`)
-3. **Parent Project** (`<parent>/.tenas/skills/`) — 从顶层到近层
-4. **Project** (`<project>/.tenas/skills/`) — 最高优先级
+2. **Workspace** (`<workspace>/.agents/skills/`)
+3. **Parent Project** (`<parent>/.agents/skills/`) — 从顶层到近层
+4. **Project** (`<project>/.agents/skills/`) — 最高优先级
 
 覆盖逻辑：`loadSkillSummaries` 按优先级从低到高遍历，`project` scope 的技能总是覆盖同名技能；其他 scope 仅在名称首次出现时写入。

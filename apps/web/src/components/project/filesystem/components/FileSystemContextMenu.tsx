@@ -49,6 +49,8 @@ export type FileSystemContextMenuActions = {
   enterBoardFolder: MenuEntryAction;
   /** Open a terminal at the entry path. */
   openTerminal: MenuEntryAction;
+  /** Convert a folder into a child project. */
+  convertFolderToSubproject: MenuEntryAction;
   /** Open the transfer dialog. */
   openTransferDialog: (
     entries: FileSystemEntry | FileSystemEntry[],
@@ -102,6 +104,8 @@ export type FileSystemContextMenuProps = {
   clipboardSize: number;
   /** Whether to show terminal actions. */
   showTerminal: boolean;
+  /** Whether current scope can convert folders into child projects. */
+  canConvertToSubproject: boolean;
   /** Context menu open change handler. */
   onOpenChange: (open: boolean) => void;
   /** Guarded menu item action wrapper. */
@@ -118,6 +122,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
   showHidden,
   clipboardSize,
   showTerminal,
+  canConvertToSubproject,
   onOpenChange,
   withMenuSelectGuard,
   actions,
@@ -130,6 +135,8 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
     menuContextEntry?.kind === "folder";
   const shouldShowEntryTerminal =
     showTerminal && menuContextEntry?.kind === "folder";
+  const shouldShowConvertToSubproject =
+    canConvertToSubproject && menuContextEntry?.kind === "folder";
 
   return (
     <ContextMenu onOpenChange={onOpenChange}>
@@ -215,6 +222,16 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                   onSelect={withMenuSelectGuard(() => actions.openTerminal(menuContextEntry))}
                 >
                   在终端中打开
+                </ContextMenuItem>
+              ) : null}
+              {shouldShowConvertToSubproject ? (
+                <ContextMenuItem
+                  icon={FolderPlus}
+                  onSelect={withMenuSelectGuard(() =>
+                    actions.convertFolderToSubproject(menuContextEntry)
+                  )}
+                >
+                  转换为子项目
                 </ContextMenuItem>
               ) : null}
               <ContextMenuItem

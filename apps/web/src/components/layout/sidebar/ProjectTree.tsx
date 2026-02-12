@@ -650,21 +650,33 @@ export const PageTreeMenu = ({
   }, [projects]);
 
   useEffect(() => {
-    // 逻辑：激活带 projectId 的标签时，自动展开祖先项目，保证树结构可见。
+    // 逻辑：激活带 projectId 的标签时，自动展开祖先与当前项目，刷新后也能看到最新子项目。
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
     const params = activeRuntime?.base?.params as any;
     const projectId = params?.projectId ?? activeTab?.chatParams?.projectId;
     if (!projectId) return;
-    const ancestorNodeKeys = ancestorNodeKeysByProjectId.get(projectId);
-    if (!ancestorNodeKeys?.length) return;
-    setExpandedNodes((prev) => ({
-      ...prev,
-      ...ancestorNodeKeys.reduce<Record<string, boolean>>((acc, nodeKey) => {
+    const ancestorNodeKeys = ancestorNodeKeysByProjectId.get(projectId) ?? [];
+    const rootUri = projectRootById.get(projectId);
+    const selfNodeKey = rootUri ? `${projectId}:${rootUri}` : null;
+    const nodeKeysToExpand = selfNodeKey
+      ? [...ancestorNodeKeys, selfNodeKey]
+      : ancestorNodeKeys;
+    if (!nodeKeysToExpand.length) return;
+    setExpandedNodes((prev) => {
+      const patches = nodeKeysToExpand.reduce<Record<string, boolean>>((acc, nodeKey) => {
         if (!prev[nodeKey]) acc[nodeKey] = true;
         return acc;
-      }, {}),
-    }));
-  }, [activeRuntime, activeTabId, ancestorNodeKeysByProjectId, setExpandedNodes, tabs]);
+      }, {});
+      return Object.keys(patches).length > 0 ? { ...prev, ...patches } : prev;
+    });
+  }, [
+    activeRuntime,
+    activeTabId,
+    ancestorNodeKeysByProjectId,
+    projectRootById,
+    setExpandedNodes,
+    tabs,
+  ]);
 
   const openProjectTab = (project: ProjectInfo) => {
     if (!workspace?.id) return;

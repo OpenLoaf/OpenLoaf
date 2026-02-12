@@ -216,9 +216,9 @@ function resolveSkillDeleteTarget(input: {
     throw new Error("Invalid skill path.");
   }
   const skillDir = normalizeFsPath(path.dirname(normalizedSkillPath));
-  const skillsRoot = normalizeFsPath(path.join(baseRootPath, ".tenas", "skills"));
+  const skillsRoot = normalizeFsPath(path.join(baseRootPath, ".agents", "skills"));
   if (skillDir === skillsRoot || !skillDir.startsWith(`${skillsRoot}${path.sep}`)) {
-    // 仅允许删除 .tenas/skills 目录内的技能。
+    // 仅允许删除 .agents/skills 目录内的技能。
     throw new Error("Skill path is outside scope.");
   }
   return { skillDir, skillsRoot };

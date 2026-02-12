@@ -214,7 +214,7 @@ export function createMySubAgent(input: { model: LanguageModelV3 }) {
 
 ## Skills System
 
-技能文件存放在 `.tenas/skills/<name>/SKILL.md`，由 `skillsLoader.ts` 扫描加载。
+技能文件存放在 `.agents/skills/<name>/SKILL.md`，由 `skillsLoader.ts` 扫描加载。
 
 **加载优先级**: workspace → parent projects → current project（后者覆盖前者）
 

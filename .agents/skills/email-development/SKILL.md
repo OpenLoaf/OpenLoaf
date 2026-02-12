@@ -74,10 +74,12 @@ description: Use when developing, extending, or debugging the email module — c
 | **Types (Web)** | `apps/web/src/components/email/email-types.ts` | 前端表单状态（含 `authType` / `oauthAuthorized` / `ComposeMode` / `ComposeDraft`） |
 | **Add Dialog** | `apps/web/src/components/email/EmailAddAccountDialog.tsx` | 添加账号对话框（OAuth 弹窗 + 密码表单） |
 | **Page State** | `apps/web/src/components/email/use-email-page-state.ts` | 邮箱页面状态管理（含 OAuth 流程、compose/reply/send/delete/draft 状态和 mutations） |
+| **Style Tokens** | `apps/web/src/components/email/email-style-system.ts` | 邮箱页面样式系统 token（胶囊玻璃材质、强调色、状态色） |
+| **Message List** | `apps/web/src/components/email/EmailMessageList.tsx` | 邮件列表区（搜索、分页滚动、选中态、移动端进入详情） |
 | **Compose Editor** | `apps/web/src/components/email/EmailForwardEditor.tsx` | 撰写/回复/全部回复/转发编辑器（多模式） |
 | **Message Detail** | `apps/web/src/components/email/EmailMessageDetail.tsx` | 邮件详情（含回复/全部回复/删除按钮、附件下载链接） |
-| **Email Page** | `apps/web/src/components/email/EmailPage.tsx` | 邮箱主页面（含撰写编辑器显示逻辑） |
-| **Sidebar** | `apps/web/src/components/email/EmailSidebar.tsx` | 邮箱侧边栏（含"写邮件"按钮） |
+| **Email Page** | `apps/web/src/components/email/EmailPage.tsx` | 邮箱主页面（含三栏卡片布局、移动端列表优先切换、撰写编辑器显示逻辑） |
+| **Sidebar** | `apps/web/src/components/email/EmailSidebar.tsx` | 邮箱侧边栏（含"写邮件"按钮、统一视图入口、账户树） |
 
 ### Core Flow
 

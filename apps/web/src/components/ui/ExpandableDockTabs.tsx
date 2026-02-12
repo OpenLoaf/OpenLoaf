@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type ComponentType,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -32,7 +33,7 @@ export type DockTabItem = {
   /** Tab id. */
   id: string;
   /** Tab icon. */
-  icon: LucideIcon;
+  icon: ComponentType<{ size?: number; className?: string }>;
   /** Tab label. */
   label: string;
   /** Tab color tone. */

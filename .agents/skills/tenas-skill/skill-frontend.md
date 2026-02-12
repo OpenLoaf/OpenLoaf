@@ -72,7 +72,7 @@ deleteSkillMutation.mutateAsync({
 
 #### 打开技能目录 (handleOpenSkillsRoot)
 
-1. 调用 `trpc.fs.mkdir` 确保 `.tenas/skills` 目录存在
+1. 调用 `trpc.fs.mkdir` 确保 `.agents/skills` 目录存在
 2. 通过 `window.tenasElectron.openPath()` 在系统文件管理器中打开
 3. 仅 Electron 环境可用，Web 版提示不支持
 

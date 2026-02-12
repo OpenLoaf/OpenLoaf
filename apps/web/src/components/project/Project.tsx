@@ -137,6 +137,32 @@ function findProjectNode(
   return walk(projects);
 }
 
+/** Find project depth (root level starts from 1) by project id or root uri. */
+function findProjectDepth(
+  projects: ProjectTreeNode[] | undefined,
+  target: { projectId?: string; rootUri?: string }
+): number | null {
+  if (!projects?.length) return null;
+  const targetId = target.projectId?.trim();
+  const targetRoot = target.rootUri?.trim();
+  const matchNode = (node: ProjectTreeNode) => {
+    if (targetId && node.projectId === targetId) return true;
+    if (targetRoot && node.rootUri === targetRoot) return true;
+    return false;
+  };
+  const walk = (nodes: ProjectTreeNode[], depth: number): number | null => {
+    for (const node of nodes) {
+      if (matchNode(node)) return depth;
+      if (node.children?.length) {
+        const hit = walk(node.children, depth + 1);
+        if (hit !== null) return hit;
+      }
+    }
+    return null;
+  };
+  return walk(projects, 1);
+}
+
 export default function ProjectPage({
   projectId,
   rootUri,
@@ -297,6 +323,19 @@ export default function ProjectPage({
         rootUri,
       }),
     [projectListQuery.data, projectId, rootUri]
+  );
+  const currentProjectDepth = useMemo(
+    () =>
+      findProjectDepth(projectListQuery.data as ProjectTreeNode[] | undefined, {
+        projectId,
+        rootUri,
+      }),
+    [projectListQuery.data, projectId, rootUri]
+  );
+  const canConvertToSubproject = useMemo(
+    // 逻辑：第三层及以下项目不再展示“转换为子项目”入口。
+    () => (currentProjectDepth ?? 1) < 3,
+    [currentProjectDepth]
   );
   const isGitProject = currentProjectNode?.isGitProject;
 
@@ -540,6 +579,7 @@ export default function ProjectPage({
                       currentUri={fileUri}
                       isLoading={isLoading}
                       isGitProject={isGitProject}
+                      canConvertToSubproject={canConvertToSubproject}
                       projectLookup={projectLookup}
                       onNavigate={setFileUri}
                     />

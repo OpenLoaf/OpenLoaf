@@ -42,7 +42,7 @@ loadSkillSummaries({
 1. `resolveSkillSources()` 按优先级构建 source 列表（global → workspace → parent → project）
 2. 对每个 source，拼接扫描路径：
    - `global` scope → 直接使用 `rootPath`（即 `~/.agents/skills`）
-   - 其他 scope → `rootPath + .tenas/skills/`
+   - 其他 scope → `rootPath + .agents/skills/`
 3. `findSkillFiles()` 递归查找所有 `SKILL.md`
 4. `readSkillSummaryFromPath()` 解析每个文件的 front matter
 5. 同名覆盖：`project` scope 总是覆盖；其他 scope 仅首次出现时写入
@@ -168,7 +168,7 @@ trpc.settings.deleteSkill.mutate({
 ```
 
 - `scope === "global"` → 直接拒绝（全局技能不可从设置面板删除）
-- 删除前验证路径必须在 `.tenas/skills/` 目录内
+- 删除前验证路径必须在 `.agents/skills/` 目录内
 - 删除后清理对应的 ignoreSkills 条目
 
 ### 4. absSetting.ts — Zod Schema

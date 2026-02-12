@@ -28,8 +28,8 @@ Tenas 技能系统由四层构成：**SKILL.md 文件规范**（前置元数据 
 ```
 技能文件存储
 ├── ~/.agents/skills/<name>/SKILL.md          ← 全局技能 (scope: global)
-├── <workspace>/.tenas/skills/<name>/SKILL.md ← 工作空间技能 (scope: workspace)
-└── <project>/.tenas/skills/<name>/SKILL.md   ← 项目技能 (scope: project)
+├── <workspace>/.agents/skills/<name>/SKILL.md ← 工作空间技能 (scope: workspace)
+└── <project>/.agents/skills/<name>/SKILL.md   ← 项目技能 (scope: project)
 
 加载优先级（从低到高，同名高优先级覆盖低优先级）：
   global → workspace → parent project → project

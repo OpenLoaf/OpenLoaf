@@ -100,7 +100,7 @@ apps/server/src/ai/
 │   ├── masterAgent/
 │   │   ├── masterAgent.ts      ← ToolLoopAgent 配置
 │   │   ├── masterAgentRunner.ts
-│   │   ├── skillsLoader.ts     ← .tenas/skills/ 扫描
+│   │   ├── skillsLoader.ts     ← .agents/skills/ 扫描
 │   │   └── masterAgentPrompt.zh.md
 │   └── subagent/               ← Browser/DocumentAnalysis/TestApproval
 ├── tools/

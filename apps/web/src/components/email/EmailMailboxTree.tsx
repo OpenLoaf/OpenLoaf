@@ -1,8 +1,14 @@
 import * as React from "react";
 import { useDrag, useDrop } from "react-dnd";
+import { cn } from "@/lib/utils";
 
 import type { MailboxDragItem, MailboxNode, UnifiedMailboxView } from "./email-types";
 import type { SidebarState } from "./use-email-page-state";
+import {
+  EMAIL_META_CHIP_CLASS,
+  EMAIL_TONE_ACTIVE_CLASS,
+  EMAIL_TONE_HOVER_CLASS,
+} from "./email-style-system";
 import {
   getMailboxLabel,
   isMailboxSelectable,
@@ -160,7 +166,7 @@ function MailboxNodeRow({
     >
       {showBefore ? (
         <div
-          className="h-[2px] w-full rounded-full bg-[var(--brand)]/70"
+          className="h-[2px] w-full rounded-full bg-[#1a73e8]"
           style={{ marginLeft: `${8 + depth * 12}px` }}
         />
       ) : null}
@@ -174,21 +180,33 @@ function MailboxNodeRow({
           paddingLeft: `${8 + depth * 12}px`,
           opacity: isDraggingSelf ? 0.4 : 1,
         }}
-        className={`flex w-full items-center justify-between rounded-lg pr-2 py-1.5 text-xs transition ${
+        className={cn(
+          "flex w-full items-center justify-between rounded-full py-1.5 pr-2 text-[13px] transition-colors duration-150",
           isActive
-            ? "bg-muted text-foreground"
-            : "text-muted-foreground hover:bg-muted/40"
-        } ${selectable ? "" : "cursor-not-allowed opacity-60"}`}
+            ? EMAIL_TONE_ACTIVE_CLASS
+            : cn("text-[#444746] dark:text-slate-300", EMAIL_TONE_HOVER_CLASS),
+          selectable ? "" : "cursor-not-allowed opacity-60",
+        )}
       >
         <span className="flex items-center gap-2">
           <Icon className="h-3.5 w-3.5" />
           {getMailboxLabel(node)}
         </span>
-        {count > 0 ? <span className="text-[11px]">{count}</span> : null}
+        {count > 0 ? (
+          <span
+            className={cn(
+              "rounded-full text-[10px]",
+              EMAIL_META_CHIP_CLASS,
+              isActive ? "text-[#001d35] dark:text-sky-100" : "text-[#5f6368] dark:text-slate-300",
+            )}
+          >
+            {count}
+          </span>
+        ) : null}
       </button>
       {showAfter ? (
         <div
-          className="h-[2px] w-full rounded-full bg-[var(--brand)]/70"
+          className="h-[2px] w-full rounded-full bg-[#1a73e8]"
           style={{ marginLeft: `${8 + depth * 12}px` }}
         />
       ) : null}

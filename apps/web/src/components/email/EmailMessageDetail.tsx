@@ -7,8 +7,16 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@tenas-ai/ui/context-menu";
+import { cn } from "@/lib/utils";
 import { resolveServerUrl } from "@/utils/server-url";
 import type { DetailState } from "./use-email-page-state";
+import {
+  EMAIL_DIVIDER_CLASS,
+  EMAIL_GLASS_INSET_CLASS,
+  EMAIL_META_CHIP_CLASS,
+  EMAIL_TINT_DETAIL_CLASS,
+  EMAIL_TINT_LIST_CLASS,
+} from "./email-style-system";
 import { formatAttachmentSize } from "./email-utils";
 
 type EmailMessageDetailProps = {
@@ -18,18 +26,18 @@ type EmailMessageDetailProps = {
 export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
   return (
     <>
-      <div className="border-b border-border bg-background px-4 py-3">
+      <div className={cn("border-b px-4 py-3", EMAIL_TINT_DETAIL_CLASS, EMAIL_DIVIDER_CLASS)}>
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            {detail.isPrivate ? <Lock className="h-3.5 w-3.5 text-[var(--brand)]" /> : null}
+            {detail.isPrivate ? <Lock className="h-3.5 w-3.5 text-[hsl(var(--chart-3)/0.9)]" /> : null}
             <span className="truncate">{detail.detailSubject}</span>
           </div>
-          <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-            <div className="min-w-0 space-y-0.5 text-[11px] leading-4">
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+            <div className="min-w-0 max-w-full">
               <ContextMenu>
                 <ContextMenuTrigger asChild>
                   <div className="flex items-center gap-1 truncate">
-                    {detail.isPrivate ? <Lock className="h-3 w-3 text-[var(--brand)]" /> : null}
+                    {detail.isPrivate ? <Lock className="h-3 w-3 text-[hsl(var(--chart-3)/0.9)]" /> : null}
                     <span className="truncate">{detail.detailFrom}</span>
                   </div>
                 </ContextMenuTrigger>
@@ -48,12 +56,15 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
                   </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>
-              <div className="truncate">{detail.detailTime}</div>
             </div>
-            <div className="flex items-center gap-1 text-[11px]">
+            <span>·</span>
+            <span className="truncate">{detail.detailTime}</span>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className={cn("flex items-center gap-1 rounded-lg p-1", EMAIL_GLASS_INSET_CLASS)}>
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 className="h-7 gap-1 px-2 text-[11px]"
                 onClick={detail.onStartReply}
@@ -63,7 +74,7 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
               </Button>
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 className="h-7 gap-1 px-2 text-[11px]"
                 onClick={detail.onStartReplyAll}
@@ -71,9 +82,11 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
                 <ReplyAll className="h-3 w-3" />
                 全部回复
               </Button>
+            </div>
+            <div className={cn("flex w-full items-center justify-end gap-1 rounded-lg p-1 sm:ml-auto sm:w-auto", EMAIL_TINT_LIST_CLASS)}>
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 className="h-7 gap-1 px-2 text-[11px]"
                 onClick={detail.onStartForward}
@@ -83,21 +96,21 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
               </Button>
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 className={`h-7 gap-1 px-2 text-[11px] ${
-                  detail.isFlagged ? "border-[var(--brand)]/40 text-[var(--brand)]" : ""
+                  detail.isFlagged ? "bg-[hsl(var(--chart-3)/0.16)] text-[hsl(var(--chart-3)/0.95)]" : ""
                 }`}
                 onClick={detail.onToggleFlagged}
               >
-                <Star className={`h-3 w-3 ${detail.isFlagged ? "fill-[var(--brand)]" : ""}`} />
+                <Star className={`h-3 w-3 ${detail.isFlagged ? "fill-[hsl(var(--chart-3)/0.95)]" : ""}`} />
                 收藏
               </Button>
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="h-7 gap-1 px-2 text-[11px] text-destructive hover:bg-destructive/10"
+                className="h-7 gap-1 px-2 text-[11px] text-destructive hover:bg-destructive/12"
                 onClick={detail.onDeleteMessage}
               >
                 <Trash2 className="h-3 w-3" />
@@ -108,8 +121,8 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-        <div className="border-b border-border px-4 py-3 text-xs text-muted-foreground">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-[#ffffff] p-3 dark:bg-slate-900/82">
+        <div className={cn("px-5 py-3 text-xs text-muted-foreground", EMAIL_GLASS_INSET_CLASS)}>
           <div className="flex flex-wrap items-center gap-2">
             <span className="shrink-0">收件人</span>
             <span className="min-w-0 truncate text-sm font-medium text-foreground">
@@ -129,12 +142,12 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
             </div>
           ) : null}
         </div>
-        <div className="border-b border-border px-8 py-4 text-sm leading-6 text-foreground">
+        <div className={cn("flex-1 px-6 py-5 text-sm leading-7 text-foreground", EMAIL_GLASS_INSET_CLASS)}>
           {detail.messageDetailLoading ? (
             <div className="text-xs text-muted-foreground">正在加载邮件详情...</div>
           ) : detail.messageDetail?.bodyHtml ? (
             <div
-              className="prose prose-sm max-w-none text-foreground prose-img:max-w-full"
+              className="prose prose-sm max-w-none text-foreground prose-img:max-w-full prose-p:my-3 leading-7"
               dangerouslySetInnerHTML={{ __html: detail.messageDetail.bodyHtml }}
             />
           ) : (
@@ -144,7 +157,7 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
           )}
         </div>
         {detail.shouldShowAttachments ? (
-          <div className="border-b border-border px-4 py-3">
+          <div className={cn("px-5 py-3", EMAIL_GLASS_INSET_CLASS, EMAIL_TINT_LIST_CLASS)}>
             <div className="text-xs text-muted-foreground">附件</div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
               {detail.messageDetailLoading ? (
@@ -161,7 +174,10 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
                       href={downloadUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 hover:bg-accent transition-colors"
+                      className={cn(
+                        "inline-flex items-center gap-1 transition-colors duration-200 hover:bg-background/90",
+                        EMAIL_META_CHIP_CLASS,
+                      )}
                     >
                       <Download className="h-3 w-3" />
                       {attachment.filename ?? "未命名附件"}

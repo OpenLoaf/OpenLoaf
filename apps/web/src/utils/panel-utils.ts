@@ -10,6 +10,8 @@ import SkillsPage from "@/components/skills/SkillsPage";
 import { ProviderManagement } from "@/components/setting/menus/ProviderManagement";
 import CalendarPage from "@/components/calendar/Calendar";
 import EmailPage from "@/components/email/EmailPage";
+import EmailComposeStackPanel from "@/components/email/EmailComposeStackPanel";
+import EmailMessageStackPanel from "@/components/email/EmailMessageStackPanel";
 import InboxPage from "@/components/inbox/Inbox";
 import TemplatePage from "@/components/template/Template";
 import FileViewer from "@/components/file/FileViewer";
@@ -46,6 +48,8 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "provider-management": ProviderManagement,
   "calendar-page": CalendarPage,
   "email-page": EmailPage,
+  "email-compose-stack": EmailComposeStackPanel,
+  "email-message-stack": EmailMessageStackPanel,
   "inbox-page": InboxPage,
   "template-page": TemplatePage,
   "file-viewer": FileViewer,
@@ -89,6 +93,10 @@ export const getPanelTitle = (componentName: string) => {
       return "Calendar";
     case "email-page":
       return "Email";
+    case "email-compose-stack":
+      return "写邮件";
+    case "email-message-stack":
+      return "邮件正文";
     case "inbox-page":
       return "Inbox";
     case "template-page":

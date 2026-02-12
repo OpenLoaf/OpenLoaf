@@ -10,7 +10,12 @@ import {
   type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import { getParentRelativePath, type FileSystemEntry } from "../utils/file-system-utils";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getParentRelativePath,
+  resolveFileUriFromRoot,
+  type FileSystemEntry,
+} from "../utils/file-system-utils";
 import { sortEntriesByType } from "../utils/entry-sort";
 import FileSystemContextMenu from "./FileSystemContextMenu";
 import { FileSystemColumns } from "./FileSystemColumns";
@@ -30,6 +35,9 @@ import { useFileSelection } from "@/hooks/use-file-selection";
 import { useFileRename } from "@/hooks/use-file-rename";
 import { isBoardFolderName } from "@/lib/file-name";
 import { openFilePreview } from "@/components/file/lib/open-file";
+import { toast } from "sonner";
+import { trpc } from "@/utils/trpc";
+import { getProjectsQueryKey } from "@/hooks/use-projects";
 
 type ProjectFileSystemProps = {
   projectId?: string;
@@ -39,6 +47,8 @@ type ProjectFileSystemProps = {
   isLoading?: boolean;
   /** Whether the current project is a git repository. */
   isGitProject?: boolean;
+  /** Whether folders can be converted into child projects. */
+  canConvertToSubproject?: boolean;
   projectLookup?: Map<string, ProjectBreadcrumbInfo>;
   onNavigate?: (nextUri: string) => void;
 };
@@ -137,9 +147,12 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   currentUri,
   isLoading,
   isGitProject,
+  canConvertToSubproject = true,
   projectLookup,
   onNavigate,
 }: ProjectFileSystemProps) {
+  const queryClient = useQueryClient();
+  const createProjectMutation = useMutation(trpc.project.create.mutationOptions());
   // 从本地缓存恢复文件系统工具栏状态。
   const toolbarStorageKey = useMemo(
     () => buildFileSystemToolbarStorageKey(projectId, rootUri),
@@ -432,6 +445,41 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     }
   };
 
+  /** Convert a folder under current project into a child project. */
+  const handleConvertFolderToSubproject = useCallback(
+    async (entry: FileSystemEntry) => {
+      if (entry.kind !== "folder") return;
+      if (!canConvertToSubproject) {
+        toast.error("当前层级不支持转换为子项目");
+        return;
+      }
+      if (!projectId || !rootUri) {
+        toast.error("当前项目未就绪，无法转换");
+        return;
+      }
+      const targetRootUri = resolveFileUriFromRoot(rootUri, entry.uri);
+      if (!targetRootUri) {
+        toast.error("目录路径无效");
+        return;
+      }
+      try {
+        // 逻辑：直接将已存在目录挂载为当前项目的子项目，避免移动目录结构。
+        await createProjectMutation.mutateAsync({
+          rootUri: targetRootUri,
+          parentProjectId: projectId,
+          enableVersionControl: false,
+        });
+        toast.success("已转换为子项目");
+        await queryClient.invalidateQueries({
+          queryKey: getProjectsQueryKey(),
+        });
+      } catch (err: any) {
+        toast.error(err?.message ?? "转换失败");
+      }
+    },
+    [canConvertToSubproject, createProjectMutation, projectId, queryClient, rootUri]
+  );
+
   useEffect(() => {
     if (!shouldDisableTreeView) return;
     if (!isTreeView) return;
@@ -510,6 +558,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           showHidden={model.showHidden}
           clipboardSize={model.clipboardSize}
           showTerminal={model.isTerminalEnabled}
+          canConvertToSubproject={Boolean(projectId && rootUri && canConvertToSubproject)}
           onOpenChange={handleContextMenuOpenChange}
           withMenuSelectGuard={withMenuSelectGuard}
           actions={{
@@ -518,6 +567,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
             openInFileManagerAtCurrent: model.handleOpenInFileManagerAtCurrent,
             enterBoardFolder: (entry) => model.handleNavigate(entry.uri),
             openTerminal: model.handleOpenTerminal,
+            convertFolderToSubproject: handleConvertFolderToSubproject,
             openTransferDialog: model.handleOpenTransferDialog,
             copyPath: model.handleCopyPath,
             requestRename,

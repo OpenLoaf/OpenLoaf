@@ -28,6 +28,20 @@ import { useIsNarrowScreen } from "@/hooks/use-mobile";
 import { trpc } from "@/utils/trpc";
 import { Badge } from "@tenas-ai/ui/calendar/components/ui/badge";
 
+const SIDEBAR_WORKSPACE_COLOR_CLASS = {
+  calendar:
+    "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-sky-700/70 dark:[&>svg]:text-sky-300/70 hover:[&>svg]:text-sky-700 dark:hover:[&>svg]:text-sky-200 data-[active=true]:!bg-sky-500/15 dark:data-[active=true]:!bg-sky-400/20 data-[active=true]:[&>svg]:!text-sky-700 dark:data-[active=true]:[&>svg]:!text-sky-200",
+  email:
+    "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-emerald-700/70 dark:[&>svg]:text-emerald-300/70 hover:[&>svg]:text-emerald-700 dark:hover:[&>svg]:text-emerald-200 data-[active=true]:!bg-emerald-500/15 dark:data-[active=true]:!bg-emerald-400/20 data-[active=true]:[&>svg]:!text-emerald-700 dark:data-[active=true]:[&>svg]:!text-emerald-200",
+  skills:
+    "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-violet-700/70 dark:[&>svg]:text-violet-300/70 hover:[&>svg]:text-violet-700 dark:hover:[&>svg]:text-violet-200 data-[active=true]:!bg-violet-500/15 dark:data-[active=true]:!bg-violet-400/20 data-[active=true]:[&>svg]:!text-violet-700 dark:data-[active=true]:[&>svg]:!text-violet-200",
+  workbench:
+    "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 data-[active=true]:!bg-amber-500/15 dark:data-[active=true]:!bg-amber-400/20",
+} as const;
+
+const SIDEBAR_SEARCH_ICON_CLASS =
+  "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-cyan-700/70 dark:[&>svg]:text-cyan-300/70 hover:[&>svg]:text-cyan-700 dark:hover:[&>svg]:text-cyan-200";
+
 export const AppSidebar = ({
   ...props
 }: React.ComponentProps<typeof Sidebar>) => {
@@ -113,7 +127,7 @@ export const AppSidebar = ({
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="搜索"
-              className="group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              className={SIDEBAR_SEARCH_ICON_CLASS}
               onClick={() => setSearchOpen(true)}
               type="button"
             >
@@ -162,8 +176,27 @@ export const AppSidebar = ({
           ) : null}
           <SidebarMenuItem>
             <SidebarMenuButton
+              tooltip="工作台"
+              className={SIDEBAR_WORKSPACE_COLOR_CLASS.workbench}
+              isActive={isMenuActive(WORKBENCH_TAB_INPUT)}
+              onClick={() => openSingletonTab(WORKBENCH_TAB_INPUT)}
+              type="button"
+            >
+              <Image src="/head_s.png" alt="" width={16} height={16} className="h-4 w-4" />
+              <span className="flex-1 truncate">工作台</span>
+              <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
+                <KbdGroup className="gap-1">
+                  <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
+                  <Kbd className="bg-transparent px-0 h-auto rounded-none">T</Kbd>
+                </KbdGroup>
+              </span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
               tooltip="日历"
-              className="group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              // 逻辑：与底部 DockTabs 的色调保持一致，增强主入口识别度。
+              className={SIDEBAR_WORKSPACE_COLOR_CLASS.calendar}
               isActive={isMenuActive({
                 baseId: "base:calendar",
                 component: "calendar-page",
@@ -192,7 +225,7 @@ export const AppSidebar = ({
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="邮箱"
-              className="group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              className={SIDEBAR_WORKSPACE_COLOR_CLASS.email}
               isActive={isMenuActive({
                 baseId: "base:mailbox",
                 component: "email-page",
@@ -223,7 +256,7 @@ export const AppSidebar = ({
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="技能"
-              className="group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
+              className={SIDEBAR_WORKSPACE_COLOR_CLASS.skills}
               isActive={isMenuActive({
                 baseId: "base:skills",
                 component: "skills-page",
@@ -241,24 +274,6 @@ export const AppSidebar = ({
             >
               <Wand2 />
               <span className="flex-1 truncate">技能</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="工作台"
-              className="group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-muted-foreground"
-              isActive={isMenuActive(WORKBENCH_TAB_INPUT)}
-              onClick={() => openSingletonTab(WORKBENCH_TAB_INPUT)}
-              type="button"
-            >
-              <Image src="/head_s.png" alt="" width={16} height={16} className="h-4 w-4" />
-              <span className="flex-1 truncate">工作台</span>
-              <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
-                <KbdGroup className="gap-1">
-                  <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
-                  <Kbd className="bg-transparent px-0 h-auto rounded-none">T</Kbd>
-                </KbdGroup>
-              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           {/* 先隐藏收集箱入口，后续再开放。 */}

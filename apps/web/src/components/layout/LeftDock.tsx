@@ -8,6 +8,7 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useTabView } from "@/hooks/use-tab-view";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import type { DockItem } from "@tenas-ai/api/common";
+import WorkspaceSwitchDockTabs from "./WorkspaceSwitchDockTabs";
 import { StackHeader } from "./StackHeader";
 import { Skeleton } from "@tenas-ai/ui/skeleton";
 import { trpc } from "@/utils/trpc";
@@ -38,6 +39,13 @@ import {
   normalizeProjectRelativePath,
   parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
+
+const WORKSPACE_SWITCH_COMPONENTS = new Set([
+  "calendar-page",
+  "email-page",
+  "skills-page",
+  "workspace-desktop",
+]);
 
 /** Returns true when the event target is an editable element. */
 function isEditableTarget(target: EventTarget | null) {
@@ -255,8 +263,11 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const activeStackId = activeStackItemId || stack.at(-1)?.id || "";
   const hasOverlay = Boolean(base) && stack.length > 0 && !stackHidden;
   const floating = Boolean(base);
-  // 中文注释：Project 面板打开 stack 时，底部预留 DockTabs 显示区。
-  const showProjectDockGap = base?.component === "plant-page";
+  const showWorkspaceSwitchDock = Boolean(
+    base?.component && WORKSPACE_SWITCH_COMPONENTS.has(base.component),
+  );
+  // 中文注释：存在底部 DockTabs 时，stack 顶层面板需要预留底部显示区域。
+  const showBottomDockGap = base?.component === "plant-page" || showWorkspaceSwitchDock;
 
   const requestCloseStackItem = React.useCallback(
     async (item: DockItem | undefined) => {
@@ -405,7 +416,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
         <div
           className={cn(
             "absolute inset-x-0 top-0",
-            showProjectDockGap ? "bottom-16" : "bottom-0",
+            showBottomDockGap ? "bottom-16" : "bottom-0",
             // stack 最小化后仍保持挂载（便于恢复状态），但不能挡住 base 的点击/交互。
             stackHidden && "pointer-events-none",
           )}
@@ -450,6 +461,12 @@ export function LeftDock({ tabId }: { tabId: string }) {
           data-tab-id={tabId}
           className="absolute inset-x-0 bottom-0 h-24 z-[80]"
         />
+      ) : null}
+
+      {showWorkspaceSwitchDock ? (
+        <div className="absolute inset-x-0 bottom-0 h-24 z-[80] px-2 pb-2">
+          <WorkspaceSwitchDockTabs tabId={tabId} />
+        </div>
       ) : null}
 
       <Dialog

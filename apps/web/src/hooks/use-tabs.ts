@@ -166,7 +166,7 @@ export const useTabs = create<TabsState>()(
           base: normalizedBase,
           stack: [],
           leftWidthPercent: normalizedBase ? leftWidthPercent ?? 0 : 0,
-          rightChatCollapsed: rightChatCollapsed ?? false,
+          rightChatCollapsed: rightChatCollapsed ?? true,
           stackHidden: false,
           activeStackItemId: "",
         });

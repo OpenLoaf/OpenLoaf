@@ -745,10 +745,8 @@ body {
 .project-header-main {
   min-width: 0;
   flex: 1 1 auto;
-  max-width: min(
-    var(--project-header-main-max-width),
-    max(0px, calc(100% - var(--project-header-tabs-width)))
-  );
+  width: 100%;
+  max-width: var(--project-header-main-max-width);
   overflow: hidden;
 }
 

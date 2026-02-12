@@ -30,7 +30,7 @@ type SkillFrontMatter = {
   description?: string;
 };
 
-const TENAS_META_DIR = ".tenas";
+const AGENTS_META_DIR = ".agents";
 const SKILLS_DIR_NAME = "skills";
 const SKILL_FILE_NAME = "SKILL.md";
 const FRONT_MATTER_DELIMITER = "---";
@@ -47,11 +47,11 @@ export function loadSkillSummaries(input: {
   const orderedNames: string[] = [];
 
   for (const source of sources) {
-    // 全局技能目录直接就是 skills 根目录，无需拼接 .tenas/skills。
+    // 全局技能目录直接就是 skills 根目录，无需拼接 .agents/skills。
     const skillsRootPath =
       source.scope === "global"
         ? source.rootPath
-        : path.join(source.rootPath, TENAS_META_DIR, SKILLS_DIR_NAME);
+        : path.join(source.rootPath, AGENTS_META_DIR, SKILLS_DIR_NAME);
     const skillFiles = findSkillFiles(skillsRootPath);
 
     for (const filePath of skillFiles) {
