@@ -17,15 +17,13 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useProject } from "@/hooks/use-project";
 import { useProjects } from "@/hooks/use-projects";
 import ProjectIndex, { ProjectIndexHeader } from "./index/ProjectIndex";
-import ProjectHistory, { ProjectHistoryHeader } from "./ProjectHistory";
+import ProjectHistory from "./history/ProjectHistoryPage";
 import ProjectTabs, { PROJECT_TABS, type ProjectTabValue } from "./ProjectTabs";
 import ProjectFileSystem, {
   type ProjectBreadcrumbInfo,
 } from "./filesystem/components/ProjectFileSystem";
-import ProjectSettingsPage, {
-  ProjectSettingsHeader,
-} from "./settings/ProjectSettingsPage";
-import ProjectSkillsPage, { ProjectSkillsHeader } from "./skills/ProjectSkillsPage";
+import ProjectSettingsPage from "./settings/ProjectSettingsPage";
+import ProjectSkillsPage from "./skills/ProjectSkillsPage";
 
 interface ProjectPageProps {
   tabId?: string;
@@ -68,30 +66,6 @@ type ProjectTreeNode = {
   /** Child projects. */
   children?: ProjectTreeNode[];
 };
-
-interface ProjectFileSystemHeaderProps {
-  /** Whether the file system data is loading. */
-  isLoading: boolean;
-  /** Display title for the current project. */
-  pageTitle: string;
-}
-
-/** Project file system header. */
-const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
-  isLoading,
-  pageTitle,
-}: ProjectFileSystemHeaderProps) {
-  if (isLoading) {
-    return null;
-  }
-
-  return (
-    <div className="flex items-center gap-2 min-w-0">
-      <span className="text-base font-semibold">文件</span>
-      <span className="text-xs text-muted-foreground truncate">{pageTitle}</span>
-    </div>
-  );
-});
 
 /** Flatten project tree into a lookup map. */
 function buildProjectLookup(projects: ProjectTreeNode[] | undefined) {
@@ -386,6 +360,7 @@ export default function ProjectPage({
     "flex min-h-[36px] items-center pl-2 transition-opacity duration-240 ease-out min-w-0";
   const panelBaseClass =
     "absolute inset-0 box-border pt-0 transform-gpu transition-[opacity,transform] duration-[300ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,transform]";
+  const shouldShowTopHeader = activeTab === "index";
 
   /** Toggle read-only mode for the homepage editor. */
   const handleSetIndexReadOnly = useCallback(
@@ -449,74 +424,36 @@ export default function ProjectPage({
 
   return (
     <div className="project-shell flex h-full w-full flex-col min-h-0">
-      <div className="project-header w-full min-w-0">
-        <div className="project-header-main relative min-w-0 min-h-[36px]">
-          <div
-            className={`${headerBaseClass} ${
-              activeTab === "index"
-                ? "relative opacity-100 pointer-events-auto w-full"
-                : "absolute inset-0 opacity-0 pointer-events-none"
-            }`}
-            aria-hidden={activeTab !== "index"}
-          >
-            <ProjectIndexHeader
-              isLoading={isLoading}
-              projectId={projectId}
-              projectTitle={pageTitle}
-              titleIcon={titleIcon}
-              currentTitle={projectData?.project?.title ?? undefined}
-              isUpdating={updateProject.isPending}
-              onUpdateTitle={handleUpdateTitle}
-              onUpdateIcon={handleUpdateIcon}
-              isReadOnly={indexReadOnly}
-              onSetReadOnly={handleSetIndexReadOnly}
-              controlsSlotRef={indexControlsRef}
-              showControls={!indexReadOnly}
-              editMode={indexEditMode}
-            />
-          </div>
-          <div
-            className={`${headerBaseClass} ${
-              activeTab === "files"
-                ? "relative opacity-100 pointer-events-auto w-full"
-                : "absolute inset-0 opacity-0 pointer-events-none"
-            }`}
-            aria-hidden={activeTab !== "files"}
-          >
-            <ProjectFileSystemHeader isLoading={isLoading} pageTitle={pageTitle} />
-          </div>
-          <div
-            className={`${headerBaseClass} ${
-              activeTab === "tasks"
-                ? "relative opacity-100 pointer-events-auto w-full"
-                : "absolute inset-0 opacity-0 pointer-events-none"
-            }`}
-            aria-hidden={activeTab !== "tasks"}
-          >
-            <ProjectHistoryHeader isLoading={isLoading} pageTitle={pageTitle} />
-          </div>
-          <div
-            className={`${headerBaseClass} ${
-              activeTab === "skills"
-                ? "relative opacity-100 pointer-events-auto w-full"
-                : "absolute inset-0 opacity-0 pointer-events-none"
-            }`}
-            aria-hidden={activeTab !== "skills"}
-          >
-            <ProjectSkillsHeader isLoading={isLoading} pageTitle={pageTitle} />
-          </div>
-          <div
-            className={`${headerBaseClass} ${
-              activeTab === "settings"
-                ? "relative opacity-100 pointer-events-auto w-full"
-                : "absolute inset-0 opacity-0 pointer-events-none"
-            }`}
-            aria-hidden={activeTab !== "settings"}
-          >
-            <ProjectSettingsHeader isLoading={isLoading} pageTitle={pageTitle} />
+      {shouldShowTopHeader ? (
+        <div className="project-header w-full min-w-0">
+          <div className="project-header-main relative min-w-0 min-h-[36px]">
+            <div
+              className={`${headerBaseClass} ${
+                activeTab === "index"
+                  ? "relative opacity-100 pointer-events-auto w-full"
+                  : "absolute inset-0 opacity-0 pointer-events-none"
+              }`}
+              aria-hidden={activeTab !== "index"}
+            >
+              <ProjectIndexHeader
+                isLoading={isLoading}
+                projectId={projectId}
+                projectTitle={pageTitle}
+                titleIcon={titleIcon}
+                currentTitle={projectData?.project?.title ?? undefined}
+                isUpdating={updateProject.isPending}
+                onUpdateTitle={handleUpdateTitle}
+                onUpdateIcon={handleUpdateIcon}
+                isReadOnly={indexReadOnly}
+                onSetReadOnly={handleSetIndexReadOnly}
+                controlsSlotRef={indexControlsRef}
+                showControls={!indexReadOnly}
+                editMode={indexEditMode}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="relative flex-1 min-h-0 w-full">
         <ProjectTabs

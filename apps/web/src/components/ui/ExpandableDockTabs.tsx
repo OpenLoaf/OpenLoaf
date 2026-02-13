@@ -12,7 +12,7 @@ import {
 } from "react";
 import { AnimatePresence, motion, type Transition } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
-import { File, Layers, Send, Sparkles } from "lucide-react";
+import { ClipboardList, Code2, File, FileText, Layers, Send, Sparkles } from "lucide-react";
 import { useOnClickOutside } from "usehooks-ts";
 
 import {
@@ -143,6 +143,7 @@ const FILE_VIEWER_COMPONENTS = new Set([
   "video-viewer",
 ]);
 const BOARD_VIEWER_COMPONENT = "board-viewer";
+const EMAIL_MESSAGE_STACK_COMPONENT = "email-message-stack";
 
 /** Resolve stack item title. */
 function getStackItemTitle(item: DockItem): string {
@@ -174,6 +175,13 @@ function getStackItemFallbackIcon(item: DockItem): StackFallbackIcon {
       type: "image",
       src: "/files/terminal.svg",
       alt: "Terminal",
+    };
+  }
+  if (item.component === EMAIL_MESSAGE_STACK_COMPONENT) {
+    return {
+      type: "image",
+      src: "/files/gmail.svg",
+      alt: "Gmail",
     };
   }
   if (FILE_VIEWER_COMPONENTS.has(item.component)) {
@@ -235,6 +243,12 @@ function resolveStackFileEntry(item: DockItem): FileSystemEntry | null {
   };
 }
 
+const AI_SUGGESTIONS = [
+  { text: '帮我总结今天的工作进展', icon: ClipboardList, color: 'text-sky-500' },
+  { text: '分析当前项目的代码质量', icon: Code2, color: 'text-emerald-500' },
+  { text: '生成一份本周工作周报', icon: FileText, color: 'text-violet-500' },
+] as const;
+
 export function ExpandableDockTabs({
   tabs,
   className,
@@ -254,6 +268,7 @@ export function ExpandableDockTabs({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [inputValue, setInputValue] = useState("");
+  const [suggestionIndex, setSuggestionIndex] = useState(-1);
   const dockRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
@@ -439,6 +454,7 @@ export function ExpandableDockTabs({
       return next;
     });
     setHoveredIndex(null);
+    setSuggestionIndex(-1);
   };
 
   /** Open a stack item. */
@@ -447,17 +463,80 @@ export function ExpandableDockTabs({
     useTabRuntime.getState().pushStackItem(activeTabId, item);
   };
 
+  /** 逻辑：发送文本到 AI Chat 面板。 */
+  const sendToAiChat = (text: string) => {
+    if (onSend) {
+      onSend(text);
+    } else if (activeTabId) {
+      useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, false);
+      window.setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent('tenas:chat-send-message', { detail: { text } }),
+        );
+      }, 180);
+    }
+  };
+
   /** Send the current input value. */
   const handleSend = () => {
     const value = inputValue.trim();
     if (!value) return;
-    onSend?.(value);
+    sendToAiChat(value);
     setInputValue("");
+    setIsExpanded(false);
   };
 
   useEffect(() => {
     firstRevealRef.current = false;
   }, []);
+
+  // 逻辑：空格快捷键触发 Sparkles，排除输入类元素。使用捕获阶段阻止滚动。
+  useEffect(() => {
+    const shouldIntercept = (e: KeyboardEvent): boolean => {
+      if (e.key !== ' ') return false;
+      const el = e.target as HTMLElement | null;
+      if (el === inputRef.current) return !inputRef.current?.value.trim();
+      const tag = el?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return false;
+      if (el?.isContentEditable) return false;
+      if (el?.closest('[role="textbox"]')) return false;
+      return true;
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!shouldIntercept(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      handleToggleExpand();
+    };
+    // 逻辑：keyup 也需要拦截，部分浏览器/滚动容器在 keyup 阶段触发滚动。
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (!shouldIntercept(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keyup', handleKeyUp, true);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('keyup', handleKeyUp, true);
+    };
+  }, [handleToggleExpand]);
+
+  // 逻辑：Alt+1~9 快捷键切换 tab。
+  useEffect(() => {
+    const handleAltNum = (e: KeyboardEvent) => {
+      if (!e.altKey) return;
+      const num = Number.parseInt(e.key, 10);
+      if (num < 1 || num > 9 || Number.isNaN(num)) return;
+      const index = num - 1;
+      if (index >= tabs.length) return;
+      e.preventDefault();
+      e.stopPropagation();
+      handleSelect(index);
+    };
+    window.addEventListener('keydown', handleAltNum, true);
+    return () => window.removeEventListener('keydown', handleAltNum, true);
+  }, [tabs.length]);
 
   const effectiveCollapsedWidth = showStackResolved
     ? fullWidth
@@ -699,32 +778,95 @@ export function ExpandableDockTabs({
             </motion.div>
           ) : null}
         </AnimatePresence>
+        <AnimatePresence initial={false}>
+          {isExpanded ? (
+            <motion.div
+              key="ai-suggestions"
+              className="absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 flex-col items-center gap-1"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, y: 6, transition: { duration: 0.15 } }}
+              transition={{ duration: 0.18 }}
+            >
+              {AI_SUGGESTIONS.map((item, index) => {
+                const Icon = item.icon;
+                const isSelected = suggestionIndex === index;
+                return (
+                  <motion.button
+                    key={item.text}
+                    type="button"
+                    onClick={() => {
+                      sendToAiChat(item.text);
+                      setInputValue('');
+                      setIsExpanded(false);
+                      setSuggestionIndex(-1);
+                    }}
+                    onPointerEnter={() => setSuggestionIndex(index)}
+                    onPointerLeave={() => setSuggestionIndex(-1)}
+                    className={cn(
+                      'flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 shadow-sm transition-colors',
+                      isSelected
+                        ? 'border-primary bg-primary text-primary-foreground dark:border-primary dark:bg-primary'
+                        : 'border-border/60 bg-background text-secondary-foreground dark:border-border/40',
+                      sizeToken.text,
+                    )}
+                    initial={{ opacity: 0, y: 16, scale: 0.8, filter: 'blur(4px)' }}
+                    animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                    transition={{
+                      delay: (AI_SUGGESTIONS.length - 1 - index) * 0.06,
+                      type: 'spring',
+                      stiffness: 400,
+                      damping: 25,
+                    }}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                  >
+                    <Icon size={14} className={item.color} />
+                    {item.text}
+                  </motion.button>
+                );
+              })}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
         <span
           aria-hidden="true"
           data-stack-dock-button="true"
           className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 opacity-0"
           style={{ height: sizeToken.height, width: sizeToken.height }}
         />
-        <motion.button
-          type="button"
-          className="flex items-center justify-end rounded-full shrink-0 pr-1"
-          style={{ height: sizeToken.height, width: sizeToken.sparklesWidth }}
-          whileHover={{ scale: 1.05, rotate: 8 }}
-          transition={{ type: "spring", stiffness: 360, damping: 24 }}
-          onClick={handleToggleExpand}
-          aria-label="Sparkles"
-        >
-          <motion.span
-            whileHover={{ y: -4 }}
-            transition={{ type: "spring", stiffness: 420, damping: 26 }}
-          >
-            <Sparkles
-              size={sizeToken.icon}
-              className="text-amber-500"
-              fill="currentColor"
-            />
-          </motion.span>
-        </motion.button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <motion.button
+              type="button"
+              className="flex items-center justify-end rounded-full shrink-0 pr-1"
+              style={{ height: sizeToken.height, width: sizeToken.sparklesWidth }}
+              whileHover={{ scale: 1.05, rotate: 8 }}
+              transition={{ type: "spring", stiffness: 360, damping: 24 }}
+              onClick={handleToggleExpand}
+              aria-label="AI助手"
+            >
+              <motion.span
+                whileHover={{ y: -4 }}
+                transition={{ type: "spring", stiffness: 420, damping: 26 }}
+              >
+                <Sparkles
+                  size={sizeToken.icon}
+                  className="text-amber-500"
+                  fill="currentColor"
+                />
+              </motion.span>
+            </motion.button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={6}>
+            <span className="flex items-center gap-1.5">
+              AI助手
+              <kbd className="rounded border border-border/60 bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground">
+                Space
+              </kbd>
+            </span>
+          </TooltipContent>
+        </Tooltip>
         <motion.div
           className="mx-0.5 h-4 w-px bg-border/70"
           aria-hidden="true"
@@ -756,8 +898,30 @@ export function ExpandableDockTabs({
                   value={inputValue}
                   onChange={(event) => setInputValue(event.target.value)}
                   onKeyDown={(event) => {
+                    if (event.key === 'ArrowUp') {
+                      event.preventDefault();
+                      setSuggestionIndex((prev) =>
+                        prev <= 0 ? AI_SUGGESTIONS.length - 1 : prev - 1,
+                      );
+                      return;
+                    }
+                    if (event.key === 'ArrowDown') {
+                      event.preventDefault();
+                      setSuggestionIndex((prev) =>
+                        prev >= AI_SUGGESTIONS.length - 1 ? 0 : prev + 1,
+                      );
+                      return;
+                    }
                     if (event.key === "Enter") {
-                      handleSend();
+                      if (suggestionIndex >= 0) {
+                        sendToAiChat(AI_SUGGESTIONS[suggestionIndex].text);
+                        setInputValue('');
+                        setIsExpanded(false);
+                        setSuggestionIndex(-1);
+                      } else {
+                        handleSend();
+                      }
+                      return;
                     }
                     if (event.key === "Escape") {
                       handleToggleExpand();
@@ -920,10 +1084,16 @@ export function ExpandableDockTabs({
                     </motion.button>
                   );
 
-                  const tooltipContent = getTooltip?.(tab, index);
-                  if (!tooltipContent) {
-                    return button;
-                  }
+                  const tooltipContent = getTooltip?.(tab, index) ?? (
+                    <span className="flex items-center gap-1.5">
+                      {tab.label}
+                      {index < 9 ? (
+                        <kbd className="rounded border border-border/60 bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          Alt+{index + 1}
+                        </kbd>
+                      ) : null}
+                    </span>
+                  );
 
                   return (
                     <Tooltip key={tab.id}>

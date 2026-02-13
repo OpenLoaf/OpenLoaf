@@ -28,12 +28,11 @@ export default function EmailPage({
     const runtime = useTabRuntime.getState().getRuntimeByTabId(tabId);
     const legacyDetailIds = (runtime?.stack ?? [])
       .filter(
-        (item) =>
-          item.component === "email-message-stack" && item.id.startsWith("email-message:"),
+        (item) => item.component === "email-message-stack" && item.id === "email-message-stack",
       )
       .map((item) => item.id);
     legacyDetailIds.forEach((itemId) => {
-      // 逻辑：清理历史版本留下的多实例详情 stack，避免关闭后回到旧详情页。
+      // 逻辑：清理旧版“单例详情 stack”残留，防止与多实例模式混用。
       removeStackItem(tabId, itemId);
     });
   }, [removeStackItem, tabId]);
@@ -62,23 +61,16 @@ export default function EmailPage({
   const handleOpenMessageStack = useCallback(
     (message: EmailMessageSummary) => {
       if (!tabId) return;
-      const runtime = useTabRuntime.getState().getRuntimeByTabId(tabId);
-      const legacyDetailIds = (runtime?.stack ?? [])
-        .filter(
-          (item) =>
-            item.component === "email-message-stack" && item.id !== "email-message-stack",
-        )
-        .map((item) => item.id);
-      legacyDetailIds.forEach((itemId) => removeStackItem(tabId, itemId));
+      const detailStackId = `email-message:${message.id}`;
+      const detailTitle = message.subject?.trim() || "（无主题）";
       pushStackItem(tabId, {
-        id: "email-message-stack",
-        sourceKey: "email-message-stack",
+        id: detailStackId,
+        sourceKey: detailStackId,
         component: "email-message-stack",
-        title: message.subject?.trim() || "邮件正文",
+        title: detailTitle,
         params: {
           messageId: message.id,
           workspaceId: workspace?.id,
-          fallbackSubject: message.subject,
           fallbackFrom: message.from,
           fallbackTime: message.time ?? "",
           fallbackPreview: message.preview,
@@ -86,7 +78,7 @@ export default function EmailPage({
         },
       });
     },
-    [pushStackItem, removeStackItem, tabId, workspace?.id],
+    [pushStackItem, tabId, workspace?.id],
   );
 
   return (

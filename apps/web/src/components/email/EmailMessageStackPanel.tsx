@@ -22,7 +22,6 @@ type EmailMessageStackPanelProps = {
   tabId: string;
   messageId?: string;
   workspaceId?: string;
-  fallbackSubject?: string;
   fallbackFrom?: string;
   fallbackTime?: string;
   fallbackPreview?: string;
@@ -31,7 +30,6 @@ type EmailMessageStackPanelProps = {
 export default function EmailMessageStackPanel({
   messageId,
   workspaceId,
-  fallbackSubject,
   fallbackFrom,
   fallbackTime,
   fallbackPreview,
@@ -49,7 +47,6 @@ export default function EmailMessageStackPanel({
 
   const detail = messageQuery.data as EmailMessageDetail | undefined;
 
-  const subject = detail?.subject ?? fallbackSubject ?? "（无主题）";
   const fromLine = detail?.from?.join("; ") || fallbackFrom || "—";
   const timeLine = formatDateTime(detail?.date ?? fallbackTime ?? "") || "—";
   const toLine = detail?.to?.join("; ") || "—";
@@ -61,9 +58,8 @@ export default function EmailMessageStackPanel({
 
   return (
     <div className={cn("flex h-full min-h-0 w-full flex-col overflow-hidden", EMAIL_GLASS_PANEL_CLASS)}>
-      <header className={cn("px-5 py-4", EMAIL_TINT_DETAIL_CLASS, "border-b", EMAIL_DIVIDER_CLASS)}>
-        <h2 className="line-clamp-2 text-base font-semibold text-foreground">{subject}</h2>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#5f6368] dark:text-slate-400">
+      <header className={cn("px-5 py-3", EMAIL_TINT_DETAIL_CLASS, "border-b", EMAIL_DIVIDER_CLASS)}>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-[#5f6368] dark:text-slate-400">
           <span className="font-medium text-[#202124] dark:text-slate-100">{fromLine}</span>
           <span>·</span>
           <span>{timeLine}</span>

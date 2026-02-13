@@ -30,7 +30,7 @@ type ProjectSkillsPageProps = {
 /** Project skills page. */
 function ProjectSkillsPage({ projectId }: ProjectSkillsPageProps) {
   return (
-    <div className="h-full w-full overflow-auto p-4">
+    <div className="h-full w-full overflow-auto p-2">
       <SkillsSettingsPanel projectId={projectId} />
     </div>
   );

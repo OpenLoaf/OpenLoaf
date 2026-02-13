@@ -1,12 +1,19 @@
 import { DndProvider } from "react-dnd";
-import { ChevronDown, ChevronRight, PenSquare, Plus, RefreshCw, Trash2, Unplug } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  MailPlus,
+  PenSquare,
+  RefreshCw,
+  Trash2,
+  Unplug,
+} from "lucide-react";
 
 import { Button } from "@tenas-ai/ui/button";
 import { cn } from "@/lib/utils";
 import { dndManager } from "@/lib/dnd-manager";
 import {
   EMAIL_DIVIDER_CLASS,
-  EMAIL_META_CHIP_CLASS,
   EMAIL_TINT_NAV_CLASS,
   EMAIL_TONE_ACTIVE_CLASS,
   EMAIL_TONE_HOVER_CLASS,
@@ -27,53 +34,7 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
         EMAIL_TINT_NAV_CLASS,
       )}
     >
-      {onStartCompose ? (
-        <Button
-          type="button"
-          variant="default"
-          size="default"
-          className="h-12 w-full justify-start gap-2 rounded-2xl bg-[#c2e7ff] px-4 text-sm font-semibold text-[#001d35] shadow-none transition-colors duration-150 hover:bg-[#b3dcfb] dark:bg-sky-700 dark:text-sky-100 dark:hover:bg-sky-600"
-          onClick={onStartCompose}
-        >
-          <PenSquare className="h-4 w-4" />
-          写邮件
-        </Button>
-      ) : null}
-      <div className={cn("flex items-center justify-between px-1 pb-1 border-b", EMAIL_DIVIDER_CLASS)}>
-        <div className="text-xs font-semibold tracking-wide text-[#5f6368] dark:text-slate-400">邮箱</div>
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full text-[#5f6368] hover:bg-[hsl(var(--muted)/0.62)] dark:text-slate-400 dark:hover:bg-slate-700"
-            onClick={sidebar.onSyncMailbox}
-            disabled={!sidebar.canSyncMailbox || sidebar.isSyncingMailbox}
-            aria-label="同步邮箱"
-            title="同步邮箱"
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${sidebar.isSyncingMailbox ? "animate-spin" : ""}`}
-            />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "h-8 rounded-full px-3 text-xs font-medium text-[#444746] transition-colors duration-150",
-              "hover:bg-[hsl(var(--muted)/0.62)] dark:text-slate-300 dark:hover:bg-slate-700",
-            )}
-            onClick={sidebar.onOpenAddAccount}
-          >
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            添加邮箱
-          </Button>
-        </div>
-      </div>
-
       <div className="space-y-1 p-1">
-        <div className="px-2 text-[11px] font-semibold text-[#5f6368] dark:text-slate-400">收件箱视图</div>
         <div className="space-y-1">
           {sidebar.unifiedItems.map((item) => {
             const Icon = item.icon;
@@ -103,12 +64,48 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
 
       <div className={cn("flex min-h-0 flex-1 flex-col space-y-2 border-t pt-2", EMAIL_DIVIDER_CLASS)}>
         <div className="flex items-center justify-between px-2">
-          <div className="text-[11px] font-semibold text-[#5f6368] dark:text-slate-400">账户</div>
-          {sidebar.accounts.length > 0 ? (
-            <span className={cn(EMAIL_META_CHIP_CLASS, "text-[10px]")}>
-              {sidebar.accounts.length}
-            </span>
-          ) : null}
+          <div className="flex items-center gap-1.5">
+            <div className="text-xs font-semibold text-[#5f6368] dark:text-slate-400">邮箱列表</div>
+            {sidebar.accounts.length > 0 ? (
+              <span className="text-[9px] font-medium text-[#8a9098] dark:text-slate-500">
+                {sidebar.accounts.length}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-7 w-7 rounded-full border border-transparent bg-[#e6f4ea] text-[#188038] transition-colors duration-150",
+                "hover:bg-[#ceead6] dark:bg-[hsl(142_45%_24%/0.55)] dark:text-emerald-300 dark:hover:bg-[hsl(142_45%_24%/0.72)]",
+                "disabled:bg-[hsl(var(--muted)/0.28)] disabled:text-muted-foreground",
+              )}
+              onClick={sidebar.onSyncMailbox}
+              disabled={!sidebar.canSyncMailbox || sidebar.isSyncingMailbox}
+              aria-label="同步邮箱"
+              title="同步邮箱"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${sidebar.isSyncingMailbox ? "animate-spin" : ""}`}
+              />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-7 w-7 rounded-full border border-transparent bg-[#e6f4ea] text-[#188038] transition-colors duration-150",
+                "hover:bg-[#ceead6] dark:bg-[hsl(142_45%_24%/0.55)] dark:text-emerald-300 dark:hover:bg-[hsl(142_45%_24%/0.72)]",
+              )}
+              onClick={sidebar.onOpenAddAccount}
+              aria-label="添加邮箱"
+              title="添加邮箱"
+            >
+              <MailPlus className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
         {sidebar.accountsLoading ? (
           <div className="flex flex-1 items-center justify-center rounded-lg bg-[hsl(var(--background)/0.72)] px-3 py-3 text-xs text-[#5f6368] dark:bg-slate-800/65 dark:text-slate-300">
@@ -150,7 +147,10 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
                           ) : null}
                           <button
                             type="button"
-                            className="hidden h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-destructive group-hover/account:flex"
+                            className={cn(
+                              "flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-opacity duration-150 hover:text-destructive",
+                              "opacity-0 pointer-events-none group-hover/account:opacity-100 group-hover/account:pointer-events-auto",
+                            )}
                             title="删除邮箱账户"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -203,6 +203,19 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
           </DndProvider>
         )}
       </div>
+
+      {onStartCompose ? (
+        <Button
+          type="button"
+          variant="default"
+          size="default"
+          className="h-12 w-full justify-start gap-2 rounded-2xl bg-[#c2e7ff] px-4 text-sm font-semibold text-[#001d35] shadow-none transition-colors duration-150 hover:bg-[#b3dcfb] dark:bg-sky-700 dark:text-sky-100 dark:hover:bg-sky-600"
+          onClick={onStartCompose}
+        >
+          <PenSquare className="h-4 w-4" />
+          写邮件
+        </Button>
+      ) : null}
     </aside>
   );
 }

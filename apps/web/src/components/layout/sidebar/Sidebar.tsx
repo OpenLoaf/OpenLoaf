@@ -42,15 +42,33 @@ const SIDEBAR_WORKSPACE_COLOR_CLASS = {
 const SIDEBAR_SEARCH_ICON_CLASS =
   "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-cyan-700/70 dark:[&>svg]:text-cyan-300/70 hover:[&>svg]:text-cyan-700 dark:hover:[&>svg]:text-cyan-200";
 
+const SIDEBAR_WORKSPACE_PAGE_BASE_IDS = new Set([
+  WORKBENCH_TAB_INPUT.baseId,
+  "base:calendar",
+  "base:mailbox",
+  "base:skills",
+]);
+
+const SIDEBAR_WORKSPACE_PAGE_COMPONENTS = new Set([
+  WORKBENCH_TAB_INPUT.component,
+  "calendar-page",
+  "email-page",
+  "skills-page",
+]);
+
 export const AppSidebar = ({
   ...props
 }: React.ComponentProps<typeof Sidebar>) => {
   const { workspace: activeWorkspace } = useWorkspace();
   const addTab = useTabs((s) => s.addTab);
   const setActiveTab = useTabs((s) => s.setActiveTab);
+  const setTabTitle = useTabs((s) => s.setTabTitle);
+  const setTabIcon = useTabs((s) => s.setTabIcon);
   const tabs = useTabs((s) => s.tabs);
   const activeTabId = useTabs((s) => s.activeTabId);
   const runtimeByTabId = useTabRuntime((s) => s.runtimeByTabId);
+  const setTabBase = useTabRuntime((s) => s.setTabBase);
+  const clearStack = useTabRuntime((s) => s.clearStack);
   const searchOpen = useGlobalOverlay((s) => s.searchOpen);
   const setSearchOpen = useGlobalOverlay((s) => s.setSearchOpen);
   const isNarrow = useIsNarrowScreen(900);
@@ -113,6 +131,80 @@ export const AppSidebar = ({
       });
     },
     [activeWorkspace, addTab, setActiveTab],
+  );
+
+  const openWorkspacePageTab = useCallback(
+    (input: { baseId: string; component: string; title: string; icon: string }) => {
+      if (!activeWorkspace) return;
+
+      const state = useTabs.getState();
+      const runtimeState = useTabRuntime.getState().runtimeByTabId;
+
+      const currentTab =
+        activeTabId && state.tabs.find((tab) => tab.id === activeTabId && tab.workspaceId === activeWorkspace.id);
+      const currentBase = currentTab ? runtimeState[currentTab.id]?.base : undefined;
+
+      const shouldReuseCurrent =
+        Boolean(currentTab) &&
+        Boolean(currentBase) &&
+        SIDEBAR_WORKSPACE_PAGE_BASE_IDS.has(currentBase!.id) &&
+        SIDEBAR_WORKSPACE_PAGE_COMPONENTS.has(currentBase!.component);
+
+      if (currentTab && shouldReuseCurrent) {
+        // 逻辑：四个主页面复用同一个 tab，仅切换 base 与显示信息。
+        setTabBase(currentTab.id, { id: input.baseId, component: input.component });
+        clearStack(currentTab.id);
+        setTabTitle(currentTab.id, input.title);
+        setTabIcon(currentTab.id, input.icon);
+        startTransition(() => {
+          setActiveTab(currentTab.id);
+        });
+        return;
+      }
+
+      const existingWorkspacePageTab = state.tabs
+        .filter((tab) => tab.workspaceId === activeWorkspace.id)
+        .filter((tab) => {
+          const base = runtimeState[tab.id]?.base;
+          if (!base) return false;
+          return (
+            SIDEBAR_WORKSPACE_PAGE_BASE_IDS.has(base.id) &&
+            SIDEBAR_WORKSPACE_PAGE_COMPONENTS.has(base.component)
+          );
+        })
+        .sort((a, b) => b.lastActiveAt - a.lastActiveAt)[0];
+
+      if (existingWorkspacePageTab) {
+        // 逻辑：若已存在主页面 tab，复用该 tab，避免产生多份同类页面 tab。
+        setTabBase(existingWorkspacePageTab.id, { id: input.baseId, component: input.component });
+        clearStack(existingWorkspacePageTab.id);
+        setTabTitle(existingWorkspacePageTab.id, input.title);
+        setTabIcon(existingWorkspacePageTab.id, input.icon);
+        startTransition(() => {
+          setActiveTab(existingWorkspacePageTab.id);
+        });
+        return;
+      }
+
+      addTab({
+        workspaceId: activeWorkspace.id,
+        createNew: true,
+        title: input.title,
+        icon: input.icon,
+        leftWidthPercent: 100,
+        base: { id: input.baseId, component: input.component },
+      });
+    },
+    [
+      activeTabId,
+      activeWorkspace,
+      addTab,
+      clearStack,
+      setActiveTab,
+      setTabBase,
+      setTabIcon,
+      setTabTitle,
+    ],
   );
 
 
@@ -179,7 +271,7 @@ export const AppSidebar = ({
               tooltip="工作台"
               className={SIDEBAR_WORKSPACE_COLOR_CLASS.workbench}
               isActive={isMenuActive(WORKBENCH_TAB_INPUT)}
-              onClick={() => openSingletonTab(WORKBENCH_TAB_INPUT)}
+              onClick={() => openWorkspacePageTab(WORKBENCH_TAB_INPUT)}
               type="button"
             >
               <Image src="/head_s.png" alt="" width={16} height={16} className="h-4 w-4" />
@@ -203,7 +295,7 @@ export const AppSidebar = ({
                 title: "日历",
               })}
               onClick={() =>
-                openSingletonTab({
+                openWorkspacePageTab({
                   baseId: "base:calendar",
                   component: "calendar-page",
                   title: "日历",
@@ -232,7 +324,7 @@ export const AppSidebar = ({
                 title: "邮箱",
               })}
               onClick={() =>
-                openSingletonTab({
+                openWorkspacePageTab({
                   baseId: "base:mailbox",
                   component: "email-page",
                   title: "邮箱",
@@ -263,7 +355,7 @@ export const AppSidebar = ({
                 title: "技能",
               })}
               onClick={() =>
-                openSingletonTab({
+                openWorkspacePageTab({
                   baseId: "base:skills",
                   component: "skills-page",
                   title: "技能",

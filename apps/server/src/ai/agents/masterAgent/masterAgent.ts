@@ -20,6 +20,10 @@ import {
   calendarQueryToolDef,
 } from "@tenas-ai/api/types/tools/calendar";
 import {
+  emailMutateToolDef,
+  emailQueryToolDef,
+} from "@tenas-ai/api/types/tools/email";
+import {
   listDirToolDef,
   readFileToolDef,
   writeFileToolDef,
@@ -53,6 +57,8 @@ const MASTER_AGENT_TOOL_IDS = [
   projectMutateToolDef.id,
   calendarQueryToolDef.id,
   calendarMutateToolDef.id,
+  emailQueryToolDef.id,
+  emailMutateToolDef.id,
   // subAgentToolDef.id,
   openUrlToolDef.id,
   browserSnapshotToolDef.id,

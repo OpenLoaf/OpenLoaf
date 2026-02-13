@@ -12,6 +12,7 @@ import { generateWidgetTool } from "@/ai/tools/widgetTools";
 import { updatePlanTool } from "@/ai/tools/updatePlanTool";
 import { projectMutateTool, projectQueryTool } from "@/ai/tools/projectTools";
 import { calendarMutateTool, calendarQueryTool } from "@/ai/tools/calendarTools";
+import { emailMutateTool, emailQueryTool } from "@/ai/tools/emailTools";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import {
   browserActToolDef,
@@ -29,6 +30,10 @@ import {
   calendarMutateToolDef,
   calendarQueryToolDef,
 } from "@tenas-ai/api/types/tools/calendar";
+import {
+  emailMutateToolDef,
+  emailQueryToolDef,
+} from "@tenas-ai/api/types/tools/email";
 import {
   listDirToolDef,
   readFileToolDef,
@@ -126,6 +131,12 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [calendarMutateToolDef.id]: {
     tool: calendarMutateTool,
+  },
+  [emailQueryToolDef.id]: {
+    tool: emailQueryTool,
+  },
+  [emailMutateToolDef.id]: {
+    tool: emailMutateTool,
   },
   [generateWidgetToolDef.id]: {
     tool: generateWidgetTool,
