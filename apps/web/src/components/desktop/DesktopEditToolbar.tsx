@@ -2,17 +2,13 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
+import { PencilLine } from "lucide-react";
 import { Button } from "@tenas-ai/ui/button";
-import { Toolbar, ToolbarToggleGroup, ToolbarToggleItem } from "@tenas-ai/ui/toolbar";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { desktopWidgetCatalog } from "./widget-catalog";
 import type { DesktopItem, DesktopWidgetItem } from "./types";
-import {
-  getItemLayoutForBreakpoint,
-  type DesktopBreakpoint,
-  type DesktopBreakpointLock,
-} from "./desktop-breakpoints";
+import { getItemLayoutForBreakpoint, type DesktopBreakpoint } from "./desktop-breakpoints";
 import {
   DESKTOP_WIDGET_SELECTED_EVENT,
   type DesktopWidgetSelectedDetail,
@@ -115,10 +111,6 @@ export interface DesktopEditToolbarProps {
   editMode: boolean;
   /** Current active breakpoint (auto-detected from container width). */
   activeBreakpoint: DesktopBreakpoint;
-  /** Breakpoint lock state in edit mode. */
-  breakpointLock: DesktopBreakpointLock;
-  /** Update breakpoint lock state. */
-  onBreakpointLockChange: (value: DesktopBreakpointLock) => void;
   /** Current desktop items. */
   items: DesktopItem[];
   /** Append a new desktop item. */
@@ -138,8 +130,6 @@ export default function DesktopEditToolbar({
   controlsTarget,
   editMode,
   activeBreakpoint,
-  breakpointLock,
-  onBreakpointLockChange,
   items,
   onAddItem,
   onCompact,
@@ -203,9 +193,10 @@ export default function DesktopEditToolbar({
           type="button"
           variant="secondary"
           size="sm"
-          className="h-7 px-2 text-xs"
+          className="h-7 gap-1.5 px-2 text-xs"
           onClick={onEnterEditMode}
         >
+          <PencilLine className="size-3.5" />
           编辑
         </Button>
       </div>,
@@ -233,49 +224,6 @@ export default function DesktopEditToolbar({
       >
         整理
       </Button>
-      {/* 中文注释：编辑态断点锁定，只影响预览宽度。 */}
-      <div className="flex items-center rounded-lg border border-border/60 bg-background/70 p-0.5">
-        <Toolbar className="rounded-md">
-          <ToolbarToggleGroup
-            type="single"
-            value={breakpointLock}
-            className="gap-1"
-            onValueChange={(value) => {
-              if (!value) return;
-              onBreakpointLockChange(value as DesktopBreakpointLock);
-            }}
-          >
-            <ToolbarToggleItem
-              value="auto"
-              size="sm"
-              className="h-7 min-w-10 px-2 text-[11px] text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
-            >
-              Auto
-            </ToolbarToggleItem>
-            <ToolbarToggleItem
-              value="sm"
-              size="sm"
-              className="h-7 min-w-8 px-2 text-[11px] text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
-            >
-              SM
-            </ToolbarToggleItem>
-            <ToolbarToggleItem
-              value="md"
-              size="sm"
-              className="h-7 min-w-8 px-2 text-[11px] text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
-            >
-              MD
-            </ToolbarToggleItem>
-            <ToolbarToggleItem
-              value="lg"
-              size="sm"
-              className="h-7 min-w-8 px-2 text-[11px] text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
-            >
-              LG
-            </ToolbarToggleItem>
-          </ToolbarToggleGroup>
-        </Toolbar>
-      </div>
       <Button
         type="button"
         variant="secondary"

@@ -17,9 +17,10 @@ import { cn } from "@/lib/utils";
 import {
   EMAIL_DIVIDER_CLASS,
   EMAIL_FLAT_INPUT_CLASS,
-  EMAIL_GLASS_PANEL_CLASS,
+  EMAIL_LIST_SURFACE_CLASS,
   EMAIL_LIST_READ_ROW_CLASS,
   EMAIL_LIST_UNREAD_ROW_CLASS,
+  EMAIL_SPLIT_PANEL_CLASS,
   EMAIL_TONE_ACTIVE_CLASS,
   EMAIL_TONE_HOVER_CLASS,
 } from "./email-style-system";
@@ -40,7 +41,7 @@ export function EmailMessageList({
     <section
       className={cn(
         "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden p-0",
-        EMAIL_GLASS_PANEL_CLASS,
+        EMAIL_SPLIT_PANEL_CLASS,
       )}
     >
       <div className={cn("border-b px-3 py-2.5", EMAIL_DIVIDER_CLASS)}>
@@ -49,7 +50,7 @@ export function EmailMessageList({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-full text-[#5f6368] hover:bg-[#e8eaed] dark:text-slate-400 dark:hover:bg-slate-700"
+            className="h-8 w-8 rounded-full text-[#5f6368] hover:bg-[hsl(var(--muted)/0.58)] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.46)]"
           >
             <Square className="h-3.5 w-3.5" />
           </Button>
@@ -57,7 +58,7 @@ export function EmailMessageList({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-full text-[#5f6368] hover:bg-[#e8eaed] dark:text-slate-400 dark:hover:bg-slate-700"
+            className="h-8 w-8 rounded-full text-[#5f6368] hover:bg-[hsl(var(--muted)/0.58)] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.46)]"
           >
             <Archive className="h-3.5 w-3.5" />
           </Button>
@@ -65,7 +66,7 @@ export function EmailMessageList({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-full text-[#5f6368] hover:bg-[#e8eaed] dark:text-slate-400 dark:hover:bg-slate-700"
+            className="h-8 w-8 rounded-full text-[#5f6368] hover:bg-[hsl(var(--muted)/0.58)] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.46)]"
           >
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
@@ -73,7 +74,7 @@ export function EmailMessageList({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-full text-[#5f6368] hover:bg-[#e8eaed] dark:text-slate-400 dark:hover:bg-slate-700"
+            className="h-8 w-8 rounded-full text-[#5f6368] hover:bg-[hsl(var(--muted)/0.58)] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.46)]"
           >
             <MoreVertical className="h-3.5 w-3.5" />
           </Button>
@@ -95,7 +96,10 @@ export function EmailMessageList({
       </div>
       <div
         ref={messageList.messagesListRef}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#ffffff] text-sm show-scrollbar dark:bg-slate-900/84"
+        className={cn(
+          "flex min-h-0 flex-1 flex-col overflow-y-auto text-sm show-scrollbar",
+          EMAIL_LIST_SURFACE_CLASS,
+        )}
       >
         {messageList.messagesLoading ? (
           <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
@@ -119,7 +123,7 @@ export function EmailMessageList({
                     onMessageOpen?.(mail);
                   }}
                   className={cn(
-                    "grid h-10 w-full grid-cols-[68px_minmax(128px,220px)_minmax(0,1fr)_72px] items-center gap-2 border-b px-3 text-left transition-colors duration-150",
+                    "grid !h-[50px] !min-h-[50px] w-full grid-cols-[68px_minmax(128px,220px)_minmax(0,1fr)_72px] items-center gap-2 border-b px-3 text-left transition-colors duration-150",
                     EMAIL_DIVIDER_CLASS,
                     isActive
                       ? EMAIL_TONE_ACTIVE_CLASS

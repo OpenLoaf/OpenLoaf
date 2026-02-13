@@ -37,7 +37,8 @@ function WorkbenchHeadIcon({
     <img
       src="/head_s.png"
       alt=""
-      className={className}
+      decoding="sync"
+      className={["block shrink-0 object-contain", className].filter(Boolean).join(" ")}
       style={{ width: size, height: size }}
     />
   );

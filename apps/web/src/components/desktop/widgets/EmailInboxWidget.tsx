@@ -173,7 +173,7 @@ export default function EmailInboxWidget() {
                   type="button"
                   onClick={() => handleSelectMessage(mail)}
                   className={cn(
-                    "w-full rounded-lg border px-2 py-3 text-left transition",
+                    "min-h-[92px] w-full rounded-lg border px-2 py-3 text-left transition",
                     isActive
                       ? "border-border bg-muted text-foreground"
                       : "border-transparent text-muted-foreground hover:border-border/50 hover:bg-muted/40",

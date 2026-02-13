@@ -90,8 +90,8 @@ export default function EmailPage({
   );
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#f6f8fc] text-foreground dark:bg-slate-950">
-      <div className="flex min-h-0 flex-1 flex-col gap-2 p-2 lg:flex-row">
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-transparent text-foreground">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 lg:flex-row">
         <div className="min-h-0 w-full lg:w-[252px] lg:shrink-0">
           <EmailSidebar sidebar={sidebar} onStartCompose={handleOpenComposeStack} />
         </div>

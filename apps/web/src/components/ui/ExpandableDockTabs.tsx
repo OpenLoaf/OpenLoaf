@@ -673,14 +673,18 @@ export function ExpandableDockTabs({
                     }}
                     aria-label={getStackItemTitle(item)}
                   >
-                    <span className="flex items-center justify-center">
+                    <motion.span
+                      className="flex items-center justify-center"
+                      whileHover={{ y: -4 }}
+                      transition={{ type: "spring", stiffness: 420, damping: 26 }}
+                    >
                       {iconNode ??
                         renderStackFallbackIcon(
                           fallbackIcon,
                           stackIconSize,
                           "text-muted-foreground",
                         )}
-                    </span>
+                    </motion.span>
                     <span
                       className={cn(
                         "whitespace-nowrap text-foreground",
@@ -710,11 +714,16 @@ export function ExpandableDockTabs({
           onClick={handleToggleExpand}
           aria-label="Sparkles"
         >
-          <Sparkles
-            size={sizeToken.icon}
-            className="text-amber-500"
-            fill="currentColor"
-          />
+          <motion.span
+            whileHover={{ y: -4 }}
+            transition={{ type: "spring", stiffness: 420, damping: 26 }}
+          >
+            <Sparkles
+              size={sizeToken.icon}
+              className="text-amber-500"
+              fill="currentColor"
+            />
+          </motion.span>
         </motion.button>
         <motion.div
           className="mx-0.5 h-4 w-px bg-border/70"
@@ -792,7 +801,12 @@ export function ExpandableDockTabs({
                   aria-label="Send"
                   disabled={!inputValue.trim()}
                 >
-                  <Send size={sizeToken.icon} />
+                  <motion.span
+                    whileHover={{ y: -4 }}
+                    transition={{ type: "spring", stiffness: 420, damping: 26 }}
+                  >
+                    <Send size={sizeToken.icon} />
+                  </motion.span>
                 </motion.button>
               </motion.div>
             ) : (
@@ -815,6 +829,10 @@ export function ExpandableDockTabs({
                     tone?.inactiveText ?? "text-muted-foreground";
                   const colorClass = isActive ? activeBg : "bg-muted/70";
                   const textClass = isActive ? activeText : inactiveText;
+                  const labelMaxWidth = Math.max(
+                    sizeToken.activeWidth - sizeToken.inactiveWidth - 8,
+                    0,
+                  );
                   const iconScale = isHovered
                     ? isActive
                       ? 1.05
@@ -834,8 +852,10 @@ export function ExpandableDockTabs({
                       )}
                       style={{ height: sizeToken.height }}
                       onClick={() => handleSelect(index)}
-                      onHoverStart={() => setHoveredIndex(index)}
-                      onHoverEnd={() => setHoveredIndex(null)}
+                      onPointerEnter={() => {
+                        setHoveredIndex(index);
+                      }}
+                      onPointerLeave={() => setHoveredIndex(null)}
                       initial={false}
                       animate={{
                         width: isActive
@@ -851,36 +871,51 @@ export function ExpandableDockTabs({
                         <motion.span
                           className="flex items-center justify-center"
                           initial={false}
-                          animate={{ scale: iconScale, rotate: iconRotate }}
+                          animate={{
+                            y: isHovered ? -4 : 0,
+                            scale: iconScale,
+                            rotate: iconRotate,
+                          }}
                           transition={{
-                            type: "spring",
-                            stiffness: 360,
-                            damping: 24,
+                            y: {
+                              type: "spring",
+                              stiffness: 420,
+                              damping: 26,
+                            },
+                            scale: {
+                              type: "spring",
+                              stiffness: 360,
+                              damping: 24,
+                            },
+                            rotate: {
+                              type: "spring",
+                              stiffness: 360,
+                              damping: 24,
+                            },
                           }}
                         >
-                          <Icon size={sizeToken.icon} className={textClass} />
+                          <span className="flex items-center justify-center">
+                            <Icon size={sizeToken.icon} className={textClass} />
+                          </span>
                         </motion.span>
-                        <AnimatePresence initial={false}>
-                          {isActive && (
-                            <motion.span
-                              className={cn(
-                                "overflow-hidden whitespace-nowrap font-medium max-sm:hidden",
-                                sizeToken.text,
-                                textClass,
-                              )}
-                              initial={{ opacity: 0, width: 0, marginLeft: 0 }}
-                              animate={{
-                                opacity: 1,
-                                width: "auto",
-                                marginLeft: 8,
-                              }}
-                              exit={{ opacity: 0, width: 0, marginLeft: 0 }}
-                              transition={{ duration: 0.2, ease: "easeOut" }}
-                            >
-                              {tab.label}
-                            </motion.span>
+                        <motion.span
+                          className={cn(
+                            "overflow-hidden whitespace-nowrap font-medium max-sm:hidden",
+                            sizeToken.text,
+                            textClass,
                           )}
-                        </AnimatePresence>
+                          initial={false}
+                          animate={{
+                            opacity: isActive ? 1 : 0,
+                            x: isActive ? 0 : 4,
+                            marginLeft: isActive ? 8 : 0,
+                            maxWidth: isActive ? labelMaxWidth : 0,
+                          }}
+                          transition={{ duration: 0.18, ease: "easeOut" }}
+                          aria-hidden={!isActive}
+                        >
+                          {tab.label}
+                        </motion.span>
                       </motion.div>
                     </motion.button>
                   );
@@ -963,7 +998,7 @@ export function ExpandableDockTabs({
                         whileTap={{ scale: 0.96 }}
                         aria-label={title}
                       >
-                        <span
+                        <motion.span
                           ref={(node) => {
                             if (node) {
                               stackNudgeRefs.current.set(item.id, node);
@@ -972,6 +1007,8 @@ export function ExpandableDockTabs({
                             }
                           }}
                           className="flex items-center justify-center"
+                          whileHover={{ y: -4 }}
+                          transition={{ type: "spring", stiffness: 420, damping: 26 }}
                         >
                           {iconNode ?? (
                             renderStackFallbackIcon(
@@ -980,7 +1017,7 @@ export function ExpandableDockTabs({
                               textClass,
                             )
                           )}
-                        </span>
+                        </motion.span>
                       </motion.button>
                     );
 

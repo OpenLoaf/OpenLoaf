@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 import { dndManager } from "@/lib/dnd-manager";
 import {
   EMAIL_DIVIDER_CLASS,
-  EMAIL_GLASS_PANEL_CLASS,
   EMAIL_META_CHIP_CLASS,
   EMAIL_TINT_NAV_CLASS,
   EMAIL_TONE_ACTIVE_CLASS,
@@ -24,8 +23,7 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
   return (
     <aside
       className={cn(
-        "flex h-full min-h-0 w-full min-w-0 flex-col gap-3 overflow-hidden p-3 text-sm",
-        EMAIL_GLASS_PANEL_CLASS,
+        "flex h-full min-h-0 w-full min-w-0 flex-col gap-3 overflow-hidden p-0 text-sm !border-0",
         EMAIL_TINT_NAV_CLASS,
       )}
     >
@@ -48,7 +46,7 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
             type="button"
             variant="ghost"
             size="icon"
-            className="h-7 w-7 rounded-full text-[#5f6368] hover:bg-[#e8eaed] dark:text-slate-400 dark:hover:bg-slate-700"
+            className="h-7 w-7 rounded-full text-[#5f6368] hover:bg-[hsl(var(--muted)/0.62)] dark:text-slate-400 dark:hover:bg-slate-700"
             onClick={sidebar.onSyncMailbox}
             disabled={!sidebar.canSyncMailbox || sidebar.isSyncingMailbox}
             aria-label="同步邮箱"
@@ -64,7 +62,7 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
             size="sm"
             className={cn(
               "h-8 rounded-full px-3 text-xs font-medium text-[#444746] transition-colors duration-150",
-              "hover:bg-[#e8eaed] dark:text-slate-300 dark:hover:bg-slate-700",
+              "hover:bg-[hsl(var(--muted)/0.62)] dark:text-slate-300 dark:hover:bg-slate-700",
             )}
             onClick={sidebar.onOpenAddAccount}
           >
@@ -113,11 +111,11 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
           ) : null}
         </div>
         {sidebar.accountsLoading ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg bg-[#eef2f7] px-3 py-3 text-xs text-[#5f6368] dark:bg-slate-800/65 dark:text-slate-300">
+          <div className="flex flex-1 items-center justify-center rounded-lg bg-[hsl(var(--background)/0.72)] px-3 py-3 text-xs text-[#5f6368] dark:bg-slate-800/65 dark:text-slate-300">
             正在加载邮箱账号...
           </div>
         ) : sidebar.accounts.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg bg-[#eef2f7] px-3 py-3 text-xs text-[#5f6368] dark:bg-slate-800/65 dark:text-slate-300">
+          <div className="flex flex-1 items-center justify-center rounded-lg bg-[hsl(var(--background)/0.72)] px-3 py-3 text-xs text-[#5f6368] dark:bg-slate-800/65 dark:text-slate-300">
             还没有绑定邮箱，点击“添加邮箱”开始配置。
           </div>
         ) : (
@@ -129,7 +127,7 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
                   return (
                     <div
                       key={group.account.emailAddress}
-                      className="group/account rounded-xl px-2 py-1.5 transition-colors duration-150 hover:bg-[#eef2f7] dark:hover:bg-slate-800/65"
+                      className="group/account rounded-xl px-2 py-1.5 transition-colors duration-150 hover:bg-[hsl(var(--background)/0.7)] dark:hover:bg-slate-800/65"
                     >
                       <div className="flex w-full items-center justify-between text-xs text-[#5f6368] dark:text-slate-400">
                         <button
@@ -169,7 +167,7 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
                       {expanded ? (
                         <div className="mt-1 space-y-1">
                           {group.isLoading ? (
-                            <div className="rounded-md bg-[#eef2f7] px-2 py-2 text-[11px] text-[#5f6368] dark:bg-slate-800/65 dark:text-slate-300">
+                            <div className="rounded-md bg-[hsl(var(--background)/0.72)] px-2 py-2 text-[11px] text-[#5f6368] dark:bg-slate-800/65 dark:text-slate-300">
                               正在加载文件夹...
                             </div>
                           ) : group.mailboxTree.length ? (
@@ -191,7 +189,7 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
                               />
                             </div>
                           ) : (
-                            <div className="rounded-md bg-[#eef2f7] px-2 py-2 text-[11px] text-[#5f6368] dark:bg-slate-800/65 dark:text-slate-300">
+                            <div className="rounded-md bg-[hsl(var(--background)/0.72)] px-2 py-2 text-[11px] text-[#5f6368] dark:bg-slate-800/65 dark:text-slate-300">
                               暂无文件夹，点击同步获取。
                             </div>
                           )}
