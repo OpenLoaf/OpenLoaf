@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FocusEvent, ReactNode } from "react";
 import { Button } from "@tenas-ai/ui/button";
 import {
+  Brain,
   ChevronUp,
   X,
   Mic,
-  AtSign,
+  Globe,
+  Paperclip,
+  Zap,
 } from "lucide-react";
 import { useChatActions, useChatOptions, useChatSession, useChatState } from "../context";
 import { cn } from "@/lib/utils";
@@ -95,6 +98,7 @@ interface ChatInputProps {
 
 const MAX_CHARS = 20000;
 const COMMAND_REGEX = /(^|\s)(\/[\w-]+)/g;
+const ONLINE_SEARCH_GLOBAL_STORAGE_KEY = "tenas:chat-online-search:global-enabled";
 
 
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -185,6 +189,10 @@ export interface ChatInputBoxProps {
   dictationSoundEnabled?: boolean;
   /** Notify dictation listening state changes. */
   onDictationListeningChange?: (isListening: boolean) => void;
+  /** Whether online search is enabled. */
+  onlineSearchEnabled?: boolean;
+  /** Online search state change handler. */
+  onOnlineSearchChange?: (enabled: boolean) => void;
 }
 
 export function ChatInputBox({
@@ -223,6 +231,8 @@ export function ChatInputBox({
   dictationLanguage,
   dictationSoundEnabled,
   onDictationListeningChange,
+  onlineSearchEnabled = false,
+  onOnlineSearchChange,
 }: ChatInputBoxProps) {
   const isBlocked = Boolean(blocked);
   const initialValue = useMemo(() => parseChatValue(value), []);
@@ -298,6 +308,8 @@ export function ChatInputBox({
   };
 
   const [isFocused, setIsFocused] = useState(false);
+  /** UI-only mode tab value. */
+  const [thinkingMode, setThinkingMode] = useState<"fast" | "deep">("fast");
   /** Focus tracking container ref. */
   const inputContainerRef = useRef<HTMLDivElement | null>(null);
   /** Keep focus state while any element inside the input container is focused. */
@@ -803,9 +815,9 @@ export function ChatInputBox({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-end gap-x-2 gap-y-2 px-1.5 pb-1.5 shrink-0 min-w-0">
-          {!compact ? (
-            <div className="flex shrink-0 items-center gap-0.5">
+        <div className="flex items-end gap-2 px-1.5 pb-1.5 shrink-0 min-w-0">
+          <div className="min-w-0 flex flex-1 items-center gap-1.5 overflow-hidden">
+            {!compact ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -813,21 +825,44 @@ export function ChatInputBox({
                 className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 onClick={() => setFilePickerOpen(true)}
                 disabled={!canAttachAll && !canAttachImage}
+                aria-label="添加附件"
               >
-                <AtSign className="w-4 h-4" />
+                <Paperclip className="w-4 h-4" />
               </Button>
-            </div>
-          ) : (
-            <div />
-          )}
-
-          {!compact ? (
-            <div className="min-w-0 flex-1 flex items-center justify-end overflow-hidden">
-              <SelectMode className="w-full max-w-full justify-end" />
-            </div>
-          ) : (
-            <div className="min-w-0 flex-1" />
-          )}
+            ) : null}
+            {!compact ? (
+              <div className="inline-flex h-8 min-w-0 items-center rounded-full border border-border/70 bg-muted/40 p-0.5">
+                <button
+                  type="button"
+                  className={cn(
+                    "inline-flex h-6 w-7 items-center justify-center rounded-full text-[11px] font-medium transition-colors",
+                    thinkingMode === "deep"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setThinkingMode("deep")}
+                  aria-label="深度思考模式"
+                  title="深度思考模式"
+                >
+                  <Brain className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "inline-flex h-6 w-7 items-center justify-center rounded-full text-[11px] font-medium transition-colors",
+                    thinkingMode === "fast"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setThinkingMode("fast")}
+                  aria-label="快速模式"
+                  title="快速模式"
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : null}
+          </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
             {isOverLimit && (
@@ -839,6 +874,39 @@ export function ChatInputBox({
               >
                 {plainTextValue.length} / {MAX_CHARS}
               </span>
+            )}
+
+            {!compact ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "rounded-full w-8 h-8 shrink-0 transition-colors",
+                  onlineSearchEnabled
+                    ? "bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] dark:bg-sky-500/20 dark:text-sky-200 dark:hover:bg-sky-500/30"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+                aria-pressed={onlineSearchEnabled}
+                onClick={() => onOnlineSearchChange?.(!onlineSearchEnabled)}
+                aria-label="联网搜索"
+              >
+                <Globe className="w-4 h-4" />
+              </Button>
+            ) : null}
+
+            {!compact ? <SelectMode triggerVariant="icon" className="shrink-0" /> : null}
+
+            {actionVariant === "text" && onCancel && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 rounded-full px-2.5 text-xs shadow-none"
+                onClick={onCancel}
+              >
+                {cancelLabel}
+              </Button>
             )}
 
             {!compact && (
@@ -855,20 +923,9 @@ export function ChatInputBox({
                 aria-pressed={isListening}
                 onClick={() => void toggleDictation()}
                 disabled={!isDictationSupported}
+                aria-label="语音输入"
               >
                 <Mic className={cn("w-4 h-4", isListening && "text-destructive")} />
-              </Button>
-            )}
-
-            {actionVariant === "text" && onCancel && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 rounded-full px-2.5 text-xs shadow-none"
-                onClick={onCancel}
-              >
-                {cancelLabel}
               </Button>
             )}
 
@@ -981,6 +1038,15 @@ export default function ChatInput({
   const { input, setInput, imageOptions, codexOptions, addMaskedAttachment } = useChatOptions();
   const { projectId, workspaceId, tabId } = useChatSession();
   const activeTabId = useTabs((state) => state.activeTabId);
+  const setTabChatParams = useTabs((state) => state.setTabChatParams);
+  const tabOnlineSearchEnabled = useTabs((state) => {
+    const targetTabId = tabId ?? state.activeTabId;
+    if (!targetTabId) return undefined;
+    const tab = state.tabs.find((item) => item.id === targetTabId);
+    const value = (tab?.chatParams as Record<string, unknown> | undefined)
+      ?.chatOnlineSearchEnabled;
+    return typeof value === "boolean" ? value : undefined;
+  });
   const { providerItems } = useSettingsValues();
   const { loggedIn: authLoggedIn } = useSaasAuth();
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
@@ -988,8 +1054,15 @@ export default function ChatInput({
   const setTabDictationStatus = useChatRuntime((s) => s.setTabDictationStatus);
   const dictationLanguage = basic.modelResponseLanguage;
   const dictationSoundEnabled = basic.appNotificationSoundEnabled;
+  const onlineSearchMemoryScope: "tab" | "global" =
+    basic.chatOnlineSearchMemoryScope === "global" ? "global" : "tab";
   /** Login dialog open state. */
   const [loginOpen, setLoginOpen] = useState(false);
+  /** Global online-search switch state. */
+  const [globalOnlineSearchEnabled, setGlobalOnlineSearchEnabled] =
+    useState(false);
+  /** Keep last memory scope to detect scope switches. */
+  const onlineSearchScopeRef = useRef<"tab" | "global">(onlineSearchMemoryScope);
   // 逻辑：聊天场景优先使用上下文 tabId，非聊天场景回退到当前激活 tab。
   const activeChatTabId = tabId ?? activeTabId;
   // 逻辑：检查用户是否配置了至少一个本地 provider（排除注册表默认 CLI 项）。
@@ -1010,7 +1083,74 @@ export default function ChatInput({
     if (!loginOpen) return;
     setLoginOpen(false);
   }, [authLoggedIn, loginOpen]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const loadGlobalValue = () => {
+      const raw = window.localStorage.getItem(ONLINE_SEARCH_GLOBAL_STORAGE_KEY);
+      setGlobalOnlineSearchEnabled(raw === "true");
+    };
+    loadGlobalValue();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key && event.key !== ONLINE_SEARCH_GLOBAL_STORAGE_KEY) return;
+      loadGlobalValue();
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
 
+  const onlineSearchEnabled =
+    onlineSearchMemoryScope === "global"
+      ? globalOnlineSearchEnabled
+      : tabOnlineSearchEnabled ?? false;
+
+  useEffect(() => {
+    if (onlineSearchScopeRef.current === onlineSearchMemoryScope) return;
+    if (onlineSearchMemoryScope === "global") {
+      const nextValue =
+        typeof tabOnlineSearchEnabled === "boolean"
+          ? tabOnlineSearchEnabled
+          : globalOnlineSearchEnabled;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          ONLINE_SEARCH_GLOBAL_STORAGE_KEY,
+          nextValue ? "true" : "false"
+        );
+      }
+      setGlobalOnlineSearchEnabled(nextValue);
+    } else if (activeChatTabId) {
+      setTabChatParams(activeChatTabId, {
+        chatOnlineSearchEnabled: globalOnlineSearchEnabled,
+      });
+    }
+    onlineSearchScopeRef.current = onlineSearchMemoryScope;
+  }, [
+    activeChatTabId,
+    globalOnlineSearchEnabled,
+    onlineSearchMemoryScope,
+    setTabChatParams,
+    tabOnlineSearchEnabled,
+  ]);
+
+  /** Persist online-search switch based on configured memory scope. */
+  const handleOnlineSearchChange = useCallback(
+    (enabled: boolean) => {
+      if (onlineSearchMemoryScope === "global") {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            ONLINE_SEARCH_GLOBAL_STORAGE_KEY,
+            enabled ? "true" : "false"
+          );
+        }
+        setGlobalOnlineSearchEnabled(enabled);
+        return;
+      }
+      if (!activeChatTabId) return;
+      setTabChatParams(activeChatTabId, { chatOnlineSearchEnabled: enabled });
+    },
+    [activeChatTabId, onlineSearchMemoryScope, setTabChatParams]
+  );
   /** Open SaaS login dialog. */
   const handleOpenLogin = () => {
     setLoginOpen(true);
@@ -1128,6 +1268,7 @@ export default function ChatInput({
       imageParts,
       imageOptions,
       codexOptions,
+      onlineSearchEnabled,
     });
     // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
     sendMessage({ parts, ...(metadata ? { metadata } : {}) } as any);
@@ -1190,6 +1331,8 @@ export default function ChatInput({
           if (!tabId) return;
           setTabDictationStatus(tabId, isListening);
         }}
+        onlineSearchEnabled={onlineSearchEnabled}
+        onOnlineSearchChange={handleOnlineSearchChange}
         header={
           !isUnconfigured && (showImageOutputOptions || isCodexProvider) ? (
             <div className="flex flex-col gap-2">

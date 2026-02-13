@@ -20,6 +20,8 @@ import {
 } from "@/components/desktop/desktop-persistence";
 import { queryClient, trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
+import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 
 interface ProjectIndexHeaderProps {
   /** Whether the project data is loading. */
@@ -112,8 +114,8 @@ const ProjectIndexHeader = React.memo(function ProjectIndexHeader({
         />
       )}
 
-      <div className="project-index-header-controls flex items-center gap-2 shrink-0">
-        <div ref={controlsSlotRef} className="flex items-center gap-2" />
+      <div className="project-index-header-controls">
+        <div ref={controlsSlotRef} />
       </div>
     </div>
   );
@@ -130,6 +132,8 @@ const ProjectIndex = React.memo(function ProjectIndex({
 }: ProjectIndexProps) {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
+  const activeTabId = useTabs((state) => state.activeTabId);
+  const pushStackItem = useTabRuntime((state) => state.pushStackItem);
   const [items, setItems] = React.useState<DesktopItem[]>(() =>
     ensureLayoutByBreakpoint(getInitialDesktopItems("project"))
   );
@@ -321,6 +325,17 @@ const ProjectIndex = React.memo(function ProjectIndex({
     setCompactSignal((prev) => prev + 1);
   }, []);
 
+  /** Open the desktop widget library stack panel. */
+  const handleOpenWidgetLibrary = React.useCallback(() => {
+    if (!activeTabId) return;
+    pushStackItem(activeTabId, {
+      id: "desktop-widget-library",
+      sourceKey: "desktop-widget-library",
+      component: "desktop-widget-library",
+      title: "组件库",
+    });
+  }, [activeTabId, pushStackItem]);
+
   React.useEffect(() => {
     if (!editMode) {
       historyRef.current = { past: [], future: [], suspended: false };
@@ -413,6 +428,10 @@ const ProjectIndex = React.memo(function ProjectIndex({
         onPersistItemUpdate={handleUpdateItemPersist}
         onChangeItems={setItems}
         compactSignal={compactSignal}
+        onOpenWidgetLibrary={handleOpenWidgetLibrary}
+        onCompact={handleCompact}
+        onCancel={handleCancel}
+        onDone={handleDone}
       />
     </>
   );

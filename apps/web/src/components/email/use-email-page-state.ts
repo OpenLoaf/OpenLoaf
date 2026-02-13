@@ -94,6 +94,7 @@ export type SidebarState = {
   accountsLoading: boolean;
   accountGroups: AccountGroup[];
   expandedAccounts: Record<string, boolean>;
+  expandedMailboxes: Record<string, boolean>;
   dragInsertTarget: DragInsertTarget;
   draggingMailboxId: string | null;
   mailboxUnreadMap: Map<string, number>;
@@ -102,6 +103,7 @@ export type SidebarState = {
   onSelectUnifiedView: (scope: UnifiedMailboxScope, label: string) => void;
   onSelectMailbox: (accountEmail: string, mailboxPath: string, label: string) => void;
   onToggleAccount: (accountEmail: string) => void;
+  onToggleMailboxExpand: (accountEmail: string, mailboxPath: string) => void;
   onOpenAddAccount: () => void;
   onRemoveAccount: (emailAddress: string) => void;
   onSyncMailbox: () => void;
@@ -129,6 +131,24 @@ export type MessageListState = {
   hasNextPage: boolean;
   messagesListRef: React.RefObject<HTMLDivElement | null>;
   loadMoreRef: React.RefObject<HTMLDivElement | null>;
+  // 多选
+  selectedIds: Set<string>;
+  isAllSelected: boolean;
+  hasSelection: boolean;
+  onToggleSelect: (messageId: string, shiftKey?: boolean) => void;
+  onToggleSelectAll: () => void;
+  onClearSelection: () => void;
+  // 批量操作
+  onBatchMarkRead: () => void;
+  onBatchDelete: () => void;
+  onBatchMove: (toMailbox: string) => void;
+  onBatchArchive: () => void;
+  batchActionPending: boolean;
+  // 刷新
+  onRefresh: () => void;
+  isRefreshing: boolean;
+  // 搜索
+  isSearching: boolean;
 };
 
 export type DetailState = {
@@ -155,6 +175,9 @@ export type DetailState = {
   messageDetail?: EmailMessageDetail;
   messageDetailLoading: boolean;
   shouldShowAttachments: boolean;
+  hasRawHtml: boolean;
+  showingRawHtml: boolean;
+  onToggleRawHtml: () => void;
   onStartForward: () => void;
   onCancelForward: () => void;
   onToggleFlagged: () => void;
@@ -215,6 +238,10 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
   const [expandedAccounts, setExpandedAccounts] = React.useState<Record<string, boolean>>(
     {},
   );
+  // 文件夹展开状态。
+  const [expandedMailboxes, setExpandedMailboxes] = React.useState<Record<string, boolean>>(
+    {},
+  );
   // 文件夹排序覆盖（拖拽临时状态）。
   const [mailboxOrderOverrides, setMailboxOrderOverrides] = React.useState<
     Record<string, string[]>
@@ -230,6 +257,8 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
   } | null>(null);
   // 邮件搜索关键字。
   const [searchKeyword, setSearchKeyword] = React.useState("");
+  // 搜索防抖关键字。
+  const [debouncedSearchKeyword, setDebouncedSearchKeyword] = React.useState("");
   // 当前选中的邮件 ID。
   const [activeMessageId, setActiveMessageId] = React.useState<string | null>(null);
   // 转发编辑状态。
@@ -244,6 +273,9 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
   const flagOverridesRef = React.useRef<Record<string, boolean>>({});
   const messagesListRef = React.useRef<HTMLDivElement | null>(null);
   const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
+  // 多选状态。
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+  const lastClickedIdRef = React.useRef<string | null>(null);
   // 添加账号弹窗开关。
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   // 添加账号表单数据。
@@ -396,15 +428,58 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
 
   const messageDetail = messageDetailQuery.data as EmailMessageDetail | undefined;
 
+  // 逻辑：原始 HTML 显示状态，切换邮件时重置。
+  const [showingRawHtml, setShowingRawHtml] = React.useState(false);
+  React.useEffect(() => {
+    setShowingRawHtml(false);
+  }, [activeMessageId]);
+  const hasRawHtml = Boolean(messageDetail?.bodyHtmlRaw);
+  const handleToggleRawHtml = React.useCallback(() => {
+    setShowingRawHtml((prev) => !prev);
+  }, []);
+
+  // 逻辑：搜索关键字防抖 400ms。
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearchKeyword(searchKeyword.trim())
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [searchKeyword])
+
+  // 逻辑：mailbox scope 下使用服务端搜索。
+  const serverSearchInput = React.useMemo(() => {
+    if (
+      activeView.scope !== 'mailbox' ||
+      !activeView.accountEmail ||
+      !workspaceId ||
+      debouncedSearchKeyword.length < 2
+    ) {
+      return null
+    }
+    return {
+      workspaceId,
+      accountEmail: activeView.accountEmail,
+      query: debouncedSearchKeyword,
+    }
+  }, [activeView, workspaceId, debouncedSearchKeyword])
+
+  const serverSearchQuery = useQuery(
+    trpc.email.searchMessages.queryOptions(serverSearchInput ?? skipToken),
+  )
+
   const visibleMessages = React.useMemo(() => {
     const keyword = searchKeyword.trim().toLowerCase();
     if (!keyword) return messages;
-    // 逻辑：前端本地做关键字过滤，后续接入服务端搜索。
+    // 逻辑：mailbox scope 下优先使用服务端搜索结果。
+    if (serverSearchInput && serverSearchQuery.data) {
+      return serverSearchQuery.data.items as EmailMessageSummary[]
+    }
+    // 逻辑：统一视图或服务端结果未就绪时，前端本地过滤。
     return messages.filter((message) => {
       const haystack = `${message.from} ${message.subject} ${message.preview}`.toLowerCase();
       return haystack.includes(keyword);
     });
-  }, [messages, searchKeyword]);
+  }, [messages, searchKeyword, serverSearchInput, serverSearchQuery.data]);
 
   const activeMessage = React.useMemo(() => {
     if (!activeMessageId) return null;
@@ -544,10 +619,20 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     }
   }, [visibleMessages, activeMessageId]);
 
+  // 逻辑：visibleMessages 变化时清理不可见的选中 ID。
+  React.useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const visibleIdSet = new Set(visibleMessages.map((m) => m.id));
+      const next = new Set([...prev].filter((id) => visibleIdSet.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [visibleMessages]);
+
   React.useEffect(() => {
     const target = loadMoreRef.current;
     const root = messagesListRef.current;
-    if (!target || !root) return;
+    if (!target) return;
     if (!messagesQuery.hasNextPage) return;
     const observer = new IntersectionObserver(
       (entries) => {
@@ -1281,6 +1366,7 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     setActiveMailbox(null);
     setSearchKeyword("");
     setActiveMessageId(null);
+    setSelectedIds(new Set());
   }
 
   /** Handle mailbox sync. */
@@ -1312,12 +1398,23 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     setActiveMailbox(mailboxPath);
     setSearchKeyword("");
     setActiveMessageId(null);
+    setSelectedIds(new Set());
   }
 
   /** Handle account group toggle. */
   function handleToggleAccount(accountEmail: string) {
     const key = normalizeEmail(accountEmail);
     setExpandedAccounts((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  /** Handle mailbox tree expand/collapse toggle. */
+  function handleToggleMailboxExpand(accountEmail: string, mailboxPath: string) {
+    const key = `${normalizeEmail(accountEmail)}::${mailboxPath}`;
+    // 逻辑：默认展开，点击后在展开/收起之间切换。
+    setExpandedMailboxes((prev) => ({
+      ...prev,
+      [key]: !(prev[key] ?? true),
+    }));
   }
 
   /** Handle remove account. */
@@ -1613,8 +1710,231 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     });
   }
 
+  // ── 多选处理 ──
+
+  /** Toggle single message selection, with shift-click range support. */
+  function handleToggleSelect(messageId: string, shiftKey?: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (shiftKey && lastClickedIdRef.current) {
+        const ids = visibleMessages.map((m) => m.id)
+        const fromIdx = ids.indexOf(lastClickedIdRef.current)
+        const toIdx = ids.indexOf(messageId)
+        if (fromIdx >= 0 && toIdx >= 0) {
+          const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx]
+          for (let i = start; i <= end; i++) {
+            next.add(ids[i]!)
+          }
+        }
+      } else if (next.has(messageId)) {
+        next.delete(messageId)
+      } else {
+        next.add(messageId)
+      }
+      lastClickedIdRef.current = messageId
+      return next
+    })
+  }
+
+  /** Toggle select all / deselect all. */
+  function handleToggleSelectAll() {
+    setSelectedIds((prev) => {
+      if (prev.size === visibleMessages.length && visibleMessages.length > 0) {
+        return new Set()
+      }
+      return new Set(visibleMessages.map((m) => m.id))
+    })
+  }
+
+  /** Clear all selections. */
+  function handleClearSelection() {
+    setSelectedIds(new Set())
+    lastClickedIdRef.current = null
+  }
+
+  // ── 批量操作 mutations ──
+
+  const batchMarkReadMutation = useMutation(
+    trpc.email.batchMarkRead.mutationOptions({
+      onMutate: async (variables) => {
+        if (!unifiedMessagesQueryKey) return
+        // 逻辑：乐观更新 unread→false。
+        queryClient.setQueryData<
+          InfiniteData<{ items: EmailMessageSummary[]; nextCursor: string | null }>
+        >(unifiedMessagesQueryKey, (old) => {
+          if (!old) return old
+          const idSet = new Set(variables.ids)
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              items: page.items.map((item) =>
+                idSet.has(item.id) ? { ...item, unread: false } : item,
+              ),
+            })),
+          }
+        })
+      },
+      onSettled: () => {
+        handleClearSelection()
+        if (!workspaceId) return
+        if (unifiedMessagesQueryKey) {
+          queryClient.invalidateQueries({ queryKey: unifiedMessagesQueryKey })
+        }
+        queryClient.invalidateQueries({
+          queryKey: trpc.email.listUnreadCount.queryOptions({ workspaceId }).queryKey,
+        })
+        queryClient.invalidateQueries({
+          queryKey: trpc.email.listMailboxUnreadStats.queryOptions({ workspaceId }).queryKey,
+        })
+        queryClient.invalidateQueries({
+          queryKey: trpc.email.listUnifiedUnreadStats.queryOptions({ workspaceId }).queryKey,
+        })
+      },
+    }),
+  )
+
+  const batchDeleteMutation = useMutation(
+    trpc.email.batchDelete.mutationOptions({
+      onMutate: async (variables) => {
+        if (!unifiedMessagesQueryKey) return
+        // 逻辑：乐观从列表移除。
+        queryClient.setQueryData<
+          InfiniteData<{ items: EmailMessageSummary[]; nextCursor: string | null }>
+        >(unifiedMessagesQueryKey, (old) => {
+          if (!old) return old
+          const idSet = new Set(variables.ids)
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              items: page.items.filter((item) => !idSet.has(item.id)),
+            })),
+          }
+        })
+      },
+      onSettled: () => {
+        handleClearSelection()
+        setActiveMessageId(null)
+        if (!workspaceId) return
+        queryClient.invalidateQueries({
+          queryKey: trpc.email.listUnifiedMessages.pathKey(),
+        })
+        queryClient.invalidateQueries({
+          queryKey: trpc.email.listUnifiedUnreadStats.queryOptions({ workspaceId }).queryKey,
+        })
+        queryClient.invalidateQueries({
+          queryKey: trpc.email.listMailboxUnreadStats.queryOptions({ workspaceId }).queryKey,
+        })
+      },
+    }),
+  )
+
+  const batchMoveMutation = useMutation(
+    trpc.email.batchMove.mutationOptions({
+      onMutate: async (variables) => {
+        if (!unifiedMessagesQueryKey) return
+        // 逻辑：乐观从当前列表移除。
+        queryClient.setQueryData<
+          InfiniteData<{ items: EmailMessageSummary[]; nextCursor: string | null }>
+        >(unifiedMessagesQueryKey, (old) => {
+          if (!old) return old
+          const idSet = new Set(variables.ids)
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              items: page.items.filter((item) => !idSet.has(item.id)),
+            })),
+          }
+        })
+      },
+      onSettled: () => {
+        handleClearSelection()
+        if (!workspaceId) return
+        queryClient.invalidateQueries({
+          queryKey: trpc.email.listUnifiedMessages.pathKey(),
+        })
+        queryClient.invalidateQueries({
+          queryKey: trpc.email.listUnifiedUnreadStats.queryOptions({ workspaceId }).queryKey,
+        })
+        queryClient.invalidateQueries({
+          queryKey: trpc.email.listMailboxUnreadStats.queryOptions({ workspaceId }).queryKey,
+        })
+      },
+    }),
+  )
+
+  /** Batch mark selected as read. */
+  function handleBatchMarkRead() {
+    if (!workspaceId || selectedIds.size === 0) return
+    batchMarkReadMutation.mutate({ workspaceId, ids: [...selectedIds] })
+  }
+
+  /** Batch delete selected. */
+  function handleBatchDelete() {
+    if (!workspaceId || selectedIds.size === 0) return
+    batchDeleteMutation.mutate({ workspaceId, ids: [...selectedIds] })
+  }
+
+  /** Batch move selected to target mailbox. */
+  function handleBatchMove(toMailbox: string) {
+    if (!workspaceId || selectedIds.size === 0) return
+    batchMoveMutation.mutate({ workspaceId, ids: [...selectedIds], toMailbox })
+  }
+
+  /** Batch archive selected (= move to Archive). */
+  function handleBatchArchive() {
+    handleBatchMove('Archive')
+  }
+
+  // ── 刷新 ──
+
+  /** Refresh messages for current view. */
+  function handleRefreshMessages() {
+    if (!workspaceId) return
+    // 逻辑：mailbox scope → 同步当前文件夹。
+    if (activeView.scope === 'mailbox' && activeView.accountEmail && activeView.mailbox) {
+      syncMailboxMutation.mutate({
+        workspaceId,
+        accountEmail: activeView.accountEmail,
+        mailbox: activeView.mailbox,
+      })
+    } else {
+      // 逻辑：统一视图 → 同步所有账号的 INBOX。
+      for (const account of accounts) {
+        syncMailboxMutation.mutate({
+          workspaceId,
+          accountEmail: account.emailAddress,
+          mailbox: 'INBOX',
+        })
+      }
+    }
+    // 逻辑：同时 invalidate 消息列表和未读统计。
+    if (unifiedMessagesQueryKey) {
+      queryClient.invalidateQueries({ queryKey: unifiedMessagesQueryKey })
+    }
+    queryClient.invalidateQueries({
+      queryKey: trpc.email.listUnreadCount.queryOptions({ workspaceId }).queryKey,
+    })
+    queryClient.invalidateQueries({
+      queryKey: trpc.email.listUnifiedUnreadStats.queryOptions({ workspaceId }).queryKey,
+    })
+    queryClient.invalidateQueries({
+      queryKey: trpc.email.listMailboxUnreadStats.queryOptions({ workspaceId }).queryKey,
+    })
+  }
+
   const canSyncMailbox = Boolean(activeAccount?.emailAddress);
   const isSyncingMailbox = syncMailboxMutation.isPending || syncMailboxesMutation.isPending;
+  const batchActionPending =
+    batchMarkReadMutation.isPending ||
+    batchDeleteMutation.isPending ||
+    batchMoveMutation.isPending;
+  const isRefreshing = syncMailboxMutation.isPending;
+  const isSearching = serverSearchQuery.isFetching;
+  const hasSelection = selectedIds.size > 0;
+  const isAllSelected = visibleMessages.length > 0 && selectedIds.size === visibleMessages.length;
 
   const sidebar: SidebarState = {
     unifiedItems,
@@ -1623,6 +1943,7 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     accountsLoading: accountsQuery.isLoading,
     accountGroups,
     expandedAccounts,
+    expandedMailboxes,
     dragInsertTarget,
     draggingMailboxId,
     mailboxUnreadMap,
@@ -1631,6 +1952,7 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     onSelectUnifiedView: handleSelectUnifiedView,
     onSelectMailbox: handleSelectMailbox,
     onToggleAccount: handleToggleAccount,
+    onToggleMailboxExpand: handleToggleMailboxExpand,
     onOpenAddAccount: () => setAddDialogOpen(true),
     onRemoveAccount: handleRemoveAccount,
     onSyncMailbox: handleSyncMailbox,
@@ -1654,6 +1976,24 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     hasNextPage: Boolean(messagesQuery.hasNextPage),
     messagesListRef,
     loadMoreRef,
+    // 多选
+    selectedIds,
+    isAllSelected,
+    hasSelection,
+    onToggleSelect: handleToggleSelect,
+    onToggleSelectAll: handleToggleSelectAll,
+    onClearSelection: handleClearSelection,
+    // 批量操作
+    onBatchMarkRead: handleBatchMarkRead,
+    onBatchDelete: handleBatchDelete,
+    onBatchMove: handleBatchMove,
+    onBatchArchive: handleBatchArchive,
+    batchActionPending,
+    // 刷新
+    onRefresh: handleRefreshMessages,
+    isRefreshing,
+    // 搜索
+    isSearching,
   };
 
   const detail: DetailState = {
@@ -1680,6 +2020,9 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     messageDetail,
     messageDetailLoading: messageDetailQuery.isLoading,
     shouldShowAttachments,
+    hasRawHtml,
+    showingRawHtml,
+    onToggleRawHtml: handleToggleRawHtml,
     onStartForward: handleStartForward,
     onCancelForward: handleCancelForward,
     onToggleFlagged: handleToggleFlagged,

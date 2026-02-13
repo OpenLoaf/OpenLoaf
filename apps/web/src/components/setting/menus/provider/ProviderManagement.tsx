@@ -61,6 +61,8 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
   const modelResponseLanguage: ModelResponseLanguageId = basic.modelResponseLanguage;
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
   const chatModelQuality: "high" | "medium" | "low" = basic.modelQuality;
+  const chatOnlineSearchMemoryScope: "tab" | "global" =
+    basic.chatOnlineSearchMemoryScope === "global" ? "global" : "tab";
   const modelResponseLanguageLabelById: Record<ModelResponseLanguageId, string> = {
     "zh-CN": "中文（简体）",
     "en-US": "English",
@@ -287,6 +289,32 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                   <TabsTrigger value="high">高</TabsTrigger>
                   <TabsTrigger value="medium">中</TabsTrigger>
                   <TabsTrigger value="low">低</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </TenasSettingsField>
+          </div>
+
+          <div className="flex flex-wrap items-start gap-2 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">聊天输入记忆范围</div>
+              <div className="text-xs text-muted-foreground">
+                控制聊天输入中的“联网搜索 / 模型选择”按 Tab 或全局记忆
+              </div>
+            </div>
+
+            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+              <Tabs
+                value={chatOnlineSearchMemoryScope}
+                onValueChange={(next) =>
+                  void setBasic({
+                    chatOnlineSearchMemoryScope:
+                      next === "global" ? "global" : "tab",
+                  })
+                }
+              >
+                <TabsList>
+                  <TabsTrigger value="tab">Tab记忆</TabsTrigger>
+                  <TabsTrigger value="global">全局记忆</TabsTrigger>
                 </TabsList>
               </Tabs>
             </TenasSettingsField>

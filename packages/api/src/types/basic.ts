@@ -11,6 +11,7 @@ export const modelResponseLanguageSchema = z.enum([
 ]);
 
 export const modelQualitySchema = z.enum(["high", "medium", "low"]);
+export const chatOnlineSearchMemoryScopeSchema = z.enum(["tab", "global"]);
 
 export const uiLanguageSchema = z.enum([
   "zh-CN",
@@ -70,6 +71,7 @@ export const basicConfigSchema = z.object({
   s3AutoDeleteHours: z.number().int().min(1).max(168),
   modelResponseLanguage: modelResponseLanguageSchema,
   modelQuality: modelQualitySchema,
+  chatOnlineSearchMemoryScope: chatOnlineSearchMemoryScopeSchema,
   modelSoundEnabled: z.boolean(),
   /** Enable auto summary for docs. */
   autoSummaryEnabled: z.boolean(),

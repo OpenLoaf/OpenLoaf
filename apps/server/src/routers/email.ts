@@ -899,6 +899,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
             bcc: normalizeAddressList(row.bcc),
             date: row.date ? row.date.toISOString() : undefined,
             bodyHtml: row.bodyHtml ?? undefined,
+            bodyHtmlRaw: row.bodyHtmlRaw ?? undefined,
             bodyText: row.bodyText ?? undefined,
             attachments: normalizeAttachments(row.attachments),
             flags: normalizeStringArray(row.flags),

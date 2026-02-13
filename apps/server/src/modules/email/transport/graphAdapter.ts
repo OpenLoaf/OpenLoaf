@@ -1,18 +1,6 @@
-import sanitizeHtml, { type IOptions } from "sanitize-html";
-
 import { logger } from "@/common/logger";
+import { sanitizeEmailHtml } from "../emailSanitize";
 import type { DownloadAttachmentResult, EmailTransportAdapter, SendMessageInput, SendMessageResult, TransportMailbox, TransportMessage } from "./types";
-
-/** Sanitize options for HTML email content. */
-const SANITIZE_OPTIONS: IOptions = {
-  allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
-  allowedAttributes: {
-    a: ["href", "name", "target", "rel"],
-    img: ["src", "alt", "title"],
-  },
-  allowedSchemes: ["http", "https", "cid"],
-  allowProtocolRelative: false,
-};
 
 /** Microsoft Graph API base URL. */
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
@@ -205,9 +193,9 @@ export class GraphTransportAdapter implements EmailTransportAdapter {
       if (msg.flag?.flagStatus === "flagged") flags.push("\\Flagged");
 
       const isHtml = msg.body?.contentType?.toLowerCase() === "html";
-      const bodyHtml = isHtml && msg.body?.content
-        ? sanitizeHtml(msg.body.content, SANITIZE_OPTIONS)
-        : undefined;
+      const rawHtml = isHtml && msg.body?.content ? msg.body.content : undefined;
+      const bodyHtml = rawHtml ? sanitizeEmailHtml(rawHtml) : undefined;
+      const bodyHtmlRaw = rawHtml && rawHtml !== bodyHtml ? rawHtml : undefined;
       const bodyText = !isHtml && msg.body?.content ? msg.body.content : undefined;
 
       return {
@@ -223,6 +211,7 @@ export class GraphTransportAdapter implements EmailTransportAdapter {
         date: msg.receivedDateTime ? new Date(msg.receivedDateTime) : undefined,
         snippet: msg.bodyPreview ?? undefined,
         bodyHtml,
+        bodyHtmlRaw,
         bodyText,
         flags,
       };

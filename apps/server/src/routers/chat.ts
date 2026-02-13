@@ -6,22 +6,15 @@ import {
   appRouterDefine,
   type ChatMessageKind,
 } from "@tenas-ai/api";
-import { getWorkspaceRootPath, getWorkspaceRootPathById } from "@tenas-ai/api/services/vfsService";
 import { generateText } from "ai";
 import { xai } from "@ai-sdk/xai";
 import { replaceFileTokensWithNames } from "@/common/chatTitle";
-import path from "node:path";
+import { resolveBranchJsonlPathFromLeafMessage } from "@/ai/services/chat/chatHistoryLogger";
 
 const TITLE_MAX_CHARS = 16;
 const LEAF_CANDIDATES = 50;
 const TITLE_CONTEXT_TAKE = 24;
 const TITLE_AGENT_NAME = "session-title-agent";
-const CHAT_HISTORY_DIR = path.join(".tenas", "chat_history");
-
-/** Convert a message path into the persisted jsonl file name. */
-function formatMessagePathFileName(value: string): string {
-  return value.replace(/[\\/]/g, "_");
-}
 
 function isRenderableRow(row: {
   role: string;
@@ -78,23 +71,6 @@ async function resolveSessionPrefaceText(
   return typeof row?.sessionPreface === "string" ? row.sessionPreface : "";
 }
 
-/** Resolve message path by id within the same session. */
-async function resolveMessagePathById(
-  prisma: any,
-  sessionId: string,
-  messageId: string,
-): Promise<string | null> {
-  const normalizedId = String(messageId ?? "").trim();
-  if (!normalizedId) return null;
-  const row = await prisma.chatMessage.findUnique({
-    where: { id: normalizedId },
-    select: { sessionId: true, path: true },
-  });
-  if (!row || row.sessionId !== sessionId) return null;
-  const resolvedPath = typeof row.path === "string" ? row.path.trim() : "";
-  return resolvedPath || null;
-}
-
 async function resolveSessionRightmostLeafId(prisma: any, sessionId: string): Promise<string | null> {
   const candidates = await prisma.chatMessage.findMany({
     where: { sessionId },
@@ -108,22 +84,15 @@ async function resolveSessionRightmostLeafId(prisma: any, sessionId: string): Pr
   return null;
 }
 
-/** Resolve the rightmost user message path for a session. */
-async function resolveSessionRightmostUserPath(prisma: any, sessionId: string): Promise<string | null> {
+/** Resolve the rightmost user message id for a session. */
+async function resolveSessionRightmostUserId(prisma: any, sessionId: string): Promise<string | null> {
   const row = await prisma.chatMessage.findFirst({
     where: { sessionId, role: "user" },
     orderBy: [{ path: "desc" }, { id: "desc" }],
-    select: { path: true },
+    select: { id: true },
   });
-  const resolvedPath = typeof row?.path === "string" ? row.path.trim() : "";
-  return resolvedPath || null;
-}
-
-/** Resolve the rightmost renderable message path for a session. */
-async function resolveSessionRightmostLeafPath(prisma: any, sessionId: string): Promise<string | null> {
-  const leafId = await resolveSessionRightmostLeafId(prisma, sessionId);
-  if (!leafId) return null;
-  return resolveMessagePathById(prisma, sessionId, leafId);
+  const resolvedId = typeof row?.id === "string" ? row.id.trim() : "";
+  return resolvedId || null;
 }
 
 /** Resolve absolute jsonl path for the currently displayed chat branch. */
@@ -131,19 +100,17 @@ async function resolveSessionPrefaceJsonlPath(
   prisma: any,
   input: { sessionId: string; workspaceId?: string | null; leafMessageId?: string },
 ): Promise<string | null> {
-  const workspaceId = String(input.workspaceId ?? "").trim();
-  const workspaceRoot = workspaceId ? getWorkspaceRootPathById(workspaceId) : getWorkspaceRootPath();
-  if (!workspaceRoot) return null;
-
-  // 逻辑：优先使用前端传入（应为当前请求用户消息）路径；缺失时回退会话最新 user，再回退可渲染叶子。
-  const currentLeafPath =
-    (await resolveMessagePathById(prisma, input.sessionId, String(input.leafMessageId ?? ""))) ??
-    (await resolveSessionRightmostUserPath(prisma, input.sessionId)) ??
-    (await resolveSessionRightmostLeafPath(prisma, input.sessionId));
-  if (!currentLeafPath) return null;
-
-  const fileName = `${formatMessagePathFileName(currentLeafPath)}.jsonl`;
-  return path.join(workspaceRoot, CHAT_HISTORY_DIR, input.sessionId, fileName);
+  const currentLeafMessageId =
+    String(input.leafMessageId ?? "").trim() ||
+    (await resolveSessionRightmostLeafId(prisma, input.sessionId)) ||
+    (await resolveSessionRightmostUserId(prisma, input.sessionId));
+  if (!currentLeafMessageId) return null;
+  return resolveBranchJsonlPathFromLeafMessage({
+    sessionId: input.sessionId,
+    workspaceId: input.workspaceId,
+    leafMessageId: currentLeafMessageId,
+    prismaReader: prisma,
+  });
 }
 
 async function loadRightmostChainRows(prisma: any, sessionId: string): Promise<any[]> {

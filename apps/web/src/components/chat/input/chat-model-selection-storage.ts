@@ -13,15 +13,16 @@ export type StoredModelSelections = Record<ModelSourceKey, StoredModelSelection>
 
 export const MODEL_SELECTION_STORAGE_KEY = "tenas.chat-model-selection";
 export const CHAT_MODEL_SELECTION_EVENT = "tenas:chat-model-selection";
+export const CHAT_MODEL_SELECTION_TAB_PARAMS_KEY = "chatModelSelections";
 
-function createDefaultStoredSelection(): StoredModelSelection {
+export function createDefaultStoredSelection(): StoredModelSelection {
   return {
     lastModelId: "",
     isAuto: true,
   };
 }
 
-function createDefaultStoredSelections(): StoredModelSelections {
+export function createDefaultStoredSelections(): StoredModelSelections {
   return {
     local: createDefaultStoredSelection(),
     cloud: createDefaultStoredSelection(),
@@ -39,7 +40,7 @@ function normalizeStoredSelection(value: unknown): StoredModelSelection {
   };
 }
 
-function normalizeStoredSelections(value: unknown): StoredModelSelections {
+export function normalizeStoredSelections(value: unknown): StoredModelSelections {
   if (!value || typeof value !== "object") {
     return createDefaultStoredSelections();
   }
@@ -48,6 +49,19 @@ function normalizeStoredSelections(value: unknown): StoredModelSelections {
     local: normalizeStoredSelection(record.local),
     cloud: normalizeStoredSelection(record.cloud),
   };
+}
+
+/** Compare two stored model selection payloads. */
+export function areStoredSelectionsEqual(
+  left: StoredModelSelections,
+  right: StoredModelSelections
+) {
+  return (
+    left.local.lastModelId === right.local.lastModelId &&
+    left.local.isAuto === right.local.isAuto &&
+    left.cloud.lastModelId === right.cloud.lastModelId &&
+    left.cloud.isAuto === right.cloud.isAuto
+  );
 }
 
 export function readStoredSelections(): StoredModelSelections {

@@ -39,6 +39,7 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
   const workspaceRootUri = workspace?.rootUri ?? "";
   const activeTabId = useTabs((state) => state.activeTabId);
   const setTabBaseParams = useTabRuntime((state) => state.setTabBaseParams);
+  const pushStackItem = useTabRuntime((state) => state.pushStackItem);
   const [items, setItems] = React.useState<DesktopItem[]>(() =>
     ensureLayoutByBreakpoint(getInitialDesktopItems("workspace"))
   );
@@ -228,6 +229,17 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
     setCompactSignal((prev) => prev + 1);
   }, []);
 
+  /** Open the desktop widget library stack panel. */
+  const handleOpenWidgetLibrary = React.useCallback(() => {
+    if (!activeTabId) return;
+    pushStackItem(activeTabId, {
+      id: "desktop-widget-library",
+      sourceKey: "desktop-widget-library",
+      component: "desktop-widget-library",
+      title: "组件库",
+    });
+  }, [activeTabId, pushStackItem]);
+
   React.useEffect(() => {
     if (!editMode) {
       historyRef.current = { past: [], future: [], suspended: false };
@@ -298,7 +310,7 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
           <Image src="/head_s.png" alt="" width={16} height={16} className="h-4 w-4" />
           <span>工作台</span>
         </div>
-        <div ref={controlsSlotRef} className="flex items-center gap-2" />
+        <div ref={controlsSlotRef} className="workspace-desktop-header-controls" />
       </div>
       <div className="flex min-h-0 flex-1 flex-col">
         <DesktopEditToolbar
@@ -325,6 +337,10 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
             onPersistItemUpdate={handleUpdateItemPersist}
             onChangeItems={setItems}
             compactSignal={compactSignal}
+            onOpenWidgetLibrary={handleOpenWidgetLibrary}
+            onCompact={handleCompact}
+            onCancel={handleCancel}
+            onDone={handleDone}
           />
         </div>
       </div>

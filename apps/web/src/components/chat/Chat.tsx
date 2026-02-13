@@ -147,7 +147,7 @@ export function Chat({
     canImageGeneration,
     canImageEdit,
     isCodexProvider,
-  } = useChatModelSelection();
+  } = useChatModelSelection(tabId);
 
   const [attachments, setAttachments] = React.useState<ChatAttachment[]>([]);
   const [isDragActive, setIsDragActive] = React.useState(false);
@@ -732,7 +732,11 @@ export function Chat({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <ChatHeader onNewSession={onNewSession} onCloseSession={onCloseSession} />
+        <ChatHeader
+          onNewSession={onNewSession}
+          onCloseSession={onCloseSession}
+          iconPalette="email"
+        />
         <MessageList className="flex-1 min-h-0" />
         <ChatInput
           className="mx-2 mb-2"

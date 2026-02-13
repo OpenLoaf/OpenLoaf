@@ -23,6 +23,8 @@ import {
   saveMessage,
   setSessionErrorMessage,
 } from "@/ai/services/chat/repositories/messageStore";
+import { persistChatBranchContextLog } from "@/ai/services/chat/chatHistoryLogger";
+import { buildBranchLogMessages } from "@/ai/services/chat/chatHistoryLogMessageBuilder";
 import { buildTokenUsageMetadata, buildTimingMetadata, mergeAbortMetadata } from "./metadataBuilder";
 
 /** 构建错误 SSE 响应的输入。 */
@@ -47,6 +49,8 @@ type ChatStreamResponseInput = {
   parentMessageId: string;
   /** Request start time. */
   requestStartAt: Date;
+  /** Workspace id used for branch log path resolving. */
+  workspaceId?: string;
   /** Model-ready messages. */
   modelMessages: UIMessage[];
   /** Agent runner. */
@@ -183,22 +187,36 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
                 mergedMetadata.plan = planUpdate;
               }
 
-              const responseWithKind = input.assistantMessageKind
-                ? { ...(responseMessage as any), messageKind: input.assistantMessageKind }
-                : (responseMessage as any);
+              const finalizedMetadata =
+                mergeAbortMetadata(mergedMetadata, { isAborted, finishReason }) ?? {};
+              const branchLogMessages = buildBranchLogMessages({
+                modelMessages: input.modelMessages as UIMessage[],
+                assistantResponseMessage: responseMessage as UIMessage,
+                assistantMessageId: input.assistantMessageId,
+                parentMessageId: input.parentMessageId,
+                metadata: finalizedMetadata,
+                assistantMessageKind: input.assistantMessageKind,
+              });
+              const finalizedAssistantMessage = branchLogMessages.at(-1);
               const assistantMessagePath = getAssistantMessagePath();
 
               await saveMessage({
                 sessionId: currentSessionId,
-                message: {
-                  ...responseWithKind,
+                message: (finalizedAssistantMessage as any) ?? {
+                  ...(responseMessage as any),
                   id: input.assistantMessageId,
-                  metadata: mergeAbortMetadata(mergedMetadata, { isAborted, finishReason }),
-                } as any,
+                  metadata: finalizedMetadata,
+                },
                 parentMessageId: input.parentMessageId,
                 ...(assistantMessagePath ? { pathOverride: assistantMessagePath } : {}),
                 allowEmpty: isAborted,
                 createdAt: input.requestStartAt,
+              });
+              void persistChatBranchContextLog({
+                sessionId: currentSessionId,
+                workspaceId: input.workspaceId,
+                leafMessageId: input.assistantMessageId,
+                modelMessages: branchLogMessages,
               });
               if (!isAborted && finishReason !== "error") {
                 // 中文注释：仅在成功完成时清空会话错误。

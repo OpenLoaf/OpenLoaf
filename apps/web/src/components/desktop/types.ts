@@ -92,6 +92,8 @@ export interface DesktopWidgetItem extends DesktopItemBase {
   size: DesktopWidgetSize;
   /** Widget layout constraints for resizing. */
   constraints: DesktopWidgetConstraints;
+  /** Active variant key (e.g. 'hm', 'hms', 'month'). */
+  variant?: string;
   /** Flip clock settings (when widgetKey is flip-clock). */
   flipClock?: DesktopFlipClockSettings;
   /** Folder selection reference (when widgetKey is 3d-folder). */

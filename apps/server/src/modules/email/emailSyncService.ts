@@ -1,9 +1,9 @@
 import Imap from "imap";
 import { simpleParser } from "mailparser";
-import sanitizeHtml, { type IOptions } from "sanitize-html";
 
 import { Prisma, type PrismaClient } from "@tenas-ai/db";
 import { logger } from "@/common/logger";
+import { sanitizeEmailHtml } from "./emailSanitize";
 import {
   ensureFlaggedFlag,
   ensureSeenFlag,
@@ -23,17 +23,6 @@ const SKIP_IMAP_ENV_KEY = "EMAIL_IMAP_SKIP";
 export const DEFAULT_INITIAL_SYNC_LIMIT = 50;
 /** IMAP close timeout in ms. */
 const CLOSE_TIMEOUT_MS = 5000;
-
-/** Sanitize options for HTML email content. */
-const SANITIZE_OPTIONS: IOptions = {
-  allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
-  allowedAttributes: {
-    a: ["href", "name", "target", "rel"],
-    img: ["src", "alt", "title"],
-  },
-  allowedSchemes: ["http", "https", "cid"],
-  allowProtocolRelative: false,
-};
 
 /** Normalize nullable JSON payload for Prisma. */
 function toNullableJsonValue(
@@ -196,6 +185,7 @@ async function parseMessages(imap: Imap, uids: number[]) {
     date?: Date;
     snippet?: string;
     bodyHtml?: string;
+    bodyHtmlRaw?: string;
     bodyText?: string;
     attachments?: Array<{
       filename?: string;
@@ -233,6 +223,7 @@ async function parseMessages(imap: Imap, uids: number[]) {
       date?: Date;
       snippet?: string;
       bodyHtml?: string;
+      bodyHtmlRaw?: string;
       bodyText?: string;
       attachments?: Array<{
         filename?: string;
@@ -249,9 +240,9 @@ async function parseMessages(imap: Imap, uids: number[]) {
           const text = parsed.text?.replace(/\s+/g, " ").trim() ?? "";
           // 逻辑：正文摘要优先取纯文本前 200 字符。
           const snippet = text ? text.slice(0, 200) : undefined;
-          const bodyHtml = parsed.html
-            ? sanitizeHtml(String(parsed.html), SANITIZE_OPTIONS)
-            : undefined;
+          const rawHtml = parsed.html ? String(parsed.html) : undefined;
+          const bodyHtml = rawHtml ? sanitizeEmailHtml(rawHtml) : undefined;
+          const bodyHtmlRaw = rawHtml && rawHtml !== bodyHtml ? rawHtml : undefined;
           const attachments = parsed.attachments?.map(
             (attachment: {
               filename?: string;
@@ -278,6 +269,7 @@ async function parseMessages(imap: Imap, uids: number[]) {
             date: parsed.date ?? undefined,
             snippet,
             bodyHtml,
+            bodyHtmlRaw,
             bodyText: parsed.text ?? undefined,
             attachments: attachments?.length ? attachments : undefined,
             raw: raw.length ? raw.toString("utf-8") : undefined,
@@ -543,6 +535,7 @@ export async function syncRecentMailboxMessages(input: {
           flags: message.flags ?? [],
           snippet: message.snippet ?? null,
           bodyHtml: message.bodyHtml ?? null,
+          bodyHtmlRaw: message.bodyHtmlRaw ?? null,
           bodyText: message.bodyText ?? null,
           attachments: toNullableJsonValue(message.attachments),
           rawRfc822: message.raw ?? null,
@@ -559,6 +552,7 @@ export async function syncRecentMailboxMessages(input: {
           flags: message.flags ?? [],
           snippet: message.snippet ?? null,
           bodyHtml: message.bodyHtml ?? null,
+          bodyHtmlRaw: message.bodyHtmlRaw ?? null,
           bodyText: message.bodyText ?? null,
           attachments: toNullableJsonValue(message.attachments),
           rawRfc822: message.raw ?? null,

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { Download, Paperclip } from "lucide-react";
 
@@ -8,6 +9,7 @@ import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { resolveServerUrl } from "@/utils/server-url";
 import { trpc } from "@/utils/trpc";
 import type { EmailMessageDetail } from "./email-types";
+import { EmailContentFilterBanner, RawHtmlIframe } from "./EmailContentFilterBanner";
 import {
   EMAIL_DIVIDER_CLASS,
   EMAIL_GLASS_PANEL_CLASS,
@@ -46,6 +48,15 @@ export default function EmailMessageStackPanel({
   );
 
   const detail = messageQuery.data as EmailMessageDetail | undefined;
+
+  const [showingRawHtml, setShowingRawHtml] = useState(false);
+  useEffect(() => {
+    setShowingRawHtml(false);
+  }, [messageId]);
+  const hasRawHtml = Boolean(detail?.bodyHtmlRaw);
+  const handleToggleRawHtml = useCallback(() => {
+    setShowingRawHtml((prev) => !prev);
+  }, []);
 
   const fromLine = detail?.from?.join("; ") || fallbackFrom || "—";
   const timeLine = formatDateTime(detail?.date ?? fallbackTime ?? "") || "—";
@@ -93,8 +104,18 @@ export default function EmailMessageStackPanel({
         </section>
 
         <section className="min-h-0 flex-1 bg-[#ffffff] px-7 py-6 text-sm leading-7 text-[#202124] dark:bg-slate-900/84 dark:text-slate-100">
+          {hasRawHtml ? (
+            <div className="mb-3">
+              <EmailContentFilterBanner
+                showingRawHtml={showingRawHtml}
+                onToggle={handleToggleRawHtml}
+              />
+            </div>
+          ) : null}
           {messageQuery.isLoading ? (
             <div className="text-xs text-[#5f6368] dark:text-slate-400">正在加载邮件正文...</div>
+          ) : showingRawHtml && detail?.bodyHtmlRaw ? (
+            <RawHtmlIframe html={detail.bodyHtmlRaw} />
           ) : htmlBody ? (
             <div
               className="prose prose-sm max-w-none text-foreground prose-img:max-w-full prose-p:my-3 leading-7"

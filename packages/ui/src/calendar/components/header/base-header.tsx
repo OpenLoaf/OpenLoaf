@@ -30,6 +30,7 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 		t,
 		firstDayOfWeek,
 		currentDate,
+		hideViewControls,
 	} = useSmartCalendarContext((ctx) => ({
 		view: ctx.view,
 		setView: ctx.setView,
@@ -46,6 +47,7 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 		t: ctx.t,
 		firstDayOfWeek: ctx.firstDayOfWeek,
 		currentDate: ctx.currentDate,
+		hideViewControls: ctx.hideViewControls,
 	}))
 
 	const isTodayInView = useMemo(() => {
@@ -134,10 +136,12 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 					{headerLeadingSlot ? (
 						<div className="flex items-center">{headerLeadingSlot}</div>
 					) : null}
-					<ViewControls
-						currentView={view}
-						onChange={setView}
-					/>
+					{hideViewControls ? null : (
+						<ViewControls
+							currentView={view}
+							onChange={setView}
+						/>
+					)}
 					<Button
 						className="flex items-center gap-1"
 						onClick={() => openEventForm()}

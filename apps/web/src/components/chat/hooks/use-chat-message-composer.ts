@@ -16,6 +16,7 @@ export function useChatMessageComposer(input: {
       imageParts: Array<any>;
       imageOptions?: ImageGenerateOptions;
       codexOptions?: CodexOptions;
+      onlineSearchEnabled?: boolean;
     }) => {
       const normalizedImageOptions = normalizeImageOptions(params.imageOptions);
       const safeImageOptions = input.canImageGeneration
@@ -27,6 +28,9 @@ export function useChatMessageComposer(input: {
       const metadataPayload = {
         ...(safeImageOptions ? { imageOptions: safeImageOptions } : {}),
         ...(normalizedCodexOptions ? { codexOptions: normalizedCodexOptions } : {}),
+        ...(typeof params.onlineSearchEnabled === "boolean"
+          ? { webSearch: { enabled: params.onlineSearchEnabled } }
+          : {}),
       };
       const metadata =
         Object.keys(metadataPayload).length > 0 ? metadataPayload : undefined;

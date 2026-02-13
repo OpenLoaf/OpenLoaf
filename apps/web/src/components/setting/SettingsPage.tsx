@@ -40,6 +40,7 @@ import {
   TenasSettingsMenu,
   type TenasSettingsMenuItem,
 } from "@tenas-ai/ui/tenas/TenasSettingsMenu";
+import { cn } from "@/lib/utils";
 
 type SettingsMenuKey =
   | "basic"
@@ -54,6 +55,30 @@ type SettingsMenuKey =
   | "shortcuts"
   | "projectTest";
 
+const SETTINGS_MENU_ICON_COLOR = {
+  basic: "text-[#1a73e8] dark:text-sky-300",
+  localAccess: "text-[#f9ab00] dark:text-amber-300",
+  workspace: "text-[#5f6368] dark:text-slate-300",
+  skills: "text-[#9334e6] dark:text-violet-300",
+  thirdPartyTools: "text-[#188038] dark:text-emerald-300",
+  keys: "text-[#9334e6] dark:text-violet-300",
+  storage: "text-[#188038] dark:text-emerald-300",
+  agents: "text-[#1a73e8] dark:text-sky-300",
+  shortcuts: "text-[#f9ab00] dark:text-amber-300",
+  projectTest: "text-[#f4511e] dark:text-orange-300",
+  about: "text-[#5f6368] dark:text-slate-300",
+} as const;
+
+/** Build a menu icon component with fixed email-style color tone. */
+function createMenuIcon(
+  Icon: ComponentType<{ className?: string }>,
+  colorClassName: string,
+): ComponentType<{ className?: string }> {
+  return function MenuIcon({ className }: { className?: string }) {
+    return <Icon className={cn(colorClassName, className)} />;
+  };
+}
+
 const DEV_MENU: Array<{
   key: SettingsMenuKey;
   label: string;
@@ -61,7 +86,14 @@ const DEV_MENU: Array<{
   Component: ComponentType;
 }> =
   process.env.NODE_ENV === "development"
-    ? [{ key: "projectTest", label: "测试", Icon: FlaskConical, Component: TestSetting }]
+    ? [
+        {
+          key: "projectTest",
+          label: "测试",
+          Icon: createMenuIcon(FlaskConical, SETTINGS_MENU_ICON_COLOR.projectTest),
+          Component: TestSetting,
+        },
+      ]
     : [];
 
 const MENU: Array<{
@@ -70,17 +102,67 @@ const MENU: Array<{
   Icon: ComponentType<{ className?: string }>;
   Component: ComponentType;
 }> = [
-  { key: "basic", label: "基础", Icon: SlidersHorizontal, Component: BasicSettings },
-  { key: "localAccess", label: "本地访问", Icon: KeyRound, Component: LocalAccess },
-  { key: "workspace", label: "工作空间", Icon: Building2, Component: WorkspaceSettings },
-  { key: "skills", label: "技能", Icon: Wand2Icon, Component: SkillSettings },
-  { key: "thirdPartyTools", label: "第三方工具", Icon: Terminal, Component: ThirdPartyTools },
-  { key: "keys", label: "AI模型服务", Icon: Sparkles, Component: ProviderManagement },
-  { key: "storage", label: "S3存储服务", Icon: Database, Component: ObjectStorageService },
-  { key: "agents", label: "Agent", Icon: Bot, Component: AgentManagement },
-  { key: "shortcuts", label: "快捷键", Icon: Keyboard, Component: KeyboardShortcuts },
+  {
+    key: "basic",
+    label: "基础",
+    Icon: createMenuIcon(SlidersHorizontal, SETTINGS_MENU_ICON_COLOR.basic),
+    Component: BasicSettings,
+  },
+  {
+    key: "localAccess",
+    label: "本地访问",
+    Icon: createMenuIcon(KeyRound, SETTINGS_MENU_ICON_COLOR.localAccess),
+    Component: LocalAccess,
+  },
+  {
+    key: "workspace",
+    label: "工作空间",
+    Icon: createMenuIcon(Building2, SETTINGS_MENU_ICON_COLOR.workspace),
+    Component: WorkspaceSettings,
+  },
+  {
+    key: "skills",
+    label: "技能",
+    Icon: createMenuIcon(Wand2Icon, SETTINGS_MENU_ICON_COLOR.skills),
+    Component: SkillSettings,
+  },
+  {
+    key: "thirdPartyTools",
+    label: "第三方工具",
+    Icon: createMenuIcon(Terminal, SETTINGS_MENU_ICON_COLOR.thirdPartyTools),
+    Component: ThirdPartyTools,
+  },
+  {
+    key: "keys",
+    label: "AI模型服务",
+    Icon: createMenuIcon(Sparkles, SETTINGS_MENU_ICON_COLOR.keys),
+    Component: ProviderManagement,
+  },
+  {
+    key: "storage",
+    label: "S3存储服务",
+    Icon: createMenuIcon(Database, SETTINGS_MENU_ICON_COLOR.storage),
+    Component: ObjectStorageService,
+  },
+  {
+    key: "agents",
+    label: "Agent",
+    Icon: createMenuIcon(Bot, SETTINGS_MENU_ICON_COLOR.agents),
+    Component: AgentManagement,
+  },
+  {
+    key: "shortcuts",
+    label: "快捷键",
+    Icon: createMenuIcon(Keyboard, SETTINGS_MENU_ICON_COLOR.shortcuts),
+    Component: KeyboardShortcuts,
+  },
   ...DEV_MENU,
-  { key: "about", label: "关于Tenas", Icon: Info, Component: AboutTenas },
+  {
+    key: "about",
+    label: "关于Tenas",
+    Icon: createMenuIcon(Info, SETTINGS_MENU_ICON_COLOR.about),
+    Component: AboutTenas,
+  },
 ];
 
 const MENU_KEY_SET = new Set<SettingsMenuKey>(MENU.map((item) => item.key));

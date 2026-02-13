@@ -181,4 +181,6 @@ export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
   "tenas-saas": buildSaasAdapter(),
   cli: cliAdapter,
   qwen: qwenAdapter,
+  dashscope: qwenAdapter,
+  "openai-compatible": qwenAdapter,
 };

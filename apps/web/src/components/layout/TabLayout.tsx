@@ -358,7 +358,10 @@ function RightChatPanel({ tabId }: { tabId: string }) {
       )}
       onClick={handleNewSession}
     >
-      <Plus size={14} className="shrink-0" />
+      <Plus
+        size={14}
+        className="shrink-0 text-[#188038] dark:text-emerald-300"
+      />
       <span className="truncate">新建会话</span>
       </button>
   );

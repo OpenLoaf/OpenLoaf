@@ -35,6 +35,7 @@ type DesktopFileItem = {
     | "dynamic";
   size?: "1x1" | "2x2" | "4x2" | "4x3" | "5x6";
   constraints?: DesktopWidgetConstraints;
+  variant?: string;
   pinned?: boolean;
   iconKey?: DesktopIconKey;
   params?: Record<string, unknown>;
@@ -126,6 +127,7 @@ export function serializeDesktopItems(items: DesktopItem[]): DesktopFilePayload 
       widgetKey: item.widgetKey,
       size: item.size,
       constraints: item.constraints,
+      variant: item.variant,
       pinned: item.pinned,
       params,
       layoutByBreakpoint,
@@ -184,6 +186,11 @@ export function deserializeDesktopItems(raw: string): DesktopItem[] | null {
         const params = item.params ?? {};
         const constraints =
           item.widgetKey === "3d-folder" ? THREE_D_FOLDER_CONSTRAINTS : item.constraints;
+        // 逻辑：向后兼容 flip-clock showSeconds → variant 映射。
+        let variant = item.variant;
+        if (!variant && item.widgetKey === "flip-clock") {
+          variant = params.showSeconds === false ? "hm" : "hms";
+        }
         return {
           id: item.id,
           kind: "widget",
@@ -191,6 +198,7 @@ export function deserializeDesktopItems(raw: string): DesktopItem[] | null {
           widgetKey: item.widgetKey,
           size: item.size,
           constraints,
+          variant,
           pinned: item.pinned,
           folderUri:
             item.widgetKey === "3d-folder" && typeof params.folderUri === "string"

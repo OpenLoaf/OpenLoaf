@@ -100,6 +100,8 @@ export default function WorkspaceSwitchDockTabs({ tabId }: { tabId: string }) {
   const clearStack = useTabRuntime((state) => state.clearStack);
   const setTabTitle = useTabs((state) => state.setTabTitle);
   const setTabIcon = useTabs((state) => state.setTabIcon);
+  const activeTabId = useTabs((state) => state.activeTabId);
+  const isActive = activeTabId === tabId;
   const currentBaseComponent = useTabRuntime(
     (state) => state.runtimeByTabId[tabId]?.base?.component ?? "",
   );
@@ -134,6 +136,7 @@ export default function WorkspaceSwitchDockTabs({ tabId }: { tabId: string }) {
         selectedIndex={selectedIndex}
         onChange={handleChange}
         size="md"
+        active={isActive}
         expandedWidth={430}
         inputPlaceholder="搜索页面"
       />

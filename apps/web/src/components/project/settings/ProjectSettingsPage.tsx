@@ -8,6 +8,7 @@ import { TenasSettingsMenu } from "@tenas-ai/ui/tenas/TenasSettingsMenu";
 import { BarChart3, Bot, GitBranch, SlidersHorizontal } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";
+import { cn } from "@/lib/utils";
 
 import { ProjectBasicSettings } from "./menus/ProjectBasicSettings";
 import { ProjectAiSettings } from "./menus/ProjectAiSettings";
@@ -21,6 +22,23 @@ type ProjectSettingsPanelProps = {
 
 type ProjectSettingsMenuKey = "basic" | "ai" | "stats" | "git";
 
+const PROJECT_MENU_ICON_COLOR = {
+  basic: "text-[#1a73e8] dark:text-sky-300",
+  ai: "text-[#9334e6] dark:text-violet-300",
+  stats: "text-[#f9ab00] dark:text-amber-300",
+  git: "text-[#188038] dark:text-emerald-300",
+} as const;
+
+/** Build a menu icon component with fixed email-style color tone. */
+function createMenuIcon(
+  Icon: ComponentType<{ className?: string }>,
+  colorClassName: string,
+): ComponentType<{ className?: string }> {
+  return function MenuIcon({ className }: { className?: string }) {
+    return <Icon className={cn(colorClassName, className)} />;
+  };
+}
+
 const BASE_MENU: Array<{
   key: ProjectSettingsMenuKey;
   label: string;
@@ -30,19 +48,19 @@ const BASE_MENU: Array<{
   {
     key: "basic",
     label: "基础",
-    Icon: SlidersHorizontal,
+    Icon: createMenuIcon(SlidersHorizontal, PROJECT_MENU_ICON_COLOR.basic),
     Component: ProjectBasicSettings,
   },
   {
     key: "ai",
     label: "AI设置",
-    Icon: Bot,
+    Icon: createMenuIcon(Bot, PROJECT_MENU_ICON_COLOR.ai),
     Component: ProjectAiSettings,
   },
   {
     key: "stats",
     label: "统计",
-    Icon: BarChart3,
+    Icon: createMenuIcon(BarChart3, PROJECT_MENU_ICON_COLOR.stats),
     Component: ProjectStatsSettings,
   },
 ];
@@ -50,7 +68,7 @@ const BASE_MENU: Array<{
 const GIT_MENU = {
   key: "git",
   label: "Git",
-  Icon: GitBranch,
+  Icon: createMenuIcon(GitBranch, PROJECT_MENU_ICON_COLOR.git),
   Component: ProjectGitSettings,
 } satisfies {
   key: ProjectSettingsMenuKey;

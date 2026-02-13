@@ -9,6 +9,7 @@ export type TransportMessage = {
   date?: Date;
   snippet?: string;
   bodyHtml?: string;
+  bodyHtmlRaw?: string;
   bodyText?: string;
   flags: string[];
   size?: number;

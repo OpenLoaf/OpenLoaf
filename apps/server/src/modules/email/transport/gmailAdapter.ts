@@ -1,18 +1,6 @@
-import sanitizeHtml, { type IOptions } from "sanitize-html";
-
 import { logger } from "@/common/logger";
+import { sanitizeEmailHtml } from "../emailSanitize";
 import type { DownloadAttachmentResult, EmailTransportAdapter, SendMessageInput, SendMessageResult, TransportMailbox, TransportMessage } from "./types";
-
-/** Sanitize options for HTML email content. */
-const SANITIZE_OPTIONS: IOptions = {
-  allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
-  allowedAttributes: {
-    a: ["href", "name", "target", "rel"],
-    img: ["src", "alt", "title"],
-  },
-  allowedSchemes: ["http", "https", "cid"],
-  allowProtocolRelative: false,
-};
 
 /** Gmail API base URL. */
 const GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -248,12 +236,15 @@ export class GmailTransportAdapter implements EmailTransportAdapter {
 
         // 逻辑：提取 HTML 和纯文本正文。
         let bodyHtml: string | undefined;
+        let bodyHtmlRaw: string | undefined;
         let bodyText: string | undefined;
 
         if (msg.payload) {
           const htmlPart = findMimePart(msg.payload, "text/html");
           if (htmlPart?.body?.data) {
-            bodyHtml = sanitizeHtml(decodeBase64Url(htmlPart.body.data), SANITIZE_OPTIONS);
+            const rawHtml = decodeBase64Url(htmlPart.body.data);
+            bodyHtml = sanitizeEmailHtml(rawHtml);
+            bodyHtmlRaw = rawHtml !== bodyHtml ? rawHtml : undefined;
           }
 
           const textPart = findMimePart(msg.payload, "text/plain");
@@ -284,6 +275,7 @@ export class GmailTransportAdapter implements EmailTransportAdapter {
           date,
           snippet: msg.snippet ?? undefined,
           bodyHtml,
+          bodyHtmlRaw,
           bodyText,
           flags,
         });

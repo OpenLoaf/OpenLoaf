@@ -76,6 +76,7 @@ export interface CalendarContextType {
 		props: RenderCurrentTimeIndicatorProps
 	) => React.ReactNode
 	hideNonBusinessHours?: boolean
+	hideViewControls?: boolean
 }
 
 export const CalendarContext: React.Context<CalendarContextType | undefined> =

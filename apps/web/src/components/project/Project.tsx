@@ -403,10 +403,10 @@ export default function ProjectPage({
       if (!event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return;
       if (isEditableTarget(event.target)) return;
 
-      const key = event.key;
-      if (key.length !== 1 || key < "1" || key > "9") return;
+      const match = event.code.match(/^Digit(\d)$/);
+      if (!match) return;
 
-      const nextTab = getProjectTabByIndex(Number.parseInt(key, 10) - 1);
+      const nextTab = getProjectTabByIndex(Number.parseInt(match[1], 10) - 1);
       if (!nextTab) return;
 
       event.preventDefault();

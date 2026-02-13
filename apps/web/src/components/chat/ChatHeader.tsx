@@ -21,12 +21,22 @@ interface ChatHeaderProps {
   className?: string;
   onNewSession?: () => void;
   onCloseSession?: () => void;
+  /** Icon color palette for header action buttons. */
+  iconPalette?: "default" | "email";
 }
+
+const CHAT_HEADER_EMAIL_ICON_CLASS = {
+  debug: "text-[#9334e6] dark:text-violet-300",
+  clear: "text-[#d93025] dark:text-rose-300",
+  history: "text-[#1a73e8] dark:text-sky-300",
+  close: "text-[#5f6368] dark:text-slate-300",
+} as const;
 
 export default function ChatHeader({
   className,
   onNewSession,
   onCloseSession,
+  iconPalette = "default",
 }: ChatHeaderProps) {
   const { sessionId: activeSessionId, tabId, leafMessageId: activeLeafMessageId } = useChatSession();
   const { newSession, selectSession } = useChatActions();
@@ -40,6 +50,12 @@ export default function ChatHeader({
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
   const { basic } = useBasicConfig();
   const tabView = useTabView(tabId);
+  /** Resolve icon tone classes for header actions. */
+  const resolveActionIconClass = React.useCallback(
+    (action: keyof typeof CHAT_HEADER_EMAIL_ICON_CLASS) =>
+      iconPalette === "email" ? CHAT_HEADER_EMAIL_ICON_CLASS[action] : "",
+    [iconPalette]
+  );
 
   const activeSession = React.useMemo(
     () => sessions.find((session) => session.id === activeSessionId),
@@ -58,16 +74,19 @@ export default function ChatHeader({
     return idx >= 0 ? idx + 1 : null;
   }, [activeSessionId, tabView?.chatSessionId, tabView?.chatSessionIds]);
   const showSessionIndex = (tabView?.chatSessionIds?.length ?? 0) > 1;
-  /** Resolve request leaf id from the latest user message in current branch. */
+  /** Resolve request leaf id from active branch leaf first, then fallback to latest user message. */
   const requestLeafMessageId = React.useMemo(() => {
+    const activeLeafId =
+      typeof activeLeafMessageId === "string" ? activeLeafMessageId.trim() : "";
+    if (activeLeafId) return activeLeafId;
+
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       const message = messages[index];
       if (message?.role !== "user") continue;
       const id = typeof message.id === "string" ? message.id.trim() : "";
       if (id) return id;
     }
-    const fallback = typeof activeLeafMessageId === "string" ? activeLeafMessageId.trim() : "";
-    return fallback || undefined;
+    return undefined;
   }, [activeLeafMessageId, messages]);
 
   // 逻辑：仅在存在历史消息时显示 Preface 查看按钮。
@@ -161,6 +180,7 @@ export default function ChatHeader({
                 aria-label="View Debug Context"
                 onClick={handleViewPreface}
                 disabled={prefaceLoading}
+                className={resolveActionIconClass("debug")}
               >
                 <Bug size={20} />
               </Button>
@@ -177,6 +197,7 @@ export default function ChatHeader({
                 variant="ghost"
                 size="icon"
                 aria-label="清理会话"
+                className={resolveActionIconClass("clear")}
                 onClick={() => {
                   setHistoryOpen(false);
                   menuLockRef.current = false;
@@ -199,6 +220,7 @@ export default function ChatHeader({
                   variant="ghost"
                   size="icon"
                   aria-label="History"
+                  className={resolveActionIconClass("history")}
                   onClick={() => {
                     // 中文注释：点击历史按钮立即刷新会话列表，确保拿到最新数据。
                     void refetchSessions();
@@ -261,6 +283,7 @@ export default function ChatHeader({
                 variant="ghost"
                 size="icon"
                 aria-label="关闭会话"
+                className={resolveActionIconClass("close")}
                 onClick={onCloseSession}
               >
                 <X size={20} />

@@ -1,4 +1,4 @@
-import { CalendarDays, Folder, Info, Settings, Wand2 } from "lucide-react";
+import { CalendarDays, Folder, LayoutDashboard, Settings, Wand2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
 import { ExpandableDockTabs } from "@/components/ui/ExpandableDockTabs";
@@ -39,7 +39,7 @@ function formatShortcutLabel(shortcut: string, isMac: boolean): string {
 export const PROJECT_TABS = [
   {
     value: "index",
-    icon: Info,
+    icon: LayoutDashboard,
     label: "首页",
     tone: "sky",
   },
@@ -146,6 +146,7 @@ export default function ProjectTabs({
         selectedIndex={selectedIndex}
         onChange={handleChange}
         size={size}
+        active={isActive}
         expandedWidth={size === "lg" ? 460 : size === "sm" ? 380 : 420}
         revealDelayMs={revealDelayMs}
         getTooltip={(tab, index) =>

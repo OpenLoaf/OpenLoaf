@@ -26,6 +26,7 @@ import { getStackMinimizeSignal } from "@/lib/stack-dock-animation";
 import { cn } from "@/lib/utils";
 import { getPanelTitle } from "@/utils/panel-utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
+import { Kbd, KbdGroup } from "@tenas-ai/ui/kbd";
 import { getEntryVisual } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
 
@@ -63,35 +64,37 @@ type ExpandableDockTabsProps = {
   revealDelayMs?: number;
   /** Tooltip content renderer for tabs. */
   getTooltip?: (tab: DockTabItem, index: number) => ReactNode;
+  /** Whether this dock instance is active (registers keyboard shortcuts). */
+  active?: boolean;
 };
 
 const sizeConfig = {
   sm: {
-    container: "gap-1.5 p-[5px]",
-    height: 34,
-    sparklesWidth: 28,
-    activeWidth: 104,
-    inactiveWidth: 35,
-    icon: 15,
-    text: "text-[11px]",
+    container: "gap-1.5 px-[10px] py-[6px]",
+    height: 36,
+    sparklesWidth: 30,
+    activeWidth: 110,
+    inactiveWidth: 37,
+    icon: 16,
+    text: "text-xs",
   },
   md: {
-    container: "gap-1.5 p-[7px]",
-    height: 37,
-    sparklesWidth: 30,
-    activeWidth: 116,
-    inactiveWidth: 39,
-    icon: 17,
+    container: "gap-1.5 px-[12px] py-[8px]",
+    height: 39,
+    sparklesWidth: 32,
+    activeWidth: 122,
+    inactiveWidth: 41,
+    icon: 18,
     text: "text-[13px]",
   },
   lg: {
-    container: "gap-1.5 p-[9px]",
-    height: 40,
-    sparklesWidth: 34,
-    activeWidth: 129,
-    inactiveWidth: 42,
-    icon: 19,
-    text: "text-[14px]",
+    container: "gap-1.5 px-[14px] py-[10px]",
+    height: 42,
+    sparklesWidth: 36,
+    activeWidth: 135,
+    inactiveWidth: 44,
+    icon: 20,
+    text: "text-[15px]",
   },
 } as const;
 
@@ -261,6 +264,7 @@ export function ExpandableDockTabs({
   defaultSelectedIndex = 0,
   revealDelayMs = 0,
   getTooltip,
+  active = true,
 }: ExpandableDockTabsProps) {
   const [uncontrolledSelected, setUncontrolledSelected] = useState<
     number | null
@@ -269,6 +273,13 @@ export function ExpandableDockTabs({
   const [isExpanded, setIsExpanded] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [suggestionIndex, setSuggestionIndex] = useState(-1);
+  const isMac = useMemo(
+    () =>
+      typeof navigator !== 'undefined' &&
+      (navigator.platform.includes('Mac') || navigator.userAgent.includes('Mac')),
+    [],
+  );
+  const altLabel = isMac ? '⌥' : 'Alt';
   const dockRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
@@ -443,6 +454,8 @@ export function ExpandableDockTabs({
     }
     onChange?.(index);
   };
+  const handleSelectRef = useRef(handleSelect);
+  handleSelectRef.current = handleSelect;
 
   /** Toggle expanded input state. */
   const handleToggleExpand = () => {
@@ -492,6 +505,7 @@ export function ExpandableDockTabs({
 
   // 逻辑：空格快捷键触发 Sparkles，排除输入类元素。使用捕获阶段阻止滚动。
   useEffect(() => {
+    if (!active) return;
     const shouldIntercept = (e: KeyboardEvent): boolean => {
       if (e.key !== ' ') return false;
       const el = e.target as HTMLElement | null;
@@ -505,14 +519,14 @@ export function ExpandableDockTabs({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!shouldIntercept(e)) return;
       e.preventDefault();
-      e.stopPropagation();
+      e.stopImmediatePropagation();
       handleToggleExpand();
     };
     // 逻辑：keyup 也需要拦截，部分浏览器/滚动容器在 keyup 阶段触发滚动。
     const handleKeyUp = (e: KeyboardEvent) => {
       if (!shouldIntercept(e)) return;
       e.preventDefault();
-      e.stopPropagation();
+      e.stopImmediatePropagation();
     };
     window.addEventListener('keydown', handleKeyDown, true);
     window.addEventListener('keyup', handleKeyUp, true);
@@ -520,23 +534,26 @@ export function ExpandableDockTabs({
       window.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('keyup', handleKeyUp, true);
     };
-  }, [handleToggleExpand]);
+  }, [active, handleToggleExpand]);
 
-  // 逻辑：Alt+1~9 快捷键切换 tab。
+  // 逻辑：Alt+1~9 快捷键切换 tab。使用 e.code 兼容 Mac（Option+数字产生特殊字符）。
   useEffect(() => {
+    if (!active) return;
     const handleAltNum = (e: KeyboardEvent) => {
       if (!e.altKey) return;
-      const num = Number.parseInt(e.key, 10);
-      if (num < 1 || num > 9 || Number.isNaN(num)) return;
+      const match = e.code.match(/^Digit(\d)$/);
+      if (!match) return;
+      const num = Number.parseInt(match[1], 10);
+      if (num < 1 || num > 9) return;
       const index = num - 1;
       if (index >= tabs.length) return;
       e.preventDefault();
-      e.stopPropagation();
-      handleSelect(index);
+      e.stopImmediatePropagation();
+      handleSelectRef.current(index);
     };
     window.addEventListener('keydown', handleAltNum, true);
     return () => window.removeEventListener('keydown', handleAltNum, true);
-  }, [tabs.length]);
+  }, [active, tabs.length]);
 
   const effectiveCollapsedWidth = showStackResolved
     ? fullWidth
@@ -690,7 +707,7 @@ export function ExpandableDockTabs({
       <motion.div
         ref={dockRef}
         className={cn(
-          "absolute bottom-2 left-1/2 z-[60] flex -translate-x-1/2 items-center overflow-visible rounded-3xl border border-white/45 bg-white/40 text-secondary-foreground shadow-[0_18px_40px_rgba(0,0,0,0.16)] backdrop-blur-2xl backdrop-saturate-200 dark:border-white/12 dark:bg-slate-950/40 dark:shadow-[0_18px_40px_rgba(0,0,0,0.7)]",
+          "absolute bottom-3.5 left-1/2 z-[60] flex -translate-x-1/2 items-center overflow-visible rounded-3xl border border-black/[0.06] bg-white/75 text-secondary-foreground shadow-[0_8px_24px_rgba(0,0,0,0.12),0_20px_48px_rgba(0,0,0,0.16)] backdrop-blur-2xl backdrop-saturate-200 dark:border-white/[0.14] dark:bg-slate-900/75 dark:shadow-[0_8px_24px_rgba(0,0,0,0.4),0_20px_48px_rgba(0,0,0,0.55)]",
           sizeToken.container,
           "gap-1",
           className,
@@ -786,7 +803,7 @@ export function ExpandableDockTabs({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, y: 6, transition: { duration: 0.15 } }}
-              transition={{ duration: 0.18 }}
+              transition={{ duration: 0.18, delay: 0.2 }}
             >
               {AI_SUGGESTIONS.map((item, index) => {
                 const Icon = item.icon;
@@ -806,14 +823,14 @@ export function ExpandableDockTabs({
                     className={cn(
                       'flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 shadow-sm transition-colors',
                       isSelected
-                        ? 'border-primary bg-primary text-primary-foreground dark:border-primary dark:bg-primary'
+                        ? 'border-border bg-muted text-foreground dark:border-border'
                         : 'border-border/60 bg-background text-secondary-foreground dark:border-border/40',
                       sizeToken.text,
                     )}
                     initial={{ opacity: 0, y: 16, scale: 0.8, filter: 'blur(4px)' }}
                     animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
                     transition={{
-                      delay: (AI_SUGGESTIONS.length - 1 - index) * 0.06,
+                      delay: 0.2 + (AI_SUGGESTIONS.length - 1 - index) * 0.06,
                       type: 'spring',
                       stiffness: 400,
                       damping: 25,
@@ -861,9 +878,9 @@ export function ExpandableDockTabs({
           <TooltipContent side="bottom" sideOffset={6}>
             <span className="flex items-center gap-1.5">
               AI助手
-              <kbd className="rounded border border-border/60 bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground">
-                Space
-              </kbd>
+              <KbdGroup className="gap-0.5">
+                <Kbd className="bg-transparent px-0 h-auto rounded-none">Space</Kbd>
+              </KbdGroup>
             </span>
           </TooltipContent>
         </Tooltip>
@@ -1088,9 +1105,10 @@ export function ExpandableDockTabs({
                     <span className="flex items-center gap-1.5">
                       {tab.label}
                       {index < 9 ? (
-                        <kbd className="rounded border border-border/60 bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground">
-                          Alt+{index + 1}
-                        </kbd>
+                        <KbdGroup className="gap-0.5">
+                          <Kbd className="bg-transparent px-0 h-auto rounded-none">{altLabel}</Kbd>
+                          <Kbd className="bg-transparent px-0 h-auto rounded-none">{index + 1}</Kbd>
+                        </KbdGroup>
                       ) : null}
                     </span>
                   );

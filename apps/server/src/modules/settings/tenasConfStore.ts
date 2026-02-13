@@ -39,6 +39,7 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   s3AutoDeleteHours: 2,
   modelResponseLanguage: "zh-CN",
   modelQuality: "medium",
+  chatOnlineSearchMemoryScope: "tab",
   modelSoundEnabled: true,
   autoSummaryEnabled: true,
   autoSummaryHours: [0, 8, 12, 17],
@@ -173,6 +174,13 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
           fallbackSource.modelQuality === "low"
         ? fallbackSource.modelQuality
         : DEFAULT_BASIC_CONF.modelQuality;
+  const chatOnlineSearchMemoryScope =
+    source.chatOnlineSearchMemoryScope === "global" || source.chatOnlineSearchMemoryScope === "tab"
+      ? source.chatOnlineSearchMemoryScope
+      : fallbackSource.chatOnlineSearchMemoryScope === "global" ||
+          fallbackSource.chatOnlineSearchMemoryScope === "tab"
+        ? fallbackSource.chatOnlineSearchMemoryScope
+        : DEFAULT_BASIC_CONF.chatOnlineSearchMemoryScope;
   const modelSoundEnabled =
     typeof source.modelSoundEnabled === "boolean"
       ? source.modelSoundEnabled
@@ -340,6 +348,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     s3AutoDeleteHours,
     modelResponseLanguage,
     modelQuality,
+    chatOnlineSearchMemoryScope,
     modelSoundEnabled,
     autoSummaryEnabled,
     autoSummaryHours,

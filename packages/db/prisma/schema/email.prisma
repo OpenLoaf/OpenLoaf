@@ -16,6 +16,7 @@ model EmailMessage {
   snippet      String? /// 正文摘要
 
   bodyHtml     String? /// HTML 正文（已清洗）
+  bodyHtmlRaw  String? /// 原始 HTML 正文（未清洗）
   bodyText     String? /// 纯文本正文
   attachments  Json? /// 附件元信息
   rawRfc822    String? /// 原始邮件内容

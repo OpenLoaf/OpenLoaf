@@ -59,6 +59,8 @@ export interface TabsState {
     chatSessionId: string,
     options?: { loadHistory?: boolean; replaceCurrent?: boolean },
   ) => void;
+  /** Merge chat params for a tab. */
+  setTabChatParams: (tabId: string, patch: Record<string, unknown>) => void;
 }
 
 function generateId(prefix = "id") {
@@ -459,6 +461,23 @@ export const useTabs = create<TabsState>()(
 
       setTabChatSession: (tabId, chatSessionId, options) => {
         get().setActiveTabSession(tabId, chatSessionId, options);
+      },
+
+      setTabChatParams: (tabId, patch) => {
+        set((state) => ({
+          tabs: updateTabById(state.tabs, tabId, (tab) => {
+            const currentParams =
+              typeof tab.chatParams === "object" && tab.chatParams
+                ? (tab.chatParams as Record<string, unknown>)
+                : {};
+            const nextParams = { ...currentParams, ...patch };
+            const same =
+              Object.keys(nextParams).length === Object.keys(currentParams).length &&
+              Object.entries(nextParams).every(([key, value]) => currentParams[key] === value);
+            if (same) return tab;
+            return { ...tab, chatParams: nextParams };
+          }),
+        }));
       },
     }),
     {

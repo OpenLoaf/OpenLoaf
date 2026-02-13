@@ -2,16 +2,25 @@ import {
   Archive,
   ChevronLeft,
   ChevronRight,
+  Loader2,
   Lock,
+  MailOpen,
   MoreVertical,
   Paperclip,
   RefreshCw,
   Search,
-  Square,
   Star,
+  Trash2,
 } from "lucide-react";
 
 import { Button } from "@tenas-ai/ui/button";
+import { Checkbox } from "@tenas-ai/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@tenas-ai/ui/dropdown-menu";
 import { Input } from "@tenas-ai/ui/input";
 import { cn } from "@/lib/utils";
 import {
@@ -37,6 +46,8 @@ export function EmailMessageList({
   messageList,
   onMessageOpen,
 }: EmailMessageListProps) {
+  const { hasSelection, isAllSelected, selectedIds } = messageList
+
   return (
     <section
       className={cn(
@@ -46,38 +57,115 @@ export function EmailMessageList({
     >
       <div className={cn("border-b px-3 py-2.5", EMAIL_DIVIDER_CLASS)}>
         <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 rounded-full text-[#5f6368] hover:bg-[hsl(var(--muted)/0.58)] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.46)]"
-          >
-            <Square className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 rounded-full text-[#5f6368] hover:bg-[hsl(var(--muted)/0.58)] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.46)]"
-          >
-            <Archive className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 rounded-full text-[#5f6368] hover:bg-[hsl(var(--muted)/0.58)] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.46)]"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 rounded-full text-[#5f6368] hover:bg-[hsl(var(--muted)/0.58)] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.46)]"
-          >
-            <MoreVertical className="h-3.5 w-3.5" />
-          </Button>
+          {/* 全选 checkbox */}
+          <div className="flex h-8 w-8 items-center justify-center">
+            <Checkbox
+              checked={isAllSelected ? true : hasSelection ? "indeterminate" : false}
+              onCheckedChange={() => messageList.onToggleSelectAll()}
+              aria-label="全选"
+              className="h-3.5 w-3.5"
+            />
+          </div>
+
+          {hasSelection ? (
+            <>
+              <span className="ml-1 text-xs text-[#5f6368] dark:text-slate-400">
+                已选 {selectedIds.size} 封
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => messageList.onBatchArchive()}
+                disabled={messageList.batchActionPending}
+                title="归档"
+                className={cn(
+                  "h-8 w-8 rounded-full text-[#f9ab00] transition-colors duration-150",
+                  "hover:bg-[hsl(var(--muted)/0.58)] dark:text-amber-300 dark:hover:bg-[hsl(var(--muted)/0.46)]",
+                )}
+              >
+                <Archive className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => messageList.onBatchDelete()}
+                disabled={messageList.batchActionPending}
+                title="删除"
+                className={cn(
+                  "h-8 w-8 rounded-full text-red-500 transition-colors duration-150",
+                  "hover:bg-[hsl(var(--muted)/0.58)] dark:text-red-400 dark:hover:bg-[hsl(var(--muted)/0.46)]",
+                )}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={messageList.batchActionPending}
+                    className={cn(
+                      "h-8 w-8 rounded-full text-[#9334e6] transition-colors duration-150",
+                      "hover:bg-[hsl(var(--muted)/0.58)] dark:text-violet-300 dark:hover:bg-[hsl(var(--muted)/0.46)]",
+                    )}
+                  >
+                    <MoreVertical className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => messageList.onBatchMarkRead()}>
+                    <MailOpen className="mr-2 h-3.5 w-3.5" />
+                    标记为已读
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                disabled
+                className={cn(
+                  "h-8 w-8 rounded-full text-[#f9ab00] transition-colors duration-150",
+                  "hover:bg-[hsl(var(--muted)/0.58)] dark:text-amber-300 dark:hover:bg-[hsl(var(--muted)/0.46)]",
+                )}
+              >
+                <Archive className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => messageList.onRefresh()}
+                disabled={messageList.isRefreshing}
+                title="刷新"
+                className={cn(
+                  "h-8 w-8 rounded-full text-[#188038] transition-colors duration-150",
+                  "hover:bg-[hsl(var(--muted)/0.58)] dark:text-emerald-300 dark:hover:bg-[hsl(var(--muted)/0.46)]",
+                )}
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5", messageList.isRefreshing && "animate-spin")} />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                disabled
+                className={cn(
+                  "h-8 w-8 rounded-full text-[#9334e6] transition-colors duration-150",
+                  "hover:bg-[hsl(var(--muted)/0.58)] dark:text-violet-300 dark:hover:bg-[hsl(var(--muted)/0.46)]",
+                )}
+              >
+                <MoreVertical className="h-3.5 w-3.5" />
+              </Button>
+            </>
+          )}
+
           <div className="ml-auto flex items-center gap-1 text-xs text-[#5f6368] dark:text-slate-400">
             <span>{messageList.visibleMessages.length} 封邮件</span>
             <ChevronLeft className="h-3.5 w-3.5" />
@@ -92,6 +180,9 @@ export function EmailMessageList({
             placeholder="搜索邮件"
             className={cn("h-9 rounded-full pl-9 text-xs", EMAIL_FLAT_INPUT_CLASS)}
           />
+          {messageList.isSearching ? (
+            <Loader2 className="absolute right-3 top-2.5 h-3.5 w-3.5 animate-spin text-[#5f6368] dark:text-slate-400" />
+          ) : null}
         </div>
       </div>
       <div
@@ -113,31 +204,59 @@ export function EmailMessageList({
           <>
             {messageList.visibleMessages.map((mail) => {
               const isActive = mail.id === messageList.activeMessageId;
+              const isSelected = selectedIds.has(mail.id);
               const rowTime = formatMessageTime(mail.time ?? "");
               return (
-                <button
+                <div
                   key={mail.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => {
                     messageList.onSelectMessage(mail);
                     onMessageOpen?.(mail);
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      messageList.onSelectMessage(mail);
+                      onMessageOpen?.(mail);
+                    }
+                  }}
                   className={cn(
-                    "grid !h-[50px] !min-h-[50px] w-full grid-cols-[68px_minmax(128px,220px)_minmax(0,1fr)_72px] items-center gap-2 border-b px-3 text-left transition-colors duration-150",
+                    "grid !h-[50px] !min-h-[50px] w-full cursor-pointer grid-cols-[68px_minmax(128px,220px)_minmax(0,1fr)_72px] items-center gap-2 border-b px-3 text-left transition-colors duration-150",
                     EMAIL_DIVIDER_CLASS,
-                    isActive
-                      ? EMAIL_TONE_ACTIVE_CLASS
-                      : cn(
-                          mail.unread ? EMAIL_LIST_UNREAD_ROW_CLASS : EMAIL_LIST_READ_ROW_CLASS,
-                          EMAIL_TONE_HOVER_CLASS,
-                        ),
+                    isSelected
+                      ? "bg-[#e8f0fe] dark:bg-sky-900/50"
+                      : isActive
+                        ? EMAIL_TONE_ACTIVE_CLASS
+                        : mail.unread ? EMAIL_LIST_UNREAD_ROW_CLASS : EMAIL_LIST_READ_ROW_CLASS,
                   )}
                 >
-                  <div className="flex items-center gap-1.5 text-[#9aa0a6] dark:text-slate-400">
-                    <Square className="h-3.5 w-3.5 shrink-0" />
-                    <Star
-                      className="h-3.5 w-3.5 shrink-0 text-[#bdc1c6] dark:text-slate-500"
-                    />
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      role="checkbox"
+                      aria-checked={isSelected}
+                      tabIndex={-1}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        messageList.onToggleSelect(mail.id, e.shiftKey);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === ' ' || e.key === 'Enter') {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          messageList.onToggleSelect(mail.id);
+                        }
+                      }}
+                      className="flex items-center justify-center"
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        tabIndex={-1}
+                        className="h-3.5 w-3.5 pointer-events-none"
+                      />
+                    </div>
+                    <Star className="h-3.5 w-3.5 shrink-0 text-[#f9ab00] dark:text-amber-300" />
                     <span
                       className={cn(
                         "h-2 w-2 rounded-full",
@@ -170,12 +289,12 @@ export function EmailMessageList({
                       - {mail.preview || "（无预览）"}
                     </span>
                     {mail.hasAttachments ? (
-                      <span className="ml-2 inline-flex items-center text-[#5f6368] dark:text-slate-400">
+                      <span className="ml-2 inline-flex items-center text-[#9334e6] dark:text-violet-300">
                         <Paperclip className="h-3 w-3" />
                       </span>
                     ) : null}
                     {mail.isPrivate ? (
-                      <span className="ml-2 inline-flex items-center text-[#1a73e8] dark:text-sky-300">
+                      <span className="ml-2 inline-flex items-center text-[#188038] dark:text-emerald-300">
                         <Lock className="h-3 w-3" />
                       </span>
                     ) : null}
@@ -190,7 +309,7 @@ export function EmailMessageList({
                   >
                     {rowTime}
                   </div>
-                </button>
+                </div>
               );
             })}
             <div ref={messageList.loadMoreRef} className="h-6" />

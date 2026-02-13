@@ -60,6 +60,8 @@ export default function EmailPage({
   /** Open message detail in stack panel (Gmail-style list -> stack detail). */
   const handleOpenMessageStack = useCallback(
     (message: EmailMessageSummary) => {
+      // 逻辑：多选模式下不打开详情面板。
+      if (messageList.hasSelection) return;
       if (!tabId) return;
       const detailStackId = `email-message:${message.id}`;
       const detailTitle = message.subject?.trim() || "（无主题）";
@@ -78,7 +80,7 @@ export default function EmailPage({
         },
       });
     },
-    [pushStackItem, tabId, workspace?.id],
+    [messageList.hasSelection, pushStackItem, tabId, workspace?.id],
   );
 
   return (

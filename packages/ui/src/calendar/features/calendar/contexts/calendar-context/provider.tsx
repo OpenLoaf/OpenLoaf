@@ -59,6 +59,7 @@ export interface CalendarProviderProps {
 		props: RenderCurrentTimeIndicatorProps
 	) => ReactNode
 	hideNonBusinessHours?: boolean
+	hideViewControls?: boolean
 }
 
 export const CalendarProvider: React.FC<CalendarProviderProps> = ({
@@ -102,6 +103,7 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 	classesOverride,
 	renderCurrentTimeIndicator,
 	hideNonBusinessHours = false,
+	hideViewControls = false,
 }) => {
 	const [isSidebarOpen, setIsSidebarOpen] = useState(defaultSidebarOpen)
 	const handleSetSidebarOpen = useCallback(
@@ -274,6 +276,7 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 			classesOverride,
 			renderCurrentTimeIndicator,
 			hideNonBusinessHours,
+			hideViewControls,
 		}),
 		[
 			calendarEngine,
@@ -306,6 +309,7 @@ export const CalendarProvider: React.FC<CalendarProviderProps> = ({
 			classesOverride,
 			renderCurrentTimeIndicator,
 			hideNonBusinessHours,
+			hideViewControls,
 		]
 	)
 

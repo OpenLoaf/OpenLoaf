@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion } from "motion/react";
-import { PencilLine, Pin, PinOff, RotateCw } from "lucide-react";
+import { PencilLine, Pin, PinOff, RotateCw, Layers, Trash2, Settings } from "lucide-react";
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
 import { cn } from "@/lib/utils";
 import { GlowingEffect } from "@tenas-ai/ui/glowing-effect";
@@ -15,6 +15,12 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSub,
+  ContextMenuSubTrigger,
+  ContextMenuSubContent,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@tenas-ai/ui/context-menu";
 import {
@@ -27,8 +33,10 @@ import {
 } from "@tenas-ai/ui/dialog";
 import { Input } from "@tenas-ai/ui/input";
 import type { DesktopItem, DesktopScope } from "./types";
+import { getWidgetVariants, getWidgetVariantConfig } from "./widget-variants";
 import DesktopTileContent from "./DesktopTileContent";
 import DesktopTileDeleteButton from "./DesktopTileDeleteButton";
+import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { createBrowserTabId } from "@/hooks/tab-id";
@@ -80,6 +88,9 @@ export default function DesktopTileGridstack({
   // 逻辑：仅在动画等级为高时显示七彩发光。
   const enableGlow = !editMode && basic.uiAnimationLevel === "high";
   const widgetKey = item.kind === "widget" ? item.widgetKey : null;
+  // 逻辑：读取 widget 的 variant 配置列表。
+  const variants = widgetKey ? getWidgetVariants(widgetKey) : undefined;
+  const hasVariants = Boolean(variants?.length);
   const webMetaFetchRef = React.useRef(false);
   const tabParams = tabRuntime?.base?.params as Record<string, unknown> | undefined;
   const projectId =
@@ -97,6 +108,8 @@ export default function DesktopTileGridstack({
   const [webUrlInput, setWebUrlInput] = React.useState("");
   const [webTitleInput, setWebTitleInput] = React.useState("");
   const [webError, setWebError] = React.useState<string | null>(null);
+  // 视频文件选择对话框状态。
+  const [isVideoFileDialogOpen, setIsVideoFileDialogOpen] = React.useState(false);
 
   const clearLongPress = React.useCallback(() => {
     if (longPressTimerRef.current) {
@@ -136,6 +149,35 @@ export default function DesktopTileGridstack({
       };
     });
   }, [item.id, widgetKey, onUpdateItem]);
+
+  /** Switch widget variant via context menu. */
+  const handleVariantChange = React.useCallback(
+    (variantKey: string) => {
+      if (!widgetKey) return;
+      const config = getWidgetVariantConfig(widgetKey, variantKey);
+      if (!config) return;
+      const applyUpdate = onPersistItemUpdate ?? onUpdateItem;
+      applyUpdate(item.id, (current) => {
+        if (current.kind !== "widget") return current;
+        const { constraints } = config;
+        // 逻辑：切换 variant 时同步更新约束和尺寸。
+        const nextW = Math.max(constraints.minW, Math.min(constraints.maxW, constraints.defaultW));
+        const nextH = Math.max(constraints.minH, Math.min(constraints.maxH, constraints.defaultH));
+        return {
+          ...current,
+          variant: variantKey,
+          constraints,
+          layout: { ...current.layout, w: nextW, h: nextH },
+          // 逻辑：同步 flipClock 设置以保持向后兼容。
+          flipClock:
+            current.widgetKey === "flip-clock"
+              ? { showSeconds: variantKey === "hms" }
+              : current.flipClock,
+        };
+      });
+    },
+    [item.id, onPersistItemUpdate, onUpdateItem, widgetKey]
+  );
 
   const allowOverflow = widgetKey === "3d-folder";
   const isWebStack = item.kind === "widget" && item.widgetKey === "web-stack";
@@ -286,6 +328,29 @@ export default function DesktopTileGridstack({
     });
   }, [activeTabId, isWebStack, item.id, item.title, onUpdateItem, webUrl]);
 
+  /** Handle video file selection from the file dialog. */
+  const handleVideoFileSelect = React.useCallback(
+    (targetUri: string) => {
+      const applyUpdate = onPersistItemUpdate ?? onUpdateItem;
+      applyUpdate(item.id, (current) => {
+        if (current.kind !== "widget" || current.widgetKey !== "video") return current;
+        return { ...current, videoFileRef: targetUri };
+      });
+      setIsVideoFileDialogOpen(false);
+    },
+    [item.id, onPersistItemUpdate, onUpdateItem]
+  );
+
+  // 逻辑：根据 widget 类型计算配置回调。
+  const isThreeDFolder = item.kind === "widget" && item.widgetKey === "3d-folder";
+  const isVideo = item.kind === "widget" && item.widgetKey === "video";
+  const handleConfigure = React.useMemo(() => {
+    if (isThreeDFolder) return () => onSelectFolder(item.id);
+    if (isWebStack) return () => handleWebDialogOpenChange(true);
+    if (isVideo) return () => setIsVideoFileDialogOpen(true);
+    return undefined;
+  }, [isThreeDFolder, isWebStack, isVideo, item.id, onSelectFolder, handleWebDialogOpenChange]);
+
   const tileBody = (
     <motion.div
       animate={{ scale: 1, boxShadow: "none" }}
@@ -360,6 +425,7 @@ export default function DesktopTileGridstack({
             scope={scope}
             webContext={{ projectId, workspaceId }}
             onWebOpen={handleWebOpen}
+            onConfigure={handleConfigure}
           />
         </div>
       </motion.div>
@@ -368,7 +434,7 @@ export default function DesktopTileGridstack({
   return (
     <div className="group relative h-full w-full min-w-0">
       {editMode ? (
-        <div className="absolute -left-2 -top-2 z-10 flex items-center gap-1">
+        <div className="absolute -left-2 -top-2 z-20 flex items-center gap-1">
           {isPinned ? null : <DesktopTileDeleteButton onDelete={() => onDeleteItem(item.id)} />}
           <button
             type="button"
@@ -399,62 +465,66 @@ export default function DesktopTileGridstack({
           </button>
         </div>
       ) : null}
-      {editMode && widgetKey === "flip-clock" ? (
-        <button
-          type="button"
-          className="absolute right-2 top-2 z-10 rounded-full border border-border bg-background/90 px-2 py-1 text-xs font-medium text-foreground shadow-sm backdrop-blur"
-          onPointerDown={(event) => {
-            event.stopPropagation();
-          }}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            handleToggleFlipClock();
-          }}
-          aria-label={showSeconds ? "Switch to hour and minute" : "Switch to full time"}
-          title={showSeconds ? "切换到小时:分" : "切换到完整时间"}
-        >
-          {showSeconds ? "时:分" : "带秒"}
-        </button>
-      ) : null}
-      {editMode && item.kind === "widget" && item.widgetKey === "3d-folder" ? (
-        <button
-          type="button"
-          className="absolute right-2 top-2 z-10 rounded-full border border-border bg-background/90 px-2 py-1 text-xs font-medium text-foreground shadow-sm backdrop-blur"
-          onPointerDown={(event) => {
-            event.stopPropagation();
-          }}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onSelectFolder(item.id);
-          }}
-          aria-label="Select folder"
-          title="选择文件夹"
-        >
-          选择
-        </button>
-      ) : null}
 
-      {isWebStack ? (
-        <ContextMenu>
-          <ContextMenuTrigger asChild>{tileBody}</ContextMenuTrigger>
-          <ContextMenuContent className="w-44">
-            <ContextMenuItem icon={PencilLine} onClick={() => handleWebDialogOpenChange(true)}>
-              修改
+      <ContextMenu>
+        <ContextMenuTrigger asChild>{tileBody}</ContextMenuTrigger>
+        <ContextMenuContent className="w-44">
+          {hasVariants && variants ? (
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <Layers className="mr-2 size-4" />
+                模式
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent>
+                <ContextMenuRadioGroup
+                  value={item.kind === "widget" ? (item.variant ?? "") : ""}
+                  onValueChange={handleVariantChange}
+                >
+                  {variants.map((v) => (
+                    <ContextMenuRadioItem key={v.key} value={v.key}>
+                      {v.label}
+                    </ContextMenuRadioItem>
+                  ))}
+                </ContextMenuRadioGroup>
+              </ContextMenuSubContent>
+            </ContextMenuSub>
+          ) : null}
+          {(isWebStack || isThreeDFolder || isVideo) && hasVariants ? <ContextMenuSeparator /> : null}
+          {isWebStack ? (
+            <>
+              <ContextMenuItem icon={PencilLine} onClick={() => handleWebDialogOpenChange(true)}>
+                修改
+              </ContextMenuItem>
+              <ContextMenuItem
+                icon={RotateCw}
+                onClick={handleWebMetaRefresh}
+                disabled={!webUrl}
+              >
+                刷新
+              </ContextMenuItem>
+            </>
+          ) : null}
+          {isThreeDFolder ? (
+            <ContextMenuItem icon={Settings} onClick={() => onSelectFolder(item.id)}>
+              选择文件夹
             </ContextMenuItem>
-            <ContextMenuItem
-              icon={RotateCw}
-              onClick={handleWebMetaRefresh}
-              disabled={!webUrl}
-            >
-              刷新
+          ) : null}
+          {isVideo ? (
+            <ContextMenuItem icon={Settings} onClick={() => setIsVideoFileDialogOpen(true)}>
+              选择视频
             </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
-      ) : (
-        tileBody
-      )}
+          ) : null}
+          {(hasVariants || isWebStack || isThreeDFolder || isVideo) ? <ContextMenuSeparator /> : null}
+          <ContextMenuItem
+            icon={Trash2}
+            variant="destructive"
+            onClick={() => onDeleteItem(item.id)}
+            disabled={isPinned}
+          >
+            删除
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
       {isWebStack ? (
         <Dialog open={isWebDialogOpen} onOpenChange={handleWebDialogOpenChange}>
           <DialogContent>
@@ -493,6 +563,15 @@ export default function DesktopTileGridstack({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      ) : null}
+      {isVideo ? (
+        <ProjectFileSystemTransferDialog
+          open={isVideoFileDialogOpen}
+          onOpenChange={setIsVideoFileDialogOpen}
+          mode="select"
+          selectTarget="file"
+          onSelectTarget={handleVideoFileSelect}
+        />
       ) : null}
     </div>
   );

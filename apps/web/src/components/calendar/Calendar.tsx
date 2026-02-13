@@ -342,11 +342,17 @@ export default function CalendarPage({
   panelKey: _panelKey,
   tabId: _tabId,
   compact = false,
+  initialView,
+  hideViewControls,
 }: {
   panelKey: string;
   tabId: string;
   /** Whether to render the calendar in compact mode. */
   compact?: boolean;
+  /** Initial calendar view mode. */
+  initialView?: 'day' | 'week' | 'month';
+  /** Whether to hide the view controls (day/week/month tabs) in the header. */
+  hideViewControls?: boolean;
 }) {
   const { basic } = useBasicConfig();
   const { workspace } = useWorkspace();
@@ -566,6 +572,9 @@ export default function CalendarPage({
     <div className={`h-full w-full p-0 ${styles.calendarRoot}`}>
       <div className="h-full min-h-0 flex flex-col gap-3">
         <IlamyCalendar
+          key={initialView}
+          initialView={initialView}
+          hideViewControls={hideViewControls}
           events={visibleEvents}
           headerClassName="justify-between"
           headerLeadingSlot={

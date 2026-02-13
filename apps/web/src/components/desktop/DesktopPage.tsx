@@ -16,11 +16,12 @@ import { getBreakpointConfig } from "./desktop-breakpoints";
 import DesktopGrid from "./DesktopGrid";
 import { desktopIconCatalog, getDesktopIconNode } from "./desktop-icon-catalog";
 import { filterDesktopItemsByScope } from "./desktop-support";
-import { PencilLine } from "lucide-react";
+import { PencilLine, Plus, LayoutGrid, X, Check } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@tenas-ai/ui/context-menu";
 
@@ -177,6 +178,14 @@ interface DesktopPageProps {
   compactSignal: number;
   /** Extra bottom padding for scroll container (px). */
   bottomPadding?: number;
+  /** Open the widget library panel (edit mode). */
+  onOpenWidgetLibrary?: () => void;
+  /** Compact current layout (edit mode). */
+  onCompact?: () => void;
+  /** Cancel edits and exit edit mode. */
+  onCancel?: () => void;
+  /** Finish edits and exit edit mode. */
+  onDone?: () => void;
 }
 
 /** Render a single-page desktop (MVP). */
@@ -193,6 +202,10 @@ export default function DesktopPage({
   onChangeItems,
   compactSignal,
   bottomPadding,
+  onOpenWidgetLibrary,
+  onCompact,
+  onCancel,
+  onDone,
 }: DesktopPageProps) {
   const lock = editBreakpointLock ?? "auto";
   // 中文注释：只有手动锁定断点时才钳制宽度，避免编辑态自锁。
@@ -298,7 +311,32 @@ export default function DesktopPage({
       style={bottomPadding ? { paddingBottom: bottomPadding } : undefined}
     >
       {editMode ? (
-        desktopBody
+        <ContextMenu>
+          <ContextMenuTrigger asChild>{desktopBody}</ContextMenuTrigger>
+          <ContextMenuContent className="w-40">
+            {onOpenWidgetLibrary ? (
+              <ContextMenuItem icon={Plus} onClick={onOpenWidgetLibrary}>
+                添加组件
+              </ContextMenuItem>
+            ) : null}
+            {onCompact ? (
+              <ContextMenuItem icon={LayoutGrid} onClick={onCompact}>
+                整理
+              </ContextMenuItem>
+            ) : null}
+            <ContextMenuSeparator />
+            {onCancel ? (
+              <ContextMenuItem icon={X} onClick={onCancel}>
+                取消
+              </ContextMenuItem>
+            ) : null}
+            {onDone ? (
+              <ContextMenuItem icon={Check} onClick={onDone}>
+                完成
+              </ContextMenuItem>
+            ) : null}
+          </ContextMenuContent>
+        </ContextMenu>
       ) : (
         <ContextMenu>
           {/* 中文注释：非编辑态在空白区域右键显示编辑入口。 */}

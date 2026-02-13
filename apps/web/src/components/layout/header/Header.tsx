@@ -1,6 +1,6 @@
 "use client";
 
-import { PanelLeft, PanelRight, Settings } from "lucide-react";
+import { PanelLeft, PanelRight, Settings, Sparkles } from "lucide-react";
 import { Button } from "@tenas-ai/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
 import { useSidebar } from "@tenas-ai/ui/sidebar";
@@ -158,23 +158,27 @@ export const Header = () => {
             >
               <motion.div
                 animate={{
-                  x: [0, -5, 5, -5, 5, 0],
+                  y: [0, -1.5, 0],
+                  scale: [1, 1.05, 1],
+                  rotate: [0, -4, 4, 0],
                 }}
                 transition={{
-                  duration: 0.6,
+                  duration: 2.2,
                   ease: "easeInOut",
+                  repeat: Number.POSITIVE_INFINITY,
                 }}
+                whileHover={{ y: -2, scale: 1.1, rotate: 10 }}
+                whileTap={{ scale: 0.95, rotate: 0 }}
               >
                 {/* <PanelRight
                   className={`h-4 w-4 transition-transform duration-200 ${
                     isChatCollapsed ? "rotate-180" : ""
                   }`}
                 /> */}
-                <img
-                  src="/head_s.png"
-                  alt=""
+                <Sparkles
                   aria-hidden="true"
-                  className="h-5 w-5 object-contain scale-[1.03] transition-transform duration-200 ease-out hover:rotate-8"
+                  className="h-5 w-5 scale-[1.03] text-amber-500 transition-transform duration-200 ease-out hover:rotate-8"
+                  fill="currentColor"
                 />
               </motion.div>
             </Button>

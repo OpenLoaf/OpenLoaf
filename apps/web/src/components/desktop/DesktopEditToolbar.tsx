@@ -2,13 +2,24 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { PencilLine } from "lucide-react";
+import {
+  PencilLine,
+  Plus,
+  Box,
+  X,
+  Check,
+} from "lucide-react";
 import { Button } from "@tenas-ai/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { desktopWidgetCatalog } from "./widget-catalog";
+import { getWidgetVariantConfig } from "./widget-variants";
 import type { DesktopItem, DesktopWidgetItem } from "./types";
-import { getItemLayoutForBreakpoint, type DesktopBreakpoint } from "./desktop-breakpoints";
+import {
+  getItemLayoutForBreakpoint,
+  getBreakpointConfig,
+  type DesktopBreakpoint,
+} from "./desktop-breakpoints";
 import {
   DESKTOP_WIDGET_SELECTED_EVENT,
   type DesktopWidgetSelectedDetail,
@@ -42,6 +53,44 @@ type WidgetCreateOptions = {
   dynamicProjectId?: string;
 };
 
+/** Find the first grid position that can fit a widget of given size. */
+function findFirstAvailablePosition(
+  items: DesktopItem[],
+  breakpoint: DesktopBreakpoint,
+  w: number,
+  h: number,
+): { x: number; y: number } {
+  const { columns } = getBreakpointConfig(breakpoint);
+  // 逻辑：构建占用网格，逐行扫描寻找第一个可放置位置。
+  const occupied = new Set<string>();
+  let maxY = 0;
+  for (const item of items) {
+    const layout = getItemLayoutForBreakpoint(item, breakpoint);
+    for (let row = layout.y; row < layout.y + layout.h; row++) {
+      for (let col = layout.x; col < layout.x + layout.w; col++) {
+        occupied.add(`${col},${row}`);
+      }
+    }
+    maxY = Math.max(maxY, layout.y + layout.h);
+  }
+  // 逻辑：从 (0,0) 开始逐行扫描，找到第一个能放下 w×h 的空位。
+  for (let row = 0; row <= maxY; row++) {
+    for (let col = 0; col <= columns - w; col++) {
+      let fits = true;
+      for (let dy = 0; dy < h && fits; dy++) {
+        for (let dx = 0; dx < w && fits; dx++) {
+          if (occupied.has(`${col + dx},${row + dy}`)) {
+            fits = false;
+          }
+        }
+      }
+      if (fits) return { x: col, y: row };
+    }
+  }
+  // 逻辑：没有空位，追加到底部。
+  return { x: 0, y: maxY };
+}
+
 /** Build a new widget item based on catalog metadata. */
 function createWidgetItem(
   widgetKey: DesktopWidgetSelectedDetail["widgetKey"],
@@ -52,11 +101,8 @@ function createWidgetItem(
   // Dynamic widgets bypass the catalog.
   if (widgetKey === "dynamic" && options?.dynamicWidgetId) {
     const constraints = { defaultW: 4, defaultH: 2, minW: 2, minH: 2, maxW: 6, maxH: 4 };
-    const maxY = items.reduce((acc, item) => {
-      const layout = getItemLayoutForBreakpoint(item, breakpoint);
-      return Math.max(acc, layout.y + layout.h);
-    }, 0);
-    const layout = { x: 0, y: maxY, w: constraints.defaultW, h: constraints.defaultH };
+    const pos = findFirstAvailablePosition(items, breakpoint, constraints.defaultW, constraints.defaultH);
+    const layout = { x: pos.x, y: pos.y, w: constraints.defaultW, h: constraints.defaultH };
     return {
       id: `w-dynamic-${Date.now()}`,
       kind: "widget" as const,
@@ -74,14 +120,17 @@ function createWidgetItem(
   if (!catalogItem) return null;
 
   const { constraints } = catalogItem;
-  // 逻辑：追加到当前内容底部，避免覆盖已存在的组件。
-  const maxY = items.reduce((acc, item) => {
-    const layout = getItemLayoutForBreakpoint(item, breakpoint);
-    return Math.max(acc, layout.y + layout.h);
-  }, 0);
+  // 逻辑：读取 catalog 默认 variant，使用 variant 约束覆盖默认约束。
+  const defaultVariant = catalogItem.defaultVariant;
+  const variantConfig = defaultVariant
+    ? getWidgetVariantConfig(catalogItem.widgetKey, defaultVariant)
+    : undefined;
+  const resolvedConstraints = variantConfig?.constraints ?? constraints;
   // 逻辑：Flip Clock 默认展示秒数。
   const flipClock = widgetKey === "flip-clock" ? { showSeconds: true } : undefined;
-  const layout = { x: 0, y: maxY, w: constraints.defaultW, h: constraints.defaultH };
+  // 逻辑：优先寻找网格中的空位，找不到再追加到底部。
+  const pos = findFirstAvailablePosition(items, breakpoint, resolvedConstraints.defaultW, resolvedConstraints.defaultH);
+  const layout = { x: pos.x, y: pos.y, w: resolvedConstraints.defaultW, h: resolvedConstraints.defaultH };
 
   const title = options?.title ?? catalogItem.title;
 
@@ -91,7 +140,8 @@ function createWidgetItem(
     title,
     widgetKey: catalogItem.widgetKey,
     size: catalogItem.size,
-    constraints,
+    constraints: resolvedConstraints,
+    variant: defaultVariant,
     flipClock,
     folderUri: widgetKey === "3d-folder" ? options?.folderUri : undefined,
     webUrl: widgetKey === "web-stack" ? options?.webUrl : undefined,
@@ -196,7 +246,7 @@ export default function DesktopEditToolbar({
           className="h-7 gap-1.5 px-2 text-xs"
           onClick={onEnterEditMode}
         >
-          <PencilLine className="size-3.5" />
+          <PencilLine className="size-3.5 text-blue-500" />
           编辑
         </Button>
       </div>,
@@ -205,35 +255,45 @@ export default function DesktopEditToolbar({
   }
 
   return createPortal(
-    <div className="flex items-center gap-2">
+    <div className="flex items-center justify-end gap-2">
       <Button
         type="button"
         variant="secondary"
         size="sm"
-        className="h-7 px-2 text-xs"
+        className="h-7 gap-1.5 px-2 text-xs"
         onClick={handleOpenWidgetLibrary}
       >
+        <Plus className="size-3.5 text-blue-500" />
         添加组件
       </Button>
       <Button
         type="button"
         variant="secondary"
         size="sm"
-        className="h-7 px-2 text-xs"
+        className="h-7 gap-1.5 px-2 text-xs"
         onClick={onCompact}
       >
+        <Box className="size-3.5 text-orange-500" />
         整理
       </Button>
       <Button
         type="button"
         variant="secondary"
         size="sm"
-        className="h-7 px-2 text-xs"
+        className="h-7 gap-1.5 px-2 text-xs"
         onClick={onCancel}
       >
+        <X className="size-3.5 text-red-500" />
         取消
       </Button>
-      <Button type="button" variant="default" size="sm" className="h-7 px-2 text-xs" onClick={onDone}>
+      <Button
+        type="button"
+        variant="default"
+        size="sm"
+        className="h-7 gap-1.5 px-2 text-xs"
+        onClick={onDone}
+      >
+        <Check className="size-3.5 text-emerald-500" />
         完成
       </Button>
     </div>,

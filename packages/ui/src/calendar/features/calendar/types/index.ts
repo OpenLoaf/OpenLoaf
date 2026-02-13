@@ -293,4 +293,9 @@ export interface IlamyCalendarProps {
 	renderCurrentTimeIndicator?: (
 		props: RenderCurrentTimeIndicatorProps
 	) => React.ReactNode
+	/**
+	 * Whether to hide the view controls (day/week/month tabs) in the header.
+	 * @default false
+	 */
+	hideViewControls?: boolean
 }

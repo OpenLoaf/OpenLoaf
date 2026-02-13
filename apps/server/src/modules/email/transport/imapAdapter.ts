@@ -1,23 +1,12 @@
 import Imap from "imap";
 import { simpleParser } from "mailparser";
-import sanitizeHtml, { type IOptions } from "sanitize-html";
 
 import { logger } from "@/common/logger";
+import { sanitizeEmailHtml } from "../emailSanitize";
 import type { DownloadAttachmentResult, EmailTransportAdapter, TransportMailbox, TransportMessage } from "./types";
 
 /** IMAP close timeout in ms. */
 const CLOSE_TIMEOUT_MS = 5000;
-
-/** Sanitize options for HTML email content. */
-const SANITIZE_OPTIONS: IOptions = {
-  allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
-  allowedAttributes: {
-    a: ["href", "name", "target", "rel"],
-    img: ["src", "alt", "title"],
-  },
-  allowedSchemes: ["http", "https", "cid"],
-  allowProtocolRelative: false,
-};
 
 /** IMAP connection configuration. */
 type ImapConfig = {
@@ -94,6 +83,7 @@ async function parseMessages(imap: Imap, uids: number[]) {
     date?: Date;
     snippet?: string;
     bodyHtml?: string;
+    bodyHtmlRaw?: string;
     bodyText?: string;
     attachments?: Array<{
       filename?: string;
@@ -130,6 +120,7 @@ async function parseMessages(imap: Imap, uids: number[]) {
       date?: Date;
       snippet?: string;
       bodyHtml?: string;
+      bodyHtmlRaw?: string;
       bodyText?: string;
       attachments?: Array<{
         filename?: string;
@@ -144,9 +135,9 @@ async function parseMessages(imap: Imap, uids: number[]) {
           const parsed = await simpleParser(raw);
           const text = parsed.text?.replace(/\s+/g, " ").trim() ?? "";
           const snippet = text ? text.slice(0, 200) : undefined;
-          const bodyHtml = parsed.html
-            ? sanitizeHtml(String(parsed.html), SANITIZE_OPTIONS)
-            : undefined;
+          const rawHtml = parsed.html ? String(parsed.html) : undefined;
+          const bodyHtml = rawHtml ? sanitizeEmailHtml(rawHtml) : undefined;
+          const bodyHtmlRaw = rawHtml && rawHtml !== bodyHtml ? rawHtml : undefined;
           const attachments = parsed.attachments?.map(
             (attachment: {
               filename?: string;
@@ -173,6 +164,7 @@ async function parseMessages(imap: Imap, uids: number[]) {
             date: parsed.date ?? undefined,
             snippet,
             bodyHtml,
+            bodyHtmlRaw,
             bodyText: parsed.text ?? undefined,
             attachments: attachments?.length ? attachments : undefined,
           });
@@ -426,6 +418,7 @@ export class ImapTransportAdapter implements EmailTransportAdapter {
           date: msg.date,
           snippet: msg.snippet,
           bodyHtml: msg.bodyHtml,
+          bodyHtmlRaw: msg.bodyHtmlRaw,
           bodyText: msg.bodyText,
           flags: msg.flags,
           size: msg.size,

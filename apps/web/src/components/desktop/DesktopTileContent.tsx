@@ -17,6 +17,7 @@ import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
 import VideoWidget from "./widgets/VideoWidget";
 import WebStackWidget from "./widgets/WebStackWidget";
+import WidgetConfigOverlay from "./widgets/WidgetConfigOverlay";
 import DynamicWidgetRenderer from "./dynamic-widgets/DynamicWidgetRenderer";
 import type { DesktopIconKey } from "./types";
 
@@ -25,6 +26,8 @@ interface DesktopTileContentProps {
   scope: DesktopScope;
   webContext?: { projectId?: string; workspaceId?: string };
   onWebOpen?: () => void;
+  /** Callback to trigger widget configuration (folder/url/file selection). */
+  onConfigure?: () => void;
 }
 
 /** Render tile content (icon or widget) with shared layout styles. */
@@ -33,6 +36,7 @@ export default function DesktopTileContent({
   scope,
   webContext,
   onWebOpen,
+  onConfigure,
 }: DesktopTileContentProps) {
   const { workspace } = useWorkspace();
   const tabs = useTabs((state) => state.tabs);
@@ -158,7 +162,10 @@ export default function DesktopTileContent({
   if (widgetKey === "flip-clock") {
     return (
       <div className="flex h-full w-full items-center justify-center p-2">
-        <FlipClockWidget showSeconds={item.flipClock?.showSeconds ?? true} />
+        <FlipClockWidget
+          variant={item.variant as 'hm' | 'hms' | undefined}
+          showSeconds={item.flipClock?.showSeconds ?? true}
+        />
       </div>
     );
   }
@@ -174,7 +181,10 @@ export default function DesktopTileContent({
   if (widgetKey === "calendar") {
     return (
       <div className="h-full w-full p-2">
-        <CalendarWidget tabId={activeTabId ?? undefined} />
+        <CalendarWidget
+          tabId={activeTabId ?? undefined}
+          variant={item.variant as 'month' | 'week' | 'day' | 'full' | undefined}
+        />
       </div>
     );
   }
@@ -191,38 +201,49 @@ export default function DesktopTileContent({
     return (
       <div
         ref={hoverBoundaryRef}
-        className="flex h-full w-full items-center justify-center p-2"
+        className="relative flex h-full w-full items-center justify-center p-2"
       >
         <ThreeDFolderWidget
           title={item.title}
           folderUri={item.folderUri}
           hovered={isHovered}
         />
+        {!item.folderUri && onConfigure ? (
+          <WidgetConfigOverlay onConfigure={onConfigure} label="选择文件夹" />
+        ) : null}
       </div>
     );
   }
 
   if (widgetKey === "video") {
     return (
-      <div className="flex h-full w-full flex-col p-4">
+      <div className="relative flex h-full w-full flex-col p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="truncate text-sm font-medium">{item.title}</div>
         </div>
         <div className="mt-3 min-h-0 flex-1">
           <VideoWidget fileRef={item.videoFileRef} title={item.title} />
         </div>
+        {!item.videoFileRef && onConfigure ? (
+          <WidgetConfigOverlay onConfigure={onConfigure} label="选择视频" />
+        ) : null}
       </div>
     );
   }
 
   if (widgetKey === "web-stack" && item.kind === "widget") {
     return (
-      <WebStackWidget
-        item={item}
-        projectId={webContext?.projectId}
-        workspaceId={webContext?.workspaceId}
-        onOpen={onWebOpen}
-      />
+      <div className="relative h-full w-full">
+        <WebStackWidget
+          item={item}
+          projectId={webContext?.projectId}
+          workspaceId={webContext?.workspaceId}
+          onOpen={onWebOpen}
+        />
+        {!item.webUrl && onConfigure ? (
+          <WidgetConfigOverlay onConfigure={onConfigure} label="设置网址" />
+        ) : null}
+      </div>
     );
   }
 
@@ -244,7 +265,7 @@ export default function DesktopTileContent({
         <div className="truncate text-sm font-medium">{item.title}</div>
       </div>
       <div className="mt-3 min-h-0 flex-1">
-        {widgetKey === "clock" ? <ClockWidget /> : <QuickActionsWidget scope={scope} />}
+        {widgetKey === "clock" ? <ClockWidget variant={item.variant as 'hm' | 'hms' | undefined} /> : <QuickActionsWidget scope={scope} />}
       </div>
     </div>
   );

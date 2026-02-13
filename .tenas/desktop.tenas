@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-01-18T10:14:18.072Z",
+  "updatedAt": "2026-02-13T15:04:20.310Z",
   "grid": {
     "breakpoints": {
       "sm": {
@@ -41,6 +41,7 @@
         "maxW": 6,
         "maxH": 3
       },
+      "variant": "hms",
       "params": {
         "showSeconds": true
       },
@@ -48,13 +49,13 @@
         "sm": {
           "x": 0,
           "y": 0,
-          "w": 4,
+          "w": 2,
           "h": 2
         },
         "md": {
           "x": 0,
           "y": 0,
-          "w": 4,
+          "w": 2,
           "h": 2
         },
         "lg": {
@@ -81,14 +82,14 @@
       },
       "layoutByBreakpoint": {
         "sm": {
-          "x": 0,
-          "y": 2,
+          "x": 2,
+          "y": 0,
           "w": 2,
           "h": 2
         },
         "md": {
-          "x": 4,
-          "y": 2,
+          "x": 2,
+          "y": 0,
           "w": 2,
           "h": 2
         },
@@ -107,14 +108,14 @@
       "iconKey": "files",
       "layoutByBreakpoint": {
         "sm": {
-          "x": 2,
+          "x": 3,
           "y": 2,
           "w": 1,
           "h": 1
         },
         "md": {
-          "x": 4,
-          "y": 0,
+          "x": 5,
+          "y": 1,
           "w": 1,
           "h": 1
         },
@@ -133,13 +134,13 @@
       "iconKey": "tasks",
       "layoutByBreakpoint": {
         "sm": {
-          "x": 3,
+          "x": 0,
           "y": 2,
           "w": 1,
           "h": 1
         },
         "md": {
-          "x": 5,
+          "x": 4,
           "y": 0,
           "w": 1,
           "h": 1
@@ -159,14 +160,14 @@
       "iconKey": "search",
       "layoutByBreakpoint": {
         "sm": {
-          "x": 2,
-          "y": 3,
+          "x": 1,
+          "y": 2,
           "w": 1,
           "h": 1
         },
         "md": {
-          "x": 4,
-          "y": 4,
+          "x": 5,
+          "y": 0,
           "w": 1,
           "h": 1
         },
@@ -185,14 +186,14 @@
       "iconKey": "settings",
       "layoutByBreakpoint": {
         "sm": {
-          "x": 3,
-          "y": 3,
+          "x": 2,
+          "y": 2,
           "w": 1,
           "h": 1
         },
         "md": {
           "x": 4,
-          "y": 5,
+          "y": 1,
           "w": 1,
           "h": 1
         },
@@ -225,13 +226,13 @@
         "sm": {
           "x": 0,
           "y": 3,
-          "w": 4,
+          "w": 2,
           "h": 3
         },
         "md": {
           "x": 0,
           "y": 2,
-          "w": 4,
+          "w": 2,
           "h": 3
         },
         "lg": {
@@ -258,15 +259,15 @@
       },
       "layoutByBreakpoint": {
         "sm": {
-          "x": 0,
-          "y": 5,
-          "w": 4,
+          "x": 2,
+          "y": 3,
+          "w": 2,
           "h": 2
         },
         "md": {
-          "x": 0,
-          "y": 5,
-          "w": 4,
+          "x": 2,
+          "y": 2,
+          "w": 2,
           "h": 2
         },
         "lg": {
@@ -274,6 +275,42 @@
           "y": 2,
           "w": 4,
           "h": 2
+        }
+      }
+    },
+    {
+      "id": "w-calendar-1770995002045",
+      "kind": "widget",
+      "title": "日历",
+      "widgetKey": "calendar",
+      "size": "5x6",
+      "constraints": {
+        "defaultW": 5,
+        "defaultH": 6,
+        "minW": 4,
+        "minH": 3,
+        "maxW": 8,
+        "maxH": 6
+      },
+      "variant": "month",
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 0,
+          "y": 6,
+          "w": 4,
+          "h": 6
+        },
+        "md": {
+          "x": 2,
+          "y": 4,
+          "w": 4,
+          "h": 6
+        },
+        "lg": {
+          "x": 0,
+          "y": 4,
+          "w": 5,
+          "h": 6
         }
       }
     }

@@ -323,6 +323,7 @@ const emailMessageDetailSchema = z.object({
   bcc: z.array(z.string()),
   date: z.string().optional(),
   bodyHtml: z.string().optional(),
+  bodyHtmlRaw: z.string().optional(),
   bodyText: z.string().optional(),
   attachments: z.array(
     z.object({

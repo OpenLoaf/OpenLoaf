@@ -46,7 +46,8 @@ function toProviderDefinition(
     models: template.models.map(
       (model): ModelDefinition => ({
         ...model,
-        name: model.displayName,
+        // 逻辑：SaaS 返回 displayName 为空时回退 model id，避免 name 出现 null。
+        name: model.displayName ?? model.id,
         tags: model.tags as ModelTag[],
         providerId: template.id,
       }),

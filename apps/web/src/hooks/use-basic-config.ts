@@ -12,6 +12,7 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   s3AutoDeleteHours: 2,
   modelResponseLanguage: "zh-CN",
   modelQuality: "medium",
+  chatOnlineSearchMemoryScope: "tab",
   modelSoundEnabled: true,
   autoSummaryEnabled: true,
   autoSummaryHours: [0, 8, 12, 17],

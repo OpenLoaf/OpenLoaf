@@ -32,7 +32,7 @@ export const EMAIL_TINT_DETAIL_CLASS = "bg-[#f1f3f4] dark:bg-[hsl(var(--muted)/0
 export const EMAIL_TONE_HOVER_CLASS =
   "hover:bg-[#f1f3f4] dark:hover:bg-[hsl(var(--muted)/0.42)]";
 export const EMAIL_TONE_ACTIVE_CLASS =
-  "bg-[#d3e3fd] text-[#001d35] font-semibold dark:bg-[hsl(var(--sidebar-accent)/0.52)] dark:text-slate-100";
+  "bg-[#d3e3fd] text-[#001d35] font-semibold dark:bg-sky-800/60 dark:text-sky-50";
 
 /** Scroll surface for message list area. */
 export const EMAIL_LIST_SURFACE_CLASS =

@@ -319,6 +319,10 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     next.modelQuality === "high" || next.modelQuality === "medium" || next.modelQuality === "low"
       ? next.modelQuality
       : current.modelQuality;
+  const chatOnlineSearchMemoryScope =
+    next.chatOnlineSearchMemoryScope === "global" || next.chatOnlineSearchMemoryScope === "tab"
+      ? next.chatOnlineSearchMemoryScope
+      : current.chatOnlineSearchMemoryScope;
   const modelSoundEnabled =
     typeof next.modelSoundEnabled === "boolean"
       ? next.modelSoundEnabled
@@ -411,6 +415,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     s3AutoDeleteHours: Math.min(168, Math.max(1, Math.floor(next.s3AutoDeleteHours))),
     modelResponseLanguage: responseLanguage,
     modelQuality,
+    chatOnlineSearchMemoryScope,
     modelSoundEnabled,
     autoSummaryEnabled,
     autoSummaryHours,

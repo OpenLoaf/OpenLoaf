@@ -3,7 +3,7 @@
 import * as React from "react";
 
 /** Render a simple live clock widget (MVP). */
-export default function ClockWidget() {
+export default function ClockWidget({ variant }: { variant?: 'hm' | 'hms' }) {
   const [now, setNow] = React.useState(() => new Date());
 
   React.useEffect(() => {
@@ -11,7 +11,12 @@ export default function ClockWidget() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const showSeconds = variant === 'hms';
+  const time = now.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(showSeconds ? { second: "2-digit" } : {}),
+  });
   const date = now.toLocaleDateString([], {
     weekday: "short",
     month: "short",

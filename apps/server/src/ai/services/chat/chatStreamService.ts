@@ -4,7 +4,6 @@ import type { ImageGenerateOptions, TenasImageMetadataV1 } from "@tenas-ai/api/t
 import type { AiImageRequest } from "@tenas-saas/sdk";
 import type { TenasUIMessage, TokenUsage } from "@tenas-ai/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
-import { readMasterAgentBasePrompt } from "@/ai/agents/masterAgent/masterAgent";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import {
   setChatModel,
@@ -54,7 +53,6 @@ import {
 } from "@/ai/services/chat/repositories/messageStore";
 import type { ChatImageRequest, ChatImageRequestResult } from "@/ai/services/image/types";
 import { buildTimingMetadata } from "./metadataBuilder";
-import { persistChatRequestSnapshot } from "./chatHistoryLogger";
 import {
   createChatStreamResponse,
   createErrorStreamResponse,
@@ -348,16 +346,6 @@ export async function runChatStream(input: {
   setCodexOptions(resolveCodexRequestOptions(messages as UIMessage[]));
   setParentProjectRootPaths(parentProjectRootPaths);
 
-  void persistChatRequestSnapshot({
-    sessionId,
-    workspaceId: resolvedWorkspaceId ?? workspaceId ?? undefined,
-    requestStartAt,
-    leafMessageId,
-    request: input.request,
-    modelMessages: modelMessages as UIMessage[],
-    systemPrompt: readMasterAgentBasePrompt(),
-  });
-
   if (!assistantParentUserId) {
     return createErrorStreamResponse({
       sessionId,
@@ -422,6 +410,7 @@ export async function runChatStream(input: {
     assistantMessageId,
     parentMessageId,
     requestStartAt,
+    workspaceId: resolvedWorkspaceId ?? workspaceId ?? undefined,
     modelMessages: modelMessages as UIMessage[],
     agentRunner: masterAgent,
     agentMetadata,

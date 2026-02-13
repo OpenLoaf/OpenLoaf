@@ -1,4 +1,4 @@
-import { Archive, Inbox, Mail, Send } from "lucide-react";
+import { Archive, Ban, Inbox, Mail, Send, Trash2 } from "lucide-react";
 
 import type { EmailMailboxView, MailboxNode } from "./email-types";
 
@@ -89,6 +89,35 @@ export function hasEmailFlag(flags: string[], target: string): boolean {
   });
 }
 
+export function isJunkMailboxView(mailbox: EmailMailboxView): boolean {
+  const attributes = normalizeMailboxAttributes(mailbox.attributes ?? []);
+  const path = mailbox.path.toLowerCase();
+  const name = (mailbox.name ?? "").toLowerCase();
+  return (
+    attributes.includes("\\JUNK") ||
+    attributes.includes("\\SPAM") ||
+    path.includes("junk") ||
+    path.includes("spam") ||
+    name.includes("junk") ||
+    name.includes("spam") ||
+    name.includes("垃圾")
+  );
+}
+
+export function isTrashMailboxView(mailbox: EmailMailboxView): boolean {
+  const attributes = normalizeMailboxAttributes(mailbox.attributes ?? []);
+  const path = mailbox.path.toLowerCase();
+  const name = (mailbox.name ?? "").toLowerCase();
+  return (
+    attributes.includes("\\TRASH") ||
+    path.includes("trash") ||
+    path.includes("deleted") ||
+    name.includes("trash") ||
+    name.includes("deleted") ||
+    name.includes("删除")
+  );
+}
+
 /** Resolve mailbox display label. */
 export function getMailboxLabel(mailbox: EmailMailboxView): string {
   const attributes = normalizeMailboxAttributes(mailbox.attributes ?? []);
@@ -102,15 +131,10 @@ export function getMailboxLabel(mailbox: EmailMailboxView): string {
   if (attributes.includes("\\SENT") || path.includes("sent")) {
     return "已发送";
   }
-  if (
-    attributes.includes("\\JUNK") ||
-    attributes.includes("\\SPAM") ||
-    path.includes("junk") ||
-    path.includes("spam")
-  ) {
+  if (isJunkMailboxView(mailbox)) {
     return "垃圾邮件";
   }
-  if (attributes.includes("\\TRASH") || path.includes("trash") || path.includes("deleted")) {
+  if (isTrashMailboxView(mailbox)) {
     return "已删除";
   }
   return mailbox.name || mailbox.path;
@@ -132,6 +156,22 @@ export function isSentMailboxView(mailbox: EmailMailboxView): boolean {
   const attributes = normalizeMailboxAttributes(mailbox.attributes ?? []);
   const path = mailbox.path.toLowerCase();
   return attributes.includes("\\SENT") || path.includes("sent");
+}
+
+export function isFlaggedMailboxView(mailbox: EmailMailboxView): boolean {
+  const attributes = normalizeMailboxAttributes(mailbox.attributes ?? []);
+  const path = mailbox.path.toLowerCase();
+  const name = (mailbox.name ?? "").toLowerCase();
+  return (
+    attributes.includes("\\FLAGGED") ||
+    path.includes("flagged") ||
+    path.includes("star") ||
+    path.includes("important") ||
+    name.includes("flagged") ||
+    name.includes("star") ||
+    name.includes("important") ||
+    name.includes("收藏")
+  );
 }
 
 /** Build forward subject line. */
@@ -179,6 +219,12 @@ export function resolveMailboxIcon(mailbox: EmailMailboxView) {
   const path = mailbox.path.toLowerCase();
   if (attributes.includes("\\INBOX") || mailbox.path.toUpperCase() === "INBOX") {
     return Inbox;
+  }
+  if (isJunkMailboxView(mailbox)) {
+    return Ban;
+  }
+  if (isTrashMailboxView(mailbox)) {
+    return Trash2;
   }
   if (attributes.includes("\\SENT") || path.includes("sent")) {
     return Send;

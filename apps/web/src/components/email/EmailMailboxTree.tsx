@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useDrag, useDrop } from "react-dnd";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import type { MailboxDragItem, MailboxNode, UnifiedMailboxView } from "./email-types";
@@ -11,7 +12,13 @@ import {
 } from "./email-style-system";
 import {
   getMailboxLabel,
+  isDraftsMailboxView,
+  isFlaggedMailboxView,
+  isInboxMailboxView,
+  isJunkMailboxView,
   isMailboxSelectable,
+  isSentMailboxView,
+  isTrashMailboxView,
   normalizeEmail,
   resolveMailboxIcon,
 } from "./email-utils";
@@ -20,10 +27,12 @@ type EmailMailboxTreeProps = {
   accountEmail: string;
   nodes: MailboxNode[];
   activeView: UnifiedMailboxView;
+  expandedMailboxes: SidebarState["expandedMailboxes"];
   mailboxUnreadMap: SidebarState["mailboxUnreadMap"];
   dragInsertTarget: SidebarState["dragInsertTarget"];
   draggingMailboxId: SidebarState["draggingMailboxId"];
   onSelectMailbox: SidebarState["onSelectMailbox"];
+  onToggleMailboxExpand: SidebarState["onToggleMailboxExpand"];
   onHoverMailbox: SidebarState["onHoverMailbox"];
   onClearHover: SidebarState["onClearHover"];
   onDropMailboxOrder: SidebarState["onDropMailboxOrder"];
@@ -42,9 +51,11 @@ type MailboxNodeRowProps = {
   dragInsertTarget: SidebarState["dragInsertTarget"];
   draggingId: string | null;
   isActive: boolean;
+  isExpanded: boolean;
   selectable: boolean;
   count: number;
   onSelectMailbox: SidebarState["onSelectMailbox"];
+  onToggleExpand: SidebarState["onToggleMailboxExpand"];
   onHover: SidebarState["onHoverMailbox"];
   onClearHover: SidebarState["onClearHover"];
   onDrop: SidebarState["onDropMailboxOrder"];
@@ -63,9 +74,11 @@ function MailboxNodeRow({
   dragInsertTarget,
   draggingId,
   isActive,
+  isExpanded,
   selectable,
   count,
   onSelectMailbox,
+  onToggleExpand,
   onHover,
   onClearHover,
   onDrop,
@@ -74,6 +87,29 @@ function MailboxNodeRow({
   children,
 }: MailboxNodeRowProps) {
   const Icon = resolveMailboxIcon(node);
+  const mailboxLabel = getMailboxLabel(node);
+  const isInboxMailbox = isInboxMailboxView(node);
+  const isFlaggedMailbox = isFlaggedMailboxView(node);
+  const isDraftMailbox = isDraftsMailboxView(node);
+  const isSentMailbox = isSentMailboxView(node);
+  const isJunkMailbox = isJunkMailboxView(node);
+  const isTrashMailbox = isTrashMailboxView(node);
+  const mailboxIconClassName = cn(
+    "h-3.5 w-3.5",
+    isInboxMailbox && "text-[#1a73e8] dark:text-sky-300",
+    isFlaggedMailbox && "text-[#f9ab00] dark:text-amber-300",
+    isDraftMailbox && "text-[#9334e6] dark:text-violet-300",
+    isSentMailbox && "text-[#188038] dark:text-emerald-300",
+    isJunkMailbox && "text-[#f4511e] dark:text-orange-300",
+    isTrashMailbox && "text-[#d93025] dark:text-rose-300",
+    !isInboxMailbox &&
+      !isFlaggedMailbox &&
+      !isDraftMailbox &&
+      !isSentMailbox &&
+      !isJunkMailbox &&
+      !isTrashMailbox &&
+      "text-[#5f6368] dark:text-slate-400",
+  );
   const [, dragRef] = useDrag(
     () => ({
       type: "email-mailbox-item",
@@ -155,6 +191,7 @@ function MailboxNodeRow({
     dragInsertTarget?.mailboxPath === node.path && dragInsertTarget.position === "before";
   const showAfter =
     dragInsertTarget?.mailboxPath === node.path && dragInsertTarget.position === "after";
+  const hasChildren = node.children.length > 0;
   return (
     <div
       key={node.path}
@@ -173,9 +210,10 @@ function MailboxNodeRow({
       <button
         type="button"
         onClick={() => {
-          if (selectable) onSelectMailbox(accountEmail, node.path, getMailboxLabel(node));
+          if (hasChildren) onToggleExpand(accountEmail, node.path);
+          if (selectable) onSelectMailbox(accountEmail, node.path, mailboxLabel);
         }}
-        disabled={!selectable}
+        disabled={!selectable && !hasChildren}
         style={{
           paddingLeft: `${8 + depth * 12}px`,
           opacity: isDraggingSelf ? 0.4 : 1,
@@ -185,22 +223,35 @@ function MailboxNodeRow({
           isActive
             ? EMAIL_TONE_ACTIVE_CLASS
             : cn("text-[#444746] dark:text-slate-300", EMAIL_TONE_HOVER_CLASS),
-          selectable ? "" : "cursor-not-allowed opacity-60",
+          selectable || hasChildren ? "" : "cursor-not-allowed opacity-60",
         )}
       >
         <span className="flex items-center gap-2">
-          <Icon className="h-3.5 w-3.5" />
-          {getMailboxLabel(node)}
+          <Icon className={mailboxIconClassName} />
+          {mailboxLabel}
         </span>
-        {count > 0 ? (
-          <span
-            className={cn(
-              "rounded-full text-[10px]",
-              EMAIL_META_CHIP_CLASS,
-              isActive ? "text-[#001d35] dark:text-sky-100" : "text-[#5f6368] dark:text-slate-300",
-            )}
-          >
-            {count}
+        {count > 0 || hasChildren ? (
+          <span className="flex items-center gap-1.5">
+            {count > 0 ? (
+              <span
+                className={cn(
+                  "rounded-full text-[10px]",
+                  EMAIL_META_CHIP_CLASS,
+                  isActive ? "text-[#001d35] dark:text-sky-100" : "text-[#5f6368] dark:text-slate-300",
+                )}
+              >
+                {count}
+              </span>
+            ) : null}
+            {hasChildren ? (
+              <ChevronRight
+                className={cn(
+                  "h-3.5 w-3.5 text-[#9aa0a6] transition-transform duration-150 dark:text-slate-500",
+                  isExpanded && "rotate-90",
+                  isActive && "text-[#1a73e8] dark:text-sky-300",
+                )}
+              />
+            ) : null}
           </span>
         ) : null}
       </button>
@@ -219,10 +270,12 @@ export function EmailMailboxTree({
   accountEmail,
   nodes,
   activeView,
+  expandedMailboxes,
   mailboxUnreadMap,
   dragInsertTarget,
   draggingMailboxId,
   onSelectMailbox,
+  onToggleMailboxExpand,
   onHoverMailbox,
   onClearHover,
   onDropMailboxOrder,
@@ -243,6 +296,8 @@ export function EmailMailboxTree({
         activeView.scope === "mailbox" &&
         normalizeEmail(activeView.accountEmail ?? "") === normalizeEmail(ownerEmail) &&
         activeView.mailbox === node.path;
+      const expandKey = `${normalizeEmail(ownerEmail)}::${node.path}`;
+      const isExpanded = expandedMailboxes[expandKey] ?? true;
       const selectable = isMailboxSelectable(node);
       const count = mailboxUnreadMap.get(`${normalizeEmail(ownerEmail)}::${node.path}`) ?? 0;
       return (
@@ -257,16 +312,18 @@ export function EmailMailboxTree({
           dragInsertTarget={dragInsertTarget}
           draggingId={draggingMailboxId}
           isActive={isActive}
+          isExpanded={isExpanded}
           selectable={selectable}
           count={count}
           onSelectMailbox={onSelectMailbox}
+          onToggleExpand={onToggleMailboxExpand}
           onHover={onHoverMailbox}
           onClearHover={onClearHover}
           onDrop={onDropMailboxOrder}
           onDragStart={onDragStartMailbox}
           onDragEnd={onDragEndMailbox}
         >
-          {node.children.length ? (
+          {node.children.length && isExpanded ? (
             <div className="space-y-1">
               {renderMailboxNodes(ownerEmail, node.children, depth + 1, node.path)}
             </div>

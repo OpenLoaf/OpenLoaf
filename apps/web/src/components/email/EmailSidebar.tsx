@@ -39,6 +39,14 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
           {sidebar.unifiedItems.map((item) => {
             const Icon = item.icon;
             const isActive = sidebar.activeView.scope === item.scope;
+            const unifiedIconClassName = cn(
+              "h-3.5 w-3.5",
+              item.scope === "all-inboxes" && "text-[#1a73e8] dark:text-sky-300",
+              item.scope === "flagged" && "text-[#f9ab00] dark:text-amber-300",
+              item.scope === "drafts" && "text-[#9334e6] dark:text-violet-300",
+              item.scope === "sent" && "text-[#188038] dark:text-emerald-300",
+              item.scope === "mailbox" && "text-[#5f6368] dark:text-slate-300",
+            );
             return (
               <button
                 key={item.scope}
@@ -52,7 +60,7 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
                 )}
               >
                 <span className="flex items-center gap-2">
-                  <Icon className="h-3.5 w-3.5" />
+                  <Icon className={unifiedIconClassName} />
                   {item.label}
                 </span>
                 {item.count > 0 ? <span className="text-[11px] font-medium">{item.count}</span> : null}
@@ -124,7 +132,7 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
                   return (
                     <div
                       key={group.account.emailAddress}
-                      className="group/account rounded-xl px-2 py-1.5 transition-colors duration-150 hover:bg-[hsl(var(--background)/0.7)] dark:hover:bg-slate-800/65"
+                      className="group/account rounded-xl px-2 py-1.5"
                     >
                       <div className="flex w-full items-center justify-between text-xs text-[#5f6368] dark:text-slate-400">
                         <button
@@ -176,10 +184,12 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
                                 accountEmail={group.account.emailAddress}
                                 nodes={group.mailboxTree}
                                 activeView={sidebar.activeView}
+                                expandedMailboxes={sidebar.expandedMailboxes}
                                 mailboxUnreadMap={sidebar.mailboxUnreadMap}
                                 dragInsertTarget={sidebar.dragInsertTarget}
                                 draggingMailboxId={sidebar.draggingMailboxId}
                                 onSelectMailbox={sidebar.onSelectMailbox}
+                                onToggleMailboxExpand={sidebar.onToggleMailboxExpand}
                                 onHoverMailbox={sidebar.onHoverMailbox}
                                 onClearHover={sidebar.onClearHover}
                                 onDropMailboxOrder={sidebar.onDropMailboxOrder}
@@ -209,7 +219,7 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
           type="button"
           variant="default"
           size="default"
-          className="h-12 w-full justify-start gap-2 rounded-2xl bg-[#c2e7ff] px-4 text-sm font-semibold text-[#001d35] shadow-none transition-colors duration-150 hover:bg-[#b3dcfb] dark:bg-sky-700 dark:text-sky-100 dark:hover:bg-sky-600"
+          className="h-12 w-full justify-start gap-2 rounded-2xl bg-sky-100 px-4 text-sm font-semibold text-sky-900 shadow-none transition-colors duration-150 hover:bg-sky-200 dark:bg-sky-900/50 dark:text-sky-100 dark:hover:bg-sky-900/70"
           onClick={onStartCompose}
         >
           <PenSquare className="h-4 w-4" />

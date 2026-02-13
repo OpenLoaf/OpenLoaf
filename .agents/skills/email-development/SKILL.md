@@ -48,7 +48,7 @@ description: Use when developing, extending, or debugging the email module — c
 |----|------|------|
 | **DB Schema** | `packages/db/prisma/schema/email.prisma` | `EmailMessage`（`externalId` 字段）/ `EmailMailbox` / `EmailDraft` |
 | **API Schema** | `packages/api/src/routers/email.ts` | tRPC schema（`addAccount` 为 discriminatedUnion；含 `sendMessage`、`deleteMessage`、`moveMessage`、`saveDraft`、`listDrafts`、`batchMarkRead`、`batchDelete`、`batchMove`、`searchMessages` 等） |
-| **Transport Types** | `apps/server/src/modules/email/transport/types.ts` | `EmailTransportAdapter` 接口、`TransportMessage`、`TransportMailbox`、`SendMessageInput`、`DownloadAttachmentResult` |
+| **Transport Types** | `apps/server/src/modules/email/transport/types.ts` | `EmailTransportAdapter` 接口、`TransportMessage`（含 bodyHtml/bodyHtmlRaw）、`TransportMailbox`、`SendMessageInput`、`DownloadAttachmentResult` |
 | **IMAP Adapter** | `apps/server/src/modules/email/transport/imapAdapter.ts` | IMAP 协议传输实现（含 downloadAttachment / deleteMessage / moveMessage / testConnection） |
 | **Graph Adapter** | `apps/server/src/modules/email/transport/graphAdapter.ts` | Microsoft Graph API 传输实现（含 sendMessage / downloadAttachment / deleteMessage / moveMessage） |
 | **Gmail Adapter** | `apps/server/src/modules/email/transport/gmailAdapter.ts` | Gmail API 传输实现（含 sendMessage / downloadAttachment / deleteMessage / moveMessage） |
@@ -68,6 +68,8 @@ description: Use when developing, extending, or debugging the email module — c
 | **Idle Manager** | `apps/server/src/modules/email/emailIdleManager.ts` | IMAP IDLE + OAuth 轮询（60s 间隔） |
 | **Env Store** | `apps/server/src/modules/email/emailEnvStore.ts` | `.env` 读写（密码 + OAuth 令牌） |
 | **Flags** | `apps/server/src/modules/email/emailFlags.ts` | 邮件标记工具函数 |
+| **Content Filter** | `apps/server/src/modules/email/emailSanitize.ts` | 共享 sanitize 模块（SANITIZE_OPTIONS + sanitizeEmailHtml） |
+| **Filter Banner** | `apps/web/src/components/email/EmailContentFilterBanner.tsx` | 前端提示条 + RawHtmlIframe 组件 |
 | **Server Router** | `apps/server/src/routers/email.ts` | tRPC 实现（`EmailRouterImpl`）— 含 sendMessage / deleteMessage / moveMessage / saveDraft / listDrafts / getDraft / deleteDraft / batchMarkRead / batchDelete / batchMove / searchMessages |
 | **Route Registration** | `apps/server/src/bootstrap/createApp.ts` | `registerEmailOAuthRoutes(app)` + `registerEmailAttachmentRoutes(app)` |
 | **Provider Presets** | `apps/web/src/components/email/email-provider-presets.ts` | 服务商预设（含 `authType` / `oauthProvider`） |
@@ -137,11 +139,26 @@ batchDelete:   遍历 messageIds → adapter.deleteMessage + DB 删除
 batchMove:     遍历 messageIds → adapter.moveMessage + DB 更新 mailboxPath
 ```
 
+#### 邮件内容过滤（原始内容 vs 安全内容）
+```
+同步时保存原始 HTML：
+  imapAdapter / gmailAdapter / graphAdapter → parseMessages → rawHtml + sanitizeEmailHtml(rawHtml) = bodyHtml
+  → 若 rawHtml !== bodyHtml，则保存 bodyHtmlRaw（优化存储空间）
+前端渲染时显示提示条：
+  EmailMessageDetail / EmailMessageStackPanel → hasRawHtml ? 显示 EmailContentFilterBanner
+  → 点击"加载原始内容" → RawHtmlIframe（sandbox="allow-same-origin"）
+  → 点击"显示安全内容" → 切回 bodyHtml
+```
+
 ### DB Schema 关键字段
 
-- `EmailMessage.externalId` (String): IMAP UID 字符串化 或 API message ID
-- `EmailMessage.mailboxPath` (String): IMAP mailbox 路径 或 API folder ID
-- 唯一约束: `@@unique([workspaceId, accountEmail, mailboxPath, externalId])`
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `externalId` (String) | IMAP UID 字符串化 或 API message ID |
+| `mailboxPath` (String) | IMAP mailbox 路径 或 API folder ID |
+| `bodyHtml` (String?) | HTML 正文（已清洗）|
+| `bodyHtmlRaw` (String?) | 原始 HTML 正文（未清洗，仅当内容被过滤时存储）|
+| 唯一约束 | `@@unique([workspaceId, accountEmail, mailboxPath, externalId])` |
 - `EmailDraft`: 草稿模型，字段含 mode（compose/reply/replyAll/forward）、to/cc/bcc（JSON 数组）、subject、body、inReplyTo、references、accountEmail
 - `EmailDraft` 唯一约束: `@@unique([workspaceId, accountEmail, inReplyTo])`（同一封邮件只保留一份草稿）
 

@@ -13,6 +13,8 @@ export type DesktopWidgetCatalogItem = {
   constraints: DesktopWidgetItem["constraints"];
   /** 组件支持范围。 */
   support: DesktopScopeSupport;
+  /** 默认 variant key（有 variant 的组件）。 */
+  defaultVariant?: string;
 };
 
 /** Desktop widget catalog for selection. */
@@ -23,6 +25,7 @@ export const desktopWidgetCatalog: DesktopWidgetCatalogItem[] = [
     size: "4x2",
     constraints: { defaultW: 4, defaultH: 2, minW: 2, minH: 2, maxW: 6, maxH: 3 },
     support: { workspace: true, project: true },
+    defaultVariant: "hms",
   },
   {
     widgetKey: "clock",
@@ -30,6 +33,7 @@ export const desktopWidgetCatalog: DesktopWidgetCatalogItem[] = [
     size: "2x2",
     constraints: { defaultW: 2, defaultH: 2, minW: 2, minH: 2, maxW: 3, maxH: 3 },
     support: { workspace: true, project: true },
+    defaultVariant: "hm",
   },
   {
     widgetKey: "quick-actions",
@@ -44,6 +48,7 @@ export const desktopWidgetCatalog: DesktopWidgetCatalogItem[] = [
     size: "5x6",
     constraints: { defaultW: 5, defaultH: 6, minW: 4, minH: 3, maxW: 8, maxH: 6 },
     support: { workspace: true, project: true },
+    defaultVariant: "month",
   },
   {
     widgetKey: "chat-history",

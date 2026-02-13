@@ -130,22 +130,20 @@ export default function MessageError({ error }: MessageErrorProps) {
         duration: 0.16,
         ease: "easeOut",
       }}
-      className="flex justify-start"
+      className="px-2"
     >
-      <div className="min-w-0 max-w-[80%] p-3 rounded-lg bg-destructive/10 text-destructive">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium">{parsed.title}</span>
-        </div>
-        <p className="text-xs mt-1 whitespace-pre-wrap break-words text-destructive/90">
+      <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2.5">
+        <p className="text-xs font-medium text-destructive">{parsed.title}</p>
+        <p className="mt-0.5 text-xs whitespace-pre-wrap break-words text-destructive/80">
           {parsed.message}
         </p>
 
-        <div className="mt-2 flex justify-end gap-2">
+        <div className="mt-2 flex items-center gap-1">
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/20"
+            className="h-6 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={handleCopy}
             aria-label="复制错误日志"
             title="复制错误日志"
@@ -157,7 +155,7 @@ export default function MessageError({ error }: MessageErrorProps) {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/20"
+            className="h-6 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={handleRetry}
             disabled={isBusy}
             aria-label="重试"

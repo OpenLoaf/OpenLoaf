@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { resolveServerUrl } from "@/utils/server-url";
 import type { DetailState } from "./use-email-page-state";
+import { EmailContentFilterBanner, RawHtmlIframe } from "./EmailContentFilterBanner";
 import {
   EMAIL_DIVIDER_CLASS,
   EMAIL_GLASS_INSET_CLASS,
@@ -143,8 +144,18 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
           ) : null}
         </div>
         <div className={cn("flex-1 px-6 py-5 text-sm leading-7 text-foreground", EMAIL_GLASS_INSET_CLASS)}>
+          {detail.hasRawHtml ? (
+            <div className="mb-3">
+              <EmailContentFilterBanner
+                showingRawHtml={detail.showingRawHtml}
+                onToggle={detail.onToggleRawHtml}
+              />
+            </div>
+          ) : null}
           {detail.messageDetailLoading ? (
             <div className="text-xs text-muted-foreground">正在加载邮件详情...</div>
+          ) : detail.showingRawHtml && detail.messageDetail?.bodyHtmlRaw ? (
+            <RawHtmlIframe html={detail.messageDetail.bodyHtmlRaw} />
           ) : detail.messageDetail?.bodyHtml ? (
             <div
               className="prose prose-sm max-w-none text-foreground prose-img:max-w-full prose-p:my-3 leading-7"

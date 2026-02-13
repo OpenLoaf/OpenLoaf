@@ -754,8 +754,12 @@ body {
   flex-wrap: nowrap;
 }
 
-.project-index-header-controls {
-  flex: 0 0 auto;
+.project-index-header-controls,
+.workspace-desktop-header-controls {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 @container (max-width: 520px) {
