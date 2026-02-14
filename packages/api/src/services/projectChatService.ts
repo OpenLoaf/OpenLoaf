@@ -31,7 +31,7 @@ function resolveProjectChatPath(projectId: string): string {
     throw new Error("项目不存在");
   }
   const rootPath = resolveFilePathFromUri(rootUri);
-  return path.join(rootPath, ".tenas", "chat");
+  return path.join(rootPath, ".tenas", "chat-history");
 }
 
 /** Get chat stats for a single project. */

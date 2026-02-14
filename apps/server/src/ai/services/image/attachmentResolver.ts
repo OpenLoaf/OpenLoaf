@@ -387,8 +387,8 @@ export async function saveChatBinaryAttachment(input: {
   }
   const ext = path.extname(input.fileName).toLowerCase().replace(/^\./, "") || "bin";
   const storedName = buildChatAttachmentFileName(ext);
-  const relativePath = path.posix.join(".tenas", "chat", sessionId, storedName);
-  const targetPath = path.join(root.rootPath, ".tenas", "chat", sessionId, storedName);
+  const relativePath = path.posix.join(".tenas", "chat-history", sessionId, storedName);
+  const targetPath = path.join(root.rootPath, ".tenas", "chat-history", sessionId, storedName);
   // 逻辑：确保目录存在后再写入文件，避免落盘失败。
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   await fs.writeFile(targetPath, input.buffer);
@@ -696,7 +696,7 @@ export async function saveChatImageAttachment(input: {
   // 上传阶段即压缩并落盘，避免保存原图。
   const compressed = await compressImageBuffer(input.buffer, format);
   const fileName = buildChatAttachmentFileName(compressed.ext);
-  const relativePath = path.posix.join(".tenas", "chat", input.sessionId, fileName);
+  const relativePath = path.posix.join(".tenas", "chat-history", input.sessionId, fileName);
   const root = await resolveChatAttachmentRoot({
     projectId: input.projectId,
     workspaceId: input.workspaceId,
@@ -705,7 +705,7 @@ export async function saveChatImageAttachment(input: {
     throw new Error("Workspace or project not found");
   }
 
-  const targetPath = path.join(root.rootPath, ".tenas", "chat", input.sessionId, fileName);
+  const targetPath = path.join(root.rootPath, ".tenas", "chat-history", input.sessionId, fileName);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   // 逻辑：PNG 写入 iTXt，其他格式仅写 sidecar。
   const metadataPayload = input.metadata ? serializeImageMetadata(input.metadata) : null;
@@ -755,7 +755,7 @@ export async function saveChatImageAttachmentFromPath(input: {
   // 中文注释：相对路径来源仍需压缩转码，统一 chat 侧尺寸与质量。
   const compressed = await compressImageBuffer(buffer, format);
   const fileName = buildChatAttachmentFileName(compressed.ext);
-  const relativePath = path.posix.join(".tenas", "chat", input.sessionId, fileName);
+  const relativePath = path.posix.join(".tenas", "chat-history", input.sessionId, fileName);
   const root = await resolveChatAttachmentRoot({
     projectId: input.projectId,
     workspaceId: input.workspaceId,
@@ -763,7 +763,7 @@ export async function saveChatImageAttachmentFromPath(input: {
   if (!root) {
     throw new Error("Workspace or project not found");
   }
-  const targetPath = path.join(root.rootPath, ".tenas", "chat", input.sessionId, fileName);
+  const targetPath = path.join(root.rootPath, ".tenas", "chat-history", input.sessionId, fileName);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   // 逻辑：PNG 写入 iTXt，其他格式仅写 sidecar。
   const metadataPayload = input.metadata ? serializeImageMetadata(input.metadata) : null;

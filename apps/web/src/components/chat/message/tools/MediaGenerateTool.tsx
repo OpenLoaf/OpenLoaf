@@ -3,10 +3,21 @@
 import * as React from "react";
 import { ImageIcon, VideoIcon, Loader2 } from "lucide-react";
 import { Button } from "@tenas-ai/ui/button";
-import { useChatTools } from "../../context";
+import { useChatTools, useChatSession } from "../../context";
 import type { AnyToolPart } from "./shared/tool-utils";
 import { getToolOutputState } from "./shared/tool-utils";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
+import { getPreviewEndpoint } from "@/lib/image/uri";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
+
+// 逻辑：相对路径通过预览端点加载，绝对 URL 保持不变。
+function resolveMediaUrl(
+  url: string,
+  ctx?: { workspaceId?: string; projectId?: string },
+): string {
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url)) return url
+  return getPreviewEndpoint(url, ctx)
+}
 
 type MediaGenerateToolProps = {
   part: AnyToolPart;
@@ -15,6 +26,11 @@ type MediaGenerateToolProps = {
 
 export default function MediaGenerateTool({ part }: MediaGenerateToolProps) {
   const { toolParts } = useChatTools();
+  const { workspaceId, projectId } = useChatSession();
+  const previewCtx = React.useMemo(
+    () => ({ workspaceId, projectId }),
+    [workspaceId, projectId],
+  );
   const toolCallId = part.toolCallId ?? "";
   const toolSnapshot = toolCallId ? toolParts[toolCallId] : undefined;
   const resolvedPart = toolSnapshot ? { ...part, ...toolSnapshot } : part;
@@ -25,8 +41,8 @@ export default function MediaGenerateTool({ part }: MediaGenerateToolProps) {
   const KindIcon = kind === "video" ? VideoIcon : ImageIcon;
   const kindLabel = kind === "video" ? "视频" : "图片";
 
-  // 逻辑：错误状态优先渲染。
-  if (mg?.status === "error" || (hasErrorText && !mg)) {
+  // 逻辑：错误状态优先渲染（hasErrorText 独立判断，避免 toolSnapshot 中残留的 mg 遮盖错误）。
+  if (mg?.status === "error" || hasErrorText) {
     return (
       <MediaGenerateError
         errorCode={mg?.errorCode ?? "generation_failed"}
@@ -58,7 +74,7 @@ export default function MediaGenerateTool({ part }: MediaGenerateToolProps) {
           {mg.urls.map((url, i) => (
             <video
               key={`${url}-${i}`}
-              src={url}
+              src={resolveMediaUrl(url, previewCtx)}
               controls
               className="max-w-md rounded-lg"
               preload="metadata"
@@ -68,24 +84,11 @@ export default function MediaGenerateTool({ part }: MediaGenerateToolProps) {
       );
     }
     return (
-      <div className="flex flex-wrap gap-2">
-        {mg.urls.map((url, i) => (
-          <a
-            key={`${url}-${i}`}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block overflow-hidden rounded-lg border border-border/50 transition-shadow hover:shadow-md"
-          >
-            <img
-              src={url}
-              alt={`生成的${kindLabel} ${i + 1}`}
-              className="max-h-64 max-w-xs object-contain"
-              loading="lazy"
-            />
-          </a>
-        ))}
-      </div>
+      <ImageGrid
+        urls={mg.urls}
+        kindLabel={kindLabel}
+        previewCtx={previewCtx}
+      />
     );
   }
 
@@ -99,7 +102,7 @@ export default function MediaGenerateTool({ part }: MediaGenerateToolProps) {
           {urls.map((url, i) => (
             <video
               key={`${url}-${i}`}
-              src={url}
+              src={resolveMediaUrl(url, previewCtx)}
               controls
               className="max-w-md rounded-lg"
               preload="metadata"
@@ -109,24 +112,11 @@ export default function MediaGenerateTool({ part }: MediaGenerateToolProps) {
       );
     }
     return (
-      <div className="flex flex-wrap gap-2">
-        {urls.map((url, i) => (
-          <a
-            key={`${url}-${i}`}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block overflow-hidden rounded-lg border border-border/50 transition-shadow hover:shadow-md"
-          >
-            <img
-              src={url}
-              alt={`生成的${kindLabel} ${i + 1}`}
-              className="max-h-64 max-w-xs object-contain"
-              loading="lazy"
-            />
-          </a>
-        ))}
-      </div>
+      <ImageGrid
+        urls={urls}
+        kindLabel={kindLabel}
+        previewCtx={previewCtx}
+      />
     );
   }
 
@@ -137,6 +127,55 @@ export default function MediaGenerateTool({ part }: MediaGenerateToolProps) {
       <span className="text-xs text-muted-foreground">{kindLabel}生成</span>
     </div>
   );
+}
+
+// 逻辑：图片网格组件，点击后在左侧 stack 中打开 ImageViewer。
+function ImageGrid({
+  urls,
+  kindLabel,
+  previewCtx,
+}: {
+  urls: string[]
+  kindLabel: string
+  previewCtx?: { workspaceId?: string; projectId?: string }
+}) {
+  const { tabId } = useChatSession()
+  const pushStackItem = useTabRuntime((s) => s.pushStackItem)
+
+  const handleClick = (index: number) => {
+    if (!tabId) return
+    const url = urls[index]
+    const resolvedUri = resolveMediaUrl(url, previewCtx)
+    pushStackItem(tabId, {
+      id: `generated-image:${resolvedUri}`,
+      component: 'image-viewer',
+      title: `生成的${kindLabel}`,
+      params: {
+        uri: resolvedUri,
+        name: `生成的${kindLabel}`,
+      },
+    })
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {urls.map((url, i) => (
+        <button
+          key={`${url}-${i}`}
+          type="button"
+          onClick={() => handleClick(i)}
+          className="block overflow-hidden rounded-lg border border-border/50 transition-shadow hover:shadow-md cursor-pointer"
+        >
+          <img
+            src={resolveMediaUrl(url, previewCtx)}
+            alt={`生成的${kindLabel} ${i + 1}`}
+            className="max-h-64 max-w-xs object-contain"
+            loading="lazy"
+          />
+        </button>
+      ))}
+    </div>
+  )
 }
 
 function MediaGenerateError({

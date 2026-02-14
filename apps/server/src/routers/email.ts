@@ -294,10 +294,14 @@ async function fetchMessageRowsPage(input: {
   const cursor = decodeMessageCursor(input.cursor);
   const where = cursor
     ? {
-        ...input.where,
-        OR: [
-          { createdAt: { lt: cursor.createdAt } },
-          { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+        AND: [
+          input.where,
+          {
+            OR: [
+              { createdAt: { lt: cursor.createdAt } },
+              { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+            ],
+          },
         ],
       }
     : input.where;
@@ -1441,10 +1445,11 @@ export class EmailRouterImpl extends BaseEmailRouter {
         .output(emailSchemas.searchMessages.output)
         .query(async ({ input, ctx }) => {
           const prisma = ctx.prisma as PrismaClient;
-          const pageSize = input.pageSize ?? 20;
+          const pageSize = resolveMessagePageSize(input.pageSize);
           const privateSenders = buildPrivateSenderSet(input.workspaceId);
           // 逻辑：服务端搜索先查本地数据库（subject/snippet 模糊匹配）。
-          const rows = await prisma.emailMessage.findMany({
+          const { rows, nextCursor } = await fetchMessageRowsPage({
+            prisma,
             where: {
               workspaceId: input.workspaceId,
               accountEmail: input.accountEmail,
@@ -1453,16 +1458,11 @@ export class EmailRouterImpl extends BaseEmailRouter {
                 { snippet: { contains: input.query } },
               ],
             },
-            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-            take: pageSize + 1,
+            pageSize,
+            cursor: input.cursor,
           });
-          const hasMore = rows.length > pageSize;
-          const items = rows.slice(0, pageSize);
-          const nextCursor = hasMore && items.length
-            ? encodeMessageCursor({ createdAt: items[items.length - 1]!.createdAt, id: items[items.length - 1]!.id })
-            : null;
           return {
-            items: items.map((row) =>
+            items: rows.map((row) =>
               toMessageSummary({
                 id: row.id,
                 accountEmail: row.accountEmail,

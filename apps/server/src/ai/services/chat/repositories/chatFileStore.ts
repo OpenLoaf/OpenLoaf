@@ -639,11 +639,18 @@ function collectSubtreeIds(tree: MessageTreeIndex, startId: string): string[] {
   return result
 }
 
+// 逻辑：媒体生成工具的 output 很小（仅含 urls），刷新后需要用于渲染预览。
+const KEEP_OUTPUT_TOOLS = new Set(['image-generate', 'video-generate'])
+
 /** Strip tool output payloads from parts. */
 function stripToolOutputs(parts: unknown[]): unknown[] {
   return parts.map((part: any) => {
     const type = typeof part?.type === 'string' ? part.type : ''
     if (!type.startsWith('tool-')) return part
+    const toolName = typeof part?.toolName === 'string'
+      ? part.toolName
+      : type.slice('tool-'.length)
+    if (KEEP_OUTPUT_TOOLS.has(toolName)) return part
     const { output, ...rest } = part ?? {}
     return rest
   })

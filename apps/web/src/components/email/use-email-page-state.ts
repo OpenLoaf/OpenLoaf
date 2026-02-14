@@ -445,24 +445,6 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     [unifiedUnreadStats],
   );
 
-  const activeMessageIdForQuery = React.useMemo(() => {
-    if (!activeMessageId || !hasConfiguredAccounts) return null;
-    // 逻辑：只允许查询“当前工作空间可见消息”，避免旧消息 ID 在切换工作空间后误查。
-    return messages.some((message) => message.id === activeMessageId)
-      ? activeMessageId
-      : null;
-  }, [activeMessageId, hasConfiguredAccounts, messages]);
-
-  const messageDetailQuery = useQuery(
-    trpc.email.getMessage.queryOptions(
-      workspaceId && activeMessageIdForQuery
-        ? { workspaceId, id: activeMessageIdForQuery }
-        : skipToken,
-    ),
-  );
-
-  const messageDetail = messageDetailQuery.data as EmailMessageDetail | undefined;
-
   // 逻辑：原始 HTML 显示状态，切换邮件时重置。
   const [showingRawHtml, setShowingRawHtml] = React.useState(false);
   React.useEffect(() => {
@@ -496,26 +478,69 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
       workspaceId,
       accountEmail: activeView.accountEmail,
       query: debouncedSearchKeyword,
+      pageSize: MESSAGE_PAGE_SIZE,
     }
   }, [activeView, hasConfiguredAccounts, workspaceId, debouncedSearchKeyword])
 
-  const serverSearchQuery = useQuery(
-    trpc.email.searchMessages.queryOptions(serverSearchInput ?? skipToken),
-  )
+  const serverSearchQuery = useInfiniteQuery({
+    ...trpc.email.searchMessages.infiniteQueryOptions(
+      serverSearchInput ?? skipToken,
+      {
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+      },
+    ),
+  });
+
+  const serverSearchMessages = React.useMemo(
+    () => serverSearchQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [serverSearchQuery.data],
+  );
+  const isServerSearchMode = Boolean(serverSearchInput);
 
   const visibleMessages = React.useMemo(() => {
     const keyword = searchKeyword.trim().toLowerCase();
     if (!keyword) return messages;
     // 逻辑：mailbox scope 下优先使用服务端搜索结果。
-    if (serverSearchInput && serverSearchQuery.data) {
-      return serverSearchQuery.data.items as EmailMessageSummary[]
+    if (isServerSearchMode && serverSearchQuery.data) {
+      return serverSearchMessages as EmailMessageSummary[]
     }
     // 逻辑：统一视图或服务端结果未就绪时，前端本地过滤。
     return messages.filter((message) => {
       const haystack = `${message.from} ${message.subject} ${message.preview}`.toLowerCase();
       return haystack.includes(keyword);
     });
-  }, [messages, searchKeyword, serverSearchInput, serverSearchQuery.data]);
+  }, [messages, searchKeyword, isServerSearchMode, serverSearchQuery.data, serverSearchMessages]);
+
+  const activeMessageIdForQuery = React.useMemo(() => {
+    if (!activeMessageId || !hasConfiguredAccounts) return null;
+    // 逻辑：只允许查询“当前工作空间可见消息”，避免旧消息 ID 在切换工作空间后误查。
+    return visibleMessages.some((message) => message.id === activeMessageId)
+      ? activeMessageId
+      : null;
+  }, [activeMessageId, hasConfiguredAccounts, visibleMessages]);
+
+  const messageDetailQuery = useQuery(
+    trpc.email.getMessage.queryOptions(
+      workspaceId && activeMessageIdForQuery
+        ? { workspaceId, id: activeMessageIdForQuery }
+        : skipToken,
+    ),
+  );
+
+  const messageDetail = messageDetailQuery.data as EmailMessageDetail | undefined;
+
+  const activeMessagesHasNextPage = isServerSearchMode
+    ? Boolean(serverSearchQuery.hasNextPage)
+    : Boolean(messagesQuery.hasNextPage);
+  const activeMessagesFetchingNextPage = isServerSearchMode
+    ? serverSearchQuery.isFetchingNextPage
+    : messagesQuery.isFetchingNextPage;
+  const activeMessagesFetchNextPage = isServerSearchMode
+    ? serverSearchQuery.fetchNextPage
+    : messagesQuery.fetchNextPage;
+  const activeMessagePageCount = isServerSearchMode
+    ? (serverSearchQuery.data?.pages.length ?? 0)
+    : (messagesQuery.data?.pages.length ?? 0);
 
   const activeMessage = React.useMemo(() => {
     if (!activeMessageId) return null;
@@ -669,15 +694,15 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     const target = loadMoreRef.current;
     const root = messagesListRef.current;
     if (!target) return;
-    if (!messagesQuery.hasNextPage) return;
+    if (!activeMessagesHasNextPage) return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (
           entries[0]?.isIntersecting &&
-          messagesQuery.hasNextPage &&
-          !messagesQuery.isFetchingNextPage
+          activeMessagesHasNextPage &&
+          !activeMessagesFetchingNextPage
         ) {
-          messagesQuery.fetchNextPage();
+          void activeMessagesFetchNextPage();
         }
       },
       { root, rootMargin: "0px 0px 120px 0px" },
@@ -685,10 +710,10 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     observer.observe(target);
     return () => observer.disconnect();
   }, [
-    messagesQuery.hasNextPage,
-    messagesQuery.isFetchingNextPage,
-    messagesQuery.fetchNextPage,
-    messages.length,
+    activeMessagesHasNextPage,
+    activeMessagesFetchingNextPage,
+    activeMessagesFetchNextPage,
+    activeMessagePageCount,
   ]);
 
   const addAccountMutation = useMutation(
@@ -1957,6 +1982,9 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     if (unifiedMessagesQueryKey) {
       queryClient.invalidateQueries({ queryKey: unifiedMessagesQueryKey })
     }
+    queryClient.invalidateQueries({
+      queryKey: trpc.email.searchMessages.pathKey(),
+    })
     for (const account of accounts) {
       queryClient.invalidateQueries({
         queryKey: trpc.email.listMailboxes.queryOptions({
@@ -1983,7 +2011,10 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     batchDeleteMutation.isPending ||
     batchMoveMutation.isPending;
   const isRefreshing = syncMailboxMutation.isPending;
-  const isSearching = serverSearchQuery.isFetching;
+  const isSearching =
+    isServerSearchMode &&
+    serverSearchQuery.isFetching &&
+    !serverSearchQuery.isFetchingNextPage;
   const hasSelection = selectedIds.size > 0;
   const isAllSelected = visibleMessages.length > 0 && selectedIds.size === visibleMessages.length;
 
@@ -2022,9 +2053,9 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     visibleMessages,
     activeMessageId,
     onSelectMessage: handleSelectMessage,
-    messagesLoading: messagesQuery.isLoading,
-    messagesFetchingNextPage: messagesQuery.isFetchingNextPage,
-    hasNextPage: Boolean(messagesQuery.hasNextPage),
+    messagesLoading: isServerSearchMode ? serverSearchQuery.isLoading : messagesQuery.isLoading,
+    messagesFetchingNextPage: activeMessagesFetchingNextPage,
+    hasNextPage: activeMessagesHasNextPage,
     messagesListRef,
     loadMoreRef,
     // 多选

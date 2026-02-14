@@ -387,6 +387,8 @@ export default function CalendarPage({
   const [sourceFilter, setSourceFilter] = useState<CalendarSourceFilter>("all");
   // 逻辑：桌面嵌入版隐藏侧边栏，保留日历主体。
   const showSidebar = !compact;
+  // 逻辑：主页面底部 Dock 存在时，为日历主体预留安全边距，避免底部边框被遮挡。
+  const calendarBodySafeMarginClassName = compact ? "" : "mb-14";
   // 逻辑：紧凑模式下缩小事件样式，提升小组件可读性。
   const eventPaddingClassName = compact ? "px-0.5" : "px-1";
   const eventTextClassName = compact ? "text-[9px] sm:text-[10px]" : "text-[10px] sm:text-xs";
@@ -571,152 +573,154 @@ export default function CalendarPage({
   return (
     <div className={`h-full w-full p-0 ${styles.calendarRoot}`}>
       <div className="h-full min-h-0 flex flex-col gap-3">
-        <IlamyCalendar
-          key={initialView}
-          initialView={initialView}
-          hideViewControls={hideViewControls}
-          events={visibleEvents}
-          headerClassName="justify-between"
-          headerLeadingSlot={
-            shouldShowImportButton ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRequestPermission}
-                disabled={isLoading}
-              >
-                导入系统日历
-              </Button>
-            ) : undefined
-          }
-          locale={calendarLocale}
-          translations={calendarTranslations}
-          openEventOnCellDoubleClick
-          disableEventClick={false}
-          disableDragAndDrop={false}
-          onDateChange={handleDateChange}
-          onEventAdd={handleEventAdd}
-          onEventUpdate={handleEventUpdate}
-          onEventDelete={handleEventDelete}
-          onEventClick={handleEventClick}
-          openEventOnDoubleClick
-          renderEvent={(event) => {
-            const meta = event.data as {
-              kind?: CalendarKind;
-              completed?: boolean;
-              readOnly?: boolean;
-              isSubscribed?: boolean;
-            } | undefined;
-            if (meta?.kind !== "reminder") {
+        <div className={`min-h-0 flex-1 ${calendarBodySafeMarginClassName}`}>
+          <IlamyCalendar
+            key={initialView}
+            initialView={initialView}
+            hideViewControls={hideViewControls}
+            events={visibleEvents}
+            headerClassName="justify-between"
+            headerLeadingSlot={
+              shouldShowImportButton ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRequestPermission}
+                  disabled={isLoading}
+                >
+                  导入系统日历
+                </Button>
+              ) : undefined
+            }
+            locale={calendarLocale}
+            translations={calendarTranslations}
+            openEventOnCellDoubleClick
+            disableEventClick={false}
+            disableDragAndDrop={false}
+            onDateChange={handleDateChange}
+            onEventAdd={handleEventAdd}
+            onEventUpdate={handleEventUpdate}
+            onEventDelete={handleEventDelete}
+            onEventClick={handleEventClick}
+            openEventOnDoubleClick
+            renderEvent={(event) => {
+              const meta = event.data as {
+                kind?: CalendarKind;
+                completed?: boolean;
+                readOnly?: boolean;
+                isSubscribed?: boolean;
+              } | undefined;
+              if (meta?.kind !== "reminder") {
+                return (
+                  <div
+                    className={`h-full w-full ${eventPaddingClassName} border-[1.5px] border-card text-left overflow-clip relative rounded-sm flex items-center`}
+                    style={{ backgroundColor: event.backgroundColor, color: event.color }}
+                  >
+                    <span className={`${eventTextClassName} font-semibold`}>
+                      {event.title}
+                    </span>
+                  </div>
+                );
+              }
+              const isCompleted = meta?.completed === true;
+              const isReadOnly = meta?.readOnly === true || meta?.isSubscribed === true;
               return (
                 <div
-                  className={`h-full w-full ${eventPaddingClassName} border-[1.5px] border-card text-left overflow-clip relative rounded-sm flex items-center`}
-                  style={{ backgroundColor: event.backgroundColor, color: event.color }}
+                  className={`h-full w-full ${eventPaddingClassName} text-left overflow-clip relative rounded-sm flex items-center ${reminderGapClassName} ${
+                    isCompleted ? "text-muted-foreground" : "text-foreground"
+                  }`}
+                  style={{
+                    backgroundColor: "transparent",
+                  }}
                 >
+                  <span
+                    className={`inline-flex ${reminderDotClassName} items-center justify-center rounded-full border border-current cursor-default`}
+                    style={{
+                      color: event.backgroundColor ?? "rgb(59, 130, 246)",
+                      opacity: isCompleted ? 0.65 : 1,
+                    }}
+                    role="button"
+                    aria-disabled={isReadOnly}
+                    aria-label="完成提醒事项"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isReadOnly) return;
+                      void toggleReminderCompleted(event);
+                    }}
+                  >
+                    {isCompleted && (
+                      <span className="h-1 w-1 rounded-full bg-current" />
+                    )}
+                  </span>
                   <span className={`${eventTextClassName} font-semibold`}>
                     {event.title}
                   </span>
                 </div>
               );
+            }}
+            sidebar={
+              showSidebar ? (
+                <CalendarFilterPanel
+                  calendars={filteredCalendars}
+                  reminderLists={filteredReminderLists}
+                  projects={projectTree}
+                  projectIdList={projectIdList}
+                  projectDescendantsById={projectHierarchy.descendantsById}
+                  calendarColorMap={calendarColorMap}
+                  reminderColorMap={reminderColorMap}
+                  permissionState={permissionState}
+                  sourceFilter={sourceFilter}
+                  hasSystemCalendars={hasSystemCalendars}
+                  hasSystemReminders={hasSystemReminders}
+                  selectedCalendarIds={selectedCalendarIds}
+                  selectedReminderListIds={selectedReminderListIds}
+                  selectedProjectIds={selectedProjectIds}
+                  className="h-full overflow-auto"
+                  onSourceFilterChange={setSourceFilter}
+                  onToggleCalendar={handleToggleCalendar}
+                  onSelectAllCalendars={handleSelectAllCalendarsFiltered}
+                  onClearCalendars={handleClearCalendarsFiltered}
+                  onSelectAllReminders={handleSelectAllRemindersFiltered}
+                  onClearReminders={handleClearRemindersFiltered}
+                  onToggleReminder={(calendarId) =>
+                    setSelectedReminderListIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(calendarId)) {
+                        next.delete(calendarId);
+                      } else {
+                        next.add(calendarId);
+                      }
+                      return next;
+                    })
+                  }
+                  onSelectAllProjects={handleSelectAllProjects}
+                  onClearProjects={handleClearProjects}
+                  onToggleProject={handleToggleProject}
+                />
+              ) : undefined
             }
-            const isCompleted = meta?.completed === true;
-            const isReadOnly = meta?.readOnly === true || meta?.isSubscribed === true;
-            return (
-              <div
-                className={`h-full w-full ${eventPaddingClassName} text-left overflow-clip relative rounded-sm flex items-center ${reminderGapClassName} ${
-                  isCompleted ? "text-muted-foreground" : "text-foreground"
-                }`}
-                style={{
-                  backgroundColor: "transparent",
-                }}
-              >
-                <span
-                  className={`inline-flex ${reminderDotClassName} items-center justify-center rounded-full border border-current cursor-default`}
-                  style={{
-                    color: event.backgroundColor ?? "rgb(59, 130, 246)",
-                    opacity: isCompleted ? 0.65 : 1,
-                  }}
-                  role="button"
-                  aria-disabled={isReadOnly}
-                  aria-label="完成提醒事项"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (isReadOnly) return;
-                    void toggleReminderCompleted(event);
-                  }}
-                >
-                  {isCompleted && (
-                    <span className="h-1 w-1 rounded-full bg-current" />
-                  )}
-                </span>
-                <span className={`${eventTextClassName} font-semibold`}>
-                  {event.title}
-                </span>
-              </div>
-            );
-          }}
-          sidebar={
-            showSidebar ? (
-              <CalendarFilterPanel
-                calendars={filteredCalendars}
-                reminderLists={filteredReminderLists}
-                projects={projectTree}
-                projectIdList={projectIdList}
-                projectDescendantsById={projectHierarchy.descendantsById}
-                calendarColorMap={calendarColorMap}
-                reminderColorMap={reminderColorMap}
-                permissionState={permissionState}
-                sourceFilter={sourceFilter}
-                hasSystemCalendars={hasSystemCalendars}
-                hasSystemReminders={hasSystemReminders}
-                selectedCalendarIds={selectedCalendarIds}
-                selectedReminderListIds={selectedReminderListIds}
-                selectedProjectIds={selectedProjectIds}
-                className="h-full overflow-auto"
-                onSourceFilterChange={setSourceFilter}
-                onToggleCalendar={handleToggleCalendar}
-                onSelectAllCalendars={handleSelectAllCalendarsFiltered}
-                onClearCalendars={handleClearCalendarsFiltered}
-                onSelectAllReminders={handleSelectAllRemindersFiltered}
-                onClearReminders={handleClearRemindersFiltered}
-                onToggleReminder={(calendarId) =>
-                  setSelectedReminderListIds((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(calendarId)) {
-                      next.delete(calendarId);
-                    } else {
-                      next.add(calendarId);
-                    }
-                    return next;
-                  })
-                }
-                onSelectAllProjects={handleSelectAllProjects}
-                onClearProjects={handleClearProjects}
-                onToggleProject={handleToggleProject}
-              />
-            ) : undefined
-          }
-          sidebarClassName={showSidebar ? "h-full" : "hidden"}
-          renderEventForm={(props) => {
-            const selectedMeta = props.selectedEvent?.data as { calendarId?: string; kind?: CalendarKind } | undefined;
-            const kind = selectedMeta?.kind === "reminder" ? "reminder" : "event";
-            const fallbackId =
-              kind === "reminder"
-                ? selectedReminderListIdList[0] ?? reminderLists[0]?.id
-                : selectedCalendarIdList[0] ?? calendars[0]?.id;
-            const defaultCalendarId = selectedMeta?.calendarId ?? fallbackId ?? "";
-            return (
-              <SystemEventFormDialog
-                props={props}
-                calendars={calendars}
-                reminderLists={reminderLists}
-                uiLanguage={uiLanguage}
-                translations={calendarTranslations}
-                defaultCalendarId={defaultCalendarId}
-              />
-            );
-          }}
-        />
+            sidebarClassName={showSidebar ? "h-full" : "hidden"}
+            renderEventForm={(props) => {
+              const selectedMeta = props.selectedEvent?.data as { calendarId?: string; kind?: CalendarKind } | undefined;
+              const kind = selectedMeta?.kind === "reminder" ? "reminder" : "event";
+              const fallbackId =
+                kind === "reminder"
+                  ? selectedReminderListIdList[0] ?? reminderLists[0]?.id
+                  : selectedCalendarIdList[0] ?? calendars[0]?.id;
+              const defaultCalendarId = selectedMeta?.calendarId ?? fallbackId ?? "";
+              return (
+                <SystemEventFormDialog
+                  props={props}
+                  calendars={calendars}
+                  reminderLists={reminderLists}
+                  uiLanguage={uiLanguage}
+                  translations={calendarTranslations}
+                  defaultCalendarId={defaultCalendarId}
+                />
+              );
+            }}
+          />
+        </div>
       </div>
     </div>
   );

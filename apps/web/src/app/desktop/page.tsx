@@ -284,6 +284,7 @@ export default function DesktopDemoPage() {
           scope="workspace"
           editMode={editMode}
           activeBreakpoint={activeBreakpoint}
+          bottomPadding={56}
           onViewBreakpointChange={setActiveBreakpoint}
           onSetEditMode={handleSetEditMode}
           onUpdateItem={handleUpdateItem}

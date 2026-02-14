@@ -1,6 +1,11 @@
+import { createWriteStream, promises as fs } from 'node:fs'
+import path from 'node:path'
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import { tool, zodSchema } from 'ai'
 import type { UIMessageStreamWriter } from 'ai'
 import { imageGenerateToolDef, videoGenerateToolDef } from '@tenas-ai/api/types/tools/mediaGenerate'
+import { getWorkspaceRootPathById } from '@tenas-ai/api/services/vfsService'
 import { logger } from '@/common/logger'
 import {
   getAbortSignal,
@@ -145,6 +150,31 @@ async function downloadAndSaveImage(input: {
   })
 }
 
+/** Download video from URL and save as chat attachment via streaming. */
+async function downloadAndSaveVideo(input: {
+  url: string
+  sessionId: string
+  workspaceId: string
+  projectId?: string
+  abortSignal: AbortSignal
+}): Promise<{ url: string }> {
+  const response = await fetch(input.url, { signal: input.abortSignal })
+  if (!response.ok || !response.body) {
+    throw new Error(`下载视频失败: ${response.status}`)
+  }
+  const contentType = response.headers.get('content-type') || 'video/mp4'
+  const ext = contentType.includes('webm') ? 'webm' : 'mp4'
+  const fileName = `gen_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const rootPath = getWorkspaceRootPathById(input.workspaceId)
+  if (!rootPath) throw new Error('workspace not found')
+  const dir = path.join(rootPath, '.tenas', 'chat-history', input.sessionId)
+  await fs.mkdir(dir, { recursive: true })
+  const filePath = path.join(dir, fileName)
+  const stream = Readable.fromWeb(response.body as any)
+  await pipeline(stream, createWriteStream(filePath))
+  return { url: path.posix.join('.tenas', 'chat-history', input.sessionId, fileName) }
+}
+
 /** Core media generate logic shared by image and video tools. */
 async function executeMediaGenerate(input: {
   kind: 'image' | 'video'
@@ -254,6 +284,26 @@ async function executeMediaGenerate(input: {
       resultUrls = saved.map((s) => s.url)
     } catch (err) {
       logger.warn({ err }, '[media-tool] save image attachment failed, using remote urls')
+    }
+  }
+
+  // 逻辑：视频结果下载并保存为 chat 附件。
+  if (input.kind === 'video' && sessionId && workspaceId && resultUrls.length > 0) {
+    try {
+      const saved = await Promise.all(
+        resultUrls.map((url) =>
+          downloadAndSaveVideo({
+            url,
+            sessionId,
+            workspaceId,
+            projectId,
+            abortSignal: signal,
+          }),
+        ),
+      )
+      resultUrls = saved.map((s) => s.url)
+    } catch (err) {
+      logger.warn({ err }, '[media-tool] save video attachment failed, using remote urls')
     }
   }
 

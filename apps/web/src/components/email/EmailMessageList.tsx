@@ -188,7 +188,7 @@ export function EmailMessageList({
       <div
         ref={messageList.messagesListRef}
         className={cn(
-          "flex min-h-0 flex-1 flex-col overflow-y-auto pb-24 text-sm show-scrollbar",
+          "flex min-h-0 flex-1 flex-col overflow-y-auto pb-16 text-sm scrollbar-hide",
           EMAIL_LIST_SURFACE_CLASS,
         )}
       >
@@ -319,6 +319,10 @@ export function EmailMessageList({
             {messageList.messagesFetchingNextPage ? (
               <div className="py-2 text-center text-xs text-muted-foreground">
                 正在加载更多...
+              </div>
+            ) : messageList.visibleMessages.length > 0 && !messageList.hasNextPage ? (
+              <div className="py-2 text-center text-xs text-muted-foreground/70">
+                没有更多内容了
               </div>
             ) : null}
           </>

@@ -263,6 +263,7 @@ const searchMessagesInputSchema = z.object({
   workspaceId: z.string().min(1),
   accountEmail: z.string().min(1),
   query: z.string().min(1),
+  cursor: z.string().nullable().optional(),
   pageSize: z.number().int().min(1).max(200).optional(),
 });
 

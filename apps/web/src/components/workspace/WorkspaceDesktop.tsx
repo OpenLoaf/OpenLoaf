@@ -331,6 +331,7 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
             editMode={editMode}
             activeBreakpoint={viewBreakpoint}
             editBreakpointLock={editBreakpointLock}
+            bottomPadding={56}
             onViewBreakpointChange={setViewBreakpoint}
             onSetEditMode={handleSetEditMode}
             onUpdateItem={handleUpdateItem}
