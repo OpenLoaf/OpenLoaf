@@ -20,7 +20,7 @@ import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
-import { resolveSaasBaseUrl, getCachedAccessToken } from "@/lib/saas-auth";
+import { resolveSaasBaseUrl, getAccessToken } from "@/lib/saas-auth";
 import { isElectronEnv } from "@/utils/is-electron-env";
 
 /** Feedback category values supported by SaaS. */
@@ -155,7 +155,7 @@ export function SidebarFeedback() {
     try {
       const client = new SaaSClient({
         baseUrl,
-        getAccessToken: () => getCachedAccessToken() ?? "",
+        getAccessToken: async () => (await getAccessToken()) ?? "",
       });
       const context = await buildContext();
       const feedbackApi = (client as unknown as { feedback?: { submit: (input: FeedbackRequest) => Promise<unknown> } })

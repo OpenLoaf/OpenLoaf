@@ -147,6 +147,8 @@ export function Chat({
     canImageGeneration,
     canImageEdit,
     isCodexProvider,
+    imageModelId,
+    videoModelId,
   } = useChatModelSelection(tabId);
 
   const [attachments, setAttachments] = React.useState<ChatAttachment[]>([]);
@@ -717,6 +719,8 @@ export function Chat({
       loadHistory={effectiveLoadHistory}
       chatModelId={selectedModelId || null}
       chatModelSource={chatModelSource}
+      imageModelId={imageModelId || null}
+      videoModelId={videoModelId || null}
       params={requestParams}
       onSessionChange={onSessionChange}
       addAttachments={addAttachments}

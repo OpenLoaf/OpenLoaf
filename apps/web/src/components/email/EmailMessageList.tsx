@@ -188,7 +188,7 @@ export function EmailMessageList({
       <div
         ref={messageList.messagesListRef}
         className={cn(
-          "flex min-h-0 flex-1 flex-col overflow-y-auto text-sm show-scrollbar",
+          "flex min-h-0 flex-1 flex-col overflow-y-auto pb-24 text-sm show-scrollbar",
           EMAIL_LIST_SURFACE_CLASS,
         )}
       >
@@ -229,7 +229,10 @@ export function EmailMessageList({
                       ? "bg-[#e8f0fe] dark:bg-sky-900/50"
                       : isActive
                         ? EMAIL_TONE_ACTIVE_CLASS
-                        : mail.unread ? EMAIL_LIST_UNREAD_ROW_CLASS : EMAIL_LIST_READ_ROW_CLASS,
+                        : cn(
+                            mail.unread ? EMAIL_LIST_UNREAD_ROW_CLASS : EMAIL_LIST_READ_ROW_CLASS,
+                            EMAIL_TONE_HOVER_CLASS,
+                          ),
                   )}
                 >
                   <div className="flex items-center gap-2.5">

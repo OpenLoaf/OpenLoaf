@@ -9,6 +9,7 @@ import {
   getCachedAccessToken,
   isAuthenticated,
   logout as logoutFromSaas,
+  onAuthLost,
   openExternalUrl,
   resolveAuthUser,
   resolveSaasBaseUrl,
@@ -229,5 +230,21 @@ if (typeof document !== "undefined") {
     if (document.visibilityState === "visible") {
       void useSaasAuth.getState().refreshSession();
     }
+  });
+}
+
+// 逻辑：每 30 分钟定时刷新登录态，网络断开时跳过。
+if (typeof window !== "undefined") {
+  const AUTH_POLL_INTERVAL = 30 * 60 * 1000;
+  window.setInterval(() => {
+    if (!navigator.onLine) return;
+    void useSaasAuth.getState().refreshSession();
+  }, AUTH_POLL_INTERVAL);
+}
+
+// 逻辑：认证失效时自动将 Zustand store 设为未登录，无论哪个消费者触发。
+if (typeof window !== "undefined") {
+  onAuthLost(() => {
+    useSaasAuth.setState({ loggedIn: false, user: null });
   });
 }

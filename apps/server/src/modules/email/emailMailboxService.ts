@@ -4,6 +4,8 @@ import type { PrismaClient } from "@tenas-ai/db";
 import { logger } from "@/common/logger";
 import { readEmailConfigFile, writeEmailConfigFile } from "./emailConfigStore";
 import { getEmailEnvValue } from "./emailEnvStore";
+import { writeMailboxes } from "./emailFileStore";
+import type { StoredMailbox } from "./emailFileStore";
 
 /** Env key for skipping IMAP operations. */
 const SKIP_IMAP_ENV_KEY = "EMAIL_IMAP_SKIP";
@@ -235,6 +237,25 @@ export async function syncEmailMailboxes(input: {
       accountEmail: normalizedEmail,
       lastMailboxSyncAt: new Date().toISOString(),
       lastMailboxSyncError: null,
+    });
+    // 逻辑：双写 mailboxes.json 到文件系统。
+    const now = new Date().toISOString();
+    void writeMailboxes({
+      workspaceId: input.workspaceId,
+      accountEmail: normalizedEmail,
+      mailboxes: entries.map((entry) => ({
+        id: `${input.workspaceId}-${normalizedEmail}-${entry.path}`,
+        path: entry.path,
+        name: entry.name,
+        parentPath: entry.parentPath,
+        delimiter: entry.delimiter ?? null,
+        attributes: entry.attributes,
+        sort: resolveMailboxSort(entry),
+        createdAt: now,
+        updatedAt: now,
+      } satisfies StoredMailbox)),
+    }).catch((err) => {
+      logger.warn({ err }, "email file store mailboxes write failed");
     });
     logger.info(
       {

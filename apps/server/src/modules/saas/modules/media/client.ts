@@ -22,6 +22,11 @@ export type SaasMediaTaskResult = {
   error?: { code?: string; message: string };
 };
 
+type FetchMediaModelOptions = {
+  /** Force bypass in-memory cache. */
+  force?: boolean;
+};
+
 /** Cache ttl for media model lists. */
 const MODELS_TTL_MS = 24 * 60 * 60 * 1000;
 const cachedImageModels = new Map<string, { updatedAt: number; payload: unknown }>();
@@ -100,8 +105,12 @@ export async function cancelMediaTask(taskId: string, accessToken: string) {
 }
 
 /** Fetch image model list with cache. */
-export async function fetchImageModels(accessToken: string) {
-  const cached = readCache(cachedImageModels, accessToken);
+export async function fetchImageModels(
+  accessToken: string,
+  options: FetchMediaModelOptions = {},
+) {
+  const force = options.force === true;
+  const cached = force ? null : readCache(cachedImageModels, accessToken);
   if (cached) return cached;
   const client = getSaasClient(accessToken);
   const payload = await client.ai.imageModels();
@@ -110,8 +119,12 @@ export async function fetchImageModels(accessToken: string) {
 }
 
 /** Fetch video model list with cache. */
-export async function fetchVideoModels(accessToken: string) {
-  const cached = readCache(cachedVideoModels, accessToken);
+export async function fetchVideoModels(
+  accessToken: string,
+  options: FetchMediaModelOptions = {},
+) {
+  const force = options.force === true;
+  const cached = force ? null : readCache(cachedVideoModels, accessToken);
   if (cached) return cached;
   const client = getSaasClient(accessToken);
   const payload = await client.ai.videoModels();

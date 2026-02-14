@@ -53,7 +53,7 @@ export default function EmailMessageStackPanel({
   useEffect(() => {
     setShowingRawHtml(false);
   }, [messageId]);
-  const hasRawHtml = Boolean(detail?.bodyHtmlRaw);
+  const hasRawHtml = false;
   const handleToggleRawHtml = useCallback(() => {
     setShowingRawHtml((prev) => !prev);
   }, []);
@@ -114,8 +114,6 @@ export default function EmailMessageStackPanel({
           ) : null}
           {messageQuery.isLoading ? (
             <div className="text-xs text-[#5f6368] dark:text-slate-400">正在加载邮件正文...</div>
-          ) : showingRawHtml && detail?.bodyHtmlRaw ? (
-            <RawHtmlIframe html={detail.bodyHtmlRaw} />
           ) : htmlBody ? (
             <div
               className="prose prose-sm max-w-none text-foreground prose-img:max-w-full prose-p:my-3 leading-7"

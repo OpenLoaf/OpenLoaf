@@ -14,6 +14,8 @@ import {
 } from "./emailFlags";
 import { readEmailConfigFile, writeEmailConfigFile } from "./emailConfigStore";
 import { getEmailEnvValue } from "./emailEnvStore";
+import { writeEmailMessage } from "./emailFileStore";
+import { updateEmailFlags as updateEmailFlagsFile } from "./emailFileStore";
 
 /** Env key for disabling auto sync on add. */
 const AUTO_SYNC_ENV_KEY = "EMAIL_SYNC_ON_ADD";
@@ -30,6 +32,19 @@ function toNullableJsonValue(
 ): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput {
   if (value === undefined || value === null) return Prisma.DbNull;
   return value as Prisma.InputJsonValue;
+}
+
+/** Extract address value array from mailparser AddressObject or similar. */
+function extractAddressValues(
+  value: unknown,
+): Array<{ address: string; name: string }> | undefined {
+  if (!value) return undefined
+  if (Array.isArray(value)) return value as any
+  if (typeof value === 'object' && value !== null) {
+    const record = value as Record<string, unknown>
+    if (Array.isArray(record.value)) return record.value as any
+  }
+  return undefined
 }
 
 /** Check if auto sync on add is enabled. */
@@ -527,37 +542,54 @@ export async function syncRecentMailboxMessages(input: {
           externalId,
           messageId: message.messageId ?? null,
           subject: message.subject ?? null,
-          from: (message.from ?? {}) as Prisma.InputJsonValue,
-          to: (message.to ?? {}) as Prisma.InputJsonValue,
-          cc: toNullableJsonValue(message.cc),
-          bcc: toNullableJsonValue(message.bcc),
+          from: (extractAddressValues(message.from) ?? []) as Prisma.InputJsonValue,
+          to: (extractAddressValues(message.to) ?? []) as Prisma.InputJsonValue,
+          cc: toNullableJsonValue(extractAddressValues(message.cc)),
+          bcc: toNullableJsonValue(extractAddressValues(message.bcc)),
           date: message.date ?? null,
           flags: message.flags ?? [],
           snippet: message.snippet ?? null,
-          bodyHtml: message.bodyHtml ?? null,
-          bodyHtmlRaw: message.bodyHtmlRaw ?? null,
-          bodyText: message.bodyText ?? null,
           attachments: toNullableJsonValue(message.attachments),
-          rawRfc822: message.raw ?? null,
           size: message.size ?? null,
         },
         update: {
           messageId: message.messageId ?? null,
           subject: message.subject ?? null,
-          from: (message.from ?? {}) as Prisma.InputJsonValue,
-          to: (message.to ?? {}) as Prisma.InputJsonValue,
-          cc: toNullableJsonValue(message.cc),
-          bcc: toNullableJsonValue(message.bcc),
+          from: (extractAddressValues(message.from) ?? []) as Prisma.InputJsonValue,
+          to: (extractAddressValues(message.to) ?? []) as Prisma.InputJsonValue,
+          cc: toNullableJsonValue(extractAddressValues(message.cc)),
+          bcc: toNullableJsonValue(extractAddressValues(message.bcc)),
           date: message.date ?? null,
           flags: message.flags ?? [],
           snippet: message.snippet ?? null,
-          bodyHtml: message.bodyHtml ?? null,
-          bodyHtmlRaw: message.bodyHtmlRaw ?? null,
-          bodyText: message.bodyText ?? null,
           attachments: toNullableJsonValue(message.attachments),
-          rawRfc822: message.raw ?? null,
           size: message.size ?? null,
         },
+      });
+
+      // 逻辑：双写文件系统。
+      void writeEmailMessage({
+        workspaceId: input.workspaceId,
+        accountEmail: normalizedEmail,
+        mailboxPath: input.mailboxPath,
+        id: `${input.workspaceId}-${normalizedEmail}-${input.mailboxPath}-${externalId}`,
+        externalId,
+        messageId: message.messageId,
+        subject: message.subject,
+        from: extractAddressValues(message.from),
+        to: extractAddressValues(message.to),
+        cc: extractAddressValues(message.cc),
+        bcc: extractAddressValues(message.bcc),
+        date: message.date?.toISOString(),
+        flags: message.flags ?? [],
+        snippet: message.snippet,
+        attachments: message.attachments,
+        size: message.size,
+        bodyHtml: message.bodyHtml,
+        bodyText: message.bodyText,
+        rawRfc822: message.raw,
+      }).catch((err) => {
+        logger.warn({ err, externalId }, "email file store write failed");
       });
     }
 
@@ -722,6 +754,16 @@ export async function markEmailMessageRead(input: {
       where: { id: row.id },
       data: { flags: ensureSeenFlag(existingFlags) },
     });
+    // 逻辑：双写文件系统 flags。
+    void updateEmailFlagsFile({
+      workspaceId: input.workspaceId,
+      accountEmail: row.accountEmail,
+      mailboxPath: row.mailboxPath,
+      externalId: row.externalId,
+      flags: ensureSeenFlag(existingFlags),
+    }).catch((err) => {
+      logger.warn({ err, id: row.id }, "email file store flags update failed");
+    });
     logger.info(
       {
         accountEmail: row.accountEmail,
@@ -875,6 +917,19 @@ export async function setEmailMessageFlagged(input: {
           ? ensureFlaggedFlag(existingFlags)
           : removeFlaggedFlag(existingFlags),
       },
+    });
+    // 逻辑：双写文件系统 flags。
+    const updatedFlags = input.flagged
+      ? ensureFlaggedFlag(existingFlags)
+      : removeFlaggedFlag(existingFlags);
+    void updateEmailFlagsFile({
+      workspaceId: input.workspaceId,
+      accountEmail: row.accountEmail,
+      mailboxPath: row.mailboxPath,
+      externalId: row.externalId,
+      flags: updatedFlags,
+    }).catch((err) => {
+      logger.warn({ err, id: row.id }, "email file store flags update failed");
     });
     logger.info(
       {

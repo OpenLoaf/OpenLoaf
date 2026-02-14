@@ -9,7 +9,16 @@ export type StoredModelSelection = {
   isAuto: boolean;
 };
 
-export type StoredModelSelections = Record<ModelSourceKey, StoredModelSelection>;
+export type StoredModelSelections = Record<ModelSourceKey, StoredModelSelection> & {
+  media?: MediaModelSelection;
+};
+
+export type MediaModelSelection = {
+  /** Selected image generation model id (empty = Auto). */
+  imageModelId: string;
+  /** Selected video generation model id (empty = Auto). */
+  videoModelId: string;
+};
 
 export const MODEL_SELECTION_STORAGE_KEY = "tenas.chat-model-selection";
 export const CHAT_MODEL_SELECTION_EVENT = "tenas:chat-model-selection";
@@ -22,10 +31,15 @@ export function createDefaultStoredSelection(): StoredModelSelection {
   };
 }
 
+export function createDefaultMediaModelSelection(): MediaModelSelection {
+  return { imageModelId: "", videoModelId: "" };
+}
+
 export function createDefaultStoredSelections(): StoredModelSelections {
   return {
     local: createDefaultStoredSelection(),
     cloud: createDefaultStoredSelection(),
+    media: createDefaultMediaModelSelection(),
   };
 }
 
@@ -40,6 +54,17 @@ function normalizeStoredSelection(value: unknown): StoredModelSelection {
   };
 }
 
+function normalizeMediaModelSelection(value: unknown): MediaModelSelection {
+  if (!value || typeof value !== "object") {
+    return createDefaultMediaModelSelection();
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    imageModelId: typeof record.imageModelId === "string" ? record.imageModelId : "",
+    videoModelId: typeof record.videoModelId === "string" ? record.videoModelId : "",
+  };
+}
+
 export function normalizeStoredSelections(value: unknown): StoredModelSelections {
   if (!value || typeof value !== "object") {
     return createDefaultStoredSelections();
@@ -48,6 +73,7 @@ export function normalizeStoredSelections(value: unknown): StoredModelSelections
   return {
     local: normalizeStoredSelection(record.local),
     cloud: normalizeStoredSelection(record.cloud),
+    media: normalizeMediaModelSelection(record.media),
   };
 }
 
@@ -60,7 +86,9 @@ export function areStoredSelectionsEqual(
     left.local.lastModelId === right.local.lastModelId &&
     left.local.isAuto === right.local.isAuto &&
     left.cloud.lastModelId === right.cloud.lastModelId &&
-    left.cloud.isAuto === right.cloud.isAuto
+    left.cloud.isAuto === right.cloud.isAuto &&
+    (left.media?.imageModelId ?? "") === (right.media?.imageModelId ?? "") &&
+    (left.media?.videoModelId ?? "") === (right.media?.videoModelId ?? "")
   );
 }
 

@@ -8,7 +8,7 @@ import {
   skipToken,
 } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
-import { FileText, Inbox, Send, Star } from "lucide-react";
+import { FileText, Inbox, Send, Star, Trash2 } from "lucide-react";
 
 import { trpc } from "@/utils/trpc";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -435,6 +435,12 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
         icon: Send,
         count: unifiedUnreadStats.sent,
       },
+      {
+        scope: "deleted" as const,
+        label: "已删除",
+        icon: Trash2,
+        count: 0,
+      },
     ],
     [unifiedUnreadStats],
   );
@@ -462,7 +468,7 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
   React.useEffect(() => {
     setShowingRawHtml(false);
   }, [activeMessageId]);
-  const hasRawHtml = Boolean(messageDetail?.bodyHtmlRaw);
+  const hasRawHtml = false;
   const handleToggleRawHtml = React.useCallback(() => {
     setShowingRawHtml((prev) => !prev);
   }, []);
@@ -1923,6 +1929,13 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
   /** Refresh messages for current view. */
   function handleRefreshMessages() {
     if (!workspaceId) return
+    // 逻辑：同步邮箱文件夹列表（确保 EmailMailbox 表有数据）。
+    for (const account of accounts) {
+      syncMailboxesMutation.mutate({
+        workspaceId,
+        accountEmail: account.emailAddress,
+      })
+    }
     // 逻辑：mailbox scope → 同步当前文件夹。
     if (activeView.scope === 'mailbox' && activeView.accountEmail && activeView.mailbox) {
       syncMailboxMutation.mutate({
@@ -1940,9 +1953,17 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
         })
       }
     }
-    // 逻辑：同时 invalidate 消息列表和未读统计。
+    // 逻辑：同时 invalidate 消息列表、文件夹列表和未读统计。
     if (unifiedMessagesQueryKey) {
       queryClient.invalidateQueries({ queryKey: unifiedMessagesQueryKey })
+    }
+    for (const account of accounts) {
+      queryClient.invalidateQueries({
+        queryKey: trpc.email.listMailboxes.queryOptions({
+          workspaceId,
+          accountEmail: account.emailAddress,
+        }).queryKey,
+      })
     }
     queryClient.invalidateQueries({
       queryKey: trpc.email.listUnreadCount.queryOptions({ workspaceId }).queryKey,

@@ -127,6 +127,10 @@ export type ChatRequestBody = {
   selectedSkills?: string[];
   /** 工具审批 payload（按 toolCallId 分组）。 */
   toolApprovalPayloads?: Record<string, Record<string, unknown>>;
+  /** 选择的图片生成模型 ID（为空代表 Auto） */
+  imageModelId?: string;
+  /** 选择的视频生成模型 ID（为空代表 Auto） */
+  videoModelId?: string;
 };
 
 export type TokenUsage = {

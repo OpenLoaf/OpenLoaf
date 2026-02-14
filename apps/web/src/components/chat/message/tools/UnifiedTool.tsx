@@ -6,6 +6,7 @@ import { useChatActions, useChatSession, useChatTools } from "@/components/chat/
 import { queryClient, trpc } from "@/utils/trpc";
 import OpenUrlTool from "./OpenUrlTool";
 import SubAgentTool from "./SubAgentTool";
+import MediaGenerateTool from "./MediaGenerateTool";
 import ToolApprovalActions from "./shared/ToolApprovalActions";
 import ToolInfoCard from "./shared/ToolInfoCard";
 import {
@@ -143,6 +144,10 @@ export default function UnifiedTool({
 
   if (toolKind === "sub-agent") {
     return <SubAgentTool part={part} messageId={messageId} />;
+  }
+
+  if (toolKind === "image-generate" || toolKind === "video-generate") {
+    return <MediaGenerateTool part={part} messageId={messageId} />;
   }
 
   if (toolKind === "open-url") {

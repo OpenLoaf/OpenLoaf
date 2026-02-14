@@ -68,6 +68,33 @@ function isTokenExpired(token: string): boolean {
   return Date.now() >= payload.exp * 1000;
 }
 
+// 逻辑：提前刷新缓冲时间，距过期不足 5 分钟时后台刷新。
+const REFRESH_BUFFER_MS = 5 * 60 * 1000;
+
+/** Check whether token is valid but near expiry. */
+function isTokenNearExpiry(token: string): boolean {
+  const payload = parseJwt(token);
+  if (!payload?.exp) return false;
+  const remaining = payload.exp * 1000 - Date.now();
+  return remaining > 0 && remaining < REFRESH_BUFFER_MS;
+}
+
+// --- 认证失效事件回调 ---
+type AuthLostListener = () => void;
+const authLostListeners = new Set<AuthLostListener>();
+
+/** Register a listener for auth lost events. Returns unsubscribe function. */
+export function onAuthLost(listener: AuthLostListener): () => void {
+  authLostListeners.add(listener);
+  return () => {
+    authLostListeners.delete(listener);
+  };
+}
+
+function notifyAuthLost() {
+  for (const listener of authLostListeners) listener();
+}
+
 /** Read tokens from a given storage. */
 function readTokensFromStorage(storage: Storage): StoredAuth | null {
   const accessToken = storage.getItem(ACCESS_TOKEN_KEY) ?? undefined;
@@ -115,6 +142,7 @@ function clearStoredAuth(): void {
   window.sessionStorage.removeItem(ACCESS_TOKEN_KEY);
   window.sessionStorage.removeItem(REFRESH_TOKEN_KEY);
   window.sessionStorage.removeItem(USER_KEY);
+  notifyAuthLost();
 }
 
 /** Read cached user from storage. */
@@ -182,8 +210,22 @@ export async function exchangeLoginCode(input: {
   }
 }
 
+// 逻辑：并发刷新保护，多个调用方共享同一个 refresh 请求。
+let refreshPromise: Promise<string | null> | null = null;
+
 /** Refresh access token using stored refresh token. */
 export async function refreshAccessToken(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = doRefreshAccessToken();
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
+}
+
+/** Internal refresh implementation. */
+async function doRefreshAccessToken(): Promise<string | null> {
   const stored = resolveStoredAuth();
   if (!stored?.refreshToken) {
     clearStoredAuth();
@@ -222,8 +264,12 @@ export async function refreshAccessToken(): Promise<string | null> {
 export async function getAccessToken(): Promise<string | null> {
   const stored = resolveStoredAuth();
   if (!stored?.accessToken) return null;
-  if (!isTokenExpired(stored.accessToken)) return stored.accessToken;
-  return refreshAccessToken();
+  if (isTokenExpired(stored.accessToken)) return refreshAccessToken();
+  // 逻辑：即将过期时后台刷新，但先返回当前 token 不阻塞请求。
+  if (isTokenNearExpiry(stored.accessToken)) {
+    void refreshAccessToken();
+  }
+  return stored.accessToken;
 }
 
 /** Check current auth status. */

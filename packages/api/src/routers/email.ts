@@ -94,6 +94,7 @@ const unifiedMailboxScopeSchema = z.enum([
   "flagged",
   "drafts",
   "sent",
+  "deleted",
   "mailbox",
 ]);
 
@@ -185,6 +186,11 @@ const testConnectionOutputSchema = z.object({
 });
 
 const deleteMessageInputSchema = z.object({
+  workspaceId: z.string().min(1),
+  id: z.string().min(1),
+});
+
+const restoreMessageInputSchema = z.object({
   workspaceId: z.string().min(1),
   id: z.string().min(1),
 });
@@ -323,7 +329,6 @@ const emailMessageDetailSchema = z.object({
   bcc: z.array(z.string()),
   date: z.string().optional(),
   bodyHtml: z.string().optional(),
-  bodyHtmlRaw: z.string().optional(),
   bodyText: z.string().optional(),
   attachments: z.array(
     z.object({
@@ -420,6 +425,10 @@ export const emailSchemas = {
   },
   deleteMessage: {
     input: deleteMessageInputSchema,
+    output: syncMailboxOutputSchema,
+  },
+  restoreMessage: {
+    input: restoreMessageInputSchema,
     output: syncMailboxOutputSchema,
   },
   moveMessage: {
@@ -589,6 +598,12 @@ export abstract class BaseEmailRouter {
       deleteMessage: shieldedProcedure
         .input(emailSchemas.deleteMessage.input)
         .output(emailSchemas.deleteMessage.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      restoreMessage: shieldedProcedure
+        .input(emailSchemas.restoreMessage.input)
+        .output(emailSchemas.restoreMessage.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

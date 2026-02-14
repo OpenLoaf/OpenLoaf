@@ -15,11 +15,7 @@ model EmailMessage {
   flags        Json? /// IMAP flags 或统一标志
   snippet      String? /// 正文摘要
 
-  bodyHtml     String? /// HTML 正文（已清洗）
-  bodyHtmlRaw  String? /// 原始 HTML 正文（未清洗）
-  bodyText     String? /// 纯文本正文
-  attachments  Json? /// 附件元信息
-  rawRfc822    String? /// 原始邮件内容
+  attachments  Json? /// 附件元信息（保留：列表展示用）
 
   size         Int? /// 邮件大小（字节）
   createdAt    DateTime @default(now()) /// 创建时间
@@ -55,7 +51,6 @@ model EmailDraft {
   cc           String   @default("") /// 抄送
   bcc          String   @default("") /// 密送
   subject      String   @default("") /// 主题
-  body         String   @default("") /// 正文
   inReplyTo    String? /// 回复的 Message-Id
   references   Json? /// 引用链
   createdAt    DateTime @default(now()) /// 创建时间

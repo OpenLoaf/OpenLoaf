@@ -224,11 +224,17 @@ export async function cancelMediaProxy(
 }
 
 /** Fetch image model list. */
-export async function fetchImageModelsProxy(accessToken: string): Promise<unknown> {
-  return fetchImageModels(accessToken);
+export async function fetchImageModelsProxy(
+  accessToken: string,
+  options?: { force?: boolean },
+): Promise<unknown> {
+  return fetchImageModels(accessToken, options);
 }
 
 /** Fetch video model list. */
-export async function fetchVideoModelsProxy(accessToken: string): Promise<unknown> {
-  return fetchVideoModels(accessToken);
+export async function fetchVideoModelsProxy(
+  accessToken: string,
+  options?: { force?: boolean },
+): Promise<unknown> {
+  return fetchVideoModels(accessToken, options);
 }

@@ -7,7 +7,7 @@ import type { ChatRequestBody } from "@tenas-ai/api/types/message";
 import { getWebClientId } from "./streamClientId";
 import { resolveServerUrl } from "@/utils/server-url";
 import { getClientTimeZone } from "@/utils/time-zone";
-import { getCachedAccessToken } from "@/lib/saas-auth";
+import { getAccessToken } from "@/lib/saas-auth";
 
 function stripTotalUsageFromMetadata(message: any) {
   if (!message || typeof message !== "object") return message;
@@ -25,19 +25,23 @@ export function createChatTransport({
   tabIdRef,
   chatModelIdRef,
   chatModelSourceRef,
+  imageModelIdRef,
+  videoModelIdRef,
 }: {
   paramsRef: RefObject<Record<string, unknown> | undefined>;
   tabIdRef: RefObject<string | null | undefined>;
   chatModelIdRef?: RefObject<string | null | undefined>;
   chatModelSourceRef?: RefObject<string | null | undefined>;
+  imageModelIdRef?: RefObject<string | null | undefined>;
+  videoModelIdRef?: RefObject<string | null | undefined>;
 }) {
   const apiBase = `${resolveServerUrl()}/ai/execute`;
 
   return new DefaultChatTransport({
     api: apiBase,
     credentials: "include",
-    prepareSendMessagesRequest({ id, messages, body, messageId, headers }) {
-      const accessToken = getCachedAccessToken();
+    async prepareSendMessagesRequest({ id, messages, body, messageId, headers }) {
+      const accessToken = await getAccessToken();
       const nextHeaders =
         accessToken && headers
           ? { ...headers, Authorization: `Bearer ${accessToken}` }
@@ -91,6 +95,8 @@ export function createChatTransport({
         responseMode: "stream",
         ...(normalizedChatModelId ? { chatModelId: normalizedChatModelId } : {}),
         ...(normalizedChatModelSource ? { chatModelSource: normalizedChatModelSource } : {}),
+        ...(imageModelIdRef?.current ? { imageModelId: imageModelIdRef.current } : {}),
+        ...(videoModelIdRef?.current ? { videoModelId: videoModelIdRef.current } : {}),
       };
 
       if (messages.length === 0) {

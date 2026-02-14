@@ -212,6 +212,9 @@ export async function runChatStream(input: {
     toolApprovalPayloads: input.request.toolApprovalPayloads,
     requestSignal: input.requestSignal,
     messageId,
+    saasAccessToken: input.saasAccessToken,
+    imageModelId: input.request.imageModelId,
+    videoModelId: input.request.videoModelId,
   });
 
   const lastMessage = incomingMessages.at(-1) as TenasUIMessage | undefined;
@@ -462,6 +465,7 @@ export async function runChatImageRequest(input: {
     selectedSkills,
     requestSignal: input.requestSignal,
     messageId,
+    saasAccessToken: input.saasAccessToken,
   });
 
   const lastMessage = incomingMessages.at(-1) as TenasUIMessage | undefined;

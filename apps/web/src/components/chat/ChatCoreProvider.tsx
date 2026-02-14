@@ -201,6 +201,60 @@ function handleStepThinkingDataPart(input: {
   return true;
 }
 
+/** Handle media generate data parts from SSE stream. */
+function handleMediaGenerateDataPart(input: {
+  dataPart: any;
+  upsertToolPartMerged?: (key: string, next: Record<string, unknown>) => void;
+}) {
+  const type = input.dataPart?.type;
+  if (
+    type !== "data-media-generate-start" &&
+    type !== "data-media-generate-progress" &&
+    type !== "data-media-generate-end" &&
+    type !== "data-media-generate-error"
+  ) {
+    return false;
+  }
+  const data = input.dataPart?.data as Record<string, unknown> | undefined;
+  const toolCallId = typeof data?.toolCallId === "string" ? data.toolCallId : "";
+  if (!toolCallId || !input.upsertToolPartMerged) return true;
+
+  if (type === "data-media-generate-start") {
+    input.upsertToolPartMerged(toolCallId, {
+      mediaGenerate: {
+        status: "generating",
+        kind: data?.kind,
+        prompt: data?.prompt,
+      },
+    });
+  } else if (type === "data-media-generate-progress") {
+    input.upsertToolPartMerged(toolCallId, {
+      mediaGenerate: {
+        status: "generating",
+        kind: data?.kind,
+        progress: data?.progress,
+      },
+    });
+  } else if (type === "data-media-generate-end") {
+    input.upsertToolPartMerged(toolCallId, {
+      mediaGenerate: {
+        status: "done",
+        kind: data?.kind,
+        urls: data?.urls,
+      },
+    });
+  } else if (type === "data-media-generate-error") {
+    input.upsertToolPartMerged(toolCallId, {
+      mediaGenerate: {
+        status: "error",
+        kind: data?.kind,
+        errorCode: data?.errorCode,
+      },
+    });
+  }
+  return true;
+}
+
 /**
  * Chat provider component.
  * Provides chat state and actions to children.
@@ -225,6 +279,10 @@ type ChatCoreProviderProps = {
   chatModelId?: string | null;
   /** Selected chat model source. */
   chatModelSource?: string | null;
+  /** Selected image generation model id. */
+  imageModelId?: string | null;
+  /** Selected video generation model id. */
+  videoModelId?: string | null;
   /** Add image attachments to the chat input. */
   addAttachments?: (files: FileList | ChatAttachmentInput[]) => void;
   /** Add a masked attachment to the chat input. */
@@ -240,6 +298,8 @@ export default function ChatCoreProvider({
   onSessionChange,
   chatModelId,
   chatModelSource,
+  imageModelId,
+  videoModelId,
   addAttachments,
   addMaskedAttachment,
 }: ChatCoreProviderProps) {
@@ -286,6 +346,12 @@ export default function ChatCoreProvider({
   );
   const chatModelSourceRef = React.useRef<string | null>(
     typeof chatModelSource === "string" ? chatModelSource : null
+  );
+  const imageModelIdRef = React.useRef<string | null>(
+    typeof imageModelId === "string" ? imageModelId : null
+  );
+  const videoModelIdRef = React.useRef<string | null>(
+    typeof videoModelId === "string" ? videoModelId : null
   );
 
   // 关键：记录一次请求对应的 userMessageId（用于在 onFinish 补齐 assistant.parentMessageId）
@@ -475,6 +541,16 @@ export default function ChatCoreProvider({
       typeof chatModelSource === "string" ? chatModelSource.trim() || null : null;
   }, [chatModelSource]);
 
+  React.useEffect(() => {
+    imageModelIdRef.current =
+      typeof imageModelId === "string" ? imageModelId.trim() || null : null;
+  }, [imageModelId]);
+
+  React.useEffect(() => {
+    videoModelIdRef.current =
+      typeof videoModelId === "string" ? videoModelId.trim() || null : null;
+  }, [videoModelId]);
+
   const upsertToolPartMerged = React.useCallback(
     (key: string, next: Partial<Parameters<typeof upsertToolPart>[2]>) => {
       if (!tabId) return;
@@ -485,7 +561,7 @@ export default function ChatCoreProvider({
   );
 
   const transport = React.useMemo(() => {
-    return createChatTransport({ paramsRef, tabIdRef, chatModelIdRef, chatModelSourceRef });
+    return createChatTransport({ paramsRef, tabIdRef, chatModelIdRef, chatModelSourceRef, imageModelIdRef, videoModelIdRef });
   }, []);
 
   const onFinish = React.useCallback(
@@ -581,6 +657,13 @@ export default function ChatCoreProvider({
           return;
         }
         if (handleStepThinkingDataPart({ dataPart, setStepThinking })) return;
+        if (
+          handleMediaGenerateDataPart({
+            dataPart,
+            upsertToolPartMerged,
+          })
+        )
+          return;
         if (
           handleSubAgentDataPart({
             dataPart,

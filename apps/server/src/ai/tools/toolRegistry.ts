@@ -13,6 +13,7 @@ import { updatePlanTool } from "@/ai/tools/updatePlanTool";
 import { projectMutateTool, projectQueryTool } from "@/ai/tools/projectTools";
 import { calendarMutateTool, calendarQueryTool } from "@/ai/tools/calendarTools";
 import { emailMutateTool, emailQueryTool } from "@/ai/tools/emailTools";
+import { imageGenerateTool, videoGenerateTool } from "@/ai/tools/mediaGenerateTools";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import {
   browserActToolDef,
@@ -34,6 +35,10 @@ import {
   emailMutateToolDef,
   emailQueryToolDef,
 } from "@tenas-ai/api/types/tools/email";
+import {
+  imageGenerateToolDef,
+  videoGenerateToolDef,
+} from "@tenas-ai/api/types/tools/mediaGenerate";
 import {
   listDirToolDef,
   readFileToolDef,
@@ -140,6 +145,12 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [generateWidgetToolDef.id]: {
     tool: generateWidgetTool,
+  },
+  [imageGenerateToolDef.id]: {
+    tool: imageGenerateTool,
+  },
+  [videoGenerateToolDef.id]: {
+    tool: videoGenerateTool,
   },
 };
 

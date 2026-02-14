@@ -346,6 +346,38 @@ resolveFrontendToolPending(payload)
 | `open-url` | 在应用内打开网页浏览器面板 | `tools/openUrl.ts` |
 | `sub-agent` (approval) | 子代理审批等待用户确认 | `tools/subAgentTool.ts` |
 
+## SSE 自定义事件模式（非前端执行工具）
+
+某些工具不需要前端执行回执，但需要推送进度/状态事件到前端。通过 `uiWriter` 推送自定义 data 事件，前端在 `ChatCoreProvider` 中监听并更新 `toolParts` 状态。
+
+### 案例：image-generate / video-generate
+
+**后端推送事件：**
+
+```typescript
+// apps/server/src/ai/tools/mediaGenerateTools.ts
+const writer = getUiWriter()
+writer?.write({ type: 'data-media-generate-start', data: { toolCallId, kind, prompt } })
+writer?.write({ type: 'data-media-generate-progress', data: { toolCallId, progress } })
+writer?.write({ type: 'data-media-generate-end', data: { toolCallId, urls } })
+writer?.write({ type: 'data-media-generate-error', data: { toolCallId, errorCode } })
+```
+
+**前端监听（ChatCoreProvider.tsx）：**
+
+`handleMediaGenerateDataPart` 函数处理上述事件，更新 `AnyToolPart.mediaGenerate` 字段。
+
+**前端渲染（MediaGenerateTool.tsx）：**
+
+根据 `mediaGenerate.status` 渲染：generating（进度条）→ done（图片缩略图/视频播放器）→ error（登录按钮/错误提示）。
+
+### 添加新的 SSE 自定义事件工具
+
+1. 后端 `execute` 中通过 `getUiWriter()` 推送 `data-xxx-start/progress/end/error` 事件
+2. `ChatCoreProvider.tsx` 中添加 `handleXxxDataPart` 函数处理事件
+3. `tool-utils.ts` 的 `AnyToolPart` 类型新增对应字段
+4. 创建专用渲染组件，在 `UnifiedTool.tsx` 中路由
+
 ### Key Files
 
 ```

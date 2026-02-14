@@ -46,6 +46,7 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
               item.scope === "flagged" && "text-[#f9ab00] dark:text-amber-300",
               item.scope === "drafts" && "text-[#9334e6] dark:text-violet-300",
               item.scope === "sent" && "text-[#188038] dark:text-emerald-300",
+              item.scope === "deleted" && "text-[#d93025] dark:text-red-300",
               item.scope === "mailbox" && "text-[#5f6368] dark:text-slate-300",
             );
             return (

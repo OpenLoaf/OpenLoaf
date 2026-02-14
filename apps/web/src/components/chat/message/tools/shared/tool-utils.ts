@@ -27,6 +27,15 @@ export type AnyToolPart = {
   approval?: { id?: string; approved?: boolean; reason?: string };
   /** Rendering variant for specialized tool UI. */
   variant?: string;
+  /** Media generation state for image-generate / video-generate tools. */
+  mediaGenerate?: {
+    status: "generating" | "done" | "error";
+    kind?: "image" | "video";
+    prompt?: string;
+    progress?: number;
+    urls?: string[];
+    errorCode?: string;
+  };
 };
 
 export type ToolJsonDisplay = {

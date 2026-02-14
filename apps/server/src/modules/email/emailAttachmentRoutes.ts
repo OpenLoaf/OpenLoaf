@@ -3,6 +3,7 @@ import type { Hono } from "hono";
 import { readEmailConfigFile } from "./emailConfigStore";
 import { getEmailEnvValue } from "./emailEnvStore";
 import { createTransport } from "./transport/factory";
+import { cacheAttachment, readCachedAttachment } from "./emailFileStore";
 import { logger } from "@/common/logger";
 
 /** Register email attachment download HTTP endpoint. */
@@ -29,6 +30,28 @@ export function registerEmailAttachmentRoutes(app: Hono) {
       });
       if (!row) {
         return c.text("邮件未找到。", 404);
+      }
+
+      // 逻辑：先检查本地缓存，命中则直接返回。
+      const attachments = Array.isArray(row.attachments) ? row.attachments : [];
+      const attachMeta = attachments[attachmentIndex] as { filename?: string; contentType?: string } | undefined;
+      if (attachMeta?.filename) {
+        const cached = await readCachedAttachment({
+          workspaceId,
+          accountEmail: row.accountEmail,
+          mailboxPath: row.mailboxPath,
+          externalId: row.externalId,
+          filename: attachMeta.filename,
+        });
+        if (cached) {
+          const encodedFilename = encodeURIComponent(attachMeta.filename);
+          c.header("Content-Type", cached.contentType);
+          c.header(
+            "Content-Disposition",
+            `attachment; filename*=UTF-8''${encodedFilename}`,
+          );
+          return c.body(new Uint8Array(cached.content));
+        }
       }
 
       const config = readEmailConfigFile(workspaceId);
@@ -66,6 +89,19 @@ export function registerEmailAttachmentRoutes(app: Hono) {
           row.externalId,
           attachmentIndex,
         );
+
+        // 逻辑：下载后缓存到本地文件系统。
+        void cacheAttachment({
+          workspaceId,
+          accountEmail: row.accountEmail,
+          mailboxPath: row.mailboxPath,
+          externalId: row.externalId,
+          filename: result.filename,
+          content: Buffer.from(result.content),
+          contentType: result.contentType,
+        }).catch((err) => {
+          logger.warn({ err, messageId, attachmentIndex }, "attachment cache failed");
+        });
 
         const encodedFilename = encodeURIComponent(result.filename);
         c.header("Content-Type", result.contentType);

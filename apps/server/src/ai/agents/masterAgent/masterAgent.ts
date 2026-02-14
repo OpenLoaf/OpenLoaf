@@ -24,6 +24,10 @@ import {
   emailQueryToolDef,
 } from "@tenas-ai/api/types/tools/email";
 import {
+  imageGenerateToolDef,
+  videoGenerateToolDef,
+} from "@tenas-ai/api/types/tools/mediaGenerate";
+import {
   listDirToolDef,
   readFileToolDef,
   writeFileToolDef,
@@ -74,6 +78,8 @@ const MASTER_AGENT_TOOL_IDS = [
   writeFileToolDef.id,
   listDirToolDef.id,
   generateWidgetToolDef.id,
+  imageGenerateToolDef.id,
+  videoGenerateToolDef.id,
   // updatePlanToolDef.id,
 ] as const;
 

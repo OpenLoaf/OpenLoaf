@@ -21,6 +21,13 @@ type SaasErrorPayload = {
   message: string;
 };
 
+/** Resolve force refresh query flag. */
+function resolveForceRefresh(queryValue?: string): boolean {
+  if (!queryValue) return false;
+  const normalized = queryValue.trim().toLowerCase();
+  return normalized === "1" || normalized === "true";
+}
+
 /** Normalize numeric status to a Hono contentful status code. */
 function normalizeStatus(status: number): ContentfulStatusCode {
   if (status >= 200 && status < 600) {
@@ -131,17 +138,19 @@ export function registerSaasMediaRoutes(
   });
 
   app.get("/ai/image/models", async (c) => {
+    const force = resolveForceRefresh(c.req.query("force"));
     return handleSaasMediaRoute(
       c,
-      async (accessToken) => fetchImageModelsHandler(accessToken),
+      async (accessToken) => fetchImageModelsHandler(accessToken, { force }),
       { allowAnonymous: true },
     );
   });
 
   app.get("/ai/vedio/models", async (c) => {
+    const force = resolveForceRefresh(c.req.query("force"));
     return handleSaasMediaRoute(
       c,
-      async (accessToken) => fetchVideoModelsHandler(accessToken),
+      async (accessToken) => fetchVideoModelsHandler(accessToken, { force }),
       { allowAnonymous: true },
     );
   });

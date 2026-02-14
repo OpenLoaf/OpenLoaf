@@ -25,14 +25,14 @@ import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useBasicConfig } from "@/hooks/use-basic-config";
-import { useCloudModels } from "@/hooks/use-cloud-models";
+import { fetchCloudModelsUpdatedAt, useCloudModels } from "@/hooks/use-cloud-models";
 import { useMediaModels } from "@/hooks/use-media-models";
 import {
   buildChatModelOptions,
   normalizeChatModelSource,
 } from "@/lib/provider-models";
 import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
-import { getModelLabel, getProviderDefinition } from "@/lib/model-registry";
+import { getModelLabel } from "@/lib/model-registry";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import { ModelIcon } from "@/components/setting/menus/provider/ModelIcon";
@@ -46,10 +46,12 @@ import {
   MODEL_SELECTION_STORAGE_KEY,
   type ModelSourceKey,
   type StoredModelSelections,
+  type MediaModelSelection,
   normalizeStoredSelections,
   readStoredSelections,
   writeStoredSelections,
   notifyChatModelSelectionChange,
+  createDefaultMediaModelSelection,
 } from "./chat-model-selection-storage";
 
 interface SelectModeProps {
@@ -66,8 +68,20 @@ export default function SelectMode({
   triggerVariant = "text",
 }: SelectModeProps) {
   const { providerItems, refresh } = useSettingsValues();
-  const { models: cloudModels, refresh: refreshCloudModels } = useCloudModels();
-  const { imageModels, videoModels, refresh: refreshMediaModels } = useMediaModels();
+  const {
+    models: cloudModels,
+    updatedAt: cloudModelsUpdatedAt,
+    loaded: cloudModelsLoaded,
+    refresh: refreshCloudModels,
+  } = useCloudModels();
+  const {
+    imageModels,
+    videoModels,
+    imageUpdatedAt,
+    videoUpdatedAt,
+    loaded: mediaModelsLoaded,
+    refresh: refreshMediaModels,
+  } = useMediaModels();
   const installedCliProviderIds = useInstalledCliProviderIds();
   const { basic, setBasic } = useBasicConfig();
   const [open, setOpen] = useState(false);
@@ -198,6 +212,53 @@ export default function SelectMode({
       tabStoredSelections,
     ],
   );
+  /** Update media model selection (image or video). */
+  const updateMediaModelSelection = useCallback(
+    (kind: "image" | "video", modelId: string) => {
+      const currentSelections =
+        modelSelectionMemoryScope === "tab" && tabId
+          ? tabStoredSelections
+          : globalStoredSelections;
+      const prevMedia = currentSelections.media ?? createDefaultMediaModelSelection();
+      const nextMedia: MediaModelSelection = {
+        ...prevMedia,
+        [kind === "image" ? "imageModelId" : "videoModelId"]: modelId,
+      };
+      if (
+        prevMedia.imageModelId === nextMedia.imageModelId &&
+        prevMedia.videoModelId === nextMedia.videoModelId
+      ) {
+        return;
+      }
+      const updated: StoredModelSelections = {
+        ...currentSelections,
+        media: nextMedia,
+      };
+      if (modelSelectionMemoryScope === "tab" && tabId) {
+        setTabChatParams(tabId, {
+          [CHAT_MODEL_SELECTION_TAB_PARAMS_KEY]: updated,
+        });
+        notifyChatModelSelectionChange();
+        return;
+      }
+      setGlobalStoredSelections((prev) => {
+        const nextSelections: StoredModelSelections = {
+          ...prev,
+          media: nextMedia,
+        };
+        writeStoredSelections(nextSelections);
+        notifyChatModelSelectionChange();
+        return nextSelections;
+      });
+    },
+    [
+      globalStoredSelections,
+      modelSelectionMemoryScope,
+      setTabChatParams,
+      tabId,
+      tabStoredSelections,
+    ],
+  );
   /** Resolve a manual model selection for the current source. */
   const resolveManualModelId = useCallback(
     (storedModelId: string) => {
@@ -275,15 +336,67 @@ export default function SelectMode({
   useEffect(() => {
     if (!open) return;
     if (!isCloudSource) return;
-    // 云端模式展开时刷新模型列表，避免显示旧数据。
-    void refreshCloudModels();
-  }, [open, isCloudSource, refreshCloudModels]);
-  useEffect(() => {
-    if (!open) return;
-    if (!isCloudSource) return;
-    // 云端模式展开时刷新图像/视频模型列表。
-    void refreshMediaModels();
-  }, [open, isCloudSource, refreshMediaModels]);
+    let canceled = false;
+    // 逻辑：先比对 updated-at，再按需刷新对应模型列表，避免重复打满接口。
+    const syncCloudModels = async () => {
+      const updatedAt = await fetchCloudModelsUpdatedAt().catch(() => null);
+      if (canceled) return;
+
+      if (!updatedAt) {
+        if (!cloudModelsLoaded) {
+          await refreshCloudModels();
+        }
+        if (!mediaModelsLoaded) {
+          await refreshMediaModels();
+        }
+        return;
+      }
+
+      const tasks: Array<Promise<void>> = [];
+      const chatChanged = updatedAt.chatUpdatedAt !== cloudModelsUpdatedAt;
+      if (!cloudModelsLoaded || chatChanged) {
+        tasks.push(refreshCloudModels({ force: cloudModelsLoaded && chatChanged }));
+      }
+
+      const mediaKinds: Array<"image" | "video"> = [];
+      let mediaChanged = false;
+      const imageChanged = updatedAt.imageUpdatedAt !== imageUpdatedAt;
+      if (!mediaModelsLoaded || imageChanged) {
+        mediaKinds.push("image");
+        mediaChanged = mediaChanged || imageChanged;
+      }
+      const videoChanged = updatedAt.videoUpdatedAt !== videoUpdatedAt;
+      if (!mediaModelsLoaded || videoChanged) {
+        mediaKinds.push("video");
+        mediaChanged = mediaChanged || videoChanged;
+      }
+      if (mediaKinds.length > 0) {
+        tasks.push(
+          refreshMediaModels({
+            kinds: mediaKinds,
+            force: mediaModelsLoaded && mediaChanged,
+          }),
+        );
+      }
+      if (tasks.length > 0) {
+        await Promise.all(tasks);
+      }
+    };
+    void syncCloudModels();
+    return () => {
+      canceled = true;
+    };
+  }, [
+    cloudModelsLoaded,
+    cloudModelsUpdatedAt,
+    imageUpdatedAt,
+    isCloudSource,
+    mediaModelsLoaded,
+    open,
+    refreshCloudModels,
+    refreshMediaModels,
+    videoUpdatedAt,
+  ]);
   useEffect(() => {
     if (!open) return;
     if (!isCloudSource) return;
@@ -351,51 +464,12 @@ export default function SelectMode({
 
   /** Models for rendering (no provider grouping). */
   const activeProviderModels = modelOptions;
-  const groupedProviderModels = useMemo(() => {
-    const groups = new Map<string, typeof activeProviderModels>();
-    activeProviderModels.forEach((option) => {
-      const providerLabel = option.providerName || option.providerId || "其他";
-      if (!groups.has(providerLabel)) {
-        groups.set(providerLabel, []);
-      }
-      groups.get(providerLabel)?.push(option);
-    });
-    return Array.from(groups.entries()).map(([label, options]) => ({
-      label,
-      options,
-    }));
-  }, [activeProviderModels]);
-  /** Group media models by provider label. */
-  const groupMediaModels = useCallback((models: AiModel[]) => {
-    const groups = new Map<string, AiModel[]>();
-    models.forEach((model) => {
-      const providerId = model.providerId ?? "";
-      const providerLabel = providerId
-        ? getProviderDefinition(providerId)?.label ?? providerId
-        : "其他";
-      if (!groups.has(providerLabel)) {
-        groups.set(providerLabel, []);
-      }
-      groups.get(providerLabel)?.push(model);
-    });
-    return Array.from(groups.entries()).map(([label, models]) => ({
-      label,
-      models,
-    }));
-  }, []);
-  const groupedImageModels = useMemo(
-    () => groupMediaModels(imageModels),
-    [groupMediaModels, imageModels],
-  );
-  const groupedVideoModels = useMemo(
-    () => groupMediaModels(videoModels),
-    [groupMediaModels, videoModels],
-  );
 
-  /** Render display-only media model groups. */
+  /** Render interactive media model list with selection. */
   const renderMediaGroups = (
-    groups: Array<{ label: string; models: AiModel[] }>,
+    models: AiModel[],
     emptyText: string,
+    kind: "image" | "video",
   ) => {
     if (showCloudLogin) {
       return (
@@ -404,46 +478,55 @@ export default function SelectMode({
         </div>
       );
     }
-    if (groups.length === 0) {
+    if (models.length === 0) {
       return (
         <div className="px-2 py-6 text-center text-xs text-muted-foreground">
           {emptyText}
         </div>
       );
     }
+    const mediaSelection = storedSelections.media ?? createDefaultMediaModelSelection();
+    const selectedId = kind === "image" ? mediaSelection.imageModelId : mediaSelection.videoModelId;
     return (
       <div className="space-y-1">
-        {groups.map((group) => (
-          <div key={group.label} className="space-y-1">
-            <div className="px-2 text-right text-[10px] font-medium text-muted-foreground">
-              {group.label}
-            </div>
-            {group.models.map((model) => {
-              const modelLabel = model.name ?? model.id;
-              return (
-                <div
-                  key={`${group.label}-${model.id}`}
-                  className="h-12 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/60"
-                >
-                  <div className="flex h-full items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1 text-left">
-                      <div className="flex items-center gap-2 truncate text-[13px] font-medium text-foreground">
-                        <ModelIcon
-                          icon={model.familyId ?? model.id}
-                          size={14}
-                          className="h-3.5 w-3.5 shrink-0"
-                          fallbackSrc={MODEL_ICON_FALLBACK_SRC}
-                          fallbackAlt=""
-                        />
-                        <span className="truncate">{modelLabel}</span>
-                      </div>
-                    </div>
+        <button
+          type="button"
+          className="h-10 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/60"
+          onClick={() => updateMediaModelSelection(kind, "")}
+        >
+          <div className="flex h-full items-center justify-between gap-3">
+            <span className="text-[13px] font-medium text-foreground">Auto</span>
+            {!selectedId && <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />}
+          </div>
+        </button>
+        {models.map((model) => {
+          const modelLabel = model.name ?? model.id;
+          const isSelected = selectedId === model.id;
+          return (
+            <button
+              type="button"
+              key={`${model.providerId ?? "unknown"}-${model.id}`}
+              className="h-12 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/60"
+              onClick={() => updateMediaModelSelection(kind, model.id)}
+            >
+              <div className="flex h-full items-center justify-between gap-3">
+                <div className="min-w-0 flex-1 text-left">
+                  <div className="flex items-center gap-2 truncate text-[13px] font-medium text-foreground">
+                    <ModelIcon
+                      icon={model.familyId ?? model.id}
+                      size={14}
+                      className="h-3.5 w-3.5 shrink-0"
+                      fallbackSrc={MODEL_ICON_FALLBACK_SRC}
+                      fallbackAlt=""
+                    />
+                    <span className="truncate">{modelLabel}</span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        ))}
+                {isSelected && <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />}
+              </div>
+            </button>
+          );
+        })}
       </div>
     );
   };
@@ -589,101 +672,94 @@ export default function SelectMode({
                                 </span>
                               </div>
                             </button>
-                            {groupedProviderModels.length > 0 ? (
-                              groupedProviderModels.map((group) => (
-                                <div key={group.label} className="space-y-1">
-                                  <div className="px-2 text-right text-[10px] font-medium text-muted-foreground">
-                                    {group.label}
-                                  </div>
-                                  {group.options.map((option) => {
-                                    const optionLabel = option.modelDefinition
-                                      ? getModelLabel(option.modelDefinition)
-                                      : option.modelId;
-                                    const tagLabels =
-                                      option.tags && option.tags.length > 0
-                                        ? option.tags.map((tag) => ({
-                                            key: tag,
-                                            label: MODEL_TAG_LABELS[tag] ?? tag,
-                                          }))
-                                        : [];
-                                    const tagColorClasses: Record<string, string> = {
-                                      vision:
-                                        "bg-sky-500/15 text-sky-700 dark:bg-sky-500/25 dark:text-sky-200",
-                                      image:
-                                        "bg-fuchsia-500/15 text-fuchsia-700 dark:bg-fuchsia-500/25 dark:text-fuchsia-200",
-                                      audio:
-                                        "bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/25 dark:text-emerald-200",
-                                      video:
-                                        "bg-violet-500/15 text-violet-700 dark:bg-violet-500/25 dark:text-violet-200",
-                                      code:
-                                        "bg-blue-500/15 text-blue-700 dark:bg-blue-500/25 dark:text-blue-200",
-                                      reasoning:
-                                        "bg-amber-500/20 text-amber-800 dark:bg-amber-500/25 dark:text-amber-100",
-                                      speed:
-                                        "bg-lime-500/15 text-lime-700 dark:bg-lime-500/25 dark:text-lime-200",
-                                      quality:
-                                        "bg-indigo-500/15 text-indigo-700 dark:bg-indigo-500/25 dark:text-indigo-200",
-                                      default:
-                                        "bg-foreground/5 text-muted-foreground dark:bg-foreground/10",
-                                    };
-                                    return (
-                                      <button
-                                        key={option.id}
-                                        type="button"
-                                        onClick={() => {
-                                          updateStoredSelection(sourceKey, {
-                                            isAuto: false,
-                                            lastModelId: option.id,
-                                          });
-                                        }}
-                                        className={cn(
-                                          "h-12 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/60",
-                                          selectedModelId === option.id && "bg-muted/70"
-                                        )}
-                                      >
-                                        <div className="flex h-full items-center justify-between gap-3">
-                                          <div className="min-w-0 flex-1 text-left">
-                                            <div className="flex items-center gap-2 truncate text-[13px] font-medium text-foreground">
-                                              <ModelIcon
-                                                icon={
-                                                  option.modelDefinition?.familyId ??
-                                                  option.modelDefinition?.icon
-                                                }
-                                                size={14}
-                                                className="h-3.5 w-3.5 shrink-0"
-                                                fallbackSrc={MODEL_ICON_FALLBACK_SRC}
-                                                fallbackAlt=""
-                                              />
-                                              <span className="truncate">{optionLabel}</span>
-                                            </div>
-                                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px] text-muted-foreground">
-                                              {tagLabels.map((tag) => (
-                                                <span
-                                                  key={`${option.id}-${tag.key}`}
-                                                  className={cn(
-                                                    "inline-flex items-center rounded-full px-2 py-0.5 text-[9px] leading-none",
-                                                    tagColorClasses[tag.key] ?? tagColorClasses.default
-                                                  )}
-                                                >
-                                                  {tag.label}
-                                                </span>
-                                              ))}
-                                            </div>
-                                          </div>
-                                          <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                                            {selectedModelId === option.id ? (
-                                              <Check
-                                                className="h-4 w-4 text-primary"
-                                                strokeWidth={2.5}
-                                              />
-                                            ) : null}
-                                          </span>
+                            {activeProviderModels.length > 0 ? (
+                              activeProviderModels.map((option) => {
+                                const optionLabel = option.modelDefinition
+                                  ? getModelLabel(option.modelDefinition)
+                                  : option.modelId;
+                                const tagLabels =
+                                  option.tags && option.tags.length > 0
+                                    ? option.tags.map((tag) => ({
+                                        key: tag,
+                                        label: MODEL_TAG_LABELS[tag] ?? tag,
+                                      }))
+                                    : [];
+                                const tagColorClasses: Record<string, string> = {
+                                  vision:
+                                    "bg-sky-500/15 text-sky-700 dark:bg-sky-500/25 dark:text-sky-200",
+                                  image:
+                                    "bg-fuchsia-500/15 text-fuchsia-700 dark:bg-fuchsia-500/25 dark:text-fuchsia-200",
+                                  audio:
+                                    "bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/25 dark:text-emerald-200",
+                                  video:
+                                    "bg-violet-500/15 text-violet-700 dark:bg-violet-500/25 dark:text-violet-200",
+                                  code:
+                                    "bg-blue-500/15 text-blue-700 dark:bg-blue-500/25 dark:text-blue-200",
+                                  reasoning:
+                                    "bg-amber-500/20 text-amber-800 dark:bg-amber-500/25 dark:text-amber-100",
+                                  speed:
+                                    "bg-lime-500/15 text-lime-700 dark:bg-lime-500/25 dark:text-lime-200",
+                                  quality:
+                                    "bg-indigo-500/15 text-indigo-700 dark:bg-indigo-500/25 dark:text-indigo-200",
+                                  default:
+                                    "bg-foreground/5 text-muted-foreground dark:bg-foreground/10",
+                                };
+                                return (
+                                  <button
+                                    key={option.id}
+                                    type="button"
+                                    onClick={() => {
+                                      updateStoredSelection(sourceKey, {
+                                        isAuto: false,
+                                        lastModelId: option.id,
+                                      });
+                                    }}
+                                    className={cn(
+                                      "h-12 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/60",
+                                      selectedModelId === option.id && "bg-muted/70"
+                                    )}
+                                  >
+                                    <div className="flex h-full items-center justify-between gap-3">
+                                      <div className="min-w-0 flex-1 text-left">
+                                        <div className="flex items-center gap-2 truncate text-[13px] font-medium text-foreground">
+                                          <ModelIcon
+                                            icon={
+                                              option.modelDefinition?.familyId ??
+                                              option.modelDefinition?.icon
+                                            }
+                                            size={14}
+                                            className="h-3.5 w-3.5 shrink-0"
+                                            fallbackSrc={MODEL_ICON_FALLBACK_SRC}
+                                            fallbackAlt=""
+                                          />
+                                          <span className="truncate">{optionLabel}</span>
                                         </div>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              ))
+                                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px] text-muted-foreground">
+                                          {tagLabels.map((tag) => (
+                                            <span
+                                              key={`${option.id}-${tag.key}`}
+                                              className={cn(
+                                                "inline-flex items-center rounded-full px-2 py-0.5 text-[9px] leading-none",
+                                                tagColorClasses[tag.key] ?? tagColorClasses.default
+                                              )}
+                                            >
+                                              {tag.label}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                                        {selectedModelId === option.id ? (
+                                          <Check
+                                            className="h-4 w-4 text-primary"
+                                            strokeWidth={2.5}
+                                          />
+                                        ) : null}
+                                      </span>
+                                    </div>
+                                  </button>
+                                );
+                              })
                             ) : (
                               <div className="px-2 py-6 text-center text-xs text-muted-foreground">
                                 {showCloudEmpty ? "云端模型暂未开放" : "暂无可用模型"}
@@ -706,7 +782,7 @@ export default function SelectMode({
                     </AccordionPrimitive.Header>
                     <AccordionContent className="pt-1">
                       <div className="max-h-[28rem] overflow-y-auto pr-1">
-                        {renderMediaGroups(groupedImageModels, "暂无图像模型")}
+                        {renderMediaGroups(imageModels, "暂无图像模型", "image")}
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -722,7 +798,7 @@ export default function SelectMode({
                     </AccordionPrimitive.Header>
                     <AccordionContent className="pt-1">
                       <div className="max-h-[28rem] overflow-y-auto pr-1">
-                        {renderMediaGroups(groupedVideoModels, "暂无视频模型")}
+                        {renderMediaGroups(videoModels, "暂无视频模型", "video")}
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -764,100 +840,93 @@ export default function SelectMode({
                       </span>
                     </div>
                   </button>
-                  {groupedProviderModels.length > 0 ? (
-                    groupedProviderModels.map((group) => (
-                      <div key={group.label} className="space-y-1">
-            <div className="px-2 text-right text-[10px] font-medium text-muted-foreground">
-              {group.label}
-            </div>
-                        {group.options.map((option) => {
-                          const optionLabel = option.modelDefinition
-                            ? getModelLabel(option.modelDefinition)
-                            : option.modelId;
-                          const tagLabels =
-                            option.tags && option.tags.length > 0
-                              ? option.tags.map((tag) => ({
-                                  key: tag,
-                                  label: MODEL_TAG_LABELS[tag] ?? tag,
-                                }))
-                              : [];
-                          const tagColorClasses: Record<string, string> = {
-                            vision:
-                              "bg-sky-500/15 text-sky-700 dark:bg-sky-500/25 dark:text-sky-200",
-                            image:
-                              "bg-fuchsia-500/15 text-fuchsia-700 dark:bg-fuchsia-500/25 dark:text-fuchsia-200",
-                            audio:
-                              "bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/25 dark:text-emerald-200",
-                            video:
-                              "bg-violet-500/15 text-violet-700 dark:bg-violet-500/25 dark:text-violet-200",
-                            code:
-                              "bg-blue-500/15 text-blue-700 dark:bg-blue-500/25 dark:text-blue-200",
-                            reasoning:
-                              "bg-amber-500/20 text-amber-800 dark:bg-amber-500/25 dark:text-amber-100",
-                            speed:
-                              "bg-lime-500/15 text-lime-700 dark:bg-lime-500/25 dark:text-lime-200",
-                            quality:
-                              "bg-indigo-500/15 text-indigo-700 dark:bg-indigo-500/25 dark:text-indigo-200",
-                            default: "bg-foreground/5 text-muted-foreground dark:bg-foreground/10",
-                          };
-                          return (
-                            <button
-                              key={option.id}
-                              type="button"
-                              onClick={() => {
-                                updateStoredSelection(sourceKey, {
-                                  isAuto: false,
-                                  lastModelId: option.id,
-                                });
-                              }}
-                              className={cn(
-                                "h-12 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/60",
-                                selectedModelId === option.id && "bg-muted/70"
-                              )}
-                            >
-                              <div className="flex h-full items-center justify-between gap-3">
-                                <div className="min-w-0 flex-1 text-left">
-                                  <div className="flex items-center gap-2 truncate text-[13px] font-medium text-foreground">
-                                    <ModelIcon
-                                      icon={
-                                        option.modelDefinition?.familyId ??
-                                        option.modelDefinition?.icon
-                                      }
-                                      size={14}
-                                      className="h-3.5 w-3.5 shrink-0"
-                                      fallbackSrc={MODEL_ICON_FALLBACK_SRC}
-                                      fallbackAlt=""
-                                    />
-                                    <span className="truncate">{optionLabel}</span>
-                                  </div>
-                                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px] text-muted-foreground">
-                                    {tagLabels.map((tag) => (
-                                      <span
-                                        key={`${option.id}-${tag.key}`}
-                                        className={cn(
-                                          "inline-flex items-center rounded-full px-2 py-0.5 text-[9px] leading-none",
-                                          tagColorClasses[tag.key] ?? tagColorClasses.default
-                                        )}
-                                      >
-                                        {tag.label}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                                <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                                  {selectedModelId === option.id ? (
-                                    <Check
-                                      className="h-4 w-4 text-primary"
-                                      strokeWidth={2.5}
-                                    />
-                                  ) : null}
-                                </span>
+                  {activeProviderModels.length > 0 ? (
+                    activeProviderModels.map((option) => {
+                      const optionLabel = option.modelDefinition
+                        ? getModelLabel(option.modelDefinition)
+                        : option.modelId;
+                      const tagLabels =
+                        option.tags && option.tags.length > 0
+                          ? option.tags.map((tag) => ({
+                              key: tag,
+                              label: MODEL_TAG_LABELS[tag] ?? tag,
+                            }))
+                          : [];
+                      const tagColorClasses: Record<string, string> = {
+                        vision:
+                          "bg-sky-500/15 text-sky-700 dark:bg-sky-500/25 dark:text-sky-200",
+                        image:
+                          "bg-fuchsia-500/15 text-fuchsia-700 dark:bg-fuchsia-500/25 dark:text-fuchsia-200",
+                        audio:
+                          "bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/25 dark:text-emerald-200",
+                        video:
+                          "bg-violet-500/15 text-violet-700 dark:bg-violet-500/25 dark:text-violet-200",
+                        code:
+                          "bg-blue-500/15 text-blue-700 dark:bg-blue-500/25 dark:text-blue-200",
+                        reasoning:
+                          "bg-amber-500/20 text-amber-800 dark:bg-amber-500/25 dark:text-amber-100",
+                        speed:
+                          "bg-lime-500/15 text-lime-700 dark:bg-lime-500/25 dark:text-lime-200",
+                        quality:
+                          "bg-indigo-500/15 text-indigo-700 dark:bg-indigo-500/25 dark:text-indigo-200",
+                        default: "bg-foreground/5 text-muted-foreground dark:bg-foreground/10",
+                      };
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => {
+                            updateStoredSelection(sourceKey, {
+                              isAuto: false,
+                              lastModelId: option.id,
+                            });
+                          }}
+                          className={cn(
+                            "h-12 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/60",
+                            selectedModelId === option.id && "bg-muted/70"
+                          )}
+                        >
+                          <div className="flex h-full items-center justify-between gap-3">
+                            <div className="min-w-0 flex-1 text-left">
+                              <div className="flex items-center gap-2 truncate text-[13px] font-medium text-foreground">
+                                <ModelIcon
+                                  icon={
+                                    option.modelDefinition?.familyId ??
+                                    option.modelDefinition?.icon
+                                  }
+                                  size={14}
+                                  className="h-3.5 w-3.5 shrink-0"
+                                  fallbackSrc={MODEL_ICON_FALLBACK_SRC}
+                                  fallbackAlt=""
+                                />
+                                <span className="truncate">{optionLabel}</span>
                               </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ))
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px] text-muted-foreground">
+                                {tagLabels.map((tag) => (
+                                  <span
+                                    key={`${option.id}-${tag.key}`}
+                                    className={cn(
+                                      "inline-flex items-center rounded-full px-2 py-0.5 text-[9px] leading-none",
+                                      tagColorClasses[tag.key] ?? tagColorClasses.default
+                                    )}
+                                  >
+                                    {tag.label}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                              {selectedModelId === option.id ? (
+                                <Check
+                                  className="h-4 w-4 text-primary"
+                                  strokeWidth={2.5}
+                                />
+                              ) : null}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })
                   ) : (
                     <div className="px-2 py-6 text-center text-xs text-muted-foreground">
                       暂无可用模型

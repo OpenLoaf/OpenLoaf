@@ -50,7 +50,7 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
 export function buildToolset(toolIds: string[]) → Record<string, tool>
 ```
 
-**现有工具**: timeNow, jsonRender, openUrl, browserSnapshot/Observe/Extract/Act/Wait, shell, shellCommand, execCommand, writeStdin, readFile, writeFile, listDir, updatePlan, subAgent, testApproval
+**现有工具**: timeNow, jsonRender, openUrl, browserSnapshot/Observe/Extract/Act/Wait, shell, shellCommand, execCommand, writeStdin, readFile, writeFile, listDir, updatePlan, subAgent, testApproval, imageGenerate, videoGenerate
 
 ## RequestContext (AsyncLocalStorage)
 
@@ -67,6 +67,8 @@ export function buildToolset(toolIds: string[]) → Record<string, tool>
 | `getAssistantMessageId()` | 当前 AI 消息 ID |
 | `consumeToolApprovalPayload(toolCallId)` | 消费审批数据 |
 | `pushAgentFrame()` / `popAgentFrame()` | Agent 栈管理 |
+| `getSaasAccessToken()` | SaaS 云端访问令牌（媒体生成等） |
+| `getMediaModelId(kind)` | 媒体模型 ID（`'image'` / `'video'`） |
 
 ## Tool Approval
 
@@ -111,7 +113,31 @@ getProviderDefinition("deepseek")                → ProviderDefinition
 
 ## Media (Image/Video) via SaaS
 
-聊天侧的图片生成不再构建本地 image 模型，统一走 SaaS SDK：
+媒体生成统一走 SaaS SDK，有两条路径：
+
+### 路径 1：聊天 Agent Tool（推荐）
+
+Master Agent 通过 `image-generate` / `video-generate` 工具调用 SaaS API：
+
+```
+用户消息 → Master Agent → imageGenerateTool / videoGenerateTool
+  → getSaasAccessToken() 验证登录
+  → getMediaModelId('image'/'video') 获取模型
+  → submitMediaTask() → pollMediaTask() 轮询
+  → saveChatImageAttachment() 持久化
+  → 通过 uiWriter 推送进度事件：
+    data-media-generate-start / progress / end / error
+```
+
+错误处理：tool 在抛异常前通过 `uiWriter` 推送 `data-media-generate-error` 事件（含 `errorCode`），前端渲染对应 UI（登录按钮、积分不足提示等）。
+
+`errorCode` 枚举：`login_required` | `insufficient_credits` | `no_model` | `generation_failed`
+
+关键文件：`apps/server/src/ai/tools/mediaGenerateTools.ts`
+
+### 路径 2：Board 画布节点（保留）
+
+Board 节点通过 `intent: "image"` + `responseMode: "json"` 走独立流程：
 
 - 入口：`apps/server/src/ai/services/chat/chatStreamService.ts`
 - 调用：`getSaasClient(accessToken).ai.image(payload)` → `ai.task(taskId)` 轮询

@@ -154,8 +154,6 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
           ) : null}
           {detail.messageDetailLoading ? (
             <div className="text-xs text-muted-foreground">正在加载邮件详情...</div>
-          ) : detail.showingRawHtml && detail.messageDetail?.bodyHtmlRaw ? (
-            <RawHtmlIframe html={detail.messageDetail.bodyHtmlRaw} />
           ) : detail.messageDetail?.bodyHtml ? (
             <div
               className="prose prose-sm max-w-none text-foreground prose-img:max-w-full prose-p:my-3 leading-7"

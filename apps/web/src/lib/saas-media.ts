@@ -2,10 +2,29 @@ import { resolveServerUrl } from "@/utils/server-url";
 import type { SaasImageSubmitPayload, SaasVideoSubmitPayload } from "@tenas-ai/api/types/saasMedia";
 import { getAccessToken } from "@/lib/saas-auth";
 
+type FetchMediaModelsOptions = {
+  /** Force bypass server cache. */
+  force?: boolean;
+};
+
 /** Build auth headers for SaaS proxy. */
 async function buildAuthHeaders(): Promise<Record<string, string>> {
   const token = await getAccessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/** Build media model request URL with optional query. */
+function buildModelRequestUrl(path: string, options?: FetchMediaModelsOptions): string {
+  const base = resolveServerUrl();
+  if (!base) {
+    const query = options?.force ? "?force=1" : "";
+    return `${path}${query}`;
+  }
+  const url = new URL(path, base);
+  if (options?.force) {
+    url.searchParams.set("force", "1");
+  }
+  return url.toString();
 }
 
 /** Submit an image generation task to SaaS proxy. */
@@ -58,10 +77,9 @@ export async function cancelTask(taskId: string) {
 }
 
 /** Fetch image model list from SaaS proxy. */
-export async function fetchImageModels() {
-  const base = resolveServerUrl();
+export async function fetchImageModels(options?: FetchMediaModelsOptions) {
   const authHeaders = await buildAuthHeaders();
-  const response = await fetch(`${base}/ai/image/models`, {
+  const response = await fetch(buildModelRequestUrl("/ai/image/models", options), {
     credentials: "include",
     headers: authHeaders,
   });
@@ -69,10 +87,9 @@ export async function fetchImageModels() {
 }
 
 /** Fetch video model list from SaaS proxy. */
-export async function fetchVideoModels() {
-  const base = resolveServerUrl();
+export async function fetchVideoModels(options?: FetchMediaModelsOptions) {
   const authHeaders = await buildAuthHeaders();
-  const response = await fetch(`${base}/ai/vedio/models`, {
+  const response = await fetch(buildModelRequestUrl("/ai/vedio/models", options), {
     credentials: "include",
     headers: authHeaders,
   });

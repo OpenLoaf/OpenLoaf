@@ -1,4 +1,5 @@
 import { getSaasClient } from "../../client";
+import { getSaasBaseUrl } from "../../core/config";
 
 type ModelListPayload = {
   /** Success flag from SaaS. */
@@ -24,13 +25,41 @@ type ModelListPayload = {
   };
 };
 
+type ModelsUpdatedAtPayload = {
+  /** Success flag from SaaS. */
+  success: false;
+  /** Error message from SaaS. */
+  message: string;
+  /** Optional error code. */
+  code?: string;
+} | {
+  /** Success flag from SaaS. */
+  success: true;
+  /** Updated-at payload. */
+  data: {
+    chatUpdatedAt: string;
+    imageUpdatedAt: string;
+    videoUpdatedAt: string;
+    latestUpdatedAt: string;
+  };
+};
+
+type FetchModelListOptions = {
+  /** Force bypass in-memory cache. */
+  force?: boolean;
+};
+
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const cached = new Map<string, { updatedAt: number; payload: ModelListPayload }>();
 
 /** Fetch SaaS model list with in-memory cache. */
-export async function fetchModelList(accessToken: string): Promise<ModelListPayload> {
+export async function fetchModelList(
+  accessToken: string,
+  options: FetchModelListOptions = {},
+): Promise<ModelListPayload> {
+  const force = options.force === true;
   const cachedEntry = cached.get(accessToken);
-  if (cachedEntry && Date.now() - cachedEntry.updatedAt < CACHE_TTL_MS) {
+  if (!force && cachedEntry && Date.now() - cachedEntry.updatedAt < CACHE_TTL_MS) {
     return cachedEntry.payload;
   }
   const client = getSaasClient(accessToken);
@@ -45,6 +74,34 @@ export async function fetchModelList(accessToken: string): Promise<ModelListPayl
     for (let i = 0; i < overflow; i += 1) {
       cached.delete(entries[i]![0]);
     }
+  }
+  return payload;
+}
+
+/** Fetch SaaS models updated-at aggregate payload. */
+export async function fetchModelsUpdatedAt(
+  accessToken: string,
+): Promise<ModelsUpdatedAtPayload> {
+  const client = getSaasClient(accessToken);
+  const aiClient = client.ai as {
+    modelsUpdatedAt?: () => Promise<ModelsUpdatedAtPayload>;
+  };
+  if (typeof aiClient.modelsUpdatedAt === "function") {
+    return aiClient.modelsUpdatedAt();
+  }
+  const baseUrl = getSaasBaseUrl();
+  const requestUrl = new URL("/api/public/ai/models/updated-at", baseUrl).toString();
+  const headers = accessToken
+    ? { Authorization: `Bearer ${accessToken}` }
+    : undefined;
+  const response = await fetch(requestUrl, { headers });
+  const payload = (await response.json().catch(() => null)) as ModelsUpdatedAtPayload | null;
+  if (!response.ok || !payload) {
+    return {
+      success: false,
+      message: "saas_request_failed",
+      code: String(response.status || 502),
+    };
   }
   return payload;
 }

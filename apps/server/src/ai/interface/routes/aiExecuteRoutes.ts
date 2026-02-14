@@ -90,6 +90,8 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
       intent: intent ?? "chat",
       responseMode: responseMode ?? "stream",
       toolApprovalPayloads,
+      imageModelId: toText(raw.imageModelId) || undefined,
+      videoModelId: toText(raw.videoModelId) || undefined,
     },
   };
 }

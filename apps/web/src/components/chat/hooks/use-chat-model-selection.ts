@@ -16,6 +16,7 @@ import {
   normalizeStoredSelections,
   readStoredSelections,
   writeStoredSelections,
+  createDefaultMediaModelSelection,
 } from "../input/chat-model-selection-storage";
 import {
   supportsCode,
@@ -121,6 +122,7 @@ export function useChatModelSelection(tabId?: string) {
   const canImageGeneration = false;
   const canImageEdit = supportsImageInput(selectedModel);
   const isCodexProvider = selectedModel?.providerId === "codex-cli";
+  const mediaSelection = storedSelections.media ?? createDefaultMediaModelSelection();
 
   return {
     chatModelSource,
@@ -134,5 +136,7 @@ export function useChatModelSelection(tabId?: string) {
     canImageGeneration,
     canImageEdit,
     isCodexProvider,
+    imageModelId: mediaSelection.imageModelId || undefined,
+    videoModelId: mediaSelection.videoModelId || undefined,
   };
 }

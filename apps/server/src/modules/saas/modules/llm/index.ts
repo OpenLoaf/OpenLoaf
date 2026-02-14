@@ -1,1 +1,1 @@
-export { fetchModelList } from "./client";
+export { fetchModelList, fetchModelsUpdatedAt } from "./client";

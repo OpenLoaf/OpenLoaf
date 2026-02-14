@@ -57,3 +57,22 @@ export function removeFlaggedFlag(flags: string[]): string[] {
   // 逻辑：过滤掉所有形式的星标标记。
   return flags.filter((flag) => !hasFlag([flag], "FLAGGED"));
 }
+
+/** Check if flags contain Deleted. */
+export function hasDeletedFlag(flags: string[]): boolean {
+  return flags.some((flag) => {
+    const normalized = flag.trim().toUpperCase();
+    return normalized === "\\DELETED" || normalized === "DELETED";
+  });
+}
+
+/** Ensure Deleted flag exists (idempotent). */
+export function ensureDeletedFlag(flags: string[]): string[] {
+  if (hasDeletedFlag(flags)) return flags;
+  return [...flags, "\\Deleted"];
+}
+
+/** Remove Deleted flag if present. */
+export function removeDeletedFlag(flags: string[]): string[] {
+  return flags.filter((flag) => !hasDeletedFlag([flag]));
+}

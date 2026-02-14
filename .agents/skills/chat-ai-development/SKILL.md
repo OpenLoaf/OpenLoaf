@@ -79,6 +79,7 @@ apps/web/src/components/chat/
 │   ├── MessageItem.tsx         ← 单条消息（按 role 分发）
 │   ├── MessageParts.tsx        ← Part 渲染 (renderMessageParts)
 │   ├── tools/MessageTool.tsx   ← 工具路由 → UnifiedTool/SubAgentTool/PlanTool
+│   ├── tools/MediaGenerateTool.tsx ← 图片/视频生成工具卡片（进度+结果+错误）
 │   ├── tools/OpenUrlTool.tsx   ← open-url 前端工具卡片
 │   └── markdown/               ← Markdown 渲染组件
 │
@@ -107,6 +108,7 @@ apps/server/src/ai/
 │   ├── toolRegistry.ts         ← 工具注册表 (TOOL_REGISTRY)
 │   ├── subAgentTool.ts         ← 子代理分发
 │   ├── openUrl.ts              ← open-url 前端执行工具
+│   ├── mediaGenerateTools.ts   ← 图片/视频生成工具（SaaS API 调用+轮询+进度推送）
 │   ├── pendingRegistry.ts      ← 前端工具 Promise 注册/回执/超时
 │   ├── fileTools.ts / shellTool.ts / browserAutomationTools.ts / ...
 │   └── commandApproval.ts      ← 命令审批逻辑

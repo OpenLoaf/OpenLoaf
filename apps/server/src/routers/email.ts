@@ -25,9 +25,32 @@ import {
   shouldAutoSyncOnAdd,
   syncRecentMailboxMessages,
 } from "@/modules/email/emailSyncService";
-import { hasFlag, hasSeenFlag, normalizeEmailFlags } from "@/modules/email/emailFlags";
+import {
+  ensureDeletedFlag,
+  hasDeletedFlag,
+  hasFlag,
+  hasSeenFlag,
+  normalizeEmailFlags,
+  removeDeletedFlag,
+} from "@/modules/email/emailFlags";
 import { getEmailEnvValue } from "@/modules/email/emailEnvStore";
 import { createTransport } from "@/modules/email/transport/factory";
+import {
+  deleteAccountFiles,
+  loadMailboxIndex,
+  moveEmailMessage as moveEmailMessageFile,
+  readEmailBodyHtml,
+  readEmailBodyMd,
+  readEmailMeta,
+  saveDraftFile,
+  readDraftFile,
+  listDraftFiles,
+  deleteDraftFile,
+  updateEmailFlags,
+  writeMailboxes,
+  readMailboxes,
+} from "@/modules/email/emailFileStore";
+import type { StoredDraft } from "@/modules/email/emailFileStore";
 import { logger } from "@/common/logger";
 
 type EmailAccountView = {
@@ -414,6 +437,13 @@ export class EmailRouterImpl extends BaseEmailRouter {
               accountEmail: normalizedEmail,
             },
           });
+          // 逻辑：清理文件系统中该账号的所有文件。
+          void deleteAccountFiles({
+            workspaceId: input.workspaceId,
+            accountEmail: normalizedEmail,
+          }).catch((err) => {
+            logger.warn({ err }, "email file store account cleanup failed");
+          });
           return { ok: true };
         }),
 
@@ -678,6 +708,70 @@ export class EmailRouterImpl extends BaseEmailRouter {
             };
           }
 
+          // 逻辑："已删除"虚拟文件夹 — 跨邮箱过滤 \\Deleted 标记的邮件。
+          if (scope === "deleted") {
+            const targetCount = pageSize + 1;
+            const collected: Array<{
+              id: string;
+              accountEmail: string;
+              mailboxPath: string;
+              from: unknown;
+              subject: string | null;
+              snippet: string | null;
+              date: Date | null;
+              flags: unknown;
+              attachments?: unknown;
+              createdAt: Date;
+            }> = [];
+            let cursor = input.cursor ?? null;
+            let iterations = 0;
+            const batchSize = Math.min(pageSize * 4, 200);
+            while (collected.length < targetCount && iterations < 8) {
+              const { rows, nextCursor, hasMore } = await fetchMessageRowsPage({
+                prisma: ctx.prisma,
+                where: {
+                  workspaceId: input.workspaceId,
+                  accountEmail: { in: [...activeEmails] },
+                },
+                pageSize: batchSize,
+                cursor,
+              });
+              if (!rows.length) {
+                cursor = null;
+                break;
+              }
+              const deleted = rows.filter((row) =>
+                hasDeletedFlag(normalizeEmailFlags(row.flags)),
+              );
+              collected.push(...deleted);
+              cursor = nextCursor;
+              if (!hasMore) break;
+              iterations += 1;
+            }
+            const hasMore = collected.length > pageSize;
+            const pageRows = hasMore ? collected.slice(0, pageSize) : collected;
+            const nextCursor = hasMore
+              ? encodeMessageCursor(pageRows[pageRows.length - 1]!)
+              : null;
+            return {
+              items: pageRows.map((row) =>
+                toMessageSummary({
+                  id: row.id,
+                  accountEmail: row.accountEmail,
+                  mailboxPath: row.mailboxPath,
+                  from: row.from,
+                  subject: row.subject,
+                  snippet: row.snippet,
+                  date: row.date,
+                  flags: row.flags,
+                  attachments: row.attachments,
+                  privateSenders,
+                }),
+              ),
+              nextCursor,
+            };
+          }
+
           const mailboxTargets = mailboxes
             .filter((mailbox) => {
               if (scope === "all-inboxes") return isInboxMailbox(mailbox);
@@ -886,8 +980,23 @@ export class EmailRouterImpl extends BaseEmailRouter {
             throw new Error("邮件不存在。");
           }
           const privateSenders = buildPrivateSenderSet(input.workspaceId);
-          const fromAddress = extractSenderEmail(row.from ?? row.rawRfc822 ?? "");
+          const fromAddress = extractSenderEmail(row.from ?? "");
           const isPrivate = fromAddress ? privateSenders.has(fromAddress) : false;
+          // 逻辑：从文件系统读取正文内容。
+          const [bodyHtml, bodyText] = await Promise.all([
+            readEmailBodyHtml({
+              workspaceId: input.workspaceId,
+              accountEmail: row.accountEmail,
+              mailboxPath: row.mailboxPath,
+              externalId: row.externalId,
+            }),
+            readEmailBodyMd({
+              workspaceId: input.workspaceId,
+              accountEmail: row.accountEmail,
+              mailboxPath: row.mailboxPath,
+              externalId: row.externalId,
+            }),
+          ]);
           return {
             id: row.id,
             accountEmail: row.accountEmail,
@@ -898,9 +1007,8 @@ export class EmailRouterImpl extends BaseEmailRouter {
             cc: normalizeAddressList(row.cc),
             bcc: normalizeAddressList(row.bcc),
             date: row.date ? row.date.toISOString() : undefined,
-            bodyHtml: row.bodyHtml ?? undefined,
-            bodyHtmlRaw: row.bodyHtmlRaw ?? undefined,
-            bodyText: row.bodyText ?? undefined,
+            bodyHtml: bodyHtml ?? undefined,
+            bodyText: bodyText ?? undefined,
             attachments: normalizeAttachments(row.attachments),
             flags: normalizeStringArray(row.flags),
             fromAddress: fromAddress ?? undefined,
@@ -994,37 +1102,50 @@ export class EmailRouterImpl extends BaseEmailRouter {
             where: { id: input.id },
           });
           if (!row) throw new Error("邮件未找到。");
-          const config = readEmailConfigFile(input.workspaceId);
-          const account = config.emailAccounts.find(
-            (a) =>
-              a.emailAddress.trim().toLowerCase() ===
-              row.accountEmail.trim().toLowerCase(),
-          );
-          if (!account) throw new Error("账号未找到。");
-          const transport = createTransport(
-            {
-              emailAddress: account.emailAddress,
-              auth: account.auth,
-              imap: account.imap,
-              smtp: account.smtp,
-            },
-            {
-              workspaceId: input.workspaceId,
-              password: account.auth.type === "password"
-                ? getEmailEnvValue(account.auth.envKey)
-                : undefined,
-            },
-          );
-          try {
-            if (!transport.deleteMessage) {
-              throw new Error("当前适配器不支持删除邮件。");
-            }
-            await transport.deleteMessage(row.mailboxPath, row.externalId);
-            await prisma.emailMessage.delete({ where: { id: input.id } });
-            return { ok: true };
-          } finally {
-            await transport.dispose();
-          }
+          // 逻辑：软删除 — 添加 \\Deleted 标记而非硬删除。
+          const existingFlags = normalizeEmailFlags(row.flags);
+          const newFlags = ensureDeletedFlag(existingFlags);
+          await prisma.emailMessage.update({
+            where: { id: input.id },
+            data: { flags: newFlags },
+          });
+          void updateEmailFlags({
+            workspaceId: input.workspaceId,
+            accountEmail: row.accountEmail,
+            mailboxPath: row.mailboxPath,
+            externalId: row.externalId,
+            flags: newFlags,
+          }).catch((err) => {
+            logger.warn({ err, id: input.id }, "email file store soft delete failed");
+          });
+          return { ok: true };
+        }),
+      restoreMessage: shieldedProcedure
+        .input(emailSchemas.restoreMessage.input)
+        .output(emailSchemas.restoreMessage.output)
+        .mutation(async ({ input, ctx }) => {
+          const prisma = ctx.prisma as PrismaClient;
+          const row = await prisma.emailMessage.findUnique({
+            where: { id: input.id },
+          });
+          if (!row) throw new Error("邮件未找到。");
+          // 逻辑：恢复 — 移除 \\Deleted 标记。
+          const existingFlags = normalizeEmailFlags(row.flags);
+          const newFlags = removeDeletedFlag(existingFlags);
+          await prisma.emailMessage.update({
+            where: { id: input.id },
+            data: { flags: newFlags },
+          });
+          void updateEmailFlags({
+            workspaceId: input.workspaceId,
+            accountEmail: row.accountEmail,
+            mailboxPath: row.mailboxPath,
+            externalId: row.externalId,
+            flags: newFlags,
+          }).catch((err) => {
+            logger.warn({ err, id: input.id }, "email file store restore failed");
+          });
+          return { ok: true };
         }),
       moveMessage: shieldedProcedure
         .input(emailSchemas.moveMessage.input)
@@ -1065,6 +1186,16 @@ export class EmailRouterImpl extends BaseEmailRouter {
               where: { id: input.id },
               data: { mailboxPath: input.toMailbox },
             });
+            // 逻辑：双写文件系统移动。
+            void moveEmailMessageFile({
+              workspaceId: input.workspaceId,
+              accountEmail: row.accountEmail,
+              fromMailboxPath: row.mailboxPath,
+              toMailboxPath: input.toMailbox,
+              externalId: row.externalId,
+            }).catch((err) => {
+              logger.warn({ err, id: input.id }, "email file store move failed");
+            });
             return { ok: true };
           } finally {
             await transport.dispose();
@@ -1076,6 +1207,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
         .mutation(async ({ input, ctx }) => {
           const prisma = ctx.prisma as PrismaClient;
           const id = input.id || crypto.randomUUID();
+          const now = new Date();
           const row = await (prisma as any).emailDraft.upsert({
             where: { id },
             create: {
@@ -1087,7 +1219,6 @@ export class EmailRouterImpl extends BaseEmailRouter {
               cc: input.cc,
               bcc: input.bcc,
               subject: input.subject,
-              body: input.body,
               inReplyTo: input.inReplyTo ?? null,
               references: input.references ?? null,
             },
@@ -1098,10 +1229,31 @@ export class EmailRouterImpl extends BaseEmailRouter {
               cc: input.cc,
               bcc: input.bcc,
               subject: input.subject,
-              body: input.body,
               inReplyTo: input.inReplyTo ?? null,
               references: input.references ?? null,
             },
+          });
+          // 逻辑：body 存储到文件系统。
+          const draftData: StoredDraft = {
+            id: row.id,
+            accountEmail: row.accountEmail,
+            mode: row.mode,
+            to: row.to,
+            cc: row.cc,
+            bcc: row.bcc,
+            subject: row.subject,
+            body: input.body,
+            inReplyTo: row.inReplyTo ?? null,
+            references: row.references ? normalizeStringArray(row.references) : null,
+            createdAt: row.createdAt.toISOString(),
+            updatedAt: row.updatedAt.toISOString(),
+          };
+          void saveDraftFile({
+            workspaceId: input.workspaceId,
+            accountEmail: input.accountEmail,
+            draft: draftData,
+          }).catch((err) => {
+            logger.warn({ err, draftId: id }, "email file store draft save failed");
           });
           return {
             id: row.id,
@@ -1111,7 +1263,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
             cc: row.cc,
             bcc: row.bcc,
             subject: row.subject,
-            body: row.body,
+            body: input.body,
             inReplyTo: row.inReplyTo ?? undefined,
             references: row.references ? normalizeStringArray(row.references) : undefined,
             updatedAt: row.updatedAt.toISOString(),
@@ -1126,19 +1278,30 @@ export class EmailRouterImpl extends BaseEmailRouter {
             where: { workspaceId: input.workspaceId },
             orderBy: { updatedAt: "desc" },
           });
-          return rows.map((row: any) => ({
-            id: row.id,
-            accountEmail: row.accountEmail,
-            mode: row.mode,
-            to: row.to,
-            cc: row.cc,
-            bcc: row.bcc,
-            subject: row.subject,
-            body: row.body,
-            inReplyTo: row.inReplyTo ?? undefined,
-            references: row.references ? normalizeStringArray(row.references) : undefined,
-            updatedAt: row.updatedAt.toISOString(),
-          }));
+          // 逻辑：从文件系统读取 body。
+          const results = await Promise.all(
+            rows.map(async (row: any) => {
+              const draftFile = await readDraftFile({
+                workspaceId: input.workspaceId,
+                accountEmail: row.accountEmail,
+                draftId: row.id,
+              });
+              return {
+                id: row.id,
+                accountEmail: row.accountEmail,
+                mode: row.mode,
+                to: row.to,
+                cc: row.cc,
+                bcc: row.bcc,
+                subject: row.subject,
+                body: draftFile?.body ?? "",
+                inReplyTo: row.inReplyTo ?? undefined,
+                references: row.references ? normalizeStringArray(row.references) : undefined,
+                updatedAt: row.updatedAt.toISOString(),
+              };
+            }),
+          );
+          return results;
         }),
       getDraft: shieldedProcedure
         .input(emailSchemas.getDraft.input)
@@ -1149,6 +1312,12 @@ export class EmailRouterImpl extends BaseEmailRouter {
             where: { id: input.id },
           });
           if (!row) throw new Error("草稿未找到。");
+          // 逻辑：从文件系统读取 body。
+          const draftFile = await readDraftFile({
+            workspaceId: input.workspaceId,
+            accountEmail: row.accountEmail,
+            draftId: row.id,
+          });
           return {
             id: row.id,
             accountEmail: row.accountEmail,
@@ -1157,7 +1326,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
             cc: row.cc,
             bcc: row.bcc,
             subject: row.subject,
-            body: row.body,
+            body: draftFile?.body ?? "",
             inReplyTo: row.inReplyTo ?? undefined,
             references: row.references ? normalizeStringArray(row.references) : undefined,
             updatedAt: row.updatedAt.toISOString(),
@@ -1168,9 +1337,22 @@ export class EmailRouterImpl extends BaseEmailRouter {
         .output(emailSchemas.deleteDraft.output)
         .mutation(async ({ input, ctx }) => {
           const prisma = ctx.prisma as PrismaClient;
+          const row = await (prisma as any).emailDraft.findUnique({
+            where: { id: input.id },
+          });
           await (prisma as any).emailDraft.delete({
             where: { id: input.id },
           });
+          // 逻辑：同时删除文件系统中的草稿文件。
+          if (row) {
+            void deleteDraftFile({
+              workspaceId: input.workspaceId,
+              accountEmail: row.accountEmail,
+              draftId: input.id,
+            }).catch((err) => {
+              logger.warn({ err, draftId: input.id }, "email file store draft delete failed");
+            });
+          }
           return { ok: true };
         }),
       batchMarkRead: shieldedProcedure
@@ -1191,26 +1373,25 @@ export class EmailRouterImpl extends BaseEmailRouter {
         .output(emailSchemas.batchDelete.output)
         .mutation(async ({ input, ctx }) => {
           const prisma = ctx.prisma as PrismaClient;
+          // 逻辑：批量软删除 — 添加 \\Deleted 标记。
           for (const id of input.ids) {
             const row = await prisma.emailMessage.findUnique({ where: { id } });
             if (!row) continue;
-            const config = readEmailConfigFile(input.workspaceId);
-            const account = config.emailAccounts.find(
-              (a) => a.emailAddress.trim().toLowerCase() === row.accountEmail.trim().toLowerCase(),
-            );
-            if (!account) continue;
-            const transport = createTransport(
-              { emailAddress: account.emailAddress, auth: account.auth, imap: account.imap, smtp: account.smtp },
-              { workspaceId: input.workspaceId, password: account.auth.type === "password" ? getEmailEnvValue(account.auth.envKey) : undefined },
-            );
-            try {
-              if (transport.deleteMessage) {
-                await transport.deleteMessage(row.mailboxPath, row.externalId);
-              }
-              await prisma.emailMessage.delete({ where: { id } });
-            } finally {
-              await transport.dispose();
-            }
+            const existingFlags = normalizeEmailFlags(row.flags);
+            const newFlags = ensureDeletedFlag(existingFlags);
+            await prisma.emailMessage.update({
+              where: { id },
+              data: { flags: newFlags },
+            });
+            void updateEmailFlags({
+              workspaceId: input.workspaceId,
+              accountEmail: row.accountEmail,
+              mailboxPath: row.mailboxPath,
+              externalId: row.externalId,
+              flags: newFlags,
+            }).catch((err) => {
+              logger.warn({ err, id }, "email file store batch soft delete failed");
+            });
           }
           return { ok: true };
         }),
@@ -1238,6 +1419,16 @@ export class EmailRouterImpl extends BaseEmailRouter {
               await prisma.emailMessage.update({
                 where: { id },
                 data: { mailboxPath: input.toMailbox },
+              });
+              // 逻辑：双写文件系统移动。
+              void moveEmailMessageFile({
+                workspaceId: input.workspaceId,
+                accountEmail: row.accountEmail,
+                fromMailboxPath: row.mailboxPath,
+                toMailboxPath: input.toMailbox,
+                externalId: row.externalId,
+              }).catch((err) => {
+                logger.warn({ err, id }, "email file store batch move failed");
               });
             } finally {
               await transport.dispose();

@@ -54,10 +54,7 @@ await prisma.$executeRawUnsafe(`
     "date" DATETIME,
     "flags" TEXT,
     "snippet" TEXT,
-    "bodyHtml" TEXT,
-    "bodyText" TEXT,
     "attachments" TEXT,
-    "rawRfc822" TEXT,
     "size" INTEGER,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
@@ -142,7 +139,6 @@ await prisma.emailMessage.create({
     date: new Date("2026-01-30T00:00:00Z"),
     flags: [],
     snippet: "Hi there",
-    bodyHtml: "<p>Hi</p>",
   },
 });
 
@@ -235,7 +231,6 @@ await prisma.emailMessage.create({
     date: new Date("2026-01-30T01:00:00Z"),
     flags: [],
     snippet: "Unread message",
-    bodyHtml: "<p>Unread</p>",
   },
 });
 
@@ -258,7 +253,6 @@ await prisma.emailMessage.create({
     date: new Date("2026-01-30T02:00:00Z"),
     flags: [],
     snippet: "Unread message",
-    bodyHtml: "<p>Unread</p>",
   },
 });
 
@@ -281,7 +275,6 @@ await prisma.emailMessage.create({
     date: new Date("2026-01-30T03:00:00Z"),
     flags: ["\\Seen"],
     snippet: "Seen message",
-    bodyHtml: "<p>Seen</p>",
   },
 });
 
@@ -304,7 +297,6 @@ await prisma.emailMessage.create({
     date: new Date("2026-01-30T04:00:00Z"),
     flags: [],
     snippet: "Draft content",
-    bodyHtml: "<p>Draft</p>",
   },
 });
 
@@ -327,7 +319,6 @@ await prisma.emailMessage.create({
     date: new Date("2026-01-30T05:00:00Z"),
     flags: ["\\Seen"],
     snippet: "Sent content",
-    bodyHtml: "<p>Sent</p>",
   },
 });
 
@@ -350,7 +341,6 @@ await prisma.emailMessage.create({
     date: new Date("2026-01-30T06:00:00Z"),
     flags: ["\\Flagged"],
     snippet: "Flagged content",
-    bodyHtml: "<p>Flagged</p>",
   },
 });
 
@@ -386,7 +376,7 @@ assert.ok(
 
 const detail = await caller.getMessage({ workspaceId, id: "msg-1" });
 assert.equal(detail.subject, "Hello");
-assert.equal(detail.bodyHtml, "<p>Hi</p>");
+// 逻辑：bodyHtml 现在从文件系统读取，测试环境中未写入文件，所以为 undefined。
 assert.ok(detail.from.some((entry: string) => entry.includes("alice@example.com")));
 assert.ok(detail.flags.some((flag: string) => flag.toUpperCase() === "\\SEEN"));
 

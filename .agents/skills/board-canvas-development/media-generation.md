@@ -14,6 +14,7 @@
 | **connectable** | `auto` | `anchors` | `anchors` |
 
 > 备注：tRPC `ai` 路由已弃用，媒体生成只走上述 SaaS HTTP 接口。
+> 备注：聊天场景的媒体生成走 Agent Tool 路径（`image-generate` / `video-generate`），见 `chat-ai-development` skill。Board 画布节点保持独立的 LoadingNode 轮询流程。
 
 ## 画布工作流
 

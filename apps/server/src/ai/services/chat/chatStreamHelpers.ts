@@ -1,7 +1,12 @@
 import { generateId, type UIMessage } from "ai";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import { logger } from "@/common/logger";
-import { setAssistantMessageId, setRequestContext } from "@/ai/shared/context/requestContext";
+import {
+  setAssistantMessageId,
+  setRequestContext,
+  setSaasAccessToken,
+  setMediaModelIds,
+} from "@/ai/shared/context/requestContext";
 import { loadMessageChain } from "@/ai/services/chat/repositories/messageChainLoader";
 import {
   resolveRightmostLeafId,
@@ -104,6 +109,12 @@ export function initRequestContext(input: {
   requestSignal: AbortSignal;
   /** Optional message id override. */
   messageId?: string | null;
+  /** SaaS access token for cloud API calls. */
+  saasAccessToken?: string | null;
+  /** Selected image generation model id. */
+  imageModelId?: string | null;
+  /** Selected video generation model id. */
+  videoModelId?: string | null;
 }): RequestInitResult {
   const boardId =
     typeof input.boardId === "string" && input.boardId.trim() ? input.boardId.trim() : undefined;
@@ -129,6 +140,17 @@ export function initRequestContext(input: {
         : undefined,
     ...(boardId ? { boardId } : {}),
   });
+
+  // 逻辑：注入 SaaS token 和媒体模型 ID，供 tool 执行层使用。
+  if (input.saasAccessToken) {
+    setSaasAccessToken(input.saasAccessToken);
+  }
+  if (input.imageModelId || input.videoModelId) {
+    setMediaModelIds({
+      image: input.imageModelId || undefined,
+      video: input.videoModelId || undefined,
+    });
+  }
 
   const abortController = new AbortController();
   input.requestSignal.addEventListener("abort", () => {

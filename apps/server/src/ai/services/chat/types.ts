@@ -61,6 +61,10 @@ export type AiExecuteRequest = {
   responseMode?: AiResponseMode;
   /** Tool approval payloads keyed by toolCallId. */
   toolApprovalPayloads?: Record<string, Record<string, unknown>>;
+  /** Selected image generation model id. */
+  imageModelId?: string;
+  /** Selected video generation model id. */
+  videoModelId?: string;
 };
 
 export type AiCommandContext = {

@@ -39,6 +39,7 @@ MessageList (遍历 messages, 空态/思考态/错误态)
         │           └── tool-* → MessageTool (路由)
         │                 ├── UnifiedTool (通用卡片 + 审批按钮)
         │                 ├── SubAgentTool (子代理输出)
+        │                 ├── MediaGenerateTool (图片/视频生成进度+结果+错误)
         │                 ├── PlanTool (计划展示)
         │                 ├── OpenUrlTool / JsonRenderTool / CliThinkingTool
         │                 └── shared/ToolApprovalActions (审批 UI)
@@ -90,6 +91,23 @@ if (resolvedPart.toolName === "my_tool") {
 }
 ```
 
+**案例：MediaGenerateTool**（`image-generate` / `video-generate`）
+
+通过 `AnyToolPart.mediaGenerate` 字段接收流式状态（由 `ChatCoreProvider` 中 `handleMediaGenerateDataPart` 处理 SSE 事件写入）：
+
+```typescript
+mediaGenerate?: {
+  status: 'generating' | 'done' | 'error'
+  kind?: 'image' | 'video'
+  prompt?: string
+  progress?: number
+  urls?: string[]
+  errorCode?: string  // login_required | insufficient_credits | no_model | generation_failed
+}
+```
+
+错误渲染：`MediaGenerateError` 根据 `errorCode` 显示登录按钮（`SaasLoginDialog`）、积分不足提示等。
+
 ## Branch Navigation
 
 消息树采用 `parentMessageId` 链表结构：
@@ -106,7 +124,8 @@ if (resolvedPart.toolName === "my_tool") {
 |------|------|
 | `input/ChatInput.tsx` | 主输入框（Plate.js 富文本、mention、拖拽上传） |
 | `input/ChatCommandMenu.tsx` | 命令菜单（/ 触发） |
-| `input/SelectMode.tsx` | 模型选择与图标展示（`familyId` 优先，回退 `icon`） |
+| `input/SelectMode.tsx` | 模型选择与图标展示（`familyId` 优先，回退 `icon`），支持图像/视频模型交互选择 |
+| `input/chat-model-selection-storage.ts` | 模型选择持久化（含 `MediaModelSelection`：imageModelId + videoModelId） |
 | `input/chat-attachments.ts` | 附件类型定义 |
 | `input/chat-input-utils.ts` | FILE_TOKEN_REGEX 等工具函数 |
 
@@ -123,7 +142,7 @@ if (resolvedPart.toolName === "my_tool") {
 | `useChatBranchState` | `hooks/use-chat-branch-state.ts` | 分支状态管理（消息树→线性路径） |
 | `useChatToolStream` | `hooks/use-chat-tool-stream.ts` | 工具流式数据聚合 |
 | `useChatLifecycle` | `hooks/use-chat-lifecycle.ts` | 生命周期（提示音、快照同步） |
-| `useChatModelSelection` | `hooks/use-chat-model-selection.ts` | 模型选择和能力判断 |
+| `useChatModelSelection` | `hooks/use-chat-model-selection.ts` | 模型选择和能力判断，返回 `imageModelId` / `videoModelId` |
 | `useChatMessageComposer` | `hooks/use-chat-message-composer.ts` | 消息组装（text+附件+选项→parts） |
 
 ## Common Mistakes

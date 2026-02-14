@@ -54,8 +54,6 @@ export type EmailMessageDetail = {
   date?: string;
   /** HTML body. */
   bodyHtml?: string;
-  /** Raw HTML body (unsanitized). */
-  bodyHtmlRaw?: string;
   /** Text body. */
   bodyText?: string;
   /** Attachment list. */
@@ -119,6 +117,7 @@ export type UnifiedMailboxScope =
   | "flagged"
   | "drafts"
   | "sent"
+  | "deleted"
   | "mailbox";
 
 export type UnifiedMailboxView = {
