@@ -9,8 +9,17 @@ import { v4 as uuidv4 } from "uuid";
 import {
   getActiveWorkspaceConfig,
   getWorkspaces,
+  resolveWorkspaceRootPath,
   setWorkspaces,
 } from "@tenas-ai/api/services/workspaceConfig";
+import { normalizeFileUri, resolveFilePathFromUri } from "@tenas-ai/api/services/fileUri";
+
+/** Build a comparable workspace root path key. */
+function buildWorkspaceRootPathKey(rootUri: string): string {
+  const normalizedPath = resolveFilePathFromUri(normalizeFileUri(rootUri));
+  // 中文注释：Windows 路径比较忽略大小写，避免同一路径被重复创建。
+  return process.platform === "win32" ? normalizedPath.toLowerCase() : normalizedPath;
+}
 
 export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
   /** Workspace CRUD（MVP）：基于本地配置文件。 */
@@ -31,16 +40,22 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
         .output(workspaceSchemas.create.output)
         .mutation(async ({ input }) => {
           const workspaces = getWorkspaces() as Workspace[];
-          const active = workspaces.find((w) => w.isActive) ?? workspaces[0];
-          if (!active?.rootUri) {
-            throw new Error("缺少 workspace rootUri 配置。");
+          const normalizedRootUri = normalizeFileUri(input.rootUri);
+          const targetRootKey = buildWorkspaceRootPathKey(normalizedRootUri);
+          const duplicated = workspaces.find(
+            (workspace) => buildWorkspaceRootPathKey(workspace.rootUri) === targetRootKey,
+          );
+          if (duplicated) {
+            throw new Error("工作空间保存目录不能重复，请选择其他文件夹。");
           }
+          // 中文注释：创建前确保目录存在，避免后续读写工作空间文件失败。
+          resolveWorkspaceRootPath(normalizedRootUri);
           const newWorkspace: Workspace = {
             id: uuidv4(),
             name: input.name,
             type: "local",
             isActive: false,
-            rootUri: active.rootUri,
+            rootUri: normalizedRootUri,
             projects: {},
           };
           setWorkspaces([...workspaces, newWorkspace] as Workspace[]);

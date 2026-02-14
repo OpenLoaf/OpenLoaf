@@ -24,7 +24,7 @@ import { Label } from "@tenas-ai/ui/label";
 import { Textarea } from "@tenas-ai/ui/textarea";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
-import { useChatActions, useChatState, useChatTools } from "../../context";
+import { useChatActions, useChatSession, useChatState, useChatTools } from "../../context";
 import type { AnyToolPart } from "./shared/tool-utils";
 import {
   asPlainObject,
@@ -429,6 +429,7 @@ export default function JsonRenderTool({
   const { messages, status } = useChatState();
   const { updateMessage, addToolApprovalResponse, sendMessage } = useChatActions();
   const { toolParts, upsertToolPart } = useChatTools();
+  const { sessionId } = useChatSession();
   const approvalId = getApprovalId(part);
   const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
   const isRejected = part.approval?.approved === false;
@@ -466,7 +467,7 @@ export default function JsonRenderTool({
   }, [initialData]);
 
   const updateApprovalMutation = useMutation({
-    ...trpc.chatmessage.updateOneChatMessage.mutationOptions(),
+    ...trpc.chat.updateMessageParts.mutationOptions(),
   });
 
   /** Update tool approval state in local messages. */
@@ -567,8 +568,9 @@ export default function JsonRenderTool({
       if (approvalUpdate) {
         try {
           await updateApprovalMutation.mutateAsync({
-            where: { id: approvalUpdate.messageId },
-            data: { parts: approvalUpdate.nextParts as any },
+            sessionId,
+            messageId: approvalUpdate.messageId,
+            parts: approvalUpdate.nextParts as any,
           });
         } catch {
           // 逻辑：落库失败时保留本地状态，避免阻断拒绝流程。

@@ -5,7 +5,7 @@ export const timeNowToolDef = {
   id: "time-now",
   name: "当前时间",
   description:
-    "触发：当你需要获取当前服务器时间以做时间计算/对齐时调用。用途：返回当前时间与时区信息，可选按指定时区解析。返回：{ ok: true, data: { iso, unixMs, timeZone } }；时区非法会报错。不适用：时间无关或可直接推断时不要使用。",
+    '触发：当你需要获取当前服务器时间以做时间计算/对齐时调用。用途：返回当前时间与时区信息，可选按指定时区解析。返回：{ ok: true, data: { iso, unixMs, timeZone, year, month, day, hour, minute, second, dayOfWeek, dayOfWeekZh, localFormatted } }；其中 dayOfWeek/dayOfWeekZh 为中英文星期，localFormatted 为中文完整日期时间字符串，直接使用即可无需自行推算。时区非法会报错。不适用：时间无关或可直接推断时不要使用。',
   parameters: z.object({
     actionName: z
       .string()

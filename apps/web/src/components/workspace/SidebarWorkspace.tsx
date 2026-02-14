@@ -20,6 +20,7 @@ import {
 } from "@tenas-ai/ui/sidebar";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { queryClient, trpc } from "@/utils/trpc";
+import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +42,7 @@ import {
 import { Input } from "@tenas-ai/ui/input";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
+import { useTabs } from "@/hooks/use-tabs";
 
 export const SidebarWorkspace = () => {
   const { workspace } = useWorkspace();
@@ -48,6 +50,8 @@ export const SidebarWorkspace = () => {
   const [createOpen, setCreateOpen] = React.useState(false);
   // Workspace name input value.
   const [newWorkspaceName, setNewWorkspaceName] = React.useState("");
+  // Workspace root path input value.
+  const [newWorkspacePath, setNewWorkspacePath] = React.useState("");
   // Login dialog open state.
   const [loginOpen, setLoginOpen] = React.useState(false);
   // Workspace dropdown open state.
@@ -58,6 +62,7 @@ export const SidebarWorkspace = () => {
     refreshSession,
     logout,
   } = useSaasAuth();
+  const resetWorkspaceTabsToDesktop = useTabs((state) => state.resetWorkspaceTabsToDesktop);
 
   React.useEffect(() => {
     void refreshSession();
@@ -72,6 +77,7 @@ export const SidebarWorkspace = () => {
   React.useEffect(() => {
     if (!createOpen) return;
     setNewWorkspaceName("");
+    setNewWorkspacePath("");
   }, [createOpen]);
 
   const workspacesQuery = useQuery(trpc.workspace.getList.queryOptions());
@@ -86,12 +92,17 @@ export const SidebarWorkspace = () => {
   const avatarAlt = sidebarAccountLabel ?? "User";
   const displayAvatar = authUser?.avatarUrl;
 
-  const activateWorkspace = useMutation(
-    trpc.workspace.activate.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries();
-      },
-    })
+  const activateWorkspace = useMutation(trpc.workspace.activate.mutationOptions());
+
+  /** Activate workspace and reset tabs to a single desktop tab. */
+  const handleActivateWorkspace = React.useCallback(
+    async (targetWorkspaceId: string) => {
+      if (!targetWorkspaceId) return;
+      await activateWorkspace.mutateAsync({ id: targetWorkspaceId });
+      resetWorkspaceTabsToDesktop(targetWorkspaceId);
+      queryClient.invalidateQueries();
+    },
+    [activateWorkspace, resetWorkspaceTabsToDesktop],
   );
 
   const createWorkspace = useMutation(
@@ -100,8 +111,8 @@ export const SidebarWorkspace = () => {
         toast.success("工作空间已创建");
         setCreateOpen(false);
         setNewWorkspaceName("");
-        await activateWorkspace.mutateAsync({ id: created.id });
-        queryClient.invalidateQueries();
+        setNewWorkspacePath("");
+        await handleActivateWorkspace(created.id);
       },
     })
   );
@@ -118,13 +129,39 @@ export const SidebarWorkspace = () => {
 
   const handleCreateWorkspace = async () => {
     const name = newWorkspaceName.trim();
+    const rootUri = newWorkspacePath.trim();
     if (!name) {
       toast.error("请输入工作空间名称");
       return;
     }
+    if (!rootUri) {
+      toast.error("请选择工作空间保存目录");
+      return;
+    }
+    // 中文注释：前端提前拦截显式重复路径，避免重复发起请求。
+    if (
+      (workspacesQuery.data ?? []).some(
+        (item) => getDisplayPathFromUri(item.rootUri) === rootUri,
+      )
+    ) {
+      toast.error("工作空间保存目录不能重复，请选择其他文件夹");
+      return;
+    }
 
-    await createWorkspace.mutateAsync({ name });
+    await createWorkspace.mutateAsync({ name, rootUri });
   };
+
+  /** Pick a directory from system dialog (Electron only). */
+  const pickDirectory = React.useCallback(async (initialValue?: string) => {
+    const api = window.tenasElectron;
+    if (api?.pickDirectory) {
+      const result = await api.pickDirectory(
+        initialValue ? { defaultPath: initialValue } : undefined,
+      );
+      if (result?.ok && result.path) return result.path;
+    }
+    return initialValue ?? null;
+  }, []);
 
   /** Open SaaS login dialog. */
   const handleOpenLogin = () => {
@@ -270,7 +307,7 @@ export const SidebarWorkspace = () => {
                         disabled={isActive || activateWorkspace.isPending}
                         onSelect={() => {
                           if (isActive) return;
-                          activateWorkspace.mutate({ id: ws.id });
+                          void handleActivateWorkspace(ws.id);
                         }}
                         className="rounded-lg"
                       >
@@ -321,6 +358,27 @@ export const SidebarWorkspace = () => {
                   placeholder="例如：我的团队"
                   autoFocus
                 />
+              </div>
+              <div className="grid gap-2">
+                <div className="text-sm text-muted-foreground">保存目录</div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newWorkspacePath}
+                    onChange={(e) => setNewWorkspacePath(e.target.value)}
+                    placeholder="/path/to/workspace"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      const next = await pickDirectory(newWorkspacePath);
+                      if (!next) return;
+                      setNewWorkspacePath(next);
+                    }}
+                  >
+                    选择
+                  </Button>
+                </div>
               </div>
 
               <DialogFooter>

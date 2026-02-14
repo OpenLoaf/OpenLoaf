@@ -26,6 +26,15 @@ import type { ChatAttachmentInput, MaskedAttachmentInput } from "./input/chat-at
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { getMessagePlainText } from "@/lib/chat/message-text";
 import {
+  resolveParentMessageId as resolveParentMessageIdPure,
+  findParentUserForRetry as findParentUserForRetryPure,
+  sliceMessagesToParent,
+  resolveResendParentMessageId as resolveResendParentMessageIdPure,
+  isCommandAtStart as isCommandAtStartPure,
+  isCompactCommandMessage as isCompactCommandMessagePure,
+  isSessionCommandMessage as isSessionCommandMessagePure,
+} from "@/lib/chat/branch-utils";
+import {
   ChatActionsProvider,
   ChatOptionsProvider,
   ChatSessionProvider,
@@ -42,23 +51,17 @@ function isCompactCommandMessage(input: {
   parts?: unknown[];
   messageKind?: ChatMessageKind;
 }): boolean {
-  if (input.messageKind === "compact_prompt") return true;
-  const text = getMessagePlainText({ parts: input.parts ?? [] });
-  return isCommandAtStart(text, SUMMARY_HISTORY_COMMAND);
+  return isCompactCommandMessagePure(input, getMessagePlainText, SUMMARY_HISTORY_COMMAND);
 }
 
 /** Check whether the message is a session command request. */
 function isSessionCommandMessage(input: { parts?: unknown[] }): boolean {
-  const text = getMessagePlainText({ parts: input.parts ?? [] });
-  return isCommandAtStart(text, SUMMARY_TITLE_COMMAND);
+  return isSessionCommandMessagePure(input, getMessagePlainText, SUMMARY_TITLE_COMMAND);
 }
 
 /** Check whether text starts with the given command token. */
 function isCommandAtStart(text: string, command: string): boolean {
-  const trimmed = text.trimStart();
-  if (!trimmed.startsWith(command)) return false;
-  const rest = trimmed.slice(command.length);
-  return rest.length === 0 || /^\s/u.test(rest);
+  return isCommandAtStartPure(text, command);
 }
 
 // 中文注释：提供稳定的空对象，避免 useSyncExternalStore 报错。
@@ -271,10 +274,10 @@ export default function ChatCoreProvider({
     },
   });
   const deleteMessageSubtreeMutation = useMutation(
-    trpc.chatmessage.deleteManyChatMessage.mutationOptions()
+    trpc.chat.deleteMessageSubtree.mutationOptions()
   );
   const updateApprovalMutation = useMutation({
-    ...trpc.chatmessage.updateOneChatMessage.mutationOptions(),
+    ...trpc.chat.updateMessageParts.mutationOptions(),
   });
   const sessionIdRef = React.useRef(sessionId);
   sessionIdRef.current = sessionId;
@@ -793,21 +796,11 @@ export default function ChatCoreProvider({
         typeof message?.parentMessageId === "string" || message?.parentMessageId === null
           ? message.parentMessageId
           : undefined;
-      const lastMessageId =
-        (chat.messages?.length ?? 0) === 0
-          ? null
-          : (String((chat.messages as any[])?.at(-1)?.id ?? "") || null);
-      const isLeafInCurrentMessages =
-        typeof leafMessageId === "string" &&
-        leafMessageId.length > 0 &&
-        Boolean((chat.messages as any[])?.some((m) => String((m as any)?.id) === leafMessageId));
-      const fallbackParentMessageId =
-        (chat.messages?.length ?? 0) === 0
-          ? null
-          : (isLeafInCurrentMessages ? leafMessageId : null) ?? lastMessageId;
-      // 关键：explicitParentMessageId 允许为 null（根节点），不能被 leafMessageId 覆盖
-      const parentMessageId =
-        explicitParentMessageId !== undefined ? explicitParentMessageId : fallbackParentMessageId;
+      const parentMessageId = resolveParentMessageIdPure({
+        explicitParentMessageId,
+        leafMessageId,
+        messages: chat.messages as Array<{ id: string }>,
+      });
       const nextMessageRaw =
         message && typeof message === "object" && "text" in message
           ? { parts: [{ type: "text", text: String((message as any).text ?? "") }] }
@@ -911,32 +904,23 @@ export default function ChatCoreProvider({
       if (!assistant) return;
 
       // 关键：AI 重试 = 重发该 assistant 的 parent user 消息（但不重复保存 user 到 DB）
-      let parentUserMessageId =
-        (assistant as any)?.parentMessageId ?? siblingNav?.[assistantMessageId]?.parentMessageId ?? null;
-      if (!parentUserMessageId) {
-        // 兜底：不请求服务端，直接在当前 messages 中向上找最近的 user（MVP）
-        const current = chat.messages as any[];
-        const idx = current.findIndex((m) => String(m?.id) === assistantMessageId);
-        if (idx >= 0) {
-          for (let i = idx - 1; i >= 0; i -= 1) {
-            if (current[i]?.role === "user") {
-              parentUserMessageId = String(current[i].id);
-              break;
-            }
-          }
-        }
-      }
+      const parentUserMessageId = findParentUserForRetryPure({
+        assistantMessageId,
+        assistantParentMessageId: (assistant as any)?.parentMessageId,
+        siblingNavParentMessageId: siblingNav?.[assistantMessageId]?.parentMessageId,
+        messages: chat.messages as Array<{ id: string; role: string }>,
+      });
       if (!parentUserMessageId) return;
 
       chat.stop();
 
       // 关键：retry 不应在 SSE 完成前请求历史接口（此时 DB 还没落库，拿不到新 sibling）。
-      // 这里直接在前端本地“切链”：保留到 parent user 为止，隐藏其后的旧分支内容。
-      const currentMessages = chat.messages as any[];
-      const userIndex = currentMessages.findIndex((m) => String(m?.id) === parentUserMessageId);
-      if (userIndex < 0) return;
-
-      const slicedMessages = currentMessages.slice(0, userIndex + 1) as UIMessage[];
+      // 这里直接在前端本地"切链"：保留到 parent user 为止，隐藏其后的旧分支内容。
+      const slicedMessages = sliceMessagesToParent(
+        chat.messages as Array<{ id: string }>,
+        parentUserMessageId,
+      ) as UIMessage[];
+      if (slicedMessages.length === 0) return;
       chat.setMessages(slicedMessages);
       if (tabId) {
         clearToolPartsForTab(tabId);
@@ -974,10 +958,7 @@ export default function ChatCoreProvider({
     async (userMessageId: string, nextText: string, nextParts?: any[]) => {
       const user = (chat.messages as any[]).find((m) => String(m?.id) === userMessageId);
       if (!user || user.role !== "user") return;
-      const parentMessageId =
-        typeof (user as any)?.parentMessageId === "string" || (user as any)?.parentMessageId === null
-          ? ((user as any).parentMessageId as string | null)
-          : null;
+      const parentMessageId = resolveResendParentMessageIdPure(user as any);
 
       chat.stop();
 
@@ -985,10 +966,11 @@ export default function ChatCoreProvider({
       // - 有 parent：保留到 parent 节点为止，隐藏旧 user 及其后续内容
       // - 无 parent：清空对话，从根重新开始
       if (parentMessageId) {
-        const currentMessages = chat.messages as any[];
-        const parentIndex = currentMessages.findIndex((m) => String(m?.id) === parentMessageId);
-        if (parentIndex < 0) return;
-        const slicedMessages = currentMessages.slice(0, parentIndex + 1) as UIMessage[];
+        const slicedMessages = sliceMessagesToParent(
+          chat.messages as Array<{ id: string }>,
+          parentMessageId,
+        ) as UIMessage[];
+        if (slicedMessages.length === 0) return;
         chat.setMessages(slicedMessages);
         if (tabId) {
           clearToolPartsForTab(tabId);
@@ -1045,34 +1027,23 @@ export default function ChatCoreProvider({
 
       chat.stop();
 
-      // 中文注释：先定位目标消息的 path/parent，防止误删其他会话数据。
-      const target = await queryClient.fetchQuery(
-        trpc.chatmessage.findUniqueChatMessage.queryOptions({
-          where: { id: normalizedId },
-          select: { id: true, sessionId: true, parentMessageId: true, path: true },
-        })
-      );
-      if (!target || target.sessionId !== sessionId) return false;
-
-      const targetPath = String((target as any)?.path ?? "");
-      if (!targetPath) return false;
-
-      // 中文注释：按 path 前缀删除整个子树（包含自身与所有后代）。
-      await deleteMessageSubtreeMutation.mutateAsync({
-        where: {
-          sessionId,
-          path: { startsWith: targetPath },
-        },
+      // 逻辑：调用新的 deleteMessageSubtree endpoint，从 JSONL 中删除子树
+      const result = await deleteMessageSubtreeMutation.mutateAsync({
+        sessionId,
+        messageId: normalizedId,
       });
+      if (!result) return false;
 
-      // 中文注释：删除后回到父节点视图，刷新消息与分支导航。
+      const parentMessageId = (result as any)?.parentMessageId ?? null;
+
+      // 逻辑：删除后回到父节点视图，刷新消息与分支导航
       const viewInput: Parameters<typeof trpc.chat.getChatView.queryOptions>[0] = {
         sessionId,
         window: { limit: 50 },
         includeToolOutput: false,
       };
-      if (target.parentMessageId) {
-        viewInput.anchor = { messageId: String(target.parentMessageId) };
+      if (parentMessageId) {
+        viewInput.anchor = { messageId: String(parentMessageId) };
       }
 
       const data = await queryClient.fetchQuery(
@@ -1163,8 +1134,9 @@ export default function ChatCoreProvider({
     for (const update of updates) {
       try {
         await updateApprovalMutation.mutateAsync({
-          where: { id: update.messageId },
-          data: { parts: update.nextParts as any },
+          sessionId,
+          messageId: update.messageId,
+          parts: update.nextParts as any,
         });
       } catch {
         // 中文注释：落库失败时保留本地状态，避免阻断中止流程。

@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { DEFAULT_TAB_INFO, type DockItem } from "@tenas-ai/api/common";
+import { DEFAULT_TAB_INFO, WORKBENCH_TAB_INPUT, type DockItem } from "@tenas-ai/api/common";
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { useChatRuntime } from "./use-chat-runtime";
 import { useTabRuntime } from "./use-tab-runtime";
@@ -61,6 +61,13 @@ export interface TabsState {
   ) => void;
   /** Merge chat params for a tab. */
   setTabChatParams: (tabId: string, patch: Record<string, unknown>) => void;
+  /** Remove all tabs under a workspace and cleanup related runtime state. */
+  removeTabsByWorkspace: (
+    workspaceId: string,
+    options?: { fallbackWorkspaceId?: string },
+  ) => void;
+  /** Reset target workspace tabs and keep only one desktop tab. */
+  resetWorkspaceTabsToDesktop: (workspaceId: string) => void;
 }
 
 function generateId(prefix = "id") {
@@ -478,6 +485,58 @@ export const useTabs = create<TabsState>()(
             return { ...tab, chatParams: nextParams };
           }),
         }));
+      },
+      removeTabsByWorkspace: (workspaceId, options) => {
+        let removedTabIds: string[] = [];
+        set((state) => {
+          if (!workspaceId) return state;
+          const removedTabs = state.tabs.filter((tab) => tab.workspaceId === workspaceId);
+          if (!removedTabs.length) return state;
+          removedTabIds = removedTabs.map((tab) => tab.id);
+          const removedTabIdSet = new Set(removedTabIds);
+          const nextTabs = state.tabs.filter((tab) => !removedTabIdSet.has(tab.id));
+
+          let nextActiveTabId = state.activeTabId;
+          if (!nextActiveTabId || removedTabIdSet.has(nextActiveTabId)) {
+            const fallbackWorkspaceTabs = options?.fallbackWorkspaceId
+              ? orderWorkspaceTabs(
+                  nextTabs.filter((tab) => tab.workspaceId === options.fallbackWorkspaceId),
+                )
+              : [];
+            const fallbackTab =
+              fallbackWorkspaceTabs[0] ??
+              nextTabs.reduce<TabMeta | null>(
+                (best, tab) => (!best || tab.lastActiveAt > best.lastActiveAt ? tab : best),
+                null,
+              );
+            nextActiveTabId = fallbackTab?.id ?? null;
+          }
+
+          return {
+            tabs: nextTabs,
+            activeTabId: nextActiveTabId,
+          };
+        });
+        // 中文注释：workspace 被删除后，立即释放其 tab 的运行时状态，避免保活面板继续发起请求。
+        removedTabIds.forEach((tabId) => {
+          useTabRuntime.getState().clearRuntimeByTabId(tabId);
+          useChatRuntime.getState().clearRuntimeByTabId(tabId);
+        });
+      },
+      resetWorkspaceTabsToDesktop: (workspaceId) => {
+        if (!workspaceId) return;
+        get().removeTabsByWorkspace(workspaceId);
+        get().addTab({
+          workspaceId,
+          createNew: true,
+          title: DEFAULT_TAB_INFO.title,
+          icon: DEFAULT_TAB_INFO.icon,
+          leftWidthPercent: 70,
+          base: {
+            id: WORKBENCH_TAB_INPUT.baseId,
+            component: WORKBENCH_TAB_INPUT.component,
+          },
+        });
       },
     }),
     {

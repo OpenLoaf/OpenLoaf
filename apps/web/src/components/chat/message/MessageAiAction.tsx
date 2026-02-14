@@ -152,7 +152,7 @@ export default function MessageAiAction({
   const { retryAssistantMessage, clearError, updateMessage, sendMessage, deleteMessageSubtree } =
     useChatActions();
   const { status } = useChatState();
-  const { leafMessageId } = useChatSession();
+  const { leafMessageId, sessionId } = useChatSession();
   const [isCopying, setIsCopying] = React.useState(false);
   const [compactOpen, setCompactOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
@@ -212,9 +212,9 @@ export default function MessageAiAction({
 
   // 使用 TanStack React Query 调用接口更新评价
   const updateRatingMutation = useMutation({
-    ...trpc.chatmessage.updateOneChatMessage.mutationOptions(),
+    ...trpc.chat.updateMessageMetadata.mutationOptions(),
     onSuccess: (result) => {
-      // 中文注释：成功后用服务端返回的 metadata 回写到本地消息。
+      // 逻辑：成功后用服务端返回的 metadata 回写到本地消息。
       updateMessage(message.id, { metadata: (result as any).metadata ?? null });
       toast.success("评价成功");
     },
@@ -249,10 +249,9 @@ export default function MessageAiAction({
     if (!message.id) return;
 
     updateRatingMutation.mutate({
-      where: { id: message.id },
-      data: {
-        metadata: buildNextMetadata(ratingValue === true ? null : true),
-      },
+      sessionId,
+      messageId: message.id,
+      metadata: buildNextMetadata(ratingValue === true ? null : true),
     });
   };
 
@@ -261,10 +260,9 @@ export default function MessageAiAction({
     if (!message.id) return;
 
     updateRatingMutation.mutate({
-      where: { id: message.id },
-      data: {
-        metadata: buildNextMetadata(ratingValue === false ? null : false),
-      },
+      sessionId,
+      messageId: message.id,
+      metadata: buildNextMetadata(ratingValue === false ? null : false),
     });
   };
 

@@ -5,57 +5,62 @@ import {
   shieldedProcedure,
   appRouterDefine,
   type ChatMessageKind,
-} from "@tenas-ai/api";
-import { generateText } from "ai";
-import { xai } from "@ai-sdk/xai";
-import { replaceFileTokensWithNames } from "@/common/chatTitle";
-import { resolveBranchJsonlPathFromLeafMessage } from "@/ai/services/chat/chatHistoryLogger";
+  type ChatUIMessage,
+} from '@tenas-ai/api'
+import { z } from 'zod'
+import { generateText } from 'ai'
+import { xai } from '@ai-sdk/xai'
+import { replaceFileTokensWithNames } from '@/common/chatTitle'
+import {
+  getChatViewFromFile,
+  loadMessageTree,
+  resolveChainFromLeaf,
+  resolveRightmostLeaf,
+  writeSessionJson,
+  deleteMessageSubtree as deleteSubtreeFromFile,
+  updateMessageParts as updatePartsInFile,
+  updateMessageMetadata as updateMetadataInFile,
+  getMessageById,
+  deleteAllChatFiles,
+  resolveMessagesJsonlPath,
+} from '@/ai/services/chat/repositories/chatFileStore'
 
-const TITLE_MAX_CHARS = 16;
-const LEAF_CANDIDATES = 50;
-const TITLE_CONTEXT_TAKE = 24;
-const TITLE_AGENT_NAME = "session-title-agent";
+const TITLE_MAX_CHARS = 16
+const TITLE_CONTEXT_TAKE = 24
 
 function isRenderableRow(row: {
-  role: string;
-  parts: unknown;
-  messageKind?: ChatMessageKind | null;
+  role: string
+  parts: unknown
+  messageKind?: ChatMessageKind | null
 }): boolean {
-  const kind = row.messageKind ?? "normal";
-  if (kind === "compact_prompt") return false;
-  if (kind === "compact_summary") return true;
-  if (row.role === "subagent") return false;
-  if (row.role === "user") return true;
-  const parts = row.parts;
-  return Array.isArray(parts) && parts.length > 0;
-}
-
-function getPathPrefixes(path: string): string[] {
-  const segments = path.split("/").filter(Boolean);
-  const prefixes: string[] = [];
-  for (let i = 0; i < segments.length; i += 1) prefixes.push(segments.slice(0, i + 1).join("/"));
-  return prefixes;
+  const kind = row.messageKind ?? 'normal'
+  if (kind === 'compact_prompt') return false
+  if (kind === 'compact_summary') return true
+  if (row.role === 'subagent') return false
+  if (row.role === 'user') return true
+  const parts = row.parts
+  return Array.isArray(parts) && parts.length > 0
 }
 
 function extractTextFromParts(parts: unknown): string {
-  const arr = Array.isArray(parts) ? (parts as any[]) : [];
-  const chunks: string[] = [];
+  const arr = Array.isArray(parts) ? (parts as any[]) : []
+  const chunks: string[] = []
   for (const part of arr) {
-    if (!part || typeof part !== "object") continue;
-    if (typeof (part as any).text === "string") {
-      const text = String((part as any).text);
-      chunks.push(replaceFileTokensWithNames(text));
+    if (!part || typeof part !== 'object') continue
+    if (typeof (part as any).text === 'string') {
+      const text = String((part as any).text)
+      chunks.push(replaceFileTokensWithNames(text))
     }
   }
-  return chunks.join("\n").trim();
+  return chunks.join('\n').trim()
 }
 
 function normalizeTitle(raw: string): string {
-  let title = (raw ?? "").trim();
-  title = title.replace(/^["'“”‘’《》]+/, "").replace(/["'“”‘’《》]+$/, "");
-  title = title.split("\n")[0]?.trim() ?? "";
-  if (title.length > TITLE_MAX_CHARS) title = title.slice(0, TITLE_MAX_CHARS);
-  return title.trim();
+  let title = (raw ?? '').trim()
+  title = title.replace(/^["'""''《》]+/, '').replace(/["'""''《》]+$/, '')
+  title = title.split('\n')[0]?.trim() ?? ''
+  if (title.length > TITLE_MAX_CHARS) title = title.slice(0, TITLE_MAX_CHARS)
+  return title.trim()
 }
 
 /** Resolve session preface text from stored message parts. */
@@ -66,116 +71,251 @@ async function resolveSessionPrefaceText(
   const row = await prisma.chatSession.findUnique({
     where: { id: sessionId },
     select: { sessionPreface: true },
-  });
-  // 逻辑：preface 为空时返回空字符串，避免前端误判成错误。
-  return typeof row?.sessionPreface === "string" ? row.sessionPreface : "";
+  })
+  return typeof row?.sessionPreface === 'string' ? row.sessionPreface : ''
 }
 
-async function resolveSessionRightmostLeafId(prisma: any, sessionId: string): Promise<string | null> {
-  const candidates = await prisma.chatMessage.findMany({
-    where: { sessionId },
-    orderBy: [{ path: "desc" }, { id: "desc" }],
-    take: LEAF_CANDIDATES,
-    select: { id: true, role: true, parts: true, messageKind: true },
-  });
-  for (const row of candidates) {
-    if (isRenderableRow(row)) return String(row.id);
-  }
-  return null;
-}
-
-/** Resolve the rightmost user message id for a session. */
-async function resolveSessionRightmostUserId(prisma: any, sessionId: string): Promise<string | null> {
-  const row = await prisma.chatMessage.findFirst({
-    where: { sessionId, role: "user" },
-    orderBy: [{ path: "desc" }, { id: "desc" }],
-    select: { id: true },
-  });
-  const resolvedId = typeof row?.id === "string" ? row.id.trim() : "";
-  return resolvedId || null;
-}
-
-/** Resolve absolute jsonl path for the currently displayed chat branch. */
-async function resolveSessionPrefaceJsonlPath(
-  prisma: any,
-  input: { sessionId: string; workspaceId?: string | null; leafMessageId?: string },
-): Promise<string | null> {
-  const currentLeafMessageId =
-    String(input.leafMessageId ?? "").trim() ||
-    (await resolveSessionRightmostLeafId(prisma, input.sessionId)) ||
-    (await resolveSessionRightmostUserId(prisma, input.sessionId));
-  if (!currentLeafMessageId) return null;
-  return resolveBranchJsonlPathFromLeafMessage({
-    sessionId: input.sessionId,
-    workspaceId: input.workspaceId,
-    leafMessageId: currentLeafMessageId,
-    prismaReader: prisma,
-  });
-}
-
-async function loadRightmostChainRows(prisma: any, sessionId: string): Promise<any[]> {
-  const leafId = await resolveSessionRightmostLeafId(prisma, sessionId);
-  if (!leafId) return [];
-
-  const leaf = await prisma.chatMessage.findUnique({
-    where: { id: leafId },
-    select: { sessionId: true, path: true },
-  });
-  if (!leaf || leaf.sessionId !== sessionId) return [];
-
-  const allPaths = getPathPrefixes(String(leaf.path));
-  // 只取最近一段链路用于取名，避免超长会话导致 prompt 过大。
-  const selectedPaths =
-    allPaths.length > TITLE_CONTEXT_TAKE ? allPaths.slice(-TITLE_CONTEXT_TAKE) : allPaths;
-
-  return prisma.chatMessage.findMany({
-    where: { sessionId, path: { in: selectedPaths } },
-    orderBy: [{ path: "asc" }],
-    select: { role: true, parts: true, messageKind: true },
-  });
+/** Match toolCallId in metadata. */
+function matchToolCallId(metadata: unknown, toolCallId: string): boolean {
+  if (!metadata || typeof metadata !== 'object') return false
+  const value = (metadata as Record<string, unknown>).toolCallId
+  return typeof value === 'string' && value === toolCallId
 }
 
 function buildTitlePrompt(chainRows: Array<{ role: string; parts: unknown }>): string {
-  const lines: string[] = [];
+  const lines: string[] = []
   for (const row of chainRows) {
-    const text = extractTextFromParts(row.parts);
-    if (!text) continue;
-    if (row.role === "user") lines.push(`User: ${text}`);
-    else if (row.role === "assistant") lines.push(`Assistant: ${text}`);
-    else lines.push(`System: ${text}`);
+    const text = extractTextFromParts(row.parts)
+    if (!text) continue
+    if (row.role === 'user') lines.push(`User: ${text}`)
+    else if (row.role === 'assistant') lines.push(`Assistant: ${text}`)
+    else lines.push(`System: ${text}`)
   }
-  return lines.join("\n").trim();
+  return lines.join('\n').trim()
 }
 
 function createTitleAgent() {
   return {
-    name: TITLE_AGENT_NAME,
-    model: xai("grok-4-1-fast-reasoning"),
+    name: 'session-title-agent',
+    model: xai('grok-4-1-fast-reasoning'),
     system: `
-你是一个“对话标题生成器”。
+你是一个"对话标题生成器"。
 - 只输出一个标题，不要解释。
 - 标题不超过 ${TITLE_MAX_CHARS} 个字符。
 - 不要输出引号、编号、Markdown。
 `,
-  } as const;
+  } as const
 }
 
 async function generateTitleFromHistory(historyText: string): Promise<string> {
-  const agent = createTitleAgent();
+  const agent = createTitleAgent()
   const res = await generateText({
     model: agent.model,
     system: agent.system,
     prompt: `请根据下面的对话内容生成一个简短标题：\n\n${historyText}`,
-  });
-  return normalizeTitle(res.text);
+  })
+  return normalizeTitle(res.text)
+}
+
+type UsageTotals = {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  reasoningTokens: number
+  cachedInputTokens: number
+}
+
+const ZERO_USAGE: UsageTotals = {
+  inputTokens: 0,
+  outputTokens: 0,
+  totalTokens: 0,
+  reasoningTokens: 0,
+  cachedInputTokens: 0,
+}
+
+function extractUsageTotals(metadata: unknown): UsageTotals {
+  const meta = metadata as any
+  const usage = meta?.totalUsage ?? meta?.usage ?? meta?.tokenUsage ?? null
+  if (!usage || typeof usage !== 'object') return ZERO_USAGE
+
+  const toNumber = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))
+        ? Number(value)
+        : 0
+
+  return {
+    inputTokens: toNumber(usage.inputTokens ?? usage.promptTokens ?? usage.input_tokens),
+    outputTokens: toNumber(usage.outputTokens ?? usage.completionTokens ?? usage.output_tokens),
+    totalTokens: toNumber(usage.totalTokens ?? usage.total_tokens),
+    reasoningTokens: toNumber(usage.reasoningTokens ?? usage.reasoning_tokens),
+    cachedInputTokens: toNumber(usage.cachedInputTokens ?? usage.cached_input_tokens),
+  }
+}
+
+function sumUsageTotals(list: UsageTotals[]): UsageTotals {
+  const total = { ...ZERO_USAGE }
+  for (const item of list) {
+    total.inputTokens += item.inputTokens
+    total.outputTokens += item.outputTokens
+    total.totalTokens += item.totalTokens
+    total.reasoningTokens += item.reasoningTokens
+    total.cachedInputTokens += item.cachedInputTokens
+  }
+  return total
 }
 
 export class ChatRouterImpl extends BaseChatRouter {
-  /** Chat tRPC 端点实现：自动取名（MVP）。 */
   public static createRouter() {
     return t.router({
-      // 复用 packages/api 的 chat router（getChatView 等），这里只补齐 server 实现。
       ...appRouterDefine.chat._def.procedures,
+
+      // getChatView — 从文件读取
+      getChatView: shieldedProcedure
+        .input(z.object({
+          sessionId: z.string().min(1),
+          anchor: z.object({
+            messageId: z.string().min(1),
+            strategy: z.enum(['self', 'latestLeafInSubtree']).optional(),
+          }).optional(),
+          window: z.object({
+            limit: z.number().min(1).max(200).optional(),
+            cursor: z.object({
+              beforeMessageId: z.string().min(1),
+            }).optional(),
+          }).optional(),
+          include: z.object({
+            messages: z.boolean().optional(),
+            siblingNav: z.boolean().optional(),
+          }).optional(),
+          includeToolOutput: z.boolean().optional(),
+        }))
+        .query(async ({ input }) => {
+          return getChatViewFromFile(input)
+        }),
+
+      // getSubAgentHistory — 从 JSONL 过滤
+      getSubAgentHistory: shieldedProcedure
+        .input(z.object({
+          sessionId: z.string().min(1),
+          toolCallId: z.string().min(1),
+        }))
+        .query(async ({ input }) => {
+          const tree = await loadMessageTree(input.sessionId)
+          let match: ChatUIMessage | null = null
+          for (const msg of tree.byId.values()) {
+            if (msg.role !== 'subagent') continue
+            if (matchToolCallId(msg.metadata, input.toolCallId)) {
+              match = {
+                id: msg.id,
+                role: msg.role,
+                parentMessageId: msg.parentMessageId,
+                parts: Array.isArray(msg.parts) ? msg.parts : [],
+                metadata: msg.metadata ?? undefined,
+                messageKind: msg.messageKind ?? undefined,
+                agent: (msg.metadata as any)?.agent ?? undefined,
+              }
+              break
+            }
+          }
+          return { message: match }
+        }),
+
+      // getChatStats — 从 JSONL 统计
+      getChatStats: shieldedProcedure.query(async ({ ctx }) => {
+        const sessionCount = await ctx.prisma.chatSession.count({ where: { deletedAt: null } })
+
+        // 从所有会话的 JSONL 中统计 token 使用量
+        const sessions = await ctx.prisma.chatSession.findMany({
+          where: { deletedAt: null },
+          select: { id: true },
+        })
+
+        const usageList: UsageTotals[] = []
+        for (const session of sessions) {
+          try {
+            const tree = await loadMessageTree(session.id)
+            for (const msg of tree.byId.values()) {
+              if (msg.role === 'assistant') {
+                usageList.push(extractUsageTotals(msg.metadata))
+              }
+            }
+          } catch {
+            // 跳过无法读取的会话
+          }
+        }
+
+        return { sessionCount, usageTotals: sumUsageTotals(usageList) }
+      }),
+
+      // clearAllChat — 同时清理文件
+      clearAllChat: shieldedProcedure.mutation(async ({ ctx }) => {
+        const sessions = await ctx.prisma.chatSession.deleteMany({})
+        await deleteAllChatFiles()
+        return { deletedSessions: sessions.count }
+      }),
+
+      // deleteMessageSubtree — 从 JSONL 删除
+      deleteMessageSubtree: shieldedProcedure
+        .input(z.object({
+          sessionId: z.string().min(1),
+          messageId: z.string().min(1),
+        }))
+        .mutation(async ({ input }) => {
+          return deleteSubtreeFromFile(input)
+        }),
+
+      // updateMessageParts — 追加到 JSONL
+      updateMessageParts: shieldedProcedure
+        .input(z.object({
+          sessionId: z.string().min(1),
+          messageId: z.string().min(1),
+          parts: z.any(),
+        }))
+        .mutation(async ({ input }) => {
+          const parts = Array.isArray(input.parts) ? input.parts : []
+          return updatePartsInFile({
+            sessionId: input.sessionId,
+            messageId: input.messageId,
+            parts,
+          })
+        }),
+
+      // updateMessageMetadata — 合并 metadata 到 JSONL
+      updateMessageMetadata: shieldedProcedure
+        .input(z.object({
+          sessionId: z.string().min(1),
+          messageId: z.string().min(1),
+          metadata: z.any(),
+        }))
+        .mutation(async ({ input }) => {
+          const metadata = (input.metadata && typeof input.metadata === 'object')
+            ? input.metadata as Record<string, unknown>
+            : {}
+          const merged = await updateMetadataInFile({
+            sessionId: input.sessionId,
+            messageId: input.messageId,
+            metadata,
+          })
+          return { metadata: merged }
+        }),
+
+      // getMessageParts — 获取单条消息
+      getMessageParts: shieldedProcedure
+        .input(z.object({
+          sessionId: z.string().min(1),
+          messageId: z.string().min(1),
+        }))
+        .query(async ({ input }) => {
+          const msg = await getMessageById(input)
+          if (!msg) return null
+          return {
+            id: msg.id,
+            parts: Array.isArray(msg.parts) ? msg.parts : [],
+            metadata: msg.metadata ?? null,
+          }
+        }),
 
       getSessionPreface: shieldedProcedure
         .input(chatSchemas.getSessionPreface.input)
@@ -183,20 +323,18 @@ export class ChatRouterImpl extends BaseChatRouter {
         .query(async ({ ctx, input }) => {
           const session = await ctx.prisma.chatSession.findUnique({
             where: { id: input.sessionId },
-            select: { id: true, deletedAt: true, workspaceId: true },
-          });
-          if (!session || session.deletedAt) throw new Error("session not found");
+            select: { id: true, deletedAt: true },
+          })
+          if (!session || session.deletedAt) throw new Error('session not found')
 
-          const content = await resolveSessionPrefaceText(ctx.prisma, input.sessionId);
-          const jsonlPath = await resolveSessionPrefaceJsonlPath(ctx.prisma, {
-            sessionId: input.sessionId,
-            workspaceId: session.workspaceId,
-            leafMessageId: input.leafMessageId,
-          });
-          return {
-            content,
-            ...(jsonlPath ? { jsonlPath } : {}),
-          };
+          const content = await resolveSessionPrefaceText(ctx.prisma, input.sessionId)
+          let jsonlPath: string | undefined
+          try {
+            jsonlPath = await resolveMessagesJsonlPath(input.sessionId)
+          } catch {
+            // 非关键操作
+          }
+          return { content, jsonlPath }
         }),
 
       autoTitle: shieldedProcedure
@@ -206,36 +344,47 @@ export class ChatRouterImpl extends BaseChatRouter {
           const session = await ctx.prisma.chatSession.findUnique({
             where: { id: input.sessionId },
             select: { id: true, title: true, isUserRename: true, deletedAt: true },
-          });
-          if (!session || session.deletedAt) throw new Error("session not found");
+          })
+          if (!session || session.deletedAt) throw new Error('session not found')
 
-          // 用户手动改名后不再自动覆盖，避免把用户标题“改回去”。
-          if (session.isUserRename) return { ok: true, title: session.title };
+          if (session.isUserRename) return { ok: true, title: session.title }
 
-          const chainRows = await loadRightmostChainRows(ctx.prisma, input.sessionId);
-          const renderableRows = chainRows.filter((row) => isRenderableRow(row));
-          const historyText = buildTitlePrompt(renderableRows);
-          if (!historyText) return { ok: true, title: session.title };
+          // 从 JSONL 加载最右链路用于取名
+          const tree = await loadMessageTree(input.sessionId)
+          const leafId = resolveRightmostLeaf(tree)
+          if (!leafId) return { ok: true, title: session.title }
 
-          let title = "";
+          const fullChain = resolveChainFromLeaf(tree, leafId)
+          const recentChain = fullChain.length > TITLE_CONTEXT_TAKE
+            ? fullChain.slice(-TITLE_CONTEXT_TAKE)
+            : fullChain
+          const renderableRows = recentChain.filter((row) => isRenderableRow(row as any))
+          const historyText = buildTitlePrompt(renderableRows as any[])
+          if (!historyText) return { ok: true, title: session.title }
+
+          let title = ''
           try {
-            title = await generateTitleFromHistory(historyText);
+            title = await generateTitleFromHistory(historyText)
           } catch {
-            // 模型不可用时保持现状（MVP）。
-            return { ok: true, title: session.title };
+            return { ok: true, title: session.title }
           }
 
-          if (!title) return { ok: true, title: session.title };
+          if (!title) return { ok: true, title: session.title }
 
           await ctx.prisma.chatSession.update({
             where: { id: input.sessionId },
             data: { title, isUserRename: false },
-          });
+          })
+          try {
+            await writeSessionJson(input.sessionId, { title, isUserRename: false })
+          } catch {
+            // 非关键操作
+          }
 
-          return { ok: true, title };
+          return { ok: true, title }
         }),
-    });
+    })
   }
 }
 
-export const chatRouterImplementation = ChatRouterImpl.createRouter();
+export const chatRouterImplementation = ChatRouterImpl.createRouter()

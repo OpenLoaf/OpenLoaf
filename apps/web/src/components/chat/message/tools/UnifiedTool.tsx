@@ -103,9 +103,9 @@ export default function UnifiedTool({
     setIsOutputLoading(true);
     try {
       const data = await queryClient.fetchQuery(
-        trpc.chatmessage.findUniqueChatMessage.queryOptions({
-          where: { id: String(messageId) },
-          select: { id: true, parts: true },
+        trpc.chat.getMessageParts.queryOptions({
+          sessionId: sessionId ?? '',
+          messageId: String(messageId),
         }),
       );
       const targetParts = Array.isArray((data as any)?.parts) ? (data as any).parts : [];

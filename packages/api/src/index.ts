@@ -98,6 +98,7 @@ export { BaseTabRouter, tabSchemas };
 
 // Export chat router components
 export { BaseChatRouter, chatSchemas };
+export type { ChatUIMessage, ChatSessionSummary } from "./routers/chat";
 
 // Export setting router components
 export { BaseSettingRouter, settingSchemas };

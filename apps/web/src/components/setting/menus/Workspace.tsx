@@ -8,9 +8,10 @@ import { toast } from "sonner";
 import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
 import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
-import { Copy, FolderOpen, Loader2, Save } from "lucide-react";
+import { Copy, FolderOpen, Loader2, Save, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useProjects } from "@/hooks/use-projects";
+import { useTabs } from "@/hooks/use-tabs";
 import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
 
 const TOKEN_K = 1000;
@@ -42,7 +43,12 @@ function countProjectNodes(nodes?: ProjectNode[]): number {
 
 export function WorkspaceSettings() {
   const { data: activeWorkspace } = useQuery(trpc.workspace.getActive.queryOptions());
+  const workspacesQuery = useQuery(trpc.workspace.getList.queryOptions());
   const projectsQuery = useProjects();
+  const removeTabsByWorkspace = useTabs((state) => state.removeTabsByWorkspace);
+  const resetWorkspaceTabsToDesktop = useTabs(
+    (state) => state.resetWorkspaceTabsToDesktop,
+  );
   /** Track workspace name draft. */
   const [draftWorkspaceName, setDraftWorkspaceName] = useState("");
   /** Workspace path for display. */
@@ -73,11 +79,27 @@ export function WorkspaceSettings() {
     }),
   );
 
+  const deleteWorkspace = useMutation(
+    trpc.workspace.delete.mutationOptions({
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    }),
+  );
+
+  const activateWorkspace = useMutation(
+    trpc.workspace.activate.mutationOptions({
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    }),
+  );
+
   const clearAllChat = useMutation(
     trpc.chat.clearAllChat.mutationOptions({
       onSuccess: (res) => {
         toast.success(
-          `已清除：${res.deletedSessions} 个会话 / ${res.deletedMessages} 条消息`,
+          `已清除：${res.deletedSessions} 个会话`,
         );
         queryClient.invalidateQueries();
       },
@@ -96,6 +118,10 @@ export function WorkspaceSettings() {
     () => countProjectNodes(projectsQuery.data),
     [projectsQuery.data],
   );
+  /** Total number of workspaces. */
+  const workspaceCount = workspacesQuery.data?.length ?? 0;
+  /** Whether current workspace can be deleted. */
+  const canDeleteCurrentWorkspace = workspaceCount > 2;
 
   /** Clear all chat data with a confirm gate. */
   const handleClearAllChat = async () => {
@@ -104,6 +130,43 @@ export function WorkspaceSettings() {
     }\n此操作不可撤销。`;
     if (!window.confirm(confirmText)) return;
     await clearAllChat.mutateAsync();
+  };
+
+  /** Delete current workspace with confirm gate. */
+  const handleDeleteCurrentWorkspace = async () => {
+    const workspaceId = activeWorkspace?.id;
+    if (!workspaceId) return;
+    if (!canDeleteCurrentWorkspace) {
+      toast.error("至少拥有 3 个工作空间时才允许删除当前工作空间");
+      return;
+    }
+    const fallbackWorkspace = (workspacesQuery.data ?? []).find(
+      (workspace) => workspace.id !== workspaceId,
+    );
+    if (!fallbackWorkspace) {
+      toast.error("未找到可切换的工作空间");
+      return;
+    }
+    const name = currentWorkspaceName.trim() || "当前工作空间";
+    const confirmText = `确认删除工作空间「${name}」？\n此操作不可撤销。`;
+    if (!window.confirm(confirmText)) return;
+    await deleteWorkspace.mutateAsync({ id: workspaceId });
+    queryClient.setQueryData(
+      trpc.workspace.getActive.queryOptions().queryKey,
+      fallbackWorkspace,
+    );
+    let activated = false;
+    try {
+      await activateWorkspace.mutateAsync({ id: fallbackWorkspace.id });
+      activated = true;
+      resetWorkspaceTabsToDesktop(fallbackWorkspace.id);
+    } finally {
+      removeTabsByWorkspace(workspaceId);
+      queryClient.invalidateQueries();
+    }
+    if (activated) {
+      toast.success("已删除当前工作空间，并切换到其他工作空间");
+    }
   };
 
   /** Sync draft name with workspace data. */
@@ -291,25 +354,65 @@ export function WorkspaceSettings() {
       </TenasSettingsGroup>
 
       <TenasSettingsGroup title="清理">
-        <div className="flex flex-wrap items-start gap-3 py-3">
-          <div className="min-w-0">
-            <div className="text-sm font-medium">清除所有 AI 聊天内容</div>
-            <div className="text-xs text-muted-foreground">
-              会删除全部会话与消息记录
+        <div className="divide-y divide-border">
+          <div className="flex flex-wrap items-start gap-3 px-3 py-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">清除所有 AI 聊天内容</div>
+              <div className="text-xs text-muted-foreground">
+                会删除全部会话与消息记录
+              </div>
             </div>
+
+            <TenasSettingsField>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={clearAllChat.isPending}
+                onClick={() => void handleClearAllChat()}
+              >
+                {clearAllChat.isPending ? "清除中..." : "立即清除"}
+              </Button>
+            </TenasSettingsField>
           </div>
 
-          <TenasSettingsField>
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              disabled={clearAllChat.isPending}
-              onClick={() => void handleClearAllChat()}
-            >
-              {clearAllChat.isPending ? "清除中..." : "立即清除"}
-            </Button>
-          </TenasSettingsField>
+          <div className="flex flex-wrap items-start gap-3 px-3 py-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">删除当前工作空间</div>
+              <div className="text-xs text-muted-foreground">
+                {canDeleteCurrentWorkspace
+                  ? "删除后将自动切换到其他工作空间"
+                  : "至少拥有 3 个工作空间时才允许删除当前工作空间"}
+              </div>
+            </div>
+
+            <TenasSettingsField>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={
+                  !activeWorkspace?.id ||
+                  !canDeleteCurrentWorkspace ||
+                  deleteWorkspace.isPending ||
+                  activateWorkspace.isPending
+                }
+                onClick={() => void handleDeleteCurrentWorkspace()}
+              >
+                {deleteWorkspace.isPending || activateWorkspace.isPending ? (
+                  <>
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                    删除中...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-1 h-3.5 w-3.5" />
+                    删除工作空间
+                  </>
+                )}
+              </Button>
+            </TenasSettingsField>
+          </div>
         </div>
       </TenasSettingsGroup>
     </div>

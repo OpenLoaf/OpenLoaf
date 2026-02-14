@@ -400,10 +400,10 @@ export default function MarkdownViewer({
       toast.error("网页版不支持打开文件管理器");
       return;
     }
-    // 中文注释：日志目录固定在工作空间下的 .tenas/chat_history/{sessionId}。
+    // 逻辑：日志目录固定在工作空间下的 .tenas/chat-history/{sessionId}。
     const targetUri = buildFileUriFromRoot(
       workspaceRootUri,
-      `.tenas/chat_history/${chatHistorySessionId}`
+      `.tenas/chat-history/${chatHistorySessionId}`
     );
     if (!targetUri) {
       toast.error("未找到日志目录");

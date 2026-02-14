@@ -15,7 +15,8 @@
     "test:ai:call": "node --env-file=.env --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/level2-call.test.ts",
     "test:ai:agent": "node --env-file=.env --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/level3-agent.test.ts",
     "test:chat:branch-log": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/chatHistoryBranchResolver.test.ts",
-    "test:chat:branch-log-builder": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/chatHistoryLogMessageBuilder.test.ts"
+    "test:chat:branch-log-builder": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/chatHistoryLogMessageBuilder.test.ts",
+    "test:chat:file-store": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/chatFileStore.test.ts"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^4.0.51",

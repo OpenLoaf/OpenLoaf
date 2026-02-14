@@ -288,6 +288,24 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
   >("idle");
 
   React.useEffect(() => {
+    // 逻辑：切换工作空间时立即清空邮件上下文，避免使用旧 workspace 的 messageId 发起查询。
+    setActiveView({
+      scope: "all-inboxes",
+      label: "收件箱",
+    });
+    setActiveAccountEmail(null);
+    setActiveMailbox(null);
+    setSearchKeyword("");
+    setDebouncedSearchKeyword("");
+    setActiveMessageId(null);
+    setSelectedIds(new Set());
+    lastClickedIdRef.current = null;
+    setIsForwarding(false);
+    setForwardDraft(null);
+    setComposeDraft(null);
+  }, [workspaceId]);
+
+  React.useEffect(() => {
     // 逻辑：同步收藏覆盖状态引用，避免并发更新读到旧值。
     flagOverridesRef.current = flagOverrides;
   }, [flagOverrides]);
@@ -299,6 +317,7 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
   );
 
   const accounts = (accountsQuery.data ?? []) as EmailAccountView[];
+  const hasConfiguredAccounts = accounts.length > 0;
 
   const activeAccount = React.useMemo(() => {
     if (!accounts.length || !activeAccountEmail) return null;
@@ -310,7 +329,7 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
   }, [accounts, activeAccountEmail]);
 
   const unifiedMessagesInput = React.useMemo(() => {
-    if (!workspaceId) return null;
+    if (!workspaceId || !hasConfiguredAccounts) return null;
     if (activeView.scope === "mailbox") {
       if (!activeView.accountEmail || !activeView.mailbox) return null;
       return {
@@ -322,7 +341,7 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
       };
     }
     return { workspaceId, scope: activeView.scope, pageSize: MESSAGE_PAGE_SIZE };
-  }, [workspaceId, activeView]);
+  }, [workspaceId, hasConfiguredAccounts, activeView]);
 
   const messagesQuery = useInfiniteQuery({
     ...trpc.email.listUnifiedMessages.infiniteQueryOptions(
@@ -367,7 +386,7 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
 
   const mailboxUnreadStatsQuery = useQuery(
     trpc.email.listMailboxUnreadStats.queryOptions(
-      workspaceId ? { workspaceId } : skipToken,
+      workspaceId && hasConfiguredAccounts ? { workspaceId } : skipToken,
     ),
   );
 
@@ -379,7 +398,7 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
 
   const unifiedUnreadStatsQuery = useQuery(
     trpc.email.listUnifiedUnreadStats.queryOptions(
-      workspaceId ? { workspaceId } : skipToken,
+      workspaceId && hasConfiguredAccounts ? { workspaceId } : skipToken,
     ),
   );
 
@@ -420,9 +439,19 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     [unifiedUnreadStats],
   );
 
+  const activeMessageIdForQuery = React.useMemo(() => {
+    if (!activeMessageId || !hasConfiguredAccounts) return null;
+    // 逻辑：只允许查询“当前工作空间可见消息”，避免旧消息 ID 在切换工作空间后误查。
+    return messages.some((message) => message.id === activeMessageId)
+      ? activeMessageId
+      : null;
+  }, [activeMessageId, hasConfiguredAccounts, messages]);
+
   const messageDetailQuery = useQuery(
     trpc.email.getMessage.queryOptions(
-      workspaceId && activeMessageId ? { workspaceId, id: activeMessageId } : skipToken,
+      workspaceId && activeMessageIdForQuery
+        ? { workspaceId, id: activeMessageIdForQuery }
+        : skipToken,
     ),
   );
 
@@ -451,6 +480,7 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
     if (
       activeView.scope !== 'mailbox' ||
       !activeView.accountEmail ||
+      !hasConfiguredAccounts ||
       !workspaceId ||
       debouncedSearchKeyword.length < 2
     ) {
@@ -461,7 +491,7 @@ export function useEmailPageState({ workspaceId }: EmailPageStateParams): EmailP
       accountEmail: activeView.accountEmail,
       query: debouncedSearchKeyword,
     }
-  }, [activeView, workspaceId, debouncedSearchKeyword])
+  }, [activeView, hasConfiguredAccounts, workspaceId, debouncedSearchKeyword])
 
   const serverSearchQuery = useQuery(
     trpc.email.searchMessages.queryOptions(serverSearchInput ?? skipToken),

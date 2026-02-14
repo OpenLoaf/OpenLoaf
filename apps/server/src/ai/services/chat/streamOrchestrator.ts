@@ -9,7 +9,6 @@ import type { ChatMessageKind, TokenUsage } from "@tenas-ai/api";
 import {
   getSessionId,
   getPlanUpdate,
-  getAssistantMessagePath,
   popAgentFrame,
   pushAgentFrame,
   setAbortSignal,
@@ -23,7 +22,6 @@ import {
   saveMessage,
   setSessionErrorMessage,
 } from "@/ai/services/chat/repositories/messageStore";
-import { persistChatBranchContextLog } from "@/ai/services/chat/chatHistoryLogger";
 import { buildBranchLogMessages } from "@/ai/services/chat/chatHistoryLogMessageBuilder";
 import { buildTokenUsageMetadata, buildTimingMetadata, mergeAbortMetadata } from "./metadataBuilder";
 
@@ -198,7 +196,6 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
                 assistantMessageKind: input.assistantMessageKind,
               });
               const finalizedAssistantMessage = branchLogMessages.at(-1);
-              const assistantMessagePath = getAssistantMessagePath();
 
               await saveMessage({
                 sessionId: currentSessionId,
@@ -208,15 +205,8 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
                   metadata: finalizedMetadata,
                 },
                 parentMessageId: input.parentMessageId,
-                ...(assistantMessagePath ? { pathOverride: assistantMessagePath } : {}),
                 allowEmpty: isAborted,
                 createdAt: input.requestStartAt,
-              });
-              void persistChatBranchContextLog({
-                sessionId: currentSessionId,
-                workspaceId: input.workspaceId,
-                leafMessageId: input.assistantMessageId,
-                modelMessages: branchLogMessages,
               });
               if (!isAborted && finishReason !== "error") {
                 // 中文注释：仅在成功完成时清空会话错误。

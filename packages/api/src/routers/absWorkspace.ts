@@ -23,6 +23,7 @@ export const workspaceSchemas = {
   create: {
     input: z.object({
       name: workspaceNameSchema,
+      rootUri: z.string().min(1, "工作空间保存目录不能为空").trim(),
     }),
     output: workspaceBase,
   },

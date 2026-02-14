@@ -382,9 +382,12 @@ export async function runChatStream(input: {
       id: masterAgent.frame.agentId,
       name: masterAgent.frame.name,
       kind: masterAgent.frame.kind,
-      model: masterAgent.frame.model,
+      model: {
+        ...masterAgent.frame.model,
+        ...(resolved.modelDefinition?.familyId ? { familyId: resolved.modelDefinition.familyId } : {}),
+        ...(resolved.modelDefinition?.name ? { name: resolved.modelDefinition.name } : {}),
+      },
       chatModelId: resolved.chatModelId,
-      modelDefinition: resolved.modelDefinition,
     };
   } catch (err) {
     logger.error(
@@ -743,9 +746,10 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
     model: {
       provider: "tenas-saas",
       modelId: resolvedModelId,
+      ...(input.modelDefinition?.familyId ? { familyId: input.modelDefinition.familyId } : {}),
+      ...(input.modelDefinition?.name ? { name: input.modelDefinition.name } : {}),
     },
     chatModelId: input.chatModelId,
-    modelDefinition: input.modelDefinition,
   };
 
   return {

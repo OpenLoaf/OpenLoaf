@@ -1,0 +1,171 @@
+---
+name: ai-test-development
+description: Use when creating, extending, or debugging automated tests for server modules or web utilities — covers test environment setup, test runner selection, layer-based test organization, pure function extraction, environment isolation, and concurrent test patterns
+---
+
+# AI Test Development
+
+## Overview
+
+项目维护两套独立测试体系：
+
+| 体系 | 运行器 | 断言库 | 文件约定 | 运行方式 |
+|------|--------|--------|----------|----------|
+| 服务端 | `node:test`（自定义 runner） | `node:assert/strict` | `*.test.ts` | `node --import tsx/esm` 直接执行 |
+| Web 端 | Vitest | `vitest`（expect） | `*.vitest.ts` | `pnpm vitest --run` |
+
+两套体系共享同一套环境隔离原则：临时目录 + `setTenasRootOverride` + DB session 隔离。
+
+## When to Use
+
+- 为服务端模块（`apps/server/`）编写新测试
+- 为 Web 端纯函数/工具（`apps/web/src/lib/`）编写新测试
+- 从 React 组件或复杂模块中提取可测试逻辑
+- 调试现有测试失败
+- 设计测试分层策略（纯函数 → I/O → 集成）
+
+## Quick Reference
+
+### 测试运行器选择
+
+```
+需要测试的代码在哪里？
+├── apps/server/  → 服务端测试（node:assert + 自定义 runner）
+│   文件：src/**/__tests__/*.test.ts
+│   运行：cd apps/server && node --enable-source-maps --import tsx/esm \
+│         --import ./scripts/registerMdTextLoader.mjs src/path/__tests__/xxx.test.ts
+│
+└── apps/web/     → Web 端测试（Vitest）
+    文件：src/**/__tests__/*.vitest.ts
+    运行：cd apps/web && pnpm vitest --run src/path/__tests__/xxx.vitest.ts
+```
+
+### 文件命名约定
+
+- 服务端：`apps/server/src/<module>/__tests__/<name>.test.ts`
+- Web 端：`apps/web/src/lib/<module>/__tests__/<name>.vitest.ts`
+- 测试辅助：`__tests__/helpers/` 目录下
+
+## Core Patterns
+
+### 1. 分层测试组织（A → B → C）
+
+每个测试文件按三层组织，从纯到重：
+
+- **A 层（纯函数）**：无 I/O、无副作用，手动构造输入数据
+- **B 层（I/O 操作）**：文件读写、DB 操作，需要环境隔离
+- **C 层（集成）**：端到端流程，组合多个模块
+
+参考：`apps/server/src/ai/__tests__/chatFileStore.test.ts`
+
+### 2. 服务端测试模板
+
+```typescript
+import assert from 'node:assert/strict'
+// ... 业务导入
+
+// ---- Test runner ----
+let passed = 0
+let failed = 0
+const errors: string[] = []
+
+async function test(name: string, fn: () => Promise<void> | void) {
+  try {
+    await fn()
+    passed++
+    console.log(`  \u2713 ${name}`)
+  } catch (err: any) {
+    failed++
+    const m = err?.message ?? String(err)
+    errors.push(`${name}: ${m}`)
+    console.log(`  \u2717 ${name}: ${m}`)
+  }
+}
+
+// ---- Main ----
+async function main() {
+  // Setup: 临时目录 + root override + DB session
+  // Tests: A → B → C 分层
+  // Teardown: 清理 DB + 重置 override + 删除临时目录
+  // Summary: 输出统计
+}
+
+main().catch((err) => { console.error(err); process.exit(1) })
+```
+
+### 3. Web 端测试模板
+
+```typescript
+import { describe, expect, it } from 'vitest'
+import { myFunction } from '../my-module'
+
+describe('myFunction', () => {
+  it('描述行为', () => {
+    expect(myFunction(input)).toBe(expected)
+  })
+})
+```
+
+Vitest 配置：`apps/web/vitest.config.ts`（jsdom 环境，`@/` 别名已配置）。
+
+### 4. 环境隔离模式
+
+```typescript
+import os from 'node:os'
+import path from 'node:path'
+import { promises as fs } from 'node:fs'
+import { setTenasRootOverride } from '@tenas-ai/config'
+
+// Setup
+const tempDir = path.join(os.tmpdir(), `mytest_${Date.now()}`)
+await fs.mkdir(tempDir, { recursive: true })
+setTenasRootOverride(tempDir)
+
+// ... 测试代码 ...
+
+// Teardown（放在 finally 块中）
+setTenasRootOverride(null)
+await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
+```
+
+需要 DB 隔离时，额外创建 Prisma session 并在 teardown 中删除。
+
+### 5. 纯函数提取策略
+
+从 React 组件或复杂模块中提取可测试逻辑：
+
+1. 识别无副作用的计算逻辑（条件判断、数据变换、查找算法）
+2. 提取到独立 `.ts` 文件（非 `.tsx`），参数用 `input` 对象模式
+3. 在原组件中调用提取后的函数
+4. 为提取的函数编写 Vitest 测试
+
+范例：
+- 提取前：`apps/web/src/components/chat/ChatCoreProvider.tsx`（800+ 行组件）
+- 提取后：`apps/web/src/lib/chat/branch-utils.ts`（7 个纯函数）
+- 测试：`apps/web/src/lib/chat/__tests__/branch-utils.vitest.ts`（20 个用例）
+
+## Common Mistakes
+
+| 错误 | 修复 |
+|------|------|
+| 服务端测试用 Vitest | 服务端用 `node:assert` + 自定义 runner，直接 `node` 执行 |
+| 忘记 `setTenasRootOverride(null)` | 放在 `finally` 块中，确保异常时也能重置 |
+| 测试间共享可变状态 | 每个测试用独立 session ID（`crypto.randomUUID()`） |
+| 忘记 `clearSessionDirCache()` | 切换 root override 后必须清除缓存 |
+| Web 测试文件命名为 `.test.ts` | 必须用 `.vitest.ts`，否则 Vitest 不会匹配 |
+| 在测试中直接 import React 组件 | 提取纯函数到独立文件，测试纯函数 |
+
+## Key Files
+
+| 文件 | 用途 |
+|------|------|
+| `apps/server/src/ai/__tests__/chatFileStore.test.ts` | 服务端测试范例（33 用例，三层组织） |
+| `apps/web/src/lib/chat/__tests__/branch-utils.vitest.ts` | Web 端测试范例（20 用例） |
+| `apps/web/src/lib/chat/branch-utils.ts` | 纯函数提取范例 |
+| `apps/server/src/ai/__tests__/helpers/testEnv.ts` | 测试环境辅助（模型解析、RequestContext） |
+| `apps/server/src/ai/__tests__/helpers/printUtils.ts` | 输出格式化辅助 |
+| `packages/config/src/tenas-paths.ts` | `setTenasRootOverride` 定义 |
+| `apps/web/vitest.config.ts` | Vitest 配置 |
+| `apps/server/scripts/registerMdTextLoader.mjs` | MD 文本加载器（服务端测试需 import） |
+
+详细代码模板见 [references/test-patterns.md](references/test-patterns.md)。

@@ -1,64 +1,36 @@
-import { prisma } from "@tenas-ai/db";
-import type { TenasUIMessage } from "@tenas-ai/api/types/message";
+import type { TenasUIMessage } from '@tenas-ai/api/types/message'
+import { loadMessageChainFromFile } from './chatFileStore'
 
 /** Default max messages in a chain. */
-const DEFAULT_MAX_MESSAGES = 80;
+const DEFAULT_MAX_MESSAGES = 80
 
-/** Load a message chain based on materialized path. */
+/** Load a message chain from JSONL file. */
 export async function loadMessageChain(input: {
   /** Session id. */
-  sessionId: string;
+  sessionId: string
   /** Leaf message id. */
-  leafMessageId: string;
+  leafMessageId: string
   /** Max messages to load. */
-  maxMessages?: number;
+  maxMessages?: number
 }): Promise<TenasUIMessage[]> {
-  const sessionId = input.sessionId;
   const maxMessages = Number.isFinite(input.maxMessages)
     ? Number(input.maxMessages)
-    : DEFAULT_MAX_MESSAGES;
-  const leafId = String(input.leafMessageId || "").trim();
-  if (!leafId) throw new Error("leafMessageId is required.");
+    : DEFAULT_MAX_MESSAGES
+  const leafId = String(input.leafMessageId || '').trim()
+  if (!leafId) throw new Error('leafMessageId is required.')
 
-  const leaf = await prisma.chatMessage.findUnique({
-    where: { id: leafId },
-    select: {
-      id: true,
-      sessionId: true,
-      path: true,
-    },
-  });
-  if (!leaf || leaf.sessionId !== sessionId || !leaf.path) return [];
+  const rows = await loadMessageChainFromFile({
+    sessionId: input.sessionId,
+    leafMessageId: leafId,
+    maxMessages,
+  })
 
-  const segments = leaf.path.split("/").filter(Boolean);
-  if (segments.length === 0) return [];
-
-  // 基于物化路径一次性拉取祖先节点，避免逐层查询。
-  const prefixes = segments.map((_, index) => segments.slice(0, index + 1).join("/"));
-  const limited =
-    prefixes.length > maxMessages ? prefixes.slice(prefixes.length - maxMessages) : prefixes;
-
-  const rows = await prisma.chatMessage.findMany({
-    where: { sessionId, path: { in: limited } },
-    orderBy: { path: "asc" },
-    select: {
-      id: true,
-      role: true,
-      parentMessageId: true,
-      parts: true,
-      metadata: true,
-      messageKind: true,
-    },
-  });
-
-  return rows
-    .filter((row) => row.role !== "subagent")
-    .map((row) => ({
-      id: row.id,
-      role: row.role as any,
-      parentMessageId: row.parentMessageId ?? null,
-      parts: (row.parts as any) ?? [],
-      metadata: (row.metadata as any) ?? undefined,
-      messageKind: (row as any).messageKind ?? "normal",
-    }));
+  return rows.map((row) => ({
+    id: row.id,
+    role: row.role as any,
+    parentMessageId: row.parentMessageId ?? null,
+    parts: (row.parts as any) ?? [],
+    metadata: (row.metadata as any) ?? undefined,
+    messageKind: (row as any).messageKind ?? 'normal',
+  }))
 }

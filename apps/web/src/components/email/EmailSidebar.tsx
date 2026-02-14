@@ -41,7 +41,8 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
             const isActive = sidebar.activeView.scope === item.scope;
             const unifiedIconClassName = cn(
               "h-3.5 w-3.5",
-              item.scope === "all-inboxes" && "text-[#1a73e8] dark:text-sky-300",
+              item.scope === "all-inboxes" &&
+                "text-[#1a73e8] dark:text-sky-300",
               item.scope === "flagged" && "text-[#f9ab00] dark:text-amber-300",
               item.scope === "drafts" && "text-[#9334e6] dark:text-violet-300",
               item.scope === "sent" && "text-[#188038] dark:text-emerald-300",
@@ -51,29 +52,43 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
               <button
                 key={item.scope}
                 type="button"
-                onClick={() => sidebar.onSelectUnifiedView(item.scope, item.label)}
+                onClick={() =>
+                  sidebar.onSelectUnifiedView(item.scope, item.label)
+                }
                 className={cn(
                   "flex w-full items-center justify-between rounded-full px-3 py-2 text-[13px] transition-colors duration-150",
                   isActive
                     ? EMAIL_TONE_ACTIVE_CLASS
-                    : cn("text-[#444746] dark:text-slate-300", EMAIL_TONE_HOVER_CLASS),
+                    : cn(
+                        "text-[#444746] dark:text-slate-300",
+                        EMAIL_TONE_HOVER_CLASS,
+                      ),
                 )}
               >
                 <span className="flex items-center gap-2">
                   <Icon className={unifiedIconClassName} />
                   {item.label}
                 </span>
-                {item.count > 0 ? <span className="text-[11px] font-medium">{item.count}</span> : null}
+                {item.count > 0 ? (
+                  <span className="text-[11px] font-medium">{item.count}</span>
+                ) : null}
               </button>
             );
           })}
         </div>
       </div>
 
-      <div className={cn("flex min-h-0 flex-1 flex-col space-y-2 border-t pt-2", EMAIL_DIVIDER_CLASS)}>
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col space-y-2 border-t pt-2",
+          EMAIL_DIVIDER_CLASS,
+        )}
+      >
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-1.5">
-            <div className="text-xs font-semibold text-[#5f6368] dark:text-slate-400">邮箱列表</div>
+            <div className="text-xs font-semibold text-[#5f6368] dark:text-slate-400">
+              邮箱列表
+            </div>
             {sidebar.accounts.length > 0 ? (
               <span className="text-[9px] font-medium text-[#8a9098] dark:text-slate-500">
                 {sidebar.accounts.length}
@@ -116,12 +131,12 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
           </div>
         </div>
         {sidebar.accountsLoading ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg bg-[hsl(var(--background)/0.72)] px-3 py-3 text-xs text-[#5f6368] dark:bg-slate-800/65 dark:text-slate-300">
+          <div className="flex flex-1 items-center justify-center rounded-lg bg-[hsl(var(--background)/0.72)] px-3 py-3 text-xs text-[#5f6368]  dark:text-slate-300">
             正在加载邮箱账号...
           </div>
         ) : sidebar.accounts.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg bg-[hsl(var(--background)/0.72)] px-3 py-3 text-xs text-[#5f6368] dark:bg-slate-800/65 dark:text-slate-300">
-            还没有绑定邮箱，点击“添加邮箱”开始配置。
+          <div className="flex flex-1 items-center justify-center rounded-lg bg-[hsl(var(--background)/0.72)] px-3 py-3 text-xs text-[#5f6368] dark:text-slate-300">
+            点击“添加邮箱”开始配置。
           </div>
         ) : (
           <DndProvider manager={dndManager}>
@@ -137,7 +152,9 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
                       <div className="flex w-full items-center justify-between text-xs text-[#5f6368] dark:text-slate-400">
                         <button
                           type="button"
-                          onClick={() => sidebar.onToggleAccount(group.account.emailAddress)}
+                          onClick={() =>
+                            sidebar.onToggleAccount(group.account.emailAddress)
+                          }
                           className="flex min-w-0 flex-1 items-center gap-2"
                         >
                           {expanded ? (
@@ -162,9 +179,17 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
                             title="删除邮箱账户"
                             onClick={(e) => {
                               e.stopPropagation();
-                              const label = group.account.label ?? group.account.emailAddress;
-                              if (window.confirm(`确定要删除邮箱账户「${label}」吗？该账户的所有邮件数据将被清除。`)) {
-                                sidebar.onRemoveAccount(group.account.emailAddress);
+                              const label =
+                                group.account.label ??
+                                group.account.emailAddress;
+                              if (
+                                window.confirm(
+                                  `确定要删除邮箱账户「${label}」吗？该账户的所有邮件数据将被清除。`,
+                                )
+                              ) {
+                                sidebar.onRemoveAccount(
+                                  group.account.emailAddress,
+                                );
                               }
                             }}
                           >
@@ -189,13 +214,17 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
                                 dragInsertTarget={sidebar.dragInsertTarget}
                                 draggingMailboxId={sidebar.draggingMailboxId}
                                 onSelectMailbox={sidebar.onSelectMailbox}
-                                onToggleMailboxExpand={sidebar.onToggleMailboxExpand}
+                                onToggleMailboxExpand={
+                                  sidebar.onToggleMailboxExpand
+                                }
                                 onHoverMailbox={sidebar.onHoverMailbox}
                                 onClearHover={sidebar.onClearHover}
                                 onDropMailboxOrder={sidebar.onDropMailboxOrder}
                                 onDragStartMailbox={sidebar.onDragStartMailbox}
                                 onDragEndMailbox={sidebar.onDragEndMailbox}
-                                resolveOrderedMailboxNodes={sidebar.resolveOrderedMailboxNodes}
+                                resolveOrderedMailboxNodes={
+                                  sidebar.resolveOrderedMailboxNodes
+                                }
                               />
                             </div>
                           ) : (

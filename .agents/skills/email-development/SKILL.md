@@ -232,6 +232,7 @@ interface EmailTransportAdapter {
 - 草稿自动保存使用 3s debounce，发送成功或取消时需调用 `deleteDraft` 清理 DB 记录
 - 批量操作需逐条调用 adapter 方法（无批量 API），大量操作时注意性能
 - `searchMessages` 当前为本地 DB 搜索（subject/snippet contains），非服务端 IMAP/API 搜索
+- 切换 `workspaceId` 时若不先清空邮件页本地状态（`activeMessageId`/activeView 等），可能会带着旧工作空间 messageId 触发 `getMessage`，导致“邮件不存在”误报；无账号工作空间需对消息/详情查询使用 `skipToken`
 
 ## Skill Sync Policy
 

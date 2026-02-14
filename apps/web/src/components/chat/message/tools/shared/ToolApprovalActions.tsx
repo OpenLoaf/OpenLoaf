@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Button } from "@tenas-ai/ui/button";
-import { useChatActions, useChatState, useChatTools } from "../../../context";
+import { useChatActions, useChatSession, useChatState, useChatTools } from "../../../context";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -17,6 +17,7 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
   const { messages, status } = useChatState();
   const { updateMessage, addToolApprovalResponse } = useChatActions();
   const { toolParts, upsertToolPart } = useChatTools();
+  const { sessionId } = useChatSession();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const toolSnapshot = React.useMemo(
     () => Object.values(toolParts).find((part) => part.approval?.id === approvalId),
@@ -31,7 +32,7 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
     isDecided ||
     (!isSubAgentApproval && (status === "streaming" || status === "submitted"));
   const updateApprovalMutation = useMutation({
-    ...trpc.chatmessage.updateOneChatMessage.mutationOptions(),
+    ...trpc.chat.updateMessageParts.mutationOptions(),
   });
 
   const updateApprovalInMessages = React.useCallback(
@@ -152,8 +153,9 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
             // 中文注释：拒绝审批后立即落库，避免刷新后仍显示“待审批”。
             try {
               await updateApprovalMutation.mutateAsync({
-                where: { id: approvalUpdate.messageId },
-                data: { parts: approvalUpdate.nextParts as any },
+                sessionId,
+                messageId: approvalUpdate.messageId,
+                parts: approvalUpdate.nextParts as any,
               });
             } catch {
               // 中文注释：落库失败时保留本地状态，避免阻断拒绝流程。

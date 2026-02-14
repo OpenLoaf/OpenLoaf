@@ -9,16 +9,9 @@ export type ProjectChatDbClient = {
     count: (args: { where: { projectId: string; deletedAt?: Date | null } }) => Promise<number>;
     /** Delete chat sessions. */
     deleteMany: (args: { where: { projectId: string } }) => Promise<{ count: number }>;
+    /** Find many chat sessions. */
+    findMany: (args: { where: { projectId: string }; select: { id: true } }) => Promise<Array<{ id: string }>>;
   };
-  /** Delete chat messages. */
-  chatMessage: {
-    /** Delete chat messages. */
-    deleteMany: (args: { where: { session: { projectId: string } } }) => Promise<{ count: number }>;
-  };
-  /** Run a transaction. */
-  $transaction: <T extends readonly Promise<unknown>[]>(
-    operations: T,
-  ) => Promise<{ [K in keyof T]: Awaited<T[K]> }>;
 };
 
 export type ProjectChatStats = {
@@ -29,8 +22,6 @@ export type ProjectChatStats = {
 export type ClearProjectChatResult = {
   /** Number of deleted sessions. */
   deletedSessions: number;
-  /** Number of deleted messages. */
-  deletedMessages: number;
 };
 
 /** Resolve project chat folder path. */
@@ -73,13 +64,9 @@ export async function clearProjectChatData(
   // 逻辑：先清理本地聊天附件目录，再删除数据库记录。
   await fs.rm(chatPath, { recursive: true, force: true });
 
-  const [messages, sessions] = await prisma.$transaction([
-    prisma.chatMessage.deleteMany({ where: { session: { projectId: trimmedId } } }),
-    prisma.chatSession.deleteMany({ where: { projectId: trimmedId } }),
-  ] as const);
+  const sessions = await prisma.chatSession.deleteMany({ where: { projectId: trimmedId } });
 
   return {
     deletedSessions: sessions.count,
-    deletedMessages: messages.count,
   };
 }
