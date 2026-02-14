@@ -840,6 +840,18 @@ export async function getFilePreview(input: {
     const buffer = await fs.readFile(filePath);
     return { kind: "ready", buffer, mediaType: "application/pdf", metadata: null };
   }
+  // 逻辑：视频文件直接返回原内容，不做压缩处理。
+  const videoMimeMap: Record<string, string> = {
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
+    ".mov": "video/quicktime",
+  };
+  const fileExt = path.extname(lowerPath);
+  const videoMime = videoMimeMap[fileExt];
+  if (videoMime) {
+    const buffer = await fs.readFile(filePath);
+    return { kind: "ready", buffer, mediaType: videoMime, metadata: null };
+  }
   const format = resolveImageFormat("application/octet-stream", filePath);
   if (!format || !isSupportedImageMime(format.mediaType)) return null;
   const cacheHit = await loadPreviewCache({

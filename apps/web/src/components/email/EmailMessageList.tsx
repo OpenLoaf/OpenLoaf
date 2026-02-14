@@ -185,148 +185,150 @@ export function EmailMessageList({
           ) : null}
         </div>
       </div>
-      <div
-        ref={messageList.messagesListRef}
-        className={cn(
-          "flex min-h-0 flex-1 flex-col overflow-y-auto pb-16 text-sm scrollbar-hide",
-          EMAIL_LIST_SURFACE_CLASS,
-        )}
-      >
-        {messageList.messagesLoading ? (
-          <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
-            正在加载邮件...
-          </div>
-        ) : messageList.visibleMessages.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
-            暂无邮件
-          </div>
-        ) : (
-          <>
-            {messageList.visibleMessages.map((mail) => {
-              const isActive = mail.id === messageList.activeMessageId;
-              const isSelected = selectedIds.has(mail.id);
-              const rowTime = formatMessageTime(mail.time ?? "");
-              return (
-                <div
-                  key={mail.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => {
-                    messageList.onSelectMessage(mail);
-                    onMessageOpen?.(mail);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
+      <div className="min-h-0 flex-1 mb-16">
+        <div
+          ref={messageList.messagesListRef}
+          className={cn(
+            "flex h-full min-h-0 flex-col overflow-y-auto text-sm scrollbar-hide",
+            EMAIL_LIST_SURFACE_CLASS,
+          )}
+        >
+          {messageList.messagesLoading ? (
+            <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
+              正在加载邮件...
+            </div>
+          ) : messageList.visibleMessages.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
+              暂无邮件
+            </div>
+          ) : (
+            <>
+              {messageList.visibleMessages.map((mail) => {
+                const isActive = mail.id === messageList.activeMessageId;
+                const isSelected = selectedIds.has(mail.id);
+                const rowTime = formatMessageTime(mail.time ?? "");
+                return (
+                  <div
+                    key={mail.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
                       messageList.onSelectMessage(mail);
                       onMessageOpen?.(mail);
-                    }
-                  }}
-                  className={cn(
-                    "grid !h-[50px] !min-h-[50px] w-full cursor-pointer grid-cols-[68px_minmax(128px,220px)_minmax(0,1fr)_72px] items-center gap-2 border-b px-3 text-left transition-colors duration-150",
-                    EMAIL_DIVIDER_CLASS,
-                    isSelected
-                      ? "bg-[#e8f0fe] dark:bg-sky-900/50"
-                      : isActive
-                        ? EMAIL_TONE_ACTIVE_CLASS
-                        : cn(
-                            mail.unread ? EMAIL_LIST_UNREAD_ROW_CLASS : EMAIL_LIST_READ_ROW_CLASS,
-                            EMAIL_TONE_HOVER_CLASS,
-                          ),
-                  )}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      role="checkbox"
-                      aria-checked={isSelected}
-                      tabIndex={-1}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        messageList.onToggleSelect(mail.id, e.shiftKey);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === ' ' || e.key === 'Enter') {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          messageList.onToggleSelect(mail.id);
-                        }
-                      }}
-                      className="flex items-center justify-center"
-                    >
-                      <Checkbox
-                        checked={isSelected}
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        messageList.onSelectMessage(mail);
+                        onMessageOpen?.(mail);
+                      }
+                    }}
+                    className={cn(
+                      "grid !h-[50px] !min-h-[50px] w-full cursor-pointer grid-cols-[68px_minmax(128px,220px)_minmax(0,1fr)_72px] items-center gap-2 border-b px-3 text-left transition-colors duration-150",
+                      EMAIL_DIVIDER_CLASS,
+                      isSelected
+                        ? "bg-[#e8f0fe] dark:bg-sky-900/50"
+                        : isActive
+                          ? EMAIL_TONE_ACTIVE_CLASS
+                          : cn(
+                              mail.unread ? EMAIL_LIST_UNREAD_ROW_CLASS : EMAIL_LIST_READ_ROW_CLASS,
+                              EMAIL_TONE_HOVER_CLASS,
+                            ),
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        role="checkbox"
+                        aria-checked={isSelected}
                         tabIndex={-1}
-                        className="h-3.5 w-3.5 pointer-events-none"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          messageList.onToggleSelect(mail.id, e.shiftKey);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === ' ' || e.key === 'Enter') {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            messageList.onToggleSelect(mail.id);
+                          }
+                        }}
+                        className="flex items-center justify-center"
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          tabIndex={-1}
+                          className="h-3.5 w-3.5 pointer-events-none"
+                        />
+                      </div>
+                      <Star className="h-3.5 w-3.5 shrink-0 text-[#f9ab00] dark:text-amber-300" />
+                      <span
+                        className={cn(
+                          "h-2 w-2 rounded-full",
+                          mail.unread ? "bg-[#1a73e8]" : "bg-transparent",
+                        )}
                       />
                     </div>
-                    <Star className="h-3.5 w-3.5 shrink-0 text-[#f9ab00] dark:text-amber-300" />
-                    <span
+                    <div
                       className={cn(
-                        "h-2 w-2 rounded-full",
-                        mail.unread ? "bg-[#1a73e8]" : "bg-transparent",
-                      )}
-                    />
-                  </div>
-                  <div
-                    className={cn(
-                      "truncate text-[13px]",
-                      mail.unread
-                        ? "font-semibold text-[#202124] dark:text-slate-50"
-                        : "font-medium text-[#3c4043] dark:text-slate-300",
-                    )}
-                  >
-                    {mail.from}
-                  </div>
-                  <div className="min-w-0 truncate text-[13px] text-[#5f6368] dark:text-slate-400">
-                    <span
-                      className={cn(
+                        "truncate text-[13px]",
                         mail.unread
-                          ? "font-semibold text-[#202124] dark:text-slate-100"
-                          : "text-[#3c4043] dark:text-slate-300",
+                          ? "font-semibold text-[#202124] dark:text-slate-50"
+                          : "font-medium text-[#3c4043] dark:text-slate-300",
                       )}
                     >
-                      {mail.subject || "（无主题）"}
-                    </span>
-                    <span className="text-[#5f6368] dark:text-slate-400">
-                      {" "}
-                      - {mail.preview || "（无预览）"}
-                    </span>
-                    {mail.hasAttachments ? (
-                      <span className="ml-2 inline-flex items-center text-[#9334e6] dark:text-violet-300">
-                        <Paperclip className="h-3 w-3" />
+                      {mail.from}
+                    </div>
+                    <div className="min-w-0 truncate text-[13px] text-[#5f6368] dark:text-slate-400">
+                      <span
+                        className={cn(
+                          mail.unread
+                            ? "font-semibold text-[#202124] dark:text-slate-100"
+                            : "text-[#3c4043] dark:text-slate-300",
+                        )}
+                      >
+                        {mail.subject || "（无主题）"}
                       </span>
-                    ) : null}
-                    {mail.isPrivate ? (
-                      <span className="ml-2 inline-flex items-center text-[#188038] dark:text-emerald-300">
-                        <Lock className="h-3 w-3" />
+                      <span className="text-[#5f6368] dark:text-slate-400">
+                        {" "}
+                        - {mail.preview || "（无预览）"}
                       </span>
-                    ) : null}
+                      {mail.hasAttachments ? (
+                        <span className="ml-2 inline-flex items-center text-[#9334e6] dark:text-violet-300">
+                          <Paperclip className="h-3 w-3" />
+                        </span>
+                      ) : null}
+                      {mail.isPrivate ? (
+                        <span className="ml-2 inline-flex items-center text-[#188038] dark:text-emerald-300">
+                          <Lock className="h-3 w-3" />
+                        </span>
+                      ) : null}
+                    </div>
+                    <div
+                      className={cn(
+                        "truncate text-right text-xs",
+                        mail.unread
+                          ? "font-semibold text-[#202124] dark:text-slate-100"
+                          : "text-[#5f6368] dark:text-slate-400",
+                      )}
+                    >
+                      {rowTime}
+                    </div>
                   </div>
-                  <div
-                    className={cn(
-                      "truncate text-right text-xs",
-                      mail.unread
-                        ? "font-semibold text-[#202124] dark:text-slate-100"
-                        : "text-[#5f6368] dark:text-slate-400",
-                    )}
-                  >
-                    {rowTime}
-                  </div>
+                );
+              })}
+              <div ref={messageList.loadMoreRef} className="h-6" />
+              {messageList.messagesFetchingNextPage ? (
+                <div className="py-2 text-center text-xs text-muted-foreground">
+                  正在加载更多...
                 </div>
-              );
-            })}
-            <div ref={messageList.loadMoreRef} className="h-6" />
-            {messageList.messagesFetchingNextPage ? (
-              <div className="py-2 text-center text-xs text-muted-foreground">
-                正在加载更多...
-              </div>
-            ) : messageList.visibleMessages.length > 0 && !messageList.hasNextPage ? (
-              <div className="py-2 text-center text-xs text-muted-foreground/70">
-                没有更多内容了
-              </div>
-            ) : null}
-          </>
-        )}
+              ) : messageList.visibleMessages.length > 0 && !messageList.hasNextPage ? (
+                <div className="py-2 text-center text-xs text-muted-foreground/70">
+                  没有更多内容了
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
       </div>
     </section>
   );

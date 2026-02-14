@@ -37,7 +37,7 @@ export default function MediaGenerateTool({ part }: MediaGenerateToolProps) {
   const mg = resolvedPart.mediaGenerate;
   const { hasErrorText } = getToolOutputState(resolvedPart);
   const errorText = resolvedPart.errorText ?? "";
-  const kind = mg?.kind ?? (resolvedPart.toolName === "video-generate" ? "video" : "image");
+  const kind = mg?.kind ?? (resolvedPart.output as any)?.kind ?? (resolvedPart.toolName === "video-generate" ? "video" : "image");
   const KindIcon = kind === "video" ? VideoIcon : ImageIcon;
   const kindLabel = kind === "video" ? "视频" : "图片";
 
