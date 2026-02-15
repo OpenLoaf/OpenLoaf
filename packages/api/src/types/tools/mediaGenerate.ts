@@ -31,6 +31,14 @@ export const imageGenerateToolDef = {
       .max(4)
       .optional()
       .describe('生成图片数量，1-4 张，默认 1。'),
+    fileName: z
+      .string()
+      .max(100)
+      .regex(/^[^/\\:*?"<>|]+$/, '文件名不能包含 / \\ : * ? " < > | 等特殊字符')
+      .optional()
+      .describe(
+        '保存文件名（不含扩展名）。如果生成多张图片，会自动添加 _1、_2 后缀。不提供则自动生成。',
+      ),
   }),
   component: null,
 } as const
@@ -59,6 +67,14 @@ export const videoGenerateToolDef = {
       .number()
       .optional()
       .describe('视频时长（秒），默认由模型决定。'),
+    fileName: z
+      .string()
+      .max(100)
+      .regex(/^[^/\\:*?"<>|]+$/, '文件名不能包含 / \\ : * ? " < > | 等特殊字符')
+      .optional()
+      .describe(
+        '保存文件名（不含扩展名）。如果生成多个视频，会自动添加 _1、_2 后缀。不提供则自动生成。',
+      ),
   }),
   component: null,
 } as const

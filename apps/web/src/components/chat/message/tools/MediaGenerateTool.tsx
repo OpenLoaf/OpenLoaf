@@ -56,13 +56,7 @@ export default function MediaGenerateTool({ part }: MediaGenerateToolProps) {
   if (mg?.status === "generating" || (!mg && !hasErrorText && !resolvedPart.output)) {
     const progress = mg?.progress;
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
-        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        <span className="text-xs text-muted-foreground">
-          正在生成{kindLabel}
-          {typeof progress === "number" ? `（${Math.round(progress)}%）` : "..."}
-        </span>
-      </div>
+      <MediaGenerateLoading kind={kind} progress={progress} kindLabel={kindLabel} KindIcon={KindIcon} />
     );
   }
 
@@ -122,10 +116,7 @@ export default function MediaGenerateTool({ part }: MediaGenerateToolProps) {
 
   // 逻辑：默认状态（等待中）。
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
-      <KindIcon className="h-4 w-4 text-muted-foreground" />
-      <span className="text-xs text-muted-foreground">{kindLabel}生成</span>
-    </div>
+    <MediaGenerateLoading kind={kind} kindLabel={kindLabel} KindIcon={KindIcon} />
   );
 }
 
@@ -174,6 +165,40 @@ function ImageGrid({
           />
         </button>
       ))}
+    </div>
+  )
+}
+
+// 逻辑：生成中占位卡片，模拟最终媒体尺寸并叠加 loading overlay。
+function MediaGenerateLoading({
+  kind,
+  progress,
+  kindLabel,
+  KindIcon,
+}: {
+  kind: string
+  progress?: number
+  kindLabel: string
+  KindIcon: React.ElementType
+}) {
+  const hasProgress = typeof progress === 'number'
+  const aspectClass = kind === 'video' ? 'aspect-video' : 'aspect-[4/3]'
+  return (
+    <div
+      className={`relative max-w-xs overflow-hidden rounded-lg border border-border/50 bg-muted/40 ${aspectClass}`}
+    >
+      {/* 逻辑：脉冲动画模拟骨架屏效果。 */}
+      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted/60 via-muted/30 to-muted/60" />
+      {/* 逻辑：居中 overlay 显示图标、spinner 和进度。 */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+        <div className="relative">
+          <KindIcon className="size-8 text-muted-foreground/40" />
+          <Loader2 className="absolute -inset-2 size-12 animate-spin text-muted-foreground/60" />
+        </div>
+        <span className="text-xs text-muted-foreground/80">
+          {hasProgress ? `${Math.round(progress)}%` : `正在生成${kindLabel}...`}
+        </span>
+      </div>
     </div>
   )
 }

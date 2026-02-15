@@ -28,6 +28,24 @@ const POLL_INTERVAL_MS = 1500
 /** Task timeout. */
 const TASK_TIMEOUT_MS = 5 * 60 * 1000
 
+/** Sanitize user-provided file name to prevent path traversal and invalid chars. */
+function sanitizeFileName(name: string): string {
+  let safe = name.replace(/[/\\:*?"<>|]/g, '_')
+  safe = safe.replace(/^\.+/, '')
+  safe = safe.trim().slice(0, 100)
+  return safe || 'untitled'
+}
+
+/** Build file name: use user-provided name with optional index suffix, or fallback to generated name. */
+function buildFileName(ext: string, userFileName?: string, index?: number, total?: number): string {
+  if (userFileName) {
+    const base = sanitizeFileName(userFileName)
+    const suffix = total && total > 1 ? `_${(index ?? 0) + 1}` : ''
+    return `${base}${suffix}.${ext}`
+  }
+  return `gen_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
+}
+
 /** Write a typed data event to the UI stream. */
 function writeDataEvent(
   writer: UIMessageStreamWriter<any> | undefined,
@@ -132,6 +150,9 @@ async function downloadAndSaveImage(input: {
   workspaceId: string
   projectId?: string
   abortSignal: AbortSignal
+  fileName?: string
+  index?: number
+  total?: number
 }): Promise<{ url: string; mediaType: string }> {
   const response = await fetch(input.url, { signal: input.abortSignal })
   if (!response.ok) {
@@ -139,7 +160,7 @@ async function downloadAndSaveImage(input: {
   }
   const mediaType = response.headers.get('content-type') || 'image/png'
   const buffer = Buffer.from(await response.arrayBuffer())
-  const fileName = `gen_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`
+  const fileName = buildFileName('png', input.fileName, input.index, input.total)
   return saveChatImageAttachment({
     workspaceId: input.workspaceId,
     projectId: input.projectId,
@@ -157,6 +178,9 @@ async function downloadAndSaveVideo(input: {
   workspaceId: string
   projectId?: string
   abortSignal: AbortSignal
+  fileName?: string
+  index?: number
+  total?: number
 }): Promise<{ url: string }> {
   const response = await fetch(input.url, { signal: input.abortSignal })
   if (!response.ok || !response.body) {
@@ -164,7 +188,7 @@ async function downloadAndSaveVideo(input: {
   }
   const contentType = response.headers.get('content-type') || 'video/mp4'
   const ext = contentType.includes('webm') ? 'webm' : 'mp4'
-  const fileName = `gen_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const fileName = buildFileName(ext, input.fileName, input.index, input.total)
   const rootPath = getWorkspaceRootPathById(input.workspaceId)
   if (!rootPath) throw new Error('workspace not found')
   const dir = path.join(rootPath, '.tenas', 'chat-history', input.sessionId)
@@ -184,6 +208,7 @@ async function executeMediaGenerate(input: {
   aspectRatio?: string
   count?: number
   duration?: number
+  fileName?: string
 }) {
   const writer = getUiWriter()
   const accessToken = getSaasAccessToken()
@@ -271,13 +296,16 @@ async function executeMediaGenerate(input: {
   if (input.kind === 'image' && sessionId && workspaceId && resultUrls.length > 0) {
     try {
       const saved = await Promise.all(
-        resultUrls.map((url) =>
+        resultUrls.map((url, i) =>
           downloadAndSaveImage({
             url,
             sessionId,
             workspaceId,
             projectId,
             abortSignal: signal,
+            fileName: input.fileName,
+            index: i,
+            total: resultUrls.length,
           }),
         ),
       )
@@ -291,13 +319,16 @@ async function executeMediaGenerate(input: {
   if (input.kind === 'video' && sessionId && workspaceId && resultUrls.length > 0) {
     try {
       const saved = await Promise.all(
-        resultUrls.map((url) =>
+        resultUrls.map((url, i) =>
           downloadAndSaveVideo({
             url,
             sessionId,
             workspaceId,
             projectId,
             abortSignal: signal,
+            fileName: input.fileName,
+            index: i,
+            total: resultUrls.length,
           }),
         ),
       )
@@ -333,6 +364,7 @@ export const imageGenerateTool = tool({
       negativePrompt: params.negativePrompt,
       aspectRatio: params.aspectRatio,
       count: params.count,
+      fileName: params.fileName,
     })
   },
 })
@@ -347,6 +379,7 @@ export const videoGenerateTool = tool({
       prompt: params.prompt,
       aspectRatio: params.aspectRatio,
       duration: params.duration,
+      fileName: params.fileName,
     })
   },
 })
