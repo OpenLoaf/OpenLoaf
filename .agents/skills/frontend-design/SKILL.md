@@ -40,3 +40,56 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 **IMPORTANT**: Match implementation complexity to the aesthetic vision. Maximalist designs need elaborate code with extensive animations and effects. Minimalist or refined designs need restraint, precision, and careful attention to spacing, typography, and subtle details. Elegance comes from executing the vision well.
 
 Remember: Claude is capable of extraordinary creative work. Don't hold back, show what can truly be created when thinking outside the box and committing fully to a distinctive vision.
+
+## Tenas Project Button Color Standard (From Email Module)
+
+When working in this repo, button colors should default to the email module palette unless a feature explicitly defines another brand/system palette.
+
+Reference sources:
+- `apps/web/src/components/email/EmailForwardEditor.tsx`
+- `apps/web/src/components/email/EmailMessageList.tsx`
+- `apps/web/src/components/email/EmailSidebar.tsx`
+
+Recommended semantic tokens:
+
+```css
+:root {
+  --btn-primary-bg: #0b57d0;
+  --btn-primary-bg-hover: #0a4cbc;
+  --btn-primary-fg: #ffffff;
+
+  --btn-neutral-fg: #5f6368;
+  --btn-neutral-bg-hover: #e8eaed;
+
+  --btn-success-fg: #188038;
+  --btn-success-bg: #e6f4ea;
+  --btn-success-bg-hover: #ceead6;
+
+  --btn-warning-fg: #f9ab00;
+  --btn-danger-fg: #d93025;
+  --btn-accent-fg: #9334e6;
+  --btn-info-fg: #1a73e8;
+}
+```
+
+Semantic mapping:
+- Primary action button (e.g. send/confirm): `--btn-primary-*`
+- Neutral ghost/secondary action (e.g. cancel/attachment/tools): `--btn-neutral-*`
+- Success utility action (e.g. sync/add account): `--btn-success-*`
+- Warning emphasis action (e.g. archive/star): `--btn-warning-fg`
+- Danger/destructive action (e.g. delete/remove): `--btn-danger-fg`
+- Accent/overflow action (e.g. more menu): `--btn-accent-fg`
+- Info/highlight state (e.g. inbox/current indicator): `--btn-info-fg`
+
+Dark mode mapping keeps current token intent:
+- Primary: `dark:bg-sky-600` + `dark:hover:bg-sky-500`
+- Neutral: `dark:text-slate-300` + `dark:hover:bg-slate-700`
+- Success: `dark:bg-[hsl(142_45%_24%/0.55)]` + `dark:text-emerald-300` + `dark:hover:bg-[hsl(142_45%_24%/0.72)]`
+- Warning: `dark:text-amber-300`
+- Danger: `dark:text-red-300` / `dark:text-red-400`
+- Accent: `dark:text-violet-300`
+- Info: `dark:text-sky-300`
+
+Implementation rule:
+- New frontend UI in this project should reuse these semantics first, then adjust shape, spacing, and motion per feature.
+- Avoid inventing new action colors when an existing semantic slot already fits.

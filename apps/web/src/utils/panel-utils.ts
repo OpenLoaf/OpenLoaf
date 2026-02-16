@@ -28,6 +28,7 @@ import DesktopWidgetLibraryPanel from "@/components/desktop/DesktopWidgetLibrary
 import WorkspaceDesktop from "@/components/workspace/WorkspaceDesktop";
 import FolderTreePreview from "@/components/project/filesystem/FolderTreePreview";
 import { SchedulerTaskHistoryStackPanel } from "@/components/summary/SchedulerTaskHistoryStackPanel";
+import StreamingCodeViewer from "@/components/file/StreamingCodeViewer";
 
 /**
  * 组件名称到组件的映射关系
@@ -66,6 +67,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "workspace-desktop": WorkspaceDesktop,
   "folder-tree-preview": FolderTreePreview,
   "scheduler-task-history": SchedulerTaskHistoryStackPanel,
+  "streaming-code-viewer": StreamingCodeViewer,
 };
 
 /**
@@ -129,6 +131,8 @@ export const getPanelTitle = (componentName: string) => {
       return "Folder";
     case "scheduler-task-history":
       return "Scheduler History";
+    case "streaming-code-viewer":
+      return "写入文件";
     default:
       // 如果没有匹配的标题，直接返回组件名称
       return componentName;

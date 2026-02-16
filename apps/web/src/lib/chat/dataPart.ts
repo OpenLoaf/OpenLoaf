@@ -48,6 +48,9 @@ function handleToolChunk({
       });
       break;
     }
+    // 注意：tool-input-start / tool-input-delta / tool-input-available / tool-output-available
+    // 由 AI SDK v6 内部处理，不会传递到 onData 回调。
+    // 这些 case 保留用于兼容可能直接调用 handleChatDataPart 的场景。
     case "tool-input-start": {
       upsertToolPartMerged(String(dataPart.toolCallId), {
         type: dataPart.dynamic ? "dynamic-tool" : `tool-${dataPart.toolName}`,

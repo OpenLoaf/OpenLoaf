@@ -114,12 +114,14 @@ function ContextMenuItem({
   inset,
   variant = "default",
   icon: Icon,
+  iconClassName,
   children,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Item> & {
   inset?: boolean
   variant?: "default" | "destructive"
   icon?: LucideIcon
+  iconClassName?: string
 }) {
   return (
     <ContextMenuPrimitive.Item
@@ -132,7 +134,7 @@ function ContextMenuItem({
       )}
       {...props}
     >
-      {Icon ? <Icon className="h-4 w-4" /> : null}
+      {Icon ? <Icon className={cn("h-4 w-4", iconClassName)} /> : null}
       {children}
     </ContextMenuPrimitive.Item>
   )

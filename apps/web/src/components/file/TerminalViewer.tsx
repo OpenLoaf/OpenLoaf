@@ -109,6 +109,7 @@ function TerminalSessionView({
   allowShortcut,
   onRequestNewTab,
   onRequestSelectTab,
+  onAutoRunConsumed,
 }: {
   tab: TerminalTab;
   active: boolean;
@@ -119,6 +120,8 @@ function TerminalSessionView({
   onRequestNewTab?: () => void;
   /** Request handler for selecting a terminal tab by index. */
   onRequestSelectTab?: (index: number) => void;
+  /** Clear one-time auto-run command after it is consumed. */
+  onAutoRunConsumed?: (tabId: string, nonce: string) => void;
 }) {
   const pwdUri = getTerminalTabPwdUri(tab);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -132,6 +135,10 @@ function TerminalSessionView({
   const allowShortcutRef = useRef(allowShortcut);
   const requestNewTabRef = useRef(onRequestNewTab);
   const requestSelectTabRef = useRef(onRequestSelectTab);
+  const autoRunRef = useRef<{ command: string; nonce: string }>({
+    command: "",
+    nonce: "",
+  });
   const [status, setStatus] = useState<"idle" | "connecting" | "ready" | "error">(
     "idle"
   );
@@ -160,6 +167,17 @@ function TerminalSessionView({
   useEffect(() => {
     requestSelectTabRef.current = onRequestSelectTab;
   }, [onRequestSelectTab]);
+
+  useEffect(() => {
+    const autoRunParams = (tab.params ?? {}) as Record<string, unknown>;
+    const command =
+      typeof autoRunParams.autoRunCommand === "string"
+        ? autoRunParams.autoRunCommand.trim()
+        : "";
+    const nonce =
+      typeof autoRunParams.autoRunNonce === "string" ? autoRunParams.autoRunNonce : "";
+    autoRunRef.current = { command, nonce };
+  }, [tab.params]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -253,6 +271,20 @@ function TerminalSessionView({
         socket.onopen = () => {
           setStatus("ready");
           handleResize();
+          const pendingAutoRun = autoRunRef.current;
+          const autoRunCommand = pendingAutoRun.command;
+          const autoRunNonce = pendingAutoRun.nonce;
+          if (autoRunCommand) {
+            const command = autoRunCommand.endsWith("\n")
+              ? autoRunCommand
+              : `${autoRunCommand}\n`;
+            // 逻辑：终端连接就绪后注入一次命令并回车执行。
+            sendMessage({ type: "input", data: command });
+            autoRunRef.current = { command: "", nonce: "" };
+            if (autoRunNonce) {
+              onAutoRunConsumed?.(tab.id, autoRunNonce);
+            }
+          }
         };
 
         socket.onmessage = (event) => {
@@ -304,7 +336,7 @@ function TerminalSessionView({
         sessionRef.current = null;
       }
     };
-  }, [pwdUri, enabled]);
+  }, [enabled, onAutoRunConsumed, pwdUri, tab.id]);
 
   if (!enabled) {
     return null;
@@ -406,6 +438,30 @@ export default function TerminalViewer({
       useTabRuntime.getState().setTerminalTabs(safeTabId, nextTabs, nextActiveId);
     },
     [safeTabId],
+  );
+
+  /** Remove consumed auto-run payload to prevent re-run after remount. */
+  const consumeAutoRunPayload = useCallback(
+    (terminalTabId: string, nonce: string) => {
+      const currentTabs = tabsRef.current;
+      const targetIndex = currentTabs.findIndex((tab) => tab.id === terminalTabId);
+      if (targetIndex < 0) return;
+      const target = currentTabs[targetIndex];
+      if (!target) return;
+      const currentParams =
+        typeof target.params === "object" && target.params
+          ? { ...(target.params as Record<string, unknown>) }
+          : {};
+      const currentNonce =
+        typeof currentParams.autoRunNonce === "string" ? currentParams.autoRunNonce : "";
+      if (!currentNonce || currentNonce !== nonce) return;
+      delete currentParams.autoRunCommand;
+      delete currentParams.autoRunNonce;
+      const nextTabs = [...currentTabs];
+      nextTabs[targetIndex] = { ...target, params: currentParams };
+      updateTerminalState(nextTabs, activeIdRef.current || terminalTabId);
+    },
+    [updateTerminalState],
   );
 
   /** Switch active terminal tab. */
@@ -595,6 +651,7 @@ export default function TerminalViewer({
                 }
                 onRequestNewTab={onNewTerminalTab}
                 onRequestSelectTab={selectTerminalTabByIndex}
+                onAutoRunConsumed={consumeAutoRunPayload}
               />
             );
           })
