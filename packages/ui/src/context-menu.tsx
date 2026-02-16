@@ -4,6 +4,44 @@ import { CheckIcon, ChevronRightIcon, CircleIcon, type LucideIcon } from "lucide
 
 import { cn } from "@/lib/utils"
 
+const CONTEXT_MENU_ICON_TONE_CLASS = {
+  info: "text-[#1a73e8] dark:text-sky-300",
+  success: "text-[#188038] dark:text-emerald-300",
+  warning: "text-[#f9ab00] dark:text-amber-300",
+  danger: "text-[#d93025] dark:text-red-300",
+  accent: "text-[#9334e6] dark:text-violet-300",
+} as const
+
+/** Resolve a semantic color class for context-menu icons. */
+function resolveContextMenuIconClass(
+  icon?: LucideIcon,
+  variant?: "default" | "destructive",
+  iconClassName?: string
+) {
+  if (iconClassName) return iconClassName
+  if (variant === "destructive") return CONTEXT_MENU_ICON_TONE_CLASS.danger
+
+  const iconName = (icon?.displayName ?? icon?.name ?? "").toLowerCase()
+  // 逻辑：危险/删除类操作优先使用红色语义。
+  if (/(trash|delete|remove|ban|x$|xicon|circlex|close)/.test(iconName)) {
+    return CONTEXT_MENU_ICON_TONE_CLASS.danger
+  }
+  // 逻辑：新增/确认/刷新类操作使用绿色语义。
+  if (/(plus|check|sparkles|rotate|refresh|import|download|upload)/.test(iconName)) {
+    return CONTEXT_MENU_ICON_TONE_CLASS.success
+  }
+  // 逻辑：复制/粘贴/迁移/配置等操作使用强调紫色。
+  if (/(copy|clipboard|move|arrowrightleft|settings|layout|grid|duplicate)/.test(iconName)) {
+    return CONTEXT_MENU_ICON_TONE_CLASS.accent
+  }
+  // 逻辑：编辑/可见性切换等操作使用警示黄色。
+  if (/(pencil|edit|rename|eye|indent|outdent)/.test(iconName)) {
+    return CONTEXT_MENU_ICON_TONE_CLASS.warning
+  }
+
+  return CONTEXT_MENU_ICON_TONE_CLASS.info
+}
+
 function ContextMenu({
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
@@ -64,7 +102,7 @@ function ContextMenuSubTrigger({
       data-slot="context-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&_svg:not([class*='text-'])]:text-[#1a73e8] dark:[&_svg:not([class*='text-'])]:text-sky-300 flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
@@ -123,18 +161,23 @@ function ContextMenuItem({
   icon?: LucideIcon
   iconClassName?: string
 }) {
+  const resolvedIconClassName = resolveContextMenuIconClass(
+    Icon,
+    variant,
+    iconClassName
+  )
   return (
     <ContextMenuPrimitive.Item
       data-slot="context-menu-item"
       data-inset={inset}
       data-variant={variant}
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-[#1a73e8] dark:[&_svg:not([class*='text-'])]:text-sky-300 relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
     >
-      {Icon ? <Icon className={cn("h-4 w-4", iconClassName)} /> : null}
+      {Icon ? <Icon className={cn("h-4 w-4", resolvedIconClassName)} /> : null}
       {children}
     </ContextMenuPrimitive.Item>
   )

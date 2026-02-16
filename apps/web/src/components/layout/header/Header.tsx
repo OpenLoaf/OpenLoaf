@@ -159,7 +159,6 @@ export const Header = () => {
               <motion.div
                 animate={{
                   y: [0, -1.5, 0],
-                  scale: [1, 1.05, 1],
                   rotate: [0, -4, 4, 0],
                 }}
                 transition={{
@@ -167,7 +166,7 @@ export const Header = () => {
                   ease: "easeInOut",
                   repeat: Number.POSITIVE_INFINITY,
                 }}
-                whileHover={{ y: -2, scale: 1.1, rotate: 10 }}
+                whileHover={{ y: -2, rotate: 10 }}
                 whileTap={{ scale: 0.95, rotate: 0 }}
               >
                 {/* <PanelRight
@@ -177,7 +176,7 @@ export const Header = () => {
                 /> */}
                 <Sparkles
                   aria-hidden="true"
-                  className="h-5 w-5 scale-[1.03] text-amber-500 transition-transform duration-200 ease-out hover:rotate-8"
+                  className="h-5 w-5 text-amber-500 transition-transform duration-200 ease-out hover:rotate-8"
                   fill="currentColor"
                 />
               </motion.div>

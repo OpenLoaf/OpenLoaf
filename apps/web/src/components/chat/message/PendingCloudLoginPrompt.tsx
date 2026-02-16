@@ -90,7 +90,7 @@ export default function PendingCloudLoginPrompt() {
             className="w-full max-w-[78%] rounded-2xl border border-[#e3e8ef] bg-[#ffffff] dark:border-slate-700 dark:bg-[hsl(var(--background)/0.9)]"
           >
             <div className="flex items-center gap-2 border-b border-[#e3e8ef] px-2.5 py-2 dark:border-slate-700">
-              <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[#e8eaed] text-[#5f6368] dark:bg-[hsl(var(--muted)/0.44)] dark:text-slate-200">
+              <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[#fce8e6] text-[#d93025] dark:bg-[hsl(0_62%_28%/0.38)] dark:text-red-200">
                 <LogIn className="size-3" />
               </span>
               <div className="min-w-0">

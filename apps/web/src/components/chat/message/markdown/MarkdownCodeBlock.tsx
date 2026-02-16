@@ -103,89 +103,6 @@ const MemoSyntaxHighlighter = React.memo(function MemoSyntaxHighlighter({
   );
 });
 
-type ShellTokenType = "space" | "command" | "option" | "variable" | "string" | "plain";
-
-type ShellToken = {
-  text: string;
-  type: ShellTokenType;
-};
-
-/** Tokenize a single-line shell command for lightweight colorization. */
-function tokenizeShellCommand(input: string): ShellToken[] {
-  const tokens: ShellToken[] = [];
-  const length = input.length;
-  let index = 0;
-
-  while (index < length) {
-    const current = input[index] ?? "";
-    if (/\s/.test(current)) {
-      let end = index + 1;
-      while (end < length && /\s/.test(input[end] ?? "")) {
-        end += 1;
-      }
-      tokens.push({ text: input.slice(index, end), type: "space" });
-      index = end;
-      continue;
-    }
-
-    if (current === '"' || current === "'") {
-      const quote = current;
-      let end = index + 1;
-      while (end < length) {
-        const char = input[end] ?? "";
-        if (char === "\\") {
-          end += 2;
-          continue;
-        }
-        if (char === quote) {
-          end += 1;
-          break;
-        }
-        end += 1;
-      }
-      tokens.push({ text: input.slice(index, end), type: "string" });
-      index = end;
-      continue;
-    }
-
-    if (current === "$") {
-      let end = index + 1;
-      if ((input[end] ?? "") === "{") {
-        end += 1;
-        while (end < length && (input[end] ?? "") !== "}") {
-          end += 1;
-        }
-        if ((input[end] ?? "") === "}") {
-          end += 1;
-        }
-      } else {
-        while (end < length && /[a-zA-Z0-9_]/.test(input[end] ?? "")) {
-          end += 1;
-        }
-      }
-      tokens.push({ text: input.slice(index, end), type: "variable" });
-      index = end;
-      continue;
-    }
-
-    let end = index + 1;
-    while (end < length && !/\s/.test(input[end] ?? "")) {
-      end += 1;
-    }
-    const text = input.slice(index, end);
-    const hasCommand = tokens.some((token) => token.type === "command");
-    const type: ShellTokenType = !hasCommand
-      ? "command"
-      : text.startsWith("-")
-        ? "option"
-        : "plain";
-    tokens.push({ text, type });
-    index = end;
-  }
-
-  return tokens;
-}
-
 export default function MarkdownCodeBlock({
   code,
   language,
@@ -207,10 +124,22 @@ export default function MarkdownCodeBlock({
     () => (code ? code.split("\n").length : 0),
     [code]
   );
-  const shellTokens = React.useMemo(
-    () => (isBash && lineCount <= 1 ? tokenizeShellCommand(code) : []),
-    [code, isBash, lineCount]
-  );
+  const singleLineBashParts = React.useMemo(() => {
+    if (!isBash || lineCount > 1) return null;
+    const match = /^(\s*)(\S+)([\s\S]*)$/.exec(code);
+    if (!match) {
+      return {
+        leading: "",
+        command: "",
+        rest: code,
+      };
+    }
+    return {
+      leading: match[1] ?? "",
+      command: match[2] ?? "",
+      rest: match[3] ?? "",
+    };
+  }, [code, isBash, lineCount]);
   const isSingleLine = lineCount <= 1;
   const handleCopy = async (event: React.MouseEvent) => {
     event.preventDefault();
@@ -309,23 +238,17 @@ export default function MarkdownCodeBlock({
         <div className="min-w-0 flex-1 overflow-x-auto font-mono text-[11px] leading-5">
           {isBash ? (
             <code className="block whitespace-pre font-mono text-[11px] leading-5 text-foreground">
-              {shellTokens.map((token, tokenIndex) => {
-                const tokenClassName =
-                  token.type === "command"
-                    ? "text-emerald-700 dark:text-emerald-400"
-                    : token.type === "option"
-                      ? "text-sky-700 dark:text-sky-400"
-                      : token.type === "variable"
-                        ? "text-violet-700 dark:text-violet-400"
-                        : token.type === "string"
-                          ? "text-amber-700 dark:text-amber-400"
-                          : "";
-                return (
-                  <span key={`${tokenIndex}:${token.type}`} className={tokenClassName}>
-                    {token.text}
+              {singleLineBashParts?.command ? (
+                <>
+                  {singleLineBashParts.leading}
+                  <span className="text-emerald-700 dark:text-emerald-400">
+                    {singleLineBashParts.command}
                   </span>
-                );
-              })}
+                  {singleLineBashParts.rest}
+                </>
+              ) : (
+                code
+              )}
             </code>
           ) : (
             <MemoSingleLineSyntaxHighlighter code={code} language={normalizedLanguage} />

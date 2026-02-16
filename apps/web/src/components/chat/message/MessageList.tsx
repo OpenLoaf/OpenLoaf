@@ -24,6 +24,15 @@ interface MessageListProps {
   className?: string;
 }
 
+/** Keep a small visible area for the previous message when anchoring. */
+const MESSAGE_ANCHOR_PEEK_PX = 40;
+
+/** Resolve scroll behavior based on global animation level setting. */
+function resolveAnchorScrollBehavior(): ScrollBehavior {
+  const level = document.documentElement.dataset.uiAnimationLevel;
+  return level === "high" ? "smooth" : "auto";
+}
+
 /** Chat message list for the active session. */
 export default function MessageList({ className }: MessageListProps) {
   // 中文注释：统计渲染频率，用于定位流式渲染压力。
@@ -35,6 +44,9 @@ export default function MessageList({ className }: MessageListProps) {
     isHistoryLoading,
   });
   const listContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const prevUserMessageIdsRef = React.useRef<string[]>([]);
+  const hasInitializedUserSnapshotRef = React.useRef(false);
   const [selectionText, setSelectionText] = React.useState("");
   const selectionTextRef = React.useRef(selectionText);
 
@@ -79,6 +91,44 @@ export default function MessageList({ className }: MessageListProps) {
     // assistant 已创建但还没产出内容（例如刚进入 streaming）
     return last.role === "assistant" && !messageHasVisibleContent(last);
   }, [messages, status, error, stepThinking]);
+
+  React.useEffect(() => {
+    const userMessageIds = (displayMessages as any[])
+      .filter((message) => message?.role === "user")
+      .map((message) => String(message?.id ?? ""))
+      .filter(Boolean);
+    if (!hasInitializedUserSnapshotRef.current) {
+      prevUserMessageIdsRef.current = userMessageIds;
+      hasInitializedUserSnapshotRef.current = true;
+      return;
+    }
+    const latestUserMessageId = userMessageIds[userMessageIds.length - 1] ?? "";
+    const previousUserIds = prevUserMessageIdsRef.current;
+    prevUserMessageIdsRef.current = userMessageIds;
+    if (!latestUserMessageId) return;
+    const hasNewUserMessage = !previousUserIds.includes(latestUserMessageId);
+    if (!hasNewUserMessage) return;
+    if (isHistoryLoading) return;
+    if (!(status === "submitted" || status === "streaming")) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const messageNodes = container.querySelectorAll<HTMLElement>("[data-message-id]");
+    const targetNode = Array.from(messageNodes).find(
+      (node) => node.dataset.messageId === latestUserMessageId
+    );
+    if (!targetNode) return;
+    const frameId = window.requestAnimationFrame(() => {
+      // 中文注释：仅在新增 user 消息时做一次锚定，避免流式阶段持续自动滚动导致卡顿。
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = targetNode.getBoundingClientRect();
+      const targetTop = targetRect.top - containerRect.top + container.scrollTop;
+      const nextTop = Math.max(0, targetTop - MESSAGE_ANCHOR_PEEK_PX);
+      container.scrollTo({ top: nextTop, behavior: resolveAnchorScrollBehavior() });
+    });
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [displayMessages, isHistoryLoading, status]);
 
   if (shouldShowHelper) {
     return (
@@ -158,6 +208,7 @@ export default function MessageList({ className }: MessageListProps) {
           }}
         >
           <div
+            ref={scrollContainerRef}
             className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden !select-text [&_*:not(summary)]:!select-text"
           >
             <div className="min-h-full w-full min-w-0 space-y-4 pb-4 flex flex-col">
