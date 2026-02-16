@@ -5,6 +5,7 @@ import JsonRenderTool from "./JsonRenderTool";
 import UnifiedTool from "./UnifiedTool";
 import PlanTool from "./PlanTool";
 import ProjectTool from "./ProjectTool";
+import WriteFileTool from "./WriteFileTool";
 import { useChatState, useChatTools } from "../../context";
 import type { AnyToolPart, ToolVariant } from "./shared/tool-utils";
 
@@ -72,6 +73,10 @@ export default function MessageTool({
 
   if (toolKind === "json-render") {
     return <JsonRenderTool part={resolvedPart} className={className} messageId={messageId} />;
+  }
+
+  if (toolKind === "write-file") {
+    return <WriteFileTool part={resolvedPart} className={className} />;
   }
 
   if (toolKind === "project-mutate") {

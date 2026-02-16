@@ -17,9 +17,11 @@ import { Input } from "@tenas-ai/ui/input";
 import { trpc } from "@/utils/trpc";
 import {
   getBoardDisplayName,
+  getDocDisplayName,
   getDisplayFileName,
   isBoardFileExt,
   isBoardFolderName,
+  isDocFolderName,
 } from "@/lib/file-name";
 import {
   type FileSystemEntry,
@@ -80,6 +82,9 @@ function buildColumnUris(rootUri?: string, currentUri?: string | null) {
 function resolveColumnDisplayName(entry: FileSystemEntry) {
   if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
     return getBoardDisplayName(entry.name);
+  }
+  if (entry.kind === "folder" && isDocFolderName(entry.name)) {
+    return getDocDisplayName(entry.name);
   }
   if (entry.kind === "file") {
     return getDisplayFileName(entry.name, getEntryExt(entry));

@@ -1,4 +1,4 @@
-import { BOARD_INDEX_FILE_NAME, isBoardFolderName } from "@/lib/file-name";
+import { BOARD_INDEX_FILE_NAME, DOC_INDEX_FILE_NAME, isBoardFolderName, isDocFolderName } from "@/lib/file-name";
 
 export type FileSystemEntry = {
   uri: string;
@@ -129,6 +129,24 @@ export function resolveBoardFolderEntryFromIndexFile(
   const parentName = parentUri.split("/").filter(Boolean).pop() ?? "";
   // 逻辑：仅当 index.tnboard 位于画布目录内时视为画布入口。
   if (!isBoardFolderName(parentName)) return null;
+  return {
+    uri: parentUri,
+    name: parentName,
+    kind: "folder",
+  };
+}
+
+/** Resolve document folder entry when the file is a document index file. */
+export function resolveDocFolderEntryFromIndexFile(
+  entry: FileSystemEntry
+): FileSystemEntry | null {
+  if (entry.kind !== "file") return null;
+  if (entry.name !== DOC_INDEX_FILE_NAME) return null;
+  const parentUri = getParentRelativePath(entry.uri);
+  if (!parentUri) return null;
+  const parentName = parentUri.split("/").filter(Boolean).pop() ?? "";
+  // 逻辑：仅当 index.mdx 位于文稿目录内时视为文稿入口。
+  if (!isDocFolderName(parentName)) return null;
   return {
     uri: parentUri,
     name: parentName,

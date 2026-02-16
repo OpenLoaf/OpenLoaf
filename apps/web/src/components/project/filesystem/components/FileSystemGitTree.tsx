@@ -17,8 +17,10 @@ import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
 import {
   getBoardDisplayName,
+  getDocDisplayName,
   getDisplayFileName,
   isBoardFolderName,
+  isDocFolderName,
 } from "@/lib/file-name";
 import {
   IGNORE_NAMES,
@@ -171,6 +173,9 @@ const isBoardFolderEntry = (entry: FileSystemEntry) =>
 function resolveEntryLabel(entry: FileSystemEntry): string {
   if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
     return getBoardDisplayName(entry.name);
+  }
+  if (entry.kind === "folder" && isDocFolderName(entry.name)) {
+    return getDocDisplayName(entry.name);
   }
   if (entry.kind === "file") {
     return getDisplayFileName(entry.name, getEntryExt(entry));

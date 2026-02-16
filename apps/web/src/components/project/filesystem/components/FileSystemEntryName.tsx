@@ -11,9 +11,11 @@ import {
 } from "react";
 import {
   getBoardDisplayName,
+  getDocDisplayName,
   getDisplayFileName,
   isBoardFileExt,
   isBoardFolderName,
+  isDocFolderName,
 } from "@/lib/file-name";
 import { resolveEntryExt } from "./FileSystemEntryVisual";
 import { type FileSystemEntry } from "../utils/file-system-utils";
@@ -36,6 +38,9 @@ const FileSystemEntryName = memo(function FileSystemEntryName({
     const displayName = (() => {
       if (kind === "folder" && isBoardFolderName(name)) {
         return getBoardDisplayName(name);
+      }
+      if (kind === "folder" && isDocFolderName(name)) {
+        return getDocDisplayName(name);
       }
       if (kind === "file") {
         return getDisplayFileName(name, normalizedExt);

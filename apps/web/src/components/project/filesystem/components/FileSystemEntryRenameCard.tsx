@@ -4,8 +4,10 @@ import { memo, useMemo } from "react";
 import { Input } from "@tenas-ai/ui/input";
 import {
   getBoardDisplayName,
+  getDocDisplayName,
   getDisplayFileName,
   isBoardFolderName,
+  isDocFolderName,
 } from "@/lib/file-name";
 import { getEntryVisual } from "./FileSystemEntryVisual";
 import { type FileSystemEntry } from "../utils/file-system-utils";
@@ -35,6 +37,9 @@ const FileSystemEntryRenameCard = memo(function FileSystemEntryRenameCard({
   const displayName = useMemo(() => {
     if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
       return getBoardDisplayName(entry.name);
+    }
+    if (entry.kind === "folder" && isDocFolderName(entry.name)) {
+      return getDocDisplayName(entry.name);
     }
     if (entry.kind === "file") {
       return getDisplayFileName(entry.name, entry.ext);

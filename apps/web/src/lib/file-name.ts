@@ -57,3 +57,33 @@ export function ensureBoardFolderName(baseName: string): string {
   // 中文注释：统一在前缀后拼接名称，避免用户手动删除前缀。
   return `${BOARD_FOLDER_PREFIX}${safeName}`;
 }
+
+/** File extension for document files. */
+export const DOC_FILE_EXT = "mdx";
+/** Folder prefix for document containers. */
+export const DOC_FOLDER_PREFIX = "tndoc_";
+/** Document index file name stored inside document folders. */
+export const DOC_INDEX_FILE_NAME = `index.${DOC_FILE_EXT}`;
+/** Assets directory name inside document folders. */
+export const DOC_ASSETS_DIR_NAME = "assets";
+
+/** Return true when the folder name follows the document prefix. */
+export function isDocFolderName(name: string): boolean {
+  return name.toLowerCase().startsWith(DOC_FOLDER_PREFIX.toLowerCase());
+}
+
+/** Return a display name for a document folder by removing the prefix. */
+export function getDocDisplayName(name: string): string {
+  if (!isDocFolderName(name)) return name;
+  return name.slice(DOC_FOLDER_PREFIX.length) || name;
+}
+
+/** Ensure a folder name follows the document prefix convention. */
+export function ensureDocFolderName(baseName: string): string {
+  const trimmed = baseName.trim();
+  const normalized = isDocFolderName(trimmed)
+    ? trimmed.slice(DOC_FOLDER_PREFIX.length)
+    : trimmed;
+  const safeName = normalized || "doc";
+  return `${DOC_FOLDER_PREFIX}${safeName}`;
+}

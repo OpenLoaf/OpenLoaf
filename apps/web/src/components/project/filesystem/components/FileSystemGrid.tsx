@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { useFlipLayout } from "@/lib/use-flip-layout";
-import { isBoardFolderName } from "@/lib/file-name";
+import { isBoardFolderName, isDocFolderName } from "@/lib/file-name";
 import { type FileSystemEntry } from "../utils/file-system-utils";
 import { FileSystemEntryCard } from "./FileSystemEntryCard";
 import { FileSystemEmptyState, FileSystemSearchEmptyState } from "./FileSystemEmptyState";
@@ -26,6 +26,10 @@ import { handleFileSystemEntryOpen } from "../utils/entry-open";
 /** Return true when the entry represents a board folder. */
 const isBoardFolderEntry = (entry: FileSystemEntry) =>
   entry.kind === "folder" && isBoardFolderName(entry.name);
+
+/** Return true when the entry represents a document folder. */
+const isDocFolderEntry = (entry: FileSystemEntry) =>
+  entry.kind === "folder" && isDocFolderName(entry.name);
 
 type FileSystemGridProps = {
   entries: FileSystemEntry[];
@@ -299,7 +303,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
     onEntryDragStartRef,
     onEntryDropRef,
     resolveEntryFromEvent,
-    isBoardFolderEntry,
+    isBoardFolderEntry: (entry: FileSystemEntry) => isBoardFolderEntry(entry) || isDocFolderEntry(entry),
     shouldBlockPointerEvent,
   });
 

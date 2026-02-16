@@ -1,4 +1,4 @@
-import { isBoardFileExt, isBoardFolderName } from "@/lib/file-name";
+import { isBoardFileExt, isBoardFolderName, isDocFolderName } from "@/lib/file-name";
 import { MARKDOWN_EXTS } from "../components/FileSystemEntryVisual";
 import { getEntryExt, type FileSystemEntry } from "./file-system-utils";
 
@@ -6,6 +6,7 @@ import { getEntryExt, type FileSystemEntry } from "./file-system-utils";
 export function resolveEntrySortRank(entry: FileSystemEntry): number {
   if (entry.kind === "folder") {
     if (isBoardFolderName(entry.name)) return 1;
+    if (isDocFolderName(entry.name)) return 1;
     return 0;
   }
   if (entry.kind === "file") {

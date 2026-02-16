@@ -6,6 +6,7 @@ import Editor, { type OnMount } from "@monaco-editor/react"
 import type * as Monaco from "monaco-editor"
 import { useChatRuntime } from "@/hooks/use-chat-runtime"
 import { getMonacoLanguageId } from "@/components/file/CodeViewer"
+import { cn } from "@/lib/utils"
 
 /** Monaco theme name for the viewer. */
 const MONACO_THEME_DARK = "tenas-dark"
@@ -211,7 +212,7 @@ export default function StreamingCodeViewer({
   const isError = toolState === "output-error"
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div className={cn("relative h-full w-full overflow-hidden", isStreaming && "select-none")}>
       <Editor
         height="100%"
         width="100%"

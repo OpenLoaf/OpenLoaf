@@ -5,6 +5,8 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger as honoLogger } from "hono/logger";
 import { registerAiExecuteRoutes } from "@/ai/interface/routes/aiExecuteRoutes";
+import { registerAiCommandRoutes } from "@/ai/interface/routes/aiCommandRoutes";
+import { registerAiCopilotRoutes } from "@/ai/interface/routes/aiCopilotRoutes";
 import { registerChatAttachmentRoutes } from "@/ai/interface/routes/chatAttachmentRoutes";
 import { registerFrontendToolAckRoutes } from "@/ai/interface/routes/frontendToolAckRoutes";
 import { registerSaasMediaRoutes } from "@/ai/interface/routes/saasMediaRoutes";
@@ -80,6 +82,8 @@ export function createApp() {
   app.use("/*", localAuthGuard);
 
   registerAiExecuteRoutes(app);
+  registerAiCommandRoutes(app);
+  registerAiCopilotRoutes(app);
   registerChatAttachmentRoutes(app);
   registerFrontendToolAckRoutes(app);
   registerSaasMediaRoutes(app);

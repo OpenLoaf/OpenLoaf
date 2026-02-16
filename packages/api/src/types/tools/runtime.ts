@@ -226,6 +226,22 @@ export const writeFileToolDef = {
   component: null,
 } as const;
 
+export const editDocumentToolDef = {
+  id: "edit-document",
+  name: "编辑文稿",
+  description:
+    "触发：当用户要求修改文稿（tndoc_ 文件夹中的 index.mdx）时调用。用途：将修改后的完整 MDX 内容写入文稿的 index.mdx 文件。返回：`Wrote document: <relative-path>`。不适用：非文稿文件请用 write-file。",
+  parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：修改文稿标题。"),
+    path: z.string().min(1).describe("文稿文件夹路径或 index.mdx 路径（相对当前项目/工作空间）。"),
+    content: z.string().describe("修改后的完整 MDX 内容。"),
+  }),
+  component: null,
+} as const;
+
 export const listDirToolDef = {
   id: "list-dir",
   name: "列出目录",

@@ -27,9 +27,13 @@ import { openFilePreview } from "@/components/file/lib/open-file";
 import {
   BOARD_ASSETS_DIR_NAME,
   BOARD_INDEX_FILE_NAME,
+  DOC_ASSETS_DIR_NAME,
+  DOC_INDEX_FILE_NAME,
   ensureBoardFolderName,
+  ensureDocFolderName,
   getBoardDisplayName,
   isBoardFolderName,
+  isDocFolderName,
 } from "@/lib/file-name";
 import { readImageDragPayload } from "@/lib/image/drag";
 import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
@@ -67,65 +71,7 @@ import { useWorkspace } from "@/components/workspace/workspaceContext";
 // 用于"复制/粘贴"的内存剪贴板。
 let fileClipboard: FileSystemEntry[] | null = null;
 /** Default template for new markdown documents. */
-const DEFAULT_MARKDOWN_TEMPLATE = [
-  "---",
-  'title: "New Document"',
-  "status: draft",
-  "tags:",
-  "  - markdown",
-  "  - mdx",
-  "categories: [notes, demo]",
-  "summary: |",
-  "  A starter MDX document with common markdown features.",
-  "  Replace this template when ready.",
-  "---",
-  "",
-  "# New Document",
-  "",
-  "> Tip: This file is `.mdx`, so MDX syntax is allowed.",
-  "",
-  "## Formatting",
-  "- **bold**, *italic*, ~~strikethrough~~, `inline code`",
-  "- [link](https://example.com)",
-  "",
-  "## Lists",
-  "1. Ordered item",
-  "2. Another item",
-  "   - Nested item",
-  "",
-  "## Task List",
-  "- [x] Setup",
-  "- [ ] Write",
-  "",
-  "## Table",
-  "| Feature | Status |",
-  "| --- | --- |",
-  "| Front matter | OK |",
-  "| Markdown | OK |",
-  "| MDX | OK |",
-  "",
-  "## Code",
-  "~~~ts",
-  "export function greet(name: string) {",
-  "  return `Hello, ${name}!`;",
-  "}",
-  "~~~",
-  "",
-  "## Quote",
-  "> A short quote to highlight a key idea.",
-  "",
-  "## MDX",
-  '<Note tone="info">',
-  "  You can embed components in MDX files.",
-  "</Note>",
-  "",
-  "{1 + 1}",
-  "",
-  "---",
-  "",
-  "## Next",
-  "- Replace this template with your content.",
-].join("\n");
+const DEFAULT_MARKDOWN_TEMPLATE = "";
 /** Upload threshold to switch to local copy in Electron. */
 const LARGE_FILE_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
 /** Electron-only file payload with path metadata. */
@@ -1134,7 +1080,9 @@ export function useProjectFileSystemModel({
     const normalizedName =
       entry.kind === "folder" && isBoardFolderName(entry.name)
         ? ensureBoardFolderName(nextName)
-        : nextName;
+        : entry.kind === "folder" && isDocFolderName(entry.name)
+          ? ensureDocFolderName(nextName)
+          : nextName;
     if (!normalizedName) return null;
     if (normalizedName === entry.name) return null;
     const existingNames = new Set(
@@ -1311,31 +1259,48 @@ export function useProjectFileSystemModel({
     return { uri: targetUri, name: targetName };
   };
 
-  /** Create a new markdown document in the current directory. */
+  /** Create a new document folder in the current directory. */
   const handleCreateMarkdown = async () => {
     if (activeUri === null || !workspaceId) return null;
-    const targetName = getUniqueName("新建文稿.mdx", new Set(existingNames));
-    const targetUri = buildChildUri(activeUri, targetName);
-    // 逻辑：使用默认模板生成可直接预览的 MDX 文稿。
+    const baseName = ensureDocFolderName("新建文稿");
+    const targetName = getUniqueName(baseName, new Set(existingNames));
+    const docFolderUri = buildChildUri(activeUri, targetName);
+    const docFileUri = buildChildUri(docFolderUri, DOC_INDEX_FILE_NAME);
+    const assetsUri = buildChildUri(docFolderUri, DOC_ASSETS_DIR_NAME);
+    // 逻辑：文稿采用文件夹结构，包含 index.mdx 与 assets 子目录。
+    await mkdirMutation.mutateAsync({
+      workspaceId,
+      projectId,
+      uri: docFolderUri,
+      recursive: true,
+    });
+    await mkdirMutation.mutateAsync({
+      workspaceId,
+      projectId,
+      uri: assetsUri,
+      recursive: true,
+    });
     await writeFileMutation.mutateAsync({
       workspaceId,
       projectId,
-      uri: targetUri,
+      uri: docFileUri,
       content: DEFAULT_MARKDOWN_TEMPLATE,
     });
     pushHistory({
-      kind: "create",
-      uri: targetUri,
-      content: DEFAULT_MARKDOWN_TEMPLATE,
+      kind: "batch",
+      actions: [
+        { kind: "mkdir", uri: docFolderUri },
+        { kind: "mkdir", uri: assetsUri },
+        { kind: "create", uri: docFileUri, content: DEFAULT_MARKDOWN_TEMPLATE },
+      ],
     });
     refreshList();
     handleOpenMarkdown({
-      uri: targetUri,
+      uri: docFolderUri,
       name: targetName,
-      kind: "file",
-      ext: "mdx",
+      kind: "folder",
     });
-    return { uri: targetUri, name: targetName };
+    return { uri: docFolderUri, name: targetName };
   };
 
   /** Create a new board folder in the current directory. */

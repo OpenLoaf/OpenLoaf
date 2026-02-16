@@ -8,6 +8,7 @@ import { shellTool } from "@/ai/tools/shellTool";
 import { shellCommandTool } from "@/ai/tools/shellCommandTool";
 import { writeStdinTool } from "@/ai/tools/writeStdinTool";
 import { listDirTool, readFileTool, writeFileTool } from "@/ai/tools/fileTools";
+import { editDocumentTool } from "@/ai/tools/documentTools";
 import { generateWidgetTool } from "@/ai/tools/widgetTools";
 import { updatePlanTool } from "@/ai/tools/updatePlanTool";
 import { projectMutateTool, projectQueryTool } from "@/ai/tools/projectTools";
@@ -43,6 +44,7 @@ import {
   listDirToolDef,
   readFileToolDef,
   writeFileToolDef,
+  editDocumentToolDef,
   shellCommandToolDefUnix,
   shellCommandToolDefWin,
   shellToolDefUnix,
@@ -118,6 +120,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [writeFileToolDef.id]: {
     tool: writeFileTool,
+  },
+  [editDocumentToolDef.id]: {
+    tool: editDocumentTool,
   },
   [listDirToolDef.id]: {
     tool: listDirTool,

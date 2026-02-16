@@ -15,9 +15,11 @@ import { Input } from "@tenas-ai/ui/input";
 import { useFlipLayout } from "@/lib/use-flip-layout";
 import {
   getBoardDisplayName,
+  getDocDisplayName,
   getDisplayFileName,
   isBoardFileExt,
   isBoardFolderName,
+  isDocFolderName,
 } from "@/lib/file-name";
 import {
   type FileSystemEntry,
@@ -128,6 +130,9 @@ type FileSystemListProps = {
 function resolveEntryDisplayName(entry: FileSystemEntry) {
   if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
     return getBoardDisplayName(entry.name);
+  }
+  if (entry.kind === "folder" && isDocFolderName(entry.name)) {
+    return getDocDisplayName(entry.name);
   }
   if (entry.kind === "file") {
     return getDisplayFileName(entry.name, getEntryExt(entry));

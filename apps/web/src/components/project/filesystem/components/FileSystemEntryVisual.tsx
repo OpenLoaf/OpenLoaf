@@ -3,7 +3,7 @@
 import { memo } from "react";
 import { Play } from "lucide-react";
 import { FileIcon, defaultStyles } from "react-file-icon";
-import { isBoardFileExt, isBoardFolderName } from "@/lib/file-name";
+import { isBoardFileExt, isBoardFolderName, isDocFolderName } from "@/lib/file-name";
 import { type FileSystemEntry } from "../utils/file-system-utils";
 
 export const IMAGE_EXTS = new Set([
@@ -515,6 +515,9 @@ export function getEntryVisual({
 }) {
   if (kind === "folder" && isBoardFolderName(name)) {
     return <BoardThumbnail src={thumbnailSrc} name={name} sizeClassName={sizeClassName} />;
+  }
+  if (kind === "folder" && isDocFolderName(name)) {
+    return <MarkdownIcon className={sizeClassName} />;
   }
   if (kind === "folder") {
     return (

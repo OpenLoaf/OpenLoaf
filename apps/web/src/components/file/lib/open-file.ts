@@ -7,14 +7,18 @@ import {
   buildChildUri,
   getRelativePathFromUri,
   resolveBoardFolderEntryFromIndexFile,
+  resolveDocFolderEntryFromIndexFile,
   resolveFileUriFromRoot,
   type FileSystemEntry,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { DOC_EXTS, SPREADSHEET_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import {
   BOARD_INDEX_FILE_NAME,
+  DOC_INDEX_FILE_NAME,
   getBoardDisplayName,
+  getDocDisplayName,
   isBoardFolderName,
+  isDocFolderName,
 } from "@/lib/file-name";
 import { openFilePreview as openFilePreviewDialog } from "./file-preview-store";
 import type { FilePreviewItem, FilePreviewPayload, FilePreviewViewer } from "./file-preview-types";
@@ -376,6 +380,31 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
     });
     return true;
   }
+  // 逻辑：检测 index.mdx 文件，自动打开所属文稿文件夹。
+  const docEntry = resolveDocFolderEntryFromIndexFile(input.entry);
+  if (docEntry && mode !== "embed") {
+    if (!input.tabId) {
+      toast.error("未找到当前标签页");
+      return true;
+    }
+    const docFolderUri = docEntry.uri;
+    const docFileUri = buildChildUri(docFolderUri, DOC_INDEX_FILE_NAME);
+    const displayName = getDocDisplayName(docEntry.name);
+    useTabRuntime.getState().pushStackItem(input.tabId, {
+      id: docFolderUri,
+      component: "plate-doc-viewer",
+      title: displayName,
+      params: {
+        uri: docFolderUri,
+        docFileUri,
+        name: docEntry.name,
+        projectId: input.projectId,
+        rootUri: input.rootUri,
+        __customHeader: true,
+      },
+    });
+    return true;
+  }
 
   if (input.entry.kind === "folder") {
     if (mode === "embed") {
@@ -407,6 +436,30 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
           rootUri: input.rootUri,
           __opaque: true,
           ...(input.board?.pendingRename ? { __pendingRename: true } : {}),
+        },
+      });
+      return true;
+    }
+    // 逻辑：检测文稿文件夹，打开 PlateDocViewer。
+    if (isDocFolderName(input.entry.name)) {
+      if (!input.tabId) {
+        toast.error("未找到当前标签页");
+        return true;
+      }
+      const docFolderUri = input.entry.uri;
+      const docFileUri = buildChildUri(docFolderUri, DOC_INDEX_FILE_NAME);
+      const displayName = getDocDisplayName(input.entry.name);
+      useTabRuntime.getState().pushStackItem(input.tabId, {
+        id: docFolderUri,
+        component: "plate-doc-viewer",
+        title: displayName,
+        params: {
+          uri: docFolderUri,
+          docFileUri,
+          name: input.entry.name,
+          projectId: input.projectId,
+          rootUri: input.rootUri,
+          __customHeader: true,
         },
       });
       return true;

@@ -4,9 +4,12 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   ensureBoardFolderName,
+  ensureDocFolderName,
   getBoardDisplayName,
+  getDocDisplayName,
   getDisplayFileName,
   isBoardFolderName,
+  isDocFolderName,
 } from "@/lib/file-name";
 import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
 
@@ -40,6 +43,9 @@ export function useFileRename({
     if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
       return getBoardDisplayName(entry.name);
     }
+    if (entry.kind === "folder" && isDocFolderName(entry.name)) {
+      return getDocDisplayName(entry.name);
+    }
     if (entry.kind === "file") {
       return getDisplayFileName(entry.name, entry.ext);
     }
@@ -67,7 +73,9 @@ export function useFileRename({
       setRenamingUri(payload.uri);
       const displayName = isBoardFolderName(payload.name)
         ? getBoardDisplayName(payload.name)
-        : payload.name;
+        : isDocFolderName(payload.name)
+          ? getDocDisplayName(payload.name)
+          : payload.name;
       setRenamingValue(displayName);
     },
     [onSelectionReplace]
@@ -90,7 +98,9 @@ export function useFileRename({
     const normalizedName =
       targetEntry.kind === "folder" && isBoardFolderName(targetEntry.name)
         ? ensureBoardFolderName(nextName)
-        : nextName;
+        : targetEntry.kind === "folder" && isDocFolderName(targetEntry.name)
+          ? ensureDocFolderName(nextName)
+          : nextName;
     if (normalizedName === targetEntry.name) {
       setRenamingUri(null);
       return;

@@ -30,6 +30,10 @@ import FolderTreePreview from "@/components/project/filesystem/FolderTreePreview
 import { SchedulerTaskHistoryStackPanel } from "@/components/summary/SchedulerTaskHistoryStackPanel";
 import StreamingCodeViewer from "@/components/file/StreamingCodeViewer";
 
+// 逻辑：文稿编辑器包含完整 Plate.js 插件集，使用 lazy 避免首屏阻塞。
+const LazyPlateDocViewer = React.lazy(() => import("@/components/file/PlateDocViewer"));
+const LazyStreamingPlateViewer = React.lazy(() => import("@/components/file/StreamingPlateViewer"));
+
 /**
  * 组件名称到组件的映射关系
  * 用于根据字符串名称动态渲染不同组件
@@ -68,6 +72,8 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "folder-tree-preview": FolderTreePreview,
   "scheduler-task-history": SchedulerTaskHistoryStackPanel,
   "streaming-code-viewer": StreamingCodeViewer,
+  "plate-doc-viewer": LazyPlateDocViewer,
+  "streaming-plate-viewer": LazyStreamingPlateViewer,
 };
 
 /**
@@ -133,6 +139,10 @@ export const getPanelTitle = (componentName: string) => {
       return "Scheduler History";
     case "streaming-code-viewer":
       return "写入文件";
+    case "plate-doc-viewer":
+      return "文稿";
+    case "streaming-plate-viewer":
+      return "编辑文稿";
     default:
       // 如果没有匹配的标题，直接返回组件名称
       return componentName;

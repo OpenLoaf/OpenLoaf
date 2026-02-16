@@ -140,6 +140,7 @@ function PanelFrame({
   const canClose = item.denyClose !== true;
   const customHeader = Boolean((item.params as any)?.__customHeader);
   const opaquePanel = Boolean((item.params as any)?.__opaque);
+  const isStreaming = Boolean((item.params as any)?.__isStreaming);
   const openUri = (item.params as any)?.openUri as string | undefined;
   const openRootUri = (item.params as any)?.rootUri as string | undefined;
 
@@ -148,10 +149,20 @@ function PanelFrame({
       className={cn(
         "overflow-hidden",
         floating
-          ? "rounded-xl border border-border shadow-2xl"
+          ? cn(
+              "rounded-xl shadow-2xl",
+              isStreaming
+                ? "tenas-thinking-border tenas-thinking-border-on"
+                : "border border-border",
+            )
           : "rounded-none border-0 shadow-none",
         fillHeight && "h-full w-full",
       )}
+      style={
+        floating && isStreaming
+          ? { "--tenas-thinking-border-fill": "var(--color-background)" } as React.CSSProperties
+          : undefined
+      }
     >
       <div
         className={cn(
