@@ -66,6 +66,7 @@ export type CliToolsConfig = {
 
 export const basicConfigSchema = z.object({
   chatSource: z.enum(["local", "cloud"]),
+  toolModelSource: z.enum(["local", "cloud"]),
   activeS3Id: z.string().optional(),
   s3AutoUpload: z.boolean(),
   s3AutoDeleteHours: z.number().int().min(1).max(168),
@@ -92,6 +93,7 @@ export const basicConfigSchema = z.object({
   appCustomRules: z.string(),
   appNotificationSoundEnabled: z.boolean(),
   modelDefaultChatModelId: z.string(),
+  modelDefaultToolModelId: z.string(),
   appProjectRule: z.string(),
   /** Allow tools to access paths outside workspace/project roots. */
   toolAllowOutsideScope: z.boolean(),

@@ -78,6 +78,7 @@ export function AIMenu() {
   const chat = usePluginOption(AIChatPlugin, 'chat');
 
   const { messages, status } = chat;
+  const chatError = (chat as any).error as Error | undefined;
   const [anchorElement, setAnchorElement] = React.useState<HTMLElement | null>(
     null
   );
@@ -138,9 +139,6 @@ export function AIMenu() {
 
   useHotkeys('esc', () => {
     api.aiChat.stop();
-
-    // remove when you implement the route /api/ai/command
-    (chat as any)._abortFakeStream();
   });
 
   const isLoading = status === 'streaming' || status === 'submitted';
@@ -200,6 +198,13 @@ export function AIMenu() {
             isSelecting &&
             content &&
             toolName === 'generate' && <AIChatEditor content={content} />}
+
+          {chatError && !isLoading && (
+            <div className="flex items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm">
+              <X className="size-4 shrink-0" />
+              <span className="truncate">{chatError.message || 'AI 请求失败'}</span>
+            </div>
+          )}
 
           {isLoading ? (
             <div className="flex grow select-none items-center gap-2 p-2 text-muted-foreground text-sm">
@@ -646,9 +651,6 @@ export function AILoadingBar() {
 
   useHotkeys('esc', () => {
     api.aiChat.stop();
-
-    // remove when you implement the route /api/ai/command
-    (chat as any)._abortFakeStream();
   });
 
   if (

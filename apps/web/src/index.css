@@ -908,6 +908,13 @@ body {
   background-color: var(--puck-color-grey-03);
 }
 
+/* Diff 行装饰（StreamingCodeViewer patch 模式） */
+.diff-line-added { background-color: rgba(34, 197, 94, 0.12); }
+.diff-line-removed { background-color: rgba(239, 68, 68, 0.12); }
+.diff-line-header { background-color: rgba(139, 92, 246, 0.10); }
+.diff-gutter-added { border-left: 3px solid rgba(34, 197, 94, 0.6); margin-left: 3px; }
+.diff-gutter-removed { border-left: 3px solid rgba(239, 68, 68, 0.6); margin-left: 3px; }
+
 /* 逻辑：动画级别为低时禁用全局 CSS 动画与过渡。 */
 html[data-ui-animation-level="low"] *,
 html[data-ui-animation-level="low"] *::before,

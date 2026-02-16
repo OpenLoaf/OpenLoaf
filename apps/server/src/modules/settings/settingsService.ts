@@ -385,6 +385,11 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     typeof next.modelDefaultChatModelId === "string"
       ? next.modelDefaultChatModelId
       : current.modelDefaultChatModelId;
+  const toolModelSource = next.toolModelSource === "cloud" ? "cloud" : "local";
+  const modelDefaultToolModelId =
+    typeof next.modelDefaultToolModelId === "string"
+      ? next.modelDefaultToolModelId
+      : current.modelDefaultToolModelId;
   const appProjectRule =
     typeof next.appProjectRule === "string" ? next.appProjectRule : current.appProjectRule;
   const toolAllowOutsideScope =
@@ -408,6 +413,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
   const cliTools = normalizeCliToolsConfig(next.cliTools, current.cliTools);
   const normalized: BasicConfig = {
     chatSource: next.chatSource === "cloud" ? "cloud" : "local",
+    toolModelSource,
     activeS3Id: typeof next.activeS3Id === "string" && next.activeS3Id.trim()
       ? next.activeS3Id.trim()
       : undefined,
@@ -431,6 +437,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     appCustomRules,
     appNotificationSoundEnabled,
     modelDefaultChatModelId,
+    modelDefaultToolModelId,
     appProjectRule,
     toolAllowOutsideScope,
     stepUpInitialized,

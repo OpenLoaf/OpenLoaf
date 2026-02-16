@@ -213,15 +213,40 @@ export const readFileToolDef = {
 export const writeFileToolDef = {
   id: "write-file",
   name: "写入文件",
-  description:
-    "触发：当你需要在当前项目/工作区内写入文本文件时调用。用途：将文本内容写入指定路径。返回：`Wrote file: <relative-path>`；路径超出范围会报错。不适用：只读任务不要调用。",
+  description: `触发：当你需要创建、修改或删除文件时调用。
+用途：通过 diff 补丁格式操作文件。
+
+补丁格式：
+*** Begin Patch
+*** Update File: <相对路径>
+@@ <可选上下文标识符>
+ <上下文行（不变）>
+-<要删除的行>
++<要添加的行>
+ <上下文行（不变）>
+*** End Patch
+
+规则：
+- 默认显示 3 行上下文（变更前后各 3 行）
+- 若 3 行不足以唯一定位，用 @@ 指定类/函数名
+- 每行前缀：空格=上下文，-=删除，+=添加
+- 文件路径必须是相对路径
+- 可在一个补丁中组合多个文件操作
+- *** Add File: <path> 创建新文件（每行以 + 开头）
+- *** Delete File: <path> 删除文件
+- *** Move to: <new path> 重命名（跟在 Update File 后）
+- *** End of File 标记 chunk 在文件末尾
+
+返回：操作结果摘要。不适用：只读任务不要调用。`,
   parameters: z.object({
     actionName: z
       .string()
       .min(1)
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：写入 markdown 文件。"),
-    path: z.string().min(1).describe("目标文件路径（相对当前项目/工作空间）。"),
-    content: z.string().describe("要写入的文本内容。"),
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的。"),
+    patch: z
+      .string()
+      .min(1)
+      .describe("补丁文本，以 *** Begin Patch 开头，*** End Patch 结尾。"),
   }),
   component: null,
 } as const;

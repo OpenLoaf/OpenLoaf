@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/ConfirmDeleteDialog";
 import { ModelDialog } from "@/components/setting/menus/provider/ModelDialog";
@@ -20,7 +20,7 @@ import {
 import { Label } from "@tenas-ai/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
-import { normalizeChatModelSource } from "@/lib/provider-models";
+import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { ChevronDown } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { Switch } from "@tenas-ai/ui/animate-ui/components/radix/switch";
@@ -28,6 +28,10 @@ import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useSettingsValues } from "@/hooks/use-settings";
+import { useCloudModels } from "@/hooks/use-cloud-models";
+import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
+import { getModelLabel } from "@/lib/model-registry";
 import {
   useProviderManagement,
   type ProviderEntry,
@@ -55,14 +59,33 @@ type ProviderManagementProps = {
 
 export function ProviderManagement({ panelKey }: ProviderManagementProps) {
   const { basic, setBasic } = useBasicConfig();
+  const { providerItems } = useSettingsValues();
+  const { models: cloudModels } = useCloudModels();
+  const installedCliProviderIds = useInstalledCliProviderIds();
   const autoSummaryHours = Array.from({ length: 25 }, (_, hour) => hour);
   const [manualDate, setManualDate] = useState("");
 
   const modelResponseLanguage: ModelResponseLanguageId = basic.modelResponseLanguage;
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
+  const toolModelSource = normalizeChatModelSource(basic.toolModelSource);
+  const toolModelId =
+    typeof basic.modelDefaultToolModelId === "string"
+      ? basic.modelDefaultToolModelId.trim()
+      : "";
   const chatModelQuality: "high" | "medium" | "low" = basic.modelQuality;
   const chatOnlineSearchMemoryScope: "tab" | "global" =
     basic.chatOnlineSearchMemoryScope === "global" ? "global" : "tab";
+  const localToolModelOptions = useMemo(
+    () =>
+      buildChatModelOptions("local", providerItems, cloudModels, installedCliProviderIds).filter(
+        (option) => option.tags?.includes("chat"),
+      ),
+    [providerItems, cloudModels, installedCliProviderIds],
+  );
+  const selectedLocalToolModel = useMemo(
+    () => localToolModelOptions.find((option) => option.id === toolModelId) ?? null,
+    [localToolModelOptions, toolModelId],
+  );
   const modelResponseLanguageLabelById: Record<ModelResponseLanguageId, string> = {
     "zh-CN": "中文（简体）",
     "en-US": "English",
@@ -196,6 +219,20 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
   const autoSummaryLabel = (basic.autoSummaryHours ?? [])
     .map((hour) => `${hour}时`)
     .join("、");
+  const localToolModelEmptyLabel = "暂无本地对话模型";
+
+  useEffect(() => {
+    if (toolModelSource === "cloud") {
+      if (!toolModelId) return;
+      void setBasic({ modelDefaultToolModelId: "" });
+      return;
+    }
+    if (!toolModelId) return;
+    const exists = localToolModelOptions.some((option) => option.id === toolModelId);
+    if (!exists) {
+      void setBasic({ modelDefaultToolModelId: "" });
+    }
+  }, [toolModelSource, toolModelId, localToolModelOptions, setBasic]);
 
   return (
     <div className={wrapperClassName}>
@@ -291,6 +328,110 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                   <TabsTrigger value="low">低</TabsTrigger>
                 </TabsList>
               </Tabs>
+            </TenasSettingsField>
+          </div>
+
+          <div className="flex flex-wrap items-start gap-2 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">工具模型来源</div>
+              <div className="text-xs text-muted-foreground">
+                自动总结等工具任务使用；云端模式自动选择模型
+              </div>
+            </div>
+
+            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+              <Tabs
+                value={toolModelSource}
+                onValueChange={(next) => {
+                  const normalized = normalizeChatModelSource(next);
+                  if (normalized === "cloud") {
+                    void setBasic({
+                      toolModelSource: "cloud",
+                      modelDefaultToolModelId: "",
+                    });
+                    return;
+                  }
+                  void setBasic({ toolModelSource: "local" });
+                }}
+              >
+                <TabsList>
+                  <TabsTrigger value="local">本地</TabsTrigger>
+                  <TabsTrigger value="cloud">云端</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </TenasSettingsField>
+          </div>
+
+          <div className="flex flex-wrap items-start gap-2 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">工具模型</div>
+              <div className="text-xs text-muted-foreground">
+                本地模式仅支持选择“对话”标签模型
+              </div>
+            </div>
+
+            <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+              {toolModelSource === "cloud" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-w-[220px] w-auto justify-between font-normal"
+                  disabled
+                >
+                  云端自动选择
+                </Button>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-w-[220px] w-auto justify-between font-normal"
+                    >
+                      <span className="truncate">
+                        {selectedLocalToolModel
+                          ? selectedLocalToolModel.modelDefinition
+                            ? getModelLabel(selectedLocalToolModel.modelDefinition)
+                            : selectedLocalToolModel.modelId
+                          : "请选择本地对话模型"}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-[320px]">
+                    <DropdownMenuRadioGroup
+                      value={toolModelId}
+                      onValueChange={(next) => void setBasic({ modelDefaultToolModelId: next })}
+                    >
+                      {localToolModelOptions.length === 0 ? (
+                        <DropdownMenuRadioItem value="__empty__" disabled>
+                          {localToolModelEmptyLabel}
+                        </DropdownMenuRadioItem>
+                      ) : null}
+                      {localToolModelOptions.map((option) => {
+                        const modelLabel = option.modelDefinition
+                          ? getModelLabel(option.modelDefinition)
+                          : option.modelId;
+                        return (
+                          <DropdownMenuRadioItem key={option.id} value={option.id}>
+                            <div className="min-w-0">
+                              <div className="truncate">{modelLabel}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {option.providerName}
+                              </div>
+                            </div>
+                          </DropdownMenuRadioItem>
+                        );
+                      })}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              {toolModelSource === "local" && !toolModelId ? (
+                <div className="mt-1 text-right text-xs text-destructive">
+                  本地模式下必须选择一个对话模型
+                </div>
+              ) : null}
             </TenasSettingsField>
           </div>
 

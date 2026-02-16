@@ -6,6 +6,11 @@ import {
   readFileToolDef,
   writeFileToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
+import {
+  parsePatch,
+  computeReplacements,
+  applyReplacements,
+} from "@/ai/tools/applyPatch";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { resolveToolPath, resolveToolWorkdir } from "@/ai/tools/toolScope";
 import { buildGitignoreMatcher } from "@/ai/tools/gitignoreMatcher";
@@ -391,20 +396,52 @@ export const readFileTool = tool({
   },
 });
 
-/** Execute write file tool with project/workspace scope enforcement. */
+/** Execute write file tool with patch-based file operations. */
 export const writeFileTool = tool({
   description: writeFileToolDef.description,
   inputSchema: zodSchema(writeFileToolDef.parameters),
-  execute: async ({ path: filePath, content }): Promise<string> => {
-    const { absPath, rootPath } = resolveWriteTargetPath(filePath);
-    const dirPath = path.dirname(absPath);
-    // 逻辑：写入前确保目录存在，并限制在当前项目/工作区范围内。
-    await fs.mkdir(dirPath, { recursive: true });
-    const existing = await fs.stat(absPath).catch(() => null);
-    if (existing?.isDirectory()) throw new Error("Path is a directory.");
-    await fs.writeFile(absPath, content, "utf-8");
-    const relative = path.relative(rootPath, absPath) || path.basename(absPath);
-    return `Wrote file: ${relative}`;
+  execute: async ({ patch: patchText }): Promise<string> => {
+    const hunks = parsePatch(patchText);
+    if (hunks.length === 0) throw new Error("No files were modified.");
+    const affected: string[] = [];
+
+    for (const hunk of hunks) {
+      const { absPath, rootPath } = resolveWriteTargetPath(hunk.path);
+
+      if (hunk.type === "add") {
+        await fs.mkdir(path.dirname(absPath), { recursive: true });
+        await fs.writeFile(absPath, hunk.contents, "utf-8");
+        affected.push(`A ${path.relative(rootPath, absPath)}`);
+      } else if (hunk.type === "delete") {
+        await fs.unlink(absPath);
+        affected.push(`D ${path.relative(rootPath, absPath)}`);
+      } else if (hunk.type === "update") {
+        const original = await fs.readFile(absPath, "utf-8");
+        let lines = original.split("\n");
+        // 逻辑：移除末尾空行以匹配 Codex 行为。
+        if (lines.at(-1) === "") lines.pop();
+        const replacements = computeReplacements(lines, hunk.path, hunk.chunks);
+        lines = applyReplacements(lines, replacements);
+        // 逻辑：确保文件以换行符结尾。
+        if (lines.at(-1) !== "") lines.push("");
+        const newContent = lines.join("\n");
+
+        if (hunk.movePath) {
+          const { absPath: newAbsPath } = resolveWriteTargetPath(hunk.movePath);
+          await fs.mkdir(path.dirname(newAbsPath), { recursive: true });
+          await fs.writeFile(newAbsPath, newContent, "utf-8");
+          await fs.unlink(absPath);
+          affected.push(
+            `R ${path.relative(rootPath, absPath)} → ${path.relative(rootPath, newAbsPath)}`,
+          );
+        } else {
+          await fs.writeFile(absPath, newContent, "utf-8");
+          affected.push(`M ${path.relative(rootPath, absPath)}`);
+        }
+      }
+    }
+
+    return `Updated files:\n${affected.join("\n")}`;
   },
 });
 

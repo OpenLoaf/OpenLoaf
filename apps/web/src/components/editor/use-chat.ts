@@ -13,6 +13,7 @@ import { useEditorRef, usePluginOption } from 'platejs/react';
 
 import { aiChatPlugin } from '@/components/editor/plugins/ai-kit';
 import { useBasicConfig } from '@/hooks/use-basic-config';
+import { resolveServerUrl } from '@/utils/server-url';
 
 import { discussionPlugin } from './plugins/discussion-kit';
 
@@ -50,7 +51,7 @@ export const useChat = () => {
   const baseChat = useBaseChat<ChatMessage>({
     id: 'editor',
     transport: new DefaultChatTransport({
-      api: options.api || '/api/ai/command',
+      api: `${resolveServerUrl()}${options.api || '/ai/command'}`,
       // 逻辑：注入 chatModelId 和 chatModelSource 到请求体。
       fetch: (async (input, init) => {
         const bodyOptions = editor.getOptions(aiChatPlugin).chatOptions?.body;
@@ -90,10 +91,23 @@ export const useChat = () => {
           ...(normalizedChatModelSource ? { chatModelSource: normalizedChatModelSource } : {}),
         };
 
-        return fetch(input, {
+        const response = await fetch(input, {
           ...init,
           body: JSON.stringify(body),
         });
+
+        if (!response.ok) {
+          let msg = 'AI 请求失败';
+          try {
+            const data = await response.clone().json();
+            msg = data.error || data.message || msg;
+          } catch {
+            msg = (await response.text()) || msg;
+          }
+          throw new Error(msg);
+        }
+
+        return response;
       }) as typeof fetch,
     }),
     onData(data) {

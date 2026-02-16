@@ -3,6 +3,7 @@ import type { ProjectGitCommit } from "@tenas-ai/api/services/projectGitService"
 import type { ProjectFileChange } from "@tenas-ai/api/services/projectFileChangeService";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
+import type { BasicConfig } from "@tenas-ai/api/types/basic";
 
 type SummaryGeneratorInput = {
   /** Project title for prompt context. */
@@ -30,13 +31,31 @@ type RangeSummaryGeneratorInput = {
   fileChanges?: ProjectFileChange[];
 };
 
+/** Resolve configured tool model parameters for summary generation. */
+function resolveSummaryToolModelConfig(basic: BasicConfig) {
+  const source = basic.toolModelSource === "cloud" ? "cloud" : "local";
+  const modelId =
+    typeof basic.modelDefaultToolModelId === "string"
+      ? basic.modelDefaultToolModelId.trim()
+      : "";
+  if (source === "local" && !modelId) {
+    throw new Error("工具模型未配置：请选择本地对话模型");
+  }
+  return {
+    chatModelSource: source,
+    chatModelId: source === "local" ? modelId : undefined,
+  } as const;
+}
+
 /** Generate daily summary content. */
 export async function generateDailySummary(
   input: SummaryGeneratorInput,
 ): Promise<string> {
   const basic = readBasicConf();
+  const summaryModel = resolveSummaryToolModelConfig(basic);
   const resolved = await resolveChatModel({
-    chatModelId: basic.modelDefaultChatModelId,
+    chatModelId: summaryModel.chatModelId,
+    chatModelSource: summaryModel.chatModelSource,
   });
 
   const commitLines = input.commits.map(
@@ -79,8 +98,10 @@ export async function generateRangeSummary(
   input: RangeSummaryGeneratorInput,
 ): Promise<string> {
   const basic = readBasicConf();
+  const summaryModel = resolveSummaryToolModelConfig(basic);
   const resolved = await resolveChatModel({
-    chatModelId: basic.modelDefaultChatModelId,
+    chatModelId: summaryModel.chatModelId,
+    chatModelSource: summaryModel.chatModelSource,
   });
 
   const commitLines = input.commits.map(

@@ -7,6 +7,7 @@ import type { BasicConfig, BasicConfigUpdate } from "@tenas-ai/api/types/basic";
 
 const DEFAULT_BASIC_CONFIG: BasicConfig = {
   chatSource: "local",
+  toolModelSource: "cloud",
   activeS3Id: undefined,
   s3AutoUpload: true,
   s3AutoDeleteHours: 2,
@@ -30,6 +31,7 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   appCustomRules: "",
   appNotificationSoundEnabled: true,
   modelDefaultChatModelId: "",
+  modelDefaultToolModelId: "",
   appProjectRule: "按项目划分",
   toolAllowOutsideScope: false,
   stepUpInitialized: false,

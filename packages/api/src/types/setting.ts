@@ -32,6 +32,11 @@ export const PublicSettingDefs = {
     defaultValue: "" as string,
     category: "model",
   },
+  ModelDefaultToolModelId: {
+    key: "model.defaultToolModelId",
+    defaultValue: "" as string,
+    category: "model",
+  },
   ModelChatQuality: {
     key: "model.chatQuality",
     defaultValue: "medium" as string,
@@ -40,6 +45,11 @@ export const PublicSettingDefs = {
   ModelChatSource: {
     key: "model.chatSource",
     defaultValue: "local" as string,
+    category: "model",
+  },
+  ModelToolSource: {
+    key: "model.toolSource",
+    defaultValue: "cloud" as string,
     category: "model",
   },
   ModelProviders: {

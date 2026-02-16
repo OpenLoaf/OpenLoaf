@@ -21,7 +21,7 @@ import { MarkdownKit } from './markdown-kit';
 export const aiChatPlugin = AIChatPlugin.extend({
   options: {
     chatOptions: {
-      api: '/api/ai/command',
+      api: '/ai/command',
       body: {},
     },
   },

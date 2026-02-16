@@ -34,6 +34,7 @@ type CliToolsConfig = BasicConf["cliTools"];
 /** Default basic config values. */
 const DEFAULT_BASIC_CONF: BasicConf = {
   chatSource: "local",
+  toolModelSource: "cloud",
   activeS3Id: undefined,
   s3AutoUpload: true,
   s3AutoDeleteHours: 2,
@@ -57,6 +58,7 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   appCustomRules: "",
   appNotificationSoundEnabled: true,
   modelDefaultChatModelId: "codex-cli:gpt-5.2-codex",
+  modelDefaultToolModelId: "",
   appProjectRule: "按项目划分",
   toolAllowOutsideScope: false,
   stepUpInitialized: false,
@@ -135,6 +137,12 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : fallbackSource.chatSource === "cloud" || fallbackSource.chatSource === "local"
         ? fallbackSource.chatSource
         : DEFAULT_BASIC_CONF.chatSource;
+  const toolModelSource: ChatModelSource =
+    source.toolModelSource === "cloud" || source.toolModelSource === "local"
+      ? source.toolModelSource
+      : fallbackSource.toolModelSource === "cloud" || fallbackSource.toolModelSource === "local"
+        ? fallbackSource.toolModelSource
+        : DEFAULT_BASIC_CONF.toolModelSource;
   const activeS3Id =
     typeof source.activeS3Id === "string" && source.activeS3Id.trim()
       ? source.activeS3Id.trim()
@@ -287,6 +295,12 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : typeof fallbackSource.modelDefaultChatModelId === "string"
         ? fallbackSource.modelDefaultChatModelId
         : DEFAULT_BASIC_CONF.modelDefaultChatModelId;
+  const modelDefaultToolModelId =
+    typeof source.modelDefaultToolModelId === "string"
+      ? source.modelDefaultToolModelId
+      : typeof fallbackSource.modelDefaultToolModelId === "string"
+        ? fallbackSource.modelDefaultToolModelId
+        : DEFAULT_BASIC_CONF.modelDefaultToolModelId;
   const appProjectRule =
     typeof source.appProjectRule === "string"
       ? source.appProjectRule
@@ -343,6 +357,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
 
   return {
     chatSource,
+    toolModelSource,
     activeS3Id,
     s3AutoUpload,
     s3AutoDeleteHours,
@@ -364,6 +379,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     appCustomRules,
     appNotificationSoundEnabled,
     modelDefaultChatModelId,
+    modelDefaultToolModelId,
     appProjectRule,
     toolAllowOutsideScope,
     stepUpInitialized,

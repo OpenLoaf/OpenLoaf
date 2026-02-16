@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { deserializeMd, serializeMd } from '@platejs/markdown'
-import { Save } from 'lucide-react'
+import { Check, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { type Value, setValue } from 'platejs'
 import { Plate, usePlateEditor } from 'platejs/react'
 
 import { EditorKit } from '@/components/editor/editor-kit'
+import { FixedToolbarKit } from '@/components/editor/plugins/fixed-toolbar-kit'
+import { FloatingToolbarKit } from '@/components/editor/plugins/floating-toolbar-kit'
 import { ReadFileErrorFallback } from '@/components/file/lib/read-file-error'
 import { StackHeader } from '@/components/layout/StackHeader'
 import { resolveFileUriFromRoot } from '@/components/project/filesystem/utils/file-system-utils'
@@ -21,24 +23,20 @@ import { trpc } from '@/utils/trpc'
 import { stopFindShortcutPropagation } from '@/components/file/lib/viewer-shortcuts'
 import { getDocDisplayName } from '@/lib/file-name'
 
+const AUTO_SAVE_DELAY = 1500
+
 interface PlateDocViewerProps {
-  /** Document folder uri. */
   uri?: string
-  /** Path to index.mdx inside the folder. */
   docFileUri?: string
-  /** Folder name (with prefix). */
   name?: string
-  /** Project id for file access. */
   projectId?: string
-  /** Root uri for system open. */
   rootUri?: string
-  /** Stack panel key. */
   panelKey?: string
-  /** Stack tab id. */
   tabId?: string
 }
 
 type DocStatus = 'idle' | 'loading' | 'ready' | 'error'
+type SaveIndicator = 'idle' | 'saving' | 'saved'
 
 export default function PlateDocViewer({
   uri,
@@ -53,7 +51,9 @@ export default function PlateDocViewer({
   const workspaceId = workspace?.id ?? ''
   const [status, setStatus] = useState<DocStatus>('idle')
   const [isDirty, setIsDirty] = useState(false)
+  const [saveIndicator, setSaveIndicator] = useState<SaveIndicator>('idle')
   const initializingRef = useRef(true)
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const removeStackItem = useTabRuntime((s) => s.removeStackItem)
   const shouldRenderStackHeader = Boolean(tabId && panelKey)
   const displayTitle = useMemo(
@@ -61,7 +61,6 @@ export default function PlateDocViewer({
     [name, uri],
   )
 
-  // 逻辑：解析 index.mdx 的完整 file:// URI。
   const readUri = useMemo(() => {
     const raw = (docFileUri ?? '').trim()
     if (!raw) return ''
@@ -89,13 +88,12 @@ export default function PlateDocViewer({
   const editor = usePlateEditor(
     {
       id: `plate-doc-${uri ?? 'empty'}`,
-      plugins: EditorKit,
+      plugins: [...EditorKit, ...FixedToolbarKit, ...FloatingToolbarKit],
       value: [{ type: 'p', children: [{ text: '' }] }],
     },
     [uri],
   )
 
-  // 逻辑：文件内容加载后反序列化为 Plate 节点。
   useEffect(() => {
     if (!shouldUseFs || !editor) return
     if (fileQuery.isLoading) return
@@ -125,13 +123,10 @@ export default function PlateDocViewer({
     }
   }, [editor, fileQuery.data?.content, fileQuery.isError, fileQuery.isLoading, shouldUseFs])
 
-  const handleValueChange = (_nextValue: Value) => {
-    if (initializingRef.current) return
-    setIsDirty(true)
-  }
-
-  const handleSave = useCallback(async () => {
+  // 逻辑：静默保存（自动保存用），不弹 toast。
+  const doSave = useCallback(async (silent = false) => {
     if (!readUri || !shouldUseFs || !workspaceId || !editor) return
+    setSaveIndicator('saving')
     try {
       const md = serializeMd(editor)
       await writeFileMutation.mutateAsync({
@@ -141,27 +136,60 @@ export default function PlateDocViewer({
         content: md,
       })
       setIsDirty(false)
-      toast.success('已保存')
+      setSaveIndicator('saved')
+      if (!silent) toast.success('已保存')
+      // 逻辑：短暂显示"已保存"后恢复空闲状态。
+      setTimeout(() => setSaveIndicator('idle'), 2000)
     } catch {
-      toast.error('保存失败')
+      setSaveIndicator('idle')
+      if (!silent) toast.error('保存失败')
     }
   }, [readUri, shouldUseFs, workspaceId, editor, projectId, writeFileMutation])
 
-  // 逻辑：Cmd+S 快捷键保存。
+  const handleValueChange = useCallback((_nextValue: Value) => {
+    if (initializingRef.current) return
+    setIsDirty(true)
+  }, [])
+
+  // 逻辑：内容变更后延迟自动保存。
+  useEffect(() => {
+    if (!isDirty || status !== 'ready') return
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(() => {
+      void doSave(true)
+    }, AUTO_SAVE_DELAY)
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    }
+  }, [isDirty, status, doSave])
+
+  // 逻辑：组件卸载时立即保存未写入的变更。
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    }
+  }, [])
+
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       stopFindShortcutPropagation(event)
       if ((event.metaKey || event.ctrlKey) && event.key === 's') {
         event.preventDefault()
-        void handleSave()
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+        void doSave(false)
       }
     },
-    [handleSave],
+    [doSave],
   )
 
   if (!uri) {
     return <div className="h-full w-full p-4 text-muted-foreground">未选择文稿</div>
   }
+
+  const saveIcon =
+    saveIndicator === 'saving' ? <Loader2 className="h-4 w-4 animate-spin" /> :
+    saveIndicator === 'saved' ? <Check className="h-4 w-4 text-green-500" /> :
+    <Save className="h-4 w-4" />
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden" onKeyDown={handleKeyDown}>
@@ -174,12 +202,12 @@ export default function PlateDocViewer({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => void handleSave()}
+              onClick={() => void doSave(false)}
               disabled={writeFileMutation.isPending || !isDirty || status !== 'ready'}
               aria-label="保存"
               title="保存"
             >
-              <Save className="h-4 w-4" />
+              {saveIcon}
             </Button>
           }
           showMinimize
@@ -189,10 +217,8 @@ export default function PlateDocViewer({
           }}
           onClose={() => {
             if (!tabId || !panelKey) return
-            if (isDirty) {
-              const ok = window.confirm('当前文稿尚未保存，确定要关闭吗？')
-              if (!ok) return
-            }
+            if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+            if (isDirty) void doSave(true)
             removeStackItem(tabId, panelKey)
           }}
         />

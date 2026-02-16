@@ -6,6 +6,7 @@ import { readSummaryMarkdown, writeSummaryMarkdown } from "@tenas-ai/api/service
 import { generateText } from "ai";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
+import type { BasicConfig } from "@tenas-ai/api/types/basic";
 
 type UpdateProjectSummaryInput = {
   /** Project id. */
@@ -15,6 +16,22 @@ type UpdateProjectSummaryInput = {
   /** Trigger source. */
   triggeredBy: "scheduler" | "manual" | "external";
 };
+
+/** Resolve configured tool model parameters for project summary updates. */
+function resolveProjectSummaryToolModelConfig(basic: BasicConfig) {
+  const source = basic.toolModelSource === "cloud" ? "cloud" : "local";
+  const modelId =
+    typeof basic.modelDefaultToolModelId === "string"
+      ? basic.modelDefaultToolModelId.trim()
+      : "";
+  if (source === "local" && !modelId) {
+    throw new Error("工具模型未配置：请选择本地对话模型");
+  }
+  return {
+    chatModelSource: source,
+    chatModelId: source === "local" ? modelId : undefined,
+  } as const;
+}
 
 export class UpdateProjectSummaryUseCase {
   /** Execute project summary update. */
@@ -30,8 +47,10 @@ export class UpdateProjectSummaryUseCase {
     const previousSummary = existing.content?.trim();
 
     const basic = readBasicConf();
+    const summaryModel = resolveProjectSummaryToolModelConfig(basic);
     const resolved = await resolveChatModel({
-      chatModelId: basic.modelDefaultChatModelId,
+      chatModelId: summaryModel.chatModelId,
+      chatModelSource: summaryModel.chatModelSource,
     });
 
     const promptLines = [

@@ -302,6 +302,57 @@ function formatFrontMatterValue(value: FrontMatterValue): string {
   return value;
 }
 
+/** Normalize local path separators for URI conversion. */
+function normalizeLocalPath(value: string): string {
+  return value.replace(/\\/g, "/");
+}
+
+/** Convert a local path into file:// URI. */
+function toFileUri(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("file://")) return trimmed;
+  const normalized = normalizeLocalPath(trimmed);
+  if (/^[A-Za-z]:\//.test(normalized)) {
+    return `file:///${encodeURI(normalized)}`;
+  }
+  if (normalized.startsWith("/")) {
+    return `file://${encodeURI(normalized)}`;
+  }
+  return `file:///${encodeURI(normalized)}`;
+}
+
+/** Resolve chat history folder URI from jsonl path or fallback root/session pair. */
+function resolveChatHistoryFolderUri(input: {
+  jsonlPath: string;
+  workspaceRootUri: string;
+  sessionId: string;
+}): string {
+  const trimmedJsonlPath = input.jsonlPath.trim();
+  if (trimmedJsonlPath) {
+    if (trimmedJsonlPath.startsWith("file://")) {
+      try {
+        const url = new URL(trimmedJsonlPath);
+        const filePath = normalizeLocalPath(decodeURIComponent(url.pathname));
+        const folderPath = filePath.replace(/\/[^/]*$/, "");
+        if (folderPath) return toFileUri(folderPath);
+        return trimmedJsonlPath;
+      } catch {
+        return trimmedJsonlPath;
+      }
+    }
+    const normalizedPath = normalizeLocalPath(trimmedJsonlPath);
+    const folderPath = normalizedPath.replace(/\/[^/]*$/, "");
+    if (folderPath) return toFileUri(folderPath);
+  }
+  if (!input.workspaceRootUri || !input.sessionId) return "";
+  // 逻辑：回退到旧路径拼接方式，兼容未返回 jsonlPath 的场景。
+  return buildFileUriFromRoot(
+    input.workspaceRootUri,
+    `.tenas/chat-history/${input.sessionId}`
+  );
+}
+
 /** Render a markdown preview panel with a streamdown viewer. */
 export default function MarkdownViewer({
   uri,
@@ -391,20 +442,17 @@ export default function MarkdownViewer({
   /** Open the chat history folder for the current session. */
   const handleOpenChatHistoryFolder = useCallback(async () => {
     if (!chatHistorySessionId) return;
-    if (!workspaceRootUri) {
-      toast.error("未找到工作空间路径");
-      return;
-    }
     const api = window.tenasElectron;
     if (!api?.openPath) {
       toast.error("网页版不支持打开文件管理器");
       return;
     }
-    // 逻辑：日志目录固定在工作空间下的 .tenas/chat-history/{sessionId}。
-    const targetUri = buildFileUriFromRoot(
+    // 逻辑：优先使用后端返回的 jsonlPath 反推目录，避免项目根与工作空间根不一致。
+    const targetUri = resolveChatHistoryFolderUri({
+      jsonlPath: chatHistoryJsonlPath,
       workspaceRootUri,
-      `.tenas/chat-history/${chatHistorySessionId}`
-    );
+      sessionId: chatHistorySessionId,
+    });
     if (!targetUri) {
       toast.error("未找到日志目录");
       return;
@@ -413,7 +461,7 @@ export default function MarkdownViewer({
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件管理器");
     }
-  }, [chatHistorySessionId, workspaceRootUri]);
+  }, [chatHistoryJsonlPath, chatHistorySessionId, workspaceRootUri]);
 
   /** Copy chat history jsonl file path for the current branch. */
   const handleCopyChatHistoryJsonlPath = async () => {

@@ -1,18 +1,13 @@
 import type { Hono } from 'hono'
-import { getCookie } from 'hono/cookie'
-import {
-  createUIMessageStream,
-  JsonToSseTransformStream,
-  UI_MESSAGE_STREAM_HEADERS,
-  streamText,
-} from 'ai'
+import { streamText } from 'ai'
 import type { ChatModelSource } from '@tenas-ai/api/common'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { logger } from '@/common/logger'
 
 /** Extract bearer token from request headers. */
 function resolveBearerToken(c: any): string | null {
-  const authHeader = c.req.header('authorization') ?? c.req.header('Authorization')
+  const authHeader =
+    c.req.header('authorization') ?? c.req.header('Authorization')
   if (!authHeader) return null
   const match = authHeader.match(/^Bearer\s+(.+)$/i)
   return match?.[1]?.trim() || null
@@ -20,7 +15,7 @@ function resolveBearerToken(c: any): string | null {
 
 /** Register /api/ai/command route for Plate.js AI chat menu. */
 export function registerAiCommandRoutes(app: Hono) {
-  app.post('/api/ai/command', async (c) => {
+  app.post('/ai/command', async (c) => {
     let body: Record<string, unknown>
     try {
       body = (await c.req.json()) as Record<string, unknown>
@@ -33,8 +28,16 @@ export function registerAiCommandRoutes(app: Hono) {
       return c.json({ error: 'messages is required' }, 400)
     }
 
-    const chatModelId = typeof body.chatModelId === 'string' ? body.chatModelId : undefined
-    const chatModelSource = (typeof body.chatModelSource === 'string' ? body.chatModelSource : undefined) as ChatModelSource | undefined
+    const ctx = body.ctx as
+      | { children?: unknown; selection?: unknown; toolName?: string }
+      | undefined
+    const chatModelId =
+      typeof body.chatModelId === 'string' ? body.chatModelId : undefined
+    const chatModelSource = (
+      typeof body.chatModelSource === 'string'
+        ? body.chatModelSource
+        : undefined
+    ) as ChatModelSource | undefined
     const saasAccessToken = resolveBearerToken(c)
 
     let resolved
@@ -45,37 +48,35 @@ export function registerAiCommandRoutes(app: Hono) {
         saasAccessToken,
       })
     } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : 'Failed to resolve model'
       logger.error({ err }, '[ai-command] resolveChatModel failed')
-      return c.json({ error: 'Failed to resolve model' }, 500)
+      return c.json({ error: msg }, 500)
     }
 
-    // 逻辑：使用 AI SDK streamText 直接流式生成，不走完整 Agent 流程。
+    // 逻辑：根据 toolName 设置系统提示，让模型行为匹配操作类型。
+    const toolName = ctx?.toolName
+    let system: string | undefined
+    if (toolName === 'edit') {
+      system =
+        "You are an advanced text editor. Rewrite the user's text as requested. Output only the rewritten text, no explanations."
+    } else if (toolName === 'generate') {
+      system =
+        "You are an AI writing assistant. Generate content based on the user's request."
+    } else if (toolName === 'comment') {
+      system =
+        'You are a writing reviewer. Provide constructive feedback on the given text.'
+    }
+
+    // 逻辑：使用 AI SDK streamText 直接流式生成。
     const result = streamText({
       model: resolved.model as any,
       messages: messages as any,
+      system,
       abortSignal: c.req.raw.signal,
     })
 
-    // 逻辑：返回 Vercel AI SDK 标准 SSE 流格式。
-    const uiStream = createUIMessageStream({
-      execute: async ({ writer }) => {
-        const msgId = crypto.randomUUID()
-        const reader = result.textStream.getReader()
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            writer.write({ type: 'text-delta', id: msgId, delta: value })
-          }
-        } finally {
-          reader.releaseLock()
-        }
-      },
-    })
-
-    const sseStream = uiStream.pipeThrough(new JsonToSseTransformStream())
-    return new Response(sseStream as any, {
-      headers: UI_MESSAGE_STREAM_HEADERS,
-    })
+    // 逻辑：返回标准 UI Message Stream 格式，Plate.js useChat 直接消费。
+    return result.toUIMessageStreamResponse()
   })
 }

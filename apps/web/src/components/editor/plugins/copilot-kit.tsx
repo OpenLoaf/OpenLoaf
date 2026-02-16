@@ -6,6 +6,7 @@ import { CopilotPlugin } from '@platejs/ai/react';
 import { serializeMd, stripMarkdown } from '@platejs/markdown';
 
 import { GhostText } from '@tenas-ai/ui/ghost-text';
+import { resolveServerUrl } from '@/utils/server-url';
 
 import { MarkdownKit } from './markdown-kit';
 
@@ -14,7 +15,27 @@ export const CopilotKit = [
   CopilotPlugin.configure(({ api }) => ({
     options: {
       completeOptions: {
-        api: '/api/ai/copilot',
+        api: '/ai/copilot',
+        fetch: async (input, init) => {
+          const url = typeof input === 'string'
+            ? `${resolveServerUrl()}${input}`
+            : input
+
+          const response = await fetch(url, init)
+
+          if (!response.ok) {
+            let msg = 'AI 补全请求失败'
+            try {
+              const data = await response.clone().json()
+              msg = data.error || data.message || msg
+            } catch {
+              msg = (await response.text()) || msg
+            }
+            throw new Error(msg)
+          }
+
+          return response
+        },
         body: {
           system: `You are an advanced AI writing assistant, similar to VSCode Copilot but for general text. Your task is to predict and generate the next part of the text based on the given context.
 
