@@ -79,7 +79,6 @@ function msg(
     messageKind: 'normal',
     parts: [{ type: 'text', text: `msg-${id}` }],
     createdAt: new Date(Date.now() + num * 1000).toISOString(),
-    updatedAt: new Date().toISOString(),
     ...opts,
   }
 }

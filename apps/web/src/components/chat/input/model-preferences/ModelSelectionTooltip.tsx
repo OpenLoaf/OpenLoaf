@@ -6,8 +6,6 @@ import type { AiModel } from '@tenas-saas/sdk'
 import { getModelLabel } from '@/lib/model-registry'
 import { ModelIcon } from '@/components/setting/menus/provider/ModelIcon'
 
-const MODEL_ICON_FALLBACK_SRC = '/head_s.png'
-
 interface ModelSelectionTooltipProps {
   chatModels: ProviderModelOption[]
   imageModels: AiModel[]
@@ -66,10 +64,9 @@ export function ModelSelectionTooltip({
                     m.modelDefinition?.familyId ??
                     m.modelDefinition?.icon
                   }
+                  model={m.modelId}
                   size={12}
                   className="h-3 w-3 shrink-0"
-                  fallbackSrc={MODEL_ICON_FALLBACK_SRC}
-                  fallbackAlt=""
                 />
                 <span className="truncate">
                   {m.modelDefinition
@@ -95,10 +92,9 @@ export function ModelSelectionTooltip({
               >
                 <ModelIcon
                   icon={m.familyId ?? m.id}
+                  model={m.id}
                   size={12}
                   className="h-3 w-3 shrink-0"
-                  fallbackSrc={MODEL_ICON_FALLBACK_SRC}
-                  fallbackAlt=""
                 />
                 <span className="truncate">{m.name ?? m.id}</span>
               </div>
@@ -120,10 +116,9 @@ export function ModelSelectionTooltip({
               >
                 <ModelIcon
                   icon={m.familyId ?? m.id}
+                  model={m.id}
                   size={12}
                   className="h-3 w-3 shrink-0"
-                  fallbackSrc={MODEL_ICON_FALLBACK_SRC}
-                  fallbackAlt=""
                 />
                 <span className="truncate">{m.name ?? m.id}</span>
               </div>

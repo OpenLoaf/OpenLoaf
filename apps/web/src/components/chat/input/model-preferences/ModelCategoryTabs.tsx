@@ -1,39 +1,74 @@
 'use client'
 
-import { Tabs, TabsList, TabsTrigger } from '@tenas-ai/ui/tabs'
 import { Image, MessageSquare, Video } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface ModelCategoryTabsProps {
   value: string
   onValueChange: (value: string) => void
 }
 
+const tabs = [
+  {
+    id: 'chat',
+    label: '对话',
+    icon: MessageSquare,
+    activeText: 'text-sky-700 dark:text-sky-200',
+    inactiveText: 'text-muted-foreground',
+    indicator: 'border-t-sky-500',
+  },
+  {
+    id: 'image',
+    label: '图像',
+    icon: Image,
+    activeText: 'text-violet-700 dark:text-violet-200',
+    inactiveText: 'text-muted-foreground',
+    indicator: 'border-t-violet-500',
+  },
+  {
+    id: 'video',
+    label: '视频',
+    icon: Video,
+    activeText: 'text-amber-700 dark:text-amber-200',
+    inactiveText: 'text-muted-foreground',
+    indicator: 'border-t-amber-500',
+  },
+] as const
+
 export function ModelCategoryTabs({
   value,
   onValueChange,
 }: ModelCategoryTabsProps) {
   return (
-    <Tabs value={value} onValueChange={onValueChange}>
-      <TabsList className="grid h-7 w-full grid-cols-3 items-center rounded-lg border-0 p-0">
-        <TabsTrigger value="chat" className="h-7 text-xs leading-none">
-          <span className="inline-flex items-center gap-1">
-            <MessageSquare className="h-3 w-3" />
-            对话
-          </span>
-        </TabsTrigger>
-        <TabsTrigger value="image" className="h-7 text-xs leading-none">
-          <span className="inline-flex items-center gap-1">
-            <Image className="h-3 w-3" />
-            图像
-          </span>
-        </TabsTrigger>
-        <TabsTrigger value="video" className="h-7 text-xs leading-none">
-          <span className="inline-flex items-center gap-1">
-            <Video className="h-3 w-3" />
-            视频
-          </span>
-        </TabsTrigger>
-      </TabsList>
-    </Tabs>
+    <div className="flex items-stretch border-t border-border">
+      {tabs.map((tab, index) => {
+        const isActive = value === tab.id
+        const Icon = tab.icon
+        const isFirst = index === 0
+        const isLast = index === tabs.length - 1
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            className={cn(
+              'flex flex-1 items-center justify-center gap-1.5 border-t-2 py-2 text-xs font-medium transition-colors',
+              isActive
+                ? ['-mt-px bg-transparent', tab.indicator, tab.activeText]
+                : [
+                    '-mt-px border-t-transparent bg-muted/50',
+                    tab.inactiveText,
+                    'hover:bg-muted/70 hover:text-foreground',
+                  ],
+              isFirst && 'rounded-bl-xl',
+              isLast && 'rounded-br-xl',
+            )}
+            onClick={() => onValueChange(tab.id)}
+          >
+            <Icon size={14} className="opacity-70" aria-hidden="true" />
+            {tab.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }

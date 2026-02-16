@@ -7,6 +7,7 @@ import * as React from "react";
 import MessageItem from "./MessageItem";
 import MessageThinking from "./MessageThinking";
 import MessageError from "./tools/MessageError";
+import PendingCloudLoginPrompt from "./PendingCloudLoginPrompt";
 import { AnimatePresence } from "motion/react";
 import { messageHasVisibleContent } from "@/lib/chat/message-visible";
 import { incrementChatPerf } from "@/lib/chat/chat-perf";
@@ -27,7 +28,7 @@ interface MessageListProps {
 export default function MessageList({ className }: MessageListProps) {
   // 中文注释：统计渲染频率，用于定位流式渲染压力。
   incrementChatPerf("render.messageList");
-  const { messages, status, error, isHistoryLoading, stepThinking } = useChatState();
+  const { messages, status, error, isHistoryLoading, stepThinking, pendingCloudMessage } = useChatState();
   const { staticMessages, streamingMessage } = useStreamingMessageBuffer({
     messages,
     status,
@@ -65,7 +66,7 @@ export default function MessageList({ className }: MessageListProps) {
   const hideAiActions = status === "submitted" || status === "streaming";
   const lastMessageIsAssistant = displayMessages[displayMessages.length - 1]?.role !== "user";
   // 空态时展示提示卡片。
-  const shouldShowHelper = !isHistoryLoading && messages.length === 0;
+  const shouldShowHelper = !isHistoryLoading && messages.length === 0 && !pendingCloudMessage;
 
   // 发送消息后，在 AI 还没返回任何可见内容前显示“正在思考中”
   const shouldShowThinking = React.useMemo(() => {
@@ -165,6 +166,10 @@ export default function MessageList({ className }: MessageListProps) {
 
               <AnimatePresence initial={false}>
                 {shouldShowThinking ? <MessageThinking /> : null}
+              </AnimatePresence>
+
+              <AnimatePresence initial={false}>
+                {pendingCloudMessage ? <PendingCloudLoginPrompt /> : null}
               </AnimatePresence>
 
               {error && <MessageError error={error} />}

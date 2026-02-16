@@ -345,6 +345,88 @@ function normalizeAttachments(value: unknown): AttachmentMeta[] {
     .filter((item): item is AttachmentMeta => item !== null);
 }
 
+/** 查找账号的 Trash 邮箱路径。 */
+async function findTrashMailboxPath(
+  prisma: PrismaClient,
+  workspaceId: string,
+  accountEmail: string,
+): Promise<string | null> {
+  const mailboxes = await prisma.emailMailbox.findMany({
+    where: { workspaceId, accountEmail },
+    select: { path: true, attributes: true },
+  });
+  // 逻辑：优先匹配 \\Trash 属性，其次匹配路径名。
+  for (const mb of mailboxes) {
+    const attrs = Array.isArray(mb.attributes) ? mb.attributes : [];
+    const normalized = attrs.map((a: unknown) =>
+      typeof a === "string" ? a.trim().toUpperCase() : "",
+    );
+    if (normalized.includes("\\TRASH") || normalized.includes("\\\\TRASH")) {
+      return mb.path;
+    }
+  }
+  for (const mb of mailboxes) {
+    const lower = mb.path.toLowerCase();
+    if (lower === "trash" || lower.includes("deleted") || lower.includes("trash")) {
+      return mb.path;
+    }
+  }
+  return null;
+}
+
+/** 将邮件移动到 Trash 邮箱（IMAP + DB + 文件系统）。 */
+async function moveMessageToTrash(input: {
+  prisma: PrismaClient;
+  workspaceId: string;
+  row: { id: string; accountEmail: string; mailboxPath: string; externalId: string };
+  trashPath: string;
+}) {
+  const { prisma, workspaceId, row, trashPath } = input;
+  if (row.mailboxPath === trashPath) return; // 已在 Trash 中
+  const config = readEmailConfigFile(workspaceId);
+  const account = config.emailAccounts.find(
+    (a) =>
+      a.emailAddress.trim().toLowerCase() ===
+      row.accountEmail.trim().toLowerCase(),
+  );
+  if (!account) return;
+  const transport = createTransport(
+    {
+      emailAddress: account.emailAddress,
+      auth: account.auth,
+      imap: account.imap,
+      smtp: account.smtp,
+    },
+    {
+      workspaceId,
+      password:
+        account.auth.type === "password"
+          ? getEmailEnvValue(account.auth.envKey)
+          : undefined,
+    },
+  );
+  try {
+    if (transport.moveMessage) {
+      await transport.moveMessage(row.mailboxPath, trashPath, row.externalId);
+    }
+    await prisma.emailMessage.update({
+      where: { id: row.id },
+      data: { mailboxPath: trashPath },
+    });
+    void moveEmailMessageFile({
+      workspaceId,
+      accountEmail: row.accountEmail,
+      fromMailboxPath: row.mailboxPath,
+      toMailboxPath: trashPath,
+      externalId: row.externalId,
+    }).catch((err) => {
+      logger.warn({ err, id: row.id }, "move to trash file store failed");
+    });
+  } finally {
+    await transport.dispose();
+  }
+}
+
 export class EmailRouterImpl extends BaseEmailRouter {
   /** Define email router implementation. */
   public static createRouter() {
@@ -1168,7 +1250,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
             where: { id: input.id },
           });
           if (!row) throw new Error("邮件未找到。");
-          // 逻辑：软删除 — 添加 \\Deleted 标记而非硬删除。
+          // 逻辑：软删除 — 添加 \\Deleted 标记 + 移动到 Trash 邮箱。
           const existingFlags = normalizeEmailFlags(row.flags);
           const newFlags = ensureDeletedFlag(existingFlags);
           await prisma.emailMessage.update({
@@ -1184,6 +1266,29 @@ export class EmailRouterImpl extends BaseEmailRouter {
           }).catch((err) => {
             logger.warn({ err, id: input.id }, "email file store soft delete failed");
           });
+          // 逻辑：移动到 Trash 邮箱，使账号级"已删除"视图可见。
+          const trashPath = await findTrashMailboxPath(
+            prisma,
+            input.workspaceId,
+            row.accountEmail,
+          );
+          if (trashPath) {
+            try {
+              await moveMessageToTrash({
+                prisma,
+                workspaceId: input.workspaceId,
+                row: {
+                  id: row.id,
+                  accountEmail: row.accountEmail,
+                  mailboxPath: row.mailboxPath,
+                  externalId: row.externalId,
+                },
+                trashPath,
+              });
+            } catch (err) {
+              logger.warn({ err, id: input.id }, "move to trash failed");
+            }
+          }
           return { ok: true };
         }),
       restoreMessage: shieldedProcedure
@@ -1439,7 +1544,9 @@ export class EmailRouterImpl extends BaseEmailRouter {
         .output(emailSchemas.batchDelete.output)
         .mutation(async ({ input, ctx }) => {
           const prisma = ctx.prisma as PrismaClient;
-          // 逻辑：批量软删除 — 添加 \\Deleted 标记。
+          // 逻辑：批量软删除 — 添加 \\Deleted 标记 + 移动到 Trash。
+          // 逻辑：按账号分组查找 Trash 路径，避免重复查询。
+          const trashPathCache = new Map<string, string | null>();
           for (const id of input.ids) {
             const row = await prisma.emailMessage.findUnique({ where: { id } });
             if (!row) continue;
@@ -1458,6 +1565,32 @@ export class EmailRouterImpl extends BaseEmailRouter {
             }).catch((err) => {
               logger.warn({ err, id }, "email file store batch soft delete failed");
             });
+            // 逻辑：移动到 Trash 邮箱。
+            const cacheKey = row.accountEmail.trim().toLowerCase();
+            if (!trashPathCache.has(cacheKey)) {
+              trashPathCache.set(
+                cacheKey,
+                await findTrashMailboxPath(prisma, input.workspaceId, row.accountEmail),
+              );
+            }
+            const trashPath = trashPathCache.get(cacheKey);
+            if (trashPath) {
+              try {
+                await moveMessageToTrash({
+                  prisma,
+                  workspaceId: input.workspaceId,
+                  row: {
+                    id: row.id,
+                    accountEmail: row.accountEmail,
+                    mailboxPath: row.mailboxPath,
+                    externalId: row.externalId,
+                  },
+                  trashPath,
+                });
+              } catch (err) {
+                logger.warn({ err, id }, "batch move to trash failed");
+              }
+            }
           }
           return { ok: true };
         }),

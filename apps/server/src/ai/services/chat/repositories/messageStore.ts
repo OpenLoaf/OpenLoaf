@@ -221,7 +221,6 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
         ...(parts.length ? { parts: parts as any } : {}),
         ...(mergedMetadata ? { metadata: mergedMetadata as any } : {}),
         ...(messageKind ? { messageKind } : {}),
-        updatedAt: new Date().toISOString(),
       }
       await updateMessage({ sessionId: input.sessionId, message: updated })
     }
@@ -243,7 +242,6 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
     parts: parts as any,
     metadata: (metadata as any) ?? undefined,
     createdAt: now.toISOString(),
-    updatedAt: now.toISOString(),
   }
 
   await appendMessage({ sessionId: input.sessionId, message: stored })
@@ -280,7 +278,6 @@ export async function appendMessagePart(input: {
   const updated: StoredMessage = {
     ...existing,
     parts: parts as any,
-    updatedAt: new Date().toISOString(),
   }
   await updateMessage({ sessionId: input.sessionId, message: updated })
   return true

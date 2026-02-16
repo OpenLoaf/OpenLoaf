@@ -1044,7 +1044,7 @@ export default function ChatInput({
   isCodexProvider,
   onDropHandled,
 }: ChatInputProps) {
-  const { sendMessage, stopGenerating, clearError } = useChatActions();
+  const { sendMessage, stopGenerating, clearError, setPendingCloudMessage } = useChatActions();
   const { status, isHistoryLoading } = useChatState();
   const { input, setInput, imageOptions, codexOptions, addMaskedAttachment } = useChatOptions();
   const { projectId, workspaceId, tabId } = useChatSession();
@@ -1281,6 +1281,14 @@ export default function ChatInput({
       codexOptions,
       onlineSearchEnabled,
     });
+    // 逻辑：云端模型 + 未登录时，暂存消息而不发送到服务端
+    const isCloudSource = basic.chatSource === 'cloud'
+    if (isCloudSource && !authLoggedIn) {
+      setPendingCloudMessage({ parts, metadata, text: textValue })
+      setInput('')
+      onClearAttachments?.()
+      return
+    }
     // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
     sendMessage({ parts, ...(metadata ? { metadata } : {}) } as any);
     setInput("");

@@ -66,66 +66,6 @@ import { useWorkspace } from "@/components/workspace/workspaceContext";
 
 // 用于“复制/粘贴”的内存剪贴板。
 let fileClipboard: FileSystemEntry[] | null = null;
-/** Default template for new markdown documents. */
-const DEFAULT_MARKDOWN_TEMPLATE = [
-  "---",
-  'title: "New Document"',
-  "status: draft",
-  "tags:",
-  "  - markdown",
-  "  - mdx",
-  "categories: [notes, demo]",
-  "summary: |",
-  "  A starter MDX document with common markdown features.",
-  "  Replace this template when ready.",
-  "---",
-  "",
-  "# New Document",
-  "",
-  "> Tip: This file is `.mdx`, so MDX syntax is allowed.",
-  "",
-  "## Formatting",
-  "- **bold**, *italic*, ~~strikethrough~~, `inline code`",
-  "- [link](https://example.com)",
-  "",
-  "## Lists",
-  "1. Ordered item",
-  "2. Another item",
-  "   - Nested item",
-  "",
-  "## Task List",
-  "- [x] Setup",
-  "- [ ] Write",
-  "",
-  "## Table",
-  "| Feature | Status |",
-  "| --- | --- |",
-  "| Front matter | OK |",
-  "| Markdown | OK |",
-  "| MDX | OK |",
-  "",
-  "## Code",
-  "~~~ts",
-  "export function greet(name: string) {",
-  "  return `Hello, ${name}!`;",
-  "}",
-  "~~~",
-  "",
-  "## Quote",
-  "> A short quote to highlight a key idea.",
-  "",
-  "## MDX",
-  '<Note tone="info">',
-  "  You can embed components in MDX files.",
-  "</Note>",
-  "",
-  "{1 + 1}",
-  "",
-  "---",
-  "",
-  "## Next",
-  "- Replace this template with your content.",
-].join("\n");
 /** Upload threshold to switch to local copy in Electron. */
 const LARGE_FILE_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
 /** Electron-only file payload with path metadata. */
@@ -1311,29 +1251,39 @@ export function useProjectFileSystemModel({
     return { uri: targetUri, name: targetName };
   };
 
-  /** Create a new markdown document in the current directory. */
+  /** Create a new Plate.js document (.docx) in the current directory. */
   const handleCreateMarkdown = async () => {
     if (activeUri === null || !workspaceId) return null;
-    const targetName = getUniqueName("新建文稿.mdx", new Set(existingNames));
+    const targetName = getUniqueName("新建文稿.docx", new Set(existingNames));
     const targetUri = buildChildUri(activeUri, targetName);
-    // 逻辑：使用默认模板生成可直接预览的 MDX 文稿。
-    await writeFileMutation.mutateAsync({
+    // 逻辑：生成空白 docx 文件，使用 Plate.js 编辑器打开。
+    const { generateEmptyDocx } = await import(
+      "../utils/generate-empty-docx"
+    );
+    const contentBase64 = await generateEmptyDocx();
+    await writeBinaryMutation.mutateAsync({
       workspaceId,
       projectId,
       uri: targetUri,
-      content: DEFAULT_MARKDOWN_TEMPLATE,
+      contentBase64,
     });
     pushHistory({
       kind: "create",
       uri: targetUri,
-      content: DEFAULT_MARKDOWN_TEMPLATE,
+      contentBase64,
     });
     refreshList();
-    handleOpenMarkdown({
-      uri: targetUri,
-      name: targetName,
-      kind: "file",
-      ext: "mdx",
+    openFilePreview({
+      entry: {
+        uri: targetUri,
+        name: targetName,
+        kind: "file",
+        ext: "docx",
+      },
+      tabId: activeTabId,
+      projectId,
+      rootUri,
+      readOnly: false,
     });
     return { uri: targetUri, name: targetName };
   };

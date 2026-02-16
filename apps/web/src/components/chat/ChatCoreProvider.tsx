@@ -15,6 +15,8 @@ import { useChatRuntime, type ToolPartSnapshot } from "@/hooks/use-chat-runtime"
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { createChatTransport } from "@/lib/chat/transport";
 import { useBasicConfig } from "@/hooks/use-basic-config";
+import { useSaasAuth } from "@/hooks/use-saas-auth";
+import type { PendingCloudMessage } from "./context/ChatStateContext";
 import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
 import type { ChatMessageKind } from "@tenas-ai/api";
@@ -320,6 +322,10 @@ export default function ChatCoreProvider({
   );
   const [stepThinking, setStepThinking] = React.useState(false);
   const [sessionErrorMessage, setSessionErrorMessage] = React.useState<string | null>(null);
+  const [pendingCloudMessage, setPendingCloudMessage] = React.useState<PendingCloudMessage | null>(null);
+  const pendingCloudMessageRef = React.useRef(pendingCloudMessage);
+  React.useEffect(() => { pendingCloudMessageRef.current = pendingCloudMessage }, [pendingCloudMessage]);
+  const { loggedIn: authLoggedIn } = useSaasAuth();
   const upsertToolPart = useChatRuntime((s) => s.upsertToolPart);
   const clearToolPartsForTab = useChatRuntime((s) => s.clearToolPartsForTab);
   const queryClient = useQueryClient();
@@ -934,6 +940,21 @@ export default function ChatCoreProvider({
     [chat.sendMessage, chat.messages, leafMessageId]
   );
 
+  // 逻辑：发送暂存的云端消息（用于登录后手动或自动触发）
+  const sendPendingCloudMessage = React.useCallback(() => {
+    const msg = pendingCloudMessageRef.current
+    if (!msg) return
+    setPendingCloudMessage(null)
+    sendMessage({ parts: msg.parts, ...(msg.metadata ? { metadata: msg.metadata } : {}) } as any)
+  }, [sendMessage])
+
+  // 逻辑：登录成功后自动发送暂存的云端消息
+  React.useEffect(() => {
+    if (!authLoggedIn) return
+    if (!pendingCloudMessageRef.current) return
+    sendPendingCloudMessage()
+  }, [authLoggedIn, sendPendingCloudMessage])
+
   const switchSibling = React.useCallback(
     async (
       messageId: string,
@@ -1253,8 +1274,9 @@ export default function ChatCoreProvider({
       error: effectiveError,
       isHistoryLoading,
       stepThinking,
+      pendingCloudMessage,
     }),
-    [chat.messages, chat.status, effectiveError, isHistoryLoading, stepThinking]
+    [chat.messages, chat.status, effectiveError, isHistoryLoading, stepThinking, pendingCloudMessage]
   );
 
   const sessionValue = React.useMemo(
@@ -1292,6 +1314,8 @@ export default function ChatCoreProvider({
       retryAssistantMessage,
       resendUserMessage,
       deleteMessageSubtree,
+      setPendingCloudMessage,
+      sendPendingCloudMessage,
     }),
     [
       sendMessage,
@@ -1306,6 +1330,8 @@ export default function ChatCoreProvider({
       retryAssistantMessage,
       resendUserMessage,
       deleteMessageSubtree,
+      setPendingCloudMessage,
+      sendPendingCloudMessage,
     ]
   );
 

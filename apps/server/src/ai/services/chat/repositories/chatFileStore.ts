@@ -21,7 +21,6 @@ export type StoredMessage = {
   parts: unknown[]
   metadata?: Record<string, unknown>
   createdAt: string
-  updatedAt: string
 }
 
 export type MessageTreeIndex = {
@@ -700,7 +699,6 @@ export async function updateMessageParts(input: {
     const updated: StoredMessage = {
       ...existing,
       parts: input.parts,
-      updatedAt: new Date().toISOString(),
     }
     await appendJsonlLine(input.sessionId, updated)
     invalidateCache(input.sessionId)
@@ -725,7 +723,6 @@ export async function updateMessageMetadata(input: {
     const updated: StoredMessage = {
       ...existing,
       metadata: merged,
-      updatedAt: new Date().toISOString(),
     }
     await appendJsonlLine(input.sessionId, updated)
     invalidateCache(input.sessionId)

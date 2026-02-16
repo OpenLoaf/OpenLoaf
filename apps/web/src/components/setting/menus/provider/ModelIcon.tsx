@@ -1,130 +1,69 @@
-import type { ComponentType, CSSProperties } from "react";
-import {
-  Anthropic,
-  Claude,
-  DeepSeek,
-  Gemini,
-  Grok,
-  Kimi,
-  LobeHub,
-  Moonshot,
-  OpenAI,
-  Qwen,
-  V0,
-  Vercel,
-  Volcengine,
-} from "@lobehub/icons";
+'use client'
+
+import { useMemo } from 'react'
+import LobeModelIcon from '@lobehub/icons/es/features/ModelIcon'
+import ProviderIcon from '@lobehub/icons/es/features/ProviderIcon'
+import { modelMappings } from '@lobehub/icons/es/features/modelConfig'
 
 type ModelIconProps = {
-  /** Icon name from model definition. */
-  icon?: string | null;
+  /** Provider or family id for fallback icon. */
+  icon?: string | null
+  /** Model id for model-level icon matching. */
+  model?: string | null
   /** Icon size in pixels. */
-  size?: number;
+  size?: number
   /** Additional class name. */
-  className?: string;
-  /** Fallback image src when icon name is not supported. */
-  fallbackSrc?: string;
-  /** Fallback image alt text. */
-  fallbackAlt?: string;
-};
+  className?: string
+  /** @deprecated No longer used, kept for call-site compat. */
+  fallbackSrc?: string
+  /** @deprecated No longer used, kept for call-site compat. */
+  fallbackAlt?: string
+}
 
-/** Map model icon names to Lobe icon components. */
-const MODEL_ICON_MAP = {
-  Anthropic,
-  Claude,
-  DeepSeek,
-  Gemini,
-  Grok,
-  Kimi,
-  LobeHub,
-  Moonshot,
-  OpenAI,
-  Qwen,
-  V0,
-  Vercel,
-  Volcengine,
-} as const;
-
-/** Supported icon names from @lobehub/icons. */
-type ModelIconName = keyof typeof MODEL_ICON_MAP;
-
-/**
- * Check whether icon name is supported.
- */
-function isModelIconName(icon?: string | null): icon is ModelIconName {
-  // 逻辑：只允许已映射的图标名称，避免渲染空组件。
-  return typeof icon === "string" && icon in MODEL_ICON_MAP;
+/** Check whether model id matches modelMappings (regex). */
+function hasModelIcon(modelId: string): boolean {
+  const id = modelId.toLowerCase()
+  return modelMappings.some((m) =>
+    m.keywords.some((kw) => new RegExp(kw, 'i').test(id)),
+  )
 }
 
 /**
- * Resolve icon name with fallback.
- */
-function resolveModelIconName(icon?: string | null): ModelIconName {
-  // 逻辑：优先使用配置 icon，缺省或不匹配时回退到 LobeHub。
-  if (typeof icon === "string" && icon in MODEL_ICON_MAP) {
-    return icon as ModelIconName;
-  }
-  return "LobeHub";
-}
-
-/**
- * Resolve icon component with color fallback.
- */
-function resolveModelIconComponent(
-  icon: (typeof MODEL_ICON_MAP)[ModelIconName],
-): ComponentType<{ size?: number | string; className?: string; style?: CSSProperties }> {
-  // 逻辑：优先使用 Color 版本，不存在时退回 Mono，避免出现图标+文字组合。
-  const colorComponent = "Color" in icon ? icon.Color : undefined;
-  const combineComponent = "Combine" in icon ? icon.Combine : undefined;
-  return colorComponent ?? icon ?? combineComponent;
-}
-
-/**
- * Resolve icon style when using mono variants.
- */
-function resolveModelIconStyle(
-  icon: (typeof MODEL_ICON_MAP)[ModelIconName],
-  component: ComponentType<{ size?: number | string; className?: string; style?: CSSProperties }>,
-): CSSProperties | undefined {
-  // 逻辑：Mono/Combine 使用主题前景色，避免黑白图标在深浅主题下不可见。
-  const isColorComponent = "Color" in icon && component === icon.Color;
-  if (isColorComponent) return undefined;
-  return { color: "currentColor" };
-}
-
-/**
- * Render the colored model icon by name.
+ * Render model icon with fallback chain:
+ * 1. model id → modelMappings regex → LobeModelIcon
+ * 2. icon (familyId/providerId) → ProviderIcon
+ * 3. fallback → ProviderIcon default icon
  */
 export function ModelIcon({
   icon,
+  model,
   size = 16,
   className,
-  fallbackSrc,
-  fallbackAlt,
 }: ModelIconProps) {
-  if (!isModelIconName(icon) && fallbackSrc) {
-    // 逻辑：没有匹配图标时使用兜底图片，确保列表视觉一致。
+  const matchModel = useMemo(
+    () => (model ? hasModelIcon(model) : false),
+    [model],
+  )
+
+  // 1. model id 命中 modelMappings
+  if (matchModel && model) {
     return (
-      <img
-        src={fallbackSrc}
-        alt={fallbackAlt ?? ""}
-        width={size}
-        height={size}
+      <LobeModelIcon
+        model={model}
+        size={size}
+        type="color"
         className={className}
       />
-    );
+    )
   }
-  const resolved = resolveModelIconName(icon);
-  const baseIcon = MODEL_ICON_MAP[resolved];
-  if (!baseIcon) return null;
-  const IconComponent = resolveModelIconComponent(baseIcon);
-  const iconStyle = resolveModelIconStyle(baseIcon, IconComponent);
+
+  // 2 & 3. provider icon 或默认图标。
   return (
-    <IconComponent
+    <ProviderIcon
+      provider={icon ?? undefined}
       size={size}
+      type="color"
       className={className}
-      style={iconStyle}
-      aria-hidden="true"
     />
-  );
+  )
 }

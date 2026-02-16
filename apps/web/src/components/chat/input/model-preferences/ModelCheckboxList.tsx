@@ -40,6 +40,7 @@ export function ChatModelCheckboxList({
               option.modelDefinition?.familyId ??
               option.modelDefinition?.icon
             }
+            modelId={option.modelId}
             label={label}
             tags={option.tags}
             checked={preferredIds.includes(option.id)}
@@ -80,7 +81,9 @@ export function MediaModelCheckboxList({
         <ModelCheckboxItem
           key={`${model.providerId ?? 'unknown'}-${model.id}`}
           icon={model.familyId ?? model.id}
+          modelId={model.id}
           label={model.name ?? model.id}
+          tags={model.tags as import('@tenas-ai/api/common').ModelTag[] | undefined}
           checked={preferredIds.includes(model.id)}
           disabled={disabled}
           onToggle={() => onToggle(model.id)}

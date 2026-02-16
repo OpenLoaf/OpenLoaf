@@ -4,12 +4,19 @@ import React, { createContext, useContext, type ReactNode } from "react";
 import type { UIMessage } from "@ai-sdk/react";
 import type { ChatStatus } from "@/hooks/use-chat-runtime";
 
+export type PendingCloudMessage = {
+  parts: any[];
+  metadata?: Record<string, unknown>;
+  text: string;
+};
+
 export type ChatStateContextValue = {
   messages: UIMessage[];
   status: ChatStatus;
   error: Error | undefined;
   isHistoryLoading: boolean;
   stepThinking: boolean;
+  pendingCloudMessage?: PendingCloudMessage | null;
 };
 
 const ChatStateContext = createContext<ChatStateContextValue | null>(null);

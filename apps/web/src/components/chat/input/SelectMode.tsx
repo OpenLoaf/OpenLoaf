@@ -148,6 +148,7 @@ export default function SelectMode({
             <ModelPreferencesPanel
               prefs={prefs}
               showCloudLogin={prefs.showCloudLogin}
+              authLoggedIn={prefs.authLoggedIn}
               onOpenLogin={handleOpenLogin}
               onClose={() => setPopoverOpen(false)}
             />

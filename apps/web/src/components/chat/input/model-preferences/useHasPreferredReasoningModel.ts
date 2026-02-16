@@ -56,11 +56,6 @@ export function useHasPreferredReasoningModel(): boolean {
       lastModelId: '',
       isAuto: true,
     }
-    const preferredIds =
-      currentSelection.preferredModelIds ??
-      (currentSelection.lastModelId ? [currentSelection.lastModelId] : [])
-
-    if (preferredIds.length === 0) return false
 
     const chatModels = buildChatModelOptions(
       chatModelSource,
@@ -68,6 +63,17 @@ export function useHasPreferredReasoningModel(): boolean {
       cloudModels,
       installedCliProviderIds,
     )
+
+    // 逻辑：自动模式下所有模型都可用，检查全部模型是否含推理模型
+    if (currentSelection.isAuto) {
+      return chatModels.some((m) => m.tags?.includes('reasoning'))
+    }
+
+    const preferredIds =
+      currentSelection.preferredModelIds ??
+      (currentSelection.lastModelId ? [currentSelection.lastModelId] : [])
+
+    if (preferredIds.length === 0) return false
 
     return chatModels.some(
       (m) => preferredIds.includes(m.id) && m.tags?.includes('reasoning'),

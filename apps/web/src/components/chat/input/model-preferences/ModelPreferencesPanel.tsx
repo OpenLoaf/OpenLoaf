@@ -15,6 +15,7 @@ type Prefs = ReturnType<typeof useModelPreferences>
 interface ModelPreferencesPanelProps {
   prefs: Prefs
   showCloudLogin: boolean
+  authLoggedIn: boolean
   onOpenLogin: () => void
   onClose: () => void
 }
@@ -22,6 +23,7 @@ interface ModelPreferencesPanelProps {
 export function ModelPreferencesPanel({
   prefs,
   showCloudLogin,
+  authLoggedIn,
   onOpenLogin,
   onClose,
 }: ModelPreferencesPanelProps) {
@@ -32,11 +34,31 @@ export function ModelPreferencesPanel({
     prefs.setCloudSource(cloud ? 'cloud' : 'local')
   }
 
+  const needsLogin = isChatTab ? showCloudLogin : !authLoggedIn
+
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
+      {/* 开关区 */}
+      <ModelPreferencesHeader
+        isCloudSource={prefs.isCloudSource}
+        isAuto={prefs.isAuto}
+        showCloudSwitch={isChatTab}
+        showManageButton={isChatTab}
+        disableAuto={needsLogin}
+        onCloudSourceChange={handleCloudSourceChange}
+        onAutoChange={prefs.setIsAuto}
+        onManageModels={() => {
+          onClose()
+          requestAnimationFrame(() => {
+            prefs.openProviderSettings()
+          })
+        }}
+      />
+
       {/* 列表 */}
       <div className="min-h-[8rem]">
-        {showCloudLogin && isChatTab ? (
+        {/* 逻辑：对话 tab 仅云端源时需登录；媒体 tab 始终需要云端，未登录即提示 */}
+        {needsLogin ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8">
             <Button
               type="button"
@@ -78,24 +100,10 @@ export function ModelPreferencesPanel({
         )}
       </div>
 
-      {/* 开关区：聊天 Tab 显示云端+自动，图片/视频 Tab 只显示自动 */}
-      <ModelPreferencesHeader
-        isCloudSource={prefs.isCloudSource}
-        isAuto={prefs.isAuto}
-        showCloudSwitch={isChatTab}
-        showManageButton={isChatTab}
-        onCloudSourceChange={handleCloudSourceChange}
-        onAutoChange={prefs.setIsAuto}
-        onManageModels={() => {
-          onClose()
-          requestAnimationFrame(() => {
-            prefs.openProviderSettings()
-          })
-        }}
-      />
-
-      {/* Tab 切换 */}
-      <ModelCategoryTabs value={activeTab} onValueChange={setActiveTab} />
+      {/* Tab 切换 — 底部，延伸到面板边缘与面板边框融合 */}
+      <div className="-mx-2 -mb-2">
+        <ModelCategoryTabs value={activeTab} onValueChange={setActiveTab} />
+      </div>
     </div>
   )
 }

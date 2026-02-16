@@ -8,6 +8,7 @@ interface ModelPreferencesHeaderProps {
   isAuto: boolean
   showCloudSwitch?: boolean
   showManageButton?: boolean
+  disableAuto?: boolean
   onCloudSourceChange: (cloud: boolean) => void
   onAutoChange: (auto: boolean) => void
   onManageModels?: () => void
@@ -18,6 +19,7 @@ export function ModelPreferencesHeader({
   isAuto,
   showCloudSwitch = true,
   showManageButton,
+  disableAuto,
   onCloudSourceChange,
   onAutoChange,
   onManageModels,
@@ -88,8 +90,10 @@ export function ModelPreferencesHeader({
         )}
         <button
           type="button"
+          disabled={disableAuto}
           className={cn(
             'inline-flex h-6 items-center gap-1 rounded-full px-2 text-[11px] transition-colors',
+            disableAuto && 'cursor-not-allowed opacity-40',
             isAuto
               ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
               : 'bg-muted/60 text-muted-foreground hover:text-foreground',

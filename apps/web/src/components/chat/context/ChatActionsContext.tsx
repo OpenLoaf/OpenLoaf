@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, type ReactNode } from "react";
 import type { UIMessage, UseChatHelpers } from "@ai-sdk/react";
+import type { PendingCloudMessage } from "./ChatStateContext";
 
 export type ChatActionsContextValue = {
   sendMessage: UseChatHelpers<UIMessage>["sendMessage"];
@@ -24,6 +25,8 @@ export type ChatActionsContextValue = {
     nextParts?: any[],
   ) => void;
   deleteMessageSubtree: (messageId: string) => Promise<boolean>;
+  setPendingCloudMessage: (msg: PendingCloudMessage | null) => void;
+  sendPendingCloudMessage: () => void;
 };
 
 const ChatActionsContext = createContext<ChatActionsContextValue | null>(null);
