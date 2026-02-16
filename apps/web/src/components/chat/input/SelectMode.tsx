@@ -1,972 +1,159 @@
-"use client";
+'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Cloud,
-  HardDrive,
-  Image,
-  MessageSquare,
-  Video,
-} from "lucide-react";
+import { useEffect, useState } from 'react'
+import { Settings2 } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@tenas-ai/ui/popover";
-import { Button } from "@tenas-ai/ui/button";
-import { Accordion, AccordionContent, AccordionItem } from "@tenas-ai/ui/accordion";
-import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
-import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { cn } from "@/lib/utils";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { useSettingsValues } from "@/hooks/use-settings";
-import { useBasicConfig } from "@/hooks/use-basic-config";
-import { fetchCloudModelsUpdatedAt, useCloudModels } from "@/hooks/use-cloud-models";
-import { useMediaModels } from "@/hooks/use-media-models";
+} from '@tenas-ai/ui/popover'
 import {
-  buildChatModelOptions,
-  normalizeChatModelSource,
-} from "@/lib/provider-models";
-import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
-import { getModelLabel } from "@/lib/model-registry";
-import { useSaasAuth } from "@/hooks/use-saas-auth";
-import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
-import { ModelIcon } from "@/components/setting/menus/provider/ModelIcon";
-import { useOptionalChatSession } from "../context";
-import { MODEL_TAG_LABELS } from "@tenas-ai/api/common";
-import type { AiModel } from "@tenas-saas/sdk";
-import {
-  areStoredSelectionsEqual,
-  CHAT_MODEL_SELECTION_EVENT,
-  CHAT_MODEL_SELECTION_TAB_PARAMS_KEY,
-  MODEL_SELECTION_STORAGE_KEY,
-  type ModelSourceKey,
-  type StoredModelSelections,
-  type MediaModelSelection,
-  normalizeStoredSelections,
-  readStoredSelections,
-  writeStoredSelections,
-  notifyChatModelSelectionChange,
-  createDefaultMediaModelSelection,
-} from "./chat-model-selection-storage";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@tenas-ai/ui/tooltip'
+import { Button } from '@tenas-ai/ui/button'
+import { cn } from '@/lib/utils'
+import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
+import { useModelPreferences } from './model-preferences/useModelPreferences'
+import { ModelPreferencesPanel } from './model-preferences/ModelPreferencesPanel'
+import { ModelSelectionTooltip } from './model-preferences/ModelSelectionTooltip'
+import { useOptionalChatSession } from '../context'
+import { useTabs } from '@/hooks/use-tabs'
 
 interface SelectModeProps {
-  className?: string;
+  className?: string
   /** Trigger style for model selector. */
-  triggerVariant?: "text" | "icon";
+  triggerVariant?: 'text' | 'icon'
 }
-
-/** Fallback icon for models without icon mapping. */
-const MODEL_ICON_FALLBACK_SRC = "/head_s.png";
 
 export default function SelectMode({
   className,
-  triggerVariant = "text",
+  triggerVariant = 'text',
 }: SelectModeProps) {
-  const { providerItems, refresh } = useSettingsValues();
-  const {
-    models: cloudModels,
-    updatedAt: cloudModelsUpdatedAt,
-    loaded: cloudModelsLoaded,
-    refresh: refreshCloudModels,
-  } = useCloudModels();
-  const {
-    imageModels,
-    videoModels,
-    imageUpdatedAt,
-    videoUpdatedAt,
-    loaded: mediaModelsLoaded,
-    refresh: refreshMediaModels,
-  } = useMediaModels();
-  const installedCliProviderIds = useInstalledCliProviderIds();
-  const { basic, setBasic } = useBasicConfig();
-  const [open, setOpen] = useState(false);
-  const { loggedIn: authLoggedIn, refreshSession } = useSaasAuth();
-  /** Login dialog open state. */
-  const [loginOpen, setLoginOpen] = useState(false);
-  const chatSession = useOptionalChatSession();
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const setTabChatParams = useTabs((s) => s.setTabChatParams);
-  const tabStoredSelectionsRaw = useTabs((state) => {
-    const targetTabId = chatSession?.tabId ?? state.activeTabId;
-    if (!targetTabId) return undefined;
-    const tab = state.tabs.find((item) => item.id === targetTabId);
-    return (tab?.chatParams as Record<string, unknown> | undefined)?.[
-      CHAT_MODEL_SELECTION_TAB_PARAMS_KEY
-    ];
-  });
-  const tabStoredSelections = useMemo(
-    () => normalizeStoredSelections(tabStoredSelectionsRaw),
-    [tabStoredSelectionsRaw]
-  );
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
-  // 逻辑：聊天场景优先使用上下文 tabId，非聊天场景回退到当前激活 tab。
-  const tabId = chatSession?.tabId ?? activeTabId;
-  // 逻辑：模型选择记忆范围与联网搜索共享同一个配置项。
-  const modelSelectionMemoryScope: "tab" | "global" =
-    basic.chatOnlineSearchMemoryScope === "global" ? "global" : "tab";
-  const chatModelSource = normalizeChatModelSource(basic.chatSource);
-  const isCloudSource = chatModelSource === "cloud";
-  /** Current source key for storage mapping. */
-  const sourceKey: ModelSourceKey = isCloudSource ? "cloud" : "local";
-  const [globalStoredSelections, setGlobalStoredSelections] = useState<StoredModelSelections>(() =>
-    readStoredSelections()
-  );
-  const modelSelectionScopeRef = useRef<"tab" | "global">(modelSelectionMemoryScope);
-  const storedSelections =
-    modelSelectionMemoryScope === "tab" && tabId
-      ? tabStoredSelections
-      : globalStoredSelections;
-  const modelOptions = useMemo(
-    () => buildChatModelOptions(chatModelSource, providerItems, cloudModels, installedCliProviderIds),
-    [chatModelSource, providerItems, cloudModels, installedCliProviderIds],
-  );
-  const currentSelection = storedSelections[sourceKey] ?? {
-    lastModelId: "",
-    isAuto: true,
-  };
-  const rawSelectedModelId = currentSelection.isAuto
-    ? ""
-    : currentSelection.lastModelId.trim();
-  const selectedModel =
-    modelOptions.find((option) => option.id === rawSelectedModelId) ?? null;
-  const resolvedSelectedModelId = selectedModel?.id ?? "";
-  const isAuto = currentSelection.isAuto || !resolvedSelectedModelId;
-  const selectedModelId = isAuto ? "" : resolvedSelectedModelId;
-  // 中文注释：优先展示模型 name，没有则回退到 id。
-  const selectedModelLabel =
-    selectedModel?.modelDefinition
-      ? getModelLabel(selectedModel.modelDefinition)
-      : selectedModel?.modelId ?? "Auto";
-  const hasChatModels = modelOptions.length > 0;
-  // 逻辑：检查用户是否配置了至少一个本地 provider（排除注册表默认 CLI 项）。
-  const hasConfiguredProviders = useMemo(
-    () => providerItems.some((item) => (item.category ?? "general") === "provider"),
-    [providerItems],
-  );
-  // 逻辑：未登录且无本地配置时，视为"未就绪"状态，引导用户配置。
-  const isUnconfigured = !authLoggedIn && !hasConfiguredProviders;
-  const showCloudLogin = isCloudSource && !authLoggedIn;
-  const showCloudEmpty = isCloudSource && authLoggedIn && !hasChatModels;
-  const showAddButton = !isCloudSource;
-  const isIconTrigger = triggerVariant === "icon";
-  const triggerModelIcon =
-    selectedModel?.modelDefinition?.familyId ??
-    selectedModel?.modelDefinition?.icon ??
-    selectedModel?.modelId ??
-    "auto";
-  /** Update stored selection for a specific source. */
-  const updateStoredSelection = useCallback(
-    (key: ModelSourceKey, updates: Partial<StoredModelSelections[ModelSourceKey]>) => {
-      const currentSelections =
-        modelSelectionMemoryScope === "tab" && tabId
-          ? tabStoredSelections
-          : globalStoredSelections;
-      const prevSelection = currentSelections[key] ?? { lastModelId: "", isAuto: true };
-      const nextSelection = { ...prevSelection, ...updates };
-      if (
-        prevSelection.lastModelId === nextSelection.lastModelId &&
-        prevSelection.isAuto === nextSelection.isAuto
-      ) {
-        return;
-      }
-      const updated: StoredModelSelections = {
-        ...currentSelections,
-        [key]: nextSelection,
-      };
-      if (modelSelectionMemoryScope === "tab" && tabId) {
-        if (areStoredSelectionsEqual(tabStoredSelections, updated)) return;
-        setTabChatParams(tabId, {
-          [CHAT_MODEL_SELECTION_TAB_PARAMS_KEY]: updated,
-        });
-        notifyChatModelSelectionChange();
-        return;
-      }
-      setGlobalStoredSelections((prev) => {
-        const prevSelection = prev[key] ?? { lastModelId: "", isAuto: true };
-        const nextSelection = { ...prevSelection, ...updates };
-        if (
-          prevSelection.lastModelId === nextSelection.lastModelId &&
-          prevSelection.isAuto === nextSelection.isAuto
-        ) {
-          return prev;
-        }
-        const nextSelections: StoredModelSelections = {
-          ...prev,
-          [key]: nextSelection,
-        };
-        writeStoredSelections(nextSelections);
-        notifyChatModelSelectionChange();
-        return nextSelections;
-      });
-    },
-    [
-      globalStoredSelections,
-      modelSelectionMemoryScope,
-      setTabChatParams,
-      tabId,
-      tabStoredSelections,
-    ],
-  );
-  /** Update media model selection (image or video). */
-  const updateMediaModelSelection = useCallback(
-    (kind: "image" | "video", modelId: string) => {
-      const currentSelections =
-        modelSelectionMemoryScope === "tab" && tabId
-          ? tabStoredSelections
-          : globalStoredSelections;
-      const prevMedia = currentSelections.media ?? createDefaultMediaModelSelection();
-      const nextMedia: MediaModelSelection = {
-        ...prevMedia,
-        [kind === "image" ? "imageModelId" : "videoModelId"]: modelId,
-      };
-      if (
-        prevMedia.imageModelId === nextMedia.imageModelId &&
-        prevMedia.videoModelId === nextMedia.videoModelId
-      ) {
-        return;
-      }
-      const updated: StoredModelSelections = {
-        ...currentSelections,
-        media: nextMedia,
-      };
-      if (modelSelectionMemoryScope === "tab" && tabId) {
-        setTabChatParams(tabId, {
-          [CHAT_MODEL_SELECTION_TAB_PARAMS_KEY]: updated,
-        });
-        notifyChatModelSelectionChange();
-        return;
-      }
-      setGlobalStoredSelections((prev) => {
-        const nextSelections: StoredModelSelections = {
-          ...prev,
-          media: nextMedia,
-        };
-        writeStoredSelections(nextSelections);
-        notifyChatModelSelectionChange();
-        return nextSelections;
-      });
-    },
-    [
-      globalStoredSelections,
-      modelSelectionMemoryScope,
-      setTabChatParams,
-      tabId,
-      tabStoredSelections,
-    ],
-  );
-  /** Resolve a manual model selection for the current source. */
-  const resolveManualModelId = useCallback(
-    (storedModelId: string) => {
-      const trimmed = storedModelId.trim();
-      if (!hasChatModels) return trimmed;
-      if (trimmed) {
-        const matched = modelOptions.find((option) => option.id === trimmed);
-        if (matched) return matched.id;
-      }
-      return modelOptions[0]?.id ?? "";
-    },
-    [hasChatModels, modelOptions],
-  );
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key && event.key !== MODEL_SELECTION_STORAGE_KEY) return;
-      setGlobalStoredSelections(readStoredSelections());
-    };
-    const handleSelection = () => {
-      setGlobalStoredSelections(readStoredSelections());
-    };
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener(CHAT_MODEL_SELECTION_EVENT, handleSelection);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(CHAT_MODEL_SELECTION_EVENT, handleSelection);
-    };
-  }, []);
-  useEffect(() => {
-    if (modelSelectionScopeRef.current === modelSelectionMemoryScope) return;
-    if (modelSelectionMemoryScope === "global") {
-      const nextSelections = tabId ? tabStoredSelections : globalStoredSelections;
-      if (!areStoredSelectionsEqual(globalStoredSelections, nextSelections)) {
-        writeStoredSelections(nextSelections);
-        setGlobalStoredSelections(nextSelections);
-        notifyChatModelSelectionChange();
-      }
-    } else if (tabId && !areStoredSelectionsEqual(tabStoredSelections, globalStoredSelections)) {
-      setTabChatParams(tabId, {
-        [CHAT_MODEL_SELECTION_TAB_PARAMS_KEY]: globalStoredSelections,
-      });
-    }
-    modelSelectionScopeRef.current = modelSelectionMemoryScope;
-  }, [
-    globalStoredSelections,
-    modelSelectionMemoryScope,
-    setTabChatParams,
-    tabId,
-    tabStoredSelections,
-  ]);
-  useEffect(() => {
-    if (!hasChatModels) return;
-    if (isAuto) return;
-    if (!selectedModel && currentSelection.lastModelId) {
-      const resolvedModelId = resolveManualModelId(currentSelection.lastModelId);
-      if (resolvedModelId && resolvedModelId !== currentSelection.lastModelId) {
-        updateStoredSelection(sourceKey, { isAuto: false, lastModelId: resolvedModelId });
-      }
-    }
-  }, [
-    currentSelection.lastModelId,
-    hasChatModels,
-    isAuto,
-    resolveManualModelId,
-    selectedModel,
-    sourceKey,
-    updateStoredSelection,
-  ]);
-  useEffect(() => {
-    if (!open) return;
-    // 展开模型列表时刷新服务端配置，确保展示最新模型。
-    void refresh();
-  }, [open, refresh]);
-  useEffect(() => {
-    if (!open) return;
-    if (!isCloudSource) return;
-    let canceled = false;
-    // 逻辑：先比对 updated-at，再按需刷新对应模型列表，避免重复打满接口。
-    const syncCloudModels = async () => {
-      const updatedAt = await fetchCloudModelsUpdatedAt().catch(() => null);
-      if (canceled) return;
+  const [popoverOpen, setPopoverOpen] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
+  const prefs = useModelPreferences()
+  const chatSession = useOptionalChatSession()
+  const activeTabId = useTabs((s) => s.activeTabId)
+  const tabId = chatSession?.tabId ?? activeTabId
+  const isIconTrigger = triggerVariant === 'icon'
 
-      if (!updatedAt) {
-        if (!cloudModelsLoaded) {
-          await refreshCloudModels();
-        }
-        if (!mediaModelsLoaded) {
-          await refreshMediaModels();
-        }
-        return;
-      }
-
-      const tasks: Array<Promise<void>> = [];
-      const chatChanged = updatedAt.chatUpdatedAt !== cloudModelsUpdatedAt;
-      if (!cloudModelsLoaded || chatChanged) {
-        tasks.push(refreshCloudModels({ force: cloudModelsLoaded && chatChanged }));
-      }
-
-      const mediaKinds: Array<"image" | "video"> = [];
-      let mediaChanged = false;
-      const imageChanged = updatedAt.imageUpdatedAt !== imageUpdatedAt;
-      if (!mediaModelsLoaded || imageChanged) {
-        mediaKinds.push("image");
-        mediaChanged = mediaChanged || imageChanged;
-      }
-      const videoChanged = updatedAt.videoUpdatedAt !== videoUpdatedAt;
-      if (!mediaModelsLoaded || videoChanged) {
-        mediaKinds.push("video");
-        mediaChanged = mediaChanged || videoChanged;
-      }
-      if (mediaKinds.length > 0) {
-        tasks.push(
-          refreshMediaModels({
-            kinds: mediaKinds,
-            force: mediaModelsLoaded && mediaChanged,
-          }),
-        );
-      }
-      if (tasks.length > 0) {
-        await Promise.all(tasks);
-      }
-    };
-    void syncCloudModels();
-    return () => {
-      canceled = true;
-    };
-  }, [
-    cloudModelsLoaded,
-    cloudModelsUpdatedAt,
-    imageUpdatedAt,
-    isCloudSource,
-    mediaModelsLoaded,
-    open,
-    refreshCloudModels,
-    refreshMediaModels,
-    videoUpdatedAt,
-  ]);
+  // 逻辑：Popover 打开时刷新配置和云端模型
   useEffect(() => {
-    if (!open) return;
-    if (!isCloudSource) return;
-    // 展开选择器时刷新登录状态，避免切换设备后状态不一致。
-    void refreshSession();
-  }, [isCloudSource, open, refreshSession]);
+    if (!popoverOpen) return
+    prefs.refreshOnOpen()
+    return prefs.syncCloudModelsOnOpen()
+  }, [popoverOpen])
+
+  // 逻辑：遮罩控制（与原逻辑一致）
   useEffect(() => {
-    if (!tabId) return;
+    if (!tabId) return
     const target = document.querySelector(
       `[data-tenas-chat-root][data-tab-id="${tabId}"][data-chat-active="true"]`,
-    );
-    if (!target) return;
-    const mask = target.querySelector<HTMLElement>("[data-tenas-chat-mask]");
+    )
+    if (!target) return
+    const mask = target.querySelector<HTMLElement>(
+      '[data-tenas-chat-mask]',
+    )
     if (mask) {
-      if (open) {
-        // 遮罩打开时拦截交互，避免触发底层事件。
-        mask.classList.remove("hidden");
-        mask.style.pointerEvents = "auto";
+      if (popoverOpen) {
+        mask.classList.remove('hidden')
+        mask.style.pointerEvents = 'auto'
       } else {
-        mask.classList.add("hidden");
-        mask.style.pointerEvents = "none";
+        mask.classList.add('hidden')
+        mask.style.pointerEvents = 'none'
       }
     }
     return () => {
       if (mask) {
-        mask.classList.add("hidden");
-        mask.style.pointerEvents = "none";
+        mask.classList.add('hidden')
+        mask.style.pointerEvents = 'none'
       }
-    };
-  }, [open, tabId]);
+    }
+  }, [popoverOpen, tabId])
+
+  // 逻辑：登录成功后自动关闭登录弹窗
   useEffect(() => {
-    if (!authLoggedIn) return;
-    if (!loginOpen) return;
-    setLoginOpen(false);
-  }, [authLoggedIn, loginOpen]);
-  /** Open SaaS login dialog. */
+    if (prefs.authLoggedIn && loginOpen) {
+      setLoginOpen(false)
+    }
+  }, [prefs.authLoggedIn, loginOpen])
+
   const handleOpenLogin = () => {
-    // 打开登录弹窗时收起模型选择器，避免遮罩叠加。
-    setOpen(false);
-    setLoginOpen(true);
-  };
+    setPopoverOpen(false)
+    setLoginOpen(true)
+  }
 
-  /** Open the provider management panel inside the current tab stack. */
-  const handleOpenProviderSettings = () => {
-    if (!tabId) return;
-    // 直接打开模型管理面板，避免进入设置菜单列表。
-    pushStackItem(
-      tabId,
-      {
-        id: "provider-management",
-        sourceKey: "provider-management",
-        component: "provider-management",
-        title: "管理模型",
-      },
-      100,
-    );
-    setOpen(false);
-  };
-
-  /** Select model source between local and cloud. */
-  const handleSelectSource = (next: string) => {
-    const normalized = next === "cloud" ? "cloud" : "local";
-    void setBasic({ chatSource: normalized });
-  };
-
-  /** Models for rendering (no provider grouping). */
-  const activeProviderModels = modelOptions;
-
-  /** Render interactive media model list with selection. */
-  const renderMediaGroups = (
-    models: AiModel[],
-    emptyText: string,
-    kind: "image" | "video",
-  ) => {
-    if (showCloudLogin) {
-      return (
-        <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-          登录后可查看
-        </div>
-      );
-    }
-    if (models.length === 0) {
-      return (
-        <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-          {emptyText}
-        </div>
-      );
-    }
-    const mediaSelection = storedSelections.media ?? createDefaultMediaModelSelection();
-    const selectedId = kind === "image" ? mediaSelection.imageModelId : mediaSelection.videoModelId;
-    return (
-      <div className="space-y-1">
-        <button
-          type="button"
-          className="h-10 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/60"
-          onClick={() => updateMediaModelSelection(kind, "")}
-        >
-          <div className="flex h-full items-center justify-between gap-3">
-            <span className="text-[13px] font-medium text-foreground">Auto</span>
-            {!selectedId && <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />}
-          </div>
-        </button>
-        {models.map((model) => {
-          const modelLabel = model.name ?? model.id;
-          const isSelected = selectedId === model.id;
-          return (
-            <button
-              type="button"
-              key={`${model.providerId ?? "unknown"}-${model.id}`}
-              className="h-12 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/60"
-              onClick={() => updateMediaModelSelection(kind, model.id)}
-            >
-              <div className="flex h-full items-center justify-between gap-3">
-                <div className="min-w-0 flex-1 text-left">
-                  <div className="flex items-center gap-2 truncate text-[13px] font-medium text-foreground">
-                    <ModelIcon
-                      icon={model.familyId ?? model.id}
-                      size={14}
-                      className="h-3.5 w-3.5 shrink-0"
-                      fallbackSrc={MODEL_ICON_FALLBACK_SRC}
-                      fallbackAlt=""
-                    />
-                    <span className="truncate">{modelLabel}</span>
-                  </div>
-                </div>
-                {isSelected && <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    );
-  };
+  const triggerButton = isIconTrigger ? (
+    <Button
+      type="button"
+      size="icon"
+      variant="ghost"
+      className={cn(
+        'h-8 w-8 rounded-full bg-sky-500/10 text-sky-600 transition-colors hover:bg-sky-500/20 hover:text-sky-700 dark:bg-sky-500/15 dark:text-sky-300 dark:hover:bg-sky-500/25 dark:hover:text-sky-200',
+        className,
+      )}
+      aria-label="自定义设置"
+    >
+      <Settings2 className="h-4 w-4" />
+    </Button>
+  ) : (
+    <Button
+      type="button"
+      className={cn(
+        'h-7 w-auto min-w-0 shrink inline-flex items-center gap-1 rounded-md bg-sky-500/10 px-1.5 text-xs font-medium text-sky-600 hover:bg-sky-500/20 transition-colors dark:bg-sky-500/15 dark:text-sky-300 dark:hover:bg-sky-500/25',
+        className,
+      )}
+    >
+      <Settings2 className="h-3.5 w-3.5" />
+      <span className="truncate">自定义设置</span>
+    </Button>
+  )
 
   return (
     <>
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          {isIconTrigger ? (
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className={cn(
-                "h-8 w-8 rounded-full border border-border/60 bg-background text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground",
-                className,
-              )}
-              aria-label="模型选择"
+      <TooltipProvider delayDuration={300}>
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+          <Tooltip open={popoverOpen ? false : undefined}>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent
+              side="top"
+              className="max-w-[16rem]"
             >
-              <ModelIcon
-                icon={isUnconfigured ? "auto" : triggerModelIcon}
-                size={16}
-                className="h-4 w-4 shrink-0"
-                fallbackSrc={MODEL_ICON_FALLBACK_SRC}
-                fallbackAlt=""
+              <ModelSelectionTooltip
+                chatModels={prefs.chatModels}
+                imageModels={prefs.imageModels}
+                videoModels={prefs.videoModels}
+                preferredChatIds={prefs.preferredChatIds}
+                preferredImageIds={prefs.preferredImageIds}
+                preferredVideoIds={prefs.preferredVideoIds}
               />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              className={cn(
-                "h-7 w-auto min-w-0 max-w-[12rem] shrink inline-flex items-center gap-0.5 rounded-md bg-transparent px-0 text-xs has-[>svg]:px-1 font-medium text-muted-foreground hover:bg-muted/50 transition-colors",
-                className
-              )}
-            >
-              <span className="min-w-0 flex-1 truncate whitespace-nowrap text-right">
-                {isUnconfigured ? (
-                  <span className="truncate">配置模型</span>
-                ) : isAuto ? (
-                  <span className="flex items-center justify-end gap-1">
-                    {!isCloudSource ? (
-                      <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
-                    ) : null}
-                    <span className="truncate">Auto</span>
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-end gap-1">
-                    {!isCloudSource ? (
-                      <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
-                    ) : null}
-                    {selectedModel?.modelDefinition ? (
-                      <ModelIcon
-                        icon={
-                          selectedModel.modelDefinition.familyId ??
-                          selectedModel.modelDefinition.icon
-                        }
-                        size={14}
-                        className="h-3.5 w-3.5 shrink-0"
-                        fallbackSrc={MODEL_ICON_FALLBACK_SRC}
-                        fallbackAlt=""
-                      />
-                    ) : null}
-                    <span className="truncate">
-                      {selectedModelLabel}
-                    </span>
-                  </span>
-                )}
-              </span>
-              {open ? (
-                <ChevronUp className="h-3 w-3" strokeWidth={2.5} />
-              ) : (
-                <ChevronDown className="h-3 w-3" strokeWidth={2.5} />
-              )}
-            </Button>
-          )}
-        </PopoverTrigger>
-        <PopoverContent
-          side="top"
-          align="end"
-          sideOffset={8}
-          avoidCollisions={false}
-          className={cn(
-            "w-[21rem] max-w-[94vw] rounded-xl border-border bg-muted/40 p-2 shadow-2xl backdrop-blur-sm",
-            !isIconTrigger && "-translate-x-4",
-          )}
-        >
-          <div className="space-y-2">
-            {isCloudSource ? (
-              <div className="space-y-2 rounded-lg">
-                <Accordion type="single" defaultValue="chat" className="space-y-2">
-                  <AccordionItem value="chat" className="border-0">
-                    <AccordionPrimitive.Header className="px-1">
-                      <AccordionPrimitive.Trigger className="flex h-8 w-full items-center justify-between rounded-md px-2 text-left text-[12px] font-medium text-foreground transition-colors hover:bg-sidebar-accent/60 [&[data-state=open]_.select-mode-chevron]:rotate-180">
-                        <span className="inline-flex items-center gap-1.5">
-                          <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>聊天模型</span>
-                        </span>
-                        <ChevronDown className="select-mode-chevron h-3 w-3 text-muted-foreground transition-transform" />
-                      </AccordionPrimitive.Trigger>
-                    </AccordionPrimitive.Header>
-                    <AccordionContent className="pt-1">
-                      <div className="max-h-[28rem] overflow-y-auto pr-1">
-                        {showCloudLogin ? (
-                          <div className="flex flex-col items-center justify-center gap-2 py-8">
-                            <Button type="button" size="sm" onClick={handleOpenLogin}>
-                              登录Teanas账户，使用云端模型
-                            </Button>
-                            <div className="text-xs text-muted-foreground">使用云端模型</div>
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                updateStoredSelection(sourceKey, { isAuto: true });
-                              }}
-                              className={cn(
-                                "h-12 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/60",
-                                isAuto && "bg-muted/70"
-                              )}
-                            >
-                              <div className="flex h-full items-center justify-between gap-3">
-                                <div className="min-w-0 flex-1 text-left">
-                                  <div className="flex items-center gap-2 truncate text-[13px] font-medium text-foreground">
-                                    <ModelIcon
-                                      icon="auto"
-                                      size={14}
-                                      className="h-3.5 w-3.5 shrink-0"
-                                      fallbackSrc={MODEL_ICON_FALLBACK_SRC}
-                                      fallbackAlt=""
-                                    />
-                                    <span className="truncate">Auto</span>
-                                  </div>
-                                  <div className="mt-1 text-[10px] text-muted-foreground">
-                                    基于效果与速度帮助您选择最优模型
-                                  </div>
-                                </div>
-                                <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                                  {isAuto ? (
-                                    <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />
-                                  ) : null}
-                                </span>
-                              </div>
-                            </button>
-                            {activeProviderModels.length > 0 ? (
-                              activeProviderModels.map((option) => {
-                                const optionLabel = option.modelDefinition
-                                  ? getModelLabel(option.modelDefinition)
-                                  : option.modelId;
-                                const tagLabels =
-                                  option.tags && option.tags.length > 0
-                                    ? option.tags.map((tag) => ({
-                                        key: tag,
-                                        label: MODEL_TAG_LABELS[tag] ?? tag,
-                                      }))
-                                    : [];
-                                const tagColorClasses: Record<string, string> = {
-                                  vision:
-                                    "bg-sky-500/15 text-sky-700 dark:bg-sky-500/25 dark:text-sky-200",
-                                  image:
-                                    "bg-fuchsia-500/15 text-fuchsia-700 dark:bg-fuchsia-500/25 dark:text-fuchsia-200",
-                                  audio:
-                                    "bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/25 dark:text-emerald-200",
-                                  video:
-                                    "bg-violet-500/15 text-violet-700 dark:bg-violet-500/25 dark:text-violet-200",
-                                  code:
-                                    "bg-blue-500/15 text-blue-700 dark:bg-blue-500/25 dark:text-blue-200",
-                                  reasoning:
-                                    "bg-amber-500/20 text-amber-800 dark:bg-amber-500/25 dark:text-amber-100",
-                                  speed:
-                                    "bg-lime-500/15 text-lime-700 dark:bg-lime-500/25 dark:text-lime-200",
-                                  quality:
-                                    "bg-indigo-500/15 text-indigo-700 dark:bg-indigo-500/25 dark:text-indigo-200",
-                                  default:
-                                    "bg-foreground/5 text-muted-foreground dark:bg-foreground/10",
-                                };
-                                return (
-                                  <button
-                                    key={option.id}
-                                    type="button"
-                                    onClick={() => {
-                                      updateStoredSelection(sourceKey, {
-                                        isAuto: false,
-                                        lastModelId: option.id,
-                                      });
-                                    }}
-                                    className={cn(
-                                      "h-12 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/60",
-                                      selectedModelId === option.id && "bg-muted/70"
-                                    )}
-                                  >
-                                    <div className="flex h-full items-center justify-between gap-3">
-                                      <div className="min-w-0 flex-1 text-left">
-                                        <div className="flex items-center gap-2 truncate text-[13px] font-medium text-foreground">
-                                          <ModelIcon
-                                            icon={
-                                              option.modelDefinition?.familyId ??
-                                              option.modelDefinition?.icon
-                                            }
-                                            size={14}
-                                            className="h-3.5 w-3.5 shrink-0"
-                                            fallbackSrc={MODEL_ICON_FALLBACK_SRC}
-                                            fallbackAlt=""
-                                          />
-                                          <span className="truncate">{optionLabel}</span>
-                                        </div>
-                                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px] text-muted-foreground">
-                                          {tagLabels.map((tag) => (
-                                            <span
-                                              key={`${option.id}-${tag.key}`}
-                                              className={cn(
-                                                "inline-flex items-center rounded-full px-2 py-0.5 text-[9px] leading-none",
-                                                tagColorClasses[tag.key] ?? tagColorClasses.default
-                                              )}
-                                            >
-                                              {tag.label}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      </div>
-                                      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                                        {selectedModelId === option.id ? (
-                                          <Check
-                                            className="h-4 w-4 text-primary"
-                                            strokeWidth={2.5}
-                                          />
-                                        ) : null}
-                                      </span>
-                                    </div>
-                                  </button>
-                                );
-                              })
-                            ) : (
-                              <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-                                {showCloudEmpty ? "云端模型暂未开放" : "暂无可用模型"}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="image" className="border-0">
-                    <AccordionPrimitive.Header className="px-1">
-                      <AccordionPrimitive.Trigger className="flex h-8 w-full items-center justify-between rounded-md px-2 text-left text-[12px] font-medium text-foreground transition-colors hover:bg-sidebar-accent/60 [&[data-state=open]_.select-mode-chevron]:rotate-180">
-                        <span className="inline-flex items-center gap-1.5">
-                          <Image className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>图像生成</span>
-                        </span>
-                        <ChevronDown className="select-mode-chevron h-3 w-3 text-muted-foreground transition-transform" />
-                      </AccordionPrimitive.Trigger>
-                    </AccordionPrimitive.Header>
-                    <AccordionContent className="pt-1">
-                      <div className="max-h-[28rem] overflow-y-auto pr-1">
-                        {renderMediaGroups(imageModels, "暂无图像模型", "image")}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="video" className="border-0">
-                    <AccordionPrimitive.Header className="px-1">
-                      <AccordionPrimitive.Trigger className="flex h-8 w-full items-center justify-between rounded-md px-2 text-left text-[12px] font-medium text-foreground transition-colors hover:bg-sidebar-accent/60 [&[data-state=open]_.select-mode-chevron]:rotate-180">
-                        <span className="inline-flex items-center gap-1.5">
-                          <Video className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>视频生成</span>
-                        </span>
-                        <ChevronDown className="select-mode-chevron h-3 w-3 text-muted-foreground transition-transform" />
-                      </AccordionPrimitive.Trigger>
-                    </AccordionPrimitive.Header>
-                    <AccordionContent className="pt-1">
-                      <div className="max-h-[28rem] overflow-y-auto pr-1">
-                        {renderMediaGroups(videoModels, "暂无视频模型", "video")}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="max-h-[28rem] space-y-1 overflow-y-auto rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateStoredSelection(sourceKey, { isAuto: true });
-                    }}
-                    className={cn(
-                      "h-12 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/60",
-                      isAuto && "bg-muted/70"
-                    )}
-                  >
-                    <div className="flex h-full items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1 text-left">
-                        <div className="flex items-center gap-2 truncate text-[13px] font-medium text-foreground">
-                          <ModelIcon
-                            icon="auto"
-                            size={14}
-                            className="h-3.5 w-3.5 shrink-0"
-                            fallbackSrc={MODEL_ICON_FALLBACK_SRC}
-                            fallbackAlt=""
-                          />
-                          <span className="truncate">Auto</span>
-                        </div>
-                        <div className="mt-1 text-[10px] text-muted-foreground">
-                          基于效果与速度帮助您选择最优模型
-                        </div>
-                      </div>
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                        {isAuto ? (
-                          <Check className="h-4 w-4 text-primary" strokeWidth={2.5} />
-                        ) : null}
-                      </span>
-                    </div>
-                  </button>
-                  {activeProviderModels.length > 0 ? (
-                    activeProviderModels.map((option) => {
-                      const optionLabel = option.modelDefinition
-                        ? getModelLabel(option.modelDefinition)
-                        : option.modelId;
-                      const tagLabels =
-                        option.tags && option.tags.length > 0
-                          ? option.tags.map((tag) => ({
-                              key: tag,
-                              label: MODEL_TAG_LABELS[tag] ?? tag,
-                            }))
-                          : [];
-                      const tagColorClasses: Record<string, string> = {
-                        vision:
-                          "bg-sky-500/15 text-sky-700 dark:bg-sky-500/25 dark:text-sky-200",
-                        image:
-                          "bg-fuchsia-500/15 text-fuchsia-700 dark:bg-fuchsia-500/25 dark:text-fuchsia-200",
-                        audio:
-                          "bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/25 dark:text-emerald-200",
-                        video:
-                          "bg-violet-500/15 text-violet-700 dark:bg-violet-500/25 dark:text-violet-200",
-                        code:
-                          "bg-blue-500/15 text-blue-700 dark:bg-blue-500/25 dark:text-blue-200",
-                        reasoning:
-                          "bg-amber-500/20 text-amber-800 dark:bg-amber-500/25 dark:text-amber-100",
-                        speed:
-                          "bg-lime-500/15 text-lime-700 dark:bg-lime-500/25 dark:text-lime-200",
-                        quality:
-                          "bg-indigo-500/15 text-indigo-700 dark:bg-indigo-500/25 dark:text-indigo-200",
-                        default: "bg-foreground/5 text-muted-foreground dark:bg-foreground/10",
-                      };
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => {
-                            updateStoredSelection(sourceKey, {
-                              isAuto: false,
-                              lastModelId: option.id,
-                            });
-                          }}
-                          className={cn(
-                            "h-12 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/60",
-                            selectedModelId === option.id && "bg-muted/70"
-                          )}
-                        >
-                          <div className="flex h-full items-center justify-between gap-3">
-                            <div className="min-w-0 flex-1 text-left">
-                              <div className="flex items-center gap-2 truncate text-[13px] font-medium text-foreground">
-                                <ModelIcon
-                                  icon={
-                                    option.modelDefinition?.familyId ??
-                                    option.modelDefinition?.icon
-                                  }
-                                  size={14}
-                                  className="h-3.5 w-3.5 shrink-0"
-                                  fallbackSrc={MODEL_ICON_FALLBACK_SRC}
-                                  fallbackAlt=""
-                                />
-                                <span className="truncate">{optionLabel}</span>
-                              </div>
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px] text-muted-foreground">
-                                {tagLabels.map((tag) => (
-                                  <span
-                                    key={`${option.id}-${tag.key}`}
-                                    className={cn(
-                                      "inline-flex items-center rounded-full px-2 py-0.5 text-[9px] leading-none",
-                                      tagColorClasses[tag.key] ?? tagColorClasses.default
-                                    )}
-                                  >
-                                    {tag.label}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                            <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                              {selectedModelId === option.id ? (
-                                <Check
-                                  className="h-4 w-4 text-primary"
-                                  strokeWidth={2.5}
-                                />
-                              ) : null}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-                      暂无可用模型
-                    </div>
-                  )}
-                </div>
-                {showAddButton ? (
-                  <Button
-                    type="button"
-                    className="h-8 w-full text-xs"
-                    onClick={handleOpenProviderSettings}
-                  >
-                    管理模型
-                  </Button>
-                ) : null}
-              </div>
+            </TooltipContent>
+          </Tooltip>
+          <PopoverContent
+            side="top"
+            align="end"
+            sideOffset={8}
+            avoidCollisions={false}
+            className={cn(
+              'w-96 max-w-[94vw] rounded-xl border-border bg-muted/40 p-2 shadow-2xl backdrop-blur-sm',
+              !isIconTrigger && '-translate-x-4',
             )}
-
-            <Tabs
-              value={isCloudSource ? "cloud" : "local"}
-              onValueChange={handleSelectSource}
-            >
-              <TabsList className="h-7 w-full grid grid-cols-2 items-center rounded-lg border-0 p-0">
-                <TabsTrigger value="cloud" className="h-7 text-xs leading-none">
-                  <span className="inline-flex items-center gap-1">
-                    <Cloud className="h-3 w-3" />
-                    云端模型
-                  </span>
-                </TabsTrigger>
-                <TabsTrigger value="local" className="h-7 text-xs leading-none">
-                  <span className="inline-flex items-center gap-1">
-                    <HardDrive className="h-3 w-3" />
-                    本地模型
-                  </span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </PopoverContent>
-      </Popover>
+          >
+            <ModelPreferencesPanel
+              prefs={prefs}
+              showCloudLogin={prefs.showCloudLogin}
+              onOpenLogin={handleOpenLogin}
+              onClose={() => setPopoverOpen(false)}
+            />
+          </PopoverContent>
+        </Popover>
+      </TooltipProvider>
     </>
-  );
+  )
 }

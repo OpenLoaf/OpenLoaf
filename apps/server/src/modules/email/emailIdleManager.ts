@@ -6,6 +6,7 @@ import { getWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
 import { readEmailConfigFile } from "./emailConfigStore";
 import { getEmailEnvValue } from "./emailEnvStore";
 import { syncRecentMailboxMessages } from "./emailSyncService";
+import { emailEventBus } from "./emailEvents";
 
 const IDLE_ENABLED_ENV_KEY = "EMAIL_IDLE_ENABLED";
 const IDLE_MAILBOX_ENV_KEY = "EMAIL_IDLE_MAILBOX";
@@ -374,6 +375,12 @@ class EmailIdleManager {
         accountEmail: worker.accountEmail,
         mailboxPath: getIdleMailboxPath(),
         limit: getIdleSyncLimit(),
+      });
+      // 逻辑：同步完成后通知前端有新邮件。
+      emailEventBus.emitNewMail({
+        workspaceId: worker.workspaceId,
+        accountEmail: worker.accountEmail,
+        mailboxPath: getIdleMailboxPath(),
       });
     } catch (error) {
       worker.lastError = error instanceof Error ? error.message : "Sync failed";

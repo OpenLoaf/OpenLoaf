@@ -46,3 +46,32 @@ export const EMAIL_LIST_READ_ROW_CLASS =
 
 /** Divider tone used across list and sidebar separators. */
 export const EMAIL_DIVIDER_CLASS = "border-[#e3e8ef] dark:border-slate-700";
+
+// ── 视图密度 ──
+
+export type EmailDensity = 'compact' | 'default' | 'comfortable';
+
+const DENSITY_STORAGE_KEY = 'tenas-email-density';
+
+export function getStoredDensity(): EmailDensity {
+  if (typeof window === 'undefined') return 'default';
+  const stored = localStorage.getItem(DENSITY_STORAGE_KEY);
+  if (stored === 'compact' || stored === 'default' || stored === 'comfortable') return stored;
+  return 'default';
+}
+
+export function setStoredDensity(density: EmailDensity): void {
+  localStorage.setItem(DENSITY_STORAGE_KEY, density);
+}
+
+export const EMAIL_DENSITY_ROW_HEIGHT: Record<EmailDensity, string> = {
+  compact: '!h-[38px] !min-h-[38px]',
+  default: '!h-[50px] !min-h-[50px]',
+  comfortable: '!h-[64px] !min-h-[64px]',
+};
+
+export const EMAIL_DENSITY_TEXT_SIZE: Record<EmailDensity, string> = {
+  compact: 'text-[12px]',
+  default: 'text-[13px]',
+  comfortable: 'text-[14px]',
+};

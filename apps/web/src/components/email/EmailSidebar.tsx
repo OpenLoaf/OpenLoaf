@@ -90,7 +90,9 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
             <div className="text-xs font-semibold text-[#5f6368] dark:text-slate-400">
               邮箱列表
             </div>
-            {sidebar.accounts.length > 0 ? (
+            {sidebar.isSyncingMailbox ? (
+              <span className="text-[9px] text-[#1a73e8] dark:text-sky-300">同步中...</span>
+            ) : sidebar.accounts.length > 0 ? (
               <span className="text-[9px] font-medium text-[#8a9098] dark:text-slate-500">
                 {sidebar.accounts.length}
               </span>

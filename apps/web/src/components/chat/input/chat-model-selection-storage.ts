@@ -7,6 +7,8 @@ export type StoredModelSelection = {
   lastModelId: string;
   /** Auto toggle state for the source. */
   isAuto: boolean;
+  /** Preferred model ids for multi-select display. */
+  preferredModelIds?: string[];
 };
 
 export type StoredModelSelections = Record<ModelSourceKey, StoredModelSelection> & {
@@ -18,6 +20,10 @@ export type MediaModelSelection = {
   imageModelId: string;
   /** Selected video generation model id (empty = Auto). */
   videoModelId: string;
+  /** Preferred image model ids for multi-select display. */
+  preferredImageModelIds?: string[];
+  /** Preferred video model ids for multi-select display. */
+  preferredVideoModelIds?: string[];
 };
 
 export const MODEL_SELECTION_STORAGE_KEY = "tenas.chat-model-selection";
@@ -43,6 +49,11 @@ export function createDefaultStoredSelections(): StoredModelSelections {
   };
 }
 
+function normalizeStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((item): item is string => typeof item === 'string');
+}
+
 function normalizeStoredSelection(value: unknown): StoredModelSelection {
   if (!value || typeof value !== "object") {
     return createDefaultStoredSelection();
@@ -51,6 +62,7 @@ function normalizeStoredSelection(value: unknown): StoredModelSelection {
   return {
     lastModelId: typeof record.lastModelId === "string" ? record.lastModelId : "",
     isAuto: typeof record.isAuto === "boolean" ? record.isAuto : true,
+    preferredModelIds: normalizeStringArray(record.preferredModelIds),
   };
 }
 
@@ -62,6 +74,8 @@ function normalizeMediaModelSelection(value: unknown): MediaModelSelection {
   return {
     imageModelId: typeof record.imageModelId === "string" ? record.imageModelId : "",
     videoModelId: typeof record.videoModelId === "string" ? record.videoModelId : "",
+    preferredImageModelIds: normalizeStringArray(record.preferredImageModelIds),
+    preferredVideoModelIds: normalizeStringArray(record.preferredVideoModelIds),
   };
 }
 
@@ -77,6 +91,13 @@ export function normalizeStoredSelections(value: unknown): StoredModelSelections
   };
 }
 
+function arraysEqual(a?: string[], b?: string[]): boolean {
+  if (a === b) return true;
+  if (!a || !b) return !a && !b;
+  if (a.length !== b.length) return false;
+  return a.every((v, i) => v === b[i]);
+}
+
 /** Compare two stored model selection payloads. */
 export function areStoredSelectionsEqual(
   left: StoredModelSelections,
@@ -85,10 +106,14 @@ export function areStoredSelectionsEqual(
   return (
     left.local.lastModelId === right.local.lastModelId &&
     left.local.isAuto === right.local.isAuto &&
+    arraysEqual(left.local.preferredModelIds, right.local.preferredModelIds) &&
     left.cloud.lastModelId === right.cloud.lastModelId &&
     left.cloud.isAuto === right.cloud.isAuto &&
+    arraysEqual(left.cloud.preferredModelIds, right.cloud.preferredModelIds) &&
     (left.media?.imageModelId ?? "") === (right.media?.imageModelId ?? "") &&
-    (left.media?.videoModelId ?? "") === (right.media?.videoModelId ?? "")
+    (left.media?.videoModelId ?? "") === (right.media?.videoModelId ?? "") &&
+    arraysEqual(left.media?.preferredImageModelIds, right.media?.preferredImageModelIds) &&
+    arraysEqual(left.media?.preferredVideoModelIds, right.media?.preferredVideoModelIds)
   );
 }
 

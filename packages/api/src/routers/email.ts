@@ -168,6 +168,15 @@ const sendMessageInputSchema = z.object({
   bodyHtml: z.string().optional(),
   inReplyTo: z.string().optional(),
   references: z.array(z.string()).optional(),
+  attachments: z
+    .array(
+      z.object({
+        filename: z.string().min(1),
+        content: z.string().min(1),
+        contentType: z.string().optional(),
+      }),
+    )
+    .optional(),
 });
 
 const sendMessageOutputSchema = z.object({
@@ -178,6 +187,21 @@ const sendMessageOutputSchema = z.object({
 const testConnectionInputSchema = z.object({
   workspaceId: z.string().min(1),
   accountEmail: z.string().min(1),
+});
+
+const testConnectionPreAddInputSchema = z.object({
+  emailAddress: z.string().min(1),
+  imap: z.object({
+    host: z.string().min(1),
+    port: z.number().int().min(1),
+    tls: z.boolean(),
+  }),
+  smtp: z.object({
+    host: z.string().min(1),
+    port: z.number().int().min(1),
+    tls: z.boolean(),
+  }),
+  password: z.string().min(1),
 });
 
 const testConnectionOutputSchema = z.object({
@@ -267,6 +291,16 @@ const searchMessagesInputSchema = z.object({
   pageSize: z.number().int().min(1).max(200).optional(),
 });
 
+const onNewMailInputSchema = z.object({
+  workspaceId: z.string().min(1),
+});
+
+const newMailEventSchema = z.object({
+  workspaceId: z.string(),
+  accountEmail: z.string(),
+  mailboxPath: z.string(),
+});
+
 const emailMessageSummarySchema = z.object({
   id: z.string(),
   accountEmail: z.string(),
@@ -330,6 +364,7 @@ const emailMessageDetailSchema = z.object({
   bcc: z.array(z.string()),
   date: z.string().optional(),
   bodyHtml: z.string().optional(),
+  bodyHtmlRaw: z.string().optional(),
   bodyText: z.string().optional(),
   attachments: z.array(
     z.object({
@@ -424,6 +459,10 @@ export const emailSchemas = {
     input: testConnectionInputSchema,
     output: testConnectionOutputSchema,
   },
+  testConnectionPreAdd: {
+    input: testConnectionPreAddInputSchema,
+    output: testConnectionOutputSchema,
+  },
   deleteMessage: {
     input: deleteMessageInputSchema,
     output: syncMailboxOutputSchema,
@@ -467,6 +506,10 @@ export const emailSchemas = {
   searchMessages: {
     input: searchMessagesInputSchema,
     output: emailMessagePageSchema,
+  },
+  onNewMail: {
+    input: onNewMailInputSchema,
+    output: newMailEventSchema,
   },
 };
 
@@ -596,6 +639,12 @@ export abstract class BaseEmailRouter {
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),
+      testConnectionPreAdd: shieldedProcedure
+        .input(emailSchemas.testConnectionPreAdd.input)
+        .output(emailSchemas.testConnectionPreAdd.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
       deleteMessage: shieldedProcedure
         .input(emailSchemas.deleteMessage.input)
         .output(emailSchemas.deleteMessage.output)
@@ -661,6 +710,15 @@ export abstract class BaseEmailRouter {
         .output(emailSchemas.searchMessages.output)
         .query(async () => {
           throw new Error("Not implemented in base class");
+        }),
+      onNewMail: shieldedProcedure
+        .input(emailSchemas.onNewMail.input)
+        .subscription(async function* (_opts): AsyncGenerator<{
+          workspaceId: string
+          accountEmail: string
+          mailboxPath: string
+        }> {
+          throw new Error('Not implemented in base class')
         }),
     });
   }

@@ -1,5 +1,15 @@
 import { Download, Forward, Lock, Reply, ReplyAll, Star, Trash2 } from "lucide-react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@tenas-ai/ui/alert-dialog";
 import { Button } from "@tenas-ai/ui/button";
 import {
   ContextMenu,
@@ -154,6 +164,8 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
           ) : null}
           {detail.messageDetailLoading ? (
             <div className="text-xs text-muted-foreground">正在加载邮件详情...</div>
+          ) : detail.showingRawHtml && detail.messageDetail?.bodyHtmlRaw ? (
+            <RawHtmlIframe html={detail.messageDetail.bodyHtmlRaw} />
           ) : detail.messageDetail?.bodyHtml ? (
             <div
               className="prose prose-sm max-w-none text-foreground prose-img:max-w-full prose-p:my-3 leading-7"
@@ -199,6 +211,21 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
           </div>
         ) : null}
       </div>
+
+      <AlertDialog open={detail.deleteConfirmOpen} onOpenChange={detail.onDeleteConfirmOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除这封邮件吗？此操作将把邮件移至已删除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={detail.onDeleteConfirmed}>删除</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -586,6 +586,7 @@ export async function syncRecentMailboxMessages(input: {
         attachments: message.attachments,
         size: message.size,
         bodyHtml: message.bodyHtml,
+        bodyHtmlRaw: message.bodyHtmlRaw,
         bodyText: message.bodyText,
         rawRfc822: message.raw,
       }).catch((err) => {

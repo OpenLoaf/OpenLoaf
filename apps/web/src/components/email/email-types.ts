@@ -54,6 +54,8 @@ export type EmailMessageDetail = {
   date?: string;
   /** HTML body. */
   bodyHtml?: string;
+  /** Raw HTML body (unfiltered). */
+  bodyHtmlRaw?: string;
   /** Text body. */
   bodyText?: string;
   /** Attachment list. */
@@ -91,6 +93,12 @@ export type ComposeDraft = {
   references?: string[];
   /** 发送时使用的账号邮箱。 */
   accountEmail?: string;
+  /** 附件列表（base64 编码内容）。 */
+  attachments?: Array<{
+    filename: string;
+    content: string;
+    contentType?: string;
+  }>;
 };
 
 export type EmailMailboxView = {

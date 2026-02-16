@@ -15,6 +15,7 @@ import {
 import { useChatActions, useChatOptions, useChatSession, useChatState } from "../context";
 import { cn } from "@/lib/utils";
 import SelectMode from "./SelectMode";
+import { useHasPreferredReasoningModel } from "./model-preferences/useHasPreferredReasoningModel";
 import type {
   ChatAttachment,
   ChatAttachmentInput,
@@ -310,6 +311,7 @@ export function ChatInputBox({
   const [isFocused, setIsFocused] = useState(false);
   /** UI-only mode tab value. */
   const [thinkingMode, setThinkingMode] = useState<"fast" | "deep">("fast");
+  const hasReasoningModel = useHasPreferredReasoningModel();
   /** Focus tracking container ref. */
   const inputContainerRef = useRef<HTMLDivElement | null>(null);
   /** Keep focus state while any element inside the input container is focused. */
@@ -830,36 +832,45 @@ export function ChatInputBox({
                 <Paperclip className="w-4 h-4" />
               </Button>
             ) : null}
-            {!compact ? (
-              <div className="inline-flex h-8 min-w-0 items-center rounded-full border border-border/70 bg-muted/40 p-0.5">
-                <button
-                  type="button"
+            {!compact && hasReasoningModel ? (
+              <div
+                className="relative inline-flex h-7 cursor-pointer items-center rounded-full border border-border/60 bg-muted/60 p-0.5"
+                onClick={() => setThinkingMode(thinkingMode === "deep" ? "fast" : "deep")}
+                role="switch"
+                aria-checked={thinkingMode === "deep"}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setThinkingMode(thinkingMode === "deep" ? "fast" : "deep");
+                  }
+                }}
+              >
+                {/* 滑动指示块 */}
+                <span
                   className={cn(
-                    "inline-flex h-6 w-7 items-center justify-center rounded-full text-[11px] font-medium transition-colors",
+                    "absolute top-0.5 h-6 w-6 rounded-full transition-all duration-200",
                     thinkingMode === "deep"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "left-0.5 bg-violet-500/15 dark:bg-violet-500/20"
+                      : "left-[calc(100%-1.625rem)] bg-emerald-500/15 dark:bg-emerald-500/20"
                   )}
-                  onClick={() => setThinkingMode("deep")}
-                  aria-label="深度思考模式"
-                  title="深度思考模式"
-                >
+                />
+                <span className={cn(
+                  "relative z-10 inline-flex h-6 w-6 items-center justify-center transition-colors",
+                  thinkingMode === "deep"
+                    ? "text-violet-600 dark:text-violet-300"
+                    : "text-muted-foreground"
+                )}>
                   <Brain className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  className={cn(
-                    "inline-flex h-6 w-7 items-center justify-center rounded-full text-[11px] font-medium transition-colors",
-                    thinkingMode === "fast"
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  onClick={() => setThinkingMode("fast")}
-                  aria-label="快速模式"
-                  title="快速模式"
-                >
+                </span>
+                <span className={cn(
+                  "relative z-10 inline-flex h-6 w-6 items-center justify-center transition-colors",
+                  thinkingMode === "fast"
+                    ? "text-emerald-600 dark:text-emerald-300"
+                    : "text-muted-foreground"
+                )}>
                   <Zap className="h-3.5 w-3.5" />
-                </button>
+                </span>
               </div>
             ) : null}
           </div>

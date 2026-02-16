@@ -246,6 +246,7 @@ export type WriteEmailMessageInput = {
   }> | null
   size?: number | null
   bodyHtml?: string | null
+  bodyHtmlRaw?: string | null
   bodyText?: string | null
   rawRfc822?: string | null
   createdAt?: string
@@ -302,6 +303,9 @@ export async function writeEmailMessage(input: WriteEmailMessageInput): Promise<
     // 逻辑：内容为空则不创建对应文件。
     if (input.bodyHtml) {
       await fs.writeFile(path.join(msgDir, 'body.html'), input.bodyHtml, 'utf8')
+    }
+    if (input.bodyHtmlRaw) {
+      await fs.writeFile(path.join(msgDir, 'body-raw.html'), input.bodyHtmlRaw, 'utf8')
     }
     if (input.bodyText) {
       await fs.writeFile(path.join(msgDir, 'body.md'), input.bodyText, 'utf8')
@@ -436,6 +440,26 @@ export async function readEmailBodyHtml(input: {
   )
   try {
     return await fs.readFile(path.join(msgDir, 'body.html'), 'utf8')
+  } catch {
+    return null
+  }
+}
+
+/** Read body-raw.html (original unfiltered HTML) for a message. */
+export async function readEmailBodyHtmlRaw(input: {
+  workspaceId: string
+  accountEmail: string
+  mailboxPath: string
+  externalId: string
+}): Promise<string | null> {
+  const msgDir = resolveMessageDir(
+    input.workspaceId,
+    input.accountEmail,
+    input.mailboxPath,
+    input.externalId,
+  )
+  try {
+    return await fs.readFile(path.join(msgDir, 'body-raw.html'), 'utf8')
   } catch {
     return null
   }

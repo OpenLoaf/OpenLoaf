@@ -1,4 +1,4 @@
-import type React from 'react'
+import { type FC, useMemo } from 'react'
 import { AnimatedSection } from '@tenas-ai/ui/calendar/components/animations/animated-section'
 import { CalendarDndContext } from '@tenas-ai/ui/calendar/components/drag-and-drop/calendar-dnd-context'
 import { EventFormDialog } from '@tenas-ai/ui/calendar/components/event-form/event-form-dialog'
@@ -22,7 +22,7 @@ import {
 } from '@tenas-ai/ui/calendar/lib/constants'
 import { cn, normalizeEvents, safeDate } from '@tenas-ai/ui/calendar/lib/utils'
 
-const CalendarContent: React.FC = () => {
+const CalendarContent: FC = () => {
 	const { view, dayMaxEvents, sidebar, sidebarClassName, isSidebarOpen } =
 		useCalendarContext()
 
@@ -62,7 +62,7 @@ const CalendarContent: React.FC = () => {
 	)
 }
 
-export const IlamyCalendar: React.FC<IlamyCalendarProps> = ({
+export const IlamyCalendar: FC<IlamyCalendarProps> = ({
 	events,
 	firstDayOfWeek = 'sunday',
 	initialView = 'month',
@@ -75,11 +75,16 @@ export const IlamyCalendar: React.FC<IlamyCalendarProps> = ({
 	hideNonBusinessHours = false,
 	...props
 }) => {
+	const normalizedEvents = useMemo(
+		() => normalizeEvents<IlamyCalendarPropEvent, CalendarEvent>(events),
+		[events],
+	)
+
 	return (
 		<CalendarProvider
 			dayMaxEvents={dayMaxEvents}
 			eventSpacing={eventSpacing}
-			events={normalizeEvents<IlamyCalendarPropEvent, CalendarEvent>(events)}
+			events={normalizedEvents}
 			firstDayOfWeek={WEEK_DAYS_NUMBER_MAP[firstDayOfWeek]}
 			hideNonBusinessHours={hideNonBusinessHours}
 			initialDate={safeDate(initialDate)}

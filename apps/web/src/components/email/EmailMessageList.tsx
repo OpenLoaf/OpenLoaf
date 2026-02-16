@@ -8,11 +8,22 @@ import {
   MoreVertical,
   Paperclip,
   RefreshCw,
+  Rows3,
   Search,
   Star,
   Trash2,
 } from "lucide-react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@tenas-ai/ui/alert-dialog";
 import { Button } from "@tenas-ai/ui/button";
 import { Checkbox } from "@tenas-ai/ui/checkbox";
 import {
@@ -32,6 +43,9 @@ import {
   EMAIL_SPLIT_PANEL_CLASS,
   EMAIL_TONE_ACTIVE_CLASS,
   EMAIL_TONE_HOVER_CLASS,
+  EMAIL_DENSITY_ROW_HEIGHT,
+  EMAIL_DENSITY_TEXT_SIZE,
+  type EmailDensity,
 } from "./email-style-system";
 import type { EmailMessageSummary } from "./email-types";
 import type { MessageListState } from "./use-email-page-state";
@@ -48,6 +62,18 @@ export function EmailMessageList({
 }: EmailMessageListProps) {
   const { hasSelection, isAllSelected, selectedIds } = messageList
 
+  const densityLabels: Record<EmailDensity, string> = {
+    compact: '紧凑',
+    default: '默认',
+    comfortable: '宽松',
+  }
+  const densityCycle: EmailDensity[] = ['compact', 'default', 'comfortable']
+  const handleCycleDensity = () => {
+    const idx = densityCycle.indexOf(messageList.density)
+    const next = densityCycle[(idx + 1) % densityCycle.length]!
+    messageList.onSetDensity(next)
+  }
+
   return (
     <section
       className={cn(
@@ -55,7 +81,12 @@ export function EmailMessageList({
         EMAIL_SPLIT_PANEL_CLASS,
       )}
     >
-      <div className={cn("border-b px-3 py-2.5", EMAIL_DIVIDER_CLASS)}>
+      <div className={cn("relative border-b px-3 py-2.5", EMAIL_DIVIDER_CLASS)}>
+        {messageList.isRefreshing ? (
+          <div className="absolute left-0 right-0 top-0 z-10 h-0.5 overflow-hidden bg-muted">
+            <div className="h-full w-1/3 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[#1a73e8] dark:bg-sky-400" />
+          </div>
+        ) : null}
         <div className="flex items-center gap-1">
           {/* 全选 checkbox */}
           <div className="flex h-8 w-8 items-center justify-center">
@@ -167,6 +198,19 @@ export function EmailMessageList({
           )}
 
           <div className="ml-auto flex items-center gap-1 text-xs text-[#5f6368] dark:text-slate-400">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={handleCycleDensity}
+              title={`密度: ${densityLabels[messageList.density]}`}
+              className={cn(
+                "h-7 w-7 rounded-full text-[#5f6368] transition-colors duration-150",
+                "hover:bg-[hsl(var(--muted)/0.58)] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.46)]",
+              )}
+            >
+              <Rows3 className="h-3.5 w-3.5" />
+            </Button>
             <span>{messageList.visibleMessages.length} 封邮件</span>
             <ChevronLeft className="h-3.5 w-3.5" />
             <ChevronRight className="h-3.5 w-3.5" />
@@ -223,7 +267,8 @@ export function EmailMessageList({
                     }
                   }}
                   className={cn(
-                    "grid !h-[50px] !min-h-[50px] w-full cursor-pointer grid-cols-[68px_minmax(128px,220px)_minmax(0,1fr)_72px] items-center gap-2 border-b px-3 text-left transition-colors duration-150",
+                    "grid w-full cursor-pointer grid-cols-[68px_minmax(128px,220px)_minmax(0,1fr)_72px] items-center gap-2 border-b px-3 text-left transition-colors duration-150",
+                    EMAIL_DENSITY_ROW_HEIGHT[messageList.density],
                     EMAIL_DIVIDER_CLASS,
                     isSelected
                       ? "bg-[#e8f0fe] dark:bg-sky-900/50"
@@ -269,7 +314,8 @@ export function EmailMessageList({
                   </div>
                   <div
                     className={cn(
-                      "truncate text-[13px]",
+                      "truncate",
+                      EMAIL_DENSITY_TEXT_SIZE[messageList.density],
                       mail.unread
                         ? "font-semibold text-[#202124] dark:text-slate-50"
                         : "font-medium text-[#3c4043] dark:text-slate-300",
@@ -277,7 +323,7 @@ export function EmailMessageList({
                   >
                     {mail.from}
                   </div>
-                  <div className="min-w-0 truncate text-[13px] text-[#5f6368] dark:text-slate-400">
+                  <div className={cn("min-w-0 truncate text-[#5f6368] dark:text-slate-400", EMAIL_DENSITY_TEXT_SIZE[messageList.density])}>
                     <span
                       className={cn(
                         mail.unread
@@ -328,6 +374,21 @@ export function EmailMessageList({
           </>
         )}
       </div>
+
+      <AlertDialog open={messageList.batchDeleteConfirmOpen} onOpenChange={messageList.onBatchDeleteConfirmOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认批量删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除选中的 {messageList.selectedIds.size} 封邮件吗？此操作将把邮件移至已删除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={messageList.onBatchDeleteConfirmed}>删除</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

@@ -1,3 +1,4 @@
+import { Loader2, Paperclip, X } from "lucide-react";
 import { Input } from "@tenas-ai/ui/input";
 import { Button } from "@tenas-ai/ui/button";
 import { Textarea } from "@tenas-ai/ui/textarea";
@@ -46,12 +47,61 @@ export function EmailForwardEditor({ detail }: EmailForwardEditorProps) {
 
   const canSend = Boolean(draft.to.trim());
 
+  const handleFileSelect = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.onchange = async () => {
+      if (!input.files?.length || !isCompose || !detail.composeDraft) return;
+      const newAttachments: Array<{ filename: string; content: string; contentType?: string }> = [];
+      for (const file of Array.from(input.files)) {
+        const buffer = await file.arrayBuffer();
+        const base64 = btoa(
+          new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''),
+        );
+        newAttachments.push({
+          filename: file.name,
+          content: base64,
+          contentType: file.type || undefined,
+        });
+      }
+      detail.setComposeDraft((prev) =>
+        prev ? { ...prev, attachments: [...(prev.attachments ?? []), ...newAttachments] } : prev,
+      );
+    };
+    input.click();
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    if (!isCompose) return;
+    detail.setComposeDraft((prev) => {
+      if (!prev?.attachments) return prev;
+      const next = [...prev.attachments];
+      next.splice(index, 1);
+      return { ...prev, attachments: next };
+    });
+  };
+
+  const composeAttachments = isCompose ? (detail.composeDraft?.attachments ?? []) : [];
+
   return (
     <>
       <div className={cn("px-4 py-3 border-b", EMAIL_TINT_DETAIL_CLASS, EMAIL_DIVIDER_CLASS)}>
         <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-semibold text-[#202124] dark:text-slate-100">
-            {modeLabel}
+          <div className="flex items-center gap-2">
+            <div className="text-sm font-semibold text-[#202124] dark:text-slate-100">
+              {modeLabel}
+            </div>
+            {isCompose && detail.draftSaveStatus === 'saving' ? (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                保存中...
+              </span>
+            ) : isCompose && detail.draftSaveStatus === 'saved' ? (
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400">已保存</span>
+            ) : isCompose && detail.draftSaveStatus === 'error' ? (
+              <span className="text-[10px] text-destructive">保存失败</span>
+            ) : null}
           </div>
           <div className="flex items-center gap-2 text-[11px]">
             <Button
@@ -63,6 +113,19 @@ export function EmailForwardEditor({ detail }: EmailForwardEditorProps) {
             >
               {detail.isSending ? "发送中..." : "发送"}
             </Button>
+            {isCompose ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 rounded-full px-3 text-[12px] text-[#5f6368] hover:bg-[#e8eaed] dark:text-slate-300 dark:hover:bg-slate-700"
+                onClick={handleFileSelect}
+                title="添加附件"
+              >
+                <Paperclip className="mr-1 h-3 w-3" />
+                附件
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="ghost"
@@ -127,6 +190,29 @@ export function EmailForwardEditor({ detail }: EmailForwardEditorProps) {
             )}
           />
         </div>
+        {composeAttachments.length > 0 ? (
+          <div className={cn("border-t px-4 py-3", EMAIL_DIVIDER_CLASS, EMAIL_TINT_LIST_CLASS)}>
+            <div className="text-xs text-[#5f6368] dark:text-slate-400">附件</div>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs text-[#5f6368] dark:text-slate-400">
+              {composeAttachments.map((att, index) => (
+                <span
+                  key={`${att.filename}-${index}`}
+                  className={cn("inline-flex items-center gap-1", EMAIL_META_CHIP_CLASS)}
+                >
+                  <Paperclip className="h-3 w-3" />
+                  {att.filename}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveAttachment(index)}
+                    className="ml-0.5 rounded-full p-0.5 hover:bg-muted"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {isForwardMode && detail.shouldShowAttachments ? (
           <div className={cn("border-t px-4 py-3", EMAIL_DIVIDER_CLASS, EMAIL_TINT_LIST_CLASS)}>
             <div className="text-xs text-[#5f6368] dark:text-slate-400">附件</div>

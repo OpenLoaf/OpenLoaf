@@ -33,6 +33,11 @@ export type SendMessageInput = {
   bodyHtml?: string;
   inReplyTo?: string;
   references?: string[];
+  attachments?: Array<{
+    filename: string;
+    content: string;
+    contentType?: string;
+  }>;
 };
 
 export type SendMessageResult = {

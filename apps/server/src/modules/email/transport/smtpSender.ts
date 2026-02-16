@@ -36,6 +36,11 @@ export async function sendViaSMTP(
       html: input.bodyHtml,
       inReplyTo: input.inReplyTo,
       references: input.references?.join(" "),
+      attachments: input.attachments?.map((att) => ({
+        filename: att.filename,
+        content: Buffer.from(att.content, "base64"),
+        contentType: att.contentType,
+      })),
     });
 
     logger.debug({ messageId: info.messageId }, "smtp send done");

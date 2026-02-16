@@ -40,6 +40,7 @@ import {
   loadMailboxIndex,
   moveEmailMessage as moveEmailMessageFile,
   readEmailBodyHtml,
+  readEmailBodyHtmlRaw,
   readEmailBodyMd,
   readEmailMeta,
   saveDraftFile,
@@ -987,8 +988,14 @@ export class EmailRouterImpl extends BaseEmailRouter {
           const fromAddress = extractSenderEmail(row.from ?? "");
           const isPrivate = fromAddress ? privateSenders.has(fromAddress) : false;
           // 逻辑：从文件系统读取正文内容。
-          const [bodyHtml, bodyText] = await Promise.all([
+          const [bodyHtml, bodyHtmlRaw, bodyText] = await Promise.all([
             readEmailBodyHtml({
+              workspaceId: input.workspaceId,
+              accountEmail: row.accountEmail,
+              mailboxPath: row.mailboxPath,
+              externalId: row.externalId,
+            }),
+            readEmailBodyHtmlRaw({
               workspaceId: input.workspaceId,
               accountEmail: row.accountEmail,
               mailboxPath: row.mailboxPath,
@@ -1012,6 +1019,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
             bcc: normalizeAddressList(row.bcc),
             date: row.date ? row.date.toISOString() : undefined,
             bodyHtml: bodyHtml ?? undefined,
+            bodyHtmlRaw: bodyHtmlRaw ?? undefined,
             bodyText: bodyText ?? undefined,
             attachments: normalizeAttachments(row.attachments),
             flags: normalizeStringArray(row.flags),
@@ -1052,6 +1060,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
               bodyHtml: input.bodyHtml,
               inReplyTo: input.inReplyTo,
               references: input.references,
+              attachments: input.attachments,
             },
           });
           return { ok: result.ok, messageId: result.messageId };
@@ -1096,6 +1105,59 @@ export class EmailRouterImpl extends BaseEmailRouter {
           } finally {
             await transport.dispose();
           }
+        }),
+      testConnectionPreAdd: shieldedProcedure
+        .input(emailSchemas.testConnectionPreAdd.input)
+        .output(emailSchemas.testConnectionPreAdd.output)
+        .mutation(async ({ input }) => {
+          // 逻辑：使用原始凭据测试 IMAP + SMTP 连接，无需先保存账号。
+          const { testSmtpConnection } = await import(
+            "@/modules/email/transport/smtpSender"
+          );
+          const { ImapTransportAdapter } = await import(
+            "@/modules/email/transport/imapAdapter"
+          );
+          const errors: string[] = [];
+          // 测试 IMAP
+          try {
+            const imapAdapter = new ImapTransportAdapter({
+              user: input.emailAddress,
+              password: input.password,
+              host: input.imap.host,
+              port: input.imap.port,
+              tls: input.imap.tls,
+            });
+            const imapResult = await imapAdapter.testConnection();
+            await imapAdapter.dispose();
+            if (!imapResult.ok) {
+              errors.push(`IMAP: ${imapResult.error ?? "连接失败"}`);
+            }
+          } catch (err) {
+            errors.push(
+              `IMAP: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+          // 测试 SMTP
+          try {
+            const smtpResult = await testSmtpConnection({
+              host: input.smtp.host,
+              port: input.smtp.port,
+              secure: input.smtp.tls,
+              user: input.emailAddress,
+              password: input.password,
+            });
+            if (!smtpResult.ok) {
+              errors.push(`SMTP: ${smtpResult.error ?? "连接失败"}`);
+            }
+          } catch (err) {
+            errors.push(
+              `SMTP: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+          if (errors.length > 0) {
+            return { ok: false, error: errors.join("; ") };
+          }
+          return { ok: true };
         }),
       deleteMessage: shieldedProcedure
         .input(emailSchemas.deleteMessage.input)
@@ -1478,6 +1540,38 @@ export class EmailRouterImpl extends BaseEmailRouter {
             ),
             nextCursor,
           };
+        }),
+      onNewMail: shieldedProcedure
+        .input(emailSchemas.onNewMail.input)
+        .subscription(async function* ({ input }) {
+          const { emailEventBus } = await import(
+            "@/modules/email/emailEvents"
+          );
+          const queue: Array<{
+            workspaceId: string;
+            accountEmail: string;
+            mailboxPath: string;
+          }> = [];
+          let resolve: (() => void) | null = null;
+          const cleanup = emailEventBus.onNewMail((event) => {
+            if (event.workspaceId !== input.workspaceId) return;
+            queue.push(event);
+            resolve?.();
+          });
+          try {
+            while (true) {
+              if (queue.length === 0) {
+                await new Promise<void>((r) => {
+                  resolve = r;
+                });
+              }
+              while (queue.length > 0) {
+                yield queue.shift()!;
+              }
+            }
+          } finally {
+            cleanup();
+          }
         }),
     });
   }
