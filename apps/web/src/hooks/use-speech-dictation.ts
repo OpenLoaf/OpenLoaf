@@ -15,15 +15,24 @@ type SpeechStateDetail = TenasSpeechState;
 
 type SpeechErrorDetail = TenasSpeechError;
 
+type SpeechResultPayload = {
+  /** Speech recognition text chunk. */
+  text: string;
+  /** Whether this chunk is final. */
+  isFinal: boolean;
+};
+
 type SpeechDictationOptions = {
-  /** Plate editor instance to write dictation text into. */
-  editor: PlateEditor;
+  /** Optional Plate editor instance for rich-text insertion. */
+  editor?: PlateEditor;
   /** Locale for speech recognition (e.g. zh-CN). */
   language?: string;
   /** Whether to play a start tone when dictation begins. */
   enableStartTone?: boolean;
   /** Error callback for dictation failures. */
   onError?: (message: string) => void;
+  /** Optional callback for plain-text inputs (textarea mode). */
+  onResultText?: (payload: SpeechResultPayload) => void;
 };
 
 type SpeechDictationState = {
@@ -39,12 +48,13 @@ type SpeechDictationState = {
   toggle: () => Promise<void>;
 };
 
-/** Provide OS speech dictation controls for the Plate editor. */
+/** Provide OS speech dictation controls for Plate or plain-text inputs. */
 export function useSpeechDictation({
   editor,
   language,
   enableStartTone = true,
   onError,
+  onResultText,
 }: SpeechDictationOptions): SpeechDictationState {
   const [isListening, setIsListening] = useState(false);
   /** Track the current listening state without re-subscribing event handlers. */
@@ -65,7 +75,7 @@ export function useSpeechDictation({
 
   /** Ensure the editor has a valid selection before inserting dictation text. */
   const ensureSelection = useCallback(() => {
-    if (editor.selection) return;
+    if (!editor || editor.selection) return;
     const endPoint = SlateEditor.end(editor as unknown as BaseEditor, []);
     editor.tf.select(endPoint);
   }, [editor]);
@@ -76,6 +86,16 @@ export function useSpeechDictation({
       if (!text) return;
       // 中文注释：只在语音监听状态下写入，避免旧事件污染输入框。
       if (!isListeningRef.current) return;
+      if (onResultText) {
+        onResultText({ text, isFinal });
+        if (isFinal) {
+          lastInterimRef.current = "";
+        } else {
+          lastInterimRef.current = text;
+        }
+        return;
+      }
+      if (!editor) return;
       ensureSelection();
       editor.tf.focus();
       if (lastInterimRef.current) {
@@ -93,7 +113,7 @@ export function useSpeechDictation({
         lastInterimRef.current = text;
       }
     },
-    [editor, ensureSelection],
+    [editor, ensureSelection, onResultText],
   );
 
   /** Handle speech result events from Electron. */

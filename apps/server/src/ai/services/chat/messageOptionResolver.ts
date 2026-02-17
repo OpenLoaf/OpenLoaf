@@ -1,6 +1,10 @@
 import type { UIMessage } from "ai";
 import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
-import { normalizeCodexOptions, type CodexRequestOptions } from "@/ai/models/cli/codex/codexOptions";
+import {
+  normalizeCodexOptions,
+  type CodexReasoningEffort,
+  type CodexRequestOptions,
+} from "@/ai/models/cli/codex/codexOptions";
 import { isRecord } from "@/ai/shared/util";
 
 /** Normalize image count into a safe integer range. */
@@ -119,6 +123,30 @@ function findLastUserTextMessage(messages: UIMessage[]): UIMessage | undefined {
   return undefined;
 }
 
+/** Normalize reasoning mode from unknown input. */
+function normalizeReasoningMode(value: unknown): "fast" | "deep" | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (trimmed === "fast" || trimmed === "deep") return trimmed;
+  return undefined;
+}
+
+/** Resolve reasoning mode from message metadata. */
+function resolveReasoningModeFromMetadata(metadata: unknown): "fast" | "deep" | undefined {
+  if (!isRecord(metadata)) return undefined;
+  const reasoning = isRecord(metadata.reasoning) ? metadata.reasoning : undefined;
+  return normalizeReasoningMode(reasoning?.mode);
+}
+
+/** Map chat reasoning mode to Codex reasoning effort. */
+function mapReasoningModeToCodexEffort(
+  mode: "fast" | "deep" | undefined,
+): CodexReasoningEffort | undefined {
+  if (mode === "fast") return "low";
+  if (mode === "deep") return "high";
+  return undefined;
+}
+
 /** Resolve Codex options from message metadata. */
 export function resolveCodexRequestOptions(messages: UIMessage[]): CodexRequestOptions | undefined {
   const message = findLastUserTextMessage(messages) as any;
@@ -127,10 +155,17 @@ export function resolveCodexRequestOptions(messages: UIMessage[]): CodexRequestO
   const metadata = message.metadata;
   if (!isRecord(metadata)) return undefined;
   const rawOptions = metadata.codexOptions;
-  if (!rawOptions) return undefined;
-  const normalized = normalizeCodexOptions(rawOptions);
-  if (!normalized) return undefined;
-  return normalized;
+  const normalized = normalizeCodexOptions(rawOptions) ?? undefined;
+  const reasoningMode = resolveReasoningModeFromMetadata(metadata);
+  const fallbackReasoningEffort = mapReasoningModeToCodexEffort(reasoningMode);
+  if (!normalized && !fallbackReasoningEffort) return undefined;
+  const mode = normalized?.mode;
+  const reasoningEffort = normalized?.reasoningEffort ?? fallbackReasoningEffort;
+  if (!mode && !reasoningEffort) return undefined;
+  return {
+    ...(mode ? { mode } : {}),
+    ...(reasoningEffort ? { reasoningEffort } : {}),
+  };
 }
 
 /** Resolve image generation options from message metadata. */

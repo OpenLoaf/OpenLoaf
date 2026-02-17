@@ -1,4 +1,4 @@
-import type { MaskedAttachmentInput } from "@/components/chat/input/chat-attachments";
+import type { MaskedAttachmentInput } from "@/components/ai/input/chat-attachments";
 
 export type FilePreviewViewer =
   | "image"

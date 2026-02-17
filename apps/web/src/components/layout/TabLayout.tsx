@@ -11,8 +11,8 @@ import {
 } from "motion/react";
 import { ArrowDown, ArrowUp, PencilLine, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Chat } from "@/components/chat/Chat";
-import { ChatSessionBarItem } from "@/components/chat/session/ChatSessionBar";
+import { Chat } from "@/components/ai/Chat";
+import { ChatSessionBarItem } from "@/components/ai/session/ChatSessionBar";
 import { useTabs, LEFT_DOCK_MIN_PX } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useTabView } from "@/hooks/use-tab-view";

@@ -2,7 +2,7 @@
  * 面板工具函数，包含组件映射和面板标题处理
  */
 import React from "react";
-import { Chat } from "@/components/chat/Chat";
+import { Chat } from "@/components/ai/Chat";
 import ElectrronBrowserWindow from "@/components/browser/ElectrronBrowserWindow";
 import ToolResultPanel from "@/components/tools/ToolResultPanel";
 import SettingsPage from "@/components/setting/SettingsPage";

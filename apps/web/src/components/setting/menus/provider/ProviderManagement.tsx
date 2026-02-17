@@ -32,6 +32,7 @@ import { useSettingsValues } from "@/hooks/use-settings";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
 import { getModelLabel } from "@/lib/model-registry";
+import { ModelIcon } from "@/components/setting/menus/provider/ModelIcon";
 import {
   useProviderManagement,
   type ProviderEntry,
@@ -388,12 +389,25 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                       variant="outline"
                       className="min-w-[220px] w-auto justify-between font-normal"
                     >
-                      <span className="truncate">
-                        {selectedLocalToolModel
-                          ? selectedLocalToolModel.modelDefinition
-                            ? getModelLabel(selectedLocalToolModel.modelDefinition)
-                            : selectedLocalToolModel.modelId
-                          : "请选择本地对话模型"}
+                      <span className="min-w-0 flex items-center gap-2">
+                        {selectedLocalToolModel ? (
+                          <ModelIcon
+                            icon={
+                              selectedLocalToolModel.modelDefinition?.familyId ??
+                              (selectedLocalToolModel.modelDefinition?.icon as string | undefined) ??
+                              selectedLocalToolModel.providerId
+                            }
+                            model={selectedLocalToolModel.modelDefinition?.id ?? selectedLocalToolModel.modelId}
+                            size={14}
+                          />
+                        ) : null}
+                        <span className="truncate">
+                          {selectedLocalToolModel
+                            ? selectedLocalToolModel.modelDefinition
+                              ? getModelLabel(selectedLocalToolModel.modelDefinition)
+                              : selectedLocalToolModel.modelId
+                            : "请选择本地对话模型"}
+                        </span>
                       </span>
                       <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     </Button>
@@ -414,10 +428,21 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                           : option.modelId;
                         return (
                           <DropdownMenuRadioItem key={option.id} value={option.id}>
-                            <div className="min-w-0">
-                              <div className="truncate">{modelLabel}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {option.providerName}
+                            <div className="min-w-0 flex items-center gap-2">
+                              <ModelIcon
+                                icon={
+                                  option.modelDefinition?.familyId ??
+                                  (option.modelDefinition?.icon as string | undefined) ??
+                                  option.providerId
+                                }
+                                model={option.modelDefinition?.id ?? option.modelId}
+                                size={14}
+                              />
+                              <div className="min-w-0">
+                                <div className="truncate">{modelLabel}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {option.providerName}
+                                </div>
                               </div>
                             </div>
                           </DropdownMenuRadioItem>
@@ -427,11 +452,6 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-              {toolModelSource === "local" && !toolModelId ? (
-                <div className="mt-1 text-right text-xs text-destructive">
-                  本地模式下必须选择一个对话模型
-                </div>
-              ) : null}
             </TenasSettingsField>
           </div>
 

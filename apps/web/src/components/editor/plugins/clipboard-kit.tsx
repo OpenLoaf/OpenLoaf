@@ -5,11 +5,13 @@ import { createPlatePlugin } from 'platejs/react';
 import { Editor as SlateEditor, type BaseEditor } from 'slate';
 
 import {
-  buildInlineNodesFromText,
   FILE_TOKEN_REGEX,
+} from '@/components/ai/input/chat-input-utils';
+import {
+  buildInlineNodesFromText,
   normalizeSerializedForClipboard,
   serializeChatValue,
-} from '@/components/chat/input/chat-input-utils';
+} from '@/components/editor/plugins/clipboard-kit-utils';
 
 export const ClipboardKit = [
   createPlatePlugin({

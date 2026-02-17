@@ -114,3 +114,4 @@ apps/web/public/monaco/
 apps/tenas-office-plugins
 .data/tenas.db
 .claude
+.npm-cache

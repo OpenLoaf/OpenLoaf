@@ -18,7 +18,7 @@ function resolveBearerToken(c: Context): string | null {
 
 /** Register unified AI execute route. */
 export function registerAiExecuteRoutes(app: Hono) {
-  app.post("/ai/execute", async (c) => {
+  const handleExecute = async (c: Context) => {
     let body: unknown;
     try {
       body = await c.req.json();
@@ -35,7 +35,7 @@ export function registerAiExecuteRoutes(app: Hono) {
       {
         request: parsed.request,
       },
-      "[ai] /ai/execute request",
+      "[ai] execute request",
     );
 
     const cookies = getCookie(c) || {};
@@ -46,7 +46,11 @@ export function registerAiExecuteRoutes(app: Hono) {
       requestSignal: c.req.raw.signal,
       saasAccessToken: saasAccessToken ?? undefined,
     });
-  });
+  };
+
+  // 中文注释：兼容旧入口并提供新的 AI SDK 风格入口。
+  app.post("/ai/execute", handleExecute);
+  app.post("/api/chat", handleExecute);
 }
 
 /** Parse request payload into typed input. */
