@@ -1,13 +1,18 @@
 "use client";
 
+import * as React from "react";
 import CliThinkingTool from "./CliThinkingTool";
 import JsonRenderTool from "./JsonRenderTool";
 import UnifiedTool from "./UnifiedTool";
 import PlanTool from "./PlanTool";
 import ProjectTool from "./ProjectTool";
 import WriteFileTool from "./WriteFileTool";
+import ShellTool from "./ShellTool";
+import ExecCommandTool from "./ExecCommandTool";
+import WidgetTool from "./WidgetTool";
 import { useChatState, useChatTools } from "../../context";
-import type { AnyToolPart, ToolVariant } from "./shared/tool-utils";
+import { getApprovalId, isApprovalPending, type AnyToolPart, type ToolVariant } from "./shared/tool-utils";
+import ToolApprovalActions from "./shared/ToolApprovalActions";
 
 /** Resolve tool key for routing. */
 function getToolKind(part: AnyToolPart): string {
@@ -15,6 +20,20 @@ function getToolKind(part: AnyToolPart): string {
   if (part.type.startsWith("tool-")) return part.type.slice("tool-".length);
   return part.type;
 }
+
+const SHELL_TOOL_KINDS = new Set([
+  "shell-win",
+  "shell-unix",
+  "shell-command-win",
+  "shell-command-unix",
+]);
+
+const EXEC_TOOL_KINDS = new Set([
+  "exec-command-win",
+  "exec-command-unix",
+  "write-stdin-win",
+  "write-stdin-unix",
+]);
 
 /**
  * 工具调用消息组件（MVP）
@@ -79,6 +98,25 @@ export default function MessageTool({
     return <WriteFileTool part={resolvedPart} className={className} />;
   }
 
+  // 逻辑：审批状态检测，专用渲染器外层包裹审批按钮。
+  const approvalId = getApprovalId(resolvedPart);
+  const needsApprovalUI = isApprovalPending(resolvedPart);
+
+  if (SHELL_TOOL_KINDS.has(toolKind)) {
+    // ShellTool 内部已集成审批 UI（macOS 窗口内），无需外层包裹。
+    return <ShellTool part={resolvedPart} className={className} />;
+  }
+
+  if (EXEC_TOOL_KINDS.has(toolKind)) {
+    // ExecCommandTool 内部已集成审批 UI，无需外层包裹。
+    return <ExecCommandTool part={resolvedPart} className={className} />;
+  }
+
+  if (toolKind === "generate-widget") {
+    // WidgetTool 内部已集成审批 UI，无需外层包裹。
+    return <WidgetTool part={resolvedPart} className={className} />;
+  }
+
   if (toolKind === "project-mutate") {
     return (
       <ProjectTool
@@ -92,5 +130,27 @@ export default function MessageTool({
 
   return (
     <UnifiedTool part={resolvedPart} className={className} variant={variant} messageId={messageId} />
+  );
+}
+
+/** 包裹专用渲染器，在下方显示审批按钮。 */
+function ToolWithApproval({
+  children,
+  approvalId,
+  showApproval,
+}: {
+  children: React.ReactNode;
+  approvalId: string | undefined;
+  showApproval: boolean;
+}) {
+  if (!showApproval || !approvalId) return <>{children}</>;
+  return (
+    <div className="space-y-2">
+      {children}
+      <div className="ml-2 flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">需要审批：</span>
+        <ToolApprovalActions approvalId={approvalId} />
+      </div>
+    </div>
   );
 }

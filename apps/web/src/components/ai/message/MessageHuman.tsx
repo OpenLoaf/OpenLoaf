@@ -387,7 +387,7 @@ export default function MessageHuman({
   return (
     <Message from="user" className={cn("max-w-[80%] min-w-0", className)}>
       <MessageContent
-        className="max-h-64 overflow-x-hidden overflow-y-auto show-scrollbar border border-primary/35 bg-primary/85 p-3 text-primary-foreground shadow-sm"
+        className="max-h-64 overflow-x-hidden overflow-y-auto show-scrollbar border border-primary/35 p-3 shadow-sm group-[.is-user]:!bg-primary/85 group-[.is-user]:!text-primary-foreground"
         onPointerDownCapture={handleMentionPointerDown}
       >
         {displayParts.length > 0 && (

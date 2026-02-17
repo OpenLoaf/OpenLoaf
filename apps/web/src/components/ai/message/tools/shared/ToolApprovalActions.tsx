@@ -10,10 +10,12 @@ import { ConfirmationAction } from "@/components/ai-elements/confirmation";
 interface ToolApprovalActionsProps {
   /** Approval id to submit. */
   approvalId: string;
+  /** Button size variant. */
+  size?: "sm" | "default";
 }
 
 /** Render approval actions for a tool request. */
-export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsProps) {
+export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApprovalActionsProps) {
   const { messages, status } = useChatState();
   const { updateMessage, addToolApprovalResponse } = useChatActions();
   const { toolParts, upsertToolPart } = useChatTools();
@@ -179,13 +181,19 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
     ],
   );
 
+  const isLarge = size === "default";
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <ConfirmationAction
         type="button"
-        size="sm"
+        size={size}
         variant="default"
-        className="h-6 px-2 text-[10px]"
+        className={
+          isLarge
+            ? "h-8 rounded-md px-3 text-xs bg-emerald-500 text-white hover:bg-emerald-600 border-0"
+            : "h-6 px-2 text-[10px]"
+        }
         disabled={disabled}
         onClick={handleApprove}
       >
@@ -193,9 +201,13 @@ export default function ToolApprovalActions({ approvalId }: ToolApprovalActionsP
       </ConfirmationAction>
       <ConfirmationAction
         type="button"
-        size="sm"
-        variant="outline"
-        className="h-6 px-2 text-[10px]"
+        size={size}
+        variant={isLarge ? "ghost" : "outline"}
+        className={
+          isLarge
+            ? "h-8 rounded-md px-3 text-xs text-muted-foreground hover:text-foreground"
+            : "h-6 px-2 text-[10px]"
+        }
         disabled={disabled}
         onClick={handleReject}
       >

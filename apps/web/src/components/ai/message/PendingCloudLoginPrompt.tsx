@@ -11,6 +11,7 @@ import { useTabs } from '@/hooks/use-tabs'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
 import { Message, MessageContent } from '@/components/ai-elements/message'
 import { Suggestion } from '@/components/ai-elements/suggestion'
+import { Card, CardContent, CardHeader } from '@tenas-ai/ui/card'
 
 export default function PendingCloudLoginPrompt() {
   const { pendingCloudMessage } = useChatState()
@@ -74,7 +75,7 @@ export default function PendingCloudLoginPrompt() {
         className="my-0.5 px-2 pr-5"
       >
         <Message from="user" className="ml-auto max-w-[78%]">
-          <MessageContent className="show-scrollbar max-h-64 overflow-x-hidden overflow-y-auto rounded-2xl rounded-br-md border border-[#e3e8ef] bg-[#f6f8fc] px-3 py-2 text-[12px] leading-4 text-foreground dark:border-slate-700 dark:bg-[hsl(var(--muted)/0.3)]">
+          <MessageContent className="show-scrollbar max-h-64 overflow-x-hidden overflow-y-auto border border-primary/35 px-3 py-2 text-[12px] leading-4 shadow-sm group-[.is-user]:!bg-primary/85 group-[.is-user]:!text-primary-foreground">
             <span className="whitespace-pre-wrap break-words">{pendingCloudMessage.text}</span>
           </MessageContent>
         </Message>
@@ -85,46 +86,49 @@ export default function PendingCloudLoginPrompt() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.14, delay: 0.06, ease: 'easeOut' }}
           >
-            <MessageContent className="w-full overflow-hidden rounded-2xl border border-[#e3e8ef] bg-[#ffffff] p-0 dark:border-slate-700 dark:bg-[hsl(var(--background)/0.9)]">
-              <div className="flex items-center gap-2 border-b border-[#e3e8ef] px-2.5 py-2 dark:border-slate-700">
-                <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-[#fce8e6] text-[#d93025] dark:bg-[hsl(0_62%_28%/0.38)] dark:text-red-200">
-                  <LogIn className="size-3" />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-[12px] font-medium text-[#202124] dark:text-slate-100">
-                    当前无可用模型
-                  </p>
-                  <p className="truncate text-[10px] text-[#5f6368] dark:text-slate-400">
-                    {hasConfiguredProviders
-                      ? '请登录云端模型，或切换至本地模型后继续。'
-                      : '请登录云端模型，或先完成本地模型配置。'}
-                  </p>
-                </div>
-              </div>
+            <MessageContent className="w-full">
+              <Card>
+                <CardHeader className="flex items-center gap-2 border-b px-3 py-2">
+                  <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                    <LogIn className="size-3" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-[12px] font-medium text-foreground">
+                      当前无可用模型
+                    </p>
+                    <p className="truncate text-[10px] text-muted-foreground">
+                      {hasConfiguredProviders
+                        ? '请登录云端模型，或切换至本地模型后继续。'
+                        : '请登录云端模型，或先完成本地模型配置。'}
+                    </p>
+                  </div>
+                </CardHeader>
 
-              <div className="flex items-center gap-1.5 p-2">
-                <Suggestion
-                  suggestion="login-cloud"
-                  onClick={() => handleLogin()}
-                  className="h-8 flex-1 rounded-xl bg-[#d3e3fd] px-2 text-[11px] text-[#001d35] hover:bg-[#c6dafc] dark:bg-sky-800/60 dark:text-sky-50 dark:hover:bg-sky-800/75"
-                >
-                  <Cloud className="size-3.5" />
-                  登录云端模型
-                </Suggestion>
-                <Suggestion
-                  suggestion={hasConfiguredProviders ? "switch-local" : "open-settings"}
-                  variant="outline"
-                  onClick={() => handleUseLocal()}
-                  className="h-8 flex-1 rounded-xl border-[#e3e8ef] bg-[#f6f8fc] px-2 text-[11px] text-[#5f6368] hover:bg-[#f1f3f4] dark:border-slate-700 dark:bg-[hsl(var(--muted)/0.3)] dark:text-slate-300 dark:hover:bg-[hsl(var(--muted)/0.42)]"
-                >
-                  {hasConfiguredProviders ? (
-                    <HardDrive className="size-3" />
-                  ) : (
-                    <Settings2 className="size-3" />
-                  )}
-                  {hasConfiguredProviders ? '切换本地模型' : '前往模型配置'}
-                </Suggestion>
-              </div>
+                <CardContent className="flex items-center gap-1.5 p-3">
+                  <Suggestion
+                    suggestion="login-cloud"
+                    onClick={() => handleLogin()}
+                    variant="default"
+                    className="h-8 flex-1 rounded-xl px-2 text-[11px]"
+                  >
+                    <Cloud className="size-3.5" />
+                    登录云端模型
+                  </Suggestion>
+                  <Suggestion
+                    suggestion={hasConfiguredProviders ? 'switch-local' : 'open-settings'}
+                    variant="outline"
+                    onClick={() => handleUseLocal()}
+                    className="h-8 flex-1 rounded-xl px-2 text-[11px]"
+                  >
+                    {hasConfiguredProviders ? (
+                      <HardDrive className="size-3" />
+                    ) : (
+                      <Settings2 className="size-3" />
+                    )}
+                    {hasConfiguredProviders ? '切换本地模型' : '前往模型配置'}
+                  </Suggestion>
+                </CardContent>
+              </Card>
             </MessageContent>
           </motion.div>
         </Message>

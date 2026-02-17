@@ -16,10 +16,10 @@ import {
   PromptInputHoverCardTrigger,
 } from '@/components/ai-elements/prompt-input'
 import {
-  ModelSelector,
-  ModelSelectorContent,
-  ModelSelectorTrigger,
-} from '@/components/ai-elements/model-selector'
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@tenas-ai/ui/popover'
 
 interface SelectModeProps {
   className?: string
@@ -119,9 +119,9 @@ export default function SelectMode({
         open={popoverOpen ? false : undefined}
         openDelay={300}
       >
-        <ModelSelector open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PromptInputHoverCardTrigger asChild>
-            <ModelSelectorTrigger asChild>{triggerButton}</ModelSelectorTrigger>
+            <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
           </PromptInputHoverCardTrigger>
           <PromptInputHoverCardContent className="max-w-[16rem]">
             <ModelSelectionTooltip
@@ -133,8 +133,10 @@ export default function SelectMode({
               preferredVideoIds={prefs.preferredVideoIds}
             />
           </PromptInputHoverCardContent>
-          <ModelSelectorContent
-            title="模型偏好设置"
+          <PopoverContent
+            side="top"
+            align="end"
+            sideOffset={8}
             className={cn(
               'w-96 max-w-[94vw] rounded-xl border-border bg-muted/40 p-2 shadow-2xl backdrop-blur-sm',
             )}
@@ -146,8 +148,8 @@ export default function SelectMode({
               onOpenLogin={handleOpenLogin}
               onClose={() => setPopoverOpen(false)}
             />
-          </ModelSelectorContent>
-        </ModelSelector>
+          </PopoverContent>
+        </Popover>
       </PromptInputHoverCard>
     </>
   )

@@ -182,8 +182,11 @@ export const JSXPreviewContent = memo(
           return;
         }
         errorReportedRef.current = processedJsx;
-        setError(err);
-        onErrorProp?.(err);
+        // 逻辑：JsxParser 在渲染阶段调用 onError，需延迟 setState 避免 React 警告。
+        queueMicrotask(() => {
+          setError(err);
+          onErrorProp?.(err);
+        });
       },
       [processedJsx, onErrorProp, setError]
     );

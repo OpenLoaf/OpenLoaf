@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertCircle, Check, ExternalLink, FileCode2 } from 'lucide-react'
+import { AlertCircle, Check, Copy, ExternalLink, FileCode2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   extractPatchDiffLines,
@@ -224,7 +224,7 @@ export default function WriteFileTool({
     .join('\n')
 
   return (
-    <div className={cn('ml-2 w-full min-w-0 max-w-[90%]', className)}>
+    <div className={cn('w-full min-w-0', className)}>
       <Commit defaultOpen={isStreaming || isInputReady}>
         <CommitHeader>
           <CommitInfo>
@@ -253,6 +253,18 @@ export default function WriteFileTool({
             </CommitMetadata>
           </CommitInfo>
           <CommitActions>
+            {patch ? (
+              <PromptInputButton
+                size="sm"
+                variant="ghost"
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(patch)
+                }}
+              >
+                <Copy className="size-3.5" />
+              </PromptInputButton>
+            ) : null}
             <PromptInputButton
               size="sm"
               variant="ghost"

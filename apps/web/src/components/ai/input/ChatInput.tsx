@@ -681,7 +681,7 @@ export function ChatInputBox({
     <div
       ref={inputContainerRef}
       className={cn(
-        "relative shrink-0 rounded-xl bg-background transition-all duration-200 flex flex-col",
+        "relative shrink-0 rounded-xl bg-background transition-all duration-200 flex flex-col overflow-hidden",
         variant === "default" ? "mt-4 max-h-[30%]" : "max-h-none",
         "tenas-thinking-border",
         isFocused && "tenas-thinking-border-focus",
@@ -736,7 +736,7 @@ export function ChatInputBox({
         onSubmit={() => {
           handleSubmit();
         }}
-        className="flex flex-col min-h-[52px] overflow-hidden"
+        className="flex flex-col"
       >
         <ChatImageAttachments
           ref={imageAttachmentsRef}
@@ -750,9 +750,8 @@ export function ChatInputBox({
 
         <div
           className={cn(
-            "px-2 pt-1 pb-2 flex-1 min-h-0 transition-[padding] duration-500 ease-out",
-            compact && "pb-3",
-            attachments && attachments.length > 0 && "pt-2"
+            "flex-1 min-h-0",
+            attachments && attachments.length > 0 && "pt-1"
           )}
         >
           <div className="w-full h-full min-h-0 overflow-auto show-scrollbar">
@@ -760,7 +759,7 @@ export function ChatInputBox({
               value={value}
               onChange={(event) => onChange(event.currentTarget.value)}
               className={cn(
-                "min-h-[56px] text-[13px] leading-5 px-2",
+                "text-[13px] leading-5 px-3 py-2.5",
                 isOverLimit && "text-destructive",
               )}
               placeholder={placeholder}
@@ -770,7 +769,7 @@ export function ChatInputBox({
           </div>
         </div>
 
-        <PromptInputFooter className="items-end gap-2 px-1.5 pb-1.5 shrink-0 min-w-0">
+        <PromptInputFooter className="items-end gap-2 px-1.5 pb-0.5 shrink-0 min-w-0">
           <PromptInputTools className="min-w-0 flex-1 gap-1.5 overflow-hidden">
             {!compact ? (
               <PromptInputButton
@@ -835,7 +834,7 @@ export function ChatInputBox({
               </PromptInputButton>
             )}
 
-            {!compact && (
+            {!compact && isDictationSupported && (
               <PromptInputButton
                 type="button"
                 variant="ghost"
@@ -848,7 +847,6 @@ export function ChatInputBox({
                 )}
                 aria-pressed={isListening}
                 onClick={() => void toggleDictation()}
-                disabled={!isDictationSupported}
                 aria-label="语音输入"
               >
                 <Mic className={cn("w-4 h-4", isListening && "text-destructive")} />

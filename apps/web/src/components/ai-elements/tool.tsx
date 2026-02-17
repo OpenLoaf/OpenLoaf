@@ -36,6 +36,7 @@ export type ToolPart = ToolUIPart | DynamicToolUIPart;
 export type ToolHeaderProps = {
   title?: string;
   className?: string;
+  icon?: ReactNode;
 } & (
   | { type: ToolUIPart["type"]; state: ToolUIPart["state"]; toolName?: never }
   | {
@@ -46,13 +47,13 @@ export type ToolHeaderProps = {
 );
 
 const statusLabels: Record<ToolPart["state"], string> = {
-  "approval-requested": "Awaiting Approval",
-  "approval-responded": "Responded",
-  "input-available": "Running",
-  "input-streaming": "Pending",
-  "output-available": "Completed",
-  "output-denied": "Denied",
-  "output-error": "Error",
+  "approval-requested": "等待审批",
+  "approval-responded": "已响应",
+  "input-available": "运行中",
+  "input-streaming": "等待中",
+  "output-available": "已完成",
+  "output-denied": "已拒绝",
+  "output-error": "错误",
 };
 
 const statusIcons: Record<ToolPart["state"], ReactNode> = {
@@ -78,6 +79,7 @@ export const ToolHeader = ({
   type,
   state,
   toolName,
+  icon,
   ...props
 }: ToolHeaderProps) => {
   const derivedName =
@@ -92,11 +94,16 @@ export const ToolHeader = ({
       {...props}
     >
       <div className="flex items-center gap-2">
-        <WrenchIcon className="size-4 text-muted-foreground" />
+        {icon ?? <WrenchIcon className="size-4 text-muted-foreground" />}
         <span className="font-medium text-sm">{title ?? derivedName}</span>
         {getStatusBadge(state)}
       </div>
-      <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+      <div className="flex items-center gap-1.5">
+        {title && derivedName && title !== derivedName ? (
+          <span className="text-[10px] text-muted-foreground/60">{derivedName}</span>
+        ) : null}
+        <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+      </div>
     </CollapsibleTrigger>
   );
 };
@@ -117,16 +124,20 @@ export type ToolInputProps = ComponentProps<"div"> & {
   input: ToolPart["input"];
 };
 
-export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
-  <div className={cn("space-y-2 overflow-hidden", className)} {...props}>
-    <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-      Parameters
-    </h4>
-    <div className="rounded-md bg-muted/50">
-      <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
+export const ToolInput = ({ className, input, ...props }: ToolInputProps) => {
+  if (input == null) return null;
+  const code = typeof input === "string" ? input : JSON.stringify(input, null, 2) ?? "";
+  return (
+    <div className={cn("space-y-2 overflow-hidden", className)} {...props}>
+      <h4 className="font-medium text-muted-foreground text-xs tracking-wide">
+        参数
+      </h4>
+      <div className="rounded-md bg-muted/50">
+        <CodeBlock code={code} language="json" />
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export type ToolOutputProps = ComponentProps<"div"> & {
   output: ToolPart["output"];
@@ -147,7 +158,7 @@ export const ToolOutput = ({
 
   if (typeof output === "object" && !isValidElement(output)) {
     Output = (
-      <CodeBlock code={JSON.stringify(output, null, 2)} language="json" />
+      <CodeBlock code={JSON.stringify(output, null, 2) ?? ""} language="json" />
     );
   } else if (typeof output === "string") {
     Output = <CodeBlock code={output} language="json" />;
@@ -155,8 +166,8 @@ export const ToolOutput = ({
 
   return (
     <div className={cn("space-y-2", className)} {...props}>
-      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-        {errorText ? "Error" : "Result"}
+      <h4 className="font-medium text-muted-foreground text-xs tracking-wide">
+        {errorText ? "错误" : "结果"}
       </h4>
       <div
         className={cn(

@@ -799,7 +799,7 @@ export const PromptInput = ({
         ref={formRef}
         {...props}
       >
-        <InputGroup className="overflow-hidden">{children}</InputGroup>
+        <InputGroup className="overflow-hidden border-none shadow-none ring-0 rounded-none items-stretch">{children}</InputGroup>
       </form>
     </>
   );
@@ -973,7 +973,7 @@ export const PromptInputFooter = ({
 }: PromptInputFooterProps) => (
   <InputGroupAddon
     align="block-end"
-    className={cn("justify-between gap-1", className)}
+    className={cn("justify-between gap-1 !pb-1 !pt-0.5", className)}
     {...props}
   />
 );

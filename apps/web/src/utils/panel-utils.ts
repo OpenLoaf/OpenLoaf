@@ -29,6 +29,7 @@ import WorkspaceDesktop from "@/components/workspace/WorkspaceDesktop";
 import FolderTreePreview from "@/components/project/filesystem/FolderTreePreview";
 import { SchedulerTaskHistoryStackPanel } from "@/components/summary/SchedulerTaskHistoryStackPanel";
 import StreamingCodeViewer from "@/components/file/StreamingCodeViewer";
+import DynamicWidgetStackPanel from "@/components/desktop/dynamic-widgets/DynamicWidgetStackPanel";
 
 // 逻辑：文稿编辑器包含完整 Plate.js 插件集，使用 lazy 避免首屏阻塞。
 const LazyPlateDocViewer = React.lazy(() => import("@/components/file/PlateDocViewer"));
@@ -74,6 +75,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "streaming-code-viewer": StreamingCodeViewer,
   "plate-doc-viewer": LazyPlateDocViewer,
   "streaming-plate-viewer": LazyStreamingPlateViewer,
+  "dynamic-widget-viewer": DynamicWidgetStackPanel,
 };
 
 /**
@@ -143,6 +145,8 @@ export const getPanelTitle = (componentName: string) => {
       return "文稿";
     case "streaming-plate-viewer":
       return "编辑文稿";
+    case "dynamic-widget-viewer":
+      return "Widget";
     default:
       // 如果没有匹配的标题，直接返回组件名称
       return componentName;

@@ -8,6 +8,7 @@ import { useChatActions, useChatSession, useChatTools } from "../../context";
 import MessageParts from "../MessageParts";
 import MessageThinking from "../MessageThinking";
 import { Task, TaskContent, TaskTrigger } from "@/components/ai-elements/task";
+import { Agent, AgentHeader } from "@/components/ai-elements/agent";
 import {
   asPlainObject,
   getToolName,
@@ -39,6 +40,16 @@ function getSubAgentName(part: AnyToolPart): string {
     return inputObject.subAgentName.trim();
   }
   return getToolName(part);
+}
+
+/** Resolve model name from sub-agent input. */
+function getSubAgentModel(part: AnyToolPart): string | undefined {
+  const input = normalizeToolInput(part.input);
+  const inputObject = asPlainObject(input);
+  if (typeof inputObject?.model === "string" && inputObject.model.trim()) {
+    return inputObject.model.trim();
+  }
+  return undefined;
 }
 
 /** Build minimal fallback parts when only error text exists. */
@@ -80,6 +91,7 @@ export default function SubAgentTool({
 
   const actionName = getActionName(resolvedPart);
   const subAgentName = getSubAgentName(resolvedPart);
+  const subAgentModel = getSubAgentModel(resolvedPart);
   const errorText = stream?.errorText || resolvedPart.errorText;
   const isStreaming = stream?.streaming === true || isToolStreaming(resolvedPart);
 
@@ -144,42 +156,45 @@ export default function SubAgentTool({
   const shouldShowLoading =
     (historyQuery.isLoading && (!streamParts || streamParts.length === 0)) ||
     (isStreaming && renderParts.length === 0);
-  const resolvedTitle =
-    actionName === subAgentName || !subAgentName
-      ? actionName || "SubAgent"
-      : `${actionName || "SubAgent"} ｜ ${subAgentName}`;
   const contentTextClassName = "text-xs";
 
   return (
-    <div className={cn("ml-2 w-full min-w-0 max-w-full text-xs overflow-x-hidden")}>
-      <Task
-        open={isOpen}
-        onOpenChange={setIsOpen}
-        className="w-full"
-      >
-        <TaskTrigger title={resolvedTitle} className="text-xs">
-          <div className="flex w-full items-center justify-between gap-2">
-            <span className="truncate">{resolvedTitle}</span>
-            {isStreaming ? (
-              <span className="text-[11px] text-muted-foreground/80">运行中</span>
-            ) : null}
-          </div>
-        </TaskTrigger>
-        <TaskContent className="mt-2 space-y-2 border-l-0 p-0 pl-0">
-          {shouldShowLoading ? <MessageThinking /> : null}
-          <div className="show-scrollbar max-h-72 space-y-2 overflow-y-auto overflow-x-hidden rounded-md bg-muted/20 p-2">
-            <MessageParts
-              parts={streamingParts as any[]}
-              options={{
-                toolVariant: "nested",
-                textClassName: contentTextClassName,
-                toolClassName: contentTextClassName,
-                ...(renderMessageId ? { messageId: renderMessageId } : {}),
-              }}
-            />
-          </div>
-        </TaskContent>
-      </Task>
+    <div className={cn("w-full min-w-0 max-w-full text-xs overflow-x-hidden")}>
+      <Agent className="text-xs">
+        <AgentHeader
+          name={subAgentName || "SubAgent"}
+          model={subAgentModel}
+          className="p-2 [&_span]:text-xs [&_svg]:size-3.5"
+        >
+          {actionName && actionName !== subAgentName ? (
+            <span className="truncate text-xs text-muted-foreground">{actionName}</span>
+          ) : null}
+          {isStreaming ? (
+            <span className="text-[11px] text-muted-foreground/80">运行中</span>
+          ) : null}
+        </AgentHeader>
+        <Task
+          open={isOpen}
+          onOpenChange={setIsOpen}
+          className="w-full border-0"
+        >
+          <TaskTrigger title="对话历史" className="px-2 text-xs" />
+          <TaskContent className="mt-2 space-y-2 border-l-0 p-0 pl-0">
+            {shouldShowLoading ? <MessageThinking /> : null}
+            <div className="show-scrollbar max-h-72 space-y-2 overflow-y-auto overflow-x-hidden rounded-md bg-muted/20 p-2">
+              <MessageParts
+                parts={streamingParts as any[]}
+                options={{
+                  toolVariant: "nested",
+                  textClassName: contentTextClassName,
+                  toolClassName: contentTextClassName,
+                  ...(renderMessageId ? { messageId: renderMessageId } : {}),
+                }}
+              />
+            </div>
+          </TaskContent>
+        </Task>
+      </Agent>
     </div>
   );
 }

@@ -2,11 +2,24 @@
 
 import * as React from "react";
 import { useTabs } from "@/hooks/use-tabs";
-import { useChatActions, useChatSession, useChatTools } from "@/components/ai/context";
+import { useChatActions, useChatSession, useChatState, useChatTools } from "@/components/ai/context";
 import { queryClient, trpc } from "@/utils/trpc";
+import { cn } from "@/lib/utils";
+import {
+  BotIcon,
+  FileTextIcon,
+  FolderOpenIcon,
+  GlobeIcon,
+  ImageIcon,
+  ListChecksIcon,
+  SearchIcon,
+  TerminalIcon,
+  WrenchIcon,
+} from "lucide-react";
 import OpenUrlTool from "./OpenUrlTool";
 import SubAgentTool from "./SubAgentTool";
 import MediaGenerateTool from "./MediaGenerateTool";
+import EnvFileTool, { isEnvFilePath } from "./EnvFileTool";
 import ToolApprovalActions from "./shared/ToolApprovalActions";
 import {
   Tool,
@@ -17,8 +30,11 @@ import {
 } from "@/components/ai-elements/tool";
 import {
   Confirmation,
+  ConfirmationAccepted,
   ConfirmationActions,
+  ConfirmationRejected,
   ConfirmationRequest,
+  ConfirmationTitle,
 } from "@/components/ai-elements/confirmation";
 import {
   asPlainObject,
@@ -26,6 +42,7 @@ import {
   getToolName,
   isToolStreaming,
   isApprovalPending,
+  normalizeToolInput,
 } from "./shared/tool-utils";
 import type { AnyToolPart, ToolVariant } from "./shared/tool-utils";
 
@@ -34,6 +51,40 @@ function getToolKind(part: AnyToolPart): string {
   if (typeof part.toolName === "string" && part.toolName.trim()) return part.toolName;
   if (part.type.startsWith("tool-")) return part.type.slice("tool-".length);
   return part.type;
+}
+
+const iconCls = "size-3.5 text-muted-foreground";
+
+/** Resolve icon for tool kind. */
+function getToolIcon(kind: string): React.ReactNode {
+  switch (kind) {
+    case "sub-agent":
+      return <BotIcon className={iconCls} />;
+    case "write-file":
+      return <FileTextIcon className={iconCls} />;
+    case "read-file":
+      return <FileTextIcon className={iconCls} />;
+    case "list-dir":
+      return <FolderOpenIcon className={iconCls} />;
+    case "open-url":
+      return <GlobeIcon className={iconCls} />;
+    case "image-generate":
+    case "video-generate":
+      return <ImageIcon className={iconCls} />;
+    case "update-plan":
+      return <ListChecksIcon className={iconCls} />;
+    case "json-render":
+      return <SearchIcon className={iconCls} />;
+    case "shell-unix":
+    case "shell-win":
+    case "shell-command-unix":
+    case "shell-command-win":
+    case "exec-command-unix":
+    case "exec-command-win":
+      return <TerminalIcon className={iconCls} />;
+    default:
+      return <WrenchIcon className={iconCls} />;
+  }
 }
 
 function stripActionName(value: unknown): unknown {
@@ -58,11 +109,13 @@ export default function UnifiedTool({
   const { tabId: contextTabId, sessionId } = useChatSession();
   const { upsertToolPart } = useChatTools();
   const { updateMessage } = useChatActions();
+  const { status } = useChatState();
   const activeTabId = useTabs((s) => s.activeTabId);
   const tabId = contextTabId ?? activeTabId ?? undefined;
 
   const toolKind = getToolKind(part).toLowerCase();
   const title = getToolName(part);
+  const toolIcon = getToolIcon(toolKind);
 
   const approvalId = getApprovalId(part);
   const isApprovalRequested = isApprovalPending(part);
@@ -72,6 +125,19 @@ export default function UnifiedTool({
   const isStreaming = isToolStreaming(part);
   const actions =
     isApprovalRequested && approvalId ? <ToolApprovalActions approvalId={approvalId} /> : null;
+
+  // 逻辑：流式输出期间工具数据可能不完整，抑制错误显示避免闪烁。
+  const isChatStreaming = status === "streaming" || status === "submitted";
+  const isToolTerminal =
+    part.state === "output-available" ||
+    part.state === "output-error" ||
+    part.state === "output-denied";
+  const displayErrorText =
+    (!isChatStreaming || isToolTerminal) &&
+    typeof part.errorText === "string" &&
+    part.errorText.trim()
+      ? part.errorText
+      : undefined;
 
   const hasOutputPayload =
     part.output != null ||
@@ -139,6 +205,15 @@ export default function UnifiedTool({
     return <OpenUrlTool part={part} className={className} />;
   }
 
+  // 逻辑：read-file 读取 .env 文件时使用专用渲染器
+  if (toolKind === "read-file" && part.output != null) {
+    const inputObj = asPlainObject(normalizeToolInput(part.input))
+    const filePath = typeof inputObj?.path === 'string' ? inputObj.path : ''
+    if (filePath && isEnvFilePath(filePath)) {
+      return <EnvFileTool part={part} className={className} />
+    }
+  }
+
   const inputPayload = part.input ?? part.rawInput;
   const toolType = part.type === "dynamic-tool" ? "dynamic-tool" : part.type;
 
@@ -148,7 +223,7 @@ export default function UnifiedTool({
       onOpenChange={(open) => {
         if (open) void fetchToolOutput();
       }}
-      className={className}
+      className={cn("mb-2 min-w-0 text-xs", className)}
     >
       {toolType === "dynamic-tool" ? (
         <ToolHeader
@@ -156,28 +231,35 @@ export default function UnifiedTool({
           type="dynamic-tool"
           toolName={toolKind}
           state={part.state as any}
+          icon={toolIcon}
+          className="p-2 gap-2 [&_span]:text-xs [&_svg]:size-3.5"
         />
       ) : (
         <ToolHeader
           title={title}
           type={toolType as any}
           state={part.state as any}
+          icon={toolIcon}
+          className="p-2 gap-2 [&_span]:text-xs [&_svg]:size-3.5"
         />
       )}
-      <ToolContent>
+      <ToolContent className="space-y-2 p-2 text-xs">
         <ToolInput input={stripActionName(inputPayload) as any} />
         {isApprovalRequested && approvalId ? (
           <Confirmation approval={part.approval as any} state={part.state as any}>
+            <ConfirmationTitle>工具调用请求审批</ConfirmationTitle>
             <ConfirmationRequest>
-              工具调用请求审批，确认后将继续执行。
+              确认后将继续执行。
+              <ConfirmationActions>{actions}</ConfirmationActions>
             </ConfirmationRequest>
-            <ConfirmationActions>{actions}</ConfirmationActions>
+            <ConfirmationAccepted>已批准执行</ConfirmationAccepted>
+            <ConfirmationRejected>已拒绝执行</ConfirmationRejected>
           </Confirmation>
         ) : null}
         {showOutput ? (
           <ToolOutput
             output={isRejected ? "已拒绝" : part.output}
-            errorText={typeof part.errorText === "string" ? part.errorText : undefined}
+            errorText={displayErrorText}
           />
         ) : null}
         {isOutputLoading && !hasOutputPayload ? (

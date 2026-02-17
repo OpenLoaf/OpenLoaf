@@ -142,7 +142,6 @@ export default function MessageError({ error }: MessageErrorProps) {
       <StackTrace
         trace={parsed.message}
         defaultOpen={false}
-        className="border-destructive/20 bg-destructive/5"
       >
         <StackTraceHeader>
           <StackTraceError>

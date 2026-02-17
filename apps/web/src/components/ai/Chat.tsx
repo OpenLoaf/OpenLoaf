@@ -5,6 +5,8 @@ import ChatCoreProvider from "./ChatCoreProvider";
 import MessageList from "./message/MessageList";
 import ChatInput from "./input/ChatInput";
 import ChatHeader from "./ChatHeader";
+import { useChatActions, useChatSession, useChatState } from "./context";
+import { useChatSessions } from "@/hooks/use-chat-sessions";
 import { generateId } from "ai";
 import * as React from "react";
 import { motion } from "motion/react";
@@ -52,6 +54,51 @@ type ChatProps = {
     options?: { loadHistory?: boolean; replaceCurrent?: boolean }
   ) => void;
 } & Record<string, unknown>;
+
+/** 最近会话列表，紧贴 ChatInput 上方，仅空会话时显示 */
+function RecentSessionsBar() {
+  const { messages } = useChatState()
+  const { selectSession } = useChatActions()
+  const { tabId } = useChatSession()
+  const { recentSessions } = useChatSessions({ tabId })
+
+  const isEmpty = !messages || messages.length === 0
+  if (!isEmpty || recentSessions.length === 0) return null
+
+  return (
+    <div className="mx-3 mb-1">
+      <div className="space-y-0.5">
+        {recentSessions.map((session) => {
+          const date = new Date(session.updatedAt)
+          const isToday = date.toDateString() === new Date().toDateString()
+          const timeLabel = isToday
+            ? date.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+              })
+            : date.toLocaleDateString()
+          return (
+            <button
+              key={session.id}
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted/60"
+              onClick={() => selectSession(session.id)}
+            >
+              <span className="min-w-0 flex-1 truncate text-foreground/80">
+                {session.title}
+              </span>
+              <span className="shrink-0 text-[10px] text-muted-foreground/50">
+                {timeLabel}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 /** Image filename matcher. */
 const IMAGE_FILE_NAME_REGEX = /\.(png|jpe?g|gif|bmp|webp|svg|avif|tiff|heic)$/i;
@@ -742,6 +789,7 @@ export function Chat({
           iconPalette="email"
         />
         <MessageList className="flex-1 min-h-0" />
+        <RecentSessionsBar />
         <ChatInput
           className="mx-2 mb-2"
           attachments={attachments}

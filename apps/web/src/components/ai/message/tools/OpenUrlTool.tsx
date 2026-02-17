@@ -71,7 +71,7 @@ export default function OpenUrlTool({
   }, [isDisabled, tabId, title, url]);
 
   return (
-    <div className={cn("ml-2 flex w-full min-w-0 max-w-full justify-start", className)}>
+    <div className={cn("flex w-full min-w-0 max-w-full justify-start", className)}>
       <div className="w-full min-w-0 max-w-[90%]">
         <Sources className="mb-0 text-xs">
           <SourcesTrigger count={1}>

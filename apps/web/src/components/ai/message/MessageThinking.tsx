@@ -11,7 +11,7 @@ import { Message, MessageContent } from "@/components/ai-elements/message";
 export default function MessageThinking() {
   return (
     <Message from="assistant" className="max-w-[80%]">
-      <MessageContent className="rounded-md border border-border/60 bg-background/80 px-3 py-2">
+      <MessageContent>
         <Reasoning isStreaming defaultOpen>
           <ReasoningTrigger
             getThinkingMessage={() => <Shimmer>深度思考中...</Shimmer>}

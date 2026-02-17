@@ -107,7 +107,7 @@ export default function MessageList({ className }: MessageListProps) {
             <ConversationEmptyState
               title="开始对话"
               description="输入消息开始与 AI 交互"
-              className="size-full"
+              className="flex-1"
             >
               <MessageHelper />
             </ConversationEmptyState>

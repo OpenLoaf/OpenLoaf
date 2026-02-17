@@ -5,6 +5,7 @@ import {
   normalizeToolInput,
 } from "./shared/tool-utils";
 import type { AnyToolPart } from "./shared/tool-utils";
+import { cn } from "@/lib/utils";
 import {
   Plan,
   PlanAction,
@@ -22,7 +23,7 @@ export default function PlanTool({ part, className }: { part: AnyToolPart; class
   const input = normalizedInput as { explanation?: string; plan?: PlanItem[] } | null;
   const plan = Array.isArray(input?.plan) ? input?.plan : [];
   const hasError = typeof part.errorText === "string" && part.errorText.trim().length > 0;
-  const isStreaming = part.state === "input-streaming" || part.state === "input-available";
+  const isStreaming = part.state === "input-streaming" || part.state === "output-streaming";
   const description =
     typeof input?.explanation === "string" && input.explanation.trim()
       ? input.explanation.trim()
@@ -33,20 +34,20 @@ export default function PlanTool({ part, className }: { part: AnyToolPart; class
     <Plan
       defaultOpen
       isStreaming={isStreaming}
-      className={className}
+      className={cn("text-xs", className)}
     >
-      <PlanHeader>
+      <PlanHeader className="p-3 pb-2">
         <div>
           <PlanTitle>执行计划</PlanTitle>
           <PlanDescription>{description}</PlanDescription>
         </div>
         <PlanAction>
-          <PlanTrigger />
+          <PlanTrigger className="size-6" />
         </PlanAction>
       </PlanHeader>
-      <PlanContent>
+      <PlanContent className="px-3 pb-3 pt-0">
         {hasError ? (
-          <div className="text-destructive text-sm">{String(part.errorText ?? "")}</div>
+          <div className="text-destructive text-xs">{String(part.errorText ?? "")}</div>
         ) : (
           <PlanStepList plan={plan} />
         )}

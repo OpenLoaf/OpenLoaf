@@ -174,7 +174,7 @@ function MediaAttachmentList({
   };
 
   return (
-    <div className="ml-2 w-full min-w-0 max-w-[90%]">
+    <div className="w-full min-w-0">
       <Attachments variant={kind === "video" ? "list" : "grid"}>
         {attachments.map((record) => (
           <Attachment
@@ -220,7 +220,7 @@ function MediaGenerateLoading({
   const ratioClass = kind === "video" ? "aspect-video" : "aspect-[4/3]";
 
   return (
-    <div className="ml-2 w-full min-w-0 max-w-[90%]">
+    <div className="w-full min-w-0">
       <div
         className={cn(
           "relative max-w-xs overflow-hidden rounded-lg border border-border/50 bg-muted/40",
@@ -251,7 +251,7 @@ function MediaGenerateError({
   if (errorCode === "login_required") {
     return (
       <>
-        <div className="ml-2 flex w-full max-w-[90%] items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+        <div className="flex w-full items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
           <span className="text-xs text-amber-700 dark:text-amber-300">
             {errorText || `需要登录才能生成${kindLabel}`}
           </span>
@@ -270,7 +270,7 @@ function MediaGenerateError({
 
   if (errorCode === "insufficient_credits") {
     return (
-      <div className="ml-2 w-full max-w-[90%] rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
+      <div className="w-full rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
         <span className="text-xs text-destructive">{errorText || "积分不足"}</span>
       </div>
     );
@@ -278,7 +278,7 @@ function MediaGenerateError({
 
   if (errorCode === "no_model") {
     return (
-      <div className="ml-2 w-full max-w-[90%] rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+      <div className="w-full rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
         <span className="text-xs text-amber-700 dark:text-amber-300">
           {errorText || `未选择${kindLabel}生成模型`}
         </span>

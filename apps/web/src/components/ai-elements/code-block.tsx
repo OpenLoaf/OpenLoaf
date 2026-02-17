@@ -159,7 +159,7 @@ const getHighlighter = (
 const createRawTokens = (code: string): TokenizedCode => ({
   bg: "transparent",
   fg: "inherit",
-  tokens: code.split("\n").map((line) =>
+  tokens: (code ?? "").split("\n").map((line) =>
     line === ""
       ? []
       : [
@@ -419,13 +419,14 @@ export const CodeBlockContent = ({
 };
 
 export const CodeBlock = ({
-  code,
+  code: rawCode,
   language,
   showLineNumbers = false,
   className,
   children,
   ...props
 }: CodeBlockProps) => {
+  const code = rawCode ?? ""
   const contextValue = useMemo(() => ({ code }), [code]);
 
   return (
