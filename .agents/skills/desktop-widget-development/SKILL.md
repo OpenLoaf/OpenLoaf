@@ -79,6 +79,10 @@ description: Desktop 区域与 widget 组件开发指南。用于在 apps/web/sr
 - 组件库是否能展示预览，并能创建带默认参数的 item
 - `.tenas/desktop.tenas` 是否能序列化/反序列化新字段
 - 断点布局是否正确保存到 `layoutByBreakpoint`
+- 动态 widget 的 `isDesktopWidgetSupported` 是否对 `"dynamic"` 返回 true（不走 catalog）
+- Blob URL 加载前是否调用了 `ensureExternalsRegistered()` + `patchBareImports()`
+- 跨 tab 事件的 `detail.tabId` 是否为目标桌面 tab 的 ID（不是来源 tab 的 ID）
+- `DesktopEditToolbar` 事件处理器是否从 store 直接读取 `activeTabId`（避免闭包捕获旧值）
 
 ## 代码规范与注释规则
 
@@ -96,10 +100,10 @@ description: Desktop 区域与 widget 组件开发指南。用于在 apps/web/sr
 Widget（React .tsx）
   ↕ @tenas-ai/widget-sdk（纯桥接，无 UI 依赖）
   ↕ props callback
-DynamicWidgetRenderer（Client）
+DynamicWidgetRenderer（Client）/ WidgetTool（Chat 预览）
   ↕ tRPC dynamicWidget router
 Server
-  - esbuild 编译 widget.tsx
+  - esbuild 编译 widget.tsx（external: react/react-dom/react-jsx-runtime）
   - child_process.spawn 执行 functions.ts
 ```
 
@@ -111,11 +115,40 @@ Server
 | `packages/api/src/routers/absDynamicWidget.ts` | 抽象 tRPC 路由定义 |
 | `apps/server/src/routers/dynamicWidget.ts` | 路由实现（list/get/save/delete/callFunction/compile） |
 | `apps/server/src/modules/dynamic-widget/functionExecutor.ts` | 函数执行器（child_process + .env + 超时） |
-| `apps/server/src/modules/dynamic-widget/widgetCompiler.ts` | esbuild 编译器 |
-| `apps/web/src/components/desktop/dynamic-widgets/DynamicWidgetRenderer.tsx` | 动态组件渲染器 + SDK 实例化 + ErrorBoundary |
-| `apps/web/src/components/desktop/dynamic-widgets/useLoadDynamicComponent.ts` | Blob URL + import() 动态加载 |
+| `apps/server/src/modules/dynamic-widget/widgetCompiler.ts` | esbuild 编译器（external 标记 react 等依赖） |
+| `apps/web/src/components/desktop/dynamic-widgets/DynamicWidgetRenderer.tsx` | 桌面动态组件渲染器 + SDK 实例化 + ErrorBoundary |
+| `apps/web/src/components/desktop/dynamic-widgets/useLoadDynamicComponent.ts` | Blob URL + import() 动态加载（桌面场景） |
+| `apps/web/src/components/desktop/dynamic-widgets/widget-externals.ts` | **共享 Blob URL shim 模块**（解决裸模块标识符问题） |
+| `apps/web/src/components/ai/message/tools/WidgetTool.tsx` | AI 聊天中的 widget 预览 + "添加到桌面"按钮 |
 | `.agents/skills/generate-dynamic-widget/SKILL.md` | AI 生成 widget 的技能规范 |
 
 ### widgetKey = "dynamic"
 
 动态 widget 使用 `widgetKey: "dynamic"` + `dynamicWidgetId` 字段标识。在 `DesktopTileContent.tsx` 中通过 `DynamicWidgetRenderer` 渲染。
+
+**重要**：`desktop-support.ts` 中的 `isDesktopWidgetSupported` 对 `widgetKey === "dynamic"` 直接返回 `true`，不走 `desktopWidgetCatalog` 查找。这是因为动态 widget 不在静态 catalog 中注册。
+
+### Blob URL Shim 机制（widget-externals.ts）
+
+esbuild 编译 widget 时将 `react`、`react-dom`、`react/jsx-runtime` 标记为 external，产物中保留 `from 'react'` 等裸模块标识符。浏览器通过 Blob URL `import()` 加载时无法解析裸标识符，需要 shim 层：
+
+1. `ensureExternalsRegistered()` — 将 React 等模块注册到 `window.__TENAS_WIDGET_EXTERNALS__`
+2. `patchBareImports(code)` — 用正则将裸标识符替换为 Blob URL shim（shim 从 window 全局读取模块并 re-export）
+
+**两个消费方**：
+- `useLoadDynamicComponent.ts`（桌面场景）
+- `WidgetTool.tsx`（AI 聊天预览场景）
+
+两者都必须在 `import()` 之前调用 `ensureExternalsRegistered()` + `patchBareImports()`。
+
+### 从 AI 聊天添加到桌面（跨 Tab 事件桥接）
+
+`WidgetTool.tsx` 的"添加到桌面"按钮流程：
+
+1. 从 `useTabRuntime.getState().runtimeByTabId` 查找 `component === 'workspace-desktop'` 的 tab
+2. 调用 `useTabs.getState().setActiveTab(desktopTabId)` 切换到桌面 tab
+3. 通过 `requestAnimationFrame` 延迟一帧后派发 `DESKTOP_WIDGET_SELECTED_EVENT`
+4. `DesktopEditToolbar.tsx` 监听该事件，从 `useTabs.getState().activeTabId` 直接读取最新 tabId（避免闭包捕获旧值）
+5. 调用 `createWidgetItem` 创建 widget item 并添加到桌面
+
+**注意**：事件 detail 中的 `tabId` 必须是桌面 tab 的 ID（不是聊天 tab 的 ID），否则 `DesktopEditToolbar` 的 tabId 校验会拒绝该事件。

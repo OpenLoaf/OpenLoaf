@@ -789,7 +789,7 @@ export default function ChatCoreProvider({
       ...trpc.chat.getChatView.queryOptions({
         sessionId,
         window: { limit: 50 },
-        includeToolOutput: false,
+        includeToolOutput: true,
       }),
       enabled: shouldLoadHistory && chat.messages.length === 0,
       staleTime: Number.POSITIVE_INFINITY,
@@ -973,7 +973,7 @@ export default function ChatCoreProvider({
           sessionId,
           anchor: { messageId: targetId, strategy: "latestLeafInSubtree" },
           window: { limit: 50 },
-          includeToolOutput: false,
+          includeToolOutput: true,
         })
       );
       // 关键：切分支时，用服务端返回的“当前链快照”覆盖本地 messages（避免前端拼接导致重复渲染）

@@ -97,7 +97,6 @@ const COMPONENT_TO_TAB_ID: Record<string, WorkspaceSwitchTabId> = {
 /** Render bottom quick switcher for workspace entry pages. */
 export default function WorkspaceSwitchDockTabs({ tabId }: { tabId: string }) {
   const setTabBase = useTabRuntime((state) => state.setTabBase);
-  const clearStack = useTabRuntime((state) => state.clearStack);
   const setTabTitle = useTabs((state) => state.setTabTitle);
   const setTabIcon = useTabs((state) => state.setTabIcon);
   const activeTabId = useTabs((state) => state.activeTabId);
@@ -119,8 +118,6 @@ export default function WorkspaceSwitchDockTabs({ tabId }: { tabId: string }) {
     if (!nextTab) return;
     if (!tabId) return;
     if (nextTab.component === currentBaseComponent) return;
-    // 中文注释：切换主页面前先清理 stack，避免上一个页面的浮层残留。
-    clearStack(tabId);
     setTabBase(tabId, {
       id: nextTab.baseId,
       component: nextTab.component,

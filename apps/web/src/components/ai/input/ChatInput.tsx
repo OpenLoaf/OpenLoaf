@@ -859,7 +859,7 @@ export function ChatInputBox({
                 disabled={isSendDisabled}
                 size="sm"
                 className={cn(
-                  "h-7 rounded-full px-2.5 text-xs shrink-0",
+                  "h-8 rounded-full px-3 text-xs shrink-0",
                   canSubmit
                     ? "bg-primary hover:bg-primary/90 text-primary-foreground"
                     : "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
@@ -874,14 +874,14 @@ export function ChatInputBox({
                 disabled={isLoading ? !onStop : isSendDisabled}
                 size="icon-sm"
                 className={cn(
-                  "h-7 w-7 rounded-full shrink-0 transition-all duration-200",
+                  "h-8 w-8 rounded-full shrink-0 transition-colors duration-200",
                   isLoading
                     ? "bg-destructive/10 text-destructive hover:bg-destructive/15 dark:bg-destructive/15"
                     : isOverLimit
-                      ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                      ? "bg-blue-100 text-blue-300 cursor-not-allowed dark:bg-blue-950 dark:text-blue-800"
                       : canSubmit
-                        ? "bg-primary hover:bg-primary/90 text-primary-foreground"
-                        : "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                        ? "bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600"
+                        : "bg-blue-100 text-blue-400 dark:bg-blue-950 dark:text-blue-700"
                 )}
               />
             )}

@@ -91,7 +91,7 @@ export default function SelectMode({
       size="icon-sm"
       variant="ghost"
       className={cn(
-        'h-8 w-8 rounded-full bg-sky-500/10 text-sky-600 transition-colors hover:bg-sky-500/20 hover:text-sky-700 dark:bg-sky-500/15 dark:text-sky-300 dark:hover:bg-sky-500/25 dark:hover:text-sky-200',
+        'h-8 w-8 rounded-full bg-violet-500/10 text-violet-600 transition-colors hover:bg-violet-500/20 hover:text-violet-700 dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25 dark:hover:text-violet-200',
         className,
       )}
       aria-label="自定义设置"
@@ -103,7 +103,7 @@ export default function SelectMode({
       type="button"
       size="sm"
       className={cn(
-        'h-7 w-auto min-w-0 shrink inline-flex items-center gap-1 rounded-md bg-sky-500/10 px-1.5 text-xs font-medium text-sky-600 hover:bg-sky-500/20 transition-colors dark:bg-sky-500/15 dark:text-sky-300 dark:hover:bg-sky-500/25',
+        'h-7 w-auto min-w-0 shrink inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-1.5 text-xs font-medium text-violet-600 hover:bg-violet-500/20 transition-colors dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25',
         className,
       )}
     >

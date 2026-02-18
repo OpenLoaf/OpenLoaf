@@ -1,14 +1,7 @@
 "use client";
 
-import * as React from "react";
-import { Brain, Check, Zap } from "lucide-react";
+import { Brain, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  PromptInputActionMenu,
-  PromptInputActionMenuContent,
-  PromptInputActionMenuItem,
-  PromptInputActionMenuTrigger,
-} from "@/components/ai-elements/prompt-input";
 
 export type ThinkingMode = "fast" | "deep";
 
@@ -19,7 +12,7 @@ interface ThinkingModeSelectorProps {
   className?: string;
 }
 
-/** Select reasoning mode with ai-elements action menu primitives. */
+/** Toggle switch for reasoning mode (deep / fast). */
 export default function ThinkingModeSelector({
   value,
   onChange,
@@ -27,36 +20,59 @@ export default function ThinkingModeSelector({
   className,
 }: ThinkingModeSelectorProps) {
   const isDeep = value === "deep";
+
+  const toggle = () => {
+    if (disabled) return;
+    onChange(isDeep ? "fast" : "deep");
+  };
+
   return (
-    <PromptInputActionMenu>
-      <PromptInputActionMenuTrigger
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        disabled={disabled}
+    <div
+      className={cn(
+        "relative inline-flex h-8 cursor-pointer items-center rounded-full border border-border/60 bg-muted/60 p-0.5",
+        disabled && "pointer-events-none opacity-50",
+        className,
+      )}
+      onClick={toggle}
+      role="switch"
+      aria-checked={isDeep}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggle();
+        }
+      }}
+    >
+      {/* 滑动指示块 */}
+      <span
         className={cn(
-          "h-8 w-8 rounded-full transition-colors",
+          "absolute top-0.5 h-7 w-7 rounded-full transition-all duration-200",
           isDeep
-            ? "bg-violet-500/12 text-violet-700 hover:bg-violet-500/20 dark:text-violet-300"
-            : "bg-emerald-500/12 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300",
-          className,
+            ? "left-0.5 bg-violet-500/15 dark:bg-violet-500/20"
+            : "left-[calc(100%-1.875rem)] bg-emerald-500/15 dark:bg-emerald-500/20",
         )}
-        aria-label={isDeep ? "深度思考模式" : "快速模式"}
+      />
+      <span
+        className={cn(
+          "relative z-10 inline-flex h-7 w-7 items-center justify-center transition-colors",
+          isDeep
+            ? "text-violet-600 dark:text-violet-300"
+            : "text-muted-foreground",
+        )}
       >
-        {isDeep ? <Brain className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
-      </PromptInputActionMenuTrigger>
-      <PromptInputActionMenuContent className="w-44">
-        <PromptInputActionMenuItem onSelect={() => onChange("fast")}>
-          <Zap className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
-          快速模式
-          {value === "fast" ? <Check className="ml-auto h-3.5 w-3.5" /> : null}
-        </PromptInputActionMenuItem>
-        <PromptInputActionMenuItem onSelect={() => onChange("deep")}>
-          <Brain className="h-4 w-4 text-violet-600 dark:text-violet-300" />
-          深度思考
-          {value === "deep" ? <Check className="ml-auto h-3.5 w-3.5" /> : null}
-        </PromptInputActionMenuItem>
-      </PromptInputActionMenuContent>
-    </PromptInputActionMenu>
+        <Brain className="h-3.5 w-3.5" />
+      </span>
+      <span
+        className={cn(
+          "relative z-10 inline-flex h-7 w-7 items-center justify-center transition-colors",
+          !isDeep
+            ? "text-emerald-600 dark:text-emerald-300"
+            : "text-muted-foreground",
+        )}
+      >
+        <Zap className="h-3.5 w-3.5" />
+      </span>
+    </div>
   );
 }

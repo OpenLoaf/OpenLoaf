@@ -9,6 +9,8 @@ export function isDesktopWidgetSupported(
   scope: DesktopScope,
   widgetKey: DesktopWidgetItem["widgetKey"]
 ) {
+  // 逻辑：动态组件不在 catalog 中，但在所有作用域下都支持。
+  if (widgetKey === "dynamic") return true;
   const target = desktopWidgetCatalog.find((item) => item.widgetKey === widgetKey);
   return Boolean(target?.support?.[scope]);
 }

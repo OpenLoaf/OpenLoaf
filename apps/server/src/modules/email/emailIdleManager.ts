@@ -254,6 +254,8 @@ class EmailIdleManager {
 
   private scheduleReconnect(worker: EmailIdleWorker, reason: string) {
     if (worker.stopRequested) return;
+    // 逻辑：防止 error + close 事件重复调度重连，只保留第一次。
+    if (worker.reconnectTimer) return;
     const delay = Math.min(worker.reconnectDelayMs, RECONNECT_MAX_MS);
     worker.reconnectDelayMs = Math.min(delay * 2, RECONNECT_MAX_MS);
     worker.status = "error";
@@ -262,6 +264,7 @@ class EmailIdleManager {
       "email idle reconnect scheduled",
     );
     worker.reconnectTimer = setTimeout(() => {
+      worker.reconnectTimer = undefined;
       if (worker.stopRequested) return;
       this.connectWorker(worker);
     }, delay);
@@ -274,6 +277,16 @@ class EmailIdleManager {
       return;
     }
     try {
+      // 逻辑：销毁旧连接，防止残留 parser 数据导致崩溃。
+      if (worker.imap) {
+        try {
+          worker.imap.removeAllListeners();
+          worker.imap.destroy();
+        } catch {
+          // ignore
+        }
+        worker.imap = undefined;
+      }
       worker.status = "connecting";
       const { account, password, normalizedEmail } = resolveEmailAccountCredential(
         worker.workspaceId,

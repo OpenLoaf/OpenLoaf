@@ -189,6 +189,45 @@ MY_API_KEY=your_api_key_here
    - 如需 API Key，提示编辑 `.env` 文件
    - Widget 已创建，可在桌面组件库的"AI 生成"区域找到并添加
 
+## 编译与加载机制
+
+### esbuild 编译
+
+服务端 `widgetCompiler.ts` 使用 esbuild 编译 `widget.tsx`，将 `react`、`react-dom`、`react/jsx-runtime`、`@tenas-ai/widget-sdk` 标记为 external。产物是 ESM 格式，保留裸模块标识符（如 `from 'react'`）。
+
+### Blob URL Shim（widget-externals.ts）
+
+浏览器通过 Blob URL `import()` 加载编译产物时，无法解析裸模块标识符。共享模块 `widget-externals.ts` 提供 shim 层：
+
+- `ensureExternalsRegistered()` — 将 React 等模块注册到 `window.__TENAS_WIDGET_EXTERNALS__`
+- `patchBareImports(code)` — 用正则将 `from 'react'` 等替换为 Blob URL shim
+
+**两个加载入口都使用此 shim**：
+- `useLoadDynamicComponent.ts`（桌面 `DynamicWidgetRenderer` 场景）
+- `WidgetTool.tsx`（AI 聊天预览场景）
+
+### widget.tsx 编写注意事项（与 shim 相关）
+
+- 只能 import `react`、`react/jsx-runtime`、`react-dom`、`@tenas-ai/widget-sdk` 这四个外部模块
+- 不要 import `@tenas-ai/ui` 组件（不在 shim 列表中，会导致加载失败）
+- 不要 import `react-dom/client` 等子路径（只有 `react-dom` 被 shim）
+- 如需新增外部依赖，必须同时更新 `widget-externals.ts` 的 shim 列表
+
+## AI 聊天中的 Widget 预览（WidgetTool.tsx）
+
+当 AI 通过 `generate-widget` 工具生成 widget 时，聊天界面通过 `WidgetTool.tsx` 渲染预览：
+
+- 工具执行完成后（`part.state === 'output-available'`），自动编译并渲染 widget
+- 提供"打开文件夹"按钮（在 stack 中打开 folder-tree-preview）
+- 提供"添加到桌面"按钮（跨 tab 事件桥接到 DesktopEditToolbar）
+
+### "添加到桌面"流程
+
+1. 从 `useTabRuntime.getState().runtimeByTabId` 查找 `component === 'workspace-desktop'` 的 tab
+2. 切换到桌面 tab（`useTabs.getState().setActiveTab`）
+3. 延迟一帧后派发 `DESKTOP_WIDGET_SELECTED_EVENT`（detail 中 tabId 为桌面 tab ID）
+4. `DesktopEditToolbar` 接收事件并创建 widget item
+
 ## SDK API 参考
 
 Widget 组件通过 `sdk` prop 与主应用交互：
@@ -203,12 +242,13 @@ Widget 组件通过 `sdk` prop 与主应用交互：
 | `sdk.chat(message)` | 触发 AI 聊天 |
 | `sdk.openTab(type, params?)` | 打开 tab |
 
-## 安全约束
+## 安全与限制约束
 
 - API Key 只存在 `.env` 中，函数在 Server 端执行，Key 不会发送到前端
 - 脚本执行有 10 秒超时限制
 - 不要在 widget.tsx 中发起网络请求，所有数据获取通过 `sdk.call()` 走 Server 端
 - 不要在 functions.ts 中访问 widget 目录之外的文件系统
+- widget.tsx 只能 import 被 shim 的外部模块（react、react-dom、react/jsx-runtime、@tenas-ai/widget-sdk），import 其他包会导致运行时 `Failed to resolve module specifier` 错误
 
 ## 示例：天气 Widget
 

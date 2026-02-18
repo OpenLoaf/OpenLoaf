@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { trpcClient } from '@/utils/trpc'
 import type { DynamicWidgetComponent } from './types'
+import { ensureExternalsRegistered, patchBareImports } from './widget-externals'
 
 /** Cache compiled widget modules to avoid re-compilation. */
 const moduleCache = new Map<string, DynamicWidgetComponent>()
@@ -34,8 +35,12 @@ async function loadWidgetModule(
       throw new Error(result.error || 'Compilation failed')
     }
 
-    // Create a Blob URL from the compiled ESM code.
-    const blob = new Blob([result.code], { type: 'text/javascript' })
+    // 逻辑：注册外部依赖并重写裸模块标识符，使 Blob URL import 能正确解析。
+    ensureExternalsRegistered()
+    const patchedCode = patchBareImports(result.code)
+
+    // Create a Blob URL from the patched ESM code.
+    const blob = new Blob([patchedCode], { type: 'text/javascript' })
     const url = URL.createObjectURL(blob)
 
     try {

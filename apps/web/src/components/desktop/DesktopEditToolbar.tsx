@@ -209,7 +209,9 @@ export default function DesktopEditToolbar({
       if (!(event instanceof CustomEvent)) return;
       const detail = event.detail as DesktopWidgetSelectedDetail | undefined;
       if (!detail) return;
-      if (activeTabId && detail.tabId !== activeTabId) return;
+      // 逻辑：从 store 直接读取最新 activeTabId，避免闭包捕获旧值导致跨 tab 事件被拒绝。
+      const currentActiveTabId = useTabs.getState().activeTabId;
+      if (currentActiveTabId && detail.tabId !== currentActiveTabId) return;
 
       const nextItem = createWidgetItem(detail.widgetKey, items, activeBreakpoint, {
         title: detail.title,
@@ -231,7 +233,7 @@ export default function DesktopEditToolbar({
     return () => {
       window.removeEventListener(DESKTOP_WIDGET_SELECTED_EVENT, handleWidgetSelected as EventListener);
     };
-  }, [activeBreakpoint, activeTabId, items, onAddItem]);
+  }, [activeBreakpoint, items, onAddItem]);
 
   if (!controlsTarget) return null;
 

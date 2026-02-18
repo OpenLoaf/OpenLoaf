@@ -1,11 +1,14 @@
 'use client'
 
 import * as React from 'react'
-import * as ReactJSXRuntime from 'react/jsx-runtime'
 import { cn } from '@/lib/utils'
+import { FolderOpen, LayoutGrid } from 'lucide-react'
 import { trpcClient } from '@/utils/trpc'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
+import { useTabs } from '@/hooks/use-tabs'
+import { useWorkspace } from '@/components/workspace/workspaceContext'
 import { DESKTOP_WIDGET_SELECTED_EVENT, type DesktopWidgetSelectedDetail } from '@/components/desktop/DesktopWidgetLibraryPanel'
+import { ensureExternalsRegistered, patchBareImports } from '@/components/desktop/dynamic-widgets/widget-externals'
 import { useChatSession } from '../../context'
 import {
   asPlainObject,
@@ -55,87 +58,6 @@ class WidgetErrorBoundary extends React.Component<
     if (this.state.error) return null
     return this.props.children
   }
-}
-
-/** 逻辑：注册外部依赖到全局，供 Blob URL shim 模块访问 */
-const EXTERNALS_KEY = '__TENAS_WIDGET_EXTERNALS__'
-
-function ensureExternalsRegistered() {
-  if (typeof window === 'undefined') return
-  if ((window as any)[EXTERNALS_KEY]) return
-  ;(window as any)[EXTERNALS_KEY] = {
-    'react': React,
-    'react/jsx-runtime': ReactJSXRuntime,
-    'react-dom': React, // 逻辑：widget 一般不直接用 react-dom，给个 fallback
-  }
-}
-
-/** 逻辑：为外部依赖创建 Blob URL shim，浏览器可以 import 这些 URL */
-const shimUrlCache = new Map<string, string>()
-
-function getShimUrl(moduleName: string): string {
-  const cached = shimUrlCache.get(moduleName)
-  if (cached) return cached
-
-  // 逻辑：用命名导出的方式，直接列出已知导出
-  const shimCode = moduleName === 'react/jsx-runtime'
-    ? `const m = window['${EXTERNALS_KEY}']['${moduleName}'];
-export const jsx = m.jsx;
-export const jsxs = m.jsxs;
-export const jsxDEV = m.jsxDEV || m.jsx;
-export const Fragment = m.Fragment;
-export default m;`
-    : moduleName === 'react'
-      ? `const m = window['${EXTERNALS_KEY}']['${moduleName}'];
-export default m;
-export const useState = m.useState;
-export const useEffect = m.useEffect;
-export const useCallback = m.useCallback;
-export const useMemo = m.useMemo;
-export const useRef = m.useRef;
-export const useContext = m.useContext;
-export const useReducer = m.useReducer;
-export const useId = m.useId;
-export const createContext = m.createContext;
-export const createElement = m.createElement;
-export const Fragment = m.Fragment;
-export const forwardRef = m.forwardRef;
-export const memo = m.memo;
-export const lazy = m.lazy;
-export const Suspense = m.Suspense;
-export const Children = m.Children;
-export const cloneElement = m.cloneElement;
-export const isValidElement = m.isValidElement;
-export const startTransition = m.startTransition;
-export const useTransition = m.useTransition;
-export const useDeferredValue = m.useDeferredValue;
-export const useSyncExternalStore = m.useSyncExternalStore;
-export const useInsertionEffect = m.useInsertionEffect;
-export const useLayoutEffect = m.useLayoutEffect;
-export const useImperativeHandle = m.useImperativeHandle;
-export const useDebugValue = m.useDebugValue;`
-      : `const m = window['${EXTERNALS_KEY}']['${moduleName}'];
-export default m;`
-
-  const url = URL.createObjectURL(new Blob([shimCode], { type: 'text/javascript' }))
-  shimUrlCache.set(moduleName, url)
-  return url
-}
-
-/** 逻辑：替换编译产物中的裸模块标识符为 Blob URL */
-function patchBareImports(code: string): string {
-  const externals = ['react/jsx-runtime', 'react-dom', 'react', '@tenas-ai/widget-sdk']
-  let patched = code
-  for (const ext of externals) {
-    const shimUrl = getShimUrl(ext)
-    // 逻辑：匹配 from 'react' 和 from "react" 两种形式
-    const escaped = ext.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&')
-    patched = patched.replace(
-      new RegExp(`from\\s+['"]${escaped}['"]`, 'g'),
-      `from '${shimUrl}'`,
-    )
-  }
-  return patched
 }
 
 /** 逻辑：编译并加载 widget 组件（带 import 重写） */
@@ -281,6 +203,7 @@ export default function WidgetTool({
   className?: string
 }) {
   const { tabId, workspaceId, projectId } = useChatSession()
+  const { workspace } = useWorkspace()
   const pushStackItem = useTabRuntime((s) => s.pushStackItem)
   const input = normalizeToolInput(part.input)
   const inputObj = asPlainObject(input)
@@ -313,34 +236,61 @@ export default function WidgetTool({
         ? 'success' as const
         : 'idle' as const
 
-  // 逻辑：打开组件 — 在 stack 中打开 widget 渲染面板
+  // 逻辑：打开组件文件夹 — 在 stack 中打开 folder-tree-preview
   const handleOpenWidget = () => {
     if (!tabId || !workspaceId) return
+    const baseRootUri = projectId
+      ? workspace?.projects?.[projectId]
+      : workspace?.rootUri
+    if (!baseRootUri) return
+    const widgetFolderUri = `${baseRootUri.replace(/\/$/, '')}/.tenas/dynamic-widgets/${widgetId}`
+    const mainFileUri = `${widgetFolderUri}/widget.tsx`
     pushStackItem(tabId, {
-      id: `dynamic-widget:${widgetId}`,
-      component: 'dynamic-widget-viewer',
-      title: widgetId,
-      params: { widgetId, workspaceId, projectId },
+      id: `widget:${widgetId}`,
+      sourceKey: `widget:${widgetId}`,
+      component: 'folder-tree-preview',
+      title: `Widget · ${widgetId}`,
+      params: {
+        rootUri: widgetFolderUri,
+        currentUri: mainFileUri,
+        currentEntryKind: 'file',
+        projectId,
+        projectTitle: widgetId,
+        viewerRootUri: baseRootUri,
+      },
     })
   }
 
-  // 逻辑：添加到 desktop — 通过事件桥接到桌面页面
+  // 逻辑：添加到 desktop — 找到桌面 tab，切换过去，再通过事件桥接添加 widget
   const handleAddToDesktop = () => {
-    if (!tabId) return
-    window.dispatchEvent(
-      new CustomEvent<DesktopWidgetSelectedDetail>(
-        DESKTOP_WIDGET_SELECTED_EVENT,
-        {
-          detail: {
-            tabId,
-            widgetKey: 'dynamic',
-            title: widgetId,
-            dynamicWidgetId: widgetId,
-            dynamicProjectId: projectId,
+    const runtimeByTabId = useTabRuntime.getState().runtimeByTabId
+    let desktopTabId: string | null = null
+    for (const [tid, runtime] of Object.entries(runtimeByTabId)) {
+      if (runtime?.base?.component === 'workspace-desktop') {
+        desktopTabId = tid
+        break
+      }
+    }
+    if (!desktopTabId) return
+
+    useTabs.getState().setActiveTab(desktopTabId)
+    const targetTabId = desktopTabId
+    requestAnimationFrame(() => {
+      window.dispatchEvent(
+        new CustomEvent<DesktopWidgetSelectedDetail>(
+          DESKTOP_WIDGET_SELECTED_EVENT,
+          {
+            detail: {
+              tabId: targetTabId,
+              widgetKey: 'dynamic',
+              title: widgetId,
+              dynamicWidgetId: widgetId,
+              dynamicProjectId: projectId,
+            },
           },
-        },
-      ),
-    )
+        ),
+      )
+    })
   }
 
   if (!widgetTsx && !isStreaming) return null
@@ -393,16 +343,18 @@ export default function WidgetTool({
           <div className="flex items-center justify-end gap-2 border-t px-3 py-2">
             <button
               type="button"
-              className="rounded px-2.5 py-1 text-xs text-sky-700 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950"
+              className="inline-flex items-center gap-1.5 rounded-md bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-500/20 dark:text-sky-400"
               onClick={handleOpenWidget}
             >
-              打开组件
+              <FolderOpen className="size-3.5" />
+              打开文件夹
             </button>
             <button
               type="button"
-              className="rounded px-2.5 py-1 text-xs text-violet-700 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950"
+              className="inline-flex items-center gap-1.5 rounded-md bg-violet-500/10 px-2.5 py-1 text-xs font-medium text-violet-700 hover:bg-violet-500/20 dark:text-violet-400"
               onClick={handleAddToDesktop}
             >
+              <LayoutGrid className="size-3.5" />
               添加到桌面
             </button>
           </div>

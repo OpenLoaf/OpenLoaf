@@ -12,7 +12,7 @@ import {
 } from "react";
 import { AnimatePresence, motion, type Transition } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
-import { ClipboardList, Code2, File, FileText, Layers, Send, Sparkles } from "lucide-react";
+import { ClipboardList, Code2, File, FileText, FolderOpen, Layers, Send, Sparkles } from "lucide-react";
 import { useOnClickOutside } from "usehooks-ts";
 
 import {
@@ -191,6 +191,12 @@ function getStackItemFallbackIcon(item: DockItem): StackFallbackIcon {
     return {
       type: "lucide",
       icon: File,
+    };
+  }
+  if (item.component === "folder-tree-preview") {
+    return {
+      type: "lucide",
+      icon: FolderOpen,
     };
   }
   return {
@@ -1170,13 +1176,14 @@ export function ExpandableDockTabs({
                       : null;
                     const fallbackIcon = getStackItemFallbackIcon(item);
                     const title = getStackItemTitle(item);
-                    const colorClass = "bg-transparent";
-                    const textClass = "text-muted-foreground";
+                    const isActiveStack = !stackHidden && item.id === activeStackItemId;
+                    const colorClass = isActiveStack ? "bg-sky-500/15 dark:bg-sky-400/20" : "bg-transparent";
+                    const textClass = isActiveStack ? "text-sky-700 dark:text-sky-200" : "text-muted-foreground";
                     const tooltipKey = item.id;
                     const button = (
                       <motion.button
                         type="button"
-                        className={cn("flex items-center justify-center", colorClass)}
+                        className={cn("flex items-center justify-center rounded-full transition-colors duration-200", colorClass)}
                         style={{
                           height: sizeToken.height,
                           width: sizeToken.height,
