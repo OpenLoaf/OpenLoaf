@@ -12,20 +12,23 @@ import {
 import { projectMutateToolDef, projectQueryToolDef } from "@tenas-ai/api/types/tools/db";
 import { jsonRenderToolDef } from "@tenas-ai/api/types/tools/jsonRender";
 import {
-  execCommandToolDefUnix,
-  execCommandToolDefWin,
+  execCommandToolDef,
+  grepFilesToolDef,
   listDirToolDef,
   readFileToolDef,
-  writeFileToolDef,
-  shellCommandToolDefUnix,
-  shellCommandToolDefWin,
-  shellToolDefUnix,
-  shellToolDefWin,
+  applyPatchToolDef,
+  shellCommandToolDef,
+  shellToolDef,
   updatePlanToolDef,
-  writeStdinToolDefUnix,
-  writeStdinToolDefWin,
+  writeStdinToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
-import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
+import {
+  spawnAgentToolDef,
+  sendInputToolDef,
+  waitAgentToolDef,
+  closeAgentToolDef,
+  resumeAgentToolDef,
+} from "@tenas-ai/api/types/tools/agent";
 import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 
 type ToolNameTarget = {
@@ -51,25 +54,26 @@ const TOOL_DEFS: ToolNameSource[] = [
   browserObserveToolDef,
   browserSnapshotToolDef,
   browserWaitToolDef,
-  execCommandToolDefUnix,
-  execCommandToolDefWin,
+  execCommandToolDef,
+  grepFilesToolDef,
   jsonRenderToolDef,
   listDirToolDef,
   openUrlToolDef,
   projectQueryToolDef,
   projectMutateToolDef,
   readFileToolDef,
-  writeFileToolDef,
-  shellCommandToolDefUnix,
-  shellCommandToolDefWin,
-  shellToolDefUnix,
-  shellToolDefWin,
-  subAgentToolDef,
+  applyPatchToolDef,
+  shellCommandToolDef,
+  shellToolDef,
+  spawnAgentToolDef,
+  sendInputToolDef,
+  waitAgentToolDef,
+  closeAgentToolDef,
+  resumeAgentToolDef,
   testApprovalToolDef,
   timeNowToolDef,
   updatePlanToolDef,
-  writeStdinToolDefUnix,
-  writeStdinToolDefWin,
+  writeStdinToolDef,
 ];
 
 /** Tool id to display name map. */

@@ -2,6 +2,7 @@
 
 import type { PlanItem } from "@tenas-ai/api/types/tools/runtime";
 import {
+  isToolStreaming,
   normalizeToolInput,
 } from "./shared/tool-utils";
 import type { AnyToolPart } from "./shared/tool-utils";
@@ -23,7 +24,7 @@ export default function PlanTool({ part, className }: { part: AnyToolPart; class
   const input = normalizedInput as { explanation?: string; plan?: PlanItem[] } | null;
   const plan = Array.isArray(input?.plan) ? input?.plan : [];
   const hasError = typeof part.errorText === "string" && part.errorText.trim().length > 0;
-  const isStreaming = part.state === "input-streaming" || part.state === "output-streaming";
+  const isStreaming = isToolStreaming(part);
   const description =
     typeof input?.explanation === "string" && input.explanation.trim()
       ? input.explanation.trim()

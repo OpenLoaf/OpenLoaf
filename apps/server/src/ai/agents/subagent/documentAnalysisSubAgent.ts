@@ -3,10 +3,8 @@ import type { LanguageModelV3 } from "@ai-sdk/provider";
 import {
   listDirToolDef,
   readFileToolDef,
-  shellCommandToolDefUnix,
-  shellCommandToolDefWin,
-  shellToolDefUnix,
-  shellToolDefWin,
+  shellCommandToolDef,
+  shellToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
 import { documentAnalysisSubAgentName } from "@tenas-ai/api/types/tools/subAgent";
 import { buildToolset } from "@/ai/tools/toolRegistry";
@@ -21,10 +19,8 @@ const DOCUMENT_ANALYSIS_SUB_AGENT_ID = "document-analysis-sub-agent";
 const DOCUMENT_ANALYSIS_SUB_AGENT_TOOL_IDS = [
   readFileToolDef.id,
   listDirToolDef.id,
-  shellToolDefUnix.id,
-  shellToolDefWin.id,
-  shellCommandToolDefUnix.id,
-  shellCommandToolDefWin.id,
+  shellToolDef.id,
+  shellCommandToolDef.id,
 ] as const;
 /** Default document analysis sub-agent system prompt. */
 const DEFAULT_DOCUMENT_ANALYSIS_SUB_AGENT_SYSTEM_PROMPT = DOCUMENT_ANALYSIS_SUB_AGENT_PROMPT_RAW.trim();

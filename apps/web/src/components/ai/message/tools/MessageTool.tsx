@@ -10,6 +10,8 @@ import WriteFileTool from "./WriteFileTool";
 import ShellTool from "./ShellTool";
 import ExecCommandTool from "./ExecCommandTool";
 import WidgetTool from "./WidgetTool";
+import WidgetInitTool from "./WidgetInitTool";
+import WidgetCheckTool from "./WidgetCheckTool";
 import { useChatState, useChatTools } from "../../context";
 import { getApprovalId, isApprovalPending, type AnyToolPart, type ToolVariant } from "./shared/tool-utils";
 import ToolApprovalActions from "./shared/ToolApprovalActions";
@@ -22,17 +24,13 @@ function getToolKind(part: AnyToolPart): string {
 }
 
 const SHELL_TOOL_KINDS = new Set([
-  "shell-win",
-  "shell-unix",
-  "shell-command-win",
-  "shell-command-unix",
+  "shell",
+  "shell-command",
 ]);
 
 const EXEC_TOOL_KINDS = new Set([
-  "exec-command-win",
-  "exec-command-unix",
-  "write-stdin-win",
-  "write-stdin-unix",
+  "exec-command",
+  "write-stdin",
 ]);
 
 /**
@@ -94,7 +92,7 @@ export default function MessageTool({
     return <JsonRenderTool part={resolvedPart} className={className} messageId={messageId} />;
   }
 
-  if (toolKind === "write-file") {
+  if (toolKind === "apply-patch") {
     return <WriteFileTool part={resolvedPart} className={className} />;
   }
 
@@ -115,6 +113,15 @@ export default function MessageTool({
   if (toolKind === "generate-widget") {
     // WidgetTool 内部已集成审批 UI，无需外层包裹。
     return <WidgetTool part={resolvedPart} className={className} />;
+  }
+
+  if (toolKind === "widget-init") {
+    // WidgetInitTool 内部已集成审批 UI，无需外层包裹。
+    return <WidgetInitTool part={resolvedPart} className={className} />;
+  }
+
+  if (toolKind === "widget-check") {
+    return <WidgetCheckTool part={resolvedPart} className={className} />;
   }
 
   if (toolKind === "project-mutate") {

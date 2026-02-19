@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import * as ReactJSXRuntime from 'react/jsx-runtime'
+import * as WidgetSDK from '@tenas-ai/widget-sdk'
 
 /**
  * 逻辑：esbuild 编译 widget 时将 react/react-dom/react-jsx-runtime 标记为 external，
@@ -19,6 +20,7 @@ export function ensureExternalsRegistered() {
     'react': React,
     'react/jsx-runtime': ReactJSXRuntime,
     'react-dom': React,
+    '@tenas-ai/widget-sdk': WidgetSDK,
   }
 }
 
@@ -65,7 +67,13 @@ export const useInsertionEffect = m.useInsertionEffect;
 export const useLayoutEffect = m.useLayoutEffect;
 export const useImperativeHandle = m.useImperativeHandle;
 export const useDebugValue = m.useDebugValue;`
-      : `const m = window['${EXTERNALS_KEY}']['${moduleName}'];
+      : moduleName === '@tenas-ai/widget-sdk'
+        ? `const m = window['${EXTERNALS_KEY}']['${moduleName}'];
+export default m;
+export const createWidgetSDK = m.createWidgetSDK;
+export const useWidgetData = m.useWidgetData;
+export const useWidgetTheme = m.useWidgetTheme;`
+        : `const m = window['${EXTERNALS_KEY}']['${moduleName}'];
 export default m;`
 
   const url = URL.createObjectURL(

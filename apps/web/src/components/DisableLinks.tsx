@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 export function DisableLinks() {
   useEffect(() => {
@@ -20,6 +21,14 @@ export function DisableLinks() {
       // Allow internal hash links
       if (rawHref.startsWith("#")) return;
 
+      // 逻辑：非 Electron 环境直接打开新标签页，不走内置浏览器面板。
+      if (!isElectronEnv()) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.open(href, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
       // Block navigation and open in stack
       e.preventDefault();
       e.stopPropagation();
@@ -29,7 +38,6 @@ export function DisableLinks() {
 
       if (activeTabId) {
         // Use the text content as title, or fallback to href
-        // Clean up title if it's too long? Maybe just take it as is.
         let title = anchor.textContent?.trim() || href;
         if (title.length > 50) title = title.substring(0, 47) + "...";
 

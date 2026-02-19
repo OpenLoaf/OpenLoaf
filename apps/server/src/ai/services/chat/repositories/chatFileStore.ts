@@ -235,8 +235,10 @@ async function readJsonlRaw(sessionId: string): Promise<StoredMessage[]> {
 
 async function appendJsonlLine(sessionId: string, message: StoredMessage): Promise<void> {
   await ensureSessionDir(sessionId)
+  const filePath = await messagesPath(sessionId)
   const line = `${JSON.stringify(message)}\n`
-  await fs.appendFile(await messagesPath(sessionId), line, 'utf8')
+  await fs.appendFile(filePath, line, 'utf8')
+  logger.info({ sessionId, filePath, messageId: message.id }, '[chat-file-store] message appended')
 }
 
 async function rewriteJsonl(sessionId: string, messages: StoredMessage[]): Promise<void> {
@@ -245,12 +247,29 @@ async function rewriteJsonl(sessionId: string, messages: StoredMessage[]): Promi
   await fs.writeFile(await messagesPath(sessionId), content, 'utf8')
 }
 
+/** 原地替换 JSONL 中的消息（按 id 匹配），若不存在则追加。 */
+async function replaceMessageInJsonl(sessionId: string, message: StoredMessage): Promise<void> {
+  const messages = await readJsonlRaw(sessionId)
+  let replaced = false
+  const updated = messages.map((m) => {
+    if (m.id === message.id) {
+      replaced = true
+      return message
+    }
+    return m
+  })
+  if (!replaced) {
+    updated.push(message)
+  }
+  await rewriteJsonl(sessionId, updated)
+}
+
 // ---------------------------------------------------------------------------
 // Message tree building (last-write-wins dedup)
 // ---------------------------------------------------------------------------
 
 function buildTreeFromMessages(messages: StoredMessage[]): MessageTreeIndex {
-  // 逻辑：同一 id 可出现多次（流式更新），取最后一次出现的版本。
+  // 逻辑：防御性去重 — 正常情况下每个 id 只出现一次，但保留兜底以防异常。
   const byId = new Map<string, StoredMessage>()
   for (const msg of messages) {
     byId.set(msg.id, msg)
@@ -328,13 +347,13 @@ export async function appendMessage(input: {
   })
 }
 
-/** Update an existing message by appending a new line (last-write-wins). */
+/** Update an existing message in-place (replace by id, or append if new). */
 export async function updateMessage(input: {
   sessionId: string
   message: StoredMessage
 }): Promise<void> {
   await withSessionLock(input.sessionId, async () => {
-    await appendJsonlLine(input.sessionId, input.message)
+    await replaceMessageInJsonl(input.sessionId, input.message)
     invalidateCache(input.sessionId)
   })
 }
@@ -683,7 +702,7 @@ export async function deleteMessageSubtree(input: {
 }
 
 // ---------------------------------------------------------------------------
-// Update message parts (append new line, last-write-wins)
+// Update message parts (in-place replace)
 // ---------------------------------------------------------------------------
 
 export async function updateMessageParts(input: {
@@ -700,7 +719,7 @@ export async function updateMessageParts(input: {
       ...existing,
       parts: input.parts,
     }
-    await appendJsonlLine(input.sessionId, updated)
+    await replaceMessageInJsonl(input.sessionId, updated)
     invalidateCache(input.sessionId)
     return true
   })
@@ -724,7 +743,7 @@ export async function updateMessageMetadata(input: {
       ...existing,
       metadata: merged,
     }
-    await appendJsonlLine(input.sessionId, updated)
+    await replaceMessageInJsonl(input.sessionId, updated)
     invalidateCache(input.sessionId)
     return merged
   })
@@ -833,6 +852,35 @@ export async function deleteSessionFiles(sessionId: string): Promise<void> {
   invalidateCache(sessionId)
   sessionDirCache.delete(sessionId)
 }
+
+// ---------------------------------------------------------------------------
+// Agent history JSONL helpers
+// ---------------------------------------------------------------------------
+
+/** 确保 agents 子目录存在。 */
+export async function ensureAgentDir(sessionId: string): Promise<string> {
+  const dir = await resolveSessionDir(sessionId)
+  const agentDir = path.join(dir, 'agents')
+  await fs.mkdir(agentDir, { recursive: true })
+  return agentDir
+}
+
+/** 追加一行到 agent 专属 JSONL。 */
+export async function appendAgentJsonlLine(
+  sessionId: string,
+  agentId: string,
+  data: Record<string, unknown>,
+): Promise<string> {
+  const agentDir = await ensureAgentDir(sessionId)
+  const filePath = path.join(agentDir, `${agentId}.jsonl`)
+  const line = `${JSON.stringify(data)}\n`
+  await fs.appendFile(filePath, line, 'utf8')
+  return filePath
+}
+
+// ---------------------------------------------------------------------------
+// Cleanup helpers
+// ---------------------------------------------------------------------------
 
 /** Delete all chat history files for all sessions. */
 export async function deleteAllChatFiles(): Promise<void> {

@@ -6,7 +6,7 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { getTabViewById } from "@/hooks/use-tab-view";
 import { extractPatchFileInfo } from "@/lib/chat/patch-utils";
 
-// 逻辑：按文件路径分组 write-file stack，同文件复用同一个 stack panel。
+// 逻辑：按文件路径分组 apply-patch stack，同文件复用同一个 stack panel。
 const writeFileStackByPath = new Map<string, string>(); // filePath → stackId
 const toolCallIdToStackId = new Map<string, string>(); // toolCallId → stackId
 const processedWriteFileTools = new Set<string>(); // 已处理的 toolCallId
@@ -36,9 +36,9 @@ export function syncToolPartsFromMessages({
       const current = useChatRuntime.getState().toolPartsByTabId[tabId]?.[toolKey];
       upsertToolPart(tabId, toolKey, { ...current, ...part } as any);
 
-      // 逻辑：检测 write-file 工具流式状态，自动在 stack 中打开 StreamingCodeViewer。
-      // 同文件的多次 write-file 合并到同一个 stack panel（通过 toolCallIds 数组）。
-      const isWriteFile = type === "tool-write-file";
+      // 逻辑：检测 apply-patch 工具流式状态，自动在 stack 中打开 StreamingCodeViewer。
+      // 同文件的多次 apply-patch 合并到同一个 stack panel（通过 toolCallIds 数组）。
+      const isWriteFile = type === "tool-apply-patch";
       const state = typeof part?.state === "string" ? part.state : "";
       if (
         isWriteFile &&
@@ -137,7 +137,7 @@ export function syncToolPartsFromMessages({
           }
         }
       }
-      // 逻辑：write-file 完成时，检查该 stack 的所有 toolCallIds 是否全部完成。
+      // 逻辑：apply-patch 完成时，检查该 stack 的所有 toolCallIds 是否全部完成。
       if (
         isWriteFile &&
         processedWriteFileTools.has(toolKey) &&

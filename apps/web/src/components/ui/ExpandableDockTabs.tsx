@@ -424,7 +424,7 @@ export function ExpandableDockTabs({
   useEffect(() => {
     if (!isExpanded) return;
     const frame = requestAnimationFrame(() => {
-      inputRef.current?.focus();
+      inputRef.current?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
   }, [isExpanded]);

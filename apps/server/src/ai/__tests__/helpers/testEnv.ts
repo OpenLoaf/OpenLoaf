@@ -6,14 +6,11 @@ const ENV_KEY = 'TENAS_TEST_CHAT_MODEL_ID'
 
 /**
  * 读取 TENAS_TEST_CHAT_MODEL_ID 环境变量（格式：profileId:modelId）。
- * 未设置时直接抛错，避免静默跳过。
+ * 未设置时返回 undefined，走 resolveChatModel 自动 fallback。
  */
-export function getTestChatModelId(): string {
+export function getTestChatModelId(): string | undefined {
   const raw = process.env[ENV_KEY]
-  if (!raw) {
-    throw new Error(`环境变量 ${ENV_KEY} 未设置。格式：profileId:modelId`)
-  }
-  return raw
+  return raw?.trim() || undefined
 }
 
 /**

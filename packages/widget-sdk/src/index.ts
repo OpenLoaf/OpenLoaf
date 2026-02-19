@@ -1,3 +1,11 @@
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
+
 /** Theme information from the host application. */
 export interface WidgetTheme {
   /** Current theme mode. */
@@ -50,4 +58,77 @@ export function createWidgetSDK(host: WidgetHostCallbacks): WidgetSDK {
     chat: host.chat,
     openTab: host.openTab,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Runtime hooks
+// ---------------------------------------------------------------------------
+
+interface UseWidgetDataOptions {
+  /** 自动轮询间隔（ms），0 或 undefined 表示不轮询 */
+  refreshInterval?: number
+  /** 传给 sdk.call 的额外参数 */
+  params?: Record<string, unknown>
+}
+
+interface UseWidgetDataResult<T> {
+  data: T | undefined
+  loading: boolean
+  error: string | undefined
+  refetch: () => void
+}
+
+/** 封装 sdk.call + loading/error/refetch + 自动轮询 */
+export function useWidgetData<T = unknown>(
+  sdk: WidgetSDK,
+  functionName: string,
+  options?: UseWidgetDataOptions,
+): UseWidgetDataResult<T> {
+  const [data, setData] = useState<T | undefined>(undefined)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | undefined>(undefined)
+  const mountedRef = useRef(true)
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(undefined)
+      const result = await sdk.call<T>(functionName, options?.params)
+      if (mountedRef.current) setData(result)
+    } catch (err) {
+      if (mountedRef.current) {
+        setError(err instanceof Error ? err.message : String(err))
+      }
+    } finally {
+      if (mountedRef.current) setLoading(false)
+    }
+  }, [sdk, functionName, options?.params])
+
+  useEffect(() => {
+    mountedRef.current = true
+    fetchData()
+    const interval = options?.refreshInterval
+    if (interval && interval > 0) {
+      const timer = setInterval(fetchData, interval)
+      return () => {
+        mountedRef.current = false
+        clearInterval(timer)
+      }
+    }
+    return () => {
+      mountedRef.current = false
+    }
+  }, [fetchData, options?.refreshInterval])
+
+  return { data, loading, error, refetch: fetchData }
+}
+
+/** 基于 useSyncExternalStore 订阅主题变化 */
+export function useWidgetTheme(sdk: WidgetSDK): WidgetTheme {
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => sdk.onThemeChange(onStoreChange),
+    [sdk],
+  )
+  const getSnapshot = useCallback(() => sdk.getTheme(), [sdk])
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }

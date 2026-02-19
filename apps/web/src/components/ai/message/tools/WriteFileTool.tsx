@@ -1,50 +1,29 @@
 'use client'
 
-import { AlertCircle, Check, Copy, ExternalLink, FileCode2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
-  extractPatchDiffLines,
   extractPatchDiffStats,
+  extractPatchDiffLines,
   extractPatchFileInfo,
 } from '@/lib/chat/patch-utils'
 import { useChatSession, useChatTools } from '../../context'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
 import { useChatRuntime } from '@/hooks/use-chat-runtime'
 import {
-  Commit,
-  CommitActions,
-  CommitContent,
-  CommitFile,
-  CommitFileAdditions,
-  CommitFileChanges,
-  CommitFileDeletions,
-  CommitFileIcon,
-  CommitFileInfo,
-  CommitFilePath,
-  CommitFiles,
-  CommitHeader,
-  CommitInfo,
-  CommitMessage,
-  CommitMetadata,
-} from '@/components/ai-elements/commit'
-import {
-  CodeBlock,
-  CodeBlockActions,
-  CodeBlockCopyButton,
-  CodeBlockHeader,
-  CodeBlockTitle,
-} from '@/components/ai-elements/code-block'
-import { PromptInputButton } from '@/components/ai-elements/prompt-input'
-import type { AnyToolPart } from './shared/tool-utils'
+  asPlainObject,
+  getApprovalId,
+  getToolName,
+  isApprovalPending,
+  isToolStreaming,
+  normalizeToolInput,
+  type AnyToolPart,
+} from './shared/tool-utils'
+import ToolApprovalActions from './shared/ToolApprovalActions'
 
 type PatchFileSummary = {
-  /** Project-relative file path. */
   path: string
-  /** File change type mapped to commit status. */
   status: 'added' | 'modified' | 'deleted'
-  /** Added line count in this file. */
   added: number
-  /** Removed line count in this file. */
   removed: number
 }
 
@@ -91,20 +70,39 @@ function parsePatchFiles(patch: string): PatchFileSummary[] {
   return files
 }
 
-/** Map tool state to short Chinese status text. */
-function resolveStateLabel(input: {
-  state: string
-  isError: boolean
-  isStreaming: boolean
-  isInputReady: boolean
-  isDone: boolean
-}): string {
-  if (input.isError) return '失败'
-  if (input.isStreaming) return '执行中'
-  if (input.isInputReady) return '已生成补丁'
-  if (input.isDone) return '已完成'
-  if (input.state) return input.state
-  return '处理中'
+/** macOS 风格窗口标题栏圆点 */
+function TrafficLights({ state }: { state?: 'idle' | 'running' | 'success' | 'error' }) {
+  const colors = {
+    idle: { r: 'bg-red-400', y: 'bg-yellow-400', g: 'bg-green-400' },
+    running: { r: 'bg-red-400', y: 'bg-yellow-400', g: 'bg-green-400 animate-pulse' },
+    success: { r: 'bg-red-400', y: 'bg-yellow-400', g: 'bg-green-500' },
+    error: { r: 'bg-red-500', y: 'bg-yellow-400', g: 'bg-neutral-400' },
+  }
+  const c = colors[state ?? 'idle']
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={cn('size-2.5 rounded-full', c.r)} />
+      <span className={cn('size-2.5 rounded-full', c.y)} />
+      <span className={cn('size-2.5 rounded-full', c.g)} />
+    </div>
+  )
+}
+
+function DiffBar({ added, removed }: { added: number; removed: number }) {
+  const total = added + removed
+  if (total === 0) return null
+  const greenCount = Math.round((added / total) * 5)
+  const redCount = 5 - greenCount
+  return (
+    <span className="inline-flex gap-px">
+      {Array.from({ length: greenCount }, (_, i) => (
+        <span key={`g${i}`} className="inline-block size-1.5 rounded-[1px] bg-green-600" />
+      ))}
+      {Array.from({ length: redCount }, (_, i) => (
+        <span key={`r${i}`} className="inline-block size-1.5 rounded-[1px] bg-red-500" />
+      ))}
+    </span>
+  )
 }
 
 export default function WriteFileTool({
@@ -124,8 +122,9 @@ export default function WriteFileTool({
     ? { ...part, ...(snapshot as Partial<AnyToolPart>) }
     : part
 
-  const input = resolved.input as Record<string, unknown> | undefined
-  const patch = typeof input?.patch === 'string' ? input.patch : ''
+  const input = normalizeToolInput(resolved.input)
+  const inputObj = asPlainObject(input)
+  const patch = typeof inputObj?.patch === 'string' ? inputObj.patch : ''
   const { fileName, fileCount, firstPath } = patch
     ? extractPatchFileInfo(patch)
     : { fileName: '写入文件', fileCount: 1, firstPath: '' }
@@ -136,27 +135,36 @@ export default function WriteFileTool({
       ? resolved.errorText
       : ''
 
-  const isStreaming = state === 'input-streaming' || state === 'output-streaming'
+  const isStreaming = isToolStreaming(resolved)
   const isDone = state === 'output-available'
-  const isInputReady = state === 'input-available'
   const isError = state === 'output-error'
-
   const diffStats = patch ? extractPatchDiffStats(patch) : null
   const diffLines = patch ? extractPatchDiffLines(patch, 10) : []
-  const showStats = isDone && !isError && diffStats
-  const statusLabel = resolveStateLabel({
-    state,
-    isError,
-    isStreaming,
-    isInputReady,
-    isDone,
-  })
+  const totalDiffLines = diffStats ? diffStats.added + diffStats.removed : 0
+
+  const title = getToolName(part)
+  const toolKind = typeof part.toolName === 'string' && part.toolName.trim()
+    ? part.toolName
+    : part.type?.startsWith('tool-')
+      ? part.type.slice('tool-'.length)
+      : part.type ?? ''
+  const showToolKind = Boolean(toolKind) && title !== toolKind
+  const approvalId = getApprovalId(part)
+  const isPending = isApprovalPending(part)
+
+  const windowState = isError
+    ? 'error' as const
+    : isStreaming
+      ? 'running' as const
+      : isDone
+        ? 'success' as const
+        : 'idle' as const
+
   const openDisabled = !tabId || !toolCallId
 
   const handleClick = () => {
     if (!tabId || !toolCallId) return
 
-    // 逻辑：查找已有包含此 toolCallId 的 stack item。
     const runtime = useTabRuntime.getState().runtimeByTabId[tabId]
     const existingItem = runtime?.stack?.find((s: any) => {
       const ids = (s.params?.toolCallIds as string[]) ?? []
@@ -164,12 +172,10 @@ export default function WriteFileTool({
     })
 
     if (existingItem) {
-      // 逻辑：已有 stack → 激活它（pushStackItem 会 upsert 并激活）。
       pushStackItem(tabId, existingItem)
       return
     }
 
-    // 逻辑：无已有 stack → 收集同文件的所有 toolCallIds 并新建。
     const toolCallIds = [toolCallId]
     if (firstPath) {
       const allParts = useChatRuntime.getState().toolPartsByTabId[tabId] ?? {}
@@ -216,107 +222,105 @@ export default function WriteFileTool({
     : []
   const files = patchFiles.length > 0 ? patchFiles : fallbackFile
 
-  const previewText = diffLines
-    .map((line) => {
-      const numberPrefix = line.lineNo == null ? '' : `${String(line.lineNo).padStart(4, ' ')} `
-      return `${line.type}${numberPrefix}${line.text}`
-    })
-    .join('\n')
-
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <Commit defaultOpen={isStreaming || isInputReady}>
-        <CommitHeader>
-          <CommitInfo>
-            <CommitMessage className="flex items-center gap-2">
-              {isError ? (
-                <AlertCircle className="size-4 text-destructive" />
-              ) : isDone ? (
-                <Check className="size-4 text-green-500" />
-              ) : (
-                <FileCode2 className="size-4 text-muted-foreground" />
-              )}
-              <span className="truncate">
-                {fileName}
-                {fileCount > 1 ? ` +${fileCount - 1}` : ''}
-              </span>
-            </CommitMessage>
-            <CommitMetadata>
-              <span>{statusLabel}</span>
-              {showStats ? <span>•</span> : null}
-              {showStats && diffStats.type === 'delete' ? <span>已删除</span> : null}
-              {showStats && diffStats.type !== 'delete' ? (
-                <span>
-                  +{diffStats.added} / -{diffStats.removed}
-                </span>
-              ) : null}
-            </CommitMetadata>
-          </CommitInfo>
-          <CommitActions>
-            {patch ? (
-              <PromptInputButton
-                size="sm"
-                variant="ghost"
-                type="button"
-                onClick={() => {
-                  void navigator.clipboard.writeText(patch)
-                }}
-              >
-                <Copy className="size-3.5" />
-              </PromptInputButton>
-            ) : null}
-            <PromptInputButton
-              size="sm"
-              variant="ghost"
-              type="button"
-              onClick={handleClick}
-              disabled={openDisabled}
-            >
-              查看
-              <ExternalLink className="ml-1 size-3.5" />
-            </PromptInputButton>
-          </CommitActions>
-        </CommitHeader>
-        <CommitContent>
-          {isError ? (
-            <div className="text-sm text-destructive">{errorText || '写入失败'}</div>
-          ) : (
-            <div className="space-y-3">
-              {files.length > 0 ? (
-                <CommitFiles>
-                  {files.map((file) => (
-                    <CommitFile key={`${file.status}:${file.path}`}>
-                      <CommitFileInfo>
-                        <CommitFileIcon />
-                        <CommitFilePath>{file.path}</CommitFilePath>
-                      </CommitFileInfo>
-                      <CommitFileChanges>
-                        <CommitFileAdditions count={file.added} />
-                        <CommitFileDeletions count={file.removed} />
-                      </CommitFileChanges>
-                    </CommitFile>
-                  ))}
-                </CommitFiles>
-              ) : null}
+      <div className="overflow-hidden rounded-lg border bg-card text-card-foreground">
+        {/* macOS 风格标题栏 */}
+        <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
+          <TrafficLights state={windowState} />
+          <span className="flex-1 truncate text-[10px] text-muted-foreground/60">
+            {showToolKind ? toolKind : title}
+          </span>
+          {showToolKind ? (
+            <span className="shrink-0 text-xs font-medium text-muted-foreground">{title}</span>
+          ) : null}
+        </div>
 
-              {previewText ? (
-                <CodeBlock
-                  code={previewText}
-                  language={'diff' as any}
-                  className="w-full"
-                >
-                  <CodeBlockHeader>
-                    <CodeBlockTitle>补丁预览</CodeBlockTitle>
-                    <CodeBlockActions>
-                      <CodeBlockCopyButton />
-                    </CodeBlockActions>
-                  </CodeBlockHeader>
-                </CodeBlock>
-              ) : null}
+        {/* 内容区域：文件列表 + diff 预览 */}
+        <div className="px-2.5 py-2 font-mono text-xs">
+          {/* 文件列表 */}
+          {files.map((file) => (
+            <div
+              key={`${file.status}:${file.path}`}
+              className={cn(
+                'flex items-center gap-2 rounded px-1 py-1 -mx-1',
+                !openDisabled && 'cursor-pointer hover:bg-muted/60',
+              )}
+              onClick={openDisabled ? undefined : handleClick}
+            >
+              <span className={
+                file.status === 'added'
+                  ? 'text-emerald-500'
+                  : file.status === 'deleted'
+                    ? 'text-red-500'
+                    : 'text-amber-500'
+              }>
+                {file.status === 'added' ? '+' : file.status === 'deleted' ? '-' : '~'}
+              </span>
+              <span className="flex-1 break-all text-amber-700 dark:text-amber-400">
+                {file.path}
+              </span>
+              <span className="shrink-0 text-[10px] text-muted-foreground">
+                +{file.added} / -{file.removed}
+              </span>
+              <DiffBar added={file.added} removed={file.removed} />
             </div>
-          )}
-        </CommitContent>
-      </Commit>
+          ))}
+
+          {/* diff 预览 */}
+          {isDone && !isError && diffLines.length > 0 ? (
+            <div className="mt-1.5 overflow-hidden rounded border border-border/40">
+              <pre className="overflow-x-auto p-0 leading-5">
+                {diffLines.map((line, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      'px-1.5',
+                      line.type === '+' && 'bg-green-500/10 text-green-700 dark:text-green-400',
+                      line.type === '-' && 'bg-red-500/10 text-red-700 dark:text-red-400',
+                    )}
+                  >
+                    <span className="inline-block w-7 select-none pr-1 text-right tabular-nums text-[10px] text-muted-foreground/50">
+                      {line.lineNo ?? ''}
+                    </span>
+                    <span className="select-none opacity-60">{line.type === ' ' ? ' ' : line.type}</span>
+                    {line.text}
+                  </div>
+                ))}
+                {totalDiffLines > diffLines.length && (
+                  <div className="px-1.5 text-muted-foreground">
+                    <span className="inline-block w-7" />
+                    ⋯ {totalDiffLines - diffLines.length} more lines
+                  </div>
+                )}
+              </pre>
+            </div>
+          ) : null}
+
+          {/* 错误信息 */}
+          {isError ? (
+            <div className="mt-1 text-destructive">
+              {errorText || '写入失败'}
+            </div>
+          ) : null}
+
+          {/* 流式占位 */}
+          {isStreaming ? (
+            <div className="mt-1 flex items-center gap-2 text-muted-foreground">
+              <div className="size-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+              写入中...
+            </div>
+          ) : null}
+        </div>
+
+        {/* 审批区域（仅 pending 时显示） */}
+        {isPending && approvalId ? (
+          <div className="flex items-center justify-between border-t px-3 py-2.5">
+            <span className="text-xs text-muted-foreground">确认写入此文件？</span>
+            <ToolApprovalActions approvalId={approvalId} size="default" />
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }

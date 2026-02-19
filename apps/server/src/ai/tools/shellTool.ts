@@ -1,12 +1,10 @@
 import { spawn } from "node:child_process";
 import { tool, zodSchema } from "ai";
-import { shellToolDefUnix, shellToolDefWin } from "@tenas-ai/api/types/tools/runtime";
+import { shellToolDef } from "@tenas-ai/api/types/tools/runtime";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { resolveToolWorkdir } from "@/ai/tools/toolScope";
 import { buildExecEnv, formatStructuredOutput } from "@/ai/tools/execUtils";
 import { needsApprovalForCommand } from "@/ai/tools/commandApproval";
-
-const shellToolDef = process.platform === "win32" ? shellToolDefWin : shellToolDefUnix;
 
 /** Execute a one-shot shell command with scope enforcement. */
 export const shellTool = tool({

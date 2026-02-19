@@ -2,21 +2,15 @@ import { z } from "zod";
 
 // 中文注释：运行时工具的审批策略由 server 侧 tool 实现决定，API 定义只描述参数与展示信息。
 
-export const shellToolDefWin = {
-  id: "shell-win",
-  name: "Shell 命令（Windows/数组）",
-  description: `触发：当你需要执行系统命令并希望得到可解析的结构化输出时调用（Windows/数组形式）。用途：执行 Powershell 命令并返回 JSON 字符串输出。返回：{"output": string, "metadata": {"exit_code": number, "duration_seconds": number}}（output 可能被截断）。不适用：只要可读文本输出用 shell-command；需要持续交互用 exec-command/write-stdin。
+export const shellToolDef = {
+  id: "shell",
+  name: "Shell 命令（数组）",
+  description: `触发：当你需要执行系统命令并希望得到可解析的结构化输出时调用（数组形式）。用途：执行 shell 命令并返回 JSON 字符串输出。返回：{"output": string, "metadata": {"exit_code": number, "duration_seconds": number}}（output 可能被截断）。不适用：只要可读文本输出用 shell-command；需要持续交互用 exec-command/write-stdin。
 
-Runs a Powershell command (Windows) and returns its output. Arguments to \`shell\` will be passed to CreateProcessW(). Most commands should be prefixed with ["powershell.exe", "-Command"].
-
-Examples of valid command strings:
-
-- ls -a (show hidden): ["powershell.exe", "-Command", "Get-ChildItem -Force"]
-- recursive find by name: ["powershell.exe", "-Command", "Get-ChildItem -Recurse -Filter *.py"]
-- recursive grep: ["powershell.exe", "-Command", "Get-ChildItem -Path C:\\\\myrepo -Recurse | Select-String -Pattern 'TODO' -CaseSensitive"]
-- ps aux | grep python: ["powershell.exe", "-Command", "Get-Process | Where-Object { $_.ProcessName -like '*python*' }"]
-- setting an env var: ["powershell.exe", "-Command", "$env:FOO='bar'; echo $env:FOO"]
-- running an inline Python script: ["powershell.exe", "-Command", "@'\\nprint('Hello, world!')\\n'@ | python -"]`,
+Runs a shell command and returns its output.
+- Unix: arguments are passed to execvp(). Most terminal commands should be prefixed with ["bash", "-lc"].
+- Windows: arguments are passed to CreateProcessW(). Most commands should be prefixed with ["powershell.exe", "-Command"].
+- Always set the \`workdir\` param when using the shell function. Do not use \`cd\` unless absolutely necessary.`,
   parameters: z.object({
     actionName: z
       .string()
@@ -31,43 +25,15 @@ Examples of valid command strings:
   component: null,
 } as const;
 
-export const shellToolDefUnix = {
-  id: "shell-unix",
-  name: "Shell 命令（Unix/数组）",
-  description: `触发：当你需要执行系统命令并希望得到可解析的结构化输出时调用（Unix/数组形式）。用途：执行 shell 命令并返回 JSON 字符串输出。返回：{"output": string, "metadata": {"exit_code": number, "duration_seconds": number}}（output 可能被截断）。不适用：只要可读文本输出用 shell-command；需要持续交互用 exec-command/write-stdin。
+export const shellCommandToolDef = {
+  id: "shell-command",
+  name: "Shell 命令（字符串）",
+  description: `触发：当你需要执行一条字符串命令并得到可读文本输出时调用。用途：执行 shell 命令并返回包含退出码与耗时的文本输出。返回：文本块（含 Exit code、Wall time、Output；输出可能截断）。不适用：需要结构化 JSON 输出用 shell；需要持续交互用 exec-command/write-stdin。
 
 Runs a shell command and returns its output.
-- The arguments to \`shell\` will be passed to execvp(). Most terminal commands should be prefixed with ["bash", "-lc"].
-- Always set the \`workdir\` param when using the shell function. Do not use \`cd\` unless absolutely necessary.`,
-  parameters: z.object({
-    actionName: z
-      .string()
-      .min(1)
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：查看当前目录内容。"),
-    command: z.array(z.string()).min(1),
-    workdir: z.string().optional(),
-    timeoutMs: z.number().int().positive().optional(),
-    sandboxPermissions: z.enum(["use_default", "require_escalated"]).optional(),
-    justification: z.string().optional(),
-  }),
-  component: null,
-} as const;
-
-export const shellCommandToolDefWin = {
-  id: "shell-command-win",
-  name: "Shell 命令（Windows/字符串）",
-  description: `触发：当你需要执行一条字符串命令并得到可读文本输出时调用（Windows）。用途：执行 Powershell 命令并返回包含退出码与耗时的文本输出。返回：文本块（含 Exit code、Wall time、Output；输出可能截断）。不适用：需要结构化 JSON 输出用 shell；需要持续交互用 exec-command/write-stdin。
-
-Runs a Powershell command (Windows) and returns its output.
-
-Examples of valid command strings:
-
-- ls -a (show hidden): "Get-ChildItem -Force"
-- recursive find by name: "Get-ChildItem -Recurse -Filter *.py"
-- recursive grep: "Get-ChildItem -Path C:\\\\myrepo -Recurse | Select-String -Pattern 'TODO' -CaseSensitive"
-- ps aux | grep python: "Get-Process | Where-Object { $_.ProcessName -like '*python*' }"
-- setting an env var: "$env:FOO='bar'; echo $env:FOO"
-- running an inline Python script: "@'\\nprint('Hello, world!')\\n'@ | python -"`,
+- Unix: runs via the user's default shell.
+- Windows: runs via Powershell.
+- Always set the \`workdir\` param when using the shell_command function. Do not use \`cd\` unless absolutely necessary.`,
   parameters: z.object({
     actionName: z
       .string()
@@ -83,33 +49,11 @@ Examples of valid command strings:
   component: null,
 } as const;
 
-export const shellCommandToolDefUnix = {
-  id: "shell-command-unix",
-  name: "Shell 命令（Unix/字符串）",
-  description: `触发：当你需要执行一条字符串命令并得到可读文本输出时调用（Unix）。用途：执行 shell 命令并返回包含退出码与耗时的文本输出。返回：文本块（含 Exit code、Wall time、Output；输出可能截断）。不适用：需要结构化 JSON 输出用 shell；需要持续交互用 exec-command/write-stdin。
-
-Runs a shell command and returns its output.
-- Always set the \`workdir\` param when using the shell_command function. Do not use \`cd\` unless absolutely necessary.`,
-  parameters: z.object({
-    actionName: z
-      .string()
-      .min(1)
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：执行命令获取信息。"),
-    command: z.string().min(1),
-    workdir: z.string().optional(),
-    login: z.boolean().optional(),
-    timeoutMs: z.number().int().positive().optional(),
-    sandboxPermissions: z.enum(["use_default", "require_escalated"]).optional(),
-    justification: z.string().optional(),
-  }),
-  component: null,
-} as const;
-
-export const execCommandToolDefWin = {
-  id: "exec-command-win",
-  name: "交互命令（Windows）",
+export const execCommandToolDef = {
+  id: "exec-command",
+  name: "交互命令",
   description:
-    "触发：当你需要启动可持续交互的命令会话（PTY），并可能后续继续写入 stdin 时调用（Windows）。用途：启动命令并返回首段输出与会话信息。返回：文本块（含 Chunk ID、Wall time、Exit code、Output；若仍在运行会包含 sessionId）。不适用：一次性命令优先使用 shell/shell-command。",
+    "触发：当你需要启动可持续交互的命令会话（PTY），并可能后续继续写入 stdin 时调用。用途：启动命令并返回首段输出与会话信息。返回：文本块（含 Chunk ID、Wall time、Exit code、Output；若仍在运行会包含 sessionId）。不适用：一次性命令优先使用 shell/shell-command。",
   parameters: z.object({
     actionName: z
       .string()
@@ -128,52 +72,11 @@ export const execCommandToolDefWin = {
   component: null,
 } as const;
 
-export const execCommandToolDefUnix = {
-  id: "exec-command-unix",
-  name: "交互命令（Unix）",
+export const writeStdinToolDef = {
+  id: "write-stdin",
+  name: "写入会话",
   description:
-    "触发：当你需要启动可持续交互的命令会话（PTY），并可能后续继续写入 stdin 时调用（Unix）。用途：启动命令并返回首段输出与会话信息。返回：文本块（含 Chunk ID、Wall time、Exit code、Output；若仍在运行会包含 sessionId）。不适用：一次性命令优先使用 shell/shell-command。",
-  parameters: z.object({
-    actionName: z
-      .string()
-      .min(1)
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：获取当前系统时间。"),
-    cmd: z.string().min(1),
-    workdir: z.string().optional(),
-    shell: z.string().optional(),
-    login: z.boolean().optional(),
-    tty: z.boolean().optional(),
-    yieldTimeMs: z.number().int().positive().optional(),
-    maxOutputTokens: z.number().int().positive().optional(),
-    sandboxPermissions: z.enum(["use_default", "require_escalated"]).optional(),
-    justification: z.string().optional(),
-  }),
-  component: null,
-} as const;
-
-export const writeStdinToolDefWin = {
-  id: "write-stdin-win",
-  name: "写入会话（Windows）",
-  description:
-    "触发：当你需要向已有交互会话写入输入并读取最新输出时调用（Windows）。用途：向 session 写入字符并读取输出。返回：文本块（含 Chunk ID、Wall time、Exit code、Output；若仍在运行会包含 sessionId）。不适用：没有 sessionId 时不要调用。",
-  parameters: z.object({
-    actionName: z
-      .string()
-      .min(1)
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：向交互会话发送输入。"),
-    sessionId: z.string().min(1),
-    chars: z.string().optional(),
-    yieldTimeMs: z.number().int().positive().optional(),
-    maxOutputTokens: z.number().int().positive().optional(),
-  }),
-  component: null,
-} as const;
-
-export const writeStdinToolDefUnix = {
-  id: "write-stdin-unix",
-  name: "写入会话（Unix）",
-  description:
-    "触发：当你需要向已有交互会话写入输入并读取最新输出时调用（Unix）。用途：向 session 写入字符并读取输出。返回：文本块（含 Chunk ID、Wall time、Exit code、Output；若仍在运行会包含 sessionId）。不适用：没有 sessionId 时不要调用。",
+    "触发：当你需要向已有交互会话写入输入并读取最新输出时调用。用途：向 session 写入字符并读取输出。返回：文本块（含 Chunk ID、Wall time、Exit code、Output；若仍在运行会包含 sessionId）。不适用：没有 sessionId 时不要调用。",
   parameters: z.object({
     actionName: z
       .string()
@@ -210,9 +113,9 @@ export const readFileToolDef = {
   component: null,
 } as const;
 
-export const writeFileToolDef = {
-  id: "write-file",
-  name: "写入文件",
+export const applyPatchToolDef = {
+  id: "apply-patch",
+  name: "编辑文件",
   description: `触发：当你需要创建、修改或删除文件时调用。
 用途：通过 diff 补丁格式操作文件。
 
@@ -282,6 +185,30 @@ export const listDirToolDef = {
     limit: z.number().int().min(1).optional(),
     depth: z.number().int().min(1).optional(),
     ignoreGitignore: z.boolean().optional().default(true),
+  }),
+  component: null,
+} as const;
+
+export const grepFilesToolDef = {
+  id: "grep-files",
+  name: "搜索文件内容",
+  description:
+    "触发：当你需要在项目中搜索包含特定模式的文件时调用。用途：使用正则表达式搜索文件内容，返回匹配的文件路径列表（按修改时间排序）。返回：每行一个文件路径；无匹配返回 \"No matches found.\"。不适用：搜索文件名请用 list-dir；读取文件内容请用 read-file。",
+  parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：搜索包含 TODO 的文件。"),
+    pattern: z.string().min(1).describe("正则表达式搜索模式。"),
+    include: z.string().optional().describe("Glob 过滤，如 \"*.ts\" 或 \"*.{ts,tsx}\"。"),
+    path: z.string().optional().describe("搜索路径，默认当前项目根目录。"),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(2000)
+      .optional()
+      .describe("最大返回文件数，默认 100。"),
   }),
   component: null,
 } as const;

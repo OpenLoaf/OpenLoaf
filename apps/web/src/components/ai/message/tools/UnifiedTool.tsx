@@ -17,7 +17,6 @@ import {
   WrenchIcon,
 } from "lucide-react";
 import OpenUrlTool from "./OpenUrlTool";
-import SubAgentTool from "./SubAgentTool";
 import MediaGenerateTool from "./MediaGenerateTool";
 import EnvFileTool, { isEnvFilePath } from "./EnvFileTool";
 import ToolApprovalActions from "./shared/ToolApprovalActions";
@@ -58,9 +57,13 @@ const iconCls = "size-3.5 text-muted-foreground";
 /** Resolve icon for tool kind. */
 function getToolIcon(kind: string): React.ReactNode {
   switch (kind) {
-    case "sub-agent":
+    case "spawn-agent":
+    case "send-input":
+    case "wait-agent":
+    case "close-agent":
+    case "resume-agent":
       return <BotIcon className={iconCls} />;
-    case "write-file":
+    case "apply-patch":
       return <FileTextIcon className={iconCls} />;
     case "read-file":
       return <FileTextIcon className={iconCls} />;
@@ -75,12 +78,10 @@ function getToolIcon(kind: string): React.ReactNode {
       return <ListChecksIcon className={iconCls} />;
     case "json-render":
       return <SearchIcon className={iconCls} />;
-    case "shell-unix":
-    case "shell-win":
-    case "shell-command-unix":
-    case "shell-command-win":
-    case "exec-command-unix":
-    case "exec-command-win":
+    case "shell":
+    case "shell-command":
+    case "exec-command":
+    case "write-stdin":
       return <TerminalIcon className={iconCls} />;
     default:
       return <WrenchIcon className={iconCls} />;
@@ -192,10 +193,6 @@ export default function UnifiedTool({
     tabId,
     upsertToolPart,
   ]);
-
-  if (toolKind === "sub-agent") {
-    return <SubAgentTool part={part} messageId={messageId} />;
-  }
 
   if (toolKind === "image-generate" || toolKind === "video-generate") {
     return <MediaGenerateTool part={part} messageId={messageId} />;

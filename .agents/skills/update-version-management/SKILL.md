@@ -3,8 +3,9 @@ name: update-version-management
 description: >
   Use when the user wants to release a new version, bump versions, publish
   updates, or create changelogs for server/web/electron apps.
-  Also use when modifying update-related code: publish scripts, manifest
-  structure, incremental update logic, crash rollback, or update UI components.
+  Also use when publishing npm packages (widget-sdk), modifying update-related
+  code: publish scripts, manifest structure, incremental update logic, crash
+  rollback, or update UI components.
 ---
 
 # Update & Version Management
@@ -17,6 +18,7 @@ Tenas 的版本发布采用“先发布、后加一”的流程：提交变更 �
 
 - 用户要求发布新版本、升级版本号、写 changelog
 - 用户要求运行 publish-update 或 dist:production
+- 用户要求发布 widget-sdk 到 npm
 - 修改发布脚本（publish-update.mjs）、共享工具（publishUtils.mjs）
 - 修改更新检查/下载/校验/安装逻辑、manifest 结构
 - 修改渠道管理（stable/beta）、崩溃回滚
@@ -190,6 +192,7 @@ git push && git push origin --tags
 | Server 增量发布 | `cd apps/server && pnpm run publish-update` |
 | Web 增量发布 | `cd apps/web && pnpm run publish-update` |
 | Electron 本体发布 | `cd apps/desktop && pnpm run dist:production` |
+| widget-sdk npm 发布 | `cd packages/widget-sdk && pnpm version patch && pnpm publish --no-git-checks` |
 | 版本号加一（发布后） | `npm version patch --no-git-tag-version` |
 | 版本号加一（minor） | `npm version minor --no-git-tag-version` |
 | 版本号加一（major） | `npm version major --no-git-tag-version` |
@@ -204,6 +207,52 @@ git push && git push origin --tags
 | 发布前先改版本号 | 版本号与发布产物不一致 | 先发布，发布后再加一 |
 | 未询问用户就决定版本号 | 版本号不符合预期 | 始终先询问 patch/minor/major |
 | commit 范围未加路径过滤 | changelog 包含不相关的变更 | 使用 `-- apps/{app}/ packages/` 过滤 |
+
+---
+
+## Widget SDK npm 发布流程
+
+`@tenas-ai/widget-sdk` 是独立发布到 npm 的公开包，与 server/web/electron 的 R2 增量发布流程无关。
+
+### 前置条件
+
+- npm 已登录且有 `@tenas-ai` org 的发布权限
+- `~/.npmrc` 中已配置 Granular Access Token（需开启 bypass 2FA）
+
+### 发布步骤
+
+```bash
+cd packages/widget-sdk
+
+# 1. 升版本号（patch/minor/major）
+pnpm version patch
+
+# 2. 发布（prepublishOnly 自动触发 build）
+pnpm publish --no-git-checks
+
+# 3. 回到根目录提交版本变更
+cd ../..
+git add packages/widget-sdk/package.json
+git commit -m "chore: release @tenas-ai/widget-sdk v$(node -p "require('./packages/widget-sdk/package.json').version")"
+git push
+```
+
+### 构建说明
+
+- 构建配置：`tsconfig.build.json`（独立于 monorepo，不继承 base config）
+- 构建命令：`pnpm run build` → `rm -rf dist && tsc -p tsconfig.build.json`
+- 产物：`dist/index.js` + `dist/index.d.ts` + `dist/index.d.ts.map`
+- `exports` 双入口：npm 消费者走 `import` → `dist/`；monorepo 内部走 `default` → `src/index.ts`
+
+### 验证
+
+```bash
+# 确认发布成功
+npm view @tenas-ai/widget-sdk version
+# 或访问 https://www.npmjs.com/package/@tenas-ai/widget-sdk
+```
+
+---
 
 ## Detailed References
 

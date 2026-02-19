@@ -12,7 +12,7 @@ export type AgentFrame = {
   model?: { provider: string; modelId: string };
 };
 
-type RequestContext = {
+export type RequestContext = {
   /** Chat session id for this request. */
   sessionId: string;
   /** Cookie snapshot for this request. */
@@ -279,4 +279,9 @@ export function getMediaModelId(kind: "image" | "video"): string | undefined {
   const ctx = getRequestContext();
   if (!ctx) return undefined;
   return kind === "image" ? ctx.imageModelId : ctx.videoModelId;
+}
+
+/** Run an async function within a restored RequestContext (for fire-and-forget sub-agents). */
+export function runWithContext<T>(ctx: RequestContext, fn: () => Promise<T>): Promise<T> {
+  return storage.run(ctx, fn);
 }

@@ -1,101 +1,93 @@
 ---
 name: generate-dynamic-widget
 description: >
-  Use when the user asks to create a dynamic desktop widget —
-  generates the complete widget folder (package.json, widget.tsx,
-  functions.ts, .env) under ~/.tenas/dynamic-widgets/
+  Use when the user asks to create, modify, or inspect dynamic desktop widgets.
+  Multi-tool workflow: init → apply-patch → check for new widgets;
+  list/get → read-file → apply-patch → check for modifications.
 ---
 
 # Generate Dynamic Widget
 
 ## Overview
 
-动态 Widget 是用户通过 AI 生成的自包含桌面组件，存储在 `~/.tenas/dynamic-widgets/<widget-id>/`。每个 widget 包含 React UI 组件 + 服务端数据获取脚本 + 配置文件。
+动态 Widget 是用户通过 AI 生成的自包含桌面组件，存储在 `~/.tenas/dynamic-widgets/<widget-id>/`。
+
+**多工具协作**：AI 像开发者一样分步操作 — 先创建脚手架，再写入完整代码，最后验证编译。
 
 ## When to Use
 
 - 用户要求创建自定义桌面组件（如"帮我做一个特斯拉股票 widget"）
 - 用户要求创建数据展示面板（天气、汇率、监控等）
 - 用户要求修改已有的动态 widget
+- 用户要求查看已有 widget 列表
 
-## Widget 文件结构
+## 可用工具
 
-每个 widget 是一个独立文件夹，包含以下文件：
+| 工具 | 说明 | 需审批 |
+|------|------|--------|
+| `widget-init` | 创建 widget 目录脚手架 | 是 |
+| `widget-list` | 列出所有 widget | 否 |
+| `widget-get` | 获取单个 widget 详情 | 否 |
+| `widget-check` | 验证 + 编译 + 触发前端预览 | 否 |
+| `apply-patch` | 写入/覆盖文件（已有工具） | 是 |
+| `read-file` | 读取文件内容（已有工具） | 否 |
+
+## 工作流
+
+### 创建新 Widget
 
 ```
-~/.tenas/dynamic-widgets/
-  dw_<name>_<timestamp>/
-    package.json       # 标准 npm 包 + tenas 扩展字段
-    widget.tsx         # React UI 组件（入口）
-    functions.ts       # TypeScript 数据获取函数
-    .env               # 环境变量（API Key 等）
+1. widget-init → 获得 widgetId + widgetDir + 文件列表
+2. apply-patch widgetDir/widget.tsx → 写入完整 React 组件
+3. apply-patch widgetDir/functions.ts → 写入完整服务端函数
+4. widget-check → 验证编译 + 前端显示预览
 ```
 
-## 生成规范
+### 修改已有 Widget
 
-### 1. Widget ID 命名
+```
+1. widget-list 或 widget-get → 找到目标 widget
+2. read-file → 读取当前代码
+3. apply-patch → 修改文件
+4. widget-check → 验证 + 前端显示更新后的预览
+```
 
-格式：`dw_<snake_case_name>_<timestamp>`
+### 查看 Widget 列表
 
-示例：`dw_tesla_stock_1707123456789`
+```
+1. widget-list → 返回所有 widget 信息
+```
 
-### 2. package.json 规范
+## widget-init 参数
 
-```json
+```typescript
 {
-  "name": "dw-<kebab-case-name>",
-  "version": "1.0.0",
-  "description": "简短中文描述",
-  "main": "widget.tsx",
-  "scripts": {
-    "<functionName>": "npx tsx functions.ts <functionName>"
+  actionName: string,        // 本次调用目的
+  widgetName: string,        // kebab-case，如 "tesla-stock"
+  widgetDescription: string, // 中文描述
+  size?: {                   // Desktop Grid 单位（列×行），可选
+    defaultW, defaultH, minW, minH, maxW, maxH
   },
-  "tenas": {
-    "type": "widget",
-    "defaultSize": "4x2",
-    "constraints": {
-      "defaultW": 4, "defaultH": 2,
-      "minW": 2, "minH": 2,
-      "maxW": 6, "maxH": 4
-    },
-    "support": { "workspace": true, "project": true }
-  }
+  functionNames: string[],   // 仅函数名，不含实现
+  envVars?: [{               // 环境变量（可选）
+    key, placeholder, comment?
+  }],
 }
 ```
 
-关键规则：
-- `scripts` 中每个 key 是函数名，value 是执行命令
-- TypeScript 函数统一用 `npx tsx functions.ts <functionName>`
-- Python 脚本用 `python3 <script>.py <function>`
-- Shell 脚本用 `bash <script>.sh`
-- `tenas.constraints` 根据内容复杂度调整尺寸
+## widget.tsx 编写规范
 
-### 3. widget.tsx 规范
+AI 用 `apply-patch` 写入完整的 `widget.tsx` 文件。文件必须：
 
 ```tsx
-import { useEffect, useState } from 'react'
 import type { WidgetProps } from '@tenas-ai/widget-sdk'
+import { useWidgetData, useWidgetTheme } from '@tenas-ai/widget-sdk'
 
-export default function MyWidget({ sdk }: WidgetProps) {
-  const [data, setData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const result = await sdk.call('getFunctionName')
-        setData(result)
-      } catch (err) {
-        console.error('Widget fetch error:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-    // 如需轮询，添加 setInterval
-    const timer = setInterval(fetchData, 60000)
-    return () => clearInterval(timer)
-  }, [sdk])
+export default function Widget({ sdk }: WidgetProps) {
+  const { data, loading, error } = useWidgetData(sdk, 'functionName', {
+    refreshInterval: 60000,
+  })
+  const theme = useWidgetTheme(sdk)
 
   if (loading) {
     return (
@@ -105,56 +97,55 @@ export default function MyWidget({ sdk }: WidgetProps) {
     )
   }
 
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center text-destructive">
+        <div className="text-xs">{error}</div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex h-full flex-col p-4">
-      {/* Widget 内容 */}
-    </div>
+    // 你的 UI JSX
   )
 }
 ```
 
 关键规则：
-- 必须 `export default` 一个 React 组件
-- Props 类型为 `WidgetProps`，从 `@tenas-ai/widget-sdk` 导入
-- 通过 `sdk.call('functionName')` 调用服务端函数
-- 样式使用 Tailwind CSS class（与主应用共享）
-- 可用的 CSS 变量：`text-foreground`, `text-muted-foreground`, `bg-background`, `bg-card`, `text-destructive`, `border-border` 等
 - 根元素保持 `h-full` 填满容器
-- 不要导入任何 `@tenas-ai/ui` 组件，只用原生 HTML + Tailwind
-- 不要导入 `react-dom`
+- 样式使用 Tailwind CSS class
+- 可用 CSS 变量：`text-foreground`, `text-muted-foreground`, `bg-background`, `bg-card` 等
+- 只能 import `react`、`react/jsx-runtime`、`@tenas-ai/widget-sdk` 这几个外部模块
+- 不要导入 `@tenas-ai/ui` 组件或 `react-dom`
 
-### 4. functions.ts 规范
+## functions.ts 编写规范
+
+AI 用 `apply-patch` 写入完整的 `functions.ts` 文件。文件必须包含：
 
 ```typescript
 import { config } from 'dotenv'
 import { resolve } from 'path'
 import { fileURLToPath } from 'url'
 
-// 加载同目录下的 .env
 const __dirname = resolve(fileURLToPath(import.meta.url), '..')
 config({ path: resolve(__dirname, '.env') })
 
-// 导出的函数
-export async function getStockPrice() {
-  const apiKey = process.env.MY_API_KEY
-  const res = await fetch('https://api.example.com/data', {
-    headers: { 'Authorization': `Bearer ${apiKey}` },
-  })
-  const data = await res.json()
-  // 必须返回可 JSON 序列化的对象
-  return { price: data.price, change: data.change }
+export async function myFunction() {
+  // 实际实现
+  return { /* 可 JSON 序列化的对象 */ }
 }
 
 // 入口：根据命令行参数调用对应函数
 const functionName = process.argv[2]
-const fn = { getStockPrice }[functionName]
-if (fn) {
-  fn().then((result) => {
-    console.log(JSON.stringify(result))
-  }).catch((err) => {
-    console.error(err.message)
-    process.exit(1)
-  })
+const fn: Record<string, () => Promise<unknown>> = { myFunction }
+const handler = fn[functionName]
+if (handler) {
+  handler()
+    .then((r) => console.log(JSON.stringify(r)))
+    .catch((e) => {
+      console.error(e.message)
+      process.exit(1)
+    })
 } else {
   console.error(`Unknown function: ${functionName}`)
   process.exit(1)
@@ -162,75 +153,19 @@ if (fn) {
 ```
 
 关键规则：
-- 使用 `dotenv` 从同目录 `.env` 读取环境变量
-- 每个函数必须返回可 JSON 序列化的对象
-- 文件末尾必须有入口分发逻辑（根据 `process.argv[2]` 调用函数）
-- 结果通过 `console.log(JSON.stringify(result))` 输出到 stdout
-- 错误通过 `console.error` + `process.exit(1)` 报告
-- 不要在 stdout 输出非 JSON 内容（如 debug log），会导致解析失败
-- API Key 等敏感信息从 `.env` 读取，不要硬编码
+- 必须返回可 JSON 序列化的对象
+- API Key 等敏感信息从 `process.env` 读取
+- 不要在 stdout 输出非 JSON 内容
+- 所有函数名必须在 `fn` 映射中注册
 
-### 5. .env 规范
+## SDK Hooks 参考
 
-```
-# 在此填入你的 API Key
-MY_API_KEY=your_api_key_here
-```
-
-- 每个需要的 API Key 都给出占位符和注释说明
-- 用户需要手动替换为真实值
-
-## 生成流程
-
-1. 确定 widget ID：`dw_<name>_<Date.now()>`
-2. 确定需要的数据源和 API
-3. 生成 4 个文件，写入 `~/.tenas/dynamic-widgets/<widget-id>/`
-4. 告知用户：
-   - 如需 API Key，提示编辑 `.env` 文件
-   - Widget 已创建，可在桌面组件库的"AI 生成"区域找到并添加
-
-## 编译与加载机制
-
-### esbuild 编译
-
-服务端 `widgetCompiler.ts` 使用 esbuild 编译 `widget.tsx`，将 `react`、`react-dom`、`react/jsx-runtime`、`@tenas-ai/widget-sdk` 标记为 external。产物是 ESM 格式，保留裸模块标识符（如 `from 'react'`）。
-
-### Blob URL Shim（widget-externals.ts）
-
-浏览器通过 Blob URL `import()` 加载编译产物时，无法解析裸模块标识符。共享模块 `widget-externals.ts` 提供 shim 层：
-
-- `ensureExternalsRegistered()` — 将 React 等模块注册到 `window.__TENAS_WIDGET_EXTERNALS__`
-- `patchBareImports(code)` — 用正则将 `from 'react'` 等替换为 Blob URL shim
-
-**两个加载入口都使用此 shim**：
-- `useLoadDynamicComponent.ts`（桌面 `DynamicWidgetRenderer` 场景）
-- `WidgetTool.tsx`（AI 聊天预览场景）
-
-### widget.tsx 编写注意事项（与 shim 相关）
-
-- 只能 import `react`、`react/jsx-runtime`、`react-dom`、`@tenas-ai/widget-sdk` 这四个外部模块
-- 不要 import `@tenas-ai/ui` 组件（不在 shim 列表中，会导致加载失败）
-- 不要 import `react-dom/client` 等子路径（只有 `react-dom` 被 shim）
-- 如需新增外部依赖，必须同时更新 `widget-externals.ts` 的 shim 列表
-
-## AI 聊天中的 Widget 预览（WidgetTool.tsx）
-
-当 AI 通过 `generate-widget` 工具生成 widget 时，聊天界面通过 `WidgetTool.tsx` 渲染预览：
-
-- 工具执行完成后（`part.state === 'output-available'`），自动编译并渲染 widget
-- 提供"打开文件夹"按钮（在 stack 中打开 folder-tree-preview）
-- 提供"添加到桌面"按钮（跨 tab 事件桥接到 DesktopEditToolbar）
-
-### "添加到桌面"流程
-
-1. 从 `useTabRuntime.getState().runtimeByTabId` 查找 `component === 'workspace-desktop'` 的 tab
-2. 切换到桌面 tab（`useTabs.getState().setActiveTab`）
-3. 延迟一帧后派发 `DESKTOP_WIDGET_SELECTED_EVENT`（detail 中 tabId 为桌面 tab ID）
-4. `DesktopEditToolbar` 接收事件并创建 widget item
+| Hook | 说明 |
+|------|------|
+| `useWidgetData(sdk, fnName, opts?)` | 封装 sdk.call + loading/error/refetch + 自动轮询 |
+| `useWidgetTheme(sdk)` | 基于 useSyncExternalStore 订阅主题变化 |
 
 ## SDK API 参考
-
-Widget 组件通过 `sdk` prop 与主应用交互：
 
 | 方法 | 说明 |
 |------|------|
@@ -242,111 +177,43 @@ Widget 组件通过 `sdk` prop 与主应用交互：
 | `sdk.chat(message)` | 触发 AI 聊天 |
 | `sdk.openTab(type, params?)` | 打开 tab |
 
-## 安全与限制约束
+## 完整示例：天气 Widget
 
-- API Key 只存在 `.env` 中，函数在 Server 端执行，Key 不会发送到前端
-- 脚本执行有 10 秒超时限制
-- 不要在 widget.tsx 中发起网络请求，所有数据获取通过 `sdk.call()` 走 Server 端
-- 不要在 functions.ts 中访问 widget 目录之外的文件系统
-- widget.tsx 只能 import 被 shim 的外部模块（react、react-dom、react/jsx-runtime、@tenas-ai/widget-sdk），import 其他包会导致运行时 `Failed to resolve module specifier` 错误
+### Step 1: widget-init
 
-## 示例：天气 Widget
-
-### package.json
 ```json
 {
-  "name": "dw-weather",
-  "version": "1.0.0",
-  "description": "实时天气 Widget",
-  "main": "widget.tsx",
-  "scripts": {
-    "getWeather": "npx tsx functions.ts getWeather"
-  },
-  "tenas": {
-    "type": "widget",
-    "defaultSize": "4x2",
-    "constraints": { "defaultW": 4, "defaultH": 2, "minW": 2, "minH": 2, "maxW": 6, "maxH": 4 },
-    "support": { "workspace": true, "project": true }
-  }
+  "actionName": "初始化天气 Widget 脚手架",
+  "widgetName": "weather",
+  "widgetDescription": "实时天气 Widget",
+  "functionNames": ["getWeather"],
+  "envVars": [
+    { "key": "OPENWEATHER_API_KEY", "placeholder": "your_api_key_here", "comment": "OpenWeatherMap API Key" },
+    { "key": "WEATHER_CITY", "placeholder": "Beijing", "comment": "城市名称" }
+  ]
 }
 ```
 
-### widget.tsx
-```tsx
-import { useEffect, useState } from 'react'
-import type { WidgetProps } from '@tenas-ai/widget-sdk'
+### Step 2: apply-patch widget.tsx
 
-export default function WeatherWidget({ sdk }: WidgetProps) {
-  const [weather, setWeather] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+完整的 React 组件代码（参考上方 widget.tsx 编写规范）。
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const data = await sdk.call('getWeather')
-        setWeather(data)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetch()
-    const timer = setInterval(fetch, 300000)
-    return () => clearInterval(timer)
-  }, [sdk])
+### Step 3: apply-patch functions.ts
 
-  if (loading) return <div className="flex h-full items-center justify-center text-muted-foreground text-xs">加载中...</div>
-  if (!weather) return <div className="flex h-full items-center justify-center text-destructive text-xs">加载失败</div>
+完整的服务端函数代码（参考上方 functions.ts 编写规范）。
 
-  return (
-    <div className="flex h-full flex-col justify-between p-4">
-      <div className="text-sm text-muted-foreground">{weather.city}</div>
-      <div className="text-3xl font-bold">{weather.temp}°C</div>
-      <div className="text-sm text-muted-foreground">{weather.description}</div>
-    </div>
-  )
+### Step 4: widget-check
+
+```json
+{
+  "actionName": "验证天气 Widget",
+  "widgetId": "dw_weather_1234567890"
 }
 ```
 
-### functions.ts
-```typescript
-import { config } from 'dotenv'
-import { resolve } from 'path'
-import { fileURLToPath } from 'url'
+## 安全与限制
 
-const __dirname = resolve(fileURLToPath(import.meta.url), '..')
-config({ path: resolve(__dirname, '.env') })
-
-export async function getWeather() {
-  const apiKey = process.env.OPENWEATHER_API_KEY
-  const city = process.env.WEATHER_CITY || 'Beijing'
-  const res = await fetch(
-    `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric&lang=zh_cn`
-  )
-  const data = await res.json()
-  return {
-    city: data.name,
-    temp: Math.round(data.main.temp),
-    description: data.weather?.[0]?.description || '',
-    humidity: data.main.humidity,
-    wind: data.wind.speed,
-  }
-}
-
-const functionName = process.argv[2]
-const fn: Record<string, () => Promise<unknown>> = { getWeather }
-const handler = fn[functionName]
-if (handler) {
-  handler().then((r) => console.log(JSON.stringify(r))).catch((e) => { console.error(e.message); process.exit(1) })
-} else {
-  console.error(`Unknown function: ${functionName}`)
-  process.exit(1)
-}
-```
-
-### .env
-```
-# OpenWeatherMap API Key (https://openweathermap.org/api)
-OPENWEATHER_API_KEY=your_api_key_here
-# 城市名称
-WEATHER_CITY=Beijing
-```
+- API Key 只存在 `.env` 中，函数在 Server 端执行
+- 脚本执行有 10 秒超时限制
+- 不要在 widget.tsx 中发起网络请求，通过 `sdk.call()` 走 Server 端
+- 不要在 functions.ts 中访问 widget 目录之外的文件系统

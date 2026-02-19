@@ -5,6 +5,7 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { createBrowserTabId } from "@/hooks/tab-id";
 import { resolveServerUrl } from "@/utils/server-url";
+import { isElectronEnv } from "@/utils/is-electron-env";
 import { useTabs } from "@/hooks/use-tabs";
 import { queryClient } from "@/utils/trpc";
 import { getProjectsQueryKey } from "@/hooks/use-projects";
@@ -256,6 +257,12 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
       return { status: "failed", errorText: "url is required." };
     }
 
+    // 逻辑：非 Electron 环境直接打开新标签页，不走内置浏览器面板。
+    if (!isElectronEnv()) {
+      window.open(normalizedUrl, '_blank', 'noopener,noreferrer')
+      return { status: "success", output: { url: normalizedUrl } }
+    }
+
     const viewKey = createBrowserTabId();
     useTabRuntime.getState().pushStackItem(
       tabId,
@@ -276,17 +283,15 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
         entry: recent.entry,
       });
     }
-    // 中文注释：仅在 Electron 环境等待加载结束，网页端直接回执避免阻塞。
-    if (typeof window !== "undefined" && window.tenasElectron) {
-      const readyResult = await waitForWebContentsViewReady(viewKey);
-      if (readyResult?.status === "failed") {
-        const failed = readyResult.detail.failed;
-        return {
-          status: "failed",
-          output: { url: normalizedUrl, viewKey },
-          errorText: failed?.errorDescription || "open-url failed",
-        };
-      }
+
+    const readyResult = await waitForWebContentsViewReady(viewKey);
+    if (readyResult?.status === "failed") {
+      const failed = readyResult.detail.failed;
+      return {
+        status: "failed",
+        output: { url: normalizedUrl, viewKey },
+        errorText: failed?.errorDescription || "open-url failed",
+      };
     }
 
     return { status: "success", output: { url: normalizedUrl, viewKey } };

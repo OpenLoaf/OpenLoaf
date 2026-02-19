@@ -5,7 +5,13 @@ import { buildToolset } from "@/ai/tools/toolRegistry";
 import { createToolCallRepair } from "@/ai/agents/repairToolCall";
 import { jsonRenderToolDef } from "@tenas-ai/api/types/tools/jsonRender";
 import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
-import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
+import {
+  spawnAgentToolDef,
+  sendInputToolDef,
+  waitAgentToolDef,
+  closeAgentToolDef,
+  resumeAgentToolDef,
+} from "@tenas-ai/api/types/tools/agent";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import {
   browserActToolDef,
@@ -30,30 +36,28 @@ import {
 import {
   listDirToolDef,
   readFileToolDef,
-  writeFileToolDef,
+  applyPatchToolDef,
   editDocumentToolDef,
-  shellCommandToolDefUnix,
-  shellCommandToolDefWin,
-  shellToolDefUnix,
-  shellToolDefWin,
-  execCommandToolDefUnix,
-  execCommandToolDefWin,
-  writeStdinToolDefUnix,
-  writeStdinToolDefWin,
+  grepFilesToolDef,
+  shellCommandToolDef,
+  shellToolDef,
+  execCommandToolDef,
+  writeStdinToolDef,
   updatePlanToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
 import { generateWidgetToolDef } from "@tenas-ai/api/types/tools/widget";
+import {
+  widgetCheckToolDef,
+  widgetGetToolDef,
+  widgetInitToolDef,
+  widgetListToolDef,
+} from "@tenas-ai/api/types/tools/widget";
 import MASTER_AGENT_PROMPT_RAW from "./masterAgentPrompt.zh.md";
 
 /** Master agent display name. */
 const MASTER_AGENT_NAME = "MasterAgent";
 /** Master agent id. */
 const MASTER_AGENT_ID = "master-agent";
-const isWindows = process.platform === "win32";
-const shellToolDef = isWindows ? shellToolDefWin : shellToolDefUnix;
-const shellCommandToolDef = isWindows ? shellCommandToolDefWin : shellCommandToolDefUnix;
-const execCommandToolDef = isWindows ? execCommandToolDefWin : execCommandToolDefUnix;
-const writeStdinToolDef = isWindows ? writeStdinToolDefWin : writeStdinToolDefUnix;
 /** Master agent tool ids. */
 const MASTER_AGENT_TOOL_IDS = [
   timeNowToolDef.id,
@@ -64,7 +68,11 @@ const MASTER_AGENT_TOOL_IDS = [
   calendarMutateToolDef.id,
   emailQueryToolDef.id,
   emailMutateToolDef.id,
-  // subAgentToolDef.id,
+  spawnAgentToolDef.id,
+  sendInputToolDef.id,
+  waitAgentToolDef.id,
+  closeAgentToolDef.id,
+  resumeAgentToolDef.id,
   openUrlToolDef.id,
   browserSnapshotToolDef.id,
   browserObserveToolDef.id,
@@ -76,10 +84,15 @@ const MASTER_AGENT_TOOL_IDS = [
   execCommandToolDef.id,
   writeStdinToolDef.id,
   readFileToolDef.id,
-  writeFileToolDef.id,
+  applyPatchToolDef.id,
   editDocumentToolDef.id,
   listDirToolDef.id,
+  grepFilesToolDef.id,
   generateWidgetToolDef.id,
+  widgetInitToolDef.id,
+  widgetListToolDef.id,
+  widgetGetToolDef.id,
+  widgetCheckToolDef.id,
   imageGenerateToolDef.id,
   videoGenerateToolDef.id,
   // updatePlanToolDef.id,

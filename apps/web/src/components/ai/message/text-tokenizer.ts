@@ -2,7 +2,7 @@
 
 import { FILE_TOKEN_REGEX } from "../input/chat-input-utils";
 
-const COMMAND_REGEX = /(^|\s)(\/[\w-]+)/g;
+const COMMAND_REGEX = /(^|\s)(\/[\w-]+)(?![/\w-])/g;
 
 export type ChatTextToken =
   | { type: "text"; value: string }

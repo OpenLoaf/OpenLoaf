@@ -1,6 +1,6 @@
 import { spawn as spawnPty } from "node-pty";
 import { tool, zodSchema } from "ai";
-import { execCommandToolDefUnix, execCommandToolDefWin } from "@tenas-ai/api/types/tools/runtime";
+import { execCommandToolDef } from "@tenas-ai/api/types/tools/runtime";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { resolveToolWorkdir } from "@/ai/tools/toolScope";
 import {
@@ -16,8 +16,6 @@ import {
   readExecOutput,
 } from "@/ai/tools/execSessionStore";
 import { needsApprovalForCommand } from "@/ai/tools/commandApproval";
-
-const execCommandToolDef = process.platform === "win32" ? execCommandToolDefWin : execCommandToolDefUnix;
 
 type WindowsShellKind = "powershell" | "cmd";
 

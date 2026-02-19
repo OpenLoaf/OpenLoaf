@@ -2,14 +2,27 @@ import { openUrlTool } from "@/ai/tools/openUrl";
 import { jsonRenderTool } from "@/ai/tools/jsonRenderTool";
 import { timeNowTool } from "@/ai/tools/timeNowTool";
 import { testApprovalTool } from "@/ai/tools/testApprovalTool";
-import { subAgentTool } from "@/ai/tools/subAgentTool";
+import {
+  spawnAgentTool,
+  sendInputTool,
+  waitAgentTool,
+  closeAgentTool,
+  resumeAgentTool,
+} from "@/ai/tools/agentTools";
 import { execCommandTool } from "@/ai/tools/execCommandTool";
 import { shellTool } from "@/ai/tools/shellTool";
 import { shellCommandTool } from "@/ai/tools/shellCommandTool";
 import { writeStdinTool } from "@/ai/tools/writeStdinTool";
-import { listDirTool, readFileTool, writeFileTool } from "@/ai/tools/fileTools";
+import { listDirTool, readFileTool, applyPatchTool } from "@/ai/tools/fileTools";
+import { grepFilesTool } from "@/ai/tools/grepFilesTool";
 import { editDocumentTool } from "@/ai/tools/documentTools";
 import { generateWidgetTool } from "@/ai/tools/widgetTools";
+import {
+  widgetCheckTool,
+  widgetGetTool,
+  widgetInitTool,
+  widgetListTool,
+} from "@/ai/tools/widgetTools";
 import { updatePlanTool } from "@/ai/tools/updatePlanTool";
 import { projectMutateTool, projectQueryTool } from "@/ai/tools/projectTools";
 import { calendarMutateTool, calendarQueryTool } from "@/ai/tools/calendarTools";
@@ -26,7 +39,13 @@ import {
 import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
 import { jsonRenderToolDef } from "@tenas-ai/api/types/tools/jsonRender";
-import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
+import {
+  spawnAgentToolDef,
+  sendInputToolDef,
+  waitAgentToolDef,
+  closeAgentToolDef,
+  resumeAgentToolDef,
+} from "@tenas-ai/api/types/tools/agent";
 import { projectMutateToolDef, projectQueryToolDef } from "@tenas-ai/api/types/tools/db";
 import {
   calendarMutateToolDef,
@@ -43,19 +62,22 @@ import {
 import {
   listDirToolDef,
   readFileToolDef,
-  writeFileToolDef,
+  applyPatchToolDef,
   editDocumentToolDef,
-  shellCommandToolDefUnix,
-  shellCommandToolDefWin,
-  shellToolDefUnix,
-  shellToolDefWin,
-  execCommandToolDefUnix,
-  execCommandToolDefWin,
-  writeStdinToolDefUnix,
-  writeStdinToolDefWin,
+  grepFilesToolDef,
+  shellCommandToolDef,
+  shellToolDef,
+  execCommandToolDef,
+  writeStdinToolDef,
   updatePlanToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
 import { generateWidgetToolDef } from "@tenas-ai/api/types/tools/widget";
+import {
+  widgetCheckToolDef,
+  widgetGetToolDef,
+  widgetInitToolDef,
+  widgetListToolDef,
+} from "@tenas-ai/api/types/tools/widget";
 import {
   browserActTool,
   browserExtractTool,
@@ -68,12 +90,6 @@ type ToolEntry = {
   tool: any;
 };
 
-const isWindows = process.platform === "win32";
-const shellToolDef = isWindows ? shellToolDefWin : shellToolDefUnix;
-const shellCommandToolDef = isWindows ? shellCommandToolDefWin : shellCommandToolDefUnix;
-const execCommandToolDef = isWindows ? execCommandToolDefWin : execCommandToolDefUnix;
-const writeStdinToolDef = isWindows ? writeStdinToolDefWin : writeStdinToolDefUnix;
-
 const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [timeNowToolDef.id]: { tool: timeNowTool },
   [openUrlToolDef.id]: {
@@ -85,8 +101,20 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [jsonRenderToolDef.id]: {
     tool: jsonRenderTool,
   },
-  [subAgentToolDef.id]: {
-    tool: subAgentTool,
+  [spawnAgentToolDef.id]: {
+    tool: spawnAgentTool,
+  },
+  [sendInputToolDef.id]: {
+    tool: sendInputTool,
+  },
+  [waitAgentToolDef.id]: {
+    tool: waitAgentTool,
+  },
+  [closeAgentToolDef.id]: {
+    tool: closeAgentTool,
+  },
+  [resumeAgentToolDef.id]: {
+    tool: resumeAgentTool,
   },
   [browserSnapshotToolDef.id]: {
     tool: browserSnapshotTool,
@@ -118,14 +146,17 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [readFileToolDef.id]: {
     tool: readFileTool,
   },
-  [writeFileToolDef.id]: {
-    tool: writeFileTool,
+  [applyPatchToolDef.id]: {
+    tool: applyPatchTool,
   },
   [editDocumentToolDef.id]: {
     tool: editDocumentTool,
   },
   [listDirToolDef.id]: {
     tool: listDirTool,
+  },
+  [grepFilesToolDef.id]: {
+    tool: grepFilesTool,
   },
   [updatePlanToolDef.id]: {
     tool: updatePlanTool,
@@ -150,6 +181,18 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [generateWidgetToolDef.id]: {
     tool: generateWidgetTool,
+  },
+  [widgetInitToolDef.id]: {
+    tool: widgetInitTool,
+  },
+  [widgetListToolDef.id]: {
+    tool: widgetListTool,
+  },
+  [widgetGetToolDef.id]: {
+    tool: widgetGetTool,
+  },
+  [widgetCheckToolDef.id]: {
+    tool: widgetCheckTool,
   },
   [imageGenerateToolDef.id]: {
     tool: imageGenerateTool,

@@ -1,13 +1,11 @@
 import { tool, zodSchema } from "ai";
-import { writeStdinToolDefUnix, writeStdinToolDefWin } from "@tenas-ai/api/types/tools/runtime";
+import { writeStdinToolDef } from "@tenas-ai/api/types/tools/runtime";
 import { formatUnifiedExecOutput, resolveMaxOutputChars, waitForOutput } from "@/ai/tools/execUtils";
 import {
   getExecSessionStatus,
   readExecOutput,
   writeExecStdin,
 } from "@/ai/tools/execSessionStore";
-
-const writeStdinToolDef = process.platform === "win32" ? writeStdinToolDefWin : writeStdinToolDefUnix;
 
 /** Write stdin for an existing exec session and read output. */
 export const writeStdinTool = tool({

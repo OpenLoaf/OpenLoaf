@@ -7,12 +7,12 @@
 
 | # | 工具 | 触发方式 |
 |---|------|---------|
-| 5 | ShellTool (Terminal + Snippet) | shell-command-unix |
+| 5 | ShellTool (Terminal + Snippet) | shell-command |
 | 6 | ShellTool (StackTrace) | shell 输出包含错误堆栈 |
 | 8 | ShellTool (TestResults) | shell 运行测试命令 |
-| 9 | WriteFileTool (Copy) | write-file |
+| 9 | WriteFileTool (Copy) | apply-patch |
 | 10 | EnvFileTool | read-file on .env |
-| 11 | ExecCommandTool (Sandbox) | exec-command-unix |
+| 11 | ExecCommandTool (Sandbox) | exec-command |
 | 12 | WidgetTool (JSXPreview) | generate-widget |
 | 4 | Confirmation | generate-widget 自带 needsApproval |
 

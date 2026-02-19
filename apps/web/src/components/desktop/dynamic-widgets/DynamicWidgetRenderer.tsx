@@ -36,12 +36,20 @@ interface DynamicWidgetRendererProps {
   onOpenTab?: (type: string, params?: Record<string, unknown>) => void
 }
 
-/** Detect current theme from the document root. */
+/** Detect current theme from the document root (stable reference). */
+let cachedDesktopTheme: WidgetTheme | null = null
 function detectTheme(): WidgetTheme {
-  if (typeof document === 'undefined') return { mode: 'dark' }
-  return {
-    mode: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+  if (typeof document === 'undefined') {
+    if (!cachedDesktopTheme || cachedDesktopTheme.mode !== 'dark') {
+      cachedDesktopTheme = { mode: 'dark' }
+    }
+    return cachedDesktopTheme
   }
+  const mode = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+  if (!cachedDesktopTheme || cachedDesktopTheme.mode !== mode) {
+    cachedDesktopTheme = { mode }
+  }
+  return cachedDesktopTheme
 }
 
 /** Error boundary for dynamic widget rendering. */
@@ -78,6 +86,15 @@ function WidgetApprovalPrompt({
   onApprove: () => void
 }) {
   const scriptEntries = Object.entries(scripts || {})
+  // 逻辑：使用 pointerDown 而非 click，避免桌面 tile 的长按进入编辑态
+  // （320ms 后添加 pointer-events-none）导致 click 事件被吞掉。
+  const handlePointerDown = React.useCallback(
+    (e: React.PointerEvent) => {
+      e.stopPropagation()
+      onApprove()
+    },
+    [onApprove],
+  )
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-4 text-center">
       <div className="text-sm font-medium">启用此 Widget？</div>
@@ -96,7 +113,7 @@ function WidgetApprovalPrompt({
       <button
         type="button"
         className="mt-1 rounded-md bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-        onClick={onApprove}
+        onPointerDown={handlePointerDown}
       >
         确认启用
       </button>
@@ -123,7 +140,11 @@ export default function DynamicWidgetRenderer({
   })
 
   const handleApprove = React.useCallback(() => {
-    approveWidget(widgetId)
+    try {
+      approveWidget(widgetId)
+    } catch {
+      // localStorage 写入失败不阻塞审批
+    }
     setApproved(true)
   }, [widgetId])
 

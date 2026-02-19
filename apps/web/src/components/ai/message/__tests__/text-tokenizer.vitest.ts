@@ -16,6 +16,11 @@ describe("text-tokenizer", () => {
     ]);
   });
 
+  it("does not treat file paths as commands", () => {
+    const tokens = parseChatTextTokens("创建 /tmp/tenas-tool-test.txt 文件");
+    expect(tokens.every((t) => t.type === "text")).toBe(true);
+  });
+
   it("keeps plain text when no special token", () => {
     const tokens = parseChatTextTokens("普通文本");
     expect(tokens).toEqual([{ type: "text", value: "普通文本" }]);

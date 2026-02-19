@@ -4,7 +4,7 @@ import { tool, zodSchema } from "ai";
 import {
   listDirToolDef,
   readFileToolDef,
-  writeFileToolDef,
+  applyPatchToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
 import {
   parsePatch,
@@ -396,10 +396,10 @@ export const readFileTool = tool({
   },
 });
 
-/** Execute write file tool with patch-based file operations. */
-export const writeFileTool = tool({
-  description: writeFileToolDef.description,
-  inputSchema: zodSchema(writeFileToolDef.parameters),
+/** Execute apply-patch tool with patch-based file operations. */
+export const applyPatchTool = tool({
+  description: applyPatchToolDef.description,
+  inputSchema: zodSchema(applyPatchToolDef.parameters),
   execute: async ({ patch: patchText }): Promise<string> => {
     const hunks = parsePatch(patchText);
     if (hunks.length === 0) throw new Error("No files were modified.");

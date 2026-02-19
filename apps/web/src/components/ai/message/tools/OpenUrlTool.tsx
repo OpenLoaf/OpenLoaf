@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { createBrowserTabId } from "@/hooks/tab-id";
+import { isElectronEnv } from "@/utils/is-electron-env";
 import { useChatSession } from "../../context";
 import {
   Source,
@@ -49,10 +50,15 @@ export default function OpenUrlTool({
   const activeTabId = useTabs((s) => s.activeTabId);
   const tabId = contextTabId ?? activeTabId ?? undefined;
 
-  const isDisabled = !tabId || !url;
+  const isDisabled = !url || (isElectronEnv() && !tabId);
 
   const onOpen = React.useCallback(() => {
     if (isDisabled) return;
+    if (!isElectronEnv()) {
+      window.open(url, '_blank', 'noopener,noreferrer')
+      return
+    }
+    if (!tabId) return;
     const state = useTabs.getState();
     const tab = state.getTabById(tabId);
     if (!tab) return;

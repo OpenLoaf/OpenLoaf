@@ -1,13 +1,10 @@
 import { spawn } from "node:child_process";
 import { tool, zodSchema } from "ai";
-import { shellCommandToolDefUnix, shellCommandToolDefWin } from "@tenas-ai/api/types/tools/runtime";
+import { shellCommandToolDef } from "@tenas-ai/api/types/tools/runtime";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { resolveToolWorkdir } from "@/ai/tools/toolScope";
 import { buildExecEnv, formatFreeformOutput } from "@/ai/tools/execUtils";
 import { needsApprovalForCommand } from "@/ai/tools/commandApproval";
-
-const shellCommandToolDef =
-  process.platform === "win32" ? shellCommandToolDefWin : shellCommandToolDefUnix;
 
 type ShellCommandInput = {
   /** Shell command string. */

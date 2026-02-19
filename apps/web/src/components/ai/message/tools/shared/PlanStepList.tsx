@@ -55,7 +55,7 @@ export default function PlanStepList({ plan, className }: PlanStepListProps) {
           const Icon = meta.Icon ?? Circle;
           return (
             <TaskItem
-              key={index}
+              key={item.step}
               className="px-2.5 py-2"
             >
               <div className="flex items-start gap-2">
