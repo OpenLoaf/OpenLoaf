@@ -1,158 +1,626 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
-import { AgentList } from "./AgentList";
-import { AgentDetailsDialog, DeleteAgentDialog } from "./AgentDialogs";
+import { useCallback, useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { queryClient, trpc } from "@/utils/trpc";
+import { cn } from "@/lib/utils";
+import { Button } from "@tenas-ai/ui/button";
+import { Switch } from "@tenas-ai/ui/switch";
+import { Checkbox } from "@tenas-ai/ui/checkbox";
+import { Input } from "@tenas-ai/ui/input";
+import { FilterTab } from "@tenas-ai/ui/filter-tab";
+import {
+  Search, Trash2, X, FolderOpen, Eye, Plus, Pencil,
+  Globe, FileSearch, FilePen, Terminal, Mail, Calendar,
+  Image, LayoutGrid, Link, Users, Code, Settings, FolderKanban, Blocks,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@tenas-ai/ui/context-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
+import { useTabs } from "@/hooks/use-tabs";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import {
+  buildFileUriFromRoot,
+  buildUriFromRoot,
+} from "@/components/project/filesystem/utils/file-system-utils";
+import { toast } from "sonner";
 
-export type AgentKind = "master";
+type AgentScope = "workspace" | "project" | "global";
 
-export type AgentRow = {
-  id: string;
-  displayName: string;
-  kind: AgentKind;
+type AgentSummary = {
+  name: string;
   description: string;
+  icon: string;
   model: string;
-  tools: string[];
+  capabilities: string[];
+  skills: string[];
+  path: string;
+  folderName: string;
+  ignoreKey: string;
+  scope: AgentScope;
+  isEnabled: boolean;
+  isDeletable: boolean;
+  isInherited: boolean;
+  isChildProject: boolean;
+  isSystem: boolean;
 };
 
-export type AgentPanelState = { mode: "view" | "edit"; id: string } | null;
+type StatusFilter = "all" | "enabled" | "disabled";
 
-const SAMPLE_AGENTS: AgentRow[] = [
-  {
-    id: "agent_master_default",
-    displayName: "默认 Agent",
-    kind: "master",
-    description: "对话编排器：负责委派、合并流式输出与持久化（占位）",
-    model: "gpt-4o-mini",
-    tools: ["system", "db", "browser"],
-  },
-];
+const SCOPE_CARD_CLASS: Record<AgentScope, string> = {
+  workspace:
+    "bg-zinc-100 hover:bg-zinc-200/75 dark:bg-zinc-800 dark:hover:bg-zinc-700/85",
+  project:
+    "bg-sky-100 hover:bg-sky-200/75 dark:bg-sky-900/55 dark:hover:bg-sky-800/70",
+  global:
+    "bg-slate-100 hover:bg-slate-200/78 dark:bg-slate-800 dark:hover:bg-slate-700/85",
+};
 
-export function AgentManagement() {
-  const [agents, setAgents] = useState<AgentRow[]>(SAMPLE_AGENTS);
-  const [panel, setPanel] = useState<AgentPanelState>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [editDraft, setEditDraft] = useState<
-    Pick<AgentRow, "displayName" | "model">
-  >({ displayName: "", model: "" });
+const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
+  browser: { icon: Globe, className: "text-blue-500" },
+  "file-read": { icon: FileSearch, className: "text-emerald-500" },
+  "file-write": { icon: FilePen, className: "text-green-600" },
+  shell: { icon: Terminal, className: "text-slate-500" },
+  email: { icon: Mail, className: "text-red-500" },
+  calendar: { icon: Calendar, className: "text-orange-500" },
+  media: { icon: Image, className: "text-pink-500" },
+  widget: { icon: LayoutGrid, className: "text-violet-500" },
+  project: { icon: FolderKanban, className: "text-cyan-500" },
+  web: { icon: Link, className: "text-sky-500" },
+  agent: { icon: Users, className: "text-indigo-500" },
+  "code-interpreter": { icon: Code, className: "text-amber-500" },
+  system: { icon: Settings, className: "text-slate-400" },
+};
 
-  const panelAgent = useMemo(
-    () => (panel ? agents.find((agent) => agent.id === panel.id) : undefined),
-    [agents, panel],
-  );
-  const deletingAgent = useMemo(
-    () => (deleteId ? agents.find((agent) => agent.id === deleteId) : undefined),
-    [agents, deleteId],
-  );
+const CAP_BG_MAP: Record<string, string> = {
+  browser: "bg-blue-50 dark:bg-blue-950/40",
+  "file-read": "bg-emerald-50 dark:bg-emerald-950/40",
+  "file-write": "bg-green-50 dark:bg-green-950/40",
+  shell: "bg-slate-50 dark:bg-slate-950/40",
+  email: "bg-red-50 dark:bg-red-950/40",
+  calendar: "bg-orange-50 dark:bg-orange-950/40",
+  media: "bg-pink-50 dark:bg-pink-950/40",
+  widget: "bg-violet-50 dark:bg-violet-950/40",
+  project: "bg-cyan-50 dark:bg-cyan-950/40",
+  web: "bg-sky-50 dark:bg-sky-950/40",
+  agent: "bg-indigo-50 dark:bg-indigo-950/40",
+  "code-interpreter": "bg-amber-50 dark:bg-amber-950/40",
+  system: "bg-gray-50 dark:bg-gray-950/40",
+};
 
-  useEffect(() => {
-    if (panel && !panelAgent) {
-      setPanel(null);
-      setEditDraft({ displayName: "", model: "" });
+function normalizePath(value: string): string {
+  return value.replace(/\\/g, "/");
+}
+
+function toFileUri(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("file://")) return trimmed;
+  const normalized = normalizePath(trimmed);
+  if (/^[A-Za-z]:\//.test(normalized)) return `file:///${encodeURI(normalized)}`;
+  if (normalized.startsWith("/")) return `file://${encodeURI(normalized)}`;
+  return `file:///${encodeURI(normalized)}`;
+}
+
+function resolveAgentFolderUri(
+  agentPath: string,
+  baseRootUri?: string,
+): string | undefined {
+  if (!agentPath) return undefined;
+  const normalizedPath = normalizePath(agentPath).replace(/\/+$/, "");
+  const lastSlash = normalizedPath.lastIndexOf("/");
+  const dirPath = lastSlash >= 0 ? normalizedPath.slice(0, lastSlash) : "";
+  if (!dirPath) return baseRootUri ?? toFileUri(normalizedPath);
+  if (baseRootUri) {
+    try {
+      const rootUrl = new URL(baseRootUri);
+      const rootPath = normalizePath(decodeURIComponent(rootUrl.pathname)).replace(/\/$/, "");
+      if (dirPath.startsWith(rootPath)) {
+        const relative = dirPath.slice(rootPath.length).replace(/^\/+/, "");
+        return relative ? buildUriFromRoot(baseRootUri, relative) : baseRootUri;
+      }
+    } catch {
+      // fallback
     }
-  }, [panel, panelAgent]);
+  }
+  return toFileUri(dirPath);
+}
 
-  useEffect(() => {
-    if (deleteId && !deletingAgent) setDeleteId(null);
-  }, [deleteId, deletingAgent]);
+type AgentManagementProps = {
+  projectId?: string;
+};
+
+export function AgentManagement({ projectId }: AgentManagementProps) {
+  const isProjectList = Boolean(projectId);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [showAllProjects, setShowAllProjects] = useState(true);
+  const [showChildAgents, setShowChildAgents] = useState(true);
+  const [showParentAgents, setShowParentAgents] = useState(true);
+
+  const queryOptions = projectId
+    ? trpc.settings.getAgents.queryOptions({ projectId, includeChildProjects: true })
+    : trpc.settings.getAgents.queryOptions({ includeAllProjects: true });
+  const agentsQuery = useQuery(queryOptions);
+  const agents = (agentsQuery.data ?? []) as AgentSummary[];
+  const capGroupsQuery = useQuery(trpc.settings.getCapabilityGroups.queryOptions());
+  const capLabelMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const g of (capGroupsQuery.data ?? []) as { id: string; label: string }[]) {
+      map[g.id] = g.label;
+    }
+    return map;
+  }, [capGroupsQuery.data]);
+  const { workspace } = useWorkspace();
+  const activeTabId = useTabs((s) => s.activeTabId);
+  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
+  const workspaceId = workspace?.id ?? "";
+
+  const hasChildAgents = agents.some((a) => a.isChildProject);
+  const hasParentAgents = agents.some((a) => a.isInherited);
 
   const filteredAgents = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
     const filtered = agents.filter((agent) => {
-      if (!normalizedQuery) return true;
-      const haystack = [
-        agent.displayName,
-        agent.id,
-        agent.description,
-        agent.model,
-        agent.tools.join(" "),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(normalizedQuery);
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchName = agent.name.toLowerCase().includes(q);
+        const matchDesc = agent.description.toLowerCase().includes(q);
+        const matchCaps = agent.capabilities.join(" ").toLowerCase().includes(q);
+        if (!matchName && !matchDesc && !matchCaps) return false;
+      }
+      if (statusFilter === "enabled" && !agent.isEnabled) return false;
+      if (statusFilter === "disabled" && agent.isEnabled) return false;
+      if (!isProjectList && !showAllProjects && agent.scope === 'project') return false;
+      if (isProjectList && !showChildAgents && agent.isChildProject) return false;
+      if (isProjectList && !showParentAgents && agent.isInherited) return false;
+      return true;
     });
-    filtered.sort((a, b) => a.displayName.localeCompare(b.displayName));
-    return filtered;
-  }, [agents, query]);
+    // 逻辑：系统 Agent 排在列表顶部。
+    return filtered.sort((a, b) => {
+      if (a.isSystem && !b.isSystem) return -1;
+      if (!a.isSystem && b.isSystem) return 1;
+      return 0;
+    });
+  }, [agents, searchQuery, statusFilter, isProjectList, showAllProjects, showChildAgents, showParentAgents]);
 
-  const openView = (id: string) => setPanel({ mode: "view", id });
+  const mkdirMutation = useMutation(
+    trpc.fs.mkdir.mutationOptions({
+      onError: (error) => toast.error(error.message),
+    }),
+  );
 
-  const openEdit = (id: string) => {
-    const agent = agents.find((item) => item.id === id);
-    if (!agent) return;
-    setEditDraft({ displayName: agent.displayName, model: agent.model });
-    setPanel({ mode: "edit", id });
-  };
+  const updateAgentMutation = useMutation(
+    trpc.settings.setAgentEnabled.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.settings.getAgents.queryOptions().queryKey,
+        });
+        if (projectId) {
+          queryClient.invalidateQueries({
+            queryKey: trpc.settings.getAgents.queryOptions({ projectId }).queryKey,
+          });
+        }
+      },
+      onError: (error) => toast.error(error.message),
+    }),
+  );
 
-  const closePanel = () => {
-    setPanel(null);
-    setEditDraft({ displayName: "", model: "" });
-  };
+  const deleteAgentMutation = useMutation(
+    trpc.settings.deleteAgent.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.settings.getAgents.queryOptions().queryKey,
+        });
+        if (projectId) {
+          queryClient.invalidateQueries({
+            queryKey: trpc.settings.getAgents.queryOptions({ projectId }).queryKey,
+          });
+        }
+        toast.success("已删除 Agent");
+      },
+      onError: (error) => toast.error(error.message),
+    }),
+  );
 
-  const cancelEdit = () => {
-    if (!panel) return;
-    setPanel({ ...panel, mode: "view" });
-    setEditDraft({ displayName: "", model: "" });
-  };
+  const handleOpenAgentsRoot = useCallback(async () => {
+    const rootUri = workspace?.rootUri;
+    if (!rootUri || !workspaceId) {
+      toast.error("未找到工作空间");
+      return;
+    }
+    try {
+      await mkdirMutation.mutateAsync({
+        workspaceId,
+        projectId: isProjectList ? projectId : undefined,
+        uri: ".tenas/agents",
+        recursive: true,
+      });
+    } catch {
+      return;
+    }
+    const api = window.tenasElectron;
+    if (!api?.openPath) {
+      if (activeTabId) {
+        const agentsUri = rootUri.startsWith('file://')
+          ? buildFileUriFromRoot(rootUri, '.tenas/agents')
+          : `${rootUri.replace(/[/\\]+$/, '')}/.tenas/agents`
+        pushStackItem(activeTabId, {
+          id: `agents-root:${isProjectList ? projectId : 'workspace'}`,
+          sourceKey: `agents-root:${isProjectList ? projectId : 'workspace'}`,
+          component: 'folder-tree-preview',
+          title: 'Agents',
+          params: {
+            rootUri: agentsUri,
+            currentUri: '',
+            projectId: isProjectList ? projectId : undefined,
+          },
+        })
+      }
+      return;
+    }
+    const agentsUri = rootUri.startsWith("file://")
+      ? buildFileUriFromRoot(rootUri, ".tenas/agents")
+      : `${rootUri.replace(/[/\\]+$/, "")}/.tenas/agents`;
+    const res = await api.openPath({ uri: agentsUri });
+    if (!res?.ok) toast.error(res?.reason ?? "无法打开文件管理器");
+  }, [activeTabId, isProjectList, mkdirMutation, projectId, pushStackItem, workspace?.rootUri, workspaceId]);
 
-  const saveEdit = () => {
-    if (!panel || panel.mode !== "edit") return;
-    const nextDisplayName = editDraft.displayName.trim();
-    const nextModel = editDraft.model.trim();
-    if (!nextDisplayName || !nextModel) return;
+  const handleOpenAgent = useCallback(
+    (agent: AgentSummary) => {
+      if (!activeTabId) return;
+      const baseRootUri =
+        agent.scope === "global" ? undefined : workspace?.rootUri;
+      const rootUri = resolveAgentFolderUri(agent.path, baseRootUri);
+      if (!rootUri) return;
+      const stackKey = agent.ignoreKey.trim() || agent.path || agent.name;
+      const titlePrefix =
+        agent.scope === "global"
+          ? "全局 Agent"
+          : agent.scope === "project"
+            ? "项目 Agent"
+            : "工作空间 Agent";
+      pushStackItem(activeTabId, {
+        id: `agent:${agent.scope}:${stackKey}`,
+        sourceKey: `agent:${agent.scope}:${stackKey}`,
+        component: "folder-tree-preview",
+        title: `${titlePrefix} · ${agent.name}`,
+        params: {
+          rootUri,
+          currentEntryKind: "file",
+          projectId: agent.scope === "project" ? projectId : undefined,
+          projectTitle: agent.name,
+          viewerRootUri: baseRootUri,
+        },
+      });
+    },
+    [activeTabId, projectId, pushStackItem, workspace?.rootUri],
+  );
 
-    setAgents((prev) =>
-      prev.map((item) =>
-        item.id === panel.id
-          ? { ...item, displayName: nextDisplayName, model: nextModel }
-          : item,
-      ),
-    );
-    setPanel({ mode: "view", id: panel.id });
-    setEditDraft({ displayName: "", model: "" });
-  };
+  const handleEditAgent = useCallback(
+    (agent: AgentSummary) => {
+      if (!activeTabId) return;
+      pushStackItem(activeTabId, {
+        id: `agent-detail:${agent.scope}:${agent.name}`,
+        sourceKey: `agent-detail:${agent.scope}:${agent.name}`,
+        component: "agent-detail",
+        title: `Agent · ${agent.name}`,
+        params: {
+          agentPath: agent.path,
+          scope: agent.scope,
+          projectId: agent.scope === "project" ? projectId : undefined,
+          isSystem: agent.isSystem,
+        },
+      });
+    },
+    [activeTabId, projectId, pushStackItem],
+  );
 
-  const confirmDelete = () => {
-    if (!deletingAgent) return;
-    setAgents((prev) => prev.filter((agent) => agent.id !== deletingAgent.id));
-    setDeleteId(null);
-    if (panel?.id === deletingAgent.id) closePanel();
-  };
+  const handleCreateAgent = useCallback(() => {
+    if (!activeTabId) return;
+    const scope = isProjectList ? "project" : "workspace";
+    pushStackItem(activeTabId, {
+      id: `agent-detail:new:${Date.now()}`,
+      sourceKey: `agent-detail:new`,
+      component: "agent-detail",
+      title: "创建 Agent",
+      params: {
+        isNew: true,
+        scope,
+        projectId: scope === "project" ? projectId : undefined,
+      },
+    });
+  }, [activeTabId, isProjectList, projectId, pushStackItem]);
+
+  const handleToggleAgent = useCallback(
+    (agent: AgentSummary, nextEnabled: boolean) => {
+      if (!agent.ignoreKey.trim()) return;
+      const scope = isProjectList ? "project" : "workspace";
+      updateAgentMutation.mutate({
+        scope,
+        projectId: scope === "project" ? projectId : undefined,
+        ignoreKey: agent.ignoreKey,
+        enabled: nextEnabled,
+      });
+    },
+    [isProjectList, projectId, updateAgentMutation],
+  );
+
+  const handleDeleteAgent = useCallback(
+    async (agent: AgentSummary) => {
+      if (!agent.isDeletable || !agent.ignoreKey.trim()) return;
+      const confirmed = window.confirm(
+        `确认删除 Agent「${agent.name}」？此操作不可撤销。`,
+      );
+      if (!confirmed) return;
+      const scope = isProjectList ? "project" : "workspace";
+      await deleteAgentMutation.mutateAsync({
+        scope,
+        projectId: scope === "project" ? projectId : undefined,
+        ignoreKey: agent.ignoreKey,
+        agentPath: agent.path,
+      });
+    },
+    [deleteAgentMutation, isProjectList, projectId],
+  );
+
+  const scopeHintText = isProjectList
+    ? "当前项目 Agent 目录"
+    : "当前工作空间 Agent 目录";
 
   return (
-    <>
-      <TenasSettingsGroup title="Agent 管理" showBorder={false}>
-        <AgentList
-          agents={filteredAgents}
-          selectedId={panel?.id ?? null}
-          query={query}
-          onQueryChange={setQuery}
-          onView={openView}
-          onEdit={openEdit}
-          onDelete={setDeleteId}
-        />
-      </TenasSettingsGroup>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex flex-wrap items-start justify-between gap-2.5 border-b border-border/60 px-3 py-2.5">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">
+            Agent 管理
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {scopeHintText}。创建 `AGENT.md` 定义 Agent。
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 rounded-full px-2.5 text-xs sm:px-3"
+            onClick={handleCreateAgent}
+            disabled={!activeTabId}
+            aria-label="创建 Agent"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span className="ml-1.5 hidden sm:inline">创建 Agent</span>
+          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-8 rounded-full border border-border/70 bg-background/85 px-2.5 text-xs transition-colors hover:bg-muted/55 sm:px-3"
+                onClick={() => void handleOpenAgentsRoot()}
+                disabled={!workspace?.rootUri || !workspaceId}
+                aria-label="打开 Agent 目录"
+              >
+                <FolderOpen className="h-3.5 w-3.5" />
+                <span className="ml-1.5 hidden sm:inline">打开目录</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              打开 Agent 目录
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
 
-      <AgentDetailsDialog
-        panel={panel}
-        agent={panelAgent}
-        draft={editDraft}
-        onChangeDraft={setEditDraft}
-        onClose={closePanel}
-        onEdit={() => (panelAgent ? openEdit(panelAgent.id) : null)}
-        onCancelEdit={cancelEdit}
-        onSave={saveEdit}
-        onDelete={() => (panelAgent ? setDeleteId(panelAgent.id) : null)}
-      />
+      <div className="border-b border-border/60 px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="relative min-w-[160px] flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="搜索 Agent 名称或描述..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-9 rounded-xl border-border/70 bg-background/90 pl-9 pr-9 text-sm"
+            />
+            {searchQuery ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-full"
+                onClick={() => setSearchQuery("")}
+                aria-label="清除搜索"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            ) : null}
+          </div>
+          {!isProjectList ? (
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
+              <Checkbox checked={showAllProjects} onCheckedChange={(v) => setShowAllProjects(v === true)} className="h-3.5 w-3.5" />
+              全部项目
+            </label>
+          ) : null}
+          {isProjectList ? (
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
+              <Checkbox checked={showChildAgents} onCheckedChange={(v) => setShowChildAgents(v === true)} className="h-3.5 w-3.5" />
+              子项目 Agent
+            </label>
+          ) : null}
+          {isProjectList ? (
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
+              <Checkbox checked={showParentAgents} onCheckedChange={(v) => setShowParentAgents(v === true)} className="h-3.5 w-3.5" />
+              父项目 Agent
+            </label>
+          ) : null}
+          <div className="flex items-center rounded-full border border-border/70 bg-muted/40">
+            <FilterTab text="全部" selected={statusFilter === 'all'} onSelect={() => setStatusFilter('all')} layoutId="agent-status-filter" />
+            <FilterTab text="启用" selected={statusFilter === 'enabled'} onSelect={() => setStatusFilter('enabled')} layoutId="agent-status-filter" />
+            <FilterTab text="停用" selected={statusFilter === 'disabled'} onSelect={() => setStatusFilter('disabled')} layoutId="agent-status-filter" />
+          </div>
+        </div>
+      </div>
 
-      <DeleteAgentDialog
-        open={Boolean(deleteId)}
-        agent={deletingAgent}
-        onClose={() => setDeleteId(null)}
-        onConfirm={confirmDelete}
-      />
-    </>
+      <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-1">
+        {filteredAgents.length > 0 ? (
+          <div className="flex flex-col gap-2 pb-1">
+            {filteredAgents.map((agent) => {
+              const baseRootUri =
+                agent.scope === "global" ? undefined : workspace?.rootUri;
+              const canOpen = Boolean(
+                activeTabId && resolveAgentFolderUri(agent.path, baseRootUri),
+              );
+
+              return (
+                <ContextMenu
+                  key={
+                    agent.ignoreKey ||
+                    agent.path ||
+                    `${agent.scope}:${agent.name}`
+                  }
+                >
+                  <ContextMenuTrigger asChild>
+                    <div
+                      className="group flex items-center gap-3 rounded-xl bg-zinc-100 px-3 py-2.5 transition-[background-color] duration-200 hover:bg-zinc-200/75 dark:bg-zinc-800 dark:hover:bg-zinc-700/85"
+                      onDoubleClick={() => {
+                        handleEditAgent(agent);
+                      }}
+                    >
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            if (isProjectList && agent.scope === "project" && !agent.isInherited && !agent.isChildProject) return null;
+                            const label = agent.isChildProject ? "子项目" : agent.isInherited ? "父项目" : agent.scope === "project" ? "项目" : "工作空间";
+                            const colorClass = agent.isChildProject
+                              ? "bg-teal-100 text-teal-600 dark:bg-teal-900/50 dark:text-teal-400"
+                              : agent.isInherited
+                                ? "bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400"
+                                : agent.scope === "project"
+                                  ? "bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400"
+                                  : "bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400";
+                            return (
+                              <span className={`shrink-0 rounded px-1 py-px text-[10px] ${colorClass}`}>
+                                {label}
+                              </span>
+                            );
+                          })()}
+                          {agent.isSystem ? (
+                            <span className="shrink-0 rounded px-1 py-px text-[10px] bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
+                              系统
+                            </span>
+                          ) : null}
+                          <span className="truncate text-sm font-medium text-foreground">
+                            {agent.name}
+                          </span>
+                          {agent.model ? (
+                            <span className="shrink-0 rounded border border-border/60 bg-background/60 px-1 py-px font-mono text-[10px] text-foreground/70">
+                              {agent.model}
+                            </span>
+                          ) : null}
+                        </div>
+                        {agent.description?.trim() ? (
+                          <p className="truncate pl-1 text-xs text-muted-foreground">
+                            {agent.description}
+                          </p>
+                        ) : null}
+                        {agent.capabilities.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {agent.capabilities.map((cap) => {
+                              const capMeta = CAP_ICON_MAP[cap];
+                              const CapIcon = capMeta?.icon ?? Blocks;
+                              const iconClass = capMeta?.className ?? "text-muted-foreground";
+                              const bgClass = CAP_BG_MAP[cap] ?? "bg-muted/30";
+                              return (
+                                <span
+                                  key={cap}
+                                  className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] ${bgClass}`}
+                                >
+                                  <CapIcon className={`h-3 w-3 ${iconClass}`} />
+                                  {capLabelMap[cap] || cap}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                      <Switch
+                        checked={agent.isEnabled}
+                        onCheckedChange={(checked) =>
+                          handleToggleAgent(agent, checked)
+                        }
+                        className="shrink-0 border-zinc-300/70 bg-zinc-200/55 data-[state=checked]:bg-emerald-300/60 dark:border-zinc-600/80 dark:bg-zinc-700/45 dark:data-[state=checked]:bg-emerald-600/45"
+                        aria-label={`启用 Agent ${agent.name}`}
+                        disabled={updateAgentMutation.isPending}
+                      />
+                    </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="w-44">
+                    <ContextMenuItem
+                      icon={Pencil}
+                      onClick={() => handleEditAgent(agent)}
+                    >
+                      编辑 Agent
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      icon={Eye}
+                      onClick={() => handleOpenAgent(agent)}
+                      disabled={!canOpen}
+                    >
+                      查看 Agent 目录
+                    </ContextMenuItem>
+                    {agent.isDeletable ? (
+                      <ContextMenuItem
+                        icon={Trash2}
+                        variant="destructive"
+                        onClick={() => void handleDeleteAgent(agent)}
+                        disabled={deleteAgentMutation.isPending}
+                      >
+                        删除 Agent
+                      </ContextMenuItem>
+                    ) : null}
+                  </ContextMenuContent>
+                </ContextMenu>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {agentsQuery.isLoading ? (
+          <div className="py-9 text-center text-sm text-muted-foreground">
+            正在加载 Agent 列表...
+          </div>
+        ) : null}
+
+        {!agentsQuery.isLoading &&
+        !agentsQuery.isError &&
+        agents.length === 0 ? (
+          <div className="py-9 text-center text-sm text-muted-foreground">
+            暂无可用 Agent，请创建 `AGENT.md` 来定义 Agent。
+          </div>
+        ) : null}
+
+        {!agentsQuery.isLoading &&
+        !agentsQuery.isError &&
+        agents.length > 0 &&
+        filteredAgents.length === 0 ? (
+          <div className="py-9 text-center text-sm text-muted-foreground">
+            没有匹配的 Agent，请调整筛选条件后重试。
+          </div>
+        ) : null}
+
+        {agentsQuery.isError ? (
+          <div className="py-9 text-center text-sm text-destructive">
+            读取失败：{agentsQuery.error?.message ?? "未知错误"}
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }

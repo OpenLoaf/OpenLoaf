@@ -32,7 +32,11 @@ export function TenasSettingsMenu({
     <div className={cn("h-full overflow-auto", className)}>
       <div className="p-2 space-y-2 pr-3">
         {groups.map((group, groupIndex) => (
-          <div key={`group_${groupIndex}`} className="space-y-2">
+          <div key={`group_${groupIndex}`}>
+            {groupIndex > 0 && (
+              <div className="my-2 border-t border-border/50" />
+            )}
+            <div className="space-y-2">
             {group.map((item) => {
               const active = item.key === activeKey;
               const Icon = item.Icon;
@@ -55,6 +59,7 @@ export function TenasSettingsMenu({
               const wrapped = renderItemWrapper ? renderItemWrapper(item, button) : button;
               return <div key={item.key}>{wrapped}</div>;
             })}
+            </div>
           </div>
         ))}
       </div>

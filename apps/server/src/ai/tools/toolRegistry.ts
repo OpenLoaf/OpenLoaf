@@ -6,8 +6,7 @@ import {
   spawnAgentTool,
   sendInputTool,
   waitAgentTool,
-  closeAgentTool,
-  resumeAgentTool,
+  abortAgentTool,
 } from "@/ai/tools/agentTools";
 import { execCommandTool } from "@/ai/tools/execCommandTool";
 import { shellTool } from "@/ai/tools/shellTool";
@@ -28,6 +27,8 @@ import { projectMutateTool, projectQueryTool } from "@/ai/tools/projectTools";
 import { calendarMutateTool, calendarQueryTool } from "@/ai/tools/calendarTools";
 import { emailMutateTool, emailQueryTool } from "@/ai/tools/emailTools";
 import { imageGenerateTool, videoGenerateTool } from "@/ai/tools/mediaGenerateTools";
+import { requestUserInputTool } from "@/ai/tools/requestUserInputTool";
+import { jsReplTool, jsReplResetTool } from "@/ai/tools/jsReplTool";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import {
   browserActToolDef,
@@ -43,8 +44,7 @@ import {
   spawnAgentToolDef,
   sendInputToolDef,
   waitAgentToolDef,
-  closeAgentToolDef,
-  resumeAgentToolDef,
+  abortAgentToolDef,
 } from "@tenas-ai/api/types/tools/agent";
 import { projectMutateToolDef, projectQueryToolDef } from "@tenas-ai/api/types/tools/db";
 import {
@@ -59,6 +59,7 @@ import {
   imageGenerateToolDef,
   videoGenerateToolDef,
 } from "@tenas-ai/api/types/tools/mediaGenerate";
+import { requestUserInputToolDef } from "@tenas-ai/api/types/tools/userInput";
 import {
   listDirToolDef,
   readFileToolDef,
@@ -70,6 +71,8 @@ import {
   execCommandToolDef,
   writeStdinToolDef,
   updatePlanToolDef,
+  jsReplToolDef,
+  jsReplResetToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
 import { generateWidgetToolDef } from "@tenas-ai/api/types/tools/widget";
 import {
@@ -110,11 +113,8 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [waitAgentToolDef.id]: {
     tool: waitAgentTool,
   },
-  [closeAgentToolDef.id]: {
-    tool: closeAgentTool,
-  },
-  [resumeAgentToolDef.id]: {
-    tool: resumeAgentTool,
+  [abortAgentToolDef.id]: {
+    tool: abortAgentTool,
   },
   [browserSnapshotToolDef.id]: {
     tool: browserSnapshotTool,
@@ -199,6 +199,15 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [videoGenerateToolDef.id]: {
     tool: videoGenerateTool,
+  },
+  [requestUserInputToolDef.id]: {
+    tool: requestUserInputTool,
+  },
+  [jsReplToolDef.id]: {
+    tool: jsReplTool,
+  },
+  [jsReplResetToolDef.id]: {
+    tool: jsReplResetTool,
   },
 };
 

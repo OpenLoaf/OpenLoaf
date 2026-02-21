@@ -61,6 +61,7 @@ function getToolIcon(kind: string): React.ReactNode {
     case "send-input":
     case "wait-agent":
     case "close-agent":
+    case "abort-agent":
     case "resume-agent":
       return <BotIcon className={iconCls} />;
     case "apply-patch":
@@ -216,7 +217,7 @@ export default function UnifiedTool({
 
   return (
     <Tool
-      defaultOpen={isStreaming || isApprovalRequested}
+      defaultOpen={isApprovalRequested}
       onOpenChange={(open) => {
         if (open) void fetchToolOutput();
       }}

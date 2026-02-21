@@ -7,10 +7,10 @@ import {
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useTabs } from "@/hooks/use-tabs";
 import { WORKBENCH_TAB_INPUT } from "@tenas-ai/api/common";
-import { CalendarDays, Mail, Wand2 } from "lucide-react";
+import { CalendarDays, Clock, LayoutDashboard, Mail } from "lucide-react";
 import { useMemo } from "react";
 
-type WorkspaceSwitchTabId = "calendar" | "email" | "skills" | "workbench";
+type WorkspaceSwitchTabId = "calendar" | "email" | "workbench" | "scheduled";
 
 type WorkspaceSwitchTarget = DockTabItem & {
   /** Tab id for workspace quick switcher. */
@@ -25,30 +25,11 @@ type WorkspaceSwitchTarget = DockTabItem & {
   tabIcon: string;
 };
 
-/** Render workbench logo icon in dock tabs. */
-function WorkbenchHeadIcon({
-  size = 16,
-  className,
-}: {
-  size?: number;
-  className?: string;
-}) {
-  return (
-    <img
-      src="/head_s.png"
-      alt=""
-      decoding="sync"
-      className={["block shrink-0 object-contain", className].filter(Boolean).join(" ")}
-      style={{ width: size, height: size }}
-    />
-  );
-}
-
 const WORKSPACE_SWITCH_TABS: WorkspaceSwitchTarget[] = [
   {
     id: "workbench",
     label: "工作台",
-    icon: WorkbenchHeadIcon,
+    icon: LayoutDashboard,
     tone: "amber",
     baseId: WORKBENCH_TAB_INPUT.baseId,
     component: WORKBENCH_TAB_INPUT.component,
@@ -76,21 +57,21 @@ const WORKSPACE_SWITCH_TABS: WorkspaceSwitchTarget[] = [
     tabIcon: "📧",
   },
   {
-    id: "skills",
-    label: "技能",
-    icon: Wand2,
-    tone: "violet",
-    baseId: "base:skills",
-    component: "skills-page",
-    title: "技能",
-    tabIcon: "🪄",
+    id: "scheduled",
+    label: "任务",
+    icon: Clock,
+    tone: "rose",
+    baseId: "base:scheduled-tasks",
+    component: "scheduled-tasks-page",
+    title: "任务",
+    tabIcon: "⏰",
   },
 ];
 
 const COMPONENT_TO_TAB_ID: Record<string, WorkspaceSwitchTabId> = {
   "calendar-page": "calendar",
   "email-page": "email",
-  "skills-page": "skills",
+  "scheduled-tasks-page": "scheduled",
   "workspace-desktop": "workbench",
 };
 
@@ -134,7 +115,7 @@ export default function WorkspaceSwitchDockTabs({ tabId }: { tabId: string }) {
         onChange={handleChange}
         size="md"
         active={isActive}
-        expandedWidth={430}
+        expandedWidth={520}
         inputPlaceholder="搜索页面"
       />
     </div>

@@ -146,6 +146,7 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
   const overlay = useGlobalOverlay.getState();
   const withMod = event.metaKey || event.ctrlKey;
 
+  if (!event.key) return
   const keyLower = event.key.toLowerCase();
 
   // Cmd/Ctrl + W 应视为“全局快捷键”，即使当前焦点在输入框里也要生效（关闭当前标签/面板）

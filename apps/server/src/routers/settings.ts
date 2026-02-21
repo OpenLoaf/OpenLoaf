@@ -36,7 +36,10 @@ import {
   installCliTool,
 } from "@/ai/models/cli/cliToolService";
 import { loadSkillSummaries } from "@/ai/agents/masterAgent/skillsLoader";
+import { loadAgentSummaries, readAgentConfigFromPath, serializeAgentToMarkdown } from "@/ai/services/agentConfigService";
+import { CAPABILITY_GROUPS } from "@/ai/tools/capabilityGroups";
 import { resolveSystemCliInfo } from "@/modules/settings/resolveSystemCliInfo";
+import { isSystemAgentId } from "@/ai/shared/systemAgentDefinitions";
 
 /** Normalize ignoreSkills list for persistence. */
 function normalizeIgnoreSkills(values?: unknown): string[] {
@@ -81,6 +84,11 @@ function buildGlobalIgnoreKey(folderName: string): string {
 /** Resolve the global skills directory path (~/.agents/skills). */
 function resolveGlobalSkillsPath(): string {
   return path.join(homedir(), ".agents", "skills");
+}
+
+/** Resolve the global agents directory path (~/.agents/agents). */
+function resolveGlobalAgentsPath(): string {
+  return path.join(homedir(), ".agents", "agents");
 }
 
 /** Build project ignore key from folder name. */
@@ -222,6 +230,42 @@ function resolveSkillDeleteTarget(input: {
     throw new Error("Skill path is outside scope.");
   }
   return { skillDir, skillsRoot };
+}
+
+/** Resolve agent directory and scope root for deletion. */
+function resolveAgentDeleteTarget(input: {
+  scope: "workspace" | "project";
+  projectId?: string;
+  agentPath: string;
+}): { agentDir: string; agentsRoot: string } {
+  const baseRootPath =
+    input.scope === "workspace"
+      ? getWorkspaceRootPath()
+      : input.projectId
+        ? getProjectRootPath(input.projectId) ?? ""
+        : "";
+  if (!baseRootPath) {
+    throw new Error("Project not found.");
+  }
+  const normalizedAgentPath = normalizeSkillPath(input.agentPath);
+  if (!normalizedAgentPath) {
+    throw new Error("Invalid agent path.");
+  }
+  const baseName = path.basename(normalizedAgentPath);
+  // 逻辑：支持 .tenas/agents/<name>/agent.json 和 .agents/agents/<name>/AGENT.md 两种路径。
+  const isTenasAgent = baseName === "agent.json";
+  const isLegacyAgent = baseName === "AGENT.md";
+  if (!isTenasAgent && !isLegacyAgent) {
+    throw new Error("Invalid agent path.");
+  }
+  const agentDir = normalizeFsPath(path.dirname(normalizedAgentPath));
+  const agentsRoot = isTenasAgent
+    ? normalizeFsPath(path.join(baseRootPath, ".tenas", "agents"))
+    : normalizeFsPath(path.join(baseRootPath, ".agents", "agents"));
+  if (agentDir === agentsRoot || !agentDir.startsWith(`${agentsRoot}${path.sep}`)) {
+    throw new Error("Agent path is outside scope.");
+  }
+  return { agentDir, agentsRoot };
 }
 
 /** Resolve owner project id from skill path. */
@@ -467,6 +511,405 @@ export class SettingRouterImpl extends BaseSettingRouter {
             enabled: true,
           });
           return { ok: true };
+        }),
+      /** List agents for settings UI. */
+      getAgents: shieldedProcedure
+        .input(settingSchemas.getAgents.input)
+        .output(settingSchemas.getAgents.output)
+        .query(async ({ input }) => {
+          const workspaceRootPath = getWorkspaceRootPath();
+          const projectRootPath = input?.projectId
+            ? getProjectRootPath(input.projectId) ?? undefined
+            : undefined;
+          const parentProjectRootUris = input?.projectId
+            ? await resolveProjectAncestorRootUris(prisma, input.projectId)
+            : [];
+          const parentRootEntries = parentProjectRootUris
+            .map((rootUri) => {
+              try {
+                const rootPath = resolveFilePathFromUri(rootUri);
+                return { rootUri, rootPath };
+              } catch {
+                return null;
+              }
+            })
+            .filter(
+              (entry): entry is { rootUri: string; rootPath: string } =>
+                Boolean(entry),
+            );
+          const parentProjectRootPaths = parentRootEntries.map((e) => e.rootPath);
+          const workspaceIgnoreSkills = readWorkspaceIgnoreSkills();
+          const projectIgnoreSkills = await readProjectIgnoreSkills(projectRootPath);
+          const summaries = loadAgentSummaries({
+            workspaceRootPath,
+            projectRootPath,
+            parentProjectRootPaths,
+            globalAgentsPath: resolveGlobalAgentsPath(),
+          });
+          const projectCandidates: Array<{ rootPath: string; projectId: string }> = [];
+          if (projectRootPath && input?.projectId) {
+            projectCandidates.push({
+              rootPath: projectRootPath,
+              projectId: input.projectId,
+            });
+          }
+          const parentProjectRows = parentProjectRootUris.length
+            ? await prisma.project.findMany({
+                where: { rootUri: { in: parentProjectRootUris }, isDeleted: false },
+                select: { id: true, rootUri: true },
+              })
+            : [];
+          const parentIdByRootUri = new Map(
+            parentProjectRows.map((row) => [row.rootUri, row.id]),
+          );
+          for (const entry of parentRootEntries) {
+            const parentId =
+              (await readProjectIdFromMeta(entry.rootPath)) ??
+              parentIdByRootUri.get(entry.rootUri) ??
+              null;
+            if (!parentId) continue;
+            projectCandidates.push({
+              rootPath: entry.rootPath,
+              projectId: parentId,
+            });
+          }
+          // 逻辑：加载额外项目的 agent（全部项目 / 子项目）
+          const childProjectPaths = new Set<string>()
+          if (!input?.projectId && input?.includeAllProjects) {
+            const workspace = getActiveWorkspace()
+            if (workspace) {
+              const allProjects = await prisma.project.findMany({
+                where: { workspaceId: workspace.id, isDeleted: false },
+                select: { id: true, rootUri: true },
+              })
+              for (const proj of allProjects) {
+                try {
+                  const projRootPath = resolveFilePathFromUri(proj.rootUri)
+                  const projAgents = loadAgentSummaries({ projectRootPath: projRootPath })
+                  for (const s of projAgents) {
+                    if (s.scope === 'project') {
+                      summaries.push(s)
+                      projectCandidates.push({ rootPath: projRootPath, projectId: proj.id })
+                    }
+                  }
+                } catch { /* skip invalid paths */ }
+              }
+            }
+          }
+          if (input?.projectId && input?.includeChildProjects) {
+            const childProjects = await prisma.project.findMany({
+              where: { parentId: input.projectId, isDeleted: false },
+              select: { id: true, rootUri: true },
+            })
+            for (const child of childProjects) {
+              try {
+                const childRootPath = resolveFilePathFromUri(child.rootUri)
+                const childAgents = loadAgentSummaries({ projectRootPath: childRootPath })
+                for (const s of childAgents) {
+                  if (s.scope === 'project') {
+                    summaries.push(s)
+                    childProjectPaths.add(s.path)
+                    projectCandidates.push({ rootPath: childRootPath, projectId: child.id })
+                  }
+                }
+              } catch { /* skip invalid paths */ }
+            }
+          }
+          const items = summaries.map((summary) => {
+            const ownerProjectId =
+              summary.scope === "project"
+                ? resolveOwnerProjectId({
+                    skillPath: summary.path,
+                    candidates: projectCandidates,
+                  })
+                : null;
+            const ignoreKey =
+              summary.scope === "global"
+                ? buildGlobalIgnoreKey(summary.folderName)
+                : summary.scope === "workspace"
+                  ? buildWorkspaceIgnoreKey(summary.folderName)
+                  : buildProjectIgnoreKey({
+                      folderName: summary.folderName,
+                      ownerProjectId,
+                      currentProjectId: input?.projectId ?? null,
+                    });
+            const isEnabled =
+              summary.scope === "global"
+                ? input?.projectId
+                  ? !projectIgnoreSkills.includes(`agent:${ignoreKey}`)
+                  : !workspaceIgnoreSkills.includes(`agent:${ignoreKey}`)
+                : summary.scope === "workspace"
+                  ? input?.projectId
+                    ? !projectIgnoreSkills.includes(`agent:${ignoreKey}`)
+                    : !workspaceIgnoreSkills.includes(`agent:${ignoreKey}`)
+                  : !projectIgnoreSkills.includes(`agent:${ignoreKey}`);
+            const isTenasAgent = summary.path.includes('.tenas/agents/') || summary.path.includes('.tenas\\agents\\');
+            const isSysAgent = isTenasAgent && isSystemAgentId(summary.folderName);
+            const isDeletable = isSysAgent
+              ? false
+              : summary.scope === "global"
+                ? false
+                : input?.projectId
+                  ? summary.scope === "project" && ownerProjectId === input.projectId
+                  : summary.scope === "workspace";
+            const isInherited = summary.scope === "project" && Boolean(input?.projectId) && ownerProjectId !== input?.projectId;
+            const isChildProject = childProjectPaths.has(summary.path)
+            return { ...summary, ignoreKey, isEnabled, isDeletable, isInherited, isChildProject, isSystem: isSysAgent };
+          });
+          if (input?.projectId) {
+            return items.filter(
+              (item) =>
+                (item.scope !== "workspace" && item.scope !== "global") ||
+                !workspaceIgnoreSkills.includes(`agent:${item.ignoreKey}`),
+            );
+          }
+          return items;
+        }),
+      /** Toggle agent enabled state. */
+      setAgentEnabled: shieldedProcedure
+        .input(settingSchemas.setAgentEnabled.input)
+        .output(settingSchemas.setAgentEnabled.output)
+        .mutation(async ({ input }) => {
+          const ignoreKey = `agent:${input.ignoreKey.trim()}`;
+          if (!ignoreKey) {
+            throw new Error("Ignore key is required.");
+          }
+          if (input.scope === "workspace" || input.scope === "global") {
+            updateWorkspaceIgnoreSkills({
+              ignoreKey,
+              enabled: input.enabled,
+            });
+            return { ok: true };
+          }
+          const projectId = input.projectId?.trim();
+          if (!projectId) {
+            throw new Error("Project id is required.");
+          }
+          const projectRootPath = getProjectRootPath(projectId);
+          if (!projectRootPath) {
+            throw new Error("Project not found.");
+          }
+          await updateProjectIgnoreSkills({
+            projectRootPath,
+            ignoreKey,
+            enabled: input.enabled,
+          });
+          return { ok: true };
+        }),
+      /** Delete an agent folder. */
+      deleteAgent: shieldedProcedure
+        .input(settingSchemas.deleteAgent.input)
+        .output(settingSchemas.deleteAgent.output)
+        .mutation(async ({ input }) => {
+          const ignoreKey = input.ignoreKey.trim();
+          if (!ignoreKey) {
+            throw new Error("Ignore key is required.");
+          }
+          // 逻辑：系统 Agent 不可删除。
+          const folderName = ignoreKey.includes(":") ? ignoreKey.split(":").pop()! : ignoreKey;
+          if (isSystemAgentId(folderName)) {
+            throw new Error("System agents cannot be deleted.");
+          }
+          if (input.scope === "global") {
+            throw new Error("Global agents cannot be deleted from settings.");
+          }
+          if (input.scope === "project") {
+            if (ignoreKey.startsWith("workspace:")) {
+              throw new Error("Workspace agents cannot be deleted here.");
+            }
+            if (ignoreKey.includes(":")) {
+              const prefix = ignoreKey.split(":")[0]?.trim();
+              if (prefix && prefix !== input.projectId) {
+                throw new Error("Parent project agents cannot be deleted here.");
+              }
+            }
+          }
+          const target = resolveAgentDeleteTarget({
+            scope: input.scope,
+            projectId: input.projectId,
+            agentPath: input.agentPath,
+          });
+          await fs.rm(target.agentDir, { recursive: true, force: true });
+          if (input.scope === "workspace") {
+            updateWorkspaceIgnoreSkills({ ignoreKey: `agent:${ignoreKey}`, enabled: true });
+            return { ok: true };
+          }
+          const projectId = input.projectId?.trim();
+          if (!projectId) {
+            throw new Error("Project id is required.");
+          }
+          const projectRootPath = getProjectRootPath(projectId);
+          if (!projectRootPath) {
+            throw new Error("Project not found.");
+          }
+          await updateProjectIgnoreSkills({
+            projectRootPath,
+            ignoreKey: `agent:${ignoreKey}`,
+            enabled: true,
+          });
+          return { ok: true };
+        }),
+      /** Get capability groups. */
+      getCapabilityGroups: shieldedProcedure
+        .output(settingSchemas.getCapabilityGroups.output)
+        .query(async () => {
+          return CAPABILITY_GROUPS.map((group) => ({
+            id: group.id,
+            label: group.label,
+            description: group.description,
+            toolIds: [...group.toolIds],
+          }));
+        }),
+      /** Get full agent detail by path. */
+      getAgentDetail: shieldedProcedure
+        .input(settingSchemas.getAgentDetail.input)
+        .output(settingSchemas.getAgentDetail.output)
+        .query(async ({ input }) => {
+          // 逻辑：agent.json 路径走 .tenas/agents/ 结构，AGENT.md 走旧结构。
+          if (path.basename(input.agentPath) === "agent.json") {
+            const { readAgentJson } = await import("@/ai/shared/defaultAgentResolver");
+            const agentDir = path.dirname(input.agentPath);
+            const descriptor = readAgentJson(agentDir);
+            if (!descriptor) {
+              throw new Error(`Agent not found at ${input.agentPath}`);
+            }
+            // 逻辑：读取同目录下的 AGENT.md 作为 systemPrompt。
+            const agentMdPath = path.join(agentDir, "AGENT.md");
+            let systemPrompt = "";
+            try {
+              const { readFileSync, existsSync } = await import("node:fs");
+              if (existsSync(agentMdPath)) {
+                systemPrompt = readFileSync(agentMdPath, "utf8").trim();
+              }
+            } catch { /* ignore */ }
+            return {
+              name: descriptor.name,
+              description: descriptor.description || "未提供",
+              icon: descriptor.icon || "bot",
+              model: descriptor.model || "",
+              capabilities: descriptor.capabilities || [],
+              skills: descriptor.skills || [],
+              allowSubAgents: descriptor.allowSubAgents ?? false,
+              maxDepth: descriptor.maxDepth ?? 1,
+              systemPrompt,
+              path: input.agentPath,
+              folderName: path.basename(agentDir),
+              scope: input.scope,
+            };
+          }
+          const config = readAgentConfigFromPath(input.agentPath, input.scope);
+          if (!config) {
+            throw new Error(`Agent not found at ${input.agentPath}`);
+          }
+          return {
+            name: config.name,
+            description: config.description,
+            icon: config.icon,
+            model: config.model,
+            capabilities: config.capabilities,
+            skills: config.skills,
+            allowSubAgents: config.allowSubAgents,
+            maxDepth: config.maxDepth,
+            systemPrompt: config.systemPrompt,
+            path: config.path,
+            folderName: config.folderName,
+            scope: config.scope,
+          };
+        }),
+      /** Save (create or update) an agent. */
+      saveAgent: shieldedProcedure
+        .input(settingSchemas.saveAgent.input)
+        .output(settingSchemas.saveAgent.output)
+        .mutation(async ({ input }) => {
+          if (input.agentPath) {
+            // 逻辑：更新已有 Agent。
+            const { writeFileSync, existsSync: existsFsSync } = await import("node:fs");
+            if (path.basename(input.agentPath) === "agent.json") {
+              // 逻辑：.tenas/agents/ 结构 — 更新 agent.json + AGENT.md。
+              const agentDir = path.dirname(input.agentPath);
+              const descriptor = {
+                name: input.name,
+                description: input.description,
+                icon: input.icon,
+                model: input.model,
+                capabilities: input.capabilities,
+                skills: input.skills,
+                allowSubAgents: input.allowSubAgents,
+                maxDepth: input.maxDepth,
+              };
+              writeFileSync(input.agentPath, JSON.stringify(descriptor, null, 2), "utf8");
+              if (input.systemPrompt?.trim()) {
+                writeFileSync(path.join(agentDir, "AGENT.md"), input.systemPrompt.trim(), "utf8");
+              }
+              return { ok: true, agentPath: input.agentPath };
+            }
+            // 逻辑：旧 .agents/agents/ 结构 — 覆盖 AGENT.md。
+            const content = serializeAgentToMarkdown({
+              name: input.name,
+              description: input.description,
+              icon: input.icon,
+              model: input.model,
+              capabilities: input.capabilities,
+              skills: input.skills,
+              allowSubAgents: input.allowSubAgents,
+              maxDepth: input.maxDepth,
+              systemPrompt: input.systemPrompt,
+            });
+            writeFileSync(input.agentPath, content, "utf8");
+            return { ok: true, agentPath: input.agentPath };
+          }
+
+          // 逻辑：创建新 Agent — 写入 .tenas/agents/<name>/ 目录。
+          const { mkdirSync, writeFileSync: writeFsSync } = await import("node:fs");
+          const { resolveAgentsRootDir } = await import("@/ai/shared/defaultAgentResolver");
+
+          let rootPath: string;
+          if (input.scope === "project" && input.projectId) {
+            rootPath = getProjectRootPath(input.projectId) ?? "";
+            if (!rootPath) throw new Error("Project not found.");
+          } else if (input.scope === "global") {
+            rootPath = resolveGlobalAgentsPath();
+            const sanitizedName = input.name.replace(/[^a-zA-Z0-9_-]/g, "-").toLowerCase();
+            const agentDir = path.join(rootPath, sanitizedName);
+            mkdirSync(agentDir, { recursive: true });
+            const filePath = path.join(agentDir, "AGENT.md");
+            const content = serializeAgentToMarkdown({
+              name: input.name,
+              description: input.description,
+              icon: input.icon,
+              model: input.model,
+              capabilities: input.capabilities,
+              skills: input.skills,
+              allowSubAgents: input.allowSubAgents,
+              maxDepth: input.maxDepth,
+              systemPrompt: input.systemPrompt,
+            });
+            writeFsSync(filePath, content, "utf8");
+            return { ok: true, agentPath: filePath };
+          } else {
+            rootPath = getWorkspaceRootPath();
+          }
+
+          const sanitizedName = input.name.replace(/[^a-zA-Z0-9_-]/g, "-").toLowerCase();
+          const agentsRoot = resolveAgentsRootDir(rootPath);
+          const agentDir = path.join(agentsRoot, sanitizedName);
+          mkdirSync(agentDir, { recursive: true });
+          const descriptor = {
+            name: input.name,
+            description: input.description,
+            icon: input.icon,
+            model: input.model,
+            capabilities: input.capabilities,
+            skills: input.skills,
+            allowSubAgents: input.allowSubAgents,
+            maxDepth: input.maxDepth,
+          };
+          const jsonPath = path.join(agentDir, "agent.json");
+          writeFsSync(jsonPath, JSON.stringify(descriptor, null, 2), "utf8");
+          if (input.systemPrompt?.trim()) {
+            writeFsSync(path.join(agentDir, "AGENT.md"), input.systemPrompt.trim(), "utf8");
+          }
+          return { ok: true, agentPath: jsonPath };
         }),
       set: shieldedProcedure
         .input(settingSchemas.set.input)

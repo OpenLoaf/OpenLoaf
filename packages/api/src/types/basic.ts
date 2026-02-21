@@ -65,18 +65,21 @@ export type CliToolsConfig = {
 };
 
 export const basicConfigSchema = z.object({
+  /** @deprecated Use per-agent model config instead. */
   chatSource: z.enum(["local", "cloud"]),
+  /** @deprecated Use per-agent model config instead. */
   toolModelSource: z.enum(["local", "cloud"]),
   activeS3Id: z.string().optional(),
   s3AutoUpload: z.boolean(),
   s3AutoDeleteHours: z.number().int().min(1).max(168),
   modelResponseLanguage: modelResponseLanguageSchema,
+  /** @deprecated Use per-agent model config instead. */
   modelQuality: modelQualitySchema,
   chatOnlineSearchMemoryScope: chatOnlineSearchMemoryScopeSchema,
   modelSoundEnabled: z.boolean(),
-  /** Enable auto summary for docs. */
+  /** @deprecated Use scheduled tasks instead. */
   autoSummaryEnabled: z.boolean(),
-  /** Selected hours for daily auto summary. */
+  /** @deprecated Use scheduled tasks instead. */
   autoSummaryHours: z.array(z.number().int().min(0).max(24)),
   uiLanguage: uiLanguageSchema,
   uiFontSize: uiFontSizeSchema,
@@ -92,7 +95,9 @@ export const basicConfigSchema = z.object({
   appAutoBackupDir: z.string(),
   appCustomRules: z.string(),
   appNotificationSoundEnabled: z.boolean(),
+  /** @deprecated Use per-agent model config instead. */
   modelDefaultChatModelId: z.string(),
+  /** @deprecated Use per-agent model config instead. */
   modelDefaultToolModelId: z.string(),
   appProjectRule: z.string(),
   /** Allow tools to access paths outside workspace/project roots. */

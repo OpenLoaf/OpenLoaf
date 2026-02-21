@@ -23,7 +23,7 @@ import ProjectFileSystem, {
   type ProjectBreadcrumbInfo,
 } from "./filesystem/components/ProjectFileSystem";
 import ProjectSettingsPage from "./settings/ProjectSettingsPage";
-import ProjectSkillsPage from "./skills/ProjectSkillsPage";
+import ProjectScheduledTasksPage from "./tasks/ProjectScheduledTasksPage";
 
 interface ProjectPageProps {
   tabId?: string;
@@ -193,7 +193,7 @@ export default function ProjectPage({
   const shouldRenderIndex = activeTab === "index" || mountedTabs.has("index");
   const shouldRenderFiles = activeTab === "files" || mountedTabs.has("files");
   const shouldRenderTasks = activeTab === "tasks" || mountedTabs.has("tasks");
-  const shouldRenderSkills = activeTab === "skills" || mountedTabs.has("skills");
+  const shouldRenderScheduled = activeTab === "scheduled" || mountedTabs.has("scheduled");
   const shouldRenderSettings = activeTab === "settings" || mountedTabs.has("settings");
 
   const updateProject = useMutation(
@@ -538,18 +538,18 @@ export default function ProjectPage({
                   ) : null}
                 </div>
                 <div
-                  id="project-panel-skills"
+                  id="project-panel-scheduled"
                   role="tabpanel"
-                  aria-labelledby="project-tab-skills"
+                  aria-labelledby="project-tab-scheduled"
                   className={`${panelBaseClass} ${
-                    activeTab === "skills"
+                    activeTab === "scheduled"
                       ? "opacity-100 pointer-events-auto translate-y-0 scale-100"
                       : "opacity-0 pointer-events-none translate-y-0.5 scale-[0.995]"
                   }`}
-                  aria-hidden={activeTab !== "skills"}
+                  aria-hidden={activeTab !== "scheduled"}
                 >
-                  {shouldRenderSkills ? (
-                    <ProjectSkillsPage projectId={projectId} />
+                  {shouldRenderScheduled ? (
+                    <ProjectScheduledTasksPage projectId={projectId} />
                   ) : null}
                 </div>
                 <div

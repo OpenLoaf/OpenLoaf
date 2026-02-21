@@ -13,6 +13,7 @@ import {
 } from "@/ai/tools/applyPatch";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { resolveToolPath, resolveToolWorkdir } from "@/ai/tools/toolScope";
+import { resolveSecretTokens } from "@/ai/tools/secretStore";
 import { buildGitignoreMatcher } from "@/ai/tools/gitignoreMatcher";
 import { getProjectId, getWorkspaceId } from "@/ai/shared/context/requestContext";
 import { getProjectRootPath, getWorkspaceRootPathById } from "@tenas-ai/api/services/vfsService";
@@ -401,7 +402,9 @@ export const applyPatchTool = tool({
   description: applyPatchToolDef.description,
   inputSchema: zodSchema(applyPatchToolDef.parameters),
   execute: async ({ patch: patchText }): Promise<string> => {
-    const hunks = parsePatch(patchText);
+    // 逻辑：替换 secret 令牌为真实值，确保磁盘文件包含真实密钥
+    const resolvedPatch = resolveSecretTokens(patchText);
+    const hunks = parsePatch(resolvedPatch);
     if (hunks.length === 0) throw new Error("No files were modified.");
     const affected: string[] = [];
 

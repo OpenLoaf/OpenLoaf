@@ -42,6 +42,11 @@ import {
   BaseDynamicWidgetRouter,
   dynamicWidgetSchemas,
 } from "./routers/absDynamicWidget";
+import {
+  scheduledTaskRouter,
+  BaseScheduledTaskRouter,
+  scheduledTaskSchemas,
+} from "./routers/absScheduledTask";
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
@@ -59,6 +64,7 @@ export const appRouterDefine = {
   email: emailRouter,
   calendar: calendarRouter,
   dynamicWidget: dynamicWidgetRouter,
+  scheduledTask: scheduledTaskRouter,
 };
 
 export const appRouter = t.router({
@@ -123,6 +129,9 @@ export { BaseCalendarRouter, calendarSchemas };
 
 // Export dynamic widget router components
 export { BaseDynamicWidgetRouter, dynamicWidgetSchemas };
+
+// Export scheduled task router components
+export { BaseScheduledTaskRouter, scheduledTaskSchemas };
 
 // export const t = initTRPC.context<Context>().create({
 // });

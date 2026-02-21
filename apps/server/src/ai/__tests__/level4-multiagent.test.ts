@@ -1,5 +1,5 @@
 /**
- * Level 4 — Multi-agent spawn/wait/close 集成测试。
+ * Level 4 — Multi-agent spawn/wait/abort 集成测试。
  *
  * 用法：
  *   TENAS_TEST_CHAT_MODEL_ID="profileId:modelId" pnpm run test:ai:multiagent
@@ -96,9 +96,8 @@ async function runAgentTest(input: {
 const AGENT_TOOL_IDS = [
   'spawn-agent',
   'wait-agent',
-  'close-agent',
+  'abort-agent',
   'send-input',
-  'resume-agent',
 ] as const
 
 async function main() {
@@ -165,10 +164,10 @@ async function main() {
   if (t2) passed++
   else failed++
 
-  // ── Test 3: close 生命周期 ──
+  // ── Test 3: abort 生命周期 ──
   const t3 = await runAgentTest({
-    name: 'Spawn + wait + close lifecycle',
-    prompt: '启动一个子代理查询时间，等待完成后关闭它，告诉我结果。',
+    name: 'Spawn + wait + abort lifecycle',
+    prompt: '启动一个子代理查询时间，等待完成后中止它，告诉我结果。',
     toolIds: AGENT_TOOL_IDS,
     model: resolved.model,
     modelInfo: resolved.modelInfo,
@@ -179,8 +178,8 @@ async function main() {
       if (!toolNames.includes('wait-agent')) {
         throw new Error(`期望调用 wait-agent，实际: ${toolNames.join(', ')}`)
       }
-      if (!toolNames.includes('close-agent')) {
-        throw new Error(`期望调用 close-agent，实际: ${toolNames.join(', ')}`)
+      if (!toolNames.includes('abort-agent')) {
+        throw new Error(`期望调用 abort-agent，实际: ${toolNames.join(', ')}`)
       }
       if (!outputText || outputText.trim().length === 0) {
         throw new Error('输出文本为空')

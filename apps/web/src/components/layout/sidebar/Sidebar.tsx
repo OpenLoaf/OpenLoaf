@@ -2,7 +2,6 @@
 
 import { startTransition, useCallback } from "react";
 import { useQuery, skipToken } from "@tanstack/react-query";
-import Image from "next/image";
 import { SidebarProject } from "@/components/layout/sidebar/SidebarProject";
 import { SidebarFeedback } from "@/components/layout/sidebar/SidebarFeedback";
 import { SidebarWorkspace } from "../../workspace/SidebarWorkspace";
@@ -16,7 +15,7 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@tenas-ai/ui/sidebar";
-import { CalendarDays, Inbox, LayoutTemplate, Mail, Search, Wand2 } from "lucide-react";
+import { CalendarDays, Clock, Inbox, LayoutDashboard, LayoutTemplate, Mail, Search } from "lucide-react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
@@ -31,12 +30,12 @@ import { Badge } from "@tenas-ai/ui/calendar/components/ui/badge";
 const SIDEBAR_WORKSPACE_COLOR_CLASS = {
   calendar:
     "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-sky-700/70 dark:[&>svg]:text-sky-300/70 hover:[&>svg]:text-sky-700 dark:hover:[&>svg]:text-sky-200 data-[active=true]:!bg-sky-500/15 dark:data-[active=true]:!bg-sky-400/20 data-[active=true]:[&>svg]:!text-sky-700 dark:data-[active=true]:[&>svg]:!text-sky-200",
+  scheduledTasks:
+    "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-rose-700/70 dark:[&>svg]:text-rose-300/70 hover:[&>svg]:text-rose-700 dark:hover:[&>svg]:text-rose-200 data-[active=true]:!bg-rose-500/15 dark:data-[active=true]:!bg-rose-400/20 data-[active=true]:[&>svg]:!text-rose-700 dark:data-[active=true]:[&>svg]:!text-rose-200",
   email:
     "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-emerald-700/70 dark:[&>svg]:text-emerald-300/70 hover:[&>svg]:text-emerald-700 dark:hover:[&>svg]:text-emerald-200 data-[active=true]:!bg-emerald-500/15 dark:data-[active=true]:!bg-emerald-400/20 data-[active=true]:[&>svg]:!text-emerald-700 dark:data-[active=true]:[&>svg]:!text-emerald-200",
-  skills:
-    "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-violet-700/70 dark:[&>svg]:text-violet-300/70 hover:[&>svg]:text-violet-700 dark:hover:[&>svg]:text-violet-200 data-[active=true]:!bg-violet-500/15 dark:data-[active=true]:!bg-violet-400/20 data-[active=true]:[&>svg]:!text-violet-700 dark:data-[active=true]:[&>svg]:!text-violet-200",
   workbench:
-    "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 data-[active=true]:!bg-amber-500/15 dark:data-[active=true]:!bg-amber-400/20",
+    "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-amber-700/70 dark:[&>svg]:text-amber-300/70 hover:[&>svg]:text-amber-700 dark:hover:[&>svg]:text-amber-200 data-[active=true]:!bg-amber-500/15 dark:data-[active=true]:!bg-amber-400/20 data-[active=true]:[&>svg]:!text-amber-700 dark:data-[active=true]:[&>svg]:!text-amber-200",
 } as const;
 
 const SIDEBAR_SEARCH_ICON_CLASS =
@@ -45,15 +44,15 @@ const SIDEBAR_SEARCH_ICON_CLASS =
 const SIDEBAR_WORKSPACE_PAGE_BASE_IDS = new Set([
   WORKBENCH_TAB_INPUT.baseId,
   "base:calendar",
+  "base:scheduled-tasks",
   "base:mailbox",
-  "base:skills",
 ]);
 
 const SIDEBAR_WORKSPACE_PAGE_COMPONENTS = new Set([
   WORKBENCH_TAB_INPUT.component,
   "calendar-page",
+  "scheduled-tasks-page",
   "email-page",
-  "skills-page",
 ]);
 
 export const AppSidebar = ({
@@ -274,7 +273,7 @@ export const AppSidebar = ({
               onClick={() => openWorkspacePageTab(WORKBENCH_TAB_INPUT)}
               type="button"
             >
-              <Image src="/head_s.png" alt="" width={16} height={16} className="h-4 w-4" />
+              <LayoutDashboard className="h-4 w-4" />
               <span className="flex-1 truncate">工作台</span>
               <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
                 <KbdGroup className="gap-1">
@@ -347,25 +346,25 @@ export const AppSidebar = ({
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="技能"
-              className={SIDEBAR_WORKSPACE_COLOR_CLASS.skills}
+              tooltip="任务"
+              className={SIDEBAR_WORKSPACE_COLOR_CLASS.scheduledTasks}
               isActive={isMenuActive({
-                baseId: "base:skills",
-                component: "skills-page",
-                title: "技能",
+                baseId: "base:scheduled-tasks",
+                component: "scheduled-tasks-page",
+                title: "任务",
               })}
               onClick={() =>
                 openWorkspacePageTab({
-                  baseId: "base:skills",
-                  component: "skills-page",
-                  title: "技能",
-                  icon: "🪄",
+                  baseId: "base:scheduled-tasks",
+                  component: "scheduled-tasks-page",
+                  title: "任务",
+                  icon: "⏰",
                 })
               }
               type="button"
             >
-              <Wand2 />
-              <span className="flex-1 truncate">技能</span>
+              <Clock />
+              <span className="flex-1 truncate">任务</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           {/* 先隐藏收集箱入口，后续再开放。 */}

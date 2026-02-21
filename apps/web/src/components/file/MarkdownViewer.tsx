@@ -389,6 +389,7 @@ export default function MarkdownViewer({
   /** 头部按钮状态。 */
   const [codeStatus, setCodeStatus] = useState<CodeViewerStatus>(DEFAULT_CODE_STATUS);
   const removeStackItem = useTabRuntime((s) => s.removeStackItem);
+  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
   const shouldRenderStackHeader = Boolean(tabId && panelKey);
   const displayTitle = useMemo(() => name ?? uri ?? "Markdown", [name, uri]);
 
@@ -442,11 +443,6 @@ export default function MarkdownViewer({
   /** Open the chat history folder for the current session. */
   const handleOpenChatHistoryFolder = useCallback(async () => {
     if (!chatHistorySessionId) return;
-    const api = window.tenasElectron;
-    if (!api?.openPath) {
-      toast.error("网页版不支持打开文件管理器");
-      return;
-    }
     // 逻辑：优先使用后端返回的 jsonlPath 反推目录，避免项目根与工作空间根不一致。
     const targetUri = resolveChatHistoryFolderUri({
       jsonlPath: chatHistoryJsonlPath,
@@ -457,11 +453,29 @@ export default function MarkdownViewer({
       toast.error("未找到日志目录");
       return;
     }
+    const api = window.tenasElectron;
+    if (!api?.openPath) {
+      const folderName = targetUri.split('/').filter(Boolean).pop() || 'Chat History';
+      if (tabId) {
+        pushStackItem(tabId, {
+          id: `chat-history:${chatHistorySessionId}`,
+          sourceKey: `chat-history:${chatHistorySessionId}`,
+          component: 'folder-tree-preview',
+          title: folderName,
+          params: {
+            rootUri: targetUri,
+            currentUri: '',
+            projectId,
+          },
+        })
+      }
+      return;
+    }
     const res = await api.openPath({ uri: targetUri });
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件管理器");
     }
-  }, [chatHistoryJsonlPath, chatHistorySessionId, workspaceRootUri]);
+  }, [chatHistoryJsonlPath, chatHistorySessionId, workspaceRootUri, tabId, projectId, pushStackItem]);
 
   /** Copy chat history jsonl file path for the current branch. */
   const handleCopyChatHistoryJsonlPath = async () => {

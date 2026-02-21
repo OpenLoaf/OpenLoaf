@@ -11,8 +11,7 @@ import {
   createSubAgent,
 } from '@/ai/agents/subagent/subAgentFactory'
 import { buildModelMessages } from '@/ai/shared/messageConverter'
-import { saveMessage } from '@/ai/services/chat/repositories/messageStore'
-import { appendAgentJsonlLine } from '@/ai/services/chat/repositories/chatFileStore'
+import { appendAgentJsonlLine, readAgentJsonl } from '@/ai/services/chat/repositories/chatFileStore'
 import { logger } from '@/common/logger'
 
 export type AgentStatus =
@@ -22,6 +21,10 @@ export type AgentStatus =
   | 'failed'
   | 'shutdown'
   | 'not_found'
+
+export type SpawnItem =
+  | { type: 'text'; text: string }
+  | { type: 'file'; path: string }
 
 export type SpawnContext = {
   model: LanguageModelV3
@@ -49,16 +52,71 @@ export type ManagedAgent = {
   messages: UIMessage[]
   /** Pending input queue for follow-up messages. */
   inputQueue: Array<{ message: string; submissionId: string }>
+  /** Serialized execution lock — ensures only one executeAgent runs at a time. */
+  executionLock: Promise<void>
   /** Accumulated output text. */
   outputText: string
   /** Response parts from last stream. */
   responseParts: unknown[]
   /** Spawn depth (sub-agents cannot spawn further). */
   depth: number
+  /** True when restored from JSONL — skips initial history writes in executeAgent. */
+  isResumed?: boolean
 }
 
 const MAX_DEPTH = 1
 const MAX_CONCURRENT = 4
+
+/**
+ * 清理从 JSONL 恢复的消息中残留的 approval-requested 状态。
+ *
+ * 如果最后一条 assistant 消息包含未决审批的 tool part，LLM 不知如何继续，
+ * 会返回空响应。此函数将这些 part 标记为已拒绝，并追加系统提示让 LLM 继续。
+ */
+function sanitizeRestoredMessages(messages: UIMessage[]): UIMessage[] {
+  if (messages.length === 0) return messages
+
+  const lastIdx = messages.length - 1
+  const last = messages[lastIdx]!
+  if (last.role !== 'assistant' || !Array.isArray(last.parts)) return messages
+
+  let hasPendingApproval = false
+  const sanitizedParts = last.parts.map((part: any) => {
+    // 检测未决审批：有 approval.id 但 approved 既非 true 也非 false
+    if (
+      part.type === 'tool-invocation' &&
+      part.approval?.id &&
+      part.approval?.approved !== true &&
+      part.approval?.approved !== false
+    ) {
+      hasPendingApproval = true
+      return {
+        ...part,
+        state: 'output-denied',
+        approval: { ...part.approval, approved: false },
+        output: part.output ?? '[Cancelled: session restarted before approval]',
+      }
+    }
+    return part
+  })
+
+  if (!hasPendingApproval) return messages
+
+  const result = [...messages]
+  result[lastIdx] = { ...last, parts: sanitizedParts }
+  // 追加系统提示，让 LLM 知道之前的工具被取消了
+  result.push({
+    id: generateId(),
+    role: 'user',
+    parts: [
+      {
+        type: 'text',
+        text: '[System] Previous tool execution was cancelled due to session restart. Please continue with the task.',
+      },
+    ],
+  })
+  return result
+}
 
 /**
  * AgentManager — manages sub-agent lifecycle with real execution.
@@ -81,8 +139,10 @@ class AgentManager {
   /** Spawn a new sub-agent and return its id immediately. */
   spawn(input: {
     task: string
+    items?: SpawnItem[]
     name: string
     agentType?: string
+    modelOverride?: string
     context: SpawnContext
     depth?: number
   }): string {
@@ -99,10 +159,26 @@ class AgentManager {
     }
 
     const id = `agent_${generateId()}`
+
+    // 逻辑：从 items 构建初始消息 parts。
+    const parts: Array<{ type: 'text'; text: string }> = []
+    if (input.items && input.items.length > 0) {
+      for (const item of input.items) {
+        if (item.type === 'text') {
+          parts.push({ type: 'text', text: item.text })
+        } else if (item.type === 'file') {
+          parts.push({ type: 'text', text: `[file: ${item.path}]` })
+        }
+      }
+    }
+    if (parts.length === 0) {
+      parts.push({ type: 'text', text: input.task })
+    }
+
     const initialMessage: UIMessage = {
       id: generateId(),
       role: 'user',
-      parts: [{ type: 'text', text: input.task }],
+      parts,
     }
 
     const agent: ManagedAgent = {
@@ -118,9 +194,11 @@ class AgentManager {
       spawnContext: input.context,
       messages: [initialMessage],
       inputQueue: [],
+      executionLock: Promise.resolve(),
       outputText: '',
       responseParts: [],
       depth,
+      isResumed: false,
     }
     this.agents.set(id, agent)
 
@@ -128,11 +206,20 @@ class AgentManager {
     this.setStatus(id, 'running')
 
     // 逻辑：fire-and-forget 执行，不阻塞 master agent。
-    this.executeAgent(id, input.agentType).catch((err) => {
-      logger.error({ agentId: id, err }, '[agent-manager] executeAgent unhandled error')
-    })
+    this.scheduleExecution(id, input.agentType, input.modelOverride)
 
     return id
+  }
+
+  /** Schedule an execution, serialized via the agent's executionLock. */
+  private scheduleExecution(id: string, rawAgentType?: string, modelOverride?: string): void {
+    const agent = this.agents.get(id)
+    if (!agent) return
+    agent.executionLock = agent.executionLock
+      .then(() => this.executeAgent(id, rawAgentType, modelOverride))
+      .catch((err) => {
+        logger.error({ agentId: id, err }, '[agent-manager] scheduleExecution error')
+      })
   }
 
   /** Append a UIMessage to the agent's independent JSONL history. */
@@ -156,7 +243,7 @@ class AgentManager {
   }
 
   /** Core execution loop for a sub-agent. */
-  private async executeAgent(id: string, rawAgentType?: string): Promise<void> {
+  private async executeAgent(id: string, rawAgentType?: string, modelOverride?: string): Promise<void> {
     const agent = this.agents.get(id)
     if (!agent) return
 
@@ -167,24 +254,27 @@ class AgentManager {
 
     await runWithContext(spawnContext.requestContext, async () => {
       try {
-        // 逻辑：写入 agent-meta 头行和初始 user 消息到独立 JSONL。
-        const historySessionId = spawnContext.sessionId ?? getSessionId()
-        if (historySessionId) {
-          await appendAgentJsonlLine(historySessionId, agent.id, {
-            type: 'agent-meta',
-            agentId: agent.id,
-            name: agent.name,
-            task: agent.task,
-            createdAt: agent.createdAt.toISOString(),
-            agentType: agentType,
-          }).catch((err) => {
-            logger.warn({ agentId: id, err }, '[agent-manager] failed to write agent-meta')
-          })
-          // 写入初始 user 消息
-          if (agent.messages.length > 0) {
-            await this.appendToAgentHistory(agent, agent.messages[0]!)
+        // 逻辑：仅首次 spawn 时写入 agent-meta 和初始 user 消息，恢复场景跳过（已存在于 JSONL）。
+        if (!agent.isResumed) {
+          const historySessionId = spawnContext.sessionId ?? getSessionId()
+          if (historySessionId) {
+            await appendAgentJsonlLine(historySessionId, agent.id, {
+              type: 'agent-meta',
+              agentId: agent.id,
+              name: agent.name,
+              task: agent.task,
+              createdAt: agent.createdAt.toISOString(),
+              agentType: agentType,
+            }).catch((err) => {
+              logger.warn({ agentId: id, err }, '[agent-manager] failed to write agent-meta')
+            })
+            // 写入初始 user 消息
+            if (agent.messages.length > 0) {
+              await this.appendToAgentHistory(agent, agent.messages[0]!)
+            }
           }
         }
+        agent.isResumed = false
 
         if (writer) {
           writer.write({
@@ -196,6 +286,8 @@ class AgentManager {
         const toolLoopAgent = createSubAgent({
           agentType,
           model: spawnContext.model,
+          rawAgentType,
+          modelOverride,
         })
 
         // 逻辑：执行初始流式推理。
@@ -214,35 +306,7 @@ class AgentManager {
           await this.runAgentStream(agent, toolLoopAgent)
         }
 
-        // 逻辑：持久化子 agent 摘要到主 session（完整历史已在 agents/ 下）。
-        const sessionId = spawnContext.sessionId ?? getSessionId()
-        if (sessionId) {
-          // 逻辑：只保留最后一条 text 作为子 agent 输出摘要，完整历史在 agents/<agentId>.jsonl 中。
-          const lastText = [...agent.responseParts]
-            .reverse()
-            .find((p: any) => p?.type === 'text' && p?.text)
-          const finalParts = lastText
-            ? [lastText]
-            : agent.outputText
-              ? [{ type: 'text', text: agent.outputText }]
-              : []
-          await saveMessage({
-            sessionId,
-            message: {
-              id: `subagent:${id}`,
-              role: 'subagent' as any,
-              parts: finalParts,
-              metadata: {
-                agentId: id,
-                name: agent.name,
-                task: agent.task,
-              },
-            } as any,
-            parentMessageId: spawnContext.parentMessageId ?? null,
-            createdAt: agent.createdAt,
-            allowEmpty: true,
-          })
-        }
+        // 逻辑：子 agent 完整历史已保存在 agents/<agentId>.jsonl，不再写入 messages.jsonl。
 
         if (writer) {
           writer.write({
@@ -327,16 +391,38 @@ class AgentManager {
     }
   }
 
-  /** Send input/message to an existing agent. */
-  sendInput(
+  /** Send input/message to an existing agent. Auto-recovers from JSONL if not in memory. */
+  async sendInput(
     id: string,
     message?: string,
     interrupt?: boolean,
-  ): string {
-    const agent = this.agents.get(id)
-    if (!agent) throw new Error(`Agent ${id} not found.`)
+    context?: SpawnContext,
+  ): Promise<string> {
+    let agent = this.agents.get(id)
+
+    // 逻辑：agent 不在内存中 → 尝试从 JSONL 恢复。
+    if (!agent) {
+      const sessionId = context?.sessionId ?? getSessionId()
+      if (sessionId && context) {
+        const status = await this.resume(id, context)
+        if (status === 'running') {
+          agent = this.agents.get(id)
+        }
+      }
+      if (!agent) throw new Error(`Agent ${id} not found.`)
+    }
+
     if (agent.status === 'shutdown') {
-      throw new Error(`Agent ${id} is shut down. Use resume-agent first.`)
+      // 逻辑：shutdown 状态的 agent 自动恢复。
+      if (context) {
+        agent.abortController = new AbortController()
+        agent.spawnContext = context
+        agent.isResumed = true
+        this.setStatus(id, 'running')
+        this.scheduleExecution(id, agent.name)
+      } else {
+        throw new Error(`Agent ${id} is shut down.`)
+      }
     }
 
     if (interrupt) {
@@ -357,9 +443,7 @@ class AgentManager {
       (agent.status === 'completed' || agent.status === 'failed')
     ) {
       this.setStatus(id, 'running')
-      this.executeAgent(id, agent.name).catch((err) => {
-        logger.error({ agentId: id, err }, '[agent-manager] re-executeAgent error')
-      })
+      this.scheduleExecution(id, agent.name)
     }
 
     logger.info(
@@ -369,90 +453,153 @@ class AgentManager {
     return submissionId
   }
 
-  /** Wait for one or more agents to reach a terminal state. */
+  /** Wait for ANY agent to reach a terminal state (Codex semantics). */
   async wait(
     ids: string[],
-    timeoutMs = 30000,
-  ): Promise<{ status: Record<string, AgentStatus>; timedOut: boolean }> {
-    const result: Record<string, AgentStatus> = {}
-    let timedOut = false
-
+    timeoutMs = 300000,
+  ): Promise<{
+    completedId: string | null
+    status: Record<string, AgentStatus>
+    timedOut: boolean
+  }> {
     const isTerminal = (s: AgentStatus) =>
       s === 'completed' || s === 'failed' || s === 'shutdown' || s === 'not_found'
 
-    const allDone = () =>
-      ids.every((id) => {
+    // 逻辑：先同步检查是否有已完成的 agent。
+    const buildSnapshot = (): {
+      completedId: string | null
+      status: Record<string, AgentStatus>
+    } => {
+      const status: Record<string, AgentStatus> = {}
+      let completedId: string | null = null
+      for (const id of ids) {
         const agent = this.agents.get(id)
-        const status = agent?.status ?? 'not_found'
-        result[id] = status
-        return isTerminal(status)
-      })
+        const s = agent?.status ?? 'not_found'
+        status[id] = s
+        if (completedId === null && isTerminal(s)) {
+          completedId = id
+        }
+      }
+      return { completedId, status }
+    }
 
-    if (allDone()) return { status: result, timedOut: false }
+    const snap = buildSnapshot()
+    if (snap.completedId !== null) {
+      return { ...snap, timedOut: false }
+    }
 
+    // 逻辑：异步等待任一 agent 到达终态。
+    let timedOut = false
     await Promise.race([
       new Promise<void>((resolve) => {
-        const check = () => {
-          if (allDone()) {
-            resolve()
+        const cleanup: Array<() => void> = []
+        const onDone = () => {
+          for (const fn of cleanup) fn()
+          resolve()
+        }
+        for (const id of ids) {
+          const agent = this.agents.get(id)
+          if (!agent || isTerminal(agent.status)) {
+            onDone()
             return
           }
-          for (const id of ids) {
-            const agent = this.agents.get(id)
-            if (!agent || isTerminal(agent.status)) continue
-            const listener = () => {
-              agent.statusListeners.delete(listener)
-              if (allDone()) resolve()
-            }
-            agent.statusListeners.add(listener)
+          const listener = (s: AgentStatus) => {
+            if (isTerminal(s)) onDone()
           }
+          agent.statusListeners.add(listener)
+          cleanup.push(() => agent.statusListeners.delete(listener))
         }
-        check()
       }),
       new Promise<void>((resolve) => {
         setTimeout(() => {
           timedOut = true
-          for (const id of ids) {
-            const agent = this.agents.get(id)
-            result[id] = agent?.status ?? 'not_found'
-          }
           resolve()
         }, timeoutMs)
       }),
     ])
 
-    return { status: result, timedOut }
+    const final = buildSnapshot()
+    return { ...final, timedOut }
   }
 
-  /** Close (shut down) an agent. */
-  close(id: string): AgentStatus {
+  /** Abort (terminate) an agent and return its output. */
+  abort(id: string): { status: AgentStatus; output: string } {
     const agent = this.agents.get(id)
-    if (!agent) return 'not_found'
+    if (!agent) return { status: 'not_found', output: '' }
     if (agent.status === 'running' || agent.status === 'pending') {
       agent.abortController.abort()
     }
+    const output = agent.outputText || ''
     this.setStatus(id, 'shutdown')
-    logger.info({ agentId: id }, '[agent-manager] closed')
-    return 'shutdown'
+    // 逻辑：abort 后立即从 Map 中删除，释放内存和并发槽位。
+    this.agents.delete(id)
+    logger.info({ agentId: id }, '[agent-manager] aborted')
+    return { status: 'shutdown', output }
   }
 
-  /** Resume a shut-down agent. */
-  resume(id: string): AgentStatus {
+  /** Resume a shut-down agent, or recover from JSONL if not in memory. */
+  async resume(id: string, context?: SpawnContext): Promise<AgentStatus> {
     const agent = this.agents.get(id)
-    if (!agent) return 'not_found'
-    if (agent.status !== 'shutdown') {
-      return agent.status
+
+    // 逻辑：内存中有 → 直接重新激活。
+    if (agent) {
+      if (agent.status !== 'shutdown') {
+        return agent.status
+      }
+      agent.abortController = new AbortController()
+      if (context) agent.spawnContext = context
+      this.setStatus(id, 'running')
+      this.scheduleExecution(id, agent.name)
+      logger.info({ agentId: id }, '[agent-manager] resumed from memory')
+      return 'running'
     }
-    agent.abortController = new AbortController()
-    this.setStatus(id, 'running')
 
-    // 逻辑：恢复后重新触发执行。
-    this.executeAgent(id, agent.name).catch((err) => {
-      logger.error({ agentId: id, err }, '[agent-manager] resume executeAgent error')
-    })
+    // 逻辑：内存中没有 → 从 JSONL 恢复。
+    if (!context?.sessionId) return 'not_found'
 
-    logger.info({ agentId: id }, '[agent-manager] resumed')
-    return 'running'
+    try {
+      const { meta, messages: rawMessages } = await readAgentJsonl(context.sessionId, id)
+      if (!meta) return 'not_found'
+
+      const restoredMessages: UIMessage[] = rawMessages
+        .filter((m) => m.role && m.parts)
+        .map((m) => ({
+          id: (m.id as string) || generateId(),
+          role: m.role as UIMessage['role'],
+          parts: m.parts as UIMessage['parts'],
+        }))
+
+      // 逻辑：清理残留的 approval-requested 状态，避免 LLM 返回空响应。
+      const sanitizedMessages = sanitizeRestoredMessages(restoredMessages)
+
+      const restored: ManagedAgent = {
+        id,
+        status: 'pending',
+        name: (meta.name as string) || 'default',
+        task: (meta.task as string) || '',
+        result: null,
+        error: null,
+        createdAt: meta.createdAt ? new Date(meta.createdAt as string) : new Date(),
+        statusListeners: new Set(),
+        abortController: new AbortController(),
+        spawnContext: context,
+        messages: sanitizedMessages,
+        inputQueue: [],
+        executionLock: Promise.resolve(),
+        outputText: '',
+        responseParts: [],
+        depth: 0,
+        isResumed: true,
+      }
+      this.agents.set(id, restored)
+      this.setStatus(id, 'running')
+      this.scheduleExecution(id, (meta.agentType as string) || restored.name)
+      logger.info({ agentId: id }, '[agent-manager] resumed from JSONL')
+      return 'running'
+    } catch (err) {
+      logger.error({ agentId: id, err }, '[agent-manager] JSONL resume failed')
+      return 'not_found'
+    }
   }
 
   /** Get current status of an agent. */
@@ -471,6 +618,7 @@ class AgentManager {
     if (!agent) return
     agent.result = result
     this.setStatus(id, 'completed')
+    this.scheduleAutoCleanup(id)
   }
 
   /** Mark an agent as failed with an error. */
@@ -479,6 +627,30 @@ class AgentManager {
     if (!agent) return
     agent.error = error
     this.setStatus(id, 'failed')
+    this.scheduleAutoCleanup(id)
+  }
+
+  /** Auto-cleanup: remove agent from Map after 5 minutes. */
+  private scheduleAutoCleanup(id: string): void {
+    setTimeout(() => {
+      const agent = this.agents.get(id)
+      if (agent && (agent.status === 'completed' || agent.status === 'failed')) {
+        this.agents.delete(id)
+        logger.info({ agentId: id }, '[agent-manager] auto-cleaned')
+      }
+    }, 5 * 60 * 1000)
+  }
+
+  /** Shut down all agents in this manager. */
+  shutdownAll(): void {
+    for (const [id, agent] of this.agents) {
+      if (agent.status === 'running' || agent.status === 'pending') {
+        agent.abortController.abort()
+      }
+      this.setStatus(id, 'shutdown')
+    }
+    this.agents.clear()
+    logger.info('[agent-manager] shutdownAll')
   }
 
   /** Internal: update status and notify listeners. */
@@ -496,5 +668,78 @@ class AgentManager {
   }
 }
 
-/** Singleton agent manager instance. */
-export const agentManager = new AgentManager()
+/**
+ * AgentManagerRegistry — 按 sessionId 分发 AgentManager 实例。
+ *
+ * 每个 session 拥有独立的 AgentManager，避免不同 session 的 agent 混在一起。
+ * 启动 5 分钟定时器，清理 30 分钟无访问的 session manager。
+ */
+class AgentManagerRegistry {
+  private managers = new Map<string, { manager: AgentManager; lastAccess: number }>()
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null
+
+  constructor() {
+    // 逻辑：每 5 分钟清理 30 分钟无访问的 session manager。
+    this.cleanupTimer = setInterval(() => {
+      const now = Date.now()
+      const staleThreshold = 30 * 60 * 1000
+      for (const [sessionId, entry] of this.managers) {
+        if (now - entry.lastAccess > staleThreshold) {
+          entry.manager.shutdownAll()
+          this.managers.delete(sessionId)
+          logger.info({ sessionId }, '[agent-registry] stale session cleaned')
+        }
+      }
+    }, 5 * 60 * 1000)
+    // 逻辑：不阻止进程退出。
+    if (this.cleanupTimer && typeof this.cleanupTimer === 'object' && 'unref' in this.cleanupTimer) {
+      this.cleanupTimer.unref()
+    }
+  }
+
+  /** Get or create an AgentManager for the given sessionId. */
+  get(sessionId: string): AgentManager {
+    let entry = this.managers.get(sessionId)
+    if (!entry) {
+      entry = { manager: new AgentManager(), lastAccess: Date.now() }
+      this.managers.set(sessionId, entry)
+    } else {
+      entry.lastAccess = Date.now()
+    }
+    return entry.manager
+  }
+
+  /** Shut down and remove a session's manager. */
+  remove(sessionId: string): void {
+    const entry = this.managers.get(sessionId)
+    if (entry) {
+      entry.manager.shutdownAll()
+      this.managers.delete(sessionId)
+    }
+  }
+}
+
+/** Global agent manager registry (session-isolated). */
+export const agentRegistry = new AgentManagerRegistry()
+
+/**
+ * Convenience: get the AgentManager for the current session.
+ * Falls back to a shared 'global' manager if no sessionId is available.
+ */
+export function getAgentManager(): AgentManager {
+  const sessionId = getSessionId() || '__global__'
+  return agentRegistry.get(sessionId)
+}
+
+/** @deprecated Use getAgentManager() instead. Kept for backward compatibility. */
+export const agentManager = {
+  get spawn() { return getAgentManager().spawn.bind(getAgentManager()) },
+  get sendInput() { return getAgentManager().sendInput.bind(getAgentManager()) },
+  get wait() { return getAgentManager().wait.bind(getAgentManager()) },
+  get abort() { return getAgentManager().abort.bind(getAgentManager()) },
+  get getStatus() { return getAgentManager().getStatus.bind(getAgentManager()) },
+  get getAgent() { return getAgentManager().getAgent.bind(getAgentManager()) },
+  get complete() { return getAgentManager().complete.bind(getAgentManager()) },
+  get fail() { return getAgentManager().fail.bind(getAgentManager()) },
+  get shutdownAll() { return getAgentManager().shutdownAll.bind(getAgentManager()) },
+}

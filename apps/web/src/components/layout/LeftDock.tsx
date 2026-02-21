@@ -5,6 +5,10 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { ComponentMap, getPanelTitle } from "@/utils/panel-utils";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import {
+  StackPanelSlotCtx,
+  type StackPanelSlot,
+} from "@/hooks/use-stack-panel-slot";
 import { useTabView } from "@/hooks/use-tab-view";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import type { DockItem } from "@tenas-ai/api/common";
@@ -43,7 +47,7 @@ import {
 const WORKSPACE_SWITCH_COMPONENTS = new Set([
   "calendar-page",
   "email-page",
-  "skills-page",
+  "scheduled-tasks-page",
   "workspace-desktop",
 ]);
 
@@ -137,72 +141,82 @@ function PanelFrame({
   header?: React.ReactNode;
 }) {
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const [slot, setSlot] = React.useState<StackPanelSlot | null>(null);
+  const slotCtxValue = React.useMemo(() => ({ setSlot }), []);
   const canClose = item.denyClose !== true;
   const customHeader = Boolean((item.params as any)?.__customHeader);
   const opaquePanel = Boolean((item.params as any)?.__opaque);
   const isStreaming = Boolean((item.params as any)?.__isStreaming);
-  const openUri = (item.params as any)?.openUri as string | undefined;
+  const openUri = ((item.params as any)?.openUri ?? (item.params as any)?.rootUri) as string | undefined;
   const openRootUri = (item.params as any)?.rootUri as string | undefined;
 
+  const handleClose = React.useCallback(() => {
+    if (slot?.onBeforeClose && !slot.onBeforeClose()) return;
+    onClose();
+  }, [slot, onClose]);
+
   return (
-    <div
-      className={cn(
-        "overflow-hidden",
-        floating
-          ? cn(
-              "rounded-xl shadow-2xl",
-              isStreaming
-                ? "tenas-thinking-border tenas-thinking-border-on"
-                : "border border-border",
-            )
-          : "rounded-none border-0 shadow-none",
-        fillHeight && "h-full w-full",
-      )}
-      style={
-        floating && isStreaming
-          ? { "--tenas-thinking-border-fill": "var(--color-background)" } as React.CSSProperties
-          : undefined
-      }
-    >
+    <StackPanelSlotCtx.Provider value={slotCtxValue}>
       <div
         className={cn(
-          "flex w-full flex-col pt-2 rounded-xl",
-          opaquePanel ? "bg-background" : "bg-background/95 backdrop-blur-sm",
-          fillHeight && "h-full",
+          "overflow-hidden",
+          floating
+            ? cn(
+                "rounded-xl shadow-2xl",
+                isStreaming
+                  ? "tenas-thinking-border tenas-thinking-border-on"
+                  : "border border-border",
+              )
+            : "rounded-none border-0 shadow-none",
+          fillHeight && "h-full w-full",
         )}
+        style={
+          floating && isStreaming
+            ? { "--tenas-thinking-border-fill": "var(--color-background)" } as React.CSSProperties
+            : undefined
+        }
       >
-        {!customHeader ? (
-          <StackHeader
-            title={title}
-            openUri={openUri}
-            openRootUri={openRootUri}
-            onRefresh={() => setRefreshKey((k) => k + 1)}
-            rightSlot={
-              <BoardPanelHeaderActions
-                item={item}
-                title={title}
-                tabId={tabId}
-              />
-            }
-            onClose={canClose ? onClose : undefined}
-            showMinimize
-            onMinimize={onMinimize}
-          >
-            {header}
-          </StackHeader>
-        ) : null}
-
         <div
           className={cn(
-            customHeader ? "p-0" : "p-2",
-            fillHeight && "min-h-0 flex-1",
-            "min-w-0",
+            "flex w-full flex-col pt-2 rounded-xl",
+            opaquePanel ? "bg-background" : "bg-background/95 backdrop-blur-sm",
+            fillHeight && "h-full",
           )}
         >
-          {renderDockItem(tabId, item, refreshKey)}
+          {!customHeader ? (
+            <StackHeader
+              title={title}
+              openUri={openUri}
+              openRootUri={openRootUri}
+              onRefresh={() => setRefreshKey((k) => k + 1)}
+              rightSlot={
+                <BoardPanelHeaderActions
+                  item={item}
+                  title={title}
+                  tabId={tabId}
+                />
+              }
+              rightSlotBeforeClose={slot?.rightSlotBeforeClose}
+              onClose={canClose ? handleClose : undefined}
+              showMinimize
+              onMinimize={onMinimize}
+            >
+              {header}
+            </StackHeader>
+          ) : null}
+
+          <div
+            className={cn(
+              customHeader ? "p-0" : "p-2",
+              fillHeight && "min-h-0 flex-1",
+              "min-w-0",
+            )}
+          >
+            {renderDockItem(tabId, item, refreshKey)}
+          </div>
         </div>
       </div>
-    </div>
+    </StackPanelSlotCtx.Provider>
   );
 }
 

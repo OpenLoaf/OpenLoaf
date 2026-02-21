@@ -817,11 +817,24 @@ export const PageTreeMenu = ({
     setDeleteTarget(node);
   };
 
-  /** Open the project root in system file manager. */
+  /** Open the project root in system file manager, or push a folder-tree stack in web. */
   const handleOpenInFileManager = async (node: FileNode) => {
     const api = window.tenasElectron;
     if (!api?.openPath) {
-      toast.error("网页版不支持打开文件管理器");
+      if (!activeTabId) return
+      const rootUri = node.projectId ? projectRootById.get(node.projectId) : undefined
+      const pushStackItem = useTabRuntime.getState().pushStackItem
+      pushStackItem(activeTabId, {
+        id: `project-folder:${node.projectId ?? node.uri}`,
+        sourceKey: `project-folder:${node.projectId ?? node.uri}`,
+        component: 'folder-tree-preview',
+        title: node.name || 'Folder',
+        params: {
+          rootUri,
+          currentUri: node.uri,
+          projectId: node.projectId,
+        },
+      })
       return;
     }
     const rootUri = node.projectId ? projectRootById.get(node.projectId) : undefined;

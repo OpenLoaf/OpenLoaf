@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import type { SubAgentStreamState } from "@/components/ai/context/ChatToolContext";
 
 export type ToolPartSnapshot = {
   /** Tool part type, e.g. tool-xxx or dynamic-tool. */
@@ -42,6 +43,8 @@ export type ChatRuntimeState = {
   sessionTabIdBySessionId: Record<string, string>;
   /** Dictation status grouped by tab id. */
   dictationStatusByTabId: Record<string, boolean>;
+  /** Sub-agent streams grouped by tab id. */
+  subAgentStreamsByTabId: Record<string, Record<string, SubAgentStreamState>>;
   /** Upsert a tool part snapshot for a tab. */
   upsertToolPart: (tabId: string, toolCallId: string, next: ToolPartSnapshot) => void;
   /** Clear tool parts for a tab. */
@@ -60,6 +63,8 @@ export type ChatRuntimeState = {
   clearSessionChatStatus: (sessionId: string) => void;
   /** Set dictation status for a tab. */
   setTabDictationStatus: (tabId: string, isListening: boolean) => void;
+  /** Set sub-agent streams for a tab. */
+  setSubAgentStreams: (tabId: string, streams: Record<string, SubAgentStreamState>) => void;
 };
 
 function computeTabChatStatus(
@@ -87,6 +92,7 @@ export const useChatRuntime = create<ChatRuntimeState>()((set, get) => ({
   chatStatusBySessionId: {},
   sessionTabIdBySessionId: {},
   dictationStatusByTabId: {},
+  subAgentStreamsByTabId: {},
   upsertToolPart: (tabId, toolCallId, next) => {
     set((state) => {
       const currentTabParts = state.toolPartsByTabId[tabId] ?? {};
@@ -116,19 +122,22 @@ export const useChatRuntime = create<ChatRuntimeState>()((set, get) => ({
       const hasToolParts = Boolean(state.toolPartsByTabId[tabId]);
       const hasChatStatus = Object.prototype.hasOwnProperty.call(state.chatStatusByTabId, tabId);
       const hasDictation = Object.prototype.hasOwnProperty.call(state.dictationStatusByTabId, tabId);
+      const hasSubAgentStreams = Boolean(state.subAgentStreamsByTabId[tabId]);
       const hasSessionStatus = Object.values(state.sessionTabIdBySessionId).some(
         (mappedTabId) => mappedTabId === tabId,
       );
-      if (!hasToolParts && !hasChatStatus && !hasDictation && !hasSessionStatus) return state;
+      if (!hasToolParts && !hasChatStatus && !hasDictation && !hasSubAgentStreams && !hasSessionStatus) return state;
 
       const nextToolParts = { ...state.toolPartsByTabId };
       const nextChatStatus = { ...state.chatStatusByTabId };
       const nextDictation = { ...state.dictationStatusByTabId };
+      const nextSubAgentStreams = { ...state.subAgentStreamsByTabId };
       const nextSessionStatus = { ...state.chatStatusBySessionId };
       const nextSessionTab = { ...state.sessionTabIdBySessionId };
       delete nextToolParts[tabId];
       delete nextChatStatus[tabId];
       delete nextDictation[tabId];
+      delete nextSubAgentStreams[tabId];
       for (const [sessionId, mappedTabId] of Object.entries(nextSessionTab)) {
         if (mappedTabId !== tabId) continue;
         delete nextSessionTab[sessionId];
@@ -140,6 +149,7 @@ export const useChatRuntime = create<ChatRuntimeState>()((set, get) => ({
         chatStatusBySessionId: nextSessionStatus,
         sessionTabIdBySessionId: nextSessionTab,
         dictationStatusByTabId: nextDictation,
+        subAgentStreamsByTabId: nextSubAgentStreams,
       };
     });
   },
@@ -206,6 +216,14 @@ export const useChatRuntime = create<ChatRuntimeState>()((set, get) => ({
       dictationStatusByTabId: {
         ...state.dictationStatusByTabId,
         [tabId]: Boolean(isListening),
+      },
+    }));
+  },
+  setSubAgentStreams: (tabId, streams) => {
+    set((state) => ({
+      subAgentStreamsByTabId: {
+        ...state.subAgentStreamsByTabId,
+        [tabId]: streams,
       },
     }));
   },

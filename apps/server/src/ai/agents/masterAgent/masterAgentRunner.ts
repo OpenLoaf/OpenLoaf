@@ -13,6 +13,8 @@ type MasterAgentRunnerInput = {
   modelInfo: MasterAgentModelInfo;
   /** Optional tool ids override. */
   toolIds?: readonly string[];
+  /** Optional instructions override (assembled from IDENTITY + SOUL + AGENT). */
+  instructions?: string;
 };
 
 export type MasterAgentRunner = {
@@ -26,9 +28,13 @@ export type MasterAgentRunner = {
  * Creates a master agent runner for the current request (MVP).
  */
 export function createMasterAgentRunner(input: MasterAgentRunnerInput): MasterAgentRunner {
-  // runner 负责“把 agent 组装起来”，SSE/持久化/中断由 chatStream 服务管理。
+  // runner 负责”把 agent 组装起来”，SSE/持久化/中断由 chatStream 服务管理。
   return {
-    agent: createMasterAgent({ model: input.model, toolIds: input.toolIds }),
+    agent: createMasterAgent({
+      model: input.model,
+      toolIds: input.toolIds,
+      instructions: input.instructions,
+    }),
     frame: createMasterAgentFrame({ model: input.modelInfo }),
   };
 }

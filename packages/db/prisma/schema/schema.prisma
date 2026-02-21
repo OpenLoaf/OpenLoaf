@@ -48,3 +48,4 @@ model SchedulerTaskRecord {
   /// 更新时间
   updatedAt   DateTime @updatedAt
 }
+

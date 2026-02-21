@@ -15,6 +15,7 @@ import { getAuthSessionSnapshot } from "@/modules/auth/tokenStore";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { logger } from "@/common/logger";
 import { buildMasterAgentSections } from "@/ai/shared/promptBuilder";
+import { assembleMemorySection } from "@/ai/shared/agentPromptAssembler";
 import { jsonRenderSystemPrompt } from "@tenas-ai/api/jsonRenderCatalog";
 
 /** Unknown value fallback. */
@@ -383,6 +384,12 @@ export async function buildSessionPrefaceText(input: {
     timezone: input.timezone,
   });
   const masterAgentSections = buildMasterAgentSections(context);
+  // 逻辑：注入 memory 章节（workspace + parent projects + current project 合并）。
+  const memorySection = assembleMemorySection({
+    workspaceRootPath: context.workspace.rootPath !== UNKNOWN_VALUE ? context.workspace.rootPath : undefined,
+    projectRootPath: context.project.rootPath !== UNKNOWN_VALUE ? context.project.rootPath : undefined,
+    parentProjectRootPaths: input.parentProjectRootPaths,
+  });
   const sections = [
     [
       "# 会话上下文（preface）",
@@ -393,6 +400,8 @@ export async function buildSessionPrefaceText(input: {
       `- projectRootPath: ${context.project.rootPath}`,
     ].join("\n"),
     ...masterAgentSections,
+    // 中文注释：注入 memory 章节，仅在存在 memory 文件时添加。
+    ...(memorySection ? [memorySection] : []),
     // 中文注释：注入 json-render catalog 提示词，保证模型输出遵循组件约束。
     "## json-render catalog prompt",
     jsonRenderSystemPrompt,

@@ -283,6 +283,33 @@ At most one step can be in_progress at a time.`,
   component: null,
 } as const;
 
+export const jsReplToolDef = {
+  id: "js-repl",
+  name: "JavaScript REPL",
+  description: `触发：当你需要执行 JavaScript 代码进行计算、数据处理、原型验证或调试时调用。用途：在持久化的 Node.js 沙箱中执行代码，变量和函数在多次调用间保留。返回：console.log 输出和最终表达式的值。不适用：需要访问文件系统或网络请求时请用 shell-command。
+
+Executes JavaScript code in a persistent Node.js VM sandbox.
+- Variables and functions persist across calls within the same session.
+- console.log/warn/error output is captured and returned.
+- The last expression value is included in the output.
+- Execution has a timeout to prevent infinite loops.
+- No access to file system, network, or child_process.`,
+  parameters: z.object({
+    input: z.string().min(1).describe("要执行的 JavaScript 代码。"),
+  }),
+  component: null,
+} as const;
+
+export const jsReplResetToolDef = {
+  id: "js-repl-reset",
+  name: "重置 JavaScript REPL",
+  description: `触发：当你需要清除 REPL 中所有已定义的变量和状态，恢复到初始环境时调用。用途：重置沙箱上下文。返回：{ ok: true, message: string }。不适用：不需要清除状态时不要调用。
+
+Resets the JavaScript REPL sandbox to a clean state, clearing all variables and functions.`,
+  parameters: z.object({}),
+  component: null,
+} as const;
+
 /** Plan step status type for update-plan payloads. */
 export type PlanStepStatus = z.infer<typeof planStepStatusSchema>;
 

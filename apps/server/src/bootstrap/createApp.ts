@@ -9,6 +9,7 @@ import { registerAiCommandRoutes } from "@/ai/interface/routes/aiCommandRoutes";
 import { registerAiCopilotRoutes } from "@/ai/interface/routes/aiCopilotRoutes";
 import { registerChatAttachmentRoutes } from "@/ai/interface/routes/chatAttachmentRoutes";
 import { registerFrontendToolAckRoutes } from "@/ai/interface/routes/frontendToolAckRoutes";
+import { registerSecretStoreRoutes } from "@/ai/interface/routes/secretStoreRoutes";
 import { registerSaasMediaRoutes } from "@/ai/interface/routes/saasMediaRoutes";
 import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
 import { registerAuthRoutes } from "@/modules/auth/authRoutes";
@@ -30,6 +31,7 @@ import { terminalRouterImplementation } from "@/routers/terminal";
 import { emailRouterImplementation } from "@/routers/email";
 import { calendarRouterImplementation } from "@/routers/calendar";
 import { dynamicWidgetRouterImplementation } from "@/routers/dynamicWidget";
+import { scheduledTaskRouterImplementation } from "@/routers/scheduledTask";
 import { logger } from "@/common/logger";
 
 const defaultCorsOrigins = [
@@ -86,6 +88,7 @@ export function createApp() {
   registerAiCopilotRoutes(app);
   registerChatAttachmentRoutes(app);
   registerFrontendToolAckRoutes(app);
+  registerSecretStoreRoutes(app);
   registerSaasMediaRoutes(app);
   registerFileSseRoutes(app);
   registerAuthRoutes(app);
@@ -112,6 +115,7 @@ export function createApp() {
         email: emailRouterImplementation,
         calendar: calendarRouterImplementation,
         dynamicWidget: dynamicWidgetRouterImplementation,
+        scheduledTask: scheduledTaskRouterImplementation,
       }),
       createContext: (_opts, context) => createContext({ context }),
       onError: ({ error, path, input, type }) => {

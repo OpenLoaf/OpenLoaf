@@ -39,7 +39,7 @@ const systemCliInfoSchema = z.object({
   }),
 });
 
-/** Skill scope enum. */
+/** Skill / Agent scope enum. */
 const skillScopeSchema = z.enum(["workspace", "project", "global"]);
 
 /** Skill summary payload. */
@@ -60,6 +60,33 @@ const skillSummarySchema = z.object({
   isEnabled: z.boolean(),
   /** Whether the skill can be deleted in current list. */
   isDeletable: z.boolean(),
+});
+
+/** Capability group payload. */
+const capabilityGroupSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  description: z.string(),
+  toolIds: z.array(z.string()),
+});
+
+/** Agent summary payload. */
+const agentSummarySchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  icon: z.string(),
+  model: z.string(),
+  capabilities: z.array(z.string()),
+  skills: z.array(z.string()),
+  path: z.string(),
+  folderName: z.string(),
+  ignoreKey: z.string(),
+  scope: skillScopeSchema,
+  isEnabled: z.boolean(),
+  isDeletable: z.boolean(),
+  isInherited: z.boolean(),
+  isChildProject: z.boolean(),
+  isSystem: z.boolean(),
 });
 
 export const settingSchemas = {
@@ -110,6 +137,81 @@ export const settingSchemas = {
       skillPath: z.string(),
     }),
     output: z.object({ ok: z.boolean() }),
+  },
+  /** Get agents summary list. */
+  getAgents: {
+    input: z
+      .object({
+        projectId: z.string().optional(),
+        includeAllProjects: z.boolean().optional(),
+        includeChildProjects: z.boolean().optional(),
+      })
+      .optional(),
+    output: z.array(agentSummarySchema),
+  },
+  /** Toggle agent enabled state. */
+  setAgentEnabled: {
+    input: z.object({
+      scope: skillScopeSchema,
+      projectId: z.string().optional(),
+      ignoreKey: z.string(),
+      enabled: z.boolean(),
+    }),
+    output: z.object({ ok: z.boolean() }),
+  },
+  /** Delete an agent folder. */
+  deleteAgent: {
+    input: z.object({
+      scope: skillScopeSchema,
+      projectId: z.string().optional(),
+      ignoreKey: z.string(),
+      agentPath: z.string(),
+    }),
+    output: z.object({ ok: z.boolean() }),
+  },
+  /** Get capability groups. */
+  getCapabilityGroups: {
+    output: z.array(capabilityGroupSchema),
+  },
+  /** Get full agent detail by path. */
+  getAgentDetail: {
+    input: z.object({
+      agentPath: z.string(),
+      scope: skillScopeSchema,
+    }),
+    output: z.object({
+      name: z.string(),
+      description: z.string(),
+      icon: z.string(),
+      model: z.string(),
+      capabilities: z.array(z.string()),
+      skills: z.array(z.string()),
+      allowSubAgents: z.boolean(),
+      maxDepth: z.number(),
+      systemPrompt: z.string(),
+      path: z.string(),
+      folderName: z.string(),
+      scope: skillScopeSchema,
+    }),
+  },
+  /** Save (create or update) an agent. */
+  saveAgent: {
+    input: z.object({
+      scope: skillScopeSchema,
+      projectId: z.string().optional(),
+      /** Existing agent path for update, empty for create. */
+      agentPath: z.string().optional(),
+      name: z.string().min(1),
+      description: z.string().optional(),
+      icon: z.string().optional(),
+      model: z.string().optional(),
+      capabilities: z.array(z.string()).optional(),
+      skills: z.array(z.string()).optional(),
+      allowSubAgents: z.boolean().optional(),
+      maxDepth: z.number().optional(),
+      systemPrompt: z.string().optional(),
+    }),
+    output: z.object({ ok: z.boolean(), agentPath: z.string() }),
   },
   set: {
     input: z.object({
@@ -201,6 +303,41 @@ export abstract class BaseSettingRouter {
       deleteSkill: shieldedProcedure
         .input(settingSchemas.deleteSkill.input)
         .output(settingSchemas.deleteSkill.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getAgents: shieldedProcedure
+        .input(settingSchemas.getAgents.input)
+        .output(settingSchemas.getAgents.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      setAgentEnabled: shieldedProcedure
+        .input(settingSchemas.setAgentEnabled.input)
+        .output(settingSchemas.setAgentEnabled.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      deleteAgent: shieldedProcedure
+        .input(settingSchemas.deleteAgent.input)
+        .output(settingSchemas.deleteAgent.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getCapabilityGroups: shieldedProcedure
+        .output(settingSchemas.getCapabilityGroups.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getAgentDetail: shieldedProcedure
+        .input(settingSchemas.getAgentDetail.input)
+        .output(settingSchemas.getAgentDetail.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      saveAgent: shieldedProcedure
+        .input(settingSchemas.saveAgent.input)
+        .output(settingSchemas.saveAgent.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

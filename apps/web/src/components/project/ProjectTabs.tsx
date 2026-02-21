@@ -1,4 +1,4 @@
-import { CalendarDays, Folder, LayoutDashboard, Settings, Wand2 } from "lucide-react";
+import { CalendarDays, Clock, Folder, LayoutDashboard, Settings } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
 import { ExpandableDockTabs } from "@/components/ui/ExpandableDockTabs";
@@ -56,10 +56,10 @@ export const PROJECT_TABS = [
     tone: "amber",
   },
   {
-    value: "skills",
-    icon: Wand2,
-    label: "技能",
-    tone: "violet",
+    value: "scheduled",
+    icon: Clock,
+    label: "定时任务",
+    tone: "amber",
   },
   {
     value: "settings",

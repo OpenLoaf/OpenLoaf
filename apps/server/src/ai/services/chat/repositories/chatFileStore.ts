@@ -658,7 +658,7 @@ function collectSubtreeIds(tree: MessageTreeIndex, startId: string): string[] {
 }
 
 // 逻辑：媒体生成工具的 output 很小（仅含 urls），刷新后需要用于渲染预览。
-const KEEP_OUTPUT_TOOLS = new Set(['image-generate', 'video-generate'])
+const KEEP_OUTPUT_TOOLS = new Set(['image-generate', 'video-generate', 'request-user-input'])
 
 /** Strip tool output payloads from parts. */
 function stripToolOutputs(parts: unknown[]): unknown[] {
@@ -876,6 +876,54 @@ export async function appendAgentJsonlLine(
   const line = `${JSON.stringify(data)}\n`
   await fs.appendFile(filePath, line, 'utf8')
   return filePath
+}
+
+/** 读取 agent JSONL，返回 meta 和 messages。 */
+export async function readAgentJsonl(
+  sessionId: string,
+  agentId: string,
+): Promise<{ meta: Record<string, unknown> | null; messages: Array<Record<string, unknown>> }> {
+  const dir = await resolveSessionDir(sessionId)
+  const filePath = path.join(dir, 'agents', `${agentId}.jsonl`)
+  try {
+    const content = await fs.readFile(filePath, 'utf8')
+    const lines = content.split('\n')
+    let meta: Record<string, unknown> | null = null
+    const messages: Array<Record<string, unknown>> = []
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      try {
+        const parsed = JSON.parse(trimmed) as Record<string, unknown>
+        if (parsed.type === 'agent-meta') {
+          meta = parsed
+        } else {
+          messages.push(parsed)
+        }
+      } catch {
+        // skip malformed lines
+      }
+    }
+    return { meta, messages }
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') return { meta: null, messages: [] }
+    throw err
+  }
+}
+
+/** 列出 session 下所有 agent ID。 */
+export async function listAgentIds(sessionId: string): Promise<string[]> {
+  const dir = await resolveSessionDir(sessionId)
+  const agentDir = path.join(dir, 'agents')
+  try {
+    const files = await fs.readdir(agentDir)
+    return files
+      .filter((f) => f.endsWith('.jsonl'))
+      .map((f) => f.replace(/\.jsonl$/, ''))
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') return []
+    throw err
+  }
 }
 
 // ---------------------------------------------------------------------------

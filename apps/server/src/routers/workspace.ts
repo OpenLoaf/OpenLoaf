@@ -13,6 +13,7 @@ import {
   setWorkspaces,
 } from "@tenas-ai/api/services/workspaceConfig";
 import { normalizeFileUri, resolveFilePathFromUri } from "@tenas-ai/api/services/fileUri";
+import { ensureWorkspaceDefaultAgentByRootUri } from "@/ai/shared/workspaceAgentInit";
 
 /** Build a comparable workspace root path key. */
 function buildWorkspaceRootPathKey(rootUri: string): string {
@@ -59,6 +60,8 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
             projects: {},
           };
           setWorkspaces([...workspaces, newWorkspace] as Workspace[]);
+          // 逻辑：创建 workspace 后自动初始化默认 agent 文件。
+          ensureWorkspaceDefaultAgentByRootUri(normalizedRootUri);
           return newWorkspace;
         }),
 
@@ -71,6 +74,8 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
           if (!exists) throw new Error("工作空间不存在");
           const next = workspaces.map((w) => ({ ...w, isActive: w.id === input.id }));
           setWorkspaces(next as Workspace[]);
+          // 逻辑：切换 workspace 后确保目标 workspace 有默认 agent 文件。
+          ensureWorkspaceDefaultAgentByRootUri(exists.rootUri);
           return { ...exists, isActive: true };
         }),
 

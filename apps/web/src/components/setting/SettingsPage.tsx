@@ -12,7 +12,6 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import {
   Bot,
-  KeyRound,
   SlidersHorizontal,
   Info,
   Keyboard,
@@ -34,7 +33,6 @@ import { WorkspaceSettings } from "./menus/Workspace";
 import TestSetting from "./menus/TestSetting";
 import { SkillSettings } from "./menus/SkillSettings";
 import { ThirdPartyTools } from "./menus/ThirdPartyTools";
-import LocalAccess from "./menus/LocalAccess";
 import { TenasSettingsLayout } from "@tenas-ai/ui/tenas/TenasSettingsLayout";
 import {
   TenasSettingsMenu,
@@ -44,7 +42,6 @@ import { cn } from "@/lib/utils";
 
 type SettingsMenuKey =
   | "basic"
-  | "localAccess"
   | "about"
   | "keys"
   | "storage"
@@ -57,7 +54,6 @@ type SettingsMenuKey =
 
 const SETTINGS_MENU_ICON_COLOR = {
   basic: "text-[#1a73e8] dark:text-sky-300",
-  localAccess: "text-[#f9ab00] dark:text-amber-300",
   workspace: "text-[#5f6368] dark:text-slate-300",
   skills: "text-[#9334e6] dark:text-violet-300",
   thirdPartyTools: "text-[#188038] dark:text-emerald-300",
@@ -107,12 +103,6 @@ const MENU: Array<{
     label: "基础",
     Icon: createMenuIcon(SlidersHorizontal, SETTINGS_MENU_ICON_COLOR.basic),
     Component: BasicSettings,
-  },
-  {
-    key: "localAccess",
-    label: "本地访问",
-    Icon: createMenuIcon(KeyRound, SETTINGS_MENU_ICON_COLOR.localAccess),
-    Component: LocalAccess,
   },
   {
     key: "workspace",
@@ -166,7 +156,7 @@ const MENU: Array<{
 ];
 
 const MENU_KEY_SET = new Set<SettingsMenuKey>(MENU.map((item) => item.key));
-const HIDDEN_MENU_KEYS = new Set<SettingsMenuKey>(["skills"]);
+const HIDDEN_MENU_KEYS = new Set<SettingsMenuKey>([]);
 
 /** Check whether the value is a valid settings menu key. */
 function isSettingsMenuKey(value: unknown): value is SettingsMenuKey {
@@ -275,22 +265,19 @@ export default function SettingsPage({
       Boolean(item && !HIDDEN_MENU_KEYS.has(item.key as SettingsMenuKey));
     const group1 = [
       byKey.get("basic"),
-      byKey.get("localAccess"),
       byKey.get("workspace"),
-    ].filter(filterVisible);
-    const group2 = [
-      byKey.get("skills"),
-      byKey.get("thirdPartyTools"),
-      byKey.get("keys"),
-      byKey.get("storage"),
-      byKey.get("agents"),
-    ].filter(filterVisible);
-    const group3 = [
       byKey.get("shortcuts"),
       byKey.get("projectTest"),
+      byKey.get("thirdPartyTools"),
       byKey.get("about"),
     ].filter(filterVisible);
-    return [group1, group2, group3].filter((group) => group.length > 0) as TenasSettingsMenuItem[][];
+    const group2 = [
+      byKey.get("agents"),
+      byKey.get("skills"),
+      byKey.get("keys"),
+      byKey.get("storage"),
+    ].filter(filterVisible);
+    return [group1, group2].filter((group) => group.length > 0) as TenasSettingsMenuItem[][];
   }, []);
 
   /** Persist the active menu into the dock base params. */

@@ -18,6 +18,12 @@ import { logger } from "@/common/logger";
 import { downloadImageData, resolveParentProjectRootPaths } from "@/ai/shared/util";
 import { parseCommandAtStart } from "@/ai/tools/CommandParser";
 import { buildSessionPrefaceText } from "@/ai/shared/prefaceBuilder";
+import { assembleDefaultAgentInstructions } from "@/ai/shared/agentPromptAssembler";
+import {
+  getProjectRootPath,
+  getWorkspaceRootPath,
+  getWorkspaceRootPathById,
+} from "@tenas-ai/api/services/vfsService";
 import { resolveImagePrompt, type GenerateImagePrompt } from "@/ai/services/image/imagePrompt";
 import { saveChatImageAttachment } from "@/ai/services/image/attachmentResolver";
 import {
@@ -376,9 +382,25 @@ export async function runChatStream(input: {
       preferredChatModelId,
       saasAccessToken: input.saasAccessToken,
     });
+    // 逻辑：组装默认 agent instructions（IDENTITY + SOUL + AGENT），支持自定义文件覆盖。
+    let workspaceRootPath: string | undefined;
+    try {
+      workspaceRootPath =
+        (resolvedWorkspaceId ? getWorkspaceRootPathById(resolvedWorkspaceId) : null) ??
+        getWorkspaceRootPath();
+    } catch {
+      workspaceRootPath = undefined;
+    }
+    const projectRootPath = resolvedProjectId ? getProjectRootPath(resolvedProjectId) ?? undefined : undefined;
+    const instructions = assembleDefaultAgentInstructions({
+      workspaceRootPath,
+      projectRootPath,
+    });
+
     masterAgent = createMasterAgentRunner({
       model: resolved.model,
       modelInfo: resolved.modelInfo,
+      instructions,
     });
     setChatModel(resolved.model);
     agentMetadata = {

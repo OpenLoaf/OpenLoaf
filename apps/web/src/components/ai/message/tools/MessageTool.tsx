@@ -3,6 +3,7 @@
 import * as React from "react";
 import CliThinkingTool from "./CliThinkingTool";
 import JsonRenderTool from "./JsonRenderTool";
+import RequestUserInputTool from "./RequestUserInputTool";
 import UnifiedTool from "./UnifiedTool";
 import PlanTool from "./PlanTool";
 import ProjectTool from "./ProjectTool";
@@ -12,6 +13,8 @@ import ExecCommandTool from "./ExecCommandTool";
 import WidgetTool from "./WidgetTool";
 import WidgetInitTool from "./WidgetInitTool";
 import WidgetCheckTool from "./WidgetCheckTool";
+import SpawnAgentTool from "./SpawnAgentTool";
+import WaitAgentTool from "./WaitAgentTool";
 import { useChatState, useChatTools } from "../../context";
 import { getApprovalId, isApprovalPending, type AnyToolPart, type ToolVariant } from "./shared/tool-utils";
 import ToolApprovalActions from "./shared/ToolApprovalActions";
@@ -92,6 +95,10 @@ export default function MessageTool({
     return <JsonRenderTool part={resolvedPart} className={className} messageId={messageId} />;
   }
 
+  if (toolKind === "request-user-input") {
+    return <RequestUserInputTool part={resolvedPart} className={className} />;
+  }
+
   if (toolKind === "apply-patch") {
     return <WriteFileTool part={resolvedPart} className={className} />;
   }
@@ -122,6 +129,14 @@ export default function MessageTool({
 
   if (toolKind === "widget-check") {
     return <WidgetCheckTool part={resolvedPart} className={className} />;
+  }
+
+  if (toolKind === "spawn-agent") {
+    return <SpawnAgentTool part={resolvedPart} className={className} />;
+  }
+
+  if (toolKind === "wait-agent") {
+    return <WaitAgentTool part={resolvedPart} className={className} />;
   }
 
   if (toolKind === "project-mutate") {

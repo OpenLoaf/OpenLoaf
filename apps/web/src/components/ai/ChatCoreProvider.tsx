@@ -1355,6 +1355,12 @@ export default function ChatCoreProvider({
     ]
   );
 
+  // 中文注释：同步 subAgentStreams 到全局 store，供 stack panel 中的 SubAgentChatPanel 访问。
+  React.useEffect(() => {
+    if (!tabId) return;
+    useChatRuntime.getState().setSubAgentStreams(tabId, subAgentStreams);
+  }, [tabId, subAgentStreams]);
+
   const toolsValue = React.useMemo(
     () => ({
       toolParts,

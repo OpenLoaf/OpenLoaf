@@ -26,8 +26,7 @@ import {
   spawnAgentToolDef,
   sendInputToolDef,
   waitAgentToolDef,
-  closeAgentToolDef,
-  resumeAgentToolDef,
+  abortAgentToolDef,
 } from "@tenas-ai/api/types/tools/agent";
 import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 
@@ -68,8 +67,7 @@ const TOOL_DEFS: ToolNameSource[] = [
   spawnAgentToolDef,
   sendInputToolDef,
   waitAgentToolDef,
-  closeAgentToolDef,
-  resumeAgentToolDef,
+  abortAgentToolDef,
   testApprovalToolDef,
   timeNowToolDef,
   updatePlanToolDef,

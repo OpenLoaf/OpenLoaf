@@ -1,147 +1,82 @@
-import { ToolLoopAgent } from "ai";
-import type { LanguageModelV3 } from "@ai-sdk/provider";
-import type { AgentFrame } from "@/ai/shared/context/requestContext";
-import { buildToolset } from "@/ai/tools/toolRegistry";
-import { createToolCallRepair } from "@/ai/agents/repairToolCall";
-import { jsonRenderToolDef } from "@tenas-ai/api/types/tools/jsonRender";
-import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
-import {
-  spawnAgentToolDef,
-  sendInputToolDef,
-  waitAgentToolDef,
-  closeAgentToolDef,
-  resumeAgentToolDef,
-} from "@tenas-ai/api/types/tools/agent";
-import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
-import {
-  browserActToolDef,
-  browserExtractToolDef,
-  browserObserveToolDef,
-  browserSnapshotToolDef,
-  browserWaitToolDef,
-} from "@tenas-ai/api/types/tools/browserAutomation";
-import { projectMutateToolDef, projectQueryToolDef } from "@tenas-ai/api/types/tools/db";
-import {
-  calendarMutateToolDef,
-  calendarQueryToolDef,
-} from "@tenas-ai/api/types/tools/calendar";
-import {
-  emailMutateToolDef,
-  emailQueryToolDef,
-} from "@tenas-ai/api/types/tools/email";
-import {
-  imageGenerateToolDef,
-  videoGenerateToolDef,
-} from "@tenas-ai/api/types/tools/mediaGenerate";
-import {
-  listDirToolDef,
-  readFileToolDef,
-  applyPatchToolDef,
-  editDocumentToolDef,
-  grepFilesToolDef,
-  shellCommandToolDef,
-  shellToolDef,
-  execCommandToolDef,
-  writeStdinToolDef,
-  updatePlanToolDef,
-} from "@tenas-ai/api/types/tools/runtime";
-import { generateWidgetToolDef } from "@tenas-ai/api/types/tools/widget";
-import {
-  widgetCheckToolDef,
-  widgetGetToolDef,
-  widgetInitToolDef,
-  widgetListToolDef,
-} from "@tenas-ai/api/types/tools/widget";
-import MASTER_AGENT_PROMPT_RAW from "./masterAgentPrompt.zh.md";
+import { ToolLoopAgent } from 'ai'
+import type { LanguageModelV3 } from '@ai-sdk/provider'
+import type { AgentFrame } from '@/ai/shared/context/requestContext'
+import { buildToolset } from '@/ai/tools/toolRegistry'
+import { createToolCallRepair } from '@/ai/agents/repairToolCall'
+import { getPrimaryAgentDefinition } from '@/ai/shared/systemAgentDefinitions'
+import { resolveToolIdsFromCapabilities } from '@/ai/tools/capabilityGroups'
+import MASTER_AGENT_PROMPT_RAW from './masterAgentPrompt.zh.md'
 
 /** Master agent display name. */
-const MASTER_AGENT_NAME = "MasterAgent";
+const MASTER_AGENT_NAME = 'MasterAgent'
 /** Master agent id. */
-const MASTER_AGENT_ID = "master-agent";
-/** Master agent tool ids. */
-const MASTER_AGENT_TOOL_IDS = [
-  timeNowToolDef.id,
-  jsonRenderToolDef.id,
-  projectQueryToolDef.id,
-  projectMutateToolDef.id,
-  calendarQueryToolDef.id,
-  calendarMutateToolDef.id,
-  emailQueryToolDef.id,
-  emailMutateToolDef.id,
-  spawnAgentToolDef.id,
-  sendInputToolDef.id,
-  waitAgentToolDef.id,
-  closeAgentToolDef.id,
-  resumeAgentToolDef.id,
-  openUrlToolDef.id,
-  browserSnapshotToolDef.id,
-  browserObserveToolDef.id,
-  browserExtractToolDef.id,
-  browserActToolDef.id,
-  browserWaitToolDef.id,
-  shellToolDef.id,
-  shellCommandToolDef.id,
-  execCommandToolDef.id,
-  writeStdinToolDef.id,
-  readFileToolDef.id,
-  applyPatchToolDef.id,
-  editDocumentToolDef.id,
-  listDirToolDef.id,
-  grepFilesToolDef.id,
-  generateWidgetToolDef.id,
-  widgetInitToolDef.id,
-  widgetListToolDef.id,
-  widgetGetToolDef.id,
-  widgetCheckToolDef.id,
-  imageGenerateToolDef.id,
-  videoGenerateToolDef.id,
-  // updatePlanToolDef.id,
-] as const;
+const MASTER_AGENT_ID = 'master-agent'
+
+/**
+ * Derive master agent tool IDs from the primary agent definition's capabilities.
+ * Includes requestUserInput as a special tool not in any capability group.
+ */
+function deriveMasterAgentToolIds(): string[] {
+  const primaryDef = getPrimaryAgentDefinition()
+  const toolIds = resolveToolIdsFromCapabilities(primaryDef.capabilities)
+  // 逻辑：requestUserInput 是特殊工具，不属于任何能力组，单独追加。
+  if (!toolIds.includes('request-user-input')) {
+    toolIds.push('request-user-input')
+  }
+  return toolIds
+}
+
+/** Lazily computed default tool IDs for the master agent. */
+let _cachedToolIds: string[] | null = null
+function getMasterAgentToolIds(): string[] {
+  if (!_cachedToolIds) {
+    _cachedToolIds = deriveMasterAgentToolIds()
+  }
+  return _cachedToolIds
+}
 
 export type MasterAgentModelInfo = {
   /** Model provider name. */
-  provider: string;
+  provider: string
   /** Model id. */
-  modelId: string;
-};
+  modelId: string
+}
 
 type CreateMasterAgentInput = {
   /** Model instance for the agent. */
-  model: LanguageModelV3;
+  model: LanguageModelV3
   /** Optional tool ids override. */
-  toolIds?: readonly string[];
-};
+  toolIds?: readonly string[]
+  /** Optional instructions override. */
+  instructions?: string
+}
 
 /** Read base system prompt markdown content. */
 export function readMasterAgentBasePrompt(): string {
-  return MASTER_AGENT_PROMPT_RAW.trim();
+  return MASTER_AGENT_PROMPT_RAW.trim()
 }
 
-/**
- * Creates the master agent instance (MVP).
- */
+/** Creates the master agent instance. */
 export function createMasterAgent(input: CreateMasterAgentInput) {
-  // 逻辑：未传 toolIds 时沿用默认工具集。
-  const toolIds = input.toolIds ?? MASTER_AGENT_TOOL_IDS;
+  const toolIds = input.toolIds ?? getMasterAgentToolIds()
+  const instructions = input.instructions || readMasterAgentBasePrompt()
   return new ToolLoopAgent({
     model: input.model,
-    instructions: readMasterAgentBasePrompt(),
-    // 中文注释：审批逻辑由工具实现的 needsApproval 控制，agent 只负责装配工具集。
+    instructions,
     tools: buildToolset(toolIds),
     experimental_repairToolCall: createToolCallRepair(),
-  });
+  })
 }
 
-/**
- * Creates the frame metadata for the master agent (MVP).
- */
-export function createMasterAgentFrame(input: { model: MasterAgentModelInfo }): AgentFrame {
-  // 当前仅保留 MasterAgent，便于定位消息来源。
+/** Creates the frame metadata for the master agent. */
+export function createMasterAgentFrame(input: {
+  model: MasterAgentModelInfo
+}): AgentFrame {
   return {
-    kind: "master",
+    kind: 'master',
     name: MASTER_AGENT_NAME,
     agentId: MASTER_AGENT_ID,
     path: [MASTER_AGENT_NAME],
     model: input.model,
-  };
+  }
 }

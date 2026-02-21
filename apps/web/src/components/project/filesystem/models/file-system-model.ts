@@ -820,11 +820,24 @@ export function useProjectFileSystemModel({
     }
   };
 
-  /** Open item in system file manager. */
+  /** Open item in system file manager, or push a folder-tree stack in web. */
   const handleOpenInFileManager = async (entry: FileSystemEntry) => {
     if (!isElectron) {
-      toast.error("网页版不支持打开文件管理器");
-      return;
+      if (!activeTabId) return
+      if (entry.kind === 'folder') {
+        pushStackItem(activeTabId, {
+          id: entry.uri,
+          sourceKey: entry.uri,
+          component: 'folder-tree-preview',
+          title: entry.name || entry.uri.split('/').pop() || 'Folder',
+          params: {
+            rootUri,
+            currentUri: entry.uri,
+            projectId,
+          },
+        })
+      }
+      return
     }
     const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
     const res =
@@ -848,11 +861,29 @@ export function useProjectFileSystemModel({
     toast.success("已复制路径");
   };
 
-  /** Open the current folder in the system file manager. */
+  /** Open the current folder in the system file manager, or push a folder-tree stack in web. */
   const handleOpenInFileManagerAtCurrent = async () => {
     if (!isElectron) {
-      toast.error("网页版不支持打开文件管理器");
-      return;
+      if (!activeTabId) return
+      const targetUri = activeUri ?? normalizedRootUri ?? ''
+      if (!targetUri && !rootUri) {
+        toast.error('未找到工作区目录')
+        return
+      }
+      const folderUri = targetUri || ''
+      const folderName = folderUri.split('/').filter(Boolean).pop() || 'Folder'
+      pushStackItem(activeTabId, {
+        id: `current-folder:${folderUri}`,
+        sourceKey: `current-folder:${folderUri}`,
+        component: 'folder-tree-preview',
+        title: folderName,
+        params: {
+          rootUri,
+          currentUri: folderUri,
+          projectId,
+        },
+      })
+      return
     }
     const fallbackUri = activeUri ?? normalizedRootUri;
     const targetUri = fallbackUri

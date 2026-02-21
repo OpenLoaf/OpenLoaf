@@ -5,7 +5,7 @@ import type { ComponentType } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { TenasSettingsLayout } from "@tenas-ai/ui/tenas/TenasSettingsLayout";
 import { TenasSettingsMenu } from "@tenas-ai/ui/tenas/TenasSettingsMenu";
-import { BarChart3, Bot, GitBranch, SlidersHorizontal } from "lucide-react";
+import { BarChart3, Bot, Cpu, GitBranch, SlidersHorizontal, Wand2 } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { cn } from "@/lib/utils";
@@ -14,17 +14,21 @@ import { ProjectBasicSettings } from "./menus/ProjectBasicSettings";
 import { ProjectAiSettings } from "./menus/ProjectAiSettings";
 import { ProjectGitSettings } from "./menus/ProjectGitSettings";
 import { ProjectStatsSettings } from "./menus/ProjectStatsSettings";
+import { ProjectSkillsSettings } from "./menus/ProjectSkillsSettings";
+import { ProjectAgentSettings } from "./menus/ProjectAgentSettings";
 
 type ProjectSettingsPanelProps = {
   projectId?: string;
   rootUri?: string;
 };
 
-type ProjectSettingsMenuKey = "basic" | "ai" | "stats" | "git";
+type ProjectSettingsMenuKey = "basic" | "ai" | "skills" | "agents" | "stats" | "git";
 
 const PROJECT_MENU_ICON_COLOR = {
   basic: "text-[#1a73e8] dark:text-sky-300",
   ai: "text-[#9334e6] dark:text-violet-300",
+  skills: "text-[#7c3aed] dark:text-purple-300",
+  agents: "text-[#059669] dark:text-emerald-300",
   stats: "text-[#f9ab00] dark:text-amber-300",
   git: "text-[#188038] dark:text-emerald-300",
 } as const;
@@ -39,24 +43,44 @@ function createMenuIcon(
   };
 }
 
-const BASE_MENU: Array<{
+type SettingsMenuItem = {
   key: ProjectSettingsMenuKey;
   label: string;
   Icon: ComponentType<{ className?: string }>;
   Component: ComponentType<ProjectSettingsPanelProps>;
-}> = [
+};
+
+const GENERAL_GROUP: SettingsMenuItem[] = [
   {
     key: "basic",
     label: "基础",
     Icon: createMenuIcon(SlidersHorizontal, PROJECT_MENU_ICON_COLOR.basic),
     Component: ProjectBasicSettings,
   },
+];
+
+const AI_GROUP: SettingsMenuItem[] = [
   {
     key: "ai",
     label: "AI设置",
-    Icon: createMenuIcon(Bot, PROJECT_MENU_ICON_COLOR.ai),
+    Icon: createMenuIcon(Cpu, PROJECT_MENU_ICON_COLOR.ai),
     Component: ProjectAiSettings,
   },
+  {
+    key: "skills",
+    label: "技能",
+    Icon: createMenuIcon(Wand2, PROJECT_MENU_ICON_COLOR.skills),
+    Component: ProjectSkillsSettings,
+  },
+  {
+    key: "agents",
+    label: "Agent",
+    Icon: createMenuIcon(Bot, PROJECT_MENU_ICON_COLOR.agents),
+    Component: ProjectAgentSettings,
+  },
+];
+
+const STATS_GROUP: SettingsMenuItem[] = [
   {
     key: "stats",
     label: "统计",
@@ -65,20 +89,16 @@ const BASE_MENU: Array<{
   },
 ];
 
-const GIT_MENU = {
+const GIT_MENU: SettingsMenuItem = {
   key: "git",
   label: "Git",
   Icon: createMenuIcon(GitBranch, PROJECT_MENU_ICON_COLOR.git),
   Component: ProjectGitSettings,
-} satisfies {
-  key: ProjectSettingsMenuKey;
-  label: string;
-  Icon: ComponentType<{ className?: string }>;
-  Component: ComponentType<ProjectSettingsPanelProps>;
 };
 
+const ALL_ITEMS = [...GENERAL_GROUP, ...AI_GROUP, ...STATS_GROUP, GIT_MENU];
 const MENU_KEY_SET = new Set<ProjectSettingsMenuKey>(
-  [...BASE_MENU, GIT_MENU].map((item) => item.key)
+  ALL_ITEMS.map((item) => item.key)
 );
 
 /** Check whether the value is a valid project settings menu key. */
@@ -133,10 +153,13 @@ export default function ProjectSettingsPage({
     staleTime: 5000,
   });
   const isGitProject = gitInfoQuery.data?.isGitProject === true;
-  const menuItems = useMemo(
-    () => (isGitProject ? [...BASE_MENU, GIT_MENU] : BASE_MENU),
-    [isGitProject],
-  );
+  const menuGroups = useMemo(() => {
+    const generalGroup = isGitProject
+      ? [...GENERAL_GROUP, ...STATS_GROUP, GIT_MENU]
+      : [...GENERAL_GROUP, ...STATS_GROUP];
+    return [generalGroup, AI_GROUP];
+  }, [isGitProject]);
+  const allMenuItems = useMemo(() => menuGroups.flat(), [menuGroups]);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const collapseRafRef = useRef<number | null>(null);
@@ -146,9 +169,9 @@ export default function ProjectSettingsPage({
   const shouldAnimate = basic.uiAnimationLevel !== "low";
 
   useEffect(() => {
-    if (menuItems.some((item) => item.key === activeKey)) return;
+    if (allMenuItems.some((item) => item.key === activeKey)) return;
     setActiveKey("basic");
-  }, [activeKey, menuItems]);
+  }, [activeKey, allMenuItems]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -188,8 +211,8 @@ export default function ProjectSettingsPage({
 
   const ActiveComponent = useMemo(
     () =>
-      menuItems.find((item) => item.key === activeKey)?.Component ?? (() => null),
-    [activeKey, menuItems]
+      allMenuItems.find((item) => item.key === activeKey)?.Component ?? (() => null),
+    [activeKey, allMenuItems]
   );
 
   return (
@@ -199,7 +222,7 @@ export default function ProjectSettingsPage({
       sectionClassName="rounded-2xl  bg-background/70"
       menu={
         <TenasSettingsMenu
-          groups={[menuItems]}
+          groups={menuGroups}
           activeKey={activeKey}
           isCollapsed={isCollapsed}
           onChange={(key) => setActiveKey(key as ProjectSettingsMenuKey)}

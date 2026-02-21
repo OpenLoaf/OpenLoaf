@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Switch } from "@tenas-ai/ui/animate-ui/components/radix/switch";
 import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
 import { ThemeToggler } from "@/components/ThemeProvider";
@@ -13,12 +13,12 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@tenas-ai/ui/dropdown-menu";
-import { TenasAutoWidthInput } from "@tenas-ai/ui/tenas/TenasAutoWidthInput";
 import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
 import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
 import { ChevronDown } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { clearThemeOverride, readThemeOverride } from "@/lib/theme-override";
+import LocalAccess from "./LocalAccess";
 
 type FontSizeKey = "small" | "medium" | "large" | "xlarge";
 type AnimationLevel = "low" | "medium" | "high";
@@ -35,14 +35,9 @@ export function BasicSettings() {
   const uiLanguageRaw = basic.uiLanguage;
   const fontSizeRaw = basic.uiFontSize;
   const animationLevelRaw = basic.uiAnimationLevel;
-  const localStorageDirRaw = basic.appLocalStorageDir;
-  const autoBackupDirRaw = basic.appAutoBackupDir;
-  const savedCustomRulesValue = basic.appCustomRules;
   const uiTheme = basic.uiTheme;
   const uiThemeManual = basic.uiThemeManual;
   const toolAllowOutsideScope = Boolean(basic.toolAllowOutsideScope);
-  const [savedCustomRules, setSavedCustomRules] = useState("");
-  const [customRules, setCustomRules] = useState("");
 
   const uiLanguage: LanguageId =
     uiLanguageRaw === "zh-CN" ||
@@ -69,16 +64,6 @@ export function BasicSettings() {
     animationLevelRaw === "high"
       ? animationLevelRaw
       : "high";
-  const localStorageDir =
-    typeof localStorageDirRaw === "string" ? localStorageDirRaw : "";
-  const autoBackupDir =
-    typeof autoBackupDirRaw === "string" ? autoBackupDirRaw : "";
-  useEffect(() => {
-    if (basicLoading) return;
-    const next = typeof savedCustomRulesValue === "string" ? savedCustomRulesValue : "";
-    setSavedCustomRules(next);
-    setCustomRules(next);
-  }, [basicLoading, savedCustomRulesValue]);
 
   useEffect(() => {
     const px =
@@ -128,7 +113,6 @@ export function BasicSettings() {
       {({ resolved, toggleTheme }) => {
         const isAutoTheme = uiTheme === "system";
         const themeTabsValue = resolved;
-        const isCustomRulesDirty = customRules !== savedCustomRules;
         const languageLabelById: Record<LanguageId, string> = {
           "zh-CN": "中文（简体）",
           "en-US": "English",
@@ -137,35 +121,6 @@ export function BasicSettings() {
           "fr-FR": "Français",
           "de-DE": "Deutsch",
           "es-ES": "Español",
-        };
-
-        /** Pick a directory or prompt for manual input. */
-        const pickDirectory = async ({
-          currentValue,
-          setValue,
-          promptLabel,
-        }: {
-          currentValue: string;
-          setValue: (value: string) => void | Promise<void>;
-          promptLabel: string;
-        }) => {
-          const showDirectoryPicker = (window as any)
-            .showDirectoryPicker as undefined | (() => Promise<any>);
-
-          if (typeof showDirectoryPicker === "function") {
-            try {
-              const handle = await showDirectoryPicker();
-              const next = String(handle?.name ?? "");
-              setValue(next);
-              return;
-            } catch {
-              return;
-            }
-          }
-
-          const manual = window.prompt(promptLabel, currentValue);
-          if (manual === null) return;
-          setValue(manual);
         };
 
         return (
@@ -361,119 +316,7 @@ export function BasicSettings() {
               </div>
             </TenasSettingsGroup>
 
-            <TenasSettingsGroup title="本地存储">
-              <div className="divide-y divide-border">
-                <div className="flex flex-wrap items-start gap-2 py-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">本地文件存储路径</div>
-                    <div className="text-xs text-muted-foreground">
-                      用于保存导出文件等本地内容
-                    </div>
-                  </div>
-
-                  <TenasSettingsField className="w-full sm:w-[480px] shrink-0 justify-end gap-2">
-                    <TenasAutoWidthInput
-                      value={localStorageDir}
-                      readOnly
-                      placeholder="未选择"
-                      className="bg-background"
-                      minChars={16}
-                      maxChars={48}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        pickDirectory({
-                          currentValue: localStorageDir,
-                          setValue: (next) => setBasic({ appLocalStorageDir: next }),
-                          promptLabel: "请输入本地文件存储路径",
-                        })
-                      }
-                    >
-                      选择
-                    </Button>
-                  </TenasSettingsField>
-                </div>
-
-                <div className="flex flex-wrap items-start gap-2 py-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">自动备份文件夹路径</div>
-                    <div className="text-xs text-muted-foreground">
-                      备份文件的保存位置
-                    </div>
-                  </div>
-
-                  <TenasSettingsField className="w-full sm:w-[480px] shrink-0 justify-end gap-2">
-                    <TenasAutoWidthInput
-                      value={autoBackupDir}
-                      readOnly
-                      placeholder="未选择"
-                      className="bg-background"
-                      minChars={16}
-                      maxChars={48}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        pickDirectory({
-                          currentValue: autoBackupDir,
-                          setValue: (next) => setBasic({ appAutoBackupDir: next }),
-                          promptLabel: "请输入自动备份文件夹路径",
-                        })
-                      }
-                    >
-                      选择
-                    </Button>
-                  </TenasSettingsField>
-                </div>
-              </div>
-            </TenasSettingsGroup>
-
-            <TenasSettingsGroup
-              title="全局自定义规则"
-              action={
-                isCustomRulesDirty ? (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCustomRules(savedCustomRules)}
-                    >
-                      取消
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        void setBasic({ appCustomRules: customRules });
-                        setSavedCustomRules(customRules);
-                      }}
-                    >
-                      保存
-                    </Button>
-                  </div>
-                ) : null
-              }
-            >
-              <div className="divide-y divide-border">
-                <div className="py-3 text-xs text-muted-foreground">
-                  所有 AI agent 都会使用这些规则（例如：你的名字、偏好、项目分类方式等）
-                </div>
-                <div className="py-3">
-                  <div className="relative rounded-xl bg-background shadow-xs transition-all duration-200 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 border border-border/50">
-                    <textarea
-                      value={customRules}
-                      onChange={(e) => {
-                        setCustomRules(e.target.value);
-                      }}
-                      placeholder="例如：我叫XXX；我喜欢YYY；项目按 A/B/C 分类；回答尽量简洁并给出可执行步骤…"
-                      className="h-48 w-full resize-none overflow-y-auto border-none bg-transparent px-3 py-3 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0"
-                    />
-                  </div>
-                </div>
-              </div>
-            </TenasSettingsGroup>
+            <LocalAccess />
 
           </div>
         );

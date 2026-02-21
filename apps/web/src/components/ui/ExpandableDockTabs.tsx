@@ -38,7 +38,7 @@ export type DockTabItem = {
   /** Tab label. */
   label: string;
   /** Tab color tone. */
-  tone?: "sky" | "emerald" | "amber" | "violet" | "slate";
+  tone?: "sky" | "emerald" | "amber" | "violet" | "slate" | "rose";
 };
 
 type ExpandableDockTabsProps = {
@@ -123,6 +123,11 @@ const toneConfig = {
     activeBg: "bg-slate-500/15 dark:bg-slate-400/20",
     activeText: "text-slate-700 dark:text-slate-200",
     inactiveText: "text-slate-600/70 dark:text-slate-300/70",
+  },
+  rose: {
+    activeBg: "bg-rose-500/15 dark:bg-rose-400/20",
+    activeText: "text-rose-700 dark:text-rose-200",
+    inactiveText: "text-rose-700/70 dark:text-rose-200/70",
   },
 } as const;
 

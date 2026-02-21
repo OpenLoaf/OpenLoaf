@@ -63,17 +63,8 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
   const installedCliProviderIds = useInstalledCliProviderIds();
-  const autoSummaryHours = Array.from({ length: 25 }, (_, hour) => hour);
-  const [manualDate, setManualDate] = useState("");
 
   const modelResponseLanguage: ModelResponseLanguageId = basic.modelResponseLanguage;
-  const chatModelSource = normalizeChatModelSource(basic.chatSource);
-  const toolModelSource = normalizeChatModelSource(basic.toolModelSource);
-  const toolModelId =
-    typeof basic.modelDefaultToolModelId === "string"
-      ? basic.modelDefaultToolModelId.trim()
-      : "";
-  const chatModelQuality: "high" | "medium" | "low" = basic.modelQuality;
   const chatOnlineSearchMemoryScope: "tab" | "global" =
     basic.chatOnlineSearchMemoryScope === "global" ? "global" : "tab";
   const localToolModelOptions = useMemo(
@@ -82,10 +73,6 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
         (option) => option.tags?.includes("chat"),
       ),
     [providerItems, cloudModels, installedCliProviderIds],
-  );
-  const selectedLocalToolModel = useMemo(
-    () => localToolModelOptions.find((option) => option.id === toolModelId) ?? null,
-    [localToolModelOptions, toolModelId],
   );
   const modelResponseLanguageLabelById: Record<ModelResponseLanguageId, string> = {
     "zh-CN": "中文（简体）",
@@ -100,11 +87,6 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
   const workspaceId = workspaceQuery.data?.id ?? "";
   const activeTabId = useTabs((state) => state.activeTabId);
   const pushStackItem = useTabRuntime((state) => state.pushStackItem);
-  const runSummaryForWorkspace = useMutation(
-    trpc.project.runSummaryForWorkspace.mutationOptions({
-      onSuccess: async () => {},
-    }),
-  );
   const {
     entries,
     dialogOpen,
@@ -185,61 +167,12 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
     toast.success("已删除模型");
   }
 
-  function handleToggleAutoSummaryHour(hour: number) {
-    const next = new Set(basic.autoSummaryHours ?? []);
-    if (next.has(hour)) {
-      next.delete(hour);
-    } else {
-      next.add(hour);
-    }
-    // 逻辑：排序后写回，保持配置稳定输出。
-    const sorted = Array.from(next).sort((a, b) => a - b);
-    void setBasic({ autoSummaryHours: sorted });
-  }
-
-  function handleRunSummaryForWorkspace() {
-    if (!workspaceId) {
-      toast.error("未找到工作空间");
-      return;
-    }
-    if (!manualDate) return;
-    runSummaryForWorkspace.mutate({ workspaceId, dateKey: manualDate });
-  }
-
-  const handleOpenHistoryPanel = useCallback(() => {
-    if (!activeTabId || !workspaceId) return;
-    pushStackItem(activeTabId, {
-      id: `summary-history:workspace:${workspaceId}`,
-      sourceKey: `summary-history:workspace:${workspaceId}`,
-      component: "scheduler-task-history",
-      title: "工作空间汇总历史",
-      params: { workspaceId, scope: "workspace" },
-    });
-  }, [activeTabId, pushStackItem, workspaceId]);
-
-  const autoSummaryLabel = (basic.autoSummaryHours ?? [])
-    .map((hour) => `${hour}时`)
-    .join("、");
-  const localToolModelEmptyLabel = "暂无本地对话模型";
-
-  useEffect(() => {
-    if (toolModelSource === "cloud") {
-      if (!toolModelId) return;
-      void setBasic({ modelDefaultToolModelId: "" });
-      return;
-    }
-    if (!toolModelId) return;
-    const exists = localToolModelOptions.some((option) => option.id === toolModelId);
-    if (!exists) {
-      void setBasic({ modelDefaultToolModelId: "" });
-    }
-  }, [toolModelSource, toolModelId, localToolModelOptions, setBasic]);
 
   return (
     <div className={wrapperClassName}>
       <TenasSettingsGroup
-        title="模型设置"
-        subtitle="调整模型响应语言、来源与质量偏好。"
+        title="偏好设置"
+        subtitle="调整模型响应语言与交互偏好。"
         className="pb-4"
       >
         <div className="divide-y divide-border">
@@ -282,176 +215,6 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </TenasSettingsField>
-          </div>
-
-          <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">模型来源</div>
-              <div className="text-xs text-muted-foreground">
-                选择本地服务商或云端模型
-              </div>
-            </div>
-
-            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
-              <Tabs
-                value={chatModelSource}
-                onValueChange={(next) =>
-                  void setBasic({ chatSource: normalizeChatModelSource(next) })
-                }
-              >
-                <TabsList>
-                  <TabsTrigger value="local">本地</TabsTrigger>
-                  <TabsTrigger value="cloud">云端</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </TenasSettingsField>
-          </div>
-
-          <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">聊天模型质量</div>
-              <div className="text-xs text-muted-foreground">
-                高 / 中 / 低（UI 预设）
-              </div>
-            </div>
-
-            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
-              <Tabs
-                value={chatModelQuality}
-                onValueChange={(next) =>
-                  void setBasic({ modelQuality: next as "high" | "medium" | "low" })
-                }
-              >
-                <TabsList>
-                  <TabsTrigger value="high">高</TabsTrigger>
-                  <TabsTrigger value="medium">中</TabsTrigger>
-                  <TabsTrigger value="low">低</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </TenasSettingsField>
-          </div>
-
-          <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">工具模型来源</div>
-              <div className="text-xs text-muted-foreground">
-                自动总结等工具任务使用；云端模式自动选择模型
-              </div>
-            </div>
-
-            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
-              <Tabs
-                value={toolModelSource}
-                onValueChange={(next) => {
-                  const normalized = normalizeChatModelSource(next);
-                  if (normalized === "cloud") {
-                    void setBasic({
-                      toolModelSource: "cloud",
-                      modelDefaultToolModelId: "",
-                    });
-                    return;
-                  }
-                  void setBasic({ toolModelSource: "local" });
-                }}
-              >
-                <TabsList>
-                  <TabsTrigger value="local">本地</TabsTrigger>
-                  <TabsTrigger value="cloud">云端</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </TenasSettingsField>
-          </div>
-
-          <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">工具模型</div>
-              <div className="text-xs text-muted-foreground">
-                本地模式仅支持选择“对话”标签模型
-              </div>
-            </div>
-
-            <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
-              {toolModelSource === "cloud" ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-w-[220px] w-auto justify-between font-normal"
-                  disabled
-                >
-                  云端自动选择
-                </Button>
-              ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="min-w-[220px] w-auto justify-between font-normal"
-                    >
-                      <span className="min-w-0 flex items-center gap-2">
-                        {selectedLocalToolModel ? (
-                          <ModelIcon
-                            icon={
-                              selectedLocalToolModel.modelDefinition?.familyId ??
-                              (selectedLocalToolModel.modelDefinition?.icon as string | undefined) ??
-                              selectedLocalToolModel.providerId
-                            }
-                            model={selectedLocalToolModel.modelDefinition?.id ?? selectedLocalToolModel.modelId}
-                            size={14}
-                          />
-                        ) : null}
-                        <span className="truncate">
-                          {selectedLocalToolModel
-                            ? selectedLocalToolModel.modelDefinition
-                              ? getModelLabel(selectedLocalToolModel.modelDefinition)
-                              : selectedLocalToolModel.modelId
-                            : "请选择本地对话模型"}
-                        </span>
-                      </span>
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-[320px]">
-                    <DropdownMenuRadioGroup
-                      value={toolModelId}
-                      onValueChange={(next) => void setBasic({ modelDefaultToolModelId: next })}
-                    >
-                      {localToolModelOptions.length === 0 ? (
-                        <DropdownMenuRadioItem value="__empty__" disabled>
-                          {localToolModelEmptyLabel}
-                        </DropdownMenuRadioItem>
-                      ) : null}
-                      {localToolModelOptions.map((option) => {
-                        const modelLabel = option.modelDefinition
-                          ? getModelLabel(option.modelDefinition)
-                          : option.modelId;
-                        return (
-                          <DropdownMenuRadioItem key={option.id} value={option.id}>
-                            <div className="min-w-0 flex items-center gap-2">
-                              <ModelIcon
-                                icon={
-                                  option.modelDefinition?.familyId ??
-                                  (option.modelDefinition?.icon as string | undefined) ??
-                                  option.providerId
-                                }
-                                model={option.modelDefinition?.id ?? option.modelId}
-                                size={14}
-                              />
-                              <div className="min-w-0">
-                                <div className="truncate">{modelLabel}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  {option.providerName}
-                                </div>
-                              </div>
-                            </div>
-                          </DropdownMenuRadioItem>
-                        );
-                      })}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
             </TenasSettingsField>
           </div>
 
@@ -502,112 +265,6 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
             </TenasSettingsField>
           </div>
 
-          <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">资料自动总结</div>
-              <div className="text-xs text-muted-foreground">
-                自动总结项目资料并按计划生成记录
-              </div>
-            </div>
-
-            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
-              <div className="origin-right scale-110">
-                <Switch
-                  checked={basic.autoSummaryEnabled}
-                  onCheckedChange={(checked) =>
-                    void setBasic({ autoSummaryEnabled: checked })
-                  }
-                  aria-label="Auto summary"
-                />
-              </div>
-            </TenasSettingsField>
-          </div>
-
-          <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">自动总结时间</div>
-              <div className="text-xs text-muted-foreground">
-                选择一天内需要自动总结的小时
-              </div>
-            </div>
-
-            <TenasSettingsField className="w-full sm:w-[360px] shrink-0">
-              <div className="flex items-center justify-end gap-2">
-                <span className="text-xs text-muted-foreground">
-                  {autoSummaryLabel || "-"}
-                </span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button type="button" variant="outline" disabled={!basic.autoSummaryEnabled}>
-                      设置
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="w-[280px]">
-                    <div className="grid grid-cols-5 gap-2">
-                      {autoSummaryHours.map((hour) => {
-                        const checked = (basic.autoSummaryHours ?? []).includes(hour);
-                        const id = `auto-summary-hour-${hour}`;
-                        return (
-                          <div key={hour} className="flex items-center gap-2">
-                            <Checkbox
-                              id={id}
-                              checked={checked}
-                              onCheckedChange={() => handleToggleAutoSummaryHour(hour)}
-                              disabled={!basic.autoSummaryEnabled}
-                            />
-                            <Label htmlFor={id} className="text-xs">
-                              {hour}
-                            </Label>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </TenasSettingsField>
-          </div>
-
-          <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">立即触发</div>
-              <div className="text-xs text-muted-foreground">
-                选择任意日期执行工作空间内的日汇总
-              </div>
-            </div>
-
-            <TenasSettingsField className="w-full sm:w-[360px] shrink-0">
-              <div className="flex items-center justify-end gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button type="button" variant="outline">
-                      执行
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="w-[240px]">
-                    <div className="space-y-3">
-                      <input
-                        type="date"
-                        className="w-full rounded border border-border bg-background px-2 py-1 text-sm"
-                        value={manualDate}
-                        onChange={(event) => setManualDate(event.target.value)}
-                      />
-                      <Button
-                        type="button"
-                        onClick={handleRunSummaryForWorkspace}
-                        disabled={!manualDate || runSummaryForWorkspace.isPending}
-                      >
-                        立即触发
-                      </Button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                <Button type="button" variant="ghost" onClick={handleOpenHistoryPanel}>
-                  历史面板
-                </Button>
-              </div>
-            </TenasSettingsField>
-          </div>
         </div>
       </TenasSettingsGroup>
 

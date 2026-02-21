@@ -6,7 +6,6 @@ import { Chat } from "@/components/ai/Chat";
 import ElectrronBrowserWindow from "@/components/browser/ElectrronBrowserWindow";
 import ToolResultPanel from "@/components/tools/ToolResultPanel";
 import SettingsPage from "@/components/setting/SettingsPage";
-import SkillsPage from "@/components/skills/SkillsPage";
 import { ProviderManagement } from "@/components/setting/menus/ProviderManagement";
 import CalendarPage from "@/components/calendar/Calendar";
 import EmailPage from "@/components/email/EmailPage";
@@ -28,8 +27,11 @@ import DesktopWidgetLibraryPanel from "@/components/desktop/DesktopWidgetLibrary
 import WorkspaceDesktop from "@/components/workspace/WorkspaceDesktop";
 import FolderTreePreview from "@/components/project/filesystem/FolderTreePreview";
 import { SchedulerTaskHistoryStackPanel } from "@/components/summary/SchedulerTaskHistoryStackPanel";
+import { AgentDetailPanel } from "@/components/setting/menus/agent/AgentDetailPanel";
+import ScheduledTasksPage from "@/components/tasks/ScheduledTasksPage";
 import StreamingCodeViewer from "@/components/file/StreamingCodeViewer";
 import DynamicWidgetStackPanel from "@/components/desktop/dynamic-widgets/DynamicWidgetStackPanel";
+import SubAgentChatPanel from "@/components/ai/SubAgentChatPanel";
 
 // 逻辑：文稿编辑器包含完整 Plate.js 插件集，使用 lazy 避免首屏阻塞。
 const LazyPlateDocViewer = React.lazy(() => import("@/components/file/PlateDocViewer"));
@@ -50,7 +52,6 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "electron-browser-window": ElectrronBrowserWindow, // 新窗口浏览器组件
   "tool-result": ToolResultPanel,
   "settings-page": SettingsPage,
-  "skills-page": SkillsPage,
   "provider-management": ProviderManagement,
   "calendar-page": CalendarPage,
   "email-page": EmailPage,
@@ -72,10 +73,13 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "workspace-desktop": WorkspaceDesktop,
   "folder-tree-preview": FolderTreePreview,
   "scheduler-task-history": SchedulerTaskHistoryStackPanel,
+  "scheduled-tasks-page": ScheduledTasksPage,
+  "agent-detail": AgentDetailPanel,
   "streaming-code-viewer": StreamingCodeViewer,
   "plate-doc-viewer": LazyPlateDocViewer,
   "streaming-plate-viewer": LazyStreamingPlateViewer,
   "dynamic-widget-viewer": DynamicWidgetStackPanel,
+  "sub-agent-chat": SubAgentChatPanel,
 };
 
 /**
@@ -95,8 +99,6 @@ export const getPanelTitle = (componentName: string) => {
       return "Tool Result";
     case "settings-page":
       return "Settings";
-    case "skills-page":
-      return "Skills";
     case "provider-management":
       return "Provider Management";
     case "calendar-page":
@@ -139,6 +141,10 @@ export const getPanelTitle = (componentName: string) => {
       return "Folder";
     case "scheduler-task-history":
       return "Scheduler History";
+    case "scheduled-tasks-page":
+      return "定时任务";
+    case "agent-detail":
+      return "Agent 详情";
     case "streaming-code-viewer":
       return "写入文件";
     case "plate-doc-viewer":
@@ -147,6 +153,8 @@ export const getPanelTitle = (componentName: string) => {
       return "编辑文稿";
     case "dynamic-widget-viewer":
       return "Widget";
+    case "sub-agent-chat":
+      return "子代理";
     default:
       // 如果没有匹配的标题，直接返回组件名称
       return componentName;
