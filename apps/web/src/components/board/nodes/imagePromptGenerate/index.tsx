@@ -179,7 +179,7 @@ export function ImagePromptGenerateNodeView({
     };
   }, []);
 
-  /** Run an image prompt generation request via /ai/execute. */
+  /** Run an image prompt generation request via /ai/chat. */
   const runImagePromptGenerate = useCallback(
     async (input: { chatModelId?: string; chatModelSource?: "local" | "cloud" }) => {
       const nodeId = element.id;

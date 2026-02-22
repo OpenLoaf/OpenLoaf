@@ -1,5 +1,4 @@
 import type { ChatCommandId } from "@tenas-ai/api/common/chatCommands";
-import type { ChatModelSource } from "@tenas-ai/api/common/modelTypes";
 import type { ChatRequestBody, TenasUIMessage } from "@tenas-ai/api/types/message";
 
 /** Chat stream request payload, based on ChatRequestBody with server-only fields. */
@@ -39,10 +38,6 @@ export type AiExecuteRequest = {
   messageId?: string;
   /** Retry flag for regenerate. */
   retry?: boolean;
-  /** Selected chat model id. */
-  chatModelId?: string;
-  /** Selected chat model source. */
-  chatModelSource?: ChatModelSource;
   /** Stable client id for session. */
   clientId?: string;
   /** Client timezone (IANA). */
@@ -61,10 +56,6 @@ export type AiExecuteRequest = {
   responseMode?: AiResponseMode;
   /** Tool approval payloads keyed by toolCallId. */
   toolApprovalPayloads?: Record<string, Record<string, unknown>>;
-  /** Selected image generation model id. */
-  imageModelId?: string;
-  /** Selected video generation model id. */
-  videoModelId?: string;
 };
 
 export type AiCommandContext = {

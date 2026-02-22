@@ -854,72 +854,32 @@ export async function deleteSessionFiles(sessionId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Agent history JSONL helpers
+// Agent subdirectory helpers
 // ---------------------------------------------------------------------------
 
-/** 确保 agents 子目录存在。 */
-export async function ensureAgentDir(sessionId: string): Promise<string> {
-  const dir = await resolveSessionDir(sessionId)
-  const agentDir = path.join(dir, 'agents')
+/**
+ * 为子代理注册目录路径。
+ * 后续所有 chatFileStore 函数可直接使用 agentId 操作（loadMessageTree、appendMessage 等）。
+ */
+export async function registerAgentDir(
+  parentSessionId: string,
+  agentId: string,
+): Promise<string> {
+  const parentDir = await resolveSessionDir(parentSessionId)
+  const agentDir = path.join(parentDir, 'agents', agentId)
   await fs.mkdir(agentDir, { recursive: true })
+  // 复用 sessionDirCache，让后续函数透明使用
+  sessionDirCache.set(agentId, agentDir)
   return agentDir
 }
 
-/** 追加一行到 agent 专属 JSONL。 */
-export async function appendAgentJsonlLine(
-  sessionId: string,
-  agentId: string,
-  data: Record<string, unknown>,
-): Promise<string> {
-  const agentDir = await ensureAgentDir(sessionId)
-  const filePath = path.join(agentDir, `${agentId}.jsonl`)
-  const line = `${JSON.stringify(data)}\n`
-  await fs.appendFile(filePath, line, 'utf8')
-  return filePath
-}
-
-/** 读取 agent JSONL，返回 meta 和 messages。 */
-export async function readAgentJsonl(
-  sessionId: string,
-  agentId: string,
-): Promise<{ meta: Record<string, unknown> | null; messages: Array<Record<string, unknown>> }> {
-  const dir = await resolveSessionDir(sessionId)
-  const filePath = path.join(dir, 'agents', `${agentId}.jsonl`)
-  try {
-    const content = await fs.readFile(filePath, 'utf8')
-    const lines = content.split('\n')
-    let meta: Record<string, unknown> | null = null
-    const messages: Array<Record<string, unknown>> = []
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed) continue
-      try {
-        const parsed = JSON.parse(trimmed) as Record<string, unknown>
-        if (parsed.type === 'agent-meta') {
-          meta = parsed
-        } else {
-          messages.push(parsed)
-        }
-      } catch {
-        // skip malformed lines
-      }
-    }
-    return { meta, messages }
-  } catch (err: any) {
-    if (err?.code === 'ENOENT') return { meta: null, messages: [] }
-    throw err
-  }
-}
-
-/** 列出 session 下所有 agent ID。 */
+/** 列出 session 下所有子代理 ID（子目录名）。 */
 export async function listAgentIds(sessionId: string): Promise<string[]> {
   const dir = await resolveSessionDir(sessionId)
   const agentDir = path.join(dir, 'agents')
   try {
-    const files = await fs.readdir(agentDir)
-    return files
-      .filter((f) => f.endsWith('.jsonl'))
-      .map((f) => f.replace(/\.jsonl$/, ''))
+    const entries = await fs.readdir(agentDir, { withFileTypes: true })
+    return entries.filter((e) => e.isDirectory()).map((e) => e.name)
   } catch (err: any) {
     if (err?.code === 'ENOENT') return []
     throw err

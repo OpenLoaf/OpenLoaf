@@ -130,28 +130,34 @@ export default function ChatHeader({
       });
       const content = typeof res?.content === "string" ? res.content : "";
       const jsonlPath = typeof res?.jsonlPath === "string" ? res.jsonlPath : "";
-      if (content.trim().length === 0) {
-        toast.message("暂无 Preface");
-        return;
+      // 逻辑：解析 system.json 原始字符串，提取 instructions 和 tools。
+      let systemInstructions = "";
+      let systemTools: Record<string, any> = {};
+      if (typeof res?.systemJsonRaw === "string" && res.systemJsonRaw.trim()) {
+        try {
+          const parsed = JSON.parse(res.systemJsonRaw);
+          if (typeof parsed.instructions === "string") systemInstructions = parsed.instructions;
+          if (parsed.tools && typeof parsed.tools === "object") systemTools = parsed.tools;
+        } catch { /* ignore parse errors */ }
       }
       const panelKey = `preface:${activeSessionId}`;
-      // 逻辑：按会话复用同一 stack，避免重复堆叠。
+      // 逻辑：使用 ai-debug-viewer 组件，按 Accordion 分区展示调试信息。
       pushStackItem(tabId, {
         id: panelKey,
         sourceKey: panelKey,
-        component: "markdown-viewer",
-        title: "Chat Preface",
+        component: "ai-debug-viewer",
+        title: "AI调试",
         params: {
-          name: "Chat Preface",
-          ext: "md",
-          content,
+          prefaceContent: content,
+          systemInstructions,
+          systemTools,
+          sessionId: activeSessionId,
+          jsonlPath: jsonlPath || undefined,
           __customHeader: true,
-          __chatHistorySessionId: activeSessionId,
-          __chatHistoryJsonlPath: jsonlPath || undefined,
         },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "读取 Preface 失败";
+      const message = error instanceof Error ? error.message : "读取调试信息失败";
       toast.error(message);
     } finally {
       setPrefaceLoading(false);

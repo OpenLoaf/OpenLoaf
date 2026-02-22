@@ -9,6 +9,8 @@ import { renderMessageParts } from '@/components/ai/message/renderMessageParts'
 import type { SubAgentStreamState } from '@/components/ai/context/ChatToolContext'
 import { ChatStateProvider } from '@/components/ai/context/ChatStateContext'
 import { ChatToolProvider } from '@/components/ai/context/ChatToolContext'
+import { ChatSessionProvider } from '@/components/ai/context/ChatSessionContext'
+import { ChatActionsProvider, type ChatActionsContextValue } from '@/components/ai/context/ChatActionsContext'
 import { trpcClient } from '@/utils/trpc'
 
 /** Status badge for the panel header. */
@@ -80,6 +82,7 @@ export default function SubAgentChatPanel({
   // 刷新后 stream 为空时，从服务端加载历史
   const [historyData, setHistoryData] = React.useState<{
     parts: unknown[]
+    messages: Array<{ id: string; role: string; parts: unknown[] }>
     name?: string
     task?: string
   } | null>(null)
@@ -93,10 +96,17 @@ export default function SubAgentChatPanel({
       .query({ sessionId, toolCallId: agentId })
       .then((res) => {
         if (cancelled) return
-        if (res.message) {
-          const meta = res.message.metadata as Record<string, unknown> | undefined
+        const messages = Array.isArray(res.messages) ? res.messages : []
+        if (res.message || messages.length > 0) {
+          const meta = res.agentMeta as Record<string, unknown> | undefined
+            ?? (res.message?.metadata as Record<string, unknown> | undefined)
           setHistoryData({
-            parts: Array.isArray(res.message.parts) ? res.message.parts : [],
+            parts: res.message ? (Array.isArray(res.message.parts) ? res.message.parts : []) : [],
+            messages: messages.map((m: any) => ({
+              id: m.id ?? '',
+              role: m.role ?? 'assistant',
+              parts: Array.isArray(m.parts) ? m.parts : [],
+            })),
             name: typeof meta?.name === 'string' ? meta.name : undefined,
             task: typeof meta?.task === 'string' ? meta.task : undefined,
           })
@@ -111,6 +121,7 @@ export default function SubAgentChatPanel({
   const agentName = stream?.name || historyData?.name || '子代理'
   const isStreaming = stream?.streaming === true
   const parts = (stream?.parts ?? historyData?.parts) as any[] | undefined
+  const historyMessages = historyData?.messages ?? []
   const outputText = stream?.output ?? ''
   const errorText = stream?.errorText
   const taskText = stream?.task || historyData?.task
@@ -140,6 +151,7 @@ export default function SubAgentChatPanel({
   }
 
   const hasParts = Array.isArray(parts) && parts.length > 0
+  const hasMessages = historyMessages.length > 0 && !stream
 
   // 最小化 context stubs，让 renderMessageParts → MessageTool 不报错
   const chatStateStub = React.useMemo(() => ({
@@ -157,6 +169,32 @@ export default function SubAgentChatPanel({
     markToolStreaming: noop,
     subAgentStreams: {} as Record<string, SubAgentStreamState>,
   }), [noop])
+
+  const chatSessionStub = React.useMemo(() => ({
+    sessionId: sessionId ?? '',
+    tabId,
+    leafMessageId: null,
+    branchMessageIds: [] as string[],
+    siblingNav: {} as Record<string, any>,
+  }), [sessionId, tabId])
+
+  const noopAsync = React.useCallback(async () => false as any, [])
+  const chatActionsStub = React.useMemo<ChatActionsContextValue>(() => ({
+    sendMessage: noop as any,
+    regenerate: noop as any,
+    addToolApprovalResponse: noop as any,
+    clearError: noop as any,
+    stopGenerating: noop,
+    updateMessage: noop as any,
+    newSession: noop,
+    selectSession: noop as any,
+    switchSibling: noop as any,
+    retryAssistantMessage: noop as any,
+    resendUserMessage: noop as any,
+    deleteMessageSubtree: noopAsync,
+    setPendingCloudMessage: noop as any,
+    sendPendingCloudMessage: noop,
+  }), [noop, noopAsync])
 
   return (
     <div className="flex h-full flex-col">
@@ -180,19 +218,53 @@ export default function SubAgentChatPanel({
         className="flex-1 overflow-y-auto px-3 py-3"
         onScroll={handleScroll}
       >
-        {hasParts ? (
-          <ChatStateProvider value={chatStateStub}>
-            <ChatToolProvider value={chatToolStub}>
-              <div className="space-y-2">
-                {renderMessageParts(parts, {
-                  renderTools: true,
-                  renderText: true,
-                  isAnimating: isStreaming,
-                  toolVariant: 'nested',
-                })}
-              </div>
-            </ChatToolProvider>
-          </ChatStateProvider>
+        {hasMessages ? (
+          <ChatSessionProvider value={chatSessionStub}>
+            <ChatStateProvider value={chatStateStub}>
+              <ChatActionsProvider value={chatActionsStub}>
+                <ChatToolProvider value={chatToolStub}>
+                  <div className="space-y-3">
+                    {historyMessages.map((msg) => {
+                      const msgParts = Array.isArray(msg.parts) ? msg.parts : []
+                      if (msgParts.length === 0) return null
+                      return (
+                        <div key={msg.id} className={cn(
+                          msg.role === 'user' && 'rounded-lg bg-muted/40 px-2 py-1.5',
+                        )}>
+                          {msg.role === 'user' && (
+                            <div className="mb-1 text-[11px] font-medium text-muted-foreground">用户</div>
+                          )}
+                          {renderMessageParts(msgParts as any[], {
+                            renderTools: true,
+                            renderText: true,
+                            isAnimating: false,
+                            toolVariant: 'nested',
+                          })}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </ChatToolProvider>
+              </ChatActionsProvider>
+            </ChatStateProvider>
+          </ChatSessionProvider>
+        ) : hasParts ? (
+          <ChatSessionProvider value={chatSessionStub}>
+            <ChatStateProvider value={chatStateStub}>
+              <ChatActionsProvider value={chatActionsStub}>
+                <ChatToolProvider value={chatToolStub}>
+                  <div className="space-y-2">
+                    {renderMessageParts(parts, {
+                      renderTools: true,
+                      renderText: true,
+                      isAnimating: isStreaming,
+                      toolVariant: 'nested',
+                    })}
+                  </div>
+                </ChatToolProvider>
+              </ChatActionsProvider>
+            </ChatStateProvider>
+          </ChatSessionProvider>
         ) : outputText ? (
           <pre className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/80">
             {outputText}

@@ -39,6 +39,14 @@ const systemCliInfoSchema = z.object({
   }),
 });
 
+const officeInfoSchema = z.object({
+  wps: z.object({
+    installed: z.boolean(),
+    path: z.string().optional(),
+    version: z.string().optional(),
+  }),
+});
+
 /** Skill / Agent scope enum. */
 const skillScopeSchema = z.enum(["workspace", "project", "global"]);
 
@@ -63,11 +71,18 @@ const skillSummarySchema = z.object({
 });
 
 /** Capability group payload. */
+const capabilityToolSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  description: z.string(),
+});
+
 const capabilityGroupSchema = z.object({
   id: z.string(),
   label: z.string(),
   description: z.string(),
   toolIds: z.array(z.string()),
+  tools: z.array(capabilityToolSchema),
 });
 
 /** Agent summary payload. */
@@ -76,7 +91,7 @@ const agentSummarySchema = z.object({
   description: z.string(),
   icon: z.string(),
   model: z.string(),
-  capabilities: z.array(z.string()),
+  toolIds: z.array(z.string()),
   skills: z.array(z.string()),
   path: z.string(),
   folderName: z.string(),
@@ -107,6 +122,9 @@ export const settingSchemas = {
   },
   systemCliInfo: {
     output: systemCliInfoSchema,
+  },
+  officeInfo: {
+    output: officeInfoSchema,
   },
   /** Get skills summary list. */
   getSkills: {
@@ -183,10 +201,14 @@ export const settingSchemas = {
       name: z.string(),
       description: z.string(),
       icon: z.string(),
-      model: z.string(),
-      imageModelId: z.string(),
-      videoModelId: z.string(),
-      capabilities: z.array(z.string()),
+      modelLocalIds: z.array(z.string()),
+      modelCloudIds: z.array(z.string()),
+      auxiliaryModelSource: z.string(),
+      auxiliaryModelLocalIds: z.array(z.string()),
+      auxiliaryModelCloudIds: z.array(z.string()),
+      imageModelIds: z.array(z.string()),
+      videoModelIds: z.array(z.string()),
+      toolIds: z.array(z.string()),
       skills: z.array(z.string()),
       allowSubAgents: z.boolean(),
       maxDepth: z.number(),
@@ -206,10 +228,14 @@ export const settingSchemas = {
       name: z.string().min(1),
       description: z.string().optional(),
       icon: z.string().optional(),
-      model: z.string().optional(),
-      imageModelId: z.string().optional(),
-      videoModelId: z.string().optional(),
-      capabilities: z.array(z.string()).optional(),
+      modelLocalIds: z.array(z.string()).optional(),
+      modelCloudIds: z.array(z.string()).optional(),
+      auxiliaryModelSource: z.string().optional(),
+      auxiliaryModelLocalIds: z.array(z.string()).optional(),
+      auxiliaryModelCloudIds: z.array(z.string()).optional(),
+      imageModelIds: z.array(z.string()).optional(),
+      videoModelIds: z.array(z.string()).optional(),
+      toolIds: z.array(z.string()).optional(),
       skills: z.array(z.string()).optional(),
       allowSubAgents: z.boolean().optional(),
       maxDepth: z.number().optional(),
@@ -289,6 +315,11 @@ export abstract class BaseSettingRouter {
         }),
       systemCliInfo: shieldedProcedure
         .output(settingSchemas.systemCliInfo.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      officeInfo: shieldedProcedure
+        .output(settingSchemas.officeInfo.output)
         .query(async () => {
           throw new Error("Not implemented in base class");
         }),

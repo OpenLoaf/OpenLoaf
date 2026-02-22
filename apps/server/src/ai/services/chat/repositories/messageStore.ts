@@ -10,6 +10,7 @@ import {
   loadMessageTree,
   resolveRightmostLeaf,
   registerSessionDir,
+  registerAgentDir,
   writeSessionJson,
   type StoredMessage,
 } from './chatFileStore'
@@ -501,4 +502,75 @@ type UIMessageLike = {
   role: 'system' | 'user' | 'assistant' | 'subagent'
   parts?: unknown[]
   metadata?: unknown
+}
+
+// ---------------------------------------------------------------------------
+// Agent-specific storage (file-only, no DB)
+// ---------------------------------------------------------------------------
+
+/**
+ * 保存子代理消息到 agents/<agentId>/messages.jsonl。
+ * 跳过 DB 操作（子代理不需要 DB 记录）。
+ */
+export async function saveAgentMessage(input: {
+  parentSessionId: string
+  agentId: string
+  message: { id: string; role: string; parts?: unknown[]; metadata?: unknown }
+  parentMessageId: string | null
+  createdAt?: Date
+}): Promise<void> {
+  await registerAgentDir(input.parentSessionId, input.agentId)
+
+  const messageId = String(input.message.id ?? '').trim()
+  if (!messageId) return
+
+  const role = normalizeRole(input.message.role)
+  const parts = normalizeParts(input.message.parts)
+  const metadata = sanitizeMetadata(input.message.metadata)
+  const now = input.createdAt ?? new Date()
+
+  const tree = await loadMessageTree(input.agentId)
+  const existing = tree.byId.get(messageId)
+
+  if (existing) {
+    const updated: StoredMessage = {
+      ...existing,
+      ...(parts.length ? { parts: parts as any } : {}),
+      ...(metadata ? { metadata: metadata as any } : {}),
+    }
+    await updateMessage({ sessionId: input.agentId, message: updated })
+  } else {
+    const stored: StoredMessage = {
+      id: messageId,
+      parentMessageId: input.parentMessageId,
+      role,
+      messageKind: 'normal',
+      parts: parts as any,
+      metadata: (metadata as any) ?? undefined,
+      createdAt: now.toISOString(),
+    }
+    await appendMessage({ sessionId: input.agentId, message: stored })
+  }
+}
+
+/**
+ * 写入子代理元数据到 agents/<agentId>/session.json。
+ */
+export async function writeAgentSessionJson(input: {
+  parentSessionId: string
+  agentId: string
+  name: string
+  task: string
+  agentType?: string
+  createdAt: Date
+}): Promise<void> {
+  await registerAgentDir(input.parentSessionId, input.agentId)
+  await writeSessionJson(input.agentId, {
+    id: input.agentId,
+    title: input.name,
+    createdAt: input.createdAt.toISOString(),
+    // 扩展字段存入 session.json
+    ...(input.agentType ? { agentType: input.agentType } as any : {}),
+    ...(input.task ? { task: input.task } as any : {}),
+  })
 }

@@ -35,10 +35,11 @@ import {
   getCliToolsStatus,
   installCliTool,
 } from "@/ai/models/cli/cliToolService";
-import { loadSkillSummaries } from "@/ai/agents/masterAgent/skillsLoader";
+import { loadSkillSummaries } from "@/ai/services/skillsLoader";
 import { loadAgentSummaries, readAgentConfigFromPath, serializeAgentToMarkdown } from "@/ai/services/agentConfigService";
 import { CAPABILITY_GROUPS } from "@/ai/tools/capabilityGroups";
 import { resolveSystemCliInfo } from "@/modules/settings/resolveSystemCliInfo";
+import { resolveOfficeInfo } from "@/modules/settings/resolveOfficeInfo";
 import { isSystemAgentId } from "@/ai/shared/systemAgentDefinitions";
 
 /** Normalize ignoreSkills list for persistence. */
@@ -323,6 +324,11 @@ export class SettingRouterImpl extends BaseSettingRouter {
         .output(settingSchemas.systemCliInfo.output)
         .query(async () => {
           return await resolveSystemCliInfo();
+        }),
+      officeInfo: shieldedProcedure
+        .output(settingSchemas.officeInfo.output)
+        .query(async () => {
+          return resolveOfficeInfo();
         }),
       /** List skills for settings UI. */
       getSkills: shieldedProcedure
@@ -758,6 +764,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
             label: group.label,
             description: group.description,
             toolIds: [...group.toolIds],
+            tools: group.tools,
           }));
         }),
       /** Get full agent detail by path. */
@@ -782,14 +789,41 @@ export class SettingRouterImpl extends BaseSettingRouter {
                 systemPrompt = readFileSync(agentMdPath, "utf8").trim();
               }
             } catch { /* ignore */ }
+            const modelLocalIds = Array.isArray(descriptor.modelLocalIds)
+              ? descriptor.modelLocalIds
+              : [];
+            const modelCloudIds = Array.isArray(descriptor.modelCloudIds)
+              ? descriptor.modelCloudIds
+              : [];
+            const auxiliaryModelLocalIds = Array.isArray(
+              descriptor.auxiliaryModelLocalIds,
+            )
+              ? descriptor.auxiliaryModelLocalIds
+              : [];
+            const auxiliaryModelCloudIds = Array.isArray(
+              descriptor.auxiliaryModelCloudIds,
+            )
+              ? descriptor.auxiliaryModelCloudIds
+              : [];
+            const imageModelIds = Array.isArray(descriptor.imageModelIds)
+              ? descriptor.imageModelIds
+              : [];
+            const videoModelIds = Array.isArray(descriptor.videoModelIds)
+              ? descriptor.videoModelIds
+              : [];
             return {
               name: descriptor.name,
               description: descriptor.description || "未提供",
               icon: descriptor.icon || "bot",
-              model: descriptor.model || "",
-              imageModelId: descriptor.imageModelId || "",
-              videoModelId: descriptor.videoModelId || "",
-              capabilities: descriptor.capabilities || [],
+              modelLocalIds,
+              modelCloudIds,
+              auxiliaryModelSource:
+                descriptor.auxiliaryModelSource === "cloud" ? "cloud" : "local",
+              auxiliaryModelLocalIds,
+              auxiliaryModelCloudIds,
+              imageModelIds,
+              videoModelIds,
+              toolIds: descriptor.toolIds || [],
               skills: descriptor.skills || [],
               allowSubAgents: descriptor.allowSubAgents ?? false,
               maxDepth: descriptor.maxDepth ?? 1,
@@ -807,10 +841,14 @@ export class SettingRouterImpl extends BaseSettingRouter {
             name: config.name,
             description: config.description,
             icon: config.icon,
-            model: config.model,
-            imageModelId: config.imageModelId,
-            videoModelId: config.videoModelId,
-            capabilities: config.capabilities,
+            modelLocalIds: config.modelLocalIds,
+            modelCloudIds: config.modelCloudIds,
+            auxiliaryModelSource: config.auxiliaryModelSource,
+            auxiliaryModelLocalIds: config.auxiliaryModelLocalIds,
+            auxiliaryModelCloudIds: config.auxiliaryModelCloudIds,
+            imageModelIds: config.imageModelIds,
+            videoModelIds: config.videoModelIds,
+            toolIds: config.toolIds,
             skills: config.skills,
             allowSubAgents: config.allowSubAgents,
             maxDepth: config.maxDepth,
@@ -835,10 +873,14 @@ export class SettingRouterImpl extends BaseSettingRouter {
                 name: input.name,
                 description: input.description,
                 icon: input.icon,
-                model: input.model,
-                imageModelId: input.imageModelId,
-                videoModelId: input.videoModelId,
-                capabilities: input.capabilities,
+                modelLocalIds: input.modelLocalIds,
+                modelCloudIds: input.modelCloudIds,
+                auxiliaryModelSource: input.auxiliaryModelSource,
+                auxiliaryModelLocalIds: input.auxiliaryModelLocalIds,
+                auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
+                imageModelIds: input.imageModelIds,
+                videoModelIds: input.videoModelIds,
+                toolIds: input.toolIds,
                 skills: input.skills,
                 allowSubAgents: input.allowSubAgents,
                 maxDepth: input.maxDepth,
@@ -854,10 +896,14 @@ export class SettingRouterImpl extends BaseSettingRouter {
               name: input.name,
               description: input.description,
               icon: input.icon,
-              model: input.model,
-              imageModelId: input.imageModelId,
-              videoModelId: input.videoModelId,
-              capabilities: input.capabilities,
+              modelLocalIds: input.modelLocalIds,
+              modelCloudIds: input.modelCloudIds,
+              auxiliaryModelSource: input.auxiliaryModelSource,
+              auxiliaryModelLocalIds: input.auxiliaryModelLocalIds,
+              auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
+              imageModelIds: input.imageModelIds,
+              videoModelIds: input.videoModelIds,
+              toolIds: input.toolIds,
               skills: input.skills,
               allowSubAgents: input.allowSubAgents,
               maxDepth: input.maxDepth,
@@ -885,8 +931,12 @@ export class SettingRouterImpl extends BaseSettingRouter {
               name: input.name,
               description: input.description,
               icon: input.icon,
-              model: input.model,
-              capabilities: input.capabilities,
+              modelLocalIds: input.modelLocalIds,
+              modelCloudIds: input.modelCloudIds,
+              auxiliaryModelSource: input.auxiliaryModelSource,
+              auxiliaryModelLocalIds: input.auxiliaryModelLocalIds,
+              auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
+              toolIds: input.toolIds,
               skills: input.skills,
               allowSubAgents: input.allowSubAgents,
               maxDepth: input.maxDepth,
@@ -906,10 +956,14 @@ export class SettingRouterImpl extends BaseSettingRouter {
             name: input.name,
             description: input.description,
             icon: input.icon,
-            model: input.model,
-            imageModelId: input.imageModelId,
-            videoModelId: input.videoModelId,
-            capabilities: input.capabilities,
+            modelLocalIds: input.modelLocalIds,
+            modelCloudIds: input.modelCloudIds,
+            auxiliaryModelSource: input.auxiliaryModelSource,
+            auxiliaryModelLocalIds: input.auxiliaryModelLocalIds,
+            auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
+            imageModelIds: input.imageModelIds,
+            videoModelIds: input.videoModelIds,
+            toolIds: input.toolIds,
             skills: input.skills,
             allowSubAgents: input.allowSubAgents,
             maxDepth: input.maxDepth,

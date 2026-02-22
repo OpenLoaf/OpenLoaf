@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSettingsValues } from '@/hooks/use-settings'
 import { useBasicConfig } from '@/hooks/use-basic-config'
 import {
@@ -42,11 +42,11 @@ export function useModelPreferences() {
   const activeTabId = useTabs((s) => s.activeTabId)
   const pushStackItem = useTabRuntime((s) => s.pushStackItem)
   const {
-    modelId: masterModelId,
+    modelIds: masterModelIds,
     detail: masterDetail,
-    setModelId,
-    setImageModelId,
-    setVideoModelId,
+    setModelIds,
+    setImageModelIds,
+    setVideoModelIds,
   } = useMainAgentModel()
 
   const tabId = chatSession?.tabId ?? activeTabId
@@ -63,23 +63,39 @@ export function useModelPreferences() {
       ),
     [chatModelSource, providerItems, cloudModels, installedCliProviderIds],
   )
-  const normalizedMasterId = masterModelId.trim()
-  const isAuto = !normalizedMasterId
+  const normalizeIds = useCallback((value?: string[] | null) => {
+    if (!Array.isArray(value)) return []
+    const normalized = value
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0)
+    return Array.from(new Set(normalized))
+  }, [])
 
-  const preferredChatIds = useMemo(
-    () => (normalizedMasterId ? [normalizedMasterId] : []),
-    [normalizedMasterId],
+  const [preferredChatIds, setPreferredChatIds] = useState<string[]>(() =>
+    normalizeIds(masterModelIds),
+  )
+  const [preferredImageIds, setPreferredImageIds] = useState<string[]>(() =>
+    normalizeIds(masterDetail?.imageModelIds),
+  )
+  const [preferredVideoIds, setPreferredVideoIds] = useState<string[]>(() =>
+    normalizeIds(masterDetail?.videoModelIds),
   )
 
-  const preferredImageIds = useMemo(() => {
-    const current = masterDetail?.imageModelId?.trim() ?? ''
-    return current ? [current] : []
-  }, [masterDetail?.imageModelId])
+  useEffect(() => {
+    setPreferredChatIds(normalizeIds(masterModelIds))
+  }, [masterModelIds, normalizeIds])
 
-  const preferredVideoIds = useMemo(() => {
-    const current = masterDetail?.videoModelId?.trim() ?? ''
-    return current ? [current] : []
-  }, [masterDetail?.videoModelId])
+  useEffect(() => {
+    setPreferredImageIds(normalizeIds(masterDetail?.imageModelIds))
+  }, [masterDetail?.imageModelIds, normalizeIds])
+
+  useEffect(() => {
+    setPreferredVideoIds(normalizeIds(masterDetail?.videoModelIds))
+  }, [masterDetail?.videoModelIds, normalizeIds])
+
+  const isAuto = preferredChatIds.length === 0
+  const isImageAuto = preferredImageIds.length === 0
+  const isVideoAuto = preferredVideoIds.length === 0
 
   const hasConfiguredProviders = useMemo(
     () =>
@@ -95,54 +111,93 @@ export function useModelPreferences() {
     (modelId: string) => {
       const normalized = modelId.trim()
       if (!normalized) return
-      if (normalized === normalizedMasterId) {
-        setModelId('')
-        return
-      }
-      setModelId(normalized)
+      const nextIds = preferredChatIds.includes(normalized)
+        ? preferredChatIds.filter((id) => id !== normalized)
+        : [...preferredChatIds, normalized]
+      setPreferredChatIds(nextIds)
+      setModelIds(nextIds)
     },
-    [normalizedMasterId, setModelId],
+    [preferredChatIds, setModelIds],
   )
 
   const toggleImageModel = useCallback(
     (modelId: string) => {
       const normalized = modelId.trim()
-      const current = masterDetail?.imageModelId?.trim() ?? ''
       if (!normalized) return
-      if (normalized === current) {
-        setImageModelId('')
-        return
-      }
-      setImageModelId(normalized)
+      const nextIds = preferredImageIds.includes(normalized)
+        ? preferredImageIds.filter((id) => id !== normalized)
+        : [...preferredImageIds, normalized]
+      setPreferredImageIds(nextIds)
+      setImageModelIds(nextIds)
     },
-    [masterDetail?.imageModelId, setImageModelId],
+    [preferredImageIds, setImageModelIds],
   )
 
   const toggleVideoModel = useCallback(
     (modelId: string) => {
       const normalized = modelId.trim()
-      const current = masterDetail?.videoModelId?.trim() ?? ''
       if (!normalized) return
-      if (normalized === current) {
-        setVideoModelId('')
-        return
-      }
-      setVideoModelId(normalized)
+      const nextIds = preferredVideoIds.includes(normalized)
+        ? preferredVideoIds.filter((id) => id !== normalized)
+        : [...preferredVideoIds, normalized]
+      setPreferredVideoIds(nextIds)
+      setVideoModelIds(nextIds)
     },
-    [masterDetail?.videoModelId, setVideoModelId],
+    [preferredVideoIds, setVideoModelIds],
   )
 
   const setIsAuto = useCallback(
     (auto: boolean) => {
       if (auto) {
-        setModelId('')
+        if (preferredChatIds.length === 0) return
+        setPreferredChatIds([])
+        setModelIds([])
         return
       }
-      if (normalizedMasterId) return
+      if (preferredChatIds.length > 0) return
       const fallback = chatModels[0]?.id
-      if (fallback) setModelId(fallback)
+      if (fallback) {
+        setPreferredChatIds([fallback])
+        setModelIds([fallback])
+      }
     },
-    [chatModels, normalizedMasterId, setModelId],
+    [chatModels, preferredChatIds, setModelIds],
+  )
+
+  const setImageAuto = useCallback(
+    (auto: boolean) => {
+      if (auto) {
+        if (preferredImageIds.length === 0) return
+        setPreferredImageIds([])
+        setImageModelIds([])
+        return
+      }
+      if (preferredImageIds.length > 0) return
+      const fallback = imageModels[0]?.id
+      if (fallback) {
+        setPreferredImageIds([fallback])
+        setImageModelIds([fallback])
+      }
+    },
+    [imageModels, preferredImageIds, setImageModelIds],
+  )
+
+  const setVideoAuto = useCallback(
+    (auto: boolean) => {
+      if (auto) {
+        if (preferredVideoIds.length === 0) return
+        setPreferredVideoIds([])
+        setVideoModelIds([])
+        return
+      }
+      if (preferredVideoIds.length > 0) return
+      const fallback = videoModels[0]?.id
+      if (fallback) {
+        setPreferredVideoIds([fallback])
+        setVideoModelIds([fallback])
+      }
+    },
+    [preferredVideoIds, setVideoModelIds, videoModels],
   )
 
   const setCloudSource = useCallback(
@@ -250,6 +305,8 @@ export function useModelPreferences() {
     videoModels,
     isCloudSource,
     isAuto,
+    isImageAuto,
+    isVideoAuto,
     preferredChatIds,
     preferredImageIds,
     preferredVideoIds,
@@ -262,6 +319,8 @@ export function useModelPreferences() {
     toggleImageModel,
     toggleVideoModel,
     setIsAuto,
+    setImageAuto,
+    setVideoAuto,
     setCloudSource,
     refreshOnOpen,
     syncCloudModelsOnOpen,

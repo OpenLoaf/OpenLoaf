@@ -34,6 +34,7 @@ type CliToolsConfig = BasicConf["cliTools"];
 /** Default basic config values. */
 const DEFAULT_BASIC_CONF: BasicConf = {
   chatSource: "local",
+  chatThinkingMode: "fast",
   toolModelSource: "cloud",
   activeS3Id: undefined,
   s3AutoUpload: true,
@@ -137,6 +138,12 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : fallbackSource.chatSource === "cloud" || fallbackSource.chatSource === "local"
         ? fallbackSource.chatSource
         : DEFAULT_BASIC_CONF.chatSource;
+  const chatThinkingMode =
+    source.chatThinkingMode === "deep" || source.chatThinkingMode === "fast"
+      ? source.chatThinkingMode
+      : fallbackSource.chatThinkingMode === "deep" || fallbackSource.chatThinkingMode === "fast"
+        ? fallbackSource.chatThinkingMode
+        : DEFAULT_BASIC_CONF.chatThinkingMode;
   const toolModelSource: ChatModelSource =
     source.toolModelSource === "cloud" || source.toolModelSource === "local"
       ? source.toolModelSource
@@ -357,6 +364,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
 
   return {
     chatSource,
+    chatThinkingMode,
     toolModelSource,
     activeS3Id,
     s3AutoUpload,

@@ -1,4 +1,4 @@
-import type { ChatModelSource, ModelDefinition } from "../common/modelTypes";
+import type { ModelDefinition } from "../common/modelTypes";
 
 type UIDataTypes = Record<string, unknown>;
 type UITools = Record<string, unknown>;
@@ -107,10 +107,6 @@ export type ChatRequestBody = {
    * - false/undefined：正常新消息
    */
   retry?: boolean;
-  /** 选择的聊天模型 ID（为空代表 Auto） */
-  chatModelId?: string;
-  /** 选择的模型来源（本地/云端） */
-  chatModelSource?: ChatModelSource;
   /** Web UI 侧稳定 clientId（用于会话关联） */
   clientId?: string;
   /** Client timezone (IANA). */
@@ -127,10 +123,6 @@ export type ChatRequestBody = {
   selectedSkills?: string[];
   /** 工具审批 payload（按 toolCallId 分组）。 */
   toolApprovalPayloads?: Record<string, Record<string, unknown>>;
-  /** 选择的图片生成模型 ID（为空代表 Auto） */
-  imageModelId?: string;
-  /** 选择的视频生成模型 ID（为空代表 Auto） */
-  videoModelId?: string;
 };
 
 export type TokenUsage = {

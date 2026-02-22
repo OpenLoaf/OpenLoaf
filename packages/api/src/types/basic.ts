@@ -12,6 +12,7 @@ export const modelResponseLanguageSchema = z.enum([
 
 export const modelQualitySchema = z.enum(["high", "medium", "low"]);
 export const chatOnlineSearchMemoryScopeSchema = z.enum(["tab", "global"]);
+export const chatThinkingModeSchema = z.enum(["fast", "deep"]);
 
 export const uiLanguageSchema = z.enum([
   "zh-CN",
@@ -67,6 +68,8 @@ export type CliToolsConfig = {
 export const basicConfigSchema = z.object({
   /** @deprecated Use per-agent model config instead. */
   chatSource: z.enum(["local", "cloud"]),
+  /** Chat reasoning mode for master agent. */
+  chatThinkingMode: chatThinkingModeSchema,
   /** @deprecated Use per-agent model config instead. */
   toolModelSource: z.enum(["local", "cloud"]),
   activeS3Id: z.string().optional(),

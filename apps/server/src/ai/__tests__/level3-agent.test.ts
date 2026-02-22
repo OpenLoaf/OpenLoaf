@@ -10,7 +10,7 @@ import {
   setChatModel,
   setAbortSignal,
 } from './helpers/testEnv'
-import { createMasterAgentRunner } from '@/ai/agents/masterAgent/masterAgentRunner'
+import { createMasterAgentRunner } from '@/ai/services/masterAgentRunner'
 import {
   printSection,
   printModelInfo,

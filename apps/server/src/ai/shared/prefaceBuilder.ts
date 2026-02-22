@@ -9,7 +9,7 @@ import {
   getWorkspaceRootPathById,
 } from "@tenas-ai/api/services/vfsService";
 import type { PromptContext } from "@/ai/shared/types";
-import { loadSkillSummaries, type SkillSummary } from "@/ai/agents/masterAgent/skillsLoader";
+import { loadSkillSummaries, type SkillSummary } from "@/ai/services/skillsLoader";
 import { resolvePythonInstallInfo } from "@/ai/models/cli/pythonTool";
 import { getAuthSessionSnapshot } from "@/modules/auth/tokenStore";
 import { readBasicConf } from "@/modules/settings/tenasConfStore";

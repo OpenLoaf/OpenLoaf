@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import {
   readSkillContentFromPath,
   readSkillSummaryFromPath,
-} from "@/ai/agents/masterAgent/skillsLoader";
+} from "@/ai/services/skillsLoader";
 
 const AGENTS_META_DIR = ".agents";
 const SKILLS_DIR_NAME = "skills";

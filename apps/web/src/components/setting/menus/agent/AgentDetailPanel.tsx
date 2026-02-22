@@ -19,11 +19,14 @@ import {
   Check,
   Cloud,
   Code,
+  Edit3,
   FileSearch,
   FilePen,
   FolderOpen,
   Globe,
   HardDrive,
+  HelpCircle,
+  ChevronDown,
   Image,
   LayoutGrid,
   Link,
@@ -36,6 +39,8 @@ import {
   FolderKanban,
   Users,
   Video,
+  Gauge,
+  MessageSquare,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -50,6 +55,9 @@ import { useSettingsValues } from '@/hooks/use-settings'
 import { useBasicConfig } from '@/hooks/use-basic-config'
 import { useCloudModels } from '@/hooks/use-cloud-models'
 import { useInstalledCliProviderIds } from '@/hooks/use-cli-tools-installed'
+import ThinkingModeSelector, {
+  type ThinkingMode,
+} from '@/components/ai/input/ThinkingModeSelector'
 import {
   buildChatModelOptions,
   normalizeChatModelSource,
@@ -68,6 +76,7 @@ const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
   shell: { icon: Terminal, className: 'text-slate-500' },
   email: { icon: Mail, className: 'text-red-500' },
   calendar: { icon: Calendar, className: 'text-orange-500' },
+  office: { icon: Edit3, className: 'text-teal-500' },
   'image-generate': { icon: Image, className: 'text-pink-500' },
   'video-generate': { icon: Video, className: 'text-purple-500' },
   widget: { icon: LayoutGrid, className: 'text-violet-500' },
@@ -86,6 +95,7 @@ const CAP_BG_MAP: Record<string, string> = {
   shell: 'bg-slate-50 dark:bg-slate-950/40',
   email: 'bg-red-50 dark:bg-red-950/40',
   calendar: 'bg-orange-50 dark:bg-orange-950/40',
+  office: 'bg-teal-50 dark:bg-teal-950/40',
   'image-generate': 'bg-pink-50 dark:bg-pink-950/40',
   'video-generate': 'bg-purple-50 dark:bg-purple-950/40',
   widget: 'bg-violet-50 dark:bg-violet-950/40',
@@ -111,6 +121,13 @@ type CapabilityGroup = {
   label: string
   description: string
   toolIds: string[]
+  tools: CapabilityTool[]
+}
+
+type CapabilityTool = {
+  id: string
+  label: string
+  description: string
 }
 
 type SkillSummary = {
@@ -129,12 +146,16 @@ type FormSnapshot = {
   name: string
   description: string
   icon: string
-  model: string
-  /** Selected image model id (empty = Auto). */
-  imageModelId: string
-  /** Selected video model id (empty = Auto). */
-  videoModelId: string
-  capabilities: string[]
+  modelLocalIds: string[]
+  modelCloudIds: string[]
+  auxiliaryModelLocalIds: string[]
+  auxiliaryModelCloudIds: string[]
+  auxiliaryModelSource: string
+  /** Selected image model ids (empty = Auto). */
+  imageModelIds: string[]
+  /** Selected video model ids (empty = Auto). */
+  videoModelIds: string[]
+  toolIds: string[]
   skills: string[]
   allowSubAgents: boolean
   maxDepth: number
@@ -148,14 +169,14 @@ function makeSnapshot(s: FormSnapshot): string {
 type MediaModelSelectProps = {
   /** Available model list. */
   models: AiModel[]
-  /** Current selected model id (empty = Auto). */
-  value: string
+  /** Current selected model ids (empty = Auto). */
+  value: string[]
   /** Disable selector interaction. */
   disabled?: boolean
   /** Auth state for SaaS models. */
   authLoggedIn: boolean
   /** Change handler. */
-  onChange: (nextId: string) => void
+  onChange: (nextIds: string[]) => void
   /** Trigger login dialog. */
   onOpenLogin: () => void
   /** Empty list placeholder. */
@@ -173,16 +194,69 @@ function MediaModelSelect({
   emptyText = '暂无可用模型',
 }: MediaModelSelectProps) {
   const [open, setOpen] = useState(false)
-  const selectedLabel = useMemo(() => {
-    if (!value) return 'Auto'
-    const matched = models.find((m) => m.id === value)
-    return matched?.name ?? value
-  }, [models, value])
+  const normalizeValue = useCallback((items: string[]) => {
+    const normalized = items.map((id) => id.trim()).filter(Boolean)
+    return Array.from(new Set(normalized))
+  }, [])
+  const [localValue, setLocalValue] = useState<string[]>(
+    () => normalizeValue(value),
+  )
+  const maxVisibleSelected = 2
+  useEffect(() => {
+    const next = normalizeValue(value)
+    setLocalValue((prev) => {
+      if (prev.length === next.length && prev.every((id, i) => id === next[i])) {
+        return prev
+      }
+      return next
+    })
+  }, [normalizeValue, value])
+  const normalizedValue = localValue
+  const modelMap = useMemo(() => {
+    const map = new Map<string, AiModel>()
+    for (const model of models) {
+      map.set(model.id, model)
+    }
+    return map
+  }, [models])
+  const selectedItems = useMemo(
+    () =>
+      normalizedValue.map((id) => {
+        const model = modelMap.get(id)
+        return {
+          id,
+          icon: model?.familyId ?? model?.providerId ?? id,
+          modelId: model?.id ?? id,
+          label: model?.name ?? id,
+        }
+      }),
+    [modelMap, normalizedValue],
+  )
+  const visibleSelectedItems = selectedItems.slice(0, maxVisibleSelected)
+  const hiddenSelectedCount = Math.max(
+    selectedItems.length - visibleSelectedItems.length,
+    0,
+  )
 
-  const handleSelect = useCallback((nextId: string) => {
-    onChange(nextId)
-    setOpen(false)
-  }, [onChange])
+  const applyChange = useCallback(
+    (nextIds: string[]) => {
+      const next = normalizeValue(nextIds)
+      setLocalValue(next)
+      onChange(next)
+    },
+    [normalizeValue, onChange],
+  )
+
+  const handleToggle = useCallback(
+    (nextId: string) => {
+      if (normalizedValue.includes(nextId)) {
+        applyChange(normalizedValue.filter((id) => id !== nextId))
+        return
+      }
+      applyChange([...normalizedValue, nextId])
+    },
+    [applyChange, normalizedValue],
+  )
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -192,15 +266,45 @@ function MediaModelSelect({
           variant="secondary"
           size="sm"
           disabled={disabled}
-          className="h-8 min-w-[200px] justify-between rounded-full border border-border/60 bg-background/80 px-3 text-xs"
+          className="h-8 w-fit max-w-full shrink min-w-0 justify-between rounded-full border border-border/60 bg-background/80 px-3 text-xs"
         >
-          <span className="truncate">{selectedLabel}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            {normalizedValue.length > 0 ? (
+              <span className="flex min-w-0 items-center gap-1 overflow-hidden">
+                {visibleSelectedItems.map((item, index) => (
+                  <span
+                    key={item.id}
+                    className="inline-flex min-w-0 items-center gap-1"
+                  >
+                    <ModelIcon
+                      icon={item.icon}
+                      model={item.modelId}
+                      size={14}
+                      className="h-3.5 w-3.5 shrink-0"
+                    />
+                    <span className="truncate">{item.label}</span>
+                    {index < visibleSelectedItems.length - 1 ? (
+                      <span className="text-muted-foreground">,</span>
+                    ) : null}
+                  </span>
+                ))}
+                {hiddenSelectedCount > 0 ? (
+                  <span className="text-muted-foreground">+{hiddenSelectedCount}</span>
+                ) : null}
+              </span>
+            ) : (
+              <>
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                <span className="truncate">Auto</span>
+              </>
+            )}
+          </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-64 rounded-xl border-border bg-background/90 p-2 shadow-xl backdrop-blur"
+        className="w-80 rounded-xl border-border bg-background/90 p-2 shadow-xl backdrop-blur"
       >
         {!authLoggedIn ? (
           <div className="flex flex-col items-center justify-center gap-2 py-6">
@@ -221,35 +325,31 @@ function MediaModelSelect({
             {emptyText}
           </div>
         ) : (
-          <div className="max-h-60 space-y-1 overflow-y-auto">
+          <div className="max-h-64 space-y-1 overflow-y-auto">
             <button
               type="button"
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/50"
-              onClick={() => handleSelect('')}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs hover:bg-muted/50"
+              onClick={() => applyChange([])}
             >
+              <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
               <span className="flex-1 truncate">Auto</span>
-              {value === '' ? (
+              {normalizedValue.length === 0 ? (
                 <Check className="h-3.5 w-3.5 text-emerald-500" />
               ) : (
                 <span className="h-3.5 w-3.5" />
               )}
             </button>
             {models.map((model) => (
-              <button
+              <ModelCheckboxItem
                 key={`${model.providerId ?? 'unknown'}-${model.id}`}
-                type="button"
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/50"
-                onClick={() => handleSelect(model.id)}
-              >
-                <span className="flex-1 truncate">
-                  {model.name ?? model.id}
-                </span>
-                {value === model.id ? (
-                  <Check className="h-3.5 w-3.5 text-emerald-500" />
-                ) : (
-                  <span className="h-3.5 w-3.5" />
-                )}
-              </button>
+                icon={model.familyId ?? model.providerId ?? model.id}
+                modelId={model.id}
+                label={model.name ?? model.id}
+                tags={model.tags as import('@tenas-ai/api/common').ModelTag[] | undefined}
+                checked={normalizedValue.includes(model.id)}
+                disabled={disabled}
+                onToggle={() => handleToggle(model.id)}
+              />
             ))}
           </div>
         )}
@@ -261,14 +361,14 @@ function MediaModelSelect({
 type ChatModelSelectProps = {
   /** Available chat model options. */
   models: ProviderModelOption[]
-  /** Current selected model id (empty = Auto). */
-  value: string
+  /** Current selected model ids (empty = Auto). */
+  value: string[]
   /** Disable selector interaction. */
   disabled?: boolean
   /** Whether cloud source requires login. */
   showCloudLogin: boolean
   /** Change handler. */
-  onChange: (nextId: string) => void
+  onChange: (nextIds: string[]) => void
   /** Trigger login dialog. */
   onOpenLogin: () => void
   /** Empty list placeholder. */
@@ -286,22 +386,78 @@ function ChatModelSelect({
   emptyText = '暂无可用模型',
 }: ChatModelSelectProps) {
   const [open, setOpen] = useState(false)
-  const selectedOption = useMemo(
-    () => models.find((m) => m.id === value),
-    [models, value],
+  const normalizeValue = useCallback((items: string[]) => {
+    const normalized = items.map((id) => id.trim()).filter(Boolean)
+    return Array.from(new Set(normalized))
+  }, [])
+  const [localValue, setLocalValue] = useState<string[]>(
+    () => normalizeValue(value),
   )
-  const selectedLabel = useMemo(() => {
-    if (!value) return 'Auto'
-    if (!selectedOption) return value
-    return selectedOption.modelDefinition
-      ? getModelLabel(selectedOption.modelDefinition)
-      : selectedOption.modelId
-  }, [selectedOption, value])
+  const maxVisibleSelected = 2
+  useEffect(() => {
+    const next = normalizeValue(value)
+    setLocalValue((prev) => {
+      if (prev.length === next.length && prev.every((id, i) => id === next[i])) {
+        return prev
+      }
+      return next
+    })
+  }, [normalizeValue, value])
+  const normalizedValue = localValue
+  const optionMap = useMemo(() => {
+    const map = new Map<string, ProviderModelOption>()
+    for (const option of models) {
+      map.set(option.id, option)
+    }
+    return map
+  }, [models])
+  const selectedItems = useMemo(
+    () =>
+      normalizedValue.map((id) => {
+        const option = optionMap.get(id)
+        const fallbackModelId = id.split(':').pop() || id
+        const fallbackProviderId = id.includes(':') ? id.split(':')[0] : undefined
+        const label = option?.modelDefinition
+          ? getModelLabel(option.modelDefinition)
+          : option?.modelId ?? fallbackModelId
+        const icon =
+          option?.modelDefinition?.familyId ??
+          option?.modelDefinition?.icon ??
+          option?.providerId ??
+          fallbackProviderId
+        return {
+          id,
+          label,
+          icon,
+          modelId: option?.modelId ?? fallbackModelId,
+        }
+      }),
+    [normalizedValue, optionMap],
+  )
+  const visibleSelectedItems = selectedItems.slice(0, maxVisibleSelected)
+  const hiddenSelectedCount = Math.max(
+    selectedItems.length - visibleSelectedItems.length,
+    0,
+  )
+  const applyChange = useCallback(
+    (nextIds: string[]) => {
+      const next = normalizeValue(nextIds)
+      setLocalValue(next)
+      onChange(next)
+    },
+    [normalizeValue, onChange],
+  )
 
-  const handleSelect = useCallback((nextId: string) => {
-    onChange(nextId)
-    setOpen(false)
-  }, [onChange])
+  const handleToggle = useCallback(
+    (nextId: string) => {
+      if (normalizedValue.includes(nextId)) {
+        applyChange(normalizedValue.filter((id) => id !== nextId))
+        return
+      }
+      applyChange([...normalizedValue, nextId])
+    },
+    [applyChange, normalizedValue],
+  )
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -311,24 +467,38 @@ function ChatModelSelect({
           variant="secondary"
           size="sm"
           disabled={disabled}
-          className="h-8 w-auto max-w-full justify-between rounded-full border border-border/60 bg-background/80 px-3 text-xs"
+          className="h-8 w-fit max-w-full shrink min-w-0 justify-between rounded-full border border-border/60 bg-background/80 px-3 text-xs"
         >
           <span className="flex min-w-0 items-center gap-2">
-            {value ? (
-              <ModelIcon
-                icon={
-                  selectedOption?.modelDefinition?.familyId ??
-                  selectedOption?.modelDefinition?.icon ??
-                  selectedOption?.providerId
-                }
-                model={selectedOption?.modelId}
-                size={14}
-                className="h-3.5 w-3.5 shrink-0"
-              />
+            {normalizedValue.length > 0 ? (
+              <span className="flex min-w-0 items-center gap-1 overflow-hidden">
+                {visibleSelectedItems.map((item, index) => (
+                  <span
+                    key={item.id}
+                    className="inline-flex min-w-0 items-center gap-1"
+                  >
+                    <ModelIcon
+                      icon={item.icon}
+                      model={item.modelId}
+                      size={14}
+                      className="h-3.5 w-3.5 shrink-0"
+                    />
+                    <span className="truncate">{item.label}</span>
+                    {index < visibleSelectedItems.length - 1 ? (
+                      <span className="text-muted-foreground">,</span>
+                    ) : null}
+                  </span>
+                ))}
+                {hiddenSelectedCount > 0 ? (
+                  <span className="text-muted-foreground">+{hiddenSelectedCount}</span>
+                ) : null}
+              </span>
             ) : (
-              <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+              <>
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                <span className="truncate">Auto</span>
+              </>
             )}
-            <span className="truncate">{selectedLabel}</span>
           </span>
         </Button>
       </PopoverTrigger>
@@ -360,11 +530,11 @@ function ChatModelSelect({
             <button
               type="button"
               className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs hover:bg-muted/50"
-              onClick={() => handleSelect('')}
+              onClick={() => applyChange([])}
             >
               <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
               <span className="flex-1 truncate">Auto</span>
-              {value === '' ? (
+              {normalizedValue.length === 0 ? (
                 <Check className="h-3.5 w-3.5 text-emerald-500" />
               ) : (
                 <span className="h-3.5 w-3.5" />
@@ -385,8 +555,9 @@ function ChatModelSelect({
                   modelId={option.modelId}
                   label={label}
                   tags={option.tags}
-                  checked={value === option.id}
-                  onToggle={() => handleSelect(option.id)}
+                  checked={normalizedValue.includes(option.id)}
+                  disabled={disabled}
+                  onToggle={() => handleToggle(option.id)}
                 />
               )
             })}
@@ -408,10 +579,17 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [icon, setIcon] = useState('bot')
-  const [model, setModel] = useState('')
-  const [imageModelId, setImageModelId] = useState('')
-  const [videoModelId, setVideoModelId] = useState('')
-  const [capabilities, setCapabilities] = useState<string[]>([])
+  const [modelLocalIds, setModelLocalIds] = useState<string[]>([])
+  const [modelCloudIds, setModelCloudIds] = useState<string[]>([])
+  const [auxiliaryModelSource, setAuxiliaryModelSource] = useState('local')
+  const [auxiliaryModelLocalIds, setAuxiliaryModelLocalIds] = useState<string[]>([])
+  const [auxiliaryModelCloudIds, setAuxiliaryModelCloudIds] = useState<string[]>([])
+  const [imageModelIds, setImageModelIds] = useState<string[]>([])
+  const [videoModelIds, setVideoModelIds] = useState<string[]>([])
+  const [thinkingMode, setThinkingMode] = useState<ThinkingMode>('fast')
+  const [localChatSource, setLocalChatSource] = useState<'local' | 'cloud'>('local')
+  const [toolIds, setToolIds] = useState<string[]>([])
+  const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([])
   const [skills, setSkills] = useState<string[]>([])
   const [allowSubAgents, setAllowSubAgents] = useState(false)
   const [maxDepth, setMaxDepth] = useState(1)
@@ -421,6 +599,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
 
   // 逻辑：保存初始快照用于脏检测。
   const savedSnapshotRef = useRef('')
+  const pendingSnapshotOverrideRef = useRef<string | null>(null)
+  const silentSaveRef = useRef(false)
+  const isDirtyRef = useRef(false)
 
   const panelSlot = useStackPanelSlot()
   const activeTabId = useTabs((s) => s.activeTabId)
@@ -431,8 +612,32 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const { basic, setBasic } = useBasicConfig()
   const { models: cloudModels } = useCloudModels()
   const installedCliProviderIds = useInstalledCliProviderIds()
-  const chatModelSource = normalizeChatModelSource(basic.chatSource)
+
+  // 逻辑：编辑模式下加载 Agent 详情。
+  const detailQuery = useQuery({
+    ...trpc.settings.getAgentDetail.queryOptions(
+      agentPath && scope
+        ? { agentPath, scope }
+        : { agentPath: '', scope: 'workspace' },
+    ),
+    enabled: Boolean(agentPath) && !isNew,
+  })
+  const isMasterAgent = useMemo(() => {
+    if (isNew) return false
+    const folderName = detailQuery.data?.folderName ?? ''
+    if (folderName) {
+      return folderName === 'master' && detailQuery.data?.scope === 'workspace'
+    }
+    if (!agentPath) return false
+    const normalized = agentPath.replace(/\\/g, '/')
+    return normalized.includes('/.tenas/agents/master/')
+  }, [agentPath, detailQuery.data, isNew])
+
+  const baseChatSource = normalizeChatModelSource(basic.chatSource)
+  const chatModelSource = isMasterAgent ? baseChatSource : localChatSource
   const isCloudSource = chatModelSource === 'cloud'
+  const auxiliaryChatSource = normalizeChatModelSource(auxiliaryModelSource)
+  const isAuxCloudSource = auxiliaryChatSource === 'cloud'
   const chatModels = useMemo(
     () =>
       buildChatModelOptions(
@@ -443,7 +648,52 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       ),
     [chatModelSource, providerItems, cloudModels, installedCliProviderIds],
   )
+  const auxiliaryChatModels = useMemo(
+    () =>
+      buildChatModelOptions(
+        auxiliaryChatSource,
+        providerItems,
+        cloudModels,
+        installedCliProviderIds,
+      ),
+    [
+      auxiliaryChatSource,
+      providerItems,
+      cloudModels,
+      installedCliProviderIds,
+    ],
+  )
   const showChatCloudLogin = isCloudSource && !authLoggedIn
+  const showAuxChatCloudLogin = isAuxCloudSource && !authLoggedIn
+  const activeModelIds = isCloudSource ? modelCloudIds : modelLocalIds
+  const activeAuxModelIds = isAuxCloudSource
+    ? auxiliaryModelCloudIds
+    : auxiliaryModelLocalIds
+  const hasReasoningModel = useMemo(() => {
+    if (!chatModels.length) return false
+    const normalized = Array.from(
+      new Set(activeModelIds.map((id) => id.trim()).filter(Boolean)),
+    )
+    if (normalized.length === 0) {
+      return chatModels.some((m) => m.tags?.includes('reasoning'))
+    }
+    const selected = normalized
+      .map((id) => chatModels.find((m) => m.id === id))
+      .filter(Boolean)
+    if (selected.length === 0) {
+      return chatModels.some((m) => m.tags?.includes('reasoning'))
+    }
+    return selected.some((model) => model?.tags?.includes('reasoning'))
+  }, [activeModelIds, chatModels])
+
+  const getSavedSnapshot = useCallback(() => {
+    if (!savedSnapshotRef.current) return null
+    try {
+      return JSON.parse(savedSnapshotRef.current) as FormSnapshot
+    } catch {
+      return null
+    }
+  }, [])
 
   // 逻辑：打开 Agent 所在文件夹。
   const handleOpenFolder = useCallback(() => {
@@ -488,14 +738,55 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       ),
     [capGroups],
   )
+  const toolIdSet = useMemo(() => new Set(toolIds), [toolIds])
+  const expandedGroupSet = useMemo(
+    () => new Set(expandedGroupIds),
+    [expandedGroupIds],
+  )
+  const expandInitRef = useRef(false)
+  const isGroupEnabled = useCallback(
+    (group: CapabilityGroup) => {
+      const groupToolIds = group.tools?.length
+        ? group.tools.map((tool) => tool.id)
+        : group.toolIds
+      return groupToolIds.some((toolId) => toolIdSet.has(toolId))
+    },
+    [toolIdSet],
+  )
   const enabledCapGroups = useMemo(
-    () => visibleCapGroups.filter((group) => capabilities.includes(group.id)),
-    [capabilities, visibleCapGroups],
+    () => visibleCapGroups.filter((group) => isGroupEnabled(group)),
+    [isGroupEnabled, visibleCapGroups],
   )
   const disabledCapGroups = useMemo(
-    () => visibleCapGroups.filter((group) => !capabilities.includes(group.id)),
-    [capabilities, visibleCapGroups],
+    () => visibleCapGroups.filter((group) => !isGroupEnabled(group)),
+    [isGroupEnabled, visibleCapGroups],
   )
+  const capGroupToolMap = useMemo(
+    () => new Map(capGroups.map((group) => [group.id, group.toolIds])),
+    [capGroups],
+  )
+  const defaultToolIds = useMemo(() => {
+    const collected: string[] = []
+    for (const group of capGroups) {
+      if (group.id === 'agent' && !isMasterAgent) continue
+      collected.push(...group.toolIds)
+    }
+    // 中文注释：默认全组选中（主助手保留子 Agent 工具）。
+    return Array.from(
+      new Set(collected.map((id) => id.trim()).filter(Boolean)),
+    )
+  }, [capGroups, isMasterAgent])
+
+  const canInitExpand = useMemo(
+    () => capGroups.length > 0 && (!isNew || toolIds.length > 0),
+    [capGroups.length, isNew, toolIds.length],
+  )
+
+  useEffect(() => {
+    if (expandInitRef.current || !canInitExpand) return
+    setExpandedGroupIds(enabledCapGroups.map((group) => group.id))
+    expandInitRef.current = true
+  }, [canInitExpand, enabledCapGroups])
 
   // 逻辑：加载技能列表用于关联选择。
   const skillsQuery = useQuery(
@@ -506,37 +797,38 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     [skillsQuery.data],
   )
 
-  // 逻辑：编辑模式下加载 Agent 详情。
-  const detailQuery = useQuery({
-    ...trpc.settings.getAgentDetail.queryOptions(
-      agentPath && scope
-        ? { agentPath, scope }
-        : { agentPath: '', scope: 'workspace' },
-    ),
-    enabled: Boolean(agentPath) && !isNew,
-  })
-  const isMasterAgent = useMemo(() => {
-    if (isNew) return false
-    const folderName = detailQuery.data?.folderName ?? ''
-    if (folderName) {
-      return folderName === 'master' && detailQuery.data?.scope === 'workspace'
-    }
-    if (!agentPath) return false
-    const normalized = agentPath.replace(/\\/g, '/')
-    return normalized.includes('/.tenas/agents/master/')
-  }, [agentPath, detailQuery.data, isNew])
-
   // 逻辑：详情加载后回填表单并保存初始快照。
   useEffect(() => {
     if (!detailQuery.data) return
+    if (savedSnapshotRef.current && isDirtyRef.current) return
     const d = detailQuery.data
     setName(d.name)
     setDescription(d.description)
     setIcon(d.icon)
-    setModel(d.model)
-    setImageModelId(d.imageModelId ?? '')
-    setVideoModelId(d.videoModelId ?? '')
-    setCapabilities(d.capabilities)
+    setModelLocalIds(Array.isArray(d.modelLocalIds) ? d.modelLocalIds : [])
+    setModelCloudIds(Array.isArray(d.modelCloudIds) ? d.modelCloudIds : [])
+    // 逻辑：主助手沿用全局来源，子助手根据已有模型推断来源。
+    const fallbackChatSource = normalizeChatModelSource(basic.chatSource)
+    const hasCloudModels = Array.isArray(d.modelCloudIds) && d.modelCloudIds.length > 0
+    const hasLocalModels = Array.isArray(d.modelLocalIds) && d.modelLocalIds.length > 0
+    const inferredChatSource = hasCloudModels && !hasLocalModels
+      ? 'cloud'
+      : hasLocalModels
+        ? 'local'
+        : fallbackChatSource
+    setLocalChatSource(isMasterAgent ? fallbackChatSource : inferredChatSource)
+    setAuxiliaryModelSource(
+      normalizeChatModelSource(d.auxiliaryModelSource ?? basic.chatSource),
+    )
+    setAuxiliaryModelLocalIds(
+      Array.isArray(d.auxiliaryModelLocalIds) ? d.auxiliaryModelLocalIds : [],
+    )
+    setAuxiliaryModelCloudIds(
+      Array.isArray(d.auxiliaryModelCloudIds) ? d.auxiliaryModelCloudIds : [],
+    )
+    setImageModelIds(Array.isArray(d.imageModelIds) ? d.imageModelIds : [])
+    setVideoModelIds(Array.isArray(d.videoModelIds) ? d.videoModelIds : [])
+    setToolIds(Array.isArray(d.toolIds) ? d.toolIds : [])
     setSkills(d.skills)
     setAllowSubAgents(d.allowSubAgents)
     setMaxDepth(d.maxDepth)
@@ -545,10 +837,20 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       name: d.name,
       description: d.description,
       icon: d.icon,
-      model: d.model,
-      imageModelId: d.imageModelId ?? '',
-      videoModelId: d.videoModelId ?? '',
-      capabilities: d.capabilities,
+      modelLocalIds: Array.isArray(d.modelLocalIds) ? d.modelLocalIds : [],
+      modelCloudIds: Array.isArray(d.modelCloudIds) ? d.modelCloudIds : [],
+      auxiliaryModelSource: normalizeChatModelSource(
+        d.auxiliaryModelSource ?? basic.chatSource,
+      ),
+      auxiliaryModelLocalIds: Array.isArray(d.auxiliaryModelLocalIds)
+        ? d.auxiliaryModelLocalIds
+        : [],
+      auxiliaryModelCloudIds: Array.isArray(d.auxiliaryModelCloudIds)
+        ? d.auxiliaryModelCloudIds
+        : [],
+      imageModelIds: Array.isArray(d.imageModelIds) ? d.imageModelIds : [],
+      videoModelIds: Array.isArray(d.videoModelIds) ? d.videoModelIds : [],
+      toolIds: Array.isArray(d.toolIds) ? d.toolIds : [],
       skills: d.skills,
       allowSubAgents: d.allowSubAgents,
       maxDepth: d.maxDepth,
@@ -558,42 +860,78 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       name: d.name,
       description: d.description,
       icon: d.icon,
-      model: d.model,
-      imageModelId: d.imageModelId ?? '',
-      videoModelId: d.videoModelId ?? '',
-      capabilities: d.capabilities,
+      modelLocalIds: Array.isArray(d.modelLocalIds) ? d.modelLocalIds : [],
+      modelCloudIds: Array.isArray(d.modelCloudIds) ? d.modelCloudIds : [],
+      auxiliaryModelSource: normalizeChatModelSource(
+        d.auxiliaryModelSource ?? basic.chatSource,
+      ),
+      auxiliaryModelLocalIds: Array.isArray(d.auxiliaryModelLocalIds)
+        ? d.auxiliaryModelLocalIds
+        : [],
+      auxiliaryModelCloudIds: Array.isArray(d.auxiliaryModelCloudIds)
+        ? d.auxiliaryModelCloudIds
+        : [],
+      imageModelIds: Array.isArray(d.imageModelIds) ? d.imageModelIds : [],
+      videoModelIds: Array.isArray(d.videoModelIds) ? d.videoModelIds : [],
+      toolIds: Array.isArray(d.toolIds) ? d.toolIds : [],
       skills: d.skills,
       allowSubAgents: d.allowSubAgents,
       maxDepth: d.maxDepth,
       systemPrompt: d.systemPrompt,
     }))
-  }, [detailQuery.data])
+  }, [basic.chatSource, detailQuery.data, isMasterAgent])
 
   // 逻辑：新建模式初始化空快照。
   useEffect(() => {
-    if (isNew) {
-      setCapabilities((prev) =>
-        prev.length > 0
-          ? prev
-          : ['image-generate', 'video-generate'],
-      )
-      const snapshot = makeSnapshot({
-        name: '', description: '', icon: 'bot', model: '',
-        imageModelId: '', videoModelId: '',
-        capabilities: ['image-generate', 'video-generate'], skills: [], allowSubAgents: false,
-        maxDepth: 1, systemPrompt: '',
-      })
-      savedSnapshotRef.current = snapshot
-      setDefaultSnapshot(snapshot)
+    if (!isNew) return
+    if (savedSnapshotRef.current && isDirtyRef.current) return
+    const baseToolIds =
+      toolIds.length > 0 ? toolIds : defaultToolIds
+    if (toolIds.length === 0 && baseToolIds.length > 0) {
+      setToolIds(baseToolIds)
     }
-  }, [isNew])
+    setAuxiliaryModelSource(normalizeChatModelSource(basic.chatSource))
+    setLocalChatSource(normalizeChatModelSource(basic.chatSource))
+    const snapshot = makeSnapshot({
+      name: '', description: '', icon: 'bot', modelLocalIds: [], modelCloudIds: [],
+      auxiliaryModelSource: normalizeChatModelSource(basic.chatSource),
+      auxiliaryModelLocalIds: [],
+      auxiliaryModelCloudIds: [],
+      imageModelIds: [], videoModelIds: [],
+      toolIds: baseToolIds, skills: [], allowSubAgents: false,
+      maxDepth: 1, systemPrompt: '',
+    })
+    savedSnapshotRef.current = snapshot
+    setDefaultSnapshot(snapshot)
+  }, [basic.chatSource, defaultToolIds, isNew, toolIds])
 
   const currentSnapshot = makeSnapshot({
-    name, description, icon, model, imageModelId, videoModelId, capabilities,
-    skills, allowSubAgents, maxDepth, systemPrompt,
+    name,
+    description,
+    icon,
+    modelLocalIds,
+    modelCloudIds,
+    auxiliaryModelSource,
+    auxiliaryModelLocalIds,
+    auxiliaryModelCloudIds,
+    imageModelIds,
+    videoModelIds,
+    toolIds,
+    skills,
+    allowSubAgents,
+    maxDepth,
+    systemPrompt,
   })
-  const isDirty = currentSnapshot !== savedSnapshotRef.current
+  isDirtyRef.current = currentSnapshot !== savedSnapshotRef.current
+  const isDirty = isDirtyRef.current
   const canReset = defaultSnapshot !== '' && currentSnapshot !== defaultSnapshot
+
+  /** Normalize id list for consistent comparisons. */
+  const normalizeIds = useCallback((value: string[]) => {
+    const normalized = value.map((id) => id.trim()).filter(Boolean)
+    return Array.from(new Set(normalized))
+  }, [])
+
 
   const handleResetToDefault = useCallback(() => {
     if (!defaultSnapshot) return
@@ -601,10 +939,14 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     setName(parsed.name)
     setDescription(parsed.description)
     setIcon(parsed.icon)
-    setModel(parsed.model)
-    setImageModelId(parsed.imageModelId)
-    setVideoModelId(parsed.videoModelId)
-    setCapabilities(parsed.capabilities)
+    setModelLocalIds(parsed.modelLocalIds)
+    setModelCloudIds(parsed.modelCloudIds)
+    setAuxiliaryModelSource(parsed.auxiliaryModelSource)
+    setAuxiliaryModelLocalIds(parsed.auxiliaryModelLocalIds)
+    setAuxiliaryModelCloudIds(parsed.auxiliaryModelCloudIds)
+    setImageModelIds(parsed.imageModelIds)
+    setVideoModelIds(parsed.videoModelIds)
+    setToolIds(parsed.toolIds)
     setSkills(parsed.skills)
     setAllowSubAgents(parsed.allowSubAgents)
     setMaxDepth(parsed.maxDepth)
@@ -614,19 +956,117 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const saveMutation = useMutation(
     trpc.settings.saveAgent.mutationOptions({
       onSuccess: () => {
-        toast.success(isNew ? '已创建 Agent' : '已保存 Agent')
-        savedSnapshotRef.current = currentSnapshot
+        if (!silentSaveRef.current) {
+          toast.success(isNew ? '已创建 Agent' : '已保存 Agent')
+        }
+        const overrideSnapshot = pendingSnapshotOverrideRef.current
+        if (overrideSnapshot) {
+          savedSnapshotRef.current = overrideSnapshot
+          pendingSnapshotOverrideRef.current = null
+        } else {
+          savedSnapshotRef.current = currentSnapshot
+        }
+        silentSaveRef.current = false
         queryClient.invalidateQueries({
           queryKey: trpc.settings.getAgents.queryOptions().queryKey,
         })
+        // 逻辑：保存后刷新当前 Agent 详情，确保主助手与聊天输入同步。
+        if (agentPath) {
+          queryClient.invalidateQueries({
+            queryKey: trpc.settings.getAgentDetail.queryOptions({
+              agentPath,
+              scope,
+            }).queryKey,
+          })
+        }
         if (projectId) {
           queryClient.invalidateQueries({
             queryKey: trpc.settings.getAgents.queryOptions({ projectId }).queryKey,
           })
         }
       },
-      onError: (err) => toast.error(err.message),
+      onError: (err) => {
+        silentSaveRef.current = false
+        pendingSnapshotOverrideRef.current = null
+        toast.error(err.message)
+      },
     }),
+  )
+
+  const syncMasterModels = useCallback(
+    (patch: Partial<FormSnapshot>) => {
+      if (!isMasterAgent || !agentPath || isNew) return
+      const baseSnapshot =
+        getSavedSnapshot() ?? {
+          name,
+          description,
+          icon,
+          modelLocalIds,
+          modelCloudIds,
+          auxiliaryModelSource,
+          auxiliaryModelLocalIds,
+          auxiliaryModelCloudIds,
+          imageModelIds,
+          videoModelIds,
+          toolIds,
+          skills,
+          allowSubAgents,
+          maxDepth,
+          systemPrompt,
+        }
+      const nextSnapshot: FormSnapshot = {
+        ...baseSnapshot,
+        ...patch,
+      }
+      if (!nextSnapshot.name.trim()) return
+      pendingSnapshotOverrideRef.current = makeSnapshot(nextSnapshot)
+      silentSaveRef.current = true
+      saveMutation.mutate({
+        scope,
+        projectId,
+        agentPath,
+        name: nextSnapshot.name.trim(),
+        description: nextSnapshot.description.trim() || undefined,
+        icon: nextSnapshot.icon.trim() || undefined,
+        modelLocalIds: normalizeIds(nextSnapshot.modelLocalIds),
+        modelCloudIds: normalizeIds(nextSnapshot.modelCloudIds),
+        auxiliaryModelSource: nextSnapshot.auxiliaryModelSource,
+        auxiliaryModelLocalIds: normalizeIds(nextSnapshot.auxiliaryModelLocalIds),
+        auxiliaryModelCloudIds: normalizeIds(nextSnapshot.auxiliaryModelCloudIds),
+        imageModelIds: normalizeIds(nextSnapshot.imageModelIds),
+        videoModelIds: normalizeIds(nextSnapshot.videoModelIds),
+        toolIds: normalizeIds(nextSnapshot.toolIds),
+        skills: nextSnapshot.skills,
+        allowSubAgents: nextSnapshot.allowSubAgents,
+        maxDepth: nextSnapshot.maxDepth,
+        systemPrompt: nextSnapshot.systemPrompt.trim() || undefined,
+      })
+    },
+    [
+      allowSubAgents,
+      agentPath,
+      auxiliaryModelCloudIds,
+      auxiliaryModelLocalIds,
+      auxiliaryModelSource,
+      toolIds,
+      description,
+      getSavedSnapshot,
+      icon,
+      imageModelIds,
+      isMasterAgent,
+      isNew,
+      maxDepth,
+      modelCloudIds,
+      modelLocalIds,
+      name,
+      normalizeIds,
+      projectId,
+      saveMutation,
+      scope,
+      skills,
+      systemPrompt,
+      videoModelIds,
+    ],
   )
 
   const handleSave = useCallback(() => {
@@ -634,6 +1074,13 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       toast.error('名称不能为空')
       return
     }
+    const normalizedModelLocalIds = normalizeIds(modelLocalIds)
+    const normalizedModelCloudIds = normalizeIds(modelCloudIds)
+    const normalizedAuxLocalIds = normalizeIds(auxiliaryModelLocalIds)
+    const normalizedAuxCloudIds = normalizeIds(auxiliaryModelCloudIds)
+    const normalizedImageModelIds = normalizeIds(imageModelIds)
+    const normalizedVideoModelIds = normalizeIds(videoModelIds)
+    const normalizedToolIds = normalizeIds(toolIds)
     saveMutation.mutate({
       scope,
       projectId,
@@ -641,32 +1088,206 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       name: name.trim(),
       description: description.trim() || undefined,
       icon: icon.trim() || undefined,
-      model: model.trim() || undefined,
-      imageModelId: imageModelId.trim() || undefined,
-      videoModelId: videoModelId.trim() || undefined,
-      capabilities,
+      modelLocalIds: normalizedModelLocalIds,
+      modelCloudIds: normalizedModelCloudIds,
+      auxiliaryModelSource,
+      auxiliaryModelLocalIds: normalizedAuxLocalIds,
+      auxiliaryModelCloudIds: normalizedAuxCloudIds,
+      imageModelIds: normalizedImageModelIds,
+      videoModelIds: normalizedVideoModelIds,
+      toolIds: normalizedToolIds,
       skills,
       allowSubAgents,
       maxDepth,
       systemPrompt: systemPrompt.trim() || undefined,
     })
   }, [
-    name, description, icon, model, imageModelId, videoModelId, capabilities, skills,
-    allowSubAgents, maxDepth, systemPrompt, scope, projectId,
-    agentPath, isNew, saveMutation,
+    name,
+    description,
+    icon,
+    modelLocalIds,
+    modelCloudIds,
+    auxiliaryModelSource,
+    auxiliaryModelLocalIds,
+    auxiliaryModelCloudIds,
+    imageModelIds,
+    videoModelIds,
+    toolIds,
+    skills,
+    allowSubAgents,
+    maxDepth,
+    systemPrompt,
+    scope,
+    projectId,
+    agentPath,
+    isNew,
+    saveMutation,
+    normalizeIds,
   ])
 
-  const handleToggleCapability = useCallback((capId: string, checked: boolean) => {
-    setCapabilities((prev) =>
-      checked ? [...prev, capId] : prev.filter((c) => c !== capId),
-    )
-  }, [])
+  const handleToggleGroup = useCallback(
+    (groupId: string, checked: boolean) => {
+      const groupToolIds = capGroupToolMap.get(groupId) ?? []
+      setToolIds((prev) => {
+        if (checked) {
+          // 中文注释：开启能力组时合并该组所有工具。
+          return normalizeIds([...prev, ...groupToolIds])
+        }
+        // 中文注释：关闭能力组时移除该组所有工具。
+        return prev.filter((id) => !groupToolIds.includes(id))
+      })
+      setExpandedGroupIds((prev) => {
+        if (checked) {
+          return prev.includes(groupId) ? prev : [...prev, groupId]
+        }
+        return prev.filter((id) => id !== groupId)
+      })
+    },
+    [capGroupToolMap, normalizeIds],
+  )
+
+  const handleToggleTool = useCallback(
+    (toolId: string, checked: boolean) => {
+      setToolIds((prev) => {
+        if (checked) return normalizeIds([...prev, toolId])
+        return prev.filter((id) => id !== toolId)
+      })
+    },
+    [normalizeIds],
+  )
 
   const handleToggleSkill = useCallback((skillName: string, checked: boolean) => {
     setSkills((prev) =>
       checked ? [...prev, skillName] : prev.filter((s) => s !== skillName),
     )
   }, [])
+
+  /** Render capability group with tool toggles. */
+  const renderCapGroupCard = useCallback(
+    (group: CapabilityGroup) => {
+      const capIcon = CAP_ICON_MAP[group.id]
+      const CapIcon = capIcon?.icon ?? Blocks
+      const capIconClass = capIcon?.className ?? 'text-muted-foreground'
+      const bgClass = CAP_BG_MAP[group.id] ?? 'bg-muted/30'
+      const tools = group.tools?.length
+        ? group.tools
+        : group.toolIds.map((id) => ({
+            id,
+            label: id,
+            description: '',
+          }))
+      const groupToolIds = tools.map((tool) => tool.id)
+      const selectedCount = groupToolIds.filter((id) => toolIdSet.has(id)).length
+      const isExpanded = expandedGroupSet.has(group.id)
+      return (
+        <div
+          key={group.id}
+          className={`relative flex flex-col rounded-2xl p-3 transition-colors ${bgClass}`}
+        >
+          <div className="flex items-center gap-2">
+            <CapIcon className={`h-4 w-4 shrink-0 ${capIconClass}`} />
+            <span className="text-xs font-medium">{group.label}</span>
+            <span className="text-[10px] text-muted-foreground">
+              {selectedCount}/{groupToolIds.length}
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <Switch
+                checked={isGroupEnabled(group)}
+                onCheckedChange={(checked) =>
+                  handleToggleGroup(group.id, Boolean(checked))
+                }
+              />
+              <button
+                type="button"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:bg-background/60 hover:text-foreground"
+                onClick={() =>
+                  setExpandedGroupIds((prev) =>
+                    prev.includes(group.id)
+                      ? prev.filter((id) => id !== group.id)
+                      : [...prev, group.id],
+                  )
+                }
+                aria-expanded={isExpanded}
+                aria-label={isExpanded ? '收起能力组' : '展开能力组'}
+              >
+                <ChevronDown
+                  className={`h-3.5 w-3.5 transition-transform ${
+                    isExpanded ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+          <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground line-clamp-2">
+            {group.description}
+          </p>
+          {isExpanded && tools.length > 0 ? (
+            <div className="mt-2 space-y-1">
+              {tools.map((tool) => {
+                const checked = toolIdSet.has(tool.id)
+                return (
+                  <label
+                    key={tool.id}
+                    className="flex items-start gap-2 rounded-md px-2 py-1 text-[11px] leading-tight hover:bg-background/60"
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(next) =>
+                        handleToggleTool(tool.id, Boolean(next))
+                      }
+                      className="mt-0.5"
+                    />
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{tool.label}</div>
+                      {tool.description ? (
+                        <p className="mt-0.5 line-clamp-1 text-[10px] text-muted-foreground">
+                          {tool.description}
+                        </p>
+                      ) : null}
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          ) : null}
+        </div>
+      )
+    },
+    [
+      expandedGroupSet,
+      handleToggleGroup,
+      handleToggleTool,
+      isGroupEnabled,
+      toolIdSet,
+    ],
+  )
+
+  // 逻辑：主助手思考模式与基础设置保持一致。
+  useEffect(() => {
+    if (!isMasterAgent) return
+    setThinkingMode(basic.chatThinkingMode === 'deep' ? 'deep' : 'fast')
+  }, [basic.chatThinkingMode, isMasterAgent])
+
+  const handleThinkingModeChange = useCallback(
+    (mode: ThinkingMode) => {
+      setThinkingMode(mode)
+      if (!isMasterAgent) return
+      void setBasic({ chatThinkingMode: mode })
+    },
+    [isMasterAgent, setBasic],
+  )
+
+  // 逻辑：主助手写入全局来源，子助手仅更新本地来源。
+  const handleChatSourceSelect = useCallback(
+    (next: 'local' | 'cloud') => {
+      if (isMasterAgent) {
+        void setBasic({ chatSource: next })
+        return
+      }
+      setLocalChatSource(next)
+    },
+    [isMasterAgent, setBasic],
+  )
 
   // 逻辑：登录成功后自动关闭登录弹窗。
   useEffect(() => {
@@ -675,8 +1296,8 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     }
   }, [authLoggedIn, loginOpen])
 
-  const hasImageGenerate = capabilities.includes('image-generate')
-  const hasVideoGenerate = capabilities.includes('video-generate')
+  const hasImageGenerate = toolIds.includes('image-generate')
+  const hasVideoGenerate = toolIds.includes('video-generate')
 
   // 逻辑：向 PanelFrame 的 StackHeader 注入保存按钮和关闭拦截。
   useEffect(() => {
@@ -742,29 +1363,62 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
 
           {/* 模型 + 子Agent 分组卡片 */}
           <TenasSettingsCard divided>
-            <div className="flex items-center gap-3 py-2.5">
-              <span className="text-sm font-medium">模型</span>
-              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
+              <span className="flex items-center gap-2 text-sm font-medium">
+                <MessageSquare className="h-4 w-4 text-sky-500" />
+                对话模型
+                {isMasterAgent ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground hover:text-foreground">
+                        <HelpCircle className="h-3.5 w-3.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[260px] text-xs">
+                      主助手是默认对话 Agent，此处模型与聊天输入区同步，可在聊天输入区直接调整。
+                    </TooltipContent>
+                  </Tooltip>
+                ) : null}
+              </span>
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                {hasReasoningModel ? (
+                  <ThinkingModeSelector
+                    value={thinkingMode}
+                    onChange={handleThinkingModeChange}
+                  />
+                ) : null}
                 <ChatModelSelect
                   models={chatModels}
-                  value={model}
-                  showCloudLogin={showChatCloudLogin}
-                  onChange={setModel}
-                  onOpenLogin={() => setLoginOpen(true)}
-                  emptyText="暂无对话模型"
-                />
+                  value={activeModelIds}
+                    showCloudLogin={showChatCloudLogin}
+                    onChange={(nextIds) => {
+                      if (isCloudSource) {
+                        setModelCloudIds(nextIds)
+                        if (isMasterAgent) {
+                          syncMasterModels({ modelCloudIds: nextIds })
+                        }
+                        return
+                      }
+                      setModelLocalIds(nextIds)
+                      if (isMasterAgent) {
+                        syncMasterModels({ modelLocalIds: nextIds })
+                      }
+                    }}
+                    onOpenLogin={() => setLoginOpen(true)}
+                    emptyText="暂无对话模型"
+                  />
                 <div className="flex shrink-0 items-center rounded-full border border-border/70 bg-muted/40">
                   <FilterTab
                     text="本地"
                     selected={!isCloudSource}
-                    onSelect={() => void setBasic({ chatSource: 'local' })}
+                    onSelect={() => handleChatSourceSelect('local')}
                     icon={<HardDrive className="h-3 w-3 text-amber-500" />}
                     layoutId="agent-chat-source"
                   />
                   <FilterTab
                     text="云端"
                     selected={isCloudSource}
-                    onSelect={() => void setBasic({ chatSource: 'cloud' })}
+                    onSelect={() => handleChatSourceSelect('cloud')}
                     icon={<Cloud className="h-3 w-3 text-sky-500" />}
                     layoutId="agent-chat-source"
                   />
@@ -772,8 +1426,61 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
               </div>
             </div>
             {isMasterAgent ? (
-              <div className="flex items-center gap-3 py-2.5">
-                <span className="text-sm font-medium">子Agent最大并行数量</span>
+              <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  <Sparkles className="h-4 w-4 text-emerald-500" />
+                  辅助模型
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground hover:text-foreground">
+                        <HelpCircle className="h-3.5 w-3.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[240px] text-xs">
+                      用于生成建议、补全与优化等辅助内容，不影响主对话输出。
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                  <ChatModelSelect
+                    models={auxiliaryChatModels}
+                    value={activeAuxModelIds}
+                    showCloudLogin={showAuxChatCloudLogin}
+                    onChange={(nextIds) => {
+                      if (isAuxCloudSource) {
+                        setAuxiliaryModelCloudIds(nextIds)
+                        return
+                      }
+                      setAuxiliaryModelLocalIds(nextIds)
+                    }}
+                    onOpenLogin={() => setLoginOpen(true)}
+                    emptyText="暂无对话模型"
+                  />
+                  <div className="flex shrink-0 items-center rounded-full border border-border/70 bg-muted/40">
+                    <FilterTab
+                      text="本地"
+                      selected={!isAuxCloudSource}
+                      onSelect={() => setAuxiliaryModelSource('local')}
+                      icon={<HardDrive className="h-3 w-3 text-amber-500" />}
+                      layoutId="agent-aux-source"
+                    />
+                    <FilterTab
+                      text="云端"
+                      selected={isAuxCloudSource}
+                      onSelect={() => setAuxiliaryModelSource('cloud')}
+                      icon={<Cloud className="h-3 w-3 text-sky-500" />}
+                      layoutId="agent-aux-source"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            {isMasterAgent ? (
+              <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  <Gauge className="h-4 w-4 text-violet-500" />
+                  子Agent最大并行数量
+                </span>
                 <div className="ml-auto flex items-center rounded-full border border-border/70 bg-muted/40">
                   {[2, 3, 4, 5].map((count) => (
                     <FilterTab
@@ -791,31 +1498,39 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
               </div>
             ) : (
               <div className="flex items-center gap-3 py-2.5">
-                <span className="text-sm font-medium">备注</span>
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  <Edit3 className="h-4 w-4 text-amber-500" />
+                  备注
+                </span>
                 <Input
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="可选备注信息"
-                  className="ml-auto w-full max-w-[420px] border-0 bg-transparent text-right text-sm text-muted-foreground shadow-none focus-visible:ring-0"
+                  className="ml-auto w-full flex-1 min-w-[260px] max-w-[640px] border-0 bg-transparent text-right text-sm text-muted-foreground shadow-none focus-visible:ring-0"
                 />
               </div>
             )}
           </TenasSettingsCard>
 
           <TenasSettingsCard divided>
-            <div className="flex items-center gap-3 py-2.5">
+            <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Image className="h-4 w-4 text-pink-500" />
                 图片生成
               </div>
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex flex-wrap items-center gap-2">
                 {hasImageGenerate ? (
                   authLoggedIn ? (
                     <MediaModelSelect
                       models={imageModels}
-                      value={imageModelId}
+                      value={imageModelIds}
                       authLoggedIn={authLoggedIn}
-                      onChange={setImageModelId}
+                      onChange={(nextIds) => {
+                        setImageModelIds(nextIds)
+                        if (isMasterAgent) {
+                          syncMasterModels({ imageModelIds: nextIds })
+                        }
+                      }}
                       onOpenLogin={() => setLoginOpen(true)}
                       emptyText="暂无图像模型"
                     />
@@ -828,24 +1543,29 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                 <Switch
                   checked={hasImageGenerate}
                   onCheckedChange={(checked) =>
-                    handleToggleCapability('image-generate', Boolean(checked))
+                    handleToggleTool('image-generate', Boolean(checked))
                   }
                 />
               </div>
             </div>
-            <div className="flex items-center gap-3 py-2.5">
+            <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Video className="h-4 w-4 text-purple-500" />
                 视频生成
               </div>
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex flex-wrap items-center gap-2">
                 {hasVideoGenerate ? (
                   authLoggedIn ? (
                     <MediaModelSelect
                       models={videoModels}
-                      value={videoModelId}
+                      value={videoModelIds}
                       authLoggedIn={authLoggedIn}
-                      onChange={setVideoModelId}
+                      onChange={(nextIds) => {
+                        setVideoModelIds(nextIds)
+                        if (isMasterAgent) {
+                          syncMasterModels({ videoModelIds: nextIds })
+                        }
+                      }}
                       onOpenLogin={() => setLoginOpen(true)}
                       emptyText="暂无视频模型"
                     />
@@ -858,7 +1578,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                 <Switch
                   checked={hasVideoGenerate}
                   onCheckedChange={(checked) =>
-                    handleToggleCapability('video-generate', Boolean(checked))
+                    handleToggleTool('video-generate', Boolean(checked))
                   }
                 />
               </div>
@@ -906,67 +1626,15 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
               </div>
             </div>
               <TabsContent value="capabilities" className="mt-0">
-                <div className="py-3 space-y-3">
+                <div className="space-y-3 py-3">
                   <div className="grid grid-cols-2 gap-3">
-                    {enabledCapGroups.map((group) => {
-                      const capIcon = CAP_ICON_MAP[group.id]
-                      const CapIcon = capIcon?.icon ?? Blocks
-                      const capIconClass = capIcon?.className ?? 'text-muted-foreground'
-                      const bgClass = CAP_BG_MAP[group.id] ?? 'bg-muted/30'
-                      return (
-                        <div
-                          key={group.id}
-                          className={`relative flex flex-col rounded-2xl p-3 transition-colors ${bgClass}`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <CapIcon className={`h-4 w-4 shrink-0 ${capIconClass}`} />
-                            <span className="text-xs font-medium">{group.label}</span>
-                            <Switch
-                              checked
-                              onCheckedChange={(checked) =>
-                                handleToggleCapability(group.id, Boolean(checked))
-                              }
-                              className="ml-auto"
-                            />
-                          </div>
-                          <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground line-clamp-2">
-                            {group.description}
-                          </p>
-                        </div>
-                      )
-                    })}
+                    {enabledCapGroups.map(renderCapGroupCard)}
                   </div>
                   {enabledCapGroups.length > 0 && disabledCapGroups.length > 0 ? (
                     <div className="border-t border-border/60" />
                   ) : null}
                   <div className="grid grid-cols-2 gap-3">
-                    {disabledCapGroups.map((group) => {
-                      const capIcon = CAP_ICON_MAP[group.id]
-                      const CapIcon = capIcon?.icon ?? Blocks
-                      const capIconClass = capIcon?.className ?? 'text-muted-foreground'
-                      const bgClass = CAP_BG_MAP[group.id] ?? 'bg-muted/30'
-                      return (
-                        <div
-                          key={group.id}
-                          className={`relative flex flex-col rounded-2xl p-3 transition-colors ${bgClass}`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <CapIcon className={`h-4 w-4 shrink-0 ${capIconClass}`} />
-                            <span className="text-xs font-medium">{group.label}</span>
-                            <Switch
-                              checked={false}
-                              onCheckedChange={(checked) =>
-                                handleToggleCapability(group.id, Boolean(checked))
-                              }
-                              className="ml-auto"
-                            />
-                          </div>
-                          <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground line-clamp-2">
-                            {group.description}
-                          </p>
-                        </div>
-                      )
-                    })}
+                    {disabledCapGroups.map(renderCapGroupCard)}
                   </div>
                 </div>
               </TabsContent>

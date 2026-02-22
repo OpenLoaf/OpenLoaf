@@ -1,4 +1,5 @@
 import { tool, zodSchema } from 'ai'
+import type { LanguageModelV3 } from '@ai-sdk/provider'
 import {
   spawnAgentToolDef,
   sendInputToolDef,
@@ -14,92 +15,85 @@ import {
   getRequestContext,
 } from '@/ai/shared/context/requestContext'
 import type { RequestContext } from '@/ai/shared/context/requestContext'
-import { resolveEffectiveAgentName } from '@/ai/agents/subagent/subAgentFactory'
-import { isSystemAgentId } from '@/ai/shared/systemAgentDefinitions'
-import { resolveAgentByName } from '@/ai/tools/AgentSelector'
-import { readAgentJson, resolveAgentDir } from '@/ai/shared/defaultAgentResolver'
+import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import {
-  getProjectRootPath,
-  getWorkspaceRootPath,
-  getWorkspaceRootPathById,
-} from '@tenas-ai/api/services/vfsService'
+  resolveAgentModelIdsFromConfig,
+  type AgentModelIds,
+} from '@/ai/shared/resolveAgentModelFromConfig'
 
-type MediaModelOverrides = {
-  /** Image model id override. */
-  imageModelId?: string
-  /** Video model id override. */
-  videoModelId?: string
-}
-
-/** Resolve media model overrides from agent config. */
-function resolveAgentMediaOverrides(input: {
+/** Resolve the model for a spawn-agent call.
+ *
+ * Priority:
+ * 1. modelOverride — explicit override from tool call
+ * 2. agentType — read from agent config
+ * 3. config.model — (reserved for future inline model)
+ * 4. fallback — master agent's current model
+ */
+async function resolveSpawnModel(input: {
   agentType?: string
+  modelOverride?: string
   requestContext: RequestContext
-}): MediaModelOverrides | null {
-  if (!input.agentType) return null
-  const effectiveName = resolveEffectiveAgentName(input.agentType)
-  const workspaceRoot =
-    input.requestContext.workspaceId
-      ? getWorkspaceRootPathById(input.requestContext.workspaceId)
-      : getWorkspaceRootPath()
-  const projectRoot = input.requestContext.projectId
-    ? getProjectRootPath(
-        input.requestContext.projectId,
-        input.requestContext.workspaceId,
-      )
-    : null
+}): Promise<{ model: LanguageModelV3; agentModelIds?: AgentModelIds }> {
+  // 1. modelOverride 最高优先
+  if (input.modelOverride) {
+    const resolved = await resolveChatModel({ chatModelId: input.modelOverride })
+    return { model: resolved.model }
+  }
 
-  // 逻辑：系统 Agent 优先读取 .tenas/agents/<id>/agent.json。
-  if (isSystemAgentId(effectiveName)) {
-    const roots = [projectRoot, workspaceRoot].filter(
-      (root): root is string => Boolean(root),
-    )
-    for (const rootPath of roots) {
-      const descriptor = readAgentJson(resolveAgentDir(rootPath, effectiveName))
-      if (!descriptor) continue
-      const imageModelId = descriptor.imageModelId?.trim() || undefined
-      const videoModelId = descriptor.videoModelId?.trim() || undefined
-      if (imageModelId || videoModelId) {
-        return { imageModelId, videoModelId }
-      }
+  // 2. 从指定 agent 配置读取模型
+  if (input.agentType) {
+    const agentModelIds = resolveAgentModelIdsFromConfig({
+      agentName: input.agentType,
+      workspaceId: input.requestContext.workspaceId,
+      projectId: input.requestContext.projectId,
+      parentRoots: input.requestContext.parentProjectRootPaths,
+    })
+    if (agentModelIds.chatModelId) {
+      const resolved = await resolveChatModel({
+        chatModelId: agentModelIds.chatModelId,
+        chatModelSource: agentModelIds.chatModelSource,
+      })
+      return { model: resolved.model, agentModelIds }
+    }
+    // 逻辑：agent 配置无 chat model，但可能有 media model override。
+    if (agentModelIds.imageModelId || agentModelIds.videoModelId) {
+      const masterModel = getChatModel()
+      if (!masterModel) throw new Error('chat model is not available.')
+      return { model: masterModel, agentModelIds }
     }
   }
 
-  // 逻辑：自定义 Agent 从 AGENT.md 配置解析（legacy 路径）。
-  const match = resolveAgentByName(input.agentType, {
-    projectRoot: projectRoot ?? undefined,
-    parentRoots: input.requestContext.parentProjectRootPaths,
-    workspaceRoot: workspaceRoot ?? undefined,
-  })
-  if (match?.config) {
-    const imageModelId = match.config.imageModelId?.trim() || undefined
-    const videoModelId = match.config.videoModelId?.trim() || undefined
-    if (imageModelId || videoModelId) {
-      return { imageModelId, videoModelId }
-    }
-  }
-
-  return null
+  // 3. fallback: master 的模型
+  const masterModel = getChatModel()
+  if (!masterModel) throw new Error('chat model is not available.')
+  return { model: masterModel }
 }
 
 /** Spawn a new sub-agent. */
 export const spawnAgentTool = tool({
   description: spawnAgentToolDef.description,
   inputSchema: zodSchema(spawnAgentToolDef.parameters),
-  execute: async ({ items, agentType, modelOverride }): Promise<string> => {
-    const model = getChatModel()
-    if (!model) throw new Error('chat model is not available.')
-
+  execute: async ({ items, agentType, modelOverride, config }): Promise<string> => {
     const requestContext = getRequestContext()
     if (!requestContext) throw new Error('request context is not available.')
 
-    const mediaOverrides = resolveAgentMediaOverrides({
+    const { model, agentModelIds } = await resolveSpawnModel({
       agentType,
+      modelOverride,
       requestContext,
     })
-    const requestContextForSpawn = mediaOverrides
-      ? { ...requestContext, ...mediaOverrides }
-      : requestContext
+
+    // 逻辑：将 agent 级 media model 覆盖合并到 requestContext。
+    const mediaOverrides = agentModelIds
+      ? {
+          ...(agentModelIds.imageModelId ? { imageModelId: agentModelIds.imageModelId } : {}),
+          ...(agentModelIds.videoModelId ? { videoModelId: agentModelIds.videoModelId } : {}),
+        }
+      : {}
+    const requestContextForSpawn =
+      Object.keys(mediaOverrides).length > 0
+        ? { ...requestContext, ...mediaOverrides }
+        : requestContext
 
     const context: SpawnContext = {
       model,
@@ -112,6 +106,14 @@ export const spawnAgentTool = tool({
     const spawnItems = items as SpawnItem[]
     const task = spawnItems.map((i) => i.type === 'text' ? i.text : `[file: ${i.path}]`).join('\n')
 
+    // 逻辑：config 参数存在时，传递 inlineConfig 给 agentManager。
+    const inlineConfig = config
+      ? {
+          ...(config.systemPrompt ? { systemPrompt: config.systemPrompt } : {}),
+          ...(config.toolIds?.length ? { toolIds: config.toolIds } : {}),
+        }
+      : undefined
+
     const agentId = agentManager.spawn({
       task,
       items: spawnItems,
@@ -119,6 +121,7 @@ export const spawnAgentTool = tool({
       agentType,
       modelOverride,
       context,
+      inlineConfig,
     })
     return JSON.stringify({ agent_id: agentId })
   },

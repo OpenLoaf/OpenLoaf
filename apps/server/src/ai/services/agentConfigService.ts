@@ -15,14 +15,22 @@ export type AgentConfig = {
   description: string
   /** Icon name. */
   icon: string
-  /** Override model identifier. */
-  model: string
-  /** Image model id for media generation (empty = Auto). */
-  imageModelId: string
-  /** Video model id for media generation (empty = Auto). */
-  videoModelId: string
-  /** Capability group IDs. */
-  capabilities: string[]
+  /** Local chat model ids. */
+  modelLocalIds: string[]
+  /** Cloud chat model ids. */
+  modelCloudIds: string[]
+  /** Auxiliary model source (local/cloud). */
+  auxiliaryModelSource: string
+  /** Auxiliary local model ids. */
+  auxiliaryModelLocalIds: string[]
+  /** Auxiliary cloud model ids. */
+  auxiliaryModelCloudIds: string[]
+  /** Image model ids for media generation. */
+  imageModelIds: string[]
+  /** Video model ids for media generation. */
+  videoModelIds: string[]
+  /** Tool ids enabled for this agent. */
+  toolIds: string[]
   /** Associated skill names. */
   skills: string[]
   /** Whether sub-agents are allowed. */
@@ -54,8 +62,8 @@ export type AgentSummary = {
   imageModelId: string
   /** Video model id for media generation (empty = Auto). */
   videoModelId: string
-  /** Capability group IDs. */
-  capabilities: string[]
+  /** Tool ids enabled for this agent. */
+  toolIds: string[]
   /** Associated skill names. */
   skills: string[]
   /** Absolute path to AGENT.md. */
@@ -83,10 +91,14 @@ type AgentFrontMatter = {
   name?: string
   description?: string
   icon?: string
-  model?: string
-  imageModelId?: string
-  videoModelId?: string
-  capabilities?: string[]
+  auxiliaryModelSource?: string
+  modelLocalIds?: string[]
+  modelCloudIds?: string[]
+  auxiliaryModelLocalIds?: string[]
+  auxiliaryModelCloudIds?: string[]
+  imageModelIds?: string[]
+  videoModelIds?: string[]
+  toolIds?: string[]
   skills?: string[]
   allowSubAgents?: boolean
   maxDepth?: number
@@ -112,14 +124,18 @@ function loadTenasAgentSummaries(
     const agentDir = path.join(agentsRoot, entry.name)
     const descriptor = readAgentJson(agentDir)
     if (!descriptor) continue
+    const modelLocalIds = normalizeIdList(descriptor.modelLocalIds)
+    const modelCloudIds = normalizeIdList(descriptor.modelCloudIds)
+    const imageModelIds = normalizeIdList(descriptor.imageModelIds)
+    const videoModelIds = normalizeIdList(descriptor.videoModelIds)
     results.push({
       name: descriptor.name || entry.name,
       description: descriptor.description || '未提供',
       icon: descriptor.icon || 'bot',
-      model: descriptor.model || '',
-      imageModelId: descriptor.imageModelId || '',
-      videoModelId: descriptor.videoModelId || '',
-      capabilities: normalizeCapabilities(descriptor.capabilities || []),
+      model: modelLocalIds[0] ?? modelCloudIds[0] ?? '',
+      imageModelId: imageModelIds[0] ?? '',
+      videoModelId: videoModelIds[0] ?? '',
+      toolIds: normalizeToolIds(descriptor.toolIds || []),
       skills: descriptor.skills || [],
       path: path.join(agentDir, AGENT_JSON_FILE),
       folderName: entry.name,
@@ -177,10 +193,10 @@ export function loadAgentSummaries(input: {
           name: config.name,
           description: config.description,
           icon: config.icon,
-          model: config.model,
-          imageModelId: config.imageModelId,
-          videoModelId: config.videoModelId,
-          capabilities: config.capabilities,
+          model: config.modelLocalIds[0] ?? config.modelCloudIds[0] ?? '',
+          imageModelId: config.imageModelIds[0] ?? '',
+          videoModelId: config.videoModelIds[0] ?? '',
+          toolIds: config.toolIds,
           skills: config.skills,
           path: config.path,
           folderName: config.folderName,
@@ -209,14 +225,31 @@ export function readAgentConfigFromPath(
       path.basename(path.dirname(filePath)) || path.basename(filePath)
     const name = (frontMatter.name || fallbackName).trim()
     if (!name) return null
+    const modelLocalIds = normalizeIdList(frontMatter.modelLocalIds)
+    const modelCloudIds = normalizeIdList(frontMatter.modelCloudIds)
+    const auxiliaryModelLocalIds = normalizeIdList(
+      frontMatter.auxiliaryModelLocalIds,
+    )
+    const auxiliaryModelCloudIds = normalizeIdList(
+      frontMatter.auxiliaryModelCloudIds,
+    )
+    const imageModelIds = normalizeIdList(frontMatter.imageModelIds)
+    const videoModelIds = normalizeIdList(frontMatter.videoModelIds)
+    const toolIds = normalizeToolIds(frontMatter.toolIds || [])
     return {
       name,
       description: normalizeDescription(frontMatter.description),
       icon: frontMatter.icon || 'bot',
-      model: frontMatter.model || '',
-      imageModelId: frontMatter.imageModelId || '',
-      videoModelId: frontMatter.videoModelId || '',
-      capabilities: normalizeCapabilities(frontMatter.capabilities || []),
+      auxiliaryModelSource: normalizeModelSource(
+        frontMatter.auxiliaryModelSource,
+      ),
+      modelLocalIds,
+      modelCloudIds,
+      auxiliaryModelLocalIds,
+      auxiliaryModelCloudIds,
+      imageModelIds,
+      videoModelIds,
+      toolIds,
       skills: frontMatter.skills || [],
       allowSubAgents: frontMatter.allowSubAgents ?? false,
       maxDepth: frontMatter.maxDepth ?? 1,
@@ -411,17 +444,30 @@ function setField(
     case 'icon':
       result.icon = typeof value === 'string' ? value : value[0] ?? ''
       break
-    case 'model':
-      result.model = typeof value === 'string' ? value : value[0] ?? ''
+    case 'auxiliaryModelSource':
+      result.auxiliaryModelSource =
+        typeof value === 'string' ? value : value[0] ?? ''
       break
-    case 'imageModelId':
-      result.imageModelId = typeof value === 'string' ? value : value[0] ?? ''
+    case 'modelLocalIds':
+      result.modelLocalIds = normalizeIdList(value)
       break
-    case 'videoModelId':
-      result.videoModelId = typeof value === 'string' ? value : value[0] ?? ''
+    case 'modelCloudIds':
+      result.modelCloudIds = normalizeIdList(value)
       break
-    case 'capabilities':
-      result.capabilities = Array.isArray(value) ? value : [value]
+    case 'auxiliaryModelLocalIds':
+      result.auxiliaryModelLocalIds = normalizeIdList(value)
+      break
+    case 'auxiliaryModelCloudIds':
+      result.auxiliaryModelCloudIds = normalizeIdList(value)
+      break
+    case 'imageModelIds':
+      result.imageModelIds = normalizeIdList(value)
+      break
+    case 'videoModelIds':
+      result.videoModelIds = normalizeIdList(value)
+      break
+    case 'toolIds':
+      result.toolIds = Array.isArray(value) ? value : [value]
       break
     case 'skills':
       result.skills = Array.isArray(value) ? value : [value]
@@ -455,18 +501,25 @@ function normalizeDescription(value?: string): string {
   return trimmed.replace(/\s+/gu, ' ')
 }
 
-/** Normalize capability ids to keep backward compatibility. */
-function normalizeCapabilities(value?: string[]): string[] {
+function normalizeIdList(value?: string | string[] | null): string[] {
+  if (!value) return []
+  const list = Array.isArray(value) ? value : [value]
+  return list
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter(Boolean)
+}
+
+function normalizeModelSource(value?: string): 'local' | 'cloud' {
+  // 逻辑：仅允许 local/cloud，其他值回退到 local。
+  return value === 'cloud' ? 'cloud' : 'local'
+}
+
+/** Normalize tool ids. */
+function normalizeToolIds(value?: string[]): string[] {
   if (!Array.isArray(value)) return []
   const next = new Set<string>()
-  for (const cap of value) {
-    if (cap === 'media') {
-      // 逻辑：media 拆分为 image-generate + video-generate。
-      next.add('image-generate')
-      next.add('video-generate')
-      continue
-    }
-    if (cap) next.add(cap)
+  for (const toolId of value) {
+    if (toolId) next.add(toolId)
   }
   return Array.from(next)
 }
@@ -476,10 +529,14 @@ export function serializeAgentToMarkdown(config: {
   name: string
   description?: string
   icon?: string
-  model?: string
-  imageModelId?: string
-  videoModelId?: string
-  capabilities?: string[]
+  modelLocalIds?: string[]
+  modelCloudIds?: string[]
+  auxiliaryModelSource?: string
+  auxiliaryModelLocalIds?: string[]
+  auxiliaryModelCloudIds?: string[]
+  imageModelIds?: string[]
+  videoModelIds?: string[]
+  toolIds?: string[]
   skills?: string[]
   allowSubAgents?: boolean
   maxDepth?: number
@@ -489,13 +546,49 @@ export function serializeAgentToMarkdown(config: {
   lines.push(`name: ${config.name}`)
   if (config.description) lines.push(`description: ${config.description}`)
   if (config.icon) lines.push(`icon: ${config.icon}`)
-  if (config.model) lines.push(`model: ${config.model}`)
-  if (config.imageModelId) lines.push(`imageModelId: ${config.imageModelId}`)
-  if (config.videoModelId) lines.push(`videoModelId: ${config.videoModelId}`)
-  if (config.capabilities?.length) {
-    lines.push('capabilities:')
-    for (const cap of config.capabilities) {
-      lines.push(`  - ${cap}`)
+  if (config.modelLocalIds?.length) {
+    lines.push('modelLocalIds:')
+    for (const id of config.modelLocalIds) {
+      lines.push(`  - ${id}`)
+    }
+  }
+  if (config.modelCloudIds?.length) {
+    lines.push('modelCloudIds:')
+    for (const id of config.modelCloudIds) {
+      lines.push(`  - ${id}`)
+    }
+  }
+  if (config.auxiliaryModelSource) {
+    lines.push(`auxiliaryModelSource: ${config.auxiliaryModelSource}`)
+  }
+  if (config.auxiliaryModelLocalIds?.length) {
+    lines.push('auxiliaryModelLocalIds:')
+    for (const id of config.auxiliaryModelLocalIds) {
+      lines.push(`  - ${id}`)
+    }
+  }
+  if (config.auxiliaryModelCloudIds?.length) {
+    lines.push('auxiliaryModelCloudIds:')
+    for (const id of config.auxiliaryModelCloudIds) {
+      lines.push(`  - ${id}`)
+    }
+  }
+  if (config.imageModelIds?.length) {
+    lines.push('imageModelIds:')
+    for (const id of config.imageModelIds) {
+      lines.push(`  - ${id}`)
+    }
+  }
+  if (config.videoModelIds?.length) {
+    lines.push('videoModelIds:')
+    for (const id of config.videoModelIds) {
+      lines.push(`  - ${id}`)
+    }
+  }
+  if (config.toolIds?.length) {
+    lines.push('toolIds:')
+    for (const toolId of config.toolIds) {
+      lines.push(`  - ${toolId}`)
     }
   }
   if (config.skills?.length) {

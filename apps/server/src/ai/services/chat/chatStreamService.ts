@@ -1,10 +1,13 @@
 import { type UIMessage } from "ai";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { type ChatModelSource, type ModelDefinition } from "@tenas-ai/api/common";
 import type { ImageGenerateOptions, TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
 import type { AiImageRequest } from "@tenas-saas/sdk";
 import type { TenasUIMessage, TokenUsage } from "@tenas-ai/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
+import { resolveAgentModelIdsFromConfig } from "@/ai/shared/resolveAgentModelFromConfig";
 import {
   setChatModel,
   setAbortSignal,
@@ -59,6 +62,8 @@ import {
 } from "@/ai/services/chat/repositories/messageStore";
 import type { ChatImageRequest, ChatImageRequestResult } from "@/ai/services/image/types";
 import { buildTimingMetadata } from "./metadataBuilder";
+import { readBasicConf } from "@/modules/settings/tenasConfStore";
+import { resolveMessagesJsonlPath } from "@/ai/services/chat/repositories/chatFileStore";
 import {
   createChatStreamResponse,
   createErrorStreamResponse,
@@ -111,6 +116,23 @@ type ImageModelResult = {
   /** Token usage for metadata. */
   totalUsage?: TokenUsage;
 };
+
+/** Resolve model IDs from master agent config + global chatSource. */
+function resolveAgentModelIds(input: {
+  workspaceId?: string
+  projectId?: string
+}): {
+  chatModelId?: string
+  chatModelSource?: ChatModelSource
+  imageModelId?: string
+  videoModelId?: string
+} {
+  return resolveAgentModelIdsFromConfig({
+    agentName: 'master',
+    workspaceId: input.workspaceId,
+    projectId: input.projectId,
+  })
+}
 
 /** Normalize selected skills input. */
 function normalizeSelectedSkills(input?: unknown): string[] {
@@ -196,13 +218,16 @@ export async function runChatStream(input: {
     clientId,
     timezone,
     tabId,
-    chatModelId,
-    chatModelSource,
     workspaceId,
     projectId,
     boardId,
     trigger,
   } = input.request;
+
+  // 逻辑：从 master agent 配置读取模型，不再依赖请求参数。
+  const agentModelIds = resolveAgentModelIds({ workspaceId, projectId })
+  const chatModelId = agentModelIds.chatModelId
+  const chatModelSource = agentModelIds.chatModelSource
 
   const selectedSkills = normalizeSelectedSkills((input.request as any)?.selectedSkills);
   const { abortController, assistantMessageId, requestStartAt } = initRequestContext({
@@ -219,8 +244,8 @@ export async function runChatStream(input: {
     requestSignal: input.requestSignal,
     messageId,
     saasAccessToken: input.saasAccessToken,
-    imageModelId: input.request.imageModelId,
-    videoModelId: input.request.videoModelId,
+    imageModelId: agentModelIds.imageModelId,
+    videoModelId: agentModelIds.videoModelId,
   });
 
   const lastMessage = incomingMessages.at(-1) as TenasUIMessage | undefined;
@@ -368,6 +393,7 @@ export async function runChatStream(input: {
 
   let agentMetadata: Record<string, unknown> = {};
   let masterAgent: ReturnType<typeof createMasterAgentRunner>;
+  let instructions = '';
 
   try {
     // 按输入能力与历史偏好选择模型，失败时直接返回错误流。
@@ -392,7 +418,7 @@ export async function runChatStream(input: {
       workspaceRootPath = undefined;
     }
     const projectRootPath = resolvedProjectId ? getProjectRootPath(resolvedProjectId) ?? undefined : undefined;
-    const instructions = assembleDefaultAgentInstructions({
+    instructions = assembleDefaultAgentInstructions({
       workspaceRootPath,
       projectRootPath,
     });
@@ -433,6 +459,37 @@ export async function runChatStream(input: {
     });
   }
 
+  // 逻辑：AI调试模式 — 保存 system.json（instructions + tools）到 session 目录。
+  try {
+    const basicConf = readBasicConf()
+    if (basicConf.chatPrefaceEnabled) {
+      const jsonlPath = await resolveMessagesJsonlPath(sessionId)
+      const sessionDir = path.dirname(jsonlPath)
+      const tools = masterAgent.agent.tools ?? {}
+      const serializedTools: Record<string, { description?: string; parameters?: unknown }> = {}
+      for (const [name, t] of Object.entries(tools)) {
+        const desc = (t as any).description
+        // 逻辑：AI SDK tool 的 inputSchema 可能是 zod wrapper，尝试提取 jsonSchema。
+        let params: unknown = undefined
+        try {
+          const schema = (t as any).inputSchema ?? (t as any).parameters
+          if (schema?.jsonSchema) {
+            params = schema.jsonSchema
+          } else if (schema && typeof schema === 'object') {
+            // 尝试安全序列化，失败则跳过
+            const test = JSON.stringify(schema)
+            if (test && test !== '{}') params = JSON.parse(test)
+          }
+        } catch { /* 不可序列化，跳过 */ }
+        serializedTools[name] = { description: desc, ...(params ? { parameters: params } : {}) }
+      }
+      const systemJson = JSON.stringify({ instructions, tools: serializedTools }, null, 2)
+      await fs.writeFile(path.join(sessionDir, 'system.json'), systemJson, 'utf-8')
+    }
+  } catch (err) {
+    logger.warn({ err, sessionId }, '[chat] failed to save system.json')
+  }
+
   return createChatStreamResponse({
     sessionId,
     assistantMessageId,
@@ -465,14 +522,17 @@ export async function runChatImageRequest(input: {
     clientId,
     timezone,
     tabId,
-    chatModelId,
-    chatModelSource,
     workspaceId,
     projectId,
     boardId,
     imageSaveDir,
     trigger,
   } = input.request;
+
+  // 逻辑：从 master agent 配置读取模型，不再依赖请求参数。
+  const imageAgentModelIds = resolveAgentModelIds({ workspaceId, projectId })
+  const chatModelId = imageAgentModelIds.chatModelId
+  const chatModelSource = imageAgentModelIds.chatModelSource
 
   const selectedSkills = normalizeSelectedSkills((input.request as any)?.selectedSkills);
   const { abortController, assistantMessageId, requestStartAt } = initRequestContext({

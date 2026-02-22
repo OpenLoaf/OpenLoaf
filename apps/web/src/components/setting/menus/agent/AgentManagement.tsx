@@ -41,7 +41,7 @@ type AgentSummary = {
   description: string;
   icon: string;
   model: string;
-  capabilities: string[];
+  toolIds: string[];
   skills: string[];
   path: string;
   folderName: string;
@@ -55,6 +55,20 @@ type AgentSummary = {
 };
 
 type StatusFilter = "all" | "enabled" | "disabled";
+
+type CapabilityTool = {
+  id: string;
+  label: string;
+  description: string;
+};
+
+type CapabilityGroup = {
+  id: string;
+  label: string;
+  description: string;
+  toolIds: string[];
+  tools: CapabilityTool[];
+};
 
 const SCOPE_CARD_CLASS: Record<AgentScope, string> = {
   workspace:
@@ -100,7 +114,7 @@ const CAP_BG_MAP: Record<string, string> = {
 };
 
 /** Fallback map for commonly used agent icons. */
-const AGENT_ICON_MAP: Record<string, LucideIcon> = {
+const AGENT_ICON_MAP: Partial<Record<string, LucideIcon>> = {
   bot: Bot,
   sparkles: Sparkles,
   "file-text": FileText,
@@ -204,13 +218,24 @@ export function AgentManagement({ projectId }: AgentManagementProps) {
   const agentsQuery = useQuery(queryOptions);
   const agents = (agentsQuery.data ?? []) as AgentSummary[];
   const capGroupsQuery = useQuery(trpc.settings.getCapabilityGroups.queryOptions());
-  const capLabelMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const g of (capGroupsQuery.data ?? []) as { id: string; label: string }[]) {
-      map[g.id] = g.label;
-    }
-    return map;
-  }, [capGroupsQuery.data]);
+  const capGroups = useMemo(
+    () => (capGroupsQuery.data ?? []) as CapabilityGroup[],
+    [capGroupsQuery.data],
+  );
+  /** Resolve enabled capability groups from tool ids. */
+  const resolveAgentGroups = useCallback(
+    (toolIds: string[]) => {
+      if (!toolIds?.length || capGroups.length === 0) return [];
+      const toolIdSet = new Set(toolIds);
+      return capGroups.filter((group) => {
+        const groupToolIds = group.tools?.length
+          ? group.tools.map((tool) => tool.id)
+          : group.toolIds;
+        return groupToolIds.some((toolId) => toolIdSet.has(toolId));
+      });
+    },
+    [capGroups],
+  );
   const { workspace } = useWorkspace();
   const activeTabId = useTabs((s) => s.activeTabId);
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
@@ -220,30 +245,37 @@ export function AgentManagement({ projectId }: AgentManagementProps) {
   const hasParentAgents = agents.some((a) => a.isInherited);
   const hasNonMasterAgents = useMemo(
     () =>
-      agents.some(
-        (agent) => !(agent.isSystem && agent.folderName === "master"),
-      ),
+      agents.some((agent) => agent.folderName.toLowerCase() !== "master"),
     [agents],
   );
   const masterAgent = useMemo(
     () =>
       agents.find(
         (agent) =>
-          agent.isSystem &&
-          agent.folderName === "master" &&
-          agent.scope === "workspace",
+          agent.folderName === "master" && agent.scope === "workspace",
       ),
     [agents],
   );
 
   const filteredAgents = useMemo(() => {
     const filtered = agents.filter((agent) => {
-      if (agent.isSystem && agent.folderName === "master") return false;
+      if (agent.folderName.toLowerCase() === "master") return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchName = agent.name.toLowerCase().includes(q);
         const matchDesc = agent.description.toLowerCase().includes(q);
-        const matchCaps = agent.capabilities.join(" ").toLowerCase().includes(q);
+        const agentGroups = resolveAgentGroups(agent.toolIds);
+        const groupLabels = agentGroups
+          .map((group) => `${group.label} ${group.id}`)
+          .join(" ");
+        const groupTools = agentGroups
+          .flatMap((group) => group.tools ?? [])
+          .map((tool) => tool.label || tool.id)
+          .join(" ");
+        const toolText = agent.toolIds.join(" ");
+        const matchCaps = `${groupLabels} ${groupTools} ${toolText}`
+          .toLowerCase()
+          .includes(q);
         if (!matchName && !matchDesc && !matchCaps) return false;
       }
       if (statusFilter === "enabled" && !agent.isEnabled) return false;
@@ -259,7 +291,16 @@ export function AgentManagement({ projectId }: AgentManagementProps) {
       if (!a.isSystem && b.isSystem) return 1;
       return 0;
     });
-  }, [agents, searchQuery, statusFilter, isProjectList, showAllProjects, showChildAgents, showParentAgents]);
+  }, [
+    agents,
+    searchQuery,
+    statusFilter,
+    isProjectList,
+    showAllProjects,
+    showChildAgents,
+    showParentAgents,
+    resolveAgentGroups,
+  ]);
 
   const mkdirMutation = useMutation(
     trpc.fs.mkdir.mutationOptions({
@@ -649,20 +690,20 @@ export function AgentManagement({ projectId }: AgentManagementProps) {
                             {agent.description}
                           </p>
                         ) : null}
-                        {agent.capabilities.length > 0 ? (
+                        {agent.toolIds.length > 0 ? (
                           <div className="flex flex-wrap gap-1.5">
-                            {agent.capabilities.map((cap) => {
-                              const capMeta = CAP_ICON_MAP[cap];
+                            {resolveAgentGroups(agent.toolIds).map((group) => {
+                              const capMeta = CAP_ICON_MAP[group.id];
                               const CapIcon = capMeta?.icon ?? Blocks;
                               const iconClass = capMeta?.className ?? "text-muted-foreground";
-                              const bgClass = CAP_BG_MAP[cap] ?? "bg-muted/30";
+                              const bgClass = CAP_BG_MAP[group.id] ?? "bg-muted/30";
                               return (
                                 <span
-                                  key={cap}
+                                  key={group.id}
                                   className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] ${bgClass}`}
                                 >
                                   <CapIcon className={`h-3 w-3 ${iconClass}`} />
-                                  {capLabelMap[cap] || cap}
+                                  {group.label || group.id}
                                 </span>
                               );
                             })}

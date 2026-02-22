@@ -5,6 +5,7 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { createBrowserTabId } from "@/hooks/tab-id";
 import { resolveServerUrl } from "@/utils/server-url";
+import { ensureAddonInstalled, invokeWpsOpen } from "@/lib/wps/wps-rpc";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { useTabs } from "@/hooks/use-tabs";
 import { queryClient } from "@/utils/trpc";
@@ -229,6 +230,16 @@ type OpenUrlInput = {
   title?: string;
 };
 
+type OfficeExecuteInput = {
+  appType?: "docx" | "excel" | "ppt";
+  action?: string;
+  payload?: {
+    filePath?: string;
+  };
+  workspaceId?: string;
+  projectId?: string;
+};
+
 /** Register builtin frontend tool handlers. */
 export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecutor) {
   executor.register("open-url", async ({ input, tabId }) => {
@@ -295,5 +306,67 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
     }
 
     return { status: "success", output: { url: normalizedUrl, viewKey } };
+  });
+
+  executor.register("office-execute", async ({ input, tabId }) => {
+    const raw = (input || {}) as OfficeExecuteInput;
+    const appType =
+      typeof raw.appType === "string" && raw.appType.trim() ? raw.appType.trim() : "docx";
+
+    if (appType !== "docx") {
+      return { status: "failed", errorText: "office-execute only supports docx addin." };
+    }
+
+    const payload = raw.payload ?? {};
+    const filePath =
+      typeof payload.filePath === "string" && payload.filePath.trim()
+        ? payload.filePath.trim()
+        : undefined;
+
+    const tab = tabId ? useTabs.getState().getTabById(tabId) : null;
+    const workspaceId =
+      typeof raw.workspaceId === "string" && raw.workspaceId.trim()
+        ? raw.workspaceId.trim()
+        : tab?.workspaceId;
+    const projectId =
+      typeof raw.projectId === "string" && raw.projectId.trim()
+        ? raw.projectId.trim()
+        : typeof tab?.chatParams?.projectId === "string"
+          ? tab.chatParams.projectId
+          : undefined;
+
+    let serverUrl = resolveServerUrl();
+    if (!serverUrl && typeof window !== "undefined") {
+      serverUrl = window.location.origin;
+    }
+    if (!serverUrl) {
+      return { status: "failed", errorText: "serverUrl is required." };
+    }
+
+    const baseUrl = serverUrl.replace(/\/$/, "");
+    const addinUrl = `${baseUrl}/wps-addins/docx/`;
+    const addonName = "HelloWps";
+    const addonType = "wps";
+
+    await ensureAddonInstalled({
+      name: addonName,
+      addonType,
+      online: "true",
+      url: addinUrl,
+    });
+
+    await invokeWpsOpen({
+      addonType,
+      addonName,
+      funcName: "openFileFromTenas",
+      payload: {
+        filePath,
+        serverUrl: baseUrl,
+        workspaceId,
+        projectId,
+      },
+    });
+
+    return { status: "success", output: { appType, filePath, addinUrl } };
   });
 }

@@ -80,7 +80,7 @@ export function MediaModelCheckboxList({
       {models.map((model) => (
         <ModelCheckboxItem
           key={`${model.providerId ?? 'unknown'}-${model.id}`}
-          icon={model.familyId ?? model.id}
+          icon={model.familyId ?? model.providerId ?? model.id}
           modelId={model.id}
           label={model.name ?? model.id}
           tags={model.tags as import('@tenas-ai/api/common').ModelTag[] | undefined}

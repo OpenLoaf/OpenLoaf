@@ -764,10 +764,6 @@ export function Chat({
       tabId={tabId}
       sessionId={effectiveSessionId}
       loadHistory={effectiveLoadHistory}
-      chatModelId={selectedModelId || null}
-      chatModelSource={chatModelSource}
-      imageModelId={imageModelId || null}
-      videoModelId={videoModelId || null}
       params={requestParams}
       onSessionChange={onSessionChange}
       addAttachments={addAttachments}

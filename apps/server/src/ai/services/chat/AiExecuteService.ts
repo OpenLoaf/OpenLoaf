@@ -150,15 +150,11 @@ function buildChatStreamRequest(input: {
     params: input.request.params,
     trigger: input.request.trigger,
     retry: input.request.retry,
-    chatModelId: input.request.chatModelId,
-    chatModelSource: input.request.chatModelSource,
     workspaceId: input.request.workspaceId,
     projectId: input.request.projectId,
     boardId: input.request.boardId,
     selectedSkills: input.selectedSkills,
     toolApprovalPayloads: input.request.toolApprovalPayloads,
-    imageModelId: input.request.imageModelId,
-    videoModelId: input.request.videoModelId,
   };
 }
 
@@ -184,8 +180,6 @@ function buildChatImageRequest(input: {
     params: input.request.params,
     trigger: input.request.trigger,
     retry: input.request.retry,
-    chatModelId: input.request.chatModelId ?? "",
-    chatModelSource: input.request.chatModelSource,
     workspaceId: input.request.workspaceId,
     projectId: input.request.projectId,
     boardId: input.request.boardId ?? null,

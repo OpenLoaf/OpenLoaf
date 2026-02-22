@@ -44,7 +44,7 @@ export async function runChatSseRequest({ payload, signal, onEvent }: ChatSseReq
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const response = await fetch(`${resolveServerUrl()}/ai/execute`, {
+  const response = await fetch(`${resolveServerUrl()}/ai/chat`, {
     method: "POST",
     credentials: "include",
     headers,

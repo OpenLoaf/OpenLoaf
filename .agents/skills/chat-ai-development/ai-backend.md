@@ -25,10 +25,13 @@ MasterAgent 使用 Vercel AI SDK 的 `ToolLoopAgent`，配置模型、system pro
 
 ```typescript
 // agents/masterAgent/masterAgent.ts
+const primaryDef = getPrimaryAgentDefinition();
+const toolIds = resolveToolIdsFromCapabilities(primaryDef.capabilities);
+
 new ToolLoopAgent({
   model: input.model,
   instructions: readMasterAgentBasePrompt(),
-  tools: buildToolset(MASTER_AGENT_TOOL_IDS),
+  tools: buildToolset(toolIds),
   experimental_repairToolCall: createToolCallRepair(),
 });
 ```
@@ -50,7 +53,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
 export function buildToolset(toolIds: string[]) → Record<string, tool>
 ```
 
-**现有工具**: timeNow, jsonRender, openUrl, browserSnapshot/Observe/Extract/Act/Wait, shell, shellCommand, execCommand, writeStdin, readFile, writeFile, listDir, updatePlan, subAgent, testApproval, imageGenerate, videoGenerate
+**现有工具**: timeNow, jsonRender, openUrl, browserSnapshot/Observe/Extract/Act/Wait, shell, shellCommand, execCommand, writeStdin, readFile, writeFile, listDir, updatePlan, subAgent, testApproval, imageGenerate, videoGenerate, officeExecute (office-execute)
+
+工具是否可用由能力组控制：`apps/server/src/ai/tools/capabilityGroups.ts` 定义能力组 → 工具 ID 映射，系统 Agent 的默认能力在 `apps/server/src/ai/shared/systemAgentDefinitions.ts`。
 
 ## RequestContext (AsyncLocalStorage)
 
@@ -179,7 +184,7 @@ if (writer) {
 | 错误 | 正确做法 |
 |------|----------|
 | 工具中忘记用 `getSessionId()` 获取上下文 | 所有请求数据通过 `requestContext` getter 获取 |
-| 新工具只加到 `toolRegistry` 没加到 `MASTER_AGENT_TOOL_IDS` | 两处都要注册 |
+| 新工具只加到 `toolRegistry`，没加到能力组或系统 Agent 能力 | 更新 `capabilityGroups.ts` 与 `systemAgentDefinitions.ts` |
 | ToolDef 的 `id` 与 `toolRegistry` 的 key 不一致 | 始终用 `toolDef.id` 作为 key |
 | 子代理工具集过大 | 子代理只暴露必要工具 |
 | 工具 execute 中抛出未捕获异常 | 返回 `{ ok: false, error: "..." }`，Agent 可据此重试 |

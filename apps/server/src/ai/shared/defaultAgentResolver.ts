@@ -6,9 +6,10 @@ import {
   BUILTIN_AGENT_PROMPT,
 } from '@/ai/shared/builtinPrompts'
 import {
-  SYSTEM_AGENT_DEFINITIONS,
-  type SystemAgentDefinition,
-} from '@/ai/shared/systemAgentDefinitions'
+  getScaffoldableTemplates,
+  getPrimaryTemplate,
+  type AgentTemplate,
+} from '@/ai/agent-templates'
 
 /** Tenas meta directory name. */
 const TENAS_META_DIR = '.tenas'
@@ -37,12 +38,16 @@ export type AgentJsonDescriptor = {
   name: string
   description?: string
   icon?: string
-  model?: string
+  modelLocalIds?: string[]
+  modelCloudIds?: string[]
+  auxiliaryModelSource?: string
+  auxiliaryModelLocalIds?: string[]
+  auxiliaryModelCloudIds?: string[]
   /** Image model id for media generation (empty = Auto). */
-  imageModelId?: string
+  imageModelIds?: string[]
   /** Video model id for media generation (empty = Auto). */
-  videoModelId?: string
-  capabilities?: string[]
+  videoModelIds?: string[]
+  toolIds?: string[]
   skills?: string[]
   allowSubAgents?: boolean
   maxDepth?: number
@@ -152,26 +157,28 @@ function resolveBuiltinFallback(fileName: DefaultAgentFileName): string {
   }
 }
 
-/** Default agent.json content. */
-const DEFAULT_AGENT_JSON: AgentJsonDescriptor = {
-  name: '主助手',
-  description: '混合模式主助手，可直接执行简单任务，也可调度子 Agent',
-  icon: 'sparkles',
+/** Default agent.json content (derived from primary template). */
+function buildDefaultAgentJson(): AgentJsonDescriptor {
+  const primary = getPrimaryTemplate()
+  return {
+    name: primary.name,
+    description: primary.description,
+    icon: primary.icon,
+  }
 }
 
 /** Default agent files to scaffold. */
-const DEFAULT_AGENT_FILES: Array<{
-  name: string
-  content: string
-}> = [
-  {
-    name: AGENT_JSON_FILE,
-    content: JSON.stringify(DEFAULT_AGENT_JSON, null, 2),
-  },
-  { name: 'IDENTITY.md', content: BUILTIN_IDENTITY_PROMPT },
-  { name: 'SOUL.md', content: BUILTIN_SOUL_PROMPT },
-  { name: 'AGENT.md', content: BUILTIN_AGENT_PROMPT },
-]
+function buildDefaultAgentFiles(): Array<{ name: string; content: string }> {
+  return [
+    {
+      name: AGENT_JSON_FILE,
+      content: JSON.stringify(buildDefaultAgentJson(), null, 2),
+    },
+    { name: 'IDENTITY.md', content: BUILTIN_IDENTITY_PROMPT },
+    { name: 'SOUL.md', content: BUILTIN_SOUL_PROMPT },
+    { name: 'AGENT.md', content: BUILTIN_AGENT_PROMPT },
+  ]
+}
 
 /**
  * Ensure .tenas/agents/master/ directory exists in the given root path
@@ -184,7 +191,7 @@ export function ensureDefaultAgentFiles(rootPath: string): void {
   if (existsSync(defaultDir)) return
   try {
     mkdirSync(defaultDir, { recursive: true })
-    for (const file of DEFAULT_AGENT_FILES) {
+    for (const file of buildDefaultAgentFiles()) {
       const filePath = path.join(defaultDir, file.name)
       if (!existsSync(filePath)) {
         writeFileSync(filePath, file.content, 'utf8')
@@ -195,16 +202,16 @@ export function ensureDefaultAgentFiles(rootPath: string): void {
   }
 }
 
-/** Build agent.json content for a system agent definition. */
-function buildSystemAgentJson(def: SystemAgentDefinition): string {
+/** Build agent.json content for a scaffoldable template. */
+function buildTemplateAgentJson(template: AgentTemplate): string {
   return JSON.stringify(
     {
-      name: def.name,
-      description: def.description,
-      icon: def.icon,
-      capabilities: [...def.capabilities],
-      allowSubAgents: def.allowSubAgents,
-      maxDepth: def.maxDepth,
+      name: template.name,
+      description: template.description,
+      icon: template.icon,
+      toolIds: [...template.toolIds],
+      allowSubAgents: template.allowSubAgents,
+      maxDepth: template.maxDepth,
     },
     null,
     2,
@@ -212,18 +219,18 @@ function buildSystemAgentJson(def: SystemAgentDefinition): string {
 }
 
 /**
- * Ensure all system agent folders exist under .tenas/agents/.
+ * Ensure all scaffoldable agent folders exist under .tenas/agents/.
  * Only creates missing folders — never overwrites existing ones.
  */
 export function ensureSystemAgentFiles(rootPath: string): void {
   if (!rootPath) return
-  for (const def of SYSTEM_AGENT_DEFINITIONS) {
-    const agentDir = resolveAgentDir(rootPath, def.id)
+  for (const template of getScaffoldableTemplates()) {
+    const agentDir = resolveAgentDir(rootPath, template.id)
     if (existsSync(agentDir)) continue
     try {
       mkdirSync(agentDir, { recursive: true })
       const jsonPath = path.join(agentDir, AGENT_JSON_FILE)
-      writeFileSync(jsonPath, buildSystemAgentJson(def), 'utf8')
+      writeFileSync(jsonPath, buildTemplateAgentJson(template), 'utf8')
     } catch {
       // 逻辑：写入失败时静默忽略，不影响程序启动。
     }

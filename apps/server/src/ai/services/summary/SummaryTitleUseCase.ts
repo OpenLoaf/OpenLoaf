@@ -3,6 +3,13 @@ import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import type { AiExecuteRequest } from "@/ai/services/chat/types";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
+import { readAgentJson, resolveAgentDir } from "@/ai/shared/defaultAgentResolver";
+import { readBasicConf } from "@/modules/settings/tenasConfStore";
+import {
+  getProjectRootPath,
+  getWorkspaceRootPath,
+  getWorkspaceRootPathById,
+} from "@tenas-ai/api/services/vfsService";
 import { resolveRequiredInputTags, resolvePreviousChatModelId } from "@/ai/services/chat/modelResolution";
 import { initRequestContext } from "@/ai/services/chat/chatStreamHelpers";
 import { replaceRelativeFileParts } from "@/ai/services/image/attachmentResolver";
@@ -105,15 +112,38 @@ export class SummaryTitleUseCase {
     const promptChain = stripPromptParts([...modelMessages, promptMessage]);
 
     try {
-      const requiredTags = !input.request.chatModelId
+      // 逻辑：从 master agent 配置读取模型。
+      const basicConf = readBasicConf()
+      const chatModelSource = basicConf.chatSource === 'cloud' ? 'cloud' as const : 'local' as const
+      let chatModelId: string | undefined
+      const roots: string[] = []
+      if (input.request.projectId) {
+        const pr = getProjectRootPath(input.request.projectId)
+        if (pr) roots.push(pr)
+      }
+      if (input.request.workspaceId) {
+        const wr = getWorkspaceRootPathById(input.request.workspaceId)
+        if (wr) roots.push(wr)
+      }
+      const fallbackWs = getWorkspaceRootPath()
+      if (fallbackWs && !roots.includes(fallbackWs)) roots.push(fallbackWs)
+      for (const rootPath of roots) {
+        const descriptor = readAgentJson(resolveAgentDir(rootPath, 'master'))
+        if (!descriptor) continue
+        const modelIds = chatModelSource === 'cloud' ? descriptor.modelCloudIds : descriptor.modelLocalIds
+        chatModelId = Array.isArray(modelIds) ? modelIds[0]?.trim() || undefined : undefined
+        if (chatModelId) break
+      }
+
+      const requiredTags = !chatModelId
         ? resolveRequiredInputTags(modelMessages)
         : [];
-      const preferredChatModelId = !input.request.chatModelId
+      const preferredChatModelId = !chatModelId
         ? resolvePreviousChatModelId(modelMessages)
         : null;
       const resolved = await resolveChatModel({
-        chatModelId: input.request.chatModelId,
-        chatModelSource: input.request.chatModelSource,
+        chatModelId,
+        chatModelSource,
         requiredTags,
         preferredChatModelId,
         saasAccessToken: input.saasAccessToken,

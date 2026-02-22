@@ -319,6 +319,10 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     next.modelQuality === "high" || next.modelQuality === "medium" || next.modelQuality === "low"
       ? next.modelQuality
       : current.modelQuality;
+  const chatThinkingMode =
+    next.chatThinkingMode === "deep" || next.chatThinkingMode === "fast"
+      ? next.chatThinkingMode
+      : current.chatThinkingMode;
   const chatOnlineSearchMemoryScope =
     next.chatOnlineSearchMemoryScope === "global" || next.chatOnlineSearchMemoryScope === "tab"
       ? next.chatOnlineSearchMemoryScope
@@ -413,6 +417,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
   const cliTools = normalizeCliToolsConfig(next.cliTools, current.cliTools);
   const normalized: BasicConfig = {
     chatSource: next.chatSource === "cloud" ? "cloud" : "local",
+    chatThinkingMode,
     toolModelSource,
     activeS3Id: typeof next.activeS3Id === "string" && next.activeS3Id.trim()
       ? next.activeS3Id.trim()

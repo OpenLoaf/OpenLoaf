@@ -971,7 +971,7 @@ export default function ChatInput({
   const { providerItems } = useSettingsValues();
   const { loggedIn: authLoggedIn } = useSaasAuth();
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
-  const { basic } = useBasicConfig();
+  const { basic, setBasic } = useBasicConfig();
   const setTabDictationStatus = useChatRuntime((s) => s.setTabDictationStatus);
   const dictationLanguage = basic.modelResponseLanguage;
   const dictationSoundEnabled = basic.appNotificationSoundEnabled;
@@ -979,8 +979,11 @@ export default function ChatInput({
     basic.chatOnlineSearchMemoryScope === "global" ? "global" : "tab";
   /** Login dialog open state. */
   const [loginOpen, setLoginOpen] = useState(false);
+  const normalizedThinkingMode: ThinkingMode =
+    basic.chatThinkingMode === "deep" ? "deep" : "fast";
   /** Thinking mode selected from input toolbar. */
-  const [thinkingMode, setThinkingMode] = useState<ThinkingMode>("fast");
+  const [thinkingMode, setThinkingMode] =
+    useState<ThinkingMode>(normalizedThinkingMode);
   /** Global online-search switch state. */
   const [globalOnlineSearchEnabled, setGlobalOnlineSearchEnabled] =
     useState(false);
@@ -1029,6 +1032,11 @@ export default function ChatInput({
       : tabOnlineSearchEnabled ?? false;
 
   useEffect(() => {
+    // 中文注释：主助手思考模式与基础设置保持同步。
+    setThinkingMode(normalizedThinkingMode);
+  }, [normalizedThinkingMode]);
+
+  useEffect(() => {
     if (onlineSearchScopeRef.current === onlineSearchMemoryScope) return;
     if (onlineSearchMemoryScope === "global") {
       const nextValue =
@@ -1073,6 +1081,13 @@ export default function ChatInput({
       setTabChatParams(activeChatTabId, { chatOnlineSearchEnabled: enabled });
     },
     [activeChatTabId, onlineSearchMemoryScope, setTabChatParams]
+  );
+  const handleThinkingModeChange = useCallback(
+    (mode: ThinkingMode) => {
+      setThinkingMode(mode);
+      void setBasic({ chatThinkingMode: mode });
+    },
+    [setBasic]
   );
   /** Open SaaS login dialog. */
   const handleOpenLogin = () => {
@@ -1266,7 +1281,7 @@ export default function ChatInput({
         onlineSearchEnabled={onlineSearchEnabled}
         onOnlineSearchChange={handleOnlineSearchChange}
         thinkingMode={thinkingMode}
-        onThinkingModeChange={setThinkingMode}
+        onThinkingModeChange={handleThinkingModeChange}
         header={
           !isUnconfigured && (showImageOutputOptions || isCodexProvider) ? (
             <div className="flex flex-col gap-2">

@@ -19,6 +19,7 @@ import { registerHlsRoutes } from "@/modules/media/hlsRoutes";
 import { registerEmailOAuthRoutes } from "@/modules/email/oauth/emailOAuthRoutes";
 import { registerEmailAttachmentRoutes } from "@/modules/email/emailAttachmentRoutes";
 import { registerLocalAuthRoutes } from "@/modules/local-auth/localAuthRoutes";
+import { registerOfficeAddinRoutes } from "@/modules/office/officeAddinRoutes";
 import { localAuthGuard } from "@/modules/local-auth/localAuthGuard";
 import { workspaceRouterImplementation } from "@/routers/workspace";
 import { tabRouterImplementation } from "@/routers/tab";
@@ -29,6 +30,7 @@ import { linkPreviewRouterImplementation } from "@/routers/linkPreview";
 import { webMetaRouterImplementation } from "@/routers/webMeta";
 import { terminalRouterImplementation } from "@/routers/terminal";
 import { emailRouterImplementation } from "@/routers/email";
+import { officeRouterImplementation } from "@/routers/office";
 import { calendarRouterImplementation } from "@/routers/calendar";
 import { dynamicWidgetRouterImplementation } from "@/routers/dynamicWidget";
 import { scheduledTaskRouterImplementation } from "@/routers/scheduledTask";
@@ -98,6 +100,7 @@ export function createApp() {
   registerHlsRoutes(app);
   registerEmailOAuthRoutes(app);
   registerEmailAttachmentRoutes(app);
+  registerOfficeAddinRoutes(app);
 
   app.use(
     "/trpc/*",
@@ -113,6 +116,7 @@ export function createApp() {
         webMeta: webMetaRouterImplementation,
         terminal: terminalRouterImplementation,
         email: emailRouterImplementation,
+        office: officeRouterImplementation,
         calendar: calendarRouterImplementation,
         dynamicWidget: dynamicWidgetRouterImplementation,
         scheduledTask: scheduledTaskRouterImplementation,

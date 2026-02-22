@@ -7,6 +7,7 @@ import type { BasicConfig, BasicConfigUpdate } from "@tenas-ai/api/types/basic";
 
 const DEFAULT_BASIC_CONFIG: BasicConfig = {
   chatSource: "local",
+  chatThinkingMode: "fast",
   toolModelSource: "cloud",
   activeS3Id: undefined,
   s3AutoUpload: true,

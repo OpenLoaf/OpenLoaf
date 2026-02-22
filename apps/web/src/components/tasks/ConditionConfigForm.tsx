@@ -4,7 +4,7 @@ import { memo } from 'react'
 import { Input } from '@tenas-ai/ui/input'
 import { Label } from '@tenas-ai/ui/label'
 import { Textarea } from '@tenas-ai/ui/textarea'
-import { FilterTab } from '@tenas-ai/ui/filter-tab'
+import { Tabs, TabsList, TabsTrigger } from '@tenas-ai/ui/tabs'
 
 type ConditionType = 'email_received' | 'chat_keyword' | 'file_changed'
 
@@ -19,16 +19,18 @@ type ConditionConfigFormProps = {
   onChange: (value: ConditionValue) => void
 }
 
-function Row({ label, children, last }: { label: string; children: React.ReactNode; last?: boolean }) {
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className={`grid grid-cols-[110px_1fr] gap-3 py-2 ${last ? '' : 'border-b border-border/30'}`}>
-      <Label className="text-[12px] font-medium text-muted-foreground">{label}</Label>
-      <div className="flex justify-end">{children}</div>
+    <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
+      <Label className="text-sm font-medium text-foreground">{label}</Label>
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+        {children}
+      </div>
     </div>
   )
 }
 
-const inputCls = 'h-9 w-full max-w-[260px] rounded-md border border-border/60 bg-background px-3 text-[13px] shadow-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-0'
+const inputCls = 'h-8 w-full max-w-[260px] rounded-full border border-border/70 bg-muted/40 px-3 text-xs text-foreground shadow-none focus-visible:ring-0'
 
 export const ConditionConfigForm = memo(function ConditionConfigForm({
   value,
@@ -39,28 +41,24 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
   }
 
   return (
-    <div className="flex flex-col gap-0">
+    <div className="divide-y divide-border/60">
       <Row label="条件类型">
-        <div className="flex w-fit rounded-lg border border-border/50 bg-muted p-1">
-          <FilterTab
-            text="收到邮件"
-            selected={value.type === 'email_received'}
-            onSelect={() => onChange({ ...value, type: 'email_received', preFilter: {} })}
-            layoutId="condition-type-tab"
-          />
-          <FilterTab
-            text="聊天关键词"
-            selected={value.type === 'chat_keyword'}
-            onSelect={() => onChange({ ...value, type: 'chat_keyword', preFilter: {} })}
-            layoutId="condition-type-tab"
-          />
-          <FilterTab
-            text="文件变更"
-            selected={value.type === 'file_changed'}
-            onSelect={() => onChange({ ...value, type: 'file_changed', preFilter: {} })}
-            layoutId="condition-type-tab"
-          />
-        </div>
+        <Tabs
+          value={value.type}
+          onValueChange={(v) => onChange({ ...value, type: v as ConditionType, preFilter: {} })}
+        >
+          <TabsList className="h-8 w-max rounded-full border border-border/70 bg-muted/40 p-1">
+            <TabsTrigger value="email_received" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
+              收到邮件
+            </TabsTrigger>
+            <TabsTrigger value="chat_keyword" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
+              聊天关键词
+            </TabsTrigger>
+            <TabsTrigger value="file_changed" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
+              文件变更
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </Row>
 
       {value.type === 'email_received' ? (
@@ -105,20 +103,19 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
             />
           </Row>
           <Row label="匹配模式">
-            <div className="flex w-fit rounded-lg border border-border/50 bg-muted p-1">
-              <FilterTab
-                text="任意匹配"
-                selected={((value.preFilter?.matchMode as string) ?? 'any') === 'any'}
-                onSelect={() => updatePreFilter('matchMode', 'any')}
-                layoutId="match-mode-tab"
-              />
-              <FilterTab
-                text="全部匹配"
-                selected={((value.preFilter?.matchMode as string) ?? 'any') === 'all'}
-                onSelect={() => updatePreFilter('matchMode', 'all')}
-                layoutId="match-mode-tab"
-              />
-            </div>
+            <Tabs
+              value={((value.preFilter?.matchMode as string) ?? 'any')}
+              onValueChange={(v) => updatePreFilter('matchMode', v)}
+            >
+              <TabsList className="h-8 w-max rounded-full border border-border/70 bg-muted/40 p-1">
+                <TabsTrigger value="any" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
+                  任意匹配
+                </TabsTrigger>
+                <TabsTrigger value="all" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
+                  全部匹配
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </Row>
         </>
       ) : null}
@@ -148,13 +145,13 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
         </>
       ) : null}
 
-      <div className="pt-2">
+      <div className="py-2.5">
         <Textarea
           value={value.rule ?? ''}
           onChange={(e) => onChange({ ...value, rule: e.target.value })}
           placeholder="自然语言规则（可选）— Agent 据此判断是否执行"
           rows={2}
-          className="min-h-[70px] rounded-md border border-border/60 bg-background px-3 py-2 text-[13px] shadow-none resize-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-0"
+          className="min-h-[70px] w-full border-0 bg-transparent px-0 py-0 text-sm shadow-none resize-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
         />
       </div>
     </div>

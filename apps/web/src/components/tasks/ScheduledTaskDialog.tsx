@@ -14,7 +14,8 @@ import { Button } from '@tenas-ai/ui/button'
 import { Input } from '@tenas-ai/ui/input'
 import { Label } from '@tenas-ai/ui/label'
 import { Textarea } from '@tenas-ai/ui/textarea'
-import { Switch } from '@tenas-ai/ui/switch'
+import { DatePicker } from '@tenas-ai/ui/calendar/components/ui/date-picker'
+import { TimePicker } from '@tenas-ai/ui/calendar/components/ui/time-picker'
 import {
   Select,
   SelectContent,
@@ -22,16 +23,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@tenas-ai/ui/select'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@tenas-ai/ui/collapsible'
-import { ChevronDown, Clock, Zap } from 'lucide-react'
 import { ConditionConfigForm } from './ConditionConfigForm'
 import { useProjects } from '@/hooks/use-projects'
 import type { ProjectNode } from '@tenas-ai/api/services/projectTreeService'
 import { cn } from '@/lib/utils'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@tenas-ai/ui/tabs'
 
 type TaskData = {
   id: string
@@ -89,83 +85,24 @@ function flattenProjectTree(nodes: ProjectNode[] | undefined, depth = 0): Projec
   return result
 }
 
-type SegmentedOption = {
-  value: string
-  label: string
-  icon?: React.ReactNode
-}
-
-/** Segmented control for small option groups. */
-function SegmentedControl({
-  value,
-  onChange,
-  options,
-}: {
-  value: string
-  onChange: (value: string) => void
-  options: SegmentedOption[]
-}) {
-  return (
-    <div className="flex w-fit items-center rounded-lg border border-border/50 bg-muted p-1">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onChange(option.value)}
-          className={cn(
-            'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors',
-            value === option.value
-              ? 'bg-background text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.08)]'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {option.icon}
-          {option.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-/** Section wrapper with title. */
-function FormSection({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <section className="flex flex-col gap-2">
-      <div className="text-[13px] font-semibold text-foreground">{title}</div>
-      <div className="rounded-xl border border-border/50 bg-muted">
-        {children}
-      </div>
-    </section>
-  )
-}
-
 /** Form row with label and content. */
 function FormRow({
   label,
   children,
-  last,
   alignTop,
 }: {
   label: string
   children: React.ReactNode
-  last?: boolean
   alignTop?: boolean
 }) {
   return (
-    <div className={cn(
-      'grid grid-cols-[120px_1fr] gap-4 px-4 py-3',
-      !last && 'border-b border-border/30',
-    )}>
-      <Label className={cn('text-[12px] font-medium text-muted-foreground', alignTop && 'pt-2')}>
+    <div className={cn('flex flex-wrap items-center gap-3 gap-y-2 py-2.5', alignTop && 'items-start')}>
+      <Label className={cn('text-sm font-medium text-foreground', alignTop && 'pt-1')}>
         {label}
       </Label>
-      <div className={cn('flex justify-end', alignTop && 'items-start')}>{children}</div>
+      <div className={cn('ml-auto flex flex-wrap items-center justify-end gap-2', alignTop && 'w-full items-start')}>
+        {children}
+      </div>
     </div>
   )
 }
@@ -239,7 +176,8 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
   const [scheduleMonthDay, setScheduleMonthDay] = useState(1)
   const [cronExpr, setCronExpr] = useState('0 9 * * *')
   const [intervalMs, setIntervalMs] = useState(3600000)
-  const [scheduleAt, setScheduleAt] = useState('')
+  const [scheduleOnceDate, setScheduleOnceDate] = useState<Date | undefined>(undefined)
+  const [scheduleOnceTime, setScheduleOnceTime] = useState('09:00')
   const [timezone, setTimezone] = useState('')
   const [condition, setCondition] = useState<{
     type: 'email_received' | 'chat_keyword' | 'file_changed'
@@ -256,7 +194,7 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
   const [sessionMode, setSessionMode] = useState<'isolated' | 'shared'>('isolated')
   const [timeoutMs, setTimeoutMs] = useState(600000)
   const [cooldownMs, setCooldownMs] = useState(60000)
-  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'trigger' | 'action' | 'advanced'>('trigger')
 
   const projectsQuery = useProjects()
   const projectOptions = useMemo(
@@ -270,16 +208,26 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
 
   useEffect(() => {
     if (!open) return
+    setActiveTab('trigger')
     if (task) {
       setName(task.name)
       setTriggerMode((task.triggerMode as 'scheduled' | 'condition') ?? 'scheduled')
       if (task.schedule?.type === 'interval') {
         setSchedulePreset('interval')
         setIntervalMs(task.schedule?.intervalMs ?? 3600000)
-        setScheduleAt('')
+        setScheduleOnceDate(undefined)
+        setScheduleOnceTime('09:00')
       } else if (task.schedule?.type === 'once') {
+        const scheduleAtValue = task.schedule?.scheduleAt
+        const parsedDate = scheduleAtValue ? new Date(scheduleAtValue) : undefined
+        const isValid = parsedDate && !Number.isNaN(parsedDate.getTime())
         setSchedulePreset('once')
-        setScheduleAt(task.schedule?.scheduleAt ?? '')
+        setScheduleOnceDate(isValid ? parsedDate : undefined)
+        setScheduleOnceTime(
+          isValid && parsedDate
+            ? `${padTime(parsedDate.getHours())}:${padTime(parsedDate.getMinutes())}`
+            : '09:00',
+        )
         setIntervalMs(3600000)
       } else {
         const parsed = parseCronPreset(task.schedule?.cronExpr ?? '')
@@ -289,7 +237,8 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
         setScheduleMonthDay(parsed.monthDay ?? 1)
         setCronExpr(task.schedule?.cronExpr ?? '0 9 * * *')
         setIntervalMs(3600000)
-        setScheduleAt('')
+        setScheduleOnceDate(undefined)
+        setScheduleOnceTime('09:00')
       }
       setTimezone(task.schedule?.timezone ?? '')
       setCondition(task.condition as typeof condition ?? { type: 'email_received' })
@@ -310,7 +259,8 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
       setScheduleMonthDay(1)
       setCronExpr('0 9 * * *')
       setIntervalMs(3600000)
-      setScheduleAt('')
+      setScheduleOnceDate(undefined)
+      setScheduleOnceTime('09:00')
       setTimezone('')
       setCondition({ type: 'email_received' })
       setAgentName('')
@@ -347,9 +297,18 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
             }
           }
           if (schedulePreset === 'once') {
+            let scheduleAtValue: string | undefined
+            if (scheduleOnceDate) {
+              const [hourStr, minuteStr] = scheduleOnceTime.split(':')
+              const hour = Number(hourStr ?? 0)
+              const minute = Number(minuteStr ?? 0)
+              const date = new Date(scheduleOnceDate)
+              date.setHours(Number.isNaN(hour) ? 0 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0)
+              scheduleAtValue = date.toISOString()
+            }
             return {
               type: 'once' as const,
-              scheduleAt: scheduleAt ? new Date(scheduleAt).toISOString() : undefined,
+              scheduleAt: scheduleAtValue,
               timezone: timezone || undefined,
             }
           }
@@ -399,7 +358,7 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
     }
   }, [
     isEditing, task, name, agentName, enabled,
-    triggerMode, schedulePreset, scheduleTime, scheduleWeekday, scheduleMonthDay, cronExpr, intervalMs, scheduleAt, timezone,
+    triggerMode, schedulePreset, scheduleTime, scheduleWeekday, scheduleMonthDay, cronExpr, intervalMs, scheduleOnceDate, scheduleOnceTime, timezone,
     condition, message, tabScope, resolvedProjectId, sessionMode, timeoutMs, cooldownMs,
     projectId, workspaceId, createMutation, updateMutation,
   ])
@@ -408,274 +367,284 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
   const isProjectScope = tabScope === 'project'
   // 逻辑：项目 Tab 必须选中具体项目才能提交。
   const canSubmit = Boolean(name.trim()) && (isEditing || !isProjectScope || Boolean(resolvedProjectId))
-  const inputBase = 'h-9 rounded-md border border-border/60 bg-background px-3 text-[13px] shadow-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-0'
-  const selectBase = 'h-9 rounded-md border border-border/60 bg-background px-3 text-[13px] shadow-none justify-between gap-2 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-0'
+  const inputBase = 'h-8 rounded-full border border-border/70 bg-muted/40 px-3 text-xs text-foreground shadow-none focus-visible:ring-0'
+  const inlineInput = 'h-8 w-full max-w-[360px] border-0 bg-transparent text-right text-sm text-foreground shadow-none focus-visible:ring-0'
+  const selectBase = 'h-8 rounded-full border border-border/70 bg-muted/40 px-3 text-xs shadow-none justify-between gap-2 focus-visible:ring-0'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[640px] max-h-[85vh] flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-background p-0 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+      <DialogContent className="max-w-[640px] h-[78vh] flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-background p-0 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
         <DialogHeader className="shrink-0 px-6 pt-6 pb-3">
           <DialogTitle className="text-[16px] font-semibold">{isEditing ? '编辑任务' : '新建自动任务'}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="flex flex-col gap-5 px-6 pb-6">
-            <FormSection title="触发方式">
-              <FormRow label="类型">
-                <SegmentedControl
-                  value={triggerMode}
-                  onChange={(value) => setTriggerMode(value as typeof triggerMode)}
-                  options={[
-                    { value: 'scheduled', label: '定时', icon: <Clock className="h-3.5 w-3.5 text-sky-500" /> },
-                    { value: 'condition', label: '条件', icon: <Zap className="h-3.5 w-3.5 text-amber-500" /> },
-                  ]}
-                />
-              </FormRow>
-              {triggerMode === 'scheduled' ? (
-                <>
-                  <FormRow label="频率">
-                    <Select value={schedulePreset} onValueChange={(v) => setSchedulePreset(v as SchedulePreset)}>
-                      <SelectTrigger className={cn(selectBase, 'w-[220px]')}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        <SelectItem value="interval" className="rounded-lg text-xs">间隔</SelectItem>
-                        <SelectItem value="daily" className="rounded-lg text-xs">每天</SelectItem>
-                        <SelectItem value="weekly" className="rounded-lg text-xs">每周</SelectItem>
-                        <SelectItem value="monthly" className="rounded-lg text-xs">每月</SelectItem>
-                        <SelectItem value="once" className="rounded-lg text-xs">单次</SelectItem>
-                        {schedulePreset === 'custom' ? (
-                          <SelectItem value="custom" className="rounded-lg text-xs">自定义</SelectItem>
-                        ) : null}
-                      </SelectContent>
-                    </Select>
-                  </FormRow>
-                  {schedulePreset === 'interval' ? (
-                    <FormRow label="间隔（分钟）" last>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={Math.round(intervalMs / 60000)}
-                        onChange={(e) => setIntervalMs(Number(e.target.value) * 60000)}
-                        className={cn(inputBase, 'w-full max-w-[220px]')}
-                      />
-                    </FormRow>
-                  ) : null}
-                  {schedulePreset === 'once' ? (
-                    <FormRow label="执行时间" last>
-                      <Input
-                        type="datetime-local"
-                        value={scheduleAt}
-                        onChange={(e) => setScheduleAt(e.target.value)}
-                        className={cn(inputBase, 'w-full max-w-[240px]')}
-                      />
-                    </FormRow>
-                  ) : null}
-                  {schedulePreset === 'daily' ? (
-                    <FormRow label="执行时间" last>
-                      <Input
-                        type="time"
-                        value={scheduleTime}
-                        onChange={(e) => setScheduleTime(e.target.value)}
-                        className={cn(inputBase, 'w-full max-w-[180px]')}
-                      />
-                    </FormRow>
-                  ) : null}
-                  {schedulePreset === 'weekly' ? (
-                    <>
-                      <FormRow label="星期">
-                        <Select value={scheduleWeekday} onValueChange={(v) => setScheduleWeekday(v)}>
-                          <SelectTrigger className={cn(selectBase, 'w-[180px]')}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            <SelectItem value="1" className="rounded-lg text-xs">周一</SelectItem>
-                            <SelectItem value="2" className="rounded-lg text-xs">周二</SelectItem>
-                            <SelectItem value="3" className="rounded-lg text-xs">周三</SelectItem>
-                            <SelectItem value="4" className="rounded-lg text-xs">周四</SelectItem>
-                            <SelectItem value="5" className="rounded-lg text-xs">周五</SelectItem>
-                            <SelectItem value="6" className="rounded-lg text-xs">周六</SelectItem>
-                            <SelectItem value="0" className="rounded-lg text-xs">周日</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FormRow>
-                      <FormRow label="执行时间" last>
-                        <Input
-                          type="time"
-                          value={scheduleTime}
-                          onChange={(e) => setScheduleTime(e.target.value)}
-                          className={cn(inputBase, 'w-full max-w-[180px]')}
-                        />
-                      </FormRow>
-                    </>
-                  ) : null}
-                  {schedulePreset === 'monthly' ? (
-                    <>
-                      <FormRow label="日期">
-                        <Input
-                          type="number"
-                          min={1}
-                          max={28}
-                          value={scheduleMonthDay}
-                          onChange={(e) => setScheduleMonthDay(Number(e.target.value))}
-                          className={cn(inputBase, 'w-full max-w-[140px]')}
-                        />
-                      </FormRow>
-                      <FormRow label="执行时间" last>
-                        <Input
-                          type="time"
-                          value={scheduleTime}
-                          onChange={(e) => setScheduleTime(e.target.value)}
-                          className={cn(inputBase, 'w-full max-w-[180px]')}
-                        />
-                      </FormRow>
-                    </>
-                  ) : null}
-                  {schedulePreset === 'custom' ? (
-                    <FormRow label="Cron" last>
-                      <Input
-                        value={cronExpr}
-                        onChange={(e) => setCronExpr(e.target.value)}
-                        placeholder="0 9 * * *"
-                        className={cn(inputBase, 'w-full max-w-[260px] font-mono text-xs')}
-                      />
-                    </FormRow>
-                  ) : null}
-                </>
-              ) : (
-                <div className="px-4 py-3">
-                  <ConditionConfigForm value={condition} onChange={setCondition} />
-                </div>
-              )}
-            </FormSection>
-
-            <FormSection title="执行内容">
+          <div className="flex flex-col gap-4 px-6 pb-6">
+            <div className="divide-y divide-border/60">
               <FormRow label="任务名称">
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="例如：每天 9 点同步日报"
-                  className={cn(inputBase, 'w-full max-w-[360px]')}
+                  className={cn(inlineInput, 'max-w-[360px]')}
                 />
               </FormRow>
-              <FormRow label="Agent">
-                <Input
-                  value={agentName}
-                  onChange={(e) => setAgentName(e.target.value)}
-                  placeholder="默认"
-                  className={cn(inputBase, 'w-full max-w-[280px]')}
-                />
+              <FormRow label="类型">
+                <Tabs value={triggerMode} onValueChange={(value) => setTriggerMode(value as typeof triggerMode)}>
+                  <TabsList className="h-8 w-max rounded-full border border-border/70 bg-muted/40 p-1">
+                    <TabsTrigger value="scheduled" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
+                      定时
+                    </TabsTrigger>
+                    <TabsTrigger value="condition" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
+                      条件
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </FormRow>
-              <FormRow label="启用">
-                <Switch
-                  checked={enabled}
-                  onCheckedChange={(checked) => setEnabled(checked === true)}
-                  className="data-[state=checked]:bg-emerald-500"
-                />
-              </FormRow>
-              <FormRow label="指令" last alignTop>
-                <Textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="触发时发送给 Agent 的指令..."
-                  rows={4}
-                  className="min-h-[110px] w-full max-w-[520px] rounded-md border border-border/60 bg-background px-3 py-2 text-[13px] shadow-none resize-none placeholder:text-muted-foreground/50 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-0"
-                />
-              </FormRow>
-            </FormSection>
-
-            {!isEditing ? (
-              <FormSection title="Tab 范围">
-                <FormRow label="Tab" last={tabScope !== 'project'}>
-                  <SegmentedControl
-                    value={tabScope}
-                    onChange={(value) => setTabScope(value as typeof tabScope)}
-                    options={[
-                      { value: 'workspace', label: '工作区' },
-                      { value: 'project', label: '项目' },
-                    ]}
-                  />
-                </FormRow>
-                {tabScope === 'project' ? (
-                  <FormRow label="项目" last>
-                    <div className="flex flex-col gap-2">
-                      <Select
-                        value={resolvedProjectId || undefined}
-                        onValueChange={(v) => setTargetProjectId(v)}
-                      >
-                        <SelectTrigger className={cn(selectBase, 'w-[220px]')}>
-                          <SelectValue placeholder={projectsQuery.isLoading ? '加载项目...' : '选择项目'} />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          {projectOptions.length > 0 ? (
-                            projectOptions.map((project) => {
-                              const prefix = project.depth > 0 ? `${'-- '.repeat(project.depth)}` : ''
-                              return (
-                                <SelectItem key={project.projectId} value={project.projectId} className="rounded-lg text-xs">
-                                  {prefix}{project.title}
-                                </SelectItem>
-                              )
-                            })
-                          ) : (
-                            <SelectItem value="__empty__" disabled className="rounded-lg text-xs text-muted-foreground">
-                              暂无项目
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      {resolvedProjectId ? null : (
-                        <div className="text-[11px] text-rose-500">请选择项目</div>
-                      )}
-                    </div>
+              {!isEditing ? (
+                <>
+                  <FormRow label="影响范围">
+                    <Tabs value={tabScope} onValueChange={(value) => setTabScope(value as typeof tabScope)}>
+                      <TabsList className="h-8 w-max rounded-full border border-border/70 bg-muted/40 p-1">
+                        <TabsTrigger value="workspace" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
+                          工作区
+                        </TabsTrigger>
+                        <TabsTrigger value="project" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
+                          项目
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
                   </FormRow>
-                ) : null}
-              </FormSection>
-            ) : null}
+                  {tabScope === 'project' ? (
+                    <FormRow label="项目">
+                      <div className="flex flex-col gap-2">
+                        <Select
+                          value={resolvedProjectId || undefined}
+                          onValueChange={(v) => setTargetProjectId(v)}
+                        >
+                          <SelectTrigger className={cn(selectBase, 'w-[220px]')}>
+                            <SelectValue placeholder={projectsQuery.isLoading ? '加载项目...' : '选择项目'} />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl">
+                            {projectOptions.length > 0 ? (
+                              projectOptions.map((project) => {
+                                const prefix = project.depth > 0 ? `${'-- '.repeat(project.depth)}` : ''
+                                return (
+                                  <SelectItem key={project.projectId} value={project.projectId} className="rounded-lg text-xs">
+                                    {prefix}{project.title}
+                                  </SelectItem>
+                                )
+                              })
+                            ) : (
+                              <SelectItem value="__empty__" disabled className="rounded-lg text-xs text-muted-foreground">
+                                暂无项目
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        {resolvedProjectId ? null : (
+                          <div className="text-[11px] text-rose-500">请选择项目</div>
+                        )}
+                      </div>
+                    </FormRow>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
 
-            <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-              <CollapsibleTrigger asChild>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between px-1 py-1 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
+              <TabsList className="h-9 w-max rounded-full border border-border/70 bg-muted/40 p-1">
+                <TabsTrigger value="trigger" className="h-7 rounded-full px-3 text-xs whitespace-nowrap">
+                  触发方式
+                </TabsTrigger>
+                <TabsTrigger value="action" className="h-7 rounded-full px-3 text-xs whitespace-nowrap">
+                  执行内容
+                </TabsTrigger>
+                <TabsTrigger value="advanced" className="h-7 rounded-full px-3 text-xs whitespace-nowrap">
                   高级设置
-                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
-                </button>
-              </CollapsibleTrigger>
-            <CollapsibleContent>
-                <div className="mt-3 rounded-xl border border-border/50 bg-muted">
-                  <FormRow label="会话模式">
-                    <Select value={sessionMode} onValueChange={(v) => setSessionMode(v as any)}>
-                      <SelectTrigger className={cn(selectBase, 'w-[220px]')}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        <SelectItem value="isolated" className="rounded-lg text-xs">独立会话</SelectItem>
-                        <SelectItem value="shared" className="rounded-lg text-xs">共享会话</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormRow>
-                  <FormRow label="超时（秒）">
-                    <Input
-                      type="number"
-                      min={10}
-                      value={Math.round(timeoutMs / 1000)}
-                      onChange={(e) => setTimeoutMs(Number(e.target.value) * 1000)}
-                      className={inputBase}
-                    />
-                  </FormRow>
-                  <FormRow label="冷却（秒）" last>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={Math.round(cooldownMs / 1000)}
-                      onChange={(e) => setCooldownMs(Number(e.target.value) * 1000)}
-                      className={inputBase}
-                    />
-                  </FormRow>
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="trigger">
+                <div className="pt-2">
+                  {triggerMode === 'scheduled' ? (
+                    <div className="divide-y divide-border/60">
+                        <FormRow label="频率">
+                          <Select value={schedulePreset} onValueChange={(v) => setSchedulePreset(v as SchedulePreset)}>
+                            <SelectTrigger className={cn(selectBase, 'w-[220px]')}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="interval" className="rounded-lg text-xs">间隔</SelectItem>
+                              <SelectItem value="daily" className="rounded-lg text-xs">每天</SelectItem>
+                              <SelectItem value="weekly" className="rounded-lg text-xs">每周</SelectItem>
+                              <SelectItem value="monthly" className="rounded-lg text-xs">每月</SelectItem>
+                              <SelectItem value="once" className="rounded-lg text-xs">单次</SelectItem>
+                              <SelectItem value="custom" className="rounded-lg text-xs">自定义</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormRow>
+                        {schedulePreset === 'interval' ? (
+                          <FormRow label="间隔（分钟）">
+                            <Input
+                              type="number"
+                              min={1}
+                              value={Math.round(intervalMs / 60000)}
+                              onChange={(e) => setIntervalMs(Number(e.target.value) * 60000)}
+                              className={cn(inputBase, 'w-full max-w-[220px]')}
+                            />
+                          </FormRow>
+                        ) : null}
+                        {schedulePreset === 'once' ? (
+                          <>
+                            <FormRow label="日期">
+                              <DatePicker
+                                date={scheduleOnceDate}
+                                onChange={setScheduleOnceDate}
+                                label="选择日期"
+                                className="[& button]:h-8 [& button]:rounded-full [& button]:border-border/70 [& button]:bg-muted/40 [& button]:text-xs [& button]:shadow-none w-full max-w-[220px]"
+                              />
+                            </FormRow>
+                            <FormRow label="时间">
+                              <TimePicker
+                                value={scheduleOnceTime}
+                                onChange={setScheduleOnceTime}
+                                timeFormat="24-hour"
+                                placeholder="选择时间"
+                                className="h-8 w-full max-w-[200px] rounded-full border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
+                              />
+                            </FormRow>
+                          </>
+                        ) : null}
+                        {schedulePreset === 'daily' ? (
+                          <FormRow label="执行时间">
+                            <TimePicker
+                              value={scheduleTime}
+                              onChange={setScheduleTime}
+                              timeFormat="24-hour"
+                              placeholder="选择时间"
+                              className="h-8 w-full max-w-[200px] rounded-full border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
+                            />
+                          </FormRow>
+                        ) : null}
+                        {schedulePreset === 'weekly' ? (
+                          <>
+                            <FormRow label="星期">
+                              <Select value={scheduleWeekday} onValueChange={(v) => setScheduleWeekday(v)}>
+                                <SelectTrigger className={cn(selectBase, 'w-[180px]')}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl">
+                                  <SelectItem value="1" className="rounded-lg text-xs">周一</SelectItem>
+                                  <SelectItem value="2" className="rounded-lg text-xs">周二</SelectItem>
+                                  <SelectItem value="3" className="rounded-lg text-xs">周三</SelectItem>
+                                  <SelectItem value="4" className="rounded-lg text-xs">周四</SelectItem>
+                                  <SelectItem value="5" className="rounded-lg text-xs">周五</SelectItem>
+                                  <SelectItem value="6" className="rounded-lg text-xs">周六</SelectItem>
+                                  <SelectItem value="0" className="rounded-lg text-xs">周日</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormRow>
+                            <FormRow label="执行时间">
+                              <TimePicker
+                                value={scheduleTime}
+                                onChange={setScheduleTime}
+                                timeFormat="24-hour"
+                                placeholder="选择时间"
+                                className="h-8 w-full max-w-[200px] rounded-full border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
+                              />
+                            </FormRow>
+                          </>
+                        ) : null}
+                        {schedulePreset === 'monthly' ? (
+                          <>
+                            <FormRow label="日期">
+                              <Input
+                                type="number"
+                                min={1}
+                                max={28}
+                                value={scheduleMonthDay}
+                                onChange={(e) => setScheduleMonthDay(Number(e.target.value))}
+                                className={cn(inputBase, 'w-full max-w-[140px]')}
+                              />
+                            </FormRow>
+                            <FormRow label="执行时间">
+                              <TimePicker
+                                value={scheduleTime}
+                                onChange={setScheduleTime}
+                                timeFormat="24-hour"
+                                placeholder="选择时间"
+                                className="h-8 w-full max-w-[200px] rounded-full border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
+                              />
+                            </FormRow>
+                          </>
+                        ) : null}
+                        {schedulePreset === 'custom' ? (
+                          <FormRow label="Cron">
+                            <Input
+                              value={cronExpr}
+                              onChange={(e) => setCronExpr(e.target.value)}
+                              placeholder="0 9 * * *"
+                              className={cn(inputBase, 'w-full max-w-[260px] font-mono text-xs')}
+                            />
+                          </FormRow>
+                        ) : null}
+                    </div>
+                  ) : (
+                    <ConditionConfigForm value={condition} onChange={setCondition} />
+                  )}
                 </div>
-              </CollapsibleContent>
-            </Collapsible>
+              </TabsContent>
+
+              <TabsContent value="action">
+                <div className="pt-2">
+                  <div className="divide-y divide-border/60">
+                    <FormRow label="Agent">
+                      <Input
+                        value={agentName}
+                        onChange={(e) => setAgentName(e.target.value)}
+                        placeholder="默认"
+                        className={cn(inlineInput, 'max-w-[280px]')}
+                      />
+                    </FormRow>
+                    <FormRow label="指令" alignTop>
+                      <Textarea
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        placeholder="触发时发送给 Agent 的指令..."
+                        rows={4}
+                        className="min-h-[110px] w-full max-w-[520px] border-0 bg-transparent px-0 py-0 text-sm shadow-none resize-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
+                      />
+                    </FormRow>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="advanced">
+                <div className="pt-2">
+                  <div className="divide-y divide-border/60">
+                    <FormRow label="超时（分钟）">
+                      <Input
+                        type="number"
+                        min={1}
+                        value={Math.round(timeoutMs / 60000)}
+                        onChange={(e) => setTimeoutMs(Number(e.target.value) * 60000)}
+                        className={inputBase}
+                      />
+                    </FormRow>
+                    <FormRow label="冷却（分钟）">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={Math.round(cooldownMs / 60000)}
+                        onChange={(e) => setCooldownMs(Number(e.target.value) * 60000)}
+                        className={inputBase}
+                      />
+                    </FormRow>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 

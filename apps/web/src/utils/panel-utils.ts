@@ -32,6 +32,7 @@ import ScheduledTasksPage from "@/components/tasks/ScheduledTasksPage";
 import StreamingCodeViewer from "@/components/file/StreamingCodeViewer";
 import DynamicWidgetStackPanel from "@/components/desktop/dynamic-widgets/DynamicWidgetStackPanel";
 import SubAgentChatPanel from "@/components/ai/SubAgentChatPanel";
+import AiDebugViewer from "@/components/ai/AiDebugViewer";
 
 // 逻辑：文稿编辑器包含完整 Plate.js 插件集，使用 lazy 避免首屏阻塞。
 const LazyPlateDocViewer = React.lazy(() => import("@/components/file/PlateDocViewer"));
@@ -80,6 +81,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "streaming-plate-viewer": LazyStreamingPlateViewer,
   "dynamic-widget-viewer": DynamicWidgetStackPanel,
   "sub-agent-chat": SubAgentChatPanel,
+  "ai-debug-viewer": AiDebugViewer,
 };
 
 /**

@@ -259,9 +259,9 @@ const TestSetting = memo(function TestSetting() {
 
           <div className="flex flex-wrap items-start gap-3 py-3">
             <div className="min-w-0">
-              <div className="text-sm font-medium">显示 Chat Preface</div>
+              <div className="text-sm font-medium">AI调试模式</div>
               <div className="text-xs text-muted-foreground">
-                控制 Chat Header 是否显示 Preface 查看按钮
+                开启后在 Chat Header 显示调试按钮，并在每次请求时保存完整的系统提示词和工具列表到 system.json
               </div>
             </div>
             <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">

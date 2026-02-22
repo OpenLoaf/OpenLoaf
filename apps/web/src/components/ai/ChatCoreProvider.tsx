@@ -277,14 +277,6 @@ type ChatCoreProviderProps = {
     sessionId: string,
     options?: { loadHistory?: boolean; replaceCurrent?: boolean }
   ) => void;
-  /** Selected chat model id. */
-  chatModelId?: string | null;
-  /** Selected chat model source. */
-  chatModelSource?: string | null;
-  /** Selected image generation model id. */
-  imageModelId?: string | null;
-  /** Selected video generation model id. */
-  videoModelId?: string | null;
   /** Add image attachments to the chat input. */
   addAttachments?: (files: FileList | ChatAttachmentInput[]) => void;
   /** Add a masked attachment to the chat input. */
@@ -298,10 +290,6 @@ export default function ChatCoreProvider({
   loadHistory,
   params,
   onSessionChange,
-  chatModelId,
-  chatModelSource,
-  imageModelId,
-  videoModelId,
   addAttachments,
   addMaskedAttachment,
 }: ChatCoreProviderProps) {
@@ -347,18 +335,6 @@ export default function ChatCoreProvider({
   });
   const sessionIdRef = React.useRef(sessionId);
   sessionIdRef.current = sessionId;
-  const chatModelIdRef = React.useRef<string | null>(
-    typeof chatModelId === "string" ? chatModelId : null
-  );
-  const chatModelSourceRef = React.useRef<string | null>(
-    typeof chatModelSource === "string" ? chatModelSource : null
-  );
-  const imageModelIdRef = React.useRef<string | null>(
-    typeof imageModelId === "string" ? imageModelId : null
-  );
-  const videoModelIdRef = React.useRef<string | null>(
-    typeof videoModelId === "string" ? videoModelId : null
-  );
 
   // 关键：记录一次请求对应的 userMessageId（用于在 onFinish 补齐 assistant.parentMessageId）
   const pendingUserMessageIdRef = React.useRef<string | null>(null);
@@ -535,28 +511,6 @@ export default function ChatCoreProvider({
     tabIdRef.current = tabId;
   }, [tabId]);
 
-  React.useEffect(() => {
-    // 中文注释：为空代表 Auto，不透传 chatModelId。
-    chatModelIdRef.current =
-      typeof chatModelId === "string" ? chatModelId.trim() || null : null;
-  }, [chatModelId]);
-
-  React.useEffect(() => {
-    // 中文注释：仅允许 local/cloud，其他值视为未传。
-    chatModelSourceRef.current =
-      typeof chatModelSource === "string" ? chatModelSource.trim() || null : null;
-  }, [chatModelSource]);
-
-  React.useEffect(() => {
-    imageModelIdRef.current =
-      typeof imageModelId === "string" ? imageModelId.trim() || null : null;
-  }, [imageModelId]);
-
-  React.useEffect(() => {
-    videoModelIdRef.current =
-      typeof videoModelId === "string" ? videoModelId.trim() || null : null;
-  }, [videoModelId]);
-
   const upsertToolPartMerged = React.useCallback(
     (key: string, next: Partial<Parameters<typeof upsertToolPart>[2]>) => {
       if (!tabId) return;
@@ -567,7 +521,7 @@ export default function ChatCoreProvider({
   );
 
   const transport = React.useMemo(() => {
-    return createChatTransport({ paramsRef, tabIdRef, chatModelIdRef, chatModelSourceRef, imageModelIdRef, videoModelIdRef });
+    return createChatTransport({ paramsRef, tabIdRef });
   }, []);
 
   const onFinish = React.useCallback(

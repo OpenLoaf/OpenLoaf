@@ -23,7 +23,11 @@ import {
   getMessageById,
   deleteAllChatFiles,
   resolveMessagesJsonlPath,
+  registerAgentDir,
+  readSessionJson,
 } from '@/ai/services/chat/repositories/chatFileStore'
+import { promises as fsPromises } from 'node:fs'
+import nodePath from 'node:path'
 
 const TITLE_MAX_CHARS = 16
 const TITLE_CONTEXT_TAKE = 24
@@ -75,11 +79,21 @@ async function resolveSessionPrefaceText(
   return typeof row?.sessionPreface === 'string' ? row.sessionPreface : ''
 }
 
-/** Match toolCallId in metadata. */
-function matchToolCallId(metadata: unknown, toolCallId: string): boolean {
-  if (!metadata || typeof metadata !== 'object') return false
-  const value = (metadata as Record<string, unknown>).toolCallId
-  return typeof value === 'string' && value === toolCallId
+/** 清理 parts 中未决的 approval-requested 状态，避免前端显示"等待审批"。 */
+function sanitizeApprovalParts(parts: unknown[]): unknown[] {
+  return parts.map((part: any) => {
+    if (!part || typeof part !== 'object') return part
+    const approval = part.approval
+    if (!approval || typeof approval !== 'object') return part
+    if (approval.approved === true || approval.approved === false) return part
+    // 未决审批 → 标记为已取消
+    return {
+      ...part,
+      state: 'output-denied',
+      approval: { ...approval, approved: false },
+      output: part.output ?? '[Cancelled: agent completed before approval]',
+    }
+  })
 }
 
 function buildTitlePrompt(chainRows: Array<{ role: string; parts: unknown }>): string {
@@ -195,31 +209,59 @@ export class ChatRouterImpl extends BaseChatRouter {
           return getChatViewFromFile(input)
         }),
 
-      // getSubAgentHistory — 从 JSONL 过滤
+      // getSubAgentHistory — 从 agents/<agentId>/ 子目录读取
       getSubAgentHistory: shieldedProcedure
         .input(z.object({
           sessionId: z.string().min(1),
           toolCallId: z.string().min(1),
         }))
         .query(async ({ input }) => {
-          const tree = await loadMessageTree(input.sessionId)
-          let match: ChatUIMessage | null = null
-          for (const msg of tree.byId.values()) {
-            if (msg.role !== 'subagent') continue
-            if (matchToolCallId(msg.metadata, input.toolCallId)) {
-              match = {
-                id: msg.id,
-                role: msg.role,
-                parentMessageId: msg.parentMessageId,
-                parts: Array.isArray(msg.parts) ? msg.parts : [],
-                metadata: msg.metadata ?? undefined,
-                messageKind: msg.messageKind ?? undefined,
-                agent: (msg.metadata as any)?.agent ?? undefined,
-              }
-              break
-            }
+          const agentId = input.toolCallId
+
+          await registerAgentDir(input.sessionId, agentId)
+          const tree = await loadMessageTree(agentId)
+
+          if (tree.byId.size === 0) {
+            return { message: null, messages: [], agentMeta: null }
           }
-          return { message: match }
+
+          const agentSession = await readSessionJson(agentId)
+          const sorted = Array.from(tree.byId.values()).sort((a, b) => {
+            const ta = new Date(a.createdAt).getTime()
+            const tb = new Date(b.createdAt).getTime()
+            return ta - tb || a.id.localeCompare(b.id)
+          })
+          // 过滤空消息，清理未决审批状态
+          const validMessages = sorted.filter((msg) => {
+            if (msg.role !== 'user' && (!Array.isArray(msg.parts) || msg.parts.length === 0)) return false
+            return true
+          })
+          const messages = validMessages.map((msg) => ({
+            id: msg.id,
+            role: msg.role,
+            parentMessageId: msg.parentMessageId,
+            parts: sanitizeApprovalParts(Array.isArray(msg.parts) ? msg.parts : []),
+            metadata: msg.metadata ?? undefined,
+          }))
+          return {
+            message: messages.length ? {
+              id: `subagent:${agentId}`,
+              role: 'subagent' as const,
+              parentMessageId: null,
+              parts: messages.flatMap((m) => m.parts),
+              metadata: {
+                toolCallId: agentId,
+                name: agentSession?.title,
+                task: (agentSession as any)?.task,
+              },
+            } : null,
+            messages,
+            agentMeta: agentSession ? {
+              name: agentSession.title,
+              task: (agentSession as any)?.task,
+              agentType: (agentSession as any)?.agentType,
+            } : null,
+          }
         }),
 
       // getChatStats — 从 JSONL 统计
@@ -329,12 +371,16 @@ export class ChatRouterImpl extends BaseChatRouter {
 
           const content = await resolveSessionPrefaceText(ctx.prisma, input.sessionId)
           let jsonlPath: string | undefined
+          let systemJsonRaw: string | undefined
           try {
             jsonlPath = await resolveMessagesJsonlPath(input.sessionId)
+            // 逻辑：读取 system.json 原始内容，直接作为字符串返回给前端解析。
+            const systemJsonPath = nodePath.join(nodePath.dirname(jsonlPath), 'system.json')
+            systemJsonRaw = await fsPromises.readFile(systemJsonPath, 'utf-8')
           } catch {
             // 非关键操作
           }
-          return { content, jsonlPath }
+          return { content, jsonlPath, systemJsonRaw }
         }),
 
       autoTitle: shieldedProcedure

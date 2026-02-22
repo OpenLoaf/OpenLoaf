@@ -19,18 +19,33 @@ export function useChatModelSelection(_tabId?: string) {
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
   const installedCliProviderIds = useInstalledCliProviderIds();
-  const { modelId: masterModelId, detail: masterDetail } = useMainAgentModel();
+  const { modelIds: masterModelIds, detail: masterDetail } = useMainAgentModel();
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
   const modelOptions = React.useMemo(
     () => buildChatModelOptions(chatModelSource, providerItems, cloudModels, installedCliProviderIds),
     [chatModelSource, providerItems, cloudModels, installedCliProviderIds]
   );
-  const rawSelectedModelId = masterModelId.trim();
-  const selectedModel = modelOptions.find(
-    (option) => option.id === rawSelectedModelId
+  const normalizedMasterIds = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (Array.isArray(masterModelIds) ? masterModelIds : [])
+            .map((id) => id.trim())
+            .filter((id) => id.length > 0),
+        ),
+      ),
+    [masterModelIds],
   );
-  const selectedModelId = selectedModel ? rawSelectedModelId : "";
-  const isAutoModel = !rawSelectedModelId || !selectedModel;
+  const { selectedModel, selectedModelId } = React.useMemo(() => {
+    for (const id of normalizedMasterIds) {
+      const option = modelOptions.find((item) => item.id === id);
+      if (option) {
+        return { selectedModel: option, selectedModelId: id };
+      }
+    }
+    return { selectedModel: undefined, selectedModelId: "" };
+  }, [modelOptions, normalizedMasterIds]);
+  const isAutoModel = normalizedMasterIds.length === 0 || !selectedModel;
   const isCodeModel = supportsCode(selectedModel);
   const canAttachAll = isAutoModel || supportsToolCall(selectedModel) || isCodeModel;
   const canAttachImage =
@@ -53,7 +68,7 @@ export function useChatModelSelection(_tabId?: string) {
     canImageGeneration,
     canImageEdit,
     isCodexProvider,
-    imageModelId: masterDetail?.imageModelId?.trim() || undefined,
-    videoModelId: masterDetail?.videoModelId?.trim() || undefined,
+    imageModelId: masterDetail?.imageModelIds?.[0]?.trim() || undefined,
+    videoModelId: masterDetail?.videoModelIds?.[0]?.trim() || undefined,
   };
 }

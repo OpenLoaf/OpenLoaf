@@ -40,6 +40,14 @@ type CliToolStatus = {
   path?: string;
 };
 
+type OfficeInfo = {
+  wps: {
+    installed: boolean;
+    path?: string;
+    version?: string;
+  };
+};
+
 type CliStatusMap = Record<CliToolKind, CliToolStatus>;
 type CliSettingsMap = CliToolsConfig;
 
@@ -134,6 +142,12 @@ export function ThirdPartyTools() {
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
+  const officeInfoQuery = useQuery({
+    ...trpc.settings.officeInfo.queryOptions(),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
   const cliStatuses = useMemo(
     () => buildCliStatusMap(cliStatusQuery.data as CliToolStatus[] | undefined),
     [cliStatusQuery.data],
@@ -141,6 +155,9 @@ export function ThirdPartyTools() {
   const isCliStatusLoading = cliStatusQuery.isLoading && !cliStatusQuery.data;
   const systemCliInfo = systemCliInfoQuery.data;
   const isSystemCliLoading = systemCliInfoQuery.isLoading && !systemCliInfo;
+  const officeInfo = officeInfoQuery.data as OfficeInfo | undefined;
+  const wpsInfo = officeInfo?.wps;
+  const isOfficeInfoLoading = officeInfoQuery.isLoading && !officeInfo;
 
   const systemVersionValue = useMemo(() => {
     if (isSystemCliLoading) return "检测中";
@@ -175,6 +192,15 @@ export function ThirdPartyTools() {
       : "";
     return `${name}${version}${path}`;
   }, [isSystemCliLoading, systemCliInfo]);
+
+  const wpsStatusLabel = useMemo(() => {
+    if (isOfficeInfoLoading) return "检测中";
+    if (!wpsInfo) return "未知";
+    if (!wpsInfo.installed) return "未安装";
+    const version = wpsInfo.version ? ` · 版本：${wpsInfo.version}` : "";
+    const pathLabel = wpsInfo.path ? ` · 路径：${wpsInfo.path}` : "";
+    return `已安装${version}${pathLabel}`;
+  }, [isOfficeInfoLoading, wpsInfo]);
 
   /** Update cached CLI status list. */
   const updateCliStatusCache = (nextStatus: CliToolStatus) => {
@@ -509,6 +535,27 @@ export function ThirdPartyTools() {
                   设置
                 </Button>
               ) : null}
+            </TenasSettingsField>
+          </div>
+        </div>
+      </TenasSettingsGroup>
+
+      <TenasSettingsGroup title="WPS" subtitle="WPS Office 安装状态">
+        <div className="divide-y divide-border">
+          <div className="flex flex-wrap items-start gap-2 py-3">
+            <div className="min-w-0 flex-1 text-sm font-medium">WPS Office</div>
+            <TenasSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-auto px-2 py-1 text-xs text-muted-foreground"
+                onClick={() => void handleCopySystemInfo(wpsStatusLabel)}
+                aria-label="复制 WPS 状态"
+                title="点击复制"
+              >
+                {wpsStatusLabel || "—"}
+              </Button>
             </TenasSettingsField>
           </div>
         </div>

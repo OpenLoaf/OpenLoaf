@@ -1,6 +1,5 @@
 import type { Context, Hono } from "hono";
 import { getCookie } from "hono/cookie";
-import type { ChatModelSource } from "@tenas-ai/api/common";
 import type { AiExecuteRequest, AiIntent, AiResponseMode } from "@/ai/services/chat/types";
 import { bootstrapAi } from "@/ai/bootstrap";
 import { logger } from "@/common/logger";
@@ -48,9 +47,8 @@ export function registerAiExecuteRoutes(app: Hono) {
     });
   };
 
-  // 中文注释：兼容旧入口并提供新的 AI SDK 风格入口。
-  app.post("/ai/execute", handleExecute);
-  app.post("/api/chat", handleExecute);
+  // 中文注释：统一使用 /ai/chat 作为 AI 入口。
+  app.post("/ai/chat", handleExecute);
 }
 
 /** Parse request payload into typed input. */
@@ -85,8 +83,6 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
       params: normalizeParams(raw.params),
       trigger: toText(raw.trigger) || undefined,
       retry: typeof raw.retry === "boolean" ? raw.retry : undefined,
-      chatModelId: toText(raw.chatModelId) || undefined,
-      chatModelSource: normalizeChatModelSource(raw.chatModelSource),
       workspaceId: toText(raw.workspaceId) || undefined,
       projectId: toText(raw.projectId) || undefined,
       boardId: toText(raw.boardId) || undefined,
@@ -94,8 +90,6 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
       intent: intent ?? "chat",
       responseMode: responseMode ?? "stream",
       toolApprovalPayloads,
-      imageModelId: toText(raw.imageModelId) || undefined,
-      videoModelId: toText(raw.videoModelId) || undefined,
     },
   };
 }
@@ -136,11 +130,6 @@ function normalizeToolApprovalPayloads(
 /** Check whether a key is safe for object assignment. */
 function isSafeKey(value: string): boolean {
   return value !== "__proto__" && value !== "prototype" && value !== "constructor";
-}
-
-/** Normalize chat model source input. */
-function normalizeChatModelSource(value: unknown): ChatModelSource | undefined {
-  return value === "cloud" ? "cloud" : value === "local" ? "local" : undefined;
 }
 
 function normalizeIntent(value: unknown): AiIntent | undefined {

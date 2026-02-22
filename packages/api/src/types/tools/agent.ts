@@ -29,6 +29,13 @@ export const spawnAgentToolDef = {
       .string()
       .optional()
       .describe('模型覆盖，格式为 "provider:modelId"（如 "openai:gpt-4o"）。留空则使用 Agent 自身配置或 Auto。'),
+    config: z
+      .object({
+        systemPrompt: z.string().optional().describe('自定义系统提示词。'),
+        toolIds: z.array(z.string()).optional().describe('工具 ID 列表。'),
+      })
+      .optional()
+      .describe('内联 agent 配置，用于创建动态自定义 agent。与 agentType 互斥。'),
   }),
   component: null,
 } as const

@@ -46,15 +46,23 @@ const TOOL_REGISTRY = {
 };
 ```
 
-### Step 4: 添加到 Agent 工具集
+### Step 4: 绑定到能力组（Capability Groups）
 
 ```typescript
-// apps/server/src/ai/agents/masterAgent/masterAgent.ts
-const MASTER_AGENT_TOOL_IDS = [
-  // ...existing
-  myToolDef.id,
-] as const;
+// apps/server/src/ai/tools/capabilityGroups.ts
+{
+  id: "my-domain",
+  label: "我的能力组",
+  description: "描述用途",
+  toolIds: [
+    // ...existing
+    myToolDef.id,
+  ],
+}
 ```
+
+如需系统 Agent 默认拥有此工具，在 `apps/server/src/ai/shared/systemAgentDefinitions.ts`
+把对应能力组 ID 加入 `capabilities`。
 
 ### Step 5: 前端渲染（可选）
 
@@ -104,8 +112,9 @@ const MASTER_AGENT_TOOL_IDS = [
 [xxxToolDef.id]: { tool: xxxTool }
 ```
 
-**Agent 可用工具**：
-- MasterAgent：`apps/server/src/ai/agents/masterAgent/masterAgent.ts` → `MASTER_AGENT_TOOL_IDS`
+**能力组 & Agent 可用工具**：
+- 能力组映射：`apps/server/src/ai/tools/capabilityGroups.ts`（把工具加入对应能力组）
+- 系统 Agent 默认能力：`apps/server/src/ai/shared/systemAgentDefinitions.ts` → `capabilities`
 - 子代理：各自文件内的工具集（仅暴露必要工具）
 
 ### 4) 前端渲染（可选）
@@ -155,7 +164,7 @@ const MASTER_AGENT_TOOL_IDS = [
 ### 7) 快速自检清单
 
 - ToolDef 已导出、`id` 唯一、`component: null`
-- toolRegistry + Agent 工具集已注册
+- toolRegistry 已注册，能力组 / 系统 Agent 能力已更新
 - 需要审批的工具：ToolDef 和 tool() 都设置 `needsApproval`
 - 前端执行工具：pendingRegistry + executor handler 已补齐
 - 控制类工具：UiEvent kind + handlers + IPC 入口齐全

@@ -98,7 +98,7 @@ export function ModelPreferencesHeader({
               ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
               : 'bg-muted/60 text-muted-foreground hover:text-foreground',
           )}
-          onClick={() => onAutoChange(!isAuto)}
+          onClick={() => onAutoChange(true)}
         >
           <Sparkles className="h-3 w-3" />
           自动

@@ -20,7 +20,7 @@ export function useHasPreferredReasoningModel(): boolean {
   const { models: cloudModels } = useCloudModels()
   const installedCliProviderIds = useInstalledCliProviderIds()
   const { basic } = useBasicConfig()
-  const { modelId: masterModelId } = useMainAgentModel()
+  const { modelIds: masterModelIds } = useMainAgentModel()
 
   const chatModelSource = normalizeChatModelSource(basic.chatSource)
 
@@ -31,24 +31,33 @@ export function useHasPreferredReasoningModel(): boolean {
       cloudModels,
       installedCliProviderIds,
     )
-    const normalizedMasterId = masterModelId.trim()
+    const normalizedIds = Array.from(
+      new Set(
+        (Array.isArray(masterModelIds) ? masterModelIds : [])
+          .map((id) => id.trim())
+          .filter((id) => id.length > 0),
+      ),
+    )
 
     // 逻辑：Auto 或未解析到当前模型时，回退检查全部模型。
-    if (!normalizedMasterId) {
+    if (normalizedIds.length === 0) {
       return chatModels.some((m) => m.tags?.includes('reasoning'))
     }
 
-    const selected = chatModels.find((m) => m.id === normalizedMasterId)
-    if (!selected) {
+    const selected = normalizedIds
+      .map((id) => chatModels.find((m) => m.id === id))
+      .filter(Boolean)
+
+    if (selected.length === 0) {
       return chatModels.some((m) => m.tags?.includes('reasoning'))
     }
 
-    return Boolean(selected.tags?.includes('reasoning'))
+    return selected.some((model) => model?.tags?.includes('reasoning'))
   }, [
     chatModelSource,
     cloudModels,
     installedCliProviderIds,
-    masterModelId,
+    masterModelIds,
     providerItems,
   ])
 }

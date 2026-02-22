@@ -9,9 +9,17 @@ import {
 import {
   resolveAgentType,
   createSubAgent,
-} from '@/ai/agents/subagent/subAgentFactory'
+} from '@/ai/services/agentFactory'
 import { buildModelMessages } from '@/ai/shared/messageConverter'
-import { appendAgentJsonlLine, readAgentJsonl } from '@/ai/services/chat/repositories/chatFileStore'
+import {
+  registerAgentDir,
+  loadMessageTree,
+  readSessionJson,
+} from '@/ai/services/chat/repositories/chatFileStore'
+import {
+  saveAgentMessage,
+  writeAgentSessionJson,
+} from '@/ai/services/chat/repositories/messageStore'
 import { logger } from '@/common/logger'
 
 export type AgentStatus =
@@ -145,6 +153,10 @@ class AgentManager {
     modelOverride?: string
     context: SpawnContext
     depth?: number
+    inlineConfig?: {
+      systemPrompt?: string
+      toolIds?: string[]
+    }
   }): string {
     const depth = input.depth ?? 0
     if (depth >= MAX_DEPTH) {
@@ -206,23 +218,28 @@ class AgentManager {
     this.setStatus(id, 'running')
 
     // 逻辑：fire-and-forget 执行，不阻塞 master agent。
-    this.scheduleExecution(id, input.agentType, input.modelOverride)
+    this.scheduleExecution(id, input.agentType, input.modelOverride, input.inlineConfig)
 
     return id
   }
 
   /** Schedule an execution, serialized via the agent's executionLock. */
-  private scheduleExecution(id: string, rawAgentType?: string, modelOverride?: string): void {
+  private scheduleExecution(
+    id: string,
+    rawAgentType?: string,
+    modelOverride?: string,
+    inlineConfig?: { systemPrompt?: string; toolIds?: string[] },
+  ): void {
     const agent = this.agents.get(id)
     if (!agent) return
     agent.executionLock = agent.executionLock
-      .then(() => this.executeAgent(id, rawAgentType, modelOverride))
+      .then(() => this.executeAgent(id, rawAgentType, modelOverride, inlineConfig))
       .catch((err) => {
         logger.error({ agentId: id, err }, '[agent-manager] scheduleExecution error')
       })
   }
 
-  /** Append a UIMessage to the agent's independent JSONL history. */
+  /** Append a UIMessage to the agent's independent history (new format: agents/<agentId>/messages.jsonl). */
   private async appendToAgentHistory(
     agent: ManagedAgent,
     message: UIMessage,
@@ -230,12 +247,21 @@ class AgentManager {
     const sessionId =
       agent.spawnContext.sessionId ?? getSessionId()
     if (!sessionId) return
+    // 跳过空 assistant 消息
+    const parts = Array.isArray(message.parts) ? message.parts : []
+    if (message.role !== 'user' && parts.length === 0) return
     try {
-      await appendAgentJsonlLine(sessionId, agent.id, {
-        id: message.id,
-        role: message.role,
-        parts: message.parts,
-        createdAt: new Date().toISOString(),
+      // 逻辑：parentMessageId 指向 agent 对话中的上一条消息，构建线性链。
+      const prevMessages = agent.messages.filter((m) => m.id !== message.id)
+      const parentMessageId = prevMessages.length > 0
+        ? prevMessages[prevMessages.length - 1]!.id
+        : null
+      await saveAgentMessage({
+        parentSessionId: sessionId,
+        agentId: agent.id,
+        message: { id: message.id, role: message.role, parts: parts as any },
+        parentMessageId,
+        createdAt: new Date(),
       })
     } catch (err) {
       logger.warn({ agentId: agent.id, err }, '[agent-manager] failed to append agent history')
@@ -243,7 +269,12 @@ class AgentManager {
   }
 
   /** Core execution loop for a sub-agent. */
-  private async executeAgent(id: string, rawAgentType?: string, modelOverride?: string): Promise<void> {
+  private async executeAgent(
+    id: string,
+    rawAgentType?: string,
+    modelOverride?: string,
+    inlineConfig?: { systemPrompt?: string; toolIds?: string[] },
+  ): Promise<void> {
     const agent = this.agents.get(id)
     if (!agent) return
 
@@ -254,19 +285,19 @@ class AgentManager {
 
     await runWithContext(spawnContext.requestContext, async () => {
       try {
-        // 逻辑：仅首次 spawn 时写入 agent-meta 和初始 user 消息，恢复场景跳过（已存在于 JSONL）。
+        // 逻辑：仅首次 spawn 时写入 agent session.json 和初始 user 消息，恢复场景跳过（已存在）。
         if (!agent.isResumed) {
           const historySessionId = spawnContext.sessionId ?? getSessionId()
           if (historySessionId) {
-            await appendAgentJsonlLine(historySessionId, agent.id, {
-              type: 'agent-meta',
+            await writeAgentSessionJson({
+              parentSessionId: historySessionId,
               agentId: agent.id,
               name: agent.name,
               task: agent.task,
-              createdAt: agent.createdAt.toISOString(),
               agentType: agentType,
+              createdAt: agent.createdAt,
             }).catch((err) => {
-              logger.warn({ agentId: id, err }, '[agent-manager] failed to write agent-meta')
+              logger.warn({ agentId: id, err }, '[agent-manager] failed to write agent session.json')
             })
             // 写入初始 user 消息
             if (agent.messages.length > 0) {
@@ -288,6 +319,7 @@ class AgentManager {
           model: spawnContext.model,
           rawAgentType,
           modelOverride,
+          inlineConfig,
         })
 
         // 逻辑：执行初始流式推理。
@@ -554,20 +586,34 @@ class AgentManager {
       return 'running'
     }
 
-    // 逻辑：内存中没有 → 从 JSONL 恢复。
+    // 逻辑：内存中没有 → 从文件恢复。
     if (!context?.sessionId) return 'not_found'
 
     try {
-      const { meta, messages: rawMessages } = await readAgentJsonl(context.sessionId, id)
-      if (!meta) return 'not_found'
+      await registerAgentDir(context.sessionId, id)
+      const tree = await loadMessageTree(id)
+      if (tree.byId.size === 0) return 'not_found'
 
-      const restoredMessages: UIMessage[] = rawMessages
-        .filter((m) => m.role && m.parts)
-        .map((m) => ({
-          id: (m.id as string) || generateId(),
-          role: m.role as UIMessage['role'],
-          parts: m.parts as UIMessage['parts'],
-        }))
+      // 从 tree 构建 restoredMessages（按 createdAt 排序）
+      const sorted = Array.from(tree.byId.values()).sort((a, b) => {
+        const ta = new Date(a.createdAt).getTime()
+        const tb = new Date(b.createdAt).getTime()
+        return ta - tb || a.id.localeCompare(b.id)
+      })
+      let restoredMessages: UIMessage[] = sorted.map((m) => ({
+        id: m.id,
+        role: m.role as UIMessage['role'],
+        parts: (Array.isArray(m.parts) ? m.parts : []) as UIMessage['parts'],
+      }))
+
+      // 读取 session.json 获取 meta
+      const sessionJson = await readSessionJson(id)
+      const meta = sessionJson ? {
+        name: sessionJson.title,
+        task: (sessionJson as any).task,
+        agentType: (sessionJson as any).agentType,
+        createdAt: sessionJson.createdAt,
+      } : { name: 'default', task: '', agentType: undefined, createdAt: undefined }
 
       // 逻辑：清理残留的 approval-requested 状态，避免 LLM 返回空响应。
       const sanitizedMessages = sanitizeRestoredMessages(restoredMessages)

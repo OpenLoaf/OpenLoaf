@@ -205,7 +205,21 @@ export const chatRouter = t.router({
    */
   getSubAgentHistory: shieldedProcedure
     .input(getSubAgentHistoryInputSchema)
-    .query(async (): Promise<{ message: ChatUIMessage | null }> => {
+    .query(async (): Promise<{
+      message: ChatUIMessage | null
+      messages: Array<{
+        id: string
+        role: string
+        parentMessageId: string | null
+        parts: any[]
+        metadata?: any
+      }>
+      agentMeta: {
+        name?: string
+        task?: string
+        agentType?: string
+      } | null
+    }> => {
       throw new Error('Not implemented: override in server chat router.')
     }),
 

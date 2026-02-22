@@ -29,9 +29,24 @@ export function ModelPreferencesPanel({
 }: ModelPreferencesPanelProps) {
   const [activeTab, setActiveTab] = useState('chat')
   const isChatTab = activeTab === 'chat'
+  const isImageTab = activeTab === 'image'
+  const isAuto =
+    isChatTab ? prefs.isAuto : isImageTab ? prefs.isImageAuto : prefs.isVideoAuto
 
   const handleCloudSourceChange = (cloud: boolean) => {
     prefs.setCloudSource(cloud ? 'cloud' : 'local')
+  }
+
+  const handleAutoChange = (auto: boolean) => {
+    if (isChatTab) {
+      prefs.setIsAuto(auto)
+      return
+    }
+    if (isImageTab) {
+      prefs.setImageAuto(auto)
+      return
+    }
+    prefs.setVideoAuto(auto)
   }
 
   const needsLogin = isChatTab ? showCloudLogin : !authLoggedIn
@@ -41,12 +56,12 @@ export function ModelPreferencesPanel({
       {/* 开关区 */}
       <ModelPreferencesHeader
         isCloudSource={prefs.isCloudSource}
-        isAuto={prefs.isAuto}
+        isAuto={isAuto}
         showCloudSwitch={isChatTab}
         showManageButton={isChatTab}
         disableAuto={needsLogin}
         onCloudSourceChange={handleCloudSourceChange}
-        onAutoChange={prefs.setIsAuto}
+        onAutoChange={handleAutoChange}
         onManageModels={() => {
           onClose()
           requestAnimationFrame(() => {

@@ -14,7 +14,7 @@ import {
   setAbortSignal,
   setUiWriter,
 } from "@/ai/shared/context/requestContext";
-import type { MasterAgentRunner } from "@/ai/agents/masterAgent/masterAgentRunner";
+import type { MasterAgentRunner } from "@/ai/services/masterAgentRunner";
 import { buildModelMessages } from "@/ai/shared/messageConverter";
 import {
   appendMessagePart,

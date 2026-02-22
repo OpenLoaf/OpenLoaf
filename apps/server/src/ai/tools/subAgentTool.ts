@@ -1,19 +1,13 @@
 import { generateId, tool, zodSchema, type UIMessage } from "ai";
 import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
 import {
-  BROWSER_SUB_AGENT_NAME,
-  createBrowserSubAgent,
-} from "@/ai/agents/subagent/browserSubAgent";
+  browserSubAgentName,
+  documentAnalysisSubAgentName,
+} from "@tenas-ai/api/types/tools/subAgent";
+import { createSubAgent, resolveAgentType } from "@/ai/services/agentFactory";
 import {
-  DOCUMENT_ANALYSIS_SUB_AGENT_NAME,
-  createDocumentAnalysisSubAgent,
-} from "@/ai/agents/subagent/documentAnalysisSubAgent";
-import {
-  TEST_APPROVAL_SUB_AGENT_NAME,
-  createTestApprovalSubAgent,
-} from "@/ai/agents/subagent/testApprovalSubAgent";
-import {
-  saveMessage,
+  saveAgentMessage,
+  writeAgentSessionJson,
 } from "@/ai/services/chat/repositories/messageStore";
 import { buildModelMessages } from "@/ai/shared/messageConverter";
 import { logger } from "@/common/logger";
@@ -51,7 +45,7 @@ function getToolCallId(value: unknown): string {
   return typeof value === "string" && value.trim() ? value.trim() : "";
 }
 
-/** Persist sub-agent history with full parts. */
+/** Persist sub-agent history using new unified storage (agents/<agentId>/ subdirectory). */
 async function saveSubAgentHistory(input: {
   sessionId: string;
   toolCallId: string;
@@ -60,14 +54,23 @@ async function saveSubAgentHistory(input: {
   task: string;
   parts: unknown[];
   createdAt: Date;
-  /** Parent message id for aligning with assistant. */
   parentMessageId?: string | null;
 }) {
-  await saveMessage({
-    sessionId: input.sessionId,
+  // 写入 session.json 元数据
+  await writeAgentSessionJson({
+    parentSessionId: input.sessionId,
+    agentId: input.toolCallId,
+    name: input.name ?? input.actionName ?? 'sub-agent',
+    task: input.task,
+    createdAt: input.createdAt,
+  });
+  // 写入 assistant 消息到 agents/<agentId>/messages.jsonl
+  await saveAgentMessage({
+    parentSessionId: input.sessionId,
+    agentId: input.toolCallId,
     message: {
       id: `subagent:${input.toolCallId}`,
-      role: "subagent" as any,
+      role: 'assistant',
       parts: input.parts,
       metadata: {
         toolCallId: input.toolCallId,
@@ -75,10 +78,9 @@ async function saveSubAgentHistory(input: {
         name: input.name,
         task: input.task,
       } satisfies SubAgentHistoryMetadata,
-    } as any,
+    },
     parentMessageId: input.parentMessageId ?? null,
     createdAt: input.createdAt,
-    allowEmpty: true,
   });
 }
 
@@ -136,14 +138,16 @@ export const subAgentTool = tool({
       throw new Error("chat model is not available.");
     }
 
+    const BROWSER_SUB_AGENT_NAME = browserSubAgentName
+    const DOCUMENT_ANALYSIS_SUB_AGENT_NAME = documentAnalysisSubAgentName
+
     if (
       name !== BROWSER_SUB_AGENT_NAME &&
-      name !== DOCUMENT_ANALYSIS_SUB_AGENT_NAME &&
-      name !== TEST_APPROVAL_SUB_AGENT_NAME
+      name !== DOCUMENT_ANALYSIS_SUB_AGENT_NAME
     ) {
       // 逻辑：仅允许已注册的子Agent，避免未知子Agent执行。
       throw new Error(
-        `unsupported sub-agent: ${name}. only ${BROWSER_SUB_AGENT_NAME}, ${DOCUMENT_ANALYSIS_SUB_AGENT_NAME} and ${TEST_APPROVAL_SUB_AGENT_NAME} are allowed.`,
+        `unsupported sub-agent: ${name}. only ${BROWSER_SUB_AGENT_NAME} and ${DOCUMENT_ANALYSIS_SUB_AGENT_NAME} are allowed.`,
       );
     }
 
@@ -173,13 +177,18 @@ export const subAgentTool = tool({
       } as any);
     }
 
-    // 逻辑：按名称选择子Agent实例，保持工具集合最小化。
-    const agent =
-      name === DOCUMENT_ANALYSIS_SUB_AGENT_NAME
-        ? createDocumentAnalysisSubAgent({ model })
-        : name === TEST_APPROVAL_SUB_AGENT_NAME
-          ? createTestApprovalSubAgent({ model })
-          : createBrowserSubAgent({ model });
+    // 逻辑：通过统一工厂按名称映射创建子Agent。
+    const legacyNameMap: Record<string, string> = {
+      [DOCUMENT_ANALYSIS_SUB_AGENT_NAME]: 'document',
+      [BROWSER_SUB_AGENT_NAME]: 'browser',
+    }
+    const mappedType = legacyNameMap[name ?? ''] ?? 'browser'
+    const agentType = resolveAgentType(mappedType)
+    const agent = createSubAgent({
+      agentType,
+      model,
+      rawAgentType: mappedType,
+    })
     const subAgentMessages = buildSubAgentMessages({ task }) as unknown as UIMessage[];
 
     let outputText = "";

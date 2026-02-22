@@ -39,9 +39,9 @@ export type ChatImageRequest = {
   trigger?: string;
   /** Retry flag. */
   retry?: boolean;
-  /** Image model id. */
-  chatModelId: string;
-  /** Model source. */
+  /** Image model id (optional, resolved from agent config). */
+  chatModelId?: string;
+  /** Model source (optional, resolved from agent config). */
   chatModelSource?: ChatModelSource;
   /** Workspace id. */
   workspaceId?: string;

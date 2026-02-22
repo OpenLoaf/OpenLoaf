@@ -138,6 +138,7 @@ packages/api/src/types/tools/    ← 前后端共享工具类型定义 (ToolDef)
 | `message/tools/` 新增或修改工具卡片 | chat-frontend.md |
 | `hooks/` 新增或修改 hooks | chat-frontend.md |
 | `tools/toolRegistry.ts` 工具注册变更 | ai-backend.md, fullstack-patterns.md |
+| `tools/capabilityGroups.ts` 能力组变更 | ai-backend.md, fullstack-patterns.md |
 | `agents/masterAgent/` Agent 配置变更 | ai-backend.md |
 | `agents/subagent/` 新增或修改子代理 | ai-backend.md, fullstack-patterns.md |
 | `shared/context/requestContext.ts` 上下文字段变更 | ai-backend.md |

@@ -91,7 +91,7 @@ export function ModelSelectionTooltip({
                 className="flex items-center gap-1.5 opacity-80"
               >
                 <ModelIcon
-                  icon={m.familyId ?? m.id}
+                  icon={m.familyId ?? m.providerId ?? m.id}
                   model={m.id}
                   size={12}
                   className="h-3 w-3 shrink-0"
@@ -115,7 +115,7 @@ export function ModelSelectionTooltip({
                 className="flex items-center gap-1.5 opacity-80"
               >
                 <ModelIcon
-                  icon={m.familyId ?? m.id}
+                  icon={m.familyId ?? m.providerId ?? m.id}
                   model={m.id}
                   size={12}
                   className="h-3 w-3 shrink-0"

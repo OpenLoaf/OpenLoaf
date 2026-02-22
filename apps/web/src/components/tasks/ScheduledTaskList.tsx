@@ -13,7 +13,6 @@ import {
 } from '@tenas-ai/ui/table'
 import { Button } from '@tenas-ai/ui/button'
 import { Switch } from '@tenas-ai/ui/switch'
-import { Badge } from '@tenas-ai/ui/badge'
 import {
   Clock,
   FileText,
@@ -33,7 +32,7 @@ import {
 } from '@tenas-ai/ui/dropdown-menu'
 import { ScheduledTaskDialog } from './ScheduledTaskDialog'
 import { TaskRunLogPanel } from './TaskRunLogPanel'
-import { FilterTab } from '@tenas-ai/ui/filter-tab'
+import { Tabs, TabsList, TabsTrigger } from '@tenas-ai/ui/tabs'
 
 type TaskConfig = {
   id: string
@@ -68,7 +67,7 @@ type TaskConfig = {
   filePath: string
 }
 
-type FilterTab = 'all' | 'scheduled' | 'condition'
+type TaskFilter = 'all' | 'scheduled' | 'condition'
 
 type ScheduledTaskListProps = {
   workspaceId: string
@@ -133,15 +132,6 @@ function formatCronLabel(expr: string): string {
   return expr
 }
 
-function statusPill(status: string | null | undefined): { label: string; bg: string; fg: string } {
-  switch (status) {
-    case 'ok': return { label: '成功', bg: 'bg-emerald-50 dark:bg-emerald-950/40', fg: 'text-emerald-600 dark:text-emerald-400' }
-    case 'error': return { label: '失败', bg: 'bg-rose-50 dark:bg-rose-950/40', fg: 'text-rose-600 dark:text-rose-400' }
-    case 'skipped': return { label: '跳过', bg: 'bg-amber-50 dark:bg-amber-950/40', fg: 'text-amber-600 dark:text-amber-400' }
-    default: return { label: '-', bg: '', fg: 'text-muted-foreground' }
-  }
-}
-
 function formatTime(date: string | null | undefined): string {
   if (!date) return '-'
   const d = new Date(date)
@@ -149,14 +139,38 @@ function formatTime(date: string | null | undefined): string {
   return d.toLocaleString()
 }
 
+function formatType(task: TaskConfig): { label: string; icon: typeof Clock } {
+  if (task.triggerMode === 'condition') return { label: '条件', icon: Zap }
+  return { label: '定时', icon: Clock }
+}
+
+function formatStatusLine(status: string | null | undefined, lastRunAt: string | null | undefined): string {
+  const labelMap: Record<string, string> = {
+    ok: '成功',
+    error: '失败',
+    skipped: '跳过',
+  }
+  const label = labelMap[status ?? ''] ?? '未运行'
+  const time = lastRunAt ? formatTime(lastRunAt) : ''
+  return time ? `${label} · ${time}` : label
+}
+
+function statusClass(status: string | null | undefined): string {
+  switch (status) {
+    case 'ok': return 'text-emerald-600 dark:text-emerald-400'
+    case 'error': return 'text-rose-600 dark:text-rose-400'
+    case 'skipped': return 'text-amber-600 dark:text-amber-400'
+    default: return 'text-muted-foreground'
+  }
+}
+
 export const ScheduledTaskList = memo(function ScheduledTaskList({
   workspaceId,
   projectId,
-  showProjectColumn = false,
 }: ScheduledTaskListProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<TaskConfig | null>(null)
-  const [filterTab, setFilterTab] = useState<FilterTab>('all')
+  const [filterTab, setFilterTab] = useState<TaskFilter>('all')
   const [logTaskId, setLogTaskId] = useState<string | null>(null)
 
   const queryClient = useQueryClient()
@@ -224,7 +238,7 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
     invalidateList()
   }, [invalidateList])
 
-  const colSpan = 5
+  const colSpan = 7
 
   return (
     <div className="flex flex-col gap-4">
@@ -246,29 +260,25 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
 
       {/* Tabs */}
       <div className="flex items-center justify-between">
-        <div className="flex w-fit rounded-full border border-border/40 bg-muted/30 p-1">
-          <FilterTab
-            text="全部"
-            selected={filterTab === 'all'}
-            onSelect={() => setFilterTab('all')}
-            icon={<Layers className="h-3.5 w-3.5 text-violet-500" />}
-            count={allTasks.length}
-          />
-          <FilterTab
-            text="定时"
-            selected={filterTab === 'scheduled'}
-            onSelect={() => setFilterTab('scheduled')}
-            icon={<Clock className="h-3.5 w-3.5 text-blue-500" />}
-            count={scheduledCount}
-          />
-          <FilterTab
-            text="条件"
-            selected={filterTab === 'condition'}
-            onSelect={() => setFilterTab('condition')}
-            icon={<Zap className="h-3.5 w-3.5 text-amber-500" />}
-            count={conditionCount}
-          />
-        </div>
+        <Tabs value={filterTab} onValueChange={(value) => setFilterTab(value as TaskFilter)}>
+          <TabsList className="h-8 w-max rounded-full border border-border/40 bg-muted/30 p-1">
+            <TabsTrigger value="all" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
+              <Layers className="mr-1 h-3.5 w-3.5 text-violet-500" />
+              全部
+              <span className="ml-1 text-[10px] text-muted-foreground">{allTasks.length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="scheduled" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
+              <Clock className="mr-1 h-3.5 w-3.5 text-blue-500" />
+              定时
+              <span className="ml-1 text-[10px] text-muted-foreground">{scheduledCount}</span>
+            </TabsTrigger>
+            <TabsTrigger value="condition" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
+              <Zap className="mr-1 h-3.5 w-3.5 text-amber-500" />
+              条件
+              <span className="ml-1 text-[10px] text-muted-foreground">{conditionCount}</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Table */}
@@ -277,8 +287,10 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
           <TableHeader>
             <TableRow className="bg-muted/20 hover:bg-muted/20">
               <TableHead className="w-[220px] text-[12px] font-medium text-muted-foreground">任务</TableHead>
+              <TableHead className="w-[90px] text-[12px] font-medium text-muted-foreground">类型</TableHead>
               <TableHead className="text-[12px] font-medium text-muted-foreground">触发</TableHead>
               <TableHead className="text-[12px] font-medium text-muted-foreground">指令</TableHead>
+              <TableHead className="w-[110px] text-[12px] font-medium text-muted-foreground">范围</TableHead>
               <TableHead className="text-[12px] font-medium text-muted-foreground">状态</TableHead>
               <TableHead className="w-[180px]" />
             </TableRow>
@@ -298,9 +310,10 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
               </TableRow>
             ) : (
               tasks.map((task) => {
-                const status = statusPill(task.lastStatus)
+                const type = formatType(task)
                 const trigger = formatTrigger(task)
                 const TriggerIcon = trigger.icon
+                const TypeIcon = type.icon
                 const instruction = typeof task.payload?.message === 'string' ? task.payload.message : ''
                 return (
                   <TableRow key={task.id} className="hover:bg-muted/20">
@@ -317,13 +330,18 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
                           </div>
                           <div className="mt-1 text-[11px] text-muted-foreground">
                             {task.agentName ? `Agent：${task.agentName}` : 'Agent：默认'}
-                            {showProjectColumn ? ` · Tab：${task.scope === 'project' ? '项目' : '工作区'}` : ''}
                           </div>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                      <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground whitespace-nowrap">
+                        <TypeIcon className="h-3 w-3 text-muted-foreground/60" />
+                        {type.label}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground whitespace-nowrap">
                         <TriggerIcon className="h-3 w-3 text-muted-foreground/60" />
                         {trigger.label}
                       </div>
@@ -338,16 +356,14 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-col gap-1">
-                        {status.label !== '-' ? (
-                          <Badge variant="secondary" className={`${status.bg} ${status.fg}`}>
-                            {status.label}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-muted-foreground/60">未运行</Badge>
-                        )}
-                        <span className="text-[11px] text-muted-foreground">{formatTime(task.lastRunAt)}</span>
-                      </div>
+                      <span className="text-[12px] text-muted-foreground whitespace-nowrap">
+                        {task.scope === 'project' ? '项目' : '工作区'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`text-[12px] whitespace-nowrap ${statusClass(task.lastStatus)}`}>
+                        {formatStatusLine(task.lastStatus, task.lastRunAt)}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-2">

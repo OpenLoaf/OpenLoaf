@@ -1,4 +1,4 @@
-# Chat 流程（/ai/execute）
+# Chat 流程（/ai/chat）
 
 范围：
 
@@ -7,9 +7,9 @@
 * `apps/server/src/ai/services/chat/*`
 * `apps/server/src/ai/shared/*`
 
-本文档描述统一入口 `/ai/execute` 的完整链路（命令、技能、聊天流与图片请求）。
+本文档描述统一入口 `/ai/chat` 的完整链路（命令、技能、聊天流与图片请求）。
 
-## /ai/execute（统一入口）
+## /ai/chat（统一入口）
 
 核心参数：
 
@@ -82,7 +82,7 @@
 
 ## 图片生成子流程（共享）
 
-该流程用于聊天图片分支（`/chat/sse` 或 `/ai/execute` intent=image）：
+该流程用于聊天图片分支（`/chat/sse` 或 `/ai/chat` intent=image）：
 
 * 从最后一条 user 消息解析提示词（文本 + 图片 + 可选 mask）。
 

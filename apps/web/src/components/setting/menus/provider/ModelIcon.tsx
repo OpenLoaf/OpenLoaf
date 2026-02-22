@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import LobeModelIcon from '@lobehub/icons/es/features/ModelIcon'
 import ProviderIcon from '@lobehub/icons/es/features/ProviderIcon'
 import { modelMappings } from '@lobehub/icons/es/features/modelConfig'
+import { Jimeng } from '@lobehub/icons'
 
 type ModelIconProps = {
   /** Provider or family id for fallback icon. */
@@ -18,6 +19,17 @@ type ModelIconProps = {
   fallbackSrc?: string
   /** @deprecated No longer used, kept for call-site compat. */
   fallbackAlt?: string
+}
+
+const DIRECT_ICON_MAP: Record<string, React.ComponentType<any>> = {
+  jimeng: Jimeng,
+}
+
+function resolveDirectIcon(icon?: string | null) {
+  if (!icon) return undefined
+  const key = icon.trim()
+  if (!key) return undefined
+  return DIRECT_ICON_MAP[key] ?? DIRECT_ICON_MAP[key.toLowerCase()]
 }
 
 /** Check whether model id matches modelMappings (regex). */
@@ -44,6 +56,7 @@ export function ModelIcon({
     () => (model ? hasModelIcon(model) : false),
     [model],
   )
+  const directIcon = useMemo(() => resolveDirectIcon(icon), [icon])
 
   // 1. model id 命中 modelMappings
   if (matchModel && model) {
@@ -55,6 +68,12 @@ export function ModelIcon({
         className={className}
       />
     )
+  }
+
+  // 1.5 icon 命中直连图标（如 Jimeng）
+  if (directIcon) {
+    const Direct = (directIcon as any).Color ?? directIcon
+    return <Direct size={size} className={className} />
   }
 
   // 2 & 3. provider icon 或默认图标。

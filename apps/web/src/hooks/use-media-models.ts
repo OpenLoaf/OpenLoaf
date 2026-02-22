@@ -52,12 +52,19 @@ type ParsedMediaModelPayload = {
 
 type MediaModelWithDisplayName = AiModel & {
   displayName?: string;
+  provider?: string;
 };
 
 /** Normalize media model list for UI display. */
 function normalizeMediaModels(models: AiModel[]): AiModel[] {
   return models.map((item) => {
     const model = item as MediaModelWithDisplayName;
+    const providerId =
+      typeof model.providerId === "string" && model.providerId.trim()
+        ? model.providerId
+        : typeof model.provider === "string" && model.provider.trim()
+          ? model.provider
+          : undefined;
     const normalizedName =
       typeof model.name === "string" && model.name.trim()
         ? model.name
@@ -65,7 +72,7 @@ function normalizeMediaModels(models: AiModel[]): AiModel[] {
           ? model.displayName
           : item.id;
     // 逻辑：优先保留 SDK 标准 name；当 SaaS 仅返回 displayName 时回填，避免界面退化为 id。
-    return { ...item, name: normalizedName };
+    return { ...item, name: normalizedName, providerId };
   });
 }
 

@@ -4,6 +4,8 @@
  * 每个能力组包含一组相关的工具 ID，Agent 通过勾选能力组来获得对应工具。
  */
 
+import { resolveToolCatalogItem, type ToolCatalogItem } from "@tenas-ai/api/types/tools/toolCatalog";
+
 export type CapabilityGroup = {
   /** 能力组 ID。 */
   id: string
@@ -13,9 +15,11 @@ export type CapabilityGroup = {
   description: string
   /** 包含的工具 ID 列表。 */
   toolIds: readonly string[]
+  /** 工具元数据列表。 */
+  tools: ToolCatalogItem[]
 }
 
-export const CAPABILITY_GROUPS: CapabilityGroup[] = [
+const RAW_CAPABILITY_GROUPS = [
   {
     id: 'browser',
     label: '浏览器操作',
@@ -63,6 +67,12 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     label: '日历',
     description: '查询和操作日历事件',
     toolIds: ['calendar-query', 'calendar-mutate'],
+  },
+  {
+    id: 'office',
+    label: 'Office 文档',
+    description: '打开并控制 WPS / Microsoft Office 进行文档编辑',
+    toolIds: ['office-execute'],
   },
   {
     id: 'image-generate',
@@ -125,10 +135,17 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
       'time-now',
       'json-render',
       'update-plan',
-      'test-approval',
     ],
   },
 ]
+
+// 中文注释：按工具 ID 生成显示元信息，避免前端重复维护。
+export const CAPABILITY_GROUPS: CapabilityGroup[] = RAW_CAPABILITY_GROUPS.map(
+  (group) => ({
+    ...group,
+    tools: group.toolIds.map((toolId) => resolveToolCatalogItem(toolId)),
+  }),
+)
 
 /** 能力组 ID → CapabilityGroup 映射。 */
 const CAPABILITY_GROUP_MAP = new Map(
