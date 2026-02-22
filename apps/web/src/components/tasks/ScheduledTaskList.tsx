@@ -13,6 +13,7 @@ import {
 } from '@tenas-ai/ui/table'
 import { Button } from '@tenas-ai/ui/button'
 import { Switch } from '@tenas-ai/ui/switch'
+import { Badge } from '@tenas-ai/ui/badge'
 import {
   Clock,
   FileText,
@@ -37,7 +38,6 @@ import { FilterTab } from '@tenas-ai/ui/filter-tab'
 type TaskConfig = {
   id: string
   name: string
-  description?: string
   agentName?: string
   enabled: boolean
   triggerMode: string
@@ -53,7 +53,6 @@ type TaskConfig = {
     preFilter?: Record<string, unknown>
     rule?: string
   }
-  taskType: string
   payload?: Record<string, unknown>
   sessionMode: string
   timeoutMs: number
@@ -99,18 +98,39 @@ function formatTrigger(task: TaskConfig): { label: string; icon: typeof Clock } 
     return { label: `每 ${Math.round(hours / 24)} 天`, icon: Clock }
   }
   if (schedule.type === 'cron' && schedule.cronExpr) {
-    return { label: schedule.cronExpr, icon: Clock }
+    return { label: formatCronLabel(schedule.cronExpr), icon: Clock }
   }
   return { label: schedule.type, icon: Clock }
 }
 
-function formatTaskType(type: string): string {
-  switch (type) {
-    case 'chat': return '对话'
-    case 'summary': return '汇总'
-    case 'custom': return '自定义'
-    default: return type
+function formatCronLabel(expr: string): string {
+  const parts = expr.trim().split(/\s+/)
+  if (parts.length < 5) return expr
+  const [minuteRaw, hourRaw, dom, , dow] = parts
+  const minute = Number(minuteRaw)
+  const hour = Number(hourRaw)
+  if (Number.isNaN(minute) || Number.isNaN(hour)) return expr
+  const time = `${`${hour}`.padStart(2, '0')}:${`${minute}`.padStart(2, '0')}`
+  if (dom === '*' && dow === '*') {
+    return `每天 ${time}`
   }
+  if (dom === '*' && /^\d+$/.test(dow ?? '')) {
+    const labelMap: Record<string, string> = {
+      '0': '周日',
+      '1': '周一',
+      '2': '周二',
+      '3': '周三',
+      '4': '周四',
+      '5': '周五',
+      '6': '周六',
+      '7': '周日',
+    }
+    return `每${labelMap[dow] ?? '周'} ${time}`
+  }
+  if (/^\d+$/.test(dom ?? '') && dow === '*') {
+    return `每月${dom}日 ${time}`
+  }
+  return expr
 }
 
 function statusPill(status: string | null | undefined): { label: string; bg: string; fg: string } {
@@ -166,19 +186,25 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
   )
 
   const handleToggleEnabled = useCallback(
-    (task: TaskConfig) => { updateMutation.mutate({ id: task.id, enabled: !task.enabled }) },
-    [updateMutation],
+    (task: TaskConfig) => {
+      updateMutation.mutate({
+        id: task.id,
+        enabled: !task.enabled,
+        projectId: projectId || undefined,
+      })
+    },
+    [updateMutation, projectId],
   )
   const handleDelete = useCallback(
     (task: TaskConfig) => {
       if (!window.confirm(`确定删除任务「${task.name}」？`)) return
-      deleteMutation.mutate({ id: task.id })
+      deleteMutation.mutate({ id: task.id, projectId: projectId || undefined })
     },
-    [deleteMutation],
+    [deleteMutation, projectId],
   )
   const handleRun = useCallback(
-    (task: TaskConfig) => { runMutation.mutate({ id: task.id }) },
-    [runMutation],
+    (task: TaskConfig) => { runMutation.mutate({ id: task.id, projectId: projectId || undefined }) },
+    [runMutation, projectId],
   )
   const handleEdit = useCallback((task: TaskConfig) => {
     setEditingTask(task)
@@ -198,13 +224,29 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
     invalidateList()
   }, [invalidateList])
 
-  const colSpan = (showProjectColumn ? 8 : 7)
+  const colSpan = 5
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Tabs + 新建按钮 */}
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex w-fit rounded-full bg-muted/60 p-1 dark:bg-muted/40">
+        <div className="flex flex-col">
+          <span className="text-[15px] font-semibold">自动任务</span>
+          <span className="text-[12px] text-muted-foreground">按计划或条件触发，向 Agent 发送指令。</span>
+        </div>
+        <Button
+          size="sm"
+          className="h-8 rounded-full bg-[var(--btn-primary-bg,#0b57d0)] text-white shadow-none hover:bg-[var(--btn-primary-bg-hover,#0a4cbc)] dark:bg-sky-600 dark:hover:bg-sky-500"
+          onClick={handleCreate}
+        >
+          <Plus className="mr-1 h-3.5 w-3.5" />
+          新建
+        </Button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center justify-between">
+        <div className="flex w-fit rounded-full border border-border/40 bg-muted/30 p-1">
           <FilterTab
             text="全部"
             selected={filterTab === 'all'}
@@ -227,45 +269,31 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
             count={conditionCount}
           />
         </div>
-        <Button
-          size="sm"
-          className="h-8 rounded-lg bg-blue-500 text-white shadow-none hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500"
-          onClick={handleCreate}
-        >
-          <Plus className="mr-1 h-3.5 w-3.5" />
-          新建
-        </Button>
       </div>
 
-      {/* 表格 */}
-      <div className="rounded-xl border border-border/60 overflow-hidden">
+      {/* Table */}
+      <div className="rounded-2xl border border-border/40 overflow-hidden bg-background">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/30 hover:bg-muted/30">
-              <TableHead className="w-[200px] text-xs font-medium text-muted-foreground">名称</TableHead>
-              <TableHead className="text-xs font-medium text-muted-foreground">触发方式</TableHead>
-              <TableHead className="text-xs font-medium text-muted-foreground">类型</TableHead>
-              <TableHead className="text-xs font-medium text-muted-foreground">Agent</TableHead>
-              {showProjectColumn ? <TableHead className="text-xs font-medium text-muted-foreground">作用域</TableHead> : null}
-              <TableHead className="text-xs font-medium text-muted-foreground">状态</TableHead>
-              <TableHead className="text-xs font-medium text-muted-foreground">上次执行</TableHead>
-              <TableHead className="w-[60px]" />
+            <TableRow className="bg-muted/20 hover:bg-muted/20">
+              <TableHead className="w-[220px] text-[12px] font-medium text-muted-foreground">任务</TableHead>
+              <TableHead className="text-[12px] font-medium text-muted-foreground">触发</TableHead>
+              <TableHead className="text-[12px] font-medium text-muted-foreground">指令</TableHead>
+              <TableHead className="text-[12px] font-medium text-muted-foreground">状态</TableHead>
+              <TableHead className="w-[180px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {listQuery.isLoading ? (
               <TableRow>
-                <TableCell colSpan={colSpan} className="py-12 text-center text-xs text-muted-foreground">
+                <TableCell colSpan={colSpan} className="py-10 text-center text-xs text-muted-foreground">
                   加载中...
                 </TableCell>
               </TableRow>
             ) : tasks.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={colSpan} className="py-12 text-center">
-                  <div className="flex flex-col items-center gap-1.5">
-                    <Zap className="h-8 w-8 text-muted-foreground/30" />
-                    <span className="text-xs text-muted-foreground">暂无自动任务</span>
-                  </div>
+                <TableCell colSpan={colSpan} className="py-10 text-center text-xs text-muted-foreground">
+                  暂无自动任务
                 </TableCell>
               </TableRow>
             ) : (
@@ -273,81 +301,92 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
                 const status = statusPill(task.lastStatus)
                 const trigger = formatTrigger(task)
                 const TriggerIcon = trigger.icon
+                const instruction = typeof task.payload?.message === 'string' ? task.payload.message : ''
                 return (
-                  <TableRow key={task.id} className="group">
+                  <TableRow key={task.id} className="hover:bg-muted/20">
                     <TableCell>
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-start gap-2.5">
                         <Switch
                           checked={task.enabled}
                           onCheckedChange={() => handleToggleEnabled(task)}
-                          className="scale-[0.7] data-[state=checked]:bg-emerald-500"
+                          className="mt-0.5 scale-[0.75] data-[state=checked]:bg-emerald-500"
                         />
-                        <span className={`text-[13px] font-medium ${task.enabled ? 'text-foreground' : 'text-muted-foreground line-through'}`}>
-                          {task.name}
-                        </span>
+                        <div>
+                          <div className={`text-[13px] font-medium ${task.enabled ? 'text-foreground' : 'text-muted-foreground line-through'}`}>
+                            {task.name}
+                          </div>
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            {task.agentName ? `Agent：${task.agentName}` : 'Agent：默认'}
+                            {showProjectColumn ? ` · Tab：${task.scope === 'project' ? '项目' : '工作区'}` : ''}
+                          </div>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
                         <TriggerIcon className="h-3 w-3 text-muted-foreground/60" />
-                        <span className="text-xs text-muted-foreground">{trigger.label}</span>
+                        {trigger.label}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="inline-flex items-center rounded-md bg-secondary/50 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                        {formatTaskType(task.taskType)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {task.agentName || <span className="text-muted-foreground/40">-</span>}
-                    </TableCell>
-                    {showProjectColumn ? (
-                      <TableCell className="text-xs text-muted-foreground">
-                        {task.scope === 'project' ? '项目' : '工作空间'}
-                      </TableCell>
-                    ) : null}
-                    <TableCell>
-                      {status.label !== '-' ? (
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${status.bg} ${status.fg}`}>
-                          {status.label}
+                      {instruction ? (
+                        <span className="block max-w-[260px] truncate text-[12px] text-muted-foreground" title={instruction}>
+                          {instruction}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground/40">-</span>
+                        <span className="text-[12px] text-muted-foreground/40">未设置</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatTime(task.lastRunAt)}
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        {status.label !== '-' ? (
+                          <Badge variant="secondary" className={`${status.bg} ${status.fg}`}>
+                            {status.label}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground/60">未运行</Badge>
+                        )}
+                        <span className="text-[11px] text-muted-foreground">{formatTime(task.lastRunAt)}</span>
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-36 rounded-xl">
-                          <DropdownMenuItem onClick={() => handleRun(task)} className="rounded-lg text-xs">
-                            <Play className="mr-2 h-3.5 w-3.5 text-blue-500" />
-                            立即运行
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEdit(task)} className="rounded-lg text-xs">
-                            <Pencil className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                            编辑
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setLogTaskId(task.id)} className="rounded-lg text-xs">
-                            <FileText className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                            执行日志
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDelete(task)} className="rounded-lg text-xs text-rose-500 focus:text-rose-500">
-                            <Trash2 className="mr-2 h-3.5 w-3.5" />
-                            删除
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full"
+                          onClick={() => handleRun(task)}
+                        >
+                          <Play className="h-3.5 w-3.5" />
+                          运行
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="rounded-full"
+                          onClick={() => handleEdit(task)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          编辑
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-36 rounded-xl">
+                            <DropdownMenuItem onClick={() => setLogTaskId(task.id)} className="rounded-lg text-xs">
+                              <FileText className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                              执行日志
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDelete(task)} className="rounded-lg text-xs text-rose-500 focus:text-rose-500">
+                              <Trash2 className="mr-2 h-3.5 w-3.5" />
+                              删除
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )

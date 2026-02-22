@@ -65,10 +65,16 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     toolIds: ['calendar-query', 'calendar-mutate'],
   },
   {
-    id: 'media',
-    label: '媒体生成',
-    description: '生成图片和视频',
-    toolIds: ['image-generate', 'video-generate'],
+    id: 'image-generate',
+    label: '图片生成',
+    description: '生成图片内容',
+    toolIds: ['image-generate'],
+  },
+  {
+    id: 'video-generate',
+    label: '视频生成',
+    description: '生成视频内容',
+    toolIds: ['video-generate'],
   },
   {
     id: 'widget',

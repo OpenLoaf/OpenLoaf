@@ -35,6 +35,10 @@ export class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .mutation(async ({ input }) => {
           const workspaceRoot = getWorkspaceRootPath()
           const scope = input.scope ?? (input.projectId ? 'project' : 'workspace')
+          // 逻辑：项目范围必须指定 projectId，避免任务落到错误目录。
+          if (scope === 'project' && !input.projectId) {
+            throw new Error('Project scope requires projectId')
+          }
           const rootPath = scope === 'project' && input.projectId
             ? getProjectRootPath(input.projectId, input.workspaceId) ?? workspaceRoot
             : workspaceRoot
@@ -42,13 +46,11 @@ export class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
           const task = createTask(
             {
               name: input.name,
-              description: input.description,
               agentName: input.agentName,
               enabled: input.enabled ?? true,
               triggerMode: input.triggerMode,
               schedule: input.schedule,
               condition: input.condition,
-              taskType: input.taskType,
               payload: input.payload,
               sessionMode: input.sessionMode ?? 'isolated',
               timeoutMs: input.timeoutMs ?? 600000,
@@ -64,8 +66,10 @@ export class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .output(scheduledTaskSchemas.update.output)
         .mutation(async ({ input }) => {
           const workspaceRoot = getWorkspaceRootPath()
-          const { id, ...patch } = input
-          const task = updateTask(id, patch, workspaceRoot)
+          const { id, projectId, ...patch } = input
+          // 逻辑：指定 projectId 时在项目范围内更新任务。
+          const projectRoot = projectId ? getProjectRootPath(projectId) : null
+          const task = updateTask(id, patch, workspaceRoot, projectRoot)
           if (!task) throw new Error(`Task not found: ${id}`)
           return task
         }),
@@ -75,14 +79,18 @@ export class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .mutation(async ({ input }) => {
           const workspaceRoot = getWorkspaceRootPath()
           taskScheduler.unregisterTask(input.id)
-          const ok = deleteTask(input.id, workspaceRoot)
+          // 逻辑：指定 projectId 时在项目范围内删除任务。
+          const projectRoot = input.projectId ? getProjectRootPath(input.projectId) : null
+          const ok = deleteTask(input.id, workspaceRoot, projectRoot)
           return { ok }
         }),
       run: shieldedProcedure
         .input(scheduledTaskSchemas.run.input)
         .output(scheduledTaskSchemas.run.output)
         .mutation(async ({ input }) => {
-          await taskScheduler.runTaskNow(input.id)
+          // 逻辑：指定 projectId 时在项目范围内执行任务。
+          const projectRoot = input.projectId ? getProjectRootPath(input.projectId) : null
+          await taskScheduler.runTaskNow(input.id, projectRoot)
           return { ok: true }
         }),
       runLogs: shieldedProcedure

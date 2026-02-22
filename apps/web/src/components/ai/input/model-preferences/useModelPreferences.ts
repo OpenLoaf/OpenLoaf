@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useSettingsValues } from '@/hooks/use-settings'
 import { useBasicConfig } from '@/hooks/use-basic-config'
 import {
@@ -16,20 +16,7 @@ import {
   buildChatModelOptions,
   normalizeChatModelSource,
 } from '@/lib/provider-models'
-import {
-  areStoredSelectionsEqual,
-  CHAT_MODEL_SELECTION_EVENT,
-  CHAT_MODEL_SELECTION_TAB_PARAMS_KEY,
-  MODEL_SELECTION_STORAGE_KEY,
-  type ModelSourceKey,
-  type StoredModelSelections,
-  type MediaModelSelection,
-  normalizeStoredSelections,
-  readStoredSelections,
-  writeStoredSelections,
-  notifyChatModelSelectionChange,
-  createDefaultMediaModelSelection,
-} from '../chat-model-selection-storage'
+import { useMainAgentModel } from '../../hooks/use-main-agent-model'
 import { useOptionalChatSession } from '../../context'
 
 export function useModelPreferences() {
@@ -53,38 +40,18 @@ export function useModelPreferences() {
   const { loggedIn: authLoggedIn, refreshSession } = useSaasAuth()
   const chatSession = useOptionalChatSession()
   const activeTabId = useTabs((s) => s.activeTabId)
-  const setTabChatParams = useTabs((s) => s.setTabChatParams)
   const pushStackItem = useTabRuntime((s) => s.pushStackItem)
-
-  const tabStoredSelectionsRaw = useTabs((state) => {
-    const targetTabId = chatSession?.tabId ?? state.activeTabId
-    if (!targetTabId) return undefined
-    const tab = state.tabs.find((item) => item.id === targetTabId)
-    return (tab?.chatParams as Record<string, unknown> | undefined)?.[
-      CHAT_MODEL_SELECTION_TAB_PARAMS_KEY
-    ]
-  })
-  const tabStoredSelections = useMemo(
-    () => normalizeStoredSelections(tabStoredSelectionsRaw),
-    [tabStoredSelectionsRaw],
-  )
+  const {
+    modelId: masterModelId,
+    detail: masterDetail,
+    setModelId,
+    setImageModelId,
+    setVideoModelId,
+  } = useMainAgentModel()
 
   const tabId = chatSession?.tabId ?? activeTabId
-  const modelSelectionMemoryScope: 'tab' | 'global' =
-    basic.chatOnlineSearchMemoryScope === 'global' ? 'global' : 'tab'
   const chatModelSource = normalizeChatModelSource(basic.chatSource)
   const isCloudSource = chatModelSource === 'cloud'
-  const sourceKey: ModelSourceKey = isCloudSource ? 'cloud' : 'local'
-
-  const [globalStoredSelections, setGlobalStoredSelections] =
-    useState<StoredModelSelections>(() => readStoredSelections())
-  const modelSelectionScopeRef = useRef<'tab' | 'global'>(
-    modelSelectionMemoryScope,
-  )
-  const storedSelections =
-    modelSelectionMemoryScope === 'tab' && tabId
-      ? tabStoredSelections
-      : globalStoredSelections
 
   const chatModels = useMemo(
     () =>
@@ -96,37 +63,23 @@ export function useModelPreferences() {
       ),
     [chatModelSource, providerItems, cloudModels, installedCliProviderIds],
   )
+  const normalizedMasterId = masterModelId.trim()
+  const isAuto = !normalizedMasterId
 
-  const currentSelection = storedSelections[sourceKey] ?? {
-    lastModelId: '',
-    isAuto: true,
-  }
-  const isAuto = currentSelection.isAuto
-
-  // 逻辑：偏好列表 fallback 到 lastModelId（向后兼容）
   const preferredChatIds = useMemo(
-    () =>
-      currentSelection.preferredModelIds ??
-      (currentSelection.lastModelId
-        ? [currentSelection.lastModelId]
-        : []),
-    [currentSelection.preferredModelIds, currentSelection.lastModelId],
+    () => (normalizedMasterId ? [normalizedMasterId] : []),
+    [normalizedMasterId],
   )
 
-  const mediaSelection =
-    storedSelections.media ?? createDefaultMediaModelSelection()
-  const preferredImageIds = useMemo(
-    () =>
-      mediaSelection.preferredImageModelIds ??
-      (mediaSelection.imageModelId ? [mediaSelection.imageModelId] : []),
-    [mediaSelection.preferredImageModelIds, mediaSelection.imageModelId],
-  )
-  const preferredVideoIds = useMemo(
-    () =>
-      mediaSelection.preferredVideoModelIds ??
-      (mediaSelection.videoModelId ? [mediaSelection.videoModelId] : []),
-    [mediaSelection.preferredVideoModelIds, mediaSelection.videoModelId],
-  )
+  const preferredImageIds = useMemo(() => {
+    const current = masterDetail?.imageModelId?.trim() ?? ''
+    return current ? [current] : []
+  }, [masterDetail?.imageModelId])
+
+  const preferredVideoIds = useMemo(() => {
+    const current = masterDetail?.videoModelId?.trim() ?? ''
+    return current ? [current] : []
+  }, [masterDetail?.videoModelId])
 
   const hasConfiguredProviders = useMemo(
     () =>
@@ -138,111 +91,58 @@ export function useModelPreferences() {
   const isUnconfigured = !authLoggedIn && !hasConfiguredProviders
   const showCloudLogin = isCloudSource && !authLoggedIn
 
-  // ── 写入 helpers ──
-
-  const writeSelections = useCallback(
-    (updated: StoredModelSelections) => {
-      if (modelSelectionMemoryScope === 'tab' && tabId) {
-        if (areStoredSelectionsEqual(tabStoredSelections, updated)) return
-        setTabChatParams(tabId, {
-          [CHAT_MODEL_SELECTION_TAB_PARAMS_KEY]: updated,
-        })
-        notifyChatModelSelectionChange()
-        return
-      }
-      setGlobalStoredSelections((prev) => {
-        if (areStoredSelectionsEqual(prev, updated)) return prev
-        writeStoredSelections(updated)
-        notifyChatModelSelectionChange()
-        return updated
-      })
-    },
-    [
-      modelSelectionMemoryScope,
-      setTabChatParams,
-      tabId,
-      tabStoredSelections,
-    ],
-  )
-
-  const currentSelections = useMemo(
-    () =>
-      modelSelectionMemoryScope === 'tab' && tabId
-        ? tabStoredSelections
-        : globalStoredSelections,
-    [
-      globalStoredSelections,
-      modelSelectionMemoryScope,
-      tabId,
-      tabStoredSelections,
-    ],
-  )
-
   const toggleChatModel = useCallback(
     (modelId: string) => {
-      const prev = currentSelections[sourceKey]?.preferredModelIds
-      const current = prev ?? preferredChatIds
-      const next = current.includes(modelId)
-        ? current.filter((id) => id !== modelId)
-        : [...current, modelId]
-      writeSelections({
-        ...currentSelections,
-        [sourceKey]: {
-          ...currentSelections[sourceKey],
-          preferredModelIds: next,
-        },
-      })
+      const normalized = modelId.trim()
+      if (!normalized) return
+      if (normalized === normalizedMasterId) {
+        setModelId('')
+        return
+      }
+      setModelId(normalized)
     },
-    [currentSelections, preferredChatIds, sourceKey, writeSelections],
+    [normalizedMasterId, setModelId],
   )
 
   const toggleImageModel = useCallback(
     (modelId: string) => {
-      const prev =
-        currentSelections.media?.preferredImageModelIds ?? preferredImageIds
-      const next = prev.includes(modelId)
-        ? prev.filter((id) => id !== modelId)
-        : [...prev, modelId]
-      writeSelections({
-        ...currentSelections,
-        media: {
-          ...(currentSelections.media ?? createDefaultMediaModelSelection()),
-          preferredImageModelIds: next,
-        },
-      })
+      const normalized = modelId.trim()
+      const current = masterDetail?.imageModelId?.trim() ?? ''
+      if (!normalized) return
+      if (normalized === current) {
+        setImageModelId('')
+        return
+      }
+      setImageModelId(normalized)
     },
-    [currentSelections, preferredImageIds, writeSelections],
+    [masterDetail?.imageModelId, setImageModelId],
   )
 
   const toggleVideoModel = useCallback(
     (modelId: string) => {
-      const prev =
-        currentSelections.media?.preferredVideoModelIds ?? preferredVideoIds
-      const next = prev.includes(modelId)
-        ? prev.filter((id) => id !== modelId)
-        : [...prev, modelId]
-      writeSelections({
-        ...currentSelections,
-        media: {
-          ...(currentSelections.media ?? createDefaultMediaModelSelection()),
-          preferredVideoModelIds: next,
-        },
-      })
+      const normalized = modelId.trim()
+      const current = masterDetail?.videoModelId?.trim() ?? ''
+      if (!normalized) return
+      if (normalized === current) {
+        setVideoModelId('')
+        return
+      }
+      setVideoModelId(normalized)
     },
-    [currentSelections, preferredVideoIds, writeSelections],
+    [masterDetail?.videoModelId, setVideoModelId],
   )
 
   const setIsAuto = useCallback(
     (auto: boolean) => {
-      writeSelections({
-        ...currentSelections,
-        [sourceKey]: {
-          ...currentSelections[sourceKey],
-          isAuto: auto,
-        },
-      })
+      if (auto) {
+        setModelId('')
+        return
+      }
+      if (normalizedMasterId) return
+      const fallback = chatModels[0]?.id
+      if (fallback) setModelId(fallback)
     },
-    [currentSelections, sourceKey, writeSelections],
+    [chatModels, normalizedMasterId, setModelId],
   )
 
   const setCloudSource = useCallback(
@@ -252,54 +152,6 @@ export function useModelPreferences() {
     },
     [setBasic],
   )
-
-  // ── 副作用：同步 storage 事件 ──
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key && event.key !== MODEL_SELECTION_STORAGE_KEY) return
-      setGlobalStoredSelections(readStoredSelections())
-    }
-    const handleSelection = () => {
-      setGlobalStoredSelections(readStoredSelections())
-    }
-    window.addEventListener('storage', handleStorage)
-    window.addEventListener(CHAT_MODEL_SELECTION_EVENT, handleSelection)
-    return () => {
-      window.removeEventListener('storage', handleStorage)
-      window.removeEventListener(CHAT_MODEL_SELECTION_EVENT, handleSelection)
-    }
-  }, [])
-
-  // 逻辑：scope 切换时同步 tab ↔ global
-  useEffect(() => {
-    if (modelSelectionScopeRef.current === modelSelectionMemoryScope) return
-    if (modelSelectionMemoryScope === 'global') {
-      const nextSelections = tabId
-        ? tabStoredSelections
-        : globalStoredSelections
-      if (!areStoredSelectionsEqual(globalStoredSelections, nextSelections)) {
-        writeStoredSelections(nextSelections)
-        setGlobalStoredSelections(nextSelections)
-        notifyChatModelSelectionChange()
-      }
-    } else if (
-      tabId &&
-      !areStoredSelectionsEqual(tabStoredSelections, globalStoredSelections)
-    ) {
-      setTabChatParams(tabId, {
-        [CHAT_MODEL_SELECTION_TAB_PARAMS_KEY]: globalStoredSelections,
-      })
-    }
-    modelSelectionScopeRef.current = modelSelectionMemoryScope
-  }, [
-    globalStoredSelections,
-    modelSelectionMemoryScope,
-    setTabChatParams,
-    tabId,
-    tabStoredSelections,
-  ])
 
   /** Refresh provider settings when panel opens. */
   const refreshOnOpen = useCallback(() => {

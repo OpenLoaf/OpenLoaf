@@ -13,6 +13,74 @@ import {
   getAssistantParentMessageId,
   getRequestContext,
 } from '@/ai/shared/context/requestContext'
+import type { RequestContext } from '@/ai/shared/context/requestContext'
+import { resolveEffectiveAgentName } from '@/ai/agents/subagent/subAgentFactory'
+import { isSystemAgentId } from '@/ai/shared/systemAgentDefinitions'
+import { resolveAgentByName } from '@/ai/tools/AgentSelector'
+import { readAgentJson, resolveAgentDir } from '@/ai/shared/defaultAgentResolver'
+import {
+  getProjectRootPath,
+  getWorkspaceRootPath,
+  getWorkspaceRootPathById,
+} from '@tenas-ai/api/services/vfsService'
+
+type MediaModelOverrides = {
+  /** Image model id override. */
+  imageModelId?: string
+  /** Video model id override. */
+  videoModelId?: string
+}
+
+/** Resolve media model overrides from agent config. */
+function resolveAgentMediaOverrides(input: {
+  agentType?: string
+  requestContext: RequestContext
+}): MediaModelOverrides | null {
+  if (!input.agentType) return null
+  const effectiveName = resolveEffectiveAgentName(input.agentType)
+  const workspaceRoot =
+    input.requestContext.workspaceId
+      ? getWorkspaceRootPathById(input.requestContext.workspaceId)
+      : getWorkspaceRootPath()
+  const projectRoot = input.requestContext.projectId
+    ? getProjectRootPath(
+        input.requestContext.projectId,
+        input.requestContext.workspaceId,
+      )
+    : null
+
+  // 逻辑：系统 Agent 优先读取 .tenas/agents/<id>/agent.json。
+  if (isSystemAgentId(effectiveName)) {
+    const roots = [projectRoot, workspaceRoot].filter(
+      (root): root is string => Boolean(root),
+    )
+    for (const rootPath of roots) {
+      const descriptor = readAgentJson(resolveAgentDir(rootPath, effectiveName))
+      if (!descriptor) continue
+      const imageModelId = descriptor.imageModelId?.trim() || undefined
+      const videoModelId = descriptor.videoModelId?.trim() || undefined
+      if (imageModelId || videoModelId) {
+        return { imageModelId, videoModelId }
+      }
+    }
+  }
+
+  // 逻辑：自定义 Agent 从 AGENT.md 配置解析（legacy 路径）。
+  const match = resolveAgentByName(input.agentType, {
+    projectRoot: projectRoot ?? undefined,
+    parentRoots: input.requestContext.parentProjectRootPaths,
+    workspaceRoot: workspaceRoot ?? undefined,
+  })
+  if (match?.config) {
+    const imageModelId = match.config.imageModelId?.trim() || undefined
+    const videoModelId = match.config.videoModelId?.trim() || undefined
+    if (imageModelId || videoModelId) {
+      return { imageModelId, videoModelId }
+    }
+  }
+
+  return null
+}
 
 /** Spawn a new sub-agent. */
 export const spawnAgentTool = tool({
@@ -25,12 +93,20 @@ export const spawnAgentTool = tool({
     const requestContext = getRequestContext()
     if (!requestContext) throw new Error('request context is not available.')
 
+    const mediaOverrides = resolveAgentMediaOverrides({
+      agentType,
+      requestContext,
+    })
+    const requestContextForSpawn = mediaOverrides
+      ? { ...requestContext, ...mediaOverrides }
+      : requestContext
+
     const context: SpawnContext = {
       model,
       writer: getUiWriter(),
       sessionId: getSessionId(),
       parentMessageId: getAssistantParentMessageId() ?? null,
-      requestContext,
+      requestContext: requestContextForSpawn,
     }
 
     const spawnItems = items as SpawnItem[]

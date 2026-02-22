@@ -18,7 +18,7 @@ version: 1.0.0
 
 | # | 名称 | ID | 能力组 | 说明 |
 |---|------|-----|--------|------|
-| 1 | 主助手 | main | system + agent + file-read + web + media + code-interpreter | 混合模式，可直接执行也可 spawn |
+| 1 | 主助手 | master | system + agent + file-read + web + media + code-interpreter | 混合模式，可直接执行也可 spawn |
 | 2 | 文档助手 | document | file-read + file-write + project | 文件读写 + 文档分析 + 自动总结 |
 | 3 | 终端助手 | shell | shell | Shell 命令执行 |
 | 4 | 浏览器助手 | browser | browser + web | 网页浏览和数据拓取 |
@@ -57,9 +57,9 @@ capabilityGroups.ts  (不变，被上述模块引用)
 
 1. `systemAgentDefinitions.ts` 零依赖，纯数据常量，所有模块从此派生
 2. `isSystem` 是运行时计算的标记（基于 folderName），不持久化到磁盘
-3. spawn 权限通过能力组限制自然实现：只有 main 有 `agent` 能力组
-4. `masterAgent.ts` 的工具集从 main 定义的 capabilities 派生，不再硬编码工具 ID
-5. `default` → `main` 文件夹迁移在启动时自动执行
+3. spawn 权限通过能力组限制自然实现：只有 master 有 `agent` 能力组
+4. `masterAgent.ts` 的工具集从 master 定义的 capabilities 派生，不再硬编码工具 ID
+5. 不再做 default/main 迁移，默认目录固定为 `master`
 
 ## 关键文件
 
@@ -75,7 +75,7 @@ capabilityGroups.ts  (不变，被上述模块引用)
 
 | 文件 | 用途 |
 |------|------|
-| `apps/server/src/ai/shared/defaultAgentResolver.ts` | default→main 迁移、ensureSystemAgentFiles() |
+| `apps/server/src/ai/shared/defaultAgentResolver.ts` | ensureSystemAgentFiles() |
 | `apps/server/src/ai/shared/workspaceAgentInit.ts` | 工作空间初始化入口，调用迁移和创建 |
 
 ### Agent 运行时
@@ -101,7 +101,7 @@ capabilityGroups.ts  (不变，被上述模块引用)
 ## systemAgentDefinitions.ts 结构
 
 ```typescript
-export type SystemAgentId = 'main' | 'document' | 'shell' | 'browser' | 'email' | 'calendar' | 'widget' | 'project'
+export type SystemAgentId = 'master' | 'document' | 'shell' | 'browser' | 'email' | 'calendar' | 'widget' | 'project'
 
 export interface SystemAgentDefinition {
   id: SystemAgentId
@@ -131,7 +131,7 @@ createSubAgent(input)
      - system → 从 SYSTEM_AGENT_MAP 获取定义，用 capabilities 构建工具集
      - test-approval → 特殊审批 Agent
      - dynamic → resolveAgentByName() 加载自定义 Agent
-     - default → fallback 到 main 定义
+     - default → fallback 到 master 定义
   4. 如果 config.model 非空 → resolveAgentModel() 获取模型实例
 ```
 

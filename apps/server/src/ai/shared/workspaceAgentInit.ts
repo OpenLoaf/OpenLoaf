@@ -5,18 +5,15 @@ import {
 } from '@tenas-ai/api/services/workspaceConfig'
 import {
   ensureDefaultAgentFiles,
-  migrateDefaultToMain,
   ensureSystemAgentFiles,
 } from '@/ai/shared/defaultAgentResolver'
 
 /**
  * Initialize workspace agents:
- * 1. Migrate legacy 'default' folder to 'main'
- * 2. Ensure all system agent folders exist
- * 3. Ensure default (main) agent files exist
+ * 1. Ensure all system agent folders exist
+ * 2. Ensure default (master) agent files exist
  */
 function initWorkspaceAgents(rootPath: string): void {
-  migrateDefaultToMain(rootPath)
   ensureSystemAgentFiles(rootPath)
   ensureDefaultAgentFiles(rootPath)
 }

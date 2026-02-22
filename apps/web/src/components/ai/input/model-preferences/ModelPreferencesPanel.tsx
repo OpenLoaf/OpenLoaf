@@ -78,14 +78,12 @@ export function ModelPreferencesPanel({
           <ChatModelCheckboxList
             models={prefs.chatModels}
             preferredIds={prefs.preferredChatIds}
-            disabled={prefs.isAuto}
             onToggle={prefs.toggleChatModel}
           />
         ) : activeTab === 'image' ? (
           <MediaModelCheckboxList
             models={prefs.imageModels}
             preferredIds={prefs.preferredImageIds}
-            disabled={prefs.isAuto}
             onToggle={prefs.toggleImageModel}
             emptyText="暂无图像模型"
           />
@@ -93,7 +91,6 @@ export function ModelPreferencesPanel({
           <MediaModelCheckboxList
             models={prefs.videoModels}
             preferredIds={prefs.preferredVideoIds}
-            disabled={prefs.isAuto}
             onToggle={prefs.toggleVideoModel}
             emptyText="暂无视频模型"
           />

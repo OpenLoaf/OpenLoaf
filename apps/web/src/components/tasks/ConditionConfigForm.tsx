@@ -4,13 +4,7 @@ import { memo } from 'react'
 import { Input } from '@tenas-ai/ui/input'
 import { Label } from '@tenas-ai/ui/label'
 import { Textarea } from '@tenas-ai/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@tenas-ai/ui/select'
+import { FilterTab } from '@tenas-ai/ui/filter-tab'
 
 type ConditionType = 'email_received' | 'chat_keyword' | 'file_changed'
 
@@ -27,14 +21,14 @@ type ConditionConfigFormProps = {
 
 function Row({ label, children, last }: { label: string; children: React.ReactNode; last?: boolean }) {
   return (
-    <div className={`flex items-center justify-between gap-3 py-2 ${last ? '' : 'border-b border-border/30'}`}>
-      <Label className="shrink-0 text-[13px] font-normal text-muted-foreground">{label}</Label>
-      <div className="flex-1 [&_input]:text-right [&_input]:text-[13px]">{children}</div>
+    <div className={`grid grid-cols-[110px_1fr] gap-3 py-2 ${last ? '' : 'border-b border-border/30'}`}>
+      <Label className="text-[12px] font-medium text-muted-foreground">{label}</Label>
+      <div className="flex justify-end">{children}</div>
     </div>
   )
 }
 
-const inputCls = 'border-0 bg-transparent shadow-none h-7 px-0 text-[13px]'
+const inputCls = 'h-9 w-full max-w-[260px] rounded-md border border-border/60 bg-background px-3 text-[13px] shadow-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-0'
 
 export const ConditionConfigForm = memo(function ConditionConfigForm({
   value,
@@ -47,19 +41,26 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
   return (
     <div className="flex flex-col gap-0">
       <Row label="条件类型">
-        <Select
-          value={value.type}
-          onValueChange={(v) => onChange({ ...value, type: v as ConditionType, preFilter: {} })}
-        >
-          <SelectTrigger className="border-0 bg-transparent shadow-none h-7 text-[13px] justify-end gap-1 px-0">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl">
-            <SelectItem value="email_received" className="rounded-lg text-xs">收到邮件</SelectItem>
-            <SelectItem value="chat_keyword" className="rounded-lg text-xs">聊天关键词</SelectItem>
-            <SelectItem value="file_changed" className="rounded-lg text-xs">文件变更</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex w-fit rounded-lg border border-border/50 bg-muted p-1">
+          <FilterTab
+            text="收到邮件"
+            selected={value.type === 'email_received'}
+            onSelect={() => onChange({ ...value, type: 'email_received', preFilter: {} })}
+            layoutId="condition-type-tab"
+          />
+          <FilterTab
+            text="聊天关键词"
+            selected={value.type === 'chat_keyword'}
+            onSelect={() => onChange({ ...value, type: 'chat_keyword', preFilter: {} })}
+            layoutId="condition-type-tab"
+          />
+          <FilterTab
+            text="文件变更"
+            selected={value.type === 'file_changed'}
+            onSelect={() => onChange({ ...value, type: 'file_changed', preFilter: {} })}
+            layoutId="condition-type-tab"
+          />
+        </div>
       </Row>
 
       {value.type === 'email_received' ? (
@@ -104,18 +105,20 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
             />
           </Row>
           <Row label="匹配模式">
-            <Select
-              value={(value.preFilter?.matchMode as string) ?? 'any'}
-              onValueChange={(v) => updatePreFilter('matchMode', v)}
-            >
-              <SelectTrigger className="border-0 bg-transparent shadow-none h-7 text-[13px] justify-end gap-1 px-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="any" className="rounded-lg text-xs">任意匹配</SelectItem>
-                <SelectItem value="all" className="rounded-lg text-xs">全部匹配</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex w-fit rounded-lg border border-border/50 bg-muted p-1">
+              <FilterTab
+                text="任意匹配"
+                selected={((value.preFilter?.matchMode as string) ?? 'any') === 'any'}
+                onSelect={() => updatePreFilter('matchMode', 'any')}
+                layoutId="match-mode-tab"
+              />
+              <FilterTab
+                text="全部匹配"
+                selected={((value.preFilter?.matchMode as string) ?? 'any') === 'all'}
+                onSelect={() => updatePreFilter('matchMode', 'all')}
+                layoutId="match-mode-tab"
+              />
+            </div>
           </Row>
         </>
       ) : null}
@@ -151,7 +154,7 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
           onChange={(e) => onChange({ ...value, rule: e.target.value })}
           placeholder="自然语言规则（可选）— Agent 据此判断是否执行"
           rows={2}
-          className="border-0 bg-secondary/40 rounded-lg shadow-none resize-none text-[13px]"
+          className="min-h-[70px] rounded-md border border-border/60 bg-background px-3 py-2 text-[13px] shadow-none resize-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-0"
         />
       </div>
     </div>

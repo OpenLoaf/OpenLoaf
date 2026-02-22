@@ -9,14 +9,7 @@ import {
   buildChatModelOptions,
   normalizeChatModelSource,
 } from '@/lib/provider-models'
-import { useTabs } from '@/hooks/use-tabs'
-import {
-  CHAT_MODEL_SELECTION_TAB_PARAMS_KEY,
-  normalizeStoredSelections,
-  readStoredSelections,
-  type ModelSourceKey,
-} from '../chat-model-selection-storage'
-import { useOptionalChatSession } from '../../context'
+import { useMainAgentModel } from '@/components/ai/hooks/use-main-agent-model'
 
 /**
  * 轻量 hook：判断当前偏好的聊天模型中是否包含推理模型。
@@ -27,65 +20,35 @@ export function useHasPreferredReasoningModel(): boolean {
   const { models: cloudModels } = useCloudModels()
   const installedCliProviderIds = useInstalledCliProviderIds()
   const { basic } = useBasicConfig()
-  const chatSession = useOptionalChatSession()
-  const activeTabId = useTabs((s) => s.activeTabId)
-
-  const tabStoredSelectionsRaw = useTabs((state) => {
-    const targetTabId = chatSession?.tabId ?? state.activeTabId
-    if (!targetTabId) return undefined
-    const tab = state.tabs.find((item) => item.id === targetTabId)
-    return (tab?.chatParams as Record<string, unknown> | undefined)?.[
-      CHAT_MODEL_SELECTION_TAB_PARAMS_KEY
-    ]
-  })
+  const { modelId: masterModelId } = useMainAgentModel()
 
   const chatModelSource = normalizeChatModelSource(basic.chatSource)
-  const isCloudSource = chatModelSource === 'cloud'
-  const sourceKey: ModelSourceKey = isCloudSource ? 'cloud' : 'local'
-  const modelSelectionMemoryScope: 'tab' | 'global' =
-    basic.chatOnlineSearchMemoryScope === 'global' ? 'global' : 'tab'
-  const tabId = chatSession?.tabId ?? activeTabId
 
   return useMemo(() => {
-    const storedSelections =
-      modelSelectionMemoryScope === 'tab' && tabId
-        ? normalizeStoredSelections(tabStoredSelectionsRaw)
-        : readStoredSelections()
-
-    const currentSelection = storedSelections[sourceKey] ?? {
-      lastModelId: '',
-      isAuto: true,
-    }
-
     const chatModels = buildChatModelOptions(
       chatModelSource,
       providerItems,
       cloudModels,
       installedCliProviderIds,
     )
+    const normalizedMasterId = masterModelId.trim()
 
-    // 逻辑：自动模式下所有模型都可用，检查全部模型是否含推理模型
-    if (currentSelection.isAuto) {
+    // 逻辑：Auto 或未解析到当前模型时，回退检查全部模型。
+    if (!normalizedMasterId) {
       return chatModels.some((m) => m.tags?.includes('reasoning'))
     }
 
-    const preferredIds =
-      currentSelection.preferredModelIds ??
-      (currentSelection.lastModelId ? [currentSelection.lastModelId] : [])
+    const selected = chatModels.find((m) => m.id === normalizedMasterId)
+    if (!selected) {
+      return chatModels.some((m) => m.tags?.includes('reasoning'))
+    }
 
-    if (preferredIds.length === 0) return false
-
-    return chatModels.some(
-      (m) => preferredIds.includes(m.id) && m.tags?.includes('reasoning'),
-    )
+    return Boolean(selected.tags?.includes('reasoning'))
   }, [
     chatModelSource,
     cloudModels,
     installedCliProviderIds,
-    modelSelectionMemoryScope,
+    masterModelId,
     providerItems,
-    sourceKey,
-    tabId,
-    tabStoredSelectionsRaw,
   ])
 }

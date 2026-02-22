@@ -6,7 +6,7 @@
 
 /** 系统 Agent ID 联合类型。 */
 export type SystemAgentId =
-  | 'main'
+  | 'master'
   | 'document'
   | 'shell'
   | 'browser'
@@ -38,7 +38,7 @@ export type SystemAgentDefinition = {
 /** 8 个系统 Agent 定义。 */
 export const SYSTEM_AGENT_DEFINITIONS: readonly SystemAgentDefinition[] = [
   {
-    id: 'main',
+    id: 'master',
     name: '主助手',
     description: '混合模式主助手，可直接执行简单任务，也可调度子 Agent',
     icon: 'sparkles',
@@ -47,7 +47,8 @@ export const SYSTEM_AGENT_DEFINITIONS: readonly SystemAgentDefinition[] = [
       'agent',
       'file-read',
       'web',
-      'media',
+      'image-generate',
+      'video-generate',
       'code-interpreter',
     ],
     allowSubAgents: true,

@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { existsSync, readFileSync, mkdirSync, writeFileSync, renameSync } from 'node:fs'
+import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import {
   BUILTIN_IDENTITY_PROMPT,
   BUILTIN_SOUL_PROMPT,
@@ -14,8 +14,8 @@ import {
 const TENAS_META_DIR = '.tenas'
 /** Agents directory name under .tenas/. */
 const AGENTS_DIR_NAME = 'agents'
-/** Default agent folder name (migrated from 'default' to 'main'). */
-const DEFAULT_AGENT_FOLDER = 'main'
+/** Default agent folder name (master agent). */
+const DEFAULT_AGENT_FOLDER = 'master'
 /** Agent descriptor file name. */
 const AGENT_JSON_FILE = 'agent.json'
 
@@ -38,6 +38,10 @@ export type AgentJsonDescriptor = {
   description?: string
   icon?: string
   model?: string
+  /** Image model id for media generation (empty = Auto). */
+  imageModelId?: string
+  /** Video model id for media generation (empty = Auto). */
+  videoModelId?: string
   capabilities?: string[]
   skills?: string[]
   allowSubAgents?: boolean
@@ -83,7 +87,7 @@ export function readAgentJson(
 
 /**
  * Resolve a single default agent file by priority:
- * project/.tenas/agents/default/ → workspace/.tenas/agents/default/ → builtin.
+ * project/.tenas/agents/master/ → workspace/.tenas/agents/master/ → builtin.
  */
 export function resolveDefaultAgentFile(
   fileName: DefaultAgentFileName,
@@ -170,7 +174,7 @@ const DEFAULT_AGENT_FILES: Array<{
 ]
 
 /**
- * Ensure .tenas/agents/default/ directory exists in the given root path
+ * Ensure .tenas/agents/master/ directory exists in the given root path
  * with agent.json + default prompt files. Only creates missing files.
  */
 export function ensureDefaultAgentFiles(rootPath: string): void {
@@ -188,23 +192,6 @@ export function ensureDefaultAgentFiles(rootPath: string): void {
     }
   } catch {
     // 逻辑：写入失败时静默忽略，不影响程序启动。
-  }
-}
-
-/**
- * Migrate legacy 'default' agent folder to 'main'.
- * If 'default/' exists and 'main/' does not, rename it.
- */
-export function migrateDefaultToMain(rootPath: string): void {
-  if (!rootPath) return
-  const oldDir = resolveAgentDir(rootPath, 'default')
-  const newDir = resolveAgentDir(rootPath, 'main')
-  if (existsSync(oldDir) && !existsSync(newDir)) {
-    try {
-      renameSync(oldDir, newDir)
-    } catch {
-      // 逻辑：迁移失败时静默忽略。
-    }
   }
 }
 

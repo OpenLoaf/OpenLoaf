@@ -24,7 +24,7 @@ export const spawnAgentToolDef = {
     agentType: z
       .string()
       .optional()
-      .describe('子代理类型：系统 Agent 名称（main/document/shell/browser/email/calendar/widget/project）或自定义 Agent 名称。'),
+      .describe('子代理类型：系统 Agent 名称（master/document/shell/browser/email/calendar/widget/project）或自定义 Agent 名称。'),
     modelOverride: z
       .string()
       .optional()

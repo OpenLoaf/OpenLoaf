@@ -97,16 +97,16 @@ class TaskScheduler {
   }
 
   /** Manually trigger a task. */
-  async runTaskNow(taskId: string): Promise<void> {
-    await this.executeTask(taskId)
+  async runTaskNow(taskId: string, projectRoot?: string | null): Promise<void> {
+    await this.executeTask(taskId, projectRoot ?? null)
   }
 
   /** Execute a task and update its record. */
-  private async executeTask(taskId: string): Promise<void> {
+  private async executeTask(taskId: string, projectRoot?: string | null): Promise<void> {
     const workspaceRoot = getWorkspaceRootPath()
     const startedAt = new Date().toISOString()
     try {
-      const task = getTask(taskId, workspaceRoot)
+      const task = getTask(taskId, workspaceRoot, projectRoot ?? undefined)
       if (!task || !task.enabled) return
 
       logger.info({ taskId, name: task.name }, '[task-scheduler] Executing task')
@@ -116,20 +116,10 @@ class TaskScheduler {
         lastStatus: 'ok',
         lastError: null,
         runCount: task.runCount + 1,
-      }, workspaceRoot)
+      }, workspaceRoot, projectRoot ?? undefined)
 
-      // 逻辑：根据 taskType 执行不同逻辑（stub）。
-      switch (task.taskType) {
-        case 'chat':
-          logger.info({ taskId }, '[task-scheduler] Chat task executed (stub)')
-          break
-        case 'summary':
-          logger.info({ taskId }, '[task-scheduler] Summary task executed (stub)')
-          break
-        case 'custom':
-          logger.info({ taskId }, '[task-scheduler] Custom task executed (stub)')
-          break
-      }
+      // 逻辑：当前仅记录任务执行，具体动作由后续实现补齐。
+      logger.info({ taskId }, '[task-scheduler] Task executed (stub)')
 
       appendRunLog(taskId, {
         trigger: 'scheduled',
@@ -137,24 +127,24 @@ class TaskScheduler {
         startedAt,
         finishedAt: new Date().toISOString(),
         durationMs: Date.now() - new Date(startedAt).getTime(),
-      }, workspaceRoot)
+      }, projectRoot ?? workspaceRoot)
 
       // 逻辑：单次任务执行后自动禁用。
       if (task.schedule?.type === 'once') {
-        updateTask(taskId, { enabled: false }, workspaceRoot)
+        updateTask(taskId, { enabled: false }, workspaceRoot, projectRoot ?? undefined)
         this.unregisterTask(taskId)
       }
     } catch (err) {
       logger.error({ taskId, err }, '[task-scheduler] Task execution failed')
       try {
-        const task = getTask(taskId, workspaceRoot)
+        const task = getTask(taskId, workspaceRoot, projectRoot ?? undefined)
         updateTask(taskId, {
           lastRunAt: new Date().toISOString(),
           lastStatus: 'error',
           lastError: err instanceof Error ? err.message : String(err),
           runCount: (task?.runCount ?? 0) + 1,
           consecutiveErrors: (task?.consecutiveErrors ?? 0) + 1,
-        }, workspaceRoot)
+        }, workspaceRoot, projectRoot ?? undefined)
 
         appendRunLog(taskId, {
           trigger: 'scheduled',
@@ -163,7 +153,7 @@ class TaskScheduler {
           startedAt,
           finishedAt: new Date().toISOString(),
           durationMs: Date.now() - new Date(startedAt).getTime(),
-        }, workspaceRoot)
+        }, projectRoot ?? workspaceRoot)
       } catch {
         // ignore update failure
       }

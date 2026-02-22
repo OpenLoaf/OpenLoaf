@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
-import { cn } from "@/lib/utils";
 import { Button } from "@tenas-ai/ui/button";
 import { Switch } from "@tenas-ai/ui/switch";
 import { Checkbox } from "@tenas-ai/ui/checkbox";
@@ -13,8 +13,11 @@ import {
   Search, Trash2, X, FolderOpen, Eye, Plus, Pencil,
   Globe, FileSearch, FilePen, Terminal, Mail, Calendar,
   Image, LayoutGrid, Link, Users, Code, Settings, FolderKanban, Blocks,
+  Bot, Sparkles, FileText,
+  Video,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import dynamicIconImports from "lucide-react/dynamicIconImports";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -69,7 +72,8 @@ const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
   shell: { icon: Terminal, className: "text-slate-500" },
   email: { icon: Mail, className: "text-red-500" },
   calendar: { icon: Calendar, className: "text-orange-500" },
-  media: { icon: Image, className: "text-pink-500" },
+  "image-generate": { icon: Image, className: "text-pink-500" },
+  "video-generate": { icon: Video, className: "text-purple-500" },
   widget: { icon: LayoutGrid, className: "text-violet-500" },
   project: { icon: FolderKanban, className: "text-cyan-500" },
   web: { icon: Link, className: "text-sky-500" },
@@ -85,7 +89,8 @@ const CAP_BG_MAP: Record<string, string> = {
   shell: "bg-slate-50 dark:bg-slate-950/40",
   email: "bg-red-50 dark:bg-red-950/40",
   calendar: "bg-orange-50 dark:bg-orange-950/40",
-  media: "bg-pink-50 dark:bg-pink-950/40",
+  "image-generate": "bg-pink-50 dark:bg-pink-950/40",
+  "video-generate": "bg-purple-50 dark:bg-purple-950/40",
   widget: "bg-violet-50 dark:bg-violet-950/40",
   project: "bg-cyan-50 dark:bg-cyan-950/40",
   web: "bg-sky-50 dark:bg-sky-950/40",
@@ -94,8 +99,57 @@ const CAP_BG_MAP: Record<string, string> = {
   system: "bg-gray-50 dark:bg-gray-950/40",
 };
 
+/** Fallback map for commonly used agent icons. */
+const AGENT_ICON_MAP: Record<string, LucideIcon> = {
+  bot: Bot,
+  sparkles: Sparkles,
+  "file-text": FileText,
+  terminal: Terminal,
+  globe: Globe,
+  mail: Mail,
+  calendar: Calendar,
+  "layout-grid": LayoutGrid,
+  "folder-kanban": FolderKanban,
+};
+
+const AGENT_ICON_COLOR_MAP: Record<string, string> = {
+  bot: "text-indigo-500",
+  sparkles: "text-violet-500",
+  "file-text": "text-emerald-500",
+  terminal: "text-slate-500",
+  globe: "text-sky-500",
+  mail: "text-red-500",
+  calendar: "text-orange-500",
+  "layout-grid": "text-violet-500",
+  "folder-kanban": "text-cyan-500",
+};
+
+/** Normalize path to use forward slashes. */
 function normalizePath(value: string): string {
   return value.replace(/\\/g, "/");
+}
+
+/** Normalize icon name to kebab-case for lookup. */
+function normalizeIconName(value: string): string {
+  return value
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/_/g, "-")
+    .toLowerCase();
+}
+
+/** Cache for lazily loaded lucide icons. */
+const LUCIDE_ICON_CACHE = new Map<string, LucideIcon>();
+/** Resolve lucide icon component from a pascal-case name. */
+function resolveLucideIcon(name: string): LucideIcon | null {
+  if (!name) return null;
+  const cached = LUCIDE_ICON_CACHE.get(name);
+  if (cached) return cached;
+  const importer = (dynamicIconImports as Record<string, () => Promise<{ default: LucideIcon }>>)[name];
+  if (!importer) return null;
+  const Component = dynamic(importer, { ssr: false }) as unknown as LucideIcon;
+  LUCIDE_ICON_CACHE.set(name, Component);
+  return Component;
 }
 
 function toFileUri(value: string): string {
@@ -164,9 +218,27 @@ export function AgentManagement({ projectId }: AgentManagementProps) {
 
   const hasChildAgents = agents.some((a) => a.isChildProject);
   const hasParentAgents = agents.some((a) => a.isInherited);
+  const hasNonMasterAgents = useMemo(
+    () =>
+      agents.some(
+        (agent) => !(agent.isSystem && agent.folderName === "master"),
+      ),
+    [agents],
+  );
+  const masterAgent = useMemo(
+    () =>
+      agents.find(
+        (agent) =>
+          agent.isSystem &&
+          agent.folderName === "master" &&
+          agent.scope === "workspace",
+      ),
+    [agents],
+  );
 
   const filteredAgents = useMemo(() => {
     const filtered = agents.filter((agent) => {
+      if (agent.isSystem && agent.folderName === "master") return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchName = agent.name.toLowerCase().includes(q);
@@ -321,6 +393,11 @@ export function AgentManagement({ projectId }: AgentManagementProps) {
     [activeTabId, projectId, pushStackItem],
   );
 
+  const handleEditMasterAgent = useCallback(() => {
+    if (!masterAgent) return;
+    handleEditAgent(masterAgent);
+  }, [handleEditAgent, masterAgent]);
+
   const handleCreateAgent = useCallback(() => {
     if (!activeTabId) return;
     const scope = isProjectList ? "project" : "workspace";
@@ -415,6 +492,25 @@ export function AgentManagement({ projectId }: AgentManagementProps) {
               打开 Agent 目录
             </TooltipContent>
           </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-8 rounded-full border border-border/70 bg-background/85 px-2.5 text-xs transition-colors hover:bg-muted/55 sm:px-3"
+                onClick={handleEditMasterAgent}
+                disabled={!activeTabId || !masterAgent?.path}
+                aria-label="主助手设置"
+              >
+                <Bot className="h-3.5 w-3.5" />
+                <span className="ml-1.5 hidden sm:inline">主助手设置</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              主助手设置
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -495,6 +591,32 @@ export function AgentManagement({ projectId }: AgentManagementProps) {
                     >
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex items-center gap-2">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-background/70 text-foreground/80 shadow-sm">
+                            {(() => {
+                              const iconValue = agent.icon?.trim() ?? "";
+                              if (iconValue && /[^a-z0-9-_]/i.test(iconValue)) {
+                                return (
+                                  <span className="text-sm leading-none text-foreground/80">
+                                    {iconValue}
+                                  </span>
+                                );
+                              }
+                              const iconKey = normalizeIconName(iconValue || "bot");
+                              const colorClass = AGENT_ICON_COLOR_MAP[iconKey] ?? "text-foreground/80";
+                              const pascalName = iconKey
+                                .split("-")
+                                .filter(Boolean)
+                                .map((part) => part[0]?.toUpperCase() + part.slice(1))
+                                .join("");
+                              const StaticIcon = AGENT_ICON_MAP[iconKey];
+                              const DynamicIcon = StaticIcon ? null : resolveLucideIcon(pascalName);
+                              const AgentIcon = StaticIcon ?? DynamicIcon ?? Bot;
+                              return <AgentIcon className={`h-4 w-4 ${colorClass}`} />;
+                            })()}
+                          </span>
+                          <span className="min-w-0 truncate text-sm font-medium text-foreground">
+                            {agent.name}
+                          </span>
                           {(() => {
                             if (isProjectList && agent.scope === "project" && !agent.isInherited && !agent.isChildProject) return null;
                             const label = agent.isChildProject ? "子项目" : agent.isInherited ? "父项目" : agent.scope === "project" ? "项目" : "工作空间";
@@ -516,9 +638,6 @@ export function AgentManagement({ projectId }: AgentManagementProps) {
                               系统
                             </span>
                           ) : null}
-                          <span className="truncate text-sm font-medium text-foreground">
-                            {agent.name}
-                          </span>
                           {agent.model ? (
                             <span className="shrink-0 rounded border border-border/60 bg-background/60 px-1 py-px font-mono text-[10px] text-foreground/70">
                               {agent.model}
@@ -600,7 +719,7 @@ export function AgentManagement({ projectId }: AgentManagementProps) {
 
         {!agentsQuery.isLoading &&
         !agentsQuery.isError &&
-        agents.length === 0 ? (
+        !hasNonMasterAgents ? (
           <div className="py-9 text-center text-sm text-muted-foreground">
             暂无可用 Agent，请创建 `AGENT.md` 来定义 Agent。
           </div>
@@ -608,7 +727,7 @@ export function AgentManagement({ projectId }: AgentManagementProps) {
 
         {!agentsQuery.isLoading &&
         !agentsQuery.isError &&
-        agents.length > 0 &&
+        hasNonMasterAgents &&
         filteredAgents.length === 0 ? (
           <div className="py-9 text-center text-sm text-muted-foreground">
             没有匹配的 Agent，请调整筛选条件后重试。

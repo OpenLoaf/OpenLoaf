@@ -31,13 +31,11 @@ export type ConditionConfig = {
 export type TaskConfig = {
   id: string
   name: string
-  description?: string
   agentName?: string
   enabled: boolean
   triggerMode: 'scheduled' | 'condition'
   schedule?: ScheduleConfig
   condition?: ConditionConfig
-  taskType: 'chat' | 'summary' | 'custom'
   payload?: Record<string, unknown>
   sessionMode: 'isolated' | 'shared'
   timeoutMs: number
@@ -130,13 +128,11 @@ export function createTask(
   const config: Omit<TaskConfig, 'scope' | 'filePath'> = {
     id,
     name: data.name,
-    description: data.description,
     agentName: data.agentName,
     enabled: data.enabled,
     triggerMode: data.triggerMode,
     schedule: data.schedule,
     condition: data.condition,
-    taskType: data.taskType,
     payload: data.payload,
     sessionMode: data.sessionMode ?? 'isolated',
     timeoutMs: data.timeoutMs ?? 600000,

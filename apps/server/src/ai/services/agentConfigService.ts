@@ -17,6 +17,10 @@ export type AgentConfig = {
   icon: string
   /** Override model identifier. */
   model: string
+  /** Image model id for media generation (empty = Auto). */
+  imageModelId: string
+  /** Video model id for media generation (empty = Auto). */
+  videoModelId: string
   /** Capability group IDs. */
   capabilities: string[]
   /** Associated skill names. */
@@ -46,6 +50,10 @@ export type AgentSummary = {
   icon: string
   /** Model override. */
   model: string
+  /** Image model id for media generation (empty = Auto). */
+  imageModelId: string
+  /** Video model id for media generation (empty = Auto). */
+  videoModelId: string
   /** Capability group IDs. */
   capabilities: string[]
   /** Associated skill names. */
@@ -76,6 +84,8 @@ type AgentFrontMatter = {
   description?: string
   icon?: string
   model?: string
+  imageModelId?: string
+  videoModelId?: string
   capabilities?: string[]
   skills?: string[]
   allowSubAgents?: boolean
@@ -107,7 +117,9 @@ function loadTenasAgentSummaries(
       description: descriptor.description || '未提供',
       icon: descriptor.icon || 'bot',
       model: descriptor.model || '',
-      capabilities: descriptor.capabilities || [],
+      imageModelId: descriptor.imageModelId || '',
+      videoModelId: descriptor.videoModelId || '',
+      capabilities: normalizeCapabilities(descriptor.capabilities || []),
       skills: descriptor.skills || [],
       path: path.join(agentDir, AGENT_JSON_FILE),
       folderName: entry.name,
@@ -166,6 +178,8 @@ export function loadAgentSummaries(input: {
           description: config.description,
           icon: config.icon,
           model: config.model,
+          imageModelId: config.imageModelId,
+          videoModelId: config.videoModelId,
           capabilities: config.capabilities,
           skills: config.skills,
           path: config.path,
@@ -200,7 +214,9 @@ export function readAgentConfigFromPath(
       description: normalizeDescription(frontMatter.description),
       icon: frontMatter.icon || 'bot',
       model: frontMatter.model || '',
-      capabilities: frontMatter.capabilities || [],
+      imageModelId: frontMatter.imageModelId || '',
+      videoModelId: frontMatter.videoModelId || '',
+      capabilities: normalizeCapabilities(frontMatter.capabilities || []),
       skills: frontMatter.skills || [],
       allowSubAgents: frontMatter.allowSubAgents ?? false,
       maxDepth: frontMatter.maxDepth ?? 1,
@@ -398,6 +414,12 @@ function setField(
     case 'model':
       result.model = typeof value === 'string' ? value : value[0] ?? ''
       break
+    case 'imageModelId':
+      result.imageModelId = typeof value === 'string' ? value : value[0] ?? ''
+      break
+    case 'videoModelId':
+      result.videoModelId = typeof value === 'string' ? value : value[0] ?? ''
+      break
     case 'capabilities':
       result.capabilities = Array.isArray(value) ? value : [value]
       break
@@ -433,12 +455,30 @@ function normalizeDescription(value?: string): string {
   return trimmed.replace(/\s+/gu, ' ')
 }
 
+/** Normalize capability ids to keep backward compatibility. */
+function normalizeCapabilities(value?: string[]): string[] {
+  if (!Array.isArray(value)) return []
+  const next = new Set<string>()
+  for (const cap of value) {
+    if (cap === 'media') {
+      // 逻辑：media 拆分为 image-generate + video-generate。
+      next.add('image-generate')
+      next.add('video-generate')
+      continue
+    }
+    if (cap) next.add(cap)
+  }
+  return Array.from(next)
+}
+
 /** Serialize agent config to AGENT.md content. */
 export function serializeAgentToMarkdown(config: {
   name: string
   description?: string
   icon?: string
   model?: string
+  imageModelId?: string
+  videoModelId?: string
   capabilities?: string[]
   skills?: string[]
   allowSubAgents?: boolean
@@ -450,6 +490,8 @@ export function serializeAgentToMarkdown(config: {
   if (config.description) lines.push(`description: ${config.description}`)
   if (config.icon) lines.push(`icon: ${config.icon}`)
   if (config.model) lines.push(`model: ${config.model}`)
+  if (config.imageModelId) lines.push(`imageModelId: ${config.imageModelId}`)
+  if (config.videoModelId) lines.push(`videoModelId: ${config.videoModelId}`)
   if (config.capabilities?.length) {
     lines.push('capabilities:')
     for (const cap of config.capabilities) {

@@ -10,17 +10,20 @@ import { Textarea } from '@tenas-ai/ui/textarea'
 import { Switch } from '@tenas-ai/ui/switch'
 import { Checkbox } from '@tenas-ai/ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@tenas-ai/ui/tabs'
-import { TenasSettingsGroup } from '@tenas-ai/ui/tenas/TenasSettingsGroup'
 import { TenasSettingsCard } from '@tenas-ai/ui/tenas/TenasSettingsCard'
+import { FilterTab } from '@tenas-ai/ui/filter-tab'
 import {
   Bot,
   Blocks,
   Calendar,
+  Check,
+  Cloud,
   Code,
   FileSearch,
   FilePen,
   FolderOpen,
   Globe,
+  HardDrive,
   Image,
   LayoutGrid,
   Link,
@@ -32,13 +35,30 @@ import {
   Terminal,
   FolderKanban,
   Users,
+  Video,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
-import { useWorkspace } from '@/components/workspace/workspaceContext'
 import { useTabs } from '@/hooks/use-tabs'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@tenas-ai/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@tenas-ai/ui/popover'
+import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
+import { useSaasAuth } from '@/hooks/use-saas-auth'
+import { useMediaModels } from '@/hooks/use-media-models'
+import { useSettingsValues } from '@/hooks/use-settings'
+import { useBasicConfig } from '@/hooks/use-basic-config'
+import { useCloudModels } from '@/hooks/use-cloud-models'
+import { useInstalledCliProviderIds } from '@/hooks/use-cli-tools-installed'
+import {
+  buildChatModelOptions,
+  normalizeChatModelSource,
+} from '@/lib/provider-models'
+import { getModelLabel } from '@/lib/model-registry'
+import { ModelCheckboxItem } from '@/components/ai/input/model-preferences/ModelCheckboxItem'
+import { ModelIcon } from '@/components/setting/menus/provider/ModelIcon'
+import type { AiModel } from '@tenas-saas/sdk'
+import type { ProviderModelOption } from '@/lib/provider-models'
 
 /** 能力组 ID → 彩色图标映射 */
 const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
@@ -48,7 +68,8 @@ const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
   shell: { icon: Terminal, className: 'text-slate-500' },
   email: { icon: Mail, className: 'text-red-500' },
   calendar: { icon: Calendar, className: 'text-orange-500' },
-  media: { icon: Image, className: 'text-pink-500' },
+  'image-generate': { icon: Image, className: 'text-pink-500' },
+  'video-generate': { icon: Video, className: 'text-purple-500' },
   widget: { icon: LayoutGrid, className: 'text-violet-500' },
   project: { icon: FolderKanban, className: 'text-cyan-500' },
   web: { icon: Link, className: 'text-sky-500' },
@@ -65,7 +86,8 @@ const CAP_BG_MAP: Record<string, string> = {
   shell: 'bg-slate-50 dark:bg-slate-950/40',
   email: 'bg-red-50 dark:bg-red-950/40',
   calendar: 'bg-orange-50 dark:bg-orange-950/40',
-  media: 'bg-pink-50 dark:bg-pink-950/40',
+  'image-generate': 'bg-pink-50 dark:bg-pink-950/40',
+  'video-generate': 'bg-purple-50 dark:bg-purple-950/40',
   widget: 'bg-violet-50 dark:bg-violet-950/40',
   project: 'bg-cyan-50 dark:bg-cyan-950/40',
   web: 'bg-sky-50 dark:bg-sky-950/40',
@@ -108,6 +130,10 @@ type FormSnapshot = {
   description: string
   icon: string
   model: string
+  /** Selected image model id (empty = Auto). */
+  imageModelId: string
+  /** Selected video model id (empty = Auto). */
+  videoModelId: string
   capabilities: string[]
   skills: string[]
   allowSubAgents: boolean
@@ -117,6 +143,258 @@ type FormSnapshot = {
 
 function makeSnapshot(s: FormSnapshot): string {
   return JSON.stringify(s)
+}
+
+type MediaModelSelectProps = {
+  /** Available model list. */
+  models: AiModel[]
+  /** Current selected model id (empty = Auto). */
+  value: string
+  /** Disable selector interaction. */
+  disabled?: boolean
+  /** Auth state for SaaS models. */
+  authLoggedIn: boolean
+  /** Change handler. */
+  onChange: (nextId: string) => void
+  /** Trigger login dialog. */
+  onOpenLogin: () => void
+  /** Empty list placeholder. */
+  emptyText?: string
+}
+
+/** Media model selector used in agent settings. */
+function MediaModelSelect({
+  models,
+  value,
+  disabled,
+  authLoggedIn,
+  onChange,
+  onOpenLogin,
+  emptyText = '暂无可用模型',
+}: MediaModelSelectProps) {
+  const [open, setOpen] = useState(false)
+  const selectedLabel = useMemo(() => {
+    if (!value) return 'Auto'
+    const matched = models.find((m) => m.id === value)
+    return matched?.name ?? value
+  }, [models, value])
+
+  const handleSelect = useCallback((nextId: string) => {
+    onChange(nextId)
+    setOpen(false)
+  }, [onChange])
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={disabled}
+          className="h-8 min-w-[200px] justify-between rounded-full border border-border/60 bg-background/80 px-3 text-xs"
+        >
+          <span className="truncate">{selectedLabel}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        className="w-64 rounded-xl border-border bg-background/90 p-2 shadow-xl backdrop-blur"
+      >
+        {!authLoggedIn ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-6">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setOpen(false)
+                onOpenLogin()
+              }}
+            >
+              登录Tenas账户，使用云端模型
+            </Button>
+            <div className="text-xs text-muted-foreground">使用云端模型</div>
+          </div>
+        ) : models.length === 0 ? (
+          <div className="py-6 text-center text-xs text-muted-foreground">
+            {emptyText}
+          </div>
+        ) : (
+          <div className="max-h-60 space-y-1 overflow-y-auto">
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/50"
+              onClick={() => handleSelect('')}
+            >
+              <span className="flex-1 truncate">Auto</span>
+              {value === '' ? (
+                <Check className="h-3.5 w-3.5 text-emerald-500" />
+              ) : (
+                <span className="h-3.5 w-3.5" />
+              )}
+            </button>
+            {models.map((model) => (
+              <button
+                key={`${model.providerId ?? 'unknown'}-${model.id}`}
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/50"
+                onClick={() => handleSelect(model.id)}
+              >
+                <span className="flex-1 truncate">
+                  {model.name ?? model.id}
+                </span>
+                {value === model.id ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-500" />
+                ) : (
+                  <span className="h-3.5 w-3.5" />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+type ChatModelSelectProps = {
+  /** Available chat model options. */
+  models: ProviderModelOption[]
+  /** Current selected model id (empty = Auto). */
+  value: string
+  /** Disable selector interaction. */
+  disabled?: boolean
+  /** Whether cloud source requires login. */
+  showCloudLogin: boolean
+  /** Change handler. */
+  onChange: (nextId: string) => void
+  /** Trigger login dialog. */
+  onOpenLogin: () => void
+  /** Empty list placeholder. */
+  emptyText?: string
+}
+
+/** Chat model selector used in agent settings. */
+function ChatModelSelect({
+  models,
+  value,
+  disabled,
+  showCloudLogin,
+  onChange,
+  onOpenLogin,
+  emptyText = '暂无可用模型',
+}: ChatModelSelectProps) {
+  const [open, setOpen] = useState(false)
+  const selectedOption = useMemo(
+    () => models.find((m) => m.id === value),
+    [models, value],
+  )
+  const selectedLabel = useMemo(() => {
+    if (!value) return 'Auto'
+    if (!selectedOption) return value
+    return selectedOption.modelDefinition
+      ? getModelLabel(selectedOption.modelDefinition)
+      : selectedOption.modelId
+  }, [selectedOption, value])
+
+  const handleSelect = useCallback((nextId: string) => {
+    onChange(nextId)
+    setOpen(false)
+  }, [onChange])
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={disabled}
+          className="h-8 w-auto max-w-full justify-between rounded-full border border-border/60 bg-background/80 px-3 text-xs"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            {value ? (
+              <ModelIcon
+                icon={
+                  selectedOption?.modelDefinition?.familyId ??
+                  selectedOption?.modelDefinition?.icon ??
+                  selectedOption?.providerId
+                }
+                model={selectedOption?.modelId}
+                size={14}
+                className="h-3.5 w-3.5 shrink-0"
+              />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+            )}
+            <span className="truncate">{selectedLabel}</span>
+          </span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        className="w-80 rounded-xl border-border bg-background/90 p-2 shadow-xl backdrop-blur"
+      >
+        {showCloudLogin ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-6">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setOpen(false)
+                onOpenLogin()
+              }}
+            >
+              登录Tenas账户，使用云端模型
+            </Button>
+            <div className="text-xs text-muted-foreground">使用云端模型</div>
+          </div>
+        ) : models.length === 0 ? (
+          <div className="py-6 text-center text-xs text-muted-foreground">
+            {emptyText}
+          </div>
+        ) : (
+          <div className="max-h-64 space-y-1 overflow-y-auto">
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs hover:bg-muted/50"
+              onClick={() => handleSelect('')}
+            >
+              <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="flex-1 truncate">Auto</span>
+              {value === '' ? (
+                <Check className="h-3.5 w-3.5 text-emerald-500" />
+              ) : (
+                <span className="h-3.5 w-3.5" />
+              )}
+            </button>
+            {models.map((option) => {
+              const label = option.modelDefinition
+                ? getModelLabel(option.modelDefinition)
+                : option.modelId
+              return (
+                <ModelCheckboxItem
+                  key={option.id}
+                  icon={
+                    option.modelDefinition?.familyId ??
+                    option.modelDefinition?.icon ??
+                    option.providerId
+                  }
+                  modelId={option.modelId}
+                  label={label}
+                  tags={option.tags}
+                  checked={value === option.id}
+                  onToggle={() => handleSelect(option.id)}
+                />
+              )
+            })}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 /** Agent detail / edit stack panel. */
@@ -131,19 +409,41 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const [description, setDescription] = useState('')
   const [icon, setIcon] = useState('bot')
   const [model, setModel] = useState('')
+  const [imageModelId, setImageModelId] = useState('')
+  const [videoModelId, setVideoModelId] = useState('')
   const [capabilities, setCapabilities] = useState<string[]>([])
   const [skills, setSkills] = useState<string[]>([])
   const [allowSubAgents, setAllowSubAgents] = useState(false)
   const [maxDepth, setMaxDepth] = useState(1)
   const [systemPrompt, setSystemPrompt] = useState('')
+  const [loginOpen, setLoginOpen] = useState(false)
+  const [defaultSnapshot, setDefaultSnapshot] = useState('')
 
   // 逻辑：保存初始快照用于脏检测。
   const savedSnapshotRef = useRef('')
 
   const panelSlot = useStackPanelSlot()
-  const { workspace } = useWorkspace()
   const activeTabId = useTabs((s) => s.activeTabId)
   const pushStackItem = useTabRuntime((s) => s.pushStackItem)
+  const { loggedIn: authLoggedIn } = useSaasAuth()
+  const { imageModels, videoModels } = useMediaModels()
+  const { providerItems } = useSettingsValues()
+  const { basic, setBasic } = useBasicConfig()
+  const { models: cloudModels } = useCloudModels()
+  const installedCliProviderIds = useInstalledCliProviderIds()
+  const chatModelSource = normalizeChatModelSource(basic.chatSource)
+  const isCloudSource = chatModelSource === 'cloud'
+  const chatModels = useMemo(
+    () =>
+      buildChatModelOptions(
+        chatModelSource,
+        providerItems,
+        cloudModels,
+        installedCliProviderIds,
+      ),
+    [chatModelSource, providerItems, cloudModels, installedCliProviderIds],
+  )
+  const showChatCloudLogin = isCloudSource && !authLoggedIn
 
   // 逻辑：打开 Agent 所在文件夹。
   const handleOpenFolder = useCallback(() => {
@@ -180,6 +480,22 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     trpc.settings.getCapabilityGroups.queryOptions(),
   )
   const capGroups = (capGroupsQuery.data ?? []) as CapabilityGroup[]
+  const visibleCapGroups = useMemo(
+    () =>
+      capGroups.filter(
+        (group) =>
+          !['image-generate', 'video-generate', 'agent'].includes(group.id),
+      ),
+    [capGroups],
+  )
+  const enabledCapGroups = useMemo(
+    () => visibleCapGroups.filter((group) => capabilities.includes(group.id)),
+    [capabilities, visibleCapGroups],
+  )
+  const disabledCapGroups = useMemo(
+    () => visibleCapGroups.filter((group) => !capabilities.includes(group.id)),
+    [capabilities, visibleCapGroups],
+  )
 
   // 逻辑：加载技能列表用于关联选择。
   const skillsQuery = useQuery(
@@ -199,6 +515,16 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     ),
     enabled: Boolean(agentPath) && !isNew,
   })
+  const isMasterAgent = useMemo(() => {
+    if (isNew) return false
+    const folderName = detailQuery.data?.folderName ?? ''
+    if (folderName) {
+      return folderName === 'master' && detailQuery.data?.scope === 'workspace'
+    }
+    if (!agentPath) return false
+    const normalized = agentPath.replace(/\\/g, '/')
+    return normalized.includes('/.tenas/agents/master/')
+  }, [agentPath, detailQuery.data, isNew])
 
   // 逻辑：详情加载后回填表单并保存初始快照。
   useEffect(() => {
@@ -208,6 +534,8 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     setDescription(d.description)
     setIcon(d.icon)
     setModel(d.model)
+    setImageModelId(d.imageModelId ?? '')
+    setVideoModelId(d.videoModelId ?? '')
     setCapabilities(d.capabilities)
     setSkills(d.skills)
     setAllowSubAgents(d.allowSubAgents)
@@ -218,30 +546,70 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       description: d.description,
       icon: d.icon,
       model: d.model,
+      imageModelId: d.imageModelId ?? '',
+      videoModelId: d.videoModelId ?? '',
       capabilities: d.capabilities,
       skills: d.skills,
       allowSubAgents: d.allowSubAgents,
       maxDepth: d.maxDepth,
       systemPrompt: d.systemPrompt,
     })
+    setDefaultSnapshot(makeSnapshot({
+      name: d.name,
+      description: d.description,
+      icon: d.icon,
+      model: d.model,
+      imageModelId: d.imageModelId ?? '',
+      videoModelId: d.videoModelId ?? '',
+      capabilities: d.capabilities,
+      skills: d.skills,
+      allowSubAgents: d.allowSubAgents,
+      maxDepth: d.maxDepth,
+      systemPrompt: d.systemPrompt,
+    }))
   }, [detailQuery.data])
 
   // 逻辑：新建模式初始化空快照。
   useEffect(() => {
     if (isNew) {
-      savedSnapshotRef.current = makeSnapshot({
+      setCapabilities((prev) =>
+        prev.length > 0
+          ? prev
+          : ['image-generate', 'video-generate'],
+      )
+      const snapshot = makeSnapshot({
         name: '', description: '', icon: 'bot', model: '',
-        capabilities: [], skills: [], allowSubAgents: false,
+        imageModelId: '', videoModelId: '',
+        capabilities: ['image-generate', 'video-generate'], skills: [], allowSubAgents: false,
         maxDepth: 1, systemPrompt: '',
       })
+      savedSnapshotRef.current = snapshot
+      setDefaultSnapshot(snapshot)
     }
   }, [isNew])
 
   const currentSnapshot = makeSnapshot({
-    name, description, icon, model, capabilities,
+    name, description, icon, model, imageModelId, videoModelId, capabilities,
     skills, allowSubAgents, maxDepth, systemPrompt,
   })
   const isDirty = currentSnapshot !== savedSnapshotRef.current
+  const canReset = defaultSnapshot !== '' && currentSnapshot !== defaultSnapshot
+
+  const handleResetToDefault = useCallback(() => {
+    if (!defaultSnapshot) return
+    const parsed = JSON.parse(defaultSnapshot) as FormSnapshot
+    setName(parsed.name)
+    setDescription(parsed.description)
+    setIcon(parsed.icon)
+    setModel(parsed.model)
+    setImageModelId(parsed.imageModelId)
+    setVideoModelId(parsed.videoModelId)
+    setCapabilities(parsed.capabilities)
+    setSkills(parsed.skills)
+    setAllowSubAgents(parsed.allowSubAgents)
+    setMaxDepth(parsed.maxDepth)
+    setSystemPrompt(parsed.systemPrompt)
+  }, [defaultSnapshot])
 
   const saveMutation = useMutation(
     trpc.settings.saveAgent.mutationOptions({
@@ -274,6 +642,8 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       description: description.trim() || undefined,
       icon: icon.trim() || undefined,
       model: model.trim() || undefined,
+      imageModelId: imageModelId.trim() || undefined,
+      videoModelId: videoModelId.trim() || undefined,
       capabilities,
       skills,
       allowSubAgents,
@@ -281,7 +651,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       systemPrompt: systemPrompt.trim() || undefined,
     })
   }, [
-    name, description, icon, model, capabilities, skills,
+    name, description, icon, model, imageModelId, videoModelId, capabilities, skills,
     allowSubAgents, maxDepth, systemPrompt, scope, projectId,
     agentPath, isNew, saveMutation,
   ])
@@ -297,6 +667,16 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       checked ? [...prev, skillName] : prev.filter((s) => s !== skillName),
     )
   }, [])
+
+  // 逻辑：登录成功后自动关闭登录弹窗。
+  useEffect(() => {
+    if (authLoggedIn && loginOpen) {
+      setLoginOpen(false)
+    }
+  }, [authLoggedIn, loginOpen])
+
+  const hasImageGenerate = capabilities.includes('image-generate')
+  const hasVideoGenerate = capabilities.includes('video-generate')
 
   // 逻辑：向 PanelFrame 的 StackHeader 注入保存按钮和关闭拦截。
   useEffect(() => {
@@ -344,6 +724,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
+      <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <div className="flex-1 overflow-auto">
         <div className="space-y-4 p-4">
           {/* Apple 风格基本信息区 */}
@@ -355,7 +736,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Agent 名称"
-              readOnly={isSystem}
               className="mx-auto max-w-[220px] border-0 bg-transparent text-center text-base font-semibold shadow-none focus-visible:ring-0"
             />
           </div>
@@ -364,43 +744,124 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           <TenasSettingsCard divided>
             <div className="flex items-center gap-3 py-2.5">
               <span className="text-sm font-medium">模型</span>
-              <Input
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                placeholder="Auto（自动选择）"
-                className="ml-auto max-w-[200px] border-0 bg-transparent text-right text-sm text-muted-foreground shadow-none focus-visible:ring-0"
-              />
-            </div>
-            <div className="flex items-center gap-3 py-2.5">
-              <span className="text-sm font-medium">子Agent</span>
-              <div className="ml-auto flex items-center gap-2">
-                {allowSubAgents ? (
-                  <Input
-                    type="number"
-                    min={1}
-                    max={5}
-                    value={maxDepth}
-                    onChange={(e) => setMaxDepth(Number(e.target.value) || 1)}
-                    className="w-14 border-0 bg-transparent text-right text-xs text-muted-foreground shadow-none focus-visible:ring-0"
-                    title="最大深度"
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                <ChatModelSelect
+                  models={chatModels}
+                  value={model}
+                  showCloudLogin={showChatCloudLogin}
+                  onChange={setModel}
+                  onOpenLogin={() => setLoginOpen(true)}
+                  emptyText="暂无对话模型"
+                />
+                <div className="flex shrink-0 items-center rounded-full border border-border/70 bg-muted/40">
+                  <FilterTab
+                    text="本地"
+                    selected={!isCloudSource}
+                    onSelect={() => void setBasic({ chatSource: 'local' })}
+                    icon={<HardDrive className="h-3 w-3 text-amber-500" />}
+                    layoutId="agent-chat-source"
                   />
-                ) : (
-                  <span className="text-xs text-muted-foreground">允许创建</span>
-                )}
+                  <FilterTab
+                    text="云端"
+                    selected={isCloudSource}
+                    onSelect={() => void setBasic({ chatSource: 'cloud' })}
+                    icon={<Cloud className="h-3 w-3 text-sky-500" />}
+                    layoutId="agent-chat-source"
+                  />
+                </div>
+              </div>
+            </div>
+            {isMasterAgent ? (
+              <div className="flex items-center gap-3 py-2.5">
+                <span className="text-sm font-medium">子Agent最大并行数量</span>
+                <div className="ml-auto flex items-center rounded-full border border-border/70 bg-muted/40">
+                  {[2, 3, 4, 5].map((count) => (
+                    <FilterTab
+                      key={count}
+                      text={`${count}`}
+                      selected={maxDepth === count}
+                      onSelect={() => {
+                        setAllowSubAgents(true)
+                        setMaxDepth(count)
+                      }}
+                      layoutId="agent-subagent-parallel"
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 py-2.5">
+                <span className="text-sm font-medium">备注</span>
+                <Input
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="可选备注信息"
+                  className="ml-auto w-full max-w-[420px] border-0 bg-transparent text-right text-sm text-muted-foreground shadow-none focus-visible:ring-0"
+                />
+              </div>
+            )}
+          </TenasSettingsCard>
+
+          <TenasSettingsCard divided>
+            <div className="flex items-center gap-3 py-2.5">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Image className="h-4 w-4 text-pink-500" />
+                图片生成
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                {hasImageGenerate ? (
+                  authLoggedIn ? (
+                    <MediaModelSelect
+                      models={imageModels}
+                      value={imageModelId}
+                      authLoggedIn={authLoggedIn}
+                      onChange={setImageModelId}
+                      onOpenLogin={() => setLoginOpen(true)}
+                      emptyText="暂无图像模型"
+                    />
+                  ) : (
+                    <Button size="sm" onClick={() => setLoginOpen(true)}>
+                      登录Tenas账户
+                    </Button>
+                  )
+                ) : null}
                 <Switch
-                  checked={allowSubAgents}
-                  onCheckedChange={setAllowSubAgents}
+                  checked={hasImageGenerate}
+                  onCheckedChange={(checked) =>
+                    handleToggleCapability('image-generate', Boolean(checked))
+                  }
                 />
               </div>
             </div>
             <div className="flex items-center gap-3 py-2.5">
-              <span className="text-sm font-medium">备注</span>
-              <Input
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="可选备注信息"
-                className="ml-auto max-w-[200px] border-0 bg-transparent text-right text-sm text-muted-foreground shadow-none focus-visible:ring-0"
-              />
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Video className="h-4 w-4 text-purple-500" />
+                视频生成
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                {hasVideoGenerate ? (
+                  authLoggedIn ? (
+                    <MediaModelSelect
+                      models={videoModels}
+                      value={videoModelId}
+                      authLoggedIn={authLoggedIn}
+                      onChange={setVideoModelId}
+                      onOpenLogin={() => setLoginOpen(true)}
+                      emptyText="暂无视频模型"
+                    />
+                  ) : (
+                    <Button size="sm" onClick={() => setLoginOpen(true)}>
+                      登录Tenas账户
+                    </Button>
+                  )
+                ) : null}
+                <Switch
+                  checked={hasVideoGenerate}
+                  onCheckedChange={(checked) =>
+                    handleToggleCapability('video-generate', Boolean(checked))
+                  }
+                />
+              </div>
             </div>
           </TenasSettingsCard>
 
@@ -408,61 +869,105 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           <Tabs defaultValue="capabilities">
             <div className="sticky top-0 z-10 bg-background pb-2">
               <div className="text-sm font-medium">配置</div>
-              <TabsList className="mt-1.5 h-8 w-max rounded-full border border-border/70 bg-muted/40 p-1">
-                <TabsTrigger
-                  value="capabilities"
-                  className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
+              <div className="flex items-center justify-between gap-2">
+                <TabsList className="mt-1.5 h-8 w-max rounded-full border border-border/70 bg-muted/40 p-1">
+                  <TabsTrigger
+                    value="capabilities"
+                    className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
+                  >
+                    <Blocks className="mr-1 h-3 w-3 text-blue-500" />
+                    能力组
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="skills"
+                    className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
+                  >
+                    <Sparkles className="mr-1 h-3 w-3 text-purple-500" />
+                    技能
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="prompt"
+                    className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
+                  >
+                    <ScrollText className="mr-1 h-3 w-3 text-amber-500" />
+                    系统提示词
+                  </TabsTrigger>
+                </TabsList>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 rounded-full px-3 text-xs"
+                  onClick={handleResetToDefault}
+                  disabled={!canReset}
                 >
-                  <Blocks className="mr-1 h-3 w-3 text-blue-500" />
-                  能力组
-                </TabsTrigger>
-                <TabsTrigger
-                  value="skills"
-                  className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
-                >
-                  <Sparkles className="mr-1 h-3 w-3 text-purple-500" />
-                  技能
-                </TabsTrigger>
-                <TabsTrigger
-                  value="prompt"
-                  className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
-                >
-                  <ScrollText className="mr-1 h-3 w-3 text-amber-500" />
-                  系统提示词
-                </TabsTrigger>
-              </TabsList>
+                  重置
+                </Button>
+              </div>
             </div>
               <TabsContent value="capabilities" className="mt-0">
-                <div className="grid grid-cols-2 gap-3 py-3">
-                  {capGroups.map((group) => {
-                    const capIcon = CAP_ICON_MAP[group.id]
-                    const CapIcon = capIcon?.icon ?? Blocks
-                    const capIconClass = capIcon?.className ?? 'text-muted-foreground'
-                    const bgClass = CAP_BG_MAP[group.id] ?? 'bg-muted/30'
-                    const isActive = capabilities.includes(group.id)
-                    return (
-                      <div
-                        key={group.id}
-                        className={`relative flex flex-col rounded-2xl p-3 transition-colors ${bgClass}`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <CapIcon className={`h-4 w-4 shrink-0 ${capIconClass}`} />
-                          <span className="text-xs font-medium">{group.label}</span>
-                          <Switch
-                            checked={isActive}
-                            onCheckedChange={(checked) =>
-                              handleToggleCapability(group.id, Boolean(checked))
-                            }
-                            disabled={isSystem}
-                            className="ml-auto"
-                          />
+                <div className="py-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    {enabledCapGroups.map((group) => {
+                      const capIcon = CAP_ICON_MAP[group.id]
+                      const CapIcon = capIcon?.icon ?? Blocks
+                      const capIconClass = capIcon?.className ?? 'text-muted-foreground'
+                      const bgClass = CAP_BG_MAP[group.id] ?? 'bg-muted/30'
+                      return (
+                        <div
+                          key={group.id}
+                          className={`relative flex flex-col rounded-2xl p-3 transition-colors ${bgClass}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <CapIcon className={`h-4 w-4 shrink-0 ${capIconClass}`} />
+                            <span className="text-xs font-medium">{group.label}</span>
+                            <Switch
+                              checked
+                              onCheckedChange={(checked) =>
+                                handleToggleCapability(group.id, Boolean(checked))
+                              }
+                              className="ml-auto"
+                            />
+                          </div>
+                          <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground line-clamp-2">
+                            {group.description}
+                          </p>
                         </div>
-                        <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground line-clamp-2">
-                          {group.description}
-                        </p>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
+                  {enabledCapGroups.length > 0 && disabledCapGroups.length > 0 ? (
+                    <div className="border-t border-border/60" />
+                  ) : null}
+                  <div className="grid grid-cols-2 gap-3">
+                    {disabledCapGroups.map((group) => {
+                      const capIcon = CAP_ICON_MAP[group.id]
+                      const CapIcon = capIcon?.icon ?? Blocks
+                      const capIconClass = capIcon?.className ?? 'text-muted-foreground'
+                      const bgClass = CAP_BG_MAP[group.id] ?? 'bg-muted/30'
+                      return (
+                        <div
+                          key={group.id}
+                          className={`relative flex flex-col rounded-2xl p-3 transition-colors ${bgClass}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <CapIcon className={`h-4 w-4 shrink-0 ${capIconClass}`} />
+                            <span className="text-xs font-medium">{group.label}</span>
+                            <Switch
+                              checked={false}
+                              onCheckedChange={(checked) =>
+                                handleToggleCapability(group.id, Boolean(checked))
+                              }
+                              className="ml-auto"
+                            />
+                          </div>
+                          <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground line-clamp-2">
+                            {group.description}
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               </TabsContent>
 

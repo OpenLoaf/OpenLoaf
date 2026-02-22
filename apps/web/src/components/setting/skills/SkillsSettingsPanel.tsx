@@ -502,9 +502,6 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                       <div className="flex min-w-0 items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium text-foreground">{skill.name}</div>
-                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                            {skill.description?.trim() ? skill.description : skill.name}
-                          </p>
                         </div>
                         <Switch
                           checked={skill.isEnabled}
@@ -514,13 +511,15 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                           disabled={updateSkillMutation.isPending}
                         />
                       </div>
-
-                      <div className="mt-auto flex items-center justify-end pt-3">
+                      <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
+                        <p className="min-w-0 flex-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                          {skill.description?.trim() ? skill.description : skill.name}
+                        </p>
                         <Button
                           type="button"
                           size="icon"
                           variant="secondary"
-                          className="h-10 w-10 rounded-full border-0 bg-sky-200/85 text-sky-900 hover:bg-sky-300/85 dark:bg-sky-500/30 dark:text-sky-100 dark:hover:bg-sky-500/40"
+                          className="h-8 w-8 flex-none rounded-full border-0 bg-sky-200/85 text-sky-900 hover:bg-sky-300/85 dark:bg-sky-500/30 dark:text-sky-100 dark:hover:bg-sky-500/40"
                           onClick={() => handleInsertSkillCommand(skill)}
                           aria-label={`使用技能 ${skill.name}`}
                         >

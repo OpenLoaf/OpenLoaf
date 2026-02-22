@@ -18,13 +18,11 @@ const conditionConfigSchema = z.object({
 const taskConfigSchema = z.object({
   id: z.string(),
   name: z.string(),
-  description: z.string().optional(),
   agentName: z.string().optional(),
   enabled: z.boolean(),
   triggerMode: z.enum(['scheduled', 'condition']),
   schedule: scheduleConfigSchema.optional(),
   condition: conditionConfigSchema.optional(),
-  taskType: z.enum(['chat', 'summary', 'custom']),
   payload: z.any().optional(),
   sessionMode: z.enum(['isolated', 'shared']),
   timeoutMs: z.number(),
@@ -65,13 +63,11 @@ export const scheduledTaskSchemas = {
       workspaceId: z.string(),
       projectId: z.string().optional(),
       name: z.string().min(1),
-      description: z.string().optional(),
       agentName: z.string().optional(),
       enabled: z.boolean().optional(),
       triggerMode: z.enum(['scheduled', 'condition']),
       schedule: scheduleConfigSchema.optional(),
       condition: conditionConfigSchema.optional(),
-      taskType: z.enum(['chat', 'summary', 'custom']),
       payload: z.any().optional(),
       sessionMode: z.enum(['isolated', 'shared']).optional(),
       timeoutMs: z.number().optional(),
@@ -83,14 +79,13 @@ export const scheduledTaskSchemas = {
   update: {
     input: z.object({
       id: z.string(),
+      projectId: z.string().optional(),
       name: z.string().min(1).optional(),
-      description: z.string().optional(),
       agentName: z.string().optional(),
       enabled: z.boolean().optional(),
       triggerMode: z.enum(['scheduled', 'condition']).optional(),
       schedule: scheduleConfigSchema.optional(),
       condition: conditionConfigSchema.optional(),
-      taskType: z.enum(['chat', 'summary', 'custom']).optional(),
       payload: z.any().optional(),
       sessionMode: z.enum(['isolated', 'shared']).optional(),
       timeoutMs: z.number().optional(),
@@ -99,11 +94,17 @@ export const scheduledTaskSchemas = {
     output: taskConfigSchema,
   },
   delete: {
-    input: z.object({ id: z.string() }),
+    input: z.object({
+      id: z.string(),
+      projectId: z.string().optional(),
+    }),
     output: z.object({ ok: z.boolean() }),
   },
   run: {
-    input: z.object({ id: z.string() }),
+    input: z.object({
+      id: z.string(),
+      projectId: z.string().optional(),
+    }),
     output: z.object({ ok: z.boolean() }),
   },
   runLogs: {

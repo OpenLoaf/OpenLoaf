@@ -22,7 +22,7 @@ export type SubAgentType =
 
 /** Legacy aliases for backward compatibility. */
 const LEGACY_ALIASES: Record<string, string> = {
-  default: 'main',
+  default: 'master',
   browser: 'browser',
   browsersubagent: 'browser',
   'document-analysis': 'document',
@@ -50,7 +50,7 @@ export function resolveAgentType(raw?: string): SubAgentType {
 
 /** Resolve the effective agent name after legacy alias mapping. */
 export function resolveEffectiveAgentName(raw?: string): string {
-  if (!raw) return 'main'
+  if (!raw) return 'master'
   const lower = raw.toLowerCase().trim()
   return LEGACY_ALIASES[lower] ?? lower
 }
@@ -100,13 +100,13 @@ export function createSubAgent(input: CreateSubAgentInput): ToolLoopAgent {
     if (dynamicAgent) return dynamicAgent
   }
 
-  // 逻辑：fallback 到 main Agent 定义。
-  const mainDef = SYSTEM_AGENT_MAP.get('main')!
-  const toolIds = resolveToolIdsFromCapabilities(mainDef.capabilities)
+  // 逻辑：fallback 到 master Agent 定义。
+  const masterDef = SYSTEM_AGENT_MAP.get('master')!
+  const toolIds = resolveToolIdsFromCapabilities(masterDef.capabilities)
   return new ToolLoopAgent({
-    id: 'fallback-main-agent',
+    id: 'fallback-master-agent',
     model: input.model,
-    instructions: `你是 ${mainDef.name}。${mainDef.description}`,
+    instructions: `你是 ${masterDef.name}。${masterDef.description}`,
     tools: buildToolset(toolIds),
     experimental_repairToolCall: createToolCallRepair(),
   })
