@@ -56,7 +56,9 @@ if (
 }
 
 const extraFlags = []
-if (process.platform === 'win32' && process.env.TENAS_SKIP_WIN_SIGN === 'true') {
+const isWinTarget = process.argv.some((arg) => arg === '--win' || arg.startsWith('--win='))
+// 中文注释：允许在 mac/Linux 构建 Windows 产物时跳过 rcedit，规避 wine 依赖。
+if (process.env.TENAS_SKIP_WIN_SIGN === 'true' && isWinTarget) {
   extraFlags.push('--config.win.signAndEditExecutable=false')
 }
 

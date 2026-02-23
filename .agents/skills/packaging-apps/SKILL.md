@@ -19,6 +19,38 @@ Provide repo-specific packaging guidance for Electron + web + server, including 
 - Server build only: `pnpm --filter server run build:prod`.
 - Web export only: `pnpm --filter web run build`.
 
+## macOS Build Windows (Wine on Apple Silicon)
+1. Install XQuartz and start it once, then log out and back in to register X11.
+2. Ensure `wine` is available in `PATH` (Homebrew wine works).
+3. Force x86_64 wine to avoid `wineserver` failures by placing a wrapper earlier in `PATH`:
+   ```bash
+   mkdir -p ~/bin
+   cat > ~/bin/wine <<'EOF'
+   #!/bin/zsh
+   exec arch -x86_64 /opt/homebrew/bin/wine "$@"
+   EOF
+   chmod +x ~/bin/wine
+   export PATH="$HOME/bin:$PATH"
+   ```
+4. Initialize the wine prefix:
+   ```bash
+   WINEDEBUG=-all wineboot --init
+   ```
+5. Build Windows artifacts using system wine:
+   ```bash
+   USE_SYSTEM_WINE=true pnpm run dist:win
+   ```
+6. For one-off runs without touching `PATH`, use a temporary wrapper:
+   ```bash
+   mkdir -p /tmp/wine-bin
+   cat > /tmp/wine-bin/wine <<'EOF'
+   #!/bin/zsh
+   exec arch -x86_64 /opt/homebrew/bin/wine "$@"
+   EOF
+   chmod +x /tmp/wine-bin/wine
+   PATH=/tmp/wine-bin:$PATH USE_SYSTEM_WINE=true pnpm run dist:win
+   ```
+
 ## Artifact Map
 - Server bundle: `apps/server/dist/server.mjs` and `apps/server/dist/seed.db`.
 - Web export: `apps/web/out/` (Next `output: \"export\"`).
@@ -68,6 +100,7 @@ Provide repo-specific packaging guidance for Electron + web + server, including 
 - Web loads blank: `apps/web/out` missing or not copied to `Resources/out`.
 - About shows `vbundled`: `Resources/server.package.json` / `web.package.json` missing (Forge `extraResource` flattens basenames).
   - Fix: copy and rename in `apps/desktop/forge.config.ts` `postPackage` hook.
+- `wineserver: Can't check in server_mach_port` (macOS build for Windows): start XQuartz, log out/in, and force x86_64 wine via wrapper + `USE_SYSTEM_WINE=true`.
 
 ## Source Files to Read First
 - `apps/desktop/package.json`

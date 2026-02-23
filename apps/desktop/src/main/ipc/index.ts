@@ -51,14 +51,40 @@ const TRANSFER_PROGRESS_THROTTLE_MS = 120;
 const FALLBACK_DRAG_ICON_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+AP7n2U8VQAAAABJRU5ErkJggg==';
 
+/** Normalize file:// URI for cross-platform parsing. */
+function normalizeFileUri(raw: string): string {
+  let normalized = raw.trim();
+  if (normalized.startsWith('file:/') && !normalized.startsWith('file://')) {
+    normalized = `file:///${normalized.slice('file:/'.length)}`;
+  } else if (normalized.startsWith('file://') && !normalized.startsWith('file:///')) {
+    normalized = `file:///${normalized.slice('file://'.length)}`;
+  }
+  return normalized.replace(/\\/g, '/');
+}
+
 /** Resolve a local filesystem path from a file:// URI or raw path. */
 function resolveLocalPath(input: string): string | null {
   const raw = String(input ?? '').trim();
   if (!raw) return null;
-  if (raw.startsWith('file://')) {
+  if (raw.startsWith('file:')) {
+    const normalized = normalizeFileUri(raw);
     try {
-      return fileURLToPath(raw);
+      return fileURLToPath(normalized);
     } catch {
+      // 中文注释：处理非标准 file:// 路径，避免主进程崩溃。
+      const stripped = normalized.replace(/^file:\/\//, '');
+      const decoded = decodeURIComponent(stripped);
+      const withoutHost = decoded.startsWith('localhost/')
+        ? decoded.slice('localhost/'.length)
+        : decoded;
+      let candidate = withoutHost;
+      if (candidate.startsWith('/') && /^[a-zA-Z]:/.test(candidate.slice(1))) {
+        candidate = candidate.slice(1);
+      }
+      candidate = candidate.replace(/\//g, path.sep);
+      if (path.isAbsolute(candidate) || /^[a-zA-Z]:[\\/]/.test(candidate)) {
+        return candidate;
+      }
       return null;
     }
   }
@@ -557,9 +583,8 @@ export function registerIpcHandlers(args: { log: Logger }) {
 
   // 使用系统默认程序打开文件/目录。
   ipcMain.handle('tenas:fs:open-path', async (_event, payload: { uri: string }) => {
-    const uri = String(payload?.uri ?? '');
-    if (!uri.startsWith('file://')) return { ok: false as const, reason: 'Invalid uri' };
-    const targetPath = fileURLToPath(uri);
+    const targetPath = resolveLocalPath(String(payload?.uri ?? ''));
+    if (!targetPath) return { ok: false as const, reason: 'Invalid uri' };
     const result = await shell.openPath(targetPath);
     if (result) return { ok: false as const, reason: result };
     return { ok: true as const };
@@ -567,18 +592,16 @@ export function registerIpcHandlers(args: { log: Logger }) {
 
   // 在系统文件管理器中显示文件/目录。
   ipcMain.handle('tenas:fs:show-in-folder', async (_event, payload: { uri: string }) => {
-    const uri = String(payload?.uri ?? '');
-    if (!uri.startsWith('file://')) return { ok: false as const, reason: 'Invalid uri' };
-    const targetPath = fileURLToPath(uri);
+    const targetPath = resolveLocalPath(String(payload?.uri ?? ''));
+    if (!targetPath) return { ok: false as const, reason: 'Invalid uri' };
     shell.showItemInFolder(targetPath);
     return { ok: true as const };
   });
 
   // 将文件/目录移动到系统回收站。
   ipcMain.handle('tenas:fs:trash-item', async (_event, payload: { uri: string }) => {
-    const uri = String(payload?.uri ?? '');
-    if (!uri.startsWith('file://')) return { ok: false as const, reason: 'Invalid uri' };
-    const targetPath = fileURLToPath(uri);
+    const targetPath = resolveLocalPath(String(payload?.uri ?? ''));
+    if (!targetPath) return { ok: false as const, reason: 'Invalid uri' };
     try {
       await shell.trashItem(targetPath);
       return { ok: true as const };
