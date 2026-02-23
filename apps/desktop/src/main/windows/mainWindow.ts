@@ -207,39 +207,46 @@ export async function createMainWindow(args: {
       app.exit(0);
     }, 5000);
   };
-  const confirmQuit = () => {
+  const confirmQuit = async () => {
     if (quitConfirming) return false;
     quitConfirming = true;
-    const response = dialog.showMessageBoxSync(mainWindow, {
-      type: 'question',
-      buttons: ['取消', '退出'],
-      defaultId: 1,
-      cancelId: 0,
-      title: '确认退出',
-      message: '确定要退出 Tenas 吗？',
-    });
-    quitConfirming = false;
-    if (response === 1) {
-      allowClose = true;
-      scheduleForceExit();
-      return true;
+    try {
+      const { response } = await dialog.showMessageBox(mainWindow, {
+        type: 'question',
+        buttons: ['Cancel', 'Quit'],
+        defaultId: 1,
+        cancelId: 0,
+        title: 'Confirm Exit',
+        message: 'Are you sure you want to quit Tenas?',
+      });
+      return response === 1;
+    } finally {
+      quitConfirming = false;
     }
-    return false;
+  };
+  const requestQuit = async () => {
+    if (allowClose) return;
+    const confirmed = await confirmQuit();
+    if (!confirmed) {
+      mainWindow.show();
+      mainWindow.focus();
+      return;
+    }
+    allowClose = true;
+    scheduleForceExit();
+    app.quit();
   };
   app.on('before-quit', (event) => {
     if (allowClose) return;
+    event.preventDefault();
     // Cmd+Q 触发 before-quit：只有用户取消时才阻止退出。
-    if (!confirmQuit()) {
-      event.preventDefault();
-    }
+    void requestQuit();
   });
   mainWindow.on('close', (event) => {
     if (allowClose) return;
     // 中文注释：关闭主窗口时弹出确认框，避免误退出。
     event.preventDefault();
-    if (confirmQuit()) {
-      app.quit();
-    }
+    void requestQuit();
   });
   args.log('Window created. Loading loading screen...');
   await mainWindow.loadURL(args.entries.loadingWindow);

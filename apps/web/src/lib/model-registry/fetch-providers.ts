@@ -1,9 +1,25 @@
-import type { AiProviderTemplate } from "@tenas-saas/sdk";
 import type {
   ProviderDefinition,
   ModelDefinition,
   ModelTag,
 } from "@tenas-ai/api/common";
+
+type SaasProviderTemplate = {
+  id: string;
+  label?: string;
+  name?: string;
+  category?: string;
+  apiUrl?: string;
+  authType?: string;
+  adapter?: string;
+  models: Array<{
+    id: string;
+    displayName?: string | null;
+    tags?: string[];
+    [key: string]: unknown;
+  }>;
+  [key: string]: unknown;
+};
 
 let cachedProviders: ProviderDefinition[] | null = null;
 
@@ -22,7 +38,7 @@ export async function fetchProviderTemplates(
   if (!json.success || !json.data?.providers) {
     throw new Error("获取供应商模板失败: 响应格式异常");
   }
-  const templates = json.data.providers as AiProviderTemplate[];
+  const templates = json.data.providers as SaasProviderTemplate[];
   cachedProviders = templates.map(toProviderDefinition);
   return cachedProviders;
 }
@@ -34,7 +50,7 @@ export function invalidateProviderCache() {
 
 /** Convert SaaS template to local ProviderDefinition. */
 function toProviderDefinition(
-  template: AiProviderTemplate,
+  template: SaasProviderTemplate,
 ): ProviderDefinition {
   return {
     ...template,

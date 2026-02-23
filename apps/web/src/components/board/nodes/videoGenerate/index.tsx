@@ -1,7 +1,7 @@
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Copy, LogIn, Play, RotateCcw } from "lucide-react";
-import type { ModelParameterFeature } from "@tenas-ai/api/common";
+import type { ModelCapabilities, ModelParameterFeature } from "@tenas-ai/api/common";
 import { toast } from "sonner";
 
 import { useBoardContext } from "../../core/BoardProvider";
@@ -166,13 +166,16 @@ export function VideoGenerateNodeView({
     () => candidates.find((item) => item.id === effectiveModelId),
     [candidates, effectiveModelId]
   );
+  const selectedCapabilities = selectedModel?.capabilities as
+    | ModelCapabilities
+    | undefined;
   const parameterFields = useMemo(
-    () => selectedModel?.capabilities?.params?.fields ?? [],
-    [selectedModel]
+    () => selectedCapabilities?.params?.fields ?? [],
+    [selectedCapabilities]
   );
   const parameterFeatures = useMemo<ModelParameterFeature[]>(
-    () => selectedModel?.capabilities?.params?.features ?? [],
-    [selectedModel]
+    () => selectedCapabilities?.params?.features ?? [],
+    [selectedCapabilities]
   );
   const allowsPrompt =
     parameterFeatures.includes("prompt") || parameterFeatures.length === 0;

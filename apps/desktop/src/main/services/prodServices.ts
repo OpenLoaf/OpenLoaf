@@ -69,6 +69,8 @@ function resolveFilePathFromDatabaseUrl(
   const rawPath = databaseUrl.slice('file:'.length);
   if (!rawPath) return null;
   if (rawPath.startsWith('/')) return rawPath;
+  if (/^[a-zA-Z]:[\\/]/.test(rawPath)) return rawPath;
+  if (rawPath.startsWith('\\\\')) return rawPath;
   return path.join(baseDir, rawPath);
 }
 
@@ -228,7 +230,19 @@ export async function startProductionServices(args: {
   const localDbPath = resolveFilePathFromDatabaseUrl(databaseUrl, dataDir);
 
   // Initialize DB on first run by copying a pre-built seed DB (schema already applied).
-  if (localDbPath && !fs.existsSync(localDbPath)) {
+  let needsDbInit = false;
+  if (localDbPath) {
+    try {
+      if (!fs.existsSync(localDbPath)) {
+        needsDbInit = true;
+      } else if (fs.statSync(localDbPath).size === 0) {
+        needsDbInit = true;
+      }
+    } catch {
+      needsDbInit = true;
+    }
+  }
+  if (localDbPath && needsDbInit) {
     try {
       ensureDir(path.dirname(localDbPath));
       const seedDbPath = path.join(resourcesPath, 'seed.db');

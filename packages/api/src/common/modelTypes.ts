@@ -2,12 +2,51 @@ import {
   AI_MODEL_TAG_LABELS,
   type AiModelCapabilities,
   type AiModelTag,
-  type AiProviderTemplate,
 } from "@tenas-saas/sdk";
 
 export type ChatModelSource = "local" | "cloud";
 
-export type ModelTag = AiModelTag;
+export type ModelTag = AiModelTag | "chat" | "code" | "tool_call" | "reasoning";
+
+export type ModelCapabilityCommon = {
+  maxContextK?: number;
+  supportsWebSearch?: boolean;
+  [key: string]: unknown;
+};
+
+export type ModelParameterType =
+  | "select"
+  | "text"
+  | "textarea"
+  | "number"
+  | "boolean"
+  | (string & {});
+
+export type ModelParameterDefinition = {
+  key: string;
+  type: ModelParameterType;
+  title?: string;
+  description?: string;
+  request?: boolean;
+  unit?: string;
+  values?: Array<string | number | boolean>;
+  default?: string | number | boolean;
+  min?: number;
+  max?: number;
+  step?: number;
+};
+
+export type ModelParameterFeature = string;
+
+export type ModelCapabilityParams = {
+  fields?: ModelParameterDefinition[];
+  features?: ModelParameterFeature[];
+};
+
+export type ModelCapabilities = AiModelCapabilities & {
+  common?: ModelCapabilityCommon;
+  params?: ModelCapabilityParams;
+};
 
 export type ModelDefinition = {
   /** Model id. */
@@ -23,29 +62,35 @@ export type ModelDefinition = {
   /** Model tags. */
   tags?: ModelTag[];
   /** Model capabilities. */
-  capabilities?: AiModelCapabilities;
+  capabilities?: ModelCapabilities;
   /** Allow extra fields from SaaS. */
   [key: string]: unknown;
 };
 
-export type ModelCapabilities = AiModelCapabilities;
-
-export type ModelCapabilityCommon = NonNullable<ModelCapabilities["common"]>;
-export type ModelCapabilityParams = NonNullable<ModelCapabilities["params"]>;
 export type ModelCapabilityInput = NonNullable<ModelCapabilities["input"]>;
 export type ModelCapabilityOutput = NonNullable<ModelCapabilities["output"]>;
 
-export type ModelParameterDefinition =
-  NonNullable<ModelCapabilityParams["fields"]>[number];
-export type ModelParameterFeature =
-  NonNullable<ModelCapabilityParams["features"]>[number];
-export type ModelParameterType = ModelParameterDefinition["type"];
+// Tag label mapping for UI.
+export const MODEL_TAG_LABELS: Record<ModelTag, string> = {
+  ...AI_MODEL_TAG_LABELS,
+  chat: "Chat",
+  code: "Code",
+  tool_call: "Tool Call",
+  reasoning: "Reasoning",
+};
 
-// 标签显示文案映射。
-export const MODEL_TAG_LABELS: Record<ModelTag, string> = AI_MODEL_TAG_LABELS;
-
-export type ProviderDefinition = Omit<AiProviderTemplate, "models"> & {
-  /** Adapter id — defaults to provider id. */
+export type ProviderDefinition = {
+  /** Provider id. */
+  id: string;
+  /** Provider label for UI display. */
+  label?: string;
+  /** Optional provider name. */
+  name?: string;
+  /** Provider category (e.g. provider / s3Provider). */
+  category?: string;
+  /** Default API base URL, if any. */
+  apiUrl?: string;
+  /** Adapter id - defaults to provider id. */
   adapterId: string;
   /** Auth type: apiKey (default) or hmac. */
   authType?: string;
@@ -53,4 +98,6 @@ export type ProviderDefinition = Omit<AiProviderTemplate, "models"> & {
   authConfig?: Record<string, unknown>;
   /** Models with local extensions. */
   models: ModelDefinition[];
+  /** Allow extra fields from SaaS. */
+  [key: string]: unknown;
 };

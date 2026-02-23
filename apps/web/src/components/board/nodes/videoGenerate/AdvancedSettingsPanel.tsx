@@ -204,7 +204,9 @@ export function AdvancedSettingsPanel({
               </div>
             );
             if (field.type === "select") {
-              const options = Array.isArray(field.values) ? field.values : [];
+              const options = Array.isArray(field.values)
+                ? (field.values as Array<string | number | boolean>)
+                : [];
               return (
                 <div className="flex items-start gap-3" key={field.key}>
                   {label}

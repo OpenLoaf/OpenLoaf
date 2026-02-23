@@ -100,6 +100,11 @@ Provide repo-specific packaging guidance for Electron + web + server, including 
 - Web loads blank: `apps/web/out` missing or not copied to `Resources/out`.
 - About shows `vbundled`: `Resources/server.package.json` / `web.package.json` missing (Forge `extraResource` flattens basenames).
   - Fix: copy and rename in `apps/desktop/forge.config.ts` `postPackage` hook.
+- `SQLITE_ERROR: no such table ...` right after install (Windows): DB seed copy failed and `~/.tenas/tenas.db` is empty (0 bytes) or path joined incorrectly for `file:C:\...`.
+  - Fix: ensure `apps/desktop/src/main/services/prodServices.ts` treats Windows absolute/UNC paths as absolute in `resolveFilePathFromDatabaseUrl` and re-initializes when DB file is 0 bytes.
+  - Quick workaround: delete `~/.tenas/tenas.db` and copy `Resources/seed.db` to `~/.tenas/tenas.db`, then relaunch.
+- App cannot quit after confirmation (Windows titlebar overlay): sync confirm blocks close event, leaving the window in a closing state.
+  - Fix: switch to async `dialog.showMessageBox` and centralize quit flow in `apps/desktop/src/main/windows/mainWindow.ts`, re-focus window on cancel, and schedule a force-exit timeout.
 - `wineserver: Can't check in server_mach_port` (macOS build for Windows): start XQuartz, log out/in, and force x86_64 wine via wrapper + `USE_SYSTEM_WINE=true`.
 
 ## Source Files to Read First
@@ -108,4 +113,5 @@ Provide repo-specific packaging guidance for Electron + web + server, including 
 - `apps/server/scripts/build-prod.mjs`
 - `apps/web/next.config.js`
 - `apps/desktop/src/main/services/prodServices.ts`
+- `apps/desktop/src/main/windows/mainWindow.ts`
 - `apps/desktop/README.md`
