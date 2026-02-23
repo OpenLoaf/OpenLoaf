@@ -72,17 +72,30 @@ try {
 
 // Wipe any dev data so production starts with schema-only DB.
 // (If you want to ship demo data, remove this.)
-const wipeSql = [
-  "PRAGMA foreign_keys=OFF;",
-  "BEGIN;",
-  "DELETE FROM ChatMessage;",
-  "DELETE FROM ChatSession;",
-  "COMMIT;",
-].join("\n");
-
-const wipe = spawnSync("sqlite3", [seedDbPath, wipeSql], { stdio: "inherit" });
-if (wipe.status !== 0) {
-  process.exit(wipe.status ?? 1);
+// 逻辑：动态读取现有表并清空，避免表不存在导致发布失败。
+const listTables = spawnSync(
+  "sqlite3",
+  [seedDbPath, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"],
+  { encoding: "utf8" },
+);
+if (listTables.status !== 0) {
+  process.exit(listTables.status ?? 1);
+}
+const tables = String(listTables.stdout ?? "")
+  .split("\n")
+  .map((name) => name.trim())
+  .filter(Boolean);
+if (tables.length > 0) {
+  const wipeSql = [
+    "PRAGMA foreign_keys=OFF;",
+    "BEGIN;",
+    ...tables.map((name) => `DELETE FROM "${name.replaceAll('"', '""')}";`),
+    "COMMIT;",
+  ].join("\n");
+  const wipe = spawnSync("sqlite3", [seedDbPath, wipeSql], { stdio: "inherit" });
+  if (wipe.status !== 0) {
+    process.exit(wipe.status ?? 1);
+  }
 }
 
 const vacuum = spawnSync("sqlite3", [seedDbPath, "VACUUM;"], { stdio: "inherit" });
