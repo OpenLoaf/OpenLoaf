@@ -17,7 +17,7 @@ const registerSchema = z.object({
   workspaceId: z.string().optional(),
   projectId: z.string().optional(),
   capabilities: z.array(z.enum(OFFICE_ACTIONS)).optional(),
-  clientMeta: z.record(z.unknown()).optional(),
+  clientMeta: z.record(z.string(), z.unknown()).optional(),
 });
 
 const heartbeatSchema = z.object({

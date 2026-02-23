@@ -371,7 +371,9 @@ function applyThemeDefaults(
     const legendCount = legendData?.length ?? 0;
     const nextBottom = legendCount > 4 ? 52 : 40;
     const gridObject = asPlainObject(next.grid) ?? {};
-    if (gridObject.bottom == null || gridObject.bottom <= 12) {
+    const bottomValue = gridObject.bottom;
+    const hasSmallBottom = typeof bottomValue === "number" && bottomValue <= 12;
+    if (bottomValue == null || hasSmallBottom) {
       next.grid = { ...gridObject, bottom: nextBottom };
     }
   }

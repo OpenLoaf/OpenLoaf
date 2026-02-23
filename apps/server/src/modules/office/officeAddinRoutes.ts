@@ -75,6 +75,6 @@ export function registerOfficeAddinRoutes(app: Hono) {
     }
 
     c.header("content-type", resolveMimeType(safePath));
-    return c.body(content);
+    return c.body(new Uint8Array(content));
   });
 }

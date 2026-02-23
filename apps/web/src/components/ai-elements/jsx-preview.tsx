@@ -17,12 +17,22 @@ import {
 } from "react";
 import JsxParser from "react-jsx-parser";
 
+type JSXPreviewComponent =
+  | React.ComponentType<any>
+  | React.ExoticComponent<any>
+  | (() => React.ReactNode);
+
+type JSXPreviewComponents = Record<
+  string,
+  JSXPreviewComponent | Record<string, JSXPreviewComponent>
+>;
+
 interface JSXPreviewContextValue {
   jsx: string;
   processedJsx: string;
   error: Error | null;
   setError: (error: Error | null) => void;
-  components: JsxParserProps["components"];
+  components: JSXPreviewComponents | undefined;
   bindings: JsxParserProps["bindings"];
   onErrorProp?: (error: Error) => void;
 }
@@ -106,10 +116,10 @@ const completeJsxTag = (code: string) => {
   );
 };
 
-export type JSXPreviewProps = ComponentProps<"div"> & {
+export type JSXPreviewProps = Omit<ComponentProps<"div">, "onError"> & {
   jsx: string;
   isStreaming?: boolean;
-  components?: JsxParserProps["components"];
+  components?: JSXPreviewComponents;
   bindings?: JsxParserProps["bindings"];
   onError?: (error: Error) => void;
 };
@@ -195,7 +205,7 @@ export const JSXPreviewContent = memo(
       <div className={cn("jsx-preview-content", className)} {...props}>
         <JsxParser
           bindings={bindings}
-          components={components}
+          components={components as JsxParserProps["components"]}
           jsx={processedJsx}
           onError={handleError}
           renderInWrapper={false}
