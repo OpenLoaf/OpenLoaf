@@ -1,7 +1,7 @@
 'use client'
 
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { trpc } from '@/utils/trpc'
 import {
   Dialog,
@@ -195,6 +195,12 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
   const [timeoutMs, setTimeoutMs] = useState(600000)
   const [cooldownMs, setCooldownMs] = useState(60000)
   const [activeTab, setActiveTab] = useState<'trigger' | 'action' | 'advanced'>('trigger')
+
+  const agentsQuery = useQuery(trpc.settings.getAgents.queryOptions({}))
+  const enabledAgents = useMemo(
+    () => (agentsQuery.data ?? []).filter((a: { isEnabled: boolean }) => a.isEnabled),
+    [agentsQuery.data],
+  )
 
   const projectsQuery = useProjects()
   const projectOptions = useMemo(
@@ -600,12 +606,29 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                 <div className="pt-2">
                   <div className="divide-y divide-border/60">
                     <FormRow label="Agent">
-                      <Input
-                        value={agentName}
-                        onChange={(e) => setAgentName(e.target.value)}
-                        placeholder="默认"
-                        className={cn(inlineInput, 'max-w-[280px]')}
-                      />
+                      <Select
+                        value={agentName || '__default__'}
+                        onValueChange={(v) => setAgentName(v === '__default__' ? '' : v)}
+                      >
+                        <SelectTrigger className={cn(selectBase, 'w-[220px]')}>
+                          <SelectValue placeholder="默认" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="__default__" className="rounded-lg text-xs">
+                            默认
+                          </SelectItem>
+                          {enabledAgents.map((agent: { folderName: string; name: string; icon?: string }) => (
+                            <SelectItem key={agent.folderName} value={agent.folderName} className="rounded-lg text-xs">
+                              <span className="inline-flex items-center gap-1.5">
+                                {agent.icon && /[^a-z0-9-_]/i.test(agent.icon.trim()) ? (
+                                  <span className="text-xs leading-none">{agent.icon.trim()}</span>
+                                ) : null}
+                                {agent.name}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </FormRow>
                     <FormRow label="指令" alignTop>
                       <Textarea

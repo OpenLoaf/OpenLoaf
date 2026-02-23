@@ -93,7 +93,7 @@ function resolveSessionKey(): string {
 export const jsReplTool = tool({
   description: jsReplToolDef.description,
   inputSchema: zodSchema(jsReplToolDef.parameters),
-  execute: async ({ input }): Promise<string> => {
+  execute: async (input: string): Promise<string> => {
     // 逻辑：每次执行独立的 logs 数组，避免并发竞争。
     const logs: string[] = []
     const key = resolveSessionKey()

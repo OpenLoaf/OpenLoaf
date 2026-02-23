@@ -136,7 +136,7 @@ const MENU: Array<{
   },
   {
     key: "agents",
-    label: "Agent",
+    label: "Agent助手",
     Icon: createMenuIcon(Bot, SETTINGS_MENU_ICON_COLOR.agents),
     Component: AgentManagement,
   },

@@ -4,7 +4,6 @@ import React, { type ReactNode } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import {
   generateId,
-  lastAssistantMessageIsCompleteWithApprovalResponses,
   readUIMessageStream,
   type UIMessageChunk,
 } from "ai";
@@ -64,6 +63,80 @@ function isSessionCommandMessage(input: { parts?: unknown[] }): boolean {
 /** Check whether text starts with the given command token. */
 function isCommandAtStart(text: string, command: string): boolean {
   return isCommandAtStartPure(text, command);
+}
+
+/** Check whether a message part looks like a tool invocation. */
+function isToolPartCandidate(part: any): boolean {
+  if (!part || typeof part !== "object") return false;
+  const type = typeof part.type === "string" ? part.type : "";
+  return type === "dynamic-tool" || type.startsWith("tool-") || typeof part.toolName === "string";
+}
+
+/** Resolve the last assistant message from a list of UI messages. */
+function findLastAssistantMessage(messages: UIMessage[]): UIMessage | undefined {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === "assistant") return messages[i];
+  }
+  return undefined;
+}
+
+/** Map tool call ids to parts from a message. */
+function mapToolPartsFromMessage(message: UIMessage | undefined): Record<string, any> {
+  const mapping: Record<string, any> = {};
+  const parts = Array.isArray((message as any)?.parts) ? (message as any).parts : [];
+  for (const part of parts) {
+    if (!isToolPartCandidate(part)) continue;
+    const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
+    if (!toolCallId) continue;
+    mapping[toolCallId] = part;
+  }
+  return mapping;
+}
+
+/** Collect tool call ids that require approval from the given message. */
+function collectApprovalToolCallIds(
+  message: UIMessage | undefined,
+  toolParts: Record<string, ToolPartSnapshot>,
+): string[] {
+  const result: string[] = [];
+  const parts = Array.isArray((message as any)?.parts) ? (message as any).parts : [];
+  for (const part of parts) {
+    if (!isToolPartCandidate(part)) continue;
+    const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
+    if (!toolCallId) continue;
+    const snapshot = toolParts[toolCallId];
+    if (Boolean((snapshot as any)?.subAgentToolCallId)) continue;
+    const state = typeof snapshot?.state === "string"
+      ? snapshot.state
+      : typeof part?.state === "string"
+        ? part.state
+        : "";
+    const hasApprovalInfo =
+      Boolean(part?.approval) ||
+      Boolean(snapshot?.approval) ||
+      state === "approval-requested" ||
+      state === "approval-responded" ||
+      state === "input-available";
+    if (!hasApprovalInfo) continue;
+    if (!result.includes(toolCallId)) result.push(toolCallId);
+  }
+  return result;
+}
+
+/** Check whether a tool approval has been resolved. */
+function isToolApprovalResolved(input: {
+  toolCallId: string;
+  toolParts: Record<string, ToolPartSnapshot>;
+  messagePart?: any;
+}): boolean {
+  const approval = input.toolParts[input.toolCallId]?.approval ?? input.messagePart?.approval;
+  if (approval?.approved === true || approval?.approved === false) return true;
+  const state = typeof input.toolParts[input.toolCallId]?.state === "string"
+    ? input.toolParts[input.toolCallId]?.state
+    : typeof input.messagePart?.state === "string"
+      ? input.messagePart.state
+      : "";
+  return state === "approval-responded" || state === "output-denied";
 }
 
 // 中文注释：提供稳定的空对象，避免 useSyncExternalStore 报错。
@@ -349,6 +422,12 @@ export default function ChatCoreProvider({
   // 关键：用于自动标题更新的回复计数与首条消息刷新。
   const assistantReplyCountRef = React.useRef(0);
   const pendingInitialTitleRefreshRef = React.useRef(false);
+  /** Queued approval payloads keyed by tool call id. */
+  const approvalPayloadsRef = React.useRef<Record<string, Record<string, unknown>>>({});
+  /** Track ongoing approval submission to avoid duplicate sends. */
+  const approvalSubmitInFlightRef = React.useRef(false);
+  /** Remember the last assistant message id that triggered an approval continuation. */
+  const lastApprovalSubmitMessageIdRef = React.useRef<string | null>(null);
 
   const ensureSubAgentStreamController = React.useCallback(
     (toolCallId: string) => {
@@ -485,6 +564,13 @@ export default function ChatCoreProvider({
   }, [sessionId]);
 
   React.useEffect(() => {
+    // 会话切换时清空审批暂存，避免跨会话串联。
+    approvalPayloadsRef.current = {};
+    approvalSubmitInFlightRef.current = false;
+    lastApprovalSubmitMessageIdRef.current = null;
+  }, [sessionId]);
+
+  React.useEffect(() => {
     if (tabId) {
       clearToolPartsForTab(tabId);
     }
@@ -581,8 +667,10 @@ export default function ChatCoreProvider({
       if (assistantReplyCountRef.current % 5 === 0 && !autoTitleMutation.isPending) {
         autoTitleMutation.mutate({ sessionId } as any);
       }
+      // 中文注释：请求结束后清理 stepThinking，避免中止后残留“深度思考中”。
+      setStepThinking(false);
     },
-    [autoTitleMutation, queryClient, refreshBranchMeta, sessionId, setLeafMessageId]
+    [autoTitleMutation, queryClient, refreshBranchMeta, sessionId, setLeafMessageId, setStepThinking]
   );
 
   const chatConfig = React.useMemo(
@@ -590,8 +678,8 @@ export default function ChatCoreProvider({
       id: sessionId,
       // 关键：不要用 useChat 的自动续接，保持流程可控。
       resume: false,
-      // 中文注释：审批响应齐备后自动续接，避免手动 sendMessage 导致 parentMessageId 缺失。
-      sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+      // 审批续接改为手动触发，避免多审批场景提前续接。
+      sendAutomaticallyWhen: () => false,
       transport,
       onToolCall: (payload: { toolCall: any }) => {
         void toolStream.handleToolCall({ toolCall: payload.toolCall, tabId });
@@ -1146,6 +1234,82 @@ export default function ChatCoreProvider({
     [tabId, upsertToolPart]
   );
 
+  /** Queue a tool approval payload for the next continuation. */
+  const queueToolApprovalPayload = React.useCallback(
+    (toolCallId: string, payload: Record<string, unknown>) => {
+      if (!toolCallId) return;
+      approvalPayloadsRef.current[toolCallId] = payload;
+    },
+    []
+  );
+
+  /** Clear a queued tool approval payload. */
+  const clearToolApprovalPayload = React.useCallback((toolCallId: string) => {
+    if (!toolCallId) return;
+    delete approvalPayloadsRef.current[toolCallId];
+  }, []);
+
+  /** Attempt to continue chat after all approvals are resolved. */
+  const continueAfterToolApprovals = React.useCallback(async () => {
+    const messages = (chat.messages ?? []) as UIMessage[];
+    const lastAssistant = findLastAssistantMessage(messages);
+    if (!lastAssistant) return;
+    const assistantId = typeof (lastAssistant as any)?.id === "string"
+      ? String((lastAssistant as any).id)
+      : "";
+    if (!assistantId) return;
+    if (approvalSubmitInFlightRef.current) return;
+    if (lastApprovalSubmitMessageIdRef.current === assistantId) return;
+
+    const runtimeToolParts = tabId
+      ? useChatRuntime.getState().toolPartsByTabId[tabId] ?? EMPTY_TOOL_PARTS
+      : toolParts;
+    const toolPartById = mapToolPartsFromMessage(lastAssistant);
+    const approvalToolCallIds = collectApprovalToolCallIds(lastAssistant, runtimeToolParts);
+    const payloadToolCallIds = Object.keys(approvalPayloadsRef.current);
+    const mergedToolCallIds = Array.from(
+      new Set([...approvalToolCallIds, ...payloadToolCallIds]),
+    );
+    if (mergedToolCallIds.length === 0) return;
+    // 逻辑：最后一条 assistant 的所有审批完成后才继续发送。
+    const unresolved = mergedToolCallIds.filter((toolCallId) => {
+      if (payloadToolCallIds.includes(toolCallId)) return false;
+      return !isToolApprovalResolved({
+        toolCallId,
+        toolParts: runtimeToolParts,
+        messagePart: toolPartById[toolCallId],
+      });
+    });
+    if (unresolved.length > 0) return;
+
+    const payloads: Record<string, Record<string, unknown>> = {};
+    for (const toolCallId of mergedToolCallIds) {
+      const payload = approvalPayloadsRef.current[toolCallId];
+      if (payload && typeof payload === "object") payloads[toolCallId] = payload;
+    }
+
+    // 逻辑：审批已全部就绪，即使 status 尚未回到 ready，也允许续接。
+    // 逻辑：只允许单次续接，避免多次提交同一批审批。
+    approvalSubmitInFlightRef.current = true;
+    try {
+      if (Object.keys(payloads).length > 0) {
+        await chat.sendMessage(undefined as any, {
+          body: { toolApprovalPayloads: payloads },
+        });
+      } else {
+        await chat.sendMessage(undefined as any);
+      }
+      lastApprovalSubmitMessageIdRef.current = assistantId;
+      for (const toolCallId of mergedToolCallIds) {
+        delete approvalPayloadsRef.current[toolCallId];
+      }
+    } catch {
+      // 发送失败时保留暂存，便于后续重试。
+    } finally {
+      approvalSubmitInFlightRef.current = false;
+    }
+  }, [chat, tabId, toolParts]);
+
   /** Reject pending tool approvals after manual stop. */
   const rejectPendingToolApprovals = React.useCallback(async () => {
     const messages = (chat.messages ?? []) as UIMessage[];
@@ -1205,8 +1369,9 @@ export default function ChatCoreProvider({
   const stopGenerating = React.useCallback(() => {
     // 中文注释：先停止流式，再自动拒绝当前待审批工具。
     chat.stop();
+    setStepThinking(false);
     void rejectPendingToolApprovals();
-  }, [chat, rejectPendingToolApprovals]);
+  }, [chat, rejectPendingToolApprovals, setStepThinking]);
 
   const markToolStreaming = React.useCallback(
     (toolCallId: string) => {
@@ -1321,8 +1486,19 @@ export default function ChatCoreProvider({
       upsertToolPart: upsertToolPartForTab,
       markToolStreaming,
       subAgentStreams,
+      queueToolApprovalPayload,
+      clearToolApprovalPayload,
+      continueAfterToolApprovals,
     }),
-    [toolParts, upsertToolPartForTab, markToolStreaming, subAgentStreams]
+    [
+      toolParts,
+      upsertToolPartForTab,
+      markToolStreaming,
+      subAgentStreams,
+      queueToolApprovalPayload,
+      clearToolApprovalPayload,
+      continueAfterToolApprovals,
+    ]
   );
 
   return (

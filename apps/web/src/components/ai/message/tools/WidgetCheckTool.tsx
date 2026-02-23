@@ -17,8 +17,8 @@ import {
   asPlainObject,
   type AnyToolPart,
 } from './shared/tool-utils'
+import { TrafficLights } from '@tenas-ai/ui/traffic-lights'
 import {
-  TrafficLights,
   WidgetPreview,
   parseOutputJson,
   widgetModuleCache,

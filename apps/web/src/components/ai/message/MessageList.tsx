@@ -8,7 +8,7 @@ import MessageItem from "./MessageItem";
 import MessageThinking from "./MessageThinking";
 import MessageError from "./tools/MessageError";
 import PendingCloudLoginPrompt from "./PendingCloudLoginPrompt";
-import { AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { messageHasVisibleContent } from "@/lib/chat/message-visible";
 import { incrementChatPerf } from "@/lib/chat/chat-perf";
 import { useStreamingMessageBuffer } from "../hooks/use-streaming-message-buffer";
@@ -35,10 +35,31 @@ export default function MessageList({ className }: MessageListProps) {
     isHistoryLoading,
   });
 
-  const displayMessages = React.useMemo(
-    () => (streamingMessage ? [...staticMessages, streamingMessage] : staticMessages),
-    [staticMessages, streamingMessage]
+  const hasStreamingVisibleContent = React.useMemo(
+    () => (streamingMessage ? messageHasVisibleContent(streamingMessage) : false),
+    [streamingMessage]
   );
+  // 发送消息后，在 AI 还没返回任何可见内容前显示“正在思考中”。
+  const shouldShowThinking = React.useMemo(() => {
+    if (error) return false;
+    if (stepThinking) return true;
+    if (!(status === "submitted" || status === "streaming")) return false;
+    // 逻辑：流式内容已可见时隐藏 thinking。
+    if (hasStreamingVisibleContent) return false;
+    const last = messages[messages.length - 1] as any;
+    if (!last) return false;
+    if (last.role === "user") return true;
+    return last.role === "assistant" && !messageHasVisibleContent(last);
+  }, [messages, status, error, stepThinking, hasStreamingVisibleContent]);
+
+  const displayMessages = React.useMemo(
+    () =>
+      streamingMessage && !shouldShowThinking
+        ? [...staticMessages, streamingMessage]
+        : staticMessages,
+    [staticMessages, streamingMessage, shouldShowThinking]
+  );
+
   const lastHumanIndex = React.useMemo(
     () => (displayMessages as any[]).findLastIndex((m) => m?.role === "user"),
     [displayMessages]
@@ -60,17 +81,6 @@ export default function MessageList({ className }: MessageListProps) {
   const lastMessageIsAssistant = displayMessages[displayMessages.length - 1]?.role !== "user";
   // 空态时展示提示卡片。
   const shouldShowHelper = !isHistoryLoading && messages.length === 0 && !pendingCloudMessage;
-
-  // 发送消息后，在 AI 还没返回任何可见内容前显示“正在思考中”。
-  const shouldShowThinking = React.useMemo(() => {
-    if (error) return false;
-    if (stepThinking) return true;
-    if (!(status === "submitted" || status === "streaming")) return false;
-    const last = messages[messages.length - 1] as any;
-    if (!last) return false;
-    if (last.role === "user") return true;
-    return last.role === "assistant" && !messageHasVisibleContent(last);
-  }, [messages, status, error, stepThinking]);
 
   const messageNodes = React.useMemo(
     () =>
@@ -116,7 +126,18 @@ export default function MessageList({ className }: MessageListProps) {
           {!shouldShowHelper ? messageNodes : null}
 
           <AnimatePresence initial={false}>
-            {shouldShowThinking ? <MessageThinking /> : null}
+            {shouldShowThinking ? (
+              <motion.div
+                key="thinking"
+                layout
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.12 }}
+              >
+                <MessageThinking />
+              </motion.div>
+            ) : null}
           </AnimatePresence>
 
           <AnimatePresence initial={false}>

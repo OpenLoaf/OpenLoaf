@@ -1,11 +1,14 @@
 'use client'
 
+import * as React from 'react'
 import { cn } from '@/lib/utils'
 import {
   extractPatchDiffStats,
   extractPatchDiffLines,
   extractPatchFileInfo,
 } from '@/lib/chat/patch-utils'
+import { emitJsxCreateRefresh } from '@/lib/chat/jsx-create-events'
+import { TrafficLights } from '@tenas-ai/ui/traffic-lights'
 import { useChatSession, useChatTools } from '../../context'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
 import { useChatRuntime } from '@/hooks/use-chat-runtime'
@@ -70,22 +73,9 @@ function parsePatchFiles(patch: string): PatchFileSummary[] {
   return files
 }
 
-/** macOS 风格窗口标题栏圆点 */
-function TrafficLights({ state }: { state?: 'idle' | 'running' | 'success' | 'error' }) {
-  const colors = {
-    idle: { r: 'bg-red-400', y: 'bg-yellow-400', g: 'bg-green-400' },
-    running: { r: 'bg-red-400', y: 'bg-yellow-400', g: 'bg-green-400 animate-pulse' },
-    success: { r: 'bg-red-400', y: 'bg-yellow-400', g: 'bg-green-500' },
-    error: { r: 'bg-red-500', y: 'bg-yellow-400', g: 'bg-neutral-400' },
-  }
-  const c = colors[state ?? 'idle']
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className={cn('size-2.5 rounded-full', c.r)} />
-      <span className={cn('size-2.5 rounded-full', c.y)} />
-      <span className={cn('size-2.5 rounded-full', c.g)} />
-    </div>
-  )
+/** Normalize patch file path into posix separators. */
+function normalizePatchPath(input: string): string {
+  return input.replace(/\\/g, '/')
 }
 
 function DiffBar({ added, removed }: { added: number; removed: number }) {
@@ -115,6 +105,8 @@ export default function WriteFileTool({
   const { tabId, workspaceId, projectId } = useChatSession()
   const { toolParts } = useChatTools()
   const pushStackItem = useTabRuntime((s) => s.pushStackItem)
+  /** Track refresh emission to avoid duplicates. */
+  const refreshKeyRef = React.useRef<string | null>(null)
 
   const toolCallId = typeof part.toolCallId === 'string' ? part.toolCallId : ''
   const snapshot = toolCallId ? toolParts[toolCallId] : undefined
@@ -161,6 +153,25 @@ export default function WriteFileTool({
         : 'idle' as const
 
   const openDisabled = !tabId || !toolCallId
+
+  React.useEffect(() => {
+    if (!isDone || isError || !patch) return
+    const refreshKey = `${toolCallId}:${patch}`
+    if (refreshKeyRef.current === refreshKey) return
+    refreshKeyRef.current = refreshKey
+
+    const jsxTargets = parsePatchFiles(patch)
+      .map((file) => normalizePatchPath(file.path))
+      .filter((filePath) =>
+        filePath.includes('.tenas/chat-history/')
+        && filePath.includes('/jsx/')
+        && filePath.endsWith('.jsx'),
+      )
+    if (jsxTargets.length === 0) return
+
+    // 逻辑：仅当修改 JSX 渲染文件时触发刷新事件。
+    jsxTargets.forEach((uri) => emitJsxCreateRefresh({ uri }))
+  }, [isDone, isError, patch, toolCallId])
 
   const handleClick = () => {
     if (!tabId || !toolCallId) return

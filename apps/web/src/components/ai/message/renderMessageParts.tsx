@@ -17,6 +17,7 @@ import {
   SourcesContent,
   SourcesTrigger,
 } from "@/components/ai-elements/sources";
+import { Shimmer } from "@/components/ai-elements/shimmer";
 import { preprocessChatText } from "./text-tokenizer";
 
 type AnyMessagePart = {
@@ -29,6 +30,7 @@ type AnyMessagePart = {
   title?: string;
   name?: string;
   data?: { text?: string };
+  isTransient?: boolean;
 };
 
 type MessageSource = {
@@ -70,6 +72,27 @@ function normalizeSourcePart(part: AnyMessagePart): MessageSource | null {
     url,
     title: typeof titleCandidate === "string" ? titleCandidate.trim() : url,
   };
+}
+
+/** Check whether a message part is transient. */
+function isTransientPart(part: AnyMessagePart) {
+  return part?.isTransient === true;
+}
+
+/** Render a status bar for transient parts. */
+function renderTransientStatusBar(
+  motionProps?: React.ComponentProps<typeof motion.div>,
+) {
+  return (
+    <motion.div key="transient-status" {...motionProps}>
+      <div className="flex items-center gap-2 rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground">
+        <div className="h-1 w-8 overflow-hidden rounded-full bg-muted">
+          <div className="h-full w-1/2 animate-pulse rounded-full bg-primary/20" />
+        </div>
+        <Shimmer className="text-xs">处理中...</Shimmer>
+      </div>
+    </motion.div>
+  );
 }
 
 export const MESSAGE_TEXT_CLASSNAME = cn(
@@ -132,18 +155,29 @@ export function renderMessageParts(
   const isAnimating = Boolean(options?.isAnimating);
   const motionProps = options?.motionProps;
   const list = Array.isArray(parts) ? parts : [];
+  const transientParts = list.filter((part) => isTransientPart(part));
+  const transientToolCallIds = new Set(
+    transientParts
+      .map((part) => (typeof part.toolCallId === "string" ? part.toolCallId : ""))
+      .filter(Boolean),
+  );
+  const visibleList = list.filter(
+    (part) =>
+      !isTransientPart(part) &&
+      !(part?.toolCallId && transientToolCallIds.has(String(part.toolCallId))),
+  );
   const nodes: React.ReactNode[] = [];
 
-  for (let index = 0; index < list.length; index += 1) {
-    const part = list[index] as AnyMessagePart;
+  for (let index = 0; index < visibleList.length; index += 1) {
+    const part = visibleList[index] as AnyMessagePart;
 
     if (part?.type === "text") {
       if (!renderText) continue;
       // 中文注释：合并连续文本片段，避免流式阶段渲染成多段碎片。
       let nextIndex = index;
       let mergedText = "";
-      while (nextIndex < list.length && list[nextIndex]?.type === "text") {
-        mergedText += String((list[nextIndex] as AnyMessagePart)?.text ?? "");
+      while (nextIndex < visibleList.length && visibleList[nextIndex]?.type === "text") {
+        mergedText += String((visibleList[nextIndex] as AnyMessagePart)?.text ?? "");
         nextIndex += 1;
       }
       const normalizedText = preprocessChatText(mergedText);
@@ -173,8 +207,8 @@ export function renderMessageParts(
       // 中文注释：按 ai-elements 建议将连续 reasoning 合并为单个可折叠区域。
       let nextIndex = index;
       const reasoningChunks: string[] = [];
-      while (nextIndex < list.length && list[nextIndex]?.type === "reasoning") {
-        const chunk = String((list[nextIndex] as AnyMessagePart)?.text ?? "").trim();
+      while (nextIndex < visibleList.length && visibleList[nextIndex]?.type === "reasoning") {
+        const chunk = String((visibleList[nextIndex] as AnyMessagePart)?.text ?? "").trim();
         if (chunk) reasoningChunks.push(chunk);
         nextIndex += 1;
       }
@@ -205,8 +239,8 @@ export function renderMessageParts(
       if (!renderText) continue;
       let nextIndex = index;
       const sources: MessageSource[] = [];
-      while (nextIndex < list.length && isSourcePart(list[nextIndex] as AnyMessagePart)) {
-        const normalizedSource = normalizeSourcePart(list[nextIndex] as AnyMessagePart);
+      while (nextIndex < visibleList.length && isSourcePart(visibleList[nextIndex] as AnyMessagePart)) {
+        const normalizedSource = normalizeSourcePart(visibleList[nextIndex] as AnyMessagePart);
         if (normalizedSource) sources.push(normalizedSource);
         nextIndex += 1;
       }
@@ -296,6 +330,10 @@ export function renderMessageParts(
         </motion.div>,
       );
     }
+  }
+
+  if (renderTools && transientParts.length > 0) {
+    nodes.push(renderTransientStatusBar(motionProps));
   }
 
   return nodes;

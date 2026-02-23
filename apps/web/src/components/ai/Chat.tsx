@@ -196,7 +196,7 @@ export function Chat({
     isCodexProvider,
     imageModelId,
     videoModelId,
-  } = useChatModelSelection(tabId);
+  } = useChatModelSelection(tabId, projectId);
 
   const [attachments, setAttachments] = React.useState<ChatAttachment[]>([]);
   const [isDragActive, setIsDragActive] = React.useState(false);

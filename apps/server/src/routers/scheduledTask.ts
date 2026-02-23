@@ -88,9 +88,9 @@ export class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .input(scheduledTaskSchemas.run.input)
         .output(scheduledTaskSchemas.run.output)
         .mutation(async ({ input }) => {
-          // 逻辑：指定 projectId 时在项目范围内执行任务。
+          // 逻辑：fire-and-forget，不 await 执行结果。
           const projectRoot = input.projectId ? getProjectRootPath(input.projectId) : null
-          await taskScheduler.runTaskNow(input.id, projectRoot)
+          void taskScheduler.runTaskNow(input.id, projectRoot)
           return { ok: true }
         }),
       runLogs: shieldedProcedure

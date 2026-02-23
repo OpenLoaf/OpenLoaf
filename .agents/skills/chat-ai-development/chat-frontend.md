@@ -40,11 +40,17 @@ MessageList (遍历 messages, 空态/思考态/错误态)
         │                 ├── UnifiedTool (通用卡片 + 审批按钮)
         │                 ├── SubAgentTool (子代理输出)
         │                 ├── MediaGenerateTool (图片/视频生成进度+结果+错误)
+        │                 ├── ChartTool (chart-render 图表工具卡片)
         │                 ├── PlanTool (计划展示)
         │                 ├── OpenUrlTool / JsonRenderTool / CliThinkingTool
         │                 └── shared/ToolApprovalActions (审批 UI)
         └── MessageHuman (用户消息 + 图片预览 + @文件引用)
 ```
+
+### Transient Parts（临时态）
+
+- `part.isTransient === true` 会在 UI 中被替换为统一“状态条”，不展示具体内容。
+- `isTransient` 仍会落库，但下一轮 LLM 输入链会过滤掉这些 part。
 
 ## Adding a New Context Field
 
@@ -108,6 +114,18 @@ mediaGenerate?: {
 
 错误渲染：`MediaGenerateError` 根据 `errorCode` 显示登录按钮（`SaasLoginDialog`）、积分不足提示等。
 
+## JSX 渲染（文件化渲染）
+
+- 工具卡片：`message/tools/JsxCreateTool.tsx`
+- 文件路径：`.tenas/chat-history/<sessionId>/jsx/<messageId>.jsx`
+- 读取方式：`trpc.fs.readFile`（优先落盘内容，缺失时回退到工具输入）
+- 刷新机制：`lib/chat/jsx-create-events.ts`
+  - `WriteFileTool` 在 `apply-patch` 完成后解析 patch 路径并 `emitJsxCreateRefresh`
+  - `JsxCreateTool` 监听事件后 `invalidateQueries` 重新读取
+- 失败提示：当工具返回 `errorText` 且未拿到 JSX 内容时，卡片显示错误提示而不是空白
+- 手动刷新：卡片右上角“刷新”按钮会强制重新拉取 JSX 文件
+- 渲染失败上报：`JsxCreateTool` 捕获解析错误并写回 message parts（`errorText`），便于后续 AI 感知
+
 ## Branch Navigation
 
 消息树采用 `parentMessageId` 链表结构：
@@ -128,6 +146,12 @@ mediaGenerate?: {
 | `input/chat-model-selection-storage.ts` | 模型选择持久化（含 `MediaModelSelection`：imageModelId + videoModelId） |
 | `input/chat-attachments.ts` | 附件类型定义 |
 | `input/chat-input-utils.ts` | FILE_TOKEN_REGEX 等工具函数 |
+
+### 模型选择规则
+
+- 绑定 `projectId` 的 tab 优先使用**当前项目**的 `master`（`scope=project`，`isInherited=false`，`isEnabled=true`）。
+- 当前项目不存在可用 `master` 时回退到工作空间 `master`。
+- ChatInput 模型偏好保存随 `projectId` 走项目级；无 `projectId` 时保存到工作空间。
 
 **能力标签渲染**: SelectMode 与设置页模型列表使用 `ModelDefinition.tags` 生成标签；`capabilities` 仅用于参数/媒体信息，不参与标签渲染。
 
@@ -156,3 +180,23 @@ mediaGenerate?: {
 | 分支切换后消息列表未更新 | 确认 `branchMessageIds` 变更触发了重渲染 |
 | MessageParts 中新增 part 忘记处理 `renderText`/`renderTools` 开关 | 检查 `options.renderText !== false` |
 | `status === "ready"` 时残留 streaming 状态 | `MessageTool` 已处理：ready 时强制终止 streaming |
+| `isApprovalPending()` 只检查 `approval-requested` 状态 | 应包含 `input-available` 状态（历史数据中模型流不完整导致的"准待审批"状态） |
+
+## Tool Part 状态说明
+
+| 状态 | 含义 | 前端行为 |
+|------|------|----------|
+| `input-streaming` | 工具参数流式接收中 | 显示加载/等待状态 |
+| `input-available` | 工具输入就绪（历史数据可能是模型流不完整导致） | 显示为待审批/可提交状态 |
+| `approval-requested` | 需要用户审批 | 显示审批按钮 |
+| `output-streaming` | 工具执行中 | 显示执行进度 |
+| `output-available` | 工具执行完成 | 显示执行结果 |
+| `output-error` | 工具执行失败 | 显示错误信息 |
+
+**关键函数**: `tool-utils.ts:isApprovalPending()` — 包含 `input-available` 状态判断
+
+## Request-User-Input 审批续接
+
+- `RequestUserInputTool` 提交后会把 `output.answers` 写回消息与 toolParts，并将状态置为 `output-available`。
+- 多审批场景通过 `queueToolApprovalPayload()` + `continueAfterToolApprovals()` 统一续接，避免提前提交导致缺少工具结果。
+- 需要持久化时使用 `trpc.chat.updateMessageParts` 写回（提交与跳过都要覆盖）。

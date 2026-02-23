@@ -87,6 +87,12 @@ const RAW_CAPABILITY_GROUPS = [
     toolIds: ['video-generate'],
   },
   {
+    id: 'chart',
+    label: '图表',
+    description: '生成并渲染图表',
+    toolIds: ['chart-render'],
+  },
+  {
     id: 'widget',
     label: 'Widget',
     description: '创建和管理动态 Widget',
@@ -130,16 +136,16 @@ const RAW_CAPABILITY_GROUPS = [
   {
     id: 'system',
     label: '系统工具',
-    description: '时间查询、JSON 渲染、计划更新等',
+    description: '时间查询、计划更新等',
     toolIds: [
       'time-now',
-      'json-render',
       'update-plan',
+      'jsx-create',
     ],
   },
 ]
 
-// 中文注释：按工具 ID 生成显示元信息，避免前端重复维护。
+// 逻辑：按工具 ID 生成显示元信息，避免前端重复维护。
 export const CAPABILITY_GROUPS: CapabilityGroup[] = RAW_CAPABILITY_GROUPS.map(
   (group) => ({
     ...group,

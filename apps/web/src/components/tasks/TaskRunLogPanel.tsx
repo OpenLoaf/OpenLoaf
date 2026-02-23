@@ -9,7 +9,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@tenas-ai/ui/sheet'
-import { CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, MessageSquare, XCircle } from 'lucide-react'
+import { Button } from '@tenas-ai/ui/button'
 
 type TaskRunLogPanelProps = {
   open: boolean
@@ -17,6 +18,7 @@ type TaskRunLogPanelProps = {
   taskId: string
   workspaceId: string
   projectId?: string
+  onOpenChat?: (sessionId: string) => void
 }
 
 function formatDuration(ms: number | null | undefined): string {
@@ -31,6 +33,7 @@ export const TaskRunLogPanel = memo(function TaskRunLogPanel({
   taskId,
   workspaceId,
   projectId,
+  onOpenChat,
 }: TaskRunLogPanelProps) {
   const logsQuery = useQuery({
     ...trpc.scheduledTask.runLogs.queryOptions(
@@ -95,6 +98,17 @@ export const TaskRunLogPanel = memo(function TaskRunLogPanel({
                         <div className="mt-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 px-2.5 py-1.5 text-[11px] text-rose-600 dark:text-rose-400 break-all">
                           {log.error}
                         </div>
+                      ) : null}
+                      {log.agentSessionId && onOpenChat ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="mt-1.5 h-6 rounded-full px-2 text-[11px] text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                          onClick={() => onOpenChat(log.agentSessionId!)}
+                        >
+                          <MessageSquare className="mr-1 h-3 w-3" />
+                          查看对话
+                        </Button>
                       ) : null}
                     </div>
                   </div>

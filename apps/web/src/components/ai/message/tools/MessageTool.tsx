@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import CliThinkingTool from "./CliThinkingTool";
-import JsonRenderTool from "./JsonRenderTool";
 import RequestUserInputTool from "./RequestUserInputTool";
 import UnifiedTool from "./UnifiedTool";
 import PlanTool from "./PlanTool";
@@ -13,8 +12,10 @@ import ExecCommandTool from "./ExecCommandTool";
 import WidgetTool from "./WidgetTool";
 import WidgetInitTool from "./WidgetInitTool";
 import WidgetCheckTool from "./WidgetCheckTool";
+import JsxCreateTool from "./JsxCreateTool";
 import SpawnAgentTool from "./SpawnAgentTool";
 import WaitAgentTool from "./WaitAgentTool";
+import ChartTool from "./ChartTool";
 import { useChatState, useChatTools } from "../../context";
 import { getApprovalId, isApprovalPending, type AnyToolPart, type ToolVariant } from "./shared/tool-utils";
 import ToolApprovalActions from "./shared/ToolApprovalActions";
@@ -71,7 +72,7 @@ export default function MessageTool({
     status === "ready" &&
     (resolvedPart.state === "input-streaming" || resolvedPart.state === "output-streaming")
   ) {
-    // 中文注释：会话已结束但数据库残留 streaming 状态时，强制终止流式显示。
+    // 逻辑：会话已结束但数据库残留 streaming 状态时，强制终止流式显示。
     resolvedPart = {
       ...resolvedPart,
       state: resolvedPart.state === "input-streaming" ? "input-available" : "output-available",
@@ -91,12 +92,14 @@ export default function MessageTool({
     return <CliThinkingTool part={resolvedPart} />;
   }
 
-  if (toolKind === "json-render") {
-    return <JsonRenderTool part={resolvedPart} className={className} messageId={messageId} />;
-  }
-
   if (toolKind === "request-user-input") {
     return <RequestUserInputTool part={resolvedPart} className={className} />;
+  }
+
+  if (toolKind === "jsx-create" || toolKind === "jsx-preview") {
+    return (
+      <JsxCreateTool part={resolvedPart} className={className} messageId={messageId} />
+    );
   }
 
   if (toolKind === "apply-patch") {
@@ -137,6 +140,10 @@ export default function MessageTool({
 
   if (toolKind === "wait-agent") {
     return <WaitAgentTool part={resolvedPart} className={className} />;
+  }
+
+  if (toolKind === "chart-render") {
+    return <ChartTool part={resolvedPart} className={className} />;
   }
 
   if (toolKind === "project-mutate") {

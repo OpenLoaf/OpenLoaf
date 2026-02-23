@@ -68,6 +68,8 @@ const TOOL_REGISTRY = {
 
 大部分工具自动使用 `UnifiedTool` 通用卡片。如需自定义渲染，在 `message/tools/MessageTool.tsx` 添加路由分支。
 
+示例：`chart-render` 工具使用自定义 `ChartTool` 在消息列表内嵌图表。
+
 ## 新工具开发教程（详细版）
 
 > 目标：给“从 0 添加工具”一个可执行的完整路径（含前端执行、审批、UI 事件控制）。
@@ -122,6 +124,12 @@ const TOOL_REGISTRY = {
 - 默认走 `UnifiedTool`（无需额外操作）
 - 自定义 UI：在 `apps/web/src/components/chat/message/tools/` 新建卡片组件，并在 `MessageTool.tsx` 添加路由分支
 
+## JSX Preview 文件刷新模式
+
+- `jsx-create` 工具写入 `.tenas/chat-history/<sessionId>/jsx/<messageId>.jsx` 并返回路径
+- `apply-patch` 修改该文件后，`WriteFileTool` 触发刷新事件
+- `JsxCreateTool` 监听事件并 `invalidateQueries` 重新读取
+
 ### 5) 前端执行工具（需要 Ack）
 
 **后端：**
@@ -172,6 +180,8 @@ const TOOL_REGISTRY = {
 
 ## Adding a New Sub-Agent
 
+子代理通过 `agentFactory.ts` 数据驱动创建，使用 `agent-templates` 管理模板。
+
 ### Step 1: 在 API 类型中注册名称
 
 ```typescript
@@ -180,50 +190,59 @@ export const mySubAgentName = "MySubAgent";
 // 并添加到 subAgentToolDef.parameters.name 的 z.enum 中
 ```
 
-### Step 2: 创建子代理定义
+### Step 2: 创建 Agent 模板
+
+```
+apps/server/src/ai/agent-templates/templates/my-agent/
+├── index.ts          # 导出模板配置
+└── prompt.zh.md      # 系统提示词（Markdown 格式）
+```
 
 ```typescript
-// apps/server/src/ai/agents/subagent/mySubAgent.ts
-import { ToolLoopAgent } from "ai";
-import type { LanguageModelV3 } from "@ai-sdk/provider";
-import { buildToolset } from "@/ai/tools/toolRegistry";
-import { createToolCallRepair } from "@/ai/agents/repairToolCall";
-import MY_PROMPT from "./mySubAgent.zh.md";
+// agent-templates/templates/my-agent/index.ts
+import type { AgentTemplate } from '../../types'
+import PROMPT from './prompt.zh.md'
 
-export const MY_SUB_AGENT_NAME = "MySubAgent";
-const MY_SUB_AGENT_TOOL_IDS = [/* 只暴露必要工具 */] as const;
-
-export function createMySubAgent(input: { model: LanguageModelV3 }) {
-  return new ToolLoopAgent({
-    id: "my-sub-agent",
-    model: input.model,
-    instructions: MY_PROMPT.trim(),
-    tools: buildToolset(MY_SUB_AGENT_TOOL_IDS),
-    experimental_repairToolCall: createToolCallRepair(),
-  });
+export const myAgentTemplate: AgentTemplate = {
+  id: 'my-agent',
+  name: 'MySubAgent',
+  prompt: PROMPT,
+  toolIds: [/* 只暴露必要工具 */],
 }
 ```
 
-### Step 3: 创建系统提示词
+### Step 3: 注册到模板注册表
 
-创建 `mySubAgent.zh.md`（Markdown 格式的 system prompt）。
+```typescript
+// agent-templates/registry.ts
+import { myAgentTemplate } from './templates/my-agent'
+// 添加到 AGENT_TEMPLATE_REGISTRY
+```
 
-### Step 4: 在 subAgentTool 中注册
+### Step 4: 在 agentFactory 中添加创建分支
 
-在 `tools/subAgentTool.ts` 的名称白名单和 agent 创建分支中添加新子代理。
+在 `services/agentFactory.ts` 的 `resolveAgentType()` 或创建分支中处理新 Agent 类型。
+
+### 子代理存储
+
+子代理自动使用统一存储，无需额外配置：
+- `agentManager.ts` 调用 `saveAgentMessage()` 持久化每条消息
+- `writeAgentSessionJson()` 写入 agent 元数据
+- 存储路径：`<session>/agents/<agentId>/messages.jsonl` + `session.json`
+- F5 刷新后通过 `getSubAgentHistory` tRPC 路由恢复历史
 
 ## Modifying Agent Prompt
 
 | 修改目标 | 文件 |
 |----------|------|
-| Master Agent 基础角色 | `agents/masterAgent/masterAgentPrompt.zh.md` |
-| 子代理提示词 | `agents/subagent/*.zh.md` |
+| Master Agent 基础角色 | `agent-templates/templates/master/prompt.zh.md` |
+| 系统 Agent 提示词 | `agent-templates/templates/<agentId>/prompt.zh.md` |
 | Session preface（运行时上下文） | `shared/prefaceBuilder.ts` → `buildSessionPrefaceText()` |
 | 技能摘要格式 | `shared/promptBuilder.ts` → `buildSkillsSummarySection()` |
 
 ## Skills System
 
-技能文件存放在 `.agents/skills/<name>/SKILL.md`，由 `skillsLoader.ts` 扫描加载。
+技能文件存放在 `.agents/skills/<name>/SKILL.md`，由 `services/skillsLoader.ts` 扫描加载。
 
 **加载优先级**: workspace → parent projects → current project（后者覆盖前者）
 

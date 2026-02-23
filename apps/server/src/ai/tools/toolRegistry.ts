@@ -1,5 +1,4 @@
 import { openUrlTool } from "@/ai/tools/openUrl";
-import { jsonRenderTool } from "@/ai/tools/jsonRenderTool";
 import { timeNowTool } from "@/ai/tools/timeNowTool";
 import { testApprovalTool } from "@/ai/tools/testApprovalTool";
 import {
@@ -29,7 +28,9 @@ import { emailMutateTool, emailQueryTool } from "@/ai/tools/emailTools";
 import { officeExecuteTool } from "@/ai/tools/officeTools";
 import { imageGenerateTool, videoGenerateTool } from "@/ai/tools/mediaGenerateTools";
 import { requestUserInputTool } from "@/ai/tools/requestUserInputTool";
+import { jsxCreateTool } from "@/ai/tools/jsxCreateTool";
 import { jsReplTool, jsReplResetTool } from "@/ai/tools/jsReplTool";
+import { chartRenderTool } from "@/ai/tools/chartTools";
 import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
 import {
   browserActToolDef,
@@ -40,7 +41,6 @@ import {
 } from "@tenas-ai/api/types/tools/browserAutomation";
 import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
 import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
-import { jsonRenderToolDef } from "@tenas-ai/api/types/tools/jsonRender";
 import {
   spawnAgentToolDef,
   sendInputToolDef,
@@ -62,6 +62,8 @@ import {
   videoGenerateToolDef,
 } from "@tenas-ai/api/types/tools/mediaGenerate";
 import { requestUserInputToolDef } from "@tenas-ai/api/types/tools/userInput";
+import { jsxCreateToolDef } from "@tenas-ai/api/types/tools/jsxCreate";
+import { chartRenderToolDef } from "@tenas-ai/api/types/tools/chart";
 import {
   listDirToolDef,
   readFileToolDef,
@@ -102,9 +104,6 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [testApprovalToolDef.id]: {
     tool: testApprovalTool,
-  },
-  [jsonRenderToolDef.id]: {
-    tool: jsonRenderTool,
   },
   [spawnAgentToolDef.id]: {
     tool: spawnAgentTool,
@@ -207,6 +206,12 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [requestUserInputToolDef.id]: {
     tool: requestUserInputTool,
+  },
+  [jsxCreateToolDef.id]: {
+    tool: jsxCreateTool,
+  },
+  [chartRenderToolDef.id]: {
+    tool: chartRenderTool,
   },
   [jsReplToolDef.id]: {
     tool: jsReplTool,

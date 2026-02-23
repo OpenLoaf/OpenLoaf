@@ -7,6 +7,22 @@ export type SkillSummary = {
 };
 
 
+/** 根据工具 ID 判断需要哪些 preface 章节。 */
+export type PrefaceCapabilities = {
+  /** 是否需要 Python 运行时章节。 */
+  needsPythonRuntime: boolean
+  /** 是否需要项目规则章节。 */
+  needsProjectRules: boolean
+  /** 是否需要文件引用规则章节。 */
+  needsFileReferenceRules: boolean
+  /** 是否需要可用子 Agent 列表章节。 */
+  needsSubAgentList: boolean
+  /** 是否需要任务分工规则章节。 */
+  needsTaskDelegationRules: boolean
+  /** 是否需要 Shell 上下文章节。 */
+  needsShellContext: boolean
+}
+
 export type PromptContext = {
   /** Workspace snapshot for prompt building. */
   workspace: {

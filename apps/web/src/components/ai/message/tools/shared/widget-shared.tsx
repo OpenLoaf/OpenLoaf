@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { cn } from '@/lib/utils'
 import { trpcClient } from '@/utils/trpc'
 import {
   ensureExternalsRegistered,
@@ -25,32 +24,6 @@ export function parseOutputJson(
   } catch {
     return null
   }
-}
-
-/** macOS 风格窗口标题栏圆点 */
-export function TrafficLights({
-  state,
-}: {
-  state?: 'idle' | 'running' | 'success' | 'error'
-}) {
-  const colors = {
-    idle: { r: 'bg-red-400', y: 'bg-yellow-400', g: 'bg-green-400' },
-    running: {
-      r: 'bg-red-400',
-      y: 'bg-yellow-400',
-      g: 'bg-green-400 animate-pulse',
-    },
-    success: { r: 'bg-red-400', y: 'bg-yellow-400', g: 'bg-green-500' },
-    error: { r: 'bg-red-500', y: 'bg-yellow-400', g: 'bg-neutral-400' },
-  }
-  const c = colors[state ?? 'idle']
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className={cn('size-2.5 rounded-full', c.r)} />
-      <span className={cn('size-2.5 rounded-full', c.y)} />
-      <span className={cn('size-2.5 rounded-full', c.g)} />
-    </div>
-  )
 }
 
 /** Error boundary for widget rendering */

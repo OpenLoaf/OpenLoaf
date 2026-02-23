@@ -662,14 +662,19 @@ export class SettingRouterImpl extends BaseSettingRouter {
             const isChildProject = childProjectPaths.has(summary.path)
             return { ...summary, ignoreKey, isEnabled, isDeletable, isInherited, isChildProject, isSystem: isSysAgent };
           });
+          // 逻辑：scopeFilter 过滤 — 仅返回指定 scope 的 agent。
+          const scopeFilter = input?.scopeFilter
+          const scopeFiltered = scopeFilter && scopeFilter !== 'all'
+            ? items.filter((item) => item.scope === scopeFilter)
+            : items
           if (input?.projectId) {
-            return items.filter(
+            return scopeFiltered.filter(
               (item) =>
                 (item.scope !== "workspace" && item.scope !== "global") ||
                 !workspaceIgnoreSkills.includes(`agent:${item.ignoreKey}`),
             );
           }
-          return items;
+          return scopeFiltered;
         }),
       /** Toggle agent enabled state. */
       setAgentEnabled: shieldedProcedure
@@ -974,6 +979,69 @@ export class SettingRouterImpl extends BaseSettingRouter {
             writeFsSync(path.join(agentDir, "AGENT.md"), input.systemPrompt.trim(), "utf8");
           }
           return { ok: true, agentPath: jsonPath };
+        }),
+      /** Copy a workspace agent to a project. */
+      copyAgentToProject: shieldedProcedure
+        .input(settingSchemas.copyAgentToProject.input)
+        .output(settingSchemas.copyAgentToProject.output)
+        .mutation(async ({ input }) => {
+          const { mkdirSync, writeFileSync: writeFsSync, readFileSync, existsSync } = await import("node:fs");
+          const { resolveAgentsRootDir } = await import("@/ai/shared/defaultAgentResolver");
+
+          const projectRootPath = getProjectRootPath(input.projectId);
+          if (!projectRootPath) throw new Error("Project not found.");
+
+          // 逻辑：读取源 agent 配置。
+          const sourceNormalized = normalizeSkillPath(input.sourceAgentPath);
+          if (!sourceNormalized) throw new Error("Invalid source agent path.");
+          const sourceBaseName = path.basename(sourceNormalized);
+          const sourceDir = path.dirname(sourceNormalized);
+
+          const targetFolderName = input.asMaster ? "master" : path.basename(sourceDir);
+          const agentsRoot = resolveAgentsRootDir(projectRootPath);
+          const targetDir = path.join(agentsRoot, targetFolderName);
+          mkdirSync(targetDir, { recursive: true });
+
+          if (sourceBaseName === "agent.json") {
+            // 逻辑：.tenas/agents/ 结构 — 复制 agent.json + AGENT.md。
+            const { readAgentJson } = await import("@/ai/shared/defaultAgentResolver");
+            const descriptor = readAgentJson(sourceDir);
+            if (!descriptor) throw new Error("Source agent not found.");
+            const targetJsonPath = path.join(targetDir, "agent.json");
+            writeFsSync(targetJsonPath, JSON.stringify(descriptor, null, 2), "utf8");
+            const sourceMdPath = path.join(sourceDir, "AGENT.md");
+            if (existsSync(sourceMdPath)) {
+              const mdContent = readFileSync(sourceMdPath, "utf8");
+              writeFsSync(path.join(targetDir, "AGENT.md"), mdContent, "utf8");
+            }
+            return { ok: true, agentPath: targetJsonPath };
+          }
+
+          // 逻辑：旧 .agents/agents/ 结构 — 复制 AGENT.md。
+          const config = readAgentConfigFromPath(sourceNormalized, "workspace");
+          if (!config) throw new Error("Source agent not found.");
+          const descriptor = {
+            name: config.name,
+            description: config.description,
+            icon: config.icon,
+            modelLocalIds: config.modelLocalIds,
+            modelCloudIds: config.modelCloudIds,
+            auxiliaryModelSource: config.auxiliaryModelSource,
+            auxiliaryModelLocalIds: config.auxiliaryModelLocalIds,
+            auxiliaryModelCloudIds: config.auxiliaryModelCloudIds,
+            imageModelIds: config.imageModelIds,
+            videoModelIds: config.videoModelIds,
+            toolIds: config.toolIds,
+            skills: config.skills,
+            allowSubAgents: config.allowSubAgents,
+            maxDepth: config.maxDepth,
+          };
+          const targetJsonPath = path.join(targetDir, "agent.json");
+          writeFsSync(targetJsonPath, JSON.stringify(descriptor, null, 2), "utf8");
+          if (config.systemPrompt?.trim()) {
+            writeFsSync(path.join(targetDir, "AGENT.md"), config.systemPrompt.trim(), "utf8");
+          }
+          return { ok: true, agentPath: targetJsonPath };
         }),
       set: shieldedProcedure
         .input(settingSchemas.set.input)

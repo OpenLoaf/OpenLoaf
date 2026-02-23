@@ -10,7 +10,6 @@ import {
   browserWaitToolDef,
 } from "@tenas-ai/api/types/tools/browserAutomation";
 import { projectMutateToolDef, projectQueryToolDef } from "@tenas-ai/api/types/tools/db";
-import { jsonRenderToolDef } from "@tenas-ai/api/types/tools/jsonRender";
 import {
   execCommandToolDef,
   grepFilesToolDef,
@@ -22,6 +21,8 @@ import {
   updatePlanToolDef,
   writeStdinToolDef,
 } from "@tenas-ai/api/types/tools/runtime";
+import { jsxCreateToolDef } from "@tenas-ai/api/types/tools/jsxCreate";
+import { chartRenderToolDef } from "@tenas-ai/api/types/tools/chart";
 import {
   spawnAgentToolDef,
   sendInputToolDef,
@@ -55,7 +56,6 @@ const TOOL_DEFS: ToolNameSource[] = [
   browserWaitToolDef,
   execCommandToolDef,
   grepFilesToolDef,
-  jsonRenderToolDef,
   listDirToolDef,
   openUrlToolDef,
   projectQueryToolDef,
@@ -72,6 +72,8 @@ const TOOL_DEFS: ToolNameSource[] = [
   timeNowToolDef,
   updatePlanToolDef,
   writeStdinToolDef,
+  jsxCreateToolDef,
+  chartRenderToolDef,
 ];
 
 /** Tool id to display name map. */
@@ -79,6 +81,9 @@ export const TOOL_NAME_BY_ID = TOOL_DEFS.reduce<Record<string, string>>((acc, de
   acc[def.id] = def.name ?? def.id;
   return acc;
 }, {});
+
+// 兼容旧工具 id，保持显示为 JSX 创建。
+TOOL_NAME_BY_ID["jsx-preview"] = TOOL_NAME_BY_ID[jsxCreateToolDef.id] ?? "JSX 创建";
 
 /** Resolve a display name for tool parts shown in the UI. */
 export function resolveToolDisplayName(target: ToolNameTarget): string {

@@ -310,7 +310,7 @@ export function ChatInputBox({
     }
   };
 
-  const hasReasoningModel = useHasPreferredReasoningModel();
+  const hasReasoningModel = useHasPreferredReasoningModel(defaultProjectId);
   const handleThinkingModeChange = useCallback(
     (mode: ThinkingMode) => {
       onThinkingModeChange?.(mode);
@@ -859,10 +859,10 @@ export function ChatInputBox({
                 disabled={isSendDisabled}
                 size="sm"
                 className={cn(
-                  "h-8 rounded-full px-3 text-xs shrink-0",
+                  "h-8 rounded-full px-3 text-xs shrink-0 disabled:opacity-100",
                   canSubmit
                     ? "bg-primary hover:bg-primary/90 text-primary-foreground"
-                    : "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                    : "bg-muted text-foreground/60 cursor-not-allowed"
                 )}
               >
                 {submitLabel}
@@ -956,8 +956,8 @@ export default function ChatInput({
   const { sendMessage, stopGenerating, clearError, setPendingCloudMessage } = useChatActions();
   const { status, isHistoryLoading } = useChatState();
   const { input, setInput, imageOptions, codexOptions, addMaskedAttachment } = useChatOptions();
-  const hasReasoningModel = useHasPreferredReasoningModel();
   const { projectId, workspaceId, tabId } = useChatSession();
+  const hasReasoningModel = useHasPreferredReasoningModel(projectId);
   const activeTabId = useTabs((state) => state.activeTabId);
   const setTabChatParams = useTabs((state) => state.setTabChatParams);
   const tabOnlineSearchEnabled = useTabs((state) => {

@@ -20,6 +20,7 @@ import {
   saveAgentMessage,
   writeAgentSessionJson,
 } from '@/ai/services/chat/repositories/messageStore'
+import { buildSubAgentPrefaceText } from '@/ai/shared/subAgentPrefaceBuilder'
 import { logger } from '@/common/logger'
 
 export type AgentStatus =
@@ -70,6 +71,10 @@ export type ManagedAgent = {
   depth: number
   /** True when restored from JSONL — skips initial history writes in executeAgent. */
   isResumed?: boolean
+  /** Sub-agent preface text (injected as first user message). */
+  preface?: string
+  /** Whether preface has been injected into the message chain. */
+  prefaceInjected?: boolean
 }
 
 const MAX_DEPTH = 1
@@ -285,9 +290,33 @@ class AgentManager {
 
     await runWithContext(spawnContext.requestContext, async () => {
       try {
-        // 逻辑：仅首次 spawn 时写入 agent session.json 和初始 user 消息，恢复场景跳过（已存在）。
+        const toolLoopAgent = createSubAgent({
+          agentType,
+          model: spawnContext.model,
+          rawAgentType,
+          modelOverride,
+          inlineConfig,
+        })
+
+        // 逻辑：仅首次 spawn 时生成 preface、写入 session.json 和初始 user 消息，恢复场景跳过。
         if (!agent.isResumed) {
+          // 逻辑：从 toolLoopAgent 获取实际工具名称列表，用于 preface 能力检测。
+          const resolvedToolIds = Object.keys(toolLoopAgent.tools ?? {})
           const historySessionId = spawnContext.sessionId ?? getSessionId()
+
+          // 逻辑：异步生成 preface，不阻塞 agent 启动（失败时降级为无 preface）。
+          try {
+            agent.preface = await buildSubAgentPrefaceText({
+              agentId: agent.id,
+              agentName: agent.name,
+              parentSessionId: historySessionId ?? '',
+              toolIds: resolvedToolIds,
+              requestContext: spawnContext.requestContext,
+            })
+          } catch (err) {
+            logger.warn({ agentId: id, err }, '[agent-manager] preface generation failed, continuing without preface')
+          }
+
           if (historySessionId) {
             await writeAgentSessionJson({
               parentSessionId: historySessionId,
@@ -295,6 +324,7 @@ class AgentManager {
               name: agent.name,
               task: agent.task,
               agentType: agentType,
+              preface: agent.preface,
               createdAt: agent.createdAt,
             }).catch((err) => {
               logger.warn({ agentId: id, err }, '[agent-manager] failed to write agent session.json')
@@ -313,14 +343,6 @@ class AgentManager {
             data: { toolCallId, name: agent.name, task: agent.task },
           } as any)
         }
-
-        const toolLoopAgent = createSubAgent({
-          agentType,
-          model: spawnContext.model,
-          rawAgentType,
-          modelOverride,
-          inlineConfig,
-        })
 
         // 逻辑：执行初始流式推理。
         await this.runAgentStream(agent, toolLoopAgent)
@@ -373,6 +395,17 @@ class AgentManager {
       agent.messages,
       toolLoopAgent.tools,
     )
+
+    // 逻辑：如果 preface 存在且未注入，作为首条 user 消息注入到消息链。
+    if (agent.preface && !agent.prefaceInjected) {
+      modelMessages.unshift({
+        id: '__sub_agent_preface__',
+        role: 'user',
+        parts: [{ type: 'text', text: agent.preface }],
+      } as any)
+      agent.prefaceInjected = true
+    }
+
     const agentStream = await toolLoopAgent.stream({
       messages: modelMessages as any,
       abortSignal: agent.abortController.signal,
@@ -612,8 +645,9 @@ class AgentManager {
         name: sessionJson.title,
         task: (sessionJson as any).task,
         agentType: (sessionJson as any).agentType,
+        preface: (sessionJson as any).sessionPreface ?? undefined,
         createdAt: sessionJson.createdAt,
-      } : { name: 'default', task: '', agentType: undefined, createdAt: undefined }
+      } : { name: 'default', task: '', agentType: undefined, preface: undefined, createdAt: undefined }
 
       // 逻辑：清理残留的 approval-requested 状态，避免 LLM 返回空响应。
       const sanitizedMessages = sanitizeRestoredMessages(restoredMessages)
@@ -636,6 +670,9 @@ class AgentManager {
         responseParts: [],
         depth: 0,
         isResumed: true,
+        // 逻辑：从 session.json 恢复 preface，标记为已注入（恢复的消息链中已包含 preface 效果）。
+        preface: (meta.preface as string) || undefined,
+        prefaceInjected: Boolean(meta.preface),
       }
       this.agents.set(id, restored)
       this.setStatus(id, 'running')

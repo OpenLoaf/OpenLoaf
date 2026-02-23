@@ -1,0 +1,103 @@
+.actionButton {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  cursor: pointer;
+}
+
+.actionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actionButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 20%, transparent);
+}
+
+.primaryButton {
+  background: color-mix(in oklch, var(--brand) 18%, var(--background));
+  color: color-mix(in oklch, var(--brand) 72%, var(--foreground));
+  border-color: color-mix(in oklch, var(--brand) 24%, transparent);
+}
+
+.primaryButton:hover {
+  background: color-mix(in oklch, var(--brand) 24%, var(--background));
+}
+
+.primaryButton:active {
+  background: color-mix(in oklch, var(--brand) 30%, var(--background));
+}
+
+.secondaryButton {
+  background: color-mix(in oklch, var(--foreground) 6%, var(--background));
+  color: color-mix(in oklch, var(--foreground) 72%, var(--background));
+  border-color: color-mix(in oklch, var(--foreground) 10%, transparent);
+}
+
+.secondaryButton:hover {
+  background: color-mix(in oklch, var(--foreground) 10%, var(--background));
+}
+
+.secondaryButton:active {
+  background: color-mix(in oklch, var(--foreground) 14%, var(--background));
+}
+
+.choiceOption {
+  position: relative;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in oklch, var(--foreground) 10%, var(--background));
+  padding: 10px 12px;
+  background: color-mix(in oklch, var(--foreground) 3%, var(--background));
+  text-align: left;
+  font-size: 12px;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.choiceOption:hover {
+  background: color-mix(in oklch, var(--foreground) 6%, var(--background));
+  border-color: color-mix(in oklch, var(--foreground) 18%, var(--background));
+}
+
+.choiceOptionSelected:hover {
+  background: color-mix(in oklch, var(--brand) 12%, var(--background));
+  border-color: color-mix(in oklch, var(--brand) 45%, var(--background));
+}
+
+.choiceOption:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--brand) 24%, transparent);
+}
+
+.choiceOption:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.choiceOptionSelected {
+  border-color: color-mix(in oklch, var(--brand) 45%, var(--background));
+  background: color-mix(in oklch, var(--brand) 12%, var(--background));
+}
+
+.choiceCheck {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in oklch, var(--brand) 70%, var(--foreground));
+}

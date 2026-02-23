@@ -41,6 +41,7 @@ import {
   Video,
   Gauge,
   MessageSquare,
+  Trash2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -606,6 +607,8 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const panelSlot = useStackPanelSlot()
   const activeTabId = useTabs((s) => s.activeTabId)
   const pushStackItem = useTabRuntime((s) => s.pushStackItem)
+  const removeStackItem = useTabRuntime((s) => s.removeStackItem)
+  const getRuntimeByTabId = useTabRuntime((s) => s.getRuntimeByTabId)
   const { loggedIn: authLoggedIn } = useSaasAuth()
   const { imageModels, videoModels } = useMediaModels()
   const { providerItems } = useSettingsValues()
@@ -626,7 +629,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     if (isNew) return false
     const folderName = detailQuery.data?.folderName ?? ''
     if (folderName) {
-      return folderName === 'master' && detailQuery.data?.scope === 'workspace'
+      return folderName === 'master'
     }
     if (!agentPath) return false
     const normalized = agentPath.replace(/\\/g, '/')
@@ -715,7 +718,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
         id: `agent-folder:${agentPath}`,
         sourceKey: `agent-folder:${agentPath}`,
         component: 'folder-tree-preview',
-        title: `Agent · ${name || 'folder'}`,
+        title: `Agent助手 · ${name || 'folder'}`,
         params: {
           rootUri: dirUri,
           currentUri: '',
@@ -957,7 +960,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     trpc.settings.saveAgent.mutationOptions({
       onSuccess: () => {
         if (!silentSaveRef.current) {
-          toast.success(isNew ? '已创建 Agent' : '已保存 Agent')
+          toast.success(isNew ? '已创建 Agent助手' : '已保存 Agent助手')
         }
         const overrideSnapshot = pendingSnapshotOverrideRef.current
         if (overrideSnapshot) {
@@ -992,6 +995,47 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       },
     }),
   )
+
+  const deleteMutation = useMutation(
+    trpc.settings.deleteAgent.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.settings.getAgents.queryOptions().queryKey,
+        })
+        if (projectId) {
+          queryClient.invalidateQueries({
+            queryKey: trpc.settings.getAgents.queryOptions({ projectId }).queryKey,
+          })
+          queryClient.invalidateQueries({
+            queryKey: trpc.settings.getAgents.queryOptions({ projectId, scopeFilter: 'project' }).queryKey,
+          })
+        }
+        toast.success('已删除 Agent助手')
+        // 逻辑：删除后关闭当前 stack 面板。
+        savedSnapshotRef.current = currentSnapshot
+        if (activeTabId) {
+          const runtime = getRuntimeByTabId(activeTabId)
+          const stackItemId = runtime?.activeStackItemId
+          if (stackItemId) removeStackItem(activeTabId, stackItemId)
+        }
+      },
+      onError: (err) => toast.error(err.message),
+    }),
+  )
+
+  const handleDelete = useCallback(() => {
+    if (!agentPath || isNew) return
+    const confirmed = window.confirm(`确认删除 Agent助手「${name || '未命名'}」？此操作不可撤销。`)
+    if (!confirmed) return
+    const folderName = detailQuery.data?.folderName ?? ''
+    const ignoreKey = folderName || ''
+    deleteMutation.mutate({
+      scope,
+      projectId: scope === 'project' ? projectId : undefined,
+      ignoreKey,
+      agentPath,
+    })
+  }, [agentPath, isNew, name, scope, projectId, detailQuery.data?.folderName, deleteMutation])
 
   const syncMasterModels = useCallback(
     (patch: Partial<FormSnapshot>) => {
@@ -1305,6 +1349,16 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     panelSlot.setSlot({
       rightSlotBeforeClose: (
         <>
+          {agentPath && !isNew ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="ghost" onClick={handleDelete} disabled={deleteMutation.isPending} aria-label="删除 Agent助手">
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">删除 Agent助手</TooltipContent>
+            </Tooltip>
+          ) : null}
           {agentPath ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1312,7 +1366,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                   <FolderOpen className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">打开 Agent 文件夹</TooltipContent>
+              <TooltipContent side="bottom">打开 Agent助手 文件夹</TooltipContent>
             </Tooltip>
           ) : null}
           {isDirty ? (
@@ -1333,7 +1387,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       },
     })
     return () => panelSlot.setSlot(null)
-  }, [panelSlot, isDirty, handleSave, handleOpenFolder, agentPath, name, saveMutation.isPending])
+  }, [panelSlot, isDirty, handleSave, handleOpenFolder, handleDelete, agentPath, isNew, name, saveMutation.isPending, deleteMutation.isPending])
 
   if (!isNew && detailQuery.isLoading) {
     return (
@@ -1356,12 +1410,12 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Agent 名称"
+              placeholder="Agent助手 名称"
               className="mx-auto max-w-[220px] border-0 bg-transparent text-center text-base font-semibold shadow-none focus-visible:ring-0"
             />
           </div>
 
-          {/* 模型 + 子Agent 分组卡片 */}
+          {/* 模型 + 子Agent助手 分组卡片 */}
           <TenasSettingsCard divided>
             <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
               <span className="flex items-center gap-2 text-sm font-medium">
@@ -1375,7 +1429,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-[260px] text-xs">
-                      主助手是默认对话 Agent，此处模型与聊天输入区同步，可在聊天输入区直接调整。
+                      主助手是默认对话 Agent助手，此处模型与聊天输入区同步，可在聊天输入区直接调整。
                     </TooltipContent>
                   </Tooltip>
                 ) : null}
@@ -1479,7 +1533,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
               <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
                 <span className="flex items-center gap-2 text-sm font-medium">
                   <Gauge className="h-4 w-4 text-violet-500" />
-                  子Agent最大并行数量
+                  子Agent助手最大并行数量
                 </span>
                 <div className="ml-auto flex items-center rounded-full border border-border/70 bg-muted/40">
                   {[2, 3, 4, 5].map((count) => (

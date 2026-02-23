@@ -24,7 +24,7 @@ HTTP SSE → AiExecuteController.execute()
 MasterAgent 使用 Vercel AI SDK 的 `ToolLoopAgent`，配置模型、system prompt 和工具集：
 
 ```typescript
-// agents/masterAgent/masterAgent.ts
+// services/masterAgentRunner.ts
 const primaryDef = getPrimaryAgentDefinition();
 const toolIds = resolveToolIdsFromCapabilities(primaryDef.capabilities);
 
@@ -53,9 +53,14 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
 export function buildToolset(toolIds: string[]) → Record<string, tool>
 ```
 
-**现有工具**: timeNow, jsonRender, openUrl, browserSnapshot/Observe/Extract/Act/Wait, shell, shellCommand, execCommand, writeStdin, readFile, writeFile, listDir, updatePlan, subAgent, testApproval, imageGenerate, videoGenerate, officeExecute (office-execute)
+**现有工具**: timeNow, jsonRender, openUrl, browserSnapshot/Observe/Extract/Act/Wait, shell, shellCommand, execCommand, writeStdin, readFile, writeFile, listDir, updatePlan, subAgent, testApproval, imageGenerate, videoGenerate, chartRender (chart-render), officeExecute (office-execute)
 
 工具是否可用由能力组控制：`apps/server/src/ai/tools/capabilityGroups.ts` 定义能力组 → 工具 ID 映射，系统 Agent 的默认能力在 `apps/server/src/ai/shared/systemAgentDefinitions.ts`。
+
+## Tool 参数约定（ActionName 例外）
+
+- 默认所有工具需要 `actionName` 字段。
+- 例外：当 ToolDef 的 `parameters` 为 **string**（例如 `jsx-create`、`js-repl`）时，工具调用应直接传入纯字符串，不要封装为对象，也不要附加 `actionName`。
 
 ## RequestContext (AsyncLocalStorage)
 
@@ -85,17 +90,103 @@ export function buildToolset(toolIds: string[]) → Record<string, tool>
 
 关键文件: `commandApproval.ts`（命令审批逻辑：只读白名单 vs 危险命令拒绝）、`pendingRegistry.ts`（前端 pending 注册/解析）
 
+### Tool Part 状态机
+
+工具调用在 AI SDK v6 中有多种状态，`normalizeParts()` 负责持久化前的过滤和规范化：
+
+| 状态 | 含义 | 持久化处理 |
+|------|------|-----------|
+| `input-streaming` + 无 `input` | 模型流中断，无有效数据 | 过滤掉 |
+| `input-streaming` + 有 `input` | 模型流不完整（没发 `tool-call` 事件），但 `parsePartialJson` 已填入完整 input | 保留，状态提升为 `input-available` |
+| `input-available` | 工具输入就绪，等待执行 | 原样保留 |
+| `approval-requested` | 需要用户审批 | 原样保留 |
+| `output-streaming` | 工具执行中，输出流式返回 | 过滤掉（仅用于 UI 瞬态） |
+| `output-available` | 工具执行完成 | 原样保留 |
+| `output-error` | 工具执行失败 | 原样保留 |
+
+**关键函数**: `messageStore.ts:normalizeParts()`
+
+## JSX Preview 工具（文件化）
+
+- ToolId：`jsx-create`
+- 输入：JSX 字符串（string）
+- 写入：`.tenas/chat-history/<sessionId>/jsx/<messageId>.jsx`
+- 输出：`{ ok: true, path, messageId }`
+- 服务端校验：解析 JSX，禁止 `{}` 表达式与 `{...}` 展开，违规直接 tool error
+- 校验失败仍写入文件：错误信息中包含 path，后续用 apply-patch 修正
+- 依赖：`getSessionId()` / `getAssistantMessageId()` + `resolveMessagesJsonlPath()`
+
 ## Sub-Agent System
 
-子代理通过 `subAgentTool` 分发，每个子代理是独立的 `ToolLoopAgent` 实例：
+子代理通过 `subAgentTool` 分发，由 `agentFactory.ts` 数据驱动创建，每个子代理是独立的 `ToolLoopAgent` 实例。
 
-| 子代理 | 文件 | 工具集 |
-|--------|------|--------|
-| BrowserSubAgent | `subagent/browserSubAgent.ts` | openUrl, browserSnapshot/Observe/Extract/Act/Wait |
-| DocumentAnalysisSubAgent | `subagent/documentAnalysisSubAgent.ts` | readFile, listDir, shell, shellCommand |
-| TestApprovalSubAgent | `subagent/testApprovalSubAgent.ts` | testApproval, timeNow |
+### 创建流程
+
+```
+subAgentTool → agentManager.executeAgent()
+  → agentFactory.createSubAgent(input)
+    1. resolveEffectiveAgentName() — 处理 legacy 别名映射
+    2. resolveAgentType() — 判断类型：system | test-approval | dynamic | default
+    3. 按类型分支创建 ToolLoopAgent
+  → agentManager 管理生命周期（stream、消息持久化、resume）
+```
+
+### Agent 模板
+
+系统 Agent 的提示词和配置存放在 `agent-templates/templates/<agentId>/`：
+
+```
+apps/server/src/ai/agent-templates/
+├── index.ts          # 导出
+├── registry.ts       # 模板注册表
+├── types.ts          # 类型定义
+└── templates/
+    ├── master/       # 主助手
+    ├── browser/      # 浏览器助手
+    ├── document/     # 文档助手
+    ├── shell/        # 终端助手
+    ├── email/        # 邮件助手
+    ├── calendar/     # 日历助手
+    ├── widget/       # 工作台组件助手
+    └── project/      # 项目助手
+```
+
+### 子代理存储（统一化）
+
+每个子代理复用主对话的完整存储逻辑，存储在 session 子目录中：
+
+```
+<session-root>/
+├── messages.jsonl          # 主对话
+├── session.json
+└── agents/
+    ├── <agentId-A>/
+    │   ├── messages.jsonl  # 子代理完整对话（StoredMessage 格式）
+    │   └── session.json    # 子代理元数据 (title, task, agentType)
+    └── <agentId-B>/
+        ├── messages.jsonl
+        └── session.json
+```
+
+关键函数：
+- `registerAgentDir(parentSessionId, agentId)` — 注册 agent 子目录到 sessionDirCache，后续所有 chatFileStore 函数透明使用
+- `saveAgentMessage(...)` — 文件级持久化（无 DB 操作），自动计算 parentMessageId 链
+- `writeAgentSessionJson(...)` — 写入 agent 元数据
+- `listAgentIds(sessionId)` — 列出 session 下所有子代理 ID
 
 子代理输出通过 `data-sub-agent-start/delta/chunk/end` 事件推送到前端。
+
+### 关键文件
+
+| 文件 | 用途 |
+|------|------|
+| `services/agentFactory.ts` | 数据驱动的子 Agent 创建 |
+| `services/agentManager.ts` | Agent 生命周期管理、spawn 调度、消息持久化 |
+| `services/masterAgentRunner.ts` | 主 Agent Runner 创建 |
+| `agent-templates/registry.ts` | Agent 模板注册表 |
+| `tools/subAgentTool.ts` | spawn-agent 工具定义 |
+| `chat/repositories/chatFileStore.ts` | registerAgentDir / listAgentIds |
+| `chat/repositories/messageStore.ts` | saveAgentMessage / writeAgentSessionJson |
 
 ## Model Registry
 
@@ -160,7 +251,7 @@ Board 节点通过 `intent: "image"` + `responseMode: "json"` 走独立流程：
 
 | 层级 | 文件 | 内容 |
 |------|------|------|
-| Base prompt | `masterAgentPrompt.zh.md` | 角色、行为规则 |
+| Base prompt | `agent-templates/templates/master/prompt.zh.md` | 角色、行为规则 |
 | Session preface | `prefaceBuilder.ts` | 运行时上下文（环境/项目/技能摘要） |
 | Skill 注入 | `messageConverter.ts` | `data-skill` part → 模型文本块 |
 
@@ -186,7 +277,7 @@ if (writer) {
 | 工具中忘记用 `getSessionId()` 获取上下文 | 所有请求数据通过 `requestContext` getter 获取 |
 | 新工具只加到 `toolRegistry`，没加到能力组或系统 Agent 能力 | 更新 `capabilityGroups.ts` 与 `systemAgentDefinitions.ts` |
 | ToolDef 的 `id` 与 `toolRegistry` 的 key 不一致 | 始终用 `toolDef.id` 作为 key |
-| 子代理工具集过大 | 子代理只暴露必要工具 |
+| 子代理工具集过大 | 子代理只暴露必要工具，在 agent-templates 中配置 toolIds |
 | 工具 execute 中抛出未捕获异常 | 返回 `{ ok: false, error: "..." }`，Agent 可据此重试 |
 | AsyncLocalStorage 上下文丢失 | 确保异步操作在 `setRequestContext()` 之后 |
 | 子代理提示词过长 | 控制在 2000 token 以内 |

@@ -20,8 +20,8 @@ import {
   normalizeToolInput,
   type AnyToolPart,
 } from './shared/tool-utils'
+import { TrafficLights } from '@tenas-ai/ui/traffic-lights'
 import {
-  TrafficLights,
   WidgetPreview,
   parseOutputJson,
 } from './shared/widget-shared'

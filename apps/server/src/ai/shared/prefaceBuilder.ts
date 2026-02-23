@@ -16,7 +16,6 @@ import { readBasicConf } from "@/modules/settings/tenasConfStore";
 import { logger } from "@/common/logger";
 import { buildMasterAgentSections } from "@/ai/shared/promptBuilder";
 import { assembleMemorySection } from "@/ai/shared/agentPromptAssembler";
-import { jsonRenderSystemPrompt } from "@tenas-ai/api/jsonRenderCatalog";
 
 /** Unknown value fallback. */
 const UNKNOWN_VALUE = "unknown";
@@ -402,9 +401,6 @@ export async function buildSessionPrefaceText(input: {
     ...masterAgentSections,
     // 中文注释：注入 memory 章节，仅在存在 memory 文件时添加。
     ...(memorySection ? [memorySection] : []),
-    // 中文注释：注入 json-render catalog 提示词，保证模型输出遵循组件约束。
-    "## json-render catalog prompt",
-    jsonRenderSystemPrompt,
   ];
   return sections.join("\n\n");
 }

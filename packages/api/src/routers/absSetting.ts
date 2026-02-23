@@ -163,6 +163,8 @@ export const settingSchemas = {
         projectId: z.string().optional(),
         includeAllProjects: z.boolean().optional(),
         includeChildProjects: z.boolean().optional(),
+        /** Filter agents by scope. Defaults to 'all'. */
+        scopeFilter: z.enum(['workspace', 'project', 'all']).optional(),
       })
       .optional(),
     output: z.array(agentSummarySchema),
@@ -217,6 +219,15 @@ export const settingSchemas = {
       folderName: z.string(),
       scope: skillScopeSchema,
     }),
+  },
+  /** Copy a workspace agent to a project. */
+  copyAgentToProject: {
+    input: z.object({
+      sourceAgentPath: z.string(),
+      projectId: z.string(),
+      asMaster: z.boolean().optional(),
+    }),
+    output: z.object({ ok: z.boolean(), agentPath: z.string() }),
   },
   /** Save (create or update) an agent. */
   saveAgent: {
@@ -373,6 +384,12 @@ export abstract class BaseSettingRouter {
       saveAgent: shieldedProcedure
         .input(settingSchemas.saveAgent.input)
         .output(settingSchemas.saveAgent.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      copyAgentToProject: shieldedProcedure
+        .input(settingSchemas.copyAgentToProject.input)
+        .output(settingSchemas.copyAgentToProject.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

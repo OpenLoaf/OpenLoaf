@@ -237,10 +237,12 @@ export function getApprovalId(part: AnyToolPart): string | undefined {
 
 /** Determine if tool is awaiting approval decision. */
 export function isApprovalPending(part: AnyToolPart): boolean {
-  const approvalId = getApprovalId(part);
   const decided = part.approval?.approved === true || part.approval?.approved === false;
-  if (!approvalId || decided) return false;
-  return part.state === "approval-requested" || part.state == null;
+  if (decided) return false;
+  // 逻辑：approval-requested 是正常的待审批状态（有 approval.id）
+  // input-available 是历史数据中模型流不完整导致的"准待审批"状态（有 input 但无 approval）
+  // 两者都应该被视为需要用户操作的状态
+  return part.state === "approval-requested" || part.state === "input-available" || part.state == null;
 }
 
 /** Resolve output state for tool rendering. */

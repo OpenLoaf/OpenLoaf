@@ -9,8 +9,8 @@ export const masterTemplate: AgentTemplate = {
   toolIds: [
     // system
     'time-now',
-    'json-render',
     'update-plan',
+    'jsx-create',
     // agent
     'spawn-agent',
     'send-input',
@@ -26,6 +26,8 @@ export const masterTemplate: AgentTemplate = {
     'image-generate',
     // video-generate
     'video-generate',
+    // chart
+    'chart-render',
     // code-interpreter
     'js-repl',
     'js-repl-reset',

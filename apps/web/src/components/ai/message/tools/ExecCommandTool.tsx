@@ -5,6 +5,7 @@ import {
   Terminal,
   TerminalContent,
 } from '@/components/ai-elements/terminal'
+import { TrafficLights } from '@tenas-ai/ui/traffic-lights'
 import {
   asPlainObject,
   getApprovalId,
@@ -36,24 +37,6 @@ function resolveExecOutput(part: AnyToolPart): string {
     return outputMatch?.[1]?.trim() ?? raw.trim()
   }
   return safeStringify(raw)
-}
-
-/** macOS 风格窗口标题栏圆点 */
-function TrafficLights({ state }: { state?: 'idle' | 'running' | 'success' | 'error' }) {
-  const colors = {
-    idle: { r: 'bg-red-400', y: 'bg-yellow-400', g: 'bg-green-400' },
-    running: { r: 'bg-red-400', y: 'bg-yellow-400', g: 'bg-green-400 animate-pulse' },
-    success: { r: 'bg-red-400', y: 'bg-yellow-400', g: 'bg-green-500' },
-    error: { r: 'bg-red-500', y: 'bg-yellow-400', g: 'bg-neutral-400' },
-  }
-  const c = colors[state ?? 'idle']
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className={cn('size-2.5 rounded-full', c.r)} />
-      <span className={cn('size-2.5 rounded-full', c.y)} />
-      <span className={cn('size-2.5 rounded-full', c.g)} />
-    </div>
-  )
 }
 
 export default function ExecCommandTool({

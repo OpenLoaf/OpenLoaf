@@ -74,7 +74,7 @@ const AI_GROUP: SettingsMenuItem[] = [
   },
   {
     key: "agents",
-    label: "Agent",
+    label: "Agent助手",
     Icon: createMenuIcon(Bot, PROJECT_MENU_ICON_COLOR.agents),
     Component: ProjectAgentSettings,
   },

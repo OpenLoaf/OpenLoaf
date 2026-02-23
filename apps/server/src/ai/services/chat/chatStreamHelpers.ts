@@ -2,6 +2,7 @@ import { generateId, type UIMessage } from "ai";
 import type { TenasUIMessage } from "@tenas-ai/api/types/message";
 import { logger } from "@/common/logger";
 import {
+  getRequestContext,
   setAssistantMessageId,
   setRequestContext,
   setSaasAccessToken,
@@ -270,7 +271,7 @@ export function buildModelChain(
     ? baseSlice
     : baseSlice.filter((message: any) => message?.messageKind !== "compact_prompt");
 
-  const sanitized = stripPendingToolParts(trimmed);
+  const sanitized = stripTransientParts(stripPendingToolParts(trimmed));
 
   if (!sessionPrefaceText) return sanitized;
   return [
@@ -285,6 +286,77 @@ export function buildModelChain(
 
 /** Remove tool parts without results from the model chain. */
 function stripPendingToolParts(messages: UIMessage[]): UIMessage[] {
+  const ctx = getRequestContext();
+  const approvalPayloads = ctx?.toolApprovalPayloads;
+
+  const next: UIMessage[] = [];
+  for (const message of messages) {
+    const parts = Array.isArray(message?.parts) ? message.parts : [];
+    if (parts.length === 0) {
+      next.push(message);
+      continue;
+    }
+    let changed = false;
+    const filtered: unknown[] = [];
+    for (const part of parts) {
+      if (!part || typeof part !== "object") {
+        filtered.push(part);
+        continue;
+      }
+      const state = (part as any).state;
+      const type = typeof (part as any).type === "string" ? (part as any).type : "";
+
+      // 中文注释：step-start / data-step-thinking 是 UI 信号，模型链中不需要。
+      if (type === "step-start" || type === "data-step-thinking") {
+        changed = true;
+        continue;
+      }
+
+      // 中文注释：空 text part 是流式残留，模型链中不需要。
+      if (type === "text" && (part as any).text === "") {
+        changed = true;
+        continue;
+      }
+
+      // 中文注释：input-available 表示工具还未产出结果，直接从模型链中移除。
+      if (state === "input-available") {
+        changed = true;
+        continue;
+      }
+
+      // 中文注释：approval-requested 表示 needsApproval 工具等待用户审批。
+      // 有匹配的 approvalPayload 时，转换为 output-available（AI SDK 识别此状态
+      // 并生成 tool-call + tool-result 消息对）；否则移除。
+      if (state === "approval-requested") {
+        const toolCallId = (part as any).toolCallId;
+        const payload = toolCallId && approvalPayloads?.[toolCallId];
+        if (payload) {
+          filtered.push({
+            ...part,
+            state: "output-available",
+            output: payload,
+          });
+          changed = true;
+          continue;
+        }
+        changed = true;
+        continue;
+      }
+
+      filtered.push(part);
+    }
+    if (!changed) {
+      next.push(message);
+      continue;
+    }
+    if (filtered.length === 0) continue;
+    next.push({ ...message, parts: filtered } as UIMessage);
+  }
+  return next;
+}
+
+/** Remove transient parts from the model chain. */
+function stripTransientParts(messages: UIMessage[]): UIMessage[] {
   const next: UIMessage[] = [];
   for (const message of messages) {
     const parts = Array.isArray(message?.parts) ? message.parts : [];
@@ -295,9 +367,9 @@ function stripPendingToolParts(messages: UIMessage[]): UIMessage[] {
     let changed = false;
     const filtered = parts.filter((part) => {
       if (!part || typeof part !== "object") return true;
-      const state = (part as any).state;
-      if (state !== "input-available") return true;
-      // 中文注释：input-available 表示工具还未产出结果，直接从模型链中移除。
+      const isTransient = (part as any).isTransient === true;
+      if (!isTransient) return true;
+      // 中文注释：transient 仅用于当前轮展示，LLM 输入需移除。
       changed = true;
       return false;
     });

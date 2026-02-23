@@ -1,4 +1,5 @@
 import { BaseAiRouter, aiSchemas, t, shieldedProcedure } from "@tenas-ai/api";
+import { storeSecret } from "@/ai/tools/secretStore";
 
 /** Deprecated message for local AI media routes. */
 const DEPRECATED_MESSAGE = "已迁移到 SaaS 媒体接口，请使用 /ai/image /ai/vedio";
@@ -12,6 +13,14 @@ export class AiRouterImpl extends BaseAiRouter {
   /** AI tRPC router with deprecated media endpoints. */
   public static createRouter() {
     return t.router({
+      /** Store a secret value and return a placeholder token. */
+      storeSecret: shieldedProcedure
+        .input(aiSchemas.storeSecret.input)
+        .output(aiSchemas.storeSecret.output)
+        .mutation(async ({ input }) => {
+          const token = storeSecret(input.value);
+          return { token };
+        }),
       textToImage: shieldedProcedure
         .input(aiSchemas.textToImage.input)
         .output(aiSchemas.textToImage.output)

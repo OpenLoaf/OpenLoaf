@@ -26,27 +26,46 @@ type AgentDetail = {
   scope: "workspace" | "project" | "global";
 };
 
-/** Resolve and update the master agent model (workspace-scoped). */
-export function useMainAgentModel() {
+/**
+ * Resolve and update the master agent model (workspace/project scoped).
+ * @param projectId Optional project id for resolving project-scoped master agent.
+ */
+export function useMainAgentModel(projectId?: string) {
   const { basic } = useBasicConfig();
-  const agentsQuery = useQuery(trpc.settings.getAgents.queryOptions());
+  const agentsQueryInput = projectId ? { projectId } : undefined;
+  const agentsQuery = useQuery(trpc.settings.getAgents.queryOptions(agentsQueryInput));
   const masterAgent = useMemo(() => {
     const list = (agentsQuery.data ?? []) as Array<{
       folderName: string;
-      isSystem: boolean;
       scope: "workspace" | "project" | "global";
       path: string;
+      isEnabled: boolean;
+      isInherited: boolean;
     }>;
+    if (projectId) {
+      // 中文注释：优先使用当前项目的 master（非继承且启用）。
+      const projectMaster = list.find(
+        (agent) =>
+          agent.folderName === "master" &&
+          agent.scope === "project" &&
+          !agent.isInherited &&
+          agent.isEnabled,
+      );
+      if (projectMaster) return projectMaster;
+    }
+    // 中文注释：项目未命中时回退工作空间 master。
     return list.find(
       (agent) =>
-        agent.isSystem && agent.folderName === "master" && agent.scope === "workspace",
+        agent.folderName === "master" &&
+        agent.scope === "workspace" &&
+        agent.isEnabled,
     );
-  }, [agentsQuery.data]);
+  }, [agentsQuery.data, projectId]);
 
   const detailQuery = useQuery({
     ...trpc.settings.getAgentDetail.queryOptions(
       masterAgent
-        ? { agentPath: masterAgent.path, scope: "workspace" }
+        ? { agentPath: masterAgent.path, scope: masterAgent.scope }
         : { agentPath: "", scope: "workspace" },
     ),
     enabled: Boolean(masterAgent?.path),
@@ -56,13 +75,16 @@ export function useMainAgentModel() {
     trpc.settings.saveAgent.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
+          queryKey: trpc.settings.getAgents.queryOptions(agentsQueryInput).queryKey,
+        });
+        queryClient.invalidateQueries({
           queryKey: trpc.settings.getAgents.queryOptions().queryKey,
         });
         if (masterAgent?.path) {
           queryClient.invalidateQueries({
             queryKey: trpc.settings.getAgentDetail.queryOptions({
               agentPath: masterAgent.path,
-              scope: "workspace",
+              scope: masterAgent.scope,
             }).queryKey,
           });
         }
@@ -118,7 +140,8 @@ export function useMainAgentModel() {
           ? patch.systemPrompt
           : detail.systemPrompt;
       saveMutation.mutate({
-        scope: "workspace",
+        scope: detail.scope,
+        projectId: detail.scope === "project" ? projectId : undefined,
         agentPath: detail.path,
         name: patch.name ?? detail.name,
         description: patch.description ?? detail.description,
@@ -137,7 +160,7 @@ export function useMainAgentModel() {
         systemPrompt: nextSystemPrompt || undefined,
       });
     },
-    [detailQuery.data, normalizeIds, saveMutation],
+    [detailQuery.data, normalizeIds, projectId, saveMutation],
   );
 
   /** Update master chat model ids (empty = Auto). */

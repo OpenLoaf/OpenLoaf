@@ -10,13 +10,13 @@ import { Message, MessageContent } from "@/components/ai-elements/message";
 
 export default function MessageThinking() {
   return (
-    <Message from="assistant" className="max-w-[80%]">
-      <MessageContent>
-        <Reasoning isStreaming defaultOpen>
+    <Message from="assistant" className="max-w-[80%] -mt-4">
+      <MessageContent className="gap-0">
+        <Reasoning isStreaming defaultOpen={false} className="mb-0">
           <ReasoningTrigger
             getThinkingMessage={() => <Shimmer>深度思考中...</Shimmer>}
           />
-          <ReasoningContent>
+          <ReasoningContent className="mt-0.5 text-xs text-muted-foreground">
             {"正在分析上下文并生成计划，请稍候..."}
           </ReasoningContent>
         </Reasoning>

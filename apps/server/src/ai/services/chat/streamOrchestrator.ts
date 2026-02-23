@@ -25,6 +25,14 @@ import {
 import { buildBranchLogMessages } from "@/ai/services/chat/chatHistoryLogMessageBuilder";
 import { buildTokenUsageMetadata, buildTimingMetadata, mergeAbortMetadata } from "./metadataBuilder";
 
+type ToolResultPayload = {
+  timed_out?: boolean;
+  timedOut?: boolean;
+  completed_id?: string | null;
+  completedId?: string | null;
+  status?: Record<string, unknown>;
+};
+
 /** 构建错误 SSE 响应的输入。 */
 type ErrorStreamInput = {
   /** Session id. */
@@ -82,6 +90,69 @@ type ImageStreamResponseInput = {
   /** Token usage for metadata. */
   totalUsage?: TokenUsage;
 };
+
+/** Parse tool result payload for transient detection. */
+function parseToolResultPayload(result: unknown): ToolResultPayload | null {
+  if (!result) return null;
+  if (typeof result === "object") return result as ToolResultPayload;
+  if (typeof result !== "string") return null;
+  try {
+    const parsed = JSON.parse(result) as ToolResultPayload;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Check whether wait-agent result should be marked as transient. */
+function shouldMarkWaitAgentTransient(payload: ToolResultPayload | null): boolean {
+  if (!payload) return false;
+  // 中文注释：wait-agent 超时（仍在运行）时标记为 transient。
+  if (payload.timed_out === true || payload.timedOut === true) return true;
+  const completedId =
+    typeof payload.completed_id === "string"
+      ? payload.completed_id.trim()
+      : typeof payload.completedId === "string"
+        ? payload.completedId.trim()
+        : "";
+  if (completedId) return false;
+  // 中文注释：completedId 为空且存在 running 状态时，视为仍在运行。
+  if (payload.status && typeof payload.status === "object") {
+    const statuses = Object.values(payload.status);
+    return statuses.some((value) => String(value).toLowerCase() === "running");
+  }
+  return false;
+}
+
+/** Annotate tool-result chunks with transient flag. */
+function applyTransientFlag(chunk: any): any {
+  if (!chunk || typeof chunk !== "object") return chunk;
+  if (chunk.type !== "tool-result") return chunk;
+  const toolName = typeof chunk.toolName === "string" ? chunk.toolName : "";
+  if (toolName !== "wait-agent") return chunk;
+  const payload = parseToolResultPayload(chunk.output ?? chunk.result);
+  if (!shouldMarkWaitAgentTransient(payload)) return chunk;
+  return { ...chunk, isTransient: true };
+}
+
+/** Annotate response parts with transient flag for persistence. */
+function applyTransientFlagToParts(parts: unknown[]): unknown[] {
+  if (!Array.isArray(parts)) return parts;
+  return parts.map((part) => {
+    if (!part || typeof part !== "object") return part;
+    const rawType = typeof (part as any).type === "string" ? String((part as any).type) : "";
+    const toolName =
+      typeof (part as any).toolName === "string"
+        ? String((part as any).toolName)
+        : rawType.startsWith("tool-")
+          ? rawType.slice("tool-".length)
+          : "";
+    if (toolName !== "wait-agent") return part;
+    const payload = parseToolResultPayload((part as any).output ?? (part as any).result);
+    if (!shouldMarkWaitAgentTransient(payload)) return part;
+    return { ...(part as any), isTransient: true };
+  });
+}
 
 /** 构建错误 SSE 响应。 */
 export async function createErrorStreamResponse(input: ErrorStreamInput): Promise<Response> {
@@ -187,9 +258,13 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
 
               const finalizedMetadata =
                 mergeAbortMetadata(mergedMetadata, { isAborted, finishReason }) ?? {};
+              const normalizedResponseMessage = {
+                ...(responseMessage as any),
+                parts: applyTransientFlagToParts((responseMessage as any).parts ?? []),
+              } as UIMessage;
               const branchLogMessages = buildBranchLogMessages({
                 modelMessages: input.modelMessages as UIMessage[],
-                assistantResponseMessage: responseMessage as UIMessage,
+                assistantResponseMessage: normalizedResponseMessage as UIMessage,
                 assistantMessageId: input.assistantMessageId,
                 parentMessageId: input.parentMessageId,
                 metadata: finalizedMetadata,
@@ -220,7 +295,23 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
           },
         });
 
-        writer.merge(uiStream as any);
+        // 逻辑：拦截 step 事件，通过 writer.write() + transient 发送思考信号，
+        // 避免 data-step-thinking 被累积到 responseMessage.parts 中持久化。
+        const wrappedStream = (uiStream as ReadableStream).pipeThrough(
+          new TransformStream({
+            transform(chunk: any, controller) {
+              const normalized = applyTransientFlag(chunk);
+              controller.enqueue(normalized);
+              const type = chunk?.type;
+              if (type === "finish-step") {
+                writer.write({ type: "data-step-thinking", data: { active: true }, transient: true } as any);
+              } else if (type === "start-step" || type === "finish") {
+                writer.write({ type: "data-step-thinking", data: { active: false }, transient: true } as any);
+              }
+            },
+          }),
+        );
+        writer.merge(wrappedStream as any);
       } catch (err) {
         popAgentFrameOnce();
         throw err;
@@ -228,22 +319,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
     },
   });
 
-  const stepThinkingStream = stream.pipeThrough(
-    new TransformStream({
-      transform(chunk: any, controller) {
-        controller.enqueue(chunk);
-        const type = chunk?.type;
-        // step 结束后进入“思考中”，直到下一步或结束。
-        if (type === "finish-step") {
-          controller.enqueue({ type: "data-step-thinking", data: { active: true } });
-        } else if (type === "start-step" || type === "finish") {
-          controller.enqueue({ type: "data-step-thinking", data: { active: false } });
-        }
-      },
-    }),
-  );
-
-  const sseStream = stepThinkingStream.pipeThrough(new JsonToSseTransformStream());
+  const sseStream = stream.pipeThrough(new JsonToSseTransformStream());
   return new Response(sseStream as any, { headers: UI_MESSAGE_STREAM_HEADERS });
 }
 

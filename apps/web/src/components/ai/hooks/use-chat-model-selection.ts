@@ -13,13 +13,17 @@ import {
   supportsToolCall,
 } from "@/lib/model-capabilities";
 
-/** Resolve model selection state for chat with tab/global memory scope support. */
-export function useChatModelSelection(_tabId?: string) {
+/**
+ * Resolve model selection state for chat with tab/global memory scope support.
+ * @param _tabId Unused tab id (kept for signature compatibility).
+ * @param projectId Optional project id for resolving project-scoped master agent.
+ */
+export function useChatModelSelection(_tabId?: string, projectId?: string) {
   const { basic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
   const installedCliProviderIds = useInstalledCliProviderIds();
-  const { modelIds: masterModelIds, detail: masterDetail } = useMainAgentModel();
+  const { modelIds: masterModelIds, detail: masterDetail } = useMainAgentModel(projectId);
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
   const modelOptions = React.useMemo(
     () => buildChatModelOptions(chatModelSource, providerItems, cloudModels, installedCliProviderIds),

@@ -39,6 +39,7 @@ export function useModelPreferences() {
   const { basic, setBasic } = useBasicConfig()
   const { loggedIn: authLoggedIn, refreshSession } = useSaasAuth()
   const chatSession = useOptionalChatSession()
+  const projectId = chatSession?.projectId
   const activeTabId = useTabs((s) => s.activeTabId)
   const pushStackItem = useTabRuntime((s) => s.pushStackItem)
   const {
@@ -47,7 +48,7 @@ export function useModelPreferences() {
     setModelIds,
     setImageModelIds,
     setVideoModelIds,
-  } = useMainAgentModel()
+  } = useMainAgentModel(projectId)
 
   const tabId = chatSession?.tabId ?? activeTabId
   const chatModelSource = normalizeChatModelSource(basic.chatSource)

@@ -18,13 +18,20 @@ interface ToolApprovalActionsProps {
 export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApprovalActionsProps) {
   const { messages, status } = useChatState();
   const { updateMessage, addToolApprovalResponse } = useChatActions();
-  const { toolParts, upsertToolPart } = useChatTools();
+  const {
+    toolParts,
+    upsertToolPart,
+    clearToolApprovalPayload,
+    continueAfterToolApprovals,
+  } = useChatTools();
   const { sessionId } = useChatSession();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const toolSnapshot = React.useMemo(
     () => Object.values(toolParts).find((part) => part.approval?.id === approvalId),
     [toolParts, approvalId]
   );
+  const toolCallId =
+    typeof toolSnapshot?.toolCallId === "string" ? toolSnapshot.toolCallId : "";
   const isDecided =
     toolSnapshot?.approval?.approved === true || toolSnapshot?.approval?.approved === false;
   // 中文注释：子代理审批会阻塞主流式，需允许在 streaming 状态下交互。
@@ -117,6 +124,8 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
           await postSubAgentApprovalAck(true, subAgentToolCallId);
         } else {
           await addToolApprovalResponse({ id: approvalId, approved: true });
+          clearToolApprovalPayload(toolCallId);
+          await continueAfterToolApprovals();
         }
       } finally {
         setIsSubmitting(false);
@@ -129,6 +138,11 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
       updateApprovalSnapshot,
       updateApprovalInMessages,
       addToolApprovalResponse,
+      postSubAgentApprovalAck,
+      toolSnapshot?.subAgentToolCallId,
+      clearToolApprovalPayload,
+      continueAfterToolApprovals,
+      toolCallId,
     ],
   );
 
@@ -151,6 +165,8 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
           await postSubAgentApprovalAck(false, subAgentToolCallId);
         } else {
           await addToolApprovalResponse({ id: approvalId, approved: false });
+          clearToolApprovalPayload(toolCallId);
+          await continueAfterToolApprovals();
           if (approvalUpdate) {
             // 中文注释：拒绝审批后立即落库，避免刷新后仍显示“待审批”。
             try {
@@ -178,6 +194,9 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
       updateApprovalMutation,
       postSubAgentApprovalAck,
       toolSnapshot?.subAgentToolCallId,
+      clearToolApprovalPayload,
+      continueAfterToolApprovals,
+      toolCallId,
     ],
   );
 

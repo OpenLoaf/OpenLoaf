@@ -15,7 +15,8 @@ import {
   asPlainObject,
   type AnyToolPart,
 } from './shared/tool-utils'
-import { TrafficLights, parseOutputJson } from './shared/widget-shared'
+import { TrafficLights } from '@tenas-ai/ui/traffic-lights'
+import { parseOutputJson } from './shared/widget-shared'
 import ToolApprovalActions from './shared/ToolApprovalActions'
 
 export default function WidgetInitTool({

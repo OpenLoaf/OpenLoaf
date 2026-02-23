@@ -312,7 +312,7 @@ function MessageItem({
                 variant="inline"
                 compact
                 placeholder="编辑消息…"
-                className="w-full max-w-[70%]"
+                className="w-full max-w-[88%]"
                 actionVariant="text"
                 submitLabel="发送"
                 cancelLabel="取消"

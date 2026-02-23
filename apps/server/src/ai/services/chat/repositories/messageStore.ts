@@ -295,13 +295,29 @@ function normalizeRole(role: unknown): 'user' | 'assistant' | 'system' | 'subage
 /** Filter message parts for persistence. */
 function normalizeParts(parts: unknown): unknown[] {
   const arr = Array.isArray(parts) ? parts : []
-  return arr.filter((part) => {
-    if (!part || typeof part !== 'object') return true
-    const record = part as any
-    if (record.type === 'step-start') return false
-    if (record.state === 'streaming') return false
-    return true
-  })
+  return arr
+    .filter((part) => {
+      if (!part || typeof part !== 'object') return true
+      const record = part as any
+      if (record.type === 'step-start') return false
+      if (record.state === 'streaming') return false
+      // 安全网：过滤 transient UI 信号（data-step-thinking 等）
+      if (record.type === 'data-step-thinking') return false
+      // 过滤空 text parts（流式残留）
+      if (record.type === 'text' && record.text === '') return false
+      // input-streaming 且无 input → 真正的中断残留，过滤
+      if (record.state === 'input-streaming' && record.input == null) return false
+      return true
+    })
+    .map((part) => {
+      if (!part || typeof part !== 'object') return part
+      const record = part as any
+      // input-streaming 但有 input → 模型流不完整，提升状态为 input-available
+      if (record.state === 'input-streaming' && record.input != null) {
+        return { ...record, state: 'input-available' }
+      }
+      return part
+    })
 }
 
 /** Sanitize metadata fields before persistence. */
@@ -562,6 +578,7 @@ export async function writeAgentSessionJson(input: {
   name: string
   task: string
   agentType?: string
+  preface?: string
   createdAt: Date
 }): Promise<void> {
   await registerAgentDir(input.parentSessionId, input.agentId)
@@ -572,5 +589,6 @@ export async function writeAgentSessionJson(input: {
     // 扩展字段存入 session.json
     ...(input.agentType ? { agentType: input.agentType } as any : {}),
     ...(input.task ? { task: input.task } as any : {}),
+    ...(input.preface ? { sessionPreface: input.preface } as any : {}),
   })
 }

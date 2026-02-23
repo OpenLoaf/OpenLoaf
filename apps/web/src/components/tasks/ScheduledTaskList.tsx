@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useCallback, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { trpc } from '@/utils/trpc'
 import {
@@ -17,6 +17,7 @@ import {
   Clock,
   FileText,
   Layers,
+  Loader2,
   MoreHorizontal,
   Pencil,
   Play,
@@ -33,6 +34,7 @@ import {
 import { ScheduledTaskDialog } from './ScheduledTaskDialog'
 import { TaskRunLogPanel } from './TaskRunLogPanel'
 import { Tabs, TabsList, TabsTrigger } from '@tenas-ai/ui/tabs'
+import { useTabs } from '@/hooks/use-tabs'
 
 type TaskConfig = {
   id: string
@@ -149,6 +151,7 @@ function formatStatusLine(status: string | null | undefined, lastRunAt: string |
     ok: '成功',
     error: '失败',
     skipped: '跳过',
+    running: '运行中',
   }
   const label = labelMap[status ?? ''] ?? '未运行'
   const time = lastRunAt ? formatTime(lastRunAt) : ''
@@ -160,6 +163,7 @@ function statusClass(status: string | null | undefined): string {
     case 'ok': return 'text-emerald-600 dark:text-emerald-400'
     case 'error': return 'text-rose-600 dark:text-rose-400'
     case 'skipped': return 'text-amber-600 dark:text-amber-400'
+    case 'running': return 'text-blue-600 dark:text-blue-400'
     default: return 'text-muted-foreground'
   }
 }
@@ -178,6 +182,17 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
     () => queryClient.invalidateQueries({ queryKey: trpc.scheduledTask.list.pathKey() }),
     [queryClient],
   )
+
+  const agentsQuery = useQuery(trpc.settings.getAgents.queryOptions({}))
+  const agentMap = useMemo(() => {
+    const map = new Map<string, { name: string; icon?: string }>()
+    for (const agent of agentsQuery.data ?? []) {
+      const a = agent as { folderName: string; name: string; icon?: string }
+      map.set(a.folderName, { name: a.name, icon: a.icon })
+    }
+    return map
+  }, [agentsQuery.data])
+
   const listQuery = useQuery(
     trpc.scheduledTask.list.queryOptions({ workspaceId, projectId }),
   )
@@ -188,6 +203,14 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
   }, [allTasks, filterTab])
   const scheduledCount = useMemo(() => allTasks.filter((t) => t.triggerMode === 'scheduled').length, [allTasks])
   const conditionCount = useMemo(() => allTasks.filter((t) => t.triggerMode === 'condition').length, [allTasks])
+  const hasRunning = useMemo(() => allTasks.some((t) => t.lastStatus === 'running'), [allTasks])
+
+  // 逻辑：有运行中的任务时，每 3 秒轮询刷新列表。
+  useEffect(() => {
+    if (!hasRunning) return
+    const interval = setInterval(() => { void listQuery.refetch() }, 3000)
+    return () => clearInterval(interval)
+  }, [hasRunning, listQuery])
 
   const updateMutation = useMutation(
     trpc.scheduledTask.update.mutationOptions({ onSuccess: invalidateList }),
@@ -196,7 +219,7 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
     trpc.scheduledTask.delete.mutationOptions({ onSuccess: invalidateList }),
   )
   const runMutation = useMutation(
-    trpc.scheduledTask.run.mutationOptions(),
+    trpc.scheduledTask.run.mutationOptions({ onSuccess: invalidateList }),
   )
 
   const handleToggleEnabled = useCallback(
@@ -237,6 +260,15 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
     setEditingTask(null)
     invalidateList()
   }, [invalidateList])
+
+  const addTab = useTabs((s) => s.addTab)
+  const handleOpenChat = useCallback((sessionId: string) => {
+    addTab({
+      workspaceId,
+      chatSessionId: sessionId,
+      chatLoadHistory: true,
+    })
+  }, [addTab, workspaceId])
 
   const colSpan = 7
 
@@ -328,8 +360,20 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
                           <div className={`text-[13px] font-medium ${task.enabled ? 'text-foreground' : 'text-muted-foreground line-through'}`}>
                             {task.name}
                           </div>
-                          <div className="mt-1 text-[11px] text-muted-foreground">
-                            {task.agentName ? `Agent：${task.agentName}` : 'Agent：默认'}
+                          <div className="mt-1 text-[11px] text-muted-foreground flex items-center gap-1">
+                            {(() => {
+                              const agentInfo = task.agentName ? agentMap.get(task.agentName) : null
+                              const icon = agentInfo?.icon?.trim()
+                              const displayName = agentInfo?.name ?? (task.agentName || '默认')
+                              return (
+                                <>
+                                  {icon && /[^a-z0-9-_]/i.test(icon) ? (
+                                    <span className="text-[11px] leading-none">{icon}</span>
+                                  ) : null}
+                                  <span>{displayName}</span>
+                                </>
+                              )
+                            })()}
                           </div>
                         </div>
                       </div>
@@ -371,10 +415,15 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
                           variant="outline"
                           size="sm"
                           className="rounded-full"
+                          disabled={task.lastStatus === 'running'}
                           onClick={() => handleRun(task)}
                         >
-                          <Play className="h-3.5 w-3.5" />
-                          运行
+                          {task.lastStatus === 'running' ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Play className="h-3.5 w-3.5" />
+                          )}
+                          {task.lastStatus === 'running' ? '运行中' : '运行'}
                         </Button>
                         <Button
                           variant="ghost"
@@ -427,6 +476,7 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
         taskId={logTaskId ?? ''}
         workspaceId={workspaceId}
         projectId={projectId}
+        onOpenChat={handleOpenChat}
       />
     </div>
   )

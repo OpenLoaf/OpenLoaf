@@ -2,6 +2,15 @@ import { z } from "zod";
 import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 
 export const aiSchemas = {
+  // 逻辑：用于在服务端暂存敏感值并返回占位符 token。
+  storeSecret: {
+    input: z.object({
+      value: z.string().min(1),
+    }),
+    output: z.object({
+      token: z.string().min(1),
+    }),
+  },
   textToImage: {
     input: z.object({
       prompt: z.string().min(1),
@@ -76,6 +85,13 @@ export abstract class BaseAiRouter {
   /** Define the ai router contract. */
   public static createRouter() {
     return t.router({
+      /** Store a secret value and return a placeholder token. */
+      storeSecret: shieldedProcedure
+        .input(aiSchemas.storeSecret.input)
+        .output(aiSchemas.storeSecret.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
       textToImage: shieldedProcedure
         .input(aiSchemas.textToImage.input)
         .output(aiSchemas.textToImage.output)

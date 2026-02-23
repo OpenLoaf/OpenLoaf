@@ -294,9 +294,7 @@ Executes JavaScript code in a persistent Node.js VM sandbox.
 - The last expression value is included in the output.
 - Execution has a timeout to prevent infinite loops.
 - No access to file system, network, or child_process.`,
-  parameters: z.object({
-    input: z.string().min(1).describe("要执行的 JavaScript 代码。"),
-  }),
+  parameters: z.string().min(1).describe("要执行的 JavaScript 代码。"),
   component: null,
 } as const;
 

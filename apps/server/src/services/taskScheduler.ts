@@ -1,7 +1,9 @@
 import { getWorkspaceRootPath } from '@tenas-ai/api'
+import { randomUUID } from 'node:crypto'
 import { logger } from '@/common/logger'
 import { listTasks, getTask, updateTask, type TaskConfig } from './taskConfigService'
 import { appendRunLog } from './taskRunLogService'
+import { runChatStream } from '@/ai/services/chat/chatStreamService'
 
 type TimerEntry = {
   taskId: string
@@ -9,8 +11,15 @@ type TimerEntry = {
   type: 'timeout' | 'interval'
 }
 
+type RunningTaskEntry = {
+  sessionId: string
+  startedAt: string
+  abortController: AbortController
+}
+
 class TaskScheduler {
   private timers = new Map<string, TimerEntry>()
+  private runningTasks = new Map<string, RunningTaskEntry>()
   private started = false
 
   /** Load all enabled tasks from file system and register timers. */
@@ -42,6 +51,11 @@ class TaskScheduler {
       }
     }
     this.timers.clear()
+    // 逻辑：停止所有运行中的任务。
+    for (const running of this.runningTasks.values()) {
+      running.abortController.abort()
+    }
+    this.runningTasks.clear()
     this.started = false
   }
 
@@ -96,34 +110,106 @@ class TaskScheduler {
     this.timers.delete(taskId)
   }
 
-  /** Manually trigger a task. */
+  /** Check if a task is currently running. */
+  isRunning(taskId: string): boolean {
+    return this.runningTasks.has(taskId)
+  }
+
+  /** Manually trigger a task (fire-and-forget). */
   async runTaskNow(taskId: string, projectRoot?: string | null): Promise<void> {
+    if (this.runningTasks.has(taskId)) {
+      logger.warn({ taskId }, '[task-scheduler] Task already running, skipping')
+      return
+    }
     await this.executeTask(taskId, projectRoot ?? null)
   }
 
-  /** Execute a task and update its record. */
+  /** Execute a task: call Agent via runChatStream. */
   private async executeTask(taskId: string, projectRoot?: string | null): Promise<void> {
     const workspaceRoot = getWorkspaceRootPath()
     const startedAt = new Date().toISOString()
+    const abortController = new AbortController()
+    let sessionId = ''
+
     try {
       const task = getTask(taskId, workspaceRoot, projectRoot ?? undefined)
       if (!task || !task.enabled) return
 
-      logger.info({ taskId, name: task.name }, '[task-scheduler] Executing task')
+      // 逻辑：防止同一任务并发执行。
+      if (this.runningTasks.has(taskId)) return
 
+      // 逻辑：生成 sessionId，isolated 模式每次唯一，shared 模式固定。
+      sessionId = task.sessionMode === 'shared'
+        ? `task-${taskId}`
+        : `task-${taskId}-${randomUUID()}`
+
+      logger.info({ taskId, name: task.name, sessionId }, '[task-scheduler] Executing task')
+
+      // 逻辑：标记为运行中。
+      this.runningTasks.set(taskId, { sessionId, startedAt, abortController })
       updateTask(taskId, {
-        lastRunAt: new Date().toISOString(),
-        lastStatus: 'ok',
+        lastRunAt: startedAt,
+        lastStatus: 'running',
         lastError: null,
         runCount: task.runCount + 1,
       }, workspaceRoot, projectRoot ?? undefined)
 
-      // 逻辑：当前仅记录任务执行，具体动作由后续实现补齐。
-      logger.info({ taskId }, '[task-scheduler] Task executed (stub)')
+      // 逻辑：设置超时控制。
+      const timeoutId = setTimeout(() => {
+        abortController.abort()
+      }, task.timeoutMs || 600_000)
+
+      try {
+        const instruction = typeof task.payload?.message === 'string'
+          ? task.payload.message
+          : `执行自动任务：${task.name}`
+
+        const messageId = randomUUID()
+        const response = await runChatStream({
+          request: {
+            sessionId,
+            messages: [{
+              id: messageId,
+              role: 'user',
+              parts: [{ type: 'text', text: instruction }],
+              createdAt: new Date(),
+              parentMessageId: null,
+            } as any],
+            trigger: 'submit-message',
+            workspaceId: undefined,
+            projectId: undefined,
+          },
+          cookies: {},
+          requestSignal: abortController.signal,
+        })
+
+        // 逻辑：消费 SSE 流直到完成。
+        if (response.body) {
+          const reader = response.body.getReader()
+          try {
+            while (true) {
+              const { done } = await reader.read()
+              if (done) break
+            }
+          } finally {
+            reader.releaseLock()
+          }
+        }
+      } finally {
+        clearTimeout(timeoutId)
+      }
+
+      // 逻辑：执行成功，更新状态。
+      updateTask(taskId, {
+        lastStatus: 'ok',
+        lastError: null,
+        consecutiveErrors: 0,
+      }, workspaceRoot, projectRoot ?? undefined)
 
       appendRunLog(taskId, {
         trigger: 'scheduled',
         status: 'ok',
+        agentSessionId: sessionId,
         startedAt,
         finishedAt: new Date().toISOString(),
         durationMs: Date.now() - new Date(startedAt).getTime(),
@@ -150,6 +236,7 @@ class TaskScheduler {
           trigger: 'scheduled',
           status: 'error',
           error: err instanceof Error ? err.message : String(err),
+          agentSessionId: sessionId || undefined,
           startedAt,
           finishedAt: new Date().toISOString(),
           durationMs: Date.now() - new Date(startedAt).getTime(),
@@ -157,6 +244,8 @@ class TaskScheduler {
       } catch {
         // ignore update failure
       }
+    } finally {
+      this.runningTasks.delete(taskId)
     }
   }
 

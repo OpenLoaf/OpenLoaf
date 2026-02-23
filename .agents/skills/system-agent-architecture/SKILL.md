@@ -41,14 +41,14 @@ version: 1.0.0
 ```
 systemAgentDefinitions.ts  (0 imports — 纯数据叶子模块)
   ^
-  |--- masterAgent.ts         (派生 MASTER_AGENT_TOOL_IDS)
-  |--- subAgentFactory.ts     (创建子 Agent 时查找定义)
-  |--- agentConfigService.ts  (注入 isSystem 标记)
+  |--- masterAgentRunner.ts    (派生 MASTER_AGENT_TOOL_IDS)
+  |--- agentFactory.ts         (创建子 Agent 时查找定义)
+  |--- agentConfigService.ts   (注入 isSystem 标记)
   |--- defaultAgentResolver.ts (初始化系统 Agent 文件夹)
 
 resolveAgentModel.ts  (imports resolveChatModel.ts)
   ^
-  |--- agentManager.ts        (为子 Agent 解析模型)
+  |--- agentManager.ts         (为子 Agent 解析模型)
 
 capabilityGroups.ts  (不变，被上述模块引用)
 ```
@@ -58,7 +58,7 @@ capabilityGroups.ts  (不变，被上述模块引用)
 1. `systemAgentDefinitions.ts` 零依赖，纯数据常量，所有模块从此派生
 2. `isSystem` 是运行时计算的标记（基于 folderName），不持久化到磁盘
 3. spawn 权限通过能力组限制自然实现：只有 master 有 `agent` 能力组
-4. `masterAgent.ts` 的工具集从 master 定义的 capabilities 派生，不再硬编码工具 ID
+4. `masterAgentRunner.ts` 的工具集从 master 定义的 capabilities 派生，不再硬编码工具 ID
 5. 不再做 default/main 迁移，默认目录固定为 `master`
 
 ## 关键文件
@@ -82,10 +82,29 @@ capabilityGroups.ts  (不变，被上述模块引用)
 
 | 文件 | 用途 |
 |------|------|
-| `apps/server/src/ai/agents/masterAgent/masterAgent.ts` | 主 Agent 工具集（从 capabilities 派生） |
-| `apps/server/src/ai/agents/subagent/subAgentFactory.ts` | 数据驱动的子 Agent 创建 |
-| `apps/server/src/ai/services/agentManager.ts` | Agent 生命周期管理、spawn 调度 |
+| `apps/server/src/ai/services/masterAgentRunner.ts` | 主 Agent Runner 创建（从 capabilities 派生工具集） |
+| `apps/server/src/ai/services/agentFactory.ts` | 数据驱动的子 Agent 创建 |
+| `apps/server/src/ai/services/agentManager.ts` | Agent 生命周期管理、spawn 调度、消息持久化 |
 | `apps/server/src/ai/services/agentConfigService.ts` | Agent 配置读取、isSystem 标记 |
+| `apps/server/src/ai/services/skillsLoader.ts` | 技能文件扫描加载 |
+| `apps/server/src/ai/shared/repairToolCall.ts` | 工具调用修复 |
+| `apps/server/src/ai/agent-templates/` | Agent 模板（提示词 + 配置） |
+
+### 子代理存储
+
+每个子代理复用主对话的完整存储逻辑，存储在 session 子目录中：
+
+```
+<session-root>/agents/<agentId>/
+├── messages.jsonl  # StoredMessage 格式，含 parentMessageId 链
+└── session.json    # 元数据 (id, title, task, agentType, createdAt)
+```
+
+关键函数（`chatFileStore.ts` / `messageStore.ts`）：
+- `registerAgentDir()` — 注册 agent 子目录到 sessionDirCache
+- `saveAgentMessage()` — 文件级持久化（无 DB），自动计算 parentMessageId
+- `writeAgentSessionJson()` — 写入 agent 元数据
+- `listAgentIds()` — 列出 session 下所有子代理
 
 ### API & 前端
 
@@ -121,7 +140,7 @@ export function isSystemAgentId(id: string): boolean
 export function getPrimaryAgentDefinition(): SystemAgentDefinition
 ```
 
-## subAgentFactory 数据驱动流程
+## subAgentFactory (agentFactory) 数据驱动流程
 
 ```
 createSubAgent(input)
@@ -134,6 +153,8 @@ createSubAgent(input)
      - default → fallback 到 master 定义
   4. 如果 config.model 非空 → resolveAgentModel() 获取模型实例
 ```
+
+文件位置：`apps/server/src/ai/services/agentFactory.ts`
 
 ## 设置页面迁移
 

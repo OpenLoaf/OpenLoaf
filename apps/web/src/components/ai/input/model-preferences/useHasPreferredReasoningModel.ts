@@ -14,13 +14,14 @@ import { useMainAgentModel } from '@/components/ai/hooks/use-main-agent-model'
 /**
  * 轻量 hook：判断当前偏好的聊天模型中是否包含推理模型。
  * 不包含写入逻辑和副作用，仅做只读计算。
+ * @param projectId Optional project id for resolving project-scoped master agent.
  */
-export function useHasPreferredReasoningModel(): boolean {
+export function useHasPreferredReasoningModel(projectId?: string): boolean {
   const { providerItems } = useSettingsValues()
   const { models: cloudModels } = useCloudModels()
   const installedCliProviderIds = useInstalledCliProviderIds()
   const { basic } = useBasicConfig()
-  const { modelIds: masterModelIds } = useMainAgentModel()
+  const { modelIds: masterModelIds } = useMainAgentModel(projectId)
 
   const chatModelSource = normalizeChatModelSource(basic.chatSource)
 

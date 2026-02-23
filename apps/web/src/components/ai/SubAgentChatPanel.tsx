@@ -168,6 +168,9 @@ export default function SubAgentChatPanel({
     upsertToolPart: noop,
     markToolStreaming: noop,
     subAgentStreams: {} as Record<string, SubAgentStreamState>,
+    queueToolApprovalPayload: noop,
+    clearToolApprovalPayload: noop,
+    continueAfterToolApprovals: noop,
   }), [noop])
 
   const chatSessionStub = React.useMemo(() => ({

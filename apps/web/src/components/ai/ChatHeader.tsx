@@ -14,11 +14,7 @@ import { invalidateChatSessions, useChatSessions } from "@/hooks/use-chat-sessio
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { toast } from "sonner";
 import { MessageAction, MessageActions } from "@/components/ai-elements/message";
-import {
-  ModelSelector,
-  ModelSelectorContent,
-  ModelSelectorTrigger,
-} from "@/components/ai-elements/model-selector";
+import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
 
 interface ChatHeaderProps {
   className?: string;
@@ -207,8 +203,8 @@ export default function ChatHeader({
             <BrushCleaning size={20} />
           </MessageAction>
         )}
-        <ModelSelector open={historyOpen} onOpenChange={setHistoryOpen}>
-          <ModelSelectorTrigger asChild>
+        <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
+          <PopoverTrigger asChild>
             <MessageAction
               aria-label="History"
               className={resolveActionIconClass("history")}
@@ -221,9 +217,10 @@ export default function ChatHeader({
             >
               <History size={20} />
             </MessageAction>
-          </ModelSelectorTrigger>
-          <ModelSelectorContent
-            title="历史会话"
+          </PopoverTrigger>
+          <PopoverContent
+            side="bottom"
+            align="end"
             className="flex w-64 max-h-[min(80svh,var(--radix-popover-content-available-height))] flex-col overflow-hidden p-2"
             onInteractOutside={(e) => {
               if (menuLockRef.current) e.preventDefault();
@@ -260,8 +257,8 @@ export default function ChatHeader({
                 selectSession(session.id);
               }}
             />
-          </ModelSelectorContent>
-        </ModelSelector>
+          </PopoverContent>
+        </Popover>
         {onCloseSession && (
           <MessageAction
             aria-label="关闭会话"

@@ -28,6 +28,7 @@ import WorkspaceDesktop from "@/components/workspace/WorkspaceDesktop";
 import FolderTreePreview from "@/components/project/filesystem/FolderTreePreview";
 import { SchedulerTaskHistoryStackPanel } from "@/components/summary/SchedulerTaskHistoryStackPanel";
 import { AgentDetailPanel } from "@/components/setting/menus/agent/AgentDetailPanel";
+import { AgentManagement } from "@/components/setting/menus/agent/AgentManagement";
 import ScheduledTasksPage from "@/components/tasks/ScheduledTasksPage";
 import StreamingCodeViewer from "@/components/file/StreamingCodeViewer";
 import DynamicWidgetStackPanel from "@/components/desktop/dynamic-widgets/DynamicWidgetStackPanel";
@@ -76,6 +77,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "scheduler-task-history": SchedulerTaskHistoryStackPanel,
   "scheduled-tasks-page": ScheduledTasksPage,
   "agent-detail": AgentDetailPanel,
+  "agent-management": AgentManagement,
   "streaming-code-viewer": StreamingCodeViewer,
   "plate-doc-viewer": LazyPlateDocViewer,
   "streaming-plate-viewer": LazyStreamingPlateViewer,
@@ -146,7 +148,9 @@ export const getPanelTitle = (componentName: string) => {
     case "scheduled-tasks-page":
       return "定时任务";
     case "agent-detail":
-      return "Agent 详情";
+      return "Agent助手 详情";
+    case "agent-management":
+      return "Agent助手 管理";
     case "streaming-code-viewer":
       return "写入文件";
     case "plate-doc-viewer":

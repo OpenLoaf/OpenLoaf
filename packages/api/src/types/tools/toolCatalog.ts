@@ -9,7 +9,6 @@ import {
 import { calendarQueryToolDef, calendarMutateToolDef } from "./calendar";
 import { projectQueryToolDef, projectMutateToolDef } from "./db";
 import { emailQueryToolDef, emailMutateToolDef } from "./email";
-import { jsonRenderToolDef } from "./jsonRender";
 import { imageGenerateToolDef, videoGenerateToolDef } from "./mediaGenerate";
 import { officeExecuteToolDef } from "./office";
 import { testApprovalToolDef } from "./approvalTest";
@@ -35,6 +34,8 @@ import {
 } from "./runtime";
 import { timeNowToolDef } from "./system";
 import { requestUserInputToolDef } from "./userInput";
+import { jsxCreateToolDef } from "./jsxCreate";
+import { chartRenderToolDef } from "./chart";
 import {
   widgetInitToolDef,
   widgetListToolDef,
@@ -89,14 +90,15 @@ const TOOL_DEFS: ToolDefLike[] = [
   jsReplToolDef,
   jsReplResetToolDef,
   timeNowToolDef,
-  jsonRenderToolDef,
   updatePlanToolDef,
   testApprovalToolDef,
   requestUserInputToolDef,
+  jsxCreateToolDef,
   subAgentToolDef,
+  chartRenderToolDef,
 ];
 
-// 中文注释：统一生成工具元数据，避免前端重复维护名称与描述。
+// 逻辑：统一生成工具元数据，避免前端重复维护名称与描述。
 export const TOOL_CATALOG: ToolCatalogItem[] = TOOL_DEFS.map((def) => ({
   id: def.id,
   label: def.name ?? def.id,

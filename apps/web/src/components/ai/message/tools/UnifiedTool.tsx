@@ -77,8 +77,6 @@ function getToolIcon(kind: string): React.ReactNode {
       return <ImageIcon className={iconCls} />;
     case "update-plan":
       return <ListChecksIcon className={iconCls} />;
-    case "json-render":
-      return <SearchIcon className={iconCls} />;
     case "shell":
     case "shell-command":
     case "exec-command":
