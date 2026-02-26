@@ -1,4 +1,13 @@
-import type { Context as HonoContext } from "hono";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { Context as HonoContext } from "hono";
 import prisma from "@openloaf/db";
 // @ts-ignore
 // import client from "@openloaf/db/prisma/generated/client";

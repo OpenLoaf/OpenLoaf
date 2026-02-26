@@ -1,4 +1,13 @@
-import type { OpenLoafUIMessage } from '@openloaf/api/types/message'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { OpenLoafUIMessage } from '@openloaf/api/types/message'
 import { loadMessageChainFromFile } from './chatFileStore'
 
 /** Default max messages in a chain. */

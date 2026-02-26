@@ -1,4 +1,13 @@
-import type React from 'react'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type React from 'react'
 import type { EventFormProps } from '@openloaf/ui/calendar/components/event-form/event-form'
 import type { BusinessHours, CalendarEvent, WeekDays } from '@openloaf/ui/calendar/components/types'
 import type { Resource } from '@openloaf/ui/calendar/features/resource-calendar/types'

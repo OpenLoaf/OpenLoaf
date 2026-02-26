@@ -1,4 +1,13 @@
-"use client";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n"use client";
 
 /**
  * 判断消息是否有“可见内容”（文本/工具卡片等）。

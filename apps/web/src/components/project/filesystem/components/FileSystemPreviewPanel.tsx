@@ -1,4 +1,13 @@
-"use client";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n"use client";
 
 import { memo, type MouseEvent as ReactMouseEvent } from "react";
 import type { FileSystemEntry } from "../utils/file-system-utils";

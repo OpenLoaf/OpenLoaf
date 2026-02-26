@@ -1,4 +1,13 @@
-import type { WeekDays } from '@openloaf/ui/calendar/components/types'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { WeekDays } from '@openloaf/ui/calendar/components/types'
 
 export const GAP_BETWEEN_ELEMENTS = 1 // px (gap-1)
 export const DAY_NUMBER_HEIGHT = 24 // px (h-6)

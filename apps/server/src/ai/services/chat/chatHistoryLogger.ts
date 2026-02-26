@@ -1,4 +1,13 @@
 /**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n/**
  * Chat history logger — simplified after JSONL migration.
  * The JSONL file itself is now the persistent storage, so the old
  * dev-mode branch context logging is no longer needed.

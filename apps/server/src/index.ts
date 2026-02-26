@@ -1,4 +1,13 @@
-import "dotenv/config";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport "dotenv/config";
 import { startServer } from "@/bootstrap/startServer";
 import { installHttpProxy } from "@/modules/proxy/httpProxy";
 import { syncSystemProxySettings } from "@/modules/proxy/systemProxySync";

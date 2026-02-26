@@ -1,4 +1,13 @@
-/** 集中管理主要节点配置，避免分散在各模块。 */
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n/** 集中管理主要节点配置，避免分散在各模块。 */
 
 /** ImageNode 预览最大边长。 */
 export const IMAGE_PREVIEW_MAX_DIMENSION = 1024;

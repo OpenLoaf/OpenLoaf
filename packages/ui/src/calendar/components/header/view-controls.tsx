@@ -1,4 +1,13 @@
-import { Calendar, Clock, Grid3x3 } from 'lucide-react'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { Calendar, Clock, Grid3x3 } from 'lucide-react'
 import type React from 'react'
 import { Button } from '@openloaf/ui/calendar/components/ui/button'
 import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'

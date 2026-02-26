@@ -1,4 +1,13 @@
-import { loadImageFromBlob, resolveBaseName } from "@/lib/image/uri";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { loadImageFromBlob, resolveBaseName } from "@/lib/image/uri";
 
 /** Build a mask file name for a base image. */
 export function resolveMaskFileName(baseFileName: string) {

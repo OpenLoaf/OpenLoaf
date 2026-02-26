@@ -1,4 +1,13 @@
-import { Clock } from 'lucide-react'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { Clock } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@openloaf/ui/calendar/components/ui/button'
 import { Input } from '@openloaf/ui/calendar/components/ui/input'

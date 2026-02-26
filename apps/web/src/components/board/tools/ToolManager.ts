@@ -1,4 +1,13 @@
-import type { CanvasTool, ToolContext } from "./ToolTypes";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { CanvasTool, ToolContext } from "./ToolTypes";
 import type { CanvasPoint } from "../engine/types";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";

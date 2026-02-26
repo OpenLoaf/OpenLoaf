@@ -1,4 +1,13 @@
-import { getStroke, type StrokeOptions } from "perfect-freehand";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { getStroke, type StrokeOptions } from "perfect-freehand";
 import type { CanvasPoint, CanvasStrokePoint, CanvasStrokeTool } from "../engine/types";
 
 type StrokePathOptions = {

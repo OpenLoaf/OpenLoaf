@@ -1,4 +1,13 @@
-import type { CanvasPoint, CanvasViewportState } from "../engine/types";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { CanvasPoint, CanvasViewportState } from "../engine/types";
 
 type ViewportSource = {
   /** Viewport state used for coordinate conversion. */

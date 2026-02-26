@@ -1,4 +1,13 @@
-import { CHAT_COMMANDS } from "@openloaf/api/common/chatCommands";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { CHAT_COMMANDS } from "@openloaf/api/common/chatCommands";
 import type { ChatCommandId } from "@openloaf/api/common/chatCommands";
 import type { AiCommandContext } from "@/ai/services/chat/types";
 

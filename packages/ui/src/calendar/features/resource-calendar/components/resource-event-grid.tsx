@@ -1,4 +1,13 @@
-import type React from 'react'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type React from 'react'
 import { HorizontalGrid } from '@openloaf/ui/calendar/components/horizontal-grid/horizontal-grid'
 import { useResourceCalendarContext } from '@openloaf/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
 import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'

@@ -1,4 +1,13 @@
-import { CalendarDays, Clock, Folder, LayoutDashboard, Settings } from "lucide-react";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { CalendarDays, Clock, Folder, LayoutDashboard, Settings } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
 import { ExpandableDockTabs } from "@/components/ui/ExpandableDockTabs";

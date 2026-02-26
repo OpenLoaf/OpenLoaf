@@ -1,4 +1,13 @@
-/** 从 patch 文本提取文件信息（供 WriteFileTool 和 toolParts 共用） */
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n/** 从 patch 文本提取文件信息（供 WriteFileTool 和 toolParts 共用） */
 export function extractPatchFileInfo(patch: string): {
   fileName: string
   fileCount: number

@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from "react";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import type { CanvasEngine } from "../../engine/CanvasEngine";
 
 type UseAutoResizeNodeOptions = {

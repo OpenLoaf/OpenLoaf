@@ -1,4 +1,13 @@
-import { Columns2, LayoutGrid, Layers, ArrowDown, ArrowUp, Copy, Lock, Rows2, Trash2, Unlock, Maximize2 } from "lucide-react";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { Columns2, LayoutGrid, Layers, ArrowDown, ArrowUp, Copy, Lock, Rows2, Trash2, Unlock, Maximize2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode, type SVGProps } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type {

@@ -1,4 +1,13 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FilePenLine, PencilLine, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

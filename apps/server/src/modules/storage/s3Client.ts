@@ -1,4 +1,13 @@
-import type { S3ProviderConfig } from "@openloaf/api/types/storage";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { S3ProviderConfig } from "@openloaf/api/types/storage";
 import { S3Client } from "@aws-sdk/client-s3";
 
 export type S3ClientConfig = {

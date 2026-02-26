@@ -1,4 +1,13 @@
 /**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n/**
  * 聊天输入框附件（当前仅图片）相关的 UI 逻辑类型与通用限制。
  * 说明：此文件只做前端 UI 状态管理；不包含任何上传/业务逻辑。
  */

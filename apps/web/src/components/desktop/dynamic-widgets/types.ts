@@ -1,4 +1,13 @@
-import type { WidgetSDK } from '@openloaf/widget-sdk'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { WidgetSDK } from '@openloaf/widget-sdk'
 
 /** Metadata for a dynamic widget from the server. */
 export interface DynamicWidgetMeta {

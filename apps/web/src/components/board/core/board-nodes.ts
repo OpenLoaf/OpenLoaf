@@ -1,4 +1,13 @@
-import { CalendarNodeDefinition } from "../nodes/CalendarNode";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { CalendarNodeDefinition } from "../nodes/CalendarNode";
 import { GroupNodeDefinition, ImageGroupNodeDefinition } from "../nodes/GroupNode";
 import { ImageGenerateNodeDefinition } from "../nodes/imageGenerate";
 import { VideoGenerateNodeDefinition } from "../nodes/videoGenerate";

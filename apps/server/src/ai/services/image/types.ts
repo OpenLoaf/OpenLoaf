@@ -1,4 +1,13 @@
-import type { ChatModelSource } from "@openloaf/api/common";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { ChatModelSource } from "@openloaf/api/common";
 import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
 
 export type ChatImageMessageInput = {

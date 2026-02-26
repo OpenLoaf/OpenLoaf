@@ -1,4 +1,13 @@
-import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 
 /**
  * Calculates the week days for a given date and first day of week setting.

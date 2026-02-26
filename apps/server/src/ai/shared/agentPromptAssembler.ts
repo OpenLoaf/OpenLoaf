@@ -1,4 +1,13 @@
-import { resolveDefaultAgentPromptParts } from '@/ai/shared/defaultAgentResolver'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { resolveDefaultAgentPromptParts } from '@/ai/shared/defaultAgentResolver'
 import { resolveMemoryContent } from '@/ai/shared/memoryLoader'
 
 /** Input for assembling default agent instructions. */

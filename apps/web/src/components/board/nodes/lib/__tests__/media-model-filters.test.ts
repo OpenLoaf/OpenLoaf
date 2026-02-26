@@ -1,4 +1,13 @@
-import test from "node:test";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport test from "node:test";
 import assert from "node:assert/strict";
 
 import type { AiModel } from "@openloaf-saas/sdk";

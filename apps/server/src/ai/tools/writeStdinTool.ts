@@ -1,4 +1,13 @@
-import { tool, zodSchema } from "ai";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { tool, zodSchema } from "ai";
 import { writeStdinToolDef } from "@openloaf/api/types/tools/runtime";
 import { formatUnifiedExecOutput, resolveMaxOutputChars, waitForOutput } from "@/ai/tools/execUtils";
 import {

@@ -1,4 +1,13 @@
-import { describe, expect, it, vi } from 'vitest'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { describe, expect, it, vi } from 'vitest'
 
 // 逻辑：mock @lobehub/icons 避免 JSON import 属性问题
 vi.mock('@lobehub/icons', () => ({

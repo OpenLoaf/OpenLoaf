@@ -1,4 +1,13 @@
-export const DEFAULT_NODE_SIZE: [number, number] = [320, 180];
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nexport const DEFAULT_NODE_SIZE: [number, number] = [320, 180];
 
 export const SNAP_PIXEL = 8;
 export const GUIDE_MARGIN = 16;

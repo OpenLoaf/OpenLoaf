@@ -1,4 +1,13 @@
-/** Storage key for perf logging flag. */
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n/** Storage key for perf logging flag. */
 const STORAGE_KEY = "openloaf:debug:chat-perf";
 /** Window key for perf logging enabled flag. */
 const ENABLED_KEY = "__openloafChatPerfEnabled";

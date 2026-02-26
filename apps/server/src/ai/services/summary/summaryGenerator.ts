@@ -1,4 +1,13 @@
-import { generateText } from "ai";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { generateText } from "ai";
 import type { ProjectGitCommit } from "@openloaf/api/services/projectGitService";
 import type { ProjectFileChange } from "@openloaf/api/services/projectFileChangeService";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";

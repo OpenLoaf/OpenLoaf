@@ -1,4 +1,13 @@
-import type { CanvasTool, ToolContext } from "./ToolTypes";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { CanvasTool, ToolContext } from "./ToolTypes";
 import { ERASER_RADIUS } from "../engine/constants";
 
 export class EraserTool implements CanvasTool {

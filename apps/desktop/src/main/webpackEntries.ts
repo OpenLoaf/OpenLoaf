@@ -1,4 +1,13 @@
-declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\ndeclare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 declare const LOADING_WINDOW_WEBPACK_ENTRY: string;
 declare const LOADING_WINDOW_PRELOAD_WEBPACK_ENTRY: string;

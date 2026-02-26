@@ -1,4 +1,13 @@
-import { existsSync, readFileSync } from "node:fs";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { Workspace } from "../types/workspace";
 import { resolveFilePathFromUri, toFileUri, toFileUriWithoutEncoding } from "./fileUri";

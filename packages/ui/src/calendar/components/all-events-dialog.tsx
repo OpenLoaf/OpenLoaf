@@ -1,4 +1,13 @@
-import type React from 'react'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type React from 'react'
 import { useImperativeHandle, useState } from 'react'
 import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
 import { DraggableEvent } from '@openloaf/ui/calendar/components/draggable-event/draggable-event'

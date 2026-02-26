@@ -1,4 +1,13 @@
-import { BOARD_INDEX_FILE_NAME, DOC_INDEX_FILE_NAME, isBoardFolderName, isDocFolderName } from "@/lib/file-name";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { BOARD_INDEX_FILE_NAME, DOC_INDEX_FILE_NAME, isBoardFolderName, isDocFolderName } from "@/lib/file-name";
 
 export type FileSystemEntry = {
   uri: string;

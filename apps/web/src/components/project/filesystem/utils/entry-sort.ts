@@ -1,4 +1,13 @@
-import { isBoardFileExt, isBoardFolderName, isDocFolderName } from "@/lib/file-name";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { isBoardFileExt, isBoardFolderName, isDocFolderName } from "@/lib/file-name";
 import { MARKDOWN_EXTS } from "../components/FileSystemEntryVisual";
 import { getEntryExt, type FileSystemEntry } from "./file-system-utils";
 

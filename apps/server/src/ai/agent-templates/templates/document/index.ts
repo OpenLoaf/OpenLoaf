@@ -1,4 +1,13 @@
-import type { AgentTemplate } from '../../types'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { AgentTemplate } from '../../types'
 import DOCUMENT_PROMPT from './prompt.zh.md'
 
 export const documentTemplate: AgentTemplate = {

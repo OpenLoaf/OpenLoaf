@@ -1,4 +1,13 @@
-import type { ModelDefinition } from "../common/modelTypes";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { ModelDefinition } from "../common/modelTypes";
 
 type UIDataTypes = Record<string, unknown>;
 type UITools = Record<string, unknown>;

@@ -1,4 +1,13 @@
-import { openUrlTool } from "@/ai/tools/openUrl";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { openUrlTool } from "@/ai/tools/openUrl";
 import { timeNowTool } from "@/ai/tools/timeNowTool";
 import { testApprovalTool } from "@/ai/tools/testApprovalTool";
 import {

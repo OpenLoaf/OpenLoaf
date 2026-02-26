@@ -1,4 +1,13 @@
-import { createAdaptorServer } from "@hono/node-server";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { createAdaptorServer } from "@hono/node-server";
 import { createApp } from "./createApp";
 import { logger } from "@/common/logger";
 import { attachTerminalWebSocket } from "@/modules/terminal/terminalWebSocket";

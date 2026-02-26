@@ -1,4 +1,13 @@
-import { toBlob } from "html-to-image";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { toBlob } from "html-to-image";
 
 /** Selector list for elements excluded from board exports. */
 export const BOARD_EXPORT_IGNORE_SELECTOR = [

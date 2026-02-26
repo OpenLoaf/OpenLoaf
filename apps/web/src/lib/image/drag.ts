@@ -1,4 +1,13 @@
-import {
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport {
   FILE_DRAG_IMAGE_MIME,
   FILE_DRAG_MASK_URI_MIME,
   FILE_DRAG_NAME_MIME,

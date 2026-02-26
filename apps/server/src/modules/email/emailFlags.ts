@@ -1,4 +1,13 @@
-/** Normalize email flags into string array. */
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n/** Normalize email flags into string array. */
 export function normalizeEmailFlags(value: unknown): string[] {
   // 逻辑：兼容 JSON 数组、字符串和空值三种来源。
   if (!value) return [];

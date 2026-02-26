@@ -1,4 +1,13 @@
-import { generateId, generateText, type UIMessage } from "ai";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { generateId, generateText, type UIMessage } from "ai";
 import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
 import type { AiExecuteRequest } from "@/ai/services/chat/types";

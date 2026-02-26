@@ -1,4 +1,13 @@
-import type { ModelCapabilities, ModelTag } from "@openloaf/api/common";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { ModelCapabilities, ModelTag } from "@openloaf/api/common";
 
 type ModelWithTags = {
   /** Model tags declared by the provider. */

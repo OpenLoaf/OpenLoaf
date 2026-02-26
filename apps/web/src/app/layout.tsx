@@ -1,4 +1,13 @@
-import type { Metadata } from "next";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { Metadata } from "next";
 import "../index.css";
 import "@measured/puck/puck.css";
 import "@vidstack/react/player/styles/base.css";

@@ -1,4 +1,13 @@
-import { motion } from "motion/react";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./tools/MessageTool";

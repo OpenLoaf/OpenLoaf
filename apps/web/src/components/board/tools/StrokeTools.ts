@@ -1,4 +1,13 @@
-import type { CanvasPoint, CanvasStrokePoint, CanvasStrokeTool } from "../engine/types";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { CanvasPoint, CanvasStrokePoint, CanvasStrokeTool } from "../engine/types";
 import type { CanvasTool, ToolContext } from "./ToolTypes";
 
 /** Minimum mouse movement in screen pixels before recording a stroke point. */

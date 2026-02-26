@@ -1,4 +1,13 @@
 /**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n/**
  * Tests verifying MessageAi and MessageParts memo behavior:
  * 1. MessageAi is wrapped in React.memo with custom comparator
  * 2. MessageParts is wrapped in React.memo — motionProps are stable via useMemo

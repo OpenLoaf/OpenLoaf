@@ -1,4 +1,13 @@
-export const OFFICE_APP_TYPES = ["docx", "excel", "ppt"] as const;
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nexport const OFFICE_APP_TYPES = ["docx", "excel", "ppt"] as const;
 export type OfficeAppType = (typeof OFFICE_APP_TYPES)[number];
 
 export const OFFICE_ACTIONS = [

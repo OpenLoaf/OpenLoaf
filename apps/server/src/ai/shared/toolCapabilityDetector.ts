@@ -1,4 +1,13 @@
 /**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n/**
  * 工具能力检测器 — 根据工具 ID 判断需要哪些 preface 章节。
  */
 

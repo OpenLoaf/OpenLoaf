@@ -1,4 +1,13 @@
 /**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n/**
  * 能力组定义 — 将工具按功能分组，供 Agent 配置使用。
  *
  * 每个能力组包含一组相关的工具 ID，Agent 通过勾选能力组来获得对应工具。

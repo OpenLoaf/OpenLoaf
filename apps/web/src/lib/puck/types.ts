@@ -1,4 +1,13 @@
-import type { Config, Data } from "./core";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { Config, Data } from "./core";
 import type { ButtonProps } from "./blocks/Button";
 import type { BlankProps } from "./blocks/Blank";
 import type { CardProps } from "./blocks/Card";

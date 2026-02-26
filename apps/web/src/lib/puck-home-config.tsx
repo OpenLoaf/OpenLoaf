@@ -1,4 +1,13 @@
-import type { Config } from "@measured/puck";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { Config } from "@measured/puck";
 import conf from "@/lib/puck";
 import type { ComponentConfig } from "@/lib/puck/core";
 import type { Components as PuckComponents } from "@/lib/puck/types";

@@ -1,4 +1,13 @@
-/** Event shape used for find shortcut detection. */
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n/** Event shape used for find shortcut detection. */
 export type FindShortcutEvent = {
   key: string;
   metaKey: boolean;

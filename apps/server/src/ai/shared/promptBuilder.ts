@@ -1,4 +1,13 @@
-import type { PromptContext, PrefaceCapabilities } from '@/ai/shared/types'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { PromptContext, PrefaceCapabilities } from '@/ai/shared/types'
 
 /** Build skills summary section for a session preface. */
 export function buildSkillsSummarySection(

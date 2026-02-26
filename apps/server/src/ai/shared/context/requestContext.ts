@@ -1,4 +1,13 @@
-import type { UIMessageStreamWriter } from "ai";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { UIMessageStreamWriter } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { CodexRequestOptions } from "@/ai/models/cli/codex/codexOptions";

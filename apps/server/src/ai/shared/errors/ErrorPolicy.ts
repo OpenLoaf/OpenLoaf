@@ -1,4 +1,13 @@
-import { mapErrorToMessage } from "./ErrorMapper";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { mapErrorToMessage } from "./ErrorMapper";
 
 type ErrorPolicyResult = {
   /** HTTP status for the error. */

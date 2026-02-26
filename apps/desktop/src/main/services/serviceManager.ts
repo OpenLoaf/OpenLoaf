@@ -1,4 +1,13 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { spawn, type ChildProcess } from 'node:child_process';
 import { app } from 'electron';
 import type { Logger } from '../logging/startupLogger';
 import { cleanupNextDevLock, ensureDevServices, findRepoRoot } from './devServices';

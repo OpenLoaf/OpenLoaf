@@ -1,4 +1,13 @@
-import { memo } from 'react'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { memo } from 'react'
 import { DraggableEvent } from '@openloaf/ui/calendar/components/draggable-event/draggable-event'
 import { useProcessedWeekEvents } from '@openloaf/ui/calendar/features/calendar/hooks/useProcessedWeekEvents'
 import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'

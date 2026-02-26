@@ -1,4 +1,13 @@
 /**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n/**
  * System Tools 公共类型（MVP）
  * 说明：每个 tool 文件将直接使用 AI SDK v6 的 `tool()` 定义工具，并在实现内声明审批逻辑。
  * 这里仅保留风险分级与占位返回结构，便于复用。

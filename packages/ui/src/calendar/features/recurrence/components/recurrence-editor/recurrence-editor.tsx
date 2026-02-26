@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { useEffect, useMemo, useState } from 'react'
 import type { Weekday } from 'rrule'
 import { RRule } from 'rrule'
 import { Card, CardContent, CardHeader, CardTitle } from '@openloaf/ui/calendar/components/ui/card'

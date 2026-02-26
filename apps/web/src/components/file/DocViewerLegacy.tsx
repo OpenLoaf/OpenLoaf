@@ -1,4 +1,13 @@
-"use client";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n"use client";
 
 /** 已弃用：旧版文档预览实现，保留用于回溯，不再被业务引用。 */
 

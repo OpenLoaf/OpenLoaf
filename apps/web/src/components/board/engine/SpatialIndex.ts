@@ -1,4 +1,13 @@
-import type { CanvasNodeElement, CanvasRect } from "./types";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { CanvasNodeElement, CanvasRect } from "./types";
 
 /** Simple grid-based spatial index for fast node lookups. */
 export class SpatialIndex {

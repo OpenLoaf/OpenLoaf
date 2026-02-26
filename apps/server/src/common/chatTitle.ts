@@ -1,4 +1,13 @@
-/** File token matcher for file placeholders. */
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n/** File token matcher for file placeholders. */
 // 逻辑：匹配形如 @path/to/file 或 @[projectId]/path/to/file。
 const FILE_TOKEN_REGEX = /@(\[[^\]]+\]\/\S+|\S+\/\S+)/g;
 

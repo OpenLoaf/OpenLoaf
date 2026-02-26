@@ -1,4 +1,13 @@
-/* eslint-disable react-hooks/rules-of-hooks */
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n/* eslint-disable react-hooks/rules-of-hooks */
 import React, { useState } from "react";
 import { AutoField, Button, createUsePuck, FieldLabel, walkTree } from "@/lib/puck/core";
 import type { ComponentConfig, ComponentDataOptionalId, Slot } from "@/lib/puck/core";

@@ -1,4 +1,13 @@
-import clsx from "clsx";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport clsx from "clsx";
 
 type OptionsObj = Record<string, boolean | string | number | null | undefined>;
 type Options = string | OptionsObj;

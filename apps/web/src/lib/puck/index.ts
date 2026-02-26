@@ -1,4 +1,13 @@
-import pageDefaultData from "../page-default.json";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport pageDefaultData from "../page-default.json";
 import { Blank } from "./blocks/Blank";
 import { Button } from "./blocks/Button";
 import { Card } from "./blocks/Card";

@@ -1,4 +1,13 @@
-import type { Logger } from "../logging/startupLogger";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { Logger } from "../logging/startupLogger";
 
 type CalendarRange = { start: string; end: string };
 type CalendarItem = {

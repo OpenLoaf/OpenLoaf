@@ -1,4 +1,13 @@
-import { getWorkspaceByIdConfig } from "@openloaf/api/services/workspaceConfig";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { getWorkspaceByIdConfig } from "@openloaf/api/services/workspaceConfig";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import {
   getFilePreview,

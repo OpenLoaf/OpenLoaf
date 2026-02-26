@@ -1,4 +1,13 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import readline from "readline";
 import { logger } from "@/common/logger";
 import { clearAllCodexThreads } from "@/ai/models/cli/codex/codexThreadStore";

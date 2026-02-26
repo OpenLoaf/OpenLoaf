@@ -1,4 +1,13 @@
-import { ChevronRight } from 'lucide-react'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { ChevronRight } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { EMAIL_PROVIDER_PRESETS } from './email-provider-presets'

@@ -1,4 +1,13 @@
-import { type UIMessage } from "ai";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { type UIMessage } from "ai";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { type ChatModelSource, type ModelDefinition } from "@openloaf/api/common";

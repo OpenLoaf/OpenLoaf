@@ -1,4 +1,13 @@
-import path from "node:path";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 /** Normalize a local path or file:// URI into a file:// URI. */

@@ -1,4 +1,13 @@
-import type { TabView } from "./tab-types";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { TabView } from "./tab-types";
 import { getLeftSidebarOpen } from "@/lib/sidebar-state";
 
 /** Minimum pixel width for the left dock. */

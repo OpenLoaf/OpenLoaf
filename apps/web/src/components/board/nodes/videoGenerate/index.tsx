@@ -1,4 +1,13 @@
-import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../../engine/types";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { CanvasNodeDefinition, CanvasNodeViewProps } from "../../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Copy, LogIn, Play, RotateCcw } from "lucide-react";
 import type { ModelCapabilities, ModelParameterFeature } from "@openloaf/api/common";

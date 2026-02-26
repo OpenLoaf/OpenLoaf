@@ -1,4 +1,13 @@
-import type { LinkNodeProps } from "../nodes/LinkNode";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { LinkNodeProps } from "../nodes/LinkNode";
 
 export type LinkNodePayload = {
   /** Props used to create the link node. */

@@ -1,4 +1,13 @@
-import type { ModelParameterDefinition } from "@openloaf/api/common";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { ModelParameterDefinition } from "@openloaf/api/common";
 
 /** Normalize the stored value to a plain text string. */
 export function normalizeTextValue(value?: unknown): string {

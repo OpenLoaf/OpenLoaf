@@ -1,4 +1,13 @@
-import type React from 'react'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type React from 'react'
 import { AllDayCell } from '@openloaf/ui/calendar/components/all-day-row/all-day-cell'
 import { AllDayRow } from '@openloaf/ui/calendar/components/all-day-row/all-day-row'
 import { ResourceCell } from '@openloaf/ui/calendar/components/resource-cell'

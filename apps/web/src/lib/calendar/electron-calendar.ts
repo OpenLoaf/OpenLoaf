@@ -1,4 +1,13 @@
-import { isElectronEnv } from "@/utils/is-electron-env";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { isElectronEnv } from "@/utils/is-electron-env";
 
 type CalendarPermissionState = OpenLoafCalendarPermissionState;
 type CalendarRange = OpenLoafCalendarRange;

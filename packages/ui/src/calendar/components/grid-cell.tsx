@@ -1,4 +1,13 @@
-import React, { memo, useMemo } from 'react'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport React, { memo, useMemo } from 'react'
 import { DayNumber } from '@openloaf/ui/calendar/components/day-number'
 import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
 import { isBusinessHour } from '@openloaf/ui/calendar/features/calendar/utils/business-hours'

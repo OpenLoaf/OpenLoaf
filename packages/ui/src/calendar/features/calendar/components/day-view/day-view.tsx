@@ -1,4 +1,13 @@
-import { AllDayRow } from '@openloaf/ui/calendar/components/all-day-row/all-day-row'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { AllDayRow } from '@openloaf/ui/calendar/components/all-day-row/all-day-row'
 import { VerticalGrid } from '@openloaf/ui/calendar/components/vertical-grid/vertical-grid'
 import { useCalendarContext } from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/context'
 import { getViewHours } from '@openloaf/ui/calendar/features/calendar/utils/view-hours'

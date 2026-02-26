@@ -1,4 +1,13 @@
-import type { LanguageModelV3 } from "@ai-sdk/provider";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { LanguageModelV3 } from "@ai-sdk/provider";
 import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { type ChatModelSource, type ModelDefinition, type ModelTag } from "@openloaf/api/common";
 import { getModelDefinition, getProviderDefinition } from "@/ai/models/modelRegistry";

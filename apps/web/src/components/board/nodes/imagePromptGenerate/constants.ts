@@ -1,4 +1,13 @@
-import type { ModelTag } from "@openloaf/api/common";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { ModelTag } from "@openloaf/api/common";
 
 /** Node type identifier for image prompt generation. */
 export const IMAGE_PROMPT_GENERATE_NODE_TYPE = "image_prompt_generate";

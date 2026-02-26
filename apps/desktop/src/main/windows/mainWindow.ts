@@ -1,4 +1,13 @@
-import { app, BrowserWindow, dialog, screen, shell } from 'electron';
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { app, BrowserWindow, dialog, screen, shell } from 'electron';
 import { resolveWindowIconPath } from '../resolveWindowIcon';
 import type { Logger } from '../logging/startupLogger';
 import type { ServiceManager } from '../services/serviceManager';

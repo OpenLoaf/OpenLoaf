@@ -1,4 +1,13 @@
-import type { Hono } from 'hono'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { Hono } from 'hono'
 import { generateText } from 'ai'
 import type { ChatModelSource } from '@openloaf/api/common'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'

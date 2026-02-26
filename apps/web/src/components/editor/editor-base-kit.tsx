@@ -1,4 +1,13 @@
-import { BaseAlignKit } from './plugins/align-base-kit';
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { BaseAlignKit } from './plugins/align-base-kit';
 import { BaseBasicBlocksKit } from './plugins/basic-blocks-base-kit';
 import { BaseBasicMarksKit } from './plugins/basic-marks-base-kit';
 import { BaseCalloutKit } from './plugins/callout-base-kit';

@@ -1,4 +1,13 @@
-import { generateId, tool, zodSchema, type UIMessage } from "ai";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { generateId, tool, zodSchema, type UIMessage } from "ai";
 import { subAgentToolDef } from "@openloaf/api/types/tools/subAgent";
 import {
   browserSubAgentName,

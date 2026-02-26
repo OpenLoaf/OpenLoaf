@@ -1,4 +1,13 @@
-import { trpcClient } from "@/utils/trpc";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { trpcClient } from "@/utils/trpc";
 import { parseScopedProjectPath, normalizeProjectRelativePath } from "@/components/project/filesystem/utils/file-system-utils";
 
 export type VideoMetadata = {

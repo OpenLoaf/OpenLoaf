@@ -1,4 +1,13 @@
-import { createDragDropManager, type DragDropManager } from 'dnd-core';
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { createDragDropManager, type DragDropManager } from 'dnd-core';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
 const DND_MANAGER_KEY = Symbol.for('openloaf:dnd-manager');

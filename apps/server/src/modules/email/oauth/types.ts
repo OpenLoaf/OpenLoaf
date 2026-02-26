@@ -1,4 +1,13 @@
-export type OAuthProviderConfig = {
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nexport type OAuthProviderConfig = {
   id: "microsoft" | "google";
   name: string;
   authorizeUrl: string;

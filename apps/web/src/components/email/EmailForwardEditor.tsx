@@ -1,4 +1,13 @@
-import { Loader2, Paperclip, X } from "lucide-react";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { Loader2, Paperclip, X } from "lucide-react";
 import { Input } from "@openloaf/ui/input";
 import { Button } from "@openloaf/ui/button";
 import { Textarea } from "@openloaf/ui/textarea";

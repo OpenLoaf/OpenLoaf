@@ -1,4 +1,13 @@
-import { logger } from "@/common/logger";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { logger } from "@/common/logger";
 import { sanitizeEmailHtml } from "../emailSanitize";
 import type { DownloadAttachmentResult, EmailTransportAdapter, SendMessageInput, SendMessageResult, TransportMailbox, TransportMessage } from "./types";
 

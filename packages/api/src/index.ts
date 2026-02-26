@@ -1,4 +1,13 @@
-// import superjson from "superjson";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n// import superjson from "superjson";
 // Export generated routers
 // @ts-ignore
 import { appRouter as internalAppRouter } from "../generated/routers";

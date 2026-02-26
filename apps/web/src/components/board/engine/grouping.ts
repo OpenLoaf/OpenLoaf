@@ -1,4 +1,13 @@
-import type { CanvasElement, CanvasNodeElement } from "./types";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { CanvasElement, CanvasNodeElement } from "./types";
 import { GROUP_OUTLINE_PADDING } from "./constants";
 
 const GROUP_NODE_TYPE = "group";

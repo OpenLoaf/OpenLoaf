@@ -1,4 +1,13 @@
-// loading 页面对应的最小 renderer 入口（主要用于打包占位与调试）。
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n// loading 页面对应的最小 renderer 入口（主要用于打包占位与调试）。
 import { logger } from "./logger";
 import logoUrl from "./head.png";
 

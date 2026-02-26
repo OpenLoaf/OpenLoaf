@@ -90,7 +90,16 @@ async function main() {
     process.exit(1)
   }
 
-  console.log(`\n📋 将上传 ${filesToUpload.length} 个文件到 R2 desktop/ 路径：`)
+  console.log(`\n\n/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n📋 将上传 ${filesToUpload.length} 个文件到 R2 desktop/ 路径：`)
   for (const f of filesToUpload) {
     console.log(`   - ${f}`)
   }

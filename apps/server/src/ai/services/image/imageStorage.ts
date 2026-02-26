@@ -1,4 +1,13 @@
-import { Buffer } from "node:buffer";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { Buffer } from "node:buffer";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { GeneratedFile } from "ai";

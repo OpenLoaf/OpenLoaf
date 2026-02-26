@@ -1,4 +1,13 @@
-import { BaseTabRouter, tabSchemas, t, shieldedProcedure } from "@openloaf/api";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { BaseTabRouter, tabSchemas, t, shieldedProcedure } from "@openloaf/api";
 import { tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
 
 export class TabRouterImpl extends BaseTabRouter {

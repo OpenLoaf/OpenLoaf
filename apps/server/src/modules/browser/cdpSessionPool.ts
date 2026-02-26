@@ -1,4 +1,13 @@
-import { getCdpConfig } from "@openloaf/config";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { getCdpConfig } from "@openloaf/config";
 
 const SESSION_IDLE_TTL_MS = 10 * 60 * 1000;
 

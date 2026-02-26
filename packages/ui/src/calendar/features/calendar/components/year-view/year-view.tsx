@@ -1,4 +1,13 @@
-import { AnimatedSection } from '@openloaf/ui/calendar/components/animations/animated-section'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { AnimatedSection } from '@openloaf/ui/calendar/components/animations/animated-section'
 import { ScrollArea, ScrollBar } from '@openloaf/ui/calendar/components/ui/scroll-area'
 import { useCalendarContext } from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/context'
 import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'

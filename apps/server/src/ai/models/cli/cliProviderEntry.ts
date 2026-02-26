@@ -1,4 +1,13 @@
-import type { ProviderDefinition, ModelDefinition } from "@openloaf/api/common";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { ProviderDefinition, ModelDefinition } from "@openloaf/api/common";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { getProviderDefinition } from "@/ai/models/modelRegistry";

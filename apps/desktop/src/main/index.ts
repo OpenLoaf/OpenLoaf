@@ -1,4 +1,13 @@
-import { app, BrowserWindow, Menu, session, nativeImage } from 'electron';
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { app, BrowserWindow, Menu, session, nativeImage } from 'electron';
 import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import Module from 'node:module';
 import path from 'path';

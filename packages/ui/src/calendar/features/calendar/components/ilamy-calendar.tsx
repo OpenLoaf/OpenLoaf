@@ -1,4 +1,13 @@
-import { type FC, useMemo } from 'react'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { type FC, useMemo } from 'react'
 import { AnimatedSection } from '@openloaf/ui/calendar/components/animations/animated-section'
 import { CalendarDndContext } from '@openloaf/ui/calendar/components/drag-and-drop/calendar-dnd-context'
 import { EventFormDialog } from '@openloaf/ui/calendar/components/event-form/event-form-dialog'

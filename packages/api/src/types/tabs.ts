@@ -1,4 +1,13 @@
-/** Browser panel component registry key. */
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\n/** Browser panel component registry key. */
 export const BROWSER_WINDOW_COMPONENT = "electron-browser-window" as const;
 
 /** Terminal panel component registry key. */

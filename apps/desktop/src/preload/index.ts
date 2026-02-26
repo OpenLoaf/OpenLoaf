@@ -1,4 +1,13 @@
-import { contextBridge, ipcRenderer, webUtils } from 'electron';
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 type OpenBrowserWindowResult = { id: number };
 type OkResult = { ok: true };

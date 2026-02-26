@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { useCallback, useEffect, useRef, useState } from "react";
 import { useBoardEngine } from "./BoardProvider";
 import { useBoardViewState } from "./useBoardViewState";
 import { Button } from "@openloaf/ui/button";

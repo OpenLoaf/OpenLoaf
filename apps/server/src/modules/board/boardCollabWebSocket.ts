@@ -1,4 +1,13 @@
-import type { IncomingMessage, Server as HttpServer } from "node:http";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { IncomingMessage, Server as HttpServer } from "node:http";
 import type { Socket } from "node:net";
 import { fileURLToPath } from "node:url";
 import path from "node:path";

@@ -1,4 +1,13 @@
-export {
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nexport {
   ADVANCED_PANEL_OFFSET_PX,
   GENERATED_IMAGE_NODE_FIRST_GAP,
   GENERATED_IMAGE_NODE_GAP,

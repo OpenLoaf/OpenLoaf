@@ -1,4 +1,13 @@
-const canFetch = typeof fetch === 'function';
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nconst canFetch = typeof fetch === 'function';
 const DEFAULT_TIMEOUT_MS = 3000;
 
 /**

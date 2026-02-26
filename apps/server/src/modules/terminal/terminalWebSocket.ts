@@ -1,4 +1,13 @@
-import type { Server as HttpServer, IncomingMessage } from "node:http";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { Server as HttpServer, IncomingMessage } from "node:http";
 import type { Socket } from "node:net";
 import { WebSocketServer } from "ws";
 import type { RawData, WebSocket } from "ws";

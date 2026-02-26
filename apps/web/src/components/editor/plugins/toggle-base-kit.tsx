@@ -1,4 +1,13 @@
-import { BaseTogglePlugin } from '@platejs/toggle';
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { BaseTogglePlugin } from '@platejs/toggle';
 
 import { ToggleElementStatic } from '@openloaf/ui/toggle-node-static';
 

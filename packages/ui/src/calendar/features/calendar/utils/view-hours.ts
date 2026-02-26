@@ -1,4 +1,13 @@
-import type { BusinessHours } from '@openloaf/ui/calendar/components/types'
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { BusinessHours } from '@openloaf/ui/calendar/components/types'
 import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 import { getDayHours } from '@openloaf/ui/calendar/lib/utils/date-utils'
 import { getBusinessHoursForDate } from './business-hours'

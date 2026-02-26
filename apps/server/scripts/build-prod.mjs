@@ -1,4 +1,13 @@
-import { build } from "esbuild";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { build } from "esbuild";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";

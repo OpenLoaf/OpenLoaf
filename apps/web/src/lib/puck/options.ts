@@ -1,4 +1,13 @@
-export const spacingOptions = [
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nexport const spacingOptions = [
   { label: "8px", value: "8px" },
   { label: "16px", value: "16px" },
   { label: "24px", value: "24px" },

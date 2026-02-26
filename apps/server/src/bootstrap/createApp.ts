@@ -1,4 +1,13 @@
-import { trpcServer } from "@hono/trpc-server";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { trpcServer } from "@hono/trpc-server";
 import { appRouterDefine, t } from "@openloaf/api";
 import { createContext } from "@openloaf/api/context";
 import { Hono } from "hono";

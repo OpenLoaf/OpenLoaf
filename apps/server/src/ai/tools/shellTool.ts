@@ -1,4 +1,13 @@
-import { spawn } from "node:child_process";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport { spawn } from "node:child_process";
 import { tool, zodSchema } from "ai";
 import { shellToolDef } from "@openloaf/api/types/tools/runtime";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";

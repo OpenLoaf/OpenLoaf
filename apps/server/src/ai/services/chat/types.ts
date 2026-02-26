@@ -1,4 +1,13 @@
-import type { ChatCommandId } from "@openloaf/api/common/chatCommands";
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+\nimport type { ChatCommandId } from "@openloaf/api/common/chatCommands";
 import type { ChatRequestBody, OpenLoafUIMessage } from "@openloaf/api/types/message";
 
 /** Chat stream request payload, based on ChatRequestBody with server-only fields. */
