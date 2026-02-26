@@ -3,9 +3,9 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(__dirname, "..", "..", "..");
-const sourceDir = resolve(repoRoot, "node_modules/monaco-editor/min/vs");
-const destDir = resolve(repoRoot, "apps/web/public/monaco/vs");
+const webRoot = resolve(__dirname, "..");
+const sourceDir = resolve(webRoot, "node_modules/monaco-editor/min/vs");
+const destDir = resolve(webRoot, "public/monaco/vs");
 
 /** Copy Monaco editor assets into the web public folder. */
 function copyMonacoAssets() {
