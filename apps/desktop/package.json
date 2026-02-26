@@ -49,64 +49,6 @@
       {
         "from": "../../apps/web/package.json",
         "to": "web.package.json"
-      },
-      {
-        "from": "../../node_modules/sharp",
-        "to": "node_modules/sharp",
-        "filter": [
-          "lib/**",
-          "package.json"
-        ]
-      },
-      {
-        "from": "../../node_modules/@img/colour",
-        "to": "node_modules/@img/colour"
-      },
-      {
-        "from": "../../node_modules/detect-libc",
-        "to": "node_modules/detect-libc",
-        "filter": [
-          "lib/**",
-          "package.json"
-        ]
-      },
-      {
-        "from": "../../node_modules/semver",
-        "to": "node_modules/semver",
-        "filter": [
-          "functions/**",
-          "internal/**",
-          "classes/**",
-          "ranges/**",
-          "index.js",
-          "preload.js",
-          "range.bnf",
-          "package.json"
-        ]
-      },
-      {
-        "from": "../../node_modules/playwright-core",
-        "to": "node_modules/playwright-core"
-      },
-      {
-        "from": "../../node_modules/@libsql/client",
-        "to": "node_modules/@libsql/client"
-      },
-      {
-        "from": "../../node_modules/@libsql/core",
-        "to": "node_modules/@libsql/core"
-      },
-      {
-        "from": "../../node_modules/@libsql/hrana-client",
-        "to": "node_modules/@libsql/hrana-client"
-      },
-      {
-        "from": "../../node_modules/@libsql/isomorphic-fetch",
-        "to": "node_modules/@libsql/isomorphic-fetch"
-      },
-      {
-        "from": "../../node_modules/@libsql/isomorphic-ws",
-        "to": "node_modules/@libsql/isomorphic-ws"
       }
     ],
     "mac": {
@@ -170,25 +112,6 @@
           "filter": [
             "macos/tenas-calendar"
           ]
-        },
-        {
-          "from": "../../node_modules/node-pty/prebuilds",
-          "to": "prebuilds",
-          "filter": [
-            "darwin-arm64/**"
-          ]
-        },
-        {
-          "from": "../../node_modules/@img/sharp-darwin-arm64",
-          "to": "node_modules/@img/sharp-darwin-arm64"
-        },
-        {
-          "from": "../../node_modules/@img/sharp-libvips-darwin-arm64",
-          "to": "node_modules/@img/sharp-libvips-darwin-arm64"
-        },
-        {
-          "from": "../../node_modules/@libsql/darwin-arm64",
-          "to": "node_modules/@libsql/darwin-arm64"
         }
       ]
     },
@@ -220,21 +143,6 @@
           "filter": [
             "windows/tenas-calendar.exe"
           ]
-        },
-        {
-          "from": "../../node_modules/node-pty/prebuilds",
-          "to": "prebuilds",
-          "filter": [
-            "win32-x64/**"
-          ]
-        },
-        {
-          "from": "../../node_modules/@img/sharp-win32-x64",
-          "to": "node_modules/@img/sharp-win32-x64"
-        },
-        {
-          "from": "../../node_modules/@libsql/win32-x64-msvc",
-          "to": "node_modules/@libsql/win32-x64-msvc"
         }
       ]
     },
@@ -259,27 +167,7 @@
           ]
         }
       ],
-      "extraResources": [
-        {
-          "from": "../../node_modules/node-pty/prebuilds",
-          "to": "prebuilds",
-          "filter": [
-            "linux-x64/**"
-          ]
-        },
-        {
-          "from": "../../node_modules/@img/sharp-linux-x64",
-          "to": "node_modules/@img/sharp-linux-x64"
-        },
-        {
-          "from": "../../node_modules/@img/sharp-libvips-linux-x64",
-          "to": "node_modules/@img/sharp-libvips-linux-x64"
-        },
-        {
-          "from": "../../node_modules/@libsql/linux-x64-gnu",
-          "to": "node_modules/@libsql/linux-x64-gnu"
-        }
-      ]
+      "extraResources": []
     },
     "publish": [
       {

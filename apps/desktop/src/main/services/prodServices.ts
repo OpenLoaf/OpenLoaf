@@ -246,6 +246,12 @@ export async function startProductionServices(args: {
     try {
       ensureDir(path.dirname(localDbPath));
       const seedDbPath = path.join(resourcesPath, 'seed.db');
+      
+      // Prevent EBUSY/EPERM on Windows when overwriting a locked 0-byte file
+      if (fs.existsSync(localDbPath)) {
+         fs.rmSync(localDbPath, { force: true }); 
+      }
+
       if (fs.existsSync(seedDbPath)) {
         fs.copyFileSync(seedDbPath, localDbPath);
         log(`Database initialized from seed: ${localDbPath}`);
@@ -254,7 +260,7 @@ export async function startProductionServices(args: {
         log(`[Warn] Seed DB not found at ${seedDbPath}. Created empty DB at ${localDbPath}`);
       }
     } catch (err) {
-      log(`Failed to initialize DB at ${localDbPath}: ${err instanceof Error ? err.message : String(err)}`);
+      log(`Failed to initialize DB at ${localDbPath}: ${err instanceof Error ? err.message : String(err)}. Retrying or continuing with caution...`);
     }
   }
 
@@ -323,7 +329,24 @@ export async function startProductionServices(args: {
           // 中文注释：强制对齐 Electron 与 Server 的 CDP 端口，避免运行时不一致。
           TENAS_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
         },
+        windowsHide: true,
+        detached: false,
         stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      // 防僵尸进程：当 Electron 退出时，强制杀掉 Server
+      app.on('will-quit', () => {
+        if (managedServer && !managedServer.killed && managedServer.pid) {
+          try {
+            if (process.platform === 'win32') {
+              spawn('taskkill', ['/pid', String(managedServer.pid), '/t', '/f']);
+            } else {
+              process.kill(managedServer.pid);
+            }
+          } catch (e) {
+            log(`Failed to kill server process: ${e}`);
+          }
+        }
       });
 
       const stderrChunks: string[] = [];

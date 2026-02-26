@@ -20,4 +20,10 @@ const { app } = startServer();
 // 暂停启动时自动总结调度，避免无 workspace/project 上下文触发总结流程。
 // void initSummaryScheduler();
 
+// 针对 ELECTRON_RUN_AS_NODE 启动的场景，父进程挂了自动退出 (防止成为僵尸进程)
+if (process.env.ELECTRON_RUN_AS_NODE) {
+  process.on("disconnect", () => process.exit(0));
+  process.stdin.on("end", () => process.exit(0));
+}
+
 export default app;

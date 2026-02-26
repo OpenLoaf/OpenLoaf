@@ -51,22 +51,19 @@ Provide repo-specific packaging guidance for Electron + web + server, including 
    PATH=/tmp/wine-bin:$PATH USE_SYSTEM_WINE=true pnpm run dist:win
    ```
 
-## Artifact Map
-- Server bundle: `apps/server/dist/server.mjs` and `apps/server/dist/seed.db`.
-- Web export: `apps/web/out/` (Next `output: \"export\"`).
-- Forge package output: `apps/desktop/out/<platform>/.../Resources/`.
-- Builder output: `apps/desktop/dist/<platform>/`.
-- Version metadata in Resources:
-  - `server.package.json` and `web.package.json` (for bundled version display/compare).
-
 ## Native/External Dependencies (How They Ship)
 - `apps/server/scripts/build-prod.mjs`: esbuild bundles JS, but native deps stay external (e.g. `playwright-core`).
+- **Dependencies Retrieval (`.npmrc`)**: The repo requires a customized `.npmrc` setting `supportedArchitectures` (cpu=x64,arm64; os=darwin,win32,linux; libc=glibc,musl) so that `pnpm install` fetches prebuilt binaries for all architectures. This avoids missing modules when generating lockfiles or testing builds.
 - Forge path: `apps/desktop/forge.config.ts`
   - `NATIVE_DEP_ROOTS` lists native/external packages to ship.
-  - `hooks.postPackage` copies resolved deps into `Resources/node_modules`.
+  - `hooks.postPackage` copies resolved deps into `Resources/node_modules`. This is the single source of truth for packaging `node_modules` (removed from `package.json` `extraResources` to avoid conflicts).
   - `node-pty/prebuilds` is copied into `Resources/prebuilds`.
-- Builder path: `apps/desktop/package.json` → `build.extraResources` lists `node_modules/*` and `prebuilds` per platform.
-- Runtime resolution: `apps/desktop/src/main/index.ts` and `apps/desktop/src/main/services/prodServices.ts` set `NODE_PATH` and resolve `process.resourcesPath`.
+
+## CI/CD vs Local Build (The Golden Rule)
+- **Do not use macOS Wine for production Windows builds.** Due to dependency complexities and Wine instability, all production artifacts should be built via GitHub Actions (`.github/workflows/release.yml`) running on native `macos-latest`, `windows-latest`, and `ubuntu-latest` runners.
+- Local macOS cross-compilation is only for quick structural checks (e.g., verifying `Resources/` contents), but resulting binaries (especially for Windows and Linux) may fail at runtime due to missing or mismatched native bindings.
+
+## Artifact Map
 
 ## Incremental Update Rules (Runtime)
 - Current version source (per component):
