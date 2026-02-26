@@ -1,7 +1,7 @@
 ---
 name: frontend-design
 description: Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, or applications. Generates creative, polished code that avoids generic AI aesthetics.
-license: Complete terms in LICENSE.txt
+license: AGPLv3 + Commercial License
 ---
 
 This skill guides creation of distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. Implement real working code with exceptional attention to aesthetic details and creative choices.
@@ -93,3 +93,29 @@ Dark mode mapping keeps current token intent:
 Implementation rule:
 - New frontend UI in this project should reuse these semantics first, then adjust shape, spacing, and motion per feature.
 - Avoid inventing new action colors when an existing semantic slot already fits.
+
+## OpenLoaf 源码规范
+
+### 版权声明 (License Header)
+
+**所有新建的源代码文件 (.ts, .tsx, .js, .jsx, .mjs, .cjs) 必须在文件顶部包含以下版权声明。** 这是为了确保项目在 AGPLv3 双授权模式下的法律合规性。
+
+```javascript
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+```
+
+如果文件包含 Shebang (例如 `#!/usr/bin/env node`)，请将版权声明放在 Shebang 之后，并空开一行。
+
+可以使用以下命令自动补全缺失的声明：
+```bash
+node scripts/add-headers.mjs
+```
+
