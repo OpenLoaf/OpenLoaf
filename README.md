@@ -111,3 +111,17 @@ openloaf/
   * macOS: `~/Documents/OpenLoafWorkspace`
   * Linux: `~/OpenLoafWorkspace`
   * Windows: `D:\OpenLoafWorkspace` (fallback to `%USERPROFILE%\\OpenLoafWorkspace` if no D drive)
+
+## License & Commercial Licensing
+
+This project is dual-licensed:
+
+1. **GNU Affero General Public License v3.0 (AGPLv3)**  
+   OpenLoaf is open source and free to use under the terms of the AGPLv3. If you modify the code or provide it as a service over a network (e.g., SaaS), you must open-source your modifications and full related codebase under the same license. See the [`LICENSE`](./LICENSE) file for details.
+
+2. **Commercial License**  
+   If you wish to use OpenLoaf in a commercial product, distribute it as closed-source, or use it without being subject to the AGPLv3 requirements, please contact us to purchase a commercial license.
+
+---
+
+*By contributing to this project, you agree to sign our [Contributor License Agreement (CLA)](./.github/CLA.md).*

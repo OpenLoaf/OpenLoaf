@@ -16,11 +16,7 @@ build
 .env*.local
 
 # IDEs and editors
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
+.vscode
 .idea
 *.swp
 *.swo
@@ -114,4 +110,4 @@ apps/web/public/monaco/
 apps/openloaf-office-plugins
 .data/openloaf.db
 .claude
-.npm-cache
+.npm-cache\n.openloaf
