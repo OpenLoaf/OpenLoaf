@@ -12,10 +12,15 @@ const nextConfig = {
       "d3-path": "d3-path/src/index.js",
     },
   },
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
   images: {
     unoptimized: true,
   },
-  reactStrictMode: true, //多次请求
+  reactStrictMode: true,
 };
 
 module.exports = nextConfig;

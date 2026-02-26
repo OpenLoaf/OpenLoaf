@@ -1,10 +1,14 @@
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+
 const webRoot = resolve(__dirname, "..");
-const sourceDir = resolve(webRoot, "node_modules/monaco-editor/min/vs");
+const monacoPackagePath = require.resolve("monaco-editor/package.json");
+const sourceDir = resolve(dirname(monacoPackagePath), "min/vs");
 const destDir = resolve(webRoot, "public/monaco/vs");
 
 /** Copy Monaco editor assets into the web public folder. */

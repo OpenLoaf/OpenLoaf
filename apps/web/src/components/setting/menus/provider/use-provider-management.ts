@@ -220,7 +220,7 @@ function normalizeModelMap(value: unknown): Record<string, ModelDefinition> {
     if (legacyParameters && typeof legacyParameters === "object") {
       model.capabilities = {
         ...(model.capabilities ?? {}),
-        params: legacyParameters as ModelCapabilityParams,
+        params: legacyParameters as any,
       };
       delete (model as { parameters?: unknown }).parameters;
     }
