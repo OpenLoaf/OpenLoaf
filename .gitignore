@@ -110,4 +110,5 @@ apps/web/public/monaco/
 apps/openloaf-office-plugins
 .data/openloaf.db
 .claude
-.npm-cache\n.openloaf
+.npm-cache
+.openloaf
