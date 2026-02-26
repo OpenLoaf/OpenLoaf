@@ -25,7 +25,8 @@
     "format:fix": "biome format --write .",
     "check": "biome check .",
     "publish:server": "pnpm --filter server run publish-update",
-    "publish:web": "pnpm --filter web run publish-update"
+    "publish:web": "pnpm --filter web run publish-update",
+    "clean": "pnpm -r exec rm -rf node_modules dist .turbo .next out build && rm -rf node_modules .turbo"
   },
   "dependencies": {
     "@ark-ui/react": "^5.31.0",
