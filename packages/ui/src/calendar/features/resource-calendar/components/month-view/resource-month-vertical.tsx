@@ -1,8 +1,8 @@
 import type React from 'react'
-import { ResourceCell } from '@tenas-ai/ui/calendar/components/resource-cell'
-import { VerticalGrid } from '@tenas-ai/ui/calendar/components/vertical-grid/vertical-grid'
-import { useResourceCalendarContext } from '@tenas-ai/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
+import { ResourceCell } from '@openloaf/ui/calendar/components/resource-cell'
+import { VerticalGrid } from '@openloaf/ui/calendar/components/vertical-grid/vertical-grid'
+import { useResourceCalendarContext } from '@openloaf/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 
 export const ResourceMonthVertical: React.FC = () => {
 	const { currentDate, getVisibleResources } = useResourceCalendarContext()

@@ -5,7 +5,7 @@ import { AnimatePresence, motion, type Transition } from "framer-motion";
 import { useOnClickOutside } from "usehooks-ts";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 
 /** Single tab definition. */
 interface Tab {

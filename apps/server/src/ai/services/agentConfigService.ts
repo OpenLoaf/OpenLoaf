@@ -110,8 +110,8 @@ const AGENT_FILE_NAME = 'AGENT.md'
 const AGENT_JSON_FILE = 'agent.json'
 const FRONT_MATTER_DELIMITER = '---'
 
-/** Scan .tenas/agents/ subfolders and build summaries from agent.json descriptors. */
-function loadTenasAgentSummaries(
+/** Scan .openloaf/agents/ subfolders and build summaries from agent.json descriptors. */
+function loadOpenLoafAgentSummaries(
   rootPath: string,
   scope: AgentScope,
 ): Omit<AgentSummary, 'ignoreKey' | 'isEnabled' | 'isDeletable'>[] {
@@ -160,11 +160,11 @@ export function loadAgentSummaries(input: {
   >()
   const orderedNames: string[] = []
 
-  // 逻辑：先扫描 .tenas/agents/ 子目录，将 agent.json 描述的 agent 作为首批条目。
+  // 逻辑：先扫描 .openloaf/agents/ 子目录，将 agent.json 描述的 agent 作为首批条目。
   for (const source of sources) {
     if (source.scope === 'global') continue
-    const tenasAgents = loadTenasAgentSummaries(source.rootPath, source.scope)
-    for (const agent of tenasAgents) {
+    const openloafAgents = loadOpenLoafAgentSummaries(source.rootPath, source.scope)
+    for (const agent of openloafAgents) {
       if (!summaryByName.has(agent.name)) {
         orderedNames.push(agent.name)
       }

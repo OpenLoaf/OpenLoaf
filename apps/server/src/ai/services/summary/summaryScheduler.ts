@@ -3,10 +3,10 @@ import {
   readWorkspaceProjectTrees,
   readProjectConfig,
   type ProjectNode,
-} from "@tenas-ai/api/services/projectTreeService";
-import { resolveFilePathFromUri, getProjectRootPath } from "@tenas-ai/api/services/vfsService";
-import { getWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
-import { readBasicConf } from "@/modules/settings/tenasConfStore";
+} from "@openloaf/api/services/projectTreeService";
+import { resolveFilePathFromUri, getProjectRootPath } from "@openloaf/api/services/vfsService";
+import { getWorkspaces } from "@openloaf/api/services/workspaceConfig";
+import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { SummaryDayUseCase } from "@/ai/services/summary/SummaryDayUseCase";
 import { SummaryProjectUseCase } from "@/ai/services/summary/SummaryProjectUseCase";
 import { UpdateProjectSummaryUseCase } from "@/ai/services/summary/UpdateProjectSummaryUseCase";

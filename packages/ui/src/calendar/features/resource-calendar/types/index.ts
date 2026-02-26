@@ -1,7 +1,7 @@
 import type {
 	IlamyCalendarPropEvent,
 	IlamyCalendarProps,
-} from '@tenas-ai/ui/calendar/features/calendar/types'
+} from '@openloaf/ui/calendar/features/calendar/types'
 
 /**
  * Public-facing resource calendar event interface with flexible date types.

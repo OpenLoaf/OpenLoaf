@@ -3,9 +3,9 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { CalendarDays, MessageCircle } from "lucide-react";
 import { zhCN } from "date-fns/locale";
-import { Calendar } from "@tenas-ai/ui/date-picker";
-import { Button } from "@tenas-ai/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
+import { Calendar } from "@openloaf/ui/date-picker";
+import { Button } from "@openloaf/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import { cn } from "@/lib/utils";
 import { useTabs } from "@/hooks/use-tabs";
 import { useChatSessions } from "@/hooks/use-chat-sessions";

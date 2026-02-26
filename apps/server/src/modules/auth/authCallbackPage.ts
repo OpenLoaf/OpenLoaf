@@ -4,7 +4,7 @@ type AuthCallbackPageOptions = {
 };
 
 // 中文注释：默认回到桌面端协议地址。
-const DEFAULT_RETURN_URL = "tenas://open";
+const DEFAULT_RETURN_URL = "openloaf://open";
 
 /** Escape HTML special characters to prevent injection. */
 function escapeHtml(value: string): string {
@@ -39,7 +39,7 @@ export function renderAuthCallbackPage(options: AuthCallbackPageOptions): string
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
-    <title>Tenas 登录</title>
+    <title>OpenLoaf 登录</title>
     <style>
       :root {
         color-scheme: dark;
@@ -172,7 +172,7 @@ export function renderAuthCallbackPage(options: AuthCallbackPageOptions): string
       <h1>${safeMessage}</h1>
       <p>若已打开桌面端，请继续操作；未打开请点击下方按钮。</p>
       <div class="actions">
-        <a class="primary" href="${safeReturnUrl}" data-open-app>打开 Tenas AI</a>
+        <a class="primary" href="${safeReturnUrl}" data-open-app>打开 OpenLoaf AI</a>
       </div>
       <div class="manual-close" data-close-hint>未能自动关闭，请手动关闭此标签页。</div>
     </main>

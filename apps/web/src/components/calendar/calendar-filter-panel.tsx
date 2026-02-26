@@ -1,10 +1,10 @@
 import { useCallback } from "react";
-import { Accordion, AccordionContent, AccordionItem } from "@tenas-ai/ui/accordion";
-import { Checkbox } from "@tenas-ai/ui/checkbox";
-import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem } from "@openloaf/ui/accordion";
+import { Checkbox } from "@openloaf/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import { ChevronDownIcon, Folder } from "lucide-react";
-import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 
 type CalendarSource = {
   id: string;
@@ -27,7 +27,7 @@ type CalendarFilterPanelProps = {
   projectDescendantsById: Map<string, Set<string>>;
   calendarColorMap: Map<string, string>;
   reminderColorMap: Map<string, string>;
-  permissionState: TenasCalendarPermissionState;
+  permissionState: OpenLoafCalendarPermissionState;
   sourceFilter: CalendarSourceFilter;
   hasSystemCalendars: boolean;
   hasSystemReminders: boolean;

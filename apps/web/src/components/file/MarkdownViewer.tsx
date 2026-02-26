@@ -13,7 +13,7 @@ import { Streamdown, defaultRemarkPlugins, type StreamdownProps } from "streamdo
 import remarkMdx from "remark-mdx";
 import { Copy, Eye, FolderOpen, PencilLine, Save, Undo2 } from "lucide-react";
 import { StackHeader } from "@/components/layout/StackHeader";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
@@ -349,7 +349,7 @@ function resolveChatHistoryFolderUri(input: {
   // 逻辑：回退到旧路径拼接方式，兼容未返回 jsonlPath 的场景。
   return buildFileUriFromRoot(
     input.workspaceRootUri,
-    `.tenas/chat-history/${input.sessionId}`
+    `.openloaf/chat-history/${input.sessionId}`
   );
 }
 
@@ -453,7 +453,7 @@ export default function MarkdownViewer({
       toast.error("未找到日志目录");
       return;
     }
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!api?.openPath) {
       const folderName = targetUri.split('/').filter(Boolean).pop() || 'Chat History';
       if (tabId) {

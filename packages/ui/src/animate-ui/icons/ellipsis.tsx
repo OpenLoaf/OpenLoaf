@@ -8,7 +8,7 @@ import {
   useAnimateIconContext,
   IconWrapper,
   type IconProps,
-} from '@tenas-ai/ui/animate-ui/icons/icon';
+} from '@openloaf/ui/animate-ui/icons/icon';
 
 type EllipsisProps = IconProps<keyof typeof animations>;
 

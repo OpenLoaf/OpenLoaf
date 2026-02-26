@@ -39,7 +39,7 @@ import {
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { resolveServerUrl } from "@/utils/server-url";
 import { trpc } from "@/utils/trpc";
-import { BOARD_COLLAB_WS_PATH } from "@tenas-ai/api/types/boardCollab";
+import { BOARD_COLLAB_WS_PATH } from "@openloaf/api/types/boardCollab";
 
 type BoardCanvasCollabProps = {
   /** Canvas engine instance. */

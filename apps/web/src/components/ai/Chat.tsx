@@ -559,23 +559,23 @@ export function Chat({
 
   const handleDragEnter = React.useCallback((event: React.DragEvent) => {
     const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
-    const hasTenasRef =
+    const hasOpenLoafRef =
       event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
-    const hasTenasUri =
+    const hasOpenLoafUri =
       event.dataTransfer?.types?.includes(FILE_DRAG_URI_MIME) ?? false;
-    const hasTenasImage =
+    const hasOpenLoafImage =
       event.dataTransfer?.types?.includes(FILE_DRAG_IMAGE_MIME) ?? false;
-    if (!hasFiles && !hasTenasRef && !hasTenasUri) return;
+    if (!hasFiles && !hasOpenLoafRef && !hasOpenLoafUri) return;
     const fileRef = resolveDragRef(event.dataTransfer);
     const fileName = resolveDragName(event.dataTransfer);
     const hasImageUpload = hasFiles && hasImageFileUpload(event.dataTransfer);
     const isFileRefImage =
-      hasTenasImage ||
+      hasOpenLoafImage ||
       (Boolean(fileRef || fileName) && isImageFileRef(fileRef || fileName));
-    const wantsImage = hasImageUpload || hasTenasImage || isFileRefImage;
+    const wantsImage = hasImageUpload || hasOpenLoafImage || isFileRefImage;
     const shouldDeny =
       (wantsImage && !canAttachImage) ||
-      ((hasTenasRef || hasTenasUri) && !canAttachAll) ||
+      ((hasOpenLoafRef || hasOpenLoafUri) && !canAttachAll) ||
       (hasFiles && !hasImageUpload);
     if (shouldDeny) {
       event.preventDefault();
@@ -592,23 +592,23 @@ export function Chat({
 
   const handleDragOver = React.useCallback((event: React.DragEvent) => {
     const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
-    const hasTenasRef =
+    const hasOpenLoafRef =
       event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
-    const hasTenasUri =
+    const hasOpenLoafUri =
       event.dataTransfer?.types?.includes(FILE_DRAG_URI_MIME) ?? false;
-    const hasTenasImage =
+    const hasOpenLoafImage =
       event.dataTransfer?.types?.includes(FILE_DRAG_IMAGE_MIME) ?? false;
-    if (!hasFiles && !hasTenasRef && !hasTenasUri) return;
+    if (!hasFiles && !hasOpenLoafRef && !hasOpenLoafUri) return;
     const fileRef = resolveDragRef(event.dataTransfer);
     const fileName = resolveDragName(event.dataTransfer);
     const hasImageUpload = hasFiles && hasImageFileUpload(event.dataTransfer);
     const isFileRefImage =
-      hasTenasImage ||
+      hasOpenLoafImage ||
       (Boolean(fileRef || fileName) && isImageFileRef(fileRef || fileName));
-    const wantsImage = hasImageUpload || hasTenasImage || isFileRefImage;
+    const wantsImage = hasImageUpload || hasOpenLoafImage || isFileRefImage;
     const shouldDeny =
       (wantsImage && !canAttachImage) ||
-      ((hasTenasRef || hasTenasUri) && !canAttachAll) ||
+      ((hasOpenLoafRef || hasOpenLoafUri) && !canAttachAll) ||
       (hasFiles && !hasImageUpload);
     event.preventDefault();
     if (shouldDeny) {
@@ -625,11 +625,11 @@ export function Chat({
 
   const handleDragLeave = React.useCallback((event: React.DragEvent) => {
     const hasFiles = event.dataTransfer?.types?.includes("Files") ?? false;
-    const hasTenasRef =
+    const hasOpenLoafRef =
       event.dataTransfer?.types?.includes(FILE_DRAG_REF_MIME) ?? false;
-    const hasTenasUri =
+    const hasOpenLoafUri =
       event.dataTransfer?.types?.includes(FILE_DRAG_URI_MIME) ?? false;
-    if (!hasFiles && !hasTenasRef && !hasTenasUri) return;
+    if (!hasFiles && !hasOpenLoafRef && !hasOpenLoafUri) return;
     dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
     if (dragCounterRef.current === 0) {
       setIsDragActive(false);
@@ -690,7 +690,7 @@ export function Chat({
             : resolvedFileRef;
           if (normalizedRef && isRelativePath(normalizedRef)) {
             window.dispatchEvent(
-              new CustomEvent("tenas:chat-insert-mention", {
+              new CustomEvent("openloaf:chat-insert-mention", {
                 detail: { value: normalizedRef },
               })
             );
@@ -750,7 +750,7 @@ export function Chat({
       setDragMode("allow");
       if (!canAttachAll) return;
       window.dispatchEvent(
-        new CustomEvent("tenas:chat-insert-mention", {
+        new CustomEvent("openloaf:chat-insert-mention", {
           detail: { value: fileRef },
         })
       );
@@ -813,14 +813,14 @@ export function Chat({
         "relative flex h-full w-full flex-col min-h-0 min-w-0 overflow-x-hidden overflow-y-hidden",
         className
       )}
-      data-tenas-chat-root
+      data-openloaf-chat-root
       data-tab-id={tabId}
       data-chat-active={active ? "true" : "false"}
     >
       {renderActiveSession()}
 
       <div
-        data-tenas-chat-mask
+        data-openloaf-chat-mask
         className="absolute inset-0 z-30 hidden bg-transparent"
         aria-hidden="true"
       />

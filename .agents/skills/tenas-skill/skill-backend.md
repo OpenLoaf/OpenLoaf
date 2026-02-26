@@ -199,7 +199,7 @@ const skillSummarySchema = z.object({
 
 ### 工作空间级
 
-存储位置：`~/.tenas/workspaces.json` → 活跃工作空间的 `ignoreSkills` 数组
+存储位置：`~/.openloaf/workspaces.json` → 活跃工作空间的 `ignoreSkills` 数组
 
 ```json
 {
@@ -214,7 +214,7 @@ const skillSummarySchema = z.object({
 
 ### 项目级
 
-存储位置：`<project>/.tenas/project.json` → `ignoreSkills` 数组
+存储位置：`<project>/.openloaf/project.json` → `ignoreSkills` 数组
 
 ```json
 {

@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
 import { AlertTriangle, Download, ExternalLink } from "lucide-react";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { createFileEntryFromUri, openWithDefaultApp } from "./open-file";
 import { isElectronEnv } from "@/utils/is-electron-env";

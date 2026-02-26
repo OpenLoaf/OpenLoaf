@@ -12,7 +12,7 @@ description: >
 
 ## Overview
 
-Tenas 的版本发布采用“先发布、后加一”的流程：提交变更 → 直接打包并更新 → 发布成功后打 git tag → 发布完成后版本号自动加一并提交。这样每次代码改动都在新版本上进行，不需要再手动标记“是否改过代码”。每个 app 使用独立 tag（`server-v0.1.1`、`web-v0.1.2`、`electron-v1.0.0`），通过 `git describe --match "{app}-v*"` 定位上次发布点，支持各 app 独立版本节奏。
+OpenLoaf 的版本发布采用“先发布、后加一”的流程：提交变更 → 直接打包并更新 → 发布成功后打 git tag → 发布完成后版本号自动加一并提交。这样每次代码改动都在新版本上进行，不需要再手动标记“是否改过代码”。每个 app 使用独立 tag（`server-v0.1.1`、`web-v0.1.2`、`electron-v1.0.0`），通过 `git describe --match "{app}-v*"` 定位上次发布点，支持各 app 独立版本节奏。
 
 ## When to Use
 
@@ -22,7 +22,7 @@ Tenas 的版本发布采用“先发布、后加一”的流程：提交变更 �
 - 修改发布脚本（publish-update.mjs）、共享工具（publishUtils.mjs）
 - 修改更新检查/下载/校验/安装逻辑、manifest 结构
 - 修改渠道管理（stable/beta）、崩溃回滚
-- 修改 AutoUpdateGate 或 AboutTenas 更新 UI
+- 修改 AutoUpdateGate 或 AboutOpenLoaf 更新 UI
 
 **不适用：** 普通功能开发、bug 修复（除非涉及上述更新系统代码）
 
@@ -212,11 +212,11 @@ git push && git push origin --tags
 
 ## Widget SDK npm 发布流程
 
-`@tenas-ai/widget-sdk` 是独立发布到 npm 的公开包，与 server/web/electron 的 R2 增量发布流程无关。
+`@openloaf/widget-sdk` 是独立发布到 npm 的公开包，与 server/web/electron 的 R2 增量发布流程无关。
 
 ### 前置条件
 
-- npm 已登录且有 `@tenas-ai` org 的发布权限
+- npm 已登录且有 `@openloaf` org 的发布权限
 - `~/.npmrc` 中已配置 Granular Access Token（需开启 bypass 2FA）
 
 ### 发布步骤
@@ -233,7 +233,7 @@ pnpm publish --no-git-checks
 # 3. 回到根目录提交版本变更
 cd ../..
 git add packages/widget-sdk/package.json
-git commit -m "chore: release @tenas-ai/widget-sdk v$(node -p "require('./packages/widget-sdk/package.json').version")"
+git commit -m "chore: release @openloaf/widget-sdk v$(node -p "require('./packages/widget-sdk/package.json').version")"
 git push
 ```
 
@@ -248,8 +248,8 @@ git push
 
 ```bash
 # 确认发布成功
-npm view @tenas-ai/widget-sdk version
-# 或访问 https://www.npmjs.com/package/@tenas-ai/widget-sdk
+npm view @openloaf/widget-sdk version
+# 或访问 https://www.npmjs.com/package/@openloaf/widget-sdk
 ```
 
 ---

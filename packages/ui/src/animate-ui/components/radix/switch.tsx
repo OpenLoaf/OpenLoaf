@@ -5,7 +5,7 @@ import {
   SwitchThumb as SwitchThumbPrimitive,
   SwitchIcon as SwitchIconPrimitive,
   type SwitchProps as SwitchPrimitiveProps,
-} from '@tenas-ai/ui/animate-ui/primitives/radix/switch';
+} from '@openloaf/ui/animate-ui/primitives/radix/switch';
 import { cn } from '@/lib/utils';
 
 type SwitchProps = SwitchPrimitiveProps & {

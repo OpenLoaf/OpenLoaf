@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import { StepUpOptionCard } from "@/components/step-up/StepUpOptionCard";
 import { StepUpStepShell } from "@/components/step-up/StepUpStepShell";
 import { ProviderEditorDialog } from "@/components/setting/menus/model/ProviderEditorDialog";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { getModelLabel, resolveModelDefinition } from "@/lib/model-registry";
-import type { ModelDefinition } from "@tenas-ai/api/common";
+import type { ModelDefinition } from "@openloaf/api/common";
 
 type StepUpProviderEntry = {
   /** Entry display name. */

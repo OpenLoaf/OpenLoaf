@@ -2,14 +2,14 @@
 
 import { MentionInputPlugin, MentionPlugin } from '@platejs/mention/react';
 
-import { MentionInputElement } from '@tenas-ai/ui/mention-node';
-import { TenasMentionElement } from '@tenas-ai/ui/tenas/TenasMentionNode';
+import { MentionInputElement } from '@openloaf/ui/mention-node';
+import { OpenLoafMentionElement } from '@openloaf/ui/openloaf/OpenLoafMentionNode';
 
 export const MentionKit = [
   MentionPlugin.configure({
     options: {
       triggerPreviousCharPattern: /^$|^[\s"']$/,
     },
-  }).withComponent(TenasMentionElement),
+  }).withComponent(OpenLoafMentionElement),
   MentionInputPlugin.withComponent(MentionInputElement),
 ];

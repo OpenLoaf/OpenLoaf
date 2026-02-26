@@ -2,7 +2,7 @@
  * Level 4 — Multi-agent spawn/wait/abort 集成测试。
  *
  * 用法：
- *   TENAS_TEST_CHAT_MODEL_ID="profileId:modelId" pnpm run test:ai:multiagent
+ *   OPENLOAF_TEST_CHAT_MODEL_ID="profileId:modelId" pnpm run test:ai:multiagent
  */
 import {
   resolveTestModel,

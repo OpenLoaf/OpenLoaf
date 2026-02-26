@@ -1,12 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { getTenasRootDir } from '@tenas-ai/config'
+import { getOpenLoafRootDir } from '@openloaf/config'
 
 // ---------------------------------------------------------------------------
 // 常量
 // ---------------------------------------------------------------------------
 
-const DEFAULT_UPDATE_BASE_URL = 'https://r2-tenas-update.hexems.com'
+const DEFAULT_UPDATE_BASE_URL = 'https://r2-openloaf-update.hexems.com'
 const SETTINGS_FILE_NAME = '.settings.json'
 
 // ---------------------------------------------------------------------------
@@ -25,12 +25,12 @@ type SettingsJson = {
 // ---------------------------------------------------------------------------
 
 /**
- * 从 process.env 或 runtime.env 中读取 TENAS_UPDATE_URL，
- * 兼容旧的 TENAS_UPDATE_MANIFEST_URL / TENAS_ELECTRON_UPDATE_URL。
+ * 从 process.env 或 runtime.env 中读取 OPENLOAF_UPDATE_URL，
+ * 兼容旧的 OPENLOAF_UPDATE_MANIFEST_URL / OPENLOAF_ELECTRON_UPDATE_URL。
  */
 export function resolveUpdateBaseUrl(): string {
   // 1. 新变量优先
-  const fromEnv = process.env.TENAS_UPDATE_URL?.trim()
+  const fromEnv = process.env.OPENLOAF_UPDATE_URL?.trim()
   if (fromEnv) return fromEnv.replace(/\/+$/, '')
 
   // 2. 尝试从 runtime.env 读取
@@ -41,21 +41,21 @@ export function resolveUpdateBaseUrl(): string {
       const vars = parseEnvFile(raw)
 
       // 新变量
-      if (vars.TENAS_UPDATE_URL) {
-        return vars.TENAS_UPDATE_URL.replace(/\/+$/, '')
+      if (vars.OPENLOAF_UPDATE_URL) {
+        return vars.OPENLOAF_UPDATE_URL.replace(/\/+$/, '')
       }
 
       // 向后兼容：从旧变量推导 base URL
-      const oldManifest = vars.TENAS_UPDATE_MANIFEST_URL
+      const oldManifest = vars.OPENLOAF_UPDATE_MANIFEST_URL
       if (oldManifest) {
-        // 例如 https://r2-tenas-update.hexems.com/manifest.json → https://r2-tenas-update.hexems.com
+        // 例如 https://r2-openloaf-update.hexems.com/manifest.json → https://r2-openloaf-update.hexems.com
         const url = new URL(oldManifest)
         return `${url.protocol}//${url.host}`
       }
 
-      const oldElectron = vars.TENAS_ELECTRON_UPDATE_URL
+      const oldElectron = vars.OPENLOAF_ELECTRON_UPDATE_URL
       if (oldElectron) {
-        // 例如 https://r2-tenas-update.hexems.com/desktop → https://r2-tenas-update.hexems.com
+        // 例如 https://r2-openloaf-update.hexems.com/desktop → https://r2-openloaf-update.hexems.com
         return oldElectron.replace(/\/(?:electron|desktop)\/?$/, '')
       }
     }
@@ -71,7 +71,7 @@ export function resolveUpdateBaseUrl(): string {
 // ---------------------------------------------------------------------------
 
 function settingsPath(): string {
-  return path.join(getTenasRootDir(), SETTINGS_FILE_NAME)
+  return path.join(getOpenLoafRootDir(), SETTINGS_FILE_NAME)
 }
 
 function readSettings(): SettingsJson {
@@ -97,7 +97,7 @@ export function resolveUpdateChannel(): UpdateChannel {
   return 'stable'
 }
 
-/** 切换渠道并持久化到 ~/.tenas/.settings.json。 */
+/** 切换渠道并持久化到 ~/.openloaf/.settings.json。 */
 export function switchUpdateChannel(channel: UpdateChannel): void {
   const settings = readSettings()
   settings.updateChannel = channel

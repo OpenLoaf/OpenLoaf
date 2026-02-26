@@ -4,30 +4,30 @@ import { useCallback, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { queryClient, trpc } from "@/utils/trpc"
-import { Button } from "@tenas-ai/ui/button"
-import { Switch } from "@tenas-ai/ui/switch"
-import { Input } from "@tenas-ai/ui/input"
-import { FilterTab } from "@tenas-ai/ui/filter-tab"
+import { Button } from "@openloaf/ui/button"
+import { Switch } from "@openloaf/ui/switch"
+import { Input } from "@openloaf/ui/input"
+import { FilterTab } from "@openloaf/ui/filter-tab"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@tenas-ai/ui/dropdown-menu"
+} from "@openloaf/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog"
+} from "@openloaf/ui/dialog"
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from "@tenas-ai/ui/context-menu"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip"
+} from "@openloaf/ui/context-menu"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip"
 import {
   Search, Trash2, X, Plus, Pencil, Eye,
   Bot, Sparkles, FileText, Terminal, Globe, Mail, Calendar,

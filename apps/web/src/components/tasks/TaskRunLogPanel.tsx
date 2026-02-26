@@ -8,9 +8,9 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from '@tenas-ai/ui/sheet'
+} from '@openloaf/ui/sheet'
 import { CheckCircle2, Clock, MessageSquare, XCircle } from 'lucide-react'
-import { Button } from '@tenas-ai/ui/button'
+import { Button } from '@openloaf/ui/button'
 
 type TaskRunLogPanelProps = {
   open: boolean

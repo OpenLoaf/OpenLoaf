@@ -43,7 +43,7 @@ export async function compileWidget(widgetDir: string): Promise<CompileResult> {
       jsx: 'automatic',
       minify: false,
       // React and the widget SDK are provided by the host at runtime.
-      external: ['react', 'react-dom', 'react/jsx-runtime', '@tenas-ai/widget-sdk'],
+      external: ['react', 'react-dom', 'react/jsx-runtime', '@openloaf/widget-sdk'],
       define: {
         'process.env.NODE_ENV': '"production"',
       },

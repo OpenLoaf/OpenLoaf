@@ -2,19 +2,19 @@
 
 import type { ComponentProps, ReactNode } from "react";
 
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@tenas-ai/ui/collapsible";
-import { Input } from "@tenas-ai/ui/input";
+} from "@openloaf/ui/collapsible";
+import { Input } from "@openloaf/ui/input";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@tenas-ai/ui/tooltip";
+} from "@openloaf/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ChevronDownIcon } from "lucide-react";
 import {

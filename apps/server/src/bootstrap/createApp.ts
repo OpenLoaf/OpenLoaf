@@ -1,6 +1,6 @@
 import { trpcServer } from "@hono/trpc-server";
-import { appRouterDefine, t } from "@tenas-ai/api";
-import { createContext } from "@tenas-ai/api/context";
+import { appRouterDefine, t } from "@openloaf/api";
+import { createContext } from "@openloaf/api/context";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger as honoLogger } from "hono/logger";

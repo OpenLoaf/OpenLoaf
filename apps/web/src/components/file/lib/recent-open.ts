@@ -4,7 +4,7 @@ import { getWorkspaceIdFromCookie } from "@/components/board/core/boardSession";
 import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
 import { useTabs } from "@/hooks/use-tabs";
 
-export const RECENT_OPEN_EVENT = "tenas:recent-open";
+export const RECENT_OPEN_EVENT = "openloaf:recent-open";
 
 export type RecentOpenItem = {
   /** Project id for the entry. */
@@ -43,7 +43,7 @@ type RecordRecentOpenInput = {
 
 /** Build the storage key for a workspace. */
 function buildStorageKey(workspaceId: string): string {
-  return `tenas:recent-open:${workspaceId}`;
+  return `openloaf:recent-open:${workspaceId}`;
 }
 
 /** Resolve workspace id from tab or cookies. */

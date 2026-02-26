@@ -3,8 +3,8 @@ import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import type { UIMessage } from "ai";
-import type { TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
-import { getProjectRootPath, getWorkspaceRootPathById } from "@tenas-ai/api/services/vfsService";
+import type { OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
+import { getProjectRootPath, getWorkspaceRootPathById } from "@openloaf/api/services/vfsService";
 import { getProjectId, getWorkspaceId } from "@/ai/shared/context/requestContext";
 
 /** Max image edge length for chat. */
@@ -23,7 +23,7 @@ const SUPPORTED_IMAGE_MIME = new Set([
   "image/svg+xml",
 ]);
 /** PNG metadata key for image payloads. */
-const IMAGE_METADATA_KEY = "tenas-image:metadata";
+const IMAGE_METADATA_KEY = "openloaf-image:metadata";
 /** Max metadata bytes allowed in embedded chunk. */
 const METADATA_MAX_BYTES = 128 * 1024;
 /** PNG file signature bytes. */
@@ -197,11 +197,11 @@ function trimTextToBytes(text: string, maxBytes: number): string {
 }
 
 /** Serialize metadata and enforce byte limits for embedded chunks. */
-export function serializeImageMetadata(metadata: TenasImageMetadataV1): {
+export function serializeImageMetadata(metadata: OpenLoafImageMetadataV1): {
   fullJson: string;
   chunkJson: string;
 } {
-  const fullPayload: TenasImageMetadataV1 = {
+  const fullPayload: OpenLoafImageMetadataV1 = {
     ...metadata,
     flags: { ...metadata.flags },
   };
@@ -209,13 +209,13 @@ export function serializeImageMetadata(metadata: TenasImageMetadataV1): {
   if (Buffer.byteLength(fullJson, "utf8") <= METADATA_MAX_BYTES) {
     return { fullJson, chunkJson: fullJson };
   }
-  const flaggedPayload: TenasImageMetadataV1 = {
+  const flaggedPayload: OpenLoafImageMetadataV1 = {
     ...fullPayload,
     flags: { ...fullPayload.flags, truncated: true },
   };
   const flaggedJson = JSON.stringify(flaggedPayload);
 
-  const trimmedPayload: TenasImageMetadataV1 = {
+  const trimmedPayload: OpenLoafImageMetadataV1 = {
     ...flaggedPayload,
     request: undefined,
     flags: { ...flaggedPayload.flags, truncated: true },
@@ -225,7 +225,7 @@ export function serializeImageMetadata(metadata: TenasImageMetadataV1): {
     return { fullJson: flaggedJson, chunkJson: trimmedJson };
   }
 
-  const minimalPayload: TenasImageMetadataV1 = {
+  const minimalPayload: OpenLoafImageMetadataV1 = {
     version: flaggedPayload.version,
     chatSessionId: flaggedPayload.chatSessionId,
     prompt: flaggedPayload.prompt,
@@ -308,7 +308,7 @@ async function resolveImageMetadataText(filePath: string): Promise<string | null
   try {
     const raw = await fs.readFile(sidecarPath, "utf8");
     if (!raw.trim()) return null;
-    const parsed = JSON.parse(raw) as TenasImageMetadataV1;
+    const parsed = JSON.parse(raw) as OpenLoafImageMetadataV1;
     return serializeImageMetadata(parsed).chunkJson;
   } catch {
     // 逻辑：sidecar 不存在或解析失败时回退读取 PNG chunk。
@@ -387,8 +387,8 @@ export async function saveChatBinaryAttachment(input: {
   }
   const ext = path.extname(input.fileName).toLowerCase().replace(/^\./, "") || "bin";
   const storedName = buildChatAttachmentFileName(ext);
-  const relativePath = path.posix.join(".tenas", "chat-history", sessionId, storedName);
-  const targetPath = path.join(root.rootPath, ".tenas", "chat-history", sessionId, storedName);
+  const relativePath = path.posix.join(".openloaf", "chat-history", sessionId, storedName);
+  const targetPath = path.join(root.rootPath, ".openloaf", "chat-history", sessionId, storedName);
   // 逻辑：确保目录存在后再写入文件，避免落盘失败。
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   await fs.writeFile(targetPath, input.buffer);
@@ -478,7 +478,7 @@ function resolvePreviewCachePaths(rootPath: string, key: string): {
   dataPath: string;
   metadataPath: string;
 } {
-  const cacheDir = path.join(rootPath, ".tenas-cache", "preview");
+  const cacheDir = path.join(rootPath, ".openloaf-cache", "preview");
   return {
     cacheDir,
     dataPath: path.join(cacheDir, `${key}.bin`),
@@ -686,7 +686,7 @@ export async function saveChatImageAttachment(input: {
   /** File buffer. */
   buffer: Buffer;
   /** Optional image metadata. */
-  metadata?: TenasImageMetadataV1;
+  metadata?: OpenLoafImageMetadataV1;
 }): Promise<{ url: string; mediaType: string }> {
   const format = resolveImageFormat(input.mediaType, input.fileName);
   if (!format || !isSupportedImageMime(format.mediaType)) {
@@ -696,7 +696,7 @@ export async function saveChatImageAttachment(input: {
   // 上传阶段即压缩并落盘，避免保存原图。
   const compressed = await compressImageBuffer(input.buffer, format);
   const fileName = buildChatAttachmentFileName(compressed.ext);
-  const relativePath = path.posix.join(".tenas", "chat-history", input.sessionId, fileName);
+  const relativePath = path.posix.join(".openloaf", "chat-history", input.sessionId, fileName);
   const root = await resolveChatAttachmentRoot({
     projectId: input.projectId,
     workspaceId: input.workspaceId,
@@ -705,7 +705,7 @@ export async function saveChatImageAttachment(input: {
     throw new Error("Workspace or project not found");
   }
 
-  const targetPath = path.join(root.rootPath, ".tenas", "chat-history", input.sessionId, fileName);
+  const targetPath = path.join(root.rootPath, ".openloaf", "chat-history", input.sessionId, fileName);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   // 逻辑：PNG 写入 iTXt，其他格式仅写 sidecar。
   const metadataPayload = input.metadata ? serializeImageMetadata(input.metadata) : null;
@@ -736,7 +736,7 @@ export async function saveChatImageAttachmentFromPath(input: {
   /** Source relative path. */
   path: string;
   /** Optional image metadata. */
-  metadata?: TenasImageMetadataV1;
+  metadata?: OpenLoafImageMetadataV1;
 }): Promise<{ url: string; mediaType: string }> {
   const resolved = await resolveProjectFilePath({
     path: input.path,
@@ -755,7 +755,7 @@ export async function saveChatImageAttachmentFromPath(input: {
   // 中文注释：相对路径来源仍需压缩转码，统一 chat 侧尺寸与质量。
   const compressed = await compressImageBuffer(buffer, format);
   const fileName = buildChatAttachmentFileName(compressed.ext);
-  const relativePath = path.posix.join(".tenas", "chat-history", input.sessionId, fileName);
+  const relativePath = path.posix.join(".openloaf", "chat-history", input.sessionId, fileName);
   const root = await resolveChatAttachmentRoot({
     projectId: input.projectId,
     workspaceId: input.workspaceId,
@@ -763,7 +763,7 @@ export async function saveChatImageAttachmentFromPath(input: {
   if (!root) {
     throw new Error("Workspace or project not found");
   }
-  const targetPath = path.join(root.rootPath, ".tenas", "chat-history", input.sessionId, fileName);
+  const targetPath = path.join(root.rootPath, ".openloaf", "chat-history", input.sessionId, fileName);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   // 逻辑：PNG 写入 iTXt，其他格式仅写 sidecar。
   const metadataPayload = input.metadata ? serializeImageMetadata(input.metadata) : null;

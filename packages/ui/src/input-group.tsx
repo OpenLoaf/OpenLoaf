@@ -2,9 +2,9 @@ import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@tenas-ai/ui/button"
-import { Input } from "@tenas-ai/ui/input"
-import { Textarea } from "@tenas-ai/ui/textarea"
+import { Button } from "@openloaf/ui/button"
+import { Input } from "@openloaf/ui/input"
+import { Textarea } from "@openloaf/ui/textarea"
 
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (

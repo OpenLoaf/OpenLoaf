@@ -14,10 +14,10 @@ description: Use when developing, extending, or debugging the email module — c
 
 ### 存储架构（双层：文件系统 + DB 索引）
 
-邮件内容存储在文件系统（`<workspaceRoot>/.tenas/email-store/`），DB（SQLite）仅作轻量索引。同步时双写（DB + 文件），读取优先从文件。
+邮件内容存储在文件系统（`<workspaceRoot>/.openloaf/email-store/`），DB（SQLite）仅作轻量索引。同步时双写（DB + 文件），读取优先从文件。
 
 ```
-.tenas/email-store/
+.openloaf/email-store/
   <accountEmail>/                    # 小写 normalize
     mailboxes.json                   # 邮箱文件夹元数据
     drafts/<draftId>.json            # 草稿文件
@@ -31,7 +31,7 @@ description: Use when developing, extending, or debugging the email module — c
         attachments/                 # 按需下载缓存
 ```
 
-配置落地在 workspace 根目录的 `email.json`，密码与 OAuth 令牌落入 `apps/server/.env`（可用 `TENAS_SERVER_ENV_PATH` 覆盖）；DB 模型 `EmailMessage`（瘦身索引表）/ `EmailMailbox` / `EmailDraft`。Web 端包含 Desktop 收件箱 widget 和完整的撰写编辑器。
+配置落地在 workspace 根目录的 `email.json`，密码与 OAuth 令牌落入 `apps/server/.env`（可用 `OPENLOAF_SERVER_ENV_PATH` 覆盖）；DB 模型 `EmailMessage`（瘦身索引表）/ `EmailMailbox` / `EmailDraft`。Web 端包含 Desktop 收件箱 widget 和完整的撰写编辑器。
 
 ### 认证方式
 

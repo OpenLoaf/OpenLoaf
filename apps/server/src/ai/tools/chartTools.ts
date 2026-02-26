@@ -1,5 +1,5 @@
 import { tool, zodSchema } from "ai";
-import { chartRenderToolDef } from "@tenas-ai/api/types/tools/chart";
+import { chartRenderToolDef } from "@openloaf/api/types/tools/chart";
 
 /** Chart tool output payload. */
 type ChartToolOutput = { ok: true };

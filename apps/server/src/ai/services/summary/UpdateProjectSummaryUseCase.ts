@@ -1,12 +1,12 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { getProjectRootPath } from "@tenas-ai/api/services/vfsService";
-import { readProjectConfig } from "@tenas-ai/api/services/projectTreeService";
-import { readSummaryMarkdown, writeSummaryMarkdown } from "@tenas-ai/api/services/summaryStorage";
+import { getProjectRootPath } from "@openloaf/api/services/vfsService";
+import { readProjectConfig } from "@openloaf/api/services/projectTreeService";
+import { readSummaryMarkdown, writeSummaryMarkdown } from "@openloaf/api/services/summaryStorage";
 import { generateText } from "ai";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
-import { readBasicConf } from "@/modules/settings/tenasConfStore";
-import type { BasicConfig } from "@tenas-ai/api/types/basic";
+import { readBasicConf } from "@/modules/settings/openloafConfStore";
+import type { BasicConfig } from "@openloaf/api/types/basic";
 
 type UpdateProjectSummaryInput = {
   /** Project id. */
@@ -41,7 +41,7 @@ export class UpdateProjectSummaryUseCase {
       throw new Error("项目不存在");
     }
     const projectConfig = await readProjectConfig(rootPath, input.projectId);
-    const summaryPath = path.join(rootPath, ".tenas", "summary", "project.md");
+    const summaryPath = path.join(rootPath, ".openloaf", "summary", "project.md");
     const existing = await readSummaryMarkdown(summaryPath);
     // 逻辑：保留已有概览作为提示输入，避免每次重写丢失长期信息。
     const previousSummary = existing.content?.trim();

@@ -17,7 +17,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@tenas-ai/ui/breadcrumb";
+} from "@openloaf/ui/breadcrumb";
 import {
   Dialog,
   DialogClose,
@@ -25,14 +25,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
-import { Button } from "@tenas-ai/ui/button";
+} from "@openloaf/ui/dialog";
+import { Button } from "@openloaf/ui/button";
 import { PageTreePicker } from "@/components/layout/sidebar/ProjectTree";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useProjects } from "@/hooks/use-projects";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { trpc } from "@/utils/trpc";
-import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import { isBoardFileExt, isBoardFolderName } from "@/lib/file-name";
 import {
   formatScopedProjectPath,

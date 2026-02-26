@@ -3,12 +3,12 @@
 import type { FileUIPart, SourceDocumentUIPart } from "ai";
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
 
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
-} from "@tenas-ai/ui/hover-card";
+} from "@openloaf/ui/hover-card";
 import { cn } from "@/lib/utils";
 import {
   FileTextIcon,

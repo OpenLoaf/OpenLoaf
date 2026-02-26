@@ -3,15 +3,15 @@
 import { CheckCircle2, ChevronRight, ExternalLink, Plus, Settings2 } from 'lucide-react'
 import { useState } from 'react'
 
-import { Button } from '@tenas-ai/ui/button'
+import { Button } from '@openloaf/ui/button'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@tenas-ai/ui/collapsible'
-import { Input } from '@tenas-ai/ui/input'
-import { Label } from '@tenas-ai/ui/label'
-import { Switch } from '@tenas-ai/ui/switch'
+} from '@openloaf/ui/collapsible'
+import { Input } from '@openloaf/ui/input'
+import { Label } from '@openloaf/ui/label'
+import { Switch } from '@openloaf/ui/switch'
 import { cn } from '@/lib/utils'
 import type { AddDialogState } from './use-email-page-state'
 

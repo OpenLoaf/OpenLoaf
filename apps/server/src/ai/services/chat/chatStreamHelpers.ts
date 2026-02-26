@@ -1,5 +1,5 @@
 import { generateId, type UIMessage } from "ai";
-import type { TenasUIMessage } from "@tenas-ai/api/types/message";
+import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
 import { logger } from "@/common/logger";
 import {
   getRequestContext,
@@ -175,7 +175,7 @@ export async function saveLastMessageAndResolveParent(input: {
   /** Chat session id. */
   sessionId: string;
   /** Last incoming message. */
-  lastMessage: TenasUIMessage;
+  lastMessage: OpenLoafUIMessage;
   /** Request start timestamp. */
   requestStartAt: Date;
   /** Formatter for invalid request errors. */

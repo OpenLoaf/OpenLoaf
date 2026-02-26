@@ -195,10 +195,10 @@ function useFileSystemDrag({
           dragRootUriRef.current
         )
       );
-      const isElectron = isElectronEnv() && Boolean(window.tenasElectron?.startDrag);
+      const isElectron = isElectronEnv() && Boolean(window.openloafElectron?.startDrag);
       console.log("[drag-out] renderer dragstart", {
         isElectron,
-        hasApi: Boolean(window.tenasElectron?.startDrag),
+        hasApi: Boolean(window.openloafElectron?.startDrag),
       });
       if (isElectron) {
         onEntryDragStartRef.current?.(normalizedEntries, event);

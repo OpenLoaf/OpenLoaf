@@ -1,13 +1,13 @@
 import { ChevronLeft, ChevronRight, Globe, Plus, X } from "lucide-react";
-import { AnimatedTabs } from "@tenas-ai/ui/animated-tabs";
+import { AnimatedTabs } from "@openloaf/ui/animated-tabs";
 import { useTabs } from "@/hooks/use-tabs";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { DEFAULT_TAB_INFO, WORKBENCH_TAB_INPUT } from "@tenas-ai/api/common";
+import { DEFAULT_TAB_INFO, WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
 import type { TabMeta } from "@/hooks/tab-types";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
-import { Button } from "@tenas-ai/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
+import { Button } from "@openloaf/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import {
   startTransition,
   useCallback,
@@ -581,7 +581,7 @@ export const HeaderTabs = () => {
                 const thinkingBorderStyle = showThinkingBorder
                   ? ({
                       // Tab 上的彩虹边框只需要“外框”，内部填充保持与当前区域一致，避免未激活 Tab 看起来像“被选中”。
-                      ["--tenas-thinking-border-fill" as any]: isActive
+                      ["--openloaf-thinking-border-fill" as any]: isActive
                         ? "var(--color-background)"
                         : "var(--color-sidebar)",
                     } as CSSProperties)
@@ -599,7 +599,7 @@ export const HeaderTabs = () => {
                   },
                   style: thinkingBorderStyle,
                   className: showThinkingBorder
-                    ? "tenas-thinking-border tenas-thinking-border-on"
+                    ? "openloaf-thinking-border openloaf-thinking-border-on"
                     : undefined,
                 };
               }}

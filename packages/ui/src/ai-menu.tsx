@@ -45,18 +45,18 @@ import {
 } from 'platejs/react';
 import { type PlateEditor, useEditorRef } from 'platejs/react';
 
-import { Button } from '@tenas-ai/ui/button';
+import { Button } from '@openloaf/ui/button';
 import {
   Command,
   CommandGroup,
   CommandItem,
   CommandList,
-} from '@tenas-ai/ui/command';
+} from '@openloaf/ui/command';
 import {
   Popover,
   PopoverAnchor,
   PopoverContent,
-} from '@tenas-ai/ui/popover';
+} from '@openloaf/ui/popover';
 import { cn } from '@/lib/utils';
 import { commentPlugin } from '@/components/editor/plugins/comment-kit';
 

@@ -484,34 +484,34 @@ body {
 }
 
 /* AI 流式生成时输入框边框流动动画（提示“正在思考”） */
-@property --tenas-thinking-border-alpha {
+@property --openloaf-thinking-border-alpha {
   syntax: "<number>";
   inherits: true;
   initial-value: 0;
 }
 
-@property --tenas-thinking-border-base {
+@property --openloaf-thinking-border-base {
   syntax: "<color>";
   inherits: true;
   initial-value: transparent;
 }
 
-@property --tenas-thinking-border-angle {
+@property --openloaf-thinking-border-angle {
   syntax: "<angle>";
   inherits: true;
   initial-value: 0deg;
 }
 
-@keyframes tenas-thinking-border-flow {
+@keyframes openloaf-thinking-border-flow {
   0% {
-    --tenas-thinking-border-angle: 0deg;
+    --openloaf-thinking-border-angle: 0deg;
   }
   100% {
-    --tenas-thinking-border-angle: 360deg;
+    --openloaf-thinking-border-angle: 360deg;
   }
 }
 
-@keyframes tenas-tool-streaming-sweep {
+@keyframes openloaf-tool-streaming-sweep {
   0% {
     background-position: 200% 50%;
   }
@@ -521,7 +521,7 @@ body {
 }
 
 /* 子Agent 思考中扫描文字 */
-@keyframes tenas-thinking-scan {
+@keyframes openloaf-thinking-scan {
   0% {
     background-position: 0% 50%;
   }
@@ -588,14 +588,14 @@ body {
   animation: desktop-trash-wiggle 520ms ease-in-out infinite;
 }
 
-.tenas-thinking-scan {
+.openloaf-thinking-scan {
   background-size: 200% 100%;
   background-position: 0% 50%;
-  animation: tenas-thinking-scan 1.2s linear infinite;
+  animation: openloaf-thinking-scan 1.2s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tenas-thinking-scan {
+  .openloaf-thinking-scan {
     animation: none;
   }
   .desktop-edit-action-button[data-wiggle="true"] .desktop-edit-action-icon {
@@ -609,57 +609,57 @@ body {
   }
 }
 
-.tenas-thinking-border {
-  --tenas-thinking-border-alpha: 0;
+.openloaf-thinking-border {
+  --openloaf-thinking-border-alpha: 0;
   /* 基础边框颜色单独抽出，聚焦/错误态只需覆盖变量即可。 */
-  --tenas-thinking-border-base: var(--color-border);
-  --tenas-thinking-border-width: 2px;
+  --openloaf-thinking-border-base: var(--color-border);
+  --openloaf-thinking-border-width: 2px;
   /* 关键：用双背景 + background-clip 实现“挖空”，避免 mask 在圆角处产生锯齿 */
-  border: var(--tenas-thinking-border-width) solid transparent;
+  border: var(--openloaf-thinking-border-width) solid transparent;
   background:
-    linear-gradient(var(--tenas-thinking-border-fill, var(--color-background)), var(--tenas-thinking-border-fill, var(--color-background))) padding-box,
+    linear-gradient(var(--openloaf-thinking-border-fill, var(--color-background)), var(--openloaf-thinking-border-fill, var(--color-background))) padding-box,
     conic-gradient(
-      from var(--tenas-thinking-border-angle),
-      hsl(0 100% 60% / var(--tenas-thinking-border-alpha)),
-      hsl(30 100% 60% / var(--tenas-thinking-border-alpha)),
-      hsl(60 100% 60% / var(--tenas-thinking-border-alpha)),
-      hsl(120 100% 55% / var(--tenas-thinking-border-alpha)),
-      hsl(180 100% 55% / var(--tenas-thinking-border-alpha)),
-      hsl(210 100% 60% / var(--tenas-thinking-border-alpha)),
-      hsl(270 100% 65% / var(--tenas-thinking-border-alpha)),
-      hsl(330 100% 60% / var(--tenas-thinking-border-alpha)),
-      hsl(0 100% 60% / var(--tenas-thinking-border-alpha))
+      from var(--openloaf-thinking-border-angle),
+      hsl(0 100% 60% / var(--openloaf-thinking-border-alpha)),
+      hsl(30 100% 60% / var(--openloaf-thinking-border-alpha)),
+      hsl(60 100% 60% / var(--openloaf-thinking-border-alpha)),
+      hsl(120 100% 55% / var(--openloaf-thinking-border-alpha)),
+      hsl(180 100% 55% / var(--openloaf-thinking-border-alpha)),
+      hsl(210 100% 60% / var(--openloaf-thinking-border-alpha)),
+      hsl(270 100% 65% / var(--openloaf-thinking-border-alpha)),
+      hsl(330 100% 60% / var(--openloaf-thinking-border-alpha)),
+      hsl(0 100% 60% / var(--openloaf-thinking-border-alpha))
     ) border-box,
-    linear-gradient(var(--tenas-thinking-border-base), var(--tenas-thinking-border-base)) border-box;
+    linear-gradient(var(--openloaf-thinking-border-base), var(--openloaf-thinking-border-base)) border-box;
   background-clip: padding-box, border-box, border-box;
   background-origin: border-box;
-  transition: --tenas-thinking-border-alpha 200ms ease-out;
+  transition: --openloaf-thinking-border-alpha 200ms ease-out;
 }
 
-.tenas-thinking-border-focus {
-  --tenas-thinking-border-base: var(--color-primary);
+.openloaf-thinking-border-focus {
+  --openloaf-thinking-border-base: var(--color-primary);
 }
 
-.tenas-thinking-border-danger {
-  --tenas-thinking-border-base: var(--color-destructive);
+.openloaf-thinking-border-danger {
+  --openloaf-thinking-border-base: var(--color-destructive);
 }
 
-.tenas-thinking-border-on {
-  --tenas-thinking-border-alpha: 1;
-  animation: tenas-thinking-border-flow 3s linear infinite;
+.openloaf-thinking-border-on {
+  --openloaf-thinking-border-alpha: 1;
+  animation: openloaf-thinking-border-flow 3s linear infinite;
 }
 
-.tenas-thinking-border-static {
-  --tenas-thinking-border-alpha: 1;
+.openloaf-thinking-border-static {
+  --openloaf-thinking-border-alpha: 1;
   animation: none;
 }
 
-.tenas-tool-streaming {
+.openloaf-tool-streaming {
   position: relative;
   overflow: hidden;
 }
 
-.tenas-tool-streaming::before {
+.openloaf-tool-streaming::before {
   content: "";
   position: absolute;
   inset: -20% 0;
@@ -678,22 +678,22 @@ body {
   background-size: 200% 100%;
   background-position: 0% 50%;
   filter: blur(4px);
-  animation: tenas-tool-streaming-sweep 2.2s linear infinite;
+  animation: openloaf-tool-streaming-sweep 2.2s linear infinite;
   will-change: background-position;
   pointer-events: none;
 }
 
-.tenas-tool-streaming > * {
+.openloaf-tool-streaming > * {
   position: relative;
   z-index: 1;
 }
 
-.tenas-rainbow-sweep {
+.openloaf-rainbow-sweep {
   position: relative;
   overflow: hidden;
 }
 
-.tenas-rainbow-sweep::before {
+.openloaf-rainbow-sweep::before {
   content: "";
   position: absolute;
   inset: -20% 0;
@@ -712,12 +712,12 @@ body {
   background-size: 200% 100%;
   background-position: 200% 50%;
   filter: blur(4px);
-  animation: tenas-tool-streaming-sweep 2.2s linear infinite;
+  animation: openloaf-tool-streaming-sweep 2.2s linear infinite;
   will-change: background-position;
   pointer-events: none;
 }
 
-.tenas-rainbow-sweep > * {
+.openloaf-rainbow-sweep > * {
   position: relative;
   z-index: 1;
 }
@@ -785,7 +785,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tenas-thinking-border-on {
+  .openloaf-thinking-border-on {
     animation: none;
   }
 }

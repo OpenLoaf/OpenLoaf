@@ -1,4 +1,4 @@
-import { clearAuthRefreshToken, readAuthRefreshToken, writeAuthRefreshToken } from "@/modules/settings/tenasConfStore";
+import { clearAuthRefreshToken, readAuthRefreshToken, writeAuthRefreshToken } from "@/modules/settings/openloafConfStore";
 
 export type AuthUser = {
   /** User subject id. */

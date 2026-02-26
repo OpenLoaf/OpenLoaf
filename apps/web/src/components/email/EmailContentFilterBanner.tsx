@@ -3,7 +3,7 @@
 import { useCallback, useRef } from 'react'
 import { ShieldAlert } from 'lucide-react'
 
-import { Button } from '@tenas-ai/ui/button'
+import { Button } from '@openloaf/ui/button'
 
 type EmailContentFilterBannerProps = {
   showingRawHtml: boolean

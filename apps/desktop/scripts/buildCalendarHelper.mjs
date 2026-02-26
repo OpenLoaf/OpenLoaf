@@ -45,7 +45,7 @@ function removeDirSafe(dirPath) {
  */
 function buildMacHelper() {
   const sourcePath = join(rootDir, "resources", "calendar", "macos", "CalendarHelper.swift");
-  const outputPath = join(rootDir, "resources", "calendar", "macos", "tenas-calendar");
+  const outputPath = join(rootDir, "resources", "calendar", "macos", "openloaf-calendar");
 
   assertFileExists(sourcePath, "CalendarHelper.swift");
   runCommand("xcrun", [
@@ -68,12 +68,12 @@ function buildMacHelper() {
  * Build the Windows calendar helper via dotnet publish.
  */
 function buildWindowsHelper() {
-  const projectPath = join(rootDir, "resources", "calendar", "windows", "TenasCalendar.csproj");
+  const projectPath = join(rootDir, "resources", "calendar", "windows", "OpenLoafCalendar.csproj");
   const outputDir = join(rootDir, "resources", "calendar", "windows", "publish");
-  const outputBinary = join(rootDir, "resources", "calendar", "windows", "tenas-calendar.exe");
+  const outputBinary = join(rootDir, "resources", "calendar", "windows", "openloaf-calendar.exe");
   const runtime = process.arch === "arm64" ? "win-arm64" : "win-x64";
 
-  assertFileExists(projectPath, "TenasCalendar.csproj");
+  assertFileExists(projectPath, "OpenLoafCalendar.csproj");
   mkdirSync(outputDir, { recursive: true });
 
   runCommand("dotnet", [
@@ -90,7 +90,7 @@ function buildWindowsHelper() {
     outputDir,
   ]);
 
-  const builtBinary = join(outputDir, "tenas-calendar.exe");
+  const builtBinary = join(outputDir, "openloaf-calendar.exe");
   assertFileExists(builtBinary, "Calendar helper binary");
   // 逻辑：从 publish 输出物中提取单文件可执行程序。
   copyFileSync(builtBinary, outputBinary);

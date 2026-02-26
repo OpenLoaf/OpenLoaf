@@ -1,5 +1,5 @@
 import { EnvHttpProxyAgent, setGlobalDispatcher } from "undici";
-import { getEnvString } from "@tenas-ai/config";
+import { getEnvString } from "@openloaf/config";
 
 type ProxyConfig = {
   httpProxy?: string;
@@ -25,17 +25,17 @@ function ensureLocalNoProxy(raw?: string): string {
 }
 
 /**
- * Read proxy settings from env vars with Tenas overrides.
+ * Read proxy settings from env vars with OpenLoaf overrides.
  */
 function readProxyConfig(env: Record<string, string | undefined> = process.env): ProxyConfig {
   return {
-    httpProxy: getEnvString(env, "TENAS_HTTP_PROXY")
+    httpProxy: getEnvString(env, "OPENLOAF_HTTP_PROXY")
       ?? getEnvString(env, "HTTP_PROXY")
       ?? getEnvString(env, "http_proxy"),
-    httpsProxy: getEnvString(env, "TENAS_HTTPS_PROXY")
+    httpsProxy: getEnvString(env, "OPENLOAF_HTTPS_PROXY")
       ?? getEnvString(env, "HTTPS_PROXY")
       ?? getEnvString(env, "https_proxy"),
-    noProxy: getEnvString(env, "TENAS_NO_PROXY")
+    noProxy: getEnvString(env, "OPENLOAF_NO_PROXY")
       ?? getEnvString(env, "NO_PROXY")
       ?? getEnvString(env, "no_proxy"),
   };
@@ -57,7 +57,7 @@ export function installHttpProxy(): void {
   const mergedNoProxy = ensureLocalNoProxy(config.noProxy);
 
   // 流程说明：
-  // 1) 读取 Tenas 覆盖与标准代理环境变量
+  // 1) 读取 OpenLoaf 覆盖与标准代理环境变量
   // 2) 将覆盖值回写到标准 env key，确保 undici 能读取
   // 3) 设置全局 dispatcher，让 fetch/AI SDK 等请求走代理
   if (config.httpProxy) {

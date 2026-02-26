@@ -1,18 +1,18 @@
 import type React from 'react'
 import type { ReactNode } from 'react'
 import { useCallback, useMemo, useState } from 'react'
-import type { EventFormProps } from '@tenas-ai/ui/calendar/components/event-form/event-form'
-import type { BusinessHours, CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
+import type { EventFormProps } from '@openloaf/ui/calendar/components/event-form/event-form'
+import type { BusinessHours, CalendarEvent } from '@openloaf/ui/calendar/components/types'
 import type {
 	CalendarClassesOverride,
 	CellClickInfo,
 	RenderCurrentTimeIndicatorProps,
-} from '@tenas-ai/ui/calendar/features/calendar/types'
-import { useCalendarEngine } from '@tenas-ai/ui/calendar/hooks/use-calendar-engine'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { GAP_BETWEEN_ELEMENTS } from '@tenas-ai/ui/calendar/lib/constants'
-import type { Translations, TranslatorFunction } from '@tenas-ai/ui/calendar/lib/translations/types'
-import type { CalendarView, TimeFormat } from '@tenas-ai/ui/calendar/types'
+} from '@openloaf/ui/calendar/features/calendar/types'
+import { useCalendarEngine } from '@openloaf/ui/calendar/hooks/use-calendar-engine'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { GAP_BETWEEN_ELEMENTS } from '@openloaf/ui/calendar/lib/constants'
+import type { Translations, TranslatorFunction } from '@openloaf/ui/calendar/lib/translations/types'
+import type { CalendarView, TimeFormat } from '@openloaf/ui/calendar/types'
 import { CalendarContext } from './context'
 
 export interface CalendarProviderProps {

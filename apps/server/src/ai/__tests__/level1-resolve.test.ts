@@ -2,7 +2,7 @@
  * Level 1 — 验证 providers.json 加载 + 模型解析。
  *
  * 用法：
- *   TENAS_TEST_CHAT_MODEL_ID="profileId:modelId" pnpm run test:ai:resolve
+ *   OPENLOAF_TEST_CHAT_MODEL_ID="profileId:modelId" pnpm run test:ai:resolve
  */
 import {
   getTestChatModelId,

@@ -26,7 +26,7 @@ import {
   getUiWriter,
   getWorkspaceId,
 } from "@/ai/shared/context/requestContext";
-import { getProjectRootPath, getWorkspaceRootPathById } from "@tenas-ai/api/services/vfsService";
+import { getProjectRootPath, getWorkspaceRootPathById } from "@openloaf/api/services/vfsService";
 import { getCodexAppServerConnection } from "@/ai/models/cli/codex/codexAppServerConnection";
 import {
   getCachedCodexThread,

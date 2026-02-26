@@ -2,14 +2,14 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { DEFAULT_TAB_INFO, WORKBENCH_TAB_INPUT, type DockItem } from "@tenas-ai/api/common";
+import { DEFAULT_TAB_INFO, WORKBENCH_TAB_INPUT, type DockItem } from "@openloaf/api/common";
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { useChatRuntime } from "./use-chat-runtime";
 import { useTabRuntime } from "./use-tab-runtime";
 import type { TabMeta } from "./tab-types";
 import { LEFT_DOCK_DEFAULT_PERCENT, LEFT_DOCK_MIN_PX } from "./tab-utils";
 
-export const TABS_STORAGE_KEY = "tenas:tabs";
+export const TABS_STORAGE_KEY = "openloaf:tabs";
 export { LEFT_DOCK_DEFAULT_PERCENT, LEFT_DOCK_MIN_PX };
 
 type AddTabInput = {

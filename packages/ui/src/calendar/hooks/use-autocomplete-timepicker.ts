@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { TimeFormat } from '@tenas-ai/ui/calendar/types'
+import type { TimeFormat } from '@openloaf/ui/calendar/types'
 
 interface UseAutocompleteTimepickerProps {
 	timeFormat?: TimeFormat

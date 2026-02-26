@@ -13,7 +13,7 @@ description: Use when developing or debugging calendar business logic in this re
 
 - **CalendarSource（来源）**：区分 `provider=local` 与系统来源，`kind=calendar|reminder`，`readOnly/isSubscribed` 决定是否允许写入。
 - **CalendarItemRecord（持久化记录）**：从 `trpc.calendar.listItems` 返回，字段含 `sourceId/startAt/endAt/recurrenceRule/externalId/completedAt`。
-- **CalendarEvent（日历引擎事件）**：`@tenas-ai/ui/calendar` 使用的事件结构，业务字段塞进 `event.data`。
+- **CalendarEvent（日历引擎事件）**：`@openloaf/ui/calendar` 使用的事件结构，业务字段塞进 `event.data`。
 - **重复事件字段**：`rrule/exdates/recurrenceId/uid`，配合 `RecurrenceEditScope` 处理。
 
 ## 业务流与规则
@@ -35,7 +35,7 @@ description: Use when developing or debugging calendar business logic in this re
 - `toCalendarEvent`：`CalendarItemRecord -> CalendarEvent`
   - 提醒事项 `end <= start` 时强制 `end = start.endOf("day")` 且 `allDay=true`，避免渲染成跨天块。
   - `event.data` 必须带 `calendarId/kind/completed/externalId/sourceExternalId/provider/readOnly/isSubscribed`。
-- `toSystemEvent`：`CalendarEvent -> TenasCalendarEvent`
+- `toSystemEvent`：`CalendarEvent -> OpenLoafCalendarEvent`
   - 提醒事项 `allDay` 用本地日期中午作为锚点，避免时区回退。
   - `calendarId` 用 `sourceExternalId`，`id` 用 `externalId`（系统事件必须有）。
 

@@ -2,7 +2,7 @@
 
 import { ArrowLeft } from "lucide-react";
 
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
+} from "@openloaf/ui/dialog";
 
 import { getProviderById } from "./email-provider-presets";
 import type { AddDialogState } from "./use-email-page-state";

@@ -23,37 +23,37 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from "@tenas-ai/ui/command";
+} from "@openloaf/ui/command";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@tenas-ai/ui/dropdown-menu";
+} from "@openloaf/ui/dropdown-menu";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
-} from "@tenas-ai/ui/hover-card";
+} from "@openloaf/ui/hover-card";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupTextarea,
-} from "@tenas-ai/ui/input-group";
+} from "@openloaf/ui/input-group";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@tenas-ai/ui/select";
-import { Spinner } from "@tenas-ai/ui/spinner";
+} from "@openloaf/ui/select";
+import { Spinner } from "@openloaf/ui/spinner";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@tenas-ai/ui/tooltip";
+} from "@openloaf/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   CornerDownLeftIcon,

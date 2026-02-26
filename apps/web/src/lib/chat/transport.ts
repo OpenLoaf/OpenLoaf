@@ -3,7 +3,7 @@
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "@ai-sdk/react";
 import type { RefObject } from "react";
-import type { ChatRequestBody } from "@tenas-ai/api/types/message";
+import type { ChatRequestBody } from "@openloaf/api/types/message";
 import { getWebClientId } from "./streamClientId";
 import { resolveServerUrl } from "@/utils/server-url";
 import { getClientTimeZone } from "@/utils/time-zone";

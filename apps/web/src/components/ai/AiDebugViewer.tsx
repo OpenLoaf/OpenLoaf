@@ -9,10 +9,10 @@ import {
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
-} from '@tenas-ai/ui/accordion'
+} from '@openloaf/ui/accordion'
 import { Streamdown, defaultRemarkPlugins, type StreamdownProps } from 'streamdown'
 import { Copy, FolderOpen } from 'lucide-react'
-import { Button } from '@tenas-ai/ui/button'
+import { Button } from '@openloaf/ui/button'
 import { useWorkspace } from '@/components/workspace/workspaceContext'
 import { toast } from 'sonner'
 
@@ -96,7 +96,7 @@ export default function AiDebugViewer({
 
   const handleOpenFolder = useCallback(async () => {
     if (!jsonlPath) return
-    const api = window.tenasElectron
+    const api = window.openloafElectron
     if (api?.openPath) {
       const folderPath = jsonlPath.replace(/\/[^/]*$/, '')
       await api.openPath({ uri: `file://${folderPath}` })

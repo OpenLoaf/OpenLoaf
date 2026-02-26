@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { getTenasRootDir } from "@tenas-ai/config";
+import { getOpenLoafRootDir } from "@openloaf/config";
 
 type LocalAuthFile = {
   /** Local auth configuration payload. */
@@ -28,7 +28,7 @@ const SESSION_SECRET_LENGTH = 32;
 
 /** Resolve config directory. */
 function getConfigDir(): string {
-  return getTenasRootDir();
+  return getOpenLoafRootDir();
 }
 
 /** Resolve local-auth.json path. */

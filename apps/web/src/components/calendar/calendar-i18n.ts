@@ -1,4 +1,4 @@
-import type { IlamyCalendarProps } from "@tenas-ai/ui/calendar";
+import type { IlamyCalendarProps } from "@openloaf/ui/calendar";
 
 export type LanguageId = "zh-CN" | "en-US" | "ja-JP" | "ko-KR" | "fr-FR" | "de-DE" | "es-ES";
 

@@ -13,7 +13,7 @@ import { useChatActions, useChatSession, useChatState, useChatTools } from "../c
 import { messageHasVisibleContent } from "@/lib/chat/message-visible";
 import type { ChatAttachment } from "../input/chat-attachments";
 import { fetchBlobFromUri, resolveBaseName, resolveFileName } from "@/lib/image/uri";
-import type { ChatMessageKind } from "@tenas-ai/api";
+import type { ChatMessageKind } from "@openloaf/api";
 import { getMessagePlainText } from "@/lib/chat/message-text";
 import { normalizeFileMentionSpacing } from "@/components/ai/input/chat-input-utils";
 import CompactSummaryDivider from "./CompactSummaryDivider";

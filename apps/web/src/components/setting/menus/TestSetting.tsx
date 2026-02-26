@@ -1,22 +1,22 @@
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   BROWSER_WINDOW_COMPONENT,
   BROWSER_WINDOW_PANEL_ID,
   TERMINAL_WINDOW_COMPONENT,
   TERMINAL_WINDOW_PANEL_ID,
-} from "@tenas-ai/api/common";
+} from "@openloaf/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { Globe } from "lucide-react";
 import { memo } from "react";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
+import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
+import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { toast } from "sonner";
 import { useTerminalStatus } from "@/hooks/use-terminal-status";
 import { useBasicConfig } from "@/hooks/use-basic-config";
-import { Switch } from "@tenas-ai/ui/switch";
+import { Switch } from "@openloaf/ui/switch";
 import { isElectronEnv } from "@/utils/is-electron-env";
 
 /** Setup entry route. */
@@ -123,7 +123,7 @@ const TestSetting = memo(function TestSetting() {
 
   return (
     <div className="space-y-6">
-      <TenasSettingsGroup title="实验功能">
+      <OpenLoafSettingsGroup title="实验功能">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 py-3">
             <div className="min-w-0">
@@ -132,7 +132,7 @@ const TestSetting = memo(function TestSetting() {
                 快速创建用于测试的 stack 卡片
               </div>
             </div>
-            <TenasSettingsField className="flex-wrap gap-2">
+            <OpenLoafSettingsField className="flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={handleCreateThreeStacks}>
                 Stack: Create 3 (demo)
               </Button>
@@ -162,7 +162,7 @@ const TestSetting = memo(function TestSetting() {
               >
                 Stack: Tool Result (demo)
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-3 py-3">
@@ -172,7 +172,7 @@ const TestSetting = memo(function TestSetting() {
                 触发内置面板或浏览器窗口
               </div>
             </div>
-            <TenasSettingsField className="flex-wrap gap-2">
+            <OpenLoafSettingsField className="flex-wrap gap-2">
               {terminalStatus.enabled ? (
                 <Button size="sm" variant="outline" onClick={handleOpenWorkspaceTerminal}>
                   Stack: Terminal (workspace)
@@ -235,7 +235,7 @@ const TestSetting = memo(function TestSetting() {
                   </Button>
                 </>
               ) : null}
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-3 py-3">
@@ -245,7 +245,7 @@ const TestSetting = memo(function TestSetting() {
                 显示性能面板（FPS/裁剪/帧时间）
               </div>
             </div>
-            <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+            <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
               <Switch
                 checked={Boolean(basic.boardDebugEnabled)}
                 onCheckedChange={(checked) => {
@@ -254,7 +254,7 @@ const TestSetting = memo(function TestSetting() {
                 }}
                 aria-label="Board debug overlay"
               />
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-3 py-3">
@@ -264,31 +264,31 @@ const TestSetting = memo(function TestSetting() {
                 开启后在 Chat Header 显示调试按钮，并在每次请求时保存完整的系统提示词和工具列表到 system.json
               </div>
             </div>
-            <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+            <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
               <Switch
                 checked={Boolean(basic.chatPrefaceEnabled)}
                 onCheckedChange={handleToggleChatPreface}
                 aria-label="Chat preface viewer"
               />
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
-      <TenasSettingsGroup title="操作">
+      <OpenLoafSettingsGroup title="操作">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 py-3">
             <div className="text-sm font-medium">重新进入初始化</div>
-            <TenasSettingsField>
+            <OpenLoafSettingsField>
               <Button type="button" variant="outline" size="sm" onClick={handleRestartSetup}>
                 进入
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
-      <TenasSettingsGroup title="Stack 状态">
+      <OpenLoafSettingsGroup title="Stack 状态">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 py-3">
             <div className="min-w-0">
@@ -297,7 +297,7 @@ const TestSetting = memo(function TestSetting() {
                 当前 tab 的 stack items 数量
               </div>
             </div>
-            <TenasSettingsField className="gap-3">
+            <OpenLoafSettingsField className="gap-3">
               <span className="text-xs text-muted-foreground tabular-nums">
                 {activeStackCount}
               </span>
@@ -312,10 +312,10 @@ const TestSetting = memo(function TestSetting() {
               >
                 清空
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
     </div>
   );
 });

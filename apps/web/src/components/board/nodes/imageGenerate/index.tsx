@@ -9,8 +9,8 @@ import { getWorkspaceIdFromCookie } from "../../core/boardSession";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import type { ImageNodeProps } from "../ImageNode";
-import { Input } from "@tenas-ai/ui/input";
-import { Textarea } from "@tenas-ai/ui/textarea";
+import { Input } from "@openloaf/ui/input";
+import { Textarea } from "@openloaf/ui/textarea";
 import {
   IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
   IMAGE_GENERATE_MAX_INPUT_IMAGES,

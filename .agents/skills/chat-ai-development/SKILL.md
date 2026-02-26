@@ -11,7 +11,7 @@ description: >
 
 ## Overview
 
-Chat & AI 系统分为前端 Chat UI 和后端 AI Agent 两层。前端基于 Vercel AI SDK `useChat` + 5 个 Context Provider 管理聊天状态；后端基于 `ToolLoopAgent` + `AsyncLocalStorage` 实现工具循环代理。两层通过 SSE 流式通信，工具接口通过 `@tenas-ai/api/types/tools/` 共享类型定义对齐。
+Chat & AI 系统分为前端 Chat UI 和后端 AI Agent 两层。前端基于 Vercel AI SDK `useChat` + 5 个 Context Provider 管理聊天状态；后端基于 `ToolLoopAgent` + `AsyncLocalStorage` 实现工具循环代理。两层通过 SSE 流式通信，工具接口通过 `@openloaf/api/types/tools/` 共享类型定义对齐。
 
 ## When to Use
 
@@ -46,7 +46,7 @@ Chat & AI 系统分为前端 Chat UI 和后端 AI Agent 两层。前端基于 Ve
 │      │     └── ToolLoopAgent (tools from toolRegistry)  │
 │      └── streamOrchestrator → UIMessageStreamWriter     │
 │                                                         │
-│  @tenas-ai/api/types/tools/ ← 前后端共享工具类型定义     │
+│  @openloaf/api/types/tools/ ← 前后端共享工具类型定义     │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -144,7 +144,7 @@ packages/api/src/types/tools/    ← 前后端共享工具类型定义 (ToolDef)
 | `shared/context/requestContext.ts` 上下文字段变更 | ai-backend.md |
 | `services/chat/` 流式管线变更 | ai-backend.md |
 | `tools/commandApproval.ts` 审批逻辑变更 | ai-backend.md |
-| `@tenas-ai/api/types/tools/` 新增工具定义 | fullstack-patterns.md |
+| `@openloaf/api/types/tools/` 新增工具定义 | fullstack-patterns.md |
 | `tools/pendingRegistry.ts` 前端执行机制变更 | fullstack-patterns.md |
 | `lib/chat/frontend-tool-executor.ts` 执行器变更 | fullstack-patterns.md |
 | `interface/routes/frontendToolAckRoutes.ts` 回执路由变更 | fullstack-patterns.md |

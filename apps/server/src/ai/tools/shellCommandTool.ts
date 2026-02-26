@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { tool, zodSchema } from "ai";
-import { shellCommandToolDef } from "@tenas-ai/api/types/tools/runtime";
-import { readBasicConf } from "@/modules/settings/tenasConfStore";
+import { shellCommandToolDef } from "@openloaf/api/types/tools/runtime";
+import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { resolveToolWorkdir } from "@/ai/tools/toolScope";
 import { buildExecEnv, formatFreeformOutput } from "@/ai/tools/execUtils";
 import { needsApprovalForCommand } from "@/ai/tools/commandApproval";

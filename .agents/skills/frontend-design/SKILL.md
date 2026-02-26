@@ -41,7 +41,7 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 
 Remember: Claude is capable of extraordinary creative work. Don't hold back, show what can truly be created when thinking outside the box and committing fully to a distinctive vision.
 
-## Tenas Project Button Color Standard (From Email Module)
+## OpenLoaf Project Button Color Standard (From Email Module)
 
 When working in this repo, button colors should default to the email module palette unless a feature explicitly defines another brand/system palette.
 

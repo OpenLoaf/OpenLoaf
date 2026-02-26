@@ -31,39 +31,39 @@ import { requestUserInputTool } from "@/ai/tools/requestUserInputTool";
 import { jsxCreateTool } from "@/ai/tools/jsxCreateTool";
 import { jsReplTool, jsReplResetTool } from "@/ai/tools/jsReplTool";
 import { chartRenderTool } from "@/ai/tools/chartTools";
-import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
+import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
   browserActToolDef,
   browserExtractToolDef,
   browserObserveToolDef,
   browserSnapshotToolDef,
   browserWaitToolDef,
-} from "@tenas-ai/api/types/tools/browserAutomation";
-import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
-import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
+} from "@openloaf/api/types/tools/browserAutomation";
+import { timeNowToolDef } from "@openloaf/api/types/tools/system";
+import { testApprovalToolDef } from "@openloaf/api/types/tools/approvalTest";
 import {
   spawnAgentToolDef,
   sendInputToolDef,
   waitAgentToolDef,
   abortAgentToolDef,
-} from "@tenas-ai/api/types/tools/agent";
-import { projectMutateToolDef, projectQueryToolDef } from "@tenas-ai/api/types/tools/db";
+} from "@openloaf/api/types/tools/agent";
+import { projectMutateToolDef, projectQueryToolDef } from "@openloaf/api/types/tools/db";
 import {
   calendarMutateToolDef,
   calendarQueryToolDef,
-} from "@tenas-ai/api/types/tools/calendar";
+} from "@openloaf/api/types/tools/calendar";
 import {
   emailMutateToolDef,
   emailQueryToolDef,
-} from "@tenas-ai/api/types/tools/email";
-import { officeExecuteToolDef } from "@tenas-ai/api/types/tools/office";
+} from "@openloaf/api/types/tools/email";
+import { officeExecuteToolDef } from "@openloaf/api/types/tools/office";
 import {
   imageGenerateToolDef,
   videoGenerateToolDef,
-} from "@tenas-ai/api/types/tools/mediaGenerate";
-import { requestUserInputToolDef } from "@tenas-ai/api/types/tools/userInput";
-import { jsxCreateToolDef } from "@tenas-ai/api/types/tools/jsxCreate";
-import { chartRenderToolDef } from "@tenas-ai/api/types/tools/chart";
+} from "@openloaf/api/types/tools/mediaGenerate";
+import { requestUserInputToolDef } from "@openloaf/api/types/tools/userInput";
+import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
+import { chartRenderToolDef } from "@openloaf/api/types/tools/chart";
 import {
   listDirToolDef,
   readFileToolDef,
@@ -77,14 +77,14 @@ import {
   updatePlanToolDef,
   jsReplToolDef,
   jsReplResetToolDef,
-} from "@tenas-ai/api/types/tools/runtime";
-import { generateWidgetToolDef } from "@tenas-ai/api/types/tools/widget";
+} from "@openloaf/api/types/tools/runtime";
+import { generateWidgetToolDef } from "@openloaf/api/types/tools/widget";
 import {
   widgetCheckToolDef,
   widgetGetToolDef,
   widgetInitToolDef,
   widgetListToolDef,
-} from "@tenas-ai/api/types/tools/widget";
+} from "@openloaf/api/types/tools/widget";
 import {
   browserActTool,
   browserExtractTool,

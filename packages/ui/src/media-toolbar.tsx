@@ -22,13 +22,13 @@ import {
   useSelected,
 } from 'platejs/react';
 
-import { Button, buttonVariants } from '@tenas-ai/ui/button';
+import { Button, buttonVariants } from '@openloaf/ui/button';
 import {
   Popover,
   PopoverAnchor,
   PopoverContent,
-} from '@tenas-ai/ui/popover';
-import { Separator } from '@tenas-ai/ui/separator';
+} from '@openloaf/ui/popover';
+import { Separator } from '@openloaf/ui/separator';
 
 import { CaptionButton } from './caption';
 

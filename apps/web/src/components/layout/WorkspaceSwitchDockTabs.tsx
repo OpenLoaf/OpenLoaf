@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/ExpandableDockTabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useTabs } from "@/hooks/use-tabs";
-import { WORKBENCH_TAB_INPUT } from "@tenas-ai/api/common";
+import { WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
 import { CalendarDays, Clock, LayoutDashboard, Mail } from "lucide-react";
 import { useMemo } from "react";
 

@@ -13,7 +13,7 @@
 **排查**
 - 检查 `[frontend-tool]` 日志与 `/ai/tools/ack` 请求。
 - 确认 `frontend-tool-executor.ts` 的 open-url handler 被注册。
-- Electron 下确认 `tenas:webcontents-view:status` 事件有输出。
+- Electron 下确认 `openloaf:webcontents-view:status` 事件有输出。
 
 ## 页面一直 loading / overlay 不消失
 
@@ -51,7 +51,7 @@
 
 **排查**
 - Electron 主进程日志 `[webcontents-view] window-open`。
-- Renderer 监听 `tenas:webcontents-view:window-open`。
+- Renderer 监听 `openloaf:webcontents-view:window-open`。
 
 ## 收藏/最近关闭不更新
 
@@ -62,5 +62,5 @@
 - localStorage 写入失败或事件未触发。
 
 **排查**
-- 检查 `tenas:browser-storage` 事件是否触发。
+- 检查 `openloaf:browser-storage` 事件是否触发。
 - 校验 localStorage key 是否正确。

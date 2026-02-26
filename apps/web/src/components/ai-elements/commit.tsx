@@ -2,13 +2,13 @@
 
 import type { ComponentProps, HTMLAttributes } from "react";
 
-import { Avatar, AvatarFallback } from "@tenas-ai/ui/avatar";
-import { Button } from "@tenas-ai/ui/button";
+import { Avatar, AvatarFallback } from "@openloaf/ui/avatar";
+import { Button } from "@openloaf/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@tenas-ai/ui/collapsible";
+} from "@openloaf/ui/collapsible";
 import { cn } from "@/lib/utils";
 import {
   CheckIcon,

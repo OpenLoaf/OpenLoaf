@@ -7,12 +7,12 @@ import {
   getWorkspaceById,
   getWorkspaceRootPath,
   getWorkspaceRootPathById,
-} from "@tenas-ai/api/services/vfsService";
+} from "@openloaf/api/services/vfsService";
 import type { PromptContext } from "@/ai/shared/types";
 import { loadSkillSummaries, type SkillSummary } from "@/ai/services/skillsLoader";
 import { resolvePythonInstallInfo } from "@/ai/models/cli/pythonTool";
 import { getAuthSessionSnapshot } from "@/modules/auth/tokenStore";
-import { readBasicConf } from "@/modules/settings/tenasConfStore";
+import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { logger } from "@/common/logger";
 import { buildMasterAgentSections } from "@/ai/shared/promptBuilder";
 import { assembleMemorySection } from "@/ai/shared/agentPromptAssembler";
@@ -20,7 +20,7 @@ import { assembleMemorySection } from "@/ai/shared/agentPromptAssembler";
 /** Unknown value fallback. */
 const UNKNOWN_VALUE = "unknown";
 /** Project metadata folder name. */
-const PROJECT_META_DIR = ".tenas";
+const PROJECT_META_DIR = ".openloaf";
 /** Project metadata file name. */
 const PROJECT_META_FILE = "project.json";
 /** Root rules file name. */

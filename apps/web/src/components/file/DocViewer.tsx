@@ -27,19 +27,19 @@ import { ReadFileErrorFallback } from "@/components/file/lib/read-file-error";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { resolveFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@tenas-ai/ui/dropdown-menu";
-import { Editor, EditorContainer } from "@tenas-ai/ui/editor";
-import { EditorStatic } from "@tenas-ai/ui/editor-static";
-import { RedoToolbarButton, UndoToolbarButton } from "@tenas-ai/ui/history-toolbar-button";
-import { BulletedListToolbarButton, NumberedListToolbarButton } from "@tenas-ai/ui/list-toolbar-button";
-import { MarkToolbarButton } from "@tenas-ai/ui/mark-toolbar-button";
-import { Toolbar, ToolbarButton, ToolbarGroup } from "@tenas-ai/ui/toolbar";
+} from "@openloaf/ui/dropdown-menu";
+import { Editor, EditorContainer } from "@openloaf/ui/editor";
+import { EditorStatic } from "@openloaf/ui/editor-static";
+import { RedoToolbarButton, UndoToolbarButton } from "@openloaf/ui/history-toolbar-button";
+import { BulletedListToolbarButton, NumberedListToolbarButton } from "@openloaf/ui/list-toolbar-button";
+import { MarkToolbarButton } from "@openloaf/ui/mark-toolbar-button";
+import { Toolbar, ToolbarButton, ToolbarGroup } from "@openloaf/ui/toolbar";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";

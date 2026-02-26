@@ -1,12 +1,12 @@
 import type React from 'react'
 import { useMemo } from 'react'
-import { AnimatedSection } from '@tenas-ai/ui/calendar/components/animations/animated-section'
-import { getViewHours } from '@tenas-ai/ui/calendar/features/calendar/utils/view-hours'
-import { ResourceEventGrid } from '@tenas-ai/ui/calendar/features/resource-calendar/components/resource-event-grid'
-import { useResourceCalendarContext } from '@tenas-ai/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
-import { getWeekDays } from '@tenas-ai/ui/calendar/lib/utils/date-utils'
+import { AnimatedSection } from '@openloaf/ui/calendar/components/animations/animated-section'
+import { getViewHours } from '@openloaf/ui/calendar/features/calendar/utils/view-hours'
+import { ResourceEventGrid } from '@openloaf/ui/calendar/features/resource-calendar/components/resource-event-grid'
+import { useResourceCalendarContext } from '@openloaf/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
+import { getWeekDays } from '@openloaf/ui/calendar/lib/utils/date-utils'
 
 export const ResourceWeekHorizontal: React.FC = () => {
 	const {

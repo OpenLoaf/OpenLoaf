@@ -1,5 +1,5 @@
 import type React from 'react'
-import { useResourceCalendarContext } from '@tenas-ai/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
+import { useResourceCalendarContext } from '@openloaf/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
 import { ResourceMonthHorizontal } from './resource-month-horizontal'
 import { ResourceMonthVertical } from './resource-month-vertical'
 

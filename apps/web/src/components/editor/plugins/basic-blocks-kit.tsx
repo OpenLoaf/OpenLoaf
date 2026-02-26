@@ -12,7 +12,7 @@ import {
 } from '@platejs/basic-nodes/react';
 import { ParagraphPlugin } from 'platejs/react';
 
-import { BlockquoteElement } from '@tenas-ai/ui/blockquote-node';
+import { BlockquoteElement } from '@openloaf/ui/blockquote-node';
 import {
   H1Element,
   H2Element,
@@ -20,9 +20,9 @@ import {
   H4Element,
   H5Element,
   H6Element,
-} from '@tenas-ai/ui/heading-node';
-import { HrElement } from '@tenas-ai/ui/hr-node';
-import { ParagraphElement } from '@tenas-ai/ui/paragraph-node';
+} from '@openloaf/ui/heading-node';
+import { HrElement } from '@openloaf/ui/hr-node';
+import { ParagraphElement } from '@openloaf/ui/paragraph-node';
 
 export const BasicBlocksKit = [
   ParagraphPlugin.withComponent(ParagraphElement),

@@ -1,4 +1,4 @@
-import { getWorkspaceByIdConfig } from "@tenas-ai/api/services/workspaceConfig";
+import { getWorkspaceByIdConfig } from "@openloaf/api/services/workspaceConfig";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import {
   getFilePreview,
@@ -9,7 +9,7 @@ import {
 /** Max upload size for chat images. */
 const MAX_CHAT_IMAGE_BYTES = 10 * 1024 * 1024;
 /** Multipart boundary prefix for preview responses. */
-const MULTIPART_BOUNDARY_PREFIX = "tenas-preview";
+const MULTIPART_BOUNDARY_PREFIX = "openloaf-preview";
 
 export type ChatAttachmentBody = {
   /** Workspace id. */

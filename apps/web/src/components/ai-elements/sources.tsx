@@ -6,7 +6,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@tenas-ai/ui/collapsible";
+} from "@openloaf/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { BookIcon, ChevronDownIcon } from "lucide-react";
 

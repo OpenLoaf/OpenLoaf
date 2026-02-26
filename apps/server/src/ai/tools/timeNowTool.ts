@@ -1,5 +1,5 @@
 import { tool, zodSchema } from 'ai'
-import { timeNowToolDef } from '@tenas-ai/api/types/tools/system'
+import { timeNowToolDef } from '@openloaf/api/types/tools/system'
 
 /**
  * Resolve current server time info.

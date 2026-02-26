@@ -2,7 +2,7 @@
 
 import { CursorOverlayPlugin } from '@platejs/selection/react';
 
-import { CursorOverlay } from '@tenas-ai/ui/cursor-overlay';
+import { CursorOverlay } from '@openloaf/ui/cursor-overlay';
 
 export const CursorOverlayKit = [
   CursorOverlayPlugin.configure({

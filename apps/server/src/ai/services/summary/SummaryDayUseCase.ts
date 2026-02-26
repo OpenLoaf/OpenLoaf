@@ -1,16 +1,16 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { getProjectRootPath } from "@tenas-ai/api/services/vfsService";
-import { readProjectConfig } from "@tenas-ai/api/services/projectTreeService";
-import { getProjectGitCommitsInRange } from "@tenas-ai/api/services/projectGitService";
-import { listProjectFilesChangedInRange } from "@tenas-ai/api/services/projectFileChangeService";
+import { getProjectRootPath } from "@openloaf/api/services/vfsService";
+import { readProjectConfig } from "@openloaf/api/services/projectTreeService";
+import { getProjectGitCommitsInRange } from "@openloaf/api/services/projectGitService";
+import { listProjectFilesChangedInRange } from "@openloaf/api/services/projectFileChangeService";
 import {
   formatDateKey,
   parseDateKey,
   startOfDay,
   endOfDay,
-} from "@tenas-ai/api/services/summaryDateUtils";
-import { writeSummaryMarkdown, appendSummaryIndex } from "@tenas-ai/api/services/summaryStorage";
+} from "@openloaf/api/services/summaryDateUtils";
+import { writeSummaryMarkdown, appendSummaryIndex } from "@openloaf/api/services/summaryStorage";
 import { generateDailySummary } from "@/ai/services/summary/summaryGenerator";
 
 type SummaryDayUseCaseInput = {

@@ -24,7 +24,7 @@ export function registerEmailAttachmentRoutes(app: Hono) {
 
     try {
       // 逻辑：从数据库查找邮件以获取账号和邮箱路径信息。
-      const { prisma } = await import("@tenas-ai/db");
+      const { prisma } = await import("@openloaf/db");
       const row = await (prisma as any).emailMessage.findUnique({
         where: { id: messageId },
       });

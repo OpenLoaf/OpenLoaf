@@ -1,6 +1,6 @@
 import { tool, zodSchema } from "ai";
 import { v4 as uuidv4 } from "uuid";
-import { officeExecuteToolDef } from "@tenas-ai/api/types/tools/office";
+import { officeExecuteToolDef } from "@openloaf/api/types/tools/office";
 import { getProjectId, getWorkspaceId } from "@/ai/shared/context/requestContext";
 import { selectOfficeClient, waitForOfficeClient } from "@/modules/office/officeRegistry";
 import { publishOfficeCommand } from "@/modules/office/officeEvents";

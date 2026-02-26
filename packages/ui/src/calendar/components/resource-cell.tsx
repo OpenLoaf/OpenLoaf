@@ -1,6 +1,6 @@
-import { useResourceCalendarContext } from '@tenas-ai/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
-import type { Resource } from '@tenas-ai/ui/calendar/features/resource-calendar/types'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { useResourceCalendarContext } from '@openloaf/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
+import type { Resource } from '@openloaf/ui/calendar/features/resource-calendar/types'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 interface ResourceCellProps {
 	resource: Resource

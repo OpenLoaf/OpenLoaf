@@ -2,7 +2,7 @@ import {
   createModelRegistry,
   type ModelDefinition,
   type ProviderDefinition,
-} from "@tenas-ai/api/common";
+} from "@openloaf/api/common";
 import {
   fetchProviderTemplates,
   invalidateProviderCache,

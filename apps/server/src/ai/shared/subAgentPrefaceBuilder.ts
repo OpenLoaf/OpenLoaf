@@ -23,7 +23,7 @@ import { loadAgentSummaries } from '@/ai/services/agentConfigService'
 import { ALL_TEMPLATES } from '@/ai/agent-templates'
 import { resolvePythonInstallInfo } from '@/ai/models/cli/pythonTool'
 import { getAuthSessionSnapshot } from '@/modules/auth/tokenStore'
-import { readBasicConf } from '@/modules/settings/tenasConfStore'
+import { readBasicConf } from '@/modules/settings/openloafConfStore'
 
 import {
   getWorkspaceById,
@@ -31,7 +31,7 @@ import {
   getWorkspaceRootPath,
   getWorkspaceRootPathById,
   getProjectRootPath,
-} from '@tenas-ai/api/services/vfsService'
+} from '@openloaf/api/services/vfsService'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { logger } from '@/common/logger'

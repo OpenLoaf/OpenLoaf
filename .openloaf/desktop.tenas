@@ -1,0 +1,318 @@
+{
+  "version": 1,
+  "updatedAt": "2026-02-13T15:04:20.310Z",
+  "grid": {
+    "breakpoints": {
+      "sm": {
+        "minWidth": 0,
+        "columns": 4,
+        "rowHeight": 78,
+        "gap": 4,
+        "padding": 16
+      },
+      "md": {
+        "minWidth": 560,
+        "columns": 6,
+        "rowHeight": 82,
+        "gap": 6,
+        "padding": 20
+      },
+      "lg": {
+        "minWidth": 960,
+        "columns": 10,
+        "rowHeight": 88,
+        "gap": 8,
+        "padding": 24
+      }
+    }
+  },
+  "items": [
+    {
+      "id": "w-flip-clock",
+      "kind": "widget",
+      "title": "Flip Clock",
+      "widgetKey": "flip-clock",
+      "size": "4x2",
+      "constraints": {
+        "defaultW": 4,
+        "defaultH": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": 6,
+        "maxH": 3
+      },
+      "variant": "hms",
+      "params": {
+        "showSeconds": true
+      },
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 0,
+          "y": 0,
+          "w": 2,
+          "h": 2
+        },
+        "md": {
+          "x": 0,
+          "y": 0,
+          "w": 2,
+          "h": 2
+        },
+        "lg": {
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 2
+        }
+      }
+    },
+    {
+      "id": "w-clock",
+      "kind": "widget",
+      "title": "Clock",
+      "widgetKey": "clock",
+      "size": "2x2",
+      "constraints": {
+        "defaultW": 2,
+        "defaultH": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": 3,
+        "maxH": 3
+      },
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 2,
+          "y": 0,
+          "w": 2,
+          "h": 2
+        },
+        "md": {
+          "x": 2,
+          "y": 0,
+          "w": 2,
+          "h": 2
+        },
+        "lg": {
+          "x": 4,
+          "y": 0,
+          "w": 2,
+          "h": 2
+        }
+      }
+    },
+    {
+      "id": "i-files",
+      "kind": "icon",
+      "title": "Files",
+      "iconKey": "files",
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 3,
+          "y": 2,
+          "w": 1,
+          "h": 1
+        },
+        "md": {
+          "x": 5,
+          "y": 1,
+          "w": 1,
+          "h": 1
+        },
+        "lg": {
+          "x": 9,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      }
+    },
+    {
+      "id": "i-tasks",
+      "kind": "icon",
+      "title": "Tasks",
+      "iconKey": "tasks",
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 0,
+          "y": 2,
+          "w": 1,
+          "h": 1
+        },
+        "md": {
+          "x": 4,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        },
+        "lg": {
+          "x": 6,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      }
+    },
+    {
+      "id": "i-search",
+      "kind": "icon",
+      "title": "Search",
+      "iconKey": "search",
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 1,
+          "y": 2,
+          "w": 1,
+          "h": 1
+        },
+        "md": {
+          "x": 5,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        },
+        "lg": {
+          "x": 7,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      }
+    },
+    {
+      "id": "i-settings",
+      "kind": "icon",
+      "title": "Settings",
+      "iconKey": "settings",
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 2,
+          "y": 2,
+          "w": 1,
+          "h": 1
+        },
+        "md": {
+          "x": 4,
+          "y": 1,
+          "w": 1,
+          "h": 1
+        },
+        "lg": {
+          "x": 8,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      }
+    },
+    {
+      "id": "w-3d-folder-1768225606236",
+      "kind": "widget",
+      "title": "Test",
+      "widgetKey": "3d-folder",
+      "size": "4x3",
+      "constraints": {
+        "defaultW": 4,
+        "defaultH": 3,
+        "minW": 1,
+        "minH": 1,
+        "maxW": 12,
+        "maxH": 20
+      },
+      "params": {
+        "folderUri": "openloaf-file://proj_2480180d-2336-4c49-9703-5095195d9b7d/"
+      },
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 0,
+          "y": 3,
+          "w": 2,
+          "h": 3
+        },
+        "md": {
+          "x": 0,
+          "y": 2,
+          "w": 2,
+          "h": 3
+        },
+        "lg": {
+          "x": 6,
+          "y": 1,
+          "w": 4,
+          "h": 3
+        }
+      }
+    },
+    {
+      "id": "w-quick-actions-1768731103224",
+      "kind": "widget",
+      "title": "Actions",
+      "widgetKey": "quick-actions",
+      "size": "4x2",
+      "constraints": {
+        "defaultW": 4,
+        "defaultH": 2,
+        "minW": 2,
+        "minH": 2,
+        "maxW": 6,
+        "maxH": 3
+      },
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 2,
+          "y": 3,
+          "w": 2,
+          "h": 2
+        },
+        "md": {
+          "x": 2,
+          "y": 2,
+          "w": 2,
+          "h": 2
+        },
+        "lg": {
+          "x": 0,
+          "y": 2,
+          "w": 4,
+          "h": 2
+        }
+      }
+    },
+    {
+      "id": "w-calendar-1770995002045",
+      "kind": "widget",
+      "title": "日历",
+      "widgetKey": "calendar",
+      "size": "5x6",
+      "constraints": {
+        "defaultW": 5,
+        "defaultH": 6,
+        "minW": 4,
+        "minH": 3,
+        "maxW": 8,
+        "maxH": 6
+      },
+      "variant": "month",
+      "layoutByBreakpoint": {
+        "sm": {
+          "x": 0,
+          "y": 6,
+          "w": 4,
+          "h": 6
+        },
+        "md": {
+          "x": 2,
+          "y": 4,
+          "w": 4,
+          "h": 6
+        },
+        "lg": {
+          "x": 0,
+          "y": 4,
+          "w": 5,
+          "h": 6
+        }
+      }
+    }
+  ]
+}

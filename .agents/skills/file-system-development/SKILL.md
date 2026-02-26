@@ -7,7 +7,7 @@ description: Use when developing, extending, or debugging the file preview/viewe
 
 ## Overview
 
-Tenas 的文件系统由**预览查看器**（11 种 Viewer 组件）、**文件操作模型**（CRUD/拖拽/历史）、**预览分发系统**（Store + 类型路由 + 三种打开模式）、**后端 tRPC 路由**四层构成。
+OpenLoaf 的文件系统由**预览查看器**（11 种 Viewer 组件）、**文件操作模型**（CRUD/拖拽/历史）、**预览分发系统**（Store + 类型路由 + 三种打开模式）、**后端 tRPC 路由**四层构成。
 
 ## When to Use
 

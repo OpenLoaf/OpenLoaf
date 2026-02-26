@@ -2,11 +2,11 @@ import { useContext } from 'react'
 import {
 	CalendarContext,
 	type CalendarContextType,
-} from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/context'
+} from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/context'
 import {
 	ResourceCalendarContext,
 	type ResourceCalendarContextType,
-} from '@tenas-ai/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
+} from '@openloaf/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
 
 /**
  * Generic hook that detects which calendar context is available and returns selected properties

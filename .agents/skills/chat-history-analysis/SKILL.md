@@ -1,6 +1,6 @@
 ---
 name: chat-history-analysis
-description: Analyze AI chat history stored as .jsonl under paths containing "chat_history". Use when the user provides a filesystem path that includes "chat_history" and ends with ".jsonl", or when the user asks to analyze Tenas/Codex chat logs, tool calls, and outcomes based on the request and results.
+description: Analyze AI chat history stored as .jsonl under paths containing "chat_history". Use when the user provides a filesystem path that includes "chat_history" and ends with ".jsonl", or when the user asks to analyze OpenLoaf/Codex chat logs, tool calls, and outcomes based on the request and results.
 ---
 
 # Chat History Analysis

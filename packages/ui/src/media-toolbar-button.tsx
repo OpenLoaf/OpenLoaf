@@ -26,15 +26,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@tenas-ai/ui/alert-dialog';
+} from '@openloaf/ui/alert-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@tenas-ai/ui/dropdown-menu';
-import { Input } from '@tenas-ai/ui/input';
+} from '@openloaf/ui/dropdown-menu';
+import { Input } from '@openloaf/ui/input';
 
 import {
   ToolbarSplitButton,

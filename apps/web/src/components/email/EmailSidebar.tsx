@@ -9,7 +9,7 @@ import {
   Unplug,
 } from "lucide-react";
 
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import { cn } from "@/lib/utils";
 import { dndManager } from "@/lib/dnd-manager";
 import {

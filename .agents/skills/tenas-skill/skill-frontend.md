@@ -8,7 +8,7 @@
 
 ```
 SkillsSettingsPanel({ projectId? })
-├── TenasSettingsGroup (标题 + 摘要 + 打开目录按钮)
+├── OpenLoafSettingsGroup (标题 + 摘要 + 打开目录按钮)
 │   └── 技能列表 (divide-y 分隔)
 │       └── 每条技能
 │           ├── 名称 + ScopeTag (全局/工作空间/项目)
@@ -73,7 +73,7 @@ deleteSkillMutation.mutateAsync({
 #### 打开技能目录 (handleOpenSkillsRoot)
 
 1. 调用 `trpc.fs.mkdir` 确保 `.agents/skills` 目录存在
-2. 通过 `window.tenasElectron.openPath()` 在系统文件管理器中打开
+2. 通过 `window.openloafElectron.openPath()` 在系统文件管理器中打开
 3. 仅 Electron 环境可用，Web 版提示不支持
 
 #### 查看技能 (handleOpenSkill)

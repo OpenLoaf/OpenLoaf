@@ -9,7 +9,7 @@ import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { TerminalTabsBar } from "@/components/file/TerminalTabsBar";
-import { TERMINAL_WINDOW_PANEL_ID, type TerminalTab } from "@tenas-ai/api/common";
+import { TERMINAL_WINDOW_PANEL_ID, type TerminalTab } from "@openloaf/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useWorkspace } from "@/components/workspace/workspaceContext";

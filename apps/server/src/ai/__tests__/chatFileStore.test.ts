@@ -11,8 +11,8 @@ import crypto from 'node:crypto'
 import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { setTenasRootOverride } from '@tenas-ai/config'
-import { prisma } from '@tenas-ai/db'
+import { setOpenLoafRootOverride } from '@openloaf/config'
+import { prisma } from '@openloaf/db'
 import {
   appendMessage,
   buildSiblingNavForChain,
@@ -114,7 +114,7 @@ async function main() {
   // ---- Setup ----
   tempDir = path.join(os.tmpdir(), `chatFileStore_test_${Date.now()}`)
   await fs.mkdir(tempDir, { recursive: true })
-  setTenasRootOverride(tempDir)
+  setOpenLoafRootOverride(tempDir)
   clearSessionDirCache()
 
   await prisma.chatSession.create({ data: { id: testSessionId } })
@@ -588,7 +588,7 @@ async function main() {
   } finally {
     // ---- Teardown ----
     await prisma.chatSession.delete({ where: { id: testSessionId } }).catch(() => {})
-    setTenasRootOverride(null)
+    setOpenLoafRootOverride(null)
     clearSessionDirCache()
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
   }

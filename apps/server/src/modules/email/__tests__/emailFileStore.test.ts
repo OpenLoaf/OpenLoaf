@@ -4,13 +4,13 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 import {
-  setTenasRootOverride,
+  setOpenLoafRootOverride,
   setDefaultWorkspaceRootOverride,
-} from '@tenas-ai/config'
+} from '@openloaf/config'
 
 // 逻辑：创建临时目录隔离测试环境。
-const tempDir = mkdtempSync(path.join(tmpdir(), 'tenas-email-test-'))
-setTenasRootOverride(tempDir)
+const tempDir = mkdtempSync(path.join(tmpdir(), 'openloaf-email-test-'))
+setOpenLoafRootOverride(tempDir)
 setDefaultWorkspaceRootOverride(tempDir)
 
 import {

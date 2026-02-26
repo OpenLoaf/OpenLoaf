@@ -1,22 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Weekday } from 'rrule'
 import { RRule } from 'rrule'
-import { Card, CardContent, CardHeader, CardTitle } from '@tenas-ai/ui/calendar/components/ui/card'
-import { Checkbox } from '@tenas-ai/ui/calendar/components/ui/checkbox'
-import { DatePicker } from '@tenas-ai/ui/calendar/components/ui/date-picker'
-import { Input } from '@tenas-ai/ui/calendar/components/ui/input'
-import { Label } from '@tenas-ai/ui/calendar/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@openloaf/ui/calendar/components/ui/card'
+import { Checkbox } from '@openloaf/ui/calendar/components/ui/checkbox'
+import { DatePicker } from '@openloaf/ui/calendar/components/ui/date-picker'
+import { Input } from '@openloaf/ui/calendar/components/ui/input'
+import { Label } from '@openloaf/ui/calendar/components/ui/label'
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from '@tenas-ai/ui/calendar/components/ui/select'
-import type { RRuleOptions } from '@tenas-ai/ui/calendar/features/recurrence/types'
-import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import type { Translations } from '@tenas-ai/ui/calendar/lib/translations/types'
+} from '@openloaf/ui/calendar/components/ui/select'
+import type { RRuleOptions } from '@openloaf/ui/calendar/features/recurrence/types'
+import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import type { Translations } from '@openloaf/ui/calendar/lib/translations/types'
 
 const FREQ_MAP = {
 	DAILY: RRule.DAILY,

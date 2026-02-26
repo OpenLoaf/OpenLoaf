@@ -11,9 +11,9 @@ import {
   type AgentTemplate,
 } from '@/ai/agent-templates'
 
-/** Tenas meta directory name. */
-const TENAS_META_DIR = '.tenas'
-/** Agents directory name under .tenas/. */
+/** OpenLoaf meta directory name. */
+const OPENLOAF_META_DIR = '.openloaf'
+/** Agents directory name under .openloaf/. */
 const AGENTS_DIR_NAME = 'agents'
 /** Default agent folder name (master agent). */
 const DEFAULT_AGENT_FOLDER = 'master'
@@ -53,17 +53,17 @@ export type AgentJsonDescriptor = {
   maxDepth?: number
 }
 
-/** Resolve the agents root directory: <root>/.tenas/agents/ */
+/** Resolve the agents root directory: <root>/.openloaf/agents/ */
 export function resolveAgentsRootDir(rootPath: string): string {
-  return path.join(rootPath, TENAS_META_DIR, AGENTS_DIR_NAME)
+  return path.join(rootPath, OPENLOAF_META_DIR, AGENTS_DIR_NAME)
 }
 
-/** Resolve a specific agent directory: <root>/.tenas/agents/<folderName>/ */
+/** Resolve a specific agent directory: <root>/.openloaf/agents/<folderName>/ */
 export function resolveAgentDir(
   rootPath: string,
   folderName: string,
 ): string {
-  return path.join(rootPath, TENAS_META_DIR, AGENTS_DIR_NAME, folderName)
+  return path.join(rootPath, OPENLOAF_META_DIR, AGENTS_DIR_NAME, folderName)
 }
 
 /** Read a text file if it exists, return empty string otherwise. */
@@ -92,7 +92,7 @@ export function readAgentJson(
 
 /**
  * Resolve a single default agent file by priority:
- * project/.tenas/agents/master/ → workspace/.tenas/agents/master/ → builtin.
+ * project/.openloaf/agents/master/ → workspace/.openloaf/agents/master/ → builtin.
  */
 export function resolveDefaultAgentFile(
   fileName: DefaultAgentFileName,
@@ -181,7 +181,7 @@ function buildDefaultAgentFiles(): Array<{ name: string; content: string }> {
 }
 
 /**
- * Ensure .tenas/agents/master/ directory exists in the given root path
+ * Ensure .openloaf/agents/master/ directory exists in the given root path
  * with agent.json + default prompt files. Only creates missing files.
  */
 export function ensureDefaultAgentFiles(rootPath: string): void {
@@ -219,7 +219,7 @@ function buildTemplateAgentJson(template: AgentTemplate): string {
 }
 
 /**
- * Ensure all scaffoldable agent folders exist under .tenas/agents/.
+ * Ensure all scaffoldable agent folders exist under .openloaf/agents/.
  * Only creates missing folders — never overwrites existing ones.
  */
 export function ensureSystemAgentFiles(rootPath: string): void {

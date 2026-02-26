@@ -2,7 +2,7 @@ import type {
   ProviderDefinition,
   ModelDefinition,
   ModelTag,
-} from "@tenas-ai/api/common";
+} from "@openloaf/api/common";
 
 type SaasProviderTemplate = {
   id: string;

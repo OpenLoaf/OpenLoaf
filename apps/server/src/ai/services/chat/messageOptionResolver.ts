@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
+import type { ImageGenerateOptions } from "@openloaf/api/types/image";
 import {
   normalizeCodexOptions,
   type CodexReasoningEffort,

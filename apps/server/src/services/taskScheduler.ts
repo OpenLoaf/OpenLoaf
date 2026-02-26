@@ -1,4 +1,4 @@
-import { getWorkspaceRootPath } from '@tenas-ai/api'
+import { getWorkspaceRootPath } from '@openloaf/api'
 import { randomUUID } from 'node:crypto'
 import { logger } from '@/common/logger'
 import { listTasks, getTask, updateTask, type TaskConfig } from './taskConfigService'

@@ -4,7 +4,7 @@
 
 Electron 主进程负责创建/管理 WebContentsView，并通过 IPC 向 Renderer 推送加载状态与窗口事件。所有浏览器自动化与 CDP 连接也依赖 Electron 的远程调试端口配置。
 
-## Preload API (tenasElectron)
+## Preload API (openloafElectron)
 
 来自 `apps/desktop/src/preload/index.ts`：
 
@@ -18,11 +18,11 @@ Electron 主进程负责创建/管理 WebContentsView，并通过 IPC 向 Render
 
 ## Event Channels
 
-- `tenas:webcontents-view:status`
+- `openloaf:webcontents-view:status`
   - 由 `webContentsViews.ts` 统一 emit。
   - 字段：`loading/ready/failed/canGoBack/canGoForward/bytesPerSecond/...`。
 
-- `tenas:webcontents-view:window-open`
+- `openloaf:webcontents-view:window-open`
   - `window.open` 被拦截并转换为事件，Renderer 决定是否新建标签页。
 
 ## WebContentsView Lifecycle
@@ -37,7 +37,7 @@ Electron 主进程负责创建/管理 WebContentsView，并通过 IPC 向 Render
 ## CDP Port & Debugging
 
 - CDP 端口由 `portAllocation.ts` 分配，默认优先端口 53664。
-- 环境变量：`TENAS_REMOTE_DEBUGGING_PORT` / `TENAS_REMOTE_DEBUGGING_HOST`。
+- 环境变量：`OPENLOAF_REMOTE_DEBUGGING_PORT` / `OPENLOAF_REMOTE_DEBUGGING_HOST`。
 - 主进程会设置 `app.commandLine.appendSwitch('remote-debugging-port', ...)`。
 
 ## Notes

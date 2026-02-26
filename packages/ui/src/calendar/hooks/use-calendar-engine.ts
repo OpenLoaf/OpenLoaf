@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { BusinessHours, CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
-import type { RecurrenceEditOptions } from '@tenas-ai/ui/calendar/features/recurrence/types'
+import type { BusinessHours, CalendarEvent } from '@openloaf/ui/calendar/components/types'
+import type { RecurrenceEditOptions } from '@openloaf/ui/calendar/features/recurrence/types'
 import {
 	deleteRecurringEvent as deleteRecurringEventImpl,
 	generateRecurringEvents,
 	updateRecurringEvent as updateRecurringEventImpl,
-} from '@tenas-ai/ui/calendar/features/recurrence/utils/recurrence-handler'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { defaultTranslations } from '@tenas-ai/ui/calendar/lib/translations/default'
-import type { Translations, TranslatorFunction } from '@tenas-ai/ui/calendar/lib/translations/types'
-import { getMonthWeeks, getWeekDays } from '@tenas-ai/ui/calendar/lib/utils/date-utils'
-import type { CalendarView } from '@tenas-ai/ui/calendar/types'
+} from '@openloaf/ui/calendar/features/recurrence/utils/recurrence-handler'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { defaultTranslations } from '@openloaf/ui/calendar/lib/translations/default'
+import type { Translations, TranslatorFunction } from '@openloaf/ui/calendar/lib/translations/types'
+import { getMonthWeeks, getWeekDays } from '@openloaf/ui/calendar/lib/utils/date-utils'
+import type { CalendarView } from '@openloaf/ui/calendar/types'
 import { DAY_MAX_EVENTS_DEFAULT } from '../lib/constants'
 
 export interface CalendarEngineConfig {

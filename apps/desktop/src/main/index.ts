@@ -36,11 +36,11 @@ import {
 } from './resolveWindowIcon';
 
 // 中文注释：开发态追加 Dev 后缀，避免与打包版名称混淆。
-const APP_DISPLAY_NAME = app.isPackaged ? 'Tenas' : 'Tenas Development';
+const APP_DISPLAY_NAME = app.isPackaged ? 'OpenLoaf' : 'OpenLoaf Development';
 // 中文注释：开发版 userData 目录名，避免与打包版共享数据与单实例锁。
-const DEV_USER_DATA_DIR = 'Tenas Development';
+const DEV_USER_DATA_DIR = 'OpenLoaf Development';
 // 中文注释：桌面端协议名称，用于从浏览器唤起应用。
-const APP_PROTOCOL = 'tenas';
+const APP_PROTOCOL = 'openloaf';
 // 中文注释：协议唤起 URL 前缀。
 const APP_PROTOCOL_PREFIX = `${APP_PROTOCOL}://`;
 
@@ -75,17 +75,17 @@ if (app.isPackaged) {
 
 let runtimePorts: RuntimePorts | null = null;
 const runtimePortsReady = resolveRuntimePorts({
-  serverUrlEnv: process.env.TENAS_SERVER_URL,
-  webUrlEnv: process.env.TENAS_WEB_URL,
-  cdpPortEnv: process.env.TENAS_REMOTE_DEBUGGING_PORT,
-  cdpHostEnv: process.env.TENAS_REMOTE_DEBUGGING_HOST,
+  serverUrlEnv: process.env.OPENLOAF_SERVER_URL,
+  webUrlEnv: process.env.OPENLOAF_WEB_URL,
+  cdpPortEnv: process.env.OPENLOAF_REMOTE_DEBUGGING_PORT,
+  cdpHostEnv: process.env.OPENLOAF_REMOTE_DEBUGGING_HOST,
   isPackaged: app.isPackaged,
 })
   .then((ports) => {
     // 中文注释：提前锁定随机端口并写回环境变量，保证 web/server/CDP 同步。
-    process.env.TENAS_REMOTE_DEBUGGING_PORT = String(ports.cdpPort);
-    process.env.TENAS_SERVER_URL = ports.serverUrl;
-    process.env.TENAS_WEB_URL = ports.webUrl;
+    process.env.OPENLOAF_REMOTE_DEBUGGING_PORT = String(ports.cdpPort);
+    process.env.OPENLOAF_SERVER_URL = ports.serverUrl;
+    process.env.OPENLOAF_WEB_URL = ports.webUrl;
     app.commandLine.appendSwitch('remote-debugging-port', String(ports.cdpPort));
     runtimePorts = ports;
     return ports;

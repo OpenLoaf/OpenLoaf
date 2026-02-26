@@ -1,7 +1,7 @@
 import { Loader2, Paperclip, X } from "lucide-react";
-import { Input } from "@tenas-ai/ui/input";
-import { Button } from "@tenas-ai/ui/button";
-import { Textarea } from "@tenas-ai/ui/textarea";
+import { Input } from "@openloaf/ui/input";
+import { Button } from "@openloaf/ui/button";
+import { Textarea } from "@openloaf/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { DetailState } from "./use-email-page-state";
 import {

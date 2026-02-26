@@ -4,7 +4,7 @@ import chokidar from "chokidar";
 import {
   resolveScopedRootPath,
   resolveScopedPath,
-} from "@tenas-ai/api/services/vfsService";
+} from "@openloaf/api/services/vfsService";
 import { logger } from "@/common/logger";
 
 const SSE_HEADERS = {

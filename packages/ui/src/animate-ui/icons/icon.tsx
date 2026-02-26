@@ -16,7 +16,7 @@ import { useIsInView } from "@/hooks/use-is-in-view";
 import {
   Slot,
   type WithAsChild,
-} from "@tenas-ai/ui/animate-ui/primitives/animate/slot";
+} from "@openloaf/ui/animate-ui/primitives/animate/slot";
 
 const staticAnimations = {
   path: {

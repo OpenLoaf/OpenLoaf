@@ -1,6 +1,6 @@
 "use client";
 
-import type { PlanItem } from "@tenas-ai/api/types/tools/runtime";
+import type { PlanItem } from "@openloaf/api/types/tools/runtime";
 import {
   isToolStreaming,
   normalizeToolInput,

@@ -9,7 +9,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
+} from "@openloaf/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import type { SaasLoginProvider } from "@/lib/saas-auth";
@@ -146,10 +146,10 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
                         className="h-7 w-7 object-contain"
                       />
                     </span>
-                    <span className="sr-only">欢迎使用 Tenas</span>
+                    <span className="sr-only">欢迎使用 OpenLoaf</span>
                   </>
                 ) : (
-                  "欢迎使用 Tenas"
+                  "欢迎使用 OpenLoaf"
                 )}
               </h1>
               <p

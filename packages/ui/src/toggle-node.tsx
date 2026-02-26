@@ -8,7 +8,7 @@ import { useToggleButton, useToggleButtonState } from '@platejs/toggle/react';
 import { ChevronRight } from 'lucide-react';
 import { PlateElement } from 'platejs/react';
 
-import { Button } from '@tenas-ai/ui/button';
+import { Button } from '@openloaf/ui/button';
 
 export function ToggleElement(props: PlateElementProps) {
   const element = props.element;

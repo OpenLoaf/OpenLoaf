@@ -116,7 +116,7 @@ export function handleChatMentionPointerDown(
   const target = event.target as HTMLElement | null;
   if (!target) return;
   if (target.closest("button")) return;
-  const mentionEl = target.closest<HTMLElement>("[data-tenas-mention=\"true\"]");
+  const mentionEl = target.closest<HTMLElement>("[data-openloaf-mention=\"true\"]");
   if (!mentionEl) return;
   if (mentionEl.querySelector("button")?.contains(target)) return;
   const value =

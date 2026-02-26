@@ -8,7 +8,7 @@ import {
   useAnimateIconContext,
   IconWrapper,
   type IconProps,
-} from '@tenas-ai/ui/animate-ui/icons/icon';
+} from '@openloaf/ui/animate-ui/icons/icon';
 
 type ListProps = IconProps<keyof typeof animations>;
 

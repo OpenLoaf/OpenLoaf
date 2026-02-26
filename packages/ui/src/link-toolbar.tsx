@@ -28,8 +28,8 @@ import {
   usePluginOption,
 } from 'platejs/react';
 
-import { buttonVariants } from '@tenas-ai/ui/button';
-import { Separator } from '@tenas-ai/ui/separator';
+import { buttonVariants } from '@openloaf/ui/button';
+import { Separator } from '@openloaf/ui/separator';
 
 const popoverVariants = cva(
   'z-50 w-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-hidden'

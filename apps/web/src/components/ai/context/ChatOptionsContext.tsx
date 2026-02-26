@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, type ReactNode } from "react";
-import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
+import type { ImageGenerateOptions } from "@openloaf/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
 import type { ChatAttachmentInput, MaskedAttachmentInput } from "../input/chat-attachments";
 

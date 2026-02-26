@@ -37,7 +37,7 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
   ContextMenuTrigger,
-} from '@tenas-ai/ui/context-menu';
+} from '@openloaf/ui/context-menu';
 import { useIsTouchDevice } from '@/hooks/use-is-touch-device';
 
 type Value = 'askAI' | null;

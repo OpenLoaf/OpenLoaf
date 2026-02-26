@@ -10,7 +10,7 @@ import {
   type ReactZoomPanPinchRef,
 } from "react-zoom-pan-pinch";
 import { AlertTriangle, Download, Redo2, Sparkles, Trash2, Undo2, X } from "lucide-react";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import { trpc } from "@/utils/trpc";
 import { useOptionalChatOptions, useOptionalChatSession } from "@/components/ai/context";
 import { useBasicConfig } from "@/hooks/use-basic-config";
@@ -375,7 +375,7 @@ export default function ImageViewer({
     if (!canSave) return;
     setIsSaving(true);
     try {
-      if (!isElectron || !window.tenasElectron?.saveFile) {
+      if (!isElectron || !window.openloafElectron?.saveFile) {
         const link = document.createElement("a");
         link.href = dataUrl;
         link.download = fileName;
@@ -386,7 +386,7 @@ export default function ImageViewer({
       if (!res.ok) throw new Error("download failed");
       const buffer = await res.arrayBuffer();
       const contentBase64 = encodeArrayBufferToBase64(buffer);
-      const result = await window.tenasElectron.saveFile({
+      const result = await window.openloafElectron.saveFile({
         contentBase64,
         defaultDir: saveDefaultDir,
         suggestedName: fileName,

@@ -1,5 +1,5 @@
 import { tool, zodSchema } from "ai";
-import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
+import { testApprovalToolDef } from "@openloaf/api/types/tools/approvalTest";
 
 type TestApprovalToolOutput = {
   ok: true;

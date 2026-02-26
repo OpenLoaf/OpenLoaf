@@ -132,7 +132,7 @@ AI Agent 消费技能时，`readSkillContentFromPath()` 会自动剥离 front ma
 
 ```
 /skill/chat-ai-development
-/skill/tenas-skill
+/skill/openloaf-skill
 ```
 
 `SkillSelector.extractSkillNamesFromText()` 从文本中提取所有 `/skill/xxx` 引用，然后按优先级搜索匹配。

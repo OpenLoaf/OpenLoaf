@@ -4,14 +4,14 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { queryClient, trpc } from '@/utils/trpc'
 import { useStackPanelSlot } from '@/hooks/use-stack-panel-slot'
-import { Button } from '@tenas-ai/ui/button'
-import { Input } from '@tenas-ai/ui/input'
-import { Textarea } from '@tenas-ai/ui/textarea'
-import { Switch } from '@tenas-ai/ui/switch'
-import { Checkbox } from '@tenas-ai/ui/checkbox'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@tenas-ai/ui/tabs'
-import { TenasSettingsCard } from '@tenas-ai/ui/tenas/TenasSettingsCard'
-import { FilterTab } from '@tenas-ai/ui/filter-tab'
+import { Button } from '@openloaf/ui/button'
+import { Input } from '@openloaf/ui/input'
+import { Textarea } from '@openloaf/ui/textarea'
+import { Switch } from '@openloaf/ui/switch'
+import { Checkbox } from '@openloaf/ui/checkbox'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@openloaf/ui/tabs'
+import { OpenLoafSettingsCard } from '@openloaf/ui/openloaf/OpenLoafSettingsCard'
+import { FilterTab } from '@openloaf/ui/filter-tab'
 import {
   Bot,
   Blocks,
@@ -47,8 +47,8 @@ import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTabs } from '@/hooks/use-tabs'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@tenas-ai/ui/tooltip'
-import { Popover, PopoverContent, PopoverTrigger } from '@tenas-ai/ui/popover'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@openloaf/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@openloaf/ui/popover'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
 import { useSaasAuth } from '@/hooks/use-saas-auth'
 import { useMediaModels } from '@/hooks/use-media-models'
@@ -66,7 +66,7 @@ import {
 import { getModelLabel } from '@/lib/model-registry'
 import { ModelCheckboxItem } from '@/components/ai/input/model-preferences/ModelCheckboxItem'
 import { ModelIcon } from '@/components/setting/menus/provider/ModelIcon'
-import type { AiModel } from '@tenas-saas/sdk'
+import type { AiModel } from '@openloaf-saas/sdk'
 import type { ProviderModelOption } from '@/lib/provider-models'
 
 /** 能力组 ID → 彩色图标映射 */
@@ -317,7 +317,7 @@ function MediaModelSelect({
                 onOpenLogin()
               }}
             >
-              登录Tenas账户，使用云端模型
+              登录OpenLoaf账户，使用云端模型
             </Button>
             <div className="text-xs text-muted-foreground">使用云端模型</div>
           </div>
@@ -346,7 +346,7 @@ function MediaModelSelect({
                 icon={model.familyId ?? model.providerId ?? model.id}
                 modelId={model.id}
                 label={model.name ?? model.id}
-                tags={model.tags as import('@tenas-ai/api/common').ModelTag[] | undefined}
+                tags={model.tags as import('@openloaf/api/common').ModelTag[] | undefined}
                 checked={normalizedValue.includes(model.id)}
                 disabled={disabled}
                 onToggle={() => handleToggle(model.id)}
@@ -518,7 +518,7 @@ function ChatModelSelect({
                 onOpenLogin()
               }}
             >
-              登录Tenas账户，使用云端模型
+              登录OpenLoaf账户，使用云端模型
             </Button>
             <div className="text-xs text-muted-foreground">使用云端模型</div>
           </div>
@@ -633,7 +633,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     }
     if (!agentPath) return false
     const normalized = agentPath.replace(/\\/g, '/')
-    return normalized.includes('/.tenas/agents/master/')
+    return normalized.includes('/.openloaf/agents/master/')
   }, [agentPath, detailQuery.data, isNew])
 
   const baseChatSource = normalizeChatModelSource(basic.chatSource)
@@ -706,7 +706,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     const dirPath = lastSlash >= 0 ? normalized.slice(0, lastSlash) : normalized
     const dirUri = dirPath.startsWith('file://') ? dirPath : (/^[A-Za-z]:\//.test(dirPath) ? `file:///${dirPath}` : `file://${dirPath}`)
 
-    const api = window.tenasElectron
+    const api = window.openloafElectron
     if (api?.openPath) {
       void api.openPath({ uri: dirUri }).then((res) => {
         if (!res?.ok) toast.error(res?.reason ?? '无法打开文件夹')
@@ -1416,7 +1416,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           </div>
 
           {/* 模型 + 子Agent助手 分组卡片 */}
-          <TenasSettingsCard divided>
+          <OpenLoafSettingsCard divided>
             <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
               <span className="flex items-center gap-2 text-sm font-medium">
                 <MessageSquare className="h-4 w-4 text-sky-500" />
@@ -1564,9 +1564,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                 />
               </div>
             )}
-          </TenasSettingsCard>
+          </OpenLoafSettingsCard>
 
-          <TenasSettingsCard divided>
+          <OpenLoafSettingsCard divided>
             <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Image className="h-4 w-4 text-pink-500" />
@@ -1590,7 +1590,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     />
                   ) : (
                     <Button size="sm" onClick={() => setLoginOpen(true)}>
-                      登录Tenas账户
+                      登录OpenLoaf账户
                     </Button>
                   )
                 ) : null}
@@ -1625,7 +1625,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     />
                   ) : (
                     <Button size="sm" onClick={() => setLoginOpen(true)}>
-                      登录Tenas账户
+                      登录OpenLoaf账户
                     </Button>
                   )
                 ) : null}
@@ -1637,7 +1637,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                 />
               </div>
             </div>
-          </TenasSettingsCard>
+          </OpenLoafSettingsCard>
 
           {/* Tabs: 能力组 / 技能 / 提示词 */}
           <Tabs defaultValue="capabilities">
@@ -1731,7 +1731,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
 
               <TabsContent value="prompt" className="mt-0">
                 <div className="py-3">
-                  <TenasSettingsCard padding="xy">
+                  <OpenLoafSettingsCard padding="xy">
                     <Textarea
                       value={systemPrompt}
                       onChange={(e) => setSystemPrompt(e.target.value)}
@@ -1739,7 +1739,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       rows={16}
                       className="border-0 bg-transparent font-mono text-xs shadow-none focus-visible:ring-0"
                     />
-                  </TenasSettingsCard>
+                  </OpenLoafSettingsCard>
                 </div>
               </TabsContent>
           </Tabs>

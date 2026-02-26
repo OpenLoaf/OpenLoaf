@@ -1,11 +1,11 @@
 import type React from 'react'
-import { AllDayCell } from '@tenas-ai/ui/calendar/components/all-day-row/all-day-cell'
-import { AllDayRow } from '@tenas-ai/ui/calendar/components/all-day-row/all-day-row'
-import { ResourceCell } from '@tenas-ai/ui/calendar/components/resource-cell'
-import { VerticalGrid } from '@tenas-ai/ui/calendar/components/vertical-grid/vertical-grid'
-import { getViewHours } from '@tenas-ai/ui/calendar/features/calendar/utils/view-hours'
-import { useResourceCalendarContext } from '@tenas-ai/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
+import { AllDayCell } from '@openloaf/ui/calendar/components/all-day-row/all-day-cell'
+import { AllDayRow } from '@openloaf/ui/calendar/components/all-day-row/all-day-row'
+import { ResourceCell } from '@openloaf/ui/calendar/components/resource-cell'
+import { VerticalGrid } from '@openloaf/ui/calendar/components/vertical-grid/vertical-grid'
+import { getViewHours } from '@openloaf/ui/calendar/features/calendar/utils/view-hours'
+import { useResourceCalendarContext } from '@openloaf/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 
 export const ResourceDayVertical: React.FC = () => {
 	const {

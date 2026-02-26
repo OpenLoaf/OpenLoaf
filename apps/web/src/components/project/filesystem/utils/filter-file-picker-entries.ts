@@ -15,7 +15,7 @@ const IGNORE_NAMES = new Set([
   ".git",
   ".turbo",
   ".next",
-  ".tenas-trash",
+  ".openloaf-trash",
   "dist",
   "build",
   "out",

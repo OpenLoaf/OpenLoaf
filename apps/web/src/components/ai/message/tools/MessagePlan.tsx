@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { PlanItem, PlanPatchItem } from "@tenas-ai/api/types/tools/runtime";
+import type { PlanItem, PlanPatchItem } from "@openloaf/api/types/tools/runtime";
 import { useChatTools } from "../../context";
 import {
   Plan,

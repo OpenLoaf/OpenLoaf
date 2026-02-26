@@ -1,6 +1,6 @@
 import { RRule } from 'rrule'
-import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
+import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 
 const CRLF = '\r\n'
 

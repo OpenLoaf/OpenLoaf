@@ -4,15 +4,15 @@ import {
   type Workspace,
   BaseWorkspaceRouter,
   workspaceSchemas,
-} from "@tenas-ai/api";
+} from "@openloaf/api";
 import { v4 as uuidv4 } from "uuid";
 import {
   getActiveWorkspaceConfig,
   getWorkspaces,
   resolveWorkspaceRootPath,
   setWorkspaces,
-} from "@tenas-ai/api/services/workspaceConfig";
-import { normalizeFileUri, resolveFilePathFromUri } from "@tenas-ai/api/services/fileUri";
+} from "@openloaf/api/services/workspaceConfig";
+import { normalizeFileUri, resolveFilePathFromUri } from "@openloaf/api/services/fileUri";
 import { ensureWorkspaceDefaultAgentByRootUri } from "@/ai/shared/workspaceAgentInit";
 
 /** Build a comparable workspace root path key. */

@@ -1,10 +1,10 @@
 import { type UIMessage } from "ai";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { type ChatModelSource, type ModelDefinition } from "@tenas-ai/api/common";
-import type { ImageGenerateOptions, TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
-import type { AiImageRequest } from "@tenas-saas/sdk";
-import type { TenasUIMessage, TokenUsage } from "@tenas-ai/api/types/message";
+import { type ChatModelSource, type ModelDefinition } from "@openloaf/api/common";
+import type { ImageGenerateOptions, OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
+import type { AiImageRequest } from "@openloaf-saas/sdk";
+import type { OpenLoafUIMessage, TokenUsage } from "@openloaf/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import { resolveAgentModelIdsFromConfig } from "@/ai/shared/resolveAgentModelFromConfig";
@@ -26,7 +26,7 @@ import {
   getProjectRootPath,
   getWorkspaceRootPath,
   getWorkspaceRootPathById,
-} from "@tenas-ai/api/services/vfsService";
+} from "@openloaf/api/services/vfsService";
 import { resolveImagePrompt, type GenerateImagePrompt } from "@/ai/services/image/imagePrompt";
 import { saveChatImageAttachment } from "@/ai/services/image/attachmentResolver";
 import {
@@ -62,7 +62,7 @@ import {
 } from "@/ai/services/chat/repositories/messageStore";
 import type { ChatImageRequest, ChatImageRequestResult } from "@/ai/services/image/types";
 import { buildTimingMetadata } from "./metadataBuilder";
-import { readBasicConf } from "@/modules/settings/tenasConfStore";
+import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { resolveMessagesJsonlPath } from "@/ai/services/chat/repositories/chatFileStore";
 import {
   createChatStreamResponse,
@@ -161,7 +161,7 @@ function extractTextFromParts(parts: unknown[]): string {
 }
 
 /** Check whether the message is a compact command request. */
-function isCompactCommandMessage(message: TenasUIMessage | undefined): boolean {
+function isCompactCommandMessage(message: OpenLoafUIMessage | undefined): boolean {
   if (!message || message.role !== "user") return false;
   if ((message as any)?.messageKind === "compact_prompt") return true;
   const text = extractTextFromParts(message.parts ?? []);
@@ -248,7 +248,7 @@ export async function runChatStream(input: {
     videoModelId: agentModelIds.videoModelId,
   });
 
-  const lastMessage = incomingMessages.at(-1) as TenasUIMessage | undefined;
+  const lastMessage = incomingMessages.at(-1) as OpenLoafUIMessage | undefined;
   if (!lastMessage || !lastMessage.role || !lastMessage.id) {
     return createErrorStreamResponse({
       sessionId,
@@ -311,7 +311,7 @@ export async function runChatStream(input: {
       });
     }
 
-    const compactPromptMessage: TenasUIMessage = {
+    const compactPromptMessage: OpenLoafUIMessage = {
       id: lastMessage.id,
       role: "user",
       parentMessageId,
@@ -550,7 +550,7 @@ export async function runChatImageRequest(input: {
     saasAccessToken: input.saasAccessToken,
   });
 
-  const lastMessage = incomingMessages.at(-1) as TenasUIMessage | undefined;
+  const lastMessage = incomingMessages.at(-1) as OpenLoafUIMessage | undefined;
   if (!lastMessage || !lastMessage.role || !lastMessage.id) {
     const errorText = formatInvalidRequestMessage("缺少最后一条消息。");
     await setSessionErrorMessage({ sessionId, errorMessage: errorText });
@@ -648,7 +648,7 @@ export async function runChatImageRequest(input: {
       : [];
     const messageParts = [...imageResult.persistedImageParts, ...revisedPromptPart];
 
-    const message: TenasUIMessage = {
+    const message: OpenLoafUIMessage = {
       id: assistantMessageId,
       role: "assistant",
       parts: messageParts,
@@ -759,7 +759,7 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
     modelId: resolvedModelId,
     chatModelId: input.chatModelId,
     chatModelSource: input.chatModelSource,
-    providerId: "tenas-saas",
+    providerId: "openloaf-saas",
     requestMessageId: input.requestMessageId,
     responseMessageId: input.responseMessageId,
     trigger: input.trigger,
@@ -830,7 +830,7 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
     name: "MasterAgent",
     kind: "master",
     model: {
-      provider: "tenas-saas",
+      provider: "openloaf-saas",
       modelId: resolvedModelId,
       ...(input.modelDefinition?.familyId ? { familyId: input.modelDefinition.familyId } : {}),
       ...(input.modelDefinition?.name ? { name: input.modelDefinition.name } : {}),
@@ -1187,7 +1187,7 @@ function buildImageMetadata(input: {
   boardId?: string | null;
   imageOptions?: { n?: number; size?: string; aspectRatio?: string };
   messages: UIMessage[];
-}): TenasImageMetadataV1 {
+}): OpenLoafImageMetadataV1 {
   const latestUser = resolveLatestUserMessage(input.messages);
   const rawParts = Array.isArray((latestUser as any)?.parts) ? ((latestUser as any).parts as unknown[]) : [];
   const sanitized = sanitizeRequestParts(rawParts);

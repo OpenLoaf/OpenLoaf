@@ -1,6 +1,6 @@
-export type { BrowserTab } from "@tenas-ai/api/common";
+export type { BrowserTab } from "@openloaf/api/common";
 
-export type TenasWebContentsViewStatus = {
+export type OpenLoafWebContentsViewStatus = {
   key: string;
   webContentsId: number;
   url?: string;
@@ -20,7 +20,7 @@ export type TenasWebContentsViewStatus = {
   ts: number;
 };
 
-export type TenasWebContentsViewWindowOpen = {
+export type OpenLoafWebContentsViewWindowOpen = {
   key: string;
   url: string;
   disposition?: string;

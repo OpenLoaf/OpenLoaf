@@ -12,19 +12,19 @@ import { useComposedRef } from '@udecode/cn';
 import { EraserIcon, PlusIcon } from 'lucide-react';
 import { useEditorRef, useEditorSelector } from 'platejs/react';
 
-import { buttonVariants } from '@tenas-ai/ui/button';
+import { buttonVariants } from '@openloaf/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@tenas-ai/ui/dropdown-menu';
+} from '@openloaf/ui/dropdown-menu';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@tenas-ai/ui/tooltip';
+} from '@openloaf/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 import { ToolbarButton, ToolbarMenuGroup } from './toolbar';

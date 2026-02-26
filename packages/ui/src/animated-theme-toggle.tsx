@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { ThemeToggler } from "@tenas-ai/ui/animate-ui/primitives/effects/theme-toggler";
-import { Button } from "@tenas-ai/ui/button";
+import { ThemeToggler } from "@openloaf/ui/animate-ui/primitives/effects/theme-toggler";
+import { Button } from "@openloaf/ui/button";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { clearThemeOverride, writeThemeOverride } from "@/lib/theme-override";
 

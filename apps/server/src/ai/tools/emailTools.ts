@@ -1,9 +1,9 @@
 import { tool, zodSchema } from 'ai'
-import { createContext } from '@tenas-ai/api/context'
+import { createContext } from '@openloaf/api/context'
 import {
   emailMutateToolDef,
   emailQueryToolDef,
-} from '@tenas-ai/api/types/tools/email'
+} from '@openloaf/api/types/tools/email'
 import { emailRouterImplementation } from '@/routers/email'
 import { getWorkspaceId } from '@/ai/shared/context/requestContext'
 

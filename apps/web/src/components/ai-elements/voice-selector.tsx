@@ -3,7 +3,7 @@
 import type { ComponentProps, ReactNode } from "react";
 
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Command,
   CommandDialog,
@@ -14,14 +14,14 @@ import {
   CommandList,
   CommandSeparator,
   CommandShortcut,
-} from "@tenas-ai/ui/command";
+} from "@openloaf/ui/command";
 import {
   Dialog,
   DialogContent,
   DialogTitle,
   DialogTrigger,
-} from "@tenas-ai/ui/dialog";
-import { Spinner } from "@tenas-ai/ui/spinner";
+} from "@openloaf/ui/dialog";
+import { Spinner } from "@openloaf/ui/spinner";
 import { cn } from "@/lib/utils";
 import {
   CircleSmallIcon,

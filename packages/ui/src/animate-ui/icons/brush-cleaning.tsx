@@ -8,7 +8,7 @@ import {
   useAnimateIconContext,
   IconWrapper,
   type IconProps,
-} from '@tenas-ai/ui/animate-ui/icons/icon';
+} from '@openloaf/ui/animate-ui/icons/icon';
 
 type BrushCleaningProps = IconProps<keyof typeof animations>;
 

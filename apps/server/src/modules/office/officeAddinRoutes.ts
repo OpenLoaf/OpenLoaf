@@ -3,7 +3,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { logger } from "@/common/logger";
 
-const DOCX_ENV_KEYS = ["WPS_ADDIN_DOCX_PATH", "TENAS_WPS_ADDIN_DOCX_PATH"];
+const DOCX_ENV_KEYS = ["WPS_ADDIN_DOCX_PATH", "OPENLOAF_WPS_ADDIN_DOCX_PATH"];
 
 const MIME_BY_EXT: Record<string, string> = {
   ".html": "text/html; charset=utf-8",

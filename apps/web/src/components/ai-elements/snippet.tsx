@@ -8,7 +8,7 @@ import {
   InputGroupButton,
   InputGroupInput,
   InputGroupText,
-} from "@tenas-ai/ui/input-group";
+} from "@openloaf/ui/input-group";
 import { cn } from "@/lib/utils";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import {

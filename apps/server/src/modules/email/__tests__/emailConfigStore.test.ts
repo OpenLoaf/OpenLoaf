@@ -5,9 +5,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { setWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
-import type { Workspace } from "@tenas-ai/api";
-import { setTenasRootOverride } from "@tenas-ai/config";
+import { setWorkspaces } from "@openloaf/api/services/workspaceConfig";
+import type { Workspace } from "@openloaf/api";
+import { setOpenLoafRootOverride } from "@openloaf/config";
 import type { EmailConfigFile } from "../emailConfigStore";
 
 let emailConfig: typeof import("../emailConfigStore");
@@ -19,8 +19,8 @@ try {
 
 const { getEmailConfigPath, readEmailConfigFile, writeEmailConfigFile } = emailConfig;
 
-const configRoot = mkdtempSync(path.join(tmpdir(), "tenas-email-config-"));
-setTenasRootOverride(configRoot);
+const configRoot = mkdtempSync(path.join(tmpdir(), "openloaf-email-config-"));
+setOpenLoafRootOverride(configRoot);
 
 const workspaceRoot = path.join(configRoot, "workspace-root");
 const workspace: Workspace = {
@@ -74,6 +74,6 @@ assert.equal(fallback.emailAccounts.length, 1);
 const raw = readFileSync(configPath, "utf-8");
 assert.ok(raw.includes("emailAccounts"));
 
-setTenasRootOverride(null);
+setOpenLoafRootOverride(null);
 
 console.log("email config store tests passed.");

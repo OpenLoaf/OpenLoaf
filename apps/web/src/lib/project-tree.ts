@@ -1,4 +1,4 @@
-import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 
 export type ProjectHierarchyIndex = {
   /** Project node by id. */

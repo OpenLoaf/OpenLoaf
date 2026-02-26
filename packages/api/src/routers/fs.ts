@@ -19,7 +19,7 @@ const SEARCH_IGNORE_NAMES = new Set([
   ".git",
   ".turbo",
   ".next",
-  ".tenas-trash",
+  ".openloaf-trash",
   "dist",
   "build",
   "out",
@@ -29,7 +29,7 @@ const DEFAULT_SEARCH_LIMIT = 500;
 /** Default maximum depth for recursive search. */
 const DEFAULT_SEARCH_MAX_DEPTH = 12;
 /** Cache directory name for generated video thumbnails. */
-const VIDEO_THUMB_CACHE_DIR = ".tenas-cache/video-thumbs";
+const VIDEO_THUMB_CACHE_DIR = ".openloaf-cache/video-thumbs";
 /** Default thumbnail width for video previews. */
 const VIDEO_THUMB_WIDTH = 320;
 /** Default thumbnail height for video previews. */

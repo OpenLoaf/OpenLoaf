@@ -6,8 +6,8 @@ import {
 import * as React from 'react'
 import type { DayButton } from 'react-day-picker'
 import { DayPicker, getDefaultClassNames } from 'react-day-picker'
-import { Button, buttonVariants } from '@tenas-ai/ui/calendar/components/ui/button'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { Button, buttonVariants } from '@openloaf/ui/calendar/components/ui/button'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 function Calendar({
 	className,

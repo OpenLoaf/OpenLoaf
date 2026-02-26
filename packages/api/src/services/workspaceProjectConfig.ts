@@ -15,7 +15,7 @@ import {
 import { normalizeFileUri, resolveFilePathFromUri, toFileUriWithoutEncoding } from "./fileUri";
 
 /** Workspace-level project config directory name. */
-const WORKSPACE_PROJECT_CONFIG_DIR = ".tenas";
+const WORKSPACE_PROJECT_CONFIG_DIR = ".openloaf";
 /** Workspace-level project config file name. */
 const WORKSPACE_PROJECT_CONFIG_FILE = "workspace.json";
 

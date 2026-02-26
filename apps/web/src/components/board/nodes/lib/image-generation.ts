@@ -1,5 +1,5 @@
-import type { ModelTag } from "@tenas-ai/api/common";
-import type { AiModel } from "@tenas-saas/sdk";
+import type { ModelTag } from "@openloaf/api/common";
+import type { AiModel } from "@openloaf-saas/sdk";
 
 import type { ProviderModelOption } from "@/lib/provider-models";
 import { resolveServerUrl } from "@/utils/server-url";

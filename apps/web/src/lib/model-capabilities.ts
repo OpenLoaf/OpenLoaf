@@ -1,4 +1,4 @@
-import type { ModelCapabilities, ModelTag } from "@tenas-ai/api/common";
+import type { ModelCapabilities, ModelTag } from "@openloaf/api/common";
 
 type ModelWithTags = {
   /** Model tags declared by the provider. */

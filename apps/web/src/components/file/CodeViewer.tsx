@@ -17,7 +17,7 @@ import type * as Monaco from "monaco-editor";
 import { Sparkles, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
@@ -60,7 +60,7 @@ type MonacoDisposable = { dispose: () => void };
 type CodeViewerMode = "preview" | "edit";
 
 /** Monaco theme name for the viewer. */
-const MONACO_THEME_DARK = "tenas-dark";
+const MONACO_THEME_DARK = "openloaf-dark";
 const MONACO_THEME_LIGHT = "vs";
 /** Default viewer mode for code files. */
 const DEFAULT_CODE_VIEWER_MODE: CodeViewerMode = "preview";
@@ -497,7 +497,7 @@ export default function CodeViewer({
     }
     const mentionValue = `${projectId}/${relativePath}:${range.startLine}-${range.endLine}`;
     window.dispatchEvent(
-      new CustomEvent("tenas:chat-insert-mention", {
+      new CustomEvent("openloaf:chat-insert-mention", {
         detail: { value: mentionValue },
       })
     );

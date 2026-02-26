@@ -4,9 +4,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-const tempRoot = mkdtempSync(path.join(tmpdir(), "tenas-email-env-"));
+const tempRoot = mkdtempSync(path.join(tmpdir(), "openloaf-email-env-"));
 const envPath = path.join(tempRoot, ".env");
-process.env.TENAS_SERVER_ENV_PATH = envPath;
+process.env.OPENLOAF_SERVER_ENV_PATH = envPath;
 
 let emailEnvStore: typeof import("../emailEnvStore");
 try {

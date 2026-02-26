@@ -1,23 +1,23 @@
 "use client";
 
-import type { IlamyCalendarProps } from "@tenas-ai/ui/calendar";
-import { IlamyCalendar } from "@tenas-ai/ui/calendar";
+import type { IlamyCalendarProps } from "@openloaf/ui/calendar";
+import { IlamyCalendar } from "@openloaf/ui/calendar";
 import styles from "./Calendar.module.css";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import dayjs from "@tenas-ai/ui/calendar/lib/configs/dayjs-config";
-import { Button } from "@tenas-ai/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@tenas-ai/ui/calendar/components/ui/dialog";
-import { EventForm, type EventFormProps } from "@tenas-ai/ui/calendar/components/event-form/event-form";
-import type { CalendarEvent as UiCalendarEvent } from "@tenas-ai/ui/calendar/components/types";
+import dayjs from "@openloaf/ui/calendar/lib/configs/dayjs-config";
+import { Button } from "@openloaf/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@openloaf/ui/calendar/components/ui/dialog";
+import { EventForm, type EventFormProps } from "@openloaf/ui/calendar/components/event-form/event-form";
+import type { CalendarEvent as UiCalendarEvent } from "@openloaf/ui/calendar/components/types";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@tenas-ai/ui/calendar/components/ui/select";
-import { Switch } from "@tenas-ai/ui/switch";
+} from "@openloaf/ui/calendar/components/ui/select";
+import { Switch } from "@openloaf/ui/switch";
 import "dayjs/locale/zh-cn";
 import "dayjs/locale/en";
 import "dayjs/locale/ja";
@@ -32,7 +32,7 @@ import { useProjects } from "@/hooks/use-projects";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 
-type SystemCalendarEvent = TenasCalendarEvent;
+type SystemCalendarEvent = OpenLoafCalendarEvent;
 type CalendarKind = "event" | "reminder";
 type CalendarSourceFilter = "all" | "local" | "system";
 type CalendarSource = {

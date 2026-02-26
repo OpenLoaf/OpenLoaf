@@ -1,8 +1,8 @@
-import { AnimatedSection } from '@tenas-ai/ui/calendar/components/animations/animated-section'
-import { ScrollArea, ScrollBar } from '@tenas-ai/ui/calendar/components/ui/scroll-area'
-import { useCalendarContext } from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/context'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { AnimatedSection } from '@openloaf/ui/calendar/components/animations/animated-section'
+import { ScrollArea, ScrollBar } from '@openloaf/ui/calendar/components/ui/scroll-area'
+import { useCalendarContext } from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/context'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 const DAY_HEADER_NAMES = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 const EVENT_DOT_COLORS = ['bg-primary', 'bg-blue-500', 'bg-green-500']

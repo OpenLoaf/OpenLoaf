@@ -3,17 +3,17 @@
 import type { UIMessage } from "ai";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   ButtonGroup,
   ButtonGroupText,
-} from "@tenas-ai/ui/button-group";
+} from "@openloaf/ui/button-group";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@tenas-ai/ui/tooltip";
+} from "@openloaf/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import {

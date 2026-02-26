@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { cn } from "@udecode/cn";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 
 const toolbarSurfaceClassName =
   "bg-card/90 ring-1 ring-border/70 shadow-[0_10px_26px_rgba(15,23,42,0.18)] backdrop-blur-md cursor-default [&_*]:!cursor-default";

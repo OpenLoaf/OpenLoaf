@@ -1,5 +1,5 @@
 import type { Hono } from "hono";
-import { readS3Providers } from "@/modules/settings/tenasConfStore";
+import { readS3Providers } from "@/modules/settings/openloafConfStore";
 import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
 
 /** Max file size for S3 test uploads. */

@@ -1,5 +1,5 @@
 import { tool, zodSchema } from "ai";
-import { writeStdinToolDef } from "@tenas-ai/api/types/tools/runtime";
+import { writeStdinToolDef } from "@openloaf/api/types/tools/runtime";
 import { formatUnifiedExecOutput, resolveMaxOutputChars, waitForOutput } from "@/ai/tools/execUtils";
 import {
   getExecSessionStatus,

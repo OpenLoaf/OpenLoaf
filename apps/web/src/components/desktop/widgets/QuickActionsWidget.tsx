@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Sparkles, Terminal, Search, LayoutDashboard } from "lucide-react";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
@@ -24,7 +24,7 @@ import {
 import {
   TERMINAL_WINDOW_COMPONENT,
   TERMINAL_WINDOW_PANEL_ID,
-} from "@tenas-ai/api/common";
+} from "@openloaf/api/common";
 import type { DesktopScope } from "../types";
 
 export interface QuickActionsWidgetProps {
@@ -193,7 +193,7 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
     }
     // 逻辑：延迟发出 focus 请求，等待 panel 展开动画与输入框挂载完成。
     const requestFocus = () => {
-      window.dispatchEvent(new CustomEvent("tenas:chat-focus-input"));
+      window.dispatchEvent(new CustomEvent("openloaf:chat-focus-input"));
     };
     if (runtime.rightChatCollapsed) {
       setTimeout(requestFocus, 180);

@@ -10,7 +10,7 @@ import {
 } from 'motion/react';
 
 import { useAutoHeight } from '@/hooks/use-auto-height';
-import { Slot, type WithAsChild } from '@tenas-ai/ui/animate-ui/primitives/animate/slot';
+import { Slot, type WithAsChild } from '@openloaf/ui/animate-ui/primitives/animate/slot';
 
 type AutoHeightProps = WithAsChild<
   {

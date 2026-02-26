@@ -2,7 +2,7 @@ import type { UIMessageStreamWriter } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { CodexRequestOptions } from "@/ai/models/cli/codex/codexOptions";
-import type { UpdatePlanArgs } from "@tenas-ai/api/types/tools/runtime";
+import type { UpdatePlanArgs } from "@openloaf/api/types/tools/runtime";
 
 export type AgentFrame = {
   kind: "master";

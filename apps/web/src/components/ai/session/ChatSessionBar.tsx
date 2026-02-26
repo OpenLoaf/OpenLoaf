@@ -53,7 +53,7 @@ export function ChatSessionBarItem({
         "group flex shrink-0 w-full min-w-0 items-center justify-between",
         "h-8 px-2 cursor-pointer",
         "bg-muted/50 hover:bg-muted transition-colors",
-        isStreaming && "tenas-thinking-border tenas-thinking-border-on",
+        isStreaming && "openloaf-thinking-border openloaf-thinking-border-on",
         className
       )}
       onClick={onSelect}

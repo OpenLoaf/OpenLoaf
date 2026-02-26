@@ -14,7 +14,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@tenas-ai/ui/popover';
+} from '@openloaf/ui/popover';
 import { cn } from '@/lib/utils';
 
 import { ToolbarButton } from './toolbar';

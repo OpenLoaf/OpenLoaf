@@ -16,7 +16,7 @@ import { useCloudModels } from "@/hooks/use-cloud-models";
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { getWebClientId } from "@/lib/chat/streamClientId";
 import { getClientTimeZone } from "@/utils/time-zone";
-import type { TenasUIMessage } from "@tenas-ai/api/types/message";
+import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
 import type { ImageNodeProps } from "../ImageNode";
 import { getWorkspaceIdFromCookie } from "../../core/boardSession";
 import { toast } from "sonner";
@@ -26,7 +26,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@tenas-ai/ui/select";
+} from "@openloaf/ui/select";
 import { IMAGE_GENERATE_NODE_TYPE } from "../imageGenerate/constants";
 import {
   filterModelOptionsByTags,
@@ -242,7 +242,7 @@ export function ImagePromptGenerateNodeView({
       try {
         const sessionId = sessionIdRef.current;
         const messageId = generateId();
-        const userMessage: TenasUIMessage = {
+        const userMessage: OpenLoafUIMessage = {
           id: messageId,
           role: "user",
           parentMessageId: null,
@@ -362,7 +362,7 @@ export function ImagePromptGenerateNodeView({
     "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100 dark:shadow-[0_12px_30px_rgba(0,0,0,0.5)]",
     "dark:bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_left,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
     viewStatus === "running"
-      ? "tenas-thinking-border tenas-thinking-border-on border-transparent"
+      ? "openloaf-thinking-border openloaf-thinking-border-on border-transparent"
       : "",
     viewStatus === "error"
       ? "border-rose-400/80 bg-rose-50/60 dark:border-rose-400/70 dark:bg-rose-950/30"

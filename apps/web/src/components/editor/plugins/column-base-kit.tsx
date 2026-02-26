@@ -3,7 +3,7 @@ import { BaseColumnItemPlugin, BaseColumnPlugin } from '@platejs/layout';
 import {
   ColumnElementStatic,
   ColumnGroupElementStatic,
-} from '@tenas-ai/ui/column-node-static';
+} from '@openloaf/ui/column-node-static';
 
 export const BaseColumnKit = [
   BaseColumnPlugin.withComponent(ColumnGroupElementStatic),

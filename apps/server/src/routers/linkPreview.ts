@@ -1,4 +1,4 @@
-import { BaseLinkPreviewRouter, linkPreviewSchemas, t, shieldedProcedure } from "@tenas-ai/api";
+import { BaseLinkPreviewRouter, linkPreviewSchemas, t, shieldedProcedure } from "@openloaf/api";
 import type { Response } from "undici";
 
 /** Timeout for fetching HTML content. */

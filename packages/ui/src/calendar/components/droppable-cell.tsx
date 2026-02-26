@@ -2,10 +2,10 @@
 
 import { useDroppable } from '@dnd-kit/core'
 import type React from 'react'
-import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { DISABLED_CELL_CLASSNAME } from '@tenas-ai/ui/calendar/lib/constants'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { DISABLED_CELL_CLASSNAME } from '@openloaf/ui/calendar/lib/constants'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 interface DroppableCellProps {
 	id: string

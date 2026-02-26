@@ -9,7 +9,7 @@ import {
   HighlightItem,
   type HighlightItemProps,
   type HighlightProps,
-} from '@tenas-ai/ui/animate-ui/primitives/effects/highlight';
+} from '@openloaf/ui/animate-ui/primitives/effects/highlight';
 import { getStrictContext } from '@/lib/get-strict-context';
 import { useControlledState } from '@/hooks/use-controlled-state';
 import { useDataState } from '@/hooks/use-data-state';

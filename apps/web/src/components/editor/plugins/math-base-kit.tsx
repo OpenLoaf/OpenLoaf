@@ -3,7 +3,7 @@ import { BaseEquationPlugin, BaseInlineEquationPlugin } from '@platejs/math';
 import {
   EquationElementStatic,
   InlineEquationElementStatic,
-} from '@tenas-ai/ui/equation-node-static';
+} from '@openloaf/ui/equation-node-static';
 
 export const BaseMathKit = [
   BaseInlineEquationPlugin.withComponent(InlineEquationElementStatic),

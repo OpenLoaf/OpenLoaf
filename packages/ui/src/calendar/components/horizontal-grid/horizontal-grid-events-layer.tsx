@@ -1,8 +1,8 @@
 import { memo } from 'react'
-import { DraggableEvent } from '@tenas-ai/ui/calendar/components/draggable-event/draggable-event'
-import { useProcessedWeekEvents } from '@tenas-ai/ui/calendar/features/calendar/hooks/useProcessedWeekEvents'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { EVENT_BAR_HEIGHT } from '@tenas-ai/ui/calendar/lib/constants'
+import { DraggableEvent } from '@openloaf/ui/calendar/components/draggable-event/draggable-event'
+import { useProcessedWeekEvents } from '@openloaf/ui/calendar/features/calendar/hooks/useProcessedWeekEvents'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { EVENT_BAR_HEIGHT } from '@openloaf/ui/calendar/lib/constants'
 
 export interface HorizontalGridEventsLayerProps {
 	days: dayjs.Dayjs[]

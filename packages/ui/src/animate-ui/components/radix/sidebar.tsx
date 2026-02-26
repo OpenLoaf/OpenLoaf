@@ -8,27 +8,27 @@ import { type Transition } from 'motion/react';
 
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import { Button } from '@tenas-ai/ui/button';
-import { Input } from '@tenas-ai/ui/input';
-import { Separator } from '@tenas-ai/ui/separator';
-import { Skeleton } from '@tenas-ai/ui/skeleton';
+import { Button } from '@openloaf/ui/button';
+import { Input } from '@openloaf/ui/input';
+import { Separator } from '@openloaf/ui/separator';
+import { Skeleton } from '@openloaf/ui/skeleton';
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from '@tenas-ai/ui/animate-ui/components/radix/sheet';
+} from '@openloaf/ui/animate-ui/components/radix/sheet';
 import {
   TooltipProvider,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@tenas-ai/ui/animate-ui/components/animate/tooltip';
+} from '@openloaf/ui/animate-ui/components/animate/tooltip';
 import {
   Highlight,
   HighlightItem,
-} from '@tenas-ai/ui/animate-ui/primitives/effects/highlight';
+} from '@openloaf/ui/animate-ui/primitives/effects/highlight';
 import { getStrictContext } from '@/lib/get-strict-context';
 
 const SIDEBAR_COOKIE_NAME = 'sidebar_state';
@@ -93,8 +93,8 @@ function SidebarProvider({
 
   React.useEffect(() => {
     const handler = () => toggleSidebar();
-    window.addEventListener("tenas:toggle-sidebar", handler);
-    return () => window.removeEventListener("tenas:toggle-sidebar", handler);
+    window.addEventListener("openloaf:toggle-sidebar", handler);
+    return () => window.removeEventListener("openloaf:toggle-sidebar", handler);
   }, [toggleSidebar]);
 
   // We add a state so that we can do data-state="expanded" or "collapsed".

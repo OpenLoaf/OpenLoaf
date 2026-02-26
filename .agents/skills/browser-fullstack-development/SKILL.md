@@ -7,7 +7,7 @@ description: Use when building, extending, or debugging the in-app browser syste
 
 ## Overview
 
-Tenas 的内置浏览器由三层协作完成：
+OpenLoaf 的内置浏览器由三层协作完成：
 1) Web UI 的浏览器面板与子标签（Renderer）。
 2) Electron 主进程的 WebContentsView 生命周期与事件推送。
 3) Server 侧的 open-url 工具、CDP 自动化与 tab 快照存储。
@@ -29,7 +29,7 @@ Tenas 的内置浏览器由三层协作完成：
 Renderer (apps/web)
   ElectrronBrowserWindow
     ├─ ensureWebContentsView / upsertWebContentsView
-    ├─ listen: tenas:webcontents-view:status / window-open
+    ├─ listen: openloaf:webcontents-view:status / window-open
     └─ update browserTabs + upsertTabSnapshotNow
           ↓
 Electron Main (apps/desktop)
@@ -45,7 +45,7 @@ Server (apps/server)
 
 ## Key Invariants
 
-- `viewKey` 必须唯一且稳定，用于匹配 `tenas:webcontents-view:status` 事件。
+- `viewKey` 必须唯一且稳定，用于匹配 `openloaf:webcontents-view:status` 事件。
 - `browserTabs` 只存放在 stack item `params` 中，必须通过 `normalizeBrowserWindowItem` 合并。
 - `cdpTargetIds` 必须写回当前激活的 browser tab，并及时 `upsertTabSnapshotNow`。
 - `open-url` 是前端工具执行链路，不走 runtime UI event。
@@ -144,7 +144,7 @@ const patchTargetId = (tabId: string, activeId: string, targetId: string) => {
 - 直接覆盖 `browserTabs` 而没走 `normalizeBrowserWindowItem` 合并逻辑。
 - `cdpTargetId` 没写回或没上报快照，导致 `browser-act` 报错。
 - 将 open-url 当作 server-side tool 执行，忽略前端 ack 机制。
-- Electron 端发出的 `tenas:webcontents-view:*` 事件未监听，导致 UI 不更新。
+- Electron 端发出的 `openloaf:webcontents-view:*` 事件未监听，导致 UI 不更新。
 
 ## Skill Sync Policy
 

@@ -7,13 +7,13 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@tenas-ai/ui/collapsible";
+} from "@openloaf/ui/collapsible";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@tenas-ai/ui/tabs";
+} from "@openloaf/ui/tabs";
 import { cn } from "@/lib/utils";
 import { ChevronDownIcon, Code } from "lucide-react";
 

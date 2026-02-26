@@ -1,10 +1,10 @@
 import type React from 'react'
 import { useMemo } from 'react'
-import { AnimatedSection } from '@tenas-ai/ui/calendar/components/animations/animated-section'
-import { ResourceEventGrid } from '@tenas-ai/ui/calendar/features/resource-calendar/components/resource-event-grid'
-import { useResourceCalendarContext } from '@tenas-ai/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { getMonthDays } from '@tenas-ai/ui/calendar/lib/utils/date-utils'
+import { AnimatedSection } from '@openloaf/ui/calendar/components/animations/animated-section'
+import { ResourceEventGrid } from '@openloaf/ui/calendar/features/resource-calendar/components/resource-event-grid'
+import { useResourceCalendarContext } from '@openloaf/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { getMonthDays } from '@openloaf/ui/calendar/lib/utils/date-utils'
 
 export const ResourceMonthHorizontal: React.FC = () => {
 	const { currentDate, t } = useResourceCalendarContext()

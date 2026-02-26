@@ -1,2 +1,2 @@
 export * from "./env";
-export * from "./tenas-paths";
+export * from "./openloaf-paths";

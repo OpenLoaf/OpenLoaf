@@ -7,7 +7,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "@tenas-ai/ui/context-menu";
+} from "@openloaf/ui/context-menu";
 import { isBoardFolderName } from "@/lib/file-name";
 import {
   ArrowRightLeft,

@@ -7,8 +7,8 @@ import {
   CommandItem,
   CommandList,
   CommandShortcut,
-} from "@tenas-ai/ui/command";
-import { Kbd, KbdGroup } from "@tenas-ai/ui/kbd";
+} from "@openloaf/ui/command";
+import { Kbd, KbdGroup } from "@openloaf/ui/kbd";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
@@ -16,7 +16,7 @@ import { useTabView } from "@/hooks/use-tab-view";
 import { useProjects } from "@/hooks/use-projects";
 import { useDebounce } from "@/hooks/use-debounce";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
-import { WORKBENCH_TAB_INPUT } from "@tenas-ai/api/common";
+import { WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
 import { trpc } from "@/utils/trpc";
 import { useQueries, skipToken, useQuery } from "@tanstack/react-query";
 import { CalendarDays, Inbox, LayoutTemplate, Sparkles } from "lucide-react";
@@ -201,7 +201,7 @@ export function Search({
   const dispatchOverlay = React.useCallback((nextOpen: boolean) => {
     if (typeof window === "undefined") return;
     window.dispatchEvent(
-      new CustomEvent("tenas:overlay", {
+      new CustomEvent("openloaf:overlay", {
         detail: { id: "search", open: nextOpen },
       }),
     );
@@ -264,7 +264,7 @@ export function Search({
     // 逻辑：等待 ChatInput 挂载后再触发发送。
     window.setTimeout(() => {
       window.dispatchEvent(
-        new CustomEvent("tenas:chat-send-message", { detail: { text: query } })
+        new CustomEvent("openloaf:chat-send-message", { detail: { text: query } })
       );
     }, 180);
   }, [committedSearchValue, openSingletonTab, searchValue]);
@@ -600,7 +600,7 @@ export function Search({
       onOpenChange={handleOpenChange}
       title="搜索"
       description="搜索并快速打开功能"
-      className="top-[25%] max-h-[70vh] translate-y-0 sm:max-w-xl tenas-thinking-border tenas-thinking-border-on border-transparent"
+      className="top-[25%] max-h-[70vh] translate-y-0 sm:max-w-xl openloaf-thinking-border openloaf-thinking-border-on border-transparent"
       showCloseButton={false}
       overlayClassName="backdrop-blur-sm bg-black/60"
       commandProps={{

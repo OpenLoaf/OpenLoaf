@@ -1,11 +1,11 @@
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
+} from "@openloaf/ui/dialog";
 
 type ConfirmDeleteDialogProps = {
   /** Dialog title. */

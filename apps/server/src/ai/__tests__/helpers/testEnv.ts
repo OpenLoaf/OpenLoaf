@@ -2,10 +2,10 @@ import { getProviderSettings } from '@/modules/settings/settingsService'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { setRequestContext, setChatModel, setAbortSignal } from '@/ai/shared/context/requestContext'
 
-const ENV_KEY = 'TENAS_TEST_CHAT_MODEL_ID'
+const ENV_KEY = 'OPENLOAF_TEST_CHAT_MODEL_ID'
 
 /**
- * 读取 TENAS_TEST_CHAT_MODEL_ID 环境变量（格式：profileId:modelId）。
+ * 读取 OPENLOAF_TEST_CHAT_MODEL_ID 环境变量（格式：profileId:modelId）。
  * 未设置时返回 undefined，走 resolveChatModel 自动 fallback。
  */
 export function getTestChatModelId(): string | undefined {

@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { normalizeUrl } from "@/components/browser/browser-utils";
-import type { BrowserTab } from "@tenas-ai/api/common";
+import type { BrowserTab } from "@openloaf/api/common";
 
 export function BrowserTabsBar({
   tabs,

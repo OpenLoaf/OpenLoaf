@@ -1,4 +1,4 @@
-import { Button } from '@tenas-ai/ui/calendar/components/ui/button'
+import { Button } from '@openloaf/ui/calendar/components/ui/button'
 import {
 	Dialog,
 	DialogContent,
@@ -6,9 +6,9 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from '@tenas-ai/ui/calendar/components/ui/dialog'
-import type { RecurrenceEditScope } from '@tenas-ai/ui/calendar/features/recurrence/types'
-import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
+} from '@openloaf/ui/calendar/components/ui/dialog'
+import type { RecurrenceEditScope } from '@openloaf/ui/calendar/features/recurrence/types'
+import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
 
 interface RecurrenceEditDialogProps {
 	isOpen: boolean

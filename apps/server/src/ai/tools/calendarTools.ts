@@ -1,9 +1,9 @@
 import { tool, zodSchema } from 'ai'
-import { createContext } from '@tenas-ai/api/context'
+import { createContext } from '@openloaf/api/context'
 import {
   calendarMutateToolDef,
   calendarQueryToolDef,
-} from '@tenas-ai/api/types/tools/calendar'
+} from '@openloaf/api/types/tools/calendar'
 import { calendarRouterImplementation } from '@/routers/calendar'
 import { getProjectId, getWorkspaceId } from '@/ai/shared/context/requestContext'
 
@@ -55,7 +55,7 @@ function resolveWorkspaceId(): string {
 /** Create a tRPC caller for calendar operations. */
 async function createCalendarCaller() {
   const ctx = await createContext({ context: {} as any })
-  // 直接使用 server 端实现，而非 @tenas-ai/api 导出的 base router（base 会抛 Not implemented）。
+  // 直接使用 server 端实现，而非 @openloaf/api 导出的 base router（base 会抛 Not implemented）。
   return calendarRouterImplementation.createCaller(ctx)
 }
 

@@ -1,8 +1,8 @@
 import type React from 'react'
 import { useMemo } from 'react'
-import { HorizontalGrid } from '@tenas-ai/ui/calendar/components/horizontal-grid/horizontal-grid'
-import { useCalendarContext } from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/context'
-import { getMonthWeeks } from '@tenas-ai/ui/calendar/lib/utils/date-utils'
+import { HorizontalGrid } from '@openloaf/ui/calendar/components/horizontal-grid/horizontal-grid'
+import { useCalendarContext } from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/context'
+import { getMonthWeeks } from '@openloaf/ui/calendar/lib/utils/date-utils'
 import { MonthHeader } from './month-header'
 import type { MonthViewProps } from './types'
 

@@ -14,13 +14,13 @@ import {
   HighlightItem,
   type HighlightProps,
   type HighlightItemProps,
-} from '@tenas-ai/ui/animate-ui/primitives/effects/highlight';
+} from '@openloaf/ui/animate-ui/primitives/effects/highlight';
 import { getStrictContext } from '@/lib/get-strict-context';
 import { useControlledState } from '@/hooks/use-controlled-state';
 import {
   AutoHeight,
   type AutoHeightProps,
-} from '@tenas-ai/ui/animate-ui/primitives/effects/auto-height';
+} from '@openloaf/ui/animate-ui/primitives/effects/auto-height';
 
 type TabsContextType = {
   value: string | undefined;

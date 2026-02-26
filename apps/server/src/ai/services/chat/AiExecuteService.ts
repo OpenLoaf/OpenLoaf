@@ -1,5 +1,5 @@
 import { UI_MESSAGE_STREAM_HEADERS } from "ai";
-import type { TenasUIMessage } from "@tenas-ai/api/types/message";
+import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
 import type { ChatStreamRequest } from "@/ai/services/chat/types";
 import type { ChatImageMessageInput, ChatImageRequest } from "@/ai/services/image/types";
 import type { AiExecuteRequest } from "@/ai/services/chat/types";
@@ -10,7 +10,7 @@ import {
   getProjectRootPath,
   getWorkspaceRootPath,
   getWorkspaceRootPathById,
-} from "@tenas-ai/api/services/vfsService";
+} from "@openloaf/api/services/vfsService";
 import { resolveParentProjectRootPaths } from "@/ai/shared/util";
 import { CommandParser } from "@/ai/tools/CommandParser";
 import { SkillSelector, type SkillMatch } from "@/ai/tools/SkillSelector";
@@ -37,7 +37,7 @@ export class AiExecuteService {
       return createInvalidResponse("请求无效：缺少 sessionId。", expectsJson);
     }
     const messages = Array.isArray(request.messages) ? request.messages : [];
-    const lastMessage = messages.at(-1) as TenasUIMessage | undefined;
+    const lastMessage = messages.at(-1) as OpenLoafUIMessage | undefined;
     if (!lastMessage || !lastMessage.role || !lastMessage.id) {
       return createInvalidResponse("请求无效：缺少最后一条消息。", expectsJson);
     }
@@ -136,7 +136,7 @@ function extractTextFromParts(parts: unknown[]): string {
 function buildChatStreamRequest(input: {
   request: AiExecuteRequest;
   sessionId: string;
-  lastMessage: TenasUIMessage;
+  lastMessage: OpenLoafUIMessage;
   selectedSkills: string[];
 }): ChatStreamRequest {
   return {
@@ -162,7 +162,7 @@ function buildChatStreamRequest(input: {
 function buildChatImageRequest(input: {
   request: AiExecuteRequest;
   sessionId: string;
-  lastMessage: TenasUIMessage;
+  lastMessage: OpenLoafUIMessage;
   selectedSkills: string[];
 }): ChatImageRequest {
   const imageMessage: ChatImageMessageInput = {

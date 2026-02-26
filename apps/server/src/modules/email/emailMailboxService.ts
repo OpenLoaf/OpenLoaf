@@ -1,6 +1,6 @@
 import Imap from "imap";
 
-import type { PrismaClient } from "@tenas-ai/db";
+import type { PrismaClient } from "@openloaf/db";
 import { logger } from "@/common/logger";
 import { readEmailConfigFile, writeEmailConfigFile } from "./emailConfigStore";
 import { getEmailEnvValue } from "./emailEnvStore";

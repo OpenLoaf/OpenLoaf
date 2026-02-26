@@ -106,9 +106,9 @@ export interface DesktopWidgetItem extends DesktopItemBase {
   webTitle?: string;
   /** Web stack description (when widgetKey is web-stack). */
   webDescription?: string;
-  /** Web stack logo path under .tenas/desktop (when widgetKey is web-stack). */
+  /** Web stack logo path under .openloaf/desktop (when widgetKey is web-stack). */
   webLogo?: string;
-  /** Web stack preview image path under .tenas/desktop (when widgetKey is web-stack). */
+  /** Web stack preview image path under .openloaf/desktop (when widgetKey is web-stack). */
   webPreview?: string;
   /** Web stack metadata status (when widgetKey is web-stack). */
   webMetaStatus?: "idle" | "loading" | "ready" | "failed";

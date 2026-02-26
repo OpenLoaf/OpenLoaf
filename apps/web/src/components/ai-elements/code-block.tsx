@@ -8,14 +8,14 @@ import type {
   ThemedToken,
 } from "shiki";
 
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@tenas-ai/ui/select";
+} from "@openloaf/ui/select";
 import { cn } from "@/lib/utils";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import {

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
-import { BROWSER_WINDOW_PANEL_ID, type BrowserTab } from "@tenas-ai/api/common";
+import { BROWSER_WINDOW_PANEL_ID, type BrowserTab } from "@openloaf/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
@@ -15,7 +15,7 @@ import { BrowserProgressBar } from "@/components/browser/BrowserProgressBar";
 import { BrowserLoadingOverlay } from "@/components/browser/BrowserLoadingOverlay";
 import { BrowserErrorOverlay } from "@/components/browser/BrowserErrorOverlay";
 import { BrowserHome } from "@/components/browser/BrowserHome";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import { normalizeUrl } from "@/components/browser/browser-utils";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import {
@@ -27,8 +27,8 @@ import {
   setFavoriteIconByUrl,
 } from "@/components/browser/browser-storage";
 import type {
-  TenasWebContentsViewStatus,
-  TenasWebContentsViewWindowOpen,
+  OpenLoafWebContentsViewStatus,
+  OpenLoafWebContentsViewWindowOpen,
 } from "@/components/browser/browser-types";
 import { createBrowserTabId } from "@/hooks/tab-id";
 import {
@@ -37,7 +37,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@tenas-ai/ui/empty";
+} from "@openloaf/ui/empty";
 import { Star, TriangleAlert } from "lucide-react";
 
 type ElectrronBrowserWindowProps = {
@@ -99,8 +99,8 @@ export default function ElectrronBrowserWindow({
   const overlayBlockedRef = useRef(false);
   const coveredByAnotherStackItemRef = useRef(false);
   const overlayIdsRef = useRef<Set<string>>(new Set());
-  const viewStatusByKeyRef = useRef<Map<string, TenasWebContentsViewStatus>>(new Map());
-  const [activeViewStatus, setActiveViewStatus] = useState<TenasWebContentsViewStatus | null>(null);
+  const viewStatusByKeyRef = useRef<Map<string, OpenLoafWebContentsViewStatus>>(new Map());
+  const [activeViewStatus, setActiveViewStatus] = useState<OpenLoafWebContentsViewStatus | null>(null);
   const isElectron = useMemo(() => isElectronEnv(), []);
   // 中文注释：记录当前是否离线。
   const [isOffline, setIsOffline] = useState(() => {
@@ -164,7 +164,7 @@ export default function ElectrronBrowserWindow({
   };
 
   // Sync tab title from WebContents status events.
-  const syncTabTitleFromStatus = (status: TenasWebContentsViewStatus) => {
+  const syncTabTitleFromStatus = (status: OpenLoafWebContentsViewStatus) => {
     if (!safeTabId) return;
     const nextTitle = status.title?.trim();
     if (!nextTitle) return;
@@ -179,7 +179,7 @@ export default function ElectrronBrowserWindow({
   };
 
   // Sync favorite icon when a page reports its favicon.
-  const syncFavoriteIconFromStatus = (status: TenasWebContentsViewStatus) => {
+  const syncFavoriteIconFromStatus = (status: OpenLoafWebContentsViewStatus) => {
     if (!status.url || !status.faviconUrl) return;
     // 只有页面真实打开后才会触发 favicon 更新，避免未打开时写入。
     setFavoriteIconByUrl(status.url, status.faviconUrl);
@@ -216,7 +216,7 @@ export default function ElectrronBrowserWindow({
   }, [tabs, safeTabId, activeId]);
 
   useEffect(() => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!isElectron || !safeTabId) return;
     const ensureWebContentsView = api?.ensureWebContentsView;
     if (!ensureWebContentsView) return;
@@ -291,7 +291,7 @@ export default function ElectrronBrowserWindow({
     if (!isElectron) return;
 
     const handleStatus = (event: Event) => {
-      const detail = (event as CustomEvent<TenasWebContentsViewStatus>).detail;
+      const detail = (event as CustomEvent<OpenLoafWebContentsViewStatus>).detail;
       if (!detail?.key) return;
 
       if (detail.destroyed) {
@@ -357,15 +357,15 @@ export default function ElectrronBrowserWindow({
       }
     };
 
-    window.addEventListener("tenas:webcontents-view:status", handleStatus);
-    return () => window.removeEventListener("tenas:webcontents-view:status", handleStatus);
+    window.addEventListener("openloaf:webcontents-view:status", handleStatus);
+    return () => window.removeEventListener("openloaf:webcontents-view:status", handleStatus);
   }, [isElectron, activeViewKey, targetUrl, activeId, safeTabId]);
 
   useEffect(() => {
     if (!isElectron || !safeTabId) return;
 
   const handleWindowOpen = (event: Event) => {
-    const detail = (event as CustomEvent<TenasWebContentsViewWindowOpen>).detail;
+    const detail = (event as CustomEvent<OpenLoafWebContentsViewWindowOpen>).detail;
     if (!detail?.key || !detail?.url) return;
     console.log("[browser-tabs] window-open", detail);
     const nextUrl = normalizeUrl(detail.url);
@@ -386,9 +386,9 @@ export default function ElectrronBrowserWindow({
       updateBrowserState(nextTabs, openInBackground ? activeId : id);
     };
 
-    window.addEventListener("tenas:webcontents-view:window-open", handleWindowOpen);
+    window.addEventListener("openloaf:webcontents-view:window-open", handleWindowOpen);
     return () =>
-      window.removeEventListener("tenas:webcontents-view:window-open", handleWindowOpen);
+      window.removeEventListener("openloaf:webcontents-view:window-open", handleWindowOpen);
   }, [isElectron, safeTabId, activeId]);
 
   useEffect(() => {
@@ -449,7 +449,7 @@ export default function ElectrronBrowserWindow({
 
   const hostRef = useRef<HTMLDivElement | null>(null);
   const lastSentByKeyRef = useRef<
-    Map<string, { url: string; bounds: TenasViewBounds; visible: boolean }>
+    Map<string, { url: string; bounds: OpenLoafViewBounds; visible: boolean }>
   >(new Map());
   // 中文注释：记录 view 容器尺寸变化时间，用于等待动画稳定。
   const layoutStabilityRef = useRef<
@@ -457,7 +457,7 @@ export default function ElectrronBrowserWindow({
   >(new Map());
 
   useEffect(() => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!isElectron) return;
 
     const hideIfNeeded = () => {
@@ -510,12 +510,12 @@ export default function ElectrronBrowserWindow({
     };
 
     hideIfNeeded();
-    window.addEventListener("tenas:overlay", handleOverlay);
-    return () => window.removeEventListener("tenas:overlay", handleOverlay);
+    window.addEventListener("openloaf:overlay", handleOverlay);
+    return () => window.removeEventListener("openloaf:overlay", handleOverlay);
   }, [isElectron, activeViewKey]);
 
   useEffect(() => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!isElectron || !api?.upsertWebContentsView) return;
 
     let rafId = 0;
@@ -537,7 +537,7 @@ export default function ElectrronBrowserWindow({
       if (!prevSize || prevSize.width !== size.width || prevSize.height !== size.height) {
         layoutStabilityRef.current.set(activeViewKey, { ...size, lastChangeAt: now });
       }
-      const next: { url: string; bounds: TenasViewBounds; visible: boolean } =
+      const next: { url: string; bounds: OpenLoafViewBounds; visible: boolean } =
         {
           url: targetUrl,
           visible:
@@ -621,7 +621,7 @@ export default function ElectrronBrowserWindow({
   }, [targetUrl, isElectron, activeViewKey, tabActive, coveredByAnotherStackItem, stackHidden]);
 
   useEffect(() => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!isElectron || !api?.destroyWebContentsView) return;
     return () => {
       // 关闭整个浏览器面板时，销毁所有子标签对应的 WebContentsView，避免泄漏。
@@ -646,7 +646,7 @@ export default function ElectrronBrowserWindow({
   const onCloseBrowserTab = (id: string) => {
     if (!id) return;
     if (editingTabId === id) setEditingTabId(null);
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     const current = tabsRef.current;
     const closing = current.find((t) => t.id === id);
     const fallbackKey = closing?.id ? buildViewKey(closing.id) : "";
@@ -722,7 +722,7 @@ export default function ElectrronBrowserWindow({
       if (!ok) return;
     }
 
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (isElectron) {
       // 先主动销毁所有 view，保证 Electron 页面同步关闭。
       for (const t of tabsRef.current) {
@@ -773,7 +773,7 @@ export default function ElectrronBrowserWindow({
   // Navigate back within the active WebContentsView.
   const onGoBack = () => {
     if (!isElectron || !activeViewKey) return;
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!api?.goBackWebContentsView) return;
     void api.goBackWebContentsView(activeViewKey);
   };
@@ -781,7 +781,7 @@ export default function ElectrronBrowserWindow({
   // Navigate forward within the active WebContentsView.
   const onGoForward = () => {
     if (!isElectron || !activeViewKey) return;
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!api?.goForwardWebContentsView) return;
     void api.goForwardWebContentsView(activeViewKey);
   };

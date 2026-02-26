@@ -9,11 +9,11 @@ import { isElectronEnv } from "@/utils/is-electron-env";
 /** Default error message for dictation failures. */
 const DEFAULT_ERROR_MESSAGE = "语音识别不可用";
 
-type SpeechResultDetail = TenasSpeechResult;
+type SpeechResultDetail = OpenLoafSpeechResult;
 
-type SpeechStateDetail = TenasSpeechState;
+type SpeechStateDetail = OpenLoafSpeechState;
 
-type SpeechErrorDetail = TenasSpeechError;
+type SpeechErrorDetail = OpenLoafSpeechError;
 
 type SpeechResultPayload = {
   /** Speech recognition text chunk. */
@@ -65,7 +65,7 @@ export function useSpeechDictation({
   const isSupported = Boolean(
     isElectron &&
       typeof window !== "undefined" &&
-      window.tenasElectron?.startSpeechRecognition,
+      window.openloafElectron?.startSpeechRecognition,
   );
 
   /** Update listener refs when listening state changes. */
@@ -153,11 +153,11 @@ export function useSpeechDictation({
 
   /** Start speech dictation in Electron main process. */
   const start = useCallback(async () => {
-    if (!isSupported || !window.tenasElectron?.startSpeechRecognition) {
+    if (!isSupported || !window.openloafElectron?.startSpeechRecognition) {
       if (onError) onError(DEFAULT_ERROR_MESSAGE);
       return;
     }
-    const result = await window.tenasElectron.startSpeechRecognition({
+    const result = await window.openloafElectron.startSpeechRecognition({
       language: language?.trim() || undefined,
     });
     if (result?.ok) {
@@ -171,8 +171,8 @@ export function useSpeechDictation({
 
   /** Stop speech dictation in Electron main process. */
   const stop = useCallback(async () => {
-    if (!window.tenasElectron?.stopSpeechRecognition) return;
-    await window.tenasElectron.stopSpeechRecognition();
+    if (!window.openloafElectron?.stopSpeechRecognition) return;
+    await window.openloafElectron.stopSpeechRecognition();
     lastInterimRef.current = "";
     setIsListening(false);
   }, []);
@@ -191,13 +191,13 @@ export function useSpeechDictation({
 
   useEffect(() => {
     if (!isSupported) return;
-    window.addEventListener("tenas:speech:result", handleSpeechResult);
-    window.addEventListener("tenas:speech:state", handleSpeechState);
-    window.addEventListener("tenas:speech:error", handleSpeechError);
+    window.addEventListener("openloaf:speech:result", handleSpeechResult);
+    window.addEventListener("openloaf:speech:state", handleSpeechState);
+    window.addEventListener("openloaf:speech:error", handleSpeechError);
     return () => {
-      window.removeEventListener("tenas:speech:result", handleSpeechResult);
-      window.removeEventListener("tenas:speech:state", handleSpeechState);
-      window.removeEventListener("tenas:speech:error", handleSpeechError);
+      window.removeEventListener("openloaf:speech:result", handleSpeechResult);
+      window.removeEventListener("openloaf:speech:state", handleSpeechState);
+      window.removeEventListener("openloaf:speech:error", handleSpeechError);
     };
   }, [handleSpeechResult, handleSpeechState, handleSpeechError, isSupported]);
 

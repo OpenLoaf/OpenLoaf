@@ -1,10 +1,10 @@
-import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
+import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 import {
 	DAY_NUMBER_HEIGHT,
 	EVENT_BAR_HEIGHT,
 	GAP_BETWEEN_ELEMENTS,
-} from '@tenas-ai/ui/calendar/lib/constants'
+} from '@openloaf/ui/calendar/lib/constants'
 
 export interface PositionedEvent extends CalendarEvent {
 	left: number // Left position in percentage

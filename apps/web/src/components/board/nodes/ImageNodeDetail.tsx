@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
+import type { OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
 import { cn } from "@/lib/utils";
 import { getPreviewEndpoint } from "@/lib/image/uri";
 
@@ -68,7 +68,7 @@ function findSubarray(haystack: Uint8Array, needle: Uint8Array, start = 0): numb
 function parseMultipartMetadata(
   buffer: ArrayBuffer,
   boundary: string
-): TenasImageMetadataV1 | null {
+): OpenLoafImageMetadataV1 | null {
   const bytes = new Uint8Array(buffer);
   const boundaryBytes = TEXT_ENCODER.encode(`--${boundary}`);
   const headerSeparatorBytes = TEXT_ENCODER.encode(MULTIPART_HEADER_SEPARATOR);
@@ -96,14 +96,14 @@ function parseMultipartMetadata(
   const jsonText = TEXT_DECODER.decode(bytes.subarray(bodyStart, bodyEnd)).trim();
   if (!jsonText || jsonText === "null") return null;
   try {
-    return JSON.parse(jsonText) as TenasImageMetadataV1;
+    return JSON.parse(jsonText) as OpenLoafImageMetadataV1;
   } catch {
     return null;
   }
 }
 
 /** Resolve prompt detail from metadata payload. */
-function resolvePromptDetail(metadata: TenasImageMetadataV1 | null): PromptDetail | null {
+function resolvePromptDetail(metadata: OpenLoafImageMetadataV1 | null): PromptDetail | null {
   if (!metadata) return null;
   if (metadata.revised_prompt?.trim()) {
     return { label: "改写提示词", text: metadata.revised_prompt.trim() };

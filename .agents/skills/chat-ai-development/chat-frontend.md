@@ -117,7 +117,7 @@ mediaGenerate?: {
 ## JSX 渲染（文件化渲染）
 
 - 工具卡片：`message/tools/JsxCreateTool.tsx`
-- 文件路径：`.tenas/chat-history/<sessionId>/jsx/<messageId>.jsx`
+- 文件路径：`.openloaf/chat-history/<sessionId>/jsx/<messageId>.jsx`
 - 读取方式：`trpc.fs.readFile`（优先落盘内容，缺失时回退到工具输入）
 - 刷新机制：`lib/chat/jsx-create-events.ts`
   - `WriteFileTool` 在 `apply-patch` 完成后解析 patch 路径并 `emitJsxCreateRefresh`

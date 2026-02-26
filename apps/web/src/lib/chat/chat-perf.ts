@@ -1,9 +1,9 @@
 /** Storage key for perf logging flag. */
-const STORAGE_KEY = "tenas:debug:chat-perf";
+const STORAGE_KEY = "openloaf:debug:chat-perf";
 /** Window key for perf logging enabled flag. */
-const ENABLED_KEY = "__tenasChatPerfEnabled";
+const ENABLED_KEY = "__openloafChatPerfEnabled";
 /** Window key for perf counters storage. */
-const COUNTERS_KEY = "__tenasChatPerfCounters";
+const COUNTERS_KEY = "__openloafChatPerfCounters";
 
 /** Get the browser window safely. */
 function getWindow(): (Window & typeof globalThis) | null {

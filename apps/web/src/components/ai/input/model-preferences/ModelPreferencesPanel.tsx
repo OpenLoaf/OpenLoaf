@@ -83,7 +83,7 @@ export function ModelPreferencesPanel({
                 onOpenLogin()
               }}
             >
-              登录Tenas账户，使用云端模型
+              登录OpenLoaf账户，使用云端模型
             </PromptInputButton>
             <div className="text-xs text-muted-foreground">
               使用云端模型

@@ -1,9 +1,9 @@
-import type { AiProviderTemplate } from "@tenas-saas/sdk";
+import type { AiProviderTemplate } from "@openloaf-saas/sdk";
 import type {
   ModelDefinition,
   ModelTag,
   ProviderDefinition,
-} from "@tenas-ai/api/common";
+} from "@openloaf/api/common";
 import { getSaasClient } from "@/modules/saas/client";
 
 type RegistryCache = {

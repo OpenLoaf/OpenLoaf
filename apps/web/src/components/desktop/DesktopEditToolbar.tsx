@@ -9,7 +9,7 @@ import {
   X,
   Check,
 } from "lucide-react";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { desktopWidgetCatalog } from "./widget-catalog";

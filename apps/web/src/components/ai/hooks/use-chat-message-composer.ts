@@ -3,7 +3,7 @@
 import * as React from "react";
 import { normalizeImageOptions } from "@/lib/chat/image-options";
 import { normalizeCodexOptions } from "@/lib/chat/codex-options";
-import type { ImageGenerateOptions } from "@tenas-ai/api/types/image";
+import type { ImageGenerateOptions } from "@openloaf/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
 
 export function useChatMessageComposer(input: {

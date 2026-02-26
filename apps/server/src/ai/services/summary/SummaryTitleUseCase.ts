@@ -1,15 +1,15 @@
 import { generateId, generateText, type UIMessage } from "ai";
 import { UI_MESSAGE_STREAM_HEADERS } from "ai";
-import type { TenasUIMessage } from "@tenas-ai/api/types/message";
+import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
 import type { AiExecuteRequest } from "@/ai/services/chat/types";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import { readAgentJson, resolveAgentDir } from "@/ai/shared/defaultAgentResolver";
-import { readBasicConf } from "@/modules/settings/tenasConfStore";
+import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import {
   getProjectRootPath,
   getWorkspaceRootPath,
   getWorkspaceRootPathById,
-} from "@tenas-ai/api/services/vfsService";
+} from "@openloaf/api/services/vfsService";
 import { resolveRequiredInputTags, resolvePreviousChatModelId } from "@/ai/services/chat/modelResolution";
 import { initRequestContext } from "@/ai/services/chat/chatStreamHelpers";
 import { replaceRelativeFileParts } from "@/ai/services/image/attachmentResolver";
@@ -52,8 +52,8 @@ type ModelRole = "user" | "assistant" | "system";
 
 /** Narrow UI messages to model-safe roles. */
 function isModelRoleMessage(
-  message: TenasUIMessage,
-): message is TenasUIMessage & { role: ModelRole } {
+  message: OpenLoafUIMessage,
+): message is OpenLoafUIMessage & { role: ModelRole } {
   return message.role === "user" || message.role === "assistant" || message.role === "system";
 }
 

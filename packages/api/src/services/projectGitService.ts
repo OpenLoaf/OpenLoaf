@@ -130,7 +130,7 @@ const GIT_LOG_FIELD_SEPARATOR = "\x1f";
 /** Cached git CLI availability. */
 let gitCliAvailable: boolean | null = null;
 /** Marker for appended gitignore template. */
-const GITIGNORE_TEMPLATE_MARKER = "# Tenas default .gitignore";
+const GITIGNORE_TEMPLATE_MARKER = "# OpenLoaf default .gitignore";
 
 /** Exec helper for git CLI. */
 const execFileAsync = promisify(execFile);

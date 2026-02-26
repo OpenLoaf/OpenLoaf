@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@tenas-ai/ui/button";
-import { Input } from "@tenas-ai/ui/input";
-import { Label } from "@tenas-ai/ui/label";
+import { Button } from "@openloaf/ui/button";
+import { Input } from "@openloaf/ui/input";
+import { Label } from "@openloaf/ui/label";
 import { resolveServerUrl } from "@/utils/server-url";
 
 type LocalAuthSessionResponse = {

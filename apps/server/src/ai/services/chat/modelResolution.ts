@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import type { ModelCapabilities, ModelDefinition, ModelTag } from "@tenas-ai/api/common";
+import type { ModelCapabilities, ModelDefinition, ModelTag } from "@openloaf/api/common";
 import { getModelDefinition } from "@/ai/models/modelRegistry";
 import { getProviderSettings } from "@/modules/settings/settingsService";
 

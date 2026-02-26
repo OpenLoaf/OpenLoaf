@@ -1,9 +1,9 @@
 import { generateText } from "ai";
-import type { ProjectGitCommit } from "@tenas-ai/api/services/projectGitService";
-import type { ProjectFileChange } from "@tenas-ai/api/services/projectFileChangeService";
+import type { ProjectGitCommit } from "@openloaf/api/services/projectGitService";
+import type { ProjectFileChange } from "@openloaf/api/services/projectFileChangeService";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
-import { readBasicConf } from "@/modules/settings/tenasConfStore";
-import type { BasicConfig } from "@tenas-ai/api/types/basic";
+import { readBasicConf } from "@/modules/settings/openloafConfStore";
+import type { BasicConfig } from "@openloaf/api/types/basic";
 
 type SummaryGeneratorInput = {
   /** Project title for prompt context. */

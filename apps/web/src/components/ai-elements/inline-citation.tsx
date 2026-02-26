@@ -1,19 +1,19 @@
 "use client";
 
-import type { CarouselApi } from "@tenas-ai/ui/carousel";
+import type { CarouselApi } from "@openloaf/ui/carousel";
 import type { ComponentProps } from "react";
 
-import { Badge } from "@tenas-ai/ui/badge";
+import { Badge } from "@openloaf/ui/badge";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
-} from "@tenas-ai/ui/carousel";
+} from "@openloaf/ui/carousel";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
-} from "@tenas-ai/ui/hover-card";
+} from "@openloaf/ui/hover-card";
 import { cn } from "@/lib/utils";
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import {

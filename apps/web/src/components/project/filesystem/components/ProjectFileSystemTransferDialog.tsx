@@ -11,7 +11,7 @@ import {
 } from "react";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
   DialogClose,
@@ -19,7 +19,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
+} from "@openloaf/ui/dialog";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -27,13 +27,13 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@tenas-ai/ui/breadcrumb";
+} from "@openloaf/ui/breadcrumb";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from "@tenas-ai/ui/context-menu";
+} from "@openloaf/ui/context-menu";
 import { toast } from "sonner";
 import { PageTreePicker } from "@/components/layout/sidebar/ProjectTree";
 import { FileSystemGrid } from "./FileSystemGrid";
@@ -43,7 +43,7 @@ import { useFileRename } from "@/hooks/use-file-rename";
 import { useProjects } from "@/hooks/use-projects";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { isBoardFolderName } from "@/lib/file-name";
-import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import {
   IGNORE_NAMES,
   buildChildUri,

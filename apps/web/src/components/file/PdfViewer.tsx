@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
@@ -109,7 +109,7 @@ export default function PdfViewer({
       const relativePath = scopedMatch ? scopedMatch[1] ?? "" : trimmedUri;
       return resolveFileUriFromRoot(rootUri, relativePath);
     })();
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!api?.openPath) {
       toast.error("网页版不支持打开本地文件");
       return;

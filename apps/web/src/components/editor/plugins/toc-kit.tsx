@@ -2,7 +2,7 @@
 
 import { TocPlugin } from '@platejs/toc/react';
 
-import { TocElement } from '@tenas-ai/ui/toc-node';
+import { TocElement } from '@openloaf/ui/toc-node';
 
 export const TocKit = [
   TocPlugin.configure({

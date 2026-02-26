@@ -29,15 +29,15 @@ import {
   usePluginOption,
 } from 'platejs/react';
 
-import { Avatar, AvatarFallback, AvatarImage } from '@tenas-ai/ui/avatar';
-import { Button } from '@tenas-ai/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@openloaf/ui/avatar';
+import { Button } from '@openloaf/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@tenas-ai/ui/dropdown-menu';
+} from '@openloaf/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { BasicMarksKit } from '@/components/editor/plugins/basic-marks-kit';
 import {

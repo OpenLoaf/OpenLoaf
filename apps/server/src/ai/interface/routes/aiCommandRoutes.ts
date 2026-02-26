@@ -1,6 +1,6 @@
 import type { Hono } from 'hono'
 import { streamText } from 'ai'
-import type { ChatModelSource } from '@tenas-ai/api/common'
+import type { ChatModelSource } from '@openloaf/api/common'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { logger } from '@/common/logger'
 

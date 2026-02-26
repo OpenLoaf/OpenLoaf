@@ -2,7 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { WorkspaceContext } from "@/components/workspace/workspaceContext";
-import type { Workspace } from "@tenas-ai/api/types/workspace";
+import type { Workspace } from "@openloaf/api/types/workspace";
 import { useEffect } from "react";
 
 interface WorkspaceProviderProps {

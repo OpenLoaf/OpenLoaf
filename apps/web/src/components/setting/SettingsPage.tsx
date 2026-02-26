@@ -6,7 +6,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@tenas-ai/ui/tooltip";
+} from "@openloaf/ui/tooltip";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useBasicConfig } from "@/hooks/use-basic-config";
@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 
 import { BasicSettings } from "./menus/BasicSettings";
-import { AboutTenas } from "./menus/AboutTenas";
+import { AboutOpenLoaf } from "./menus/AboutOpenLoaf";
 import { ProviderManagement } from "./menus/ProviderManagement";
 import { ObjectStorageService } from "./menus/ObjectStorageService";
 import { AgentManagement } from "./menus/agent/AgentManagement";
@@ -33,11 +33,11 @@ import { WorkspaceSettings } from "./menus/Workspace";
 import TestSetting from "./menus/TestSetting";
 import { SkillSettings } from "./menus/SkillSettings";
 import { ThirdPartyTools } from "./menus/ThirdPartyTools";
-import { TenasSettingsLayout } from "@tenas-ai/ui/tenas/TenasSettingsLayout";
+import { OpenLoafSettingsLayout } from "@openloaf/ui/openloaf/OpenLoafSettingsLayout";
 import {
-  TenasSettingsMenu,
-  type TenasSettingsMenuItem,
-} from "@tenas-ai/ui/tenas/TenasSettingsMenu";
+  OpenLoafSettingsMenu,
+  type OpenLoafSettingsMenuItem,
+} from "@openloaf/ui/openloaf/OpenLoafSettingsMenu";
 import { cn } from "@/lib/utils";
 
 type SettingsMenuKey =
@@ -149,9 +149,9 @@ const MENU: Array<{
   ...DEV_MENU,
   {
     key: "about",
-    label: "关于Tenas",
+    label: "关于OpenLoaf",
     Icon: createMenuIcon(Info, SETTINGS_MENU_ICON_COLOR.about),
-    Component: AboutTenas,
+    Component: AboutOpenLoaf,
   },
 ];
 
@@ -261,7 +261,7 @@ export default function SettingsPage({
 
   const menuGroups = useMemo(() => {
     const byKey = new Map(MENU.map((item) => [item.key, item]));
-    const filterVisible = (item?: TenasSettingsMenuItem | null) =>
+    const filterVisible = (item?: OpenLoafSettingsMenuItem | null) =>
       Boolean(item && !HIDDEN_MENU_KEYS.has(item.key as SettingsMenuKey));
     const group1 = [
       byKey.get("basic"),
@@ -277,7 +277,7 @@ export default function SettingsPage({
       byKey.get("keys"),
       byKey.get("storage"),
     ].filter(filterVisible);
-    return [group1, group2].filter((group) => group.length > 0) as TenasSettingsMenuItem[][];
+    return [group1, group2].filter((group) => group.length > 0) as OpenLoafSettingsMenuItem[][];
   }, []);
 
   /** Persist the active menu into the dock base params. */
@@ -289,13 +289,13 @@ export default function SettingsPage({
   };
 
   return (
-    <TenasSettingsLayout
+    <OpenLoafSettingsLayout
       ref={containerRef}
       isCollapsed={isCollapsed}
       contentWrapperClassName="min-w-[400px]"
       contentInnerClassName="p-3 pr-1"
       menu={
-        <TenasSettingsMenu
+        <OpenLoafSettingsMenu
           groups={menuGroups}
           activeKey={activeKey}
           isCollapsed={isCollapsed}

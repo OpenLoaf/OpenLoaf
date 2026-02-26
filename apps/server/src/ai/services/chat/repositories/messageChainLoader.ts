@@ -1,4 +1,4 @@
-import type { TenasUIMessage } from '@tenas-ai/api/types/message'
+import type { OpenLoafUIMessage } from '@openloaf/api/types/message'
 import { loadMessageChainFromFile } from './chatFileStore'
 
 /** Default max messages in a chain. */
@@ -12,7 +12,7 @@ export async function loadMessageChain(input: {
   leafMessageId: string
   /** Max messages to load. */
   maxMessages?: number
-}): Promise<TenasUIMessage[]> {
+}): Promise<OpenLoafUIMessage[]> {
   const maxMessages = Number.isFinite(input.maxMessages)
     ? Number(input.maxMessages)
     : DEFAULT_MAX_MESSAGES

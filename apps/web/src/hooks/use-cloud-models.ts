@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { create } from "zustand";
-import type { ModelDefinition } from "@tenas-ai/api/common";
+import type { ModelDefinition } from "@openloaf/api/common";
 import { resolveServerUrl } from "@/utils/server-url";
 import { getAccessToken } from "@/lib/saas-auth";
 

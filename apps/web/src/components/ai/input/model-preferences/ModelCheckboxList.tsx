@@ -1,7 +1,7 @@
 'use client'
 
 import type { ProviderModelOption } from '@/lib/provider-models'
-import type { AiModel } from '@tenas-saas/sdk'
+import type { AiModel } from '@openloaf-saas/sdk'
 import { getModelLabel } from '@/lib/model-registry'
 import { ModelCheckboxItem } from './ModelCheckboxItem'
 
@@ -83,7 +83,7 @@ export function MediaModelCheckboxList({
           icon={model.familyId ?? model.providerId ?? model.id}
           modelId={model.id}
           label={model.name ?? model.id}
-          tags={model.tags as import('@tenas-ai/api/common').ModelTag[] | undefined}
+          tags={model.tags as import('@openloaf/api/common').ModelTag[] | undefined}
           checked={preferredIds.includes(model.id)}
           disabled={disabled}
           onToggle={() => onToggle(model.id)}

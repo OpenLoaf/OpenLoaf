@@ -18,7 +18,7 @@ function runPowerShell(script) {
 
 function main() {
   if (process.platform !== "win32") {
-    console.log("[tenas] This script is intended for Windows only.");
+    console.log("[openloaf] This script is intended for Windows only.");
     return;
   }
 
@@ -36,7 +36,7 @@ function main() {
 
   runPowerShell(killNext);
   runPowerShell(removeLocks);
-  console.log("[tenas] Done: killed next processes and removed .next/dev/lock files.");
+  console.log("[openloaf] Done: killed next processes and removed .next/dev/lock files.");
 }
 
 main();

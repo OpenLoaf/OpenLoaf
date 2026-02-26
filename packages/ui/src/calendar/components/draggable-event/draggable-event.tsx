@@ -3,9 +3,9 @@ import { CSS } from '@dnd-kit/utilities'
 import type { CSSProperties } from 'react'
 import { memo, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
-import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
+import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 /** Check whether the value is a CSS color string. */
 const isCssColorValue = (value?: string) => {

@@ -5,7 +5,7 @@ import {
   sendInputToolDef,
   waitAgentToolDef,
   abortAgentToolDef,
-} from '@tenas-ai/api/types/tools/agent'
+} from '@openloaf/api/types/tools/agent'
 import { agentManager, type SpawnContext, type SpawnItem } from '@/ai/services/agentManager'
 import {
   getChatModel,

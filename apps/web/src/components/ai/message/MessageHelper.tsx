@@ -46,7 +46,7 @@ export default function MessageHelper() {
   const focusChatInput = React.useCallback(() => {
     requestAnimationFrame(() => {
       const el = document.querySelector<HTMLElement>(
-        '[data-tenas-chat-input="true"]'
+        '[data-openloaf-chat-input="true"]'
       );
       if (!el) return;
       el.focus();

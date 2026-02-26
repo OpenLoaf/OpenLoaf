@@ -1,4 +1,4 @@
-# Tenas Electron
+# OpenLoaf Electron
 
 Electron 40 桌面外壳，使用 Electron Forge (webpack) 开发 + electron-builder 打包分发。
 
@@ -47,7 +47,7 @@ pnpm run dist:resign
 
 ## Electron 自动更新（R2）
 
-Electron 本体更新使用 `electron-updater` 的 generic provider，更新源由 `TENAS_ELECTRON_UPDATE_URL` 指定（见 `resources/runtime.env`）。
+Electron 本体更新使用 `electron-updater` 的 generic provider，更新源由 `OPENLOAF_ELECTRON_UPDATE_URL` 指定（见 `resources/runtime.env`）。
 
 发布流程（概念）：
 
@@ -60,24 +60,24 @@ Electron 本体更新使用 `electron-updater` 的 generic provider，更新源�
 ### macOS
 | 路径 | 说明 |
 |------|------|
-| `out/Tenas-darwin-arm64/` | electron-forge package 产物（未签名 `.app`） |
-| `dist/mac-arm64/Tenas.app` | electron-builder 最终产物 |
-| `dist/Tenas-*.dmg` | DMG 安装包 |
-| `dist/Tenas-*-mac.zip` | ZIP 包 |
+| `out/OpenLoaf-darwin-arm64/` | electron-forge package 产物（未签名 `.app`） |
+| `dist/mac-arm64/OpenLoaf.app` | electron-builder 最终产物 |
+| `dist/OpenLoaf-*.dmg` | DMG 安装包 |
+| `dist/OpenLoaf-*-mac.zip` | ZIP 包 |
 
 ### Windows
 | 路径 | 说明 |
 |------|------|
-| `out/Tenas-win32-x64/` | electron-forge package 产物 |
+| `out/OpenLoaf-win32-x64/` | electron-forge package 产物 |
 | `dist/win-unpacked/` | electron-builder 解压产物 |
-| `dist/Tenas Setup *.exe` | NSIS 安装包 |
+| `dist/OpenLoaf Setup *.exe` | NSIS 安装包 |
 | `dist/*.msi` | MSI 安装包 |
 
 ### Linux
 | 路径 | 说明 |
 |------|------|
-| `out/Tenas-linux-x64/` | electron-forge package 产物 |
-| `dist/Tenas-*.AppImage` | AppImage 包 |
+| `out/OpenLoaf-linux-x64/` | electron-forge package 产物 |
+| `dist/OpenLoaf-*.AppImage` | AppImage 包 |
 
 ## 打包后 Resources 目录结构
 
@@ -104,14 +104,14 @@ Electron 本体更新使用 `electron-updater` 的 generic provider，更新源�
 
   # macOS:
   icon.icns                     # macOS 图标
-  speech/macos/tenas-speech     # 语音识别 helper
-  calendar/macos/tenas-calendar # 日历 helper
+  speech/macos/openloaf-speech     # 语音识别 helper
+  calendar/macos/openloaf-calendar # 日历 helper
   prebuilds/darwin-arm64/       # node-pty 原生绑定
 
   # Windows:
   icon.ico                          # Windows 图标
-  speech/windows/tenas-speech.exe   # 语音识别 helper
-  calendar/windows/tenas-calendar.exe # 日历 helper
+  speech/windows/openloaf-speech.exe   # 语音识别 helper
+  calendar/windows/openloaf-calendar.exe # 日历 helper
   prebuilds/win32-x64/              # node-pty 原生绑定
 
   # Linux:
@@ -137,8 +137,8 @@ Electron 本体更新使用 `electron-updater` 的 generic provider，更新源�
 
 ## 日志
 
-启动日志位于 `~/Library/Application Support/Tenas/startup.log`（macOS）：
+启动日志位于 `~/Library/Application Support/OpenLoaf/startup.log`（macOS）：
 
 ```bash
-tail -f ~/Library/Application\ Support/Tenas/startup.log
+tail -f ~/Library/Application\ Support/OpenLoaf/startup.log
 ```

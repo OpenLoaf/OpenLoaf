@@ -6,7 +6,7 @@ import {
   appRouterDefine,
   type ChatMessageKind,
   type ChatUIMessage,
-} from '@tenas-ai/api'
+} from '@openloaf/api'
 import { z } from 'zod'
 import { generateText } from 'ai'
 import { xai } from '@ai-sdk/xai'

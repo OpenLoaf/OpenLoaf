@@ -5,7 +5,7 @@ import {
   Terminal,
   TerminalContent,
 } from '@/components/ai-elements/terminal'
-import { TrafficLights } from '@tenas-ai/ui/traffic-lights'
+import { TrafficLights } from '@openloaf/ui/traffic-lights'
 import {
   asPlainObject,
   getApprovalId,

@@ -10,7 +10,7 @@ import {
   type BrowserTab,
   type DockItem,
   type TerminalTab,
-} from "@tenas-ai/api/common";
+} from "@openloaf/api/common";
 import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
 import { BOARD_VIEWER_COMPONENT, LEFT_DOCK_DEFAULT_PERCENT, clampPercent } from "./tab-utils";
 import { isBrowserWindowItem, normalizeBrowserWindowItem } from "./browser-panel";
@@ -18,7 +18,7 @@ import { isTerminalWindowItem, normalizeTerminalWindowItem } from "./terminal-pa
 import type { TabRuntime } from "./tab-types";
 
 /** Storage key for tab runtime persistence. */
-const TAB_RUNTIME_STORAGE_KEY = "tenas:tab-runtime";
+const TAB_RUNTIME_STORAGE_KEY = "openloaf:tab-runtime";
 
 /** Runtime state map for all tabs. */
 export type TabRuntimeState = {

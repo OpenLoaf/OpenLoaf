@@ -1,20 +1,20 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import type { ModelParameterDefinition } from "@tenas-ai/api/common";
+import type { ModelParameterDefinition } from "@openloaf/api/common";
 import { ChevronDown } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@tenas-ai/ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
-import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@openloaf/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
+import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@tenas-ai/ui/select";
-import { Input } from "@tenas-ai/ui/input";
-import { Textarea } from "@tenas-ai/ui/textarea";
+} from "@openloaf/ui/select";
+import { Input } from "@openloaf/ui/input";
+import { Textarea } from "@openloaf/ui/textarea";
 import TagsInputBasic from "@/components/ui/basic-tags-input";
 import {
   VIDEO_GENERATE_ASPECT_RATIO_OPTIONS,

@@ -16,10 +16,10 @@ export type ChatMessageKind =
   | "compact_summary";
 
 /**
- * Tenas 的 Agent 信息（参考 AI SDK 的 Agent/ToolLoopAgentSettings 设计）
+ * OpenLoaf 的 Agent 信息（参考 AI SDK 的 Agent/ToolLoopAgentSettings 设计）
  * - 只存可序列化字段，用于 UI 展示与历史持久化
  */
-export type TenasAgentInfo = {
+export type OpenLoafAgentInfo = {
   /** AI SDK Agent 版本标识（对齐 ai/dist 的 Agent.version） */
   version?: "agent-v1";
   /** 业务 agentId（例如 master/browser/...） */
@@ -40,7 +40,7 @@ export type TenasAgentInfo = {
 };
 
 /**
- * Tenas UIMessage（用于前端渲染/历史接口）
+ * OpenLoaf UIMessage（用于前端渲染/历史接口）
  * - 扩展 parentMessageId（消息树）
  * - 扩展 agent（用于展示该消息由哪个 agent/model 产生）
  *
@@ -48,19 +48,19 @@ export type TenasAgentInfo = {
  * - UIMessage.role 仍然遵循 AI SDK：system/user/assistant
  * - metadata 保持原生 unknown（类型层不强约束）；持久化层负责剔除消息树字段
  */
-export interface TenasUIMessage extends UIMessage<unknown, TenasUIDataTypes, UITools> {
+export interface OpenLoafUIMessage extends UIMessage<unknown, OpenLoafUIDataTypes, UITools> {
   /** 消息树：父消息 ID（根节点为 null） */
   parentMessageId: string | null;
   /** Message kind for compaction handling. */
   messageKind?: ChatMessageKind;
   /** 产生该消息的 agent 信息（可选；流式阶段可能缺失） */
-  agent?: TenasAgentInfo;
+  agent?: OpenLoafAgentInfo;
 }
 
 /**
- * Tenas UI data parts。
+ * OpenLoaf UI data parts。
  */
-export interface TenasUIDataTypes extends UIDataTypes {
+export interface OpenLoafUIDataTypes extends UIDataTypes {
   "open-browser": {
     tabId: string;
     url: string;
@@ -88,7 +88,7 @@ export interface TenasUIDataTypes extends UIDataTypes {
 export type ChatRequestBody = {
   sessionId?: string;
   id?: string;
-  messages?: TenasUIMessage[];
+  messages?: OpenLoafUIMessage[];
   /** 业务参数（如 mode 等），由前端透传 */
   params?: Record<string, unknown>;
   /** 当前应用 TabId（apps/web 的 useTabs 中的 Tab.id），用于 server 在本次 SSE 中绑定“操作目标 Tab”。 */

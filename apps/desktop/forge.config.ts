@@ -130,9 +130,9 @@ function collectRoot(
 
 /**
  * 根据打包平台定位 Resources 目录。
- * - macOS:   out/Tenas-darwin-arm64/Tenas.app/Contents/Resources/
- * - Windows: out/Tenas-win32-x64/resources/
- * - Linux:   out/Tenas-linux-x64/resources/
+ * - macOS:   out/OpenLoaf-darwin-arm64/OpenLoaf.app/Contents/Resources/
+ * - Windows: out/OpenLoaf-win32-x64/resources/
+ * - Linux:   out/OpenLoaf-linux-x64/resources/
  */
 function resolveResourcesDir(outputPath: string, platform: string): string | null {
   if (platform === 'darwin') {
@@ -238,12 +238,12 @@ const config: ForgeConfig = {
   packagerConfig: {
     icon: packagerIcon,
     asar: true,
-    appBundleId: 'com.hexems.tenas',
-    // 中文注释：注册自定义协议，支持 tenas:// 唤起。
+    appBundleId: 'com.hexems.openloaf',
+    // 中文注释：注册自定义协议，支持 openloaf:// 唤起。
     protocols: [
       {
-        name: 'Tenas',
-        schemes: ['tenas'],
+        name: 'OpenLoaf',
+        schemes: ['openloaf'],
       },
     ],
     extendInfo: {

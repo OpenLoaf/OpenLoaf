@@ -3,12 +3,12 @@
 import type { DynamicToolUIPart, ToolUIPart } from "ai";
 import type { ComponentProps, ReactNode } from "react";
 
-import { Badge } from "@tenas-ai/ui/badge";
+import { Badge } from "@openloaf/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@tenas-ai/ui/collapsible";
+} from "@openloaf/ui/collapsible";
 import { cn } from "@/lib/utils";
 import {
   CheckCircleIcon,

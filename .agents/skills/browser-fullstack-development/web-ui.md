@@ -8,9 +8,9 @@ Web 侧负责浏览器面板 UI、browserTabs 状态与 open-url 前端执行链
 
 - `ElectrronBrowserWindow.tsx`
   - 管理浏览器子标签、激活 tab、viewKey 生成与状态同步。
-  - 通过 `tenasElectron.ensureWebContentsView` 获取 `cdpTargetId`。
-  - 监听 `tenas:webcontents-view:status` 更新 loading/ready/error。
-  - 监听 `tenas:webcontents-view:window-open` 转为新标签页。
+  - 通过 `openloafElectron.ensureWebContentsView` 获取 `cdpTargetId`。
+  - 监听 `openloaf:webcontents-view:status` 更新 loading/ready/error。
+  - 监听 `openloaf:webcontents-view:window-open` 转为新标签页。
 
 - `BrowserTabsBar.tsx`
   - 标签栏 UI（切换/新建/关闭/编辑地址）。
@@ -42,16 +42,16 @@ Web 侧负责浏览器面板 UI、browserTabs 状态与 open-url 前端执行链
 ## Storage
 
 - `browser-storage.ts` 使用 localStorage：
-  - `tenas:browser:favorites`
-  - `tenas:browser:recently-closed`
-  - 通过 `tenas:browser-storage` 事件通知 UI 刷新。
+  - `openloaf:browser:favorites`
+  - `openloaf:browser:recently-closed`
+  - 通过 `openloaf:browser-storage` 事件通知 UI 刷新。
 
 ## UI Event Channels
 
-- `tenas:webcontents-view:status`
+- `openloaf:webcontents-view:status`
   - 由 Electron 主进程发出，用于 loading/ready/error/favIcon/网络统计。
 
-- `tenas:webcontents-view:window-open`
+- `openloaf:webcontents-view:window-open`
   - 主进程拦截 `window.open`，Renderer 转成新标签页。
 
 ## Notes

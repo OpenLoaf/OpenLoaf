@@ -80,7 +80,7 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
   /** Open the current file with system default application. */
   const handleOpenWithSystem = React.useCallback(() => {
     // 逻辑：仅桌面端可用，优先解析本地路径后交给系统打开。
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!api?.openPath) {
       toast.error("网页版不支持打开本地文件");
       return;

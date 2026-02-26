@@ -1,4 +1,4 @@
-# tenas-ai
+# openloaf
 
 This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines Next.js, Hono, TRPC, and more.
 
@@ -66,7 +66,7 @@ The API is running at <http://localhost:3000>.
 ## Project Structure
 
 ```
-tenas-ai/
+openloaf/
 ├── apps/
 │   ├── web/         # Frontend application (Next.js)
 │   └── server/      # Backend API (Hono, TRPC)
@@ -101,13 +101,13 @@ tenas-ai/
 
 ## Desktop Production Config
 
-* Packaged app reads env from `~/.tenas/.env` (API keys, etc.)
+* Packaged app reads env from `~/.openloaf/.env` (API keys, etc.)
 
-* Unified data directory: `~/.tenas` (Windows: `%USERPROFILE%\\.tenas`)
+* Unified data directory: `~/.openloaf` (Windows: `%USERPROFILE%\\.openloaf`)
 
-* Default DB path: `~/.tenas/tenas.db` (auto-initialized on first run)
+* Default DB path: `~/.openloaf/openloaf.db` (auto-initialized on first run)
 
 * Default workspace directory:
-  * macOS: `~/Documents/TenasWorkspace`
-  * Linux: `~/TenasWorkspace`
-  * Windows: `D:\TenasWorkspace` (fallback to `%USERPROFILE%\\TenasWorkspace` if no D drive)
+  * macOS: `~/Documents/OpenLoafWorkspace`
+  * Linux: `~/OpenLoafWorkspace`
+  * Windows: `D:\OpenLoafWorkspace` (fallback to `%USERPROFILE%\\OpenLoafWorkspace` if no D drive)

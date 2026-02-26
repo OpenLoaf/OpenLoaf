@@ -1,14 +1,14 @@
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Copy, LogIn, Play, RotateCcw } from "lucide-react";
-import type { ModelCapabilities, ModelParameterFeature } from "@tenas-ai/api/common";
+import type { ModelCapabilities, ModelParameterFeature } from "@openloaf/api/common";
 import { toast } from "sonner";
 
 import { useBoardContext } from "../../core/BoardProvider";
 import { useMediaModels } from "@/hooks/use-media-models";
 import { filterVideoMediaModels } from "../lib/image-generation";
-import { Textarea } from "@tenas-ai/ui/textarea";
-import { Switch } from "@tenas-ai/ui/switch";
+import { Textarea } from "@openloaf/ui/textarea";
+import { Switch } from "@openloaf/ui/switch";
 import { getWorkspaceIdFromCookie } from "../../core/boardSession";
 import type { ImageNodeProps } from "../ImageNode";
 import { normalizeProjectRelativePath } from "@/components/project/filesystem/utils/file-system-utils";

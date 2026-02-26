@@ -1,13 +1,13 @@
 {
-  "extends": "@tenas-ai/config/tsconfig.base.json",
+  "extends": "@openloaf/config/tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "rootDir": "src",
     "baseUrl": ".",
     "paths": {
-      "@tenas-ai/ui": ["./src"],
-      "@tenas-ai/ui/*": ["./src/*"]
+      "@openloaf/ui": ["./src"],
+      "@openloaf/ui/*": ["./src/*"]
     },
     "declaration": true,
     "declarationMap": true,

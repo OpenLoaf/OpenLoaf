@@ -1,6 +1,6 @@
-import type { ProviderDefinition, ModelDefinition } from "@tenas-ai/api/common";
+import type { ProviderDefinition, ModelDefinition } from "@openloaf/api/common";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
-import { readBasicConf } from "@/modules/settings/tenasConfStore";
+import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { getProviderDefinition } from "@/ai/models/modelRegistry";
 import { getCliToolStatus } from "@/ai/models/cli/cliToolService";
 type CliProviderBinding = {

@@ -1,8 +1,8 @@
 {
-  "name": "@tenas-ai/widget-sdk",
+  "name": "@openloaf/widget-sdk",
   "version": "0.1.2",
   "type": "module",
-  "description": "SDK for building Tenas dynamic desktop widgets",
+  "description": "SDK for building OpenLoaf dynamic desktop widgets",
   "license": "MIT",
   "exports": {
     ".": {

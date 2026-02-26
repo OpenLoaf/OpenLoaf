@@ -1,7 +1,7 @@
 "use client";
 
-import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
-import { AnimatedThemeToggle } from "@tenas-ai/ui/animated-theme-toggle";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
+import { AnimatedThemeToggle } from "@openloaf/ui/animated-theme-toggle";
 
 /** Toggle theme and persist the selection. */
 export const ModeToggle = () => {

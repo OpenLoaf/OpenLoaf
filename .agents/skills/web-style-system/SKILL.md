@@ -8,7 +8,7 @@ version: 0.1.0
 
 ## Purpose
 
-建立并执行 Tenas Web 端统一设计语言。优先把 `layout + tabs + dock` 作为风格母版，再向全站组件扩展。
+建立并执行 OpenLoaf Web 端统一设计语言。优先把 `layout + tabs + dock` 作为风格母版，再向全站组件扩展。
 
 把本技能用于两类任务：
 

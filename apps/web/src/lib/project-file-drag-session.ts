@@ -34,9 +34,9 @@ function resolveFilePathFromFile(file: File): string | null {
     const trimmed = candidate.trim();
     if (trimmed) return normalizePath(trimmed);
   }
-  if (typeof window !== "undefined" && window.tenasElectron?.getPathForFile) {
+  if (typeof window !== "undefined" && window.openloafElectron?.getPathForFile) {
     try {
-      const resolved = window.tenasElectron.getPathForFile(file);
+      const resolved = window.openloafElectron.getPathForFile(file);
       if (resolved) return normalizePath(String(resolved));
     } catch {
       // 中文注释：bridge 取路径失败时回退到 file.path。
@@ -116,7 +116,7 @@ export function clearProjectFileDragSession(reason?: string) {
   }
   if (typeof window !== "undefined") {
     window.dispatchEvent(
-      new CustomEvent("tenas:project-file-drag-session-clear", {
+      new CustomEvent("openloaf:project-file-drag-session-clear", {
         detail: { reason: reason ?? "" },
       })
     );

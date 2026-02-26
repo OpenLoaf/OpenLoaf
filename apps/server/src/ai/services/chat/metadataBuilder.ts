@@ -1,4 +1,4 @@
-import type { TokenUsage } from "@tenas-ai/api/types/message";
+import type { TokenUsage } from "@openloaf/api/types/message";
 import { toNumberOrUndefined, isRecord } from "@/ai/shared/util";
 
 /** Build usage metadata from stream part. */
@@ -30,7 +30,7 @@ export function buildTimingMetadata(input: {
 }): Record<string, unknown> {
   const elapsedMs = Math.max(0, input.finishedAt.getTime() - input.startedAt.getTime());
   return {
-    tenas: {
+    openloaf: {
       assistantStartedAt: input.startedAt.toISOString(),
       assistantFinishedAt: input.finishedAt.toISOString(),
       assistantElapsedMs: elapsedMs,
@@ -47,9 +47,9 @@ export function mergeAbortMetadata(
   if (!input.isAborted) return Object.keys(base).length ? base : undefined;
 
   // 被中止的流也需要落库，避免 UI 无法识别状态。
-  const existingTenas = isRecord(base.tenas) ? base.tenas : {};
-  base.tenas = {
-    ...existingTenas,
+  const existingOpenLoaf = isRecord(base.openloaf) ? base.openloaf : {};
+  base.openloaf = {
+    ...existingOpenLoaf,
     isAborted: true,
     abortedAt: new Date().toISOString(),
     ...(input.finishReason ? { finishReason: input.finishReason } : {}),

@@ -15,7 +15,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(root, "src"),
-      "@tenas-ai/ui": resolve(root, "../../packages/ui/src"),
+      "@openloaf/ui": resolve(root, "../../packages/ui/src"),
     },
   },
 });

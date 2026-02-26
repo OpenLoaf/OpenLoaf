@@ -1,8 +1,8 @@
 import { z } from 'zod'
 import { t, shieldedProcedure } from '../../generated/routers/helpers/createRouter'
 
-/** Tenas extension field in package.json. */
-const tenasConfigSchema = z.object({
+/** OpenLoaf extension field in package.json. */
+const openloafConfigSchema = z.object({
   type: z.literal('widget'),
   defaultSize: z.string().optional(),
   constraints: z
@@ -30,7 +30,7 @@ const widgetMetaSchema = z.object({
   description: z.string().optional(),
   main: z.string(),
   scripts: z.record(z.string(), z.string()).optional(),
-  tenas: tenasConfigSchema.optional(),
+  openloaf: openloafConfigSchema.optional(),
 })
 
 export const dynamicWidgetSchemas = {

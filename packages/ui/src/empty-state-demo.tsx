@@ -1,4 +1,4 @@
-import { EmptyState } from "@tenas-ai/ui/empty-state";
+import { EmptyState } from "@openloaf/ui/empty-state";
 import {
   FileText,
   Link,

@@ -1,5 +1,5 @@
-import { CHAT_COMMANDS } from "@tenas-ai/api/common/chatCommands";
-import type { ChatCommandId } from "@tenas-ai/api/common/chatCommands";
+import { CHAT_COMMANDS } from "@openloaf/api/common/chatCommands";
+import type { ChatCommandId } from "@openloaf/api/common/chatCommands";
 import type { AiCommandContext } from "@/ai/services/chat/types";
 
 type CommandDef = {

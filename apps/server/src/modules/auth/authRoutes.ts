@@ -8,8 +8,8 @@ function extractLoginState(returnTo?: string | null): string | null {
   if (!returnTo) return null;
   const trimmed = returnTo.trim();
   if (!trimmed) return null;
-  if (trimmed.startsWith("tenas-login:")) {
-    const state = trimmed.slice("tenas-login:".length).trim();
+  if (trimmed.startsWith("openloaf-login:")) {
+    const state = trimmed.slice("openloaf-login:".length).trim();
     return state || null;
   }
   return null;
@@ -24,7 +24,7 @@ export function registerAuthRoutes(app: Hono): void {
       return c.html(
         renderAuthCallbackPage({
           message: "登录失败：缺少回调参数",
-          returnUrl: "tenas://open",
+          returnUrl: "openloaf://open",
         })
       );
     }
@@ -35,7 +35,7 @@ export function registerAuthRoutes(app: Hono): void {
     return c.html(
       renderAuthCallbackPage({
         message: "登录成功，可关闭此窗口",
-        returnUrl: "tenas://open",
+        returnUrl: "openloaf://open",
       })
     );
   });

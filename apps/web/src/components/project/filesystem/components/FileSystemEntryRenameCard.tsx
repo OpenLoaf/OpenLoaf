@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useMemo } from "react";
-import { Input } from "@tenas-ai/ui/input";
+import { Input } from "@openloaf/ui/input";
 import {
   getBoardDisplayName,
   getDocDisplayName,

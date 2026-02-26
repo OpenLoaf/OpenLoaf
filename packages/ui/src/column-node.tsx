@@ -26,19 +26,19 @@ import {
   withHOC,
 } from 'platejs/react';
 
-import { Button } from '@tenas-ai/ui/button';
+import { Button } from '@openloaf/ui/button';
 import {
   Popover,
   PopoverAnchor,
   PopoverContent,
-} from '@tenas-ai/ui/popover';
-import { Separator } from '@tenas-ai/ui/separator';
+} from '@openloaf/ui/popover';
+import { Separator } from '@openloaf/ui/separator';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@tenas-ai/ui/tooltip';
+} from '@openloaf/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 export const ColumnElement = withHOC(

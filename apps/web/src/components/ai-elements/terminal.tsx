@@ -2,7 +2,7 @@
 
 import type { ComponentProps, HTMLAttributes } from "react";
 
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import { cn } from "@/lib/utils";
 import Ansi from "ansi-to-react";
 import { CheckIcon, CopyIcon, TerminalIcon, Trash2Icon } from "lucide-react";

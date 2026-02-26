@@ -11,7 +11,7 @@ import { useTabs } from '@/hooks/use-tabs'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
 import { Message, MessageContent } from '@/components/ai-elements/message'
 import { Suggestion } from '@/components/ai-elements/suggestion'
-import { Card, CardContent, CardHeader } from '@tenas-ai/ui/card'
+import { Card, CardContent, CardHeader } from '@openloaf/ui/card'
 
 export default function PendingCloudLoginPrompt() {
   const { pendingCloudMessage } = useChatState()

@@ -1,4 +1,4 @@
-import type { WeekDays } from '@tenas-ai/ui/calendar/components/types'
+import type { WeekDays } from '@openloaf/ui/calendar/components/types'
 
 export const GAP_BETWEEN_ELEMENTS = 1 // px (gap-1)
 export const DAY_NUMBER_HEIGHT = 24 // px (h-6)

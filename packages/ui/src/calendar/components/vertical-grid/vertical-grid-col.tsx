@@ -1,8 +1,8 @@
 import type React from 'react'
 import { memo } from 'react'
-import type { Resource } from '@tenas-ai/ui/calendar/features/resource-calendar/types'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import type { Resource } from '@openloaf/ui/calendar/features/resource-calendar/types'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 import { GridCell } from '../grid-cell'
 import { VerticalGridEventsLayer } from './vertical-grid-events-layer'
 

@@ -19,7 +19,7 @@ description: Desktop 区域与 widget 组件开发指南。用于在 apps/web/sr
 - **组件库入口**: `apps/web/src/components/desktop/DesktopEditToolbar.tsx` 负责打开组件库并接收 `CustomEvent` 插入 widget
 - **组件库面板**: `apps/web/src/components/desktop/DesktopWidgetLibraryPanel.tsx` 展示 catalog 预览与创建流程
 - **目录与断点**: `apps/web/src/components/desktop/desktop-breakpoints.ts` 定义三档断点与 `layoutByBreakpoint` 读写
-- **持久化**: `apps/web/src/components/desktop/desktop-persistence.ts` 序列化/反序列化 `.tenas/desktop.tenas`
+- **持久化**: `apps/web/src/components/desktop/desktop-persistence.ts` 序列化/反序列化 `.openloaf/desktop.openloaf`
 - **历史比对**: `apps/web/src/components/desktop/desktop-history.ts` 复制与等价判断，用于撤销/保存判断
 - **Catalog**: `apps/web/src/components/desktop/widget-catalog.ts` 定义可插入的 widget 列表、默认尺寸与约束
 - **Widgets**: `apps/web/src/components/desktop/widgets/*Widget.tsx` 真实 UI 实现
@@ -64,7 +64,7 @@ description: Desktop 区域与 widget 组件开发指南。用于在 apps/web/sr
    - 如需右键菜单/按钮控制（例如刷新、固定、切换模式），在 `DesktopTileGridstack.tsx` 中补 UI 与逻辑
 
 9. **样式与交互约定**
-   - 使用 `@tenas-ai/ui` 组件与 `lucide-react` 图标保持一致
+   - 使用 `@openloaf/ui` 组件与 `lucide-react` 图标保持一致
    - 需要动画时遵循 `basic.uiAnimationLevel`（参考 `DesktopTileGridstack.tsx`）
 
 ## 参数设计建议
@@ -77,7 +77,7 @@ description: Desktop 区域与 widget 组件开发指南。用于在 apps/web/sr
 
 - 新 widgetKey 是否被 `types.ts`、`widget-catalog.ts`、`DesktopTileContent.tsx` 同步更新
 - 组件库是否能展示预览，并能创建带默认参数的 item
-- `.tenas/desktop.tenas` 是否能序列化/反序列化新字段
+- `.openloaf/desktop.openloaf` 是否能序列化/反序列化新字段
 - 断点布局是否正确保存到 `layoutByBreakpoint`
 - 动态 widget 的 `isDesktopWidgetSupported` 是否对 `"dynamic"` 返回 true（不走 catalog）
 - Blob URL 加载前是否调用了 `ensureExternalsRegistered()` + `patchBareImports()`
@@ -92,13 +92,13 @@ description: Desktop 区域与 widget 组件开发指南。用于在 apps/web/sr
 
 ## 动态 Widget 系统
 
-除了内置的静态 widget，系统支持 AI 动态生成的 widget。动态 widget 存储在 `~/.tenas/dynamic-widgets/` 目录下。
+除了内置的静态 widget，系统支持 AI 动态生成的 widget。动态 widget 存储在 `~/.openloaf/dynamic-widgets/` 目录下。
 
 ### 架构
 
 ```
 Widget（React .tsx）
-  ↕ @tenas-ai/widget-sdk（纯桥接，无 UI 依赖）
+  ↕ @openloaf/widget-sdk（纯桥接，无 UI 依赖）
   ↕ props callback
 DynamicWidgetRenderer（Client）/ WidgetTool（Chat 预览）
   ↕ tRPC dynamicWidget router
@@ -132,7 +132,7 @@ Server
 
 esbuild 编译 widget 时将 `react`、`react-dom`、`react/jsx-runtime` 标记为 external，产物中保留 `from 'react'` 等裸模块标识符。浏览器通过 Blob URL `import()` 加载时无法解析裸标识符，需要 shim 层：
 
-1. `ensureExternalsRegistered()` — 将 React 等模块注册到 `window.__TENAS_WIDGET_EXTERNALS__`
+1. `ensureExternalsRegistered()` — 将 React 等模块注册到 `window.__OPENLOAF_WIDGET_EXTERNALS__`
 2. `patchBareImports(code)` — 用正则将裸标识符替换为 Blob URL shim（shim 从 window 全局读取模块并 re-export）
 
 **两个消费方**：

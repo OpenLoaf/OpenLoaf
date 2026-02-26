@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import { mkdtemp, rm } from "node:fs/promises";
-import { setDefaultWorkspaceRootOverride, setTenasRootOverride } from "@tenas-ai/config";
+import { setDefaultWorkspaceRootOverride, setOpenLoafRootOverride } from "@openloaf/config";
 import {
   readProjectConfig,
   readWorkspaceProjectTrees,
-} from "@tenas-ai/api/services/projectTreeService";
-import { resolveFilePathFromUri } from "@tenas-ai/api/services/vfsService";
+} from "@openloaf/api/services/projectTreeService";
+import { resolveFilePathFromUri } from "@openloaf/api/services/vfsService";
 import { setRequestContext } from "@/ai/shared/context/requestContext";
 import {
   executeProjectMutate,
@@ -16,10 +16,10 @@ import {
 
 /** Build an isolated workspace root for tests. */
 async function setupWorkspace(): Promise<{ root: string }> {
-  const root = await mkdtemp(path.join(os.tmpdir(), "tenas-project-tools-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "openloaf-project-tools-"));
   const configRoot = path.join(root, "config");
   const workspaceRoot = path.join(root, "workspace");
-  setTenasRootOverride(configRoot);
+  setOpenLoafRootOverride(configRoot);
   setDefaultWorkspaceRootOverride(workspaceRoot);
   return { root };
 }
@@ -124,6 +124,6 @@ try {
 } catch {
   // 清理失败时忽略（可能被 SQLite 打开锁定）。
 }
-setTenasRootOverride(null);
+setOpenLoafRootOverride(null);
 setDefaultWorkspaceRootOverride(null);
 console.log("project tools tests passed.");

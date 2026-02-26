@@ -11,7 +11,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog"
+} from "@openloaf/ui/dialog"
 
 function Command({
   className,

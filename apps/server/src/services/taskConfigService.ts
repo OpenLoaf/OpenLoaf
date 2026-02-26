@@ -9,7 +9,7 @@ import {
 } from 'node:fs'
 import { v4 as uuidv4 } from 'uuid'
 
-const TENAS_DIR = '.tenas'
+const OPENLOAF_DIR = '.openloaf'
 const TASKS_DIR = 'tasks'
 
 export type TaskScope = 'workspace' | 'project'
@@ -53,7 +53,7 @@ export type TaskConfig = {
 
 /** Resolve tasks directory for a given root path. */
 function resolveTasksDir(rootPath: string): string {
-  return path.join(rootPath, TENAS_DIR, TASKS_DIR)
+  return path.join(rootPath, OPENLOAF_DIR, TASKS_DIR)
 }
 
 /** Read a single task JSON file. */
@@ -68,7 +68,7 @@ function readTaskFile(filePath: string, scope: TaskScope): TaskConfig | null {
   }
 }
 
-/** Scan a root's .tenas/tasks/ directory for task JSON files. */
+/** Scan a root's .openloaf/tasks/ directory for task JSON files. */
 function scanTasks(rootPath: string, scope: TaskScope): TaskConfig[] {
   const dir = resolveTasksDir(rootPath)
   if (!existsSync(dir)) return []

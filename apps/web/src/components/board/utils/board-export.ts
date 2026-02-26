@@ -33,7 +33,7 @@ export function isCrossOriginMediaElement(element: Element): boolean {
 
 /** Notify a board canvas to toggle export mode. */
 export function setBoardExporting(target: HTMLElement, exporting: boolean) {
-  const event = new CustomEvent("tenas:board-export", { detail: { exporting } });
+  const event = new CustomEvent("openloaf:board-export", { detail: { exporting } });
   target.dispatchEvent(event);
 }
 

@@ -13,11 +13,11 @@ import {
 } from '@dnd-kit/core'
 import type React from 'react'
 import { useRef, useState } from 'react'
-import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
-import { RecurrenceEditDialog } from '@tenas-ai/ui/calendar/features/recurrence/components/recurrence-edit-dialog'
-import type { RecurrenceEditScope } from '@tenas-ai/ui/calendar/features/recurrence/types'
-import { isRecurringEvent } from '@tenas-ai/ui/calendar/features/recurrence/utils/recurrence-handler'
-import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
+import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
+import { RecurrenceEditDialog } from '@openloaf/ui/calendar/features/recurrence/components/recurrence-edit-dialog'
+import type { RecurrenceEditScope } from '@openloaf/ui/calendar/features/recurrence/types'
+import { isRecurringEvent } from '@openloaf/ui/calendar/features/recurrence/utils/recurrence-handler'
+import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
 import { getUpdatedEvent } from './dnd-utils'
 
 interface CalendarDndContextProps {

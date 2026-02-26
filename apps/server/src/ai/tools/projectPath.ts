@@ -1,6 +1,6 @@
 import path from "node:path";
 import { getProjectId } from "@/ai/shared/context/requestContext";
-import { getProjectRootPath } from "@tenas-ai/api/services/vfsService";
+import { getProjectRootPath } from "@openloaf/api/services/vfsService";
 
 /** Resolve project root path from request context or an explicit project id. */
 export function resolveProjectRootPath(projectIdOverride?: string): {

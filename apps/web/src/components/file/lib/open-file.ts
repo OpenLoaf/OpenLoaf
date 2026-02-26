@@ -80,12 +80,12 @@ export function shouldOpenOfficeWithSystem(ext: string): boolean {
 /** Open a file via the system default handler. */
 export function openWithDefaultApp(entry: FileSystemEntry, rootUri?: string): void {
   // 逻辑：桌面端通过 openPath 调起系统默认应用。
-  if (!window.tenasElectron?.openPath) {
+  if (!window.openloafElectron?.openPath) {
     toast.error("网页版不支持打开本地文件");
     return;
   }
   const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
-  void window.tenasElectron.openPath({ uri: fileUri }).then((res) => {
+  void window.openloafElectron.openPath({ uri: fileUri }).then((res) => {
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件");
     }

@@ -1,5 +1,5 @@
-import type { ChatModelSource } from "@tenas-ai/api/common";
-import type { TenasUIMessage } from "@tenas-ai/api/types/message";
+import type { ChatModelSource } from "@openloaf/api/common";
+import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
 
 export type ChatImageMessageInput = {
   /** Message id. */
@@ -59,7 +59,7 @@ type ChatImageResponse = {
   /** Session id. */
   sessionId: string;
   /** Assistant message payload. */
-  message: TenasUIMessage;
+  message: OpenLoafUIMessage;
 };
 
 export type ChatImageRequestResult =

@@ -1,9 +1,9 @@
-import type { BusinessHours } from '@tenas-ai/ui/calendar/components/types'
+import type { BusinessHours } from '@openloaf/ui/calendar/components/types'
 import {
 	getBusinessHoursForDate,
 	isBusinessDay,
-} from '@tenas-ai/ui/calendar/features/calendar/utils/business-hours'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
+} from '@openloaf/ui/calendar/features/calendar/utils/business-hours'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 
 export const buildDateTime = (
 	date: Date,

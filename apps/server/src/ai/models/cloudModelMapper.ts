@@ -3,7 +3,7 @@ import {
   type ModelCapabilities,
   type ModelDefinition,
   type ModelTag,
-} from "@tenas-ai/api/common";
+} from "@openloaf/api/common";
 
 const PROVIDER_ICON_MAP: Record<string, string> = {
   anthropic: "Claude",

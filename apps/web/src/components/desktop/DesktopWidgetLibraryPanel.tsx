@@ -6,8 +6,8 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useTabs } from "@/hooks/use-tabs";
 import { useProjects } from "@/hooks/use-projects";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
-import { Input } from "@tenas-ai/ui/input";
-import { Button } from "@tenas-ai/ui/button";
+import { Input } from "@openloaf/ui/input";
+import { Button } from "@openloaf/ui/button";
 import type { DesktopScope, DesktopWidgetItem } from "./types";
 import { desktopWidgetCatalog } from "./widget-catalog";
 import ClockWidget from "./widgets/ClockWidget";
@@ -16,11 +16,11 @@ import FlipClockWidget from "./widgets/FlipClockWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
 import VideoWidget from "./widgets/VideoWidget";
-import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import { trpc, trpcClient } from "@/utils/trpc";
 
 // 组件选择事件名称。
-export const DESKTOP_WIDGET_SELECTED_EVENT = "tenas:desktop-widget-selected";
+export const DESKTOP_WIDGET_SELECTED_EVENT = "openloaf:desktop-widget-selected";
 
 /** Payload for a desktop widget selection event. */
 export type DesktopWidgetSelectedDetail = {

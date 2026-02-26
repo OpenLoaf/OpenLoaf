@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useProjects } from "@/hooks/use-projects";
 import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
-import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import {
   buildUriFromRoot,
   formatScopedProjectPath,
@@ -23,7 +23,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "@tenas-ai/ui/context-menu";
+} from "@openloaf/ui/context-menu";
 
 /** Resolve edit-mode max width by breakpoint (lg is unconstrained). */
 function getEditMaxWidth(breakpoint: DesktopBreakpoint) {

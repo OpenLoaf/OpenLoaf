@@ -2,8 +2,8 @@
 
 import { createPlatePlugin } from 'platejs/react';
 
-import { FloatingToolbar } from '@tenas-ai/ui/floating-toolbar';
-import { FloatingToolbarButtons } from '@tenas-ai/ui/floating-toolbar-buttons';
+import { FloatingToolbar } from '@openloaf/ui/floating-toolbar';
+import { FloatingToolbarButtons } from '@openloaf/ui/floating-toolbar-buttons';
 
 export const FloatingToolbarKit = [
   createPlatePlugin({

@@ -4,8 +4,8 @@ import * as React from "react";
 import { Copy, ExternalLink, Minus, RotateCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Button } from "@tenas-ai/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
+import { Button } from "@openloaf/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { resolveFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { isElectronEnv } from "@/utils/is-electron-env";
 
@@ -59,7 +59,7 @@ export function StackHeader({
       const relativePath = scopedMatch ? scopedMatch[1] ?? "" : trimmedUri;
       return resolveFileUriFromRoot(openRootUri, relativePath);
     })();
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!api?.openPath) {
       toast.error("网页版不支持打开本地文件");
       return;

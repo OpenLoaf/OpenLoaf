@@ -32,17 +32,17 @@
   ${If} $R0 == ""
     StrCpy $R1 "$LocalAppData\\Programs\\desktop"
     ${If} $INSTDIR == $R1
-      StrCpy $INSTDIR "$LocalAppData\\Programs\\Tenas"
+      StrCpy $INSTDIR "$LocalAppData\\Programs\\OpenLoaf"
     ${EndIf}
 
     StrCpy $R1 "$PROGRAMFILES\\desktop"
     ${If} $INSTDIR == $R1
-      StrCpy $INSTDIR "$PROGRAMFILES\\Tenas"
+      StrCpy $INSTDIR "$PROGRAMFILES\\OpenLoaf"
     ${EndIf}
 
     StrCpy $R1 "$PROGRAMFILES64\\desktop"
     ${If} $INSTDIR == $R1
-      StrCpy $INSTDIR "$PROGRAMFILES64\\Tenas"
+      StrCpy $INSTDIR "$PROGRAMFILES64\\OpenLoaf"
     ${EndIf}
   ${EndIf}
 !macroend

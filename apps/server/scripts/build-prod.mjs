@@ -7,7 +7,7 @@ import pino from "pino";
 
 const logger = pino({
   level: process.env.LOG_LEVEL ?? "info",
-  base: { service: "tenas-server", script: "build-prod" },
+  base: { service: "openloaf-server", script: "build-prod" },
   timestamp: pino.stdTimeFunctions.isoTime,
 });
 
@@ -31,10 +31,10 @@ const __dirname = path.dirname(__filename);
 const serverRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(serverRoot, "..", "..");
 const seedDbPath = path.join(serverRoot, "dist", "seed.db");
-const pnpmArgs = ["--filter", "@tenas-ai/db", "db:push"];
+const pnpmArgs = ["--filter", "@openloaf/db", "db:push"];
 const pnpmEnv = {
   ...process.env,
-  TENAS_DATABASE_URL: `file:${seedDbPath}`,
+  OPENLOAF_DATABASE_URL: `file:${seedDbPath}`,
 };
 
 try {

@@ -2,7 +2,7 @@ import * as SelectPrimitive from '@radix-ui/react-select'
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react'
 import type * as React from 'react'
 
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 function Select({
 	...props

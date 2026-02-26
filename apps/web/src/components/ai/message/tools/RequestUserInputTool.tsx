@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
-import { CollapsibleTrigger } from '@tenas-ai/ui/collapsible'
+import { CollapsibleTrigger } from '@openloaf/ui/collapsible'
 import { CheckIcon } from 'lucide-react'
 import { trpc } from '@/utils/trpc'
 import { useChatActions, useChatSession, useChatState, useChatTools } from '../../context'
@@ -12,7 +12,7 @@ import {
   ToolContent,
 } from '@/components/ai-elements/tool'
 import type { AnyToolPart } from './shared/tool-utils'
-import { TrafficLights } from '@tenas-ai/ui/traffic-lights'
+import { TrafficLights } from '@openloaf/ui/traffic-lights'
 import styles from './RequestUserInputTool.module.css'
 import {
   asPlainObject,
@@ -750,7 +750,7 @@ export default function RequestUserInputTool({
       className={cn(
         'w-full min-w-0 text-xs overflow-hidden rounded-lg border bg-card text-card-foreground',
         className,
-        isStreaming && 'tenas-tool-streaming',
+        isStreaming && 'openloaf-tool-streaming',
       )}
     >
       <CollapsibleTrigger

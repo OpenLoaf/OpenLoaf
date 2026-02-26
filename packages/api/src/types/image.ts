@@ -47,7 +47,7 @@ export type ImageGenerateOptions = {
   };
 };
 
-export type TenasImageMetadataV1 = {
+export type OpenLoafImageMetadataV1 = {
   /** Schema version. */
   version: 1;
   /** Chat session id. */

@@ -4,12 +4,12 @@
 export type { Frequency, Weekday } from 'rrule'
 export { RRule } from 'rrule'
 // Export types
-export type { RRuleOptions } from '@tenas-ai/ui/calendar/features/recurrence/types'
+export type { RRuleOptions } from '@openloaf/ui/calendar/features/recurrence/types'
 // RRULE-based recurrence system
 export {
 	generateRecurringEvents,
 	isRecurringEvent,
-} from '@tenas-ai/ui/calendar/features/recurrence/utils/recurrence-handler'
+} from '@openloaf/ui/calendar/features/recurrence/utils/recurrence-handler'
 export type { EventFormProps } from './components/event-form/event-form'
 export type { BusinessHours, CalendarEvent, WeekDays } from './components/types'
 export { IlamyCalendar } from './features/calendar/components/ilamy-calendar'

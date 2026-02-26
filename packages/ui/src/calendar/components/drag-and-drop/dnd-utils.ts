@@ -1,5 +1,5 @@
 import type { DragEndEvent } from '@dnd-kit/core'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 import type { CalendarEvent } from '../types'
 
 export const getUpdatedEvent = (

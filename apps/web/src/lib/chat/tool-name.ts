@@ -1,15 +1,15 @@
 "use client";
 
-import { testApprovalToolDef } from "@tenas-ai/api/types/tools/approvalTest";
-import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
+import { testApprovalToolDef } from "@openloaf/api/types/tools/approvalTest";
+import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
   browserActToolDef,
   browserExtractToolDef,
   browserObserveToolDef,
   browserSnapshotToolDef,
   browserWaitToolDef,
-} from "@tenas-ai/api/types/tools/browserAutomation";
-import { projectMutateToolDef, projectQueryToolDef } from "@tenas-ai/api/types/tools/db";
+} from "@openloaf/api/types/tools/browserAutomation";
+import { projectMutateToolDef, projectQueryToolDef } from "@openloaf/api/types/tools/db";
 import {
   execCommandToolDef,
   grepFilesToolDef,
@@ -20,16 +20,16 @@ import {
   shellToolDef,
   updatePlanToolDef,
   writeStdinToolDef,
-} from "@tenas-ai/api/types/tools/runtime";
-import { jsxCreateToolDef } from "@tenas-ai/api/types/tools/jsxCreate";
-import { chartRenderToolDef } from "@tenas-ai/api/types/tools/chart";
+} from "@openloaf/api/types/tools/runtime";
+import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
+import { chartRenderToolDef } from "@openloaf/api/types/tools/chart";
 import {
   spawnAgentToolDef,
   sendInputToolDef,
   waitAgentToolDef,
   abortAgentToolDef,
-} from "@tenas-ai/api/types/tools/agent";
-import { timeNowToolDef } from "@tenas-ai/api/types/tools/system";
+} from "@openloaf/api/types/tools/agent";
+import { timeNowToolDef } from "@openloaf/api/types/tools/system";
 
 type ToolNameTarget = {
   /** Tool title override. */

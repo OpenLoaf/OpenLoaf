@@ -31,7 +31,7 @@ export const jsxCreateToolDef = {
     + '- Attachments, Attachment\n'
     + '- AudioPlayer, AudioPlayerElement, AudioPlayerControlBar, AudioPlayerPlayButton, AudioPlayerSeekBackwardButton, AudioPlayerSeekForwardButton, AudioPlayerTimeDisplay, AudioPlayerTimeRange, AudioPlayerDurationDisplay, AudioPlayerMuteButton, AudioPlayerVolumeRange\n'
     + '- WebPreview, WebPreviewNavigation, WebPreviewNavigationButton, WebPreviewUrl, WebPreviewBody, WebPreviewConsole\n'
-    + '写入位置：.tenas/chat-history/<sessionId>/jsx/<messageId>.jsx。\n'
+    + '写入位置：.openloaf/chat-history/<sessionId>/jsx/<messageId>.jsx。\n'
     + '返回：{ ok: true, path: string, messageId: string }。\n'
     + '注意：调用该工具后不要再向用户重复输出 JSX 代码，工具会在前端直接展示渲染结果。\n'
     + '注意：只能使用白名单组件与原生 HTML，禁止传入 bindings；修改请用 apply-patch。',

@@ -3,7 +3,7 @@
 type ThemeOverride = { theme: "light" | "dark"; date: string };
 
 /** Storage key for the theme override. */
-const THEME_OVERRIDE_KEY = "tenas-ui-theme-override";
+const THEME_OVERRIDE_KEY = "openloaf-ui-theme-override";
 
 /** Return today's local date key in YYYY-MM-DD format. */
 export function getTodayKey(): string {

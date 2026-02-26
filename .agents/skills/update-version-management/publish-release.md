@@ -54,14 +54,14 @@ pnpm run dist:production    # package + sign + notarize + upload
 ## R2 目录结构
 
 ```
-r2-tenas-update.hexems.com/
+r2-openloaf-update.hexems.com/
 ├── stable/manifest.json         # stable 渠道增量更新清单
 ├── beta/manifest.json           # beta 渠道增量更新清单
 ├── manifest.json                # 旧格式（已废弃，过渡期保留）
 ├── electron/                    # Electron 本体更新（不分渠道）
 │   ├── latest-mac.yml
-│   ├── Tenas-1.0.0-arm64.dmg
-│   └── Tenas-1.0.0-arm64-mac.zip
+│   ├── OpenLoaf-1.0.0-arm64.dmg
+│   └── OpenLoaf-1.0.0-arm64-mac.zip
 ├── server/                      # Server 构件共享池
 │   ├── 1.0.0/server.mjs.gz
 │   └── 1.0.1-beta.1/server.mjs.gz

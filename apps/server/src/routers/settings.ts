@@ -8,19 +8,19 @@ import {
   settingSchemas,
   shieldedProcedure,
   t,
-} from "@tenas-ai/api";
+} from "@openloaf/api";
 import {
   getActiveWorkspace,
   resolveFilePathFromUri,
-} from "@tenas-ai/api/services/vfsService";
-import { getWorkspaces, setWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
+} from "@openloaf/api/services/vfsService";
+import { getWorkspaces, setWorkspaces } from "@openloaf/api/services/workspaceConfig";
 import {
   getProjectMetaPath,
   projectConfigSchema,
   readProjectConfig,
-} from "@tenas-ai/api/services/projectTreeService";
-import { resolveProjectAncestorRootUris } from "@tenas-ai/api/services/projectDbService";
-import { prisma } from "@tenas-ai/db";
+} from "@openloaf/api/services/projectTreeService";
+import { resolveProjectAncestorRootUris } from "@openloaf/api/services/projectDbService";
+import { prisma } from "@openloaf/db";
 import {
   deleteSettingValueFromWeb,
   getBasicConfigForWeb,
@@ -253,15 +253,15 @@ function resolveAgentDeleteTarget(input: {
     throw new Error("Invalid agent path.");
   }
   const baseName = path.basename(normalizedAgentPath);
-  // 逻辑：支持 .tenas/agents/<name>/agent.json 和 .agents/agents/<name>/AGENT.md 两种路径。
-  const isTenasAgent = baseName === "agent.json";
+  // 逻辑：支持 .openloaf/agents/<name>/agent.json 和 .agents/agents/<name>/AGENT.md 两种路径。
+  const isOpenLoafAgent = baseName === "agent.json";
   const isLegacyAgent = baseName === "AGENT.md";
-  if (!isTenasAgent && !isLegacyAgent) {
+  if (!isOpenLoafAgent && !isLegacyAgent) {
     throw new Error("Invalid agent path.");
   }
   const agentDir = normalizeFsPath(path.dirname(normalizedAgentPath));
-  const agentsRoot = isTenasAgent
-    ? normalizeFsPath(path.join(baseRootPath, ".tenas", "agents"))
+  const agentsRoot = isOpenLoafAgent
+    ? normalizeFsPath(path.join(baseRootPath, ".openloaf", "agents"))
     : normalizeFsPath(path.join(baseRootPath, ".agents", "agents"));
   if (agentDir === agentsRoot || !agentDir.startsWith(`${agentsRoot}${path.sep}`)) {
     throw new Error("Agent path is outside scope.");
@@ -649,8 +649,8 @@ export class SettingRouterImpl extends BaseSettingRouter {
                     ? !projectIgnoreSkills.includes(`agent:${ignoreKey}`)
                     : !workspaceIgnoreSkills.includes(`agent:${ignoreKey}`)
                   : !projectIgnoreSkills.includes(`agent:${ignoreKey}`);
-            const isTenasAgent = summary.path.includes('.tenas/agents/') || summary.path.includes('.tenas\\agents\\');
-            const isSysAgent = isTenasAgent && isSystemAgentId(summary.folderName);
+            const isOpenLoafAgent = summary.path.includes('.openloaf/agents/') || summary.path.includes('.openloaf\\agents\\');
+            const isSysAgent = isOpenLoafAgent && isSystemAgentId(summary.folderName);
             const isDeletable = isSysAgent
               ? false
               : summary.scope === "global"
@@ -777,7 +777,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
         .input(settingSchemas.getAgentDetail.input)
         .output(settingSchemas.getAgentDetail.output)
         .query(async ({ input }) => {
-          // 逻辑：agent.json 路径走 .tenas/agents/ 结构，AGENT.md 走旧结构。
+          // 逻辑：agent.json 路径走 .openloaf/agents/ 结构，AGENT.md 走旧结构。
           if (path.basename(input.agentPath) === "agent.json") {
             const { readAgentJson } = await import("@/ai/shared/defaultAgentResolver");
             const agentDir = path.dirname(input.agentPath);
@@ -872,7 +872,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
             // 逻辑：更新已有 Agent。
             const { writeFileSync, existsSync: existsFsSync } = await import("node:fs");
             if (path.basename(input.agentPath) === "agent.json") {
-              // 逻辑：.tenas/agents/ 结构 — 更新 agent.json + AGENT.md。
+              // 逻辑：.openloaf/agents/ 结构 — 更新 agent.json + AGENT.md。
               const agentDir = path.dirname(input.agentPath);
               const descriptor = {
                 name: input.name,
@@ -918,7 +918,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
             return { ok: true, agentPath: input.agentPath };
           }
 
-          // 逻辑：创建新 Agent — 写入 .tenas/agents/<name>/ 目录。
+          // 逻辑：创建新 Agent — 写入 .openloaf/agents/<name>/ 目录。
           const { mkdirSync, writeFileSync: writeFsSync } = await import("node:fs");
           const { resolveAgentsRootDir } = await import("@/ai/shared/defaultAgentResolver");
 
@@ -1003,7 +1003,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
           mkdirSync(targetDir, { recursive: true });
 
           if (sourceBaseName === "agent.json") {
-            // 逻辑：.tenas/agents/ 结构 — 复制 agent.json + AGENT.md。
+            // 逻辑：.openloaf/agents/ 结构 — 复制 agent.json + AGENT.md。
             const { readAgentJson } = await import("@/ai/shared/defaultAgentResolver");
             const descriptor = readAgentJson(sourceDir);
             if (!descriptor) throw new Error("Source agent not found.");

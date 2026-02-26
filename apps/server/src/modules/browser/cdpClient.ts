@@ -1,4 +1,4 @@
-import { getCdpConfig } from "@tenas-ai/config";
+import { getCdpConfig } from "@openloaf/config";
 import { getCdpSession } from "@/modules/browser/cdpSessionPool";
 
 type CdpTargetInfo = {

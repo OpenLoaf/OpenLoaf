@@ -1,6 +1,6 @@
 import path from "node:path";
 import { defineConfig } from "prisma/config";
-import { resolveTenasDatabaseUrl } from "@tenas-ai/config";
+import { resolveOpenLoafDatabaseUrl } from "@openloaf/config";
 
 export default defineConfig({
 	schema: path.join("prisma", "schema"),
@@ -8,6 +8,6 @@ export default defineConfig({
 		path: path.join("prisma", "migrations"),
 	},
 	datasource: {
-		url: resolveTenasDatabaseUrl(),
+		url: resolveOpenLoafDatabaseUrl(),
 	},
 });

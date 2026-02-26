@@ -46,7 +46,7 @@ const DEFAULT_PROJECT_TITLE = "Untitled Project";
 /** Prefix for generated project ids. */
 const PROJECT_ID_PREFIX = "proj_";
 /** Cache directory name under root path. */
-const CACHE_DIR_NAME = ".tenas-cache";
+const CACHE_DIR_NAME = ".openloaf-cache";
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 type CacheScopeInput = {

@@ -1,9 +1,9 @@
 import { Buffer } from "node:buffer";
 import type { HeadersInit } from "undici";
-import { getEnvString } from "@tenas-ai/config";
-import { prisma } from "@tenas-ai/db";
-import { resolveProjectAncestorRootUris } from "@tenas-ai/api/services/projectDbService";
-import { resolveFilePathFromUri } from "@tenas-ai/api/services/vfsService";
+import { getEnvString } from "@openloaf/config";
+import { prisma } from "@openloaf/db";
+import { resolveProjectAncestorRootUris } from "@openloaf/api/services/projectDbService";
+import { resolveFilePathFromUri } from "@openloaf/api/services/vfsService";
 import { logger } from "@/common/logger";
 
 const DATA_URL_PREFIX = "data:";
@@ -112,7 +112,7 @@ function parseDataUrl(dataUrl: string): Uint8Array {
 
 /** 构建 AI 请求调试用的 fetch。 */
 export function buildAiDebugFetch(): typeof fetch {
-  const enabled = Boolean(getEnvString(process.env, "TENAS_DEBUG_AI_STREAM"));
+  const enabled = Boolean(getEnvString(process.env, "OPENLOAF_DEBUG_AI_STREAM"));
   const log = logger.debug.bind(logger);
   return async (input, init) => {
     const url =

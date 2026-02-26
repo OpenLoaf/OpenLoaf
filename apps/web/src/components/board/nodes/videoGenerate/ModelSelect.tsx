@@ -1,8 +1,8 @@
 "use client";
 
-import type { AiModel } from "@tenas-saas/sdk";
+import type { AiModel } from "@openloaf-saas/sdk";
 import { ChevronDown, LogIn } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 
 type ModelSelectProps = {
   authLoggedIn: boolean;

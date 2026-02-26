@@ -54,7 +54,7 @@ lerna-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
-tenas.conf
+openloaf.conf
 workspace
 settings.json
 providers.json

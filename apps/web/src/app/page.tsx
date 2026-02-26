@@ -5,7 +5,7 @@ import {
   SidebarInset,
   SidebarProvider,
   useSidebar,
-} from "@tenas-ai/ui/sidebar";
+} from "@openloaf/ui/sidebar";
 import { Header } from "@/components/layout/header/Header";
 import { AppSidebar } from "@/components/layout/sidebar/Sidebar";
 import { MainContent } from "@/components/layout/MainContext";

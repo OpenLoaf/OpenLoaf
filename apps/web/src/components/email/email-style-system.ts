@@ -51,7 +51,7 @@ export const EMAIL_DIVIDER_CLASS = "border-[#e3e8ef] dark:border-slate-700";
 
 export type EmailDensity = 'compact' | 'default' | 'comfortable';
 
-const DENSITY_STORAGE_KEY = 'tenas-email-density';
+const DENSITY_STORAGE_KEY = 'openloaf-email-density';
 
 export function getStoredDensity(): EmailDensity {
   if (typeof window === 'undefined') return 'default';

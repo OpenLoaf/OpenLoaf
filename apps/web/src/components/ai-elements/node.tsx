@@ -8,7 +8,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@tenas-ai/ui/card";
+} from "@openloaf/ui/card";
 import { cn } from "@/lib/utils";
 import { Handle, Position } from "@xyflow/react";
 

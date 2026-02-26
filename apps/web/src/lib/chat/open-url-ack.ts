@@ -1,12 +1,12 @@
 "use client";
 
-import type { TenasWebContentsViewStatus } from "@/components/browser/browser-types";
+import type { OpenLoafWebContentsViewStatus } from "@/components/browser/browser-types";
 
 export type WebContentsReadyResult = {
   /** Result status. */
   status: "ready" | "failed";
   /** Source status detail. */
-  detail: TenasWebContentsViewStatus;
+  detail: OpenLoafWebContentsViewStatus;
 };
 
 /** Resolve when a WebContentsView finishes loading for the given viewKey. */
@@ -21,11 +21,11 @@ export function waitForWebContentsViewReady(viewKey: string): Promise<WebContent
     // 中文注释：必须先观察到 loading=true，避免初始状态 loading=false 导致过早回执。
     let sawLoading = false;
     const handler = (event: Event) => {
-      const detail = (event as CustomEvent<TenasWebContentsViewStatus>).detail;
+      const detail = (event as CustomEvent<OpenLoafWebContentsViewStatus>).detail;
       if (!detail || detail.key !== key) return;
       // 中文注释：只有在加载结束或失败时才回执，避免打开后立刻 ack。
       if (detail.failed) {
-        window.removeEventListener("tenas:webcontents-view:status", handler);
+        window.removeEventListener("openloaf:webcontents-view:status", handler);
         resolve({ status: "failed", detail });
         return;
       }
@@ -34,11 +34,11 @@ export function waitForWebContentsViewReady(viewKey: string): Promise<WebContent
       }
       const isReady = detail.ready === true || (detail.loading === false && sawLoading);
       if (!isReady) return;
-      window.removeEventListener("tenas:webcontents-view:status", handler);
+      window.removeEventListener("openloaf:webcontents-view:status", handler);
       resolve({ status: "ready", detail });
     };
 
     // 中文注释：不做前端超时，后端负责兜底。
-    window.addEventListener("tenas:webcontents-view:status", handler);
+    window.addEventListener("openloaf:webcontents-view:status", handler);
   });
 }

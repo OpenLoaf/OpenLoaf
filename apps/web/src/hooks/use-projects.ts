@@ -2,7 +2,7 @@
 
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 
 type ProjectsQueryOptions = ReturnType<typeof trpc.project.list.queryOptions>;
 type ProjectsQueryOverrides = Partial<Omit<ProjectsQueryOptions, "queryKey" | "queryFn">>;

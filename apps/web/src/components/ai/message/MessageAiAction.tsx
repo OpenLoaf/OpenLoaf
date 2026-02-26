@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { UIMessage } from "@ai-sdk/react";
-import { SUMMARY_HISTORY_COMMAND } from "@tenas-ai/api/common";
+import { SUMMARY_HISTORY_COMMAND } from "@openloaf/api/common";
 import { cn } from "@/lib/utils";
 import {
   BarChart3,
@@ -113,11 +113,11 @@ function extractTokenUsage(metadata: unknown): NormalizedTokenUsage | undefined 
 }
 
 /**
- * Extract assistant elapsed time (ms) from metadata.tenas.
+ * Extract assistant elapsed time (ms) from metadata.openloaf.
  */
 function extractAssistantElapsedMs(metadata: unknown): number | undefined {
   const meta = metadata as any;
-  const elapsed = meta?.tenas?.assistantElapsedMs;
+  const elapsed = meta?.openloaf?.assistantElapsedMs;
   if (typeof elapsed === "number" && Number.isFinite(elapsed)) return elapsed;
   if (typeof elapsed === "string" && elapsed.trim() !== "" && Number.isFinite(Number(elapsed))) {
     return Number(elapsed);

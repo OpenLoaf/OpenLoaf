@@ -51,7 +51,7 @@ RootLayout (app/layout.tsx)
 ### Sidebar
 - 文件：`apps/web/src/components/layout/sidebar/Sidebar.tsx`
 - 逻辑：
-  - 使用 `@tenas-ai/ui/sidebar`，`SidebarProvider` 控制展开状态
+  - 使用 `@openloaf/ui/sidebar`，`SidebarProvider` 控制展开状态
   - 窄屏（<900px）直接隐藏侧边栏（`useIsNarrowScreen`）
   - `SidebarHeader` 放入口菜单（搜索、日历、AI、邮箱、技能等）
   - `SidebarContent` 主要是 `SidebarProject`

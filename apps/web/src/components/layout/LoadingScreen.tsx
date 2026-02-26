@@ -8,7 +8,7 @@ export function LoadingScreen({ label = "Connecting to server..." }: { label?: s
       <div className="flex flex-col items-center gap-3 text-muted-foreground">
         <Image
           src="/head_s.png"
-          alt="Tenas logo"
+          alt="OpenLoaf logo"
           width={40}
           height={40}
           className="h-10 w-10 motion-safe:animate-pulse"

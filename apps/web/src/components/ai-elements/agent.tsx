@@ -8,8 +8,8 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@tenas-ai/ui/accordion";
-import { Badge } from "@tenas-ai/ui/badge";
+} from "@openloaf/ui/accordion";
+import { Badge } from "@openloaf/ui/badge";
 import { cn } from "@/lib/utils";
 import { BotIcon } from "lucide-react";
 import { memo } from "react";

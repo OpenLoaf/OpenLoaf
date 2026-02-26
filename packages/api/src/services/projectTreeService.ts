@@ -7,7 +7,7 @@ import { getActiveWorkspace, getWorkspaceById } from "./vfsService";
 import { getWorkspaceProjectEntries } from "./workspaceProjectConfig";
 
 /** Directory name for project metadata. */
-export const PROJECT_META_DIR = ".tenas";
+export const PROJECT_META_DIR = ".openloaf";
 /** File name for project metadata. */
 export const PROJECT_META_FILE = "project.json";
 

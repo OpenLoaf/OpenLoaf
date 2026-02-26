@@ -1,7 +1,7 @@
 import * as PopoverPrimitive from '@radix-ui/react-popover'
 import type * as React from 'react'
 
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 function Popover({
 	...props

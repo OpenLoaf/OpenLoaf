@@ -1,4 +1,4 @@
-import { BaseTabRouter, tabSchemas, t, shieldedProcedure } from "@tenas-ai/api";
+import { BaseTabRouter, tabSchemas, t, shieldedProcedure } from "@openloaf/api";
 import { tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
 
 export class TabRouterImpl extends BaseTabRouter {

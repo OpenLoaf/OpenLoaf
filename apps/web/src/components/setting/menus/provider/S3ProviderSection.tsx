@@ -1,4 +1,4 @@
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Table,
   TableBody,
@@ -6,10 +6,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@tenas-ai/ui/table";
-import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
-import { Switch } from "@tenas-ai/ui/switch";
+} from "@openloaf/ui/table";
+import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
+import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
+import { Switch } from "@openloaf/ui/switch";
 import { Minus, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { truncateDisplay, type S3ProviderEntry } from "@/components/setting/menus/provider/use-provider-management";
 import type { Dispatch, SetStateAction } from "react";
@@ -60,7 +60,7 @@ export function S3ProviderSection({
 }: S3ProviderSectionProps) {
   return (
     <>
-      <TenasSettingsGroup
+      <OpenLoafSettingsGroup
         title="S3 存储服务商"
         subtitle="配置对象存储服务商的 Endpoint 与访问凭证。"
         className="pb-4"
@@ -73,9 +73,9 @@ export function S3ProviderSection({
                 AI 对话需要公网访问图片时，将自动把图片上传到 S3。
               </div>
             </div>
-            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+            <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end">
               <Switch checked={autoUploadEnabled} onCheckedChange={onAutoUploadChange} />
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
@@ -84,7 +84,7 @@ export function S3ProviderSection({
                 经过指定小时数后，自动从 S3 清理已上传的图片。
               </div>
             </div>
-            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
+            <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
               <Button
                 size="icon"
                 variant="outline"
@@ -106,12 +106,12 @@ export function S3ProviderSection({
               >
                 <Plus className="h-4 w-4" />
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
-      <TenasSettingsGroup
+      <OpenLoafSettingsGroup
         title="服务商列表"
         subtitle="管理已添加的服务商配置，支持激活与测试。"
         showBorder={false}
@@ -217,7 +217,7 @@ export function S3ProviderSection({
             </TableBody>
           </Table>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
     </>
   );
 }

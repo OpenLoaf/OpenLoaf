@@ -2,19 +2,19 @@
 
 import { useTheme } from "next-themes";
 import { useEffect, useRef } from "react";
-import { Switch } from "@tenas-ai/ui/animate-ui/components/radix/switch";
-import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
+import { Switch } from "@openloaf/ui/animate-ui/components/radix/switch";
+import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
 import { ThemeToggler } from "@/components/ThemeProvider";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@tenas-ai/ui/dropdown-menu";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
+} from "@openloaf/ui/dropdown-menu";
+import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
+import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 import { ChevronDown } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { clearThemeOverride, readThemeOverride } from "@/lib/theme-override";
@@ -125,7 +125,7 @@ export function BasicSettings() {
 
         return (
           <div className="space-y-6">
-            <TenasSettingsGroup title="系统配置">
+            <OpenLoafSettingsGroup title="系统配置">
               <div className="divide-y divide-border">
                 <div className="flex flex-wrap items-start gap-3 py-3">
                   <div className="min-w-0 flex-1">
@@ -135,7 +135,7 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                  <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -166,7 +166,7 @@ export function BasicSettings() {
                         </DropdownMenuRadioGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </TenasSettingsField>
+                  </OpenLoafSettingsField>
                 </div>
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
@@ -177,7 +177,7 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                  <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <Tabs
                       value={themeTabsValue}
                       onValueChange={(next) => {
@@ -192,7 +192,7 @@ export function BasicSettings() {
                         <TabsTrigger value="light">白天</TabsTrigger>
                       </TabsList>
                     </Tabs>
-                  </TenasSettingsField>
+                  </OpenLoafSettingsField>
                 </div>
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
@@ -203,7 +203,7 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                  <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <div className="origin-right scale-125">
                       <Switch
                         checked={isAutoTheme}
@@ -220,7 +220,7 @@ export function BasicSettings() {
                         aria-label="Auto theme"
                       />
                     </div>
-                  </TenasSettingsField>
+                  </OpenLoafSettingsField>
                 </div>
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
@@ -231,7 +231,7 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                  <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <Tabs
                       value={fontSize}
                       onValueChange={(next) =>
@@ -245,7 +245,7 @@ export function BasicSettings() {
                         <TabsTrigger value="xlarge">特大</TabsTrigger>
                       </TabsList>
                     </Tabs>
-                  </TenasSettingsField>
+                  </OpenLoafSettingsField>
                 </div>
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
@@ -256,7 +256,7 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                  <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <Tabs
                       value={animationLevel}
                       onValueChange={(next) =>
@@ -269,7 +269,7 @@ export function BasicSettings() {
                         <TabsTrigger value="high">高</TabsTrigger>
                       </TabsList>
                     </Tabs>
-                  </TenasSettingsField>
+                  </OpenLoafSettingsField>
                 </div>
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
@@ -280,7 +280,7 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                  <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <div className="origin-right scale-125">
                       <Switch
                         checked={basic.appNotificationSoundEnabled}
@@ -290,7 +290,7 @@ export function BasicSettings() {
                         aria-label="Notification sound"
                       />
                     </div>
-                  </TenasSettingsField>
+                  </OpenLoafSettingsField>
                 </div>
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
@@ -301,7 +301,7 @@ export function BasicSettings() {
                     </div>
                   </div>
 
-                  <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                  <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
                     <div className="origin-right scale-125">
                       <Switch
                         checked={toolAllowOutsideScope}
@@ -311,10 +311,10 @@ export function BasicSettings() {
                         aria-label="Allow tool outside scope"
                       />
                     </div>
-                  </TenasSettingsField>
+                  </OpenLoafSettingsField>
                 </div>
               </div>
-            </TenasSettingsGroup>
+            </OpenLoafSettingsGroup>
 
             <LocalAccess />
 

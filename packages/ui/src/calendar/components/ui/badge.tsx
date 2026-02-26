@@ -1,5 +1,5 @@
 import type React from 'react'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 interface BadgeProps {
 	variant?: 'default' | 'secondary' | 'destructive' | 'outline'

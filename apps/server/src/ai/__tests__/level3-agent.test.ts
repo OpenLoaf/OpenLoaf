@@ -2,7 +2,7 @@
  * Level 3 — Agent + 工具执行（核心调试场景）。
  *
  * 用法：
- *   TENAS_TEST_CHAT_MODEL_ID="profileId:modelId" pnpm run test:ai:agent
+ *   OPENLOAF_TEST_CHAT_MODEL_ID="profileId:modelId" pnpm run test:ai:agent
  */
 import {
   resolveTestModel,

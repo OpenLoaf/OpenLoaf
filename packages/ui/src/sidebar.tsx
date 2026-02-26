@@ -7,23 +7,23 @@ import { PanelLeftIcon } from "lucide-react";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { Button } from "@tenas-ai/ui/button";
-import { Input } from "@tenas-ai/ui/input";
-import { Separator } from "@tenas-ai/ui/separator";
+import { Button } from "@openloaf/ui/button";
+import { Input } from "@openloaf/ui/input";
+import { Separator } from "@openloaf/ui/separator";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@tenas-ai/ui/sheet";
-import { Skeleton } from "@tenas-ai/ui/skeleton";
+} from "@openloaf/ui/sheet";
+import { Skeleton } from "@openloaf/ui/skeleton";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@tenas-ai/ui/tooltip";
+} from "@openloaf/ui/tooltip";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
@@ -102,8 +102,8 @@ function SidebarProvider({
 
   React.useEffect(() => {
     const handler = () => toggleSidebar();
-    window.addEventListener("tenas:toggle-sidebar", handler);
-    return () => window.removeEventListener("tenas:toggle-sidebar", handler);
+    window.addEventListener("openloaf:toggle-sidebar", handler);
+    return () => window.removeEventListener("openloaf:toggle-sidebar", handler);
   }, [toggleSidebar]);
 
   React.useEffect(() => {
@@ -117,9 +117,9 @@ function SidebarProvider({
         setOpen(detail.open);
       }
     };
-    window.addEventListener("tenas:set-sidebar-open", handler as EventListener);
+    window.addEventListener("openloaf:set-sidebar-open", handler as EventListener);
     return () =>
-      window.removeEventListener("tenas:set-sidebar-open", handler as EventListener);
+      window.removeEventListener("openloaf:set-sidebar-open", handler as EventListener);
   }, [isMobile, setOpen, setOpenMobile]);
 
   // We add a state so that we can do data-state="expanded" or "collapsed".

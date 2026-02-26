@@ -5,12 +5,12 @@ import type { PlateElementProps } from 'platejs/react';
 
 import { PlateElement, useReadOnly } from 'platejs/react';
 
-import { Calendar } from '@tenas-ai/ui/date-picker';
+import { Calendar } from '@openloaf/ui/date-picker';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@tenas-ai/ui/popover';
+} from '@openloaf/ui/popover';
 import { cn } from '@/lib/utils';
 
 export function DateElement(props: PlateElementProps<TDateElement>) {

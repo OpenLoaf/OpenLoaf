@@ -1,4 +1,4 @@
-import { t, shieldedProcedure } from "@tenas-ai/api";
+import { t, shieldedProcedure } from "@openloaf/api";
 import { z } from "zod";
 import {
   OFFICE_ACTIONS,

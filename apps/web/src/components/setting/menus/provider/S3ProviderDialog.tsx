@@ -1,20 +1,20 @@
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
-import { Input } from "@tenas-ai/ui/input";
-import { Switch } from "@tenas-ai/ui/switch";
+} from "@openloaf/ui/dialog";
+import { Input } from "@openloaf/ui/input";
+import { Switch } from "@openloaf/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@tenas-ai/ui/dropdown-menu";
+} from "@openloaf/ui/dropdown-menu";
 import { Eye, EyeOff, ChevronDown } from "lucide-react";
 import {
   getDefaultS3Endpoint,
@@ -195,7 +195,7 @@ export function S3ProviderDialog({
             <div className="text-sm font-medium">Bucket</div>
             <Input
               value={draftBucket}
-              placeholder="例如：tenas-bucket"
+              placeholder="例如：openloaf-bucket"
               onChange={(event) => onDraftBucketChange(event.target.value)}
             />
           </div>

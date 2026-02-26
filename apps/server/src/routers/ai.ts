@@ -1,4 +1,4 @@
-import { BaseAiRouter, aiSchemas, t, shieldedProcedure } from "@tenas-ai/api";
+import { BaseAiRouter, aiSchemas, t, shieldedProcedure } from "@openloaf/api";
 import { storeSecret } from "@/ai/tools/secretStore";
 
 /** Deprecated message for local AI media routes. */

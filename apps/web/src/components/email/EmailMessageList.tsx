@@ -23,16 +23,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@tenas-ai/ui/alert-dialog";
-import { Button } from "@tenas-ai/ui/button";
-import { Checkbox } from "@tenas-ai/ui/checkbox";
+} from "@openloaf/ui/alert-dialog";
+import { Button } from "@openloaf/ui/button";
+import { Checkbox } from "@openloaf/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@tenas-ai/ui/dropdown-menu";
-import { Input } from "@tenas-ai/ui/input";
+} from "@openloaf/ui/dropdown-menu";
+import { Input } from "@openloaf/ui/input";
 import { cn } from "@/lib/utils";
 import {
   EMAIL_DIVIDER_CLASS,

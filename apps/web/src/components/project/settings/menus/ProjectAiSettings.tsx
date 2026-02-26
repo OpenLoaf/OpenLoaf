@@ -1,12 +1,12 @@
 import { memo, useMemo, useState } from "react";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
-import { Switch } from "@tenas-ai/ui/animate-ui/components/radix/switch";
-import { Checkbox } from "@tenas-ai/ui/checkbox";
-import { Label } from "@tenas-ai/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
-import { Button } from "@tenas-ai/ui/button";
+import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
+import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
+import { Switch } from "@openloaf/ui/animate-ui/components/radix/switch";
+import { Checkbox } from "@openloaf/ui/checkbox";
+import { Label } from "@openloaf/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
+import { Button } from "@openloaf/ui/button";
 import { trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useTabs } from "@/hooks/use-tabs";
@@ -115,7 +115,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
 
   return (
     <div className="space-y-3">
-      <TenasSettingsGroup
+      <OpenLoafSettingsGroup
         title="AI设置"
         subtitle="覆盖工作空间设置后可配置当前项目的自动总结。"
       >
@@ -128,7 +128,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
               </div>
             </div>
 
-            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+            <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end">
               <div className="origin-right scale-110">
                 <Switch
                   checked={overrideEnabled}
@@ -138,7 +138,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
                   aria-label="Override workspace settings"
                 />
               </div>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
@@ -149,7 +149,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
               </div>
             </div>
 
-            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+            <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end">
               <div className="origin-right scale-110">
                 <Switch
                   checked={effectiveAutoSummaryEnabled}
@@ -160,7 +160,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
                   aria-label="Auto summary"
                 />
               </div>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
@@ -171,7 +171,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
               </div>
             </div>
 
-            <TenasSettingsField className="w-full sm:w-[360px] shrink-0">
+            <OpenLoafSettingsField className="w-full sm:w-[360px] shrink-0">
               <div className="flex items-center justify-end gap-2">
                 <span className="text-xs text-muted-foreground">
                   {autoSummaryLabel || "-"}
@@ -205,7 +205,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
                   </PopoverContent>
                 </Popover>
               </div>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
@@ -216,7 +216,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
               </div>
             </div>
 
-            <TenasSettingsField className="w-full sm:w-[360px] shrink-0">
+            <OpenLoafSettingsField className="w-full sm:w-[360px] shrink-0">
               <div className="flex items-center justify-end gap-2">
                 <Popover>
                   <PopoverTrigger asChild>
@@ -246,10 +246,10 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
                   历史面板
                 </Button>
               </div>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
     </div>
   );
 });

@@ -3,13 +3,13 @@
 import type { LanguageModelUsage } from "ai";
 import type { ComponentProps } from "react";
 
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
-} from "@tenas-ai/ui/hover-card";
-import { Progress } from "@tenas-ai/ui/progress";
+} from "@openloaf/ui/hover-card";
+import { Progress } from "@openloaf/ui/progress";
 import { cn } from "@/lib/utils";
 import { createContext, useContext, useMemo } from "react";
 import { getUsage } from "tokenlens";

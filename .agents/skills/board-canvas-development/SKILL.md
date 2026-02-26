@@ -7,7 +7,7 @@ description: Use when developing, extending, or debugging the Board infinite can
 
 ## Overview
 
-Board 是 Tenas 的无限画布白板系统，采用 Engine/Tool/View 三层分离架构。所有画布状态由 `CanvasEngine` 集中管理，通过订阅-发布模式驱动 React 渲染。
+Board 是 OpenLoaf 的无限画布白板系统，采用 Engine/Tool/View 三层分离架构。所有画布状态由 `CanvasEngine` 集中管理，通过订阅-发布模式驱动 React 渲染。
 
 ## When to Use
 

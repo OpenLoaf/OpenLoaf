@@ -15,7 +15,7 @@ import {
   useReadOnly,
 } from 'platejs/react';
 
-import { Checkbox } from '@tenas-ai/ui/checkbox';
+import { Checkbox } from '@openloaf/ui/checkbox';
 import { cn } from '@/lib/utils';
 
 const config: Record<

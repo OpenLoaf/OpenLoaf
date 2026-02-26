@@ -4,8 +4,8 @@ export const dynamic = 'force-static';
 
 export default function manifest(): MetadataRoute.Manifest {
 	return {
-		name: "tenas-ai",
-		short_name: "tenas-ai",
+		name: "openloaf",
+		short_name: "openloaf",
 		description: "my pwa app",
 		start_url: "/new",
 		display: "standalone",

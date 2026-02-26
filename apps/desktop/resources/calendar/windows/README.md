@@ -2,7 +2,7 @@
 
 This directory should contain the Windows calendar helper binary:
 
-- `tenas-calendar.exe`
+- `openloaf-calendar.exe`
 
 The helper is responsible for accessing WinRT Calendar APIs and streaming calendar changes.
 

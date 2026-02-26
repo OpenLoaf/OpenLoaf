@@ -1,15 +1,15 @@
 import { createContext, useContext } from 'react'
-import type { EventFormProps } from '@tenas-ai/ui/calendar/components/event-form/event-form'
-import type { BusinessHours, CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
+import type { EventFormProps } from '@openloaf/ui/calendar/components/event-form/event-form'
+import type { BusinessHours, CalendarEvent } from '@openloaf/ui/calendar/components/types'
 import type {
 	CalendarClassesOverride,
 	CellClickInfo,
 	RenderCurrentTimeIndicatorProps,
-} from '@tenas-ai/ui/calendar/features/calendar/types'
-import type { RecurrenceEditOptions } from '@tenas-ai/ui/calendar/features/recurrence/types'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import type { TranslationKey } from '@tenas-ai/ui/calendar/lib/translations/types'
-import type { CalendarView, TimeFormat } from '@tenas-ai/ui/calendar/types'
+} from '@openloaf/ui/calendar/features/calendar/types'
+import type { RecurrenceEditOptions } from '@openloaf/ui/calendar/features/recurrence/types'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import type { TranslationKey } from '@openloaf/ui/calendar/lib/translations/types'
+import type { CalendarView, TimeFormat } from '@openloaf/ui/calendar/types'
 
 export interface CalendarContextType {
 	currentDate: dayjs.Dayjs

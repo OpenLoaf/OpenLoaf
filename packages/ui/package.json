@@ -1,5 +1,5 @@
 {
-  "name": "@tenas-ai/ui",
+  "name": "@openloaf/ui",
   "private": true,
   "type": "module",
   "peerDependencies": {
@@ -8,7 +8,7 @@
     "typescript": "^5"
   },
   "devDependencies": {
-    "@tenas-ai/config": "workspace:*",
+    "@openloaf/config": "workspace:*",
     "@types/react": "19.2.3"
   },
   "scripts": {

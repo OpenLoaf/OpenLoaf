@@ -3,7 +3,7 @@
 import * as React from "react";
 import { motion, useAnimationControls } from "motion/react";
 import { Layers, X } from "lucide-react";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,10 +11,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@tenas-ai/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
+} from "@openloaf/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { getPanelTitle } from "@/utils/panel-utils";
-import { BROWSER_WINDOW_COMPONENT, type DockItem } from "@tenas-ai/api/common";
+import { BROWSER_WINDOW_COMPONENT, type DockItem } from "@openloaf/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { getStackMinimizeSignal } from "@/lib/stack-dock-animation";
@@ -33,7 +33,7 @@ function destroyBrowserViewsIfNeeded(item: DockItem) {
   const isElectron = isElectronEnv();
   if (!isElectron) return;
 
-  const api = window.tenasElectron;
+  const api = window.openloafElectron;
   if (!api?.destroyWebContentsView) return;
 
   const tabs = (item.params as any)?.browserTabs;

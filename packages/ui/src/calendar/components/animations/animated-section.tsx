@@ -5,7 +5,7 @@ import {
 	type Variants,
 } from 'motion/react'
 import type * as React from 'react'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 interface AnimatedSectionProps
 	extends Omit<HTMLMotionProps<'div'>, 'children' | 'layout' | 'layoutId'> {

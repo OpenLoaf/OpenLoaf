@@ -1,11 +1,11 @@
 import { createContext, useContext } from 'react'
-import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
+import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
 import type {
 	CalendarContextType,
 	UseIlamyCalendarContextReturn,
-} from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/context'
-import type { CellClickInfo } from '@tenas-ai/ui/calendar/features/calendar/types'
-import type { Resource } from '@tenas-ai/ui/calendar/features/resource-calendar/types'
+} from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/context'
+import type { CellClickInfo } from '@openloaf/ui/calendar/features/calendar/types'
+import type { Resource } from '@openloaf/ui/calendar/features/resource-calendar/types'
 
 export interface ResourceCalendarContextType extends CalendarContextType {
 	// Resource-specific state

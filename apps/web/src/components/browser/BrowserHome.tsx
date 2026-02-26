@@ -20,7 +20,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "@tenas-ai/ui/context-menu";
+} from "@openloaf/ui/context-menu";
 import {
   Dialog,
   DialogClose,
@@ -28,9 +28,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
-import { Input } from "@tenas-ai/ui/input";
-import { Button } from "@tenas-ai/ui/button";
+} from "@openloaf/ui/dialog";
+import { Input } from "@openloaf/ui/input";
+import { Button } from "@openloaf/ui/button";
 
 // Get the initial letter for a site icon.
 function getInitial(title: string) {

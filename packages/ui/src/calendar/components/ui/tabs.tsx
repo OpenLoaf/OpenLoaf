@@ -1,7 +1,7 @@
 import * as TabsPrimitive from '@radix-ui/react-tabs'
 import type * as React from 'react'
 
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 function Tabs({
 	className,

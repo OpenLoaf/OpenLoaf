@@ -1,7 +1,7 @@
 import type React from 'react'
-import { ScrollArea, ScrollBar } from '@tenas-ai/ui/calendar/components/ui/scroll-area'
-import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { ScrollArea, ScrollBar } from '@openloaf/ui/calendar/components/ui/scroll-area'
+import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 import { HorizontalGridHeaderContainer } from './horizontal-grid-header-container'
 import {
 	HorizontalGridRow,

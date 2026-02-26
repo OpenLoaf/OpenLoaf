@@ -1,7 +1,7 @@
 import * as ScrollAreaPrimitive from '@radix-ui/react-scroll-area'
 import type * as React from 'react'
 
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 interface ScrollAreaProps
 	extends React.ComponentProps<typeof ScrollAreaPrimitive.Root> {

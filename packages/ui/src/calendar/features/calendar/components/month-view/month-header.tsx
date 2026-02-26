@@ -1,7 +1,7 @@
 import type React from 'react'
-import { useCalendarContext } from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/context'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
-import { getWeekDays } from '@tenas-ai/ui/calendar/lib/utils/date-utils'
+import { useCalendarContext } from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/context'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
+import { getWeekDays } from '@openloaf/ui/calendar/lib/utils/date-utils'
 
 interface MonthHeaderProps {
 	className?: string

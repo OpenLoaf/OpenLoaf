@@ -1,5 +1,5 @@
 {
-  "name": "@tenas-ai/db",
+  "name": "@openloaf/db",
   "type": "module",
   "exports": {
     ".": {
@@ -22,7 +22,7 @@
     "lint": "eslint src"
   },
   "devDependencies": {
-    "@tenas-ai/config": "workspace:*",
+    "@openloaf/config": "workspace:*",
     "prisma": "^7.3.0",
     "prisma-trpc-generator": "^3.0.1",
     "prisma-zod-generator": "^2.1.2",

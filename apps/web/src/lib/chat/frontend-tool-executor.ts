@@ -1,6 +1,6 @@
 "use client";
 
-import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
+import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@openloaf/api/common";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { createBrowserTabId } from "@/hooks/tab-id";
@@ -15,7 +15,7 @@ import { getRelativePathFromUri } from "@/components/project/filesystem/utils/fi
 import { createFileEntryFromUri } from "@/components/file/lib/open-file";
 import { recordRecentOpen } from "@/components/file/lib/recent-open";
 import { waitForWebContentsViewReady } from "@/lib/chat/open-url-ack";
-import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
 
 export type FrontendToolAckStatus = "success" | "failed" | "timeout";
@@ -358,7 +358,7 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
     await invokeWpsOpen({
       addonType,
       addonName,
-      funcName: "openFileFromTenas",
+      funcName: "openFileFromOpenLoaf",
       payload: {
         filePath,
         serverUrl: baseUrl,

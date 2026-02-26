@@ -11,7 +11,7 @@ import { zhCN } from "date-fns/locale";
 import MarkdownViewer from "@/components/file/MarkdownViewer";
 import { openFilePreview } from "@/components/file/lib/open-file";
 import { FileSystemGrid } from "@/components/project/filesystem/components/FileSystemGrid";
-import { Calendar } from "@tenas-ai/ui/date-picker";
+import { Calendar } from "@openloaf/ui/date-picker";
 import { useChatSessions, type ChatSessionListItem } from "@/hooks/use-chat-sessions";
 import { useTabs } from "@/hooks/use-tabs";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
@@ -144,7 +144,7 @@ const ProjectHistory = memo(function ProjectHistory({
   // 当天零点，用于禁用未来日期。
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const summaryUri = scopeProjectId ? `.tenas/summary/${activeDateKey}.md` : "";
+  const summaryUri = scopeProjectId ? `.openloaf/summary/${activeDateKey}.md` : "";
   const summaryQuery = useQuery(
     trpc.fs.readFile.queryOptions(
       summaryUri && workspaceId && scopeProjectId

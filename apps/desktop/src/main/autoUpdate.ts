@@ -104,7 +104,7 @@ function emitStatus(next: Omit<AutoUpdateStatus, 'currentVersion' | 'ts'> & Part
   for (const win of BrowserWindow.getAllWindows()) {
     if (win.isDestroyed()) continue
     try {
-      win.webContents.send('tenas:auto-update:status', payload)
+      win.webContents.send('openloaf:auto-update:status', payload)
     } catch {
       // ignore
     }

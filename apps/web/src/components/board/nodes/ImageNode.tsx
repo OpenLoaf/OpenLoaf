@@ -115,7 +115,7 @@ async function downloadOriginalImage(
 ) {
   const href = resolveImageSource(props.originalSrc, fileContext);
   if (!href) return;
-  const saveFile = window.tenasElectron?.saveFile;
+  const saveFile = window.openloafElectron?.saveFile;
   if (saveFile) {
     try {
       const response = await fetch(href);

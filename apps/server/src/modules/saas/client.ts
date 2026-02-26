@@ -1,4 +1,4 @@
-import { SaaSClient } from "@tenas-saas/sdk";
+import { SaaSClient } from "@openloaf-saas/sdk";
 import { getSaasBaseUrl } from "./core/config";
 
 /** Cache SaaS client instance by base URL. */

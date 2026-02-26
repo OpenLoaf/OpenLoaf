@@ -2,15 +2,15 @@ import { PopoverClose } from '@radix-ui/react-popover'
 import { Calendar as CalendarIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Matcher } from 'react-day-picker'
-import { Button } from '@tenas-ai/ui/calendar/components/ui/button'
-import { Calendar } from '@tenas-ai/ui/calendar/components/ui/calendar'
+import { Button } from '@openloaf/ui/calendar/components/ui/button'
+import { Calendar } from '@openloaf/ui/calendar/components/ui/calendar'
 import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
-} from '@tenas-ai/ui/calendar/components/ui/popover'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+} from '@openloaf/ui/calendar/components/ui/popover'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 interface DatePickerProps {
 	date: Date | undefined

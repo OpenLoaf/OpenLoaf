@@ -4,8 +4,8 @@ import {
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
-} from '@tenas-ai/ui/calendar/components/ui/dialog'
-import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
+} from '@openloaf/ui/calendar/components/ui/dialog'
+import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
 import type { CalendarEvent } from '../types'
 import { EventForm } from './event-form'
 

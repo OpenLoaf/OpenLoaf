@@ -1,5 +1,5 @@
-import { prisma } from "@tenas-ai/db";
-import type { Prisma } from "@tenas-ai/db/prisma/generated/client";
+import { prisma } from "@openloaf/db";
+import type { Prisma } from "@openloaf/db/prisma/generated/client";
 
 export type SchedulerTaskRecordInput = {
   /** Task id. */

@@ -27,10 +27,10 @@
       "@/*": [
         "./src/*"
       ],
-      "@tenas-ai/ui": [
+      "@openloaf/ui": [
         "../../packages/ui/src"
       ],
-      "@tenas-ai/ui/*": [
+      "@openloaf/ui/*": [
         "../../packages/ui/src/*"
       ]
     }

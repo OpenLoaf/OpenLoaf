@@ -1,4 +1,4 @@
-import type { ModelParameterDefinition } from "@tenas-ai/api/common";
+import type { ModelParameterDefinition } from "@openloaf/api/common";
 
 /** Normalize the stored value to a plain text string. */
 export function normalizeTextValue(value?: unknown): string {

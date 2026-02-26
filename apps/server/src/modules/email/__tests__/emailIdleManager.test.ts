@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { setWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
-import type { Workspace } from "@tenas-ai/api/types/workspace";
-import { setTenasRootOverride } from "@tenas-ai/config";
+import { setWorkspaces } from "@openloaf/api/services/workspaceConfig";
+import type { Workspace } from "@openloaf/api/types/workspace";
+import { setOpenLoafRootOverride } from "@openloaf/config";
 import { setEmailEnvValue } from "../emailEnvStore";
 import { writeEmailConfigFile, type EmailConfigFile } from "../emailConfigStore";
 import {
@@ -15,11 +15,11 @@ import {
   stopEmailIdleManager,
 } from "../emailIdleManager";
 
-const tempRoot = mkdtempSync(path.join(tmpdir(), "tenas-email-idle-"));
-process.env.TENAS_SERVER_ENV_PATH = path.join(tempRoot, ".env");
+const tempRoot = mkdtempSync(path.join(tmpdir(), "openloaf-email-idle-"));
+process.env.OPENLOAF_SERVER_ENV_PATH = path.join(tempRoot, ".env");
 process.env.EMAIL_IDLE_ENABLED = "1";
 process.env.EMAIL_IMAP_SKIP = "1";
-setTenasRootOverride(tempRoot);
+setOpenLoafRootOverride(tempRoot);
 
 const workspaceRoot = path.join(tempRoot, "workspace");
 const workspaceId = "workspace-idle-test";
@@ -64,6 +64,6 @@ assert.equal(snapshot.workers[0]?.status, "skipped");
 
 await stopEmailIdleManager();
 
-setTenasRootOverride(null);
+setOpenLoafRootOverride(null);
 
 console.log("email idle manager tests passed.");

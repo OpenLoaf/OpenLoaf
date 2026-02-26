@@ -1,6 +1,6 @@
 import { generateId } from 'ai'
-import { prisma } from '@tenas-ai/db'
-import type { ChatMessageKind, TenasUIMessage } from '@tenas-ai/api'
+import { prisma } from '@openloaf/db'
+import type { ChatMessageKind, OpenLoafUIMessage } from '@openloaf/api'
 import { replaceFileTokensWithNames } from '@/common/chatTitle'
 import { getBoardId, getProjectId, getWorkspaceId } from '@/ai/shared/context/requestContext'
 import { toNumberOrUndefined, isRecord } from '@/ai/shared/util'
@@ -34,7 +34,7 @@ function normalizeMessageKind(value: unknown): ChatMessageKind | null {
 /** Input for saving a chat message. */
 type SaveMessageInput = {
   sessionId: string
-  message: TenasUIMessage | UIMessageLike
+  message: OpenLoafUIMessage | UIMessageLike
   parentMessageId: string | null
   pathOverride?: string
   workspaceId?: string
@@ -92,7 +92,7 @@ export async function saveCompactPromptMessage(input: {
   text: string
   createdAt?: Date
 }): Promise<SaveMessageResult> {
-  const message: TenasUIMessage = {
+  const message: OpenLoafUIMessage = {
     id: generateId(),
     role: 'user',
     parentMessageId: input.parentMessageId,
@@ -114,7 +114,7 @@ export async function saveCompactSummaryMessage(input: {
   text: string
   createdAt?: Date
 }): Promise<SaveMessageResult> {
-  const message: TenasUIMessage = {
+  const message: OpenLoafUIMessage = {
     id: generateId(),
     role: 'assistant',
     parentMessageId: input.parentMessageId,
@@ -372,21 +372,21 @@ function mergeMetadataWithAccumulatedUsage(
   if (combinedTotal) merged.totalUsage = combinedTotal
   else if ('totalUsage' in merged) delete merged.totalUsage
 
-  const prevTenas = isRecord(prevRecord.tenas) ? prevRecord.tenas : undefined
-  const nextTenas = isRecord(next.tenas) ? next.tenas : undefined
-  if (prevTenas || nextTenas) {
-    const mergedTenas: Record<string, unknown> = {
-      ...(prevTenas ?? {}),
-      ...(nextTenas ?? {}),
+  const prevOpenLoaf = isRecord(prevRecord.openloaf) ? prevRecord.openloaf : undefined
+  const nextOpenLoaf = isRecord(next.openloaf) ? next.openloaf : undefined
+  if (prevOpenLoaf || nextOpenLoaf) {
+    const mergedOpenLoaf: Record<string, unknown> = {
+      ...(prevOpenLoaf ?? {}),
+      ...(nextOpenLoaf ?? {}),
     }
-    const prevElapsed = toNumberOrUndefined(prevTenas?.assistantElapsedMs)
-    const nextElapsed = toNumberOrUndefined(nextTenas?.assistantElapsedMs)
+    const prevElapsed = toNumberOrUndefined(prevOpenLoaf?.assistantElapsedMs)
+    const nextElapsed = toNumberOrUndefined(nextOpenLoaf?.assistantElapsedMs)
     if (prevElapsed != null || nextElapsed != null) {
-      mergedTenas.assistantElapsedMs = (prevElapsed ?? 0) + (nextElapsed ?? 0)
+      mergedOpenLoaf.assistantElapsedMs = (prevElapsed ?? 0) + (nextElapsed ?? 0)
     } else {
-      delete mergedTenas.assistantElapsedMs
+      delete mergedOpenLoaf.assistantElapsedMs
     }
-    merged.tenas = Object.keys(mergedTenas).length ? mergedTenas : undefined
+    merged.openloaf = Object.keys(mergedOpenLoaf).length ? mergedOpenLoaf : undefined
   }
 
   return Object.keys(merged).length ? merged : null

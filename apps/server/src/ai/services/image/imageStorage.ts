@@ -6,10 +6,10 @@ import {
   getProjectRootPath,
   getWorkspaceRootPathById,
   resolveFilePathFromUri,
-} from "@tenas-ai/api/services/vfsService";
-import { readBasicConf, readS3Providers } from "@/modules/settings/tenasConfStore";
+} from "@openloaf/api/services/vfsService";
+import { readBasicConf, readS3Providers } from "@/modules/settings/openloafConfStore";
 import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
-import type { TenasImageMetadataV1 } from "@tenas-ai/api/types/image";
+import type { OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
 import { downloadImageData } from "@/ai/shared/util";
 import {
   injectPngMetadata,
@@ -279,7 +279,7 @@ export async function saveGeneratedImagesToDirectory(input: {
   /** Target directory path. */
   directory: string;
   /** Optional image metadata. */
-  metadata?: TenasImageMetadataV1;
+  metadata?: OpenLoafImageMetadataV1;
 }): Promise<string[]> {
   const savedPaths: string[] = [];
   await fs.mkdir(input.directory, { recursive: true });
@@ -351,7 +351,7 @@ export async function saveGeneratedImages(input: {
   /** Optional project id for storage scoping. */
   projectId?: string;
   /** Optional image metadata. */
-  metadata?: TenasImageMetadataV1;
+  metadata?: OpenLoafImageMetadataV1;
 }): Promise<Array<{ type: "file"; url: string; mediaType: string }>> {
   const parts: Array<{ type: "file"; url: string; mediaType: string }> = [];
   const baseTime = Date.now();

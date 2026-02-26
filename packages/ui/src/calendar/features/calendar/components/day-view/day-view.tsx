@@ -1,10 +1,10 @@
-import { AllDayRow } from '@tenas-ai/ui/calendar/components/all-day-row/all-day-row'
-import { VerticalGrid } from '@tenas-ai/ui/calendar/components/vertical-grid/vertical-grid'
-import { useCalendarContext } from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/context'
-import { getViewHours } from '@tenas-ai/ui/calendar/features/calendar/utils/view-hours'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
-import { formatFullDate } from '@tenas-ai/ui/calendar/lib/utils/date-utils'
+import { AllDayRow } from '@openloaf/ui/calendar/components/all-day-row/all-day-row'
+import { VerticalGrid } from '@openloaf/ui/calendar/components/vertical-grid/vertical-grid'
+import { useCalendarContext } from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/context'
+import { getViewHours } from '@openloaf/ui/calendar/features/calendar/utils/view-hours'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
+import { formatFullDate } from '@openloaf/ui/calendar/lib/utils/date-utils'
 
 const DayView = () => {
 	const {

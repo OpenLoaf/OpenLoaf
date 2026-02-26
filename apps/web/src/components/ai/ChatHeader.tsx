@@ -14,7 +14,7 @@ import { invalidateChatSessions, useChatSessions } from "@/hooks/use-chat-sessio
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { toast } from "sonner";
 import { MessageAction, MessageActions } from "@/components/ai-elements/message";
-import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 
 interface ChatHeaderProps {
   className?: string;

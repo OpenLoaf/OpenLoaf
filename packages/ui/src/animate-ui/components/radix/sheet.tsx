@@ -20,7 +20,7 @@ import {
   type SheetFooterProps as SheetFooterPrimitiveProps,
   type SheetTitleProps as SheetTitlePrimitiveProps,
   type SheetDescriptionProps as SheetDescriptionPrimitiveProps,
-} from '@tenas-ai/ui/animate-ui/primitives/radix/sheet';
+} from '@openloaf/ui/animate-ui/primitives/radix/sheet';
 import { cn } from '@/lib/utils';
 import { XIcon } from 'lucide-react';
 

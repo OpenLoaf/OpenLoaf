@@ -12,7 +12,7 @@ import {
   TableCellHeaderElement,
   TableElement,
   TableRowElement,
-} from '@tenas-ai/ui/table-node';
+} from '@openloaf/ui/table-node';
 
 export const TableKit = [
   TablePlugin.withComponent(TableElement),

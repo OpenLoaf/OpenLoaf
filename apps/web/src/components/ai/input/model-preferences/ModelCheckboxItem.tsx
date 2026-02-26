@@ -2,8 +2,8 @@
 
 import { cn } from '@/lib/utils'
 import { ModelIcon } from '@/components/setting/menus/provider/ModelIcon'
-import { MODEL_TAG_LABELS } from '@tenas-ai/api/common'
-import type { ModelTag } from '@tenas-ai/api/common'
+import { MODEL_TAG_LABELS } from '@openloaf/api/common'
+import type { ModelTag } from '@openloaf/api/common'
 import { Check } from 'lucide-react'
 
 const TAG_COLOR_CLASSES: Record<string, string> = {

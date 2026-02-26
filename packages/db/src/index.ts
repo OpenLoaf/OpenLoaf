@@ -4,10 +4,10 @@ import { Prisma, PrismaClient } from "../prisma/generated/client";
 export { Prisma };
 export type { PrismaClient };
 import { PrismaLibSql } from "@prisma/adapter-libsql";
-import { resolveTenasDatabaseUrl } from "@tenas-ai/config";
+import { resolveOpenLoafDatabaseUrl } from "@openloaf/config";
 
 const adapter = new PrismaLibSql({
-  url: resolveTenasDatabaseUrl(),
+  url: resolveOpenLoafDatabaseUrl(),
 });
 
 export const prisma = new PrismaClient({ adapter });

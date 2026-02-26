@@ -28,7 +28,7 @@ import {
   ProjectFileSystemHeader,
   type ProjectBreadcrumbInfo,
 } from "./ProjectFileSystemHeader";
-import { DragDropOverlay } from "@tenas-ai/ui/tenas/drag-drop-overlay";
+import { DragDropOverlay } from "@openloaf/ui/openloaf/drag-drop-overlay";
 import { useProjectFileSystemModel } from "../models/file-system-model";
 import { useFileSystemContextMenu } from "@/hooks/use-file-system-context-menu";
 import { useFileSelection } from "@/hooks/use-file-selection";
@@ -68,7 +68,7 @@ const DEFAULT_TOOLBAR_STATE: FileSystemToolbarState = {
 };
 
 /** Storage key prefix for file system toolbar settings. */
-const FILE_SYSTEM_TOOLBAR_STORAGE_KEY = "tenas:fs:toolbar";
+const FILE_SYSTEM_TOOLBAR_STORAGE_KEY = "openloaf:fs:toolbar";
 
 /** Resolve a parent uri from a file or folder uri. */
 function resolveParentUriFromEntry(entry: FileSystemEntry): string | null {

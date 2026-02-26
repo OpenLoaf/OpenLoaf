@@ -4,8 +4,8 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { tool, zodSchema } from 'ai'
 import type { UIMessageStreamWriter } from 'ai'
-import { imageGenerateToolDef, videoGenerateToolDef } from '@tenas-ai/api/types/tools/mediaGenerate'
-import { getWorkspaceRootPathById } from '@tenas-ai/api/services/vfsService'
+import { imageGenerateToolDef, videoGenerateToolDef } from '@openloaf/api/types/tools/mediaGenerate'
+import { getWorkspaceRootPathById } from '@openloaf/api/services/vfsService'
 import { logger } from '@/common/logger'
 import {
   getAbortSignal,
@@ -191,12 +191,12 @@ async function downloadAndSaveVideo(input: {
   const fileName = buildFileName(ext, input.fileName, input.index, input.total)
   const rootPath = getWorkspaceRootPathById(input.workspaceId)
   if (!rootPath) throw new Error('workspace not found')
-  const dir = path.join(rootPath, '.tenas', 'chat-history', input.sessionId)
+  const dir = path.join(rootPath, '.openloaf', 'chat-history', input.sessionId)
   await fs.mkdir(dir, { recursive: true })
   const filePath = path.join(dir, fileName)
   const stream = Readable.fromWeb(response.body as any)
   await pipeline(stream, createWriteStream(filePath))
-  return { url: path.posix.join('.tenas', 'chat-history', input.sessionId, fileName) }
+  return { url: path.posix.join('.openloaf', 'chat-history', input.sessionId, fileName) }
 }
 
 /** Core media generate logic shared by image and video tools. */
@@ -225,7 +225,7 @@ async function executeMediaGenerate(input: {
       toolCallId: input.toolCallId,
       kind: input.kind,
       errorCode: 'login_required',
-      message: '需要登录 Tenas 云端账户才能生成' + (input.kind === 'image' ? '图片' : '视频') + '。',
+      message: '需要登录 OpenLoaf 云端账户才能生成' + (input.kind === 'image' ? '图片' : '视频') + '。',
     })
   }
   if (!modelId) {

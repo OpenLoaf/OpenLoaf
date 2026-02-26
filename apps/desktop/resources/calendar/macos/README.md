@@ -2,7 +2,7 @@
 
 This directory should contain the macOS calendar helper binary:
 
-- `tenas-calendar`
+- `openloaf-calendar`
 
 The helper is responsible for accessing EventKit and streaming calendar changes.
 

@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Table,
   TableBody,
@@ -7,8 +7,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@tenas-ai/ui/table";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
+} from "@openloaf/ui/table";
+import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
 import { getModelLabel } from "@/lib/model-registry";
 import { ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import { ModelIcon } from "@/components/setting/menus/provider/ModelIcon";
@@ -19,7 +19,7 @@ import {
   truncateDisplay,
   type ProviderEntry,
 } from "@/components/setting/menus/provider/use-provider-management";
-import type { ModelDefinition } from "@tenas-ai/api/common";
+import type { ModelDefinition } from "@openloaf/api/common";
 
 type ProviderSectionProps = {
   /** Provider list entries. */
@@ -73,7 +73,7 @@ export function ProviderSection({
 }: ProviderSectionProps) {
   return (
     <>
-      <TenasSettingsGroup
+      <OpenLoafSettingsGroup
         title="AI 服务商"
         subtitle="配置模型服务商的 API URL 与认证信息，添加后即可使用 AI 模型服务。"
         showBorder={false}
@@ -84,7 +84,7 @@ export function ProviderSection({
         }
       >
         {null}
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
       <div className="rounded-lg border border-border overflow-hidden">
         <Table>

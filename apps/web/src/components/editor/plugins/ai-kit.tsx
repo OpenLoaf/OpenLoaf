@@ -11,8 +11,8 @@ import {
 import { getPluginType, KEYS, PathApi } from 'platejs';
 import { usePluginOption } from 'platejs/react';
 
-import { AILoadingBar, AIMenu } from '@tenas-ai/ui/ai-menu';
-import { AIAnchorElement, AILeaf } from '@tenas-ai/ui/ai-node';
+import { AILoadingBar, AIMenu } from '@openloaf/ui/ai-menu';
+import { AIAnchorElement, AILeaf } from '@openloaf/ui/ai-node';
 
 import { useChat } from '../use-chat';
 import { CursorOverlayKit } from './cursor-overlay-kit';

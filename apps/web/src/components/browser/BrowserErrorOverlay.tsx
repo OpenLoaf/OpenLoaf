@@ -1,8 +1,8 @@
 "use client";
 
 import { TriangleAlert } from "lucide-react";
-import { Button } from "@tenas-ai/ui/button";
-import type { TenasWebContentsViewStatus } from "@/components/browser/browser-types";
+import { Button } from "@openloaf/ui/button";
+import type { OpenLoafWebContentsViewStatus } from "@/components/browser/browser-types";
 
 export function BrowserErrorOverlay({
   failed,
@@ -10,7 +10,7 @@ export function BrowserErrorOverlay({
   url,
   onRetry,
 }: {
-  failed?: TenasWebContentsViewStatus["failed"];
+  failed?: OpenLoafWebContentsViewStatus["failed"];
   // 中文注释：来自 navigator.onLine 的离线状态。
   isOffline?: boolean;
   // 中文注释：用于展示的 URL。

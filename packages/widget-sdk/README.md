@@ -1,17 +1,17 @@
-# @tenas-ai/widget-sdk
+# @openloaf/widget-sdk
 
-SDK for building Tenas dynamic desktop widgets.
+SDK for building OpenLoaf dynamic desktop widgets.
 
 ## Install
 
 ```bash
-npm install @tenas-ai/widget-sdk
+npm install @openloaf/widget-sdk
 ```
 
 ## Usage
 
 ```tsx
-import { useWidgetData, useWidgetTheme, type WidgetProps } from '@tenas-ai/widget-sdk'
+import { useWidgetData, useWidgetTheme, type WidgetProps } from '@openloaf/widget-sdk'
 
 export default function MyWidget({ sdk }: WidgetProps) {
   const theme = useWidgetTheme(sdk)

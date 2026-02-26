@@ -1,4 +1,4 @@
 "use client";
 
-export { DragDropOverlay } from "@tenas-ai/ui/tenas/drag-drop-overlay";
-export * from "@tenas-ai/ui/tenas/drag-drop-types";
+export { DragDropOverlay } from "@openloaf/ui/openloaf/drag-drop-overlay";
+export * from "@openloaf/ui/openloaf/drag-drop-types";

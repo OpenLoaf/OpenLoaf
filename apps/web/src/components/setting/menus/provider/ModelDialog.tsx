@@ -1,13 +1,13 @@
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
-import { Input } from "@tenas-ai/ui/input";
-import type { ModelTag } from "@tenas-ai/api/common";
+} from "@openloaf/ui/dialog";
+import { Input } from "@openloaf/ui/input";
+import type { ModelTag } from "@openloaf/api/common";
 import {
   MODEL_TAG_OPTIONS,
   toggleSelection,

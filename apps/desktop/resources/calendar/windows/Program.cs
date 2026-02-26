@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Windows.ApplicationModel.Appointments;
 using Windows.Foundation;
 
-namespace TenasCalendar;
+namespace OpenLoafCalendar;
 
 internal sealed class Program
 {

@@ -38,7 +38,7 @@ export type SummaryMarkdown = {
   content: string;
 };
 
-const SUMMARY_DIR_NAME = ".tenas/summary";
+const SUMMARY_DIR_NAME = ".openloaf/summary";
 const SUMMARY_INDEX_FILE = "summary.jsonl";
 const FRONTMATTER_BOUNDARY = "---";
 

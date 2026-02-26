@@ -6,7 +6,7 @@ import { useCalloutEmojiPicker } from '@platejs/callout/react';
 import { useEmojiDropdownMenuState } from '@platejs/emoji/react';
 import { PlateElement } from 'platejs/react';
 
-import { Button } from '@tenas-ai/ui/button';
+import { Button } from '@openloaf/ui/button';
 import { cn } from '@/lib/utils';
 
 import { EmojiPicker, EmojiPopover } from './emoji-toolbar-button';

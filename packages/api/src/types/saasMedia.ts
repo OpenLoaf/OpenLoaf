@@ -10,7 +10,7 @@ import type {
   AiVideoInputs,
   AiImageOutput,
   AiVideoOutput,
-} from "@tenas-saas/sdk";
+} from "@openloaf-saas/sdk";
 
 export type {
   AiImageRequest,

@@ -1,10 +1,10 @@
 'use client'
 
 import { memo } from 'react'
-import { Input } from '@tenas-ai/ui/input'
-import { Label } from '@tenas-ai/ui/label'
-import { Textarea } from '@tenas-ai/ui/textarea'
-import { Tabs, TabsList, TabsTrigger } from '@tenas-ai/ui/tabs'
+import { Input } from '@openloaf/ui/input'
+import { Label } from '@openloaf/ui/label'
+import { Textarea } from '@openloaf/ui/textarea'
+import { Tabs, TabsList, TabsTrigger } from '@openloaf/ui/tabs'
 
 type ConditionType = 'email_received' | 'chat_keyword' | 'file_changed'
 

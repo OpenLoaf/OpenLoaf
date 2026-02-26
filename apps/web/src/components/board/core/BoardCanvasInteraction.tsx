@@ -24,7 +24,7 @@ import { getClipboardInsertPayload } from "../engine/clipboard";
 import { isBoardUiTarget } from "../utils/dom";
 import { toScreenPoint } from "../utils/coordinates";
 import { readImageDragPayload } from "@/lib/image/drag";
-import { FILE_DRAG_URI_MIME, FILE_DRAG_URIS_MIME } from "@tenas-ai/ui/tenas/drag-drop-types";
+import { FILE_DRAG_URI_MIME, FILE_DRAG_URIS_MIME } from "@openloaf/ui/openloaf/drag-drop-types";
 import { fetchBlobFromUri, getPreviewEndpoint, resolveFileName } from "@/lib/image/uri";
 import { getStackedImageRect } from "../utils/image-insert";
 import type { ImagePreviewPayload } from "./BoardProvider";
@@ -37,7 +37,7 @@ import { resolveBoardFolderScope, resolveProjectPathFromBoardUri } from "./board
 import { buildLinkNodePayloadFromUrl } from "../utils/link";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { BoardContextMenu } from "./BoardContextMenu";
-import { useOptionalSidebar } from "@tenas-ai/ui/sidebar";
+import { useOptionalSidebar } from "@openloaf/ui/sidebar";
 import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
 
 const EDITABLE_NODE_TYPES = new Set(["text", "image-generate", "image-prompt-generate"]);

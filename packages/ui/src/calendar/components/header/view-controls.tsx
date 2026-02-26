@@ -1,15 +1,15 @@
 import { Calendar, Clock, Grid3x3 } from 'lucide-react'
 import type React from 'react'
-import { Button } from '@tenas-ai/ui/calendar/components/ui/button'
-import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { Button } from '@openloaf/ui/calendar/components/ui/button'
+import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from '@tenas-ai/ui/calendar/components/ui/select'
+} from '@openloaf/ui/calendar/components/ui/select'
 
 type ViewType = 'day' | 'week' | 'month'
 

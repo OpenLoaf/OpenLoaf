@@ -168,7 +168,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
 
     const loadDesktop = async () => {
       try {
-        // 逻辑：读取 desktop.tenas 并初始化桌面布局。
+        // 逻辑：读取 desktop.openloaf 并初始化桌面布局。
         const result = await queryClient.fetchQuery(
           trpc.fs.readFile.queryOptions({
             workspaceId,
@@ -242,7 +242,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
     []
   );
 
-  /** Update a single desktop item and persist it to desktop.tenas. */
+  /** Update a single desktop item and persist it to desktop.openloaf. */
   const handleUpdateItemPersist = React.useCallback(
     (itemId: string, updater: (item: DesktopItem) => DesktopItem) => {
       let nextItems: DesktopItem[] | null = null;
@@ -309,7 +309,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
     setEditMode(false);
     if (!desktopFileUri) return;
     if (!workspaceId) return;
-    // 逻辑：保存当前桌面布局到 desktop.tenas。
+    // 逻辑：保存当前桌面布局到 desktop.openloaf。
     const payload = serializeDesktopItems(items);
     await saveDesktopMutation.mutateAsync({
       workspaceId,

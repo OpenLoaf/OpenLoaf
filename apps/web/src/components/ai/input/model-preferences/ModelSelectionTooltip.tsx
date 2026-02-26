@@ -2,7 +2,7 @@
 
 import { Image, MessageSquare, Video } from 'lucide-react'
 import type { ProviderModelOption } from '@/lib/provider-models'
-import type { AiModel } from '@tenas-saas/sdk'
+import type { AiModel } from '@openloaf-saas/sdk'
 import { getModelLabel } from '@/lib/model-registry'
 import { ModelIcon } from '@/components/setting/menus/provider/ModelIcon'
 

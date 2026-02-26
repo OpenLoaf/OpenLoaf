@@ -182,7 +182,7 @@ type RecentOpenStore = {
   workspace: RecentOpenItem[]                    // 工作区级
   projects: Record<string, RecentOpenItem[]>    // 项目级
 }
-// localStorage key: `tenas:recent-open:${workspaceId}`
+// localStorage key: `openloaf:recent-open:${workspaceId}`
 ```
 
 ### API
@@ -203,10 +203,10 @@ getRecentOpens({
 
 ```typescript
 // 记录后广播 CustomEvent
-window.dispatchEvent(new CustomEvent("tenas:recent-open", { detail: { workspaceId } }))
+window.dispatchEvent(new CustomEvent("openloaf:recent-open", { detail: { workspaceId } }))
 ```
 
-监听方可通过 `addEventListener("tenas:recent-open", ...)` 实时更新最近打开列表。
+监听方可通过 `addEventListener("openloaf:recent-open", ...)` 实时更新最近打开列表。
 
 ## Common Mistakes
 

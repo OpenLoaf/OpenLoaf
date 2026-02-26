@@ -3,7 +3,7 @@ import {
   terminalSchemas,
   t,
   shieldedProcedure,
-} from "@tenas-ai/api";
+} from "@openloaf/api";
 import {
   closeTerminalSession,
   createTerminalSession,

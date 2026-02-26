@@ -1,8 +1,8 @@
 import type dayjs from 'dayjs'
 import { memo } from 'react'
-import { HorizontalGridRow } from '@tenas-ai/ui/calendar/components/horizontal-grid/horizontal-grid-row'
-import type { Resource } from '@tenas-ai/ui/calendar/features/resource-calendar/types'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { HorizontalGridRow } from '@openloaf/ui/calendar/components/horizontal-grid/horizontal-grid-row'
+import type { Resource } from '@openloaf/ui/calendar/features/resource-calendar/types'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 import { AllDayCell } from './all-day-cell'
 
 interface AllDayRowProps {

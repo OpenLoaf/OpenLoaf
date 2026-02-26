@@ -3,10 +3,10 @@
 import * as React from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AnimatedFolder, type AnimatedFolderProject } from "@tenas-ai/ui/3d-folder";
+import { AnimatedFolder, type AnimatedFolderProject } from "@openloaf/ui/3d-folder";
 import { useProjects } from "@/hooks/use-projects";
 import { getPreviewEndpoint } from "@/lib/image/uri";
-import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import { trpc } from "@/utils/trpc";
 import { getEntryVisual, IMAGE_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import { openFilePreview } from "@/components/file/lib/open-file";

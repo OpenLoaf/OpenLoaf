@@ -4,7 +4,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { BrowserWindow } from "electron";
-import { parseWebMetadataFromHtml } from "@tenas-ai/api";
+import { parseWebMetadataFromHtml } from "@openloaf/api";
 
 const META_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -25,9 +25,9 @@ export type WebMetaCaptureResult = {
   title?: string;
   /** Page description text. */
   description?: string;
-  /** Relative logo path under .tenas/desktop. */
+  /** Relative logo path under .openloaf/desktop. */
   logoPath?: string;
-  /** Relative preview path under .tenas/desktop. */
+  /** Relative preview path under .openloaf/desktop. */
   previewPath?: string;
   /** Error message when capture fails. */
   error?: string;
@@ -45,7 +45,7 @@ function resolveRootPath(rootUri: string): string {
 /** Build web meta storage directory for a url. */
 function buildWebMetaDir(rootPath: string, url: string): string {
   const hash = createHash("sha256").update(url).digest("hex").slice(0, 16);
-  return path.join(rootPath, ".tenas", "desktop", hash);
+  return path.join(rootPath, ".openloaf", "desktop", hash);
 }
 
 type IconFetcher = (url: string) => Promise<Response>;

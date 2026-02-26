@@ -1,7 +1,7 @@
 import dayjs from 'dayjs'
 import { memo } from 'react'
-import type { Resource } from '@tenas-ai/ui/calendar/features/resource-calendar/types'
-import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
+import type { Resource } from '@openloaf/ui/calendar/features/resource-calendar/types'
+import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
 
 interface CurrentTimeIndicatorProps {
 	/** The start date/time of the container's timeline (e.g., top of the column) */

@@ -12,8 +12,8 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "paths": {
-      "@tenas-ai/config": ["../../packages/config/src/index.ts"],
-      "@tenas-ai/config/*": ["../../packages/config/src/*.ts"],
+      "@openloaf/config": ["../../packages/config/src/index.ts"],
+      "@openloaf/config/*": ["../../packages/config/src/*.ts"],
       "*": ["node_modules/*"]
     }
   },

@@ -2,11 +2,11 @@
 
 import type { ComponentProps } from "react";
 
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   ScrollArea,
   ScrollBar,
-} from "@tenas-ai/ui/scroll-area";
+} from "@openloaf/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useCallback } from "react";
 

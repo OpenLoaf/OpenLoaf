@@ -1,6 +1,6 @@
 import type { LanguageModelV3 } from '@ai-sdk/provider'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
-import type { ChatModelSource } from '@tenas-ai/api/common'
+import type { ChatModelSource } from '@openloaf/api/common'
 
 type ResolveAgentModelInput = {
   /** Agent 自身配置的模型 ID（如 "openai:gpt-4o"）。 */

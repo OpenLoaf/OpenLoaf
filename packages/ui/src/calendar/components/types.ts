@@ -1,5 +1,5 @@
-import type { RRuleOptions } from '@tenas-ai/ui/calendar/features/recurrence/types'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
+import type { RRuleOptions } from '@openloaf/ui/calendar/features/recurrence/types'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 
 /**
  * Core calendar event interface representing a single calendar event.

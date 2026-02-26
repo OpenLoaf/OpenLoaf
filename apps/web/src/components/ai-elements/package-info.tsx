@@ -2,7 +2,7 @@
 
 import type { HTMLAttributes } from "react";
 
-import { Badge } from "@tenas-ai/ui/badge";
+import { Badge } from "@openloaf/ui/badge";
 import { cn } from "@/lib/utils";
 import { ArrowRightIcon, MinusIcon, PackageIcon, PlusIcon } from "lucide-react";
 import { createContext, useContext } from "react";

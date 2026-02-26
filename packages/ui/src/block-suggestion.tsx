@@ -25,8 +25,8 @@ import {
 } from 'platejs';
 import { useEditorPlugin, usePluginOption } from 'platejs/react';
 
-import { Avatar, AvatarFallback, AvatarImage } from '@tenas-ai/ui/avatar';
-import { Button } from '@tenas-ai/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@openloaf/ui/avatar';
+import { Button } from '@openloaf/ui/button';
 import {
   type TDiscussion,
   discussionPlugin,

@@ -1,18 +1,18 @@
 "use client";
 
-import { Button } from "@tenas-ai/ui/button";
-import { Input } from "@tenas-ai/ui/input";
+import { Button } from "@openloaf/ui/button";
+import { Input } from "@openloaf/ui/input";
 import { queryClient, trpc } from "@/utils/trpc";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
+import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
+import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { Copy, FolderOpen, Loader2, Save, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useProjects } from "@/hooks/use-projects";
 import { useTabs } from "@/hooks/use-tabs";
-import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 
 const TOKEN_K = 1000;
 const TOKEN_M = 1000 * 1000;
@@ -215,7 +215,7 @@ export function WorkspaceSettings() {
   const handleOpenWorkspacePath = async () => {
     const rootUri = activeWorkspace?.rootUri;
     if (!rootUri) return;
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!api?.openPath) {
       toast.error("网页版不支持打开文件管理器");
       return;
@@ -240,11 +240,11 @@ export function WorkspaceSettings() {
 
   return (
     <div className="space-y-6">
-      <TenasSettingsGroup title="基本信息">
+      <OpenLoafSettingsGroup title="基本信息">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">工作空间ID</div>
-            <TenasSettingsField className="flex items-center justify-end gap-2 text-right text-xs text-muted-foreground">
+            <OpenLoafSettingsField className="flex items-center justify-end gap-2 text-right text-xs text-muted-foreground">
               <span>{activeWorkspace?.id ?? "—"}</span>
               <Button
                 type="button"
@@ -257,11 +257,11 @@ export function WorkspaceSettings() {
               >
                 <Copy className="h-4 w-4" />
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">工作空间名称</div>
-            <TenasSettingsField className="w-full sm:w-[320px] shrink-0 justify-end gap-2 text-right">
+            <OpenLoafSettingsField className="w-full sm:w-[320px] shrink-0 justify-end gap-2 text-right">
               <Input
                 value={draftWorkspaceName}
                 placeholder="输入工作空间名称"
@@ -283,11 +283,11 @@ export function WorkspaceSettings() {
                   <Save className="h-4 w-4" />
                 )}
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">存储路径</div>
-            <TenasSettingsField className="flex items-center justify-end gap-2 text-right text-xs text-muted-foreground">
+            <OpenLoafSettingsField className="flex items-center justify-end gap-2 text-right text-xs text-muted-foreground">
               <span className="min-w-0 flex-1 truncate">{displayWorkspacePath}</span>
               <Button
                 type="button"
@@ -313,34 +313,34 @@ export function WorkspaceSettings() {
               >
                 <FolderOpen className="h-4 w-4" />
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">项目数量</div>
-            <TenasSettingsField className="text-right text-xs text-muted-foreground">
+            <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
               {projectsQuery.isLoading ? "加载中..." : totalProjectCount}
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
-      <TenasSettingsGroup title="聊天数据">
+      <OpenLoafSettingsGroup title="聊天数据">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">会话总数</div>
-            <TenasSettingsField className="text-right text-xs text-muted-foreground">
+            <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
               {typeof sessionCount === "number" ? sessionCount : "—"}
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">Token 总计</div>
-            <TenasSettingsField className="text-right text-xs text-muted-foreground">
+            <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
               {usage ? formatTokenCount(usage.totalTokens) : "—"}
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">Token 输入 / 输出</div>
-            <TenasSettingsField className="text-right text-xs text-muted-foreground">
+            <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
               {usage
                 ? `${formatTokenCount(usage.inputTokens)}（输入: ${formatTokenCount(
                     Math.max(0, usage.inputTokens - usage.cachedInputTokens),
@@ -348,12 +348,12 @@ export function WorkspaceSettings() {
                     usage.outputTokens,
                   )}`
                 : "—"}
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
-      <TenasSettingsGroup title="清理">
+      <OpenLoafSettingsGroup title="清理">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="min-w-0">
@@ -363,7 +363,7 @@ export function WorkspaceSettings() {
               </div>
             </div>
 
-            <TenasSettingsField>
+            <OpenLoafSettingsField>
               <Button
                 type="button"
                 size="sm"
@@ -373,7 +373,7 @@ export function WorkspaceSettings() {
               >
                 {clearAllChat.isPending ? "清除中..." : "立即清除"}
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
@@ -386,7 +386,7 @@ export function WorkspaceSettings() {
               </div>
             </div>
 
-            <TenasSettingsField>
+            <OpenLoafSettingsField>
               <Button
                 type="button"
                 size="sm"
@@ -411,10 +411,10 @@ export function WorkspaceSettings() {
                   </>
                 )}
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
     </div>
   );
 }

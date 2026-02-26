@@ -18,7 +18,7 @@ export const IGNORE_NAMES = new Set([
   ".git",
   ".turbo",
   ".next",
-  ".tenas-trash",
+  ".openloaf-trash",
   "dist",
   "build",
   "out",
@@ -30,7 +30,7 @@ export {
   FILE_DRAG_REF_MIME,
   FILE_DRAG_URI_MIME,
   FILE_DRAG_URIS_MIME,
-} from "@tenas-ai/ui/tenas/drag-drop-types";
+} from "@openloaf/ui/openloaf/drag-drop-types";
 
 /** Scoped project path matcher like [projectId]/path/to/file or [projectId]/. */
 const PROJECT_SCOPE_REGEX = /^\[([^\]]+)\](?:\/(.*))?$/;

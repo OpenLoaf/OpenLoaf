@@ -7,7 +7,7 @@ import {
   getProjectRootPath,
   getWorkspaceRootPathById,
   resolveFilePathFromUri,
-} from "@tenas-ai/api/services/vfsService";
+} from "@openloaf/api/services/vfsService";
 
 /** Scoped project path matcher like @[projectId]/path/to/dir. */
 const PROJECT_SCOPE_REGEX = /^@?\[([^\]]+)\]\/(.+)$/;

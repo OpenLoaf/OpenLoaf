@@ -6,7 +6,7 @@ import { useTheme } from "next-themes";
 import { AlertTriangleIcon } from "lucide-react";
 import { CodeBlock } from "@/components/ai-elements/code-block";
 import { cn } from "@/lib/utils";
-import { TrafficLights } from "@tenas-ai/ui/traffic-lights";
+import { TrafficLights } from "@openloaf/ui/traffic-lights";
 import {
   asPlainObject,
   isToolStreaming,

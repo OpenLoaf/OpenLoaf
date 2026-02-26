@@ -322,7 +322,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
         className={[
           "relative flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-center text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.12)]",
           "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100",
-          !errorText ? "tenas-thinking-border tenas-thinking-border-on border-transparent" : "",
+          !errorText ? "openloaf-thinking-border openloaf-thinking-border-on border-transparent" : "",
           errorText
             ? "border-rose-400/80 bg-rose-50/60 dark:border-rose-400/70 dark:bg-rose-950/30"
             : "",

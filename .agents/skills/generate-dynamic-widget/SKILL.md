@@ -10,7 +10,7 @@ description: >
 
 ## Overview
 
-动态 Widget 是用户通过 AI 生成的自包含桌面组件，存储在 `~/.tenas/dynamic-widgets/<widget-id>/`。
+动态 Widget 是用户通过 AI 生成的自包含桌面组件，存储在 `~/.openloaf/dynamic-widgets/<widget-id>/`。
 
 **多工具协作**：AI 像开发者一样分步操作 — 先创建脚手架，再写入完整代码，最后验证编译。
 
@@ -80,8 +80,8 @@ description: >
 AI 用 `apply-patch` 写入完整的 `widget.tsx` 文件。文件必须：
 
 ```tsx
-import type { WidgetProps } from '@tenas-ai/widget-sdk'
-import { useWidgetData, useWidgetTheme } from '@tenas-ai/widget-sdk'
+import type { WidgetProps } from '@openloaf/widget-sdk'
+import { useWidgetData, useWidgetTheme } from '@openloaf/widget-sdk'
 
 export default function Widget({ sdk }: WidgetProps) {
   const { data, loading, error } = useWidgetData(sdk, 'functionName', {
@@ -115,8 +115,8 @@ export default function Widget({ sdk }: WidgetProps) {
 - 根元素保持 `h-full` 填满容器
 - 样式使用 Tailwind CSS class
 - 可用 CSS 变量：`text-foreground`, `text-muted-foreground`, `bg-background`, `bg-card` 等
-- 只能 import `react`、`react/jsx-runtime`、`@tenas-ai/widget-sdk` 这几个外部模块
-- 不要导入 `@tenas-ai/ui` 组件或 `react-dom`
+- 只能 import `react`、`react/jsx-runtime`、`@openloaf/widget-sdk` 这几个外部模块
+- 不要导入 `@openloaf/ui` 组件或 `react-dom`
 
 ## functions.ts 编写规范
 

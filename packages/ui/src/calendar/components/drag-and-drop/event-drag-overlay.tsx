@@ -3,8 +3,8 @@ import { useDndContext } from '@dnd-kit/core'
 import { snapCenterToCursor } from '@dnd-kit/modifiers'
 import type React from 'react'
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
-import { EVENT_BAR_HEIGHT } from '@tenas-ai/ui/calendar/lib/constants'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { EVENT_BAR_HEIGHT } from '@openloaf/ui/calendar/lib/constants'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 import type { CalendarEvent } from '../types'
 
 /** Check whether the value is a CSS color string. */

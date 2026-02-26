@@ -3,14 +3,14 @@
 import * as React from "react";
 import { motion } from "motion/react";
 import { PencilLine, Pin, PinOff, RotateCw, Layers, Trash2, Settings } from "lucide-react";
-import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@tenas-ai/api/common";
+import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@openloaf/api/common";
 import { cn } from "@/lib/utils";
-import { GlowingEffect } from "@tenas-ai/ui/glowing-effect";
+import { GlowingEffect } from "@openloaf/ui/glowing-effect";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { normalizeUrl } from "@/components/browser/browser-utils";
 import { fetchWebMeta } from "@/lib/web-meta";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -22,7 +22,7 @@ import {
   ContextMenuRadioItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "@tenas-ai/ui/context-menu";
+} from "@openloaf/ui/context-menu";
 import {
   Dialog,
   DialogContent,
@@ -30,8 +30,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
-import { Input } from "@tenas-ai/ui/input";
+} from "@openloaf/ui/dialog";
+import { Input } from "@openloaf/ui/input";
 import type { DesktopItem, DesktopScope } from "./types";
 import { getWidgetVariants, getWidgetVariantConfig } from "./widget-variants";
 import DesktopTileContent from "./DesktopTileContent";

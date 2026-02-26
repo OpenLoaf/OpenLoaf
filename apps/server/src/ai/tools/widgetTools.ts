@@ -7,11 +7,11 @@ import {
   widgetGetToolDef,
   widgetInitToolDef,
   widgetListToolDef,
-} from '@tenas-ai/api/types/tools/widget'
+} from '@openloaf/api/types/tools/widget'
 import {
   getProjectRootPath,
   getWorkspaceRootPathById,
-} from '@tenas-ai/api/services/vfsService'
+} from '@openloaf/api/services/vfsService'
 import {
   getProjectId,
   getWorkspaceId,
@@ -37,7 +37,7 @@ function getDynamicWidgetsDir(): string {
     if (!projectRoot) {
       throw new Error(`Project not found: ${projectId}`)
     }
-    return path.join(projectRoot, '.tenas', 'dynamic-widgets')
+    return path.join(projectRoot, '.openloaf', 'dynamic-widgets')
   }
   const workspaceId = getWorkspaceId()
   if (workspaceId) {
@@ -45,7 +45,7 @@ function getDynamicWidgetsDir(): string {
     if (!workspaceRoot) {
       throw new Error(`Workspace not found: ${workspaceId}`)
     }
-    return path.join(workspaceRoot, '.tenas', 'dynamic-widgets')
+    return path.join(workspaceRoot, '.openloaf', 'dynamic-widgets')
   }
   throw new Error(
     'projectId or workspaceId is required to generate a widget.',
@@ -208,7 +208,7 @@ export const widgetGetTool = tool({
         description: pkg.description || '',
         location: widgetDir,
         functions: Object.keys(pkg.scripts || {}),
-        size: pkg.tenas?.constraints,
+        size: pkg.openloaf?.constraints,
         hasEnv,
       })
     } catch {

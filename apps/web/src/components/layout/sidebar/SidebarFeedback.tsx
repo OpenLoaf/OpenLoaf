@@ -3,19 +3,19 @@
 import * as React from "react";
 import { MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import { SaaSClient, SaaSHttpError } from "@tenas-saas/sdk";
-import { Button } from "@tenas-ai/ui/button";
-import { Input } from "@tenas-ai/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
+import { SaaSClient, SaaSHttpError } from "@openloaf-saas/sdk";
+import { Button } from "@openloaf/ui/button";
+import { Input } from "@openloaf/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@tenas-ai/ui/select";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@tenas-ai/ui/sidebar";
-import { Textarea } from "@tenas-ai/ui/textarea";
+} from "@openloaf/ui/select";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@openloaf/ui/sidebar";
+import { Textarea } from "@openloaf/ui/textarea";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
@@ -104,7 +104,7 @@ export function SidebarFeedback() {
     const isElectron = isElectronEnv();
     const page = typeof window !== "undefined" ? window.location.pathname : "";
     const appVersion = isElectron
-      ? await window.tenasElectron?.getAppVersion?.().catch(() => null)
+      ? await window.openloafElectron?.getAppVersion?.().catch(() => null)
       : null;
 
     const projectId = toOptionalText(activeParams.projectId);
@@ -165,7 +165,7 @@ export function SidebarFeedback() {
         return;
       }
       await feedbackApi.submit({
-        source: "tenas",
+        source: "openloaf",
         type,
         content: trimmed,
         context,

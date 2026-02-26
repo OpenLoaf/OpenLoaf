@@ -11,7 +11,7 @@ import {
 import { RefreshCw } from 'lucide-react'
 import { useChatActions, useChatSession, useChatState, useChatTools } from '../../context'
 import { JSX_PREVIEW_COMPONENTS } from './shared/jsx-preview-components'
-import { TrafficLights } from '@tenas-ai/ui/traffic-lights'
+import { TrafficLights } from '@openloaf/ui/traffic-lights'
 import { onJsxCreateRefresh } from '@/lib/chat/jsx-create-events'
 import { trpc } from '@/utils/trpc'
 import {
@@ -65,7 +65,7 @@ export default function JsxCreateTool({
         : ''
   const jsxUri =
     sessionId && messageId
-      ? `.tenas/chat-history/${sessionId}/jsx/${messageId}.jsx`
+      ? `.openloaf/chat-history/${sessionId}/jsx/${messageId}.jsx`
       : ''
   const readFileOptions = React.useMemo(
     () =>

@@ -1,4 +1,4 @@
-# Tenas default .gitignore
+# OpenLoaf default .gitignore
 
 # OS
 .DS_Store
@@ -36,5 +36,5 @@ logs/
 .idea/
 .vscode/
 
-# Tenas
-.tenas-cache/
+# OpenLoaf
+.openloaf-cache/

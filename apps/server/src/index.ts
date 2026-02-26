@@ -2,8 +2,8 @@ import "dotenv/config";
 import { startServer } from "@/bootstrap/startServer";
 import { installHttpProxy } from "@/modules/proxy/httpProxy";
 import { syncSystemProxySettings } from "@/modules/proxy/systemProxySync";
-import { getWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
-import { migrateLegacyServerData } from "@tenas-ai/config";
+import { getWorkspaces } from "@openloaf/api/services/workspaceConfig";
+import { migrateLegacyServerData } from "@openloaf/config";
 import { ensureActiveWorkspaceDefaultAgent } from "@/ai/shared/workspaceAgentInit";
 
 installHttpProxy();

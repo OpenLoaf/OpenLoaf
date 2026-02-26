@@ -10,7 +10,7 @@ import {
   TableCellHeaderElementStatic,
   TableElementStatic,
   TableRowElementStatic,
-} from '@tenas-ai/ui/table-node-static';
+} from '@openloaf/ui/table-node-static';
 
 export const BaseTableKit = [
   BaseTablePlugin.withComponent(TableElementStatic),

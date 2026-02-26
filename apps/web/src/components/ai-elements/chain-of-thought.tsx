@@ -4,12 +4,12 @@ import type { LucideIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
-import { Badge } from "@tenas-ai/ui/badge";
+import { Badge } from "@openloaf/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@tenas-ai/ui/collapsible";
+} from "@openloaf/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { BrainIcon, ChevronDownIcon, DotIcon } from "lucide-react";
 import { createContext, memo, useContext, useMemo } from "react";

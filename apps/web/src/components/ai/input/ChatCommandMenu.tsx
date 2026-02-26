@@ -1,8 +1,8 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from "react";
-import type { ChatCommand } from "@tenas-ai/api/common";
-import { CHAT_COMMANDS } from "@tenas-ai/api/common";
+import type { ChatCommand } from "@openloaf/api/common";
+import { CHAT_COMMANDS } from "@openloaf/api/common";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";

@@ -4,7 +4,7 @@ import {
   type UpdatePlanArgs,
   type PlanItem,
   type PlanPatchItem,
-} from "@tenas-ai/api/types/tools/runtime";
+} from "@openloaf/api/types/tools/runtime";
 import { getPlanUpdate, setPlanUpdate } from "@/ai/shared/context/requestContext";
 
 type UpdatePlanToolOutput = {

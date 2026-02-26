@@ -22,7 +22,7 @@ export const myToolDef = {
 ```typescript
 // apps/server/src/ai/tools/myTool.ts
 import { tool, zodSchema } from "ai";
-import { myToolDef } from "@tenas-ai/api/types/tools/myTool";
+import { myToolDef } from "@openloaf/api/types/tools/myTool";
 
 export const myTool = tool({
   description: myToolDef.description,
@@ -38,7 +38,7 @@ export const myTool = tool({
 ```typescript
 // apps/server/src/ai/tools/toolRegistry.ts
 import { myTool } from "@/ai/tools/myTool";
-import { myToolDef } from "@tenas-ai/api/types/tools/myTool";
+import { myToolDef } from "@openloaf/api/types/tools/myTool";
 
 const TOOL_REGISTRY = {
   // ...existing
@@ -126,7 +126,7 @@ const TOOL_REGISTRY = {
 
 ## JSX Preview 文件刷新模式
 
-- `jsx-create` 工具写入 `.tenas/chat-history/<sessionId>/jsx/<messageId>.jsx` 并返回路径
+- `jsx-create` 工具写入 `.openloaf/chat-history/<sessionId>/jsx/<messageId>.jsx` 并返回路径
 - `apply-patch` 修改该文件后，`WriteFileTool` 触发刷新事件
 - `JsxCreateTool` 监听事件并 `invalidateQueries` 重新读取
 
@@ -159,7 +159,7 @@ const TOOL_REGISTRY = {
 2. `apps/web/src/lib/chat/uiEvent.ts`
    - 在 handlers 分发表中新增处理逻辑
 3. `apps/web/src/components/Providers.tsx`
-   - 确保监听 `tenas:ui-event` 并分发到 `handleUiEvent`
+   - 确保监听 `openloaf:ui-event` 并分发到 `handleUiEvent`
 
 **IPC 入口约定（新增或改造时）：**
 - 任何 Electron IPC 入口/桥接/监听文件命名必须以 `*ElectronIpc` 结尾
@@ -327,7 +327,7 @@ executor.register("open-url", async ({ input, tabId }) => {
     params: { __open: { url, title, viewKey } },
   })
   // Electron 环境等待页面加载完成
-  if (window.tenasElectron) {
+  if (window.openloafElectron) {
     await waitForWebContentsViewReady(viewKey)
   }
   return { status: "success", output: { url, viewKey } }

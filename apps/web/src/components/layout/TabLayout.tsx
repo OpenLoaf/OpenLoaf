@@ -22,9 +22,9 @@ import { invalidateChatSessions, useChatSessions } from "@/hooks/use-chat-sessio
 import { useSessionTitles } from "@/hooks/use-session-titles";
 import { LeftDock } from "./LeftDock";
 import type { TabMeta } from "@/hooks/tab-types";
-import { Button } from "@tenas-ai/ui/button";
-import { Input } from "@tenas-ai/ui/input";
-import { Label } from "@tenas-ai/ui/label";
+import { Button } from "@openloaf/ui/button";
+import { Input } from "@openloaf/ui/input";
+import { Label } from "@openloaf/ui/label";
 import {
   Dialog,
   DialogClose,
@@ -33,14 +33,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
+} from "@openloaf/ui/dialog";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "@tenas-ai/ui/context-menu";
+} from "@openloaf/ui/context-menu";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
 import { toast } from "sonner";

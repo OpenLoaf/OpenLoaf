@@ -1,11 +1,11 @@
 import { tool, zodSchema } from "ai";
-import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
-import { appRouter } from "@tenas-ai/api";
-import { createContext } from "@tenas-ai/api/context";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
+import { appRouter } from "@openloaf/api";
+import { createContext } from "@openloaf/api/context";
 import {
   projectMutateToolDef,
   projectQueryToolDef,
-} from "@tenas-ai/api/types/tools/db";
+} from "@openloaf/api/types/tools/db";
 import { getProjectId } from "@/ai/shared/context/requestContext";
 
 /** Flattened project entry for tool output. */

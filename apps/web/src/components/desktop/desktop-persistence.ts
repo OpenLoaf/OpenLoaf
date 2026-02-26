@@ -60,7 +60,7 @@ type DesktopFilePayload = {
   items: DesktopFileItem[];
 };
 
-const DESKTOP_FILE_NAME = "desktop.tenas";
+const DESKTOP_FILE_NAME = "desktop.openloaf";
 
 /** Resolve a fallback layout from a layout map. */
 function resolveFallbackLayout(layouts: Record<DesktopBreakpoint, DesktopItemLayout>) {
@@ -69,13 +69,13 @@ function resolveFallbackLayout(layouts: Record<DesktopBreakpoint, DesktopItemLay
 
 /** Build the desktop persistence file uri under the project root. */
 export function getDesktopFileUri(rootUri: string): string {
-  const metaDir = buildChildUri(rootUri, ".tenas");
+  const metaDir = buildChildUri(rootUri, ".openloaf");
   return buildChildUri(metaDir, DESKTOP_FILE_NAME);
 }
 
 /** Build the desktop persistence file uri under the workspace root. */
 export function getWorkspaceDesktopFileUri(rootUri: string): string {
-  const metaDir = buildChildUri(rootUri, ".tenas");
+  const metaDir = buildChildUri(rootUri, ".openloaf");
   return buildChildUri(metaDir, DESKTOP_FILE_NAME);
 }
 

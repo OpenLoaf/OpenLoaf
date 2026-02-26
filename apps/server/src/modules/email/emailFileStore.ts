@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs'
 import fsSync from 'node:fs'
 import path from 'node:path'
-import { getDefaultWorkspaceRootDir } from '@tenas-ai/config'
+import { getDefaultWorkspaceRootDir } from '@openloaf/config'
 import { logger } from '@/common/logger'
 
 // ---------------------------------------------------------------------------
@@ -93,7 +93,7 @@ export function decodeMailboxPath(encoded: string): string {
 function resolveWorkspaceRoot(workspaceId: string): string {
   // 逻辑：email-store 存放在默认工作区根目录下。
   const root = getDefaultWorkspaceRootDir()
-  return path.join(root, '.tenas', EMAIL_STORE_DIR)
+  return path.join(root, '.openloaf', EMAIL_STORE_DIR)
 }
 
 /** Resolve account directory. */

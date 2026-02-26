@@ -60,7 +60,7 @@ import {
 } from 'platejs/react';
 import { useElementSelector } from 'platejs/react';
 
-import { Button } from '@tenas-ai/ui/button';
+import { Button } from '@openloaf/ui/button';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -69,8 +69,8 @@ import {
   DropdownMenuItem,
   DropdownMenuPortal,
   DropdownMenuTrigger,
-} from '@tenas-ai/ui/dropdown-menu';
-import { Popover, PopoverContent } from '@tenas-ai/ui/popover';
+} from '@openloaf/ui/dropdown-menu';
+import { Popover, PopoverContent } from '@openloaf/ui/popover';
 import { cn } from '@/lib/utils';
 
 import { blockSelectionVariants } from './block-selection';

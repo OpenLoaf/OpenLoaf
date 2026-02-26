@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import type { ChatMessageKind } from "@tenas-ai/api";
+import type { ChatMessageKind } from "@openloaf/api";
 
 /** Build persisted branch log messages by appending the finalized assistant response. */
 export function buildBranchLogMessages(input: {

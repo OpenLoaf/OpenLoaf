@@ -1,11 +1,11 @@
 import type { Context as HonoContext } from "hono";
-import prisma from "@tenas-ai/db";
+import prisma from "@openloaf/db";
 // @ts-ignore
-// import client from "@tenas-ai/db/prisma/generated/client";
+// import client from "@openloaf/db/prisma/generated/client";
 // @ts-ignore
-// import enums from "@tenas-ai/db/prisma/generated/enums";
+// import enums from "@openloaf/db/prisma/generated/enums";
 // @ts-ignore
-// import models from "@tenas-ai/db/prisma/generated/models";
+// import models from "@openloaf/db/prisma/generated/models";
 
 export type CreateContextOptions = {
   context: HonoContext;

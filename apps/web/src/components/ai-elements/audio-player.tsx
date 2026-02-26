@@ -3,11 +3,11 @@
 import type { Experimental_SpeechResult as SpeechResult } from "ai";
 import type { ComponentProps, CSSProperties } from "react";
 
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   ButtonGroup,
   ButtonGroupText,
-} from "@tenas-ai/ui/button-group";
+} from "@openloaf/ui/button-group";
 import { cn } from "@/lib/utils";
 import {
   MediaControlBar,

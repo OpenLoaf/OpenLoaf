@@ -1,9 +1,9 @@
 "use client";
 
 import { PanelLeft, PanelRight, Settings, Sparkles } from "lucide-react";
-import { Button } from "@tenas-ai/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
-import { useSidebar } from "@tenas-ai/ui/sidebar";
+import { Button } from "@openloaf/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
+import { useSidebar } from "@openloaf/ui/sidebar";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useTabView } from "@/hooks/use-tab-view";

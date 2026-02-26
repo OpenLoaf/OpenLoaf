@@ -3,13 +3,13 @@
 import type { LucideIcon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes } from "react";
 
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@tenas-ai/ui/tooltip";
+} from "@openloaf/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { XIcon } from "lucide-react";
 

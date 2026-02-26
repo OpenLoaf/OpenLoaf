@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { Camera, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
-import type { DockItem } from "@tenas-ai/api/common";
-import { Button } from "@tenas-ai/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
-import { useOptionalSidebar } from "@tenas-ai/ui/sidebar";
+import type { DockItem } from "@openloaf/api/common";
+import { Button } from "@openloaf/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
+import { useOptionalSidebar } from "@openloaf/ui/sidebar";
 import {
   getBoardDisplayName,
   getDisplayFileName,
@@ -37,7 +37,7 @@ function buildBoardExportFileName(
 /** Trigger a download for a blob without opening a new tab. */
 async function downloadBlobAsFile(blob: Blob, fileName: string): Promise<boolean> {
   if (typeof window === "undefined") return false;
-  const saveFile = window.tenasElectron?.saveFile;
+  const saveFile = window.openloafElectron?.saveFile;
   if (saveFile) {
     const contentBase64 = await blobToBase64(blob);
     const result = await saveFile({

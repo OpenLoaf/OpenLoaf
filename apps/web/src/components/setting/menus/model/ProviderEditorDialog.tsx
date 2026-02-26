@@ -1,15 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
-import { Input } from "@tenas-ai/ui/input";
+} from "@openloaf/ui/dialog";
+import { Input } from "@openloaf/ui/input";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -17,7 +17,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@tenas-ai/ui/dropdown-menu";
+} from "@openloaf/ui/dropdown-menu";
 import { ChevronDown, Eye, EyeOff } from "lucide-react";
 import {
   getModelLabel,

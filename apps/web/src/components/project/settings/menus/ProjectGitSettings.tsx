@@ -3,19 +3,19 @@ import { skipToken, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
-import { Button } from "@tenas-ai/ui/button";
-import { Calendar } from "@tenas-ai/ui/date-picker";
-import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
-import { Skeleton } from "@tenas-ai/ui/skeleton";
+import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
+import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
+import { Button } from "@openloaf/ui/button";
+import { Calendar } from "@openloaf/ui/date-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
+import { Skeleton } from "@openloaf/ui/skeleton";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@tenas-ai/ui/select";
+} from "@openloaf/ui/select";
 import { CalendarDays } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 
@@ -237,14 +237,14 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
 
   return (
     <div className="space-y-4">
-      <TenasSettingsGroup title="Git 信息" cardProps={{ divided: true, padding: "x" }}>
+      <OpenLoafSettingsGroup title="Git 信息" cardProps={{ divided: true, padding: "x" }}>
         <div className="flex flex-wrap items-center gap-2 py-3">
           <div className="min-w-0 sm:w-56">
             <div className="text-sm font-medium">当前分支</div>
             <div className="text-xs text-muted-foreground">Git 分支名称</div>
           </div>
 
-          <TenasSettingsField>
+          <OpenLoafSettingsField>
             <button
               type="button"
               className={baseValueTruncateClass}
@@ -258,7 +258,7 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
             >
               {gitInfo?.branch ?? "-"}
             </button>
-          </TenasSettingsField>
+          </OpenLoafSettingsField>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 py-3">
@@ -267,7 +267,7 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
             <div className="text-xs text-muted-foreground">远程仓库地址</div>
           </div>
 
-          <TenasSettingsField>
+          <OpenLoafSettingsField>
             <button
               type="button"
               className={baseValueWrapClass}
@@ -281,7 +281,7 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
             >
               {gitInfo?.originUrl ?? "-"}
             </button>
-          </TenasSettingsField>
+          </OpenLoafSettingsField>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 py-3">
@@ -290,7 +290,7 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
             <div className="text-xs text-muted-foreground">本地优先，缺失用全局</div>
           </div>
 
-          <TenasSettingsField>
+          <OpenLoafSettingsField>
             <button
               type="button"
               className={baseValueTruncateClass}
@@ -304,11 +304,11 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
             >
               {gitUserLabel}
             </button>
-          </TenasSettingsField>
+          </OpenLoafSettingsField>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
-      <TenasSettingsGroup
+      <OpenLoafSettingsGroup
         title="提交历史"
         subtitle={
           <div className="flex w-full flex-wrap items-center gap-2">
@@ -498,7 +498,7 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
 
           <div ref={loadMoreRef} className="h-4" />
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
     </div>
   );
 });

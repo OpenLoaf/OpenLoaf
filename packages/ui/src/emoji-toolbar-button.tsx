@@ -31,15 +31,15 @@ import {
   XIcon,
 } from 'lucide-react';
 
-import { Button } from '@tenas-ai/ui/button';
+import { Button } from '@openloaf/ui/button';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@tenas-ai/ui/tooltip';
+} from '@openloaf/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { ToolbarButton } from '@tenas-ai/ui/toolbar';
+import { ToolbarButton } from '@openloaf/ui/toolbar';
 
 export function EmojiToolbarButton({
   options,

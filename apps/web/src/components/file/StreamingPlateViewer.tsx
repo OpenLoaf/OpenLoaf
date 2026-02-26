@@ -6,7 +6,7 @@ import { type Value, setValue } from 'platejs'
 import { Plate, usePlateEditor } from 'platejs/react'
 
 import { EditorKit } from '@/components/editor/editor-kit'
-import { Editor, EditorContainer } from '@tenas-ai/ui/editor'
+import { Editor, EditorContainer } from '@openloaf/ui/editor'
 import { useChatRuntime } from '@/hooks/use-chat-runtime'
 
 interface StreamingPlateViewerProps {

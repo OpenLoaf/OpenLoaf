@@ -77,7 +77,7 @@ export default function ChatMessageText({ value, className }: ChatMessageTextPro
       return (
         <span
           key={`mention-${index}`}
-          data-tenas-mention="true"
+          data-openloaf-mention="true"
           data-mention-value={segment.value}
           data-slate-value={segment.value}
           className="inline-flex align-middle"
@@ -121,7 +121,7 @@ export default function ChatMessageText({ value, className }: ChatMessageTextPro
   return (
     <div
       className={cn("text-[13px] leading-5 break-words whitespace-pre-wrap", className)}
-      data-tenas-chat-message="true"
+      data-openloaf-chat-message="true"
     >
       {segments.map(renderToken)}
     </div>

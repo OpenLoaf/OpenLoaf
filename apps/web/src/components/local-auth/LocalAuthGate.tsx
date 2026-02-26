@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Button } from "@tenas-ai/ui/button";
-import { Input } from "@tenas-ai/ui/input";
-import { Switch } from "@tenas-ai/ui/switch";
-import { Label } from "@tenas-ai/ui/label";
+import { Button } from "@openloaf/ui/button";
+import { Input } from "@openloaf/ui/input";
+import { Switch } from "@openloaf/ui/switch";
+import { Label } from "@openloaf/ui/label";
 import { resolveServerUrl } from "@/utils/server-url";
 import { isElectronEnv } from "@/utils/is-electron-env";
 
@@ -170,7 +170,7 @@ export default function LocalAuthGate({ children }: { children: React.ReactNode 
                 <p className="text-sm text-destructive">{error}</p>
               ) : null}
               <Button type="button" className="w-full" onClick={() => void handleLogin()} disabled={submitting}>
-                {submitting ? "验证中…" : "进入 Tenas"}
+                {submitting ? "验证中…" : "进入 OpenLoaf"}
               </Button>
             </div>
           ) : null}

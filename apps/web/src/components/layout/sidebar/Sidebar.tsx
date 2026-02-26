@@ -14,18 +14,18 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
-} from "@tenas-ai/ui/sidebar";
+} from "@openloaf/ui/sidebar";
 import { CalendarDays, Clock, Inbox, LayoutDashboard, LayoutTemplate, Mail, Search } from "lucide-react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Search as SearchDialog } from "@/components/search/Search";
-import { Kbd, KbdGroup } from "@tenas-ai/ui/kbd";
-import { WORKBENCH_TAB_INPUT } from "@tenas-ai/api/common";
+import { Kbd, KbdGroup } from "@openloaf/ui/kbd";
+import { WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useIsNarrowScreen } from "@/hooks/use-mobile";
 import { trpc } from "@/utils/trpc";
-import { Badge } from "@tenas-ai/ui/calendar/components/ui/badge";
+import { Badge } from "@openloaf/ui/calendar/components/ui/badge";
 
 const SIDEBAR_WORKSPACE_COLOR_CLASS = {
   calendar:

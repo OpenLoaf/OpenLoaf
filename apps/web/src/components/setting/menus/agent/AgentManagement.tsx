@@ -4,11 +4,11 @@ import { useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
-import { Button } from "@tenas-ai/ui/button";
-import { Switch } from "@tenas-ai/ui/switch";
-import { Checkbox } from "@tenas-ai/ui/checkbox";
-import { Input } from "@tenas-ai/ui/input";
-import { FilterTab } from "@tenas-ai/ui/filter-tab";
+import { Button } from "@openloaf/ui/button";
+import { Switch } from "@openloaf/ui/switch";
+import { Checkbox } from "@openloaf/ui/checkbox";
+import { Input } from "@openloaf/ui/input";
+import { FilterTab } from "@openloaf/ui/filter-tab";
 import {
   Search, Trash2, X, FolderOpen, Eye, Plus, Pencil,
   Globe, FileSearch, FilePen, Terminal, Mail, Calendar,
@@ -23,8 +23,8 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from "@tenas-ai/ui/context-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
+} from "@openloaf/ui/context-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
@@ -335,18 +335,18 @@ function WorkspaceAgentView() {
     try {
       await mkdirMutation.mutateAsync({
         workspaceId,
-        uri: ".tenas/agents",
+        uri: ".openloaf/agents",
         recursive: true,
       });
     } catch {
       return;
     }
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!api?.openPath) {
       if (activeTabId) {
         const agentsUri = rootUri.startsWith('file://')
-          ? buildFileUriFromRoot(rootUri, '.tenas/agents')
-          : `${rootUri.replace(/[/\\]+$/, '')}/.tenas/agents`
+          ? buildFileUriFromRoot(rootUri, '.openloaf/agents')
+          : `${rootUri.replace(/[/\\]+$/, '')}/.openloaf/agents`
         pushStackItem(activeTabId, {
           id: `agents-root:workspace`,
           sourceKey: `agents-root:workspace`,
@@ -361,8 +361,8 @@ function WorkspaceAgentView() {
       return;
     }
     const agentsUri = rootUri.startsWith("file://")
-      ? buildFileUriFromRoot(rootUri, ".tenas/agents")
-      : `${rootUri.replace(/[/\\]+$/, "")}/.tenas/agents`;
+      ? buildFileUriFromRoot(rootUri, ".openloaf/agents")
+      : `${rootUri.replace(/[/\\]+$/, "")}/.openloaf/agents`;
     const res = await api.openPath({ uri: agentsUri });
     if (!res?.ok) toast.error(res?.reason ?? "无法打开文件管理器");
   }, [activeTabId, mkdirMutation, pushStackItem, workspace?.rootUri, workspaceId]);

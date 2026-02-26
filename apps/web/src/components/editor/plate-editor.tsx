@@ -7,7 +7,7 @@ import { Plate, usePlateEditor } from 'platejs/react';
 
 import { EditorKit } from '@/components/editor/editor-kit';
 import { SettingsDialog } from '@/components/editor/settings-dialog';
-import { Editor, EditorContainer } from '@tenas-ai/ui/editor';
+import { Editor, EditorContainer } from '@openloaf/ui/editor';
 
 export function PlateEditor() {
   const editor = usePlateEditor({

@@ -7,7 +7,7 @@ import {
   getWorkspaceRootPathById,
   resolveScopedPath,
   toRelativePath,
-} from "@tenas-ai/api/services/vfsService";
+} from "@openloaf/api/services/vfsService";
 
 export type HlsManifestResult = {
   /** Manifest content with segment URLs. */
@@ -47,7 +47,7 @@ export type HlsProgressResult = {
 };
 
 /** Root cache folder for HLS artifacts. */
-const HLS_CACHE_DIR = ".tenas-cache/hls";
+const HLS_CACHE_DIR = ".openloaf-cache/hls";
 /** Supported output quality labels for HLS. */
 const HLS_QUALITIES = ["1080p", "720p", "source"] as const;
 /** Cache subfolder for thumbnail outputs. */

@@ -3,7 +3,7 @@ import {
   TERMINAL_WINDOW_PANEL_ID,
   type DockItem,
   type TerminalTab,
-} from "@tenas-ai/api/common";
+} from "@openloaf/api/common";
 import { createTerminalTabId } from "@/hooks/tab-id";
 
 /** Return true when the dock item is a terminal panel. */

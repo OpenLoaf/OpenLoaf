@@ -25,13 +25,13 @@ import {
 } from 'platejs';
 import { useEditorPlugin, useEditorRef, usePluginOption } from 'platejs/react';
 
-import { Button } from '@tenas-ai/ui/button';
+import { Button } from '@openloaf/ui/button';
 import {
   Popover,
   PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
-} from '@tenas-ai/ui/popover';
+} from '@openloaf/ui/popover';
 import { commentPlugin } from '@/components/editor/plugins/comment-kit';
 import {
   type TDiscussion,

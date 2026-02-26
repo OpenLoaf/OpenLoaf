@@ -1,7 +1,7 @@
 import Imap from "imap";
 import { simpleParser } from "mailparser";
 
-import { Prisma, type PrismaClient } from "@tenas-ai/db";
+import { Prisma, type PrismaClient } from "@openloaf/db";
 import { logger } from "@/common/logger";
 import { sanitizeEmailHtml } from "./emailSanitize";
 import {

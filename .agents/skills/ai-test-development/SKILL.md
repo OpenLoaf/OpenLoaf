@@ -14,7 +14,7 @@ description: Use when creating, extending, or debugging automated tests for serv
 | 服务端 | `node:test`（自定义 runner） | `node:assert/strict` | `*.test.ts` | `node --import tsx/esm` 直接执行 |
 | Web 端 | Vitest | `vitest`（expect） | `*.vitest.ts` | `pnpm vitest --run` |
 
-两套体系共享同一套环境隔离原则：临时目录 + `setTenasRootOverride` + DB session 隔离。
+两套体系共享同一套环境隔离原则：临时目录 + `setOpenLoafRootOverride` + DB session 隔离。
 
 ## When to Use
 
@@ -114,17 +114,17 @@ Vitest 配置：`apps/web/vitest.config.ts`（jsdom 环境，`@/` 别名已配�
 import os from 'node:os'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
-import { setTenasRootOverride } from '@tenas-ai/config'
+import { setOpenLoafRootOverride } from '@openloaf/config'
 
 // Setup
 const tempDir = path.join(os.tmpdir(), `mytest_${Date.now()}`)
 await fs.mkdir(tempDir, { recursive: true })
-setTenasRootOverride(tempDir)
+setOpenLoafRootOverride(tempDir)
 
 // ... 测试代码 ...
 
 // Teardown（放在 finally 块中）
-setTenasRootOverride(null)
+setOpenLoafRootOverride(null)
 await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
 ```
 
@@ -149,7 +149,7 @@ await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
 | 错误 | 修复 |
 |------|------|
 | 服务端测试用 Vitest | 服务端用 `node:assert` + 自定义 runner，直接 `node` 执行 |
-| 忘记 `setTenasRootOverride(null)` | 放在 `finally` 块中，确保异常时也能重置 |
+| 忘记 `setOpenLoafRootOverride(null)` | 放在 `finally` 块中，确保异常时也能重置 |
 | 测试间共享可变状态 | 每个测试用独立 session ID（`crypto.randomUUID()`） |
 | 忘记 `clearSessionDirCache()` | 切换 root override 后必须清除缓存 |
 | Web 测试文件命名为 `.test.ts` | 必须用 `.vitest.ts`，否则 Vitest 不会匹配 |
@@ -164,7 +164,7 @@ await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
 | `apps/web/src/lib/chat/branch-utils.ts` | 纯函数提取范例 |
 | `apps/server/src/ai/__tests__/helpers/testEnv.ts` | 测试环境辅助（模型解析、RequestContext） |
 | `apps/server/src/ai/__tests__/helpers/printUtils.ts` | 输出格式化辅助 |
-| `packages/config/src/tenas-paths.ts` | `setTenasRootOverride` 定义 |
+| `packages/config/src/openloaf-paths.ts` | `setOpenLoafRootOverride` 定义 |
 | `apps/web/vitest.config.ts` | Vitest 配置 |
 | `apps/server/scripts/registerMdTextLoader.mjs` | MD 文本加载器（服务端测试需 import） |
 

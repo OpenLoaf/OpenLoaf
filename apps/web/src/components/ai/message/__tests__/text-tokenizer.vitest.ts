@@ -17,7 +17,7 @@ describe("text-tokenizer", () => {
   });
 
   it("does not treat file paths as commands", () => {
-    const tokens = parseChatTextTokens("创建 /tmp/tenas-tool-test.txt 文件");
+    const tokens = parseChatTextTokens("创建 /tmp/openloaf-tool-test.txt 文件");
     expect(tokens.every((t) => t.type === "text")).toBe(true);
   });
 

@@ -15,16 +15,16 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarProvider,
-} from "@tenas-ai/ui/sidebar";
-import { Button } from "@tenas-ai/ui/button";
-import { Checkbox } from "@tenas-ai/ui/checkbox";
+} from "@openloaf/ui/sidebar";
+import { Button } from "@openloaf/ui/button";
+import { Checkbox } from "@openloaf/ui/checkbox";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "@tenas-ai/ui/context-menu";
+} from "@openloaf/ui/context-menu";
 import {
   Dialog,
   DialogClose,
@@ -33,9 +33,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
-import { Input } from "@tenas-ai/ui/input";
-import { Label } from "@tenas-ai/ui/label";
+} from "@openloaf/ui/dialog";
+import { Input } from "@openloaf/ui/input";
+import { Label } from "@openloaf/ui/label";
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 import {
   ArrowUpRight,
@@ -60,7 +60,7 @@ import {
   getDisplayFileName,
   isBoardFolderName,
 } from "@/lib/file-name";
-import { Switch } from "@tenas-ai/ui/switch";
+import { Switch } from "@openloaf/ui/switch";
 import {
   getDisplayPathFromUri,
   getParentRelativePath,
@@ -70,7 +70,7 @@ import {
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { cn } from "@/lib/utils";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
-import type { ProjectNode } from "@tenas-ai/api/services/projectTreeService";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 
 type ProjectInfo = ProjectNode;
 
@@ -819,7 +819,7 @@ export const PageTreeMenu = ({
 
   /** Open the project root in system file manager, or push a folder-tree stack in web. */
   const handleOpenInFileManager = async (node: FileNode) => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!api?.openPath) {
       if (!activeTabId) return
       const rootUri = node.projectId ? projectRootById.get(node.projectId) : undefined
@@ -879,7 +879,7 @@ export const PageTreeMenu = ({
 
   /** Pick a directory from system dialog (Electron only). */
   const pickDirectory = async (initialValue?: string) => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (api?.pickDirectory) {
       const result = await api.pickDirectory(
         initialValue ? { defaultPath: initialValue } : undefined,

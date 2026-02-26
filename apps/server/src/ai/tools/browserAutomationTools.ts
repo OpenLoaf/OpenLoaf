@@ -5,7 +5,7 @@ import {
   browserObserveToolDef,
   browserSnapshotToolDef,
   browserWaitToolDef,
-} from "@tenas-ai/api/types/tools/browserAutomation";
+} from "@openloaf/api/types/tools/browserAutomation";
 import { logger } from "@/common/logger";
 import { getClientId, getSessionId } from "@/ai/shared/context/requestContext";
 import { requireTabId } from "@/common/tabContext";

@@ -1,15 +1,15 @@
 import { isElectronEnv } from "@/utils/is-electron-env";
 
-type CalendarPermissionState = TenasCalendarPermissionState;
-type CalendarRange = TenasCalendarRange;
-type CalendarItem = TenasCalendarItem;
-type CalendarEvent = TenasCalendarEvent;
-type CalendarResult<T> = TenasCalendarResult<T>;
+type CalendarPermissionState = OpenLoafCalendarPermissionState;
+type CalendarRange = OpenLoafCalendarRange;
+type CalendarItem = OpenLoafCalendarItem;
+type CalendarEvent = OpenLoafCalendarEvent;
+type CalendarResult<T> = OpenLoafCalendarResult<T>;
 
 /** Resolve calendar API from Electron preload. */
 function getCalendarApi() {
   if (typeof window === "undefined") return null;
-  return window.tenasElectron?.calendar ?? null;
+  return window.openloafElectron?.calendar ?? null;
 }
 
 /** Request system calendar permission. */

@@ -5,7 +5,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { execa } from "execa";
-import { getWorkspaceRootPath } from "@tenas-ai/api/services/vfsService";
+import { getWorkspaceRootPath } from "@openloaf/api/services/vfsService";
 import { logger } from "@/common/logger";
 
 const PYTHON_RELEASES_URL =

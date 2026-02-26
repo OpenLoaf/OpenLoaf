@@ -6,18 +6,18 @@ import { queryClient, trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { Button } from "@tenas-ai/ui/button";
-import { Switch } from "@tenas-ai/ui/switch";
-import { Input } from "@tenas-ai/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
+import { Button } from "@openloaf/ui/button";
+import { Switch } from "@openloaf/ui/switch";
+import { Input } from "@openloaf/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
 import { ArrowRight, Eye, FolderOpen, Search, Trash2, X } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from "@tenas-ai/ui/context-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
+} from "@openloaf/ui/context-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useProject } from "@/hooks/use-project";
 import {
@@ -275,7 +275,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     } catch {
       return;
     }
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!api?.openPath) {
       toast.error("网页版不支持打开文件管理器");
       return;
@@ -347,11 +347,11 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
       const skillName = skill.name.trim();
       if (!skillName) return;
       window.dispatchEvent(
-        new CustomEvent("tenas:chat-insert-skill", {
+        new CustomEvent("openloaf:chat-insert-skill", {
           detail: { skillName },
         })
       );
-      window.dispatchEvent(new CustomEvent("tenas:chat-focus-input"));
+      window.dispatchEvent(new CustomEvent("openloaf:chat-focus-input"));
       if (activeTabId) {
         setTabRightChatCollapsed(activeTabId, false);
       }

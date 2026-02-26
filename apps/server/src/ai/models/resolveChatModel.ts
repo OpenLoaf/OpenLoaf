@@ -1,6 +1,6 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settings/settingsService";
-import { type ChatModelSource, type ModelDefinition, type ModelTag } from "@tenas-ai/api/common";
+import { type ChatModelSource, type ModelDefinition, type ModelTag } from "@openloaf/api/common";
 import { getModelDefinition, getProviderDefinition } from "@/ai/models/modelRegistry";
 import { PROVIDER_ADAPTERS } from "@/ai/models/providerAdapters";
 import { buildCliProviderEntries } from "@/ai/models/cli/cliProviderEntry";
@@ -298,7 +298,7 @@ async function resolveCloudChatModel(input: {
     models,
     apiUrl: `${saasBaseUrl}/api`,
     apiKey: accessToken,
-    adapterId: "tenas-saas",
+    adapterId: "openloaf-saas",
   });
   return resolveChatModelFromProviders({
     providers,

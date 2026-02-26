@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url'
 import {
   getActiveWorkspaceConfig,
   resolveWorkspaceRootPath,
-} from '@tenas-ai/api/services/workspaceConfig'
+} from '@openloaf/api/services/workspaceConfig'
 import {
   ensureDefaultAgentFiles,
   ensureSystemAgentFiles,

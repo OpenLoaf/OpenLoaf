@@ -67,7 +67,7 @@ Provide repo-specific packaging guidance for Electron + web + server, including 
 
 ## Incremental Update Rules (Runtime)
 - Current version source (per component):
-  1) `~/.tenas/updates/local-manifest.json`
+  1) `~/.openloaf/updates/local-manifest.json`
   2) bundled `Resources/server.package.json` / `Resources/web.package.json`
 - Update only when `remote > current` (semver with prerelease rules).
 - Beta channel: if beta missing or older than stable, skip updates.
@@ -89,7 +89,7 @@ Provide repo-specific packaging guidance for Electron + web + server, including 
   - `node_modules/<native>` exists
   - `prebuilds/<platform>` exists
 - Typical check (macOS example):
-  - `apps/desktop/out/Tenas-darwin-arm64/Tenas.app/Contents/Resources/`
+  - `apps/desktop/out/OpenLoaf-darwin-arm64/OpenLoaf.app/Contents/Resources/`
 
 ## Common Failure Patterns
 - `Cannot find module './prebuilds/.../pty.node'`: missing `Resources/prebuilds` (node-pty).
@@ -97,9 +97,9 @@ Provide repo-specific packaging guidance for Electron + web + server, including 
 - Web loads blank: `apps/web/out` missing or not copied to `Resources/out`.
 - About shows `vbundled`: `Resources/server.package.json` / `web.package.json` missing (Forge `extraResource` flattens basenames).
   - Fix: copy and rename in `apps/desktop/forge.config.ts` `postPackage` hook.
-- `SQLITE_ERROR: no such table ...` right after install (Windows): DB seed copy failed and `~/.tenas/tenas.db` is empty (0 bytes) or path joined incorrectly for `file:C:\...`.
+- `SQLITE_ERROR: no such table ...` right after install (Windows): DB seed copy failed and `~/.openloaf/openloaf.db` is empty (0 bytes) or path joined incorrectly for `file:C:\...`.
   - Fix: ensure `apps/desktop/src/main/services/prodServices.ts` treats Windows absolute/UNC paths as absolute in `resolveFilePathFromDatabaseUrl` and re-initializes when DB file is 0 bytes.
-  - Quick workaround: delete `~/.tenas/tenas.db` and copy `Resources/seed.db` to `~/.tenas/tenas.db`, then relaunch.
+  - Quick workaround: delete `~/.openloaf/openloaf.db` and copy `Resources/seed.db` to `~/.openloaf/openloaf.db`, then relaunch.
 - App cannot quit after confirmation (Windows titlebar overlay): sync confirm blocks close event, leaving the window in a closing state.
   - Fix: switch to async `dialog.showMessageBox` and centralize quit flow in `apps/desktop/src/main/windows/mainWindow.ts`, re-focus window on cancel, and schedule a force-exit timeout.
 - `wineserver: Can't check in server_mach_port` (macOS build for Windows): start XQuartz, log out/in, and force x86_64 wine via wrapper + `USE_SYSTEM_WINE=true`.

@@ -21,7 +21,7 @@ import {
 } from '@floating-ui/react';
 
 import { getStrictContext } from '@/lib/get-strict-context';
-import { Slot, type WithAsChild } from '@tenas-ai/ui/animate-ui/primitives/animate/slot';
+import { Slot, type WithAsChild } from '@openloaf/ui/animate-ui/primitives/animate/slot';
 
 type Side = 'top' | 'bottom' | 'left' | 'right';
 type Align = 'start' | 'center' | 'end';

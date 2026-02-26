@@ -1,18 +1,18 @@
 {
   "name": "desktop",
-  "productName": "Tenas",
+  "productName": "OpenLoaf",
   "version": "0.1.1",
-  "description": "Tenas desktop app",
+  "description": "OpenLoaf desktop app",
   "main": ".webpack/main",
   "build": {
-    "appId": "com.hexems.tenas",
-    "productName": "Tenas",
+    "appId": "com.hexems.openloaf",
+    "productName": "OpenLoaf",
     "asar": true,
     "protocols": [
       {
-        "name": "Tenas",
+        "name": "OpenLoaf",
         "schemes": [
-          "tenas"
+          "openloaf"
         ]
       }
     ],
@@ -103,14 +103,14 @@
           "from": "resources/speech",
           "to": "speech",
           "filter": [
-            "macos/tenas-speech"
+            "macos/openloaf-speech"
           ]
         },
         {
           "from": "resources/calendar",
           "to": "calendar",
           "filter": [
-            "macos/tenas-calendar"
+            "macos/openloaf-calendar"
           ]
         }
       ]
@@ -134,14 +134,14 @@
           "from": "resources/speech",
           "to": "speech",
           "filter": [
-            "windows/tenas-speech.exe"
+            "windows/openloaf-speech.exe"
           ]
         },
         {
           "from": "resources/calendar",
           "to": "calendar",
           "filter": [
-            "windows/tenas-calendar.exe"
+            "windows/openloaf-calendar.exe"
           ]
         }
       ]
@@ -150,7 +150,7 @@
       "oneClick": false,
       "perMachine": true,
       "allowElevation": true,
-      "artifactName": "Tenas_installer_v${version}.exe",
+      "artifactName": "OpenLoaf_installer_v${version}.exe",
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
@@ -172,7 +172,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://r2-tenas-update.hexems.com/desktop"
+        "url": "https://r2-openloaf-update.hexems.com/desktop"
       }
     ]
   },
@@ -198,8 +198,8 @@
     "email": "torykit@torykit.com"
   },
   "dependencies": {
-    "@tenas-ai/api": "workspace:*",
-    "@tenas-ai/config": "workspace:*",
+    "@openloaf/api": "workspace:*",
+    "@openloaf/config": "workspace:*",
     "electron-updater": "^6.7.3",
     "pino": "^10.3.0",
     "serve-handler": "^6.1.6"

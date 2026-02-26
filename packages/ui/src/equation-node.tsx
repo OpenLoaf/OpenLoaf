@@ -21,12 +21,12 @@ import {
   useSelected,
 } from 'platejs/react';
 
-import { Button } from '@tenas-ai/ui/button';
+import { Button } from '@openloaf/ui/button';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@tenas-ai/ui/popover';
+} from '@openloaf/ui/popover';
 import { cn } from '@/lib/utils';
 
 export function EquationElement(props: PlateElementProps<TEquationElement>) {

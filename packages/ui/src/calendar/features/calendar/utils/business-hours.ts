@@ -1,5 +1,5 @@
-import type { BusinessHours, WeekDays } from '@tenas-ai/ui/calendar/components/types'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
+import type { BusinessHours, WeekDays } from '@openloaf/ui/calendar/components/types'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 
 const DAY_TO_NUMBER: Record<WeekDays, number> = {
 	sunday: 0,

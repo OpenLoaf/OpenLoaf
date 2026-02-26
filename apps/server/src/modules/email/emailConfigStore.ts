@@ -2,12 +2,12 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import path from "node:path";
 import { z } from "zod";
 
-import type { Workspace } from "@tenas-ai/api";
+import type { Workspace } from "@openloaf/api";
 import {
   getActiveWorkspaceConfig,
   getWorkspaceByIdConfig,
   resolveWorkspaceRootPath,
-} from "@tenas-ai/api/services/workspaceConfig";
+} from "@openloaf/api/services/workspaceConfig";
 
 /** Schema for email account sync state. */
 const EmailMailboxSyncSchema = z.object({

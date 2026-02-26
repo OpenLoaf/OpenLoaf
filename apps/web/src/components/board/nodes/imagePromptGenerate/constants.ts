@@ -1,4 +1,4 @@
-import type { ModelTag } from "@tenas-ai/api/common";
+import type { ModelTag } from "@openloaf/api/common";
 
 /** Node type identifier for image prompt generation. */
 export const IMAGE_PROMPT_GENERATE_NODE_TYPE = "image_prompt_generate";

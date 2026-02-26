@@ -19,7 +19,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@tenas-ai/ui/popover'
+} from '@openloaf/ui/popover'
 
 interface SelectModeProps {
   className?: string
@@ -50,11 +50,11 @@ export default function SelectMode({
   useEffect(() => {
     if (!tabId) return
     const target = document.querySelector(
-      `[data-tenas-chat-root][data-tab-id="${tabId}"][data-chat-active="true"]`,
+      `[data-openloaf-chat-root][data-tab-id="${tabId}"][data-chat-active="true"]`,
     )
     if (!target) return
     const mask = target.querySelector<HTMLElement>(
-      '[data-tenas-chat-mask]',
+      '[data-openloaf-chat-mask]',
     )
     if (mask) {
       if (popoverOpen) {

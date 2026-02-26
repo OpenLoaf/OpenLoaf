@@ -9,7 +9,7 @@ const MEMORY_FILE_NAME = 'MEMORY.md'
 /** Default max characters per single memory file. */
 const DEFAULT_MAX_CHARS = 4000
 
-/** Read a memory file from <rootPath>/.tenas/agents/default/MEMORY.md. */
+/** Read a memory file from <rootPath>/.openloaf/agents/default/MEMORY.md. */
 export function readMemoryFile(rootPath: string): string {
   const filePath = path.join(
     resolveAgentDir(rootPath, DEFAULT_AGENT_FOLDER),

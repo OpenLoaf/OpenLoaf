@@ -60,8 +60,8 @@ export const getCdpConfig = (
   env: EnvSource = process.env,
   opts: GetCdpConfigOptions = {}
 ): CdpConfig => {
-  const hostKey = opts.hostKey ?? "TENAS_REMOTE_DEBUGGING_HOST";
-  const portKey = opts.portKey ?? "TENAS_REMOTE_DEBUGGING_PORT";
+  const hostKey = opts.hostKey ?? "OPENLOAF_REMOTE_DEBUGGING_HOST";
+  const portKey = opts.portKey ?? "OPENLOAF_REMOTE_DEBUGGING_PORT";
 
   const host = getEnvString(env, hostKey, {
     defaultValue: opts.defaultHost ?? "127.0.0.1",

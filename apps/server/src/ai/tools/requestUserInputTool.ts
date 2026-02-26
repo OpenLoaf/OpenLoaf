@@ -1,5 +1,5 @@
 import { tool, zodSchema } from 'ai'
-import { requestUserInputToolDef } from '@tenas-ai/api/types/tools/userInput'
+import { requestUserInputToolDef } from '@openloaf/api/types/tools/userInput'
 import { consumeToolApprovalPayload } from '@/ai/shared/context/requestContext'
 
 type RequestUserInputOutput = {

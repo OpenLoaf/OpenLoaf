@@ -20,7 +20,7 @@ import {
   normalizeToolInput,
   type AnyToolPart,
 } from './shared/tool-utils'
-import { TrafficLights } from '@tenas-ai/ui/traffic-lights'
+import { TrafficLights } from '@openloaf/ui/traffic-lights'
 import {
   WidgetPreview,
   parseOutputJson,
@@ -86,7 +86,7 @@ export default function WidgetTool({
       ? workspace?.projects?.[projectId]
       : workspace?.rootUri
     if (!baseRootUri) return
-    const widgetFolderUri = `${baseRootUri.replace(/\/$/, '')}/.tenas/dynamic-widgets/${widgetId}`
+    const widgetFolderUri = `${baseRootUri.replace(/\/$/, '')}/.openloaf/dynamic-widgets/${widgetId}`
     const mainFileUri = `${widgetFolderUri}/widget.tsx`
     pushStackItem(tabId, {
       id: `widget:${widgetId}`,

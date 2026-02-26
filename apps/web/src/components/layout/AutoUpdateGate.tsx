@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,11 +9,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
+} from "@openloaf/ui/dialog";
 import { isElectronEnv } from "@/utils/is-electron-env";
 
 type AutoUpdateGateState = {
-  status: TenasIncrementalUpdateStatus | null;
+  status: OpenLoafIncrementalUpdateStatus | null;
   open: boolean;
   changelog: string | null;
   changelogLoading: boolean;
@@ -87,7 +87,7 @@ export default function AutoUpdateGate() {
 
   /** Fetch initial incremental update status from the main process. */
   const fetchInitialStatus = React.useCallback(async () => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!isElectron || !api?.getIncrementalUpdateStatus) return;
     try {
       const status = await api.getIncrementalUpdateStatus();
@@ -99,14 +99,14 @@ export default function AutoUpdateGate() {
 
   /** Handle incremental update status events from Electron main process. */
   const handleStatusEvent = React.useCallback((event: Event) => {
-    const detail = (event as CustomEvent<TenasIncrementalUpdateStatus>).detail;
+    const detail = (event as CustomEvent<OpenLoafIncrementalUpdateStatus>).detail;
     if (!detail) return;
     setState((prev) => ({ ...prev, status: detail }));
   }, []);
 
   /** Restart the app to apply updates. */
   const handleRelaunch = React.useCallback(async () => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!isElectron || !api?.relaunchApp) return;
     await api.relaunchApp();
   }, [isElectron]);
@@ -118,9 +118,9 @@ export default function AutoUpdateGate() {
 
   React.useEffect(() => {
     if (!isElectron) return;
-    window.addEventListener("tenas:incremental-update:status", handleStatusEvent);
+    window.addEventListener("openloaf:incremental-update:status", handleStatusEvent);
     return () =>
-      window.removeEventListener("tenas:incremental-update:status", handleStatusEvent);
+      window.removeEventListener("openloaf:incremental-update:status", handleStatusEvent);
   }, [isElectron, handleStatusEvent]);
 
   React.useEffect(() => {

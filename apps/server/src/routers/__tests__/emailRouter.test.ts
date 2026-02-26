@@ -4,15 +4,15 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { setWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
-import type { Workspace } from "@tenas-ai/api";
-import { setTenasRootOverride } from "@tenas-ai/config";
+import { setWorkspaces } from "@openloaf/api/services/workspaceConfig";
+import type { Workspace } from "@openloaf/api";
+import { setOpenLoafRootOverride } from "@openloaf/config";
 
-const tempRoot = mkdtempSync(path.join(tmpdir(), "tenas-email-router-"));
-process.env.TENAS_SERVER_ENV_PATH = path.join(tempRoot, ".env");
+const tempRoot = mkdtempSync(path.join(tmpdir(), "openloaf-email-router-"));
+process.env.OPENLOAF_SERVER_ENV_PATH = path.join(tempRoot, ".env");
 process.env.EMAIL_SYNC_ON_ADD = "0";
 process.env.EMAIL_IMAP_SKIP = "1";
-setTenasRootOverride(tempRoot);
+setOpenLoafRootOverride(tempRoot);
 
 const workspaceRoot = path.join(tempRoot, "workspace");
 const workspaceId = "workspace-test";
@@ -29,7 +29,7 @@ const workspace: Workspace = {
 
 setWorkspaces([workspace]);
 
-const { prisma } = await import("@tenas-ai/db");
+const { prisma } = await import("@openloaf/db");
 
 let emailRouter: typeof import("../email");
 try {
@@ -384,4 +384,4 @@ await prisma.$disconnect();
 
 console.log("email router tests passed.");
 
-setTenasRootOverride(null);
+setOpenLoafRootOverride(null);

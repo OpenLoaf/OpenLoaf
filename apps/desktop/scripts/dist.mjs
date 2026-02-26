@@ -29,7 +29,7 @@ if (process.platform === 'win32' && process.env.CSC_IDENTITY_AUTO_DISCOVERY == n
 }
 
 function canCreateSymlink() {
-  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'tenas-symlink-'))
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'openloaf-symlink-'))
   const target = path.join(base, 'target.txt')
   const link = path.join(base, 'link.txt')
   try {
@@ -47,18 +47,18 @@ function canCreateSymlink() {
 
 if (
   process.platform === 'win32' &&
-  process.env.TENAS_REQUIRE_WIN_SIGN !== 'true' &&
-  process.env.TENAS_SKIP_WIN_SIGN == null
+  process.env.OPENLOAF_REQUIRE_WIN_SIGN !== 'true' &&
+  process.env.OPENLOAF_SKIP_WIN_SIGN == null
 ) {
   if (!canCreateSymlink()) {
-    process.env.TENAS_SKIP_WIN_SIGN = 'true'
+    process.env.OPENLOAF_SKIP_WIN_SIGN = 'true'
   }
 }
 
 const extraFlags = []
 const isWinTarget = process.argv.some((arg) => arg === '--win' || arg.startsWith('--win='))
 // 中文注释：允许在 mac/Linux 构建 Windows 产物时跳过 rcedit，规避 wine 依赖。
-if (process.env.TENAS_SKIP_WIN_SIGN === 'true' && isWinTarget) {
+if (process.env.OPENLOAF_SKIP_WIN_SIGN === 'true' && isWinTarget) {
   extraFlags.push('--config.win.signAndEditExecutable=false')
 }
 

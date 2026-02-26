@@ -2,7 +2,7 @@
 const nextConfig = {
   typedRoutes: true,
   reactCompiler: true,
-  transpilePackages: ["@tenas-ai/ui", "@tenas-saas/sdk"],
+  transpilePackages: ["@openloaf/ui", "@openloaf-saas/sdk"],
   experimental: {
     externalDir: true,
   },

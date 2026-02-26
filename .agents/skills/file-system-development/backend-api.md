@@ -71,7 +71,7 @@ trpc.fs.search.queryOptions({
 ```
 
 **搜索逻辑**：递归遍历，文件名 `toLowerCase().includes(query)`，Board 文件夹使用显示名匹配。
-**忽略目录**：`node_modules`, `.git`, `.turbo`, `.next`, `.tenas-trash`, `dist`, `build`, `out`。
+**忽略目录**：`node_modules`, `.git`, `.turbo`, `.next`, `.openloaf-trash`, `dist`, `build`, `out`。
 
 ### searchWorkspace
 
@@ -205,7 +205,7 @@ trpc.fs.appendBinary.mutate({ workspaceId, projectId, uri, contentBase64: string
 ## 视频缩略图缓存
 
 ```
-~/.tenas/.tenas-cache/video-thumbs/
+~/.openloaf/.openloaf-cache/video-thumbs/
 └── {sha256_hash}.jpg    // SHA-256(relativePath + size + mtimeMs)
 ```
 

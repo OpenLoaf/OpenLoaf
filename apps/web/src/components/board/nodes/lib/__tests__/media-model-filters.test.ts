@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import type { AiModel } from "@tenas-saas/sdk";
+import type { AiModel } from "@openloaf-saas/sdk";
 import { filterImageMediaModels, filterVideoMediaModels } from "../image-generation";
 
 test("image models allow multi-image without image_multi_input tag when capability allows", () => {

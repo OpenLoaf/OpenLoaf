@@ -10,9 +10,9 @@ import {
   BaseUnderlinePlugin,
 } from '@platejs/basic-nodes';
 
-import { CodeLeafStatic } from '@tenas-ai/ui/code-node-static';
-import { HighlightLeafStatic } from '@tenas-ai/ui/highlight-node-static';
-import { KbdLeafStatic } from '@tenas-ai/ui/kbd-node-static';
+import { CodeLeafStatic } from '@openloaf/ui/code-node-static';
+import { HighlightLeafStatic } from '@openloaf/ui/highlight-node-static';
+import { KbdLeafStatic } from '@openloaf/ui/kbd-node-static';
 
 export const BaseBasicMarksKit = [
   BaseBoldPlugin,

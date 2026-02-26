@@ -1,23 +1,23 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@tenas-ai/ui/dropdown-menu";
+} from "@openloaf/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
+import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
+import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
-import { TenasAutoWidthInput } from "@tenas-ai/ui/tenas/TenasAutoWidthInput";
+import { OpenLoafAutoWidthInput } from "@openloaf/ui/openloaf/OpenLoafAutoWidthInput";
 import { getModelLabel } from "@/lib/model-registry";
 
 export function ModelManagement() {
@@ -46,7 +46,7 @@ export function ModelManagement() {
 
   return (
     <div className="space-y-3">
-      <TenasSettingsGroup title="模型设置">
+      <OpenLoafSettingsGroup title="模型设置">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
@@ -56,13 +56,13 @@ export function ModelManagement() {
               </div>
             </div>
 
-            <TenasSettingsField className="w-full sm:w-[420px] shrink-0 justify-end">
-              <TenasAutoWidthInput
+            <OpenLoafSettingsField className="w-full sm:w-[420px] shrink-0 justify-end">
+              <OpenLoafAutoWidthInput
                 value={workspaceProjectRule}
                 onChange={(event) => void setBasic({ appProjectRule: event.target.value })}
                 className="bg-background"
               />
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
@@ -73,7 +73,7 @@ export function ModelManagement() {
               </div>
             </div>
 
-            <TenasSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+            <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -126,11 +126,11 @@ export function ModelManagement() {
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
     </div>
   );
 }

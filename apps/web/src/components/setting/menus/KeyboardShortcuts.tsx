@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { Kbd, KbdGroup } from "@tenas-ai/ui/kbd";
+import { Kbd, KbdGroup } from "@openloaf/ui/kbd";
 import { GLOBAL_SHORTCUTS } from "@/lib/globalShortcuts";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
+import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
+import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 
 const SHORTCUT_TRANSLATIONS: Record<string, { label: string; note?: string }> = {
   "sidebar.toggle": { label: "切换侧边栏" },
@@ -98,7 +98,7 @@ export function KeyboardShortcuts() {
 
   return (
     <div className="space-y-6">
-      <TenasSettingsGroup title="快捷键">
+      <OpenLoafSettingsGroup title="快捷键">
         <div className="divide-y divide-border">
           {GLOBAL_SHORTCUTS.map((shortcut) => {
             const text = getShortcutText(shortcut);
@@ -113,15 +113,15 @@ export function KeyboardShortcuts() {
                     <div className="text-xs text-muted-foreground mt-1">{text.note}</div>
                   ) : null}
                 </div>
-                <TenasSettingsField className="shrink-0">
+                <OpenLoafSettingsField className="shrink-0">
                   <ShortcutKeys keys={shortcut.keys} isMac={isMac} />
-                </TenasSettingsField>
+                </OpenLoafSettingsField>
               </div>
             );
           })}
         </div>
-      </TenasSettingsGroup>
-      <TenasSettingsGroup title="项目快捷键">
+      </OpenLoafSettingsGroup>
+      <OpenLoafSettingsGroup title="项目快捷键">
         <div className="divide-y divide-border">
           {PROJECT_SHORTCUTS.map((shortcut) => (
             <div
@@ -131,13 +131,13 @@ export function KeyboardShortcuts() {
               <div className="min-w-0">
                 <div className="text-sm font-medium">{shortcut.label}</div>
               </div>
-              <TenasSettingsField className="shrink-0">
+              <OpenLoafSettingsField className="shrink-0">
                 <ShortcutKeys keys={shortcut.keys} isMac={isMac} />
-              </TenasSettingsField>
+              </OpenLoafSettingsField>
             </div>
           ))}
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
     </div>
   );
 }

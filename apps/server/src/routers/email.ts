@@ -3,8 +3,8 @@ import {
   shieldedProcedure,
   BaseEmailRouter,
   emailSchemas,
-} from "@tenas-ai/api";
-import type { PrismaClient } from "@tenas-ai/db";
+} from "@openloaf/api";
+import type { PrismaClient } from "@openloaf/db";
 import {
   addEmailAccount,
   addOAuthEmailAccount,

@@ -2,14 +2,14 @@
 
 import * as React from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
   DialogClose,
   DialogContent,
   DialogDescription,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
+} from "@openloaf/ui/dialog";
 import ImageViewer from "@/components/file/ImageViewer";
 import MarkdownViewer from "@/components/file/MarkdownViewer";
 import CodeViewer from "@/components/file/CodeViewer";

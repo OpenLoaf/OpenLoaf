@@ -1,4 +1,4 @@
-import { BROWSER_WINDOW_COMPONENT, type BrowserTab, type Tab } from "@tenas-ai/api/common";
+import { BROWSER_WINDOW_COMPONENT, type BrowserTab, type Tab } from "@openloaf/api/common";
 
 type CacheKey = string;
 

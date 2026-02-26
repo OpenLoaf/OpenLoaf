@@ -1,10 +1,10 @@
 import type React from 'react'
-import type { EventFormProps } from '@tenas-ai/ui/calendar/components/event-form/event-form'
-import type { BusinessHours, CalendarEvent, WeekDays } from '@tenas-ai/ui/calendar/components/types'
-import type { Resource } from '@tenas-ai/ui/calendar/features/resource-calendar/types'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import type { Translations, TranslatorFunction } from '@tenas-ai/ui/calendar/lib/translations/types'
-import type { CalendarView, TimeFormat } from '@tenas-ai/ui/calendar/types'
+import type { EventFormProps } from '@openloaf/ui/calendar/components/event-form/event-form'
+import type { BusinessHours, CalendarEvent, WeekDays } from '@openloaf/ui/calendar/components/types'
+import type { Resource } from '@openloaf/ui/calendar/features/resource-calendar/types'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import type { Translations, TranslatorFunction } from '@openloaf/ui/calendar/lib/translations/types'
+import type { CalendarView, TimeFormat } from '@openloaf/ui/calendar/types'
 
 /**
  * Custom class names for calendar styling.

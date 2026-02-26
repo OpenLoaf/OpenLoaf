@@ -1,10 +1,10 @@
 'use client';
 
-import type { TComment } from '@tenas-ai/ui/comment';
+import type { TComment } from '@openloaf/ui/comment';
 
 import { createPlatePlugin } from 'platejs/react';
 
-import { BlockDiscussion } from '@tenas-ai/ui/block-discussion';
+import { BlockDiscussion } from '@openloaf/ui/block-discussion';
 
 export type TDiscussion = {
   id: string;

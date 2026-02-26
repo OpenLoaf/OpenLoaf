@@ -1,6 +1,6 @@
 import vm from 'node:vm'
 import { tool, zodSchema } from 'ai'
-import { jsReplToolDef, jsReplResetToolDef } from '@tenas-ai/api/types/tools/runtime'
+import { jsReplToolDef, jsReplResetToolDef } from '@openloaf/api/types/tools/runtime'
 import { getSessionId } from '@/ai/shared/context/requestContext'
 import { logger } from '@/common/logger'
 

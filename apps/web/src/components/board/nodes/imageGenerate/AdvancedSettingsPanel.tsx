@@ -1,10 +1,10 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@tenas-ai/ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
-import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
-import { Textarea } from "@tenas-ai/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@openloaf/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
+import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
+import { Textarea } from "@openloaf/ui/textarea";
 import TagsInputBasic from "@/components/ui/basic-tags-input";
 
 import {

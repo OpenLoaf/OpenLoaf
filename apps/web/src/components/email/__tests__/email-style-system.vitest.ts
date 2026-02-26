@@ -17,15 +17,15 @@ describe('getStoredDensity', () => {
     expect(getStoredDensity()).toBe('default')
   })
   it('存储 compact 时返回 compact', () => {
-    localStorage.setItem('tenas-email-density', 'compact')
+    localStorage.setItem('openloaf-email-density', 'compact')
     expect(getStoredDensity()).toBe('compact')
   })
   it('存储 comfortable 时返回 comfortable', () => {
-    localStorage.setItem('tenas-email-density', 'comfortable')
+    localStorage.setItem('openloaf-email-density', 'comfortable')
     expect(getStoredDensity()).toBe('comfortable')
   })
   it('存储无效值时返回 default', () => {
-    localStorage.setItem('tenas-email-density', 'invalid')
+    localStorage.setItem('openloaf-email-density', 'invalid')
     expect(getStoredDensity()).toBe('default')
   })
 })
@@ -37,11 +37,11 @@ describe('setStoredDensity', () => {
 
   it('存储 compact', () => {
     setStoredDensity('compact')
-    expect(localStorage.getItem('tenas-email-density')).toBe('compact')
+    expect(localStorage.getItem('openloaf-email-density')).toBe('compact')
   })
   it('存储 comfortable', () => {
     setStoredDensity('comfortable')
-    expect(localStorage.getItem('tenas-email-density')).toBe('comfortable')
+    expect(localStorage.getItem('openloaf-email-density')).toBe('comfortable')
   })
 })
 

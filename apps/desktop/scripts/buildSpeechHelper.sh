@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SOURCE_PATH="${ROOT_DIR}/resources/speech/macos/SpeechRecognizer.swift"
-OUTPUT_PATH="${ROOT_DIR}/resources/speech/macos/tenas-speech"
+OUTPUT_PATH="${ROOT_DIR}/resources/speech/macos/openloaf-speech"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "Skip speech helper build: macOS only."

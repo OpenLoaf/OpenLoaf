@@ -156,7 +156,7 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const loginUrl = buildSaasLoginUrl({
       provider,
-      returnTo: `tenas-login:${loginState}`,
+      returnTo: `openloaf-login:${loginState}`,
       from: "electron",
       port,
     });

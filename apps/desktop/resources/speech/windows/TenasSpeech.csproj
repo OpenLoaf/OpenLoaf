@@ -4,8 +4,8 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>tenas-speech</AssemblyName>
-    <RootNamespace>TenasSpeech</RootNamespace>
+    <AssemblyName>openloaf-speech</AssemblyName>
+    <RootNamespace>OpenLoafSpeech</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

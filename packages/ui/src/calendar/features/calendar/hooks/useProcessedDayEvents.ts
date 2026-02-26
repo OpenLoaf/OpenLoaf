@@ -1,11 +1,11 @@
 import { useMemo } from 'react'
-import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
-import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
+import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
+import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 import {
 	getPositionedDayEvents,
 	type PositionedEvent,
-} from '@tenas-ai/ui/calendar/lib/utils/position-day-events'
+} from '@openloaf/ui/calendar/lib/utils/position-day-events'
 
 interface UseProcessedDayEventsProps {
 	days: dayjs.Dayjs[] // The specific day this column represents

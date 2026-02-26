@@ -12,9 +12,9 @@
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@tenas-ai/ui",
+    "components": "@openloaf/ui",
     "utils": "@/lib/utils",
-    "ui": "@tenas-ai/ui",
+    "ui": "@openloaf/ui",
     "lib": "@/lib",
     "hooks": "@/hooks"
   },

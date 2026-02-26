@@ -12,9 +12,9 @@ export type WebMetaResult = {
   title?: string;
   /** Page description text. */
   description?: string;
-  /** Relative logo path under .tenas/desktop. */
+  /** Relative logo path under .openloaf/desktop. */
   logoPath?: string;
-  /** Relative preview path under .tenas/desktop. */
+  /** Relative preview path under .openloaf/desktop. */
   previewPath?: string;
   /** Error message when capture fails. */
   error?: string;
@@ -30,8 +30,8 @@ export async function fetchWebMeta(input: {
     return { ok: false, url: input.url, error: "Invalid url" };
   }
 
-  if (window.tenasElectron?.fetchWebMeta) {
-    return await window.tenasElectron.fetchWebMeta({
+  if (window.openloafElectron?.fetchWebMeta) {
+    return await window.openloafElectron.fetchWebMeta({
       url: normalizedUrl,
       rootUri: input.rootUri,
     });

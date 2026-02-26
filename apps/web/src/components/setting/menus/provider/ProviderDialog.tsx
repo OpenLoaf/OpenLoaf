@@ -1,20 +1,20 @@
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
-import { Input } from "@tenas-ai/ui/input";
-import { Switch } from "@tenas-ai/ui/switch";
+} from "@openloaf/ui/dialog";
+import { Input } from "@openloaf/ui/input";
+import { Switch } from "@openloaf/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@tenas-ai/ui/dropdown-menu";
+} from "@openloaf/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { Eye, EyeOff, ChevronDown, Plus, Copy, Check, Pencil } from "lucide-react";
 import { getModelLabel } from "@/lib/model-registry";
@@ -28,7 +28,7 @@ import {
   resolveAuthMode,
   truncateDisplay,
 } from "@/components/setting/menus/provider/use-provider-management";
-import type { ModelDefinition } from "@tenas-ai/api/common";
+import type { ModelDefinition } from "@openloaf/api/common";
 import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 

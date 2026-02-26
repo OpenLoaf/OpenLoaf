@@ -1,17 +1,17 @@
 ---
-name: tenas-skill
+name: openloaf-skill
 description: >
-  Use when developing, extending, or debugging the Tenas skill system —
+  Use when developing, extending, or debugging the OpenLoaf skill system —
   creating new skills, modifying skill loading/scanning logic, updating
   the settings UI for skill management, or changing how the AI agent
   resolves and consumes skills
 ---
 
-# Tenas Skill Development
+# OpenLoaf Skill Development
 
 ## Overview
 
-Tenas 技能系统由四层构成：**SKILL.md 文件规范**（前置元数据 + Markdown 正文）、**后端扫描加载器**（skillsLoader.ts 递归扫描多级目录）、**AI Agent 技能选择器**（SkillSelector.ts 按优先级解析技能）、**前端设置面板**（SkillsSettingsPanel.tsx 展示/启用/禁用/删除）。技能通过 tRPC API 在前后端之间传递，启用状态持久化在工作空间配置或项目配置中。
+OpenLoaf 技能系统由四层构成：**SKILL.md 文件规范**（前置元数据 + Markdown 正文）、**后端扫描加载器**（skillsLoader.ts 递归扫描多级目录）、**AI Agent 技能选择器**（SkillSelector.ts 按优先级解析技能）、**前端设置面板**（SkillsSettingsPanel.tsx 展示/启用/禁用/删除）。技能通过 tRPC API 在前后端之间传递，启用状态持久化在工作空间配置或项目配置中。
 
 ## When to Use
 

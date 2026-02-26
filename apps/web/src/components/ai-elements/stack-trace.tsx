@@ -3,12 +3,12 @@
 import type { ComponentProps } from "react";
 
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@tenas-ai/ui/collapsible";
+} from "@openloaf/ui/collapsible";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangleIcon,

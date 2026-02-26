@@ -10,13 +10,13 @@ import {
   CommandList,
   CommandSeparator,
   CommandShortcut,
-} from "@tenas-ai/ui/command";
+} from "@openloaf/ui/command";
 import {
   Dialog,
   DialogContent,
   DialogTitle,
   DialogTrigger,
-} from "@tenas-ai/ui/dialog";
+} from "@openloaf/ui/dialog";
 import { cn } from "@/lib/utils";
 
 export type ModelSelectorProps = ComponentProps<typeof Dialog>;

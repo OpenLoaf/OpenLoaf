@@ -36,7 +36,7 @@
   - `apps/desktop/src/main/index.ts`
 - Role for UI work: 承载 web 内容与桌面壳交互，不主导 web 视觉系统。
 
-### `apps/tenas-office-plugins`
+### `apps/openloaf-office-plugins`
 
 - 独立插件域，不属于本技能的 web 主设计面。
 

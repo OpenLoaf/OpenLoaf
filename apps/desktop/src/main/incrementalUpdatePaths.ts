@@ -1,13 +1,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { getTenasRootDir } from '@tenas-ai/config'
+import { getOpenLoafRootDir } from '@openloaf/config'
 
 /**
  * 增量更新文件的本地存放根目录。
- * 更新文件不能放在已签名的 .app 内，因此统一存放到 ~/.tenas/updates/。
+ * 更新文件不能放在已签名的 .app 内，因此统一存放到 ~/.openloaf/updates/。
  */
 export function getUpdatesRoot(): string {
-  return path.join(getTenasRootDir(), 'updates')
+  return path.join(getOpenLoafRootDir(), 'updates')
 }
 
 /**

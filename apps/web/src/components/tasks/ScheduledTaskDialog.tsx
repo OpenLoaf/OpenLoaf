@@ -9,25 +9,25 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@tenas-ai/ui/dialog'
-import { Button } from '@tenas-ai/ui/button'
-import { Input } from '@tenas-ai/ui/input'
-import { Label } from '@tenas-ai/ui/label'
-import { Textarea } from '@tenas-ai/ui/textarea'
-import { DatePicker } from '@tenas-ai/ui/calendar/components/ui/date-picker'
-import { TimePicker } from '@tenas-ai/ui/calendar/components/ui/time-picker'
+} from '@openloaf/ui/dialog'
+import { Button } from '@openloaf/ui/button'
+import { Input } from '@openloaf/ui/input'
+import { Label } from '@openloaf/ui/label'
+import { Textarea } from '@openloaf/ui/textarea'
+import { DatePicker } from '@openloaf/ui/calendar/components/ui/date-picker'
+import { TimePicker } from '@openloaf/ui/calendar/components/ui/time-picker'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@tenas-ai/ui/select'
+} from '@openloaf/ui/select'
 import { ConditionConfigForm } from './ConditionConfigForm'
 import { useProjects } from '@/hooks/use-projects'
-import type { ProjectNode } from '@tenas-ai/api/services/projectTreeService'
+import type { ProjectNode } from '@openloaf/api/services/projectTreeService'
 import { cn } from '@/lib/utils'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@tenas-ai/ui/tabs'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@openloaf/ui/tabs'
 
 type TaskData = {
   id: string

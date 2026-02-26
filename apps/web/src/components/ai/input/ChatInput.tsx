@@ -90,7 +90,7 @@ interface ChatInputProps {
 }
 
 const MAX_CHARS = 20000;
-const ONLINE_SEARCH_GLOBAL_STORAGE_KEY = "tenas:chat-online-search:global-enabled";
+const ONLINE_SEARCH_GLOBAL_STORAGE_KEY = "openloaf:chat-online-search:global-enabled";
 const FILE_TOKEN_TEXT_REGEX = /@((?:\[[^\]]+\]\/\S+|[^\s@]+\/\S+)(?::\d+-\d+)?)/g;
 
 
@@ -346,7 +346,7 @@ export function ChatInputBox({
   /** Resolve textarea element in current chat input container. */
   const getInputElement = useCallback(() => {
     return inputContainerRef.current?.querySelector<HTMLTextAreaElement>(
-      "textarea[data-tenas-chat-input='true']",
+      "textarea[data-openloaf-chat-input='true']",
     ) ?? null;
   }, []);
 
@@ -417,9 +417,9 @@ export function ChatInputBox({
     const handleFocusRequest = () => {
       focusInputSafely("keep");
     };
-    window.addEventListener("tenas:chat-focus-input", handleFocusRequest);
+    window.addEventListener("openloaf:chat-focus-input", handleFocusRequest);
     return () => {
-      window.removeEventListener("tenas:chat-focus-input", handleFocusRequest);
+      window.removeEventListener("openloaf:chat-focus-input", handleFocusRequest);
     };
   }, [focusInputSafely]);
 
@@ -428,9 +428,9 @@ export function ChatInputBox({
     const handleFocusToEnd = () => {
       focusInputSafely("end");
     };
-    window.addEventListener("tenas:chat-focus-input-end", handleFocusToEnd);
+    window.addEventListener("openloaf:chat-focus-input-end", handleFocusToEnd);
     return () => {
-      window.removeEventListener("tenas:chat-focus-input-end", handleFocusToEnd);
+      window.removeEventListener("openloaf:chat-focus-input-end", handleFocusToEnd);
     };
   }, [focusInputSafely]);
 
@@ -567,9 +567,9 @@ export function ChatInputBox({
       if (!normalizedRef) return;
       insertFileMention(normalizedRef, { skipFocus: detail?.keepSelection });
     };
-    window.addEventListener("tenas:chat-insert-mention", handleInsertMention);
+    window.addEventListener("openloaf:chat-insert-mention", handleInsertMention);
     return () => {
-      window.removeEventListener("tenas:chat-insert-mention", handleInsertMention);
+      window.removeEventListener("openloaf:chat-insert-mention", handleInsertMention);
     };
   }, [activeTabId, insertFileMention, normalizeFileRef, tabId]);
 
@@ -683,13 +683,13 @@ export function ChatInputBox({
       className={cn(
         "relative shrink-0 rounded-xl bg-background transition-all duration-200 flex flex-col overflow-hidden",
         variant === "default" ? "mt-4 max-h-[30%]" : "max-h-none",
-        "tenas-thinking-border",
-        isFocused && "tenas-thinking-border-focus",
-        isOverLimit && "tenas-thinking-border-danger",
+        "openloaf-thinking-border",
+        isFocused && "openloaf-thinking-border-focus",
+        isOverLimit && "openloaf-thinking-border-danger",
         // SSE 请求进行中（含非流式）或语音输入中：给输入框加边框流动动画。
         (isStreaming || isListening) &&
           !isOverLimit &&
-          "tenas-thinking-border-on",
+          "openloaf-thinking-border-on",
         className
       )}
       onFocusCapture={handleContainerFocus}
@@ -764,7 +764,7 @@ export function ChatInputBox({
               )}
               placeholder={placeholder}
               onKeyDown={handleKeyDown}
-              data-tenas-chat-input="true"
+              data-openloaf-chat-input="true"
             />
           </div>
         </div>
@@ -1124,12 +1124,12 @@ export default function ChatInput({
       if (!nextToken) return;
       setInput((prev) => appendChatInputText(prev, nextToken));
       requestAnimationFrame(() => {
-        window.dispatchEvent(new CustomEvent("tenas:chat-focus-input-end"));
+        window.dispatchEvent(new CustomEvent("openloaf:chat-focus-input-end"));
       });
     };
-    window.addEventListener("tenas:chat-insert-skill", handleInsertSkill);
+    window.addEventListener("openloaf:chat-insert-skill", handleInsertSkill);
     return () => {
-      window.removeEventListener("tenas:chat-insert-skill", handleInsertSkill);
+      window.removeEventListener("openloaf:chat-insert-skill", handleInsertSkill);
     };
   }, [activeTabId, setInput, tabId]);
   const resolvedIsAutoModel = Boolean(isAutoModel);
@@ -1232,9 +1232,9 @@ export default function ChatInput({
       // 逻辑：复用统一的发送逻辑，保证校验一致。
       void handleSubmit(nextValue);
     };
-    window.addEventListener("tenas:chat-send-message", handleSearchAiRequest);
+    window.addEventListener("openloaf:chat-send-message", handleSearchAiRequest);
     return () => {
-      window.removeEventListener("tenas:chat-send-message", handleSearchAiRequest);
+      window.removeEventListener("openloaf:chat-send-message", handleSearchAiRequest);
     };
   }, [handleSubmit]);
 

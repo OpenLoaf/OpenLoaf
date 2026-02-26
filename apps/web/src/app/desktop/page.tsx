@@ -9,7 +9,7 @@ import {
 import { desktopWidgetCatalog } from "@/components/desktop/widget-catalog";
 import type { DesktopBreakpoint } from "@/components/desktop/desktop-breakpoints";
 import type { DesktopItem } from "@/components/desktop/types";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { areDesktopItemsEqual, cloneDesktopItems } from "@/components/desktop/desktop-history";

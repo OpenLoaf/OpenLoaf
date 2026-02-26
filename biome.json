@@ -1,6 +1,6 @@
 {
   "$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
-  "name": "tenas-ai",
+  "name": "openloaf",
   "formatter": {
     "enabled": true,
     "indentStyle": "space",

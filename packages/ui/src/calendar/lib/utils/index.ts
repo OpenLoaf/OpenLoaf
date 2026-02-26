@@ -1,7 +1,7 @@
 import type { ClassValue } from 'clsx'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs))

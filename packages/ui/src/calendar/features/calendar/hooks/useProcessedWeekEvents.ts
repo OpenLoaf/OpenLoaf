@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
-import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
-import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { getPositionedEvents } from '@tenas-ai/ui/calendar/lib/utils/position-week-events'
+import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
+import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { getPositionedEvents } from '@openloaf/ui/calendar/lib/utils/position-week-events'
 
 interface UseProcessedWeekEventsProps {
 	days: dayjs.Dayjs[]

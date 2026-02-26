@@ -1,6 +1,6 @@
-import type { BusinessHours } from '@tenas-ai/ui/calendar/components/types'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { getDayHours } from '@tenas-ai/ui/calendar/lib/utils/date-utils'
+import type { BusinessHours } from '@openloaf/ui/calendar/components/types'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { getDayHours } from '@openloaf/ui/calendar/lib/utils/date-utils'
 import { getBusinessHoursForDate } from './business-hours'
 
 interface GetViewHoursOptions {

@@ -1,7 +1,7 @@
 "use client";
 
-import type { UiEvent } from "@tenas-ai/api/types/event";
-import { UiEventKind } from "@tenas-ai/api/types/event";
+import type { UiEvent } from "@openloaf/api/types/event";
+import { UiEventKind } from "@openloaf/api/types/event";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { getProjectsQueryKey } from "@/hooks/use-projects";
 import { queryClient } from "@/utils/trpc";

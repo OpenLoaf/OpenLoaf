@@ -1,7 +1,7 @@
 import type { Context, Hono } from "hono";
 import { logger } from "@/common/logger";
 import { fetchModelList, fetchModelsUpdatedAt } from "@/modules/saas";
-import type { ModelDefinition } from "@tenas-ai/api/common";
+import type { ModelDefinition } from "@openloaf/api/common";
 import {
   normalizeCloudChatModels,
   type CloudChatModelsResponse,

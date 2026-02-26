@@ -1,21 +1,21 @@
 /**
  * 通用 Agent 模型解析 — 从指定 agent 的配置读取模型 ID。
  *
- * 支持系统 agent（.tenas/agents/）和动态 agent（.agents/agents/）。
+ * 支持系统 agent（.openloaf/agents/）和动态 agent（.agents/agents/）。
  * chatStreamService 和 agentTools 共用此函数，避免重复逻辑。
  */
 
-import type { ChatModelSource } from '@tenas-ai/api/common'
+import type { ChatModelSource } from '@openloaf/api/common'
 import { readAgentJson, resolveAgentDir } from '@/ai/shared/defaultAgentResolver'
 import { resolveEffectiveAgentName } from '@/ai/services/agentFactory'
 import { isSystemAgentId } from '@/ai/shared/systemAgentDefinitions'
 import { resolveAgentByName } from '@/ai/tools/AgentSelector'
-import { readBasicConf } from '@/modules/settings/tenasConfStore'
+import { readBasicConf } from '@/modules/settings/openloafConfStore'
 import {
   getProjectRootPath,
   getWorkspaceRootPath,
   getWorkspaceRootPathById,
-} from '@tenas-ai/api/services/vfsService'
+} from '@openloaf/api/services/vfsService'
 
 export type AgentModelIds = {
   chatModelId?: string
@@ -28,7 +28,7 @@ export type AgentModelIds = {
  * 从指定 agent 的配置读取模型 ID。
  *
  * 查找顺序：project root → workspace root → fallback workspace。
- * 支持系统 agent（.tenas/agents/<id>/agent.json）和
+ * 支持系统 agent（.openloaf/agents/<id>/agent.json）和
  * 动态 agent（.agents/agents/<name>/AGENT.md）。
  */
 export function resolveAgentModelIdsFromConfig(input: {
@@ -57,7 +57,7 @@ export function resolveAgentModelIdsFromConfig(input: {
   const fallbackWs = getWorkspaceRootPath()
   if (fallbackWs && !roots.includes(fallbackWs)) roots.push(fallbackWs)
 
-  // 逻辑：系统 Agent — 从 .tenas/agents/<id>/agent.json 读取。
+  // 逻辑：系统 Agent — 从 .openloaf/agents/<id>/agent.json 读取。
   if (isSystemAgentId(effectiveName)) {
     for (const rootPath of roots) {
       const descriptor = readAgentJson(resolveAgentDir(rootPath, effectiveName))

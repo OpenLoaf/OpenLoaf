@@ -5,7 +5,7 @@ import { Lock, Paperclip, Search, Mail } from "lucide-react";
 import { useInfiniteQuery, useQuery, skipToken } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { Input } from "@tenas-ai/ui/input";
+import { Input } from "@openloaf/ui/input";
 import { trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/components/workspace/workspaceContext";

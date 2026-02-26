@@ -18,7 +18,7 @@ import { trpc } from "@/utils/trpc";
 import {
   TERMINAL_WINDOW_COMPONENT,
   TERMINAL_WINDOW_PANEL_ID,
-} from "@tenas-ai/api/common";
+} from "@openloaf/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -444,7 +444,7 @@ export function useProjectFileSystemModel({
   const [isDragActive, setIsDragActive] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const trashRootUri = useMemo(
-    () => (rootUri ? buildChildUri(normalizedRootUri, ".tenas-trash") : null),
+    () => (rootUri ? buildChildUri(normalizedRootUri, ".openloaf-trash") : null),
     [normalizedRootUri, rootUri]
   );
   const historyKey = useMemo(
@@ -480,7 +480,7 @@ export function useProjectFileSystemModel({
     if (!isElectron) return;
     let hideTimer: number | null = null;
     const handleProgress = (event: Event) => {
-      const detail = (event as CustomEvent<TenasTransferProgress>).detail;
+      const detail = (event as CustomEvent<OpenLoafTransferProgress>).detail;
       if (!detail?.id) return;
       updateTransferProgress((prev) => {
         if (!prev || prev.id !== detail.id) return prev ?? null;
@@ -492,7 +492,7 @@ export function useProjectFileSystemModel({
       });
     };
     const handleError = (event: Event) => {
-      const detail = (event as CustomEvent<TenasTransferError>).detail;
+      const detail = (event as CustomEvent<OpenLoafTransferError>).detail;
       if (!detail?.id) return;
       updateTransferProgress((prev) => {
         if (!prev || prev.id !== detail.id) return prev ?? null;
@@ -500,7 +500,7 @@ export function useProjectFileSystemModel({
       });
     };
     const handleComplete = (event: Event) => {
-      const detail = (event as CustomEvent<TenasTransferComplete>).detail;
+      const detail = (event as CustomEvent<OpenLoafTransferComplete>).detail;
       if (!detail?.id) return;
       updateTransferProgress((prev) => {
         if (!prev || prev.id !== detail.id) return prev ?? null;
@@ -509,13 +509,13 @@ export function useProjectFileSystemModel({
       if (hideTimer) window.clearTimeout(hideTimer);
       hideTimer = window.setTimeout(() => updateTransferProgress(null), 800);
     };
-    window.addEventListener("tenas:fs:transfer-progress", handleProgress);
-    window.addEventListener("tenas:fs:transfer-error", handleError);
-    window.addEventListener("tenas:fs:transfer-complete", handleComplete);
+    window.addEventListener("openloaf:fs:transfer-progress", handleProgress);
+    window.addEventListener("openloaf:fs:transfer-error", handleError);
+    window.addEventListener("openloaf:fs:transfer-complete", handleComplete);
     return () => {
-      window.removeEventListener("tenas:fs:transfer-progress", handleProgress);
-      window.removeEventListener("tenas:fs:transfer-error", handleError);
-      window.removeEventListener("tenas:fs:transfer-complete", handleComplete);
+      window.removeEventListener("openloaf:fs:transfer-progress", handleProgress);
+      window.removeEventListener("openloaf:fs:transfer-error", handleError);
+      window.removeEventListener("openloaf:fs:transfer-complete", handleComplete);
       if (hideTimer) window.clearTimeout(hideTimer);
     };
   }, [isElectron, updateTransferProgress]);
@@ -527,9 +527,9 @@ export function useProjectFileSystemModel({
       // 中文注释：打印主进程回传的拖拽诊断信息，便于定位 IPC 是否送达。
       console.log("[drag-out] main log", detail);
     };
-    window.addEventListener("tenas:fs:drag-log", handleDragLog);
+    window.addEventListener("openloaf:fs:drag-log", handleDragLog);
     return () => {
-      window.removeEventListener("tenas:fs:drag-log", handleDragLog);
+      window.removeEventListener("openloaf:fs:drag-log", handleDragLog);
     };
   }, [isElectron]);
 
@@ -616,7 +616,7 @@ export function useProjectFileSystemModel({
       },
       trash: async (uri) => {
         const fileUri = resolveFileUriFromRoot(rootUri, uri);
-        const res = await window.tenasElectron?.trashItem?.({ uri: fileUri });
+        const res = await window.openloafElectron?.trashItem?.({ uri: fileUri });
         if (!res?.ok) {
           throw new Error(res?.reason ?? "无法移动到回收站");
         }
@@ -814,7 +814,7 @@ export function useProjectFileSystemModel({
       return;
     }
     const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
-    const res = await window.tenasElectron?.openPath?.({ uri: fileUri });
+    const res = await window.openloafElectron?.openPath?.({ uri: fileUri });
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件");
     }
@@ -842,8 +842,8 @@ export function useProjectFileSystemModel({
     const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
     const res =
       entry.kind === "folder"
-        ? await window.tenasElectron?.openPath?.({ uri: fileUri })
-        : await window.tenasElectron?.showItemInFolder?.({ uri: fileUri });
+        ? await window.openloafElectron?.openPath?.({ uri: fileUri })
+        : await window.openloafElectron?.showItemInFolder?.({ uri: fileUri });
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件管理器");
     }
@@ -893,7 +893,7 @@ export function useProjectFileSystemModel({
       toast.error("未找到工作区目录");
       return;
     }
-    const res = await window.tenasElectron?.openPath?.({ uri: targetUri });
+    const res = await window.openloafElectron?.openPath?.({ uri: targetUri });
     if (!res?.ok) {
       toast.error(res?.reason ?? "无法打开文件管理器");
     }
@@ -1204,10 +1204,10 @@ export function useProjectFileSystemModel({
     if (!workspaceId) return;
     const ok = window.confirm(`彻底删除「${entry.name}」？此操作不可撤回。`);
     if (!ok) return;
-    if (isElectron && window.tenasElectron?.trashItem) {
+    if (isElectron && window.openloafElectron?.trashItem) {
       try {
         const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
-        const res = await window.tenasElectron.trashItem({ uri: fileUri });
+        const res = await window.openloafElectron.trashItem({ uri: fileUri });
         if (!res?.ok) {
           toast.error(res?.reason ?? "无法移动到系统回收站");
           return;
@@ -1238,10 +1238,10 @@ export function useProjectFileSystemModel({
     );
     if (!ok) return;
     for (const entry of entries) {
-      if (isElectron && window.tenasElectron?.trashItem) {
+      if (isElectron && window.openloafElectron?.trashItem) {
         try {
           const fileUri = resolveFileUriFromRoot(rootUri, entry.uri);
-          const res = await window.tenasElectron.trashItem({ uri: fileUri });
+          const res = await window.openloafElectron.trashItem({ uri: fileUri });
           if (!res?.ok) {
             toast.error(res?.reason ?? "无法移动到系统回收站");
           }
@@ -1462,8 +1462,8 @@ export function useProjectFileSystemModel({
       const targetFileUri = resolveFileUriFromRoot(rootUri, nextUri);
       // 中文注释：Electron 通过 preload bridge 获取真实文件路径（webUtils.getPathForFile）。
       const localPathFromBridge =
-        isElectron && window.tenasElectron?.getPathForFile
-          ? window.tenasElectron.getPathForFile(file)
+        isElectron && window.openloafElectron?.getPathForFile
+          ? window.openloafElectron.getPathForFile(file)
           : null;
       const localPath = isElectron
         ? localPathByName?.get(file.name) ??
@@ -1520,7 +1520,7 @@ export function useProjectFileSystemModel({
   /** Start an Electron transfer for a local file/folder. */
   const startElectronTransfer = useCallback(
     async (payload: ElectronTransferPayload, displayName: string) => {
-      if (!window.tenasElectron?.startTransfer) {
+      if (!window.openloafElectron?.startTransfer) {
         updateTransferProgress({
           id: payload.id,
           currentName: displayName,
@@ -1538,7 +1538,7 @@ export function useProjectFileSystemModel({
         status: "running",
         payload,
       });
-      const result = await window.tenasElectron.startTransfer(payload);
+      const result = await window.openloafElectron.startTransfer(payload);
       if (!result?.ok) {
         updateTransferProgress((prev) => {
           if (!prev || prev.id !== payload.id) return prev ?? null;
@@ -1838,7 +1838,7 @@ export function useProjectFileSystemModel({
     event: DragEvent<HTMLElement>
   ) => {
     const primaryEntry = entries[0];
-    if (isElectron && window.tenasElectron?.startDrag) {
+    if (isElectron && window.openloafElectron?.startDrag) {
       // 中文注释：Electron 原生拖拽需要阻止 HTML5 dragstart，避免拖拽卡死。
       event.preventDefault();
       const dragUris = entries
@@ -1852,7 +1852,7 @@ export function useProjectFileSystemModel({
         .filter((item) => item.length > 0);
       console.log("[drag-out] renderer startDrag", {
         isElectron,
-        hasApi: Boolean(window.tenasElectron?.startDrag),
+        hasApi: Boolean(window.openloafElectron?.startDrag),
         dragUris,
       });
       if (dragUris.length > 0) {
@@ -1882,7 +1882,7 @@ export function useProjectFileSystemModel({
             createdAt: Date.now(),
           });
         }
-        window.tenasElectron.startDrag({ uris: dragUris });
+        window.openloafElectron.startDrag({ uris: dragUris });
       }
       return;
     }

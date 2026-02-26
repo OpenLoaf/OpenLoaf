@@ -1,8 +1,8 @@
 import Imap from "imap";
 
-import { prisma } from "@tenas-ai/db";
+import { prisma } from "@openloaf/db";
 import { logger } from "@/common/logger";
-import { getWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
+import { getWorkspaces } from "@openloaf/api/services/workspaceConfig";
 import { readEmailConfigFile } from "./emailConfigStore";
 import { getEmailEnvValue } from "./emailEnvStore";
 import { syncRecentMailboxMessages } from "./emailSyncService";

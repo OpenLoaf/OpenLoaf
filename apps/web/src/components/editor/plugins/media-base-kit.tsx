@@ -9,10 +9,10 @@ import {
 } from '@platejs/media';
 import { KEYS } from 'platejs';
 
-import { AudioElementStatic } from '@tenas-ai/ui/media-audio-node-static';
-import { FileElementStatic } from '@tenas-ai/ui/media-file-node-static';
-import { ImageElementStatic } from '@tenas-ai/ui/media-image-node-static';
-import { VideoElementStatic } from '@tenas-ai/ui/media-video-node-static';
+import { AudioElementStatic } from '@openloaf/ui/media-audio-node-static';
+import { FileElementStatic } from '@openloaf/ui/media-file-node-static';
+import { ImageElementStatic } from '@openloaf/ui/media-image-node-static';
+import { VideoElementStatic } from '@openloaf/ui/media-video-node-static';
 
 export const BaseMediaKit = [
   BaseImagePlugin.withComponent(ImageElementStatic),

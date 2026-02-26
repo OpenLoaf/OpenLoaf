@@ -1,14 +1,14 @@
 export {};
 
 declare global {
-  type TenasViewBounds = { x: number; y: number; width: number; height: number };
-  type TenasIncrementalUpdateState =
+  type OpenLoafViewBounds = { x: number; y: number; width: number; height: number };
+  type OpenLoafIncrementalUpdateState =
     | "idle"
     | "checking"
     | "downloading"
     | "ready"
     | "error";
-  type TenasIncrementalComponentInfo = {
+  type OpenLoafIncrementalComponentInfo = {
     /** Current version or "bundled" label. */
     version: string;
     /** Source label: bundled or updated. */
@@ -20,13 +20,13 @@ declare global {
     /** Changelog URL (markdown file). */
     changelogUrl?: string;
   };
-  type TenasIncrementalUpdateStatus = {
+  type OpenLoafIncrementalUpdateStatus = {
     /** Current incremental update state. */
-    state: TenasIncrementalUpdateState;
+    state: OpenLoafIncrementalUpdateState;
     /** Server component info. */
-    server: TenasIncrementalComponentInfo;
+    server: OpenLoafIncrementalComponentInfo;
     /** Web component info. */
-    web: TenasIncrementalComponentInfo;
+    web: OpenLoafIncrementalComponentInfo;
     /** Download progress (only when downloading). */
     progress?: { component: "server" | "web"; percent: number };
     /** Last check timestamp. */
@@ -36,46 +36,46 @@ declare global {
     /** Status timestamp. */
     ts: number;
   };
-  type TenasSpeechResult = {
+  type OpenLoafSpeechResult = {
     type: "partial" | "final";
     text: string;
     lang?: string;
   };
-  type TenasSpeechState = {
+  type OpenLoafSpeechState = {
     state: "listening" | "stopped" | "idle" | "error";
     reason?: string;
     lang?: string;
   };
-  type TenasSpeechError = {
+  type OpenLoafSpeechError = {
     message: string;
     detail?: string;
   };
   /** Transfer progress payload from Electron. */
-  type TenasTransferProgress = {
+  type OpenLoafTransferProgress = {
     id: string;
     currentName: string;
     percent: number;
   };
   /** Transfer error payload from Electron. */
-  type TenasTransferError = {
+  type OpenLoafTransferError = {
     id: string;
     reason?: string;
   };
   /** Transfer complete payload from Electron. */
-  type TenasTransferComplete = {
+  type OpenLoafTransferComplete = {
     id: string;
   };
   /** Calendar permission state from system. */
-  type TenasCalendarPermissionState = "granted" | "denied" | "prompt" | "unsupported";
+  type OpenLoafCalendarPermissionState = "granted" | "denied" | "prompt" | "unsupported";
   /** Calendar time range for event queries (ISO strings). */
-  type TenasCalendarRange = {
+  type OpenLoafCalendarRange = {
     /** Inclusive start time in ISO 8601 format. */
     start: string;
     /** Exclusive end time in ISO 8601 format. */
     end: string;
   };
   /** Calendar metadata shown in the UI. */
-  type TenasCalendarItem = {
+  type OpenLoafCalendarItem = {
     /** System calendar id. */
     id: string;
     /** Display title for the calendar. */
@@ -88,7 +88,7 @@ declare global {
     isSubscribed?: boolean;
   };
   /** Normalized event shape used by UI calendar. */
-  type TenasCalendarEvent = {
+  type OpenLoafCalendarEvent = {
     /** System event id. */
     id: string;
     /** Event title. */
@@ -115,12 +115,12 @@ declare global {
     completed?: boolean;
   };
   /** Calendar API result wrapper. */
-  type TenasCalendarResult<T> =
+  type OpenLoafCalendarResult<T> =
     | { ok: true; data: T }
     | { ok: false; reason: string; code?: string };
 
   interface Window {
-    tenasElectron?: {
+    openloafElectron?: {
       openBrowserWindow: (url: string) => Promise<{ id: number }>;
       openExternal?: (url: string) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       fetchWebMeta?: (payload: {
@@ -144,7 +144,7 @@ declare global {
       upsertWebContentsView: (args: {
         key: string;
         url: string;
-        bounds: TenasViewBounds;
+        bounds: OpenLoafViewBounds;
         visible?: boolean;
       }) => Promise<{ ok: true }>;
       destroyWebContentsView: (key: string) => Promise<{ ok: true }>;
@@ -168,7 +168,7 @@ declare global {
       /** Trigger incremental update check (server/web). */
       checkIncrementalUpdate?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
       /** Get incremental update status snapshot. */
-      getIncrementalUpdateStatus?: () => Promise<TenasIncrementalUpdateStatus>;
+      getIncrementalUpdateStatus?: () => Promise<OpenLoafIncrementalUpdateStatus>;
       /** Reset incremental updates to bundled version. */
       resetIncrementalUpdate?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
       /** Get current update channel (stable / beta). */
@@ -216,55 +216,55 @@ declare global {
       /** Calendar API (system calendars). */
       calendar?: {
         /** Request calendar permission from OS. */
-        requestPermission: () => Promise<TenasCalendarResult<TenasCalendarPermissionState>>;
+        requestPermission: () => Promise<OpenLoafCalendarResult<OpenLoafCalendarPermissionState>>;
         /** List available system calendars. */
-        getCalendars: () => Promise<TenasCalendarResult<TenasCalendarItem[]>>;
+        getCalendars: () => Promise<OpenLoafCalendarResult<OpenLoafCalendarItem[]>>;
         /** Update calendar sync range for system pull. */
         setSyncRange?: (
-          payload: { workspaceId: string; range?: TenasCalendarRange }
+          payload: { workspaceId: string; range?: OpenLoafCalendarRange }
         ) => Promise<{ ok: true } | { ok: false; reason?: string }>;
         /** Trigger immediate system calendar sync. */
         syncNow?: (
-          payload: { workspaceId: string; range?: TenasCalendarRange }
+          payload: { workspaceId: string; range?: OpenLoafCalendarRange }
         ) => Promise<{ ok: true } | { ok: false; reason?: string }>;
         /** Query events within a time range. */
         getEvents: (
-          range: TenasCalendarRange
-        ) => Promise<TenasCalendarResult<TenasCalendarEvent[]>>;
+          range: OpenLoafCalendarRange
+        ) => Promise<OpenLoafCalendarResult<OpenLoafCalendarEvent[]>>;
         /** Create a new calendar event. */
         createEvent: (
-          payload: Omit<TenasCalendarEvent, "id">
-        ) => Promise<TenasCalendarResult<TenasCalendarEvent>>;
+          payload: Omit<OpenLoafCalendarEvent, "id">
+        ) => Promise<OpenLoafCalendarResult<OpenLoafCalendarEvent>>;
         /** Update an existing calendar event. */
         updateEvent: (
-          payload: TenasCalendarEvent
-        ) => Promise<TenasCalendarResult<TenasCalendarEvent>>;
+          payload: OpenLoafCalendarEvent
+        ) => Promise<OpenLoafCalendarResult<OpenLoafCalendarEvent>>;
         /** Delete a calendar event by id. */
         deleteEvent: (
           payload: { id: string }
-        ) => Promise<TenasCalendarResult<{ id: string }>>;
+        ) => Promise<OpenLoafCalendarResult<{ id: string }>>;
         /** Subscribe to system calendar changes. */
         subscribeChanges: (
           handler: (detail: { source: "system" }) => void
         ) => () => void;
         /** List reminder calendars (macOS only). */
-        getReminderLists?: () => Promise<TenasCalendarResult<TenasCalendarItem[]>>;
+        getReminderLists?: () => Promise<OpenLoafCalendarResult<OpenLoafCalendarItem[]>>;
         /** Query reminder items within a time range (macOS only). */
         getReminders?: (
-          range: TenasCalendarRange
-        ) => Promise<TenasCalendarResult<TenasCalendarEvent[]>>;
+          range: OpenLoafCalendarRange
+        ) => Promise<OpenLoafCalendarResult<OpenLoafCalendarEvent[]>>;
         /** Create a reminder item (macOS only). */
         createReminder?: (
-          payload: Omit<TenasCalendarEvent, "id">
-        ) => Promise<TenasCalendarResult<TenasCalendarEvent>>;
+          payload: Omit<OpenLoafCalendarEvent, "id">
+        ) => Promise<OpenLoafCalendarResult<OpenLoafCalendarEvent>>;
         /** Update a reminder item (macOS only). */
         updateReminder?: (
-          payload: TenasCalendarEvent
-        ) => Promise<TenasCalendarResult<TenasCalendarEvent>>;
+          payload: OpenLoafCalendarEvent
+        ) => Promise<OpenLoafCalendarResult<OpenLoafCalendarEvent>>;
         /** Delete a reminder item by id (macOS only). */
         deleteReminder?: (
           payload: { id: string }
-        ) => Promise<TenasCalendarResult<{ id: string }>>;
+        ) => Promise<OpenLoafCalendarResult<{ id: string }>>;
       };
     };
   }

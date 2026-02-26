@@ -1,5 +1,5 @@
 import { resolveServerUrl } from "@/utils/server-url";
-import type { SaasImageSubmitPayload, SaasVideoSubmitPayload } from "@tenas-ai/api/types/saasMedia";
+import type { SaasImageSubmitPayload, SaasVideoSubmitPayload } from "@openloaf/api/types/saasMedia";
 import { getAccessToken } from "@/lib/saas-auth";
 
 type FetchMediaModelsOptions = {

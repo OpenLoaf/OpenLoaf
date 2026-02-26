@@ -1,5 +1,5 @@
-import type { ModelDefinition } from "@tenas-ai/api/common";
-import type { BasicConfig } from "@tenas-ai/api/types/basic";
+import type { ModelDefinition } from "@openloaf/api/common";
+import type { BasicConfig } from "@openloaf/api/types/basic";
 
 export type ModelProviderValue = {
   /** Provider id. */

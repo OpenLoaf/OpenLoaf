@@ -1,16 +1,16 @@
 import { Clock } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Button } from '@tenas-ai/ui/calendar/components/ui/button'
-import { Input } from '@tenas-ai/ui/calendar/components/ui/input'
+import { Button } from '@openloaf/ui/calendar/components/ui/button'
+import { Input } from '@openloaf/ui/calendar/components/ui/input'
 import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
-} from '@tenas-ai/ui/calendar/components/ui/popover'
-import { ScrollArea } from '@tenas-ai/ui/calendar/components/ui/scroll-area'
-import { useAutocompleteTimepicker } from '@tenas-ai/ui/calendar/hooks/use-autocomplete-timepicker'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
-import type { TimeFormat } from '@tenas-ai/ui/calendar/types'
+} from '@openloaf/ui/calendar/components/ui/popover'
+import { ScrollArea } from '@openloaf/ui/calendar/components/ui/scroll-area'
+import { useAutocompleteTimepicker } from '@openloaf/ui/calendar/hooks/use-autocomplete-timepicker'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
+import type { TimeFormat } from '@openloaf/ui/calendar/types'
 
 const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
 	// Prevent event from bubbling to prevent Popover from closing

@@ -17,7 +17,7 @@ async function run() {
   assert.equal(resolved, false);
 
   eventTarget.dispatchEvent(
-    new CustomEvent("tenas:webcontents-view:status", {
+    new CustomEvent("openloaf:webcontents-view:status", {
       detail: { key: viewKey, webContentsId: 1, loading: true, ready: false, ts: Date.now() },
     }),
   );
@@ -25,7 +25,7 @@ async function run() {
   assert.equal(resolved, false);
 
   eventTarget.dispatchEvent(
-    new CustomEvent("tenas:webcontents-view:status", {
+    new CustomEvent("openloaf:webcontents-view:status", {
       detail: { key: viewKey, webContentsId: 1, loading: false, ready: true, ts: Date.now() },
     }),
   );

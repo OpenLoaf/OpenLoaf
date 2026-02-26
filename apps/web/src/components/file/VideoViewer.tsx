@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { VideoPlayer } from "@tenas-ai/ui/video-player";
+import { VideoPlayer } from "@openloaf/ui/video-player";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { resolveServerUrl } from "@/utils/server-url";

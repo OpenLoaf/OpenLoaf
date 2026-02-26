@@ -1,6 +1,6 @@
 "use client";
 
-import { SaaSClient } from "@tenas-saas/sdk";
+import { SaaSClient } from "@openloaf-saas/sdk";
 import { resolveServerUrl } from "@/utils/server-url";
 
 type StorageType = "local" | "session";
@@ -36,7 +36,7 @@ const USER_KEY = "tn_saas_user";
 /** Resolve SaaS base URL from env. */
 export function resolveSaasBaseUrl(): string {
   const raw =
-    process.env.NEXT_PUBLIC_TENAS_SAAS_URL ??
+    process.env.NEXT_PUBLIC_OPENLOAF_SAAS_URL ??
     process.env.NEXT_PUBLIC_SAAS_URL ??
     "";
   return raw.trim().replace(/\/$/, "");
@@ -331,8 +331,8 @@ export function buildSaasLoginUrl(input: {
 /** Open external URL in system browser (Electron) or new tab. */
 export async function openExternalUrl(url: string): Promise<void> {
   if (typeof window === "undefined") return;
-  if (window.tenasElectron?.openExternal) {
-    const result = await window.tenasElectron.openExternal(url);
+  if (window.openloafElectron?.openExternal) {
+    const result = await window.openloafElectron.openExternal(url);
     if (!result.ok) {
       throw new Error(result.reason ?? "无法打开浏览器");
     }

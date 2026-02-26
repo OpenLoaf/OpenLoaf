@@ -1,8 +1,8 @@
 import { RRule } from 'rrule'
-import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
-import type { RRuleOptions } from '@tenas-ai/ui/calendar/features/recurrence/types'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { omitKeys, safeDate } from '@tenas-ai/ui/calendar/lib/utils'
+import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
+import type { RRuleOptions } from '@openloaf/ui/calendar/features/recurrence/types'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { omitKeys, safeDate } from '@openloaf/ui/calendar/lib/utils'
 
 /**
  * Converts a Dayjs object to a "Floating Time" Date representation.

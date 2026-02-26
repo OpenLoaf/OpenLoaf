@@ -11,7 +11,7 @@ import {
   type TooltipProps as TooltipPrimitiveProps,
   type TooltipTriggerProps as TooltipTriggerPrimitiveProps,
   type TooltipContentProps as TooltipContentPrimitiveProps,
-} from '@tenas-ai/ui/animate-ui/primitives/animate/tooltip';
+} from '@openloaf/ui/animate-ui/primitives/animate/tooltip';
 import { cn } from '@/lib/utils';
 
 type TooltipProviderProps = TooltipProviderPrimitiveProps;

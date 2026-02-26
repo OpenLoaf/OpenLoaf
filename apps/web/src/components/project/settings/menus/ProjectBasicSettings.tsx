@@ -2,15 +2,15 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FilePenLine, PencilLine, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@tenas-ai/ui/button";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
+import { Button } from "@openloaf/ui/button";
+import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
+import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 import { useProject } from "@/hooks/use-project";
 import { useProjects } from "@/hooks/use-projects";
 import { trpc } from "@/utils/trpc";
 import { PageTreePicker } from "@/components/layout/sidebar/ProjectTree";
-import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
-import { EmojiPicker } from "@tenas-ai/ui/emoji-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
+import { EmojiPicker } from "@openloaf/ui/emoji-picker";
 import {
   Dialog,
   DialogClose,
@@ -19,9 +19,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
-import { Input } from "@tenas-ai/ui/input";
-import { Label } from "@tenas-ai/ui/label";
+} from "@openloaf/ui/dialog";
+import { Input } from "@openloaf/ui/input";
+import { Label } from "@openloaf/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +31,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@tenas-ai/ui/alert-dialog";
+} from "@openloaf/ui/alert-dialog";
 import {
   formatSize,
   getDisplayPathFromUri,
@@ -421,7 +421,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
       toast.error("缺少项目 ID");
       return;
     }
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!api?.pickDirectory) {
       toast.error("网页版不支持选择目录");
       return;
@@ -524,14 +524,14 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
 
   return (
     <div className="space-y-4">
-      <TenasSettingsGroup title="项目设置" cardProps={{ divided: true, padding: "x" }}>
+      <OpenLoafSettingsGroup title="项目设置" cardProps={{ divided: true, padding: "x" }}>
         <div className="flex flex-wrap items-start gap-2 py-3">
           <div className="min-w-0 sm:w-56">
             <div className="text-sm font-medium">项目 ID</div>
             <div className="text-xs text-muted-foreground">仅用于识别与复制</div>
           </div>
 
-          <TenasSettingsField>
+          <OpenLoafSettingsField>
             <button
               type="button"
               className={baseValueTruncateClass}
@@ -545,7 +545,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             >
               {projectId ?? "-"}
             </button>
-          </TenasSettingsField>
+          </OpenLoafSettingsField>
         </div>
 
         <div className="flex flex-wrap items-start gap-2 py-3">
@@ -554,7 +554,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             <div className="text-xs text-muted-foreground">支持 Emoji</div>
           </div>
 
-          <TenasSettingsField>
+          <OpenLoafSettingsField>
             <Popover open={iconPickerOpen} onOpenChange={setIconPickerOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -585,7 +585,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
                 />
               </PopoverContent>
             </Popover>
-          </TenasSettingsField>
+          </OpenLoafSettingsField>
         </div>
 
         <div className="flex flex-wrap items-start gap-2 py-3">
@@ -594,7 +594,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             <div className="text-xs text-muted-foreground">显示在项目标题处</div>
           </div>
 
-          <TenasSettingsField className="gap-2">
+          <OpenLoafSettingsField className="gap-2">
             <button
               type="button"
               className={baseValueTruncateClass}
@@ -620,7 +620,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             >
               <PencilLine className="size-4" />
             </Button>
-          </TenasSettingsField>
+          </OpenLoafSettingsField>
         </div>
 
         <div className="flex flex-wrap items-start gap-2 py-3">
@@ -631,7 +631,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             </div>
           </div>
 
-          <TenasSettingsField className="gap-2">
+          <OpenLoafSettingsField className="gap-2">
             <button
               type="button"
               className={baseValueTruncateClass}
@@ -664,18 +664,18 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
                 移到根项目
               </Button>
             ) : null}
-          </TenasSettingsField>
+          </OpenLoafSettingsField>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
-      <TenasSettingsGroup title="存储管理" cardProps={{ divided: true, padding: "x" }}>
+      <OpenLoafSettingsGroup title="存储管理" cardProps={{ divided: true, padding: "x" }}>
         <div className="flex flex-wrap items-start gap-2 py-3">
           <div className="min-w-0 sm:w-56">
             <div className="text-sm font-medium">存储路径</div>
             <div className="text-xs text-muted-foreground">项目根目录</div>
           </div>
 
-          <TenasSettingsField className="gap-2">
+          <OpenLoafSettingsField className="gap-2">
             <button
               type="button"
               className={baseValueWrapClass}
@@ -700,7 +700,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             >
               <FilePenLine className="size-4" />
             </Button>
-          </TenasSettingsField>
+          </OpenLoafSettingsField>
         </div>
 
         <div className="flex flex-wrap items-start gap-2 py-3">
@@ -711,7 +711,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             </div>
           </div>
 
-          <TenasSettingsField className="gap-2">
+          <OpenLoafSettingsField className="gap-2">
             <div className={baseValueTruncateClass}>
               {cacheSizeQuery.isFetching
                 ? "计算中..."
@@ -726,18 +726,18 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             >
               清空缓存
             </Button>
-          </TenasSettingsField>
+          </OpenLoafSettingsField>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
-      <TenasSettingsGroup title="AI 聊天" cardProps={{ divided: true, padding: "x" }}>
+      <OpenLoafSettingsGroup title="AI 聊天" cardProps={{ divided: true, padding: "x" }}>
         <div className="flex flex-wrap items-start gap-2 py-3">
           <div className="min-w-0 sm:w-56">
             <div className="text-sm font-medium">AI 聊天记录数量</div>
             <div className="text-xs text-muted-foreground">清空后不可恢复</div>
           </div>
 
-          <TenasSettingsField className="gap-2">
+          <OpenLoafSettingsField className="gap-2">
             <button
               type="button"
               className={baseValueTruncateClass}
@@ -768,9 +768,9 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
                 <span>{clearProjectChat.isPending ? "清空中..." : "清空"}</span>
               </Button>
             ) : null}
-          </TenasSettingsField>
+          </OpenLoafSettingsField>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
       <Dialog
         open={renameOpen}
@@ -964,7 +964,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           <AlertDialogHeader>
             <AlertDialogTitle>确认清空缓存</AlertDialogTitle>
             <AlertDialogDescription>
-              将删除当前项目下的 .tenas-cache 目录，操作不可恢复。
+              将删除当前项目下的 .openloaf-cache 目录，操作不可恢复。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

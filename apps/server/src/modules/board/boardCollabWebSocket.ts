@@ -14,7 +14,7 @@ import {
   type BoardCollabQuery,
   type BoardJsonSnapshot,
   resolveScopedPath,
-} from "@tenas-ai/api";
+} from "@openloaf/api";
 import { logger } from "@/common/logger";
 
 const BOARD_DOC_KEY = "board";

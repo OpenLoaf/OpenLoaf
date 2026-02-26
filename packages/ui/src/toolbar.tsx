@@ -11,9 +11,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuSeparator,
-} from '@tenas-ai/ui/dropdown-menu';
-import { Separator } from '@tenas-ai/ui/separator';
-import { Tooltip, TooltipTrigger } from '@tenas-ai/ui/tooltip';
+} from '@openloaf/ui/dropdown-menu';
+import { Separator } from '@openloaf/ui/separator';
+import { Tooltip, TooltipTrigger } from '@openloaf/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 export function Toolbar({

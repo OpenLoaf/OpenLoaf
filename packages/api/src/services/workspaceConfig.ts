@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { getDefaultWorkspaceRootDir, getLegacyWorkspaceRootDir, getTenasRootDir } from "@tenas-ai/config";
+import { getDefaultWorkspaceRootDir, getLegacyWorkspaceRootDir, getOpenLoafRootDir } from "@openloaf/config";
 import { workspaceBase, type Workspace } from "../types/workspace";
 
 /** Schema for workspaces.json. */
@@ -18,7 +18,7 @@ let cachedWorkspaces: WorkspacesFile | null = null;
 
 /** Resolve config directory. */
 function getConfigDir(): string {
-  return getTenasRootDir();
+  return getOpenLoafRootDir();
 }
 
 /** Resolve workspaces.json path. */

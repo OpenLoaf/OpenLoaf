@@ -14,7 +14,7 @@
   "aliases": {
     "components": "@/components",
     "utils": "@/lib/utils",
-    "ui": "@tenas-ai/ui",
+    "ui": "@openloaf/ui",
     "lib": "@/lib",
     "hooks": "@/hooks"
   },

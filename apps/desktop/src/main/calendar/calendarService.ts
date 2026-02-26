@@ -42,10 +42,10 @@ function resolveCalendarHelperPath(): string | null {
 
   if (platform === "darwin") {
     relativeDir = "macos";
-    binaryName = "tenas-calendar";
+    binaryName = "openloaf-calendar";
   } else if (platform === "win32") {
     relativeDir = "windows";
-    binaryName = "tenas-calendar.exe";
+    binaryName = "openloaf-calendar.exe";
   } else {
     return null;
   }
@@ -129,7 +129,7 @@ export function createCalendarService(args: { log: Logger }) {
   const emitChange = () => {
     for (const webContents of listeners) {
       if (webContents.isDestroyed()) continue;
-      webContents.send("tenas:calendar:changed", { source: "system" });
+      webContents.send("openloaf:calendar:changed", { source: "system" });
     }
   };
 

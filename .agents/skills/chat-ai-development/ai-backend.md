@@ -110,7 +110,7 @@ export function buildToolset(toolIds: string[]) → Record<string, tool>
 
 - ToolId：`jsx-create`
 - 输入：JSX 字符串（string）
-- 写入：`.tenas/chat-history/<sessionId>/jsx/<messageId>.jsx`
+- 写入：`.openloaf/chat-history/<sessionId>/jsx/<messageId>.jsx`
 - 输出：`{ ok: true, path, messageId }`
 - 服务端校验：解析 JSX，禁止 `{}` 表达式与 `{...}` 展开，违规直接 tool error
 - 校验失败仍写入文件：错误信息中包含 path，后续用 apply-patch 修正

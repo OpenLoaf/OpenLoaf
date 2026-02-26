@@ -1,26 +1,26 @@
 import { type FC, useMemo } from 'react'
-import { AnimatedSection } from '@tenas-ai/ui/calendar/components/animations/animated-section'
-import { CalendarDndContext } from '@tenas-ai/ui/calendar/components/drag-and-drop/calendar-dnd-context'
-import { EventFormDialog } from '@tenas-ai/ui/calendar/components/event-form/event-form-dialog'
-import { Header } from '@tenas-ai/ui/calendar/components/header'
-import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
-import DayView from '@tenas-ai/ui/calendar/features/calendar/components/day-view/day-view'
-import { MonthView } from '@tenas-ai/ui/calendar/features/calendar/components/month-view/month-view'
-import WeekView from '@tenas-ai/ui/calendar/features/calendar/components/week-view/week-view'
-import { useCalendarContext } from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/context'
-import { CalendarProvider } from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/provider'
+import { AnimatedSection } from '@openloaf/ui/calendar/components/animations/animated-section'
+import { CalendarDndContext } from '@openloaf/ui/calendar/components/drag-and-drop/calendar-dnd-context'
+import { EventFormDialog } from '@openloaf/ui/calendar/components/event-form/event-form-dialog'
+import { Header } from '@openloaf/ui/calendar/components/header'
+import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
+import DayView from '@openloaf/ui/calendar/features/calendar/components/day-view/day-view'
+import { MonthView } from '@openloaf/ui/calendar/features/calendar/components/month-view/month-view'
+import WeekView from '@openloaf/ui/calendar/features/calendar/components/week-view/week-view'
+import { useCalendarContext } from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/context'
+import { CalendarProvider } from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/provider'
 // oxlint-disable-next-line no-duplicates
-import '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
+import '@openloaf/ui/calendar/lib/configs/dayjs-config'
 import type {
 	IlamyCalendarPropEvent,
 	IlamyCalendarProps,
-} from '@tenas-ai/ui/calendar/features/calendar/types'
+} from '@openloaf/ui/calendar/features/calendar/types'
 import {
 	DAY_MAX_EVENTS_DEFAULT,
 	GAP_BETWEEN_ELEMENTS,
 	WEEK_DAYS_NUMBER_MAP,
-} from '@tenas-ai/ui/calendar/lib/constants'
-import { cn, normalizeEvents, safeDate } from '@tenas-ai/ui/calendar/lib/utils'
+} from '@openloaf/ui/calendar/lib/constants'
+import { cn, normalizeEvents, safeDate } from '@openloaf/ui/calendar/lib/utils'
 
 const CalendarContent: FC = () => {
 	const { view, dayMaxEvents, sidebar, sidebarClassName, isSidebarOpen } =

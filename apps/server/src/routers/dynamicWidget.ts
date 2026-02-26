@@ -5,8 +5,8 @@ import {
   dynamicWidgetSchemas,
   t,
   shieldedProcedure,
-} from '@tenas-ai/api'
-import { getProjectRootPath, getWorkspaceRootPathById } from '@tenas-ai/api/services/vfsService'
+} from '@openloaf/api'
+import { getProjectRootPath, getWorkspaceRootPathById } from '@openloaf/api/services/vfsService'
 import { executeWidgetFunction } from '@/modules/dynamic-widget/functionExecutor'
 import { compileWidget } from '@/modules/dynamic-widget/widgetCompiler'
 
@@ -17,13 +17,13 @@ function getDynamicWidgetsDir(projectId: string | undefined, workspaceId: string
     if (!projectRoot) {
       throw new Error(`Project not found: ${projectId}`)
     }
-    return path.join(projectRoot, '.tenas', 'dynamic-widgets')
+    return path.join(projectRoot, '.openloaf', 'dynamic-widgets')
   }
   const workspaceRoot = getWorkspaceRootPathById(workspaceId)
   if (!workspaceRoot) {
     throw new Error(`Workspace not found: ${workspaceId}`)
   }
-  return path.join(workspaceRoot, '.tenas', 'dynamic-widgets')
+  return path.join(workspaceRoot, '.openloaf', 'dynamic-widgets')
 }
 
 /** Read and parse a widget's package.json. */
@@ -35,7 +35,7 @@ async function readWidgetPackage(widgetDir: string) {
     description?: string
     main?: string
     scripts?: Record<string, string>
-    tenas?: {
+    openloaf?: {
       type: 'widget'
       defaultSize?: string
       constraints?: {
@@ -77,7 +77,7 @@ export class DynamicWidgetRouterImpl extends BaseDynamicWidgetRouter {
                 description: pkg.description,
                 main: pkg.main || 'widget.tsx',
                 scripts: pkg.scripts,
-                tenas: pkg.tenas,
+                openloaf: pkg.openloaf,
               })
             } catch {
               // Skip invalid widget directories.
@@ -102,7 +102,7 @@ export class DynamicWidgetRouterImpl extends BaseDynamicWidgetRouter {
               description: pkg.description,
               main: pkg.main || 'widget.tsx',
               scripts: pkg.scripts,
-              tenas: pkg.tenas,
+              openloaf: pkg.openloaf,
             }
           } catch {
             return null

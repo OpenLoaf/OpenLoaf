@@ -1,5 +1,5 @@
-import type { SettingDef } from "@tenas-ai/api/types/setting";
-import { PublicSettingDefs } from "@tenas-ai/api/types/setting";
+import type { SettingDef } from "@openloaf/api/types/setting";
+import { PublicSettingDefs } from "@openloaf/api/types/setting";
 
 export const ServerSettingDefs = {
   ...PublicSettingDefs,

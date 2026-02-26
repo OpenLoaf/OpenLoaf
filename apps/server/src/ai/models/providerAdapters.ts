@@ -7,7 +7,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { createVercel } from "@ai-sdk/vercel";
 import { createXai } from "@ai-sdk/xai";
-import type { ModelDefinition, ProviderDefinition } from "@tenas-ai/api/common";
+import type { ModelDefinition, ProviderDefinition } from "@openloaf/api/common";
 import { cliAdapter } from "@/ai/models/cli/cliAdapter";
 import { qwenAdapter } from "@/ai/models/qwen/qwenAdapter";
 import {
@@ -40,7 +40,7 @@ type BedrockAuth = {
 };
 
 /** SaaS adapter id. */
-const SAAS_ADAPTER_ID = "tenas-saas";
+const SAAS_ADAPTER_ID = "openloaf-saas";
 
 export type ProviderAdapter = {
   id: string;
@@ -178,7 +178,7 @@ export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
   xai: buildAiSdkAdapter("xai", ({ apiUrl, apiKey, fetch }) =>
     createXai({ baseURL: ensureOpenAiCompatibleBaseUrl(apiUrl), apiKey, fetch }),
   ),
-  "tenas-saas": buildSaasAdapter(),
+  "openloaf-saas": buildSaasAdapter(),
   cli: cliAdapter,
   qwen: qwenAdapter,
   dashscope: qwenAdapter,

@@ -7,7 +7,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@tenas-ai/ui/table";
+} from "@openloaf/ui/table";
 
 export type SchedulerTaskRecord = {
   /** Record id. */

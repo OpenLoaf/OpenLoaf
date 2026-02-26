@@ -1,15 +1,15 @@
 import { ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Button } from '@tenas-ai/ui/calendar/components/ui/button'
+import { Button } from '@openloaf/ui/calendar/components/ui/button'
 import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
-} from '@tenas-ai/ui/calendar/components/ui/popover'
-import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
-import { getWeekDays } from '@tenas-ai/ui/calendar/lib/utils/date-utils'
+} from '@openloaf/ui/calendar/components/ui/popover'
+import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
+import { getWeekDays } from '@openloaf/ui/calendar/lib/utils/date-utils'
 
 const MONTH_KEYS = [
 	'january',

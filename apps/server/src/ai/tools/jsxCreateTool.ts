@@ -1,7 +1,7 @@
 import { tool, zodSchema } from 'ai'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
-import { jsxCreateToolDef } from '@tenas-ai/api/types/tools/jsxCreate'
+import { jsxCreateToolDef } from '@openloaf/api/types/tools/jsxCreate'
 import {
   getAssistantMessageId,
   getProjectId,
@@ -11,7 +11,7 @@ import {
 import {
   getProjectRootPath,
   getWorkspaceRootPathById,
-} from '@tenas-ai/api/services/vfsService'
+} from '@openloaf/api/services/vfsService'
 import { resolveMessagesJsonlPath } from '@/ai/services/chat/repositories/chatFileStore'
 import { validateJsxCreateInput } from '@/ai/tools/jsxCreateValidator'
 

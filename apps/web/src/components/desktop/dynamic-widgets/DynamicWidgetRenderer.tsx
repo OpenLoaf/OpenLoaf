@@ -2,12 +2,12 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { createWidgetSDK } from '@tenas-ai/widget-sdk'
-import type { WidgetSDK, WidgetHostCallbacks, WidgetTheme } from '@tenas-ai/widget-sdk'
+import { createWidgetSDK } from '@openloaf/widget-sdk'
+import type { WidgetSDK, WidgetHostCallbacks, WidgetTheme } from '@openloaf/widget-sdk'
 import { trpc, trpcClient } from '@/utils/trpc'
 import { useLoadDynamicComponent } from './useLoadDynamicComponent'
 
-const APPROVED_WIDGETS_KEY = 'tenas:approved-dynamic-widgets'
+const APPROVED_WIDGETS_KEY = 'openloaf:approved-dynamic-widgets'
 
 /** Read approved widget IDs from localStorage. */
 function getApprovedWidgets(): Set<string> {

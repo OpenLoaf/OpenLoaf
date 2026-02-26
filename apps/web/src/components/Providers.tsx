@@ -9,7 +9,7 @@ import { useDisableContextMenu } from "@/lib/useDisableContextMenu";
 import "@/lib/monaco/monaco-loader";
 import { ThemeProvider } from "./ThemeProvider";
 import { handleUiEvent } from "@/lib/chat/uiEvent";
-import type { UiEvent } from "@tenas-ai/api";
+import type { UiEvent } from "@openloaf/api";
 import { usePrewarmPlate } from "@/hooks/use-prewarm-plate";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import AutoUpdateGate from "@/components/layout/AutoUpdateGate";
@@ -123,7 +123,7 @@ function WindowsTitlebarSymbolColorBootstrap() {
   const { resolvedTheme } = useTheme();
 
   useEffect(() => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!api?.setTitleBarSymbolColor) return;
     const isElectron = isElectronEnv();
     if (!isElectron) return;
@@ -146,7 +146,7 @@ function WindowsTitlebarSymbolColorBootstrap() {
 
 function WindowsTitlebarHeightBootstrap() {
   useEffect(() => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     const setTitleBarOverlayHeight = api?.setTitleBarOverlayHeight;
     if (!setTitleBarOverlayHeight) return;
     const isElectron = isElectronEnv();
@@ -312,13 +312,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Electron 主进程会通过 preload 桥接 `tenas:ui-event`，这里统一交给 handleUiEvent 分发。
+    // Electron 主进程会通过 preload 桥接 `openloaf:ui-event`，这里统一交给 handleUiEvent 分发。
     const onUiEvent = (event: Event) => {
       const detail = (event as CustomEvent<UiEvent>).detail;
       handleUiEvent(detail);
     };
-    window.addEventListener("tenas:ui-event", onUiEvent);
-    return () => window.removeEventListener("tenas:ui-event", onUiEvent);
+    window.addEventListener("openloaf:ui-event", onUiEvent);
+    return () => window.removeEventListener("openloaf:ui-event", onUiEvent);
   }, []);
 
   return (

@@ -6,7 +6,7 @@ import {
   httpSubscriptionLink,
 } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
-import type { AppRouter } from "@tenas-ai/api";
+import type { AppRouter } from "@openloaf/api";
 import { toast } from "sonner";
 import superjson from "superjson";
 import { resolveServerUrl } from "@/utils/server-url";

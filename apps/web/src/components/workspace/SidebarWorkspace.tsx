@@ -17,7 +17,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@tenas-ai/ui/sidebar";
+} from "@openloaf/ui/sidebar";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { queryClient, trpc } from "@/utils/trpc";
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
@@ -28,9 +28,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@tenas-ai/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@tenas-ai/ui/avatar";
-import { Button } from "@tenas-ai/ui/button";
+} from "@openloaf/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@openloaf/ui/avatar";
+import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -38,8 +38,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
-import { Input } from "@tenas-ai/ui/input";
+} from "@openloaf/ui/dialog";
+import { Input } from "@openloaf/ui/input";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import { useTabs } from "@/hooks/use-tabs";
@@ -153,7 +153,7 @@ export const SidebarWorkspace = () => {
 
   /** Pick a directory from system dialog (Electron only). */
   const pickDirectory = React.useCallback(async (initialValue?: string) => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (api?.pickDirectory) {
       const result = await api.pickDirectory(
         initialValue ? { defaultPath: initialValue } : undefined,
@@ -185,7 +185,7 @@ export const SidebarWorkspace = () => {
       toast.message("开发模式不支持更新检查");
       return;
     }
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!api?.checkIncrementalUpdate) {
       toast.message("当前环境不支持更新检查");
       return;
@@ -218,7 +218,7 @@ export const SidebarWorkspace = () => {
                     <AvatarImage src={displayAvatar} alt={avatarAlt} />
                   ) : null}
                   <AvatarFallback className="bg-transparent">
-                    <img src="/head_s.png" alt="Tenas" className="size-full object-contain" />
+                    <img src="/head_s.png" alt="OpenLoaf" className="size-full object-contain" />
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0 text-left">
@@ -244,7 +244,7 @@ export const SidebarWorkspace = () => {
                     <AvatarImage src={displayAvatar} alt={avatarAlt} />
                   ) : null}
                   <AvatarFallback>
-                    <img src="/logo.svg" alt="Tenas" className="size-full object-cover" />
+                    <img src="/logo.svg" alt="OpenLoaf" className="size-full object-cover" />
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">

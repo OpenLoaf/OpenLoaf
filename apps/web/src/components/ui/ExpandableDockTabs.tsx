@@ -19,14 +19,14 @@ import {
   BROWSER_WINDOW_COMPONENT,
   TERMINAL_WINDOW_COMPONENT,
   type DockItem,
-} from "@tenas-ai/api/common";
+} from "@openloaf/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { getStackMinimizeSignal } from "@/lib/stack-dock-animation";
 import { cn } from "@/lib/utils";
 import { getPanelTitle } from "@/utils/panel-utils";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
-import { Kbd, KbdGroup } from "@tenas-ai/ui/kbd";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
+import { Kbd, KbdGroup } from "@openloaf/ui/kbd";
 import { getEntryVisual } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
 
@@ -495,7 +495,7 @@ export function ExpandableDockTabs({
       useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, false);
       window.setTimeout(() => {
         window.dispatchEvent(
-          new CustomEvent('tenas:chat-send-message', { detail: { text } }),
+          new CustomEvent('openloaf:chat-send-message', { detail: { text } }),
         );
       }, 180);
     }

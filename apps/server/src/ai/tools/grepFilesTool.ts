@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { tool, zodSchema } from "ai";
-import { grepFilesToolDef } from "@tenas-ai/api/types/tools/runtime";
-import { readBasicConf } from "@/modules/settings/tenasConfStore";
+import { grepFilesToolDef } from "@openloaf/api/types/tools/runtime";
+import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { resolveToolPath } from "@/ai/tools/toolScope";
 
 const DEFAULT_LIMIT = 100;

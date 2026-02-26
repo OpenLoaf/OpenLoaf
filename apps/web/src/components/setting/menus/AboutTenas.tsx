@@ -1,11 +1,11 @@
 "use client";
 
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import { getWebClientId } from "@/lib/chat/streamClientId";
 import { ChevronRight, Download, FileText, Loader2 } from "lucide-react";
 import * as React from "react";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
-import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
+import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
+import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import {
@@ -14,7 +14,7 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@tenas-ai/ui/sheet";
+} from "@openloaf/ui/sheet";
 import { Streamdown } from "streamdown";
 
 const STEP_UP_ROUTE = "/step-up";
@@ -74,13 +74,13 @@ async function fetchChangelogWithLang(baseUrl: string, lang: string): Promise<st
   return null;
 }
 
-export function AboutTenas() {
+export function AboutOpenLoaf() {
   const { basic, setBasic } = useBasicConfig();
   const clientId = getWebClientId();
   const [copiedKey, setCopiedKey] = React.useState<"clientId" | null>(null);
   const [webContentsViewCount, setWebContentsViewCount] = React.useState<number | null>(null);
   const [appVersion, setAppVersion] = React.useState<string | null>(null);
-  const [updateStatus, setUpdateStatus] = React.useState<TenasIncrementalUpdateStatus | null>(
+  const [updateStatus, setUpdateStatus] = React.useState<OpenLoafIncrementalUpdateStatus | null>(
     null,
   );
   const [changelogSheet, setChangelogSheet] = React.useState<{
@@ -122,7 +122,7 @@ export function AboutTenas() {
 
   /** Fetch app version from Electron main process. */
   const fetchAppVersion = React.useCallback(async () => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!isElectron || !api?.getAppVersion) return;
     try {
       const version = await api.getAppVersion();
@@ -134,7 +134,7 @@ export function AboutTenas() {
 
   /** Fetch latest incremental update status snapshot from Electron main process. */
   const fetchUpdateStatus = React.useCallback(async () => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!isElectron || !api?.getIncrementalUpdateStatus) return;
     try {
       const status = await api.getIncrementalUpdateStatus();
@@ -146,7 +146,7 @@ export function AboutTenas() {
 
   /** Trigger incremental update check. */
   const triggerUpdateAction = React.useCallback(async () => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     // 开发模式禁用更新检查，避免触发无效请求。
     if (!isElectron || isDevDesktop || !api) return;
     await api.checkIncrementalUpdate?.();
@@ -154,7 +154,7 @@ export function AboutTenas() {
 
   /** Fetch WebContentsView count from Electron main process via IPC. */
   const fetchWebContentsViewCount = React.useCallback(async () => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!isElectron || !api?.getWebContentsViewCount) return;
     try {
       const res = await api.getWebContentsViewCount();
@@ -166,7 +166,7 @@ export function AboutTenas() {
 
   /** Clear all WebContentsViews via Electron IPC. */
   const clearWebContentsViews = React.useCallback(async () => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (!isElectron || !api?.clearWebContentsViews) return;
     try {
       const res = await api.clearWebContentsViews();
@@ -235,14 +235,14 @@ export function AboutTenas() {
     if (!isElectron) return;
 
     const onUpdateStatus = (event: Event) => {
-      const detail = (event as CustomEvent<TenasIncrementalUpdateStatus>).detail;
+      const detail = (event as CustomEvent<OpenLoafIncrementalUpdateStatus>).detail;
       if (!detail) return;
       setUpdateStatus(detail);
     };
 
-    window.addEventListener("tenas:incremental-update:status", onUpdateStatus);
+    window.addEventListener("openloaf:incremental-update:status", onUpdateStatus);
     return () =>
-      window.removeEventListener("tenas:incremental-update:status", onUpdateStatus);
+      window.removeEventListener("openloaf:incremental-update:status", onUpdateStatus);
   }, [isElectron]);
 
   /** Reload the current page. */
@@ -315,7 +315,7 @@ export function AboutTenas() {
 
   return (
     <div className="space-y-6">
-      <TenasSettingsGroup title="版本信息">
+      <OpenLoafSettingsGroup title="版本信息">
         <div className="divide-y divide-border">
           {/* Electron 版本 */}
           <div className="flex items-center justify-between px-3 py-3">
@@ -381,11 +381,11 @@ export function AboutTenas() {
             </Button>
           </div>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
       {/* 更新检查 */}
       {isElectron && (
-        <TenasSettingsGroup title="更新">
+        <OpenLoafSettingsGroup title="更新">
           <div className="px-3 py-3">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
@@ -402,14 +402,14 @@ export function AboutTenas() {
               </Button>
             </div>
           </div>
-        </TenasSettingsGroup>
+        </OpenLoafSettingsGroup>
       )}
 
-      <TenasSettingsGroup title="状态">
+      <OpenLoafSettingsGroup title="状态">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">客户端ID</div>
-            <TenasSettingsField className="max-w-[70%]">
+            <OpenLoafSettingsField className="max-w-[70%]">
               <button
                 type="button"
                 aria-label="点击复制客户端ID"
@@ -428,12 +428,12 @@ export function AboutTenas() {
               >
                 {copiedKey === "clientId" ? "已复制" : clientId || "—"}
               </button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
           {isElectron ? (
             <div className="flex flex-wrap items-start gap-3 px-3 py-3">
               <div className="text-sm font-medium">WebContentsView数</div>
-              <TenasSettingsField className="max-w-[70%] gap-2">
+              <OpenLoafSettingsField className="max-w-[70%] gap-2">
                 <button
                   type="button"
                   aria-label="点击刷新 WebContentsView 数"
@@ -459,37 +459,37 @@ export function AboutTenas() {
                 >
                   清除
                 </Button>
-              </TenasSettingsField>
+              </OpenLoafSettingsField>
             </div>
           ) : null}
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
-      <TenasSettingsGroup title="操作">
+      <OpenLoafSettingsGroup title="操作">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="min-w-0">
               <div className="text-sm font-medium">页面重新加载</div>
               <div className="text-xs text-muted-foreground">刷新整个页面</div>
             </div>
-            <TenasSettingsField>
+            <OpenLoafSettingsField>
               <Button type="button" variant="outline" size="sm" onClick={reloadPage}>
                 刷新
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="text-sm font-medium">重新进入初始化</div>
-            <TenasSettingsField>
+            <OpenLoafSettingsField>
               <Button type="button" variant="outline" size="sm" onClick={() => void restartSetup()}>
                 进入
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
-      <TenasSettingsGroup title="信息">
+      <OpenLoafSettingsGroup title="信息">
         <div className="divide-y divide-border">
           {ITEMS.map((item) => (
             <Button
@@ -503,7 +503,7 @@ export function AboutTenas() {
             </Button>
           ))}
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
       {/* Changelog Sheet */}
       <Sheet open={changelogSheet.open} onOpenChange={(open) => setChangelogSheet((prev) => ({ ...prev, open }))}>

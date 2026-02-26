@@ -1,7 +1,7 @@
 import { spawn as spawnPty } from "node-pty";
 import { tool, zodSchema } from "ai";
-import { execCommandToolDef } from "@tenas-ai/api/types/tools/runtime";
-import { readBasicConf } from "@/modules/settings/tenasConfStore";
+import { execCommandToolDef } from "@openloaf/api/types/tools/runtime";
+import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { resolveToolWorkdir } from "@/ai/tools/toolScope";
 import {
   buildExecEnv,

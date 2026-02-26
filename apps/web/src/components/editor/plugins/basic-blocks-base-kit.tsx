@@ -10,7 +10,7 @@ import {
 } from '@platejs/basic-nodes';
 import { BaseParagraphPlugin } from 'platejs';
 
-import { BlockquoteElementStatic } from '@tenas-ai/ui/blockquote-node-static';
+import { BlockquoteElementStatic } from '@openloaf/ui/blockquote-node-static';
 import {
   H1ElementStatic,
   H2ElementStatic,
@@ -18,9 +18,9 @@ import {
   H4ElementStatic,
   H5ElementStatic,
   H6ElementStatic,
-} from '@tenas-ai/ui/heading-node-static';
-import { HrElementStatic } from '@tenas-ai/ui/hr-node-static';
-import { ParagraphElementStatic } from '@tenas-ai/ui/paragraph-node-static';
+} from '@openloaf/ui/heading-node-static';
+import { HrElementStatic } from '@openloaf/ui/hr-node-static';
+import { ParagraphElementStatic } from '@openloaf/ui/paragraph-node-static';
 
 export const BaseBasicBlocksKit = [
   BaseParagraphPlugin.withComponent(ParagraphElementStatic),

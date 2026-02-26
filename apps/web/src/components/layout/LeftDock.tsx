@@ -11,10 +11,10 @@ import {
 } from "@/hooks/use-stack-panel-slot";
 import { useTabView } from "@/hooks/use-tab-view";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
-import type { DockItem } from "@tenas-ai/api/common";
+import type { DockItem } from "@openloaf/api/common";
 import WorkspaceSwitchDockTabs from "./WorkspaceSwitchDockTabs";
 import { StackHeader } from "./StackHeader";
-import { Skeleton } from "@tenas-ai/ui/skeleton";
+import { Skeleton } from "@openloaf/ui/skeleton";
 import { trpc } from "@/utils/trpc";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -25,9 +25,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
-import { Input } from "@tenas-ai/ui/input";
-import { Button } from "@tenas-ai/ui/button";
+} from "@openloaf/ui/dialog";
+import { Input } from "@openloaf/ui/input";
+import { Button } from "@openloaf/ui/button";
 import { toast } from "sonner";
 import { BoardPanelHeaderActions } from "@/components/board/BoardPanelHeaderActions";
 import {
@@ -164,7 +164,7 @@ function PanelFrame({
             ? cn(
                 "rounded-xl shadow-2xl",
                 isStreaming
-                  ? "tenas-thinking-border tenas-thinking-border-on"
+                  ? "openloaf-thinking-border openloaf-thinking-border-on"
                   : "border border-border",
               )
             : "rounded-none border-0 shadow-none",
@@ -172,7 +172,7 @@ function PanelFrame({
         )}
         style={
           floating && isStreaming
-            ? { "--tenas-thinking-border-fill": "var(--color-background)" } as React.CSSProperties
+            ? { "--openloaf-thinking-border-fill": "var(--color-background)" } as React.CSSProperties
             : undefined
         }
       >

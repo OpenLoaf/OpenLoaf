@@ -11,16 +11,16 @@ import {
   SidebarMenu,
   SidebarMenuSkeleton,
   SidebarMenuSub,
-} from "@tenas-ai/ui/sidebar";
-import { Button } from "@tenas-ai/ui/button";
-import { Switch } from "@tenas-ai/ui/switch";
+} from "@openloaf/ui/sidebar";
+import { Button } from "@openloaf/ui/button";
+import { Switch } from "@openloaf/ui/switch";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "@tenas-ai/ui/context-menu";
+} from "@openloaf/ui/context-menu";
 import {
   Dialog,
   DialogClose,
@@ -28,9 +28,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
-import { Input } from "@tenas-ai/ui/input";
-import { Label } from "@tenas-ai/ui/label";
+} from "@openloaf/ui/dialog";
+import { Input } from "@openloaf/ui/input";
+import { Label } from "@openloaf/ui/label";
 import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 import { PageTreeMenu } from "./ProjectTree";
 import { toast } from "sonner";
@@ -188,7 +188,7 @@ export const SidebarProject = () => {
 
   /** Pick a directory from system dialog (Electron only). */
   const pickDirectory = async (initialValue?: string) => {
-    const api = window.tenasElectron;
+    const api = window.openloafElectron;
     if (api?.pickDirectory) {
       const result = await api.pickDirectory(
         initialValue ? { defaultPath: initialValue } : undefined,

@@ -18,12 +18,12 @@ import {
 } from 'platejs/react';
 import { useSelected } from 'platejs/react';
 
-import { Button } from '@tenas-ai/ui/button';
+import { Button } from '@openloaf/ui/button';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@tenas-ai/ui/tooltip';
+} from '@openloaf/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 const UNDRAGGABLE_KEYS = [KEYS.column, KEYS.tr, KEYS.td];

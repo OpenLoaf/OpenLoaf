@@ -16,7 +16,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@tenas-ai/ui/dropdown-menu';
+} from '@openloaf/ui/dropdown-menu';
 import { BaseEditorKit } from '@/components/editor/editor-base-kit';
 
 import { EditorStatic } from './editor-static';

@@ -226,7 +226,7 @@ function emitStatus(
   for (const win of BrowserWindow.getAllWindows()) {
     if (win.isDestroyed()) continue
     try {
-      win.webContents.send('tenas:incremental-update:status', payload)
+      win.webContents.send('openloaf:incremental-update:status', payload)
     } catch {
       // ignore
     }

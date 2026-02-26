@@ -4,8 +4,8 @@ import ignore, { type Ignore } from "ignore";
 
 const DEFAULT_IGNORE_DIRS = new Set([
   ".git",
-  ".tenas",
-  ".tenas-cache",
+  ".openloaf",
+  ".openloaf-cache",
   "node_modules",
   "dist",
   "build",

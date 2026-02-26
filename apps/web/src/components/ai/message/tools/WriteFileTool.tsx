@@ -8,7 +8,7 @@ import {
   extractPatchFileInfo,
 } from '@/lib/chat/patch-utils'
 import { emitJsxCreateRefresh } from '@/lib/chat/jsx-create-events'
-import { TrafficLights } from '@tenas-ai/ui/traffic-lights'
+import { TrafficLights } from '@openloaf/ui/traffic-lights'
 import { useChatSession, useChatTools } from '../../context'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
 import { useChatRuntime } from '@/hooks/use-chat-runtime'
@@ -163,7 +163,7 @@ export default function WriteFileTool({
     const jsxTargets = parsePatchFiles(patch)
       .map((file) => normalizePatchPath(file.path))
       .filter((filePath) =>
-        filePath.includes('.tenas/chat-history/')
+        filePath.includes('.openloaf/chat-history/')
         && filePath.includes('/jsx/')
         && filePath.endsWith('.jsx'),
       )

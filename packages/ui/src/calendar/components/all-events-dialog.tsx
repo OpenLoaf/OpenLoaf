@@ -1,16 +1,16 @@
 import type React from 'react'
 import { useImperativeHandle, useState } from 'react'
-import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
-import { DraggableEvent } from '@tenas-ai/ui/calendar/components/draggable-event/draggable-event'
+import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
+import { DraggableEvent } from '@openloaf/ui/calendar/components/draggable-event/draggable-event'
 import {
 	Dialog,
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
-} from '@tenas-ai/ui/calendar/components/ui/dialog'
-import { useSmartCalendarContext } from '@tenas-ai/ui/calendar/hooks/use-smart-calendar-context'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { formatFullDate } from '@tenas-ai/ui/calendar/lib/utils/date-utils'
+} from '@openloaf/ui/calendar/components/ui/dialog'
+import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { formatFullDate } from '@openloaf/ui/calendar/lib/utils/date-utils'
 export interface SelectedDayEvents {
 	day: dayjs.Dayjs
 	events: CalendarEvent[]

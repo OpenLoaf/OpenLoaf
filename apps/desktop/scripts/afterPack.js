@@ -50,11 +50,11 @@ const PRUNE_PATHS_WIN = [
   // speech: source code & macOS files
   'speech/macos',
   'speech/windows/Program.cs',
-  'speech/windows/TenasSpeech.csproj',
+  'speech/windows/OpenLoafSpeech.csproj',
   // calendar: source code & macOS files
   'calendar/macos',
   'calendar/windows/Program.cs',
-  'calendar/windows/TenasCalendar.csproj',
+  'calendar/windows/OpenLoafCalendar.csproj',
   'calendar/windows/README.md',
   // macOS icon — not needed on Windows
   'icon.icns',
@@ -88,7 +88,7 @@ function resolveTargetPlatform(context) {
 /**
  * Resolves the Resources directory path based on target platform.
  *
- * macOS:         {appOutDir}/Tenas.app/Contents/Resources
+ * macOS:         {appOutDir}/OpenLoaf.app/Contents/Resources
  * Windows/Linux: {appOutDir}/resources
  * @param {import('electron-builder').AfterPackContext} context
  * @param {string} targetPlatform

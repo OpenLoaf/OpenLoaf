@@ -5,7 +5,7 @@ import {
   t,
   getWorkspaceRootPath,
   getProjectRootPath,
-} from '@tenas-ai/api'
+} from '@openloaf/api'
 import {
   listTasks,
   getTask,

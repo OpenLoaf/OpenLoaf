@@ -1,5 +1,5 @@
 import { tool, zodSchema } from "ai";
-import { openUrlToolDef } from "@tenas-ai/api/types/tools/browser";
+import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import { requireTabId } from "@/common/tabContext";
 import {
   normalizeTimeoutSec,

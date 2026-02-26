@@ -14,7 +14,7 @@ import {
   applyReplacements,
 } from '@/lib/chat/apply-patch'
 
-const MONACO_THEME_DARK = 'tenas-dark'
+const MONACO_THEME_DARK = 'openloaf-dark'
 const MONACO_THEME_LIGHT = 'vs'
 
 const DARK_THEME_COLORS: Monaco.editor.IColors = {

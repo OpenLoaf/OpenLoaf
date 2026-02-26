@@ -3,7 +3,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
-import { getTenasRootDir, resolveTenasDatabaseUrl, resolveTenasDbPath } from '@tenas-ai/config';
+import { getOpenLoafRootDir, resolveOpenLoafDatabaseUrl, resolveOpenLoafDbPath } from '@openloaf/config';
 import type { Logger } from '../logging/startupLogger';
 import { recordServerCrash } from '../incrementalUpdate';
 import { resolveServerPath, resolveWebRoot } from '../incrementalUpdatePaths';
@@ -196,11 +196,11 @@ export async function startProductionServices(args: {
   log('Starting production services...');
 
   const resourcesPath = process.resourcesPath;
-  const tenasRoot = getTenasRootDir();
-  const dataDir = tenasRoot;
+  const openloafRoot = getOpenLoafRootDir();
+  const dataDir = openloafRoot;
 
-  // Packaged app config is expected to live under the unified Tenas root.
-  const userEnvPath = path.join(tenasRoot, '.env');
+  // Packaged app config is expected to live under the unified OpenLoaf root.
+  const userEnvPath = path.join(openloafRoot, '.env');
   const userEnv = parseEnvFile(userEnvPath);
   // 中文注释：打包内的 runtime.env 作为强制覆盖配置，优先生效。
   const packagedEnvPath = path.join(resourcesPath, 'runtime.env');
@@ -212,7 +212,7 @@ export async function startProductionServices(args: {
       fs.writeFileSync(
         userEnvPath,
         [
-          '# Tenas Desktop runtime config (loaded by packaged app)',
+          '# OpenLoaf Desktop runtime config (loaded by packaged app)',
           '# Examples:',
           '# OPENAI_API_KEY=sk-...',
           '# DEEPSEEK_API_KEY=...',
@@ -225,8 +225,8 @@ export async function startProductionServices(args: {
     // ignore
   }
 
-  const dbPath = resolveTenasDbPath();
-  const databaseUrl = resolveTenasDatabaseUrl();
+  const dbPath = resolveOpenLoafDbPath();
+  const databaseUrl = resolveOpenLoafDatabaseUrl();
   const localDbPath = resolveFilePathFromDatabaseUrl(databaseUrl, dataDir);
 
   // Initialize DB on first run by copying a pre-built seed DB (schema already applied).
@@ -275,7 +275,7 @@ export async function startProductionServices(args: {
   log(`Looking for server at: ${serverPath}`);
 
   // ESM `import` 不使用 NODE_PATH，只沿目录层级查找 node_modules。
-  // 当 server.mjs 来自增量更新目录（~/.tenas/updates/server/current/）时，
+  // 当 server.mjs 来自增量更新目录（~/.openloaf/updates/server/current/）时，
   // 需要软链接 node_modules → Resources/node_modules 以解析 external 依赖（如 playwright-core）。
   const bundledServerPath = path.join(process.resourcesPath, 'server.mjs');
   if (serverPath !== bundledServerPath) {
@@ -327,7 +327,7 @@ export async function startProductionServices(args: {
           ...userEnv,
           ...packagedEnv,
           // 中文注释：强制对齐 Electron 与 Server 的 CDP 端口，避免运行时不一致。
-          TENAS_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
+          OPENLOAF_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
         },
         windowsHide: true,
         detached: false,

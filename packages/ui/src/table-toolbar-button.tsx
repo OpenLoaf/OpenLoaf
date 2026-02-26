@@ -29,7 +29,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from '@tenas-ai/ui/dropdown-menu';
+} from '@openloaf/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 import { ToolbarButton } from './toolbar';

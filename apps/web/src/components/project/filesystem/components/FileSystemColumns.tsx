@@ -13,7 +13,7 @@ import {
 } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
-import { Input } from "@tenas-ai/ui/input";
+import { Input } from "@openloaf/ui/input";
 import { trpc } from "@/utils/trpc";
 import {
   getBoardDisplayName,

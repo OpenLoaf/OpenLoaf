@@ -1,13 +1,13 @@
 import type React from 'react'
-import { AnimatedSection } from '@tenas-ai/ui/calendar/components/animations/animated-section'
-import { CalendarDndContext } from '@tenas-ai/ui/calendar/components/drag-and-drop/calendar-dnd-context'
-import { EventFormDialog } from '@tenas-ai/ui/calendar/components/event-form/event-form-dialog'
-import { Header } from '@tenas-ai/ui/calendar/components/header'
-import { ResourceDayView } from '@tenas-ai/ui/calendar/features/resource-calendar/components/day-view'
-import { ResourceMonthView } from '@tenas-ai/ui/calendar/features/resource-calendar/components/month-view'
-import { ResourceWeekView } from '@tenas-ai/ui/calendar/features/resource-calendar/components/week-view'
-import { useResourceCalendarContext } from '@tenas-ai/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { AnimatedSection } from '@openloaf/ui/calendar/components/animations/animated-section'
+import { CalendarDndContext } from '@openloaf/ui/calendar/components/drag-and-drop/calendar-dnd-context'
+import { EventFormDialog } from '@openloaf/ui/calendar/components/event-form/event-form-dialog'
+import { Header } from '@openloaf/ui/calendar/components/header'
+import { ResourceDayView } from '@openloaf/ui/calendar/features/resource-calendar/components/day-view'
+import { ResourceMonthView } from '@openloaf/ui/calendar/features/resource-calendar/components/month-view'
+import { ResourceWeekView } from '@openloaf/ui/calendar/features/resource-calendar/components/week-view'
+import { useResourceCalendarContext } from '@openloaf/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 export const ResourceCalendarBody: React.FC = () => {
 	const { view, sidebar, sidebarClassName, isSidebarOpen } =

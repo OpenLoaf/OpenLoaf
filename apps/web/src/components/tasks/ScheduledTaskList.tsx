@@ -10,9 +10,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@tenas-ai/ui/table'
-import { Button } from '@tenas-ai/ui/button'
-import { Switch } from '@tenas-ai/ui/switch'
+} from '@openloaf/ui/table'
+import { Button } from '@openloaf/ui/button'
+import { Switch } from '@openloaf/ui/switch'
 import {
   Clock,
   FileText,
@@ -30,10 +30,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@tenas-ai/ui/dropdown-menu'
+} from '@openloaf/ui/dropdown-menu'
 import { ScheduledTaskDialog } from './ScheduledTaskDialog'
 import { TaskRunLogPanel } from './TaskRunLogPanel'
-import { Tabs, TabsList, TabsTrigger } from '@tenas-ai/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@openloaf/ui/tabs'
 import { useTabs } from '@/hooks/use-tabs'
 
 type TaskConfig = {

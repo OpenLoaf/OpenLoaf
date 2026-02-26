@@ -9,7 +9,7 @@ import {
   Shield,
   User,
 } from "lucide-react";
-import { ExpandableTabs } from "@tenas-ai/ui/expandable-tabs";
+import { ExpandableTabs } from "@openloaf/ui/expandable-tabs";
 
 /** Default color demo. */
 function DefaultDemo() {

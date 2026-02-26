@@ -10,7 +10,7 @@ import {
 import { isSlateString } from 'platejs';
 import { toTPlatePlugin } from 'platejs/react';
 
-import { CommentLeaf } from '@tenas-ai/ui/comment-node';
+import { CommentLeaf } from '@openloaf/ui/comment-node';
 
 type CommentConfig = ExtendConfig<
   BaseCommentConfig,

@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 
-namespace TenasSpeech;
+namespace OpenLoafSpeech;
 
 internal sealed class Program
 {

@@ -2,9 +2,9 @@
 
 import type { ComponentProps, HTMLAttributes } from "react";
 
-import { Badge } from "@tenas-ai/ui/badge";
-import { Button } from "@tenas-ai/ui/button";
-import { Switch } from "@tenas-ai/ui/switch";
+import { Badge } from "@openloaf/ui/badge";
+import { Button } from "@openloaf/ui/button";
+import { Switch } from "@openloaf/ui/switch";
 import { cn } from "@/lib/utils";
 import { CheckIcon, CopyIcon, EyeIcon, EyeOffIcon } from "lucide-react";
 import {

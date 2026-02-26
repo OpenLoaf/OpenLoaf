@@ -4,8 +4,8 @@
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>tenas-calendar</AssemblyName>
-    <RootNamespace>TenasCalendar</RootNamespace>
+    <AssemblyName>openloaf-calendar</AssemblyName>
+    <RootNamespace>OpenLoafCalendar</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

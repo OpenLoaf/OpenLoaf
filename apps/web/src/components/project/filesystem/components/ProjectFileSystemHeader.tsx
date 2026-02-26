@@ -15,11 +15,11 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@tenas-ai/ui/breadcrumb";
-import { Button } from "@tenas-ai/ui/button";
-import { Input } from "@tenas-ai/ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@tenas-ai/ui/tooltip";
-import { Toolbar, ToolbarToggleGroup, ToolbarToggleItem } from "@tenas-ai/ui/toolbar";
+} from "@openloaf/ui/breadcrumb";
+import { Button } from "@openloaf/ui/button";
+import { Input } from "@openloaf/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
+import { Toolbar, ToolbarToggleGroup, ToolbarToggleItem } from "@openloaf/ui/toolbar";
 import {
   ArrowDownAZ,
   ArrowDownWideNarrow,

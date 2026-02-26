@@ -4,8 +4,8 @@ import {
   calendarSchemas,
   shieldedProcedure,
   t,
-} from "@tenas-ai/api";
-import { resolveProjectAncestorIds } from "@tenas-ai/api/services/projectDbService";
+} from "@openloaf/api";
+import { resolveProjectAncestorIds } from "@openloaf/api/services/projectDbService";
 
 type CalendarSourceRow = {
   id: string;

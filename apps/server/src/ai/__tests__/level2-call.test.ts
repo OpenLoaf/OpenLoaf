@@ -2,7 +2,7 @@
  * Level 2 — 直接调用模型（generateText，无 Agent）。
  *
  * 用法：
- *   TENAS_TEST_CHAT_MODEL_ID="profileId:modelId" pnpm run test:ai:call
+ *   OPENLOAF_TEST_CHAT_MODEL_ID="profileId:modelId" pnpm run test:ai:call
  */
 import { generateText } from 'ai'
 import { resolveTestModel } from './helpers/testEnv'

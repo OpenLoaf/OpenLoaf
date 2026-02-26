@@ -9,7 +9,7 @@
  * 5. 工具 execute 函数应该获取用户输入
  *
  * 用法：
- *   TENAS_TEST_CHAT_MODEL_ID="profileId:modelId" pnpm run test:ai:request-user-input
+ *   OPENLOAF_TEST_CHAT_MODEL_ID="profileId:modelId" pnpm run test:ai:request-user-input
  */
 import {
   resolveTestModel,

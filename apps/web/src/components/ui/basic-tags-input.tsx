@@ -1,7 +1,7 @@
 "use client";
 
 import { TagsInput } from "@ark-ui/react/tags-input";
-import { Popover, PopoverAnchor, PopoverContent } from "@tenas-ai/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent } from "@openloaf/ui/popover";
 import { X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 

@@ -17,13 +17,13 @@ import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
 import { Puck, Render, createUsePuck, type Data } from "@measured/puck";
 import { trpc } from "@/utils/trpc";
 import ProjectTitle from "../ProjectTitle";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@tenas-ai/ui/dropdown-menu";
+} from "@openloaf/ui/dropdown-menu";
 import { homePagePuckConfig } from "@/lib/puck-home-config";
 import pageDefaultData from "@/lib/page-default.json";
 

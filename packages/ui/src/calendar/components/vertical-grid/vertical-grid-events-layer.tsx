@@ -1,10 +1,10 @@
 import { memo } from 'react'
-import { CurrentTimeIndicator } from '@tenas-ai/ui/calendar/components/current-time-indicator'
-import { DraggableEvent } from '@tenas-ai/ui/calendar/components/draggable-event/draggable-event'
-import { useProcessedDayEvents } from '@tenas-ai/ui/calendar/features/calendar/hooks/useProcessedDayEvents'
-import type { Resource } from '@tenas-ai/ui/calendar/features/resource-calendar/types'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { CurrentTimeIndicator } from '@openloaf/ui/calendar/components/current-time-indicator'
+import { DraggableEvent } from '@openloaf/ui/calendar/components/draggable-event/draggable-event'
+import { useProcessedDayEvents } from '@openloaf/ui/calendar/features/calendar/hooks/useProcessedDayEvents'
+import type { Resource } from '@openloaf/ui/calendar/features/resource-calendar/types'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 interface VerticalGridEventsLayerProps {
 	gridType?: 'day' | 'hour'

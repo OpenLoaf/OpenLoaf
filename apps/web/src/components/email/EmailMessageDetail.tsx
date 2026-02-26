@@ -9,14 +9,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@tenas-ai/ui/alert-dialog";
-import { Button } from "@tenas-ai/ui/button";
+} from "@openloaf/ui/alert-dialog";
+import { Button } from "@openloaf/ui/button";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from "@tenas-ai/ui/context-menu";
+} from "@openloaf/ui/context-menu";
 import { cn } from "@/lib/utils";
 import { resolveServerUrl } from "@/utils/server-url";
 import type { DetailState } from "./use-email-page-state";

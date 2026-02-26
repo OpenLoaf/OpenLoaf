@@ -4,7 +4,7 @@ import {
   getProjectRootPath,
   getWorkspaceRootPathById,
   resolveScopedPath,
-} from "@tenas-ai/api/services/vfsService";
+} from "@openloaf/api/services/vfsService";
 
 type ToolRoots = {
   /** Workspace root path. */

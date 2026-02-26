@@ -2,8 +2,8 @@
 
 import { LinkPlugin } from '@platejs/link/react';
 
-import { LinkElement } from '@tenas-ai/ui/link-node';
-import { LinkFloatingToolbar } from '@tenas-ai/ui/link-toolbar';
+import { LinkElement } from '@openloaf/ui/link-node';
+import { LinkFloatingToolbar } from '@openloaf/ui/link-toolbar';
 
 export const LinkKit = [
   LinkPlugin.configure({

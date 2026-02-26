@@ -2,7 +2,7 @@ import type { z } from 'zod'
 import type {
   generateWidgetToolDef,
   widgetInitToolDef,
-} from '@tenas-ai/api/types/tools/widget'
+} from '@openloaf/api/types/tools/widget'
 
 type WidgetInput = z.infer<typeof generateWidgetToolDef.parameters>
 type WidgetInitInput = z.infer<typeof widgetInitToolDef.parameters>
@@ -64,7 +64,7 @@ export function renderPackageJsonFromInit(input: WidgetInitInput): string {
     description: input.widgetDescription,
     main: 'widget.tsx',
     scripts,
-    tenas: {
+    openloaf: {
       type: 'widget',
       defaultSize: toDesktopWidgetSize(size.defaultW, size.defaultH),
       constraints: size,
@@ -79,8 +79,8 @@ export function renderPlaceholderWidgetTsx(
   widgetName: string,
   firstFnName: string,
 ): string {
-  return `import type { WidgetProps } from '@tenas-ai/widget-sdk'
-import { useWidgetData, useWidgetTheme } from '@tenas-ai/widget-sdk'
+  return `import type { WidgetProps } from '@openloaf/widget-sdk'
+import { useWidgetData, useWidgetTheme } from '@openloaf/widget-sdk'
 
 export default function Widget({ sdk }: WidgetProps) {
   const { data, loading, error } = useWidgetData(sdk, '${firstFnName}', {
@@ -180,7 +180,7 @@ export function renderPackageJson(input: WidgetInput): string {
     description: input.widgetDescription,
     main: 'widget.tsx',
     scripts,
-    tenas: {
+    openloaf: {
       type: 'widget',
       defaultSize: toDesktopWidgetSize(size.defaultW, size.defaultH),
       constraints: size,
@@ -193,8 +193,8 @@ export function renderPackageJson(input: WidgetInput): string {
 export function renderWidgetTsx(input: WidgetInput): string {
   const interval = input.refreshInterval ?? 60000
   const fnName = input.functions[0]?.name ?? 'getData'
-  return `import type { WidgetProps } from '@tenas-ai/widget-sdk'
-import { useWidgetData, useWidgetTheme } from '@tenas-ai/widget-sdk'
+  return `import type { WidgetProps } from '@openloaf/widget-sdk'
+import { useWidgetData, useWidgetTheme } from '@openloaf/widget-sdk'
 
 export default function Widget({ sdk }: WidgetProps) {
   const { data, loading, error } = useWidgetData(sdk, '${fnName}', {

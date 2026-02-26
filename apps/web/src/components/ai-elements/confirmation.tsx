@@ -3,8 +3,8 @@
 import type { ToolUIPart } from "ai";
 import type { ComponentProps, ReactNode } from "react";
 
-import { Alert, AlertDescription } from "@tenas-ai/ui/alert";
-import { Button } from "@tenas-ai/ui/button";
+import { Alert, AlertDescription } from "@openloaf/ui/alert";
+import { Button } from "@openloaf/ui/button";
 import { cn } from "@/lib/utils";
 import { createContext, useContext } from "react";
 

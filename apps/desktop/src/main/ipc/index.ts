@@ -130,7 +130,7 @@ function createTransferProgressEmitter(
     if (percent < 100 && now - lastSent < TRANSFER_PROGRESS_THROTTLE_MS) return;
     lastSent = now;
     const payload: TransferProgressPayload = { id: transferId, currentName, percent };
-    event.sender.send('tenas:fs:transfer-progress', payload);
+    event.sender.send('openloaf:fs:transfer-progress', payload);
   };
 }
 
@@ -277,7 +277,7 @@ async function getCdpTargetId(webContents: Electron.WebContents): Promise<string
 
 /**
  * 注册主进程 IPC handlers（只注册一次）：
- * - 渲染端通过 preload 暴露的 `window.tenasElectron` 调用这些能力
+ * - 渲染端通过 preload 暴露的 `window.openloafElectron` 调用这些能力
  * - 这里保持 handler 数量尽量少、职责清晰
  */
 export function registerIpcHandlers(args: { log: Logger }) {
@@ -288,20 +288,20 @@ export function registerIpcHandlers(args: { log: Logger }) {
   const calendarSync = createCalendarSync({ log: args.log, calendarService });
 
   // 提供应用版本号给渲染端展示。
-  ipcMain.handle('tenas:app:version', async () => app.getVersion());
+  ipcMain.handle('openloaf:app:version', async () => app.getVersion());
   // 重启应用以应用更新。
-  ipcMain.handle('tenas:app:relaunch', async () => restartForUpdates());
+  ipcMain.handle('openloaf:app:relaunch', async () => restartForUpdates());
 
   // Provide runtime port info for renderer initialization.
-  ipcMain.on('tenas:runtime:ports', (event) => {
-    const serverUrl = process.env.TENAS_SERVER_URL ?? '';
-    const webUrl = process.env.TENAS_WEB_URL ?? '';
+  ipcMain.on('openloaf:runtime:ports', (event) => {
+    const serverUrl = process.env.OPENLOAF_SERVER_URL ?? '';
+    const webUrl = process.env.OPENLOAF_WEB_URL ?? '';
     event.returnValue = { ok: Boolean(serverUrl), serverUrl, webUrl };
   });
 
   // Update Windows title bar button symbol color.
   ipcMain.handle(
-    'tenas:window:set-titlebar-symbol-color',
+    'openloaf:window:set-titlebar-symbol-color',
     async (event, payload: { symbolColor?: string }) => {
       if (process.platform !== 'win32') {
         return { ok: false as const, reason: 'Unsupported platform' };
@@ -322,7 +322,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
 
   // Update Windows title bar overlay height.
   ipcMain.handle(
-    'tenas:window:set-titlebar-overlay-height',
+    'openloaf:window:set-titlebar-overlay-height',
     async (event, payload: { height?: number }) => {
       if (process.platform !== 'win32') {
         return { ok: false as const, reason: 'Unsupported platform' };
@@ -342,13 +342,13 @@ export function registerIpcHandlers(args: { log: Logger }) {
   );
 
   // 为用户输入的 URL 打开独立窗口（通常用于外部链接）。
-  ipcMain.handle('tenas:open-browser-window', async (_event, payload: { url: string }) => {
+  ipcMain.handle('openloaf:open-browser-window', async (_event, payload: { url: string }) => {
     const win = createBrowserWindowForUrl(payload?.url ?? '');
     return { id: win.id };
   });
 
   // 使用系统默认浏览器打开外部 URL。
-  ipcMain.handle('tenas:open-external', async (_event, payload: { url: string }) => {
+  ipcMain.handle('openloaf:open-external', async (_event, payload: { url: string }) => {
     const url = String(payload?.url ?? '').trim();
     if (!url) return { ok: false as const, reason: 'Invalid url' };
     args.log(`[open-external] ${url}`);
@@ -362,7 +362,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
 
   // 抓取网页元数据与截图（仅 Electron 模式）。
   ipcMain.handle(
-    'tenas:web-meta:fetch',
+    'openloaf:web-meta:fetch',
     async (_event, payload: { url: string; rootUri: string }) => {
       return await captureWebMeta({
         url: String(payload?.url ?? '').trim(),
@@ -372,7 +372,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   );
 
   // 调用系统语音识别（macOS helper）。渲染端通过事件接收识别文本。
-  ipcMain.handle('tenas:speech:start', async (event, payload: { language?: string }) => {
+  ipcMain.handle('openloaf:speech:start', async (event, payload: { language?: string }) => {
     return await speechManager.start({
       language: String(payload?.language ?? '').trim() || undefined,
       webContents: event.sender,
@@ -380,27 +380,27 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 停止系统语音识别。
-  ipcMain.handle('tenas:speech:stop', async () => {
+  ipcMain.handle('openloaf:speech:stop', async () => {
     return await speechManager.stop('user');
   });
 
   // 系统日历权限请求。
-  ipcMain.handle('tenas:calendar:permission', async () => {
+  ipcMain.handle('openloaf:calendar:permission', async () => {
     return await calendarService.requestPermission();
   });
 
   // 获取系统日历列表。
-  ipcMain.handle('tenas:calendar:list-calendars', async () => {
+  ipcMain.handle('openloaf:calendar:list-calendars', async () => {
     return await calendarService.listCalendars();
   });
 
   // 获取系统提醒事项列表。
-  ipcMain.handle('tenas:calendar:list-reminders', async () => {
+  ipcMain.handle('openloaf:calendar:list-reminders', async () => {
     return await calendarService.listReminders();
   });
 
   // 设置系统日历同步范围（页面进入/切换后更新）。
-  ipcMain.handle('tenas:calendar:set-sync-range', async (_event, payload: {
+  ipcMain.handle('openloaf:calendar:set-sync-range', async (_event, payload: {
     workspaceId: string;
     range?: { start: string; end: string };
   }) => {
@@ -412,7 +412,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 立即触发系统日历同步。
-  ipcMain.handle('tenas:calendar:sync', async (_event, payload: {
+  ipcMain.handle('openloaf:calendar:sync', async (_event, payload: {
     workspaceId: string;
     range?: { start: string; end: string };
   }) => {
@@ -425,57 +425,57 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 获取系统日历事件。
-  ipcMain.handle('tenas:calendar:get-events', async (_event, payload: { start: string; end: string }) => {
+  ipcMain.handle('openloaf:calendar:get-events', async (_event, payload: { start: string; end: string }) => {
     return await calendarService.getEvents(payload);
   });
 
   // 获取系统提醒事项。
-  ipcMain.handle('tenas:calendar:get-reminders', async (_event, payload: { start: string; end: string }) => {
+  ipcMain.handle('openloaf:calendar:get-reminders', async (_event, payload: { start: string; end: string }) => {
     return await calendarService.getReminders(payload);
   });
 
   // 创建系统日历事件。
-  ipcMain.handle('tenas:calendar:create-event', async (_event, payload) => {
+  ipcMain.handle('openloaf:calendar:create-event', async (_event, payload) => {
     return await calendarService.createEvent(payload);
   });
 
   // 创建系统提醒事项。
-  ipcMain.handle('tenas:calendar:create-reminder', async (_event, payload) => {
+  ipcMain.handle('openloaf:calendar:create-reminder', async (_event, payload) => {
     return await calendarService.createReminder(payload);
   });
 
   // 更新系统日历事件。
-  ipcMain.handle('tenas:calendar:update-event', async (_event, payload) => {
+  ipcMain.handle('openloaf:calendar:update-event', async (_event, payload) => {
     return await calendarService.updateEvent(payload);
   });
 
   // 更新系统提醒事项。
-  ipcMain.handle('tenas:calendar:update-reminder', async (_event, payload) => {
+  ipcMain.handle('openloaf:calendar:update-reminder', async (_event, payload) => {
     return await calendarService.updateReminder(payload);
   });
 
   // 删除系统日历事件。
-  ipcMain.handle('tenas:calendar:delete-event', async (_event, payload: { id: string }) => {
+  ipcMain.handle('openloaf:calendar:delete-event', async (_event, payload: { id: string }) => {
     return await calendarService.deleteEvent(payload);
   });
 
   // 删除系统提醒事项。
-  ipcMain.handle('tenas:calendar:delete-reminder', async (_event, payload: { id: string }) => {
+  ipcMain.handle('openloaf:calendar:delete-reminder', async (_event, payload: { id: string }) => {
     return await calendarService.deleteReminder(payload);
   });
 
   // 启动系统日历变化监听。
-  ipcMain.handle('tenas:calendar:watch', async (event) => {
+  ipcMain.handle('openloaf:calendar:watch', async (event) => {
     return calendarService.startWatching(event.sender);
   });
 
   // 停止系统日历变化监听。
-  ipcMain.handle('tenas:calendar:unwatch', async (event) => {
+  ipcMain.handle('openloaf:calendar:unwatch', async (event) => {
     return calendarService.stopWatching(event.sender);
   });
 
   // 在调用方的 BrowserWindow 内创建/更新 WebContentsView（用于嵌入式浏览面板）。
-  ipcMain.handle('tenas:webcontents-view:upsert', async (event, payload: UpsertWebContentsViewArgs) => {
+  ipcMain.handle('openloaf:webcontents-view:upsert', async (event, payload: UpsertWebContentsViewArgs) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No BrowserWindow for sender');
     upsertWebContentsView(win, payload);
@@ -483,7 +483,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 确保某个 viewKey 对应的 WebContentsView 已存在，并返回其 cdpTargetId，供 server attach 控制。
-  ipcMain.handle('tenas:webcontents-view:ensure', async (event, payload: { key: string; url: string }) => {
+  ipcMain.handle('openloaf:webcontents-view:ensure', async (event, payload: { key: string; url: string }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No BrowserWindow for sender');
     const key = String(payload?.key ?? '').trim();
@@ -507,7 +507,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 销毁先前通过 `upsert` 创建的 WebContentsView。
-  ipcMain.handle('tenas:webcontents-view:destroy', async (event, payload: { key: string }) => {
+  ipcMain.handle('openloaf:webcontents-view:destroy', async (event, payload: { key: string }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No BrowserWindow for sender');
     destroyWebContentsView(win, String(payload?.key ?? ''));
@@ -515,7 +515,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // WebContentsView 后退导航。
-  ipcMain.handle('tenas:webcontents-view:go-back', async (event, payload: { key: string }) => {
+  ipcMain.handle('openloaf:webcontents-view:go-back', async (event, payload: { key: string }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No BrowserWindow for sender');
     goBackWebContentsView(win, String(payload?.key ?? ''));
@@ -523,7 +523,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // WebContentsView 前进导航。
-  ipcMain.handle('tenas:webcontents-view:go-forward', async (event, payload: { key: string }) => {
+  ipcMain.handle('openloaf:webcontents-view:go-forward', async (event, payload: { key: string }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No BrowserWindow for sender');
     goForwardWebContentsView(win, String(payload?.key ?? ''));
@@ -531,7 +531,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 清除当前窗口内所有 WebContentsView。
-  ipcMain.handle('tenas:webcontents-view:clear', async (event) => {
+  ipcMain.handle('openloaf:webcontents-view:clear', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No BrowserWindow for sender');
     destroyAllWebContentsViews(win);
@@ -539,35 +539,35 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 获取当前窗口内 WebContentsView 数量（渲染端用于展示/诊断）。
-  ipcMain.handle('tenas:webcontents-view:count', async (event) => {
+  ipcMain.handle('openloaf:webcontents-view:count', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return { ok: false as const };
     return { ok: true as const, count: getWebContentsViewCount(win) };
   });
 
   // 手动触发增量更新检查（server/web 增量更新）。
-  ipcMain.handle('tenas:incremental-update:check', async () => {
+  ipcMain.handle('openloaf:incremental-update:check', async () => {
     return await checkForIncrementalUpdates('manual');
   });
 
   // 获取增量更新状态快照。
-  ipcMain.handle('tenas:incremental-update:get-status', async () => {
+  ipcMain.handle('openloaf:incremental-update:get-status', async () => {
     return getIncrementalUpdateStatus();
   });
 
   // 重置到打包版本（删除所有增量更新文件）。
-  ipcMain.handle('tenas:incremental-update:reset', async () => {
+  ipcMain.handle('openloaf:incremental-update:reset', async () => {
     return resetToBuiltinVersion();
   });
 
   // 获取当前更新渠道（stable / beta）。
-  ipcMain.handle('tenas:app:get-update-channel', async () => {
+  ipcMain.handle('openloaf:app:get-update-channel', async () => {
     return resolveUpdateChannel();
   });
 
   // 切换更新渠道并立即触发增量更新检查。
   ipcMain.handle(
-    'tenas:app:switch-update-channel',
+    'openloaf:app:switch-update-channel',
     async (_event, payload: { channel: UpdateChannel }) => {
       const channel = payload?.channel;
       if (channel !== 'stable' && channel !== 'beta') {
@@ -582,7 +582,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   );
 
   // 使用系统默认程序打开文件/目录。
-  ipcMain.handle('tenas:fs:open-path', async (_event, payload: { uri: string }) => {
+  ipcMain.handle('openloaf:fs:open-path', async (_event, payload: { uri: string }) => {
     const targetPath = resolveLocalPath(String(payload?.uri ?? ''));
     if (!targetPath) return { ok: false as const, reason: 'Invalid uri' };
     const result = await shell.openPath(targetPath);
@@ -591,7 +591,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 在系统文件管理器中显示文件/目录。
-  ipcMain.handle('tenas:fs:show-in-folder', async (_event, payload: { uri: string }) => {
+  ipcMain.handle('openloaf:fs:show-in-folder', async (_event, payload: { uri: string }) => {
     const targetPath = resolveLocalPath(String(payload?.uri ?? ''));
     if (!targetPath) return { ok: false as const, reason: 'Invalid uri' };
     shell.showItemInFolder(targetPath);
@@ -599,7 +599,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 将文件/目录移动到系统回收站。
-  ipcMain.handle('tenas:fs:trash-item', async (_event, payload: { uri: string }) => {
+  ipcMain.handle('openloaf:fs:trash-item', async (_event, payload: { uri: string }) => {
     const targetPath = resolveLocalPath(String(payload?.uri ?? ''));
     if (!targetPath) return { ok: false as const, reason: 'Invalid uri' };
     try {
@@ -610,20 +610,20 @@ export function registerIpcHandlers(args: { log: Logger }) {
     }
   });
 
-  // 获取项目缓存目录大小（.tenas-cache）。
-  ipcMain.handle('tenas:cache:size', async (_event, payload: { rootUri?: string }) => {
+  // 获取项目缓存目录大小（.openloaf-cache）。
+  ipcMain.handle('openloaf:cache:size', async (_event, payload: { rootUri?: string }) => {
     const rootPath = resolveLocalPath(String(payload?.rootUri ?? ''));
     if (!rootPath) return { ok: false as const, reason: 'Invalid root path' };
-    const cachePath = path.join(rootPath, '.tenas-cache');
+    const cachePath = path.join(rootPath, '.openloaf-cache');
     const bytes = await getDirectorySizeBytes(cachePath);
     return { ok: true as const, bytes };
   });
 
-  // 清空项目缓存目录（.tenas-cache）。
-  ipcMain.handle('tenas:cache:clear', async (_event, payload: { rootUri?: string }) => {
+  // 清空项目缓存目录（.openloaf-cache）。
+  ipcMain.handle('openloaf:cache:clear', async (_event, payload: { rootUri?: string }) => {
     const rootPath = resolveLocalPath(String(payload?.rootUri ?? ''));
     if (!rootPath) return { ok: false as const, reason: 'Invalid root path' };
-    const cachePath = path.join(rootPath, '.tenas-cache');
+    const cachePath = path.join(rootPath, '.openloaf-cache');
     try {
       // 逻辑：强制删除缓存目录，不存在时不报错。
       await fs.rm(cachePath, { recursive: true, force: true });
@@ -634,7 +634,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 选择本地目录并返回完整路径。
-  ipcMain.handle('tenas:fs:pick-directory', async (event, payload?: { defaultPath?: string }) => {
+  ipcMain.handle('openloaf:fs:pick-directory', async (event, payload?: { defaultPath?: string }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     const defaultPathRaw = String(payload?.defaultPath ?? '').trim();
     let defaultPath: string | undefined;
@@ -670,7 +670,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
       .map((uri) => resolveLocalPath(String(uri ?? '')))
       .filter((item): item is string => Boolean(item));
     // 中文注释：将主进程收到的信息回传到渲染端，便于定位 IPC 链路问题。
-    event.sender.send('tenas:fs:drag-log', {
+    event.sender.send('openloaf:fs:drag-log', {
       stage: 'received',
       senderId: event.sender.id,
       senderUrl: event.sender.getURL(),
@@ -682,7 +682,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
     }
     const dragSessionId = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
     const icon = await resolveDragIcon(paths);
-    event.sender.send('tenas:fs:drag-log', {
+    event.sender.send('openloaf:fs:drag-log', {
       stage: 'pre-start',
       dragSessionId,
       dragCount: paths.length,
@@ -692,21 +692,21 @@ export function registerIpcHandlers(args: { log: Logger }) {
     } else {
       event.sender.startDrag({ file: paths[0], files: paths, icon });
     }
-    event.sender.send('tenas:fs:drag-log', {
+    event.sender.send('openloaf:fs:drag-log', {
       stage: 'started',
       dragSessionId,
       dragPaths: paths,
     });
     // 中文注释：通过延迟日志确认主进程事件循环是否被拖拽阻塞。
     setTimeout(() => {
-      event.sender.send('tenas:fs:drag-log', {
+      event.sender.send('openloaf:fs:drag-log', {
         stage: 'tick',
         dragSessionId,
         afterMs: 500,
       });
     }, 500);
     setTimeout(() => {
-      event.sender.send('tenas:fs:drag-log', {
+      event.sender.send('openloaf:fs:drag-log', {
         stage: 'tick',
         dragSessionId,
         afterMs: 2000,
@@ -716,18 +716,18 @@ export function registerIpcHandlers(args: { log: Logger }) {
   };
 
   // Start OS drag for local project entries (send).
-  ipcMain.on('tenas:fs:start-drag', (event, payload: { uris?: string[] }) => {
+  ipcMain.on('openloaf:fs:start-drag', (event, payload: { uris?: string[] }) => {
     void handleStartDrag(event, payload);
   });
 
   // Start OS drag for local project entries (invoke).
-  ipcMain.handle('tenas:fs:start-drag', async (event, payload: { uris?: string[] }) => {
+  ipcMain.handle('openloaf:fs:start-drag', async (event, payload: { uris?: string[] }) => {
     return await handleStartDrag(event, payload);
   });
 
   // Show save dialog and write file content.
   ipcMain.handle(
-    'tenas:fs:save-file',
+    'openloaf:fs:save-file',
     async (
       event,
       payload: {
@@ -777,7 +777,7 @@ export function registerIpcHandlers(args: { log: Logger }) {
   );
 
   // Copy a local file/folder into the workspace and report progress to renderer.
-  ipcMain.handle('tenas:fs:transfer-start', async (event, payload: TransferStartPayload) => {
+  ipcMain.handle('openloaf:fs:transfer-start', async (event, payload: TransferStartPayload) => {
     const id = String(payload?.id ?? '').trim();
     const sourcePath = resolveLocalPath(payload?.sourcePath ?? '');
     const targetPath = resolveLocalPath(payload?.targetPath ?? '');
@@ -800,11 +800,11 @@ export function registerIpcHandlers(args: { log: Logger }) {
           onProgress: emitProgress,
         });
       }
-      event.sender.send('tenas:fs:transfer-complete', { id });
+      event.sender.send('openloaf:fs:transfer-complete', { id });
       return { ok: true as const };
     } catch (error) {
       const reason = (error as Error)?.message ?? 'Transfer failed';
-      event.sender.send('tenas:fs:transfer-error', { id, reason });
+      event.sender.send('openloaf:fs:transfer-error', { id, reason });
       return { ok: false as const, reason };
     }
   });

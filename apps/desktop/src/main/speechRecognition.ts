@@ -48,10 +48,10 @@ function resolveSpeechHelperPath(): string | null {
 
   if (platform === "darwin") {
     relativeDir = "macos";
-    binaryName = "tenas-speech";
+    binaryName = "openloaf-speech";
   } else if (platform === "win32") {
     relativeDir = "windows";
-    binaryName = "tenas-speech.exe";
+    binaryName = "openloaf-speech.exe";
   } else {
     return null;
   }
@@ -77,17 +77,17 @@ function emitToRenderer(
 
 /** Emit speech result to renderer. */
 function emitSpeechResult(payload: SpeechResultPayload) {
-  emitToRenderer("tenas:speech:result", payload);
+  emitToRenderer("openloaf:speech:result", payload);
 }
 
 /** Emit speech state to renderer. */
 function emitSpeechState(payload: SpeechStatePayload, target?: Electron.WebContents) {
-  emitToRenderer("tenas:speech:state", payload, target);
+  emitToRenderer("openloaf:speech:state", payload, target);
 }
 
 /** Emit speech error to renderer. */
 function emitSpeechError(payload: SpeechErrorPayload, target?: Electron.WebContents) {
-  emitToRenderer("tenas:speech:error", payload, target);
+  emitToRenderer("openloaf:speech:error", payload, target);
 }
 
 /** Handle stdout data from speech helper. */

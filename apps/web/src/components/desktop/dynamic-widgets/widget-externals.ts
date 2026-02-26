@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import * as ReactJSXRuntime from 'react/jsx-runtime'
-import * as WidgetSDK from '@tenas-ai/widget-sdk'
+import * as WidgetSDK from '@openloaf/widget-sdk'
 
 /**
  * 逻辑：esbuild 编译 widget 时将 react/react-dom/react-jsx-runtime 标记为 external，
@@ -10,7 +10,7 @@ import * as WidgetSDK from '@tenas-ai/widget-sdk'
  * 需要将它们替换为可 import 的 Blob URL shim。
  */
 
-const EXTERNALS_KEY = '__TENAS_WIDGET_EXTERNALS__'
+const EXTERNALS_KEY = '__OPENLOAF_WIDGET_EXTERNALS__'
 
 /** 注册外部依赖到全局，供 Blob URL shim 模块访问 */
 export function ensureExternalsRegistered() {
@@ -20,7 +20,7 @@ export function ensureExternalsRegistered() {
     'react': React,
     'react/jsx-runtime': ReactJSXRuntime,
     'react-dom': React,
-    '@tenas-ai/widget-sdk': WidgetSDK,
+    '@openloaf/widget-sdk': WidgetSDK,
   }
 }
 
@@ -67,7 +67,7 @@ export const useInsertionEffect = m.useInsertionEffect;
 export const useLayoutEffect = m.useLayoutEffect;
 export const useImperativeHandle = m.useImperativeHandle;
 export const useDebugValue = m.useDebugValue;`
-      : moduleName === '@tenas-ai/widget-sdk'
+      : moduleName === '@openloaf/widget-sdk'
         ? `const m = window['${EXTERNALS_KEY}']['${moduleName}'];
 export default m;
 export const createWidgetSDK = m.createWidgetSDK;
@@ -89,7 +89,7 @@ export function patchBareImports(code: string): string {
     'react/jsx-runtime',
     'react-dom',
     'react',
-    '@tenas-ai/widget-sdk',
+    '@openloaf/widget-sdk',
   ]
   let patched = code
   for (const ext of externals) {

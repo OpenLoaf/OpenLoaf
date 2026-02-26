@@ -6,24 +6,24 @@ import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/Confirm
 import { ModelDialog } from "@/components/setting/menus/provider/ModelDialog";
 import { ProviderDialog } from "@/components/setting/menus/provider/ProviderDialog";
 import { ProviderSection } from "@/components/setting/menus/provider/ProviderSection";
-import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
-import { Button } from "@tenas-ai/ui/button";
-import { Checkbox } from "@tenas-ai/ui/checkbox";
+import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
+import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
+import { Button } from "@openloaf/ui/button";
+import { Checkbox } from "@openloaf/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@tenas-ai/ui/dropdown-menu";
-import { Label } from "@tenas-ai/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@tenas-ai/ui/popover";
-import { Tabs, TabsList, TabsTrigger } from "@tenas-ai/ui/tabs";
+} from "@openloaf/ui/dropdown-menu";
+import { Label } from "@openloaf/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
+import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { ChevronDown } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
-import { Switch } from "@tenas-ai/ui/animate-ui/components/radix/switch";
+import { Switch } from "@openloaf/ui/animate-ui/components/radix/switch";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
@@ -170,7 +170,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
 
   return (
     <div className={wrapperClassName}>
-      <TenasSettingsGroup
+      <OpenLoafSettingsGroup
         title="偏好设置"
         subtitle="调整模型响应语言与交互偏好。"
         className="pb-4"
@@ -184,7 +184,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
               </div>
             </div>
 
-            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+            <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -215,7 +215,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
@@ -226,7 +226,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
               </div>
             </div>
 
-            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+            <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end">
               <Tabs
                 value={chatOnlineSearchMemoryScope}
                 onValueChange={(next) =>
@@ -241,7 +241,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                   <TabsTrigger value="global">全局记忆</TabsTrigger>
                 </TabsList>
               </Tabs>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
@@ -252,7 +252,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
               </div>
             </div>
 
-            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+            <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end">
               <div className="origin-right scale-110">
                 <Switch
                   checked={basic.modelSoundEnabled}
@@ -262,11 +262,11 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                   aria-label="Model sound"
                 />
               </div>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
       <ProviderSection
         entries={entries}

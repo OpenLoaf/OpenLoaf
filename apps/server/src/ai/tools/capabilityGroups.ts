@@ -4,7 +4,7 @@
  * 每个能力组包含一组相关的工具 ID，Agent 通过勾选能力组来获得对应工具。
  */
 
-import { resolveToolCatalogItem, type ToolCatalogItem } from "@tenas-ai/api/types/tools/toolCatalog";
+import { resolveToolCatalogItem, type ToolCatalogItem } from "@openloaf/api/types/tools/toolCatalog";
 
 export type CapabilityGroup = {
   /** 能力组 ID。 */

@@ -35,7 +35,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@tenas-ai/ui/dropdown-menu';
+} from '@openloaf/ui/dropdown-menu';
 import {
   insertBlock,
   insertInlineElement,

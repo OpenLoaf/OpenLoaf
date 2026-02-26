@@ -12,7 +12,7 @@ import {
   type ModelCapabilityParams,
   type ModelDefinition,
   type ModelTag,
-} from "@tenas-ai/api/common";
+} from "@openloaf/api/common";
 
 type ProviderSettingValue = {
   /** Provider id. */

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { create } from "zustand";
-import type { AiModel } from "@tenas-saas/sdk";
+import type { AiModel } from "@openloaf-saas/sdk";
 import { fetchImageModels, fetchVideoModels } from "@/lib/saas-media";
 
 type MediaKind = "image" | "video";

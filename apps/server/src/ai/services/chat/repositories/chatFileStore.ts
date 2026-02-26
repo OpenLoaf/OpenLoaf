@@ -1,12 +1,12 @@
 import { promises as fs } from 'node:fs'
 import fsSync from 'node:fs'
 import path from 'node:path'
-import { resolveTenasPath } from '@tenas-ai/config'
+import { resolveOpenLoafPath } from '@openloaf/config'
 import {
   getProjectRootPath,
   getWorkspaceRootPathById,
-} from '@tenas-ai/api/services/vfsService'
-import { prisma } from '@tenas-ai/db'
+} from '@openloaf/api/services/vfsService'
+import { prisma } from '@openloaf/db'
 import { logger } from '@/common/logger'
 
 // ---------------------------------------------------------------------------
@@ -128,24 +128,24 @@ const sessionDirCache = new Map<string, string>()
 
 /**
  * 解析 session 的 chat-history 根目录：
- * - 有 projectId → <projectRoot>/.tenas/chat-history/
- * - 无 projectId → <workspaceRoot>/.tenas/chat-history/
- * - 都没有 → ~/.tenas/chat-history/ (fallback)
+ * - 有 projectId → <projectRoot>/.openloaf/chat-history/
+ * - 无 projectId → <workspaceRoot>/.openloaf/chat-history/
+ * - 都没有 → ~/.openloaf/chat-history/ (fallback)
  */
 function resolveChatHistoryRoot(workspaceId?: string | null, projectId?: string | null): string {
   if (projectId) {
     const projectRoot = getProjectRootPath(projectId, workspaceId ?? undefined)
     if (projectRoot) {
-      return path.join(projectRoot, '.tenas', CHAT_HISTORY_DIR)
+      return path.join(projectRoot, '.openloaf', CHAT_HISTORY_DIR)
     }
   }
   if (workspaceId) {
     const workspaceRoot = getWorkspaceRootPathById(workspaceId)
     if (workspaceRoot) {
-      return path.join(workspaceRoot, '.tenas', CHAT_HISTORY_DIR)
+      return path.join(workspaceRoot, '.openloaf', CHAT_HISTORY_DIR)
     }
   }
-  return resolveTenasPath(CHAT_HISTORY_DIR)
+  return resolveOpenLoafPath(CHAT_HISTORY_DIR)
 }
 
 async function resolveSessionDir(sessionId: string): Promise<string> {

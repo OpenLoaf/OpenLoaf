@@ -1,7 +1,7 @@
 import type React from 'react'
-import dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
-import { normalizeDateLabel } from '@tenas-ai/ui/calendar/lib/utils/date-utils'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
+import { normalizeDateLabel } from '@openloaf/ui/calendar/lib/utils/date-utils'
 
 interface DayNumberProps {
 	date: dayjs.Dayjs

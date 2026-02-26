@@ -1,7 +1,7 @@
 import * as LabelPrimitive from '@radix-ui/react-label'
 import type * as React from 'react'
 
-import { cn } from '@tenas-ai/ui/calendar/lib/utils'
+import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 function Label({
 	className,

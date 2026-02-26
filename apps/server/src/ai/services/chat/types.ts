@@ -1,12 +1,12 @@
-import type { ChatCommandId } from "@tenas-ai/api/common/chatCommands";
-import type { ChatRequestBody, TenasUIMessage } from "@tenas-ai/api/types/message";
+import type { ChatCommandId } from "@openloaf/api/common/chatCommands";
+import type { ChatRequestBody, OpenLoafUIMessage } from "@openloaf/api/types/message";
 
 /** Chat stream request payload, based on ChatRequestBody with server-only fields. */
 export type ChatStreamRequest = ChatRequestBody & {
   /** Session id. */
   sessionId: string;
   /** Incoming UI messages. */
-  messages: TenasUIMessage[];
+  messages: OpenLoafUIMessage[];
   /** Workspace id for this request. */
   workspaceId?: string;
   /** Project id for this request. */
@@ -27,7 +27,7 @@ export type AiExecuteRequest = {
   /** Request id from client transport. */
   id?: string;
   /** Incoming UI messages. */
-  messages?: TenasUIMessage[];
+  messages?: OpenLoafUIMessage[];
   /** Extra parameters from UI. */
   params?: Record<string, unknown>;
   /** Current tab id for UI actions. */

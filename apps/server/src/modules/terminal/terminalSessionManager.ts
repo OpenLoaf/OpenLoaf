@@ -31,7 +31,7 @@ let cleanupTimer: NodeJS.Timeout | null = null;
 
 /** Resolve whether terminal feature is enabled. */
 export function isTerminalEnabled(): boolean {
-  return process.env.TENAS_ENABLE_TERMINAL === "1";
+  return process.env.OPENLOAF_ENABLE_TERMINAL === "1";
 }
 
 /** Resolve a terminal working directory from user input. */
@@ -66,7 +66,7 @@ function resolveTerminalCwd(pwd: string): string {
 
 /** Resolve the default shell for the current OS. */
 function resolveTerminalShellCandidates(): Array<{ file: string; args: string[] }> {
-  const customShell = process.env.TENAS_TERMINAL_SHELL?.trim();
+  const customShell = process.env.OPENLOAF_TERMINAL_SHELL?.trim();
   const candidates: Array<{ file: string; args: string[] }> = [];
   const pushCandidate = (file?: string | null) => {
     if (!file) return;

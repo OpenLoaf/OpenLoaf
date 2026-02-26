@@ -5,18 +5,18 @@ import {
   listDirToolDef,
   readFileToolDef,
   applyPatchToolDef,
-} from "@tenas-ai/api/types/tools/runtime";
+} from "@openloaf/api/types/tools/runtime";
 import {
   parsePatch,
   computeReplacements,
   applyReplacements,
 } from "@/ai/tools/applyPatch";
-import { readBasicConf } from "@/modules/settings/tenasConfStore";
+import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { resolveToolPath, resolveToolWorkdir } from "@/ai/tools/toolScope";
 import { resolveSecretTokens } from "@/ai/tools/secretStore";
 import { buildGitignoreMatcher } from "@/ai/tools/gitignoreMatcher";
 import { getProjectId, getWorkspaceId } from "@/ai/shared/context/requestContext";
-import { getProjectRootPath, getWorkspaceRootPathById } from "@tenas-ai/api/services/vfsService";
+import { getProjectRootPath, getWorkspaceRootPathById } from "@openloaf/api/services/vfsService";
 
 const MAX_LINE_LENGTH = 500;
 const DEFAULT_READ_LIMIT = 2000;
@@ -528,8 +528,8 @@ async function collectDirEntries(
     const collected: Array<{ entryPath: string; relativePath: string; entry: DirEntry; kind: DirEntryKind }> = [];
 
     for (const entry of dirEntries) {
-      // 固定过滤 .DS_Store 与 .tenas* 目录，避免噪声泄露到工具输出。
-      if (entry.name === ".DS_Store" || (entry.isDirectory() && entry.name.startsWith(".tenas"))) {
+      // 固定过滤 .DS_Store 与 .openloaf* 目录，避免噪声泄露到工具输出。
+      if (entry.name === ".DS_Store" || (entry.isDirectory() && entry.name.startsWith(".openloaf"))) {
         continue;
       }
       const relativePath = current.prefix ? path.join(current.prefix, entry.name) : entry.name;

@@ -3,19 +3,19 @@
 import type { ComponentProps, ReactNode } from "react";
 
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Command,
   CommandEmpty,
   CommandInput,
   CommandItem,
   CommandList,
-} from "@tenas-ai/ui/command";
+} from "@openloaf/ui/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@tenas-ai/ui/popover";
+} from "@openloaf/ui/popover";
 import { cn } from "@/lib/utils";
 import { ChevronsUpDownIcon } from "lucide-react";
 import {

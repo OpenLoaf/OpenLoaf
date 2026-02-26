@@ -136,7 +136,7 @@ export function createCalendarSync(args: { log: Logger; calendarService: Calenda
     if (!context?.workspaceId) return;
     const provider = resolveProvider();
     if (!provider) return;
-    const serverUrl = process.env.TENAS_SERVER_URL ?? "";
+    const serverUrl = process.env.OPENLOAF_SERVER_URL ?? "";
     if (!serverUrl) {
       args.log("[calendar-sync] missing server url");
       return;

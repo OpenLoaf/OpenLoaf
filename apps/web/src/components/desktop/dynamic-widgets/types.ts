@@ -1,4 +1,4 @@
-import type { WidgetSDK } from '@tenas-ai/widget-sdk'
+import type { WidgetSDK } from '@openloaf/widget-sdk'
 
 /** Metadata for a dynamic widget from the server. */
 export interface DynamicWidgetMeta {
@@ -7,7 +7,7 @@ export interface DynamicWidgetMeta {
   description?: string
   main: string
   scripts?: Record<string, string>
-  tenas?: {
+  openloaf?: {
     type: 'widget'
     defaultSize?: string
     constraints?: {

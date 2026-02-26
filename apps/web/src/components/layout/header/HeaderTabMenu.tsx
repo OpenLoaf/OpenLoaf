@@ -5,7 +5,7 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuShortcut,
-} from "@tenas-ai/ui/context-menu";
+} from "@openloaf/ui/context-menu";
 import type { TabMeta } from "@/hooks/tab-types";
 import type { ReactNode } from "react";
 
@@ -31,7 +31,7 @@ export const TabMenu = ({
       onOpenChange={(open) => {
         if (typeof window === "undefined") return;
         window.dispatchEvent(
-          new CustomEvent("tenas:overlay", {
+          new CustomEvent("openloaf:overlay", {
             detail: { id: `tabmenu:${tab.id}`, open },
           })
         );

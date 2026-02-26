@@ -1,6 +1,6 @@
 "use client";
 
-import FlipClock from "@tenas-ai/ui/flip-clock";
+import FlipClock from "@openloaf/ui/flip-clock";
 
 interface FlipClockWidgetProps {
   /** Active variant key. */

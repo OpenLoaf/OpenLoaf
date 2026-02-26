@@ -1,6 +1,6 @@
 "use client";
 
-import type { DockItem, Tab } from "@tenas-ai/api/common";
+import type { DockItem, Tab } from "@openloaf/api/common";
 
 /** Tab metadata persisted in storage. */
 export type TabMeta = Pick<

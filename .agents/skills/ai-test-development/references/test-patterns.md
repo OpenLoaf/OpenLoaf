@@ -18,8 +18,8 @@ import crypto from 'node:crypto'
 import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { setTenasRootOverride } from '@tenas-ai/config'
-import { prisma } from '@tenas-ai/db'
+import { setOpenLoafRootOverride } from '@openloaf/config'
+import { prisma } from '@openloaf/db'
 // ... 业务模块导入
 
 // ---------------------------------------------------------------------------
@@ -60,7 +60,7 @@ async function main() {
   // ---- Setup ----
   tempDir = path.join(os.tmpdir(), `<prefix>_test_${Date.now()}`)
   await fs.mkdir(tempDir, { recursive: true })
-  setTenasRootOverride(tempDir)
+  setOpenLoafRootOverride(tempDir)
 
   // 如需 DB 隔离：
   // await prisma.chatSession.create({ data: { id: testSessionId } })
@@ -96,7 +96,7 @@ async function main() {
   } finally {
     // ---- Teardown ----
     // await prisma.chatSession.delete({ where: { id: testSessionId } }).catch(() => {})
-    setTenasRootOverride(null)
+    setOpenLoafRootOverride(null)
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
   }
 
@@ -160,7 +160,7 @@ describe('functionB', () => {
 Vitest 配置要点（`apps/web/vitest.config.ts`）：
 - 环境：`jsdom`
 - 匹配：`src/**/*.vitest.ts`, `src/**/*.vitest.tsx`
-- 别名：`@/` → `./src/`, `@tenas-ai/ui` → `packages/ui/src`
+- 别名：`@/` → `./src/`, `@openloaf/ui` → `packages/ui/src`
 
 ## 环境隔离代码片段
 
@@ -170,15 +170,15 @@ Vitest 配置要点（`apps/web/vitest.config.ts`）：
 import os from 'node:os'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
-import { setTenasRootOverride } from '@tenas-ai/config'
+import { setOpenLoafRootOverride } from '@openloaf/config'
 
 // Setup
 const tempDir = path.join(os.tmpdir(), `mytest_${Date.now()}`)
 await fs.mkdir(tempDir, { recursive: true })
-setTenasRootOverride(tempDir)
+setOpenLoafRootOverride(tempDir)
 
 // Teardown（必须在 finally 中）
-setTenasRootOverride(null)
+setOpenLoafRootOverride(null)
 await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
 ```
 
@@ -186,7 +186,7 @@ await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
 
 ```typescript
 import crypto from 'node:crypto'
-import { prisma } from '@tenas-ai/db'
+import { prisma } from '@openloaf/db'
 
 const testSessionId = `test_${crypto.randomUUID()}`
 
@@ -199,12 +199,12 @@ await prisma.chatSession.delete({ where: { id: testSessionId } }).catch(() => {}
 
 ### 缓存清除
 
-切换 `setTenasRootOverride` 后，如果被测模块有内部缓存，需要手动清除：
+切换 `setOpenLoafRootOverride` 后，如果被测模块有内部缓存，需要手动清除：
 
 ```typescript
 import { clearSessionDirCache } from '@/ai/services/chat/repositories/chatFileStore'
 
-setTenasRootOverride(tempDir)
+setOpenLoafRootOverride(tempDir)
 clearSessionDirCache()  // 重要：否则缓存指向旧路径
 ```
 

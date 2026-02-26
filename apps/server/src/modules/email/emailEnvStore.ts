@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** Environment variable key for overriding server env path. */
-const SERVER_ENV_PATH_KEY = "TENAS_SERVER_ENV_PATH";
+const SERVER_ENV_PATH_KEY = "OPENLOAF_SERVER_ENV_PATH";
 
 /** Resolve repository root path from current file location. */
 function resolveRepoRoot(): string {

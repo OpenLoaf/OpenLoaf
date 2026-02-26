@@ -3,7 +3,7 @@ import {
   BROWSER_WINDOW_PANEL_ID,
   type BrowserTab,
   type DockItem,
-} from "@tenas-ai/api/common";
+} from "@openloaf/api/common";
 import { createBrowserTabId } from "@/hooks/tab-id";
 
 /** Return true when the dock item is a browser panel. */

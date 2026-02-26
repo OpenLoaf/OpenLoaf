@@ -2,8 +2,8 @@
 
 import type { ComponentProps } from "react";
 
-import { Button } from "@tenas-ai/ui/button";
-import { Spinner } from "@tenas-ai/ui/spinner";
+import { Button } from "@openloaf/ui/button";
+import { Spinner } from "@openloaf/ui/spinner";
 import { cn } from "@/lib/utils";
 import { MicIcon, SquareIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";

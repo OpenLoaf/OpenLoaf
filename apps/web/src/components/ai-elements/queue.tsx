@@ -2,13 +2,13 @@
 
 import type { ComponentProps } from "react";
 
-import { Button } from "@tenas-ai/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@tenas-ai/ui/collapsible";
-import { ScrollArea } from "@tenas-ai/ui/scroll-area";
+} from "@openloaf/ui/collapsible";
+import { ScrollArea } from "@openloaf/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { ChevronDownIcon, PaperclipIcon } from "lucide-react";
 

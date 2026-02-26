@@ -1,9 +1,9 @@
 import { generateId, tool, zodSchema, type UIMessage } from "ai";
-import { subAgentToolDef } from "@tenas-ai/api/types/tools/subAgent";
+import { subAgentToolDef } from "@openloaf/api/types/tools/subAgent";
 import {
   browserSubAgentName,
   documentAnalysisSubAgentName,
-} from "@tenas-ai/api/types/tools/subAgent";
+} from "@openloaf/api/types/tools/subAgent";
 import { createSubAgent, resolveAgentType } from "@/ai/services/agentFactory";
 import {
   saveAgentMessage,

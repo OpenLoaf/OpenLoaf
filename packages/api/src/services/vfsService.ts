@@ -14,7 +14,7 @@ import {
   upsertWorkspaceProjectEntry,
 } from "./workspaceProjectConfig";
 
-const PROJECT_META_DIR = ".tenas";
+const PROJECT_META_DIR = ".openloaf";
 const PROJECT_META_FILE = "project.json";
 /** Scoped project path matcher like @[projectId]/path/to/file. */
 const PROJECT_SCOPE_REGEX = /^@?\[([^\]]+)\]\/(.+)$/;

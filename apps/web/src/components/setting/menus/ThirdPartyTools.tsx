@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Button } from "@tenas-ai/ui/button";
-import { Input } from "@tenas-ai/ui/input";
-import { Label } from "@tenas-ai/ui/label";
+import { Button } from "@openloaf/ui/button";
+import { Input } from "@openloaf/ui/input";
+import { Label } from "@openloaf/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -12,13 +12,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@tenas-ai/ui/dialog";
-import { TenasSettingsField } from "@tenas-ai/ui/tenas/TenasSettingsField";
-import { TenasSettingsGroup } from "@tenas-ai/ui/tenas/TenasSettingsGroup";
+} from "@openloaf/ui/dialog";
+import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
+import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
 import { Claude, OpenAI } from "@lobehub/icons";
-import { Switch } from "@tenas-ai/ui/animate-ui/components/radix/switch";
+import { Switch } from "@openloaf/ui/animate-ui/components/radix/switch";
 import { toast } from "sonner";
-import type { CliToolConfig, CliToolsConfig } from "@tenas-ai/api/types/basic";
+import type { CliToolConfig, CliToolsConfig } from "@openloaf/api/types/basic";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { queryClient, trpc } from "@/utils/trpc";
 
@@ -348,11 +348,11 @@ export function ThirdPartyTools() {
 
   return (
     <div className="space-y-3">
-      <TenasSettingsGroup title="系统信息" subtitle="当前设备与命令行支持情况。">
+      <OpenLoafSettingsGroup title="系统信息" subtitle="当前设备与命令行支持情况。">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1 text-sm font-medium">系统版本</div>
-            <TenasSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
+            <OpenLoafSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
               <Button
                 type="button"
                 size="sm"
@@ -364,12 +364,12 @@ export function ThirdPartyTools() {
               >
                 {systemVersionValue || "—"}
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1 text-sm font-medium">命令行环境</div>
-            <TenasSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
+            <OpenLoafSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
               <Button
                 type="button"
                 size="sm"
@@ -381,12 +381,12 @@ export function ThirdPartyTools() {
               >
                 {shellSupportLabel || "—"}
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
-      <TenasSettingsGroup title="第三方工具">
+      <OpenLoafSettingsGroup title="第三方工具">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
@@ -401,7 +401,7 @@ export function ThirdPartyTools() {
               </div>
             </div>
 
-            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
+            <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
               <Button
                 size="sm"
                 variant="outline"
@@ -428,7 +428,7 @@ export function ThirdPartyTools() {
                     ? "安装中..."
                     : "安装"}
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
@@ -447,7 +447,7 @@ export function ThirdPartyTools() {
               </div>
             </div>
 
-            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
+            <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
               <Button
                 size="sm"
                 variant="outline"
@@ -483,7 +483,7 @@ export function ThirdPartyTools() {
                   设置
                 </Button>
               ) : null}
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
@@ -498,7 +498,7 @@ export function ThirdPartyTools() {
               </div>
             </div>
 
-            <TenasSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
+            <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
               <Button
                 size="sm"
                 variant="outline"
@@ -535,16 +535,16 @@ export function ThirdPartyTools() {
                   设置
                 </Button>
               ) : null}
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
-      <TenasSettingsGroup title="WPS" subtitle="WPS Office 安装状态">
+      <OpenLoafSettingsGroup title="WPS" subtitle="WPS Office 安装状态">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1 text-sm font-medium">WPS Office</div>
-            <TenasSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
+            <OpenLoafSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
               <Button
                 type="button"
                 size="sm"
@@ -556,10 +556,10 @@ export function ThirdPartyTools() {
               >
                 {wpsStatusLabel || "—"}
               </Button>
-            </TenasSettingsField>
+            </OpenLoafSettingsField>
           </div>
         </div>
-      </TenasSettingsGroup>
+      </OpenLoafSettingsGroup>
 
       <Dialog open={cliDialogOpen} onOpenChange={setCliDialogOpen}>
         <DialogContent>

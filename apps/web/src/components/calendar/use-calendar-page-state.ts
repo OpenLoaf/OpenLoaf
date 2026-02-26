@@ -1,8 +1,8 @@
-import type { CalendarEvent as UiCalendarEvent } from "@tenas-ai/ui/calendar/components/types";
+import type { CalendarEvent as UiCalendarEvent } from "@openloaf/ui/calendar/components/types";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import dayjs from "@tenas-ai/ui/calendar/lib/configs/dayjs-config";
+import dayjs from "@openloaf/ui/calendar/lib/configs/dayjs-config";
 import { trpc } from "@/utils/trpc";
 import {
   createSystemEvent,
@@ -17,8 +17,8 @@ import {
   updateSystemReminder,
 } from "@/lib/calendar/electron-calendar";
 
-type CalendarPermissionState = TenasCalendarPermissionState;
-type CalendarRange = TenasCalendarRange;
+type CalendarPermissionState = OpenLoafCalendarPermissionState;
+type CalendarRange = OpenLoafCalendarRange;
 type CalendarEvent = UiCalendarEvent;
 type CalendarKind = "event" | "reminder";
 type CalendarSourceFilter = "all" | "local" | "system";
@@ -60,7 +60,7 @@ function isEventReadOnly(event: CalendarEvent): boolean {
 
 type CalendarPageStateParams = {
   workspaceId?: string;
-  toSystemEvent: (event: CalendarEvent) => TenasCalendarEvent;
+  toSystemEvent: (event: CalendarEvent) => OpenLoafCalendarEvent;
   getEventKind: (event: CalendarEvent) => CalendarKind;
   sourceFilter?: CalendarSourceFilter;
 };

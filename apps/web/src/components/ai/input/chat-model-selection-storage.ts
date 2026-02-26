@@ -26,8 +26,8 @@ export type MediaModelSelection = {
   preferredVideoModelIds?: string[];
 };
 
-export const MODEL_SELECTION_STORAGE_KEY = "tenas.chat-model-selection";
-export const CHAT_MODEL_SELECTION_EVENT = "tenas:chat-model-selection";
+export const MODEL_SELECTION_STORAGE_KEY = "openloaf.chat-model-selection";
+export const CHAT_MODEL_SELECTION_EVENT = "openloaf:chat-model-selection";
 export const CHAT_MODEL_SELECTION_TAB_PARAMS_KEY = "chatModelSelections";
 
 export function createDefaultStoredSelection(): StoredModelSelection {

@@ -3,8 +3,8 @@
 import { useMemo, useRef, useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
-import { TenasSettingsLayout } from "@tenas-ai/ui/tenas/TenasSettingsLayout";
-import { TenasSettingsMenu } from "@tenas-ai/ui/tenas/TenasSettingsMenu";
+import { OpenLoafSettingsLayout } from "@openloaf/ui/openloaf/OpenLoafSettingsLayout";
+import { OpenLoafSettingsMenu } from "@openloaf/ui/openloaf/OpenLoafSettingsMenu";
 import { BarChart3, Bot, Cpu, GitBranch, SlidersHorizontal, Wand2 } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";
@@ -216,12 +216,12 @@ export default function ProjectSettingsPage({
   );
 
   return (
-    <TenasSettingsLayout
+    <OpenLoafSettingsLayout
       ref={containerRef}
       isCollapsed={isCollapsed}
       sectionClassName="rounded-2xl  bg-background/70"
       menu={
-        <TenasSettingsMenu
+        <OpenLoafSettingsMenu
           groups={menuGroups}
           activeKey={activeKey}
           isCollapsed={isCollapsed}

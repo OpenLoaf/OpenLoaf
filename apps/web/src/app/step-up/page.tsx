@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@tenas-ai/ui/button";
-import { Switch } from "@tenas-ai/ui/switch";
+import { Button } from "@openloaf/ui/button";
+import { Switch } from "@openloaf/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@tenas-ai/ui/dropdown-menu";
+} from "@openloaf/ui/dropdown-menu";
 import { ArrowLeft, Globe, LogOut, Network } from "lucide-react";
 import {
   StepUpFinishStep,
@@ -261,7 +261,7 @@ export default function StepUpPage() {
           : "未选择",
     model:
       modelChoice === "cloud"
-        ? "Tenas Cloud"
+        ? "OpenLoaf Cloud"
         : modelChoice === "custom"
           ? "自定义模型"
           : "未选择",

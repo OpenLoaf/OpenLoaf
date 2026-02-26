@@ -7,7 +7,7 @@ import {
 } from 'node:fs'
 import { v4 as uuidv4 } from 'uuid'
 
-const TENAS_DIR = '.tenas'
+const OPENLOAF_DIR = '.openloaf'
 const TASKS_DIR = 'tasks'
 const RUNS_DIR = 'runs'
 
@@ -25,7 +25,7 @@ export type TaskRunLog = {
 
 /** Resolve runs directory for a given root path. */
 function resolveRunsDir(rootPath: string): string {
-  return path.join(rootPath, TENAS_DIR, TASKS_DIR, RUNS_DIR)
+  return path.join(rootPath, OPENLOAF_DIR, TASKS_DIR, RUNS_DIR)
 }
 
 /** Resolve JSONL file path for a task. */

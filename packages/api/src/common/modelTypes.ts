@@ -2,7 +2,7 @@ import {
   AI_MODEL_TAG_LABELS,
   type AiModelCapabilities,
   type AiModelTag,
-} from "@tenas-saas/sdk";
+} from "@openloaf-saas/sdk";
 
 export type ChatModelSource = "local" | "cloud";
 

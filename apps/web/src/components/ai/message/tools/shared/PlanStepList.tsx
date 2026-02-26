@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import type { PlanItem } from "@tenas-ai/api/types/tools/runtime";
+import type { PlanItem } from "@openloaf/api/types/tools/runtime";
 import { CheckCircle2, Circle, CircleDashed, Loader2 } from "lucide-react";
 import { Task, TaskContent, TaskItem, TaskTrigger } from "@/components/ai-elements/task";
 

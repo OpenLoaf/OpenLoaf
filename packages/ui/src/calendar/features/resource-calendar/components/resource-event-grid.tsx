@@ -1,7 +1,7 @@
 import type React from 'react'
-import { HorizontalGrid } from '@tenas-ai/ui/calendar/components/horizontal-grid/horizontal-grid'
-import { useResourceCalendarContext } from '@tenas-ai/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
-import type dayjs from '@tenas-ai/ui/calendar/lib/configs/dayjs-config'
+import { HorizontalGrid } from '@openloaf/ui/calendar/components/horizontal-grid/horizontal-grid'
+import { useResourceCalendarContext } from '@openloaf/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'
+import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 
 interface ResourceEventGridProps {
 	/**

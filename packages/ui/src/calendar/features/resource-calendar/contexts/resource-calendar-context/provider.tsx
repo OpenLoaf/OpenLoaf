@@ -1,15 +1,15 @@
 import type React from 'react'
 import { useCallback, useMemo, useState } from 'react'
-import type { CalendarEvent } from '@tenas-ai/ui/calendar/components/types'
-import type { CalendarProviderProps } from '@tenas-ai/ui/calendar/features/calendar/contexts/calendar-context/provider'
+import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
+import type { CalendarProviderProps } from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/provider'
 import type {
 	CalendarClassesOverride,
 	CellClickInfo,
 	RenderCurrentTimeIndicatorProps,
-} from '@tenas-ai/ui/calendar/features/calendar/types'
-import type { Resource } from '@tenas-ai/ui/calendar/features/resource-calendar/types'
-import { useCalendarEngine } from '@tenas-ai/ui/calendar/hooks/use-calendar-engine'
-import { GAP_BETWEEN_ELEMENTS } from '@tenas-ai/ui/calendar/lib/constants'
+} from '@openloaf/ui/calendar/features/calendar/types'
+import type { Resource } from '@openloaf/ui/calendar/features/resource-calendar/types'
+import { useCalendarEngine } from '@openloaf/ui/calendar/hooks/use-calendar-engine'
+import { GAP_BETWEEN_ELEMENTS } from '@openloaf/ui/calendar/lib/constants'
 import { ResourceCalendarContext } from './context'
 
 const getEventResourceIds = (event: CalendarEvent): (string | number)[] => {

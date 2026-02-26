@@ -5,13 +5,13 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { setWorkspaces } from "@tenas-ai/api/services/workspaceConfig";
-import type { Workspace } from "@tenas-ai/api";
-import { setTenasRootOverride } from "@tenas-ai/config";
+import { setWorkspaces } from "@openloaf/api/services/workspaceConfig";
+import type { Workspace } from "@openloaf/api";
+import { setOpenLoafRootOverride } from "@openloaf/config";
 
-const tempRoot = mkdtempSync(path.join(tmpdir(), "tenas-email-account-"));
-process.env.TENAS_SERVER_ENV_PATH = path.join(tempRoot, ".env");
-setTenasRootOverride(tempRoot);
+const tempRoot = mkdtempSync(path.join(tmpdir(), "openloaf-email-account-"));
+process.env.OPENLOAF_SERVER_ENV_PATH = path.join(tempRoot, ".env");
+setOpenLoafRootOverride(tempRoot);
 
 const workspaceRoot = path.join(tempRoot, "workspace");
 const workspaceId = "workspace-test";
@@ -60,7 +60,7 @@ if (account.auth.type === "password") {
   assert.equal(account.auth.envKey, expectedEnvKey);
 }
 
-const envContent = readFileSync(process.env.TENAS_SERVER_ENV_PATH!, "utf-8");
+const envContent = readFileSync(process.env.OPENLOAF_SERVER_ENV_PATH!, "utf-8");
 assert.ok(envContent.includes(`${expectedEnvKey}=${password}`));
 
 let duplicateError: unknown = null;
@@ -78,6 +78,6 @@ try {
 
 assert.ok(duplicateError instanceof Error);
 
-setTenasRootOverride(null);
+setOpenLoafRootOverride(null);
 
 console.log("email account service tests passed.");

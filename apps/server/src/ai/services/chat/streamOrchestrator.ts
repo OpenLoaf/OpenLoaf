@@ -5,7 +5,7 @@ import {
   type UIMessage,
 } from "ai";
 import { logger } from "@/common/logger";
-import type { ChatMessageKind, TokenUsage } from "@tenas-ai/api";
+import type { ChatMessageKind, TokenUsage } from "@openloaf/api";
 import {
   getSessionId,
   getPlanUpdate,

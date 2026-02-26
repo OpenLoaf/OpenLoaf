@@ -5,7 +5,7 @@ import type { TElement } from 'platejs';
 import { CopilotPlugin } from '@platejs/ai/react';
 import { serializeMd, stripMarkdown } from '@platejs/markdown';
 
-import { GhostText } from '@tenas-ai/ui/ghost-text';
+import { GhostText } from '@openloaf/ui/ghost-text';
 import { resolveServerUrl } from '@/utils/server-url';
 
 import { MarkdownKit } from './markdown-kit';

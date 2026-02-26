@@ -1,6 +1,6 @@
 "use client";
 
-import { SKILL_COMMAND_PREFIX } from "@tenas-ai/api/common";
+import { SKILL_COMMAND_PREFIX } from "@openloaf/api/common";
 import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
 
 // 逻辑：允许非 URL 编码的路径，使用非空白字符匹配文件引用。
