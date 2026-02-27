@@ -229,9 +229,7 @@ export const SidebarWorkspace = () => {
                 className=" h-12 rounded-lg px-1.5 py-3 [&:not([data-highlight])]:hover:bg-sidebar-accent [&:not([data-highlight])]:hover:text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
                 <Avatar className="size-8 rounded-md">
-                  {displayAvatar ? (
-                    <AvatarImage src={displayAvatar} alt={avatarAlt} />
-                  ) : null}
+                  <AvatarImage src={displayAvatar || undefined} alt={avatarAlt} />
                   <AvatarFallback className="bg-transparent">
                     <img
                       src="/head_s.png"
@@ -259,9 +257,7 @@ export const SidebarWorkspace = () => {
             >
               <div className="flex items-center gap-3 px-2 py-2">
                 <Avatar className="size-9">
-                  {displayAvatar ? (
-                    <AvatarImage src={displayAvatar} alt={avatarAlt} />
-                  ) : null}
+                  <AvatarImage src={displayAvatar || undefined} alt={avatarAlt} />
                   <AvatarFallback>
                     <img
                       src="/logo.svg"

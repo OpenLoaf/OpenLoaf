@@ -177,7 +177,7 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
       id: TERMINAL_WINDOW_PANEL_ID,
       sourceKey: TERMINAL_WINDOW_PANEL_ID,
       component: TERMINAL_WINDOW_COMPONENT,
-      title: "Terminal",
+      title: "终端",
       params: {
         __customHeader: true,
         __open: { pwdUri },
@@ -222,7 +222,7 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
           onClick={handleOpenSearch}
         >
           <Search className="size-4" />
-          Search
+          搜索
         </Button>
         <Button
           type="button"
@@ -231,7 +231,7 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
           onClick={handleOpenTerminal}
         >
           <Terminal className="size-4" />
-          Terminal
+          终端
         </Button>
         {scope === "project" ? (
           <Button
@@ -242,7 +242,7 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
             disabled={creating}
           >
             <LayoutDashboard className="size-4" />
-            {creating ? "创建中…" : "Canvas"}
+            {creating ? "创建中…" : "画布"}
           </Button>
         ) : null}
         <Button
@@ -252,7 +252,7 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
           onClick={handleOpenAiChat}
         >
           <Sparkles className="size-4" />
-          Ask AI
+          AI 对话
         </Button>
       </div>
     </div>

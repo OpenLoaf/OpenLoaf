@@ -57,10 +57,10 @@ const FALLBACK_PROJECTS: FolderProject[] = [];
 
 /** Resolve a friendly folder title based on the selected URI. */
 function resolveFolderTitle(folderUri?: string) {
-  if (!folderUri) return "Folder";
+  if (!folderUri) return "文件夹";
   const displayPath = getDisplayPathFromUri(folderUri);
   const parts = displayPath.split("/").filter(Boolean);
-  return parts[parts.length - 1] ?? "Folder";
+  return parts[parts.length - 1] ?? "文件夹";
 }
 
 type ResolvedFolderInfo = {
@@ -257,7 +257,7 @@ export default function ThreeDFolderWidget({
       addTab({
         workspaceId,
         createNew: true,
-        title: projectNode?.title || "Untitled Project",
+        title: projectNode?.title || "未命名项目",
         icon: projectNode?.icon ?? undefined,
         leftWidthPercent: 90,
         base: {

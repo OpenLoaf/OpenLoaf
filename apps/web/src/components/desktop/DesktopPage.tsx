@@ -43,13 +43,13 @@ function getEditMaxWidth(breakpoint: DesktopBreakpoint) {
 }
 
 const resolveIconTitle = (iconKey: DesktopIconKey) =>
-  desktopIconCatalog.find((item) => item.iconKey === iconKey)?.title ?? "Icon";
+  desktopIconCatalog.find((item) => item.iconKey === iconKey)?.title ?? "图标";
 
 const BASE_DESKTOP_ITEMS: DesktopItem[] = [
   {
     id: "w-flip-clock",
     kind: "widget",
-    title: "Flip Clock",
+    title: "翻页时钟",
     widgetKey: "flip-clock",
     size: "4x2",
     constraints: { defaultW: 4, defaultH: 2, minW: 2, minH: 2, maxW: 6, maxH: 3 },
@@ -59,7 +59,7 @@ const BASE_DESKTOP_ITEMS: DesktopItem[] = [
   {
     id: "w-clock",
     kind: "widget",
-    title: "Clock",
+    title: "时钟",
     widgetKey: "clock",
     size: "2x2",
     constraints: { defaultW: 2, defaultH: 2, minW: 2, minH: 2, maxW: 3, maxH: 3 },
@@ -68,7 +68,7 @@ const BASE_DESKTOP_ITEMS: DesktopItem[] = [
   {
     id: "w-actions",
     kind: "widget",
-    title: "Actions",
+    title: "快速操作",
     widgetKey: "quick-actions",
     size: "4x2",
     constraints: { defaultW: 4, defaultH: 2, minW: 2, minH: 2, maxW: 6, maxH: 3 },

@@ -54,14 +54,14 @@ const ViewControls: React.FC<ViewControlsProps> = ({
 			>
 				{VIEW_CONFIG.map(({ type, icon: Icon }) => (
 					<Button
-						className="h-7 px-2 gap-1"
+						className="h-7 w-7"
 						key={type}
 						onClick={() => onChange(type)}
-						size="sm"
+						size="icon"
 						variant={currentView === type ? 'secondary' : 'ghost'}
+						aria-label={t(type)}
 					>
 						<Icon className="h-3.5 w-3.5" />
-						<span className="text-xs">{t(type)}</span>
 					</Button>
 				))}
 			</div>

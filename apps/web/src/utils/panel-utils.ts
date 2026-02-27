@@ -105,57 +105,57 @@ export const ComponentMap: Record<string, PanelComponent> = {
 export const getPanelTitle = (componentName: string) => {
   switch (componentName) {
     case "ai-chat":
-      return "AI Chat";
+      return "AI 对话";
     case "plant-page":
-      return "Plant";
+      return "项目";
     case "electron-browser-window":
-      return "Browser Window";
+      return "浏览器窗口";
     case "tool-result":
-      return "Tool Result";
+      return "工具结果";
     case "settings-page":
-      return "Settings";
+      return "设置";
     case "provider-management":
-      return "Provider Management";
+      return "模型供应商管理";
     case "calendar-page":
-      return "Calendar";
+      return "日历";
     case "email-page":
-      return "Email";
+      return "邮箱";
     case "email-compose-stack":
       return "写邮件";
     case "email-message-stack":
       return "邮件正文";
     case "inbox-page":
-      return "Inbox";
+      return "收件箱";
     case "template-page":
-      return "Template";
+      return "模板";
     case "file-viewer":
-      return "File";
+      return "文件";
     case "image-viewer":
-      return "Image";
+      return "图片";
     case "code-viewer":
-      return "Code";
+      return "代码";
     case "markdown-viewer":
       return "Markdown";
     case "pdf-viewer":
       return "PDF";
     case "doc-viewer":
-      return "DOC";
+      return "文档";
     case "sheet-viewer":
-      return "Sheet";
+      return "表格";
     case "video-viewer":
-      return "Video";
+      return "视频";
     case "board-viewer":
-      return "Board";
+      return "画布";
     case "terminal-viewer":
-      return "Terminal";
+      return "终端";
     case "desktop-widget-library":
-      return "Widget Library";
+      return "组件库";
     case "workspace-desktop":
       return "工作台";
     case "folder-tree-preview":
-      return "Folder";
+      return "文件夹";
     case "scheduler-task-history":
-      return "Scheduler History";
+      return "任务历史";
     case "scheduled-tasks-page":
       return "任务看板";
     case "agent-detail":

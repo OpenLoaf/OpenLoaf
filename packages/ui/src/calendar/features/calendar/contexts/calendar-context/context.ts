@@ -86,6 +86,7 @@ export interface CalendarContextType {
 	) => React.ReactNode
 	hideNonBusinessHours?: boolean
 	hideViewControls?: boolean
+	hideNewEventButton?: boolean
 }
 
 export const CalendarContext: React.Context<CalendarContextType | undefined> =

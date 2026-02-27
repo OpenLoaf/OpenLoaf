@@ -50,7 +50,7 @@ export default function FlipClock({ showSeconds = true }: FlipClockProps) {
   const seconds = time.getSeconds().toString().padStart(2, "0");
 
   return (
-    <div className="flex justify-center items-center gap-1 min-h-[100vh]">
+    <div className="flex justify-center items-center gap-1">
       {hours.split("").map((digit, i) => (
         <Digit key={`h-${i}`} value={parseInt(digit)} />
       ))}

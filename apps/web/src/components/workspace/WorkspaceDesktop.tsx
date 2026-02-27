@@ -11,7 +11,7 @@
 
 import * as React from "react";
 import { useMutation } from "@tanstack/react-query";
-import Image from "next/image";
+import { LayoutDashboard } from "lucide-react";
 import DesktopEditToolbar from "@/components/desktop/DesktopEditToolbar";
 import DesktopPage, { getInitialDesktopItems } from "@/components/desktop/DesktopPage";
 import type { DesktopItem } from "@/components/desktop/types";
@@ -316,7 +316,7 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
     <div className="flex h-full w-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-3 bg-background/80 px-3 py-2 backdrop-blur-sm">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <Image src="/head_s.png" alt="" width={16} height={16} className="h-4 w-4" />
+          <LayoutDashboard className="h-4 w-4 text-amber-700/70 dark:text-amber-300/70" />
           <span>工作台</span>
         </div>
         <div ref={controlsSlotRef} className="workspace-desktop-header-controls" />

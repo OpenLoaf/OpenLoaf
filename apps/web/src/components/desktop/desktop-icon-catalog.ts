@@ -25,22 +25,22 @@ export type DesktopIconCatalogItem = {
 export const desktopIconCatalog: DesktopIconCatalogItem[] = [
   {
     iconKey: "files",
-    title: "Files",
+    title: "文件",
     support: { workspace: false, project: true },
   },
   {
     iconKey: "tasks",
-    title: "Tasks",
+    title: "任务",
     support: { workspace: false, project: true },
   },
   {
     iconKey: "search",
-    title: "Search",
+    title: "搜索",
     support: { workspace: true, project: true },
   },
   {
     iconKey: "settings",
-    title: "Settings",
+    title: "设置",
     support: { workspace: true, project: true },
   },
 ];

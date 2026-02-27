@@ -11,7 +11,7 @@ import type { TabView } from "./tab-types";
 import { getLeftSidebarOpen } from "@/lib/sidebar-state";
 
 /** Minimum pixel width for the left dock. */
-export const LEFT_DOCK_MIN_PX = 360;
+export const LEFT_DOCK_MIN_PX = 680;
 
 /** Default percent width for the left dock when content exists. */
 export const LEFT_DOCK_DEFAULT_PERCENT = 30;

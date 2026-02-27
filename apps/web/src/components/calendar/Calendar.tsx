@@ -353,6 +353,8 @@ export default function CalendarPage({
   compact = false,
   initialView,
   hideViewControls,
+  hideNewEventButton,
+  headerTrailingSlot,
 }: {
   panelKey: string;
   tabId: string;
@@ -362,6 +364,10 @@ export default function CalendarPage({
   initialView?: 'day' | 'week' | 'month';
   /** Whether to hide the view controls (day/week/month tabs) in the header. */
   hideViewControls?: boolean;
+  /** Whether to hide the new event button in the header. */
+  hideNewEventButton?: boolean;
+  /** Optional trailing slot rendered after view controls in the header (replaces default new event button area). */
+  headerTrailingSlot?: React.ReactNode;
 }) {
   const { basic } = useBasicConfig();
   const { workspace } = useWorkspace();
@@ -587,10 +593,12 @@ export default function CalendarPage({
             key={initialView}
             initialView={initialView}
             hideViewControls={hideViewControls}
+            hideNewEventButton={hideNewEventButton}
             events={visibleEvents}
             headerClassName="justify-between"
             headerLeadingSlot={
-              shouldShowImportButton ? (
+              headerTrailingSlot ? headerTrailingSlot
+              : shouldShowImportButton ? (
                 <Button
                   size="sm"
                   variant="outline"

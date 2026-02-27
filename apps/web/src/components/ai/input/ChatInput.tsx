@@ -1167,8 +1167,18 @@ export default function ChatInput({
   const handleSubmit = async (value: string) => {
     const canSubmit = status === "ready" || status === "error";
     if (!canSubmit) return;
-    // 中文注释：未配置且未登录时禁止发送。
-    if (isUnconfigured) return;
+    // 未配置时：将消息暂存为 pendingCloudMessage，登录后自动发送
+    if (isUnconfigured) {
+      const textValue = normalizeFileMentionSpacing(value).trim()
+      if (!textValue) return
+      setPendingCloudMessage({
+        parts: [{ type: 'text', text: textValue }],
+        metadata: undefined,
+        text: textValue,
+      })
+      setInput('')
+      return
+    }
     // 切换 session 的历史加载期间禁止发送，避免 parentMessageId 与当前会话链不一致
     if (isHistoryLoading) return;
     // 中文注释：发送前规范化文件引用的空格，避免路径与后续文本粘连。

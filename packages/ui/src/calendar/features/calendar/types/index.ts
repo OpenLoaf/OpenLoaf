@@ -307,4 +307,9 @@ export interface IlamyCalendarProps {
 	 * @default false
 	 */
 	hideViewControls?: boolean
+	/**
+	 * Whether to hide the new event button in the header.
+	 * @default false
+	 */
+	hideNewEventButton?: boolean
 }

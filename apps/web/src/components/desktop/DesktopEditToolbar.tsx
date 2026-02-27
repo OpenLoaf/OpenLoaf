@@ -246,10 +246,29 @@ export default function DesktopEditToolbar({
 
   if (!controlsTarget) return null;
 
-  // 中文注释：非编辑态在头部展示编辑入口。
+  /** Enter edit mode and immediately open the widget library panel. */
+  const handleAddAndEdit = React.useCallback(() => {
+    onEnterEditMode();
+    // 逻辑：延迟一帧等编辑态生效后再打开组件库，避免 stack push 被旧状态拦截。
+    requestAnimationFrame(() => {
+      handleOpenWidgetLibrary();
+    });
+  }, [onEnterEditMode, handleOpenWidgetLibrary]);
+
+  // 中文注释：非编辑态在头部展示添加组件与编辑入口。
   if (!editMode) {
     return createPortal(
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="h-7 gap-1.5 px-2 text-xs"
+          onClick={handleAddAndEdit}
+        >
+          <Plus className="size-3.5 text-blue-500" />
+          添加组件
+        </Button>
         <Button
           type="button"
           variant="secondary"

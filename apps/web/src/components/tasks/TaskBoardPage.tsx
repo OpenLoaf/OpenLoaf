@@ -29,8 +29,8 @@ import {
   Play,
   Plus,
   Search,
+  Sparkles,
   X,
-  FileText,
   XCircle,
 } from 'lucide-react'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
@@ -46,7 +46,6 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import { ScheduledTaskDialog } from './ScheduledTaskDialog'
-import { TaskTemplateDialog } from './TaskTemplateDialog'
 import { useWorkspace } from '@/components/workspace/workspaceContext'
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -92,10 +91,44 @@ type ViewMode = 'kanban' | 'list'
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 const PRIORITY_COLORS: Record<Priority, string> = {
-  urgent: 'bg-red-500/15 text-red-600 border-red-500/20',
-  high: 'bg-orange-500/15 text-orange-600 border-orange-500/20',
-  medium: 'bg-blue-500/15 text-blue-600 border-blue-500/20',
-  low: 'bg-zinc-500/15 text-zinc-500 border-zinc-500/20',
+  urgent: 'bg-[#fce8e6] text-[#d93025] border-transparent dark:bg-red-900/40 dark:text-red-300',
+  high: 'bg-[#fef7e0] text-[#e37400] border-transparent dark:bg-amber-900/40 dark:text-amber-300',
+  medium: 'bg-[#e8f0fe] text-[#1a73e8] border-transparent dark:bg-sky-900/40 dark:text-sky-300',
+  low: 'bg-[#f1f3f4] text-[#5f6368] border-transparent dark:bg-slate-800/40 dark:text-slate-400',
+}
+
+const PRIORITY_FILTER_COLORS: Record<Priority, { active: string; inactive: string }> = {
+  urgent: {
+    active: 'bg-[#d93025] text-white dark:bg-red-700 dark:text-red-50',
+    inactive: 'bg-[#fce8e6] text-[#d93025] hover:bg-[#f8d0cc] dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50',
+  },
+  high: {
+    active: 'bg-[#e37400] text-white dark:bg-amber-700 dark:text-amber-50',
+    inactive: 'bg-[#fef7e0] text-[#e37400] hover:bg-[#fcefc8] dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50',
+  },
+  medium: {
+    active: 'bg-[#1a73e8] text-white dark:bg-sky-700 dark:text-sky-50',
+    inactive: 'bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] dark:bg-sky-900/30 dark:text-sky-300 dark:hover:bg-sky-900/50',
+  },
+  low: {
+    active: 'bg-[#5f6368] text-white dark:bg-slate-600 dark:text-slate-50',
+    inactive: 'bg-[#f1f3f4] text-[#5f6368] hover:bg-[#e3e5e8] dark:bg-slate-800/30 dark:text-slate-400 dark:hover:bg-slate-800/50',
+  },
+}
+
+const TRIGGER_FILTER_COLORS: Record<TriggerMode, { active: string; inactive: string }> = {
+  manual: {
+    active: 'bg-[#188038] text-white dark:bg-emerald-700 dark:text-emerald-50',
+    inactive: 'bg-[#e6f4ea] text-[#188038] hover:bg-[#ceead6] dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50',
+  },
+  scheduled: {
+    active: 'bg-[#9334e6] text-white dark:bg-violet-700 dark:text-violet-50',
+    inactive: 'bg-[#f3e8fd] text-[#9334e6] hover:bg-[#e9d5fb] dark:bg-violet-900/30 dark:text-violet-300 dark:hover:bg-violet-900/50',
+  },
+  condition: {
+    active: 'bg-[#f9ab00] text-white dark:bg-amber-600 dark:text-amber-50',
+    inactive: 'bg-[#fef7e0] text-[#e37400] hover:bg-[#fcefc8] dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50',
+  },
 }
 
 const PRIORITY_LABELS: Record<Priority, string> = {
@@ -117,6 +150,34 @@ const STATUS_COLUMNS: { status: TaskStatus; label: string; icon: typeof Circle }
   { status: 'review', label: '审批', icon: Clock },
   { status: 'done', label: '已完成', icon: CheckCircle2 },
 ]
+
+const STATUS_FLAT_COLORS: Record<TaskStatus, { icon: string; badge: string; bg: string }> = {
+  todo: {
+    icon: 'text-[#1a73e8] dark:text-sky-300',
+    badge: 'bg-[#e8f0fe] text-[#1a73e8] dark:bg-sky-900/40 dark:text-sky-300',
+    bg: 'bg-[#f8faff] dark:bg-sky-950/10',
+  },
+  running: {
+    icon: 'text-[#f9ab00] dark:text-amber-300',
+    badge: 'bg-[#fef7e0] text-[#e37400] dark:bg-amber-900/40 dark:text-amber-300',
+    bg: 'bg-[#fffcf5] dark:bg-amber-950/10',
+  },
+  review: {
+    icon: 'text-[#9334e6] dark:text-violet-300',
+    badge: 'bg-[#f3e8fd] text-[#9334e6] dark:bg-violet-900/40 dark:text-violet-300',
+    bg: 'bg-[#fdf8ff] dark:bg-violet-950/10',
+  },
+  done: {
+    icon: 'text-[#188038] dark:text-emerald-300',
+    badge: 'bg-[#e6f4ea] text-[#188038] dark:bg-emerald-900/40 dark:text-emerald-300',
+    bg: 'bg-[#f7fcf8] dark:bg-emerald-950/10',
+  },
+  cancelled: {
+    icon: 'text-[#5f6368] dark:text-slate-400',
+    badge: 'bg-[#f1f3f4] text-[#5f6368] dark:bg-slate-800/40 dark:text-slate-400',
+    bg: 'bg-[#fafafa] dark:bg-slate-950/10',
+  },
+}
 
 /** Valid drag-to-status transitions per source status. */
 const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
@@ -317,7 +378,7 @@ function KanbanColumn({
   onCancel: (id: string) => void
   onOpenDetail: (id: string) => void
 }) {
-  const isRunning = status === 'running'
+  const colors = STATUS_FLAT_COLORS[status]
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${status}`,
     data: { status },
@@ -326,16 +387,17 @@ function KanbanColumn({
   return (
     <div className="flex min-w-[240px] flex-1 flex-col">
       <div className="mb-3 flex items-center gap-2 px-1">
-        <Icon className={cn('h-4 w-4', isRunning && 'animate-spin')} />
+        <Icon className={cn('h-4 w-4', colors.icon)} />
         <span className="text-sm font-medium">{label}</span>
-        <Badge variant="secondary" className="ml-auto text-[10px]">
+        <Badge variant="secondary" className={cn('ml-auto border-0 text-[10px]', colors.badge)}>
           {tasks.length}
         </Badge>
       </div>
       <div
         ref={setNodeRef}
         className={cn(
-          'flex flex-1 flex-col gap-2 overflow-y-auto rounded-lg bg-muted/30 p-2 transition-all',
+          'flex flex-1 flex-col gap-2 overflow-y-auto rounded-lg p-2 transition-all',
+          colors.bg,
           isOver && 'ring-2 ring-primary/50',
         )}
       >
@@ -394,38 +456,55 @@ function FilterBar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative">
-        <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#5f6368] dark:text-slate-400" />
         <Input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="搜索任务..."
-          className="h-8 w-48 pl-7 text-xs"
+          className="h-7 w-44 rounded-full border-transparent bg-[#edf2fa] pl-8 text-xs text-[#1f1f1f] placeholder:text-[#5f6368] focus-visible:border-[#d2e3fc] focus-visible:ring-[rgba(26,115,232,0.22)] dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-100 dark:placeholder:text-slate-400"
         />
       </div>
       <div className="flex items-center gap-1">
-        <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-        {(['urgent', 'high', 'medium', 'low'] as Priority[]).map((p) => (
-          <Badge
-            key={p}
-            variant={priorityFilter.includes(p) ? 'default' : 'outline'}
-            className="cursor-pointer text-[10px]"
-            onClick={() => togglePriority(p)}
-          >
-            {PRIORITY_LABELS[p]}
-          </Badge>
-        ))}
+        <Filter className="h-3.5 w-3.5 text-[#5f6368] dark:text-slate-400" />
+        {(['urgent', 'high', 'medium', 'low'] as Priority[]).map((p) => {
+          const isActive = priorityFilter.includes(p)
+          const colors = PRIORITY_FILTER_COLORS[p]
+          return (
+            <button
+              key={p}
+              type="button"
+              className={cn(
+                'rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors duration-150',
+                'border border-transparent',
+                isActive ? colors.active : colors.inactive,
+              )}
+              onClick={() => togglePriority(p)}
+            >
+              {PRIORITY_LABELS[p]}
+            </button>
+          )
+        })}
       </div>
+      <div className="h-3.5 w-px bg-[#e3e8ef] dark:bg-slate-700" />
       <div className="flex items-center gap-1">
-        {(['manual', 'scheduled', 'condition'] as TriggerMode[]).map((t) => (
-          <Badge
-            key={t}
-            variant={triggerFilter.includes(t) ? 'default' : 'outline'}
-            className="cursor-pointer text-[10px]"
-            onClick={() => toggleTrigger(t)}
-          >
-            {TRIGGER_LABELS[t]}
-          </Badge>
-        ))}
+        {(['manual', 'scheduled', 'condition'] as TriggerMode[]).map((t) => {
+          const isActive = triggerFilter.includes(t)
+          const colors = TRIGGER_FILTER_COLORS[t]
+          return (
+            <button
+              key={t}
+              type="button"
+              className={cn(
+                'rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors duration-150',
+                'border border-transparent',
+                isActive ? colors.active : colors.inactive,
+              )}
+              onClick={() => toggleTrigger(t)}
+            >
+              {TRIGGER_LABELS[t]}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
@@ -437,13 +516,14 @@ export default function TaskBoardPage() {
   const { workspace } = useWorkspace()
   const queryClient = useQueryClient()
   const pushStackItem = useTabRuntime((state) => state.pushStackItem)
+  const setTabRightChatCollapsed = useTabRuntime((state) => state.setTabRightChatCollapsed)
+  const setTabLeftWidthPercent = useTabRuntime((state) => state.setTabLeftWidthPercent)
   const { activeTabId } = useTabs()
   const [viewMode, setViewMode] = useState<ViewMode>('kanban')
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState<Priority[]>([])
   const [triggerFilter, setTriggerFilter] = useState<TriggerMode[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
 
   const workspaceId = workspace?.id ?? ''
 
@@ -531,6 +611,16 @@ export default function TaskBoardPage() {
     [activeTabId, pushStackItem, tasks, workspaceId],
   )
 
+  const activateAiChat = useCallback(() => {
+    if (!activeTabId) return
+    setTabRightChatCollapsed(activeTabId, false)
+    setTabLeftWidthPercent(activeTabId, 55)
+    // 延迟聚焦，等待面板展开动画
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('openloaf:chat-focus-input'))
+    }, 300)
+  }, [activeTabId, setTabRightChatCollapsed, setTabLeftWidthPercent])
+
   // Filter tasks
   const filteredTasks = useMemo(() => {
     let result = tasks as TaskConfig[]
@@ -572,46 +662,65 @@ export default function TaskBoardPage() {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center justify-between border-b px-4 py-2">
-        <div className="flex items-center gap-3">
-          <h2 className="text-sm font-semibold">任务</h2>
-          <FilterBar
-            search={search}
-            onSearchChange={setSearch}
-            priorityFilter={priorityFilter}
-            onPriorityFilterChange={setPriorityFilter}
-            triggerFilter={triggerFilter}
-            onTriggerFilterChange={setTriggerFilter}
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-md border">
+      <div className="flex flex-col gap-1.5 border-b px-4 py-2">
+        {/* Row 1: Title + Actions */}
+        <div className="flex items-center justify-between">
+          <h2 className="shrink-0 text-sm font-semibold">任务</h2>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-0.5 rounded-full bg-[#f1f3f4] p-0.5 dark:bg-[hsl(var(--muted)/0.38)]">
+              <button
+                type="button"
+                className={cn(
+                  'rounded-full p-1.5 transition-colors duration-150',
+                  viewMode === 'kanban'
+                    ? 'bg-white text-[#1a73e8] shadow-sm dark:bg-[hsl(var(--background)/0.9)] dark:text-sky-300'
+                    : 'text-[#5f6368] hover:text-[#202124] dark:text-slate-400 dark:hover:text-slate-200',
+                )}
+                onClick={() => setViewMode('kanban')}
+              >
+                <KanbanSquare className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  'rounded-full p-1.5 transition-colors duration-150',
+                  viewMode === 'list'
+                    ? 'bg-white text-[#1a73e8] shadow-sm dark:bg-[hsl(var(--background)/0.9)] dark:text-sky-300'
+                    : 'text-[#5f6368] hover:text-[#202124] dark:text-slate-400 dark:hover:text-slate-200',
+                )}
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+            </div>
             <Button
-              variant={viewMode === 'kanban' ? 'secondary' : 'ghost'}
               size="sm"
-              className="h-7 rounded-r-none px-2"
-              onClick={() => setViewMode('kanban')}
+              className="h-7 rounded-full border-transparent bg-[#e8f0fe] px-3 text-xs font-medium text-[#1a73e8] shadow-none transition-colors duration-150 hover:bg-[#d2e3fc] dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70"
+              onClick={() => setDialogOpen(true)}
             >
-              <KanbanSquare className="h-3.5 w-3.5" />
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              新建任务
             </Button>
             <Button
-              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
               size="sm"
-              className="h-7 rounded-l-none px-2"
-              onClick={() => setViewMode('list')}
+              variant="ghost"
+              className="h-7 rounded-full bg-[#fef7e0] px-3 text-xs font-medium text-[#e37400] shadow-none transition-colors duration-150 hover:bg-[#fcefc8] dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
+              onClick={activateAiChat}
             >
-              <List className="h-3.5 w-3.5" />
+              <Sparkles className="mr-1 h-3.5 w-3.5" />
+              让AI创建
             </Button>
           </div>
-          <Button size="sm" className="h-7" onClick={() => setDialogOpen(true)}>
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            新建任务
-          </Button>
-          <Button size="sm" variant="outline" className="h-7" onClick={() => setTemplateDialogOpen(true)}>
-            <FileText className="mr-1 h-3.5 w-3.5" />
-            从模板创建
-          </Button>
         </div>
+        {/* Row 2: Filters */}
+        <FilterBar
+          search={search}
+          onSearchChange={setSearch}
+          priorityFilter={priorityFilter}
+          onPriorityFilterChange={setPriorityFilter}
+          triggerFilter={triggerFilter}
+          onTriggerFilterChange={setTriggerFilter}
+        />
       </div>
 
       {/* Content */}
@@ -713,11 +822,6 @@ export default function TaskBoardPage() {
         onSuccess={() => queryClient.invalidateQueries({ queryKey: [['scheduledTask']] })}
         workspaceId={workspaceId}
         task={null}
-      />
-      <TaskTemplateDialog
-        open={templateDialogOpen}
-        onOpenChange={setTemplateDialogOpen}
-        workspaceId={workspaceId}
       />
     </div>
   )

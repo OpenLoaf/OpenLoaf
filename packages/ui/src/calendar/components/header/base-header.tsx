@@ -40,6 +40,7 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 		firstDayOfWeek,
 		currentDate,
 		hideViewControls,
+		hideNewEventButton,
 	} = useSmartCalendarContext((ctx) => ({
 		view: ctx.view,
 		setView: ctx.setView,
@@ -57,6 +58,7 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 		firstDayOfWeek: ctx.firstDayOfWeek,
 		currentDate: ctx.currentDate,
 		hideViewControls: ctx.hideViewControls,
+		hideNewEventButton: ctx.hideNewEventButton,
 	}))
 
 	const isTodayInView = useMemo(() => {
@@ -151,6 +153,7 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 							onChange={setView}
 						/>
 					)}
+					{hideNewEventButton ? null : (
 					<Button
 						className="flex items-center gap-1"
 						onClick={() => openEventForm()}
@@ -160,6 +163,7 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 						<Plus className="h-4 w-4" />
 						<span className="hidden @xl/base-header:inline">{t('new')}</span>
 					</Button>
+				)}
 				</div>
 			</div>
 		</div>

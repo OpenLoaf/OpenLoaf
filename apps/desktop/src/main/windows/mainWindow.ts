@@ -200,9 +200,23 @@ export async function createMainWindow(args: {
   // （SaaS 后端 → 本地服务 /auth/callback → storeLoginCode），
   // 前端轮询 fetchLoginCode() 照常检测到 code 并完成登录。
   mainWindow.webContents.on('will-navigate', (event, url) => {
+    args.log(`[will-navigate] ${url}`);
     if (/\/auth\/(?:wechat\/)?callback\b/.test(url)) {
+      args.log('[will-navigate] intercepted OAuth callback');
       event.preventDefault();
-      fetch(url, { redirect: 'follow' }).catch((): void => {});
+      fetch(url, { redirect: 'follow' })
+        .then((res) => {
+          args.log(`[will-navigate] fetch ok: status=${res.status} url=${res.url}`);
+        })
+        .catch((err: unknown) => {
+          args.log(`[will-navigate] fetch error: ${err}`);
+        });
+    }
+  });
+
+  mainWindow.webContents.on('will-frame-navigate', (details) => {
+    if (details.frame !== details.frame?.top) {
+      args.log(`[will-frame-navigate] iframe: ${details.url}`);
     }
   });
 

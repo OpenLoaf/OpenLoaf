@@ -30,7 +30,7 @@ export type DesktopWidgetCatalogItem = {
 export const desktopWidgetCatalog: DesktopWidgetCatalogItem[] = [
   {
     widgetKey: "flip-clock",
-    title: "Flip Clock",
+    title: "翻页时钟",
     size: "4x2",
     constraints: { defaultW: 4, defaultH: 2, minW: 2, minH: 2, maxW: 6, maxH: 3 },
     support: { workspace: true, project: true },
@@ -38,7 +38,7 @@ export const desktopWidgetCatalog: DesktopWidgetCatalogItem[] = [
   },
   {
     widgetKey: "clock",
-    title: "Clock",
+    title: "时钟",
     size: "2x2",
     constraints: { defaultW: 2, defaultH: 2, minW: 2, minH: 2, maxW: 3, maxH: 3 },
     support: { workspace: true, project: true },
@@ -46,7 +46,7 @@ export const desktopWidgetCatalog: DesktopWidgetCatalogItem[] = [
   },
   {
     widgetKey: "quick-actions",
-    title: "Actions",
+    title: "快速操作",
     size: "4x2",
     constraints: { defaultW: 4, defaultH: 2, minW: 2, minH: 2, maxW: 6, maxH: 3 },
     support: { workspace: true, project: true },
@@ -82,14 +82,14 @@ export const desktopWidgetCatalog: DesktopWidgetCatalogItem[] = [
   },
   {
     widgetKey: "3d-folder",
-    title: "3D Folder",
+    title: "3D 文件夹",
     size: "4x3",
     constraints: { defaultW: 4, defaultH: 3, minW: 1, minH: 1, maxW: 12, maxH: 20 },
     support: { workspace: false, project: true },
   },
   {
     widgetKey: "video",
-    title: "Video",
+    title: "视频",
     size: "4x3",
     constraints: { defaultW: 4, defaultH: 3, minW: 2, minH: 2, maxW: 8, maxH: 6 },
     support: { workspace: false, project: true },

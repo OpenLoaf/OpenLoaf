@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { ChevronLeft, ChevronRight, Globe, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Globe, LayoutDashboard, Plus, X } from "lucide-react";
 import { AnimatedTabs } from "@openloaf/ui/animated-tabs";
 import { useTabs } from "@/hooks/use-tabs";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
@@ -456,12 +456,7 @@ export const HeaderTabs = () => {
       return (
         <>
           {tab.icon === "bot" ? (
-            <img
-              src="/head_s.png"
-              alt=""
-              aria-hidden="true"
-              className="h-3.5 w-3.5 mr-1.5 shrink-0 object-contain"
-            />
+            <LayoutDashboard className="h-3.5 w-3.5 mr-1.5 shrink-0 text-amber-700/70 dark:text-amber-300/70" />
           ) : (
             tab.icon && <span className="mr-1.5 shrink-0">{tab.icon}</span>
           )}
