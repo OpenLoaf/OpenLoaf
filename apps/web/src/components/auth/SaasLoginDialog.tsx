@@ -181,8 +181,8 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
             {isLoginInProgress ? (
               <div className="space-y-3">
                 {selectedProvider === "wechat" && !isClosingAfterLogin ? (
-                  <div className="-mx-8 flex justify-center overflow-hidden">
-                    <div className="relative h-[340px] w-[540px]">
+                  <div className="relative -mx-8 h-[340px] overflow-hidden" style={{ width: 'calc(100% + 64px)' }}>
+                    <div className="absolute left-1/2 h-[340px] w-[540px] -translate-x-1/2 overflow-hidden pt-16">
                       {!iframeLoaded && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background">
                           <svg

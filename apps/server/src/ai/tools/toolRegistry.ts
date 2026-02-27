@@ -35,7 +35,7 @@ import { projectMutateTool, projectQueryTool } from "@/ai/tools/projectTools";
 import { calendarMutateTool, calendarQueryTool } from "@/ai/tools/calendarTools";
 import { emailMutateTool, emailQueryTool } from "@/ai/tools/emailTools";
 import { officeExecuteTool } from "@/ai/tools/officeTools";
-import { imageGenerateTool, videoGenerateTool } from "@/ai/tools/mediaGenerateTools";
+import { imageGenerateTool, videoGenerateTool, listMediaModelsTool } from "@/ai/tools/mediaGenerateTools";
 import { requestUserInputTool } from "@/ai/tools/requestUserInputTool";
 import { jsxCreateTool } from "@/ai/tools/jsxCreateTool";
 import { jsReplTool, jsReplResetTool } from "@/ai/tools/jsReplTool";
@@ -70,6 +70,7 @@ import { officeExecuteToolDef } from "@openloaf/api/types/tools/office";
 import {
   imageGenerateToolDef,
   videoGenerateToolDef,
+  listMediaModelsToolDef,
 } from "@openloaf/api/types/tools/mediaGenerate";
 import { requestUserInputToolDef } from "@openloaf/api/types/tools/userInput";
 import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
@@ -211,6 +212,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [widgetCheckToolDef.id]: {
     tool: widgetCheckTool,
+  },
+  [listMediaModelsToolDef.id]: {
+    tool: listMediaModelsTool,
   },
   [imageGenerateToolDef.id]: {
     tool: imageGenerateTool,

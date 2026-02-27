@@ -13,7 +13,11 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { tool, zodSchema } from 'ai'
 import type { UIMessageStreamWriter } from 'ai'
-import { imageGenerateToolDef, videoGenerateToolDef } from '@openloaf/api/types/tools/mediaGenerate'
+import {
+  imageGenerateToolDef,
+  videoGenerateToolDef,
+  listMediaModelsToolDef,
+} from '@openloaf/api/types/tools/mediaGenerate'
 import { getWorkspaceRootPathById } from '@openloaf/api/services/vfsService'
 import { logger } from '@/common/logger'
 import {
@@ -210,6 +214,55 @@ async function downloadAndSaveVideo(input: {
   return { url: path.posix.join('.openloaf', 'chat-history', input.sessionId, fileName) }
 }
 
+/** Simplify media model list for AI decision making — only keep fields the AI needs. */
+function simplifyMediaModels(payload: unknown): Array<{
+  id: string
+  name?: string
+  tags?: string[]
+  capabilities?: {
+    input?: Record<string, unknown>
+    output?: Record<string, unknown>
+  }
+}> {
+  const response = payload as { success?: boolean; data?: { data?: unknown[] } } | null
+  if (!response || response.success !== true) return []
+  const list = response.data?.data
+  if (!Array.isArray(list)) return []
+  return list
+    .filter((item: any) => typeof item?.id === 'string')
+    .map((item: any) => {
+      const simplified: {
+        id: string
+        name?: string
+        tags?: string[]
+        capabilities?: {
+          input?: Record<string, unknown>
+          output?: Record<string, unknown>
+        }
+      } = { id: item.id }
+      if (typeof item.name === 'string' && item.name.trim()) {
+        simplified.name = item.name
+      }
+      if (Array.isArray(item.tags) && item.tags.length > 0) {
+        simplified.tags = item.tags
+      }
+      const caps = item.capabilities
+      if (caps && typeof caps === 'object') {
+        const simplifiedCaps: { input?: Record<string, unknown>; output?: Record<string, unknown> } = {}
+        if (caps.input && typeof caps.input === 'object' && Object.keys(caps.input).length > 0) {
+          simplifiedCaps.input = caps.input
+        }
+        if (caps.output && typeof caps.output === 'object' && Object.keys(caps.output).length > 0) {
+          simplifiedCaps.output = caps.output
+        }
+        if (Object.keys(simplifiedCaps).length > 0) {
+          simplified.capabilities = simplifiedCaps
+        }
+      }
+      return simplified
+    })
+}
+
 /**
  * Auto-select a media model from the cloud when none is explicitly configured.
  * Returns the first model id from the cloud list, or undefined if unavailable.
@@ -243,10 +296,12 @@ async function executeMediaGenerate(input: {
   count?: number
   duration?: number
   fileName?: string
+  modelId?: string
 }) {
   const writer = getUiWriter()
   const accessToken = getSaasAccessToken()
-  let modelId = getMediaModelId(input.kind)
+  // 优先级：工具参数 modelId > RequestContext 配置 > autoSelect 兜底
+  let modelId = input.modelId || getMediaModelId(input.kind)
   const sessionId = getSessionId()
   const workspaceId = getWorkspaceId()
   const projectId = getProjectId()
@@ -391,6 +446,27 @@ async function executeMediaGenerate(input: {
   }
 }
 
+export const listMediaModelsTool = tool({
+  description: listMediaModelsToolDef.description,
+  inputSchema: zodSchema(listMediaModelsToolDef.parameters),
+  execute: async (params) => {
+    const accessToken = getSaasAccessToken()
+    if (!accessToken) {
+      return { ok: false, error: '需要登录 OpenLoaf 云端账户才能查询媒体模型。' }
+    }
+    try {
+      const payload = params.kind === 'image'
+        ? await fetchImageModels(accessToken)
+        : await fetchVideoModels(accessToken)
+      const models = simplifyMediaModels(payload)
+      return { ok: true, kind: params.kind, models, count: models.length }
+    } catch (err) {
+      logger.warn({ err, kind: params.kind }, '[media-tool] list media models failed')
+      return { ok: false, error: '查询媒体模型列表失败。' }
+    }
+  },
+})
+
 export const imageGenerateTool = tool({
   description: imageGenerateToolDef.description,
   inputSchema: zodSchema(imageGenerateToolDef.parameters),
@@ -403,6 +479,7 @@ export const imageGenerateTool = tool({
       aspectRatio: params.aspectRatio,
       count: params.count,
       fileName: params.fileName,
+      modelId: params.modelId,
     })
   },
 })
@@ -418,6 +495,7 @@ export const videoGenerateTool = tool({
       aspectRatio: params.aspectRatio,
       duration: params.duration,
       fileName: params.fileName,
+      modelId: params.modelId,
     })
   },
 })

@@ -26,6 +26,7 @@ import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { logger } from "@/common/logger";
 import { buildMasterAgentSections } from "@/ai/shared/promptBuilder";
 import { assembleMemorySection } from "@/ai/shared/agentPromptAssembler";
+import { collectAvailableAgents, buildSubAgentListSection } from "@/ai/shared/subAgentPrefaceBuilder";
 
 /** Unknown value fallback. */
 const UNKNOWN_VALUE = "unknown";
@@ -443,6 +444,14 @@ export async function buildSessionPrefaceText(input: {
       `- projectRootPath: ${context.project.rootPath}`,
     ].join("\n"),
     ...masterAgentSections,
+    // 注入可用子 Agent 列表，让 Master Agent 知道可以 spawn 哪些子代理。
+    buildSubAgentListSection(
+      collectAvailableAgents({
+        workspaceRootPath: context.workspace.rootPath !== UNKNOWN_VALUE ? context.workspace.rootPath : undefined,
+        projectRootPath: context.project.rootPath !== UNKNOWN_VALUE ? context.project.rootPath : undefined,
+        parentProjectRootPaths: input.parentProjectRootPaths,
+      }),
+    ),
     // 中文注释：注入 memory 章节，仅在存在 memory 文件时添加。
     ...(memorySection ? [memorySection] : []),
   ];

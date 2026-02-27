@@ -18,7 +18,7 @@ import {
 import { calendarQueryToolDef, calendarMutateToolDef } from "./calendar";
 import { projectQueryToolDef, projectMutateToolDef } from "./db";
 import { emailQueryToolDef, emailMutateToolDef } from "./email";
-import { imageGenerateToolDef, videoGenerateToolDef } from "./mediaGenerate";
+import { imageGenerateToolDef, videoGenerateToolDef, listMediaModelsToolDef } from "./mediaGenerate";
 import { officeExecuteToolDef } from "./office";
 import { testApprovalToolDef } from "./approvalTest";
 import {
@@ -83,6 +83,7 @@ const TOOL_DEFS: ToolDefLike[] = [
   calendarQueryToolDef,
   calendarMutateToolDef,
   officeExecuteToolDef,
+  listMediaModelsToolDef,
   imageGenerateToolDef,
   videoGenerateToolDef,
   widgetInitToolDef,

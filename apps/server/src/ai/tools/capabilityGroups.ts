@@ -87,13 +87,13 @@ const RAW_CAPABILITY_GROUPS = [
     id: 'image-generate',
     label: '图片生成',
     description: '生成图片内容',
-    toolIds: ['image-generate'],
+    toolIds: ['list-media-models', 'image-generate'],
   },
   {
     id: 'video-generate',
     label: '视频生成',
     description: '生成视频内容',
-    toolIds: ['video-generate'],
+    toolIds: ['list-media-models', 'video-generate'],
   },
   {
     id: 'chart',

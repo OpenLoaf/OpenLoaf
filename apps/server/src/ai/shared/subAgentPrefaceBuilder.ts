@@ -76,7 +76,7 @@ export function buildSubAgentListSection(agents: SubAgentEntry[]): string {
 }
 
 /** 收集所有可用 agent（模板 + 动态）。 */
-function collectAvailableAgents(input: {
+export function collectAvailableAgents(input: {
   workspaceRootPath?: string
   projectRootPath?: string
   parentProjectRootPaths?: string[]
