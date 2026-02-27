@@ -176,7 +176,7 @@ const BoardControls = memo(function BoardControls({
           onPointerDown={handleUndo}
           disabled={snapshot.locked || !snapshot.canUndo}
           tooltipSide="right"
-          className="group h-8 w-8"
+          className="group"
         >
           <Undo2 size={iconSize} className={controlIconClassName} />
         </IconBtn>
@@ -185,7 +185,7 @@ const BoardControls = memo(function BoardControls({
           onPointerDown={handleRedo}
           disabled={snapshot.locked || !snapshot.canRedo}
           tooltipSide="right"
-          className="group h-8 w-8"
+          className="group"
         >
           <Redo2 size={iconSize} className={controlIconClassName} />
         </IconBtn>
@@ -194,7 +194,7 @@ const BoardControls = memo(function BoardControls({
           onPointerDown={startZoomHold("in")}
           disabled={maxZoomReached}
           tooltipSide="right"
-          className="group h-8 w-8"
+          className="group"
         >
           <ZoomIn size={iconSize} className={controlIconClassName} />
         </IconBtn>
@@ -203,7 +203,7 @@ const BoardControls = memo(function BoardControls({
           onPointerDown={startZoomHold("out")}
           disabled={minZoomReached}
           tooltipSide="right"
-          className="group h-8 w-8"
+          className="group"
         >
           <ZoomOut size={iconSize} className={controlIconClassName} />
         </IconBtn>
@@ -212,11 +212,11 @@ const BoardControls = memo(function BoardControls({
           onPointerDown={handleAutoLayout}
           disabled={snapshot.locked}
           tooltipSide="right"
-          className="group h-8 w-8"
+          className="group"
         >
           <LayoutGrid size={iconSize} className={controlIconClassName} />
         </IconBtn>
-        <IconBtn title={fitTitle} onPointerDown={handleFitView} tooltipSide="right" className="group h-8 w-8">
+        <IconBtn title={fitTitle} onPointerDown={handleFitView} tooltipSide="right" className="group">
           <Scan size={iconSize} className={controlIconClassName} />
         </IconBtn>
         <IconBtn
@@ -224,7 +224,7 @@ const BoardControls = memo(function BoardControls({
           onPointerDown={toggleLock}
           active={snapshot.locked}
           tooltipSide="right"
-          className="group h-8 w-8"
+          className="group"
         >
           {snapshot.locked ? (
             <Unlock size={iconSize} className={controlIconClassName} />

@@ -4,6 +4,7 @@
 
 参考实现：
 - `apps/web/src/components/email/email-style-system.ts` — 核心样式常量
+- `apps/web/src/components/board/ui/board-style-system.ts` — Board 画布样式常量
 - `apps/web/src/components/email/EmailSidebar.tsx` — 侧边栏、按钮
 - `apps/web/src/components/email/EmailMessageList.tsx` — 工具栏、列表
 - `apps/web/src/components/tasks/TaskBoardPage.tsx` — Kanban、筛选标签
@@ -261,3 +262,27 @@ className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 2. 背景色 Dark 用 `hsl(var(--muted)/透明度)` 或 `语义色-900/透明度`
 3. 透明度梯度：背景 `30-50%`，hover `50-70%`，active `60-80%`
 4. 每个颜色值都必须有 `dark:` 对应
+
+---
+
+## 14. Canvas 覆盖层例外
+
+Board（画布白板）的浮动工具栏覆盖在任意画布内容之上，**容器级别**的玻璃态效果允许作为画布特有例外保留：
+
+- `backdrop-blur-md` + 半透明背景 + `shadow` + `ring` — 由 `BOARD_TOOLBAR_SURFACE_CLASS` 统一管理
+- 仅限 `toolbarSurfaceClassName` 消费者（工具栏容器、HoverPanel 容器）
+
+**内部元素必须严格对齐设计系统：**
+
+| 元素 | 规范 |
+|------|------|
+| 图标按钮 | `h-8 w-8 rounded-full` + `BOARD_ICON_BTN_ACTIVE/HOVER` |
+| 面板条目 | `rounded-lg` + `BOARD_PANEL_ITEM_ACTIVE/HOVER` |
+| 分隔线 | `bg-[#e3e8ef] dark:bg-slate-700` |
+| 文本 | `text-[#5f6368]` / `text-[#3c4043]` / `text-[#202124]` + dark 对应 |
+| 边框 | `border-[#e3e8ef] dark:border-slate-700` |
+| 过渡 | `transition-colors duration-150` |
+| 选中态 | `bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50` |
+| 画笔颜色 | `#202124, #1a73e8, #f9ab00, #d93025, #188038`（语义色） |
+
+样式常量集中在 `board-style-system.ts`，与 `email-style-system.ts` 模式一致。

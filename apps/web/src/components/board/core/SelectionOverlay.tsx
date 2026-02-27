@@ -806,7 +806,7 @@ function MultiSelectionResizeHandle({
       aria-label="Resize selection"
       data-multi-resize-handle
       onPointerDown={handlePointerDown}
-      className="pointer-events-auto absolute z-20 flex items-center justify-center rounded-md border border-slate-400/70 bg-background/90 text-slate-500 shadow-[0_6px_12px_rgba(15,23,42,0.12)] transition hover:text-slate-800 dark:border-slate-300/60 dark:text-slate-200"
+      className="pointer-events-auto absolute z-20 flex items-center justify-center rounded-md border border-[#e3e8ef] bg-background/90 text-[#5f6368] shadow-[0_6px_12px_rgba(15,23,42,0.12)] transition-colors duration-150 hover:text-[#202124] dark:border-slate-700 dark:text-slate-400 dark:hover:text-slate-100"
       style={{ left: x, top: y, width: size, height: size }}
     >
       <Maximize2 size={14} className="pointer-events-none rotate-90" />

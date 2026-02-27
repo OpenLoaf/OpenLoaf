@@ -67,7 +67,7 @@ type IconProps = LucideProps;
 type IconComponent = ComponentType<IconProps> | ForwardRefExoticComponent<IconProps>;
 
 const PEN_SIZES = [3, 6, 10, 14];
-const PEN_COLORS = ["#111827", "#1d4ed8", "#f59e0b", "#ef4444", "#16a34a"];
+const PEN_COLORS = ["#202124", "#1a73e8", "#f9ab00", "#d93025", "#188038"];
 
 type InsertItem = {
   id: string;
@@ -438,7 +438,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
 
   const [penVariant, setPenVariant] = useState<"pen" | "highlighter">("pen");
   const [penSize, setPenSize] = useState<number>(6);
-  const [penColor, setPenColor] = useState<string>("#f59e0b");
+  const [penColor, setPenColor] = useState<string>("#f9ab00");
   const selectTitle = buildToolTitle(TOOL_LABELS.select, TOOL_SHORTCUTS.select);
   const handTitle = buildToolTitle(TOOL_LABELS.hand, TOOL_SHORTCUTS.hand);
   const penTitle = buildToolTitle(TOOL_LABELS.pen, TOOL_SHORTCUTS.pen);
@@ -1048,7 +1048,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             title={selectTitle}
             active={isSelectTool}
             onPointerDown={() => handleToolChange("select")}
-            className="group h-8 w-8"
+            className="group"
           >
             <SelectIcon
               size={toolbarIconSize}
@@ -1059,14 +1059,14 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             title={handTitle}
             active={isHandTool}
             onPointerDown={() => handleToolChange("hand")}
-            className="group h-8 w-8"
+            className="group"
           >
             <HandIcon
               size={toolbarIconSize}
               className={cn(toolbarIconClassName, isHandTool && "dark:text-foreground")}
             />
           </IconBtn>
-          <span className="h-8 w-px bg-border/80" />
+          <span className="h-8 w-px bg-[#e3e8ef] dark:bg-slate-700" />
           <div className="relative">
             <IconBtn
               title={penVariant === "highlighter" ? highlighterTitle : penTitle}
@@ -1121,7 +1121,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                     <HighlighterToolIcon className="h-8 w-4" style={{ color: penColor }} />
                   </PanelItem>
                 </div>
-                <span className="h-6 w-px bg-border/70" />
+                <span className="h-6 w-px bg-[#e3e8ef] dark:bg-slate-700" />
                 <div className="flex items-center gap-2">
                   {PEN_SIZES.map(size => (
                     <button
@@ -1133,10 +1133,10 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                         setPenSize(size);
                       }}
                         className={cn(
-                          "inline-flex h-7 w-7 items-center justify-center rounded-full",
+                          "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors duration-150",
                           penSize === size
-                            ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-background"
-                            : "hover:bg-accent/60"
+                            ? "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50"
+                            : "hover:bg-[hsl(var(--muted)/0.58)] dark:hover:bg-[hsl(var(--muted)/0.46)]"
                         )}
                       aria-label={`Pen size ${size}`}
                     >
@@ -1144,7 +1144,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                     </button>
                   ))}
                 </div>
-                <span className="h-6 w-px bg-border/70" />
+                <span className="h-6 w-px bg-[#e3e8ef] dark:bg-slate-700" />
                 <div className="flex items-center gap-1.5">
                   {PEN_COLORS.map(color => (
                     <button
@@ -1156,9 +1156,9 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                         setPenColor(color);
                       }}
                       className={cn(
-                        "h-6 w-6 rounded-full ring-1 ring-border",
+                        "h-6 w-6 rounded-full ring-1 ring-[#e3e8ef] transition-colors duration-150 dark:ring-slate-600",
                         penColor === color &&
-                          "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
+                          "ring-2 ring-[#1a73e8] ring-offset-2 ring-offset-background dark:ring-sky-400"
                       )}
                       style={{ backgroundColor: color }}
                       aria-label={`Pen color ${color}`}
@@ -1240,14 +1240,14 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                   handleInsertRequest(request);
                 }}
                 disabled={isLocked}
-                className="group h-8 w-8"
+                className="group"
               >
                 <Icon size={insertIconSize} className={insertIconClassName} />
               </IconBtn>
             );
           })}
         </div>
-        <span className="h-8 w-px bg-border/80" />
+        <span className="h-8 w-px bg-[#e3e8ef] dark:bg-slate-700" />
         {/* 生成工具面板 */}
         <div
           className="relative"

@@ -71,21 +71,21 @@ export function AdvancedSettingsPanel({
 
   return (
     <Card
-      className="absolute left-full top-0 z-20 ml-4 w-60 gap-3 border-slate-200/80 bg-white/95 py-0 text-slate-700 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-lg dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-100"
+      className="absolute left-full top-0 z-20 ml-4 w-60 gap-3 border-[#e3e8ef] bg-white/95 py-0 text-[#5f6368] shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-lg dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-100"
       data-board-editor
       onPointerDown={(event) => {
         event.stopPropagation();
       }}
     >
-      <CardHeader className="border-b border-slate-200/70 px-2.5 py-1 !pb-1 !gap-0 dark:border-slate-700/70">
-        <CardTitle className="text-[12px] font-semibold text-slate-600 dark:text-slate-200">
+      <CardHeader className="border-b border-[#e3e8ef] px-2.5 py-1 !pb-1 !gap-0 dark:border-slate-700">
+        <CardTitle className="text-[12px] font-semibold text-[#3c4043] dark:text-slate-200">
           高级设置
         </CardTitle>
       </CardHeader>
       <CardContent className="px-2.5 pb-2 pt-1.5">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-1">
-            <div className="min-w-0 flex-1 text-[11px] text-slate-500 dark:text-slate-300">
+            <div className="min-w-0 flex-1 text-[11px] text-[#5f6368] dark:text-slate-300">
               宽高比
             </div>
             <Popover
@@ -100,9 +100,9 @@ export function AdvancedSettingsPanel({
                   type="button"
                   disabled={disabled}
                   className={[
-                    "flex h-6 w-26 items-center justify-between rounded-md border border-slate-200/80 bg-white/90 px-2 text-[11px] text-slate-600",
-                    "hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60",
-                    "dark:border-slate-700/80 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-800",
+                    "flex h-6 w-26 items-center justify-between rounded-md border border-[#e3e8ef] bg-white/90 px-2 text-[11px] text-[#5f6368]",
+                    "hover:bg-[#f1f3f4] disabled:cursor-not-allowed disabled:opacity-60",
+                    "dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-800",
                   ].join(" ")}
                 >
                   <span className="truncate">
@@ -115,7 +115,7 @@ export function AdvancedSettingsPanel({
                 side="bottom"
                 align="start"
                 sideOffset={4}
-                className="w-[var(--radix-popover-trigger-width)] max-h-40 overflow-auto rounded-md border border-slate-200/80 bg-white p-1 text-[11px] text-slate-700 shadow-none dark:border-slate-700/80 dark:bg-slate-900 dark:text-slate-100"
+                className="w-[var(--radix-popover-trigger-width)] max-h-40 overflow-auto rounded-md border border-[#e3e8ef] bg-white p-1 text-[11px] text-[#5f6368] shadow-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               >
                 {["auto", ...VIDEO_GENERATE_ASPECT_RATIO_OPTIONS].map((option) => {
                   const label = option === "auto" ? "自动" : option;
@@ -128,11 +128,11 @@ export function AdvancedSettingsPanel({
                       key={option}
                       type="button"
                       className={[
-                        "flex w-full items-center rounded px-2 py-1.5 text-left text-[11px]",
-                        "hover:bg-slate-100 dark:hover:bg-slate-800",
+                        "flex w-full items-center rounded px-2 py-1.5 text-left text-[11px] transition-colors duration-150",
+                        "hover:bg-[#f1f3f4] dark:hover:bg-slate-800",
                         isActive
-                          ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-50"
-                          : "text-slate-700 dark:text-slate-200",
+                          ? "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50"
+                          : "text-[#5f6368] dark:text-slate-200",
                       ].join(" ")}
                       onClick={() => {
                         onAspectRatioChange(option === "auto" ? undefined : option);
@@ -147,7 +147,7 @@ export function AdvancedSettingsPanel({
             </Popover>
           </div>
           <div className="flex items-center gap-1">
-            <div className="min-w-0 flex-1 text-[11px] text-slate-500 dark:text-slate-300">
+            <div className="min-w-0 flex-1 text-[11px] text-[#5f6368] dark:text-slate-300">
               时长
             </div>
             <Tabs
@@ -157,12 +157,12 @@ export function AdvancedSettingsPanel({
                 onDurationChange(Number.isFinite(parsed) ? parsed : undefined);
               }}
             >
-              <TabsList className="grid h-6 w-20 grid-cols-2 rounded-md bg-slate-100/80 p-0.5 dark:bg-slate-800/80">
+              <TabsList className="grid h-6 w-20 grid-cols-2 rounded-md bg-[#f1f3f4] p-0.5 dark:bg-slate-800/80">
                 {VIDEO_GENERATE_DURATION_OPTIONS.map((option) => (
                   <TabsTrigger
                     key={option}
                     value={String(option)}
-                    className="h-5 text-[10px] text-slate-600 data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:text-slate-300 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-50"
+                    className="h-5 text-[10px] text-[#5f6368] data-[state=active]:bg-white data-[state=active]:text-[#1a73e8] dark:text-slate-300 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-sky-300"
                     disabled={disabled}
                   >
                     {option}s
@@ -202,7 +202,7 @@ export function AdvancedSettingsPanel({
             const valueString = value === undefined ? "" : String(value);
             const label = (
               <div className="min-w-0 flex-1 space-y-0.5">
-                <div className="text-[11px] text-slate-500 dark:text-slate-300">
+                <div className="text-[11px] text-[#5f6368] dark:text-slate-300">
                   {field.title}
                 </div>
                 {field.description ? (

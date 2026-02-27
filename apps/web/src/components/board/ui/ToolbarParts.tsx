@@ -13,8 +13,15 @@ import { useRef } from "react";
 import { cn } from "@udecode/cn";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 
-const toolbarSurfaceClassName =
-  "bg-card/90 ring-1 ring-border/70 shadow-[0_10px_26px_rgba(15,23,42,0.18)] backdrop-blur-md cursor-default [&_*]:!cursor-default";
+import {
+  BOARD_TOOLBAR_SURFACE_CLASS,
+  BOARD_ICON_BTN_ACTIVE,
+  BOARD_ICON_BTN_HOVER,
+  BOARD_PANEL_ITEM_ACTIVE,
+  BOARD_PANEL_ITEM_HOVER,
+} from "./board-style-system";
+
+const toolbarSurfaceClassName = BOARD_TOOLBAR_SURFACE_CLASS;
 
 /** 仅图标的按钮组件（玻璃风格工具条中的按钮） */
 function IconBtn(props: {
@@ -64,11 +71,11 @@ function IconBtn(props: {
       onPointerDown={handlePointerDown}
       disabled={disabled}
       className={cn(
-        "inline-flex h-9 w-9 items-center justify-center rounded-lg",
-        "transition-colors",
+        "inline-flex h-8 w-8 items-center justify-center rounded-full",
+        "transition-colors duration-150",
         active
-          ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-background"
-          : "hover:bg-accent/60",
+          ? BOARD_ICON_BTN_ACTIVE
+          : BOARD_ICON_BTN_HOVER,
         disabled ? "cursor-not-allowed opacity-40" : "",
         className
       )}
@@ -147,8 +154,8 @@ function PanelItem(props: {
   } = props;
   const sizeClassName =
     size === "sm"
-      ? "gap-1 rounded-md px-2 py-1 text-[10px]"
-      : "gap-1 rounded-md px-2.5 py-1.5 text-[11px]";
+      ? "gap-1 rounded-lg px-2 py-1 text-[10px]"
+      : "gap-1 rounded-lg px-2.5 py-1.5 text-[11px]";
   /** Handle tool activation on pointer down to avoid click loss. */
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     // 逻辑：优先响应按下，避免 click 被画布层吞掉
@@ -195,10 +202,11 @@ function PanelItem(props: {
       className={cn(
         // 面板条目：上下排列（图标在上、文字在下）
         "inline-flex flex-col items-center",
+        "transition-colors duration-150",
         sizeClassName,
         active
-          ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-background"
-          : "hover:bg-accent",
+          ? BOARD_PANEL_ITEM_ACTIVE
+          : BOARD_PANEL_ITEM_HOVER,
         className
       )}
     >

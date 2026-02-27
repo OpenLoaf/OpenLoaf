@@ -51,7 +51,7 @@ function SelectionToolbarContainer({
     <div
       data-node-toolbar
       className={cn(
-        "pointer-events-auto nodrag nopan absolute z-20 -translate-x-1/2 rounded-md",
+        "pointer-events-auto nodrag nopan absolute z-20 -translate-x-1/2 rounded-xl",
         "p-2",
         toolbarSurfaceClassName,
         offsetClass
@@ -119,7 +119,7 @@ function ToolbarGroup({ items, openPanelId, setOpenPanelId, showDivider }: Toolb
           </div>
         );
       })}
-      {showDivider ? <span className="mx-1 h-5 w-px bg-border" /> : null}
+      {showDivider ? <span className="mx-1 h-5 w-px bg-[#e3e8ef] dark:bg-slate-700" /> : null}
     </>
   );
 }

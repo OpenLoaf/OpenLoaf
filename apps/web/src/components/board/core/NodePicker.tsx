@@ -30,8 +30,8 @@ export const NodePicker = forwardRef<HTMLDivElement, NodePickerProps>(
         className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-3"
         style={{ left: position[0], top: position[1] }}
       >
-        <div className="pointer-events-auto min-w-[260px] rounded-2xl border border-slate-200/80 bg-background/95 p-2.5 text-slate-700 shadow-[0_24px_56px_rgba(15,23,42,0.24)] ring-1 ring-slate-200/80 backdrop-blur dark:border-slate-700/80 dark:text-slate-200 dark:ring-slate-700/60">
-          <div className="mb-2 text-[11px] text-slate-500 dark:text-slate-300">选择节点</div>
+        <div className="pointer-events-auto min-w-[260px] rounded-2xl border border-[#e3e8ef] bg-background/95 p-2.5 text-[#5f6368] shadow-[0_24px_56px_rgba(15,23,42,0.24)] ring-1 ring-[#e3e8ef] backdrop-blur dark:border-slate-700 dark:text-slate-200 dark:ring-slate-700">
+          <div className="mb-2 text-[11px] text-[#5f6368] dark:text-slate-300">选择节点</div>
           <div className="flex max-h-[280px] flex-col gap-1 overflow-auto pr-1">
             {templates.length ? (
               templates.map((item) => (
@@ -43,23 +43,23 @@ export const NodePicker = forwardRef<HTMLDivElement, NodePickerProps>(
                     event.stopPropagation();
                     onSelect(item.id);
                   }}
-                  className="group flex w-full items-start gap-2 rounded-xl border border-slate-200/80 bg-slate-50 px-2.5 py-2 text-left transition hover:bg-slate-100 dark:border-slate-700/80 dark:bg-slate-800 dark:hover:bg-slate-700"
+                  className="group flex w-full items-start gap-2 rounded-xl border border-[#e3e8ef] bg-[#f6f8fc] px-2.5 py-2 text-left transition-colors duration-150 hover:bg-[#f1f3f4] dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-[hsl(var(--muted)/0.42)]"
                 >
-                  <span className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-300">
+                  <span className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-lg bg-[#f1f3f4] text-[#5f6368] dark:bg-slate-900 dark:text-slate-300">
                     {item.icon ?? <Type size={14} />}
                   </span>
                   <span className="min-w-0">
-                    <div className="text-[12px] font-medium leading-4 text-slate-800 dark:text-slate-100">
+                    <div className="text-[12px] font-medium leading-4 text-[#202124] dark:text-slate-100">
                       {item.label}
                     </div>
-                    <div className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+                    <div className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-[#5f6368] dark:text-slate-400">
                       {item.description}
                     </div>
                   </span>
                 </button>
               ))
             ) : (
-              <div className="rounded-xl border border-dashed border-slate-200/70 px-2.5 py-2 text-[11px] text-slate-500 dark:border-slate-700/70 dark:text-slate-400">
+              <div className="rounded-xl border border-dashed border-[#e3e8ef] px-2.5 py-2 text-[11px] text-[#5f6368] dark:border-slate-700 dark:text-slate-400">
                 无可用节点
               </div>
             )}
