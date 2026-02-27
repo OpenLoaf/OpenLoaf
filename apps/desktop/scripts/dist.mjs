@@ -54,12 +54,13 @@ function canCreateSymlink() {
   }
 }
 
-if (
-  process.platform === 'win32' &&
-  process.env.OPENLOAF_REQUIRE_WIN_SIGN !== 'true' &&
-  process.env.OPENLOAF_SKIP_WIN_SIGN == null
-) {
-  if (!canCreateSymlink()) {
+// 跨平台编译（macOS/Linux → Windows）时，自动跳过 rcedit，除非明确要求签名。
+// 在 Windows 上，仅当无法创建符号链接时跳过（受限环境）。
+if (process.env.OPENLOAF_REQUIRE_WIN_SIGN !== 'true' && process.env.OPENLOAF_SKIP_WIN_SIGN == null) {
+  if (process.platform !== 'win32') {
+    // 非 Windows 宿主 → 必定无 signtool，跳过 rcedit
+    process.env.OPENLOAF_SKIP_WIN_SIGN = 'true'
+  } else if (!canCreateSymlink()) {
     process.env.OPENLOAF_SKIP_WIN_SIGN = 'true'
   }
 }
