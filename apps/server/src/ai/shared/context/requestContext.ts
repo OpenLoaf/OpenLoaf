@@ -68,6 +68,10 @@ export type RequestContext = {
   imageModelId?: string;
   /** Selected video generation model id. */
   videoModelId?: string;
+  /** Whether this request runs in supervision mode (autonomous task). */
+  supervisionMode?: boolean;
+  /** Task ID when running within an autonomous task. */
+  taskId?: string;
 };
 
 const storage = new AsyncLocalStorage<RequestContext>();

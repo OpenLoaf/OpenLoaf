@@ -13,6 +13,8 @@ import { logger } from "@/common/logger";
 import { attachTerminalWebSocket } from "@/modules/terminal/terminalWebSocket";
 import { attachBoardCollabWebSocket } from "@/modules/board/boardCollabWebSocket";
 import { startEmailIdleManager } from "@/modules/email/emailIdleManager";
+import { taskScheduler } from "@/services/taskScheduler";
+import { taskOrchestrator } from "@/services/taskOrchestrator";
 
 /**
  * 启动 HTTP server（MVP）：
@@ -42,6 +44,8 @@ export function startServer() {
     // 启动完成后输出统一成功日志，便于启动脚本/监控识别。
     logger.info({ hostname, port: actualPort }, "Server started successfully");
     void startEmailIdleManager();
+    void taskScheduler.start();
+    taskOrchestrator.start();
   });
 
   return { app, server };

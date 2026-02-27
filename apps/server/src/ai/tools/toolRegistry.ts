@@ -40,6 +40,7 @@ import { requestUserInputTool } from "@/ai/tools/requestUserInputTool";
 import { jsxCreateTool } from "@/ai/tools/jsxCreateTool";
 import { jsReplTool, jsReplResetTool } from "@/ai/tools/jsReplTool";
 import { chartRenderTool } from "@/ai/tools/chartTools";
+import { createTaskTool, taskStatusTool } from "@/ai/tools/taskTools";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
   browserActToolDef,
@@ -73,6 +74,10 @@ import {
 import { requestUserInputToolDef } from "@openloaf/api/types/tools/userInput";
 import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
 import { chartRenderToolDef } from "@openloaf/api/types/tools/chart";
+import {
+  createTaskToolDef,
+  taskStatusToolDef,
+} from "@openloaf/api/types/tools/task";
 import {
   listDirToolDef,
   readFileToolDef,
@@ -227,6 +232,12 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [jsReplResetToolDef.id]: {
     tool: jsReplResetTool,
+  },
+  [createTaskToolDef.id]: {
+    tool: createTaskTool,
+  },
+  [taskStatusToolDef.id]: {
+    tool: taskStatusTool,
   },
 };
 

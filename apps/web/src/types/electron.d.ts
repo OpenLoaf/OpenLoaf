@@ -222,6 +222,12 @@ declare global {
         language?: string;
       }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       stopSpeechRecognition?: () => Promise<{ ok: true } | { ok: false; reason?: string }>;
+      /** Show OS native notification (Electron only). */
+      showNotification?: (payload: {
+        title: string;
+        body: string;
+        taskId?: string;
+      }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       /** Calendar API (system calendars). */
       calendar?: {
         /** Request calendar permission from OS. */

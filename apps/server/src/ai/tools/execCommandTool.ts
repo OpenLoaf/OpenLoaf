@@ -25,6 +25,8 @@ import {
   readExecOutput,
 } from "@/ai/tools/execSessionStore";
 import { needsApprovalForCommand } from "@/ai/tools/commandApproval";
+import { getRequestContext } from "@/ai/shared/context/requestContext";
+import { supervisionService } from "@/ai/services/supervision/supervisionService";
 
 type WindowsShellKind = "powershell" | "cmd";
 
@@ -70,7 +72,11 @@ function buildShellCommand(input: {
 export const execCommandTool = tool({
   description: execCommandToolDef.description,
   inputSchema: zodSchema(execCommandToolDef.parameters),
-  needsApproval: ({ cmd }) => needsApprovalForCommand(cmd),
+  needsApproval: ({ cmd }) => {
+    const ctx = getRequestContext();
+    if (ctx?.supervisionMode) return false;
+    return needsApprovalForCommand(cmd);
+  },
   execute: async ({
     cmd,
     workdir,
@@ -80,6 +86,20 @@ export const execCommandTool = tool({
     yieldTimeMs,
     maxOutputTokens,
   }): Promise<string> => {
+    // Supervision mode: check with supervisionService before executing
+    const ctx = getRequestContext();
+    if (ctx?.supervisionMode && ctx.taskId && needsApprovalForCommand(cmd)) {
+      const decision = await supervisionService.evaluate({
+        toolName: "exec-command",
+        toolArgs: { cmd, workdir },
+        taskId: ctx.taskId,
+        taskName: ctx.taskId,
+      });
+      if (decision.decision === "reject") {
+        return JSON.stringify({ error: `命令被监管拒绝: ${decision.reason}` });
+      }
+    }
+
     const allowOutside = readBasicConf().toolAllowOutsideScope;
     const { cwd } = resolveToolWorkdir({ workdir, allowOutside });
     const { file, args } = buildShellCommand({ cmd, shell, login });

@@ -14,13 +14,34 @@ import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { resolveToolWorkdir } from "@/ai/tools/toolScope";
 import { buildExecEnv, formatStructuredOutput } from "@/ai/tools/execUtils";
 import { needsApprovalForCommand } from "@/ai/tools/commandApproval";
+import { getRequestContext } from "@/ai/shared/context/requestContext";
+import { supervisionService } from "@/ai/services/supervision/supervisionService";
 
 /** Execute a one-shot shell command with scope enforcement. */
 export const shellTool = tool({
   description: shellToolDef.description,
   inputSchema: zodSchema(shellToolDef.parameters),
-  needsApproval: ({ command }) => needsApprovalForCommand(command),
+  needsApproval: ({ command }) => {
+    // In supervision mode, approval is handled by supervisionService
+    const ctx = getRequestContext();
+    if (ctx?.supervisionMode) return false;
+    return needsApprovalForCommand(command);
+  },
   execute: async ({ command, workdir, timeoutMs }): Promise<string> => {
+    // Supervision mode: check with supervisionService before executing
+    const ctx = getRequestContext();
+    if (ctx?.supervisionMode && ctx.taskId && needsApprovalForCommand(command)) {
+      const decision = await supervisionService.evaluate({
+        toolName: "shell",
+        toolArgs: { command, workdir, timeoutMs },
+        taskId: ctx.taskId,
+        taskName: ctx.taskId,
+      });
+      if (decision.decision === "reject") {
+        return JSON.stringify({ error: `命令被监管拒绝: ${decision.reason}` });
+      }
+    }
+
     const resolvedCommand = command ?? [];
     const [commandBin, ...commandArgs] = resolvedCommand;
     if (!commandBin) throw new Error("command is required.");

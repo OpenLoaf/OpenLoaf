@@ -86,7 +86,7 @@ export type ManagedAgent = {
   prefaceInjected?: boolean
 }
 
-const MAX_DEPTH = 1
+const MAX_DEPTH = 2
 const MAX_CONCURRENT = 4
 
 /**

@@ -182,6 +182,13 @@ contextBridge.exposeInMainWorld('openloafElectron', {
   // Stop OS speech recognition.
   stopSpeechRecognition: (): Promise<{ ok: true } | { ok: false; reason?: string }> =>
     ipcRenderer.invoke('openloaf:speech:stop'),
+  // Show OS native notification (task status changes, etc.).
+  showNotification: (payload: {
+    title: string;
+    body: string;
+    taskId?: string;
+  }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
+    ipcRenderer.invoke('openloaf:notification:show', payload),
   // Resolve local file path from a File object.
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   // System calendar access.
@@ -322,6 +329,16 @@ ipcRenderer.on('openloaf:speech:error', (_event, detail) => {
   try {
     window.dispatchEvent(
       new CustomEvent('openloaf:speech:error', { detail })
+    );
+  } catch {
+    // ignore
+  }
+});
+
+ipcRenderer.on('openloaf:notification:click', (_event, detail) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('openloaf:notification:click', { detail })
     );
   } catch {
     // ignore

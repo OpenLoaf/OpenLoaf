@@ -74,6 +74,13 @@ export const desktopWidgetCatalog: DesktopWidgetCatalogItem[] = [
     support: { workspace: true, project: true },
   },
   {
+    widgetKey: "task-board",
+    title: "任务看板",
+    size: "4x3",
+    constraints: { defaultW: 4, defaultH: 3, minW: 3, minH: 2, maxW: 8, maxH: 6 },
+    support: { workspace: true, project: true },
+  },
+  {
     widgetKey: "3d-folder",
     title: "3D Folder",
     size: "4x3",

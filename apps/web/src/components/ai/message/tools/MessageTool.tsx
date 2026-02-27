@@ -25,6 +25,7 @@ import JsxCreateTool from "./JsxCreateTool";
 import SpawnAgentTool from "./SpawnAgentTool";
 import WaitAgentTool from "./WaitAgentTool";
 import ChartTool from "./ChartTool";
+import TaskTool from "./TaskTool";
 import { useChatState, useChatTools } from "../../context";
 import { getApprovalId, isApprovalPending, type AnyToolPart, type ToolVariant } from "./shared/tool-utils";
 import ToolApprovalActions from "./shared/ToolApprovalActions";
@@ -153,6 +154,10 @@ export default function MessageTool({
 
   if (toolKind === "chart-render") {
     return <ChartTool part={resolvedPart} className={className} />;
+  }
+
+  if (toolKind === "create-task" || toolKind === "task-status") {
+    return <TaskTool part={resolvedPart} className={className} />;
   }
 
   if (toolKind === "project-mutate") {

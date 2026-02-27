@@ -22,3 +22,4 @@ export * from "./mediaGenerate";
 export * from "./jsxCreate";
 export * from "./toolCatalog";
 export * from "./chart";
+export * from "./task";

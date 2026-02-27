@@ -40,6 +40,9 @@ export const masterTemplate: AgentTemplate = {
     // code-interpreter
     'js-repl',
     'js-repl-reset',
+    // task
+    'create-task',
+    'task-status',
     // extra
     'request-user-input',
   ],
