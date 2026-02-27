@@ -275,10 +275,15 @@ async function autoSelectCloudMediaModel(
     const payload = kind === 'image'
       ? await fetchImageModels(accessToken)
       : await fetchVideoModels(accessToken)
-    // 逻辑：SaaS 返回 { success, data: [{ id, ... }] } 格式。
-    const data = (payload as any)?.data
-    if (!Array.isArray(data) || data.length === 0) return undefined
-    const firstId = typeof data[0]?.id === 'string' ? data[0].id.trim() : undefined
+    // 逻辑：SaaS 返回 { success, data: { data: [{ id, ... }], updatedAt } } 格式。
+    const list = (payload as any)?.data?.data
+    if (!Array.isArray(list) || list.length === 0) return undefined
+    // 逻辑：优先选择 image_generation 标签的模型，跳过纯编辑类模型。
+    const generationModel = list.find(
+      (m: any) => Array.isArray(m.tags) && m.tags.includes('image_generation'),
+    )
+    const target = generationModel ?? list[0]
+    const firstId = typeof target?.id === 'string' ? target.id.trim() : undefined
     return firstId || undefined
   } catch (err) {
     logger.warn({ err, kind }, 'auto-select cloud media model failed')

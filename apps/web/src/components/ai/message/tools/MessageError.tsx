@@ -9,28 +9,12 @@
  */
 "use client";
 
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { useChatActions, useChatState } from "../../context";
-import { RotateCcw } from "lucide-react";
-import {
-  StackTrace,
-  StackTraceActions,
-  StackTraceContent,
-  StackTraceCopyButton,
-  StackTraceError,
-  StackTraceErrorMessage,
-  StackTraceErrorType,
-  StackTraceExpandButton,
-  StackTraceFrames,
-  StackTraceHeader,
-} from "@/components/ai-elements/stack-trace";
-import { MessageAction } from "@/components/ai-elements/message";
+import { CheckIcon, CopyIcon, RotateCcw } from "lucide-react";
 
 interface MessageErrorProps {
-  /**
-   * AI SDK v6 的 chat 在异常时不一定保证抛出的是 `Error` 实例（可能是 string / object）。
-   * 这里用 unknown 做兜底，并在 UI 层做一层“可读化”解析。
-   */
   error: unknown;
   canRetry?: boolean;
 }
@@ -45,9 +29,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
 }
 
-/**
- * 尝试从字符串里解析 JSON 错误（例如后端返回 400 时，Error.message 可能是 `{"error":"..."}`）。
- */
 function tryExtractJsonErrorMessage(text: string): string | undefined {
   const trimmed = text.trim();
   if (!trimmed) return undefined;
@@ -59,6 +40,7 @@ function tryExtractJsonErrorMessage(text: string): string | undefined {
     if (!isRecord(parsed)) return undefined;
     const error = parsed.error;
     if (typeof error === "string") return error;
+    if (isRecord(error) && typeof error.message === "string") return error.message;
     const message = parsed.message;
     if (typeof message === "string") return message;
     return undefined;
@@ -68,23 +50,14 @@ function tryExtractJsonErrorMessage(text: string): string | undefined {
 }
 
 /**
- * Map raw error text to a unified display message.
+ * 直接展示原始错误信息，不做友好化映射。
  */
 function resolveDisplayMessage(rawMessage: string): string {
   const trimmed = rawMessage.trim();
-  const normalized = trimmed.toLowerCase();
-  if (normalized.includes("upstream error: do request failed")) {
-    return "模型配置存在问题，请检查配置。";
-  }
-  if (normalized.includes("not implemented")) {
-    return "不支持的接口，请检查模型接口配置。";
-  }
-  return trimmed ? "请求失败，请稍后重试。" : "请求失败，请稍后重试。";
+  if (!trimmed) return "发生未知错误";
+  return trimmed;
 }
 
-/**
- * Parse unknown error into display-friendly info.
- */
 function parseChatError(error: unknown): ParsedError {
   const title = "出错了";
 
@@ -96,11 +69,7 @@ function parseChatError(error: unknown): ParsedError {
 
   if (typeof error === "string") {
     const message = tryExtractJsonErrorMessage(error) ?? error;
-    return {
-      title,
-      message,
-      displayMessage: resolveDisplayMessage(message),
-    };
+    return { title, message, displayMessage: resolveDisplayMessage(message) };
   }
 
   if (isRecord(error)) {
@@ -110,10 +79,9 @@ function parseChatError(error: unknown): ParsedError {
         : typeof error.message === "string"
           ? error.message
           : undefined;
-
     const message =
       (rawMessage ? tryExtractJsonErrorMessage(rawMessage) ?? rawMessage : undefined) ??
-      "发生未知错误（error 不是标准 Error 实例）。";
+      "发生未知错误";
     return { title, message, displayMessage: resolveDisplayMessage(message) };
   }
 
@@ -126,60 +94,77 @@ export default function MessageError({ error }: MessageErrorProps) {
   const { regenerate, clearError } = useChatActions();
   const { status } = useChatState();
   const parsed = parseChatError(error);
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef<number>(0);
+
+  useEffect(() => () => window.clearTimeout(timerRef.current), []);
 
   const handleRetry = () => {
     clearError();
     regenerate();
   };
 
-  // 仅在“正在提交/流式输出”时禁用重试；error 状态需要允许用户重试
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(parsed.message);
+      setCopied(true);
+      timerRef.current = window.setTimeout(() => setCopied(false), 2000);
+    } catch { /* noop */ }
+  }, [parsed.message]);
+
   const isBusy = status === "submitted" || status === "streaming";
 
   return (
     <motion.div
       key="message-error"
       layout
-      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
-      transition={{
-        duration: 0.16,
-        ease: "easeOut",
-      }}
-      className="px-2 pb-2"
+      initial={reduceMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.16, ease: "easeOut" }}
+      className="my-0.5 px-2 pr-5"
     >
-      <StackTrace
-        trace={parsed.message}
-        defaultOpen={false}
-      >
-        <StackTraceHeader>
-          <StackTraceError>
-            <StackTraceErrorType>{parsed.title}</StackTraceErrorType>
-            <StackTraceErrorMessage>{parsed.displayMessage}</StackTraceErrorMessage>
-          </StackTraceError>
-          <StackTraceActions>
-            <StackTraceCopyButton aria-label="复制错误日志" title="复制错误日志" />
-            <MessageAction
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="size-7"
-              onClick={handleRetry}
-              disabled={isBusy}
-              aria-label="重试"
-              title="重试"
-              label="重试"
-              tooltip="重试"
-            >
-              <RotateCcw className="size-3.5" />
-            </MessageAction>
-            <StackTraceExpandButton />
-          </StackTraceActions>
-        </StackTraceHeader>
-        <StackTraceContent maxHeight={240}>
-          <StackTraceFrames />
-        </StackTraceContent>
-      </StackTrace>
+      <div className="overflow-hidden rounded-xl bg-[#fef0f0] dark:bg-red-950/25">
+        {/* 第一行：红绿灯（左） + 标题（右对齐） */}
+        <div className="flex items-center justify-between px-3.5 py-2">
+          <div className="flex shrink-0 items-center gap-[5px]">
+            <span className="size-[10px] rounded-full bg-[#d93025] dark:bg-red-500" />
+            <span className="size-[10px] rounded-full bg-[#d93025]/20 dark:bg-red-500/20" />
+            <span className="size-[10px] rounded-full bg-[#d93025]/20 dark:bg-red-500/20" />
+          </div>
+          <span className="text-[11px] font-medium text-[#d93025]/60 dark:text-red-400/60">
+            {parsed.title}
+          </span>
+        </div>
+
+        {/* 第二行：错误信息（始终显示） */}
+        <div className="px-3.5 pb-2.5">
+          <p className="whitespace-pre-wrap break-words text-[12px] leading-relaxed text-[#d93025] dark:text-red-300">
+            {parsed.message}
+          </p>
+        </div>
+
+        {/* 第三行：操作按钮 */}
+        <div className="flex items-center gap-1.5 border-t border-[#d93025]/10 px-3.5 py-2 dark:border-red-500/10">
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={isBusy}
+            className="inline-flex h-7 items-center gap-1.5 rounded-full bg-[#d93025] px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:bg-[#b7271d] disabled:opacity-40 dark:bg-red-700 dark:hover:bg-red-600"
+          >
+            <RotateCcw className="size-3" />
+            重试
+          </button>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[#d93025]/20 bg-white/60 px-3 text-[11px] font-medium text-[#d93025] transition-colors duration-150 hover:bg-[#fce8e6] dark:border-red-500/20 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
+          >
+            {copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
+            {copied ? "已复制" : "复制日志"}
+          </button>
+        </div>
+      </div>
     </motion.div>
   );
 }

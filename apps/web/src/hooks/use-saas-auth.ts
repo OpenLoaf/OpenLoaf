@@ -42,8 +42,8 @@ type SaasAuthState = {
   loginStatus: LoginStatus;
   /** Login error message. */
   loginError: string | null;
-  /** WeChat QR login url for embedded login flow. */
-  wechatLoginUrl: string | null;
+  /** @deprecated No longer used — wechat now opens system browser. */
+  wechatLoginUrl: null;
   /** Remember login preference. */
   remember: boolean;
   /** Update remember preference. */
@@ -165,32 +165,23 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
     const loginState = typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const isDark = document.documentElement.classList.contains("dark");
     const loginUrl = buildSaasLoginUrl({
       provider,
       returnTo: `openloaf-login:${loginState}`,
       from: "electron",
       port,
-      theme: isDark ? "dark" : "light",
     });
 
-    set({
-      loginStatus: "opening",
-      loginError: null,
-      // 逻辑：微信登录走弹窗内嵌二维码，避免打开系统浏览器。
-      wechatLoginUrl: provider === "wechat" ? loginUrl : null,
-    });
-    if (provider !== "wechat") {
-      try {
-        await openExternalUrl(loginUrl);
-      } catch (error) {
-        set({
-          loginStatus: "error",
-          loginError: (error as Error)?.message ?? "无法打开登录页面",
-          wechatLoginUrl: null,
-        });
-        return;
-      }
+    set({ loginStatus: "opening", loginError: null, wechatLoginUrl: null });
+    try {
+      await openExternalUrl(loginUrl);
+    } catch (error) {
+      set({
+        loginStatus: "error",
+        loginError: (error as Error)?.message ?? "无法打开登录页面",
+        wechatLoginUrl: null,
+      });
+      return;
     }
 
     stopLoginPolling();

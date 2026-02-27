@@ -47,157 +47,72 @@ export function renderAuthCallbackPage(options: AuthCallbackPageOptions): string
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="light dark" />
     <title>OpenLoaf 登录</title>
     <style>
       :root {
-        color-scheme: dark;
-        --bg: #0b0c0f;
-        --bg-2: #12141b;
-        --card: #171a22;
-        --ink: #f0eee9;
-        --muted: #a39a8f;
-        --line: rgba(255, 255, 255, 0.08);
-        --accent: #d8b272;
-        --accent-deep: #f1d9a3;
-        --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+        --bg: #f6f8fc;
+        --text: #202124;
+        --text2: #5f6368;
+        --btn-bg: #e8f0fe;
+        --btn-fg: #1a73e8;
+        --btn-hover: #d2e3fc;
       }
-      * { box-sizing: border-box; }
-      html,
-      body {
-        height: 100%;
-      }
-      html {
-        background: var(--bg);
-      }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 32px;
-        background:
-          radial-gradient(1200px 600px at 12% -10%, rgba(216, 178, 114, 0.16), transparent 60%),
-          radial-gradient(900px 520px at 100% 10%, rgba(97, 119, 160, 0.12), transparent 55%),
-          linear-gradient(135deg, var(--bg), var(--bg-2));
-        font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-        color: var(--ink);
-      }
-      @supports (height: 100svh) {
-        body {
-          min-height: 100svh;
-          height: 100svh;
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1115;
+          --text: #f1f5f9;
+          --text2: #94a3b8;
+          --btn-bg: rgba(56,139,253,0.15);
+          --btn-fg: #7dd3fc;
+          --btn-hover: rgba(56,139,253,0.25);
         }
       }
-      .card {
-        width: min(560px, 100%);
-        background: linear-gradient(180deg, rgba(23, 26, 34, 0.92), rgba(17, 20, 28, 0.98));
-        border: 1px solid var(--line);
-        border-radius: 22px;
-        padding: 34px 32px 28px;
-        text-align: center;
-        box-shadow: var(--shadow);
-        position: relative;
-      }
-      .card::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: 22px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        pointer-events: none;
-      }
-      .badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border: 1px solid rgba(216, 178, 114, 0.2);
-        padding: 6px 12px;
-        border-radius: 999px;
-        font-size: 12px;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        font-family: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
-        color: var(--accent-deep);
-        background: rgba(216, 178, 114, 0.12);
-      }
-      h1 {
-        margin: 18px 0 10px;
-        font-size: 24px;
-        letter-spacing: 0.02em;
-      }
-      p {
-        margin: 0;
-        color: var(--muted);
-        line-height: 1.7;
-        font-family: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
-      }
-      .actions {
-        margin-top: 22px;
+      * { box-sizing: border-box; margin: 0; }
+      body {
+        min-height: 100vh;
         display: flex;
-        flex-direction: column;
-        gap: 12px;
-        align-items: center;
-      }
-      .primary {
-        display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 10px 22px;
+        padding: 24px;
+        background: var(--bg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: var(--text);
+        text-align: center;
+      }
+      h1 { font-size: 28px; font-weight: 600; margin-bottom: 10px; }
+      p { font-size: 15px; color: var(--text2); line-height: 1.5; }
+      .btn {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 11px 28px;
         border-radius: 999px;
-        border: 1px solid rgba(216, 178, 114, 0.45);
-        color: var(--accent-deep);
-        background: rgba(216, 178, 114, 0.08);
+        border: none;
+        background: var(--btn-bg);
+        color: var(--btn-fg);
+        font-size: 15px;
+        font-weight: 500;
         text-decoration: none;
-        font-family: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
-        font-size: 14px;
-        letter-spacing: 0.04em;
-        transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        transition: background-color 150ms;
       }
-      .primary:hover {
-        background: rgba(216, 178, 114, 0.18);
-        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
-        transform: translateY(-1px);
-      }
-      .footnote {
-        margin-top: 16px;
-        font-size: 12px;
-        color: var(--muted);
-        font-family: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
-      }
-      .manual-close {
-        display: none;
-        margin-top: 10px;
-        font-size: 12px;
-        color: var(--muted);
-        font-family: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
-      }
+      .btn:hover { background: var(--btn-hover); }
+      .close-hint { display: none; margin-top: 10px; font-size: 12px; color: var(--text2); }
     </style>
   </head>
   <body>
-    <main class="card">
+    <main>
       <h1>${safeMessage}</h1>
-      <p>若已打开桌面端，请继续操作；未打开请点击下方按钮。</p>
-      <div class="actions">
-        <a class="primary" href="${safeReturnUrl}" data-open-app>打开 OpenLoaf AI</a>
-      </div>
-      <div class="manual-close" data-close-hint>未能自动关闭，请手动关闭此标签页。</div>
+      <p>可以关闭此页面，或点击下方按钮返回应用。</p>
+      <a class="btn" href="${safeReturnUrl}" data-open-app>返回 OpenLoaf</a>
+      <div class="close-hint" data-close-hint>无法自动关闭，请手动关闭此页面。</div>
     </main>
     <script>
       (() => {
-        const closeHint = document.querySelector("[data-close-hint]");
-        const button = document.querySelector("[data-open-app]");
-        if (!button) return;
-        button.addEventListener("click", () => {
-          // 中文注释：点击后先尝试唤起桌面端，再关闭当前页。
-          window.setTimeout(() => {
-            window.close();
-            window.setTimeout(() => {
-              if (closeHint) closeHint.style.display = "block";
-            }, 400);
-          }, 120);
+        const h = document.querySelector("[data-close-hint]");
+        const b = document.querySelector("[data-open-app]");
+        if (!b) return;
+        b.addEventListener("click", () => {
+          setTimeout(() => { window.close(); setTimeout(() => { if (h) h.style.display = "block"; }, 400); }, 120);
         });
       })();
     </script>

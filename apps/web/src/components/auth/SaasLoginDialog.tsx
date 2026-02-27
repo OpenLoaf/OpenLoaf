@@ -37,14 +37,11 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
     loggedIn,
     loginStatus,
     loginError,
-    wechatLoginUrl,
     startLogin,
     cancelLogin,
   } = useSaasAuth();
   // 当前登录入口，用于展示对应 icon。
   const [selectedProvider, setSelectedProvider] = React.useState<SaasLoginProvider | null>(null);
-  // 微信 iframe 是否已加载完成。
-  const [iframeLoaded, setIframeLoaded] = React.useState(false);
   // 关闭动画期间的状态。
   const [isClosing, setIsClosing] = React.useState(false);
   // 关闭动画清理计时器。
@@ -55,7 +52,6 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
   const isBusy = loginStatus === "opening" || loginStatus === "polling";
   const isClosingAfterLogin = open && loggedIn && selectedProvider !== null && loginStatus === "idle";
   const isLoginInProgress = isBusy || isClosingAfterLogin || isClosing;
-  const hideHeaderForWechat = isBusy && selectedProvider === "wechat";
   const providerMeta =
     selectedProvider === "google"
       ? { src: "/icons/google.png", alt: "Google" }
@@ -66,14 +62,12 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
     isClosingAfterLogin
       ? "登录成功，正在关闭…"
       : loginStatus === "opening"
-      ? selectedProvider === "wechat"
-        ? "正在加载微信扫码登录…"
-        : "正在打开系统浏览器…"
-      : loginStatus === "polling"
-        ? "等待登录完成…"
-        : loginStatus === "error"
-          ? loginError ?? "登录失败，请重试"
-          : "连接你的云端账号";
+        ? "正在打开系统浏览器…"
+        : loginStatus === "polling"
+          ? "已在浏览器中打开，等待登录完成…"
+          : loginStatus === "error"
+            ? loginError ?? "登录失败，请重试"
+            : "连接你的云端账号";
 
   /** Handle dialog open state changes. */
   const handleOpenChange = (nextOpen: boolean) => {
@@ -113,7 +107,6 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
     // 关键流程：点击按钮后保持弹窗开启，执行 OAuth 跳转与轮询。
     onOpenChange(true);
     setSelectedProvider(provider);
-    if (provider === "wechat") setIframeLoaded(false);
     await startLogin(provider);
   };
 
@@ -139,8 +132,7 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
           <DialogDescription>选择登录方式并继续</DialogDescription>
         </DialogHeader>
         <div className="bg-card text-card-foreground">
-          {!hideHeaderForWechat && (
-            <div className="space-y-2 px-8 pt-8 pb-6 text-center">
+          <div className="space-y-2 px-8 pt-8 pb-6 text-center">
               <h1
                 className={cn(
                   "text-[1.9rem] font-semibold leading-tight tracking-tight",
@@ -174,40 +166,11 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
               >
                 {subtitleText}
               </p>
-            </div>
-          )}
+          </div>
 
-          <div className={cn("space-y-4 px-8 pb-6", isLoginInProgress && selectedProvider === "wechat" && "pt-6")}>
+          <div className="space-y-4 px-8 pb-6">
             {isLoginInProgress ? (
               <div className="space-y-3">
-                {selectedProvider === "wechat" && !isClosingAfterLogin ? (
-                  <div className="relative h-[340px]">
-                    {!iframeLoaded && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                        <svg
-                          className="h-6 w-6 animate-spin text-muted-foreground"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        <span className="text-sm text-muted-foreground">正在加载微信扫码…</span>
-                      </div>
-                    )}
-                    <iframe
-                      title="wechat-login"
-                      src={wechatLoginUrl ?? undefined}
-                      scrolling="no"
-                      onLoad={() => setIframeLoaded(true)}
-                      className={cn(
-                        "h-full w-full border-none",
-                        !iframeLoaded && "invisible",
-                      )}
-                    />
-                  </div>
-                ) : null}
                 {isClosingAfterLogin ? (
                   <div className="py-2 text-center text-sm text-muted-foreground">
                     登录成功，正在关闭…

@@ -62,8 +62,11 @@ export default function MessageList({ className }: MessageListProps) {
   }, [messages, status, error, stepThinking, hasStreamingVisibleContent]);
 
   const displayMessages = React.useMemo(() => {
+    // 关键：即使 shouldShowThinking 为 true（stepThinking 触发），如果流式消息已有可见内容，
+    // 也必须保留在显示列表中，避免已渲染的文本突然消失导致闪烁。
+    // thinking 指示器会在消息列表下方与内容共存显示。
     const base =
-      streamingMessage && !shouldShowThinking
+      streamingMessage && (!shouldShowThinking || hasStreamingVisibleContent)
         ? [...staticMessages, streamingMessage]
         : staticMessages;
     // 请求失败时，移除尾部空 assistant 消息，避免在用户消息和错误提示之间产生空白间距。
@@ -74,7 +77,7 @@ export default function MessageList({ className }: MessageListProps) {
       }
     }
     return base;
-  }, [staticMessages, streamingMessage, shouldShowThinking, error]);
+  }, [staticMessages, streamingMessage, shouldShowThinking, hasStreamingVisibleContent, error]);
 
   const lastHumanIndex = React.useMemo(
     () => (displayMessages as any[]).findLastIndex((m) => m?.role === "user"),
@@ -128,7 +131,7 @@ export default function MessageList({ className }: MessageListProps) {
       )}
     >
       <Conversation className="min-h-0 flex-1 overflow-x-hidden [&_*:not(summary)]:!select-text">
-        <ConversationContent className="flex min-h-full w-full min-w-0 flex-col space-y-4 pb-4">
+        <ConversationContent className="flex min-h-full w-full min-w-0 flex-col gap-1 pb-4">
           {shouldShowHelper ? (
             <ConversationEmptyState
               title="开始对话"

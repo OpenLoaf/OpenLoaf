@@ -183,8 +183,8 @@ function MediaAttachmentList({
   };
 
   return (
-    <div className="w-full min-w-0">
-      <Attachments variant={kind === "video" ? "list" : "grid"}>
+    <div className="w-full min-w-0 pl-1">
+      <Attachments variant={kind === "video" ? "list" : "grid"} className="ml-0">
         {attachments.map((record) => (
           <Attachment
             key={record.id}
@@ -198,7 +198,7 @@ function MediaAttachmentList({
               } as any
             }
             onClick={() => openImageViewer(record)}
-            className={cn(kind === "image" ? "cursor-pointer" : undefined)}
+            className={cn(kind === "image" && "cursor-pointer !size-auto !w-[calc(50%-4px)] aspect-square")}
             title={record.sourceUrl}
           >
             <AttachmentPreview />

@@ -32,7 +32,7 @@ export function registerAuthRoutes(app: Hono): void {
     if (!loginCode) {
       return c.html(
         renderAuthCallbackPage({
-          message: "登录失败：缺少回调参数",
+          message: "OpenLoaf 登录失败，缺少回调参数",
           returnUrl: "openloaf://open",
         })
       );
@@ -43,7 +43,7 @@ export function registerAuthRoutes(app: Hono): void {
     logger.info({ state: state ?? "default" }, "SaaS login code received");
     return c.html(
       renderAuthCallbackPage({
-        message: "登录成功，可关闭此窗口",
+        message: "已成功登录 OpenLoaf",
         returnUrl: "openloaf://open",
       })
     );

@@ -317,7 +317,6 @@ export function buildSaasLoginUrl(input: {
   returnTo?: string;
   from?: "web" | "electron";
   port?: string;
-  theme?: "dark" | "light";
 }): string {
   const baseUrl = resolveSaasBaseUrl();
   if (!baseUrl) {
@@ -332,9 +331,6 @@ export function buildSaasLoginUrl(input: {
   }
   if (input.port) {
     url.searchParams.set("port", input.port);
-  }
-  if (input.theme) {
-    url.searchParams.set("theme", input.theme);
   }
   return url.toString();
 }
