@@ -33,7 +33,7 @@ await build({
   target: "node20",
   format: "esm",
   outfile: "dist/server.mjs",
-  external: ["playwright-core"],
+  external: ["playwright-core", "sharp"],
   alias: {
     "@trpc/client": path.resolve(repoRoot, "node_modules", "@trpc", "client"),
     "@trpc/server": path.resolve(repoRoot, "node_modules", "@trpc", "server"),

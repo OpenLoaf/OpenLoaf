@@ -27,6 +27,7 @@ import {
 } from "@/lib/saas-auth";
 import { refreshCloudModels } from "@/hooks/use-cloud-models";
 import { resolveServerUrl } from "@/utils/server-url";
+import { trpcClient, queryClient, trpc } from "@/utils/trpc";
 
 type LoginStatus = "idle" | "opening" | "polling" | "error";
 
@@ -224,6 +225,15 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
       await get().refreshSession();
       set({ loginStatus: "idle", loginError: null, wechatLoginUrl: null });
       toast.success("登录成功");
+      // 登录成功后自动切换到云端模型
+      void trpcClient.settings.setBasic
+        .mutate({ chatSource: "cloud" })
+        .then(() => {
+          queryClient.invalidateQueries({
+            queryKey: trpc.settings.getBasic.queryOptions().queryKey,
+          });
+        })
+        .catch(() => {});
       // 登录成功后立即刷新云端模型列表
       void refreshCloudModels();
     }, 1000);

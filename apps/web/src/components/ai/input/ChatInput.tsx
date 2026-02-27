@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FocusEvent, ReactNode } from "react";
 import {
+  Cloud,
   Mic,
   Globe,
   Paperclip,
@@ -183,13 +184,15 @@ export interface ChatInputBoxProps {
   /** Whether input should be blocked and replaced by action buttons. */
   blocked?: boolean;
   /** Blocked reason hint for overlay wording. */
-  blockedReason?: 'cloud-login' | 'unconfigured';
+  blockedReason?: 'cloud-login' | 'local-empty' | 'unconfigured';
   /** Open SaaS login dialog when input is blocked. */
   onRequestLogin?: () => void;
   /** Open local model configuration when input is blocked. */
   onRequestLocalConfig?: () => void;
   /** Switch to local model source when input is blocked in cloud mode. */
   onRequestSwitchLocal?: () => void;
+  /** Switch to cloud model source when input is blocked in local mode. */
+  onRequestSwitchCloud?: () => void;
   onDropHandled?: () => void;
   /** Default project id for file selection. */
   defaultProjectId?: string;
@@ -245,6 +248,7 @@ export function ChatInputBox({
   onRequestLogin,
   onRequestLocalConfig,
   onRequestSwitchLocal,
+  onRequestSwitchCloud,
   onDropHandled,
   defaultProjectId,
   workspaceId,
@@ -757,23 +761,42 @@ export function ChatInputBox({
           </span>
           <div className="text-center">
             <p className="text-[13px] font-medium text-[#202124] dark:text-slate-50">
-              {blockedReason === 'cloud-login' ? '登录后使用云端模型' : '开始智能对话'}
+              {blockedReason === 'cloud-login'
+                ? '登录后使用云端模型'
+                : blockedReason === 'local-empty'
+                  ? '本地模型未配置'
+                  : '开始智能对话'}
             </p>
             <p className="mt-0.5 text-[11px] text-[#5f6368] dark:text-slate-400">
               {blockedReason === 'cloud-login'
                 ? '当前选择的是云端模型，登录后即可使用'
-                : '登录云端或配置本地 AI 服务商'}
+                : blockedReason === 'local-empty'
+                  ? onRequestSwitchCloud
+                    ? '切换到云端模型，或配置本地 AI 服务商'
+                    : '登录云端或配置本地 AI 服务商'
+                  : '登录云端或配置本地 AI 服务商'}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="h-8 rounded-full bg-[#e8f0fe] px-4 text-[12px] font-medium text-[#1a73e8] transition-colors duration-150 hover:bg-[#d2e3fc] disabled:opacity-50 dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70"
-              onClick={onRequestLogin}
-              disabled={!onRequestLogin}
-            >
-              登录 OpenLoaf 云端
-            </button>
+            {blockedReason === 'local-empty' && onRequestSwitchCloud ? (
+              <button
+                type="button"
+                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#e8f0fe] px-4 text-[12px] font-medium text-[#1a73e8] transition-colors duration-150 hover:bg-[#d2e3fc] disabled:opacity-50 dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70"
+                onClick={onRequestSwitchCloud}
+              >
+                <Cloud className="size-3.5" />
+                使用云端模型
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="h-8 rounded-full bg-[#e8f0fe] px-4 text-[12px] font-medium text-[#1a73e8] transition-colors duration-150 hover:bg-[#d2e3fc] disabled:opacity-50 dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70"
+                onClick={onRequestLogin}
+                disabled={!onRequestLogin}
+              >
+                登录 OpenLoaf 云端
+              </button>
+            )}
             {blockedReason === 'cloud-login' && onRequestSwitchLocal ? (
               <button
                 type="button"
@@ -1030,9 +1053,10 @@ export default function ChatInput({
     () => providerItems.some((item) => (item.category ?? "general") === "provider"),
     [providerItems],
   );
-  // 逻辑：云端模式未登录 或 未登录且无本地配置时，禁用输入并显示引导。
+  // 逻辑：云端模式未登录 / 本地模式无 provider / 未登录且无本地配置时，禁用输入并显示引导。
   const needsCloudLogin = basic.chatSource === 'cloud' && !authLoggedIn;
-  const isUnconfigured = needsCloudLogin || (!authLoggedIn && !hasConfiguredProviders);
+  const needsLocalConfig = basic.chatSource === 'local' && !hasConfiguredProviders;
+  const isUnconfigured = needsCloudLogin || needsLocalConfig || (!authLoggedIn && !hasConfiguredProviders);
   useEffect(() => {
     return () => {
       if (!tabId) return;
@@ -1148,6 +1172,11 @@ export default function ChatInput({
   /** Switch chat source to local models. */
   const handleSwitchToLocal = useCallback(() => {
     void setBasic({ chatSource: 'local' });
+  }, [setBasic]);
+
+  /** Switch chat source to cloud models. */
+  const handleSwitchToCloud = useCallback(() => {
+    void setBasic({ chatSource: 'cloud' });
   }, [setBasic]);
 
   /** Handle skill insert events. */
@@ -1321,10 +1350,11 @@ export default function ChatInput({
         isLoading={isLoading}
         isStreaming={isStreaming}
         blocked={isUnconfigured}
-        blockedReason={needsCloudLogin ? 'cloud-login' : 'unconfigured'}
+        blockedReason={needsCloudLogin ? 'cloud-login' : needsLocalConfig ? 'local-empty' : 'unconfigured'}
         onRequestLogin={handleOpenLogin}
         onRequestLocalConfig={handleOpenProviderSettings}
         onRequestSwitchLocal={hasConfiguredProviders ? handleSwitchToLocal : undefined}
+        onRequestSwitchCloud={authLoggedIn ? handleSwitchToCloud : undefined}
         submitDisabled={
           isHistoryLoading ||
           isUnconfigured ||

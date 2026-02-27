@@ -299,14 +299,18 @@ function copyForgeNativeModules(resourcesDir, context) {
     )
   }
 
-  // 尝试从 Forge 产物复制
+  // 从 Forge 产物复制所有额外资源（node_modules、prebuilds、server.mjs、seed.db 等）
+  // 排除 electron-builder 自身管理的文件（asar、locale、electron 图标）
+  const SKIP_ENTRIES = new Set(['app.asar', 'electron.icns'])
   let copiedFromForge = false
-  for (const dirName of ['node_modules', 'prebuilds']) {
-    const src = path.join(forgeResourcesDir, dirName)
-    const dest = path.join(resourcesDir, dirName)
-    if (fs.existsSync(src) && !fs.existsSync(dest)) {
+  if (fs.existsSync(forgeResourcesDir)) {
+    for (const entry of fs.readdirSync(forgeResourcesDir)) {
+      if (SKIP_ENTRIES.has(entry) || entry.endsWith('.lproj')) continue
+      const src = path.join(forgeResourcesDir, entry)
+      const dest = path.join(resourcesDir, entry)
+      if (fs.existsSync(dest)) continue
       fs.cpSync(src, dest, { recursive: true })
-      console.log(`  [afterPack] copied ${dirName}/ from Forge output`)
+      console.log(`  [afterPack] copied ${entry}${fs.statSync(src).isDirectory() ? '/' : ''} from Forge output`)
       copiedFromForge = true
     }
   }

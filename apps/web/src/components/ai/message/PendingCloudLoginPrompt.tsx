@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { Cloud, HardDrive, Settings2, Sparkles } from 'lucide-react'
 import { useChatActions, useChatSession, useChatState } from '../context'
@@ -17,6 +17,7 @@ import { useBasicConfig } from '@/hooks/use-basic-config'
 import { useSettingsValues } from '@/hooks/use-settings'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
 import { useTabs } from '@/hooks/use-tabs'
+import { useSaasAuth } from '@/hooks/use-saas-auth'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
 import { Message, MessageContent } from '@/components/ai-elements/message'
 
@@ -29,9 +30,11 @@ export default function PendingCloudLoginPrompt() {
   const { activeTabId } = useTabs()
   const { pushStackItem } = useTabRuntime()
   const reduceMotion = useReducedMotion()
+  const authLoggedIn = useSaasAuth((s) => s.loggedIn)
 
   const [loginOpen, setLoginOpen] = useState(false)
   const [autoSendOnSourceChange, setAutoSendOnSourceChange] = useState(false)
+  const prevChatSourceRef = useRef(basic.chatSource)
 
   const activeChatTabId = tabId ?? activeTabId
 
@@ -39,17 +42,31 @@ export default function PendingCloudLoginPrompt() {
     (item) => (item.category ?? 'general') === 'provider',
   )
 
-  // 逻辑：切换到本地模型后，等 chatSource 更新再自动发送
+  // 逻辑：切换模型来源后（local↔cloud），等 chatSource 更新再自动发送
   useEffect(() => {
     if (!autoSendOnSourceChange) return
-    if (basic.chatSource !== 'local') return
+    if (basic.chatSource === prevChatSourceRef.current) return
+    prevChatSourceRef.current = basic.chatSource
     setAutoSendOnSourceChange(false)
     requestAnimationFrame(() => sendPendingCloudMessage())
   }, [autoSendOnSourceChange, basic.chatSource, sendPendingCloudMessage])
 
+  // 保持 ref 同步
+  useEffect(() => {
+    prevChatSourceRef.current = basic.chatSource
+  }, [basic.chatSource])
+
   if (!pendingCloudMessage) return null
 
+  // 已登录用户 + 本地无模型 → 显示"使用云端模型"引导
+  const isLoggedInLocalEmpty = authLoggedIn && !hasConfiguredProviders && basic.chatSource === 'local'
+
   const handleLogin = () => setLoginOpen(true)
+
+  const handleUseCloud = () => {
+    setAutoSendOnSourceChange(true)
+    void setBasic({ chatSource: 'cloud' })
+  }
 
   const handleUseLocal = () => {
     if (hasConfiguredProviders) {
@@ -67,6 +84,20 @@ export default function PendingCloudLoginPrompt() {
         100,
       )
     }
+  }
+
+  const handleGoToProviderConfig = () => {
+    if (!activeChatTabId) return
+    pushStackItem(
+      activeChatTabId,
+      {
+        id: 'provider-management',
+        sourceKey: 'provider-management',
+        component: 'provider-management',
+        title: '管理模型',
+      },
+      100,
+    )
   }
 
   return (
@@ -101,37 +132,62 @@ export default function PendingCloudLoginPrompt() {
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-[12px] font-medium text-[#1a73e8] dark:text-sky-300">
-                      需要登录后继续
+                      {isLoggedInLocalEmpty ? '本地模型未配置' : '需要登录后继续'}
                     </p>
                     <p className="truncate text-[10px] text-[#5f6368] dark:text-slate-400">
-                      {hasConfiguredProviders
-                        ? '登录云端模型，或切换至本地模型后继续对话'
-                        : '登录云端模型，或先完成本地模型配置'}
+                      {isLoggedInLocalEmpty
+                        ? '切换到云端模型继续对话，或先完成本地模型配置'
+                        : hasConfiguredProviders
+                          ? '登录云端模型，或切换至本地模型后继续对话'
+                          : '登录云端模型，或先完成本地模型配置'}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 border-t border-[#1a73e8]/10 px-3.5 py-2.5 dark:border-sky-500/10">
-                  <button
-                    type="button"
-                    onClick={() => handleLogin()}
-                    className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#1a73e8] px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:bg-[#1557b0] dark:bg-sky-600 dark:hover:bg-sky-500"
-                  >
-                    <Cloud className="size-3" />
-                    登录云端模型
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleUseLocal()}
-                    className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full border border-[#1a73e8]/25 bg-white/70 px-3 text-[11px] font-medium text-[#1a73e8] transition-colors duration-150 hover:bg-[#d2e3fc] dark:border-sky-500/25 dark:bg-sky-900/40 dark:text-sky-300 dark:hover:bg-sky-900/60"
-                  >
-                    {hasConfiguredProviders ? (
-                      <HardDrive className="size-3" />
-                    ) : (
-                      <Settings2 className="size-3" />
-                    )}
-                    {hasConfiguredProviders ? '切换本地模型' : '前往模型配置'}
-                  </button>
+                  {isLoggedInLocalEmpty ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleUseCloud}
+                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#1a73e8] px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:bg-[#1557b0] dark:bg-sky-600 dark:hover:bg-sky-500"
+                      >
+                        <Cloud className="size-3" />
+                        使用云端模型
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleGoToProviderConfig}
+                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full border border-[#1a73e8]/25 bg-white/70 px-3 text-[11px] font-medium text-[#1a73e8] transition-colors duration-150 hover:bg-[#d2e3fc] dark:border-sky-500/25 dark:bg-sky-900/40 dark:text-sky-300 dark:hover:bg-sky-900/60"
+                      >
+                        <Settings2 className="size-3" />
+                        前往模型配置
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleLogin()}
+                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#1a73e8] px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:bg-[#1557b0] dark:bg-sky-600 dark:hover:bg-sky-500"
+                      >
+                        <Cloud className="size-3" />
+                        登录云端模型
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUseLocal()}
+                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full border border-[#1a73e8]/25 bg-white/70 px-3 text-[11px] font-medium text-[#1a73e8] transition-colors duration-150 hover:bg-[#d2e3fc] dark:border-sky-500/25 dark:bg-sky-900/40 dark:text-sky-300 dark:hover:bg-sky-900/60"
+                      >
+                        {hasConfiguredProviders ? (
+                          <HardDrive className="size-3" />
+                        ) : (
+                          <Settings2 className="size-3" />
+                        )}
+                        {hasConfiguredProviders ? '切换本地模型' : '前往模型配置'}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </MessageContent>

@@ -72,12 +72,21 @@ if (process.env.OPENLOAF_SKIP_WIN_SIGN === 'true' && isWinTarget) {
   extraFlags.push('--config.win.signAndEditExecutable=false')
 }
 
+const isMacTarget = process.argv.some((arg) => arg === '--mac' || arg.startsWith('--mac='))
+if (isMacTarget) {
+  const icnsPath = path.resolve('resources', 'icon.icns')
+  if (fs.existsSync(icnsPath)) {
+    extraFlags.push(`--config.mac.icon=${icnsPath}`)
+  }
+}
+
 const extraArgs = [...extraFlags, ...process.argv.slice(2)].join(' ')
 
 const cmd = [
   'pnpm exec dotenv -e .env --',
   'electron-builder',
   `--config.extraMetadata.main=${mainPath}`,
+  '--config.afterPack=./scripts/afterPack.js',
   extraArgs,
 ].filter(Boolean).join(' ')
 
