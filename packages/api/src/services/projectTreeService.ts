@@ -27,6 +27,7 @@ export const projectConfigSchema = z
     projectId: z.string().optional(),
     title: z.string().optional().nullable(),
     icon: z.string().optional().nullable(),
+    isFavorite: z.boolean().optional(),
     childrenIds: z.array(z.string()).optional(),
     // Child project map uses projectId -> rootUri.
     projects: z.record(z.string(), z.string()).optional(),
@@ -61,6 +62,8 @@ export type ProjectNode = {
   rootUri: string;
   /** Whether the project root belongs to a git repository. */
   isGitProject: boolean;
+  /** Whether the project is favorited (pinned to top). */
+  isFavorite?: boolean;
   /** Child projects. */
   children: ProjectNode[];
 };
@@ -252,6 +255,7 @@ async function readProjectTree(
       icon: config.icon ?? undefined,
       rootUri: rootUriOverride ?? toFileUriWithoutEncoding(projectRootPath),
       isGitProject,
+      isFavorite: config.isFavorite ?? false,
       children: childNodes,
     };
   } catch {

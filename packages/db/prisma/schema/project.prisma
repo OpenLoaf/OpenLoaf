@@ -6,6 +6,7 @@ model Project {
   rootUri     String /// Project root URI.
   parentId    String? /// Parent project id.
   sortIndex   Int      @default(0) /// Project sort index under parent.
+  isFavorite  Boolean  @default(false) /// Whether the project is favorited (pinned to top).
   isDeleted   Boolean  @default(false) /// Soft delete flag.
   deletedAt   DateTime? /// Soft delete timestamp.
   createdAt   DateTime @default(now())
@@ -17,6 +18,7 @@ model Project {
   @@index([workspaceId])
   @@index([workspaceId, parentId])
   @@index([workspaceId, parentId, sortIndex])
+  @@index([workspaceId, isFavorite])
   @@index([workspaceId, isDeleted])
   @@index([deletedAt])
 }

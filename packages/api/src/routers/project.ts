@@ -520,6 +520,26 @@ export const projectRouter = t.router({
       return { ok: true };
     }),
 
+  /** Toggle favorite status for a project. */
+  toggleFavorite: shieldedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        isFavorite: z.boolean(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const rootPath = resolveProjectRootPath(input.projectId);
+      const metaPath = getProjectMetaPath(rootPath);
+      const existing = (await readJsonFile(metaPath)) ?? {};
+      const next = projectConfigSchema.parse({
+        ...existing,
+        isFavorite: input.isFavorite,
+      });
+      await writeJsonAtomic(metaPath, next);
+      return { ok: true, isFavorite: input.isFavorite };
+    }),
+
   /** Remove a project from workspace list without deleting files. */
   remove: shieldedProcedure
     .input(z.object({ projectId: z.string() }))

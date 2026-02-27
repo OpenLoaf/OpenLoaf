@@ -81,7 +81,7 @@ const BASE_DESKTOP_ITEMS: DesktopItem[] = [
     widgetKey: "calendar",
     size: "5x6",
     constraints: { defaultW: 5, defaultH: 6, minW: 4, minH: 3, maxW: 8, maxH: 6 },
-    layout: { x: 5, y: 0, w: 5, h: 6 },
+    layout: { x: 4, y: 0, w: 6, h: 6 },
   },
   {
     id: "i-files",

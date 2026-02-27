@@ -55,6 +55,8 @@ import {
   FolderOpen,
   FolderPlus,
   PencilLine,
+  Star,
+  StarOff,
   Trash2,
   X,
 } from "lucide-react";
@@ -91,6 +93,7 @@ type FileNode = {
   children?: FileNode[];
   projectId?: string;
   projectIcon?: string;
+  isFavorite?: boolean;
 };
 
 type ProjectDropPosition = "inside" | "before" | "after";
@@ -266,6 +269,7 @@ function buildProjectNode(project: ProjectInfo): FileNode {
     children,
     projectId: project.projectId,
     projectIcon: project.icon,
+    isFavorite: project.isFavorite ?? false,
   };
 }
 
@@ -481,6 +485,7 @@ function FileTreeNode({
                     children: child.children,
                     projectId: child.projectId,
                     projectIcon: child.projectIcon,
+                    isFavorite: child.isFavorite,
                   }}
                   depth={depth + 1}
                   activeUri={activeUri}
@@ -532,6 +537,7 @@ export const PageTreeMenu = ({
   const removeProject = useMutation(trpc.project.remove.mutationOptions());
   const destroyProject = useMutation(trpc.project.destroy.mutationOptions());
   const moveProject = useMutation(trpc.project.move.mutationOptions());
+  const toggleFavorite = useMutation(trpc.project.toggleFavorite.mutationOptions());
   const renameFile = useMutation(trpc.fs.rename.mutationOptions());
   const deleteFile = useMutation(trpc.fs.delete.mutationOptions());
   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
@@ -1015,6 +1021,23 @@ export const PageTreeMenu = ({
     setRemoveTarget(null);
     setIsPermanentRemoveChecked(false);
     setPermanentRemoveText("");
+  };
+
+  /** Toggle favorite status for a project. */
+  const handleToggleFavorite = async (node: FileNode) => {
+    if (!node.projectId) return;
+    const nextFavorite = !node.isFavorite;
+    try {
+      await toggleFavorite.mutateAsync({
+        projectId: node.projectId,
+        isFavorite: nextFavorite,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: getProjectsQueryKey(),
+      });
+    } catch {
+      toast.error("操作失败");
+    }
   };
 
   /** Remove project from list without deleting files. */
@@ -1574,6 +1597,14 @@ export const PageTreeMenu = ({
         </ContextMenuItem>
       ) : null}
       {node.kind === "project" ? (
+        <ContextMenuItem
+          icon={node.isFavorite ? StarOff : Star}
+          onClick={() => void handleToggleFavorite(node)}
+        >
+          {node.isFavorite ? "取消收藏" : "收藏"}
+        </ContextMenuItem>
+      ) : null}
+      {node.kind === "project" ? (
         <>
           <ContextMenuSeparator />
           <ContextMenuItem icon={FolderPlus} onClick={() => openCreateChildDialog(node)}>
@@ -1616,6 +1647,41 @@ export const PageTreeMenu = ({
   const isRemoveActionDisabled =
     isRemoveBusy || (isPermanentRemoveChecked && !isPermanentRemoveConfirmed);
 
+  const favoriteProjects = useMemo(
+    () => projects.filter((p) => p.isFavorite),
+    [projects],
+  );
+  const normalProjects = useMemo(
+    () => projects.filter((p) => !p.isFavorite),
+    [projects],
+  );
+
+  const renderProjectNode = (project: ProjectInfo) => (
+    <FileTreeNode
+      key={project.rootUri}
+      node={buildProjectNode(project)}
+      depth={0}
+      activeUri={activeUri}
+      activeProjectRootUri={activeProjectRootUri}
+      expandedNodes={expandedNodes}
+      setExpanded={setExpanded}
+      onPrimaryClick={handlePrimaryClick}
+      renderContextMenuContent={renderContextMenuContent}
+      contextSelectedUri={contextSelectedUri}
+      onContextMenuOpenChange={handleContextMenuOpenChange}
+      dragOverProjectId={dragOverProjectId ?? null}
+      dragInsertTarget={dragInsertTarget ?? null}
+      draggingProjectId={draggingProject?.projectId ?? null}
+      disableNativeDrag={isElectron}
+      onProjectDragStart={handleProjectDragStart}
+      onProjectDragOver={handleProjectDragOver}
+      onProjectDragLeave={handleProjectDragLeave}
+      onProjectDrop={handleProjectDrop}
+      onProjectDragEnd={handleProjectDragEnd}
+      onProjectPointerDown={handleProjectPointerDown}
+    />
+  );
+
   return (
     <>
       {dragGhost ? (
@@ -1643,31 +1709,25 @@ export const PageTreeMenu = ({
           </div>
         </SidebarMenuItem>
       ) : (
-        projects.map((project) => (
-          <FileTreeNode
-            key={project.rootUri}
-            node={buildProjectNode(project)}
-            depth={0}
-            activeUri={activeUri}
-            activeProjectRootUri={activeProjectRootUri}
-            expandedNodes={expandedNodes}
-            setExpanded={setExpanded}
-            onPrimaryClick={handlePrimaryClick}
-            renderContextMenuContent={renderContextMenuContent}
-            contextSelectedUri={contextSelectedUri}
-            onContextMenuOpenChange={handleContextMenuOpenChange}
-            dragOverProjectId={dragOverProjectId ?? null}
-            dragInsertTarget={dragInsertTarget ?? null}
-            draggingProjectId={draggingProject?.projectId ?? null}
-            disableNativeDrag={isElectron}
-            onProjectDragStart={handleProjectDragStart}
-            onProjectDragOver={handleProjectDragOver}
-            onProjectDragLeave={handleProjectDragLeave}
-            onProjectDrop={handleProjectDrop}
-            onProjectDragEnd={handleProjectDragEnd}
-            onProjectPointerDown={handleProjectPointerDown}
-          />
-        ))
+        <>
+          {favoriteProjects.length > 0 ? (
+            <>
+              <SidebarMenuItem>
+                <div className="flex items-center gap-1 px-2 pt-1 pb-0.5 text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+                  <Star className="h-3 w-3" />
+                  <span>收藏</span>
+                </div>
+              </SidebarMenuItem>
+              {favoriteProjects.map(renderProjectNode)}
+              <SidebarMenuItem>
+                <div className="w-full px-2 pt-1 pb-0.5">
+                  <div className="border-t border-border/40" />
+                </div>
+              </SidebarMenuItem>
+            </>
+          ) : null}
+          {normalProjects.map(renderProjectNode)}
+        </>
       )}
       {projects.length > 0 ? (
         <SidebarMenuItem>
