@@ -3,9 +3,9 @@ name: update-version-management
 description: >
   Use when the user wants to release a new version, bump versions, publish
   updates, or create changelogs for server/web/electron apps.
-  Also use when publishing npm packages (widget-sdk), modifying update-related
-  code: publish scripts, manifest structure, incremental update logic, crash
-  rollback, or update UI components.
+  Also use when publishing npm packages (widget-sdk, @openloaf-saas/sdk),
+  modifying update-related code: publish scripts, manifest structure,
+  incremental update logic, crash rollback, or update UI components.
 ---
 
 # Update & Version Management
@@ -18,7 +18,7 @@ OpenLoaf 的版本发布采用“先发布、后加一”的流程：提交变�
 
 - 用户要求发布新版本、升级版本号、写 changelog
 - 用户要求运行 publish-update 或 dist:production
-- 用户要求发布 widget-sdk 到 npm
+- 用户要求发布 widget-sdk 或 @openloaf-saas/sdk 到 npm
 - 修改发布脚本（publish-update.mjs）、共享工具（publishUtils.mjs）
 - 修改更新检查/下载/校验/安装逻辑、manifest 结构
 - 修改渠道管理（stable/beta）、崩溃回滚
@@ -193,6 +193,7 @@ git push && git push origin --tags
 | Web 增量发布 | `cd apps/web && pnpm run publish-update` |
 | Electron 本体发布 | `cd apps/desktop && pnpm run dist:production` |
 | widget-sdk npm 发布 | `cd packages/widget-sdk && pnpm version patch && pnpm publish --no-git-checks` |
+| @openloaf-saas/sdk 更新 | 见下方「@openloaf-saas/sdk 依赖管理」章节 |
 | 版本号加一（发布后） | `npm version patch --no-git-tag-version` |
 | 版本号加一（minor） | `npm version minor --no-git-tag-version` |
 | 版本号加一（major） | `npm version major --no-git-tag-version` |
@@ -207,6 +208,51 @@ git push && git push origin --tags
 | 发布前先改版本号 | 版本号与发布产物不一致 | 先发布，发布后再加一 |
 | 未询问用户就决定版本号 | 版本号不符合预期 | 始终先询问 patch/minor/major |
 | commit 范围未加路径过滤 | changelog 包含不相关的变更 | 使用 `-- apps/{app}/ packages/` 过滤 |
+| SDK 混淆后 dev 编译挂起 | Turbopack 无限卡住 | 见「@openloaf-saas/sdk 依赖管理」排查步骤 |
+
+---
+
+## @openloaf-saas/sdk 依赖管理
+
+`@openloaf-saas/sdk` 是外部 SaaS SDK 包，本仓库通过 `file:` 协议链接本地副本进行开发。
+
+### SDK 更新后本地同步
+
+当 SDK 发布新版本后，在本仓库执行：
+
+```bash
+pnpm update @openloaf-saas/sdk
+```
+
+本地开发时 SDK 通过 `file:` 链接，修改 SDK 源码后只需在 SDK 目录重新构建即可生效，无需 npm publish。
+
+### Turbopack 兼容性约束（关键）
+
+`@openloaf-saas/sdk` 的 npm 发布版本经过代码混淆保护。**混淆配置必须兼容 Turbopack**，否则 Next.js dev 编译会无限挂起（卡在 "○ Compiling ..."）。
+
+**以下 javascript-obfuscator 选项绝对禁止开启：**
+
+| 禁止选项 | 原因 |
+|---------|------|
+| `controlFlowFlattening` | 生成巨型 while/switch 结构，Turbopack 解析器挂死 |
+| `deadCodeInjection` | 虚假代码路径拖慢 bundler 静态分析 |
+| `selfDefending` | 反篡改代码在 bundler 变换后触发无限循环 |
+
+### 排查：dev 编译挂起
+
+如果 `pnpm dev` 卡在 "○ Compiling /" 不动，优先检查：
+
+1. `node_modules/@openloaf-saas/sdk/dist/index.js` 是否被重新混淆（检查文件是否包含 `controlFlowFlattening` 特征：巨型 `while(true){switch(...)}`）
+2. 临时修复：在 SDK 目录执行 `bun run build`（仅 tsup 构建，不混淆）并复制 `dist/` 到 `node_modules/@openloaf-saas/sdk/dist/`
+3. 根本修复：确认 SDK 的 `scripts/obfuscate.mjs` 中上述三个选项为 `false`
+
+### next.config.js 配置
+
+`@openloaf-saas/sdk` 必须在 `transpilePackages` 中：
+
+```js
+transpilePackages: ["@openloaf/ui", "@openloaf-saas/sdk"],
+```
 
 ---
 

@@ -59,6 +59,15 @@ Provide repo-specific packaging guidance for Electron + web + server, including 
   - `hooks.postPackage` copies resolved deps into `Resources/node_modules`. This is the single source of truth for packaging `node_modules` (removed from `package.json` `extraResources` to avoid conflicts).
   - `node-pty/prebuilds` is copied into `Resources/prebuilds`.
 
+### Forge → electron-builder 传递（关键）
+
+打包分两阶段，原生模块需要跨阶段传递：
+
+1. **Forge `postPackage`**：将 `node_modules/` 和 `prebuilds/` 复制到 Forge 产物 `out/{name}-{platform}-{arch}/.../Resources/`
+2. **electron-builder `afterPack`**：electron-builder 重新打包时**不会**自动包含 Forge 产物中的这些目录（它只使用 `package.json` 的 `extraResources` 配置），因此 `scripts/afterPack.js` 中的 `copyForgeNativeModules()` 函数负责将 Forge 产物的 `node_modules/` 和 `prebuilds/` 复制到 electron-builder 产物。
+
+**如果 DMG/安装包中缺少原生模块，首先检查 `afterPack.js` 的 `copyForgeNativeModules` 是否正确执行。**
+
 ## CI/CD vs Local Build (The Golden Rule)
 - **Do not use macOS Wine for production Windows builds.** Due to dependency complexities and Wine instability, all production artifacts should be built via GitHub Actions (`.github/workflows/release.yml`) running on native `macos-latest`, `windows-latest`, and `ubuntu-latest` runners.
 - Local macOS cross-compilation is only for quick structural checks (e.g., verifying `Resources/` contents), but resulting binaries (especially for Windows and Linux) may fail at runtime due to missing or mismatched native bindings.
@@ -79,17 +88,18 @@ Provide repo-specific packaging guidance for Electron + web + server, including 
 
 ## Adding or Changing Native Deps (Checklist)
 1. If the server code externalizes a package, confirm it exists under `Resources/node_modules`.
-2. Add new native deps to `NATIVE_DEP_ROOTS` (Forge) and `build.extraResources` (Builder) as needed.
+2. 在 Forge 的 `NATIVE_DEP_ROOTS`（`forge.config.ts`）中添加新依赖。**不需要**修改 `package.json` 的 `extraResources`，`afterPack.js` 会自动从 Forge 产物传递。
 3. If the dependency expects `./prebuilds/...`, ensure it is copied to `Resources/prebuilds`.
-4. Repackage and verify in the packaged `Resources/` directory.
+4. Repackage and verify in **both** `out/` (Forge 产物) 和 `dist/` (electron-builder 产物) 的 `Resources/` 目录。
 
 ## Verification
-- Inspect packaged `Resources/` to confirm:
-  - `server.mjs`, `seed.db`, `out/` exist
-  - `node_modules/<native>` exists
-  - `prebuilds/<platform>` exists
-- Typical check (macOS example):
-  - `apps/desktop/out/OpenLoaf-darwin-arm64/OpenLoaf.app/Contents/Resources/`
+- 需要检查**两个**产物目录的 `Resources/`：
+  - **Forge 产物**：`apps/desktop/out/OpenLoaf-darwin-arm64/OpenLoaf.app/Contents/Resources/`
+  - **Builder 产物**（最终 DMG/ZIP 来源）：`apps/desktop/dist/mac-arm64/OpenLoaf.app/Contents/Resources/`
+- 确认以下内容都存在：
+  - `server.mjs`, `seed.db`, `out/` — 来自 `extraResources` 配置
+  - `node_modules/sharp/`, `node_modules/@img/`, `node_modules/libsql/` 等 — 来自 `afterPack.js` 的 Forge→Builder 传递
+  - `prebuilds/<platform>` — 同上
 
 ## Common Failure Patterns
 - `Cannot find module './prebuilds/.../pty.node'`: missing `Resources/prebuilds` (node-pty).
@@ -103,6 +113,10 @@ Provide repo-specific packaging guidance for Electron + web + server, including 
 - App cannot quit after confirmation (Windows titlebar overlay): sync confirm blocks close event, leaving the window in a closing state.
   - Fix: switch to async `dialog.showMessageBox` and centralize quit flow in `apps/desktop/src/main/windows/mainWindow.ts`, re-focus window on cancel, and schedule a force-exit timeout.
 - `wineserver: Can't check in server_mach_port` (macOS build for Windows): start XQuartz, log out/in, and force x86_64 wine via wrapper + `USE_SYSTEM_WINE=true`.
+- `Cannot find module 'sharp'`（打包后运行时报错）：原生模块未从 Forge 产物传递到 electron-builder 产物。
+  - 检查 `afterPack.js` 的 `copyForgeNativeModules()` 日志是否输出 `[afterPack] copied node_modules/ from Forge output`。
+  - 检查 `dist/mac-arm64/OpenLoaf.app/Contents/Resources/node_modules/sharp/` 是否存在。
+  - 如果 Forge 产物路径不匹配（产品名或架构变更），需更新 `afterPack.js` 中的路径拼接逻辑。
 
 ## Source Files to Read First
 - `apps/desktop/package.json`

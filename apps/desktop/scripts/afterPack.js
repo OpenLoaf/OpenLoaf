@@ -115,11 +115,64 @@ function resolveResourcesDir(context, targetPlatform) {
 }
 
 /**
+ * electron-builder arch enum → Forge arch string.
+ * @param {number} arch
+ * @returns {string}
+ */
+function archToString(arch) {
+  // electron-builder Arch: 0=ia32, 1=x64, 3=arm64, 4=armv7l, 5=universal
+  const map = { 0: 'ia32', 1: 'x64', 3: 'arm64', 4: 'armv7l', 5: 'universal' }
+  return map[arch] || 'x64'
+}
+
+/**
+ * Forge postPackage 将 node_modules/ 和 prebuilds/ 复制到了 Forge 产物的 Resources 目录，
+ * 但 electron-builder 重新打包时只使用 extraResources 配置，不会包含 Forge 产出的这些目录。
+ * 此函数在 afterPack 阶段将它们从 Forge 产物拷贝到 electron-builder 产物。
+ *
+ * @param {string} resourcesDir electron-builder 产物的 Resources 路径
+ * @param {import('electron-builder').AfterPackContext} context
+ */
+function copyForgeNativeModules(resourcesDir, context) {
+  const targetPlatform = resolveTargetPlatform(context)
+  const arch = archToString(context.arch)
+  const productName = context.packager.appInfo.productFilename
+
+  // Forge 产物路径
+  let forgeResourcesDir
+  if (targetPlatform === 'darwin') {
+    forgeResourcesDir = path.join(
+      __dirname, '..', 'out',
+      `${productName}-${targetPlatform}-${arch}`,
+      `${productName}.app`, 'Contents', 'Resources'
+    )
+  } else {
+    forgeResourcesDir = path.join(
+      __dirname, '..', 'out',
+      `${productName}-${targetPlatform}-${arch}`,
+      'resources'
+    )
+  }
+
+  for (const dirName of ['node_modules', 'prebuilds']) {
+    const src = path.join(forgeResourcesDir, dirName)
+    const dest = path.join(resourcesDir, dirName)
+    if (fs.existsSync(src) && !fs.existsSync(dest)) {
+      fs.cpSync(src, dest, { recursive: true })
+      console.log(`  [afterPack] copied ${dirName}/ from Forge output`)
+    }
+  }
+}
+
+/**
  * @param {import('electron-builder').AfterPackContext} context
  */
 exports.default = async function afterPack(context) {
   const targetPlatform = resolveTargetPlatform(context)
   const resourcesDir = resolveResourcesDir(context, targetPlatform)
+
+  // 从 Forge 产物复制原生模块到 electron-builder 产物
+  copyForgeNativeModules(resourcesDir, context)
 
   let prunePaths
   if (targetPlatform === 'darwin') {
