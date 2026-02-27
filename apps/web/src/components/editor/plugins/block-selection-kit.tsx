@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client';
+'use client';
 
 import { AIChatPlugin } from '@platejs/ai/react';
 import { BlockSelectionPlugin } from '@platejs/selection/react';

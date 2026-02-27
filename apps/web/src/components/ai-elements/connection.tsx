@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ConnectionLineComponent } from "@xyflow/react";
+import type { ConnectionLineComponent } from "@xyflow/react";
 
 const HALF = 0.5;
 

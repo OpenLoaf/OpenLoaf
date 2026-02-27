@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasPoint, CanvasRect } from "./types";
+import type { CanvasPoint, CanvasRect } from "./types";
 import { DEFAULT_FIT_PADDING, MIN_ZOOM } from "./constants";
 import type { CanvasDoc } from "./CanvasDoc";
 import type { ViewportController } from "./ViewportController";

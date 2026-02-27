@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { app, nativeImage } from 'electron';
+import { app, nativeImage } from 'electron';
 import fs from 'fs';
 import path from 'path';
 

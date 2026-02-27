@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { Clock } from 'lucide-react'
+import { Clock } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@openloaf/ui/calendar/components/ui/button'
 import { Input } from '@openloaf/ui/calendar/components/ui/input'

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport {
+import {
   getEntryExt,
   type FileSystemEntry,
 } from "@/components/project/filesystem/utils/file-system-utils";

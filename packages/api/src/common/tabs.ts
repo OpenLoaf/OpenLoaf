@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type DockItem = {
+export type DockItem = {
   /** Stable UI identity (also used as `panelKey`). */
   id: string;
   /** Component registry key (e.g. `plant-page`, `electron-browser`). */

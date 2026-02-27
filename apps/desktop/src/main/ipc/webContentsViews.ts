@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BrowserWindow, WebContents, WebContentsView } from 'electron';
+import { BrowserWindow, WebContents, WebContentsView } from 'electron';
 import { resolveWindowIconPath } from '../resolveWindowIcon';
 
 type ViewBounds = { x: number; y: number; width: number; height: number };

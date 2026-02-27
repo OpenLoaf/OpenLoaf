@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client'
+'use client'
 
 import { useCallback, useRef } from 'react'
 import { ShieldAlert } from 'lucide-react'

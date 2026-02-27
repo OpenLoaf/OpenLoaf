@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasAlignmentGuide, CanvasRect } from "../engine/types";
+import type { CanvasAlignmentGuide, CanvasRect } from "../engine/types";
 
 type Axis = "x" | "y";
 type AnchorKind = "start" | "center" | "end";

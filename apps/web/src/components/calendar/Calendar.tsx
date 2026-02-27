@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type { IlamyCalendarProps } from "@openloaf/ui/calendar";
 import { IlamyCalendar } from "@openloaf/ui/calendar";

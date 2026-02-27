@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { useCallback, useEffect } from "react";
 import { useWorkspace } from "@/components/workspace/workspaceContext";

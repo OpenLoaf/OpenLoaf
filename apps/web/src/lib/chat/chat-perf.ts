@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** Storage key for perf logging flag. */
+/** Storage key for perf logging flag. */
 const STORAGE_KEY = "openloaf:debug:chat-perf";
 /** Window key for perf logging enabled flag. */
 const ENABLED_KEY = "__openloafChatPerfEnabled";

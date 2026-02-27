@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { EventEmitter } from 'events'
+import { EventEmitter } from 'events'
 
 export type EmailNewMailEvent = {
   workspaceId: string

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport sanitizeHtml, { type IOptions } from 'sanitize-html'
+import sanitizeHtml, { type IOptions } from 'sanitize-html'
 
 /** Shared sanitize options for HTML email content. */
 export const SANITIZE_OPTIONS: IOptions = {

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ModelTag } from "@openloaf/api/common";
+import type { ModelTag } from "@openloaf/api/common";
 
 /** Node type identifier for image prompt generation. */
 export const IMAGE_PROMPT_GENERATE_NODE_TYPE = "image_prompt_generate";

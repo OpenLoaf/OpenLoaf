@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ReactNode } from "react";
+import type { ReactNode } from "react";
 import styles from "./Heading.module.css";
 import getClassNameFactory from "../core/get-class-name-factory";
 

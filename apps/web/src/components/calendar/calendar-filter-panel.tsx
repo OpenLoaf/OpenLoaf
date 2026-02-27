@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { useCallback } from "react";
+import { useCallback } from "react";
 import { Accordion, AccordionContent, AccordionItem } from "@openloaf/ui/accordion";
 import { Checkbox } from "@openloaf/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";

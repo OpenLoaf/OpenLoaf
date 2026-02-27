@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport path from "node:path";
+import path from "node:path";
 import { chmodSync, existsSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 

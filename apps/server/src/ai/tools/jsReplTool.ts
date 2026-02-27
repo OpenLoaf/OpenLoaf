@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport vm from 'node:vm'
+import vm from 'node:vm'
 import { tool, zodSchema } from 'ai'
 import { jsReplToolDef, jsReplResetToolDef } from '@openloaf/api/types/tools/runtime'
 import { getSessionId } from '@/ai/shared/context/requestContext'

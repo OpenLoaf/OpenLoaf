@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { getTabId } from "@/ai/shared/context/requestContext";
+import { getTabId } from "@/ai/shared/context/requestContext";
 
 /**
  * 读取本次 /chat/sse 绑定的 TabId（apps/web 的 useTabs Tab.id）。

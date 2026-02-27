@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** Browser panel component registry key. */
+/** Browser panel component registry key. */
 export const BROWSER_WINDOW_COMPONENT = "electron-browser-window" as const;
 
 /** Terminal panel component registry key. */

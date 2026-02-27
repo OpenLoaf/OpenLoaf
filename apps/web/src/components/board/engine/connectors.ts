@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type {
+import type {
   CanvasConnectorDraft,
   CanvasConnectorElement,
   CanvasConnectorEnd,

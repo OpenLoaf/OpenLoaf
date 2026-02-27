@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { UI_MESSAGE_STREAM_HEADERS } from "ai";
+import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
 import type { ChatStreamRequest } from "@/ai/services/chat/types";
 import type { ChatImageMessageInput, ChatImageRequest } from "@/ai/services/image/types";

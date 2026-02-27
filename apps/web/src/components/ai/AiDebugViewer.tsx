@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client'
+'use client'
 
 import { useMemo, useCallback } from 'react'
 import { StackHeader } from '@/components/layout/StackHeader'

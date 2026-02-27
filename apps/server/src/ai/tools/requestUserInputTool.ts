@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { tool, zodSchema } from 'ai'
+import { tool, zodSchema } from 'ai'
 import { requestUserInputToolDef } from '@openloaf/api/types/tools/userInput'
 import { consumeToolApprovalPayload } from '@/ai/shared/context/requestContext'
 

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type React from 'react'
+import type React from 'react'
 import { memo, useCallback } from 'react'
 import type { Resource } from '@openloaf/ui/calendar/features/resource-calendar/types'
 import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'

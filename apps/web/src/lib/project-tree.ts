@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ProjectNode } from "@openloaf/api/services/projectTreeService";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 
 export type ProjectHierarchyIndex = {
   /** Project node by id. */

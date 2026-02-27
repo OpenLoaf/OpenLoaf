@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { useMemo } from 'react'
+import { useMemo } from 'react'
 import type { TimeFormat } from '@openloaf/ui/calendar/types'
 
 interface UseAutocompleteTimepickerProps {

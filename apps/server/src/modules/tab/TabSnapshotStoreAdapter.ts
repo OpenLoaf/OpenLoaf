@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BROWSER_WINDOW_COMPONENT, type BrowserTab, type Tab } from "@openloaf/api/common";
+import { BROWSER_WINDOW_COMPONENT, type BrowserTab, type Tab } from "@openloaf/api/common";
 
 type CacheKey = string;
 

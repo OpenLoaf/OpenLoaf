@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client'
+'use client'
 
 import { useWorkspace } from '@/components/workspace/workspaceContext'
 import { ScheduledTaskList } from '@/components/tasks/ScheduledTaskList'

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Logger } from "../logging/startupLogger";
+import type { Logger } from "../logging/startupLogger";
 
 type CalendarRange = { start: string; end: string };
 type CalendarItem = {

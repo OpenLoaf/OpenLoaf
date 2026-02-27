@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport {};
+export {};
 
 declare global {
   type OpenLoafViewBounds = { x: number; y: number; width: number; height: number };

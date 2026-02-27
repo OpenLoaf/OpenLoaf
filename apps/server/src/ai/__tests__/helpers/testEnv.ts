@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { getProviderSettings } from '@/modules/settings/settingsService'
+import { getProviderSettings } from '@/modules/settings/settingsService'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { setRequestContext, setChatModel, setAbortSignal } from '@/ai/shared/context/requestContext'
 

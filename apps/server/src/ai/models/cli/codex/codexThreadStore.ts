@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\ntype CodexThreadCacheEntry = {
+type CodexThreadCacheEntry = {
   /** Codex thread id. */
   threadId: string;
   /** Latest model id bound to the thread. */

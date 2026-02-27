@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { spawn as spawnPty } from "node-pty";
+import { spawn as spawnPty } from "node-pty";
 import { tool, zodSchema } from "ai";
 import { execCommandToolDef } from "@openloaf/api/types/tools/runtime";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";

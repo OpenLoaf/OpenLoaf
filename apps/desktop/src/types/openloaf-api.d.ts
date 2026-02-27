@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\ndeclare module "@openloaf/api" {
+declare module "@openloaf/api" {
   export type WebMetadata = {
     /** Page title text. */
     title: string;

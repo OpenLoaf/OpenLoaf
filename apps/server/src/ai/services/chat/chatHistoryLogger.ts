@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * Chat history logger — simplified after JSONL migration.
  * The JSONL file itself is now the persistent storage, so the old
  * dev-mode branch context logging is no longer needed.

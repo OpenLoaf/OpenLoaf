@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasElement } from "./types";
+import type { CanvasElement } from "./types";
 import type { CanvasHistoryState } from "./history-utils";
 import { cloneElements } from "./history-utils";
 

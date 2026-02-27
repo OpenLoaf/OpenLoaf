@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { PromptContext, PrefaceCapabilities } from '@/ai/shared/types'
+import type { PromptContext, PrefaceCapabilities } from '@/ai/shared/types'
 
 /** Build skills summary section for a session preface. */
 export function buildSkillsSummarySection(

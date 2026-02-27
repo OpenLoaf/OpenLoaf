@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Hono } from "hono";
+import type { Hono } from "hono";
 import { logger } from "@/common/logger";
 import { renderAuthCallbackPage } from "./authCallbackPage";
 import { consumeLoginCode, storeLoginCode } from "./loginCodeStore";

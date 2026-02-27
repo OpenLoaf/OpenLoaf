@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client'
+'use client'
 
 import { CheckCircle2, ChevronRight, ExternalLink, Plus, Settings2 } from 'lucide-react'
 import { useState } from 'react'

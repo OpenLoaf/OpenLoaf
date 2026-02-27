@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { AiExecuteService } from "@/ai/services/chat/AiExecuteService";
+import { AiExecuteService } from "@/ai/services/chat/AiExecuteService";
 import { AiExecuteController } from "@/ai/interface/controllers/AiExecuteController";
 
 type AiBootstrapResult = {

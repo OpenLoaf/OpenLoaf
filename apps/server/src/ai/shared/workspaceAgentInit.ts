@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { fileURLToPath } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import {
   getActiveWorkspaceConfig,
   resolveWorkspaceRootPath,

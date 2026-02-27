@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Context, Hono } from "hono";
+import type { Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { mapSaasError } from "@/modules/saas/core/errors";
 import { logger } from "@/common/logger";

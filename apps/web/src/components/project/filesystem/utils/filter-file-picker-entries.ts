@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\ntype FileSystemEntry = {
+type FileSystemEntry = {
   uri: string;
   name: string;
   kind: "file" | "folder";

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "@ai-sdk/react";

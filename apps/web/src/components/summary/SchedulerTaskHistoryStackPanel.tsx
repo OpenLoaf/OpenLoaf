@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { memo, useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@openloaf/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@openloaf/ui/dropdown-menu";

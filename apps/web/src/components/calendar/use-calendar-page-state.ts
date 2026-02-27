@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CalendarEvent as UiCalendarEvent } from "@openloaf/ui/calendar/components/types";
+import type { CalendarEvent as UiCalendarEvent } from "@openloaf/ui/calendar/components/types";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

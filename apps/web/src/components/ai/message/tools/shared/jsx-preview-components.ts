@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { Attachments, Attachment } from '@/components/ai-elements/attachments'
+import { Attachments, Attachment } from '@/components/ai-elements/attachments'
 import {
   AudioPlayer,
   AudioPlayerControlBar,

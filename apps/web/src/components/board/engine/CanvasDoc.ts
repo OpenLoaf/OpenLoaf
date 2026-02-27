@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasElement, CanvasNodeElement, CanvasRect } from "./types";
+import type { CanvasElement, CanvasNodeElement, CanvasRect } from "./types";
 import { SpatialIndex } from "./SpatialIndex";
 
 const NODE_SPATIAL_INDEX_CELL_SIZE = 500;

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client'
+'use client'
 
 import { Cloud, HardDrive, Settings2, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'

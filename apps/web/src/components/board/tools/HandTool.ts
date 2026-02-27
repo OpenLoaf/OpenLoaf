@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasPoint } from "../engine/types";
+import type { CanvasPoint } from "../engine/types";
 import type { CanvasTool, ToolContext } from "./ToolTypes";
 
 export class HandTool implements CanvasTool {

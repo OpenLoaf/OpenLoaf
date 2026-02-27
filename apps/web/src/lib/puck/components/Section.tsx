@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { forwardRef, type CSSProperties, type ReactNode } from "react";
+import { forwardRef, type CSSProperties, type ReactNode } from "react";
 import styles from "./Section.module.css";
 import { getClassNameFactory } from "../core";
 

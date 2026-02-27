@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BOARD_INDEX_FILE_NAME, DOC_INDEX_FILE_NAME, isBoardFolderName, isDocFolderName } from "@/lib/file-name";
+import { BOARD_INDEX_FILE_NAME, DOC_INDEX_FILE_NAME, isBoardFolderName, isDocFolderName } from "@/lib/file-name";
 
 export type FileSystemEntry = {
   uri: string;

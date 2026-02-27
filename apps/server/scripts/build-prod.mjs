@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { build } from "esbuild";
+import { build } from "esbuild";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";

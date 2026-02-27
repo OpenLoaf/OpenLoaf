@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client';
+'use client';
 
 import { TextAlignPlugin } from '@platejs/basic-styles/react';
 import { KEYS } from 'platejs';

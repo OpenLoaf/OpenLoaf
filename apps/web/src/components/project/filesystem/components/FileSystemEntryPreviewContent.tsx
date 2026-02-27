@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { memo } from "react";
 import { openFilePreview } from "@/components/file/lib/open-file";

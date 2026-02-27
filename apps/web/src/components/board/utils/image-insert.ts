@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasPoint } from "../engine/types";
+import type { CanvasPoint } from "../engine/types";
 
 /** Offset applied when inserting multiple images. */
 export const IMAGE_NODE_STACK_OFFSET = 24;

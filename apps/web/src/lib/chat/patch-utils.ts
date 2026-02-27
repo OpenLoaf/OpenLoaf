@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** 从 patch 文本提取文件信息（供 WriteFileTool 和 toolParts 共用） */
+/** 从 patch 文本提取文件信息（供 WriteFileTool 和 toolParts 共用） */
 export function extractPatchFileInfo(patch: string): {
   fileName: string
   fileCount: number

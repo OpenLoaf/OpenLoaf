@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type { LucideIcon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes } from "react";

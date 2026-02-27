@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { generateId } from 'ai'
+import { generateId } from 'ai'
 import { prisma } from '@openloaf/db'
 import type { ChatMessageKind, OpenLoafUIMessage } from '@openloaf/api'
 import { replaceFileTokensWithNames } from '@/common/chatTitle'

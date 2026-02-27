@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { getEnvString } from "@openloaf/config";
+import { getEnvString } from "@openloaf/config";
 import { readBasicConf, writeBasicConf } from "@/modules/settings/openloafConfStore";
 
 type ProxySettingsSnapshot = {

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";

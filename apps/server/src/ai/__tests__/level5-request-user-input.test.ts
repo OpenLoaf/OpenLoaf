@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * Level 5 — 测试 request-user-input 工具的审批流程。
  *
  * 问题复现：

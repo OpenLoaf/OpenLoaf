@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport os from "node:os";
+import os from "node:os";
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import {

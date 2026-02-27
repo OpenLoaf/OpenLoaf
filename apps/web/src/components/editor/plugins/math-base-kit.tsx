@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseEquationPlugin, BaseInlineEquationPlugin } from '@platejs/math';
+import { BaseEquationPlugin, BaseInlineEquationPlugin } from '@platejs/math';
 
 import {
   EquationElementStatic,

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { Loader2, Paperclip, X } from "lucide-react";
+import { Loader2, Paperclip, X } from "lucide-react";
 import { Input } from "@openloaf/ui/input";
 import { Button } from "@openloaf/ui/button";
 import { Textarea } from "@openloaf/ui/textarea";

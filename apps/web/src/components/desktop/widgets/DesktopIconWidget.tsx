@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { FileText, ListTodo, Search, Settings } from "lucide-react";
 import type { DesktopIconKey } from "../types";

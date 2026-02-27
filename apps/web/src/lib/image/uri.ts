@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { resolveServerUrl } from "@/utils/server-url";
+import { resolveServerUrl } from "@/utils/server-url";
 
 export type PreviewTooLargeError = Error & {
   /** Error code for preview size limit. */

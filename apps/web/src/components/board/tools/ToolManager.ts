@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasTool, ToolContext } from "./ToolTypes";
+import type { CanvasTool, ToolContext } from "./ToolTypes";
 import type { CanvasPoint } from "../engine/types";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";

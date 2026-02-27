@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { EnvHttpProxyAgent, setGlobalDispatcher } from "undici";
+import { EnvHttpProxyAgent, setGlobalDispatcher } from "undici";
 import { getEnvString } from "@openloaf/config";
 
 type ProxyConfig = {

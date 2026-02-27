@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type React from 'react'
+import type React from 'react'
 import { useCalendarContext } from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/context'
 import { cn } from '@openloaf/ui/calendar/lib/utils'
 import { getWeekDays } from '@openloaf/ui/calendar/lib/utils/date-utils'

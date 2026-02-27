@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import type { OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";

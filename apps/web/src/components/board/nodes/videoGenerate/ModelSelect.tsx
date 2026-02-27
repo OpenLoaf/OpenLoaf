@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type { AiModel } from "@openloaf-saas/sdk";
 import { ChevronDown, LogIn } from "lucide-react";

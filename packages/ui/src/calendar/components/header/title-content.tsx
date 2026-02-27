@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Button } from '@openloaf/ui/calendar/components/ui/button'
 import {

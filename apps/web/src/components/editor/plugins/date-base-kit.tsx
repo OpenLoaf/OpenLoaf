@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseDatePlugin } from '@platejs/date';
+import { BaseDatePlugin } from '@platejs/date';
 
 import { DateElementStatic } from '@openloaf/ui/date-node-static';
 

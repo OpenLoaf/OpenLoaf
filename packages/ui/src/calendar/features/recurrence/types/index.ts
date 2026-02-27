@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type dayjs from 'dayjs'
+import type dayjs from 'dayjs'
 import type { Options } from 'rrule'
 
 /**

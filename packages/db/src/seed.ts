@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport "dotenv/config";
+import "dotenv/config";
 
 import path from "node:path";
 import { pathToFileURL } from "node:url";

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport * as React from "react";
+import * as React from "react";
 import { act, render } from "@testing-library/react";
 import type { UIMessage } from "@ai-sdk/react";
 import { describe, it, expect, vi } from "vitest";

@@ -7,4 +7,4 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport { default as Header } from './base-header'
+export { default as Header } from './base-header'

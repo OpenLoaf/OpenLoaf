@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n// V2 AI 模块入口（MVP）。统一导出主要使用入口。
+// V2 AI 模块入口（MVP）。统一导出主要使用入口。
 
 export * from "./services/masterAgentRunner";
 export * from "./bootstrap";

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Context, Hono } from "hono";
+import type { Context, Hono } from "hono";
 import { logger } from "@/common/logger";
 import { fetchModelList, fetchModelsUpdatedAt } from "@/modules/saas";
 import type { ModelDefinition } from "@openloaf/api/common";

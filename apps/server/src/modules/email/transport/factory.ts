@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { ensureValidAccessToken } from "../oauth/tokenManager";
+import { ensureValidAccessToken } from "../oauth/tokenManager";
 import { GmailTransportAdapter } from "./gmailAdapter";
 import { GraphTransportAdapter } from "./graphAdapter";
 import { ImapTransportAdapter } from "./imapAdapter";

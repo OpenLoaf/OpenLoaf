@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * 子 Agent Preface 生成器 — 根据工具配置动态生成 preface。
  */
 

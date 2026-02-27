@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n// ─── 类型 ───
+// ─── 类型 ───
 
 export type UpdateFileChunk = {
   changeContext: string | null

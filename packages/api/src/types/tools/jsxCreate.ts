@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { z } from 'zod'
+import { z } from 'zod'
 
 /** JSX create tool definition. */
 export const jsxCreateToolDef = {

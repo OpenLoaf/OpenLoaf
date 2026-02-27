@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n// Main calendar components
+// Main calendar components
 
 // Re-export rrule.js types for convenience
 export type { Frequency, Weekday } from 'rrule'

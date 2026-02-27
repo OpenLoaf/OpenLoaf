@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { parseChatTextTokens, preprocessChatText } from "../text-tokenizer";
 
 describe("text-tokenizer", () => {

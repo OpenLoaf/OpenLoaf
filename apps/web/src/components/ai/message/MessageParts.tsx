@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 import * as React from "react";
 import { useReducedMotion } from "motion/react";
 import { renderMessageParts } from "./renderMessageParts";

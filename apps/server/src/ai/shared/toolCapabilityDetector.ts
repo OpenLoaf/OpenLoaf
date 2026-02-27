@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * 工具能力检测器 — 根据工具 ID 判断需要哪些 preface 章节。
  */
 

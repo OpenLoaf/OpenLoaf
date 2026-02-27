@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport {
+import {
 	AnimatePresence,
 	type HTMLMotionProps,
 	motion,

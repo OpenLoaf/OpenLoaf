@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { SaaSHttpError, SaaSNetworkError, SaaSSchemaError } from "@openloaf-saas/sdk";
+import { SaaSHttpError, SaaSNetworkError, SaaSSchemaError } from "@openloaf-saas/sdk";
 
 /** Normalized SaaS error payload for API responses. */
 export type SaasErrorResult = {

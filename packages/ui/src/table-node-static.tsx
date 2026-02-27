@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport * as React from 'react';
+import * as React from 'react';
 
 import type { TTableCellElement, TTableElement } from 'platejs';
 import type { SlateElementProps } from 'platejs/static';

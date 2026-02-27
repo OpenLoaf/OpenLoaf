@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { S3ProviderConfig } from "@openloaf/api/types/storage";
+import type { S3ProviderConfig } from "@openloaf/api/types/storage";
 import { S3Client } from "@aws-sdk/client-s3";
 
 export type S3ClientConfig = {

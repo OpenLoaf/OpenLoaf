@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport nodemailer from "nodemailer";
+import nodemailer from "nodemailer";
 
 import { logger } from "@/common/logger";
 import type { SendMessageInput, SendMessageResult } from "./types";

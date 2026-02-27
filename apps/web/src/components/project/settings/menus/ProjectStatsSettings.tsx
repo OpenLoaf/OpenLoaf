@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { memo } from "react";
+import { memo } from "react";
 
 /** Project stats settings placeholder. */
 const ProjectStatsSettings = memo(function ProjectStatsSettings() {

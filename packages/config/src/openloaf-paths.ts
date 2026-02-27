@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport fs from "node:fs";
+import fs from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 

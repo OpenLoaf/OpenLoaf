@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { AnimatePresence, motion } from "motion/react";
 import { Plus, X } from "lucide-react";

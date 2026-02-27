@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { execFile } from "node:child_process";
+import { execFile } from "node:child_process";
 import { tool, zodSchema } from "ai";
 import { grepFilesToolDef } from "@openloaf/api/types/tools/runtime";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";

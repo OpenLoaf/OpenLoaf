@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { SlatePluginConfig } from 'platejs';
+import type { SlatePluginConfig } from 'platejs';
 
 import {
   BaseFontBackgroundColorPlugin,

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { isToolPart } from "./message-parts";
 import { resolveToolDisplayName } from "./tool-name";

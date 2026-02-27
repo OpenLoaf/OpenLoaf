@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\ndeclare module "mammoth/mammoth.browser" {
+declare module "mammoth/mammoth.browser" {
   const mammoth: {
     extractRawText: (input: { arrayBuffer: ArrayBuffer }) => Promise<{ value?: string | null }>;
   };

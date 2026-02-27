@@ -7,4 +7,4 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport "@testing-library/jest-dom/vitest";
+import "@testing-library/jest-dom/vitest";

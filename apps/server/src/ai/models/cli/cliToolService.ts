@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { execa } from "execa";
+import { execa } from "execa";
 import {
   downloadPythonInstaller,
   installPythonOnLinux,

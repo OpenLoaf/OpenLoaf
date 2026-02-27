@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { EMAIL_PROVIDER_PRESETS } from './email-provider-presets'

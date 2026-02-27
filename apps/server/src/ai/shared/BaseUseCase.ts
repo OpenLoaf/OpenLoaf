@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { toHttpError } from "@/ai/shared/errors/ErrorPolicy";
+import { toHttpError } from "@/ai/shared/errors/ErrorPolicy";
 
 export abstract class BaseUseCase<TRequest, TResponse> {
   /** Execute the use-case with a request payload. */

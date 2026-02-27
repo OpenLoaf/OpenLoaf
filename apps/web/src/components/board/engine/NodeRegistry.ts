@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasNodeDefinition } from "./types";
+import type { CanvasNodeDefinition } from "./types";
 
 export class NodeRegistry {
   /** Node definitions mapped by type. */

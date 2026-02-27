@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Hono } from "hono";
+import type { Hono } from "hono";
 import {
   getHlsManifest,
   getHlsProgress,

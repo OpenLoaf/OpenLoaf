@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * Agent 模版类型定义。
  *
  * AgentTemplate 是纯数据结构，描述一个 Agent 的元信息、能力和提示词。

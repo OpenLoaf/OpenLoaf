@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\ntype ToolPartLike = {
+type ToolPartLike = {
   toolCallId?: string;
   toolName?: string;
   type?: string;

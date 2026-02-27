@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type React from 'react'
+import type React from 'react'
 import { useMemo } from 'react'
 import { AllDayRow } from '@openloaf/ui/calendar/components/all-day-row/all-day-row'
 import { VerticalGrid } from '@openloaf/ui/calendar/components/vertical-grid/vertical-grid'

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Config, Data } from "./core";
+import type { Config, Data } from "./core";
 import type { ButtonProps } from "./blocks/Button";
 import type { BlankProps } from "./blocks/Blank";
 import type { CardProps } from "./blocks/Card";

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** File token matcher for file placeholders. */
+/** File token matcher for file placeholders. */
 // 逻辑：匹配形如 @path/to/file 或 @[projectId]/path/to/file。
 const FILE_TOKEN_REGEX = /@(\[[^\]]+\]\/\S+|\S+\/\S+)/g;
 

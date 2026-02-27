@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseTextAlignPlugin } from '@platejs/basic-styles';
+import { BaseTextAlignPlugin } from '@platejs/basic-styles';
 import { KEYS } from 'platejs';
 
 export const BaseAlignKit = [

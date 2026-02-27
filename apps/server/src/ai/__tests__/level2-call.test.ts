@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * Level 2 — 直接调用模型（generateText，无 Agent）。
  *
  * 用法：

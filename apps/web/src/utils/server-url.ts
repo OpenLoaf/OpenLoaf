@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * Resolve the server base URL for the current runtime.
  */
 export function resolveServerUrl(): string {

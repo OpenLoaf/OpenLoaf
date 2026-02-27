@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type React from 'react'
+import type React from 'react'
 import { memo } from 'react'
 import type { Resource } from '@openloaf/ui/calendar/features/resource-calendar/types'
 import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nconst BOARD_UI_SELECTORS = [
+const BOARD_UI_SELECTORS = [
   "[data-canvas-toolbar]",
   "[data-board-controls]",
   "[data-node-toolbar]",

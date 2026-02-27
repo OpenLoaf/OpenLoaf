@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { generateId, type UIMessage } from "ai";
+import { generateId, type UIMessage } from "ai";
 import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
 import { logger } from "@/common/logger";
 import {

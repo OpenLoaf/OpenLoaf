@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport * as PopoverPrimitive from '@radix-ui/react-popover'
+import * as PopoverPrimitive from '@radix-ui/react-popover'
 import type * as React from 'react'
 
 import { cn } from '@openloaf/ui/calendar/lib/utils'

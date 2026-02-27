@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client'
+'use client'
 
 import { useEffect, useMemo, useRef, useCallback } from 'react'
 import { deserializeMd } from '@platejs/markdown'

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { type UIMessage } from "ai";
+import { type UIMessage } from "ai";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { type ChatModelSource, type ModelDefinition } from "@openloaf/api/common";

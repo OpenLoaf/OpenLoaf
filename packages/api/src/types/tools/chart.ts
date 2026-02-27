@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { z } from "zod";
+import { z } from "zod";
 
 /** Chart render tool definition. */
 export const chartRenderToolDef = {

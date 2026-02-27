@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * 内置默认 prompt 常量。
  * 从模板文件导入，作为无自定义文件时的回退值。
  */

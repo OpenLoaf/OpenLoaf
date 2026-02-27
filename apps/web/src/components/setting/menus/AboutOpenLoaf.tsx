@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { Button } from "@openloaf/ui/button";
 import { getWebClientId } from "@/lib/chat/streamClientId";

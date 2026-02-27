@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { parseExpression } from '@babel/parser'
+import { parseExpression } from '@babel/parser'
 
 type JsxLocation = {
   line: number

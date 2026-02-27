@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { z } from "zod";
+import { z } from "zod";
 
 // 定义工作空间基础类型
 export const workspaceBase = z.object({

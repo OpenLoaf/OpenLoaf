@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type ErrorCode =
+export type ErrorCode =
   | "invalid_request"
   | "missing_session"
   | "missing_last_message"

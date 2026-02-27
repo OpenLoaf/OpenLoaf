@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { memo } from 'react'
+import { memo } from 'react'
 import { CurrentTimeIndicator } from '@openloaf/ui/calendar/components/current-time-indicator'
 import { DraggableEvent } from '@openloaf/ui/calendar/components/draggable-event/draggable-event'
 import { useProcessedDayEvents } from '@openloaf/ui/calendar/features/calendar/hooks/useProcessedDayEvents'

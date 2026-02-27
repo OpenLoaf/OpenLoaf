@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 

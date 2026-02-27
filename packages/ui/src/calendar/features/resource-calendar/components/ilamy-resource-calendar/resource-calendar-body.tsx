@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type React from 'react'
+import type React from 'react'
 import { AnimatedSection } from '@openloaf/ui/calendar/components/animations/animated-section'
 import { CalendarDndContext } from '@openloaf/ui/calendar/components/drag-and-drop/calendar-dnd-context'
 import { EventFormDialog } from '@openloaf/ui/calendar/components/event-form/event-form-dialog'

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { TagsInput } from "@ark-ui/react/tags-input";
 import { Popover, PopoverAnchor, PopoverContent } from "@openloaf/ui/popover";

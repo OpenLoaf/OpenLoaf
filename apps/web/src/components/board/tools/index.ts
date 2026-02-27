@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type { CanvasTool, ToolContext } from "./ToolTypes";
+export type { CanvasTool, ToolContext } from "./ToolTypes";
 export { ToolManager } from "./ToolManager";
 export { SelectTool } from "./SelectTool";
 export { HandTool } from "./HandTool";

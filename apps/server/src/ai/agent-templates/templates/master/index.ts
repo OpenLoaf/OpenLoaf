@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { AgentTemplate } from '../../types'
+import type { AgentTemplate } from '../../types'
 import MASTER_PROMPT from './prompt.zh.md'
 
 export const masterTemplate: AgentTemplate = {

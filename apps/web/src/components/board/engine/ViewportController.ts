@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasPoint, CanvasViewportState } from "./types";
+import type { CanvasPoint, CanvasViewportState } from "./types";
 
 /** Clamp a value between a min and max bound. */
 function clamp(value: number, min: number, max: number): number {

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Server as HttpServer, IncomingMessage } from "node:http";
+import type { Server as HttpServer, IncomingMessage } from "node:http";
 import type { Socket } from "node:net";
 import { WebSocketServer } from "ws";
 import type { RawData, WebSocket } from "ws";

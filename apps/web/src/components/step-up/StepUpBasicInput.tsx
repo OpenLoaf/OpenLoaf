@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ComponentProps } from "react";
+import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
 /** Render a minimal, large input for step-up forms. */

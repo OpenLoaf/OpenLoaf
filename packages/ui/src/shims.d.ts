@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\ndeclare module "@/lib/utils" {
+declare module "@/lib/utils" {
   export function cn(...inputs: any[]): string;
 }
 

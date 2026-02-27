@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport "dotenv/config";
+import "dotenv/config";
 import { startServer } from "@/bootstrap/startServer";
 import { installHttpProxy } from "@/modules/proxy/httpProxy";
 import { syncSystemProxySettings } from "@/modules/proxy/systemProxySync";

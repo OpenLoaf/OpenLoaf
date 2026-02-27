@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { z } from "zod";
+import { z } from "zod";
 
 /** Browser sub-agent display name. */
 export const browserSubAgentName = "BrowserSubAgent" as const;

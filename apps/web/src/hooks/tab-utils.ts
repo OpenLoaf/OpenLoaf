@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { TabView } from "./tab-types";
+import type { TabView } from "./tab-types";
 import { getLeftSidebarOpen } from "@/lib/sidebar-state";
 
 /** Minimum pixel width for the left dock. */

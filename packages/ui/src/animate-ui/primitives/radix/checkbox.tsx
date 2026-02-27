@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client';
+'use client';
 
 import * as React from 'react';
 import { Checkbox as CheckboxPrimitive } from 'radix-ui';

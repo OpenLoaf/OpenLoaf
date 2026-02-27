@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ProjectNode } from "./projectTreeService";
+import type { ProjectNode } from "./projectTreeService";
 import { readWorkspaceProjectTrees } from "./projectTreeService";
 
 export type ProjectDbClient = {

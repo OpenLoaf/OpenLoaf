@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { WidgetSDK } from '@openloaf/widget-sdk'
+import type { WidgetSDK } from '@openloaf/widget-sdk'
 
 /** Metadata for a dynamic widget from the server. */
 export interface DynamicWidgetMeta {

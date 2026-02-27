@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ModelTag } from "@openloaf/api/common";
+import type { ModelTag } from "@openloaf/api/common";
 import type { AiModel } from "@openloaf-saas/sdk";
 
 import type { ProviderModelOption } from "@/lib/provider-models";

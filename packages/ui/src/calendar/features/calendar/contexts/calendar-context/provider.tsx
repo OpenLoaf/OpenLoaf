@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type React from 'react'
+import type React from 'react'
 import type { ReactNode } from 'react'
 import { useCallback, useMemo, useState } from 'react'
 import type { EventFormProps } from '@openloaf/ui/calendar/components/event-form/event-form'

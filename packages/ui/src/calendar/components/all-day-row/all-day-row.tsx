@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type dayjs from 'dayjs'
+import type dayjs from 'dayjs'
 import { memo } from 'react'
 import { HorizontalGridRow } from '@openloaf/ui/calendar/components/horizontal-grid/horizontal-grid-row'
 import type { Resource } from '@openloaf/ui/calendar/features/resource-calendar/types'

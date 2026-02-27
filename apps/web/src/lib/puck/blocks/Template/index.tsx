@@ -7,5 +7,5 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport * from "./client";
+export * from "./client";
 export { type TemplateProps } from "./Template";

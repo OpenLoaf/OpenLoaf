@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n// @ts-check
+// @ts-check
 /**
  * electron-builder afterPack hook
  *

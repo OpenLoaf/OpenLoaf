@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import type { CanvasEngine } from "../../engine/CanvasEngine";
 
 type UseAutoResizeNodeOptions = {

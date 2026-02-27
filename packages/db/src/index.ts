@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n// packages/db/src/index.ts
+// packages/db/src/index.ts
 
 import { Prisma, PrismaClient } from "../prisma/generated/client";
 export { Prisma };

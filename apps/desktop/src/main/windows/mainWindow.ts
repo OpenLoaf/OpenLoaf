@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { app, BrowserWindow, dialog, screen, shell } from 'electron';
+import { app, BrowserWindow, dialog, screen, shell } from 'electron';
 import { resolveWindowIconPath } from '../resolveWindowIcon';
 import type { Logger } from '../logging/startupLogger';
 import type { ServiceManager } from '../services/serviceManager';

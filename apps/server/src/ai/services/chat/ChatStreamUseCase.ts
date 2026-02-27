@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { runChatStream } from "@/ai/services/chat/chatStreamService";
+import { runChatStream } from "@/ai/services/chat/chatStreamService";
 import type { ChatStreamRequest } from "@/ai/services/chat/types";
 
 type ChatStreamUseCaseInput = {

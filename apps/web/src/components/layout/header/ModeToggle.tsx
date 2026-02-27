@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { AnimatedThemeToggle } from "@openloaf/ui/animated-theme-toggle";

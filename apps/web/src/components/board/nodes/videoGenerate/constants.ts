@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport {
+export {
   ADVANCED_PANEL_OFFSET_PX,
   VIDEO_GENERATE_ASPECT_RATIO_OPTIONS,
   VIDEO_GENERATE_DEFAULT_MAX_INPUT_IMAGES,

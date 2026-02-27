@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n
+
 export type SkillSummary = {
   /** Skill id. */
   id: string;

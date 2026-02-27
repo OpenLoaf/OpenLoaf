@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type { DesktopItem, DesktopItemLayout } from "./types";
 import { reflowAllBreakpoints, type ReflowItem } from "./desktop-reflow";

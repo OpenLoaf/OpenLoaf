@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport pino from "pino";
+import pino from "pino";
 import { getRequestContext } from "../ai/shared/context/requestContext";
 
 type LogLevel = pino.LevelWithSilent;

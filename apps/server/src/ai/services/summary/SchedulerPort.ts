@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type ScheduleJobInput = {
+export type ScheduleJobInput = {
   /** Job id. */
   jobId: string;
   /** Next run time. */

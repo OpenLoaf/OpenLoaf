@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { QueryClient } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
 import { vi } from 'vitest'
 
 import type {

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ComponentType, ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { ZodType } from "zod";
 import type { BoardFileContext } from "../core/BoardProvider";
 

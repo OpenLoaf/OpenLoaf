@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type { ChangeEvent } from "react";
 import type { ModelParameterDefinition } from "@openloaf/api/common";

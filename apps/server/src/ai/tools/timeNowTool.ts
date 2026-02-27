@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { tool, zodSchema } from 'ai'
+import { tool, zodSchema } from 'ai'
 import { timeNowToolDef } from '@openloaf/api/types/tools/system'
 
 /**

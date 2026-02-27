@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { RRuleOptions } from '@openloaf/ui/calendar/features/recurrence/types'
+import type { RRuleOptions } from '@openloaf/ui/calendar/features/recurrence/types'
 import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 
 /**

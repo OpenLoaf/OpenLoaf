@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { tool, zodSchema } from "ai";
+import { tool, zodSchema } from "ai";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import { requireTabId } from "@/common/tabContext";
 import {

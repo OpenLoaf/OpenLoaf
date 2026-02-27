@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type IncrementalComponentManifest = {
+export type IncrementalComponentManifest = {
   version: string;
 };
 

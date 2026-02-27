@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport {
+import {
   AI_MODEL_TAG_LABELS,
   type AiModelCapabilities,
   type AiModelTag,

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { promises as fs } from 'node:fs'
+import { promises as fs } from 'node:fs'
 import fsSync from 'node:fs'
 import path from 'node:path'
 import { resolveOpenLoafPath } from '@openloaf/config'

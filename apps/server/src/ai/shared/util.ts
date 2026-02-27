@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { Buffer } from "node:buffer";
+import { Buffer } from "node:buffer";
 import type { HeadersInit } from "undici";
 import { getEnvString } from "@openloaf/config";
 import { prisma } from "@openloaf/db";

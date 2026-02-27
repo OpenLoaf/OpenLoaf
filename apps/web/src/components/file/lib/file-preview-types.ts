@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { MaskedAttachmentInput } from "@/components/ai/input/chat-attachments";
+import type { MaskedAttachmentInput } from "@/components/ai/input/chat-attachments";
 
 export type FilePreviewViewer =
   | "image"

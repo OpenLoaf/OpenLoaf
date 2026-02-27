@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { UIMessage } from "ai";
+import type { UIMessage } from "ai";
 import type { ChatMessageKind } from "@openloaf/api";
 
 /** Build persisted branch log messages by appending the finalized assistant response. */

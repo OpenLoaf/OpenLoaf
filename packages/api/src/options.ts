@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { ZodError } from "zod";
+import { ZodError } from "zod";
 import superjson from "superjson";
 import type { Context } from "./context";
 

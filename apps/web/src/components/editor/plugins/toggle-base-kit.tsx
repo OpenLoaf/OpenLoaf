@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseTogglePlugin } from '@platejs/toggle';
+import { BaseTogglePlugin } from '@platejs/toggle';
 
 import { ToggleElementStatic } from '@openloaf/ui/toggle-node-static';
 

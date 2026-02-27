@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { CalendarDays, Clock, Folder, LayoutDashboard, Settings } from "lucide-react";
+import { CalendarDays, Clock, Folder, LayoutDashboard, Settings } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
 import { ExpandableDockTabs } from "@/components/ui/ExpandableDockTabs";

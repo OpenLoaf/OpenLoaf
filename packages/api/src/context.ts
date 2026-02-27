@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Context as HonoContext } from "hono";
+import type { Context as HonoContext } from "hono";
 import prisma from "@openloaf/db";
 // @ts-ignore
 // import client from "@openloaf/db/prisma/generated/client";

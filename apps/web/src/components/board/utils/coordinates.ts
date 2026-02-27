@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasPoint, CanvasViewportState } from "../engine/types";
+import type { CanvasPoint, CanvasViewportState } from "../engine/types";
 
 type ViewportSource = {
   /** Viewport state used for coordinate conversion. */

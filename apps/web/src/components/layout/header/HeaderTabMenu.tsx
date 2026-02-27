@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { CircleX, Pin, PinOff, X } from "lucide-react";
+import { CircleX, Pin, PinOff, X } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuTrigger,

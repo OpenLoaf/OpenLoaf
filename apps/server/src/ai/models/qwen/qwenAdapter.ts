@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { createOpenAI } from "@ai-sdk/openai";
+import { createOpenAI } from "@ai-sdk/openai";
 import type { ProviderAdapter } from "@/ai/models/providerAdapters";
 import { buildAiDebugFetch, ensureOpenAiCompatibleBaseUrl, readApiKey } from "@/ai/shared/util";
 

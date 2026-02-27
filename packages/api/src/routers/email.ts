@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { z } from "zod";
+import { z } from "zod";
 import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 
 const passwordAccountInputSchema = z.object({

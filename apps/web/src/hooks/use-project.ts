@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { getProjectsQueryKey } from "@/hooks/use-projects";

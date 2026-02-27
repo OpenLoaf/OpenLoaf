@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { spawn, type ChildProcessWithoutNullStreams } from "child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import readline from "readline";
 import { logger } from "@/common/logger";
 import { clearAllCodexThreads } from "@/ai/models/cli/codex/codexThreadStore";

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\ndeclare const MAIN_WINDOW_WEBPACK_ENTRY: string;
+declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 declare const LOADING_WINDOW_WEBPACK_ENTRY: string;
 declare const LOADING_WINDOW_PRELOAD_WEBPACK_ENTRY: string;

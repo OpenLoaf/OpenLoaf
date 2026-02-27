@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { startTransition, useCallback } from "react";
 import { useQuery, skipToken } from "@tanstack/react-query";

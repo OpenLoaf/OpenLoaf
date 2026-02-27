@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client';
+'use client';
 
 import { ListPlugin } from '@platejs/list/react';
 import { KEYS } from 'platejs';

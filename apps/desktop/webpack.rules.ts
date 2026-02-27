@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ModuleOptions } from 'webpack';
+import type { ModuleOptions } from 'webpack';
 
 export const rules: Required<ModuleOptions>['rules'] = [
   {

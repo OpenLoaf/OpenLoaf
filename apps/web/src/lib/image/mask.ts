@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { loadImageFromBlob, resolveBaseName } from "@/lib/image/uri";
+import { loadImageFromBlob, resolveBaseName } from "@/lib/image/uri";
 
 /** Build a mask file name for a base image. */
 export function resolveMaskFileName(baseFileName: string) {

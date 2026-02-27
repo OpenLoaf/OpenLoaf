@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client';
+'use client';
 
 import { KEYS } from 'platejs';
 import { BlockPlaceholderPlugin } from 'platejs/react';

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { z } from "zod";
+import { z } from "zod";
 import path from "node:path";
 import { promises as fs, type Dirent } from "node:fs";
 import { createHash } from "node:crypto";

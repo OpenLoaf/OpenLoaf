@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type React from 'react'
+import type React from 'react'
 import type { EventFormProps } from '@openloaf/ui/calendar/components/event-form/event-form'
 import type { BusinessHours, CalendarEvent, WeekDays } from '@openloaf/ui/calendar/components/types'
 import type { Resource } from '@openloaf/ui/calendar/features/resource-calendar/types'

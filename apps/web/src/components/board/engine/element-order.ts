@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasElement } from "./types";
+import type { CanvasElement } from "./types";
 
 /** Return elements sorted by zIndex with stable fallback. */
 function sortElementsByZIndex(elements: CanvasElement[]): CanvasElement[] {

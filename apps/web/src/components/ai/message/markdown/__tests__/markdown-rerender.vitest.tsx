@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * Tests verifying that MarkdownComponents memo optimization works correctly:
  * memoized components skip re-renders when props are identical during streaming.
  */

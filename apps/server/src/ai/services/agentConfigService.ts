@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport path from 'node:path'
+import path from 'node:path'
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs'
 import {
   resolveAgentsRootDir,

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { AiExecuteRequest } from "@/ai/services/chat/types";
+import type { AiExecuteRequest } from "@/ai/services/chat/types";
 import { AiExecuteService } from "@/ai/services/chat/AiExecuteService";
 
 type AiExecuteControllerDeps = {

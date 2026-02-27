@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { t, shieldedProcedure } from "@openloaf/api";
+import { t, shieldedProcedure } from "@openloaf/api";
 import { z } from "zod";
 import {
   OFFICE_ACTIONS,

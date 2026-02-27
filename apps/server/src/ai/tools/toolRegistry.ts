@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { openUrlTool } from "@/ai/tools/openUrl";
+import { openUrlTool } from "@/ai/tools/openUrl";
 import { timeNowTool } from "@/ai/tools/timeNowTool";
 import { testApprovalTool } from "@/ai/tools/testApprovalTool";
 import {

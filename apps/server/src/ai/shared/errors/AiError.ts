@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ErrorCode } from "./ErrorCode";
+import type { ErrorCode } from "./ErrorCode";
 
 type AiErrorContext = {
   /** Session id for the request. */

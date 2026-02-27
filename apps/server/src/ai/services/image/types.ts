@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ChatModelSource } from "@openloaf/api/common";
+import type { ChatModelSource } from "@openloaf/api/common";
 import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
 
 export type ChatImageMessageInput = {

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client';
+'use client';
 
 import { BasicBlocksKit } from './basic-blocks-kit';
 import { BasicMarksKit } from './basic-marks-kit';

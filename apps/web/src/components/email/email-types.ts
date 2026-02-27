@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type EmailAccountView = {
+export type EmailAccountView = {
   /** Email address. */
   emailAddress: string;
   /** Account label. */

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type ChatCommandId = "summary-history" | "summary-title";
+export type ChatCommandId = "summary-history" | "summary-title";
 
 export type ChatCommand = {
   /** Stable command identifier. */

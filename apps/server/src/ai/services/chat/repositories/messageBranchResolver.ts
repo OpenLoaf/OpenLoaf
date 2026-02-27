@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** Minimal prisma chatMessage reader shape. */
+/** Minimal prisma chatMessage reader shape. */
 type ChatMessageReader = {
   chatMessage: {
     findMany: (args: any) => Promise<any[]>;

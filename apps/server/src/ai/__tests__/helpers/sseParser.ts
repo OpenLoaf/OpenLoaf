@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * SSE Response 解析工具。
  * 用于解析 agent stream 返回的 SSE 格式数据。
  */

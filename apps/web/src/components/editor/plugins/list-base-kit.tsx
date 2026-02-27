@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseListPlugin } from '@platejs/list';
+import { BaseListPlugin } from '@platejs/list';
 import { KEYS } from 'platejs';
 
 import { BaseIndentKit } from '@/components/editor/plugins/indent-base-kit';

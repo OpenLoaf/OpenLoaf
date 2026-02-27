@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n// 中文注释：随机后缀字符集。
+// 中文注释：随机后缀字符集。
 const RANDOM_CHARSET = "abcdefghijklmnopqrstuvwxyz0123456789";
 
 /** Create a chat session id with format: chat_{yyyyMMdd}_{HHmmss}_{random}. */

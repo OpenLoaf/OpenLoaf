@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { UIMessage } from "ai";
+import type { UIMessage } from "ai";
 import type { ModelCapabilities, ModelDefinition, ModelTag } from "@openloaf/api/common";
 import { getModelDefinition } from "@/ai/models/modelRegistry";
 import { getProviderSettings } from "@/modules/settings/settingsService";

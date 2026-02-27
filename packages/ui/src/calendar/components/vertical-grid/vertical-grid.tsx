@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type React from 'react'
+import type React from 'react'
 import { ScrollArea, ScrollBar } from '@openloaf/ui/calendar/components/ui/scroll-area'
 import { cn } from '@openloaf/ui/calendar/lib/utils'
 import { VerticalGridCol, type VerticalGridColProps } from './vertical-grid-col'

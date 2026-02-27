@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { AllDayRow } from '@openloaf/ui/calendar/components/all-day-row/all-day-row'
+import { AllDayRow } from '@openloaf/ui/calendar/components/all-day-row/all-day-row'
 import { VerticalGrid } from '@openloaf/ui/calendar/components/vertical-grid/vertical-grid'
 import { useCalendarContext } from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/context'
 import { getViewHours } from '@openloaf/ui/calendar/features/calendar/utils/view-hours'

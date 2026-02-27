@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { z } from 'zod'
+import { z } from 'zod'
 
 // ─── 新工具定义 ───
 

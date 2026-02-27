@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport * as React from 'react';
+import * as React from 'react';
 
 import type { TCaptionElement, TResizableProps, TVideoElement } from 'platejs';
 import type { SlateElementProps } from 'platejs/static';

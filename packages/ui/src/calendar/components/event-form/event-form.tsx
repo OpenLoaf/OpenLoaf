@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type React from 'react'
+import type React from 'react'
 import { useEffect, useState } from 'react'
 import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
 import { Button } from '@openloaf/ui/calendar/components/ui/button'

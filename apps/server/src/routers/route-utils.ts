@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** Normalize string input. */
+/** Normalize string input. */
 export function toText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }

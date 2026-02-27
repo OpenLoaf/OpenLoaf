@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\ndeclare module '*.png' {
+declare module '*.png' {
   const src: string;
   export default src;
 }

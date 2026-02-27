@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 
 import type { AiModel } from "@openloaf-saas/sdk";

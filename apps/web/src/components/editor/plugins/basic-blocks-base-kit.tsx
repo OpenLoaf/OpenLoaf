@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport {
+import {
   BaseBlockquotePlugin,
   BaseH1Plugin,
   BaseH2Plugin,

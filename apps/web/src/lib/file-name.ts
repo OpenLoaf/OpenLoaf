@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** File extension for board documents. */
+/** File extension for board documents. */
 export const BOARD_FILE_EXT = "tnboard";
 /** Folder prefix for board containers. */
 export const BOARD_FOLDER_PREFIX = "tnboard_";

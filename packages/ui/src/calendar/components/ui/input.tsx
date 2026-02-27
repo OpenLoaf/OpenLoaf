@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type * as React from 'react'
+import type * as React from 'react'
 
 import { cn } from '@openloaf/ui/calendar/lib/utils'
 

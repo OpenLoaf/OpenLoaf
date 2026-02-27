@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client"
+"use client"
 
 import { cn } from "@/lib/utils";
 import { Bug, BrushCleaning, History, X } from "lucide-react";

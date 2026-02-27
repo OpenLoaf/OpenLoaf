@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseLineHeightPlugin } from '@platejs/basic-styles';
+import { BaseLineHeightPlugin } from '@platejs/basic-styles';
 import { KEYS } from 'platejs';
 
 export const BaseLineHeightKit = [

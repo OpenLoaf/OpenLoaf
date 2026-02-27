@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport assert from "node:assert/strict";
+import assert from "node:assert/strict";
 
 import { waitForWebContentsViewReady } from "../open-url-ack";
 

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport path from "node:path";
+import path from "node:path";
 import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import sharp from "sharp";

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { describe, it, expect } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import {
   parsePatch,
   seekSequence,

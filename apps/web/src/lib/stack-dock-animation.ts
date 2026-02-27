@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";

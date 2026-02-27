@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { logger } from "@/common/logger";
+import { logger } from "@/common/logger";
 import { readEmailConfigFile } from "./emailConfigStore";
 import { getEmailEnvValue } from "./emailEnvStore";
 import { createTransport } from "./transport/factory";

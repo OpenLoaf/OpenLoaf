@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { AiError } from "./AiError";
+import type { AiError } from "./AiError";
 
 /** Map internal error to user-facing message. */
 export function mapErrorToMessage(error: AiError | unknown): string {

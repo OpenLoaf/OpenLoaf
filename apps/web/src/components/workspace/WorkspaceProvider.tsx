@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { WorkspaceContext } from "@/components/workspace/workspaceContext";

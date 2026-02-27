@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { getWorkspaceByIdConfig } from "@openloaf/api/services/workspaceConfig";
+import { getWorkspaceByIdConfig } from "@openloaf/api/services/workspaceConfig";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import {
   getFilePreview,

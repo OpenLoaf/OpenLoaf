@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type OAuthProviderConfig = {
+export type OAuthProviderConfig = {
   id: "microsoft" | "google";
   name: string;
   authorizeUrl: string;

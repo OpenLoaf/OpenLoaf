@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 export { Editor, EditorContainer } from "@openloaf/ui/editor";
 export { ParagraphElement } from "@openloaf/ui/paragraph-node";

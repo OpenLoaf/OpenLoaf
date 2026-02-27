@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { OAuthProviderConfig } from "./types";
+import type { OAuthProviderConfig } from "./types";
 
 /** Microsoft Graph OAuth provider configuration. */
 const microsoftProvider: OAuthProviderConfig = {

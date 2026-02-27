@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { DndProvider } from "react-dnd";
+import { DndProvider } from "react-dnd";
 import {
   ChevronDown,
   ChevronRight,

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { tool, zodSchema } from "ai";
 import { shellCommandToolDef } from "@openloaf/api/types/tools/runtime";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";

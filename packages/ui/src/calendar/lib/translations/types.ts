@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport interface Translations {
+export interface Translations {
 	// Common actions
 	today: string
 	create: string

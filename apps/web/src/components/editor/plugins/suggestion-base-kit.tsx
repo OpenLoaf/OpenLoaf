@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseSuggestionPlugin } from '@platejs/suggestion';
+import { BaseSuggestionPlugin } from '@platejs/suggestion';
 
 import { SuggestionLeafStatic } from '@openloaf/ui/suggestion-node-static';
 

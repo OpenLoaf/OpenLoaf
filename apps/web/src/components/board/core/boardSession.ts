@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** Read workspace id from document cookies. */
+/** Read workspace id from document cookies. */
 export function getWorkspaceIdFromCookie(): string | null {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(/(?:^|;\s*)workspace-id=([^;]+)/);

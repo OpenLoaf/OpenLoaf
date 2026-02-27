@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseCaptionPlugin } from '@platejs/caption';
+import { BaseCaptionPlugin } from '@platejs/caption';
 import {
   BaseAudioPlugin,
   BaseFilePlugin,

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@openloaf/ui/button";
 import { StepUpOptionCard } from "@/components/step-up/StepUpOptionCard";
 import { StepUpStepShell } from "@/components/step-up/StepUpStepShell";

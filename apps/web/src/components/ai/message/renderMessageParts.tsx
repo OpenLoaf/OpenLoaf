@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { motion } from "motion/react";
+import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./tools/MessageTool";

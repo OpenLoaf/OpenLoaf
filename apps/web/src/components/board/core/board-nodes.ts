@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { CalendarNodeDefinition } from "../nodes/CalendarNode";
+import { CalendarNodeDefinition } from "../nodes/CalendarNode";
 import { GroupNodeDefinition, ImageGroupNodeDefinition } from "../nodes/GroupNode";
 import { ImageGenerateNodeDefinition } from "../nodes/imageGenerate";
 import { VideoGenerateNodeDefinition } from "../nodes/videoGenerate";

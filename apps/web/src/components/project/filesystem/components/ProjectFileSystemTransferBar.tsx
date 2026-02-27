@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 /** Render a minimal transfer progress bar for Electron drops. */
 export default function ProjectFileSystemTransferBar({

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport Imap from "imap";
+import Imap from "imap";
 import { simpleParser } from "mailparser";
 
 import { logger } from "@/common/logger";

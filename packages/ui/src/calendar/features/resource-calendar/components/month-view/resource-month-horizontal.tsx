@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type React from 'react'
+import type React from 'react'
 import { useMemo } from 'react'
 import { AnimatedSection } from '@openloaf/ui/calendar/components/animations/animated-section'
 import { ResourceEventGrid } from '@openloaf/ui/calendar/features/resource-calendar/components/resource-event-grid'

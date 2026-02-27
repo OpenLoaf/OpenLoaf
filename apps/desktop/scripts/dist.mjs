@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * Wrapper script for electron-builder that dynamically sets extraMetadata.main
  * based on the host architecture.
  *

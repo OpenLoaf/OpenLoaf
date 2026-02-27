@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * Tests verifying MessageAi and MessageParts memo behavior:
  * 1. MessageAi is wrapped in React.memo with custom comparator
  * 2. MessageParts is wrapped in React.memo — motionProps are stable via useMemo

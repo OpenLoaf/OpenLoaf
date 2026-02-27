@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** Track whether a board has content, keyed by boardFolderUri. */
+/** Track whether a board has content, keyed by boardFolderUri. */
 const boardElementCounts = new Map<string, number>();
 
 /** Update the element count for a board. */

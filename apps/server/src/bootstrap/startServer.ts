@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { createAdaptorServer } from "@hono/node-server";
+import { createAdaptorServer } from "@hono/node-server";
 import { createApp } from "./createApp";
 import { logger } from "@/common/logger";
 import { attachTerminalWebSocket } from "@/modules/terminal/terminalWebSocket";

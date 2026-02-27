@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ModelDefinition } from "@openloaf/api/common";
+import type { ModelDefinition } from "@openloaf/api/common";
 import type { BasicConfig } from "@openloaf/api/types/basic";
 
 export type ModelProviderValue = {

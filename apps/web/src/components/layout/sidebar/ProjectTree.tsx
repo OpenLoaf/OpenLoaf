@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { useTabs } from "@/hooks/use-tabs";

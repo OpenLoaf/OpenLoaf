@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { DesktopItemLayout } from "./types"
+import type { DesktopItemLayout } from "./types"
 import {
   DESKTOP_BREAKPOINTS,
   type DesktopBreakpoint,

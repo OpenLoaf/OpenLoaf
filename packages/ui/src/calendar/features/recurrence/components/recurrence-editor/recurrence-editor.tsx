@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Weekday } from 'rrule'
 import { RRule } from 'rrule'
 import { Card, CardContent, CardHeader, CardTitle } from '@openloaf/ui/calendar/components/ui/card'

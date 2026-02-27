@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type ImageGenerateOptions = {
+export type ImageGenerateOptions = {
   /** Number of images to generate. */
   n?: number;
   /** Image size in "{width}x{height}" format. */

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type { Experimental_SpeechResult as SpeechResult } from "ai";
 import type { ComponentProps, CSSProperties } from "react";

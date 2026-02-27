@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport assert from "node:assert/strict";
+import assert from "node:assert/strict";
 
 import { mapCloudChatModels, normalizeCloudChatModels } from "./cloudModelMapper";
 

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { generateText } from "ai";
+import { generateText } from "ai";
 import type { ProjectGitCommit } from "@openloaf/api/services/projectGitService";
 import type { ProjectFileChange } from "@openloaf/api/services/projectFileChangeService";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";

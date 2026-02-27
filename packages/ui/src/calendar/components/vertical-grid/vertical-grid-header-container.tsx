@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { memo } from 'react'
+import { memo } from 'react'
 import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
 
 import { cn } from '@openloaf/ui/calendar/lib/utils'

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { EmptyState } from "@openloaf/ui/empty-state";
+import { EmptyState } from "@openloaf/ui/empty-state";
 import {
   FileText,
   Link,

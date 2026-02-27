@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { tool, zodSchema } from "ai";
+import { tool, zodSchema } from "ai";
 import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import { appRouter } from "@openloaf/api";
 import { createContext } from "@openloaf/api/context";

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type { UiEvent } from "@openloaf/api/types/event";
 import { UiEventKind } from "@openloaf/api/types/event";

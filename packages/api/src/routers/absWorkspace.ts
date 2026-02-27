@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
+import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 import { z } from "zod";
 import { workspaceBase } from "../types/workspace";
 

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport {
+import {
   MODEL_TAG_LABELS,
   type ModelCapabilities,
   type ModelDefinition,

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport net from 'node:net';
+import net from 'node:net';
 
 export type RuntimePorts = {
   serverUrl: string;

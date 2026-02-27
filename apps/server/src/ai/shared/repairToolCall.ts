@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { InvalidToolInputError, parsePartialJson, type ToolCallRepairFunction } from "ai";
+import { InvalidToolInputError, parsePartialJson, type ToolCallRepairFunction } from "ai";
 import { logger } from "@/common/logger";
 
 /**

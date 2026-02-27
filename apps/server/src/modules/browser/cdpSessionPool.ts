@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { getCdpConfig } from "@openloaf/config";
+import { getCdpConfig } from "@openloaf/config";
 
 const SESSION_IDLE_TTL_MS = 10 * 60 * 1000;
 

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { EventEmitter } from "events";
+import { EventEmitter } from "events";
 import { v4 as uuidv4 } from "uuid";
 import { logger } from "@/common/logger";
 import {

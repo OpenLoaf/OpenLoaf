@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseTocPlugin } from '@platejs/toc';
+import { BaseTocPlugin } from '@platejs/toc';
 
 import { TocElementStatic } from '@openloaf/ui/toc-node-static';
 

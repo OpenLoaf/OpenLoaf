@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { memo, useCallback, useMemo, useState } from "react";
 import { CalendarDays, MessageCircle } from "lucide-react";

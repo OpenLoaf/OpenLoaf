@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { PopoverClose } from '@radix-ui/react-popover'
+import { PopoverClose } from '@radix-ui/react-popover'
 import { Calendar as CalendarIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Matcher } from 'react-day-picker'

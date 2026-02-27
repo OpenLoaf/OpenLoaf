@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport clsx from "clsx";
+import clsx from "clsx";
 
 type OptionsObj = Record<string, boolean | string | number | null | undefined>;
 type Options = string | OptionsObj;

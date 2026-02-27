@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 /** 已弃用：旧版文档预览实现，保留用于回溯，不再被业务引用。 */
 

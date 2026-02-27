@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type TransportMessage = {
+export type TransportMessage = {
   externalId: string;
   messageId?: string;
   subject?: string;

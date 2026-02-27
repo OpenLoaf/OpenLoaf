@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { generateId, type UIMessage, type UIMessageStreamWriter } from 'ai'
+import { generateId, type UIMessage, type UIMessageStreamWriter } from 'ai'
 import type { LanguageModelV3 } from '@ai-sdk/provider'
 import {
   type RequestContext,

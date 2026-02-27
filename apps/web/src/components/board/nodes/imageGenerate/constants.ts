@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport {
+export {
   ADVANCED_PANEL_OFFSET_PX,
   GENERATED_IMAGE_NODE_FIRST_GAP,
   GENERATED_IMAGE_NODE_GAP,

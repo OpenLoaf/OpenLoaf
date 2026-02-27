@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { defineConfig } from "tsdown";
+import { defineConfig } from "tsdown";
 
 export default defineConfig({
 	entry: "./src/index.ts",

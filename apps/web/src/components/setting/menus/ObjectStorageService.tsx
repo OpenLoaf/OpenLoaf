@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { useRef, useState } from "react";
 import { useBasicConfig } from "@/hooks/use-basic-config";

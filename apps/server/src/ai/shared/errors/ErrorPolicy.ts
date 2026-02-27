@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { mapErrorToMessage } from "./ErrorMapper";
+import { mapErrorToMessage } from "./ErrorMapper";
 
 type ErrorPolicyResult = {
   /** HTTP status for the error. */

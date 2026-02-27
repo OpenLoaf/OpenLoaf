@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @next/next/no-img-element */
 import React, { type ReactNode } from "react";
 import styles from "./styles.module.css";
 import { getClassNameFactory } from "@/lib/puck/core";

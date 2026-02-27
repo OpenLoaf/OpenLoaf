@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { AiProviderTemplate } from "@openloaf-saas/sdk";
+import type { AiProviderTemplate } from "@openloaf-saas/sdk";
 import type {
   ModelDefinition,
   ModelTag,

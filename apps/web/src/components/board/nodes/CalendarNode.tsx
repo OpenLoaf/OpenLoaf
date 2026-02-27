@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
 import { z } from "zod";

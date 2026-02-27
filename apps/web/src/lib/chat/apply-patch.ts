@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n// 逻辑：从 apps/server/src/ai/tools/applyPatch.ts 复制的纯函数，供前端 StreamingCodeViewer 使用。
+// 逻辑：从 apps/server/src/ai/tools/applyPatch.ts 复制的纯函数，供前端 StreamingCodeViewer 使用。
 
 // ─── 类型 ───
 

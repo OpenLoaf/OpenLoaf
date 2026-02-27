@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { tool, zodSchema } from "ai";
+import { tool, zodSchema } from "ai";
 import { writeStdinToolDef } from "@openloaf/api/types/tools/runtime";
 import { formatUnifiedExecOutput, resolveMaxOutputChars, waitForOutput } from "@/ai/tools/execUtils";
 import {

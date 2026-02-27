@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { getSaasClient } from "../../client";
+import { getSaasClient } from "../../client";
 import { getSaasBaseUrl } from "../../core/config";
 
 type ModelListPayload = {

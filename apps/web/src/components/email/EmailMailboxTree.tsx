@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport * as React from "react";
+import * as React from "react";
 import { useDrag, useDrop } from "react-dnd";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";

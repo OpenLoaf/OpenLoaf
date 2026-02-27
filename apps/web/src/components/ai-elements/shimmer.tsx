@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type { MotionProps } from "motion/react";
 import type { CSSProperties, ElementType, JSX } from "react";

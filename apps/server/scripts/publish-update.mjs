@@ -141,7 +141,7 @@ async function main() {
     publicUrl: r2Config.publicUrl,
   })
 
-  console.log(`\n\n/**
+  console.log(`\n/**
  * Copyright (c) OpenLoaf. All rights reserved.
  *
  * This source code is licensed under the AGPLv3 license found in the
@@ -150,7 +150,7 @@ async function main() {
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n🎉 Server v${version} published to ${channel} successfully!`)
+🎉 Server v${version} published to ${channel} successfully!`)
   console.log(`   URL: ${r2Config.publicUrl}/${r2Key}`)
 }
 

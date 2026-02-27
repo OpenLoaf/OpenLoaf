@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { getStroke, type StrokeOptions } from "perfect-freehand";
+import { getStroke, type StrokeOptions } from "perfect-freehand";
 import type { CanvasPoint, CanvasStrokePoint, CanvasStrokeTool } from "../engine/types";
 
 type StrokePathOptions = {

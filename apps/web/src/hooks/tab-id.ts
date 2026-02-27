@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** Generate a stable sub-tab id with a random UUID fallback. */
+/** Generate a stable sub-tab id with a random UUID fallback. */
 function createSubTabId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();

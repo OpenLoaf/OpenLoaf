@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Config } from "@measured/puck";
+import type { Config } from "@measured/puck";
 import conf from "@/lib/puck";
 import type { ComponentConfig } from "@/lib/puck/core";
 import type { Components as PuckComponents } from "@/lib/puck/types";

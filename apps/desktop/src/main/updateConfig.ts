@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport fs from 'node:fs'
+import fs from 'node:fs'
 import path from 'node:path'
 import { getOpenLoafRootDir } from '@openloaf/config'
 

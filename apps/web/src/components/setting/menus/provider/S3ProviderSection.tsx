@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { Button } from "@openloaf/ui/button";
+import { Button } from "@openloaf/ui/button";
 import {
   Table,
   TableBody,

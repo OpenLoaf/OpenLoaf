@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * 面板工具函数，包含组件映射和面板标题处理
  */
 import React from "react";

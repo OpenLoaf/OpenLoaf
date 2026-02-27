@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { getCdpConfig } from "@openloaf/config";
+import { getCdpConfig } from "@openloaf/config";
 import { getCdpSession } from "@/modules/browser/cdpSessionPool";
 
 type CdpTargetInfo = {

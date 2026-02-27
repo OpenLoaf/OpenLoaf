@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasElement, CanvasNodeElement } from "./types";
+import type { CanvasElement, CanvasNodeElement } from "./types";
 import { GROUP_OUTLINE_PADDING } from "./constants";
 
 const GROUP_NODE_TYPE = "group";

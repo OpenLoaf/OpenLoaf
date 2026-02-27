@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Configuration } from 'webpack';
+import type { Configuration } from 'webpack';
 
 import { rules } from './webpack.rules';
 import { plugins } from './webpack.plugins';

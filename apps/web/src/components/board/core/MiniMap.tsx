@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { cn } from "@udecode/cn";
+import { cn } from "@udecode/cn";
 import { useMemo } from "react";
 import type { CanvasElement, CanvasRect, CanvasSnapshot, CanvasViewportState } from "../engine/types";
 import {

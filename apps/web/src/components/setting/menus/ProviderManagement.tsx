@@ -7,6 +7,6 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 export { ProviderManagement } from "@/components/setting/menus/provider/ProviderManagement";

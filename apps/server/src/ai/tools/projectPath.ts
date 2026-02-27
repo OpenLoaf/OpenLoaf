@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport path from "node:path";
+import path from "node:path";
 import { getProjectId } from "@/ai/shared/context/requestContext";
 import { getProjectRootPath } from "@openloaf/api/services/vfsService";
 

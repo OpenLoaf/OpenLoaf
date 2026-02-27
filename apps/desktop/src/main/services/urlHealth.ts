@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nconst canFetch = typeof fetch === 'function';
+const canFetch = typeof fetch === 'function';
 const DEFAULT_TIMEOUT_MS = 3000;
 
 /**

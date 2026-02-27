@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { execFile } from "node:child_process";
+import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import { promisify } from "node:util";

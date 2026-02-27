@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport * from "./core/config";
+export * from "./core/config";
 export * from "./core/errors";
 export * from "./client";
 export * from "./modules";

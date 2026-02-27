@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport path from "node:path";
+import path from "node:path";
 import JSZip from "jszip";
 
 /** Supported image extensions mapped to media types. */

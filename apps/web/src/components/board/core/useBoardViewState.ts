@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { CanvasViewState } from "../engine/types";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 

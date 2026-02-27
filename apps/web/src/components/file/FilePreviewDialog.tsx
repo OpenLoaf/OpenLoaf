@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import * as React from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
@@ -19,14 +19,16 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@openloaf/ui/dialog";
-import ImageViewer from "@/components/file/ImageViewer";
-import MarkdownViewer from "@/components/file/MarkdownViewer";
-import CodeViewer from "@/components/file/CodeViewer";
-import PdfViewer from "@/components/file/PdfViewer";
-import DocViewer from "@/components/file/DocViewer";
-import ExcelViewer from "@/components/file/ExcelViewer";
-import FileViewer from "@/components/file/FileViewer";
-import VideoViewer from "@/components/file/VideoViewer";
+import dynamic from "next/dynamic";
+
+const ImageViewer = dynamic(() => import("@/components/file/ImageViewer"), { ssr: false });
+const MarkdownViewer = dynamic(() => import("@/components/file/MarkdownViewer"), { ssr: false });
+const CodeViewer = dynamic(() => import("@/components/file/CodeViewer"), { ssr: false });
+const PdfViewer = dynamic(() => import("@/components/file/PdfViewer"), { ssr: false });
+const DocViewer = dynamic(() => import("@/components/file/DocViewer"), { ssr: false });
+const ExcelViewer = dynamic(() => import("@/components/file/ExcelViewer"), { ssr: false });
+const FileViewer = dynamic(() => import("@/components/file/FileViewer"), { ssr: false });
+const VideoViewer = dynamic(() => import("@/components/file/VideoViewer"), { ssr: false });
 import { getImageDialogSize, type ImageMeta } from "@/lib/image/dialog-size";
 import { useFilePreviewStore, closeFilePreview } from "@/components/file/lib/file-preview-store";
 

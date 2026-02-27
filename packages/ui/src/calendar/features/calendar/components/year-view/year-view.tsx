@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { AnimatedSection } from '@openloaf/ui/calendar/components/animations/animated-section'
+import { AnimatedSection } from '@openloaf/ui/calendar/components/animations/animated-section'
 import { ScrollArea, ScrollBar } from '@openloaf/ui/calendar/components/ui/scroll-area'
 import { useCalendarContext } from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/context'
 import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'

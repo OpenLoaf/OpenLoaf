@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { trpcClient } from "@/utils/trpc";
+import { trpcClient } from "@/utils/trpc";
 import { parseScopedProjectPath, normalizeProjectRelativePath } from "@/components/project/filesystem/utils/file-system-utils";
 
 export type VideoMetadata = {

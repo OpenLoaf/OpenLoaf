@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ComponentType } from "react";
+import type { ComponentType } from "react";
 
 import { Alibaba, Apple, Google, Microsoft, Tencent } from "@lobehub/icons";
 import { Mail, type LucideIcon } from "lucide-react";

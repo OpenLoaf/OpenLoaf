@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasTool, ToolContext } from "./ToolTypes";
+import type { CanvasTool, ToolContext } from "./ToolTypes";
 import { ERASER_RADIUS } from "../engine/constants";
 
 export class EraserTool implements CanvasTool {

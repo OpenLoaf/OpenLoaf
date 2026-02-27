@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ForgeConfig } from '@electron-forge/shared-types';
+import type { ForgeConfig } from '@electron-forge/shared-types';
 import { WebpackPlugin } from '@electron-forge/plugin-webpack';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerZIP } from '@electron-forge/maker-zip';

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport function getClientTimeZone(): string | undefined {
+export function getClientTimeZone(): string | undefined {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     return typeof tz === "string" && tz.trim() ? tz : undefined;

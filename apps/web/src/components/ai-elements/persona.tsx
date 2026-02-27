@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type { RiveParameters } from "@rive-app/react-webgl2";
 import type { FC, ReactNode } from "react";

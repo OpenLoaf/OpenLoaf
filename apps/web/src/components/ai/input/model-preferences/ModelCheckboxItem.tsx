@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client'
+'use client'
 
 import { cn } from '@/lib/utils'
 import { ModelIcon } from '@/components/setting/menus/provider/ModelIcon'

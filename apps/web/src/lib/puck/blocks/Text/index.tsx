@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport React from "react";
+import React from "react";
 import { ALargeSmall, AlignLeft } from "lucide-react";
 
 import type { ComponentConfig } from "@/lib/puck/core";

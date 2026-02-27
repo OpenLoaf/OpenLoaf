@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { AgentTemplate } from '../../types'
+import type { AgentTemplate } from '../../types'
 import BROWSER_PROMPT from './prompt.zh.md'
 
 export const browserTemplate: AgentTemplate = {

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ModelDefinition } from "../common/modelTypes";
+import type { ModelDefinition } from "../common/modelTypes";
 
 type UIDataTypes = Record<string, unknown>;
 type UITools = Record<string, unknown>;

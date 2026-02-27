@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { BusinessHours } from '@openloaf/ui/calendar/components/types'
+import type { BusinessHours } from '@openloaf/ui/calendar/components/types'
 import {
 	getBusinessHoursForDate,
 	isBusinessDay,

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import {
   autoUpdater,
   type ProgressInfo,

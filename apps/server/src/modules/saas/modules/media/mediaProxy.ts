@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport path from "node:path";
+import path from "node:path";
 import { isRecord } from "@/ai/shared/util";
 import { resolveImageSaveDirectory, saveImageUrlsToDirectory } from "@/ai/services/image/imageStorage";
 import {

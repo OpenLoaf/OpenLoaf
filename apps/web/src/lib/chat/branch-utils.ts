@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * Pure utility functions extracted from ChatCoreProvider.tsx
  * for branch/message-tree operations.
  *

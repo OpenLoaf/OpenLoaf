@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type SettingDef<T> = {
+export type SettingDef<T> = {
   key: string;
   defaultValue: T;
   secret?: boolean;

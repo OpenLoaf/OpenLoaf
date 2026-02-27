@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { trpcServer } from "@hono/trpc-server";
+import { trpcServer } from "@hono/trpc-server";
 import { appRouterDefine, t } from "@openloaf/api";
 import { createContext } from "@openloaf/api/context";
 import { Hono } from "hono";

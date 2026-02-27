@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport React from "react";
+import React from "react";
 
 import type { ComponentConfig } from "@/lib/puck/core";
 import { Heading as _Heading } from "@/lib/puck/components/Heading";

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** Node types that use large anchors in the board. */
+/** Node types that use large anchors in the board. */
 export const LARGE_ANCHOR_NODE_TYPES = new Set([
   "group",
   "image-group",

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { tool, zodSchema } from 'ai'
+import { tool, zodSchema } from 'ai'
 import type { LanguageModelV3 } from '@ai-sdk/provider'
 import {
   spawnAgentToolDef,

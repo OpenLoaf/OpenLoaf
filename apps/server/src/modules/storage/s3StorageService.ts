@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { S3ObjectTagging, S3ProviderConfig, StorageObjectRef } from "@openloaf/api/types/storage";
+import type { S3ObjectTagging, S3ProviderConfig, StorageObjectRef } from "@openloaf/api/types/storage";
 import { DEFAULT_S3_EXPIRE_DAYS } from "@openloaf/api/types/storage";
 import { DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import type { Readable } from "node:stream";

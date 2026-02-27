@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport React from "react";
+import React from "react";
 import type { ComponentConfig } from "@/lib/puck/core";
 import { Button as _Button } from "@/lib/puck/core";
 

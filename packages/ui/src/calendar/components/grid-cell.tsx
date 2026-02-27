@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport React, { memo, useMemo } from 'react'
+import React, { memo, useMemo } from 'react'
 import { DayNumber } from '@openloaf/ui/calendar/components/day-number'
 import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
 import { isBusinessHour } from '@openloaf/ui/calendar/features/calendar/utils/business-hours'

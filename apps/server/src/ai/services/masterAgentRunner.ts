@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { LanguageModelV3 } from '@ai-sdk/provider'
+import type { LanguageModelV3 } from '@ai-sdk/provider'
 import type { AgentFrame } from '@/ai/shared/context/requestContext'
 import {
   createMasterAgent,

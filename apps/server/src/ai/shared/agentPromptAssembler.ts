@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { resolveDefaultAgentPromptParts } from '@/ai/shared/defaultAgentResolver'
+import { resolveDefaultAgentPromptParts } from '@/ai/shared/defaultAgentResolver'
 import { resolveMemoryContent } from '@/ai/shared/memoryLoader'
 
 /** Input for assembling default agent instructions. */

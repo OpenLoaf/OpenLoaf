@@ -7,4 +7,4 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport { refreshAccessToken } from "./client";
+export { refreshAccessToken } from "./client";

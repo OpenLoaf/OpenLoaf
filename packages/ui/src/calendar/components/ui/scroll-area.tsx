@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport * as ScrollAreaPrimitive from '@radix-ui/react-scroll-area'
+import * as ScrollAreaPrimitive from '@radix-ui/react-scroll-area'
 import type * as React from 'react'
 
 import { cn } from '@openloaf/ui/calendar/lib/utils'

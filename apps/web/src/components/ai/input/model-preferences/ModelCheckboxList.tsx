@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client'
+'use client'
 
 import type { ProviderModelOption } from '@/lib/provider-models'
 import type { AiModel } from '@openloaf-saas/sdk'

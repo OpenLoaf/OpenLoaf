@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { MetadataRoute } from "next";
+import type { MetadataRoute } from "next";
 
 export const dynamic = 'force-static';
 

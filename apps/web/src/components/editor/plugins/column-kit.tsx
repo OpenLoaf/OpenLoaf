@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client';
+'use client';
 
 import { ColumnItemPlugin, ColumnPlugin } from '@platejs/layout/react';
 

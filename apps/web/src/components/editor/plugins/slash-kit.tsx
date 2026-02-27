@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client';
+'use client';
 
 import { SlashInputPlugin, SlashPlugin } from '@platejs/slash-command/react';
 import { KEYS } from 'platejs';

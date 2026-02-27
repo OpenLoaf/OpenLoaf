@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import React, { type ReactNode } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";

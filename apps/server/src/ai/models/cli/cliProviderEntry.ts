@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ProviderDefinition, ModelDefinition } from "@openloaf/api/common";
+import type { ProviderDefinition, ModelDefinition } from "@openloaf/api/common";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { getProviderDefinition } from "@/ai/models/modelRegistry";

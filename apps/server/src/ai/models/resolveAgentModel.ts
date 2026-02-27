@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { LanguageModelV3 } from '@ai-sdk/provider'
+import type { LanguageModelV3 } from '@ai-sdk/provider'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import type { ChatModelSource } from '@openloaf/api/common'
 

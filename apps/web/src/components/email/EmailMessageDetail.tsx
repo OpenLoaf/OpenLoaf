@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { Download, Forward, Lock, Reply, ReplyAll, Star, Trash2 } from "lucide-react";
+import { Download, Forward, Lock, Reply, ReplyAll, Star, Trash2 } from "lucide-react";
 
 import {
   AlertDialog,

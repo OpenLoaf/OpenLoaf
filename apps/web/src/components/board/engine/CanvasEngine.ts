@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { CanvasDoc } from "./CanvasDoc";
+import { CanvasDoc } from "./CanvasDoc";
 import { toast } from "sonner";
 import type {
   CanvasAnchorHit,

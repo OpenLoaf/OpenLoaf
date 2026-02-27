@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { getClassNameFactory } from "../core";
+import { getClassNameFactory } from "../core";
 
 import styles from "./Header.module.css";
 

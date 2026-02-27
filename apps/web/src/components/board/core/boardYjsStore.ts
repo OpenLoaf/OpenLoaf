@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport * as Y from "yjs";
+import * as Y from "yjs";
 import type { CanvasConnectorElement, CanvasNodeElement } from "../engine/types";
 
 /** Storage key used for board payload inside the Yjs doc. */

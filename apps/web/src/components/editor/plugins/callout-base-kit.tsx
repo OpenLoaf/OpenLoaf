@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseCalloutPlugin } from '@platejs/callout';
+import { BaseCalloutPlugin } from '@platejs/callout';
 
 import { CalloutElementStatic } from '@openloaf/ui/callout-node-static';
 

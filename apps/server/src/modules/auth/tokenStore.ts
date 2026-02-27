@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { clearAuthRefreshToken, readAuthRefreshToken, writeAuthRefreshToken } from "@/modules/settings/openloafConfStore";
+import { clearAuthRefreshToken, readAuthRefreshToken, writeAuthRefreshToken } from "@/modules/settings/openloafConfStore";
 
 export type AuthUser = {
   /** User subject id. */

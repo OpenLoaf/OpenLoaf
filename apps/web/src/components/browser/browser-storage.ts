@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { normalizeUrl } from "@/components/browser/browser-utils";
+import { normalizeUrl } from "@/components/browser/browser-utils";
 
 export type FavoriteSite = {
   id: string;

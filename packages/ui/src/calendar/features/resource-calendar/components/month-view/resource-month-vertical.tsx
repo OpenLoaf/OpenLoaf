@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type React from 'react'
+import type React from 'react'
 import { ResourceCell } from '@openloaf/ui/calendar/components/resource-cell'
 import { VerticalGrid } from '@openloaf/ui/calendar/components/vertical-grid/vertical-grid'
 import { useResourceCalendarContext } from '@openloaf/ui/calendar/features/resource-calendar/contexts/resource-calendar-context'

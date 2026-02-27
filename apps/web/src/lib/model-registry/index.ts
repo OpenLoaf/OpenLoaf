@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport {
+import {
   createModelRegistry,
   type ModelDefinition,
   type ProviderDefinition,

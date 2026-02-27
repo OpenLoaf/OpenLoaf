@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport React from "react";
+import React from "react";
 import type { Slot } from "@/lib/puck/core";
 import styles from "./styles.module.css";
 import { getClassNameFactory } from "@/lib/puck/core";

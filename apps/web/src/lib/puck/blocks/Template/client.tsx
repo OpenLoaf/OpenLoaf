@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/* eslint-disable react-hooks/rules-of-hooks */
+/* eslint-disable react-hooks/rules-of-hooks */
 import React, { useState } from "react";
 import { AutoField, Button, createUsePuck, FieldLabel, walkTree } from "@/lib/puck/core";
 import type { ComponentConfig, ComponentDataOptionalId, Slot } from "@/lib/puck/core";

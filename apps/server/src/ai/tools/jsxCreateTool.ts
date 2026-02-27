@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { tool, zodSchema } from 'ai'
+import { tool, zodSchema } from 'ai'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
 import { jsxCreateToolDef } from '@openloaf/api/types/tools/jsxCreate'

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 // 逻辑：mock @lobehub/icons 避免 JSON import 属性问题
 vi.mock('@lobehub/icons', () => ({

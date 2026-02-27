@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FilePenLine, PencilLine, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

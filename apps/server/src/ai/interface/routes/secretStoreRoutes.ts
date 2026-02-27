@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Hono } from 'hono'
+import type { Hono } from 'hono'
 import { z } from 'zod'
 import { storeSecret } from '@/ai/tools/secretStore'
 import { logger } from '@/common/logger'

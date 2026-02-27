@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { MarkdownPlugin, remarkMdx, remarkMention } from '@platejs/markdown';
+import { MarkdownPlugin, remarkMdx, remarkMention } from '@platejs/markdown';
 import { KEYS } from 'platejs';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';

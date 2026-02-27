@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client';
+'use client';
 
 import type { Value } from 'platejs';
 import { createPlatePlugin } from 'platejs/react';

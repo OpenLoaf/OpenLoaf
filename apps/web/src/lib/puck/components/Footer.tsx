@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Section } from "./Section";
 
 /** Render a footer link entry. */

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type React from 'react'
+import type React from 'react'
 import { useImperativeHandle, useState } from 'react'
 import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
 import { DraggableEvent } from '@openloaf/ui/calendar/components/draggable-event/draggable-event'

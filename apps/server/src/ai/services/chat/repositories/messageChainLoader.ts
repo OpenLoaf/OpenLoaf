@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { OpenLoafUIMessage } from '@openloaf/api/types/message'
+import type { OpenLoafUIMessage } from '@openloaf/api/types/message'
 import { loadMessageChainFromFile } from './chatFileStore'
 
 /** Default max messages in a chain. */

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport const DEFAULT_NODE_SIZE: [number, number] = [320, 180];
+export const DEFAULT_NODE_SIZE: [number, number] = [320, 180];
 
 export const SNAP_PIXEL = 8;
 export const GUIDE_MARGIN = 16;

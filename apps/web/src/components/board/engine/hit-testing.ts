@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { STROKE_NODE_TYPE } from "./types";
+import { STROKE_NODE_TYPE } from "./types";
 import type {
   CanvasAnchorHit,
   CanvasAnchorMap,

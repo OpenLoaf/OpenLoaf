@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type {
+import type {
 	IlamyCalendarPropEvent,
 	IlamyCalendarProps,
 } from '@openloaf/ui/calendar/features/calendar/types'

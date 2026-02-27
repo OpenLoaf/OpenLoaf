@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { queryClient, trpc } from "@/utils/trpc";
 import {

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport * as React from 'react'
+import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
 import type { InfiniteData } from '@tanstack/react-query'
 

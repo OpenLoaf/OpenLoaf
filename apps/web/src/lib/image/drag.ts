@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport {
+import {
   FILE_DRAG_IMAGE_MIME,
   FILE_DRAG_MASK_URI_MIME,
   FILE_DRAG_NAME_MIME,

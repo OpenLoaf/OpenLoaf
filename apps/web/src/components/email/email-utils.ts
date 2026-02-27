@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { Archive, Ban, Inbox, Mail, Send, Trash2 } from "lucide-react";
+import { Archive, Ban, Inbox, Mail, Send, Trash2 } from "lucide-react";
 
 import type { EmailMailboxView, MailboxNode } from "./email-types";
 

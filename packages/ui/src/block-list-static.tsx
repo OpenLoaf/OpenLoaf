@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport * as React from 'react';
+import * as React from 'react';
 
 import type { RenderStaticNodeWrapper, TListElement } from 'platejs';
 import type { SlateRenderElementProps } from 'platejs/static';

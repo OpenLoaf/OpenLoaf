@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { useMemo, useRef, useEffect, useState } from "react";
 import type { ComponentType } from "react";

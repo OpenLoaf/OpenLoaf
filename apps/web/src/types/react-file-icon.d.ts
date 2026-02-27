@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\ndeclare module "react-file-icon" {
+declare module "react-file-icon" {
   import type { ComponentType } from "react";
 
   /** React component that renders a file icon. */

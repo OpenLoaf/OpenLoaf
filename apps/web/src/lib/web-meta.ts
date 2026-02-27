@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { trpcClient } from "@/utils/trpc";
 import { normalizeUrl } from "@/components/browser/browser-utils";

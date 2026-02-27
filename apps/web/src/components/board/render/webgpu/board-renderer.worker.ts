@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/// <reference types="@webgpu/types" />
+/// <reference types="@webgpu/types" />
 /* eslint-disable no-restricted-globals */
 import type {
   GpuMessage,

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport const spacingOptions = [
+export const spacingOptions = [
   { label: "8px", value: "8px" },
   { label: "16px", value: "16px" },
   { label: "24px", value: "24px" },

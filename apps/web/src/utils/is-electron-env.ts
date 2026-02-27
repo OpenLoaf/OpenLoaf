@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * Resolve whether the runtime is Electron.
  * Checks injected Electron API first, then env flag, then user agent.
  */

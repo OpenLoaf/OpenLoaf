@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { generateId, tool, zodSchema, type UIMessage } from "ai";
+import { generateId, tool, zodSchema, type UIMessage } from "ai";
 import { subAgentToolDef } from "@openloaf/api/types/tools/subAgent";
 import {
   browserSubAgentName,

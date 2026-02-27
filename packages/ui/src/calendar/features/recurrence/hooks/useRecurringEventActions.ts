@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { useCallback, useState } from 'react'
+import { useCallback, useState } from 'react'
 import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
 import type { RecurrenceEditScope } from '@openloaf/ui/calendar/features/recurrence/types'
 import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'

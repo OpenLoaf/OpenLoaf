@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { logger } from "@/common/logger";
+import { logger } from "@/common/logger";
 import type { OfficeCommandAck } from "@/modules/office/officeTypes";
 
 type PendingEntry = {

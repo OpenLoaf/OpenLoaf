@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type CanvasRect = [number, number, number, number];
+export type CanvasRect = [number, number, number, number];
 
 export type RightStackPlacementOptions = {
   sideGap: number;

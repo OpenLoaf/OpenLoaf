@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { z } from 'zod'
+import { z } from 'zod'
 
 const questionSchema = z.object({
   key: z.string().min(1),

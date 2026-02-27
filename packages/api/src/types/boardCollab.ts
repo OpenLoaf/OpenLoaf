@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { z } from "zod";
+import { z } from "zod";
 
 /** WebSocket path for board collaboration. */
 export const BOARD_COLLAB_WS_PATH = "/board/ws";

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ModelCapabilities, ModelTag } from "@openloaf/api/common";
+import type { ModelCapabilities, ModelTag } from "@openloaf/api/common";
 
 type ModelWithTags = {
   /** Model tags declared by the provider. */

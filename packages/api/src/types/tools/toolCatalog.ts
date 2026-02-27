@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { openUrlToolDef } from "./browser";
+import { openUrlToolDef } from "./browser";
 import {
   browserSnapshotToolDef,
   browserObserveToolDef,

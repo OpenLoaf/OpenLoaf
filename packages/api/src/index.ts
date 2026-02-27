@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n// import superjson from "superjson";
+// import superjson from "superjson";
 // Export generated routers
 // @ts-ignore
 import { appRouter as internalAppRouter } from "../generated/routers";

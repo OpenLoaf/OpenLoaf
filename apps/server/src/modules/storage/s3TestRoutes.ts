@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Hono } from "hono";
+import type { Hono } from "hono";
 import { readS3Providers } from "@/modules/settings/openloafConfStore";
 import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
 

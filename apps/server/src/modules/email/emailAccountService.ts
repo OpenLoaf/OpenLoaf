@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { z } from "zod";
+import { z } from "zod";
 
 import { readEmailConfigFile, writeEmailConfigFile } from "./emailConfigStore";
 import type { EmailConfigFile } from "./emailConfigStore";

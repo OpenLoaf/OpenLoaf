@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport * from "./tabs";
+export * from "./tabs";
 export * from "../types/tabs";
 export * from "./chatCommands";
 export * from "./modelTypes";

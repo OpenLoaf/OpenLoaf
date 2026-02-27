@@ -7,5 +7,5 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport * from './context'
+export * from './context'
 export * from './provider'

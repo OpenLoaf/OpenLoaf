@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { memo, type MouseEvent as ReactMouseEvent } from "react";
 import type { FileSystemEntry } from "../utils/file-system-utils";

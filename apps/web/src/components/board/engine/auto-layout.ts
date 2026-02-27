@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasConnectorElement, CanvasElement, CanvasNodeElement } from "./types";
+import type { CanvasConnectorElement, CanvasElement, CanvasNodeElement } from "./types";
 import { getNodeGroupId, isGroupNodeType } from "./grouping";
 
 export type AutoLayoutUpdate = {

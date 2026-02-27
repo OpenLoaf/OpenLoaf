@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { ChevronLeft, ChevronRight, PanelLeft, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, PanelLeft, Plus } from 'lucide-react'
 import type React from 'react'
 import { useMemo } from 'react'
 import { Button } from '@openloaf/ui/calendar/components/ui/button'

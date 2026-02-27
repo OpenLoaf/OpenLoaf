@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport * as React from 'react';
+import * as React from 'react';
 
 /**
  * Returns true once the component has mounted on the client.

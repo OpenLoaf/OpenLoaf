@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client';
+'use client';
 
 import { IndentPlugin } from '@platejs/indent/react';
 import { KEYS } from 'platejs';

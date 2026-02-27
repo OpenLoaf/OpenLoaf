@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type { UIMessage } from "ai";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";

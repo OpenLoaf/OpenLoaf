@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
+import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";

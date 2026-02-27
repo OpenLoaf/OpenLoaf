@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type { DesktopIconKey, DesktopScopeSupport } from "./types";
 import { getDesktopIconByKey } from "./widgets/DesktopIconWidget";

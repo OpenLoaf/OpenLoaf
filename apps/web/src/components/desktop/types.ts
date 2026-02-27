@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type * as React from "react";
 import type { DesktopBreakpoint } from "./desktop-breakpoints";

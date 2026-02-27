@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport dayjs from 'dayjs'
+import dayjs from 'dayjs'
 import isBetween from 'dayjs/plugin/isBetween.js'
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter.js'
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore.js'

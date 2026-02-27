@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type CodexMode = "chat" | "agent" | "agent_full_access";
+export type CodexMode = "chat" | "agent" | "agent_full_access";
 
 export type CodexReasoningEffort = "low" | "medium" | "high" | "xhigh";
 

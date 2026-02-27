@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { register } from "node:module";
+import { register } from "node:module";
 
 /**
  * Register the markdown text loader for dev runtime.

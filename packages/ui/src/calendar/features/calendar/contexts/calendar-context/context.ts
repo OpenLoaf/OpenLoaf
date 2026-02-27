@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { createContext, useContext } from 'react'
+import { createContext, useContext } from 'react'
 import type { EventFormProps } from '@openloaf/ui/calendar/components/event-form/event-form'
 import type { BusinessHours, CalendarEvent } from '@openloaf/ui/calendar/components/types'
 import type {

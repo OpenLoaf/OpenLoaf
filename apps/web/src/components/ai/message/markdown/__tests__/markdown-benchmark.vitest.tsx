@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * Markdown rendering benchmark tests.
  * Establishes baseline render costs for different content types.
  */

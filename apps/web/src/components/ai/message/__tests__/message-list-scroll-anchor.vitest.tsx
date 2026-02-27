@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport * as React from "react";
+import * as React from "react";
 import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 

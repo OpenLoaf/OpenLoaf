@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { AuthRefreshResponse } from "@openloaf-saas/sdk";
+import type { AuthRefreshResponse } from "@openloaf-saas/sdk";
 import { getSaasClient } from "../../client";
 
 /** Refresh access token via SaaS SDK. */

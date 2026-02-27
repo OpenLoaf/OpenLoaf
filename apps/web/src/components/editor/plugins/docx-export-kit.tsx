@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client';
+'use client';
 
 import { DocxExportPlugin } from '@platejs/docx-io';
 import { KEYS } from 'platejs';

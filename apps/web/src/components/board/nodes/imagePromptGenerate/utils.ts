@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** Measure container height without being constrained by current size. */
+/** Measure container height without being constrained by current size. */
 export function measureContainerHeight(container: HTMLDivElement): number {
   const prevHeight = container.style.height;
   const prevOverflow = container.style.overflowY;

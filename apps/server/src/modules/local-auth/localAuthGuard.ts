@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Context, Next } from "hono";
+import type { Context, Next } from "hono";
 import { getSignedCookie } from "hono/cookie";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { ensureLocalAuthSecret, isLocalAuthConfigured } from "./localAuthStore";

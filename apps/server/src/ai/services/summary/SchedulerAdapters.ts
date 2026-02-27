@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ScheduleJobInput, SchedulerPort } from "@/ai/services/summary/SchedulerPort";
+import type { ScheduleJobInput, SchedulerPort } from "@/ai/services/summary/SchedulerPort";
 
 export class InProcessSchedulerAdapter implements SchedulerPort {
   /** Active timer handles. */

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type { BrowserTab } from "@openloaf/api/common";
+export type { BrowserTab } from "@openloaf/api/common";
 
 export type OpenLoafWebContentsViewStatus = {
   key: string;

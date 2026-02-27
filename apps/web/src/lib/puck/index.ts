@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport pageDefaultData from "../page-default.json";
+import pageDefaultData from "../page-default.json";
 import { Blank } from "./blocks/Blank";
 import { Button } from "./blocks/Button";
 import { Card } from "./blocks/Card";

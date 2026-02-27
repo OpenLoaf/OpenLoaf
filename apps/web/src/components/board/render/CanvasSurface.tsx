@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CanvasSnapshot, CanvasViewportState } from "../engine/types";

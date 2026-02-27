@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport * as React from 'react'
+import * as React from 'react'
 
 import { trpcClient } from '@/utils/trpc'
 import { trpc } from '@/utils/trpc'

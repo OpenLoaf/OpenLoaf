@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @next/next/no-img-element */
 import React from "react";
 import type { ComponentConfig } from "@/lib/puck/core";
 import { quotes } from "./quotes";

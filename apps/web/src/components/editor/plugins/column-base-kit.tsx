@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseColumnItemPlugin, BaseColumnPlugin } from '@platejs/layout';
+import { BaseColumnItemPlugin, BaseColumnPlugin } from '@platejs/layout';
 
 import {
   ColumnElementStatic,

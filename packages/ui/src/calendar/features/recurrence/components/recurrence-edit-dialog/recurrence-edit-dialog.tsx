@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { Button } from '@openloaf/ui/calendar/components/ui/button'
+import { Button } from '@openloaf/ui/calendar/components/ui/button'
 import {
 	Dialog,
 	DialogContent,

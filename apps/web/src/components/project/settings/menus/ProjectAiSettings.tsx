@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { memo, useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
 import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";

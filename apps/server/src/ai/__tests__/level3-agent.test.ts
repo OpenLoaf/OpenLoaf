@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * Level 3 — Agent + 工具执行（核心调试场景）。
  *
  * 用法：

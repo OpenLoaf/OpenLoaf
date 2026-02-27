@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { prisma } from "@openloaf/db";
+import { prisma } from "@openloaf/db";
 import type { Prisma } from "@openloaf/db/prisma/generated/client";
 
 export type SchedulerTaskRecordInput = {

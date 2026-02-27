@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** Convert an ArrayBuffer into a base64 string without data URL prefix. */
+/** Convert an ArrayBuffer into a base64 string without data URL prefix. */
 export function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   const chunkSize = 0x8000;

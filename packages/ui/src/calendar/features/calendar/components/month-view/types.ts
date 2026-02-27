@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
+import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
 import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 
 // Interface for the selected day events state

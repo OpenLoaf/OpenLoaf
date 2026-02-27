@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { testApprovalToolDef } from "@openloaf/api/types/tools/approvalTest";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";

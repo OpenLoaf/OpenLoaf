@@ -90,7 +90,7 @@ async function main() {
     process.exit(1)
   }
 
-  console.log(`\n\n/**
+  console.log(`\n/**
  * Copyright (c) OpenLoaf. All rights reserved.
  *
  * This source code is licensed under the AGPLv3 license found in the
@@ -99,7 +99,7 @@ async function main() {
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n📋 将上传 ${filesToUpload.length} 个文件到 R2 desktop/ 路径：`)
+📋 将上传 ${filesToUpload.length} 个文件到 R2 desktop/ 路径：`)
   for (const f of filesToUpload) {
     console.log(`   - ${f}`)
   }

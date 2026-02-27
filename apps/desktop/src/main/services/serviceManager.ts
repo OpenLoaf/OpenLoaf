@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { app } from 'electron';
 import type { Logger } from '../logging/startupLogger';
 import { cleanupNextDevLock, ensureDevServices, findRepoRoot } from './devServices';

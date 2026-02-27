@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasElement, CanvasNodeElement, CanvasRect } from "./types";
+import type { CanvasElement, CanvasNodeElement, CanvasRect } from "./types";
 
 /** Compute bounds for a list of nodes. */
 function computeNodeBounds(nodes: CanvasNodeElement[]): CanvasRect {

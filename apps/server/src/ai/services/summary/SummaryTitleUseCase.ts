@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { generateId, generateText, type UIMessage } from "ai";
+import { generateId, generateText, type UIMessage } from "ai";
 import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
 import type { AiExecuteRequest } from "@/ai/services/chat/types";

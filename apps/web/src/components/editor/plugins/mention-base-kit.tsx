@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseMentionPlugin } from '@platejs/mention';
+import { BaseMentionPlugin } from '@platejs/mention';
 
 import { MentionElementStatic } from '@openloaf/ui/mention-node-static';
 

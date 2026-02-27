@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ChatCommandId } from "@openloaf/api/common/chatCommands";
+import type { ChatCommandId } from "@openloaf/api/common/chatCommands";
 import type { ChatRequestBody, OpenLoafUIMessage } from "@openloaf/api/types/message";
 
 /** Chat stream request payload, based on ChatRequestBody with server-only fields. */

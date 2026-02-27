@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { isBoardFileExt, isBoardFolderName, isDocFolderName } from "@/lib/file-name";
+import { isBoardFileExt, isBoardFolderName, isDocFolderName } from "@/lib/file-name";
 import { MARKDOWN_EXTS } from "../components/FileSystemEntryVisual";
 import { getEntryExt, type FileSystemEntry } from "./file-system-utils";
 

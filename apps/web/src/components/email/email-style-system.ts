@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** Main Gmail-like panel surface; outer border is provided by LeftDock frame. */
+/** Main Gmail-like panel surface; outer border is provided by LeftDock frame. */
 export const EMAIL_GLASS_PANEL_CLASS =
   "rounded-2xl bg-[#ffffff] shadow-none dark:bg-[hsl(var(--background)/0.9)]";
 

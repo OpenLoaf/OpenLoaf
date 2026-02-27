@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { createDragDropManager, type DragDropManager } from 'dnd-core';
+import { createDragDropManager, type DragDropManager } from 'dnd-core';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
 const DND_MANAGER_KEY = Symbol.for('openloaf:dnd-manager');

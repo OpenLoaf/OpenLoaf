@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { useContext } from 'react'
+import { useContext } from 'react'
 import {
 	CalendarContext,
 	type CalendarContextType,

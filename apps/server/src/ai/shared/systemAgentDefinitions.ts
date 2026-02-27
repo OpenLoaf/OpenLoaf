@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * 系统 Agent 定义 — 从 agent-templates 派生，保留所有导出签名。
  *
  * 所有系统 Agent 的元数据从此处派生，其他模块只需导入常量即可。

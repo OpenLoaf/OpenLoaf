@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Experimental_GeneratedImage } from "ai";
+import type { Experimental_GeneratedImage } from "ai";
 
 import { cn } from "@/lib/utils";
 

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseAiRouter, aiSchemas, t, shieldedProcedure } from "@openloaf/api";
+import { BaseAiRouter, aiSchemas, t, shieldedProcedure } from "@openloaf/api";
 import { storeSecret } from "@/ai/tools/secretStore";
 
 /** Deprecated message for local AI media routes. */

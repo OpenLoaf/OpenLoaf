@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport {
+import {
   BROWSER_WINDOW_COMPONENT,
   BROWSER_WINDOW_PANEL_ID,
   type BrowserTab,

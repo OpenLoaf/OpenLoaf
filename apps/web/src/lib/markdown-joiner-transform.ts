@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { TextStreamPart, ToolSet } from 'ai';
+import type { TextStreamPart, ToolSet } from 'ai';
 
 /**
  * Transform chunks like [**,bold,**] to [**bold**] make the md deserializer

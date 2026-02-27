@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 
 const SECRET_TOKEN_RE = /\{\{secret:([0-9a-f-]{36})\}\}/g
 const secrets = new Map<string, string>()

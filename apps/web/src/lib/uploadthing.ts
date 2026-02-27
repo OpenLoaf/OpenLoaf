@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { FileRouter } from 'uploadthing/next';
+import type { FileRouter } from 'uploadthing/next';
 
 import { createUploadthing } from 'uploadthing/next';
 

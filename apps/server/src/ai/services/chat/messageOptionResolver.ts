@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { UIMessage } from "ai";
+import type { UIMessage } from "ai";
 import type { ImageGenerateOptions } from "@openloaf/api/types/image";
 import {
   normalizeCodexOptions,

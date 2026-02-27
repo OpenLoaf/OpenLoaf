@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n// oxlint-disable no-negated-condition
+// oxlint-disable no-negated-condition
 
 import { useDroppable } from '@dnd-kit/core'
 import type React from 'react'

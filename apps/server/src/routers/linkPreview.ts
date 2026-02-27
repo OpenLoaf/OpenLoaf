@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseLinkPreviewRouter, linkPreviewSchemas, t, shieldedProcedure } from "@openloaf/api";
+import { BaseLinkPreviewRouter, linkPreviewSchemas, t, shieldedProcedure } from "@openloaf/api";
 import type { Response } from "undici";
 
 /** Timeout for fetching HTML content. */

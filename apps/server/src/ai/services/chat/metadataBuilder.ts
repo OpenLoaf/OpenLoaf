@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { TokenUsage } from "@openloaf/api/types/message";
+import type { TokenUsage } from "@openloaf/api/types/message";
 import { toNumberOrUndefined, isRecord } from "@/ai/shared/util";
 
 /** Build usage metadata from stream part. */

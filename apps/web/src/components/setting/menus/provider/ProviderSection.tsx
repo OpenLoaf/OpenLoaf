@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { Fragment } from "react";
+import { Fragment } from "react";
 import { Button } from "@openloaf/ui/button";
 import {
   Table,

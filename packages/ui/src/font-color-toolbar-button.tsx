@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client';
+'use client';
 /* eslint-disable react-hooks/refs -- Ref usage for color picker component refs */
 
 import React from 'react';

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { skipToken, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import type { ChatCommand } from "@openloaf/api/common";

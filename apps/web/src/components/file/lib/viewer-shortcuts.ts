@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** Event shape used for find shortcut detection. */
+/** Event shape used for find shortcut detection. */
 export type FindShortcutEvent = {
   key: string;
   metaKey: boolean;

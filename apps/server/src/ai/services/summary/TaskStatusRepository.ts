@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type TaskStatusValue = "pending" | "running" | "completed" | "failed";
+export type TaskStatusValue = "pending" | "running" | "completed" | "failed";
 
 export type TaskStatusRecord = {
   /** Task id. */

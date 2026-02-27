@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport * as TabsPrimitive from '@radix-ui/react-tabs'
+import * as TabsPrimitive from '@radix-ui/react-tabs'
 import type * as React from 'react'
 
 import { cn } from '@openloaf/ui/calendar/lib/utils'

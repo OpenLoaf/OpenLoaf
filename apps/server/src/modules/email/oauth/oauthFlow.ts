@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 import { logger } from "@/common/logger";
 

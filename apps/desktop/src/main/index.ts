@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { app, BrowserWindow, Menu, session, nativeImage } from 'electron';
+import { app, BrowserWindow, Menu, session, nativeImage } from 'electron';
 import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import Module from 'node:module';
 import path from 'path';

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type { ChatModelSource, ModelDefinition, ModelTag } from "@openloaf/api/common";
 import { getProviderDefinition, getProviderDefinitions } from "@/lib/model-registry";

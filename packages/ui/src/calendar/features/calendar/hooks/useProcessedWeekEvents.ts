@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { useMemo } from 'react'
+import { useMemo } from 'react'
 import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'
 import type { CalendarEvent } from '@openloaf/ui/calendar/components/types'
 import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * Level 4 — Multi-agent spawn/wait/abort 集成测试。
  *
  * 用法：

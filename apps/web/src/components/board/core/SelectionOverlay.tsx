@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { Columns2, LayoutGrid, Layers, ArrowDown, ArrowUp, Copy, Lock, Rows2, Trash2, Unlock, Maximize2 } from "lucide-react";
+import { Columns2, LayoutGrid, Layers, ArrowDown, ArrowUp, Copy, Lock, Rows2, Trash2, Unlock, Maximize2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode, type SVGProps } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type {

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { SettingDef } from "@openloaf/api/types/setting";
+import type { SettingDef } from "@openloaf/api/types/setting";
 import { PublicSettingDefs } from "@openloaf/api/types/setting";
 
 export const ServerSettingDefs = {

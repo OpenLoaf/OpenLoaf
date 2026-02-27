@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/** Normalize email flags into string array. */
+/** Normalize email flags into string array. */
 export function normalizeEmailFlags(value: unknown): string[] {
   // 逻辑：兼容 JSON 数组、字符串和空值三种来源。
   if (!value) return [];

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { StepUpOptionCard } from "@/components/step-up/StepUpOptionCard";
+import { StepUpOptionCard } from "@/components/step-up/StepUpOptionCard";
 import { StepUpStepShell } from "@/components/step-up/StepUpStepShell";
 
 export type StepUpLoginProviderOption = {

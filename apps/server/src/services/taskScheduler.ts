@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { getWorkspaceRootPath } from '@openloaf/api'
+import { getWorkspaceRootPath } from '@openloaf/api'
 import { randomUUID } from 'node:crypto'
 import { logger } from '@/common/logger'
 import { listTasks, getTask, updateTask, type TaskConfig } from './taskConfigService'

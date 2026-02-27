@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { isElectronEnv } from "@/utils/is-electron-env";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 type CalendarPermissionState = OpenLoafCalendarPermissionState;
 type CalendarRange = OpenLoafCalendarRange;

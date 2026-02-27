@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ModelDefinition, ModelTag, ProviderDefinition } from "./modelTypes";
+import type { ModelDefinition, ModelTag, ProviderDefinition } from "./modelTypes";
 
 export type ModelSpec = (definition: ModelDefinition) => boolean;
 

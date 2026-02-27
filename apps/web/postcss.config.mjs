@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nconst config = {
+const config = {
   plugins: {
     "@tailwindcss/postcss": {},
   },

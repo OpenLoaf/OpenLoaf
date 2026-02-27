@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ComponentConfig } from "@/lib/puck/core";
+import type { ComponentConfig } from "@/lib/puck/core";
 import { withLayout } from "../../components/Layout";
 import TemplateComponent from "./Template";
 import type { TemplateProps } from "./Template";

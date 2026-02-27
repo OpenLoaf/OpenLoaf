@@ -7,4 +7,4 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport { default as ProjectBoardCanvas } from "./core/ProjectBoardCanvas";
+export { default as ProjectBoardCanvas } from "./core/ProjectBoardCanvas";

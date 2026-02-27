@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasPoint } from "../engine/types";
+import type { CanvasPoint } from "../engine/types";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 
 /** Tool context passed to tool handlers. */

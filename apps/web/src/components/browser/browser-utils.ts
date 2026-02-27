@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport function normalizeUrl(raw: string): string {
+export function normalizeUrl(raw: string): string {
   const value = raw?.trim();
   if (!value) return "";
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(value)) return value;

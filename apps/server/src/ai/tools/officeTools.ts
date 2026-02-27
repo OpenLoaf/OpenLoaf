@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { tool, zodSchema } from "ai";
+import { tool, zodSchema } from "ai";
 import { v4 as uuidv4 } from "uuid";
 import { officeExecuteToolDef } from "@openloaf/api/types/tools/office";
 import { getProjectId, getWorkspaceId } from "@/ai/shared/context/requestContext";

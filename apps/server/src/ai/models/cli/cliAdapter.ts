@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ProviderAdapter } from "@/ai/models/providerAdapters";
+import type { ProviderAdapter } from "@/ai/models/providerAdapters";
 import { buildCodexAppServerLanguageModel } from "@/ai/models/cli/codex/codexAppServerLanguageModel";
 
 /** CLI provider adapter definition. */

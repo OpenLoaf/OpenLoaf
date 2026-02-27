@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport path from "node:path";
+import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 /** Normalize a local path or file:// URI into a file:// URI. */

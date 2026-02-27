@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { describe, it, expect } from "vitest"
+import { describe, it, expect } from "vitest"
 import { reflowLayouts, reflowAllBreakpoints, type ReflowItem } from "../desktop-reflow"
 import {
   ensureLayoutByBreakpoint,

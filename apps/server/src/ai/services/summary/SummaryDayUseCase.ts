@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport path from "node:path";
+import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { getProjectRootPath } from "@openloaf/api/services/vfsService";
 import { readProjectConfig } from "@openloaf/api/services/projectTreeService";

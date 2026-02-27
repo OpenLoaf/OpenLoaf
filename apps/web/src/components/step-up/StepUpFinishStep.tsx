@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { StepUpStepShell } from "@/components/step-up/StepUpStepShell";
+import { StepUpStepShell } from "@/components/step-up/StepUpStepShell";
 
 export type StepUpFinishSummary = {
   /** Selected workspace label. */

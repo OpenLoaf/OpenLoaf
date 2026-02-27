@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 export { DragDropOverlay } from "@openloaf/ui/openloaf/drag-drop-overlay";
 export * from "@openloaf/ui/openloaf/drag-drop-types";

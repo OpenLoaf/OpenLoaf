@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { LayoutGrid, RotateCw, Clipboard, Maximize2, Minimize2, Scan } from "lucide-react";
 import type { ReactElement, MouseEvent as ReactMouseEvent } from "react";

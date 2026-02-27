@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client';
+'use client';
 
 import { ChunkingPlugin, type Value, TrailingBlockPlugin } from 'platejs';
 import { type TPlateEditor, useEditorRef } from 'platejs/react';

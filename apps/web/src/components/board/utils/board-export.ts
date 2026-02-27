@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { toBlob } from "html-to-image";
+import { toBlob } from "html-to-image";
 
 /** Selector list for elements excluded from board exports. */
 export const BOARD_EXPORT_IGNORE_SELECTOR = [

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\ntype LoginCodeEntry = {
+type LoginCodeEntry = {
   /** One-time login code. */
   code: string;
   /** Created timestamp (ms). */

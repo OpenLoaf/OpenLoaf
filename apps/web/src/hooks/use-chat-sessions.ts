@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { useMemo } from "react";
 import { skipToken, useQuery, type QueryClient } from "@tanstack/react-query";

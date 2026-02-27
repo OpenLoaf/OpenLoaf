@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { getEnvString } from "@openloaf/config";
+import { getEnvString } from "@openloaf/config";
 
 /** Resolve SaaS base URL from environment. */
 export function getSaasBaseUrl(): string {

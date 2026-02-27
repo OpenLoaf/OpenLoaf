@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { DataContent, UIMessage } from "ai";
+import type { DataContent, UIMessage } from "ai";
 
 export type GenerateImagePromptObject = {
   /** Input images for generation or edit. */

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type WebMetadata = {
+export type WebMetadata = {
   /** Page title text. */
   title: string;
   /** Page description text. */

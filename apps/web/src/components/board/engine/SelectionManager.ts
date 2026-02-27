@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport class SelectionManager {
+export class SelectionManager {
   /** Selected element ids in insertion order. */
   private selectedIds: string[] = [];
   /** Change emitter used to notify subscribers. */

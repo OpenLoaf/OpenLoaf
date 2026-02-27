@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { BoardFileContext } from "./BoardProvider";
+import type { BoardFileContext } from "./BoardProvider";
 import {
   buildChildUri,
   formatScopedProjectPath,

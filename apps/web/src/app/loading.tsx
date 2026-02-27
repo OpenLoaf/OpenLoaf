@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { LoadingScreen } from "@/components/layout/LoadingScreen";
+import { LoadingScreen } from "@/components/layout/LoadingScreen";
 
 export default function Loading() {
   return <LoadingScreen />;

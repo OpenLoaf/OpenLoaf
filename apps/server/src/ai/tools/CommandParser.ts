@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { CHAT_COMMANDS } from "@openloaf/api/common/chatCommands";
+import { CHAT_COMMANDS } from "@openloaf/api/common/chatCommands";
 import type { ChatCommandId } from "@openloaf/api/common/chatCommands";
 import type { AiCommandContext } from "@/ai/services/chat/types";
 

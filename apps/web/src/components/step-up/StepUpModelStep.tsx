@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { Cloud, SlidersHorizontal } from "lucide-react";
+import { Cloud, SlidersHorizontal } from "lucide-react";
 import { StepUpChoiceStep } from "@/components/step-up/StepUpChoiceStep";
 
 export type StepUpModelChoice = "custom" | "cloud";

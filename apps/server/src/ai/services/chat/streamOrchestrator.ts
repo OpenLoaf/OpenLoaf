@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport {
+import {
   createUIMessageStream,
   JsonToSseTransformStream,
   UI_MESSAGE_STREAM_HEADERS,

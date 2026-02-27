@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport * from "./browser";
+export * from "./browser";
 export * from "./browserAutomation";
 export * from "./approvalTest";
 export * from "./db";

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { getWorkspaceIdFromCookie } from "@/components/board/core/boardSession";
 import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";

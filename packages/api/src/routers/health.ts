@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { publicProcedure } from "../../generated/routers/helpers/createRouter";
+import { publicProcedure } from "../../generated/routers/helpers/createRouter";
 
 export const health = publicProcedure.query(() => {
   return { ok: true, timestamp: Date.now() };

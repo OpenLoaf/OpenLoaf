@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport {
+import {
   IMAGE_GENERATE_COUNT_OPTIONS,
 } from "./constants";
 import {

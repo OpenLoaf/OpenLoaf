@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Translations } from './types'
+import type { Translations } from './types'
 
 export const defaultTranslations: Translations = {
 	// Common actions

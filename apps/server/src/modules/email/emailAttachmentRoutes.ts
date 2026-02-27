@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Hono } from "hono";
+import type { Hono } from "hono";
 
 import { readEmailConfigFile } from "./emailConfigStore";
 import { getEmailEnvValue } from "./emailEnvStore";

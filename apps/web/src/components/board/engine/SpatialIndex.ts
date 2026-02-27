@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { CanvasNodeElement, CanvasRect } from "./types";
+import type { CanvasNodeElement, CanvasRect } from "./types";
 
 /** Simple grid-based spatial index for fast node lookups. */
 export class SpatialIndex {

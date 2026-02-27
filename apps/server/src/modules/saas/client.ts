@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { SaaSClient } from "@openloaf-saas/sdk";
+import { SaaSClient } from "@openloaf-saas/sdk";
 import { getSaasBaseUrl } from "./core/config";
 
 /** Cache SaaS client instance by base URL. */

@@ -7,4 +7,4 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport const plugins = [];
+export const plugins = [];

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type StorageProviderKind = "local" | "s3";
+export type StorageProviderKind = "local" | "s3";
 
 /** Default lifecycle expire days for S3 objects. */
 export const DEFAULT_S3_EXPIRE_DAYS = 1;

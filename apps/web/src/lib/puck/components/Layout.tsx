@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { forwardRef, type CSSProperties, type ReactNode } from "react";
+import { forwardRef, type CSSProperties, type ReactNode } from "react";
 import type { ComponentConfig, DefaultComponentProps, ObjectField } from "../core";
 import { spacingOptions } from "../options";
 import { getClassNameFactory } from "../core";

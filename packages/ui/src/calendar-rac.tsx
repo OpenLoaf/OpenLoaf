@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { cn } from "@/lib/utils";
 import { getLocalTimeZone, today, type CalendarDate } from "@internationalized/date";

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { SKILL_COMMAND_PREFIX } from "@openloaf/api/common";
 import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";

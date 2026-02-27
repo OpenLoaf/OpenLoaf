@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport {
+import {
   fetchBlobFromUri,
   loadImageFromBlob,
   resolveBaseName,

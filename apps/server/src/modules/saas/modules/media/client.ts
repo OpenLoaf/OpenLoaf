@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { getSaasClient } from "../../client";
+import { getSaasClient } from "../../client";
 
 export type SaasMediaSubmitArgs = {
   /** Media task kind. */

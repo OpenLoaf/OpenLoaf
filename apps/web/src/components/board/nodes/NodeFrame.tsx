@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { cn } from "@udecode/cn";
+import { cn } from "@udecode/cn";
 import type { HTMLAttributes } from "react";
 import { forwardRef } from "react";
 

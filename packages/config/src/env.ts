@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type CdpConfig = {
+export type CdpConfig = {
   host: string;
   port: number;
   baseUrl: string;

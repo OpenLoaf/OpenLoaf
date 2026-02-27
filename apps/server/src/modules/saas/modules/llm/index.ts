@@ -7,4 +7,4 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport { fetchModelList, fetchModelsUpdatedAt } from "./client";
+export { fetchModelList, fetchModelsUpdatedAt } from "./client";

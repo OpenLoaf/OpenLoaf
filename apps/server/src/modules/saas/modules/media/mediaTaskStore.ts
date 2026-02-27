@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type MediaTaskContext = {
+export type MediaTaskContext = {
   /** Task id. */
   taskId: string;
   /** Result type hint. */

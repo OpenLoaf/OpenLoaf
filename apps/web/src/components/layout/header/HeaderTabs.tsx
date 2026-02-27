@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { ChevronLeft, ChevronRight, Globe, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Globe, Plus, X } from "lucide-react";
 import { AnimatedTabs } from "@openloaf/ui/animated-tabs";
 import { useTabs } from "@/hooks/use-tabs";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";

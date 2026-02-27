@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { DragOverlay } from '@dnd-kit/core'
+import { DragOverlay } from '@dnd-kit/core'
 import { useDndContext } from '@dnd-kit/core'
 import { snapCenterToCursor } from '@dnd-kit/modifiers'
 import type React from 'react'

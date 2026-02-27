@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * 统一 Agent 工厂 — 合并 masterAgent + subAgentFactory + 内置 SubAgent 创建逻辑。
  */
 

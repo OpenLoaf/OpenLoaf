@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { Component, useCallback, useEffect, useMemo, useRef, useState, useId, type ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";

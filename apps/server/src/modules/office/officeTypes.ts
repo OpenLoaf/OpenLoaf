@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport const OFFICE_APP_TYPES = ["docx", "excel", "ppt"] as const;
+export const OFFICE_APP_TYPES = ["docx", "excel", "ppt"] as const;
 export type OfficeAppType = (typeof OFFICE_APP_TYPES)[number];
 
 export const OFFICE_ACTIONS = [

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type ImageMeta = {
+export type ImageMeta = {
   /** Natural width of the image. */
   width: number;
   /** Natural height of the image. */

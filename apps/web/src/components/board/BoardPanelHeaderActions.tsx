@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo } from "react";
 import { Camera, Maximize2, Minimize2 } from "lucide-react";

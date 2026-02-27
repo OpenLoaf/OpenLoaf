@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { DragEndEvent } from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
 import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 import type { CalendarEvent } from '../types'
 

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseCommentPlugin } from '@platejs/comment';
+import { BaseCommentPlugin } from '@platejs/comment';
 
 import { CommentLeafStatic } from '@openloaf/ui/comment-node-static';
 

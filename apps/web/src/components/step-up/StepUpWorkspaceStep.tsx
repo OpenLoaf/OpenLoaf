@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { Cloud, HardDrive } from "lucide-react";
+import { Cloud, HardDrive } from "lucide-react";
 import { StepUpChoiceStep } from "@/components/step-up/StepUpChoiceStep";
 
 export type StepUpWorkspaceChoice = "local" | "cloud";

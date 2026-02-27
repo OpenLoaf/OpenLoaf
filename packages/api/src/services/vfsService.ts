@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { Workspace } from "../types/workspace";
 import { resolveFilePathFromUri, toFileUri, toFileUriWithoutEncoding } from "./fileUri";

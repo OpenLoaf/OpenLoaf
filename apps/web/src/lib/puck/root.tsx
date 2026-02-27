@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { DefaultRootProps, RootConfig } from "./core";
+import type { DefaultRootProps, RootConfig } from "./core";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 

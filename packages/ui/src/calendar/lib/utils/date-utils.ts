@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
+import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 
 /**
  * Calculates the week days for a given date and first day of week setting.

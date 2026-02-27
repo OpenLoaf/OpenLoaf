@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { memo, useMemo } from "react";
+import { memo, useMemo } from "react";
 
 import {
   Table,

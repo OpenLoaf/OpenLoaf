@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\ndeclare module "*.md" {
+declare module "*.md" {
   const content: string;
   export default content;
 }

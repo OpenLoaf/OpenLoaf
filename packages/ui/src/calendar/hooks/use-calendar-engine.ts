@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { BusinessHours, CalendarEvent } from '@openloaf/ui/calendar/components/types'
 import type { RecurrenceEditOptions } from '@openloaf/ui/calendar/features/recurrence/types'
 import {

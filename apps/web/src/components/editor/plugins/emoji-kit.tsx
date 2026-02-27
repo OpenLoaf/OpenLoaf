@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n'use client';
+'use client';
 
 import emojiMartData from '@emoji-mart/data';
 import { EmojiInputPlugin, EmojiPlugin } from '@platejs/emoji/react';

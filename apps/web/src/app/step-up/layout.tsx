@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 /** Provide shared layout chrome for the step-up flow. */
 export default function StepUpLayout({ children }: { children: ReactNode }) {

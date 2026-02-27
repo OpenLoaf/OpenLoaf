@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { memo } from 'react'
+import { memo } from 'react'
 import { DraggableEvent } from '@openloaf/ui/calendar/components/draggable-event/draggable-event'
 import { useProcessedWeekEvents } from '@openloaf/ui/calendar/features/calendar/hooks/useProcessedWeekEvents'
 import type dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'

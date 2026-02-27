@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type React from 'react'
+import type React from 'react'
 import { useMemo } from 'react'
 import { HorizontalGrid } from '@openloaf/ui/calendar/components/horizontal-grid/horizontal-grid'
 import { useCalendarContext } from '@openloaf/ui/calendar/features/calendar/contexts/calendar-context/context'

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { Calendar, Clock, Grid3x3 } from 'lucide-react'
+import { Calendar, Clock, Grid3x3 } from 'lucide-react'
 import type React from 'react'
 import { Button } from '@openloaf/ui/calendar/components/ui/button'
 import { useSmartCalendarContext } from '@openloaf/ui/calendar/hooks/use-smart-calendar-context'

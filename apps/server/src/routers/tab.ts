@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { BaseTabRouter, tabSchemas, t, shieldedProcedure } from "@openloaf/api";
+import { BaseTabRouter, tabSchemas, t, shieldedProcedure } from "@openloaf/api";
 import { tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
 
 export class TabRouterImpl extends BaseTabRouter {

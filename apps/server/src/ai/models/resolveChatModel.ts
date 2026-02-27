@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { LanguageModelV3 } from "@ai-sdk/provider";
+import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { getProviderSettings, type ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { type ChatModelSource, type ModelDefinition, type ModelTag } from "@openloaf/api/common";
 import { getModelDefinition, getProviderDefinition } from "@/ai/models/modelRegistry";

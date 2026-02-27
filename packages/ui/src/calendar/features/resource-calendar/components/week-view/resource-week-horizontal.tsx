@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type React from 'react'
+import type React from 'react'
 import { useMemo } from 'react'
 import { AnimatedSection } from '@openloaf/ui/calendar/components/animations/animated-section'
 import { getViewHours } from '@openloaf/ui/calendar/features/calendar/utils/view-hours'

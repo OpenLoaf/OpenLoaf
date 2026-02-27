@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * 通用 Agent 模型解析 — 从指定 agent 的配置读取模型 ID。
  *
  * 支持系统 agent（.openloaf/agents/）和动态 agent（.agents/agents/）。

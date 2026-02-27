@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Context, Hono } from "hono";
+import type { Context, Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { AiExecuteRequest, AiIntent, AiResponseMode } from "@/ai/services/chat/types";
 import { bootstrapAi } from "@/ai/bootstrap";

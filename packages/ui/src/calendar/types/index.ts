@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n/**
+/**
  * Available calendar view types.
  */
 export type CalendarView = 'month' | 'week' | 'day'

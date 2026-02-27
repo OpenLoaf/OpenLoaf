@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { EdgeProps, InternalNode, Node } from "@xyflow/react";
+import type { EdgeProps, InternalNode, Node } from "@xyflow/react";
 
 import {
   BaseEdge,

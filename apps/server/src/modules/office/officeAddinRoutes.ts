@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { Hono } from "hono";
+import type { Hono } from "hono";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { logger } from "@/common/logger";

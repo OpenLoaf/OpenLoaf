@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import type { ComponentProps, ReactNode } from "react";
 import type { TProps as JsxParserProps } from "react-jsx-parser";

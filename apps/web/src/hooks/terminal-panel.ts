@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport {
+import {
   TERMINAL_WINDOW_COMPONENT,
   TERMINAL_WINDOW_PANEL_ID,
   type DockItem,

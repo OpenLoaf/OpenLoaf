@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\ntype AuthCallbackPageOptions = {
+type AuthCallbackPageOptions = {
   message: string;
   returnUrl?: string;
 };

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\n"use client";
+"use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { CanvasEngine } from "../engine/CanvasEngine";

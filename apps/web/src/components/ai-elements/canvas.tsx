@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport type { ReactFlowProps } from "@xyflow/react";
+import type { ReactFlowProps } from "@xyflow/react";
 import type { ReactNode } from "react";
 
 import { Background, ReactFlow } from "@xyflow/react";

@@ -7,4 +7,4 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport { RecurrenceEditor } from './recurrence-editor'
+export { RecurrenceEditor } from './recurrence-editor'

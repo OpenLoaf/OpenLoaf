@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport type RunDailySummaryInput = {
+export type RunDailySummaryInput = {
   /** Project id. */
   projectId: string;
   /** Target date key (YYYY-MM-DD). */

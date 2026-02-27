@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nexport const quotes = [
+export const quotes = [
   {
     content:
       "Age is an issue of mind over matter. If you don't mind, it doesn't matter.",

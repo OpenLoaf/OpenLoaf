@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-\nimport { useState } from "react"
+import { useState } from "react"
 import { cn } from "@/lib/utils"
 
 interface FileNode {
