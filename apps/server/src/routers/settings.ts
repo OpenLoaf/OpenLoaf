@@ -45,6 +45,8 @@ import {
   installCliTool,
 } from "@/ai/models/cli/cliToolService";
 import { loadSkillSummaries } from "@/ai/services/skillsLoader";
+import { resolveMemoryContent } from "@/ai/shared/memoryLoader";
+import { readAgentJson, resolveAgentDir } from "@/ai/shared/defaultAgentResolver";
 import { loadAgentSummaries, readAgentConfigFromPath, serializeAgentToMarkdown } from "@/ai/services/agentConfigService";
 import { CAPABILITY_GROUPS } from "@/ai/tools/capabilityGroups";
 import { resolveSystemCliInfo } from "@/modules/settings/resolveSystemCliInfo";
@@ -1106,6 +1108,64 @@ export class SettingRouterImpl extends BaseSettingRouter {
         .output(settingSchemas.setBasic.output)
         .mutation(async ({ input }) => {
           return await setBasicConfigFromWeb(input);
+        }),
+      /** Get merged memory content for the master agent. */
+      getMemory: shieldedProcedure
+        .input(settingSchemas.getMemory.input)
+        .output(settingSchemas.getMemory.output)
+        .query(async ({ input }) => {
+          const workspaceRootPath = getWorkspaceRootPath();
+          const projectRootPath = input?.projectId
+            ? getProjectRootPath(input.projectId) ?? undefined
+            : undefined;
+          const parentProjectRootUris = input?.projectId
+            ? await resolveProjectAncestorRootUris(prisma, input.projectId)
+            : [];
+          const parentProjectRootPaths = parentProjectRootUris
+            .map((rootUri) => {
+              try {
+                return resolveFilePathFromUri(rootUri);
+              } catch {
+                return null;
+              }
+            })
+            .filter((p): p is string => Boolean(p));
+          const content = resolveMemoryContent({
+            workspaceRootPath,
+            projectRootPath,
+            parentProjectRootPaths,
+          });
+          return { content };
+        }),
+      /** Get skills for a sub-agent by name. */
+      getAgentSkillsByName: shieldedProcedure
+        .input(settingSchemas.getAgentSkillsByName.input)
+        .output(settingSchemas.getAgentSkillsByName.output)
+        .query(async ({ input }) => {
+          const workspaceRootPath = getWorkspaceRootPath();
+          const roots = [workspaceRootPath].filter(Boolean) as string[];
+          for (const rootPath of roots) {
+            const descriptor = readAgentJson(resolveAgentDir(rootPath, input.agentName));
+            if (descriptor) {
+              return { skills: Array.isArray(descriptor.skills) ? descriptor.skills : [] };
+            }
+          }
+          return { skills: [] };
+        }),
+      /** Save skills for a sub-agent by name. */
+      saveAgentSkillsByName: shieldedProcedure
+        .input(settingSchemas.saveAgentSkillsByName.input)
+        .output(settingSchemas.saveAgentSkillsByName.output)
+        .mutation(async ({ input }) => {
+          const workspaceRootPath = getWorkspaceRootPath();
+          if (!workspaceRootPath) throw new Error("No workspace root");
+          const agentDir = resolveAgentDir(workspaceRootPath, input.agentName);
+          const descriptor = readAgentJson(agentDir);
+          if (!descriptor) throw new Error(`Agent '${input.agentName}' not found`);
+          const jsonPath = path.join(agentDir, "agent.json");
+          const updated = { ...descriptor, skills: input.skills };
+          await fs.writeFile(jsonPath, JSON.stringify(updated, null, 2), "utf8");
+          return { ok: true };
         }),
     });
   }

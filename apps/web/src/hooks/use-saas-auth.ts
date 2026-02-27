@@ -164,11 +164,13 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
     const loginState = typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const isDark = document.documentElement.classList.contains("dark");
     const loginUrl = buildSaasLoginUrl({
       provider,
       returnTo: `openloaf-login:${loginState}`,
       from: "electron",
       port,
+      theme: isDark ? "dark" : "light",
     });
 
     set({

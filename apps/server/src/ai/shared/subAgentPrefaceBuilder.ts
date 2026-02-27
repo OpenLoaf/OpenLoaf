@@ -238,6 +238,8 @@ export async function buildSubAgentPrefaceText(input: {
   parentSessionId: string
   toolIds: readonly string[]
   requestContext: RequestContext
+  /** 子 agent 已启用的技能名列表。空数组或不传 = 不注入任何技能（子 agent 默认无技能）。 */
+  skills?: string[]
 }): Promise<string> {
   const capabilities = detectPrefaceCapabilities(input.toolIds)
 
@@ -305,8 +307,13 @@ export async function buildSubAgentPrefaceText(input: {
     sections.push(buildTaskDelegationRulesSection())
   }
 
-  // Skills 列表
-  sections.push(buildSkillsSummarySection(context.skillSummaries))
+  // Skills 列表（子 agent 默认无技能，仅勾选的才注入）
+  const activeSkills = input.skills?.length
+    ? context.skillSummaries.filter((s) => input.skills!.includes(s.name))
+    : []
+  if (activeSkills.length > 0) {
+    sections.push(buildSkillsSummarySection(activeSkills))
+  }
 
   // AGENTS 动态加载
   sections.push(buildAgentsDynamicLoadingSection())

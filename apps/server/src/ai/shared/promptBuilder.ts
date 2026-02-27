@@ -32,17 +32,21 @@ export function buildSkillsSummarySection(
   return lines.join('\n')
 }
 
-/** Build selected skills section for a session preface. */
-function buildSelectedSkillsSection(
+/** Build active skills section for a session preface (config-driven). */
+function buildActiveSkillsSection(
   selectedSkills: string[],
   summaries: PromptContext['skillSummaries'],
 ): string {
-  const lines = ['# 已选择技能（来自 /skill/ 指令）']
-  if (selectedSkills.length === 0) {
-    lines.push('- 无')
-    return lines.join('\n')
+  // 空数组 = 全部启用（向后兼容）
+  if (selectedSkills.length === 0 || selectedSkills.length >= summaries.length) {
+    return [
+      '# 已启用技能',
+      '- 所有技能均已启用，需要时读取对应 SKILL.md 获取完整指引。',
+      '- **当技能与可用子 Agent 功能重叠时，优先通过 spawn-agent 使用子 Agent。**',
+    ].join('\n')
   }
 
+  const lines = ['# 已启用技能']
   const summaryMap = new Map(summaries.map((summary) => [summary.name, summary]))
   for (const name of selectedSkills) {
     const summary = summaryMap.get(name)
@@ -52,6 +56,8 @@ function buildSelectedSkillsSection(
     }
     lines.push(`- ${summary.name} [${summary.scope}] (path: \`${summary.path}\`)`)
   }
+  lines.push('')
+  lines.push('- **当技能与可用子 Agent 功能重叠时，优先通过 spawn-agent 使用子 Agent。**')
   return lines.join('\n')
 }
 
@@ -206,7 +212,7 @@ export function buildAgentSections(
 /** Build master agent context sections for session preface. */
 export function buildMasterAgentSections(context: PromptContext): string[] {
   const skillsSummarySection = buildSkillsSummarySection(context.skillSummaries)
-  const selectedSkillsSection = buildSelectedSkillsSection(
+  const activeSkillsSection = buildActiveSkillsSection(
     context.selectedSkills,
     context.skillSummaries,
   )
@@ -216,7 +222,7 @@ export function buildMasterAgentSections(context: PromptContext): string[] {
     buildPythonRuntimeSection(context),
     buildProjectRulesSection(context),
     skillsSummarySection,
-    selectedSkillsSection,
+    activeSkillsSection,
     buildExecutionRulesSection(),
     buildFileReferenceRulesSection(),
     buildTaskDelegationRulesSection(),

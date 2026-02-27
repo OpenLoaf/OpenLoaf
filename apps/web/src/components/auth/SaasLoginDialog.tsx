@@ -181,33 +181,31 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
             {isLoginInProgress ? (
               <div className="space-y-3">
                 {selectedProvider === "wechat" && !isClosingAfterLogin ? (
-                  <div className="relative -mx-8 h-[340px] overflow-hidden" style={{ width: 'calc(100% + 64px)' }}>
-                    <div className="absolute left-1/2 h-[340px] w-[540px] -translate-x-1/2 overflow-hidden pt-16">
-                      {!iframeLoaded && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background">
-                          <svg
-                            className="h-6 w-6 animate-spin text-muted-foreground"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          <span className="text-sm text-muted-foreground">正在加载微信扫码…</span>
-                        </div>
+                  <div className="relative h-[340px]">
+                    {!iframeLoaded && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                        <svg
+                          className="h-6 w-6 animate-spin text-muted-foreground"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        <span className="text-sm text-muted-foreground">正在加载微信扫码…</span>
+                      </div>
+                    )}
+                    <iframe
+                      title="wechat-login"
+                      src={wechatLoginUrl ?? undefined}
+                      scrolling="no"
+                      onLoad={() => setIframeLoaded(true)}
+                      className={cn(
+                        "h-full w-full border-none",
+                        !iframeLoaded && "invisible",
                       )}
-                      <iframe
-                        title="wechat-login"
-                        src={wechatLoginUrl ?? undefined}
-                        scrolling="no"
-                        onLoad={() => setIframeLoaded(true)}
-                        className={cn(
-                          "h-full w-full border-none bg-background",
-                          !iframeLoaded && "invisible",
-                        )}
-                      />
-                    </div>
+                    />
                   </div>
                 ) : null}
                 {isClosingAfterLogin ? (

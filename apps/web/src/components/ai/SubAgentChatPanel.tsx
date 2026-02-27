@@ -11,7 +11,7 @@
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
-import { BotIcon } from 'lucide-react'
+import { BotIcon, Sparkles } from 'lucide-react'
 import { useTabs } from '@/hooks/use-tabs'
 import { useChatRuntime } from '@/hooks/use-chat-runtime'
 import { renderMessageParts } from '@/components/ai/message/renderMessageParts'
@@ -20,7 +20,85 @@ import { ChatStateProvider } from '@/components/ai/context/ChatStateContext'
 import { ChatToolProvider } from '@/components/ai/context/ChatToolContext'
 import { ChatSessionProvider } from '@/components/ai/context/ChatSessionContext'
 import { ChatActionsProvider, type ChatActionsContextValue } from '@/components/ai/context/ChatActionsContext'
-import { trpcClient } from '@/utils/trpc'
+import { trpcClient, trpc, queryClient } from '@/utils/trpc'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { Popover, PopoverContent, PopoverTrigger } from '@openloaf/ui/popover'
+import { Checkbox } from '@openloaf/ui/checkbox'
+import { toast } from 'sonner'
+
+type SkillSummary = {
+  name: string
+  description: string
+}
+
+/** Inline skills popover for a sub-agent. */
+function SubAgentSkillsPopover({ agentName, projectId }: { agentName: string; projectId?: string }) {
+  const skillsQuery = useQuery(
+    trpc.settings.getSkills.queryOptions(projectId ? { projectId } : undefined),
+  )
+  const agentSkillsQuery = useQuery(
+    trpc.settings.getAgentSkillsByName.queryOptions({ agentName }),
+  )
+  const saveMutation = useMutation(
+    trpc.settings.saveAgentSkillsByName.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.settings.getAgentSkillsByName.queryOptions({ agentName }).queryKey,
+        })
+        toast.success('已保存技能配置')
+      },
+    }),
+  )
+
+  const availableSkills = React.useMemo(
+    () => (skillsQuery.data ?? []) as SkillSummary[],
+    [skillsQuery.data],
+  )
+  const enabledSkills = agentSkillsQuery.data?.skills ?? []
+
+  const handleToggle = React.useCallback((skillName: string, checked: boolean) => {
+    const next = checked
+      ? [...enabledSkills, skillName]
+      : enabledSkills.filter((s) => s !== skillName)
+    saveMutation.mutate({ agentName, skills: next })
+  }, [agentName, enabledSkills, saveMutation])
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
+          aria-label="管理技能"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 p-2">
+        <div className="mb-1.5 text-xs font-medium text-muted-foreground">技能</div>
+        {availableSkills.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground">暂无可用技能</p>
+        ) : (
+          <div className="max-h-48 space-y-1 overflow-y-auto">
+            {availableSkills.map((skill) => (
+              <label
+                key={skill.name}
+                className="flex items-start gap-2 rounded-md px-1.5 py-1 text-[11px] leading-tight hover:bg-muted/40"
+              >
+                <Checkbox
+                  checked={enabledSkills.includes(skill.name)}
+                  onCheckedChange={(checked) => handleToggle(skill.name, Boolean(checked))}
+                  className="mt-0.5"
+                />
+                <span className="truncate">{skill.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 /** Status badge for the panel header. */
 function StatusBadge({ stream, hasHistory }: {
@@ -214,6 +292,7 @@ export default function SubAgentChatPanel({
       <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
         <BotIcon className="size-4 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{agentName}</span>
+        <SubAgentSkillsPopover agentName={agentName} />
         <StatusBadge stream={stream} hasHistory={!!historyData} />
       </div>
 

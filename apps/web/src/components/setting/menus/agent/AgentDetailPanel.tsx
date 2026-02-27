@@ -51,6 +51,7 @@ import {
   Gauge,
   MessageSquare,
   Trash2,
+  Brain,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -809,6 +810,12 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     [skillsQuery.data],
   )
 
+  // 逻辑：仅主助手加载 memory 内容。
+  const memoryQuery = useQuery({
+    ...trpc.settings.getMemory.queryOptions(projectId ? { projectId } : undefined),
+    enabled: isMasterAgent && !isNew,
+  })
+
   // 逻辑：详情加载后回填表单并保存初始快照。
   useEffect(() => {
     if (!detailQuery.data) return
@@ -841,7 +848,12 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     setImageModelIds(Array.isArray(d.imageModelIds) ? d.imageModelIds : [])
     setVideoModelIds(Array.isArray(d.videoModelIds) ? d.videoModelIds : [])
     setToolIds(Array.isArray(d.toolIds) ? d.toolIds : [])
-    setSkills(d.skills)
+    // 逻辑：主助手默认全选技能 — 如果 config 中 skills 为空数组，初始化为所有可用技能。
+    const resolvedSkills =
+      isMasterAgent && Array.isArray(d.skills) && d.skills.length === 0 && availableSkills.length > 0
+        ? availableSkills.map((s) => s.name)
+        : d.skills
+    setSkills(resolvedSkills)
     setAllowSubAgents(d.allowSubAgents)
     setMaxDepth(d.maxDepth)
     setSystemPrompt(d.systemPrompt)
@@ -863,7 +875,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       imageModelIds: Array.isArray(d.imageModelIds) ? d.imageModelIds : [],
       videoModelIds: Array.isArray(d.videoModelIds) ? d.videoModelIds : [],
       toolIds: Array.isArray(d.toolIds) ? d.toolIds : [],
-      skills: d.skills,
+      skills: resolvedSkills,
       allowSubAgents: d.allowSubAgents,
       maxDepth: d.maxDepth,
       systemPrompt: d.systemPrompt,
@@ -886,12 +898,12 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       imageModelIds: Array.isArray(d.imageModelIds) ? d.imageModelIds : [],
       videoModelIds: Array.isArray(d.videoModelIds) ? d.videoModelIds : [],
       toolIds: Array.isArray(d.toolIds) ? d.toolIds : [],
-      skills: d.skills,
+      skills: resolvedSkills,
       allowSubAgents: d.allowSubAgents,
       maxDepth: d.maxDepth,
       systemPrompt: d.systemPrompt,
     }))
-  }, [basic.chatSource, detailQuery.data, isMasterAgent])
+  }, [availableSkills, basic.chatSource, detailQuery.data, isMasterAgent])
 
   // 逻辑：新建模式初始化空快照。
   useEffect(() => {
@@ -1675,6 +1687,15 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     <ScrollText className="mr-1 h-3 w-3 text-amber-500" />
                     系统提示词
                   </TabsTrigger>
+                  {isMasterAgent ? (
+                    <TabsTrigger
+                      value="memory"
+                      className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
+                    >
+                      <Brain className="mr-1 h-3 w-3 text-emerald-500" />
+                      记忆
+                    </TabsTrigger>
+                  ) : null}
                 </TabsList>
                 <Button
                   type="button"
@@ -1705,33 +1726,48 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
               <TabsContent value="skills" className="mt-0">
                 <div className="py-3">
                   {availableSkills.length > 0 ? (
-                    <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr))]">
-                      {availableSkills.map((skill) => {
-                        const isSelected = skills.includes(skill.name)
-                        return (
-                          <label
-                            key={skill.ignoreKey || skill.path || skill.name}
-                            className="flex cursor-pointer flex-col rounded-[22px] bg-zinc-100 p-3.5 transition-colors hover:bg-zinc-200/75 dark:bg-zinc-800 dark:hover:bg-zinc-700/85"
-                          >
-                            <div className="flex items-start gap-2">
-                              <Checkbox
-                                checked={isSelected}
-                                onCheckedChange={(checked) =>
-                                  handleToggleSkill(skill.name, Boolean(checked))
-                                }
-                                className="mt-0.5"
-                              />
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-medium">{skill.name}</div>
-                                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                                  {skill.description?.trim() || skill.name}
-                                </p>
+                    <>
+                      <div className="mb-2 flex items-center justify-end">
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={() => {
+                            const allNames = availableSkills.map((s) => s.name)
+                            const allSelected = allNames.every((n) => skills.includes(n))
+                            setSkills(allSelected ? [] : allNames)
+                          }}
+                        >
+                          {availableSkills.every((s) => skills.includes(s.name)) ? '全不选' : '全选'}
+                        </button>
+                      </div>
+                      <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr))]">
+                        {availableSkills.map((skill) => {
+                          const isSelected = skills.includes(skill.name)
+                          return (
+                            <label
+                              key={skill.ignoreKey || skill.path || skill.name}
+                              className="flex cursor-pointer flex-col rounded-[22px] bg-zinc-100 p-3.5 transition-colors hover:bg-zinc-200/75 dark:bg-zinc-800 dark:hover:bg-zinc-700/85"
+                            >
+                              <div className="flex items-start gap-2">
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={(checked) =>
+                                    handleToggleSkill(skill.name, Boolean(checked))
+                                  }
+                                  className="mt-0.5"
+                                />
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-medium">{skill.name}</div>
+                                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                                    {skill.description?.trim() || skill.name}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          </label>
-                        )
-                      })}
-                    </div>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </>
                   ) : (
                     <p className="text-xs text-muted-foreground">暂无可用技能</p>
                   )}
@@ -1751,6 +1787,30 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                   </OpenLoafSettingsCard>
                 </div>
               </TabsContent>
+
+              {isMasterAgent ? (
+                <TabsContent value="memory" className="mt-0">
+                  <div className="py-3">
+                    {memoryQuery.isLoading ? (
+                      <p className="text-xs text-muted-foreground">加载中...</p>
+                    ) : memoryQuery.data?.content ? (
+                      <OpenLoafSettingsCard padding="none">
+                        <pre className="whitespace-pre-wrap break-words p-4 font-mono text-xs leading-relaxed text-foreground/80">
+                          {memoryQuery.data.content}
+                        </pre>
+                      </OpenLoafSettingsCard>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 py-6 text-muted-foreground">
+                        <Brain className="h-8 w-8 opacity-40" />
+                        <p className="text-xs">暂无记忆内容</p>
+                        <p className="text-[10px]">
+                          在 .openloaf/agents/default/ 目录下创建 MEMORY.md 文件以添加记忆。
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              ) : null}
           </Tabs>
         </div>
       </div>

@@ -17,6 +17,7 @@ import type { OpenLoafUIMessage, TokenUsage } from "@openloaf/api/types/message"
 import { createMasterAgentRunner } from "@/ai";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import { resolveAgentModelIdsFromConfig } from "@/ai/shared/resolveAgentModelFromConfig";
+import { readAgentJson, resolveAgentDir } from "@/ai/shared/defaultAgentResolver";
 import {
   setChatModel,
   setAbortSignal,
@@ -159,6 +160,32 @@ function normalizeSelectedSkills(input?: unknown): string[] {
   return normalized;
 }
 
+/** Resolve active skills from master agent config.
+ *  Empty array = all skills enabled (backward compatible). */
+function resolveAgentSkills(input: {
+  workspaceId?: string
+  projectId?: string
+}): string[] {
+  const roots: string[] = []
+  if (input.projectId) {
+    const projectRoot = getProjectRootPath(input.projectId)
+    if (projectRoot) roots.push(projectRoot)
+  }
+  if (input.workspaceId) {
+    const wsRoot = getWorkspaceRootPathById(input.workspaceId)
+    if (wsRoot) roots.push(wsRoot)
+  }
+  const fallbackWs = getWorkspaceRootPath()
+  if (fallbackWs && !roots.includes(fallbackWs)) roots.push(fallbackWs)
+
+  for (const rootPath of roots) {
+    const descriptor = readAgentJson(resolveAgentDir(rootPath, 'master'))
+    if (!descriptor) continue
+    if (Array.isArray(descriptor.skills)) return descriptor.skills
+  }
+  return []
+}
+
 /** Extract plain text from UI message parts. */
 function extractTextFromParts(parts: unknown[]): string {
   const items = Array.isArray(parts) ? (parts as any[]) : [];
@@ -238,7 +265,9 @@ export async function runChatStream(input: {
   const chatModelId = agentModelIds.chatModelId
   const chatModelSource = agentModelIds.chatModelSource
 
-  const selectedSkills = normalizeSelectedSkills((input.request as any)?.selectedSkills);
+  // 逻辑：优先从 master agent config 读取已启用技能，/skill/ 命令作为临时覆盖。
+  const configSkills = resolveAgentSkills({ workspaceId, projectId })
+  const selectedSkills = configSkills
   const { abortController, assistantMessageId, requestStartAt } = initRequestContext({
     sessionId,
     cookies: input.cookies,
@@ -543,7 +572,7 @@ export async function runChatImageRequest(input: {
   const chatModelId = imageAgentModelIds.chatModelId
   const chatModelSource = imageAgentModelIds.chatModelSource
 
-  const selectedSkills = normalizeSelectedSkills((input.request as any)?.selectedSkills);
+  const selectedSkills = resolveAgentSkills({ workspaceId, projectId })
   const { abortController, assistantMessageId, requestStartAt } = initRequestContext({
     sessionId,
     cookies: input.cookies,

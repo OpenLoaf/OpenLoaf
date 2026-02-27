@@ -32,9 +32,11 @@ function stripTotalUsageFromMetadata(message: any) {
 export function createChatTransport({
   paramsRef,
   tabIdRef,
+  sessionIdRef,
 }: {
   paramsRef: RefObject<Record<string, unknown> | undefined>;
   tabIdRef: RefObject<string | null | undefined>;
+  sessionIdRef?: RefObject<string | undefined>;
 }) {
   // 中文注释：新版聊天统一走 /ai/chat。
   const apiBase = `${resolveServerUrl()}/ai/chat`;
@@ -64,9 +66,12 @@ export function createChatTransport({
       } = bodyRecord;
       // 中文注释：自定义字段直接合并到顶层，不再使用 params。
       const basePayload = { ...baseParams, ...restBody };
+      // 关键：优先使用 sessionIdRef（来自 ChatCoreProvider 的最新 sessionId），
+      // 避免 AI SDK Chat 实例的 id 在 session 切换时因 React 渲染时序未及时更新而发送旧 sessionId。
+      const resolvedSessionId = sessionIdRef?.current ?? id;
       const payloadBase: ChatRequestBody = {
         ...basePayload,
-        sessionId: id,
+        sessionId: resolvedSessionId,
         clientId: clientId || undefined,
         timezone,
         tabId,

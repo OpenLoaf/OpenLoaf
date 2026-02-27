@@ -369,7 +369,15 @@ function resolveFilteredSkillSummaries(input: {
   });
   const allowedSkillNames = new Set(filteredSummaries.map((summary) => summary.name));
   const filteredSelectedSkills = input.selectedSkills.filter((name) => allowedSkillNames.has(name));
-  return { summaries: filteredSummaries, selectedSkills: filteredSelectedSkills };
+  // 逻辑：如果 agent config 中启用了特定技能（非空数组），只保留这些技能的摘要。
+  // 空数组 = 全部启用（向后兼容）。
+  const activeSkillNames = filteredSelectedSkills.length > 0
+    ? new Set(filteredSelectedSkills)
+    : null;
+  const activeSummaries = activeSkillNames
+    ? filteredSummaries.filter((summary) => activeSkillNames.has(summary.name))
+    : filteredSummaries;
+  return { summaries: activeSummaries, selectedSkills: filteredSelectedSkills };
 }
 
 /** Resolve prompt context for session preface. */

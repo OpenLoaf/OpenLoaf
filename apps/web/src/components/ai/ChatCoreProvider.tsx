@@ -616,7 +616,7 @@ export default function ChatCoreProvider({
   );
 
   const transport = React.useMemo(() => {
-    return createChatTransport({ paramsRef, tabIdRef });
+    return createChatTransport({ paramsRef, tabIdRef, sessionIdRef });
   }, []);
 
   const onFinish = React.useCallback(
@@ -894,7 +894,11 @@ export default function ChatCoreProvider({
   const newSession = React.useCallback(() => {
     // 中文注释：立即清空，避免 UI 闪回旧消息。
     stopAndResetSession(true);
-    onSessionChange?.(createChatSessionId(), {
+    const nextSessionId = createChatSessionId();
+    // 关键：立即更新 sessionIdRef，确保 transport 在后续请求中使用新 sessionId，
+    // 不依赖 React 重渲染时序（独立 React root + Zustand 可能存在延迟传播）。
+    sessionIdRef.current = nextSessionId;
+    onSessionChange?.(nextSessionId, {
       loadHistory: false,
       replaceCurrent: true,
     });
@@ -904,6 +908,8 @@ export default function ChatCoreProvider({
     (nextSessionId: string) => {
       // 中文注释：立即清空，避免 UI 闪回旧消息。
       stopAndResetSession(true);
+      // 关键：同 newSession，立即更新 ref 避免渲染延迟导致旧 sessionId 被发送。
+      sessionIdRef.current = nextSessionId;
       onSessionChange?.(nextSessionId, {
         loadHistory: true,
         replaceCurrent: true,

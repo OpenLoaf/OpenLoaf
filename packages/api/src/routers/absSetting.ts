@@ -300,6 +300,34 @@ export const settingSchemas = {
     input: basicConfigUpdateSchema,
     output: basicConfigSchema,
   },
+  /** Get memory content for the master agent. */
+  getMemory: {
+    input: z
+      .object({
+        projectId: z.string().optional(),
+      })
+      .optional(),
+    output: z.object({
+      content: z.string(),
+    }),
+  },
+  /** Get skills for a sub-agent by name. */
+  getAgentSkillsByName: {
+    input: z.object({
+      agentName: z.string(),
+    }),
+    output: z.object({
+      skills: z.array(z.string()),
+    }),
+  },
+  /** Save skills for a sub-agent by name. */
+  saveAgentSkillsByName: {
+    input: z.object({
+      agentName: z.string(),
+      skills: z.array(z.string()),
+    }),
+    output: z.object({ ok: z.boolean() }),
+  },
 };
 
 export abstract class BaseSettingRouter {
@@ -429,6 +457,24 @@ export abstract class BaseSettingRouter {
       setBasic: shieldedProcedure
         .input(settingSchemas.setBasic.input)
         .output(settingSchemas.setBasic.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getMemory: shieldedProcedure
+        .input(settingSchemas.getMemory.input)
+        .output(settingSchemas.getMemory.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getAgentSkillsByName: shieldedProcedure
+        .input(settingSchemas.getAgentSkillsByName.input)
+        .output(settingSchemas.getAgentSkillsByName.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      saveAgentSkillsByName: shieldedProcedure
+        .input(settingSchemas.saveAgentSkillsByName.input)
+        .output(settingSchemas.saveAgentSkillsByName.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

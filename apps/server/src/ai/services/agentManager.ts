@@ -18,6 +18,7 @@ import {
 import {
   resolveAgentType,
   createSubAgent,
+  resolveEffectiveAgentName,
 } from '@/ai/services/agentFactory'
 import { buildModelMessages } from '@/ai/shared/messageConverter'
 import {
@@ -30,6 +31,13 @@ import {
   writeAgentSessionJson,
 } from '@/ai/services/chat/repositories/messageStore'
 import { buildSubAgentPrefaceText } from '@/ai/shared/subAgentPrefaceBuilder'
+import { resolveAgentDir, readAgentJson } from '@/ai/shared/defaultAgentResolver'
+import { isSystemAgentId } from '@/ai/shared/systemAgentDefinitions'
+import {
+  getWorkspaceRootPath,
+  getWorkspaceRootPathById,
+  getProjectRootPath,
+} from '@openloaf/api/services/vfsService'
 import { logger } from '@/common/logger'
 
 export type AgentStatus =
@@ -88,6 +96,34 @@ export type ManagedAgent = {
 
 const MAX_DEPTH = 2
 const MAX_CONCURRENT = 4
+
+/** Resolve skills from a sub-agent's config (empty = no skills). */
+function resolveSubAgentSkills(
+  agentName: string,
+  requestContext: RequestContext,
+): string[] {
+  const effectiveName = resolveEffectiveAgentName(agentName)
+  if (!isSystemAgentId(effectiveName)) return []
+
+  const roots: string[] = []
+  if (requestContext.projectId) {
+    const projectRoot = getProjectRootPath(requestContext.projectId)
+    if (projectRoot) roots.push(projectRoot)
+  }
+  if (requestContext.workspaceId) {
+    const wsRoot = getWorkspaceRootPathById(requestContext.workspaceId)
+    if (wsRoot) roots.push(wsRoot)
+  }
+  const fallbackWs = getWorkspaceRootPath()
+  if (fallbackWs && !roots.includes(fallbackWs)) roots.push(fallbackWs)
+
+  for (const rootPath of roots) {
+    const descriptor = readAgentJson(resolveAgentDir(rootPath, effectiveName))
+    if (!descriptor) continue
+    return Array.isArray(descriptor.skills) ? descriptor.skills : []
+  }
+  return []
+}
 
 /**
  * 清理从 JSONL 恢复的消息中残留的 approval-requested 状态。
@@ -314,6 +350,7 @@ class AgentManager {
           const historySessionId = spawnContext.sessionId ?? getSessionId()
 
           // 逻辑：异步生成 preface，不阻塞 agent 启动（失败时降级为无 preface）。
+          const agentSkills = resolveSubAgentSkills(agent.name, spawnContext.requestContext)
           try {
             agent.preface = await buildSubAgentPrefaceText({
               agentId: agent.id,
@@ -321,6 +358,7 @@ class AgentManager {
               parentSessionId: historySessionId ?? '',
               toolIds: resolvedToolIds,
               requestContext: spawnContext.requestContext,
+              skills: agentSkills,
             })
           } catch (err) {
             logger.warn({ agentId: id, err }, '[agent-manager] preface generation failed, continuing without preface')
