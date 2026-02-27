@@ -22,7 +22,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react"
-import { Button } from "@openloaf/ui/button"
 import { toast } from "sonner"
 import { useTabs } from "@/hooks/use-tabs"
 import { useTabRuntime } from "@/hooks/use-tab-runtime"
@@ -42,7 +41,8 @@ interface HelpPage {
   icon: React.ElementType
   /** Tailwind classes for icon background and text color (light + dark). */
   iconColorClass: string
-  action?: { label: string; action: HelpAction }
+  /** Double-click action to trigger. */
+  action?: HelpAction
 }
 
 const HELP_PAGES: HelpPage[] = [
@@ -60,7 +60,7 @@ const HELP_PAGES: HelpPage[] = [
     icon: MessageSquareText,
     iconColorClass:
       "bg-[#f3e8fd] text-[#9334e6] dark:bg-violet-900/40 dark:text-violet-300",
-    action: { label: "打开 AI 对话", action: "open-ai-chat" },
+    action: "open-ai-chat",
   },
   {
     title: "底部导航栏",
@@ -76,7 +76,7 @@ const HELP_PAGES: HelpPage[] = [
     icon: Search,
     iconColorClass:
       "bg-[#e8f0fe] text-[#1a73e8] dark:bg-sky-900/50 dark:text-sky-200",
-    action: { label: "试一试", action: "open-search" },
+    action: "open-search",
   },
   {
     title: "日历管理",
@@ -84,7 +84,7 @@ const HELP_PAGES: HelpPage[] = [
     icon: CalendarDays,
     iconColorClass:
       "bg-[#e6f4ea] text-[#188038] dark:bg-emerald-900/40 dark:text-emerald-300",
-    action: { label: "打开日历", action: "open-calendar" },
+    action: "open-calendar",
   },
   {
     title: "邮件收发",
@@ -92,7 +92,7 @@ const HELP_PAGES: HelpPage[] = [
     icon: Mail,
     iconColorClass:
       "bg-[#fef7e0] text-[#e37400] dark:bg-amber-900/40 dark:text-amber-300",
-    action: { label: "打开邮箱", action: "open-email" },
+    action: "open-email",
   },
   {
     title: "任务看板",
@@ -100,7 +100,7 @@ const HELP_PAGES: HelpPage[] = [
     icon: KanbanSquare,
     iconColorClass:
       "bg-[#fef7e0] text-[#e37400] dark:bg-amber-900/40 dark:text-amber-300",
-    action: { label: "打开任务", action: "open-tasks" },
+    action: "open-tasks",
   },
   {
     title: "个性化桌面",
@@ -278,7 +278,7 @@ export default function HelpWidget() {
   )
 }
 
-/** Single carousel slide. */
+/** Single carousel slide. Click on the content area to trigger the action (if any). */
 function HelpSlide({
   page,
   onAction,
@@ -287,34 +287,32 @@ function HelpSlide({
   onAction: (action: HelpAction) => void
 }) {
   const Icon = page.icon
+  const handleClick = page.action
+    ? () => onAction(page.action!)
+    : undefined
   return (
-    <div className="flex h-full w-full shrink-0 flex-col items-center justify-center gap-2 px-6">
+    <div className="flex h-full w-full shrink-0 items-center justify-center px-6">
       <div
         className={cn(
-          "flex size-10 items-center justify-center rounded-xl",
-          page.iconColorClass,
+          "flex flex-col items-center gap-2",
+          page.action &&
+            "cursor-pointer rounded-xl px-5 py-3 transition-colors duration-150 hover:bg-accent/60",
         )}
+        onClick={handleClick}
       >
-        <Icon className="size-5" />
-      </div>
-      <div className="text-center text-sm font-medium">{page.title}</div>
-      <div className="max-w-[280px] text-center text-xs leading-relaxed text-muted-foreground">
-        {page.description}
-      </div>
-      {page.action ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
+        <div
           className={cn(
-            "mt-1 h-7 rounded-full px-3 text-xs transition-colors duration-150",
+            "flex size-10 items-center justify-center rounded-xl",
             page.iconColorClass,
           )}
-          onClick={() => onAction(page.action!.action)}
         >
-          {page.action.label}
-        </Button>
-      ) : null}
+          <Icon className="size-5" />
+        </div>
+        <div className="text-center text-sm font-medium">{page.title}</div>
+        <div className="max-w-[380px] text-center text-xs leading-relaxed text-muted-foreground">
+          {page.description}
+        </div>
+      </div>
     </div>
   )
 }

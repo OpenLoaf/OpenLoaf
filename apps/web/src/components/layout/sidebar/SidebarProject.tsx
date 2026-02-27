@@ -40,7 +40,6 @@ import {
 } from "@openloaf/ui/dialog";
 import { Input } from "@openloaf/ui/input";
 import { Label } from "@openloaf/ui/label";
-import { Collapsible as CollapsiblePrimitive } from "radix-ui";
 import { PageTreeMenu } from "./ProjectTree";
 import { toast } from "sonner";
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
@@ -108,7 +107,6 @@ export const SidebarProject = () => {
     {}
   );
 
-  const [isPlatformOpen, setIsPlatformOpen] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [createTitle, setCreateTitle] = useState("");
@@ -240,18 +238,10 @@ export const SidebarProject = () => {
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div className="flex h-full flex-col">
-            <CollapsiblePrimitive.Root
-              open={isPlatformOpen}
-              onOpenChange={setIsPlatformOpen}
-              asChild
-            >
               <SidebarGroup className="group pt-0">
-                <CollapsiblePrimitive.Trigger asChild>
-                  <SidebarGroupLabel className="cursor-pointer">
+                  <SidebarGroupLabel>
                     <span className="text-muted-foreground">项目文件夹</span>
                   </SidebarGroupLabel>
-                </CollapsiblePrimitive.Trigger>
-                <CollapsiblePrimitive.Content className="data-[state=closed]:overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down data-[state=open]:overflow-visible">
                   <SidebarMenu>
                     {projectListQuery.isLoading || isManualRefresh ? (
                       <ProjectTreeSkeleton />
@@ -265,9 +255,7 @@ export const SidebarProject = () => {
                       />
                     )}
                   </SidebarMenu>
-                </CollapsiblePrimitive.Content>
               </SidebarGroup>
-            </CollapsiblePrimitive.Root>
             <div className="flex-1" />
           </div>
         </ContextMenuTrigger>

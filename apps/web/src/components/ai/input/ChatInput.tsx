@@ -15,6 +15,8 @@ import {
   Mic,
   Globe,
   Paperclip,
+  Sparkles,
+  Settings2,
 } from "lucide-react";
 import { useChatActions, useChatOptions, useChatSession, useChatState } from "../context";
 import { cn } from "@/lib/utils";
@@ -180,10 +182,14 @@ export interface ChatInputBoxProps {
   header?: ReactNode;
   /** Whether input should be blocked and replaced by action buttons. */
   blocked?: boolean;
+  /** Blocked reason hint for overlay wording. */
+  blockedReason?: 'cloud-login' | 'unconfigured';
   /** Open SaaS login dialog when input is blocked. */
   onRequestLogin?: () => void;
   /** Open local model configuration when input is blocked. */
   onRequestLocalConfig?: () => void;
+  /** Switch to local model source when input is blocked in cloud mode. */
+  onRequestSwitchLocal?: () => void;
   onDropHandled?: () => void;
   /** Default project id for file selection. */
   defaultProjectId?: string;
@@ -235,8 +241,10 @@ export function ChatInputBox({
   canAttachImage = false,
   header,
   blocked = false,
+  blockedReason,
   onRequestLogin,
   onRequestLocalConfig,
+  onRequestSwitchLocal,
   onDropHandled,
   defaultProjectId,
   workspaceId,
@@ -741,199 +749,216 @@ export function ChatInputBox({
           {header}
         </div>
       ) : null}
-      <PromptInput
-        onSubmit={() => {
-          handleSubmit();
-        }}
-        className="flex flex-col"
-      >
-        <ChatImageAttachments
-          ref={imageAttachmentsRef}
-          attachments={attachments}
-          onAddAttachments={onAddAttachments}
-          onRemoveAttachment={onRemoveAttachment}
-          onReplaceMaskedAttachment={onReplaceMaskedAttachment}
-          enableEdit={attachmentEditEnabled}
-          projectId={defaultProjectId}
-        />
-
-        <div
-          className={cn(
-            "flex-1 min-h-0",
-            attachments && attachments.length > 0 && "pt-1"
-          )}
-        >
-          <div className="w-full h-full min-h-0 overflow-auto show-scrollbar">
-            <PromptInputTextarea
-              value={value}
-              onChange={(event) => onChange(event.currentTarget.value)}
-              className={cn(
-                "text-[13px] leading-5 px-3 py-2.5",
-                isOverLimit && "text-destructive",
-              )}
-              placeholder={placeholder}
-              onKeyDown={handleKeyDown}
-              data-openloaf-chat-input="true"
-            />
-          </div>
-        </div>
-
-        <PromptInputFooter className="items-end gap-2 px-1.5 pb-0.5 shrink-0 min-w-0">
-          <PromptInputTools className="min-w-0 flex-1 gap-1.5 overflow-hidden">
-            {!compact ? (
-              <PromptInputButton
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                onClick={() => setFilePickerOpen(true)}
-                disabled={!canAttachAll && !canAttachImage}
-                aria-label="添加附件"
-              >
-                <Paperclip className="w-4 h-4" />
-              </PromptInputButton>
-            ) : null}
-            {!compact && hasReasoningModel ? (
-              <ThinkingModeSelector value={thinkingMode} onChange={handleThinkingModeChange} />
-            ) : null}
-          </PromptInputTools>
-
-          <PromptInputTools className="shrink-0 gap-1.5">
-            {isOverLimit && (
-              <span
-                className={cn(
-                  "text-[10px] font-medium transition-colors mr-1",
-                  "text-destructive"
-                )}
-              >
-                {plainTextValue.length} / {MAX_CHARS}
-              </span>
-            )}
-
-            {!compact ? (
-              <PromptInputButton
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className={cn(
-                  "rounded-full w-8 h-8 shrink-0 transition-colors",
-                  onlineSearchEnabled
-                    ? "bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] dark:bg-sky-500/20 dark:text-sky-200 dark:hover:bg-sky-500/30"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-                aria-pressed={onlineSearchEnabled}
-                onClick={() => onOnlineSearchChange?.(!onlineSearchEnabled)}
-                aria-label="联网搜索"
-              >
-                <Globe className="w-4 h-4" />
-              </PromptInputButton>
-            ) : null}
-
-            {!compact ? <SelectMode triggerVariant="icon" className="shrink-0" /> : null}
-
-            {actionVariant === "text" && onCancel && (
-              <PromptInputButton
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 rounded-full px-2.5 text-xs shadow-none"
-                onClick={onCancel}
-              >
-                {cancelLabel}
-              </PromptInputButton>
-            )}
-
-            {!compact && isDictationSupported && (
-              <PromptInputButton
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className={cn(
-                  "rounded-full w-8 h-8 shrink-0 transition-colors",
-                  isListening
-                    ? "bg-primary/10 text-primary hover:bg-primary/15"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-                aria-pressed={isListening}
-                onClick={() => void toggleDictation()}
-                aria-label="语音输入"
-              >
-                <Mic className={cn("w-4 h-4", isListening && "text-destructive")} />
-              </PromptInputButton>
-            )}
-
-            {actionVariant === "text" ? (
-              <PromptInputButton
-                type={canSubmit ? "submit" : "button"}
-                disabled={isSendDisabled}
-                size="sm"
-                className={cn(
-                  "h-8 rounded-full px-3 text-xs shrink-0 disabled:opacity-100",
-                  canSubmit
-                    ? "bg-primary hover:bg-primary/90 text-primary-foreground"
-                    : "bg-muted text-foreground/60 cursor-not-allowed"
-                )}
-              >
-                {submitLabel}
-              </PromptInputButton>
-            ) : (
-              <PromptInputSubmit
-                status={isLoading ? "streaming" : undefined}
-                onStop={onStop}
-                disabled={isLoading ? !onStop : isSendDisabled}
-                size="icon-sm"
-                className={cn(
-                  "h-8 w-8 rounded-full shrink-0 transition-colors duration-200",
-                  isLoading
-                    ? "bg-destructive/10 text-destructive hover:bg-destructive/15 dark:bg-destructive/15"
-                    : isOverLimit
-                      ? "bg-blue-100 text-blue-300 cursor-not-allowed dark:bg-blue-950 dark:text-blue-800"
-                      : canSubmit
-                        ? "bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600"
-                        : "bg-blue-100 text-blue-400 dark:bg-blue-950 dark:text-blue-700"
-                )}
-              />
-            )}
-          </PromptInputTools>
-        </PromptInputFooter>
-        
-        {!isBlocked && isOverLimit && (
-           <div className="px-4 pb-2 text-xs text-destructive font-medium animate-in fade-in slide-in-from-top-1">
-             Content exceeds the {MAX_CHARS} character limit. Please shorten your message.
-           </div>
-        )}
-      </PromptInput>
-      {/* 中文注释：未登录且未配置 AI 服务商时，用遮罩引导用户操作。 */}
       {isBlocked ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/60 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-2 rounded-xl bg-background/85 px-4 py-3 shadow-sm">
-            <div className="text-[11px] text-muted-foreground">
-              需要配置模型后才能发送
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <PromptInputButton
+        /* 未登录或未配置 AI 服务商时，替换输入框为引导内容 */
+        <div className="flex flex-col items-center justify-center gap-2.5 px-5 py-4">
+          <span className="inline-flex size-8 items-center justify-center rounded-full bg-[#fef7e0] dark:bg-amber-900/40">
+            <Sparkles className="size-4 text-[#f9ab00] dark:text-amber-300" />
+          </span>
+          <div className="text-center">
+            <p className="text-[13px] font-medium text-[#202124] dark:text-slate-50">
+              {blockedReason === 'cloud-login' ? '登录后使用云端模型' : '开始智能对话'}
+            </p>
+            <p className="mt-0.5 text-[11px] text-[#5f6368] dark:text-slate-400">
+              {blockedReason === 'cloud-login'
+                ? '当前选择的是云端模型，登录后即可使用'
+                : '登录云端或配置本地 AI 服务商'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="h-8 rounded-full bg-[#e8f0fe] px-4 text-[12px] font-medium text-[#1a73e8] transition-colors duration-150 hover:bg-[#d2e3fc] disabled:opacity-50 dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70"
+              onClick={onRequestLogin}
+              disabled={!onRequestLogin}
+            >
+              登录 OpenLoaf 云端
+            </button>
+            {blockedReason === 'cloud-login' && onRequestSwitchLocal ? (
+              <button
                 type="button"
-                size="sm"
-                className="h-8 rounded-full px-3 text-xs"
-                onClick={onRequestLogin}
-                disabled={!onRequestLogin}
+                className="h-8 rounded-full bg-[#f1f3f4] px-4 text-[12px] font-medium text-[#3c4043] transition-colors duration-150 hover:bg-[#e3e8ef] dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-300 dark:hover:bg-[hsl(var(--muted)/0.50)]"
+                onClick={onRequestSwitchLocal}
               >
-                登录 OpenLoaf 云端
-              </PromptInputButton>
-              <PromptInputButton
+                切换到本地模型
+              </button>
+            ) : (
+              <button
                 type="button"
-                size="sm"
-                variant="outline"
-                className="h-8 rounded-full px-3 text-xs"
+                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#f1f3f4] px-4 text-[12px] font-medium text-[#3c4043] transition-colors duration-150 hover:bg-[#e3e8ef] disabled:opacity-50 dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-300 dark:hover:bg-[hsl(var(--muted)/0.50)]"
                 onClick={onRequestLocalConfig}
                 disabled={!onRequestLocalConfig}
               >
+                <Settings2 className="size-3.5" />
                 自定义AI服务商
-              </PromptInputButton>
-            </div>
+              </button>
+            )}
           </div>
         </div>
-      ) : null}
+      ) : (
+        <PromptInput
+          onSubmit={() => {
+            handleSubmit();
+          }}
+          className="flex flex-col"
+        >
+          <ChatImageAttachments
+            ref={imageAttachmentsRef}
+            attachments={attachments}
+            onAddAttachments={onAddAttachments}
+            onRemoveAttachment={onRemoveAttachment}
+            onReplaceMaskedAttachment={onReplaceMaskedAttachment}
+            enableEdit={attachmentEditEnabled}
+            projectId={defaultProjectId}
+          />
+
+          <div
+            className={cn(
+              "flex-1 min-h-0",
+              attachments && attachments.length > 0 && "pt-1"
+            )}
+          >
+            <div className="w-full h-full min-h-0 overflow-auto show-scrollbar">
+              <PromptInputTextarea
+                value={value}
+                onChange={(event) => onChange(event.currentTarget.value)}
+                className={cn(
+                  "text-[13px] leading-5 px-3 py-2.5",
+                  isOverLimit && "text-destructive",
+                )}
+                placeholder={placeholder}
+                onKeyDown={handleKeyDown}
+                data-openloaf-chat-input="true"
+              />
+            </div>
+          </div>
+
+          <PromptInputFooter className="items-end gap-2 px-1.5 pb-0.5 shrink-0 min-w-0">
+            <PromptInputTools className="min-w-0 flex-1 gap-1.5 overflow-hidden">
+              {!compact ? (
+                <PromptInputButton
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  onClick={() => setFilePickerOpen(true)}
+                  disabled={!canAttachAll && !canAttachImage}
+                  aria-label="添加附件"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </PromptInputButton>
+              ) : null}
+              {!compact && hasReasoningModel ? (
+                <ThinkingModeSelector value={thinkingMode} onChange={handleThinkingModeChange} />
+              ) : null}
+            </PromptInputTools>
+
+            <PromptInputTools className="shrink-0 gap-1.5">
+              {isOverLimit && (
+                <span
+                  className={cn(
+                    "text-[10px] font-medium transition-colors mr-1",
+                    "text-destructive"
+                  )}
+                >
+                  {plainTextValue.length} / {MAX_CHARS}
+                </span>
+              )}
+
+              {!compact ? (
+                <PromptInputButton
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className={cn(
+                    "rounded-full w-8 h-8 shrink-0 transition-colors",
+                    onlineSearchEnabled
+                      ? "bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] dark:bg-sky-500/20 dark:text-sky-200 dark:hover:bg-sky-500/30"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                  aria-pressed={onlineSearchEnabled}
+                  onClick={() => onOnlineSearchChange?.(!onlineSearchEnabled)}
+                  aria-label="联网搜索"
+                >
+                  <Globe className="w-4 h-4" />
+                </PromptInputButton>
+              ) : null}
+
+              {!compact ? <SelectMode triggerVariant="icon" className="shrink-0" /> : null}
+
+              {actionVariant === "text" && onCancel && (
+                <PromptInputButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 rounded-full px-2.5 text-xs shadow-none"
+                  onClick={onCancel}
+                >
+                  {cancelLabel}
+                </PromptInputButton>
+              )}
+
+              {!compact && isDictationSupported && (
+                <PromptInputButton
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className={cn(
+                    "rounded-full w-8 h-8 shrink-0 transition-colors",
+                    isListening
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                  aria-pressed={isListening}
+                  onClick={() => void toggleDictation()}
+                  aria-label="语音输入"
+                >
+                  <Mic className={cn("w-4 h-4", isListening && "text-destructive")} />
+                </PromptInputButton>
+              )}
+
+              {actionVariant === "text" ? (
+                <PromptInputButton
+                  type={canSubmit ? "submit" : "button"}
+                  disabled={isSendDisabled}
+                  size="sm"
+                  className={cn(
+                    "h-8 rounded-full px-3 text-xs shrink-0 disabled:opacity-100",
+                    canSubmit
+                      ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                      : "bg-muted text-foreground/60 cursor-not-allowed"
+                  )}
+                >
+                  {submitLabel}
+                </PromptInputButton>
+              ) : (
+                <PromptInputSubmit
+                  status={isLoading ? "streaming" : undefined}
+                  onStop={onStop}
+                  disabled={isLoading ? !onStop : isSendDisabled}
+                  size="icon-sm"
+                  className={cn(
+                    "h-8 w-8 rounded-full shrink-0 transition-colors duration-200",
+                    isLoading
+                      ? "bg-destructive/10 text-destructive hover:bg-destructive/15 dark:bg-destructive/15"
+                      : isOverLimit
+                        ? "bg-blue-100 text-blue-300 cursor-not-allowed dark:bg-blue-950 dark:text-blue-800"
+                        : canSubmit
+                          ? "bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600"
+                          : "bg-blue-100 text-blue-400 dark:bg-blue-950 dark:text-blue-700"
+                  )}
+                />
+              )}
+            </PromptInputTools>
+          </PromptInputFooter>
+
+          {isOverLimit && (
+             <div className="px-4 pb-2 text-xs text-destructive font-medium animate-in fade-in slide-in-from-top-1">
+               Content exceeds the {MAX_CHARS} character limit. Please shorten your message.
+             </div>
+          )}
+        </PromptInput>
+      )}
       <ProjectFileSystemTransferDialog
         open={filePickerOpen}
         onOpenChange={setFilePickerOpen}
@@ -1005,8 +1030,9 @@ export default function ChatInput({
     () => providerItems.some((item) => (item.category ?? "general") === "provider"),
     [providerItems],
   );
-  // 逻辑：未登录且无本地配置时禁用输入，改为引导按钮。
-  const isUnconfigured = !authLoggedIn && !hasConfiguredProviders;
+  // 逻辑：云端模式未登录 或 未登录且无本地配置时，禁用输入并显示引导。
+  const needsCloudLogin = basic.chatSource === 'cloud' && !authLoggedIn;
+  const isUnconfigured = needsCloudLogin || (!authLoggedIn && !hasConfiguredProviders);
   useEffect(() => {
     return () => {
       if (!tabId) return;
@@ -1118,6 +1144,11 @@ export default function ChatInput({
       100,
     );
   };
+
+  /** Switch chat source to local models. */
+  const handleSwitchToLocal = useCallback(() => {
+    void setBasic({ chatSource: 'local' });
+  }, [setBasic]);
 
   /** Handle skill insert events. */
   useEffect(() => {
@@ -1290,8 +1321,10 @@ export default function ChatInput({
         isLoading={isLoading}
         isStreaming={isStreaming}
         blocked={isUnconfigured}
+        blockedReason={needsCloudLogin ? 'cloud-login' : 'unconfigured'}
         onRequestLogin={handleOpenLogin}
         onRequestLocalConfig={handleOpenProviderSettings}
+        onRequestSwitchLocal={hasConfiguredProviders ? handleSwitchToLocal : undefined}
         submitDisabled={
           isHistoryLoading ||
           isUnconfigured ||

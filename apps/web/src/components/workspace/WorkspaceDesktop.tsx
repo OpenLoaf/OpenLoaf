@@ -42,11 +42,16 @@ interface DesktopHistorySnapshot {
 }
 
 /** Render workspace-level desktop with persistence at workspace root. */
-const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
+const WorkspaceDesktop = React.memo(function WorkspaceDesktop({
+  tabId: ownTabId,
+}: {
+  tabId?: string;
+}) {
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
   const workspaceRootUri = workspace?.rootUri ?? "";
-  const activeTabId = useTabs((state) => state.activeTabId);
+  const globalActiveTabId = useTabs((state) => state.activeTabId);
+  const activeTabId = ownTabId || globalActiveTabId;
   const setTabBaseParams = useTabRuntime((state) => state.setTabBaseParams);
   const pushStackItem = useTabRuntime((state) => state.pushStackItem);
   const [items, setItems] = React.useState<DesktopItem[]>(() =>
@@ -109,11 +114,12 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop() {
   }, [desktopFileUri, workspaceId]);
 
   React.useEffect(() => {
-    // 逻辑：同步工作区上下文到 tab base 参数，供桌面组件读取。
-    if (!activeTabId) return;
+    // 逻辑：同步工作区上下文到自身 tab 的 base 参数，供桌面组件读取。
+    // 使用 ownTabId 而非全局 activeTabId，避免切换 tab 时覆盖其他 tab 的 rootUri。
+    if (!ownTabId) return;
     if (!workspaceId || !workspaceRootUri) return;
-    setTabBaseParams(activeTabId, { workspaceId, rootUri: workspaceRootUri });
-  }, [activeTabId, setTabBaseParams, workspaceId, workspaceRootUri]);
+    setTabBaseParams(ownTabId, { workspaceId, rootUri: workspaceRootUri });
+  }, [ownTabId, setTabBaseParams, workspaceId, workspaceRootUri]);
 
   React.useEffect(() => {
     // header slot ref 由上层控制，这里等其挂载后再渲染 portal。
