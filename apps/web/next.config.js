@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+const path = require("node:path");
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typedRoutes: true,
@@ -16,6 +17,11 @@ const nextConfig = {
     externalDir: true,
   },
   output: "export",
+  webpack: (config) => {
+    config.resolve.alias["@trpc/client"] = path.resolve(__dirname, "../../node_modules/@trpc/client");
+    config.resolve.alias["@trpc/server"] = path.resolve(__dirname, "../../node_modules/@trpc/server");
+    return config;
+  },
   turbopack: {
     resolveAlias: {
       "d3-path": "d3-path/src/index.js",

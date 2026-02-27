@@ -20,6 +20,12 @@ const logger = pino({
   timestamp: pino.stdTimeFunctions.isoTime,
 });
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const serverRoot = path.resolve(__dirname, "..");
+const repoRoot = path.resolve(serverRoot, "..", "..");
+
 await build({
   entryPoints: ["src/index.ts"],
   bundle: true,
@@ -28,17 +34,16 @@ await build({
   format: "esm",
   outfile: "dist/server.mjs",
   external: ["playwright-core"],
+  alias: {
+    "@trpc/client": path.resolve(repoRoot, "node_modules", "@trpc", "client"),
+    "@trpc/server": path.resolve(repoRoot, "node_modules", "@trpc", "server"),
+  },
   loader: { ".md": "text" },
   banner: {
     js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
   },
 });
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const serverRoot = path.resolve(__dirname, "..");
-const repoRoot = path.resolve(serverRoot, "..", "..");
 const seedDbPath = path.join(serverRoot, "dist", "seed.db");
 const pnpmArgs = ["--filter", "@openloaf/db", "db:push"];
 const pnpmEnv = {

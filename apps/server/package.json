@@ -49,6 +49,7 @@
     "@openloaf/config": "workspace:*",
     "@openloaf/db": "workspace:*",
     "@openloaf-saas/sdk": "^0.1.1",
+    "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "ai": "^6.0.49",
     "chokidar": "^5.0.0",

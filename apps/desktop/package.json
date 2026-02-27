@@ -3,7 +3,53 @@
   "productName": "OpenLoaf",
   "version": "0.1.1",
   "description": "OpenLoaf desktop app",
-  "main": ".webpack/main/index.js",
+  "main": ".webpack/main",
+  "build": {
+    "productName": "OpenLoaf",
+    "appId": "com.hexems.openloaf",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "resources/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "OpenLoaf"
+    },
+    "files": [
+      ".webpack/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "out/OpenLoaf-win32-x64/resources/node_modules",
+        "to": "node_modules",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "out/OpenLoaf-win32-x64/resources",
+        "to": ".",
+        "filter": [
+          "server.mjs",
+          "seed.db",
+          "out/**/*",
+          "speech/**/*",
+          "runtime.env",
+          "server.package.json",
+          "web.package.json",
+          "prebuilds/**/*"
+        ]
+      }
+    ]
+  },
   "scripts": {
     "predesktop": "node scripts/fixElectronInstall.mjs && pnpm run build:speech-helper && pnpm run build:calendar-helper",
     "desktop": "electron-forge start",
