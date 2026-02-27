@@ -3,7 +3,7 @@
   "productName": "OpenLoaf",
   "version": "0.1.1",
   "description": "OpenLoaf desktop app",
-  "main": ".webpack/arm64/main/index.js",
+  "main": ".webpack/main/index.js",
   "scripts": {
     "predesktop": "node scripts/fixElectronInstall.mjs && pnpm run build:speech-helper && pnpm run build:calendar-helper",
     "desktop": "electron-forge start",
