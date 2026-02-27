@@ -45,7 +45,7 @@ type PythonReleaseFile = {
 /** Resolve Python cache root directory. */
 function resolvePythonCacheRoot(): string {
   const workspaceRoot = getWorkspaceRootPath();
-  return path.join(workspaceRoot, ".teanas-cache", "python");
+  return path.join(workspaceRoot, ".openloaf-cache", "python");
 }
 
 /** Resolve release id from resource uri. */

@@ -71,7 +71,9 @@ export const SidebarWorkspace = () => {
     refreshSession,
     logout,
   } = useSaasAuth();
-  const resetWorkspaceTabsToDesktop = useTabs((state) => state.resetWorkspaceTabsToDesktop);
+  const resetWorkspaceTabsToDesktop = useTabs(
+    (state) => state.resetWorkspaceTabsToDesktop,
+  );
 
   React.useEffect(() => {
     void refreshSession();
@@ -101,7 +103,9 @@ export const SidebarWorkspace = () => {
   const avatarAlt = sidebarAccountLabel ?? "User";
   const displayAvatar = authUser?.avatarUrl;
 
-  const activateWorkspace = useMutation(trpc.workspace.activate.mutationOptions());
+  const activateWorkspace = useMutation(
+    trpc.workspace.activate.mutationOptions(),
+  );
 
   /** Activate workspace and reset tabs to a single desktop tab. */
   const handleActivateWorkspace = React.useCallback(
@@ -123,7 +127,7 @@ export const SidebarWorkspace = () => {
         setNewWorkspacePath("");
         await handleActivateWorkspace(created.id);
       },
-    })
+    }),
   );
 
   if (!workspace?.id) {
@@ -206,7 +210,9 @@ export const SidebarWorkspace = () => {
     }
     // 中文注释：未打包环境的错误提示需要转换为可读文案。
     const reason =
-      result.reason === "not-packaged" ? "当前环境不支持更新检查" : result.reason;
+      result.reason === "not-packaged"
+        ? "当前环境不支持更新检查"
+        : result.reason;
     toast.error(reason ? `更新检查失败：${reason}` : "更新检查失败");
   }, []);
 
@@ -227,7 +233,11 @@ export const SidebarWorkspace = () => {
                     <AvatarImage src={displayAvatar} alt={avatarAlt} />
                   ) : null}
                   <AvatarFallback className="bg-transparent">
-                    <img src="/head_s.png" alt="OpenLoaf" className="size-full object-contain" />
+                    <img
+                      src="/head_s.png"
+                      alt="OpenLoaf"
+                      className="size-full object-contain"
+                    />
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0 text-left">
@@ -253,7 +263,11 @@ export const SidebarWorkspace = () => {
                     <AvatarImage src={displayAvatar} alt={avatarAlt} />
                   ) : null}
                   <AvatarFallback>
-                    <img src="/logo.svg" alt="OpenLoaf" className="size-full object-cover" />
+                    <img
+                      src="/logo.svg"
+                      alt="OpenLoaf"
+                      className="size-full object-cover"
+                    />
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
@@ -284,7 +298,7 @@ export const SidebarWorkspace = () => {
                     className="rounded-lg"
                   >
                     <LogIn className="size-4" />
-                    登录Teanas账户，使用云端模型
+                    登录OpenLoaf账户
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem

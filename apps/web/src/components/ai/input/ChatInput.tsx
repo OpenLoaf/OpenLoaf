@@ -918,7 +918,7 @@ export function ChatInputBox({
                 onClick={onRequestLogin}
                 disabled={!onRequestLogin}
               >
-                登录 Teanas 云端
+                登录 OpenLoaf 云端
               </PromptInputButton>
               <PromptInputButton
                 type="button"
