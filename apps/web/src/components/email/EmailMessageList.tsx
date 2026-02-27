@@ -394,7 +394,12 @@ export function EmailMessageList({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={messageList.onBatchDeleteConfirmed}>删除</AlertDialogAction>
+            <AlertDialogAction
+              onClick={messageList.onBatchDeleteConfirmed}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              删除
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

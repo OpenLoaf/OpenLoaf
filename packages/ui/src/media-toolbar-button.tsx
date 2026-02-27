@@ -229,6 +229,7 @@ function MediaUrlDialogContent({
             e.preventDefault();
             embedMedia();
           }}
+          className="bg-[#1a73e8] text-white hover:bg-[#1557b0] dark:bg-sky-600 dark:hover:bg-sky-700"
         >
           Accept
         </AlertDialogAction>

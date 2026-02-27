@@ -900,6 +900,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
                 void handleConfirmParentMove();
               }}
               disabled={moveParentBusy}
+              className="bg-[#1a73e8] text-white hover:bg-[#1557b0] dark:bg-sky-600 dark:hover:bg-sky-700"
             >
               {moveParentBusy ? "移动中..." : "确认移动"}
             </AlertDialogAction>
@@ -955,6 +956,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
                 void handleConfirmMove();
               }}
               disabled={moveBusy}
+              className="bg-[#1a73e8] text-white hover:bg-[#1557b0] dark:bg-sky-600 dark:hover:bg-sky-700"
             >
               {moveBusy ? "移动中..." : "确认移动"}
             </AlertDialogAction>

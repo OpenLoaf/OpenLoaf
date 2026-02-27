@@ -224,7 +224,38 @@ flex flex-col gap-1.5 border-b px-4 py-2
 
 ---
 
-## 12. Dark Mode 规则
+## 12. 确认对话框（AlertDialog）
+
+所有确认对话框的按钮统一使用胶囊圆角样式（`rounded-full` 已内置于 `packages/ui/src/alert-dialog.tsx` 基础组件中）。
+
+### 主操作按钮（AlertDialogAction）
+
+根据操作性质选择颜色：
+
+**非破坏性操作**（确认、提交、保存、移动等）使用蓝色：
+
+```
+className="bg-[#1a73e8] text-white hover:bg-[#1557b0] dark:bg-sky-600 dark:hover:bg-sky-700"
+```
+
+**破坏性操作**（删除、清空、移除等）使用红色：
+
+```
+className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+```
+
+### 取消按钮（AlertDialogCancel）
+
+使用默认 outline 样式即可，`rounded-full` 已由基础组件提供，无需额外 className。
+
+### 参考实现
+
+- 蓝色主操作：`Calendar.tsx`（重启应用）、`ProjectBasicSettings.tsx`（确认移动）
+- 红色破坏性：`EmailMessageList.tsx`（批量删除）、`ProjectBasicSettings.tsx`（清空缓存/聊天）
+
+---
+
+## 13. Dark Mode 规则
 
 1. Light 用具体 hex（`#1a73e8`），Dark 用 Tailwind 色阶（`sky-300`）
 2. 背景色 Dark 用 `hsl(var(--muted)/透明度)` 或 `语义色-900/透明度`

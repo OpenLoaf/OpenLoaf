@@ -231,7 +231,12 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={detail.onDeleteConfirmed}>删除</AlertDialogAction>
+            <AlertDialogAction
+              onClick={detail.onDeleteConfirmed}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              删除
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
