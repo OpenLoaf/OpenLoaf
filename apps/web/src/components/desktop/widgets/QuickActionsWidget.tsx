@@ -217,8 +217,8 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
       <div className="grid grid-cols-2 gap-2">
         <Button
           type="button"
-          variant="secondary"
-          className="h-11 justify-start gap-2"
+          variant="ghost"
+          className="h-11 justify-start gap-2 rounded-xl bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] hover:text-[#1a73e8] dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70 transition-colors duration-150"
           onClick={handleOpenSearch}
         >
           <Search className="size-4" />
@@ -226,8 +226,8 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
         </Button>
         <Button
           type="button"
-          variant="secondary"
-          className="h-11 justify-start gap-2"
+          variant="ghost"
+          className="h-11 justify-start gap-2 rounded-xl bg-[#f3e8fd] text-[#9334e6] hover:bg-[#e9d5fb] hover:text-[#9334e6] dark:bg-violet-900/40 dark:text-violet-300 dark:hover:bg-violet-900/60 transition-colors duration-150"
           onClick={handleOpenTerminal}
         >
           <Terminal className="size-4" />
@@ -236,8 +236,8 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
         {scope === "project" ? (
           <Button
             type="button"
-            variant="secondary"
-            className="h-11 justify-start gap-2"
+            variant="ghost"
+            className="h-11 justify-start gap-2 rounded-xl bg-[#fef7e0] text-[#e37400] hover:bg-[#fcefc8] hover:text-[#e37400] dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors duration-150"
             onClick={handleCreateCanvas}
             disabled={creating}
           >
@@ -247,8 +247,8 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
         ) : null}
         <Button
           type="button"
-          variant="secondary"
-          className="h-11 justify-start gap-2"
+          variant="ghost"
+          className="h-11 justify-start gap-2 rounded-xl bg-[#e6f4ea] text-[#188038] hover:bg-[#ceead6] hover:text-[#188038] dark:bg-emerald-900/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 transition-colors duration-150"
           onClick={handleOpenAiChat}
         >
           <Sparkles className="size-4" />

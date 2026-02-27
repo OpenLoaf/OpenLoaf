@@ -96,7 +96,7 @@ export function ensureLayoutByBreakpoint(items: DesktopItem[]): DesktopItem[] {
 function toReflowItem(item: DesktopItem, bp: DesktopBreakpoint): ReflowItem {
   const layout = getItemLayoutForBreakpoint(item, bp);
   if (item.kind === "icon") {
-    return { id: item.id, layout, minW: 1, maxW: 1 };
+    return { id: item.id, layout, minW: 1, maxW: 2 };
   }
   return {
     id: item.id,

@@ -235,7 +235,7 @@ export default function DesktopPage({
         const project = projectRoots.find((item) => item.projectId === parsed.projectId);
         const relativeParts = parsed.relativePath.split("/").filter(Boolean);
         const title =
-          relativeParts[relativeParts.length - 1] || project?.title || "Folder";
+          relativeParts[relativeParts.length - 1] || project?.title || "文件夹";
         const folderUri = formatScopedProjectPath({
           projectId: parsed.projectId,
           relativePath: parsed.relativePath,
@@ -254,7 +254,7 @@ export default function DesktopPage({
         });
         const relativeParts = relativePath.split("/").filter(Boolean);
         const title =
-          relativeParts[relativeParts.length - 1] || project.title || "Folder";
+          relativeParts[relativeParts.length - 1] || project.title || "文件夹";
         return { folderUri, title, defaultRootUri: project.rootUri };
       }
       return null;

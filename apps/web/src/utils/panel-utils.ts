@@ -38,6 +38,11 @@ import FolderTreePreview from "@/components/project/filesystem/FolderTreePreview
 import { SchedulerTaskHistoryStackPanel } from "@/components/summary/SchedulerTaskHistoryStackPanel";
 import { AgentDetailPanel } from "@/components/setting/menus/agent/AgentDetailPanel";
 import { AgentManagement } from "@/components/setting/menus/agent/AgentManagement";
+import { SkillSettings } from "@/components/setting/menus/SkillSettings";
+import { useStackPanelSlot } from "@/hooks/use-stack-panel-slot";
+import { openSettingsTab } from "@/lib/globalShortcuts";
+import { useWorkspace } from "@/components/workspace/workspaceContext";
+import { ExternalLink } from "lucide-react";
 import ScheduledTasksPage from "@/components/tasks/ScheduledTasksPage";
 import StreamingCodeViewer from "@/components/file/StreamingCodeViewer";
 import DynamicWidgetStackPanel from "@/components/desktop/dynamic-widgets/DynamicWidgetStackPanel";
@@ -55,6 +60,48 @@ const LazyStreamingPlateViewer = React.lazy(() => import("@/components/file/Stre
  */
 // 逻辑：项目页包含 Plate 编辑器，使用 lazy 避免首屏被重组件阻塞。
 const LazyProjectPage = React.lazy(() => import("@/components/project/Project"));
+
+/** Stack wrapper that injects a "open in settings" button into the header slot. */
+function SettingsStackSlotButton({ settingsMenu }: { settingsMenu: string }) {
+  const slotCtx = useStackPanelSlot();
+  const { workspace } = useWorkspace();
+  React.useEffect(() => {
+    if (!slotCtx) return;
+    slotCtx.setSlot({
+      rightSlotBeforeClose: React.createElement(
+        "button",
+        {
+          type: "button",
+          className: "inline-flex items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors",
+          title: "在设置中打开",
+          "aria-label": "在设置中打开",
+          onClick: () => {
+            if (workspace?.id) openSettingsTab(workspace.id, settingsMenu);
+          },
+        },
+        React.createElement(ExternalLink, { className: "h-3.5 w-3.5" }),
+      ),
+    });
+    return () => slotCtx.setSlot(null);
+  }, [slotCtx, workspace?.id, settingsMenu]);
+  return null;
+}
+
+/** Agent management wrapped with settings navigation slot. */
+function AgentManagementStack(props: Record<string, unknown>) {
+  return React.createElement(React.Fragment, null,
+    React.createElement(SettingsStackSlotButton, { settingsMenu: "agents" }),
+    React.createElement(AgentManagement, props as any),
+  );
+}
+
+/** Skill settings wrapped with settings navigation slot. */
+function SkillSettingsStack(props: Record<string, unknown>) {
+  return React.createElement(React.Fragment, null,
+    React.createElement(SettingsStackSlotButton, { settingsMenu: "skills" }),
+    React.createElement(SkillSettings),
+  );
+}
 
 type PanelComponent = React.ComponentType<any> | React.LazyExoticComponent<React.ComponentType<any>>;
 
@@ -87,7 +134,8 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "scheduler-task-history": SchedulerTaskHistoryStackPanel,
   "scheduled-tasks-page": ScheduledTasksPage,
   "agent-detail": AgentDetailPanel,
-  "agent-management": AgentManagement,
+  "agent-management": AgentManagementStack,
+  "skill-settings": SkillSettingsStack,
   "streaming-code-viewer": StreamingCodeViewer,
   "plate-doc-viewer": LazyPlateDocViewer,
   "streaming-plate-viewer": LazyStreamingPlateViewer,
@@ -162,6 +210,8 @@ export const getPanelTitle = (componentName: string) => {
       return "Agent助手 详情";
     case "agent-management":
       return "Agent助手 管理";
+    case "skill-settings":
+      return "技能设置";
     case "streaming-code-viewer":
       return "写入文件";
     case "plate-doc-viewer":

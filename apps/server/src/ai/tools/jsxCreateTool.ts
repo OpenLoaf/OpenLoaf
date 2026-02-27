@@ -42,7 +42,7 @@ function toPosixPath(input: string): string {
 export const jsxCreateTool = tool({
   description: jsxCreateToolDef.description,
   inputSchema: zodSchema(jsxCreateToolDef.parameters),
-  execute: async (input: string): Promise<JsxCreateOutput> => {
+  execute: async (input: { content: string }): Promise<JsxCreateOutput> => {
     const sessionId = getSessionId()
     if (!sessionId) throw new Error('sessionId is required.')
     const messageId = getAssistantMessageId()
@@ -56,20 +56,22 @@ export const jsxCreateTool = tool({
       : getWorkspaceRootPathById(workspaceId)
     if (!rootPath) throw new Error(projectId ? 'Project not found.' : 'Workspace not found.')
 
+    const jsx = input.content
+
     // 逻辑：根据 session 目录写入 jsx 文件，文件名固定为 messageId.jsx。
     const messagesPath = await resolveMessagesJsonlPath(sessionId)
     const sessionDir = path.dirname(messagesPath)
     const jsxDir = path.join(sessionDir, 'jsx')
     await fs.mkdir(jsxDir, { recursive: true })
     const absPath = path.join(jsxDir, `${messageId}.jsx`)
-    await fs.writeFile(absPath, input, 'utf-8')
+    await fs.writeFile(absPath, jsx, 'utf-8')
 
     const relativePath = path.relative(rootPath, absPath)
     const posixPath = toPosixPath(relativePath)
 
     try {
       // 逻辑：服务端校验 JSX，发现问题直接抛错让模型纠正。
-      validateJsxCreateInput(input)
+      validateJsxCreateInput(jsx)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       throw new Error(`${msg} 已写入文件：${posixPath}，请使用 apply-patch 修正。`)

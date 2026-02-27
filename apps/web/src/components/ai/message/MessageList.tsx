@@ -61,13 +61,20 @@ export default function MessageList({ className }: MessageListProps) {
     return last.role === "assistant" && !messageHasVisibleContent(last);
   }, [messages, status, error, stepThinking, hasStreamingVisibleContent]);
 
-  const displayMessages = React.useMemo(
-    () =>
+  const displayMessages = React.useMemo(() => {
+    const base =
       streamingMessage && !shouldShowThinking
         ? [...staticMessages, streamingMessage]
-        : staticMessages,
-    [staticMessages, streamingMessage, shouldShowThinking]
-  );
+        : staticMessages;
+    // 请求失败时，移除尾部空 assistant 消息，避免在用户消息和错误提示之间产生空白间距。
+    if (error && base.length > 0) {
+      const last = base[base.length - 1];
+      if (last?.role === "assistant" && !messageHasVisibleContent(last)) {
+        return base.slice(0, -1);
+      }
+    }
+    return base;
+  }, [staticMessages, streamingMessage, shouldShowThinking, error]);
 
   const lastHumanIndex = React.useMemo(
     () => (displayMessages as any[]).findLastIndex((m) => m?.role === "user"),

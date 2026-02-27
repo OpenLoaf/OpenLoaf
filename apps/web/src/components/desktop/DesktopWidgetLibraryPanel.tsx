@@ -17,8 +17,10 @@ import { useProjects } from "@/hooks/use-projects";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Input } from "@openloaf/ui/input";
 import { Button } from "@openloaf/ui/button";
-import type { DesktopScope, DesktopWidgetItem } from "./types";
+import type { DesktopIconKey, DesktopScope, DesktopWidgetItem } from "./types";
 import { desktopWidgetCatalog } from "./widget-catalog";
+import { desktopIconCatalog } from "./desktop-icon-catalog";
+import DesktopIconWidget from "./widgets/DesktopIconWidget";
 import ClockWidget from "./widgets/ClockWidget";
 import ChatHistoryWidget from "./widgets/ChatHistoryWidget";
 import FlipClockWidget from "./widgets/FlipClockWidget";
@@ -35,8 +37,10 @@ export const DESKTOP_WIDGET_SELECTED_EVENT = "openloaf:desktop-widget-selected";
 export type DesktopWidgetSelectedDetail = {
   /** Target tab id to receive the selection. */
   tabId: string;
-  /** Widget key to insert. */
-  widgetKey: DesktopWidgetItem["widgetKey"];
+  /** Widget key to insert (when adding a widget). */
+  widgetKey: DesktopWidgetItem["widgetKey"] | "__icon__";
+  /** Icon key to insert (when adding an icon). */
+  iconKey?: DesktopIconKey;
   /** Optional widget title override. */
   title?: string;
   /** Optional folder uri for 3d-folder widget. */
@@ -166,6 +170,14 @@ export default function DesktopWidgetLibraryPanel({
     return scopedCatalog.filter((item) => item.title.toLowerCase().includes(q));
   }, [query, scope]);
 
+  // 过滤后的图标列表。
+  const filteredIcons = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const scopedIcons = desktopIconCatalog.filter((item) => item.support[scope]);
+    if (!q) return scopedIcons;
+    return scopedIcons.filter((item) => item.title.toLowerCase().includes(q));
+  }, [query, scope]);
+
   // Query workspace-level dynamic widgets (no projectId).
   const workspaceId = workspace?.id
   const workspaceWidgetQuery = useQuery({
@@ -242,12 +254,55 @@ export default function DesktopWidgetLibraryPanel({
             </div>
           ))}
 
-          {filtered.length === 0 ? (
+          {filtered.length === 0 && filteredIcons.length === 0 ? (
             <div className="col-span-full rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
               没有匹配的组件
             </div>
           ) : null}
         </div>
+
+        {filteredIcons.length > 0 ? (
+          <>
+            <div className="mt-4 mb-2">
+              <div className="text-xs font-medium text-muted-foreground">快捷方式</div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+              {filteredIcons.map((item) => (
+                <div
+                  key={item.iconKey}
+                  role="button"
+                  tabIndex={0}
+                  className="group flex min-w-0 flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-background p-3 text-center hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  onClick={() => {
+                    emitDesktopWidgetSelected({
+                      tabId,
+                      widgetKey: "__icon__",
+                      iconKey: item.iconKey,
+                      title: item.title,
+                    });
+                    removeStackItem(tabId, panelKey);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    emitDesktopWidgetSelected({
+                      tabId,
+                      widgetKey: "__icon__",
+                      iconKey: item.iconKey,
+                      title: item.title,
+                    });
+                    removeStackItem(tabId, panelKey);
+                  }}
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground">
+                    <DesktopIconWidget iconKey={item.iconKey} />
+                  </div>
+                  <div className="truncate text-xs font-medium">{item.title}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
 
         {filteredDynamic.length > 0 ? (
           <>

@@ -16,6 +16,7 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dayjs from "@openloaf/ui/calendar/lib/configs/dayjs-config";
 import { Button } from "@openloaf/ui/button";
+import { Download } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@openloaf/ui/calendar/components/ui/dialog";
 import { EventForm, type EventFormProps } from "@openloaf/ui/calendar/components/event-form/event-form";
 import type { CalendarEvent as UiCalendarEvent } from "@openloaf/ui/calendar/components/types";
@@ -40,6 +41,7 @@ import { useCalendarPageState } from "./use-calendar-page-state";
 import { useProjects } from "@/hooks/use-projects";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
+import { toast } from "sonner";
 
 type SystemCalendarEvent = OpenLoafCalendarEvent;
 type CalendarKind = "event" | "reminder";
@@ -585,6 +587,21 @@ export default function CalendarPage({
   const hasSystemSources = hasSystemCalendars || hasSystemReminders;
   const shouldShowImportButton = !hasSystemSources && permissionState !== "unsupported";
 
+  const handleImportCalendar = useCallback(async () => {
+    try {
+      const result = await handleRequestPermission();
+      if (!result.ok) {
+        toast.error(result.reason || "导入日历失败");
+      } else if (result.data === "granted") {
+        toast.success("系统日历授权成功，正在同步…");
+      } else {
+        toast.error("系统日历访问被拒绝，请在「系统设置 → 隐私与安全性 → 日历」中授权。");
+      }
+    } catch {
+      toast.error("导入日历失败，请稍后重试。");
+    }
+  }, [handleRequestPermission]);
+
   return (
     <div className={`h-full w-full p-0 ${styles.calendarRoot}`}>
       <div className="h-full min-h-0 flex flex-col gap-3">
@@ -599,14 +616,15 @@ export default function CalendarPage({
             headerLeadingSlot={
               headerTrailingSlot ? headerTrailingSlot
               : shouldShowImportButton ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleRequestPermission}
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-[#e6f4ea] text-[#188038] hover:bg-[#ceead6] dark:bg-emerald-900/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 shadow-none transition-colors duration-150 disabled:opacity-50"
+                  onClick={handleImportCalendar}
                   disabled={isLoading}
                 >
-                  导入系统日历
-                </Button>
+                  <Download className="h-3.5 w-3.5" />
+                  导入日历
+                </button>
               ) : undefined
             }
             locale={calendarLocale}

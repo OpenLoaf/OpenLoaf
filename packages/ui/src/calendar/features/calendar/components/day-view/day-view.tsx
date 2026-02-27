@@ -85,7 +85,7 @@ const DayView = () => {
 				<div
 					className={cn(
 						'flex justify-center items-center text-center text-base font-semibold sm:text-xl',
-						isToday && 'text-primary'
+						isToday && 'text-[#1a73e8] dark:text-sky-300'
 					)}
 				>
 					<span className="xs:inline hidden">
@@ -93,7 +93,7 @@ const DayView = () => {
 					</span>
 					{formatFullDate(currentDate, currentLocale)}
 					{isToday && (
-						<span className="bg-primary text-primary-foreground ml-2 rounded-full px-1 py-0.5 text-xs sm:px-2 sm:text-sm">
+						<span className="bg-[#1a73e8] text-white ml-2 rounded-full dark:bg-sky-500 px-1 py-0.5 text-xs sm:px-2 sm:text-sm">
 							{t('today')}
 						</span>
 					)}

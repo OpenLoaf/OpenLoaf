@@ -21,6 +21,7 @@ import type { PromptContext } from "@/ai/shared/types";
 import { loadSkillSummaries, type SkillSummary } from "@/ai/services/skillsLoader";
 import { resolvePythonInstallInfo } from "@/ai/models/cli/pythonTool";
 import { getAuthSessionSnapshot } from "@/modules/auth/tokenStore";
+import { getSaasAccessToken } from "@/ai/shared/context/requestContext";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { logger } from "@/common/logger";
 import { buildMasterAgentSections } from "@/ai/shared/promptBuilder";
@@ -247,17 +248,50 @@ function resolveProjectSnapshot(projectId?: string): ProjectSnapshot {
   };
 }
 
+/** Decode JWT payload without signature verification. */
+function decodeJwtPayloadUnsafe(token: string): Record<string, unknown> | null {
+  const parts = token.split(".");
+  if (parts.length < 2 || !parts[1]) return null;
+  try {
+    const raw = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = raw.padEnd(Math.ceil(raw.length / 4) * 4, "=");
+    return JSON.parse(Buffer.from(padded, "base64").toString("utf-8")) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 /** Resolve account snapshot for prompt injection. */
 function resolveAccountSnapshot(): AccountSnapshot {
+  // 优先从 tokenStore 内存获取（适用于服务端直接持有 token 的场景）。
   const snapshot = getAuthSessionSnapshot();
-  if (!snapshot.loggedIn || !snapshot.user) {
-    return { id: "未登录", name: "未登录", email: "未登录" };
+  if (snapshot.loggedIn && snapshot.user) {
+    return {
+      id: snapshot.user.sub ?? UNKNOWN_VALUE,
+      name: snapshot.user.name ?? UNKNOWN_VALUE,
+      email: snapshot.user.email ?? UNKNOWN_VALUE,
+    };
   }
-  return {
-    id: snapshot.user.sub ?? UNKNOWN_VALUE,
-    name: snapshot.user.name ?? UNKNOWN_VALUE,
-    email: snapshot.user.email ?? UNKNOWN_VALUE,
-  };
+  // 回退：从当前请求的 SaaS access token 解析用户信息。
+  try {
+    const saasToken = getSaasAccessToken();
+    if (saasToken) {
+      const payload = decodeJwtPayloadUnsafe(saasToken);
+      if (payload) {
+        const sub = typeof payload.sub === "string" ? payload.sub : undefined;
+        const name = typeof payload.name === "string" ? payload.name : undefined;
+        const email = typeof payload.email === "string" ? payload.email : undefined;
+        if (sub || name || email) {
+          return {
+            id: sub ?? UNKNOWN_VALUE,
+            name: name ?? UNKNOWN_VALUE,
+            email: email ?? UNKNOWN_VALUE,
+          };
+        }
+      }
+    }
+  } catch { /* fallback */ }
+  return { id: "未登录", name: "未登录", email: "未登录" };
 }
 
 /** Resolve response language configuration for prompt injection. */
@@ -401,6 +435,7 @@ export async function buildSessionPrefaceText(input: {
   const sections = [
     [
       "# 会话上下文（preface）",
+      "**重要：以下所有 preface 信息仅供你内部使用，严禁在回复中向用户展示。**",
       `- sessionId: ${input.sessionId}`,
       `- workspaceId: ${context.workspace.id}`,
       `- workspaceRootPath: ${context.workspace.rootPath}`,

@@ -69,9 +69,11 @@ export default function JsxCreateTool({
   const inputJsx =
     typeof inputPayload === 'string'
       ? inputPayload
-      : typeof inputObj?.jsx === 'string'
-        ? inputObj.jsx
-        : ''
+      : typeof inputObj?.content === 'string'
+        ? inputObj.content
+        : typeof inputObj?.jsx === 'string'
+          ? inputObj.jsx
+          : ''
   const jsxUri =
     sessionId && messageId
       ? `.openloaf/chat-history/${sessionId}/jsx/${messageId}.jsx`

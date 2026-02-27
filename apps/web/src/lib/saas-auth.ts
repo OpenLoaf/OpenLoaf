@@ -299,15 +299,13 @@ export async function resolveAuthUser(): Promise<SaasAuthUser | null> {
 }
 
 /** Logout from SaaS and clear stored tokens. */
-export async function logout(): Promise<void> {
+export function logout(): void {
   const stored = resolveStoredAuth();
-  try {
-    if (stored?.refreshToken) {
-      const client = createSaasClient();
-      await client.auth.logout(stored.refreshToken);
-    }
-  } finally {
-    clearStoredAuth();
+  clearStoredAuth();
+  // 后台静默通知 SaaS 后端吊销 token，不阻塞 UI
+  if (stored?.refreshToken) {
+    const client = createSaasClient();
+    client.auth.logout(stored.refreshToken).catch(() => {});
   }
 }
 

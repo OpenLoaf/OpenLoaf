@@ -109,7 +109,7 @@ const YearView = () => {
 			? ''
 			: 'text-muted-foreground opacity-50'
 		const todayClass = day.isToday
-			? 'bg-primary text-primary-foreground rounded-full'
+			? 'bg-[#1a73e8] text-white rounded-full dark:bg-sky-500'
 			: ''
 		const selectedClass =
 			day.isSelected && !day.isToday ? 'bg-muted rounded-full font-bold' : ''
@@ -126,7 +126,7 @@ const YearView = () => {
 	}
 
 	const getEventDotClassName = (color: string, isToday: boolean): string => {
-		const dotColor = isToday ? 'bg-primary-foreground' : color
+		const dotColor = isToday ? 'bg-white' : color
 		return cn('h-[3px] w-[3px] rounded-full', dotColor)
 	}
 

@@ -120,7 +120,7 @@ const WeekView: React.FC = () => {
 						<div
 							className={cn(
 								'hover:bg-accent/50 flex-1 flex flex-col justify-center cursor-pointer p-1 text-center sm:p-2 border-r last:border-r-0 w-50 h-full transition-colors',
-								isToday && 'bg-primary/5 font-bold'
+								isToday && 'bg-[#e8f0fe] font-bold dark:bg-sky-900/30'
 							)}
 							data-testid={`week-day-header-${day.format('dddd').toLowerCase()}`}
 							key={`week-day-header-${day.toISOString()}`}
@@ -133,7 +133,7 @@ const WeekView: React.FC = () => {
 							<div
 								className={cn(
 									'mx-auto mt-1 flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full text-xs',
-									isToday && 'bg-primary text-primary-foreground'
+									isToday && 'bg-[#1a73e8] text-white dark:bg-sky-500'
 								)}
 							>
 								{normalizeDateLabel(

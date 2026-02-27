@@ -70,7 +70,7 @@ export const ResourceWeekHorizontal: React.FC = () => {
 							<AnimatedSection
 								className={cn(
 									'shrink-0 border-r last:border-r-0 border-b flex-1 flex items-center text-center font-medium',
-									isToday && 'bg-blue-50 text-blue-600'
+									isToday && 'bg-[#e8f0fe] text-[#1a73e8] dark:bg-sky-900/30 dark:text-sky-300'
 								)}
 								data-testid="resource-week-day-header"
 								delay={index * 0.05}

@@ -96,10 +96,17 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 			>
 				{/* Left section: sidebar toggle + title + nav */}
 				<div className="flex items-center gap-1">
-					<Button
+					<button
+						type="button"
 						aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
 						aria-pressed={isSidebarOpen}
-						className="h-7 w-7"
+						className={cn(
+							'h-7 w-7 inline-flex items-center justify-center rounded-full transition-colors duration-150',
+							isSidebarOpen
+								? 'bg-[#f3e8fd] text-[#9334e6] dark:bg-violet-900/40 dark:text-violet-300'
+								: 'text-[#9334e6] hover:bg-[#f3e8fd] dark:text-violet-300 dark:hover:bg-violet-900/40',
+							!sidebar && 'opacity-50 pointer-events-none'
+						)}
 						disabled={!sidebar}
 						onClick={() => {
 							if (!sidebar) {
@@ -107,17 +114,14 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 							}
 							toggleSidebar()
 						}}
-						size="icon"
-						variant="ghost"
 					>
 						<PanelLeft
 							className={cn(
 								'h-4 w-4 transition-transform duration-200',
-								!isSidebarOpen ? 'rotate-180' : '',
-								sidebar ? '' : 'opacity-50'
+								!isSidebarOpen ? 'rotate-180' : ''
 							)}
 						/>
-					</Button>
+					</button>
 					<TitleContent />
 					<Button
 						className="h-7 w-7"
@@ -142,27 +146,26 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 					</Button>
 				</div>
 
-				{/* Right section: leading slot + view controls + new event */}
+				{/* Right section: view controls + leading slot + new event */}
 				<div className="flex items-center gap-2">
-					{headerLeadingSlot ? (
-						<div className="flex items-center">{headerLeadingSlot}</div>
-					) : null}
 					{hideViewControls ? null : (
 						<ViewControls
 							currentView={view}
 							onChange={setView}
 						/>
 					)}
+					{headerLeadingSlot ? (
+						<div className="flex items-center">{headerLeadingSlot}</div>
+					) : null}
 					{hideNewEventButton ? null : (
-					<Button
-						className="flex items-center gap-1"
+					<button
+						type="button"
+						className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70 shadow-none transition-colors duration-150"
 						onClick={() => openEventForm()}
-						size="sm"
-						variant="default"
 					>
 						<Plus className="h-4 w-4" />
 						<span className="hidden @xl/base-header:inline">{t('new')}</span>
-					</Button>
+					</button>
 				)}
 				</div>
 			</div>

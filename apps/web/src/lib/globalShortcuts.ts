@@ -23,19 +23,19 @@ export type GlobalShortcutDefinition = {
 };
 
 export const GLOBAL_SHORTCUTS: GlobalShortcutDefinition[] = [
-  { id: "sidebar.toggle", label: "Toggle sidebar", keys: "Mod+Shift+B" },
-  { id: "chat.toggle", label: "Toggle chat panel", keys: "Mod+B" },
-  { id: "search.toggle", label: "Search", keys: "Mod+F" },
-  { id: "open.calendar", label: "Open Calendar", keys: "Mod+L" },
-  { id: "open.inbox", label: "Open Inbox", keys: "Mod+I" },
-  { id: "open.ai", label: "Open Workbench", keys: "Mod+T" },
-  { id: "open.template", label: "Open Template", keys: "Mod+J" },
-  { id: "tab.new", label: "New tab", keys: "Mod+0" },
-  { id: "tab.switch", label: "Switch tabs", keys: "Mod+1..9" },
-  { id: "tab.close", label: "Close tab", keys: "Mod+W" },
+  { id: "sidebar.toggle", label: "切换侧边栏", keys: "Mod+Shift+B" },
+  { id: "chat.toggle", label: "切换对话面板", keys: "Mod+B" },
+  { id: "search.toggle", label: "搜索", keys: "Mod+F" },
+  { id: "open.calendar", label: "打开日历", keys: "Mod+L" },
+  { id: "open.inbox", label: "打开收件箱", keys: "Mod+I" },
+  { id: "open.ai", label: "打开工作台", keys: "Mod+T" },
+  { id: "open.template", label: "打开模板", keys: "Mod+J" },
+  { id: "tab.new", label: "新建标签页", keys: "Mod+0" },
+  { id: "tab.switch", label: "切换标签页", keys: "Mod+1..9" },
+  { id: "tab.close", label: "关闭标签页", keys: "Mod+W" },
   {
     id: "settings.open",
-    label: "Open Settings",
+    label: "打开设置",
     keys: "Cmd+,",
     note: "Electron + macOS only",
   },
@@ -110,9 +110,10 @@ function openSingletonTab(
 }
 
 /** 打开设置页（单例 Tab）。 */
-export function openSettingsTab(workspaceId: string) {
+export function openSettingsTab(workspaceId: string, settingsMenu?: string) {
   const { tabs, addTab, setActiveTab } = useTabs.getState();
   const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
+  const { setTabBaseParams } = useTabRuntime.getState();
 
   const baseId = "base:settings";
   const existing = tabs.find(
@@ -122,6 +123,9 @@ export function openSettingsTab(workspaceId: string) {
   if (existing) {
     startTransition(() => {
       setActiveTab(existing.id);
+      if (settingsMenu) {
+        setTabBaseParams(existing.id, { settingsMenu });
+      }
     });
     return;
   }
@@ -134,11 +138,11 @@ export function openSettingsTab(workspaceId: string) {
   addTab({
     workspaceId,
     createNew: true,
-    title: "Settings",
+    title: "设置",
     icon: "⚙️",
     leftWidthPercent: viewportWidth > 0 ? 70 : undefined,
     rightChatCollapsed: true,
-    base: { id: baseId, component: "settings-page" },
+    base: { id: baseId, component: "settings-page", params: settingsMenu ? { settingsMenu } : undefined },
   });
 }
 

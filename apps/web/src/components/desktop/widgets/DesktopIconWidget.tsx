@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { FileText, ListTodo, Search, Settings } from "lucide-react";
+import { Bot, FileText, ListTodo, Search, Settings, Wand2 } from "lucide-react";
 import type { DesktopIconKey } from "../types";
 
 interface DesktopIconWidgetProps {
@@ -28,6 +28,10 @@ export function getDesktopIconByKey(key: DesktopIconKey) {
       return <Search className="size-5" />;
     case "settings":
       return <Settings className="size-5" />;
+    case "agent-settings":
+      return <Bot className="size-5" />;
+    case "skill-settings":
+      return <Wand2 className="size-5" />;
     default:
       return <FileText className="size-5" />;
   }

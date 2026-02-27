@@ -87,7 +87,7 @@ type CalendarPageStateResult = {
   activeRange: CalendarRange;
   selectedCalendarIdList: string[];
   selectedReminderListIdList: string[];
-  handleRequestPermission: () => Promise<void>;
+  handleRequestPermission: () => Promise<OpenLoafCalendarResult<CalendarPermissionState>>;
   handleDateChange: (date: dayjs.Dayjs) => void;
   handleEventAdd: (event: CalendarEvent) => void;
   handleEventUpdate: (event: CalendarEvent) => void;
@@ -320,22 +320,23 @@ export function useCalendarPageState({
     [activeRange, activeSourceIds, permissionState, queryClient, workspaceId]
   );
 
-  const handleRequestPermission = useCallback(async () => {
+  const handleRequestPermission = useCallback(async (): Promise<OpenLoafCalendarResult<CalendarPermissionState>> => {
     const result = await requestCalendarPermission();
     if (!result.ok) {
       setPermissionState("unsupported");
       setErrorMessage(result.reason);
-      return;
+      return result;
     }
     setPermissionState(result.data);
     if (result.data !== "granted") {
       setErrorMessage("未授权系统日历访问权限。");
-      return;
+      return result;
     }
     setErrorMessage(null);
     if (workspaceId) {
       await triggerSync("permission");
     }
+    return result;
   }, [triggerSync, workspaceId]);
 
   useEffect(() => {

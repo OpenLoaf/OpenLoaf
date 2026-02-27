@@ -803,6 +803,15 @@ export class SettingRouterImpl extends BaseSettingRouter {
                 systemPrompt = readFileSync(agentMdPath, "utf8").trim();
               }
             } catch { /* ignore */ }
+            // 逻辑：AGENT.md 不存在时，fallback 到内嵌模板的 systemPrompt。
+            if (!systemPrompt) {
+              const { getTemplate } = await import("@/ai/agent-templates");
+              const folderName = path.basename(agentDir);
+              const template = getTemplate(folderName);
+              if (template?.systemPrompt) {
+                systemPrompt = template.systemPrompt;
+              }
+            }
             const modelLocalIds = Array.isArray(descriptor.modelLocalIds)
               ? descriptor.modelLocalIds
               : [];
@@ -900,8 +909,20 @@ export class SettingRouterImpl extends BaseSettingRouter {
                 maxDepth: input.maxDepth,
               };
               writeFileSync(input.agentPath, JSON.stringify(descriptor, null, 2), "utf8");
-              if (input.systemPrompt?.trim()) {
-                writeFileSync(path.join(agentDir, "AGENT.md"), input.systemPrompt.trim(), "utf8");
+              // 逻辑：prompt 与模板默认相同 → 删除 AGENT.md；不同 → 写入作为覆盖。
+              const { getTemplate } = await import("@/ai/agent-templates");
+              const folderName = path.basename(agentDir);
+              const template = getTemplate(folderName);
+              const agentMdPath = path.join(agentDir, "AGENT.md");
+              const isDefault = !input.systemPrompt?.trim()
+                || input.systemPrompt.trim() === template?.systemPrompt?.trim();
+              if (isDefault) {
+                const { unlinkSync } = await import("node:fs");
+                if (existsFsSync(agentMdPath)) {
+                  try { unlinkSync(agentMdPath); } catch { /* ignore */ }
+                }
+              } else {
+                writeFileSync(agentMdPath, input.systemPrompt!.trim(), "utf8");
               }
               return { ok: true, agentPath: input.agentPath };
             }

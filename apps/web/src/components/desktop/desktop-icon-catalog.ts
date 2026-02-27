@@ -43,6 +43,16 @@ export const desktopIconCatalog: DesktopIconCatalogItem[] = [
     title: "设置",
     support: { workspace: true, project: true },
   },
+  {
+    iconKey: "agent-settings",
+    title: "Agent设置",
+    support: { workspace: true, project: true },
+  },
+  {
+    iconKey: "skill-settings",
+    title: "技能设置",
+    support: { workspace: true, project: true },
+  },
 ];
 
 /** Build the icon element from the catalog key. */

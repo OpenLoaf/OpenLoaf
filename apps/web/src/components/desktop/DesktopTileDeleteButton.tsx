@@ -40,8 +40,8 @@ export default function DesktopTileDeleteButton({
         event.stopPropagation();
         onDelete();
       }}
-      aria-label="Delete"
-      title="Delete"
+      aria-label="删除"
+      title="删除"
     >
       <Trash2 className="desktop-edit-action-icon desktop-trash-icon size-4" />
     </button>

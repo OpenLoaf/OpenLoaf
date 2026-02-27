@@ -61,7 +61,7 @@ export function buildPythonRuntimeSection(context: PromptContext): string {
   const pathValue = context.python.path ?? 'unknown'
   const installedLabel = context.python.installed ? '已安装' : '未安装'
   return [
-    '# Python 运行时',
+    '# Python 运行时（内部参考，严禁输出给用户）',
     `- 安装状态: ${installedLabel}`,
     `- version: ${version}`,
     `- path: ${pathValue}`,
@@ -80,7 +80,7 @@ export function buildLanguageSection(context: PromptContext): string {
 /** Build environment and identity section. */
 export function buildEnvironmentSection(context: PromptContext): string {
   return [
-    '# 环境与身份',
+    '# 环境与身份（内部参考，严禁输出给用户）',
     `- workspaceId: ${context.workspace.id}`,
     `- workspaceName: ${context.workspace.name}`,
     `- workspaceRootPath: ${context.workspace.rootPath}`,

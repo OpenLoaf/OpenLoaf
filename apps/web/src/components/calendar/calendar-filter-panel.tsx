@@ -10,9 +10,8 @@
 import { useCallback } from "react";
 import { Accordion, AccordionContent, AccordionItem } from "@openloaf/ui/accordion";
 import { Checkbox } from "@openloaf/ui/checkbox";
-import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { ChevronDownIcon, Folder } from "lucide-react";
+import { ChevronDownIcon, Filter, Folder } from "lucide-react";
 import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 
 type CalendarSource = {
@@ -181,26 +180,34 @@ export function CalendarFilterPanel({
         className ?? ""
       }`}
     >
-      <div className="flex items-center gap-1 px-1 pb-1 font-semibold text-foreground">
-        筛选
+      <div className="flex items-center px-2 h-9">
+        <Filter className="h-3.5 w-3.5 text-[#5f6368] dark:text-slate-400" />
+        <span className="text-sm font-semibold text-foreground ml-1.5">筛选</span>
       </div>
-      <Tabs
-        value={sourceFilter}
-        onValueChange={(value) => onSourceFilterChange(value as CalendarSourceFilter)}
-        className="px-1 pb-2"
-      >
-        <TabsList className="grid h-8 w-full grid-cols-3">
-          <TabsTrigger value="all" className="text-xs">
-            全部
-          </TabsTrigger>
-          <TabsTrigger value="local" className="text-xs">
-            仅本地
-          </TabsTrigger>
-          <TabsTrigger value="system" className="text-xs">
-            仅系统
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="border-b border-[#e3e8ef] dark:border-slate-700 mb-1.5" />
+      <div className="flex items-center gap-0.5 rounded-full border bg-background p-0.5 mx-1 mb-2">
+        {([
+          { value: "all" as const, label: "全部", activeBg: "bg-[#e8f0fe]", activeText: "text-[#1a73e8]", darkActiveBg: "dark:bg-sky-900/50", darkActiveText: "dark:text-sky-300" },
+          { value: "local" as const, label: "本地", activeBg: "bg-[#e6f4ea]", activeText: "text-[#188038]", darkActiveBg: "dark:bg-emerald-900/40", darkActiveText: "dark:text-emerald-300" },
+          { value: "system" as const, label: "系统", activeBg: "bg-[#f3e8fd]", activeText: "text-[#9334e6]", darkActiveBg: "dark:bg-violet-900/40", darkActiveText: "dark:text-violet-300" },
+        ]).map(({ value, label, activeBg, activeText, darkActiveBg, darkActiveText }) => {
+          const isActive = sourceFilter === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              className={`flex-1 inline-flex items-center justify-center gap-1 rounded-full transition-all duration-150 h-7 text-[11px] font-medium ${
+                isActive
+                  ? `${activeBg} ${activeText} ${darkActiveBg} ${darkActiveText}`
+                  : "text-[#5f6368] hover:bg-[#f1f3f4] hover:text-[#202124] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.42)] dark:hover:text-slate-200"
+              }`}
+              onClick={() => onSourceFilterChange(value)}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
       <Accordion type="multiple" defaultValue={["calendars", "reminders"]}>
         <AccordionItem value="calendars">
           <CalendarFilterPanelTrigger

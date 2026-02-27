@@ -182,13 +182,9 @@ export const SidebarWorkspace = () => {
   };
 
   /** Clear SaaS login and local UI state. */
-  const handleLogout = async () => {
-    try {
-      await logout();
-      toast.success("已退出登录");
-    } catch (error) {
-      toast.error((error as Error)?.message ?? "退出登录失败");
-    }
+  const handleLogout = () => {
+    logout();
+    toast.success("已退出登录");
   };
 
   /** Trigger incremental update check for Electron. */

@@ -75,6 +75,26 @@ export default function DesktopTileContent({
         openSettingsTab(workspace.id);
         return;
       }
+      if (iconKey === "agent-settings") {
+        if (!activeTabId) { toast.error("未找到当前标签页"); return; }
+        useTabRuntime.getState().pushStackItem(activeTabId, {
+          id: "agent-management",
+          sourceKey: "agent-management",
+          component: "agent-management",
+          title: "Agent设置",
+        });
+        return;
+      }
+      if (iconKey === "skill-settings") {
+        if (!activeTabId) { toast.error("未找到当前标签页"); return; }
+        useTabRuntime.getState().pushStackItem(activeTabId, {
+          id: "skill-settings",
+          sourceKey: "skill-settings",
+          component: "skill-settings",
+          title: "技能设置",
+        });
+        return;
+      }
       const activeTab = tabs.find(
         (tab) => tab.id === activeTabId && tab.workspaceId === workspace.id
       );
@@ -152,19 +172,36 @@ export default function DesktopTileContent({
   }, [item.kind, widgetKey]);
 
   if (item.kind === "icon") {
+    const isWide = item.layout.w >= 2;
     return (
       <button
         type="button"
-        className="group flex h-full w-full flex-col items-center justify-center gap-1 p-2"
+        className="group flex h-full w-full items-center justify-center p-2"
         onClick={() => handleIconClick(item.iconKey)}
         aria-label={item.title}
       >
-        <div className="flex size-10 items-center justify-center rounded-2xl text-foreground transition-transform duration-200 ease-out group-hover:-translate-y-1 group-hover:rotate-3 group-hover:scale-110">
-          {item.icon}
+        <div className={
+          isWide
+            ? "inline-flex flex-row items-center gap-2.5"
+            : "flex flex-col items-center gap-1"
+        }>
+          <div className={
+            isWide
+              ? "flex size-8 shrink-0 items-center justify-center rounded-xl text-foreground transition-transform duration-200 ease-out group-hover:scale-110"
+              : "flex size-10 items-center justify-center rounded-2xl text-foreground transition-transform duration-200 ease-out group-hover:-translate-y-1 group-hover:rotate-3 group-hover:scale-110"
+          }>
+            {item.icon}
+          </div>
+          {isWide ? (
+            <span className="whitespace-nowrap text-xs font-medium text-foreground transition-transform duration-200 ease-out group-hover:scale-[1.03]">
+              {item.title}
+            </span>
+          ) : (
+            <DesktopIconLabel className="-mt-0.5 transition-transform duration-200 ease-out group-hover:-translate-y-0.5 group-hover:scale-[1.03]">
+              {item.title}
+            </DesktopIconLabel>
+          )}
         </div>
-        <DesktopIconLabel className="-mt-0.5 transition-transform duration-200 ease-out group-hover:-translate-y-0.5 group-hover:scale-[1.03]">
-          {item.title}
-        </DesktopIconLabel>
       </button>
     );
   }

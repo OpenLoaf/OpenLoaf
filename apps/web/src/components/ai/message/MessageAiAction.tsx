@@ -20,13 +20,9 @@ import {
   Minimize2,
   RotateCcw,
   Trash2,
-  ThumbsUp,
-  ThumbsDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useChatActions, useChatSession, useChatState } from "../context";
-import { trpc } from "@/utils/trpc";
-import { useMutation } from "@tanstack/react-query";
 import MessageBranchNav from "./MessageBranchNav";
 import { getMessageTextWithToolCalls } from "@/lib/chat/message-text";
 import { MessageAction, MessageActions } from "@/components/ai-elements/message";
@@ -158,7 +154,7 @@ export default function MessageAiAction({
   message: UIMessage;
   className?: string;
 }) {
-  const { retryAssistantMessage, clearError, updateMessage, sendMessage, deleteMessageSubtree } =
+  const { retryAssistantMessage, clearError, sendMessage, deleteMessageSubtree } =
     useChatActions();
   const { status } = useChatState();
   const { leafMessageId, sessionId } = useChatSession();
@@ -217,23 +213,6 @@ export default function MessageAiAction({
   const messageKind = (message as any)?.messageKind;
   const canCompact = message.role === "assistant" && isLeafMessage && messageKind !== "compact_summary";
 
-  const ratingValue = (message.metadata as any)?.isGood ?? null;
-
-  // 使用 TanStack React Query 调用接口更新评价
-  const updateRatingMutation = useMutation({
-    ...trpc.chat.updateMessageMetadata.mutationOptions(),
-    onSuccess: (result) => {
-      // 逻辑：成功后用服务端返回的 metadata 回写到本地消息。
-      updateMessage(message.id, { metadata: (result as any).metadata ?? null });
-      toast.success("评价成功");
-    },
-    onError: () => {
-      toast.error("评价失败，请稍后重试");
-    },
-  });
-
-  const isRating = updateRatingMutation.isPending;
-
   const usage = extractTokenUsage(message.metadata);
   const assistantElapsedMs = extractAssistantElapsedMs(message.metadata);
 
@@ -241,39 +220,6 @@ export default function MessageAiAction({
     | { model?: { provider?: string; modelId?: string } }
     | undefined;
   const agentModel = agentInfo?.model as { provider?: string; modelId?: string } | undefined;
-
-  const buildNextMetadata = (nextIsGood: boolean | null) => {
-    // 点赞/点踩为“单选”状态；重复点击同一选项则取消（回到 null）
-    const nextMetadata = { ...((message.metadata as any) ?? {}) } as Record<string, unknown>;
-    if (nextIsGood === null) {
-      delete nextMetadata.isGood;
-    } else {
-      nextMetadata.isGood = nextIsGood;
-    }
-    return Object.keys(nextMetadata).length > 0 ? nextMetadata : null;
-  };
-
-  // 处理好评点击
-  const handleGoodRating = () => {
-    if (!message.id) return;
-
-    updateRatingMutation.mutate({
-      sessionId,
-      messageId: message.id,
-      metadata: buildNextMetadata(ratingValue === true ? null : true),
-    });
-  };
-
-  // 处理差评点击
-  const handleBadRating = () => {
-    if (!message.id) return;
-
-    updateRatingMutation.mutate({
-      sessionId,
-      messageId: message.id,
-      metadata: buildNextMetadata(ratingValue === false ? null : false),
-    });
-  };
 
   const handleCompactConfirm = React.useCallback(() => {
     if (isBusy) return;
@@ -356,40 +302,6 @@ export default function MessageAiAction({
         </ModelSelectorContent>
       </ModelSelector>
 
-      <MessageAction
-        onClick={handleGoodRating}
-        disabled={isRating}
-        className={MESSAGE_ACTION_CLASSNAME}
-        tooltip="好评"
-        label="好评"
-        aria-label="好评"
-        title="好评"
-      >
-        <ThumbsUp
-          className={cn(
-            "size-3 transition-all",
-            ratingValue === true && "fill-primary  text-primary"
-          )}
-        />
-      </MessageAction>
-
-      <MessageAction
-        onClick={handleBadRating}
-        disabled={isRating}
-        className={MESSAGE_ACTION_CLASSNAME}
-        tooltip="差评"
-        label="差评"
-        aria-label="差评"
-        title="差评"
-      >
-        <ThumbsDown
-          className={cn(
-            "size-3 transition-all",
-            ratingValue === false && "fill-primary  text-primary"
-          )}
-        />
-      </MessageAction>
-
       {canCompact ? (
         <ModelSelector open={compactOpen} onOpenChange={setCompactOpen}>
           <ModelSelectorTrigger asChild>
@@ -445,23 +357,23 @@ export default function MessageAiAction({
             <BarChart3 className="size-3" />
           </MessageAction>
         </PromptInputHoverCardTrigger>
-        <PromptInputHoverCardContent className="max-w-xs">
+        <PromptInputHoverCardContent className="max-w-[200px] p-2">
           {usage ? (
-            <div className="space-y-1">
-              <div className="font-medium">Token 用量</div>
+            <div className="space-y-0.5 text-xs">
+              <div className="font-medium text-xs">Token 用量</div>
               {agentModel?.provider || agentModel?.modelId ? (
-                <div className="opacity-90">
+                <div className="text-[11px] text-muted-foreground truncate">
                   {agentModel?.provider ?? "-"} / {agentModel?.modelId ?? "-"}
                 </div>
               ) : null}
-              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 opacity-95">
-                <div>输入</div>
+              <div className="grid grid-cols-2 gap-x-2 gap-y-0 text-[11px]">
+                <div className="text-muted-foreground">输入</div>
                 <div className="text-right tabular-nums">
                   {formatTokenCount(usage.inputTokens)}
                 </div>
                 {typeof usage.cachedInputTokens === "number" ? (
                   <>
-                    <div>缓存输入</div>
+                    <div className="text-muted-foreground">缓存</div>
                     <div className="text-right tabular-nums">
                       {formatTokenCount(usage.cachedInputTokens)}
                     </div>
@@ -469,7 +381,7 @@ export default function MessageAiAction({
                 ) : null}
                 {typeof usage.noCacheTokens === "number" ? (
                   <>
-                    <div>非缓存</div>
+                    <div className="text-muted-foreground">非缓存</div>
                     <div className="text-right tabular-nums">
                       {formatTokenCount(usage.noCacheTokens)}
                     </div>
@@ -477,24 +389,24 @@ export default function MessageAiAction({
                 ) : null}
                 {typeof usage.reasoningTokens === "number" ? (
                   <>
-                    <div>推理</div>
+                    <div className="text-muted-foreground">推理</div>
                     <div className="text-right tabular-nums">
                       {formatTokenCount(usage.reasoningTokens)}
                     </div>
                   </>
                 ) : null}
-                <div>输出</div>
+                <div className="text-muted-foreground">输出</div>
                 <div className="text-right tabular-nums">
                   {formatTokenCount(usage.outputTokens)}
                 </div>
-                <div>总计</div>
-                <div className="text-right tabular-nums">
+                <div className="text-muted-foreground font-medium">总计</div>
+                <div className="text-right tabular-nums font-medium">
                   {formatTokenCount(usage.totalTokens)}
                 </div>
               </div>
             </div>
           ) : (
-            <div>暂无 token 信息</div>
+            <div className="text-xs text-muted-foreground">暂无 token 信息</div>
           )}
         </PromptInputHoverCardContent>
       </PromptInputHoverCard>

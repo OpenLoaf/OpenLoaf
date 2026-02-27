@@ -15,8 +15,8 @@ export const jsxCreateToolDef = {
   name: '组件渲染',
   description:
     '用途：渲染 JSX 字符串并展示内容，同时把内容写入会话目录的 jsx 文件。\n'
-    + '使用方法：直接传入 JSX 字符串，不要封装为对象，也不要附加 actionName。\n'
-    + '示例："<div className=\\"p-4 text-sm\\">...</div>"。\n'
+    + '使用方法：传入 content 字段，值为 JSX 字符串，不要附加 actionName。\n'
+    + '示例：{ "content": "<div className=\\"p-4 text-sm\\">...</div>" }。\n'
     + '注意事项：\n'
     + '- 当你需要输出“可视化组件/卡片/布局”，应优先使用本工具而非纯文本。\n'
     + '- 只写 JSX 片段，不要写 import/export/const/函数定义。\n'
@@ -44,7 +44,9 @@ export const jsxCreateToolDef = {
     + '返回：{ ok: true, path: string, messageId: string }。\n'
     + '注意：调用该工具后不要再向用户重复输出 JSX 代码，工具会在前端直接展示渲染结果。\n'
     + '注意：只能使用白名单组件与原生 HTML，禁止传入 bindings；修改请用 apply-patch。',
-  parameters: z.string().min(1).describe('JSX 字符串内容。'),
+  parameters: z.object({
+    content: z.string().min(1).describe('JSX 字符串内容。'),
+  }),
   needsApproval: false,
   component: null,
 } as const

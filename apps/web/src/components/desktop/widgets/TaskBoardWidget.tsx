@@ -78,9 +78,9 @@ export default function TaskBoardWidget() {
       return;
     }
     useTabRuntime.getState().pushStackItem(activeTabId, {
-      id: "task-board-page",
-      sourceKey: "task-board-page",
-      component: "task-board-page",
+      id: "scheduled-tasks-page",
+      sourceKey: "scheduled-tasks-page",
+      component: "scheduled-tasks-page",
       title: "任务看板",
     });
   }, [activeTabId]);

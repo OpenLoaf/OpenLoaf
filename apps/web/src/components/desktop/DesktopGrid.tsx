@@ -138,13 +138,24 @@ export default function DesktopGrid({
   const lastCompactSignalRef = React.useRef<number>(compactSignal);
 
   const [containerWidth, setContainerWidth] = React.useState<number>(0);
+  // 逻辑：当容器从不可见（宽度 0）变为可见时自增，强制触发 GridStack 重新同步。
+  const [visibilitySignal, setVisibilitySignal] = React.useState(0);
+  const prevWidthZeroRef = React.useRef(true);
   React.useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0];
       const nextWidth = entry?.contentRect?.width ?? 0;
-      if (nextWidth > 0) lastWidthRef.current = nextWidth;
+      if (nextWidth > 0) {
+        lastWidthRef.current = nextWidth;
+        if (prevWidthZeroRef.current) {
+          prevWidthZeroRef.current = false;
+          setVisibilitySignal((s) => s + 1);
+        }
+      } else {
+        prevWidthZeroRef.current = true;
+      }
       setContainerWidth(nextWidth);
     });
     ro.observe(el);
@@ -371,6 +382,17 @@ export default function DesktopGrid({
       if (!nextIds.has(id)) registeredIds.delete(id);
     }
 
+    // 逻辑：清理引擎中的幽灵节点——已不在 items 列表中但仍占据布局空间的旧节点。
+    // 当持久化数据加载后替换了初始默认 items 时，旧 DOM 被 React 移除，
+    // 但 Gridstack 引擎中对应的节点未清除，导致它们占据空间挤压其他组件。
+    const engineNodes = [...(grid.engine?.nodes ?? [])];
+    for (const node of engineNodes) {
+      const nodeId = node.id != null ? String(node.id) : null;
+      if (nodeId && !nextIds.has(nodeId)) {
+        grid.engine.removeNode(node);
+      }
+    }
+
     for (const item of viewItems) {
       const el = itemElByIdRef.current.get(item.id);
       if (!el) continue;
@@ -409,7 +431,7 @@ export default function DesktopGrid({
         }
       });
     }
-  }, [editMode, items, metrics.cell, metrics.cols, metrics.gap, resolvedBreakpoint]);
+  }, [editMode, items, metrics.cell, metrics.cols, metrics.gap, resolvedBreakpoint, visibilitySignal]);
 
   React.useEffect(() => {
     const grid = gridRef.current;
@@ -501,7 +523,14 @@ export default function DesktopGrid({
                       "gs-max-h": item.constraints.maxH,
                     }
                   : null),
-                ...(item.kind === "icon" ? { "gs-no-resize": "true" } : null),
+                ...(item.kind === "icon"
+                  ? {
+                      "gs-min-w": 1,
+                      "gs-min-h": 1,
+                      "gs-max-w": 2,
+                      "gs-max-h": 1,
+                    }
+                  : null),
               } as Record<string, unknown>)}
             >
               <div className="grid-stack-item-content !overflow-x-visible !overflow-y-visible bg-transparent">

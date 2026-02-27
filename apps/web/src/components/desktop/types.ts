@@ -73,7 +73,7 @@ export interface DesktopItemBase {
   customizedBreakpoints?: DesktopBreakpoint[];
 }
 
-export type DesktopIconKey = "files" | "tasks" | "search" | "settings";
+export type DesktopIconKey = "files" | "tasks" | "search" | "settings" | "agent-settings" | "skill-settings";
 
 export interface DesktopIconItem extends DesktopItemBase {
   kind: "icon";

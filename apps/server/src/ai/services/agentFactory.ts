@@ -27,6 +27,10 @@ import {
   type AgentConfig,
 } from '@/ai/services/agentConfigService'
 import { resolveAgentByName } from '@/ai/tools/AgentSelector'
+import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
+import { getWorkspaceRootPath } from '@openloaf/api'
+import { resolveAgentDir } from '@/ai/shared/defaultAgentResolver'
 
 // ---------------------------------------------------------------------------
 // 模版工具 ID 解析
@@ -160,13 +164,15 @@ export function createSubAgent(input: CreateSubAgentInput): ToolLoopAgent {
 
   const effectiveName = resolveEffectiveAgentName(input.rawAgentType)
 
-  // 逻辑：系统 Agent — 从模版查找定义。
+  // 逻辑：系统 Agent — 从模版查找定义，支持用户 AGENT.md 覆盖。
   if (input.agentType === 'system') {
     const template = getTemplate(effectiveName)
     if (template) {
       const toolIds = resolveTemplateToolIds(template)
-      const instructions =
-        template.systemPrompt || `你是 ${template.name}。${template.description}`
+      const userOverride = readSystemAgentOverride(effectiveName, input.skillRoots)
+      const instructions = userOverride
+        || template.systemPrompt
+        || `你是 ${template.name}。${template.description}`
       return new ToolLoopAgent({
         id: `system-agent-${template.id}`,
         model: input.model,
@@ -222,6 +228,29 @@ function ensureAgentToolIds(toolIds: readonly string[], allowSubAgents?: boolean
     if (!effectiveToolIds.includes(id)) effectiveToolIds.push(id)
   }
   return effectiveToolIds
+}
+
+/** Read user-override AGENT.md for a system agent template. */
+function readSystemAgentOverride(
+  templateId: string,
+  skillRoots?: CreateSubAgentInput['skillRoots'],
+): string | null {
+  const roots = [
+    skillRoots?.projectRoot,
+    skillRoots?.workspaceRoot,
+    getWorkspaceRootPath(),
+  ].filter(Boolean) as string[]
+
+  for (const root of roots) {
+    const agentMdPath = path.join(resolveAgentDir(root, templateId), 'AGENT.md')
+    if (existsSync(agentMdPath)) {
+      try {
+        const content = readFileSync(agentMdPath, 'utf8').trim()
+        if (content) return content
+      } catch { /* ignore */ }
+    }
+  }
+  return null
 }
 
 /** Create a ToolLoopAgent from an AgentConfig. */

@@ -25,12 +25,19 @@ import { normalizeToolInput, isToolStreaming } from './shared/tool-utils'
 type TaskStatus = 'todo' | 'running' | 'review' | 'done' | 'cancelled'
 type Priority = 'urgent' | 'high' | 'medium' | 'low'
 
+type ScheduleInput = {
+  type?: 'once' | 'interval' | 'cron'
+  scheduleAt?: string
+  intervalMs?: number
+  cronExpr?: string
+}
+
 type CreateTaskInput = {
   actionName?: string
   title?: string
   description?: string
   priority?: Priority
-  autoExecute?: boolean
+  schedule?: ScheduleInput
   skipPlanConfirm?: boolean
   agentName?: string
 }
@@ -79,6 +86,27 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   review: 'text-purple-600',
   done: 'text-green-600',
   cancelled: 'text-zinc-500',
+}
+
+function formatScheduleLabel(schedule?: ScheduleInput): string | null {
+  if (!schedule?.type) return null
+  switch (schedule.type) {
+    case 'once':
+      return schedule.scheduleAt
+        ? `定时 · ${new Date(schedule.scheduleAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+        : '定时'
+    case 'interval': {
+      if (!schedule.intervalMs) return '周期'
+      const ms = schedule.intervalMs
+      if (ms >= 3600000) return `每 ${Math.round(ms / 3600000)} 小时`
+      if (ms >= 60000) return `每 ${Math.round(ms / 60000)} 分钟`
+      return `每 ${Math.round(ms / 1000)} 秒`
+    }
+    case 'cron':
+      return schedule.cronExpr ? `cron: ${schedule.cronExpr}` : 'cron'
+    default:
+      return null
+  }
 }
 
 // ─── Component ───────────────────────────────────────────────────────
@@ -155,6 +183,11 @@ export default function TaskTool({
         <Badge variant="outline" className={cn('text-[10px]', STATUS_COLORS[status])}>
           {STATUS_LABELS[status]}
         </Badge>
+        {input.schedule?.type && (
+          <Badge variant="outline" className="text-[10px] bg-amber-500/15 text-amber-600">
+            {formatScheduleLabel(input.schedule) ?? '定时'}
+          </Badge>
+        )}
         {input.agentName && (
           <Badge variant="secondary" className="text-[10px]">
             {input.agentName}

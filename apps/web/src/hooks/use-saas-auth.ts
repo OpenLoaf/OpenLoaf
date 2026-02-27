@@ -25,6 +25,7 @@ import {
   type SaasAuthUser,
   type SaasLoginProvider,
 } from "@/lib/saas-auth";
+import { refreshCloudModels } from "@/hooks/use-cloud-models";
 import { resolveServerUrl } from "@/utils/server-url";
 
 type LoginStatus = "idle" | "opening" | "polling" | "error";
@@ -53,7 +54,7 @@ type SaasAuthState = {
   /** Cancel current login polling. */
   cancelLogin: () => void;
   /** Logout from SaaS. */
-  logout: () => Promise<void>;
+  logout: () => void;
 };
 
 let loginPollTimer: number | null = null;
@@ -221,14 +222,16 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
       await get().refreshSession();
       set({ loginStatus: "idle", loginError: null, wechatLoginUrl: null });
       toast.success("登录成功");
+      // 登录成功后立即刷新云端模型列表
+      void refreshCloudModels();
     }, 1000);
   },
   cancelLogin: () => {
     stopLoginPolling();
     set({ loginStatus: "idle", loginError: null, wechatLoginUrl: null });
   },
-  logout: async () => {
-    await logoutFromSaas();
+  logout: () => {
+    logoutFromSaas();
     set({ loggedIn: false, user: null });
   },
 }));

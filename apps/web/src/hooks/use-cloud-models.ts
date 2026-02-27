@@ -153,6 +153,11 @@ const useCloudModelStore = create<CloudModelState>((set, get) => ({
   },
 }));
 
+/** Refresh cloud models from outside React (e.g. after login). */
+export function refreshCloudModels(options?: RefreshCloudModelOptions) {
+  return useCloudModelStore.getState().refresh(options);
+}
+
 /** React hook for cloud model list. */
 export function useCloudModels() {
   const models = useCloudModelStore((state) => state.models);

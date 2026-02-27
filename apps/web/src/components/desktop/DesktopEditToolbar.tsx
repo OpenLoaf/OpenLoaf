@@ -22,8 +22,9 @@ import { Button } from "@openloaf/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { desktopWidgetCatalog } from "./widget-catalog";
+import { desktopIconCatalog, getDesktopIconNode } from "./desktop-icon-catalog";
 import { getWidgetVariantConfig } from "./widget-variants";
-import type { DesktopItem, DesktopWidgetItem } from "./types";
+import type { DesktopIconKey, DesktopItem, DesktopWidgetItem } from "./types";
 import {
   getItemLayoutForBreakpoint,
   getBreakpointConfig,
@@ -163,6 +164,26 @@ function createWidgetItem(
   };
 }
 
+/** Build a new icon item based on icon catalog metadata. */
+function createIconItem(
+  iconKey: DesktopIconKey,
+  items: DesktopItem[],
+  breakpoint: DesktopBreakpoint,
+  title?: string,
+) {
+  const catalogItem = desktopIconCatalog.find((item) => item.iconKey === iconKey);
+  if (!catalogItem) return null;
+  const pos = findFirstAvailablePosition(items, breakpoint, 1, 1);
+  return {
+    id: `i-${iconKey}-${Date.now()}`,
+    kind: "icon" as const,
+    title: title ?? catalogItem.title,
+    iconKey: catalogItem.iconKey,
+    icon: getDesktopIconNode(catalogItem.iconKey),
+    layout: { x: pos.x, y: pos.y, w: 1, h: 1 },
+  };
+}
+
 export interface DesktopEditToolbarProps {
   /** Mount point for header controls. */
   controlsTarget: HTMLDivElement | null;
@@ -222,6 +243,14 @@ export default function DesktopEditToolbar({
       const currentActiveTabId = useTabs.getState().activeTabId;
       if (currentActiveTabId && detail.tabId !== currentActiveTabId) return;
 
+      // 逻辑：根据 widgetKey 区分 icon 与 widget 类型。
+      if (detail.widgetKey === "__icon__" && detail.iconKey) {
+        const nextIcon = createIconItem(detail.iconKey, items, activeBreakpoint, detail.title);
+        if (!nextIcon) return;
+        onAddItem(nextIcon);
+        return;
+      }
+
       const nextItem = createWidgetItem(detail.widgetKey, items, activeBreakpoint, {
         title: detail.title,
         folderUri: detail.folderUri,
@@ -261,22 +290,22 @@ export default function DesktopEditToolbar({
       <div className="flex items-center justify-end gap-2">
         <Button
           type="button"
-          variant="secondary"
+          variant="ghost"
           size="sm"
-          className="h-7 gap-1.5 px-2 text-xs"
+          className="h-7 gap-1.5 rounded-full px-3 text-xs bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] hover:text-[#1a73e8] dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70 transition-colors duration-150"
           onClick={handleAddAndEdit}
         >
-          <Plus className="size-3.5 text-blue-500" />
+          <Plus className="size-3.5" />
           添加组件
         </Button>
         <Button
           type="button"
-          variant="secondary"
+          variant="ghost"
           size="sm"
-          className="h-7 gap-1.5 px-2 text-xs"
+          className="h-7 gap-1.5 rounded-full px-3 text-xs text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.42)] transition-colors duration-150"
           onClick={onEnterEditMode}
         >
-          <PencilLine className="size-3.5 text-blue-500" />
+          <PencilLine className="size-3.5" />
           编辑
         </Button>
       </div>,
@@ -288,42 +317,42 @@ export default function DesktopEditToolbar({
     <div className="flex items-center justify-end gap-2">
       <Button
         type="button"
-        variant="secondary"
+        variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 px-2 text-xs"
+        className="h-7 gap-1.5 rounded-full px-3 text-xs bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] hover:text-[#1a73e8] dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70 transition-colors duration-150"
         onClick={handleOpenWidgetLibrary}
       >
-        <Plus className="size-3.5 text-blue-500" />
+        <Plus className="size-3.5" />
         添加组件
       </Button>
       <Button
         type="button"
-        variant="secondary"
+        variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 px-2 text-xs"
+        className="h-7 gap-1.5 rounded-full px-3 text-xs bg-[#fef7e0] text-[#e37400] hover:bg-[#fcefc8] hover:text-[#e37400] dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors duration-150"
         onClick={onCompact}
       >
-        <Box className="size-3.5 text-orange-500" />
+        <Box className="size-3.5" />
         整理
       </Button>
       <Button
         type="button"
-        variant="secondary"
+        variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 px-2 text-xs"
+        className="h-7 gap-1.5 rounded-full px-3 text-xs text-[#d93025] hover:bg-[#fce8e6] hover:text-[#d93025] dark:text-red-300 dark:hover:bg-red-900/40 transition-colors duration-150"
         onClick={onCancel}
       >
-        <X className="size-3.5 text-red-500" />
+        <X className="size-3.5" />
         取消
       </Button>
       <Button
         type="button"
-        variant="default"
+        variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 px-2 text-xs"
+        className="h-7 gap-1.5 rounded-full px-3 text-xs bg-[#e6f4ea] text-[#188038] hover:bg-[#ceead6] hover:text-[#188038] dark:bg-emerald-900/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 transition-colors duration-150"
         onClick={onDone}
       >
-        <Check className="size-3.5 text-emerald-500" />
+        <Check className="size-3.5" />
         完成
       </Button>
     </div>,

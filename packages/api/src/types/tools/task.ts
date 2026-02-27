@@ -14,7 +14,7 @@ export const createTaskToolDef = {
   id: 'create-task',
   name: '创建后台任务',
   description:
-    '当用户请求涉及多步骤开发工作时使用。创建后台自主执行的任务，系统自动规划和执行。创建后用户可以继续聊其他事情。',
+    '创建后台任务。不传 schedule 则立即执行一次（适用于多步骤开发、重构等）；传 schedule 则按时间调度自动执行（定时/周期/cron）。',
   parameters: z.object({
     actionName: z
       .string()
@@ -27,16 +27,41 @@ export const createTaskToolDef = {
       .optional()
       .default('medium')
       .describe('任务优先级'),
-    autoExecute: z
-      .boolean()
+    schedule: z
+      .object({
+        type: z
+          .enum(['once', 'interval', 'cron'])
+          .describe(
+            '调度类型。once=在指定时间执行一次；interval=每隔固定毫秒重复；cron=按 cron 表达式周期执行',
+          ),
+        scheduleAt: z
+          .string()
+          .optional()
+          .describe('once 类型必填，ISO 8601 时间字符串，如 "2025-03-01T09:00:00+08:00"'),
+        intervalMs: z
+          .number()
+          .optional()
+          .describe(
+            'interval 类型必填，执行间隔毫秒数，最小 60000（1分钟）。例：300000=5分钟，3600000=1小时',
+          ),
+        cronExpr: z
+          .string()
+          .optional()
+          .describe(
+            'cron 类型必填，5 段 cron 表达式（分 时 日 月 周）。例："*/5 * * * *"=每5分钟，"0 9 * * 1-5"=工作日9点',
+          ),
+        timezone: z
+          .string()
+          .optional()
+          .describe('时区，如 "Asia/Shanghai"，不传使用系统默认'),
+      })
       .optional()
-      .default(true)
-      .describe('是否立即开始执行'),
+      .describe('定时/周期执行的调度配置。不传则任务立即执行一次'),
     skipPlanConfirm: z
       .boolean()
       .optional()
       .default(false)
-      .describe('是否跳过计划确认直接执行'),
+      .describe('是否跳过计划确认直接执行（仅一次性任务有效）'),
     agentName: z
       .string()
       .optional()

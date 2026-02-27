@@ -102,7 +102,8 @@ function resolveSessionKey(): string {
 export const jsReplTool = tool({
   description: jsReplToolDef.description,
   inputSchema: zodSchema(jsReplToolDef.parameters),
-  execute: async (input: string): Promise<string> => {
+  execute: async (input: { code: string }): Promise<string> => {
+    const code = input.code
     // 逻辑：每次执行独立的 logs 数组，避免并发竞争。
     const logs: string[] = []
     const key = resolveSessionKey()
@@ -126,7 +127,7 @@ export const jsReplTool = tool({
     }
 
     try {
-      const script = new vm.Script(input, { filename: 'repl.js' })
+      const script = new vm.Script(code, { filename: 'repl.js' })
       const result = script.runInContext(entry.context, {
         timeout: DEFAULT_TIMEOUT_MS,
       })
