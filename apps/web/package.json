@@ -32,7 +32,7 @@
     "@measured/puck": "^0.20.2",
     "@milkdown/crepe": "^7.18.0",
     "@monaco-editor/react": "^4.7.0",
-    "@openloaf-saas/sdk": "file:../../../OpenLoaf-saas/packages/sdk",
+    "@openloaf-saas/sdk": "^0.1.1",
     "@openloaf/api": "workspace:*",
     "@openloaf/ui": "workspace:*",
     "@openloaf/widget-sdk": "workspace:*",

@@ -7,7 +7,7 @@
     "ruler:apply": "pnpm dlx @intellectronica/ruler@latest apply --local-only",
     "dev": "cross-env CI=1 NODE_OPTIONS=--conditions=development turbo dev --ui=stream",
     "build": "turbo build",
-    "check-types": "CI=1 turbo check-types",
+    "check-types": "cross-env CI=1 turbo check-types",
     "dev:native": "cross-env CI=1 NODE_OPTIONS=--conditions=development turbo -F native dev --ui=stream",
     "dev:web": "cross-env CI=1 NODE_OPTIONS=--conditions=development turbo -F web dev --ui=stream",
     "dev:server": "cross-env CI=1 NODE_OPTIONS=--conditions=development turbo -F server dev --ui=stream",
@@ -17,7 +17,6 @@
     "db:generate": "turbo -F @openloaf/db db:generate",
     "db:migrate": "turbo -F @openloaf/db db:migrate",
     "db:seed": "turbo -F @openloaf/db db:seed",
-    "refresh:sdk": "rm -rf node_modules/@openloaf-saas/sdk node_modules/.pnpm/@openloaf-saas+sdk* && pnpm install --filter web --force",
     "lint": "turbo lint",
     "lint:biome": "biome lint .",
     "lint:biome:fix": "biome lint --fix .",
@@ -26,7 +25,7 @@
     "check": "biome check .",
     "publish:server": "pnpm --filter server run publish-update",
     "publish:web": "pnpm --filter web run publish-update",
-    "clean": "pnpm -r exec rm -rf node_modules dist .turbo .next out build && rm -rf node_modules .turbo"
+    "clean": "pnpm -r exec node -e \"const fs=require('fs');['node_modules','dist','.turbo','.next','out','build'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true})}catch{}})\" && node -e \"const fs=require('fs');['node_modules','dist','.turbo','.next','out','build'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true})}catch{}})\""
   },
   "dependencies": {
     "@ark-ui/react": "^5.31.0",
@@ -66,7 +65,8 @@
     },
     "overrides": {
       "@radix-ui/react-popover": "1.1.15",
-      "@radix-ui/react-tabs": "1.1.13"
+      "@radix-ui/react-tabs": "1.1.13",
+      "dashjs": "5.1.0"
     },
     "onlyBuiltDependencies": [
       "macos-alias",

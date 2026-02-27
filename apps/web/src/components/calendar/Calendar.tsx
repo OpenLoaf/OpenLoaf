@@ -796,8 +796,11 @@ export default function CalendarPage({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>稍后再说</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRelaunchApp}>
+            <AlertDialogCancel className="rounded-full">稍后再说</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRelaunchApp}
+              className="rounded-full bg-[#1a73e8] text-white hover:bg-[#1557b0] dark:bg-sky-600 dark:hover:bg-sky-700"
+            >
               重启应用
             </AlertDialogAction>
           </AlertDialogFooter>

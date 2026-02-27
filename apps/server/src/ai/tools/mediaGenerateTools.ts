@@ -29,6 +29,8 @@ import {
   submitMediaTask,
   pollMediaTask,
   cancelMediaTask,
+  fetchImageModels,
+  fetchVideoModels,
 } from '@/modules/saas/modules/media/client'
 import { saveChatImageAttachment } from '@/ai/services/image/attachmentResolver'
 
@@ -208,6 +210,29 @@ async function downloadAndSaveVideo(input: {
   return { url: path.posix.join('.openloaf', 'chat-history', input.sessionId, fileName) }
 }
 
+/**
+ * Auto-select a media model from the cloud when none is explicitly configured.
+ * Returns the first model id from the cloud list, or undefined if unavailable.
+ */
+async function autoSelectCloudMediaModel(
+  kind: 'image' | 'video',
+  accessToken: string,
+): Promise<string | undefined> {
+  try {
+    const payload = kind === 'image'
+      ? await fetchImageModels(accessToken)
+      : await fetchVideoModels(accessToken)
+    // 逻辑：SaaS 返回 { success, data: [{ id, ... }] } 格式。
+    const data = (payload as any)?.data
+    if (!Array.isArray(data) || data.length === 0) return undefined
+    const firstId = typeof data[0]?.id === 'string' ? data[0].id.trim() : undefined
+    return firstId || undefined
+  } catch (err) {
+    logger.warn({ err, kind }, 'auto-select cloud media model failed')
+    return undefined
+  }
+}
+
 /** Core media generate logic shared by image and video tools. */
 async function executeMediaGenerate(input: {
   kind: 'image' | 'video'
@@ -221,7 +246,7 @@ async function executeMediaGenerate(input: {
 }) {
   const writer = getUiWriter()
   const accessToken = getSaasAccessToken()
-  const modelId = getMediaModelId(input.kind)
+  let modelId = getMediaModelId(input.kind)
   const sessionId = getSessionId()
   const workspaceId = getWorkspaceId()
   const projectId = getProjectId()
@@ -236,6 +261,10 @@ async function executeMediaGenerate(input: {
       errorCode: 'login_required',
       message: '需要登录 OpenLoaf 云端账户才能生成' + (input.kind === 'image' ? '图片' : '视频') + '。',
     })
+  }
+  // 逻辑：Auto 模式 — 未显式配置模型时，从云端列表自动选择第一个。
+  if (!modelId && accessToken) {
+    modelId = await autoSelectCloudMediaModel(input.kind, accessToken)
   }
   if (!modelId) {
     throwMediaError({

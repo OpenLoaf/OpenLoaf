@@ -149,16 +149,16 @@ function executeHelpAction(action: HelpAction, activeTabId: string | null) {
     return
   }
 
-  const componentMap: Record<string, { component: string; title: string }> = {
-    "open-calendar": { component: "calendar", title: "日历" },
-    "open-email": { component: "email", title: "邮箱" },
-    "open-tasks": { component: "task-board", title: "任务" },
+  const componentMap: Record<string, { id: string; component: string; title: string }> = {
+    "open-calendar": { id: "calendar-page", component: "calendar-page", title: "日历" },
+    "open-email": { id: "email-page", component: "email-page", title: "邮箱" },
+    "open-tasks": { id: "scheduled-tasks-page", component: "scheduled-tasks-page", title: "任务看板" },
   }
   const target = componentMap[action]
   if (target) {
     useTabRuntime.getState().pushStackItem(activeTabId, {
-      id: target.component,
-      sourceKey: target.component,
+      id: target.id,
+      sourceKey: target.id,
       component: target.component,
       title: target.title,
     })
