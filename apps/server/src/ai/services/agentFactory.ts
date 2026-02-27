@@ -211,12 +211,25 @@ function tryCreateDynamicAgent(
   return createDynamicAgentFromConfig(match.config, input.model)
 }
 
+/** Agent collaboration tool IDs that are auto-injected when allowSubAgents is true. */
+const AGENT_COLLAB_TOOL_IDS = ['spawn-agent', 'send-input', 'wait-agent', 'abort-agent']
+
+/** Ensure agent collaboration tools are included when allowSubAgents is enabled. */
+function ensureAgentToolIds(toolIds: readonly string[], allowSubAgents?: boolean): string[] {
+  if (!allowSubAgents) return [...toolIds]
+  const effectiveToolIds = [...toolIds]
+  for (const id of AGENT_COLLAB_TOOL_IDS) {
+    if (!effectiveToolIds.includes(id)) effectiveToolIds.push(id)
+  }
+  return effectiveToolIds
+}
+
 /** Create a ToolLoopAgent from an AgentConfig. */
 export function createDynamicAgentFromConfig(
   config: AgentConfig,
   model: LanguageModelV3,
 ): ToolLoopAgent {
-  const toolIds = config.toolIds
+  const toolIds = ensureAgentToolIds(config.toolIds, config.allowSubAgents)
   const systemPrompt =
     config.systemPrompt || `你是 ${config.name}。${config.description}`
 

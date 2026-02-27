@@ -95,6 +95,7 @@ export type TaskConfig = {
   // Relations
   parentTaskId?: string
   dependsOn?: string[]
+  templateId?: string
 
   // State tracking
   enabled: boolean

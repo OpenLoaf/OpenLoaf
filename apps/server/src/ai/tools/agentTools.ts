@@ -123,6 +123,9 @@ export const spawnAgentTool = tool({
         }
       : undefined
 
+    // Derive current depth from agentStack (each frame = 1 depth level)
+    const currentDepth = requestContext.agentStack?.length ?? 0
+
     const agentId = agentManager.spawn({
       task,
       items: spawnItems,
@@ -130,6 +133,7 @@ export const spawnAgentTool = tool({
       agentType,
       modelOverride,
       context,
+      depth: currentDepth,
       inlineConfig,
     })
     return JSON.stringify({ agent_id: agentId })

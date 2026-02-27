@@ -99,6 +99,22 @@ const taskStatusChangeSchema = z.object({
   updatedAt: z.string(),
 })
 
+const taskTemplateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  agentName: z.string().optional(),
+  defaultPayload: z.any().optional(),
+  skipPlanConfirm: z.boolean().optional(),
+  requiresReview: z.boolean().optional(),
+  priority: z.enum(['urgent', 'high', 'medium', 'low']).optional(),
+  tags: z.array(z.string()).optional(),
+  triggerMode: z.enum(['manual', 'scheduled', 'condition']).optional(),
+  timeoutMs: z.number().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
 export const scheduledTaskSchemas = {
   list: {
     input: z.object({
@@ -221,6 +237,54 @@ export const scheduledTaskSchemas = {
     }),
     output: z.object({ ok: z.boolean() }),
   },
+  // Template endpoints
+  listTemplates: {
+    input: z.object({
+      workspaceId: z.string(),
+    }),
+    output: z.array(taskTemplateSchema),
+  },
+  getTemplate: {
+    input: z.object({
+      id: z.string(),
+      workspaceId: z.string(),
+    }),
+    output: taskTemplateSchema,
+  },
+  createTemplate: {
+    input: z.object({
+      workspaceId: z.string(),
+      name: z.string().min(1),
+      description: z.string().optional(),
+      agentName: z.string().optional(),
+      defaultPayload: z.any().optional(),
+      skipPlanConfirm: z.boolean().optional(),
+      requiresReview: z.boolean().optional(),
+      priority: z.enum(['urgent', 'high', 'medium', 'low']).optional(),
+      tags: z.array(z.string()).optional(),
+      triggerMode: z.enum(['manual', 'scheduled', 'condition']).optional(),
+      timeoutMs: z.number().optional(),
+    }),
+    output: taskTemplateSchema,
+  },
+  deleteTemplate: {
+    input: z.object({
+      id: z.string(),
+      workspaceId: z.string(),
+    }),
+    output: z.object({ ok: z.boolean() }),
+  },
+  createFromTemplate: {
+    input: z.object({
+      workspaceId: z.string(),
+      projectId: z.string().optional(),
+      templateId: z.string(),
+      name: z.string().optional(),
+      description: z.string().optional(),
+      scope: z.enum(['workspace', 'project']).optional(),
+    }),
+    output: taskConfigSchema,
+  },
 }
 
 export abstract class BaseScheduledTaskRouter {
@@ -291,6 +355,36 @@ export abstract class BaseScheduledTaskRouter {
       archiveCompleted: shieldedProcedure
         .input(scheduledTaskSchemas.archiveCompleted.input)
         .output(scheduledTaskSchemas.archiveCompleted.output)
+        .mutation(async () => {
+          throw new Error('Not implemented in base class')
+        }),
+      listTemplates: shieldedProcedure
+        .input(scheduledTaskSchemas.listTemplates.input)
+        .output(scheduledTaskSchemas.listTemplates.output)
+        .query(async () => {
+          throw new Error('Not implemented in base class')
+        }),
+      getTemplate: shieldedProcedure
+        .input(scheduledTaskSchemas.getTemplate.input)
+        .output(scheduledTaskSchemas.getTemplate.output)
+        .query(async () => {
+          throw new Error('Not implemented in base class')
+        }),
+      createTemplate: shieldedProcedure
+        .input(scheduledTaskSchemas.createTemplate.input)
+        .output(scheduledTaskSchemas.createTemplate.output)
+        .mutation(async () => {
+          throw new Error('Not implemented in base class')
+        }),
+      deleteTemplate: shieldedProcedure
+        .input(scheduledTaskSchemas.deleteTemplate.input)
+        .output(scheduledTaskSchemas.deleteTemplate.output)
+        .mutation(async () => {
+          throw new Error('Not implemented in base class')
+        }),
+      createFromTemplate: shieldedProcedure
+        .input(scheduledTaskSchemas.createFromTemplate.input)
+        .output(scheduledTaskSchemas.createFromTemplate.output)
         .mutation(async () => {
           throw new Error('Not implemented in base class')
         }),

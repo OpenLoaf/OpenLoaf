@@ -23,9 +23,11 @@ export const documentTemplate: AgentTemplate = {
     'edit-document',
     'project-query',
     'project-mutate',
+    'spawn-agent',
+    'wait-agent',
   ],
-  allowSubAgents: false,
-  maxDepth: 1,
+  allowSubAgents: true,
+  maxDepth: 2,
   isPrimary: false,
   systemPrompt: DOCUMENT_PROMPT.trim(),
 }

@@ -15,9 +15,9 @@ export const projectTemplate: AgentTemplate = {
   name: '项目助手',
   description: '项目数据查询操作',
   icon: 'folder-kanban',
-  toolIds: ['project-query', 'project-mutate'],
-  allowSubAgents: false,
-  maxDepth: 1,
+  toolIds: ['project-query', 'project-mutate', 'spawn-agent', 'wait-agent'],
+  allowSubAgents: true,
+  maxDepth: 2,
   isPrimary: false,
   systemPrompt: PROJECT_PROMPT.trim(),
 }

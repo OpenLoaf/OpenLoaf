@@ -35,6 +35,7 @@ import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useIsNarrowScreen } from "@/hooks/use-mobile";
 import { trpc } from "@/utils/trpc";
 import { Badge } from "@openloaf/ui/calendar/components/ui/badge";
+import { useTaskNotifications } from "@/hooks/use-task-notifications";
 
 const SIDEBAR_WORKSPACE_COLOR_CLASS = {
   calendar:
@@ -88,6 +89,18 @@ export const AppSidebar = ({
   );
   // 逻辑：未读数量统一按 workspace 汇总，避免跨账号漏计。
   const unreadCount = unreadCountQuery.data?.count ?? 0;
+  // 待审批任务数量查询。
+  const reviewTasksQuery = useQuery(
+    trpc.scheduledTask.listByStatus.queryOptions(
+      activeWorkspace
+        ? { workspaceId: activeWorkspace.id, status: ['review'] }
+        : skipToken,
+      { refetchInterval: 30000 },
+    ),
+  );
+  const reviewTaskCount = reviewTasksQuery.data?.length ?? 0;
+  // 逻辑：任务状态变更 toast 通知。
+  useTaskNotifications();
 
   // 逻辑：窄屏直接隐藏侧边栏，避免占用可用空间。
   if (isNarrow) return null;
@@ -374,6 +387,14 @@ export const AppSidebar = ({
             >
               <Clock />
               <span className="flex-1 truncate">任务</span>
+              {reviewTaskCount > 0 ? (
+                <Badge
+                  className="ml-auto min-w-[1.25rem] justify-center px-1.5 py-0.5 text-[10px] leading-[1]"
+                  size="sm"
+                >
+                  {reviewTaskCount}
+                </Badge>
+              ) : null}
             </SidebarMenuButton>
           </SidebarMenuItem>
           {/* 先隐藏收集箱入口，后续再开放。 */}

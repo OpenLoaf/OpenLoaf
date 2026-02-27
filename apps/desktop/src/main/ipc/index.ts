@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, Notification, shell } from 'electron';
 import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -817,6 +817,31 @@ export function registerIpcHandlers(args: { log: Logger }) {
       return { ok: false as const, reason };
     }
   });
+
+  // 显示 OS 原生通知（任务状态变更等）。
+  ipcMain.handle(
+    'openloaf:notification:show',
+    async (event, payload: { title: string; body: string; taskId?: string }) => {
+      const title = String(payload?.title ?? '').trim()
+      const body = String(payload?.body ?? '').trim()
+      if (!title) return { ok: false as const, reason: 'Missing title' }
+
+      const notification = new Notification({ title, body })
+      notification.on('click', () => {
+        const win = BrowserWindow.fromWebContents(event.sender)
+        if (win) {
+          if (win.isMinimized()) win.restore()
+          win.focus()
+        }
+        // Forward click event to renderer for navigation
+        event.sender.send('openloaf:notification:click', {
+          taskId: payload?.taskId,
+        })
+      })
+      notification.show()
+      return { ok: true as const }
+    }
+  )
 
   args.log('IPC handlers registered');
 }

@@ -20,9 +20,11 @@ export const shellTemplate: AgentTemplate = {
     'shell-command',
     'exec-command',
     'write-stdin',
+    'spawn-agent',
+    'wait-agent',
   ],
-  allowSubAgents: false,
-  maxDepth: 1,
+  allowSubAgents: true,
+  maxDepth: 2,
   isPrimary: false,
   systemPrompt: SHELL_PROMPT.trim(),
 }

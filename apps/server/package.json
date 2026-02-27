@@ -19,7 +19,13 @@
     "test:chat:file-store": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/chatFileStore.test.ts",
     "test:ai:multiagent": "node --env-file=.env --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/level4-multiagent.test.ts",
     "test:ai:jsx-create-validator": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/jsxCreateValidator.test.ts",
-    "test:ai:request-user-input": "node --env-file=.env --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/level5-request-user-input.test.ts"
+    "test:ai:request-user-input": "node --env-file=.env --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/level5-request-user-input.test.ts",
+    "test:task:config": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/services/__tests__/taskConfigService.test.ts",
+    "test:task:event-bus": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/services/__tests__/taskEventBus.test.ts",
+    "test:task:executor": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/services/__tests__/taskExecutor.test.ts",
+    "test:task:orchestrator": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/services/__tests__/taskOrchestrator.test.ts",
+    "test:task:supervision": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/services/supervision/__tests__/supervisionService.test.ts",
+    "test:task:all": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/services/__tests__/taskConfigService.test.ts && node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/services/__tests__/taskEventBus.test.ts && node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/services/__tests__/taskExecutor.test.ts && node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/services/__tests__/taskOrchestrator.test.ts && node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/services/supervision/__tests__/supervisionService.test.ts"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^4.0.51",

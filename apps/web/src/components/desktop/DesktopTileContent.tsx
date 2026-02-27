@@ -25,6 +25,7 @@ import FlipClockWidget from "./widgets/FlipClockWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
 import VideoWidget from "./widgets/VideoWidget";
+import TaskBoardWidget from "./widgets/TaskBoardWidget";
 import WebStackWidget from "./widgets/WebStackWidget";
 import WidgetConfigOverlay from "./widgets/WidgetConfigOverlay";
 import DynamicWidgetRenderer from "./dynamic-widgets/DynamicWidgetRenderer";
@@ -252,6 +253,14 @@ export default function DesktopTileContent({
         {!item.webUrl && onConfigure ? (
           <WidgetConfigOverlay onConfigure={onConfigure} label="设置网址" />
         ) : null}
+      </div>
+    );
+  }
+
+  if (widgetKey === "task-board") {
+    return (
+      <div className="h-full w-full p-2">
+        <TaskBoardWidget />
       </div>
     );
   }
