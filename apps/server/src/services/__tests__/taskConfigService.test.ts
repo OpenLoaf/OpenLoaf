@@ -148,7 +148,7 @@ async function main() {
     await test('A3: createTask creates initial activity log entry', () => {
       const task = createMinimalTask()
       assert.equal(task.activityLog.length, 1)
-      const entry = task.activityLog[0]
+      const entry = task.activityLog[0]!
       assert.equal(entry.from, 'todo')
       assert.equal(entry.to, 'todo')
       assert.equal(entry.actor, 'user')
@@ -204,14 +204,14 @@ async function main() {
     await test('B2: listTasks sorted by createdAt descending', () => {
       const tasks = listTasks(listTestDir)
       for (let i = 0; i < tasks.length - 1; i++) {
-        assert.ok(tasks[i].createdAt >= tasks[i + 1].createdAt)
+        assert.ok(tasks[i]!.createdAt >= tasks[i + 1]!.createdAt)
       }
     })
 
     await test('B3: listTasksByStatus filters by single status', () => {
       const running = listTasksByStatus('running', listTestDir)
       assert.equal(running.length, 1)
-      assert.equal(running[0].name, 'B')
+      assert.equal(running[0]!.name, 'B')
     })
 
     await test('B4: listTasksByStatus filters by multiple statuses', () => {
@@ -285,7 +285,7 @@ async function main() {
       const updated = getTask(task.id, tempDir)
       assert.ok(updated)
       assert.equal(updated!.activityLog.length, 2) // initial + new
-      const lastEntry = updated!.activityLog[1]
+      const lastEntry = updated!.activityLog[1]!
       assert.equal(lastEntry.from, 'todo')
       assert.equal(lastEntry.to, 'running')
       assert.equal(lastEntry.actor, 'system')
@@ -304,7 +304,7 @@ async function main() {
 
       const updated = getTask(task.id, tempDir)
       assert.ok(updated)
-      const lastEntry = updated!.activityLog[updated!.activityLog.length - 1]
+      const lastEntry = updated!.activityLog[updated!.activityLog.length - 1]!
       assert.equal(lastEntry.reviewType, 'plan')
     })
 

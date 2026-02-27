@@ -1650,7 +1650,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
 
           {/* Tabs: 能力组 / 技能 / 提示词 */}
           <Tabs defaultValue="capabilities">
-            <div className="sticky top-0 z-10 bg-background pb-2">
+            <div className="sticky top-0 z-10 bg-background">
               <div className="text-sm font-medium">配置</div>
               <div className="flex items-center justify-between gap-2">
                 <TabsList className="mt-1.5 h-8 w-max rounded-full border border-border/70 bg-muted/40 p-1">
@@ -1740,7 +1740,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
 
               <TabsContent value="prompt" className="mt-0">
                 <div className="py-3">
-                  <OpenLoafSettingsCard padding="xy">
+                  <OpenLoafSettingsCard padding="none">
                     <Textarea
                       value={systemPrompt}
                       onChange={(e) => setSystemPrompt(e.target.value)}

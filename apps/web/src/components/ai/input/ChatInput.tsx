@@ -1141,6 +1141,27 @@ export default function ChatInput({
       window.removeEventListener("openloaf:chat-insert-skill", handleInsertSkill);
     };
   }, [activeTabId, setInput, tabId]);
+
+  /** Handle prefill text events (e.g. from task board "让AI创建"). */
+  useEffect(() => {
+    const handlePrefill = (event: Event) => {
+      if (tabId) {
+        if (!activeTabId || activeTabId !== tabId) return;
+      }
+      const detail = (event as CustomEvent<{ text?: string }>).detail;
+      const text = detail?.text ?? "";
+      if (!text) return;
+      setInput(text);
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new CustomEvent("openloaf:chat-focus-input-end"));
+      });
+    };
+    window.addEventListener("openloaf:chat-prefill-input", handlePrefill);
+    return () => {
+      window.removeEventListener("openloaf:chat-prefill-input", handlePrefill);
+    };
+  }, [activeTabId, setInput, tabId]);
+
   const resolvedIsAutoModel = Boolean(isAutoModel);
   const resolvedCanImageGeneration = Boolean(canImageGeneration);
   const resolvedCanImageEdit = Boolean(canImageEdit);

@@ -97,6 +97,7 @@ export interface DesktopWidgetItem extends DesktopItemBase {
     | "video"
     | "web-stack"
     | "task-board"
+    | "help"
     | "dynamic";
   /** Widget size in grid units (MVP uses presets). */
   size: DesktopWidgetSize;

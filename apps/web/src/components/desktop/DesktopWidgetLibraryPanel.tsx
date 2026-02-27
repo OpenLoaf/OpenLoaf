@@ -27,6 +27,7 @@ import FlipClockWidget from "./widgets/FlipClockWidget";
 import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
 import VideoWidget from "./widgets/VideoWidget";
+import HelpWidget from "./widgets/HelpWidget";
 import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import { trpc, trpcClient } from "@/utils/trpc";
 
@@ -104,6 +105,7 @@ function WidgetEntityPreview({
       </div>
     );
   }
+  if (widgetKey === "help") return <HelpWidget />;
   return <div className="text-sm text-muted-foreground">Widget</div>;
 }
 

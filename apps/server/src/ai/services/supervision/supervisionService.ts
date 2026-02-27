@@ -115,7 +115,7 @@ export class SupervisionService {
       const { text } = await generateText({
         model: this.model!,
         prompt,
-        maxTokens: 200,
+        maxOutputTokens: 200,
       })
 
       return this.parseDecision(text)
@@ -150,12 +150,12 @@ export class SupervisionService {
         timeoutSec: 300, // 5 minutes
       })
 
-      if (result.approved) {
+      if (result.status === 'success') {
         return { decision: 'approve', reason: '用户已批准' }
       }
       return {
         decision: 'reject',
-        reason: result.payload?.reason as string ?? '用户已拒绝',
+        reason: result.errorText ?? '用户已拒绝',
       }
     } catch {
       // Timeout → auto-approve for non-destructive, reject for destructive

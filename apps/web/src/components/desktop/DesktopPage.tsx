@@ -75,6 +75,15 @@ const BASE_DESKTOP_ITEMS: DesktopItem[] = [
     layout: { x: 0, y: 4, w: 4, h: 2 },
   },
   {
+    id: "w-help",
+    kind: "widget",
+    title: "新手引导",
+    widgetKey: "help",
+    size: "4x2",
+    constraints: { defaultW: 4, defaultH: 2, minW: 3, minH: 2, maxW: 6, maxH: 3 },
+    layout: { x: 0, y: 6, w: 4, h: 2 },
+  },
+  {
     id: "w-calendar",
     kind: "widget",
     title: "日历",

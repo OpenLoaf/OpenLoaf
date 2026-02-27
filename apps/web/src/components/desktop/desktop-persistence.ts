@@ -41,6 +41,8 @@ type DesktopFileItem = {
     | "3d-folder"
     | "video"
     | "web-stack"
+    | "task-board"
+    | "help"
     | "dynamic";
   size?: "1x1" | "2x2" | "4x2" | "4x3" | "5x6";
   constraints?: DesktopWidgetConstraints;

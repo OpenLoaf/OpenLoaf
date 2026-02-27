@@ -145,7 +145,7 @@ async function main() {
     const task = {
       name: '用户任务',
       payload: { message: '帮我重构登录模块' },
-    } as TaskConfig
+    } as unknown as TaskConfig
 
     const instruction = buildFn(task)
     assert.ok(instruction.includes('帮我重构登录模块'))

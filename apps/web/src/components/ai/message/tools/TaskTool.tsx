@@ -11,14 +11,13 @@
 
 import { useCallback, useMemo } from 'react'
 import { Badge } from '@openloaf/ui/badge'
-import { Button } from '@openloaf/ui/button'
+import { TrafficLights } from '@openloaf/ui/traffic-lights'
 import { cn } from '@/lib/utils'
-import { CheckCircle2, Circle, Clock, ExternalLink, Loader2, XCircle } from 'lucide-react'
+import { CalendarClock, ExternalLink, ListTodo } from 'lucide-react'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
 import { useTabs } from '@/hooks/use-tabs'
-import { useWorkspace } from '@/components/workspace/workspaceContext'
 import type { AnyToolPart } from './shared/tool-utils'
-import { normalizeToolInput, isToolStreaming } from './shared/tool-utils'
+import { getToolName, normalizeToolInput, isToolStreaming } from './shared/tool-utils'
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -51,10 +50,10 @@ type CreateTaskOutput = {
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 const PRIORITY_COLORS: Record<Priority, string> = {
-  urgent: 'bg-red-500/15 text-red-600',
-  high: 'bg-orange-500/15 text-orange-600',
-  medium: 'bg-blue-500/15 text-blue-600',
-  low: 'bg-zinc-500/15 text-zinc-500',
+  urgent: 'bg-[#fce8e6] text-[#d93025] border-transparent dark:bg-red-900/40 dark:text-red-300',
+  high: 'bg-[#fef7e0] text-[#e37400] border-transparent dark:bg-amber-900/40 dark:text-amber-300',
+  medium: 'bg-[#e8f0fe] text-[#1a73e8] border-transparent dark:bg-sky-900/40 dark:text-sky-300',
+  low: 'bg-[#f1f3f4] text-[#5f6368] border-transparent dark:bg-slate-800/40 dark:text-slate-400',
 }
 
 const PRIORITY_LABELS: Record<Priority, string> = {
@@ -62,14 +61,6 @@ const PRIORITY_LABELS: Record<Priority, string> = {
   high: '高',
   medium: '中',
   low: '低',
-}
-
-const STATUS_ICONS: Record<TaskStatus, typeof Circle> = {
-  todo: Circle,
-  running: Loader2,
-  review: Clock,
-  done: CheckCircle2,
-  cancelled: XCircle,
 }
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -80,12 +71,12 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   cancelled: '已取消',
 }
 
-const STATUS_COLORS: Record<TaskStatus, string> = {
-  todo: 'text-blue-600',
-  running: 'text-amber-600',
-  review: 'text-purple-600',
-  done: 'text-green-600',
-  cancelled: 'text-zinc-500',
+const STATUS_BADGE_COLORS: Record<TaskStatus, string> = {
+  todo: 'bg-[#e8f0fe] text-[#1a73e8] border-transparent dark:bg-sky-900/40 dark:text-sky-300',
+  running: 'bg-[#fef7e0] text-[#e37400] border-transparent dark:bg-amber-900/40 dark:text-amber-300',
+  review: 'bg-[#f3e8fd] text-[#9334e6] border-transparent dark:bg-violet-900/40 dark:text-violet-300',
+  done: 'bg-[#e6f4ea] text-[#188038] border-transparent dark:bg-emerald-900/40 dark:text-emerald-300',
+  cancelled: 'bg-[#f1f3f4] text-[#5f6368] border-transparent dark:bg-slate-800/40 dark:text-slate-400',
 }
 
 function formatScheduleLabel(schedule?: ScheduleInput): string | null {
@@ -118,7 +109,6 @@ export default function TaskTool({
   part: AnyToolPart
   className?: string
 }) {
-  const { workspace } = useWorkspace()
   const pushStackItem = useTabRuntime((state) => state.pushStackItem)
   const { activeTabId } = useTabs()
   const streaming = isToolStreaming(part)
@@ -142,80 +132,95 @@ export default function TaskTool({
   const status = (output?.status ?? 'todo') as TaskStatus
   const priority = (input.priority ?? 'medium') as Priority
   const title = input.title ?? output?.name ?? '后台任务'
+  const isError = Boolean(part.errorText)
 
-  const handleViewDetail = useCallback(() => {
-    if (!taskId || !activeTabId) return
+  const windowState = isError
+    ? 'error'
+    : streaming
+      ? 'running'
+      : output
+        ? 'success'
+        : 'idle'
+
+  const handleOpenTaskBoard = useCallback(() => {
+    if (!activeTabId) return
     pushStackItem(activeTabId, {
-      id: `task-detail:${taskId}`,
-      sourceKey: `task-detail:${taskId}`,
-      component: 'task-detail',
-      title: title,
-      params: {
-        taskId,
-        workspaceId: workspace?.id,
-      },
+      id: 'scheduled-tasks-page',
+      sourceKey: 'scheduled-tasks-page',
+      component: 'scheduled-tasks-page',
+      title: '任务看板',
     })
-  }, [taskId, activeTabId, pushStackItem, title, workspace?.id])
+  }, [activeTabId, pushStackItem])
 
-  const StatusIcon = STATUS_ICONS[status]
+  const toolName = getToolName(part)
+  const scheduleLabel = formatScheduleLabel(input.schedule)
+  const hasSchedule = Boolean(input.schedule?.type)
+  const TaskIcon = hasSchedule ? CalendarClock : ListTodo
 
   return (
-    <div className={cn('w-full min-w-0 rounded-lg border bg-card p-3', className)}>
-      {/* Header */}
-      <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-        <StatusIcon className={cn('h-3.5 w-3.5', STATUS_COLORS[status], status === 'running' && 'animate-spin')} />
-        <span>{streaming ? '正在创建任务...' : '任务已创建'}</span>
-      </div>
-
-      {/* Title */}
-      <h4 className="mb-1.5 text-sm font-medium leading-tight">{title}</h4>
-
-      {/* Description */}
-      {input.description && (
-        <p className="mb-2 text-xs text-muted-foreground line-clamp-2">{input.description}</p>
-      )}
-
-      {/* Tags */}
-      <div className="mb-2 flex flex-wrap gap-1">
-        <Badge variant="outline" className={cn('text-[10px]', PRIORITY_COLORS[priority])}>
-          {PRIORITY_LABELS[priority]}
-        </Badge>
-        <Badge variant="outline" className={cn('text-[10px]', STATUS_COLORS[status])}>
-          {STATUS_LABELS[status]}
-        </Badge>
-        {input.schedule?.type && (
-          <Badge variant="outline" className="text-[10px] bg-amber-500/15 text-amber-600">
-            {formatScheduleLabel(input.schedule) ?? '定时'}
-          </Badge>
-        )}
-        {input.agentName && (
-          <Badge variant="secondary" className="text-[10px]">
-            {input.agentName}
-          </Badge>
-        )}
-      </div>
-
-      {/* Actions */}
-      {taskId && !streaming && (
-        <div className="mt-2 flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-6 text-xs"
-            onClick={handleViewDetail}
-          >
-            <ExternalLink className="mr-1 h-3 w-3" />
-            查看详情
-          </Button>
+    <div className={cn('w-full min-w-0', className)}>
+      <div className="overflow-hidden rounded-lg border bg-card text-card-foreground">
+        {/* macOS 风格标题栏 */}
+        <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
+          <TrafficLights state={windowState} />
+          <span className="flex-1" />
+          <TaskIcon className="size-3 text-muted-foreground/60" />
+          <span className="shrink-0 text-xs font-medium text-muted-foreground">
+            {toolName}
+          </span>
         </div>
-      )}
 
-      {/* Error */}
-      {part.errorText && (
-        <div className="mt-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">
-          {part.errorText}
+        {/* 内容区 */}
+        <div className="px-3 py-3">
+          {/* 标题 */}
+          <h4 className="text-sm font-medium leading-tight">{title}</h4>
+
+          {/* 描述 */}
+          {input.description && (
+            <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2">{input.description}</p>
+          )}
+
+          {/* 错误信息 */}
+          {part.errorText && (
+            <div className="mt-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+              {part.errorText}
+            </div>
+          )}
+
+          {/* 底部：所有标签 + 查看看板 */}
+          <div className="mt-2 flex flex-wrap items-center gap-1">
+            <Badge variant="outline" className={cn('text-[10px]', PRIORITY_COLORS[priority])}>
+              {PRIORITY_LABELS[priority]}
+            </Badge>
+            <Badge variant="outline" className={cn('text-[10px]', STATUS_BADGE_COLORS[status])}>
+              {STATUS_LABELS[status]}
+            </Badge>
+            {scheduleLabel && (
+              <Badge
+                variant="outline"
+                className="bg-[#fef7e0] text-[10px] text-[#e37400] border-transparent dark:bg-amber-900/40 dark:text-amber-300"
+              >
+                {scheduleLabel}
+              </Badge>
+            )}
+            {input.agentName && (
+              <Badge variant="secondary" className="text-[10px]">
+                {input.agentName}
+              </Badge>
+            )}
+            {!streaming && (
+              <button
+                type="button"
+                onClick={handleOpenTaskBoard}
+                className="ml-auto inline-flex items-center gap-1 rounded-full border border-transparent bg-[#e8f0fe] px-2.5 py-1 text-[11px] font-medium text-[#1a73e8] transition-colors duration-150 hover:bg-[#d2e3fc] dark:bg-sky-900/40 dark:text-sky-300 dark:hover:bg-sky-900/60"
+              >
+                <ExternalLink className="size-3" />
+                查看看板
+              </button>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

@@ -517,7 +517,6 @@ export default function TaskBoardPage() {
   const queryClient = useQueryClient()
   const pushStackItem = useTabRuntime((state) => state.pushStackItem)
   const setTabRightChatCollapsed = useTabRuntime((state) => state.setTabRightChatCollapsed)
-  const setTabLeftWidthPercent = useTabRuntime((state) => state.setTabLeftWidthPercent)
   const { activeTabId } = useTabs()
   const [viewMode, setViewMode] = useState<ViewMode>('kanban')
   const [search, setSearch] = useState('')
@@ -614,12 +613,15 @@ export default function TaskBoardPage() {
   const activateAiChat = useCallback(() => {
     if (!activeTabId) return
     setTabRightChatCollapsed(activeTabId, false)
-    setTabLeftWidthPercent(activeTabId, 55)
-    // 延迟聚焦，等待面板展开动画
+    // 延迟预填文字并聚焦，等待面板展开动画
     setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('openloaf:chat-focus-input'))
+      window.dispatchEvent(
+        new CustomEvent('openloaf:chat-prefill-input', {
+          detail: { text: '帮我创建一个任务：' },
+        }),
+      )
     }, 300)
-  }, [activeTabId, setTabRightChatCollapsed, setTabLeftWidthPercent])
+  }, [activeTabId, setTabRightChatCollapsed])
 
   // Filter tasks
   const filteredTasks = useMemo(() => {

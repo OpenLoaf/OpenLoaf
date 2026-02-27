@@ -26,6 +26,7 @@ import QuickActionsWidget from "./widgets/QuickActionsWidget";
 import ThreeDFolderWidget from "./widgets/ThreeDFolderWidget";
 import VideoWidget from "./widgets/VideoWidget";
 import TaskBoardWidget from "./widgets/TaskBoardWidget";
+import HelpWidget from "./widgets/HelpWidget";
 import WebStackWidget from "./widgets/WebStackWidget";
 import WidgetConfigOverlay from "./widgets/WidgetConfigOverlay";
 import DynamicWidgetRenderer from "./dynamic-widgets/DynamicWidgetRenderer";
@@ -298,6 +299,14 @@ export default function DesktopTileContent({
     return (
       <div className="h-full w-full p-2">
         <TaskBoardWidget />
+      </div>
+    );
+  }
+
+  if (widgetKey === "help") {
+    return (
+      <div className="h-full w-full">
+        <HelpWidget />
       </div>
     );
   }

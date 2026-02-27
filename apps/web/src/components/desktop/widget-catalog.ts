@@ -101,4 +101,11 @@ export const desktopWidgetCatalog: DesktopWidgetCatalogItem[] = [
     constraints: { defaultW: 4, defaultH: 2, minW: 1, minH: 1, maxW: 4, maxH: 4 },
     support: { workspace: true, project: true },
   },
+  {
+    widgetKey: "help",
+    title: "新手引导",
+    size: "4x2",
+    constraints: { defaultW: 4, defaultH: 2, minW: 3, minH: 2, maxW: 6, maxH: 3 },
+    support: { workspace: true, project: true },
+  },
 ];

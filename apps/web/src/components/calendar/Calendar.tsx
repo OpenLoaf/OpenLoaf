@@ -42,6 +42,17 @@ import { useProjects } from "@/hooks/use-projects";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { toast } from "sonner";
+import { isElectronEnv } from "@/utils/is-electron-env";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@openloaf/ui/alert-dialog";
 
 type SystemCalendarEvent = OpenLoafCalendarEvent;
 type CalendarKind = "event" | "reminder";
@@ -587,13 +598,25 @@ export default function CalendarPage({
   const hasSystemSources = hasSystemCalendars || hasSystemReminders;
   const shouldShowImportButton = !hasSystemSources && permissionState !== "unsupported";
 
+  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
+
   const handleImportCalendar = useCallback(async () => {
     try {
       const result = await handleRequestPermission();
       if (!result.ok) {
         toast.error(result.reason || "导入日历失败");
-      } else if (result.data === "granted") {
+        return;
+      }
+      if (result.data === "granted") {
         toast.success("系统日历授权成功，正在同步…");
+        return;
+      }
+      // 权限被拒绝，弹出引导对话框
+      if (isElectronEnv()) {
+        setShowPermissionDialog(true);
+        window.openloafElectron?.openExternal?.(
+          "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
+        );
       } else {
         toast.error("系统日历访问被拒绝，请在「系统设置 → 隐私与安全性 → 日历」中授权。");
       }
@@ -601,6 +624,12 @@ export default function CalendarPage({
       toast.error("导入日历失败，请稍后重试。");
     }
   }, [handleRequestPermission]);
+
+  const handleRelaunchApp = useCallback(async () => {
+    if (window.openloafElectron?.relaunchApp) {
+      await window.openloafElectron.relaunchApp();
+    }
+  }, []);
 
   return (
     <div className={`h-full w-full p-0 ${styles.calendarRoot}`}>
@@ -757,6 +786,23 @@ export default function CalendarPage({
           />
         </div>
       </div>
+
+      <AlertDialog open={showPermissionDialog} onOpenChange={setShowPermissionDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>需要日历访问权限</AlertDialogTitle>
+            <AlertDialogDescription>
+              已为你打开系统隐私设置。请在「日历」列表中找到「OpenLoaf」或「Electron」并勾选，然后回到此处点击「重启应用」使授权生效。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>稍后再说</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRelaunchApp}>
+              重启应用
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

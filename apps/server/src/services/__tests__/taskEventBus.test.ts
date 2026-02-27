@@ -65,10 +65,11 @@ async function main() {
     taskEventBus.emitStatusChange(event)
 
     assert.ok(received)
-    assert.equal(received!.taskId, 'task-1')
-    assert.equal(received!.status, 'running')
-    assert.equal(received!.previousStatus, 'todo')
-    assert.equal(received!.title, '测试任务')
+    const ev = received as TaskStatusChangeEvent
+    assert.equal(ev.taskId, 'task-1')
+    assert.equal(ev.status, 'running')
+    assert.equal(ev.previousStatus, 'todo')
+    assert.equal(ev.title, '测试任务')
 
     cleanup()
   })
@@ -89,7 +90,7 @@ async function main() {
     })
 
     assert.ok(received)
-    assert.equal(received!.reviewType, 'plan')
+    assert.equal((received as TaskStatusChangeEvent).reviewType, 'plan')
 
     cleanup()
   })
@@ -152,10 +153,11 @@ async function main() {
     })
 
     assert.ok(received)
-    assert.equal(received!.taskId, 'task-3')
-    assert.equal(received!.summary.currentStep, '安装依赖')
-    assert.equal(received!.summary.totalSteps, 5)
-    assert.equal(received!.summary.completedSteps, 1)
+    const ev = received as TaskSummaryUpdateEvent
+    assert.equal(ev.taskId, 'task-3')
+    assert.equal(ev.summary.currentStep, '安装依赖')
+    assert.equal(ev.summary.totalSteps, 5)
+    assert.equal(ev.summary.completedSteps, 1)
 
     cleanup()
   })

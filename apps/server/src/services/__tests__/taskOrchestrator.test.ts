@@ -176,7 +176,7 @@ async function main() {
     const tasks = [dep1, dep2, dependent]
     const candidates = collectCandidates(tasks)
     assert.equal(candidates.length, 1)
-    assert.equal(candidates[0].id, dependent.id)
+    assert.equal(candidates[0]!.id, dependent.id)
   })
 
   await test('A6: excludes tasks with incomplete dependencies', () => {
