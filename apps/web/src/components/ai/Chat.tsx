@@ -16,7 +16,6 @@ import ChatInput from "./input/ChatInput";
 import ChatHeader from "./ChatHeader";
 import { useChatActions, useChatSession, useChatState } from "./context";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useTabs } from "@/hooks/use-tabs";
 import { generateId } from "ai";
 import * as React from "react";
@@ -145,12 +144,17 @@ function QuickLaunchBar() {
   const handleQuickLaunch = React.useCallback(
     (item: (typeof QUICK_LAUNCH_ITEMS)[number]) => {
       if (!tabId) return
-      useTabRuntime.getState().setTabBase(tabId, {
-        id: item.baseId,
-        component: item.component,
+      const state = useTabs.getState()
+      const currentTab = state.tabs.find((t) => t.id === tabId)
+      if (!currentTab) return
+      state.addTab({
+        workspaceId: currentTab.workspaceId,
+        createNew: true,
+        title: item.title,
+        icon: item.tabIcon,
+        leftWidthPercent: 100,
+        base: { id: item.baseId, component: item.component },
       })
-      useTabs.getState().setTabTitle(tabId, item.title)
-      useTabs.getState().setTabIcon(tabId, item.tabIcon)
     },
     [tabId],
   )
