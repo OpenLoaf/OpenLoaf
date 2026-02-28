@@ -18,6 +18,8 @@
 
 OpenLoaf is a modern, full-stack AI knowledge base and smart workspace application. It combines **Notion**-style hierarchical document management with **ChatGPT/Claude**-level AI conversation, creating a second brain that doesn't just chat — it retains knowledge.
 
+Everything in OpenLoaf is organized around **Projects**. Each project is a self-contained folder — documents, conversations, files, tasks, and AI context all live together in one place. Switch between projects seamlessly, and AI always knows exactly which project you're working on.
+
 > **Why "OpenLoaf"?** The logo is a bread-shaped sofa — "Loaf" means both a loaf of bread and lounging around. We want using OpenLoaf to feel as cozy as sinking into a sofa.
 
 <div align="center">
@@ -66,25 +68,25 @@ A powerful block-based editor built on [Plate.js](https://platejs.org/). Support
 
 A Trello-style board view managing the full task lifecycle through **To Do → In Progress → Review → Done** columns. Supports drag-and-drop sorting, priority labels (Urgent / High / Medium / Low), trigger modes (manual / scheduled / conditional), and due date reminders. AI can automatically create tasks and submit them for review — just approve or send back with one click, and let AI do the work for you.
 
-### Built-in Terminal
+### All-in-One Productivity Suite
 
-A full terminal emulator deeply integrated into the app — run shell commands without switching windows. AI agents can operate the terminal directly — creating directories, moving files, running scripts, checking logs — you give natural language instructions, and AI translates them into commands and executes them, always asking for your confirmation first.
+No more switching between apps — everything you need is built in:
 
-### Email Client
+- **Terminal** — A full shell emulator right inside OpenLoaf. AI agents can run commands directly — create directories, move files, execute scripts — with natural language instructions, always confirming before execution.
+- **Email** — Multi-account email management with IMAP sync, rich-text composing, and AI-assisted drafting, summarization, and key info extraction.
+- **Calendar** — Schedule management with **native system calendar sync** (macOS Calendar / Google Calendar). Day / week / month views, AI-powered scheduling, and smart reminders.
+- **File Manager** — Grid / list / column views, drag-and-drop upload, file preview (images, PDFs, Office docs, code). AI can read and operate on your project files directly.
+- **Workspace Widgets** — Customizable dashboard with clock, calendar, task summary, quick actions, and agent settings — your mission control at a glance.
 
-Integrated email management with multi-account support, IMAP sync, and rich-text composing and replying. AI can help draft emails, summarize long threads, and extract key information. Send and receive emails without leaving OpenLoaf for a seamless workflow.
+---
 
-### Smart Calendar
+## Use Cases
 
-Schedule management with **native system calendar sync** (macOS Calendar / Google Calendar). Supports day / week / month view switching, AI-powered schedule planning, and smart reminders. Preview upcoming events directly from the workspace widget to stay on top of your schedule.
-
-### File Manager
-
-A built-in file browser with grid / list / column views, drag-and-drop upload and download, file preview (images, PDFs, Office documents, code), and directory management. Deeply integrated with the editor and AI — double-click to open and edit documents directly, and AI can read and operate on your project files.
-
-### Workspace Widgets
-
-A customizable widget system for your workspace: real-time clock, monthly calendar, task board summary, quick action shortcuts (search, terminal, AI chat), agent settings, skill configuration, and more. See your global status at a glance and jump into any module instantly.
+- **Research & Writing** — Collect references, take structured notes, chat with AI about your materials, and produce polished documents — all within one project folder.
+- **Software Development** — Manage specs and design docs, use AI to generate code snippets, run commands in the terminal, and track tasks on the kanban board.
+- **Creative Design** — Brainstorm on the infinite canvas, generate images and videos with AI, organize visual assets in the file manager, and iterate with AI feedback.
+- **Project Management** — Create a project per client or initiative, manage tasks through the kanban workflow, schedule meetings on the calendar, and coordinate via email — without leaving OpenLoaf.
+- **Personal Knowledge Base** — Build your second brain: clip web content, write journals, link ideas with bi-directional references, and let AI help you connect the dots across your knowledge.
 
 ---
 
@@ -131,6 +133,11 @@ Open your browser at [http://localhost:3001](http://localhost:3001). To launch t
 ## Tech Stack
 
 Next.js 16 / React 19 / Electron 40 / Hono + tRPC / Prisma + SQLite / Plate.js / Vercel AI SDK / Yjs / ReactFlow / Turborepo + pnpm
+
+## Roadmap
+
+- [ ] **Full Web Browser Access** — Use OpenLoaf directly from any browser without installing the desktop app (partially available, under active development)
+- [ ] More to come...
 
 ## Contributing
 
