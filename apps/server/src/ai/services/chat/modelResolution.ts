@@ -72,12 +72,17 @@ export function resolveRequiredInputTags(messages: UIMessage[]): ModelTag[] {
       if (!url) continue;
       const purpose = typeof (part as any).purpose === "string" ? (part as any).purpose : "";
       if (purpose === "mask") {
-        // 中文注释：mask 也按图片输入处理，能力判断交由媒体模型侧完成。
+        // 中文注释：mask 用于图片编辑，需要 image_input 能力。
         required.add("image_input");
         continue;
       }
-      // 中文注释：普通图片输入只要求 image_input，避免误判为图片编辑。
-      required.add("image_input");
+      // 中文注释：根据 mediaType 区分视频/图片分析能力。
+      const mediaType = typeof (part as any).mediaType === "string" ? (part as any).mediaType : "";
+      if (mediaType.startsWith("video/")) {
+        required.add("video_analysis");
+      } else {
+        required.add("image_analysis");
+      }
     }
   }
   return Array.from(required);

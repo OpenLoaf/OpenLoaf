@@ -86,7 +86,10 @@ export function collectAvailableAgents(input: {
 
   // 逻辑：内置模板 agent（排除 master 和 builtinOnly）
   for (const tpl of ALL_TEMPLATES) {
-    if (tpl.isPrimary || tpl.isBuiltinOnly) continue
+    if (tpl.isPrimary || tpl.isBuiltinOnly) {
+      seen.add(tpl.name) // 加入 seen，防止动态 agent 同名覆盖（如 "主助手"）
+      continue
+    }
     if (seen.has(tpl.name)) continue
     seen.add(tpl.name)
     entries.push({

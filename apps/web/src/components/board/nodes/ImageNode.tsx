@@ -174,8 +174,8 @@ function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
 const IMAGE_NODE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefinition[] = [
   {
     id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-    label: "图片提示词",
-    description: "分析图片并生成描述",
+    label: "视频图片理解",
+    description: "分析图片/视频并生成描述",
     size: [320, 220],
     icon: <Sparkles size={14} />,
     createNode: () => ({

@@ -8,13 +8,15 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type {
+  CanvasConnectorTemplateDefinition,
   CanvasNodeDefinition,
   CanvasNodeViewProps,
   CanvasToolbarContext,
 } from "../engine/types";
 import { useCallback, useMemo } from "react";
 import { z } from "zod";
-import { Play } from "lucide-react";
+import { Play, Sparkles } from "lucide-react";
+import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./imagePromptGenerate";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
 import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
@@ -171,6 +173,21 @@ export function VideoNodeView({
   );
 }
 
+/** Connector templates offered by the video node. */
+const VIDEO_NODE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefinition[] = [
+  {
+    id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
+    label: "视频图片理解",
+    description: "分析视频并生成描述",
+    size: [320, 220],
+    icon: <Sparkles size={14} />,
+    createNode: () => ({
+      type: IMAGE_PROMPT_GENERATE_NODE_TYPE,
+      props: {},
+    }),
+  },
+];
+
 /** Definition for the video node. */
 export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
   type: "video",
@@ -194,5 +211,6 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
     minSize: { w: 200, h: 140 },
     maxSize: { w: 720, h: 480 },
   },
+  connectorTemplates: () => VIDEO_NODE_CONNECTOR_TEMPLATES,
   toolbar: (ctx) => createVideoToolbarItems(ctx),
 };

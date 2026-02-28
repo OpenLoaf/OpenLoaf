@@ -378,7 +378,8 @@ function RightChatPanel({ tabId }: { tabId: string }) {
     <div className="relative flex min-h-0 flex-1 flex-col rounded-lg bg-background overflow-hidden">
       {sessionList.map((session) => {
         const isActive = session.sessionId === resolvedActiveSessionId;
-        const shouldLoadHistory = isActive ? Boolean(tab?.chatLoadHistory) : false;
+        // 活跃会话始终允许加载历史，避免 chatLoadHistory 丢失（持久化恢复/新建会话）导致空态。
+        const shouldLoadHistory = isActive;
         return (
           <div
             key={session.sessionId}

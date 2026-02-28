@@ -286,6 +286,8 @@ class AgentManager {
       .then(() => this.executeAgent(id, rawAgentType, modelOverride, inlineConfig))
       .catch((err) => {
         logger.error({ agentId: id, err }, '[agent-manager] scheduleExecution error')
+        const msg = err instanceof Error ? err.message : String(err)
+        this.fail(id, msg)
       })
   }
 

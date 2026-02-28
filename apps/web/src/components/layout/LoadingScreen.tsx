@@ -11,7 +11,7 @@
 
 import Image from "next/image";
 
-export function LoadingScreen({ label = "Connecting to server..." }: { label?: string }) {
+export function LoadingScreen({ label = "正在连接中..." }: { label?: string }) {
   return (
     <div className="grid h-svh place-items-center bg-background">
       <div className="flex flex-col items-center gap-3 text-muted-foreground">

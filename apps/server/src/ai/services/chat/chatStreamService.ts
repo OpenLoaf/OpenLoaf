@@ -262,8 +262,14 @@ export async function runChatStream(input: {
 
   // 逻辑：从 master agent 配置读取模型，不再依赖请求参数。
   const agentModelIds = resolveAgentModelIds({ workspaceId, projectId })
-  const chatModelId = agentModelIds.chatModelId
-  const chatModelSource = agentModelIds.chatModelSource
+  let chatModelId = agentModelIds.chatModelId
+  let chatModelSource = agentModelIds.chatModelSource
+
+  // board 节点明确指定了模型时，优先使用前端传入值。
+  if (trigger === "board-image-prompt") {
+    if (input.request.chatModelId) chatModelId = input.request.chatModelId
+    if (input.request.chatModelSource) chatModelSource = input.request.chatModelSource
+  }
 
   // 逻辑：优先从 master agent config 读取已启用技能，/skill/ 命令作为临时覆盖。
   const configSkills = resolveAgentSkills({ workspaceId, projectId })

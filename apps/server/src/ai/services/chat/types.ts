@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { ChatCommandId } from "@openloaf/api/common/chatCommands";
+import type { ChatModelSource } from "@openloaf/api/common";
 import type { ChatRequestBody, OpenLoafUIMessage } from "@openloaf/api/types/message";
 
 /** Chat stream request payload, based on ChatRequestBody with server-only fields. */
@@ -24,6 +25,10 @@ export type ChatStreamRequest = ChatRequestBody & {
   boardId?: string;
   /** Selected skill names for this request. */
   selectedSkills?: string[];
+  /** Explicit chat model id from frontend (e.g. board nodes). */
+  chatModelId?: string;
+  /** Explicit chat model source from frontend (e.g. board nodes). */
+  chatModelSource?: ChatModelSource;
 };
 
 export type AiIntent = "chat" | "image" | "command" | "utility";
@@ -65,6 +70,10 @@ export type AiExecuteRequest = {
   responseMode?: AiResponseMode;
   /** Tool approval payloads keyed by toolCallId. */
   toolApprovalPayloads?: Record<string, Record<string, unknown>>;
+  /** Explicit chat model id from frontend (e.g. board nodes). */
+  chatModelId?: string;
+  /** Explicit chat model source from frontend (e.g. board nodes). */
+  chatModelSource?: ChatModelSource;
 };
 
 export type AiCommandContext = {

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { ChevronLeft, ChevronRight, Globe, LayoutDashboard, Plus, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Globe, LayoutDashboard, Mail, Plus, Sparkles, X } from "lucide-react";
 import { AnimatedTabs } from "@openloaf/ui/animated-tabs";
 import { useTabs } from "@/hooks/use-tabs";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
@@ -457,6 +457,14 @@ export const HeaderTabs = () => {
         <>
           {tab.icon === "bot" ? (
             <LayoutDashboard className="h-3.5 w-3.5 mr-1.5 shrink-0 text-amber-700/70 dark:text-amber-300/70" />
+          ) : tab.icon === "sparkles" ? (
+            <Sparkles className="h-3.5 w-3.5 mr-1.5 shrink-0 text-violet-700/70 dark:text-violet-300/70" />
+          ) : tab.icon === "🗓️" ? (
+            <CalendarDays className="h-3.5 w-3.5 mr-1.5 shrink-0 text-sky-700/70 dark:text-sky-300/70" />
+          ) : tab.icon === "📧" ? (
+            <Mail className="h-3.5 w-3.5 mr-1.5 shrink-0 text-emerald-700/70 dark:text-emerald-300/70" />
+          ) : tab.icon === "⏰" ? (
+            <Clock className="h-3.5 w-3.5 mr-1.5 shrink-0 text-rose-700/70 dark:text-rose-300/70" />
           ) : (
             tab.icon && <span className="mr-1.5 shrink-0">{tab.icon}</span>
           )}

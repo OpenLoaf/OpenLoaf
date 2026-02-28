@@ -127,6 +127,12 @@ export const spawnAgentTool = tool({
     // Derive current depth from agentStack (each frame = 1 depth level)
     const currentDepth = requestContext.agentStack?.length ?? 0
 
+    // 逻辑：禁止 spawn master agent 作为子 agent。
+    const effectiveName = resolveEffectiveAgentName(agentType)
+    if (effectiveName === 'master') {
+      throw new Error('Cannot spawn master agent as a sub-agent.')
+    }
+
     // 逻辑：禁止 agent 创建和自己同类型的子 agent，防止无意义递归。
     const stack = requestContext.agentStack ?? []
     if (stack.length > 0 && agentType) {

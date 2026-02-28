@@ -676,7 +676,7 @@ export default function ChatCoreProvider({
       if (assistantReplyCountRef.current % 5 === 0 && !autoTitleMutation.isPending) {
         autoTitleMutation.mutate({ sessionId } as any);
       }
-      // 中文注释：请求结束后清理 stepThinking，避免中止后残留“深度思考中”。
+      // 中文注释：请求结束后清理 stepThinking，避免中止后残留"深度思考中"。
       setStepThinking(false);
     },
     [autoTitleMutation, queryClient, refreshBranchMeta, sessionId, setLeafMessageId, setStepThinking]
@@ -834,7 +834,8 @@ export default function ChatCoreProvider({
     stopAndResetSession(true);
   }, [sessionId, stopAndResetSession]);
 
-  // 使用 tRPC 拉取“当前视图”（主链消息 + sibling 导航）
+  // 使用 tRPC 拉取"当前视图"（主链消息 + sibling 导航）
+  const branchQueryEnabled = shouldLoadHistory && chat.messages.length === 0;
   const branchQuery = useQuery(
     {
       ...trpc.chat.getChatView.queryOptions({
@@ -842,14 +843,24 @@ export default function ChatCoreProvider({
         window: { limit: 50 },
         includeToolOutput: true,
       }),
-      enabled: shouldLoadHistory && chat.messages.length === 0,
+      enabled: branchQueryEnabled,
       staleTime: Number.POSITIVE_INFINITY,
       refetchOnWindowFocus: false,
     },
   );
 
+  // 查询正在进行 OR 查询已完成但 effect 尚未运行 setMessages（中间态）。
+  // 仅当服务端返回了非空消息列表但本地尚未应用时，才视为"仍在加载"，
+  // 避免 isEmpty 在 "filled" → "empty" → "filled" 之间闪烁导致 AnimatePresence 卡死。
+  // 空会话（服务端返回 0 条消息）不应被视为 loading，否则永远无法进入居中空态。
+  const pendingHistoryMessages = branchQuery.data
+    ? ((branchQuery.data as any).messages ?? [])
+    : [];
   const isHistoryLoading =
-    shouldLoadHistory && (branchQuery.isLoading || branchQuery.isFetching);
+    shouldLoadHistory &&
+    (branchQuery.isLoading ||
+      branchQuery.isFetching ||
+      (pendingHistoryMessages.length > 0 && chat.messages.length === 0));
 
   React.useEffect(() => {
     const data = branchQuery.data;
@@ -925,7 +936,7 @@ export default function ChatCoreProvider({
   const [codexOptions, setCodexOptions] = React.useState<CodexOptions | undefined>(undefined);
 
   React.useEffect(() => {
-    // 关键：空消息列表时不应存在 leafMessageId（否则会把“脏 leaf”带进首条消息的 parentMessageId）
+    // 关键：空消息列表时不应存在 leafMessageId（否则会把"脏 leaf"带进首条消息的 parentMessageId）
     if ((chat.messages?.length ?? 0) === 0 && leafMessageId) {
       setLeafMessageId(null);
     }
@@ -1033,7 +1044,7 @@ export default function ChatCoreProvider({
           includeToolOutput: true,
         })
       );
-      // 关键：切分支时，用服务端返回的“当前链快照”覆盖本地 messages（避免前端拼接导致重复渲染）
+      // 关键：切分支时，用服务端返回的"当前链快照"覆盖本地 messages（避免前端拼接导致重复渲染）
       const messages = (data?.messages ?? []) as UIMessage[];
       chat.setMessages(messages);
       if (tabId) {

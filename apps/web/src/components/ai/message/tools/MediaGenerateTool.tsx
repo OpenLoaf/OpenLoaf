@@ -198,7 +198,7 @@ function MediaAttachmentList({
   // 视频：全宽视频预览卡片
   if (kind === "video") {
     return (
-      <div className="w-full min-w-0 pl-1">
+      <div className="w-full max-w-lg min-w-0 pl-1">
         {attachments.map((record) => (
           <button
             key={record.id}
@@ -226,8 +226,8 @@ function MediaAttachmentList({
 
   // 图片：网格布局，每行最多 2 张
   return (
-    <div className="w-full min-w-0 pl-1">
-      <Attachments variant="grid" className="ml-0">
+    <div className="w-full max-w-lg min-w-0 pl-1">
+      <Attachments variant="grid" className="ml-0 w-full">
         {attachments.map((record) => (
           <Attachment
             key={record.id}

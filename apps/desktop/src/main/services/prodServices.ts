@@ -10,30 +10,11 @@
 import { app } from 'electron';
 import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
-import http from 'node:http';
 import path from 'node:path';
 import { getOpenLoafRootDir, resolveOpenLoafDatabaseUrl, resolveOpenLoafDbPath } from '@openloaf/config';
 import type { Logger } from '../logging/startupLogger';
 import { recordServerCrash } from '../incrementalUpdate';
-import { resolveServerPath, resolveWebRoot } from '../incrementalUpdatePaths';
-
-const MIME_TYPES: Record<string, string> = {
-  '.html': 'text/html',
-  '.js': 'text/javascript',
-  '.css': 'text/css',
-  '.json': 'application/json',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-  '.ttf': 'font/ttf',
-  '.txt': 'text/plain',
-  '.webmanifest': 'application/manifest+json',
-};
+import { resolveServerPath } from '../incrementalUpdatePaths';
 
 function parseEnvFile(filePath: string): Record<string, string> {
   try {
@@ -116,80 +97,15 @@ function resolvePort(rawUrl: string, fallback: number): number {
   }
 }
 
-/**
- * 简易静态文件服务：
- * - 用于在生产环境把 `apps/web/out` 通过本地 http server 提供给 BrowserWindow 加载
- * - 兼容 Next.js export 的常见路径（目录 index.html、路径补 .html、404.html）
- */
-function serveStatic(
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-  root: string,
-  log: Logger
-) {
-  try {
-    let url = req.url || '/';
-    url = url.split('?')[0];
-
-    if (url.includes('..')) {
-      res.statusCode = 403;
-      res.end('Forbidden');
-      return;
-    }
-
-    // path.join 遇到以 "/" 开头的路径会忽略 root，需去掉前导 "/"。
-    const relativePath = url.startsWith('/') ? url.slice(1) : url;
-    let filePath = path.join(root, relativePath);
-
-    if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(filePath, 'index.html');
-    }
-
-    if (!fs.existsSync(filePath)) {
-      if (fs.existsSync(filePath + '.html')) {
-        filePath += '.html';
-      } else if (fs.existsSync(path.join(root, '404.html'))) {
-        filePath = path.join(root, '404.html');
-      } else {
-        res.statusCode = 404;
-        res.end('Not Found');
-        return;
-      }
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeType = MIME_TYPES[ext] || 'application/octet-stream';
-
-    res.setHeader('Content-Type', mimeType);
-
-    const stream = fs.createReadStream(filePath);
-    stream.pipe(res);
-    stream.on('error', (err) => {
-      log(`Stream error serving ${filePath}: ${err.message}`);
-      if (!res.headersSent) {
-        res.statusCode = 500;
-        res.end('Internal Server Error');
-      }
-    });
-  } catch (err) {
-    log(`Error in serveStatic: ${err instanceof Error ? err.message : String(err)}`);
-    if (!res.headersSent) {
-      res.statusCode = 500;
-      res.end('Internal Server Error');
-    }
-  }
-}
-
 export type ProdServices = {
   managedServer: ChildProcess | null;
-  productionWebServer: http.Server | null;
   serverCrashed?: Promise<string>;
 };
 
 /**
  * Starts production services:
  * - Launches the bundled `server.mjs` from Resources
- * - Serves the exported `Resources/out` via a local HTTP server
+ * - Web 静态文件由 app:// protocol handler 提供（见 appProtocol.ts）
  */
 export async function startProductionServices(args: {
   log: Logger;
@@ -199,7 +115,7 @@ export async function startProductionServices(args: {
 }): Promise<ProdServices> {
   const log = args.log;
   if (!app.isPackaged) {
-    return { managedServer: null, productionWebServer: null, serverCrashed: undefined };
+    return { managedServer: null, serverCrashed: undefined };
   }
 
   log('Starting production services...');
@@ -325,8 +241,8 @@ export async function startProductionServices(args: {
           ELECTRON_RUN_AS_NODE: '1',
           PORT: String(serverPort),
           HOST: serverHost,
-          // 中文注释：生产环境需要显式放行 webUrl 作为 CORS origin。
-          CORS_ORIGIN: `${args.webUrl},${process.env.CORS_ORIGIN ?? ''}`,
+          // 中文注释：生产环境需要显式放行 app:// 协议和原始 webUrl 作为 CORS origin。
+          CORS_ORIGIN: `app://localhost,${args.webUrl},${process.env.CORS_ORIGIN ?? ''}`,
           // Allow the bundled server to resolve shipped native deps (e.g. `@libsql/darwin-arm64`)
           // that are copied into `process.resourcesPath/node_modules` via Forge `extraResource`.
           NODE_PATH: path.join(process.resourcesPath, 'node_modules'),
@@ -394,37 +310,8 @@ export async function startProductionServices(args: {
     serverCrashed = Promise.resolve(`Server binary not found at ${serverPath}`);
   }
 
-  const webRoot = resolveWebRoot();
-  log(`Looking for web root at: ${webRoot}`);
+  // Web 静态文件现在由 app:// protocol handler 提供（见 appProtocol.ts），
+  // 不再需要 HTTP 静态服务器。
 
-  const webHost = resolveHost(args.webUrl, '127.0.0.1');
-  const webPort = resolvePort(args.webUrl, 3001);
-
-  let productionWebServer: http.Server | null = null;
-  if (fs.existsSync(webRoot)) {
-    try {
-      /**
-       * 前端：
-       * - `apps/web/out` 的静态导出会被复制到 `process.resourcesPath/out`
-       * - 这里起一个本地 http server，供 BrowserWindow `loadURL(http://127.0.0.1:3001/)`
-       */
-      productionWebServer = http.createServer((req, res) => {
-        serveStatic(req, res, webRoot, log);
-      });
-
-      await new Promise<void>((resolve, reject) => {
-        productionWebServer?.listen(webPort, webHost, () => {
-          log(`Web server running at http://${webHost}:${webPort}`);
-          resolve();
-        });
-        productionWebServer?.on('error', reject);
-      });
-    } catch (err) {
-      log(`Failed to start web server: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  } else {
-    log(`[Error] Web root not found at ${webRoot}`);
-  }
-
-  return { managedServer, productionWebServer, serverCrashed };
+  return { managedServer, serverCrashed };
 }

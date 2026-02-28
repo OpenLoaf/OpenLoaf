@@ -10,6 +10,17 @@
 import { SaaSClient } from "@openloaf-saas/sdk";
 import { getSaasBaseUrl } from "./core/config";
 
+/** Connect timeout for SaaS requests (ms). */
+const SAAS_TIMEOUT_MS = 30_000;
+
+/** Fetch wrapper with configurable timeout. */
+const timeoutFetcher: typeof fetch = (input, init) => {
+  return fetch(input, {
+    ...init,
+    signal: init?.signal ?? AbortSignal.timeout(SAAS_TIMEOUT_MS),
+  });
+};
+
 /** Cache SaaS client instance by base URL. */
 let cached: { baseUrl: string; client: SaaSClient } | null = null;
 
@@ -21,13 +32,14 @@ export function getSaasClient(accessToken?: string): SaaSClient {
     return new SaaSClient({
       baseUrl,
       getAccessToken: () => accessToken,
+      fetcher: timeoutFetcher,
     });
   }
   if (cached?.baseUrl === baseUrl) {
     return cached.client;
   }
   // 逻辑：baseUrl 变化时才重建 client，避免重复创建。
-  const client = new SaaSClient({ baseUrl });
+  const client = new SaaSClient({ baseUrl, fetcher: timeoutFetcher });
   cached = { baseUrl, client };
   return client;
 }

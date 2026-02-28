@@ -24,6 +24,7 @@ export type AgentTemplateId =
   | 'calendar'
   | 'widget'
   | 'project'
+  | 'vision'
 
 /** Agent 模版定义。 */
 export type AgentTemplate = {

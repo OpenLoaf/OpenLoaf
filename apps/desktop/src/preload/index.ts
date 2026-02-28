@@ -344,3 +344,13 @@ ipcRenderer.on('openloaf:notification:click', (_event, detail) => {
     // ignore
   }
 });
+
+ipcRenderer.on('openloaf:server-crash', (_event, detail) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('openloaf:server-crash', { detail })
+    );
+  } catch {
+    // ignore
+  }
+});

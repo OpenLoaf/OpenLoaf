@@ -80,6 +80,10 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
   const toolApprovalPayloads = normalizeToolApprovalPayloads(raw.toolApprovalPayloads);
   const timezone = resolveTimezone(raw.timezone);
 
+  const chatModelSource = raw.chatModelSource === "local" || raw.chatModelSource === "cloud"
+    ? raw.chatModelSource
+    : undefined;
+
   return {
     request: {
       sessionId,
@@ -99,6 +103,8 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
       intent: intent ?? "chat",
       responseMode: responseMode ?? "stream",
       toolApprovalPayloads,
+      chatModelId: toText(raw.chatModelId) || undefined,
+      chatModelSource,
     },
   };
 }

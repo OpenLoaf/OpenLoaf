@@ -13,10 +13,12 @@ import type {
   CanvasNodeViewProps,
 } from "../../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Play, RotateCcw, Square } from "lucide-react";
+import { Cloud, Copy, LogIn, Monitor, Play, RotateCcw, Square } from "lucide-react";
 import { generateId } from "ai";
 
 import { useBoardContext } from "../../core/BoardProvider";
+import { useSaasAuth } from "@/hooks/use-saas-auth";
+import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import { buildChatModelOptions, buildCloudModelOptions } from "@/lib/provider-models";
 import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
 import { useBasicConfig } from "@/hooks/use-basic-config";
@@ -26,7 +28,6 @@ import { createChatSessionId } from "@/lib/chat-session-id";
 import { getWebClientId } from "@/lib/chat/streamClientId";
 import { getClientTimeZone } from "@/utils/time-zone";
 import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
-import type { ImageNodeProps } from "../ImageNode";
 import { getWorkspaceIdFromCookie } from "../../core/boardSession";
 import { toast } from "sonner";
 import {
@@ -48,7 +49,9 @@ import {
   IMAGE_PROMPT_GENERATE_MIN_HEIGHT,
   IMAGE_PROMPT_GENERATE_NODE_TYPE,
   IMAGE_PROMPT_TEXT,
-  REQUIRED_TAGS,
+  IMAGE_REQUIRED_TAGS,
+  VIDEO_PROMPT_TEXT,
+  VIDEO_REQUIRED_TAGS,
 } from "./constants";
 import { ImagePromptGenerateNodeSchema, type ImagePromptGenerateNodeProps } from "./types";
 import { measureContainerHeight } from "./utils";
@@ -100,6 +103,18 @@ export function ImagePromptGenerateNodeView({
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
   const installedCliProviderIds = useInstalledCliProviderIds();
+  const { loggedIn: authLoggedIn, loginStatus, refreshSession } = useSaasAuth();
+  const isLoginBusy = loginStatus === "opening" || loginStatus === "polling";
+  const [loginOpen, setLoginOpen] = useState(false);
+
+  useEffect(() => {
+    void refreshSession();
+  }, [refreshSession]);
+  useEffect(() => {
+    if (!authLoggedIn) return;
+    if (!loginOpen) return;
+    setLoginOpen(false);
+  }, [authLoggedIn, loginOpen]);
   // 逻辑：图生文需要同时显示本地 + 云端的图片理解模型，不受 chatSource 限制。
   const modelOptions = useMemo(() => {
     const localOptions = buildChatModelOptions("local", providerItems, cloudModels, installedCliProviderIds);
@@ -111,13 +126,6 @@ export function ImagePromptGenerateNodeView({
     }
     return Array.from(merged.values());
   }, [providerItems, cloudModels, installedCliProviderIds]);
-  const candidates = useMemo(() => {
-    return filterModelOptionsByTags(modelOptions, {
-      required: REQUIRED_TAGS,
-      excluded: EXCLUDED_TAGS,
-    });
-  }, [modelOptions]);
-
   /** Board folder scope used for resolving relative asset uris. */
   const boardFolderScope = useMemo(
     () => resolveBoardFolderScope(fileContext),
@@ -139,9 +147,10 @@ export function ImagePromptGenerateNodeView({
   const resolvedWorkspaceId = useMemo(() => getWorkspaceIdFromCookie(), []);
   const errorText = element.props.errorText ?? "";
   const resultText = element.props.resultText ?? "";
-  // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
-  let inputImageId = "";
-  let inputImageOriginalSrc = "";
+  // 逻辑：输入以”连线关系”为准，同时支持 image 和 video 源节点。
+  let inputSourceId = "";
+  let inputSourceSrc = "";
+  let inputSourceType: "image" | "video" | "" = "";
   for (const item of engine.doc.getElements()) {
     if (item.kind !== "connector") continue;
     if (!item.target || !("elementId" in item.target)) continue;
@@ -149,22 +158,40 @@ export function ImagePromptGenerateNodeView({
     if (!item.source || !("elementId" in item.source)) continue;
     const sourceElementId = item.source.elementId;
     const source = sourceElementId ? engine.doc.getElementById(sourceElementId) : null;
-    if (source && source.kind === "node" && source.type === "image") {
-      inputImageId = source.id;
-      inputImageOriginalSrc =
+    if (!source || source.kind !== "node") continue;
+    if (source.type === "image") {
+      inputSourceId = source.id;
+      inputSourceSrc =
         typeof (source.props as any)?.originalSrc === "string"
           ? ((source.props as any).originalSrc as string)
           : "";
+      inputSourceType = "image";
+      break;
+    }
+    if (source.type === "video") {
+      inputSourceId = source.id;
+      inputSourceSrc =
+        typeof (source.props as any)?.sourcePath === "string"
+          ? ((source.props as any).sourcePath as string)
+          : "";
+      inputSourceType = "video";
       break;
     }
   }
   const resolvedInputPath = resolveProjectPathFromBoardUri({
-    uri: inputImageOriginalSrc.trim(),
+    uri: inputSourceSrc.trim(),
     boardFolderScope,
     currentProjectId: boardFolderScope?.projectId ?? fileContext?.projectId,
     rootUri: fileContext?.rootUri,
   });
-  const hasValidInput = Boolean(inputImageId && resolvedInputPath);
+  const hasValidInput = Boolean(inputSourceId && resolvedInputPath);
+  const requiredTags = inputSourceType === "video" ? VIDEO_REQUIRED_TAGS : IMAGE_REQUIRED_TAGS;
+  const candidates = useMemo(() => {
+    return filterModelOptionsByTags(modelOptions, {
+      required: requiredTags,
+      excluded: EXCLUDED_TAGS,
+    });
+  }, [modelOptions, requiredTags]);
   const selectedModelId = (element.props.chatModelId ?? "").trim();
   const defaultModelId =
     typeof basic.modelDefaultChatModelId === "string"
@@ -179,11 +206,17 @@ export function ImagePromptGenerateNodeView({
     return candidates[0]?.id ?? "";
   }, [candidates, defaultModelId, selectedModelId]);
 
+  // 逻辑：云端模型 id 集合，用于区分本地/云端来源。
+  const cloudModelIds = useMemo(
+    () => new Set(buildCloudModelOptions(cloudModels).map((o) => o.id)),
+    [cloudModels],
+  );
+
   // 逻辑：根据选中模型判断来源（本地/云端），传给服务端正确路由。
-  const effectiveModelSource = useMemo<"local" | "cloud">(() => {
-    const cloudIds = new Set(buildCloudModelOptions(cloudModels).map((o) => o.id));
-    return cloudIds.has(effectiveModelId) ? "cloud" : "local";
-  }, [cloudModels, effectiveModelId]);
+  const effectiveModelSource = useMemo<"local" | "cloud">(
+    () => (cloudModelIds.has(effectiveModelId) ? "cloud" : "local"),
+    [cloudModelIds, effectiveModelId],
+  );
 
   useEffect(() => {
     // 逻辑：当默认模型可用时自动写入节点，避免用户每次重复选择。
@@ -222,13 +255,14 @@ export function ImagePromptGenerateNodeView({
       const chatModelId = (input.chatModelId ?? (node.props as any)?.chatModelId ?? "").trim();
       if (!chatModelId) {
         engine.doc.updateNodeProps(nodeId, {
-          errorText: "请选择支持「图片输入 + 文本生成」的模型",
+          errorText: "请选择支持当前输入类型的模型",
         });
         return;
       }
 
-      // 逻辑：输入以“连线关系”为准，避免节点 props 与画布连接状态不一致。
-      let imageProps: ImageNodeProps | null = null;
+      // 逻辑：输入以”连线关系”为准，同时支持 image 和 video 源节点。
+      let sourceProps: Record<string, any> | null = null;
+      let sourceType: "image" | "video" | "" = "";
       for (const item of engine.doc.getElements()) {
         if (item.kind !== "connector") continue;
         if (!item.target || !("elementId" in item.target)) continue;
@@ -236,22 +270,46 @@ export function ImagePromptGenerateNodeView({
         if (!item.source || !("elementId" in item.source)) continue;
         const sourceElementId = item.source.elementId;
         const source = sourceElementId ? engine.doc.getElementById(sourceElementId) : null;
-        if (source && source.kind === "node" && source.type === "image") {
-          imageProps = source.props as ImageNodeProps;
+        if (!source || source.kind !== "node") continue;
+        if (source.type === "image") {
+          sourceProps = source.props as Record<string, any>;
+          sourceType = "image";
+          break;
+        }
+        if (source.type === "video") {
+          sourceProps = source.props as Record<string, any>;
+          sourceType = "video";
           break;
         }
       }
-      const rawImageUrl = imageProps?.originalSrc ?? "";
-      const imageUrl = resolveProjectPathFromBoardUri({
-        uri: rawImageUrl,
+      const rawSourceUrl =
+        sourceType === "video"
+          ? (sourceProps?.sourcePath ?? "")
+          : (sourceProps?.originalSrc ?? "");
+      const resolvedUrl = resolveProjectPathFromBoardUri({
+        uri: rawSourceUrl,
         boardFolderScope,
         currentProjectId: boardFolderScope?.projectId ?? fileContext?.projectId,
         rootUri: fileContext?.rootUri,
       });
-      const mediaType = imageProps?.mimeType || "application/octet-stream";
-      if (!imageUrl) {
+      let mediaType: string;
+      if (sourceType === "video") {
+        const ext = rawSourceUrl.split(".").pop()?.toLowerCase() ?? "";
+        const videoMimeMap: Record<string, string> = {
+          mp4: "video/mp4",
+          webm: "video/webm",
+          mov: "video/quicktime",
+          avi: "video/x-msvideo",
+          mkv: "video/x-matroska",
+        };
+        mediaType = videoMimeMap[ext] || "video/mp4";
+      } else {
+        mediaType = (sourceProps as any)?.mimeType || "application/octet-stream";
+      }
+      const promptText = sourceType === "video" ? VIDEO_PROMPT_TEXT : IMAGE_PROMPT_TEXT;
+      if (!resolvedUrl) {
         engine.doc.updateNodeProps(nodeId, {
-          errorText: "当前图片缺少可用的地址，无法生成提示词",
+          errorText: "当前输入缺少可用的地址，无法生成描述",
         });
         return;
       }
@@ -278,8 +336,8 @@ export function ImagePromptGenerateNodeView({
           role: "user",
           parentMessageId: null,
           parts: [
-            { type: "file", url: imageUrl, mediaType },
-            { type: "text", text: IMAGE_PROMPT_TEXT },
+            { type: "file", url: resolvedUrl, mediaType },
+            { type: "text", text: promptText },
           ],
         };
         const payload = {
@@ -324,9 +382,9 @@ export function ImagePromptGenerateNodeView({
       } catch (error) {
         if (!controller.signal.aborted) {
           engine.doc.updateNodeProps(nodeId, {
-            errorText: "生成提示词失败",
+            errorText: "生成描述失败",
           });
-          toast.error("生成提示词失败");
+          toast.error("生成描述失败");
         }
       } finally {
         if (abortControllerRef.current === controller) {
@@ -415,7 +473,7 @@ export function ImagePromptGenerateNodeView({
         document.execCommand("copy");
         document.body.removeChild(textarea);
       }
-      toast.success("已复制提示词");
+      toast.success("已复制描述");
     } catch {
       toast.error("复制失败");
     }
@@ -447,10 +505,11 @@ export function ImagePromptGenerateNodeView({
         handleNodeFocus();
       }}
     >
+      <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <div className={containerClassName} ref={containerRef}>
       <div className="flex items-center gap-2">
         <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${BOARD_GENERATE_DOT_PROMPT}`} />
-        <div className="text-[13px] font-semibold leading-5">图生文</div>
+        <div className="text-[13px] font-semibold leading-5">视频图片理解</div>
         <div className="flex-1" />
         {viewStatus === "running" ? (
           <button
@@ -464,6 +523,22 @@ export function ImagePromptGenerateNodeView({
             <span className="inline-flex items-center gap-1">
               <Square size={12} />
               停止
+            </span>
+          </button>
+        ) : !authLoggedIn && candidates.length === 0 ? (
+          <button
+            type="button"
+            disabled={isLoginBusy}
+            className={`inline-flex h-7 items-center justify-center rounded-full px-3 text-[12px] leading-none transition-colors duration-150 disabled:opacity-50 ${BOARD_GENERATE_BTN_PROMPT}`}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onSelect();
+              if (!isLoginBusy) setLoginOpen(true);
+            }}
+          >
+            <span className="inline-flex items-center gap-1">
+              <LogIn size={12} />
+              {isLoginBusy ? "登录中" : "登录"}
             </span>
           </button>
         ) : hasValidInput ? (
@@ -500,33 +575,60 @@ export function ImagePromptGenerateNodeView({
       <div className="mt-1 flex items-center gap-2">
         <div className="text-[11px] text-[#5f6368] dark:text-slate-400">模型</div>
         <div className="min-w-0 flex-1">
-          <Select
-            value={effectiveModelId}
-            onValueChange={(value) => {
-              onUpdate({ chatModelId: value });
-            }}
-            disabled={candidates.length === 0 || isRunning}
-          >
-            <SelectTrigger className="h-7 w-full px-2 text-[11px] shadow-none">
-              <SelectValue placeholder="无可用模型" />
-            </SelectTrigger>
-            <SelectContent className="text-[11px]">
-              {candidates.length ? null : (
-                <SelectItem value="__none__" disabled className="text-[11px]">
-                  无可用模型
-                </SelectItem>
-              )}
-              {candidates.map((option) => (
-                <SelectItem
-                  key={option.id}
-                  value={option.id}
-                  className="text-[11px]"
-                >
-                  {option.providerName}:{option.modelDefinition?.name || option.modelId}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {!authLoggedIn && candidates.length === 0 ? (
+            <button
+              type="button"
+              disabled={isLoginBusy}
+              className="inline-flex h-7 w-full items-center justify-center rounded-full bg-[#edf2fa] px-3 text-[11px] text-[#5f6368] transition-colors duration-150 hover:bg-[#d2e3fc] disabled:opacity-50 dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.5)]"
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                if (!isLoginBusy) setLoginOpen(true);
+              }}
+            >
+              <span className="inline-flex items-center gap-1">
+                <LogIn size={12} />
+                {isLoginBusy ? "登录中..." : "登录以使用云端模型"}
+              </span>
+            </button>
+          ) : (
+            <Select
+              value={effectiveModelId}
+              onValueChange={(value) => {
+                onUpdate({ chatModelId: value });
+              }}
+              disabled={candidates.length === 0 || isRunning}
+            >
+              <SelectTrigger className="h-7 w-full px-2 text-[11px] shadow-none">
+                <SelectValue placeholder="无可用模型" />
+              </SelectTrigger>
+              <SelectContent className="text-[11px]">
+                {candidates.length ? null : (
+                  <SelectItem value="__none__" disabled className="text-[11px]">
+                    无可用模型
+                  </SelectItem>
+                )}
+                {candidates.map((option) => {
+                  const isCloud = cloudModelIds.has(option.id);
+                  return (
+                    <SelectItem
+                      key={option.id}
+                      value={option.id}
+                      className="text-[11px]"
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {isCloud ? (
+                          <Cloud className="h-3 w-3 shrink-0 text-[#1a73e8] dark:text-sky-400" />
+                        ) : (
+                          <Monitor className="h-3 w-3 shrink-0 text-[#5f6368] dark:text-slate-400" />
+                        )}
+                        {option.providerName}:{option.modelDefinition?.name || option.modelId}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
@@ -534,7 +636,7 @@ export function ImagePromptGenerateNodeView({
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-2">
             <div className="text-[11px] text-[#5f6368] dark:text-slate-400">
-              图片内容
+              内容描述
             </div>
             <button
               type="button"

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { app, BrowserWindow, Menu, session, nativeImage } from 'electron';
+import { app, BrowserWindow, Menu, session, nativeImage, protocol } from 'electron';
 import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import Module from 'node:module';
 import path from 'path';
@@ -43,6 +43,7 @@ import {
   resolveWindowIconInfo,
   resolveWindowIconPath,
 } from './resolveWindowIcon';
+import { registerAppProtocol } from './services/appProtocol';
 
 // 中文注释：开发态追加 Dev 后缀，避免与打包版名称混淆。
 const APP_DISPLAY_NAME = app.isPackaged ? 'OpenLoaf' : 'OpenLoaf Development';
@@ -72,6 +73,20 @@ registerProcessErrorLogging(log);
 // 同步 macOS 关于面板的应用显示名，避免 dev 模式仍显示 Electron。
 app.setAboutPanelOptions({ applicationName: APP_DISPLAY_NAME });
 registerProtocolClient(log);
+
+// 生产模式：注册 app:// 自定义协议 scheme，用于零延迟提供 Next.js 静态导出。
+// 必须在 app.whenReady() 之前同步调用。
+if (app.isPackaged) {
+  protocol.registerSchemesAsPrivileged([{
+    scheme: 'app',
+    privileges: {
+      standard: true,       // 支持相对路径解析（Next.js 静态资源依赖此特性）
+      secure: true,         // 等同 https，启用 clipboard/crypto 等安全 API
+      supportFetchAPI: true,// 页面内 fetch() 可请求本协议资源
+      corsEnabled: true,    // 允许跨域到 http://127.0.0.1:serverPort
+    },
+  }]);
+}
 
 log(`App starting. UserData: ${app.getPath('userData')}`);
 log(`Executable: ${process.execPath}`);
@@ -451,12 +466,20 @@ async function boot() {
   // IPC handlers 必须先注册，避免渲染端（apps/web）调用时找不到处理器。
   registerIpcHandlers({ log });
 
+  // 生产模式：注册 app:// protocol handler，零延迟提供 web 静态文件。
+  if (app.isPackaged) {
+    registerAppProtocol(log);
+    // 覆盖 web URL，让后续所有代码使用 app:// 协议。
+    process.env.OPENLOAF_WEB_URL = 'app://localhost';
+  }
+
   // service manager 统一管理：dev 下的子进程（server/web），prod 下的本地静态服务 + server 进程。
   services = createServiceManager(log);
 
   const ports = runtimePorts ?? (await runtimePortsReady);
   const initialServerUrl = ports.serverUrl;
-  const initialWebUrl = ports.webUrl;
+  // 生产模式使用 app:// 协议地址。
+  const initialWebUrl = app.isPackaged ? 'app://localhost' : ports.webUrl;
   const initialCdpPort = ports.cdpPort;
 
   // 主窗口先展示轻量 loading 页面，待 `apps/web` 可用后再切换到真实 UI。

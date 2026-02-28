@@ -923,10 +923,8 @@ export const VideoGenerateNodeDefinition: CanvasNodeDefinition<VideoGenerateNode
   },
   view: VideoGenerateNodeView,
   capabilities: {
-    resizable: true,
-    rotatable: false,
+    resizable: false,
     connectable: "anchors",
     minSize: { w: 320, h: 280 },
-    maxSize: { w: 720, h: 520 },
   },
 };

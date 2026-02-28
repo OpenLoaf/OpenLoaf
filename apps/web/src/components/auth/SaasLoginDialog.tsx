@@ -153,7 +153,14 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
                     <span className="sr-only">欢迎使用 OpenLoaf</span>
                   </>
                 ) : (
-                  "欢迎使用 OpenLoaf"
+                  <>
+                    欢迎使用 OpenLoaf
+                    <img
+                      src="/logo_nobody.png"
+                      alt="OpenLoaf"
+                      className="ml-2 inline-block h-[2.85rem] w-[2.85rem] align-bottom"
+                    />
+                  </>
                 )}
               </h1>
               <p

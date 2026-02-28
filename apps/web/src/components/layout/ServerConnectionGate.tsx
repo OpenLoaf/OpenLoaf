@@ -9,7 +9,9 @@
  */
 "use client";
 
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
 import { LoadingScreen } from "@/components/layout/LoadingScreen";
 
@@ -26,6 +28,20 @@ export default function ServerConnectionGate({
     staleTime: 0,
     gcTime: 0,
   });
+
+  // 监听 Electron 主进程推送的 server crash 事件（生产模式下 app:// 协议方案）。
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ error?: string }>).detail;
+      const message = detail?.error || "Server process crashed unexpectedly";
+      toast.error("Server failed to start", {
+        description: message.length > 200 ? `${message.slice(0, 200)}...` : message,
+        duration: Number.POSITIVE_INFINITY,
+      });
+    };
+    window.addEventListener("openloaf:server-crash", handler);
+    return () => window.removeEventListener("openloaf:server-crash", handler);
+  }, []);
 
   if (!isSuccess) return <LoadingScreen label="Waiting for server..." />;
   return <>{children}</>;

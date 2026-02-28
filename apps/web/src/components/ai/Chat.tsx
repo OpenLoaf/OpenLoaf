@@ -20,7 +20,7 @@ import { useTabs } from "@/hooks/use-tabs";
 import { generateId } from "ai";
 import * as React from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { LayoutGrid, Calendar, Mail, Clock } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Mail, Clock } from "lucide-react";
 import {
   CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES,
   formatFileSize,
@@ -116,12 +116,12 @@ function RecentSessionsBar() {
 
 const QUICK_LAUNCH_ITEMS = [
   {
-    baseId: "base:workbench", component: "workspace-desktop", label: "工作台", icon: LayoutGrid, title: "工作台", tabIcon: "bot",
+    baseId: "base:workbench", component: "workspace-desktop", label: "工作台", icon: LayoutDashboard, title: "工作台", tabIcon: "bot",
     iconColor: "text-amber-700/70 dark:text-amber-300/70 group-hover:text-amber-700 dark:group-hover:text-amber-200",
     bgColor: "bg-amber-500/10 dark:bg-amber-400/10 group-hover:bg-amber-500/20 dark:group-hover:bg-amber-400/20",
   },
   {
-    baseId: "base:calendar", component: "calendar-page", label: "日历", icon: Calendar, title: "日历", tabIcon: "🗓️",
+    baseId: "base:calendar", component: "calendar-page", label: "日历", icon: CalendarDays, title: "日历", tabIcon: "🗓️",
     iconColor: "text-sky-700/70 dark:text-sky-300/70 group-hover:text-sky-700 dark:group-hover:text-sky-200",
     bgColor: "bg-sky-500/10 dark:bg-sky-400/10 group-hover:bg-sky-500/20 dark:group-hover:bg-sky-400/20",
   },
@@ -266,6 +266,14 @@ function ChatFullPageLayout({
           >
             <div className="flex flex-1 flex-col items-center justify-center min-h-0">
               <div className="flex w-full max-w-2xl flex-col items-center gap-4 px-4">
+                <motion.img
+                  src="/logo_nobody.png"
+                  alt="OpenLoaf"
+                  className="mb-2 h-12 w-12"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.25 }}
+                />
                 <motion.p
                   className="mb-4 text-base text-muted-foreground"
                   initial={{ opacity: 0, y: 8 }}

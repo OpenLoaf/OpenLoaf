@@ -639,7 +639,7 @@ function resolveNodeTitle(element: CanvasNodeElement) {
     case "video_generate":
       return "生成视频";
     case "image_prompt_generate":
-      return "图片提示";
+      return "视频图片理解";
     case "calendar":
       return "日历";
     case "group":

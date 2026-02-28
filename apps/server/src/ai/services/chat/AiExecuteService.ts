@@ -164,6 +164,8 @@ function buildChatStreamRequest(input: {
     boardId: input.request.boardId,
     selectedSkills: input.selectedSkills,
     toolApprovalPayloads: input.request.toolApprovalPayloads,
+    chatModelId: input.request.chatModelId,
+    chatModelSource: input.request.chatModelSource,
   };
 }
 

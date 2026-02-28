@@ -20,6 +20,7 @@ import { emailTemplate } from './templates/email'
 import { calendarTemplate } from './templates/calendar'
 import { widgetTemplate } from './templates/widget'
 import { projectTemplate } from './templates/project'
+import { visionTemplate } from './templates/vision'
 
 /** 所有 Agent 模版。 */
 export const ALL_TEMPLATES: readonly AgentTemplate[] = [
@@ -31,6 +32,7 @@ export const ALL_TEMPLATES: readonly AgentTemplate[] = [
   calendarTemplate,
   widgetTemplate,
   projectTemplate,
+  visionTemplate,
 ] as const
 
 /** 模版 ID → AgentTemplate 映射。 */

@@ -756,9 +756,11 @@ export function ChatInputBox({
       {isBlocked ? (
         /* 未登录或未配置 AI 服务商时，替换输入框为引导内容 */
         <div className="flex flex-col items-center justify-center gap-2.5 px-5 py-4">
-          <span className="inline-flex size-8 items-center justify-center rounded-full bg-[#fef7e0] dark:bg-amber-900/40">
-            <Sparkles className="size-4 text-[#f9ab00] dark:text-amber-300" />
-          </span>
+          <img
+            src="/logo_nobody.png"
+            alt="OpenLoaf"
+            className="size-12 object-contain"
+          />
           <div className="text-center">
             <p className="text-[13px] font-medium text-[#202124] dark:text-slate-50">
               {blockedReason === 'cloud-login'

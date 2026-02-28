@@ -65,7 +65,6 @@ function stopManaged(child: ChildProcess | null) {
 export function createServiceManager(log: Logger): ServiceManager {
   let managedServer: ChildProcess | null = null;
   let managedWeb: ChildProcess | null = null;
-  let productionWebServer: { close: () => void } | null = null;
   let started = false;
 
   /**
@@ -91,7 +90,6 @@ export function createServiceManager(log: Logger): ServiceManager {
         cdpPort,
       });
       managedServer = prod.managedServer;
-      productionWebServer = prod.productionWebServer;
       return { serverUrl: initialServerUrl, webUrl: initialWebUrl, serverCrashed: prod.serverCrashed };
     }
 
@@ -120,7 +118,6 @@ export function createServiceManager(log: Logger): ServiceManager {
         cleanupNextDevLock({ repoRoot, log, killProcesses: false });
       }
     }
-    productionWebServer?.close();
   };
 
   return { start, stop };

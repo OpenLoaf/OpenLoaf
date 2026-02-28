@@ -156,6 +156,8 @@ export async function createMainWindow(args: {
     width,
     minWidth: 800,
     minHeight: 640,
+    // 生产模式下避免协议加载期间白屏闪烁（与 loading.html 背景一致）。
+    backgroundColor: '#0f1115',
     ...(windowIcon ? { icon: windowIcon } : {}),
     ...(isMac
       ? {
@@ -271,18 +273,50 @@ export async function createMainWindow(args: {
     event.preventDefault();
     void requestQuit();
   });
+  // 生产模式：直接加载 web 应用（通过 app:// 协议即时可用），
+  // ServerConnectionGate 会自动轮询等待后端就绪。
+  if (app.isPackaged) {
+    const webUrl = args.initialWebUrl;
+    const targetUrl = `${webUrl}/`;
+    args.log(`[prod] Loading web directly: ${targetUrl}`);
+    await mainWindow.loadURL(targetUrl);
+
+    // 并行启动 server（不再等待 web HTTP server）。
+    args.services.start({
+      initialServerUrl: args.initialServerUrl,
+      initialWebUrl: args.initialWebUrl,
+      cdpPort: args.initialCdpPort,
+    }).then(({ serverUrl, serverCrashed }) => {
+      args.log(`[prod] Services started. serverUrl=${serverUrl}`);
+
+      // 监听 server 崩溃，通过 IPC 通知 web 端显示错误。
+      serverCrashed?.then((stderr) => {
+        args.log(`[prod] Server crashed: ${stderr}`);
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('openloaf:server-crash', { error: stderr });
+        }
+      });
+    }).catch((err) => {
+      args.log(`[prod] Failed to start services: ${String(err)}`);
+      if (!mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('openloaf:server-crash', { error: String(err) });
+      }
+    });
+
+    return { win: mainWindow, serverUrl: args.initialServerUrl, webUrl };
+  }
+
+  // 开发模式：保持现有流程 — 先显示 loading.html，等服务就绪后切换。
   args.log('Window created. Loading loading screen...');
   await mainWindow.loadURL(args.entries.loadingWindow);
 
   try {
-    // 确保服务可用：dev 下复用/启动 server & web；prod 下启动 server.mjs + 本地静态站点服务。该调用是幂等的。
     const { webUrl, serverUrl, serverCrashed } = await args.services.start({
       initialServerUrl: args.initialServerUrl,
       initialWebUrl: args.initialWebUrl,
       cdpPort: args.initialCdpPort,
     });
 
-    // 当 server 进程崩溃时提前中止健康检查，并在 loading 页面显示错误。
     const abortController = new AbortController();
     let crashError: string | undefined;
     serverCrashed?.then((stderr) => {
@@ -293,7 +327,6 @@ export async function createMainWindow(args: {
     const targetUrl = `${webUrl}/`;
     args.log(`Waiting for web URL: ${targetUrl}`);
 
-    // 等待 apps/web 响应后，把窗口从 loading 页面切换到真实 UI。
     const ok = await waitForUrlOk(targetUrl, {
       timeoutMs: 60_000,
       intervalMs: 300,
@@ -303,7 +336,6 @@ export async function createMainWindow(args: {
     if (ok) {
       const healthUrl = `${serverUrl}/trpc/health`;
       args.log(`Web URL ok: ${targetUrl}. Waiting for server health: ${healthUrl}`);
-      // 流程：先确认 apps/web 可访问，再等待 server health 正常后切换到主界面，避免 UI 先加载但后端未就绪。
       const healthOk = await waitForUrlOk(healthUrl, {
         timeoutMs: 60_000,
         intervalMs: 300,
@@ -331,7 +363,6 @@ export async function createMainWindow(args: {
     }
 
     args.log('Web URL check failed. Loading fallback renderer entry.');
-    // fallback 是 Forge 打包进来的极小本地页面，用于排查"为什么 web 没启动/没加载"。
     await mainWindow.loadURL(args.entries.mainWindow);
     return { win: mainWindow, serverUrl, webUrl };
   } catch (err) {

@@ -20,8 +20,10 @@ import {
   getTemplate,
   isTemplateId,
   getPrimaryTemplate,
+  ALL_TEMPLATES,
 } from '@/ai/agent-templates'
 import type { AgentTemplate } from '@/ai/agent-templates'
+import { logger } from '@/common/logger'
 import {
   readAgentConfigFromPath,
   type AgentConfig,
@@ -110,6 +112,13 @@ const LEGACY_ALIASES: Record<string, string> = {
   documentanalysissubagent: 'document',
 }
 
+/** 显示名称 → 模版 ID 映射（支持中文名称解析，如 "终端助手" → "shell"）。 */
+const NAME_TO_ID = new Map<string, string>(
+  ALL_TEMPLATES
+    .filter((t) => !t.isPrimary)
+    .map((t) => [t.name.toLowerCase().trim(), t.id]),
+)
+
 /** Resolve raw agentType string to a known SubAgentType. */
 export function resolveAgentType(raw?: string): SubAgentType {
   if (!raw) return 'default'
@@ -118,6 +127,10 @@ export function resolveAgentType(raw?: string): SubAgentType {
   const mapped = LEGACY_ALIASES[lower] ?? lower
   if (isTemplateId(mapped)) return 'system'
 
+  // 按显示名称反查模版 ID（支持中文名称）
+  const byName = NAME_TO_ID.get(lower)
+  if (byName && isTemplateId(byName)) return 'system'
+
   return 'dynamic'
 }
 
@@ -125,7 +138,14 @@ export function resolveAgentType(raw?: string): SubAgentType {
 export function resolveEffectiveAgentName(raw?: string): string {
   if (!raw) return 'master'
   const lower = raw.toLowerCase().trim()
-  return LEGACY_ALIASES[lower] ?? lower
+  const aliased = LEGACY_ALIASES[lower]
+  if (aliased) return aliased
+
+  // 按显示名称反查模版 ID（支持中文名称）
+  const byName = NAME_TO_ID.get(lower)
+  if (byName) return byName
+
+  return lower
 }
 
 export type CreateSubAgentInput = {
@@ -190,6 +210,10 @@ export function createSubAgent(input: CreateSubAgentInput): ToolLoopAgent {
   }
 
   // 逻辑：fallback 到 master 模版。
+  logger.warn(
+    { rawAgentType: input.rawAgentType, agentType: input.agentType },
+    '[agent-factory] No matching template or dynamic agent found, falling back to master template',
+  )
   const masterTpl = getPrimaryTemplate()
   const toolIds = resolveTemplateToolIds(masterTpl)
   return new ToolLoopAgent({
