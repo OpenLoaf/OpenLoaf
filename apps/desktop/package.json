@@ -20,7 +20,8 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "OpenLoaf"
+      "shortcutName": "OpenLoaf",
+      "artifactName": "${productName}_Installer_${version}.${ext}"
     },
     "files": [
       ".webpack/**/*",
