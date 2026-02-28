@@ -82,6 +82,10 @@ if (isMacTarget) {
   if (fs.existsSync(icnsPath)) {
     extraFlags.push(`--config.mac.icon=${icnsPath}`)
   }
+  // CI 环境下传递公证配置，避免 electron-builder 因缺少 notarize 选项而报错
+  if (process.env.APPLE_TEAM_ID) {
+    extraFlags.push(`--config.mac.notarize.teamId=${process.env.APPLE_TEAM_ID}`)
+  }
 }
 
 if (isWinTarget) {
