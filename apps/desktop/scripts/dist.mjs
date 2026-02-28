@@ -80,6 +80,13 @@ if (isMacTarget) {
   }
 }
 
+if (isWinTarget) {
+  const icoPath = path.resolve('resources', 'icon.ico')
+  if (fs.existsSync(icoPath)) {
+    extraFlags.push(`--config.win.icon=${icoPath}`)
+  }
+}
+
 const extraArgs = [...extraFlags, ...process.argv.slice(2)].join(' ')
 
 const cmd = [
