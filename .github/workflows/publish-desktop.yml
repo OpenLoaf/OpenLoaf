@@ -167,17 +167,18 @@ jobs:
   build-mac-x64:
     needs: build-prerequisites
     if: github.event_name == 'push' || inputs.build_mac
-    runs-on: macos-15-large
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js (x64 via Rosetta 2)
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          architecture: x64
 
       - name: Get pnpm store directory
         shell: bash
