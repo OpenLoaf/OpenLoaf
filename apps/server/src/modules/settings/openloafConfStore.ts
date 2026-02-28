@@ -70,6 +70,7 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   modelDefaultChatModelId: "codex-cli:gpt-5.2-codex",
   modelDefaultToolModelId: "",
   appProjectRule: "按项目划分",
+  autoApproveTools: false,
   toolAllowOutsideScope: false,
   stepUpInitialized: false,
   proxyEnabled: false,
@@ -323,6 +324,12 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : typeof fallbackSource.appProjectRule === "string"
         ? fallbackSource.appProjectRule
         : DEFAULT_BASIC_CONF.appProjectRule;
+  const autoApproveTools =
+    typeof source.autoApproveTools === "boolean"
+      ? source.autoApproveTools
+      : typeof fallbackSource.autoApproveTools === "boolean"
+        ? fallbackSource.autoApproveTools
+        : DEFAULT_BASIC_CONF.autoApproveTools;
   const toolAllowOutsideScope =
     typeof source.toolAllowOutsideScope === "boolean"
       ? source.toolAllowOutsideScope
@@ -398,6 +405,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     modelDefaultChatModelId,
     modelDefaultToolModelId,
     appProjectRule,
+    autoApproveTools,
     toolAllowOutsideScope,
     stepUpInitialized,
     proxyEnabled,

@@ -68,6 +68,8 @@ export type RequestContext = {
   imageModelId?: string;
   /** Selected video generation model id. */
   videoModelId?: string;
+  /** Whether simple tool approvals should be auto-approved. */
+  autoApproveTools?: boolean;
   /** Whether this request runs in supervision mode (autonomous task). */
   supervisionMode?: boolean;
   /** Task ID when running within an autonomous task. */

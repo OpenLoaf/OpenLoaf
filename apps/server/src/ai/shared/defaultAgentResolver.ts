@@ -56,6 +56,8 @@ export type AgentJsonDescriptor = {
   imageModelIds?: string[]
   /** Video model id for media generation (empty = Auto). */
   videoModelIds?: string[]
+  /** Code model ids for CLI coding tools (empty = Auto). */
+  codeModelIds?: string[]
   toolIds?: string[]
   skills?: string[]
   allowSubAgents?: boolean

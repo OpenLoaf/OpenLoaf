@@ -137,9 +137,11 @@ export default function SelectMode({
               chatModels={prefs.chatModels}
               imageModels={prefs.imageModels}
               videoModels={prefs.videoModels}
+              codeModels={prefs.codeModels}
               preferredChatIds={prefs.preferredChatIds}
               preferredImageIds={prefs.preferredImageIds}
               preferredVideoIds={prefs.preferredVideoIds}
+              preferredCodeIds={prefs.preferredCodeIds}
             />
           </PromptInputHoverCardContent>
           <PopoverContent

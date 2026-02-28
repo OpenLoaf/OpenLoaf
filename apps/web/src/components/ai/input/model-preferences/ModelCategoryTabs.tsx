@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { Image, MessageSquare, Video } from 'lucide-react'
+import { Code, Image, MessageSquare, Video } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ModelCategoryTabsProps {
@@ -41,6 +41,14 @@ const tabs = [
     activeText: 'text-amber-700 dark:text-amber-200',
     inactiveText: 'text-muted-foreground',
     indicator: 'border-t-amber-500',
+  },
+  {
+    id: 'code',
+    label: '代码',
+    icon: Code,
+    activeText: 'text-emerald-700 dark:text-emerald-200',
+    inactiveText: 'text-muted-foreground',
+    indicator: 'border-t-emerald-500',
   },
 ] as const
 

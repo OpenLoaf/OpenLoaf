@@ -112,6 +112,8 @@ export const basicConfigSchema = z.object({
   /** @deprecated Use per-agent model config instead. */
   modelDefaultToolModelId: z.string(),
   appProjectRule: z.string(),
+  /** Auto-approve simple tool calls without manual confirmation. */
+  autoApproveTools: z.boolean(),
   /** Allow tools to access paths outside workspace/project roots. */
   toolAllowOutsideScope: z.boolean(),
   stepUpInitialized: z.boolean(),

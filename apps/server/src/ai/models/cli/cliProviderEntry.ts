@@ -22,7 +22,29 @@ type CliProviderBinding = {
 /** CLI provider bindings for registry injection. */
 const CLI_PROVIDER_BINDINGS: CliProviderBinding[] = [
   { providerId: "codex-cli", configKey: "codex" },
+  { providerId: "claude-code-cli", configKey: "claudeCode" },
 ];
+
+/** Hardcoded fallback definitions for CLI providers (used when SaaS API has no entry). */
+const CLI_PROVIDER_FALLBACKS: Record<string, ProviderDefinition> = {
+  "claude-code-cli": {
+    id: "claude-code-cli",
+    label: "Claude Code",
+    adapterId: "cli",
+    models: [
+      { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4", tags: ["code"] },
+      { id: "claude-opus-4-20250514", name: "Claude Opus 4", tags: ["code"] },
+    ],
+  } as ProviderDefinition,
+  "codex-cli": {
+    id: "codex-cli",
+    label: "Codex CLI",
+    adapterId: "cli",
+    models: [
+      { id: "codex-mini", name: "Codex Mini", tags: ["code"] },
+    ],
+  } as ProviderDefinition,
+};
 
 /** Build enabled model map from provider definition. */
 function buildModelMap(definition: ProviderDefinition): Record<string, ModelDefinition> {
@@ -37,7 +59,8 @@ function buildModelMap(definition: ProviderDefinition): Record<string, ModelDefi
 
 /** Build CLI provider settings entry for runtime. */
 async function buildCliProviderEntry(binding: CliProviderBinding): Promise<ProviderSettingEntry | null> {
-  const definition = await getProviderDefinition(binding.providerId);
+  const definition = await getProviderDefinition(binding.providerId)
+    ?? CLI_PROVIDER_FALLBACKS[binding.providerId];
   if (!definition) return null;
   // 逻辑：未安装的 CLI 工具不注入 provider，避免 Auto 模式误选。
   const status = await getCliToolStatus(binding.configKey);

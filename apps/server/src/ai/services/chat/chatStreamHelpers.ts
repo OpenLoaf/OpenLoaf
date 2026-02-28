@@ -115,6 +115,8 @@ export function initRequestContext(input: {
   selectedSkills?: string[] | null;
   /** Tool approval payloads keyed by toolCallId. */
   toolApprovalPayloads?: Record<string, Record<string, unknown>> | null;
+  /** Whether to auto-approve simple tool calls. */
+  autoApproveTools?: boolean;
   /** Abort signal from the incoming request. */
   requestSignal: AbortSignal;
   /** Optional message id override. */
@@ -148,6 +150,7 @@ export function initRequestContext(input: {
       input.toolApprovalPayloads && Object.keys(input.toolApprovalPayloads).length > 0
         ? { ...input.toolApprovalPayloads }
         : undefined,
+    ...(input.autoApproveTools ? { autoApproveTools: true } : {}),
     ...(boardId ? { boardId } : {}),
   });
 

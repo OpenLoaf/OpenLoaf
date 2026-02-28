@@ -836,6 +836,9 @@ export class SettingRouterImpl extends BaseSettingRouter {
             const videoModelIds = Array.isArray(descriptor.videoModelIds)
               ? descriptor.videoModelIds
               : [];
+            const codeModelIds = Array.isArray(descriptor.codeModelIds)
+              ? descriptor.codeModelIds
+              : [];
             return {
               name: descriptor.name,
               description: descriptor.description || "未提供",
@@ -848,6 +851,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
               auxiliaryModelCloudIds,
               imageModelIds,
               videoModelIds,
+              codeModelIds,
               toolIds: descriptor.toolIds || [],
               skills: descriptor.skills || [],
               allowSubAgents: descriptor.allowSubAgents ?? false,
@@ -873,6 +877,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
             auxiliaryModelCloudIds: config.auxiliaryModelCloudIds,
             imageModelIds: config.imageModelIds,
             videoModelIds: config.videoModelIds,
+            codeModelIds: config.codeModelIds ?? [],
             toolIds: config.toolIds,
             skills: config.skills,
             allowSubAgents: config.allowSubAgents,
@@ -905,6 +910,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
                 auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
                 imageModelIds: input.imageModelIds,
                 videoModelIds: input.videoModelIds,
+                codeModelIds: input.codeModelIds,
                 toolIds: input.toolIds,
                 skills: input.skills,
                 allowSubAgents: input.allowSubAgents,
@@ -940,6 +946,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
               auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
               imageModelIds: input.imageModelIds,
               videoModelIds: input.videoModelIds,
+              codeModelIds: input.codeModelIds,
               toolIds: input.toolIds,
               skills: input.skills,
               allowSubAgents: input.allowSubAgents,
@@ -1000,6 +1007,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
             auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
             imageModelIds: input.imageModelIds,
             videoModelIds: input.videoModelIds,
+            codeModelIds: input.codeModelIds,
             toolIds: input.toolIds,
             skills: input.skills,
             allowSubAgents: input.allowSubAgents,
@@ -1063,6 +1071,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
             auxiliaryModelCloudIds: config.auxiliaryModelCloudIds,
             imageModelIds: config.imageModelIds,
             videoModelIds: config.videoModelIds,
+            codeModelIds: config.codeModelIds,
             toolIds: config.toolIds,
             skills: config.skills,
             allowSubAgents: config.allowSubAgents,

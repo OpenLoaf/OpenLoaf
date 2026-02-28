@@ -285,6 +285,7 @@ export async function runChatStream(input: {
     boardId,
     selectedSkills,
     toolApprovalPayloads: input.request.toolApprovalPayloads,
+    autoApproveTools: input.request.autoApproveTools,
     requestSignal: input.requestSignal,
     messageId,
     saasAccessToken: input.saasAccessToken,

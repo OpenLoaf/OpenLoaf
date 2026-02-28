@@ -405,6 +405,10 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
       : current.modelDefaultToolModelId;
   const appProjectRule =
     typeof next.appProjectRule === "string" ? next.appProjectRule : current.appProjectRule;
+  const autoApproveTools =
+    typeof next.autoApproveTools === "boolean"
+      ? next.autoApproveTools
+      : current.autoApproveTools;
   const toolAllowOutsideScope =
     typeof next.toolAllowOutsideScope === "boolean"
       ? next.toolAllowOutsideScope
@@ -453,6 +457,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     modelDefaultChatModelId,
     modelDefaultToolModelId,
     appProjectRule,
+    autoApproveTools,
     toolAllowOutsideScope,
     stepUpInitialized,
     proxyEnabled,

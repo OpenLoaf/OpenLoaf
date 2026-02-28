@@ -92,7 +92,6 @@ const TOOL_LABELS = {
   note: "便签",
   image: "图片",
   video: "视频",
-  calendar: "日历",
 } as const;
 
 /** Shortcut mapping for tooltips. */
@@ -109,7 +108,9 @@ const INSERT_TOOL_LABELS: Record<string, string> = {
   note: TOOL_LABELS.note,
   image: TOOL_LABELS.image,
   video: TOOL_LABELS.video,
-  calendar: TOOL_LABELS.calendar,
+  [IMAGE_PROMPT_GENERATE_NODE_TYPE]: "视频图片理解",
+  [IMAGE_GENERATE_NODE_TYPE]: "图片生成",
+  [VIDEO_GENERATE_NODE_TYPE]: "生成视频",
 };
 
 /** Build a tooltip label with optional shortcut suffix. */
@@ -118,7 +119,6 @@ function buildToolTitle(label: string, shortcut?: string): string {
 }
 
 const BRUSH_SVG_SRC = "/board/brush.svg";
-const CALENDAR_SVG_SRC = "/board/calendar-svgrepo-com.svg";
 const HIGHLIGHTER_SVG_SRC = "/board/highlighter.svg";
 const ERASER_SVG_SRC = "/board/eraser.svg";
 const SELECT_SVG_SRC = "/board/select-cursor-svgrepo-com.svg";
@@ -126,7 +126,6 @@ const DRAG_SVG_SRC = "/board/drag-svgrepo-com.svg";
 const NOTE_SVG_SRC = "/board/notes-note-svgrepo-com.svg";
 const PICTURE_SVG_SRC = "/board/picture-photo-svgrepo-com.svg";
 const VIDEO_SVG_SRC = "/board/video-player-movie-svgrepo.svg";
-const FOLDER_SVG_SRC = "/board/folder-svgrepo-com.svg";
 /** Svg source for the image prompt generate icon. */
 const IMAGE_PROMPT_SVG_SRC = "/board/converted_small.svg";
 /** Svg source for the image generate icon. */
@@ -283,18 +282,6 @@ function ImageGenerateIcon({ size = 20, className }: IconProps) {
   );
 }
 
-/** Render the calendar icon with shared sizing props. */
-function CalendarIcon(props: IconProps) {
-  const { size = 20, className } = props;
-  return (
-    <InlineSvgFile
-      src={CALENDAR_SVG_SRC}
-      className={className}
-      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
-    />
-  );
-}
-
 function ImageIcon({ size = 20, className }: IconProps) {
   return (
     <InlineSvgFile
@@ -369,23 +356,14 @@ const INSERT_ITEMS: InsertItem[] = [
     size: [360, 240],
     opensPicker: true,
   },
-  {
-    id: "calendar",
-    title: "日历",
-    description: "日历面板块。",
-    icon: CalendarIcon,
-    nodeType: "calendar",
-    props: {},
-    size: [360, 320],
-  },
 ];
 
-/** Generate tool entries for the toolbar flyout. */
+/** Generate tool entries displayed flat in the toolbar. */
 const GENERATE_INSERT_ITEMS: InsertItem[] = [
   {
     id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-    title: "图片提示词",
-    description: "分析图片并生成描述",
+    title: "视频图片理解",
+    description: "分析图片/视频并生成描述",
     icon: ImagePromptGenerateIcon,
     nodeType: IMAGE_PROMPT_GENERATE_NODE_TYPE,
     props: {},
@@ -415,10 +393,6 @@ const GENERATE_INSERT_ITEMS: InsertItem[] = [
 const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolbarProps) {
   // 悬停展开的组 id（用字符串常量标识）
   const [hoverGroup, setHoverGroup] = useState<string | null>(null);
-  /** Whether the generate panel should stay pinned open. */
-  const [insertPanelPinned, setInsertPanelPinned] = useState(false);
-  // 逻辑：记录生成面板的延迟关闭计时器，避免鼠标移出即消失。
-  const insertPanelHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
   const { fileContext } = useBoardContext();
@@ -434,7 +408,6 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const isLocked = snapshot.locked;
   const pendingInsert = snapshot.pendingInsert;
   const penPanelOpen = !isLocked && (hoverGroup === "pen" || isPenTool);
-  const insertPanelOpen = !isLocked && (hoverGroup === "insert" || insertPanelPinned);
 
   const [penVariant, setPenVariant] = useState<"pen" | "highlighter">("pen");
   const [penSize, setPenSize] = useState<number>(6);
@@ -481,41 +454,24 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     if (!isLocked) return;
     // 逻辑：锁定画布时关闭悬浮面板，避免残留交互入口。
     setHoverGroup(null);
-    setInsertPanelPinned(false);
   }, [isLocked]);
 
   useEffect(() => {
-    return () => {
-      if (insertPanelHideTimerRef.current) {
-        clearTimeout(insertPanelHideTimerRef.current);
-        insertPanelHideTimerRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!hoverGroup && !insertPanelPinned) return;
+    if (!hoverGroup) return;
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null;
       const container = toolbarRef.current;
       if (!container || !target) return;
       // 逻辑：点击工具条外部时关闭子面板。
       if (container.contains(target)) return;
-      if (hoverGroup === "pen" && isPenTool) {
-        if (insertPanelPinned) {
-          // 逻辑：点击外部时优先关闭生成面板，保留画笔面板。
-          setInsertPanelPinned(false);
-        }
-        return;
-      }
+      if (hoverGroup === "pen" && isPenTool) return;
       setHoverGroup(null);
-      setInsertPanelPinned(false);
     };
     document.addEventListener("pointerdown", handlePointerDown, { capture: true });
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown, { capture: true });
     };
-  }, [hoverGroup, insertPanelPinned, isPenTool]);
+  }, [hoverGroup, isPenTool]);
 
   const handleToolChange = useCallback(
     (tool: ToolMode, options?: { keepPanel?: boolean }) => {
@@ -544,7 +500,6 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
       }
       engine.setPendingInsert(request);
       setHoverGroup(null);
-      setInsertPanelPinned(false);
     },
     [engine, isLocked, pendingInsert?.id]
   );
@@ -1020,12 +975,6 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   /** 中间插入工具图标 hover 旋转样式。 */
   const insertIconClassName =
     "origin-center transition-transform duration-150 ease-out group-hover:-rotate-15";
-  /** 生成工具子面板圆弧半径。 */
-  const generateArcRadius = 72;
-  /** 生成工具子面板圆弧起止角度（度数）。 */
-  const generateArcRange: [number, number] = [-130, -50];
-  /** 生成工具子面板整体下移偏移量。 */
-  const generateArcOffsetY = 30;
 
   return (
     <div
@@ -1248,130 +1197,33 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           })}
         </div>
         <span className="h-8 w-px bg-[#e3e8ef] dark:bg-slate-700" />
-        {/* 生成工具面板 */}
-        <div
-          className="relative"
-          onMouseEnter={() => {
-            if (isLocked) return;
-            if (insertPanelHideTimerRef.current) {
-              clearTimeout(insertPanelHideTimerRef.current);
-              insertPanelHideTimerRef.current = null;
-            }
-            setHoverGroup("insert");
-          }}
-          onMouseLeave={() => {
-            if (insertPanelPinned) return;
-            if (insertPanelHideTimerRef.current) {
-              clearTimeout(insertPanelHideTimerRef.current);
-            }
-            // 逻辑：鼠标移出后延迟关闭，便于用户快速回移。
-            insertPanelHideTimerRef.current = setTimeout(() => {
-              setHoverGroup(null);
-              insertPanelHideTimerRef.current = null;
-            }, 300);
-          }}
-        >
-          <IconBtn
-            title="生成工具"
-            onPointerDown={() => {
-              if (isLocked) return;
-              // 逻辑：点击主图标时固定展开面板。
-              setHoverGroup("insert");
-              setInsertPanelPinned(true);
-            }}
-            disabled={isLocked}
-            className="group h-10 w-9 overflow-hidden"
-            showTooltip={false}
-          >
-            <InlineSvgFile
-              src={FOLDER_SVG_SRC}
-              className={cn(
-                "pointer-events-none",
-                "[&>svg]:fill-current",
-                "transition-transform duration-300 ease-in-out group-hover:translate-y-0",
-                "translate-y-2"
-              )}
-              style={{ width: 28, height: 28, userSelect: "none", flexShrink: 0 }}
-            />
-          </IconBtn>
-          <HoverPanel
-            open={insertPanelOpen}
-            className={cn(
-              "bg-transparent ring-0 shadow-none backdrop-blur-0 p-0",
-              insertPanelOpen
-                ? "opacity-100 scale-100"
-                : "opacity-100 scale-100 pointer-events-none"
-            )}
-          >
-            <div
-              className="relative"
-              style={{
-                width: generateArcRadius * 2 + 40,
-                height: generateArcRadius + 48,
-                transform: `translateY(${generateArcOffsetY}px)`,
-              }}
-            >
-              {GENERATE_INSERT_ITEMS.map((item, index) => {
-                const Icon = item.icon;
-                const request: CanvasInsertRequest = {
-                  id: item.id,
-                  type: item.nodeType ?? "text",
-                  props: item.props ?? {},
-                  size: item.size,
-                };
-                const totalItems = GENERATE_INSERT_ITEMS.length;
-                const [startAngle, endAngle] = generateArcRange;
-                // 逻辑：按圆弧角度计算每个子工具按钮的位置。
-                const angle =
-                  totalItems === 1
-                    ? (startAngle + endAngle) / 2
-                    : startAngle +
-                      ((endAngle - startAngle) * index) / (totalItems - 1);
-                const radians = (angle * Math.PI) / 180;
-                const offsetX = Math.cos(radians) * generateArcRadius;
-                const offsetY = Math.sin(radians) * generateArcRadius;
-                const delayStep = 60;
-                // 逻辑：展开从左到右依次出现，收起反向依次消失。
-                const transitionDelay = insertPanelOpen
-                  ? index * delayStep
-                  : (totalItems - 1 - index) * delayStep;
-
-                return (
-                  <div
-                    key={item.id}
-                    className="absolute left-1/2 top-full"
-                    style={{
-                      transform: `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`,
-                    }}
-                  >
-                    <div
-                      className={cn(
-                        "transition-all duration-200 ease-out",
-                        insertPanelOpen
-                          ? "opacity-100 translate-y-0 scale-100"
-                          : "opacity-0 translate-y-2 scale-95"
-                      )}
-                      style={{ transitionDelay: `${transitionDelay}ms` }}
-                    >
-                      <PanelItem
-                        title={item.title}
-                        active={pendingInsert?.id === item.id}
-                        onPointerDown={() => {
-                          if (isLocked) return;
-                          // 逻辑：选择后进入待插入模式，并关闭面板。
-                          handleInsertRequest(request);
-                          setInsertPanelPinned(false);
-                        }}
-                        className="text-[10px] text-slate-400"
-                      >
-                        <Icon size={32} />
-                      </PanelItem>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </HoverPanel>
+        {/* 生成工具（平铺） */}
+        <div className="flex items-center gap-2">
+          {GENERATE_INSERT_ITEMS.map(item => {
+            const Icon = item.icon;
+            const isActive = pendingInsert?.id === item.id;
+            const request: CanvasInsertRequest = {
+              id: item.id,
+              type: item.nodeType ?? "text",
+              props: item.props ?? {},
+              size: item.size,
+            };
+            return (
+              <IconBtn
+                key={item.id}
+                title={INSERT_TOOL_LABELS[item.id] ?? item.title}
+                active={isActive}
+                onPointerDown={() => {
+                  if (isLocked) return;
+                  handleInsertRequest(request);
+                }}
+                disabled={isLocked}
+                className="group"
+              >
+                <Icon size={insertIconSize} className={insertIconClassName} />
+              </IconBtn>
+            );
+          })}
         </div>
         <ProjectFilePickerDialog
           open={imagePickerOpen}

@@ -400,6 +400,8 @@ export default function ChatCoreProvider({
   const clearToolPartsForTab = useChatRuntime((s) => s.clearToolPartsForTab);
   const queryClient = useQueryClient();
   const { basic } = useBasicConfig();
+  const basicRef = React.useRef(basic);
+  basicRef.current = basic;
   const toolStream = useChatToolStream();
 
   // 中文注释：每 5 次 assistant 回复触发自动标题更新。
@@ -1002,7 +1004,11 @@ export default function ChatCoreProvider({
 
       pendingUserMessageIdRef.current = String(nextMessage.id);
 
-      const result = (chat.sendMessage as any)(nextMessage, options);
+      const autoApproveBody = basicRef.current.autoApproveTools ? { autoApproveTools: true } : {};
+      const mergedOptions = Object.keys(autoApproveBody).length > 0
+        ? { ...options, body: { ...(options?.body ?? {}), ...autoApproveBody } }
+        : options;
+      const result = (chat.sendMessage as any)(nextMessage, mergedOptions);
       return result;
     },
     [chat.sendMessage, chat.messages, leafMessageId]
@@ -1318,9 +1324,14 @@ export default function ChatCoreProvider({
     // 逻辑：只允许单次续接，避免多次提交同一批审批。
     approvalSubmitInFlightRef.current = true;
     try {
+      const autoApproveBody = basicRef.current.autoApproveTools ? { autoApproveTools: true } : {};
       if (Object.keys(payloads).length > 0) {
         await chat.sendMessage(undefined as any, {
-          body: { toolApprovalPayloads: payloads },
+          body: { toolApprovalPayloads: payloads, ...autoApproveBody },
+        });
+      } else if (Object.keys(autoApproveBody).length > 0) {
+        await chat.sendMessage(undefined as any, {
+          body: autoApproveBody,
         });
       } else {
         await chat.sendMessage(undefined as any);

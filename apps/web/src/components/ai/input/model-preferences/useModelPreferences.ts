@@ -23,6 +23,7 @@ import { useTabs } from '@/hooks/use-tabs'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
 import {
   buildChatModelOptions,
+  buildCliModelOptions,
   normalizeChatModelSource,
 } from '@/lib/provider-models'
 import { useMainAgentModel } from '../../hooks/use-main-agent-model'
@@ -57,6 +58,7 @@ export function useModelPreferences() {
     setModelIds,
     setImageModelIds,
     setVideoModelIds,
+    setCodeModelIds,
   } = useMainAgentModel(projectId)
 
   const tabId = chatSession?.tabId ?? activeTabId
@@ -72,6 +74,10 @@ export function useModelPreferences() {
         installedCliProviderIds,
       ),
     [chatModelSource, providerItems, cloudModels, installedCliProviderIds],
+  )
+  const codeModels = useMemo(
+    () => buildCliModelOptions(installedCliProviderIds),
+    [installedCliProviderIds],
   )
   const normalizeIds = useCallback((value?: string[] | null) => {
     if (!Array.isArray(value)) return []
@@ -90,6 +96,9 @@ export function useModelPreferences() {
   const [preferredVideoIds, setPreferredVideoIds] = useState<string[]>(() =>
     normalizeIds(masterDetail?.videoModelIds),
   )
+  const [preferredCodeIds, setPreferredCodeIds] = useState<string[]>(() =>
+    normalizeIds(masterDetail?.codeModelIds),
+  )
 
   useEffect(() => {
     setPreferredChatIds(normalizeIds(masterModelIds))
@@ -103,9 +112,14 @@ export function useModelPreferences() {
     setPreferredVideoIds(normalizeIds(masterDetail?.videoModelIds))
   }, [masterDetail?.videoModelIds, normalizeIds])
 
+  useEffect(() => {
+    setPreferredCodeIds(normalizeIds(masterDetail?.codeModelIds))
+  }, [masterDetail?.codeModelIds, normalizeIds])
+
   const isAuto = preferredChatIds.length === 0
   const isImageAuto = preferredImageIds.length === 0
   const isVideoAuto = preferredVideoIds.length === 0
+  const isCodeAuto = preferredCodeIds.length === 0
 
   const hasConfiguredProviders = useMemo(
     () =>
@@ -154,6 +168,19 @@ export function useModelPreferences() {
       setVideoModelIds(nextIds)
     },
     [preferredVideoIds, setVideoModelIds],
+  )
+
+  const toggleCodeModel = useCallback(
+    (modelId: string) => {
+      const normalized = modelId.trim()
+      if (!normalized) return
+      const nextIds = preferredCodeIds.includes(normalized)
+        ? preferredCodeIds.filter((id) => id !== normalized)
+        : [...preferredCodeIds, normalized]
+      setPreferredCodeIds(nextIds)
+      setCodeModelIds(nextIds)
+    },
+    [preferredCodeIds, setCodeModelIds],
   )
 
   const setIsAuto = useCallback(
@@ -208,6 +235,24 @@ export function useModelPreferences() {
       }
     },
     [preferredVideoIds, setVideoModelIds, videoModels],
+  )
+
+  const setCodeAuto = useCallback(
+    (auto: boolean) => {
+      if (auto) {
+        if (preferredCodeIds.length === 0) return
+        setPreferredCodeIds([])
+        setCodeModelIds([])
+        return
+      }
+      if (preferredCodeIds.length > 0) return
+      const fallback = codeModels[0]?.id
+      if (fallback) {
+        setPreferredCodeIds([fallback])
+        setCodeModelIds([fallback])
+      }
+    },
+    [codeModels, preferredCodeIds, setCodeModelIds],
   )
 
   const setCloudSource = useCallback(
@@ -313,13 +358,16 @@ export function useModelPreferences() {
     chatModels,
     imageModels,
     videoModels,
+    codeModels,
     isCloudSource,
     isAuto,
     isImageAuto,
     isVideoAuto,
+    isCodeAuto,
     preferredChatIds,
     preferredImageIds,
     preferredVideoIds,
+    preferredCodeIds,
     authLoggedIn,
     isUnconfigured,
     showCloudLogin,
@@ -328,9 +376,11 @@ export function useModelPreferences() {
     toggleChatModel,
     toggleImageModel,
     toggleVideoModel,
+    toggleCodeModel,
     setIsAuto,
     setImageAuto,
     setVideoAuto,
+    setCodeAuto,
     setCloudSource,
     refreshOnOpen,
     syncCloudModelsOnOpen,

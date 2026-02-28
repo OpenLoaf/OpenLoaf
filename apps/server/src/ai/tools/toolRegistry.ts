@@ -109,6 +109,7 @@ import {
 } from "@/ai/tools/browserAutomationTools";
 import { wrapToolWithTimeout } from "@/ai/tools/toolTimeout";
 import { wrapToolWithErrorEnhancer } from "@/ai/tools/toolErrorEnhancer";
+import { getRequestContext } from "@/ai/shared/context/requestContext";
 
 type ToolEntry = {
   tool: any;
@@ -258,6 +259,29 @@ const TOOL_ALIASES: Record<string, string> = {
   find: "grep-files",
 };
 
+/** Tool IDs excluded from auto-approval (complex/interactive). */
+const AUTO_APPROVE_EXCLUDED_TOOLS = new Set(["request-user-input"]);
+
+/** Wrap tool to skip needsApproval when autoApproveTools is enabled. */
+function wrapToolWithAutoApproval(toolId: string, tool: any): any {
+  if (AUTO_APPROVE_EXCLUDED_TOOLS.has(toolId)) return tool;
+  const original = tool.needsApproval;
+  if (original === undefined || original === false) return tool;
+  return {
+    ...tool,
+    needsApproval: typeof original === "function"
+      ? (...args: any[]) => {
+          const ctx = getRequestContext();
+          if (ctx?.autoApproveTools || ctx?.supervisionMode) return false;
+          return (original as Function)(...args);
+        }
+      : () => {
+          const ctx = getRequestContext();
+          return !(ctx?.autoApproveTools || ctx?.supervisionMode);
+        },
+  };
+}
+
 /**
  * Returns the tool instance by ToolDef.id (MVP).
  */
@@ -284,15 +308,17 @@ export function buildToolset(toolIds: readonly string[] = []) {
         entry = getToolById(canonical);
         if (entry) {
           // 用规范名称注册工具，同时为别名创建一个错误提示入口
-          const withTimeout = wrapToolWithTimeout(canonical, entry.tool);
+          const withAutoApproval = wrapToolWithAutoApproval(canonical, entry.tool);
+          const withTimeout = wrapToolWithTimeout(canonical, withAutoApproval);
           const withErrorEnhancer = wrapToolWithErrorEnhancer(canonical, withTimeout);
           toolset[canonical] = withErrorEnhancer;
         }
       }
       continue;
     }
-    // 逻辑：依次包装 timeout → error enhancer，增强工具执行的可靠性。
-    const withTimeout = wrapToolWithTimeout(toolId, entry.tool);
+    // 逻辑：依次包装 auto-approval → timeout → error enhancer，增强工具执行的可靠性。
+    const withAutoApproval = wrapToolWithAutoApproval(toolId, entry.tool);
+    const withTimeout = wrapToolWithTimeout(toolId, withAutoApproval);
     const withErrorEnhancer = wrapToolWithErrorEnhancer(toolId, withTimeout);
     toolset[toolId] = withErrorEnhancer;
   }

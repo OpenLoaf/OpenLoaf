@@ -74,7 +74,7 @@ import { useSpeechDictation } from "@/hooks/use-speech-dictation";
 import ChatCommandMenu, { type ChatCommandMenuHandle } from "./ChatCommandMenu";
 import { useChatMessageComposer } from "../hooks/use-chat-message-composer";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
-import ThinkingModeSelector, { type ThinkingMode } from "./ThinkingModeSelector";
+import ApprovalModeSelector, { type ApprovalMode } from "./ApprovalModeSelector";
 import {
   PromptInput,
   PromptInputButton,
@@ -212,10 +212,10 @@ export interface ChatInputBoxProps {
   onlineSearchEnabled?: boolean;
   /** Online search state change handler. */
   onOnlineSearchChange?: (enabled: boolean) => void;
-  /** Current thinking mode. */
-  thinkingMode?: ThinkingMode;
-  /** Thinking mode change callback. */
-  onThinkingModeChange?: (mode: ThinkingMode) => void;
+  /** Current approval mode. */
+  approvalMode?: ApprovalMode;
+  /** Approval mode change callback. */
+  onApprovalModeChange?: (mode: ApprovalMode) => void;
 }
 
 export function ChatInputBox({
@@ -259,8 +259,8 @@ export function ChatInputBox({
   onDictationListeningChange,
   onlineSearchEnabled = false,
   onOnlineSearchChange,
-  thinkingMode = "fast",
-  onThinkingModeChange,
+  approvalMode = "manual",
+  onApprovalModeChange,
 }: ChatInputBoxProps) {
   const isBlocked = Boolean(blocked);
   const plainTextValue = useMemo(() => getPlainTextFromInput(value), [value]);
@@ -331,12 +331,11 @@ export function ChatInputBox({
     }
   };
 
-  const hasReasoningModel = useHasPreferredReasoningModel(defaultProjectId);
-  const handleThinkingModeChange = useCallback(
-    (mode: ThinkingMode) => {
-      onThinkingModeChange?.(mode);
+  const handleApprovalModeChange = useCallback(
+    (mode: ApprovalMode) => {
+      onApprovalModeChange?.(mode);
     },
-    [onThinkingModeChange]
+    [onApprovalModeChange]
   );
   /** Keep focus state while any element inside the input container is focused. */
   const handleContainerFocus = useCallback(() => {
@@ -880,8 +879,8 @@ export function ChatInputBox({
                   <Paperclip className="w-4 h-4" />
                 </PromptInputButton>
               ) : null}
-              {!compact && hasReasoningModel ? (
-                <ThinkingModeSelector value={thinkingMode} onChange={handleThinkingModeChange} />
+              {!compact ? (
+                <ApprovalModeSelector value={approvalMode} onChange={handleApprovalModeChange} />
               ) : null}
             </PromptInputTools>
 
@@ -1045,11 +1044,9 @@ export default function ChatInput({
     basic.chatOnlineSearchMemoryScope === "global" ? "global" : "tab";
   /** Login dialog open state. */
   const [loginOpen, setLoginOpen] = useState(false);
-  const normalizedThinkingMode: ThinkingMode =
-    basic.chatThinkingMode === "deep" ? "deep" : "fast";
-  /** Thinking mode selected from input toolbar. */
-  const [thinkingMode, setThinkingMode] =
-    useState<ThinkingMode>(normalizedThinkingMode);
+  /** Approval mode selected from input toolbar. */
+  const [approvalMode, setApprovalMode] =
+    useState<ApprovalMode>(basic.autoApproveTools ? "auto" : "manual");
   /** Global online-search switch state. */
   const [globalOnlineSearchEnabled, setGlobalOnlineSearchEnabled] =
     useState(false);
@@ -1100,9 +1097,9 @@ export default function ChatInput({
       : tabOnlineSearchEnabled ?? false;
 
   useEffect(() => {
-    // 中文注释：主助手思考模式与基础设置保持同步。
-    setThinkingMode(normalizedThinkingMode);
-  }, [normalizedThinkingMode]);
+    // 中文注释：审批模式与基础设置保持同步。
+    setApprovalMode(basic.autoApproveTools ? "auto" : "manual");
+  }, [basic.autoApproveTools]);
 
   useEffect(() => {
     if (onlineSearchScopeRef.current === onlineSearchMemoryScope) return;
@@ -1150,10 +1147,10 @@ export default function ChatInput({
     },
     [activeChatTabId, onlineSearchMemoryScope, setTabChatParams]
   );
-  const handleThinkingModeChange = useCallback(
-    (mode: ThinkingMode) => {
-      setThinkingMode(mode);
-      void setBasic({ chatThinkingMode: mode });
+  const handleApprovalModeChange = useCallback(
+    (mode: ApprovalMode) => {
+      setApprovalMode(mode);
+      void setBasic({ autoApproveTools: mode === "auto" });
     },
     [setBasic]
   );
@@ -1315,8 +1312,9 @@ export default function ChatInput({
       imageParts,
       imageOptions,
       codexOptions,
-      reasoningMode: hasReasoningModel ? thinkingMode : undefined,
+      reasoningMode: hasReasoningModel ? (basic.chatThinkingMode === "deep" ? "deep" : "fast") : undefined,
       onlineSearchEnabled,
+      autoApproveTools: approvalMode === "auto",
     });
     // 逻辑：云端模型 + 未登录时，暂存消息而不发送到服务端
     const isCloudSource = basic.chatSource === 'cloud'
@@ -1392,8 +1390,8 @@ export default function ChatInput({
         }}
         onlineSearchEnabled={onlineSearchEnabled}
         onOnlineSearchChange={handleOnlineSearchChange}
-        thinkingMode={thinkingMode}
-        onThinkingModeChange={handleThinkingModeChange}
+        approvalMode={approvalMode}
+        onApprovalModeChange={handleApprovalModeChange}
         header={
           !isUnconfigured && (showImageOutputOptions || isCodexProvider) ? (
             <div className="flex flex-col gap-2">

@@ -132,6 +132,8 @@ export type ChatRequestBody = {
   selectedSkills?: string[];
   /** 工具审批 payload（按 toolCallId 分组）。 */
   toolApprovalPayloads?: Record<string, Record<string, unknown>>;
+  /** Whether to auto-approve simple tool calls. */
+  autoApproveTools?: boolean;
 };
 
 export type TokenUsage = {

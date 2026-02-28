@@ -39,8 +39,14 @@ export function ModelPreferencesPanel({
   const [activeTab, setActiveTab] = useState('chat')
   const isChatTab = activeTab === 'chat'
   const isImageTab = activeTab === 'image'
-  const isAuto =
-    isChatTab ? prefs.isAuto : isImageTab ? prefs.isImageAuto : prefs.isVideoAuto
+  const isCodeTab = activeTab === 'code'
+  const isAuto = isChatTab
+    ? prefs.isAuto
+    : isImageTab
+      ? prefs.isImageAuto
+      : isCodeTab
+        ? prefs.isCodeAuto
+        : prefs.isVideoAuto
 
   const handleCloudSourceChange = (cloud: boolean) => {
     prefs.setCloudSource(cloud ? 'cloud' : 'local')
@@ -55,10 +61,15 @@ export function ModelPreferencesPanel({
       prefs.setImageAuto(auto)
       return
     }
+    if (isCodeTab) {
+      prefs.setCodeAuto(auto)
+      return
+    }
     prefs.setVideoAuto(auto)
   }
 
-  const needsLogin = isChatTab ? showCloudLogin : !authLoggedIn
+  // 代码 tab 始终本地，无需登录
+  const needsLogin = isCodeTab ? false : isChatTab ? showCloudLogin : !authLoggedIn
 
   return (
     <div className="flex flex-col gap-2">
@@ -66,8 +77,8 @@ export function ModelPreferencesPanel({
       <ModelPreferencesHeader
         isCloudSource={prefs.isCloudSource}
         isAuto={isAuto}
-        showCloudSwitch={isChatTab}
-        showManageButton={isChatTab}
+        showCloudSwitch={isChatTab && !isCodeTab}
+        showManageButton={isChatTab && !isCodeTab}
         disableAuto={needsLogin}
         onCloudSourceChange={handleCloudSourceChange}
         onAutoChange={handleAutoChange}
@@ -98,6 +109,12 @@ export function ModelPreferencesPanel({
               使用云端模型
             </div>
           </div>
+        ) : isCodeTab ? (
+          <ChatModelCheckboxList
+            models={prefs.codeModels}
+            preferredIds={prefs.preferredCodeIds}
+            onToggle={prefs.toggleCodeModel}
+          />
         ) : isChatTab ? (
           <ChatModelCheckboxList
             models={prefs.chatModels}

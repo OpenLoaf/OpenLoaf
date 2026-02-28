@@ -25,6 +25,7 @@ type AgentDetail = {
   auxiliaryModelCloudIds: string[];
   imageModelIds: string[];
   videoModelIds: string[];
+  codeModelIds: string[];
   toolIds: string[];
   skills: string[];
   allowSubAgents: boolean;
@@ -141,6 +142,9 @@ export function useMainAgentModel(projectId?: string) {
       const nextVideoModelIds = Array.isArray(patch.videoModelIds)
         ? patch.videoModelIds
         : detail.videoModelIds;
+      const nextCodeModelIds = Array.isArray(patch.codeModelIds)
+        ? patch.codeModelIds
+        : detail.codeModelIds;
       const nextToolIds = Array.isArray(patch.toolIds)
         ? patch.toolIds
         : detail.toolIds;
@@ -162,6 +166,7 @@ export function useMainAgentModel(projectId?: string) {
         auxiliaryModelCloudIds: normalizeIds(nextAuxiliaryModelCloudIds),
         imageModelIds: normalizeIds(nextImageModelIds),
         videoModelIds: normalizeIds(nextVideoModelIds),
+        codeModelIds: normalizeIds(nextCodeModelIds),
         toolIds: normalizeIds(nextToolIds),
         skills: patch.skills ?? detail.skills,
         allowSubAgents: patch.allowSubAgents ?? detail.allowSubAgents,
@@ -217,6 +222,14 @@ export function useMainAgentModel(projectId?: string) {
     [normalizeIds, updateMasterAgent],
   );
 
+  /** Update master code model ids (empty = Auto). */
+  const setCodeModelIds = useCallback(
+    (nextIds: string[]) => {
+      updateMasterAgent({ codeModelIds: normalizeIds(nextIds) });
+    },
+    [normalizeIds, updateMasterAgent],
+  );
+
   return {
     masterAgent,
     modelIds:
@@ -237,6 +250,7 @@ export function useMainAgentModel(projectId?: string) {
     setAuxiliaryModelIds,
     setImageModelIds,
     setVideoModelIds,
+    setCodeModelIds,
     detail: detailQuery.data as AgentDetail | undefined,
     isLoading:
       agentsQuery.isLoading ||

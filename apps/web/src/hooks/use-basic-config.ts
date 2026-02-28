@@ -43,6 +43,7 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   modelDefaultChatModelId: "",
   modelDefaultToolModelId: "",
   appProjectRule: "按项目划分",
+  autoApproveTools: false,
   toolAllowOutsideScope: false,
   stepUpInitialized: false,
   proxyEnabled: false,

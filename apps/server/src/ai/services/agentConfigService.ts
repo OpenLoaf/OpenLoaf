@@ -38,6 +38,8 @@ export type AgentConfig = {
   imageModelIds: string[]
   /** Video model ids for media generation. */
   videoModelIds: string[]
+  /** Code model ids for CLI coding tools. */
+  codeModelIds: string[]
   /** Tool ids enabled for this agent. */
   toolIds: string[]
   /** Associated skill names. */
@@ -107,6 +109,7 @@ type AgentFrontMatter = {
   auxiliaryModelCloudIds?: string[]
   imageModelIds?: string[]
   videoModelIds?: string[]
+  codeModelIds?: string[]
   toolIds?: string[]
   skills?: string[]
   allowSubAgents?: boolean
@@ -244,6 +247,7 @@ export function readAgentConfigFromPath(
     )
     const imageModelIds = normalizeIdList(frontMatter.imageModelIds)
     const videoModelIds = normalizeIdList(frontMatter.videoModelIds)
+    const codeModelIds = normalizeIdList(frontMatter.codeModelIds)
     const toolIds = normalizeToolIds(frontMatter.toolIds || [])
     return {
       name,
@@ -258,6 +262,7 @@ export function readAgentConfigFromPath(
       auxiliaryModelCloudIds,
       imageModelIds,
       videoModelIds,
+      codeModelIds,
       toolIds,
       skills: frontMatter.skills || [],
       allowSubAgents: frontMatter.allowSubAgents ?? false,
@@ -475,6 +480,9 @@ function setField(
     case 'videoModelIds':
       result.videoModelIds = normalizeIdList(value)
       break
+    case 'codeModelIds':
+      result.codeModelIds = normalizeIdList(value)
+      break
     case 'toolIds':
       result.toolIds = Array.isArray(value) ? value : [value]
       break
@@ -545,6 +553,7 @@ export function serializeAgentToMarkdown(config: {
   auxiliaryModelCloudIds?: string[]
   imageModelIds?: string[]
   videoModelIds?: string[]
+  codeModelIds?: string[]
   toolIds?: string[]
   skills?: string[]
   allowSubAgents?: boolean
@@ -591,6 +600,12 @@ export function serializeAgentToMarkdown(config: {
   if (config.videoModelIds?.length) {
     lines.push('videoModelIds:')
     for (const id of config.videoModelIds) {
+      lines.push(`  - ${id}`)
+    }
+  }
+  if (config.codeModelIds?.length) {
+    lines.push('codeModelIds:')
+    for (const id of config.codeModelIds) {
       lines.push(`  - ${id}`)
     }
   }

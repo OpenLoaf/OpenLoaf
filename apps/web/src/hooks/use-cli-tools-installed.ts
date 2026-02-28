@@ -16,6 +16,7 @@ import { trpc } from "@/utils/trpc"
 /** CLI 工具 ID → 模型注册表 provider ID 映射。 */
 const CLI_TOOL_PROVIDER_MAP: Record<string, string> = {
   codex: "codex-cli",
+  claudeCode: "claude-code-cli",
 }
 
 /**
