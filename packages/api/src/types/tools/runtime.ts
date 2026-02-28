@@ -183,7 +183,7 @@ export const listDirToolDef = {
   id: "list-dir",
   name: "列出目录",
   description:
-    "触发：当你需要列出目录内容并查看统计信息时调用。用途：按深度/分页列出条目并标注类型，可选忽略 .gitignore。返回：文本（含 Absolute path、统计信息、条目列表，可能提示还有更多条目）。不适用：需要文件内容时请用 read-file。",
+    "触发：当你需要列出目录内容并查看统计信息时调用。用途：按深度/分页列出条目并标注类型，支持两种输出格式（tree 树形层级 / flat 扁平路径列表）、glob 过滤（pattern）、多种排序（sort: name/size/modified）、显示修改时间（showModified）。返回：文本（含统计信息、条目列表，可能提示还有更多条目及续读参数）。不适用：需要文件内容时请用 read-file；搜索文件内容请用 grep-files。",
   parameters: z.object({
     actionName: z
       .string()
@@ -194,6 +194,10 @@ export const listDirToolDef = {
     limit: z.number().int().min(1).optional(),
     depth: z.number().int().min(1).optional(),
     ignoreGitignore: z.boolean().optional().default(true),
+    format: z.enum(["tree", "flat"]).optional().describe("输出格式：tree=树形层级结构（默认），flat=扁平路径列表（类 Glob，按修改时间排序）"),
+    pattern: z.string().optional().describe("glob 模式过滤文件名，如 '*.ts'、'*.{ts,tsx}'"),
+    sort: z.enum(["name", "size", "modified"]).optional().describe("排序字段，默认 name（flat 模式默认 modified）"),
+    showModified: z.boolean().optional().describe("是否显示修改时间，默认 false（flat 模式默认 true）"),
   }),
   component: null,
 } as const;

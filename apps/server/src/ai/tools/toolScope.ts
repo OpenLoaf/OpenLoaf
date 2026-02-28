@@ -23,7 +23,7 @@ type ToolRoots = {
 };
 
 /** Resolve workspace/project roots for current request context. */
-function resolveToolRoots(): ToolRoots {
+export function resolveToolRoots(): ToolRoots {
   const workspaceId = getWorkspaceId();
   if (!workspaceId) throw new Error("workspaceId is required.");
   const workspaceRoot = getWorkspaceRootPathById(workspaceId);

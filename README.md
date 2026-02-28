@@ -2,7 +2,7 @@
   <img src="apps/web/public/logo.png" alt="OpenLoaf Logo" width="120" />
   <h1>OpenLoaf</h1>
   <p><strong>Open-Source AI Knowledge Base & Smart Workspace</strong></p>
-  <p>Structured document management + multi-model AI chat + cross-platform desktop experience — build your second brain.</p>
+  <p>Local-first, privacy-focused AI workspace — structured docs + multi-model chat + cross-platform desktop. Your data never leaves your device.</p>
 
   <a href="https://github.com/OpenLoaf/OpenLoaf/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPLv3-blue.svg" alt="License" /></a>
   <a href="https://github.com/OpenLoaf/OpenLoaf/releases"><img src="https://img.shields.io/github/v/release/OpenLoaf/OpenLoaf?label=latest" alt="Release" /></a>
@@ -54,6 +54,10 @@ A ReactFlow-powered infinite canvas — not just a whiteboard, but your **visual
   <sub>Canvas with AI image generation, video creation, freehand drawing, and sticky notes</sub>
 </div>
 
+### AI Image & Video Generation
+
+Turn ideas into visuals instantly. OpenLoaf integrates AI-powered **text-to-image generation** and **AI video generation** directly into the canvas and chat. Generate illustrations, concept art, or marketing visuals from text prompts, then drag them onto your canvas for further editing. AI can also **understand image content** — describe what's in a photo, extract text, or answer questions about visual materials. All generation happens through your own API keys — no third-party services store your creative output.
+
 ### Rich Text Editor
 
 A powerful block-based editor built on [Plate.js](https://platejs.org/). Supports headings, lists, blockquotes, code blocks, LaTeX formulas, tables, media embeds, bi-directional links, and more. A WYSIWYG editing experience with a rich toolbar and keyboard shortcuts makes writing and organizing documents effortless. Freely structure your notes, project docs, and research materials through infinitely nested pages.
@@ -81,6 +85,20 @@ A built-in file browser with grid / list / column views, drag-and-drop upload an
 ### Workspace Widgets
 
 A customizable widget system for your workspace: real-time clock, monthly calendar, task board summary, quick action shortcuts (search, terminal, AI chat), agent settings, skill configuration, and more. See your global status at a glance and jump into any module instantly.
+
+---
+
+## Privacy & Security
+
+OpenLoaf is built with a **local-first, privacy-by-design** philosophy. Your data stays on your device — always.
+
+- **100% Local Storage** — All documents, conversations, files, and databases are stored on your local filesystem (`~/.openloaf/`). Nothing is uploaded to any cloud server.
+- **Bring Your Own Key (BYOK)** — You connect your own API keys for AI models (OpenAI, Claude, Gemini, etc.). OpenLoaf never proxies your requests through a third-party server — API calls go directly from your machine to the model provider.
+- **Offline-Capable** — Core features (editor, file manager, task board) work fully offline. Connect local models via Ollama for a completely air-gapped AI experience.
+- **No Telemetry, No Tracking** — OpenLoaf does not collect analytics, usage data, or any form of telemetry. What happens on your machine stays on your machine.
+- **Open Source & Auditable** — The entire codebase is open under AGPLv3. You can inspect, audit, and verify every line of code that touches your data.
+
+> **TL;DR** — Unlike cloud-based AI tools, OpenLoaf ensures your intellectual property, API keys, and personal data never leave your control.
 
 ---
 

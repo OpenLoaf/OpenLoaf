@@ -20,8 +20,9 @@ import {
   computeReplacements,
   applyReplacements,
 } from "@/ai/tools/applyPatch";
+import picomatch from "picomatch";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
-import { resolveToolPath, resolveToolWorkdir } from "@/ai/tools/toolScope";
+import { resolveToolPath, resolveToolRoots } from "@/ai/tools/toolScope";
 import { resolveSecretTokens } from "@/ai/tools/secretStore";
 import { buildGitignoreMatcher } from "@/ai/tools/gitignoreMatcher";
 import { getProjectId, getWorkspaceId } from "@/ai/shared/context/requestContext";
@@ -33,7 +34,6 @@ const TAB_WIDTH = 4;
 const COMMENT_PREFIXES = ["#", "//", "--"];
 
 const MAX_ENTRY_LENGTH = 500;
-const INDENTATION_SPACES = 2;
 const DEFAULT_LIST_LIMIT = 25;
 const DEFAULT_LIST_DEPTH = 2;
 
@@ -117,9 +117,9 @@ type LineRecord = {
 type DirEntryKind = "directory" | "file" | "symlink" | "other";
 
 type DirEntry = {
-  /** Sort key. */
+  /** Sort key (relative path). */
   name: string;
-  /** Display name. */
+  /** Display name (last segment). */
   displayName: string;
   /** Depth for indentation. */
   depth: number;
@@ -127,6 +127,8 @@ type DirEntry = {
   kind: DirEntryKind;
   /** File size in bytes. */
   sizeBytes?: number | null;
+  /** Last modified time. */
+  modifiedAt?: Date | null;
 };
 
 type DirStats = {
@@ -496,50 +498,76 @@ export const applyPatchTool = tool({
 export const listDirTool = tool({
   description: listDirToolDef.description,
   inputSchema: zodSchema(listDirToolDef.parameters),
-  execute: async ({ path: targetPath, offset, limit, depth, ignoreGitignore }): Promise<string> => {
+  execute: async ({
+    path: targetPath, offset, limit, depth, ignoreGitignore,
+    format, pattern, sort, showModified,
+  }): Promise<string> => {
     const allowOutside = readBasicConf().toolAllowOutsideScope;
     const { absPath } = resolveToolPath({ target: targetPath, allowOutside });
     const stat = await fs.stat(absPath);
     if (!stat.isDirectory()) throw new Error("Path is not a directory.");
 
+    const isFlat = format === "flat";
     const resolvedOffset = typeof offset === "number" ? offset : 1;
     const resolvedLimit = typeof limit === "number" ? limit : DEFAULT_LIST_LIMIT;
     const resolvedDepth = typeof depth === "number" ? depth : DEFAULT_LIST_DEPTH;
+    const resolvedSort = sort ?? (isFlat ? "modified" : "name");
+    const resolvedShowModified = showModified ?? isFlat;
 
-    if (resolvedOffset <= 0) throw new Error("offset must be a 1-indexed entry number");
-    if (resolvedLimit <= 0) throw new Error("limit must be greater than zero");
-    if (resolvedDepth <= 0) throw new Error("depth must be greater than zero");
+    if (resolvedOffset <= 0) throw new Error("offset must be >= 1");
+    if (resolvedLimit <= 0) throw new Error("limit must be > 0");
+    if (resolvedDepth <= 0) throw new Error("depth must be > 0");
 
     const ignoreMatcher = ignoreGitignore === false
       ? null
       : await buildGitignoreMatcher({ rootPath: absPath });
     const { entries, stats } = await collectDirEntries(absPath, resolvedDepth, ignoreMatcher);
-    const output: string[] = [`Absolute path: ${absPath}`];
-    output.push(
-      `Ignored by .gitignore: ${stats.ignored}`,
-      `Directories: ${stats.dirCount}, Files: ${stats.fileCount}`,
-    );
 
-    if (entries.length === 0) {
-      return output.join("\n");
+    // Compute relative path from project/workspace root
+    const { projectRoot, workspaceRoot } = resolveToolRoots();
+    const rootPath = projectRoot ?? workspaceRoot;
+    const relativePath = path.relative(rootPath, absPath) || ".";
+
+    const output: string[] = [
+      `Path: ${relativePath}`,
+      `Total: ${stats.dirCount} dirs, ${stats.fileCount} files` +
+        (stats.ignored > 0 ? ` (${stats.ignored} gitignored)` : ""),
+    ];
+
+    if (entries.length === 0) return output.join("\n");
+
+    // Sort
+    sortEntries(entries, resolvedSort);
+
+    // Glob filter
+    let filtered = entries;
+    if (pattern) {
+      filtered = filterEntriesByGlob(entries, pattern);
+      const fileCount = filtered.filter((e) => e.kind !== "directory").length;
+      output.push(`Filter: ${pattern} → ${fileCount} files matched`);
     }
 
-    entries.sort((a, b) => a.name.localeCompare(b.name));
-
+    // Pagination
+    const paginationSource = isFlat
+      ? filtered.filter((e) => e.kind !== "directory")
+      : filtered;
     const startIndex = resolvedOffset - 1;
-    if (startIndex >= entries.length) {
-      throw new Error("offset exceeds directory entry count");
+    if (startIndex >= paginationSource.length) {
+      throw new Error("offset exceeds entry count");
     }
+    const endIndex = Math.min(startIndex + resolvedLimit, paginationSource.length);
+    const selected = paginationSource.slice(startIndex, endIndex);
 
-    const remaining = entries.length - startIndex;
-    const cappedLimit = Math.min(resolvedLimit, remaining);
-    const endIndex = startIndex + cappedLimit;
-    const selected = entries.slice(startIndex, endIndex);
+    // Render
+    const lines = isFlat
+      ? renderFlatLines(selected, resolvedShowModified)
+      : renderTreeLines(selected, resolvedShowModified);
+    output.push(...lines);
 
-    selected.forEach((entry) => output.push(formatDirEntry(entry)));
-
-    if (endIndex < entries.length) {
-      output.push(`More than ${cappedLimit} entries found`);
+    // Truncation hint
+    if (endIndex < paginationSource.length) {
+      const remaining = paginationSource.length - endIndex;
+      output.push(`... ${remaining} more entries (use offset: ${endIndex + 1} to continue)`);
     }
 
     return output.join("\n");
@@ -595,12 +623,14 @@ async function collectDirEntries(
             ? "file"
             : "other";
       let sizeBytes: number | null | undefined;
-      if (kind === "file") {
-        try {
-          sizeBytes = (await fs.stat(path.join(current.dirPath, entry.name))).size;
-        } catch {
-          sizeBytes = null;
-        }
+      let modifiedAt: Date | null | undefined;
+      try {
+        const fileStat = await fs.stat(path.join(current.dirPath, entry.name));
+        sizeBytes = kind === "file" ? fileStat.size : undefined;
+        modifiedAt = fileStat.mtime;
+      } catch {
+        sizeBytes = kind === "file" ? null : undefined;
+        modifiedAt = null;
       }
       collected.push({
         entryPath: path.join(current.dirPath, entry.name),
@@ -612,6 +642,7 @@ async function collectDirEntries(
           depth: depthLevel,
           kind,
           sizeBytes,
+          modifiedAt,
         },
       });
     }
@@ -633,23 +664,103 @@ async function collectDirEntries(
   return { entries, stats };
 }
 
-/** Format directory entry line. */
-function formatDirEntry(entry: DirEntry): string {
-  const indent = " ".repeat(entry.depth * INDENTATION_SPACES);
-  let name = entry.displayName;
-  if (entry.kind === "directory") name += "/";
-  if (entry.kind === "symlink") name += "@";
-  if (entry.kind === "other") name += "?";
-  if (entry.kind === "file") {
-    const sizeLabel = formatBytesAsMb(entry.sizeBytes ?? 0);
-    name += ` (${sizeLabel})`;
-  }
-  return `${indent}${name}`;
+/** Format bytes to human-readable size (B / KB / MB / GB). */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-function formatBytesAsMb(bytes: number): string {
-  const mb = bytes / (1024 * 1024);
-  return `${mb.toFixed(2)} MB`;
+/** Format date to compact timestamp. */
+function formatDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const h = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  return `${y}-${m}-${d} ${h}:${min}`;
+}
+
+/** Sort entries: directories first, then by field. */
+function sortEntries(entries: DirEntry[], sortField: "name" | "size" | "modified"): void {
+  entries.sort((a, b) => {
+    if (a.kind === "directory" && b.kind !== "directory") return -1;
+    if (a.kind !== "directory" && b.kind === "directory") return 1;
+    switch (sortField) {
+      case "size":
+        return (b.sizeBytes ?? 0) - (a.sizeBytes ?? 0);
+      case "modified":
+        return (b.modifiedAt?.getTime() ?? 0) - (a.modifiedAt?.getTime() ?? 0);
+      default:
+        return a.name.localeCompare(b.name);
+    }
+  });
+}
+
+/** Filter entries by glob pattern (directories always kept). */
+function filterEntriesByGlob(entries: DirEntry[], pattern: string): DirEntry[] {
+  const isMatch = picomatch(pattern);
+  return entries.filter(
+    (e) => e.kind === "directory" || isMatch(e.displayName),
+  );
+}
+
+/** Render tree-style output lines with connectors. */
+function renderTreeLines(
+  entries: DirEntry[],
+  showModified: boolean,
+): string[] {
+  const lines: string[] = [];
+  const lastAtDepth: boolean[] = [];
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]!;
+    const nextEntry = entries[i + 1];
+    const isLast = !nextEntry || nextEntry.depth <= entry.depth;
+    lastAtDepth[entry.depth] = isLast;
+
+    let prefix = "";
+    for (let d = 0; d < entry.depth; d++) {
+      prefix += lastAtDepth[d] ? "    " : "│   ";
+    }
+    const connector = entry.depth === 0 ? "" : isLast ? "└── " : "├── ";
+
+    let name = entry.displayName;
+    if (entry.kind === "directory") name += "/";
+    else if (entry.kind === "symlink") name += " →";
+    else if (entry.kind === "other") name += " ?";
+
+    const meta: string[] = [];
+    if (entry.kind === "file" && entry.sizeBytes != null) {
+      meta.push(formatBytes(entry.sizeBytes));
+    }
+    if (showModified && entry.modifiedAt) {
+      meta.push(formatDate(entry.modifiedAt));
+    }
+    const metaStr = meta.length > 0 ? `  (${meta.join(", ")})` : "";
+
+    lines.push(`${prefix}${connector}${name}${metaStr}`);
+  }
+
+  return lines;
+}
+
+/** Render flat-style output lines (files only, relative paths). */
+function renderFlatLines(
+  entries: DirEntry[],
+  showModified: boolean,
+): string[] {
+  return entries
+    .filter((e) => e.kind !== "directory")
+    .map((entry) => {
+      const meta: string[] = [];
+      if (entry.sizeBytes != null) meta.push(formatBytes(entry.sizeBytes));
+      if (showModified && entry.modifiedAt) meta.push(formatDate(entry.modifiedAt));
+      const metaStr = meta.length > 0 ? `  (${meta.join(", ")})` : "";
+      const suffix = entry.kind === "symlink" ? " →" : entry.kind === "other" ? " ?" : "";
+      return `${entry.name}${suffix}${metaStr}`;
+    });
 }
 
 /** Check whether a path ends with a blocked binary extension. */

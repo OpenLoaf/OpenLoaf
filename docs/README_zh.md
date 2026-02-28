@@ -2,7 +2,7 @@
   <img src="../apps/web/public/logo.png" alt="OpenLoaf Logo" width="120" />
   <h1>OpenLoaf</h1>
   <p><strong>开源 AI 知识库 & 智能工作台</strong></p>
-  <p>结构化文档管理 + 多模型 AI 对话 + 跨平台桌面体验，打造你的第二大脑。</p>
+  <p>本地优先、隐私至上的 AI 工作台 —— 结构化文档 + 多模型对话 + 跨平台桌面，数据永远留在你的设备上。</p>
 
   <a href="https://github.com/OpenLoaf/OpenLoaf/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPLv3-blue.svg" alt="License" /></a>
   <a href="https://github.com/OpenLoaf/OpenLoaf/releases"><img src="https://img.shields.io/github/v/release/OpenLoaf/OpenLoaf?label=latest" alt="Release" /></a>
@@ -54,6 +54,10 @@ OpenLoaf 是一款现代化的全栈 AI 知识库与智能工作台应用。它�
   <sub>画板集成 AI 生图、视频生成、手绘、便签等创意工具</sub>
 </div>
 
+### AI 图片与视频生成
+
+将灵感即时转化为视觉作品。OpenLoaf 在画板和对话中集成了 **AI 文生图**和 **AI 视频生成**能力。通过文字描述即可生成插画、概念图或营销素材，生成后直接拖入画布进一步编辑。AI 还能**理解图片内容** —— 描述照片中的场景、提取文字、回答关于视觉素材的问题。所有生成过程通过你自己的 API Key 完成，没有任何第三方服务存储你的创作成果。
+
 ### 富文本编辑器
 
 基于 [Plate.js](https://platejs.org/) 构建的强大块状编辑器。支持标题、列表、引用、代码块、LaTeX 公式、表格、多媒体嵌入、双向链接等丰富块类型。所见即所得的编辑体验，搭配丰富的工具栏和快捷键，让写作和文档整理如行云流水。通过无限层级的页面结构，自由组织笔记、项目文档和研究资料。
@@ -81,6 +85,20 @@ OpenLoaf 是一款现代化的全栈 AI 知识库与智能工作台应用。它�
 ### 桌面小组件
 
 可定制的工作台小组件系统：实时时钟、月历、任务看板摘要、快捷操作入口（搜索、终端、AI 对话）、Agent 设置、技能配置等。一眼掌握全局状态，快速进入任何功能模块。
+
+---
+
+## 隐私与安全
+
+OpenLoaf 遵循**本地优先、隐私至上**的设计理念。你的数据始终留在你的设备上。
+
+- **100% 本地存储** —— 所有文档、对话、文件和数据库都保存在本地文件系统（`~/.openloaf/`）。没有任何内容会上传到云端服务器。
+- **自带密钥 (BYOK)** —— 由你自行配置 AI 模型的 API Key（OpenAI、Claude、Gemini 等）。OpenLoaf 不会通过任何中间服务器代理你的请求 —— API 调用直接从你的设备发往模型提供商。
+- **离线可用** —— 核心功能（编辑器、文件管理、任务看板）完全离线可用。通过 Ollama 接入本地模型，实现完全断网的 AI 体验。
+- **无遥测、无追踪** —— OpenLoaf 不收集任何分析数据、使用行为或遥测信息。发生在你设备上的一切，都只属于你。
+- **开源可审计** —— 完整代码基于 AGPLv3 开源。你可以审查和验证每一行接触你数据的代码。
+
+> **一句话总结** —— 不同于云端 AI 工具，OpenLoaf 确保你的知识资产、API 密钥和个人数据始终在你的掌控之中。
 
 ---
 
