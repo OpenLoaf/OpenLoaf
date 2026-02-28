@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "cross-env NEXT_COMPILER_PROGRESS=1 NODE_OPTIONS=--conditions=development next dev --port=3001",
