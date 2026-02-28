@@ -48,8 +48,16 @@ function resolveWriteTargetPath(targetPath: string): { absPath: string; rootPath
   const trimmed = targetPath.trim()
   if (!trimmed) throw new Error("path is required.")
   if (trimmed.startsWith("file:")) throw new Error("file:// URIs are not allowed.")
-  if (trimmed.startsWith("@[")) throw new Error("Project-scoped paths are not allowed.")
-  const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed
+  // Strip @[...] wrapper from new format, then check for project-scoped paths.
+  let normalized: string
+  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
+    normalized = trimmed.slice(2, -1)
+  } else if (trimmed.startsWith("@")) {
+    normalized = trimmed.slice(1)
+  } else {
+    normalized = trimmed
+  }
+  if (normalized.startsWith("[")) throw new Error("Project-scoped paths are not allowed.")
   if (!normalized.trim()) throw new Error("path is required.")
 
   const resolvedRoot = path.resolve(rootPath)

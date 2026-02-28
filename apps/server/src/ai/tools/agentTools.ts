@@ -83,6 +83,22 @@ async function resolveSpawnModel(input: {
 export const spawnAgentTool = tool({
   description: spawnAgentToolDef.description,
   inputSchema: zodSchema(spawnAgentToolDef.parameters),
+  inputExamples: [
+    {
+      input: {
+        items: [{ type: 'text', text: '分析 src/utils 目录下的所有 TypeScript 文件，总结主要的工具函数及其用途。' }],
+        agentType: 'shell',
+      },
+    },
+    {
+      input: {
+        items: [
+          { type: 'text', text: '阅读以下文件并生成重构建议：' },
+          { type: 'file', path: 'src/components/Dashboard.tsx' },
+        ],
+      },
+    },
+  ],
   execute: async ({ items, agentType, modelOverride, config }): Promise<string> => {
     const requestContext = getRequestContext()
     if (!requestContext) throw new Error('request context is not available.')
@@ -192,14 +208,17 @@ export const waitAgentTool = tool({
     const result = await agentManager.wait(ids, timeoutMs)
     // 逻辑：将每个 agent 的输出文本附带在结果中，供 master agent 使用。
     const outputs: Record<string, string | null> = {}
+    const errors: Record<string, string | null> = {}
     for (const id of ids) {
       const agent = agentManager.getAgent(id)
       outputs[id] = agent?.outputText || null
+      errors[id] = agent?.error || null
     }
     return JSON.stringify({
       completed_id: result.completedId,
       status: result.status,
       outputs,
+      errors,
       timed_out: result.timedOut,
     })
   },

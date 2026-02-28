@@ -67,7 +67,7 @@ const serializeChildren = (nodes: any[]): string =>
     .map((node) => {
       if (node?.type === "mention") {
         const value = normalizeMentionValue(String(node.value ?? ""));
-        return value ? `@${value}` : "";
+        return value ? `@[${value}]` : "";
       }
       if (typeof node?.text === "string") {
         return node.text;

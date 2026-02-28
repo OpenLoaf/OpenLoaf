@@ -22,6 +22,27 @@ type RequestUserInputOutput = {
 export const requestUserInputTool = tool({
   description: requestUserInputToolDef.description,
   inputSchema: zodSchema(requestUserInputToolDef.parameters),
+  inputExamples: [
+    {
+      input: {
+        actionName: '确认文件整理方案',
+        mode: 'choice' as const,
+        title: '文件整理',
+        description: '是否按上述方案整理文件？',
+        choices: [
+          {
+            key: 'confirm',
+            question: '请选择操作',
+            options: [
+              { label: '立即执行', description: '按方案移动所有文件' },
+              { label: '修改方案', description: '我想调整分类规则' },
+              { label: '取消', description: '暂不整理' },
+            ],
+          },
+        ],
+      },
+    },
+  ] as any,
   needsApproval: true,
   execute: async (_input, { toolCallId }): Promise<RequestUserInputOutput> => {
     const payload = consumeToolApprovalPayload(toolCallId)

@@ -81,19 +81,14 @@ jobs:
       - name: Build web
         run: pnpm --filter web run build
 
-      - name: Upload server artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: server-dist
+          name: openloaf-build
           path: |
             apps/server/dist/server.mjs
             apps/server/dist/seed.db
-
-      - name: Upload web artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-out
-          path: apps/web/out
+            apps/web/out
 
   build-mac:
     needs: build-prerequisites
@@ -109,7 +104,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Cache Electron
         uses: actions/cache@v4
@@ -117,28 +123,23 @@ jobs:
           path: |
             .cache/electron
             .cache/electron-builder
-          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/package.json') }}
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            electron-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Use HTTPS for git dependencies
         run: git config --global url."https://github.com/".insteadOf "git@github.com:"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --filter desktop...
 
       - name: Generate Prisma client
         run: pnpm run db:generate
 
-      - name: Download server artifacts
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: server-dist
-          path: apps/server/dist
-
-      - name: Download web artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: web-out
-          path: apps/web/out
+          name: openloaf-build
 
       - name: Build and package desktop (macOS)
         working-directory: apps/desktop
@@ -154,7 +155,7 @@ jobs:
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-dist-mac
+          name: openloaf-desktop-macos
           path: |
             apps/desktop/dist/*.dmg
             apps/desktop/dist/*.dmg.blockmap
@@ -176,7 +177,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Cache Electron
         uses: actions/cache@v4
@@ -184,28 +196,23 @@ jobs:
           path: |
             .cache/electron
             .cache/electron-builder
-          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/package.json') }}
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            electron-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Use HTTPS for git dependencies
         run: git config --global url."https://github.com/".insteadOf "git@github.com:"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --filter desktop...
 
       - name: Generate Prisma client
         run: pnpm run db:generate
 
-      - name: Download server artifacts
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: server-dist
-          path: apps/server/dist
-
-      - name: Download web artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: web-out
-          path: apps/web/out
+          name: openloaf-build
 
       - name: Build and package desktop (Windows)
         working-directory: apps/desktop
@@ -214,7 +221,7 @@ jobs:
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-dist-win
+          name: openloaf-desktop-windows
           path: |
             apps/desktop/dist/*.exe
             apps/desktop/dist/*.exe.blockmap
@@ -234,7 +241,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Cache Electron
         uses: actions/cache@v4
@@ -242,28 +260,23 @@ jobs:
           path: |
             .cache/electron
             .cache/electron-builder
-          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/package.json') }}
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            electron-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Use HTTPS for git dependencies
         run: git config --global url."https://github.com/".insteadOf "git@github.com:"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --filter desktop...
 
       - name: Generate Prisma client
         run: pnpm run db:generate
 
-      - name: Download server artifacts
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: server-dist
-          path: apps/server/dist
-
-      - name: Download web artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: web-out
-          path: apps/web/out
+          name: openloaf-build
 
       - name: Build and package desktop (Linux)
         working-directory: apps/desktop
@@ -272,7 +285,7 @@ jobs:
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-dist-linux
+          name: openloaf-desktop-linux
           path: |
             apps/desktop/dist/*.AppImage
             apps/desktop/dist/latest-linux.yml
@@ -288,25 +301,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
 
-      - name: Use HTTPS for git dependencies
-        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install publish dependencies
+        run: npm install @aws-sdk/client-s3 --no-save
 
       - name: Download all platform artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: desktop-dist-*
+          pattern: openloaf-desktop-*
           path: apps/desktop/dist
           merge-multiple: true
 

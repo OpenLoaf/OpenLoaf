@@ -118,6 +118,87 @@ const KEEP_RECENT_TURNS = 5 // 5 pairs (user + assistant) = 10 messages
 /** Threshold ratio — compress when tokens exceed this fraction of context window. */
 const COMPRESSION_THRESHOLD = 0.7
 
+// ---------------------------------------------------------------------------
+// 工具结果重要度分级 — 按类型差异化压缩 (Anthropic Best Practice)
+// ---------------------------------------------------------------------------
+
+/**
+ * 工具结果压缩策略：
+ * - keep:   协作类工具，保留 500 字符摘要（结果对后续决策至关重要）
+ * - summarize: 读取类工具，保留 300 字符摘要（信息可能被引用）
+ * - drop:   写入/生成类工具，仅保留状态标签（确认执行即可）
+ */
+type ToolImportance = 'keep' | 'summarize' | 'drop'
+
+const TOOL_RESULT_IMPORTANCE: Record<string, ToolImportance> = {
+  // 协作类 — 子代理结果关键
+  'spawn-agent': 'keep',
+  'wait-agent': 'keep',
+  'send-input': 'keep',
+  // 读取类 — 可能被引用
+  'read-file': 'summarize',
+  'grep-files': 'summarize',
+  'list-dir': 'summarize',
+  'shell-command': 'summarize',
+  'shell': 'summarize',
+  'exec-command': 'summarize',
+  'js-repl': 'summarize',
+  'project-query': 'summarize',
+  'calendar-query': 'summarize',
+  'email-query': 'summarize',
+  'browser-extract': 'summarize',
+  'browser-snapshot': 'summarize',
+  // 写入/生成类 — 确认即可
+  'apply-patch': 'drop',
+  'edit-document': 'drop',
+  'write-stdin': 'drop',
+  'image-generate': 'drop',
+  'video-generate': 'drop',
+  'generate-widget': 'drop',
+  'jsx-create': 'drop',
+  'chart-render': 'drop',
+  'project-mutate': 'drop',
+  'calendar-mutate': 'drop',
+  'email-mutate': 'drop',
+  'office-execute': 'drop',
+  'abort-agent': 'drop',
+}
+
+/** 按工具类型获取结果的截断长度。 */
+function getToolResultLimit(toolName: string): number {
+  const importance = TOOL_RESULT_IMPORTANCE[toolName]
+  if (importance === 'keep') return 500
+  if (importance === 'summarize') return 300
+  return 0 // drop — 不保留结果内容
+}
+
+/** 格式化压缩后的工具调用摘要。 */
+function compressToolInvocation(part: { toolName?: string; state?: string; output?: any }): string {
+  const toolName = part.toolName || 'unknown-tool'
+  const state = part.state || 'unknown'
+  const limit = getToolResultLimit(toolName)
+
+  if (limit === 0) {
+    return `[Tool: ${toolName} (${state})]`
+  }
+
+  // 提取工具输出文本
+  let output = ''
+  if (part.output != null) {
+    output = typeof part.output === 'string'
+      ? part.output
+      : JSON.stringify(part.output)
+  }
+
+  if (!output || output.length <= limit) {
+    return output
+      ? `[Tool: ${toolName} (${state})]\n${output}`
+      : `[Tool: ${toolName} (${state})]`
+  }
+
+  return `[Tool: ${toolName} (${state})]\n${output.slice(0, limit)}...`
+}
+
 /** Compress older messages into a summary. */
 function compressMessages(messages: any[]): any[] {
   if (messages.length <= KEEP_RECENT_TURNS * 2) return messages
@@ -141,9 +222,7 @@ function compressMessages(messages: any[]): any[] {
           const text = String(part.text)
           textParts.push(text.length > 200 ? `${text.slice(0, 200)}...` : text)
         } else if (part?.type === 'tool-invocation') {
-          const toolName = part.toolName || 'unknown-tool'
-          const state = part.state || 'unknown'
-          textParts.push(`[Tool: ${toolName} (${state})]`)
+          textParts.push(compressToolInvocation(part))
         }
       }
     } else if (Array.isArray(msg.content)) {

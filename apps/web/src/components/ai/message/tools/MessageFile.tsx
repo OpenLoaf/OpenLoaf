@@ -72,8 +72,8 @@ function buildFileRefText(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return "";
   if (!isRelativePath(trimmed) && !trimmed.startsWith("@[")) return "";
-  if (trimmed.startsWith("@")) return trimmed;
-  return `@${trimmed}`;
+  if (trimmed.startsWith("@[")) return trimmed;
+  return `@[${trimmed}]`;
 }
 
 /** Render file part for AI messages. */

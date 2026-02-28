@@ -11,8 +11,16 @@
  * 统一 Agent 工厂 — 合并 masterAgent + subAgentFactory + 内置 SubAgent 创建逻辑。
  */
 
-import { ToolLoopAgent, stepCountIs } from 'ai'
-import type { LanguageModelV3 } from '@ai-sdk/provider'
+import {
+  ToolLoopAgent,
+  stepCountIs,
+  wrapLanguageModel,
+  addToolInputExamplesMiddleware,
+} from 'ai'
+import type {
+  LanguageModelV3,
+} from '@ai-sdk/provider'
+import type { PrepareStepFunction, StopCondition } from 'ai'
 import type { AgentFrame } from '@/ai/shared/context/requestContext'
 import { buildToolset } from '@/ai/tools/toolRegistry'
 import { createToolCallRepair } from '@/ai/shared/repairToolCall'
@@ -71,21 +79,167 @@ type CreateMasterAgentInput = {
 // ---------------------------------------------------------------------------
 // Step limits — prevent infinite tool loops (MAST FM-1.3)
 // ---------------------------------------------------------------------------
-const MASTER_MAX_STEPS = 25
+const MASTER_HARD_MAX_STEPS = 30
 const SUB_AGENT_MAX_STEPS = 15
+
+// ---------------------------------------------------------------------------
+// 工具动态选择 — prepareStep + activeTools (Anthropic Best Practice)
+// ---------------------------------------------------------------------------
+
+/** 工具按功能域分组，用于动态收窄 activeTools。 */
+const TOOL_GROUPS: Record<string, readonly string[]> = {
+  /** 核心工具 — 始终可用。 */
+  core: ['time-now', 'update-plan', 'request-user-input', 'jsx-create'],
+  /** Agent 协作 — 使用后持续可用。 */
+  agent: ['spawn-agent', 'send-input', 'wait-agent', 'abort-agent'],
+  /** 文件读取。 */
+  fileRead: ['read-file', 'list-dir', 'grep-files'],
+  /** 文件写入。 */
+  fileWrite: ['apply-patch', 'edit-document'],
+  /** Shell / 命令执行。 */
+  shell: ['shell', 'shell-command', 'exec-command', 'write-stdin'],
+  /** 代码执行。 */
+  code: ['js-repl', 'js-repl-reset'],
+  /** Web / 浏览器。 */
+  web: ['open-url', 'browser-snapshot', 'browser-observe', 'browser-extract', 'browser-act', 'browser-wait'],
+  /** 媒体生成。 */
+  media: ['image-generate', 'video-generate', 'list-media-models'],
+  /** UI / 组件。 */
+  ui: ['generate-widget', 'widget-init', 'widget-list', 'widget-get', 'widget-check', 'chart-render'],
+  /** 任务管理。 */
+  task: ['create-task', 'task-status'],
+  /** 数据库 / 项目。 */
+  db: ['project-query', 'project-mutate'],
+  /** 日历。 */
+  calendar: ['calendar-query', 'calendar-mutate'],
+  /** 邮件。 */
+  email: ['email-query', 'email-mutate'],
+  /** Office。 */
+  office: ['office-execute'],
+}
+
+/** 反向映射：工具 ID → 所属功能域。 */
+const TOOL_TO_GROUP = new Map<string, string>()
+for (const [group, ids] of Object.entries(TOOL_GROUPS)) {
+  for (const id of ids) {
+    TOOL_TO_GROUP.set(id, group)
+  }
+}
+
+/**
+ * 创建 Master Agent 的 prepareStep 回调。
+ *
+ * - 第 0 步：不限制工具（LLM 自由判断意图）
+ * - 后续步骤：根据已使用工具的功能域自动收窄 activeTools
+ * - core 组始终可用；agent 组一旦使用后始终可用
+ */
+function createMasterPrepareStep(
+  allToolIds: readonly string[],
+): PrepareStepFunction {
+  return ({ steps, stepNumber }) => {
+    // 第一步不限制
+    if (stepNumber === 0) return {}
+
+    // 收集已使用工具所属的功能域
+    const activeGroups = new Set<string>(['core'])
+    for (const step of steps) {
+      for (const tc of step.toolCalls) {
+        const group = TOOL_TO_GROUP.get(tc.toolName)
+        if (group) activeGroups.add(group)
+      }
+    }
+    // agent 组一旦激活，后续始终可用
+    if (activeGroups.has('agent')) activeGroups.add('agent')
+    // fileRead 和 fileWrite 绑定：使用写入时也需要读取
+    if (activeGroups.has('fileWrite')) activeGroups.add('fileRead')
+
+    // 构建允许的工具集
+    const allowed = new Set<string>()
+    for (const group of activeGroups) {
+      const ids = TOOL_GROUPS[group]
+      if (ids) {
+        for (const id of ids) allowed.add(id)
+      }
+    }
+
+    // 与实际注册的工具 ID 取交集
+    const activeTools = allToolIds.filter((id) => allowed.has(id))
+
+    logger.debug(
+      { stepNumber, activeGroups: [...activeGroups], activeToolCount: activeTools.length },
+      '[master-agent] prepareStep: narrowed activeTools',
+    )
+
+    return { activeTools }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 动态步数预算 — 自适应 StopCondition (Anthropic Best Practice)
+// ---------------------------------------------------------------------------
+
+/**
+ * 根据前几步的工具调用模式动态判断任务复杂度，收紧步数上限。
+ *
+ * - 无工具调用（纯文本对话）→ 5 步上限
+ * - 1-3 个工具调用（中等任务）→ 15 步上限
+ * - 4+ 个工具调用或含 spawn-agent（复杂任务）→ 不额外限制（由硬上限控制）
+ */
+function dynamicStepLimit(): StopCondition<Record<string, never>> {
+  return ({ steps }: { steps: ReadonlyArray<{ toolCalls: ReadonlyArray<{ toolName: string }> }> }) => {
+    const totalToolCalls = steps.reduce(
+      (sum: number, s: { toolCalls: ReadonlyArray<{ toolName: string }> }) => sum + s.toolCalls.length,
+      0,
+    )
+    const hasAgentSpawn = steps.some(
+      (s: { toolCalls: ReadonlyArray<{ toolName: string }> }) =>
+        s.toolCalls.some((tc: { toolName: string }) => tc.toolName === 'spawn-agent'),
+    )
+    const currentStep = steps.length
+
+    // 复杂任务：不额外限制
+    if (totalToolCalls >= 4 || hasAgentSpawn) return false
+    // 中等任务
+    if (totalToolCalls >= 1) return currentStep >= 15
+    // 纯文本对话
+    return currentStep >= 5
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Model wrapping — inputExamples middleware (Anthropic Best Practice)
+// ---------------------------------------------------------------------------
+
+/** 包装模型以启用工具输入示例中间件。 */
+function wrapModelWithExamples(model: LanguageModelV3): LanguageModelV3 {
+  return wrapLanguageModel({
+    model,
+    middleware: addToolInputExamplesMiddleware(),
+  }) as unknown as LanguageModelV3
+}
 
 /** Creates the master agent instance. */
 export function createMasterAgent(input: CreateMasterAgentInput) {
   const template = getPrimaryTemplate()
   const toolIds = input.toolIds ?? resolveTemplateToolIds(template)
   const instructions = input.instructions || template.systemPrompt
-  return new ToolLoopAgent({
-    model: input.model,
+  const tools = buildToolset(toolIds)
+  const wrappedModel = wrapModelWithExamples(input.model)
+
+  // prepareStep 通过 ToolLoopAgent settings 传递到内部 streamText 调用。
+  // ToolLoopAgentSettings 类型未声明 prepareStep，但运行时会透传到 streamText。
+  // 使用 Object.assign 在运行时注入 prepareStep，避免影响 ToolLoopAgent 的泛型推断。
+  const baseSettings = {
+    model: wrappedModel,
     instructions,
-    tools: buildToolset(toolIds),
-    stopWhen: stepCountIs(MASTER_MAX_STEPS),
+    tools,
+    stopWhen: [stepCountIs(MASTER_HARD_MAX_STEPS), dynamicStepLimit()] as StopCondition<any>[],
     experimental_repairToolCall: createToolCallRepair(),
-  })
+  }
+  // 运行时注入 prepareStep — ToolLoopAgent 内部 spread 到 streamText 时会生效
+  Object.assign(baseSettings, { prepareStep: createMasterPrepareStep(toolIds) })
+
+  return new ToolLoopAgent(baseSettings)
 }
 
 /** Creates the frame metadata for the master agent. */
@@ -173,6 +327,8 @@ export type CreateSubAgentInput = {
 
 /** Create a ToolLoopAgent instance by agentType. */
 export function createSubAgent(input: CreateSubAgentInput): ToolLoopAgent {
+  const wrappedModel = wrapModelWithExamples(input.model)
+
   // 逻辑：内联配置 — 直接创建自定义 agent，优先级最高。
   if (input.inlineConfig?.systemPrompt || input.inlineConfig?.toolIds?.length) {
     const fallbackTemplate = getPrimaryTemplate()
@@ -182,7 +338,7 @@ export function createSubAgent(input: CreateSubAgentInput): ToolLoopAgent {
     const systemPrompt = input.inlineConfig.systemPrompt || '你是一个 AI 助手。'
     return new ToolLoopAgent({
       id: `inline-agent-${Date.now()}`,
-      model: input.model,
+      model: wrappedModel,
       instructions: systemPrompt,
       tools: buildToolset(toolIds),
       stopWhen: stepCountIs(SUB_AGENT_MAX_STEPS),
@@ -203,7 +359,7 @@ export function createSubAgent(input: CreateSubAgentInput): ToolLoopAgent {
         || `你是 ${template.name}。${template.description}`
       return new ToolLoopAgent({
         id: `system-agent-${template.id}`,
-        model: input.model,
+        model: wrappedModel,
         instructions,
         tools: buildToolset(toolIds),
         stopWhen: stepCountIs(SUB_AGENT_MAX_STEPS),
@@ -227,7 +383,7 @@ export function createSubAgent(input: CreateSubAgentInput): ToolLoopAgent {
   const toolIds = resolveTemplateToolIds(masterTpl)
   return new ToolLoopAgent({
     id: 'fallback-master-agent',
-    model: input.model,
+    model: wrappedModel,
     instructions:
       masterTpl.systemPrompt || `你是 ${masterTpl.name}。${masterTpl.description}`,
     tools: buildToolset(toolIds),
@@ -298,7 +454,7 @@ export function createDynamicAgentFromConfig(
 
   return new ToolLoopAgent({
     id: `dynamic-agent-${config.name}`,
-    model,
+    model: wrapModelWithExamples(model),
     instructions: systemPrompt,
     tools: buildToolset(toolIds),
     stopWhen: stepCountIs(SUB_AGENT_MAX_STEPS),

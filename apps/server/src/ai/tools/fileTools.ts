@@ -158,8 +158,16 @@ function resolveWriteTargetPath(targetPath: string): { absPath: string; rootPath
   const trimmed = targetPath.trim();
   if (!trimmed) throw new Error("path is required.");
   if (trimmed.startsWith("file:")) throw new Error("file:// URIs are not allowed.");
-  if (trimmed.startsWith("@[")) throw new Error("Project-scoped paths are not allowed.");
-  const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  // Strip @[...] wrapper from new format, then check for project-scoped paths.
+  let normalized: string;
+  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
+    normalized = trimmed.slice(2, -1);
+  } else if (trimmed.startsWith("@")) {
+    normalized = trimmed.slice(1);
+  } else {
+    normalized = trimmed;
+  }
+  if (normalized.startsWith("[")) throw new Error("Project-scoped paths are not allowed.");
   if (!normalized.trim()) throw new Error("path is required.");
 
   const resolvedRoot = path.resolve(rootPath);
@@ -410,6 +418,33 @@ export const readFileTool = tool({
 export const applyPatchTool = tool({
   description: applyPatchToolDef.description,
   inputSchema: zodSchema(applyPatchToolDef.parameters),
+  inputExamples: [
+    {
+      input: {
+        actionName: '修改配置文件的端口号',
+        patch: `*** Begin Patch
+*** Update File: src/config.ts
+@@ export const config
+ export const config = {
+-  port: 3000,
++  port: 8080,
+   host: 'localhost',
+ }
+*** End Patch`,
+      },
+    },
+    {
+      input: {
+        actionName: '创建新的工具函数文件',
+        patch: `*** Begin Patch
+*** Add File: src/utils/format.ts
++export function formatDate(date: Date): string {
++  return date.toISOString().slice(0, 10)
++}
+*** End Patch`,
+      },
+    },
+  ],
   execute: async ({ patch: patchText }): Promise<string> => {
     // 逻辑：替换 secret 令牌为真实值，确保磁盘文件包含真实密钥
     const resolvedPatch = resolveSecretTokens(patchText);

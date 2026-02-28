@@ -43,8 +43,8 @@ export {
 
 /** Scoped project path matcher like [projectId]/path/to/file or [projectId]/. */
 const PROJECT_SCOPE_REGEX = /^\[([^\]]+)\](?:\/(.*))?$/;
-/** Project-scoped absolute path matcher like @[projectId]/path/to/file or @[projectId]/. */
-const PROJECT_ABSOLUTE_REGEX = /^@\[[^\]]+\](?:\/|$)/;
+/** Project-scoped absolute path matcher like @[[projectId]/path/to/file] or @[[projectId]/]. */
+const PROJECT_ABSOLUTE_REGEX = /^@\[\[[^\]]+\](?:\/|$)/;
 /** Scheme matcher for absolute URLs. */
 const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 
@@ -179,7 +179,14 @@ export function parseScopedProjectPath(
 ): { projectId?: string; relativePath: string } | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
-  const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  let normalized: string;
+  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
+    normalized = trimmed.slice(2, -1);
+  } else if (trimmed.startsWith("@")) {
+    normalized = trimmed.slice(1);
+  } else {
+    normalized = trimmed;
+  }
   if (SCHEME_REGEX.test(normalized)) return null;
   // 逻辑：支持 @[projectId]/path 形式的跨项目引用。
   const match = normalized.match(PROJECT_SCOPE_REGEX);
@@ -201,7 +208,7 @@ export function formatScopedProjectPath(input: {
 }) {
   const relativePath = normalizeProjectRelativePath(input.relativePath);
   if (!relativePath) {
-    if (input.includeAt && input.projectId) return `@[${input.projectId}]/`;
+    if (input.includeAt && input.projectId) return `@[[${input.projectId}]/]`;
     return "";
   }
   const shouldScope =
@@ -209,7 +216,7 @@ export function formatScopedProjectPath(input: {
     (!input.currentProjectId || input.projectId !== input.currentProjectId);
   const prefix = shouldScope ? `[${input.projectId}]/` : "";
   const scoped = `${prefix}${relativePath}`;
-  if (input.includeAt && shouldScope) return `@${scoped}`;
+  if (input.includeAt) return `@[${scoped}]`;
   return scoped;
 }
 

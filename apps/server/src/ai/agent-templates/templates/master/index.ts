@@ -29,6 +29,10 @@ export const masterTemplate: AgentTemplate = {
     'read-file',
     'list-dir',
     'grep-files',
+    // file-write (直接修改文件，避免简单编辑也要 spawn)
+    'apply-patch',
+    // shell (直接执行简单命令，避免不必要的子 Agent 调度)
+    'shell-command',
     // web
     'open-url',
     // image-generate

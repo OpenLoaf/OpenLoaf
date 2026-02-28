@@ -42,6 +42,27 @@ function toPosixPath(input: string): string {
 export const jsxCreateTool = tool({
   description: jsxCreateToolDef.description,
   inputSchema: zodSchema(jsxCreateToolDef.parameters),
+  inputExamples: [
+    {
+      input: {
+        content:
+          '<div className="p-4 bg-blue-50 rounded-lg">'
+          + '<h3 className="font-bold text-lg mb-3 text-blue-800">文件夹整理方案</h3>'
+          + '<div className="grid grid-cols-2 gap-3">'
+          + '<div className="bg-white p-3 rounded">'
+          + '<h4 className="font-semibold text-sm text-blue-700 mb-2">图片文件 → images/</h4>'
+          + '<ul className="text-xs text-gray-600 space-y-1">'
+          + '<li>screenshot.png</li><li>photo.jpg</li>'
+          + '</ul></div>'
+          + '<div className="bg-white p-3 rounded">'
+          + '<h4 className="font-semibold text-sm text-blue-700 mb-2">文档 → docs/</h4>'
+          + '<ul className="text-xs text-gray-600 space-y-1">'
+          + '<li>readme.md</li><li>notes.txt</li>'
+          + '</ul></div>'
+          + '</div></div>',
+      },
+    },
+  ],
   execute: async (input: { content: string }): Promise<JsxCreateOutput> => {
     const sessionId = getSessionId()
     if (!sessionId) throw new Error('sessionId is required.')

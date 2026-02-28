@@ -99,7 +99,14 @@ async function fetchMentionEntry(input: {
 function parseMentionFileRef(value: string, defaultProjectId?: string): MentionFileRef | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
-  const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  let normalized: string;
+  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
+    normalized = trimmed.slice(2, -1);
+  } else if (trimmed.startsWith("@")) {
+    normalized = trimmed.slice(1);
+  } else {
+    normalized = trimmed;
+  }
   const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
   const baseValue = match?.[1] ?? normalized;
   const parsed = parseScopedProjectPath(baseValue);

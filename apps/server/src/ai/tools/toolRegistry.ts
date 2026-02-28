@@ -247,6 +247,17 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
 };
 
+/** Common aliases for tool names that LLMs might use incorrectly. */
+const TOOL_ALIASES: Record<string, string> = {
+  shell: "shell-command",
+  exec: "shell-command",
+  run: "shell-command",
+  "write-file": "apply-patch",
+  "edit-file": "apply-patch",
+  search: "grep-files",
+  find: "grep-files",
+};
+
 /**
  * Returns the tool instance by ToolDef.id (MVP).
  */
@@ -265,12 +276,37 @@ export function buildToolset(toolIds: readonly string[] = []) {
   // AI SDK 的 ToolLoopAgent 需要一个 { [toolName]: tool } 的对象；这里严格用 ToolDef.id 作为 key。
   const toolset: Record<string, any> = {};
   for (const toolId of toolIds) {
-    const entry = getToolById(toolId);
-    if (!entry) continue;
+    let entry = getToolById(toolId);
+    if (!entry) {
+      // 逻辑：工具名不存在时，检查是否为已知别名并自动映射。
+      const canonical = TOOL_ALIASES[toolId];
+      if (canonical) {
+        entry = getToolById(canonical);
+        if (entry) {
+          // 用规范名称注册工具，同时为别名创建一个错误提示入口
+          const withTimeout = wrapToolWithTimeout(canonical, entry.tool);
+          const withErrorEnhancer = wrapToolWithErrorEnhancer(canonical, withTimeout);
+          toolset[canonical] = withErrorEnhancer;
+        }
+      }
+      continue;
+    }
     // 逻辑：依次包装 timeout → error enhancer，增强工具执行的可靠性。
     const withTimeout = wrapToolWithTimeout(toolId, entry.tool);
     const withErrorEnhancer = wrapToolWithErrorEnhancer(toolId, withTimeout);
     toolset[toolId] = withErrorEnhancer;
   }
   return toolset;
+}
+
+/**
+ * Suggest the canonical tool name for a given alias.
+ * Returns the suggestion string if an alias matches, or null.
+ */
+export function suggestToolName(toolId: string): string | null {
+  const canonical = TOOL_ALIASES[toolId];
+  if (canonical) {
+    return `Did you mean '${canonical}'? Use that instead.`;
+  }
+  return null;
 }

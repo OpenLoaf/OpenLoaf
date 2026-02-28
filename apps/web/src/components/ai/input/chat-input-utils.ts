@@ -12,26 +12,28 @@
 import { SKILL_COMMAND_PREFIX } from "@openloaf/api/common";
 import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
 
-// 逻辑：允许非 URL 编码的路径，使用非空白字符匹配文件引用。
-const FILE_TOKEN_BODY = "(?:\\[[^\\]]+\\]/\\S+|[^\\s@]+/\\S+)(?::\\d+-\\d+)?";
-export const FILE_TOKEN_REGEX = new RegExp(`@(${FILE_TOKEN_BODY})`, "g");
+// 逻辑：匹配 @[...] 方括号包裹的文件引用格式。
+export const FILE_TOKEN_REGEX = /@\[([^\]]+)\]/g;
 
-/** Normalize mention value by trimming leading "@". */
+/** Normalize mention value by trimming @[...] or leading "@". */
 const normalizeMentionValue = (value: string) => {
   const trimmed = value.trim();
-  return trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) return trimmed.slice(2, -1);
+  if (trimmed.startsWith("@")) return trimmed.slice(1);
+  return trimmed;
 };
 
 /** Normalize spacing around file mention tokens. */
 export const normalizeFileMentionSpacing = (value: string) => {
   FILE_TOKEN_REGEX.lastIndex = 0;
   if (!FILE_TOKEN_REGEX.test(value)) return value;
+  // @[...] 有明确边界，只需处理紧贴前文的情况
   const withLeadingSpace = value.replace(
-    new RegExp(`(\\\\S)(@${FILE_TOKEN_BODY})`, "g"),
+    /(\S)(@\[[^\]]+\])/g,
     (_match, lead, token) => `${lead} ${token}`,
   );
   return withLeadingSpace.replace(
-    new RegExp(`(@${FILE_TOKEN_BODY})(?=\\\\S)`, "g"),
+    /(@\[[^\]]+\])(?=\S)/g,
     (_match, token) => `${token} `,
   );
 };

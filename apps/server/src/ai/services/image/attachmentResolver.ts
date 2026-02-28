@@ -419,7 +419,14 @@ const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 function parseScopedRelativePath(raw: string): { projectId?: string; relativePath: string } | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
-  const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  let normalized: string;
+  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
+    normalized = trimmed.slice(2, -1);
+  } else if (trimmed.startsWith("@")) {
+    normalized = trimmed.slice(1);
+  } else {
+    normalized = trimmed;
+  }
   if (SCHEME_REGEX.test(normalized)) return null;
   const match = normalized.match(PROJECT_SCOPE_REGEX);
   if (match) {

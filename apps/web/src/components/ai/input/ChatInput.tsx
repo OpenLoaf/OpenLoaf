@@ -103,7 +103,7 @@ interface ChatInputProps {
 
 const MAX_CHARS = 20000;
 const ONLINE_SEARCH_GLOBAL_STORAGE_KEY = "openloaf:chat-online-search:global-enabled";
-const FILE_TOKEN_TEXT_REGEX = /@((?:\[[^\]]+\]\/\S+|[^\s@]+\/\S+)(?::\d+-\d+)?)/g;
+const FILE_TOKEN_TEXT_REGEX = /@\[([^\]]+)\]/g;
 
 
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -459,7 +459,14 @@ export function ChatInputBox({
   const normalizeFileRef = useCallback((value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return "";
-    const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+    let normalized: string;
+    if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
+      normalized = trimmed.slice(2, -1);
+    } else if (trimmed.startsWith("@")) {
+      normalized = trimmed.slice(1);
+    } else {
+      normalized = trimmed;
+    }
     const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
     const baseValue = match?.[1] ?? normalized;
     const parsed = parseScopedProjectPath(baseValue);
@@ -481,7 +488,7 @@ export function ChatInputBox({
     (fileRef: string, options?: { skipFocus?: boolean }) => {
       const normalizedRef = normalizeFileRef(fileRef);
       if (!normalizedRef) return;
-      insertTextAtSelection(`@${normalizedRef}`, {
+      insertTextAtSelection(`@[${normalizedRef}]`, {
         skipFocus: options?.skipFocus,
         ensureLeadingSpace: true,
         ensureTrailingSpace: true,
@@ -547,7 +554,7 @@ export function ChatInputBox({
         }
       }
       if (mentionRefs.length > 0) {
-        const mentionText = mentionRefs.map((item) => `@${item}`).join(" ");
+        const mentionText = mentionRefs.map((item) => `@[${item}]`).join(" ");
         insertTextAtSelection(mentionText, {
           ensureLeadingSpace: true,
           ensureTrailingSpace: true,

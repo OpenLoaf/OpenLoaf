@@ -41,6 +41,22 @@ function buildShellCommand(input: ShellCommandInput): { file: string; args: stri
 export const shellCommandTool = tool({
   description: shellCommandToolDef.description,
   inputSchema: zodSchema(shellCommandToolDef.parameters),
+  inputExamples: [
+    {
+      input: {
+        actionName: '列出项目中的 TypeScript 文件',
+        command: 'find src -name "*.ts" | head -20',
+        workdir: '/home/user/project',
+      },
+    },
+    {
+      input: {
+        actionName: '查看 git 提交历史',
+        command: 'git log --oneline -10',
+        workdir: '/home/user/project',
+      },
+    },
+  ],
   needsApproval: ({ command }) => needsApprovalForCommand(command),
   execute: async ({ command, workdir, timeoutMs, login }): Promise<string> => {
     const allowOutside = readBasicConf().toolAllowOutsideScope;

@@ -94,6 +94,8 @@ export type ManagedAgent = {
   preface?: string
   /** Whether preface has been injected into the message chain. */
   prefaceInjected?: boolean
+  /** Whether an empty-output retry has been attempted. */
+  retried?: boolean
 }
 
 const MAX_DEPTH = 2
@@ -442,16 +444,38 @@ class AgentManager {
         }
 
         // 逻辑：验证子 Agent 输出有效性（MAST FM-3.2 — 不完整验证）。
-        // 空输出且无工具结果时标记为 failed，防止 Master 编造成功报告。
+        // 空输出且无工具结果时：首次自动重试一次，仍失败则标记为 failed。
         const hasOutput = agent.outputText.trim().length > 0
         const hasToolResults = agent.responseParts.some(
           (p: any) =>
             p?.type === 'tool-invocation' && p?.state === 'output-available',
         )
         if (!hasOutput && !hasToolResults) {
+          if (!agent.retried) {
+            agent.retried = true
+            logger.warn({ agentId: id }, '[agent-manager] empty output, retrying once')
+            const retryMessage: UIMessage = {
+              id: generateId(),
+              role: 'user',
+              parts: [{ type: 'text', text:
+                '你的上一次回复为空。请重新审视任务，使用可用工具执行操作，并提供明确的输出结果。' }],
+            }
+            agent.messages.push(retryMessage)
+            await this.appendToAgentHistory(agent, retryMessage)
+            await this.runAgentStreamWithApproval(id, agent, toolLoopAgent)
+
+            const retryHasOutput = agent.outputText.trim().length > 0
+            const retryHasToolResults = agent.responseParts.some(
+              (p: any) => p?.type === 'tool-invocation' && p?.state === 'output-available',
+            )
+            if (retryHasOutput || retryHasToolResults) {
+              this.complete(id, agent.outputText || agent.responseParts)
+              return
+            }
+          }
           this.fail(
             id,
-            'Agent completed without producing any output or tool results.',
+            'Agent completed without producing any output or tool results after retry.',
           )
           return
         }

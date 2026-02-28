@@ -8,14 +8,21 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 /** File token matcher for file placeholders. */
-// 逻辑：匹配形如 @path/to/file 或 @[projectId]/path/to/file。
-const FILE_TOKEN_REGEX = /@(\[[^\]]+\]\/\S+|\S+\/\S+)/g;
+// 逻辑：匹配形如 @[path/to/file] 或 @[[projectId]/path/to/file] 的文件引用。
+const FILE_TOKEN_REGEX = /@\[([^\]]+)\]/g;
 
 /** Extract a readable file label from a token value. */
 function extractFileLabel(token: string): string {
   const trimmed = token.trim();
   if (!trimmed) return token;
-  const normalized = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  let normalized: string;
+  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
+    normalized = trimmed.slice(2, -1);
+  } else if (trimmed.startsWith("@")) {
+    normalized = trimmed.slice(1);
+  } else {
+    normalized = trimmed;
+  }
   const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
   const baseValue = match?.[1] ?? normalized;
   const scopedMatch = baseValue.match(/^\[([^\]]+)\]\/(.+)$/);

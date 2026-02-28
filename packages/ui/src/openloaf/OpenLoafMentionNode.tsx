@@ -42,7 +42,10 @@ export function OpenLoafMentionElement(
   const mounted = useMounted();
   const readOnly = useReadOnly();
   const rawValue = element.value ?? "";
-  const normalizedValue = rawValue.startsWith("@") ? rawValue.slice(1) : rawValue;
+  const normalizedValue =
+    rawValue.startsWith("@[") && rawValue.endsWith("]")
+      ? rawValue.slice(2, -1)
+      : rawValue.startsWith("@") ? rawValue.slice(1) : rawValue;
   const match = normalizedValue.match(/^(.*?)(?::(\d+)-(\d+))?$/);
   const baseValue = match?.[1] ?? normalizedValue;
   const lineStart = match?.[2];
