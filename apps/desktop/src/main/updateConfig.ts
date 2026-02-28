@@ -15,7 +15,7 @@ import { getOpenLoafRootDir } from '@openloaf/config'
 // 常量
 // ---------------------------------------------------------------------------
 
-const DEFAULT_UPDATE_BASE_URL = 'https://r2-openloaf-update.hexems.com'
+const DEFAULT_UPDATE_BASE_URL = 'https://openloaf-update.hexems.com'
 const SETTINGS_FILE_NAME = '.settings.json'
 
 // ---------------------------------------------------------------------------
@@ -57,14 +57,14 @@ export function resolveUpdateBaseUrl(): string {
       // 向后兼容：从旧变量推导 base URL
       const oldManifest = vars.OPENLOAF_UPDATE_MANIFEST_URL
       if (oldManifest) {
-        // 例如 https://r2-openloaf-update.hexems.com/manifest.json → https://r2-openloaf-update.hexems.com
+        // 例如 https://openloaf-update.hexems.com/manifest.json → https://openloaf-update.hexems.com
         const url = new URL(oldManifest)
         return `${url.protocol}//${url.host}`
       }
 
       const oldElectron = vars.OPENLOAF_ELECTRON_UPDATE_URL
       if (oldElectron) {
-        // 例如 https://r2-openloaf-update.hexems.com/desktop → https://r2-openloaf-update.hexems.com
+        // 例如 https://openloaf-update.hexems.com/desktop → https://openloaf-update.hexems.com
         return oldElectron.replace(/\/(?:electron|desktop)\/?$/, '')
       }
     }

@@ -8,7 +8,7 @@
 2. `runtime.env` 中的 `OPENLOAF_UPDATE_URL`
 3. (兼容) `OPENLOAF_UPDATE_MANIFEST_URL` → 从 URL 提取 host
 4. (兼容) `OPENLOAF_ELECTRON_UPDATE_URL` → 去掉 `/electron` 后缀
-5. 默认值 `https://r2-openloaf-update.hexems.com`
+5. 默认值 `https://openloaf-update.hexems.com`
 
 派生 URL：
 - 增量清单：`${baseUrl}/${channel}/manifest.json` (channel = stable | beta)

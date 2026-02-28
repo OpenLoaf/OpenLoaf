@@ -54,7 +54,7 @@ pnpm run dist:production    # package + sign + notarize + upload
 ## R2 目录结构
 
 ```
-r2-openloaf-update.hexems.com/
+openloaf-update.hexems.com/
 ├── stable/manifest.json         # stable 渠道增量更新清单
 ├── beta/manifest.json           # beta 渠道增量更新清单
 ├── manifest.json                # 旧格式（已废弃，过渡期保留）

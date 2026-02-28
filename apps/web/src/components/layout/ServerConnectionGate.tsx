@@ -35,7 +35,8 @@ export default function ServerConnectionGate({
       const detail = (event as CustomEvent<{ error?: string }>).detail;
       const message = detail?.error || "Server process crashed unexpectedly";
       toast.error("Server failed to start", {
-        description: message.length > 200 ? `${message.slice(0, 200)}...` : message,
+        description:
+          message.length > 200 ? `${message.slice(0, 200)}...` : message,
         duration: Number.POSITIVE_INFINITY,
       });
     };
@@ -43,6 +44,6 @@ export default function ServerConnectionGate({
     return () => window.removeEventListener("openloaf:server-crash", handler);
   }, []);
 
-  if (!isSuccess) return <LoadingScreen label="Waiting for server..." />;
+  if (!isSuccess) return <LoadingScreen label="正在加载中..." />;
   return <>{children}</>;
 }
