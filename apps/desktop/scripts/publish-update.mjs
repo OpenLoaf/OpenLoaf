@@ -44,15 +44,24 @@ const r2Config = validateR2Config()
 const s3 = createS3Client(r2Config)
 
 // ---------------------------------------------------------------------------
-// macOS 产物匹配规则
+// 全平台产物匹配规则
 // ---------------------------------------------------------------------------
 
-function isMacArtifact(filename) {
+function isDesktopArtifact(filename) {
+  // macOS
   if (filename === 'latest-mac.yml') return true
   if (filename.endsWith('.dmg')) return true
   if (filename.endsWith('.dmg.blockmap')) return true
   if (filename.endsWith('-mac.zip')) return true
   if (filename.endsWith('-mac.zip.blockmap')) return true
+  // Windows
+  if (filename === 'latest.yml') return true
+  if (filename.endsWith('.exe')) return true
+  if (filename.endsWith('.exe.blockmap')) return true
+  // Linux
+  if (filename === 'latest-linux.yml') return true
+  if (filename.endsWith('.AppImage')) return true
+  if (filename.endsWith('.AppImage.blockmap')) return true
   return false
 }
 
@@ -83,7 +92,7 @@ async function main() {
   }
 
   const allFiles = readdirSync(distDir)
-  const filesToUpload = allFiles.filter(isMacArtifact)
+  const filesToUpload = allFiles.filter(isDesktopArtifact)
 
   if (filesToUpload.length === 0) {
     console.error('❌ dist/ 目录中没有找到可上传的构建产物')

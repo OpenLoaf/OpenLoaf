@@ -28,6 +28,11 @@ import {
   getUiWriter,
 } from "@/ai/shared/context/requestContext";
 import { registerFrontendToolPending } from "@/ai/tools/pendingRegistry";
+import {
+  type ApprovalGate,
+  resolveApprovalGate,
+  applyApprovalDecision,
+} from "@/ai/tools/approvalUtils";
 
 /**
  * Builds sub-agent messages for streaming execution.
@@ -91,48 +96,6 @@ async function saveSubAgentHistory(input: {
     parentMessageId: input.parentMessageId ?? null,
     createdAt: input.createdAt,
   });
-}
-
-/** Sub-agent approval gate metadata. */
-type ApprovalGate = {
-  approvalId: string;
-  toolCallId: string;
-  part: any;
-};
-
-/** Resolve approval gate from sub-agent parts. */
-function resolveApprovalGate(parts: unknown[]): ApprovalGate | null {
-  for (const part of parts) {
-    if (!part || typeof part !== "object") continue;
-    const approval = (part as { approval?: { id?: unknown; approved?: unknown } }).approval;
-    const approvalId = typeof approval?.id === "string" ? approval.id : "";
-    if (!approvalId) continue;
-    if (approval?.approved === true || approval?.approved === false) continue;
-    const toolCallId =
-      typeof (part as { toolCallId?: unknown }).toolCallId === "string"
-        ? String((part as { toolCallId?: string }).toolCallId)
-        : "";
-    if (!toolCallId) continue;
-    return { approvalId, toolCallId, part };
-  }
-  return null;
-}
-
-/** Update approval status on parts. */
-function applyApprovalDecision(input: {
-  parts: unknown[];
-  approvalId: string;
-  approved: boolean;
-}) {
-  for (const part of input.parts) {
-    if (!part || typeof part !== "object") continue;
-    const approval = (part as { approval?: { id?: unknown } }).approval;
-    const currentId = typeof approval?.id === "string" ? approval.id : "";
-    if (currentId !== input.approvalId) continue;
-    (part as any).approval = { ...approval, approved: input.approved };
-    // 逻辑：审批已响应，避免重复停在 approval-requested。
-    (part as any).state = "approval-responded";
-  }
 }
 
 /**

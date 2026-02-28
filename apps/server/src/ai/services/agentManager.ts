@@ -39,6 +39,8 @@ import {
   getProjectRootPath,
 } from '@openloaf/api/services/vfsService'
 import { logger } from '@/common/logger'
+import { resolveApprovalGate, applyApprovalDecision } from '@/ai/tools/approvalUtils'
+import { registerFrontendToolPending } from '@/ai/tools/pendingRegistry'
 
 export type AgentStatus =
   | 'pending'
@@ -409,8 +411,8 @@ class AgentManager {
           } as any)
         }
 
-        // 逻辑：执行初始流式推理。
-        await this.runAgentStream(agent, toolLoopAgent)
+        // 逻辑：执行初始流式推理（含审批门处理）。
+        await this.runAgentStreamWithApproval(id, agent, toolLoopAgent)
 
         // 逻辑：处理 inputQueue 中的追加输入。
         while (agent.inputQueue.length > 0) {
@@ -422,7 +424,7 @@ class AgentManager {
           }
           agent.messages.push(followUpMessage)
           await this.appendToAgentHistory(agent, followUpMessage)
-          await this.runAgentStream(agent, toolLoopAgent)
+          await this.runAgentStreamWithApproval(id, agent, toolLoopAgent)
         }
 
         // 逻辑：子 agent 完整历史已保存在 agents/<agentId>.jsonl，不再写入 messages.jsonl。
@@ -520,6 +522,70 @@ class AgentManager {
           data: { toolCallId, chunk: value },
         } as any)
       }
+    }
+  }
+
+  /**
+   * Run a stream cycle with approval gate handling.
+   *
+   * After each runAgentStream(), checks responseParts for pending approvals.
+   * If found, waits for frontend decision, applies it, and re-runs the stream.
+   * Loops until no more approvals remain.
+   */
+  private async runAgentStreamWithApproval(
+    id: string,
+    agent: ManagedAgent,
+    toolLoopAgent: ReturnType<typeof createSubAgent>,
+  ): Promise<void> {
+    await this.runAgentStream(agent, toolLoopAgent)
+
+    let approvalGate = resolveApprovalGate(agent.responseParts)
+    while (approvalGate) {
+      const approvalWaitTimeoutSec = (() => {
+        const t = (approvalGate!.part as { timeoutSec?: unknown }).timeoutSec
+        return Number.isFinite(t) ? Math.max(1, Math.floor(Number(t))) : 60
+      })()
+
+      logger.info(
+        { agentId: id, approvalId: approvalGate.approvalId },
+        '[agent-manager] approval requested, waiting for frontend',
+      )
+
+      const ack = await registerFrontendToolPending({
+        toolCallId: approvalGate.approvalId,
+        timeoutSec: approvalWaitTimeoutSec,
+      })
+
+      if (ack.status !== 'success') {
+        throw new Error(ack.errorText || 'agent approval failed or timed out')
+      }
+
+      const approved = Boolean(
+        ack.output &&
+          typeof ack.output === 'object' &&
+          (ack.output as { approved?: unknown }).approved === true,
+      )
+
+      applyApprovalDecision({
+        parts: agent.responseParts,
+        approvalId: approvalGate.approvalId,
+        approved,
+      })
+
+      // 逻辑：runAgentStream 的 onFinish 已将 assistant 消息 push 到 agent.messages，
+      // 且 responseParts 与该消息的 parts 是同一引用，applyApprovalDecision 已原地修改。
+      // 只需将更新后的消息持久化，不能再 push 新消息（否则 LLM 收到重复 assistant 消息会产生空响应）。
+      const lastMsg = agent.messages[agent.messages.length - 1]
+      if (lastMsg && lastMsg.role === 'assistant') {
+        await this.appendToAgentHistory(agent, lastMsg)
+      }
+
+      // 重置输出并继续执行
+      agent.outputText = ''
+      agent.responseParts = []
+
+      await this.runAgentStream(agent, toolLoopAgent)
+      approvalGate = resolveApprovalGate(agent.responseParts)
     }
   }
 
