@@ -310,7 +310,9 @@ jobs:
           node-version: '20'
 
       - name: Install publish dependencies
-        run: npm install @aws-sdk/client-s3 --no-save
+        run: |
+          cd /tmp && npm init -y && npm install @aws-sdk/client-s3
+          echo "NODE_PATH=/tmp/node_modules" >> $GITHUB_ENV
 
       - name: Download all platform artifacts
         uses: actions/download-artifact@v4
