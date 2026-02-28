@@ -10,6 +10,12 @@
     "directories": {
       "output": "dist"
     },
+    "publish": "never",
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    },
     "win": {
       "icon": "resources/icon.ico",
       "target": [
