@@ -53,6 +53,9 @@ jobs:
             exit 1
           fi
 
+      - name: Build workspace packages
+        run: pnpm --filter @openloaf/widget-sdk run build
+
       - name: Build server
         run: pnpm --filter server run build:prod
 

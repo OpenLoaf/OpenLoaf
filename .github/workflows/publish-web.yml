@@ -55,6 +55,9 @@ jobs:
             exit 1
           fi
 
+      - name: Build workspace packages
+        run: pnpm --filter @openloaf/widget-sdk run build
+
       - name: Determine channel
         id: channel
         run: |
