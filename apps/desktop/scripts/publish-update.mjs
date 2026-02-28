@@ -134,6 +134,11 @@ async function main() {
 
   console.log(`\n🎉 Electron v${version} published successfully!`)
   console.log(`   Feed URL: ${r2Config.publicUrl}/desktop/`)
+  console.log(`\n📥 Download URLs:`)
+  for (const file of filesToUpload) {
+    if (file.endsWith('.yml') || file.endsWith('.blockmap')) continue
+    console.log(`   ${r2Config.publicUrl}/desktop/${file}`)
+  }
 }
 
 main().catch((err) => {
