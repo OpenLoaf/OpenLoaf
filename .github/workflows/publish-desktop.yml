@@ -14,10 +14,29 @@ on:
         options:
           - stable
           - beta
+      build_mac:
+        description: 'Build macOS'
+        required: false
+        default: true
+        type: boolean
+      build_windows:
+        description: 'Build Windows'
+        required: false
+        default: true
+        type: boolean
+      build_linux:
+        description: 'Build Linux'
+        required: false
+        default: true
+        type: boolean
 
 concurrency:
   group: desktop-publish
   cancel-in-progress: false
+
+env:
+  ELECTRON_CACHE: .cache/electron
+  ELECTRON_BUILDER_CACHE: .cache/electron-builder
 
 jobs:
   build-prerequisites:
@@ -78,6 +97,7 @@ jobs:
 
   build-mac:
     needs: build-prerequisites
+    if: github.event_name == 'push' || inputs.build_mac
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -90,6 +110,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
+
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/package.json') }}
 
       - name: Use HTTPS for git dependencies
         run: git config --global url."https://github.com/".insteadOf "git@github.com:"
@@ -136,6 +164,7 @@ jobs:
 
   build-windows:
     needs: build-prerequisites
+    if: github.event_name == 'push' || inputs.build_windows
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -148,6 +177,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
+
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/package.json') }}
 
       - name: Use HTTPS for git dependencies
         run: git config --global url."https://github.com/".insteadOf "git@github.com:"
@@ -185,6 +222,7 @@ jobs:
 
   build-linux:
     needs: build-prerequisites
+    if: github.event_name == 'push' || inputs.build_linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -197,6 +235,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
+
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/package.json') }}
 
       - name: Use HTTPS for git dependencies
         run: git config --global url."https://github.com/".insteadOf "git@github.com:"
@@ -233,6 +279,11 @@ jobs:
 
   publish-to-r2:
     needs: [build-mac, build-windows, build-linux]
+    if: >-
+      always() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      contains(needs.*.result, 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
