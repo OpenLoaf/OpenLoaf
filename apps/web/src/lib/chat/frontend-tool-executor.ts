@@ -111,20 +111,42 @@ function resolveFileEntryFromUrl(input: {
 }
 
 async function postFrontendToolAck(payload: FrontendToolAckPayload): Promise<void> {
-  const response = await fetch(resolveAckEndpoint(), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    // 中文注释：前端回执失败时打印日志，方便排查执行链路是否到达服务端。
-    console.warn("[frontend-tool] ack failed", {
-      status: response.status,
-      text,
-      toolCallId: payload.toolCallId,
-    });
+  const MAX_RETRIES = 3;
+  const BASE_DELAY_MS = 100;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(resolveAckEndpoint(), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) return;
+
+      const text = await response.text().catch(() => "");
+      // 中文注释：前端回执失败时打印日志，方便排查执行链路是否到达服务端。
+      console.warn("[frontend-tool] ack failed", {
+        status: response.status,
+        text,
+        toolCallId: payload.toolCallId,
+        attempt,
+      });
+
+      // 逻辑：5xx 错误才重试，4xx 错误直接放弃（客户端参数问题重试无意义）。
+      if (response.status < 500 || attempt >= MAX_RETRIES) return;
+    } catch (err) {
+      console.warn("[frontend-tool] ack network error", {
+        toolCallId: payload.toolCallId,
+        attempt,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      if (attempt >= MAX_RETRIES) return;
+    }
+
+    // 指数退避：100ms → 300ms → 900ms
+    const delay = BASE_DELAY_MS * 3 ** attempt;
+    await new Promise((r) => setTimeout(r, delay));
   }
 }
 

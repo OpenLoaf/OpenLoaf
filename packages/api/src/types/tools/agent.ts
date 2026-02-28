@@ -13,7 +13,7 @@ export const spawnAgentToolDef = {
   id: 'spawn-agent',
   name: '启动子代理',
   description:
-    '触发：当你需要启动一个子代理来执行独立任务时调用。用途：创建子代理并立即返回 agentId。返回：{agent_id: string}。不适用：简单任务不需要子代理。',
+    '触发：当你需要启动一个子代理来执行独立任务时调用。用途：创建子代理并立即返回 agentId。返回：{agent_id: string}。不适用：简单任务不需要子代理。常见错误：1) 不要用子代理执行 1-2 个工具调用就能完成的简单任务。2) 不要同时 spawn 超过 3 个相互依赖的子代理。3) 不要在子代理中再嵌套 spawn 子代理（最大深度为 2）。',
   parameters: z.object({
     items: z
       .array(
@@ -69,7 +69,7 @@ export const waitAgentToolDef = {
   id: 'wait-agent',
   name: '等待子代理',
   description:
-    '触发：当你需要等待一个或多个子代理完成时调用。用途：阻塞等待子代理完成或超时。返回：{status: Record<string, string>, timed_out: boolean}。不适用：不需要等待结果时不要调用。',
+    '触发：当你需要等待一个或多个子代理完成时调用。用途：阻塞等待子代理完成或超时。返回：{status: Record<string, string>, timed_out: boolean}。不适用：不需要等待结果时不要调用。常见错误：1) 不要在 spawn 后立即 wait — 给子代理时间执行。2) 不要无限等待 — 始终设置合理的 timeoutMs。3) 子代理返回空结果时不要假装成功 — 检查 status 是否为 completed。',
   parameters: z.object({
     ids: z
       .array(z.string().min(1))

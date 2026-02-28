@@ -13,11 +13,16 @@ import {
   type UIMessage,
   type ToolSet,
 } from "ai";
+import { trimToContextWindow } from "@/ai/shared/contextWindowManager";
 
 /** Convert UI messages into model messages with custom data-part handling. */
-export async function buildModelMessages(messages: UIMessage[], tools?: ToolSet) {
+export async function buildModelMessages(
+  messages: UIMessage[],
+  tools?: ToolSet,
+  options?: { modelId?: string },
+) {
   validateUIMessages({ messages: messages as any });
-  return convertToModelMessages(messages as any, {
+  const modelMessages = await convertToModelMessages(messages as any, {
     tools,
     convertDataPart: (part) => {
       // 逻辑：将 data-skill 转为模型可读的文本块。
@@ -38,4 +43,7 @@ export async function buildModelMessages(messages: UIMessage[], tools?: ToolSet)
       return { type: "text", text };
     },
   });
+
+  // 逻辑：上下文窗口管理（MAST FM-1.4）— 防止长对话 token 溢出导致截断。
+  return trimToContextWindow(modelMessages, options);
 }

@@ -196,6 +196,11 @@ class AgentManager {
     return count
   }
 
+  /** Check if any agents are currently running. */
+  hasRunningAgents(): boolean {
+    return this.runningCount > 0
+  }
+
   /** Spawn a new sub-agent and return its id immediately. */
   spawn(input: {
     task: string
@@ -436,6 +441,21 @@ class AgentManager {
           } as any)
         }
 
+        // 逻辑：验证子 Agent 输出有效性（MAST FM-3.2 — 不完整验证）。
+        // 空输出且无工具结果时标记为 failed，防止 Master 编造成功报告。
+        const hasOutput = agent.outputText.trim().length > 0
+        const hasToolResults = agent.responseParts.some(
+          (p: any) =>
+            p?.type === 'tool-invocation' && p?.state === 'output-available',
+        )
+        if (!hasOutput && !hasToolResults) {
+          this.fail(
+            id,
+            'Agent completed without producing any output or tool results.',
+          )
+          return
+        }
+
         this.complete(id, agent.outputText || agent.responseParts)
       } catch (err) {
         const errorText = err instanceof Error ? err.message : 'sub-agent failed'
@@ -505,6 +525,10 @@ class AgentManager {
       const { value, done } = await reader.read()
       if (done) break
       if (!value) continue
+
+      // 逻辑：刷新 session lastAccess，防止运行中 Agent 被清理（MAST FM-2.1）。
+      agentRegistry.touchSession(agent.spawnContext.sessionId)
+
       const type = (value as any)?.type
       if (type === 'text-delta') {
         const delta = (value as any)?.delta
@@ -556,15 +580,26 @@ class AgentManager {
         timeoutSec: approvalWaitTimeoutSec,
       })
 
-      if (ack.status !== 'success') {
-        throw new Error(ack.errorText || 'agent approval failed or timed out')
+      // 逻辑：审批超时/失败优雅降级（MAST FM-3.1 — 过早终止）。
+      // 超时视为拒绝而非中止整条链，让 Agent 可以跳过该步骤或用替代方案。
+      // 仅在明确失败（非超时）时才抛出终止错误。
+      let approved = false
+      if (ack.status === 'success') {
+        approved = Boolean(
+          ack.output &&
+            typeof ack.output === 'object' &&
+            (ack.output as { approved?: unknown }).approved === true,
+        )
+      } else if (ack.status === 'timeout') {
+        logger.warn(
+          { agentId: id, approvalId: approvalGate.approvalId },
+          '[agent-manager] approval timed out, treating as rejected',
+        )
+        approved = false
+      } else {
+        // status === 'failed' — a hard failure, abort the chain
+        throw new Error(ack.errorText || 'agent approval failed')
       }
-
-      const approved = Boolean(
-        ack.output &&
-          typeof ack.output === 'object' &&
-          (ack.output as { approved?: unknown }).approved === true,
-      )
 
       applyApprovalDecision({
         parts: agent.responseParts,
@@ -901,6 +936,12 @@ class AgentManagerRegistry {
       const staleThreshold = 30 * 60 * 1000
       for (const [sessionId, entry] of this.managers) {
         if (now - entry.lastAccess > staleThreshold) {
+          // 逻辑：清理前检查是否有 running 状态的 Agent，若有则跳过（MAST FM-2.1）。
+          if (entry.manager.hasRunningAgents()) {
+            entry.lastAccess = now // 刷新时间戳，防止下轮再检查
+            logger.info({ sessionId }, '[agent-registry] session has running agents, skipping cleanup')
+            continue
+          }
           entry.manager.shutdownAll()
           this.managers.delete(sessionId)
           logger.info({ sessionId }, '[agent-registry] stale session cleaned')
@@ -923,6 +964,15 @@ class AgentManagerRegistry {
       entry.lastAccess = Date.now()
     }
     return entry.manager
+  }
+
+  /** Refresh lastAccess for a session without creating it. */
+  touchSession(sessionId?: string): void {
+    if (!sessionId) return
+    const entry = this.managers.get(sessionId)
+    if (entry) {
+      entry.lastAccess = Date.now()
+    }
   }
 
   /** Shut down and remove a session's manager. */

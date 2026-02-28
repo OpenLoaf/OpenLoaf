@@ -7,9 +7,6 @@
   <a href="https://github.com/OpenLoaf/OpenLoaf/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPLv3-blue.svg" alt="License" /></a>
   <a href="https://github.com/OpenLoaf/OpenLoaf/releases"><img src="https://img.shields.io/github/v/release/OpenLoaf/OpenLoaf?label=latest" alt="Release" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-brightgreen" alt="Platform" />
-  <img src="https://img.shields.io/badge/electron-40-blue?logo=electron" alt="Electron" />
-  <img src="https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs" alt="Next.js" />
-  <img src="https://img.shields.io/badge/React-19-61dafb?logo=react" alt="React" />
 
   <br />
   <a href="../README.md">English</a> | <strong>简体中文</strong>
@@ -23,61 +20,106 @@ OpenLoaf 是一款现代化的全栈 AI 知识库与智能工作台应用。它�
 
 > **为什么叫 OpenLoaf？** Logo 是一个面包形状的沙发 —— Loaf 既有"面包"的意思，也有"懒散地躺着"的含义。我们希望你在使用 OpenLoaf 时，就像窝在沙发上一样舒适惬意。
 
-## 核心特性
+<!-- TODO: 截图 — 应用全貌总览（展示侧边栏 + 编辑器 + AI 对话的完整界面） -->
+<div align="center">
+  <img src="./screenshots/overview.png" alt="OpenLoaf 总览" width="800" />
+</div>
 
-### 结构化知识管理
+---
 
-- **块状编辑器** — 基于 [Plate.js](https://platejs.org/) 构建，支持富文本、表格、代码块、LaTeX 公式、多媒体嵌入等
-- **无限层级页面** — 自由组织笔记、项目文档、研究资料，支持双向链接
-- **多维视图** — 看板（Board）、日历、思维导图等多种视图管理任务与日程
-- **实时协作** — 基于 [Yjs](https://yjs.dev/) 的 CRDT 实时协同编辑
+## 功能展示
 
-### AI 智能助手
+### 富文本编辑器
 
-- **多模型支持** — OpenAI、Anthropic Claude、Google Gemini、DeepSeek、Qwen、xAI Grok，以及 Ollama 本地模型
-- **项目级上下文** — AI 能够感知整个项目、文件夹乃至整个知识库的内容
-- **智能代理（Agent）** — 内置文档、终端、浏览器、邮件、日历等系统代理，自动拆解任务并调用工具
-- **自主任务系统** — AI 可独立规划和执行多步骤任务
+强大的块状编辑器，支持富文本、表格、代码块、LaTeX 公式、多媒体嵌入、双向链接等，像 Notion 一样自由组织你的内容。
 
-### 全能桌面工作台
+<!-- TODO: 截图 — 编辑器页面（展示不同块类型：标题、列表、代码块、表格、图片等） -->
+<div align="center">
+  <img src="./screenshots/editor.png" alt="富文本编辑器" width="800" />
+</div>
 
-- **跨平台** — 支持 macOS、Windows、Linux（基于 Electron 40）
-- **内置终端** — 完整的终端模拟器，无需切换窗口
-- **邮件客户端** — 集成邮件收发与管理
-- **智能日历** — 日程同步与 AI 自动规划
-- **文件管理** — 内置文件浏览器，支持拖拽操作
-- **动态小组件** — 桌面小组件，实时监控任务状态
-- **离线优先** — 本地 SQLite 存储，数据完全归你所有
+### AI 智能对话
 
-## 技术栈
+内置多模型 AI 对话，支持 OpenAI、Claude、Gemini、DeepSeek、Qwen、Grok 以及 Ollama 本地模型。AI 能感知你的项目上下文，不只是聊天，更是你的智能助手。
 
-| 层级 | 技术 |
-|------|------|
-| **前端** | Next.js 16, React 19 + React Compiler, Tailwind CSS 4, shadcn/ui |
-| **桌面端** | Electron 40 (Electron Forge + electron-builder) |
-| **后端** | Hono + tRPC（端到端类型安全 API） |
-| **数据库** | Prisma 7 + SQLite (LibSQL) |
-| **编辑器** | Plate.js, Monaco Editor, Milkdown |
-| **AI** | Vercel AI SDK（多模型统一接口） |
-| **协作** | Yjs + Hocuspocus |
-| **画板** | ReactFlow |
-| **构建** | Turborepo + pnpm monorepo |
+<!-- TODO: 截图 — AI 对话界面（展示对话窗口、模型选择、上下文引用） -->
+<div align="center">
+  <img src="./screenshots/ai-chat.png" alt="AI 智能对话" width="800" />
+</div>
 
-## 项目结构
+### AI 智能代理 (Agent)
 
-```
-OpenLoaf/
-├── apps/
-│   ├── web/          # Next.js 前端（静态导出）
-│   ├── server/       # Hono 后端 + tRPC API
-│   └── desktop/      # Electron 桌面外壳
-├── packages/
-│   ├── api/          # tRPC 路由类型 & 共享 API 逻辑
-│   ├── db/           # Prisma schema（SQLite）
-│   ├── ui/           # shadcn/ui 组件库（Radix + Tailwind）
-│   └── config/       # 共享配置与环境变量工具
-└── scripts/          # 构建 & 发布脚本
-```
+内置文档、终端、浏览器、邮件、日历等系统代理，AI 可以自动拆解任务、调用工具、独立完成多步骤工作流。
+
+<!-- TODO: 截图 — Agent 执行任务（展示 AI 调用工具、执行命令的过程） -->
+<div align="center">
+  <img src="./screenshots/ai-agent.png" alt="AI 智能代理" width="800" />
+</div>
+
+### 无限画板 (Board)
+
+基于 ReactFlow 的无限画板，支持自由布局、思维导图、流程图、图片节点、AI 生成图片等，让创意自由流动。
+
+<!-- TODO: 截图 — 画板页面（展示节点、连线、思维导图或流程图布局） -->
+<div align="center">
+  <img src="./screenshots/board.png" alt="无限画板" width="800" />
+</div>
+
+### 看板任务管理
+
+类似 Trello 的看板视图，拖拽管理任务状态，支持标签、优先级、到期时间，AI 可自动创建和分配任务。
+
+<!-- TODO: 截图 — 看板页面（展示多列看板、任务卡片、拖拽操作） -->
+<div align="center">
+  <img src="./screenshots/kanban.png" alt="看板任务管理" width="800" />
+</div>
+
+### 内置终端
+
+完整的终端模拟器，无需切换窗口即可执行命令。AI 也可以直接操作终端完成开发任务。
+
+<!-- TODO: 截图 — 终端界面（展示终端窗口、命令执行） -->
+<div align="center">
+  <img src="./screenshots/terminal.png" alt="内置终端" width="800" />
+</div>
+
+### 邮件客户端
+
+集成邮件收发与管理，支持多账户、邮件同步、富文本撰写，AI 可辅助撰写和回复邮件。
+
+<!-- TODO: 截图 — 邮件界面（展示收件箱、邮件列表、撰写窗口） -->
+<div align="center">
+  <img src="./screenshots/email.png" alt="邮件客户端" width="800" />
+</div>
+
+### 智能日历
+
+日程管理与系统日历同步，支持 AI 自动规划日程、智能提醒，多种视图（日/周/月）切换。
+
+<!-- TODO: 截图 — 日历界面（展示月视图或周视图、日程事件） -->
+<div align="center">
+  <img src="./screenshots/calendar.png" alt="智能日历" width="800" />
+</div>
+
+### 文件管理器
+
+内置文件浏览器，支持拖拽上传、文件预览、目录管理，与编辑器和 AI 深度集成。
+
+<!-- TODO: 截图 — 文件管理器界面（展示文件树、文件预览） -->
+<div align="center">
+  <img src="./screenshots/file-manager.png" alt="文件管理器" width="800" />
+</div>
+
+### 桌面小组件
+
+动态小组件系统，可在桌面或应用内展示实时信息：任务进度、日程提醒、快捷操作等。
+
+<!-- TODO: 截图 — 小组件展示（展示几个不同类型的小组件） -->
+<div align="center">
+  <img src="./screenshots/widgets.png" alt="桌面小组件" width="800" />
+</div>
+
+---
 
 ## 快速开始
 
@@ -86,92 +128,44 @@ OpenLoaf/
 - **Node.js** >= 20
 - **pnpm** >= 10（`corepack enable` 即可）
 
-### 安装
+### 安装与运行
 
 ```bash
-# 1. 克隆仓库
+# 克隆仓库
 git clone https://github.com/OpenLoaf/OpenLoaf.git
 cd OpenLoaf
 
-# 2. 安装依赖
+# 安装依赖
 pnpm install
 
-# 3. 初始化数据库
+# 初始化数据库
 pnpm run db:push
 
-# 4. 启动开发环境
+# 启动开发环境（Web + Server）
 pnpm run dev
 ```
 
-打开浏览器访问 [http://localhost:3001](http://localhost:3001) 即可看到 Web 应用，API 运行在 [http://localhost:3000](http://localhost:3000)。
+打开浏览器访问 [http://localhost:3001](http://localhost:3001)。启动桌面应用：`pnpm run desktop`。
 
-### 桌面应用（开发模式）
+## 技术栈
 
-```bash
-pnpm run desktop
-```
-
-## 常用命令
-
-| 命令 | 说明 |
-|------|------|
-| `pnpm run dev` | 启动所有应用（web + server） |
-| `pnpm run dev:web` | 仅启动 Web 前端 |
-| `pnpm run dev:server` | 仅启动 Server 后端 |
-| `pnpm run desktop` | 启动 Electron 桌面应用 |
-| `pnpm run build` | 构建所有包 |
-| `pnpm run check-types` | 全量类型检查 |
-| `pnpm run db:generate` | 生成 Prisma 客户端 |
-| `pnpm run db:push` | 推送 schema 变更到数据库 |
-| `pnpm run db:studio` | 打开 Prisma Studio |
-| `pnpm run lint` | 代码检查 |
-| `pnpm run format:fix` | 自动格式化 |
-
-## 桌面端生产配置
-
-- 配置文件：`~/.openloaf/.env`（API 密钥等）
-- 数据目录：`~/.openloaf/`（Windows: `%USERPROFILE%\.openloaf`）
-- 数据库路径：`~/.openloaf/openloaf.db`（首次运行自动初始化）
-- 默认工作区：
-  - macOS: `~/Documents/OpenLoafWorkspace`
-  - Linux: `~/OpenLoafWorkspace`
-  - Windows: `D:\OpenLoafWorkspace`（无 D 盘则回退到 `%USERPROFILE%\OpenLoafWorkspace`）
-
-## 增量更新
-
-OpenLoaf 支持 Server 和 Web 的增量热更新，无需重新下载整个应用：
-
-- **自动检查** — 应用启动时自动检查更新
-- **手动触发** — 设置 > 关于中可手动检测
-- **Beta 渠道** — 可选开启 Beta 体验，提前获取新功能
-- **崩溃回滚** — 更新后若连续崩溃，自动回退到稳定版本
+Next.js 16 / React 19 / Electron 40 / Hono + tRPC / Prisma + SQLite / Plate.js / Vercel AI SDK / Yjs / ReactFlow / Turborepo + pnpm
 
 ## 参与贡献
 
-我们非常欢迎社区贡献！请阅读以下指南：
+欢迎社区贡献！Fork 仓库 → 创建分支 → 提交 PR。
 
-1. **Fork** 本仓库
-2. 创建你的特性分支：`git checkout -b feature/my-feature`
-3. 提交更改：`git commit -m 'feat: add my feature'`
-4. 推送到远程：`git push origin feature/my-feature`
-5. 发起 **Pull Request**
-
-> 提交 PR 前请务必阅读 [贡献指南](./.github/CONTRIBUTING.md) 并签署 [CLA（贡献者许可协议）](./.github/CLA.md)。
+> 提交前请阅读 [贡献指南](./.github/CONTRIBUTING.md) 并签署 [CLA](./.github/CLA.md)。
 
 ## 许可证
 
-OpenLoaf 采用双重许可模式：
-
-- **开源版** — [GNU AGPLv3](./LICENSE)：自由使用、修改、分发，但需保持同一许可证开源。
-- **商业版** — 如需闭源商用或免除 AGPL 限制，请联系我们获取商业许可。
-
-## 联系我们
-
-- **GitHub Issues** — [提交 Bug 或功能建议](https://github.com/OpenLoaf/OpenLoaf/issues)
-- **GitHub Discussions** — [社区讨论](https://github.com/OpenLoaf/OpenLoaf/discussions)
+双重许可：[AGPLv3](./LICENSE)（开源）/ 商业许可（联系我们）。
 
 ---
 
 <div align="center">
+  <a href="https://github.com/OpenLoaf/OpenLoaf/issues">Bug 反馈</a> &middot;
+  <a href="https://github.com/OpenLoaf/OpenLoaf/discussions">社区讨论</a>
+  <br /><br />
   <sub>OpenLoaf — 重新定义你的 AI 协作空间。</sub>
 </div>

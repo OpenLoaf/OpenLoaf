@@ -236,12 +236,8 @@ const postPackageHook: ForgeConfig['hooks'] = {
   },
 };
 
-// 中文注释：按平台指定打包图标，避免 packager 读取错误格式。
-const packagerIcon = path.resolve(
-  __dirname,
-  'resources',
-  process.platform === 'win32' ? 'icon.ico' : process.platform === 'darwin' ? 'icon.icns' : 'icon.png'
-);
+// 不带扩展名，electron-packager 会根据目标平台自动选择 .icns/.ico/.png
+const packagerIcon = path.resolve(__dirname, 'resources', 'icon');
 
 const config: ForgeConfig = {
   packagerConfig: {

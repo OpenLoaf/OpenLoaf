@@ -11,7 +11,7 @@
  * 统一 Agent 工厂 — 合并 masterAgent + subAgentFactory + 内置 SubAgent 创建逻辑。
  */
 
-import { ToolLoopAgent } from 'ai'
+import { ToolLoopAgent, stepCountIs } from 'ai'
 import type { LanguageModelV3 } from '@ai-sdk/provider'
 import type { AgentFrame } from '@/ai/shared/context/requestContext'
 import { buildToolset } from '@/ai/tools/toolRegistry'
@@ -68,6 +68,12 @@ type CreateMasterAgentInput = {
   instructions?: string
 }
 
+// ---------------------------------------------------------------------------
+// Step limits — prevent infinite tool loops (MAST FM-1.3)
+// ---------------------------------------------------------------------------
+const MASTER_MAX_STEPS = 25
+const SUB_AGENT_MAX_STEPS = 15
+
 /** Creates the master agent instance. */
 export function createMasterAgent(input: CreateMasterAgentInput) {
   const template = getPrimaryTemplate()
@@ -77,6 +83,7 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
     model: input.model,
     instructions,
     tools: buildToolset(toolIds),
+    stopWhen: stepCountIs(MASTER_MAX_STEPS),
     experimental_repairToolCall: createToolCallRepair(),
   })
 }
@@ -178,6 +185,7 @@ export function createSubAgent(input: CreateSubAgentInput): ToolLoopAgent {
       model: input.model,
       instructions: systemPrompt,
       tools: buildToolset(toolIds),
+      stopWhen: stepCountIs(SUB_AGENT_MAX_STEPS),
       experimental_repairToolCall: createToolCallRepair(),
     })
   }
@@ -198,6 +206,7 @@ export function createSubAgent(input: CreateSubAgentInput): ToolLoopAgent {
         model: input.model,
         instructions,
         tools: buildToolset(toolIds),
+        stopWhen: stepCountIs(SUB_AGENT_MAX_STEPS),
         experimental_repairToolCall: createToolCallRepair(),
       })
     }
@@ -222,6 +231,7 @@ export function createSubAgent(input: CreateSubAgentInput): ToolLoopAgent {
     instructions:
       masterTpl.systemPrompt || `你是 ${masterTpl.name}。${masterTpl.description}`,
     tools: buildToolset(toolIds),
+    stopWhen: stepCountIs(SUB_AGENT_MAX_STEPS),
     experimental_repairToolCall: createToolCallRepair(),
   })
 }
@@ -291,6 +301,7 @@ export function createDynamicAgentFromConfig(
     model,
     instructions: systemPrompt,
     tools: buildToolset(toolIds),
+    stopWhen: stepCountIs(SUB_AGENT_MAX_STEPS),
     experimental_repairToolCall: createToolCallRepair(),
   })
 }

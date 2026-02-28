@@ -107,6 +107,8 @@ import {
   browserSnapshotTool,
   browserWaitTool,
 } from "@/ai/tools/browserAutomationTools";
+import { wrapToolWithTimeout } from "@/ai/tools/toolTimeout";
+import { wrapToolWithErrorEnhancer } from "@/ai/tools/toolErrorEnhancer";
 
 type ToolEntry = {
   tool: any;
@@ -254,6 +256,10 @@ function getToolById(toolId: string): ToolEntry | undefined {
 
 /**
  * Builds a ToolLoopAgent toolset from a list of ToolDef.id (MVP).
+ *
+ * Each tool is wrapped with:
+ * 1. Timeout protection (prevents indefinite blocking)
+ * 2. Error enhancement (structured recovery hints for LLM)
  */
 export function buildToolset(toolIds: readonly string[] = []) {
   // AI SDK 的 ToolLoopAgent 需要一个 { [toolName]: tool } 的对象；这里严格用 ToolDef.id 作为 key。
@@ -261,7 +267,10 @@ export function buildToolset(toolIds: readonly string[] = []) {
   for (const toolId of toolIds) {
     const entry = getToolById(toolId);
     if (!entry) continue;
-    toolset[toolId] = entry.tool;
+    // 逻辑：依次包装 timeout → error enhancer，增强工具执行的可靠性。
+    const withTimeout = wrapToolWithTimeout(toolId, entry.tool);
+    const withErrorEnhancer = wrapToolWithErrorEnhancer(toolId, withTimeout);
+    toolset[toolId] = withErrorEnhancer;
   }
   return toolset;
 }

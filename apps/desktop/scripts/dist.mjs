@@ -54,11 +54,12 @@ function canCreateSymlink() {
   }
 }
 
-// 跨平台编译（macOS/Linux → Windows）时，自动跳过 rcedit，除非明确要求签名。
-// 在 Windows 上，仅当无法创建符号链接时跳过（受限环境）。
+// 跨平台编译（macOS/Linux → Windows）时的处理：
+// - 签名：非 Windows 宿主无 signtool，必须跳过
+// - 图标嵌入 (rcedit)：非 Windows 宿主需要 wine，默认也跳过
+//   设置 OPENLOAF_RCEDIT=true 可在安装了 wine 的环境中启用 rcedit（仅嵌入图标，不签名）
 if (process.env.OPENLOAF_REQUIRE_WIN_SIGN !== 'true' && process.env.OPENLOAF_SKIP_WIN_SIGN == null) {
   if (process.platform !== 'win32') {
-    // 非 Windows 宿主 → 必定无 signtool，跳过 rcedit
     process.env.OPENLOAF_SKIP_WIN_SIGN = 'true'
   } else if (!canCreateSymlink()) {
     process.env.OPENLOAF_SKIP_WIN_SIGN = 'true'
@@ -67,9 +68,12 @@ if (process.env.OPENLOAF_REQUIRE_WIN_SIGN !== 'true' && process.env.OPENLOAF_SKI
 
 const extraFlags = []
 const isWinTarget = process.argv.some((arg) => arg === '--win' || arg.startsWith('--win='))
-// 中文注释：允许在 mac/Linux 构建 Windows 产物时跳过 rcedit，规避 wine 依赖。
 if (process.env.OPENLOAF_SKIP_WIN_SIGN === 'true' && isWinTarget) {
-  extraFlags.push('--config.win.signAndEditExecutable=false')
+  // Windows 原生构建或 CI：signAndEditExecutable 保持默认 true（rcedit 正常嵌入图标）
+  // 非 Windows 宿主：跳过 rcedit（避免 wine 依赖），除非显式设置 OPENLOAF_RCEDIT=true
+  if (process.platform !== 'win32' && process.env.OPENLOAF_RCEDIT !== 'true') {
+    extraFlags.push('--config.win.signAndEditExecutable=false')
+  }
 }
 
 const isMacTarget = process.argv.some((arg) => arg === '--mac' || arg.startsWith('--mac='))
