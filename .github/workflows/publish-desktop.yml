@@ -79,6 +79,10 @@ jobs:
         run: pnpm --filter server run build:prod
 
       - name: Build web
+        env:
+          NEXT_PUBLIC_SERVER_URL: http://127.0.0.1:23333
+          NEXT_PUBLIC_OPENLOAF_SAAS_URL: https://openloaf.hexems.com
+          NEXT_PUBLIC_UPDATE_BASE_URL: https://r2-openloaf-update.hexems.com
         run: pnpm --filter web run build
 
       - name: Upload build artifacts
