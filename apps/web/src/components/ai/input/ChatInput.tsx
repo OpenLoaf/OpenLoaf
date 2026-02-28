@@ -222,7 +222,7 @@ export function ChatInputBox({
   value,
   onChange,
   className,
-  placeholder = "Ask, search, or make anything…",
+  placeholder = "提问、搜索或创作任何内容…",
   compact,
   variant = "default",
   actionVariant = "icon",
