@@ -97,11 +97,16 @@ if (isWinTarget) {
 
 const extraArgs = [...extraFlags, ...process.argv.slice(2)].join(' ')
 
+// 禁止 electron-builder 自动发布（检测到 git tag 时会尝试）。
+// 发布由 CI workflow 的独立 job（publish-to-r2、create-release）处理。
+const hasPublishFlag = process.argv.some((arg) => arg === '--publish' || arg.startsWith('--publish='))
+
 const cmd = [
   'pnpm exec dotenv -e .env --',
   'electron-builder',
   `--config.extraMetadata.main=${mainPath}`,
   '--config.afterPack=./scripts/afterPack.js',
+  hasPublishFlag ? '' : '--publish=never',
   extraArgs,
 ].filter(Boolean).join(' ')
 
