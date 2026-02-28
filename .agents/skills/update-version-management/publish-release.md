@@ -47,9 +47,7 @@ pnpm run dist:production    # package + sign + notarize + upload
 4. gzip 压缩（level 9）→ `dist/server.mjs.gz`
 5. SHA-256 计算
 6. 上传构件到 R2：`server/${version}/server.mjs.gz`（共享池，不分渠道）
-7. 更新 `${channel}/manifest.json`（包含 `changelogUrl`）
-8. 上传 `changelogs/` 目录到 `changelogs/server/*.md`
-9. 更新 `changelogs/index.json`
+7. 更新 `${channel}/manifest.json`（包含 `changelogUrl`，指向 GitHub raw）
 
 ## R2 目录结构
 
@@ -65,14 +63,9 @@ openloaf-update.hexems.com/
 ├── server/                      # Server 构件共享池
 │   ├── 1.0.0/server.mjs.gz
 │   └── 1.0.1-beta.1/server.mjs.gz
-├── web/                         # Web 构件共享池
-│   ├── 0.1.0/web.tar.gz
-│   └── 0.1.1-beta.1/web.tar.gz
-└── changelogs/                  # 更新日志
-    ├── index.json
-    ├── server/1.0.0.md
-    ├── web/0.1.0.md
-    └── desktop/1.0.0.md
+└── web/                         # Web 构件共享池
+    ├── 0.1.0/web.tar.gz
+    └── 0.1.1-beta.1/web.tar.gz
 ```
 
 构件按版本号存储在共享池，beta 版"转正"只需将 stable/manifest.json 指向同一 URL。
@@ -98,22 +91,8 @@ commitId: 9f7d1b84c2fec4488ba54ba90a806982d8fa4cc6
 - 目录结构：`changelogs/{version}/{lang}.md`（如 `changelogs/0.1.0/zh.md`、`changelogs/0.1.0/en.md`）
 - 每个版本必须有 `zh.md`（默认语言），`en.md` 等其他语言可选
 - `version` 字段不需要 `channel`（从版本号推断）
-- `commitId` 字段记录该版本发布时的 git commit hash（完整 40 字符），用于下次发布时确定 commit 范围
-- 发布时所有 changelog 文件都会上传到 R2
-- manifest 中 `changelogUrl` 不含语言后缀和扩展名（客户端拼接 `.{lang}.md`）
-
-## changelogs/index.json
-
-```json
-{
-  "server": [
-    { "version": "1.0.1-beta.1", "date": "2026-02-08", "langs": ["zh", "en"] },
-    { "version": "0.1.0", "date": "2026-02-07", "langs": ["zh", "en"] }
-  ],
-  "web": [...],
-  "electron": [...]
-}
-```
+- Changelog 直接从 GitHub raw content 读取（公开仓库），无需上传到 R2
+- manifest 中 `changelogUrl` 指向 GitHub raw URL（不含语言后缀，客户端拼接 `/{lang}.md`）
 
 ## 共享工具模块
 
@@ -130,8 +109,8 @@ commitId: 9f7d1b84c2fec4488ba54ba90a806982d8fa4cc6
 | `computeSha256(path)` | SHA-256 哈希 |
 | `detectChannel(version)` | 版本号推断渠道 |
 | `resolveChannel(args, version)` | CLI 参数 > 自动推断 |
-| `uploadChangelogs(opts)` | 上传 changelogs 并更新 index.json |
-| `buildChangelogUrl(url, component, version)` | 生成 changelog URL |
+| `uploadChangelogs(opts)` | 上传 changelogs 并更新 index.json（已不再使用） |
+| `buildChangelogUrl(url, component, version)` | 生成 GitHub raw changelog URL |
 
 ## 环境变量
 

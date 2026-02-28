@@ -257,7 +257,8 @@ export async function uploadChangelogs({ s3, bucket, component, changelogsDir, p
 /**
  * 为组件的 manifest 条目生成 changelogUrl（不含语言）。
  * 客户端拼接 /{lang}.md 获取对应语言版本。
+ * 直接指向 GitHub raw content（公开仓库），无需额外上传到 R2。
  */
 export function buildChangelogUrl(publicUrl, component, version) {
-  return `${publicUrl}/changelogs/${component}/${version}`
+  return `https://raw.githubusercontent.com/OpenLoaf/OpenLoaf/main/apps/${component}/changelogs/${version}`
 }

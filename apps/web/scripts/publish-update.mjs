@@ -7,7 +7,6 @@
  * 3. 计算 SHA-256
  * 4. 上传到 Cloudflare R2
  * 5. 更新 ${channel}/manifest.json
- * 6. 上传 changelogs
  *
  * 用法：
  *   node scripts/publish-update.mjs                   # 自动检测渠道
@@ -30,7 +29,6 @@ import {
   uploadJson,
   computeSha256,
   resolveChannel,
-  uploadChangelogs,
   buildChangelogUrl,
 } from '../../../scripts/shared/publishUtils.mjs'
 
@@ -120,16 +118,6 @@ async function main() {
   }
 
   await uploadJson(s3, r2Config.bucket, manifestKey, manifest)
-
-  // 7. 上传 changelogs
-  console.log('📝 Uploading changelogs...')
-  await uploadChangelogs({
-    s3,
-    bucket: r2Config.bucket,
-    component: 'web',
-    changelogsDir: path.join(webRoot, 'changelogs'),
-    publicUrl: r2Config.publicUrl,
-  })
 
   console.log(`\n/**
  * Copyright (c) OpenLoaf. All rights reserved.

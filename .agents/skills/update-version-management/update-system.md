@@ -103,9 +103,9 @@ resolveWebRoot():
 
 - 监听 `openloaf:incremental-update:status` 事件
 - state === 'ready' 时弹出对话框
-- `changelogUrl` 是不含语言后缀的 base URL（如 `https://r2.../changelogs/server/0.1.0`）
-- 客户端通过 `navigator.language` 检测语言，拼接 `.{lang}.md` 拉取
-- 回退策略：先尝试用户语言（如 `.en.md`），失败则回退 `.zh.md`
+- `changelogUrl` 指向 GitHub raw URL（如 `https://raw.githubusercontent.com/OpenLoaf/OpenLoaf/main/apps/server/changelogs/0.1.0`）
+- 客户端通过 `navigator.language` 检测语言，拼接 `/{lang}.md` 拉取
+- 回退策略：先尝试用户语言（如 `/en.md`），失败则回退 `/zh.md`
 - 去掉 YAML frontmatter 后展示
 - 防重复弹窗（通过 `ts` 时间戳去重）
 

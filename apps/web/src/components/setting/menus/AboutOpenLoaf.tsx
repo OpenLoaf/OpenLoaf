@@ -27,14 +27,16 @@ import {
 import { Streamdown } from "streamdown";
 
 const STEP_UP_ROUTE = "/step-up";
-const UPDATE_BASE_URL = process.env.NEXT_PUBLIC_UPDATE_BASE_URL;
+const CHANGELOG_GITHUB_RAW =
+  "https://raw.githubusercontent.com/OpenLoaf/OpenLoaf/main";
 
 /**
  * Build changelog URL for a given component and version.
+ * Points directly to GitHub raw content (public repo).
  */
 function buildChangelogUrl(component: "server" | "web", version: string): string | undefined {
-  if (!UPDATE_BASE_URL || version === "—" || version === "bundled") return undefined;
-  return `${UPDATE_BASE_URL}/changelogs/${component}/${version}`;
+  if (version === "—" || version === "bundled") return undefined;
+  return `${CHANGELOG_GITHUB_RAW}/apps/${component}/changelogs/${version}`;
 }
 
 const ITEMS: Array<{ key: string; label: string }> = [
