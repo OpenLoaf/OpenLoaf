@@ -153,19 +153,27 @@ Next.js 16 / React 19 / Electron 40 / Hono + tRPC / Prisma + SQLite / Plate.js /
 
 ## 参与贡献
 
-欢迎社区贡献！Fork 仓库 → 创建分支 → 提交 PR。
+我们非常欢迎社区贡献！请阅读以下指南：
 
-> 提交前请阅读 [贡献指南](./.github/CONTRIBUTING.md) 并签署 [CLA](./.github/CLA.md)。
+1. **Fork** 本仓库
+2. 创建你的特性分支：`git checkout -b feature/my-feature`
+3. 提交更改：`git commit -m 'feat: add my feature'`
+4. 推送到远程：`git push origin feature/my-feature`
+5. 发起 **Pull Request**
+
+> 提交 PR 前请务必阅读 [贡献指南](./.github/CONTRIBUTING.md) 并签署 [CLA（贡献者许可协议）](./.github/CLA.md)。
 
 ## 许可证
 
-双重许可：[AGPLv3](./LICENSE)（开源）/ 商业许可（联系我们）。
+OpenLoaf 采用双重许可模式：
+
+- **开源版** — [GNU AGPLv3](./LICENSE)：自由使用、修改、分发，但需保持同一许可证开源。
+- **商业版** — 如需闭源商用或免除 AGPL 限制，请联系我们获取商业许可。
 
 ---
 
 <div align="center">
-  <a href="https://github.com/OpenLoaf/OpenLoaf/issues">Bug 反馈</a> &middot;
-  <a href="https://github.com/OpenLoaf/OpenLoaf/discussions">社区讨论</a>
+  <a href="https://github.com/OpenLoaf/OpenLoaf/issues">Bug 反馈 & 功能建议</a>
   <br /><br />
   <sub>OpenLoaf — 重新定义你的 AI 协作空间。</sub>
 </div>

@@ -2,7 +2,8 @@
 node_modules
 
 # Docs
-docs/
+docs/plans/
+docs/screenshots/.DS_Store
 .pnp
 .pnp.js
 
@@ -86,7 +87,6 @@ update_codex_cdp.sh
 .serena/memories/style_conventions.md
 .serena/memories/suggested_commands.md
 .serena/memories/tool_ui_event_rules.md
-docs
 .history
 .openloaf/chat-history/
 apps/server/auth.json
