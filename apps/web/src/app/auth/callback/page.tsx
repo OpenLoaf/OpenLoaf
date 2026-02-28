@@ -9,13 +9,30 @@
  */
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { exchangeLoginCode } from "@/lib/saas-auth";
 
 type Status = "loading" | "success" | "error";
 
 export default function AuthCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-muted/40 p-6">
+          <div className="rounded-2xl border border-border/60 bg-background px-6 py-8 text-center shadow-sm">
+            <h1 className="text-lg font-semibold">正在完成登录</h1>
+            <p className="mt-2 text-sm text-muted-foreground">请稍候...</p>
+          </div>
+        </div>
+      }
+    >
+      <AuthCallbackContent />
+    </Suspense>
+  );
+}
+
+function AuthCallbackContent() {
   const router = useRouter();
   const search = useSearchParams();
   const [status, setStatus] = useState<Status>("loading");
