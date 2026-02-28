@@ -25,6 +25,7 @@ import {
 } from '@/ai/shared/context/requestContext'
 import type { RequestContext } from '@/ai/shared/context/requestContext'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
+import { resolveEffectiveAgentName } from '@/ai/services/agentFactory'
 import {
   resolveAgentModelIdsFromConfig,
   type AgentModelIds,
@@ -125,6 +126,18 @@ export const spawnAgentTool = tool({
 
     // Derive current depth from agentStack (each frame = 1 depth level)
     const currentDepth = requestContext.agentStack?.length ?? 0
+
+    // 逻辑：禁止 agent 创建和自己同类型的子 agent，防止无意义递归。
+    const stack = requestContext.agentStack ?? []
+    if (stack.length > 0 && agentType) {
+      const parentName = resolveEffectiveAgentName(stack[stack.length - 1]!.name)
+      const childName = resolveEffectiveAgentName(agentType)
+      if (parentName === childName) {
+        throw new Error(
+          `Agent "${agentType}" cannot spawn a sub-agent of the same type. Try a different approach or use available tools directly.`,
+        )
+      }
+    }
 
     const agentId = agentManager.spawn({
       task,

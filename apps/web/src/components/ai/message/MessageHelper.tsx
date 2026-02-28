@@ -48,7 +48,7 @@ const SUGGESTIONS = [
   },
 ];
 
-export default function MessageHelper() {
+export default function MessageHelper({ compact }: { compact?: boolean } = {}) {
   const { setInput } = useChatOptions();
   const [hoveredIndex, setHoveredIndex] = React.useState(-1);
 
@@ -70,14 +70,16 @@ export default function MessageHelper() {
   }, []);
 
   return (
-    <div className="flex h-full flex-col items-center justify-center">
+    <div className={cn("flex flex-col items-center", compact ? "gap-2" : "h-full justify-center")}>
       {/* 推荐内容 - ExpandableDockTabs pill 风格 */}
-      <div className="mx-auto flex w-full max-w-md flex-col items-center gap-2">
-        <p className="mb-1 text-center text-xs text-muted-foreground">
-          你可以试着问我：
-        </p>
+      <div className={cn("mx-auto flex w-full items-center gap-2", compact ? "max-w-2xl flex-row flex-wrap justify-center" : "max-w-md flex-col")}>
+        {!compact && (
+          <p className="mb-1 text-center text-xs text-muted-foreground">
+            你可以试着问我：
+          </p>
+        )}
         <motion.div
-          className="flex flex-col items-center gap-1.5"
+          className={cn("flex items-center gap-1.5", compact ? "flex-row flex-wrap justify-center" : "flex-col")}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.18, delay: 0.3 }}

@@ -10,7 +10,7 @@
 "use client";
 
 import * as React from "react";
-import { ImageIcon, VideoIcon } from "lucide-react";
+import { ImageIcon, Play, VideoIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatTools, useChatSession } from "../../context";
 import type { AnyToolPart } from "./shared/tool-utils";
@@ -20,7 +20,6 @@ import { getPreviewEndpoint, resolveFileName } from "@/lib/image/uri";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import {
   Attachment,
-  AttachmentInfo,
   Attachments,
   AttachmentPreview,
 } from "@/components/ai-elements/attachments";
@@ -150,7 +149,7 @@ function buildMediaAttachments(input: {
   });
 }
 
-// 逻辑：媒体附件列表，图片支持点击在左侧 stack 打开 ImageViewer。
+// 逻辑：媒体附件列表，图片/视频点击后在左侧 stack 打开对应 viewer。
 function MediaAttachmentList({
   urls,
   kind,
@@ -169,22 +168,66 @@ function MediaAttachmentList({
     [urls, kind, previewCtx],
   );
 
-  const openImageViewer = (record: MediaAttachmentRecord) => {
-    if (!tabId || kind !== "image") return;
-    pushStackItem(tabId, {
-      id: `generated-image:${record.previewUrl}`,
-      component: "image-viewer",
-      title: `生成的${kindLabel}`,
-      params: {
-        uri: record.previewUrl,
-        name: `生成的${kindLabel}`,
-      },
-    });
+  const openMediaViewer = (record: MediaAttachmentRecord) => {
+    if (!tabId) return;
+    if (kind === "image") {
+      pushStackItem(tabId, {
+        id: `generated-image:${record.previewUrl}`,
+        component: "image-viewer",
+        title: `生成的${kindLabel}`,
+        params: {
+          uri: record.previewUrl,
+          name: `生成的${kindLabel}`,
+        },
+      });
+    } else {
+      pushStackItem(tabId, {
+        id: `generated-video:${record.sourceUrl}`,
+        component: "video-viewer",
+        title: `生成的${kindLabel}`,
+        params: {
+          uri: record.sourceUrl,
+          name: `生成的${kindLabel}`,
+          workspaceId: previewCtx?.workspaceId,
+          __customHeader: true,
+        },
+      });
+    }
   };
 
+  // 视频：全宽视频预览卡片
+  if (kind === "video") {
+    return (
+      <div className="w-full min-w-0 pl-1">
+        {attachments.map((record) => (
+          <button
+            key={record.id}
+            type="button"
+            onClick={() => openMediaViewer(record)}
+            className="group relative w-full overflow-hidden rounded-lg"
+          >
+            <video
+              src={record.previewUrl}
+              className="aspect-video w-full object-cover"
+              muted
+              preload="metadata"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="flex size-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm transition-all duration-300 group-hover:scale-110 group-hover:bg-white/30">
+                <Play className="size-5 fill-white text-white" />
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  // 图片：网格布局，每行最多 2 张
   return (
     <div className="w-full min-w-0 pl-1">
-      <Attachments variant={kind === "video" ? "list" : "grid"} className="ml-0">
+      <Attachments variant="grid" className="ml-0">
         {attachments.map((record) => (
           <Attachment
             key={record.id}
@@ -197,12 +240,11 @@ function MediaAttachmentList({
                 mediaType: record.mediaType,
               } as any
             }
-            onClick={() => openImageViewer(record)}
-            className={cn(kind === "image" && "cursor-pointer !size-auto !w-[calc(50%-4px)] aspect-square")}
+            onClick={() => openMediaViewer(record)}
+            className="cursor-pointer !size-auto !w-[calc(50%-4px)] aspect-square"
             title={record.sourceUrl}
           >
             <AttachmentPreview />
-            {kind === "video" ? <AttachmentInfo showMediaType /> : null}
           </Attachment>
         ))}
       </Attachments>

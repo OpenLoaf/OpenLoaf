@@ -24,13 +24,13 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@openloaf/ui/sidebar";
-import { CalendarDays, Clock, Inbox, LayoutDashboard, LayoutTemplate, Mail, Search } from "lucide-react";
+import { CalendarDays, Clock, Inbox, LayoutDashboard, LayoutTemplate, Mail, Search, Sparkles } from "lucide-react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Search as SearchDialog } from "@/components/search/Search";
 import { Kbd, KbdGroup } from "@openloaf/ui/kbd";
-import { WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
+import { AI_ASSISTANT_TAB_INPUT, WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useIsNarrowScreen } from "@/hooks/use-mobile";
 import { trpc } from "@/utils/trpc";
@@ -46,6 +46,8 @@ const SIDEBAR_WORKSPACE_COLOR_CLASS = {
     "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-emerald-700/70 dark:[&>svg]:text-emerald-300/70 hover:[&>svg]:text-emerald-700 dark:hover:[&>svg]:text-emerald-200 data-[active=true]:!bg-emerald-500/15 dark:data-[active=true]:!bg-emerald-400/20 data-[active=true]:[&>svg]:!text-emerald-700 dark:data-[active=true]:[&>svg]:!text-emerald-200",
   workbench:
     "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-amber-700/70 dark:[&>svg]:text-amber-300/70 hover:[&>svg]:text-amber-700 dark:hover:[&>svg]:text-amber-200 data-[active=true]:!bg-amber-500/15 dark:data-[active=true]:!bg-amber-400/20 data-[active=true]:[&>svg]:!text-amber-700 dark:data-[active=true]:[&>svg]:!text-amber-200",
+  aiAssistant:
+    "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-violet-700/70 dark:[&>svg]:text-violet-300/70 hover:[&>svg]:text-violet-700 dark:hover:[&>svg]:text-violet-200 data-[active=true]:!bg-violet-500/15 dark:data-[active=true]:!bg-violet-400/20 data-[active=true]:[&>svg]:!text-violet-700 dark:data-[active=true]:[&>svg]:!text-violet-200",
 } as const;
 
 const SIDEBAR_SEARCH_ICON_CLASS =
@@ -287,6 +289,18 @@ export const AppSidebar = ({
               </SidebarMenuButton>
             </SidebarMenuItem>
           ) : null}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="AI 助手"
+              className={SIDEBAR_WORKSPACE_COLOR_CLASS.aiAssistant}
+              isActive={isMenuActive(AI_ASSISTANT_TAB_INPUT)}
+              onClick={() => openSingletonTab(AI_ASSISTANT_TAB_INPUT)}
+              type="button"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span className="flex-1 truncate">AI 助手</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="工作台"

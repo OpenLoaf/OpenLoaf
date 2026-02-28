@@ -26,6 +26,7 @@ interface VideoViewerProps {
   openUri?: string;
   name?: string;
   projectId?: string;
+  workspaceId?: string;
   rootUri?: string;
   thumbnailSrc?: string;
   width?: number;
@@ -36,38 +37,45 @@ interface VideoViewerProps {
   tabId?: string;
 }
 
+type HlsUrlInput = { path: string; projectId?: string; workspaceId?: string };
+
+function applyIdParams(query: URLSearchParams, input: HlsUrlInput) {
+  if (input.projectId) query.set("projectId", input.projectId);
+  if (input.workspaceId) query.set("workspaceId", input.workspaceId);
+}
+
 /** Build an HLS manifest URL for the backend endpoint. */
-function buildManifestUrl(input: { path: string; projectId?: string }) {
+function buildManifestUrl(input: HlsUrlInput) {
   const baseUrl = resolveServerUrl();
   const query = new URLSearchParams({ path: input.path });
-  if (input.projectId) query.set("projectId", input.projectId);
+  applyIdParams(query, input);
   const prefix = baseUrl ? `${baseUrl}/media/hls/manifest` : "/media/hls/manifest";
   return `${prefix}?${query.toString()}`;
 }
 
 /** Build a quality-specific HLS manifest URL for the backend endpoint. */
-function buildQualityManifestUrl(input: { path: string; projectId?: string; quality: string }) {
+function buildQualityManifestUrl(input: HlsUrlInput & { quality: string }) {
   const baseUrl = resolveServerUrl();
   const query = new URLSearchParams({ path: input.path, quality: input.quality });
-  if (input.projectId) query.set("projectId", input.projectId);
+  applyIdParams(query, input);
   const prefix = baseUrl ? `${baseUrl}/media/hls/manifest` : "/media/hls/manifest";
   return `${prefix}?${query.toString()}`;
 }
 
 /** Build an HLS progress URL for the backend endpoint. */
-function buildProgressUrl(input: { path: string; projectId?: string; quality: string }) {
+function buildProgressUrl(input: HlsUrlInput & { quality: string }) {
   const baseUrl = resolveServerUrl();
   const query = new URLSearchParams({ path: input.path, quality: input.quality });
-  if (input.projectId) query.set("projectId", input.projectId);
+  applyIdParams(query, input);
   const prefix = baseUrl ? `${baseUrl}/media/hls/progress` : "/media/hls/progress";
   return `${prefix}?${query.toString()}`;
 }
 
 /** Build a VTT thumbnails URL for the backend endpoint. */
-function buildThumbnailsUrl(input: { path: string; projectId?: string }) {
+function buildThumbnailsUrl(input: HlsUrlInput) {
   const baseUrl = resolveServerUrl();
   const query = new URLSearchParams({ path: input.path });
-  if (input.projectId) query.set("projectId", input.projectId);
+  applyIdParams(query, input);
   const prefix = baseUrl ? `${baseUrl}/media/hls/thumbnails` : "/media/hls/thumbnails";
   return `${prefix}?${query.toString()}`;
 }
@@ -78,6 +86,7 @@ export default function VideoViewer({
   openUri,
   name,
   projectId: projectIdProp,
+  workspaceId: workspaceIdProp,
   rootUri,
   thumbnailSrc,
   width,
@@ -123,24 +132,25 @@ export default function VideoViewer({
     if (!relativePath) return null;
 
     const quality = "720p";
+    const ids = { projectId: resolvedProjectId, workspaceId: workspaceIdProp };
     const masterUrl = buildManifestUrl({
       path: relativePath,
-      projectId: resolvedProjectId,
+      ...ids,
     });
     const qualityUrl = buildQualityManifestUrl({
       path: relativePath,
-      projectId: resolvedProjectId,
+      ...ids,
       quality,
     });
     const prewarmUrls = [
       buildQualityManifestUrl({
         path: relativePath,
-        projectId: resolvedProjectId,
+        ...ids,
         quality: "1080p",
       }),
       buildQualityManifestUrl({
         path: relativePath,
-        projectId: resolvedProjectId,
+        ...ids,
         quality: "source",
       }),
     ];
@@ -153,15 +163,15 @@ export default function VideoViewer({
       prewarmUrls,
       progress: buildProgressUrl({
         path: relativePath,
-        projectId: resolvedProjectId,
+        ...ids,
         quality,
       }),
-      thumbnails: buildThumbnailsUrl({ path: relativePath, projectId: resolvedProjectId }),
+      thumbnails: buildThumbnailsUrl({ path: relativePath, ...ids }),
       quality,
       projectId: resolvedProjectId,
       relativePath,
     };
-  }, [projectIdProp, rootUri, uri]);
+  }, [projectIdProp, workspaceIdProp, rootUri, uri]);
 
   useEffect(() => {
     if (thumbnailSrc) {
@@ -434,10 +444,10 @@ export default function VideoViewer({
           </div>
         </div>
       ) : null}
-      <div className="flex-1 p-4">
+      <div className="flex-1">
         <div
           ref={playerWrapperRef}
-          className="relative flex h-full w-full items-center justify-center rounded-lg bg-muted/40"
+          className="relative flex h-full w-full items-center justify-center bg-black"
         >
           <VideoPlayer
             src={playbackUrl}

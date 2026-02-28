@@ -16,9 +16,12 @@ import ChatInput from "./input/ChatInput";
 import ChatHeader from "./ChatHeader";
 import { useChatActions, useChatSession, useChatState } from "./context";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useTabs } from "@/hooks/use-tabs";
 import { generateId } from "ai";
 import * as React from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { LayoutGrid, Calendar, Mail, Clock } from "lucide-react";
 import {
   CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES,
   formatFileSize,
@@ -46,6 +49,7 @@ import { useTabView } from "@/hooks/use-tab-view";
 import { resolveServerUrl } from "@/utils/server-url";
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { useChatModelSelection } from "./hooks/use-chat-model-selection";
+import MessageHelper from "./message/MessageHelper";
 
 type ChatProps = {
   className?: string;
@@ -54,6 +58,8 @@ type ChatProps = {
   sessionId?: string;
   loadHistory?: boolean;
   active?: boolean;
+  /** Show full-page centered layout when empty (no left dock). */
+  fullPage?: boolean;
   /** Callback for the header "new session" action. */
   onNewSession?: () => void;
   /** Callback for the header "close session" action. */
@@ -106,6 +112,215 @@ function RecentSessionsBar() {
         })}
       </div>
     </div>
+  )
+}
+
+const QUICK_LAUNCH_ITEMS = [
+  {
+    baseId: "base:workbench", component: "workspace-desktop", label: "工作台", icon: LayoutGrid, title: "工作台", tabIcon: "bot",
+    iconColor: "text-amber-700/70 dark:text-amber-300/70 group-hover:text-amber-700 dark:group-hover:text-amber-200",
+    bgColor: "bg-amber-500/10 dark:bg-amber-400/10 group-hover:bg-amber-500/20 dark:group-hover:bg-amber-400/20",
+  },
+  {
+    baseId: "base:calendar", component: "calendar-page", label: "日历", icon: Calendar, title: "日历", tabIcon: "🗓️",
+    iconColor: "text-sky-700/70 dark:text-sky-300/70 group-hover:text-sky-700 dark:group-hover:text-sky-200",
+    bgColor: "bg-sky-500/10 dark:bg-sky-400/10 group-hover:bg-sky-500/20 dark:group-hover:bg-sky-400/20",
+  },
+  {
+    baseId: "base:mailbox", component: "email-page", label: "邮箱", icon: Mail, title: "邮箱", tabIcon: "📧",
+    iconColor: "text-emerald-700/70 dark:text-emerald-300/70 group-hover:text-emerald-700 dark:group-hover:text-emerald-200",
+    bgColor: "bg-emerald-500/10 dark:bg-emerald-400/10 group-hover:bg-emerald-500/20 dark:group-hover:bg-emerald-400/20",
+  },
+  {
+    baseId: "base:scheduled-tasks", component: "scheduled-tasks-page", label: "任务", icon: Clock, title: "任务", tabIcon: "⏰",
+    iconColor: "text-rose-700/70 dark:text-rose-300/70 group-hover:text-rose-700 dark:group-hover:text-rose-200",
+    bgColor: "bg-rose-500/10 dark:bg-rose-400/10 group-hover:bg-rose-500/20 dark:group-hover:bg-rose-400/20",
+  },
+] as const
+
+/** Quick launch bar shown at bottom of full-page empty state. */
+function QuickLaunchBar() {
+  const { tabId } = useChatSession()
+
+  const handleQuickLaunch = React.useCallback(
+    (item: (typeof QUICK_LAUNCH_ITEMS)[number]) => {
+      if (!tabId) return
+      useTabRuntime.getState().setTabBase(tabId, {
+        id: item.baseId,
+        component: item.component,
+      })
+      useTabs.getState().setTabTitle(tabId, item.title)
+      useTabs.getState().setTabIcon(tabId, item.tabIcon)
+    },
+    [tabId],
+  )
+
+  return (
+    <motion.div
+      className="flex items-center justify-center gap-10 pb-8 pt-2"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.25, duration: 0.3 }}
+    >
+      {QUICK_LAUNCH_ITEMS.map((item, index) => {
+        const Icon = item.icon
+        return (
+          <motion.button
+            key={item.baseId}
+            type="button"
+            className="group flex flex-col items-center gap-1.5"
+            onClick={() => handleQuickLaunch(item)}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 + index * 0.06, duration: 0.25 }}
+          >
+            <div className={cn(
+              "flex h-14 w-14 items-center justify-center rounded-2xl transition-all duration-150 group-hover:scale-105",
+              item.bgColor,
+            )}>
+              <Icon className={cn("size-6 transition-colors duration-150", item.iconColor)} />
+            </div>
+            <span className="text-[11px] text-muted-foreground transition-colors duration-150 group-hover:text-foreground">
+              {item.label}
+            </span>
+          </motion.button>
+        )
+      })}
+    </motion.div>
+  )
+}
+
+/** Full-page layout: centered input when empty, standard layout when messages exist. */
+function ChatFullPageLayout({
+  onNewSession,
+  onCloseSession,
+  attachments,
+  onAddAttachments,
+  onRemoveAttachment,
+  onClearAttachments,
+  onReplaceMaskedAttachment,
+  canAttachAll,
+  canAttachImage,
+  model,
+  isAutoModel,
+  canImageGeneration,
+  canImageEdit,
+  isCodexProvider,
+  onDropHandled,
+  handleDragEnter,
+  handleDragOver,
+  handleDragLeave,
+  handleDrop,
+}: {
+  onNewSession?: () => void
+  onCloseSession?: () => void
+  attachments: ChatAttachment[]
+  onAddAttachments: (files: FileList | ChatAttachmentInput[]) => void
+  onRemoveAttachment: (id: string) => void
+  onClearAttachments: () => void
+  onReplaceMaskedAttachment: (id: string, input: MaskedAttachmentInput) => void
+  canAttachAll: boolean
+  canAttachImage: boolean
+  model: any
+  isAutoModel: boolean
+  canImageGeneration: boolean
+  canImageEdit: boolean
+  isCodexProvider: boolean
+  onDropHandled: () => void
+  handleDragEnter: (e: React.DragEvent) => void
+  handleDragOver: (e: React.DragEvent) => void
+  handleDragLeave: (e: React.DragEvent) => void
+  handleDrop: (e: React.DragEvent) => void
+}) {
+  const { messages, isHistoryLoading, pendingCloudMessage } = useChatState()
+  const isEmpty = !isHistoryLoading && messages.length === 0 && !pendingCloudMessage
+
+  return (
+    <motion.div
+      layout
+      className="relative flex flex-1 w-full flex-col min-h-0 min-w-0"
+      transition={{ layout: { type: "spring", stiffness: 300, damping: 30 } }}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <ChatHeader
+        onNewSession={onNewSession}
+        onCloseSession={onCloseSession}
+        iconPalette="email"
+      />
+      <AnimatePresence mode="wait">
+        {isEmpty ? (
+          <motion.div
+            key="empty"
+            className="flex flex-1 flex-col min-h-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <div className="flex flex-1 flex-col items-center justify-center min-h-0">
+              <div className="flex w-full max-w-2xl flex-col items-center gap-4 px-4">
+                <motion.p
+                  className="mb-4 text-base text-muted-foreground"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1, duration: 0.2 }}
+                >
+                  有什么我能帮你的？
+                </motion.p>
+                <ChatInput
+                  className="w-full !max-h-none !mt-0"
+                  attachments={attachments}
+                  onAddAttachments={onAddAttachments}
+                  onRemoveAttachment={onRemoveAttachment}
+                  onClearAttachments={onClearAttachments}
+                  onReplaceMaskedAttachment={onReplaceMaskedAttachment}
+                  canAttachAll={canAttachAll}
+                  canAttachImage={canAttachImage}
+                  model={model}
+                  isAutoModel={isAutoModel}
+                  canImageGeneration={canImageGeneration}
+                  canImageEdit={canImageEdit}
+                  isCodexProvider={isCodexProvider}
+                  onDropHandled={onDropHandled}
+                />
+                <MessageHelper compact />
+              </div>
+            </div>
+            <QuickLaunchBar />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="filled"
+            className="flex flex-1 flex-col min-h-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.15 }}
+          >
+            <MessageList className="flex-1 min-h-0" />
+            <RecentSessionsBar />
+            <ChatInput
+              className="mx-2 mb-2"
+              attachments={attachments}
+              onAddAttachments={onAddAttachments}
+              onRemoveAttachment={onRemoveAttachment}
+              onClearAttachments={onClearAttachments}
+              onReplaceMaskedAttachment={onReplaceMaskedAttachment}
+              canAttachAll={canAttachAll}
+              canAttachImage={canAttachImage}
+              model={model}
+              isAutoModel={isAutoModel}
+              canImageGeneration={canImageGeneration}
+              canImageEdit={canImageEdit}
+              isCodexProvider={isCodexProvider}
+              onDropHandled={onDropHandled}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   )
 }
 
@@ -166,6 +381,7 @@ export function Chat({
   sessionId,
   loadHistory,
   active = true,
+  fullPage,
   onNewSession,
   onCloseSession,
   onSessionChange,
@@ -767,6 +983,23 @@ export function Chat({
     [addAttachments, addMaskedAttachment, canAttachAll, canAttachImage, projectId]
   );
 
+  // 共享的 ChatInput / drag 相关 props，避免重复。
+  const sharedInputProps = {
+    attachments,
+    onAddAttachments: addAttachments,
+    onRemoveAttachment: removeAttachment,
+    onClearAttachments: clearAttachments,
+    onReplaceMaskedAttachment: replaceMaskedAttachment,
+    canAttachAll,
+    canAttachImage,
+    model: selectedModel,
+    isAutoModel,
+    canImageGeneration,
+    canImageEdit,
+    isCodexProvider,
+    onDropHandled: resetDragState,
+  };
+
   // 渲染单个会话内容（活跃状态）
   const renderActiveSession = () => (
     <ChatCoreProvider
@@ -778,40 +1011,40 @@ export function Chat({
       addAttachments={addAttachments}
       addMaskedAttachment={addMaskedAttachment}
     >
-      <motion.div
-        layout
-        layoutId={`session-content-${effectiveSessionId}`}
-        className="relative flex flex-1 w-full flex-col min-h-0 min-w-0"
-        transition={{ layout: { type: "spring", stiffness: 300, damping: 30 } }}
-        onDragEnter={handleDragEnter}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        <ChatHeader
+      {fullPage ? (
+        <ChatFullPageLayout
           onNewSession={onNewSession}
           onCloseSession={onCloseSession}
-          iconPalette="email"
+          {...sharedInputProps}
+          handleDragEnter={handleDragEnter}
+          handleDragOver={handleDragOver}
+          handleDragLeave={handleDragLeave}
+          handleDrop={handleDrop}
         />
-        <MessageList className="flex-1 min-h-0" />
-        <RecentSessionsBar />
-        <ChatInput
-          className="mx-2 mb-2"
-          attachments={attachments}
-          onAddAttachments={addAttachments}
-          onRemoveAttachment={removeAttachment}
-          onClearAttachments={clearAttachments}
-          onReplaceMaskedAttachment={replaceMaskedAttachment}
-          canAttachAll={canAttachAll}
-          canAttachImage={canAttachImage}
-          model={selectedModel}
-          isAutoModel={isAutoModel}
-          canImageGeneration={canImageGeneration}
-          canImageEdit={canImageEdit}
-          isCodexProvider={isCodexProvider}
-          onDropHandled={resetDragState}
-        />
-      </motion.div>
+      ) : (
+        <motion.div
+          layout
+          layoutId={`session-content-${effectiveSessionId}`}
+          className="relative flex flex-1 w-full flex-col min-h-0 min-w-0"
+          transition={{ layout: { type: "spring", stiffness: 300, damping: 30 } }}
+          onDragEnter={handleDragEnter}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <ChatHeader
+            onNewSession={onNewSession}
+            onCloseSession={onCloseSession}
+            iconPalette="email"
+          />
+          <MessageList className="flex-1 min-h-0" />
+          <RecentSessionsBar />
+          <ChatInput
+            className="mx-2 mb-2"
+            {...sharedInputProps}
+          />
+        </motion.div>
+      )}
     </ChatCoreProvider>
   );
 

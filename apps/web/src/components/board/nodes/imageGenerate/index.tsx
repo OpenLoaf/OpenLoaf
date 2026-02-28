@@ -9,7 +9,7 @@
  */
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, LogIn, RotateCcw, Sparkles } from "lucide-react";
+import { Check, Copy, LogIn, RotateCcw, Settings, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { useBoardContext } from "../../core/BoardProvider";
@@ -38,15 +38,24 @@ import { submitImageTask } from "@/lib/saas-media";
 import { DEFAULT_NODE_SIZE } from "../../engine/constants";
 import { LOADING_NODE_TYPE } from "../LoadingNode";
 import { NodeFrame } from "../NodeFrame";
+import { useAutoResizeNode } from "../lib/use-auto-resize-node";
 import { getPreviewEndpoint } from "@/lib/image/uri";
 import { blobToBase64 } from "../../utils/base64";
 import {
-  ADVANCED_PANEL_OFFSET_PX,
   GENERATED_IMAGE_NODE_FIRST_GAP,
   GENERATED_IMAGE_NODE_GAP,
   IMAGE_GENERATE_ASPECT_RATIO_OPTIONS,
   IMAGE_GENERATE_NODE_TYPE,
 } from "./constants";
+import {
+  BOARD_GENERATE_NODE_BASE,
+  BOARD_GENERATE_BORDER_IMAGE,
+  BOARD_GENERATE_SELECTED_IMAGE,
+  BOARD_GENERATE_ERROR,
+  BOARD_GENERATE_BTN_IMAGE,
+  BOARD_GENERATE_PILL_IMAGE,
+  BOARD_GENERATE_DOT_IMAGE,
+} from "../../ui/board-style-system";
 import { ImageGenerateNodeSchema, type ImageGenerateNodeProps } from "./types";
 import { normalizeOutputCount, normalizeTextValue } from "./utils";
 import { AdvancedSettingsPanel } from "./AdvancedSettingsPanel";
@@ -86,10 +95,9 @@ export function ImageGenerateNodeView({
   const focusThrottleRef = useRef(0);
   /** Loading node id for the current generation. */
   const loadingNodeIdRef = useRef<string | null>(null);
-  /** Advanced panel open state. */
   /** Workspace id used for requests. */
   const resolvedWorkspaceId = useMemo(() => getWorkspaceIdFromCookie(), []);
-  const isAdvancedOpen = selected;
+  const [isAdvancedOpen, setAdvancedOpen] = useState(false);
   const isLocked = engine.isLocked() || element.locked === true;
   const [loginOpen, setLoginOpen] = useState(false);
   const { loggedIn: authLoggedIn, loginStatus, refreshSession } = useSaasAuth();
@@ -293,9 +301,7 @@ export function ImageGenerateNodeView({
     const sourceNode = engine.doc.getElementById(element.id);
     if (!sourceNode || sourceNode.kind !== "node") return null;
     const [nodeX, nodeY, nodeW, nodeH] = sourceNode.xywh;
-    const sideGap = isAdvancedOpen
-      ? GENERATED_IMAGE_NODE_FIRST_GAP + ADVANCED_PANEL_OFFSET_PX
-      : GENERATED_IMAGE_NODE_FIRST_GAP;
+    const sideGap = GENERATED_IMAGE_NODE_FIRST_GAP;
     const existingOutputs = engine.doc.getElements().reduce((nodes, item) => {
       if (item.kind !== "connector") return nodes;
       if (!("elementId" in item.source)) return nodes;
@@ -317,7 +323,7 @@ export function ImageGenerateNodeView({
     );
     if (placement) return { baseX: placement.baseX, startY: placement.startY };
     return { baseX: nodeX + nodeW + sideGap, startY: nodeY };
-  }, [element.id, engine.doc, isAdvancedOpen]);
+  }, [element.id, engine.doc]);
 
   /** Run an image generation request via SaaS. */
   const runImageGenerate = useCallback(async () => {
@@ -505,13 +511,13 @@ export function ImageGenerateNodeView({
   ]);
 
   const containerClassName = [
-    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-3 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
-    "bg-[radial-gradient(180px_circle_at_top_left,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_85%_15%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
-    "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100 dark:shadow-[0_12px_30px_rgba(0,0,0,0.5)]",
-    "dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
+    "relative flex w-full min-w-0 flex-col gap-3 rounded-xl border p-3 text-[#202124] dark:text-slate-100 transition-colors duration-150",
+    BOARD_GENERATE_NODE_BASE,
     viewStatus === "error"
-      ? "border-rose-400/80 bg-rose-50/60 dark:border-rose-400/70 dark:bg-rose-950/30"
-      : "",
+      ? BOARD_GENERATE_ERROR
+      : selected
+        ? BOARD_GENERATE_SELECTED_IMAGE
+        : BOARD_GENERATE_BORDER_IMAGE,
   ].join(" ");
 
   const statusHint = useMemo(() => {
@@ -537,13 +543,9 @@ export function ImageGenerateNodeView({
       return { tone: "error", text: errorText || "生成图片失败，请重试。" };
     }
     if (viewStatus === "done") return null;
-    if (!hasAnyImageInput) {
-      return { tone: "info", text: "未连接图片，将以纯文本生成。" };
-    }
     return null;
   }, [
     errorText,
-    hasAnyImageInput,
     inputImageNodes.length,
     maxInputImages,
     viewStatus,
@@ -630,6 +632,12 @@ export function ImageGenerateNodeView({
 
   const subtitleText = inputSummaryText;
 
+  const { containerRef } = useAutoResizeNode({
+    engine,
+    elementId: element.id,
+    minHeight: 0,
+  });
+
   return (
     <NodeFrame
       onPointerDown={(event) => {
@@ -649,31 +657,33 @@ export function ImageGenerateNodeView({
       }}
     >
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
-      <div className={containerClassName}>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-8 w-8 items-center justify-center overflow-visible text-slate-500 dark:text-slate-300">
-              <img
-                src="/board/pictures-svgrepo-com.svg"
-                alt=""
-                aria-hidden="true"
-                className="absolute -left-6 h-[56px] w-[56px] max-h-none max-w-none"
-                style={{ top: -25 }}
-                draggable={false}
-              />
-            </span>
-            <div className="min-w-0 ml-1">
-            <div className="text-[16px] font-semibold leading-6">图片生成</div>
-            <div className="mt-0.5 text-[13px] leading-4 text-slate-500 dark:text-slate-400">
-              {subtitleText}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
+      <div ref={containerRef} className={containerClassName}>
+        <div className="flex items-center gap-2">
+          <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${BOARD_GENERATE_DOT_IMAGE}`} />
+          <div className="text-[13px] font-semibold leading-5">图片生成</div>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] leading-3 ${BOARD_GENERATE_PILL_IMAGE}`}>
+            {subtitleText}
+          </span>
+          <div className="flex-1" />
+          <button
+            type="button"
+            className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors duration-150 ${
+              isAdvancedOpen
+                ? "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50"
+                : "text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-400 dark:hover:bg-slate-800"
+            }`}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onSelect();
+              setAdvancedOpen((prev) => !prev);
+            }}
+          >
+            <Settings size={14} />
+          </button>
           <button
             type="button"
             disabled={authLoggedIn ? !canGenerate : isLoginBusy}
-            className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200/80 bg-background px-3 text-[13px] leading-none text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
+            className={`inline-flex h-7 items-center justify-center rounded-full px-3 text-[12px] leading-none transition-colors duration-150 disabled:opacity-50 ${BOARD_GENERATE_BTN_IMAGE}`}
             onPointerDown={(event) => {
               event.stopPropagation();
               onSelect();
@@ -681,16 +691,15 @@ export function ImageGenerateNodeView({
             }}
           >
             <span className="inline-flex items-center gap-1">
-              {PrimaryIcon ? <PrimaryIcon size={16} /> : null}
+              {PrimaryIcon ? <PrimaryIcon size={14} /> : null}
               {primaryLabel}
             </span>
           </button>
         </div>
-      </div>
 
-        <div className="mt-1 flex min-h-0 flex-1 flex-col gap-3" data-board-editor>
+        <div className="mt-1 flex shrink-0 flex-col gap-3" data-board-editor>
           <div className="flex items-center gap-3">
-            <div className="text-[13px] text-slate-500 dark:text-slate-400">模型</div>
+            <div className="text-[12px] text-[#5f6368] dark:text-slate-400">模型</div>
             <div className="min-w-0 flex-1">
               <ModelSelect
                 authLoggedIn={authLoggedIn}
@@ -709,8 +718,8 @@ export function ImageGenerateNodeView({
               />
             </div>
           </div>
-          <div className="min-w-0 flex min-h-0 flex-1 flex-col gap-2">
-            <div className="text-[12px] text-slate-500 dark:text-slate-400">
+          <div className="min-w-0 flex shrink-0 flex-col gap-2">
+            <div className="text-[12px] text-[#5f6368] dark:text-slate-400">
               提示词
             </div>
             <Textarea
@@ -722,82 +731,92 @@ export function ImageGenerateNodeView({
                 onUpdate({ promptText: next });
               }}
               data-board-scroll
-              className="min-h-[96px] flex-1 overflow-y-auto px-3.5 py-2.5 text-[16px] leading-6 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[16px]"
+              className="min-h-[96px] flex-1 overflow-y-auto border-transparent bg-[#edf2fa] px-3.5 py-2.5 text-[14px] leading-6 text-[#202124] shadow-none placeholder:text-[#5f6368] focus-visible:border-[#d2e3fc] focus-visible:ring-1 focus-visible:ring-[rgba(26,115,232,0.22)] dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-100 dark:placeholder:text-slate-400 md:text-[14px]"
               disabled={isLocked}
             />
           </div>
         </div>
 
+        {isAdvancedOpen ? (
+          <div
+            className="pt-1"
+            data-board-editor
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <AdvancedSettingsPanel
+              outputCount={outputCount}
+              outputAspectRatioValue={outputAspectRatioValue}
+              aspectRatioOpen={aspectRatioOpen}
+              styleTags={styleTags}
+              negativePromptText={negativePromptText}
+              onSelect={onSelect}
+              onOutputCountChange={(count) => {
+                onUpdate({ outputCount: normalizeOutputCount(count) });
+              }}
+              onAspectRatioOpenChange={setAspectRatioOpen}
+              onAspectRatioChange={(value) => {
+                onUpdate({ outputAspectRatio: value });
+              }}
+              onStyleChange={(value) => {
+                onUpdate({ style: value.join(",") });
+              }}
+              onNegativePromptChange={(value) => {
+                onUpdate({ negativePrompt: value });
+              }}
+              disabled={isLocked}
+            />
+          </div>
+        ) : null}
       </div>
-
       {statusHint ? (
         <div
-          className={[
-            "absolute left-0 top-full z-10 mt-2 w-full rounded-xl border text-slate-700 shadow-[0_10px_20px_rgba(15,23,42,0.12)] backdrop-blur-lg dark:text-slate-100",
-            statusHint.tone === "error"
-              ? "border-rose-200/70 bg-rose-100/95 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/70 dark:text-rose-200"
-              : statusHint.tone === "warn"
-                ? "border-amber-200/70 bg-amber-100/95 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/70 dark:text-amber-200"
-                : "border-sky-200/70 bg-sky-100/95 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/70 dark:text-sky-200",
-          ].join(" ")}
+          className="absolute left-0 top-full z-10 mt-2 w-full px-1"
           data-board-editor
           onPointerDown={(event) => {
             event.stopPropagation();
           }}
         >
-          <div className="relative px-3 py-2.5">
-            {statusHint.tone === "error" ? (
-              <>
-                <button
-                  type="button"
-                  className={[
-                    "absolute right-3 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-md text-[12px] leading-none",
-                    copied
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-current/70 hover:text-current",
-                  ].join(" ")}
-                  onPointerDown={(event) => {
-                    event.stopPropagation();
-                  }}
-                  onClick={handleCopyError}
-                >
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
-                </button>
-                <div className="whitespace-pre-wrap break-words pr-16 font-sans text-[13px] leading-5">
-                  {statusHint.text}
-                </div>
-              </>
-            ) : (
-              <div className="text-[13px] leading-5">{statusHint.text}</div>
-            )}
+          <div
+            className={[
+              "rounded-lg px-3 py-2 text-[12px] leading-5 shadow-sm",
+              statusHint.tone === "error"
+                ? "border border-[#d93025]/20 bg-[#fce8e6] text-[#d93025] dark:border-rose-400/30 dark:bg-rose-950/40 dark:text-rose-200"
+                : statusHint.tone === "warn"
+                  ? "border border-amber-200/70 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+                  : "border border-sky-200/70 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-200",
+            ].join(" ")}
+          >
+            <div className="relative">
+              {statusHint.tone === "error" ? (
+                <>
+                  <button
+                    type="button"
+                    className={[
+                      "absolute right-0 top-0 inline-flex h-6 w-6 items-center justify-center rounded-full text-[12px] leading-none",
+                      copied
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-current/70 hover:text-current",
+                    ].join(" ")}
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                    }}
+                    onClick={handleCopyError}
+                  >
+                    {copied ? <Check size={12} /> : <Copy size={12} />}
+                  </button>
+                  <div className="whitespace-pre-wrap break-words pr-8 font-sans">
+                    {statusHint.text}
+                  </div>
+                </>
+              ) : (
+                <div>{statusHint.text}</div>
+              )}
+            </div>
           </div>
         </div>
       ) : null}
-
-      <AdvancedSettingsPanel
-        open={isAdvancedOpen}
-        outputCount={outputCount}
-        outputAspectRatioValue={outputAspectRatioValue}
-        aspectRatioOpen={aspectRatioOpen}
-        styleTags={styleTags}
-        negativePromptText={negativePromptText}
-        onSelect={onSelect}
-        onOutputCountChange={(count) => {
-          onUpdate({ outputCount: normalizeOutputCount(count) });
-        }}
-        onAspectRatioOpenChange={setAspectRatioOpen}
-        onAspectRatioChange={(value) => {
-          onUpdate({ outputAspectRatio: value });
-        }}
-        onStyleChange={(value) => {
-          // 逻辑：风格字段按逗号分隔。
-          onUpdate({ style: value.join(",") });
-        }}
-        onNegativePromptChange={(value) => {
-          onUpdate({ negativePrompt: value });
-        }}
-        disabled={isLocked}
-      />
     </NodeFrame>
   );
 }
@@ -816,6 +835,6 @@ export const ImageGenerateNodeDefinition: CanvasNodeDefinition<ImageGenerateNode
   capabilities: {
     resizable: false,
     connectable: "auto",
-    minSize: { w: 380, h: 330 },
+    minSize: { w: 340, h: 280 },
   },
 };

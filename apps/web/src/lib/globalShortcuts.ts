@@ -13,7 +13,7 @@ import { startTransition } from "react";
 import { create } from "zustand";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
+import { AI_ASSISTANT_TAB_INPUT, WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
 
 export type GlobalShortcutDefinition = {
   id: string;
@@ -27,8 +27,8 @@ export const GLOBAL_SHORTCUTS: GlobalShortcutDefinition[] = [
   { id: "chat.toggle", label: "切换对话面板", keys: "Mod+B" },
   { id: "search.toggle", label: "搜索", keys: "Mod+F" },
   { id: "open.calendar", label: "打开日历", keys: "Mod+L" },
-  { id: "open.inbox", label: "打开收件箱", keys: "Mod+I" },
-  { id: "open.ai", label: "打开工作台", keys: "Mod+T" },
+  { id: "open.workbench", label: "打开工作台", keys: "Mod+T" },
+  { id: "open.ai-assistant", label: "打开 AI 助手", keys: "Mod+I" },
   { id: "open.template", label: "打开模板", keys: "Mod+J" },
   { id: "tab.new", label: "新建标签页", keys: "Mod+0" },
   { id: "tab.switch", label: "切换标签页", keys: "Mod+1..9" },
@@ -103,7 +103,10 @@ function openSingletonTab(
     title: input.title,
     icon: input.icon,
     leftWidthPercent: options?.leftWidthPercent,
-    base: { id: input.baseId, component: input.component },
+    base:
+      input.component === "ai-chat"
+        ? undefined
+        : { id: input.baseId, component: input.component },
   });
 
   if (options?.closeSearch) useGlobalOverlay.getState().setSearchOpen(false);
@@ -186,7 +189,7 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
     return;
   }
 
-  // Cmd/Ctrl + T 也应视为“全局快捷键”，即使当前焦点在输入框里也要生效（打开工作台）。
+  // Cmd/Ctrl + T 也应视为”全局快捷键”，即使当前焦点在输入框里也要生效（打开工作台）。
   // 注意：浏览器环境可能会被系统/浏览器占用；这里仍然尽量拦截并执行应用内行为。
   if (ctx.workspaceId && keyLower === "t" && withMod && !event.shiftKey && !event.altKey) {
     const quickOpenLeftWidthPercent = overlay.searchOpen ? 70 : 100;
@@ -195,6 +198,17 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
       ctx.workspaceId,
       WORKBENCH_TAB_INPUT,
       { leftWidthPercent: quickOpenLeftWidthPercent, closeSearch: true },
+    );
+    return;
+  }
+
+  // Cmd/Ctrl + I：打开 AI 助手（全局快捷键，在输入框中也生效）。
+  if (ctx.workspaceId && keyLower === "i" && withMod && !event.shiftKey && !event.altKey) {
+    event.preventDefault();
+    openSingletonTab(
+      ctx.workspaceId,
+      AI_ASSISTANT_TAB_INPUT,
+      { closeSearch: true },
     );
     return;
   }
@@ -261,16 +275,6 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
       openSingletonTab(
         ctx.workspaceId,
         { baseId: "base:calendar", component: "calendar-page", title: "日历", icon: "🗓️" },
-        { leftWidthPercent: quickOpenLeftWidthPercent, closeSearch: true },
-      );
-      return;
-    }
-
-    if (keyLower === "i" && withMod && !event.shiftKey && !event.altKey) {
-      event.preventDefault();
-      openSingletonTab(
-        ctx.workspaceId,
-        { baseId: "base:inbox", component: "inbox-page", title: "收集箱", icon: "📥" },
         { leftWidthPercent: quickOpenLeftWidthPercent, closeSearch: true },
       );
       return;

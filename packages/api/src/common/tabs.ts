@@ -64,6 +64,13 @@ export const WORKBENCH_TAB_INPUT = {
   icon: "bot",
 } as const;
 
+export const AI_ASSISTANT_TAB_INPUT = {
+  baseId: "base:ai-assistant",
+  component: "ai-chat",
+  title: "AI 助手",
+  icon: "sparkles",
+} as const;
+
 export const DEFAULT_TAB_INFO = {
   title: WORKBENCH_TAB_INPUT.title,
   icon: WORKBENCH_TAB_INPUT.icon,

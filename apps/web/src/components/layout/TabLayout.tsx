@@ -390,6 +390,7 @@ function RightChatPanel({ tabId }: { tabId: string }) {
           >
             <Chat
               className="flex-1 min-h-0"
+              fullPage={!tab?.base}
               panelKey={`chat:${tab?.id ?? ""}`}
               sessionId={session.sessionId}
               loadHistory={shouldLoadHistory}

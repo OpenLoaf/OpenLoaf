@@ -131,19 +131,27 @@ export function filterImageMediaModels(
     const tags = Array.isArray(model.tags) ? model.tags : [];
     const inputCaps = model.capabilities?.input;
     const outputCaps = model.capabilities?.output;
-    if (
-      tags.length > 0 &&
-      !hasModelTag(model, "image_generation") &&
-      !hasModelTag(model, "image_edit")
-    ) {
-      return false;
-    }
-    if (input.hasMask && inputCaps?.supportsMask === false) return false;
-    if (input.imageCount > 1) {
+
+    if (input.imageCount === 0) {
+      // 文生图模式：只显示 image_generation 模型
+      if (tags.length > 0 && !hasModelTag(model, "image_generation")) {
+        return false;
+      }
+    } else {
+      // 图编辑模式：显示 image_edit 或带图片输入能力的 image_generation 模型
+      const isEdit = hasModelTag(model, "image_edit");
+      const isGenWithImageInput =
+        hasModelTag(model, "image_generation") &&
+        (hasModelTag(model, "image_input") || hasModelTag(model, "image_multi_input"));
+      if (tags.length > 0 && !isEdit && !isGenWithImageInput) {
+        return false;
+      }
       if (inputCaps?.maxImages !== undefined && inputCaps.maxImages < input.imageCount) {
         return false;
       }
     }
+
+    if (input.hasMask && inputCaps?.supportsMask === false) return false;
     if (input.outputCount > 1 && outputCaps?.supportsMulti === false) return false;
     return true;
   });
@@ -164,13 +172,16 @@ export function filterVideoMediaModels(
     const inputCaps = model.capabilities?.input;
     const outputCaps = model.capabilities?.output;
     if (tags.length > 0 && !hasModelTag(model, "video_generation")) return false;
-    if (input.hasReference && inputCaps?.supportsReferenceVideo === false) return false;
-    if (input.hasStartEnd && inputCaps?.supportsStartEnd === false) return false;
-    if (input.imageCount > 1) {
+
+    // 图生视频：当有图片输入时，排除不支持图片输入的模型
+    if (input.imageCount > 0) {
       if (inputCaps?.maxImages !== undefined && inputCaps.maxImages < input.imageCount) {
         return false;
       }
     }
+
+    if (input.hasReference && inputCaps?.supportsReferenceVideo === false) return false;
+    if (input.hasStartEnd && inputCaps?.supportsStartEnd === false) return false;
     if (input.withAudio && outputCaps?.supportsAudio === false) return false;
     return true;
   });

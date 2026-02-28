@@ -246,11 +246,11 @@ function ChoiceGroup({
         {isMulti ? <span className="ml-1 text-muted-foreground">(可多选)</span> : null}
       </div>
       <div className="flex flex-col gap-1.5">
-        {choice.options.map((opt) => {
+        {choice.options.map((opt, idx) => {
           const isSelected = selectedSet.has(opt.label)
           return (
             <button
-              key={opt.label}
+              key={`${opt.label}-${idx}`}
               type="button"
               disabled={disabled}
               onClick={() => handleToggle(opt.label)}
@@ -723,10 +723,10 @@ export default function RequestUserInputTool({
   // 逻辑：choice 模式只读时的渲染
   const renderChoiceReadonly = () => (
     <div className="flex flex-col gap-3">
-      {choices.map((c) => {
+      {choices.map((c, idx) => {
         const sel = savedAnswers[c.key] as string | undefined
         return (
-          <div key={c.key} className="flex flex-col gap-0.5">
+          <div key={c.key || `choice-ro-${idx}`} className="flex flex-col gap-0.5">
             <span className="text-[11px] text-muted-foreground">{c.question}</span>
             <span className="text-xs text-foreground">{sel || '—'}</span>
           </div>
@@ -738,12 +738,12 @@ export default function RequestUserInputTool({
   // 逻辑：form 模式只读时的渲染
   const renderFormReadonly = () => (
     <div className="flex flex-col gap-3">
-      {questions.map((q) => {
+      {questions.map((q, idx) => {
         const displayValue = q.type === 'secret'
           ? '••••••'
           : maskIfSecret(String(savedAnswers[q.key] ?? answers[q.key] ?? ''))
         return (
-          <div key={q.key} className="flex flex-col gap-0.5">
+          <div key={q.key || `question-ro-${idx}`} className="flex flex-col gap-0.5">
             <span className="text-[11px] text-muted-foreground">{q.label}</span>
             <span className="text-xs text-foreground">{displayValue || '—'}</span>
           </div>
@@ -797,8 +797,8 @@ export default function RequestUserInputTool({
               : (questions.length > 0 ? renderFormReadonly() : renderCompactSummary())
           ) : mode === 'choice' ? (
             <div className="flex flex-col gap-3">
-              {choices.map((c) => (
-                <div key={c.key} className="flex flex-col gap-1">
+              {choices.map((c, idx) => (
+                <div key={c.key || `choice-${idx}`} className="flex flex-col gap-1">
                   <ChoiceGroup
                     choice={c}
                     selected={selections[c.key] ?? (c.multiSelect ? [] : '')}
@@ -813,9 +813,9 @@ export default function RequestUserInputTool({
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {questions.map((q) => (
+              {questions.map((q, idx) => (
                 <QuestionField
-                  key={q.key}
+                  key={q.key || `question-${idx}`}
                   question={q}
                   value={answers[q.key] ?? ''}
                   onChange={(v) => handleFieldChange(q.key, v)}

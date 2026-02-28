@@ -29,9 +29,6 @@ export const VIDEO_GENERATE_NODE_TYPE = "video_generate";
 export const GENERATED_IMAGE_NODE_GAP = 32;
 /** Extra horizontal gap for the first generated image node. */
 export const GENERATED_IMAGE_NODE_FIRST_GAP = 120;
-/** Advanced panel width in pixels (w-60 + ml-4). */
-export const ADVANCED_PANEL_OFFSET_PX = 240 + 16;
-
 /** Default output count for image generation nodes. */
 export const IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT = 1;
 /** Maximum number of input images supported by image generation nodes. */

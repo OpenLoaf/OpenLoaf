@@ -9,7 +9,7 @@
  */
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Copy, LogIn, Play, RotateCcw } from "lucide-react";
+import { Copy, LogIn, Play, RotateCcw, Settings } from "lucide-react";
 import type { ModelCapabilities, ModelParameterFeature } from "@openloaf/api/common";
 import { toast } from "sonner";
 
@@ -29,13 +29,13 @@ import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import { submitVideoTask } from "@/lib/saas-media";
 import { LOADING_NODE_TYPE } from "../LoadingNode";
 import { NodeFrame } from "../NodeFrame";
+import { useAutoResizeNode } from "../lib/use-auto-resize-node";
 import { resolveRightStackPlacement } from "../../utils/output-placement";
 import { getPreviewEndpoint } from "@/lib/image/uri";
 import { blobToBase64 } from "../../utils/base64";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import {
-  ADVANCED_PANEL_OFFSET_PX,
   VIDEO_GENERATE_DEFAULT_MAX_INPUT_IMAGES,
   VIDEO_GENERATE_NODE_FIRST_GAP,
   VIDEO_GENERATE_NODE_GAP,
@@ -43,6 +43,15 @@ import {
   VIDEO_GENERATE_OUTPUT_HEIGHT,
   VIDEO_GENERATE_OUTPUT_WIDTH,
 } from "./constants";
+import {
+  BOARD_GENERATE_NODE_BASE,
+  BOARD_GENERATE_BORDER_VIDEO,
+  BOARD_GENERATE_SELECTED_VIDEO,
+  BOARD_GENERATE_ERROR,
+  BOARD_GENERATE_BTN_VIDEO,
+  BOARD_GENERATE_PILL_VIDEO,
+  BOARD_GENERATE_DOT_VIDEO,
+} from "../../ui/board-style-system";
 import { VideoGenerateNodeSchema, type VideoGenerateNodeProps } from "./types";
 import { isEmptyParamValue, normalizeTextValue, resolveParameterDefaults } from "./utils";
 import { ModelSelect } from "./ModelSelect";
@@ -85,7 +94,7 @@ export function VideoGenerateNodeView({
   const loadingNodeIdRef = useRef<string | null>(null);
   /** Workspace id used for requests. */
   const resolvedWorkspaceId = useMemo(() => getWorkspaceIdFromCookie(), []);
-  const isAdvancedOpen = selected;
+  const [isAdvancedOpen, setAdvancedOpen] = useState(false);
   const isLocked = engine.isLocked() || element.locked === true;
   const [loginOpen, setLoginOpen] = useState(false);
   const { loggedIn: authLoggedIn, loginStatus, refreshSession } = useSaasAuth();
@@ -249,9 +258,7 @@ export function VideoGenerateNodeView({
     const sourceNode = engine.doc.getElementById(element.id);
     if (!sourceNode || sourceNode.kind !== "node") return null;
     const [nodeX, nodeY, nodeW, nodeH] = sourceNode.xywh;
-    const sideGap = isAdvancedOpen && parameterFields.length > 0
-      ? VIDEO_GENERATE_NODE_FIRST_GAP + ADVANCED_PANEL_OFFSET_PX
-      : VIDEO_GENERATE_NODE_FIRST_GAP;
+    const sideGap = VIDEO_GENERATE_NODE_FIRST_GAP;
     const existingOutputs = engine.doc.getElements().reduce((nodes, item) => {
       if (item.kind !== "connector") return nodes;
       if (!("elementId" in item.source)) return nodes;
@@ -277,7 +284,7 @@ export function VideoGenerateNodeView({
     );
     if (!placement) return null;
     return { baseX: placement.baseX, startY: placement.startY };
-  }, [element.id, engine.doc, isAdvancedOpen, parameterFields.length]);
+  }, [element.id, engine.doc]);
 
   const clearLoadingNode = useCallback(() => {
     if (!loadingNodeIdRef.current) return;
@@ -691,28 +698,29 @@ export function VideoGenerateNodeView({
       return { tone: "error", text: errorText || "生成视频失败，请重试。" };
     }
     if (viewStatus === "done") return null;
-    if (!hasAnyImageInput && allowsPrompt) {
-      return { tone: "info", text: "未连接图片，将以纯文本生成视频。" };
-    }
     return null;
   }, [
-    allowsPrompt,
     errorText,
-    hasAnyImageInput,
     inputImageCount,
     maxInputImages,
     missingRequiredParameters,
     viewStatus,
   ]);
 
+  const { containerRef } = useAutoResizeNode({
+    engine,
+    elementId: element.id,
+    minHeight: 0,
+  });
+
   const containerClassName = [
-    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-2 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
-    "bg-[radial-gradient(180px_circle_at_top_left,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_85%_15%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
-    "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100 dark:shadow-[0_12px_30px_rgba(0,0,0,0.5)]",
-    "dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
+    "relative flex w-full min-w-0 flex-col gap-2 rounded-xl border p-3 text-[#202124] dark:text-slate-100 transition-colors duration-150",
+    BOARD_GENERATE_NODE_BASE,
     viewStatus === "error"
-      ? "border-rose-400/80 bg-rose-50/60 dark:border-rose-400/70 dark:bg-rose-950/30"
-      : "",
+      ? BOARD_GENERATE_ERROR
+      : selected
+        ? BOARD_GENERATE_SELECTED_VIDEO
+        : BOARD_GENERATE_BORDER_VIDEO,
   ].join(" ");
 
   return (
@@ -729,41 +737,49 @@ export function VideoGenerateNodeView({
       }}
     >
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
-      <div className={containerClassName}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-8 w-8 items-center justify-center text-slate-500 dark:text-slate-300">
-            <Play size={18} />
+      <div ref={containerRef} className={containerClassName}>
+      <div className="flex items-center gap-2">
+        <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${BOARD_GENERATE_DOT_VIDEO}`} />
+        <div className="text-[13px] font-semibold leading-5">视频生成</div>
+        <span className={`rounded-full px-2 py-0.5 text-[10px] leading-3 ${BOARD_GENERATE_PILL_VIDEO}`}>
+          {statusLabel}
+        </span>
+        <div className="flex-1" />
+        <button
+          type="button"
+          className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors duration-150 ${
+            isAdvancedOpen
+              ? "bg-[#f3e8fd] text-[#9334e6] dark:bg-violet-800/60 dark:text-violet-200"
+              : "text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-400 dark:hover:bg-slate-800"
+          }`}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            onSelect();
+            setAdvancedOpen((prev) => !prev);
+          }}
+        >
+          <Settings size={14} />
+        </button>
+        <button
+          type="button"
+          disabled={authLoggedIn ? !canGenerate : isLoginBusy}
+          className={`inline-flex h-7 items-center justify-center rounded-full px-3 text-[12px] leading-none transition-colors duration-150 disabled:opacity-50 ${BOARD_GENERATE_BTN_VIDEO}`}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            onSelect();
+            handlePrimaryAction();
+          }}
+        >
+          <span className="inline-flex items-center gap-1">
+            {PrimaryIcon ? <PrimaryIcon size={14} /> : null}
+            {primaryLabel}
           </span>
-          <div className="min-w-0 ml-1">
-            <div className="text-[12px] font-semibold leading-4">视频生成</div>
-            <div className="mt-0.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
-              {statusLabel}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            disabled={authLoggedIn ? !canGenerate : isLoginBusy}
-            className="inline-flex h-7 items-center justify-center rounded-md border border-slate-200/80 bg-background px-2.5 text-[11px] text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
-            onPointerDown={(event) => {
-              event.stopPropagation();
-              onSelect();
-              handlePrimaryAction();
-            }}
-          >
-            <span className="inline-flex items-center gap-1">
-              {PrimaryIcon ? <PrimaryIcon size={12} /> : null}
-              {primaryLabel}
-            </span>
-          </button>
-        </div>
+        </button>
       </div>
 
-      <div className="mt-1 flex min-h-0 flex-1 flex-col gap-2" data-board-editor>
+      <div className="mt-1 flex shrink-0 flex-col gap-2" data-board-editor>
         <div className="flex items-center justify-between gap-2">
-          <div className="text-[11px] text-slate-500 dark:text-slate-400">输出音频</div>
+          <div className="text-[11px] text-[#5f6368] dark:text-slate-400">输出音频</div>
           <Switch
             checked={outputAudio}
             onCheckedChange={(checked) => {
@@ -774,7 +790,7 @@ export function VideoGenerateNodeView({
           />
         </div>
         <div className="flex items-center gap-2">
-          <div className="text-[11px] text-slate-500 dark:text-slate-400">模型</div>
+          <div className="text-[11px] text-[#5f6368] dark:text-slate-400">模型</div>
           <div className="min-w-0 flex-1">
             <ModelSelect
               authLoggedIn={authLoggedIn}
@@ -793,11 +809,11 @@ export function VideoGenerateNodeView({
             />
           </div>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-1">
+        <div className="flex shrink-0 flex-col gap-1">
           {allowsPrompt ? (
             <>
-              <div className="text-[12px] text-slate-500 dark:text-slate-400">提示词</div>
-              <div className="min-w-0 flex min-h-0 flex-1 flex-col gap-1">
+              <div className="text-[11px] text-[#5f6368] dark:text-slate-400">提示词</div>
+              <div className="min-w-0 flex shrink-0 flex-col gap-1">
                 <Textarea
                   value={localPromptText}
                   maxLength={500}
@@ -807,7 +823,7 @@ export function VideoGenerateNodeView({
                     onUpdate({ promptText: next });
                   }}
                   data-board-scroll
-                  className="h-full min-h-[96px] flex-1 overflow-y-auto px-3 py-2 text-[13px] leading-5 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500 md:text-[13px]"
+                  className="h-full min-h-[96px] flex-1 overflow-y-auto border-transparent bg-[#edf2fa] px-3 py-2 text-[13px] leading-5 text-[#202124] shadow-none placeholder:text-[#5f6368] focus-visible:border-[#d2e3fc] focus-visible:ring-1 focus-visible:ring-[rgba(26,115,232,0.22)] dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-100 dark:placeholder:text-slate-400 md:text-[13px]"
                   disabled={isLocked}
                 />
               </div>
@@ -816,66 +832,82 @@ export function VideoGenerateNodeView({
         </div>
       </div>
 
-      {statusHint ? (
-        statusHint.tone === "error" ? (
-          <div className="relative rounded-md border border-rose-200/70 bg-rose-50 p-2 text-[11px] leading-4 text-rose-600 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
-            <button
-              type="button"
-              className="absolute right-2 top-2 rounded-md border border-rose-200/70 bg-background px-2 py-0.5 text-[10px] text-rose-600 hover:bg-rose-50 dark:border-rose-900/50 dark:text-rose-200 dark:hover:bg-rose-950/60"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-              }}
-              onClick={handleCopyError}
-            >
-              <span className="inline-flex items-center gap-1">
-                <Copy size={10} />
-                复制
-              </span>
-            </button>
-            <pre className="whitespace-pre-wrap break-words pr-14 font-sans">
-              {statusHint.text}
-            </pre>
-          </div>
-        ) : (
-          <div
-            className={[
-              "rounded-md border px-2 py-1 text-[11px] leading-4",
-              statusHint.tone === "warn"
-                ? "border-amber-200/70 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
-                : "border-slate-200/70 bg-slate-50 text-slate-600 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-200",
-            ].join(" ")}
-          >
-            {statusHint.text}
-          </div>
-        )
+      {isAdvancedOpen ? (
+        <div
+          className="pt-1"
+          data-board-editor
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <AdvancedSettingsPanel
+            parameterFields={parameterFields}
+            resolvedParameters={resolvedParameters}
+            onParameterChange={handleParameterChange}
+            aspectRatioValue={outputAspectRatioValue}
+            aspectRatioOpen={aspectRatioOpen}
+            onAspectRatioOpenChange={setAspectRatioOpen}
+            onAspectRatioChange={(value) => {
+              onUpdate({ aspectRatio: value });
+            }}
+            durationSeconds={durationSeconds}
+            onDurationChange={(value) => {
+              onUpdate({ durationSeconds: value });
+            }}
+            styleTags={styleTags}
+            onStyleChange={(value) => {
+              onUpdate({ style: value.join(",") });
+            }}
+            negativePromptText={negativePromptText}
+            onNegativePromptChange={(value) => {
+              onUpdate({ negativePrompt: value });
+            }}
+            disabled={isLocked}
+          />
+        </div>
       ) : null}
-      <AdvancedSettingsPanel
-        open={isAdvancedOpen}
-        parameterFields={parameterFields}
-        resolvedParameters={resolvedParameters}
-        onParameterChange={handleParameterChange}
-        aspectRatioValue={outputAspectRatioValue}
-        aspectRatioOpen={aspectRatioOpen}
-        onAspectRatioOpenChange={setAspectRatioOpen}
-        onAspectRatioChange={(value) => {
-          onUpdate({ aspectRatio: value });
-        }}
-        durationSeconds={durationSeconds}
-        onDurationChange={(value) => {
-          onUpdate({ durationSeconds: value });
-        }}
-        styleTags={styleTags}
-        onStyleChange={(value) => {
-          // 逻辑：风格字段按逗号分隔。
-          onUpdate({ style: value.join(",") });
-        }}
-        negativePromptText={negativePromptText}
-        onNegativePromptChange={(value) => {
-          onUpdate({ negativePrompt: value });
-        }}
-        disabled={isLocked}
-      />
       </div>
+      {statusHint ? (
+        <div
+          className="absolute left-0 top-full z-10 mt-2 w-full px-1"
+          data-board-editor
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          {statusHint.tone === "error" ? (
+            <div className="relative rounded-lg border border-[#d93025]/20 bg-[#fce8e6] p-2 text-[11px] leading-4 text-[#d93025] shadow-sm dark:border-rose-400/30 dark:bg-rose-950/40 dark:text-rose-200">
+              <button
+                type="button"
+                className="absolute right-2 top-2 rounded-full border border-[#d93025]/20 bg-background px-2 py-0.5 text-[10px] text-[#d93025] hover:bg-[#fce8e6] dark:border-rose-400/30 dark:text-rose-200 dark:hover:bg-rose-950/60"
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                }}
+                onClick={handleCopyError}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Copy size={10} />
+                  复制
+                </span>
+              </button>
+              <pre className="whitespace-pre-wrap break-words pr-14 font-sans">
+                {statusHint.text}
+              </pre>
+            </div>
+          ) : (
+            <div
+              className={[
+                "rounded-lg border px-2 py-1.5 text-[11px] leading-4 shadow-sm",
+                statusHint.tone === "warn"
+                  ? "border-amber-200/70 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
+                  : "border-sky-200/70 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-200",
+              ].join(" ")}
+            >
+              {statusHint.text}
+            </div>
+          )}
+        </div>
+      ) : null}
     </NodeFrame>
   );
 }

@@ -19,7 +19,7 @@ import { Message, MessageContent } from "@/components/ai-elements/message";
 
 export default function MessageThinking() {
   return (
-    <Message from="assistant" className="max-w-[80%] -mt-4">
+    <Message from="assistant" className="max-w-[80%] mt-2">
       <MessageContent className="gap-0">
         <Reasoning isStreaming defaultOpen={false} className="mb-0">
           <ReasoningTrigger

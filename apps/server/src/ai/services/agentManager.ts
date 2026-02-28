@@ -333,7 +333,23 @@ class AgentManager {
     const writer = spawnContext.writer
     const toolCallId = id
 
-    await runWithContext(spawnContext.requestContext, async () => {
+    // 逻辑：创建子 RequestContext，并将当前 agent 入栈到 agentStack。
+    // 这样子 agent 内部调用 spawn-agent 时，agentStack.length 能正确反映嵌套深度，
+    // 从而让 MAX_DEPTH 限制生效，防止无限递归 spawn。
+    const childRequestContext: RequestContext = {
+      ...spawnContext.requestContext,
+      agentStack: [
+        ...(spawnContext.requestContext.agentStack ?? []),
+        {
+          kind: 'master' as const,
+          name: agent.name,
+          agentId: agent.id,
+          path: [],
+        },
+      ],
+    }
+
+    await runWithContext(childRequestContext, async () => {
       try {
         const toolLoopAgent = createSubAgent({
           agentType,
@@ -444,11 +460,12 @@ class AgentManager {
     )
 
     // 逻辑：如果 preface 存在且未注入，作为首条 user 消息注入到消息链。
+    // 注意：modelMessages 已由 convertToModelMessages 转换为 ModelMessage 格式，
+    // 需使用 `content` 而非 UIMessage 的 `parts`。
     if (agent.preface && !agent.prefaceInjected) {
       modelMessages.unshift({
-        id: '__sub_agent_preface__',
         role: 'user',
-        parts: [{ type: 'text', text: agent.preface }],
+        content: [{ type: 'text', text: agent.preface }],
       } as any)
       agent.prefaceInjected = true
     }
@@ -467,7 +484,8 @@ class AgentManager {
           : []
         agent.responseParts = parts
         // 逻辑：将 assistant 响应追加到对话历史，支持多轮。
-        if (responseMessage) {
+        // 过滤空 parts 的消息——validateUIMessages 对 assistant 空 parts 会报 TypeValidationError。
+        if (responseMessage && parts.length > 0) {
           agent.messages.push(responseMessage as UIMessage)
           // 逻辑：写入 assistant 消息到 agent 独立 JSONL。
           this.appendToAgentHistory(agent, responseMessage as UIMessage)

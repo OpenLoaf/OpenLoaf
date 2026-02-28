@@ -17,7 +17,7 @@ import { Copy, Play, RotateCcw, Square } from "lucide-react";
 import { generateId } from "ai";
 
 import { useBoardContext } from "../../core/BoardProvider";
-import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
+import { buildChatModelOptions, buildCloudModelOptions } from "@/lib/provider-models";
 import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSettingsValues } from "@/hooks/use-settings";
@@ -52,6 +52,15 @@ import {
 } from "./constants";
 import { ImagePromptGenerateNodeSchema, type ImagePromptGenerateNodeProps } from "./types";
 import { measureContainerHeight } from "./utils";
+import {
+  BOARD_GENERATE_NODE_BASE,
+  BOARD_GENERATE_BORDER_PROMPT,
+  BOARD_GENERATE_SELECTED_PROMPT,
+  BOARD_GENERATE_ERROR,
+  BOARD_GENERATE_BTN_PROMPT,
+  BOARD_GENERATE_DOT_PROMPT,
+  BOARD_GENERATE_INSET,
+} from "../../ui/board-style-system";
 
 export { IMAGE_PROMPT_GENERATE_NODE_TYPE };
 export type { ImagePromptGenerateNodeProps };
@@ -82,6 +91,7 @@ const IMAGE_PROMPT_GENERATE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefiniti
 /** Render the image prompt generation node. */
 export function ImagePromptGenerateNodeView({
   element,
+  selected,
   onSelect,
   onUpdate,
 }: CanvasNodeViewProps<ImagePromptGenerateNodeProps>) {
@@ -90,11 +100,17 @@ export function ImagePromptGenerateNodeView({
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
   const installedCliProviderIds = useInstalledCliProviderIds();
-  const chatSource = normalizeChatModelSource(basic.chatSource);
-  const modelOptions = useMemo(
-    () => buildChatModelOptions(chatSource, providerItems, cloudModels, installedCliProviderIds),
-    [chatSource, providerItems, cloudModels, installedCliProviderIds]
-  );
+  // 逻辑：图生文需要同时显示本地 + 云端的图片理解模型，不受 chatSource 限制。
+  const modelOptions = useMemo(() => {
+    const localOptions = buildChatModelOptions("local", providerItems, cloudModels, installedCliProviderIds);
+    const cloudOptions = buildCloudModelOptions(cloudModels);
+    const merged = new Map<string, (typeof localOptions)[number]>();
+    for (const option of [...localOptions, ...cloudOptions]) {
+      if (merged.has(option.id)) continue;
+      merged.set(option.id, option);
+    }
+    return Array.from(merged.values());
+  }, [providerItems, cloudModels, installedCliProviderIds]);
   const candidates = useMemo(() => {
     return filterModelOptionsByTags(modelOptions, {
       required: REQUIRED_TAGS,
@@ -162,6 +178,12 @@ export function ImagePromptGenerateNodeView({
     }
     return candidates[0]?.id ?? "";
   }, [candidates, defaultModelId, selectedModelId]);
+
+  // 逻辑：根据选中模型判断来源（本地/云端），传给服务端正确路由。
+  const effectiveModelSource = useMemo<"local" | "cloud">(() => {
+    const cloudIds = new Set(buildCloudModelOptions(cloudModels).map((o) => o.id));
+    return cloudIds.has(effectiveModelId) ? "cloud" : "local";
+  }, [cloudModels, effectiveModelId]);
 
   useEffect(() => {
     // 逻辑：当默认模型可用时自动写入节点，避免用户每次重复选择。
@@ -366,16 +388,15 @@ export function ImagePromptGenerateNodeView({
   }, []);
 
   const containerClassName = [
-    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-2 rounded-xl border border-slate-300/80 bg-white/90 p-3 text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur-lg",
-    "bg-[radial-gradient(180px_circle_at_top_right,rgba(126,232,255,0.45),rgba(255,255,255,0)_60%),radial-gradient(220px_circle_at_15%_85%,rgba(186,255,236,0.35),rgba(255,255,255,0)_65%)]",
-    "dark:border-slate-700/90 dark:bg-slate-900/80 dark:text-slate-100 dark:shadow-[0_12px_30px_rgba(0,0,0,0.5)]",
-    "dark:bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.6),rgba(15,23,42,0)_48%),radial-gradient(circle_at_top_left,rgba(34,211,238,0.22),rgba(15,23,42,0)_42%)]",
+    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-2 rounded-xl border p-3 text-[#202124] dark:text-slate-100 transition-colors duration-150",
+    BOARD_GENERATE_NODE_BASE,
     viewStatus === "running"
       ? "openloaf-thinking-border openloaf-thinking-border-on border-transparent"
-      : "",
-    viewStatus === "error"
-      ? "border-rose-400/80 bg-rose-50/60 dark:border-rose-400/70 dark:bg-rose-950/30"
-      : "",
+      : viewStatus === "error"
+        ? BOARD_GENERATE_ERROR
+        : selected
+          ? BOARD_GENERATE_SELECTED_PROMPT
+          : BOARD_GENERATE_BORDER_PROMPT,
   ].join(" ");
 
   const handleCopyResult = useCallback(async () => {
@@ -427,73 +448,57 @@ export function ImagePromptGenerateNodeView({
       }}
     >
       <div className={containerClassName} ref={containerRef}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-8 w-8 items-center justify-center overflow-visible text-slate-500 dark:text-slate-300">
-            <img
-              src="/board/converted_small.svg"
-              alt=""
-              aria-hidden="true"
-              className="absolute -left-10 -top-10 h-24 w-24 max-h-none max-w-none"
-              draggable={false}
-            />
-          </span>
-          <div className="min-w-0 ml-1">
-            <div className="text-[12px] font-semibold leading-4">图生文</div>
-            <div className="mt-0.5 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
-              描述：根据图片生成文字内容
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          {viewStatus === "running" ? (
-            <button
-              type="button"
-              className="rounded-md border border-slate-200/80 bg-background px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                stopImagePromptGenerate();
-              }}
-            >
-              <span className="inline-flex items-center gap-1">
-                <Square size={12} />
-                停止
-              </span>
-            </button>
-          ) : hasValidInput ? (
-            <button
-              type="button"
-              disabled={
-                candidates.length === 0 ||
-                !effectiveModelId ||
-                engine.isLocked() ||
-                element.locked
-              }
-              className="rounded-md border border-slate-200/80 bg-background px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700/80 dark:text-slate-200 dark:hover:bg-slate-800"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                onSelect();
-                runImagePromptGenerate({
-                  chatModelId: effectiveModelId,
-                  chatModelSource: chatSource,
-                });
-              }}
-            >
-              <span className="inline-flex items-center gap-1">
-                {viewStatus === "error" || resultText ? (
-                  <RotateCcw size={12} />
-                ) : (
-                  <Play size={12} />
-                )}
-                {viewStatus === "error" ? "重试" : resultText ? "重新生成" : "运行"}
-              </span>
-            </button>
-          ) : null}
-        </div>
+      <div className="flex items-center gap-2">
+        <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${BOARD_GENERATE_DOT_PROMPT}`} />
+        <div className="text-[13px] font-semibold leading-5">图生文</div>
+        <div className="flex-1" />
+        {viewStatus === "running" ? (
+          <button
+            type="button"
+            className={`inline-flex h-7 items-center justify-center rounded-full px-3 text-[12px] leading-none transition-colors duration-150 ${BOARD_GENERATE_BTN_PROMPT}`}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              stopImagePromptGenerate();
+            }}
+          >
+            <span className="inline-flex items-center gap-1">
+              <Square size={12} />
+              停止
+            </span>
+          </button>
+        ) : hasValidInput ? (
+          <button
+            type="button"
+            disabled={
+              candidates.length === 0 ||
+              !effectiveModelId ||
+              engine.isLocked() ||
+              element.locked
+            }
+            className={`inline-flex h-7 items-center justify-center rounded-full px-3 text-[12px] leading-none transition-colors duration-150 disabled:opacity-50 ${BOARD_GENERATE_BTN_PROMPT}`}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onSelect();
+              runImagePromptGenerate({
+                chatModelId: effectiveModelId,
+                chatModelSource: effectiveModelSource,
+              });
+            }}
+          >
+            <span className="inline-flex items-center gap-1">
+              {viewStatus === "error" || resultText ? (
+                <RotateCcw size={12} />
+              ) : (
+                <Play size={12} />
+              )}
+              {viewStatus === "error" ? "重试" : resultText ? "重新生成" : "运行"}
+            </span>
+          </button>
+        ) : null}
       </div>
 
       <div className="mt-1 flex items-center gap-2">
-        <div className="text-[11px] text-slate-500 dark:text-slate-400">模型</div>
+        <div className="text-[11px] text-[#5f6368] dark:text-slate-400">模型</div>
         <div className="min-w-0 flex-1">
           <Select
             value={effectiveModelId}
@@ -528,12 +533,12 @@ export function ImagePromptGenerateNodeView({
       {resultText ? (
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+            <div className="text-[11px] text-[#5f6368] dark:text-slate-400">
               图片内容
             </div>
             <button
               type="button"
-              className="rounded-md px-1.5 py-0.5 text-[10px] text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100"
+              className="rounded-full px-1.5 py-0.5 text-[10px] text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100"
               onPointerDown={(event) => {
                 event.stopPropagation();
               }}
@@ -546,7 +551,7 @@ export function ImagePromptGenerateNodeView({
           </div>
           <div
             data-board-scroll
-            className="rounded-md border border-slate-200/70 p-2 text-[12px] leading-5 text-slate-700 dark:border-slate-700/70 dark:text-slate-200"
+            className={`rounded-xl p-2 text-[12px] leading-5 text-[#202124] dark:text-slate-200 ${BOARD_GENERATE_INSET}`}
           >
             <pre className="whitespace-pre-wrap break-words font-sans">
               {resultText}

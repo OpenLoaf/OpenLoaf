@@ -8,7 +8,6 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 export {
-  ADVANCED_PANEL_OFFSET_PX,
   GENERATED_IMAGE_NODE_FIRST_GAP,
   GENERATED_IMAGE_NODE_GAP,
   IMAGE_GENERATE_ASPECT_RATIO_OPTIONS,

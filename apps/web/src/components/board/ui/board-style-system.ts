@@ -103,3 +103,65 @@ export const BOARD_SETTINGS_DROPDOWN_HOVER =
 /** Advanced settings dropdown item active. */
 export const BOARD_SETTINGS_DROPDOWN_ITEM_ACTIVE =
   "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50";
+
+/* ── Generation Node Style Constants ── */
+
+/** Glass container base for generation nodes. */
+export const BOARD_GENERATE_NODE_BASE =
+  "bg-white/95 shadow-[0_10px_24px_rgba(15,23,42,0.10)] backdrop-blur-lg dark:bg-[hsl(var(--background)/0.92)] dark:shadow-[0_10px_24px_rgba(0,0,0,0.4)]";
+
+/** Semantic border — image generation (blue). */
+export const BOARD_GENERATE_BORDER_IMAGE = "border-[#d2e3fc] dark:border-sky-800/60";
+/** Semantic border — video generation (purple). */
+export const BOARD_GENERATE_BORDER_VIDEO = "border-[#e9d5fb] dark:border-violet-800/60";
+/** Semantic border — image prompt (amber). */
+export const BOARD_GENERATE_BORDER_PROMPT = "border-[#fcefc8] dark:border-amber-800/60";
+
+/** Selected state — image generation. */
+export const BOARD_GENERATE_SELECTED_IMAGE =
+  "border-[#1a73e8] ring-1 ring-[#1a73e8]/20 dark:border-sky-400 dark:ring-sky-400/20";
+/** Selected state — video generation. */
+export const BOARD_GENERATE_SELECTED_VIDEO =
+  "border-[#9334e6] ring-1 ring-[#9334e6]/20 dark:border-violet-400 dark:ring-violet-400/20";
+/** Selected state — image prompt. */
+export const BOARD_GENERATE_SELECTED_PROMPT =
+  "border-[#f9ab00] ring-1 ring-[#f9ab00]/20 dark:border-amber-400 dark:ring-amber-400/20";
+
+/** Error state for generation nodes. */
+export const BOARD_GENERATE_ERROR =
+  "border-[#d93025] bg-[#fce8e6]/60 dark:border-rose-400/70 dark:bg-rose-950/30";
+
+/** Primary button — image generation (blue). */
+export const BOARD_GENERATE_BTN_IMAGE =
+  "bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70";
+/** Primary button — video generation (purple). */
+export const BOARD_GENERATE_BTN_VIDEO =
+  "bg-[#f3e8fd] text-[#9334e6] hover:bg-[#e9d5fb] dark:bg-violet-900/40 dark:text-violet-300 dark:hover:bg-violet-900/60";
+/** Primary button — image prompt (amber). */
+export const BOARD_GENERATE_BTN_PROMPT =
+  "bg-[#fef7e0] text-[#e37400] hover:bg-[#fcefc8] dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60";
+
+/** Status pill — image generation. */
+export const BOARD_GENERATE_PILL_IMAGE =
+  "bg-[#e8f0fe] text-[#1a73e8] dark:bg-sky-900/40 dark:text-sky-300";
+/** Status pill — video generation. */
+export const BOARD_GENERATE_PILL_VIDEO =
+  "bg-[#f3e8fd] text-[#9334e6] dark:bg-violet-900/40 dark:text-violet-300";
+/** Status pill — image prompt. */
+export const BOARD_GENERATE_PILL_PROMPT =
+  "bg-[#fef7e0] text-[#e37400] dark:bg-amber-900/40 dark:text-amber-300";
+
+/** Semantic dot — image generation. */
+export const BOARD_GENERATE_DOT_IMAGE = "bg-[#1a73e8] dark:bg-sky-400";
+/** Semantic dot — video generation. */
+export const BOARD_GENERATE_DOT_VIDEO = "bg-[#9334e6] dark:bg-violet-400";
+/** Semantic dot — image prompt. */
+export const BOARD_GENERATE_DOT_PROMPT = "bg-[#f9ab00] dark:bg-amber-400";
+
+/** Flat input field for generation nodes. */
+export const BOARD_GENERATE_INPUT =
+  "border-transparent bg-[#edf2fa] text-[#202124] placeholder:text-[#5f6368] focus-visible:border-[#d2e3fc] focus-visible:ring-1 focus-visible:ring-[rgba(26,115,232,0.22)] dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-100 dark:placeholder:text-slate-400";
+
+/** Inset area for results / nested content. */
+export const BOARD_GENERATE_INSET =
+  "bg-[#f6f8fc] dark:bg-[hsl(var(--muted)/0.26)] border border-transparent";

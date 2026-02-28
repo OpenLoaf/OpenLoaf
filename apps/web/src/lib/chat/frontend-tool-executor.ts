@@ -229,6 +229,10 @@ export function createFrontendToolExecutor(): FrontendToolExecutor {
         return false;
       }
       if (part?.input == null) return false;
+      // 逻辑：仅在 input 完整时（input-available）才执行前端工具。
+      // input-streaming 状态下 input 可能不完整（如缺少 url），会导致误报 "url is required."。
+      const state = typeof part?.state === "string" ? part.state : "";
+      if (state === "input-streaming") return false;
       return execute({ toolCallId, toolName, payload: part.input, tabId });
     },
   };
