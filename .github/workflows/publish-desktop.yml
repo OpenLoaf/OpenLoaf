@@ -311,8 +311,9 @@ jobs:
 
       - name: Install publish dependencies
         run: |
-          cd /tmp && npm init -y && npm install @aws-sdk/client-s3
-          echo "NODE_PATH=/tmp/node_modules" >> $GITHUB_ENV
+          cd scripts/shared
+          npm init -y > /dev/null 2>&1
+          npm install @aws-sdk/client-s3
 
       - name: Download all platform artifacts
         uses: actions/download-artifact@v4
