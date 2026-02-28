@@ -8,7 +8,9 @@
   <a href="https://github.com/OpenLoaf/OpenLoaf/releases"><img src="https://img.shields.io/github/v/release/OpenLoaf/OpenLoaf?label=latest" alt="Release" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-brightgreen" alt="Platform" />
 
-  <br />
+  <br /><br />
+  <a href="https://github.com/OpenLoaf/OpenLoaf/releases/latest">下载 macOS / Windows / Linux 安装包</a>
+  <br /><br />
   <a href="../README.md">English</a> | <strong>简体中文</strong>
 </div>
 
