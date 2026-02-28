@@ -265,11 +265,11 @@ function ChatFullPageLayout({
             transition={{ duration: 0.15 }}
           >
             <div className="flex flex-1 flex-col items-center justify-center min-h-0">
-              <div className="flex w-full max-w-2xl flex-col items-center gap-4 px-4">
+              <div className="flex w-full max-w-2xl flex-col items-center gap-4 px-4 -mt-20">
                 <motion.img
                   src="/logo_nobody.png"
                   alt="OpenLoaf"
-                  className="mb-2 h-12 w-12"
+                  className="mb-2 h-24 w-24"
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.25 }}
@@ -298,7 +298,9 @@ function ChatFullPageLayout({
                   isCodexProvider={isCodexProvider}
                   onDropHandled={onDropHandled}
                 />
-                <MessageHelper compact />
+                <div className="mt-4">
+                  <MessageHelper compact />
+                </div>
               </div>
             </div>
             <QuickLaunchBar />
