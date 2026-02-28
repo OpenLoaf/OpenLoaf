@@ -48,21 +48,12 @@ const s3 = createS3Client(r2Config)
 // ---------------------------------------------------------------------------
 
 function isDesktopArtifact(filename) {
-  // macOS
-  if (filename === 'latest-mac.yml') return true
-  if (filename.endsWith('.dmg')) return true
-  if (filename.endsWith('.dmg.blockmap')) return true
-  if (filename.endsWith('-mac.zip')) return true
-  if (filename.endsWith('-mac.zip.blockmap')) return true
-  // Windows
-  if (filename === 'latest.yml') return true
-  if (filename.endsWith('.exe')) return true
-  if (filename.endsWith('.exe.blockmap')) return true
-  // Linux
-  if (filename === 'latest-linux.yml') return true
-  if (filename.endsWith('.AppImage')) return true
-  if (filename.endsWith('.AppImage.blockmap')) return true
-  return false
+  // Auto-update manifests
+  if (['latest-mac.yml', 'latest.yml', 'latest-linux.yml'].includes(filename)) return true
+  // Installers, archives and blockmaps (all platforms)
+  const exts = ['.dmg', '.dmg.blockmap', '.zip', '.zip.blockmap',
+                '.exe', '.exe.blockmap', '.AppImage', '.AppImage.blockmap']
+  return exts.some((ext) => filename.endsWith(ext))
 }
 
 // ---------------------------------------------------------------------------

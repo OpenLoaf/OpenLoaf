@@ -10,10 +10,14 @@
     "directories": {
       "output": "dist"
     },
+    "mac": {
+      "artifactName": "${productName}-${version}-MacOS-${arch}.${ext}"
+    },
     "linux": {
       "target": [
         "AppImage"
-      ]
+      ],
+      "artifactName": "${productName}-${version}-Linux.${ext}"
     },
     "win": {
       "icon": "resources/icon.ico",
@@ -26,7 +30,7 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "OpenLoaf",
-      "artifactName": "${productName}_Installer_${version}.${ext}"
+      "artifactName": "${productName}-${version}-Windows-Installer.${ext}"
     },
     "files": [
       ".webpack/**/*",

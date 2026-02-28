@@ -164,8 +164,8 @@ jobs:
           path: |
             apps/desktop/dist/*.dmg
             apps/desktop/dist/*.dmg.blockmap
-            apps/desktop/dist/*-mac.zip
-            apps/desktop/dist/*-mac.zip.blockmap
+            apps/desktop/dist/*-MacOS-*.zip
+            apps/desktop/dist/*-MacOS-*.zip.blockmap
             apps/desktop/dist/latest-mac.yml
 
   build-mac-x64:
@@ -239,8 +239,8 @@ jobs:
           path: |
             apps/desktop/dist/*.dmg
             apps/desktop/dist/*.dmg.blockmap
-            apps/desktop/dist/*-mac.zip
-            apps/desktop/dist/*-mac.zip.blockmap
+            apps/desktop/dist/*-MacOS-*.zip
+            apps/desktop/dist/*-MacOS-*.zip.blockmap
             apps/desktop/dist/latest-mac.yml
 
   build-windows:
@@ -448,13 +448,24 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Rename installers for release
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          cd dist
+          # MacOS ARM64 → "MacOS" (default, Apple Silicon)
+          [ -f "OpenLoaf-${VERSION}-MacOS-arm64.dmg" ] && \
+            mv "OpenLoaf-${VERSION}-MacOS-arm64.dmg" "OpenLoaf-${VERSION}-MacOS.dmg"
+          # MacOS x64 → "MacOS-Intel"
+          [ -f "OpenLoaf-${VERSION}-MacOS-x64.dmg" ] && \
+            mv "OpenLoaf-${VERSION}-MacOS-x64.dmg" "OpenLoaf-${VERSION}-MacOS-Intel.dmg"
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          # Collect installable files (exclude yml and blockmap)
-          FILES=$(find dist -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.AppImage" -o -name "*-mac.zip" \))
+          # Collect installer files only (exclude yml, blockmap, and zip archives used by auto-updater)
+          FILES=$(find dist -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.AppImage" \))
           gh release create "electron-v${VERSION}" \
             --title "OpenLoaf Desktop v${VERSION}" \
             --notes-file /tmp/release-notes.md \
