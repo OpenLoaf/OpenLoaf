@@ -8,9 +8,15 @@
   <a href="https://github.com/OpenLoaf/OpenLoaf/releases"><img src="https://img.shields.io/github/v/release/OpenLoaf/OpenLoaf?label=latest" alt="Release" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-brightgreen" alt="Platform" />
 
-  <br />
-  <strong>English</strong> | <a href="./README_zh.md">简体中文</a>
+  <br /><br />
+  <a href="https://github.com/OpenLoaf/OpenLoaf/releases/latest">Download for macOS / Windows / Linux</a>
+  <br /><br />
+  <strong>English</strong> | <a href="../README.md">简体中文</a>
 </div>
+
+---
+
+> **⚠️ Note: This project is still in early development. Features and APIs may change at any time — please use with caution in production environments.** If you encounter any bugs or have suggestions, feel free to submit feedback via the "Feedback & Suggestions" button in the bottom-left corner of the app. We take every piece of feedback seriously.
 
 ---
 
