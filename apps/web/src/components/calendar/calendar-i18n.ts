@@ -119,6 +119,8 @@ export const CALENDAR_TRANSLATIONS: Record<LanguageId, IlamyCalendarProps["trans
     october: "十月",
     november: "十一月",
     december: "十二月",
+    timeRange: "时间范围",
+    timeRangeHint: "开启后可设置开始与结束时间",
   },
   "zh-TW": {
     today: "今天",
@@ -216,6 +218,8 @@ export const CALENDAR_TRANSLATIONS: Record<LanguageId, IlamyCalendarProps["trans
     october: "十月",
     november: "十一月",
     december: "十二月",
+    timeRange: "時間範圍",
+    timeRangeHint: "啟用後可設定開始與結束時間",
   },
   "en-US": {
     today: "Today",
@@ -313,6 +317,8 @@ export const CALENDAR_TRANSLATIONS: Record<LanguageId, IlamyCalendarProps["trans
     october: "October",
     november: "November",
     december: "December",
+    timeRange: "Time Range",
+    timeRangeHint: "Enable to set start and end times",
   },
   "ja-JP": {
     today: "今日",
