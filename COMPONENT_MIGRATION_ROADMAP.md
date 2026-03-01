@@ -2,7 +2,7 @@
 
 ## 执行现状
 
-**第三步进行中：优先级 3-4 组件迁移（Priority 3 已完成，Priority 4 进行中）**
+**第三步完成：优先级 3-4 组件迁移（Priority 3 已完成，Priority 4 已完成）**
 
 | 任务 | 状态 | 完成度 |
 |-----|------|--------|
@@ -30,8 +30,8 @@
 | ✅ TaskDetailPanel.tsx（优先级 4） | 完成 | 100% |
 | ✅ TaskTemplateDialog.tsx（优先级 4） | 完成 | 100% |
 | ✅ ScheduledTaskList.tsx（优先级 4） | 完成 | 100% |
-| ⏳ ScheduledTaskDialog.tsx（优先级 4） | 进行中 | 85% |
-| ⏳ ProjectBasicSettings.tsx（优先级 4） | 待迁移 | 0% |
+| ✅ ScheduledTaskDialog.tsx（优先级 4） | 完成 | 100% |
+| ✅ ProjectBasicSettings.tsx（优先级 4） | 完成 | 100% |
 
 **已完成的核心基础设施**：
 - ✅ i18next 系统初始化
@@ -39,6 +39,7 @@
 - ✅ 系统语言检测 + 自动检测
 - ✅ useLanguageSync hook 集成
 - ✅ BasicSettings 实时语言切换功能
+- ✅ 优先级 1-4 组件迁移完成（25+ 组件，600+ 翻译 key，1000+ 硬编码字符串替换）
 
 ---
 
