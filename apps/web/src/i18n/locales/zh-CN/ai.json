@@ -31,7 +31,13 @@
     "required": "需要批准",
     "pending": "待批准",
     "approved": "已批准",
-    "rejected": "已拒绝"
+    "rejected": "已拒绝",
+    "manualMode": "手动审批模式",
+    "autoMode": "自动审批模式",
+    "enableDialog": "启用自动批准？",
+    "enableDescription": "开启后，AI 将自动执行需要审批的操作（如运行命令、修改邮件/日历/项目等），不再逐一请求确认。请确保你信任当前的 AI 操作环境。",
+    "cancel": "取消",
+    "confirmEnable": "确认开启"
   },
   "capability": {
     "browse": "网页浏览",
@@ -67,5 +73,26 @@
     "deepseekKey": "DeepSeek API Key",
     "qwenKey": "Qwen API Key",
     "xaiKey": "xAI API Key"
+  },
+  "helper": {
+    "tryAskMe": "你可以试着问我：",
+    "suggestions": [
+      {
+        "label": "测试审批",
+        "value": "测试审批：请调用 sub-agent，name 设为 TestApprovalSubAgent，先获取当前时间，再触发 test-approval，并等待我在工具卡片里点击允许/拒绝。"
+      },
+      {
+        "label": "打开淘宝搜索手机贴膜",
+        "value": "打开淘宝，搜索手机贴膜，告诉我销售额前三的店铺名称"
+      },
+      {
+        "label": "随机创建一个项目",
+        "value": "帮我随机创建一个测试项目"
+      },
+      {
+        "label": "生成一份本周工作周报",
+        "value": "帮我生成一份本周工作周报"
+      }
+    ]
   }
 }

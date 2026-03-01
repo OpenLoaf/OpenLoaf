@@ -31,7 +31,13 @@
     "required": "需要批准",
     "pending": "待批准",
     "approved": "已批准",
-    "rejected": "已拒絕"
+    "rejected": "已拒絕",
+    "manualMode": "手動審批模式",
+    "autoMode": "自動審批模式",
+    "enableDialog": "啟用自動批准？",
+    "enableDescription": "開啟後，AI 將自動執行需要審批的操作（如執行指令、修改郵件/行事曆/專案等），不再逐一請求確認。請確保你信任目前的 AI 操作環境。",
+    "cancel": "取消",
+    "confirmEnable": "確認開啟"
   },
   "capability": {
     "browse": "網頁瀏覽",
@@ -67,5 +73,26 @@
     "deepseekKey": "DeepSeek API Key",
     "qwenKey": "Qwen API Key",
     "xaiKey": "xAI API Key"
+  },
+  "helper": {
+    "tryAskMe": "你可以試著問我：",
+    "suggestions": [
+      {
+        "label": "測試審批",
+        "value": "測試審批：請呼叫 sub-agent，name 設為 TestApprovalSubAgent，先取得目前時間，再觸發 test-approval，並等待我在工具卡片裡點擊允許/拒絕。"
+      },
+      {
+        "label": "開啟淘寶搜尋手機貼膜",
+        "value": "開啟淘寶，搜尋手機貼膜，告訴我銷售額前三的店鋪名稱"
+      },
+      {
+        "label": "隨機建立一個專案",
+        "value": "幫我隨機建立一個測試專案"
+      },
+      {
+        "label": "產生一份本週工作週報",
+        "value": "幫我產生一份本週工作週報"
+      }
+    ]
   }
 }

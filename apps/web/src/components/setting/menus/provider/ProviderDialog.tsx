@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { useTranslation } from "react-i18next";
 import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
@@ -207,6 +208,7 @@ export function ProviderDialog({
   onOpenModelEditDialog,
   onSubmit,
 }: ProviderDialogProps) {
+  const { t } = useTranslation('settings');
   const [copiedModelId, setCopiedModelId] = useState<string | null>(null);
   const showResponsesToggle = draftProvider === "custom";
   const canEditFocusedModel = Boolean(
@@ -217,13 +219,13 @@ export function ProviderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] w-full max-w-[70vw] overflow-y-auto lg:max-w-[1080px]">
         <DialogHeader>
-          <DialogTitle>{editingKey ? "编辑服务商" : "添加服务商"}</DialogTitle>
+          <DialogTitle>{editingKey ? t('provider.editProvider') : t('provider.addProvider')}</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-6 lg:grid-cols-[0.75fr_1.75fr]">
           <div className="space-y-4">
             <div className="space-y-2">
-              <div className="text-sm font-medium">服务商</div>
+              <div className="text-sm font-medium">{t('provider.title')}</div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -283,42 +285,42 @@ export function ProviderDialog({
             </div>
 
             <div className="space-y-2">
-              <div className="text-sm font-medium">名称</div>
+              <div className="text-sm font-medium">{t('provider.name')}</div>
               <Input
                 value={draftName}
-                placeholder="例如：OPENAI"
+                placeholder={t('provider.namePlaceholder')}
                 onChange={(event) => onDraftNameChange(event.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <div className="text-sm font-medium">API URL</div>
+              <div className="text-sm font-medium">{t('provider.apiUrl')}</div>
               <Input
                 value={draftApiUrl}
-                placeholder="例如：https://api.openai.com/v1"
+                placeholder={t('provider.apiUrlPlaceholder')}
                 onChange={(event) => onDraftApiUrlChange(event.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <div className="text-sm font-medium">认证信息</div>
+              <div className="text-sm font-medium">{t('provider.authentication')}</div>
               {draftAuthMode === "accessKey" ? (
                 <div className="space-y-3">
                   <div className="space-y-1.5">
-                    <div className="text-xs text-muted-foreground">AccessKeyID</div>
+                    <div className="text-xs text-muted-foreground">{t('provider.accessKeyId')}</div>
                     <Input
                       value={draftAccessKeyId}
-                      placeholder="输入 AccessKeyID"
+                      placeholder={t('provider.accessKeyIdPlaceholder')}
                       onChange={(event) => onDraftAccessKeyIdChange(event.target.value)}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <div className="text-xs text-muted-foreground">SecretAccessKey</div>
+                    <div className="text-xs text-muted-foreground">{t('provider.secretAccessKey')}</div>
                     <div className="relative">
                       <Input
                         type={showSecretAccessKey ? "text" : "password"}
                         value={draftSecretAccessKey}
-                        placeholder="输入 SecretAccessKey"
+                        placeholder={t('provider.secretAccessKeyPlaceholder')}
                         onChange={(event) => onDraftSecretAccessKeyChange(event.target.value)}
                         className="pr-10"
                       />
@@ -328,7 +330,7 @@ export function ProviderDialog({
                         size="icon"
                         className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
                         onClick={() => onShowSecretAccessKeyChange(!showSecretAccessKey)}
-                        aria-label={showSecretAccessKey ? "隐藏 SecretAccessKey" : "显示 SecretAccessKey"}
+                        aria-label={showSecretAccessKey ? t('provider.hideSecretAccessKey') : t('provider.showSecretAccessKey')}
                       >
                         {showSecretAccessKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
@@ -340,7 +342,7 @@ export function ProviderDialog({
                   <Input
                     type={showAuth ? "text" : "password"}
                     value={draftApiKey}
-                    placeholder="输入 API Key"
+                    placeholder={t('provider.apiKeyPlaceholder')}
                     onChange={(event) => onDraftApiKeyChange(event.target.value)}
                     className="pr-10"
                   />
@@ -350,7 +352,7 @@ export function ProviderDialog({
                     size="icon"
                     className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
                     onClick={() => onShowAuthChange(!showAuth)}
-                    aria-label={showAuth ? "隐藏 API Key" : "显示 API Key"}
+                    aria-label={showAuth ? t('provider.hideApiKey') : t('provider.showApiKey')}
                   >
                     {showAuth ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
@@ -360,10 +362,10 @@ export function ProviderDialog({
 
             {showResponsesToggle ? (
               <div className="space-y-2">
-                <div className="text-sm font-medium">Responses API</div>
+                <div className="text-sm font-medium">{t('provider.responsesApi')}</div>
                 <div className="flex items-center justify-between rounded-md border border-border bg-muted/20 px-3 py-2">
                   <div className="text-xs text-muted-foreground">
-                    启用 /v1/responses（关闭时使用 /v1/chat/completions）
+                    {t('provider.responsesApiDescription')}
                   </div>
                   <Switch
                     checked={draftEnableResponsesApi}
@@ -376,14 +378,14 @@ export function ProviderDialog({
 
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
-              <div className="text-sm font-medium">模型</div>
+              <div className="text-sm font-medium">{t('provider.model')}</div>
               <Button
                 type="button"
                 variant="outline"
                 size="icon-sm"
                 className="h-5 w-5"
                 onClick={onOpenModelDialog}
-                aria-label="新建模型"
+                aria-label={t('provider.createModel')}
               >
                 <Plus className="h-2.5 w-2.5" />
               </Button>
@@ -393,7 +395,7 @@ export function ProviderDialog({
                 <div className="flex min-h-0 flex-col gap-2 pr-1">
                   <div className="flex-1 min-h-0 overflow-auto space-y-1">
                     {filteredModelOptions.length === 0 ? (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">暂无可选模型</div>
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">{t('provider.noAvailableModels')}</div>
                     ) : (
                       filteredModelOptions.map((model) => (
                         <div
@@ -464,7 +466,7 @@ export function ProviderDialog({
                                 );
                               }, 1200);
                             }}
-                            aria-label="复制模型名称"
+                            aria-label={t('provider.copyModelName')}
                           >
                             {copiedModelId === focusedModel.id ? (
                               <Check className="h-3 w-3" />
@@ -479,8 +481,8 @@ export function ProviderDialog({
                             className="h-6 w-6"
                             onClick={() => onOpenModelEditDialog(focusedModel)}
                             disabled={!canEditFocusedModel}
-                            title={canEditFocusedModel ? "编辑模型" : "仅支持编辑自定义模型"}
-                            aria-label="编辑模型"
+                            title={canEditFocusedModel ? t('provider.editModel') : t('provider.canOnlyEditCustomModels')}
+                            aria-label={t('provider.editModel')}
                           >
                             <Pencil className="h-3 w-3" />
                           </Button>
@@ -488,7 +490,7 @@ export function ProviderDialog({
                       </div>
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">能力：</span>
+                          <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">{t('provider.capabilities')}</span>
                           <div className="min-w-0 flex-1">
                             {renderModelTags(resolveDisplayTags(focusedModel))}
                           </div>
@@ -496,7 +498,7 @@ export function ProviderDialog({
                       </div>
                     </div>
                   ) : (
-                    <div className="text-xs text-muted-foreground">暂无模型详情</div>
+                    <div className="text-xs text-muted-foreground">{t('provider.noModelDetails')}</div>
                   )}
                 </div>
               </div>
@@ -508,9 +510,9 @@ export function ProviderDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+            {t('provider.cancel')}
           </Button>
-          <Button onClick={onSubmit}>保存</Button>
+          <Button onClick={onSubmit}>{t('provider.save')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
