@@ -1,0 +1,45 @@
+{
+  "task": {
+    "title": "Title",
+    "description": "Description",
+    "status": "Status",
+    "priority": "Priority",
+    "dueDate": "Due date",
+    "assignee": "Assignee",
+    "create": "Create task",
+    "edit": "Edit task",
+    "delete": "Delete task"
+  },
+  "taskStatus": {
+    "todo": "To do",
+    "inProgress": "In progress",
+    "inReview": "In review",
+    "done": "Done",
+    "archived": "Archived",
+    "cancelled": "Cancelled"
+  },
+  "priority": {
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low",
+    "urgent": "Urgent"
+  },
+  "board": {
+    "title": "Task board",
+    "myTasks": "My tasks",
+    "allTasks": "All tasks",
+    "filterByAssignee": "Filter by assignee",
+    "filterByPriority": "Filter by priority",
+    "filterByStatus": "Filter by status",
+    "addColumn": "Add column",
+    "deleteColumn": "Delete column"
+  },
+  "schedule": {
+    "title": "Schedule",
+    "todayTasks": "Today",
+    "upcomingTasks": "Upcoming",
+    "overdueTasks": "Overdue",
+    "scheduledFor": "Scheduled for",
+    "reminder": "Reminder"
+  }
+}

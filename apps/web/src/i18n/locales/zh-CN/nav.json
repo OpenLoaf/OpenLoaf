@@ -1,0 +1,26 @@
+{
+  "search": "搜索",
+  "aiAssistant": "AI 助手",
+  "workbench": "工作台",
+  "calendar": "日历",
+  "email": "邮箱",
+  "tasks": "任务",
+  "settings": "设置",
+  "sidebar": {
+    "projectFolder": "项目文件夹",
+    "refresh": "刷新",
+    "addProject": "添加项目",
+    "newEmptyProject": "新建空项目",
+    "selectExistingFolder": "选择已有文件夹",
+    "projectName": "项目名称",
+    "projectNamePlaceholder": "我的项目",
+    "feedback": "反馈"
+  },
+  "workspace": {
+    "title": "工作空间",
+    "selectWorkspace": "选择工作空间",
+    "createWorkspace": "新建工作空间",
+    "workspaceSettings": "工作空间设置",
+    "exitWorkspace": "退出工作空间"
+  }
+}

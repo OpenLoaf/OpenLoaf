@@ -1,0 +1,26 @@
+{
+  "search": "Search",
+  "aiAssistant": "AI Assistant",
+  "workbench": "Workbench",
+  "calendar": "Calendar",
+  "email": "Mail",
+  "tasks": "Tasks",
+  "settings": "Settings",
+  "sidebar": {
+    "projectFolder": "Projects",
+    "refresh": "Refresh",
+    "addProject": "Add Project",
+    "newEmptyProject": "Create New Project",
+    "selectExistingFolder": "Open Existing Folder",
+    "projectName": "Project Name",
+    "projectNamePlaceholder": "My Project",
+    "feedback": "Feedback"
+  },
+  "workspace": {
+    "title": "Workspace",
+    "selectWorkspace": "Select Workspace",
+    "createWorkspace": "Create Workspace",
+    "workspaceSettings": "Workspace Settings",
+    "exitWorkspace": "Exit Workspace"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "toolbar": {
+    "select": "Select",
+    "pen": "Pen",
+    "eraser": "Eraser",
+    "line": "Line",
+    "shape": "Shape",
+    "text": "Text",
+    "color": "Color",
+    "fontSize": "Font size",
+    "strokeWidth": "Stroke width",
+    "undo": "Undo",
+    "redo": "Redo",
+    "clear": "Clear canvas",
+    "save": "Save",
+    "export": "Export"
+  },
+  "canvas": {
+    "title": "Canvas",
+    "background": "Background",
+    "grid": "Grid",
+    "snap": "Snap",
+    "zoom": "Zoom",
+    "reset": "Reset view"
+  }
+}

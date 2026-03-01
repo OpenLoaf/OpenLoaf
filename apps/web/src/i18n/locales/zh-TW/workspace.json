@@ -1,0 +1,36 @@
+{
+  "workspace": {
+    "create": "建立工作區",
+    "open": "開啟工作區",
+    "selectProject": "選擇專案",
+    "newProject": "新建專案",
+    "projectList": "專案列表",
+    "recent": "最近使用"
+  },
+  "file": {
+    "name": "檔案名稱",
+    "type": "檔案類型",
+    "size": "大小",
+    "modified": "修改時間",
+    "create": "建立檔案",
+    "delete": "刪除檔案",
+    "rename": "重新命名檔案",
+    "upload": "上傳檔案",
+    "download": "下載檔案",
+    "move": "移動檔案",
+    "copy": "複製檔案"
+  },
+  "folder": {
+    "create": "建立資料夾",
+    "delete": "刪除資料夾",
+    "rename": "重新命名資料夾"
+  },
+  "tab": {
+    "new": "新增標籤頁",
+    "close": "關閉標籤頁",
+    "closeOther": "關閉其他標籤頁",
+    "closeAll": "關閉所有標籤頁",
+    "pin": "固定標籤頁",
+    "unsaved": "未保存"
+  }
+}

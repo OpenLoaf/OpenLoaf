@@ -1,0 +1,36 @@
+{
+  "workspace": {
+    "create": "创建工作空间",
+    "open": "打开工作空间",
+    "selectProject": "选择项目",
+    "newProject": "新建项目",
+    "projectList": "项目列表",
+    "recent": "最近使用"
+  },
+  "file": {
+    "name": "文件名",
+    "type": "文件类型",
+    "size": "大小",
+    "modified": "修改时间",
+    "create": "创建文件",
+    "delete": "删除文件",
+    "rename": "重命名文件",
+    "upload": "上传文件",
+    "download": "下载文件",
+    "move": "移动文件",
+    "copy": "复制文件"
+  },
+  "folder": {
+    "create": "创建文件夹",
+    "delete": "删除文件夹",
+    "rename": "重命名文件夹"
+  },
+  "tab": {
+    "new": "新建标签页",
+    "close": "关闭标签页",
+    "closeOther": "关闭其他标签页",
+    "closeAll": "关闭所有标签页",
+    "pin": "固定标签页",
+    "unsaved": "未保存"
+  }
+}

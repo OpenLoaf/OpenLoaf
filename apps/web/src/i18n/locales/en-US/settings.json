@@ -1,0 +1,51 @@
+{
+  "basic": {
+    "language": "Language",
+    "theme": "Theme",
+    "appearance": "Appearance",
+    "lightMode": "Light",
+    "darkMode": "Dark",
+    "autoMode": "Auto",
+    "fontSize": "Font size",
+    "editorFont": "Editor font"
+  },
+  "workspace": {
+    "name": "Workspace name",
+    "location": "Location",
+    "created": "Created",
+    "lastModified": "Last modified",
+    "delete": "Delete workspace",
+    "settings": "Workspace settings",
+    "clearedSessions": "Cleared {{count}} sessions"
+  },
+  "about": {
+    "version": "Version",
+    "openloafVersion": "OpenLoaf version",
+    "checkForUpdates": "Check for updates",
+    "updateAvailable": "Update available",
+    "latestVersion": "You are on the latest version"
+  },
+  "thirdParty": {
+    "title": "Third-party services",
+    "provider": "Provider",
+    "key": "API Key",
+    "configureProviders": "Configure providers",
+    "addProvider": "Add provider",
+    "removeProvider": "Remove provider",
+    "testConnection": "Test connection"
+  },
+  "shortcuts": {
+    "title": "Shortcuts",
+    "keyboardShortcuts": "Keyboard shortcuts",
+    "command": "Command",
+    "key": "Shortcut",
+    "resetToDefaults": "Reset to defaults"
+  },
+  "localAccess": {
+    "title": "Local access",
+    "enableLocalServer": "Enable local server",
+    "serverAddress": "Server address",
+    "port": "Port",
+    "authentication": "Authentication"
+  }
+}

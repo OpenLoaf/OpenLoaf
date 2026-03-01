@@ -1,0 +1,57 @@
+{
+  "chat": {
+    "newChat": "新对话",
+    "placeholder": "输入您的问题…",
+    "send": "发送",
+    "clear": "清除对话",
+    "selectModel": "选择模型",
+    "modelNotSelected": "未选择模型",
+    "placeholderTitle": "输入您的问题",
+    "ariaLabel": "问题输入"
+  },
+  "message": {
+    "userMessage": "用户消息",
+    "aiMessage": "AI 消息",
+    "copying": "复制中…",
+    "copy": "复制代码",
+    "copied": "已复制",
+    "delete": "删除消息",
+    "retry": "重试",
+    "likeThis": "赞同",
+    "dislikeThis": "不赞同"
+  },
+  "mode": {
+    "approval": "审批模式",
+    "analysis": "分析模式",
+    "brainstorm": "头脑风暴",
+    "execute": "执行模式",
+    "selectMode": "选择对话模式"
+  },
+  "approval": {
+    "required": "需要批准",
+    "pending": "待批准",
+    "approved": "已批准",
+    "rejected": "已拒绝"
+  },
+  "capability": {
+    "browse": "网页浏览",
+    "search": "搜索",
+    "vision": "图像识别",
+    "code": "代码执行",
+    "fileManager": "文件管理",
+    "emailManager": "邮件管理",
+    "calendarManager": "日历管理",
+    "terminalEmulator": "终端模拟"
+  },
+  "tools": {
+    "availableTools": "可用工具"
+  },
+  "aiModel": {
+    "openaiKey": "OpenAI API Key",
+    "anthropicKey": "Anthropic API Key",
+    "googleKey": "Google API Key",
+    "deepseekKey": "DeepSeek API Key",
+    "qwenKey": "Qwen API Key",
+    "xaiKey": "xAI API Key"
+  }
+}

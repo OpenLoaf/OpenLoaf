@@ -1,0 +1,51 @@
+{
+  "basic": {
+    "language": "語言",
+    "theme": "佈景主題",
+    "appearance": "外觀",
+    "lightMode": "亮色",
+    "darkMode": "深色",
+    "autoMode": "自動",
+    "fontSize": "字體大小",
+    "editorFont": "編輯器字體"
+  },
+  "workspace": {
+    "name": "工作區名稱",
+    "location": "位置",
+    "created": "建立於",
+    "lastModified": "最後修改",
+    "delete": "刪除工作區",
+    "settings": "工作區設定",
+    "clearedSessions": "已清除 {{count}} 個工作階段"
+  },
+  "about": {
+    "version": "版本",
+    "openloafVersion": "OpenLoaf 版本",
+    "checkForUpdates": "檢查更新",
+    "updateAvailable": "有可用更新",
+    "latestVersion": "已是最新版本"
+  },
+  "thirdParty": {
+    "title": "第三方服務",
+    "provider": "服務提供者",
+    "key": "API Key",
+    "configureProviders": "設定提供者",
+    "addProvider": "新增提供者",
+    "removeProvider": "移除提供者",
+    "testConnection": "測試連線"
+  },
+  "shortcuts": {
+    "title": "快速鍵",
+    "keyboardShortcuts": "鍵盤快速鍵",
+    "command": "指令",
+    "key": "快速鍵",
+    "resetToDefaults": "重設為預設值"
+  },
+  "localAccess": {
+    "title": "本機存取",
+    "enableLocalServer": "啟用本機伺服器",
+    "serverAddress": "伺服器位址",
+    "port": "連接埠",
+    "authentication": "驗證"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "toolbar": {
+    "select": "選擇工具",
+    "pen": "筆",
+    "eraser": "橡皮擦",
+    "line": "直線",
+    "shape": "形狀",
+    "text": "文字",
+    "color": "顏色",
+    "fontSize": "字體大小",
+    "strokeWidth": "筆劃寬度",
+    "undo": "復原",
+    "redo": "重做",
+    "clear": "清除畫布",
+    "save": "保存",
+    "export": "匯出"
+  },
+  "canvas": {
+    "title": "畫布",
+    "background": "背景",
+    "grid": "網格",
+    "snap": "吸附",
+    "zoom": "縮放",
+    "reset": "重設檢視"
+  }
+}

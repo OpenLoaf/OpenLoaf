@@ -1,0 +1,57 @@
+{
+  "chat": {
+    "newChat": "New Chat",
+    "placeholder": "Ask your question…",
+    "send": "Send",
+    "clear": "Clear Chat",
+    "selectModel": "Select Model",
+    "modelNotSelected": "Model not selected",
+    "placeholderTitle": "Ask your question",
+    "ariaLabel": "Question input"
+  },
+  "message": {
+    "userMessage": "User message",
+    "aiMessage": "AI message",
+    "copying": "Copying…",
+    "copy": "Copy code",
+    "copied": "Copied",
+    "delete": "Delete message",
+    "retry": "Retry",
+    "likeThis": "Like",
+    "dislikeThis": "Dislike"
+  },
+  "mode": {
+    "approval": "Approval Mode",
+    "analysis": "Analysis Mode",
+    "brainstorm": "Brainstorm",
+    "execute": "Execute Mode",
+    "selectMode": "Select chat mode"
+  },
+  "approval": {
+    "required": "Approval required",
+    "pending": "Pending approval",
+    "approved": "Approved",
+    "rejected": "Rejected"
+  },
+  "capability": {
+    "browse": "Web browsing",
+    "search": "Search",
+    "vision": "Vision",
+    "code": "Code execution",
+    "fileManager": "File manager",
+    "emailManager": "Email manager",
+    "calendarManager": "Calendar manager",
+    "terminalEmulator": "Terminal emulator"
+  },
+  "tools": {
+    "availableTools": "Available tools"
+  },
+  "aiModel": {
+    "openaiKey": "OpenAI API Key",
+    "anthropicKey": "Anthropic API Key",
+    "googleKey": "Google API Key",
+    "deepseekKey": "DeepSeek API Key",
+    "qwenKey": "Qwen API Key",
+    "xaiKey": "xAI API Key"
+  }
+}

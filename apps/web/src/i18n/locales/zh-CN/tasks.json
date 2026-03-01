@@ -1,0 +1,45 @@
+{
+  "task": {
+    "title": "标题",
+    "description": "描述",
+    "status": "状态",
+    "priority": "优先级",
+    "dueDate": "截止日期",
+    "assignee": "分配给",
+    "create": "创建任务",
+    "edit": "编辑任务",
+    "delete": "删除任务"
+  },
+  "taskStatus": {
+    "todo": "待办",
+    "inProgress": "进行中",
+    "inReview": "审核中",
+    "done": "已完成",
+    "archived": "已归档",
+    "cancelled": "已取消"
+  },
+  "priority": {
+    "high": "高",
+    "medium": "中",
+    "low": "低",
+    "urgent": "紧急"
+  },
+  "board": {
+    "title": "任务看板",
+    "myTasks": "我的任务",
+    "allTasks": "所有任务",
+    "filterByAssignee": "按分配者筛选",
+    "filterByPriority": "按优先级筛选",
+    "filterByStatus": "按状态筛选",
+    "addColumn": "添加列",
+    "deleteColumn": "删除列"
+  },
+  "schedule": {
+    "title": "日程表",
+    "todayTasks": "今日任务",
+    "upcomingTasks": "即将任务",
+    "overdueTasks": "逾期任务",
+    "scheduledFor": "计划于",
+    "reminder": "提醒"
+  }
+}

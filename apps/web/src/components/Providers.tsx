@@ -28,6 +28,7 @@ import LocalAuthGate from "@/components/local-auth/LocalAuthGate";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { initModelRegistry } from "@/lib/model-registry";
 import { resolveSaasBaseUrl } from "@/lib/saas-auth";
+import { useLanguageSync } from "@/i18n/useLanguageSync";
 
 type ThemeSelection = "light" | "dark" | "system";
 type FontSizeSelection = "small" | "medium" | "large" | "xlarge";
@@ -125,6 +126,12 @@ function AnimationSettingsBootstrap() {
     document.documentElement.dataset.uiAnimationLevel = next;
   }, [basic.uiAnimationLevel, isLoading]);
 
+  return null;
+}
+
+/** Sync i18n language with user preference from database. */
+function LanguageSettingsBootstrap() {
+  useLanguageSync();
   return null;
 }
 
@@ -338,6 +345,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
     >
       <QueryClientProvider client={queryClient}>
+        <LanguageSettingsBootstrap />
         <ThemeSettingsBootstrap />
         <FontSizeSettingsBootstrap />
         <AnimationSettingsBootstrap />

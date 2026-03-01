@@ -1,0 +1,45 @@
+{
+  "task": {
+    "title": "標題",
+    "description": "描述",
+    "status": "狀態",
+    "priority": "優先順序",
+    "dueDate": "截止日期",
+    "assignee": "指派給",
+    "create": "建立任務",
+    "edit": "編輯任務",
+    "delete": "刪除任務"
+  },
+  "taskStatus": {
+    "todo": "待辦",
+    "inProgress": "進行中",
+    "inReview": "審核中",
+    "done": "已完成",
+    "archived": "已封存",
+    "cancelled": "已取消"
+  },
+  "priority": {
+    "high": "高",
+    "medium": "中",
+    "low": "低",
+    "urgent": "緊急"
+  },
+  "board": {
+    "title": "任務看板",
+    "myTasks": "我的任務",
+    "allTasks": "所有任務",
+    "filterByAssignee": "按指派者篩選",
+    "filterByPriority": "按優先順序篩選",
+    "filterByStatus": "按狀態篩選",
+    "addColumn": "新增欄",
+    "deleteColumn": "刪除欄"
+  },
+  "schedule": {
+    "title": "日程表",
+    "todayTasks": "今日任務",
+    "upcomingTasks": "即將任務",
+    "overdueTasks": "逾期任務",
+    "scheduledFor": "排定於",
+    "reminder": "提醒"
+  }
+}

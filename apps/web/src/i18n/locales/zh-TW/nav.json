@@ -1,0 +1,26 @@
+{
+  "search": "搜尋",
+  "aiAssistant": "AI 助手",
+  "workbench": "工作台",
+  "calendar": "行事曆",
+  "email": "信箱",
+  "tasks": "任務",
+  "settings": "設定",
+  "sidebar": {
+    "projectFolder": "專案資料夾",
+    "refresh": "重新整理",
+    "addProject": "新增專案",
+    "newEmptyProject": "建立空白專案",
+    "selectExistingFolder": "選擇現有資料夾",
+    "projectName": "專案名稱",
+    "projectNamePlaceholder": "我的專案",
+    "feedback": "回饋"
+  },
+  "workspace": {
+    "title": "工作區",
+    "selectWorkspace": "選擇工作區",
+    "createWorkspace": "新建工作區",
+    "workspaceSettings": "工作區設定",
+    "exitWorkspace": "退出工作區"
+  }
+}
