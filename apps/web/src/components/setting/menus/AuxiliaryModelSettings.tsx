@@ -138,7 +138,7 @@ export function AuxiliaryModelSettings() {
     trpc.settings.getAuxiliaryCapabilities.queryOptions(),
   )
 
-  const [modelSource, setModelSource] = useState<'local' | 'cloud'>('local')
+  const [modelSource, setModelSource] = useState<'local' | 'cloud' | 'saas'>('local')
   const [localModelIds, setLocalModelIds] = useState<string[]>([])
   const [cloudModelIds, setCloudModelIds] = useState<string[]>([])
   const [customPrompts, setCustomPrompts] = useState<
@@ -166,20 +166,27 @@ export function AuxiliaryModelSettings() {
   }, [activeCapKey, capabilitiesQuery.data])
 
   const isCloudSource = modelSource === 'cloud'
+  const isSaasSource = modelSource === 'saas'
   const showCloudLogin = isCloudSource && !authLoggedIn
+  const showSaasLogin = isSaasSource && !authLoggedIn
 
   const chatModels = useMemo(
     () =>
-      buildChatModelOptions(
-        modelSource,
-        providerItems,
-        cloudModels,
-        installedCliProviderIds,
-      ),
-    [modelSource, providerItems, cloudModels, installedCliProviderIds],
+      isSaasSource
+        ? []
+        : buildChatModelOptions(
+            modelSource === 'cloud' ? 'cloud' : 'local',
+            providerItems,
+            cloudModels,
+            installedCliProviderIds,
+          ),
+    [modelSource, isSaasSource, providerItems, cloudModels, installedCliProviderIds],
   )
 
   const activeModelIds = isCloudSource ? cloudModelIds : localModelIds
+
+  // SaaS quota from config query
+  const saasQuota = configQuery.data?.quota
 
   const saveMutation = useMutation(
     trpc.settings.saveAuxiliaryModelConfig.mutationOptions({
@@ -277,49 +284,93 @@ export function AuxiliaryModelSettings() {
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">模型来源</div>
               <div className="text-xs text-muted-foreground">
-                选择本地部署或云端模型服务
+                选择本地部署、云端模型或 SaaS 辅助模型
               </div>
             </div>
             <OpenLoafSettingsField className="shrink-0 justify-end">
               <div className="flex items-center rounded-full border border-border/70 bg-muted/40">
                 <FilterTab
                   text="本地"
-                  selected={!isCloudSource}
+                  selected={modelSource === 'local'}
                   onSelect={() => setModelSource('local')}
                   icon={<HardDrive className="h-3 w-3 text-amber-500" />}
                   layoutId="aux-model-source"
                 />
                 <FilterTab
                   text="云端"
-                  selected={isCloudSource}
+                  selected={modelSource === 'cloud'}
                   onSelect={() => setModelSource('cloud')}
                   icon={<Cloud className="h-3 w-3 text-sky-500" />}
+                  layoutId="aux-model-source"
+                />
+                <FilterTab
+                  text="SaaS"
+                  selected={modelSource === 'saas'}
+                  onSelect={() => setModelSource('saas')}
+                  icon={<Sparkles className="h-3 w-3 text-violet-500" />}
                   layoutId="aux-model-source"
                 />
               </div>
             </OpenLoafSettingsField>
           </div>
 
-          {/* Model picker row */}
-          <div className="flex flex-wrap items-start gap-3 py-3">
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">使用模型</div>
-              <div className="text-xs text-muted-foreground">
-                {activeModelIds.length === 0
-                  ? '未指定，将自动选择可用模型'
-                  : `已选 ${activeModelIds.length} 个模型`}
-              </div>
+          {/* SaaS info / Model picker row */}
+          {isSaasSource ? (
+            <div className="flex flex-col gap-2.5 py-3">
+              {showSaasLogin ? (
+                /* Not logged in — show login prompt */
+                <div className="flex items-center gap-3 rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
+                  <Sparkles className="h-4 w-4 shrink-0 text-violet-500" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground">需要登录云端账号</p>
+                    <p className="text-xs text-muted-foreground">SaaS 辅助模型需要登录后使用，无需额外配置</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 rounded-full px-4 text-xs transition-colors duration-150"
+                    onClick={() => setLoginOpen(true)}
+                  >
+                    登录
+                  </Button>
+                </div>
+              ) : (
+                /* Logged in — show SaaS info + quota */
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-center gap-3 rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
+                    <Sparkles className="h-4 w-4 shrink-0 text-violet-500" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground">SaaS 提供的辅助模型</p>
+                      <p className="text-xs text-muted-foreground">零配置，由 SaaS 平台提供模型服务，按日计费</p>
+                    </div>
+                  </div>
+                  {saasQuota && (
+                    <SaasQuotaBar quota={saasQuota} />
+                  )}
+                </div>
+              )}
             </div>
-            <OpenLoafSettingsField className="shrink-0 justify-end">
-              <ModelSelector
-                models={chatModels}
-                value={activeModelIds}
-                showCloudLogin={showCloudLogin}
-                onChange={handleModelToggle}
-                onOpenLogin={() => setLoginOpen(true)}
-              />
-            </OpenLoafSettingsField>
-          </div>
+          ) : (
+            <div className="flex flex-wrap items-start gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium">使用模型</div>
+                <div className="text-xs text-muted-foreground">
+                  {activeModelIds.length === 0
+                    ? '未指定，将自动选择可用模型'
+                    : `已选 ${activeModelIds.length} 个模型`}
+                </div>
+              </div>
+              <OpenLoafSettingsField className="shrink-0 justify-end">
+                <ModelSelector
+                  models={chatModels}
+                  value={activeModelIds}
+                  showCloudLogin={showCloudLogin}
+                  onChange={handleModelToggle}
+                  onOpenLogin={() => setLoginOpen(true)}
+                />
+              </OpenLoafSettingsField>
+            </div>
+          )}
         </div>
       </OpenLoafSettingsGroup>
 
@@ -803,5 +854,48 @@ function ModelSelector({
         </div>
       </PopoverContent>
     </Popover>
+  )
+}
+
+/** SaaS daily quota progress bar. */
+function SaasQuotaBar({ quota }: { quota: { used: number; limit: number; remaining: number; resetsAt: string } }) {
+  const pct = quota.limit > 0 ? (quota.used / quota.limit) * 100 : 0
+  const isWarning = pct >= 90
+  const isExhausted = quota.remaining <= 0
+
+  const barColor = isExhausted
+    ? 'bg-red-500 dark:bg-red-400'
+    : isWarning
+      ? 'bg-amber-500 dark:bg-amber-400'
+      : 'bg-violet-500 dark:bg-violet-400'
+
+  const textColor = isExhausted
+    ? 'text-red-600 dark:text-red-400'
+    : isWarning
+      ? 'text-amber-600 dark:text-amber-400'
+      : 'text-muted-foreground'
+
+  return (
+    <div className="flex flex-col gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-3.5 py-2.5">
+      <div className="flex items-center justify-between">
+        <span className={cn('text-xs font-medium', textColor)}>
+          今日已使用 {quota.used}/{quota.limit} 次
+        </span>
+        <span className="text-[10px] text-muted-foreground/60">
+          剩余 {quota.remaining} 次
+        </span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-border/30">
+        <div
+          className={cn('h-full rounded-full transition-all duration-300', barColor)}
+          style={{ width: `${Math.min(pct, 100)}%` }}
+        />
+      </div>
+      {isExhausted && (
+        <p className="text-[11px] text-red-600 dark:text-red-400">
+          今日配额已用完，可切换为本地模型继续使用
+        </p>
+      )}
+    </div>
   )
 }

@@ -60,8 +60,10 @@ function parseChatModelId(chatModelId: string): { profileId: string; modelId: st
 
 /** Normalize chat model source input. */
 function normalizeChatModelSource(raw?: string | null): ChatModelSource {
-  // 中文注释：只允许 local/cloud，非法值默认回落到 local。
-  return raw === "cloud" ? "cloud" : "local";
+  // 中文注释：只允许 local/cloud/saas，非法值默认回落到 local。
+  if (raw === "cloud") return "cloud";
+  if (raw === "saas") return "saas";
+  return "local";
 }
 
 /** Normalize cloud models into provider settings entries. */

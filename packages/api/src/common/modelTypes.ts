@@ -13,7 +13,7 @@ import {
   type AiModelTag,
 } from "@openloaf-saas/sdk";
 
-export type ChatModelSource = "local" | "cloud";
+export type ChatModelSource = "local" | "cloud" | "saas";
 
 export type ModelTag = AiModelTag | "chat" | "code" | "tool_call" | "reasoning";
 

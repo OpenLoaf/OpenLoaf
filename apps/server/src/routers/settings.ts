@@ -1179,11 +1179,29 @@ export class SettingRouterImpl extends BaseSettingRouter {
       /** Get auxiliary model config. */
       getAuxiliaryModelConfig: shieldedProcedure
         .output(settingSchemas.getAuxiliaryModelConfig.output)
-        .query(async () => {
+        .query(async ({ ctx }) => {
           const { readAuxiliaryModelConf } = await import(
             "@/modules/settings/auxiliaryModelConfStore"
           );
-          return readAuxiliaryModelConf();
+          const conf = readAuxiliaryModelConf();
+          // When SaaS source is selected, fetch quota from SaaS backend.
+          if (conf.modelSource === "saas") {
+            try {
+              const { getSaasAccessToken } = await import(
+                "@/ai/shared/context/requestContext"
+              );
+              const token = getSaasAccessToken();
+              if (token) {
+                const { getSaasClient } = await import("@/modules/saas/client");
+                const saasClient = getSaasClient(token);
+                const quotaRes = await saasClient.auxiliary.getQuota();
+                return { ...conf, quota: quotaRes.quota };
+              }
+            } catch {
+              // Quota fetch failure is non-critical.
+            }
+          }
+          return conf;
         }),
       /** Save auxiliary model config. */
       saveAuxiliaryModelConfig: shieldedProcedure
@@ -1204,6 +1222,21 @@ export class SettingRouterImpl extends BaseSettingRouter {
           };
           writeAuxiliaryModelConf(merged);
           return { ok: true };
+        }),
+      /** Get SaaS auxiliary quota. */
+      getAuxiliaryQuota: shieldedProcedure
+        .output(settingSchemas.getAuxiliaryQuota.output)
+        .query(async () => {
+          const { getSaasAccessToken } = await import(
+            "@/ai/shared/context/requestContext"
+          );
+          const token = getSaasAccessToken();
+          if (!token) {
+            throw new Error("未登录云端账号，请先登录");
+          }
+          const { getSaasClient } = await import("@/modules/saas/client");
+          const saasClient = getSaasClient(token);
+          return saasClient.auxiliary.getQuota();
         }),
       /** Get auxiliary capability definitions. */
       getAuxiliaryCapabilities: shieldedProcedure
@@ -1255,6 +1288,60 @@ export class SettingRouterImpl extends BaseSettingRouter {
             );
 
             const conf = readAuxiliaryModelConf();
+
+            // Prompt priority: customPrompt param > saved config > default.
+            const savedCustom = conf.capabilities[input.capabilityKey]?.customPrompt;
+            const systemPrompt =
+              typeof input.customPrompt === "string"
+                ? input.customPrompt
+                : typeof savedCustom === "string"
+                  ? savedCustom
+                  : cap.defaultPrompt;
+
+            // SaaS branch — delegate test to SaaS backend
+            if (conf.modelSource === "saas") {
+              const { getSaasAccessToken } = await import(
+                "@/ai/shared/context/requestContext"
+              );
+              const token = getSaasAccessToken();
+              if (!token) {
+                return {
+                  ok: false,
+                  result: null,
+                  error: "未登录云端账号，请先登录",
+                  durationMs: Date.now() - start,
+                };
+              }
+              const { getSaasClient } = await import("@/modules/saas/client");
+              const saasClient = getSaasClient(token);
+              const res = await saasClient.auxiliary.infer({
+                capabilityKey: input.capabilityKey,
+                systemPrompt,
+                context: input.context,
+                outputMode: cap.outputMode === "text" ? "text" : "structured",
+              });
+              if (!res.ok) {
+                return {
+                  ok: false,
+                  result: null,
+                  error: res.message,
+                  durationMs: Date.now() - start,
+                };
+              }
+              return {
+                ok: true,
+                result: res.result,
+                durationMs: Date.now() - start,
+                usage: {
+                  inputTokens: res.usage.inputTokens,
+                  cachedInputTokens: 0,
+                  outputTokens: res.usage.outputTokens,
+                  totalTokens: res.usage.inputTokens + res.usage.outputTokens,
+                },
+              };
+            }
+
+            // Local/Cloud branch
             const modelIds =
               conf.modelSource === "cloud"
                 ? conf.cloudModelIds
@@ -1274,15 +1361,6 @@ export class SettingRouterImpl extends BaseSettingRouter {
               chatModelId,
               chatModelSource: conf.modelSource,
             });
-
-            // Prompt priority: customPrompt param > saved config > default.
-            const savedCustom = conf.capabilities[input.capabilityKey]?.customPrompt;
-            const systemPrompt =
-              typeof input.customPrompt === "string"
-                ? input.customPrompt
-                : typeof savedCustom === "string"
-                  ? savedCustom
-                  : cap.defaultPrompt;
 
             if (cap.outputMode === "text") {
               const result = await generateText({

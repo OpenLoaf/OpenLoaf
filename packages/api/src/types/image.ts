@@ -70,7 +70,7 @@ export type OpenLoafImageMetadataV1 = {
   /** Raw chat model id (may include source prefix). */
   chatModelId?: string;
   /** Model source marker. */
-  modelSource?: "local" | "cloud";
+  modelSource?: "local" | "cloud" | "saas";
   /** Provider id used to resolve model. */
   providerId?: string;
   /** Workspace id for storage scope. */

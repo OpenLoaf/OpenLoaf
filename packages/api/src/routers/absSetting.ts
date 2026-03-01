@@ -333,7 +333,7 @@ export const settingSchemas = {
   /** Get auxiliary model config. */
   getAuxiliaryModelConfig: {
     output: z.object({
-      modelSource: z.enum(["local", "cloud"]),
+      modelSource: z.enum(["local", "cloud", "saas"]),
       localModelIds: z.array(z.string()),
       cloudModelIds: z.array(z.string()),
       capabilities: z.record(
@@ -342,12 +342,19 @@ export const settingSchemas = {
           customPrompt: z.string().nullable().optional(),
         }),
       ),
+      /** SaaS quota info (only present when modelSource is "saas"). */
+      quota: z.object({
+        used: z.number(),
+        limit: z.number(),
+        remaining: z.number(),
+        resetsAt: z.string(),
+      }).optional(),
     }),
   },
   /** Save auxiliary model config. */
   saveAuxiliaryModelConfig: {
     input: z.object({
-      modelSource: z.enum(["local", "cloud"]).optional(),
+      modelSource: z.enum(["local", "cloud", "saas"]).optional(),
       localModelIds: z.array(z.string()).optional(),
       cloudModelIds: z.array(z.string()).optional(),
       capabilities: z
@@ -360,6 +367,17 @@ export const settingSchemas = {
         .optional(),
     }),
     output: z.object({ ok: z.boolean() }),
+  },
+  /** Get SaaS auxiliary quota. */
+  getAuxiliaryQuota: {
+    output: z.object({
+      quota: z.object({
+        used: z.number(),
+        limit: z.number(),
+        remaining: z.number(),
+        resetsAt: z.string(),
+      }),
+    }),
   },
   /** Get auxiliary capability definitions. */
   getAuxiliaryCapabilities: {
@@ -565,6 +583,11 @@ export abstract class BaseSettingRouter {
         .input(settingSchemas.saveAuxiliaryModelConfig.input)
         .output(settingSchemas.saveAuxiliaryModelConfig.output)
         .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getAuxiliaryQuota: shieldedProcedure
+        .output(settingSchemas.getAuxiliaryQuota.output)
+        .query(async () => {
           throw new Error("Not implemented in base class");
         }),
       getAuxiliaryCapabilities: shieldedProcedure

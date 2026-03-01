@@ -76,6 +76,10 @@ export type RequestContext = {
   taskId?: string;
   /** CLI tool execution summary buffer. */
   cliSummary?: string;
+  /** Claude Code SDK session UUID (for persist/resume). */
+  cliSessionId?: string;
+  /** Session preface text (only set for first message in a CLI session). */
+  cliSessionPreface?: string;
 };
 
 const storage = new AsyncLocalStorage<RequestContext>();
@@ -313,4 +317,22 @@ export function appendCliSummary(text: string) {
 /** Get the accumulated CLI tool execution summary. */
 export function getCliSummary(): string | undefined {
   return getRequestContext()?.cliSummary;
+}
+
+/** Set CLI session id and optional preface for Claude Code persist/resume. */
+export function setCliSession(id: string, preface?: string): void {
+  const ctx = getRequestContext();
+  if (!ctx) return;
+  ctx.cliSessionId = id;
+  ctx.cliSessionPreface = preface;
+}
+
+/** Get CLI session id (Claude Code SDK UUID). */
+export function getCliSessionId(): string | undefined {
+  return getRequestContext()?.cliSessionId;
+}
+
+/** Get CLI session preface text (only set for first message). */
+export function getCliSessionPreface(): string | undefined {
+  return getRequestContext()?.cliSessionPreface;
 }

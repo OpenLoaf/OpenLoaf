@@ -18,7 +18,7 @@ export type CapabilityOverride = {
 
 /** Shape of ~/.openloaf/auxiliary-model.json */
 export type AuxiliaryModelConf = {
-  modelSource: 'local' | 'cloud'
+  modelSource: 'local' | 'cloud' | 'saas'
   localModelIds: string[]
   cloudModelIds: string[]
   capabilities: Record<string, CapabilityOverride>
@@ -54,7 +54,9 @@ function normalize(raw: unknown): AuxiliaryModelConf {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...DEFAULT_CONF }
   const src = raw as Record<string, unknown>
   const modelSource =
-    src.modelSource === 'cloud' ? 'cloud' as const : 'local' as const
+    src.modelSource === 'cloud' ? 'cloud' as const
+    : src.modelSource === 'saas' ? 'saas' as const
+    : 'local' as const
   const localModelIds = Array.isArray(src.localModelIds)
     ? src.localModelIds.filter((v): v is string => typeof v === 'string')
     : []

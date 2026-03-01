@@ -12,6 +12,8 @@ import { createHash } from 'node:crypto'
 import type { z } from 'zod'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { readAuxiliaryModelConf } from '@/modules/settings/auxiliaryModelConfStore'
+import { getSaasAccessToken } from '@/ai/shared/context/requestContext'
+import { getSaasClient } from '@/modules/saas/client'
 import {
   AUXILIARY_CAPABILITIES,
   type CapabilityKey,
@@ -102,15 +104,6 @@ export async function auxiliaryInfer<T extends z.ZodType>({
 
     // Read config
     const conf = readAuxiliaryModelConf()
-    const modelIds =
-      conf.modelSource === 'cloud' ? conf.cloudModelIds : conf.localModelIds
-    const chatModelId = modelIds[0]?.trim() || undefined
-
-    // Resolve model
-    const resolved = await resolveChatModel({
-      chatModelId,
-      chatModelSource: conf.modelSource,
-    })
 
     // Build prompt
     const capability = AUXILIARY_CAPABILITIES[capabilityKey]
@@ -122,6 +115,34 @@ export async function auxiliaryInfer<T extends z.ZodType>({
         : typeof customPrompt === 'string'
           ? customPrompt
           : capability.defaultPrompt
+
+    // SaaS branch — delegate to SaaS backend
+    if (conf.modelSource === 'saas') {
+      const token = getSaasAccessToken()
+      if (!token) throw new Error('未登录云端账号，请先登录')
+      const saasClient = getSaasClient(token)
+      const res = await saasClient.auxiliary.infer({
+        capabilityKey,
+        systemPrompt,
+        context,
+        outputMode: 'structured',
+      })
+      if (!res.ok) throw new Error(res.message)
+      const value = schema.parse(res.result) as z.infer<T>
+      if (!noCache) setCache(key, value)
+      return value
+    }
+
+    // Local/Cloud branch
+    const modelIds =
+      conf.modelSource === 'cloud' ? conf.cloudModelIds : conf.localModelIds
+    const chatModelId = modelIds[0]?.trim() || undefined
+
+    // Resolve model
+    const resolved = await resolveChatModel({
+      chatModelId,
+      chatModelSource: conf.modelSource,
+    })
 
     // Call with 3s timeout
     const abortController = new AbortController()
@@ -171,14 +192,6 @@ export async function auxiliaryInferText({
     }
 
     const conf = readAuxiliaryModelConf()
-    const modelIds =
-      conf.modelSource === 'cloud' ? conf.cloudModelIds : conf.localModelIds
-    const chatModelId = modelIds[0]?.trim() || undefined
-
-    const resolved = await resolveChatModel({
-      chatModelId,
-      chatModelSource: conf.modelSource,
-    })
 
     const capability = AUXILIARY_CAPABILITIES[capabilityKey]
     if (!capability) return fallback
@@ -189,6 +202,33 @@ export async function auxiliaryInferText({
         : typeof customPrompt === 'string'
           ? customPrompt
           : capability.defaultPrompt
+
+    // SaaS branch — delegate to SaaS backend
+    if (conf.modelSource === 'saas') {
+      const token = getSaasAccessToken()
+      if (!token) throw new Error('未登录云端账号，请先登录')
+      const saasClient = getSaasClient(token)
+      const res = await saasClient.auxiliary.infer({
+        capabilityKey,
+        systemPrompt,
+        context,
+        outputMode: 'text',
+      })
+      if (!res.ok) throw new Error(res.message)
+      const text = String(res.result)
+      if (!noCache) setCache(key, text)
+      return text
+    }
+
+    // Local/Cloud branch
+    const modelIds =
+      conf.modelSource === 'cloud' ? conf.cloudModelIds : conf.localModelIds
+    const chatModelId = modelIds[0]?.trim() || undefined
+
+    const resolved = await resolveChatModel({
+      chatModelId,
+      chatModelSource: conf.modelSource,
+    })
 
     const abortController = new AbortController()
     const timeout = setTimeout(() => abortController.abort(), 3000)
