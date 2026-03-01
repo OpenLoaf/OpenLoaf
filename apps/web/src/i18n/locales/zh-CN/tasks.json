@@ -199,6 +199,28 @@
     "log": "日志",
     "chat": "对话"
   },
+  "taskAction": {
+    "create": "创建任务",
+    "cancel": "取消任务",
+    "delete": "删除任务",
+    "run": "启动任务",
+    "resolve": "审批任务",
+    "archive": "归档任务",
+    "cancelAll": "批量取消",
+    "deleteAll": "批量删除",
+    "archiveAll": "批量归档"
+  },
+  "taskLabels": {
+    "background": "后台任务",
+    "viewBoard": "查看看板",
+    "resolveAction": "审批动作：",
+    "cancelReason": "原因：",
+    "scheduleOnce": "定时",
+    "schedulePeriod": "周期",
+    "scheduleHours": "每 {{n}} 小时",
+    "scheduleMinutes": "每 {{n}} 分钟",
+    "scheduleSeconds": "每 {{n}} 秒"
+  },
   "detail": {
     "created": "创建",
     "agent": "Agent",

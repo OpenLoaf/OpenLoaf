@@ -18,7 +18,25 @@
     "delete": "删除消息",
     "retry": "重试",
     "likeThis": "赞同",
-    "dislikeThis": "不赞同"
+    "dislikeThis": "不赞同",
+    "deleteNode": "删除节点",
+    "deleteNodeTitle": "确认删除节点",
+    "deleteNodeConfirm": "确认删除该节点及其子节点？",
+    "deleteNodeDesc": "删除后将无法恢复该节点及其所有后代消息。",
+    "deleteNodeBtn": "确认删除",
+    "compactContext": "压缩上下文",
+    "compactContextTitle": "确认压缩上下文",
+    "compactContextConfirm": "确认压缩上下文？",
+    "compactContextDesc": "该操作会生成一条压缩摘要，并用于后续对话上下文。",
+    "compactContextBtn": "确认压缩",
+    "tokenUsage": "Token 用量",
+    "tokenInput": "输入",
+    "tokenCached": "缓存",
+    "tokenNoCache": "非缓存",
+    "tokenReasoning": "推理",
+    "tokenOutput": "输出",
+    "tokenTotal": "总计",
+    "tokenNoInfo": "暂无 token 信息"
   },
   "mode": {
     "approval": "审批模式",
@@ -52,6 +70,21 @@
   },
   "tools": {
     "availableTools": "可用工具"
+  },
+  "session": {
+    "renameTitle": "重命名会话",
+    "renameDesc": "请输入新的会话名称。",
+    "nameLabel": "名称",
+    "renameSuccess": "重命名成功",
+    "renameFailed": "重命名失败",
+    "pin": "置顶",
+    "unpin": "取消置顶",
+    "pinSuccess": "已置顶",
+    "unpinSuccess": "已取消置顶",
+    "pinFailed": "置顶操作失败",
+    "deleteTitle": "确认删除会话",
+    "deleteConfirmTitle": "确认删除",
+    "deleteDesc": "确定要删除这个会话吗？此操作无法撤销。"
   },
   "image": {
     "noEditingSupport": "当前模型不支持图片编辑",

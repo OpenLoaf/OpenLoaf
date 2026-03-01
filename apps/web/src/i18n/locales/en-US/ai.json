@@ -18,7 +18,25 @@
     "delete": "Delete message",
     "retry": "Retry",
     "likeThis": "Like",
-    "dislikeThis": "Dislike"
+    "dislikeThis": "Dislike",
+    "deleteNode": "Delete node",
+    "deleteNodeTitle": "Confirm delete node",
+    "deleteNodeConfirm": "Delete this node and all its children?",
+    "deleteNodeDesc": "This action cannot be undone. All descendant messages will be permanently deleted.",
+    "deleteNodeBtn": "Confirm delete",
+    "compactContext": "Compact context",
+    "compactContextTitle": "Confirm compact context",
+    "compactContextConfirm": "Compact the conversation context?",
+    "compactContextDesc": "This will generate a compact summary to be used as context for future messages.",
+    "compactContextBtn": "Confirm compact",
+    "tokenUsage": "Token usage",
+    "tokenInput": "Input",
+    "tokenCached": "Cached",
+    "tokenNoCache": "No cache",
+    "tokenReasoning": "Reasoning",
+    "tokenOutput": "Output",
+    "tokenTotal": "Total",
+    "tokenNoInfo": "No token info available"
   },
   "mode": {
     "approval": "Approval Mode",
@@ -52,6 +70,21 @@
   },
   "tools": {
     "availableTools": "Available tools"
+  },
+  "session": {
+    "renameTitle": "Rename Session",
+    "renameDesc": "Enter a new name for this session.",
+    "nameLabel": "Name",
+    "renameSuccess": "Renamed successfully",
+    "renameFailed": "Rename failed",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "pinSuccess": "Pinned",
+    "unpinSuccess": "Unpinned",
+    "pinFailed": "Pin action failed",
+    "deleteTitle": "Confirm Delete Session",
+    "deleteConfirmTitle": "Confirm Delete",
+    "deleteDesc": "Are you sure you want to delete this session? This action cannot be undone."
   },
   "image": {
     "noEditingSupport": "Current model does not support image editing",

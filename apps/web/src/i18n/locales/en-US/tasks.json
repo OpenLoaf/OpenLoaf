@@ -199,6 +199,28 @@
     "log": "Logs",
     "chat": "Chat"
   },
+  "taskAction": {
+    "create": "Create Task",
+    "cancel": "Cancel Task",
+    "delete": "Delete Task",
+    "run": "Run Task",
+    "resolve": "Review Task",
+    "archive": "Archive Task",
+    "cancelAll": "Cancel All",
+    "deleteAll": "Delete All",
+    "archiveAll": "Archive All"
+  },
+  "taskLabels": {
+    "background": "Background Task",
+    "viewBoard": "View Board",
+    "resolveAction": "Review action:",
+    "cancelReason": "Reason:",
+    "scheduleOnce": "Scheduled",
+    "schedulePeriod": "Periodic",
+    "scheduleHours": "Every {{n}} hour(s)",
+    "scheduleMinutes": "Every {{n}} minute(s)",
+    "scheduleSeconds": "Every {{n}} second(s)"
+  },
   "detail": {
     "created": "Created",
     "agent": "Agent",

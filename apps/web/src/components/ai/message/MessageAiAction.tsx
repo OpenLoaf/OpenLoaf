@@ -10,6 +10,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import type { UIMessage } from "@ai-sdk/react";
 import { SUMMARY_HISTORY_COMMAND } from "@openloaf/api/common";
 import { cn } from "@/lib/utils";
@@ -154,6 +155,7 @@ export default function MessageAiAction({
   message: UIMessage;
   className?: string;
 }) {
+  const { t } = useTranslation(["ai", "common"]);
   const { retryAssistantMessage, clearError, sendMessage, deleteMessageSubtree } =
     useChatActions();
   const { status } = useChatState();
@@ -169,9 +171,9 @@ export default function MessageAiAction({
     try {
       setIsCopying(true);
       await navigator.clipboard.writeText(text);
-      toast.success("已复制");
+      toast.success(t("common:copied"));
     } catch (error) {
-      toast.error("复制失败");
+      toast.error(t("common:copyFailed"));
       console.error(error);
     } finally {
       setIsCopying(false);
@@ -194,12 +196,12 @@ export default function MessageAiAction({
       setIsDeleting(true);
       const ok = await deleteMessageSubtree(targetId);
       if (ok) {
-        toast.success("已删除");
+        toast.success(t("common:deleted"));
       } else {
-        toast.error("删除失败");
+        toast.error(t("common:deleteFailed"));
       }
     } catch (error) {
-      toast.error("删除失败");
+      toast.error(t("common:deleteFailed"));
       console.error(error);
     } finally {
       setIsDeleting(false);
@@ -237,10 +239,10 @@ export default function MessageAiAction({
         onClick={handleCopy}
         disabled={!text || isCopying}
         className={MESSAGE_ACTION_CLASSNAME}
-        tooltip="复制"
-        label="复制"
-        aria-label="复制"
-        title="复制"
+        tooltip={t("common:copy")}
+        label={t("common:copy")}
+        aria-label={t("common:copy")}
+        title={t("common:copy")}
       >
         <Copy className="size-3" strokeWidth={2.5} />
       </MessageAction>
@@ -249,10 +251,10 @@ export default function MessageAiAction({
         onClick={handleRetry}
         disabled={isBusy}
         className={MESSAGE_ACTION_CLASSNAME}
-        tooltip="重试"
-        label="重试"
-        aria-label="重试"
-        title="重试"
+        tooltip={t("ai:message.retry")}
+        label={t("ai:message.retry")}
+        aria-label={t("ai:message.retry")}
+        title={t("ai:message.retry")}
       >
         <RotateCcw className="size-3" />
       </MessageAction>
@@ -262,19 +264,19 @@ export default function MessageAiAction({
           <MessageAction
             disabled={isBusy || isDeleting}
             className={MESSAGE_ACTION_CLASSNAME}
-            label="删除节点"
-            aria-label="删除节点"
-            title="删除节点"
+            label={t("ai:message.deleteNode")}
+            aria-label={t("ai:message.deleteNode")}
+            title={t("ai:message.deleteNode")}
           >
             <Trash2 className="size-3" />
           </MessageAction>
         </ModelSelectorTrigger>
-        <ModelSelectorContent title="确认删除节点" className="max-w-md">
+        <ModelSelectorContent title={t("ai:message.deleteNodeTitle")} className="max-w-md">
           <div className="space-y-4 p-4">
             <div className="space-y-1">
-              <h3 className="text-sm font-semibold">确认删除该节点及其子节点？</h3>
+              <h3 className="text-sm font-semibold">{t("ai:message.deleteNodeConfirm")}</h3>
               <p className="text-sm text-muted-foreground">
-                删除后将无法恢复该节点及其所有后代消息。
+                {t("ai:message.deleteNodeDesc")}
               </p>
             </div>
             <div className="flex justify-end gap-2">
@@ -284,7 +286,7 @@ export default function MessageAiAction({
                 onClick={() => setDeleteOpen(false)}
                 disabled={isDeleting || isBusy}
               >
-                取消
+                {t("common:cancel")}
               </PromptInputButton>
               <PromptInputButton
                 type="button"
@@ -295,7 +297,7 @@ export default function MessageAiAction({
                 }}
                 disabled={isDeleting || isBusy}
               >
-                确认删除
+                {t("ai:message.deleteNodeBtn")}
               </PromptInputButton>
             </div>
           </div>
@@ -308,19 +310,19 @@ export default function MessageAiAction({
             <MessageAction
               disabled={isBusy}
               className={MESSAGE_ACTION_CLASSNAME}
-              label="压缩上下文"
-              aria-label="压缩上下文"
-              title="压缩上下文"
+              label={t("ai:message.compactContext")}
+              aria-label={t("ai:message.compactContext")}
+              title={t("ai:message.compactContext")}
             >
               <Minimize2 className="size-3" />
             </MessageAction>
           </ModelSelectorTrigger>
-          <ModelSelectorContent title="确认压缩上下文" className="max-w-md">
+          <ModelSelectorContent title={t("ai:message.compactContextTitle")} className="max-w-md">
             <div className="space-y-4 p-4">
               <div className="space-y-1">
-                <h3 className="text-sm font-semibold">确认压缩上下文？</h3>
+                <h3 className="text-sm font-semibold">{t("ai:message.compactContextConfirm")}</h3>
                 <p className="text-sm text-muted-foreground">
-                  该操作会生成一条压缩摘要，并用于后续对话上下文。
+                  {t("ai:message.compactContextDesc")}
                 </p>
               </div>
               <div className="flex justify-end gap-2">
@@ -330,14 +332,14 @@ export default function MessageAiAction({
                   onClick={() => setCompactOpen(false)}
                   disabled={isBusy}
                 >
-                  取消
+                  {t("common:cancel")}
                 </PromptInputButton>
                 <PromptInputButton
                   type="button"
                   onClick={handleCompactConfirm}
                   disabled={isBusy}
                 >
-                  确认压缩
+                  {t("ai:message.compactContextBtn")}
                 </PromptInputButton>
               </div>
             </div>
@@ -350,9 +352,9 @@ export default function MessageAiAction({
           <MessageAction
             disabled={!usage}
             className={MESSAGE_ACTION_CLASSNAME}
-            label="Token 用量"
-            aria-label="查看 token 用量"
-            title="Token 用量"
+            label={t("ai:message.tokenUsage")}
+            aria-label={t("ai:message.tokenUsage")}
+            title={t("ai:message.tokenUsage")}
           >
             <BarChart3 className="size-3" />
           </MessageAction>
@@ -360,20 +362,20 @@ export default function MessageAiAction({
         <PromptInputHoverCardContent className="max-w-[200px] p-2">
           {usage ? (
             <div className="space-y-0.5 text-xs">
-              <div className="font-medium text-xs">Token 用量</div>
+              <div className="font-medium text-xs">{t("ai:message.tokenUsage")}</div>
               {agentModel?.provider || agentModel?.modelId ? (
                 <div className="text-[11px] text-muted-foreground truncate">
                   {agentModel?.provider ?? "-"} / {agentModel?.modelId ?? "-"}
                 </div>
               ) : null}
               <div className="grid grid-cols-2 gap-x-2 gap-y-0 text-[11px]">
-                <div className="text-muted-foreground">输入</div>
+                <div className="text-muted-foreground">{t("ai:message.tokenInput")}</div>
                 <div className="text-right tabular-nums">
                   {formatTokenCount(usage.inputTokens)}
                 </div>
                 {typeof usage.cachedInputTokens === "number" ? (
                   <>
-                    <div className="text-muted-foreground">缓存</div>
+                    <div className="text-muted-foreground">{t("ai:message.tokenCached")}</div>
                     <div className="text-right tabular-nums">
                       {formatTokenCount(usage.cachedInputTokens)}
                     </div>
@@ -381,7 +383,7 @@ export default function MessageAiAction({
                 ) : null}
                 {typeof usage.noCacheTokens === "number" ? (
                   <>
-                    <div className="text-muted-foreground">非缓存</div>
+                    <div className="text-muted-foreground">{t("ai:message.tokenNoCache")}</div>
                     <div className="text-right tabular-nums">
                       {formatTokenCount(usage.noCacheTokens)}
                     </div>
@@ -389,24 +391,24 @@ export default function MessageAiAction({
                 ) : null}
                 {typeof usage.reasoningTokens === "number" ? (
                   <>
-                    <div className="text-muted-foreground">推理</div>
+                    <div className="text-muted-foreground">{t("ai:message.tokenReasoning")}</div>
                     <div className="text-right tabular-nums">
                       {formatTokenCount(usage.reasoningTokens)}
                     </div>
                   </>
                 ) : null}
-                <div className="text-muted-foreground">输出</div>
+                <div className="text-muted-foreground">{t("ai:message.tokenOutput")}</div>
                 <div className="text-right tabular-nums">
                   {formatTokenCount(usage.outputTokens)}
                 </div>
-                <div className="text-muted-foreground font-medium">总计</div>
+                <div className="text-muted-foreground font-medium">{t("ai:message.tokenTotal")}</div>
                 <div className="text-right tabular-nums font-medium">
                   {formatTokenCount(usage.totalTokens)}
                 </div>
               </div>
             </div>
           ) : (
-            <div className="text-xs text-muted-foreground">暂无 token 信息</div>
+            <div className="text-xs text-muted-foreground">{t("ai:message.tokenNoInfo")}</div>
           )}
         </PromptInputHoverCardContent>
       </PromptInputHoverCard>
