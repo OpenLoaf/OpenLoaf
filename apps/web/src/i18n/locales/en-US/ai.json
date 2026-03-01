@@ -50,6 +50,11 @@
     "noEditingSupport": "Current model does not support image editing",
     "noInputSupport": "Current model does not support image input"
   },
+  "mode": {
+    "selector": "Chat mode",
+    "agent": "Agent mode",
+    "cli": "CLI mode"
+  },
   "aiModel": {
     "openaiKey": "OpenAI API Key",
     "anthropicKey": "Anthropic API Key",

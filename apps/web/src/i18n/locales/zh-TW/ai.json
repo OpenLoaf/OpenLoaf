@@ -50,6 +50,11 @@
     "noEditingSupport": "目前模型不支援影像編輯",
     "noInputSupport": "目前模型不支援影像輸入"
   },
+  "mode": {
+    "selector": "聊天模式",
+    "agent": "Agent 模式",
+    "cli": "CLI 模式"
+  },
   "aiModel": {
     "openaiKey": "OpenAI API Key",
     "anthropicKey": "Anthropic API Key",

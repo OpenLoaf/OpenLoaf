@@ -9,6 +9,7 @@
  */
 "use client"
 
+import { useTranslation } from "react-i18next"
 import { Bot, Terminal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -36,6 +37,7 @@ export default function ChatModeSelector({
   compact = false,
   className,
 }: ChatModeSelectorProps) {
+  const { t } = useTranslation('ai');
   const isAgent = value === "agent"
 
   const control = (
@@ -47,7 +49,7 @@ export default function ChatModeSelector({
         className,
       )}
       role="radiogroup"
-      aria-label="聊天模式"
+      aria-label={t('mode.selector')}
     >
       {/* Sliding indicator pill */}
       <span
@@ -108,7 +110,7 @@ export default function ChatModeSelector({
           {control}
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
-          {isAgent ? "Agent 模式" : "CLI 模式"}
+          {isAgent ? t('mode.agent') : t('mode.cli')}
         </TooltipContent>
       </Tooltip>
     )
