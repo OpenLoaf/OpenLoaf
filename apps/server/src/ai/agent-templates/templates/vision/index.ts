@@ -8,7 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { AgentTemplate } from '../../types'
-import VISION_PROMPT from './prompt.zh.md'
+import VISION_PROMPT_ZH from './prompt.zh.md'
+import VISION_PROMPT_EN from './prompt.en.md'
 
 export const visionTemplate: AgentTemplate = {
   id: 'vision',
@@ -19,6 +20,14 @@ export const visionTemplate: AgentTemplate = {
   allowSubAgents: false,
   maxDepth: 0,
   isPrimary: false,
-  systemPrompt: VISION_PROMPT.trim(),
+  systemPrompt: VISION_PROMPT_ZH.trim(),
   isBuiltinOnly: true,
+}
+
+/** Get prompt in specified language. */
+export function getVisionPrompt(lang?: string): string {
+  if (lang?.startsWith('en')) {
+    return VISION_PROMPT_EN.trim()
+  }
+  return VISION_PROMPT_ZH.trim()
 }

@@ -8,7 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { AgentTemplate } from '../../types'
-import MASTER_PROMPT from './prompt.zh.md'
+import MASTER_PROMPT_ZH from './prompt.zh.md'
+import MASTER_PROMPT_EN from './prompt.en.md'
 
 export const masterTemplate: AgentTemplate = {
   id: 'master',
@@ -53,5 +54,13 @@ export const masterTemplate: AgentTemplate = {
   allowSubAgents: true,
   maxDepth: 2,
   isPrimary: true,
-  systemPrompt: MASTER_PROMPT.trim(),
+  systemPrompt: MASTER_PROMPT_ZH.trim(),
+}
+
+/** Get prompt in specified language. */
+export function getMasterPrompt(lang?: string): string {
+  if (lang?.startsWith('en')) {
+    return MASTER_PROMPT_EN.trim()
+  }
+  return MASTER_PROMPT_ZH.trim()
 }

@@ -8,7 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { AgentTemplate } from '../../types'
-import PROJECT_PROMPT from './prompt.zh.md'
+import PROJECT_PROMPT_ZH from './prompt.zh.md'
+import PROJECT_PROMPT_EN from './prompt.en.md'
 
 export const projectTemplate: AgentTemplate = {
   id: 'project',
@@ -19,5 +20,13 @@ export const projectTemplate: AgentTemplate = {
   allowSubAgents: true,
   maxDepth: 2,
   isPrimary: false,
-  systemPrompt: PROJECT_PROMPT.trim(),
+  systemPrompt: PROJECT_PROMPT_ZH.trim(),
+}
+
+/** Get prompt in specified language. */
+export function getProjectPrompt(lang?: string): string {
+  if (lang?.startsWith('en')) {
+    return PROJECT_PROMPT_EN.trim()
+  }
+  return PROJECT_PROMPT_ZH.trim()
 }

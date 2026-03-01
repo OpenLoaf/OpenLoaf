@@ -8,7 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { AgentTemplate } from '../../types'
-import BROWSER_PROMPT from './prompt.zh.md'
+import BROWSER_PROMPT_ZH from './prompt.zh.md'
+import BROWSER_PROMPT_EN from './prompt.en.md'
 
 export const browserTemplate: AgentTemplate = {
   id: 'browser',
@@ -26,5 +27,13 @@ export const browserTemplate: AgentTemplate = {
   allowSubAgents: false,
   maxDepth: 1,
   isPrimary: false,
-  systemPrompt: BROWSER_PROMPT.trim(),
+  systemPrompt: BROWSER_PROMPT_ZH.trim(),
+}
+
+/** Get prompt in specified language. */
+export function getBrowserPrompt(lang?: string): string {
+  if (lang?.startsWith('en')) {
+    return BROWSER_PROMPT_EN.trim()
+  }
+  return BROWSER_PROMPT_ZH.trim()
 }

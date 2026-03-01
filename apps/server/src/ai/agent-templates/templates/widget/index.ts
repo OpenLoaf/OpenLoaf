@@ -8,7 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { AgentTemplate } from '../../types'
-import WIDGET_PROMPT from './prompt.zh.md'
+import WIDGET_PROMPT_ZH from './prompt.zh.md'
+import WIDGET_PROMPT_EN from './prompt.en.md'
 
 export const widgetTemplate: AgentTemplate = {
   id: 'widget',
@@ -25,5 +26,13 @@ export const widgetTemplate: AgentTemplate = {
   allowSubAgents: false,
   maxDepth: 1,
   isPrimary: false,
-  systemPrompt: WIDGET_PROMPT.trim(),
+  systemPrompt: WIDGET_PROMPT_ZH.trim(),
+}
+
+/** Get prompt in specified language. */
+export function getWidgetPrompt(lang?: string): string {
+  if (lang?.startsWith('en')) {
+    return WIDGET_PROMPT_EN.trim()
+  }
+  return WIDGET_PROMPT_ZH.trim()
 }

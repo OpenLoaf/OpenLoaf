@@ -8,7 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { AgentTemplate } from '../../types'
-import SHELL_PROMPT from './prompt.zh.md'
+import SHELL_PROMPT_ZH from './prompt.zh.md'
+import SHELL_PROMPT_EN from './prompt.en.md'
 
 export const shellTemplate: AgentTemplate = {
   id: 'shell',
@@ -26,5 +27,13 @@ export const shellTemplate: AgentTemplate = {
   allowSubAgents: true,
   maxDepth: 2,
   isPrimary: false,
-  systemPrompt: SHELL_PROMPT.trim(),
+  systemPrompt: SHELL_PROMPT_ZH.trim(),
+}
+
+/** Get prompt in specified language. */
+export function getShellPrompt(lang?: string): string {
+  if (lang?.startsWith('en')) {
+    return SHELL_PROMPT_EN.trim()
+  }
+  return SHELL_PROMPT_ZH.trim()
 }
