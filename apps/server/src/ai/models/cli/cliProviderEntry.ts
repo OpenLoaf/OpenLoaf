@@ -94,3 +94,19 @@ export async function buildCliProviderEntries(): Promise<ProviderSettingEntry[]>
   }
   return entries;
 }
+
+/**
+ * 将 CLI 工具配置键映射为可用的 chatModelId。
+ * 例如 "claudeCode" → "claude-code-cli:claude-sonnet-4-20250514"
+ */
+export async function resolveCliChatModelId(
+  configKey: string,
+): Promise<string | null> {
+  const binding = CLI_PROVIDER_BINDINGS.find((b) => b.configKey === configKey)
+  if (!binding) return null
+  const entry = await buildCliProviderEntry(binding)
+  if (!entry) return null
+  const firstModelId = Object.keys(entry.models)[0]
+  if (!firstModelId) return null
+  return `${entry.id}:${firstModelId}`
+}

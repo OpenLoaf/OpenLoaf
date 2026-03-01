@@ -139,13 +139,20 @@ export const SidebarProject = () => {
         toast.error("请输入项目名称");
         return;
       }
-      await createProject.mutateAsync({
+      const res = await createProject.mutateAsync({
         title,
         enableVersionControl: true,
       });
       toast.success("项目已创建");
       setIsAddOpen(false);
       await projectListQuery.refetch();
+      // Fire-and-forget: infer project type via auxiliary model.
+      if (res.project?.projectId) {
+        trpcClient.settings.inferProjectType
+          .mutate({ projectId: res.project.projectId })
+          .then(() => projectListQuery.refetch())
+          .catch(() => {});
+      }
     } catch (err: any) {
       toast.error(err?.message ?? "操作失败");
     } finally {
@@ -231,6 +238,13 @@ export const SidebarProject = () => {
             setIsBusy(false);
             gitSubRef.current = null;
             projectListQuery.refetch();
+            // Fire-and-forget: infer project type via auxiliary model.
+            if (data.projectId) {
+              trpcClient.settings.inferProjectType
+                .mutate({ projectId: data.projectId })
+                .then(() => projectListQuery.refetch())
+                .catch(() => {});
+            }
           }
           if (data.type === "error") {
             toast.error(data.message);
@@ -346,7 +360,7 @@ export const SidebarProject = () => {
                     const result = await trpcClient.project.checkPath.query({ dirPath: dir });
                     const shouldEnableVc = result.isGitProject ? true : true;
                     const autoIcon = (result.isCodeProject && !result.hasIcon) ? "💻" : undefined;
-                    await createProject.mutateAsync({
+                    const res = await createProject.mutateAsync({
                       rootUri: dir,
                       enableVersionControl: shouldEnableVc,
                       icon: autoIcon,
@@ -354,6 +368,13 @@ export const SidebarProject = () => {
                     toast.success("已添加到工作空间");
                     setIsAddOpen(false);
                     await projectListQuery.refetch();
+                    // Fire-and-forget: infer project type via auxiliary model.
+                    if (res.project?.projectId) {
+                      trpcClient.settings.inferProjectType
+                        .mutate({ projectId: res.project.projectId })
+                        .then(() => projectListQuery.refetch())
+                        .catch(() => {});
+                    }
                   } catch (err: any) {
                     toast.error(err?.message ?? "添加失败");
                   } finally {

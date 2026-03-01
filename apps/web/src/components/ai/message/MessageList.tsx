@@ -19,6 +19,7 @@ import MessageError from "./tools/MessageError";
 import PendingCloudLoginPrompt from "./PendingCloudLoginPrompt";
 import { AnimatePresence, motion } from "motion/react";
 import { messageHasVisibleContent } from "@/lib/chat/message-visible";
+import { getMessagePlainText } from "@/lib/chat/message-text";
 import { incrementChatPerf } from "@/lib/chat/chat-perf";
 import { useStreamingMessageBuffer } from "../hooks/use-streaming-message-buffer";
 import {
@@ -69,11 +70,20 @@ export default function MessageList({ className }: MessageListProps) {
       streamingMessage && (!shouldShowThinking || hasStreamingVisibleContent)
         ? [...staticMessages, streamingMessage]
         : staticMessages;
-    // 请求失败时，移除尾部空 assistant 消息，避免在用户消息和错误提示之间产生空白间距。
+    // 请求失败时，移除尾部空 assistant 消息或内容与错误信息重复的 assistant 消息，
+    // 避免错误文本同时作为普通消息和错误卡片重复显示。
     if (error && base.length > 0) {
       const last = base[base.length - 1];
-      if (last?.role === "assistant" && !messageHasVisibleContent(last)) {
-        return base.slice(0, -1);
+      if (last?.role === "assistant") {
+        if (!messageHasVisibleContent(last)) {
+          return base.slice(0, -1);
+        }
+        // 历史恢复时，错误文本可能已被保存为 assistant 消息内容，与错误卡片重复。
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const lastText = getMessagePlainText(last).trim();
+        if (lastText && errorMsg && lastText === errorMsg.trim()) {
+          return base.slice(0, -1);
+        }
       }
     }
     return base;

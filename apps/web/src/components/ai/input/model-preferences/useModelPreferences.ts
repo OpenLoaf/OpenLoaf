@@ -183,6 +183,16 @@ export function useModelPreferences() {
     [preferredCodeIds, setCodeModelIds],
   )
 
+  const selectCodeModel = useCallback(
+    (modelId: string) => {
+      const normalized = modelId.trim()
+      if (!normalized) return
+      setPreferredCodeIds([normalized])
+      setCodeModelIds([normalized])
+    },
+    [setCodeModelIds],
+  )
+
   const setIsAuto = useCallback(
     (auto: boolean) => {
       if (auto) {
@@ -377,6 +387,7 @@ export function useModelPreferences() {
     toggleImageModel,
     toggleVideoModel,
     toggleCodeModel,
+    selectCodeModel,
     setIsAuto,
     setImageAuto,
     setVideoAuto,

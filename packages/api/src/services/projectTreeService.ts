@@ -33,6 +33,12 @@ export const projectConfigSchema = z
     projects: z.record(z.string(), z.string()).optional(),
     // Skill folder names to ignore for this project.
     ignoreSkills: z.array(z.string()).optional(),
+    /** AI-inferred or user-set project type. */
+    projectType: z
+      .enum(['code', 'document', 'data', 'design', 'research', 'general'])
+      .optional(),
+    /** When true the user explicitly set the type; auto-inference won't overwrite. */
+    typeManuallySet: z.boolean().optional(),
     /** AI settings overrides for this project. */
     aiSettings: z
       .object({
@@ -64,6 +70,8 @@ export type ProjectNode = {
   isGitProject: boolean;
   /** Whether the project is favorited (pinned to top). */
   isFavorite?: boolean;
+  /** AI-inferred or user-set project type. */
+  projectType?: string;
   /** Child projects. */
   children: ProjectNode[];
 };
@@ -256,6 +264,7 @@ async function readProjectTree(
       rootUri: rootUriOverride ?? toFileUriWithoutEncoding(projectRootPath),
       isGitProject,
       isFavorite: config.isFavorite ?? false,
+      projectType: config.projectType ?? undefined,
       children: childNodes,
     };
   } catch {

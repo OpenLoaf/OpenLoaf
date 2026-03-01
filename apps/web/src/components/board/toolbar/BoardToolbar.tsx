@@ -13,34 +13,19 @@ import {
   memo,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
   type ChangeEvent,
 } from "react";
-import type { ComponentType, ForwardRefExoticComponent } from "react";
-import {
-  Cursor as PhCursor,
-  Hand as PhHand,
-  PenNib as PhPenNib,
-  HighlighterCircle as PhHighlighter,
-  Eraser as PhEraser,
-  NotePencil as PhNotePencil,
-  Image as PhImage,
-  FilmStrip as PhFilmStrip,
-  Eye as PhEye,
-  MagicWand as PhMagicWand,
-  VideoCamera as PhVideoCamera,
-} from "@phosphor-icons/react";
-import type { IconProps as PhIconProps } from "@phosphor-icons/react";
+import type { ComponentType, CSSProperties, ForwardRefExoticComponent } from "react";
+import type { LucideProps } from "lucide-react";
 import { cn } from "@udecode/cn";
 
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasInsertRequest, CanvasSnapshot } from "../engine/types";
 import { HoverPanel, IconBtn, PanelItem, toolbarSurfaceClassName } from "../ui/ToolbarParts";
-import { IMAGE_GENERATE_NODE_TYPE } from "../nodes/imageGenerate";
-import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "../nodes/imagePromptGenerate";
-import { VIDEO_GENERATE_NODE_TYPE } from "../nodes/videoGenerate";
 import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
 import { useBoardContext } from "../core/BoardProvider";
 import { fileToBase64 } from "../utils/base64";
@@ -73,12 +58,12 @@ export interface BoardToolbarProps {
 
 type ToolMode = "select" | "hand" | "pen" | "highlighter" | "eraser";
 
-type IconProps = PhIconProps;
+type IconProps = LucideProps;
 
 type IconComponent = ComponentType<IconProps> | ForwardRefExoticComponent<IconProps>;
 
 const PEN_SIZES = [3, 6, 10, 14];
-const PEN_COLORS = ["#202124", "#1a73e8", "#f9ab00", "#d93025", "#188038"];
+const PEN_COLORS = ["#111827", "#1d4ed8", "#f59e0b", "#ef4444", "#16a34a"];
 
 type InsertItem = {
   id: string;
@@ -119,9 +104,6 @@ const INSERT_TOOL_LABELS: Record<string, string> = {
   note: TOOL_LABELS.note,
   image: TOOL_LABELS.image,
   video: TOOL_LABELS.video,
-  [IMAGE_PROMPT_GENERATE_NODE_TYPE]: "视频图片理解",
-  [IMAGE_GENERATE_NODE_TYPE]: "图片生成",
-  [VIDEO_GENERATE_NODE_TYPE]: "生成视频",
 };
 
 /** Build a tooltip label with optional shortcut suffix. */
@@ -129,6 +111,14 @@ function buildToolTitle(label: string, shortcut?: string): string {
   return shortcut ? `${label} (${shortcut})` : label;
 }
 
+const BRUSH_SVG_SRC = "/board/brush.svg";
+const HIGHLIGHTER_SVG_SRC = "/board/highlighter.svg";
+const ERASER_SVG_SRC = "/board/eraser.svg";
+const SELECT_SVG_SRC = "/board/select-cursor-svgrepo-com.svg";
+const DRAG_SVG_SRC = "/board/drag-svgrepo-com.svg";
+const NOTE_SVG_SRC = "/board/notes-note-svgrepo-com.svg";
+const PICTURE_SVG_SRC = "/board/picture-photo-svgrepo-com.svg";
+const VIDEO_SVG_SRC = "/board/video-player-movie-svgrepo.svg";
 const DEFAULT_VIDEO_WIDTH = 16;
 const DEFAULT_VIDEO_HEIGHT = 9;
 const DEFAULT_VIDEO_NODE_MAX = 420;
@@ -149,13 +139,171 @@ const fitSize = (width: number, height: number, maxDimension: number): [number, 
   return [Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale))];
 };
 
+const prefixSvgIds = (svg: string, prefix: string) => {
+  const safePrefix = prefix.replace(/:/g, "");
+  return svg
+    .replace(/id="([^"]+)"/g, `id="${safePrefix}-$1"`)
+    .replace(/url\\(#([^)]+)\\)/g, `url(#${safePrefix}-$1)`)
+    .replace(/xlink:href="#([^"]+)"/g, `xlink:href="#${safePrefix}-$1"`)
+    .replace(/href="#([^"]+)"/g, `href="#${safePrefix}-$1"`);
+};
+
+const normalizeSvgRootSize = (svg: string) => {
+  const withWidth = svg.replace(/<svg([^>]*?)width="[^"]*"/, '<svg$1width="100%"');
+  return withWidth.replace(/<svg([^>]*?)height="[^"]*"/, '<svg$1height="100%"');
+};
+
+/** Cache for loaded public svg markup. */
+const svgCache = new Map<string, string>();
+
+function InlineSvg(props: {
+  svg: string;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const { svg, className, style } = props;
+  const id = useId();
+  const html = useMemo(() => {
+    const withIds = prefixSvgIds(svg, id);
+    return normalizeSvgRootSize(withIds);
+  }, [id, svg]);
+  return (
+    <span
+      className={cn("inline-flex", className)}
+      style={style}
+      aria-hidden="true"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
+/** Load svg markup from public assets with a small client cache. */
+function usePublicSvg(src: string) {
+  const [svg, setSvg] = useState<string | null>(() => svgCache.get(src) ?? null);
+
+  useEffect(() => {
+    if (svgCache.has(src)) {
+      setSvg(svgCache.get(src) ?? null);
+      return;
+    }
+    let active = true;
+    // 逻辑：首次加载时从 public 拉取 svg 文本并缓存，避免重复请求。
+    fetch(src)
+      .then((response) => (response.ok ? response.text() : ""))
+      .then((text) => {
+        if (!active || !text) return;
+        svgCache.set(src, text);
+        setSvg(text);
+      })
+      .catch(() => {
+        // 逻辑：加载失败时保持静默，避免影响工具栏交互。
+      });
+    return () => {
+      active = false;
+    };
+  }, [src]);
+
+  return svg;
+}
+
+/** Render inline svg loaded from public path. */
+function InlineSvgFile({
+  src,
+  className,
+  style,
+}: {
+  src: string;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const svg = usePublicSvg(src);
+  if (!svg) {
+    return (
+      <span
+        className={cn("inline-flex", className)}
+        style={style}
+        aria-hidden="true"
+      />
+    );
+  }
+  return <InlineSvg svg={svg} className={className} style={style} />;
+}
+
+function SelectIcon({ size = 20, className }: IconProps) {
+  return (
+    <InlineSvgFile
+      src={SELECT_SVG_SRC}
+      className={cn("[&>svg]:fill-current", className)}
+      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
+    />
+  );
+}
+
+function HandIcon({ size = 20, className }: IconProps) {
+  return (
+    <InlineSvgFile
+      src={DRAG_SVG_SRC}
+      className={cn("[&>svg]:fill-current", className)}
+      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
+    />
+  );
+}
+
+
+function ImageIcon({ size = 20, className }: IconProps) {
+  return (
+    <InlineSvgFile
+      src={PICTURE_SVG_SRC}
+      className={className}
+      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
+    />
+  );
+}
+
+function VideoIcon({ size = 20, className }: IconProps) {
+  return (
+    <InlineSvgFile
+      src={VIDEO_SVG_SRC}
+      className={className}
+      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
+    />
+  );
+}
+
+function PageIcon({ size = 20, className }: IconProps) {
+  return (
+    <InlineSvgFile
+      src={NOTE_SVG_SRC}
+      className={className}
+      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
+    />
+  );
+}
+
+function BrushToolIcon({ className, style }: { className?: string; style?: CSSProperties }) {
+  return <InlineSvgFile src={BRUSH_SVG_SRC} className={className} style={style} />;
+}
+
+function HighlighterToolIcon({
+  className,
+  style,
+}: {
+  className?: string;
+  style?: CSSProperties;
+}) {
+  return <InlineSvgFile src={HIGHLIGHTER_SVG_SRC} className={className} style={style} />;
+}
+
+function EraserToolIcon({ className }: { className?: string }) {
+  return <InlineSvgFile src={ERASER_SVG_SRC} className={className} />;
+}
 
 const INSERT_ITEMS: InsertItem[] = [
   {
     id: "note",
     title: "笔记",
     description: "快速笔记卡片。",
-    icon: PhNotePencil,
+    icon: PageIcon,
     nodeType: "text",
     props: { autoFocus: true },
     size: [200, TEXT_NODE_DEFAULT_HEIGHT],
@@ -164,7 +312,7 @@ const INSERT_ITEMS: InsertItem[] = [
     id: "image",
     title: "图片",
     description: "图片块。",
-    icon: PhImage,
+    icon: ImageIcon,
     size: [320, 220],
     opensPicker: true,
   },
@@ -172,38 +320,12 @@ const INSERT_ITEMS: InsertItem[] = [
     id: "video",
     title: "视频",
     description: "视频块。",
-    icon: PhFilmStrip,
+    icon: VideoIcon,
     size: [360, 240],
     opensPicker: true,
   },
-  {
-    id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-    title: "视频图片理解",
-    description: "分析图片/视频并生成描述",
-    icon: PhEye,
-    nodeType: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-    props: {},
-    size: [320, 220],
-  },
-  {
-    id: IMAGE_GENERATE_NODE_TYPE,
-    title: "图片生成",
-    description: "输入图片与文字生成新图",
-    icon: PhMagicWand,
-    nodeType: IMAGE_GENERATE_NODE_TYPE,
-    props: {},
-    size: [320, 260],
-  },
-  {
-    id: VIDEO_GENERATE_NODE_TYPE,
-    title: "生成视频",
-    description: "基于图片与提示词生成视频",
-    icon: PhVideoCamera,
-    nodeType: VIDEO_GENERATE_NODE_TYPE,
-    props: {},
-    size: [360, 280],
-  },
 ];
+
 
 /** Render the bottom toolbar for the board canvas. */
 const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolbarProps) {
@@ -227,7 +349,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
 
   const [penVariant, setPenVariant] = useState<"pen" | "highlighter">("pen");
   const [penSize, setPenSize] = useState<number>(6);
-  const [penColor, setPenColor] = useState<string>("#f9ab00");
+  const [penColor, setPenColor] = useState<string>("#f59e0b");
   const selectTitle = buildToolTitle(TOOL_LABELS.select, TOOL_SHORTCUTS.select);
   const handTitle = buildToolTitle(TOOL_LABELS.hand, TOOL_SHORTCUTS.hand);
   const penTitle = buildToolTitle(TOOL_LABELS.pen, TOOL_SHORTCUTS.pen);
@@ -779,18 +901,18 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     return parentRelative;
   }, [fileContext?.boardFolderUri, fileContext?.rootUri]);
 
-  // Phosphor icon weight: light 用于默认态，fill 用于激活态
-  const phWeight = "light" as const;
+  // 统一按钮尺寸（“宽松”密度）
+  const iconSize = 20;
   /** 底部工具栏图标尺寸。 */
-  const toolbarIconSize = 20;
-  /** 中间插入工具图标尺寸。 */
-  const insertIconSize = 22;
+  const toolbarIconSize = 22;
+  /** 中间插入工具图标尺寸（直接使用放大后的尺寸）。 */
+  const insertIconSize = 26;
   /** 底部工具栏图标 hover 放大样式。 */
   const toolbarIconClassName =
-    "origin-center transition-transform duration-150 ease-out group-hover:scale-[1.15]";
+    "origin-center transition-transform duration-150 ease-out group-hover:scale-[1.2]";
   /** 中间插入工具图标 hover 旋转样式。 */
   const insertIconClassName =
-    "origin-center transition-transform duration-150 ease-out group-hover:-rotate-12";
+    "origin-center transition-transform duration-150 ease-out group-hover:-rotate-15";
 
   return (
     <div
@@ -807,17 +929,16 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
       )}
     >
       <div className="relative flex h-full items-center gap-2">
-        {/* 导航 */}
-        <div className="flex items-center gap-1">
+        {/* 左侧：持久工具 */}
+        <div className="flex items-center gap-2">
           <IconBtn
             title={selectTitle}
             active={isSelectTool}
             onPointerDown={() => handleToolChange("select")}
-            className="group"
+            className="group h-8 w-8"
           >
-            <PhCursor
+            <SelectIcon
               size={toolbarIconSize}
-              weight={isSelectTool ? "fill" : phWeight}
               className={cn(toolbarIconClassName, isSelectTool && "dark:text-foreground")}
             />
           </IconBtn>
@@ -825,18 +946,14 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             title={handTitle}
             active={isHandTool}
             onPointerDown={() => handleToolChange("hand")}
-            className="group"
+            className="group h-8 w-8"
           >
-            <PhHand
+            <HandIcon
               size={toolbarIconSize}
-              weight={isHandTool ? "fill" : phWeight}
               className={cn(toolbarIconClassName, isHandTool && "dark:text-foreground")}
             />
           </IconBtn>
-        </div>
-        <span className="h-8 w-px bg-[#e3e8ef] dark:bg-slate-700" />
-        {/* 绘制 */}
-        <div className="flex items-center gap-1">
+          <span className="h-8 w-px bg-border/80" />
           <div className="relative">
             <IconBtn
               title={penVariant === "highlighter" ? highlighterTitle : penTitle}
@@ -846,24 +963,28 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                 setHoverGroup("pen");
                 handleToolChange(penVariant, { keepPanel: true });
               }}
-              className="group"
+              className="group h-10 w-9 overflow-hidden"
               disabled={isLocked}
             >
-              {penVariant === "highlighter" ? (
-                <PhHighlighter
-                  size={toolbarIconSize}
-                  weight={isPenTool ? "fill" : phWeight}
-                  className={toolbarIconClassName}
-                  style={{ color: penColor }}
-                />
-              ) : (
-                <PhPenNib
-                  size={toolbarIconSize}
-                  weight={isPenTool ? "fill" : phWeight}
-                  className={toolbarIconClassName}
-                  style={{ color: penColor }}
-                />
-              )}
+              <span className="relative">
+                {penVariant === "highlighter" ? (
+                  <HighlighterToolIcon
+                    className={cn(
+                      "h-10 w-5 transition-transform duration-300 ease-in-out group-hover:translate-y-0",
+                      isPenTool ? "translate-y-0" : "translate-y-2"
+                    )}
+                    style={{ color: penColor }}
+                  />
+                ) : (
+                  <BrushToolIcon
+                    className={cn(
+                      "h-10 w-5 transition-transform duration-300 ease-in-out group-hover:translate-y-0",
+                      isPenTool ? "translate-y-0" : "translate-y-2"
+                    )}
+                    style={{ color: penColor }}
+                  />
+                )}
+              </span>
             </IconBtn>
             <HoverPanel open={penPanelOpen} className="w-max">
               <div className="flex items-center gap-2">
@@ -875,7 +996,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                     size="sm"
                     showLabel={false}
                   >
-                    <PhPenNib size={16} weight={phWeight} style={{ color: penColor }} />
+                    <BrushToolIcon className="h-8 w-4" style={{ color: penColor }} />
                   </PanelItem>
                   <PanelItem
                     title={highlighterTitle}
@@ -884,10 +1005,10 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                     size="sm"
                     showLabel={false}
                   >
-                    <PhHighlighter size={16} weight={phWeight} style={{ color: penColor }} />
+                    <HighlighterToolIcon className="h-8 w-4" style={{ color: penColor }} />
                   </PanelItem>
                 </div>
-                <span className="h-6 w-px bg-[#e3e8ef] dark:bg-slate-700" />
+                <span className="h-6 w-px bg-border/70" />
                 <div className="flex items-center gap-2">
                   {PEN_SIZES.map(size => (
                     <button
@@ -898,19 +1019,19 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                         if (isLocked) return;
                         setPenSize(size);
                       }}
-                      className={cn(
-                        "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors duration-150",
-                        penSize === size
-                          ? "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50"
-                          : "hover:bg-[hsl(var(--muted)/0.58)] dark:hover:bg-[hsl(var(--muted)/0.46)]"
-                      )}
+                        className={cn(
+                          "inline-flex h-7 w-7 items-center justify-center rounded-full",
+                          penSize === size
+                            ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-background"
+                            : "hover:bg-accent/60"
+                        )}
                       aria-label={`Pen size ${size}`}
                     >
                       <span className="rounded-full bg-current" style={{ width: size, height: size }} />
                     </button>
                   ))}
                 </div>
-                <span className="h-6 w-px bg-[#e3e8ef] dark:bg-slate-700" />
+                <span className="h-6 w-px bg-border/70" />
                 <div className="flex items-center gap-1.5">
                   {PEN_COLORS.map(color => (
                     <button
@@ -922,9 +1043,9 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                         setPenColor(color);
                       }}
                       className={cn(
-                        "h-6 w-6 rounded-full ring-1 ring-[#e3e8ef] transition-colors duration-150 dark:ring-slate-600",
+                        "h-6 w-6 rounded-full ring-1 ring-border",
                         penColor === color &&
-                          "ring-2 ring-[#1a73e8] ring-offset-2 ring-offset-background dark:ring-sky-400"
+                          "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
                       )}
                       style={{ backgroundColor: color }}
                       aria-label={`Pen color ${color}`}
@@ -941,19 +1062,20 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
               if (isLocked) return;
               handleToolChange("eraser");
             }}
-            className="group"
+            className="group h-10 w-9 overflow-hidden"
             disabled={isLocked}
           >
-            <PhEraser
-              size={toolbarIconSize}
-              weight={isEraserTool ? "fill" : phWeight}
-              className={toolbarIconClassName}
+            <EraserToolIcon
+              className={cn(
+                "h-10 w-8 transition-transform duration-300 ease-in-out group-hover:translate-y-0",
+                isEraserTool ? "translate-y-0" : "translate-y-2"
+              )}
             />
           </IconBtn>
         </div>
-        <span className="h-8 w-px bg-[#e3e8ef] dark:bg-slate-700" />
-        {/* 插入 */}
-        <div className="flex items-center gap-1">
+
+        {/* 右侧：一次性插入 */}
+        <div className="flex items-center gap-2">
           {INSERT_ITEMS.map(item => {
             const Icon = item.icon;
             const isActive = pendingInsert?.id === item.id;
@@ -1005,9 +1127,9 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                   handleInsertRequest(request);
                 }}
                 disabled={isLocked}
-                className="group"
+                className="group h-8 w-8"
               >
-                <Icon size={insertIconSize} weight={isActive ? "fill" : phWeight} className={insertIconClassName} />
+                <Icon size={insertIconSize} className={insertIconClassName} />
               </IconBtn>
             );
           })}

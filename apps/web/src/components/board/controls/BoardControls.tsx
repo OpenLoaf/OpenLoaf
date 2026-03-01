@@ -44,6 +44,16 @@ const ZOOM_HOLD_INTERVAL = 80;
 /** 控制条图标 hover 放大样式。 */
 const controlIconClassName =
   "origin-center transition-transform duration-150 ease-out group-hover:scale-[1.2]";
+
+/* ── 语义图标颜色 ── */
+/** 操作类（撤销/重做）— 蓝色。 */
+const iconColorAction = "text-[#1a73e8] dark:text-sky-400";
+/** 视图类（缩放）— 绿色。 */
+const iconColorView = "text-[#188038] dark:text-emerald-400";
+/** 布局类（自动布局/最大化）— 琥珀色。 */
+const iconColorLayout = "text-[#e37400] dark:text-amber-400";
+/** 安全类（锁定）— 红色。 */
+const iconColorSafety = "text-[#d93025] dark:text-rose-400";
 /** Build a tooltip title with optional shortcut. */
 const buildControlTitle = (label: string, shortcut?: string) =>
   shortcut ? `${label} (${shortcut})` : label;
@@ -178,7 +188,7 @@ const BoardControls = memo(function BoardControls({
           tooltipSide="right"
           className="group"
         >
-          <Undo2 size={iconSize} className={controlIconClassName} />
+          <Undo2 size={iconSize} className={cn(controlIconClassName, iconColorAction)} />
         </IconBtn>
         <IconBtn
           title={redoTitle}
@@ -187,7 +197,7 @@ const BoardControls = memo(function BoardControls({
           tooltipSide="right"
           className="group"
         >
-          <Redo2 size={iconSize} className={controlIconClassName} />
+          <Redo2 size={iconSize} className={cn(controlIconClassName, iconColorAction)} />
         </IconBtn>
         <IconBtn
           title="放大"
@@ -196,7 +206,7 @@ const BoardControls = memo(function BoardControls({
           tooltipSide="right"
           className="group"
         >
-          <ZoomIn size={iconSize} className={controlIconClassName} />
+          <ZoomIn size={iconSize} className={cn(controlIconClassName, iconColorView)} />
         </IconBtn>
         <IconBtn
           title="缩小"
@@ -205,7 +215,7 @@ const BoardControls = memo(function BoardControls({
           tooltipSide="right"
           className="group"
         >
-          <ZoomOut size={iconSize} className={controlIconClassName} />
+          <ZoomOut size={iconSize} className={cn(controlIconClassName, iconColorView)} />
         </IconBtn>
         <IconBtn
           title={autoLayoutTitle}
@@ -214,10 +224,10 @@ const BoardControls = memo(function BoardControls({
           tooltipSide="right"
           className="group"
         >
-          <LayoutGrid size={iconSize} className={controlIconClassName} />
+          <LayoutGrid size={iconSize} className={cn(controlIconClassName, iconColorLayout)} />
         </IconBtn>
         <IconBtn title={fitTitle} onPointerDown={handleFitView} tooltipSide="right" className="group">
-          <Scan size={iconSize} className={controlIconClassName} />
+          <Scan size={iconSize} className={cn(controlIconClassName, iconColorLayout)} />
         </IconBtn>
         <IconBtn
           title={lockTitle}
@@ -227,9 +237,9 @@ const BoardControls = memo(function BoardControls({
           className="group"
         >
           {snapshot.locked ? (
-            <Unlock size={iconSize} className={controlIconClassName} />
+            <Unlock size={iconSize} className={cn(controlIconClassName, iconColorSafety)} />
           ) : (
-            <Lock size={iconSize} className={controlIconClassName} />
+            <Lock size={iconSize} className={cn(controlIconClassName, iconColorSafety)} />
           )}
         </IconBtn>
       </div>

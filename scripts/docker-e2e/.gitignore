@@ -1,0 +1,11 @@
+# Runtime secrets
+.env
+
+# Runtime generated files
+openloaf-root/providers.json
+openloaf-root/openloaf.db
+openloaf-root/auth.json
+
+# Chat history (generated during test runs)
+openloaf-root/chat-history/
+openloaf-root/workspace/.openloaf/chat-history/

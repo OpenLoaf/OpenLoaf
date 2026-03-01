@@ -189,6 +189,8 @@ export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
   ),
   "openloaf-saas": buildSaasAdapter(),
   cli: cliAdapter,
+  "claude-code-cli": cliAdapter,
+  "codex-cli": cliAdapter,
   qwen: qwenAdapter,
   dashscope: qwenAdapter,
   "openai-compatible": qwenAdapter,

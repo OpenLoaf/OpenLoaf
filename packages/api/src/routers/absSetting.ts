@@ -370,9 +370,21 @@ export const settingSchemas = {
         description: z.string(),
         triggers: z.array(z.string()),
         defaultPrompt: z.string(),
+        outputMode: z.enum(['structured', 'text', 'tool-call', 'skill']),
         outputSchema: z.record(z.string(), z.unknown()),
       }),
     ),
+  },
+  /** Infer project type via auxiliary model and update project.json. */
+  inferProjectType: {
+    input: z.object({
+      projectId: z.string(),
+    }),
+    output: z.object({
+      projectType: z.string(),
+      icon: z.string().optional(),
+      confidence: z.number(),
+    }),
   },
 };
 
@@ -538,6 +550,12 @@ export abstract class BaseSettingRouter {
       getAuxiliaryCapabilities: shieldedProcedure
         .output(settingSchemas.getAuxiliaryCapabilities.output)
         .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      inferProjectType: shieldedProcedure
+        .input(settingSchemas.inferProjectType.input)
+        .output(settingSchemas.inferProjectType.output)
+        .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),
     });

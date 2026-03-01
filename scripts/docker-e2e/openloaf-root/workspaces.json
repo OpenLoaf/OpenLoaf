@@ -1,0 +1,13 @@
+{
+  "workspaces": [
+    {
+      "id": "00000000-e2e0-4000-8000-000000000001",
+      "name": "E2E Test Workspace",
+      "type": "local",
+      "isActive": true,
+      "rootUri": "file:///root/.openloaf/workspace/",
+      "projects": {},
+      "ignoreSkills": []
+    }
+  ]
+}

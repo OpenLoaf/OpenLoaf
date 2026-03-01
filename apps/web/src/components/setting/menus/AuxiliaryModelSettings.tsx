@@ -28,6 +28,7 @@ import {
   FileText,
   Folder,
   GitCommitHorizontal,
+  Languages,
   Sparkles,
   Zap,
   Check,
@@ -53,6 +54,26 @@ import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
 import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
 
+/** Output mode → badge style + label mapping. */
+const OUTPUT_MODE_BADGE: Record<string, { label: string; className: string }> = {
+  structured: {
+    label: '结构化输出',
+    className: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+  },
+  text: {
+    label: '纯文本',
+    className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  },
+  'tool-call': {
+    label: '工具调用',
+    className: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  },
+  skill: {
+    label: '使用技能',
+    className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  },
+}
+
 /** Capability key → icon + color mapping. */
 const CAP_ICON_MAP: Record<string, { icon: LucideIcon; color: string }> = {
   'project.classify': { icon: FolderKanban, color: 'text-sky-500 dark:text-sky-400' },
@@ -60,6 +81,7 @@ const CAP_ICON_MAP: Record<string, { icon: LucideIcon; color: string }> = {
   'chat.title': { icon: FileText, color: 'text-amber-500 dark:text-amber-400' },
   'project.ephemeralName': { icon: Folder, color: 'text-emerald-500 dark:text-emerald-400' },
   'git.commitMessage': { icon: GitCommitHorizontal, color: 'text-orange-500 dark:text-orange-400' },
+  'text.translate': { icon: Languages, color: 'text-teal-500 dark:text-teal-400' },
 }
 
 export function AuxiliaryModelSettings() {
@@ -202,7 +224,7 @@ export function AuxiliaryModelSettings() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="flex h-full flex-col gap-5">
       {/* Section 1: Model selection */}
       <OpenLoafSettingsGroup
         title="模型选择"
@@ -267,10 +289,15 @@ export function AuxiliaryModelSettings() {
           title="能力配置"
           icon={<Zap className="h-4 w-4" />}
           subtitle="辅助模型在以下场景被调用，你可以自定义每个能力的提示词。"
+          className="flex-1 min-h-0 flex flex-col"
+          cardProps={{
+            className: "flex-1 min-h-0 flex flex-col",
+            contentClassName: "flex-1 min-h-0",
+          }}
         >
-          <div className="flex gap-0">
+          <div className="flex h-full min-h-0 gap-0">
             {/* Left: capability list */}
-            <div className="w-36 shrink-0 border-r border-border/60">
+            <div className="w-36 shrink-0 overflow-y-auto border-r border-border/60">
               <div className="py-1">
                 {capabilitiesQuery.data.map((cap) => {
                   const mapping = CAP_ICON_MAP[cap.key]
@@ -304,11 +331,11 @@ export function AuxiliaryModelSettings() {
             </div>
 
             {/* Right: active capability detail */}
-            <div className="min-w-0 flex-1 p-3 space-y-3">
+            <div className="min-w-0 flex-1 min-h-0 flex flex-col gap-3 p-3">
               {activeCap && (
                 <>
                   {/* Header */}
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex shrink-0 items-start justify-between gap-2">
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-1.5 text-sm font-medium">
                         {(() => {
@@ -322,6 +349,16 @@ export function AuxiliaryModelSettings() {
                       <p className="text-xs text-muted-foreground leading-relaxed">
                         {activeCap.description}
                       </p>
+                      {activeCap.outputMode && OUTPUT_MODE_BADGE[activeCap.outputMode] && (
+                        <span
+                          className={cn(
+                            'mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
+                            OUTPUT_MODE_BADGE[activeCap.outputMode].className,
+                          )}
+                        >
+                          {OUTPUT_MODE_BADGE[activeCap.outputMode].label}
+                        </span>
+                      )}
                     </div>
                     {isCustomized && (
                       <Button
@@ -336,26 +373,8 @@ export function AuxiliaryModelSettings() {
                     )}
                   </div>
 
-                  {/* Prompt editor */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-medium text-muted-foreground">提示词</span>
-                      {isCustomized && (
-                        <span className="rounded-full bg-amber-500/10 px-1.5 py-px text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                          已修改
-                        </span>
-                      )}
-                    </div>
-                    <Textarea
-                      value={currentPrompt}
-                      onChange={(e) => handlePromptChange(e.target.value)}
-                      className="min-h-[180px] resize-y rounded-lg border-border/60 bg-background/50 font-mono text-xs leading-relaxed focus-visible:ring-1 focus-visible:ring-ring/50"
-                      placeholder="输入自定义提示词..."
-                    />
-                  </div>
-
                   {/* Trigger scenarios */}
-                  <div className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2.5">
+                  <div className="shrink-0 rounded-lg border border-border/40 bg-muted/20 px-3 py-2.5">
                     <p className="mb-1.5 text-xs font-medium text-muted-foreground">触发场景</p>
                     <ul className="space-y-1">
                       {activeCap.triggers.map((trigger) => (
@@ -369,6 +388,24 @@ export function AuxiliaryModelSettings() {
                       ))}
                     </ul>
                   </div>
+
+                  {/* Prompt editor */}
+                  <div className="flex flex-1 min-h-0 flex-col gap-1.5">
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">提示词</span>
+                      {isCustomized && (
+                        <span className="rounded-full bg-amber-500/10 px-1.5 py-px text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                          已修改
+                        </span>
+                      )}
+                    </div>
+                    <Textarea
+                      value={currentPrompt}
+                      onChange={(e) => handlePromptChange(e.target.value)}
+                      className="flex-1 min-h-0 resize-none rounded-lg border-border/60 bg-background/50 font-mono text-xs leading-relaxed focus-visible:ring-1 focus-visible:ring-ring/50"
+                      placeholder="输入自定义提示词..."
+                    />
+                  </div>
                 </>
               )}
             </div>
@@ -377,7 +414,7 @@ export function AuxiliaryModelSettings() {
       )}
 
       {/* Save bar */}
-      <div className="flex items-center justify-end gap-2 pt-0.5">
+      <div className="flex shrink-0 items-center justify-end gap-2 pt-0.5">
         <Button
           onClick={handleSave}
           disabled={saveMutation.isPending}

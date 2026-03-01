@@ -347,11 +347,11 @@ export default function SettingsPage({
       content={
         <div
           key={activeKey}
-          className={
-            shouldAnimate
-              ? "settings-animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out"
-              : undefined
-          }
+          className={cn(
+            "h-full min-h-0 flex flex-col",
+            shouldAnimate &&
+              "settings-animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out",
+          )}
         >
           <ActiveComponent />
         </div>

@@ -1,0 +1,209 @@
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+"use client";
+
+import { memo, useCallback } from "react";
+import type { ComponentType } from "react";
+import type { IconProps } from "@phosphor-icons/react";
+import {
+  Scan as PhScan,
+  Sparkle as PhSparkle,
+  FilmSlate as PhFilmSlate,
+  TextAa as PhTextAa,
+} from "@phosphor-icons/react";
+import { cn } from "@udecode/cn";
+
+import type { CanvasEngine } from "../engine/CanvasEngine";
+import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "../nodes/imagePromptGenerate";
+import { IMAGE_GENERATE_NODE_TYPE } from "../nodes/imageGenerate";
+import { VIDEO_GENERATE_NODE_TYPE } from "../nodes/videoGenerate";
+import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
+import {
+  BOARD_TEXT_PRIMARY,
+  BOARD_TEXT_AUXILIARY,
+  BOARD_GENERATE_DOT_PROMPT,
+  BOARD_GENERATE_DOT_IMAGE,
+  BOARD_GENERATE_DOT_VIDEO,
+} from "../ui/board-style-system";
+
+interface BoardEmptyGuideProps {
+  engine: CanvasEngine;
+  visible: boolean;
+}
+
+type TemplateItem = {
+  id: string;
+  icon: ComponentType<IconProps>;
+  label: string;
+  desc: string;
+  /** Semantic dot class for the accent indicator. */
+  dotClass: string;
+  /** Background tint for the card. */
+  bgClass: string;
+  /** Border tint on hover. */
+  hoverBorderClass: string;
+  /** Node type to insert, or null for special actions. */
+  nodeType: string;
+  /** Default node size [w, h]. */
+  size: [number, number];
+};
+
+const TEMPLATES: TemplateItem[] = [
+  {
+    id: "tpl-image-gen",
+    icon: PhSparkle,
+    label: "AI 图片生成",
+    desc: "输入提示词，AI 生成图片",
+    dotClass: BOARD_GENERATE_DOT_IMAGE,
+    bgClass: "bg-[#e8f0fe]/60 dark:bg-sky-950/30",
+    hoverBorderClass: "hover:border-[#1a73e8]/40 dark:hover:border-sky-400/30",
+    nodeType: IMAGE_GENERATE_NODE_TYPE,
+    size: [320, 260],
+  },
+  {
+    id: "tpl-image-prompt",
+    icon: PhScan,
+    label: "AI 图片理解",
+    desc: "上传图片，AI 分析内容",
+    dotClass: BOARD_GENERATE_DOT_PROMPT,
+    bgClass: "bg-[#fef7e0]/60 dark:bg-amber-950/25",
+    hoverBorderClass: "hover:border-[#f9ab00]/40 dark:hover:border-amber-400/30",
+    nodeType: IMAGE_PROMPT_GENERATE_NODE_TYPE,
+    size: [320, 220],
+  },
+  {
+    id: "tpl-video-gen",
+    icon: PhFilmSlate,
+    label: "AI 视频生成",
+    desc: "AI 生成短视频片段",
+    dotClass: BOARD_GENERATE_DOT_VIDEO,
+    bgClass: "bg-[#f3e8fd]/50 dark:bg-violet-950/25",
+    hoverBorderClass: "hover:border-[#9334e6]/40 dark:hover:border-violet-400/30",
+    nodeType: VIDEO_GENERATE_NODE_TYPE,
+    size: [360, 280],
+  },
+  {
+    id: "tpl-text",
+    icon: PhTextAa,
+    label: "文本笔记",
+    desc: "添加文字到画布",
+    dotClass: "bg-[#202124] dark:bg-slate-300",
+    bgClass: "bg-[#f1f3f4]/60 dark:bg-slate-800/30",
+    hoverBorderClass: "hover:border-[#5f6368]/40 dark:hover:border-slate-400/30",
+    nodeType: "text",
+    size: [280, TEXT_NODE_DEFAULT_HEIGHT],
+  },
+];
+
+/**
+ * Empty canvas guide overlay.
+ *
+ * Shows inline toolbar annotations and a central template selector
+ * when the canvas has no elements.
+ */
+const BoardEmptyGuide = memo(function BoardEmptyGuide({
+  engine,
+  visible,
+}: BoardEmptyGuideProps) {
+  const handleTemplate = useCallback(
+    (tpl: TemplateItem) => {
+      engine.getContainer()?.focus();
+      const [w, h] = tpl.size;
+      const center = engine.getViewportCenterWorld();
+      engine.addNodeElement(tpl.nodeType, {}, [
+        center[0] - w / 2,
+        center[1] - h / 2,
+        w,
+        h,
+      ]);
+    },
+    [engine],
+  );
+
+  return (
+    <div
+      className={cn(
+        "pointer-events-none absolute inset-0 z-30 transition-opacity duration-300",
+        visible ? "opacity-100" : "opacity-0 invisible",
+      )}
+    >
+      {/* ── Center: template selector ── */}
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center -mt-16">
+        {/* Heading */}
+        <div className="flex flex-col items-center gap-1.5 select-none mb-6">
+          <p className={cn(BOARD_TEXT_PRIMARY, "text-2xl font-medium")}>
+            从模板开始创作
+          </p>
+          <p className={cn(BOARD_TEXT_AUXILIARY, "text-sm")}>
+            选择一个模板，点击画布放置
+          </p>
+        </div>
+
+        {/* Template cards grid */}
+        <div className="pointer-events-auto grid w-[50%] grid-cols-4 gap-[2%]">
+            {TEMPLATES.map((tpl) => {
+              const Icon = tpl.icon;
+              return (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  onClick={() => handleTemplate(tpl)}
+                  className={cn(
+                    "group flex w-full flex-col items-center gap-3 rounded-2xl border border-transparent px-[8%] py-[16%]",
+                    "transition-all duration-150 cursor-pointer select-none",
+                    tpl.bgClass,
+                    tpl.hoverBorderClass,
+                    "hover:shadow-sm",
+                  )}
+                >
+                  <div className="relative">
+                    <span
+                      className={cn(
+                        "absolute -left-1.5 -top-1.5 h-2.5 w-2.5 rounded-full",
+                        tpl.dotClass,
+                      )}
+                    />
+                    <Icon
+                      size={40}
+                      weight="duotone"
+                      className={cn(
+                        BOARD_TEXT_PRIMARY,
+                        "transition-transform duration-150 group-hover:scale-110",
+                      )}
+                    />
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <span
+                      className={cn(
+                        BOARD_TEXT_PRIMARY,
+                        "text-sm font-medium whitespace-nowrap",
+                      )}
+                    >
+                      {tpl.label}
+                    </span>
+                    <span
+                      className={cn(
+                        BOARD_TEXT_AUXILIARY,
+                        "text-xs leading-tight text-center",
+                      )}
+                    >
+                      {tpl.desc}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+export default BoardEmptyGuide;

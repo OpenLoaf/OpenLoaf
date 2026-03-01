@@ -181,6 +181,7 @@ async function runClaudeCodeTurn(
 /** Build env overrides for the Claude Code SDK process. */
 function buildSdkEnv(input: ClaudeCodeLanguageModelInput): Record<string, string | undefined> {
   const env: Record<string, string | undefined> = {
+    ...process.env,
     CLAUDE_AGENT_SDK_CLIENT_APP: "openloaf/1.0.0",
   };
   if (input.forceCustomApiKey && input.apiKey.trim()) {

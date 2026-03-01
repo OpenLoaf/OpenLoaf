@@ -22,12 +22,42 @@ import type { useModelPreferences } from './useModelPreferences'
 
 type Prefs = ReturnType<typeof useModelPreferences>
 
+function MediaEmptyWithLogin({
+  label,
+  onClose,
+  onOpenLogin,
+}: {
+  label: string
+  onClose: () => void
+  onOpenLogin: () => void
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 py-8">
+      <img src="/logo.svg" alt="OpenLoaf" className="h-10 w-10 opacity-60" />
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <PromptInputButton
+        type="button"
+        variant="outline"
+        size="sm"
+        className="rounded-full px-4"
+        onClick={() => {
+          onClose()
+          onOpenLogin()
+        }}
+      >
+        登录OpenLoaf账户
+      </PromptInputButton>
+    </div>
+  )
+}
+
 interface ModelPreferencesPanelProps {
   prefs: Prefs
   showCloudLogin: boolean
   authLoggedIn: boolean
   chatMode?: 'agent' | 'cli'
   onOpenLogin: () => void
+  onOpenInstall?: () => void
   onClose: () => void
 }
 
@@ -37,6 +67,7 @@ export function ModelPreferencesPanel({
   authLoggedIn,
   chatMode = 'agent',
   onOpenLogin,
+  onOpenInstall,
   onClose,
 }: ModelPreferencesPanelProps) {
   const [activeTab, setActiveTab] = useState('chat')
@@ -69,7 +100,16 @@ export function ModelPreferencesPanel({
   if (chatMode === 'cli') {
     return (
       <div className="flex flex-col gap-2">
-        <CliToolsList />
+        <div className="px-1">
+          <span className="text-[13px] font-medium text-foreground">
+            CLI 工具
+          </span>
+        </div>
+        <CliToolsList
+          selectedId={prefs.preferredCodeIds[0]}
+          onSelect={prefs.selectCodeModel}
+          onOpenInstall={onOpenInstall}
+        />
       </div>
     )
   }
@@ -100,22 +140,36 @@ export function ModelPreferencesPanel({
       {/* 列表 */}
       <div className="min-h-[8rem]">
         {isCliTab ? (
-          <CliToolsList />
+          <div className="flex flex-col gap-2">
+            <div className="px-1">
+              <span className="text-[13px] font-medium text-foreground">
+                CLI 工具
+              </span>
+            </div>
+            <CliToolsList
+              selectedId={prefs.preferredCodeIds[0]}
+              onSelect={prefs.selectCodeModel}
+              onOpenInstall={onOpenInstall}
+            />
+          </div>
         ) : needsLogin ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8">
+            <img src="/logo.svg" alt="OpenLoaf" className="h-10 w-10 opacity-60" />
+            <div className="text-xs text-muted-foreground">
+              使用云端模型
+            </div>
             <PromptInputButton
               type="button"
+              variant="outline"
               size="sm"
+              className="rounded-full px-4"
               onClick={() => {
                 onClose()
                 onOpenLogin()
               }}
             >
-              登录OpenLoaf账户，使用云端模型
+              登录OpenLoaf账户
             </PromptInputButton>
-            <div className="text-xs text-muted-foreground">
-              使用云端模型
-            </div>
           </div>
         ) : isChatTab ? (
           <ChatModelCheckboxList
@@ -124,19 +178,25 @@ export function ModelPreferencesPanel({
             onToggle={prefs.toggleChatModel}
           />
         ) : activeTab === 'image' ? (
-          <MediaModelCheckboxList
-            models={prefs.imageModels}
-            preferredIds={prefs.preferredImageIds}
-            onToggle={prefs.toggleImageModel}
-            emptyText="暂无图像模型"
-          />
+          prefs.imageModels.length === 0 ? (
+            <MediaEmptyWithLogin label="暂无图像模型" onClose={onClose} onOpenLogin={onOpenLogin} />
+          ) : (
+            <MediaModelCheckboxList
+              models={prefs.imageModels}
+              preferredIds={prefs.preferredImageIds}
+              onToggle={prefs.toggleImageModel}
+            />
+          )
         ) : (
-          <MediaModelCheckboxList
-            models={prefs.videoModels}
-            preferredIds={prefs.preferredVideoIds}
-            onToggle={prefs.toggleVideoModel}
-            emptyText="暂无视频模型"
-          />
+          prefs.videoModels.length === 0 ? (
+            <MediaEmptyWithLogin label="暂无视频模型" onClose={onClose} onOpenLogin={onOpenLogin} />
+          ) : (
+            <MediaModelCheckboxList
+              models={prefs.videoModels}
+              preferredIds={prefs.preferredVideoIds}
+              onToggle={prefs.toggleVideoModel}
+            />
+          )
         )}
       </div>
 

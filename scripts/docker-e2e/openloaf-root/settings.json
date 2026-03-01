@@ -1,0 +1,15 @@
+{
+  "basic": {
+    "chatSource": "local",
+    "modelResponseLanguage": "zh-CN",
+    "modelQuality": "medium",
+    "uiLanguage": "zh-CN",
+    "uiTheme": "system",
+    "proxyEnabled": false,
+    "proxyHost": "",
+    "proxyPort": "",
+    "autoApproveTools": false,
+    "toolAllowOutsideScope": false,
+    "cliTools": {}
+  }
+}

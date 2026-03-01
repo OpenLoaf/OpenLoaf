@@ -16,6 +16,7 @@ import type { AiImageRequest } from "@openloaf-saas/sdk";
 import type { OpenLoafUIMessage, TokenUsage } from "@openloaf/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
+import { resolveCliChatModelId } from "@/ai/models/cli/cliProviderEntry";
 import { resolveAgentModelIdsFromConfig } from "@/ai/shared/resolveAgentModelFromConfig";
 import { readAgentJson, resolveAgentDir } from "@/ai/shared/defaultAgentResolver";
 import {
@@ -136,6 +137,7 @@ function resolveAgentModelIds(input: {
   chatModelSource?: ChatModelSource
   imageModelId?: string
   videoModelId?: string
+  codeModelIds?: string[]
 } {
   return resolveAgentModelIdsFromConfig({
     agentName: 'master',
@@ -305,6 +307,18 @@ export async function runChatStream(input: {
 
   // 逻辑：CLI 直连模式 — 跳过 agent 系统指令和工具编排，消息直接发给 CLI 适配模型。
   const directCli = !!(lastMessage as any).metadata?.directCli;
+
+  // 逻辑：CLI 直连模式覆盖 chatModelId — 使用 codeModelIds 解析 CLI 适配模型。
+  if (directCli) {
+    const cliConfigKey = agentModelIds.codeModelIds?.[0]
+    if (cliConfigKey) {
+      const cliChatModelId = await resolveCliChatModelId(cliConfigKey)
+      if (cliChatModelId) {
+        chatModelId = cliChatModelId
+        chatModelSource = 'local'
+      }
+    }
+  }
 
   // 逻辑：在首条用户消息前确保 preface 已落库。
   const parentProjectRootPaths = await resolveParentProjectRootPaths(projectId);

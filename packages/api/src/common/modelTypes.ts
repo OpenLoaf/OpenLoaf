@@ -82,10 +82,19 @@ export type ModelCapabilityOutput = NonNullable<ModelCapabilities["output"]>;
 // Tag label mapping for UI.
 export const MODEL_TAG_LABELS: Record<ModelTag, string> = {
   ...AI_MODEL_TAG_LABELS,
-  chat: "Chat",
-  code: "Code",
-  tool_call: "Tool Call",
-  reasoning: "Reasoning",
+  chat: "对话",
+  code: "代码",
+  tool_call: "工具调用",
+  reasoning: "推理",
+  image_generation: "图像生成",
+  image_input: "图片理解",
+  image_multi_input: "多图输入",
+  image_multi_generation: "多图生成",
+  image_edit: "图像编辑",
+  image_analysis: "图像分析",
+  video_generation: "视频生成",
+  video_analysis: "视频理解",
+  audio_analysis: "音频分析",
 };
 
 export type ProviderDefinition = {

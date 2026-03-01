@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { generateObject } from 'ai'
+import { generateObject, generateText } from 'ai'
 import { createHash } from 'node:crypto'
 import type { z } from 'zod'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
@@ -59,6 +59,14 @@ type AuxiliaryInferInput<T extends z.ZodType> = {
   context: string
   schema: T
   fallback: z.infer<T>
+  /** Skip cache for this call. */
+  noCache?: boolean
+}
+
+type AuxiliaryInferTextInput = {
+  capabilityKey: CapabilityKey
+  context: string
+  fallback: string
   /** Skip cache for this call. */
   noCache?: boolean
 }
@@ -127,6 +135,64 @@ export async function auxiliaryInfer<T extends z.ZodType>({
     }
   } catch {
     // Silent fallback — never block the main flow.
+    return fallback
+  }
+}
+
+/**
+ * Auxiliary inference for text output capabilities.
+ *
+ * Same model resolution and caching as `auxiliaryInfer`,
+ * but calls `generateText` and returns a plain string.
+ *
+ * On any error, silently returns the provided fallback.
+ */
+export async function auxiliaryInferText({
+  capabilityKey,
+  context,
+  fallback,
+  noCache,
+}: AuxiliaryInferTextInput): Promise<string> {
+  try {
+    const key = cacheKey(capabilityKey, context)
+    if (!noCache) {
+      const cached = getCached<string>(key)
+      if (cached !== undefined) return cached
+    }
+
+    const conf = readAuxiliaryModelConf()
+    const modelIds =
+      conf.modelSource === 'cloud' ? conf.cloudModelIds : conf.localModelIds
+    const chatModelId = modelIds[0]?.trim() || undefined
+
+    const resolved = await resolveChatModel({
+      chatModelId,
+      chatModelSource: conf.modelSource,
+    })
+
+    const capability = AUXILIARY_CAPABILITIES[capabilityKey]
+    if (!capability) return fallback
+    const customPrompt = conf.capabilities[capabilityKey]?.customPrompt
+    const systemPrompt =
+      typeof customPrompt === 'string' ? customPrompt : capability.defaultPrompt
+
+    const abortController = new AbortController()
+    const timeout = setTimeout(() => abortController.abort(), 3000)
+
+    try {
+      const result = await generateText({
+        model: resolved.model,
+        system: systemPrompt,
+        prompt: context,
+        abortSignal: abortController.signal,
+      })
+
+      if (!noCache) setCache(key, result.text)
+      return result.text
+    } finally {
+      clearTimeout(timeout)
+    }
+  } catch {
     return fallback
   }
 }

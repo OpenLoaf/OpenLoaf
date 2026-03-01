@@ -1,0 +1,6 @@
+{
+  "name": "e2e-api-server",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": { "hono": "^4.0.0" }
+}

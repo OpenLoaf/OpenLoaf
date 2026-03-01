@@ -1,0 +1,1159 @@
+{
+  "evalId": "eval-McB-2026-03-01T12:31:48",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-03-01T12:31:48.619Z",
+    "prompts": [
+      {
+        "id": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "raw": "{{prompt}}",
+        "label": "{{prompt}}",
+        "provider": "OpenLoaf E2E",
+        "metrics": {
+          "score": 4,
+          "testPassCount": 3,
+          "testFailCount": 3,
+          "testErrorCount": 0,
+          "assertPassCount": 8,
+          "assertFailCount": 5,
+          "totalLatencyMs": 24377,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 6,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0
+            },
+            "assertions": {
+              "total": 984,
+              "prompt": 750,
+              "completion": 234,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "cost": 0
+        }
+      }
+    ],
+    "results": [
+      {
+        "cost": 0,
+        "error": "回复中明确表示'当前工作区无任何项目或文件'，属于禁止使用的表述（如'没有项目'），且未提供任何应用层的项目列表信息，完全不符合要求。",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "回复中明确表示'当前工作区无任何项目或文件'，属于禁止使用的表述（如'没有项目'），且未提供任何应用层的项目列表信息，完全不符合要求。",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 309,
+            "prompt": 250,
+            "completion": 59,
+            "cached": 0,
+            "numRequests": 1
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "未调用 project-query，实际: [list-dir]"
+            },
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "错误调用了 list-dir（文件目录列出）"
+            },
+            {
+              "assertion": {
+                "type": "llm-rubric",
+                "value": "回复应包含应用层的项目列表信息。\n不应返回文件系统目录结构。\n不应说\"没有项目\"或\"无法获取\"（工具可能返回空列表，但应正常展示结果）。\n"
+              },
+              "pass": false,
+              "score": 0,
+              "reason": "回复中明确表示'当前工作区无任何项目或文件'，属于禁止使用的表述（如'没有项目'），且未提供任何应用层的项目列表信息，完全不符合要求。",
+              "tokensUsed": {
+                "total": 309,
+                "prompt": 250,
+                "completion": 59,
+                "cached": 0,
+                "numRequests": 1,
+                "completionDetails": {
+                  "reasoning": 0,
+                  "acceptedPrediction": 0,
+                  "rejectedPrediction": 0
+                }
+              },
+              "metadata": {
+                "renderedGradingPrompt": "[{\"role\":\"system\",\"content\":\"You are grading output according to a user-specified rubric. If the statement in the rubric is true, then the output passes the test. You respond with a JSON object with this structure: {reason: string, pass: boolean, score: number}\\n\\nExamples:\\n\\n<Output>Hello world</Output>\\n<Rubric>Content contains a greeting</Rubric>\\n{\\\"reason\\\": \\\"the content contains the word 'Hello'\\\", \\\"pass\\\": true, \\\"score\\\": 1.0}\\n\\n<Output>Avast ye swabs, repel the invaders!</Output>\\n<Rubric>Does not speak like a pirate</Rubric>\\n{\\\"reason\\\": \\\"'avast ye' is a common pirate term\\\", \\\"pass\\\": false, \\\"score\\\": 0.0}\"},{\"role\":\"user\",\"content\":\"<Output>\\n当前工作区无任何项目或文件。请确认是否已正确初始化项目，或提供目标路径以便进一步操作。\\n</Output>\\n<Rubric>\\n回复应包含应用层的项目列表信息。\\n不应返回文件系统目录结构。\\n不应说\\\"没有项目\\\"或\\\"无法获取\\\"（工具可能返回空列表，但应正常展示结果）。\\n\\n</Rubric>\"}]"
+              }
+            }
+          ]
+        },
+        "id": "b7115b0e-26c3-4574-8ba1-2b20e02a0c79",
+        "latencyMs": 10574,
+        "namedScores": {},
+        "prompt": {
+          "raw": "现在有哪些项目",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 90000,
+            "provider": {
+              "id": "openai:chat:qwen-plus",
+              "config": {
+                "apiBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "apiKeyEnvar": "PROMPTFOO_GRADING_API_KEY"
+              }
+            }
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-e2e",
+          "label": "OpenLoaf E2E"
+        },
+        "response": {
+          "output": "当前工作区无任何项目或文件。请确认是否已正确初始化项目，或提供目标路径以便进一步操作。",
+          "metadata": {
+            "toolCalls": [
+              {
+                "toolCallId": "call_8627835c5bf9422392f7ae",
+                "toolName": "list-dir",
+                "input": {
+                  "actionName": "列出当前项目根目录内容",
+                  "path": ".",
+                  "ignoreGitignore": true,
+                  "format": "tree"
+                },
+                "output": "Path: .\nTotal: 0 dirs, 0 files"
+              }
+            ],
+            "toolNames": [
+              "list-dir"
+            ],
+            "toolCallCount": 1,
+            "subAgentEvents": [],
+            "hasSubAgentDispatch": false,
+            "finishReason": "stop",
+            "sessionId": "e2e-1772368308644-3ye84a"
+          },
+          "latencyMs": 10574
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "e2e-001: 项目列表查询应使用 project-query",
+          "vars": {
+            "prompt": "现在有哪些项目"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('project-query')\n  ? { pass: true, score: 1, reason: '正确调用了 project-query' }\n  : { pass: false, score: 0, reason: `未调用 project-query，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('list-dir')\n  ? { pass: true, score: 1, reason: '未调用 list-dir' }\n  : { pass: false, score: 0, reason: '错误调用了 list-dir（文件目录列出）' };\n"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "回复应包含应用层的项目列表信息。\n不应返回文件系统目录结构。\n不应说\"没有项目\"或\"无法获取\"（工具可能返回空列表，但应正常展示结果）。\n"
+            }
+          ],
+          "options": {
+            "timeout": 90000,
+            "provider": {
+              "id": "openai:chat:qwen-plus",
+              "config": {
+                "apiBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "apiKeyEnvar": "PROMPTFOO_GRADING_API_KEY"
+              }
+            }
+          },
+          "metadata": {}
+        },
+        "testIdx": 0,
+        "vars": {
+          "prompt": "现在有哪些项目"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "toolCallId": "call_8627835c5bf9422392f7ae",
+              "toolName": "list-dir",
+              "input": {
+                "actionName": "列出当前项目根目录内容",
+                "path": ".",
+                "ignoreGitignore": true,
+                "format": "tree"
+              },
+              "output": "Path: .\nTotal: 0 dirs, 0 files"
+            }
+          ],
+          "toolNames": [
+            "list-dir"
+          ],
+          "toolCallCount": 1,
+          "subAgentEvents": [],
+          "hasSubAgentDispatch": false,
+          "finishReason": "stop",
+          "sessionId": "e2e-1772368308644-3ye84a",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "正确调用了 time-now"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用禁止工具"
+            }
+          ]
+        },
+        "id": "8f6f252e-1bd9-47fc-8363-32bc329548e7",
+        "latencyMs": 1979,
+        "namedScores": {},
+        "prompt": {
+          "raw": "现在几点了？",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 90000,
+            "provider": {
+              "id": "openai:chat:qwen-plus",
+              "config": {
+                "apiBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "apiKeyEnvar": "PROMPTFOO_GRADING_API_KEY"
+              }
+            }
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-e2e",
+          "label": "OpenLoaf E2E"
+        },
+        "response": {
+          "output": "现在是2026年3月1日星期日 12:32:05（UTC时间）。",
+          "metadata": {
+            "toolCalls": [
+              {
+                "toolCallId": "call_cdbbaaeb6aad45edb70c32",
+                "toolName": "time-now",
+                "input": {
+                  "actionName": "获取当前系统时间"
+                },
+                "output": {
+                  "ok": true,
+                  "data": {
+                    "iso": "2026-03-01T12:32:05.275Z",
+                    "unixMs": 1772368325275,
+                    "timeZone": "UTC",
+                    "year": 2026,
+                    "month": 3,
+                    "day": 1,
+                    "hour": 12,
+                    "minute": 32,
+                    "second": 5,
+                    "dayOfWeek": "Sunday",
+                    "dayOfWeekZh": "星期日",
+                    "localFormatted": "2026年3月1日星期日 12:32:05"
+                  }
+                }
+              }
+            ],
+            "toolNames": [
+              "time-now"
+            ],
+            "toolCallCount": 1,
+            "subAgentEvents": [],
+            "hasSubAgentDispatch": false,
+            "finishReason": "stop",
+            "sessionId": "e2e-1772368324436-sc3yl1"
+          },
+          "latencyMs": 1979
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "e2e-002: 时间查询应使用 time-now",
+          "vars": {
+            "prompt": "现在几点了？"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('time-now')\n  ? { pass: true, score: 1, reason: '正确调用了 time-now' }\n  : { pass: false, score: 0, reason: `未调用 time-now，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nconst forbidden = ['shell-command', 'js-repl'];\nconst used = forbidden.filter(t => tools.includes(t));\nreturn used.length === 0\n  ? { pass: true, score: 1, reason: '未使用禁止工具' }\n  : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };\n"
+            }
+          ],
+          "options": {
+            "timeout": 90000,
+            "provider": {
+              "id": "openai:chat:qwen-plus",
+              "config": {
+                "apiBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "apiKeyEnvar": "PROMPTFOO_GRADING_API_KEY"
+              }
+            }
+          },
+          "metadata": {}
+        },
+        "testIdx": 1,
+        "vars": {
+          "prompt": "现在几点了？"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "toolCallId": "call_cdbbaaeb6aad45edb70c32",
+              "toolName": "time-now",
+              "input": {
+                "actionName": "获取当前系统时间"
+              },
+              "output": {
+                "ok": true,
+                "data": {
+                  "iso": "2026-03-01T12:32:05.275Z",
+                  "unixMs": 1772368325275,
+                  "timeZone": "UTC",
+                  "year": 2026,
+                  "month": 3,
+                  "day": 1,
+                  "hour": 12,
+                  "minute": 32,
+                  "second": 5,
+                  "dayOfWeek": "Sunday",
+                  "dayOfWeekZh": "星期日",
+                  "localFormatted": "2026年3月1日星期日 12:32:05"
+                }
+              }
+            }
+          ],
+          "toolNames": [
+            "time-now"
+          ],
+          "toolCallCount": 1,
+          "subAgentEvents": [],
+          "hasSubAgentDispatch": false,
+          "finishReason": "stop",
+          "sessionId": "e2e-1772368324436-sc3yl1",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 369,
+            "prompt": 282,
+            "completion": 87,
+            "cached": 0,
+            "numRequests": 1
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "正确调用了 task-manage"
+            },
+            {
+              "assertion": {
+                "type": "llm-rubric",
+                "value": "回复应体现 Agent 尝试了创建任务的操作（可能成功，也可能因缺少上下文而需要追问用户）。\n不应完全忽略用户的创建任务请求。\n语气应友好。\n"
+              },
+              "pass": true,
+              "score": 1,
+              "reason": "回复明确表示任务已创建，状态为待办、优先级中等，体现了Agent尝试执行创建任务的操作；同时主动提供后续支持（如设置时间或提醒内容），未忽略用户请求；使用‘你可随时…’‘需要我帮你…吗？’等措辞，语气友好且具有服务性。",
+              "tokensUsed": {
+                "total": 369,
+                "prompt": 282,
+                "completion": 87,
+                "cached": 0,
+                "numRequests": 1,
+                "completionDetails": {
+                  "reasoning": 0,
+                  "acceptedPrediction": 0,
+                  "rejectedPrediction": 0
+                }
+              },
+              "metadata": {
+                "renderedGradingPrompt": "[{\"role\":\"system\",\"content\":\"You are grading output according to a user-specified rubric. If the statement in the rubric is true, then the output passes the test. You respond with a JSON object with this structure: {reason: string, pass: boolean, score: number}\\n\\nExamples:\\n\\n<Output>Hello world</Output>\\n<Rubric>Content contains a greeting</Rubric>\\n{\\\"reason\\\": \\\"the content contains the word 'Hello'\\\", \\\"pass\\\": true, \\\"score\\\": 1.0}\\n\\n<Output>Avast ye swabs, repel the invaders!</Output>\\n<Rubric>Does not speak like a pirate</Rubric>\\n{\\\"reason\\\": \\\"'avast ye' is a common pirate term\\\", \\\"pass\\\": false, \\\"score\\\": 0.0}\"},{\"role\":\"user\",\"content\":\"<Output>\\n任务“会议提醒”已创建，状态为待办（todo），优先级中等。你可随时通过 `task-status` 查询其进度或用 `task-manage` 进行管理（如启动、取消、审批）。需要我帮你设置具体时间或提醒内容吗？\\n</Output>\\n<Rubric>\\n回复应体现 Agent 尝试了创建任务的操作（可能成功，也可能因缺少上下文而需要追问用户）。\\n不应完全忽略用户的创建任务请求。\\n语气应友好。\\n\\n</Rubric>\"}]"
+              }
+            }
+          ]
+        },
+        "id": "71d63040-c0e9-4709-a277-21f48602d736",
+        "latencyMs": 2025,
+        "namedScores": {},
+        "prompt": {
+          "raw": "帮我创建一个任务：提醒开会",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 90000,
+            "provider": {
+              "id": "openai:chat:qwen-plus",
+              "config": {
+                "apiBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "apiKeyEnvar": "PROMPTFOO_GRADING_API_KEY"
+              }
+            }
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-e2e",
+          "label": "OpenLoaf E2E"
+        },
+        "response": {
+          "output": "任务“会议提醒”已创建，状态为待办（todo），优先级中等。你可随时通过 `task-status` 查询其进度或用 `task-manage` 进行管理（如启动、取消、审批）。需要我帮你设置具体时间或提醒内容吗？",
+          "metadata": {
+            "toolCalls": [
+              {
+                "toolCallId": "call_b1bb9d96798945998abc77",
+                "toolName": "task-manage",
+                "input": {
+                  "actionName": "创建会议提醒任务",
+                  "action": "create",
+                  "title": "会议提醒",
+                  "description": "设置一个会议提醒，包含时间、主题和参与人",
+                  "priority": "medium",
+                  "skipPlanConfirm": false
+                },
+                "output": "{\"ok\":true,\"message\":\"任务 \\\"会议提醒\\\" 已创建并开始执行。任务 ID: 93a0d662-f63e-4ceb-86cd-2a019a87b46e\",\"task\":{\"id\":\"93a0d662-f63e-4ceb-86cd-2a019a87b46e\",\"name\":\"会议提醒\",\"status\":\"todo\",\"priority\":\"medium\",\"triggerMode\":\"manual\"}}"
+              }
+            ],
+            "toolNames": [
+              "task-manage"
+            ],
+            "toolCallCount": 1,
+            "subAgentEvents": [],
+            "hasSubAgentDispatch": false,
+            "finishReason": "stop",
+            "sessionId": "e2e-1772368326425-mfp6b0"
+          },
+          "latencyMs": 2025
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "e2e-003: 任务创建应使用 task-manage",
+          "vars": {
+            "prompt": "帮我创建一个任务：提醒开会"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('task-manage')\n  ? { pass: true, score: 1, reason: '正确调用了 task-manage' }\n  : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "回复应体现 Agent 尝试了创建任务的操作（可能成功，也可能因缺少上下文而需要追问用户）。\n不应完全忽略用户的创建任务请求。\n语气应友好。\n"
+            }
+          ],
+          "options": {
+            "timeout": 90000,
+            "provider": {
+              "id": "openai:chat:qwen-plus",
+              "config": {
+                "apiBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "apiKeyEnvar": "PROMPTFOO_GRADING_API_KEY"
+              }
+            }
+          },
+          "metadata": {}
+        },
+        "testIdx": 2,
+        "vars": {
+          "prompt": "帮我创建一个任务：提醒开会"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "toolCallId": "call_b1bb9d96798945998abc77",
+              "toolName": "task-manage",
+              "input": {
+                "actionName": "创建会议提醒任务",
+                "action": "create",
+                "title": "会议提醒",
+                "description": "设置一个会议提醒，包含时间、主题和参与人",
+                "priority": "medium",
+                "skipPlanConfirm": false
+              },
+              "output": "{\"ok\":true,\"message\":\"任务 \\\"会议提醒\\\" 已创建并开始执行。任务 ID: 93a0d662-f63e-4ceb-86cd-2a019a87b46e\",\"task\":{\"id\":\"93a0d662-f63e-4ceb-86cd-2a019a87b46e\",\"name\":\"会议提醒\",\"status\":\"todo\",\"priority\":\"medium\",\"triggerMode\":\"manual\"}}"
+            }
+          ],
+          "toolNames": [
+            "task-manage"
+          ],
+          "toolCallCount": 1,
+          "subAgentEvents": [],
+          "hasSubAgentDispatch": false,
+          "finishReason": "stop",
+          "sessionId": "e2e-1772368326425-mfp6b0",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "error": "未调用 email-query，实际: []",
+        "gradingResult": {
+          "pass": false,
+          "score": 0.5,
+          "reason": "未调用 email-query，实际: []",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "未调用 email-query，实际: []"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用禁止工具"
+            }
+          ]
+        },
+        "id": "701564e3-b0fe-4cd9-aa34-259cf57b226f",
+        "latencyMs": 2634,
+        "namedScores": {},
+        "prompt": {
+          "raw": "查看最近的邮件",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 90000,
+            "provider": {
+              "id": "openai:chat:qwen-plus",
+              "config": {
+                "apiBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "apiKeyEnvar": "PROMPTFOO_GRADING_API_KEY"
+              }
+            }
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-e2e",
+          "label": "OpenLoaf E2E"
+        },
+        "response": {
+          "output": "无法调用 `email-query` 工具，当前可用工具中无邮件相关功能。请确认是否需要其他帮助，例如查看文件、执行命令或生成内容？",
+          "metadata": {
+            "toolCalls": [],
+            "toolNames": [],
+            "toolCallCount": 0,
+            "subAgentEvents": [],
+            "hasSubAgentDispatch": false,
+            "finishReason": "stop",
+            "sessionId": "e2e-1772368331051-o3rbue"
+          },
+          "latencyMs": 2634
+        },
+        "score": 0.5,
+        "success": false,
+        "testCase": {
+          "description": "e2e-004: 邮件查询应使用 email-query",
+          "vars": {
+            "prompt": "查看最近的邮件"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('email-query')\n  ? { pass: true, score: 1, reason: '正确调用了 email-query' }\n  : { pass: false, score: 0, reason: `未调用 email-query，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nconst forbidden = ['list-dir', 'shell-command', 'read-file'];\nconst used = forbidden.filter(t => tools.includes(t));\nreturn used.length === 0\n  ? { pass: true, score: 1, reason: '未使用禁止工具' }\n  : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };\n"
+            }
+          ],
+          "options": {
+            "timeout": 90000,
+            "provider": {
+              "id": "openai:chat:qwen-plus",
+              "config": {
+                "apiBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "apiKeyEnvar": "PROMPTFOO_GRADING_API_KEY"
+              }
+            }
+          },
+          "metadata": {}
+        },
+        "testIdx": 3,
+        "vars": {
+          "prompt": "查看最近的邮件"
+        },
+        "metadata": {
+          "toolCalls": [],
+          "toolNames": [],
+          "toolCallCount": 0,
+          "subAgentEvents": [],
+          "hasSubAgentDispatch": false,
+          "finishReason": "stop",
+          "sessionId": "e2e-1772368331051-o3rbue",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "正确调用了 read-file"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用 shell-command"
+            }
+          ]
+        },
+        "id": "72b06417-0314-4afc-b66d-7f1b699cd441",
+        "latencyMs": 4042,
+        "namedScores": {},
+        "prompt": {
+          "raw": "读一下 README.md 的内容",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 90000,
+            "provider": {
+              "id": "openai:chat:qwen-plus",
+              "config": {
+                "apiBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "apiKeyEnvar": "PROMPTFOO_GRADING_API_KEY"
+              }
+            }
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-e2e",
+          "label": "OpenLoaf E2E"
+        },
+        "response": {
+          "output": "文件夹内无 README.md 文件。请确认路径或文件名是否正确，或提供其他文件路径以便继续操作。",
+          "metadata": {
+            "toolCalls": [
+              {
+                "toolCallId": "call_1f83cc3211a6409987b246",
+                "toolName": "read-file",
+                "input": {
+                  "actionName": "读取 README.md 文件内容",
+                  "path": "README.md"
+                }
+              },
+              {
+                "toolCallId": "call_1dc45b4bc1354264bed9a7",
+                "toolName": "list-dir",
+                "input": {
+                  "actionName": "列出项目根目录内容",
+                  "path": "/root/OpenLoafWorkspace/",
+                  "ignoreGitignore": true,
+                  "format": "tree"
+                },
+                "output": "Path: .\nTotal: 0 dirs, 0 files"
+              }
+            ],
+            "toolNames": [
+              "read-file",
+              "list-dir"
+            ],
+            "toolCallCount": 2,
+            "subAgentEvents": [],
+            "hasSubAgentDispatch": false,
+            "finishReason": "stop",
+            "sessionId": "e2e-1772368333752-jr8vod"
+          },
+          "latencyMs": 4042
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "e2e-005: 文件读取应使用 read-file",
+          "vars": {
+            "prompt": "读一下 README.md 的内容"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('read-file')\n  ? { pass: true, score: 1, reason: '正确调用了 read-file' }\n  : { pass: false, score: 0, reason: `未调用 read-file，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('shell-command')\n  ? { pass: true, score: 1, reason: '未使用 shell-command' }\n  : { pass: false, score: 0, reason: '不应使用 shell-command 来读取文件' };\n"
+            }
+          ],
+          "options": {
+            "timeout": 90000,
+            "provider": {
+              "id": "openai:chat:qwen-plus",
+              "config": {
+                "apiBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "apiKeyEnvar": "PROMPTFOO_GRADING_API_KEY"
+              }
+            }
+          },
+          "metadata": {}
+        },
+        "testIdx": 4,
+        "vars": {
+          "prompt": "读一下 README.md 的内容"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "toolCallId": "call_1f83cc3211a6409987b246",
+              "toolName": "read-file",
+              "input": {
+                "actionName": "读取 README.md 文件内容",
+                "path": "README.md"
+              }
+            },
+            {
+              "toolCallId": "call_1dc45b4bc1354264bed9a7",
+              "toolName": "list-dir",
+              "input": {
+                "actionName": "列出项目根目录内容",
+                "path": "/root/OpenLoafWorkspace/",
+                "ignoreGitignore": true,
+                "format": "tree"
+              },
+              "output": "Path: .\nTotal: 0 dirs, 0 files"
+            }
+          ],
+          "toolNames": [
+            "read-file",
+            "list-dir"
+          ],
+          "toolCallCount": 2,
+          "subAgentEvents": [],
+          "hasSubAgentDispatch": false,
+          "finishReason": "stop",
+          "sessionId": "e2e-1772368333752-jr8vod",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "error": "The output states 'Sunday, March 1, 2026', which is a date, not the current time (e.g., hour/minute). 'Time' typically refers to clock time (e.g., '3:45 PM'), not just the calendar date. Thus, it does not correctly express the current time in English.",
+        "gradingResult": {
+          "pass": false,
+          "score": 0.5,
+          "reason": "The output states 'Sunday, March 1, 2026', which is a date, not the current time (e.g., hour/minute). 'Time' typically refers to clock time (e.g., '3:45 PM'), not just the calendar date. Thus, it does not correctly express the current time in English.",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 306,
+            "prompt": 218,
+            "completion": 88,
+            "cached": 0,
+            "numRequests": 1
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "第一轮正确调用了 time-now"
+            },
+            {
+              "assertion": {
+                "type": "llm-rubric",
+                "value": "第二轮回复应包含与第一轮相同的时间信息，以英文表达"
+              },
+              "pass": false,
+              "score": 0,
+              "reason": "The output states 'Sunday, March 1, 2026', which is a date, not the current time (e.g., hour/minute). 'Time' typically refers to clock time (e.g., '3:45 PM'), not just the calendar date. Thus, it does not correctly express the current time in English.",
+              "tokensUsed": {
+                "total": 306,
+                "prompt": 218,
+                "completion": 88,
+                "cached": 0,
+                "numRequests": 1,
+                "completionDetails": {
+                  "reasoning": 0,
+                  "acceptedPrediction": 0,
+                  "rejectedPrediction": 0
+                }
+              },
+              "metadata": {
+                "renderedGradingPrompt": "[{\"role\":\"system\",\"content\":\"You are grading output according to a user-specified rubric. If the statement in the rubric is true, then the output passes the test. You respond with a JSON object with this structure: {reason: string, pass: boolean, score: number}\\n\\nExamples:\\n\\n<Output>Hello world</Output>\\n<Rubric>Content contains a greeting</Rubric>\\n{\\\"reason\\\": \\\"the content contains the word 'Hello'\\\", \\\"pass\\\": true, \\\"score\\\": 1.0}\\n\\n<Output>Avast ye swabs, repel the invaders!</Output>\\n<Rubric>Does not speak like a pirate</Rubric>\\n{\\\"reason\\\": \\\"'avast ye' is a common pirate term\\\", \\\"pass\\\": false, \\\"score\\\": 0.0}\"},{\"role\":\"user\",\"content\":\"<Output>\\nThe current time in English is: Sunday, March 1, 2026.\\n</Output>\\n<Rubric>\\n第二轮回复应包含与第一轮相同的时间信息，以英文表达\\n</Rubric>\"}]"
+              }
+            }
+          ]
+        },
+        "id": "09cfe6b5-5d75-4f6d-a1ef-2ea82a8742d6",
+        "latencyMs": 3123,
+        "namedScores": {},
+        "prompt": {
+          "raw": "dummy",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 90000,
+            "provider": {
+              "id": "openai:chat:qwen-plus",
+              "config": {
+                "apiBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "apiKeyEnvar": "PROMPTFOO_GRADING_API_KEY"
+              }
+            }
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-e2e",
+          "label": "OpenLoaf E2E"
+        },
+        "response": {
+          "output": "The current time in English is: Sunday, March 1, 2026.",
+          "metadata": {
+            "toolCalls": [
+              {
+                "toolCallId": "call_13bfe9858049472898db16",
+                "toolName": "time-now",
+                "input": {
+                  "actionName": "获取当前时间"
+                },
+                "output": {
+                  "ok": true,
+                  "data": {
+                    "iso": "2026-03-01T12:32:19.262Z",
+                    "unixMs": 1772368339262,
+                    "timeZone": "UTC",
+                    "year": 2026,
+                    "month": 3,
+                    "day": 1,
+                    "hour": 12,
+                    "minute": 32,
+                    "second": 19,
+                    "dayOfWeek": "Sunday",
+                    "dayOfWeekZh": "星期日",
+                    "localFormatted": "2026年3月1日星期日 12:32:19"
+                  }
+                }
+              }
+            ],
+            "toolNames": [
+              "time-now"
+            ],
+            "toolCallCount": 1,
+            "sessionId": "e2e-mt-1772368337819-epxtzj"
+          },
+          "latencyMs": 3123
+        },
+        "score": 0.5,
+        "success": false,
+        "testCase": {
+          "description": "e2e-010: 多轮对话保持上下文",
+          "vars": {
+            "prompt": "dummy",
+            "turns": "[{\"text\": \"现在几点了？\"}, {\"text\": \"刚才的时间用英文说一次\"}]"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('time-now')\n  ? { pass: true, score: 1, reason: '第一轮正确调用了 time-now' }\n  : { pass: false, score: 0, reason: `未调用 time-now，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "第二轮回复应包含与第一轮相同的时间信息，以英文表达"
+            }
+          ],
+          "options": {
+            "timeout": 90000,
+            "provider": {
+              "id": "openai:chat:qwen-plus",
+              "config": {
+                "apiBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "apiKeyEnvar": "PROMPTFOO_GRADING_API_KEY"
+              }
+            }
+          },
+          "metadata": {}
+        },
+        "testIdx": 5,
+        "vars": {
+          "prompt": "dummy",
+          "turns": "[{\"text\": \"现在几点了？\"}, {\"text\": \"刚才的时间用英文说一次\"}]"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "toolCallId": "call_13bfe9858049472898db16",
+              "toolName": "time-now",
+              "input": {
+                "actionName": "获取当前时间"
+              },
+              "output": {
+                "ok": true,
+                "data": {
+                  "iso": "2026-03-01T12:32:19.262Z",
+                  "unixMs": 1772368339262,
+                  "timeZone": "UTC",
+                  "year": 2026,
+                  "month": 3,
+                  "day": 1,
+                  "hour": 12,
+                  "minute": 32,
+                  "second": 19,
+                  "dayOfWeek": "Sunday",
+                  "dayOfWeekZh": "星期日",
+                  "localFormatted": "2026年3月1日星期日 12:32:19"
+                }
+              }
+            }
+          ],
+          "toolNames": [
+            "time-now"
+          ],
+          "toolCallCount": 1,
+          "sessionId": "e2e-mt-1772368337819-epxtzj",
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      }
+    ],
+    "stats": {
+      "successes": 3,
+      "failures": 3,
+      "errors": 0,
+      "tokenUsage": {
+        "prompt": 0,
+        "completion": 0,
+        "cached": 0,
+        "total": 0,
+        "numRequests": 6,
+        "completionDetails": {
+          "reasoning": 0,
+          "acceptedPrediction": 0,
+          "rejectedPrediction": 0
+        },
+        "assertions": {
+          "total": 984,
+          "prompt": 750,
+          "completion": 234,
+          "cached": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0
+          }
+        }
+      },
+      "durationMs": 34714,
+      "evaluationDurationMs": 34714
+    }
+  },
+  "config": {
+    "tags": {},
+    "description": "OpenLoaf AI Agent E2E 行为测试",
+    "prompts": [
+      "{{prompt}}"
+    ],
+    "providers": [
+      {
+        "id": "file://openloaf-e2e-provider.ts",
+        "label": "OpenLoaf E2E"
+      }
+    ],
+    "tests": [
+      {
+        "description": "e2e-001: 项目列表查询应使用 project-query",
+        "vars": {
+          "prompt": "现在有哪些项目"
+        },
+        "assert": [
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('project-query')\n  ? { pass: true, score: 1, reason: '正确调用了 project-query' }\n  : { pass: false, score: 0, reason: `未调用 project-query，实际: [${tools}]` };\n"
+          },
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('list-dir')\n  ? { pass: true, score: 1, reason: '未调用 list-dir' }\n  : { pass: false, score: 0, reason: '错误调用了 list-dir（文件目录列出）' };\n"
+          },
+          {
+            "type": "llm-rubric",
+            "value": "回复应包含应用层的项目列表信息。\n不应返回文件系统目录结构。\n不应说\"没有项目\"或\"无法获取\"（工具可能返回空列表，但应正常展示结果）。\n"
+          }
+        ]
+      },
+      {
+        "description": "e2e-002: 时间查询应使用 time-now",
+        "vars": {
+          "prompt": "现在几点了？"
+        },
+        "assert": [
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('time-now')\n  ? { pass: true, score: 1, reason: '正确调用了 time-now' }\n  : { pass: false, score: 0, reason: `未调用 time-now，实际: [${tools}]` };\n"
+          },
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nconst forbidden = ['shell-command', 'js-repl'];\nconst used = forbidden.filter(t => tools.includes(t));\nreturn used.length === 0\n  ? { pass: true, score: 1, reason: '未使用禁止工具' }\n  : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };\n"
+          }
+        ]
+      },
+      {
+        "description": "e2e-003: 任务创建应使用 task-manage",
+        "vars": {
+          "prompt": "帮我创建一个任务：提醒开会"
+        },
+        "assert": [
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('task-manage')\n  ? { pass: true, score: 1, reason: '正确调用了 task-manage' }\n  : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };\n"
+          },
+          {
+            "type": "llm-rubric",
+            "value": "回复应体现 Agent 尝试了创建任务的操作（可能成功，也可能因缺少上下文而需要追问用户）。\n不应完全忽略用户的创建任务请求。\n语气应友好。\n"
+          }
+        ]
+      },
+      {
+        "description": "e2e-004: 邮件查询应使用 email-query",
+        "vars": {
+          "prompt": "查看最近的邮件"
+        },
+        "assert": [
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('email-query')\n  ? { pass: true, score: 1, reason: '正确调用了 email-query' }\n  : { pass: false, score: 0, reason: `未调用 email-query，实际: [${tools}]` };\n"
+          },
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nconst forbidden = ['list-dir', 'shell-command', 'read-file'];\nconst used = forbidden.filter(t => tools.includes(t));\nreturn used.length === 0\n  ? { pass: true, score: 1, reason: '未使用禁止工具' }\n  : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };\n"
+          }
+        ]
+      },
+      {
+        "description": "e2e-005: 文件读取应使用 read-file",
+        "vars": {
+          "prompt": "读一下 README.md 的内容"
+        },
+        "assert": [
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('read-file')\n  ? { pass: true, score: 1, reason: '正确调用了 read-file' }\n  : { pass: false, score: 0, reason: `未调用 read-file，实际: [${tools}]` };\n"
+          },
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('shell-command')\n  ? { pass: true, score: 1, reason: '未使用 shell-command' }\n  : { pass: false, score: 0, reason: '不应使用 shell-command 来读取文件' };\n"
+          }
+        ]
+      },
+      {
+        "description": "e2e-010: 多轮对话保持上下文",
+        "vars": {
+          "prompt": "dummy",
+          "turns": "[{\"text\": \"现在几点了？\"}, {\"text\": \"刚才的时间用英文说一次\"}]"
+        },
+        "assert": [
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('time-now')\n  ? { pass: true, score: 1, reason: '第一轮正确调用了 time-now' }\n  : { pass: false, score: 0, reason: `未调用 time-now，实际: [${tools}]` };\n"
+          },
+          {
+            "type": "llm-rubric",
+            "value": "第二轮回复应包含与第一轮相同的时间信息，以英文表达"
+          }
+        ]
+      }
+    ],
+    "scenarios": [],
+    "env": {},
+    "defaultTest": {
+      "options": {
+        "timeout": 90000,
+        "provider": {
+          "id": "openai:chat:qwen-plus",
+          "config": {
+            "apiBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "apiKeyEnvar": "PROMPTFOO_GRADING_API_KEY"
+          }
+        }
+      },
+      "vars": {},
+      "assert": [],
+      "metadata": {}
+    },
+    "outputPath": [
+      "/app/apps/server/.behavior-test-output.json"
+    ],
+    "extensions": [],
+    "metadata": {},
+    "evaluateOptions": {}
+  },
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.120.25",
+    "nodeVersion": "v22.22.0",
+    "platform": "linux",
+    "arch": "arm64",
+    "exportedAt": "2026-03-01T12:32:23.502Z",
+    "evaluationCreatedAt": "2026-03-01T12:31:48.619Z"
+  }
+}

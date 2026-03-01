@@ -128,9 +128,9 @@ export default function MessageError({ error }: MessageErrorProps) {
         {/* 第一行：红绿灯（左） + 标题（右对齐） */}
         <div className="flex items-center justify-between px-3.5 py-2">
           <div className="flex shrink-0 items-center gap-[5px]">
-            <span className="size-[10px] rounded-full bg-[#d93025] dark:bg-red-500" />
-            <span className="size-[10px] rounded-full bg-[#d93025]/20 dark:bg-red-500/20" />
-            <span className="size-[10px] rounded-full bg-[#d93025]/20 dark:bg-red-500/20" />
+            <span className="size-[10px] rounded-full bg-[#ff5f57] dark:bg-[#ff5f57]" />
+            <span className="size-[10px] rounded-full bg-[#febc2e] dark:bg-[#febc2e]" />
+            <span className="size-[10px] rounded-full bg-[#28c840] dark:bg-[#28c840]" />
           </div>
           <span className="text-[11px] font-medium text-[#d93025]/60 dark:text-red-400/60">
             {parsed.title}
@@ -145,7 +145,15 @@ export default function MessageError({ error }: MessageErrorProps) {
         </div>
 
         {/* 第三行：操作按钮 */}
-        <div className="flex items-center gap-1.5 border-t border-[#d93025]/10 px-3.5 py-2 dark:border-red-500/10">
+        <div className="flex items-center justify-end gap-1.5 border-t border-[#d93025]/10 px-3.5 py-2 dark:border-red-500/10">
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[#d93025]/20 bg-white/60 px-3 text-[11px] font-medium text-[#d93025] transition-colors duration-150 hover:bg-[#fce8e6] dark:border-red-500/20 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
+          >
+            {copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
+            {copied ? "已复制" : "复制日志"}
+          </button>
           <button
             type="button"
             onClick={handleRetry}
@@ -154,14 +162,6 @@ export default function MessageError({ error }: MessageErrorProps) {
           >
             <RotateCcw className="size-3" />
             重试
-          </button>
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[#d93025]/20 bg-white/60 px-3 text-[11px] font-medium text-[#d93025] transition-colors duration-150 hover:bg-[#fce8e6] dark:border-red-500/20 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
-          >
-            {copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
-            {copied ? "已复制" : "复制日志"}
           </button>
         </div>
       </div>

@@ -3,8 +3,28 @@ set -e
 
 # ── node_modules（首次运行时安装，Docker volume 持久化）───────
 if [ ! -d /app/node_modules/.pnpm ]; then
-  echo "[setup] 首次运行，安装依赖（约 2-3 分钟）..."
+  echo "[setup] 首次运行，安装依赖..."
+  pnpm config set store-dir /root/.local/share/pnpm/store
   cd /app && pnpm install --frozen-lockfile
+
+  # pnpm v10 默认屏蔽 postinstall 脚本（onlyBuiltDependencies 白名单机制）
+  # 直接调用 node-gyp / postinstall 绕过白名单限制
+  echo "[setup] 重建 better-sqlite3..."
+  cd /app/node_modules/better-sqlite3 && npx --yes node-gyp rebuild 2>&1 | tail -3
+  echo "[setup] 安装 esbuild 二进制..."
+  node /app/node_modules/esbuild/install.js
+  echo "[setup] 重建 node-pty..."
+  cd /app/node_modules/node-pty && npx --yes node-gyp rebuild 2>&1 | tail -3
+  echo "[setup] 安装 sharp 平台二进制..."
+  SHARP_ARCH=$(uname -m | sed 's/aarch64/arm64/' | sed 's/x86_64/x64/')
+  for pkg in "sharp-libvips-linuxmusl-${SHARP_ARCH}" "sharp-linuxmusl-${SHARP_ARCH}"; do
+    mkdir -p /app/node_modules/@img/${pkg}
+    cd /tmp && npm pack "@img/${pkg}" 2>/dev/null \
+      && tar xzf img-${pkg}-*.tgz -C /app/node_modules/@img/${pkg} --strip-components=1 \
+      && rm -f /tmp/img-${pkg}-*.tgz
+  done
+  echo "[setup] 生成 Prisma 引擎..."
+  cd /app/node_modules/@prisma/engines && node scripts/postinstall.js
 else
   echo "[setup] node_modules 已缓存，跳过安装"
 fi
@@ -40,7 +60,7 @@ if [ -n "$OPENLOAF_SAAS_ACCESS_TOKEN" ]; then
 fi
 
 echo "[setup] 初始化数据库..."
-cd /app && pnpm run db:push --skip-generate
+cd /app && pnpm run db:push
 
 echo "[setup] 运行行为测试..."
 cd /app/apps/server && exec "$@"

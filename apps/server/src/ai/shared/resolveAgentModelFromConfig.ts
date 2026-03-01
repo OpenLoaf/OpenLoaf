@@ -31,6 +31,7 @@ export type AgentModelIds = {
   chatModelSource?: ChatModelSource
   imageModelId?: string
   videoModelId?: string
+  codeModelIds?: string[]
 }
 
 /**
@@ -85,8 +86,11 @@ export function resolveAgentModelIdsFromConfig(input: {
       const videoModelId = Array.isArray(descriptor.videoModelIds)
         ? descriptor.videoModelIds[0]?.trim() || undefined
         : undefined
+      const codeModelIds = Array.isArray(descriptor.codeModelIds)
+        ? descriptor.codeModelIds.filter((s) => s.trim())
+        : undefined
 
-      return { chatModelId, chatModelSource, imageModelId, videoModelId }
+      return { chatModelId, chatModelSource, imageModelId, videoModelId, codeModelIds }
     }
   }
 
@@ -116,8 +120,11 @@ export function resolveAgentModelIdsFromConfig(input: {
     const videoModelId = Array.isArray(match.config.videoModelIds)
       ? match.config.videoModelIds[0]?.trim() || undefined
       : undefined
+    const codeModelIds = Array.isArray(match.config.codeModelIds)
+      ? match.config.codeModelIds.filter((s) => s.trim())
+      : undefined
 
-    return { chatModelId, chatModelSource, imageModelId, videoModelId }
+    return { chatModelId, chatModelSource, imageModelId, videoModelId, codeModelIds }
   }
 
   return { chatModelSource }

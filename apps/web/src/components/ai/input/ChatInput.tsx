@@ -76,6 +76,8 @@ import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import ApprovalModeSelector, { type ApprovalMode } from "./ApprovalModeSelector";
 import ChatModeSelector, { type ChatMode } from "./ChatModeSelector";
 import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
+import { CLI_TOOLS_META } from "./model-preferences/CliToolsList";
+import { useMainAgentModel } from "../hooks/use-main-agent-model";
 import {
   PromptInput,
   PromptInputButton,
@@ -226,6 +228,10 @@ export interface ChatInputBoxProps {
   onChatModeChange?: (mode: ChatMode) => void;
   /** Whether CLI tools are installed (controls visibility of mode selector). */
   hasCliTools?: boolean;
+  /** Whether the conversation has started (has messages). */
+  conversationStarted?: boolean;
+  /** Display label for the selected CLI tool (e.g. "Claude Code"). */
+  cliToolLabel?: string;
 }
 
 export function ChatInputBox({
@@ -272,6 +278,8 @@ export function ChatInputBox({
   chatMode = "agent",
   onChatModeChange,
   hasCliTools = false,
+  conversationStarted = false,
+  cliToolLabel,
 }: ChatInputBoxProps) {
   const isBlocked = Boolean(blocked);
   const plainTextValue = useMemo(() => getPlainTextFromInput(value), [value]);
@@ -374,7 +382,7 @@ export function ChatInputBox({
       isBlocked ||
       (!plainTextValue.trim() && !hasReadyAttachments);
 
-  const resolvedPlaceholder = chatMode === "cli" ? "直接与 CLI 对话..." : placeholder;
+  const resolvedPlaceholder = chatMode === "cli" ? `与 ${cliToolLabel || "CLI"} 对话...` : placeholder;
 
   // Responsive: collapse ChatModeSelector labels when footer is narrow
   const [footerEl, setFooterEl] = useState<HTMLDivElement | null>(null);
@@ -915,7 +923,7 @@ export function ChatInputBox({
                 </Tooltip>
               ) : null}
               {!compact ? (
-                <ApprovalModeSelector value={approvalMode} onChange={handleApprovalModeChange} />
+                <ApprovalModeSelector value={approvalMode} onChange={handleApprovalModeChange} disabled={chatMode === 'cli' && conversationStarted} />
               ) : null}
             </PromptInputTools>
 
@@ -931,7 +939,7 @@ export function ChatInputBox({
                 </span>
               )}
 
-              {!compact && hasCliTools ? (
+              {!compact && hasCliTools && !conversationStarted ? (
                 <ChatModeSelector
                   value={chatMode}
                   onChange={(mode) => onChatModeChange?.(mode)}
@@ -940,7 +948,7 @@ export function ChatInputBox({
                 />
               ) : null}
 
-              {!compact ? <SelectMode triggerVariant="icon" className="shrink-0" chatMode={chatMode} /> : null}
+              {!compact && !(chatMode === 'cli' && conversationStarted) ? <SelectMode triggerVariant="icon" className="shrink-0" chatMode={chatMode} /> : null}
 
               {actionVariant === "text" && onCancel && (
                 <PromptInputButton
@@ -1059,7 +1067,8 @@ export default function ChatInput({
   onDropHandled,
 }: ChatInputProps) {
   const { sendMessage, stopGenerating, clearError, setPendingCloudMessage } = useChatActions();
-  const { status, isHistoryLoading } = useChatState();
+  const { status, isHistoryLoading, messages } = useChatState();
+  const conversationStarted = messages.length > 0;
   const { input, setInput, imageOptions, codexOptions, addMaskedAttachment } = useChatOptions();
   const { projectId, workspaceId, tabId } = useChatSession();
   const hasReasoningModel = useHasPreferredReasoningModel(projectId);
@@ -1101,6 +1110,14 @@ export default function ChatInput({
   /** Detect installed CLI tools to control mode selector visibility. */
   const installedCliProviderIds = useInstalledCliProviderIds();
   const hasCliTools = installedCliProviderIds.size > 0;
+  /** Resolve selected CLI tool label for placeholder. */
+  const { detail: mainAgentDetail } = useMainAgentModel(projectId);
+  const cliToolLabel = useMemo(() => {
+    const codeId = mainAgentDetail?.codeModelIds?.[0];
+    if (!codeId) return CLI_TOOLS_META[0]?.label;
+    const tool = CLI_TOOLS_META.find((t) => t.id === codeId);
+    return tool?.label ?? codeId;
+  }, [mainAgentDetail?.codeModelIds]);
   /** Global online-search switch state. */
   const [globalOnlineSearchEnabled, setGlobalOnlineSearchEnabled] =
     useState(false);
@@ -1448,6 +1465,8 @@ export default function ChatInput({
         chatMode={chatMode}
         onChatModeChange={handleChatModeChange}
         hasCliTools={hasCliTools}
+        conversationStarted={conversationStarted}
+        cliToolLabel={cliToolLabel}
         header={
           !isUnconfigured && (showImageOutputOptions || isCodexProvider) ? (
             <div className="flex flex-col gap-2">

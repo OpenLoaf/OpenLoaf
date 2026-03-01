@@ -8,7 +8,9 @@ import { execSync } from 'node:child_process'
 import { readFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
-const args = process.argv.slice(2).join(' ')
+const rawArgs = process.argv.slice(2)
+const keepOutput = rawArgs.includes('--keep-output')
+const args = rawArgs.filter(a => a !== '--keep-output').join(' ')
 const outFile = join(import.meta.dirname, '..', '.behavior-test-output.json')
 
 const cmd = [
@@ -73,8 +75,12 @@ try {
   console.log(`\n📊 结果: ${passed}/${total} 通过 (${pct}%)`)
   if (failed > 0) console.log(`   ${failed} 个用例失败`)
 
-  // 清理临时文件
-  try { unlinkSync(outFile) } catch {}
+  // 清理临时文件（--keep-output 时保留）
+  if (keepOutput) {
+    console.log(`\n📁 输出文件: ${outFile}`)
+  } else {
+    try { unlinkSync(outFile) } catch {}
+  }
 
   process.exit(failed > 0 ? 1 : 0)
 } catch {

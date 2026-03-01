@@ -14,11 +14,13 @@ import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasElement, CanvasSnapshot } from "../engine/types";
 import { MINIMAP_HIDE_DELAY } from "../engine/constants";
 import BoardControls from "../controls/BoardControls";
+import AIGenerateToolbar from "../toolbar/AIGenerateToolbar";
 import BoardToolbar from "../toolbar/BoardToolbar";
 import { ConnectorActionPanel, NodeInspectorPanel } from "../ui/CanvasPanels";
 import { CanvasSurface } from "../render/CanvasSurface";
 import { SvgConnectorLayer } from "../render/SvgConnectorLayer";
 import { CanvasDomLayer } from "./CanvasDomLayer";
+import BoardEmptyGuide from "./BoardEmptyGuide";
 import { BoardPerfOverlay } from "./BoardPerfOverlay";
 import { AnchorOverlay } from "./AnchorOverlay";
 import { MiniMap } from "./MiniMap";
@@ -134,6 +136,10 @@ export function BoardCanvasRender({
         <BoardControls engine={engine} snapshot={snapshot} onAutoLayout={onAutoLayout} />
       ) : null}
       {showUi ? <BoardToolbar engine={engine} snapshot={snapshot} /> : null}
+      {showUi ? <AIGenerateToolbar engine={engine} snapshot={snapshot} /> : null}
+      {showUi ? (
+        <BoardEmptyGuide engine={engine} visible={snapshot.elements.length === 0 && !snapshot.pendingInsert} />
+      ) : null}
       {showUi && selectedConnector ? (
         <ConnectorActionPanel
           snapshot={snapshot}
