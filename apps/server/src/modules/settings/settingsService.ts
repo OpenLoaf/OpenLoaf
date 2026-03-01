@@ -350,7 +350,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
   );
   const uiLanguage =
     typeof next.uiLanguage === "string" &&
-    ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(
+    ["zh-CN", "zh-TW", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(
       next.uiLanguage,
     )
       ? next.uiLanguage
