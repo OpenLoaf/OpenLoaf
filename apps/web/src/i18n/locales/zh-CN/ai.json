@@ -7,7 +7,8 @@
     "selectModel": "选择模型",
     "modelNotSelected": "未选择模型",
     "placeholderTitle": "输入您的问题",
-    "ariaLabel": "问题输入"
+    "ariaLabel": "问题输入",
+    "welcomeMessage": "有什么我能帮你的？"
   },
   "message": {
     "userMessage": "用户消息",
@@ -44,7 +45,10 @@
     "brainstorm": "头脑风暴",
     "execute": "执行模式",
     "selectMode": "选择对话模式",
-    "customizeSettings": "自定义设置"
+    "customizeSettings": "自定义设置",
+    "selector": "聊天模式",
+    "agent": "Agent 模式",
+    "cli": "CLI 模式"
   },
   "approval": {
     "required": "需要批准",
@@ -84,7 +88,15 @@
     "pinFailed": "置顶操作失败",
     "deleteTitle": "确认删除会话",
     "deleteConfirmTitle": "确认删除",
-    "deleteDesc": "确定要删除这个会话吗？此操作无法撤销。"
+    "deleteDesc": "确定要删除这个会话吗？此操作无法撤销。",
+    "empty": "暂无会话",
+    "groupLabel": {
+      "pinned": "置顶",
+      "today": "今日",
+      "yesterday": "昨日",
+      "within7": "7天内",
+      "within30": "30天内"
+    }
   },
   "image": {
     "noEditingSupport": "当前模型不支持图片编辑",
@@ -94,11 +106,6 @@
     "noServerUrl": "图片上传失败：服务端未返回地址",
     "networkError": "图片上传失败，请检查网络连接",
     "fileTooLarge": "文件过大（{{size}}），请小于 {{max}}"
-  },
-  "mode": {
-    "selector": "聊天模式",
-    "agent": "Agent 模式",
-    "cli": "CLI 模式"
   },
   "aiModel": {
     "openaiKey": "OpenAI API Key",
@@ -155,6 +162,36 @@
     "widget-get": "获取 Widget",
     "widget-check": "验证 Widget",
     "generate-widget": "生成动态 Widget"
+  },
+  "quickLaunch": {
+    "workbench": "工作台",
+    "calendar": "日历",
+    "mailbox": "邮箱",
+    "tasks": "任务"
+  },
+  "drag": {
+    "denyImage": "当前模型不支持图片",
+    "denyFile": "当前模型不支持文件",
+    "allowImage": "松开鼠标即可添加图片",
+    "allowFile": "松开鼠标即可添加文件",
+    "denyImageDesc": "请切换到支持图片输入的模型",
+    "denyFileDesc": "仅支持拖入项目文件引用",
+    "allowFileDesc": "支持拖入项目文件引用",
+    "allowImageDesc": "支持 PNG / JPEG / WebP，单文件不超过 {{max}}，可多选"
+  },
+  "debug": {
+    "title": "AI调试",
+    "copyLogPath": "复制日志路径",
+    "openLogFolder": "打开日志目录",
+    "systemPrompt": "系统提示词",
+    "noSystemPrompt": "暂无系统提示词（需发送一次消息后生成）",
+    "toolList": "工具列表",
+    "noToolList": "暂无工具列表（需发送一次消息后生成）",
+    "noPreface": "暂无 Preface",
+    "noTools": "_无工具_",
+    "toolCount": "共 {{count}} 个工具",
+    "copySuccess": "已复制聊天日志路径",
+    "copyError": "未找到聊天日志文件"
   },
   "helper": {
     "tryAskMe": "你可以试着问我：",

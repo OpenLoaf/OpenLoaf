@@ -117,22 +117,22 @@ function RecentSessionsBar() {
 
 const QUICK_LAUNCH_ITEMS = [
   {
-    baseId: "base:workbench", component: "workspace-desktop", label: "工作台", icon: LayoutDashboard, title: "工作台", tabIcon: "bot",
+    baseId: "base:workbench", component: "workspace-desktop", labelKey: "quickLaunch.workbench", icon: LayoutDashboard, titleKey: "quickLaunch.workbench", tabIcon: "bot",
     iconColor: "text-amber-700/70 dark:text-amber-300/70 group-hover:text-amber-700 dark:group-hover:text-amber-200",
     bgColor: "bg-amber-500/10 dark:bg-amber-400/10 group-hover:bg-amber-500/20 dark:group-hover:bg-amber-400/20",
   },
   {
-    baseId: "base:calendar", component: "calendar-page", label: "日历", icon: CalendarDays, title: "日历", tabIcon: "🗓️",
+    baseId: "base:calendar", component: "calendar-page", labelKey: "quickLaunch.calendar", icon: CalendarDays, titleKey: "quickLaunch.calendar", tabIcon: "🗓️",
     iconColor: "text-sky-700/70 dark:text-sky-300/70 group-hover:text-sky-700 dark:group-hover:text-sky-200",
     bgColor: "bg-sky-500/10 dark:bg-sky-400/10 group-hover:bg-sky-500/20 dark:group-hover:bg-sky-400/20",
   },
   {
-    baseId: "base:mailbox", component: "email-page", label: "邮箱", icon: Mail, title: "邮箱", tabIcon: "📧",
+    baseId: "base:mailbox", component: "email-page", labelKey: "quickLaunch.mailbox", icon: Mail, titleKey: "quickLaunch.mailbox", tabIcon: "📧",
     iconColor: "text-emerald-700/70 dark:text-emerald-300/70 group-hover:text-emerald-700 dark:group-hover:text-emerald-200",
     bgColor: "bg-emerald-500/10 dark:bg-emerald-400/10 group-hover:bg-emerald-500/20 dark:group-hover:bg-emerald-400/20",
   },
   {
-    baseId: "base:scheduled-tasks", component: "scheduled-tasks-page", label: "任务", icon: Clock, title: "任务", tabIcon: "⏰",
+    baseId: "base:scheduled-tasks", component: "scheduled-tasks-page", labelKey: "quickLaunch.tasks", icon: Clock, titleKey: "quickLaunch.tasks", tabIcon: "⏰",
     iconColor: "text-rose-700/70 dark:text-rose-300/70 group-hover:text-rose-700 dark:group-hover:text-rose-200",
     bgColor: "bg-rose-500/10 dark:bg-rose-400/10 group-hover:bg-rose-500/20 dark:group-hover:bg-rose-400/20",
   },
@@ -140,6 +140,7 @@ const QUICK_LAUNCH_ITEMS = [
 
 /** Quick launch bar shown at bottom of full-page empty state. */
 function QuickLaunchBar() {
+  const { t } = useTranslation('ai')
   const { tabId } = useChatSession()
 
   const handleQuickLaunch = React.useCallback(
@@ -151,13 +152,13 @@ function QuickLaunchBar() {
       state.addTab({
         workspaceId: currentTab.workspaceId,
         createNew: true,
-        title: item.title,
+        title: t(item.titleKey),
         icon: item.tabIcon,
         leftWidthPercent: 100,
         base: { id: item.baseId, component: item.component },
       })
     },
-    [tabId],
+    [tabId, t],
   )
 
   return (
@@ -186,7 +187,7 @@ function QuickLaunchBar() {
               <Icon className={cn("size-6 transition-colors duration-150", item.iconColor)} />
             </div>
             <span className="text-[11px] text-muted-foreground transition-colors duration-150 group-hover:text-foreground">
-              {item.label}
+              {t(item.labelKey)}
             </span>
           </motion.button>
         )
@@ -237,6 +238,7 @@ function ChatFullPageLayout({
   handleDragLeave: (e: React.DragEvent) => void
   handleDrop: (e: React.DragEvent) => void
 }) {
+  const { t } = useTranslation('ai')
   const { messages, isHistoryLoading, pendingCloudMessage } = useChatState()
   const isEmpty = !isHistoryLoading && messages.length === 0 && !pendingCloudMessage
 
@@ -281,7 +283,7 @@ function ChatFullPageLayout({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1, duration: 0.2 }}
                 >
-                  有什么我能帮你的？
+                  {t('chat.welcomeMessage')}
                 </motion.p>
                 <ChatInput
                   className="w-full !max-h-none !mt-0"
@@ -1089,26 +1091,23 @@ export function Chat({
         title={
           dragMode === "deny"
             ? dragHint === "image"
-              ? "当前模型不支持图片"
-              : "当前模型不支持文件"
+              ? t('drag.denyImage')
+              : t('drag.denyFile')
             : dragHint === "image"
-              ? "松开鼠标即可添加图片"
-              : "松开鼠标即可添加文件"
+              ? t('drag.allowImage')
+              : t('drag.allowFile')
         }
         variant={dragMode === "deny" ? "warning" : "default"}
         radiusClassName="rounded-2xl"
         description={
           dragMode === "deny" ? (
             dragHint === "image"
-              ? "请切换到支持图片输入的模型"
-              : "仅支持拖入项目文件引用"
+              ? t('drag.denyImageDesc')
+              : t('drag.denyFileDesc')
           ) : dragHint === "image" ? (
-            <>
-              支持 PNG / JPEG / WebP，单文件不超过{" "}
-              {formatFileSize(CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES)}，可多选
-            </>
+            t('drag.allowImageDesc', { max: formatFileSize(CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES) })
           ) : (
-            "支持拖入项目文件引用"
+            t('drag.allowFileDesc')
           )
         }
       />

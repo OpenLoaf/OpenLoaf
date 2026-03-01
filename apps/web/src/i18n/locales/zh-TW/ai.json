@@ -7,7 +7,8 @@
     "selectModel": "選擇模型",
     "modelNotSelected": "未選擇模型",
     "placeholderTitle": "輸入您的問題",
-    "ariaLabel": "問題輸入"
+    "ariaLabel": "問題輸入",
+    "welcomeMessage": "有什麼我能幫你的？"
   },
   "message": {
     "userMessage": "使用者訊息",
@@ -44,7 +45,10 @@
     "brainstorm": "腦力激盪",
     "execute": "執行模式",
     "selectMode": "選擇對話模式",
-    "customizeSettings": "自訂設定"
+    "customizeSettings": "自訂設定",
+    "selector": "聊天模式",
+    "agent": "Agent 模式",
+    "cli": "CLI 模式"
   },
   "approval": {
     "required": "需要批准",
@@ -84,7 +88,15 @@
     "pinFailed": "置頂操作失敗",
     "deleteTitle": "確認刪除會話",
     "deleteConfirmTitle": "確認刪除",
-    "deleteDesc": "確定要刪除這個會話嗎？此操作無法撤銷。"
+    "deleteDesc": "確定要刪除這個會話嗎？此操作無法撤銷。",
+    "empty": "暫無會話",
+    "groupLabel": {
+      "pinned": "置頂",
+      "today": "今日",
+      "yesterday": "昨日",
+      "within7": "7天內",
+      "within30": "30天內"
+    }
   },
   "image": {
     "noEditingSupport": "目前模型不支援影像編輯",
@@ -94,11 +106,6 @@
     "noServerUrl": "影像上傳失敗：伺服器未回傳地址",
     "networkError": "影像上傳失敗，請檢查網路連線",
     "fileTooLarge": "檔案過大（{{size}}），請小於 {{max}}"
-  },
-  "mode": {
-    "selector": "聊天模式",
-    "agent": "Agent 模式",
-    "cli": "CLI 模式"
   },
   "aiModel": {
     "openaiKey": "OpenAI API Key",
@@ -155,6 +162,36 @@
     "widget-get": "取得 Widget",
     "widget-check": "驗證 Widget",
     "generate-widget": "產生動態 Widget"
+  },
+  "quickLaunch": {
+    "workbench": "工作台",
+    "calendar": "行事曆",
+    "mailbox": "信箱",
+    "tasks": "任務"
+  },
+  "drag": {
+    "denyImage": "目前模型不支援圖片",
+    "denyFile": "目前模型不支援檔案",
+    "allowImage": "放開滑鼠即可新增圖片",
+    "allowFile": "放開滑鼠即可新增檔案",
+    "denyImageDesc": "請切換至支援圖片輸入的模型",
+    "denyFileDesc": "僅支援拖入專案檔案引用",
+    "allowFileDesc": "支援拖入專案檔案引用",
+    "allowImageDesc": "支援 PNG / JPEG / WebP，單檔案不超過 {{max}}，可多選"
+  },
+  "debug": {
+    "title": "AI 除錯",
+    "copyLogPath": "複製日誌路徑",
+    "openLogFolder": "開啟日誌目錄",
+    "systemPrompt": "系統提示詞",
+    "noSystemPrompt": "暫無系統提示詞（需發送一次訊息後生成）",
+    "toolList": "工具列表",
+    "noToolList": "暫無工具列表（需發送一次訊息後生成）",
+    "noPreface": "暫無 Preface",
+    "noTools": "_無工具_",
+    "toolCount": "共 {{count}} 個工具",
+    "copySuccess": "已複製聊天日誌路徑",
+    "copyError": "未找到聊天日誌檔案"
   },
   "helper": {
     "tryAskMe": "你可以試著問我：",

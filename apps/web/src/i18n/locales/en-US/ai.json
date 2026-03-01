@@ -7,7 +7,8 @@
     "selectModel": "Select Model",
     "modelNotSelected": "Model not selected",
     "placeholderTitle": "Ask your question",
-    "ariaLabel": "Question input"
+    "ariaLabel": "Question input",
+    "welcomeMessage": "How can I help you?"
   },
   "message": {
     "userMessage": "User message",
@@ -44,7 +45,10 @@
     "brainstorm": "Brainstorm",
     "execute": "Execute Mode",
     "selectMode": "Select chat mode",
-    "customizeSettings": "Customize Settings"
+    "customizeSettings": "Customize Settings",
+    "selector": "Chat mode",
+    "agent": "Agent mode",
+    "cli": "CLI mode"
   },
   "approval": {
     "required": "Approval required",
@@ -84,7 +88,15 @@
     "pinFailed": "Pin action failed",
     "deleteTitle": "Confirm Delete Session",
     "deleteConfirmTitle": "Confirm Delete",
-    "deleteDesc": "Are you sure you want to delete this session? This action cannot be undone."
+    "deleteDesc": "Are you sure you want to delete this session? This action cannot be undone.",
+    "empty": "No sessions",
+    "groupLabel": {
+      "pinned": "Pinned",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "within7": "Last 7 days",
+      "within30": "Last 30 days"
+    }
   },
   "image": {
     "noEditingSupport": "Current model does not support image editing",
@@ -94,11 +106,6 @@
     "noServerUrl": "Image upload failed: server did not return address",
     "networkError": "Image upload failed, please check network connection",
     "fileTooLarge": "File too large ({{size}}), must be less than {{max}}"
-  },
-  "mode": {
-    "selector": "Chat mode",
-    "agent": "Agent mode",
-    "cli": "CLI mode"
   },
   "aiModel": {
     "openaiKey": "OpenAI API Key",
@@ -155,6 +162,36 @@
     "widget-get": "Get Widget",
     "widget-check": "Check Widget",
     "generate-widget": "Generate Widget"
+  },
+  "quickLaunch": {
+    "workbench": "Workbench",
+    "calendar": "Calendar",
+    "mailbox": "Mailbox",
+    "tasks": "Tasks"
+  },
+  "drag": {
+    "denyImage": "Current model does not support images",
+    "denyFile": "Current model does not support files",
+    "allowImage": "Release to add image",
+    "allowFile": "Release to add file",
+    "denyImageDesc": "Please switch to a model that supports image input",
+    "denyFileDesc": "Only project file references can be dragged in",
+    "allowFileDesc": "Project file references can be dragged in",
+    "allowImageDesc": "Supports PNG / JPEG / WebP, max {{max}} per file, multiple files allowed"
+  },
+  "debug": {
+    "title": "AI Debug",
+    "copyLogPath": "Copy log path",
+    "openLogFolder": "Open log folder",
+    "systemPrompt": "System prompt",
+    "noSystemPrompt": "No system prompt yet (send a message first to generate)",
+    "toolList": "Tool list",
+    "noToolList": "No tools yet (send a message first to generate)",
+    "noPreface": "No Preface",
+    "noTools": "_No tools_",
+    "toolCount": "{{count}} tools total",
+    "copySuccess": "Chat log path copied",
+    "copyError": "Chat log file not found"
   },
   "helper": {
     "tryAskMe": "You can try asking me:",

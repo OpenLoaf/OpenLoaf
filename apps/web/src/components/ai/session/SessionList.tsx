@@ -10,6 +10,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import SessionItem, { type Session } from "./SessionItem";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
 import {
@@ -78,20 +79,20 @@ function groupSessions(sessions: Session[]) {
     }
   }
 
-  const groups: { key: string; label: string; sessions: Session[] }[] = [];
+  const groups: { key: string; labelKey: string; sessions: Session[] }[] = [];
   if (pinned.length)
-    groups.push({ key: "pinned", label: "置顶", sessions: pinned });
+    groups.push({ key: "pinned", labelKey: "session.groupLabel.pinned", sessions: pinned });
   if (today.length)
-    groups.push({ key: "today", label: "今日", sessions: today });
+    groups.push({ key: "today", labelKey: "session.groupLabel.today", sessions: today });
   if (yesterday.length)
-    groups.push({ key: "yesterday", label: "昨日", sessions: yesterday });
+    groups.push({ key: "yesterday", labelKey: "session.groupLabel.yesterday", sessions: yesterday });
   if (within7.length)
-    groups.push({ key: "within7", label: "7天内", sessions: within7 });
+    groups.push({ key: "within7", labelKey: "session.groupLabel.within7", sessions: within7 });
   if (within30.length)
-    groups.push({ key: "within30", label: "30天内", sessions: within30 });
+    groups.push({ key: "within30", labelKey: "session.groupLabel.within30", sessions: within30 });
 
   for (const [key, list] of byMonth) {
-    groups.push({ key, label: key, sessions: list });
+    groups.push({ key, labelKey: key, sessions: list });
   }
 
   return groups;
@@ -126,6 +127,7 @@ export default function SessionList({
   onMenuOpenChange,
   className,
 }: SessionListProps) {
+  const { t } = useTranslation('ai');
   const { sessions: chatSessions, isLoading, scopeProjectId } = useChatSessions({ tabId });
   const sessions: Session[] = React.useMemo(() => {
     const showProjectLabel = !scopeProjectId;
@@ -155,14 +157,14 @@ export default function SessionList({
     >
       {isLoading ? null : sessions.length === 0 ? (
         <Queue className="border-none bg-transparent px-0 py-1 shadow-none">
-          <div className="px-2 py-3 text-sm text-muted-foreground">暂无会话</div>
+          <div className="px-2 py-3 text-sm text-muted-foreground">{t('session.empty')}</div>
         </Queue>
       ) : (
         <Queue className="border-none bg-transparent px-0 py-1 shadow-none">
           {groups.map((g) => (
             <QueueSection key={g.key} defaultOpen>
               <QueueSectionTrigger className="rounded-md px-2 py-1.5 text-xs font-medium">
-                <QueueSectionLabel label={g.label} count={g.sessions.length} />
+                <QueueSectionLabel label={t(g.labelKey, { defaultValue: g.labelKey })} count={g.sessions.length} />
               </QueueSectionTrigger>
               <QueueSectionContent className="mt-1">
                 <ul className="space-y-0.5">
