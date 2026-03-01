@@ -43,6 +43,7 @@ import {
   getProjectGitInfo,
   ensureGitRepository,
   checkPathIsGitProject,
+  cloneGitRepository,
 } from "../services/projectGitService";
 import { moveProjectStorage } from "../services/projectStorageService";
 import { listProjectFilesChangedInRange } from "../services/projectFileChangeService";
@@ -125,6 +126,43 @@ function getHomePagePath(projectRootPath: string): string {
 /** Build board snapshot path from a project root. */
 function getBoardSnapshotPath(projectRootPath: string): string {
   return path.join(projectRootPath, PROJECT_META_DIR, BOARD_SNAPSHOT_FILE);
+}
+
+/** Code project marker files — presence of any means it's a code project. */
+const CODE_PROJECT_MARKERS = [
+  "package.json",
+  "Cargo.toml",
+  "go.mod",
+  "pyproject.toml",
+  "setup.py",
+  "requirements.txt",
+  "pom.xml",
+  "build.gradle",
+  "Gemfile",
+  "composer.json",
+  "CMakeLists.txt",
+  "Makefile",
+  ".sln",
+  "tsconfig.json",
+  "deno.json",
+  "mix.exs",
+  "pubspec.yaml",
+];
+
+/** Detect whether a directory is a code/dev project. */
+async function detectCodeProject(dirPath: string): Promise<boolean> {
+  for (const marker of CODE_PROJECT_MARKERS) {
+    if (await fileExists(path.join(dirPath, marker))) return true;
+  }
+  return false;
+}
+
+/** Detect whether a project already has an icon set in its config. */
+async function detectHasIcon(dirPath: string): Promise<boolean> {
+  const metaPath = getProjectMetaPath(dirPath);
+  if (!(await fileExists(metaPath))) return false;
+  const config = await readProjectConfig(dirPath).catch(() => null);
+  return Boolean(config?.icon);
 }
 
 /** Check whether a file exists. */
@@ -372,17 +410,21 @@ export const projectRouter = t.router({
     return readWorkspaceProjectTrees();
   }),
 
-  /** Check whether a directory path is a git project. */
+  /** Check whether a directory path is a git project and detect project type. */
   checkPath: shieldedProcedure
     .input(z.object({ dirPath: z.string() }))
     .query(async ({ input }) => {
       const raw = input.dirPath.trim();
-      if (!raw) return { isGitProject: false };
+      if (!raw) return { isGitProject: false, isCodeProject: false, hasIcon: false };
       const resolved = raw.startsWith("file://")
         ? resolveFilePathFromUri(raw)
         : path.resolve(raw);
-      const isGit = await checkPathIsGitProject(resolved);
-      return { isGitProject: isGit };
+      const [isGit, isCode, hasIcon] = await Promise.all([
+        checkPathIsGitProject(resolved),
+        detectCodeProject(resolved),
+        detectHasIcon(resolved),
+      ]);
+      return { isGitProject: isGit, isCodeProject: isCode, hasIcon };
     }),
 
   /** Create a new project under workspace root or custom root. */
@@ -424,20 +466,25 @@ export const projectRouter = t.router({
       const fallbackTitle = input.rootUri
         ? path.basename(projectRootPath)
         : resolvedTitle;
+      // 判断是否需要补充 icon 或 projects
+      const needIconPatch = existingConfig && !existingConfig.icon && input.icon;
+      const needProjectsPatch = existingConfig && !existingConfig.projects;
       const config = projectConfigSchema.parse(
-        existingConfig ?? {
-          schema: 1,
-          projectId,
-          title: rawTitle || fallbackTitle,
-          icon: input.icon ?? undefined,
-          projects: {},
-        }
+        existingConfig
+          ? { ...existingConfig, ...(needIconPatch ? { icon: input.icon } : {}) }
+          : {
+              schema: 1,
+              projectId,
+              title: rawTitle || fallbackTitle,
+              icon: input.icon ?? undefined,
+              projects: {},
+            },
       );
       const metaPath = getProjectMetaPath(projectRootPath);
       if (!existingConfig) {
         await writeJsonAtomic(metaPath, config);
-      } else if (!existingConfig.projects) {
-        await writeJsonAtomic(metaPath, { ...existingConfig, projects: {} });
+      } else if (needProjectsPatch || needIconPatch) {
+        await writeJsonAtomic(metaPath, config);
       }
       const enableVersionControl = input.enableVersionControl ?? true;
       if (enableVersionControl) {
@@ -936,6 +983,68 @@ export const projectRouter = t.router({
       };
       await writeJsonAtomic(boardPath, payload);
       return { ok: true };
+    }),
+
+  /** Clone a remote git repository and register it as a project. */
+  cloneFromGit: shieldedProcedure
+    .input(
+      z.object({
+        url: z.string(),
+        targetDir: z.string().optional(),
+        icon: z.string().optional(),
+      })
+    )
+    .subscription(async function* ({ input }) {
+      const url = input.url.trim();
+      if (!url) {
+        yield { type: "error" as const, message: "请输入 Git 仓库地址" };
+        return;
+      }
+      const repoName = url.split("/").pop()?.replace(/\.git$/, "") ?? "project";
+      const workspaceRootPath = getWorkspaceRootPath();
+      const baseDir = input.targetDir?.trim() || workspaceRootPath;
+      const targetDir = await ensureUniqueProjectRoot(baseDir, toSafeFolderName(repoName));
+
+      yield { type: "progress" as const, message: `正在克隆到 ${targetDir} ...` };
+
+      try {
+        const progressLines: string[] = [];
+        await cloneGitRepository(url, targetDir, (line) => {
+          progressLines.push(line);
+        });
+        // 推送积累的进度行
+        for (const line of progressLines) {
+          yield { type: "progress" as const, message: line };
+        }
+      } catch (err: any) {
+        yield { type: "error" as const, message: err?.message ?? "克隆失败" };
+        return;
+      }
+
+      yield { type: "progress" as const, message: "正在注册项目..." };
+
+      // 注册项目
+      const projectId = `${PROJECT_ID_PREFIX}${randomUUID()}`;
+      const projectRootUri = toFileUriWithoutEncoding(targetDir);
+      const title = repoName;
+      const isCode = await detectCodeProject(targetDir);
+      const autoIcon = isCode ? "💻" : input.icon;
+      const config = projectConfigSchema.parse({
+        schema: 1,
+        projectId,
+        title,
+        icon: autoIcon ?? undefined,
+        projects: {},
+      });
+      const metaPath = getProjectMetaPath(targetDir);
+      await writeJsonAtomic(metaPath, config);
+      upsertActiveWorkspaceProject(projectId, projectRootUri);
+
+      yield {
+        type: "done" as const,
+        projectId,
+        rootUri: projectRootUri,
+      };
     }),
 });
 

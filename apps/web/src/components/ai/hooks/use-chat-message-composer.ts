@@ -28,6 +28,7 @@ export function useChatMessageComposer(input: {
       onlineSearchEnabled?: boolean;
       reasoningMode?: "fast" | "deep";
       autoApproveTools?: boolean;
+      directCli?: boolean;
     }) => {
       const normalizedImageOptions = normalizeImageOptions(params.imageOptions);
       const safeImageOptions = input.canImageGeneration
@@ -46,6 +47,7 @@ export function useChatMessageComposer(input: {
           ? { webSearch: { enabled: params.onlineSearchEnabled } }
           : {}),
         ...(params.autoApproveTools ? { toolApproval: { autoApprove: true } } : {}),
+        ...(params.directCli ? { directCli: true } : {}),
       };
       const metadata =
         Object.keys(metadataPayload).length > 0 ? metadataPayload : undefined;

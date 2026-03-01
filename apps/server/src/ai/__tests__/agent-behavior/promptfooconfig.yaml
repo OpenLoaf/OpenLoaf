@@ -1,0 +1,135 @@
+# OpenLoaf AI Agent E2E 行为测试
+# 通过 runChatStream() 走完整 chat pipeline 验证 Agent 行为。
+#
+# 运行方式: cd apps/server && pnpm run test:ai:behavior
+# 查看结果: cd apps/server && pnpm run test:ai:behavior:view
+
+description: "OpenLoaf AI Agent E2E 行为测试"
+
+prompts:
+  - "{{prompt}}"
+
+providers:
+  - id: file://openloaf-e2e-provider.ts
+    label: "OpenLoaf E2E"
+
+defaultTest:
+  options:
+    timeout: 90000
+    provider:
+      id: openai:chat:qwen-plus
+      config:
+        apiBaseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+        apiKeyEnvar: PROMPTFOO_GRADING_API_KEY
+
+tests:
+  # ═══ 工具选择正确性（完整工具集）═══
+
+  - description: "e2e-001: 项目列表查询应使用 project-query"
+    vars:
+      prompt: "现在有哪些项目"
+    assert:
+      - type: javascript
+        value: |
+          const tools = context.providerResponse?.metadata?.toolNames || [];
+          return tools.includes('project-query')
+            ? { pass: true, score: 1, reason: '正确调用了 project-query' }
+            : { pass: false, score: 0, reason: `未调用 project-query，实际: [${tools}]` };
+      - type: javascript
+        value: |
+          const tools = context.providerResponse?.metadata?.toolNames || [];
+          return !tools.includes('list-dir')
+            ? { pass: true, score: 1, reason: '未调用 list-dir' }
+            : { pass: false, score: 0, reason: '错误调用了 list-dir（文件目录列出）' };
+      - type: llm-rubric
+        value: |
+          回复应包含应用层的项目列表信息。
+          不应返回文件系统目录结构。
+          不应说"没有项目"或"无法获取"（工具可能返回空列表，但应正常展示结果）。
+
+  - description: "e2e-002: 时间查询应使用 time-now"
+    vars:
+      prompt: "现在几点了？"
+    assert:
+      - type: javascript
+        value: |
+          const tools = context.providerResponse?.metadata?.toolNames || [];
+          return tools.includes('time-now')
+            ? { pass: true, score: 1, reason: '正确调用了 time-now' }
+            : { pass: false, score: 0, reason: `未调用 time-now，实际: [${tools}]` };
+      - type: javascript
+        value: |
+          const tools = context.providerResponse?.metadata?.toolNames || [];
+          const forbidden = ['shell-command', 'js-repl'];
+          const used = forbidden.filter(t => tools.includes(t));
+          return used.length === 0
+            ? { pass: true, score: 1, reason: '未使用禁止工具' }
+            : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };
+
+  - description: "e2e-003: 任务创建应使用 task-manage"
+    vars:
+      prompt: "帮我创建一个任务：提醒开会"
+    assert:
+      - type: javascript
+        value: |
+          const tools = context.providerResponse?.metadata?.toolNames || [];
+          return tools.includes('task-manage')
+            ? { pass: true, score: 1, reason: '正确调用了 task-manage' }
+            : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };
+      - type: llm-rubric
+        value: |
+          回复应体现 Agent 尝试了创建任务的操作（可能成功，也可能因缺少上下文而需要追问用户）。
+          不应完全忽略用户的创建任务请求。
+          语气应友好。
+
+  - description: "e2e-004: 邮件查询应使用 email-query"
+    vars:
+      prompt: "查看最近的邮件"
+    assert:
+      - type: javascript
+        value: |
+          const tools = context.providerResponse?.metadata?.toolNames || [];
+          return tools.includes('email-query')
+            ? { pass: true, score: 1, reason: '正确调用了 email-query' }
+            : { pass: false, score: 0, reason: `未调用 email-query，实际: [${tools}]` };
+      - type: javascript
+        value: |
+          const tools = context.providerResponse?.metadata?.toolNames || [];
+          const forbidden = ['list-dir', 'shell-command', 'read-file'];
+          const used = forbidden.filter(t => tools.includes(t));
+          return used.length === 0
+            ? { pass: true, score: 1, reason: '未使用禁止工具' }
+            : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };
+
+  - description: "e2e-005: 文件读取应使用 read-file"
+    vars:
+      prompt: "读一下 README.md 的内容"
+    assert:
+      - type: javascript
+        value: |
+          const tools = context.providerResponse?.metadata?.toolNames || [];
+          return tools.includes('read-file')
+            ? { pass: true, score: 1, reason: '正确调用了 read-file' }
+            : { pass: false, score: 0, reason: `未调用 read-file，实际: [${tools}]` };
+      - type: javascript
+        value: |
+          const tools = context.providerResponse?.metadata?.toolNames || [];
+          return !tools.includes('shell-command')
+            ? { pass: true, score: 1, reason: '未使用 shell-command' }
+            : { pass: false, score: 0, reason: '不应使用 shell-command 来读取文件' };
+
+  # ═══ 多轮对话 ═══
+
+  - description: "e2e-010: 多轮对话保持上下文"
+    vars:
+      prompt: "dummy"
+      turns: '[{"text": "现在几点了？"}, {"text": "刚才的时间用英文说一次"}]'
+    assert:
+      - type: javascript
+        value: |
+          const tools = context.providerResponse?.metadata?.toolNames || [];
+          return tools.includes('time-now')
+            ? { pass: true, score: 1, reason: '第一轮正确调用了 time-now' }
+            : { pass: false, score: 0, reason: `未调用 time-now，实际: [${tools}]` };
+      - type: llm-rubric
+        value: "第二轮回复应包含与第一轮相同的时间信息，以英文表达"

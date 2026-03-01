@@ -12,6 +12,13 @@ description: >
 
 > **⚠️ 维护要求：当发布流程、CI/CD 配置、产物命名、R2 目录结构或版本管理策略发生任何变更时，必须同步更新本 skill 的相关文档（SKILL.md、publish-release.md、update-system.md）。** 过时的 skill 会导致 AI 按错误流程操作，造成发布失败或产物不一致。每次修改发布相关代码后，请检查本 skill 是否需要同步更新。
 
+> **📍 项目配置文件位置：**
+> - **`CLAUDE.md`**（项目根目录）— 项目概述、monorepo 结构、常用命令、架构说明、代码风格规范。所有 AI 助手的全局指导文件。
+> - **`AGENTS.md`**（项目根目录）— 编码规则、工具调用模式、tRPC/Prisma 约定、错误处理策略。AI 编写代码时的行为准则。
+> - **Skills 目录**：`.agents/skills/` — 各领域专项 skill，按需加载。
+>
+> **同步规则：** 当 `CLAUDE.md` 或 `AGENTS.md` 中与发布流程、版本管理、CI/CD 相关的内容发生变更时，必须检查并同步更新本 skill。反之，当本 skill 中的流程变更涉及项目全局约定（如新增命令、变更目录结构等），也应同步更新 `CLAUDE.md`。
+
 ## Overview
 
 OpenLoaf 的版本发布采用"先发布、后加一"的流程：提交变更 → 直接打包并更新 → 发布成功后打 git tag → 发布完成后版本号自动加一并提交。这样每次代码改动都在新版本上进行，不需要再手动标记"是否改过代码"。每个 app 使用独立 tag（`server-v0.1.1`、`web-v0.1.2`、`electron-v1.0.0`），通过 `git describe --match "{app}-v*"` 定位上次发布点，支持各 app 独立版本节奏。

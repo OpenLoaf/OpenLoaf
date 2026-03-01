@@ -613,7 +613,7 @@ body {
   --openloaf-thinking-border-alpha: 0;
   /* 基础边框颜色单独抽出，聚焦/错误态只需覆盖变量即可。 */
   --openloaf-thinking-border-base: var(--color-border);
-  --openloaf-thinking-border-width: 2px;
+  --openloaf-thinking-border-width: 1px;
   /* 关键：用双背景 + background-clip 实现“挖空”，避免 mask 在圆角处产生锯齿 */
   border: var(--openloaf-thinking-border-width) solid transparent;
   background:
@@ -637,7 +637,7 @@ body {
 }
 
 .openloaf-thinking-border-focus {
-  --openloaf-thinking-border-base: var(--color-primary);
+  --openloaf-thinking-border-base: color-mix(in oklch, var(--color-border), var(--color-foreground) 25%);
 }
 
 .openloaf-thinking-border-danger {

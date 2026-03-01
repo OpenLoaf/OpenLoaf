@@ -109,7 +109,7 @@ export const Header = () => {
               onClick={toggleSidebar}
             >
               <PanelLeft
-                className={`h-4 w-4 transition-transform duration-200 ${
+                className={`h-4 w-4 text-indigo-700/70 dark:text-indigo-300/70 transition-transform duration-200 ${
                   !leftOpen ? "rotate-180" : ""
                 }`}
               />
@@ -132,7 +132,7 @@ export const Header = () => {
                 openSettingsTab(workspaceId);
               }}
             >
-              <Settings className="h-4 w-4" />
+              <Settings className="h-4 w-4 text-orange-700/70 dark:text-orange-300/70" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" sideOffset={6}>

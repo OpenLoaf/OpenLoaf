@@ -64,7 +64,7 @@ function normalizeProjectRoots(projects?: Record<string, string>): Record<string
 function ensureDefaultWorkspaces(): WorkspacesFile {
   const workspace: Workspace = {
     id: uuidv4(),
-    name: "Default Workspace",
+    name: "默认工作空间",
     type: "local",
     isActive: true,
     rootUri: resolveDefaultWorkspaceRootUri(),

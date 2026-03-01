@@ -1705,7 +1705,7 @@ export const PageTreeMenu = ({
           <div className="w-full px-2 py-3 text-center text-xs text-muted-foreground/70">
             {/* 逻辑：无项目时显示空态文案。 */}
             <div>暂无项目</div>
-            <div className="mt-1">请新增或添加已有文件夹</div>
+            <div className="mt-1">点击下方添加项目</div>
           </div>
         </SidebarMenuItem>
       ) : (
@@ -1739,28 +1739,16 @@ export const PageTreeMenu = ({
       {/* 逻辑：项目列表末尾追加操作条入口，复用外层弹窗逻辑。 */}
       <SidebarMenuItem>
         <div className="w-full px-2 pt-2">
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 w-full justify-center gap-1 text-[11px] text-muted-foreground/70 hover:bg-sidebar-accent/20 hover:text-muted-foreground"
-              onClick={() => onCreateProject?.()}
-            >
-              <FolderPlus className="h-3 w-3" />
-              <span>新增项目</span>
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 w-full justify-center gap-1 text-[11px] text-muted-foreground/70 hover:bg-sidebar-accent/20 hover:text-muted-foreground"
-              onClick={() => onImportProject?.()}
-            >
-              <FolderOpen className="h-3 w-3" />
-              <span>添加文件夹</span>
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 w-full justify-start gap-1.5 text-[11px] text-muted-foreground/70 hover:bg-sidebar-accent/20 hover:text-muted-foreground"
+            onClick={() => onCreateProject?.()}
+          >
+            <FolderPlus className="h-3 w-3" />
+            <span>添加项目</span>
+          </Button>
         </div>
       </SidebarMenuItem>
       <SidebarMenuItem

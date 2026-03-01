@@ -287,6 +287,27 @@ export async function isAuthenticated(): Promise<boolean> {
   return Boolean(token);
 }
 
+/** Fetch full user profile from SaaS backend (includes membershipLevel & creditsBalance). */
+export async function fetchUserProfile(): Promise<{
+  id: string;
+  membershipLevel: "free" | "vip" | "svip" | "infinity";
+  creditsBalance: number;
+} | null> {
+  const token = await getAccessToken();
+  if (!token) return null;
+  try {
+    const client = createSaasClient(async () => token);
+    const result = await client.user.self();
+    return {
+      id: result.user.id,
+      membershipLevel: result.user.membershipLevel,
+      creditsBalance: result.user.creditsBalance,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Resolve auth user from cached token or storage. */
 export async function resolveAuthUser(): Promise<SaasAuthUser | null> {
   const cached = getStoredUser();

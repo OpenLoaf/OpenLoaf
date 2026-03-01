@@ -13,14 +13,25 @@ import {
   memo,
   useCallback,
   useEffect,
-  useId,
   useMemo,
   useRef,
   useState,
   type ChangeEvent,
 } from "react";
-import type { ComponentType, CSSProperties, ForwardRefExoticComponent } from "react";
-import { Play } from "lucide-react";
+import type { ComponentType, ForwardRefExoticComponent } from "react";
+import {
+  MousePointer2,
+  Hand,
+  Pen,
+  Highlighter,
+  Eraser,
+  StickyNote,
+  Image as LucideImageIcon,
+  Film,
+  Eye,
+  Images,
+  Video,
+} from "lucide-react";
 import type { LucideProps } from "lucide-react";
 import { cn } from "@udecode/cn";
 
@@ -118,18 +129,6 @@ function buildToolTitle(label: string, shortcut?: string): string {
   return shortcut ? `${label} (${shortcut})` : label;
 }
 
-const BRUSH_SVG_SRC = "/board/brush.svg";
-const HIGHLIGHTER_SVG_SRC = "/board/highlighter.svg";
-const ERASER_SVG_SRC = "/board/eraser.svg";
-const SELECT_SVG_SRC = "/board/select-cursor-svgrepo-com.svg";
-const DRAG_SVG_SRC = "/board/drag-svgrepo-com.svg";
-const NOTE_SVG_SRC = "/board/notes-note-svgrepo-com.svg";
-const PICTURE_SVG_SRC = "/board/picture-photo-svgrepo-com.svg";
-const VIDEO_SVG_SRC = "/board/video-player-movie-svgrepo.svg";
-/** Svg source for the image prompt generate icon. */
-const IMAGE_PROMPT_SVG_SRC = "/board/converted_small.svg";
-/** Svg source for the image generate icon. */
-const IMAGE_GENERATE_SVG_SRC = "/board/pictures-svgrepo-com.svg";
 const DEFAULT_VIDEO_WIDTH = 16;
 const DEFAULT_VIDEO_HEIGHT = 9;
 const DEFAULT_VIDEO_NODE_MAX = 420;
@@ -150,192 +149,13 @@ const fitSize = (width: number, height: number, maxDimension: number): [number, 
   return [Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale))];
 };
 
-const prefixSvgIds = (svg: string, prefix: string) => {
-  const safePrefix = prefix.replace(/:/g, "");
-  return svg
-    .replace(/id="([^"]+)"/g, `id="${safePrefix}-$1"`)
-    .replace(/url\\(#([^)]+)\\)/g, `url(#${safePrefix}-$1)`)
-    .replace(/xlink:href="#([^"]+)"/g, `xlink:href="#${safePrefix}-$1"`)
-    .replace(/href="#([^"]+)"/g, `href="#${safePrefix}-$1"`);
-};
-
-const normalizeSvgRootSize = (svg: string) => {
-  const withWidth = svg.replace(/<svg([^>]*?)width="[^"]*"/, '<svg$1width="100%"');
-  return withWidth.replace(/<svg([^>]*?)height="[^"]*"/, '<svg$1height="100%"');
-};
-
-/** Cache for loaded public svg markup. */
-const svgCache = new Map<string, string>();
-
-function InlineSvg(props: {
-  svg: string;
-  className?: string;
-  style?: CSSProperties;
-}) {
-  const { svg, className, style } = props;
-  const id = useId();
-  const html = useMemo(() => {
-    const withIds = prefixSvgIds(svg, id);
-    return normalizeSvgRootSize(withIds);
-  }, [id, svg]);
-  return (
-    <span
-      className={cn("inline-flex", className)}
-      style={style}
-      aria-hidden="true"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
-}
-
-/** Load svg markup from public assets with a small client cache. */
-function usePublicSvg(src: string) {
-  const [svg, setSvg] = useState<string | null>(() => svgCache.get(src) ?? null);
-
-  useEffect(() => {
-    if (svgCache.has(src)) {
-      setSvg(svgCache.get(src) ?? null);
-      return;
-    }
-    let active = true;
-    // 逻辑：首次加载时从 public 拉取 svg 文本并缓存，避免重复请求。
-    fetch(src)
-      .then((response) => (response.ok ? response.text() : ""))
-      .then((text) => {
-        if (!active || !text) return;
-        svgCache.set(src, text);
-        setSvg(text);
-      })
-      .catch(() => {
-        // 逻辑：加载失败时保持静默，避免影响工具栏交互。
-      });
-    return () => {
-      active = false;
-    };
-  }, [src]);
-
-  return svg;
-}
-
-/** Render inline svg loaded from public path. */
-function InlineSvgFile({
-  src,
-  className,
-  style,
-}: {
-  src: string;
-  className?: string;
-  style?: CSSProperties;
-}) {
-  const svg = usePublicSvg(src);
-  if (!svg) {
-    return (
-      <span
-        className={cn("inline-flex", className)}
-        style={style}
-        aria-hidden="true"
-      />
-    );
-  }
-  return <InlineSvg svg={svg} className={className} style={style} />;
-}
-
-function SelectIcon({ size = 20, className }: IconProps) {
-  return (
-    <InlineSvgFile
-      src={SELECT_SVG_SRC}
-      className={cn("[&>svg]:fill-current", className)}
-      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
-    />
-  );
-}
-
-function HandIcon({ size = 20, className }: IconProps) {
-  return (
-    <InlineSvgFile
-      src={DRAG_SVG_SRC}
-      className={cn("[&>svg]:fill-current", className)}
-      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
-    />
-  );
-}
-
-/** Render the image prompt generate icon for toolbar items. */
-function ImagePromptGenerateIcon({ size = 20, className }: IconProps) {
-  return (
-    <InlineSvgFile
-      src={IMAGE_PROMPT_SVG_SRC}
-      className={cn("inline-flex", className)}
-      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
-    />
-  );
-}
-
-/** Render the image generate icon for toolbar items. */
-function ImageGenerateIcon({ size = 20, className }: IconProps) {
-  return (
-    <InlineSvgFile
-      src={IMAGE_GENERATE_SVG_SRC}
-      className={cn("inline-flex", className)}
-      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
-    />
-  );
-}
-
-function ImageIcon({ size = 20, className }: IconProps) {
-  return (
-    <InlineSvgFile
-      src={PICTURE_SVG_SRC}
-      className={className}
-      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
-    />
-  );
-}
-
-function VideoIcon({ size = 20, className }: IconProps) {
-  return (
-    <InlineSvgFile
-      src={VIDEO_SVG_SRC}
-      className={className}
-      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
-    />
-  );
-}
-
-function PageIcon({ size = 20, className }: IconProps) {
-  return (
-    <InlineSvgFile
-      src={NOTE_SVG_SRC}
-      className={className}
-      style={{ width: size, height: size, userSelect: "none", flexShrink: 0 }}
-    />
-  );
-}
-
-function BrushToolIcon({ className, style }: { className?: string; style?: CSSProperties }) {
-  return <InlineSvgFile src={BRUSH_SVG_SRC} className={className} style={style} />;
-}
-
-function HighlighterToolIcon({
-  className,
-  style,
-}: {
-  className?: string;
-  style?: CSSProperties;
-}) {
-  return <InlineSvgFile src={HIGHLIGHTER_SVG_SRC} className={className} style={style} />;
-}
-
-function EraserToolIcon({ className }: { className?: string }) {
-  return <InlineSvgFile src={ERASER_SVG_SRC} className={className} />;
-}
 
 const INSERT_ITEMS: InsertItem[] = [
   {
     id: "note",
     title: "笔记",
     description: "快速笔记卡片。",
-    icon: PageIcon,
+    icon: StickyNote,
     nodeType: "text",
     props: { autoFocus: true },
     size: [200, TEXT_NODE_DEFAULT_HEIGHT],
@@ -344,7 +164,7 @@ const INSERT_ITEMS: InsertItem[] = [
     id: "image",
     title: "图片",
     description: "图片块。",
-    icon: ImageIcon,
+    icon: LucideImageIcon,
     size: [320, 220],
     opensPicker: true,
   },
@@ -352,19 +172,15 @@ const INSERT_ITEMS: InsertItem[] = [
     id: "video",
     title: "视频",
     description: "视频块。",
-    icon: VideoIcon,
+    icon: Film,
     size: [360, 240],
     opensPicker: true,
   },
-];
-
-/** Generate tool entries displayed flat in the toolbar. */
-const GENERATE_INSERT_ITEMS: InsertItem[] = [
   {
     id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
     title: "视频图片理解",
     description: "分析图片/视频并生成描述",
-    icon: ImagePromptGenerateIcon,
+    icon: Eye,
     nodeType: IMAGE_PROMPT_GENERATE_NODE_TYPE,
     props: {},
     size: [320, 220],
@@ -373,7 +189,7 @@ const GENERATE_INSERT_ITEMS: InsertItem[] = [
     id: IMAGE_GENERATE_NODE_TYPE,
     title: "图片生成",
     description: "输入图片与文字生成新图",
-    icon: ImageGenerateIcon,
+    icon: Images,
     nodeType: IMAGE_GENERATE_NODE_TYPE,
     props: {},
     size: [320, 260],
@@ -382,7 +198,7 @@ const GENERATE_INSERT_ITEMS: InsertItem[] = [
     id: VIDEO_GENERATE_NODE_TYPE,
     title: "生成视频",
     description: "基于图片与提示词生成视频",
-    icon: Play,
+    icon: Video,
     nodeType: VIDEO_GENERATE_NODE_TYPE,
     props: {},
     size: [360, 280],
@@ -991,15 +807,15 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
       )}
     >
       <div className="relative flex h-full items-center gap-2">
-        {/* 左侧：持久工具 */}
-        <div className="flex items-center gap-2">
+        {/* 导航 */}
+        <div className="flex items-center gap-1">
           <IconBtn
             title={selectTitle}
             active={isSelectTool}
             onPointerDown={() => handleToolChange("select")}
             className="group"
           >
-            <SelectIcon
+            <MousePointer2
               size={toolbarIconSize}
               className={cn(toolbarIconClassName, isSelectTool && "dark:text-foreground")}
             />
@@ -1010,12 +826,15 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             onPointerDown={() => handleToolChange("hand")}
             className="group"
           >
-            <HandIcon
+            <Hand
               size={toolbarIconSize}
               className={cn(toolbarIconClassName, isHandTool && "dark:text-foreground")}
             />
           </IconBtn>
-          <span className="h-8 w-px bg-[#e3e8ef] dark:bg-slate-700" />
+        </div>
+        <span className="h-8 w-px bg-[#e3e8ef] dark:bg-slate-700" />
+        {/* 绘制 */}
+        <div className="flex items-center gap-1">
           <div className="relative">
             <IconBtn
               title={penVariant === "highlighter" ? highlighterTitle : penTitle}
@@ -1025,28 +844,22 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                 setHoverGroup("pen");
                 handleToolChange(penVariant, { keepPanel: true });
               }}
-              className="group h-10 w-9 overflow-hidden"
+              className="group"
               disabled={isLocked}
             >
-              <span className="relative">
-                {penVariant === "highlighter" ? (
-                  <HighlighterToolIcon
-                    className={cn(
-                      "h-10 w-5 transition-transform duration-300 ease-in-out group-hover:translate-y-0",
-                      isPenTool ? "translate-y-0" : "translate-y-2"
-                    )}
-                    style={{ color: penColor }}
-                  />
-                ) : (
-                  <BrushToolIcon
-                    className={cn(
-                      "h-10 w-5 transition-transform duration-300 ease-in-out group-hover:translate-y-0",
-                      isPenTool ? "translate-y-0" : "translate-y-2"
-                    )}
-                    style={{ color: penColor }}
-                  />
-                )}
-              </span>
+              {penVariant === "highlighter" ? (
+                <Highlighter
+                  size={toolbarIconSize}
+                  className={toolbarIconClassName}
+                  style={{ color: penColor }}
+                />
+              ) : (
+                <Pen
+                  size={toolbarIconSize}
+                  className={toolbarIconClassName}
+                  style={{ color: penColor }}
+                />
+              )}
             </IconBtn>
             <HoverPanel open={penPanelOpen} className="w-max">
               <div className="flex items-center gap-2">
@@ -1058,7 +871,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                     size="sm"
                     showLabel={false}
                   >
-                    <BrushToolIcon className="h-8 w-4" style={{ color: penColor }} />
+                    <Pen size={16} style={{ color: penColor }} />
                   </PanelItem>
                   <PanelItem
                     title={highlighterTitle}
@@ -1067,7 +880,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                     size="sm"
                     showLabel={false}
                   >
-                    <HighlighterToolIcon className="h-8 w-4" style={{ color: penColor }} />
+                    <Highlighter size={16} style={{ color: penColor }} />
                   </PanelItem>
                 </div>
                 <span className="h-6 w-px bg-[#e3e8ef] dark:bg-slate-700" />
@@ -1081,12 +894,12 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                         if (isLocked) return;
                         setPenSize(size);
                       }}
-                        className={cn(
-                          "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors duration-150",
-                          penSize === size
-                            ? "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50"
-                            : "hover:bg-[hsl(var(--muted)/0.58)] dark:hover:bg-[hsl(var(--muted)/0.46)]"
-                        )}
+                      className={cn(
+                        "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors duration-150",
+                        penSize === size
+                          ? "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50"
+                          : "hover:bg-[hsl(var(--muted)/0.58)] dark:hover:bg-[hsl(var(--muted)/0.46)]"
+                      )}
                       aria-label={`Pen size ${size}`}
                     >
                       <span className="rounded-full bg-current" style={{ width: size, height: size }} />
@@ -1124,20 +937,18 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
               if (isLocked) return;
               handleToolChange("eraser");
             }}
-            className="group h-10 w-9 overflow-hidden"
+            className="group"
             disabled={isLocked}
           >
-            <EraserToolIcon
-              className={cn(
-                "h-10 w-8 transition-transform duration-300 ease-in-out group-hover:translate-y-0",
-                isEraserTool ? "translate-y-0" : "translate-y-2"
-              )}
+            <Eraser
+              size={toolbarIconSize}
+              className={toolbarIconClassName}
             />
           </IconBtn>
         </div>
-
-        {/* 右侧：一次性插入 */}
-        <div className="flex items-center gap-2">
+        <span className="h-8 w-px bg-[#e3e8ef] dark:bg-slate-700" />
+        {/* 插入 */}
+        <div className="flex items-center gap-1">
           {INSERT_ITEMS.map(item => {
             const Icon = item.icon;
             const isActive = pendingInsert?.id === item.id;
@@ -1186,35 +997,6 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                     handlePickImage();
                     return;
                   }
-                  handleInsertRequest(request);
-                }}
-                disabled={isLocked}
-                className="group"
-              >
-                <Icon size={insertIconSize} className={insertIconClassName} />
-              </IconBtn>
-            );
-          })}
-        </div>
-        <span className="h-8 w-px bg-[#e3e8ef] dark:bg-slate-700" />
-        {/* 生成工具（平铺） */}
-        <div className="flex items-center gap-2">
-          {GENERATE_INSERT_ITEMS.map(item => {
-            const Icon = item.icon;
-            const isActive = pendingInsert?.id === item.id;
-            const request: CanvasInsertRequest = {
-              id: item.id,
-              type: item.nodeType ?? "text",
-              props: item.props ?? {},
-              size: item.size,
-            };
-            return (
-              <IconBtn
-                key={item.id}
-                title={INSERT_TOOL_LABELS[item.id] ?? item.title}
-                active={isActive}
-                onPointerDown={() => {
-                  if (isLocked) return;
                   handleInsertRequest(request);
                 }}
                 disabled={isLocked}

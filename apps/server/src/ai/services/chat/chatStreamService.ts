@@ -303,6 +303,9 @@ export async function runChatStream(input: {
     });
   }
 
+  // 逻辑：CLI 直连模式 — 跳过 agent 系统指令和工具编排，消息直接发给 CLI 适配模型。
+  const directCli = !!(lastMessage as any).metadata?.directCli;
+
   // 逻辑：在首条用户消息前确保 preface 已落库。
   const parentProjectRootPaths = await resolveParentProjectRootPaths(projectId);
   const resolvedWorkspaceId = getWorkspaceId() ?? workspaceId ?? undefined;
@@ -453,26 +456,37 @@ export async function runChatStream(input: {
       preferredChatModelId,
       saasAccessToken: input.saasAccessToken,
     });
-    // 逻辑：组装默认 agent instructions（IDENTITY + SOUL + AGENT），支持自定义文件覆盖。
-    let workspaceRootPath: string | undefined;
-    try {
-      workspaceRootPath =
-        (resolvedWorkspaceId ? getWorkspaceRootPathById(resolvedWorkspaceId) : null) ??
-        getWorkspaceRootPath();
-    } catch {
-      workspaceRootPath = undefined;
-    }
-    const projectRootPath = resolvedProjectId ? getProjectRootPath(resolvedProjectId) ?? undefined : undefined;
-    instructions = assembleDefaultAgentInstructions({
-      workspaceRootPath,
-      projectRootPath,
-    });
+    if (directCli) {
+      // 逻辑：CLI 直连模式 — 不注入 agent 系统指令和工具，消息直接透传给 CLI 适配模型。
+      instructions = '';
+      masterAgent = createMasterAgentRunner({
+        model: resolved.model,
+        modelInfo: resolved.modelInfo,
+        instructions,
+        toolIds: [],
+      });
+    } else {
+      // 逻辑：组装默认 agent instructions（IDENTITY + SOUL + AGENT），支持自定义文件覆盖。
+      let workspaceRootPath: string | undefined;
+      try {
+        workspaceRootPath =
+          (resolvedWorkspaceId ? getWorkspaceRootPathById(resolvedWorkspaceId) : null) ??
+          getWorkspaceRootPath();
+      } catch {
+        workspaceRootPath = undefined;
+      }
+      const projectRootPath = resolvedProjectId ? getProjectRootPath(resolvedProjectId) ?? undefined : undefined;
+      instructions = assembleDefaultAgentInstructions({
+        workspaceRootPath,
+        projectRootPath,
+      });
 
-    masterAgent = createMasterAgentRunner({
-      model: resolved.model,
-      modelInfo: resolved.modelInfo,
-      instructions,
-    });
+      masterAgent = createMasterAgentRunner({
+        model: resolved.model,
+        modelInfo: resolved.modelInfo,
+        instructions,
+      });
+    }
     setChatModel(resolved.model);
     agentMetadata = {
       id: masterAgent.frame.agentId,

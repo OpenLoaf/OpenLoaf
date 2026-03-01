@@ -16,6 +16,7 @@ import {
   ChatModelCheckboxList,
   MediaModelCheckboxList,
 } from './ModelCheckboxList'
+import { CliToolsList } from './CliToolsList'
 import { PromptInputButton } from '@/components/ai-elements/prompt-input'
 import type { useModelPreferences } from './useModelPreferences'
 
@@ -39,14 +40,12 @@ export function ModelPreferencesPanel({
   const [activeTab, setActiveTab] = useState('chat')
   const isChatTab = activeTab === 'chat'
   const isImageTab = activeTab === 'image'
-  const isCodeTab = activeTab === 'code'
+  const isCliTab = activeTab === 'cli'
   const isAuto = isChatTab
     ? prefs.isAuto
     : isImageTab
       ? prefs.isImageAuto
-      : isCodeTab
-        ? prefs.isCodeAuto
-        : prefs.isVideoAuto
+      : prefs.isVideoAuto
 
   const handleCloudSourceChange = (cloud: boolean) => {
     prefs.setCloudSource(cloud ? 'cloud' : 'local')
@@ -61,39 +60,37 @@ export function ModelPreferencesPanel({
       prefs.setImageAuto(auto)
       return
     }
-    if (isCodeTab) {
-      prefs.setCodeAuto(auto)
-      return
-    }
     prefs.setVideoAuto(auto)
   }
 
-  // 代码 tab 始终本地，无需登录
-  const needsLogin = isCodeTab ? false : isChatTab ? showCloudLogin : !authLoggedIn
+  const needsLogin = isChatTab ? showCloudLogin : !authLoggedIn
 
   return (
     <div className="flex flex-col gap-2">
-      {/* 开关区 */}
-      <ModelPreferencesHeader
-        isCloudSource={prefs.isCloudSource}
-        isAuto={isAuto}
-        showCloudSwitch={isChatTab && !isCodeTab}
-        showManageButton={isChatTab && !isCodeTab}
-        disableAuto={needsLogin}
-        onCloudSourceChange={handleCloudSourceChange}
-        onAutoChange={handleAutoChange}
-        onManageModels={() => {
-          onClose()
-          requestAnimationFrame(() => {
-            prefs.openProviderSettings()
-          })
-        }}
-      />
+      {/* 开关区 — CLI tab 不需要模型偏好开关 */}
+      {!isCliTab && (
+        <ModelPreferencesHeader
+          isCloudSource={prefs.isCloudSource}
+          isAuto={isAuto}
+          showCloudSwitch={isChatTab}
+          showManageButton={isChatTab}
+          disableAuto={needsLogin}
+          onCloudSourceChange={handleCloudSourceChange}
+          onAutoChange={handleAutoChange}
+          onManageModels={() => {
+            onClose()
+            requestAnimationFrame(() => {
+              prefs.openProviderSettings()
+            })
+          }}
+        />
+      )}
 
       {/* 列表 */}
       <div className="min-h-[8rem]">
-        {/* 逻辑：对话 tab 仅云端源时需登录；媒体 tab 始终需要云端，未登录即提示 */}
-        {needsLogin ? (
+        {isCliTab ? (
+          <CliToolsList />
+        ) : needsLogin ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8">
             <PromptInputButton
               type="button"
@@ -109,12 +106,6 @@ export function ModelPreferencesPanel({
               使用云端模型
             </div>
           </div>
-        ) : isCodeTab ? (
-          <ChatModelCheckboxList
-            models={prefs.codeModels}
-            preferredIds={prefs.preferredCodeIds}
-            onToggle={prefs.toggleCodeModel}
-          />
         ) : isChatTab ? (
           <ChatModelCheckboxList
             models={prefs.chatModels}

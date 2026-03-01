@@ -98,7 +98,7 @@ export default function MessageHelper({ compact }: { compact?: boolean } = {}) {
                 onPointerEnter={() => setHoveredIndex(index)}
                 onPointerLeave={() => setHoveredIndex(-1)}
                 className={cn(
-                  "flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs shadow-sm transition-colors",
+                  "flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs transition-colors duration-150 hover:bg-muted/80 hover:border-border",
                   isSelected
                     ? "border-border bg-muted text-foreground dark:border-border"
                     : "border-border/60 bg-background text-secondary-foreground dark:border-border/40"

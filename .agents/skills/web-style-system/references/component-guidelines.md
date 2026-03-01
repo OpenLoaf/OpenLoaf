@@ -112,6 +112,10 @@
 
 - focus 态必须可见。
 - 禁止依赖颜色唯一表达错误/警告状态。
+- **多步骤 Dialog 状态重置时机**：内部步骤/表单状态必须在**打开时**重置，**禁止在关闭时重置**。关闭时重置会导致关闭动画（~200ms）期间状态闪回到初始步骤。具体做法：
+  - **自控 Dialog**（组件内部管理 `open` state）：提取 `openDialog()` 函数，同时 reset 状态并 `setOpen(true)`；`onOpenChange` 关闭时只 `setOpen(false)`。
+  - **受控 Dialog**（`open` 从 props 传入）：用 `useEffect(() => { if (open) reset() }, [open])` 在打开时自动 reset。
+  - 如果需要关闭后清理副作用（如取消请求），使用 `setTimeout` 延迟至动画结束后执行。
 
 ## 7. Motion and State
 

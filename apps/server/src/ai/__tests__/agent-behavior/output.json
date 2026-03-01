@@ -1,0 +1,2196 @@
+{
+  "evalId": "eval-8yY-2026-03-01T06:31:50",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-03-01T06:31:50.276Z",
+    "prompts": [
+      {
+        "id": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "raw": "{{prompt}}",
+        "label": "{{prompt}}",
+        "provider": "OpenLoaf Master Agent",
+        "metrics": {
+          "score": 9.5,
+          "testPassCount": 7,
+          "testFailCount": 5,
+          "testErrorCount": 11,
+          "assertPassCount": 19,
+          "assertFailCount": 5,
+          "totalLatencyMs": 50157,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 12,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "cost": 0
+        }
+      }
+    ],
+    "results": [
+      {
+        "cost": 0,
+        "error": "Error: API key is not set. Set the OPENAI_API_KEY environment variable or add `apiKey` to the provider config.\n    at OpenAiChatCompletionProvider.callApi (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/chat-D_cro0wd.js:499:57)\n    at callProviderWithContext (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1330:18)\n    at matchesLlmRubric (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1585:21)\n    at runAssertion (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2886:18)\n    at file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2929:18",
+        "gradingResult": null,
+        "id": "a788d78c-bbff-459d-bbfb-78c9d056d4e6",
+        "latencyMs": 17710,
+        "namedScores": {},
+        "prompt": {
+          "raw": "现在有哪些项目",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "ts-001: 项目列表查询应使用 project-query",
+          "vars": {
+            "prompt": "现在有哪些项目",
+            "toolIds": "project-query"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('project-query')\n  ? { pass: true, score: 1, reason: '正确调用了 project-query' }\n  : { pass: false, score: 0, reason: `未调用 project-query，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('list-dir')\n  ? { pass: true, score: 1, reason: '未调用 list-dir' }\n  : { pass: false, score: 0, reason: '错误调用了 list-dir（文件目录列出）' };\n"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "回复应包含应用层的项目列表信息。\n不应返回文件系统目录结构。\n不应说\"没有项目\"或\"无法获取\"（工具可能返回空列表，但应正常展示结果）。\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 0,
+        "vars": {
+          "prompt": "现在有哪些项目",
+          "toolIds": "project-query"
+        },
+        "metadata": {
+          "errorContext": {
+            "providerId": "openloaf-agent",
+            "providerLabel": "OpenLoaf Master Agent"
+          }
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "error": "Error: API key is not set. Set the OPENAI_API_KEY environment variable or add `apiKey` to the provider config.\n    at OpenAiChatCompletionProvider.callApi (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/chat-D_cro0wd.js:499:57)\n    at callProviderWithContext (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1330:18)\n    at matchesLlmRubric (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1585:21)\n    at runAssertion (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2886:18)\n    at file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2929:18",
+        "gradingResult": null,
+        "id": "ca3be26e-795c-485c-a588-054c2ffe2c4a",
+        "latencyMs": 1352,
+        "namedScores": {},
+        "prompt": {
+          "raw": "现在有哪些项目",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "ts-001: 项目列表查询应使用 project-query",
+          "vars": {
+            "prompt": "现在有哪些项目",
+            "toolIds": "project-mutate"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('project-query')\n  ? { pass: true, score: 1, reason: '正确调用了 project-query' }\n  : { pass: false, score: 0, reason: `未调用 project-query，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('list-dir')\n  ? { pass: true, score: 1, reason: '未调用 list-dir' }\n  : { pass: false, score: 0, reason: '错误调用了 list-dir（文件目录列出）' };\n"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "回复应包含应用层的项目列表信息。\n不应返回文件系统目录结构。\n不应说\"没有项目\"或\"无法获取\"（工具可能返回空列表，但应正常展示结果）。\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 1,
+        "vars": {
+          "prompt": "现在有哪些项目",
+          "toolIds": "project-mutate"
+        },
+        "metadata": {
+          "errorContext": {
+            "providerId": "openloaf-agent",
+            "providerLabel": "OpenLoaf Master Agent"
+          }
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "error": "Error: API key is not set. Set the OPENAI_API_KEY environment variable or add `apiKey` to the provider config.\n    at OpenAiChatCompletionProvider.callApi (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/chat-D_cro0wd.js:499:57)\n    at callProviderWithContext (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1330:18)\n    at matchesLlmRubric (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1585:21)\n    at runAssertion (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2886:18)\n    at file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2929:18",
+        "gradingResult": null,
+        "id": "9172f034-d713-4198-958a-62d91d7556e0",
+        "latencyMs": 2826,
+        "namedScores": {},
+        "prompt": {
+          "raw": "现在有哪些项目",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "ts-001: 项目列表查询应使用 project-query",
+          "vars": {
+            "prompt": "现在有哪些项目",
+            "toolIds": "list-dir"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('project-query')\n  ? { pass: true, score: 1, reason: '正确调用了 project-query' }\n  : { pass: false, score: 0, reason: `未调用 project-query，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('list-dir')\n  ? { pass: true, score: 1, reason: '未调用 list-dir' }\n  : { pass: false, score: 0, reason: '错误调用了 list-dir（文件目录列出）' };\n"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "回复应包含应用层的项目列表信息。\n不应返回文件系统目录结构。\n不应说\"没有项目\"或\"无法获取\"（工具可能返回空列表，但应正常展示结果）。\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 2,
+        "vars": {
+          "prompt": "现在有哪些项目",
+          "toolIds": "list-dir"
+        },
+        "metadata": {
+          "errorContext": {
+            "providerId": "openloaf-agent",
+            "providerLabel": "OpenLoaf Master Agent"
+          }
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "error": "Error: API key is not set. Set the OPENAI_API_KEY environment variable or add `apiKey` to the provider config.\n    at OpenAiChatCompletionProvider.callApi (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/chat-D_cro0wd.js:499:57)\n    at callProviderWithContext (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1330:18)\n    at matchesLlmRubric (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1585:21)\n    at runAssertion (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2886:18)\n    at file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2929:18",
+        "gradingResult": null,
+        "id": "7f5593dc-d01e-4260-b4f6-ec01ad4e9de7",
+        "latencyMs": 1407,
+        "namedScores": {},
+        "prompt": {
+          "raw": "现在有哪些项目",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "ts-001: 项目列表查询应使用 project-query",
+          "vars": {
+            "prompt": "现在有哪些项目",
+            "toolIds": "read-file"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('project-query')\n  ? { pass: true, score: 1, reason: '正确调用了 project-query' }\n  : { pass: false, score: 0, reason: `未调用 project-query，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('list-dir')\n  ? { pass: true, score: 1, reason: '未调用 list-dir' }\n  : { pass: false, score: 0, reason: '错误调用了 list-dir（文件目录列出）' };\n"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "回复应包含应用层的项目列表信息。\n不应返回文件系统目录结构。\n不应说\"没有项目\"或\"无法获取\"（工具可能返回空列表，但应正常展示结果）。\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 3,
+        "vars": {
+          "prompt": "现在有哪些项目",
+          "toolIds": "read-file"
+        },
+        "metadata": {
+          "errorContext": {
+            "providerId": "openloaf-agent",
+            "providerLabel": "OpenLoaf Master Agent"
+          }
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "error": "Error: API key is not set. Set the OPENAI_API_KEY environment variable or add `apiKey` to the provider config.\n    at OpenAiChatCompletionProvider.callApi (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/chat-D_cro0wd.js:499:57)\n    at callProviderWithContext (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1330:18)\n    at matchesLlmRubric (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1585:21)\n    at runAssertion (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2886:18)\n    at file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2929:18",
+        "gradingResult": null,
+        "id": "e19c07d6-448c-4084-92c4-36477edd932b",
+        "latencyMs": 1326,
+        "namedScores": {},
+        "prompt": {
+          "raw": "现在有哪些项目",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "ts-001: 项目列表查询应使用 project-query",
+          "vars": {
+            "prompt": "现在有哪些项目",
+            "toolIds": "grep-files"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('project-query')\n  ? { pass: true, score: 1, reason: '正确调用了 project-query' }\n  : { pass: false, score: 0, reason: `未调用 project-query，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('list-dir')\n  ? { pass: true, score: 1, reason: '未调用 list-dir' }\n  : { pass: false, score: 0, reason: '错误调用了 list-dir（文件目录列出）' };\n"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "回复应包含应用层的项目列表信息。\n不应返回文件系统目录结构。\n不应说\"没有项目\"或\"无法获取\"（工具可能返回空列表，但应正常展示结果）。\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 4,
+        "vars": {
+          "prompt": "现在有哪些项目",
+          "toolIds": "grep-files"
+        },
+        "metadata": {
+          "errorContext": {
+            "providerId": "openloaf-agent",
+            "providerLabel": "OpenLoaf Master Agent"
+          }
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "error": "Error: API key is not set. Set the OPENAI_API_KEY environment variable or add `apiKey` to the provider config.\n    at OpenAiChatCompletionProvider.callApi (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/chat-D_cro0wd.js:499:57)\n    at callProviderWithContext (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1330:18)\n    at matchesLlmRubric (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1585:21)\n    at runAssertion (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2886:18)\n    at file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2929:18",
+        "gradingResult": null,
+        "id": "2c59a0a3-e5ba-426d-a875-7d8892d007f5",
+        "latencyMs": 1294,
+        "namedScores": {},
+        "prompt": {
+          "raw": "现在有哪些项目",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "ts-001: 项目列表查询应使用 project-query",
+          "vars": {
+            "prompt": "现在有哪些项目",
+            "toolIds": "shell-command"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('project-query')\n  ? { pass: true, score: 1, reason: '正确调用了 project-query' }\n  : { pass: false, score: 0, reason: `未调用 project-query，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('list-dir')\n  ? { pass: true, score: 1, reason: '未调用 list-dir' }\n  : { pass: false, score: 0, reason: '错误调用了 list-dir（文件目录列出）' };\n"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "回复应包含应用层的项目列表信息。\n不应返回文件系统目录结构。\n不应说\"没有项目\"或\"无法获取\"（工具可能返回空列表，但应正常展示结果）。\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 5,
+        "vars": {
+          "prompt": "现在有哪些项目",
+          "toolIds": "shell-command"
+        },
+        "metadata": {
+          "errorContext": {
+            "providerId": "openloaf-agent",
+            "providerLabel": "OpenLoaf Master Agent"
+          }
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "error": "Error: API key is not set. Set the OPENAI_API_KEY environment variable or add `apiKey` to the provider config.\n    at OpenAiChatCompletionProvider.callApi (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/chat-D_cro0wd.js:499:57)\n    at callProviderWithContext (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1330:18)\n    at matchesLlmRubric (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1585:21)\n    at runAssertion (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2886:18)\n    at file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2929:18",
+        "gradingResult": null,
+        "id": "f907044e-152b-4de5-830f-69d3191adf1d",
+        "latencyMs": 3620,
+        "namedScores": {},
+        "prompt": {
+          "raw": "现在有哪些项目",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "ts-001: 项目列表查询应使用 project-query",
+          "vars": {
+            "prompt": "现在有哪些项目",
+            "toolIds": "time-now"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('project-query')\n  ? { pass: true, score: 1, reason: '正确调用了 project-query' }\n  : { pass: false, score: 0, reason: `未调用 project-query，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('list-dir')\n  ? { pass: true, score: 1, reason: '未调用 list-dir' }\n  : { pass: false, score: 0, reason: '错误调用了 list-dir（文件目录列出）' };\n"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "回复应包含应用层的项目列表信息。\n不应返回文件系统目录结构。\n不应说\"没有项目\"或\"无法获取\"（工具可能返回空列表，但应正常展示结果）。\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 6,
+        "vars": {
+          "prompt": "现在有哪些项目",
+          "toolIds": "time-now"
+        },
+        "metadata": {
+          "errorContext": {
+            "providerId": "openloaf-agent",
+            "providerLabel": "OpenLoaf Master Agent"
+          }
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "正确调用了 time-now"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用禁止工具"
+            }
+          ]
+        },
+        "id": "6e4fa0dd-5242-4ac7-bcc2-2473ff2b787a",
+        "latencyMs": 1180,
+        "namedScores": {},
+        "prompt": {
+          "raw": "现在几点了？",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "response": {
+          "output": "现在是2026年3月1日星期日 14:32:23（北京时间）。",
+          "metadata": {
+            "toolCalls": [
+              {
+                "toolCallId": "call_d5b58f0ef4af482aa9912b",
+                "name": "time-now",
+                "input": {
+                  "actionName": "获取当前时间"
+                },
+                "output": {
+                  "ok": true,
+                  "data": {
+                    "iso": "2026-03-01T06:32:23.615Z",
+                    "unixMs": 1772346743615,
+                    "timeZone": "Asia/Shanghai",
+                    "year": 2026,
+                    "month": 3,
+                    "day": 1,
+                    "hour": 14,
+                    "minute": 32,
+                    "second": 23,
+                    "dayOfWeek": "Sunday",
+                    "dayOfWeekZh": "星期日",
+                    "localFormatted": "2026年3月1日星期日 14:32:23"
+                  }
+                }
+              }
+            ],
+            "toolNames": [
+              "time-now"
+            ],
+            "toolCallCount": 1
+          },
+          "latencyMs": 1180
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "ts-002: 时间查询应使用 time-now",
+          "vars": {
+            "prompt": "现在几点了？",
+            "toolIds": "time-now"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('time-now')\n  ? { pass: true, score: 1, reason: '正确调用了 time-now' }\n  : { pass: false, score: 0, reason: `未调用 time-now，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nconst forbidden = ['shell-command', 'js-repl'];\nconst used = forbidden.filter(t => tools.includes(t));\nreturn used.length === 0\n  ? { pass: true, score: 1, reason: '未使用禁止工具' }\n  : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 7,
+        "vars": {
+          "prompt": "现在几点了？",
+          "toolIds": "time-now"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "toolCallId": "call_d5b58f0ef4af482aa9912b",
+              "name": "time-now",
+              "input": {
+                "actionName": "获取当前时间"
+              },
+              "output": {
+                "ok": true,
+                "data": {
+                  "iso": "2026-03-01T06:32:23.615Z",
+                  "unixMs": 1772346743615,
+                  "timeZone": "Asia/Shanghai",
+                  "year": 2026,
+                  "month": 3,
+                  "day": 1,
+                  "hour": 14,
+                  "minute": 32,
+                  "second": 23,
+                  "dayOfWeek": "Sunday",
+                  "dayOfWeekZh": "星期日",
+                  "localFormatted": "2026年3月1日星期日 14:32:23"
+                }
+              }
+            }
+          ],
+          "toolNames": [
+            "time-now"
+          ],
+          "toolCallCount": 1,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "正确调用了 time-now"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用禁止工具"
+            }
+          ]
+        },
+        "id": "de53b4cf-03a5-4e3d-80e9-e9434cf4663b",
+        "latencyMs": 1365,
+        "namedScores": {},
+        "prompt": {
+          "raw": "现在几点了？",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "response": {
+          "output": "现在是2026年3月1日星期日 14:32:24（北京时间）。",
+          "metadata": {
+            "toolCalls": [
+              {
+                "toolCallId": "call_dfc357befedc476e89783d",
+                "name": "time-now",
+                "input": {
+                  "actionName": "获取当前时间"
+                },
+                "output": {
+                  "ok": true,
+                  "data": {
+                    "iso": "2026-03-01T06:32:24.691Z",
+                    "unixMs": 1772346744691,
+                    "timeZone": "Asia/Shanghai",
+                    "year": 2026,
+                    "month": 3,
+                    "day": 1,
+                    "hour": 14,
+                    "minute": 32,
+                    "second": 24,
+                    "dayOfWeek": "Sunday",
+                    "dayOfWeekZh": "星期日",
+                    "localFormatted": "2026年3月1日星期日 14:32:24"
+                  }
+                }
+              }
+            ],
+            "toolNames": [
+              "time-now"
+            ],
+            "toolCallCount": 1
+          },
+          "latencyMs": 1365
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "ts-002: 时间查询应使用 time-now",
+          "vars": {
+            "prompt": "现在几点了？",
+            "toolIds": "shell-command"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('time-now')\n  ? { pass: true, score: 1, reason: '正确调用了 time-now' }\n  : { pass: false, score: 0, reason: `未调用 time-now，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nconst forbidden = ['shell-command', 'js-repl'];\nconst used = forbidden.filter(t => tools.includes(t));\nreturn used.length === 0\n  ? { pass: true, score: 1, reason: '未使用禁止工具' }\n  : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 8,
+        "vars": {
+          "prompt": "现在几点了？",
+          "toolIds": "shell-command"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "toolCallId": "call_dfc357befedc476e89783d",
+              "name": "time-now",
+              "input": {
+                "actionName": "获取当前时间"
+              },
+              "output": {
+                "ok": true,
+                "data": {
+                  "iso": "2026-03-01T06:32:24.691Z",
+                  "unixMs": 1772346744691,
+                  "timeZone": "Asia/Shanghai",
+                  "year": 2026,
+                  "month": 3,
+                  "day": 1,
+                  "hour": 14,
+                  "minute": 32,
+                  "second": 24,
+                  "dayOfWeek": "Sunday",
+                  "dayOfWeekZh": "星期日",
+                  "localFormatted": "2026年3月1日星期日 14:32:24"
+                }
+              }
+            }
+          ],
+          "toolNames": [
+            "time-now"
+          ],
+          "toolCallCount": 1,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "正确调用了 time-now"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用禁止工具"
+            }
+          ]
+        },
+        "id": "067b8301-6e9d-4afa-9a9c-d43be1e651f4",
+        "latencyMs": 1113,
+        "namedScores": {},
+        "prompt": {
+          "raw": "现在几点了？",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "response": {
+          "output": "现在是2026年3月1日星期日 14:32:26（北京时间）。",
+          "metadata": {
+            "toolCalls": [
+              {
+                "toolCallId": "call_3f2eee6bf24b4c8a948e47",
+                "name": "time-now",
+                "input": {
+                  "actionName": "获取当前时间"
+                },
+                "output": {
+                  "ok": true,
+                  "data": {
+                    "iso": "2026-03-01T06:32:26.035Z",
+                    "unixMs": 1772346746035,
+                    "timeZone": "Asia/Shanghai",
+                    "year": 2026,
+                    "month": 3,
+                    "day": 1,
+                    "hour": 14,
+                    "minute": 32,
+                    "second": 26,
+                    "dayOfWeek": "Sunday",
+                    "dayOfWeekZh": "星期日",
+                    "localFormatted": "2026年3月1日星期日 14:32:26"
+                  }
+                }
+              }
+            ],
+            "toolNames": [
+              "time-now"
+            ],
+            "toolCallCount": 1
+          },
+          "latencyMs": 1113
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "ts-002: 时间查询应使用 time-now",
+          "vars": {
+            "prompt": "现在几点了？",
+            "toolIds": "js-repl"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('time-now')\n  ? { pass: true, score: 1, reason: '正确调用了 time-now' }\n  : { pass: false, score: 0, reason: `未调用 time-now，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nconst forbidden = ['shell-command', 'js-repl'];\nconst used = forbidden.filter(t => tools.includes(t));\nreturn used.length === 0\n  ? { pass: true, score: 1, reason: '未使用禁止工具' }\n  : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 9,
+        "vars": {
+          "prompt": "现在几点了？",
+          "toolIds": "js-repl"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "toolCallId": "call_3f2eee6bf24b4c8a948e47",
+              "name": "time-now",
+              "input": {
+                "actionName": "获取当前时间"
+              },
+              "output": {
+                "ok": true,
+                "data": {
+                  "iso": "2026-03-01T06:32:26.035Z",
+                  "unixMs": 1772346746035,
+                  "timeZone": "Asia/Shanghai",
+                  "year": 2026,
+                  "month": 3,
+                  "day": 1,
+                  "hour": 14,
+                  "minute": 32,
+                  "second": 26,
+                  "dayOfWeek": "Sunday",
+                  "dayOfWeekZh": "星期日",
+                  "localFormatted": "2026年3月1日星期日 14:32:26"
+                }
+              }
+            }
+          ],
+          "toolNames": [
+            "time-now"
+          ],
+          "toolCallCount": 1,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "error": "Error: API key is not set. Set the OPENAI_API_KEY environment variable or add `apiKey` to the provider config.\n    at OpenAiChatCompletionProvider.callApi (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/chat-D_cro0wd.js:499:57)\n    at callProviderWithContext (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1330:18)\n    at matchesLlmRubric (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1585:21)\n    at runAssertion (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2886:18)\n    at file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2929:18",
+        "gradingResult": null,
+        "id": "b993305d-1578-4160-9ec3-2ca267561164",
+        "latencyMs": 2098,
+        "namedScores": {},
+        "prompt": {
+          "raw": "帮我创建一个任务：提醒开会",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "ts-003: 任务创建应使用 task-manage",
+          "vars": {
+            "prompt": "帮我创建一个任务：提醒开会",
+            "toolIds": "task-manage"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('task-manage')\n  ? { pass: true, score: 1, reason: '正确调用了 task-manage' }\n  : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "回复应确认任务已创建，语气友好简洁"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 10,
+        "vars": {
+          "prompt": "帮我创建一个任务：提醒开会",
+          "toolIds": "task-manage"
+        },
+        "metadata": {
+          "errorContext": {
+            "providerId": "openloaf-agent",
+            "providerLabel": "OpenLoaf Master Agent"
+          }
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "error": "Error: API key is not set. Set the OPENAI_API_KEY environment variable or add `apiKey` to the provider config.\n    at OpenAiChatCompletionProvider.callApi (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/chat-D_cro0wd.js:499:57)\n    at callProviderWithContext (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1330:18)\n    at matchesLlmRubric (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1585:21)\n    at runAssertion (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2886:18)\n    at file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2929:18",
+        "gradingResult": null,
+        "id": "4682db60-7491-4f5f-9279-ed06525c4da9",
+        "latencyMs": 1489,
+        "namedScores": {},
+        "prompt": {
+          "raw": "帮我创建一个任务：提醒开会",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "ts-003: 任务创建应使用 task-manage",
+          "vars": {
+            "prompt": "帮我创建一个任务：提醒开会",
+            "toolIds": "task-status"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('task-manage')\n  ? { pass: true, score: 1, reason: '正确调用了 task-manage' }\n  : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "回复应确认任务已创建，语气友好简洁"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 11,
+        "vars": {
+          "prompt": "帮我创建一个任务：提醒开会",
+          "toolIds": "task-status"
+        },
+        "metadata": {
+          "errorContext": {
+            "providerId": "openloaf-agent",
+            "providerLabel": "OpenLoaf Master Agent"
+          }
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "error": "Error: API key is not set. Set the OPENAI_API_KEY environment variable or add `apiKey` to the provider config.\n    at OpenAiChatCompletionProvider.callApi (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/chat-D_cro0wd.js:499:57)\n    at callProviderWithContext (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1330:18)\n    at matchesLlmRubric (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1585:21)\n    at runAssertion (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2886:18)\n    at file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2929:18",
+        "gradingResult": null,
+        "id": "0d62f1a0-f266-41d7-93d6-2f55ba8c2ec3",
+        "latencyMs": 1770,
+        "namedScores": {},
+        "prompt": {
+          "raw": "帮我创建一个任务：提醒开会",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "ts-003: 任务创建应使用 task-manage",
+          "vars": {
+            "prompt": "帮我创建一个任务：提醒开会",
+            "toolIds": "time-now"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('task-manage')\n  ? { pass: true, score: 1, reason: '正确调用了 task-manage' }\n  : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "回复应确认任务已创建，语气友好简洁"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 12,
+        "vars": {
+          "prompt": "帮我创建一个任务：提醒开会",
+          "toolIds": "time-now"
+        },
+        "metadata": {
+          "errorContext": {
+            "providerId": "openloaf-agent",
+            "providerLabel": "OpenLoaf Master Agent"
+          }
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "error": "Error: API key is not set. Set the OPENAI_API_KEY environment variable or add `apiKey` to the provider config.\n    at OpenAiChatCompletionProvider.callApi (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/chat-D_cro0wd.js:499:57)\n    at callProviderWithContext (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1330:18)\n    at matchesLlmRubric (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/graders-DMAzEgEF.js:1585:21)\n    at runAssertion (file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2886:18)\n    at file:///Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/node_modules/promptfoo/dist/src/evaluator-1Tkdu8MK.js:2929:18",
+        "gradingResult": null,
+        "id": "98f2950f-dcb7-4c9c-88db-a6734ddcb4d6",
+        "latencyMs": 1770,
+        "namedScores": {},
+        "prompt": {
+          "raw": "帮我创建一个任务：提醒开会",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "ts-003: 任务创建应使用 task-manage",
+          "vars": {
+            "prompt": "帮我创建一个任务：提醒开会",
+            "toolIds": "shell-command"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('task-manage')\n  ? { pass: true, score: 1, reason: '正确调用了 task-manage' }\n  : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "回复应确认任务已创建，语气友好简洁"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 13,
+        "vars": {
+          "prompt": "帮我创建一个任务：提醒开会",
+          "toolIds": "shell-command"
+        },
+        "metadata": {
+          "errorContext": {
+            "providerId": "openloaf-agent",
+            "providerLabel": "OpenLoaf Master Agent"
+          }
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "error": "未调用 email-query，实际: []",
+        "gradingResult": {
+          "pass": false,
+          "score": 0.5,
+          "reason": "未调用 email-query，实际: []",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "未调用 email-query，实际: []"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用禁止工具"
+            }
+          ]
+        },
+        "id": "13de6ed3-2c82-40cd-b1ea-7d4ca13465a5",
+        "latencyMs": 706,
+        "namedScores": {},
+        "prompt": {
+          "raw": "查看最近的邮件",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "response": {
+          "output": "我无法直接访问或查看您的邮件，因为这超出了当前工具的能力范围。如果您需要处理邮件相关任务（如撰写、筛选、归档），请提供具体需求，我会尽力协助您完成。",
+          "metadata": {
+            "toolCalls": [],
+            "toolNames": [],
+            "toolCallCount": 0
+          },
+          "latencyMs": 706
+        },
+        "score": 0.5,
+        "success": false,
+        "testCase": {
+          "description": "ts-004: 邮件查询应使用 email-query",
+          "vars": {
+            "prompt": "查看最近的邮件",
+            "toolIds": "email-query"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('email-query')\n  ? { pass: true, score: 1, reason: '正确调用了 email-query' }\n  : { pass: false, score: 0, reason: `未调用 email-query，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nconst forbidden = ['list-dir', 'shell-command', 'read-file'];\nconst used = forbidden.filter(t => tools.includes(t));\nreturn used.length === 0\n  ? { pass: true, score: 1, reason: '未使用禁止工具' }\n  : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 14,
+        "vars": {
+          "prompt": "查看最近的邮件",
+          "toolIds": "email-query"
+        },
+        "metadata": {
+          "toolCalls": [],
+          "toolNames": [],
+          "toolCallCount": 0,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "未调用 email-query，实际: []",
+        "gradingResult": {
+          "pass": false,
+          "score": 0.5,
+          "reason": "未调用 email-query，实际: []",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "未调用 email-query，实际: []"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用禁止工具"
+            }
+          ]
+        },
+        "id": "20a3e935-7345-4d9a-a1f8-3d6028419d2c",
+        "latencyMs": 753,
+        "namedScores": {},
+        "prompt": {
+          "raw": "查看最近的邮件",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "response": {
+          "output": "我无法直接访问或查看您的邮件，因为这超出了当前工具的能力范围。如果您需要处理邮件相关任务（如撰写、筛选、归档），请提供具体需求，我会尽力协助您完成。",
+          "metadata": {
+            "toolCalls": [],
+            "toolNames": [],
+            "toolCallCount": 0
+          },
+          "latencyMs": 753
+        },
+        "score": 0.5,
+        "success": false,
+        "testCase": {
+          "description": "ts-004: 邮件查询应使用 email-query",
+          "vars": {
+            "prompt": "查看最近的邮件",
+            "toolIds": "email-mutate"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('email-query')\n  ? { pass: true, score: 1, reason: '正确调用了 email-query' }\n  : { pass: false, score: 0, reason: `未调用 email-query，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nconst forbidden = ['list-dir', 'shell-command', 'read-file'];\nconst used = forbidden.filter(t => tools.includes(t));\nreturn used.length === 0\n  ? { pass: true, score: 1, reason: '未使用禁止工具' }\n  : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 15,
+        "vars": {
+          "prompt": "查看最近的邮件",
+          "toolIds": "email-mutate"
+        },
+        "metadata": {
+          "toolCalls": [],
+          "toolNames": [],
+          "toolCallCount": 0,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "未调用 email-query，实际: []",
+        "gradingResult": {
+          "pass": false,
+          "score": 0.5,
+          "reason": "未调用 email-query，实际: []",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "未调用 email-query，实际: []"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用禁止工具"
+            }
+          ]
+        },
+        "id": "65715bf3-aee4-426c-ae7e-1de5dba5dc87",
+        "latencyMs": 684,
+        "namedScores": {},
+        "prompt": {
+          "raw": "查看最近的邮件",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "response": {
+          "output": "我无法直接访问或查看您的邮件，因为这超出了当前工具的能力范围。如果您需要处理邮件相关任务（如撰写、筛选、归档），请提供具体需求，我会尽力协助您完成。",
+          "metadata": {
+            "toolCalls": [],
+            "toolNames": [],
+            "toolCallCount": 0
+          },
+          "latencyMs": 684
+        },
+        "score": 0.5,
+        "success": false,
+        "testCase": {
+          "description": "ts-004: 邮件查询应使用 email-query",
+          "vars": {
+            "prompt": "查看最近的邮件",
+            "toolIds": "list-dir"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('email-query')\n  ? { pass: true, score: 1, reason: '正确调用了 email-query' }\n  : { pass: false, score: 0, reason: `未调用 email-query，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nconst forbidden = ['list-dir', 'shell-command', 'read-file'];\nconst used = forbidden.filter(t => tools.includes(t));\nreturn used.length === 0\n  ? { pass: true, score: 1, reason: '未使用禁止工具' }\n  : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 16,
+        "vars": {
+          "prompt": "查看最近的邮件",
+          "toolIds": "list-dir"
+        },
+        "metadata": {
+          "toolCalls": [],
+          "toolNames": [],
+          "toolCallCount": 0,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "未调用 email-query，实际: []",
+        "gradingResult": {
+          "pass": false,
+          "score": 0.5,
+          "reason": "未调用 email-query，实际: []",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "未调用 email-query，实际: []"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用禁止工具"
+            }
+          ]
+        },
+        "id": "a2784a8a-1cbf-4865-9b35-b1f45b949fd3",
+        "latencyMs": 829,
+        "namedScores": {},
+        "prompt": {
+          "raw": "查看最近的邮件",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "response": {
+          "output": "我无法直接访问或查看您的邮件，因为这超出了当前工具的能力范围。如果您需要处理邮件相关任务（如撰写、筛选、归档），请提供具体需求，我会尽力协助您完成。",
+          "metadata": {
+            "toolCalls": [],
+            "toolNames": [],
+            "toolCallCount": 0
+          },
+          "latencyMs": 829
+        },
+        "score": 0.5,
+        "success": false,
+        "testCase": {
+          "description": "ts-004: 邮件查询应使用 email-query",
+          "vars": {
+            "prompt": "查看最近的邮件",
+            "toolIds": "read-file"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('email-query')\n  ? { pass: true, score: 1, reason: '正确调用了 email-query' }\n  : { pass: false, score: 0, reason: `未调用 email-query，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nconst forbidden = ['list-dir', 'shell-command', 'read-file'];\nconst used = forbidden.filter(t => tools.includes(t));\nreturn used.length === 0\n  ? { pass: true, score: 1, reason: '未使用禁止工具' }\n  : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 17,
+        "vars": {
+          "prompt": "查看最近的邮件",
+          "toolIds": "read-file"
+        },
+        "metadata": {
+          "toolCalls": [],
+          "toolNames": [],
+          "toolCallCount": 0,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "未调用 email-query，实际: []",
+        "gradingResult": {
+          "pass": false,
+          "score": 0.5,
+          "reason": "未调用 email-query，实际: []",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "未调用 email-query，实际: []"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用禁止工具"
+            }
+          ]
+        },
+        "id": "9d7abcc7-a3c4-449e-9f2e-ca2f6451086b",
+        "latencyMs": 698,
+        "namedScores": {},
+        "prompt": {
+          "raw": "查看最近的邮件",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "response": {
+          "output": "我无法直接访问或查看您的邮件，因为这超出了当前工具的能力范围。如果您需要处理邮件相关任务（如撰写、筛选、归档），请提供具体需求，我会尽力协助您完成。",
+          "metadata": {
+            "toolCalls": [],
+            "toolNames": [],
+            "toolCallCount": 0
+          },
+          "latencyMs": 698
+        },
+        "score": 0.5,
+        "success": false,
+        "testCase": {
+          "description": "ts-004: 邮件查询应使用 email-query",
+          "vars": {
+            "prompt": "查看最近的邮件",
+            "toolIds": "shell-command"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('email-query')\n  ? { pass: true, score: 1, reason: '正确调用了 email-query' }\n  : { pass: false, score: 0, reason: `未调用 email-query，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nconst forbidden = ['list-dir', 'shell-command', 'read-file'];\nconst used = forbidden.filter(t => tools.includes(t));\nreturn used.length === 0\n  ? { pass: true, score: 1, reason: '未使用禁止工具' }\n  : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 18,
+        "vars": {
+          "prompt": "查看最近的邮件",
+          "toolIds": "shell-command"
+        },
+        "metadata": {
+          "toolCalls": [],
+          "toolNames": [],
+          "toolCallCount": 0,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "正确调用了 read-file"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用 shell-command"
+            }
+          ]
+        },
+        "id": "9e403367-edce-4726-addb-7f410d2db7d6",
+        "latencyMs": 1718,
+        "namedScores": {},
+        "prompt": {
+          "raw": "读一下 README.md 的内容",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "response": {
+          "output": "我需要先获取当前工作区的路径或ID才能读取文件。请告诉我你要读取哪个目录下的 README.md，或者我可以帮你列出当前工作区的内容来定位它。",
+          "metadata": {
+            "toolCalls": [
+              {
+                "toolCallId": "call_365e44a19a9e4184a67305",
+                "name": "read-file",
+                "input": {
+                  "actionName": "读取 README.md 文件内容",
+                  "path": "README.md"
+                }
+              }
+            ],
+            "toolNames": [
+              "read-file"
+            ],
+            "toolCallCount": 1
+          },
+          "latencyMs": 1718
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "ts-005: 文件读取应使用 read-file",
+          "vars": {
+            "prompt": "读一下 README.md 的内容",
+            "toolIds": "read-file"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('read-file')\n  ? { pass: true, score: 1, reason: '正确调用了 read-file' }\n  : { pass: false, score: 0, reason: `未调用 read-file，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('shell-command')\n  ? { pass: true, score: 1, reason: '未使用 shell-command' }\n  : { pass: false, score: 0, reason: '不应使用 shell-command 来读取文件' };\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 19,
+        "vars": {
+          "prompt": "读一下 README.md 的内容",
+          "toolIds": "read-file"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "toolCallId": "call_365e44a19a9e4184a67305",
+              "name": "read-file",
+              "input": {
+                "actionName": "读取 README.md 文件内容",
+                "path": "README.md"
+              }
+            }
+          ],
+          "toolNames": [
+            "read-file"
+          ],
+          "toolCallCount": 1,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "正确调用了 read-file"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用 shell-command"
+            }
+          ]
+        },
+        "id": "cc703c37-1657-4bc0-83f2-dc121ce80458",
+        "latencyMs": 1887,
+        "namedScores": {},
+        "prompt": {
+          "raw": "读一下 README.md 的内容",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "response": {
+          "output": "我需要先获取当前工作区的 ID 才能读取文件。请告诉我你希望我读取哪个路径下的 README.md 文件？或者你可以直接提供文件路径，我会立即为你读取内容。",
+          "metadata": {
+            "toolCalls": [
+              {
+                "toolCallId": "call_18a0c5c2e5a74e5f91bafc",
+                "name": "read-file",
+                "input": {
+                  "actionName": "读取 README.md 文件内容",
+                  "path": "README.md"
+                }
+              }
+            ],
+            "toolNames": [
+              "read-file"
+            ],
+            "toolCallCount": 1
+          },
+          "latencyMs": 1887
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "ts-005: 文件读取应使用 read-file",
+          "vars": {
+            "prompt": "读一下 README.md 的内容",
+            "toolIds": "list-dir"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('read-file')\n  ? { pass: true, score: 1, reason: '正确调用了 read-file' }\n  : { pass: false, score: 0, reason: `未调用 read-file，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('shell-command')\n  ? { pass: true, score: 1, reason: '未使用 shell-command' }\n  : { pass: false, score: 0, reason: '不应使用 shell-command 来读取文件' };\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 20,
+        "vars": {
+          "prompt": "读一下 README.md 的内容",
+          "toolIds": "list-dir"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "toolCallId": "call_18a0c5c2e5a74e5f91bafc",
+              "name": "read-file",
+              "input": {
+                "actionName": "读取 README.md 文件内容",
+                "path": "README.md"
+              }
+            }
+          ],
+          "toolNames": [
+            "read-file"
+          ],
+          "toolCallCount": 1,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "正确调用了 read-file"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用 shell-command"
+            }
+          ]
+        },
+        "id": "1eb80e87-30eb-4894-9303-4a277db4b77e",
+        "latencyMs": 1241,
+        "namedScores": {},
+        "prompt": {
+          "raw": "读一下 README.md 的内容",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "response": {
+          "output": "我需要先获取当前工作区的路径或上下文，才能读取 README.md。请告诉我你希望我从哪个目录或项目中读取该文件？或者你可以直接提供文件路径。",
+          "metadata": {
+            "toolCalls": [
+              {
+                "toolCallId": "call_7a9b259cfc0042dc9b061c",
+                "name": "read-file",
+                "input": {
+                  "actionName": "读取 README.md 文件内容",
+                  "path": "README.md"
+                }
+              }
+            ],
+            "toolNames": [
+              "read-file"
+            ],
+            "toolCallCount": 1
+          },
+          "latencyMs": 1241
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "ts-005: 文件读取应使用 read-file",
+          "vars": {
+            "prompt": "读一下 README.md 的内容",
+            "toolIds": "grep-files"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('read-file')\n  ? { pass: true, score: 1, reason: '正确调用了 read-file' }\n  : { pass: false, score: 0, reason: `未调用 read-file，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('shell-command')\n  ? { pass: true, score: 1, reason: '未使用 shell-command' }\n  : { pass: false, score: 0, reason: '不应使用 shell-command 来读取文件' };\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 21,
+        "vars": {
+          "prompt": "读一下 README.md 的内容",
+          "toolIds": "grep-files"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "toolCallId": "call_7a9b259cfc0042dc9b061c",
+              "name": "read-file",
+              "input": {
+                "actionName": "读取 README.md 文件内容",
+                "path": "README.md"
+              }
+            }
+          ],
+          "toolNames": [
+            "read-file"
+          ],
+          "toolCallCount": 1,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "正确调用了 read-file"
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "未使用 shell-command"
+            }
+          ]
+        },
+        "id": "755c1d42-31f2-449b-b14e-b542169f0e62",
+        "latencyMs": 1321,
+        "namedScores": {},
+        "prompt": {
+          "raw": "读一下 README.md 的内容",
+          "label": "{{prompt}}",
+          "config": {
+            "timeout": 60000
+          }
+        },
+        "promptId": "effa18501e44aafd9bc42a2f64ffc9b6350f94025520ca2ed382f9bdc4b6e982",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openloaf-agent",
+          "label": "OpenLoaf Master Agent"
+        },
+        "response": {
+          "output": "我无法直接读取文件，因为当前环境未提供 workspaceId。请确认你是否在正确的项目目录中，或告诉我你想查看哪个文件的内容，我可以帮你用其他方式获取。",
+          "metadata": {
+            "toolCalls": [
+              {
+                "toolCallId": "call_36bac09041e84094a241b7",
+                "name": "read-file",
+                "input": {
+                  "actionName": "读取 README.md 文件内容",
+                  "path": "README.md"
+                }
+              }
+            ],
+            "toolNames": [
+              "read-file"
+            ],
+            "toolCallCount": 1
+          },
+          "latencyMs": 1321
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "ts-005: 文件读取应使用 read-file",
+          "vars": {
+            "prompt": "读一下 README.md 的内容",
+            "toolIds": "shell-command"
+          },
+          "assert": [
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('read-file')\n  ? { pass: true, score: 1, reason: '正确调用了 read-file' }\n  : { pass: false, score: 0, reason: `未调用 read-file，实际: [${tools}]` };\n"
+            },
+            {
+              "type": "javascript",
+              "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('shell-command')\n  ? { pass: true, score: 1, reason: '未使用 shell-command' }\n  : { pass: false, score: 0, reason: '不应使用 shell-command 来读取文件' };\n"
+            }
+          ],
+          "options": {
+            "timeout": 60000
+          },
+          "metadata": {}
+        },
+        "testIdx": 22,
+        "vars": {
+          "prompt": "读一下 README.md 的内容",
+          "toolIds": "shell-command"
+        },
+        "metadata": {
+          "toolCalls": [
+            {
+              "toolCallId": "call_36bac09041e84094a241b7",
+              "name": "read-file",
+              "input": {
+                "actionName": "读取 README.md 文件内容",
+                "path": "README.md"
+              }
+            }
+          ],
+          "toolNames": [
+            "read-file"
+          ],
+          "toolCallCount": 1,
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      }
+    ],
+    "stats": {
+      "successes": 7,
+      "failures": 5,
+      "errors": 11,
+      "tokenUsage": {
+        "prompt": 0,
+        "completion": 0,
+        "cached": 0,
+        "total": 0,
+        "numRequests": 12,
+        "completionDetails": {
+          "reasoning": 0,
+          "acceptedPrediction": 0,
+          "rejectedPrediction": 0
+        },
+        "assertions": {
+          "total": 0,
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0
+          }
+        }
+      },
+      "durationMs": 53388,
+      "evaluationDurationMs": 53388
+    }
+  },
+  "config": {
+    "tags": {},
+    "description": "OpenLoaf AI Agent 行为测试",
+    "prompts": [
+      "{{prompt}}"
+    ],
+    "providers": [
+      {
+        "id": "file://openloaf-agent-provider.ts",
+        "label": "OpenLoaf Master Agent"
+      }
+    ],
+    "tests": [
+      {
+        "description": "ts-001: 项目列表查询应使用 project-query",
+        "vars": {
+          "prompt": "现在有哪些项目",
+          "toolIds": [
+            "project-query",
+            "project-mutate",
+            "list-dir",
+            "read-file",
+            "grep-files",
+            "shell-command",
+            "time-now"
+          ]
+        },
+        "assert": [
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('project-query')\n  ? { pass: true, score: 1, reason: '正确调用了 project-query' }\n  : { pass: false, score: 0, reason: `未调用 project-query，实际: [${tools}]` };\n"
+          },
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('list-dir')\n  ? { pass: true, score: 1, reason: '未调用 list-dir' }\n  : { pass: false, score: 0, reason: '错误调用了 list-dir（文件目录列出）' };\n"
+          },
+          {
+            "type": "llm-rubric",
+            "value": "回复应包含应用层的项目列表信息。\n不应返回文件系统目录结构。\n不应说\"没有项目\"或\"无法获取\"（工具可能返回空列表，但应正常展示结果）。\n"
+          }
+        ]
+      },
+      {
+        "description": "ts-002: 时间查询应使用 time-now",
+        "vars": {
+          "prompt": "现在几点了？",
+          "toolIds": [
+            "time-now",
+            "shell-command",
+            "js-repl"
+          ]
+        },
+        "assert": [
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('time-now')\n  ? { pass: true, score: 1, reason: '正确调用了 time-now' }\n  : { pass: false, score: 0, reason: `未调用 time-now，实际: [${tools}]` };\n"
+          },
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nconst forbidden = ['shell-command', 'js-repl'];\nconst used = forbidden.filter(t => tools.includes(t));\nreturn used.length === 0\n  ? { pass: true, score: 1, reason: '未使用禁止工具' }\n  : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };\n"
+          }
+        ]
+      },
+      {
+        "description": "ts-003: 任务创建应使用 task-manage",
+        "vars": {
+          "prompt": "帮我创建一个任务：提醒开会",
+          "toolIds": [
+            "task-manage",
+            "task-status",
+            "time-now",
+            "shell-command"
+          ]
+        },
+        "assert": [
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('task-manage')\n  ? { pass: true, score: 1, reason: '正确调用了 task-manage' }\n  : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };\n"
+          },
+          {
+            "type": "llm-rubric",
+            "value": "回复应确认任务已创建，语气友好简洁"
+          }
+        ]
+      },
+      {
+        "description": "ts-004: 邮件查询应使用 email-query",
+        "vars": {
+          "prompt": "查看最近的邮件",
+          "toolIds": [
+            "email-query",
+            "email-mutate",
+            "list-dir",
+            "read-file",
+            "shell-command"
+          ]
+        },
+        "assert": [
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('email-query')\n  ? { pass: true, score: 1, reason: '正确调用了 email-query' }\n  : { pass: false, score: 0, reason: `未调用 email-query，实际: [${tools}]` };\n"
+          },
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nconst forbidden = ['list-dir', 'shell-command', 'read-file'];\nconst used = forbidden.filter(t => tools.includes(t));\nreturn used.length === 0\n  ? { pass: true, score: 1, reason: '未使用禁止工具' }\n  : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };\n"
+          }
+        ]
+      },
+      {
+        "description": "ts-005: 文件读取应使用 read-file",
+        "vars": {
+          "prompt": "读一下 README.md 的内容",
+          "toolIds": [
+            "read-file",
+            "list-dir",
+            "grep-files",
+            "shell-command"
+          ]
+        },
+        "assert": [
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn tools.includes('read-file')\n  ? { pass: true, score: 1, reason: '正确调用了 read-file' }\n  : { pass: false, score: 0, reason: `未调用 read-file，实际: [${tools}]` };\n"
+          },
+          {
+            "type": "javascript",
+            "value": "const tools = context.providerResponse?.metadata?.toolNames || [];\nreturn !tools.includes('shell-command')\n  ? { pass: true, score: 1, reason: '未使用 shell-command' }\n  : { pass: false, score: 0, reason: '不应使用 shell-command 来读取文件' };\n"
+          }
+        ]
+      }
+    ],
+    "scenarios": [],
+    "env": {},
+    "defaultTest": {
+      "options": {
+        "timeout": 60000
+      },
+      "vars": {},
+      "assert": [],
+      "metadata": {}
+    },
+    "outputPath": [
+      "src/ai/__tests__/agent-behavior/output.json"
+    ],
+    "extensions": [],
+    "metadata": {},
+    "evaluateOptions": {}
+  },
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.120.25",
+    "nodeVersion": "v22.21.1",
+    "platform": "darwin",
+    "arch": "arm64",
+    "exportedAt": "2026-03-01T06:32:43.690Z",
+    "evaluationCreatedAt": "2026-03-01T06:31:50.276Z"
+  }
+}

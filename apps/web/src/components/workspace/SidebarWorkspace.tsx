@@ -50,8 +50,24 @@ import {
 } from "@openloaf/ui/dialog";
 import { Input } from "@openloaf/ui/input";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
+import { fetchUserProfile } from "@/lib/saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import { useTabs } from "@/hooks/use-tabs";
+
+const MEMBERSHIP_LABELS: Record<string, string> = {
+  free: "免费版",
+  vip: "VIP",
+  svip: "SVIP",
+  infinity: "Infinity",
+};
+
+/** 会员等级胶囊徽章样式 — 低透明彩色背景 + 对应文字色，light/dark 双套。 */
+const MEMBERSHIP_BADGE_STYLES: Record<string, string> = {
+  free: "bg-secondary text-secondary-foreground",
+  vip: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
+  svip: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400",
+  infinity: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-400",
+};
 
 export const SidebarWorkspace = () => {
   const { workspace } = useWorkspace();
@@ -71,6 +87,12 @@ export const SidebarWorkspace = () => {
     refreshSession,
     logout,
   } = useSaasAuth();
+  const userProfileQuery = useQuery({
+    queryKey: ["saas", "userProfile"],
+    queryFn: fetchUserProfile,
+    enabled: authLoggedIn,
+    staleTime: 60_000,
+  });
   const resetWorkspaceTabsToDesktop = useTabs(
     (state) => state.resetWorkspaceTabsToDesktop,
   );
@@ -266,8 +288,20 @@ export const SidebarWorkspace = () => {
                   <div className="truncate text-sm font-medium leading-5">
                     {authUser?.name || "当前账号"}
                   </div>
-                  <div className="truncate text-xs text-muted-foreground leading-4">
-                    {dropdownAccountLabel ?? "未登录"}
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground leading-4">
+                    <span className="truncate">{dropdownAccountLabel ?? "未登录"}</span>
+                    {authLoggedIn && userProfileQuery.data && (
+                      <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${MEMBERSHIP_BADGE_STYLES[userProfileQuery.data.membershipLevel] ?? "bg-secondary text-secondary-foreground"}`}
+                        >
+                          {MEMBERSHIP_LABELS[userProfileQuery.data.membershipLevel] ?? userProfileQuery.data.membershipLevel}
+                        </span>
+                        <span className="text-[11px] leading-4">
+                          {Math.floor(userProfileQuery.data.creditsBalance).toLocaleString()} 积分
+                        </span>
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

@@ -10,6 +10,10 @@
 import { getProviderSettings } from '@/modules/settings/settingsService'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { setRequestContext, setChatModel, setAbortSignal } from '@/ai/shared/context/requestContext'
+import { installHttpProxy } from '@/modules/proxy/httpProxy'
+
+// 测试环境初始化代理 — 确保 Node.js fetch 走系统代理（undici 不自动识别环境变量）
+installHttpProxy()
 
 const ENV_KEY = 'OPENLOAF_TEST_CHAT_MODEL_ID'
 

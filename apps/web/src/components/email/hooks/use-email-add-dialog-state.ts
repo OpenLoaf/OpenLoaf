@@ -233,8 +233,9 @@ export function useEmailAddDialogState(core: EmailCoreState): AddDialogState {
   return {
     addDialogOpen,
     onAddDialogOpenChange: (open) => {
+      // 打开时重置，而非关闭时。关闭时重置会导致关闭动画期间状态闪回。
+      if (open) resetFormState()
       setAddDialogOpen(open)
-      if (!open) resetFormState()
     },
     formState,
     setFormState,

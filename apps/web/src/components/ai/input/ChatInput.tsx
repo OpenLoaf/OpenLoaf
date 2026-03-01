@@ -14,7 +14,6 @@ import type { FocusEvent, ReactNode } from "react";
 import {
   Cloud,
   Mic,
-  Globe,
   Paperclip,
   Sparkles,
   Settings2,
@@ -75,6 +74,8 @@ import ChatCommandMenu, { type ChatCommandMenuHandle } from "./ChatCommandMenu";
 import { useChatMessageComposer } from "../hooks/use-chat-message-composer";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import ApprovalModeSelector, { type ApprovalMode } from "./ApprovalModeSelector";
+import ChatModeSelector, { type ChatMode } from "./ChatModeSelector";
+import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
 import {
   PromptInput,
   PromptInputButton,
@@ -83,6 +84,12 @@ import {
   PromptInputSubmit,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@openloaf/ui/tooltip";
 
 interface ChatInputProps {
   className?: string;
@@ -103,6 +110,7 @@ interface ChatInputProps {
 
 const MAX_CHARS = 20000;
 const ONLINE_SEARCH_GLOBAL_STORAGE_KEY = "openloaf:chat-online-search:global-enabled";
+const CHAT_MODE_STORAGE_KEY = "openloaf:chat-mode";
 const FILE_TOKEN_TEXT_REGEX = /@\[([^\]]+)\]/g;
 
 
@@ -208,14 +216,16 @@ export interface ChatInputBoxProps {
   dictationSoundEnabled?: boolean;
   /** Notify dictation listening state changes. */
   onDictationListeningChange?: (isListening: boolean) => void;
-  /** Whether online search is enabled. */
-  onlineSearchEnabled?: boolean;
-  /** Online search state change handler. */
-  onOnlineSearchChange?: (enabled: boolean) => void;
   /** Current approval mode. */
   approvalMode?: ApprovalMode;
   /** Approval mode change callback. */
   onApprovalModeChange?: (mode: ApprovalMode) => void;
+  /** Current chat mode (agent or direct CLI). */
+  chatMode?: ChatMode;
+  /** Chat mode change callback. */
+  onChatModeChange?: (mode: ChatMode) => void;
+  /** Whether CLI tools are installed (controls visibility of mode selector). */
+  hasCliTools?: boolean;
 }
 
 export function ChatInputBox({
@@ -257,10 +267,11 @@ export function ChatInputBox({
   dictationLanguage,
   dictationSoundEnabled,
   onDictationListeningChange,
-  onlineSearchEnabled = false,
-  onOnlineSearchChange,
   approvalMode = "manual",
   onApprovalModeChange,
+  chatMode = "agent",
+  onChatModeChange,
+  hasCliTools = false,
 }: ChatInputBoxProps) {
   const isBlocked = Boolean(blocked);
   const plainTextValue = useMemo(() => getPlainTextFromInput(value), [value]);
@@ -362,6 +373,22 @@ export function ChatInputBox({
       isOverLimit ||
       isBlocked ||
       (!plainTextValue.trim() && !hasReadyAttachments);
+
+  const resolvedPlaceholder = chatMode === "cli" ? "直接与 CLI 对话..." : placeholder;
+
+  // Responsive: collapse ChatModeSelector labels when footer is narrow
+  const [footerEl, setFooterEl] = useState<HTMLDivElement | null>(null);
+  const [toolbarCompact, setToolbarCompact] = useState(false);
+  useEffect(() => {
+    if (!footerEl) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setToolbarCompact(entry.contentRect.width < 400);
+      }
+    });
+    ro.observe(footerEl);
+    return () => ro.disconnect();
+  }, [footerEl]);
 
   /** Resolve textarea element in current chat input container. */
   const getInputElement = useCallback(() => {
@@ -857,34 +884,42 @@ export function ChatInputBox({
                   "text-[13px] leading-5 px-3 py-2.5",
                   isOverLimit && "text-destructive",
                 )}
-                placeholder={placeholder}
+                placeholder={resolvedPlaceholder}
                 onKeyDown={handleKeyDown}
                 data-openloaf-chat-input="true"
               />
             </div>
           </div>
 
-          <PromptInputFooter className="items-end gap-2 px-1.5 pb-0.5 shrink-0 min-w-0">
+          <TooltipProvider delayDuration={300}>
+          <PromptInputFooter ref={setFooterEl} className="items-end gap-2 px-1.5 shrink-0 min-w-0">
             <PromptInputTools className="min-w-0 flex-1 gap-1.5 overflow-hidden">
               {!compact ? (
-                <PromptInputButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                  onClick={() => setFilePickerOpen(true)}
-                  disabled={!canAttachAll && !canAttachImage}
-                  aria-label="添加附件"
-                >
-                  <Paperclip className="w-4 h-4" />
-                </PromptInputButton>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PromptInputButton
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      onClick={() => setFilePickerOpen(true)}
+                      disabled={!canAttachAll && !canAttachImage}
+                      aria-label="添加附件"
+                    >
+                      <Paperclip className="w-4 h-4" />
+                    </PromptInputButton>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    添加附件
+                  </TooltipContent>
+                </Tooltip>
               ) : null}
               {!compact ? (
                 <ApprovalModeSelector value={approvalMode} onChange={handleApprovalModeChange} />
               ) : null}
             </PromptInputTools>
 
-            <PromptInputTools className="shrink-0 gap-1.5">
+            <PromptInputTools className="shrink-0 gap-2">
               {isOverLimit && (
                 <span
                   className={cn(
@@ -896,26 +931,16 @@ export function ChatInputBox({
                 </span>
               )}
 
-              {!compact ? (
-                <PromptInputButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  className={cn(
-                    "rounded-full w-8 h-8 shrink-0 transition-colors",
-                    onlineSearchEnabled
-                      ? "bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] dark:bg-sky-500/20 dark:text-sky-200 dark:hover:bg-sky-500/30"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                  aria-pressed={onlineSearchEnabled}
-                  onClick={() => onOnlineSearchChange?.(!onlineSearchEnabled)}
-                  aria-label="联网搜索"
-                >
-                  <Globe className="w-4 h-4" />
-                </PromptInputButton>
+              {!compact && hasCliTools ? (
+                <ChatModeSelector
+                  value={chatMode}
+                  onChange={(mode) => onChatModeChange?.(mode)}
+                  compact={toolbarCompact}
+                  className="shrink-0 mr-0.5"
+                />
               ) : null}
 
-              {!compact ? <SelectMode triggerVariant="icon" className="shrink-0" /> : null}
+              {!compact ? <SelectMode triggerVariant="icon" className="shrink-0" chatMode={chatMode} /> : null}
 
               {actionVariant === "text" && onCancel && (
                 <PromptInputButton
@@ -930,22 +955,29 @@ export function ChatInputBox({
               )}
 
               {!compact && isDictationSupported && (
-                <PromptInputButton
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  className={cn(
-                    "rounded-full w-8 h-8 shrink-0 transition-colors",
-                    isListening
-                      ? "bg-primary/10 text-primary hover:bg-primary/15"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                  aria-pressed={isListening}
-                  onClick={() => void toggleDictation()}
-                  aria-label="语音输入"
-                >
-                  <Mic className={cn("w-4 h-4", isListening && "text-destructive")} />
-                </PromptInputButton>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PromptInputButton
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className={cn(
+                        "rounded-full w-8 h-8 shrink-0 transition-colors",
+                        isListening
+                          ? "bg-primary/10 text-primary hover:bg-primary/15"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      )}
+                      aria-pressed={isListening}
+                      onClick={() => void toggleDictation()}
+                      aria-label="语音输入"
+                    >
+                      <Mic className={cn("w-4 h-4", isListening && "text-destructive")} />
+                    </PromptInputButton>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {isListening ? "停止语音输入" : "语音输入"}
+                  </TooltipContent>
+                </Tooltip>
               )}
 
               {actionVariant === "text" ? (
@@ -963,25 +995,33 @@ export function ChatInputBox({
                   {submitLabel}
                 </PromptInputButton>
               ) : (
-                <PromptInputSubmit
-                  status={isLoading ? "streaming" : undefined}
-                  onStop={onStop}
-                  disabled={isLoading ? !onStop : isSendDisabled}
-                  size="icon-sm"
-                  className={cn(
-                    "h-8 w-8 rounded-full shrink-0 transition-colors duration-200",
-                    isLoading
-                      ? "bg-destructive/10 text-destructive hover:bg-destructive/15 dark:bg-destructive/15"
-                      : isOverLimit
-                        ? "bg-blue-100 text-blue-300 cursor-not-allowed dark:bg-blue-950 dark:text-blue-800"
-                        : canSubmit
-                          ? "bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600"
-                          : "bg-blue-100 text-blue-400 dark:bg-blue-950 dark:text-blue-700"
-                  )}
-                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PromptInputSubmit
+                      status={isLoading ? "streaming" : undefined}
+                      onStop={onStop}
+                      disabled={isLoading ? !onStop : isSendDisabled}
+                      size="icon-sm"
+                      className={cn(
+                        "h-[30px] w-[30px] rounded-full shrink-0 transition-colors duration-200",
+                        isLoading
+                          ? "bg-destructive/10 text-destructive hover:bg-destructive/15 dark:bg-destructive/15"
+                          : isOverLimit
+                            ? "bg-blue-100 text-blue-300 cursor-not-allowed dark:bg-blue-950 dark:text-blue-800"
+                            : canSubmit
+                              ? "bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600"
+                              : "bg-blue-100 text-blue-400 dark:bg-blue-950 dark:text-blue-700"
+                      )}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {isLoading ? "停止生成" : "发送消息"}
+                  </TooltipContent>
+                </Tooltip>
               )}
             </PromptInputTools>
           </PromptInputFooter>
+          </TooltipProvider>
 
           {isOverLimit && (
              <div className="px-4 pb-2 text-xs text-destructive font-medium animate-in fade-in slide-in-from-top-1">
@@ -1047,6 +1087,20 @@ export default function ChatInput({
   /** Approval mode selected from input toolbar. */
   const [approvalMode, setApprovalMode] =
     useState<ApprovalMode>(basic.autoApproveTools ? "auto" : "manual");
+  /** Chat mode: agent (default) or direct CLI. */
+  const [chatMode, setChatMode] = useState<ChatMode>(() => {
+    if (typeof window === "undefined") return "agent";
+    return (window.localStorage.getItem(CHAT_MODE_STORAGE_KEY) as ChatMode) || "agent";
+  });
+  const handleChatModeChange = useCallback((mode: ChatMode) => {
+    setChatMode(mode);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(CHAT_MODE_STORAGE_KEY, mode);
+    }
+  }, []);
+  /** Detect installed CLI tools to control mode selector visibility. */
+  const installedCliProviderIds = useInstalledCliProviderIds();
+  const hasCliTools = installedCliProviderIds.size > 0;
   /** Global online-search switch state. */
   const [globalOnlineSearchEnabled, setGlobalOnlineSearchEnabled] =
     useState(false);
@@ -1315,6 +1369,7 @@ export default function ChatInput({
       reasoningMode: hasReasoningModel ? (basic.chatThinkingMode === "deep" ? "deep" : "fast") : undefined,
       onlineSearchEnabled,
       autoApproveTools: approvalMode === "auto",
+      directCli: chatMode === "cli",
     });
     // 逻辑：云端模型 + 未登录时，暂存消息而不发送到服务端
     const isCloudSource = basic.chatSource === 'cloud'
@@ -1388,10 +1443,11 @@ export default function ChatInput({
           if (!tabId) return;
           setTabDictationStatus(tabId, isListening);
         }}
-        onlineSearchEnabled={onlineSearchEnabled}
-        onOnlineSearchChange={handleOnlineSearchChange}
         approvalMode={approvalMode}
         onApprovalModeChange={handleApprovalModeChange}
+        chatMode={chatMode}
+        onChatModeChange={handleChatModeChange}
+        hasCliTools={hasCliTools}
         header={
           !isUnconfigured && (showImageOutputOptions || isCodexProvider) ? (
             <div className="flex flex-col gap-2">

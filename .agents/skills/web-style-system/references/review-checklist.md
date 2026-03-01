@@ -57,11 +57,13 @@
 - 动效时长/曲线是否一致
 - 过渡是否承载状态表达
 - hover/focus/disabled/loading 是否完整
+- **多步骤 Dialog 关闭时是否存在状态闪回**：内部状态是否在关闭动画完成前被重置，导致短暂显示初始步骤
 
 典型问题：
 
 - 动效过慢或过大位移
 - 缺失 focus 态
+- Dialog 关闭时状态 reset 导致内容跳变（应在打开时 reset，非关闭时）
 
 ## E. Accessibility and Readability
 

@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { trpc } from '@/utils/trpc'
 import {
@@ -65,7 +65,6 @@ export function TaskTemplateDialog({
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: [['scheduledTask']] })
         onOpenChange(false)
-        resetState()
       },
     }),
   )
@@ -98,6 +97,11 @@ export function TaskTemplateDialog({
     setShowCreateForm(false)
   }, [])
 
+  // 打开时重置状态，避免关闭时 reset 导致动画期间状态闪回
+  useEffect(() => {
+    if (open) resetState()
+  }, [open, resetState])
+
   const handleSelectTemplate = useCallback((template: TaskTemplate) => {
     setSelectedTemplate(template)
     setOverrideName(template.name)
@@ -125,7 +129,7 @@ export function TaskTemplateDialog({
   }, [newName, newDesc, newPriority, workspaceId, createTemplateMutation])
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetState() }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>

@@ -21,7 +21,16 @@ import { Copy, FolderOpen, Loader2, Save, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useProjects } from "@/hooks/use-projects";
 import { useTabs } from "@/hooks/use-tabs";
+import { useSaasAuth } from "@/hooks/use-saas-auth";
+import { fetchUserProfile } from "@/lib/saas-auth";
 import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
+
+const MEMBERSHIP_LABELS: Record<string, string> = {
+  free: "免费版",
+  vip: "VIP",
+  svip: "SVIP",
+  infinity: "Infinity",
+};
 
 const TOKEN_K = 1000;
 const TOKEN_M = 1000 * 1000;
@@ -51,6 +60,13 @@ function countProjectNodes(nodes?: ProjectNode[]): number {
 }
 
 export function WorkspaceSettings() {
+  const { loggedIn } = useSaasAuth();
+  const userProfileQuery = useQuery({
+    queryKey: ["saas", "userProfile"],
+    queryFn: fetchUserProfile,
+    enabled: loggedIn,
+    staleTime: 60_000,
+  });
   const { data: activeWorkspace } = useQuery(trpc.workspace.getActive.queryOptions());
   const workspacesQuery = useQuery(trpc.workspace.getList.queryOptions());
   const projectsQuery = useProjects();
@@ -249,6 +265,34 @@ export function WorkspaceSettings() {
 
   return (
     <div className="space-y-6">
+      {loggedIn && (
+        <OpenLoafSettingsGroup title="账户信息">
+          <div className="divide-y divide-border">
+            <div className="flex flex-wrap items-start gap-3 px-3 py-3">
+              <div className="text-sm font-medium">会员等级</div>
+              <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
+                {userProfileQuery.isLoading
+                  ? "加载中..."
+                  : userProfileQuery.data?.membershipLevel
+                    ? MEMBERSHIP_LABELS[userProfileQuery.data.membershipLevel] ??
+                      userProfileQuery.data.membershipLevel
+                    : "—"}
+              </OpenLoafSettingsField>
+            </div>
+            <div className="flex flex-wrap items-start gap-3 px-3 py-3">
+              <div className="text-sm font-medium">积分余额</div>
+              <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
+                {userProfileQuery.isLoading
+                  ? "加载中..."
+                  : typeof userProfileQuery.data?.creditsBalance === "number"
+                    ? Math.floor(userProfileQuery.data.creditsBalance).toLocaleString()
+                    : "—"}
+              </OpenLoafSettingsField>
+            </div>
+          </div>
+        </OpenLoafSettingsGroup>
+      )}
+
       <OpenLoafSettingsGroup title="基本信息">
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">

@@ -169,3 +169,121 @@ await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
 | `apps/server/scripts/registerMdTextLoader.mjs` | MD 文本加载器（服务端测试需 import） |
 
 详细代码模板见 [references/test-patterns.md](references/test-patterns.md)。
+
+## AI Agent 行为测试（Promptfoo）
+
+### 概述
+
+除了上述分层测试体系外，项目还使用 [Promptfoo](https://github.com/promptfoo/promptfoo) 进行 **AI Agent 行为质量测试**。这类测试关注的不是代码逻辑正确性，而是 Agent 在面对自然语言指令时的行为质量：
+
+- **工具选择正确性**：Agent 是否选了正确的工具（如"有哪些项目"应用 `project-query` 而非 `list-dir`）
+- **输出语义质量**：Agent 回复是否语义合理、对用户有帮助
+- **多轮对话上下文保持**：同一会话连续交互时上下文是否正确延续
+
+### 架构
+
+项目提供两套 Provider，覆盖不同测试场景：
+
+| Provider | 入口函数 | 工具集 | 会话管理 | 多轮对话 | 用途 |
+|----------|----------|--------|----------|----------|------|
+| **E2E Provider**（默认） | `runChatStream()` | Agent 工厂自动组装 | 完整 | 支持 | 端到端行为验证 |
+| **Agent Provider**（调试） | `createMasterAgentRunner()` | 手动 `toolIds` | 无 | 不支持 | 快速直接调用调试 |
+
+#### E2E Provider（openloaf-e2e-provider.ts）
+
+直接调用 `runChatStream()` — 即 `/ai/chat` 路由的核心服务函数，包含完整 pipeline：
+
+```
+runChatStream()
+  ├─ initRequestContext()           — 完整请求上下文
+  ├─ ensureSessionPreface()         — 创建/更新会话
+  ├─ saveLastMessageAndResolveParent() — 持久化用户消息
+  ├─ loadAndPrepareMessageChain()   — 加载历史链
+  ├─ resolveChatModel()             — 从 agent config 自动解析模型
+  ├─ assembleDefaultAgentInstructions() — 动态组装系统提示
+  ├─ createMasterAgentRunner()      — 创建 Agent（完整工具集）
+  └─ createChatStreamResponse()     — 返回 SSE Response
+```
+
+E2E Provider 通过 `consumeSseResponse()` 解析 SSE Response，提取文本、工具调用、子 Agent 事件。
+
+#### Agent Provider（openloaf-agent-provider.ts）
+
+直接调用 `createMasterAgentRunner()` 并手动指定 `toolIds`，跳过会话管理，用于快速工具选择调试。
+
+### 运行方式
+
+```bash
+cd apps/server
+
+# 运行所有 E2E 行为测试
+pnpm run test:ai:behavior
+
+# 运行指定用例
+pnpm run test:ai:behavior -- --filter-description "e2e-001"
+
+# 每个用例运行 3 次（测试稳定性）
+pnpm run test:ai:behavior -- --repeat 3
+
+# 打开 Web UI 查看结果矩阵
+pnpm run test:ai:behavior:view
+```
+
+也可通过 Claude Code 的 `/ai-test` 命令运行。
+
+### 添加新测试用例
+
+在 `apps/server/src/ai/__tests__/agent-behavior/promptfooconfig.yaml` 的 `tests:` 数组中添加：
+
+```yaml
+# 单轮用例
+- description: "e2e-NNN: 描述"
+  vars:
+    prompt: "用户输入"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('correct-tool')
+          ? { pass: true, score: 1 }
+          : { pass: false, score: 0, reason: `未调用 correct-tool，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "期望的输出质量描述"
+
+# 多轮对话用例
+- description: "e2e-NNN: 多轮描述"
+  vars:
+    prompt: "dummy"
+    turns: '[{"text": "第一轮输入"}, {"text": "第二轮输入"}]'
+  assert:
+    - type: llm-rubric
+      value: "最后一轮回复应保持上下文"
+```
+
+注意：E2E Provider 不接受 `toolIds` 参数，Agent 使用完整工具集。
+
+### 断言类型
+
+| 类型 | 用途 | 确定性 |
+|------|------|--------|
+| `javascript` | 检查 `metadata.toolNames` 中的工具调用 | 确定性 |
+| `llm-rubric` | LLM 判断输出是否满足语义要求 | 非确定性 |
+
+### 失败排查
+
+| 原因 | 修改目标 |
+|------|----------|
+| 工具描述不够明确 | `packages/api/src/types/tools/*.ts` |
+| 系统提示词引导不足 | `apps/server/src/ai/agent-templates/templates/master/prompt.zh.md` |
+| 工具别名缺失 | `apps/server/src/ai/tools/toolRegistry.ts` TOOL_ALIASES |
+
+### 关键文件
+
+| 文件 | 用途 |
+|------|------|
+| `apps/server/src/ai/__tests__/agent-behavior/promptfooconfig.yaml` | 测试用例定义 |
+| `apps/server/src/ai/__tests__/agent-behavior/openloaf-e2e-provider.ts` | E2E Provider（完整 pipeline） |
+| `apps/server/src/ai/__tests__/agent-behavior/openloaf-agent-provider.ts` | Agent Provider（快速调试） |
+| `apps/server/src/ai/__tests__/helpers/sseParser.ts` | SSE 解析工具（含 `consumeSseResponse`） |
+| `apps/server/scripts/run-behavior-test.mjs` | 测试运行脚本 |
+| `.claude/commands/ai-test.md` | Claude Code `/ai-test` Skill |

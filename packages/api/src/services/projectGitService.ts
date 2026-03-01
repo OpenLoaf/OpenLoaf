@@ -950,6 +950,40 @@ export async function getProjectGitCommits(input: {
   };
 }
 
+/** Clone a remote git repository with real-time progress callback. */
+export async function cloneGitRepository(
+  url: string,
+  targetDir: string,
+  onProgress: (line: string) => void,
+): Promise<void> {
+  const { spawn } = await import("node:child_process");
+  return new Promise<void>((resolve, reject) => {
+    const child = spawn("git", ["clone", "--progress", url, targetDir], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stderrBuffer = "";
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderrBuffer += chunk.toString("utf-8");
+      const lines = stderrBuffer.split(/\r|\n/);
+      stderrBuffer = lines.pop() ?? "";
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed) onProgress(trimmed);
+      }
+    });
+    child.stdout?.on("data", (chunk: Buffer) => {
+      const text = chunk.toString("utf-8").trim();
+      if (text) onProgress(text);
+    });
+    child.on("close", (code) => {
+      if (stderrBuffer.trim()) onProgress(stderrBuffer.trim());
+      if (code === 0) resolve();
+      else reject(new Error(`git clone 失败，退出码 ${code}`));
+    });
+    child.on("error", (err) => reject(err));
+  });
+}
+
 /** Check whether a given directory path is inside a git repository. */
 export async function checkPathIsGitProject(dirPath: string): Promise<boolean> {
   const ctx = await resolveGitRepoContext(dirPath);

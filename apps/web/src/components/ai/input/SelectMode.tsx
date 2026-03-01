@@ -34,11 +34,14 @@ interface SelectModeProps {
   className?: string
   /** Trigger style for model selector. */
   triggerVariant?: 'text' | 'icon'
+  /** Current chat mode — adjusts trigger colour accent. */
+  chatMode?: 'agent' | 'cli'
 }
 
 export default function SelectMode({
   className,
   triggerVariant = 'text',
+  chatMode = 'agent',
 }: SelectModeProps) {
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
@@ -100,7 +103,10 @@ export default function SelectMode({
       size="icon-sm"
       variant="ghost"
       className={cn(
-        'h-8 w-8 rounded-full bg-violet-500/10 text-violet-600 transition-colors hover:bg-violet-500/20 hover:text-violet-700 dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25 dark:hover:text-violet-200',
+        'h-8 w-8 rounded-full transition-colors',
+        chatMode === 'cli'
+          ? 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 hover:text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25 dark:hover:text-amber-200'
+          : 'bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 hover:text-violet-700 dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25 dark:hover:text-violet-200',
         className,
       )}
       aria-label="自定义设置"
@@ -112,7 +118,10 @@ export default function SelectMode({
       type="button"
       size="sm"
       className={cn(
-        'h-7 w-auto min-w-0 shrink inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-1.5 text-xs font-medium text-violet-600 hover:bg-violet-500/20 transition-colors dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25',
+        'h-7 w-auto min-w-0 shrink inline-flex items-center gap-1 rounded-md px-1.5 text-xs font-medium transition-colors',
+        chatMode === 'cli'
+          ? 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25'
+          : 'bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25',
         className,
       )}
     >
@@ -137,11 +146,9 @@ export default function SelectMode({
               chatModels={prefs.chatModels}
               imageModels={prefs.imageModels}
               videoModels={prefs.videoModels}
-              codeModels={prefs.codeModels}
               preferredChatIds={prefs.preferredChatIds}
               preferredImageIds={prefs.preferredImageIds}
               preferredVideoIds={prefs.preferredVideoIds}
-              preferredCodeIds={prefs.preferredCodeIds}
             />
           </PromptInputHoverCardContent>
           <PopoverContent

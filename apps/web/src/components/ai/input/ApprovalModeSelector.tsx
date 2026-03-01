@@ -22,6 +22,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@openloaf/ui/alert-dialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@openloaf/ui/tooltip"
 
 export type ApprovalMode = "manual" | "auto"
 
@@ -54,53 +59,60 @@ export default function ApprovalModeSelector({
 
   return (
     <>
-      <div
-        className={cn(
-          "relative inline-flex h-8 cursor-pointer items-center rounded-full border border-border/60 bg-muted/60 p-0.5",
-          disabled && "pointer-events-none opacity-50",
-          className,
-        )}
-        onClick={toggle}
-        role="switch"
-        aria-checked={!isManual}
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault()
-            toggle()
-          }
-        }}
-      >
-        {/* Sliding indicator */}
-        <span
-          className={cn(
-            "absolute top-0.5 h-7 w-7 rounded-full transition-all duration-200",
-            isManual
-              ? "left-0.5 bg-blue-500/15 dark:bg-blue-500/20"
-              : "left-[calc(100%-1.875rem)] bg-amber-500/15 dark:bg-amber-500/20",
-          )}
-        />
-        <span
-          className={cn(
-            "relative z-10 inline-flex h-7 w-7 items-center justify-center transition-colors",
-            isManual
-              ? "text-blue-600 dark:text-blue-300"
-              : "text-muted-foreground",
-          )}
-        >
-          <Shield className="h-3.5 w-3.5" />
-        </span>
-        <span
-          className={cn(
-            "relative z-10 inline-flex h-7 w-7 items-center justify-center transition-colors",
-            !isManual
-              ? "text-amber-600 dark:text-amber-300"
-              : "text-muted-foreground",
-          )}
-        >
-          <ShieldOff className="h-3.5 w-3.5" />
-        </span>
-      </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className={cn(
+              "relative inline-flex h-8 cursor-pointer items-center rounded-full border border-border/60 bg-muted/60 p-0.5",
+              disabled && "pointer-events-none opacity-50",
+              className,
+            )}
+            onClick={toggle}
+            role="switch"
+            aria-checked={!isManual}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                toggle()
+              }
+            }}
+          >
+            {/* Sliding indicator */}
+            <span
+              className={cn(
+                "absolute top-[3px] bottom-[3px] w-[26px] rounded-full transition-all duration-200",
+                isManual
+                  ? "left-[3px] bg-blue-500/15 dark:bg-blue-500/20"
+                  : "right-[3px] left-auto bg-amber-500/15 dark:bg-amber-500/20",
+              )}
+            />
+            <span
+              className={cn(
+                "relative z-10 inline-flex h-[26px] w-[26px] items-center justify-center transition-colors",
+                isManual
+                  ? "text-blue-600 dark:text-blue-300"
+                  : "text-muted-foreground",
+              )}
+            >
+              <Shield className="h-3.5 w-3.5" />
+            </span>
+            <span
+              className={cn(
+                "relative z-10 inline-flex h-[26px] w-[26px] items-center justify-center transition-colors",
+                !isManual
+                  ? "text-amber-600 dark:text-amber-300"
+                  : "text-muted-foreground",
+              )}
+            >
+              <ShieldOff className="h-3.5 w-3.5" />
+            </span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {isManual ? "手动审批模式" : "自动审批模式"}
+        </TooltipContent>
+      </Tooltip>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
