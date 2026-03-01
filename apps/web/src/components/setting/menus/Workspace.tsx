@@ -56,7 +56,7 @@ function countProjectNodes(nodes?: ProjectNode[]): number {
 }
 
 export function WorkspaceSettings() {
-  const { t } = useTranslation('workspace');
+  const { t } = useTranslation('workspace', { keyPrefix: 'workspace' });
   const { loggedIn } = useSaasAuth();
 
   // Build membership labels dynamically from translations
@@ -156,8 +156,8 @@ export function WorkspaceSettings() {
 
   /** Clear all chat data with a confirm gate. */
   const handleClearAllChat = async () => {
-    const countPart = typeof sessionCount === "number" ? t('workspace.clearChatConfirmWithCount', { count: sessionCount }) : "";
-    const confirmText = `${t('workspace.clearChatConfirm', { countText: countPart })}`;
+    const countPart = typeof sessionCount === "number" ? t('settings.clearChatConfirmWithCount', { count: sessionCount }) : "";
+    const confirmText = `${t('settings.clearChatConfirm', { countText: countPart })}`;
     if (!window.confirm(confirmText)) return;
     await clearAllChat.mutateAsync();
   };

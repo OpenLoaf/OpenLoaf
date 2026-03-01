@@ -72,7 +72,7 @@ const KNOWN_DEFAULT_WORKSPACE_NAMES = new Set([
 /** Resolve display name for a workspace, translating system defaults to current language. */
 function resolveWorkspaceDisplayName(name: string, t: (key: string) => string): string {
   if (KNOWN_DEFAULT_WORKSPACE_NAMES.has(name)) {
-    return t('workspace.defaultWorkspaceName');
+    return t('defaultWorkspaceName');
   }
   return name;
 }
@@ -86,7 +86,7 @@ const MEMBERSHIP_BADGE_STYLES: Record<string, string> = {
 };
 
 export const SidebarWorkspace = () => {
-  const { t } = useTranslation('workspace');
+  const { t } = useTranslation('workspace', { keyPrefix: 'workspace' });
   const { workspace } = useWorkspace();
   const workspaceDisplayName = resolveWorkspaceDisplayName(workspace?.name ?? '', t);
 
