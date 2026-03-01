@@ -253,5 +253,28 @@
     "pass": "通过",
     "rework": "返工",
     "cancelTask": "取消任务"
+  },
+  "history": {
+    "colDate": "日期",
+    "colTrigger": "触发",
+    "colStatus": "状态",
+    "colType": "类型",
+    "colTime": "时间",
+    "colError": "错误",
+    "loading": "加载中...",
+    "noRecords": "暂无记录",
+    "singleDay": "单日 {{date}}",
+    "dateRange": "区间 {{start}} ~ {{end}}",
+    "noDate": "未标注日期",
+    "triggerScheduler": "定时触发",
+    "triggerManual": "手动触发",
+    "triggerExternal": "外部触发",
+    "triggerUnknown": "未知来源",
+    "statusRunning": "运行中",
+    "statusSuccess": "已完成",
+    "statusFailed": "失败",
+    "statusUnknown": "未知状态",
+    "typeDay": "日汇总",
+    "typeRange": "区间汇总"
   }
 }

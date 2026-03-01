@@ -253,5 +253,28 @@
     "pass": "通過",
     "rework": "返工",
     "cancelTask": "取消任務"
+  },
+  "history": {
+    "colDate": "日期",
+    "colTrigger": "觸發",
+    "colStatus": "狀態",
+    "colType": "類型",
+    "colTime": "時間",
+    "colError": "錯誤",
+    "loading": "載入中...",
+    "noRecords": "暫無記錄",
+    "singleDay": "單日 {{date}}",
+    "dateRange": "區間 {{start}} ~ {{end}}",
+    "noDate": "未標註日期",
+    "triggerScheduler": "定時觸發",
+    "triggerManual": "手動觸發",
+    "triggerExternal": "外部觸發",
+    "triggerUnknown": "未知來源",
+    "statusRunning": "執行中",
+    "statusSuccess": "已完成",
+    "statusFailed": "失敗",
+    "statusUnknown": "未知狀態",
+    "typeDay": "日彙總",
+    "typeRange": "區間彙總"
   }
 }

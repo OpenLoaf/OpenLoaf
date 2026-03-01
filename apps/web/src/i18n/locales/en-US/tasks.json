@@ -253,5 +253,28 @@
     "pass": "Pass",
     "rework": "Rework",
     "cancelTask": "Cancel Task"
+  },
+  "history": {
+    "colDate": "Date",
+    "colTrigger": "Trigger",
+    "colStatus": "Status",
+    "colType": "Type",
+    "colTime": "Time",
+    "colError": "Error",
+    "loading": "Loading...",
+    "noRecords": "No records",
+    "singleDay": "Single {{date}}",
+    "dateRange": "Range {{start}} ~ {{end}}",
+    "noDate": "No date",
+    "triggerScheduler": "Scheduled",
+    "triggerManual": "Manual",
+    "triggerExternal": "External",
+    "triggerUnknown": "Unknown source",
+    "statusRunning": "Running",
+    "statusSuccess": "Completed",
+    "statusFailed": "Failed",
+    "statusUnknown": "Unknown status",
+    "typeDay": "Daily summary",
+    "typeRange": "Range summary"
   }
 }
