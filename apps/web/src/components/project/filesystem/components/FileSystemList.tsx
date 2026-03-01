@@ -20,6 +20,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { Input } from "@openloaf/ui/input";
 import { useFlipLayout } from "@/lib/use-flip-layout";
 import {
@@ -150,13 +151,13 @@ function resolveEntryDisplayName(entry: FileSystemEntry) {
 }
 
 /** Resolve list type label for an entry. */
-function resolveEntryTypeLabel(entry: FileSystemEntry) {
+function resolveEntryTypeLabel(entry: FileSystemEntry, t: (key: string) => string) {
   if (entry.kind === "folder") {
-    return isBoardFolderName(entry.name) ? "画布" : "文件夹";
+    return isBoardFolderName(entry.name) ? t('workspace:filesystem.typeBoard') : t('workspace:filesystem.typeFolder');
   }
   const ext = getEntryExt(entry);
-  if (!ext) return "文件";
-  if (isBoardFileExt(ext)) return "画布";
+  if (!ext) return t('workspace:filesystem.typeFile');
+  if (isBoardFileExt(ext)) return t('workspace:filesystem.typeBoard');
   const override = FILE_TYPE_LABEL_OVERRIDES[ext];
   if (override) return override;
   return ext.toUpperCase();
@@ -176,8 +177,9 @@ const FileSystemListRowContent = memo(function FileSystemListRowContent({
   nameSlot,
   visualOverride,
 }: FileSystemListRowContentProps) {
+  const { t } = useTranslation(['workspace']);
   const displayName = useMemo(() => resolveEntryDisplayName(entry), [entry]);
-  const typeLabel = useMemo(() => resolveEntryTypeLabel(entry), [entry]);
+  const typeLabel = useMemo(() => resolveEntryTypeLabel(entry, t), [entry, t]);
   const sizeLabel = useMemo(() => formatSize(entry.size), [entry.size]);
   const updatedLabel = useMemo(
     () => formatTimestamp(entry.updatedAt),
@@ -448,6 +450,7 @@ const FileSystemList = memo(function FileSystemList({
   resolveSelectionMode,
   onGridContextMenuCapture,
 }: FileSystemListProps) {
+  const { t } = useTranslation(['workspace']);
   // 上一级入口仅在可回退时显示，允许回到根目录。
   const shouldShowParentEntry = parentUri !== null && parentUri !== undefined;
   const searchText = searchQuery?.trim() ?? "";
@@ -462,11 +465,11 @@ const FileSystemList = memo(function FileSystemList({
       parentUri !== null && parentUri !== undefined
         ? {
             uri: parentUri,
-            name: "上一级",
+            name: t('workspace:filesystem.parentDir'),
             kind: "folder",
           }
         : null,
-    [parentUri]
+    [parentUri, t]
   );
   const entryByUri = useMemo(
     () => new Map(entries.map((entry) => [entry.uri, entry])),

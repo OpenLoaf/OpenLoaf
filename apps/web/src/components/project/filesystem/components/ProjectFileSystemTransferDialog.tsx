@@ -18,6 +18,7 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { Button } from "@openloaf/ui/button";
@@ -144,6 +145,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
   onSelectTarget,
   onSelectFileRefs,
 }: ProjectFileSystemTransferDialogProps) {
+  const { t } = useTranslation(['workspace']);
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
   const queryClient = useQueryClient();
@@ -258,10 +260,10 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
           to: targetUri,
         });
         await listQuery.refetch();
-        toast.success("已重命名");
+        toast.success(t('workspace:filesystem.renamed'));
         return targetUri;
       } catch (error: any) {
-        toast.error(error?.message ?? "重命名失败");
+        toast.error(error?.message ?? t('workspace:filesystem.renameFailed'));
         return null;
       }
     },
@@ -390,7 +392,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
         onSelectFileRefs?.(selectedFileRefs);
       } else {
         if (isActiveBoardFolder) {
-          toast.error("画布目录不可选");
+          toast.error(t('workspace:filesystem.boardFolderNotSelectable'));
           return;
         }
         const selectedFolder = selectedEntries.find((entry) => entry.kind === "folder");
@@ -412,7 +414,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
           : getRelativePathFromUri("", targetUri);
         const projectId = activeRootUri ? projectIdByRootUri.get(activeRootUri) : undefined;
         if (!projectId) {
-          toast.error("请选择一个项目位置");
+          toast.error(t('workspace:filesystem.selectProjectFirst'));
           return;
         }
         const resolvedTarget = relativePath
@@ -443,7 +445,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
         if (mode === "move" && entry.kind === "folder") {
           // 中文注释：禁止移动到自身或子目录。
           if (isSubPath(entry.uri, activeUri)) {
-            toast.error("无法移动到自身目录");
+            toast.error(t('workspace:filesystem.cannotMoveToSelf'));
             return;
           }
         }
@@ -490,15 +492,15 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
       const successLabel =
         mode === "move"
           ? transferEntries.length > 1
-            ? "已移动所选项"
-            : "已移动"
+            ? t('workspace:filesystem.movedMultiple')
+            : t('workspace:filesystem.movedSingle')
           : transferEntries.length > 1
-            ? "已复制所选项"
-            : "已复制";
+            ? t('workspace:filesystem.copiedMultiple')
+            : t('workspace:filesystem.copiedSingle');
       toast.success(successLabel);
       onOpenChange(false);
     } catch (error: any) {
-      const errorLabel = mode === "move" ? "移动失败" : "复制失败";
+      const errorLabel = mode === "move" ? t('workspace:filesystem.moveFailed') : t('workspace:filesystem.copyFailed');
       toast.error(error?.message ?? errorLabel);
     }
   };
@@ -538,7 +540,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
     try {
       // 以默认名称创建并做唯一性处理，避免覆盖已有目录。
       const existingNames = new Set(gridEntries.map((item) => item.name));
-      const targetName = getUniqueName("新建文件夹", existingNames);
+      const targetName = getUniqueName(t('workspace:filesystem.newFolderDefaultName'), existingNames);
       const targetUri = buildChildUri(activeUri, targetName);
       await mkdirMutation.mutateAsync({
         workspaceId,
@@ -548,9 +550,9 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
       });
       requestRenameByInfo({ uri: targetUri, name: targetName });
       await listQuery.refetch();
-      toast.success("已新建文件夹");
+      toast.success(t('workspace:filesystem.createFolderSuccess'));
     } catch (error: any) {
-      toast.error(error?.message ?? "新建失败");
+      toast.error(error?.message ?? t('workspace:filesystem.createFolderFailed'));
     }
   };
 
@@ -564,15 +566,15 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
   /** Dialog title based on current transfer mode. */
   const dialogTitle =
     mode === "move"
-      ? "移动到"
+      ? t('workspace:filesystem.moveTo')
       : mode === "select"
         ? selectTarget === "file"
-          ? "选择文件"
-          : "选择位置"
-        : "复制到";
+          ? t('workspace:filesystem.selectFileTitle')
+          : t('workspace:filesystem.selectFolderTitle')
+        : t('workspace:filesystem.copyTo');
   /** Confirm button label based on current transfer mode. */
   const confirmLabel =
-    mode === "move" ? "确认移动" : mode === "select" ? "确认选择" : "确认复制";
+    mode === "move" ? t('workspace:filesystem.moveConfirmLabel') : mode === "select" ? t('workspace:filesystem.selectConfirmLabel') : t('workspace:filesystem.copyConfirmLabel');
   /** Whether confirm should be disabled for current state. */
   const confirmDisabled =
     activeUri === null ||
@@ -640,10 +642,10 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
         <div className="grid gap-2 md:grid-cols-[280px_minmax(0,1fr)] flex-1 min-h-0 overflow-hidden">
           <div className="rounded-2xl border border-border/60 bg-card/60 p-3 min-h-0 overflow-y-auto">
             <div className="mb-2 flex h-6 items-center text-xs text-muted-foreground">
-              项目
+              {t('workspace:filesystem.projectLabel')}
             </div>
             {projectOptions.length === 0 ? (
-              <div className="text-xs text-muted-foreground">暂无可用项目</div>
+              <div className="text-xs text-muted-foreground">{t('workspace:filesystem.noProject')}</div>
             ) : (
               <PageTreePicker
                 projects={projectTree}
@@ -658,7 +660,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
                 <BreadcrumbList>
                   {breadcrumbItems.length === 0 ? (
                     <BreadcrumbItem>
-                      <BreadcrumbPage>请选择项目</BreadcrumbPage>
+                      <BreadcrumbPage>{t('workspace:filesystem.selectProject')}</BreadcrumbPage>
                     </BreadcrumbItem>
                   ) : (
                     breadcrumbItems.map((item, index) => {
@@ -688,8 +690,8 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
                 size="icon"
                 className="h-7 w-7"
                 type="button"
-                aria-label="新建文件夹"
-                title="新建文件夹"
+                aria-label={t('workspace:filesystem.newFolder')}
+                title={t('workspace:filesystem.newFolder')}
                 onClick={handleCreateFolder}
               >
                 <FolderPlus className="h-3.5 w-3.5" />
@@ -708,11 +710,11 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
                         icon={PencilLine}
                         onSelect={() => requestRename(contextEntry)}
                       >
-                        重命名
+                        {t('workspace:filesystem.rename')}
                       </ContextMenuItem>
                     ) : (
                       <ContextMenuItem icon={Ban} disabled>
-                        无可用操作
+                        {t('workspace:filesystem.noAction')}
                       </ContextMenuItem>
                     )}
                   </ContextMenuContent>
@@ -723,7 +725,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
         </div>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="ghost">取消</Button>
+            <Button variant="ghost">{t('workspace:filesystem.cancel')}</Button>
           </DialogClose>
           <Button
             type="button"

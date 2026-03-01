@@ -17,6 +17,7 @@ import {
   useRef,
   type RefObject,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -309,6 +310,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
   onSearchOpenChange,
   searchShortcutLabel,
 }: ProjectFileSystemToolbarProps) {
+  const { t } = useTranslation(['workspace']);
   const isGridView = viewMode === "grid";
   const isListView = viewMode === "list";
   const isColumnsView = viewMode === "columns";
@@ -324,7 +326,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 text-muted-foreground"
-                aria-label="撤回"
+                aria-label={t('workspace:filesystem.undo')}
                 disabled={!canUndo}
                 onClick={onUndo}
               >
@@ -332,7 +334,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
-              撤回
+              {t('workspace:filesystem.undo')}
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -341,7 +343,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 text-muted-foreground"
-                aria-label="前进"
+                aria-label={t('workspace:filesystem.redo')}
                 disabled={!canRedo}
                 onClick={onRedo}
               >
@@ -349,7 +351,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
-              前进
+              {t('workspace:filesystem.redo')}
             </TooltipContent>
           </Tooltip>
         </>
@@ -371,13 +373,13 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
                   value="grid"
                   size="sm"
                   className="h-5 w-5 min-w-5 px-0 text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
-                  aria-label="网格视图"
+                  aria-label={t('workspace:filesystem.gridView')}
                 >
                   <LayoutGrid className="size-3" />
                 </ToolbarToggleItem>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={6}>
-                网格视图
+                {t('workspace:filesystem.gridView')}
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -386,13 +388,13 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
                   value="list"
                   size="sm"
                   className="h-5 w-5 min-w-5 px-0 text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
-                  aria-label="列表视图"
+                  aria-label={t('workspace:filesystem.listView')}
                 >
                   <LayoutList className="size-3" />
                 </ToolbarToggleItem>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={6}>
-                列表视图
+                {t('workspace:filesystem.listView')}
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -401,13 +403,13 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
                   value="columns"
                   size="sm"
                   className="h-5 w-5 min-w-5 px-0 text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
-                  aria-label="列视图"
+                  aria-label={t('workspace:filesystem.columnsView')}
                 >
                   <Columns2 className="size-3" />
                 </ToolbarToggleItem>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={6}>
-                列视图
+                {t('workspace:filesystem.columnsView')}
               </TooltipContent>
             </Tooltip>
             {isTreeViewEnabled ? (
@@ -417,13 +419,13 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
                     value="tree"
                     size="sm"
                     className="h-5 w-5 min-w-5 px-0 text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
-                    aria-label="文件树视图"
+                    aria-label={t('workspace:filesystem.treeView')}
                   >
                     <FolderTree className="size-3" />
                   </ToolbarToggleItem>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" sideOffset={6}>
-                  文件树视图
+                  {t('workspace:filesystem.treeView')}
                 </TooltipContent>
               </Tooltip>
             ) : null}
@@ -439,7 +441,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               className={`h-5 w-5 text-muted-foreground ${
                 sortField === "name" ? "bg-foreground/10 text-foreground" : ""
               }`}
-              aria-label="按字母排序"
+              aria-label={t('workspace:filesystem.sortByName')}
               onClick={onSortByName}
             >
             {sortField === "name" && sortOrder === "asc" ? (
@@ -450,7 +452,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6}>
-          按字母排序
+          {t('workspace:filesystem.sortByName')}
         </TooltipContent>
       </Tooltip>
         <Tooltip>
@@ -461,7 +463,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               className={`h-5 w-5 text-muted-foreground ${
                 sortField === "mtime" ? "bg-foreground/10 text-foreground" : ""
               }`}
-              aria-label="按时间排序"
+              aria-label={t('workspace:filesystem.sortByTime')}
               onClick={onSortByTime}
             >
             {sortField === "mtime" && sortOrder === "asc" ? (
@@ -472,7 +474,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6}>
-          按时间排序
+          {t('workspace:filesystem.sortByTime')}
         </TooltipContent>
       </Tooltip>
       <div className="mx-1 h-4 w-px bg-border/70" />
@@ -482,14 +484,14 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               variant="ghost"
               size="icon"
               className="h-5 w-5 text-muted-foreground"
-              aria-label="新建文件夹"
+              aria-label={t('workspace:filesystem.newFolder')}
               onClick={onCreateFolder}
             >
               <FolderPlus className="size-3" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6}>
-          新建文件夹
+          {t('workspace:filesystem.newFolder')}
         </TooltipContent>
       </Tooltip>
         <Tooltip>
@@ -498,14 +500,14 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               variant="ghost"
               size="icon"
               className="h-5 w-5 text-muted-foreground"
-              aria-label="新建文稿"
+              aria-label={t('workspace:filesystem.newDocument')}
               onClick={onCreateDocument}
             >
               <FilePlus className="size-3" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6}>
-          新建文稿
+          {t('workspace:filesystem.newDocument')}
         </TooltipContent>
       </Tooltip>
         <Tooltip>
@@ -514,7 +516,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               variant="ghost"
               size="icon"
               className="h-5 w-5 text-muted-foreground"
-              aria-label="添加文件"
+              aria-label={t('workspace:filesystem.addFile')}
               onClick={() => {
                 uploadInputRef.current?.click();
               }}
@@ -523,7 +525,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={6}>
-          添加文件
+          {t('workspace:filesystem.addFile')}
         </TooltipContent>
       </Tooltip>
       <input
@@ -552,14 +554,14 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               className={`h-5 w-5 text-muted-foreground duration-150 ease-linear ${
                 isSearchVisible ? "w-0 opacity-0 pointer-events-none" : "opacity-100"
               }`}
-              aria-label="搜索"
+              aria-label={t('workspace:filesystem.searchLabel')}
               onClick={() => onSearchOpenChange(true)}
             >
               <Search className="size-3" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" sideOffset={6}>
-            {`搜索 (${searchShortcutLabel})`}
+            {t('workspace:filesystem.searchWithShortcut', { shortcut: searchShortcutLabel })}
           </TooltipContent>
         </Tooltip>
         <div
@@ -570,7 +572,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
           <Input
             ref={searchInputRef}
             className="h-5 w-52 border-0 bg-transparent px-2.5 text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
-            placeholder="搜索文件或文件夹"
+            placeholder={t('workspace:filesystem.searchFiles')}
             type="search"
             value={searchValue}
             onChange={(event) => onSearchValueChange(event.target.value)}

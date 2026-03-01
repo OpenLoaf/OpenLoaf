@@ -15,6 +15,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { ArrowLeftIcon, FileText, Folder, FolderOpen, Search } from "lucide-react";
 import { Button } from "@openloaf/ui/button";
 import { EmptyState } from "@openloaf/ui/empty-state";
@@ -50,13 +51,14 @@ const FileSystemEmptyState = memo(function FileSystemEmptyState({
   setDragOverFolderUri,
   shouldBlockPointerEvent,
 }: FileSystemEmptyStateProps) {
+  const { t } = useTranslation(['workspace']);
   return (
     <div className="flex h-full items-center justify-center translate-y-2">
       <div className="flex w-full flex-col items-center gap-4">
         <EmptyState
-          title="暂无文件"
+          title={t('workspace:filesystem.noFilesHere')}
           description={
-            showEmptyActions ? "创建一个文稿或画布开始工作。" : "当前目录暂无可选文件。"
+            showEmptyActions ? t('workspace:filesystem.noFilesDesc') : t('workspace:filesystem.noFilesSelectDesc')
           }
           icons={[Folder, FileText, FolderOpen]}
           className="border-0 hover:border-0"
@@ -69,7 +71,7 @@ const FileSystemEmptyState = memo(function FileSystemEmptyState({
                     onCreateDocument?.();
                   }}
                 >
-                  创建文稿
+                  {t('workspace:filesystem.createDocument')}
                 </Button>
                 <Button
                   variant="outline"
@@ -78,7 +80,7 @@ const FileSystemEmptyState = memo(function FileSystemEmptyState({
                     onCreateBoard?.();
                   }}
                 >
-                  创建画布
+                  {t('workspace:filesystem.createBoard')}
                 </Button>
               </>
             ) : null
@@ -117,7 +119,7 @@ const FileSystemEmptyState = memo(function FileSystemEmptyState({
               }}
             >
               <ArrowLeftIcon />
-              返回上级
+              {t('workspace:filesystem.backToParent')}
             </Button>
           </div>
         ) : null}
@@ -131,11 +133,12 @@ FileSystemEmptyState.displayName = "FileSystemEmptyState";
 const FileSystemSearchEmptyState = memo(function FileSystemSearchEmptyState({
   query,
 }: FileSystemSearchEmptyStateProps) {
+  const { t } = useTranslation(['workspace']);
   return (
     <div className="flex h-full items-center justify-center translate-y-2">
       <EmptyState
-        title="未找到匹配文件"
-        description={`没有找到包含 \"${query}\" 的文件或文件夹。`}
+        title={t('workspace:filesystem.searchNoResults')}
+        description={t('workspace:filesystem.searchNoResultsDesc', { query })}
         icons={[Search]}
         className="border-0 hover:border-0"
       />
