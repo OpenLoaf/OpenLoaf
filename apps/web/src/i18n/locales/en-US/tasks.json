@@ -94,7 +94,57 @@
     "notStarted": "Task has not started",
     "noPlanContent": "No plan content",
     "chatGeneratedOnExecution": "Chat records will be generated during task execution",
-    "logGeneratedOnExecution": "Execution logs will be generated during task execution"
+    "logGeneratedOnExecution": "Execution logs will be generated during task execution",
+    "noAutomaticTasks": "No automatic tasks"
+  },
+  "schedule": {
+    "automaticTasks": "Automatic Tasks",
+    "automaticTasksDesc": "Trigger by schedule or condition to send instructions to Agent.",
+    "conditionTrigger": "Condition Trigger",
+    "emailReceived": "Email Received",
+    "chatKeyword": "Chat Keyword",
+    "fileChanged": "File Changed",
+    "intervalMinutes": "Every {{minutes}} minutes",
+    "intervalHours": "Every {{hours}} hours",
+    "intervalDays": "Every {{days}} days",
+    "dailyAt": "Daily at {{time}}",
+    "weeklyOn": "Every {{day}} at {{time}}",
+    "monthlyOn": "Monthly on day {{day}} at {{time}}",
+    "condition": "Condition",
+    "dayLabels": {
+      "0": "Sunday",
+      "1": "Monday",
+      "2": "Tuesday",
+      "3": "Wednesday",
+      "4": "Thursday",
+      "5": "Friday",
+      "6": "Saturday",
+      "7": "Sunday"
+    },
+    "statusLabels": {
+      "ok": "Success",
+      "error": "Failed",
+      "skipped": "Skipped",
+      "running": "Running",
+      "notStarted": "Not Started"
+    },
+    "tableHeaders": {
+      "task": "Task",
+      "type": "Type",
+      "trigger": "Trigger",
+      "instruction": "Instruction",
+      "scope": "Scope",
+      "status": "Status"
+    },
+    "notSet": "Not Set",
+    "default": "Default",
+    "running": "Running",
+    "run": "Run",
+    "edit": "Edit",
+    "executionLogs": "Execution Logs",
+    "delete": "Delete",
+    "all": "All",
+    "deleteConfirm": "Are you sure you want to delete the task \"{{name}}\"?"
   },
   "actorLabels": {
     "system": "System",

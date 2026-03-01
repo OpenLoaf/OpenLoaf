@@ -94,7 +94,57 @@
     "notStarted": "任务尚未开始执行",
     "noPlanContent": "暂无计划内容",
     "chatGeneratedOnExecution": "对话记录将在任务执行时生成",
-    "logGeneratedOnExecution": "执行日志将在任务执行时生成"
+    "logGeneratedOnExecution": "执行日志将在任务执行时生成",
+    "noAutomaticTasks": "暂无自动任务"
+  },
+  "schedule": {
+    "automaticTasks": "自动任务",
+    "automaticTasksDesc": "按计划或条件触发，向 Agent 发送指令。",
+    "conditionTrigger": "条件触发",
+    "emailReceived": "收到邮件",
+    "chatKeyword": "聊天关键词",
+    "fileChanged": "文件变更",
+    "intervalMinutes": "每 {{minutes}} 分钟",
+    "intervalHours": "每 {{hours}} 小时",
+    "intervalDays": "每 {{days}} 天",
+    "dailyAt": "每天 {{time}}",
+    "weeklyOn": "每{{day}} {{time}}",
+    "monthlyOn": "每月{{day}}日 {{time}}",
+    "condition": "条件",
+    "dayLabels": {
+      "0": "周日",
+      "1": "周一",
+      "2": "周二",
+      "3": "周三",
+      "4": "周四",
+      "5": "周五",
+      "6": "周六",
+      "7": "周日"
+    },
+    "statusLabels": {
+      "ok": "成功",
+      "error": "失败",
+      "skipped": "跳过",
+      "running": "运行中",
+      "notStarted": "未运行"
+    },
+    "tableHeaders": {
+      "task": "任务",
+      "type": "类型",
+      "trigger": "触发",
+      "instruction": "指令",
+      "scope": "范围",
+      "status": "状态"
+    },
+    "notSet": "未设置",
+    "default": "默认",
+    "running": "运行中",
+    "run": "运行",
+    "edit": "编辑",
+    "executionLogs": "执行日志",
+    "delete": "删除",
+    "all": "全部",
+    "deleteConfirm": "确定删除任务「{{name}}」？"
   },
   "actorLabels": {
     "system": "系统",
