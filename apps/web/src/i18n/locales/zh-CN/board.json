@@ -28,5 +28,28 @@
     "newLayer": "新建图层",
     "deleteLayer": "删除图层",
     "renameLayer": "重命名图层"
+  },
+  "tools": {
+    "select": "选择",
+    "hand": "拖拽",
+    "pen": "画笔",
+    "highlighter": "荧光笔",
+    "eraser": "橡皮"
+  },
+  "insertTools": {
+    "note": "便签",
+    "image": "图片",
+    "video": "视频",
+    "imagePromptGenerate": "视频图片理解",
+    "imageGenerate": "图片生成",
+    "videoGenerate": "生成视频"
+  },
+  "descriptions": {
+    "note": "快速笔记卡片",
+    "image": "图片块",
+    "video": "视频块",
+    "imagePromptGenerate": "分析图片/视频并生成描述",
+    "imageGenerate": "输入图片与文字生成新图",
+    "videoGenerate": "基于图片与提示词生成视频"
   }
 }

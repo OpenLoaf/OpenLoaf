@@ -28,5 +28,28 @@
     "newLayer": "新建圖層",
     "deleteLayer": "刪除圖層",
     "renameLayer": "重新命名圖層"
+  },
+  "tools": {
+    "select": "選取",
+    "hand": "拖拽",
+    "pen": "畫筆",
+    "highlighter": "螢光筆",
+    "eraser": "橡皮"
+  },
+  "insertTools": {
+    "note": "便籤",
+    "image": "圖片",
+    "video": "影片",
+    "imagePromptGenerate": "影片圖片理解",
+    "imageGenerate": "圖片生成",
+    "videoGenerate": "生成影片"
+  },
+  "descriptions": {
+    "note": "快速筆記卡片",
+    "image": "圖片塊",
+    "video": "影片塊",
+    "imagePromptGenerate": "分析圖片/影片並生成描述",
+    "imageGenerate": "輸入圖片與文字生成新圖",
+    "videoGenerate": "基於圖片與提示詞生成影片"
   }
 }

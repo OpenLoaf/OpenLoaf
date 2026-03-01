@@ -45,15 +45,41 @@
     "yearly": "Yearly"
   },
   "status": {
+    "todo": "To Do",
+    "running": "In Progress",
+    "review": "Review",
+    "done": "Done",
+    "cancelled": "Cancelled",
     "pending": "Pending",
     "inProgress": "In Progress",
-    "completed": "Completed",
-    "cancelled": "Cancelled"
+    "completed": "Completed"
   },
   "priority": {
     "low": "Low",
     "medium": "Medium",
     "high": "High",
     "urgent": "Urgent"
+  },
+  "triggerMode": {
+    "manual": "Manual",
+    "scheduled": "Scheduled",
+    "condition": "Condition"
+  },
+  "reviewType": {
+    "plan": "Plan Confirmation",
+    "completion": "Completion Review"
+  },
+  "actions": {
+    "confirm": "Confirm",
+    "reject": "Reject",
+    "pass": "Pass",
+    "rework": "Rework"
+  },
+  "messages": {
+    "noTasks": "No tasks",
+    "executingRunning": "Executing...",
+    "searchPlaceholder": "Search tasks...",
+    "createWithAi": "Create with AI",
+    "detailTitle": "Task Details"
   }
 }

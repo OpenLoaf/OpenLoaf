@@ -10,6 +10,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import {
   CommandDialog,
   CommandGroup,
@@ -130,7 +131,7 @@ export function Search({
   }, [activeBaseParams, activeChatParams]);
   const scopedProjectTitle = React.useMemo(() => {
     if (!scopedProjectId) return null;
-    return projectHierarchy.projectById.get(scopedProjectId)?.title ?? "未命名项目";
+    return projectHierarchy.projectById.get(scopedProjectId)?.title;
   }, [projectHierarchy, scopedProjectId]);
   const scopedProjectRootUri = React.useMemo(() => {
     if (!scopedProjectId) return null;
@@ -507,7 +508,7 @@ export function Search({
         hideProjectTitle?: boolean;
       },
     ) => {
-      const projectTitle = result.projectTitle || "未命名项目";
+      const projectTitle = result.projectTitle;
       const rootUri = projectHierarchy.rootUriById.get(result.projectId) ?? "";
       const displayPath = result.relativePath || result.entry.uri;
       const handleSelect = () => {
@@ -575,12 +576,13 @@ export function Search({
       thumbnailByKey,
     ],
   );
+  const { t } = useTranslation('common');
   /** 当前项目最近打开的标题。 */
   const recentProjectHeading = React.useMemo(() => {
     if (scopedProjectTitle?.trim()) return scopedProjectTitle;
     if (recentProjectResults[0]?.projectTitle) return recentProjectResults[0].projectTitle;
-    return "当前项目";
-  }, [recentProjectResults, scopedProjectTitle]);
+    return t('currentProject');
+  }, [recentProjectResults, scopedProjectTitle, t]);
   /** 搜索输入更新：输入法组合时只更新展示值，不触发查询。 */
   const handleSearchValueChange = React.useCallback(
     (nextValue: string) => {
@@ -607,8 +609,8 @@ export function Search({
     <CommandDialog
       open={open}
       onOpenChange={handleOpenChange}
-      title="搜索"
-      description="搜索并快速打开功能"
+      title={t('searchTitle')}
+      description={t('searchDescription')}
       className="top-[25%] max-h-[70vh] translate-y-0 sm:max-w-xl openloaf-thinking-border openloaf-thinking-border-on border-transparent"
       showCloseButton={false}
       overlayClassName="backdrop-blur-sm bg-black/60"
@@ -621,7 +623,7 @@ export function Search({
       <SearchInput
         value={searchValue}
         onValueChange={handleSearchValueChange}
-        placeholder="搜索…"
+        placeholder={t('searchPlaceholder')}
         projectTitle={scopedProjectTitle}
         onClearProject={handleClearProject}
         onCompositionStart={handleCompositionStart}
@@ -635,7 +637,7 @@ export function Search({
               onSelect={handleAiFallback}
             >
               <Sparkles className="h-5 w-5" />
-              {aiFallbackQuery ? `让 AI 回答「${aiFallbackQuery}」` : "让 AI 回答"}
+              {aiFallbackQuery ? t('askAiQuery', { query: aiFallbackQuery }) : t('askAi')}
               <CommandShortcut>
                 <Kbd>↵</Kbd>
               </CommandShortcut>
@@ -643,26 +645,26 @@ export function Search({
           </CommandGroup>
         ) : null}
         {visibleFileResults.length > 0 ? (
-          <CommandGroup heading="文件">
+          <CommandGroup heading={t('files')}>
             {visibleFileResults.map((result) => renderFileResult(result))}
           </CommandGroup>
         ) : null}
         {showQuickOpen ? (
           <>
-            <CommandGroup heading="快速打开">
+            <CommandGroup heading={t('quickOpen')}>
               <CommandItem
                 value="calendar"
                 onSelect={() =>
                   openSingletonTab({
                     baseId: "base:calendar",
                     component: "calendar-page",
-                    title: "日历",
+                    title: t('calendar'),
                     icon: "🗓️",
                   })
                 }
               >
                 <CalendarDays className="h-5 w-5" />
-                <span>日历</span>
+                <span>{t('calendar')}</span>
                 <CommandShortcut>
                   <KbdGroup className="gap-1">
                     <Kbd>⌘</Kbd>
@@ -676,13 +678,13 @@ export function Search({
                   openSingletonTab({
                     baseId: "base:inbox",
                     component: "inbox-page",
-                    title: "收集箱",
+                    title: t('inbox'),
                     icon: "📥",
                   })
                 }
               >
                 <Inbox className="h-5 w-5" />
-                <span>收集箱</span>
+                <span>{t('inbox')}</span>
                 <CommandShortcut>
                   <KbdGroup className="gap-1">
                     <Kbd>⌘</Kbd>
@@ -695,7 +697,7 @@ export function Search({
                 onSelect={() => openSingletonTab(WORKBENCH_TAB_INPUT)}
               >
                 <Sparkles className="h-5 w-5" />
-                <span>工作台</span>
+                <span>{t('workbench')}</span>
                 <CommandShortcut>
                   <KbdGroup className="gap-1">
                     <Kbd>⌘</Kbd>
@@ -709,13 +711,13 @@ export function Search({
                   openSingletonTab({
                     baseId: "base:template",
                     component: "template-page",
-                    title: "模版",
+                    title: t('template'),
                     icon: "📄",
                   })
                 }
               >
                 <LayoutTemplate className="h-5 w-5" />
-                <span>模版</span>
+                <span>{t('template')}</span>
                 <CommandShortcut>
                   <KbdGroup className="gap-1">
                     <Kbd>⌘</Kbd>
@@ -725,14 +727,14 @@ export function Search({
               </CommandItem>
             </CommandGroup>
             {recentProjectResults.length > 0 ? (
-              <CommandGroup heading={`最近打开（${recentProjectHeading}）`}>
+              <CommandGroup heading={t('recentOpenProject', { title: recentProjectHeading })}>
                 {recentProjectResults.map((result) =>
                   renderFileResult(result, { hideProjectTitle: true }),
                 )}
               </CommandGroup>
             ) : null}
             {!scopedProjectId && recentWorkspaceResults.length > 0 ? (
-              <CommandGroup heading="最近打开（工作区）">
+              <CommandGroup heading={t('recentOpenWorkspace')}>
                 {recentWorkspaceResults.map((result) => renderFileResult(result))}
               </CommandGroup>
             ) : null}

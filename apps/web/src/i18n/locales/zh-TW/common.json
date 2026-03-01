@@ -48,5 +48,21 @@
   "thisWeek": "本週",
   "thisMonth": "本月",
   "now": "現在",
-  "ago": "前"
+  "ago": "前",
+  "searchTitle": "搜尋",
+  "searchDescription": "搜尋並快速開啟功能",
+  "searchPlaceholder": "搜尋…",
+  "files": "檔案",
+  "quickOpen": "快速開啟",
+  "recentOpen": "最近開啟",
+  "recentOpenProject": "最近開啟（{title}）",
+  "recentOpenWorkspace": "最近開啟（工作區）",
+  "untitledProject": "未命名專案",
+  "currentProject": "目前專案",
+  "askAi": "讓 AI 回答",
+  "askAiQuery": "讓 AI 回答「{query}」",
+  "calendar": "行事曆",
+  "inbox": "收件箱",
+  "workbench": "工作台",
+  "template": "範本"
 }

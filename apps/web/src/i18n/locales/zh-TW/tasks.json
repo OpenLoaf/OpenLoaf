@@ -45,15 +45,41 @@
     "yearly": "每年"
   },
   "status": {
+    "todo": "待辦",
+    "running": "進行中",
+    "review": "審批",
+    "done": "已完成",
+    "cancelled": "已取消",
     "pending": "待處理",
     "inProgress": "進行中",
-    "completed": "已完成",
-    "cancelled": "已取消"
+    "completed": "已完成"
   },
   "priority": {
     "low": "低",
     "medium": "中",
     "high": "高",
     "urgent": "緊急"
+  },
+  "triggerMode": {
+    "manual": "手動",
+    "scheduled": "定時",
+    "condition": "條件"
+  },
+  "reviewType": {
+    "plan": "計畫確認",
+    "completion": "完成審查"
+  },
+  "actions": {
+    "confirm": "確認",
+    "reject": "拒絕",
+    "pass": "通過",
+    "rework": "返工"
+  },
+  "messages": {
+    "noTasks": "暫無任務",
+    "executingRunning": "執行中...",
+    "searchPlaceholder": "搜尋任務...",
+    "createWithAi": "讓AI建立",
+    "detailTitle": "任務詳情"
   }
 }

@@ -18,6 +18,7 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
+import { useTranslation } from "react-i18next";
 import type { ComponentType, ForwardRefExoticComponent } from "react";
 import {
   MousePointer2,
@@ -93,18 +94,6 @@ type InsertItem = {
   opensPicker?: boolean;
 };
 
-/** Label mapping for toolbar tooltips. */
-const TOOL_LABELS = {
-  select: "选择",
-  hand: "拖拽",
-  pen: "画笔",
-  highlighter: "荧光笔",
-  eraser: "橡皮",
-  note: "便签",
-  image: "图片",
-  video: "视频",
-} as const;
-
 /** Shortcut mapping for tooltips. */
 const TOOL_SHORTCUTS = {
   select: "A",
@@ -113,16 +102,6 @@ const TOOL_SHORTCUTS = {
   highlighter: "K",
   eraser: "E",
 } as const;
-
-/** Label mapping for insert tool tooltips. */
-const INSERT_TOOL_LABELS: Record<string, string> = {
-  note: TOOL_LABELS.note,
-  image: TOOL_LABELS.image,
-  video: TOOL_LABELS.video,
-  [IMAGE_PROMPT_GENERATE_NODE_TYPE]: "视频图片理解",
-  [IMAGE_GENERATE_NODE_TYPE]: "图片生成",
-  [VIDEO_GENERATE_NODE_TYPE]: "生成视频",
-};
 
 /** Build a tooltip label with optional shortcut suffix. */
 function buildToolTitle(label: string, shortcut?: string): string {
@@ -150,11 +129,11 @@ const fitSize = (width: number, height: number, maxDimension: number): [number, 
 };
 
 
-const INSERT_ITEMS: InsertItem[] = [
+const getInsertItems = (t: (key: string) => string): InsertItem[] => [
   {
     id: "note",
-    title: "笔记",
-    description: "快速笔记卡片。",
+    title: t('insertTools.note'),
+    description: t('descriptions.note'),
     icon: StickyNote,
     nodeType: "text",
     props: { autoFocus: true },
@@ -162,24 +141,24 @@ const INSERT_ITEMS: InsertItem[] = [
   },
   {
     id: "image",
-    title: "图片",
-    description: "图片块。",
+    title: t('insertTools.image'),
+    description: t('descriptions.image'),
     icon: LucideImageIcon,
     size: [320, 220],
     opensPicker: true,
   },
   {
     id: "video",
-    title: "视频",
-    description: "视频块。",
+    title: t('insertTools.video'),
+    description: t('descriptions.video'),
     icon: Film,
     size: [360, 240],
     opensPicker: true,
   },
   {
     id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-    title: "视频图片理解",
-    description: "分析图片/视频并生成描述",
+    title: t('insertTools.imagePromptGenerate'),
+    description: t('descriptions.imagePromptGenerate'),
     icon: Eye,
     nodeType: IMAGE_PROMPT_GENERATE_NODE_TYPE,
     props: {},
@@ -187,8 +166,8 @@ const INSERT_ITEMS: InsertItem[] = [
   },
   {
     id: IMAGE_GENERATE_NODE_TYPE,
-    title: "图片生成",
-    description: "输入图片与文字生成新图",
+    title: t('insertTools.imageGenerate'),
+    description: t('descriptions.imageGenerate'),
     icon: Images,
     nodeType: IMAGE_GENERATE_NODE_TYPE,
     props: {},
@@ -196,8 +175,8 @@ const INSERT_ITEMS: InsertItem[] = [
   },
   {
     id: VIDEO_GENERATE_NODE_TYPE,
-    title: "生成视频",
-    description: "基于图片与提示词生成视频",
+    title: t('insertTools.videoGenerate'),
+    description: t('descriptions.videoGenerate'),
     icon: Video,
     nodeType: VIDEO_GENERATE_NODE_TYPE,
     props: {},
@@ -207,7 +186,7 @@ const INSERT_ITEMS: InsertItem[] = [
 
 /** Render the bottom toolbar for the board canvas. */
 const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolbarProps) {
-  // 悬停展开的组 id（用字符串常量标识）
+  const { t } = useTranslation('board');
   const [hoverGroup, setHoverGroup] = useState<string | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
@@ -228,14 +207,15 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const [penVariant, setPenVariant] = useState<"pen" | "highlighter">("pen");
   const [penSize, setPenSize] = useState<number>(6);
   const [penColor, setPenColor] = useState<string>("#f9ab00");
-  const selectTitle = buildToolTitle(TOOL_LABELS.select, TOOL_SHORTCUTS.select);
-  const handTitle = buildToolTitle(TOOL_LABELS.hand, TOOL_SHORTCUTS.hand);
-  const penTitle = buildToolTitle(TOOL_LABELS.pen, TOOL_SHORTCUTS.pen);
+  const selectTitle = buildToolTitle(t('tools.select'), TOOL_SHORTCUTS.select);
+  const handTitle = buildToolTitle(t('tools.hand'), TOOL_SHORTCUTS.hand);
+  const penTitle = buildToolTitle(t('tools.pen'), TOOL_SHORTCUTS.pen);
   const highlighterTitle = buildToolTitle(
-    TOOL_LABELS.highlighter,
+    t('tools.highlighter'),
     TOOL_SHORTCUTS.highlighter
   );
-  const eraserTitle = buildToolTitle(TOOL_LABELS.eraser, TOOL_SHORTCUTS.eraser);
+  const eraserTitle = buildToolTitle(t('tools.eraser'), TOOL_SHORTCUTS.eraser);
+  const insertItems = useMemo(() => getInsertItems(t), [t]);
   const toolbarDragRef = useRef<{
     request: CanvasInsertRequest;
     startX: number;
@@ -949,7 +929,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
         <span className="h-8 w-px bg-[#e3e8ef] dark:bg-slate-700" />
         {/* 插入 */}
         <div className="flex items-center gap-1">
-          {INSERT_ITEMS.map(item => {
+          {insertItems.map(item => {
             const Icon = item.icon;
             const isActive = pendingInsert?.id === item.id;
             const request: CanvasInsertRequest = {

@@ -48,5 +48,21 @@
   "thisWeek": "本周",
   "thisMonth": "本月",
   "now": "现在",
-  "ago": "前"
+  "ago": "前",
+  "searchTitle": "搜索",
+  "searchDescription": "搜索并快速打开功能",
+  "searchPlaceholder": "搜索…",
+  "files": "文件",
+  "quickOpen": "快速打开",
+  "recentOpen": "最近打开",
+  "recentOpenProject": "最近打开（{title}）",
+  "recentOpenWorkspace": "最近打开（工作区）",
+  "untitledProject": "未命名项目",
+  "currentProject": "当前项目",
+  "askAi": "让 AI 回答",
+  "askAiQuery": "让 AI 回答「{query}」",
+  "calendar": "日历",
+  "inbox": "收集箱",
+  "workbench": "工作台",
+  "template": "模版"
 }

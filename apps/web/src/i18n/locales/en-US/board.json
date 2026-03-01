@@ -28,5 +28,28 @@
     "newLayer": "New Layer",
     "deleteLayer": "Delete Layer",
     "renameLayer": "Rename Layer"
+  },
+  "tools": {
+    "select": "Select",
+    "hand": "Hand",
+    "pen": "Pen",
+    "highlighter": "Highlighter",
+    "eraser": "Eraser"
+  },
+  "insertTools": {
+    "note": "Note",
+    "image": "Image",
+    "video": "Video",
+    "imagePromptGenerate": "Image/Video Analysis",
+    "imageGenerate": "Image Generation",
+    "videoGenerate": "Video Generation"
+  },
+  "descriptions": {
+    "note": "Quick note card",
+    "image": "Image block",
+    "video": "Video block",
+    "imagePromptGenerate": "Analyze images/videos and generate descriptions",
+    "imageGenerate": "Generate new images from images and text",
+    "videoGenerate": "Generate videos from images and prompts"
   }
 }

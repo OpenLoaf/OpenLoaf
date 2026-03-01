@@ -48,5 +48,21 @@
   "thisWeek": "This week",
   "thisMonth": "This month",
   "now": "Now",
-  "ago": "ago"
+  "ago": "ago",
+  "searchTitle": "Search",
+  "searchDescription": "Search and quickly open features",
+  "searchPlaceholder": "Search…",
+  "files": "Files",
+  "quickOpen": "Quick Open",
+  "recentOpen": "Recent",
+  "recentOpenProject": "Recent ({title})",
+  "recentOpenWorkspace": "Recent (Workspace)",
+  "untitledProject": "Untitled Project",
+  "currentProject": "Current Project",
+  "askAi": "Ask AI",
+  "askAiQuery": "Ask AI \"{query}\"",
+  "calendar": "Calendar",
+  "inbox": "Inbox",
+  "workbench": "Workbench",
+  "template": "Template"
 }
