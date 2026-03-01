@@ -472,13 +472,13 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
               <TabsList className="h-9 w-max rounded-full border border-border/70 bg-muted/40 p-1">
                 <TabsTrigger value="trigger" className="h-7 rounded-full px-3 text-xs whitespace-nowrap">
-                  触发方式
+                  {t('schedule.triggerTab')}
                 </TabsTrigger>
                 <TabsTrigger value="action" className="h-7 rounded-full px-3 text-xs whitespace-nowrap">
-                  执行内容
+                  {t('schedule.actionTab')}
                 </TabsTrigger>
                 <TabsTrigger value="advanced" className="h-7 rounded-full px-3 text-xs whitespace-nowrap">
-                  高级设置
+                  {t('schedule.advancedTab')}
                 </TabsTrigger>
               </TabsList>
 
@@ -486,23 +486,23 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                 <div className="pt-2">
                   {triggerMode === 'scheduled' ? (
                     <div className="divide-y divide-border/60">
-                        <FormRow label="频率">
+                        <FormRow label={t('schedule.frequencyLabel')}>
                           <Select value={schedulePreset} onValueChange={(v) => setSchedulePreset(v as SchedulePreset)}>
                             <SelectTrigger className={cn(selectBase, 'w-[220px]')}>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
-                              <SelectItem value="interval" className="rounded-lg text-xs">间隔</SelectItem>
-                              <SelectItem value="daily" className="rounded-lg text-xs">每天</SelectItem>
-                              <SelectItem value="weekly" className="rounded-lg text-xs">每周</SelectItem>
-                              <SelectItem value="monthly" className="rounded-lg text-xs">每月</SelectItem>
-                              <SelectItem value="once" className="rounded-lg text-xs">单次</SelectItem>
-                              <SelectItem value="custom" className="rounded-lg text-xs">自定义</SelectItem>
+                              <SelectItem value="interval" className="rounded-lg text-xs">{t('schedule.interval')}</SelectItem>
+                              <SelectItem value="daily" className="rounded-lg text-xs">{t('schedule.daily')}</SelectItem>
+                              <SelectItem value="weekly" className="rounded-lg text-xs">{t('schedule.weekly')}</SelectItem>
+                              <SelectItem value="monthly" className="rounded-lg text-xs">{t('schedule.monthly')}</SelectItem>
+                              <SelectItem value="once" className="rounded-lg text-xs">{t('schedule.once')}</SelectItem>
+                              <SelectItem value="custom" className="rounded-lg text-xs">{t('schedule.custom')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </FormRow>
                         {schedulePreset === 'interval' ? (
-                          <FormRow label="间隔（分钟）">
+                          <FormRow label={t('schedule.intervalMinutesLabel')}>
                             <Input
                               type="number"
                               min={1}
@@ -514,60 +514,60 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                         ) : null}
                         {schedulePreset === 'once' ? (
                           <>
-                            <FormRow label="日期">
+                            <FormRow label={t('schedule.dateLabel')}>
                               <DatePicker
                                 date={scheduleOnceDate}
                                 onChange={setScheduleOnceDate}
-                                label="选择日期"
+                                label={t('schedule.selectDate')}
                                 className="[& button]:h-8 [& button]:rounded-full [& button]:border-border/70 [& button]:bg-muted/40 [& button]:text-xs [& button]:shadow-none w-full max-w-[220px]"
                               />
                             </FormRow>
-                            <FormRow label="时间">
+                            <FormRow label={t('schedule.timeLabel')}>
                               <TimePicker
                                 value={scheduleOnceTime}
                                 onChange={setScheduleOnceTime}
                                 timeFormat="24-hour"
-                                placeholder="选择时间"
+                                placeholder={t('schedule.selectTime')}
                                 className="h-8 w-full max-w-[200px] rounded-full border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
                               />
                             </FormRow>
                           </>
                         ) : null}
                         {schedulePreset === 'daily' ? (
-                          <FormRow label="执行时间">
+                          <FormRow label={t('schedule.timeLabel')}>
                             <TimePicker
                               value={scheduleTime}
                               onChange={setScheduleTime}
                               timeFormat="24-hour"
-                              placeholder="选择时间"
+                              placeholder={t('schedule.selectTime')}
                               className="h-8 w-full max-w-[200px] rounded-full border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
                             />
                           </FormRow>
                         ) : null}
                         {schedulePreset === 'weekly' ? (
                           <>
-                            <FormRow label="星期">
+                            <FormRow label={t('schedule.weekdayLabel')}>
                               <Select value={scheduleWeekday} onValueChange={(v) => setScheduleWeekday(v)}>
                                 <SelectTrigger className={cn(selectBase, 'w-[180px]')}>
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl">
-                                  <SelectItem value="1" className="rounded-lg text-xs">周一</SelectItem>
-                                  <SelectItem value="2" className="rounded-lg text-xs">周二</SelectItem>
-                                  <SelectItem value="3" className="rounded-lg text-xs">周三</SelectItem>
-                                  <SelectItem value="4" className="rounded-lg text-xs">周四</SelectItem>
-                                  <SelectItem value="5" className="rounded-lg text-xs">周五</SelectItem>
-                                  <SelectItem value="6" className="rounded-lg text-xs">周六</SelectItem>
-                                  <SelectItem value="0" className="rounded-lg text-xs">周日</SelectItem>
+                                  <SelectItem value="1" className="rounded-lg text-xs">{t('schedule.dayLabels.1')}</SelectItem>
+                                  <SelectItem value="2" className="rounded-lg text-xs">{t('schedule.dayLabels.2')}</SelectItem>
+                                  <SelectItem value="3" className="rounded-lg text-xs">{t('schedule.dayLabels.3')}</SelectItem>
+                                  <SelectItem value="4" className="rounded-lg text-xs">{t('schedule.dayLabels.4')}</SelectItem>
+                                  <SelectItem value="5" className="rounded-lg text-xs">{t('schedule.dayLabels.5')}</SelectItem>
+                                  <SelectItem value="6" className="rounded-lg text-xs">{t('schedule.dayLabels.6')}</SelectItem>
+                                  <SelectItem value="0" className="rounded-lg text-xs">{t('schedule.dayLabels.0')}</SelectItem>
                                 </SelectContent>
                               </Select>
                             </FormRow>
-                            <FormRow label="执行时间">
+                            <FormRow label={t('schedule.timeLabel')}>
                               <TimePicker
                                 value={scheduleTime}
                                 onChange={setScheduleTime}
                                 timeFormat="24-hour"
-                                placeholder="选择时间"
+                                placeholder={t('schedule.selectTime')}
                                 className="h-8 w-full max-w-[200px] rounded-full border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
                               />
                             </FormRow>
@@ -575,7 +575,7 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                         ) : null}
                         {schedulePreset === 'monthly' ? (
                           <>
-                            <FormRow label="日期">
+                            <FormRow label={t('schedule.monthDayLabel')}>
                               <Input
                                 type="number"
                                 min={1}
@@ -585,23 +585,23 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                                 className={cn(inputBase, 'w-full max-w-[140px]')}
                               />
                             </FormRow>
-                            <FormRow label="执行时间">
+                            <FormRow label={t('schedule.timeLabel')}>
                               <TimePicker
                                 value={scheduleTime}
                                 onChange={setScheduleTime}
                                 timeFormat="24-hour"
-                                placeholder="选择时间"
+                                placeholder={t('schedule.selectTime')}
                                 className="h-8 w-full max-w-[200px] rounded-full border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
                               />
                             </FormRow>
                           </>
                         ) : null}
                         {schedulePreset === 'custom' ? (
-                          <FormRow label="Cron">
+                          <FormRow label={t('schedule.cronLabel')}>
                             <Input
                               value={cronExpr}
                               onChange={(e) => setCronExpr(e.target.value)}
-                              placeholder="0 9 * * *"
+                              placeholder={t('schedule.cronPlaceholder')}
                               className={cn(inputBase, 'w-full max-w-[260px] font-mono text-xs')}
                             />
                           </FormRow>
@@ -616,17 +616,17 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
               <TabsContent value="action">
                 <div className="pt-2">
                   <div className="divide-y divide-border/60">
-                    <FormRow label="Agent">
+                    <FormRow label={t('schedule.agentLabel')}>
                       <Select
                         value={agentName || '__default__'}
                         onValueChange={(v) => setAgentName(v === '__default__' ? '' : v)}
                       >
                         <SelectTrigger className={cn(selectBase, 'w-[220px]')}>
-                          <SelectValue placeholder="默认" />
+                          <SelectValue placeholder={t('schedule.default')} />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
                           <SelectItem value="__default__" className="rounded-lg text-xs">
-                            默认
+                            {t('schedule.default')}
                           </SelectItem>
                           {enabledAgents.map((agent: { folderName: string; name: string; icon?: string }) => (
                             <SelectItem key={agent.folderName} value={agent.folderName} className="rounded-lg text-xs">
@@ -641,11 +641,11 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                         </SelectContent>
                       </Select>
                     </FormRow>
-                    <FormRow label="指令" alignTop>
+                    <FormRow label={t('schedule.instructionLabel')} alignTop>
                       <Textarea
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
-                        placeholder="触发时发送给 Agent 的指令..."
+                        placeholder={t('schedule.instructionPlaceholder')}
                         rows={4}
                         className="min-h-[110px] w-full max-w-[520px] border-0 bg-transparent px-0 py-0 text-sm shadow-none resize-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
                       />
@@ -657,7 +657,7 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
               <TabsContent value="advanced">
                 <div className="pt-2">
                   <div className="divide-y divide-border/60">
-                    <FormRow label="超时（分钟）">
+                    <FormRow label={t('schedule.timeoutLabel')}>
                       <Input
                         type="number"
                         min={1}
@@ -666,7 +666,7 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                         className={inputBase}
                       />
                     </FormRow>
-                    <FormRow label="冷却（分钟）">
+                    <FormRow label={t('schedule.cooldownLabel')}>
                       <Input
                         type="number"
                         min={0}
