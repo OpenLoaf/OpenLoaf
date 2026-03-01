@@ -84,16 +84,17 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
   React.useEffect(() => {
     const wasOpen = wasOpenRef.current;
     if (open) {
+      // 规范：多步骤 Dialog 在打开时重置状态，避免关闭动画期间闪回。
       clearCloseTimer();
       setIsClosing(false);
+      cancelLogin();
+      setSelectedProvider(null);
     } else if (wasOpen) {
-      // 关闭动画期间保持登录 UI，避免闪现登录按钮。
+      // 关闭动画期间保持当前 UI 不变，仅延迟清除 isClosing 标记。
       setIsClosing(true);
       clearCloseTimer();
       closeTimerRef.current = window.setTimeout(() => {
         setIsClosing(false);
-        cancelLogin();
-        setSelectedProvider(null);
         closeTimerRef.current = null;
       }, 200);
     }
@@ -101,6 +102,16 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
   }, [open, cancelLogin, clearCloseTimer]);
 
   React.useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
+
+  // 登录成功后自动关闭弹窗。
+  React.useEffect(() => {
+    if (isClosingAfterLogin) {
+      const timer = window.setTimeout(() => {
+        onOpenChange(false);
+      }, 800);
+      return () => window.clearTimeout(timer);
+    }
+  }, [isClosingAfterLogin, onOpenChange]);
 
   /** Begin the SaaS login flow for provider. */
   const handleLogin = async (provider: SaasLoginProvider) => {
@@ -178,11 +189,7 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
           <div className="space-y-4 px-8 pb-6">
             {isLoginInProgress ? (
               <div className="space-y-3">
-                {isClosingAfterLogin ? (
-                  <div className="py-2 text-center text-sm text-muted-foreground">
-                    登录成功，正在关闭…
-                  </div>
-                ) : (
+                {isClosingAfterLogin ? null : (
                   <button
                     type="button"
                     className={cn(

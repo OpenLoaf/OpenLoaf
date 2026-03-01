@@ -87,7 +87,7 @@
 
 原则：
 
-- 面板容器优先复用统一圆角、边框、背景与阴影。
+- 面板容器优先复用统一圆角、边框、背景。**不使用 box-shadow**，通过透明度分层建立层次。
 - 面板头部操作保持位置稳定（刷新、最小化、关闭）。
 - overlay/floating 与 base panel 使用同一材质家族。
 
@@ -95,6 +95,7 @@
 
 - 关闭/最小化行为必须有可预期反馈。
 - 不允许面板层级遮挡核心交互入口。
+- 面板、卡片、输入框统一 `shadow-none`。
 
 ## 6. Inputs, Dialogs, Menus
 
@@ -104,14 +105,16 @@
 
 原则：
 
-- 输入控件在同一页面保持尺寸与圆角一致。
-- 对话框优先遵循“标题-描述-主体-动作区”结构。
+- 输入控件在同一页面保持尺寸与圆角一致。**输入框禁止 box-shadow**，使用 `shadow-none`，聚焦时仅通过边框色变化反馈。
+- 对话框优先遵循”标题-描述-主体-动作区”结构。
 - 菜单的 hover/active 反馈保持轻量，不做重动效。
+- **按钮必须带有语义扁平色**：主操作用 sky、危险用 red、确认用 emerald，次要操作可用 ghost 但同组至少一个带色。
 
 护栏：
 
-- focus 态必须可见。
+- focus 态必须可见（通过 border 变化，不依赖 ring/shadow）。
 - 禁止依赖颜色唯一表达错误/警告状态。
+- 输入框 focus 样式：`focus-visible:ring-0 focus-visible:shadow-none focus-visible:border-border/70`。
 - **多步骤 Dialog 状态重置时机**：内部步骤/表单状态必须在**打开时**重置，**禁止在关闭时重置**。关闭时重置会导致关闭动画（~200ms）期间状态闪回到初始步骤。具体做法：
   - **自控 Dialog**（组件内部管理 `open` state）：提取 `openDialog()` 函数，同时 reset 状态并 `setOpen(true)`；`onOpenChange` 关闭时只 `setOpen(false)`。
   - **受控 Dialog**（`open` 从 props 传入）：用 `useEffect(() => { if (open) reset() }, [open])` 在打开时自动 reset。

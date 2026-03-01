@@ -387,6 +387,12 @@ export const settingSchemas = {
       result: z.unknown(),
       error: z.string().optional(),
       durationMs: z.number(),
+      usage: z.object({
+        inputTokens: z.number(),
+        cachedInputTokens: z.number(),
+        outputTokens: z.number(),
+        totalTokens: z.number(),
+      }).optional(),
     }),
   },
   /** Infer project type via auxiliary model and update project.json. */

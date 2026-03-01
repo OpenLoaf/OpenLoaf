@@ -11,6 +11,14 @@ import { z } from "zod";
 import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 
 export const aiSchemas = {
+  answerClaudeCodeQuestion: {
+    input: z.object({
+      sessionId: z.string().min(1),
+      toolUseId: z.string().min(1),
+      answers: z.record(z.string(), z.string()),
+    }),
+    output: z.object({ ok: z.boolean() }),
+  },
   // 逻辑：用于在服务端暂存敏感值并返回占位符 token。
   storeSecret: {
     input: z.object({
@@ -94,6 +102,13 @@ export abstract class BaseAiRouter {
   /** Define the ai router contract. */
   public static createRouter() {
     return t.router({
+      /** Answer a Claude Code AskUserQuestion prompt. */
+      answerClaudeCodeQuestion: shieldedProcedure
+        .input(aiSchemas.answerClaudeCodeQuestion.input)
+        .output(aiSchemas.answerClaudeCodeQuestion.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
       /** Store a secret value and return a placeholder token. */
       storeSecret: shieldedProcedure
         .input(aiSchemas.storeSecret.input)

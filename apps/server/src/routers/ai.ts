@@ -8,7 +8,9 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { BaseAiRouter, aiSchemas, t, shieldedProcedure } from "@openloaf/api";
+import { TRPCError } from "@trpc/server";
 import { storeSecret } from "@/ai/tools/secretStore";
+import { getActiveQuery } from "@/ai/models/cli/claudeCode/activeQueries";
 
 /** Deprecated message for local AI media routes. */
 const DEPRECATED_MESSAGE = "已迁移到 SaaS 媒体接口，请使用 /ai/image /ai/vedio";
@@ -22,6 +24,43 @@ export class AiRouterImpl extends BaseAiRouter {
   /** AI tRPC router with deprecated media endpoints. */
   public static createRouter() {
     return t.router({
+      /** Answer a Claude Code AskUserQuestion prompt. */
+      answerClaudeCodeQuestion: shieldedProcedure
+        .input(aiSchemas.answerClaudeCodeQuestion.input)
+        .output(aiSchemas.answerClaudeCodeQuestion.output)
+        .mutation(async ({ input }) => {
+          const queryHandle = getActiveQuery(input.sessionId);
+          if (!queryHandle) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "No active Claude Code session",
+            });
+          }
+
+          const userMessage = {
+            type: "user" as const,
+            message: {
+              role: "user" as const,
+              content: [
+                {
+                  type: "tool_result" as const,
+                  tool_use_id: input.toolUseId,
+                  content: JSON.stringify(input.answers),
+                },
+              ],
+            },
+            parent_tool_use_id: null,
+            session_id: input.sessionId,
+          };
+
+          await queryHandle.streamInput(
+            (async function* () {
+              yield userMessage;
+            })(),
+          );
+
+          return { ok: true };
+        }),
       /** Store a secret value and return a placeholder token. */
       storeSecret: shieldedProcedure
         .input(aiSchemas.storeSecret.input)

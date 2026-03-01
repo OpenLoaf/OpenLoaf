@@ -92,6 +92,26 @@ const CAP_ICON_MAP: Record<string, { icon: LucideIcon; color: string }> = {
   'text.translate': { icon: Languages, color: 'text-teal-500 dark:text-teal-400' },
 }
 
+/** Flat color palette for trigger scenario badges. */
+const TRIGGER_COLORS = [
+  'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+  'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+  'bg-teal-500/10 text-teal-600 dark:text-teal-400',
+  'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+  'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+]
+
+/** Format token count into compact K/M notation. */
+function formatTokenCount(value: number): string {
+  if (value === 0) return '0'
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`
+  return String(value)
+}
+
 /** Default test context for each capability. */
 const DEFAULT_TEST_CONTEXT: Record<string, string> = {
   'project.classify': 'package.json\nsrc/index.ts\ntsconfig.json\nREADME.md',
@@ -365,26 +385,26 @@ export function AuxiliaryModelSettings() {
                           return <Icon className={cn('h-4 w-4', iconColor)} />
                         })()}
                         {activeCap.label}
+                        {activeCap.outputMode && OUTPUT_MODE_BADGE[activeCap.outputMode] && (
+                          <span
+                            className={cn(
+                              'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
+                              OUTPUT_MODE_BADGE[activeCap.outputMode].className,
+                            )}
+                          >
+                            {OUTPUT_MODE_BADGE[activeCap.outputMode].label}
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground leading-relaxed">
                         {activeCap.description}
                       </p>
-                      {activeCap.outputMode && OUTPUT_MODE_BADGE[activeCap.outputMode] && (
-                        <span
-                          className={cn(
-                            'mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
-                            OUTPUT_MODE_BADGE[activeCap.outputMode].className,
-                          )}
-                        >
-                          {OUTPUT_MODE_BADGE[activeCap.outputMode].label}
-                        </span>
-                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 shrink-0 gap-1 rounded-full px-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-150"
+                        className="h-7 shrink-0 gap-1 rounded-full bg-sky-500/10 px-2.5 text-xs text-sky-600 hover:bg-sky-500/20 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 transition-colors duration-150"
                         onClick={() => setTestDialogOpen(true)}
                       >
                         <Play className="h-3 w-3" />
@@ -405,25 +425,28 @@ export function AuxiliaryModelSettings() {
                   </div>
 
                   {/* Trigger scenarios */}
-                  <div className="shrink-0 rounded-lg border border-border/40 bg-muted/20 px-3 py-2.5">
+                  <div className="shrink-0">
                     <p className="mb-1.5 text-xs font-medium text-muted-foreground">触发场景</p>
-                    <ul className="space-y-1">
-                      {activeCap.triggers.map((trigger) => (
-                        <li
+                    <div className="flex flex-wrap gap-1.5">
+                      {activeCap.triggers.map((trigger, idx) => (
+                        <span
                           key={trigger}
-                          className="flex items-baseline gap-2 text-xs text-muted-foreground/80"
+                          className={cn(
+                            'inline-flex items-center rounded-md px-2 py-1 text-[11px] font-medium',
+                            TRIGGER_COLORS[idx % TRIGGER_COLORS.length],
+                          )}
                         >
-                          <span className="mt-0.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/30" />
                           {trigger}
-                        </li>
+                        </span>
                       ))}
-                    </ul>
+                    </div>
                   </div>
 
                   {/* Prompt editor */}
                   <div className="flex flex-1 min-h-0 flex-col gap-1.5">
                     <div className="flex shrink-0 items-center gap-1.5">
                       <span className="text-xs font-medium text-muted-foreground">提示词</span>
+                      <span className="text-[10px] text-muted-foreground/50">{currentPrompt.length} 字</span>
                       {isCustomized && (
                         <span className="rounded-full bg-amber-500/10 px-1.5 py-px text-[10px] font-medium text-amber-600 dark:text-amber-400">
                           已修改
@@ -494,9 +517,16 @@ function TestCapabilityDialog({
     result: unknown
     error?: string
     durationMs: number
+    usage?: {
+      inputTokens: number
+      cachedInputTokens: number
+      outputTokens: number
+      totalTokens: number
+    }
   } | null>(null)
   const initializedRef = useRef(false)
 
+  // Reset on open (not on close) per component-guidelines §6.
   useEffect(() => {
     if (open) {
       if (!initializedRef.current) {
@@ -533,33 +563,145 @@ function TestCapabilityDialog({
   }
 
   const isText = outputMode === 'text'
+  const capIcon = CAP_ICON_MAP[capabilityKey]
+  const Icon = capIcon?.icon ?? Sparkles
+  const iconColor = capIcon?.color ?? 'text-muted-foreground'
+  const badge = OUTPUT_MODE_BADGE[outputMode]
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="text-sm">
-            测试：{capabilityLabel}
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg sm:rounded-2xl">
+        {/* Header — 半透明玻璃层 */}
+        <div className="flex items-center gap-3 border-b border-border/40 bg-muted/30 px-5 py-4 backdrop-blur-sm">
+          <div className={cn(
+            'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl',
+            'bg-background/80 shadow-sm ring-1 ring-border/30',
+          )}>
+            <Icon className={cn('h-4 w-4', iconColor)} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <DialogHeader className="p-0">
+              <DialogTitle className="flex items-center gap-2 text-sm font-medium">
+                测试：{capabilityLabel}
+                {badge && (
+                  <span className={cn(
+                    'inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium',
+                    badge.className,
+                  )}>
+                    {badge.label}
+                  </span>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+            <p className="mt-0.5 text-[11px] text-muted-foreground/70">
+              输入测试上下文，运行辅助模型推理并查看输出结果
+            </p>
+          </div>
+        </div>
 
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground">
-              测试输入
-            </span>
+        {/* Body */}
+        <div className="flex flex-col gap-4 px-5 py-4">
+          {/* Input section */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-foreground/80">输入上下文</span>
+              <span className="text-[10px] tabular-nums text-muted-foreground/50">
+                {context.length} 字
+              </span>
+            </div>
             <Textarea
               value={context}
               onChange={(e) => setContext(e.target.value)}
-              rows={4}
-              className="resize-none rounded-lg border-border/60 bg-background/50 font-mono text-xs leading-relaxed focus-visible:ring-1 focus-visible:ring-ring/50"
+              rows={5}
+              className={cn(
+                'resize-none rounded-xl border-border/50 bg-muted/20 font-mono text-xs leading-relaxed shadow-none',
+                'placeholder:text-muted-foreground/40',
+                'focus-visible:ring-0 focus-visible:shadow-none focus-visible:border-border/70',
+                'transition-colors duration-200',
+              )}
               placeholder="输入测试上下文..."
             />
           </div>
 
+          {/* Result section */}
+          {result && (
+            <div className="flex flex-col gap-2.5">
+              <span className="text-xs font-medium text-foreground/80">输出结果</span>
+
+              {/* Result content */}
+              {result.ok ? (
+                isText ? (
+                  <div className="rounded-xl border border-border/30 bg-muted/15 p-3.5 text-xs leading-relaxed whitespace-pre-wrap">
+                    {String(result.result)}
+                  </div>
+                ) : (
+                  <pre className="max-h-52 overflow-auto rounded-xl border border-border/30 bg-muted/15 p-3.5 font-mono text-xs leading-relaxed">
+                    {JSON.stringify(result.result, null, 2)}
+                  </pre>
+                )
+              ) : (
+                <div className="rounded-xl border border-red-500/15 bg-red-500/5 p-3.5 text-xs leading-relaxed text-red-600 dark:text-red-400">
+                  {result.error || '未知错误'}
+                </div>
+              )}
+
+              {/* Stats — below content */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className={cn(
+                  'inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium',
+                  result.ok
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-red-500/10 text-red-600 dark:text-red-400',
+                )}>
+                  {result.ok ? '成功' : '失败'}
+                </span>
+                <span className={cn(
+                  'inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium tabular-nums',
+                  result.durationMs < 1000
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                    : result.durationMs < 3000
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                      : 'bg-red-500/10 text-red-600 dark:text-red-400',
+                )}>
+                  {result.durationMs < 1000
+                    ? `${result.durationMs}ms`
+                    : `${(result.durationMs / 1000).toFixed(1)}s`}
+                </span>
+                {result.usage && result.usage.totalTokens > 0 && (
+                  <>
+                    <span className="h-3 w-px bg-border/40" />
+                    <div className="flex items-center gap-2 text-[10px] tabular-nums text-muted-foreground">
+                      <span>输入 <span className="font-medium text-foreground/60">{formatTokenCount(result.usage.inputTokens)}</span></span>
+                      {result.usage.cachedInputTokens > 0 && (
+                        <span>缓存 <span className="font-medium text-foreground/60">{formatTokenCount(result.usage.cachedInputTokens)}</span></span>
+                      )}
+                      <span>输出 <span className="font-medium text-foreground/60">{formatTokenCount(result.usage.outputTokens)}</span></span>
+                      <span className="font-medium text-foreground/60">共 {formatTokenCount(result.usage.totalTokens)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer — 动作区 */}
+        <div className="flex items-center justify-end gap-2 border-t border-border/40 bg-muted/15 px-5 py-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="rounded-full px-4 text-xs text-muted-foreground hover:text-foreground transition-colors duration-200"
+            onClick={() => onOpenChange(false)}
+          >
+            关闭
+          </Button>
           <Button
             size="sm"
-            className="w-fit gap-1.5 rounded-full px-4 transition-colors duration-150"
+            variant="ghost"
+            className={cn(
+              'gap-1.5 rounded-full bg-sky-500/10 px-5 text-xs text-sky-600 hover:bg-sky-500/20 hover:text-sky-700 dark:text-sky-400 dark:hover:bg-sky-500/15 dark:hover:text-sky-300 transition-all duration-200',
+              testMutation.isPending && 'opacity-80',
+            )}
             onClick={handleRun}
             disabled={testMutation.isPending || !context.trim()}
           >
@@ -568,36 +710,8 @@ function TestCapabilityDialog({
             ) : (
               <Play className="h-3 w-3" />
             )}
-            {testMutation.isPending ? '运行中...' : '运行'}
+            {testMutation.isPending ? '运行中...' : '运行测试'}
           </Button>
-
-          {result && (
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  结果
-                </span>
-                <span className="text-[10px] text-muted-foreground/60">
-                  {result.durationMs}ms
-                </span>
-              </div>
-              {result.ok ? (
-                isText ? (
-                  <div className="rounded-lg border border-border/40 bg-muted/20 p-3 text-xs leading-relaxed whitespace-pre-wrap">
-                    {String(result.result)}
-                  </div>
-                ) : (
-                  <pre className="max-h-48 overflow-auto rounded-lg border border-border/40 bg-muted/20 p-3 font-mono text-xs leading-relaxed">
-                    {JSON.stringify(result.result, null, 2)}
-                  </pre>
-                )
-              ) : (
-                <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-600 dark:text-red-400">
-                  {result.error || '未知错误'}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>

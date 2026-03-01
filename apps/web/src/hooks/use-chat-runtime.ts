@@ -70,6 +70,19 @@ export type CcResult = {
   permissionDenials: Array<{ toolName: string }>;
 };
 
+export type CcUserQuestion = {
+  sessionId: string;
+  toolUseId: string;
+  questions: Array<{
+    question: string;
+    header: string;
+    options: Array<{ label: string; description: string }>;
+    multiSelect: boolean;
+  }>;
+  answered: boolean;
+  answers?: Record<string, string>;
+};
+
 export type ClaudeCodeRuntimeState = {
   init?: {
     model: string;
@@ -83,6 +96,7 @@ export type ClaudeCodeRuntimeState = {
   tasks: Record<string, CcTask>;
   rateLimit?: CcRateLimit;
   result?: CcResult;
+  userQuestion?: CcUserQuestion;
 };
 
 export type ChatRuntimeState = {

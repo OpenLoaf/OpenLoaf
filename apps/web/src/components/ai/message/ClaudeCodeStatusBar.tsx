@@ -13,22 +13,13 @@ import * as React from "react";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import type { ClaudeCodeRuntimeState } from "@/hooks/use-chat-runtime";
 import { cn } from "@/lib/utils";
+import ClaudeCodeUserQuestion from "./ClaudeCodeUserQuestion";
 
 interface ClaudeCodeStatusBarProps {
   tabId: string;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────
-
-/** Format milliseconds to human-readable duration. */
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  const seconds = ms / 1000;
-  if (seconds < 60) return `${seconds.toFixed(1)}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.round(seconds % 60);
-  return `${minutes}m${remainingSeconds}s`;
-}
 
 /** Format a unix timestamp to HH:MM. */
 function formatResetTime(timestamp: number): string {
@@ -154,42 +145,6 @@ function TaskList({ tasks }: { tasks: Record<string, { description: string; stat
   );
 }
 
-/** Final result statistics. */
-function ResultStats({ result }: { result: NonNullable<ClaudeCodeRuntimeState["result"]> }) {
-  const isSuccess = result.subtype === "success";
-  return (
-    <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
-      <span className={cn("font-medium", isSuccess ? "text-green-600 dark:text-green-400" : "text-destructive")}>
-        {isSuccess ? "\u2713 Done" : result.subtype}
-      </span>
-      <span className="text-muted-foreground/30">{"\u00B7"}</span>
-      {result.numTurns > 0 && (
-        <>
-          <span className="tabular-nums">{result.numTurns} turns</span>
-          <span className="text-muted-foreground/30">{"\u00B7"}</span>
-        </>
-      )}
-      {result.durationMs > 0 && (
-        <>
-          <span className="tabular-nums">{formatDuration(result.durationMs)}</span>
-          <span className="text-muted-foreground/30">{"\u00B7"}</span>
-        </>
-      )}
-      {result.totalCostUsd > 0 && (
-        <span className="tabular-nums">${result.totalCostUsd.toFixed(4)}</span>
-      )}
-      {result.errors.length > 0 && (
-        <span className="text-destructive">{result.errors.length} error(s)</span>
-      )}
-      {result.permissionDenials.length > 0 && (
-        <span className="text-amber-600 dark:text-amber-400">
-          {result.permissionDenials.length} denied
-        </span>
-      )}
-    </div>
-  );
-}
-
 // ─── Main Component ─────────────────────────────────────────────────────
 
 /**
@@ -210,14 +165,15 @@ export default React.memo(function ClaudeCodeStatusBar({ tabId }: ClaudeCodeStat
 
   if (!ccRuntime) return null;
 
-  const { init, rateLimit, status, toolProgress, tasks, result } = ccRuntime;
+  const { init, rateLimit, status, toolProgress, tasks, result, userQuestion } = ccRuntime;
   const hasToolProgress = Object.keys(toolProgress).length > 0;
   const hasTasks = Object.keys(tasks).length > 0;
   const isCompacting = status === "compacting";
   const hasRateLimitWarning = rateLimit && rateLimit.status !== "allowed";
+  const hasUserQuestion = userQuestion && !userQuestion.answered;
 
   // 没有任何有意义的内容时不渲染
-  if (!hasRateLimitWarning && !isCompacting && !init && !hasToolProgress && !hasTasks && !result) {
+  if (!hasRateLimitWarning && !isCompacting && !init && !hasToolProgress && !hasTasks && !hasUserQuestion) {
     return null;
   }
 
@@ -228,7 +184,9 @@ export default React.memo(function ClaudeCodeStatusBar({ tabId }: ClaudeCodeStat
       {init && !result && <InitInfo init={init} />}
       {hasToolProgress && <ToolProgressList toolProgress={toolProgress} />}
       {hasTasks && <TaskList tasks={tasks} />}
-      {result && <ResultStats result={result} />}
+      {hasUserQuestion && (
+        <ClaudeCodeUserQuestion tabId={tabId} question={userQuestion} />
+      )}
     </div>
   );
 });

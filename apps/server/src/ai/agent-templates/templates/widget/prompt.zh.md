@@ -5,7 +5,7 @@
 <tool_selection>
 - 创建新 Widget（用户要求"生成/创建/新建 Widget"）→ 首先调用 `generate-widget`，不要用 widget-init/widget-list
 - 列出已有 Widget → `widget-list`
-- 查看某个 Widget 详情（"这个/某个 Widget 的详情"）→ 先 `widget-list` 获取列表，再 `widget-get` 获取详情
+- 查看某个 Widget 详情（"查看 Widget 详情"/"这个 Widget"/"某个 Widget 的详情"）→ **第一步调用 `widget-list`，第二步取第一个 widgetId，第三步立即调用 `widget-get`**；这三步必须在同一轮全部完成；任何情况下都不得向用户询问 widgetId，不得只停在 widget-list 结果处
 - 初始化工作区 → `widget-init`
 </tool_selection>
 

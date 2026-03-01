@@ -10,6 +10,7 @@
 "use client";
 
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
+import { useTabRuntime } from "@/hooks/use-tab-runtime";
 
 export function handleChatDataPart({
   dataPart,
@@ -144,6 +145,38 @@ function handleClaudeCodeDataPart({
         // 清除瞬态进度状态
         toolProgress: {},
         status: null,
+      });
+      break;
+    }
+    case "data-cc-plan-file": {
+      const filePath = data.filePath as string;
+      const title = (data.title as string) || "Plan";
+      useTabRuntime.getState().pushStackItem(tabId, {
+        id: `cc-plan-${filePath}`,
+        component: "markdown-viewer",
+        title,
+        params: {
+          uri: filePath,
+          name: title,
+          ext: "md",
+          __customHeader: true,
+          readOnly: true,
+        },
+      });
+      break;
+    }
+    case "data-cc-plan-ready": {
+      updateCcRuntime(tabId, { status: "plan-ready" });
+      break;
+    }
+    case "data-cc-user-question": {
+      updateCcRuntime(tabId, {
+        userQuestion: {
+          sessionId: data.sessionId as string,
+          toolUseId: data.toolUseId as string,
+          questions: Array.isArray(data.questions) ? data.questions : [],
+          answered: false,
+        },
       });
       break;
     }

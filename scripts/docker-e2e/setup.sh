@@ -59,6 +59,13 @@ if [ -n "$OPENLOAF_SAAS_ACCESS_TOKEN" ]; then
   "
 fi
 
+# ── 工作区符号链接 ─────────────────────────────────────────────
+# workspaceConfig 会把 file:///root/.openloaf/workspace/ 迁移为新默认路径
+# file:///root/OpenLoafWorkspace/。创建符号链接让两者指向同一目录。
+echo "[setup] 创建工作区符号链接 /root/OpenLoafWorkspace -> /root/.openloaf/workspace..."
+rm -rf /root/OpenLoafWorkspace
+ln -sfn /root/.openloaf/workspace /root/OpenLoafWorkspace
+
 echo "[setup] 初始化数据库..."
 cd /app && pnpm run db:push
 

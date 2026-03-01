@@ -1,0 +1,14 @@
+{
+  "emailAccounts": [
+    {
+      "emailAddress": "test@openloaf.dev",
+      "label": "E2E 测试账户",
+      "auth": {
+        "type": "password",
+        "envKey": "E2E_TEST_EMAIL_PASSWORD"
+      },
+      "status": {}
+    }
+  ],
+  "privateSenders": []
+}

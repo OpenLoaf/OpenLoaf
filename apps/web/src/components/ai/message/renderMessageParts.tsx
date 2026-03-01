@@ -224,7 +224,7 @@ export function renderMessageParts(
       const reasoningText = preprocessChatText(reasoningChunks.join("\n\n"));
       if (reasoningText) {
         nodes.push(
-          <motion.div key={`reasoning:${index}:${nextIndex}`} {...motionProps}>
+          <motion.div key={`reasoning:${index}:${nextIndex}`} className="px-1" {...motionProps}>
             <Reasoning isStreaming={isAnimating} defaultOpen={isAnimating}>
               <ReasoningTrigger
                 getThinkingMessage={(isStreaming, duration) => {

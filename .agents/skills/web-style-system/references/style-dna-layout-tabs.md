@@ -10,20 +10,21 @@
 
 ## 1. Visual Material Language
 
-### Glass Capsule Surface
+### Glass Capsule Surface (Shadow-Free)
 
 主容器语法：
 
 - 大圆角胶囊（如 `rounded-3xl`）
 - 半透明背景（如 `bg-white/40`、dark 下深色透明）
 - 细描边（light/dark 各有透明度）
-- 柔和大阴影（不追求锐利高对比）
+- **不使用 box-shadow**——通过背景透明度差异和边框建立层次
 - 背景模糊与饱和度增强（`backdrop-blur` + `backdrop-saturate`）
 
 表达目标：
 
 - 让控件浮在内容之上，但不压过内容。
-- 突出层次，不制造强噪声。
+- 通过透明度分层而非阴影建立视觉层次。
+- 输入框、卡片、面板统一使用 `shadow-none`。
 
 ## 2. Geometry and Sizing Rhythm
 
@@ -50,6 +51,14 @@
 
 - tabs tone 使用低透明彩色背景 + 对应文字色（`sky/emerald/amber/violet/slate`）
 - 彩色只承载状态识别，不做大面积背景
+
+按钮色彩策略：
+
+- **按钮必须带有语义扁平色**，禁止全部使用无色 ghost
+- 主操作：`bg-sky-500/10 text-sky-600 dark:text-sky-400`，hover `bg-sky-500/20`
+- 危险操作：`bg-red-500/10 text-red-600 dark:text-red-400`
+- 成功/确认：`bg-emerald-500/10 text-emerald-600 dark:text-emerald-400`
+- 次要操作可用 ghost，但同一区域至少有一个带色按钮作为视觉锚点
 
 ## 4. Motion Grammar
 
@@ -91,14 +100,18 @@
 
 ### Do
 
-- 保持胶囊、透明层、柔和阴影的一致组合。
+- 保持胶囊、透明层、细边框的一致组合。
 - 优先使用 token 与语义色，而非魔法色值。
 - 保持 tabs 与 dock 的状态语法一致（active/inactive/hover/focus）。
 - 优先通过布局密度和层次解决信息拥挤。
+- **按钮使用扁平语义色**（sky/emerald/amber/red），让用户一眼识别操作意图。
+- 输入框、卡片、面板使用 `shadow-none`，通过透明度和边框建立层次。
 
 ### Don't
 
 - 不要在同一导航区混用多种完全不同圆角体系。
 - 不要用高饱和大色块覆盖整个导航容器。
 - 不要把动效时长拉长到影响操作节奏。
-- 不要把“异常页面样式”反向当作主设计基线。
+- 不要把”异常页面样式”反向当作主设计基线。
+- **不要对输入框、卡片、内容面板添加 box-shadow / ring 阴影**。
+- **不要让所有按钮都是无色 ghost**——至少一个主操作按钮需要带语义色。

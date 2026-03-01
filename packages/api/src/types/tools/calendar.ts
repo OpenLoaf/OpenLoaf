@@ -13,7 +13,7 @@ export const calendarQueryToolDef = {
   id: 'calendar-query',
   name: '日历查询',
   description:
-    '触发：当用户提到日历、日程、任务、待办、提醒、会议、约会、行程安排，或询问"最近有什么事"、"今天/本周/这个月有什么安排"时调用。用途：list-sources 返回所有日历源，list-items 返回指定时间范围内的日程、任务与提醒事项。返回：{ ok: true, data: { mode, sources|items } }。不适用：仅需查看项目列表或项目信息时不要使用，改用 project-query。',
+    '触发：当用户**查询**日历日程（"今天/本周/这个月有什么日程/安排/会议"）时调用。仅用于读取/查询已有日程，不用于创建任务。不适用：用户说"帮我创建任务"/"创建一个任务"/"记一个任务"等创建意图时，改用 task-manage；用户查询应用项目列表时，改用 project-query。用途：list-sources 返回所有日历源，list-items 返回指定时间范围内的日程事项。返回：{ ok: true, data: { mode, sources|items } }。',
   parameters: z.object({
     actionName: z
       .string()

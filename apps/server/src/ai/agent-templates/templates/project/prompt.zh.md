@@ -5,7 +5,10 @@
 <tool_selection>
 - 查询项目列表或详情 → `project-query`
 - 创建（必须传 `title` 字段）、重命名（action:update）、移动（action:move）、删除（action:remove）→ `project-mutate`（写操作必须调用 mutate，不要只用 query 结束）
-- 重命名/移动时：先 query 获取 projectId，再调用 mutate；若 query 失败，直接用用户描述的项目名作为参数尝试 mutate
+- 删除项目（"删除这个项目"）→ 先 query 获取 projectId，取第一个项目 ID，**必须立即调用 `project-mutate`（action: 'remove'）**，不得停在 query 阶段
+- 移动项目（"移到...文件夹"）→ 先 query 获取 projectId，取第一个项目 ID，**必须立即调用 `project-mutate`（action: 'move'）**，不得停在 query 阶段
+- 重命名（"改名"/"重命名"）→ 先 query 获取 projectId，再调用 mutate（action: 'update'）
+- **写操作强制规则**：当用户意图是删除/移动/重命名/创建时，必须在同一轮完成所有步骤（query + mutate），不能只完成 query 就结束；若 query 失败，用 projectId: "first" 尝试 mutate
 </tool_selection>
 
 <execution_guidelines>

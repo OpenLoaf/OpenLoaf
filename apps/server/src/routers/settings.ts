@@ -1245,6 +1245,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
               };
             }
 
+            // Reuse the same model resolution logic as auxiliaryInfer.
             const { generateObject, generateText } = await import("ai");
             const { resolveChatModel } = await import(
               "@/ai/models/resolveChatModel"
@@ -1260,17 +1261,27 @@ export class SettingRouterImpl extends BaseSettingRouter {
                 : conf.localModelIds;
             const chatModelId = modelIds[0]?.trim() || undefined;
 
+            if (!chatModelId) {
+              return {
+                ok: false,
+                result: null,
+                error: "未配置辅助模型，请先在上方「模型选择」中指定模型",
+                durationMs: Date.now() - start,
+              };
+            }
+
             const resolved = await resolveChatModel({
               chatModelId,
               chatModelSource: conf.modelSource,
             });
 
+            // Prompt priority: customPrompt param > saved config > default.
+            const savedCustom = conf.capabilities[input.capabilityKey]?.customPrompt;
             const systemPrompt =
               typeof input.customPrompt === "string"
                 ? input.customPrompt
-                : typeof conf.capabilities[input.capabilityKey]?.customPrompt ===
-                    "string"
-                  ? conf.capabilities[input.capabilityKey]!.customPrompt!
+                : typeof savedCustom === "string"
+                  ? savedCustom
                   : cap.defaultPrompt;
 
             if (cap.outputMode === "text") {
@@ -1283,6 +1294,12 @@ export class SettingRouterImpl extends BaseSettingRouter {
                 ok: true,
                 result: result.text,
                 durationMs: Date.now() - start,
+                usage: {
+                  inputTokens: result.usage?.inputTokens ?? 0,
+                  cachedInputTokens: result.usage?.inputTokenDetails?.cacheReadTokens ?? 0,
+                  outputTokens: result.usage?.outputTokens ?? 0,
+                  totalTokens: (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0),
+                },
               };
             }
 
@@ -1310,6 +1327,12 @@ export class SettingRouterImpl extends BaseSettingRouter {
               ok: true,
               result: result.object,
               durationMs: Date.now() - start,
+              usage: {
+                inputTokens: result.usage?.inputTokens ?? 0,
+                cachedInputTokens: result.usage?.inputTokenDetails?.cacheReadTokens ?? 0,
+                outputTokens: result.usage?.outputTokens ?? 0,
+                totalTokens: (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0),
+              },
             };
           } catch (err: unknown) {
             const message =

@@ -26,6 +26,7 @@ import {
   getUiWriter,
   getWorkspaceId,
 } from "@/ai/shared/context/requestContext";
+import { setActiveQuery, clearActiveQuery } from "./activeQueries";
 import { getProjectRootPath, getWorkspaceRootPathById } from "@openloaf/api/services/vfsService";
 
 /** Default empty warnings payload. */
@@ -258,6 +259,11 @@ async function* createClaudeCodeStream(
       },
     });
 
+    // 存储 Query 引用供外部 tRPC 路由调用（如 answerClaudeCodeQuestion）
+    if (sessionId) {
+      setActiveQuery(sessionId, queryStream);
+    }
+
     for await (const message of queryStream) {
       // --- 流式文本 delta ---
       if (message.type === "stream_event") {
@@ -297,6 +303,48 @@ async function* createClaudeCodeStream(
             yield { type: "text-delta", id: textId, delta: block.text };
           }
           if (block.type === "tool_use") {
+            const toolInput = block.input as Record<string, unknown> | undefined;
+
+            // Plan 文件写入 → 通知前端在 stack 中打开
+            if (block.name === "Write" && isPlanFilePath(toolInput?.file_path)) {
+              if (uiWriter) {
+                uiWriter.write({
+                  type: "data-cc-plan-file",
+                  data: {
+                    filePath: toolInput!.file_path as string,
+                    title: extractPlanFileName(toolInput!.file_path as string),
+                  },
+                  transient: true,
+                } as any);
+              }
+            }
+
+            // ExitPlanMode → 通知前端 plan 已完成
+            if (block.name === "ExitPlanMode") {
+              if (uiWriter) {
+                uiWriter.write({
+                  type: "data-cc-plan-ready",
+                  data: {},
+                  transient: true,
+                } as any);
+              }
+            }
+
+            // AskUserQuestion → 转发问题到前端
+            if (block.name === "AskUserQuestion") {
+              if (uiWriter) {
+                uiWriter.write({
+                  type: "data-cc-user-question",
+                  data: {
+                    sessionId,
+                    toolUseId: block.id,
+                    questions: (toolInput?.questions as unknown[]) ?? [],
+                  },
+                  transient: true,
+                } as any);
+              }
+            }
+
             // CLI 工具由 Claude Code 自行执行，不产生 AI SDK tool-call/tool-result。
             // 工具执行详情通过 tool_use_summary → data-cli-thinking-delta 展示。
             continue;
@@ -475,5 +523,19 @@ async function* createClaudeCodeStream(
   } catch (error) {
     logger.error({ error, sessionId }, "[cli] claude-code stream error");
     throw error;
+  } finally {
+    if (sessionId) clearActiveQuery(sessionId);
   }
+}
+
+// ─── Plan file helpers ──────────────────────────────────────────────────
+
+function isPlanFilePath(filePath: unknown): filePath is string {
+  if (typeof filePath !== "string") return false;
+  return filePath.includes("/.claude/plans/") || filePath.includes(".claude/plans/");
+}
+
+function extractPlanFileName(filePath: string): string {
+  const segments = filePath.split("/");
+  return segments[segments.length - 1] ?? "plan.md";
 }

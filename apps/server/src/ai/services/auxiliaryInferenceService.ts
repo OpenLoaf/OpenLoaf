@@ -61,6 +61,8 @@ type AuxiliaryInferInput<T extends z.ZodType> = {
   fallback: z.infer<T>
   /** Skip cache for this call. */
   noCache?: boolean
+  /** Override the system prompt (used by test UI). */
+  promptOverride?: string
 }
 
 type AuxiliaryInferTextInput = {
@@ -69,6 +71,8 @@ type AuxiliaryInferTextInput = {
   fallback: string
   /** Skip cache for this call. */
   noCache?: boolean
+  /** Override the system prompt (used by test UI). */
+  promptOverride?: string
 }
 
 /**
@@ -86,6 +90,7 @@ export async function auxiliaryInfer<T extends z.ZodType>({
   schema,
   fallback,
   noCache,
+  promptOverride,
 }: AuxiliaryInferInput<T>): Promise<z.infer<T>> {
   try {
     // Check cache
@@ -112,7 +117,11 @@ export async function auxiliaryInfer<T extends z.ZodType>({
     if (!capability) return fallback
     const customPrompt = conf.capabilities[capabilityKey]?.customPrompt
     const systemPrompt =
-      typeof customPrompt === 'string' ? customPrompt : capability.defaultPrompt
+      typeof promptOverride === 'string'
+        ? promptOverride
+        : typeof customPrompt === 'string'
+          ? customPrompt
+          : capability.defaultPrompt
 
     // Call with 3s timeout
     const abortController = new AbortController()
@@ -152,6 +161,7 @@ export async function auxiliaryInferText({
   context,
   fallback,
   noCache,
+  promptOverride,
 }: AuxiliaryInferTextInput): Promise<string> {
   try {
     const key = cacheKey(capabilityKey, context)
@@ -174,7 +184,11 @@ export async function auxiliaryInferText({
     if (!capability) return fallback
     const customPrompt = conf.capabilities[capabilityKey]?.customPrompt
     const systemPrompt =
-      typeof customPrompt === 'string' ? customPrompt : capability.defaultPrompt
+      typeof promptOverride === 'string'
+        ? promptOverride
+        : typeof customPrompt === 'string'
+          ? customPrompt
+          : capability.defaultPrompt
 
     const abortController = new AbortController()
     const timeout = setTimeout(() => abortController.abort(), 3000)

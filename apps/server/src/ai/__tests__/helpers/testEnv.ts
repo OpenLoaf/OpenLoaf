@@ -34,13 +34,18 @@ export async function resolveTestModel() {
   return resolveChatModel({ chatModelId, chatModelSource: 'local' })
 }
 
+/** E2E 测试工作区 ID（与 scripts/docker-e2e/openloaf-root/workspaces.json 一致）。 */
+export const E2E_WORKSPACE_ID = '00000000-e2e0-4000-8000-000000000001'
+
 /**
- * 设置最小 RequestContext（仅 sessionId + cookies）。
+ * 设置最小 RequestContext（sessionId + cookies + workspaceId）。
+ * workspaceId 使用 E2E 测试工作区，确保 calendar/email/project 等工具能正确查询数据。
  */
 export function setMinimalRequestContext() {
   setRequestContext({
     sessionId: `test-${Date.now()}`,
     cookies: {},
+    workspaceId: E2E_WORKSPACE_ID,
   })
 }
 
