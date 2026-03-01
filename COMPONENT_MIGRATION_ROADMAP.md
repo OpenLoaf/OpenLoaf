@@ -2,8 +2,14 @@
 
 ## 执行现状
 
-**✅ 第四步进行中：服务端国际化基础设施完成 75%**
+**✅ 第四步进行中：服务端国际化基础设施完成 85%**
 **✅ 第三步完成：优先级 1-4 全部组件迁移（Priority 1-4 已全部完成）**
+
+### 最新进展（Priority 5）
+**三大核心请求已全部完成：**
+1. ✅ tRPC 错误消息国际化（context.ts、errorMessages.ts、workspace/chat 路由）
+2. ✅ Tool description 多语言框架（task、email、calendar、browser）
+3. ✅ Calendar eventForm 翻译（所有 8 种语言）
 
 **迁移总结**：
 - 🎯 25+ 个核心前端组件已迁移
