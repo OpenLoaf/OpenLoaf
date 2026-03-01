@@ -77,7 +77,7 @@ export function buildCliModelOptions(
 }
 
 /** Normalize model source to local/cloud. */
-export function normalizeChatModelSource(value: unknown): ChatModelSource {
+export function normalizeChatModelSource(value: unknown): 'local' | 'cloud' {
   // 中文注释：只允许 local/cloud，非法值一律回退为 local。
   return value === "cloud" ? "cloud" : "local";
 }

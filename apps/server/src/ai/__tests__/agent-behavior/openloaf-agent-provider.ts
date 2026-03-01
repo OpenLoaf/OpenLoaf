@@ -35,7 +35,7 @@ type ToolCallRecord = {
 }
 
 export default class OpenLoafAgentProvider implements ApiProvider {
-  private config: { toolIds?: string[] }
+  config: { toolIds?: string[] }
 
   constructor(options?: { config?: Record<string, unknown> }) {
     this.config = (options?.config ?? {}) as { toolIds?: string[] }

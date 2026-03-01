@@ -7,7 +7,7 @@ async function main() {
   }
   const messages = await prisma.emailMessage.findMany()
   for (const m of messages) {
-    console.log('message:', m.id, m.subject, 'mailboxId:', m.mailboxId)
+    console.log('message:', m.id, m.subject, 'mailboxPath:', m.mailboxPath)
   }
 }
 

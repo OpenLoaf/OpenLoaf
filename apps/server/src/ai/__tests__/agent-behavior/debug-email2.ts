@@ -1,13 +1,12 @@
 import prisma from '@openloaf/db'
 
 async function main() {
-  const messages = await prisma.emailMessage.findMany({ include: { mailbox: true } })
+  const messages = await prisma.emailMessage.findMany()
   console.log('Messages:', JSON.stringify(messages.map(m => ({
     id: m.id,
     subject: m.subject,
-    workspaceId: m.mailbox?.workspaceId ?? 'N/A',
-    mailboxId: m.mailboxId,
-    mailboxName: m.mailbox?.name ?? 'N/A',
+    workspaceId: m.workspaceId,
+    mailboxPath: m.mailboxPath,
   })), null, 2))
 }
 

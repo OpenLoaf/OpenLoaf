@@ -13,10 +13,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import ApprovalModeSelector from '../ApprovalModeSelector'
 
 describe('ApprovalModeSelector', () => {
-  let onChange: ReturnType<typeof vi.fn>
+  let onChange: ReturnType<typeof vi.fn> & ((value: any) => void)
 
   beforeEach(() => {
-    onChange = vi.fn()
+    onChange = vi.fn() as any
   })
 
   afterEach(() => {
