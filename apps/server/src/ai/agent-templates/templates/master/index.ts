@@ -45,7 +45,7 @@ export const masterTemplate: AgentTemplate = {
     'js-repl',
     'js-repl-reset',
     // task
-    'create-task',
+    'task-manage',
     'task-status',
     // extra
     'request-user-input',

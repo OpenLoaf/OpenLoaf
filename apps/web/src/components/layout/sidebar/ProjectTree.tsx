@@ -1705,7 +1705,7 @@ export const PageTreeMenu = ({
           <div className="w-full px-2 py-3 text-center text-xs text-muted-foreground/70">
             {/* 逻辑：无项目时显示空态文案。 */}
             <div>暂无项目</div>
-            <div className="mt-1">请新增或导入项目</div>
+            <div className="mt-1">请新增或添加已有文件夹</div>
           </div>
         </SidebarMenuItem>
       ) : (
@@ -1758,7 +1758,7 @@ export const PageTreeMenu = ({
               onClick={() => onImportProject?.()}
             >
               <FolderOpen className="h-3 w-3" />
-              <span>导入项目</span>
+              <span>添加文件夹</span>
             </Button>
           </div>
         </div>

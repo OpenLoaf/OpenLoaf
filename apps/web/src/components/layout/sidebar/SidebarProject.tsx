@@ -9,9 +9,9 @@
  */
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc";
+import { trpc, trpcClient } from "@/utils/trpc";
 import { useProjects } from "@/hooks/use-projects";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import {
@@ -34,6 +34,7 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -120,6 +121,40 @@ export const SidebarProject = () => {
   const [isImportBusy, setIsImportBusy] = useState(false);
   /** Tracks manual refresh loading state. */
   const [isManualRefresh, setIsManualRefresh] = useState(false);
+  /** Whether the import path is detected as a git project (null = not checked yet). */
+  const [importPathIsGit, setImportPathIsGit] = useState<boolean | null>(null);
+  const checkPathTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Debounced check whether the import path is a git project. */
+  const checkImportPathGit = useCallback(
+    (dirPath: string) => {
+      if (checkPathTimerRef.current) clearTimeout(checkPathTimerRef.current);
+      const trimmed = dirPath.trim();
+      if (!trimmed) {
+        setImportPathIsGit(null);
+        return;
+      }
+      checkPathTimerRef.current = setTimeout(async () => {
+        try {
+          const result = await trpcClient.project.checkPath.query({ dirPath: trimmed });
+          setImportPathIsGit(result.isGitProject);
+          if (result.isGitProject) {
+            setEnableVersionControl(true);
+          }
+        } catch {
+          setImportPathIsGit(null);
+        }
+      }, 400);
+    },
+    [],
+  );
+
+  // 清理 timer
+  useEffect(() => {
+    return () => {
+      if (checkPathTimerRef.current) clearTimeout(checkPathTimerRef.current);
+    };
+  }, []);
 
   /** Create a new project and refresh list. */
   const handleCreateProject = async () => {
@@ -206,27 +241,29 @@ export const SidebarProject = () => {
     return null;
   };
 
-  /** Import an existing project into workspace config. */
+  /** Import an existing folder as a project into workspace. */
   const handleImportProject = async () => {
     const path = importPath.trim();
     if (!path) {
-      toast.error("请选择项目目录");
+      toast.error("请选择文件夹");
       return;
     }
     try {
       setIsImportBusy(true);
-      // 中文注释：导入时直接写入配置并刷新列表，避免多余弹窗。
+      // Git 项目无需再初始化版本控制；非 Git 项目按用户选择决定。
+      const shouldEnableVc = importPathIsGit === true ? true : enableVersionControl;
       await createProject.mutateAsync({
         rootUri: path,
-        enableVersionControl,
+        enableVersionControl: shouldEnableVc,
       });
-      toast.success("项目已导入");
+      toast.success("已添加到工作空间");
       setIsImportOpen(false);
       setImportPath("");
       setEnableVersionControl(true);
+      setImportPathIsGit(null);
       await projectListQuery.refetch();
     } catch (err: any) {
-      toast.error(err?.message ?? "导入失败");
+      toast.error(err?.message ?? "添加失败");
     } finally {
       setIsImportBusy(false);
     }
@@ -274,7 +311,7 @@ export const SidebarProject = () => {
             新建项目
           </ContextMenuItem>
           <ContextMenuItem icon={FolderOpen} onClick={() => setIsImportOpen(true)}>
-            导入项目
+            添加已有文件夹
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
@@ -296,13 +333,16 @@ export const SidebarProject = () => {
           setEnableVersionControl(true);
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>新建项目</DialogTitle>
+        <DialogContent className="max-w-[480px] rounded-2xl border border-border/60 bg-background p-0 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+          <DialogHeader className="px-6 pt-6 pb-3">
+            <DialogTitle className="text-[16px] font-semibold">新建项目</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              创建新的项目文件夹并加入工作空间。
+            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="project-title" className="text-right">
+          <div className="flex flex-col divide-y divide-border/40 px-6">
+            <div className="flex items-center gap-3 py-2.5">
+              <Label htmlFor="project-title" className="shrink-0 text-sm font-medium text-foreground">
                 显示名称
               </Label>
               <Input
@@ -311,13 +351,13 @@ export const SidebarProject = () => {
                 onChange={(event) => {
                   const nextValue = event.target.value;
                   setCreateTitle(nextValue);
-                  // 中文注释：文件夹名称未手动修改时，默认与显示名称同步。
                   if (isFolderNameSynced) {
                     setFolderName(nextValue);
                   }
                 }}
-                className="col-span-3"
+                className="ml-auto h-8 w-full max-w-[280px] border-0 bg-transparent text-right text-sm text-foreground shadow-none focus-visible:ring-0"
                 autoFocus
+                placeholder="我的项目"
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     handleCreateProject();
@@ -325,8 +365,8 @@ export const SidebarProject = () => {
                 }}
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="project-folder-name" className="text-right">
+            <div className="flex items-center gap-3 py-2.5">
+              <Label htmlFor="project-folder-name" className="shrink-0 text-sm font-medium text-foreground">
                 文件夹名称
               </Label>
               <Input
@@ -336,7 +376,7 @@ export const SidebarProject = () => {
                   setFolderName(event.target.value);
                   setIsFolderNameSynced(false);
                 }}
-                className="col-span-3"
+                className="ml-auto h-8 w-full max-w-[280px] border-0 bg-transparent text-right text-sm text-foreground shadow-none focus-visible:ring-0"
                 placeholder="默认与显示名称一致"
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -345,35 +385,37 @@ export const SidebarProject = () => {
                 }}
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="project-custom-path" className="text-right">
+            <div className="flex items-center gap-3 py-2.5">
+              <Label htmlFor="project-custom-path" className="shrink-0 text-sm font-medium text-foreground">
                 自定义路径
               </Label>
-              <div className="col-span-3 flex items-center gap-3">
+              <div className="ml-auto flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">
+                  指定项目目录
+                </span>
                 <Switch
                   checked={useCustomPath}
                   onCheckedChange={(checked) => setUseCustomPath(Boolean(checked))}
                 />
-                <span className="text-xs text-muted-foreground">
-                  勾选后可指定项目目录
-                </span>
               </div>
             </div>
             {useCustomPath ? (
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="project-custom-path-input" className="text-right">
+              <div className="flex items-center gap-3 py-2.5">
+                <Label htmlFor="project-custom-path-input" className="shrink-0 text-sm font-medium text-foreground">
                   路径
                 </Label>
-                <div className="col-span-3 flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-2">
                   <Input
                     id="project-custom-path-input"
                     value={customPath}
                     onChange={(event) => setCustomPath(event.target.value)}
+                    className="h-8 max-w-[220px] rounded-full border border-border/70 bg-muted/40 px-3 text-xs text-foreground shadow-none focus-visible:ring-0"
                     placeholder="/path/to/project"
                   />
                   <Button
                     type="button"
                     variant="outline"
+                    className="h-8 rounded-full px-3 text-xs"
                     onClick={async () => {
                       const next = await pickDirectory(customPath);
                       if (!next) return;
@@ -385,11 +427,11 @@ export const SidebarProject = () => {
                 </div>
               </div>
             ) : null}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="project-version-control" className="text-right">
-                项目版本控制
+            <div className="flex items-center gap-3 py-2.5">
+              <Label htmlFor="project-version-control" className="shrink-0 text-sm font-medium text-foreground">
+                版本控制
               </Label>
-              <div className="col-span-3 flex items-center gap-3">
+              <div className="ml-auto">
                 <Switch
                   id="project-version-control"
                   checked={enableVersionControl}
@@ -397,20 +439,25 @@ export const SidebarProject = () => {
                     setEnableVersionControl(Boolean(checked))
                   }
                 />
-                <span className="text-xs text-muted-foreground">
-                  默认启用，可随时关闭
-                </span>
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t border-border/30 px-6 py-4 gap-2">
             <DialogClose asChild>
-              <Button variant="outline" type="button">
+              <Button
+                variant="outline"
+                type="button"
+                className="h-9 rounded-full px-5 text-[13px] text-[var(--btn-neutral-fg,#5f6368)] hover:bg-[var(--btn-neutral-bg-hover,#e8eaed)] dark:text-slate-300 dark:hover:bg-slate-700"
+              >
                 取消
               </Button>
             </DialogClose>
-            <Button onClick={handleCreateProject} disabled={isBusy}>
-              创建
+            <Button
+              onClick={handleCreateProject}
+              disabled={isBusy}
+              className="h-9 rounded-full px-5 text-[13px] bg-[var(--btn-primary-bg,#0b57d0)] text-[var(--btn-primary-fg,#ffffff)] shadow-none hover:bg-[var(--btn-primary-bg-hover,#0a4cbc)] dark:bg-sky-600 dark:hover:bg-sky-500"
+            >
+              {isBusy ? "创建中..." : "创建"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -423,68 +470,87 @@ export const SidebarProject = () => {
             setIsImportOpen(true);
             setEnableVersionControl(true);
             setImportPath("");
+            setImportPathIsGit(null);
             return;
           }
           setIsImportOpen(false);
           setImportPath("");
           setEnableVersionControl(true);
+          setImportPathIsGit(null);
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>导入项目</DialogTitle>
+        <DialogContent className="max-w-[480px] rounded-2xl border border-border/60 bg-background p-0 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+          <DialogHeader className="px-6 pt-6 pb-3">
+            <DialogTitle className="text-[16px] font-semibold">添加已有文件夹</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              选择电脑上的文件夹，作为项目加入工作空间。
+            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="project-import-path" className="text-right">
-                路径
+          <div className="flex flex-col divide-y divide-border/40 px-6">
+            <div className="flex items-center gap-3 py-2.5">
+              <Label htmlFor="project-import-path" className="shrink-0 text-sm font-medium text-foreground">
+                文件夹路径
               </Label>
-              <div className="col-span-3 flex items-center gap-2">
+              <div className="ml-auto flex items-center gap-2">
                 <Input
                   id="project-import-path"
                   value={importPath}
-                  onChange={(event) => setImportPath(event.target.value)}
-                  placeholder="file://... 或 /path/to/project"
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setImportPath(next);
+                    checkImportPathGit(next);
+                  }}
+                  className="h-8 max-w-[220px] rounded-full border border-border/70 bg-muted/40 px-3 text-xs text-foreground shadow-none focus-visible:ring-0"
+                  placeholder="选择文件夹"
                 />
                 <Button
                   type="button"
                   variant="outline"
+                  className="h-8 rounded-full px-3 text-xs"
                   onClick={async () => {
                     const next = await pickDirectory(importPath);
                     if (!next) return;
                     setImportPath(next);
+                    checkImportPathGit(next);
                   }}
                 >
                   选择
                 </Button>
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="project-import-version-control" className="text-right">
-                项目版本控制
-              </Label>
-              <div className="col-span-3 flex items-center gap-3">
-                <Switch
-                  id="project-import-version-control"
-                  checked={enableVersionControl}
-                  onCheckedChange={(checked) =>
-                    setEnableVersionControl(Boolean(checked))
-                  }
-                />
-                <span className="text-xs text-muted-foreground">
-                  默认启用，可随时关闭
-                </span>
+            {importPathIsGit === false && (
+              <div className="flex items-center gap-3 py-2.5">
+                <Label htmlFor="project-import-version-control" className="shrink-0 text-sm font-medium text-foreground">
+                  启用版本控制
+                </Label>
+                <div className="ml-auto">
+                  <Switch
+                    id="project-import-version-control"
+                    checked={enableVersionControl}
+                    onCheckedChange={(checked) =>
+                      setEnableVersionControl(Boolean(checked))
+                    }
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t border-border/30 px-6 py-4 gap-2">
             <DialogClose asChild>
-              <Button variant="outline" type="button">
+              <Button
+                variant="outline"
+                type="button"
+                className="h-9 rounded-full px-5 text-[13px] text-[var(--btn-neutral-fg,#5f6368)] hover:bg-[var(--btn-neutral-bg-hover,#e8eaed)] dark:text-slate-300 dark:hover:bg-slate-700"
+              >
                 取消
               </Button>
             </DialogClose>
-            <Button onClick={handleImportProject} disabled={isImportBusy}>
-              导入
+            <Button
+              onClick={handleImportProject}
+              disabled={isImportBusy}
+              className="h-9 rounded-full px-5 text-[13px] bg-[var(--btn-primary-bg,#0b57d0)] text-[var(--btn-primary-fg,#ffffff)] shadow-none hover:bg-[var(--btn-primary-bg-hover,#0a4cbc)] dark:bg-sky-600 dark:hover:bg-sky-500"
+            >
+              {isImportBusy ? "添加中..." : "添加"}
             </Button>
           </DialogFooter>
         </DialogContent>

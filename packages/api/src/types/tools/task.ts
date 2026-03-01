@@ -10,18 +10,46 @@
 import { z } from 'zod'
 import { RiskType } from '../toolResult'
 
-export const createTaskToolDef = {
-  id: 'create-task',
-  name: '创建后台任务',
-  description:
-    '创建后台任务。不传 schedule 则立即执行一次（适用于多步骤开发、重构等）；传 schedule 则按时间调度自动执行（定时/周期/cron）。',
+export const taskManageToolDef = {
+  id: 'task-manage',
+  name: '任务管理',
+  description: `管理后台任务的全生命周期。通过 action 参数选择操作：
+
+- create: 创建任务。不传 schedule 则立即执行；传 schedule 则按时间调度。
+- cancel: 取消任务（todo/running/review → cancelled）。
+- delete: 删除任务（仅允许 done/cancelled 状态）。活跃任务须先 cancel。
+- run: 启动待办任务（todo → running）。
+- resolve: 处理审批任务（review → done/todo/cancelled），需传 resolveAction。
+- archive: 归档已完成任务（done → 归档）。
+- cancelAll: 批量取消所有活跃任务（todo/running/review → cancelled）。
+- deleteAll: 批量删除已终结任务（仅 done/cancelled），不会删除活跃任务。
+- archiveAll: 批量归档所有已完成任务。
+
+状态保护规则：delete/deleteAll 仅允许 done 和 cancelled 状态的任务。`,
   parameters: z.object({
     actionName: z
       .string()
       .min(1)
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的。'),
-    title: z.string().min(1).describe('任务摘要（简洁描述做什么）'),
-    description: z.string().optional().describe('任务详细描述（需求、背景、验收标准）'),
+    action: z
+      .enum([
+        'create',
+        'cancel',
+        'delete',
+        'run',
+        'resolve',
+        'archive',
+        'cancelAll',
+        'deleteAll',
+        'archiveAll',
+      ])
+      .describe('要执行的操作类型'),
+    // create 参数
+    title: z
+      .string()
+      .optional()
+      .describe('任务摘要（create 时必填）'),
+    description: z.string().optional().describe('任务详细描述'),
     priority: z
       .enum(['urgent', 'high', 'medium', 'low'])
       .optional()
@@ -31,43 +59,64 @@ export const createTaskToolDef = {
       .object({
         type: z
           .enum(['once', 'interval', 'cron'])
-          .describe(
-            '调度类型。once=在指定时间执行一次；interval=每隔固定毫秒重复；cron=按 cron 表达式周期执行',
-          ),
+          .describe('调度类型'),
         scheduleAt: z
           .string()
           .optional()
-          .describe('once 类型必填，ISO 8601 时间字符串，如 "2025-03-01T09:00:00+08:00"'),
+          .describe('once 类型必填，ISO 8601 时间字符串'),
         intervalMs: z
           .number()
           .optional()
-          .describe(
-            'interval 类型必填，执行间隔毫秒数，最小 60000（1分钟）。例：300000=5分钟，3600000=1小时',
-          ),
+          .describe('interval 类型必填，执行间隔毫秒数，最小 60000'),
         cronExpr: z
           .string()
           .optional()
-          .describe(
-            'cron 类型必填，5 段 cron 表达式（分 时 日 月 周）。例："*/5 * * * *"=每5分钟，"0 9 * * 1-5"=工作日9点',
-          ),
+          .describe('cron 类型必填，5 段 cron 表达式'),
         timezone: z
           .string()
           .optional()
-          .describe('时区，如 "Asia/Shanghai"，不传使用系统默认'),
+          .describe('时区，不传使用系统默认'),
       })
       .optional()
-      .describe('定时/周期执行的调度配置。不传则任务立即执行一次'),
+      .describe('定时/周期执行的调度配置（仅 create 使用）'),
     skipPlanConfirm: z
       .boolean()
       .optional()
       .default(false)
-      .describe('是否跳过计划确认直接执行（仅一次性任务有效）'),
+      .describe('是否跳过计划确认直接执行（仅 create 一次性任务有效）'),
     agentName: z
       .string()
       .optional()
-      .describe('指定执行的 Agent 名称，不传默认用主 Agent'),
+      .describe('指定执行的 Agent 名称'),
+    // 单任务操作参数
+    taskId: z
+      .string()
+      .optional()
+      .describe('任务 ID（cancel/delete/run/resolve/archive 时必填）'),
+    // resolve 参数
+    resolveAction: z
+      .enum(['approve', 'reject', 'rework'])
+      .optional()
+      .describe('审批动作（resolve 时必填）'),
+    reason: z
+      .string()
+      .optional()
+      .describe('操作原因说明（cancel/resolve 可选）'),
+    // batch 参数
+    statusFilter: z
+      .array(z.enum(['todo', 'running', 'review', 'done', 'cancelled']))
+      .optional()
+      .describe('批量操作的状态过滤（deleteAll 会强制限定为 done/cancelled）'),
   }),
   component: 'TaskTool',
+} as const
+
+/**
+ * @deprecated 使用 taskManageToolDef 替代。保留用于向后兼容。
+ */
+export const createTaskToolDef = {
+  ...taskManageToolDef,
+  id: 'create-task',
 } as const
 
 export const taskStatusToolDef = {
@@ -89,6 +138,7 @@ export const taskStatusToolDef = {
 } as const
 
 export const taskToolMeta = {
+  [taskManageToolDef.id]: { riskType: RiskType.Write },
   [createTaskToolDef.id]: { riskType: RiskType.Write },
   [taskStatusToolDef.id]: { riskType: RiskType.Read },
 } as const

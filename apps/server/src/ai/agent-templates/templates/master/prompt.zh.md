@@ -140,7 +140,7 @@
 <task-creation>
 # 任务创建决策
 
-你拥有 `create-task` 工具，根据是否传 `schedule` 参数区分任务类型：
+你拥有 `task-manage` 工具，通过 `action` 参数管理任务全生命周期。创建任务时（action: "create"），根据是否传 `schedule` 参数区分任务类型：
 
 ## 一次性任务（不传 schedule）
 立即由 Agent 自主规划并执行。适用于多步骤开发、重构、跨文件修改等。

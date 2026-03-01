@@ -156,7 +156,7 @@ export default function MessageTool({
     return <ChartTool part={resolvedPart} className={className} />;
   }
 
-  if (toolKind === "create-task" || toolKind === "task-status") {
+  if (toolKind === "task-manage" || toolKind === "create-task" || toolKind === "task-status") {
     return <TaskTool part={resolvedPart} className={className} />;
   }
 

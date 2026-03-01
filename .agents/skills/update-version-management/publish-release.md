@@ -32,12 +32,23 @@ npm version patch
 node scripts/publish-update.mjs
 ```
 
-### Electron 本体发布
+### Electron 桌面端发布（CI/CD 自动化）
+
+Electron 通过 GitHub Actions 全自动构建发布，不再本地执行。
 
 ```bash
-cd apps/desktop
-pnpm run dist:production    # package + sign + notarize + upload
+# 1. 确认版本号和 changelog
+cat apps/desktop/package.json | grep version
+ls apps/desktop/changelogs/{version}/
+
+# 2. 打 tag 触发 CI 构建
+git tag electron-v{version}
+git push origin electron-v{version}
 ```
+
+CI 自动完成：多平台构建（macOS ARM64/x64 + Windows + Linux）→ R2 上传 → GitHub Release → 版本号 +1。
+
+详见 SKILL.md 中「Electron 桌面端发布」章节。
 
 ## 发布脚本流程（Server 示例）
 
@@ -52,14 +63,21 @@ pnpm run dist:production    # package + sign + notarize + upload
 ## R2 目录结构
 
 ```
-openloaf-update.hexems.com/
+r2-openloaf-update.hexems.com/
 ├── stable/manifest.json         # stable 渠道增量更新清单
 ├── beta/manifest.json           # beta 渠道增量更新清单
 ├── manifest.json                # 旧格式（已废弃，过渡期保留）
-├── electron/                    # Electron 本体更新（不分渠道）
-│   ├── latest-mac.yml
-│   ├── OpenLoaf-1.0.0-arm64.dmg
-│   └── OpenLoaf-1.0.0-arm64-mac.zip
+├── desktop/                     # Electron 桌面端更新（CI 自动上传）
+│   ├── latest-mac.yml           # macOS 自动更新清单
+│   ├── latest.yml               # Windows 自动更新清单
+│   ├── latest-linux.yml         # Linux 自动更新清单
+│   ├── OpenLoaf-0.2.0-MacOS-arm64.dmg
+│   ├── OpenLoaf-0.2.0-MacOS-arm64.zip
+│   ├── OpenLoaf-0.2.0-MacOS-x64.dmg
+│   ├── OpenLoaf-0.2.0-MacOS-x64.zip
+│   ├── OpenLoaf-0.2.0-Windows-Installer.exe
+│   ├── OpenLoaf-0.2.0-Linux.AppImage
+│   └── *.blockmap               # 增量更新用的 blockmap 文件
 ├── server/                      # Server 构件共享池
 │   ├── 1.0.0/server.mjs.gz
 │   └── 1.0.1-beta.1/server.mjs.gz
@@ -78,7 +96,6 @@ openloaf-update.hexems.com/
 ---
 version: 1.0.1
 date: 2026-02-08
-commitId: 9f7d1b84c2fec4488ba54ba90a806982d8fa4cc6
 ---
 
 ## 新功能
@@ -91,7 +108,8 @@ commitId: 9f7d1b84c2fec4488ba54ba90a806982d8fa4cc6
 - 目录结构：`changelogs/{version}/{lang}.md`（如 `changelogs/0.1.0/zh.md`、`changelogs/0.1.0/en.md`）
 - 每个版本必须有 `zh.md`（默认语言），`en.md` 等其他语言可选
 - `version` 字段不需要 `channel`（从版本号推断）
-- Changelog 直接从 GitHub raw content 读取（公开仓库），无需上传到 R2
+- Server/Web 的 changelog 直接从 GitHub raw content 读取（公开仓库），无需上传到 R2
+- Desktop 的 changelog 由 CI `create-release` job 读取并写入 GitHub Release body
 - manifest 中 `changelogUrl` 指向 GitHub raw URL（不含语言后缀，客户端拼接 `/{lang}.md`）
 
 ## 共享工具模块
@@ -114,7 +132,7 @@ commitId: 9f7d1b84c2fec4488ba54ba90a806982d8fa4cc6
 
 ## 环境变量
 
-发布脚本需要以下变量（来自 `.env.prod`）：
+发布脚本需要以下变量（来自 `.env.prod` 或 CI secrets）：
 
 | 变量 | 说明 |
 |------|------|
@@ -123,6 +141,8 @@ commitId: 9f7d1b84c2fec4488ba54ba90a806982d8fa4cc6
 | `R2_ENDPOINT` | R2 S3 兼容 endpoint |
 | `R2_ACCESS_KEY_ID` | R2 访问密钥 ID |
 | `R2_SECRET_ACCESS_KEY` | R2 访问密钥 Secret |
+
+CI 中这些变量通过 GitHub Secrets 注入。
 
 ## Beta 转 Stable
 
@@ -138,3 +158,7 @@ commitId: 9f7d1b84c2fec4488ba54ba90a806982d8fa4cc6
 - 增量更新只检查版本是否不同，不做大小比较，beta→stable 不会自动回退
 - electron-builder `signIgnore` 使用 **regex**（`\\.js$`），不是 glob
 - `extraMetadata.main` 必须匹配架构（由 `scripts/dist.mjs` 动态处理）
+- `dist.mjs` 自动添加 `--publish=never`，阻止 electron-builder 因检测到 git tag 而自动发布到 Snap Store 等
+- Desktop CI 中 Web 构建需要 `NEXT_PUBLIC_*` 环境变量（构建时内联，非运行时）
+- Linux 仅构建 AppImage（`package.json` 中 `build.linux.target: ["AppImage"]`）
+- GitHub Release 中只上传安装包（DMG/exe/AppImage），不上传 `.zip`（自动更新用）和 `.blockmap`

@@ -512,7 +512,11 @@ function FilterBar({
 
 // ─── Main Component ───────────────────────────────────────────────────
 
-export default function TaskBoardPage() {
+export default function TaskBoardPage({
+  projectId,
+}: {
+  projectId?: string
+}) {
   const { workspace } = useWorkspace()
   const queryClient = useQueryClient()
   const pushStackItem = useTabRuntime((state) => state.pushStackItem)
@@ -527,7 +531,7 @@ export default function TaskBoardPage() {
   const workspaceId = workspace?.id ?? ''
 
   const { data: tasks = [], isLoading } = useQuery(
-    trpc.scheduledTask.list.queryOptions({ workspaceId }),
+    trpc.scheduledTask.list.queryOptions({ workspaceId, projectId }),
   )
 
   const resolveReviewMutation = useMutation(
@@ -576,23 +580,23 @@ export default function TaskBoardPage() {
       if (task.status === targetStatus) return
       if (!isValidTransition(task.status, targetStatus)) return
 
-      updateStatusMutation.mutate({ id: task.id, status: targetStatus })
+      updateStatusMutation.mutate({ id: task.id, status: targetStatus, projectId })
     },
-    [updateStatusMutation],
+    [updateStatusMutation, projectId],
   )
 
   const onResolveReview = useCallback(
     (id: string, action: 'approve' | 'reject' | 'rework') => {
-      resolveReviewMutation.mutate({ id, action })
+      resolveReviewMutation.mutate({ id, action, projectId })
     },
-    [resolveReviewMutation],
+    [resolveReviewMutation, projectId],
   )
 
   const onCancel = useCallback(
     (id: string) => {
-      cancelMutation.mutate({ id, status: 'cancelled' })
+      cancelMutation.mutate({ id, status: 'cancelled', projectId })
     },
-    [cancelMutation],
+    [cancelMutation, projectId],
   )
 
   const onOpenDetail = useCallback(
@@ -604,10 +608,10 @@ export default function TaskBoardPage() {
         sourceKey: `task-detail:${id}`,
         component: 'task-detail',
         title: task?.name ?? '任务详情',
-        params: { taskId: id, workspaceId },
+        params: { taskId: id, workspaceId, projectId },
       })
     },
-    [activeTabId, pushStackItem, tasks, workspaceId],
+    [activeTabId, pushStackItem, tasks, workspaceId, projectId],
   )
 
   const activateAiChat = useCallback(() => {
@@ -823,6 +827,7 @@ export default function TaskBoardPage() {
         onOpenChange={setDialogOpen}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: [['scheduledTask']] })}
         workspaceId={workspaceId}
+        projectId={projectId}
         task={null}
       />
     </div>

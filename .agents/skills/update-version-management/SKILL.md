@@ -10,9 +10,11 @@ description: >
 
 # Update & Version Management
 
+> **⚠️ 维护要求：当发布流程、CI/CD 配置、产物命名、R2 目录结构或版本管理策略发生任何变更时，必须同步更新本 skill 的相关文档（SKILL.md、publish-release.md、update-system.md）。** 过时的 skill 会导致 AI 按错误流程操作，造成发布失败或产物不一致。每次修改发布相关代码后，请检查本 skill 是否需要同步更新。
+
 ## Overview
 
-OpenLoaf 的版本发布采用“先发布、后加一”的流程：提交变更 → 直接打包并更新 → 发布成功后打 git tag → 发布完成后版本号自动加一并提交。这样每次代码改动都在新版本上进行，不需要再手动标记“是否改过代码”。每个 app 使用独立 tag（`server-v0.1.1`、`web-v0.1.2`、`electron-v1.0.0`），通过 `git describe --match "{app}-v*"` 定位上次发布点，支持各 app 独立版本节奏。
+OpenLoaf 的版本发布采用"先发布、后加一"的流程：提交变更 → 直接打包并更新 → 发布成功后打 git tag → 发布完成后版本号自动加一并提交。这样每次代码改动都在新版本上进行，不需要再手动标记"是否改过代码"。每个 app 使用独立 tag（`server-v0.1.1`、`web-v0.1.2`、`electron-v1.0.0`），通过 `git describe --match "{app}-v*"` 定位上次发布点，支持各 app 独立版本节奏。
 
 ## When to Use
 
@@ -57,9 +59,11 @@ OpenLoaf 的版本发布采用“先发布、后加一”的流程：提交变�
 
 ## Release Workflow（版本发布流程）
 
-当用户要求发布新版本时，**严格按以下步骤顺序执行**：
+### Server/Web 增量更新
 
-### Step 1: 提交未暂存的变更
+当用户要求发布 Server/Web 新版本时，**严格按以下步骤顺序执行**：
+
+#### Step 1: 提交未暂存的变更
 
 ```bash
 git status
@@ -68,9 +72,7 @@ git status
 - 有未提交变更 → 总结内容，`git add -A && git commit -m "<summary>" && git push`
 - 工作区干净 → 跳过
 
-### Step 2: 通过 git tag 定位上次发布点（用于生成发布说明）
-
-对每个要发布的 app（`server`/`web`/`electron`）：
+#### Step 2: 通过 git tag 定位上次发布点（用于生成发布说明）
 
 ```bash
 git describe --match "{app}-v*" --abbrev=0
@@ -79,7 +81,7 @@ git describe --match "{app}-v*" --abbrev=0
 
 如果没有找到 tag（首次发布），用 `git log --oneline -20` 让用户确认范围。
 
-### Step 2.5: 未明确发布范围时，自动分析改动范围并确认
+#### Step 2.5: 未明确发布范围时，自动分析改动范围并确认
 
 如果用户没有特别说明要发布哪些服务，先自动分析上个版本到当前的改动范围，并询问是否需要推送对应服务：
 
@@ -88,14 +90,12 @@ git describe --match "{app}-v*" --abbrev=0
 git log server-v{lastVersion}..HEAD --oneline --no-merges -- apps/server/ packages/
 # web
 git log web-v{lastVersion}..HEAD --oneline --no-merges -- apps/web/ packages/
-# desktop
-git log electron-v{lastVersion}..HEAD --oneline --no-merges -- apps/desktop/ packages/
 ```
 
-- 若某个服务无改动，明确标记为“无变更”
+- 若某个服务无改动，明确标记为"无变更"
 - 若有改动，列出简要变更并**询问用户是否需要推送该服务**
 
-### Step 3: 收集并总结 commit 历史（可选但推荐）
+#### Step 3: 收集并总结 commit 历史（可选但推荐）
 
 ```bash
 git log {app}-v{lastVersion}..HEAD --oneline --no-merges -- apps/{app}/ packages/
@@ -109,22 +109,7 @@ git log {app}-v{lastVersion}..HEAD --oneline --no-merges -- apps/{app}/ packages
 
 可选：如需维护 changelog，请在打 tag 前创建 `apps/{app}/changelogs/{currentVersion}/zh.md` 和 `en.md`。
 
-**Changelog front matter 格式：**
-
-```markdown
----
-version: {currentVersion}
-date: {YYYY-MM-DD}
----
-
-## 新功能
-- ...
-
-## 修复
-- ...
-```
-
-### Step 4: 打包前执行类型检查并修复
+#### Step 4: 打包前执行类型检查并修复
 
 ```bash
 pnpm check-types
@@ -133,55 +118,128 @@ pnpm check-types
 - 发现问题必须先修复再继续
 - **优先使用 sub agent 代理执行修复**
 
-### Step 5: 直接打包并更新（使用当前版本号）
-
-按发布范围执行（publish-update 内含打包与上传）：
+#### Step 5: 直接打包并更新（使用当前版本号）
 
 ```bash
 cd apps/server && pnpm run publish-update
 cd apps/web && pnpm run publish-update
 ```
 
-Electron 本体发布：
-
-```bash
-cd apps/desktop && pnpm run dist:production
-```
-
 **如果任何命令失败，立即停止，报告错误，不继续后续步骤。**
 
-> 说明：当前版本号用于本次发布，不做提前升版本号。
-
-### Step 6: 发布成功后打 git tag 并推送
-
-为本次实际发布的 app 打 tag（tag 指向当前发布的 commit）：
+#### Step 6: 发布成功后打 git tag 并推送
 
 ```bash
 git tag -a server-v{currentVersion} -m "release: server@{currentVersion}"
 git tag -a web-v{currentVersion} -m "release: web@{currentVersion}"
-git tag -a electron-v{currentVersion} -m "release: electron@{currentVersion}"
 git push && git push origin --tags
 ```
 
-### Step 7: 发布完成后版本号自动加一并提交（开始下一版本开发）
+#### Step 7: 发布完成后版本号自动加一并提交
 
 1. **询问用户** patch/minor/major 或具体版本号（通常是 patch）
 2. 更新 package.json：
    ```bash
    cd apps/{app} && npm version {type} --no-git-tag-version
    ```
-3. 创建下一版本的 changelog 目录（可选）：
-   ```bash
-   mkdir -p apps/{app}/changelogs/{nextVersion}
-   ```
-4. 提交并推送：
+3. 提交并推送：
    ```bash
    git add -A
    git commit -m "chore: bump {app} to {nextVersion}"
    git push
    ```
 
-**Tag 命名规则：** `{app}-v{version}`（如 `server-v0.1.2`、`web-v0.1.3`、`electron-v1.0.0`）。同一个 commit 可挂多个 tag。只为本次实际发布的 app 打 tag。
+---
+
+### Electron 桌面端发布（CI/CD 自动化）
+
+Electron 桌面端通过 **GitHub Actions CI/CD** 全自动发布，**不再使用本地 `dist:production` 命令**。
+
+#### 发布流程
+
+1. **确认版本号** — `apps/desktop/package.json` 中的 `version` 即为本次发布版本
+2. **确认 changelog** — 在 `apps/desktop/changelogs/{version}/` 下创建 `en.md` 和 `zh.md`
+3. **提交并推送代码** — 确保所有变更已提交到 `main` 分支
+4. **打 tag 触发构建** —
+   ```bash
+   git tag electron-v{version}
+   git push origin electron-v{version}
+   ```
+5. **CI 自动完成以下所有步骤**（无需人工干预）：
+   - `build-prerequisites`：编译 server + web（含 `NEXT_PUBLIC_*` 环境变量）
+   - `build-mac-arm64`：macOS Apple Silicon 构建 + 签名 + 公证
+   - `build-mac-x64`：macOS Intel 构建（Rosetta 2 交叉编译）+ 签名 + 公证
+   - `build-windows`：Windows NSIS 安装包
+   - `build-linux`：Linux AppImage
+   - `publish-to-r2`：上传所有产物到 Cloudflare R2（自动更新用）
+   - `create-release`：创建 GitHub Release，附带安装包和 changelog
+   - `version-bump`：自动将 `apps/desktop/package.json` 版本号 +1 并推送
+
+#### CI 产物命名规范
+
+electron-builder 产物（R2 自动更新用）：
+
+| 平台 | 文件名 |
+|------|--------|
+| macOS ARM64 | `OpenLoaf-{version}-MacOS-arm64.dmg` / `.zip` |
+| macOS x64 | `OpenLoaf-{version}-MacOS-x64.dmg` / `.zip` |
+| Windows | `OpenLoaf-{version}-Windows-Installer.exe` |
+| Linux | `OpenLoaf-{version}-Linux.AppImage` |
+
+GitHub Release 重命名后的用户友好名称：
+
+| 平台 | 文件名 |
+|------|--------|
+| macOS Apple Silicon | `OpenLoaf-{version}-MacOS.dmg` |
+| macOS Intel | `OpenLoaf-{version}-MacOS-Intel.dmg` |
+| Windows | `OpenLoaf-{version}-Windows-Installer.exe` |
+| Linux | `OpenLoaf-{version}-Linux.AppImage` |
+
+> `.zip` 文件仅用于 electron-updater 自动更新（上传到 R2），不出现在 GitHub Release 中。
+
+#### Tag 构建失败后的恢复
+
+如果 CI 构建失败需要修复后重试：
+
+```bash
+# 1. 删除远端和本地 tag
+git push origin :refs/tags/electron-v{version}
+git tag -d electron-v{version}
+
+# 2. 修复问题，提交并推送
+git add ... && git commit -m "fix: ..." && git push origin main
+
+# 3. 重新打 tag 触发构建（注意：commit 消息不能包含 [skip ci]）
+git tag electron-v{version}
+git push origin electron-v{version}
+```
+
+#### CI Workflow 关键配置
+
+- **workflow 文件**：`.github/workflows/publish-desktop.yml`
+- **触发条件**：`push.tags: electron-v*` 或 `workflow_dispatch`
+- **Web 构建环境变量**（NEXT_PUBLIC_* 在构建时内联）：
+  ```yaml
+  NEXT_PUBLIC_SERVER_URL: http://127.0.0.1:23333
+  NEXT_PUBLIC_OPENLOAF_SAAS_URL: https://openloaf.hexems.com
+  NEXT_PUBLIC_UPDATE_BASE_URL: https://r2-openloaf-update.hexems.com
+  ```
+- **`dist.mjs`** 自动添加 `--publish=never` 阻止 electron-builder 自动发布
+- **Linux 仅构建 AppImage**（`package.json` 中 `build.linux.target: ["AppImage"]`）
+- **publish-to-r2 条件**：允许部分平台跳过（skipped），但任一平台失败则阻止发布：
+  ```yaml
+  if: always() && !contains(needs.*.result, 'failure') && contains(needs.*.result, 'success')
+  ```
+
+#### 手动触发（workflow_dispatch）
+
+可在 GitHub Actions 页面手动触发，选择要构建的平台：
+
+- `build_mac`：是否构建 macOS（ARM64 + x64）
+- `build_windows`：是否构建 Windows
+- `build_linux`：是否构建 Linux
+
+手动触发不会创建 GitHub Release 和 version-bump（这两步仅在 tag 推送时执行）。
 
 ---
 
@@ -191,7 +249,7 @@ git push && git push origin --tags
 |------|------|
 | Server 增量发布 | `cd apps/server && pnpm run publish-update` |
 | Web 增量发布 | `cd apps/web && pnpm run publish-update` |
-| Electron 本体发布 | `cd apps/desktop && pnpm run dist:production` |
+| Electron 桌面端发布 | `git tag electron-v{version} && git push origin electron-v{version}` |
 | widget-sdk npm 发布 | `cd packages/widget-sdk && pnpm version patch && pnpm publish --no-git-checks` |
 | @openloaf-saas/sdk 更新 | 见下方「@openloaf-saas/sdk 依赖管理」章节 |
 | 版本号加一（发布后） | `npm version patch --no-git-tag-version` |
@@ -209,22 +267,22 @@ git push && git push origin --tags
 | 未询问用户就决定版本号 | 版本号不符合预期 | 始终先询问 patch/minor/major |
 | commit 范围未加路径过滤 | changelog 包含不相关的变更 | 使用 `-- apps/{app}/ packages/` 过滤 |
 | SDK 混淆后 dev 编译挂起 | Turbopack 无限卡住 | 见「@openloaf-saas/sdk 依赖管理」排查步骤 |
+| Tag 所在 commit 包含 `[skip ci]` | CI 不会被触发 | commit 消息不要包含 `[skip ci]` |
+| 直接用 `dist:production` 本地发布 Electron | 只有单平台产物 | 通过 git tag 触发 CI 全平台构建 |
 
 ---
 
 ## @openloaf-saas/sdk 依赖管理
 
-`@openloaf-saas/sdk` 是外部 SaaS SDK 包，本仓库通过 `file:` 协议链接本地副本进行开发。
+`@openloaf-saas/sdk` 是外部 SaaS SDK 包，从 npm 安装（`^0.1.1`）。
 
-### SDK 更新后本地同步
+### SDK 更新
 
 当 SDK 发布新版本后，在本仓库执行：
 
 ```bash
 pnpm update @openloaf-saas/sdk
 ```
-
-本地开发时 SDK 通过 `file:` 链接，修改 SDK 源码后只需在 SDK 目录重新构建即可生效，无需 npm publish。
 
 ### Turbopack 兼容性约束（关键）
 

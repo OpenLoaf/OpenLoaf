@@ -42,6 +42,7 @@ import {
   getProjectGitCommits,
   getProjectGitInfo,
   ensureGitRepository,
+  checkPathIsGitProject,
 } from "../services/projectGitService";
 import { moveProjectStorage } from "../services/projectStorageService";
 import { listProjectFilesChangedInRange } from "../services/projectFileChangeService";
@@ -370,6 +371,19 @@ export const projectRouter = t.router({
   list: shieldedProcedure.query(async () => {
     return readWorkspaceProjectTrees();
   }),
+
+  /** Check whether a directory path is a git project. */
+  checkPath: shieldedProcedure
+    .input(z.object({ dirPath: z.string() }))
+    .query(async ({ input }) => {
+      const raw = input.dirPath.trim();
+      if (!raw) return { isGitProject: false };
+      const resolved = raw.startsWith("file://")
+        ? resolveFilePathFromUri(raw)
+        : path.resolve(raw);
+      const isGit = await checkPathIsGitProject(resolved);
+      return { isGitProject: isGit };
+    }),
 
   /** Create a new project under workspace root or custom root. */
   create: shieldedProcedure

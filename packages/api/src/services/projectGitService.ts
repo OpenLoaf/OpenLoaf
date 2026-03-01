@@ -950,6 +950,12 @@ export async function getProjectGitCommits(input: {
   };
 }
 
+/** Check whether a given directory path is inside a git repository. */
+export async function checkPathIsGitProject(dirPath: string): Promise<boolean> {
+  const ctx = await resolveGitRepoContext(dirPath);
+  return ctx !== null;
+}
+
 /** Get git commits for a project within a time range. */
 export async function getProjectGitCommitsInRange(input: {
   projectId: string;

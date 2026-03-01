@@ -107,7 +107,7 @@ const TOOL_GROUPS: Record<string, readonly string[]> = {
   /** UI / 组件。 */
   ui: ['generate-widget', 'widget-init', 'widget-list', 'widget-get', 'widget-check', 'chart-render'],
   /** 任务管理。 */
-  task: ['create-task', 'task-status'],
+  task: ['task-manage', 'task-status'],
   /** 数据库 / 项目。 */
   db: ['project-query', 'project-mutate'],
   /** 日历。 */
