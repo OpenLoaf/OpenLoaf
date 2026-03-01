@@ -10,6 +10,7 @@
 "use client";
 
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { SkillsSettingsPanel } from "@/components/setting/skills/SkillsSettingsPanel";
 
 type ProjectSkillsHeaderProps = {
@@ -22,11 +23,12 @@ export const ProjectSkillsHeader = memo(function ProjectSkillsHeader({
   isLoading,
   pageTitle,
 }: ProjectSkillsHeaderProps) {
+  const { t } = useTranslation("workspace");
   if (isLoading) return null;
 
   return (
     <div className="flex items-center gap-2 min-w-0">
-      <span className="text-base font-semibold">技能</span>
+      <span className="text-base font-semibold">{t("project.skillsHeader")}</span>
       <span className="text-xs text-muted-foreground truncate">{pageTitle}</span>
     </div>
   );

@@ -21,6 +21,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQueries } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { ChevronRight } from "lucide-react";
 import { Input } from "@openloaf/ui/input";
 import { trpc } from "@/utils/trpc";
@@ -102,13 +103,18 @@ function resolveColumnDisplayName(entry: FileSystemEntry) {
 }
 
 /** Resolve column type label for a file system entry. */
-function resolveEntryTypeLabel(entry: FileSystemEntry) {
+function resolveEntryTypeLabel(
+  entry: FileSystemEntry,
+  t: (key: string) => string
+) {
   if (entry.kind === "folder") {
-    return isBoardFolderName(entry.name) ? "画布" : "文件夹";
+    return isBoardFolderName(entry.name)
+      ? t('workspace:filesystem.typeBoard')
+      : t('workspace:filesystem.typeFolder');
   }
   const ext = getEntryExt(entry);
-  if (!ext) return "文件";
-  if (isBoardFileExt(ext)) return "画布";
+  if (!ext) return t('workspace:filesystem.typeFile');
+  if (isBoardFileExt(ext)) return t('workspace:filesystem.typeBoard');
   const override = COLUMN_TYPE_LABEL_OVERRIDES[ext];
   if (override) return override;
   return ext.toUpperCase();
@@ -377,6 +383,7 @@ const FileSystemColumns = memo(function FileSystemColumns({
   resolveSelectionMode,
   onGridContextMenuCapture,
 }: FileSystemColumnsProps) {
+  const { t } = useTranslation(['workspace']);
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
   const activeUri = currentUri ?? rootUri ?? null;
@@ -492,7 +499,7 @@ const FileSystemColumns = memo(function FileSystemColumns({
     entries: allEntries,
     selectedUris,
     resolveDisplayName: resolveColumnDisplayName,
-    resolveTypeLabel: resolveEntryTypeLabel,
+    resolveTypeLabel: (entry) => resolveEntryTypeLabel(entry, t),
   });
   const previewColumnIndex = useMemo(() => {
     if (!previewEntry) return null;
@@ -751,11 +758,11 @@ const FileSystemColumns = memo(function FileSystemColumns({
             <div className="flex-1 min-h-0 overflow-y-auto px-2 py-1">
               {column.isLoading ? (
                 <div className="px-2 py-1 text-xs text-muted-foreground">
-                  加载中...
+                  {t('workspace:filesystem.loading')}
                 </div>
               ) : column.entries.length === 0 ? (
                 <div className="px-2 py-1 text-xs text-muted-foreground">
-                  暂无内容
+                  {t('workspace:filesystem.emptyContent')}
                 </div>
               ) : (
                 <div className="flex flex-col gap-0.5">

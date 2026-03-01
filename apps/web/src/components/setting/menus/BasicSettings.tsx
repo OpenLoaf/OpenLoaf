@@ -11,6 +11,7 @@
 
 import { useTheme } from "next-themes";
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Switch } from "@openloaf/ui/animate-ui/components/radix/switch";
 import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
 import { ThemeToggler } from "@/components/ThemeProvider";
@@ -27,15 +28,17 @@ import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsFie
 import { ChevronDown } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { clearThemeOverride, readThemeOverride } from "@/lib/theme-override";
+import { SUPPORTED_UI_LANGUAGES } from "@/i18n/types";
+import type { LanguageId } from "@/i18n/types";
 import LocalAccess from "./LocalAccess";
 
 type FontSizeKey = "small" | "medium" | "large" | "xlarge";
 type AnimationLevel = "low" | "medium" | "high";
-type LanguageId = "zh-CN" | "en-US" | "ja-JP" | "ko-KR" | "fr-FR" | "de-DE" | "es-ES";
 
 export function BasicSettings() {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const { basic, setBasic, isLoading: basicLoading } = useBasicConfig();
+  const { i18n, t } = useTranslation('settings');
 
   const lastManualThemeRef = useRef<"dark" | "light">(
     resolvedTheme === "dark" ? "dark" : "light",
@@ -48,16 +51,11 @@ export function BasicSettings() {
   const uiThemeManual = basic.uiThemeManual;
   const toolAllowOutsideScope = Boolean(basic.toolAllowOutsideScope);
 
-  const uiLanguage: LanguageId =
-    uiLanguageRaw === "zh-CN" ||
-    uiLanguageRaw === "en-US" ||
-    uiLanguageRaw === "ja-JP" ||
-    uiLanguageRaw === "ko-KR" ||
-    uiLanguageRaw === "fr-FR" ||
-    uiLanguageRaw === "de-DE" ||
-    uiLanguageRaw === "es-ES"
-      ? uiLanguageRaw
-      : "zh-CN";
+  const uiLanguage: LanguageId = SUPPORTED_UI_LANGUAGES.some(
+    l => l.value === uiLanguageRaw
+  )
+    ? (uiLanguageRaw as LanguageId)
+    : "zh-CN";
 
   const fontSize: FontSizeKey =
     fontSizeRaw === "small" ||
@@ -122,25 +120,19 @@ export function BasicSettings() {
       {({ resolved, toggleTheme }) => {
         const isAutoTheme = uiTheme === "system";
         const themeTabsValue = resolved;
-        const languageLabelById: Record<LanguageId, string> = {
-          "zh-CN": "中文（简体）",
-          "en-US": "English",
-          "ja-JP": "日本語",
-          "ko-KR": "한국어",
-          "fr-FR": "Français",
-          "de-DE": "Deutsch",
-          "es-ES": "Español",
-        };
+        const languageLabelById: Record<LanguageId, string> = Object.fromEntries(
+          SUPPORTED_UI_LANGUAGES.map(l => [l.value, l.label])
+        ) as Record<LanguageId, string>;
 
         return (
           <div className="space-y-6">
-            <OpenLoafSettingsGroup title="系统配置">
+            <OpenLoafSettingsGroup title={t('basicSettings.systemConfig')}>
               <div className="divide-y divide-border">
                 <div className="flex flex-wrap items-start gap-3 py-3">
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">语言</div>
+                    <div className="text-sm font-medium">{t('basicSettings.language')}</div>
                     <div className="text-xs text-muted-foreground">
-                      暂不支持切换，仅保存偏好
+                      {t('basicSettings.languageDesc')}
                     </div>
                   </div>
 
@@ -161,13 +153,15 @@ export function BasicSettings() {
                       <DropdownMenuContent align="end" className="w-[220px]">
                           <DropdownMenuRadioGroup
                             value={uiLanguage}
-                            onValueChange={(next) =>
-                              void setBasic({ uiLanguage: next as LanguageId })
-                            }
+                            onValueChange={(next) => {
+                              const nextLang = next as LanguageId;
+                              void setBasic({ uiLanguage: nextLang });
+                              void i18n.changeLanguage(nextLang);
+                            }}
                           >
-                          {Object.entries(languageLabelById).map(
-                            ([id, label]) => (
-                              <DropdownMenuRadioItem key={id} value={id}>
+                          {SUPPORTED_UI_LANGUAGES.map(
+                            ({ value, label }) => (
+                              <DropdownMenuRadioItem key={value} value={value}>
                                 {label}
                               </DropdownMenuRadioItem>
                             ),
@@ -180,9 +174,9 @@ export function BasicSettings() {
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">主题</div>
+                    <div className="text-sm font-medium">{t('basicSettings.theme')}</div>
                     <div className="text-xs text-muted-foreground">
-                      选择淡色或浅色
+                      {t('basicSettings.themeDesc')}
                     </div>
                   </div>
 
@@ -197,8 +191,8 @@ export function BasicSettings() {
                       }}
                     >
                       <TabsList>
-                        <TabsTrigger value="dark">黑夜</TabsTrigger>
-                        <TabsTrigger value="light">白天</TabsTrigger>
+                        <TabsTrigger value="dark">{t('basicSettings.themeDark')}</TabsTrigger>
+                        <TabsTrigger value="light">{t('basicSettings.themeLight')}</TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </OpenLoafSettingsField>
@@ -206,9 +200,9 @@ export function BasicSettings() {
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">主题系统自动切换</div>
+                    <div className="text-sm font-medium">{t('basicSettings.themeAutoSwitch')}</div>
                     <div className="text-xs text-muted-foreground">
-                      跟随系统浅色/淡色
+                      {t('basicSettings.themeAutoSwitchDesc')}
                     </div>
                   </div>
 
@@ -234,9 +228,9 @@ export function BasicSettings() {
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">字体大小</div>
+                    <div className="text-sm font-medium">{t('basicSettings.fontSize')}</div>
                     <div className="text-xs text-muted-foreground">
-                      小 / 中 / 大 / 特大
+                      {t('basicSettings.fontSizeDesc')}
                     </div>
                   </div>
 
@@ -248,10 +242,10 @@ export function BasicSettings() {
                       }
                     >
                       <TabsList>
-                        <TabsTrigger value="small">小</TabsTrigger>
-                        <TabsTrigger value="medium">中</TabsTrigger>
-                        <TabsTrigger value="large">大</TabsTrigger>
-                        <TabsTrigger value="xlarge">特大</TabsTrigger>
+                        <TabsTrigger value="small">{t('basicSettings.fontSizeSmall')}</TabsTrigger>
+                        <TabsTrigger value="medium">{t('basicSettings.fontSizeMedium')}</TabsTrigger>
+                        <TabsTrigger value="large">{t('basicSettings.fontSizeLarge')}</TabsTrigger>
+                        <TabsTrigger value="xlarge">{t('basicSettings.fontSizeXLarge')}</TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </OpenLoafSettingsField>
@@ -259,9 +253,9 @@ export function BasicSettings() {
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">动画级别</div>
+                    <div className="text-sm font-medium">{t('basicSettings.animationLevel')}</div>
                     <div className="text-xs text-muted-foreground">
-                      降低动画将节省系统资源
+                      {t('basicSettings.animationLevelDesc')}
                     </div>
                   </div>
 
@@ -273,9 +267,9 @@ export function BasicSettings() {
                       }
                     >
                       <TabsList>
-                        <TabsTrigger value="low">低</TabsTrigger>
-                        <TabsTrigger value="medium">中</TabsTrigger>
-                        <TabsTrigger value="high">高</TabsTrigger>
+                        <TabsTrigger value="low">{t('basicSettings.animationLow')}</TabsTrigger>
+                        <TabsTrigger value="medium">{t('basicSettings.animationMedium')}</TabsTrigger>
+                        <TabsTrigger value="high">{t('basicSettings.animationHigh')}</TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </OpenLoafSettingsField>
@@ -283,9 +277,9 @@ export function BasicSettings() {
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">通知声音提示</div>
+                    <div className="text-sm font-medium">{t('basicSettings.notificationSound')}</div>
                     <div className="text-xs text-muted-foreground">
-                      语音输入开始时播放提示音
+                      {t('basicSettings.notificationSoundDesc')}
                     </div>
                   </div>
 
@@ -304,9 +298,9 @@ export function BasicSettings() {
 
                 <div className="flex flex-wrap items-start gap-3 py-3">
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">允许工具访问工作区外路径</div>
+                    <div className="text-sm font-medium">{t('basicSettings.toolAllowOutsideScopeTitle')}</div>
                     <div className="text-xs text-muted-foreground">
-                      关闭时仅允许在 project / workspace 根目录内访问
+                      {t('basicSettings.toolAllowOutsideScopeDesc')}
                     </div>
                   </div>
 

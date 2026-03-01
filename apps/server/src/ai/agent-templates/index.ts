@@ -19,3 +19,15 @@ export {
   getPrimaryTemplate,
   getScaffoldableTemplates,
 } from './registry'
+
+// Export multilingual prompt getters for each agent template
+export { getBrowserPrompt } from './templates/browser'
+export { getCalendarPrompt } from './templates/calendar'
+export { getCoderPrompt } from './templates/coder'
+export { getDocumentPrompt } from './templates/document'
+export { getEmailPrompt } from './templates/email'
+export { getMasterPrompt } from './templates/master'
+export { getProjectPrompt } from './templates/project'
+export { getShellPrompt } from './templates/shell'
+export { getVisionPrompt } from './templates/vision'
+export { getWidgetPrompt } from './templates/widget'

@@ -11,6 +11,7 @@
 
 import { startTransition } from "react";
 import { create } from "zustand";
+import i18next from "i18next";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { AI_ASSISTANT_TAB_INPUT, WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
@@ -75,18 +76,21 @@ function isEditableTarget(target: EventTarget | null) {
 /** 打开一个“单例 Tab”：若已存在则激活，否则创建并可选关闭搜索浮层。 */
 function openSingletonTab(
   workspaceId: string,
-  input: { baseId: string; component: string; title: string; icon: string },
+  input: { baseId: string; component: string; title?: string; titleKey?: string; icon: string },
   options?: { leftWidthPercent?: number; closeSearch?: boolean },
 ) {
   const { tabs, addTab, setActiveTab } = useTabs.getState();
   const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
+
+  // Resolve title from titleKey using i18next
+  const title = input.titleKey ? i18next.t(input.titleKey) : input.title || 'Tab';
 
   const existing = tabs.find((tab) => {
     if (tab.workspaceId !== workspaceId) return false;
     const runtime = runtimeByTabId[tab.id];
     if (runtime?.base?.id === input.baseId) return true;
     // ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
-    if (input.component === "ai-chat" && !runtime?.base && tab.title === input.title) return true;
+    if (input.component === "ai-chat" && !runtime?.base && tab.title === title) return true;
     return false;
   });
   if (existing) {
@@ -100,7 +104,7 @@ function openSingletonTab(
   addTab({
     workspaceId,
     createNew: true,
-    title: input.title,
+    title,
     icon: input.icon,
     leftWidthPercent: options?.leftWidthPercent,
     base:

@@ -10,6 +10,7 @@
 'use client'
 
 import { useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@openloaf/ui/badge'
 import { TrafficLights } from '@openloaf/ui/traffic-lights'
 import { cn } from '@/lib/utils'
@@ -87,61 +88,61 @@ type TaskManageOutput = {
 
 const ACTION_CONFIG: Record<TaskAction, {
   icon: typeof ListTodo
-  label: string
+  labelKey: string
   color: string
   badgeColor: string
 }> = {
   create: {
     icon: ListTodo,
-    label: '创建任务',
+    labelKey: 'taskAction.create',
     color: 'text-[#1a73e8] dark:text-sky-300',
     badgeColor: 'bg-[#e8f0fe] text-[#1a73e8] border-transparent dark:bg-sky-900/40 dark:text-sky-300',
   },
   cancel: {
     icon: XCircle,
-    label: '取消任务',
+    labelKey: 'taskAction.cancel',
     color: 'text-[#d93025] dark:text-red-300',
     badgeColor: 'bg-[#fce8e6] text-[#d93025] border-transparent dark:bg-red-900/40 dark:text-red-300',
   },
   delete: {
     icon: Trash2,
-    label: '删除任务',
+    labelKey: 'taskAction.delete',
     color: 'text-[#d93025] dark:text-red-300',
     badgeColor: 'bg-[#fce8e6] text-[#d93025] border-transparent dark:bg-red-900/40 dark:text-red-300',
   },
   run: {
     icon: Play,
-    label: '启动任务',
+    labelKey: 'taskAction.run',
     color: 'text-[#188038] dark:text-emerald-300',
     badgeColor: 'bg-[#e6f4ea] text-[#188038] border-transparent dark:bg-emerald-900/40 dark:text-emerald-300',
   },
   resolve: {
     icon: CheckSquare,
-    label: '审批任务',
+    labelKey: 'taskAction.resolve',
     color: 'text-[#9334e6] dark:text-violet-300',
     badgeColor: 'bg-[#f3e8fd] text-[#9334e6] border-transparent dark:bg-violet-900/40 dark:text-violet-300',
   },
   archive: {
     icon: Archive,
-    label: '归档任务',
+    labelKey: 'taskAction.archive',
     color: 'text-[#5f6368] dark:text-slate-400',
     badgeColor: 'bg-[#f1f3f4] text-[#5f6368] border-transparent dark:bg-slate-800/40 dark:text-slate-400',
   },
   cancelAll: {
     icon: XCircle,
-    label: '批量取消',
+    labelKey: 'taskAction.cancelAll',
     color: 'text-[#d93025] dark:text-red-300',
     badgeColor: 'bg-[#fce8e6] text-[#d93025] border-transparent dark:bg-red-900/40 dark:text-red-300',
   },
   deleteAll: {
     icon: Trash2,
-    label: '批量删除',
+    labelKey: 'taskAction.deleteAll',
     color: 'text-[#d93025] dark:text-red-300',
     badgeColor: 'bg-[#fce8e6] text-[#d93025] border-transparent dark:bg-red-900/40 dark:text-red-300',
   },
   archiveAll: {
     icon: Archive,
-    label: '批量归档',
+    labelKey: 'taskAction.archiveAll',
     color: 'text-[#5f6368] dark:text-slate-400',
     badgeColor: 'bg-[#f1f3f4] text-[#5f6368] border-transparent dark:bg-slate-800/40 dark:text-slate-400',
   },
@@ -156,21 +157,6 @@ const PRIORITY_COLORS: Record<Priority, string> = {
   low: 'bg-[#f1f3f4] text-[#5f6368] border-transparent dark:bg-slate-800/40 dark:text-slate-400',
 }
 
-const PRIORITY_LABELS: Record<Priority, string> = {
-  urgent: '紧急',
-  high: '高',
-  medium: '中',
-  low: '低',
-}
-
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  todo: '待办',
-  running: '进行中',
-  review: '审批',
-  done: '已完成',
-  cancelled: '已取消',
-}
-
 const STATUS_BADGE_COLORS: Record<TaskStatus, string> = {
   todo: 'bg-[#e8f0fe] text-[#1a73e8] border-transparent dark:bg-sky-900/40 dark:text-sky-300',
   running: 'bg-[#fef7e0] text-[#e37400] border-transparent dark:bg-amber-900/40 dark:text-amber-300',
@@ -179,31 +165,10 @@ const STATUS_BADGE_COLORS: Record<TaskStatus, string> = {
   cancelled: 'bg-[#f1f3f4] text-[#5f6368] border-transparent dark:bg-slate-800/40 dark:text-slate-400',
 }
 
-const RESOLVE_ACTION_LABELS: Record<string, string> = {
-  approve: '通过',
-  reject: '拒绝',
-  rework: '返工',
-}
-
-function formatScheduleLabel(schedule?: ScheduleInput): string | null {
-  if (!schedule?.type) return null
-  switch (schedule.type) {
-    case 'once':
-      return schedule.scheduleAt
-        ? `定时 · ${new Date(schedule.scheduleAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
-        : '定时'
-    case 'interval': {
-      if (!schedule.intervalMs) return '周期'
-      const ms = schedule.intervalMs
-      if (ms >= 3600000) return `每 ${Math.round(ms / 3600000)} 小时`
-      if (ms >= 60000) return `每 ${Math.round(ms / 60000)} 分钟`
-      return `每 ${Math.round(ms / 1000)} 秒`
-    }
-    case 'cron':
-      return schedule.cronExpr ? `cron: ${schedule.cronExpr}` : 'cron'
-    default:
-      return null
-  }
+const RESOLVE_ACTION_KEYS: Record<string, string> = {
+  approve: 'actions.pass',
+  reject: 'actions.reject',
+  rework: 'actions.rework',
 }
 
 // ─── Component ───────────────────────────────────────────────────────
@@ -215,9 +180,31 @@ export default function TaskTool({
   part: AnyToolPart
   className?: string
 }) {
+  const { t } = useTranslation('tasks')
   const pushStackItem = useTabRuntime((state) => state.pushStackItem)
   const { activeTabId } = useTabs()
   const streaming = isToolStreaming(part)
+
+  const formatScheduleLabel = useCallback((schedule?: ScheduleInput): string | null => {
+    if (!schedule?.type) return null
+    switch (schedule.type) {
+      case 'once':
+        return schedule.scheduleAt
+          ? `${t('taskLabels.scheduleOnce')} · ${new Date(schedule.scheduleAt).toLocaleString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+          : t('taskLabels.scheduleOnce')
+      case 'interval': {
+        if (!schedule.intervalMs) return t('taskLabels.schedulePeriod')
+        const ms = schedule.intervalMs
+        if (ms >= 3600000) return t('taskLabels.scheduleHours', { n: Math.round(ms / 3600000) })
+        if (ms >= 60000) return t('taskLabels.scheduleMinutes', { n: Math.round(ms / 60000) })
+        return t('taskLabels.scheduleSeconds', { n: Math.round(ms / 1000) })
+      }
+      case 'cron':
+        return schedule.cronExpr ? `cron: ${schedule.cronExpr}` : 'cron'
+      default:
+        return null
+    }
+  }, [t])
 
   const input = useMemo(() => {
     const raw = normalizeToolInput(part.input)
@@ -255,22 +242,24 @@ export default function TaskTool({
       id: 'scheduled-tasks-page',
       sourceKey: 'scheduled-tasks-page',
       component: 'scheduled-tasks-page',
-      title: '任务看板',
+      title: t('task.board'),
     })
-  }, [activeTabId, pushStackItem])
+  }, [activeTabId, pushStackItem, t])
 
   const toolName = getToolName(part)
 
   // ── Derive display fields ──────────────────────────────────────────
 
+  const actionLabel = t(config.labelKey)
+
   // Title
   let title: string
   if (action === 'create') {
-    title = input.title ?? output?.task?.name ?? '后台任务'
+    title = input.title ?? output?.task?.name ?? t('taskLabels.background')
   } else if (isBatch) {
-    title = config.label
+    title = actionLabel
   } else {
-    title = output?.task?.name ?? input.taskId ?? config.label
+    title = output?.task?.name ?? input.taskId ?? actionLabel
   }
 
   // Determine status for badge
@@ -307,7 +296,7 @@ export default function TaskTool({
           {/* 审批动作说明 (resolve) */}
           {action === 'resolve' && input.resolveAction && (
             <p className="mt-1.5 text-xs text-muted-foreground">
-              审批动作：{RESOLVE_ACTION_LABELS[input.resolveAction] ?? input.resolveAction}
+              {t('taskLabels.resolveAction')}{t(RESOLVE_ACTION_KEYS[input.resolveAction] ?? '') || input.resolveAction}
               {input.reason ? ` — ${input.reason}` : ''}
             </p>
           )}
@@ -315,7 +304,7 @@ export default function TaskTool({
           {/* 取消原因 (cancel) */}
           {action === 'cancel' && input.reason && (
             <p className="mt-1.5 text-xs text-muted-foreground">
-              原因：{input.reason}
+              {t('taskLabels.cancelReason')}{input.reason}
             </p>
           )}
 
@@ -337,20 +326,20 @@ export default function TaskTool({
           <div className="mt-2 flex flex-wrap items-center gap-1">
             {/* Action badge */}
             <Badge variant="outline" className={cn('text-[10px]', config.badgeColor)}>
-              {config.label}
+              {actionLabel}
             </Badge>
 
             {/* Priority badge (create only) */}
             {action === 'create' && (
               <Badge variant="outline" className={cn('text-[10px]', PRIORITY_COLORS[input.priority ?? 'medium'])}>
-                {PRIORITY_LABELS[input.priority ?? 'medium']}
+                {t(`priority.${input.priority ?? 'medium'}`)}
               </Badge>
             )}
 
             {/* Status badge */}
-            {taskStatus && STATUS_LABELS[taskStatus] && (
+            {taskStatus && STATUS_BADGE_COLORS[taskStatus] && (
               <Badge variant="outline" className={cn('text-[10px]', STATUS_BADGE_COLORS[taskStatus])}>
-                {STATUS_LABELS[taskStatus]}
+                {t(`status.${taskStatus}`)}
               </Badge>
             )}
 
@@ -386,7 +375,7 @@ export default function TaskTool({
                 className="ml-auto inline-flex items-center gap-1 rounded-full border border-transparent bg-[#e8f0fe] px-2.5 py-1 text-[11px] font-medium text-[#1a73e8] transition-colors duration-150 hover:bg-[#d2e3fc] dark:bg-sky-900/40 dark:text-sky-300 dark:hover:bg-sky-900/60"
               >
                 <ExternalLink className="size-3" />
-                查看看板
+                {t('taskLabels.viewBoard')}
               </button>
             )}
           </div>

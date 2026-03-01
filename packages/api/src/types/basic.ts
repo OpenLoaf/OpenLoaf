@@ -11,6 +11,7 @@ import { z } from "zod";
 
 export const modelResponseLanguageSchema = z.enum([
   "zh-CN",
+  "zh-TW",
   "en-US",
   "ja-JP",
   "ko-KR",
@@ -25,6 +26,7 @@ export const chatThinkingModeSchema = z.enum(["fast", "deep"]);
 
 export const uiLanguageSchema = z.enum([
   "zh-CN",
+  "zh-TW",
   "en-US",
   "ja-JP",
   "ko-KR",

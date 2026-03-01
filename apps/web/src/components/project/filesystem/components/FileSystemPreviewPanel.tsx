@@ -10,6 +10,7 @@
 "use client";
 
 import { memo, type MouseEvent as ReactMouseEvent } from "react";
+import { useTranslation } from "react-i18next";
 import type { FileSystemEntry } from "../utils/file-system-utils";
 import { FileSystemEntryPreviewContent } from "./FileSystemEntryPreviewContent";
 
@@ -46,6 +47,7 @@ const FileSystemPreviewPanel = memo(function FileSystemPreviewPanel({
   previewUpdatedLabel,
   onContextMenuCapture,
 }: FileSystemPreviewPanelProps) {
+  const { t } = useTranslation(['workspace']);
   if (!previewEntry) return null;
 
   return (
@@ -63,15 +65,15 @@ const FileSystemPreviewPanel = memo(function FileSystemPreviewPanel({
           />
         </div>
         <div className="grid grid-cols-[72px_1fr] gap-x-2 gap-y-2 text-xs">
-          <div className="text-muted-foreground">文件名</div>
+          <div className="text-muted-foreground">{t('workspace:filesystem.columnName')}</div>
           <div className="break-all text-foreground">{previewDisplayName}</div>
-          <div className="text-muted-foreground">文件类型</div>
+          <div className="text-muted-foreground">{t('workspace:filesystem.columnType')}</div>
           <div className="break-all text-foreground">{previewTypeLabel}</div>
-          <div className="text-muted-foreground">大小</div>
+          <div className="text-muted-foreground">{t('workspace:filesystem.columnSize')}</div>
           <div className="break-all text-foreground">{previewSizeLabel}</div>
-          <div className="text-muted-foreground">创建时间</div>
+          <div className="text-muted-foreground">{t('workspace:filesystem.columnCreated')}</div>
           <div className="break-all text-foreground">{previewCreatedLabel}</div>
-          <div className="text-muted-foreground">修改时间</div>
+          <div className="text-muted-foreground">{t('workspace:filesystem.columnModified')}</div>
           <div className="break-all text-foreground">{previewUpdatedLabel}</div>
         </div>
       </div>

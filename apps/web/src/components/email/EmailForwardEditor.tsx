@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { Loader2, Paperclip, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Input } from "@openloaf/ui/input";
 import { Button } from "@openloaf/ui/button";
 import { Textarea } from "@openloaf/ui/textarea";
@@ -26,19 +27,20 @@ type EmailForwardEditorProps = {
   detail: DetailState;
 };
 
-const MODE_LABELS: Record<string, string> = {
-  compose: "写邮件",
-  reply: "回复",
-  replyAll: "全部回复",
-  forward: "转发",
-};
-
 export function EmailForwardEditor({ detail }: EmailForwardEditorProps) {
+  const { t } = useTranslation('common');
   const draft = detail.composeDraft ?? detail.forwardDraft;
   if (!draft) return null;
 
+  const MODE_LABELS: Record<string, string> = {
+    compose: t('email.compose'),
+    reply: t('email.reply'),
+    replyAll: t('email.replyAll'),
+    forward: t('email.forward'),
+  };
+
   const mode = "mode" in draft ? (draft.mode as string) : "forward";
-  const modeLabel = MODE_LABELS[mode] ?? "转发";
+  const modeLabel = MODE_LABELS[mode] ?? t('email.forward');
   const isCompose = detail.composeDraft !== null;
   const isForwardMode = mode === "forward";
 
@@ -104,12 +106,12 @@ export function EmailForwardEditor({ detail }: EmailForwardEditorProps) {
             {isCompose && detail.draftSaveStatus === 'saving' ? (
               <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                保存中...
+                {t('saving')}
               </span>
             ) : isCompose && detail.draftSaveStatus === 'saved' ? (
-              <span className="text-[10px] text-emerald-600 dark:text-emerald-400">已保存</span>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400">{t('email.draftSaved')}</span>
             ) : isCompose && detail.draftSaveStatus === 'error' ? (
-              <span className="text-[10px] text-destructive">保存失败</span>
+              <span className="text-[10px] text-destructive">{t('email.draftSaveError')}</span>
             ) : null}
           </div>
           <div className="flex items-center gap-2 text-[11px]">
@@ -120,7 +122,7 @@ export function EmailForwardEditor({ detail }: EmailForwardEditorProps) {
               disabled={!canSend || detail.isSending}
               onClick={detail.onSendMessage}
             >
-              {detail.isSending ? "发送中..." : "发送"}
+              {detail.isSending ? t('email.sending') : t('email.send')}
             </Button>
             {isCompose ? (
               <Button
@@ -129,10 +131,10 @@ export function EmailForwardEditor({ detail }: EmailForwardEditorProps) {
                 size="sm"
                 className="h-8 rounded-full px-3 text-[12px] text-[#5f6368] hover:bg-[#e8eaed] dark:text-slate-300 dark:hover:bg-slate-700"
                 onClick={handleFileSelect}
-                title="添加附件"
+                title={t('email.addAttachment')}
               >
                 <Paperclip className="mr-1 h-3 w-3" />
-                附件
+                {t('email.attachment')}
               </Button>
             ) : null}
             <Button
@@ -142,7 +144,7 @@ export function EmailForwardEditor({ detail }: EmailForwardEditorProps) {
               className="h-8 rounded-full px-3 text-[12px] text-[#5f6368] hover:bg-[#e8eaed] dark:text-slate-300 dark:hover:bg-slate-700"
               onClick={detail.onCancelCompose}
             >
-              取消
+              {t('cancel')}
             </Button>
           </div>
         </div>
@@ -151,38 +153,38 @@ export function EmailForwardEditor({ detail }: EmailForwardEditorProps) {
       <div className="flex min-h-0 flex-1 flex-col overflow-auto bg-[#ffffff] dark:bg-slate-900/84">
         <div className={cn("space-y-2 px-4 py-3 text-xs text-[#5f6368] dark:text-slate-400 border-b", EMAIL_DIVIDER_CLASS)}>
           <div className="grid grid-cols-[56px_1fr] items-center gap-3">
-            <span className="shrink-0">收件人</span>
+            <span className="shrink-0">{t('email.to')}</span>
             <Input
               value={draft.to}
               onChange={(event) => updateField("to", event.target.value)}
-              placeholder="输入收件人"
+              placeholder={t('email.toPlaceholder')}
               className={cn("h-8 rounded-md text-xs", EMAIL_FLAT_INPUT_CLASS)}
             />
           </div>
           <div className="grid grid-cols-[56px_1fr] items-center gap-3">
-            <span className="shrink-0">抄送</span>
+            <span className="shrink-0">{t('email.cc')}</span>
             <Input
               value={draft.cc}
               onChange={(event) => updateField("cc", event.target.value)}
-              placeholder="抄送"
+              placeholder={t('email.ccPlaceholder')}
               className={cn("h-8 rounded-md text-xs", EMAIL_FLAT_INPUT_CLASS)}
             />
           </div>
           <div className="grid grid-cols-[56px_1fr] items-center gap-3">
-            <span className="shrink-0">密送</span>
+            <span className="shrink-0">{t('email.bcc')}</span>
             <Input
               value={draft.bcc}
               onChange={(event) => updateField("bcc", event.target.value)}
-              placeholder="密送"
+              placeholder={t('email.bccPlaceholder')}
               className={cn("h-8 rounded-md text-xs", EMAIL_FLAT_INPUT_CLASS)}
             />
           </div>
           <div className="grid grid-cols-[56px_1fr] items-center gap-3">
-            <span className="shrink-0">主题</span>
+            <span className="shrink-0">{t('email.subject')}</span>
             <Input
               value={draft.subject}
               onChange={(event) => updateField("subject", event.target.value)}
-              placeholder="主题"
+              placeholder={t('email.subjectPlaceholder')}
               className={cn("h-8 rounded-md text-xs", EMAIL_FLAT_INPUT_CLASS)}
             />
           </div>
@@ -201,7 +203,7 @@ export function EmailForwardEditor({ detail }: EmailForwardEditorProps) {
         </div>
         {composeAttachments.length > 0 ? (
           <div className={cn("border-t px-4 py-3", EMAIL_DIVIDER_CLASS, EMAIL_TINT_LIST_CLASS)}>
-            <div className="text-xs text-[#5f6368] dark:text-slate-400">附件</div>
+            <div className="text-xs text-[#5f6368] dark:text-slate-400">{t('email.attachments')}</div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs text-[#5f6368] dark:text-slate-400">
               {composeAttachments.map((att, index) => (
                 <span
@@ -224,10 +226,10 @@ export function EmailForwardEditor({ detail }: EmailForwardEditorProps) {
         ) : null}
         {isForwardMode && detail.shouldShowAttachments ? (
           <div className={cn("border-t px-4 py-3", EMAIL_DIVIDER_CLASS, EMAIL_TINT_LIST_CLASS)}>
-            <div className="text-xs text-[#5f6368] dark:text-slate-400">附件</div>
+            <div className="text-xs text-[#5f6368] dark:text-slate-400">{t('email.attachments')}</div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs text-[#5f6368] dark:text-slate-400">
               {detail.messageDetailLoading ? (
-                <span className="text-xs text-[#5f6368] dark:text-slate-400">附件加载中...</span>
+                <span className="text-xs text-[#5f6368] dark:text-slate-400">{t('email.attachmentsLoading')}</span>
               ) : (
                 detail.messageDetail?.attachments?.map((attachment, index) => {
                   const sizeLabel = formatAttachmentSize(attachment.size);
@@ -236,7 +238,7 @@ export function EmailForwardEditor({ detail }: EmailForwardEditorProps) {
                       key={`${attachment.filename ?? "attachment"}-${index}`}
                       className={EMAIL_META_CHIP_CLASS}
                     >
-                      {attachment.filename ?? "未命名附件"}
+                      {attachment.filename ?? t('email.unnamedAttachment')}
                       {sizeLabel ? ` · ${sizeLabel}` : ""}
                     </span>
                   );
@@ -247,10 +249,10 @@ export function EmailForwardEditor({ detail }: EmailForwardEditorProps) {
         ) : null}
         {isForwardMode ? (
           <div className={cn("border-t px-4 py-4 text-xs", EMAIL_DIVIDER_CLASS, EMAIL_TINT_LIST_CLASS)}>
-            <div className="text-xs text-[#5f6368] dark:text-slate-400">原邮件内容</div>
+            <div className="text-xs text-[#5f6368] dark:text-slate-400">{t('email.originalContent')}</div>
             <div className="mt-2 text-sm leading-7 text-[#202124] dark:text-slate-100">
               {detail.messageDetailLoading ? (
-                <div className="text-xs text-[#5f6368] dark:text-slate-400">正在加载邮件详情...</div>
+                <div className="text-xs text-[#5f6368] dark:text-slate-400">{t('email.loadingDetail')}</div>
               ) : detail.messageDetail?.bodyHtml ? (
                 <div
                   className="prose prose-sm max-w-none text-foreground prose-img:max-w-full leading-7"
@@ -258,7 +260,7 @@ export function EmailForwardEditor({ detail }: EmailForwardEditorProps) {
                 />
               ) : (
                 <p className="break-words">
-                  {detail.messageDetail?.bodyText || detail.activeMessage?.preview || "暂无正文"}
+                  {detail.messageDetail?.bodyText || detail.activeMessage?.preview || t('email.noBody')}
                 </p>
               )}
             </div>

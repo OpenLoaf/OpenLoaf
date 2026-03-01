@@ -20,6 +20,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { ChevronRight } from "lucide-react";
 import { Input } from "@openloaf/ui/input";
 import { cn } from "@/lib/utils";
@@ -271,6 +272,7 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
   shouldBlockPointerEvent,
   onContextMenuCapture,
 }: FileSystemGitTreeNodeProps) {
+  const { t } = useTranslation(['workspace']);
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
   const isExpanded = expandedNodes[node.entry.uri] ?? false;
@@ -463,21 +465,21 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
               className="py-1 pl-8 text-xs text-muted-foreground"
               style={{ paddingLeft: `${childDepth * 12 + 8}px` }}
             >
-              加载中...
+              {t('workspace:filesystem.loading')}
             </div>
           ) : listQuery.isError ? (
             <div
               className="py-1 pl-8 text-xs text-destructive"
               style={{ paddingLeft: `${childDepth * 12 + 8}px` }}
             >
-              加载失败
+              {t('workspace:filesystem.loadError')}
             </div>
           ) : childNodes.length === 0 ? (
             <div
               className="py-1 pl-8 text-xs text-muted-foreground"
               style={{ paddingLeft: `${childDepth * 12 + 8}px` }}
             >
-              （空）
+              {t('workspace:filesystem.emptyParens')}
             </div>
           ) : (
             childNodes.map((child) => (

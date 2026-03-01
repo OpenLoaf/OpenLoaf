@@ -1,0 +1,61 @@
+{
+  "board": {
+    "title": "畫布工具",
+    "new": "新建畫布",
+    "create": "建立畫布",
+    "edit": "編輯",
+    "delete": "刪除",
+    "save": "保存",
+    "cancel": "取消",
+    "download": "下載",
+    "share": "分享",
+    "duplicate": "複製",
+    "undo": "復原",
+    "redo": "重做",
+    "clear": "清除",
+    "brush": "筆刷",
+    "eraser": "橡皮擦",
+    "pen": "鋼筆",
+    "color": "顏色",
+    "size": "大小",
+    "opacity": "透明度",
+    "zoom": "縮放",
+    "fit": "適應螢幕",
+    "gridToggle": "顯示網格",
+    "rulerToggle": "顯示尺規",
+    "layer": "圖層",
+    "layers": "圖層列表",
+    "newLayer": "新建圖層",
+    "deleteLayer": "刪除圖層",
+    "renameLayer": "重新命名圖層"
+  },
+  "tools": {
+    "select": "選取",
+    "hand": "拖拽",
+    "pen": "畫筆",
+    "highlighter": "螢光筆",
+    "eraser": "橡皮"
+  },
+  "insertTools": {
+    "note": "便籤",
+    "image": "圖片",
+    "video": "影片",
+    "imagePromptGenerate": "影片圖片理解",
+    "imageGenerate": "圖片生成",
+    "videoGenerate": "生成影片"
+  },
+  "descriptions": {
+    "note": "快速筆記卡片",
+    "image": "圖片塊",
+    "video": "影片塊",
+    "imagePromptGenerate": "分析圖片/影片並生成描述",
+    "imageGenerate": "輸入圖片與文字生成新圖",
+    "videoGenerate": "基於圖片與提示詞生成影片"
+  },
+  "picker": {
+    "imageTitle": "選擇圖片檔案",
+    "imageHint": "非圖片檔案將變灰",
+    "videoTitle": "選擇影片檔案",
+    "videoHint": "非影片檔案將變灰"
+  }
+}

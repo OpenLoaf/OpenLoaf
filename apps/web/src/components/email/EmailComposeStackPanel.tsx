@@ -10,6 +10,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
@@ -26,6 +27,7 @@ type EmailComposeStackPanelProps = {
 export default function EmailComposeStackPanel({
   workspaceId,
 }: EmailComposeStackPanelProps) {
+  const { t } = useTranslation('common');
   const { workspace } = useWorkspace();
   const resolvedWorkspaceId = workspaceId ?? workspace?.id;
   const { detail } = useEmailPageState({ workspaceId: resolvedWorkspaceId });
@@ -43,7 +45,7 @@ export default function EmailComposeStackPanel({
           EMAIL_GLASS_PANEL_CLASS,
         )}
       >
-        正在准备写邮件...
+        {t('email.preparingCompose')}
       </div>
     );
   }

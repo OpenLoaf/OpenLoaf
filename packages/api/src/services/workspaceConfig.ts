@@ -60,11 +60,24 @@ function normalizeProjectRoots(projects?: Record<string, string>): Record<string
   return normalized;
 }
 
+/** Default workspace names in different languages. */
+const DEFAULT_WORKSPACE_NAMES: Record<string, string> = {
+  'zh-CN': '默认工作空间',
+  'zh-TW': '預設工作區',
+  'en-US': 'Default Workspace',
+  'ja-JP': 'デフォルト ワークスペース',
+  'ko-KR': '기본 작업 공간',
+  'fr-FR': 'Espace de travail par défaut',
+  'de-DE': 'Standardarbeitsbereich',
+  'es-ES': 'Espacio de trabajo predeterminado',
+};
+
 /** Ensure workspaces.json exists with a default workspace. */
-function ensureDefaultWorkspaces(): WorkspacesFile {
+function ensureDefaultWorkspaces(language?: string): WorkspacesFile {
+  const lang = language ?? 'zh-CN';
   const workspace: Workspace = {
     id: uuidv4(),
-    name: "默认工作空间",
+    name: (DEFAULT_WORKSPACE_NAMES[lang] ?? DEFAULT_WORKSPACE_NAMES['zh-CN'])!,
     type: "local",
     isActive: true,
     rootUri: resolveDefaultWorkspaceRootUri(),

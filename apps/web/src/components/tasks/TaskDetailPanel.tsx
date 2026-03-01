@@ -9,7 +9,8 @@
  */
 'use client'
 
-import { memo, useState, useCallback } from 'react'
+import { memo, useMemo, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { trpc } from '@/utils/trpc'
 import { useWorkspace } from '@/components/workspace/workspaceContext'
@@ -54,21 +55,6 @@ const PRIORITY_COLORS: Record<Priority, string> = {
   low: 'bg-zinc-500/15 text-zinc-500 border-zinc-500/20',
 }
 
-const PRIORITY_LABELS: Record<Priority, string> = {
-  urgent: '紧急',
-  high: '高',
-  medium: '中',
-  low: '低',
-}
-
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  todo: '待办',
-  running: '进行中',
-  review: '审批',
-  done: '已完成',
-  cancelled: '已取消',
-}
-
 const STATUS_COLORS: Record<TaskStatus, string> = {
   todo: 'bg-blue-500/15 text-blue-600',
   running: 'bg-amber-500/15 text-amber-600',
@@ -77,18 +63,33 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   cancelled: 'bg-zinc-500/15 text-zinc-500',
 }
 
-const ACTOR_LABELS: Record<string, string> = {
-  system: '系统',
-  user: '用户',
-  agent: 'Agent',
-  timeout: '超时',
-}
+const getPriorityLabels = (t: (key: string) => string): Record<Priority, string> => ({
+  urgent: t('priority.urgent'),
+  high: t('priority.high'),
+  medium: t('priority.medium'),
+  low: t('priority.low'),
+})
 
-const TAB_CONFIG: { key: Tab; label: string; icon: typeof FileText }[] = [
-  { key: 'plan', label: '计划', icon: FileText },
-  { key: 'activity', label: '活动', icon: Activity },
-  { key: 'log', label: '日志', icon: ScrollText },
-  { key: 'chat', label: '对话', icon: MessageSquare },
+const getStatusLabels = (t: (key: string) => string): Record<TaskStatus, string> => ({
+  todo: t('status.todo'),
+  running: t('status.running'),
+  review: t('status.review'),
+  done: t('status.done'),
+  cancelled: t('status.cancelled'),
+})
+
+const getActorLabels = (t: (key: string) => string): Record<string, string> => ({
+  system: t('actorLabels.system'),
+  user: t('actorLabels.user'),
+  agent: t('actorLabels.agent'),
+  timeout: t('actorLabels.timeout'),
+})
+
+const getTabConfig = (t: (key: string) => string): { key: Tab; label: string; icon: typeof FileText }[] => [
+  { key: 'plan', label: t('tabs.plan'), icon: FileText },
+  { key: 'activity', label: t('tabs.activity'), icon: Activity },
+  { key: 'log', label: t('tabs.log'), icon: ScrollText },
+  { key: 'chat', label: t('tabs.chat'), icon: MessageSquare },
 ]
 
 function formatDateTime(dateStr: string): string {
@@ -98,11 +99,21 @@ function formatDateTime(dateStr: string): string {
 
 // ─── Activity Timeline ───────────────────────────────────────────────
 
-function ActivityTimeline({ log }: { log: ActivityLogEntry[] }) {
+function ActivityTimeline({
+  log,
+  statusLabels,
+  actorLabels,
+  t,
+}: {
+  log: ActivityLogEntry[]
+  statusLabels: Record<TaskStatus, string>
+  actorLabels: Record<string, string>
+  t: (key: string) => string
+}) {
   if (log.length === 0) {
     return (
       <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-        暂无活动记录
+        {t('messages.noActivity')}
       </div>
     )
   }
@@ -118,15 +129,15 @@ function ActivityTimeline({ log }: { log: ActivityLogEntry[] }) {
           <div className="min-w-0 flex-1 pb-3">
             <div className="flex items-center gap-2 text-xs">
               <Badge variant="outline" className={cn('text-[10px]', STATUS_COLORS[entry.to as TaskStatus])}>
-                {STATUS_LABELS[entry.to as TaskStatus] ?? entry.to}
+                {statusLabels[entry.to as TaskStatus] ?? entry.to}
               </Badge>
               {entry.reviewType && (
                 <Badge variant="secondary" className="text-[10px]">
-                  {entry.reviewType === 'plan' ? '计划确认' : '完成审查'}
+                  {entry.reviewType === 'plan' ? t('reviewType.plan') : t('reviewType.completion')}
                 </Badge>
               )}
               <span className="text-muted-foreground">
-                {ACTOR_LABELS[entry.actor] ?? entry.actor}
+                {actorLabels[entry.actor] ?? entry.actor}
               </span>
             </div>
             {entry.reason && (
@@ -155,10 +166,16 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
   taskId,
   workspaceId,
 }: TaskDetailPanelProps) {
+  const { t } = useTranslation('tasks')
   const { workspace } = useWorkspace()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<Tab>('plan')
   const wsId = workspaceId ?? workspace?.id ?? ''
+
+  const priorityLabels = useMemo(() => getPriorityLabels(t), [t])
+  const statusLabels = useMemo(() => getStatusLabels(t), [t])
+  const actorLabels = useMemo(() => getActorLabels(t), [t])
+  const tabConfig = useMemo(() => getTabConfig(t), [t])
 
   const { data: task, isLoading } = useQuery(
     trpc.scheduledTask.getTaskDetail.queryOptions(
@@ -203,7 +220,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
   if (!task) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        任务不存在
+        {t('messages.taskNotFound')}
       </div>
     )
   }
@@ -227,10 +244,10 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
           <h3 className="text-sm font-semibold leading-tight">{task.name}</h3>
           <div className="flex shrink-0 items-center gap-1.5">
             <Badge variant="outline" className={cn('text-[10px]', STATUS_COLORS[status])}>
-              {STATUS_LABELS[status]}
+              {statusLabels[status]}
             </Badge>
             <Badge variant="outline" className={cn('text-[10px]', PRIORITY_COLORS[priority])}>
-              {PRIORITY_LABELS[priority]}
+              {priorityLabels[priority]}
             </Badge>
           </div>
         </div>
@@ -238,15 +255,15 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
           <p className="mt-1 text-xs text-muted-foreground">{task.description as string}</p>
         )}
         <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground">
-          <span>创建: {formatDateTime(task.createdAt as string)}</span>
-          {task.agentName && <span>Agent: {task.agentName as string}</span>}
+          <span>{t('detail.created')}: {formatDateTime(task.createdAt as string)}</span>
+          {task.agentName && <span>{t('detail.agent')}: {task.agentName as string}</span>}
         </div>
 
         {/* Progress bar for running tasks */}
         {status === 'running' && summary?.totalSteps && summary.completedSteps !== undefined && (
           <div className="mt-2">
             <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>{summary.currentStep ?? '执行中...'}</span>
+              <span>{summary.currentStep ?? t('messages.executingRunning')}</span>
               <span>{summary.completedSteps}/{summary.totalSteps}</span>
             </div>
             <div className="mt-1 h-1.5 w-full rounded-full bg-secondary">
@@ -261,7 +278,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
 
       {/* Tabs */}
       <div className="flex border-b">
-        {TAB_CONFIG.map(({ key, label, icon: Icon }) => (
+        {tabConfig.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             type="button"
@@ -287,7 +304,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
               <p className="text-sm whitespace-pre-wrap">{summary.lastAgentMessage}</p>
             ) : (
               <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-                {status === 'todo' ? '任务尚未开始执行' : '暂无计划内容'}
+                {status === 'todo' ? t('messages.notStarted') : t('messages.noPlanContent')}
               </div>
             )}
           </div>
@@ -295,17 +312,19 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
 
         {activeTab === 'chat' && (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            对话记录将在任务执行时生成
+            {t('messages.chatGeneratedOnExecution')}
           </div>
         )}
 
         {activeTab === 'log' && (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            执行日志将在任务执行时生成
+            {t('messages.logGeneratedOnExecution')}
           </div>
         )}
 
-        {activeTab === 'activity' && <ActivityTimeline log={activityLog} />}
+        {activeTab === 'activity' && (
+          <ActivityTimeline log={activityLog} statusLabels={statusLabels} actorLabels={actorLabels} t={t} />
+        )}
       </div>
 
       {/* Action bar */}
@@ -315,7 +334,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
             {status === 'review' && reviewType === 'plan' && (
               <>
                 <Button size="sm" className="h-7 text-xs" onClick={() => handleResolve('approve')}>
-                  确认计划
+                  {t('detail.confirmPlan')}
                 </Button>
                 <Button
                   size="sm"
@@ -323,14 +342,14 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
                   className="h-7 text-xs"
                   onClick={() => handleResolve('reject')}
                 >
-                  拒绝
+                  {t('actions.reject')}
                 </Button>
               </>
             )}
             {status === 'review' && reviewType === 'completion' && (
               <>
                 <Button size="sm" className="h-7 text-xs" onClick={() => handleResolve('approve')}>
-                  通过
+                  {t('actions.pass')}
                 </Button>
                 <Button
                   size="sm"
@@ -338,7 +357,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
                   className="h-7 text-xs"
                   onClick={() => handleResolve('rework')}
                 >
-                  返工
+                  {t('actions.rework')}
                 </Button>
               </>
             )}
@@ -350,7 +369,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
             onClick={handleCancel}
           >
             <XCircle className="mr-1 h-3.5 w-3.5" />
-            取消任务
+            {t('detail.cancelTask')}
           </Button>
         </div>
       )}

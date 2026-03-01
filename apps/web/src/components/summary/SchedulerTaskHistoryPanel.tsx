@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { memo, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   Table,
@@ -52,31 +53,88 @@ type SchedulerTaskHistoryPanelProps = {
   emptyText?: string;
 };
 
+type TFunc = (key: string, options?: Record<string, unknown>) => string;
+
+/** Render date label for a record. */
+function renderDateLabel(record: SchedulerTaskRecord, t: TFunc): string {
+  const dates = Array.isArray(record.dates) ? record.dates.filter(Boolean) : [];
+  if (dates.length === 1) return t('history.singleDay', { date: dates[0] });
+  if (dates.length > 1) return t('history.dateRange', { start: dates[0], end: dates[dates.length - 1] });
+  return t('history.noDate');
+}
+
+/** Render trigger label. */
+function renderTriggerLabel(triggeredBy: string, t: TFunc): string {
+  switch (triggeredBy) {
+    case "scheduler":
+      return t('history.triggerScheduler');
+    case "manual":
+      return t('history.triggerManual');
+    case "external":
+      return t('history.triggerExternal');
+    default:
+      return triggeredBy || t('history.triggerUnknown');
+  }
+}
+
+/** Render status label. */
+function renderStatusLabel(status: string, t: TFunc): string {
+  switch (status) {
+    case "running":
+      return t('history.statusRunning');
+    case "success":
+      return t('history.statusSuccess');
+    case "failed":
+      return t('history.statusFailed');
+    default:
+      return status || t('history.statusUnknown');
+  }
+}
+
+/** Render type label. */
+function renderTypeLabel(type: string, t: TFunc): string {
+  if (type === "summary-day") return t('history.typeDay');
+  if (type === "summary-range") return t('history.typeRange');
+  return type;
+}
+
+/** Format time string for display. */
+function formatTime(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString();
+}
+
 /** Render scheduler task history list. */
 export const SchedulerTaskHistoryPanel = memo(function SchedulerTaskHistoryPanel({
   records,
   isLoading,
   emptyText,
 }: SchedulerTaskHistoryPanelProps) {
+  const { t } = useTranslation('tasks');
   const items = useMemo(() => records ?? [], [records]);
+
+  const tableHeader = (
+    <TableHeader className="bg-muted/50">
+      <TableRow>
+        <TableHead>{t('history.colDate')}</TableHead>
+        <TableHead>{t('history.colTrigger')}</TableHead>
+        <TableHead>{t('history.colStatus')}</TableHead>
+        <TableHead>{t('history.colType')}</TableHead>
+        <TableHead>{t('history.colTime')}</TableHead>
+        <TableHead>{t('history.colError')}</TableHead>
+      </TableRow>
+    </TableHeader>
+  );
 
   if (isLoading) {
     return (
       <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow>
-            <TableHead>日期</TableHead>
-            <TableHead>触发</TableHead>
-            <TableHead>状态</TableHead>
-            <TableHead>类型</TableHead>
-            <TableHead>时间</TableHead>
-            <TableHead>错误</TableHead>
-          </TableRow>
-        </TableHeader>
+        {tableHeader}
         <TableBody>
           <TableRow>
             <TableCell colSpan={6} className="py-6 text-center text-xs text-muted-foreground">
-              加载中...
+              {t('history.loading')}
             </TableCell>
           </TableRow>
         </TableBody>
@@ -87,20 +145,11 @@ export const SchedulerTaskHistoryPanel = memo(function SchedulerTaskHistoryPanel
   if (!items.length) {
     return (
       <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow>
-            <TableHead>日期</TableHead>
-            <TableHead>触发</TableHead>
-            <TableHead>状态</TableHead>
-            <TableHead>类型</TableHead>
-            <TableHead>时间</TableHead>
-            <TableHead>错误</TableHead>
-          </TableRow>
-        </TableHeader>
+        {tableHeader}
         <TableBody>
           <TableRow>
             <TableCell colSpan={6} className="py-6 text-center text-xs text-muted-foreground">
-              {emptyText ?? "暂无记录"}
+              {emptyText ?? t('history.noRecords')}
             </TableCell>
           </TableRow>
         </TableBody>
@@ -110,28 +159,19 @@ export const SchedulerTaskHistoryPanel = memo(function SchedulerTaskHistoryPanel
 
   return (
     <Table>
-      <TableHeader className="bg-muted/50">
-        <TableRow>
-          <TableHead>日期</TableHead>
-          <TableHead>触发</TableHead>
-          <TableHead>状态</TableHead>
-          <TableHead>类型</TableHead>
-          <TableHead>时间</TableHead>
-          <TableHead>错误</TableHead>
-        </TableRow>
-      </TableHeader>
+      {tableHeader}
       <TableBody>
         {items.map((item) => (
           <TableRow key={item.id}>
-            <TableCell className="font-medium">{renderDateLabel(item)}</TableCell>
+            <TableCell className="font-medium">{renderDateLabel(item, t)}</TableCell>
             <TableCell className="text-muted-foreground">
-              {renderTriggerLabel(item.triggeredBy)}
+              {renderTriggerLabel(item.triggeredBy, t)}
             </TableCell>
             <TableCell className="text-muted-foreground">
-              {renderStatusLabel(item.status)}
+              {renderStatusLabel(item.status, t)}
             </TableCell>
             <TableCell className="text-muted-foreground">
-              {item.type ? renderTypeLabel(item.type) : "-"}
+              {item.type ? renderTypeLabel(item.type, t) : "-"}
             </TableCell>
             <TableCell className="text-muted-foreground">{formatTime(item.createdAt)}</TableCell>
             <TableCell className={item.error ? "text-rose-500" : "text-muted-foreground"}>
@@ -143,53 +183,3 @@ export const SchedulerTaskHistoryPanel = memo(function SchedulerTaskHistoryPanel
     </Table>
   );
 });
-
-/** Render date label for a record. */
-function renderDateLabel(record: SchedulerTaskRecord): string {
-  const dates = Array.isArray(record.dates) ? record.dates.filter(Boolean) : [];
-  if (dates.length === 1) return `单日 ${dates[0]}`;
-  if (dates.length > 1) return `区间 ${dates[0]} ~ ${dates[dates.length - 1]}`;
-  return "未标注日期";
-}
-
-/** Render trigger label. */
-function renderTriggerLabel(triggeredBy: string): string {
-  switch (triggeredBy) {
-    case "scheduler":
-      return "定时触发";
-    case "manual":
-      return "手动触发";
-    case "external":
-      return "外部触发";
-    default:
-      return triggeredBy || "未知来源";
-  }
-}
-
-/** Render status label. */
-function renderStatusLabel(status: string): string {
-  switch (status) {
-    case "running":
-      return "运行中";
-    case "success":
-      return "已完成";
-    case "failed":
-      return "失败";
-    default:
-      return status || "未知状态";
-  }
-}
-
-/** Render type label. */
-function renderTypeLabel(type: string): string {
-  if (type === "summary-day") return "日汇总";
-  if (type === "summary-range") return "区间汇总";
-  return type;
-}
-
-/** Format time string for display. */
-function formatTime(value: string | Date): string {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString();
-}

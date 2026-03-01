@@ -9,18 +9,21 @@
  */
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Settings2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
 import { useModelPreferences } from './model-preferences/useModelPreferences'
 import { ModelPreferencesPanel } from './model-preferences/ModelPreferencesPanel'
-import { CLI_TOOLS_META } from './model-preferences/CliToolsList'
+import { ModelSelectionTooltip } from './model-preferences/ModelSelectionTooltip'
 import { useOptionalChatSession } from '../context'
 import { useTabs } from '@/hooks/use-tabs'
-import { openSettingsTab } from '@/lib/globalShortcuts'
 import {
   PromptInputButton,
+  PromptInputHoverCard,
+  PromptInputHoverCardContent,
+  PromptInputHoverCardTrigger,
 } from '@/components/ai-elements/prompt-input'
 import {
   Popover,
@@ -41,6 +44,7 @@ export default function SelectMode({
   triggerVariant = 'text',
   chatMode = 'agent',
 }: SelectModeProps) {
+  const { t } = useTranslation('ai')
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
   const prefs = useModelPreferences()
@@ -48,13 +52,6 @@ export default function SelectMode({
   const activeTabId = useTabs((s) => s.activeTabId)
   const tabId = chatSession?.tabId ?? activeTabId
   const isIconTrigger = triggerVariant === 'icon'
-
-  const cliIcon = useMemo(() => {
-    if (chatMode !== 'cli') return null
-    const selectedId = prefs.preferredCodeIds[0]
-    const tool = selectedId ? CLI_TOOLS_META.find((t) => t.id === selectedId) : CLI_TOOLS_META[0]
-    return tool ?? null
-  }, [chatMode, prefs.preferredCodeIds])
 
   // 逻辑：Popover 打开时刷新配置和云端模型
   useEffect(() => {
@@ -102,16 +99,6 @@ export default function SelectMode({
     setLoginOpen(true)
   }
 
-  const handleOpenInstall = () => {
-    const wsId = chatSession?.workspaceId
-    if (!wsId) return
-    setPopoverOpen(false)
-    requestAnimationFrame(() => {
-      openSettingsTab(wsId, 'thirdPartyTools')
-    })
-  }
-
-  const CliIconComponent = cliIcon?.icon
   const triggerButton = isIconTrigger ? (
     <PromptInputButton
       type="button"
@@ -124,13 +111,9 @@ export default function SelectMode({
           : 'bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 hover:text-violet-700 dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25 dark:hover:text-violet-200',
         className,
       )}
-      aria-label="自定义设置"
+      aria-label={t('mode.customizeSettings')}
     >
-      {CliIconComponent ? (
-        <CliIconComponent size={16} className="h-4 w-4" />
-      ) : (
-        <Settings2 className="h-4 w-4" />
-      )}
+      <Settings2 className="h-4 w-4" />
     </PromptInputButton>
   ) : (
     <PromptInputButton
@@ -144,39 +127,50 @@ export default function SelectMode({
         className,
       )}
     >
-      {CliIconComponent ? (
-        <CliIconComponent size={14} className="h-3.5 w-3.5" />
-      ) : (
-        <Settings2 className="h-3.5 w-3.5" />
-      )}
-      <span className="truncate">自定义设置</span>
+      <Settings2 className="h-3.5 w-3.5" />
+      <span className="truncate">{t('mode.customizeSettings')}</span>
     </PromptInputButton>
   )
 
   return (
     <>
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
-      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-        <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
-        <PopoverContent
-          side="top"
-          align="end"
-          sideOffset={8}
-          className={cn(
-            'w-96 max-w-[94vw] rounded-xl border-border bg-muted/40 p-2 shadow-2xl backdrop-blur-sm',
-          )}
-        >
-          <ModelPreferencesPanel
-            prefs={prefs}
-            showCloudLogin={prefs.showCloudLogin}
-            authLoggedIn={prefs.authLoggedIn}
-            chatMode={chatMode}
-            onOpenLogin={handleOpenLogin}
-            onOpenInstall={handleOpenInstall}
-            onClose={() => setPopoverOpen(false)}
-          />
-        </PopoverContent>
-      </Popover>
+      <PromptInputHoverCard
+        open={popoverOpen ? false : undefined}
+        openDelay={300}
+      >
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+          <PromptInputHoverCardTrigger asChild>
+            <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
+          </PromptInputHoverCardTrigger>
+          <PromptInputHoverCardContent className="max-w-[16rem]">
+            <ModelSelectionTooltip
+              chatModels={prefs.chatModels}
+              imageModels={prefs.imageModels}
+              videoModels={prefs.videoModels}
+              preferredChatIds={prefs.preferredChatIds}
+              preferredImageIds={prefs.preferredImageIds}
+              preferredVideoIds={prefs.preferredVideoIds}
+            />
+          </PromptInputHoverCardContent>
+          <PopoverContent
+            side="top"
+            align="end"
+            sideOffset={8}
+            className={cn(
+              'w-96 max-w-[94vw] rounded-xl border-border bg-muted/40 p-2 shadow-2xl backdrop-blur-sm',
+            )}
+          >
+            <ModelPreferencesPanel
+              prefs={prefs}
+              showCloudLogin={prefs.showCloudLogin}
+              authLoggedIn={prefs.authLoggedIn}
+              onOpenLogin={handleOpenLogin}
+              onClose={() => setPopoverOpen(false)}
+            />
+          </PopoverContent>
+        </Popover>
+      </PromptInputHoverCard>
     </>
   )
 }

@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { Fragment } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@openloaf/ui/button";
 import {
   Table,
@@ -80,15 +81,16 @@ export function ProviderSection({
   onModelEdit,
   onModelDelete,
 }: ProviderSectionProps) {
+  const { t } = useTranslation('settings');
   return (
     <>
       <OpenLoafSettingsGroup
-        title="AI 服务商"
-        subtitle="配置模型服务商的 API URL 与认证信息，添加后即可使用 AI 模型服务。"
+        title={t('provider.sectionTitle')}
+        subtitle={t('provider.sectionSubtitle')}
         showBorder={false}
         action={
           <Button variant="default" onClick={onAdd}>
-            添加
+            {t('provider.addButton')}
           </Button>
         }
       >
@@ -99,10 +101,10 @@ export function ProviderSection({
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
-              <TableHead>AI 服务商</TableHead>
-              <TableHead>能力</TableHead>
+              <TableHead>{t('provider.sectionTitle')}</TableHead>
+              <TableHead>{t('provider.tableHeadCapabilities')}</TableHead>
               <TableHead>API URL</TableHead>
-              <TableHead className="text-right">操作</TableHead>
+              <TableHead className="text-right">{t('provider.tableHeadActions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -126,7 +128,7 @@ export function ProviderSection({
                             event.stopPropagation();
                             onToggleExpand(entry.key);
                           }}
-                          aria-label={isExpanded ? "收起模型列表" : "展开模型列表"}
+                          aria-label={isExpanded ? t('provider.collapseModels') : t('provider.expandModels')}
                         >
                           {isExpanded ? (
                             <ChevronUp className="h-4 w-4" />
@@ -215,8 +217,8 @@ export function ProviderSection({
                                       className="h-8 w-8"
                                       onClick={() => onModelEdit(entry, modelDefinition)}
                                       disabled={!isCustomModel}
-                                      title={isCustomModel ? "编辑模型" : "仅支持编辑自定义模型"}
-                                      aria-label="编辑模型"
+                                      title={isCustomModel ? t('provider.editModel') : t('provider.canOnlyEditCustomModels')}
+                                      aria-label={t('provider.editModel')}
                                     >
                                       <Pencil className="h-4 w-4" />
                                     </Button>
@@ -225,7 +227,7 @@ export function ProviderSection({
                                       variant="ghost"
                                       className="h-8 w-8"
                                       onClick={() => onModelDelete(entry, modelDefinition.id)}
-                                      aria-label="删除模型"
+                                      aria-label={t('provider.deleteModel')}
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -245,7 +247,7 @@ export function ProviderSection({
             {entries.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="py-6 text-center text-sm text-muted-foreground">
-                  暂无 AI 服务商，点击右上角添加。
+                  {t('provider.emptyProviders')}
                 </TableCell>
               </TableRow>
             ) : null}

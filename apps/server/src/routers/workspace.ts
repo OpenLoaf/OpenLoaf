@@ -23,6 +23,7 @@ import {
 } from "@openloaf/api/services/workspaceConfig";
 import { normalizeFileUri, resolveFilePathFromUri } from "@openloaf/api/services/fileUri";
 import { ensureWorkspaceDefaultAgentByRootUri } from "@/ai/shared/workspaceAgentInit";
+import { getErrorMessage, ERROR_MESSAGES } from "@/shared/errorMessages";
 
 /** Build a comparable workspace root path key. */
 function buildWorkspaceRootPathKey(rootUri: string): string {
@@ -48,7 +49,7 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
       create: shieldedProcedure
         .input(workspaceSchemas.create.input)
         .output(workspaceSchemas.create.output)
-        .mutation(async ({ input }) => {
+        .mutation(async ({ input, ctx }) => {
           const workspaces = getWorkspaces() as Workspace[];
           const normalizedRootUri = normalizeFileUri(input.rootUri);
           const targetRootKey = buildWorkspaceRootPathKey(normalizedRootUri);
@@ -56,7 +57,7 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
             (workspace) => buildWorkspaceRootPathKey(workspace.rootUri) === targetRootKey,
           );
           if (duplicated) {
-            throw new Error("工作空间保存目录不能重复，请选择其他文件夹。");
+            throw new Error(getErrorMessage('WORKSPACE_DUPLICATE', ctx.lang));
           }
           // 中文注释：创建前确保目录存在，避免后续读写工作空间文件失败。
           resolveWorkspaceRootPath(normalizedRootUri);
@@ -77,10 +78,10 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
       activate: shieldedProcedure
         .input(workspaceSchemas.activate.input)
         .output(workspaceSchemas.activate.output)
-        .mutation(async ({ input }) => {
+        .mutation(async ({ input, ctx }) => {
           const workspaces = getWorkspaces() as Workspace[];
           const exists = workspaces.find((w) => w.id === input.id);
-          if (!exists) throw new Error("工作空间不存在");
+          if (!exists) throw new Error(getErrorMessage('WORKSPACE_NOT_FOUND', ctx.lang));
           const next = workspaces.map((w) => ({ ...w, isActive: w.id === input.id }));
           setWorkspaces(next as Workspace[]);
           // 逻辑：切换 workspace 后确保目标 workspace 有默认 agent 文件。
@@ -91,11 +92,11 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
       delete: shieldedProcedure
         .input(workspaceSchemas.delete.input)
         .output(workspaceSchemas.delete.output)
-        .mutation(async ({ input }) => {
+        .mutation(async ({ input, ctx }) => {
           const workspaces = getWorkspaces() as Workspace[];
-          if (workspaces.length <= 1) throw new Error("至少需要保留一个工作空间");
+          if (workspaces.length <= 1) throw new Error(getErrorMessage('WORKSPACE_MIN_REQUIRED', ctx.lang));
           const next = workspaces.filter((w) => w.id !== input.id);
-          if (next.length === workspaces.length) throw new Error("工作空间不存在");
+          if (next.length === workspaces.length) throw new Error(getErrorMessage('WORKSPACE_NOT_FOUND', ctx.lang));
           if (!next.some((w) => w.isActive) && next[0]) next[0] = { ...next[0], isActive: true };
           setWorkspaces(next as Workspace[]);
           return true;
@@ -104,10 +105,10 @@ export class WorkspaceRouterImpl extends BaseWorkspaceRouter {
       updateName: shieldedProcedure
         .input(workspaceSchemas.updateName.input)
         .output(workspaceSchemas.updateName.output)
-        .mutation(async ({ input }) => {
+        .mutation(async ({ input, ctx }) => {
           const workspaces = getWorkspaces() as Workspace[];
           const exists = workspaces.find((w) => w.id === input.id);
-          if (!exists) throw new Error("工作空间不存在");
+          if (!exists) throw new Error(getErrorMessage('WORKSPACE_NOT_FOUND', ctx.lang));
           const next = workspaces.map((w) => (w.id === input.id ? { ...w, name: input.name } : w));
           setWorkspaces(next as Workspace[]);
           return { ...exists, name: input.name };

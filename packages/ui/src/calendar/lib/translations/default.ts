@@ -126,4 +126,8 @@ export const defaultTranslations: Translations = {
 	october: 'October',
 	november: 'November',
 	december: 'December',
+
+	// Event form time range (reminders)
+	timeRange: 'Time Range',
+	timeRangeHint: 'Enable to set start and end times',
 }

@@ -10,6 +10,7 @@
 "use client"
 
 import { useCallback, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import dynamic from "next/dynamic"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { queryClient, trpc } from "@/utils/trpc"
@@ -163,16 +164,17 @@ function CopyAgentDialog({
   agents: AgentSummary[]
   onSelect: (agent: AgentSummary) => void
 }) {
+  const { t } = useTranslation(["settings"])
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>选择要复制的工作空间 Agent助手</DialogTitle>
+          <DialogTitle>{t("settings:agent.copyDialogTitle")}</DialogTitle>
         </DialogHeader>
         <div className="max-h-[480px] space-y-1.5 overflow-y-auto py-2">
           {agents.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
-              工作空间暂无可用 Agent助手
+              {t("settings:agent.noWorkspaceAgents")}
             </p>
           ) : (
             agents.map((agent) => (
@@ -191,7 +193,7 @@ function CopyAgentDialog({
                 </div>
                 {agent.folderName === "master" ? (
                   <span className="shrink-0 rounded bg-violet-100 px-1 py-px text-[10px] text-violet-600 dark:bg-violet-900/50 dark:text-violet-400">
-                    主助手
+                    {t("settings:agent.master")}
                   </span>
                 ) : null}
               </button>
@@ -226,6 +228,7 @@ function AgentIconDisplay({ icon }: { icon: string }) {
 }
 
 export function ProjectAgentView({ projectId }: { projectId: string }) {
+  const { t } = useTranslation(["settings", "common"])
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
   const [copyDialogOpen, setCopyDialogOpen] = useState(false)
@@ -355,7 +358,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
         queryClient.invalidateQueries({
           queryKey: trpc.settings.getAgents.queryOptions({ projectId, scopeFilter: "project" }).queryKey,
         })
-        toast.success("已删除 Agent助手")
+        toast.success(t("settings:agent.deleted"))
       },
       onError: (error) => toast.error(error.message),
     }),
@@ -367,7 +370,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
         queryClient.invalidateQueries({
           queryKey: trpc.settings.getAgents.queryOptions({ projectId, scopeFilter: "project" }).queryKey,
         })
-        toast.success("已复制 Agent助手 到项目")
+        toast.success(t("settings:agent.copied"))
       },
       onError: (error) => toast.error(error.message),
     }),
@@ -380,7 +383,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
         id: `agent-detail:${agent.scope}:${agent.name}`,
         sourceKey: `agent-detail:${agent.scope}:${agent.name}`,
         component: "agent-detail",
-        title: `Agent助手 · ${agent.name}`,
+        title: t("settings:agent.tabTitle", { name: agent.name }),
         params: {
           agentPath: agent.path,
           scope: agent.scope,
@@ -398,7 +401,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
       id: `agent-detail:new:${Date.now()}`,
       sourceKey: "agent-detail:new",
       component: "agent-detail",
-      title: "创建 Agent助手",
+      title: t("settings:agent.createTitle"),
       params: { isNew: true, scope: "project", projectId },
     })
   }, [activeTabId, projectId, pushStackItem])
@@ -409,7 +412,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
       id: "workspace-agents",
       sourceKey: "workspace-agents",
       component: "agent-management",
-      title: "工作空间 Agent助手",
+      title: t("settings:agent.workspaceTitle"),
       params: {},
     })
   }, [activeTabId, pushStackItem])
@@ -431,7 +434,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
     async (agent: AgentSummary) => {
       if (!agent.ignoreKey.trim()) return
       const confirmed = window.confirm(
-        `确认删除 Agent助手「${agent.name}」？此操作不可撤销。`,
+        t("settings:agent.deleteConfirm", { name: agent.name }),
       )
       if (!confirmed) return
       await deleteAgentMutation.mutateAsync({
@@ -472,10 +475,10 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
       <div className="flex flex-wrap items-start justify-between gap-2.5 border-b border-border/60 px-3 py-2.5">
         <div className="space-y-1">
           <h3 className="text-sm font-semibold tracking-tight text-foreground">
-            项目 Agent助手
+            {t("settings:agent.projectTitle")}
           </h3>
           <p className="text-xs text-muted-foreground">
-            管理当前项目的 Agent助手。
+            {t("settings:agent.projectDescription")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -488,24 +491,24 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                 disabled={!activeTabId}
               >
                 <Plus className="h-3.5 w-3.5" />
-                <span className="ml-1.5 hidden sm:inline">创建 Agent助手</span>
+                <span className="ml-1.5 hidden sm:inline">{t("settings:agent.createBtn")}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               {!hasMaster ? (
                 <DropdownMenuItem onClick={handleStartCopyMaster}>
                   <Bot className="mr-2 h-4 w-4" />
-                  创建项目主助手
+                  {t("settings:agent.createMaster")}
                 </DropdownMenuItem>
               ) : null}
               {!hasMaster ? <DropdownMenuSeparator /> : null}
               <DropdownMenuItem onClick={handleCreateBlank}>
                 <Plus className="mr-2 h-4 w-4" />
-                从空白创建
+                {t("settings:agent.createBlank")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleStartCopyNormal}>
                 <Copy className="mr-2 h-4 w-4" />
-                从工作空间复制
+                {t("settings:agent.copyFromWorkspace")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -520,11 +523,11 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                 disabled={!activeTabId}
               >
                 <ArrowRight className="h-3.5 w-3.5" />
-                <span className="ml-1.5 hidden sm:inline">查看工作空间 Agent助手</span>
+                <span className="ml-1.5 hidden sm:inline">{t("settings:agent.viewWorkspace")}</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
-              查看工作空间 Agent助手
+              {t("settings:agent.viewWorkspace")}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -537,7 +540,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="搜索 Agent助手 名称或描述..."
+              placeholder={t("settings:agent.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-9 rounded-xl border-border/70 bg-background/90 pl-9 pr-9 text-sm"
@@ -549,16 +552,16 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                 size="icon"
                 className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-full"
                 onClick={() => setSearchQuery("")}
-                aria-label="清除搜索"
+                aria-label={t("common:clear")}
               >
                 <X className="h-3.5 w-3.5" />
               </Button>
             ) : null}
           </div>
           <div className="flex items-center rounded-full border border-border/70 bg-muted/40">
-            <FilterTab text="全部" selected={statusFilter === "all"} onSelect={() => setStatusFilter("all")} layoutId="project-agent-filter" />
-            <FilterTab text="启用" selected={statusFilter === "enabled"} onSelect={() => setStatusFilter("enabled")} layoutId="project-agent-filter" />
-            <FilterTab text="停用" selected={statusFilter === "disabled"} onSelect={() => setStatusFilter("disabled")} layoutId="project-agent-filter" />
+            <FilterTab text={t("settings:agent.statusAll")} selected={statusFilter === "all"} onSelect={() => setStatusFilter("all")} layoutId="project-agent-filter" />
+            <FilterTab text={t("settings:agent.statusEnabled")} selected={statusFilter === "enabled"} onSelect={() => setStatusFilter("enabled")} layoutId="project-agent-filter" />
+            <FilterTab text={t("settings:agent.statusDisabled")} selected={statusFilter === "disabled"} onSelect={() => setStatusFilter("disabled")} layoutId="project-agent-filter" />
           </div>
         </div>
       </div>
@@ -582,18 +585,18 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                         </span>
                         {agent.folderName === "master" ? (
                           <span className="shrink-0 rounded px-1 py-px text-[10px] bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400">
-                            主助手
+                            {t("settings:agent.master")}
                           </span>
                         ) : null}
                         {agent.isSystem ? (
                           <span className="shrink-0 rounded px-1 py-px text-[10px] bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
-                            系统
+                            {t("settings:agent.system")}
                           </span>
                         ) : null}
                         {/* 逻辑：当前项目 Agent 与工作空间同名时显示覆盖标记。 */}
                         {!agent.isInherited && wsAgentFolderSet.has(agent.folderName) ? (
                           <span className="shrink-0 rounded px-1 py-px text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400">
-                            覆盖
+                            {t("settings:agent.override")}
                           </span>
                         ) : null}
                         {agent.model ? (
@@ -628,14 +631,14 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                       checked={agent.isEnabled}
                       onCheckedChange={(checked) => handleToggleAgent(agent, checked)}
                       className="shrink-0 border-zinc-300/70 bg-zinc-200/55 data-[state=checked]:bg-emerald-300/60 dark:border-zinc-600/80 dark:bg-zinc-700/45 dark:data-[state=checked]:bg-emerald-600/45"
-                      aria-label={`启用 Agent助手 ${agent.name}`}
+                      aria-label={t("settings:agent.enableLabel", { name: agent.name })}
                       disabled={updateAgentMutation.isPending}
                     />
                   </div>
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-44">
                   <ContextMenuItem icon={Pencil} onClick={() => handleEditAgent(agent)}>
-                    编辑 Agent助手
+                    {t("settings:agent.editBtn")}
                   </ContextMenuItem>
                   <ContextMenuItem
                     icon={Trash2}
@@ -643,7 +646,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                     onClick={() => void handleDeleteAgent(agent)}
                     disabled={deleteAgentMutation.isPending}
                   >
-                    删除 Agent助手
+                    {t("settings:agent.deleteBtn")}
                   </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>
@@ -653,25 +656,25 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
 
         {agentsQuery.isLoading ? (
           <div className="py-9 text-center text-sm text-muted-foreground">
-            正在加载 Agent助手 列表...
+            {t("settings:agent.loading")}
           </div>
         ) : null}
 
         {!agentsQuery.isLoading && !agentsQuery.isError && !hasNonMasterAgents && !hasMaster ? (
           <div className="py-9 text-center text-sm text-muted-foreground">
-            暂无项目 Agent助手。点击「创建 Agent助手」开始。
+            {t("settings:agent.noProjectAgents")}
           </div>
         ) : null}
 
         {!agentsQuery.isLoading && !agentsQuery.isError && hasNonMasterAgents && filteredAgents.length === 0 ? (
           <div className="py-9 text-center text-sm text-muted-foreground">
-            没有匹配的 Agent助手，请调整筛选条件后重试。
+            {t("settings:agent.noMatch")}
           </div>
         ) : null}
 
         {agentsQuery.isError ? (
           <div className="py-9 text-center text-sm text-destructive">
-            读取失败：{agentsQuery.error?.message ?? "未知错误"}
+            {t("settings:agent.loadError", { error: agentsQuery.error?.message ?? "" })}
           </div>
         ) : null}
       </div>

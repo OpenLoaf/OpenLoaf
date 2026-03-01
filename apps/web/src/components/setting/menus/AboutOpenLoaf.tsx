@@ -10,6 +10,7 @@
 "use client";
 
 import { Button } from "@openloaf/ui/button";
+import { useTranslation } from "react-i18next";
 import { getWebClientId } from "@/lib/chat/streamClientId";
 import { ChevronRight, Download, FileText, Loader2 } from "lucide-react";
 import * as React from "react";
@@ -39,14 +40,7 @@ function buildChangelogUrl(component: "server" | "web", version: string): string
   return `${CHANGELOG_GITHUB_RAW}/apps/${component}/changelogs/${version}`;
 }
 
-const ITEMS: Array<{ key: string; label: string }> = [
-  { key: "license", label: "用户协议" },
-  { key: "privacy", label: "隐私条款" },
-  { key: "oss", label: "开源软件申明" },
-  { key: "docs", label: "帮助文档" },
-  { key: "contact", label: "联系我们" },
-  { key: "issues", label: "报告问题" },
-];
+// ITEMS moved inside component to support translation
 
 /**
  * Strip YAML frontmatter (--- ... ---) from a markdown string.
@@ -86,9 +80,20 @@ async function fetchChangelogWithLang(baseUrl: string, lang: string): Promise<st
 }
 
 export function AboutOpenLoaf() {
+  const { t } = useTranslation('settings');
   const { basic, setBasic } = useBasicConfig();
   const clientId = getWebClientId();
   const [copiedKey, setCopiedKey] = React.useState<"clientId" | null>(null);
+
+  // Build ITEMS with translations
+  const ITEMS = React.useMemo(() => [
+    { key: "license", label: t('about.license') },
+    { key: "privacy", label: t('about.privacy') },
+    { key: "oss", label: t('about.oss') },
+    { key: "docs", label: t('about.docs') },
+    { key: "contact", label: t('about.contact') },
+    { key: "issues", label: t('about.issues') },
+  ], [t]);
   const [webContentsViewCount, setWebContentsViewCount] = React.useState<number | null>(null);
   const [appVersion, setAppVersion] = React.useState<string | null>(null);
   const [updateStatus, setUpdateStatus] = React.useState<OpenLoafIncrementalUpdateStatus | null>(
@@ -205,13 +210,13 @@ export function AboutOpenLoaf() {
       const content = await fetchChangelogWithLang(changelogUrl, lang);
       setChangelogSheet((prev) => ({
         ...prev,
-        content: content || "无法加载更新日志",
+        content: content || "t('aboutAdditions.changelog')",
         loading: false,
       }));
     } else {
       setChangelogSheet((prev) => ({
         ...prev,
-        content: "当前版本暂无更新日志",
+        content: "t('aboutAdditions.changelog')",
         loading: false,
       }));
     }
@@ -278,33 +283,33 @@ export function AboutOpenLoaf() {
   const currentVersion = appVersion ?? "—";
   const downloadPercent = updateStatus?.progress?.percent;
   const updateLabel = React.useMemo(() => {
-    if (!isElectron) return "网页版不支持增量更新";
-    if (isDevDesktop) return "开发模式已关闭更新检测";
-    if (!updateStatus) return "等待检测更新";
+    if (!isElectron) return t('about.webNoIncrement');
+    if (isDevDesktop) return t('about.devModeClosed');
+    if (!updateStatus) return t('about.waitingCheck');
     const componentLabel =
-      updateStatus.progress?.component === "server" ? "服务端" : "Web";
+      updateStatus.progress?.component === "server" ? t('about.server') : "Web";
     // 兼容 idle 状态下仍有错误提示的情况（例如 Electron 版本过低）。
     if (updateStatus.state === "idle" && updateStatus.error) {
-      return `更新检查失败：${updateStatus.error}`;
+      return `${t('about.checkFailed')}：${updateStatus.error}`;
     }
     switch (updateStatus.state) {
       case "checking":
-        return "正在检查更新...";
+        return t('about.checking');
       case "downloading":
         return updateStatus.progress
-          ? `正在下载${componentLabel}更新 ${Math.round(downloadPercent ?? 0)}%`
-          : "正在下载更新...";
+          ? `${t('about.downloading')}${componentLabel}${t('about.updatePercent', { percent: Math.round(downloadPercent ?? 0) })}`
+          : t('about.downloadingUpdate');
       case "ready":
-        return "更新已准备好，重启后生效";
+        return t('about.readyRestart');
       case "error":
         return updateStatus.error
-          ? `更新检查失败：${updateStatus.error}`
-          : "更新检查失败，请稍后重试";
+          ? `${t('about.checkFailed')}：${updateStatus.error}`
+          : t('about.checkFailedRetry');
       case "idle":
       default:
-        return updateStatus.lastCheckedAt ? "当前已是最新版本" : "等待检测更新";
+        return updateStatus.lastCheckedAt ? t('about.isLatest') : t('about.waitingCheck');
     }
-  }, [isElectron, isDevDesktop, updateStatus, downloadPercent]);
+  }, [isElectron, isDevDesktop, updateStatus, downloadPercent, t]);
 
   const updateActionLabel = isDevDesktop
     ? "开发模式不可用"
@@ -326,12 +331,12 @@ export function AboutOpenLoaf() {
 
   return (
     <div className="space-y-6">
-      <OpenLoafSettingsGroup title="版本信息">
+      <OpenLoafSettingsGroup title={t('aboutAdditions.versionInfo')}>
         <div className="divide-y divide-border">
           {/* Electron 版本 */}
           <div className="flex items-center justify-between px-3 py-3">
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium">桌面端</div>
+              <div className="text-sm font-medium">{t('aboutAdditions.desktop')}</div>
               <div className="text-xs text-muted-foreground">v{currentVersion}</div>
             </div>
           </div>
@@ -340,11 +345,11 @@ export function AboutOpenLoaf() {
           <div className="flex items-center justify-between px-3 py-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <div className="text-sm font-medium">服务端</div>
+                <div className="text-sm font-medium">{t('aboutAdditions.server')}</div>
                 {serverHasUpdate && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">
                     <Download className="h-3 w-3" />
-                    有更新
+                    {t('aboutAdditions.hasUpdate')}
                   </span>
                 )}
               </div>
@@ -360,7 +365,7 @@ export function AboutOpenLoaf() {
               onClick={() => void openChangelog("server", serverVersion)}
             >
               <FileText className="h-3.5 w-3.5" />
-              更新日志
+              {t('aboutAdditions.changelog')}
             </Button>
           </div>
 
@@ -372,7 +377,7 @@ export function AboutOpenLoaf() {
                 {webHasUpdate && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">
                     <Download className="h-3 w-3" />
-                    有更新
+                    {t('aboutAdditions.hasUpdate')}
                   </span>
                 )}
               </div>
@@ -388,7 +393,7 @@ export function AboutOpenLoaf() {
               onClick={() => void openChangelog("web", webVersion)}
             >
               <FileText className="h-3.5 w-3.5" />
-              更新日志
+              {t('aboutAdditions.changelog')}
             </Button>
           </div>
         </div>
@@ -396,11 +401,11 @@ export function AboutOpenLoaf() {
 
       {/* 更新检查 */}
       {isElectron && (
-        <OpenLoafSettingsGroup title="更新">
+        <OpenLoafSettingsGroup title={t('aboutAdditions.updateCheck')}>
           <div className="px-3 py-3">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium mb-1">增量更新</div>
+                <div className="text-sm font-medium mb-1">{t('aboutAdditions.incrementalUpdate')}</div>
                 <div className="text-xs text-muted-foreground">{updateLabel}</div>
               </div>
               <Button
@@ -416,14 +421,14 @@ export function AboutOpenLoaf() {
         </OpenLoafSettingsGroup>
       )}
 
-      <OpenLoafSettingsGroup title="状态">
+      <OpenLoafSettingsGroup title={t('aboutAdditions.status')}>
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
-            <div className="text-sm font-medium">客户端ID</div>
+            <div className="text-sm font-medium">{t('aboutAdditions.clientId')}</div>
             <OpenLoafSettingsField className="max-w-[70%]">
               <button
                 type="button"
-                aria-label="点击复制客户端ID"
+                aria-label={t('aboutAdditions.clickCopy')}
                 disabled={!clientId}
                 title={clientId || undefined}
                 className={[
@@ -437,18 +442,18 @@ export function AboutOpenLoaf() {
                 ].join(" ")}
                 onClick={() => void copyToClipboard(clientId, "clientId")}
               >
-                {copiedKey === "clientId" ? "已复制" : clientId || "—"}
+                {copiedKey === "clientId" ? t('common:copy') : clientId || "—"}
               </button>
             </OpenLoafSettingsField>
           </div>
           {isElectron ? (
             <div className="flex flex-wrap items-start gap-3 px-3 py-3">
-              <div className="text-sm font-medium">WebContentsView数</div>
+              <div className="text-sm font-medium">{t('aboutAdditions.webContentsViewCount')}</div>
               <OpenLoafSettingsField className="max-w-[70%] gap-2">
                 <button
                   type="button"
-                  aria-label="点击刷新 WebContentsView 数"
-                  title="点击刷新"
+                  aria-label={t('aboutAdditions.clickRefresh')}
+                  title={t('aboutAdditions.clickRefresh')}
                   className={[
                     "text-right",
                     "bg-transparent p-0",
@@ -464,11 +469,11 @@ export function AboutOpenLoaf() {
                   variant="ghost"
                   size="sm"
                   className="h-6 px-2 text-xs"
-                  aria-label="清除 WebContentsView"
+                  aria-label={t('aboutAdditions.clearWebContents')}
                   disabled={webContentsViewCount == null || webContentsViewCount === 0}
                   onClick={() => void clearWebContentsViews()}
                 >
-                  清除
+                  {t('aboutAdditions.clearWebContents')}
                 </Button>
               </OpenLoafSettingsField>
             </div>
@@ -476,31 +481,31 @@ export function AboutOpenLoaf() {
         </div>
       </OpenLoafSettingsGroup>
 
-      <OpenLoafSettingsGroup title="操作">
+      <OpenLoafSettingsGroup title={t('aboutAdditions.actions')}>
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="min-w-0">
-              <div className="text-sm font-medium">页面重新加载</div>
-              <div className="text-xs text-muted-foreground">刷新整个页面</div>
+              <div className="text-sm font-medium">{t('aboutAdditions.pageReload')}</div>
+              <div className="text-xs text-muted-foreground">{t('aboutAdditions.reloadDesc')}</div>
             </div>
             <OpenLoafSettingsField>
               <Button type="button" variant="outline" size="sm" onClick={reloadPage}>
-                刷新
+                {t('aboutAdditions.reload')}
               </Button>
             </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
-            <div className="text-sm font-medium">重新进入初始化</div>
+            <div className="text-sm font-medium">{t('aboutAdditions.restartSetup')}</div>
             <OpenLoafSettingsField>
               <Button type="button" variant="outline" size="sm" onClick={() => void restartSetup()}>
-                进入
+                {t('aboutAdditions.enter')}
               </Button>
             </OpenLoafSettingsField>
           </div>
         </div>
       </OpenLoafSettingsGroup>
 
-      <OpenLoafSettingsGroup title="信息">
+      <OpenLoafSettingsGroup title={t('aboutAdditions.info')}>
         <div className="divide-y divide-border">
           {ITEMS.map((item) => (
             <Button
@@ -521,17 +526,17 @@ export function AboutOpenLoaf() {
         <SheetContent side="right" className="w-full sm:max-w-lg">
           <SheetHeader>
             <SheetTitle>
-              {changelogSheet.component === "server" ? "服务端" : "Web"} 更新日志
+              {t('aboutAdditions.changelogTitle', { component: changelogSheet.component === "server" ? t('aboutAdditions.server') : "Web" })}
             </SheetTitle>
             <SheetDescription>
-              版本 {changelogSheet.version}
+              {t('aboutAdditions.version')} {changelogSheet.version}
             </SheetDescription>
           </SheetHeader>
           <div className="mt-6">
             {changelogSheet.loading ? (
               <div className="flex items-center justify-center py-8 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                加载中...
+                {t('aboutAdditions.loading')}
               </div>
             ) : (
               <Streamdown mode="static" className="prose prose-sm dark:prose-invert max-w-none">

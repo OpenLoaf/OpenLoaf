@@ -10,6 +10,7 @@
 'use client'
 
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { trpc } from '@/utils/trpc'
 import {
@@ -86,34 +87,34 @@ type ScheduledTaskListProps = {
   showProjectColumn?: boolean
 }
 
-function formatTrigger(task: TaskConfig): { label: string; icon: typeof Clock } {
+function formatTrigger(task: TaskConfig, t: (key: string, options?: Record<string, unknown>) => string): { label: string; icon: typeof Clock } {
   if (task.triggerMode === 'condition') {
     const typeLabels: Record<string, string> = {
-      email_received: '收到邮件',
-      chat_keyword: '聊天关键词',
-      file_changed: '文件变更',
+      email_received: t('schedule.emailReceived'),
+      chat_keyword: t('schedule.chatKeyword'),
+      file_changed: t('schedule.fileChanged'),
     }
-    return { label: typeLabels[task.condition?.type ?? ''] ?? '条件触发', icon: Zap }
+    return { label: typeLabels[task.condition?.type ?? ''] ?? t('schedule.conditionTrigger'), icon: Zap }
   }
   const schedule = task.schedule
   if (!schedule) return { label: '-', icon: Clock }
   if (schedule.type === 'once' && schedule.scheduleAt) {
-    return { label: `单次 ${new Date(schedule.scheduleAt).toLocaleString()}`, icon: Clock }
+    return { label: `${t('task.once')} ${new Date(schedule.scheduleAt).toLocaleString()}`, icon: Clock }
   }
   if (schedule.type === 'interval' && schedule.intervalMs) {
     const mins = Math.round(schedule.intervalMs / 60000)
-    if (mins < 60) return { label: `每 ${mins} 分钟`, icon: Clock }
+    if (mins < 60) return { label: t('schedule.intervalMinutes', { minutes: mins }), icon: Clock }
     const hours = Math.round(mins / 60)
-    if (hours < 24) return { label: `每 ${hours} 小时`, icon: Clock }
-    return { label: `每 ${Math.round(hours / 24)} 天`, icon: Clock }
+    if (hours < 24) return { label: t('schedule.intervalHours', { hours }), icon: Clock }
+    return { label: t('schedule.intervalDays', { days: Math.round(hours / 24) }), icon: Clock }
   }
   if (schedule.type === 'cron' && schedule.cronExpr) {
-    return { label: formatCronLabel(schedule.cronExpr), icon: Clock }
+    return { label: formatCronLabel(schedule.cronExpr, t), icon: Clock }
   }
   return { label: schedule.type, icon: Clock }
 }
 
-function formatCronLabel(expr: string): string {
+function formatCronLabel(expr: string, t: (key: string, options?: Record<string, unknown>) => string): string {
   const parts = expr.trim().split(/\s+/)
   if (parts.length < 5) return expr
   const [minuteRaw, hourRaw, dom, , dow] = parts
@@ -122,23 +123,14 @@ function formatCronLabel(expr: string): string {
   if (Number.isNaN(minute) || Number.isNaN(hour)) return expr
   const time = `${`${hour}`.padStart(2, '0')}:${`${minute}`.padStart(2, '0')}`
   if (dom === '*' && dow === '*') {
-    return `每天 ${time}`
+    return t('schedule.dailyAt', { time })
   }
   if (dom === '*' && /^\d+$/.test(dow ?? '')) {
-    const labelMap: Record<string, string> = {
-      '0': '周日',
-      '1': '周一',
-      '2': '周二',
-      '3': '周三',
-      '4': '周四',
-      '5': '周五',
-      '6': '周六',
-      '7': '周日',
-    }
-    return `每${labelMap[dow] ?? '周'} ${time}`
+    const dayLabel = t(`schedule.dayLabels.${dow}`) || t('schedule.dayLabels.0')
+    return t('schedule.weeklyOn', { day: dayLabel, time })
   }
   if (/^\d+$/.test(dom ?? '') && dow === '*') {
-    return `每月${dom}日 ${time}`
+    return t('schedule.monthlyOn', { day: dom, time })
   }
   return expr
 }
@@ -150,19 +142,19 @@ function formatTime(date: string | null | undefined): string {
   return d.toLocaleString()
 }
 
-function formatType(task: TaskConfig): { label: string; icon: typeof Clock } {
-  if (task.triggerMode === 'condition') return { label: '条件', icon: Zap }
-  return { label: '定时', icon: Clock }
+function formatType(task: TaskConfig, t: (key: string) => string): { label: string; icon: typeof Clock } {
+  if (task.triggerMode === 'condition') return { label: t('schedule.condition'), icon: Zap }
+  return { label: t('task.scheduled'), icon: Clock }
 }
 
-function formatStatusLine(status: string | null | undefined, lastRunAt: string | null | undefined): string {
+function formatStatusLine(status: string | null | undefined, lastRunAt: string | null | undefined, t: (key: string) => string): string {
   const labelMap: Record<string, string> = {
-    ok: '成功',
-    error: '失败',
-    skipped: '跳过',
-    running: '运行中',
+    ok: t('schedule.statusLabels.ok'),
+    error: t('schedule.statusLabels.error'),
+    skipped: t('schedule.statusLabels.skipped'),
+    running: t('schedule.statusLabels.running'),
   }
-  const label = labelMap[status ?? ''] ?? '未运行'
+  const label = labelMap[status ?? ''] ?? t('schedule.statusLabels.notStarted')
   const time = lastRunAt ? formatTime(lastRunAt) : ''
   return time ? `${label} · ${time}` : label
 }
@@ -181,6 +173,7 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
   workspaceId,
   projectId,
 }: ScheduledTaskListProps) {
+  const { t } = useTranslation('tasks')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<TaskConfig | null>(null)
   const [filterTab, setFilterTab] = useState<TaskFilter>('all')
@@ -243,10 +236,10 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
   )
   const handleDelete = useCallback(
     (task: TaskConfig) => {
-      if (!window.confirm(`确定删除任务「${task.name}」？`)) return
+      if (!window.confirm(t('schedule.deleteConfirm', { name: task.name }))) return
       deleteMutation.mutate({ id: task.id, projectId: projectId || undefined })
     },
-    [deleteMutation, projectId],
+    [deleteMutation, projectId, t],
   )
   const handleRun = useCallback(
     (task: TaskConfig) => { runMutation.mutate({ id: task.id, projectId: projectId || undefined }) },
@@ -286,8 +279,8 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
-          <span className="text-[15px] font-semibold">自动任务</span>
-          <span className="text-[12px] text-muted-foreground">按计划或条件触发，向 Agent 发送指令。</span>
+          <span className="text-[15px] font-semibold">{t('schedule.automaticTasks')}</span>
+          <span className="text-[12px] text-muted-foreground">{t('schedule.automaticTasksDesc')}</span>
         </div>
         <Button
           size="sm"
@@ -295,7 +288,7 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
           onClick={handleCreate}
         >
           <Plus className="mr-1 h-3.5 w-3.5" />
-          新建
+          {t('task.newScheduledTask')}
         </Button>
       </div>
 
@@ -305,17 +298,17 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
           <TabsList className="h-8 w-max rounded-full border border-border/40 bg-muted/30 p-1">
             <TabsTrigger value="all" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
               <Layers className="mr-1 h-3.5 w-3.5 text-violet-500" />
-              全部
+              {t('schedule.all')}
               <span className="ml-1 text-[10px] text-muted-foreground">{allTasks.length}</span>
             </TabsTrigger>
             <TabsTrigger value="scheduled" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
               <Clock className="mr-1 h-3.5 w-3.5 text-blue-500" />
-              定时
+              {t('task.scheduled')}
               <span className="ml-1 text-[10px] text-muted-foreground">{scheduledCount}</span>
             </TabsTrigger>
             <TabsTrigger value="condition" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
               <Zap className="mr-1 h-3.5 w-3.5 text-amber-500" />
-              条件
+              {t('schedule.condition')}
               <span className="ml-1 text-[10px] text-muted-foreground">{conditionCount}</span>
             </TabsTrigger>
           </TabsList>
@@ -327,12 +320,12 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/20 hover:bg-muted/20">
-              <TableHead className="w-[220px] text-[12px] font-medium text-muted-foreground">任务</TableHead>
-              <TableHead className="w-[90px] text-[12px] font-medium text-muted-foreground">类型</TableHead>
-              <TableHead className="text-[12px] font-medium text-muted-foreground">触发</TableHead>
-              <TableHead className="text-[12px] font-medium text-muted-foreground">指令</TableHead>
-              <TableHead className="w-[110px] text-[12px] font-medium text-muted-foreground">范围</TableHead>
-              <TableHead className="text-[12px] font-medium text-muted-foreground">状态</TableHead>
+              <TableHead className="w-[220px] text-[12px] font-medium text-muted-foreground">{t('schedule.tableHeaders.task')}</TableHead>
+              <TableHead className="w-[90px] text-[12px] font-medium text-muted-foreground">{t('schedule.tableHeaders.type')}</TableHead>
+              <TableHead className="text-[12px] font-medium text-muted-foreground">{t('schedule.tableHeaders.trigger')}</TableHead>
+              <TableHead className="text-[12px] font-medium text-muted-foreground">{t('schedule.tableHeaders.instruction')}</TableHead>
+              <TableHead className="w-[110px] text-[12px] font-medium text-muted-foreground">{t('schedule.tableHeaders.scope')}</TableHead>
+              <TableHead className="text-[12px] font-medium text-muted-foreground">{t('schedule.tableHeaders.status')}</TableHead>
               <TableHead className="w-[180px]" />
             </TableRow>
           </TableHeader>
@@ -340,19 +333,19 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
             {listQuery.isLoading ? (
               <TableRow>
                 <TableCell colSpan={colSpan} className="py-10 text-center text-xs text-muted-foreground">
-                  加载中...
+                  {t('common:loading')}
                 </TableCell>
               </TableRow>
             ) : tasks.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={colSpan} className="py-10 text-center text-xs text-muted-foreground">
-                  暂无自动任务
+                  {t('messages.noAutomaticTasks')}
                 </TableCell>
               </TableRow>
             ) : (
               tasks.map((task) => {
-                const type = formatType(task)
-                const trigger = formatTrigger(task)
+                const type = formatType(task, t)
+                const trigger = formatTrigger(task, t)
                 const TriggerIcon = trigger.icon
                 const TypeIcon = type.icon
                 const instruction = typeof task.payload?.message === 'string' ? task.payload.message : ''
@@ -373,7 +366,7 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
                             {(() => {
                               const agentInfo = task.agentName ? agentMap.get(task.agentName) : null
                               const icon = agentInfo?.icon?.trim()
-                              const displayName = agentInfo?.name ?? (task.agentName || '默认')
+                              const displayName = agentInfo?.name ?? (task.agentName || t('schedule.default'))
                               return (
                                 <>
                                   {icon && /[^a-z0-9-_]/i.test(icon) ? (
@@ -405,17 +398,17 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
                           {instruction}
                         </span>
                       ) : (
-                        <span className="text-[12px] text-muted-foreground/40">未设置</span>
+                        <span className="text-[12px] text-muted-foreground/40">{t('schedule.notSet')}</span>
                       )}
                     </TableCell>
                     <TableCell>
                       <span className="text-[12px] text-muted-foreground whitespace-nowrap">
-                        {task.scope === 'project' ? '项目' : '工作区'}
+                        {task.scope === 'project' ? t('schedule.projectScope') : t('schedule.workspaceScope')}
                       </span>
                     </TableCell>
                     <TableCell>
                       <span className={`text-[12px] whitespace-nowrap ${statusClass(task.lastStatus)}`}>
-                        {formatStatusLine(task.lastStatus, task.lastRunAt)}
+                        {formatStatusLine(task.lastStatus, task.lastRunAt, t)}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -432,7 +425,7 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
                           ) : (
                             <Play className="h-3.5 w-3.5" />
                           )}
-                          {task.lastStatus === 'running' ? '运行中' : '运行'}
+                          {task.lastStatus === 'running' ? t('schedule.running') : t('schedule.run')}
                         </Button>
                         <Button
                           variant="ghost"
@@ -441,7 +434,7 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
                           onClick={() => handleEdit(task)}
                         >
                           <Pencil className="h-3.5 w-3.5" />
-                          编辑
+                          {t('schedule.edit')}
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -452,11 +445,11 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
                           <DropdownMenuContent align="end" className="w-36 rounded-xl">
                             <DropdownMenuItem onClick={() => setLogTaskId(task.id)} className="rounded-lg text-xs">
                               <FileText className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                              执行日志
+                              {t('schedule.executionLogs')}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleDelete(task)} className="rounded-lg text-xs text-rose-500 focus:text-rose-500">
                               <Trash2 className="mr-2 h-3.5 w-3.5" />
-                              删除
+                              {t('schedule.delete')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

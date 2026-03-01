@@ -10,6 +10,7 @@
 'use client'
 
 import { useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { StackHeader } from '@/components/layout/StackHeader'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
 import { requestStackMinimize } from '@/lib/stack-dock-animation'
@@ -45,10 +46,10 @@ interface AiDebugViewerProps {
 const SHIKI_THEME: NonNullable<StreamdownProps['shikiTheme']> = ['github-light', 'github-dark-high-contrast']
 
 /** Format tools object into readable markdown. */
-function formatToolsMarkdown(tools: Record<string, any>): string {
+function formatToolsMarkdown(tools: Record<string, any>, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const entries = Object.entries(tools)
-  if (!entries.length) return '_无工具_'
-  const lines: string[] = [`共 ${entries.length} 个工具\n`]
+  if (!entries.length) return t('debug.noTools')
+  const lines: string[] = [`${t('debug.toolCount', { count: entries.length })}\n`]
   for (const [name, def] of entries) {
     lines.push(`### ${name}`)
     if (def?.description) lines.push(`${def.description}\n`)
@@ -70,6 +71,7 @@ export default function AiDebugViewer({
   sessionId,
   jsonlPath,
 }: AiDebugViewerProps) {
+  const { t } = useTranslation('ai')
   const removeStackItem = useTabRuntime((s) => s.removeStackItem)
   const pushStackItem = useTabRuntime((s) => s.pushStackItem)
   const { workspace } = useWorkspace()
@@ -78,18 +80,18 @@ export default function AiDebugViewer({
   const remarkPlugins = useMemo(() => Object.values(defaultRemarkPlugins), [])
 
   const toolsMarkdown = useMemo(
-    () => (systemTools ? formatToolsMarkdown(systemTools) : ''),
-    [systemTools],
+    () => (systemTools ? formatToolsMarkdown(systemTools, t) : ''),
+    [systemTools, t],
   )
 
   const handleCopyJsonlPath = useCallback(async () => {
     if (!jsonlPath) {
-      toast.error('未找到聊天日志文件')
+      toast.error(t('debug.copyError'))
       return
     }
     try {
       await navigator.clipboard.writeText(jsonlPath)
-      toast.success('已复制聊天日志路径')
+      toast.success(t('debug.copySuccess'))
     } catch {
       const textarea = document.createElement('textarea')
       textarea.value = jsonlPath
@@ -99,9 +101,9 @@ export default function AiDebugViewer({
       textarea.select()
       document.execCommand('copy')
       document.body.removeChild(textarea)
-      toast.success('已复制聊天日志路径')
+      toast.success(t('debug.copySuccess'))
     }
-  }, [jsonlPath])
+  }, [jsonlPath, t])
 
   const handleOpenFolder = useCallback(async () => {
     if (!jsonlPath) return
@@ -129,7 +131,7 @@ export default function AiDebugViewer({
     <div className="flex h-full w-full flex-col overflow-hidden">
       {shouldRenderStackHeader ? (
         <StackHeader
-          title="AI调试"
+          title={t('debug.title')}
           rightSlotBeforeClose={
             sessionId ? (
               <>
@@ -137,8 +139,8 @@ export default function AiDebugViewer({
                   variant="ghost"
                   size="icon"
                   onClick={handleCopyJsonlPath}
-                  aria-label="复制日志路径"
-                  title="复制日志路径"
+                  aria-label={t('debug.copyLogPath')}
+                  title={t('debug.copyLogPath')}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -146,8 +148,8 @@ export default function AiDebugViewer({
                   variant="ghost"
                   size="icon"
                   onClick={handleOpenFolder}
-                  aria-label="打开日志目录"
-                  title="打开日志目录"
+                  aria-label={t('debug.openLogFolder')}
+                  title={t('debug.openLogFolder')}
                 >
                   <FolderOpen className="h-4 w-4" />
                 </Button>
@@ -168,7 +170,7 @@ export default function AiDebugViewer({
       <div className="min-h-0 flex-1 overflow-auto px-4 py-2">
         <Accordion type="multiple" defaultValue={defaultOpen}>
           <AccordionItem value="instructions">
-            <AccordionTrigger>系统提示词</AccordionTrigger>
+            <AccordionTrigger>{t('debug.systemPrompt')}</AccordionTrigger>
             <AccordionContent>
               {hasInstructions ? (
                 <div className="max-h-[60vh] overflow-auto rounded-md border bg-muted/30 p-3">
@@ -182,13 +184,13 @@ export default function AiDebugViewer({
                   </Streamdown>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">暂无系统提示词（需发送一次消息后生成）</p>
+                <p className="text-sm text-muted-foreground">{t('debug.noSystemPrompt')}</p>
               )}
             </AccordionContent>
           </AccordionItem>
 
           <AccordionItem value="tools">
-            <AccordionTrigger>工具列表</AccordionTrigger>
+            <AccordionTrigger>{t('debug.toolList')}</AccordionTrigger>
             <AccordionContent>
               {hasTools ? (
                 <div className="max-h-[60vh] overflow-auto rounded-md border bg-muted/30 p-3">
@@ -202,7 +204,7 @@ export default function AiDebugViewer({
                   </Streamdown>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">暂无工具列表（需发送一次消息后生成）</p>
+                <p className="text-sm text-muted-foreground">{t('debug.noToolList')}</p>
               )}
             </AccordionContent>
           </AccordionItem>
@@ -222,7 +224,7 @@ export default function AiDebugViewer({
                   </Streamdown>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">暂无 Preface</p>
+                <p className="text-sm text-muted-foreground">{t('debug.noPreface')}</p>
               )}
             </AccordionContent>
           </AccordionItem>

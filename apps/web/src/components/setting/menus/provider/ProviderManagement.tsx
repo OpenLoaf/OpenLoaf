@@ -10,6 +10,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/ConfirmDeleteDialog";
 import { ModelDialog } from "@/components/setting/menus/provider/ModelDialog";
@@ -49,6 +50,7 @@ import {
 
 type ModelResponseLanguageId =
   | "zh-CN"
+  | "zh-TW"
   | "en-US"
   | "ja-JP"
   | "ko-KR"
@@ -68,6 +70,7 @@ type ProviderManagementProps = {
 };
 
 export function ProviderManagement({ panelKey }: ProviderManagementProps) {
+  const { t } = useTranslation('settings');
   const { basic, setBasic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
@@ -83,15 +86,16 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
       ),
     [providerItems, cloudModels, installedCliProviderIds],
   );
-  const modelResponseLanguageLabelById: Record<ModelResponseLanguageId, string> = {
-    "zh-CN": "中文（简体）",
-    "en-US": "English",
-    "ja-JP": "日本語",
-    "ko-KR": "한국어",
-    "fr-FR": "Français",
-    "de-DE": "Deutsch",
-    "es-ES": "Español",
-  };
+  const modelResponseLanguageLabelById: Record<ModelResponseLanguageId, string> = useMemo(() => ({
+    "zh-CN": t('provider.zh-CN'),
+    "zh-TW": t('provider.zh-TW'),
+    "en-US": t('provider.en-US'),
+    "ja-JP": t('provider.ja-JP'),
+    "ko-KR": t('provider.ko-KR'),
+    "fr-FR": t('provider.fr-FR'),
+    "de-DE": t('provider.de-DE'),
+    "es-ES": t('provider.es-ES'),
+  }), [t]);
   const workspaceQuery = useQuery(trpc.workspace.getActive.queryOptions());
   const workspaceId = workspaceQuery.data?.id ?? "";
   const activeTabId = useTabs((state) => state.activeTabId);
@@ -169,27 +173,27 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
    */
   async function handleDeleteProviderModel(entry: ProviderEntry, modelId: string) {
     if (Object.keys(entry.models).length <= 1) {
-      toast.error("至少保留一个模型");
+      toast.error(t('provider.keepAtLeastOneModel'));
       return;
     }
     await deleteProviderModel(entry, modelId);
-    toast.success("已删除模型");
+    toast.success(t('provider.modelDeletedSuccess'));
   }
 
 
   return (
     <div className={wrapperClassName}>
       <OpenLoafSettingsGroup
-        title="偏好设置"
-        subtitle="调整模型响应语言与交互偏好。"
+        title={t('provider.preferencesTitle')}
+        subtitle={t('provider.preferencesSubtitle')}
         className="pb-4"
       >
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">模型返回语言</div>
+              <div className="text-sm font-medium">{t('provider.modelResponseLanguage')}</div>
               <div className="text-xs text-muted-foreground">
-                暂不支持切换，仅保存偏好
+                {t('provider.modelResponseLanguageNote')}
               </div>
             </div>
 
@@ -229,9 +233,9 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
 
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">聊天输入记忆范围</div>
+              <div className="text-sm font-medium">{t('provider.chatMemoryScope')}</div>
               <div className="text-xs text-muted-foreground">
-                控制聊天输入中的“联网搜索 / 模型选择”按 Tab 或全局记忆
+                {t('provider.chatMemoryScopeDesc')}
               </div>
             </div>
 
@@ -246,8 +250,8 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                 }
               >
                 <TabsList>
-                  <TabsTrigger value="tab">Tab记忆</TabsTrigger>
-                  <TabsTrigger value="global">全局记忆</TabsTrigger>
+                  <TabsTrigger value="tab">{t('provider.chatMemoryScopeTab')}</TabsTrigger>
+                  <TabsTrigger value="global">{t('provider.chatMemoryScopeGlobal')}</TabsTrigger>
                 </TabsList>
               </Tabs>
             </OpenLoafSettingsField>
@@ -255,9 +259,9 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
 
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">模型声音提示</div>
+              <div className="text-sm font-medium">{t('provider.modelSound')}</div>
               <div className="text-xs text-muted-foreground">
-                发送请求与结束时播放提示音
+                {t('provider.modelSoundDesc')}
               </div>
             </div>
 
@@ -352,8 +356,8 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
       />
 
       <ConfirmDeleteDialog
-        title="确认删除"
-        description="确认要删除这个服务商配置吗？"
+        title={t('provider.confirmDeleteTitle')}
+        description={t('provider.confirmDeleteDesc')}
         open={Boolean(confirmDeleteId)}
         onClose={() => setConfirmDeleteId(null)}
         onConfirm={async () => {

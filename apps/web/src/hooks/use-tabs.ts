@@ -162,7 +162,7 @@ export const useTabs = create<TabsState>()(
         const nextTab: TabMeta = {
           id: tabId,
           workspaceId,
-          title: title ?? DEFAULT_TAB_INFO.title,
+          title: title ?? DEFAULT_TAB_INFO.titleKey,
           icon: icon ?? DEFAULT_TAB_INFO.icon,
           isPin: isPin ?? false,
           chatSessionId: createdChatSessionId,
@@ -538,7 +538,7 @@ export const useTabs = create<TabsState>()(
         get().addTab({
           workspaceId,
           createNew: true,
-          title: DEFAULT_TAB_INFO.title,
+          title: DEFAULT_TAB_INFO.titleKey,
           icon: DEFAULT_TAB_INFO.icon,
           leftWidthPercent: 70,
           base: {
@@ -567,7 +567,7 @@ export const useTabs = create<TabsState>()(
             title:
               typeof tab?.title === "string" && tab.title
                 ? tab.title
-                : DEFAULT_TAB_INFO.title,
+                : DEFAULT_TAB_INFO.titleKey,
             icon:
               typeof tab?.icon === "string" && tab.icon ? tab.icon : DEFAULT_TAB_INFO.icon,
             isPin: Boolean(tab?.isPin),

@@ -16,6 +16,7 @@ import {
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { MessageCircle } from "lucide-react";
 import { zhCN } from "date-fns/locale";
+import { useTranslation } from "react-i18next";
 
 import MarkdownViewer from "@/components/file/MarkdownViewer";
 import { openFilePreview } from "@/components/file/lib/open-file";
@@ -90,13 +91,14 @@ const ProjectHistoryHeader = memo(function ProjectHistoryHeader({
   isLoading,
   pageTitle,
 }: ProjectHistoryHeaderProps) {
+  const { t } = useTranslation("workspace");
   if (isLoading) {
     return null;
   }
 
   return (
     <div className="flex items-center gap-2 min-w-0">
-      <span className="text-base font-semibold">历史</span>
+      <span className="text-base font-semibold">{t("project.historyHeader")}</span>
       <span className="text-xs text-muted-foreground truncate">{pageTitle}</span>
     </div>
   );
@@ -106,6 +108,7 @@ const ProjectHistoryHeader = memo(function ProjectHistoryHeader({
 const ProjectHistory = memo(function ProjectHistory({
   isLoading,
 }: ProjectHistoryProps) {
+  const { t } = useTranslation("workspace");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { sessions, isLoading: isSessionsLoading, scopeProjectId } = useChatSessions();
   const { workspace } = useWorkspace();
@@ -178,10 +181,10 @@ const ProjectHistory = memo(function ProjectHistory({
   const summaryContent = summaryQuery.data?.content ?? "";
   const summaryBody = stripYamlFrontMatter(summaryContent);
   const summaryMarkdown = summaryQuery.isLoading
-    ? "加载中…"
+    ? t("project.historyLoadingShort")
     : summaryQuery.isError
-      ? summaryQuery.error?.message ?? "读取失败"
-      : summaryBody.trim() || "当天暂无总结";
+      ? summaryQuery.error?.message ?? t("project.historyReadFailed")
+      : summaryBody.trim() || t("project.historyNoSummary");
   const fileChanges = useMemo(() => {
     const items = fileChangeQuery.data?.items ?? [];
     // 中文注释：按更新时间倒序，优先展示最新变更。
@@ -312,19 +315,19 @@ const ProjectHistory = memo(function ProjectHistory({
         }}
       >
         <section className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-card/60 p-4">
-          <div className="text-sm font-semibold text-foreground">当日文件变化</div>
+          <div className="text-sm font-semibold text-foreground">{t("project.historyDailyFiles")}</div>
           <div className="mt-4 flex-1 min-h-0 overflow-auto">
             {fileChangeQuery.isLoading ? (
               <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
-                加载中…
+                {t("project.historyLoadingShort")}
               </div>
             ) : fileChangeQuery.isError ? (
               <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
-                读取失败
+                {t("project.historyReadFailed")}
               </div>
             ) : fileChangeEntries.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
-                当天暂无文件变化
+                {t("project.historyNoFiles")}
               </div>
             ) : (
               <FileSystemGrid
@@ -365,7 +368,7 @@ const ProjectHistory = memo(function ProjectHistory({
         </section>
 
         <section className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-card/60 p-4">
-          <div className="text-sm font-semibold text-foreground">当日总结</div>
+          <div className="text-sm font-semibold text-foreground">{t("project.historyDailySummary")}</div>
           <div className="mt-4 flex-1 min-h-0 overflow-hidden [&_.streamdown-viewer]:!bg-transparent [&_.streamdown-viewer]:!p-0">
             <MarkdownViewer content={summaryMarkdown} />
           </div>
@@ -373,20 +376,22 @@ const ProjectHistory = memo(function ProjectHistory({
 
         <section className="flex min-h-0 flex-col rounded-2xl border border-border/60 bg-card/60 p-4">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-foreground">历史列表</div>
+            <div className="text-sm font-semibold text-foreground">{t("project.historyList")}</div>
             <div className="text-xs text-muted-foreground">
               {formatDateLabel(activeDate)} ·{" "}
-              {isSessionsLoading ? "加载中…" : `${activeSessions.length} 项`}
+              {isSessionsLoading
+                ? t("project.historyLoadingShort")
+                : t("project.historySessionCount", { count: activeSessions.length })}
             </div>
           </div>
           <div className="mt-4 flex-1 space-y-2 overflow-auto">
             {isSessionsLoading ? (
               <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
-                加载中…
+                {t("project.historyLoadingShort")}
               </div>
             ) : activeSessions.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
-                当天暂无历史
+                {t("project.historyNoSessions")}
               </div>
             ) : (
               activeSessions.map((session) => (
@@ -408,11 +413,11 @@ const ProjectHistory = memo(function ProjectHistory({
                         <MessageCircle className="h-4 w-4" />
                       </div>
                       <div className="truncate text-sm font-medium text-foreground">
-                        {session.title.trim() || "未命名会话"}
+                        {session.title.trim() || t("project.historyUnnamedSession")}
                       </div>
                       {session.isPin ? (
                         <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                          置顶
+                          {t("project.historyPinned")}
                         </span>
                       ) : null}
                     </div>

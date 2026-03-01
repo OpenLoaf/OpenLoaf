@@ -10,6 +10,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
@@ -169,6 +170,7 @@ function resolveSkillUri(skillPath: string, rootUri?: string): string | undefine
 
 /** Shared skills settings panel. */
 export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
+  const { t } = useTranslation('settings');
   const isProjectList = Boolean(projectId);
   const [searchQuery, setSearchQuery] = useState("");
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
@@ -206,7 +208,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   }, [skills, searchQuery, scopeFilter, statusFilter]);
 
   /** Text for current skill list source. */
-  const scopeHintText = isProjectList ? "当前项目技能目录" : "当前工作空间技能目录";
+  const scopeHintText = isProjectList ? t('skills.scopeHintProject') : t('skills.scopeHintWorkspace');
 
   /** Skills root uri for system file manager open. */
   const skillsRootUri = useMemo(() => {
@@ -255,7 +257,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
             queryKey: trpc.settings.getSkills.queryOptions({ projectId }).queryKey,
           });
         }
-        toast.success("已删除技能");
+        toast.success(t('skills.deletedSuccess'));
       },
       onError: (error) => {
         toast.error(error.message);
@@ -267,11 +269,11 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   const handleOpenSkillsRoot = useCallback(async () => {
     if (!skillsRootUri) return;
     if (!workspaceId) {
-      toast.error("未找到工作空间");
+      toast.error(t('skills.workspaceNotFound'));
       return;
     }
     if (isProjectList && !projectId) {
-      toast.error("未找到项目");
+      toast.error(t('skills.projectNotFound'));
       return;
     }
     try {
@@ -286,12 +288,12 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     }
     const api = window.openloafElectron;
     if (!api?.openPath) {
-      toast.error("网页版不支持打开文件管理器");
+      toast.error(t('skills.webNotSupported'));
       return;
     }
     const res = await api.openPath({ uri: skillsRootUri });
     if (!res?.ok) {
-      toast.error(res?.reason ?? "无法打开文件管理器");
+      toast.error(res?.reason ?? t('skills.openDirFailed'));
     }
   }, [isProjectList, mkdirMutation, projectId, skillsRootUri, workspaceId]);
 
@@ -312,10 +314,10 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
       const currentUri = resolveSkillUri(skill.path, rootUri);
       const stackKey = skill.ignoreKey.trim() || skill.path || skill.name;
       const titlePrefix = isGlobalSkill
-        ? "全局技能"
+        ? t('skills.scopeGlobal')
         : isProjectSkill
-          ? "项目技能"
-          : "工作空间技能";
+          ? t('skills.scopeProject')
+          : t('skills.scopeWorkspace');
       // 打开左侧 stack 的文件系统预览，根目录固定为技能所在目录。
       pushStackItem(activeTabId, {
         id: `skill:${skill.scope}:${stackKey}`,
@@ -372,7 +374,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   const handleDeleteSkill = useCallback(
     async (skill: SkillSummary) => {
       if (!skill.isDeletable || !skill.ignoreKey.trim()) return;
-      const confirmed = window.confirm(`确认删除技能「${skill.name}」？此操作不可撤销。`);
+      const confirmed = window.confirm(t('skills.confirmDelete', { name: skill.name }));
       if (!confirmed) return;
       const scope = isProjectList ? "project" : "workspace";
       await deleteSkillMutation.mutateAsync({
@@ -389,9 +391,9 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-wrap items-start justify-between gap-2.5 border-b border-border/60 px-3 py-2.5">
         <div className="space-y-1">
-          <h3 className="text-sm font-semibold tracking-tight text-foreground">技能管理</h3>
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">{t('skills.title')}</h3>
           <p className="text-xs text-muted-foreground">
-            {scopeHintText}。支持搜索、筛选、启用控制与快速调用。
+            {scopeHintText}。{t('skills.subtitle')}
           </p>
         </div>
         <Tooltip>
@@ -403,14 +405,14 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
               className="h-8 rounded-full border border-border/70 bg-background/85 px-2.5 text-xs transition-colors hover:bg-muted/55 sm:px-3"
               onClick={() => void handleOpenSkillsRoot()}
               disabled={!skillsRootUri || !workspaceId || (isProjectList && !projectId)}
-              aria-label="打开技能目录"
+              aria-label={t('skills.openDirAriaLabel')}
             >
               <FolderOpen className="h-3.5 w-3.5" />
-              <span className="ml-1.5 hidden sm:inline">打开目录</span>
+              <span className="ml-1.5 hidden sm:inline">{t('skills.openDirButton')}</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" sideOffset={6}>
-            打开技能目录
+            {t('skills.openDirTooltip')}
           </TooltipContent>
         </Tooltip>
       </div>
@@ -421,7 +423,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="搜索技能名称或描述..."
+              placeholder={t('skills.searchPlaceholder')}
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               className="h-9 rounded-xl border-border/70 bg-background/90 pl-9 pr-9 text-sm"
@@ -433,7 +435,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                 size="icon"
                 className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-full"
                 onClick={() => setSearchQuery("")}
-                aria-label="清除搜索"
+                aria-label={t('skills.clearSearch')}
               >
                 <X className="h-3.5 w-3.5" />
               </Button>
@@ -443,21 +445,21 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
             <Tabs value={scopeFilter} onValueChange={(value) => setScopeFilter(value as ScopeFilter)}>
               <TabsList className="h-8 w-max rounded-full border border-border/70 bg-muted/40 p-1">
                 <TabsTrigger value="all" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-                  全部
+                  {t('skills.filterAll')}
                 </TabsTrigger>
                 {isProjectList ? (
                   <TabsTrigger value="project" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-                    项目
+                    {t('skills.filterProject')}
                   </TabsTrigger>
                 ) : null}
                 <TabsTrigger
                   value="workspace"
                   className="h-6 rounded-full px-2 text-xs whitespace-nowrap"
                 >
-                  工作空间
+                  {t('skills.filterWorkspace')}
                 </TabsTrigger>
                 <TabsTrigger value="global" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-                  全局
+                  {t('skills.filterGlobal')}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -467,13 +469,13 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
             <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
               <TabsList className="h-8 w-max rounded-full border border-border/70 bg-muted/40 p-1">
                 <TabsTrigger value="all" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-                  全部
+                  {t('skills.statusAll')}
                 </TabsTrigger>
                 <TabsTrigger value="enabled" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-                  开启中
+                  {t('skills.statusEnabled')}
                 </TabsTrigger>
                 <TabsTrigger value="disabled" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-                  关闭中
+                  {t('skills.statusDisabled')}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -516,7 +518,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                           checked={skill.isEnabled}
                           onCheckedChange={(checked) => handleToggleSkill(skill, checked)}
                           className="border-zinc-300/70 bg-zinc-200/55 data-[state=checked]:bg-emerald-300/60 dark:border-zinc-600/80 dark:bg-zinc-700/45 dark:data-[state=checked]:bg-emerald-600/45"
-                          aria-label={`启用技能 ${skill.name}`}
+                          aria-label={t('skills.enableSkillAriaLabel', { name: skill.name })}
                           disabled={updateSkillMutation.isPending}
                         />
                       </div>
@@ -530,7 +532,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                           variant="secondary"
                           className="h-8 w-8 flex-none rounded-full border-0 bg-sky-200/85 text-sky-900 hover:bg-sky-300/85 dark:bg-sky-500/30 dark:text-sky-100 dark:hover:bg-sky-500/40"
                           onClick={() => handleInsertSkillCommand(skill)}
-                          aria-label={`使用技能 ${skill.name}`}
+                          aria-label={t('skills.useSkillAriaLabel', { name: skill.name })}
                         >
                           <ArrowRight className="h-4 w-4" />
                         </Button>
@@ -543,7 +545,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                       onClick={() => handleOpenSkill(skill)}
                       disabled={!canOpenSkill}
                     >
-                      查看技能目录
+                      {t('skills.viewSkillDir')}
                     </ContextMenuItem>
                     {skill.isDeletable ? (
                       <ContextMenuItem
@@ -552,7 +554,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                         onClick={() => void handleDeleteSkill(skill)}
                         disabled={deleteSkillMutation.isPending}
                       >
-                        删除技能
+                        {t('skills.deleteSkill')}
                       </ContextMenuItem>
                     ) : null}
                   </ContextMenuContent>
@@ -564,13 +566,13 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
 
         {skillsQuery.isLoading ? (
           <div className="py-9 text-center text-sm text-muted-foreground">
-            正在加载技能列表...
+            {t('skills.loading')}
           </div>
         ) : null}
 
         {!skillsQuery.isLoading && !skillsQuery.isError && skills.length === 0 ? (
           <div className="py-9 text-center text-sm text-muted-foreground">
-            暂无可用技能，请在 `.agents/skills` 或 `~/.agents/skills` 中添加 `SKILL.md`。
+            {t('skills.empty')}
           </div>
         ) : null}
 
@@ -579,13 +581,13 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
         skills.length > 0 &&
         filteredSkills.length === 0 ? (
           <div className="py-9 text-center text-sm text-muted-foreground">
-            没有匹配的技能，请调整筛选条件后重试。
+            {t('skills.noMatch')}
           </div>
         ) : null}
 
         {skillsQuery.isError ? (
           <div className="py-9 text-center text-sm text-destructive">
-            读取失败：{skillsQuery.error?.message ?? "未知错误"}
+            {t('skills.readFailed', { error: skillsQuery.error?.message ?? t('skills.unknownError') })}
           </div>
         ) : null}
       </div>

@@ -18,7 +18,7 @@ export type DockItem = {
   title?: string;
   /** Optional de-dupe key (e.g. toolCallId). */
   sourceKey?: string;
-  
+
   denyClose?: boolean;
 };
 
@@ -53,25 +53,26 @@ export interface Tab {
 };
 
 /**
- * Workbench 的“单例 Tab”输入定义（统一单一事实来源）。
- * - baseId 用于在业务侧做“单例”去重判断
+ * Workbench 的"单例 Tab"输入定义（统一单一事实来源）。
+ * - baseId 用于在业务侧做"单例"去重判断
  * - component 用于渲染注册表组件
+ * - titleKey 由前端使用 i18next 翻译（从 nav namespace 读取）
  */
 export const WORKBENCH_TAB_INPUT = {
   baseId: "base:workbench",
   component: "workspace-desktop",
-  title: "工作台",
+  titleKey: "nav:workbench",
   icon: "bot",
 } as const;
 
 export const AI_ASSISTANT_TAB_INPUT = {
   baseId: "base:ai-assistant",
   component: "ai-chat",
-  title: "AI 助手",
+  titleKey: "nav:aiAssistant",
   icon: "sparkles",
 } as const;
 
 export const DEFAULT_TAB_INFO = {
-  title: WORKBENCH_TAB_INPUT.title,
+  titleKey: WORKBENCH_TAB_INPUT.titleKey,
   icon: WORKBENCH_TAB_INPUT.icon,
 } as const;

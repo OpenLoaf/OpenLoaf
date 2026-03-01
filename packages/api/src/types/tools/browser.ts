@@ -30,3 +30,14 @@ export const openUrlToolDef = {
   }),
   component: null,
 } as const;
+
+/**
+ * Get browser tool definition in specified language.
+ * Currently returns Chinese version. English translation can be added
+ * by creating separate .en.ts variant in future iterations.
+ */
+export function getOpenUrlToolDef(lang?: string) {
+  // Currently defaults to Chinese
+  // Can be extended to support other languages: en-US, ja-JP, etc.
+  return openUrlToolDef;
+}

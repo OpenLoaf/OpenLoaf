@@ -15,6 +15,7 @@ import {
   type DragEvent,
   type SetStateAction,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { type FileSystemEntry } from "../utils/file-system-utils";
 import { FolderIcon } from "./FileSystemEntryVisual";
 
@@ -41,6 +42,7 @@ const FileSystemParentEntryCard = memo(function FileSystemParentEntryCard({
   setDragOverFolderUri,
   shouldBlockPointerEvent,
 }: FileSystemParentEntryCardProps) {
+  const { t } = useTranslation(['workspace']);
   return (
     <button
       type="button"
@@ -80,7 +82,7 @@ const FileSystemParentEntryCard = memo(function FileSystemParentEntryCard({
     >
       <FolderIcon className="h-11 w-11" showArrow />
       <span className="line-clamp-2 min-h-[2rem] w-full break-words leading-4">
-        上一级
+        {t('workspace:filesystem.parentDir')}
       </span>
     </button>
   );

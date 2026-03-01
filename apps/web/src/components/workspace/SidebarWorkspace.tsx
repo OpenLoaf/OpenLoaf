@@ -10,6 +10,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Building2,
@@ -54,12 +55,7 @@ import { fetchUserProfile } from "@/lib/saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import { useTabs } from "@/hooks/use-tabs";
 
-const MEMBERSHIP_LABELS: Record<string, string> = {
-  free: "免费版",
-  vip: "VIP",
-  svip: "SVIP",
-  infinity: "Infinity",
-};
+// Membership labels will be dynamically set via useTranslation hook in component
 
 /** 会员等级胶囊徽章样式 — 低透明彩色背景 + 对应文字色，light/dark 双套。 */
 const MEMBERSHIP_BADGE_STYLES: Record<string, string> = {
@@ -70,7 +66,15 @@ const MEMBERSHIP_BADGE_STYLES: Record<string, string> = {
 };
 
 export const SidebarWorkspace = () => {
+  const { t } = useTranslation('workspace');
   const { workspace } = useWorkspace();
+
+  const MEMBERSHIP_LABELS: Record<string, string> = {
+    free: t('membership.free'),
+    vip: t('membership.vip'),
+    svip: t('membership.svip'),
+    infinity: t('membership.infinity'),
+  };
   // Workspace create dialog open state.
   const [createOpen, setCreateOpen] = React.useState(false);
   // Workspace name input value.
@@ -117,11 +121,11 @@ export const SidebarWorkspace = () => {
   // 微信登录账号展示规则。
   const isWechatLogin = Boolean(authUser?.email?.endsWith("@wechat.local"));
   const baseAccountLabel =
-    authUser?.email ?? authUser?.name ?? (authLoggedIn ? "已登录" : undefined);
+    authUser?.email ?? authUser?.name ?? (authLoggedIn ? t('loggedIn') : undefined);
   const sidebarAccountLabel = isWechatLogin
-    ? authUser?.name?.trim() || "微信用户"
+    ? authUser?.name?.trim() || t('wechatUser')
     : baseAccountLabel;
-  const dropdownAccountLabel = isWechatLogin ? "微信登录" : baseAccountLabel;
+  const dropdownAccountLabel = isWechatLogin ? t('wechatLogin') : baseAccountLabel;
   const avatarAlt = sidebarAccountLabel ?? "User";
   const displayAvatar = authUser?.avatarUrl;
 
@@ -143,7 +147,7 @@ export const SidebarWorkspace = () => {
   const createWorkspace = useMutation(
     trpc.workspace.create.mutationOptions({
       onSuccess: async (created) => {
-        toast.success("工作空间已创建");
+        toast.success(t('created'));
         setCreateOpen(false);
         setNewWorkspaceName("");
         setNewWorkspacePath("");
@@ -166,20 +170,20 @@ export const SidebarWorkspace = () => {
     const name = newWorkspaceName.trim();
     const rootUri = newWorkspacePath.trim();
     if (!name) {
-      toast.error("请输入工作空间名称");
+      toast.error(t('nameEmpty'));
       return;
     }
     if (!rootUri) {
-      toast.error("请选择工作空间保存目录");
+      toast.error(t('pathEmpty'));
       return;
     }
-    // 中文注释：前端提前拦截显式重复路径，避免重复发起请求。
+    // 前端提前拦截显式重复路径，避免重复发起请求。
     if (
       (workspacesQuery.data ?? []).some(
         (item) => getDisplayPathFromUri(item.rootUri) === rootUri,
       )
     ) {
-      toast.error("工作空间保存目录不能重复，请选择其他文件夹");
+      toast.error(t('pathDuplicate'));
       return;
     }
 
@@ -206,33 +210,33 @@ export const SidebarWorkspace = () => {
   /** Clear SaaS login and local UI state. */
   const handleLogout = () => {
     logout();
-    toast.success("已退出登录");
+    toast.success(t('loggedOut'));
   };
 
   /** Trigger incremental update check for Electron. */
   const handleCheckUpdate = React.useCallback(async () => {
     // 开发模式禁用更新检查，避免触发无效请求。
     if (process.env.NODE_ENV !== "production") {
-      toast.message("开发模式不支持更新检查");
+      toast.message(t('devModeNoUpdate'));
       return;
     }
     const api = window.openloafElectron;
     if (!api?.checkIncrementalUpdate) {
-      toast.message("当前环境不支持更新检查");
+      toast.message(t('envNoUpdate'));
       return;
     }
     const result = await api.checkIncrementalUpdate();
     if (result.ok) {
-      toast.success("已触发更新检查");
+      toast.success(t('checkUpdateTriggered'));
       return;
     }
-    // 中文注释：未打包环境的错误提示需要转换为可读文案。
+    // 未打包环境的错误提示需要转换为可读文案。
     const reason =
       result.reason === "not-packaged"
-        ? "当前环境不支持更新检查"
+        ? t('envNoUpdate')
         : result.reason;
-    toast.error(reason ? `更新检查失败：${reason}` : "更新检查失败");
-  }, []);
+    toast.error(reason ? `${t('checkUpdateError')}：${reason}` : t('checkUpdateError'));
+  }, [t]);
 
   return (
     <SidebarMenu>
@@ -261,7 +265,7 @@ export const SidebarWorkspace = () => {
                     {workspace.name}
                   </div>
                   <div className="truncate text-[11px] text-muted-foreground leading-4">
-                    {sidebarAccountLabel ?? "未登录"}
+                    {sidebarAccountLabel ?? t('loggedIn')}
                   </div>
                 </div>
                 <ChevronsUpDown className="text-muted-foreground size-4 group-data-[collapsible=icon]:hidden" />
@@ -286,10 +290,10 @@ export const SidebarWorkspace = () => {
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium leading-5">
-                    {authUser?.name || "当前账号"}
+                    {authUser?.name || t('currentAccount')}
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground leading-4">
-                    <span className="truncate">{dropdownAccountLabel ?? "未登录"}</span>
+                    <span className="truncate">{dropdownAccountLabel ?? t('loggedIn')}</span>
                     {authLoggedIn && userProfileQuery.data && (
                       <span className="ml-auto flex shrink-0 items-center gap-1.5">
                         <span
@@ -298,7 +302,7 @@ export const SidebarWorkspace = () => {
                           {MEMBERSHIP_LABELS[userProfileQuery.data.membershipLevel] ?? userProfileQuery.data.membershipLevel}
                         </span>
                         <span className="text-[11px] leading-4">
-                          {Math.floor(userProfileQuery.data.creditsBalance).toLocaleString()} 积分
+                          {Math.floor(userProfileQuery.data.creditsBalance).toLocaleString()} {t('credits')}
                         </span>
                       </span>
                     )}
@@ -316,7 +320,7 @@ export const SidebarWorkspace = () => {
                     className="rounded-lg"
                   >
                     <LogOut className="size-4" />
-                    退出登录
+                    {t('logout')}
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem
@@ -324,7 +328,7 @@ export const SidebarWorkspace = () => {
                     className="rounded-lg"
                   >
                     <LogIn className="size-4" />
-                    登录OpenLoaf账户
+                    {t('loginAccount')}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
@@ -332,20 +336,20 @@ export const SidebarWorkspace = () => {
                   className="rounded-lg"
                 >
                   <RefreshCcw className="size-4" />
-                  检查更新
+                  {t('checkUpdate')}
                 </DropdownMenuItem>
               </div>
 
               <DropdownMenuSeparator className="my-2" />
 
               <DropdownMenuLabel className="px-2 text-xs text-muted-foreground">
-                工作空间
+                {t('title')}
               </DropdownMenuLabel>
 
               <div className="mt-1 space-y-1">
                 {workspacesQuery.isLoading ? (
                   <div className="px-2 py-2 text-xs text-muted-foreground">
-                    加载中…
+                    {t('loading')}
                   </div>
                 ) : (
                   workspaces.map((ws) => {
@@ -380,7 +384,7 @@ export const SidebarWorkspace = () => {
                 className="mt-1 rounded-lg"
               >
                 <Plus className="size-4" />
-                新增工作空间
+                {t('addWorkspace')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -394,9 +398,9 @@ export const SidebarWorkspace = () => {
               className="space-y-4"
             >
               <DialogHeader>
-                <DialogTitle>新增工作空间</DialogTitle>
+                <DialogTitle>{t('addWorkspace')}</DialogTitle>
                 <DialogDescription>
-                  创建一个新的工作空间，并自动切换到它。
+                  {t('addWorkspaceDescription')}
                 </DialogDescription>
               </DialogHeader>
 
@@ -404,12 +408,12 @@ export const SidebarWorkspace = () => {
                 <Input
                   value={newWorkspaceName}
                   onChange={(e) => setNewWorkspaceName(e.target.value)}
-                  placeholder="例如：我的团队"
+                  placeholder={t('namePlaceholder')}
                   autoFocus
                 />
               </div>
               <div className="grid gap-2">
-                <div className="text-sm text-muted-foreground">保存目录</div>
+                <div className="text-sm text-muted-foreground">{t('pathLabel')}</div>
                 <div className="flex items-center gap-2">
                   <Input
                     value={newWorkspacePath}
@@ -425,7 +429,7 @@ export const SidebarWorkspace = () => {
                       setNewWorkspacePath(next);
                     }}
                   >
-                    选择
+                    {t('selectButton')}
                   </Button>
                 </div>
               </div>
@@ -437,10 +441,10 @@ export const SidebarWorkspace = () => {
                   onClick={() => setCreateOpen(false)}
                   disabled={createWorkspace.isPending}
                 >
-                  取消
+                  {t('cancelButton')}
                 </Button>
                 <Button type="submit" disabled={createWorkspace.isPending}>
-                  {createWorkspace.isPending ? "创建中…" : "创建"}
+                  {createWorkspace.isPending ? t('creatingButton') : t('createButton')}
                 </Button>
               </DialogFooter>
             </form>

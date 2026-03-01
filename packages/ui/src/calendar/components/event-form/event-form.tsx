@@ -355,9 +355,9 @@ export const EventForm: React.FC<EventFormProps> = ({
 						{isReminder && (
 							<div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
 								<div className="flex flex-col">
-									<span className="text-xs font-medium">时间范围</span>
+									<span className="text-xs font-medium">{t('timeRange')}</span>
 									<span className="text-[11px] text-muted-foreground">
-										开启后可设置开始与结束时间
+										{t('timeRangeHint')}
 									</span>
 								</div>
 								<Switch
@@ -372,7 +372,7 @@ export const EventForm: React.FC<EventFormProps> = ({
 
 						{isReminder && reminderTimeEnabledSafe === false ? (
 							<div>
-								<Label className="text-xs text-muted-foreground mb-1.5 block">日期</Label>
+								<Label className="text-xs text-muted-foreground mb-1.5 block">{t('date')}</Label>
 								<DatePicker
 									closeOnSelect
 									date={startDate}

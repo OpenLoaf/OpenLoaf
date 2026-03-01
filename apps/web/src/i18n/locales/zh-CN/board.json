@@ -1,0 +1,61 @@
+{
+  "board": {
+    "title": "画板工具",
+    "new": "新建画板",
+    "create": "创建画板",
+    "edit": "编辑",
+    "delete": "删除",
+    "save": "保存",
+    "cancel": "取消",
+    "download": "下载",
+    "share": "分享",
+    "duplicate": "复制",
+    "undo": "撤销",
+    "redo": "重做",
+    "clear": "清除",
+    "brush": "笔刷",
+    "eraser": "橡皮擦",
+    "pen": "钢笔",
+    "color": "颜色",
+    "size": "大小",
+    "opacity": "透明度",
+    "zoom": "缩放",
+    "fit": "适应屏幕",
+    "gridToggle": "显示网格",
+    "rulerToggle": "显示标尺",
+    "layer": "图层",
+    "layers": "图层列表",
+    "newLayer": "新建图层",
+    "deleteLayer": "删除图层",
+    "renameLayer": "重命名图层"
+  },
+  "tools": {
+    "select": "选择",
+    "hand": "拖拽",
+    "pen": "画笔",
+    "highlighter": "荧光笔",
+    "eraser": "橡皮"
+  },
+  "insertTools": {
+    "note": "便签",
+    "image": "图片",
+    "video": "视频",
+    "imagePromptGenerate": "视频图片理解",
+    "imageGenerate": "图片生成",
+    "videoGenerate": "生成视频"
+  },
+  "descriptions": {
+    "note": "快速笔记卡片",
+    "image": "图片块",
+    "video": "视频块",
+    "imagePromptGenerate": "分析图片/视频并生成描述",
+    "imageGenerate": "输入图片与文字生成新图",
+    "videoGenerate": "基于图片与提示词生成视频"
+  },
+  "picker": {
+    "imageTitle": "选择图片文件",
+    "imageHint": "非图片文件将置灰",
+    "videoTitle": "选择视频文件",
+    "videoHint": "非视频文件将置灰"
+  }
+}

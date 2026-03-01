@@ -8,7 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { AgentTemplate } from '../../types'
-import CALENDAR_PROMPT from './prompt.zh.md'
+import CALENDAR_PROMPT_ZH from './prompt.zh.md'
+import CALENDAR_PROMPT_EN from './prompt.en.md'
 
 export const calendarTemplate: AgentTemplate = {
   id: 'calendar',
@@ -19,5 +20,13 @@ export const calendarTemplate: AgentTemplate = {
   allowSubAgents: false,
   maxDepth: 1,
   isPrimary: false,
-  systemPrompt: CALENDAR_PROMPT.trim(),
+  systemPrompt: CALENDAR_PROMPT_ZH.trim(),
+}
+
+/** Get prompt in specified language. */
+export function getCalendarPrompt(lang?: string): string {
+  if (lang?.startsWith('en')) {
+    return CALENDAR_PROMPT_EN.trim()
+  }
+  return CALENDAR_PROMPT_ZH.trim()
 }

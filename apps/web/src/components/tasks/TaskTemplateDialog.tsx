@@ -10,6 +10,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { trpc } from '@/utils/trpc'
 import {
@@ -47,6 +48,7 @@ export function TaskTemplateDialog({
   onOpenChange: (open: boolean) => void
   workspaceId: string
 }) {
+  const { t } = useTranslation(['tasks', 'common'])
   const queryClient = useQueryClient()
   const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | null>(null)
   const [overrideName, setOverrideName] = useState('')
@@ -133,69 +135,69 @@ export function TaskTemplateDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {selectedTemplate ? '从模板创建任务' : '任务模板'}
+            {selectedTemplate ? t('task.createFromTemplate') : t('task.templates')}
           </DialogTitle>
         </DialogHeader>
 
         {selectedTemplate ? (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>任务名称</Label>
+              <Label>{t('task.taskName')}</Label>
               <Input
                 value={overrideName}
                 onChange={(e) => setOverrideName(e.target.value)}
-                placeholder="输入任务名称"
+                placeholder={t('task.taskNamePlaceholder')}
               />
             </div>
             <div className="space-y-2">
-              <Label>描述</Label>
+              <Label>{t('task.description')}</Label>
               <Textarea
                 value={overrideDesc}
                 onChange={(e) => setOverrideDesc(e.target.value)}
-                placeholder="输入任务描述（可选）"
+                placeholder={t('task.taskDescriptionPlaceholder')}
                 rows={3}
               />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setSelectedTemplate(null)}>
-                返回
+                {t('task.back')}
               </Button>
               <Button
                 onClick={handleCreateFromTemplate}
                 disabled={createFromTemplateMutation.isPending}
               >
-                创建任务
+                {t('task.create')}
               </Button>
             </DialogFooter>
           </div>
         ) : showCreateForm ? (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>模板名称</Label>
+              <Label>{t('task.templateName')}</Label>
               <Input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="输入模板名称"
+                placeholder={t('task.templateNamePlaceholder')}
               />
             </div>
             <div className="space-y-2">
-              <Label>描述</Label>
+              <Label>{t('task.description')}</Label>
               <Textarea
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
-                placeholder="输入模板描述（可选）"
+                placeholder={t('task.templateDescriptionPlaceholder')}
                 rows={2}
               />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowCreateForm(false)}>
-                取消
+                {t('task.cancel')}
               </Button>
               <Button
                 onClick={handleCreateTemplate}
                 disabled={!newName.trim() || createTemplateMutation.isPending}
               >
-                保存模板
+                {t('task.saveTemplate')}
               </Button>
             </DialogFooter>
           </div>
@@ -203,11 +205,11 @@ export function TaskTemplateDialog({
           <div className="space-y-3">
             {isLoading ? (
               <div className="flex h-20 items-center justify-center text-sm text-muted-foreground">
-                加载中...
+                {t('loading')}
               </div>
             ) : (templates as TaskTemplate[]).length === 0 ? (
               <div className="flex h-20 items-center justify-center text-sm text-muted-foreground">
-                暂无模板
+                {t('task.noTemplates')}
               </div>
             ) : (
               <div className="max-h-[300px] space-y-2 overflow-y-auto">
@@ -249,7 +251,7 @@ export function TaskTemplateDialog({
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowCreateForm(true)}>
                 <Plus className="mr-1 h-3.5 w-3.5" />
-                新建模板
+                {t('task.newTemplate')}
               </Button>
             </DialogFooter>
           </div>

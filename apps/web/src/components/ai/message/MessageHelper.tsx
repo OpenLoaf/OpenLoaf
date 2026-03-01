@@ -10,6 +10,7 @@
 "use client";
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useChatOptions } from "../context";
 import {
   ClipboardList,
@@ -20,36 +21,27 @@ import {
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 
-const SUGGESTIONS = [
-  {
-    label: "测试审批",
-    value:
-      "测试审批：请调用 sub-agent，name 设为 TestApprovalSubAgent，先获取当前时间，再触发 test-approval，并等待我在工具卡片里点击允许/拒绝。",
-    icon: Sparkles,
-    color: "text-amber-500",
-  },
-  {
-    label: "打开淘宝搜索手机贴膜",
-    value: "打开淘宝，搜索手机贴膜，告诉我销售额前三的店铺名称",
-    icon: ClipboardList,
-    color: "text-sky-500",
-  },
-  {
-    label: "随机创建一个项目",
-    value: "帮我随机创建一个测试项目",
-    icon: Code2,
-    color: "text-emerald-500",
-  },
-  {
-    label: "生成一份本周工作周报",
-    value: "帮我生成一份本周工作周报",
-    icon: FileText,
-    color: "text-violet-500",
-  },
-];
+const ICON_ORDER = [Sparkles, ClipboardList, Code2, FileText];
+const COLORS = ["text-amber-500", "text-sky-500", "text-emerald-500", "text-violet-500"];
 
 export default function MessageHelper({ compact }: { compact?: boolean } = {}) {
   const { setInput } = useChatOptions();
+  const { t } = useTranslation('ai');
+
+  // Build suggestions from translation data
+  const rawSuggestions = t('helper.suggestions', { returnObjects: true }) as Array<{
+    label: string;
+    value: string;
+  }> | null;
+
+  const SUGGESTIONS = rawSuggestions
+    ? rawSuggestions.map((item, index) => ({
+        label: item.label,
+        value: item.value,
+        icon: ICON_ORDER[index] || Sparkles,
+        color: COLORS[index] || "text-blue-500",
+      }))
+    : [];
   const [hoveredIndex, setHoveredIndex] = React.useState(-1);
 
   const focusChatInput = React.useCallback(() => {
@@ -75,7 +67,7 @@ export default function MessageHelper({ compact }: { compact?: boolean } = {}) {
       <div className={cn("mx-auto flex w-full items-center gap-2", compact ? "max-w-2xl flex-row flex-wrap justify-center" : "max-w-md flex-col")}>
         {!compact && (
           <p className="mb-1 text-center text-xs text-muted-foreground">
-            你可以试着问我：
+            {t('helper.tryAskMe')}
           </p>
         )}
         <motion.div

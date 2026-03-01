@@ -173,7 +173,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
       parentUri !== null && parentUri !== undefined
         ? {
             uri: parentUri,
-            name: "上一级",
+            name: "..",
             kind: "folder",
           }
         : null,

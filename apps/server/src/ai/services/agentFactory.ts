@@ -29,6 +29,16 @@ import {
   isTemplateId,
   getPrimaryTemplate,
   ALL_TEMPLATES,
+  getBrowserPrompt,
+  getCalendarPrompt,
+  getCoderPrompt,
+  getDocumentPrompt,
+  getEmailPrompt,
+  getMasterPrompt,
+  getProjectPrompt,
+  getShellPrompt,
+  getVisionPrompt,
+  getWidgetPrompt,
 } from '@/ai/agent-templates'
 import type { AgentTemplate } from '@/ai/agent-templates'
 import { logger } from '@/common/logger'
@@ -65,9 +75,27 @@ export type MasterAgentModelInfo = {
   modelId: string
 }
 
+/** Get template prompt in specified language. */
+function getTemplatePrompt(templateId: string, lang?: string): string {
+  const promptGetters: Record<string, (lang?: string) => string> = {
+    browser: getBrowserPrompt,
+    calendar: getCalendarPrompt,
+    coder: getCoderPrompt,
+    document: getDocumentPrompt,
+    email: getEmailPrompt,
+    master: getMasterPrompt,
+    project: getProjectPrompt,
+    shell: getShellPrompt,
+    vision: getVisionPrompt,
+    widget: getWidgetPrompt,
+  }
+  const getter = promptGetters[templateId]
+  return getter ? getter(lang) : getPrimaryTemplate().systemPrompt
+}
+
 /** Read base system prompt markdown content. */
-export function readMasterAgentBasePrompt(): string {
-  return getPrimaryTemplate().systemPrompt
+export function readMasterAgentBasePrompt(lang?: string): string {
+  return getTemplatePrompt('master', lang)
 }
 
 type CreateMasterAgentInput = {

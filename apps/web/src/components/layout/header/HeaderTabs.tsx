@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, Globe, LayoutDashboard, Mail, Plus, Sparkles, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { AnimatedTabs } from "@openloaf/ui/animated-tabs";
 import { useTabs } from "@/hooks/use-tabs";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
@@ -60,6 +61,7 @@ function formatShortcutLabel(shortcut: string, isMac: boolean): string {
 }
 
 export const HeaderTabs = () => {
+  const { t } = useTranslation('nav');
   const activeTabId = useTabs((s) => s.activeTabId);
   const setActiveTab = useTabs((s) => s.setActiveTab);
   const closeTab = useTabs((s) => s.closeTab);
@@ -214,7 +216,7 @@ export const HeaderTabs = () => {
       addTab({
         workspaceId: activeWorkspace.id,
         createNew: true,
-        title: DEFAULT_TAB_INFO.title,
+        title: t(DEFAULT_TAB_INFO.titleKey),
         icon: DEFAULT_TAB_INFO.icon,
         leftWidthPercent: 70,
         base: { id: WORKBENCH_TAB_INPUT.baseId, component: WORKBENCH_TAB_INPUT.component },
@@ -309,12 +311,12 @@ export const HeaderTabs = () => {
     addTab({
       workspaceId: activeWorkspace.id,
       createNew: true,
-      title: DEFAULT_TAB_INFO.title,
+      title: t(DEFAULT_TAB_INFO.titleKey),
       icon: DEFAULT_TAB_INFO.icon,
       leftWidthPercent: 70,
       base: { id: WORKBENCH_TAB_INPUT.baseId, component: WORKBENCH_TAB_INPUT.component },
     });
-  }, [activeWorkspace, addTab]);
+  }, [activeWorkspace, addTab, t]);
 
   const clearPointerSession = () => {
     pointerSessionRef.current = null;

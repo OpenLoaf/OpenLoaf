@@ -8,7 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { AgentTemplate } from '../../types'
-import EMAIL_PROMPT from './prompt.zh.md'
+import EMAIL_PROMPT_ZH from './prompt.zh.md'
+import EMAIL_PROMPT_EN from './prompt.en.md'
 
 export const emailTemplate: AgentTemplate = {
   id: 'email',
@@ -19,5 +20,13 @@ export const emailTemplate: AgentTemplate = {
   allowSubAgents: false,
   maxDepth: 1,
   isPrimary: false,
-  systemPrompt: EMAIL_PROMPT.trim(),
+  systemPrompt: EMAIL_PROMPT_ZH.trim(),
+}
+
+/** Get prompt in specified language. */
+export function getEmailPrompt(lang?: string): string {
+  if (lang?.startsWith('en')) {
+    return EMAIL_PROMPT_EN.trim()
+  }
+  return EMAIL_PROMPT_ZH.trim()
 }

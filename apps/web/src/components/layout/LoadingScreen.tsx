@@ -10,8 +10,10 @@
 "use client";
 
 import Image from "next/image";
+import { useTranslation } from "react-i18next";
 
-export function LoadingScreen({ label = "正在连接中..." }: { label?: string }) {
+export function LoadingScreen({ label }: { label?: string }) {
+  const { t } = useTranslation('common');
   return (
     <div className="grid h-svh place-items-center bg-background">
       <div className="flex flex-col items-center gap-3 text-muted-foreground">
@@ -22,7 +24,7 @@ export function LoadingScreen({ label = "正在连接中..." }: { label?: string
           height={40}
           className="h-10 w-10 motion-safe:animate-pulse"
         />
-        <span className="text-sm">{label}</span>
+        <span className="text-sm">{label ?? t('connecting')}</span>
       </div>
     </div>
   );

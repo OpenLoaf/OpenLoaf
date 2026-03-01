@@ -8,7 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { AgentTemplate } from '../../types'
-import DOCUMENT_PROMPT from './prompt.zh.md'
+import DOCUMENT_PROMPT_ZH from './prompt.zh.md'
+import DOCUMENT_PROMPT_EN from './prompt.en.md'
 
 export const documentTemplate: AgentTemplate = {
   id: 'document',
@@ -29,5 +30,13 @@ export const documentTemplate: AgentTemplate = {
   allowSubAgents: true,
   maxDepth: 2,
   isPrimary: false,
-  systemPrompt: DOCUMENT_PROMPT.trim(),
+  systemPrompt: DOCUMENT_PROMPT_ZH.trim(),
+}
+
+/** Get prompt in specified language. */
+export function getDocumentPrompt(lang?: string): string {
+  if (lang?.startsWith('en')) {
+    return DOCUMENT_PROMPT_EN.trim()
+  }
+  return DOCUMENT_PROMPT_ZH.trim()
 }

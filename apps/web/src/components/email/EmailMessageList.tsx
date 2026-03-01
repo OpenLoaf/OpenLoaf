@@ -22,6 +22,7 @@ import {
   Star,
   Trash2,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import {
   AlertDialog,
@@ -69,12 +70,13 @@ export function EmailMessageList({
   messageList,
   onMessageOpen,
 }: EmailMessageListProps) {
+  const { t } = useTranslation('common');
   const { hasSelection, isAllSelected, selectedIds } = messageList
 
   const densityLabels: Record<EmailDensity, string> = {
-    compact: '紧凑',
-    default: '默认',
-    comfortable: '宽松',
+    compact: t('email.densityCompact'),
+    default: t('email.densityDefault'),
+    comfortable: t('email.densityComfortable'),
   }
   const densityCycle: EmailDensity[] = ['compact', 'default', 'comfortable']
   const handleCycleDensity = () => {
@@ -102,7 +104,7 @@ export function EmailMessageList({
             <Checkbox
               checked={isAllSelected ? true : hasSelection ? "indeterminate" : false}
               onCheckedChange={() => messageList.onToggleSelectAll()}
-              aria-label="全选"
+              aria-label={t('email.selectAll')}
               className="h-3.5 w-3.5"
             />
           </div>
@@ -110,7 +112,7 @@ export function EmailMessageList({
           {hasSelection ? (
             <>
               <span className="ml-1 text-xs text-[#5f6368] dark:text-slate-400">
-                已选 {selectedIds.size} 封
+                {t('email.selectedCount', { count: selectedIds.size })}
               </span>
               <Button
                 type="button"
@@ -118,7 +120,7 @@ export function EmailMessageList({
                 size="icon"
                 onClick={() => messageList.onBatchArchive()}
                 disabled={messageList.batchActionPending}
-                title="归档"
+                title={t('email.archive')}
                 className={cn(
                   "h-8 w-8 rounded-full text-[#f9ab00] transition-colors duration-150",
                   "hover:bg-[hsl(var(--muted)/0.58)] dark:text-amber-300 dark:hover:bg-[hsl(var(--muted)/0.46)]",
@@ -132,7 +134,7 @@ export function EmailMessageList({
                 size="icon"
                 onClick={() => messageList.onBatchDelete()}
                 disabled={messageList.batchActionPending}
-                title="删除"
+                title={t('delete')}
                 className={cn(
                   "h-8 w-8 rounded-full text-red-500 transition-colors duration-150",
                   "hover:bg-[hsl(var(--muted)/0.58)] dark:text-red-400 dark:hover:bg-[hsl(var(--muted)/0.46)]",
@@ -158,7 +160,7 @@ export function EmailMessageList({
                 <DropdownMenuContent align="start">
                   <DropdownMenuItem onClick={() => messageList.onBatchMarkRead()}>
                     <MailOpen className="mr-2 h-3.5 w-3.5" />
-                    标记为已读
+                    {t('email.markAsRead')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -183,7 +185,7 @@ export function EmailMessageList({
                 size="icon"
                 onClick={() => messageList.onRefresh()}
                 disabled={messageList.isRefreshing}
-                title="刷新"
+                title={t('refresh')}
                 className={cn(
                   "h-8 w-8 rounded-full text-[#188038] transition-colors duration-150",
                   "hover:bg-[hsl(var(--muted)/0.58)] dark:text-emerald-300 dark:hover:bg-[hsl(var(--muted)/0.46)]",
@@ -212,7 +214,7 @@ export function EmailMessageList({
               variant="ghost"
               size="icon"
               onClick={handleCycleDensity}
-              title={`密度: ${densityLabels[messageList.density]}`}
+              title={t('email.densityLabel', { label: densityLabels[messageList.density] })}
               className={cn(
                 "h-7 w-7 rounded-full text-[#5f6368] transition-colors duration-150",
                 "hover:bg-[hsl(var(--muted)/0.58)] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.46)]",
@@ -220,7 +222,7 @@ export function EmailMessageList({
             >
               <Rows3 className="h-3.5 w-3.5" />
             </Button>
-            <span>{messageList.visibleMessages.length} 封邮件</span>
+            <span>{t('email.messageCount', { count: messageList.visibleMessages.length })}</span>
             <ChevronLeft className="h-3.5 w-3.5" />
             <ChevronRight className="h-3.5 w-3.5" />
           </div>
@@ -230,7 +232,7 @@ export function EmailMessageList({
           <Input
             value={messageList.searchKeyword}
             onChange={(event) => messageList.setSearchKeyword(event.target.value)}
-            placeholder="搜索邮件"
+            placeholder={t('email.searchPlaceholder')}
             className={cn("h-9 rounded-full pl-9 text-xs", EMAIL_FLAT_INPUT_CLASS)}
           />
           {messageList.isSearching ? (
@@ -247,11 +249,11 @@ export function EmailMessageList({
       >
         {messageList.messagesLoading ? (
           <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
-            正在加载邮件...
+            {t('email.loadingMessages')}
           </div>
         ) : messageList.visibleMessages.length === 0 ? (
           <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
-            暂无邮件
+            {t('email.noMessages')}
           </div>
         ) : (
           <>
@@ -340,11 +342,11 @@ export function EmailMessageList({
                           : "text-[#3c4043] dark:text-slate-300",
                       )}
                     >
-                      {mail.subject || "（无主题）"}
+                      {mail.subject || t('email.noSubject')}
                     </span>
                     <span className="text-[#5f6368] dark:text-slate-400">
                       {" "}
-                      - {mail.preview || "（无预览）"}
+                      - {mail.preview || t('email.noPreview')}
                     </span>
                     {mail.hasAttachments ? (
                       <span className="ml-2 inline-flex items-center text-[#9334e6] dark:text-violet-300">
@@ -373,11 +375,11 @@ export function EmailMessageList({
             <div ref={messageList.loadMoreRef} className="h-6" />
             {messageList.messagesFetchingNextPage ? (
               <div className="py-2 text-center text-xs text-muted-foreground">
-                正在加载更多...
+                {t('email.loadingMore')}
               </div>
             ) : messageList.visibleMessages.length > 0 && !messageList.hasNextPage ? (
               <div className="py-2 text-center text-xs text-muted-foreground/70">
-                没有更多内容了
+                {t('email.noMoreMessages')}
               </div>
             ) : null}
           </>
@@ -387,18 +389,18 @@ export function EmailMessageList({
       <AlertDialog open={messageList.batchDeleteConfirmOpen} onOpenChange={messageList.onBatchDeleteConfirmOpenChange}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认批量删除</AlertDialogTitle>
+            <AlertDialogTitle>{t('email.batchDeleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要删除选中的 {messageList.selectedIds.size} 封邮件吗？此操作将把邮件移至已删除。
+              {t('email.batchDeleteDesc', { count: messageList.selectedIds.size })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={messageList.onBatchDeleteConfirmed}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              删除
+              {t('delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

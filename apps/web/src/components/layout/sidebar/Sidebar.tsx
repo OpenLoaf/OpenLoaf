@@ -11,6 +11,7 @@
 
 import { startTransition, useCallback } from "react";
 import { useQuery, skipToken } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { SidebarProject } from "@/components/layout/sidebar/SidebarProject";
 import { SidebarFeedback } from "@/components/layout/sidebar/SidebarFeedback";
 import { SidebarWorkspace } from "../../workspace/SidebarWorkspace";
@@ -70,6 +71,7 @@ const SIDEBAR_WORKSPACE_PAGE_COMPONENTS = new Set([
 export const AppSidebar = ({
   ...props
 }: React.ComponentProps<typeof Sidebar>) => {
+  const { t } = useTranslation('nav');
   const { workspace: activeWorkspace } = useWorkspace();
   const addTab = useTabs((s) => s.addTab);
   const setActiveTab = useTabs((s) => s.setActiveTab);
@@ -122,8 +124,9 @@ export const AppSidebar = ({
 
 
   const openSingletonTab = useCallback(
-    (input: { baseId: string; component: string; title: string; icon: string }) => {
+    (input: { baseId: string; component: string; title?: string; titleKey?: string; icon: string }) => {
       if (!activeWorkspace) return;
+      const tabTitle = input.titleKey ?? input.title ?? '';
 
       const state = useTabs.getState();
       const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
@@ -131,7 +134,7 @@ export const AppSidebar = ({
         if (tab.workspaceId !== activeWorkspace.id) return false;
         if (runtimeByTabId[tab.id]?.base?.id === input.baseId) return true;
         // ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
-        if (input.component === "ai-chat" && !runtimeByTabId[tab.id]?.base && tab.title === input.title) return true;
+        if (input.component === "ai-chat" && !runtimeByTabId[tab.id]?.base && tab.title === tabTitle) return true;
         return false;
       });
       if (existing) {
@@ -144,7 +147,7 @@ export const AppSidebar = ({
       addTab({
         workspaceId: activeWorkspace.id,
         createNew: true,
-        title: input.title,
+        title: tabTitle,
         icon: input.icon,
         leftWidthPercent: 100,
         base:
@@ -157,8 +160,9 @@ export const AppSidebar = ({
   );
 
   const openWorkspacePageTab = useCallback(
-    (input: { baseId: string; component: string; title: string; icon: string }) => {
+    (input: { baseId: string; component: string; title?: string; titleKey?: string; icon: string }) => {
       if (!activeWorkspace) return;
+      const tabTitle = input.titleKey ?? input.title ?? '';
 
       const state = useTabs.getState();
       const runtimeState = useTabRuntime.getState().runtimeByTabId;
@@ -177,7 +181,7 @@ export const AppSidebar = ({
         // 逻辑：四个主页面复用同一个 tab，仅切换 base 与显示信息。
         setTabBase(currentTab.id, { id: input.baseId, component: input.component });
         clearStack(currentTab.id);
-        setTabTitle(currentTab.id, input.title);
+        setTabTitle(currentTab.id, tabTitle);
         setTabIcon(currentTab.id, input.icon);
         startTransition(() => {
           setActiveTab(currentTab.id);
@@ -201,7 +205,7 @@ export const AppSidebar = ({
         // 逻辑：若已存在主页面 tab，复用该 tab，避免产生多份同类页面 tab。
         setTabBase(existingWorkspacePageTab.id, { id: input.baseId, component: input.component });
         clearStack(existingWorkspacePageTab.id);
-        setTabTitle(existingWorkspacePageTab.id, input.title);
+        setTabTitle(existingWorkspacePageTab.id, tabTitle);
         setTabIcon(existingWorkspacePageTab.id, input.icon);
         startTransition(() => {
           setActiveTab(existingWorkspacePageTab.id);
@@ -212,7 +216,7 @@ export const AppSidebar = ({
       addTab({
         workspaceId: activeWorkspace.id,
         createNew: true,
-        title: input.title,
+        title: tabTitle,
         icon: input.icon,
         leftWidthPercent: 100,
         base: { id: input.baseId, component: input.component },
@@ -241,13 +245,13 @@ export const AppSidebar = ({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="搜索"
+              tooltip={t('search')}
               className={SIDEBAR_SEARCH_ICON_CLASS}
               onClick={() => setSearchOpen(true)}
               type="button"
             >
               <Search />
-              <span className="flex-1 truncate">搜索</span>
+              <span className="flex-1 truncate">{t('search')}</span>
               {/* 快捷键提示默认隐藏，仅在 hover / focus 时显示，避免侧边栏视觉噪音。 */}
               <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
                 <KbdGroup className="gap-1">
@@ -291,26 +295,26 @@ export const AppSidebar = ({
           ) : null}
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="AI 助手"
+              tooltip={t('aiAssistant')}
               className={SIDEBAR_WORKSPACE_COLOR_CLASS.aiAssistant}
               isActive={isMenuActive(AI_ASSISTANT_TAB_INPUT)}
               onClick={() => openSingletonTab(AI_ASSISTANT_TAB_INPUT)}
               type="button"
             >
               <Sparkles className="h-4 w-4" />
-              <span className="flex-1 truncate">AI 助手</span>
+              <span className="flex-1 truncate">{t('aiAssistant')}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="工作台"
+              tooltip={t('workbench')}
               className={SIDEBAR_WORKSPACE_COLOR_CLASS.workbench}
               isActive={isMenuActive(WORKBENCH_TAB_INPUT)}
               onClick={() => openWorkspacePageTab(WORKBENCH_TAB_INPUT)}
               type="button"
             >
               <LayoutDashboard className="h-4 w-4" />
-              <span className="flex-1 truncate">工作台</span>
+              <span className="flex-1 truncate">{t('workbench')}</span>
               <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
                 <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
@@ -321,26 +325,26 @@ export const AppSidebar = ({
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="日历"
+              tooltip={t('calendar')}
               // 逻辑：与底部 DockTabs 的色调保持一致，增强主入口识别度。
               className={SIDEBAR_WORKSPACE_COLOR_CLASS.calendar}
               isActive={isMenuActive({
                 baseId: "base:calendar",
                 component: "calendar-page",
-                title: "日历",
+                title: t('calendar'),
               })}
               onClick={() =>
                 openWorkspacePageTab({
                   baseId: "base:calendar",
                   component: "calendar-page",
-                  title: "日历",
+                  title: t('calendar'),
                   icon: "🗓️",
                 })
               }
               type="button"
             >
               <CalendarDays />
-              <span className="flex-1 truncate">日历</span>
+              <span className="flex-1 truncate">{t('calendar')}</span>
               <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
                 <KbdGroup className="gap-1">
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
@@ -351,25 +355,25 @@ export const AppSidebar = ({
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="邮箱"
+              tooltip={t('email')}
               className={SIDEBAR_WORKSPACE_COLOR_CLASS.email}
               isActive={isMenuActive({
                 baseId: "base:mailbox",
                 component: "email-page",
-                title: "邮箱",
+                title: t('email'),
               })}
               onClick={() =>
                 openWorkspacePageTab({
                   baseId: "base:mailbox",
                   component: "email-page",
-                  title: "邮箱",
+                  title: t('email'),
                   icon: "📧",
                 })
               }
               type="button"
             >
               <Mail />
-              <span className="flex-1 truncate">邮箱</span>
+              <span className="flex-1 truncate">{t('email')}</span>
               {unreadCount > 0 ? (
                 <Badge
                   className="ml-auto min-w-[1.25rem] justify-center px-1.5 py-0.5 text-[10px] leading-[1]"
@@ -382,25 +386,25 @@ export const AppSidebar = ({
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="任务"
+              tooltip={t('tasks')}
               className={SIDEBAR_WORKSPACE_COLOR_CLASS.scheduledTasks}
               isActive={isMenuActive({
                 baseId: "base:scheduled-tasks",
                 component: "scheduled-tasks-page",
-                title: "任务",
+                title: t('tasks'),
               })}
               onClick={() =>
                 openWorkspacePageTab({
                   baseId: "base:scheduled-tasks",
                   component: "scheduled-tasks-page",
-                  title: "任务",
+                  title: t('tasks'),
                   icon: "⏰",
                 })
               }
               type="button"
             >
               <Clock />
-              <span className="flex-1 truncate">任务</span>
+              <span className="flex-1 truncate">{t('tasks')}</span>
               {reviewTaskCount > 0 ? (
                 <Badge
                   className="ml-auto min-w-[1.25rem] justify-center px-1.5 py-0.5 text-[10px] leading-[1]"

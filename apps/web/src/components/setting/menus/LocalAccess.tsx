@@ -10,6 +10,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@openloaf/ui/button";
 import { Input } from "@openloaf/ui/input";
@@ -32,18 +33,19 @@ type LocalAuthSessionResponse = {
 };
 
 /** Fetch local auth session snapshot. */
-async function fetchLocalAuthSession(baseUrl: string): Promise<LocalAuthSessionResponse> {
+async function fetchLocalAuthSession(baseUrl: string, t: (key: string) => string): Promise<LocalAuthSessionResponse> {
   const response = await fetch(`${baseUrl}/local-auth/session`, {
     credentials: "include",
   });
   if (!response.ok) {
-    throw new Error("无法获取本地访问状态");
+    throw new Error(t('localAccess.fetchStatusError'));
   }
   return (await response.json()) as LocalAuthSessionResponse;
 }
 
 /** Render local access settings panel. */
 export default function LocalAccess() {
+  const { t } = useTranslation('settings');
   const baseUrl = resolveServerUrl();
   const [configured, setConfigured] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -55,13 +57,13 @@ export default function LocalAccess() {
   const loadStatus = useCallback(async () => {
     if (!baseUrl) return;
     try {
-      const session = await fetchLocalAuthSession(baseUrl);
+      const session = await fetchLocalAuthSession(baseUrl, t);
       setConfigured(session.configured);
       setUpdatedAt(session.updatedAt ?? null);
     } catch (error) {
-      toast.error((error as Error)?.message ?? "无法读取本地访问状态");
+      toast.error((error as Error)?.message ?? t('localAccess.readStatusError'));
     }
-  }, [baseUrl]);
+  }, [baseUrl, t]);
 
   useEffect(() => {
     void loadStatus();
@@ -70,11 +72,11 @@ export default function LocalAccess() {
   const handleSubmit = useCallback(async () => {
     if (!baseUrl) return;
     if (!password.trim() || password.trim().length < 6) {
-      toast.error("密码至少 6 位");
+      toast.error(t('localAccess.passwordMinLength'));
       return;
     }
     if (password !== confirm) {
-      toast.error("两次输入的密码不一致");
+      toast.error(t('localAccess.passwordMismatch'));
       return;
     }
     setLoading(true);
@@ -91,76 +93,76 @@ export default function LocalAccess() {
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;
         if (payload?.error === "local_auth_invalid") {
-          throw new Error("当前密码不正确");
+          throw new Error(t('localAccess.invalidCurrentPassword'));
         }
         if (payload?.error === "local_only") {
-          throw new Error("请在本机打开设置页配置密码");
+          throw new Error(t('localAccess.localOnlyError'));
         }
-        throw new Error("保存失败，请重试");
+        throw new Error(t('localAccess.saveFailed'));
       }
-      toast.success(configured ? "密码已更新" : "密码已设置");
+      toast.success(configured ? t('localAccess.passwordUpdated') : t('localAccess.passwordSet'));
       setCurrentPassword("");
       setPassword("");
       setConfirm("");
       await loadStatus();
     } catch (error) {
-      toast.error((error as Error)?.message ?? "保存失败");
+      toast.error((error as Error)?.message ?? t('localAccess.saveFailedGeneral'));
     } finally {
       setLoading(false);
     }
-  }, [baseUrl, confirm, configured, currentPassword, loadStatus, password]);
+  }, [baseUrl, confirm, configured, currentPassword, loadStatus, password, t]);
 
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h2 className="text-lg font-semibold">本地访问密码</h2>
+        <h2 className="text-lg font-semibold">{t('localAccess.title')}</h2>
         <p className="text-sm text-muted-foreground">
-          当从局域网或外网访问本地服务器时，需要先输入本地访问密码。
+          {t('localAccess.description')}
         </p>
         <p className="text-xs text-muted-foreground">
-          当前状态：{configured ? "已设置" : "未设置"}
-          {updatedAt ? `（更新于 ${updatedAt}）` : ""}
+          {t('localAccess.status')}{configured ? t('localAccess.configured') : t('localAccess.notConfigured')}
+          {updatedAt ? ` (${t('localAccess.updatedAt', { date: updatedAt })})` : ""}
         </p>
       </div>
 
       <div className="space-y-4">
         {configured ? (
           <div className="space-y-2">
-            <Label htmlFor="local-auth-current">当前密码</Label>
+            <Label htmlFor="local-auth-current">{t('localAccess.currentPassword')}</Label>
             <Input
               id="local-auth-current"
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="请输入当前密码"
+              placeholder={t('localAccess.currentPasswordPlaceholder')}
             />
           </div>
         ) : null}
 
         <div className="space-y-2">
-          <Label htmlFor="local-auth-new">新密码</Label>
+          <Label htmlFor="local-auth-new">{t('localAccess.newPassword')}</Label>
           <Input
             id="local-auth-new"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="请输入新密码"
+            placeholder={t('localAccess.newPasswordPlaceholder')}
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="local-auth-confirm">确认新密码</Label>
+          <Label htmlFor="local-auth-confirm">{t('localAccess.confirmPassword')}</Label>
           <Input
             id="local-auth-confirm"
             type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            placeholder="请再次输入新密码"
+            placeholder={t('localAccess.confirmPasswordPlaceholder')}
           />
         </div>
 
         <Button type="button" onClick={() => void handleSubmit()} disabled={loading}>
-          {loading ? "保存中…" : configured ? "更新密码" : "设置密码"}
+          {loading ? t('localAccess.saving') : configured ? t('localAccess.updatePassword') : t('localAccess.setPassword')}
         </Button>
       </div>
     </div>

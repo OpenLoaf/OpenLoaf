@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import "@/i18n/index";
 import type { Metadata } from "next";
 import "../index.css";
 import "@measured/puck/puck.css";

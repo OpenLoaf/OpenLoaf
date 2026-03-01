@@ -18,6 +18,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   Breadcrumb,
@@ -132,7 +133,7 @@ function normalizePageTreeProjects(nodes?: ProjectTreeNode[]): ProjectTreeNode[]
 export function ProjectFilePickerDialog({
   open,
   onOpenChange,
-  title = "选择文件",
+  title,
   filterHint,
   defaultRootUri,
   defaultActiveUri,
@@ -143,6 +144,7 @@ export function ProjectFilePickerDialog({
   onSelectFiles,
   onImportFromComputer,
 }: ProjectFilePickerDialogProps) {
+  const { t } = useTranslation(['workspace']);
   const { workspace } = useWorkspace();
   const workspaceId = workspace?.id ?? "";
   const projectListQuery = useProjects();
@@ -327,7 +329,7 @@ export function ProjectFilePickerDialog({
         );
       if (selections.length === 0) return;
       if (selections.length !== targetEntries.length) {
-        toast.error("无法解析文件路径");
+        toast.error(t('workspace:filesystem.cannotResolvePath'));
         return;
       }
       if (selections.length === 1) {
@@ -404,13 +406,13 @@ export function ProjectFilePickerDialog({
     >
       <DialogContent className="w-[70vw] h-[80vh] max-w-none sm:max-w-none flex flex-col">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>{title ?? t('workspace:filesystem.selectFileTitle')}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-2 md:grid-cols-[280px_minmax(0,1fr)] flex-1 min-h-0 overflow-hidden">
           <div className="rounded-2xl border border-border/60 bg-card/60 p-3 min-h-0 overflow-y-auto">
-            <div className="mb-2 flex h-6 items-center text-xs text-muted-foreground">项目</div>
+            <div className="mb-2 flex h-6 items-center text-xs text-muted-foreground">{t('workspace:filesystem.projectLabel')}</div>
             {projectOptions.length === 0 ? (
-              <div className="text-xs text-muted-foreground">暂无可用项目</div>
+              <div className="text-xs text-muted-foreground">{t('workspace:filesystem.noProject')}</div>
             ) : (
               <PageTreePicker
                 projects={projectTree}
@@ -425,7 +427,7 @@ export function ProjectFilePickerDialog({
                 <BreadcrumbList>
                   {breadcrumbItems.length === 0 ? (
                     <BreadcrumbItem>
-                      <BreadcrumbPage>请选择项目</BreadcrumbPage>
+                      <BreadcrumbPage>{t('workspace:filesystem.selectProject')}</BreadcrumbPage>
                     </BreadcrumbItem>
                   ) : (
                     breadcrumbItems.map((item, index) => {
@@ -451,7 +453,7 @@ export function ProjectFilePickerDialog({
                 </BreadcrumbList>
               </Breadcrumb>
               <div className="text-[11px] text-muted-foreground">
-                {filterHint ?? "仅显示可用文件"}
+                {filterHint ?? t('workspace:filesystem.filterHintDefault')}
               </div>
             </div>
             <div className="flex-1 min-h-0">
@@ -477,17 +479,17 @@ export function ProjectFilePickerDialog({
         <DialogFooter className="flex w-full items-center justify-start gap-3">
           {shouldShowImportButton ? (
             <Button type="button" variant="ghost" onClick={handleImportFromComputer}>
-              从计算机导入
+              {t('workspace:filesystem.importFromComputer')}
             </Button>
           ) : (
             <span />
           )}
           <div className="ml-auto flex items-center gap-2">
             <DialogClose asChild>
-              <Button type="button" variant="ghost">取消</Button>
+              <Button type="button" variant="ghost">{t('workspace:filesystem.cancel')}</Button>
             </DialogClose>
             <Button type="button" disabled={confirmDisabled} onClick={() => handleConfirm()}>
-              确认选择
+              {t('workspace:filesystem.selectConfirmLabel')}
             </Button>
           </div>
         </DialogFooter>

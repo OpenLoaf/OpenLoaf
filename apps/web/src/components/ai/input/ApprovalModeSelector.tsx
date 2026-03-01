@@ -10,6 +10,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Shield, ShieldOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -44,6 +45,7 @@ export default function ApprovalModeSelector({
   disabled,
   className,
 }: ApprovalModeSelectorProps) {
+  const { t } = useTranslation('ai')
   const isManual = value === "manual"
   const [confirmOpen, setConfirmOpen] = useState(false)
 
@@ -110,7 +112,7 @@ export default function ApprovalModeSelector({
           </div>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
-          {isManual ? "手动审批模式" : "自动审批模式"}
+          {isManual ? t('approval.manualMode') : t('approval.autoMode')}
         </TooltipContent>
       </Tooltip>
 
@@ -118,19 +120,19 @@ export default function ApprovalModeSelector({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              启用自动批准？
+              {t('approval.enableDialog')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              开启后，AI 将自动执行需要审批的操作（如运行命令、修改邮件/日历/项目等），不再逐一请求确认。请确保你信任当前的 AI 操作环境。
+              {t('approval.enableDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t('approval.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
               onClick={() => onChange("auto")}
             >
-              确认开启
+              {t('approval.confirmEnable')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

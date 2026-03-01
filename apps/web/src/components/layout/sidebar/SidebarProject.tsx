@@ -10,6 +10,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { trpc, trpcClient } from "@/utils/trpc";
 import { useProjects } from "@/hooks/use-projects";
@@ -94,6 +95,8 @@ const ProjectTreeSkeleton = () => (
 );
 
 export const SidebarProject = () => {
+  const { t } = useTranslation('nav');
+  const { t: tCommon } = useTranslation('common');
   // 当前项目列表查询。
   const projectListQuery = useProjects();
   const projects = projectListQuery.data ?? [];
@@ -136,14 +139,14 @@ export const SidebarProject = () => {
       setIsBusy(true);
       const title = createTitle.trim();
       if (!title) {
-        toast.error("请输入项目名称");
+        toast.error(t('sidebar.projectNamePlaceholder') || "请输入项目名称");
         return;
       }
       const res = await createProject.mutateAsync({
         title,
         enableVersionControl: true,
       });
-      toast.success("项目已创建");
+      toast.success(t('sidebar.projectCreated'));
       setIsAddOpen(false);
       await projectListQuery.refetch();
       // Fire-and-forget: infer project type via auxiliary model.
@@ -154,7 +157,7 @@ export const SidebarProject = () => {
           .catch(() => {});
       }
     } catch (err: any) {
-      toast.error(err?.message ?? "操作失败");
+      toast.error(err?.message ?? tCommon('operationFailed'));
     } finally {
       setIsBusy(false);
     }
@@ -167,7 +170,7 @@ export const SidebarProject = () => {
       setIsManualRefresh(true);
       await projectListQuery.refetch();
     } catch (err: any) {
-      toast.error(err?.message ?? "刷新失败");
+      toast.error(err?.message ?? t('sidebar.refresh') + "失败");
     } finally {
       setIsManualRefresh(false);
     }
@@ -196,11 +199,11 @@ export const SidebarProject = () => {
   const handleCopyWorkspacePath = async () => {
     const rootUri = workspace?.rootUri;
     if (!rootUri) {
-      toast.error("未找到工作空间路径");
+      toast.error(t('sidebar.workspacePathNotFound'));
       return;
     }
     const displayPath = getDisplayPathFromUri(rootUri);
-    await copyTextToClipboard(displayPath, "已复制路径");
+    await copyTextToClipboard(displayPath, t('sidebar.pathCopied'));
   };
 
   /** Pick a directory from system dialog (Electron only). */
@@ -220,7 +223,7 @@ export const SidebarProject = () => {
   const handleCloneFromGit = () => {
     const url = gitUrl.trim();
     if (!url) {
-      toast.error("请输入 Git 仓库地址");
+      toast.error(t('sidebar.gitRepositoryAddress'));
       return;
     }
     setIsBusy(true);
@@ -253,7 +256,7 @@ export const SidebarProject = () => {
           }
         },
         onError(err: any) {
-          toast.error(err?.message ?? "克隆失败");
+          toast.error(err?.message ?? t('sidebar.cloneError'));
           setIsBusy(false);
           gitSubRef.current = null;
         },
@@ -267,7 +270,7 @@ export const SidebarProject = () => {
     gitSubRef.current?.unsubscribe();
     gitSubRef.current = null;
     setIsBusy(false);
-    toast("克隆已终止");
+    toast(t('sidebar.cloneAborted'));
   };
 
   /** Whether the submit button should be disabled. */
@@ -281,7 +284,7 @@ export const SidebarProject = () => {
           <div className="flex h-full flex-col">
               <SidebarGroup className="group pt-0">
                   <SidebarGroupLabel>
-                    <span className="text-muted-foreground">项目文件夹</span>
+                    <span className="text-muted-foreground">{t('sidebar.projectFolder')}</span>
                   </SidebarGroupLabel>
                   <SidebarMenu>
                     {projectListQuery.isLoading || isManualRefresh ? (
@@ -302,17 +305,17 @@ export const SidebarProject = () => {
         </ContextMenuTrigger>
         <ContextMenuContent className="w-44">
           <ContextMenuItem icon={RotateCw} onClick={() => void handleRefreshProjects()}>
-            刷新
+            {t('sidebar.refresh')}
           </ContextMenuItem>
           <ContextMenuItem
             icon={ClipboardCopy}
             onClick={() => void handleCopyWorkspacePath()}
           >
-            复制工作空间路径
+            {t('sidebar.copyWorkspacePath')}
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem icon={FolderPlus} onClick={() => openAddDialog()}>
-            添加项目
+            {t('sidebar.addProject')}
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
@@ -329,7 +332,7 @@ export const SidebarProject = () => {
           onEscapeKeyDown={(e) => { if (isBusy) e.preventDefault(); }}
         >
           <DialogHeader className="px-6 pt-5 pb-0">
-            <DialogTitle className="text-[16px] font-semibold">添加项目</DialogTitle>
+            <DialogTitle className="text-[16px] font-semibold">{t('sidebar.addDialog')}</DialogTitle>
           </DialogHeader>
 
           {/* 模式选择 */}
@@ -344,8 +347,8 @@ export const SidebarProject = () => {
                   <FolderPlus className="h-4.5 w-4.5" />
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-foreground">新建空项目</div>
-                  <div className="text-xs text-muted-foreground">在工作空间中创建一个新文件夹</div>
+                  <div className="text-sm font-medium text-foreground">{t('sidebar.newEmptyProject')}</div>
+                  <div className="text-xs text-muted-foreground">{t('sidebar.newEmptyProjectDescription')}</div>
                 </div>
               </button>
               <button
@@ -365,7 +368,7 @@ export const SidebarProject = () => {
                       enableVersionControl: shouldEnableVc,
                       icon: autoIcon,
                     });
-                    toast.success("已添加到工作空间");
+                    toast.success(t('sidebar.addToWorkspace'));
                     setIsAddOpen(false);
                     await projectListQuery.refetch();
                     // Fire-and-forget: infer project type via auxiliary model.
@@ -376,7 +379,7 @@ export const SidebarProject = () => {
                         .catch(() => {});
                     }
                   } catch (err: any) {
-                    toast.error(err?.message ?? "添加失败");
+                    toast.error(err?.message ?? t('sidebar.addError'));
                   } finally {
                     setIsBusy(false);
                   }
@@ -386,8 +389,8 @@ export const SidebarProject = () => {
                   <FolderOpen className="h-4.5 w-4.5" />
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-foreground">选择已有文件夹</div>
-                  <div className="text-xs text-muted-foreground">将电脑上的文件夹作为项目管理</div>
+                  <div className="text-sm font-medium text-foreground">{t('sidebar.selectExistingFolder')}</div>
+                  <div className="text-xs text-muted-foreground">{t('sidebar.selectExistingFolderDescription')}</div>
                 </div>
               </button>
               <button
@@ -399,8 +402,8 @@ export const SidebarProject = () => {
                   <GitBranch className="h-4.5 w-4.5" />
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-foreground">从 Git 克隆</div>
-                  <div className="text-xs text-muted-foreground">粘贴仓库地址，自动克隆到本地</div>
+                  <div className="text-sm font-medium text-foreground">{t('sidebar.cloneFromGit')}</div>
+                  <div className="text-xs text-muted-foreground">{t('sidebar.cloneFromGitDescription')}</div>
                 </div>
               </button>
             </div>
@@ -411,7 +414,7 @@ export const SidebarProject = () => {
             <div className="flex flex-col gap-3 px-6 pt-3 pb-3">
               <div>
                 <Label htmlFor="add-project-title" className="mb-1.5 block text-sm font-medium text-foreground">
-                  项目名称
+                  {t('sidebar.projectName')}
                 </Label>
                 <Input
                   id="add-project-title"
@@ -419,7 +422,7 @@ export const SidebarProject = () => {
                   onChange={(event) => setCreateTitle(event.target.value)}
                   className="h-9 rounded-lg"
                   autoFocus
-                  placeholder="我的项目"
+                  placeholder={t('sidebar.projectNamePlaceholder')}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && !isSubmitDisabled) {
                       handleAddProject();
@@ -438,7 +441,7 @@ export const SidebarProject = () => {
                 <>
                   <div>
                     <Label htmlFor="git-url" className="mb-1.5 block text-sm font-medium text-foreground">
-                      仓库地址
+                      {t('sidebar.repositoryAddress')}
                     </Label>
                     <Input
                       id="git-url"
@@ -454,7 +457,7 @@ export const SidebarProject = () => {
                   </div>
                   <div>
                     <Label className="mb-1.5 block text-sm font-medium text-foreground">
-                      目标目录
+                      {t('sidebar.targetDirectory')}
                     </Label>
                     <button
                       type="button"
@@ -464,7 +467,7 @@ export const SidebarProject = () => {
                         if (dir) setGitTargetDir(dir);
                       }}
                     >
-                      {gitTargetDir || "工作空间根目录（默认）"}
+                      {gitTargetDir || t('sidebar.workspaceRootDefault')}
                     </button>
                   </div>
                 </>
@@ -474,12 +477,12 @@ export const SidebarProject = () => {
                   {gitDone && (
                     <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
                       <CheckCircle2 className="h-4 w-4" />
-                      <span>克隆完成</span>
+                      <span>{t('sidebar.cloneComplete')}</span>
                     </div>
                   )}
                   <div className="max-h-[160px] overflow-y-auto rounded-lg border border-border/40 bg-muted/30 p-2.5">
                     <pre className="whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed text-muted-foreground">
-                      {gitProgress.slice(-12).join("\n") || "正在连接..."}
+                      {gitProgress.slice(-12).join("\n") || t('sidebar.connecting')}
                     </pre>
                   </div>
                 </div>
@@ -496,14 +499,14 @@ export const SidebarProject = () => {
                 className="h-9 rounded-full px-5 text-[13px] text-[var(--btn-neutral-fg,#5f6368)] hover:bg-[var(--btn-neutral-bg-hover,#e8eaed)] dark:text-slate-300 dark:hover:bg-slate-700"
                 onClick={() => { setAddMode(null); setCreateTitle(""); }}
               >
-                返回
+                {t('sidebar.back')}
               </Button>
               <Button
                 onClick={handleAddProject}
                 disabled={isSubmitDisabled}
                 className="h-9 rounded-full px-5 text-[13px] bg-[var(--btn-primary-bg,#0b57d0)] text-[var(--btn-primary-fg,#ffffff)] shadow-none hover:bg-[var(--btn-primary-bg-hover,#0a4cbc)] dark:bg-sky-600 dark:hover:bg-sky-500"
               >
-                {isBusy ? "创建中..." : "创建"}
+                {isBusy ? t('sidebar.creating') : t('sidebar.create')}
               </Button>
             </DialogFooter>
           )}
@@ -521,7 +524,7 @@ export const SidebarProject = () => {
                       onClick={handleAbortClone}
                     >
                       <Square className="mr-1.5 h-3.5 w-3.5" />
-                      终止
+                      {t('sidebar.abort')}
                     </Button>
                   ) : (
                     <Button
@@ -530,7 +533,7 @@ export const SidebarProject = () => {
                       className="h-9 rounded-full px-5 text-[13px] text-[var(--btn-neutral-fg,#5f6368)] hover:bg-[var(--btn-neutral-bg-hover,#e8eaed)] dark:text-slate-300 dark:hover:bg-slate-700"
                       onClick={() => { setAddMode(null); }}
                     >
-                      返回
+                      {t('sidebar.back')}
                     </Button>
                   )}
                   <Button
@@ -538,7 +541,7 @@ export const SidebarProject = () => {
                     disabled={isBusy || !gitUrl.trim()}
                     className="h-9 rounded-full px-5 text-[13px] bg-violet-600 text-white shadow-none hover:bg-violet-500 dark:bg-violet-600 dark:hover:bg-violet-500"
                   >
-                    {isBusy ? "克隆中..." : "开始克隆"}
+                    {isBusy ? t('sidebar.cloning') : t('sidebar.startClone')}
                   </Button>
                 </>
               ) : (
@@ -546,7 +549,7 @@ export const SidebarProject = () => {
                   onClick={() => setIsAddOpen(false)}
                   className="h-9 rounded-full px-5 text-[13px] bg-emerald-600 text-white shadow-none hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500"
                 >
-                  完成
+                  {t('sidebar.done')}
                 </Button>
               )}
             </DialogFooter>

@@ -9,6 +9,7 @@
  */
 "use client";
 
+import { useTranslation } from "react-i18next";
 import { Button } from "@openloaf/ui/button";
 import { Input } from "@openloaf/ui/input";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -25,12 +26,7 @@ import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { fetchUserProfile } from "@/lib/saas-auth";
 import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 
-const MEMBERSHIP_LABELS: Record<string, string> = {
-  free: "免费版",
-  vip: "VIP",
-  svip: "SVIP",
-  infinity: "Infinity",
-};
+// Note: MEMBERSHIP_LABELS will be built dynamically using i18n inside component
 
 const TOKEN_K = 1000;
 const TOKEN_M = 1000 * 1000;
@@ -60,7 +56,17 @@ function countProjectNodes(nodes?: ProjectNode[]): number {
 }
 
 export function WorkspaceSettings() {
+  const { t } = useTranslation('workspace');
   const { loggedIn } = useSaasAuth();
+
+  // Build membership labels dynamically from translations
+  const MEMBERSHIP_LABELS = {
+    free: t('membership.free'),
+    vip: t('membership.vip'),
+    svip: t('membership.svip'),
+    infinity: t('membership.infinity'),
+  };
+
   const userProfileQuery = useQuery({
     queryKey: ["saas", "userProfile"],
     queryFn: fetchUserProfile,
@@ -90,7 +96,7 @@ export function WorkspaceSettings() {
   const updateWorkspaceName = useMutation(
     trpc.workspace.updateName.mutationOptions({
       onSuccess: () => {
-        toast.success("已更新工作空间名称");
+        toast.success(t('settings.workspaceNameUpdated'));
         queryClient.invalidateQueries({
           queryKey: trpc.workspace.getActive.queryOptions().queryKey,
         });
@@ -124,7 +130,7 @@ export function WorkspaceSettings() {
     trpc.chat.clearAllChat.mutationOptions({
       onSuccess: (res) => {
         toast.success(
-          `已清除：${res.deletedSessions} 个会话`,
+          t('settings.sessionsClearedSuccess', { count: res.deletedSessions }),
         );
         queryClient.invalidateQueries();
       },
@@ -150,9 +156,8 @@ export function WorkspaceSettings() {
 
   /** Clear all chat data with a confirm gate. */
   const handleClearAllChat = async () => {
-    const confirmText = `确认清除所有 AI 聊天内容？${
-      typeof sessionCount === "number" ? `（当前 ${sessionCount} 个会话）` : ""
-    }\n此操作不可撤销。`;
+    const countPart = typeof sessionCount === "number" ? t('workspace.clearChatConfirmWithCount', { count: sessionCount }) : "";
+    const confirmText = `${t('workspace.clearChatConfirm', { countText: countPart })}`;
     if (!window.confirm(confirmText)) return;
     await clearAllChat.mutateAsync();
   };
@@ -162,18 +167,18 @@ export function WorkspaceSettings() {
     const workspaceId = activeWorkspace?.id;
     if (!workspaceId) return;
     if (!canDeleteCurrentWorkspace) {
-      toast.error("至少拥有 3 个工作空间时才允许删除当前工作空间");
+      toast.error(t('settings.minWorkspacesToDelete'));
       return;
     }
     const fallbackWorkspace = (workspacesQuery.data ?? []).find(
       (workspace) => workspace.id !== workspaceId,
     );
     if (!fallbackWorkspace) {
-      toast.error("未找到可切换的工作空间");
+      toast.error(t('settings.noOtherWorkspace'));
       return;
     }
-    const name = currentWorkspaceName.trim() || "当前工作空间";
-    const confirmText = `确认删除工作空间「${name}」？\n此操作不可撤销。`;
+    const name = currentWorkspaceName.trim() || t('settings.deleteWorkspace');
+    const confirmText = t('settings.deleteWorkspaceConfirm', { name });
     if (!window.confirm(confirmText)) return;
     await deleteWorkspace.mutateAsync({ id: workspaceId });
     queryClient.setQueryData(
@@ -190,7 +195,7 @@ export function WorkspaceSettings() {
       queryClient.invalidateQueries();
     }
     if (activated) {
-      toast.success("已删除当前工作空间，并切换到其他工作空间");
+      toast.success(t('settings.workspaceDeletedSuccess'));
     }
   };
 
@@ -227,13 +232,13 @@ export function WorkspaceSettings() {
   /** Copy workspace id to clipboard. */
   const handleCopyWorkspaceId = async () => {
     if (!activeWorkspace?.id) return;
-    await copyTextToClipboard(activeWorkspace.id, "已复制工作空间ID");
+    await copyTextToClipboard(activeWorkspace.id, t('settings.copiedWorkspaceId'));
   };
 
   /** Copy workspace path to clipboard. */
   const handleCopyWorkspacePath = async () => {
     if (!activeWorkspace?.rootUri) return;
-    await copyTextToClipboard(displayWorkspacePath, "已复制存储路径");
+    await copyTextToClipboard(displayWorkspacePath, t('settings.copiedStoragePath'));
   };
 
   /** Open workspace path in system file manager. */
@@ -242,12 +247,12 @@ export function WorkspaceSettings() {
     if (!rootUri) return;
     const api = window.openloafElectron;
     if (!api?.openPath) {
-      toast.error("网页版不支持打开文件管理器");
+      toast.error(t('settings.webNoFileManager'));
       return;
     }
     const res = await api.openPath({ uri: rootUri });
     if (!res?.ok) {
-      toast.error(res?.reason ?? "无法打开文件管理器");
+      toast.error(res?.reason ?? t('settings.openFileManagerError'));
     }
   };
 
@@ -256,7 +261,7 @@ export function WorkspaceSettings() {
     if (!activeWorkspace?.id) return;
     const name = draftWorkspaceName.trim();
     if (!name) {
-      toast.error("工作空间名称不能为空");
+      toast.error(t('settings.workspaceNameEmpty'));
       return;
     }
     if (name === currentWorkspaceName.trim()) return;
@@ -266,13 +271,13 @@ export function WorkspaceSettings() {
   return (
     <div className="space-y-6">
       {loggedIn && (
-        <OpenLoafSettingsGroup title="账户信息">
+        <OpenLoafSettingsGroup title={t('settings.accountInfo')}>
           <div className="divide-y divide-border">
             <div className="flex flex-wrap items-start gap-3 px-3 py-3">
-              <div className="text-sm font-medium">会员等级</div>
+              <div className="text-sm font-medium">{t('settings.membershipLevel')}</div>
               <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
                 {userProfileQuery.isLoading
-                  ? "加载中..."
+                  ? t('settings.loading')
                   : userProfileQuery.data?.membershipLevel
                     ? MEMBERSHIP_LABELS[userProfileQuery.data.membershipLevel] ??
                       userProfileQuery.data.membershipLevel
@@ -280,10 +285,10 @@ export function WorkspaceSettings() {
               </OpenLoafSettingsField>
             </div>
             <div className="flex flex-wrap items-start gap-3 px-3 py-3">
-              <div className="text-sm font-medium">积分余额</div>
+              <div className="text-sm font-medium">{t('settings.creditsBalance')}</div>
               <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
                 {userProfileQuery.isLoading
-                  ? "加载中..."
+                  ? t('settings.loading')
                   : typeof userProfileQuery.data?.creditsBalance === "number"
                     ? Math.floor(userProfileQuery.data.creditsBalance).toLocaleString()
                     : "—"}
@@ -293,10 +298,10 @@ export function WorkspaceSettings() {
         </OpenLoafSettingsGroup>
       )}
 
-      <OpenLoafSettingsGroup title="基本信息">
+      <OpenLoafSettingsGroup title={t('settings.basicInfo')}>
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
-            <div className="text-sm font-medium">工作空间ID</div>
+            <div className="text-sm font-medium">{t('settings.workspaceId')}</div>
             <OpenLoafSettingsField className="flex items-center justify-end gap-2 text-right text-xs text-muted-foreground">
               <span>{activeWorkspace?.id ?? "—"}</span>
               <Button
@@ -306,18 +311,18 @@ export function WorkspaceSettings() {
                 className="h-7 w-7"
                 onClick={() => void handleCopyWorkspaceId()}
                 disabled={!activeWorkspace?.id}
-                aria-label="复制工作空间ID"
+                aria-label={t('settings.copyWorkspaceId')}
               >
                 <Copy className="h-4 w-4" />
               </Button>
             </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
-            <div className="text-sm font-medium">工作空间名称</div>
+            <div className="text-sm font-medium">{t('settings.workspaceName')}</div>
             <OpenLoafSettingsField className="w-full sm:w-[320px] shrink-0 justify-end gap-2 text-right">
               <Input
                 value={draftWorkspaceName}
-                placeholder="输入工作空间名称"
+                placeholder={t('settings.workspaceNamePlaceholder')}
                 onChange={(event) => setDraftWorkspaceName(event.target.value)}
                 className="text-right"
               />
@@ -327,8 +332,8 @@ export function WorkspaceSettings() {
                 variant="secondary"
                 disabled={!isWorkspaceNameDirty || updateWorkspaceName.isPending}
                 onClick={() => void handleSaveWorkspaceName()}
-                aria-label="保存工作空间名称"
-                title="保存"
+                aria-label={t('settings.saveWorkspaceName')}
+                title={t('settings.saveButton')}
               >
                 {updateWorkspaceName.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -339,7 +344,7 @@ export function WorkspaceSettings() {
             </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
-            <div className="text-sm font-medium">存储路径</div>
+            <div className="text-sm font-medium">{t('settings.storagePath')}</div>
             <OpenLoafSettingsField className="flex items-center justify-end gap-2 text-right text-xs text-muted-foreground">
               <span className="min-w-0 flex-1 truncate">{displayWorkspacePath}</span>
               <Button
@@ -349,8 +354,8 @@ export function WorkspaceSettings() {
                 className="h-7 w-7"
                 onClick={() => void handleCopyWorkspacePath()}
                 disabled={!activeWorkspace?.rootUri}
-                aria-label="复制存储路径"
-                title="复制"
+                aria-label={t('settings.copyStoragePath')}
+                title={t('settings.copy')}
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -361,58 +366,59 @@ export function WorkspaceSettings() {
                 className="h-7 w-7"
                 onClick={() => void handleOpenWorkspacePath()}
                 disabled={!activeWorkspace?.rootUri}
-                aria-label="打开文件管理器"
-                title="在文件管理器中打开"
+                aria-label={t('settings.openFileManager')}
+                title={t('settings.openFileManagerTooltip')}
               >
                 <FolderOpen className="h-4 w-4" />
               </Button>
             </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
-            <div className="text-sm font-medium">项目数量</div>
+            <div className="text-sm font-medium">{t('settings.projectCount')}</div>
             <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
-              {projectsQuery.isLoading ? "加载中..." : totalProjectCount}
+              {projectsQuery.isLoading ? t('settings.loading') : totalProjectCount}
             </OpenLoafSettingsField>
           </div>
         </div>
       </OpenLoafSettingsGroup>
 
-      <OpenLoafSettingsGroup title="聊天数据">
+      <OpenLoafSettingsGroup title={t('settings.chatData')}>
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
-            <div className="text-sm font-medium">会话总数</div>
+            <div className="text-sm font-medium">{t('settings.totalSessions')}</div>
             <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
               {typeof sessionCount === "number" ? sessionCount : "—"}
             </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
-            <div className="text-sm font-medium">Token 总计</div>
+            <div className="text-sm font-medium">{t('settings.totalTokens')}</div>
             <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
               {usage ? formatTokenCount(usage.totalTokens) : "—"}
             </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
-            <div className="text-sm font-medium">Token 输入 / 输出</div>
+            <div className="text-sm font-medium">{t('settings.tokenUsage')}</div>
             <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
               {usage
-                ? `${formatTokenCount(usage.inputTokens)}（输入: ${formatTokenCount(
-                    Math.max(0, usage.inputTokens - usage.cachedInputTokens),
-                  )} + 缓存: ${formatTokenCount(usage.cachedInputTokens)}） / ${formatTokenCount(
-                    usage.outputTokens,
-                  )}`
+                ? t('settings.tokenBreakdown', {
+                    input: formatTokenCount(usage.inputTokens),
+                    inputRaw: formatTokenCount(Math.max(0, usage.inputTokens - usage.cachedInputTokens)),
+                    cached: formatTokenCount(usage.cachedInputTokens),
+                    output: formatTokenCount(usage.outputTokens),
+                  })
                 : "—"}
             </OpenLoafSettingsField>
           </div>
         </div>
       </OpenLoafSettingsGroup>
 
-      <OpenLoafSettingsGroup title="清理">
+      <OpenLoafSettingsGroup title={t('settings.cleanup')}>
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="min-w-0">
-              <div className="text-sm font-medium">清除所有 AI 聊天内容</div>
+              <div className="text-sm font-medium">{t('settings.clearAllChat')}</div>
               <div className="text-xs text-muted-foreground">
-                会删除全部会话与消息记录
+                {t('settings.clearAllChatDescription')}
               </div>
             </div>
 
@@ -424,18 +430,18 @@ export function WorkspaceSettings() {
                 disabled={clearAllChat.isPending}
                 onClick={() => void handleClearAllChat()}
               >
-                {clearAllChat.isPending ? "清除中..." : "立即清除"}
+                {clearAllChat.isPending ? t('settings.clearingButton') : t('settings.clearButton')}
               </Button>
             </OpenLoafSettingsField>
           </div>
 
           <div className="flex flex-wrap items-start gap-3 px-3 py-3">
             <div className="min-w-0">
-              <div className="text-sm font-medium">删除当前工作空间</div>
+              <div className="text-sm font-medium">{t('settings.deleteWorkspace')}</div>
               <div className="text-xs text-muted-foreground">
                 {canDeleteCurrentWorkspace
-                  ? "删除后将自动切换到其他工作空间"
-                  : "至少拥有 3 个工作空间时才允许删除当前工作空间"}
+                  ? t('settings.deleteWorkspaceDescription')
+                  : t('settings.deleteWorkspaceWarning')}
               </div>
             </div>
 
@@ -455,12 +461,12 @@ export function WorkspaceSettings() {
                 {deleteWorkspace.isPending || activateWorkspace.isPending ? (
                   <>
                     <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                    删除中...
+                    {t('settings.deletingButton')}
                   </>
                 ) : (
                   <>
                     <Trash2 className="mr-1 h-3.5 w-3.5" />
-                    删除工作空间
+                    {t('settings.deleteButton')}
                   </>
                 )}
               </Button>

@@ -10,6 +10,7 @@
 "use client";
 
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
@@ -523,6 +524,7 @@ export const PageTreeMenu = ({
   onCreateProject,
   onImportProject,
 }: PageTreeMenuProps) => {
+  const { t } = useTranslation(["nav", "common"]);
   const addTab = useTabs((s) => s.addTab);
   const setActiveTab = useTabs((s) => s.setActiveTab);
   const setTabTitle = useTabs((s) => s.setTabTitle);
@@ -856,7 +858,7 @@ export const PageTreeMenu = ({
     const fileUri = resolveFileUriFromRoot(rootUri, node.uri);
     const res = await api.openPath({ uri: fileUri });
     if (!res?.ok) {
-      toast.error(res?.reason ?? "无法打开文件管理器");
+      toast.error(res?.reason ?? t("nav:projectTree.openManagerFailed"));
     }
   };
 
@@ -889,7 +891,7 @@ export const PageTreeMenu = ({
   const handleCopyProjectPath = async (node: FileNode) => {
     if (node.kind !== "project") return;
     const displayPath = getDisplayPathFromUri(node.uri);
-    await copyTextToClipboard(displayPath, "已复制路径");
+    await copyTextToClipboard(displayPath, t("nav:sidebar.pathCopied"));
   };
 
   /** Pick a directory from system dialog (Electron only). */
@@ -964,7 +966,7 @@ export const PageTreeMenu = ({
           to: nextUri,
         });
       }
-      toast.success("重命名成功");
+      toast.success(t("common:renameSuccess"));
       setRenameTarget(null);
       await queryClient.invalidateQueries({
         queryKey: getProjectsQueryKey(),
@@ -980,7 +982,7 @@ export const PageTreeMenu = ({
         });
       }
     } catch (err: any) {
-      toast.error(err?.message ?? "重命名失败");
+      toast.error(err?.message ?? t("common:renameFailed"));
     } finally {
       setIsBusy(false);
     }
@@ -999,7 +1001,7 @@ export const PageTreeMenu = ({
         uri: deleteTarget.uri,
         recursive: true,
       });
-      toast.success("已删除");
+      toast.success(t("common:deleted"));
       const parentUri = getParentUri(deleteTarget.uri);
       await queryClient.invalidateQueries({
         queryKey: trpc.fs.list.queryOptions({
@@ -1010,7 +1012,7 @@ export const PageTreeMenu = ({
       });
       setDeleteTarget(null);
     } catch (err: any) {
-      toast.error(err?.message ?? "删除失败");
+      toast.error(err?.message ?? t("common:deleteFailed"));
     } finally {
       setIsBusy(false);
     }
@@ -1036,20 +1038,20 @@ export const PageTreeMenu = ({
         queryKey: getProjectsQueryKey(),
       });
     } catch {
-      toast.error("操作失败");
+      toast.error(t("common:operationFailed"));
     }
   };
 
   /** Remove project from list without deleting files. */
   const handleRemoveProject = async () => {
     if (!removeTarget?.projectId) {
-      toast.error("缺少项目 ID");
+      toast.error(t("common:operationFailed"));
       return;
     }
     try {
       setIsRemoveBusy(true);
       await removeProject.mutateAsync({ projectId: removeTarget.projectId });
-      toast.success("项目已移除");
+      toast.success(t("nav:projectTree.removed"));
       resetRemoveDialogState();
       await queryClient.invalidateQueries({
         queryKey: getProjectsQueryKey(),
@@ -1063,7 +1065,7 @@ export const PageTreeMenu = ({
         });
         return;
       }
-      toast.error(err?.message ?? "移除失败");
+      toast.error(err?.message ?? t("nav:projectTree.removeFailed"));
     } finally {
       setIsRemoveBusy(false);
     }
@@ -1072,13 +1074,13 @@ export const PageTreeMenu = ({
   /** Permanently delete project files and remove it from workspace. */
   const handleDestroyProject = async () => {
     if (!removeTarget?.projectId) {
-      toast.error("缺少项目 ID");
+      toast.error(t("common:operationFailed"));
       return;
     }
     try {
       setIsRemoveBusy(true);
       await destroyProject.mutateAsync({ projectId: removeTarget.projectId });
-      toast.success("项目已彻底删除");
+      toast.success(t("nav:projectTree.permanentlyDeleted"));
       resetRemoveDialogState();
       await queryClient.invalidateQueries({
         queryKey: getProjectsQueryKey(),
@@ -1092,7 +1094,7 @@ export const PageTreeMenu = ({
         });
         return;
       }
-      toast.error(err?.message ?? "彻底删除失败");
+      toast.error(err?.message ?? t("nav:projectTree.permanentDeleteFailed"));
     } finally {
       setIsRemoveBusy(false);
     }
@@ -1100,7 +1102,7 @@ export const PageTreeMenu = ({
 
   const handleCreateChildProject = async () => {
     if (!createChildTarget?.node?.projectId) {
-      toast.error("缺少项目 ID");
+      toast.error(t("common:operationFailed"));
       return;
     }
     const title = createChildTarget.title.trim();
@@ -1114,13 +1116,13 @@ export const PageTreeMenu = ({
         parentProjectId: createChildTarget.node.projectId,
         enableVersionControl: createChildTarget.enableVersionControl,
       });
-      toast.success("子项目已创建");
+      toast.success(t("nav:projectTree.childCreated"));
       setCreateChildTarget(null);
       await queryClient.invalidateQueries({
         queryKey: getProjectsQueryKey(),
       });
     } catch (err: any) {
-      toast.error(err?.message ?? "创建失败");
+      toast.error(err?.message ?? t("common:createFailed"));
     } finally {
       setIsChildBusy(false);
     }
@@ -1128,12 +1130,12 @@ export const PageTreeMenu = ({
 
   const handleImportChildProject = async () => {
     if (!importChildTarget?.node?.projectId) {
-      toast.error("缺少项目 ID");
+      toast.error(t("common:operationFailed"));
       return;
     }
     const path = importChildTarget.path.trim();
     if (!path) {
-      toast.error("请输入路径");
+      toast.error(t("nav:projectTree.pathRequired"));
       return;
     }
     try {
@@ -1143,13 +1145,13 @@ export const PageTreeMenu = ({
         parentProjectId: importChildTarget.node.projectId,
         enableVersionControl: importChildTarget.enableVersionControl,
       });
-      toast.success("子项目已导入");
+      toast.success(t("nav:projectTree.childImported"));
       setImportChildTarget(null);
       await queryClient.invalidateQueries({
         queryKey: getProjectsQueryKey(),
       });
     } catch (err: any) {
-      toast.error(err?.message ?? "导入失败");
+      toast.error(err?.message ?? t("nav:projectTree.importFailed"));
     } finally {
       setIsImportChildBusy(false);
     }
@@ -1223,7 +1225,7 @@ export const PageTreeMenu = ({
 
   /** Resolve project title from index with fallback. */
   const resolveProjectTitle = (projectId: string) =>
-    projectHierarchy.projectById.get(projectId)?.title ?? "未命名项目";
+    projectHierarchy.projectById.get(projectId)?.title ?? t("common:untitledProject");
 
   /** Check whether a drop target is valid. */
   const canDropProject = (sourceId: string, targetParentId: string | null) => {
@@ -1251,11 +1253,11 @@ export const PageTreeMenu = ({
         targetSiblingProjectId: payload.targetSiblingId ?? undefined,
         targetPosition: payload.targetPosition ?? undefined,
       });
-      toast.success(payload.mode === "reorder" ? "项目顺序已更新" : "项目层级已更新");
+      toast.success(t(payload.mode === "reorder" ? "nav:projectTree.reorderSuccess" : "nav:projectTree.moveSuccess"));
       setPendingMove(null);
       await queryClient.invalidateQueries({ queryKey: getProjectsQueryKey() });
     } catch (err: any) {
-      toast.error(err?.message ?? "移动失败");
+      toast.error(err?.message ?? t("nav:projectTree.moveFailed"));
     } finally {
       setIsMoveBusy(false);
     }
@@ -1577,7 +1579,7 @@ export const PageTreeMenu = ({
     <ContextMenuContent className="w-52">
       {node.kind === "file" || node.kind === "project" ? (
         <ContextMenuItem icon={ArrowUpRight} onClick={() => handlePrimaryClick(node)}>
-          打开
+          {t("nav:projectTree.open")}
         </ContextMenuItem>
       ) : null}
       {node.kind === "project" ? (
@@ -1585,7 +1587,7 @@ export const PageTreeMenu = ({
           icon={FolderOpen}
           onClick={() => void handleOpenInFileManager(node)}
         >
-          在文件管理器中打开
+          {t("nav:projectTree.openInFileManager")}
         </ContextMenuItem>
       ) : null}
       {node.kind === "project" ? (
@@ -1593,7 +1595,7 @@ export const PageTreeMenu = ({
           icon={ClipboardCopy}
           onClick={() => void handleCopyProjectPath(node)}
         >
-          复制路径
+          {t("nav:projectTree.copyPath")}
         </ContextMenuItem>
       ) : null}
       {node.kind === "project" ? (
@@ -1601,34 +1603,34 @@ export const PageTreeMenu = ({
           icon={node.isFavorite ? StarOff : Star}
           onClick={() => void handleToggleFavorite(node)}
         >
-          {node.isFavorite ? "取消收藏" : "收藏"}
+          {t(node.isFavorite ? "nav:projectTree.unfavorite" : "nav:projectTree.favorite")}
         </ContextMenuItem>
       ) : null}
       {node.kind === "project" ? (
         <>
           <ContextMenuSeparator />
           <ContextMenuItem icon={FolderPlus} onClick={() => openCreateChildDialog(node)}>
-            新建子项目
+            {t("nav:projectTree.createChild")}
           </ContextMenuItem>
           <ContextMenuItem
             icon={FolderOpen}
             onClick={() => void openImportChildDialog(node)}
           >
-            导入子项目
+            {t("nav:projectTree.importChild")}
           </ContextMenuItem>
         </>
       ) : null}
       <ContextMenuSeparator />
       <ContextMenuItem icon={PencilLine} onClick={() => openRenameDialog(node)}>
-        重命名
+        {t("common:rename")}
       </ContextMenuItem>
       {node.kind === "project" ? (
         <ContextMenuItem icon={X} onClick={() => openRemoveDialog(node)}>
-          移除
+          {t("nav:projectTree.remove")}
         </ContextMenuItem>
       ) : (
         <ContextMenuItem icon={Trash2} onClick={() => openDeleteDialog(node)}>
-          删除
+          {t("common:delete")}
         </ContextMenuItem>
       )}
     </ContextMenuContent>
@@ -1643,7 +1645,7 @@ export const PageTreeMenu = ({
   const removeAction = isPermanentRemoveChecked
     ? handleDestroyProject
     : handleRemoveProject;
-  const removeButtonText = isPermanentRemoveChecked ? "彻底删除" : "移除";
+  const removeButtonText = isPermanentRemoveChecked ? t("nav:projectTree.permanentDelete") : t("nav:projectTree.remove");
   const isRemoveActionDisabled =
     isRemoveBusy || (isPermanentRemoveChecked && !isPermanentRemoveConfirmed);
 
@@ -1704,8 +1706,8 @@ export const PageTreeMenu = ({
         <SidebarMenuItem>
           <div className="w-full px-2 py-3 text-center text-xs text-muted-foreground/70">
             {/* 逻辑：无项目时显示空态文案。 */}
-            <div>暂无项目</div>
-            <div className="mt-1">点击下方添加项目</div>
+            <div>{t("nav:projectTree.noProjects")}</div>
+            <div className="mt-1">{t("nav:projectTree.addProjectHint")}</div>
           </div>
         </SidebarMenuItem>
       ) : (
@@ -1715,7 +1717,7 @@ export const PageTreeMenu = ({
               <SidebarMenuItem>
                 <div className="flex items-center gap-1 px-2 pt-1 pb-0.5 text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">
                   <Star className="h-3 w-3" />
-                  <span>收藏</span>
+                  <span>{t("nav:projectTree.favorites")}</span>
                 </div>
               </SidebarMenuItem>
               {favoriteProjects.map(renderProjectNode)}
@@ -1747,7 +1749,7 @@ export const PageTreeMenu = ({
             onClick={() => onCreateProject?.()}
           >
             <FolderPlus className="h-3 w-3" />
-            <span>添加项目</span>
+            <span>{t("nav:sidebar.addProject")}</span>
           </Button>
         </div>
       </SidebarMenuItem>
@@ -1766,7 +1768,7 @@ export const PageTreeMenu = ({
           onDragLeave={handleRootDragLeave}
           onDrop={handleRootDrop}
         >
-          拖到此处移到根项目
+          {t("nav:projectTree.dragToRoot")}
         </div>
       </SidebarMenuItem>
 
@@ -1779,13 +1781,13 @@ export const PageTreeMenu = ({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>重命名</DialogTitle>
-            <DialogDescription>请输入新的名称。</DialogDescription>
+            <DialogTitle>{t("common:rename")}</DialogTitle>
+            <DialogDescription>{t("nav:projectTree.renameDesc")}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="node-title" className="text-right">
-                名称
+                {t("nav:projectTree.nameLabel")}
               </Label>
               <Input
                 id="node-title"
@@ -1808,11 +1810,11 @@ export const PageTreeMenu = ({
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" type="button">
-                取消
+                {t("common:cancel")}
               </Button>
             </DialogClose>
             <Button onClick={handleRename} disabled={isBusy}>
-              保存
+              {t("common:save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1827,13 +1829,13 @@ export const PageTreeMenu = ({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>新建子项目</DialogTitle>
-            <DialogDescription>请输入子项目名称。</DialogDescription>
+            <DialogTitle>{t("nav:projectTree.createChild")}</DialogTitle>
+            <DialogDescription>{t("nav:projectTree.createChildDesc")}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="child-project-title" className="text-right">
-                名称
+                {t("nav:projectTree.nameLabel")}
               </Label>
               <Input
                 id="child-project-title"
@@ -1854,7 +1856,7 @@ export const PageTreeMenu = ({
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="child-project-custom-path" className="text-right">
-                自定义路径
+                {t("nav:projectTree.customPath")}
               </Label>
               <div className="col-span-3 flex items-center gap-3">
                 <Switch
@@ -1866,14 +1868,14 @@ export const PageTreeMenu = ({
                   }
                 />
                 <span className="text-xs text-muted-foreground">
-                  勾选后可指定项目目录
+                  {t("nav:projectTree.customPathHint")}
                 </span>
               </div>
             </div>
             {createChildTarget?.useCustomPath ? (
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="child-project-path" className="text-right">
-                  路径
+                  {t("nav:projectTree.path")}
                 </Label>
                 <div className="col-span-3 flex items-center gap-2">
                   <Input
@@ -1897,14 +1899,14 @@ export const PageTreeMenu = ({
                       );
                     }}
                   >
-                    选择
+                    {t("nav:projectTree.select")}
                   </Button>
                 </div>
               </div>
             ) : null}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="child-project-version-control" className="text-right">
-                项目版本控制
+                {t("nav:projectTree.gitControl")}
               </Label>
               <div className="col-span-3 flex items-center gap-3">
                 <Switch
@@ -1919,7 +1921,7 @@ export const PageTreeMenu = ({
                   }
                 />
                 <span className="text-xs text-muted-foreground">
-                  默认启用，可随时关闭
+                  {t("nav:projectTree.gitControlHint")}
                 </span>
               </div>
             </div>
@@ -1927,11 +1929,11 @@ export const PageTreeMenu = ({
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" type="button">
-                取消
+                {t("common:cancel")}
               </Button>
             </DialogClose>
             <Button onClick={handleCreateChildProject} disabled={isChildBusy}>
-              创建
+              {t("common:create")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1946,13 +1948,13 @@ export const PageTreeMenu = ({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>导入子项目</DialogTitle>
-            <DialogDescription>确认子项目目录后导入配置。</DialogDescription>
+            <DialogTitle>{t("nav:projectTree.importChild")}</DialogTitle>
+            <DialogDescription>{t("nav:projectTree.importChildDesc")}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="import-child-path" className="text-right">
-                路径
+                {t("nav:projectTree.path")}
               </Label>
               <div className="col-span-3 flex items-center gap-2">
                 <Input
@@ -1976,13 +1978,13 @@ export const PageTreeMenu = ({
                     );
                   }}
                 >
-                  选择
+                  {t("nav:projectTree.select")}
                 </Button>
               </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="import-child-version-control" className="text-right">
-                项目版本控制
+                {t("nav:projectTree.gitControl")}
               </Label>
               <div className="col-span-3 flex items-center gap-3">
                 <Switch
@@ -1997,7 +1999,7 @@ export const PageTreeMenu = ({
                   }
                 />
                 <span className="text-xs text-muted-foreground">
-                  默认启用，可随时关闭
+                  {t("nav:projectTree.gitControlHint")}
                 </span>
               </div>
             </div>
@@ -2005,11 +2007,11 @@ export const PageTreeMenu = ({
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" type="button">
-                取消
+                {t("common:cancel")}
               </Button>
             </DialogClose>
             <Button onClick={handleImportChildProject} disabled={isImportChildBusy}>
-              确定
+              {t("common:confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2024,17 +2026,17 @@ export const PageTreeMenu = ({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>确认删除</DialogTitle>
-            <DialogDescription>确定要删除这个文件吗？此操作无法撤销。</DialogDescription>
+            <DialogTitle>{t("nav:projectTree.deleteTitle")}</DialogTitle>
+            <DialogDescription>{t("nav:projectTree.deleteFileDesc")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" type="button">
-                取消
+                {t("common:cancel")}
               </Button>
             </DialogClose>
             <Button variant="destructive" onClick={handleDelete} disabled={isBusy}>
-              删除
+              {t("common:delete")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2049,8 +2051,8 @@ export const PageTreeMenu = ({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>确认移除</DialogTitle>
-            <DialogDescription>仅从项目列表移除，不会删除磁盘内容。</DialogDescription>
+            <DialogTitle>{t("nav:projectTree.removeTitle")}</DialogTitle>
+            <DialogDescription>{t("nav:projectTree.removeDesc")}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="flex items-start gap-2">
@@ -2067,12 +2069,12 @@ export const PageTreeMenu = ({
                 }}
               />
               <Label htmlFor="remove-project-permanent">
-                勾选后将会彻底删除项目（会删除磁盘文件）
+                {t("nav:projectTree.permanentDeleteHint")}
               </Label>
             </div>
             {isPermanentRemoveChecked ? (
               <div className="grid gap-2">
-                <Label htmlFor="remove-project-confirm">输入 delete 以确认</Label>
+                <Label htmlFor="remove-project-confirm">{t("nav:projectTree.permanentDeleteConfirmLabel")}</Label>
                 <Input
                   id="remove-project-confirm"
                   value={permanentRemoveText}
@@ -2080,7 +2082,7 @@ export const PageTreeMenu = ({
                   placeholder="delete"
                 />
                 <p className="text-xs text-muted-foreground">
-                  输入 delete 后才允许彻底删除
+                  {t("nav:projectTree.permanentDeleteNote")}
                 </p>
               </div>
             ) : null}
@@ -2088,7 +2090,7 @@ export const PageTreeMenu = ({
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" type="button">
-                取消
+                {t("common:cancel")}
               </Button>
             </DialogClose>
             <Button
@@ -2112,35 +2114,41 @@ export const PageTreeMenu = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {pendingMove?.mode === "reorder" ? "确认调整" : "确认移动"}
+              {t(pendingMove?.mode === "reorder" ? "nav:projectTree.reorderTitle" : "nav:projectTree.moveTitle")}
             </DialogTitle>
             <DialogDescription>
               {pendingMove
                 ? pendingMove.mode === "reorder"
-                  ? `调整「${resolveProjectTitle(pendingMove.projectId)}」在「${pendingMove.targetParentId ? resolveProjectTitle(pendingMove.targetParentId) : "根项目"}」中的顺序？`
+                  ? t("nav:projectTree.reorderDesc", {
+                      project: resolveProjectTitle(pendingMove.projectId),
+                      parent: pendingMove.targetParentId
+                        ? resolveProjectTitle(pendingMove.targetParentId)
+                        : t("nav:projectTree.rootProject"),
+                    })
                   : pendingMove.targetParentId
-                    ? `将「${resolveProjectTitle(pendingMove.projectId)}」移动到「${resolveProjectTitle(pendingMove.targetParentId)}」下？`
-                    : `将「${resolveProjectTitle(pendingMove.projectId)}」移到根项目？`
-                : "确认调整项目层级。"}
+                    ? t("nav:projectTree.moveToDesc", {
+                        project: resolveProjectTitle(pendingMove.projectId),
+                        parent: resolveProjectTitle(pendingMove.targetParentId),
+                      })
+                    : t("nav:projectTree.moveToRootDesc", {
+                        project: resolveProjectTitle(pendingMove.projectId),
+                      })
+                : t("nav:projectTree.confirmMoveDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="text-xs text-muted-foreground">
-            调整后子项目会随项目一起移动。
+            {t("nav:projectTree.moveNote")}
           </div>
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" type="button" disabled={isMoveBusy}>
-                取消
+                {t("common:cancel")}
               </Button>
             </DialogClose>
             <Button onClick={handleConfirmProjectMove} disabled={isMoveBusy}>
               {isMoveBusy
-                ? pendingMove?.mode === "reorder"
-                  ? "调整中..."
-                  : "移动中..."
-                : pendingMove?.mode === "reorder"
-                  ? "确认调整"
-                  : "确认移动"}
+                ? t(pendingMove?.mode === "reorder" ? "nav:projectTree.reordering" : "nav:projectTree.moving")
+                : t(pendingMove?.mode === "reorder" ? "nav:projectTree.reorderTitle" : "nav:projectTree.moveTitle")}
             </Button>
           </DialogFooter>
         </DialogContent>

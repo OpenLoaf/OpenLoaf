@@ -1,0 +1,61 @@
+{
+  "board": {
+    "title": "Board Tools",
+    "new": "New Board",
+    "create": "Create Board",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "download": "Download",
+    "share": "Share",
+    "duplicate": "Duplicate",
+    "undo": "Undo",
+    "redo": "Redo",
+    "clear": "Clear",
+    "brush": "Brush",
+    "eraser": "Eraser",
+    "pen": "Pen",
+    "color": "Color",
+    "size": "Size",
+    "opacity": "Opacity",
+    "zoom": "Zoom",
+    "fit": "Fit Screen",
+    "gridToggle": "Show Grid",
+    "rulerToggle": "Show Ruler",
+    "layer": "Layer",
+    "layers": "Layers",
+    "newLayer": "New Layer",
+    "deleteLayer": "Delete Layer",
+    "renameLayer": "Rename Layer"
+  },
+  "tools": {
+    "select": "Select",
+    "hand": "Hand",
+    "pen": "Pen",
+    "highlighter": "Highlighter",
+    "eraser": "Eraser"
+  },
+  "insertTools": {
+    "note": "Note",
+    "image": "Image",
+    "video": "Video",
+    "imagePromptGenerate": "Image/Video Analysis",
+    "imageGenerate": "Image Generation",
+    "videoGenerate": "Video Generation"
+  },
+  "descriptions": {
+    "note": "Quick note card",
+    "image": "Image block",
+    "video": "Video block",
+    "imagePromptGenerate": "Analyze images/videos and generate descriptions",
+    "imageGenerate": "Generate new images from images and text",
+    "videoGenerate": "Generate videos from images and prompts"
+  },
+  "picker": {
+    "imageTitle": "Select Image File",
+    "imageHint": "Non-image files will be dimmed",
+    "videoTitle": "Select Video File",
+    "videoHint": "Non-video files will be dimmed"
+  }
+}

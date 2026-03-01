@@ -10,6 +10,7 @@
 'use client'
 
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Input } from '@openloaf/ui/input'
 import { Label } from '@openloaf/ui/label'
 import { Textarea } from '@openloaf/ui/textarea'
@@ -45,26 +46,27 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
   value,
   onChange,
 }: ConditionConfigFormProps) {
+  const { t } = useTranslation('tasks')
   const updatePreFilter = (key: string, val: unknown) => {
     onChange({ ...value, preFilter: { ...value.preFilter, [key]: val } })
   }
 
   return (
     <div className="divide-y divide-border/60">
-      <Row label="条件类型">
+      <Row label={t('schedule.conditionType')}>
         <Tabs
           value={value.type}
           onValueChange={(v) => onChange({ ...value, type: v as ConditionType, preFilter: {} })}
         >
           <TabsList className="h-8 w-max rounded-full border border-border/70 bg-muted/40 p-1">
             <TabsTrigger value="email_received" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-              收到邮件
+              {t('schedule.emailReceived')}
             </TabsTrigger>
             <TabsTrigger value="chat_keyword" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-              聊天关键词
+              {t('schedule.chatKeyword')}
             </TabsTrigger>
             <TabsTrigger value="file_changed" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-              文件变更
+              {t('schedule.fileChanged')}
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -72,27 +74,27 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
 
       {value.type === 'email_received' ? (
         <>
-          <Row label="发件人">
+          <Row label={t('schedule.conditionFrom')}>
             <Input
               value={(value.preFilter?.from as string) ?? ''}
               onChange={(e) => updatePreFilter('from', e.target.value)}
-              placeholder="如 bank.com"
+              placeholder={t('schedule.conditionFromPlaceholder')}
               className={inputCls}
             />
           </Row>
-          <Row label="主题">
+          <Row label={t('schedule.conditionSubject')}>
             <Input
               value={(value.preFilter?.subject as string) ?? ''}
               onChange={(e) => updatePreFilter('subject', e.target.value)}
-              placeholder="如 账单"
+              placeholder={t('schedule.conditionSubjectPlaceholder')}
               className={inputCls}
             />
           </Row>
-          <Row label="正文">
+          <Row label={t('schedule.conditionBody')}>
             <Input
               value={(value.preFilter?.body as string) ?? ''}
               onChange={(e) => updatePreFilter('body', e.target.value)}
-              placeholder="可选"
+              placeholder={t('schedule.conditionBodyPlaceholder')}
               className={inputCls}
             />
           </Row>
@@ -101,27 +103,27 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
 
       {value.type === 'chat_keyword' ? (
         <>
-          <Row label="关键词">
+          <Row label={t('schedule.conditionKeywords')}>
             <Input
               value={((value.preFilter?.keywords as string[]) ?? []).join(', ')}
               onChange={(e) =>
                 updatePreFilter('keywords', e.target.value.split(',').map((s) => s.trim()).filter(Boolean))
               }
-              placeholder="逗号分隔"
+              placeholder={t('schedule.conditionKeywordsPlaceholder')}
               className={inputCls}
             />
           </Row>
-          <Row label="匹配模式">
+          <Row label={t('schedule.conditionMatchMode')}>
             <Tabs
               value={((value.preFilter?.matchMode as string) ?? 'any')}
               onValueChange={(v) => updatePreFilter('matchMode', v)}
             >
               <TabsList className="h-8 w-max rounded-full border border-border/70 bg-muted/40 p-1">
                 <TabsTrigger value="any" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-                  任意匹配
+                  {t('schedule.conditionMatchAny')}
                 </TabsTrigger>
                 <TabsTrigger value="all" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-                  全部匹配
+                  {t('schedule.conditionMatchAll')}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -131,23 +133,23 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
 
       {value.type === 'file_changed' ? (
         <>
-          <Row label="监听路径">
+          <Row label={t('schedule.conditionWatchPaths')}>
             <Input
               value={((value.preFilter?.watchPaths as string[]) ?? []).join(', ')}
               onChange={(e) =>
                 updatePreFilter('watchPaths', e.target.value.split(',').map((s) => s.trim()).filter(Boolean))
               }
-              placeholder="如 src/, docs/"
+              placeholder={t('schedule.conditionWatchPathsPlaceholder')}
               className={inputCls}
             />
           </Row>
-          <Row label="扩展名">
+          <Row label={t('schedule.conditionExtensions')}>
             <Input
               value={((value.preFilter?.extensions as string[]) ?? []).join(', ')}
               onChange={(e) =>
                 updatePreFilter('extensions', e.target.value.split(',').map((s) => s.trim()).filter(Boolean))
               }
-              placeholder="如 .ts, .tsx"
+              placeholder={t('schedule.conditionExtensionsPlaceholder')}
               className={inputCls}
             />
           </Row>
@@ -158,7 +160,7 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
         <Textarea
           value={value.rule ?? ''}
           onChange={(e) => onChange({ ...value, rule: e.target.value })}
-          placeholder="自然语言规则（可选）— Agent 据此判断是否执行"
+          placeholder={t('schedule.conditionRulePlaceholder')}
           rows={2}
           className="min-h-[70px] w-full border-0 bg-transparent px-0 py-0 text-sm shadow-none resize-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
         />

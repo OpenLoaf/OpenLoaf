@@ -10,6 +10,7 @@
 "use client";
 
 import { memo, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -145,8 +146,9 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
   withMenuSelectGuard,
   actions,
 }: FileSystemContextMenuProps) {
+  const { t } = useTranslation(['workspace']);
   const isMultiSelection = selectedEntries.length > 1;
-  const toggleHiddenLabel = showHidden ? "✓ 显示隐藏" : "显示隐藏";
+  const toggleHiddenLabel = showHidden ? t('workspace:filesystem.showHiddenActive') : t('workspace:filesystem.showHidden');
   const shouldShowEnterBoardFolder =
     menuContextEntry?.kind === "folder" && isBoardFolderName(menuContextEntry.name);
   const shouldShowEntryFileManager =
@@ -170,7 +172,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                   actions.openTransferDialog(selectedEntries, "copy")
                 )}
               >
-                复制到
+                {t('workspace:filesystem.copyTo')}
               </ContextMenuItem>
               <ContextMenuItem
                 icon={ArrowRightLeft}
@@ -179,7 +181,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                   actions.openTransferDialog(selectedEntries, "move")
                 )}
               >
-                移动到
+                {t('workspace:filesystem.moveTo')}
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
@@ -187,7 +189,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                 iconClassName={FILESYSTEM_MENU_ICON_CLASS.danger}
                 onSelect={withMenuSelectGuard(() => actions.deleteEntries(selectedEntries))}
               >
-                删除
+                {t('workspace:filesystem.delete')}
               </ContextMenuItem>
               <ContextMenuItem
                 icon={Trash}
@@ -196,7 +198,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                   actions.deleteEntriesPermanent(selectedEntries)
                 )}
               >
-                彻底删除
+                {t('workspace:filesystem.permanentDelete')}
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
@@ -208,7 +210,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                   )
                 )}
               >
-                刷新
+                {t('workspace:filesystem.refresh')}
               </ContextMenuItem>
             </>
           ) : (
@@ -218,7 +220,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                 iconClassName={FILESYSTEM_MENU_ICON_CLASS.info}
                 onSelect={withMenuSelectGuard(() => actions.openEntry(menuContextEntry))}
               >
-                打开
+                {t('workspace:filesystem.open')}
               </ContextMenuItem>
               {shouldShowEnterBoardFolder ? (
                 <ContextMenuItem
@@ -228,7 +230,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                     actions.enterBoardFolder(menuContextEntry)
                   )}
                 >
-                  进入画布文件夹
+                  {t('workspace:filesystem.enterBoardFolder')}
                 </ContextMenuItem>
               ) : null}
               {shouldShowEntryFileManager ? (
@@ -239,7 +241,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                     actions.openInFileManager(menuContextEntry)
                   )}
                 >
-                  在文件管理器中打开
+                  {t('workspace:filesystem.openInFileManager')}
                 </ContextMenuItem>
               ) : null}
               {shouldShowEntryTerminal ? (
@@ -248,7 +250,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                   iconClassName={FILESYSTEM_MENU_ICON_CLASS.info}
                   onSelect={withMenuSelectGuard(() => actions.openTerminal(menuContextEntry))}
                 >
-                  在终端中打开
+                  {t('workspace:filesystem.openInTerminal')}
                 </ContextMenuItem>
               ) : null}
               {shouldShowConvertToSubproject ? (
@@ -259,7 +261,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                     actions.convertFolderToSubproject(menuContextEntry)
                   )}
                 >
-                  转换为子项目
+                  {t('workspace:filesystem.convertToSubproject')}
                 </ContextMenuItem>
               ) : null}
               <ContextMenuItem
@@ -271,7 +273,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                   )
                 )}
               >
-                刷新
+                {t('workspace:filesystem.refresh')}
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
@@ -281,7 +283,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                   actions.openTransferDialog(menuContextEntry, "copy")
                 )}
               >
-                复制到
+                {t('workspace:filesystem.copyTo')}
               </ContextMenuItem>
               <ContextMenuItem
                 icon={ArrowRightLeft}
@@ -290,14 +292,14 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                   actions.openTransferDialog(menuContextEntry, "move")
                 )}
               >
-                移动到
+                {t('workspace:filesystem.moveTo')}
               </ContextMenuItem>
               <ContextMenuItem
                 icon={ClipboardCopy}
                 iconClassName={FILESYSTEM_MENU_ICON_CLASS.neutral}
                 onSelect={withMenuSelectGuard(() => actions.copyPath(menuContextEntry))}
               >
-                复制路径
+                {t('workspace:filesystem.copyPath')}
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
@@ -305,14 +307,14 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                 iconClassName={FILESYSTEM_MENU_ICON_CLASS.warning}
                 onSelect={withMenuSelectGuard(() => actions.requestRename(menuContextEntry))}
               >
-                重命名
+                {t('workspace:filesystem.rename')}
               </ContextMenuItem>
               <ContextMenuItem
                 icon={Trash2}
                 iconClassName={FILESYSTEM_MENU_ICON_CLASS.danger}
                 onSelect={withMenuSelectGuard(() => actions.deleteEntry(menuContextEntry))}
               >
-                删除
+                {t('workspace:filesystem.delete')}
               </ContextMenuItem>
               <ContextMenuItem
                 icon={Trash}
@@ -321,7 +323,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                   actions.deleteEntryPermanent(menuContextEntry)
                 )}
               >
-                彻底删除
+                {t('workspace:filesystem.permanentDelete')}
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
@@ -329,7 +331,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                 iconClassName={FILESYSTEM_MENU_ICON_CLASS.info}
                 onSelect={withMenuSelectGuard(() => actions.showInfo(menuContextEntry))}
               >
-                基本信息
+                {t('workspace:filesystem.properties')}
               </ContextMenuItem>
             </>
           )
@@ -340,7 +342,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
               iconClassName={FILESYSTEM_MENU_ICON_CLASS.success}
               onSelect={withMenuSelectGuard(() => actions.refreshList())}
             >
-              刷新
+              {t('workspace:filesystem.refresh')}
             </ContextMenuItem>
             <ContextMenuItem
               icon={showHidden ? Eye : EyeOff}
@@ -354,7 +356,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
               iconClassName={FILESYSTEM_MENU_ICON_CLASS.neutral}
               onSelect={withMenuSelectGuard(actions.copyPathAtCurrent)}
             >
-              复制路径
+              {t('workspace:filesystem.copyPath')}
             </ContextMenuItem>
             <ContextMenuItem
               icon={ClipboardPaste}
@@ -362,7 +364,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
               onSelect={withMenuSelectGuard(actions.paste)}
               disabled={clipboardSize === 0}
             >
-              粘贴
+              {t('workspace:filesystem.paste')}
             </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
@@ -370,21 +372,21 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
               iconClassName={FILESYSTEM_MENU_ICON_CLASS.success}
               onSelect={withMenuSelectGuard(actions.createFolder)}
             >
-              新建文件夹
+              {t('workspace:filesystem.newFolder')}
             </ContextMenuItem>
             <ContextMenuItem
               icon={FilePlus}
               iconClassName={FILESYSTEM_MENU_ICON_CLASS.success}
               onSelect={withMenuSelectGuard(actions.createDocument)}
             >
-              新建文稿
+              {t('workspace:filesystem.newDocument')}
             </ContextMenuItem>
             <ContextMenuItem
               icon={LayoutGrid}
               iconClassName={FILESYSTEM_MENU_ICON_CLASS.info}
               onSelect={withMenuSelectGuard(actions.createBoard)}
             >
-              新建画布
+              {t('workspace:filesystem.newBoard')}
             </ContextMenuItem>
             <ContextMenuSeparator />
             {showTerminal ? (
@@ -393,7 +395,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
                 iconClassName={FILESYSTEM_MENU_ICON_CLASS.info}
                 onSelect={withMenuSelectGuard(actions.openTerminalAtCurrent)}
               >
-                在终端中打开
+                {t('workspace:filesystem.openInTerminal')}
               </ContextMenuItem>
             ) : null}
             <ContextMenuItem
@@ -401,7 +403,7 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
               iconClassName={FILESYSTEM_MENU_ICON_CLASS.info}
               onSelect={withMenuSelectGuard(actions.openInFileManagerAtCurrent)}
             >
-              在文件管理器中打开
+              {t('workspace:filesystem.openInFileManager')}
             </ContextMenuItem>
           </>
         )}

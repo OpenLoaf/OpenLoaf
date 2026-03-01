@@ -78,6 +78,7 @@ import { ModelCheckboxItem } from '@/components/ai/input/model-preferences/Model
 import { ModelIcon } from '@/components/setting/menus/provider/ModelIcon'
 import type { AiModel } from '@openloaf-saas/sdk'
 import type { ProviderModelOption } from '@/lib/provider-models'
+import { useTranslation } from 'react-i18next'
 
 /** 能力组 ID → 彩色图标映射 */
 const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
@@ -159,6 +160,9 @@ type FormSnapshot = {
   icon: string
   modelLocalIds: string[]
   modelCloudIds: string[]
+  auxiliaryModelLocalIds: string[]
+  auxiliaryModelCloudIds: string[]
+  auxiliaryModelSource: string
   /** Selected image model ids (empty = Auto). */
   imageModelIds: string[]
   /** Selected video model ids (empty = Auto). */
@@ -199,8 +203,9 @@ function MediaModelSelect({
   authLoggedIn,
   onChange,
   onOpenLogin,
-  emptyText = '暂无可用模型',
+  emptyText = '',
 }: MediaModelSelectProps) {
+  const { t } = useTranslation(['settings'])
   const [open, setOpen] = useState(false)
   const normalizeValue = useCallback((items: string[]) => {
     const normalized = items.map((id) => id.trim()).filter(Boolean)
@@ -324,9 +329,9 @@ function MediaModelSelect({
                 onOpenLogin()
               }}
             >
-              登录OpenLoaf账户，使用云端模型
+              {t('settings:agent.panel.loginCloud')}
             </Button>
-            <div className="text-xs text-muted-foreground">使用云端模型</div>
+            <div className="text-xs text-muted-foreground">{t('settings:agent.panel.useCloud')}</div>
           </div>
         ) : models.length === 0 ? (
           <div className="py-6 text-center text-xs text-muted-foreground">
@@ -391,8 +396,9 @@ function ChatModelSelect({
   showCloudLogin,
   onChange,
   onOpenLogin,
-  emptyText = '暂无可用模型',
+  emptyText = '',
 }: ChatModelSelectProps) {
+  const { t } = useTranslation(['settings'])
   const [open, setOpen] = useState(false)
   const normalizeValue = useCallback((items: string[]) => {
     const normalized = items.map((id) => id.trim()).filter(Boolean)
@@ -525,9 +531,9 @@ function ChatModelSelect({
                 onOpenLogin()
               }}
             >
-              登录OpenLoaf账户，使用云端模型
+              {t('settings:agent.panel.loginCloud')}
             </Button>
-            <div className="text-xs text-muted-foreground">使用云端模型</div>
+            <div className="text-xs text-muted-foreground">{t('settings:agent.panel.useCloud')}</div>
           </div>
         ) : models.length === 0 ? (
           <div className="py-6 text-center text-xs text-muted-foreground">
@@ -584,11 +590,15 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   isNew = false,
   isSystem = false,
 }: AgentDetailPanelProps) {
+  const { t } = useTranslation(['settings', 'common'])
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [icon, setIcon] = useState('bot')
   const [modelLocalIds, setModelLocalIds] = useState<string[]>([])
   const [modelCloudIds, setModelCloudIds] = useState<string[]>([])
+  const [auxiliaryModelSource, setAuxiliaryModelSource] = useState('local')
+  const [auxiliaryModelLocalIds, setAuxiliaryModelLocalIds] = useState<string[]>([])
+  const [auxiliaryModelCloudIds, setAuxiliaryModelCloudIds] = useState<string[]>([])
   const [imageModelIds, setImageModelIds] = useState<string[]>([])
   const [videoModelIds, setVideoModelIds] = useState<string[]>([])
   const [thinkingMode, setThinkingMode] = useState<ThinkingMode>('fast')
@@ -643,6 +653,8 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const baseChatSource = normalizeChatModelSource(basic.chatSource)
   const chatModelSource = isMasterAgent ? baseChatSource : localChatSource
   const isCloudSource = chatModelSource === 'cloud'
+  const auxiliaryChatSource = normalizeChatModelSource(auxiliaryModelSource)
+  const isAuxCloudSource = auxiliaryChatSource === 'cloud'
   const chatModels = useMemo(
     () =>
       buildChatModelOptions(
@@ -653,8 +665,27 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       ),
     [chatModelSource, providerItems, cloudModels, installedCliProviderIds],
   )
+  const auxiliaryChatModels = useMemo(
+    () =>
+      buildChatModelOptions(
+        auxiliaryChatSource,
+        providerItems,
+        cloudModels,
+        installedCliProviderIds,
+      ),
+    [
+      auxiliaryChatSource,
+      providerItems,
+      cloudModels,
+      installedCliProviderIds,
+    ],
+  )
   const showChatCloudLogin = isCloudSource && !authLoggedIn
+  const showAuxChatCloudLogin = isAuxCloudSource && !authLoggedIn
   const activeModelIds = isCloudSource ? modelCloudIds : modelLocalIds
+  const activeAuxModelIds = isAuxCloudSource
+    ? auxiliaryModelCloudIds
+    : auxiliaryModelLocalIds
   const hasReasoningModel = useMemo(() => {
     if (!chatModels.length) return false
     const normalized = Array.from(
@@ -692,7 +723,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     const api = window.openloafElectron
     if (api?.openPath) {
       void api.openPath({ uri: dirUri }).then((res) => {
-        if (!res?.ok) toast.error(res?.reason ?? '无法打开文件夹')
+        if (!res?.ok) toast.error(res?.reason ?? t('settings:agent.panel.openFolderFailed'))
       })
       return
     }
@@ -701,7 +732,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
         id: `agent-folder:${agentPath}`,
         sourceKey: `agent-folder:${agentPath}`,
         component: 'folder-tree-preview',
-        title: `Agent助手 · ${name || 'folder'}`,
+        title: t('settings:agent.tabTitle', { name: name || 'folder' }),
         params: {
           rootUri: dirUri,
           currentUri: '',
@@ -809,6 +840,15 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
         ? 'local'
         : fallbackChatSource
     setLocalChatSource(isMasterAgent ? fallbackChatSource : inferredChatSource)
+    setAuxiliaryModelSource(
+      normalizeChatModelSource(d.auxiliaryModelSource ?? basic.chatSource),
+    )
+    setAuxiliaryModelLocalIds(
+      Array.isArray(d.auxiliaryModelLocalIds) ? d.auxiliaryModelLocalIds : [],
+    )
+    setAuxiliaryModelCloudIds(
+      Array.isArray(d.auxiliaryModelCloudIds) ? d.auxiliaryModelCloudIds : [],
+    )
     setImageModelIds(Array.isArray(d.imageModelIds) ? d.imageModelIds : [])
     setVideoModelIds(Array.isArray(d.videoModelIds) ? d.videoModelIds : [])
     setToolIds(Array.isArray(d.toolIds) ? d.toolIds : [])
@@ -827,6 +867,15 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       icon: d.icon,
       modelLocalIds: Array.isArray(d.modelLocalIds) ? d.modelLocalIds : [],
       modelCloudIds: Array.isArray(d.modelCloudIds) ? d.modelCloudIds : [],
+      auxiliaryModelSource: normalizeChatModelSource(
+        d.auxiliaryModelSource ?? basic.chatSource,
+      ),
+      auxiliaryModelLocalIds: Array.isArray(d.auxiliaryModelLocalIds)
+        ? d.auxiliaryModelLocalIds
+        : [],
+      auxiliaryModelCloudIds: Array.isArray(d.auxiliaryModelCloudIds)
+        ? d.auxiliaryModelCloudIds
+        : [],
       imageModelIds: Array.isArray(d.imageModelIds) ? d.imageModelIds : [],
       videoModelIds: Array.isArray(d.videoModelIds) ? d.videoModelIds : [],
       toolIds: Array.isArray(d.toolIds) ? d.toolIds : [],
@@ -841,6 +890,15 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       icon: d.icon,
       modelLocalIds: Array.isArray(d.modelLocalIds) ? d.modelLocalIds : [],
       modelCloudIds: Array.isArray(d.modelCloudIds) ? d.modelCloudIds : [],
+      auxiliaryModelSource: normalizeChatModelSource(
+        d.auxiliaryModelSource ?? basic.chatSource,
+      ),
+      auxiliaryModelLocalIds: Array.isArray(d.auxiliaryModelLocalIds)
+        ? d.auxiliaryModelLocalIds
+        : [],
+      auxiliaryModelCloudIds: Array.isArray(d.auxiliaryModelCloudIds)
+        ? d.auxiliaryModelCloudIds
+        : [],
       imageModelIds: Array.isArray(d.imageModelIds) ? d.imageModelIds : [],
       videoModelIds: Array.isArray(d.videoModelIds) ? d.videoModelIds : [],
       toolIds: Array.isArray(d.toolIds) ? d.toolIds : [],
@@ -860,9 +918,13 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     if (toolIds.length === 0 && baseToolIds.length > 0) {
       setToolIds(baseToolIds)
     }
+    setAuxiliaryModelSource(normalizeChatModelSource(basic.chatSource))
     setLocalChatSource(normalizeChatModelSource(basic.chatSource))
     const snapshot = makeSnapshot({
       name: '', description: '', icon: 'bot', modelLocalIds: [], modelCloudIds: [],
+      auxiliaryModelSource: normalizeChatModelSource(basic.chatSource),
+      auxiliaryModelLocalIds: [],
+      auxiliaryModelCloudIds: [],
       imageModelIds: [], videoModelIds: [],
       toolIds: baseToolIds, skills: [], allowSubAgents: false,
       maxDepth: 1, systemPrompt: '',
@@ -877,6 +939,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     icon,
     modelLocalIds,
     modelCloudIds,
+    auxiliaryModelSource,
+    auxiliaryModelLocalIds,
+    auxiliaryModelCloudIds,
     imageModelIds,
     videoModelIds,
     toolIds,
@@ -904,6 +969,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     setIcon(parsed.icon)
     setModelLocalIds(parsed.modelLocalIds)
     setModelCloudIds(parsed.modelCloudIds)
+    setAuxiliaryModelSource(parsed.auxiliaryModelSource)
+    setAuxiliaryModelLocalIds(parsed.auxiliaryModelLocalIds)
+    setAuxiliaryModelCloudIds(parsed.auxiliaryModelCloudIds)
     setImageModelIds(parsed.imageModelIds)
     setVideoModelIds(parsed.videoModelIds)
     setToolIds(parsed.toolIds)
@@ -917,7 +985,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     trpc.settings.saveAgent.mutationOptions({
       onSuccess: () => {
         if (!silentSaveRef.current) {
-          toast.success(isNew ? '已创建 Agent助手' : '已保存 Agent助手')
+          toast.success(isNew ? t('settings:agent.panel.created') : t('settings:agent.panel.saved'))
         }
         const overrideSnapshot = pendingSnapshotOverrideRef.current
         if (overrideSnapshot) {
@@ -967,7 +1035,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             queryKey: trpc.settings.getAgents.queryOptions({ projectId, scopeFilter: 'project' }).queryKey,
           })
         }
-        toast.success('已删除 Agent助手')
+        toast.success(t('settings:agent.panel.deletedSuccess'))
         // 逻辑：删除后关闭当前 stack 面板。
         savedSnapshotRef.current = currentSnapshot
         if (activeTabId) {
@@ -982,7 +1050,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
 
   const handleDelete = useCallback(() => {
     if (!agentPath || isNew) return
-    const confirmed = window.confirm(`确认删除 Agent助手「${name || '未命名'}」？此操作不可撤销。`)
+    const confirmed = window.confirm(t('settings:agent.deleteConfirm', { name: name || t('common:untitled') }))
     if (!confirmed) return
     const folderName = detailQuery.data?.folderName ?? ''
     const ignoreKey = folderName || ''
@@ -1004,6 +1072,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           icon,
           modelLocalIds,
           modelCloudIds,
+          auxiliaryModelSource,
+          auxiliaryModelLocalIds,
+          auxiliaryModelCloudIds,
           imageModelIds,
           videoModelIds,
           toolIds,
@@ -1028,6 +1099,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
         icon: nextSnapshot.icon.trim() || undefined,
         modelLocalIds: normalizeIds(nextSnapshot.modelLocalIds),
         modelCloudIds: normalizeIds(nextSnapshot.modelCloudIds),
+        auxiliaryModelSource: nextSnapshot.auxiliaryModelSource,
+        auxiliaryModelLocalIds: normalizeIds(nextSnapshot.auxiliaryModelLocalIds),
+        auxiliaryModelCloudIds: normalizeIds(nextSnapshot.auxiliaryModelCloudIds),
         imageModelIds: normalizeIds(nextSnapshot.imageModelIds),
         videoModelIds: normalizeIds(nextSnapshot.videoModelIds),
         toolIds: normalizeIds(nextSnapshot.toolIds),
@@ -1040,6 +1114,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     [
       allowSubAgents,
       agentPath,
+      auxiliaryModelCloudIds,
+      auxiliaryModelLocalIds,
+      auxiliaryModelSource,
       toolIds,
       description,
       getSavedSnapshot,
@@ -1063,11 +1140,13 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
 
   const handleSave = useCallback(() => {
     if (!name.trim()) {
-      toast.error('名称不能为空')
+      toast.error(t('settings:agent.panel.nameRequired'))
       return
     }
     const normalizedModelLocalIds = normalizeIds(modelLocalIds)
     const normalizedModelCloudIds = normalizeIds(modelCloudIds)
+    const normalizedAuxLocalIds = normalizeIds(auxiliaryModelLocalIds)
+    const normalizedAuxCloudIds = normalizeIds(auxiliaryModelCloudIds)
     const normalizedImageModelIds = normalizeIds(imageModelIds)
     const normalizedVideoModelIds = normalizeIds(videoModelIds)
     const normalizedToolIds = normalizeIds(toolIds)
@@ -1080,6 +1159,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       icon: icon.trim() || undefined,
       modelLocalIds: normalizedModelLocalIds,
       modelCloudIds: normalizedModelCloudIds,
+      auxiliaryModelSource,
+      auxiliaryModelLocalIds: normalizedAuxLocalIds,
+      auxiliaryModelCloudIds: normalizedAuxCloudIds,
       imageModelIds: normalizedImageModelIds,
       videoModelIds: normalizedVideoModelIds,
       toolIds: normalizedToolIds,
@@ -1094,6 +1176,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     icon,
     modelLocalIds,
     modelCloudIds,
+    auxiliaryModelSource,
+    auxiliaryModelLocalIds,
+    auxiliaryModelCloudIds,
     imageModelIds,
     videoModelIds,
     toolIds,
@@ -1192,7 +1277,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                   )
                 }
                 aria-expanded={isExpanded}
-                aria-label={isExpanded ? '收起能力组' : '展开能力组'}
+                aria-label={isExpanded ? t('settings:agent.panel.collapseCapGroup') : t('settings:agent.panel.expandCapGroup')}
               >
                 <ChevronDown
                   className={`h-3.5 w-3.5 transition-transform ${
@@ -1292,21 +1377,21 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           {agentPath && !isNew ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="sm" variant="ghost" onClick={handleDelete} disabled={deleteMutation.isPending} aria-label="删除 Agent助手">
+                <Button size="sm" variant="ghost" onClick={handleDelete} disabled={deleteMutation.isPending} aria-label={t('settings:agent.panel.deleteTooltip')}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">删除 Agent助手</TooltipContent>
+              <TooltipContent side="bottom">{t('settings:agent.panel.deleteTooltip')}</TooltipContent>
             </Tooltip>
           ) : null}
           {agentPath ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="sm" variant="ghost" onClick={handleOpenFolder} aria-label="打开文件夹">
+                <Button size="sm" variant="ghost" onClick={handleOpenFolder} aria-label={t('settings:agent.panel.openFolderLabel')}>
                   <FolderOpen className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">打开 Agent助手 文件夹</TooltipContent>
+              <TooltipContent side="bottom">{t('settings:agent.panel.openFolderTooltip')}</TooltipContent>
             </Tooltip>
           ) : null}
           {isDirty ? (
@@ -1323,7 +1408,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       ),
       onBeforeClose: () => {
         if (!isDirty) return true
-        return window.confirm('有未保存的修改，确定要关闭吗？')
+        return window.confirm(t('settings:agent.panel.unsaved'))
       },
     })
     return () => panelSlot.setSlot(null)
@@ -1332,7 +1417,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   if (!isNew && detailQuery.isLoading) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        加载中...
+        {t('settings:agent.panel.loadingDetail')}
       </div>
     )
   }
@@ -1350,7 +1435,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Agent助手 名称"
+              placeholder={t('settings:agent.panel.namePlaceholder')}
               className="mx-auto max-w-[220px] border-0 bg-transparent text-center text-base font-semibold shadow-none focus-visible:ring-0"
             />
           </div>
@@ -1360,7 +1445,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
               <span className="flex items-center gap-2 text-sm font-medium">
                 <MessageSquare className="h-4 w-4 text-sky-500" />
-                对话模型
+                {t('settings:agent.panel.chatModel')}
                 {isMasterAgent ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -1369,7 +1454,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-[260px] text-xs">
-                      主助手是默认对话 Agent助手，此处模型与聊天输入区同步，可在聊天输入区直接调整。
+                      {t('settings:agent.panel.masterSyncNote')}
                     </TooltipContent>
                   </Tooltip>
                 ) : null}
@@ -1399,18 +1484,18 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       }
                     }}
                     onOpenLogin={() => setLoginOpen(true)}
-                    emptyText="暂无对话模型"
+                    emptyText={t('settings:agent.panel.noChatModel')}
                   />
                 <div className="flex shrink-0 items-center rounded-full border border-border/70 bg-muted/40">
                   <FilterTab
-                    text="本地"
+                    text={t('settings:agent.panel.sourceLocal')}
                     selected={!isCloudSource}
                     onSelect={() => handleChatSourceSelect('local')}
                     icon={<HardDrive className="h-3 w-3 text-amber-500" />}
                     layoutId="agent-chat-source"
                   />
                   <FilterTab
-                    text="云端"
+                    text={t('settings:agent.panel.sourceCloud')}
                     selected={isCloudSource}
                     onSelect={() => handleChatSourceSelect('cloud')}
                     icon={<Cloud className="h-3 w-3 text-sky-500" />}
@@ -1422,8 +1507,58 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             {isMasterAgent ? (
               <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
                 <span className="flex items-center gap-2 text-sm font-medium">
+                  <Sparkles className="h-4 w-4 text-emerald-500" />
+                  {t('settings:agent.panel.auxModel')}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground hover:text-foreground">
+                        <HelpCircle className="h-3.5 w-3.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[240px] text-xs">
+                      {t('settings:agent.panel.auxModelNote')}
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                  <ChatModelSelect
+                    models={auxiliaryChatModels}
+                    value={activeAuxModelIds}
+                    showCloudLogin={showAuxChatCloudLogin}
+                    onChange={(nextIds) => {
+                      if (isAuxCloudSource) {
+                        setAuxiliaryModelCloudIds(nextIds)
+                        return
+                      }
+                      setAuxiliaryModelLocalIds(nextIds)
+                    }}
+                    onOpenLogin={() => setLoginOpen(true)}
+                    emptyText={t('settings:agent.panel.noChatModel')}
+                  />
+                  <div className="flex shrink-0 items-center rounded-full border border-border/70 bg-muted/40">
+                    <FilterTab
+                      text={t('settings:agent.panel.sourceLocal')}
+                      selected={!isAuxCloudSource}
+                      onSelect={() => setAuxiliaryModelSource('local')}
+                      icon={<HardDrive className="h-3 w-3 text-amber-500" />}
+                      layoutId="agent-aux-source"
+                    />
+                    <FilterTab
+                      text={t('settings:agent.panel.sourceCloud')}
+                      selected={isAuxCloudSource}
+                      onSelect={() => setAuxiliaryModelSource('cloud')}
+                      icon={<Cloud className="h-3 w-3 text-sky-500" />}
+                      layoutId="agent-aux-source"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            {isMasterAgent ? (
+              <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
+                <span className="flex items-center gap-2 text-sm font-medium">
                   <Gauge className="h-4 w-4 text-violet-500" />
-                  子Agent助手最大并行数量
+                  {t('settings:agent.panel.maxSubagents')}
                 </span>
                 <div className="ml-auto flex items-center rounded-full border border-border/70 bg-muted/40">
                   {[2, 3, 4, 5].map((count) => (
@@ -1444,12 +1579,12 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
               <div className="flex items-center gap-3 py-2.5">
                 <span className="flex items-center gap-2 text-sm font-medium">
                   <Edit3 className="h-4 w-4 text-amber-500" />
-                  备注
+                  {t('settings:agent.panel.notes')}
                 </span>
                 <Input
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="可选备注信息"
+                  placeholder={t('settings:agent.panel.notesPlaceholder')}
                   className="ml-auto w-full flex-1 min-w-[260px] max-w-[640px] border-0 bg-transparent text-right text-sm text-muted-foreground shadow-none focus-visible:ring-0"
                 />
               </div>
@@ -1460,7 +1595,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Image className="h-4 w-4 text-pink-500" />
-                图片生成
+                {t('settings:agent.panel.imageGen')}
               </div>
               <div className="ml-auto flex flex-wrap items-center gap-2">
                 {hasImageGenerate ? (
@@ -1476,11 +1611,11 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                         }
                       }}
                       onOpenLogin={() => setLoginOpen(true)}
-                      emptyText="暂无图像模型"
+                      emptyText={t('settings:agent.panel.noImageModel')}
                     />
                   ) : (
                     <Button size="sm" onClick={() => setLoginOpen(true)}>
-                      登录OpenLoaf账户
+                      {t('settings:agent.panel.loginCloudShort')}
                     </Button>
                   )
                 ) : null}
@@ -1495,7 +1630,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Video className="h-4 w-4 text-purple-500" />
-                视频生成
+                {t('settings:agent.panel.videoGen')}
               </div>
               <div className="ml-auto flex flex-wrap items-center gap-2">
                 {hasVideoGenerate ? (
@@ -1511,11 +1646,11 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                         }
                       }}
                       onOpenLogin={() => setLoginOpen(true)}
-                      emptyText="暂无视频模型"
+                      emptyText={t('settings:agent.panel.noVideoModel')}
                     />
                   ) : (
                     <Button size="sm" onClick={() => setLoginOpen(true)}>
-                      登录OpenLoaf账户
+                      {t('settings:agent.panel.loginCloudShort')}
                     </Button>
                   )
                 ) : null}
@@ -1532,7 +1667,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           {/* Tabs: 能力组 / 技能 / 提示词 */}
           <Tabs defaultValue="capabilities">
             <div className="sticky top-0 z-10 bg-background">
-              <div className="text-sm font-medium">配置</div>
+              <div className="text-sm font-medium">{t('settings:agent.panel.configLabel')}</div>
               <div className="flex items-center justify-between gap-2">
                 <TabsList className="mt-1.5 h-8 w-max rounded-full border border-border/70 bg-muted/40 p-1">
                   <TabsTrigger
@@ -1540,21 +1675,21 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
                   >
                     <Blocks className="mr-1 h-3 w-3 text-blue-500" />
-                    能力组
+                    {t('settings:agent.panel.capabilitiesTab')}
                   </TabsTrigger>
                   <TabsTrigger
                     value="skills"
                     className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
                   >
                     <Sparkles className="mr-1 h-3 w-3 text-purple-500" />
-                    技能
+                    {t('settings:agent.panel.skillsTab')}
                   </TabsTrigger>
                   <TabsTrigger
                     value="prompt"
                     className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
                   >
                     <ScrollText className="mr-1 h-3 w-3 text-amber-500" />
-                    系统提示词
+                    {t('settings:agent.panel.promptTab')}
                   </TabsTrigger>
                   {isMasterAgent ? (
                     <TabsTrigger
@@ -1562,7 +1697,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
                     >
                       <Brain className="mr-1 h-3 w-3 text-emerald-500" />
-                      记忆
+                      {t('settings:agent.panel.memoryTab')}
                     </TabsTrigger>
                   ) : null}
                 </TabsList>
@@ -1574,7 +1709,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                   onClick={handleResetToDefault}
                   disabled={!canReset}
                 >
-                  重置
+                  {t('settings:agent.panel.resetBtn')}
                 </Button>
               </div>
             </div>
@@ -1606,7 +1741,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                             setSkills(allSelected ? [] : allNames)
                           }}
                         >
-                          {availableSkills.every((s) => skills.includes(s.name)) ? '全不选' : '全选'}
+                          {availableSkills.every((s) => skills.includes(s.name)) ? t('settings:agent.panel.selectNone') : t('settings:agent.panel.selectAll')}
                         </button>
                       </div>
                       <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr))]">
@@ -1638,7 +1773,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       </div>
                     </>
                   ) : (
-                    <p className="text-xs text-muted-foreground">暂无可用技能</p>
+                    <p className="text-xs text-muted-foreground">{t('settings:agent.panel.noSkills')}</p>
                   )}
                 </div>
               </TabsContent>
@@ -1649,7 +1784,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     <Textarea
                       value={systemPrompt}
                       onChange={(e) => setSystemPrompt(e.target.value)}
-                      placeholder="Markdown 格式的系统提示词..."
+                      placeholder={t('settings:agent.panel.promptPlaceholder')}
                       rows={16}
                       className="border-0 bg-transparent font-mono text-xs shadow-none focus-visible:ring-0"
                     />
@@ -1661,7 +1796,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                 <TabsContent value="memory" className="mt-0">
                   <div className="py-3">
                     {memoryQuery.isLoading ? (
-                      <p className="text-xs text-muted-foreground">加载中...</p>
+                      <p className="text-xs text-muted-foreground">{t('settings:agent.panel.memoryLoading')}</p>
                     ) : memoryQuery.data?.content ? (
                       <OpenLoafSettingsCard padding="none">
                         <pre className="whitespace-pre-wrap break-words p-4 font-mono text-xs leading-relaxed text-foreground/80">
@@ -1671,9 +1806,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     ) : (
                       <div className="flex flex-col items-center gap-2 py-6 text-muted-foreground">
                         <Brain className="h-8 w-8 opacity-40" />
-                        <p className="text-xs">暂无记忆内容</p>
+                        <p className="text-xs">{t('settings:agent.panel.noMemory')}</p>
                         <p className="text-[10px]">
-                          在 .openloaf/agents/default/ 目录下创建 MEMORY.md 文件以添加记忆。
+                          {t('settings:agent.panel.memoryHint')}
                         </p>
                       </div>
                     )}

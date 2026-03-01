@@ -8,7 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { AgentTemplate } from '../../types'
-import CODER_PROMPT from './prompt.zh.md'
+import CODER_PROMPT_ZH from './prompt.zh.md'
+import CODER_PROMPT_EN from './prompt.en.md'
 
 export const coderTemplate: AgentTemplate = {
   id: 'coder',
@@ -27,5 +28,13 @@ export const coderTemplate: AgentTemplate = {
   allowSubAgents: true,
   maxDepth: 2,
   isPrimary: false,
-  systemPrompt: CODER_PROMPT.trim(),
+  systemPrompt: CODER_PROMPT_ZH.trim(),
+}
+
+/** Get prompt in specified language. */
+export function getCoderPrompt(lang?: string): string {
+  if (lang?.startsWith('en')) {
+    return CODER_PROMPT_EN.trim()
+  }
+  return CODER_PROMPT_ZH.trim()
 }

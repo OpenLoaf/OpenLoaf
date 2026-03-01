@@ -112,6 +112,17 @@ export const taskManageToolDef = {
 } as const
 
 /**
+ * Get task tool definition in specified language.
+ * For now, always returns Chinese version. English translation support
+ * can be added by creating separate .en.ts variant in future iterations.
+ */
+export function getTaskManageToolDef(lang?: string) {
+  // Currently all tools default to Chinese
+  // Can be extended to support other languages: en-US, ja-JP, etc.
+  return taskManageToolDef
+}
+
+/**
  * @deprecated 使用 taskManageToolDef 替代。保留用于向后兼容。
  */
 export const createTaskToolDef = {
@@ -136,6 +147,13 @@ export const taskStatusToolDef = {
   }),
   component: null,
 } as const
+
+/**
+ * Get task status tool definition in specified language.
+ */
+export function getTaskStatusToolDef(lang?: string) {
+  return taskStatusToolDef
+}
 
 export const taskToolMeta = {
   [taskManageToolDef.id]: { riskType: RiskType.Write },

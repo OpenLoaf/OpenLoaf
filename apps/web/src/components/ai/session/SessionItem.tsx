@@ -10,6 +10,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { MoreHorizontal, PencilLine, Pin, Trash2, Layers } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
@@ -62,6 +63,7 @@ export default function SessionItem({
   onMenuOpenChange,
   className,
 }: SessionItemProps) {
+  const { t } = useTranslation(["ai", "common"]);
   const renameInputId = React.useId();
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [isBusy, setIsBusy] = React.useState(false);
@@ -97,10 +99,10 @@ export default function SessionItem({
         // 用户手动重命名后：标记 isUserRename=true，避免后台 AI 覆盖
         data: { title, isUserRename: true },
       } as any);
-      toast.success("重命名成功");
+      toast.success(t("common:renameSuccess"));
       setIsRenameOpen(false);
     } catch (err: any) {
-      toast.error(err?.message ?? "重命名失败");
+      toast.error(err?.message ?? t("common:renameFailed"));
     } finally {
       setIsBusy(false);
     }
@@ -114,10 +116,10 @@ export default function SessionItem({
         where: { id: session.id },
         data: { deletedAt: new Date() },
       } as any);
-      toast.success("已删除");
+      toast.success(t("common:deleted"));
       setIsDeleteOpen(false);
     } catch (err: any) {
-      toast.error(err?.message ?? "删除失败");
+      toast.error(err?.message ?? t("common:deleteFailed"));
     } finally {
       setIsBusy(false);
     }
@@ -185,7 +187,7 @@ export default function SessionItem({
               }}
             >
               <PencilLine size={16} className="text-muted-foreground" />
-              重命名
+              {t("common:rename")}
             </PromptInputActionMenuItem>
             <PromptInputActionMenuItem
               disabled={isBusy}
@@ -198,16 +200,16 @@ export default function SessionItem({
                     where: { id: session.id },
                     data: { isPin: nextIsPin },
                   } as any);
-                  toast.success(nextIsPin ? "已置顶" : "已取消置顶");
+                  toast.success(nextIsPin ? t("ai:session.pinSuccess") : t("ai:session.unpinSuccess"));
                 } catch (err: any) {
-                  toast.error(err?.message ?? "置顶操作失败");
+                  toast.error(err?.message ?? t("ai:session.pinFailed"));
                 } finally {
                   setIsBusy(false);
                 }
               }}
             >
               <Pin size={16} className="text-muted-foreground" />
-              {session.pinned ? "取消置顶" : "置顶"}
+              {t(session.pinned ? "ai:session.unpin" : "ai:session.pin")}
             </PromptInputActionMenuItem>
             <PromptInputActionMenuItem
               disabled={isBusy}
@@ -217,22 +219,22 @@ export default function SessionItem({
               }}
             >
               <Trash2 size={16} className="text-destructive" />
-              删除
+              {t("common:delete")}
             </PromptInputActionMenuItem>
           </PromptInputActionMenuContent>
         </PromptInputActionMenu>
       </div>
 
       <ModelSelector open={isRenameOpen} onOpenChange={setIsRenameOpen}>
-        <ModelSelectorContent title="重命名会话" className="max-w-md">
+        <ModelSelectorContent title={t("ai:session.renameTitle")} className="max-w-md">
           <div className="space-y-4 p-4">
             <div className="space-y-1">
-              <h3 className="text-sm font-semibold">重命名会话</h3>
-              <p className="text-sm text-muted-foreground">请输入新的会话名称。</p>
+              <h3 className="text-sm font-semibold">{t("ai:session.renameTitle")}</h3>
+              <p className="text-sm text-muted-foreground">{t("ai:session.renameDesc")}</p>
             </div>
             <div className="space-y-2">
               <label htmlFor={renameInputId} className="text-xs font-medium text-muted-foreground">
-                名称
+                {t("ai:session.nameLabel")}
               </label>
               <input
                 id={renameInputId}
@@ -258,10 +260,10 @@ export default function SessionItem({
                 onClick={() => setIsRenameOpen(false)}
                 disabled={isBusy}
               >
-                取消
+                {t("common:cancel")}
               </PromptInputButton>
               <PromptInputButton onClick={handleRename} disabled={isBusy}>
-                保存
+                {t("common:save")}
               </PromptInputButton>
             </div>
           </div>
@@ -269,12 +271,12 @@ export default function SessionItem({
       </ModelSelector>
 
       <ModelSelector open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <ModelSelectorContent title="确认删除会话" className="max-w-md">
+        <ModelSelectorContent title={t("ai:session.deleteTitle")} className="max-w-md">
           <div className="space-y-4 p-4">
             <div className="space-y-1">
-              <h3 className="text-sm font-semibold">确认删除</h3>
+              <h3 className="text-sm font-semibold">{t("ai:session.deleteConfirmTitle")}</h3>
               <p className="text-sm text-muted-foreground">
-                确定要删除这个会话吗？此操作无法撤销。
+                {t("ai:session.deleteDesc")}
               </p>
             </div>
             <div className="flex justify-end gap-2">
@@ -284,14 +286,14 @@ export default function SessionItem({
                 onClick={() => setIsDeleteOpen(false)}
                 disabled={isBusy}
               >
-                取消
+                {t("common:cancel")}
               </PromptInputButton>
             <PromptInputButton
               variant="destructive"
               onClick={handleDelete}
               disabled={isBusy}
             >
-              删除
+              {t("common:delete")}
             </PromptInputButton>
             </div>
           </div>

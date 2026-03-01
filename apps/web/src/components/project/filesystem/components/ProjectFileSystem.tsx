@@ -20,6 +20,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   getParentRelativePath,
   resolveFileUriFromRoot,
@@ -160,6 +161,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   projectLookup,
   onNavigate,
 }: ProjectFileSystemProps) {
+  const { t } = useTranslation(['workspace']);
   const queryClient = useQueryClient();
   const createProjectMutation = useMutation(trpc.project.create.mutationOptions());
   // 从本地缓存恢复文件系统工具栏状态。
@@ -351,7 +353,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   /** Resolve the viewer content for tree view selection. */
   const treeViewer = useMemo(() => {
     if (!treeSelectedEntry) {
-      return <div className="h-full w-full p-4 text-muted-foreground">未选择文件</div>;
+      return <div className="h-full w-full p-4 text-muted-foreground">{t('workspace:filesystem.noFileSelected')}</div>;
     }
     // 逻辑：树视图单击使用统一预览入口的嵌入模式。
     const content = openFilePreview({
@@ -362,10 +364,10 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
       mode: "embed",
     });
     if (!content || typeof content === "boolean") {
-      return <div className="h-full w-full p-4 text-muted-foreground">无法预览</div>;
+      return <div className="h-full w-full p-4 text-muted-foreground">{t('workspace:filesystem.cannotPreview')}</div>;
     }
     return <>{content}</>;
-  }, [projectId, rootUri, treeSelectedEntry]);
+  }, [projectId, rootUri, t, treeSelectedEntry]);
   const treeViewerKey = treeSelectedEntry?.uri ?? "empty";
 
   useEffect(() => {
@@ -459,16 +461,16 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
     async (entry: FileSystemEntry) => {
       if (entry.kind !== "folder") return;
       if (!canConvertToSubproject) {
-        toast.error("当前层级不支持转换为子项目");
+        toast.error(t('workspace:filesystem.convertLevelError'));
         return;
       }
       if (!projectId || !rootUri) {
-        toast.error("当前项目未就绪，无法转换");
+        toast.error(t('workspace:filesystem.convertProjectNotReady'));
         return;
       }
       const targetRootUri = resolveFileUriFromRoot(rootUri, entry.uri);
       if (!targetRootUri) {
-        toast.error("目录路径无效");
+        toast.error(t('workspace:filesystem.convertInvalidPath'));
         return;
       }
       try {
@@ -478,15 +480,15 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           parentProjectId: projectId,
           enableVersionControl: false,
         });
-        toast.success("已转换为子项目");
+        toast.success(t('workspace:filesystem.convertSuccess'));
         await queryClient.invalidateQueries({
           queryKey: getProjectsQueryKey(),
         });
       } catch (err: any) {
-        toast.error(err?.message ?? "转换失败");
+        toast.error(err?.message ?? t('workspace:filesystem.convertFailed'));
       }
     },
-    [canConvertToSubproject, createProjectMutation, projectId, queryClient, rootUri]
+    [canConvertToSubproject, createProjectMutation, projectId, queryClient, rootUri, t]
   );
 
   useEffect(() => {
@@ -521,7 +523,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   }, [toolbarSnapshot, toolbarStorageKey]);
 
   if (!rootUri) {
-    return <div className="p-4 text-sm text-muted-foreground">未绑定项目目录</div>;
+    return <div className="p-4 text-sm text-muted-foreground">{t('workspace:filesystem.noProjectDir')}</div>;
   }
 
   return (
@@ -799,7 +801,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
         </FileSystemContextMenu>
         <DragDropOverlay
           open={model.isDragActive}
-          title="松开鼠标即可添加文件"
+          title={t('workspace:filesystem.dropToAdd')}
           radiusClassName="rounded-2xl"
         />
       </section>

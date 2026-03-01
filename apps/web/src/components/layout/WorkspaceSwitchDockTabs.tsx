@@ -42,7 +42,7 @@ const WORKSPACE_SWITCH_TABS: WorkspaceSwitchTarget[] = [
     tone: "amber",
     baseId: WORKBENCH_TAB_INPUT.baseId,
     component: WORKBENCH_TAB_INPUT.component,
-    title: WORKBENCH_TAB_INPUT.title,
+    title: WORKBENCH_TAB_INPUT.titleKey,
     tabIcon: WORKBENCH_TAB_INPUT.icon,
   },
   {

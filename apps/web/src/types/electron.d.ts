@@ -131,6 +131,7 @@ declare global {
   interface Window {
     openloafElectron?: {
       openBrowserWindow: (url: string) => Promise<{ id: number }>;
+      getSystemLocale?: () => string;
       openExternal?: (url: string) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       fetchWebMeta?: (payload: {
         url: string;

@@ -10,6 +10,7 @@
 'use client'
 
 import { memo, useCallback, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { trpc } from '@/utils/trpc'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
@@ -131,24 +132,24 @@ const TRIGGER_FILTER_COLORS: Record<TriggerMode, { active: string; inactive: str
   },
 }
 
-const PRIORITY_LABELS: Record<Priority, string> = {
-  urgent: '紧急',
-  high: '高',
-  medium: '中',
-  low: '低',
-}
+const getPriorityLabels = (t: (key: string) => string): Record<Priority, string> => ({
+  urgent: t('priority.urgent'),
+  high: t('priority.high'),
+  medium: t('priority.medium'),
+  low: t('priority.low'),
+})
 
-const TRIGGER_LABELS: Record<TriggerMode, string> = {
-  manual: '手动',
-  scheduled: '定时',
-  condition: '条件',
-}
+const getTriggerLabels = (t: (key: string) => string): Record<TriggerMode, string> => ({
+  manual: t('triggerMode.manual'),
+  scheduled: t('triggerMode.scheduled'),
+  condition: t('triggerMode.condition'),
+})
 
-const STATUS_COLUMNS: { status: TaskStatus; label: string; icon: typeof Circle }[] = [
-  { status: 'todo', label: '待办', icon: Circle },
-  { status: 'running', label: '进行中', icon: Loader2 },
-  { status: 'review', label: '审批', icon: Clock },
-  { status: 'done', label: '已完成', icon: CheckCircle2 },
+const getStatusColumns = (t: (key: string) => string): { status: TaskStatus; label: string; icon: typeof Circle }[] => [
+  { status: 'todo', label: t('status.todo'), icon: Circle },
+  { status: 'running', label: t('status.running'), icon: Loader2 },
+  { status: 'review', label: t('status.review'), icon: Clock },
+  { status: 'done', label: t('status.done'), icon: CheckCircle2 },
 ]
 
 const STATUS_FLAT_COLORS: Record<TaskStatus, { icon: string; badge: string; bg: string }> = {
@@ -193,16 +194,17 @@ function isValidTransition(from: TaskStatus, to: TaskStatus): boolean {
   return VALID_TRANSITIONS[from]?.includes(to) ?? false
 }
 
-function formatTimeAgo(dateStr: string): string {
+function formatTimeAgo(dateStr: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
+  if (minutes < 1) return t('messages.justNow')
+  if (minutes < 60) return t('messages.minutesAgo', { minutes })
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}小时前`
+  if (hours < 24) return t('messages.hoursAgo', { hours })
   const days = Math.floor(hours / 24)
-  return `${days}天前`
+  return t('messages.daysAgo', { days })
 }
+
 
 // ─── Task Card ────────────────────────────────────────────────────────
 
@@ -217,6 +219,9 @@ const TaskCard = memo(function TaskCard({
   onCancel: (id: string) => void
   onOpenDetail: (id: string) => void
 }) {
+  const { t } = useTranslation('tasks')
+  const PRIORITY_LABELS = getPriorityLabels(t)
+  const TRIGGER_LABELS = getTriggerLabels(t)
   const priority = task.priority ?? 'medium'
   const summary = task.executionSummary
   const isDraggable = VALID_TRANSITIONS[task.status]?.length > 0
@@ -258,12 +263,12 @@ const TaskCard = memo(function TaskCard({
         )}
         {task.status === 'review' && task.reviewType === 'plan' && (
           <Badge variant="default" className="bg-amber-500/15 text-amber-600 text-[10px]">
-            计划确认
+            {t('reviewType.plan')}
           </Badge>
         )}
         {task.status === 'review' && task.reviewType === 'completion' && (
           <Badge variant="default" className="bg-green-500/15 text-green-600 text-[10px]">
-            完成审查
+            {t('reviewType.completion')}
           </Badge>
         )}
       </div>
@@ -274,7 +279,7 @@ const TaskCard = memo(function TaskCard({
           {summary.totalSteps && summary.completedSteps !== undefined && (
             <div className="mb-1">
               <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                <span>{summary.currentStep ?? '执行中...'}</span>
+                <span>{summary.currentStep ?? t('messages.executingRunning')}</span>
                 <span>{summary.completedSteps}/{summary.totalSteps}</span>
               </div>
               <div className="mt-1 h-1 w-full rounded-full bg-secondary">
@@ -304,7 +309,7 @@ const TaskCard = memo(function TaskCard({
                 className="h-6 text-xs"
                 onClick={() => onResolveReview(task.id, 'approve')}
               >
-                确认
+                {t('actions.confirm')}
               </Button>
               <Button
                 size="sm"
@@ -312,7 +317,7 @@ const TaskCard = memo(function TaskCard({
                 className="h-6 text-xs"
                 onClick={() => onResolveReview(task.id, 'reject')}
               >
-                拒绝
+                {t('actions.reject')}
               </Button>
             </>
           )}
@@ -324,7 +329,7 @@ const TaskCard = memo(function TaskCard({
                 className="h-6 text-xs"
                 onClick={() => onResolveReview(task.id, 'approve')}
               >
-                通过
+                {t('actions.pass')}
               </Button>
               <Button
                 size="sm"
@@ -332,7 +337,7 @@ const TaskCard = memo(function TaskCard({
                 className="h-6 text-xs"
                 onClick={() => onResolveReview(task.id, 'rework')}
               >
-                返工
+                {t('actions.rework')}
               </Button>
             </>
           )}
@@ -342,7 +347,7 @@ const TaskCard = memo(function TaskCard({
       {/* Footer: time + cancel */}
       <div className="mt-2 flex items-center justify-between">
         <span className="text-[10px] text-muted-foreground">
-          {formatTimeAgo(task.updatedAt)}
+          {task.updatedAt}
         </span>
         {(task.status === 'todo' || task.status === 'running' || task.status === 'review') && (
           <Button
@@ -378,6 +383,7 @@ function KanbanColumn({
   onCancel: (id: string) => void
   onOpenDetail: (id: string) => void
 }) {
+  const { t } = useTranslation('tasks')
   const colors = STATUS_FLAT_COLORS[status]
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${status}`,
@@ -403,7 +409,7 @@ function KanbanColumn({
       >
         {tasks.length === 0 && (
           <div className="flex h-20 items-center justify-center text-xs text-muted-foreground">
-            暂无任务
+            {t('messages.noTasks')}
           </div>
         )}
         {tasks.map((task) => (
@@ -437,6 +443,9 @@ function FilterBar({
   triggerFilter: TriggerMode[]
   onTriggerFilterChange: (v: TriggerMode[]) => void
 }) {
+  const { t: tl } = useTranslation('tasks')
+  const PRIORITY_LABELS = getPriorityLabels(tl)
+  const TRIGGER_LABELS = getTriggerLabels(tl)
   const togglePriority = (p: Priority) => {
     if (priorityFilter.includes(p)) {
       onPriorityFilterChange(priorityFilter.filter((x) => x !== p))
@@ -460,7 +469,7 @@ function FilterBar({
         <Input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="搜索任务..."
+          placeholder={tl('messages.searchPlaceholder')}
           className="h-7 w-44 rounded-full border-transparent bg-[#edf2fa] pl-8 text-xs text-[#1f1f1f] placeholder:text-[#5f6368] focus-visible:border-[#d2e3fc] focus-visible:ring-[rgba(26,115,232,0.22)] dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-100 dark:placeholder:text-slate-400"
         />
       </div>
@@ -517,6 +526,9 @@ export default function TaskBoardPage({
 }: {
   projectId?: string
 }) {
+  const { t } = useTranslation('tasks')
+  const PRIORITY_LABELS = getPriorityLabels(t)
+  const TRIGGER_LABELS = getTriggerLabels(t)
   const { workspace } = useWorkspace()
   const queryClient = useQueryClient()
   const pushStackItem = useTabRuntime((state) => state.pushStackItem)
@@ -527,6 +539,10 @@ export default function TaskBoardPage({
   const [priorityFilter, setPriorityFilter] = useState<Priority[]>([])
   const [triggerFilter, setTriggerFilter] = useState<TriggerMode[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
+
+  const priorityLabels = useMemo(() => getPriorityLabels(t), [t])
+  const triggerLabels = useMemo(() => getTriggerLabels(t), [t])
+  const statusColumns = useMemo(() => getStatusColumns(t), [t])
 
   const workspaceId = workspace?.id ?? ''
 
@@ -602,30 +618,29 @@ export default function TaskBoardPage({
   const onOpenDetail = useCallback(
     (id: string) => {
       if (!activeTabId) return
-      const task = (tasks as TaskConfig[]).find((t) => t.id === id)
+      const task = (tasks as TaskConfig[]).find((taskItem) => taskItem.id === id)
       pushStackItem(activeTabId, {
         id: `task-detail:${id}`,
         sourceKey: `task-detail:${id}`,
         component: 'task-detail',
-        title: task?.name ?? '任务详情',
+        title: task?.name ?? t('messages.detailTitle'),
         params: { taskId: id, workspaceId, projectId },
       })
     },
-    [activeTabId, pushStackItem, tasks, workspaceId, projectId],
+    [activeTabId, pushStackItem, tasks, workspaceId, projectId, t],
   )
 
   const activateAiChat = useCallback(() => {
     if (!activeTabId) return
     setTabRightChatCollapsed(activeTabId, false)
-    // 延迟预填文字并聚焦，等待面板展开动画
     setTimeout(() => {
       window.dispatchEvent(
         new CustomEvent('openloaf:chat-prefill-input', {
-          detail: { text: '帮我创建一个任务：' },
+          detail: { text: t('messages.chatPrefill') },
         }),
       )
     }, 300)
-  }, [activeTabId, setTabRightChatCollapsed])
+  }, [activeTabId, setTabRightChatCollapsed, t])
 
   // Filter tasks
   const filteredTasks = useMemo(() => {
@@ -671,7 +686,7 @@ export default function TaskBoardPage({
       <div className="flex flex-col gap-1.5 border-b px-4 py-2">
         {/* Row 1: Title + Actions */}
         <div className="flex items-center justify-between">
-          <h2 className="shrink-0 text-sm font-semibold">任务</h2>
+          <h2 className="shrink-0 text-sm font-semibold">{t('task.board')}</h2>
           <div className="flex items-center gap-2">
             <div className="flex gap-0.5 rounded-full bg-[#f1f3f4] p-0.5 dark:bg-[hsl(var(--muted)/0.38)]">
               <button
@@ -705,7 +720,7 @@ export default function TaskBoardPage({
               onClick={() => setDialogOpen(true)}
             >
               <Plus className="mr-1 h-3.5 w-3.5" />
-              新建任务
+              {t('task.new')}
             </Button>
             <Button
               size="sm"
@@ -714,7 +729,7 @@ export default function TaskBoardPage({
               onClick={activateAiChat}
             >
               <Sparkles className="mr-1 h-3.5 w-3.5" />
-              让AI创建
+              {t('messages.createWithAi')}
             </Button>
           </div>
         </div>
@@ -743,7 +758,7 @@ export default function TaskBoardPage({
             onDragEnd={handleDragEnd}
           >
             <div className="flex h-full gap-4">
-              {STATUS_COLUMNS.map(({ status, label, icon }) => (
+              {statusColumns.map(({ status, label, icon }) => (
                 <KanbanColumn
                   key={status}
                   status={status}
@@ -805,16 +820,16 @@ export default function TaskBoardPage({
                     'bg-zinc-500/15 text-zinc-500': task.status === 'cancelled',
                   })}
                 >
-                  {STATUS_COLUMNS.find((c) => c.status === task.status)?.label ?? task.status}
+                  {statusColumns.find((c) => c.status === task.status)?.label ?? task.status}
                 </Badge>
                 <span className="text-[10px] text-muted-foreground">
-                  {formatTimeAgo(task.updatedAt)}
+                  {formatTimeAgo(task.updatedAt, t)}
                 </span>
               </div>
             ))}
             {filteredTasks.length === 0 && (
               <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-                暂无任务
+                {t('messages.noTasks')}
               </div>
             )}
           </div>

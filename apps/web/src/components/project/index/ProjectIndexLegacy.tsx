@@ -22,6 +22,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
 import { Puck, Render, createUsePuck, type Data } from "@measured/puck";
 import { trpc } from "@/utils/trpc";
@@ -122,6 +123,7 @@ function PuckHeaderPortal({
   onPublish: (data: Data) => void;
   puckRootRef: React.RefObject<HTMLDivElement | null>;
 }) {
+  const { t } = useTranslation(["settings", "common"]);
   const appState = usePuckStore(
     (store) => store.appState as { data: Data }
   );
@@ -183,10 +185,10 @@ function PuckHeaderPortal({
         variant="ghost"
         size="sm"
         onClick={() => onPublish(appState.data)}
-        aria-label="保存"
-        title="保存"
+        aria-label={t("common:save")}
+        title={t("common:save")}
       >
-        保存
+        {t("common:save")}
       </Button>
       <Button
         type="button"
@@ -194,8 +196,8 @@ function PuckHeaderPortal({
         size="sm"
         onClick={history.back}
         disabled={!history.hasPast}
-        aria-label="撤回"
-        title="撤回"
+        aria-label={t("project.index.undo")}
+        title={t("project.index.undo")}
       >
         <Undo2 className="size-4" />
       </Button>
@@ -205,14 +207,14 @@ function PuckHeaderPortal({
         size="sm"
         onClick={history.forward}
         disabled={!history.hasFuture}
-        aria-label="前进"
-        title="前进"
+        aria-label={t("project.index.redo")}
+        title={t("project.index.redo")}
       >
         <Redo2 className="size-4" />
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="ghost" size="sm" title="视口">
+          <Button type="button" variant="ghost" size="sm" title={t("project.index.viewport")}>
             <Monitor className="size-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -220,21 +222,21 @@ function PuckHeaderPortal({
           <DropdownMenuItem
             onClick={() => triggerPuckControl("Switch to Small viewport")}
             disabled={smallViewportDisabled}
-            aria-label="小视口"
+            aria-label={t("project.index.smallViewport")}
           >
             <Smartphone className="size-4" />
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => triggerPuckControl("Switch to Medium viewport")}
             disabled={mediumViewportDisabled}
-            aria-label="中视口"
+            aria-label={t("project.index.mediumViewport")}
           >
             <Tablet className="size-4" />
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => triggerPuckControl("Switch to Large viewport")}
             disabled={largeViewportDisabled}
-            aria-label="大视口"
+            aria-label={t("project.index.largeViewport")}
           >
             <Monitor className="size-4" />
           </DropdownMenuItem>
@@ -246,8 +248,8 @@ function PuckHeaderPortal({
         size="sm"
         onClick={() => triggerPuckControl("Zoom viewport out")}
         disabled={zoomOutDisabled}
-        aria-label="缩小"
-        title="缩小"
+        aria-label={t("project.index.zoomOut")}
+        title={t("project.index.zoomOut")}
       >
         <ZoomOut className="size-4" />
       </Button>
@@ -257,8 +259,8 @@ function PuckHeaderPortal({
         size="sm"
         onClick={() => triggerPuckControl("Zoom viewport in")}
         disabled={zoomInDisabled}
-        aria-label="放大"
-        title="放大"
+        aria-label={t("project.index.zoomIn")}
+        title={t("project.index.zoomIn")}
       >
         <ZoomIn className="size-4" />
       </Button>
@@ -497,9 +499,10 @@ const ProjectIndexHeader = React.memo(function ProjectIndexHeader({
   controlsSlotRef,
   showControls,
 }: ProjectIndexHeaderProps) {
+  const { t } = useTranslation(["settings", "common"]);
   const ToggleIcon = isReadOnly ? PencilLine : Eye;
-  const toggleLabel = isReadOnly ? "编辑" : "取消";
-  const toggleTitle = isReadOnly ? "编辑首页" : "取消编辑";
+  const toggleLabel = isReadOnly ? t("common:edit") : t("common:cancel");
+  const toggleTitle = isReadOnly ? t("project.index.editHome") : t("project.index.cancelEdit");
 
   return (
     <div className="flex items-center justify-between w-full min-w-0">
