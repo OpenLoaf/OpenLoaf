@@ -2,15 +2,19 @@
 
 ## 执行现状
 
-**第三步已启动：优先级 1-4 组件迁移**
+**第三步进行中：优先级 1-4 组件迁移**
 
 | 任务 | 状态 | 完成度 |
 |-----|------|--------|
 | ✅ BasicSettings.tsx | 完成 | 100% |
-| 🔄 Sidebar.tsx | 进行中 | 10% |
-| ⏳ SidebarProject.tsx | 待做 | 0% |
-| ⏳ SidebarWorkspace.tsx | 待做 | 0% |
-| ⏳ Chat 相关组件（优先级 2） | 待做 | 0% |
+| ✅ Sidebar.tsx | 完成 | 100% |
+| ✅ SidebarProject.tsx | 完成 | 100% |
+| ✅ SidebarWorkspace.tsx | 完成 | 100% |
+| ✅ ChatInput.tsx | 完成 | 100% |
+| ✅ ChatModeSelector.tsx | 完成 | 100% |
+| 🔄 Chat.tsx | 待做 | 0% |
+| ⏳ MessageHelper.tsx（优先级 2） | 待做 | 0% |
+| ⏳ ApprovalModeSelector.tsx（优先级 2） | 待做 | 0% |
 | ⏳ Settings 页组件（优先级 3） | 待做 | 0% |
 | ⏳ 功能模块（优先级 4） | 待做 | 0% |
 
