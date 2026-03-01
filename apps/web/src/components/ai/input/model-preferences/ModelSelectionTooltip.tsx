@@ -10,6 +10,7 @@
 'use client'
 
 import { Image, MessageSquare, Video } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { ProviderModelOption } from '@/lib/provider-models'
 import type { AiModel } from '@openloaf-saas/sdk'
 import { getModelLabel } from '@/lib/model-registry'
@@ -32,6 +33,7 @@ export function ModelSelectionTooltip({
   preferredImageIds,
   preferredVideoIds,
 }: ModelSelectionTooltipProps) {
+  const { t } = useTranslation('ai')
   const selectedChat = chatModels.filter((m) =>
     preferredChatIds.includes(m.id),
   )
@@ -49,7 +51,7 @@ export function ModelSelectionTooltip({
   if (!hasAny) {
     return (
       <span className="text-xs opacity-70">
-        未选择偏好模型
+        {t('mode.noPreferredModel')}
       </span>
     )
   }
@@ -60,7 +62,7 @@ export function ModelSelectionTooltip({
         <div>
           <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold">
             <MessageSquare className="h-3 w-3" />
-            对话
+            {t('mode.chat')}
           </div>
           <div className="space-y-1">
             {selectedChat.map((m) => (
@@ -91,7 +93,7 @@ export function ModelSelectionTooltip({
         <div>
           <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold">
             <Image className="h-3 w-3" />
-            图像
+            {t('mode.image')}
           </div>
           <div className="space-y-1">
             {selectedImage.map((m) => (
@@ -115,7 +117,7 @@ export function ModelSelectionTooltip({
         <div>
           <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold">
             <Video className="h-3 w-3" />
-            视频
+            {t('mode.video')}
           </div>
           <div className="space-y-1">
             {selectedVideo.map((m) => (

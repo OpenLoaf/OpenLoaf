@@ -12,6 +12,7 @@
 import { memo, useCallback, useMemo, useRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { cn } from "@udecode/cn";
+import { useTranslation } from "react-i18next";
 import {
   LayoutGrid,
   Lock,
@@ -64,6 +65,7 @@ const BoardControls = memo(function BoardControls({
   snapshot,
   onAutoLayout,
 }: BoardControlsProps) {
+  const { t } = useTranslation('board');
   // 逻辑：视图状态独立订阅，避免缩放时触发全局快照刷新。
   const viewState = useBoardViewState(engine);
   const { zoom, size } = viewState.viewport;
@@ -159,12 +161,12 @@ const BoardControls = memo(function BoardControls({
   );
   const undoShortcut = isMac ? "⌘Z" : "Ctrl+Z";
   const redoShortcut = isMac ? "⌘⇧Z" : "Ctrl+Shift+Z / Ctrl+Y";
-  const undoTitle = buildControlTitle("撤销", undoShortcut);
-  const redoTitle = buildControlTitle("前进", redoShortcut);
-  const fitTitle = buildControlTitle("最大化视图", "F");
+  const undoTitle = buildControlTitle(t('controls.undo'), undoShortcut);
+  const redoTitle = buildControlTitle(t('controls.redo'), redoShortcut);
+  const fitTitle = buildControlTitle(t('controls.maximize'), 'F');
   const autoLayoutShortcut = isMac ? "⌘⇧L" : "Ctrl+Shift+L";
-  const autoLayoutTitle = buildControlTitle("自动布局", autoLayoutShortcut);
-  const lockTitle = buildControlTitle(snapshot.locked ? "解锁" : "锁定", "L");
+  const autoLayoutTitle = buildControlTitle(t('controls.autoLayout'), autoLayoutShortcut);
+  const lockTitle = buildControlTitle(snapshot.locked ? t('controls.unlock') : t('controls.lock'), 'L');
 
   return (
     <div
@@ -200,7 +202,7 @@ const BoardControls = memo(function BoardControls({
           <Redo2 size={iconSize} className={cn(controlIconClassName, iconColorAction)} />
         </IconBtn>
         <IconBtn
-          title="放大"
+          title={t('controls.zoomIn')}
           onPointerDown={startZoomHold("in")}
           disabled={maxZoomReached}
           tooltipSide="right"
@@ -209,7 +211,7 @@ const BoardControls = memo(function BoardControls({
           <ZoomIn size={iconSize} className={cn(controlIconClassName, iconColorView)} />
         </IconBtn>
         <IconBtn
-          title="缩小"
+          title={t('controls.zoomOut')}
           onPointerDown={startZoomHold("out")}
           disabled={minZoomReached}
           tooltipSide="right"

@@ -25,6 +25,7 @@ import { buildLinkNodePayloadFromUrl } from "../utils/link";
 import { fetchWebMeta } from "@/lib/web-meta";
 import { fileToBase64 } from "../utils/base64";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { readBoardDocPayload, writeBoardDocPayload } from "./boardYjsStore";
 import { setBoardElementCount, clearBoardTracking } from "./boardContentTracker";
 import {
@@ -237,6 +238,7 @@ export function BoardCanvasCollab({
   boardFileUri,
   onSyncLogChange,
 }: BoardCanvasCollabProps) {
+  const { t } = useTranslation('board');
   const queryClient = useQueryClient();
   /** Hydration flag for initial fit logic. */
   const hydratedRef = useRef(false);
@@ -402,7 +404,7 @@ export function BoardCanvasCollab({
         // 逻辑：后台转码失败时回退原文件插入，并提示用户。
         targetFile = (await convertImageFileToPngIfNeeded(file)).file;
       } catch {
-        toast.error("图片转码失败，已使用原始文件插入");
+        toast.error(t('collab.imageTranscodeFailed'));
         targetFile = file;
       }
 

@@ -1,11 +1,11 @@
 {
   "board": {
-    "title": "畫布工具",
-    "new": "新建畫布",
-    "create": "建立畫布",
+    "title": "畫板工具",
+    "new": "新建畫板",
+    "create": "建立畫板",
     "edit": "編輯",
     "delete": "刪除",
-    "save": "保存",
+    "save": "儲存",
     "cancel": "取消",
     "download": "下載",
     "share": "分享",
@@ -21,7 +21,7 @@
     "opacity": "透明度",
     "zoom": "縮放",
     "fit": "適應螢幕",
-    "gridToggle": "顯示網格",
+    "gridToggle": "顯示格線",
     "rulerToggle": "顯示尺規",
     "layer": "圖層",
     "layers": "圖層列表",
@@ -31,13 +31,13 @@
   },
   "tools": {
     "select": "選取",
-    "hand": "拖拽",
+    "hand": "拖曳",
     "pen": "畫筆",
     "highlighter": "螢光筆",
     "eraser": "橡皮"
   },
   "insertTools": {
-    "note": "便籤",
+    "note": "便利貼",
     "image": "圖片",
     "video": "影片",
     "imagePromptGenerate": "影片圖片理解",
@@ -46,16 +46,310 @@
   },
   "descriptions": {
     "note": "快速筆記卡片",
-    "image": "圖片塊",
-    "video": "影片塊",
+    "image": "圖片區塊",
+    "video": "影片區塊",
     "imagePromptGenerate": "分析圖片/影片並生成描述",
     "imageGenerate": "輸入圖片與文字生成新圖",
     "videoGenerate": "基於圖片與提示詞生成影片"
   },
   "picker": {
     "imageTitle": "選擇圖片檔案",
-    "imageHint": "非圖片檔案將變灰",
+    "imageHint": "非圖片檔案將置灰",
     "videoTitle": "選擇影片檔案",
-    "videoHint": "非影片檔案將變灰"
+    "videoHint": "非影片檔案將置灰"
+  },
+  "emptyGuide": {
+    "heading": "從範本開始創作",
+    "subheading": "選擇一個範本，點擊畫布放置",
+    "tpl": {
+      "imageGen": {
+        "label": "AI 圖片生成",
+        "desc": "輸入提示詞，AI 生成圖片"
+      },
+      "imagePrompt": {
+        "label": "AI 圖片理解",
+        "desc": "上傳圖片，AI 分析內容"
+      },
+      "videoGen": {
+        "label": "AI 影片生成",
+        "desc": "AI 生成短影片片段"
+      },
+      "text": {
+        "label": "文字筆記",
+        "desc": "新增文字到畫布"
+      }
+    }
+  },
+  "contextMenu": {
+    "exitFullscreen": "退出全螢幕",
+    "enterFullscreen": "全螢幕顯示",
+    "maximize": "最大化視圖",
+    "autoLayout": "自動排版",
+    "reload": "重新載入",
+    "paste": "貼上"
+  },
+  "controls": {
+    "undo": "復原",
+    "redo": "前進",
+    "maximize": "最大化視圖",
+    "autoLayout": "自動排版",
+    "unlock": "解鎖",
+    "lock": "鎖定",
+    "zoomIn": "放大",
+    "zoomOut": "縮小"
+  },
+  "connector": {
+    "videoGenerate": "生成影片",
+    "videoGenerateDesc": "基於文字生成影片",
+    "imagePromptGenerate": "影片圖片理解",
+    "imagePromptGenerateDesc": "分析影片並生成描述",
+    "imageGenerate": "圖片生成",
+    "imageGenerateDesc": "基於提示詞與圖片生成新圖"
+  },
+  "nodeDetail": {
+    "detail": "詳情"
+  },
+  "textNode": {
+    "placeholder": "輸入文字內容",
+    "toolbar": {
+      "fontSize": "字型大小",
+      "fontWeight": "字重",
+      "style": "樣式",
+      "align": "對齊",
+      "textColor": "文字顏色",
+      "backgroundColor": "背景色"
+    },
+    "format": {
+      "italic": "斜體",
+      "underline": "底線",
+      "strikethrough": "刪除線",
+      "alignLeft": "靠左對齊",
+      "alignCenter": "置中",
+      "alignRight": "靠右對齊"
+    },
+    "fontWeights": {
+      "regular": "標準",
+      "medium": "中等",
+      "semibold": "半粗",
+      "bold": "粗體"
+    },
+    "colors": {
+      "default": "預設",
+      "black": "黑",
+      "blue": "藍",
+      "orange": "橘",
+      "red": "紅",
+      "green": "綠",
+      "purple": "紫",
+      "gray": "灰"
+    },
+    "backgrounds": {
+      "transparent": "透明",
+      "black": "黑",
+      "blue": "藍",
+      "orange": "橘",
+      "red": "紅",
+      "green": "綠",
+      "purple": "紫",
+      "gray": "灰"
+    }
+  },
+  "groupNode": {
+    "layoutVertical": "縱向排版",
+    "layoutHorizontal": "橫向排版",
+    "dissolve": "解散",
+    "uniformSize": "統一大小"
+  },
+  "selection": {
+    "toolbar": {
+      "copy": "複製",
+      "bringToFront": "置頂",
+      "sendToBack": "置底",
+      "unlock": "解鎖",
+      "lock": "鎖定",
+      "delete": "刪除",
+      "group": "群組",
+      "layoutVertical": "縱向排列",
+      "layoutHorizontal": "橫向排列",
+      "autoLayout": "自動排版"
+    },
+    "mindmapLayout": {
+      "label": "方向",
+      "left": "向左",
+      "balanced": "均衡",
+      "right": "向右"
+    }
+  },
+  "imageGenerate": {
+    "title": "圖片生成",
+    "model": "模型",
+    "prompt": "提示詞",
+    "promptPlaceholder": "請輸入提示詞",
+    "generate": "生成",
+    "retry": "重試",
+    "login": "登入",
+    "loggingIn": "登入中",
+    "mode": {
+      "textToImage": "文生圖",
+      "singleImage": "單圖",
+      "multiImage": "多圖"
+    },
+    "advanced": {
+      "count": "數量",
+      "aspectRatio": "長寬比",
+      "style": "風格",
+      "stylePlaceholder": "按 Enter 可自訂風格",
+      "negativePrompt": "不希望出現",
+      "auto": "自動"
+    },
+    "modelSelect": {
+      "noModel": "無可用模型",
+      "loginHint": "登入OpenLoaf帳號，使用雲端模型後選擇模型"
+    },
+    "status": {
+      "generating": "生成中",
+      "waiting": "等待任務",
+      "failed": "失敗"
+    },
+    "errors": {
+      "noModelSupport": "請選擇支援「圖片生成」的模型",
+      "noPrompt": "請先輸入或連接提示詞",
+      "invalidImageUrl": "存在無法存取的圖片位址，請檢查輸入",
+      "imageReadFailed": "圖片讀取失敗",
+      "submitFailed": "圖片任務提交失敗",
+      "generateFailed": "生成圖片失敗",
+      "copyFailed": "複製失敗"
+    }
+  },
+  "videoGenerate": {
+    "title": "影片生成",
+    "model": "模型",
+    "prompt": "提示詞",
+    "promptPlaceholder": "請輸入提示詞",
+    "generate": "生成",
+    "retry": "重試",
+    "login": "登入",
+    "loggingIn": "登入中",
+    "outputAudio": "輸出音訊",
+    "advanced": {
+      "aspectRatio": "長寬比",
+      "duration": "時長",
+      "style": "風格",
+      "stylePlaceholder": "按 Enter 可自訂風格",
+      "negativePrompt": "不希望出現",
+      "auto": "自動",
+      "yes": "是",
+      "no": "否",
+      "selectPlaceholder": "請選擇"
+    },
+    "status": {
+      "completed": "已完成",
+      "failed": "生成失敗",
+      "needModel": "需要設定模型",
+      "generating": "生成中",
+      "waiting": "等待任務"
+    },
+    "errors": {
+      "noModelSupport": "請選擇支援「影片生成」的模型",
+      "noPrompt": "請先輸入或連接提示詞",
+      "generateFailed": "生成影片失敗",
+      "saveFailed": "影片儲存失敗",
+      "copyErrorSuccess": "已複製錯誤資訊",
+      "copyFailed": "複製失敗"
+    }
+  },
+  "imagePromptGenerate": {
+    "title": "影片圖片理解",
+    "model": "模型",
+    "stop": "停止",
+    "login": "登入",
+    "loggingIn": "登入中",
+    "retry": "重試",
+    "regenerate": "重新生成",
+    "run": "執行",
+    "contentDescription": "內容描述",
+    "noModel": "無可用模型",
+    "loginHint": "登入以使用雲端模型",
+    "errors": {
+      "noInput": "目前輸入缺少可用的位址，無法生成描述",
+      "generateFailed": "生成描述失敗",
+      "noModelSupport": "請選擇支援目前輸入類型的模型",
+      "copySuccess": "已複製描述",
+      "copyFailed": "複製失敗"
+    }
+  },
+  "videoNode": {
+    "toolbar": {
+      "detail": "詳情"
+    }
+  },
+  "linkNode": {
+    "toolbar": {
+      "open": "開啟",
+      "copyUrl": "複製網址"
+    }
+  },
+  "anchorOverlay": {
+    "expand": "展開",
+    "collapse": "收合"
+  },
+  "loading": {
+    "processing": "任務處理中",
+    "cancelled": "請求已取消",
+    "queryFailed": "任務查詢失敗",
+    "imageGenerateFailed": "圖片生成失敗",
+    "videoGenerateFailed": "影片生成失敗",
+    "videoSaveFailed": "影片儲存失敗",
+    "taskCancelled": "任務已取消",
+    "failed": "生成失敗",
+    "imageTimeout": "圖片生成逾時",
+    "videoTimeout": "影片生成逾時",
+    "imageGenerateError": "生成圖片失敗",
+    "videoGenerateError": "生成影片失敗",
+    "statusFailed": "失敗",
+    "statusGenerating": "生成中…",
+    "statusWaiting": "等待任務"
+  },
+  "collab": {
+    "imageTranscodeFailed": "圖片轉碼失敗，已使用原始檔案插入"
+  },
+  "panelHeader": {
+    "noCanvas": "未找到可匯出的畫布",
+    "exportFailed": "匯出失敗：無法生成圖片",
+    "exitFullscreen": "退出全螢幕",
+    "enterFullscreen": "進入全螢幕",
+    "showAIPanel": "顯示 AI 面板",
+    "hideAIPanel": "收起 AI 面板",
+    "screenshot": "截圖畫布"
+  },
+  "aiToolbar": {
+    "imagePromptGenerate": "圖片理解",
+    "imageGenerate": "圖片生成",
+    "videoGenerate": "生成影片"
+  },
+  "styles": {
+    "realistic": "寫實",
+    "anime": "動漫",
+    "illustration": "插畫",
+    "3d": "3D",
+    "cyberpunk": "賽博龐克",
+    "oilPainting": "油畫",
+    "watercolor": "水彩",
+    "sketch": "素描",
+    "pixelArt": "像素風",
+    "flat": "扁平風",
+    "minimalist": "極簡",
+    "chinese": "中國風",
+    "impressionist": "印象派",
+    "popart": "普普藝術",
+    "steampunk": "蒸汽龐克",
+    "gothic": "哥德風",
+    "surrealism": "超現實主義",
+    "geometric": "幾何風",
+    "retro": "復古風",
+    "scifi": "科幻風",
+    "fantasy": "奇幻風",
+    "ink": "水墨風",
+    "lowpoly": "低多邊形"
   }
 }

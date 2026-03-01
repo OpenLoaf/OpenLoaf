@@ -9,6 +9,8 @@
  */
 import { Columns2, LayoutGrid, Layers, ArrowDown, ArrowUp, Copy, Lock, Rows2, Trash2, Unlock, Maximize2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode, type SVGProps } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type {
   CanvasElement,
@@ -53,6 +55,7 @@ export function SingleSelectionToolbar({
   snapshot,
   onInspect,
 }: SingleSelectionToolbarProps) {
+  const { t } = useTranslation('board');
   const { fileContext } = useBoardContext();
   // 逻辑：画布锁定时隐藏节点工具条。
   if (snapshot.locked) return null;
@@ -75,11 +78,11 @@ export function SingleSelectionToolbar({
   const hasOverlap = hasNodeOverlap(element, snapshot.elements);
   const isTopMost = isNodeTopMost(element, snapshot.elements);
   const isBottomMost = isNodeBottomMost(element, snapshot.elements);
-  const commonItems = buildCommonToolbarItems(engine, element, {
+  const commonItems = buildCommonToolbarItems(t, engine, element, {
     showBringToFront: hasOverlap && !isTopMost,
     showSendToBack: hasOverlap && isTopMost && !isBottomMost,
   });
-  const mindmapLayoutItems = buildMindmapLayoutItems(engine, element, snapshot);
+  const mindmapLayoutItems = buildMindmapLayoutItems(t, engine, element, snapshot);
   const customItems = items ?? [];
   const [openPanelId, setOpenPanelId] = useState<string | null>(null);
   if (
@@ -218,15 +221,19 @@ function RadiantIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-const MINDMAP_LAYOUT_ITEMS: Array<{
+type MindmapLayoutItem = {
   id: MindmapLayoutDirection;
   title: string;
   icon: ReactNode;
-}> = [
-  { id: "left", title: "左向", icon: <LeftLayoutIcon className="h-3.5 w-3.5" /> },
-  { id: "balanced", title: "均衡", icon: <RadiantIcon className="h-3.5 w-3.5" /> },
-  { id: "right", title: "右向", icon: <RightLayoutIcon className="h-3.5 w-3.5" /> },
-];
+};
+
+function buildMindmapLayoutItems_data(t: TFunction): MindmapLayoutItem[] {
+  return [
+    { id: 'left', title: t('selection.mindmapLayout.left'), icon: <LeftLayoutIcon className="h-3.5 w-3.5" /> },
+    { id: 'balanced', title: t('selection.mindmapLayout.balanced'), icon: <RadiantIcon className="h-3.5 w-3.5" /> },
+    { id: 'right', title: t('selection.mindmapLayout.right'), icon: <RightLayoutIcon className="h-3.5 w-3.5" /> },
+  ];
+}
 
 /** Render the mindmap toolbar icon. */
 function MindmapIcon(props: SVGProps<SVGSVGElement>) {
@@ -256,6 +263,7 @@ export function MultiSelectionToolbar({
   engine,
   onInspect,
 }: MultiSelectionToolbarProps) {
+  const { t } = useTranslation('board');
   const { fileContext } = useBoardContext();
   // 逻辑：Hook 必须在条件 return 之前调用，避免 Hook 顺序变化。
   const [openPanelId, setOpenPanelId] = useState<string | null>(null);
@@ -312,10 +320,10 @@ export function MultiSelectionToolbar({
     layoutAxis === "column"
     && hasUniformSpacing(selectedNodes, "column", LAYOUT_SPACING_TOLERANCE);
   const layoutLabel = isUniformRow
-    ? "竖向排列"
+    ? t('selection.toolbar.layoutVertical')
     : isUniformColumn
-      ? "横向排列"
-      : "自动布局";
+      ? t('selection.toolbar.layoutHorizontal')
+      : t('selection.toolbar.autoLayout');
   const layoutDirection = isUniformRow
     ? "column"
     : isUniformColumn
@@ -348,7 +356,7 @@ export function MultiSelectionToolbar({
           items={[
             {
               id: "group",
-              label: "编组",
+              label: t('selection.toolbar.group'),
               icon: <Layers size={14} />,
               onSelect: () => engine.groupSelection(),
             },
@@ -360,7 +368,7 @@ export function MultiSelectionToolbar({
             },
             {
               id: "delete",
-              label: "删除",
+              label: t('selection.toolbar.delete'),
               icon: <Trash2 size={14} />,
               onSelect: () => engine.deleteSelection(),
             },
@@ -850,6 +858,7 @@ function getGroupScaleLimits(
 
 /** Build shared toolbar items for every node. */
 function buildCommonToolbarItems(
+  t: TFunction,
   engine: CanvasEngine,
   element: CanvasNodeElement,
   options?: { showBringToFront?: boolean; showSendToBack?: boolean }
@@ -861,8 +870,8 @@ function buildCommonToolbarItems(
   const isLocked = element.locked === true;
   const items = [
     {
-      id: "duplicate",
-      label: "复制",
+      id: 'duplicate',
+      label: t('selection.toolbar.copy'),
       icon: <Copy size={14} />,
       onSelect: () => {
         focusSelection();
@@ -873,8 +882,8 @@ function buildCommonToolbarItems(
     ...(options?.showBringToFront
       ? [
           {
-            id: "bring-to-front",
-            label: "置顶",
+            id: 'bring-to-front',
+            label: t('selection.toolbar.bringToFront'),
             icon: <ArrowUp size={14} />,
             onSelect: () => {
               focusSelection();
@@ -886,8 +895,8 @@ function buildCommonToolbarItems(
     ...(options?.showSendToBack
       ? [
           {
-            id: "send-to-back",
-            label: "置底",
+            id: 'send-to-back',
+            label: t('selection.toolbar.sendToBack'),
             icon: <ArrowDown size={14} />,
             onSelect: () => {
               focusSelection();
@@ -897,8 +906,8 @@ function buildCommonToolbarItems(
         ]
       : []),
     {
-      id: "lock",
-      label: isLocked ? "解锁" : "锁定",
+      id: 'lock',
+      label: isLocked ? t('selection.toolbar.unlock') : t('selection.toolbar.lock'),
       icon: isLocked ? <Unlock size={14} /> : <Lock size={14} />,
       onSelect: () => {
         focusSelection();
@@ -908,8 +917,8 @@ function buildCommonToolbarItems(
     ...(!isLocked
       ? [
           {
-            id: "delete",
-            label: "删除",
+            id: 'delete',
+            label: t('selection.toolbar.delete'),
             icon: <Trash2 size={14} />,
             onSelect: () => {
               focusSelection();
@@ -1029,6 +1038,7 @@ function hasUniformSpacing(
 
 /** Build mindmap layout controls for root nodes. */
 function buildMindmapLayoutItems(
+  t: TFunction,
   engine: CanvasEngine,
   element: CanvasNodeElement,
   snapshot: CanvasSnapshot
@@ -1043,15 +1053,16 @@ function buildMindmapLayoutItems(
   // 逻辑：仅根节点显示布局切换按钮。
   if (inbound.length > 0) return [];
   const active = engine.getMindmapLayoutDirectionForRoot(element.id);
+  const layoutItems = buildMindmapLayoutItems_data(t);
   return [
     {
-      id: "mindmap-layout",
-      label: "方向",
+      id: 'mindmap-layout',
+      label: t('selection.mindmapLayout.label'),
       showLabel: true,
       icon: <MindmapIcon className="h-3.5 w-3.5" />,
       panel: ({ closePanel }) => (
         <div className="flex items-center gap-1">
-          {MINDMAP_LAYOUT_ITEMS.map(option => (
+          {layoutItems.map(option => (
             <PanelItem
               key={option.id}
               title={option.title}

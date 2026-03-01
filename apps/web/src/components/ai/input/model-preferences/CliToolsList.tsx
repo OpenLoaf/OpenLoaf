@@ -10,6 +10,7 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Claude, OpenAI } from '@lobehub/icons'
 import { Check } from 'lucide-react'
@@ -55,6 +56,7 @@ interface CliToolsListProps {
 
 /** Lightweight CLI tools status list for the model preferences panel. */
 export function CliToolsList({ selectedId, onSelect, onOpenInstall, disabled }: CliToolsListProps) {
+  const { t } = useTranslation('ai')
   const { data, isLoading } = useQuery({
     ...trpc.settings.getCliToolsStatus.queryOptions(),
     staleTime: 60_000,

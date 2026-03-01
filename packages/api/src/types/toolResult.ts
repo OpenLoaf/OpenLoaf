@@ -60,7 +60,7 @@ export const notImplemented = <T>(riskType: RiskType): SystemToolResult<T> => ({
   ok: false,
   error: {
     code: "NOT_IMPLEMENTED",
-    message: "该系统工具已定义，但内部逻辑尚未实现（MVP 占位）。",
+    message: "This system tool is defined but not yet implemented (MVP placeholder).",
     riskType,
   },
 });

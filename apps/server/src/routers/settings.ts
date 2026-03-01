@@ -1227,13 +1227,13 @@ export class SettingRouterImpl extends BaseSettingRouter {
       /** Get SaaS auxiliary quota. */
       getAuxiliaryQuota: shieldedProcedure
         .output(settingSchemas.getAuxiliaryQuota.output)
-        .query(async () => {
+        .query(async ({ ctx }) => {
           const { getSaasAccessToken } = await import(
             "@/ai/shared/context/requestContext"
           );
           const token = getSaasAccessToken();
           if (!token) {
-            throw new Error("未登录云端账号，请先登录");
+            throw new Error(getErrorMessage('NOT_LOGGED_IN_CLOUD', ctx.lang));
           }
           const { getSaasClient } = await import("@/modules/saas/client");
           const saasClient = getSaasClient(token);
@@ -1263,7 +1263,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
       testAuxiliaryCapability: shieldedProcedure
         .input(settingSchemas.testAuxiliaryCapability.input)
         .output(settingSchemas.testAuxiliaryCapability.output)
-        .mutation(async ({ input }) => {
+        .mutation(async ({ input, ctx }) => {
           const start = Date.now();
           try {
             const { AUXILIARY_CAPABILITIES, CAPABILITY_SCHEMAS } = await import(
@@ -1274,7 +1274,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
               return {
                 ok: false,
                 result: null,
-                error: `未知能力: ${input.capabilityKey}`,
+                error: `${getErrorMessage('UNKNOWN_CAPABILITY', ctx.lang)}: ${input.capabilityKey}`,
                 durationMs: Date.now() - start,
               };
             }
@@ -1309,7 +1309,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
                 return {
                   ok: false,
                   result: null,
-                  error: "未登录云端账号，请先登录",
+                  error: getErrorMessage('NOT_LOGGED_IN_CLOUD', ctx.lang),
                   durationMs: Date.now() - start,
                 };
               }
@@ -1353,7 +1353,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
               return {
                 ok: false,
                 result: null,
-                error: "未配置辅助模型，请先在上方「模型选择」中指定模型",
+                error: getErrorMessage('AUXILIARY_MODEL_NOT_CONFIGURED', ctx.lang),
                 durationMs: Date.now() - start,
               };
             }

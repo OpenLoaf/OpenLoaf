@@ -9,9 +9,10 @@
  */
 "use client";
 
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import type { ComponentType } from "react";
 import type { IconProps } from "@phosphor-icons/react";
+import { useTranslation } from "react-i18next";
 import {
   Scan as PhScan,
   Sparkle as PhSparkle,
@@ -46,35 +47,6 @@ type AIToolItem = {
   activeClass: string;
 };
 
-const AI_TOOLS: AIToolItem[] = [
-  {
-    id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-    icon: PhScan,
-    label: "图片理解",
-    nodeType: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-    size: [320, 220],
-    colorClass: BOARD_GENERATE_BTN_PROMPT,
-    activeClass: BOARD_GENERATE_SELECTED_PROMPT,
-  },
-  {
-    id: IMAGE_GENERATE_NODE_TYPE,
-    icon: PhSparkle,
-    label: "图片生成",
-    nodeType: IMAGE_GENERATE_NODE_TYPE,
-    size: [320, 260],
-    colorClass: BOARD_GENERATE_BTN_IMAGE,
-    activeClass: BOARD_GENERATE_SELECTED_IMAGE,
-  },
-  {
-    id: VIDEO_GENERATE_NODE_TYPE,
-    icon: PhFilmSlate,
-    label: "生成视频",
-    nodeType: VIDEO_GENERATE_NODE_TYPE,
-    size: [360, 280],
-    colorClass: BOARD_GENERATE_BTN_VIDEO,
-    activeClass: BOARD_GENERATE_SELECTED_VIDEO,
-  },
-];
 
 export interface AIGenerateToolbarProps {
   engine: CanvasEngine;
@@ -85,8 +57,39 @@ const AIGenerateToolbar = memo(function AIGenerateToolbar({
   engine,
   snapshot,
 }: AIGenerateToolbarProps) {
+  const { t } = useTranslation('board');
   const isLocked = snapshot.locked;
   const pendingInsert = snapshot.pendingInsert;
+
+  const aiTools = useMemo<AIToolItem[]>(() => [
+    {
+      id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
+      icon: PhScan,
+      label: t('aiToolbar.imagePromptGenerate'),
+      nodeType: IMAGE_PROMPT_GENERATE_NODE_TYPE,
+      size: [320, 220],
+      colorClass: BOARD_GENERATE_BTN_PROMPT,
+      activeClass: BOARD_GENERATE_SELECTED_PROMPT,
+    },
+    {
+      id: IMAGE_GENERATE_NODE_TYPE,
+      icon: PhSparkle,
+      label: t('aiToolbar.imageGenerate'),
+      nodeType: IMAGE_GENERATE_NODE_TYPE,
+      size: [320, 260],
+      colorClass: BOARD_GENERATE_BTN_IMAGE,
+      activeClass: BOARD_GENERATE_SELECTED_IMAGE,
+    },
+    {
+      id: VIDEO_GENERATE_NODE_TYPE,
+      icon: PhFilmSlate,
+      label: t('aiToolbar.videoGenerate'),
+      nodeType: VIDEO_GENERATE_NODE_TYPE,
+      size: [360, 280],
+      colorClass: BOARD_GENERATE_BTN_VIDEO,
+      activeClass: BOARD_GENERATE_SELECTED_VIDEO,
+    },
+  ], [t]);
 
   return (
     <div
@@ -98,7 +101,7 @@ const AIGenerateToolbar = memo(function AIGenerateToolbar({
         BOARD_TOOLBAR_SURFACE_CLASS,
       )}
     >
-      {AI_TOOLS.map((item) => {
+      {aiTools.map((item) => {
         const Icon = item.icon;
         const isActive = pendingInsert?.id === item.id;
         return (

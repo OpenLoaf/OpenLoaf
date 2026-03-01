@@ -129,6 +129,7 @@
     "keys": "AI 模型服務",
     "storage": "S3 儲存服務",
     "agents": "Agent 助手",
+    "auxiliaryModel": "輔助模型",
     "shortcuts": "快速鍵",
     "projectTest": "測試",
     "about": "關於 OpenLoaf"
@@ -517,10 +518,10 @@
     "selectedCountLabel": "{{count}} 個模型",
     "loginCloud": "登入以使用雲端模型",
     "noModel": "暫無可用模型",
-    "sourceSaas": "SaaS",
-    "sourceSaasHint": "零配置，由 SaaS 平台提供模型服務，按日計費",
+    "sourceSaas": "雲端",
+    "sourceSaasHint": "零配置，由雲端平台提供模型服務，按日計費",
     "needLogin": "需要登入雲端帳號",
-    "needLoginHint": "SaaS 輔助模型需要登入後使用，無需額外設定",
+    "needLoginHint": "雲端輔助模型需要登入後使用，無需額外設定",
     "login": "登入",
     "saasProvided": "SaaS 提供的輔助模型",
     "saasProvidedHint": "零配置，由 SaaS 平台提供模型服務，按日計費",
@@ -538,7 +539,11 @@
     "quotaExhausted": "今日配額已用完，可切換為本地模型繼續使用",
     "quotaWarning": "配額即將用完",
     "quotaStatus": "配額狀態",
-    "test": "測試"
+    "test": "測試",
+    "tokenInput": "輸入",
+    "tokenCached": "快取",
+    "tokenOutput": "輸出",
+    "tokenTotal": "共 {{total}}"
   },
   "skills": {
     "title": "技能管理",

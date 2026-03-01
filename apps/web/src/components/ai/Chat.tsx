@@ -300,6 +300,7 @@ function ChatFullPageLayout({
                   canImageEdit={canImageEdit}
                   isCodexProvider={isCodexProvider}
                   onDropHandled={onDropHandled}
+                  blockedCompact
                 />
                 <div className="mt-4">
                   <MessageHelper compact />

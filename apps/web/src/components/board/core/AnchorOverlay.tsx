@@ -17,6 +17,7 @@ import type {
 import { cn } from "@udecode/cn";
 import { Fragment } from "react";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   SELECTED_ANCHOR_EDGE_SIZE,
   SELECTED_ANCHOR_EDGE_SIZE_HOVER,
@@ -43,6 +44,7 @@ type AnchorOverlayProps = {
 
 /** Render anchor handles above nodes for linking. */
 export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
+  const { t } = useTranslation('board');
   // 逻辑：视图变化时独立刷新锚点位置，避免全量快照重算。
   if (snapshot.selectedIds.length > 1) {
     return null;
@@ -181,7 +183,7 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
                   event.stopPropagation();
                   engine.toggleMindmapCollapse(anchor.elementId);
                 }}
-                title={collapseTarget!.collapsed ? "展开" : "折叠"}
+                title={collapseTarget!.collapsed ? t('anchorOverlay.expand') : t('anchorOverlay.collapse')}
               >
                 {collapseTarget!.collapsed ? (
                   <ChevronRight size={12} />

@@ -761,7 +761,7 @@ export const fsRouter = t.router({
   /** Search across all projects in the workspace. */
   searchWorkspace: shieldedProcedure
     .input(fsSearchWorkspaceSchema)
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const query = input.query.trim().toLowerCase();
       if (!query) return { results: [] };
       const includeHidden = Boolean(input.includeHidden);
@@ -838,7 +838,8 @@ export const fsRouter = t.router({
         } catch {
           continue;
         }
-        const projectTitle = project.title?.trim() || "未命名项目";
+        const projectTitle = project.title?.trim() ||
+          (ctx.lang === 'en-US' ? 'Untitled Project' : ctx.lang === 'zh-TW' ? '未命名專案' : '未命名项目');
         await visitProject(project.projectId, projectTitle, rootPath, rootPath, 0);
       }
 

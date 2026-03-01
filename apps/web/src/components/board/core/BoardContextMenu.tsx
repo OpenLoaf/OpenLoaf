@@ -11,6 +11,7 @@
 
 import { LayoutGrid, RotateCw, Clipboard, Maximize2, Minimize2, Scan } from "lucide-react";
 import type { ReactElement, MouseEvent as ReactMouseEvent } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -57,6 +58,7 @@ export function BoardContextMenu({
   isFullscreen,
   onContextMenu,
 }: BoardContextMenuProps) {
+  const { t } = useTranslation('board');
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild disabled={triggerDisabled} onContextMenu={onContextMenu}>
@@ -70,7 +72,7 @@ export function BoardContextMenu({
             onToggleFullscreen();
           }}
         >
-          {isFullscreen ? "退出全屏" : "全屏显示"}
+          {isFullscreen ? t('contextMenu.exitFullscreen') : t('contextMenu.enterFullscreen')}
         </ContextMenuItem>
         <ContextMenuItem
           icon={Scan}
@@ -79,7 +81,7 @@ export function BoardContextMenu({
             onFitView();
           }}
         >
-          最大化视图
+          {t('contextMenu.maximize')}
         </ContextMenuItem>
         <ContextMenuItem
           icon={LayoutGrid}
@@ -88,7 +90,7 @@ export function BoardContextMenu({
             onAutoLayout();
           }}
         >
-          自动布局
+          {t('contextMenu.autoLayout')}
         </ContextMenuItem>
         <ContextMenuItem
           icon={RotateCw}
@@ -97,7 +99,7 @@ export function BoardContextMenu({
             onRefresh();
           }}
         >
-          重新加载
+          {t('contextMenu.reload')}
         </ContextMenuItem>
         <ContextMenuItem
           icon={Clipboard}
@@ -108,7 +110,7 @@ export function BoardContextMenu({
             onPaste();
           }}
         >
-          粘贴
+          {t('contextMenu.paste')}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

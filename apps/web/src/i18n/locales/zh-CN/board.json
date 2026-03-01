@@ -57,5 +57,299 @@
     "imageHint": "非图片文件将置灰",
     "videoTitle": "选择视频文件",
     "videoHint": "非视频文件将置灰"
+  },
+  "emptyGuide": {
+    "heading": "从模板开始创作",
+    "subheading": "选择一个模板，点击画布放置",
+    "tpl": {
+      "imageGen": {
+        "label": "AI 图片生成",
+        "desc": "输入提示词，AI 生成图片"
+      },
+      "imagePrompt": {
+        "label": "AI 图片理解",
+        "desc": "上传图片，AI 分析内容"
+      },
+      "videoGen": {
+        "label": "AI 视频生成",
+        "desc": "AI 生成短视频片段"
+      },
+      "text": {
+        "label": "文本笔记",
+        "desc": "添加文字到画布"
+      }
+    }
+  },
+  "contextMenu": {
+    "exitFullscreen": "退出全屏",
+    "enterFullscreen": "全屏显示",
+    "maximize": "最大化视图",
+    "autoLayout": "自动布局",
+    "reload": "重新加载",
+    "paste": "粘贴"
+  },
+  "controls": {
+    "undo": "撤销",
+    "redo": "前进",
+    "maximize": "最大化视图",
+    "autoLayout": "自动布局",
+    "unlock": "解锁",
+    "lock": "锁定",
+    "zoomIn": "放大",
+    "zoomOut": "缩小"
+  },
+  "connector": {
+    "videoGenerate": "生成视频",
+    "videoGenerateDesc": "基于文本生成视频",
+    "imagePromptGenerate": "视频图片理解",
+    "imagePromptGenerateDesc": "分析视频并生成描述",
+    "imageGenerate": "图片生成",
+    "imageGenerateDesc": "基于提示词与图片生成新图"
+  },
+  "nodeDetail": {
+    "detail": "详情"
+  },
+  "textNode": {
+    "placeholder": "输入文字内容",
+    "toolbar": {
+      "fontSize": "字号",
+      "fontWeight": "字重",
+      "style": "样式",
+      "align": "对齐",
+      "textColor": "文字颜色",
+      "backgroundColor": "背景色"
+    },
+    "format": {
+      "italic": "斜体",
+      "underline": "下划线",
+      "strikethrough": "删除线",
+      "alignLeft": "左对齐",
+      "alignCenter": "居中",
+      "alignRight": "右对齐"
+    },
+    "fontWeights": {
+      "regular": "常规",
+      "medium": "中等",
+      "semibold": "半粗",
+      "bold": "加粗"
+    },
+    "colors": {
+      "default": "默认",
+      "black": "黑",
+      "blue": "蓝",
+      "orange": "橙",
+      "red": "红",
+      "green": "绿",
+      "purple": "紫",
+      "gray": "灰"
+    },
+    "backgrounds": {
+      "transparent": "透明",
+      "black": "黑",
+      "blue": "蓝",
+      "orange": "橙",
+      "red": "红",
+      "green": "绿",
+      "purple": "紫",
+      "gray": "灰"
+    }
+  },
+  "groupNode": {
+    "layoutVertical": "纵向布局",
+    "layoutHorizontal": "横向布局",
+    "dissolve": "解散",
+    "uniformSize": "统一大小"
+  },
+  "selection": {
+    "toolbar": {
+      "copy": "复制",
+      "bringToFront": "置顶",
+      "sendToBack": "置底",
+      "unlock": "解锁",
+      "lock": "锁定",
+      "delete": "删除",
+      "group": "编组",
+      "layoutVertical": "竖向排列",
+      "layoutHorizontal": "横向排列",
+      "autoLayout": "自动布局"
+    },
+    "mindmapLayout": {
+      "label": "方向",
+      "left": "左向",
+      "balanced": "均衡",
+      "right": "右向"
+    }
+  },
+  "imageGenerate": {
+    "title": "图片生成",
+    "model": "模型",
+    "prompt": "提示词",
+    "promptPlaceholder": "请输入提示词",
+    "generate": "生成",
+    "retry": "重试",
+    "login": "登录",
+    "loggingIn": "登录中",
+    "mode": {
+      "textToImage": "文生图",
+      "singleImage": "单图",
+      "multiImage": "多图"
+    },
+    "advanced": {
+      "count": "数量",
+      "aspectRatio": "宽高比",
+      "style": "风格",
+      "stylePlaceholder": "回车可自定义风格",
+      "negativePrompt": "不希望出现",
+      "auto": "自动"
+    },
+    "modelSelect": {
+      "noModel": "无可用模型",
+      "loginHint": "登录OpenLoaf账户，使用云端模型后选择模型"
+    },
+    "status": {
+      "generating": "生成中",
+      "waiting": "等待任务",
+      "failed": "失败"
+    },
+    "errors": {
+      "noModelSupport": "请选择支持「图片生成」的模型",
+      "noPrompt": "请先输入或连接提示词",
+      "invalidImageUrl": "存在无法访问的图片地址，请检查输入",
+      "imageReadFailed": "图片读取失败",
+      "submitFailed": "图片任务提交失败",
+      "generateFailed": "生成图片失败",
+      "copyFailed": "复制失败"
+    }
+  },
+  "videoGenerate": {
+    "title": "视频生成",
+    "model": "模型",
+    "prompt": "提示词",
+    "promptPlaceholder": "请输入提示词",
+    "generate": "生成",
+    "retry": "重试",
+    "login": "登录",
+    "loggingIn": "登录中",
+    "outputAudio": "输出音频",
+    "advanced": {
+      "aspectRatio": "宽高比",
+      "duration": "时长",
+      "style": "风格",
+      "stylePlaceholder": "回车可自定义风格",
+      "negativePrompt": "不希望出现",
+      "auto": "自动",
+      "yes": "是",
+      "no": "否",
+      "selectPlaceholder": "请选择"
+    },
+    "status": {
+      "completed": "已完成",
+      "failed": "生成失败",
+      "needModel": "需要配置模型",
+      "generating": "生成中",
+      "waiting": "等待任务"
+    },
+    "errors": {
+      "noModelSupport": "请选择支持「视频生成」的模型",
+      "noPrompt": "请先输入或连接提示词",
+      "generateFailed": "生成视频失败",
+      "saveFailed": "视频保存失败",
+      "copyErrorSuccess": "已复制错误信息",
+      "copyFailed": "复制失败"
+    }
+  },
+  "imagePromptGenerate": {
+    "title": "视频图片理解",
+    "model": "模型",
+    "stop": "停止",
+    "login": "登录",
+    "loggingIn": "登录中",
+    "retry": "重试",
+    "regenerate": "重新生成",
+    "run": "运行",
+    "contentDescription": "内容描述",
+    "noModel": "无可用模型",
+    "loginHint": "登录以使用云端模型",
+    "errors": {
+      "noInput": "当前输入缺少可用的地址，无法生成描述",
+      "generateFailed": "生成描述失败",
+      "noModelSupport": "请选择支持当前输入类型的模型",
+      "copySuccess": "已复制描述",
+      "copyFailed": "复制失败"
+    }
+  },
+  "videoNode": {
+    "toolbar": {
+      "detail": "详情"
+    }
+  },
+  "linkNode": {
+    "toolbar": {
+      "open": "打开",
+      "copyUrl": "复制URL"
+    }
+  },
+  "anchorOverlay": {
+    "expand": "展开",
+    "collapse": "折叠"
+  },
+  "loading": {
+    "processing": "任务处理中",
+    "cancelled": "请求已取消",
+    "queryFailed": "任务查询失败",
+    "imageGenerateFailed": "图片生成失败",
+    "videoGenerateFailed": "视频生成失败",
+    "videoSaveFailed": "视频保存失败",
+    "taskCancelled": "任务已取消",
+    "failed": "生成失败",
+    "imageTimeout": "图片生成超时",
+    "videoTimeout": "视频生成超时",
+    "imageGenerateError": "生成图片失败",
+    "videoGenerateError": "生成视频失败",
+    "statusFailed": "失败",
+    "statusGenerating": "生成中…",
+    "statusWaiting": "等待任务"
+  },
+  "collab": {
+    "imageTranscodeFailed": "图片转码失败，已使用原始文件插入"
+  },
+  "panelHeader": {
+    "noCanvas": "未找到可导出的画布",
+    "exportFailed": "导出失败：无法生成图片",
+    "exitFullscreen": "退出全屏",
+    "enterFullscreen": "进入全屏",
+    "showAIPanel": "显示 AI 面板",
+    "hideAIPanel": "收起 AI 面板",
+    "screenshot": "截图画布"
+  },
+  "aiToolbar": {
+    "imagePromptGenerate": "图片理解",
+    "imageGenerate": "图片生成",
+    "videoGenerate": "生成视频"
+  },
+  "styles": {
+    "realistic": "写实",
+    "anime": "动漫",
+    "illustration": "插画",
+    "3d": "3D",
+    "cyberpunk": "赛博朋克",
+    "oilPainting": "油画",
+    "watercolor": "水彩",
+    "sketch": "素描",
+    "pixelArt": "像素风",
+    "flat": "扁平风",
+    "minimalist": "极简",
+    "chinese": "中国风",
+    "impressionist": "印象派",
+    "popart": "波普艺术",
+    "steampunk": "蒸汽朋克",
+    "gothic": "哥特风",
+    "surrealism": "超现实主义",
+    "geometric": "几何风",
+    "retro": "复古风",
+    "scifi": "科幻风",
+    "fantasy": "奇幻风",
+    "ink": "水墨风",
+    "lowpoly": "低多边形"
   }
 }

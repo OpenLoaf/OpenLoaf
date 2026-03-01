@@ -15,7 +15,7 @@ import { skipToken, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OpenLoafSettingsLayout } from "@openloaf/ui/openloaf/OpenLoafSettingsLayout";
 import { OpenLoafSettingsMenu } from "@openloaf/ui/openloaf/OpenLoafSettingsMenu";
-import { BarChart3, Bot, Cpu, GitBranch, SlidersHorizontal, Wand2 } from "lucide-react";
+import { Bot, Cpu, GitBranch, SlidersHorizontal, Wand2 } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,6 @@ import { cn } from "@/lib/utils";
 import { ProjectBasicSettings } from "./menus/ProjectBasicSettings";
 import { ProjectAiSettings } from "./menus/ProjectAiSettings";
 import { ProjectGitSettings } from "./menus/ProjectGitSettings";
-import { ProjectStatsSettings } from "./menus/ProjectStatsSettings";
 import { ProjectSkillsSettings } from "./menus/ProjectSkillsSettings";
 import { ProjectAgentSettings } from "./menus/ProjectAgentSettings";
 
@@ -32,14 +31,13 @@ type ProjectSettingsPanelProps = {
   rootUri?: string;
 };
 
-type ProjectSettingsMenuKey = "basic" | "ai" | "skills" | "agents" | "stats" | "git";
+type ProjectSettingsMenuKey = "basic" | "ai" | "skills" | "agents" | "git";
 
 const PROJECT_MENU_ICON_COLOR = {
   basic: "text-[#1a73e8] dark:text-sky-300",
   ai: "text-[#9334e6] dark:text-violet-300",
   skills: "text-[#7c3aed] dark:text-purple-300",
   agents: "text-[#059669] dark:text-emerald-300",
-  stats: "text-[#f9ab00] dark:text-amber-300",
   git: "text-[#188038] dark:text-emerald-300",
 } as const;
 
@@ -60,7 +58,7 @@ type SettingsMenuItem = {
   Component: ComponentType<ProjectSettingsPanelProps>;
 };
 
-const ALL_MENU_KEYS: ProjectSettingsMenuKey[] = ["basic", "ai", "skills", "agents", "stats", "git"];
+const ALL_MENU_KEYS: ProjectSettingsMenuKey[] = ["basic", "ai", "skills", "agents", "git"];
 const MENU_KEY_SET = new Set<ProjectSettingsMenuKey>(ALL_MENU_KEYS);
 
 /** Check whether the value is a valid project settings menu key. */
@@ -148,15 +146,6 @@ export default function ProjectSettingsPage({
     },
   ], [t]);
 
-  const statsGroup = useMemo<SettingsMenuItem[]>(() => [
-    {
-      key: "stats",
-      label: t("settings:project.tabStats"),
-      Icon: createMenuIcon(BarChart3, PROJECT_MENU_ICON_COLOR.stats),
-      Component: ProjectStatsSettings,
-    },
-  ], [t]);
-
   const gitMenu = useMemo<SettingsMenuItem>(() => ({
     key: "git",
     label: "Git",
@@ -166,10 +155,10 @@ export default function ProjectSettingsPage({
 
   const menuGroups = useMemo(() => {
     const topGroup = isGitProject
-      ? [...generalGroup, ...statsGroup, gitMenu]
-      : [...generalGroup, ...statsGroup];
+      ? [...generalGroup, gitMenu]
+      : [...generalGroup];
     return [topGroup, aiGroup];
-  }, [isGitProject, generalGroup, statsGroup, gitMenu, aiGroup]);
+  }, [isGitProject, generalGroup, gitMenu, aiGroup]);
   const allMenuItems = useMemo(() => menuGroups.flat(), [menuGroups]);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);

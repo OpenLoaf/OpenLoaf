@@ -109,6 +109,8 @@ interface ChatInputProps {
   canImageEdit?: boolean;
   isCodexProvider?: boolean;
   onDropHandled?: () => void;
+  /** When true, hides icon/title/subtitle in blocked state (used in centered layout). */
+  blockedCompact?: boolean;
 }
 
 const MAX_CHARS = 20000;
@@ -196,6 +198,8 @@ export interface ChatInputBoxProps {
   blocked?: boolean;
   /** Blocked reason hint for overlay wording. */
   blockedReason?: 'cloud-login' | 'local-empty' | 'unconfigured';
+  /** When true, hides icon/title/subtitle in blocked state (used in centered layout). */
+  blockedCompact?: boolean;
   /** Open SaaS login dialog when input is blocked. */
   onRequestLogin?: () => void;
   /** Open local model configuration when input is blocked. */
@@ -239,12 +243,12 @@ export function ChatInputBox({
   value,
   onChange,
   className,
-  placeholder = "提问、搜索或创作任何内容…",
+  placeholder,
   compact,
   variant = "default",
   actionVariant = "icon",
-  submitLabel = "发送",
-  cancelLabel = "取消",
+  submitLabel,
+  cancelLabel,
   isLoading,
   isStreaming,
   submitDisabled,
@@ -281,7 +285,11 @@ export function ChatInputBox({
   hasCliTools = false,
   conversationStarted = false,
   cliToolLabel,
+  blockedCompact = false,
 }: ChatInputBoxProps) {
+  const { t } = useTranslation('ai');
+  const resolvedSubmitLabel = submitLabel ?? t('chat.send');
+  const resolvedCancelLabel = cancelLabel ?? t('common.cancel');
   const isBlocked = Boolean(blocked);
   const plainTextValue = useMemo(() => getPlainTextFromInput(value), [value]);
   const isOverLimit = plainTextValue.length > MAX_CHARS;
@@ -383,7 +391,9 @@ export function ChatInputBox({
       isBlocked ||
       (!plainTextValue.trim() && !hasReadyAttachments);
 
-  const resolvedPlaceholder = chatMode === "cli" ? `与 ${cliToolLabel || "CLI"} 对话...` : placeholder;
+  const resolvedPlaceholder = chatMode === "cli"
+    ? t('input.cliPlaceholder', { tool: cliToolLabel || "CLI" })
+    : (placeholder ?? t('input.defaultPlaceholder'));
 
   // Responsive: collapse ChatModeSelector labels when footer is narrow
   const [footerEl, setFooterEl] = useState<HTMLDivElement | null>(null);
@@ -797,30 +807,34 @@ export function ChatInputBox({
       ) : null}
       {isBlocked ? (
         /* 未登录或未配置 AI 服务商时，替换输入框为引导内容 */
-        <div className="flex flex-col items-center justify-center gap-2.5 px-5 py-4">
-          <img
-            src="/logo_nobody.png"
-            alt="OpenLoaf"
-            className="size-12 object-contain"
-          />
-          <div className="text-center">
-            <p className="text-[13px] font-medium text-[#202124] dark:text-slate-50">
-              {blockedReason === 'cloud-login'
-                ? '登录后使用云端模型'
-                : blockedReason === 'local-empty'
-                  ? '本地模型未配置'
-                  : '开始智能对话'}
-            </p>
-            <p className="mt-0.5 text-[11px] text-[#5f6368] dark:text-slate-400">
-              {blockedReason === 'cloud-login'
-                ? '当前选择的是云端模型，登录后即可使用'
-                : blockedReason === 'local-empty'
-                  ? onRequestSwitchCloud
-                    ? '切换到云端模型，或配置本地 AI 服务商'
-                    : '登录云端或配置本地 AI 服务商'
-                  : '登录云端或配置本地 AI 服务商'}
-            </p>
-          </div>
+        <div className={cn("flex flex-col items-center justify-center gap-2.5 px-5 py-4", blockedCompact && "min-h-[104px]")}>
+          {!blockedCompact && (
+            <img
+              src="/logo_nobody.png"
+              alt="OpenLoaf"
+              className="size-12 object-contain"
+            />
+          )}
+          {!blockedCompact && (
+            <div className="text-center">
+              <p className="text-[13px] font-medium text-[#202124] dark:text-slate-50">
+                {blockedReason === 'cloud-login'
+                  ? '登录后使用云端模型'
+                  : blockedReason === 'local-empty'
+                    ? '本地模型未配置'
+                    : '开始智能对话'}
+              </p>
+              <p className="mt-0.5 text-[11px] text-[#5f6368] dark:text-slate-400">
+                {blockedReason === 'cloud-login'
+                  ? '当前选择的是云端模型，登录后即可使用'
+                  : blockedReason === 'local-empty'
+                    ? onRequestSwitchCloud
+                      ? '切换到云端模型，或配置本地 AI 服务商'
+                      : '登录云端或配置本地 AI 服务商'
+                    : '登录云端或配置本地 AI 服务商'}
+              </p>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             {blockedReason === 'local-empty' && onRequestSwitchCloud ? (
               <button
@@ -913,13 +927,13 @@ export function ChatInputBox({
                       className="rounded-full w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                       onClick={() => setFilePickerOpen(true)}
                       disabled={!canAttachAll && !canAttachImage}
-                      aria-label="添加附件"
+                      aria-label={t('input.addAttachment')}
                     >
                       <Paperclip className="w-4 h-4" />
                     </PromptInputButton>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-xs">
-                    添加附件
+                    {t('input.addAttachment')}
                   </TooltipContent>
                 </Tooltip>
               ) : null}
@@ -959,7 +973,7 @@ export function ChatInputBox({
                   className="h-7 rounded-full px-2.5 text-xs shadow-none"
                   onClick={onCancel}
                 >
-                  {cancelLabel}
+                  {resolvedCancelLabel}
                 </PromptInputButton>
               )}
 
@@ -978,13 +992,13 @@ export function ChatInputBox({
                       )}
                       aria-pressed={isListening}
                       onClick={() => void toggleDictation()}
-                      aria-label="语音输入"
+                      aria-label={t('input.voiceInput')}
                     >
                       <Mic className={cn("w-4 h-4", isListening && "text-destructive")} />
                     </PromptInputButton>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-xs">
-                    {isListening ? "停止语音输入" : "语音输入"}
+                    {isListening ? t('input.stopVoiceInput') : t('input.voiceInput')}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -1001,7 +1015,7 @@ export function ChatInputBox({
                       : "bg-muted text-foreground/60 cursor-not-allowed"
                   )}
                 >
-                  {submitLabel}
+                  {resolvedSubmitLabel}
                 </PromptInputButton>
               ) : (
                 <Tooltip>
@@ -1024,7 +1038,7 @@ export function ChatInputBox({
                     />
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-xs">
-                    {isLoading ? "停止生成" : "发送消息"}
+                    {isLoading ? t('input.stopGenerating') : t('input.sendMessage')}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -1034,7 +1048,7 @@ export function ChatInputBox({
 
           {isOverLimit && (
              <div className="px-4 pb-2 text-xs text-destructive font-medium animate-in fade-in slide-in-from-top-1">
-               Content exceeds the {MAX_CHARS} character limit. Please shorten your message.
+               {t('input.characterLimitExceeded', { max: MAX_CHARS })}
              </div>
           )}
         </PromptInput>
@@ -1063,6 +1077,7 @@ export default function ChatInput({
   model,
   isAutoModel,
   canImageGeneration,
+  blockedCompact,
   canImageEdit,
   isCodexProvider,
   onDropHandled,
@@ -1242,7 +1257,7 @@ export default function ChatInput({
         id: "provider-management",
         sourceKey: "provider-management",
         component: "provider-management",
-        title: "管理模型",
+        title: t('input.manageModels'),
       },
       100,
     );
@@ -1469,6 +1484,7 @@ export default function ChatInput({
         hasCliTools={hasCliTools}
         conversationStarted={conversationStarted}
         cliToolLabel={cliToolLabel}
+        blockedCompact={blockedCompact}
         header={
           !isUnconfigured && (showImageOutputOptions || isCodexProvider) ? (
             <div className="flex flex-col gap-2">

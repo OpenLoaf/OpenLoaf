@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { Camera, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import type { DockItem } from "@openloaf/api/common";
 import { Button } from "@openloaf/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
@@ -95,6 +96,7 @@ export type BoardPanelHeaderActionsProps = {
 
 /** Render header actions for board panels. */
 export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeaderActionsProps) {
+  const { t } = useTranslation('board');
   const isBoardPanel = item.component === "board-viewer";
   const sidebar = useOptionalSidebar();
   const isMobile = sidebar?.isMobile ?? false;
@@ -131,7 +133,7 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
     const panelSelector = `[data-board-canvas][data-board-panel="${item.id}"]`;
     const target = document.querySelector(panelSelector) as HTMLElement | null;
     if (!target) {
-      toast.error("未找到可导出的画布");
+      toast.error(t('panelHeader.noCanvas'));
       return;
     }
     const fileName = buildBoardExportFileName(item.params, title);
@@ -142,14 +144,14 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
       // 逻辑：导出时过滤工具条/控件，避免截图污染。
       const blob = await captureBoardImageBlob(target);
       if (!blob) {
-        toast.error("导出失败：无法生成图片");
+        toast.error(t('panelHeader.exportFailed'));
         return;
       }
       const saved = await downloadBlobAsFile(blob, fileName);
       if (!saved) return;
     } catch (error) {
-      console.error("导出失败", error);
-      toast.error("导出失败");
+      console.error("Export failed", error);
+      toast.error(t('panelHeader.exportFailed'));
     } finally {
       setBoardExporting(target, false);
     }
@@ -198,13 +200,13 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
   }, []);
   const toggleLabel = canToggleSidebar
     ? isBoardFull
-      ? "退出全屏"
-      : "进入全屏"
+      ? t('panelHeader.exitFullscreen')
+      : t('panelHeader.enterFullscreen')
     : rightChatCollapsed
-      ? "显示 AI 面板"
-      : "收起 AI 面板";
+      ? t('panelHeader.showAIPanel')
+      : t('panelHeader.hideAIPanel');
   const toggleTooltip = canToggleSidebar ? `${toggleLabel} (${shortcutLabel})` : toggleLabel;
-  const exportLabel = "截图画布";
+  const exportLabel = t('panelHeader.screenshot');
 
   useEffect(() => {
     if (!isBoardPanel) return;

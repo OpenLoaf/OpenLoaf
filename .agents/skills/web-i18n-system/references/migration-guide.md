@@ -692,6 +692,153 @@ t('sidebar.projectFolder');  // 正确
 
 ---
 
+### ❌ 错误 5: workspace.json 顶层包装键未使用 keyPrefix
+
+`workspace.json` 的结构是所有 key 都嵌套在顶层 `workspace` 对象下。如果不用 `keyPrefix`，所有 `t()` 调用都会找不到 key：
+
+```tsx
+// ❌ 错误
+const { t } = useTranslation('workspace');
+t('settings.accountInfo')  // 实际路径是 workspace.settings.accountInfo，查找失败，返回原始 key
+```
+
+```tsx
+// ✅ 正确
+const { t } = useTranslation('workspace', { keyPrefix: 'workspace' });
+t('settings.accountInfo')  // 自动拼接为 workspace.settings.accountInfo，成功
+```
+
+启用 `keyPrefix` 后，已有 `workspace.` 前缀的调用要去掉，避免双重叠加：
+```tsx
+// ❌ 双重前缀
+t('workspace.settings.clearChat')  // → workspace.workspace.settings.clearChat
+
+// ✅ 去掉冗余
+t('settings.clearChat')
+```
+
+---
+
+### ❌ 错误 6: 用 `:` 代替 `.` 作为 key 路径分隔符
+
+`:` 是 i18next **namespace 分隔符**，不是 key 路径分隔符。
+
+```tsx
+// ❌ 错误：被解析为 "keyboardShortcuts" namespace（不存在），返回原始 key
+const { t } = useTranslation('settings');
+t(`keyboardShortcuts:${keyPath}`)
+t('keyboardShortcuts:title')
+
+// ✅ 正确：用 . 在同一 namespace 内导航
+t(`keyboardShortcuts.${keyPath}`)
+t('keyboardShortcuts.title')
+```
+
+---
+
+### ❌ 错误 7: 将 titleKey 直接用作显示文本
+
+配置对象中的 `titleKey: "nav:workbench"` 是 i18n key 引用，不是翻译后的字符串：
+
+```ts
+// ❌ 错误：存储原始 key，Tab 标题显示 "nav:workbench"
+title: input.titleKey ?? input.title ?? ''
+
+// ✅ 正确：存储前先翻译
+import i18next from 'i18next';
+title: input.titleKey ? i18next.t(input.titleKey) : (input.title ?? '')
+```
+
+在 Zustand store 等非 React 上下文中同样使用 `import i18next from 'i18next'` + `i18next.t()`。
+
+---
+
+### ❌ 错误 8: useMemo 空依赖数组，语言切换后不更新
+
+```tsx
+// ❌ 错误：空依赖，只在挂载时求值，语言切换后不重算
+const menuGroups = useMemo(() => buildMenuGroups(t), []);
+```
+
+```tsx
+// ✅ 正确：加入 t 作为依赖，语言变化时自动重算
+const menuGroups = useMemo(() => buildMenuGroups(t), [t]);
+```
+
+---
+
+### ❌ 错误 9: 组件外静态数组含翻译标签
+
+```tsx
+// ❌ 错误：模块级常量，语言切换后标签不更新
+const TABS = [
+  { label: '工作台', ... },
+  { label: '日历', ... },
+];
+```
+
+```tsx
+// ✅ 正确：改为工厂函数 + 组件内 useMemo([t])
+function buildTabs(t: (key: string) => string) {
+  return [
+    { label: t('nav:workbench'), ... },
+    { label: t('nav:calendar'), ... },
+  ];
+}
+
+export function MyComponent() {
+  const { t } = useTranslation();
+  const tabs = useMemo(() => buildTabs(t), [t]);
+  // ...
+}
+```
+
+---
+
+## packages/api 层 i18n 模式
+
+`packages/api` 的 tRPC procedure 通过 `ctx.lang` 获取用户语言（已在 Context 中定义），可以做运行时国际化。但由于 packages 层不能 import `apps/server` 的代码，需要用内联翻译。
+
+### ✅ Procedure 内联翻译
+
+```ts
+// packages/api/src/routers/fs.ts
+searchWorkspace: shieldedProcedure
+  .input(fsSearchWorkspaceSchema)
+  .query(async ({ input, ctx }) => {  // ← 必须解构 ctx
+
+    // 内联三语翻译（不依赖 apps/server 的 getErrorMessage）
+    const untitledLabel =
+      ctx.lang === 'en-US' ? 'Untitled Project' :
+      ctx.lang === 'zh-TW' ? '未命名專案' :
+      '未命名项目';
+
+    const projectTitle = project.title?.trim() || untitledLabel;
+  }),
+```
+
+### apps/server 路由用 getErrorMessage（推荐）
+
+`apps/server` 中的路由优先使用 `errorMessages.ts`，覆盖更完整：
+
+```ts
+// apps/server/src/routers/email.ts
+import { getErrorMessage } from "@/shared/errorMessages";
+
+mutation: async ({ input, ctx }) => {
+  if (!row) throw new Error(getErrorMessage('EMAIL_NOT_FOUND', ctx.lang));
+}
+```
+
+### 纯工具函数（无 ctx）
+
+纯工具函数（如 `packages/api/src/types/toolResult.ts` 的 `notImplemented()`）没有请求上下文：
+
+- **技术性错误/开发占位** → 直接用英文
+- **确实需要国际化** → 增加 `lang?: string` 参数，由调用方传入 `ctx.lang`
+
+---
+
 ## 快速参考
 
 | 需求 | 用法 | 示例 |

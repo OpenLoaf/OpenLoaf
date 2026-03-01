@@ -10,6 +10,7 @@
 'use client'
 
 import { Cloud, HardDrive, Settings2, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 interface ModelPreferencesHeaderProps {
@@ -33,11 +34,12 @@ export function ModelPreferencesHeader({
   onAutoChange,
   onManageModels,
 }: ModelPreferencesHeaderProps) {
+  const { t } = useTranslation('ai')
   return (
     <div className="flex items-center justify-between px-1">
       <div className="flex items-center gap-2">
         <span className="text-[13px] font-medium text-foreground">
-          偏好设置
+          {t('mode.preferences')}
         </span>
         {showManageButton && (
           <button
@@ -46,7 +48,7 @@ export function ModelPreferencesHeader({
             onClick={onManageModels}
           >
             <Settings2 className="h-3 w-3" />
-            管理
+            {t('mode.manage')}
           </button>
         )}
       </div>
@@ -82,7 +84,7 @@ export function ModelPreferencesHeader({
               )}
             >
               <HardDrive className="h-3 w-3" />
-              本地
+              {t('mode.local')}
             </span>
             <span
               className={cn(
@@ -93,7 +95,7 @@ export function ModelPreferencesHeader({
               )}
             >
               <Cloud className="h-3 w-3" />
-              云端
+              {t('mode.cloud')}
             </span>
           </div>
         )}
@@ -110,7 +112,7 @@ export function ModelPreferencesHeader({
           onClick={() => onAutoChange(true)}
         >
           <Sparkles className="h-3 w-3" />
-          自动
+          {t('mode.auto')}
         </button>
       </div>
     </div>

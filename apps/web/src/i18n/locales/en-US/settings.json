@@ -129,6 +129,7 @@
     "keys": "AI Model Services",
     "storage": "S3 Storage Service",
     "agents": "Agent Assistants",
+    "auxiliaryModel": "Auxiliary Model",
     "shortcuts": "Keyboard Shortcuts",
     "projectTest": "Test",
     "about": "About OpenLoaf"
@@ -517,10 +518,10 @@
     "selectedCountLabel": "{{count}} models",
     "loginCloud": "Sign in to use cloud models",
     "noModel": "No models available",
-    "sourceSaas": "SaaS",
-    "sourceSaasHint": "Zero-config, model service provided by SaaS platform, billed daily",
+    "sourceSaas": "Cloud",
+    "sourceSaasHint": "Zero-config, model service provided by cloud platform, billed daily",
     "needLogin": "Login Required",
-    "needLoginHint": "SaaS auxiliary model requires login, no additional configuration needed",
+    "needLoginHint": "Cloud auxiliary model requires login, no additional configuration needed",
     "login": "Login",
     "saasProvided": "SaaS Provided Model",
     "saasProvidedHint": "Zero-config, model service provided by SaaS platform, billed daily",
@@ -538,7 +539,11 @@
     "quotaExhausted": "Today's quota exhausted, switch to local model to continue",
     "quotaWarning": "Quota almost exhausted",
     "quotaStatus": "Quota Status",
-    "test": "Test"
+    "test": "Test",
+    "tokenInput": "Input",
+    "tokenCached": "Cached",
+    "tokenOutput": "Output",
+    "tokenTotal": "Total {{total}}"
   },
   "skills": {
     "title": "Skills Management",

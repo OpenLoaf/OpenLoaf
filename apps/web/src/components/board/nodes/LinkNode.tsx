@@ -15,6 +15,7 @@ import type {
 import { useCallback, useMemo } from "react";
 import { z } from "zod";
 import { Copy, ExternalLink } from "lucide-react";
+import i18next from "i18next";
 import { openLinkInStack as openLinkInStackAction } from "./lib/link-actions";
 import { useBoardContext } from "../core/BoardProvider";
 import WebStackWidget from "@/components/desktop/widgets/WebStackWidget";
@@ -47,18 +48,19 @@ const WEB_STACK_CONSTRAINTS: DesktopWidgetItem["constraints"] = {
 
 /** Build toolbar items for link nodes. */
 function createLinkToolbarItems(ctx: CanvasToolbarContext<LinkNodeProps>) {
+  const t = (k: string) => i18next.t(k);
   return [
     {
-      id: "open",
-      label: "打开",
+      id: 'open',
+      label: t('board:linkNode.toolbar.open'),
       icon: <ExternalLink size={14} />,
       onSelect: () => {
         openLinkInStackAction({ url: ctx.element.props.url, title: ctx.element.props.title });
       },
     },
     {
-      id: "copy-url",
-      label: "复制URL",
+      id: 'copy-url',
+      label: t('board:linkNode.toolbar.copyUrl'),
       icon: <Copy size={14} />,
       onSelect: () => {
         const targetUrl = ctx.element.props.url;

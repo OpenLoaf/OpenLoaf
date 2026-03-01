@@ -11,6 +11,7 @@ import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../../engine/typ
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, LogIn, RotateCcw, Settings, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { useBoardContext } from "../../core/BoardProvider";
 import { useMediaModels } from "@/hooks/use-media-models";
@@ -70,6 +71,7 @@ export function ImageGenerateNodeView({
   onSelect,
   onUpdate,
 }: CanvasNodeViewProps<ImageGenerateNodeProps>) {
+  const { t } = useTranslation('board');
   /** Board engine used for lock checks and connector queries. */
   const { engine, fileContext } = useBoardContext();
   /** SaaS image model list for selection. */
@@ -257,10 +259,10 @@ export function ImageGenerateNodeView({
   const hasTooManyImages = overflowCount > 0;
 
   const inputSummary = useMemo(() => {
-    if (inputImageCount === 0) return "文生图";
-    if (inputImageCount === 1) return "单图";
-    return "多图";
-  }, [inputImageCount]);
+    if (inputImageCount === 0) return t('imageGenerate.mode.textToImage');
+    if (inputImageCount === 1) return t('imageGenerate.mode.singleImage');
+    return t('imageGenerate.mode.multiImage');
+  }, [inputImageCount, t]);
   const inputSummaryText = hasMaskInput ? `${inputSummary} + 遮罩` : inputSummary;
 
   useEffect(() => {
@@ -336,14 +338,14 @@ export function ImageGenerateNodeView({
     const modelId = (effectiveModelId || (node.props as any)?.modelId || "").trim();
     if (!modelId) {
       engine.doc.updateNodeProps(nodeId, {
-        errorText: "请选择支持「图片生成」的模型",
+        errorText: t('imageGenerate.errors.noModelSupport'),
       });
       return;
     }
 
     if (!hasPrompt) {
       engine.doc.updateNodeProps(nodeId, {
-        errorText: "请先输入或连接提示词",
+        errorText: t('imageGenerate.errors.noPrompt'),
       });
       return;
     }
@@ -357,7 +359,7 @@ export function ImageGenerateNodeView({
 
     if (hasInvalidImages) {
       engine.doc.updateNodeProps(nodeId, {
-        errorText: "存在无法访问的图片地址，请检查输入",
+        errorText: t('imageGenerate.errors.invalidImageUrl'),
       });
       return;
     }
@@ -417,7 +419,7 @@ export function ImageGenerateNodeView({
           resolvedImages.map(async (image) => {
             const res = await fetch(image.url ?? "");
             if (!res.ok) {
-              throw new Error("图片读取失败");
+              throw new Error(t('imageGenerate.errors.imageReadFailed'));
             }
             const blob = await res.blob();
             const base64 = await blobToBase64(blob);

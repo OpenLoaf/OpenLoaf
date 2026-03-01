@@ -22,6 +22,7 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import {
   Bot,
+  Cpu,
   SlidersHorizontal,
   Info,
   Keyboard,
@@ -38,6 +39,7 @@ import { AboutOpenLoaf } from "./menus/AboutOpenLoaf";
 import { ProviderManagement } from "./menus/ProviderManagement";
 import { ObjectStorageService } from "./menus/ObjectStorageService";
 import { AgentManagement } from "./menus/agent/AgentManagement";
+import { AuxiliaryModelSettings } from "./menus/AuxiliaryModelSettings";
 import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import { WorkspaceSettings } from "./menus/Workspace";
 import TestSetting from "./menus/TestSetting";
@@ -56,6 +58,7 @@ type SettingsMenuKey =
   | "keys"
   | "storage"
   | "agents"
+  | "auxiliaryModel"
   | "workspace"
   | "skills"
   | "thirdPartyTools"
@@ -70,6 +73,7 @@ const SETTINGS_MENU_ICON_COLOR = {
   keys: "text-[#9334e6] dark:text-violet-300",
   storage: "text-[#188038] dark:text-emerald-300",
   agents: "text-[#1a73e8] dark:text-sky-300",
+  auxiliaryModel: "text-[#188038] dark:text-emerald-300",
   shortcuts: "text-[#f9ab00] dark:text-amber-300",
   projectTest: "text-[#f4511e] dark:text-orange-300",
   about: "text-[#5f6368] dark:text-slate-300",
@@ -146,6 +150,12 @@ function buildMenu(t: (key: string) => string): Array<{
       Component: AgentManagement,
     },
     {
+      key: "auxiliaryModel",
+      label: t('settings:menu.auxiliaryModel'),
+      Icon: createMenuIcon(Cpu, SETTINGS_MENU_ICON_COLOR.auxiliaryModel),
+      Component: AuxiliaryModelSettings,
+    },
+    {
       key: "shortcuts",
       label: t('settings:menu.shortcuts'),
       Icon: createMenuIcon(Keyboard, SETTINGS_MENU_ICON_COLOR.shortcuts),
@@ -162,7 +172,7 @@ function buildMenu(t: (key: string) => string): Array<{
 }
 
 const ALL_MENU_KEYS: SettingsMenuKey[] = [
-  'basic', 'workspace', 'skills', 'thirdPartyTools', 'keys', 'storage', 'agents', 'shortcuts', 'about', 'projectTest',
+  'basic', 'workspace', 'skills', 'thirdPartyTools', 'keys', 'storage', 'agents', 'auxiliaryModel', 'shortcuts', 'about', 'projectTest',
 ];
 const MENU_KEY_SET = new Set<SettingsMenuKey>(ALL_MENU_KEYS);
 const HIDDEN_MENU_KEYS = new Set<SettingsMenuKey>([]);
@@ -284,6 +294,7 @@ export default function SettingsPage({
     ].filter(filterVisible);
     const group2 = [
       byKey.get("agents"),
+      byKey.get("auxiliaryModel"),
       byKey.get("skills"),
       byKey.get("keys"),
       byKey.get("storage"),
@@ -338,11 +349,11 @@ export default function SettingsPage({
       content={
         <div
           key={activeKey}
-          className={
-            shouldAnimate
-              ? "settings-animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out"
-              : undefined
-          }
+          className={cn(
+            "h-full min-h-0 flex flex-col",
+            shouldAnimate &&
+              "settings-animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out",
+          )}
         >
           <ActiveComponent />
         </div>

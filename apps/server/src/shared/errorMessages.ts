@@ -162,6 +162,30 @@ export const ERROR_MESSAGES = {
     'en-US': 'Draft not found',
   },
 
+  // Auxiliary model errors
+  UNKNOWN_CAPABILITY: {
+    'zh-CN': '未知能力',
+    'zh-TW': '未知能力',
+    'en-US': 'Unknown capability',
+  },
+  AUXILIARY_MODEL_NOT_CONFIGURED: {
+    'zh-CN': '未配置辅助模型，请先在上方「模型选择」中指定模型',
+    'zh-TW': '未配置輔助模型，請先在上方「模型選擇」中指定模型',
+    'en-US': 'Auxiliary model not configured. Please specify a model in "Model Selection" above.',
+  },
+  CONNECTION_FAILED: {
+    'zh-CN': '连接失败',
+    'zh-TW': '連線失敗',
+    'en-US': 'Connection failed',
+  },
+
+  // Auth errors
+  NOT_LOGGED_IN_CLOUD: {
+    'zh-CN': '未登录云端账号，请先登录',
+    'zh-TW': '未登入雲端帳號，請先登入',
+    'en-US': 'Not logged in to cloud account, please log in first',
+  },
+
   // Generic errors
   OPERATION_FAILED: {
     'zh-CN': '操作失败',

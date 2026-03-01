@@ -16,6 +16,7 @@ import type {
 import { useCallback, useMemo } from "react";
 import { z } from "zod";
 import { Play, Sparkles } from "lucide-react";
+import i18next from "i18next";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./imagePromptGenerate";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
 import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
@@ -57,8 +58,8 @@ function resolveProjectRelativePath(path: string, fileContext?: BoardFileContext
 function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
   return [
     {
-      id: "inspect",
-      label: "详情",
+      id: 'inspect',
+      label: i18next.t('board:videoNode.toolbar.detail'),
       icon: <Play size={14} />,
       onSelect: () => ctx.openInspector(ctx.element.id),
     },
@@ -173,12 +174,12 @@ export function VideoNodeView({
   );
 }
 
-/** Connector templates offered by the video node. */
-const VIDEO_NODE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefinition[] = [
+/** Connector templates offered by the video node – resolved at render time. */
+const getVideoNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
   {
     id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-    label: "视频图片理解",
-    description: "分析视频并生成描述",
+    label: i18next.t('board:connector.imagePromptGenerate'),
+    description: i18next.t('board:connector.imagePromptGenerateDesc'),
     size: [320, 220],
     icon: <Sparkles size={14} />,
     createNode: () => ({
@@ -211,6 +212,6 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
     minSize: { w: 200, h: 140 },
     maxSize: { w: 720, h: 480 },
   },
-  connectorTemplates: () => VIDEO_NODE_CONNECTOR_TEMPLATES,
+  connectorTemplates: () => getVideoNodeConnectorTemplates(),
   toolbar: (ctx) => createVideoToolbarItems(ctx),
 };

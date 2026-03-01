@@ -62,6 +62,7 @@ import {
 } from "@/modules/email/emailFileStore";
 import type { StoredDraft } from "@/modules/email/emailFileStore";
 import { logger } from "@/common/logger";
+import { getErrorMessage } from "@/shared/errorMessages";
 
 type EmailAccountView = {
   emailAddress: string;
@@ -1073,7 +1074,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
             where: { id: input.id, workspaceId: input.workspaceId },
           });
           if (!row) {
-            throw new Error("邮件不存在。");
+            throw new Error(getErrorMessage('EMAIL_NOT_FOUND', ctx.lang));
           }
           const privateSenders = buildPrivateSenderSet(input.workspaceId);
           const fromAddress = extractSenderEmail(row.from ?? "");
@@ -1159,7 +1160,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
       testConnection: shieldedProcedure
         .input(emailSchemas.testConnection.input)
         .output(emailSchemas.testConnection.output)
-        .mutation(async ({ input }) => {
+        .mutation(async ({ input, ctx }) => {
           const config = readEmailConfigFile(input.workspaceId);
           const account = config.emailAccounts.find(
             (a) =>
@@ -1167,7 +1168,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
               input.accountEmail.trim().toLowerCase(),
           );
           if (!account) {
-            return { ok: false, error: "账号未找到。" };
+            return { ok: false, error: getErrorMessage('ACCOUNT_NOT_FOUND', ctx.lang) };
           }
           const transport = createTransport(
             {
@@ -1200,7 +1201,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
       testConnectionPreAdd: shieldedProcedure
         .input(emailSchemas.testConnectionPreAdd.input)
         .output(emailSchemas.testConnectionPreAdd.output)
-        .mutation(async ({ input }) => {
+        .mutation(async ({ input, ctx }) => {
           // 逻辑：使用原始凭据测试 IMAP + SMTP 连接，无需先保存账号。
           const { testSmtpConnection } = await import(
             "@/modules/email/transport/smtpSender"
@@ -1221,7 +1222,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
             const imapResult = await imapAdapter.testConnection();
             await imapAdapter.dispose();
             if (!imapResult.ok) {
-              errors.push(`IMAP: ${imapResult.error ?? "连接失败"}`);
+              errors.push(`IMAP: ${imapResult.error ?? getErrorMessage('CONNECTION_FAILED', ctx.lang)}`);
             }
           } catch (err) {
             errors.push(
@@ -1238,7 +1239,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
               password: input.password,
             });
             if (!smtpResult.ok) {
-              errors.push(`SMTP: ${smtpResult.error ?? "连接失败"}`);
+              errors.push(`SMTP: ${smtpResult.error ?? getErrorMessage('CONNECTION_FAILED', ctx.lang)}`);
             }
           } catch (err) {
             errors.push(
@@ -1258,7 +1259,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
           const row = await prisma.emailMessage.findUnique({
             where: { id: input.id },
           });
-          if (!row) throw new Error("邮件未找到。");
+          if (!row) throw new Error(getErrorMessage('EMAIL_NOT_FOUND', ctx.lang));
           // 逻辑：软删除 — 添加 \\Deleted 标记 + 移动到 Trash 邮箱。
           const existingFlags = normalizeEmailFlags(row.flags);
           const newFlags = ensureDeletedFlag(existingFlags);
@@ -1308,7 +1309,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
           const row = await prisma.emailMessage.findUnique({
             where: { id: input.id },
           });
-          if (!row) throw new Error("邮件未找到。");
+          if (!row) throw new Error(getErrorMessage('EMAIL_NOT_FOUND', ctx.lang));
           // 逻辑：恢复 — 移除 \\Deleted 标记。
           const existingFlags = normalizeEmailFlags(row.flags);
           const newFlags = removeDeletedFlag(existingFlags);
@@ -1335,14 +1336,14 @@ export class EmailRouterImpl extends BaseEmailRouter {
           const row = await prisma.emailMessage.findUnique({
             where: { id: input.id },
           });
-          if (!row) throw new Error("邮件未找到。");
+          if (!row) throw new Error(getErrorMessage('EMAIL_NOT_FOUND', ctx.lang));
           const config = readEmailConfigFile(input.workspaceId);
           const account = config.emailAccounts.find(
             (a) =>
               a.emailAddress.trim().toLowerCase() ===
               row.accountEmail.trim().toLowerCase(),
           );
-          if (!account) throw new Error("账号未找到。");
+          if (!account) throw new Error(getErrorMessage('ACCOUNT_NOT_FOUND', ctx.lang));
           const transport = createTransport(
             {
               emailAddress: account.emailAddress,
@@ -1359,7 +1360,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
           );
           try {
             if (!transport.moveMessage) {
-              throw new Error("当前适配器不支持移动邮件。");
+              throw new Error(getErrorMessage('ADAPTER_DOES_NOT_SUPPORT_MOVE', ctx.lang));
             }
             await transport.moveMessage(row.mailboxPath, input.toMailbox, row.externalId);
             await prisma.emailMessage.update({
@@ -1491,7 +1492,7 @@ export class EmailRouterImpl extends BaseEmailRouter {
           const row = await (prisma as any).emailDraft.findUnique({
             where: { id: input.id },
           });
-          if (!row) throw new Error("草稿未找到。");
+          if (!row) throw new Error(getErrorMessage('DRAFT_NOT_FOUND', ctx.lang));
           // 逻辑：从文件系统读取 body。
           const draftFile = await readDraftFile({
             workspaceId: input.workspaceId,

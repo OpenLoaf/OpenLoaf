@@ -10,6 +10,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { queryClient, trpc } from '@/utils/trpc'
 import { Button } from '@openloaf/ui/button'
@@ -18,7 +19,6 @@ import { FilterTab } from '@openloaf/ui/filter-tab'
 import { OpenLoafSettingsGroup } from '@openloaf/ui/openloaf/OpenLoafSettingsGroup'
 import { OpenLoafSettingsField } from '@openloaf/ui/openloaf/OpenLoafSettingsField'
 import {
-  Cloud,
   Cpu,
   HardDrive,
   RotateCcw,
@@ -62,24 +62,12 @@ import {
 import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
 
-/** Output mode → badge style + label mapping. */
-const OUTPUT_MODE_BADGE: Record<string, { label: string; className: string }> = {
-  structured: {
-    label: '结构化输出',
-    className: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
-  },
-  text: {
-    label: '纯文本',
-    className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  },
-  'tool-call': {
-    label: '工具调用',
-    className: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-  },
-  skill: {
-    label: '使用技能',
-    className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  },
+/** Output mode → badge style mapping (label resolved via t()). */
+const OUTPUT_MODE_CLASS: Record<string, string> = {
+  structured: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+  text: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  'tool-call': 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  skill: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
 }
 
 /** Capability key → icon + color mapping. */
@@ -124,6 +112,7 @@ const DEFAULT_TEST_CONTEXT: Record<string, string> = {
 }
 
 export function AuxiliaryModelSettings() {
+  const { t } = useTranslation('settings')
   const { basic } = useBasicConfig()
   const { providerItems } = useSettingsValues()
   const { models: cloudModels } = useCloudModels()
@@ -138,9 +127,8 @@ export function AuxiliaryModelSettings() {
     trpc.settings.getAuxiliaryCapabilities.queryOptions(),
   )
 
-  const [modelSource, setModelSource] = useState<'local' | 'cloud' | 'saas'>('local')
+  const [modelSource, setModelSource] = useState<'local' | 'saas'>('local')
   const [localModelIds, setLocalModelIds] = useState<string[]>([])
-  const [cloudModelIds, setCloudModelIds] = useState<string[]>([])
   const [customPrompts, setCustomPrompts] = useState<
     Record<string, string | null>
   >({})
@@ -150,9 +138,8 @@ export function AuxiliaryModelSettings() {
   useEffect(() => {
     if (!configQuery.data) return
     const d = configQuery.data
-    setModelSource(d.modelSource)
+    setModelSource(d.modelSource === 'cloud' ? 'local' : d.modelSource)
     setLocalModelIds(d.localModelIds)
-    setCloudModelIds(d.cloudModelIds)
     const prompts: Record<string, string | null> = {}
     for (const [key, val] of Object.entries(d.capabilities)) {
       prompts[key] = val.customPrompt ?? null
@@ -165,25 +152,18 @@ export function AuxiliaryModelSettings() {
     setActiveCapKey(capabilitiesQuery.data[0].key)
   }, [activeCapKey, capabilitiesQuery.data])
 
-  const isCloudSource = modelSource === 'cloud'
   const isSaasSource = modelSource === 'saas'
-  const showCloudLogin = isCloudSource && !authLoggedIn
   const showSaasLogin = isSaasSource && !authLoggedIn
 
   const chatModels = useMemo(
     () =>
       isSaasSource
         ? []
-        : buildChatModelOptions(
-            modelSource === 'cloud' ? 'cloud' : 'local',
-            providerItems,
-            cloudModels,
-            installedCliProviderIds,
-          ),
-    [modelSource, isSaasSource, providerItems, cloudModels, installedCliProviderIds],
+        : buildChatModelOptions('local', providerItems, cloudModels, installedCliProviderIds),
+    [isSaasSource, providerItems, cloudModels, installedCliProviderIds],
   )
 
-  const activeModelIds = isCloudSource ? cloudModelIds : localModelIds
+  const activeModelIds = localModelIds
 
   // SaaS quota from config query
   const saasQuota = configQuery.data?.quota
@@ -194,10 +174,10 @@ export function AuxiliaryModelSettings() {
         queryClient.invalidateQueries({
           queryKey: trpc.settings.getAuxiliaryModelConfig.queryKey(),
         })
-        toast.success('辅助模型配置已保存')
+        toast.success(t('auxiliaryModel.saved'))
       },
       onError: (err) => {
-        toast.error(`保存失败: ${err.message}`)
+        toast.error(t('auxiliaryModel.saveFailed', { error: err.message }))
       },
     }),
   )
@@ -212,20 +192,19 @@ export function AuxiliaryModelSettings() {
     saveMutation.mutate({
       modelSource,
       localModelIds,
-      cloudModelIds,
+      cloudModelIds: [],
       capabilities,
     })
-  }, [modelSource, localModelIds, cloudModelIds, customPrompts, saveMutation])
+  }, [modelSource, localModelIds, customPrompts, saveMutation])
 
   const handleModelToggle = useCallback(
     (modelId: string, checked: boolean) => {
-      const setter = isCloudSource ? setCloudModelIds : setLocalModelIds
-      setter((prev) => {
+      setLocalModelIds((prev) => {
         if (checked) return [...prev, modelId]
         return prev.filter((id) => id !== modelId)
       })
     },
-    [isCloudSource],
+    [],
   )
 
   const activeCap = useMemo(
@@ -265,7 +244,7 @@ export function AuxiliaryModelSettings() {
     return (
       <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
         <Sparkles className="mr-2 h-4 w-4 animate-pulse" />
-        加载中...
+        {t('auxiliaryModel.loading')}
       </div>
     )
   }
@@ -274,37 +253,30 @@ export function AuxiliaryModelSettings() {
     <div className="flex h-full flex-col gap-5">
       {/* Section 1: Model selection */}
       <OpenLoafSettingsGroup
-        title="模型选择"
+        title={t('auxiliaryModel.modelTitle')}
         icon={<Cpu className="h-4 w-4" />}
-        subtitle="选择用于辅助推理的模型，推断失败时会静默兜底，不影响主流程。"
+        subtitle={t('auxiliaryModel.modelSubtitle')}
       >
         <div className="divide-y divide-border">
           {/* Source row */}
           <div className="flex flex-wrap items-start gap-3 py-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">模型来源</div>
+              <div className="text-sm font-medium">{t('auxiliaryModel.modelSource')}</div>
               <div className="text-xs text-muted-foreground">
-                选择本地部署、云端模型或 SaaS 辅助模型
+                {t('auxiliaryModel.modelSourceHint')}
               </div>
             </div>
             <OpenLoafSettingsField className="shrink-0 justify-end">
               <div className="flex items-center rounded-full border border-border/70 bg-muted/40">
                 <FilterTab
-                  text="本地"
+                  text={t('auxiliaryModel.sourceLocal')}
                   selected={modelSource === 'local'}
                   onSelect={() => setModelSource('local')}
                   icon={<HardDrive className="h-3 w-3 text-amber-500" />}
                   layoutId="aux-model-source"
                 />
                 <FilterTab
-                  text="云端"
-                  selected={modelSource === 'cloud'}
-                  onSelect={() => setModelSource('cloud')}
-                  icon={<Cloud className="h-3 w-3 text-sky-500" />}
-                  layoutId="aux-model-source"
-                />
-                <FilterTab
-                  text="SaaS"
+                  text={t('auxiliaryModel.sourceSaas')}
                   selected={modelSource === 'saas'}
                   onSelect={() => setModelSource('saas')}
                   icon={<Sparkles className="h-3 w-3 text-violet-500" />}
@@ -322,8 +294,8 @@ export function AuxiliaryModelSettings() {
                 <div className="flex items-center gap-3 rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
                   <Sparkles className="h-4 w-4 shrink-0 text-violet-500" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground">需要登录云端账号</p>
-                    <p className="text-xs text-muted-foreground">SaaS 辅助模型需要登录后使用，无需额外配置</p>
+                    <p className="text-sm font-medium text-foreground">{t('auxiliaryModel.needLogin')}</p>
+                    <p className="text-xs text-muted-foreground">{t('auxiliaryModel.needLoginHint')}</p>
                   </div>
                   <Button
                     variant="outline"
@@ -331,7 +303,7 @@ export function AuxiliaryModelSettings() {
                     className="shrink-0 rounded-full px-4 text-xs transition-colors duration-150"
                     onClick={() => setLoginOpen(true)}
                   >
-                    登录
+                    {t('auxiliaryModel.login')}
                   </Button>
                 </div>
               ) : (
@@ -340,8 +312,8 @@ export function AuxiliaryModelSettings() {
                   <div className="flex items-center gap-3 rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
                     <Sparkles className="h-4 w-4 shrink-0 text-violet-500" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground">SaaS 提供的辅助模型</p>
-                      <p className="text-xs text-muted-foreground">零配置，由 SaaS 平台提供模型服务，按日计费</p>
+                      <p className="text-sm font-medium text-foreground">{t('auxiliaryModel.saasProvided')}</p>
+                      <p className="text-xs text-muted-foreground">{t('auxiliaryModel.saasProvidedHint')}</p>
                     </div>
                   </div>
                   {saasQuota && (
@@ -353,20 +325,18 @@ export function AuxiliaryModelSettings() {
           ) : (
             <div className="flex flex-wrap items-start gap-3 py-3">
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium">使用模型</div>
+                <div className="text-sm font-medium">{t('auxiliaryModel.useModel')}</div>
                 <div className="text-xs text-muted-foreground">
                   {activeModelIds.length === 0
-                    ? '未指定，将自动选择可用模型'
-                    : `已选 ${activeModelIds.length} 个模型`}
+                    ? t('auxiliaryModel.autoModel')
+                    : t('auxiliaryModel.selectedModels', { count: activeModelIds.length })}
                 </div>
               </div>
               <OpenLoafSettingsField className="shrink-0 justify-end">
                 <ModelSelector
                   models={chatModels}
                   value={activeModelIds}
-                  showCloudLogin={showCloudLogin}
                   onChange={handleModelToggle}
-                  onOpenLogin={() => setLoginOpen(true)}
                 />
               </OpenLoafSettingsField>
             </div>
@@ -377,9 +347,9 @@ export function AuxiliaryModelSettings() {
       {/* Section 2: Capabilities */}
       {capabilitiesQuery.data && capabilitiesQuery.data.length > 0 && (
         <OpenLoafSettingsGroup
-          title="能力配置"
+          title={t('auxiliaryModel.capTitle')}
           icon={<Zap className="h-4 w-4" />}
-          subtitle="辅助模型在以下场景被调用，你可以自定义每个能力的提示词。"
+          subtitle={t('auxiliaryModel.capSubtitle')}
           className="flex-1 min-h-0 flex flex-col"
           cardProps={{
             className: "flex-1 min-h-0 flex flex-col",
@@ -436,14 +406,14 @@ export function AuxiliaryModelSettings() {
                           return <Icon className={cn('h-4 w-4', iconColor)} />
                         })()}
                         {activeCap.label}
-                        {activeCap.outputMode && OUTPUT_MODE_BADGE[activeCap.outputMode] && (
+                        {activeCap.outputMode && OUTPUT_MODE_CLASS[activeCap.outputMode] && (
                           <span
                             className={cn(
                               'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
-                              OUTPUT_MODE_BADGE[activeCap.outputMode].className,
+                              OUTPUT_MODE_CLASS[activeCap.outputMode],
                             )}
                           >
-                            {OUTPUT_MODE_BADGE[activeCap.outputMode].label}
+                            {t(`auxiliaryModel.${activeCap.outputMode === 'tool-call' ? 'toolCall' : activeCap.outputMode === 'structured' ? 'structuredOutput' : activeCap.outputMode === 'text' ? 'plainText' : 'useSkills'}`)}
                           </span>
                         )}
                       </div>
@@ -459,7 +429,7 @@ export function AuxiliaryModelSettings() {
                         onClick={() => setTestDialogOpen(true)}
                       >
                         <Play className="h-3 w-3" />
-                        测试
+                        {t('auxiliaryModel.test')}
                       </Button>
                       {isCustomized && (
                         <Button
@@ -469,7 +439,7 @@ export function AuxiliaryModelSettings() {
                           onClick={handleResetPrompt}
                         >
                           <RotateCcw className="h-3 w-3" />
-                          恢复默认
+                          {t('auxiliaryModel.resetDefault')}
                         </Button>
                       )}
                     </div>
@@ -477,7 +447,7 @@ export function AuxiliaryModelSettings() {
 
                   {/* Trigger scenarios */}
                   <div className="shrink-0">
-                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">触发场景</p>
+                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">{t('auxiliaryModel.triggerScene')}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {activeCap.triggers.map((trigger, idx) => (
                         <span
@@ -496,11 +466,11 @@ export function AuxiliaryModelSettings() {
                   {/* Prompt editor */}
                   <div className="flex flex-1 min-h-0 flex-col gap-1.5">
                     <div className="flex shrink-0 items-center gap-1.5">
-                      <span className="text-xs font-medium text-muted-foreground">提示词</span>
-                      <span className="text-[10px] text-muted-foreground/50">{currentPrompt.length} 字</span>
+                      <span className="text-xs font-medium text-muted-foreground">{t('auxiliaryModel.prompt')}</span>
+                      <span className="text-[10px] text-muted-foreground/50">{currentPrompt.length}</span>
                       {isCustomized && (
                         <span className="rounded-full bg-amber-500/10 px-1.5 py-px text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                          已修改
+                          {t('auxiliaryModel.modified')}
                         </span>
                       )}
                     </div>
@@ -508,7 +478,7 @@ export function AuxiliaryModelSettings() {
                       value={currentPrompt}
                       onChange={(e) => handlePromptChange(e.target.value)}
                       className="flex-1 min-h-0 resize-none rounded-lg border-border/60 bg-background/50 font-mono text-xs leading-relaxed focus-visible:ring-1 focus-visible:ring-ring/50"
-                      placeholder="输入自定义提示词..."
+                      placeholder={t('auxiliaryModel.promptPlaceholder')}
                     />
                   </div>
                 </>
@@ -526,7 +496,7 @@ export function AuxiliaryModelSettings() {
           size="sm"
           className="rounded-full px-5 transition-colors duration-150"
         >
-          {saveMutation.isPending ? '保存中...' : '保存配置'}
+          {saveMutation.isPending ? t('auxiliaryModel.saving') : t('auxiliaryModel.save')}
         </Button>
       </div>
 
@@ -562,6 +532,7 @@ function TestCapabilityDialog({
   outputMode: string
   currentPrompt: string
 }) {
+  const { t } = useTranslation('settings')
   const [context, setContext] = useState('')
   const [result, setResult] = useState<{
     ok: boolean
@@ -617,7 +588,16 @@ function TestCapabilityDialog({
   const capIcon = CAP_ICON_MAP[capabilityKey]
   const Icon = capIcon?.icon ?? Sparkles
   const iconColor = capIcon?.color ?? 'text-muted-foreground'
-  const badge = OUTPUT_MODE_BADGE[outputMode]
+  const badgeClass = OUTPUT_MODE_CLASS[outputMode]
+  const badgeLabel = outputMode === 'tool-call'
+    ? t('auxiliaryModel.toolCall')
+    : outputMode === 'structured'
+      ? t('auxiliaryModel.structuredOutput')
+      : outputMode === 'text'
+        ? t('auxiliaryModel.plainText')
+        : outputMode === 'skill'
+          ? t('auxiliaryModel.useSkills')
+          : undefined
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -633,19 +613,19 @@ function TestCapabilityDialog({
           <div className="min-w-0 flex-1">
             <DialogHeader className="p-0">
               <DialogTitle className="flex items-center gap-2 text-sm font-medium">
-                测试：{capabilityLabel}
-                {badge && (
+                {t('auxiliaryModel.testDialogTitle', { label: capabilityLabel })}
+                {badgeClass && badgeLabel && (
                   <span className={cn(
                     'inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium',
-                    badge.className,
+                    badgeClass,
                   )}>
-                    {badge.label}
+                    {badgeLabel}
                   </span>
                 )}
               </DialogTitle>
             </DialogHeader>
             <p className="mt-0.5 text-[11px] text-muted-foreground/70">
-              输入测试上下文，运行辅助模型推理并查看输出结果
+              {t('auxiliaryModel.testDialogSubtitle')}
             </p>
           </div>
         </div>
@@ -655,9 +635,9 @@ function TestCapabilityDialog({
           {/* Input section */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-foreground/80">输入上下文</span>
+              <span className="text-xs font-medium text-foreground/80">{t('auxiliaryModel.testInput')}</span>
               <span className="text-[10px] tabular-nums text-muted-foreground/50">
-                {context.length} 字
+                {context.length}
               </span>
             </div>
             <Textarea
@@ -670,14 +650,14 @@ function TestCapabilityDialog({
                 'focus-visible:ring-0 focus-visible:shadow-none focus-visible:border-border/70',
                 'transition-colors duration-200',
               )}
-              placeholder="输入测试上下文..."
+              placeholder={t('auxiliaryModel.promptPlaceholder')}
             />
           </div>
 
           {/* Result section */}
           {result && (
             <div className="flex flex-col gap-2.5">
-              <span className="text-xs font-medium text-foreground/80">输出结果</span>
+              <span className="text-xs font-medium text-foreground/80">{t('auxiliaryModel.testOutput')}</span>
 
               {/* Result content */}
               {result.ok ? (
@@ -692,7 +672,7 @@ function TestCapabilityDialog({
                 )
               ) : (
                 <div className="rounded-xl border border-red-500/15 bg-red-500/5 p-3.5 text-xs leading-relaxed text-red-600 dark:text-red-400">
-                  {result.error || '未知错误'}
+                  {result.error ?? t('auxiliaryModel.testFailed')}
                 </div>
               )}
 
@@ -704,7 +684,7 @@ function TestCapabilityDialog({
                     ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                     : 'bg-red-500/10 text-red-600 dark:text-red-400',
                 )}>
-                  {result.ok ? '成功' : '失败'}
+                  {result.ok ? t('auxiliaryModel.testSuccess') : t('auxiliaryModel.testFailed')}
                 </span>
                 <span className={cn(
                   'inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium tabular-nums',
@@ -715,19 +695,19 @@ function TestCapabilityDialog({
                       : 'bg-red-500/10 text-red-600 dark:text-red-400',
                 )}>
                   {result.durationMs < 1000
-                    ? `${result.durationMs}ms`
-                    : `${(result.durationMs / 1000).toFixed(1)}s`}
+                    ? t('auxiliaryModel.testDuration', { duration: result.durationMs })
+                    : t('auxiliaryModel.testDurationSec', { duration: (result.durationMs / 1000).toFixed(1) })}
                 </span>
                 {result.usage && result.usage.totalTokens > 0 && (
                   <>
                     <span className="h-3 w-px bg-border/40" />
                     <div className="flex items-center gap-2 text-[10px] tabular-nums text-muted-foreground">
-                      <span>输入 <span className="font-medium text-foreground/60">{formatTokenCount(result.usage.inputTokens)}</span></span>
+                      <span>{t('auxiliaryModel.tokenInput')} <span className="font-medium text-foreground/60">{formatTokenCount(result.usage.inputTokens)}</span></span>
                       {result.usage.cachedInputTokens > 0 && (
-                        <span>缓存 <span className="font-medium text-foreground/60">{formatTokenCount(result.usage.cachedInputTokens)}</span></span>
+                        <span>{t('auxiliaryModel.tokenCached')} <span className="font-medium text-foreground/60">{formatTokenCount(result.usage.cachedInputTokens)}</span></span>
                       )}
-                      <span>输出 <span className="font-medium text-foreground/60">{formatTokenCount(result.usage.outputTokens)}</span></span>
-                      <span className="font-medium text-foreground/60">共 {formatTokenCount(result.usage.totalTokens)}</span>
+                      <span>{t('auxiliaryModel.tokenOutput')} <span className="font-medium text-foreground/60">{formatTokenCount(result.usage.outputTokens)}</span></span>
+                      <span className="font-medium text-foreground/60">{t('auxiliaryModel.tokenTotal', { total: formatTokenCount(result.usage.totalTokens) })}</span>
                     </div>
                   </>
                 )}
@@ -744,7 +724,7 @@ function TestCapabilityDialog({
             className="rounded-full px-4 text-xs text-muted-foreground hover:text-foreground transition-colors duration-200"
             onClick={() => onOpenChange(false)}
           >
-            关闭
+            {t('common:close')}
           </Button>
           <Button
             size="sm"
@@ -761,7 +741,7 @@ function TestCapabilityDialog({
             ) : (
               <Play className="h-3 w-3" />
             )}
-            {testMutation.isPending ? '运行中...' : '运行测试'}
+            {testMutation.isPending ? t('auxiliaryModel.testRunning') : t('auxiliaryModel.test')}
           </Button>
         </div>
       </DialogContent>
@@ -773,16 +753,13 @@ function TestCapabilityDialog({
 function ModelSelector({
   models,
   value,
-  showCloudLogin,
   onChange,
-  onOpenLogin,
 }: {
   models: ProviderModelOption[]
   value: string[]
-  showCloudLogin: boolean
   onChange: (modelId: string, checked: boolean) => void
-  onOpenLogin: () => void
 }) {
+  const { t } = useTranslation('settings')
   const [open, setOpen] = useState(false)
   const selectedCount = value.length
   const firstSelected = selectedCount === 1
@@ -790,23 +767,10 @@ function ModelSelector({
     : undefined
   const label =
     selectedCount === 0
-      ? '自动'
+      ? t('auxiliaryModel.autoLabel')
       : selectedCount === 1
         ? firstSelected?.modelDefinition?.name ?? firstSelected?.modelId ?? value[0]
-        : `${selectedCount} 个模型`
-
-  if (showCloudLogin) {
-    return (
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-8 rounded-full px-4 text-xs transition-colors duration-150"
-        onClick={onOpenLogin}
-      >
-        登录以使用云端模型
-      </Button>
-    )
-  }
+        : t('auxiliaryModel.selectedCountLabel', { count: selectedCount })
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -824,7 +788,7 @@ function ModelSelector({
         <div className="max-h-64 space-y-0.5 overflow-y-auto">
           {models.length === 0 && (
             <p className="py-6 text-center text-xs text-muted-foreground">
-              暂无可用模型
+              {t('auxiliaryModel.noModel')}
             </p>
           )}
           {models.map((model) => {
@@ -859,6 +823,7 @@ function ModelSelector({
 
 /** SaaS daily quota progress bar. */
 function SaasQuotaBar({ quota }: { quota: { used: number; limit: number; remaining: number; resetsAt: string } }) {
+  const { t } = useTranslation('settings')
   const pct = quota.limit > 0 ? (quota.used / quota.limit) * 100 : 0
   const isWarning = pct >= 90
   const isExhausted = quota.remaining <= 0
@@ -879,10 +844,10 @@ function SaasQuotaBar({ quota }: { quota: { used: number; limit: number; remaini
     <div className="flex flex-col gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-3.5 py-2.5">
       <div className="flex items-center justify-between">
         <span className={cn('text-xs font-medium', textColor)}>
-          今日已使用 {quota.used}/{quota.limit} 次
+          {t('auxiliaryModel.quotaUsed', { used: quota.used, limit: quota.limit })}
         </span>
         <span className="text-[10px] text-muted-foreground/60">
-          剩余 {quota.remaining} 次
+          {t('auxiliaryModel.quotaRemaining', { remaining: quota.remaining })}
         </span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-border/30">
@@ -893,7 +858,7 @@ function SaasQuotaBar({ quota }: { quota: { used: number; limit: number; remaini
       </div>
       {isExhausted && (
         <p className="text-[11px] text-red-600 dark:text-red-400">
-          今日配额已用完，可切换为本地模型继续使用
+          {t('auxiliaryModel.quotaExhausted')}
         </p>
       )}
     </div>

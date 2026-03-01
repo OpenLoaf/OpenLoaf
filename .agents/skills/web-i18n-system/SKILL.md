@@ -325,6 +325,51 @@ const items = [
 
 ---
 
+## packages/api 层的 i18n
+
+### ctx.lang 已在 Context 中
+
+`packages/api` 的所有 tRPC procedure **都可以访问 `ctx.lang`**——这个字段在 `packages/api/src/context.ts` 中已经从请求头 `x-ui-language` 提取。因此 procedure 中的用户可见消息**应当国际化**，而不是写死中文。
+
+```ts
+// packages/api/src/context.ts（已有实现）
+const lang = honoContext.req.header("x-ui-language") || "zh-CN";
+return { session: null, prisma, lang };
+```
+
+### 为什么不能用 getErrorMessage
+
+`packages/api` **不能** import `apps/server/src/shared/errorMessages.ts`（packages 层不能反向依赖 app 层）。
+
+✅ 正确做法：在 procedure 内用 `ctx.lang` 做内联翻译：
+
+```ts
+// packages/api/src/routers/fs.ts
+searchWorkspace: shieldedProcedure
+  .input(fsSearchWorkspaceSchema)
+  .query(async ({ input, ctx }) => {  // ← 加入 ctx
+
+    const untitledLabel =
+      ctx.lang === 'en-US' ? 'Untitled Project' :
+      ctx.lang === 'zh-TW' ? '未命名專案' :
+      '未命名项目';
+
+    const projectTitle = project.title?.trim() || untitledLabel;
+  }),
+```
+
+### 纯工具函数（无 ctx）
+
+没有请求上下文的纯工具函数（如 `toolResult.ts` 的 `notImplemented()`）不能做运行时国际化。这类函数：
+- 如果是**开发者/技术消息**（错误码、调试信息）→ 直接用英文
+- 如果**确实需要国际化** → 给函数增加 `lang?: string` 参数，由调用方传入 `ctx.lang`
+
+### 对比：apps/server 路由
+
+`apps/server/src/routers/` 中的路由**优先使用** `getErrorMessage(key, ctx.lang)`，因为 `errorMessages.ts` 就在同一层，有完整的三语 key 映射，且所有 procedure 都已有 `ctx`。
+
+---
+
 ## AI Prompt 规则
 
 ### 何时创建 prompt.en.md
@@ -418,6 +463,173 @@ const SECTION_TITLES = {
 - [ ] 动态内容使用了插值语法（`{{variable}}`）
 - [ ] Toast/Alert 消息通过 `t()` 翻译
 - [ ] 日期/数字使用了 locale-aware 格式化（如 `dayjs.locale(lang)`）
+
+---
+
+## 常见陷阱（实战经验）
+
+以下陷阱来自真实 bug 修复，请在迁移时重点核查。
+
+### 陷阱 1：JSON 顶层包装键与 keyPrefix
+
+**现象**：`workspace.json` 结构是 `{ "workspace": { "title": "..." } }`，组件用 `t('title')` 却找不到 key，直接返回原始字符串。
+
+**根因**：`workspace.json` 把所有 UI key 都嵌套在顶层 `workspace` 对象下，而 `t('title')` 在根级查找，路径不匹配。
+
+❌ 错误：
+```tsx
+const { t } = useTranslation('workspace');
+t('settings.accountInfo')  // → 返回原始 key（workspace.json 中实为 workspace.settings.accountInfo）
+```
+
+✅ 正确（使用 `keyPrefix`）：
+```tsx
+const { t } = useTranslation('workspace', { keyPrefix: 'workspace' });
+t('settings.accountInfo')  // → 自动拼接为 workspace.settings.accountInfo，正确匹配
+```
+
+**重要**：启用 `keyPrefix` 后，不要在 `t()` 调用中再手动加前缀，否则双重叠加：
+```tsx
+// ❌ 双重前缀（keyPrefix: 'workspace' 已有效）
+t('workspace.settings.clearChatConfirm', { countText })  // → workspace.workspace.settings.clearChatConfirm
+
+// ✅ 去掉冗余前缀
+t('settings.clearChatConfirm', { countText })
+```
+
+---
+
+### 陷阱 2：`:` 与 `.` 分隔符混用
+
+**现象**：`t('keyboardShortcuts:title')` 显示原始 key 字符串。
+
+**根因**：`:` 是 i18next 的 **namespace 分隔符**，`.` 是 **key 路径分隔符**。`keyboardShortcuts:title` 表示"去 `keyboardShortcuts` namespace 查找 `title` key"——而不存在此 namespace。
+
+❌ 错误：
+```tsx
+const { t } = useTranslation('settings');
+t(`keyboardShortcuts:${keyPath}`)  // 被解析为 namespace "keyboardShortcuts"，找不到
+```
+
+✅ 正确：
+```tsx
+const { t } = useTranslation('settings');
+t(`keyboardShortcuts.${keyPath}`)  // 在 settings namespace 中查找 keyboardShortcuts.xxx
+```
+
+**规则**：在同一 namespace 内导航用 `.`；跨 namespace 时才用 `:` 或独立 `useTranslation`。
+
+---
+
+### 陷阱 3：titleKey 必须经过 `i18next.t()` 转换
+
+**现象**：Tab 标题栏显示 `nav:aiAssistant`、`nav:workbench` 原始字符串。
+
+**根因**：配置对象中的 `titleKey: "nav:workbench"` 是一个 i18n **key 引用**，不是已翻译的字符串。将其直接存入 state 作为显示标题，就会把原始 key 渲染出来。
+
+❌ 错误：
+```ts
+// use-tabs.ts (Zustand store)
+title: DEFAULT_TAB_INFO.titleKey          // 存储的是 "nav:workbench" 原始字符串
+```
+
+```tsx
+// Sidebar.tsx
+const tabTitle = input.titleKey ?? input.title ?? '';  // 同上
+```
+
+✅ 正确：在存入 state 前调用 `i18next.t()`：
+```ts
+import i18next from 'i18next';
+
+title: i18next.t(DEFAULT_TAB_INFO.titleKey)   // 翻译后再存储
+```
+
+```tsx
+import i18next from 'i18next';
+
+const tabTitle = input.titleKey ? i18next.t(input.titleKey) : (input.title ?? '');
+```
+
+---
+
+### 陷阱 4：非 React 上下文（Zustand Store / 工具函数）
+
+**现象**：在 Zustand store 或普通函数中无法调用 `useTranslation`（Hooks 只能在 React 组件内使用）。
+
+✅ 正确：直接导入 `i18next` 实例：
+```ts
+import i18next from 'i18next';
+
+// 在 Zustand action / 工具函数中
+function resolveToolDisplayName(toolId: string): string {
+  return i18next.t(`toolNames.${toolId}`, { ns: 'ai', defaultValue: toolId });
+}
+```
+
+**注意**：`i18next.t()` 在 i18n 初始化后可在任何位置调用，与 React 生命周期无关。
+
+---
+
+### 陷阱 5：useMemo 空依赖不响应语言变化
+
+**现象**：切换语言后，菜单/列表标签不更新，只有重启后才生效。
+
+**根因**：`useMemo(() => buildMenuGroups(t), [])` 空依赖数组仅在组件挂载时执行一次，语言切换后 `t` 函数已更新但 useMemo 不会重算。
+
+❌ 错误：
+```tsx
+const menuGroups = useMemo(() => buildMenuGroups(t), []);  // 永远不重算
+```
+
+✅ 正确（将 `t` 或包含 `t` 的中间值加入依赖）：
+```tsx
+const menuGroups = useMemo(() => buildMenuGroups(t), [t]);
+// 或者
+const MENU = useMemo(() => buildMenuConst(t), [t]);
+const menuGroups = useMemo(() => buildMenuGroups(MENU), [MENU]);
+```
+
+---
+
+### 陷阱 6：组件外静态数组不响应语言变化
+
+**现象**：定义在组件外的含翻译标签的常量数组，语言切换后标签不更新。
+
+**根因**：组件外的常量在模块加载时求值一次，此时 i18n 可能尚未初始化，或之后的语言切换不会触发重新求值。
+
+❌ 错误：
+```tsx
+// 在组件外定义（模块级别），语言变化时不会更新
+const WORKSPACE_SWITCH_TABS = [
+  { id: 'workbench', label: '工作台', title: WORKBENCH_TAB_INPUT.titleKey },
+  ...
+];
+
+export default function WorkspaceSwitchDockTabs() {
+  // WORKSPACE_SWITCH_TABS 是固定的，切换语言后 label 不变
+  return <ExpandableDockTabs tabs={WORKSPACE_SWITCH_TABS} ... />;
+}
+```
+
+✅ 正确（改写为工厂函数 + 组件内 `useMemo`）：
+```tsx
+import { useTranslation } from 'react-i18next';
+import { useMemo } from 'react';
+
+function buildWorkspaceSwitchTabs(t: (key: string) => string) {
+  return [
+    { id: 'workbench', label: t('nav:workbench'), title: t('nav:workbench'), ... },
+    { id: 'calendar', label: t('nav:calendar'), title: t('nav:calendar'), ... },
+  ];
+}
+
+export default function WorkspaceSwitchDockTabs() {
+  const { t } = useTranslation();
+  const tabs = useMemo(() => buildWorkspaceSwitchTabs(t), [t]);
+  return <ExpandableDockTabs tabs={tabs} ... />;
+}
+```
 
 ---
 

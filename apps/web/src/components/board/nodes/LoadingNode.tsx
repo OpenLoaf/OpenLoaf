@@ -9,6 +9,7 @@
  */
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 import { trpcClient } from "@/utils/trpc";
@@ -59,8 +60,6 @@ const LoadingNodeSchema = z.object({
   saveDir: z.string().optional(),
 });
 
-/** Default loading prompt. */
-const LOADING_FALLBACK_TEXT = "任务处理中";
 /** Default loading container size. */
 const LOADING_NODE_SIZE: [number, number] = DEFAULT_NODE_SIZE;
 
@@ -83,6 +82,7 @@ function clearLoadingNode(engine: any, loadingNodeId: string) {
 
 /** Render the loading node. */
 export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProps>) {
+  const { t } = useTranslation('board');
   const { engine } = useBoardContext();
   const [isRunning, setIsRunning] = useState(false);
   const [errorText, setErrorText] = useState("");
@@ -95,11 +95,24 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
   const workspaceId = element.props.workspaceId ?? "";
   const projectId = element.props.projectId ?? "";
 
-  const promptLabel = promptText || LOADING_FALLBACK_TEXT;
+  const promptLabel = promptText || t('loading.processing');
 
   const canRun = Boolean(
     taskId && (taskType === "video_generate" || taskType === "image_generate")
   );
+
+  // 逻辑：在 hook 层捕获翻译字符串，供 async 函数闭包使用。
+  const errCancelled = t('loading.cancelled');
+  const errQueryFailed = t('loading.queryFailed');
+  const errImageFailed = t('loading.imageGenerateFailed');
+  const errVideoFailed = t('loading.videoGenerateFailed');
+  const errVideoSave = t('loading.videoSaveFailed');
+  const errTaskCancelled = t('loading.taskCancelled');
+  const errGenFailed = t('loading.failed');
+  const errImageTimeout = t('loading.imageTimeout');
+  const errVideoTimeout = t('loading.videoTimeout');
+  const errImageGenError = t('loading.imageGenerateError');
+  const errVideoGenError = t('loading.videoGenerateError');
 
   useEffect(() => {
     if (!canRun) return;
@@ -115,11 +128,11 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
         const maxAttempts = 300;
         for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
           if (controller.signal.aborted) {
-            throw new Error("请求已取消");
+            throw new Error(errCancelled);
           }
           const status = await pollTask(taskId);
           if (!status || status.success !== true || !status.data) {
-            throw new Error("任务查询失败");
+            throw new Error(errQueryFailed);
           }
 
           if (status.data.status === "succeeded") {
@@ -130,7 +143,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
                 )
               : [];
             if (resultUrls.length === 0) {
-              throw new Error(taskType === "image_generate" ? "图片生成失败" : "视频生成失败");
+              throw new Error(taskType === "image_generate" ? errImageFailed : errVideoFailed);
             }
 
             if (taskType === "image_generate") {
@@ -203,7 +216,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
               });
             })();
             if (!scopedPath) {
-              throw new Error("视频保存失败");
+              throw new Error(errVideoSave);
             }
 
             if (sourceNodeId) {
@@ -268,22 +281,22 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
 
           if (status.data.status === "failed" || status.data.status === "canceled") {
             const fallbackMessage =
-              status.data.status === "canceled" ? "任务已取消" : "生成失败";
+              status.data.status === "canceled" ? errTaskCancelled : errGenFailed;
             throw new Error(status.data.error?.message || fallbackMessage);
           }
 
           await new Promise((resolve) => setTimeout(resolve, 2000));
         }
 
-        throw new Error(taskType === "image_generate" ? "图片生成超时" : "视频生成超时");
+        throw new Error(taskType === "image_generate" ? errImageTimeout : errVideoTimeout);
       } catch (error) {
         if (!controller.signal.aborted) {
           const message =
             error instanceof Error
               ? error.message
               : taskType === "image_generate"
-                ? "生成图片失败"
-                : "生成视频失败";
+                ? errImageGenError
+                : errVideoGenError;
           setErrorText(message);
           if (sourceNodeId) {
             engine.doc.updateNodeProps(sourceNodeId, { errorText: message });
@@ -317,13 +330,24 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
     taskId,
     taskType,
     workspaceId,
+    errCancelled,
+    errQueryFailed,
+    errImageFailed,
+    errVideoFailed,
+    errVideoSave,
+    errTaskCancelled,
+    errGenFailed,
+    errImageTimeout,
+    errVideoTimeout,
+    errImageGenError,
+    errVideoGenError,
   ]);
 
   const statusText = useMemo(() => {
-    if (errorText) return "失败";
-    if (isRunning) return "生成中…";
-    return "等待任务";
-  }, [errorText, isRunning]);
+    if (errorText) return t('loading.statusFailed');
+    if (isRunning) return t('loading.statusGenerating');
+    return t('loading.statusWaiting');
+  }, [errorText, isRunning, t]);
 
   return (
     <NodeFrame>

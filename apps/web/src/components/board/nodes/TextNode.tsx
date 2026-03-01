@@ -20,6 +20,8 @@ import type {
   ReactNode,
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18next from "i18next";
 import { z } from "zod";
 import {
   AlignCenter,
@@ -74,8 +76,8 @@ export type TextNodeProps = {
 
 /** Default text content for new text nodes. */
 const DEFAULT_TEXT_VALUE = "";
-/** Placeholder copy for empty text nodes. */
-const TEXT_NODE_PLACEHOLDER = "输入文字内容";
+/** Placeholder copy for empty text nodes – resolved at render time. */
+const getTextNodePlaceholder = () => i18next.t('board:textNode.placeholder');
 /** Shared text styling for text node content. */
 const TEXT_CONTENT_CLASSNAME =
   "text-[11px] leading-4 text-slate-900 dark:text-slate-100 md:text-[11px]";
@@ -124,41 +126,41 @@ const TEXT_NODE_FONT_SIZES = [
 ] as const;
 /** Raw size values used for heading font sizing. */
 const TEXT_NODE_FONT_SIZE_VALUES = TEXT_NODE_FONT_SIZES.map(option => option.value);
-/** Preset font weight options for text toolbar. */
-const TEXT_NODE_FONT_WEIGHTS = [
-  { label: "常规", value: 400 },
-  { label: "中等", value: 500 },
-  { label: "半粗", value: 600 },
-  { label: "加粗", value: 700 },
+/** Preset font weight options for text toolbar – resolved at render time. */
+const getTextNodeFontWeights = () => [
+  { label: i18next.t('board:textNode.fontWeights.regular'), value: 400 },
+  { label: i18next.t('board:textNode.fontWeights.medium'), value: 500 },
+  { label: i18next.t('board:textNode.fontWeights.semibold'), value: 600 },
+  { label: i18next.t('board:textNode.fontWeights.bold'), value: 700 },
 ] as const;
-/** Preset color options for text toolbar. */
-const TEXT_NODE_COLOR_PRESETS: Array<{ label: string; value?: string }> = [
-  { label: "默认", value: undefined },
-  { label: "黑", value: "#111827" },
-  { label: "蓝", value: "#1d4ed8" },
-  { label: "橙", value: "#f59e0b" },
-  { label: "红", value: "#ef4444" },
-  { label: "绿", value: "#16a34a" },
-  { label: "紫", value: "#7c3aed" },
-  { label: "灰", value: "#6b7280" },
-] as const;
-/** Preset background color options for text toolbar. */
-const TEXT_NODE_BACKGROUND_PRESETS: Array<{ label: string; value?: string }> = [
-  { label: "透明", value: undefined },
-  { label: "黑", value: "#111827" },
-  { label: "蓝", value: "#1d4ed8" },
-  { label: "橙", value: "#f59e0b" },
-  { label: "红", value: "#ef4444" },
-  { label: "绿", value: "#16a34a" },
-  { label: "紫", value: "#7c3aed" },
-  { label: "灰", value: "#6b7280" },
-] as const;
-/** Connector templates offered by the text node. */
-const TEXT_NODE_CONNECTOR_TEMPLATES: CanvasConnectorTemplateDefinition[] = [
+/** Preset color options for text toolbar – resolved at render time. */
+const getTextNodeColorPresets = (): Array<{ label: string; value?: string }> => [
+  { label: i18next.t('board:textNode.colors.default'), value: undefined },
+  { label: i18next.t('board:textNode.colors.black'), value: '#111827' },
+  { label: i18next.t('board:textNode.colors.blue'), value: '#1d4ed8' },
+  { label: i18next.t('board:textNode.colors.orange'), value: '#f59e0b' },
+  { label: i18next.t('board:textNode.colors.red'), value: '#ef4444' },
+  { label: i18next.t('board:textNode.colors.green'), value: '#16a34a' },
+  { label: i18next.t('board:textNode.colors.purple'), value: '#7c3aed' },
+  { label: i18next.t('board:textNode.colors.gray'), value: '#6b7280' },
+];
+/** Preset background color options for text toolbar – resolved at render time. */
+const getTextNodeBackgroundPresets = (): Array<{ label: string; value?: string }> => [
+  { label: i18next.t('board:textNode.backgrounds.transparent'), value: undefined },
+  { label: i18next.t('board:textNode.backgrounds.black'), value: '#111827' },
+  { label: i18next.t('board:textNode.backgrounds.blue'), value: '#1d4ed8' },
+  { label: i18next.t('board:textNode.backgrounds.orange'), value: '#f59e0b' },
+  { label: i18next.t('board:textNode.backgrounds.red'), value: '#ef4444' },
+  { label: i18next.t('board:textNode.backgrounds.green'), value: '#16a34a' },
+  { label: i18next.t('board:textNode.backgrounds.purple'), value: '#7c3aed' },
+  { label: i18next.t('board:textNode.backgrounds.gray'), value: '#6b7280' },
+];
+/** Connector templates offered by the text node – resolved at render time. */
+const getTextNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
   {
     id: VIDEO_GENERATE_NODE_TYPE,
-    label: "生成视频",
-    description: "基于文本生成视频",
+    label: i18next.t('board:connector.videoGenerate'),
+    description: i18next.t('board:connector.videoGenerateDesc'),
     size: [360, 280],
     icon: <Play size={14} />,
     createNode: () => ({
@@ -340,6 +342,7 @@ function TextToolbarPanelButton({
 
 /** Build toolbar items for text nodes. */
 function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
+  const t = (k: string) => i18next.t(k);
   const fontSize = resolveHeadingFontSize(ctx.element.props.fontSize);
   const fontWeight = ctx.element.props.fontWeight ?? TEXT_NODE_DEFAULT_FONT_WEIGHT;
   const fontStyle = ctx.element.props.fontStyle ?? TEXT_NODE_DEFAULT_FONT_STYLE;
@@ -349,11 +352,14 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
   const textColor = ctx.element.props.color;
   const backgroundColor = ctx.element.props.backgroundColor;
   const autoTextColor = getAutoTextColor(backgroundColor);
+  const fontWeights = getTextNodeFontWeights();
+  const colorPresets = getTextNodeColorPresets();
+  const backgroundPresets = getTextNodeBackgroundPresets();
 
   return [
     {
-      id: "text-size",
-      label: "字号",
+      id: 'text-size',
+      label: t('board:textNode.toolbar.fontSize'),
       showLabel: true,
       icon: <Type size={14} />,
       panel: (
@@ -372,13 +378,13 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       ),
     },
     {
-      id: "text-weight",
-      label: "字重",
+      id: 'text-weight',
+      label: t('board:textNode.toolbar.fontWeight'),
       showLabel: true,
       icon: <Bold size={14} />,
       panel: (
         <div className="flex items-center gap-1">
-          {TEXT_NODE_FONT_WEIGHTS.map(weight => (
+          {fontWeights.map(weight => (
             <TextToolbarPanelButton
               key={weight.value}
               title={weight.label}
@@ -392,14 +398,14 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       ),
     },
     {
-      id: "text-style",
-      label: "样式",
+      id: 'text-style',
+      label: t('board:textNode.toolbar.style'),
       showLabel: true,
       icon: <Italic size={14} />,
       panel: (
         <div className="flex items-center gap-1">
           <TextToolbarPanelButton
-            title="斜体"
+            title={t('board:textNode.format.italic')}
             active={fontStyle === "italic"}
             onSelect={() =>
               ctx.updateNodeProps({
@@ -410,7 +416,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
             <Italic size={14} />
           </TextToolbarPanelButton>
           <TextToolbarPanelButton
-            title="下划线"
+            title={t('board:textNode.format.underline')}
             active={textDecoration === "underline"}
             onSelect={() => {
               const nextDecoration =
@@ -422,7 +428,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
             <Underline size={14} />
           </TextToolbarPanelButton>
           <TextToolbarPanelButton
-            title="删除线"
+            title={t('board:textNode.format.strikethrough')}
             active={textDecoration === "line-through"}
             onSelect={() => {
               const nextDecoration =
@@ -437,28 +443,28 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       ),
     },
     {
-      id: "text-align",
-      label: "对齐",
+      id: 'text-align',
+      label: t('board:textNode.toolbar.align'),
       showLabel: true,
       icon: <AlignLeft size={14} />,
       panel: (
         <div className="flex items-center gap-1">
           <TextToolbarPanelButton
-            title="左对齐"
+            title={t('board:textNode.format.alignLeft')}
             active={textAlign === "left"}
             onSelect={() => ctx.updateNodeProps({ textAlign: "left" })}
           >
             <AlignLeft size={14} />
           </TextToolbarPanelButton>
           <TextToolbarPanelButton
-            title="居中"
+            title={t('board:textNode.format.alignCenter')}
             active={textAlign === "center"}
             onSelect={() => ctx.updateNodeProps({ textAlign: "center" })}
           >
             <AlignCenter size={14} />
           </TextToolbarPanelButton>
           <TextToolbarPanelButton
-            title="右对齐"
+            title={t('board:textNode.format.alignRight')}
             active={textAlign === "right"}
             onSelect={() => ctx.updateNodeProps({ textAlign: "right" })}
           >
@@ -468,13 +474,13 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       ),
     },
     {
-      id: "text-color",
-      label: "文字颜色",
+      id: 'text-color',
+      label: t('board:textNode.toolbar.textColor'),
       showLabel: true,
       icon: <Palette size={14} />,
       panel: (
         <div className="grid grid-cols-4 gap-1">
-          {TEXT_NODE_COLOR_PRESETS.map(color => {
+          {colorPresets.map(color => {
             const isActive = (color.value ?? undefined) === (textColor ?? undefined);
             return (
               <TextToolbarPanelButton
@@ -515,13 +521,13 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       ),
     },
     {
-      id: "text-background",
-      label: "背景色",
+      id: 'text-background',
+      label: t('board:textNode.toolbar.backgroundColor'),
       showLabel: true,
       icon: <PaintBucket size={14} />,
       panel: (
         <div className="grid grid-cols-4 gap-1">
-          {TEXT_NODE_BACKGROUND_PRESETS.map(color => {
+          {backgroundPresets.map(color => {
             const isActive =
               (color.value ?? undefined) === (backgroundColor ?? undefined);
             return (
@@ -551,7 +557,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
                         : ""
                     )}
                   >
-                    透
+                    {color.label.slice(0, 1)}
                   </span>
                 )}
               </TextToolbarPanelButton>
@@ -972,7 +978,7 @@ export function TextNodeView({
             className="pointer-events-none absolute left-4 right-4 top-3 text-[11px] leading-4 text-slate-400 dark:text-slate-500"
             style={{ textAlign }}
           >
-            {TEXT_NODE_PLACEHOLDER}
+            {getTextNodePlaceholder()}
           </div>
         ) : null}
       </div>
@@ -1029,7 +1035,7 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     backgroundColor: undefined,
   },
   view: TextNodeView,
-  connectorTemplates: () => TEXT_NODE_CONNECTOR_TEMPLATES,
+  connectorTemplates: () => getTextNodeConnectorTemplates(),
   toolbar: ctx => createTextToolbarItems(ctx),
   capabilities: {
     resizable: true,

@@ -10,6 +10,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ModelPreferencesHeader } from './ModelPreferencesHeader'
 import { ModelCategoryTabs } from './ModelCategoryTabs'
 import {
@@ -31,6 +32,7 @@ function MediaEmptyWithLogin({
   onClose: () => void
   onOpenLogin: () => void
 }) {
+  const { t } = useTranslation('ai')
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-8">
       <img src="/logo.svg" alt="OpenLoaf" className="h-10 w-10 opacity-60" />
@@ -45,7 +47,7 @@ function MediaEmptyWithLogin({
           onOpenLogin()
         }}
       >
-        登录OpenLoaf账户
+        {t('mode.loginAccount')}
       </PromptInputButton>
     </div>
   )
@@ -70,6 +72,7 @@ export function ModelPreferencesPanel({
   onOpenInstall,
   onClose,
 }: ModelPreferencesPanelProps) {
+  const { t } = useTranslation('ai')
   const [activeTab, setActiveTab] = useState('chat')
   const isChatTab = activeTab === 'chat'
   const isImageTab = activeTab === 'image'
@@ -102,7 +105,7 @@ export function ModelPreferencesPanel({
       <div className="flex flex-col gap-2">
         <div className="px-1">
           <span className="text-[13px] font-medium text-foreground">
-            CLI 工具
+            {t('mode.cliTools')}
           </span>
         </div>
         <CliToolsList
@@ -143,7 +146,7 @@ export function ModelPreferencesPanel({
           <div className="flex flex-col gap-2">
             <div className="px-1">
               <span className="text-[13px] font-medium text-foreground">
-                CLI 工具
+                {t('mode.cliTools')}
               </span>
             </div>
             <CliToolsList
@@ -156,7 +159,7 @@ export function ModelPreferencesPanel({
           <div className="flex flex-col items-center justify-center gap-2 py-8">
             <img src="/logo.svg" alt="OpenLoaf" className="h-10 w-10 opacity-60" />
             <div className="text-xs text-muted-foreground">
-              使用云端模型
+              {t('mode.useCloudModels')}
             </div>
             <PromptInputButton
               type="button"
@@ -168,7 +171,7 @@ export function ModelPreferencesPanel({
                 onOpenLogin()
               }}
             >
-              登录OpenLoaf账户
+              {t('mode.loginAccount')}
             </PromptInputButton>
           </div>
         ) : isChatTab ? (
@@ -179,7 +182,7 @@ export function ModelPreferencesPanel({
           />
         ) : activeTab === 'image' ? (
           prefs.imageModels.length === 0 ? (
-            <MediaEmptyWithLogin label="暂无图像模型" onClose={onClose} onOpenLogin={onOpenLogin} />
+            <MediaEmptyWithLogin label={t('mode.noImageModels')} onClose={onClose} onOpenLogin={onOpenLogin} />
           ) : (
             <MediaModelCheckboxList
               models={prefs.imageModels}
@@ -189,7 +192,7 @@ export function ModelPreferencesPanel({
           )
         ) : (
           prefs.videoModels.length === 0 ? (
-            <MediaEmptyWithLogin label="暂无视频模型" onClose={onClose} onOpenLogin={onOpenLogin} />
+            <MediaEmptyWithLogin label={t('mode.noVideoModels')} onClose={onClose} onOpenLogin={onOpenLogin} />
           ) : (
             <MediaModelCheckboxList
               models={prefs.videoModels}

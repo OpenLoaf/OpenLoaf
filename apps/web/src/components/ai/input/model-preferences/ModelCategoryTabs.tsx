@@ -10,6 +10,7 @@
 'use client'
 
 import { Image, MessageSquare, Terminal, Video } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 interface ModelCategoryTabsProps {
@@ -17,10 +18,10 @@ interface ModelCategoryTabsProps {
   onValueChange: (value: string) => void
 }
 
-const tabs = [
+const TAB_CONFIGS = [
   {
     id: 'chat',
-    label: '对话',
+    labelKey: 'mode.chat' as const,
     icon: MessageSquare,
     activeText: 'text-sky-700 dark:text-sky-200',
     inactiveText: 'text-muted-foreground',
@@ -28,7 +29,7 @@ const tabs = [
   },
   {
     id: 'image',
-    label: '图像',
+    labelKey: 'mode.image' as const,
     icon: Image,
     activeText: 'text-violet-700 dark:text-violet-200',
     inactiveText: 'text-muted-foreground',
@@ -36,7 +37,7 @@ const tabs = [
   },
   {
     id: 'video',
-    label: '视频',
+    labelKey: 'mode.video' as const,
     icon: Video,
     activeText: 'text-amber-700 dark:text-amber-200',
     inactiveText: 'text-muted-foreground',
@@ -56,13 +57,15 @@ export function ModelCategoryTabs({
   value,
   onValueChange,
 }: ModelCategoryTabsProps) {
+  const { t } = useTranslation('ai')
   return (
     <div className="flex items-stretch border-t border-border">
-      {tabs.map((tab, index) => {
+      {TAB_CONFIGS.map((tab, index) => {
         const isActive = value === tab.id
         const Icon = tab.icon
         const isFirst = index === 0
-        const isLast = index === tabs.length - 1
+        const isLast = index === TAB_CONFIGS.length - 1
+        const label = 'labelKey' in tab ? t(tab.labelKey) : tab.label
         return (
           <button
             key={tab.id}
@@ -82,7 +85,7 @@ export function ModelCategoryTabs({
             onClick={() => onValueChange(tab.id)}
           >
             <Icon size={14} className="opacity-70" aria-hidden="true" />
-            {tab.label}
+            {label}
           </button>
         )
       })}

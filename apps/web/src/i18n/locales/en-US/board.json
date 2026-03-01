@@ -57,5 +57,299 @@
     "imageHint": "Non-image files will be dimmed",
     "videoTitle": "Select Video File",
     "videoHint": "Non-video files will be dimmed"
+  },
+  "emptyGuide": {
+    "heading": "Start from a Template",
+    "subheading": "Choose a template and click to place on canvas",
+    "tpl": {
+      "imageGen": {
+        "label": "AI Image Generation",
+        "desc": "Enter a prompt, AI generates image"
+      },
+      "imagePrompt": {
+        "label": "AI Image Analysis",
+        "desc": "Upload image, AI analyzes content"
+      },
+      "videoGen": {
+        "label": "AI Video Generation",
+        "desc": "AI generates short video clips"
+      },
+      "text": {
+        "label": "Text Note",
+        "desc": "Add text to canvas"
+      }
+    }
+  },
+  "contextMenu": {
+    "exitFullscreen": "Exit Fullscreen",
+    "enterFullscreen": "Enter Fullscreen",
+    "maximize": "Maximize View",
+    "autoLayout": "Auto Layout",
+    "reload": "Reload",
+    "paste": "Paste"
+  },
+  "controls": {
+    "undo": "Undo",
+    "redo": "Redo",
+    "maximize": "Maximize View",
+    "autoLayout": "Auto Layout",
+    "unlock": "Unlock",
+    "lock": "Lock",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out"
+  },
+  "connector": {
+    "videoGenerate": "Generate Video",
+    "videoGenerateDesc": "Generate video from text",
+    "imagePromptGenerate": "Image/Video Analysis",
+    "imagePromptGenerateDesc": "Analyze video and generate description",
+    "imageGenerate": "Image Generation",
+    "imageGenerateDesc": "Generate new image from prompt and image"
+  },
+  "nodeDetail": {
+    "detail": "Details"
+  },
+  "textNode": {
+    "placeholder": "Type text here",
+    "toolbar": {
+      "fontSize": "Font Size",
+      "fontWeight": "Font Weight",
+      "style": "Style",
+      "align": "Align",
+      "textColor": "Text Color",
+      "backgroundColor": "Background"
+    },
+    "format": {
+      "italic": "Italic",
+      "underline": "Underline",
+      "strikethrough": "Strikethrough",
+      "alignLeft": "Align Left",
+      "alignCenter": "Center",
+      "alignRight": "Align Right"
+    },
+    "fontWeights": {
+      "regular": "Regular",
+      "medium": "Medium",
+      "semibold": "Semibold",
+      "bold": "Bold"
+    },
+    "colors": {
+      "default": "Default",
+      "black": "Black",
+      "blue": "Blue",
+      "orange": "Orange",
+      "red": "Red",
+      "green": "Green",
+      "purple": "Purple",
+      "gray": "Gray"
+    },
+    "backgrounds": {
+      "transparent": "Transparent",
+      "black": "Black",
+      "blue": "Blue",
+      "orange": "Orange",
+      "red": "Red",
+      "green": "Green",
+      "purple": "Purple",
+      "gray": "Gray"
+    }
+  },
+  "groupNode": {
+    "layoutVertical": "Vertical Layout",
+    "layoutHorizontal": "Horizontal Layout",
+    "dissolve": "Dissolve",
+    "uniformSize": "Uniform Size"
+  },
+  "selection": {
+    "toolbar": {
+      "copy": "Copy",
+      "bringToFront": "Bring to Front",
+      "sendToBack": "Send to Back",
+      "unlock": "Unlock",
+      "lock": "Lock",
+      "delete": "Delete",
+      "group": "Group",
+      "layoutVertical": "Vertical Arrange",
+      "layoutHorizontal": "Horizontal Arrange",
+      "autoLayout": "Auto Layout"
+    },
+    "mindmapLayout": {
+      "label": "Direction",
+      "left": "Left",
+      "balanced": "Balanced",
+      "right": "Right"
+    }
+  },
+  "imageGenerate": {
+    "title": "Image Generation",
+    "model": "Model",
+    "prompt": "Prompt",
+    "promptPlaceholder": "Enter prompt",
+    "generate": "Generate",
+    "retry": "Retry",
+    "login": "Sign In",
+    "loggingIn": "Signing In",
+    "mode": {
+      "textToImage": "Text to Image",
+      "singleImage": "Single",
+      "multiImage": "Multiple"
+    },
+    "advanced": {
+      "count": "Count",
+      "aspectRatio": "Aspect Ratio",
+      "style": "Style",
+      "stylePlaceholder": "Press Enter to add custom style",
+      "negativePrompt": "Negative Prompt",
+      "auto": "Auto"
+    },
+    "modelSelect": {
+      "noModel": "No models available",
+      "loginHint": "Sign in to your OpenLoaf account to use cloud models"
+    },
+    "status": {
+      "generating": "Generating",
+      "waiting": "Waiting",
+      "failed": "Failed"
+    },
+    "errors": {
+      "noModelSupport": "Please select a model that supports image generation",
+      "noPrompt": "Please enter or connect a prompt first",
+      "invalidImageUrl": "Some image URLs are inaccessible, please check inputs",
+      "imageReadFailed": "Failed to read image",
+      "submitFailed": "Failed to submit image task",
+      "generateFailed": "Failed to generate image",
+      "copyFailed": "Copy failed"
+    }
+  },
+  "videoGenerate": {
+    "title": "Video Generation",
+    "model": "Model",
+    "prompt": "Prompt",
+    "promptPlaceholder": "Enter prompt",
+    "generate": "Generate",
+    "retry": "Retry",
+    "login": "Sign In",
+    "loggingIn": "Signing In",
+    "outputAudio": "Output Audio",
+    "advanced": {
+      "aspectRatio": "Aspect Ratio",
+      "duration": "Duration",
+      "style": "Style",
+      "stylePlaceholder": "Press Enter to add custom style",
+      "negativePrompt": "Negative Prompt",
+      "auto": "Auto",
+      "yes": "Yes",
+      "no": "No",
+      "selectPlaceholder": "Select..."
+    },
+    "status": {
+      "completed": "Completed",
+      "failed": "Generation Failed",
+      "needModel": "Model Required",
+      "generating": "Generating",
+      "waiting": "Waiting"
+    },
+    "errors": {
+      "noModelSupport": "Please select a model that supports video generation",
+      "noPrompt": "Please enter or connect a prompt first",
+      "generateFailed": "Failed to generate video",
+      "saveFailed": "Failed to save video",
+      "copyErrorSuccess": "Error info copied",
+      "copyFailed": "Copy failed"
+    }
+  },
+  "imagePromptGenerate": {
+    "title": "Image/Video Analysis",
+    "model": "Model",
+    "stop": "Stop",
+    "login": "Sign In",
+    "loggingIn": "Signing In",
+    "retry": "Retry",
+    "regenerate": "Regenerate",
+    "run": "Run",
+    "contentDescription": "Content Description",
+    "noModel": "No models available",
+    "loginHint": "Sign in to use cloud models",
+    "errors": {
+      "noInput": "No valid URL found in current inputs, cannot generate description",
+      "generateFailed": "Failed to generate description",
+      "noModelSupport": "Please select a model that supports the current input type",
+      "copySuccess": "Description copied",
+      "copyFailed": "Copy failed"
+    }
+  },
+  "videoNode": {
+    "toolbar": {
+      "detail": "Details"
+    }
+  },
+  "linkNode": {
+    "toolbar": {
+      "open": "Open",
+      "copyUrl": "Copy URL"
+    }
+  },
+  "anchorOverlay": {
+    "expand": "Expand",
+    "collapse": "Collapse"
+  },
+  "loading": {
+    "processing": "Processing task",
+    "cancelled": "Request cancelled",
+    "queryFailed": "Task query failed",
+    "imageGenerateFailed": "Image generation failed",
+    "videoGenerateFailed": "Video generation failed",
+    "videoSaveFailed": "Video save failed",
+    "taskCancelled": "Task cancelled",
+    "failed": "Generation failed",
+    "imageTimeout": "Image generation timed out",
+    "videoTimeout": "Video generation timed out",
+    "imageGenerateError": "Failed to generate image",
+    "videoGenerateError": "Failed to generate video",
+    "statusFailed": "Failed",
+    "statusGenerating": "Generating…",
+    "statusWaiting": "Waiting"
+  },
+  "collab": {
+    "imageTranscodeFailed": "Image transcoding failed, original file was inserted"
+  },
+  "panelHeader": {
+    "noCanvas": "No exportable canvas found",
+    "exportFailed": "Export failed: unable to generate image",
+    "exitFullscreen": "Exit Fullscreen",
+    "enterFullscreen": "Enter Fullscreen",
+    "showAIPanel": "Show AI Panel",
+    "hideAIPanel": "Hide AI Panel",
+    "screenshot": "Screenshot Canvas"
+  },
+  "aiToolbar": {
+    "imagePromptGenerate": "Image Analysis",
+    "imageGenerate": "Image Generation",
+    "videoGenerate": "Video Generation"
+  },
+  "styles": {
+    "realistic": "Realistic",
+    "anime": "Anime",
+    "illustration": "Illustration",
+    "3d": "3D",
+    "cyberpunk": "Cyberpunk",
+    "oilPainting": "Oil Painting",
+    "watercolor": "Watercolor",
+    "sketch": "Sketch",
+    "pixelArt": "Pixel Art",
+    "flat": "Flat",
+    "minimalist": "Minimalist",
+    "chinese": "Chinese Style",
+    "impressionist": "Impressionist",
+    "popart": "Pop Art",
+    "steampunk": "Steampunk",
+    "gothic": "Gothic",
+    "surrealism": "Surrealism",
+    "geometric": "Geometric",
+    "retro": "Retro",
+    "scifi": "Sci-Fi",
+    "fantasy": "Fantasy",
+    "ink": "Ink Wash",
+    "lowpoly": "Low Poly"
   }
 }

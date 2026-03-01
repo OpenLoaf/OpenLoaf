@@ -129,6 +129,11 @@ export function useBasicConfig() {
         if (typeof value === "undefined") continue;
         pendingRef.current[key] = value;
       }
+      // 乐观更新：立即写入缓存，避免 i18n 重渲染时读到旧值导致选中态闪回。
+      const queryKey = trpc.settings.getBasic.queryOptions().queryKey;
+      queryClient.setQueryData(queryKey, (old: BasicConfig | undefined) =>
+        old ? { ...old, ...update } : old,
+      );
       await mutation.mutateAsync(update);
     },
     [mutation],
