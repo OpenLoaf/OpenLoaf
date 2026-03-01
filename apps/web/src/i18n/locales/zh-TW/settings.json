@@ -276,7 +276,9 @@
     "clearCacheDescription": "將刪除目前專案下的 .openloaf-cache 目錄，操作無法恢復。",
     "clearCacheButton": "清空中…",
     "confirmClear": "確認清空",
-    "clearChatDescription": "將刪除目前專案下的對話記錄與本機檔案，無法恢復。"
+    "clearChatDescription": "將刪除目前專案下的對話記錄與本機檔案，無法恢復。",
+    "tabAI": "AI設定",
+    "tabStats": "統計"
   },
   "agent": {
     "management": "Agent助手 管理",

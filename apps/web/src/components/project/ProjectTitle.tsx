@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Copy, SmilePlus } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import { Button } from "@openloaf/ui/button";
 import { EmojiPicker } from "@openloaf/ui/emoji-picker";
@@ -37,6 +38,7 @@ export default function ProjectTitle({
   onUpdateTitle,
   onUpdateIcon,
 }: ProjectTitleProps) {
+  const { t } = useTranslation("workspace");
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState(currentTitle ?? projectTitle ?? "");
@@ -148,9 +150,9 @@ export default function ProjectTitle({
                   e.stopPropagation();
                   try {
                     await navigator.clipboard.writeText(projectTitle);
-                    toast.success("已复制标题");
+                    toast.success(t("project.copyTitleSuccess"));
                   } catch {
-                    toast.error("复制失败");
+                    toast.error(t("project.copyTitleFailed"));
                   }
                 }}
               >

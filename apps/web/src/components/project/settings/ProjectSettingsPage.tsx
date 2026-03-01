@@ -12,6 +12,7 @@
 import { useMemo, useRef, useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { OpenLoafSettingsLayout } from "@openloaf/ui/openloaf/OpenLoafSettingsLayout";
 import { OpenLoafSettingsMenu } from "@openloaf/ui/openloaf/OpenLoafSettingsMenu";
 import { BarChart3, Bot, Cpu, GitBranch, SlidersHorizontal, Wand2 } from "lucide-react";
@@ -59,56 +60,8 @@ type SettingsMenuItem = {
   Component: ComponentType<ProjectSettingsPanelProps>;
 };
 
-const GENERAL_GROUP: SettingsMenuItem[] = [
-  {
-    key: "basic",
-    label: "基础",
-    Icon: createMenuIcon(SlidersHorizontal, PROJECT_MENU_ICON_COLOR.basic),
-    Component: ProjectBasicSettings,
-  },
-];
-
-const AI_GROUP: SettingsMenuItem[] = [
-  {
-    key: "ai",
-    label: "AI设置",
-    Icon: createMenuIcon(Cpu, PROJECT_MENU_ICON_COLOR.ai),
-    Component: ProjectAiSettings,
-  },
-  {
-    key: "skills",
-    label: "技能",
-    Icon: createMenuIcon(Wand2, PROJECT_MENU_ICON_COLOR.skills),
-    Component: ProjectSkillsSettings,
-  },
-  {
-    key: "agents",
-    label: "Agent助手",
-    Icon: createMenuIcon(Bot, PROJECT_MENU_ICON_COLOR.agents),
-    Component: ProjectAgentSettings,
-  },
-];
-
-const STATS_GROUP: SettingsMenuItem[] = [
-  {
-    key: "stats",
-    label: "统计",
-    Icon: createMenuIcon(BarChart3, PROJECT_MENU_ICON_COLOR.stats),
-    Component: ProjectStatsSettings,
-  },
-];
-
-const GIT_MENU: SettingsMenuItem = {
-  key: "git",
-  label: "Git",
-  Icon: createMenuIcon(GitBranch, PROJECT_MENU_ICON_COLOR.git),
-  Component: ProjectGitSettings,
-};
-
-const ALL_ITEMS = [...GENERAL_GROUP, ...AI_GROUP, ...STATS_GROUP, GIT_MENU];
-const MENU_KEY_SET = new Set<ProjectSettingsMenuKey>(
-  ALL_ITEMS.map((item) => item.key)
-);
+const ALL_MENU_KEYS: ProjectSettingsMenuKey[] = ["basic", "ai", "skills", "agents", "stats", "git"];
+const MENU_KEY_SET = new Set<ProjectSettingsMenuKey>(ALL_MENU_KEYS);
 
 /** Check whether the value is a valid project settings menu key. */
 function isProjectSettingsMenuKey(
@@ -128,11 +81,12 @@ export function ProjectSettingsHeader({
   isLoading,
   pageTitle,
 }: ProjectSettingsHeaderProps) {
+  const { t } = useTranslation(["workspace", "settings"]);
   if (isLoading) return null;
 
   return (
     <div className="flex items-center gap-2 min-w-0">
-      <span className="text-base font-semibold">设置</span>
+      <span className="text-base font-semibold">{t("workspace:project.settingsHeader")}</span>
       <span className="text-xs text-muted-foreground truncate">
         {pageTitle}
       </span>
@@ -152,6 +106,7 @@ export default function ProjectSettingsPage({
   rootUri,
   settingsMenu,
 }: ProjectSettingsPageProps) {
+  const { t } = useTranslation(["workspace", "settings"]);
   const [activeKey, setActiveKey] = useState<ProjectSettingsMenuKey>(() =>
     isProjectSettingsMenuKey(settingsMenu) ? settingsMenu : "basic"
   );
@@ -162,12 +117,59 @@ export default function ProjectSettingsPage({
     staleTime: 5000,
   });
   const isGitProject = gitInfoQuery.data?.isGitProject === true;
+
+  const generalGroup = useMemo<SettingsMenuItem[]>(() => [
+    {
+      key: "basic",
+      label: t("settings:menu.basic"),
+      Icon: createMenuIcon(SlidersHorizontal, PROJECT_MENU_ICON_COLOR.basic),
+      Component: ProjectBasicSettings,
+    },
+  ], [t]);
+
+  const aiGroup = useMemo<SettingsMenuItem[]>(() => [
+    {
+      key: "ai",
+      label: t("settings:project.tabAI"),
+      Icon: createMenuIcon(Cpu, PROJECT_MENU_ICON_COLOR.ai),
+      Component: ProjectAiSettings,
+    },
+    {
+      key: "skills",
+      label: t("settings:menu.skills"),
+      Icon: createMenuIcon(Wand2, PROJECT_MENU_ICON_COLOR.skills),
+      Component: ProjectSkillsSettings,
+    },
+    {
+      key: "agents",
+      label: t("settings:menu.agents"),
+      Icon: createMenuIcon(Bot, PROJECT_MENU_ICON_COLOR.agents),
+      Component: ProjectAgentSettings,
+    },
+  ], [t]);
+
+  const statsGroup = useMemo<SettingsMenuItem[]>(() => [
+    {
+      key: "stats",
+      label: t("settings:project.tabStats"),
+      Icon: createMenuIcon(BarChart3, PROJECT_MENU_ICON_COLOR.stats),
+      Component: ProjectStatsSettings,
+    },
+  ], [t]);
+
+  const gitMenu = useMemo<SettingsMenuItem>(() => ({
+    key: "git",
+    label: "Git",
+    Icon: createMenuIcon(GitBranch, PROJECT_MENU_ICON_COLOR.git),
+    Component: ProjectGitSettings,
+  }), []);
+
   const menuGroups = useMemo(() => {
-    const generalGroup = isGitProject
-      ? [...GENERAL_GROUP, ...STATS_GROUP, GIT_MENU]
-      : [...GENERAL_GROUP, ...STATS_GROUP];
-    return [generalGroup, AI_GROUP];
-  }, [isGitProject]);
+    const topGroup = isGitProject
+      ? [...generalGroup, ...statsGroup, gitMenu]
+      : [...generalGroup, ...statsGroup];
+    return [topGroup, aiGroup];
+  }, [isGitProject, generalGroup, statsGroup, gitMenu, aiGroup]);
   const allMenuItems = useMemo(() => menuGroups.flat(), [menuGroups]);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);

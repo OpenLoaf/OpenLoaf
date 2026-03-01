@@ -276,7 +276,9 @@
     "clearCacheDescription": "This will delete the .openloaf-cache directory in the current project, and cannot be undone.",
     "clearCacheButton": "Clearing...",
     "confirmClear": "Confirm Clear",
-    "clearChatDescription": "This will delete the chat history and local files in the current project, and cannot be undone."
+    "clearChatDescription": "This will delete the chat history and local files in the current project, and cannot be undone.",
+    "tabAI": "AI Settings",
+    "tabStats": "Stats"
   },
   "agent": {
     "management": "Agent Management",

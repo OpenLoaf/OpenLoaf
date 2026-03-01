@@ -10,6 +10,7 @@
 import { CalendarDays, Clock, Folder, LayoutDashboard, Settings } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ExpandableDockTabs } from "@/components/ui/ExpandableDockTabs";
 
 /** Format a shortcut string for tooltip display. */
@@ -49,31 +50,31 @@ export const PROJECT_TABS = [
   {
     value: "index",
     icon: LayoutDashboard,
-    label: "首页",
+    labelKey: "workspace:project.tabHome",
     tone: "sky",
   },
   {
     value: "files",
     icon: Folder,
-    label: "文件",
+    labelKey: "workspace:project.tabFiles",
     tone: "emerald",
   },
   {
     value: "tasks",
     icon: CalendarDays,
-    label: "历史",
+    labelKey: "workspace:project.tabHistory",
     tone: "amber",
   },
   {
     value: "scheduled",
     icon: Clock,
-    label: "定时任务",
+    labelKey: "workspace:project.tabScheduled",
     tone: "amber",
   },
   {
     value: "settings",
     icon: Settings,
-    label: "设置",
+    labelKey: "workspace:project.tabSettings",
     tone: "slate",
   },
 ] as const;
@@ -99,6 +100,7 @@ export default function ProjectTabs({
   tabId,
   revealDelayMs = 0,
 }: ProjectTabsProps) {
+  const { t } = useTranslation("workspace");
   const [dockHost, setDockHost] = useState<HTMLElement | null>(null);
   // 根据当前值映射到选中索引
   const selectedIndex = useMemo(() => {
@@ -117,11 +119,11 @@ export default function ProjectTabs({
     () =>
       PROJECT_TABS.map((tab) => ({
         id: tab.value,
-        label: tab.label,
+        label: t(tab.labelKey.replace("workspace:", "")),
         icon: tab.icon,
         tone: tab.tone,
       })),
-    []
+    [t]
   );
 
   /** Handle tab changes from UI. */
