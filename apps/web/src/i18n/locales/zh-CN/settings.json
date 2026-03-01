@@ -27,7 +27,14 @@
     "copyModelName": "复制模型名称",
     "editModel": "编辑模型",
     "canOnlyEditCustomModels": "仅支持编辑自定义模型",
-    "capabilities": "能力："
+    "capabilities": "能力：",
+    "zh-CN": "中文（简体）",
+    "en-US": "English",
+    "ja-JP": "日本語",
+    "ko-KR": "한국어",
+    "fr-FR": "Français",
+    "de-DE": "Deutsch",
+    "es-ES": "Español"
   },
   "localAccess": {
     "title": "本地访问密码",

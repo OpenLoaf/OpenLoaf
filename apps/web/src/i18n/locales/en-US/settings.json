@@ -27,7 +27,14 @@
     "copyModelName": "Copy model name",
     "editModel": "Edit Model",
     "canOnlyEditCustomModels": "Only custom models can be edited",
-    "capabilities": "Capabilities:"
+    "capabilities": "Capabilities:",
+    "zh-CN": "Simplified Chinese",
+    "en-US": "English",
+    "ja-JP": "日本語",
+    "ko-KR": "한국어",
+    "fr-FR": "Français",
+    "de-DE": "Deutsch",
+    "es-ES": "Español"
   },
   "localAccess": {
     "title": "Local Access Password",

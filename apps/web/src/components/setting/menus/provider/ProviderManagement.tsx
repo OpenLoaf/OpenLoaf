@@ -10,6 +10,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/ConfirmDeleteDialog";
 import { ModelDialog } from "@/components/setting/menus/provider/ModelDialog";
@@ -68,6 +69,7 @@ type ProviderManagementProps = {
 };
 
 export function ProviderManagement({ panelKey }: ProviderManagementProps) {
+  const { t } = useTranslation('settings');
   const { basic, setBasic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
@@ -83,15 +85,15 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
       ),
     [providerItems, cloudModels, installedCliProviderIds],
   );
-  const modelResponseLanguageLabelById: Record<ModelResponseLanguageId, string> = {
-    "zh-CN": "中文（简体）",
-    "en-US": "English",
-    "ja-JP": "日本語",
-    "ko-KR": "한국어",
-    "fr-FR": "Français",
-    "de-DE": "Deutsch",
-    "es-ES": "Español",
-  };
+  const modelResponseLanguageLabelById: Record<ModelResponseLanguageId, string> = useMemo(() => ({
+    "zh-CN": t('provider.zh-CN'),
+    "en-US": t('provider.en-US'),
+    "ja-JP": t('provider.ja-JP'),
+    "ko-KR": t('provider.ko-KR'),
+    "fr-FR": t('provider.fr-FR'),
+    "de-DE": t('provider.de-DE'),
+    "es-ES": t('provider.es-ES'),
+  }), [t]);
   const workspaceQuery = useQuery(trpc.workspace.getActive.queryOptions());
   const workspaceId = workspaceQuery.data?.id ?? "";
   const activeTabId = useTabs((state) => state.activeTabId);

@@ -27,7 +27,14 @@
     "copyModelName": "複製模型名稱",
     "editModel": "編輯模型",
     "canOnlyEditCustomModels": "僅支持編輯自訂模型",
-    "capabilities": "功能："
+    "capabilities": "功能：",
+    "zh-CN": "中文（簡體）",
+    "en-US": "English",
+    "ja-JP": "日本語",
+    "ko-KR": "한국어",
+    "fr-FR": "Français",
+    "de-DE": "Deutsch",
+    "es-ES": "Español"
   },
   "localAccess": {
     "title": "本機存取密碼",
