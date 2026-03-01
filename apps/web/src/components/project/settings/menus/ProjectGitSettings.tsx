@@ -12,6 +12,7 @@ import { skipToken, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
 import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 import { Button } from "@openloaf/ui/button";
@@ -55,7 +56,8 @@ async function copyToClipboard(text: string) {
 /** Build a display label for a git author. */
 function formatGitAuthorLabel(
   name?: string | null,
-  email?: string | null
+  email?: string | null,
+  unknownLabel = "Unknown author"
 ): string {
   const trimmedName = name?.trim() ?? "";
   const trimmedEmail = email?.trim() ?? "";
@@ -64,19 +66,20 @@ function formatGitAuthorLabel(
   }
   if (trimmedName) return trimmedName;
   if (trimmedEmail) return trimmedEmail;
-  return "未知作者";
+  return unknownLabel;
 }
 
 /** Build a compact display label for a git author. */
 function formatGitAuthorDisplay(
   name?: string | null,
-  email?: string | null
+  email?: string | null,
+  unknownLabel = "Unknown author"
 ): string {
   const trimmedName = name?.trim() ?? "";
   const trimmedEmail = email?.trim() ?? "";
   if (trimmedName) return trimmedName;
   if (trimmedEmail) return trimmedEmail;
-  return "未知作者";
+  return unknownLabel;
 }
 
 /** Format commit date for list display. */
@@ -96,6 +99,8 @@ function formatCommitDate(value: string): string {
 const ProjectGitSettings = memo(function ProjectGitSettings({
   projectId,
 }: ProjectGitSettingsProps) {
+  const { t } = useTranslation(["settings", "common"]);
+  const unknownAuthor = t("project.git.unknownAuthor");
   const gitInfoQuery = useQuery({
     ...trpc.project.getGitInfo.queryOptions(projectId ? { projectId } : skipToken),
     staleTime: 5000,
@@ -132,16 +137,17 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
     // 逻辑：从已加载提交中提取作者选项。
     const map = new Map<string, { label: string; value: string }>();
     for (const commit of commitItems) {
-      const value = formatGitAuthorLabel(commit.authorName, commit.authorEmail);
-      if (value === "未知作者") continue;
+      const value = formatGitAuthorLabel(commit.authorName, commit.authorEmail, unknownAuthor);
+      if (value === unknownAuthor) continue;
       const label = formatGitAuthorDisplay(
         commit.authorName,
-        commit.authorEmail
+        commit.authorEmail,
+        unknownAuthor
       );
       map.set(value, { label, value });
     }
     return Array.from(map.values());
-  }, [commitItems]);
+  }, [commitItems, unknownAuthor]);
   const filteredCommitItems = useMemo(() => {
     // 逻辑：按作者与时间区间过滤当前提交列表。
     const rangeStart = selectedRange?.from
@@ -170,7 +176,8 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
     return commitItems.filter((commit) => {
       const authorLabel = formatGitAuthorLabel(
         commit.authorName,
-        commit.authorEmail
+        commit.authorEmail,
+        unknownAuthor
       );
       if (selectedAuthor !== "all" && authorLabel !== selectedAuthor) {
         return false;
@@ -183,12 +190,12 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
       }
       return true;
     });
-  }, [commitItems, selectedAuthor, selectedRange]);
+  }, [commitItems, selectedAuthor, selectedRange, unknownAuthor]);
   const isFilterActive =
     selectedAuthor !== "all" || Boolean(selectedRange?.from || selectedRange?.to);
 
   const rangeLabel = useMemo(() => {
-    if (!selectedRange?.from && !selectedRange?.to) return "全部时间";
+    if (!selectedRange?.from && !selectedRange?.to) return t("project.git.allTime");
     const formatLabel = (value: Date) => format(value, "yyyy-MM-dd");
     if (selectedRange?.from && selectedRange?.to) {
       return `${formatLabel(selectedRange.from)} ~ ${formatLabel(selectedRange.to)}`;
@@ -199,8 +206,8 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
     if (selectedRange?.to) {
       return `~ ${formatLabel(selectedRange.to)}`;
     }
-    return "全部时间";
-  }, [selectedRange]);
+    return t("project.git.allTime");
+  }, [selectedRange, t]);
 
   const gitUserLabel = useMemo(() => {
     const name = gitInfo?.userName?.trim() ?? "";
@@ -246,11 +253,11 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
 
   return (
     <div className="space-y-4">
-      <OpenLoafSettingsGroup title="Git 信息" cardProps={{ divided: true, padding: "x" }}>
+      <OpenLoafSettingsGroup title={t("project.git.title")} cardProps={{ divided: true, padding: "x" }}>
         <div className="flex flex-wrap items-center gap-2 py-3">
           <div className="min-w-0 sm:w-56">
-            <div className="text-sm font-medium">当前分支</div>
-            <div className="text-xs text-muted-foreground">Git 分支名称</div>
+            <div className="text-sm font-medium">{t("project.git.currentBranch")}</div>
+            <div className="text-xs text-muted-foreground">{t("project.git.currentBranchDesc")}</div>
           </div>
 
           <OpenLoafSettingsField>
@@ -261,7 +268,7 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
               onClick={async () => {
                 if (!gitInfo?.branch) return;
                 await copyToClipboard(gitInfo.branch);
-                toast.success("已复制当前分支");
+                toast.success(t("project.git.branchCopied"));
               }}
               title={gitInfo?.branch ?? "-"}
             >
@@ -272,8 +279,8 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
 
         <div className="flex flex-wrap items-center gap-2 py-3">
           <div className="min-w-0 sm:w-56">
-            <div className="text-sm font-medium">远程 origin</div>
-            <div className="text-xs text-muted-foreground">远程仓库地址</div>
+            <div className="text-sm font-medium">{t("project.git.remoteOrigin")}</div>
+            <div className="text-xs text-muted-foreground">{t("project.git.remoteOriginDesc")}</div>
           </div>
 
           <OpenLoafSettingsField>
@@ -284,7 +291,7 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
               onClick={async () => {
                 if (!gitInfo?.originUrl) return;
                 await copyToClipboard(gitInfo.originUrl);
-                toast.success("已复制远程地址");
+                toast.success(t("project.git.remoteUrlCopied"));
               }}
               title={gitInfo?.originUrl ?? "-"}
             >
@@ -295,8 +302,8 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
 
         <div className="flex flex-wrap items-center gap-2 py-3">
           <div className="min-w-0 sm:w-56">
-            <div className="text-sm font-medium">Git 用户</div>
-            <div className="text-xs text-muted-foreground">本地优先，缺失用全局</div>
+            <div className="text-sm font-medium">{t("project.git.gitUser")}</div>
+            <div className="text-xs text-muted-foreground">{t("project.git.gitUserDesc")}</div>
           </div>
 
           <OpenLoafSettingsField>
@@ -307,7 +314,7 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
               onClick={async () => {
                 if (gitUserLabel === "-") return;
                 await copyToClipboard(gitUserLabel);
-                toast.success("已复制 Git 用户");
+                toast.success(t("project.git.gitUserCopied"));
               }}
               title={gitUserLabel}
             >
@@ -318,7 +325,7 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
       </OpenLoafSettingsGroup>
 
       <OpenLoafSettingsGroup
-        title="提交历史"
+        title={t("project.git.commitHistory")}
         subtitle={
           <div className="flex w-full flex-wrap items-center gap-2">
             <div className="w-48">
@@ -330,7 +337,9 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
                 <SelectTrigger className="h-8 w-full">
                   <SelectValue
                     placeholder={
-                      branchesQuery.isLoading ? "加载分支中" : "选择分支"
+                      branchesQuery.isLoading
+                        ? t("project.git.loadingBranches")
+                        : t("project.git.selectBranch")
                     }
                   />
                 </SelectTrigger>
@@ -338,7 +347,7 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
                   {branches.map((branch) => (
                     <SelectItem key={branch.name} value={branch.name}>
                       {branch.name}
-                      {branch.isCurrent ? "（当前）" : ""}
+                      {branch.isCurrent ? t("project.git.currentBranchLabel") : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -350,10 +359,10 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
                 onValueChange={(value) => setSelectedAuthor(value)}
               >
                 <SelectTrigger className="h-8 w-40">
-                  <SelectValue placeholder="选择用户" />
+                  <SelectValue placeholder={t("project.git.selectUser")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">全部用户</SelectItem>
+                  <SelectItem value="all">{t("project.git.allUsers")}</SelectItem>
                   {authorOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
@@ -389,14 +398,14 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
                   initialFocus
                 />
                   <div className="flex items-center justify-between border-t border-border/60 px-3 py-2">
-                    <span className="text-xs text-muted-foreground">时间区间</span>
+                    <span className="text-xs text-muted-foreground">{t("project.git.dateRange")}</span>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-xs"
                       onClick={() => setSelectedRange(undefined)}
                     >
-                      清除
+                      {t("common:clear")}
                     </Button>
                   </div>
                 </PopoverContent>
@@ -411,16 +420,16 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
           {!activeBranch ? (
             <div className="py-6 text-center text-xs text-muted-foreground">
               {branchesQuery.isLoading
-                ? "加载分支中"
+                ? t("project.git.loadingBranches")
                 : branchesQuery.isError
-                  ? "获取分支失败"
-                  : "暂无可用分支"}
+                  ? t("project.git.branchError")
+                  : t("project.git.noBranches")}
             </div>
           ) : null}
 
           {activeBranch && commitQuery.isError ? (
             <div className="py-6 text-center text-xs text-muted-foreground">
-              获取提交历史失败
+              {t("project.git.commitError")}
             </div>
           ) : null}
 
@@ -444,7 +453,7 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
           !commitQuery.isLoading &&
           filteredCommitItems.length === 0 ? (
             <div className="py-6 text-center text-xs text-muted-foreground">
-              {isFilterActive ? "暂无匹配提交" : "暂无提交记录"}
+              {isFilterActive ? t("project.git.noMatchingCommits") : t("project.git.noCommits")}
             </div>
           ) : null}
 
@@ -456,11 +465,13 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
               {filteredCommitItems.map((commit) => {
                 const fullAuthorLabel = formatGitAuthorLabel(
                   commit.authorName,
-                  commit.authorEmail
+                  commit.authorEmail,
+                  unknownAuthor
                 );
                 const displayAuthorLabel = formatGitAuthorDisplay(
                   commit.authorName,
-                  commit.authorEmail
+                  commit.authorEmail,
+                  unknownAuthor
                 );
                 return (
                   <div

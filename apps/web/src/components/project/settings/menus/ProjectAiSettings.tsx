@@ -9,6 +9,7 @@
  */
 import { memo, useMemo, useState } from "react";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
 import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 import { Switch } from "@openloaf/ui/animate-ui/components/radix/switch";
@@ -32,6 +33,7 @@ type ProjectAiSettingsProps = {
 const ProjectAiSettings = memo(function ProjectAiSettings({
   projectId,
 }: ProjectAiSettingsProps) {
+  const { t } = useTranslation("settings");
   const queryClient = useQueryClient();
   const { basic } = useBasicConfig();
   const hourOptions = useMemo(() => Array.from({ length: 25 }, (_, hour) => hour), []);
@@ -72,8 +74,8 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
     ? (aiSettings.autoSummaryHours ?? basic.autoSummaryHours)
     : basic.autoSummaryHours;
   const autoSummaryLabel = (effectiveAutoSummaryHours ?? [])
-    .map((hour) => `${hour}时`)
-    .join("、");
+    .map((hour) => `${hour}:00`)
+    .join(", ");
 
   function updateAiSettings(next: {
     overrideEnabled?: boolean;
@@ -115,7 +117,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
       id: `summary-history:project:${projectId}`,
       sourceKey: `summary-history:project:${projectId}`,
       component: "scheduler-task-history",
-      title: "项目汇总历史",
+      title: t("project.ai.summaryHistoryTitle"),
       params: { projectId, scope: "project" },
     });
   }
@@ -125,15 +127,15 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
   return (
     <div className="space-y-3">
       <OpenLoafSettingsGroup
-        title="AI设置"
-        subtitle="覆盖工作空间设置后可配置当前项目的自动总结。"
+        title={t("project.tabAI")}
+        subtitle={t("project.ai.subtitle")}
       >
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">覆盖工作空间设置</div>
+              <div className="text-sm font-medium">{t("project.ai.overrideWorkspace")}</div>
               <div className="text-xs text-muted-foreground">
-                开启后可自定义项目级别的自动总结规则
+                {t("project.ai.overrideWorkspaceDesc")}
               </div>
             </div>
 
@@ -144,7 +146,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
                   onCheckedChange={(checked) =>
                     updateAiSettings({ overrideEnabled: checked })
                   }
-                  aria-label="Override workspace settings"
+                  aria-label={t("project.ai.overrideWorkspace")}
                 />
               </div>
             </OpenLoafSettingsField>
@@ -152,9 +154,9 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
 
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">资料自动总结</div>
+              <div className="text-sm font-medium">{t("project.ai.autoSummary")}</div>
               <div className="text-xs text-muted-foreground">
-                自动总结项目资料并按计划生成记录
+                {t("project.ai.autoSummaryDesc")}
               </div>
             </div>
 
@@ -166,7 +168,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
                     updateAiSettings({ autoSummaryEnabled: checked })
                   }
                   disabled={!overrideEnabled}
-                  aria-label="Auto summary"
+                  aria-label={t("project.ai.autoSummary")}
                 />
               </div>
             </OpenLoafSettingsField>
@@ -174,9 +176,9 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
 
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">自动总结时间</div>
+              <div className="text-sm font-medium">{t("project.ai.autoSummaryTime")}</div>
               <div className="text-xs text-muted-foreground">
-                选择一天内需要自动总结的小时
+                {t("project.ai.autoSummaryTimeDesc")}
               </div>
             </div>
 
@@ -188,7 +190,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button type="button" variant="outline" disabled={!overrideEnabled}>
-                      设置
+                      {t("project.ai.configure")}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-[280px]">
@@ -219,9 +221,9 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
 
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">立即触发</div>
+              <div className="text-sm font-medium">{t("project.ai.triggerNow")}</div>
               <div className="text-xs text-muted-foreground">
-                选择任意日期进行日汇总（覆盖同日记录）
+                {t("project.ai.triggerNowDesc")}
               </div>
             </div>
 
@@ -230,7 +232,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button type="button" variant="outline">
-                      执行
+                      {t("project.ai.execute")}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-[240px]">
@@ -246,13 +248,13 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
                         onClick={handleRunSummaryForDay}
                         disabled={!manualDate || runSummaryForDay.isPending}
                       >
-                        立即触发
+                        {t("project.ai.triggerNow")}
                       </Button>
                     </div>
                   </PopoverContent>
                 </Popover>
                 <Button type="button" variant="ghost" onClick={handleOpenHistoryPanel}>
-                  历史面板
+                  {t("project.ai.historyPanel")}
                 </Button>
               </div>
             </OpenLoafSettingsField>

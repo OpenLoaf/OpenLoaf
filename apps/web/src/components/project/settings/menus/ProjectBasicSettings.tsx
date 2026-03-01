@@ -1017,7 +1017,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             <AlertDialogDescription>
               {t("project.clearChatDescription")}
               {typeof chatSessionCount === "number"
-                ? `（当前 ${chatSessionCount} 个会话）`
+                ? t("project.chatSessionCountNote", { count: chatSessionCount })
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
