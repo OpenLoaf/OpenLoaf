@@ -30,7 +30,8 @@
 | ✅ TaskDetailPanel.tsx（优先级 4） | 完成 | 100% |
 | ✅ TaskTemplateDialog.tsx（优先级 4） | 完成 | 100% |
 | ✅ ScheduledTaskList.tsx（优先级 4） | 完成 | 100% |
-| ⏳ ScheduledTaskDialog.tsx（优先级 4） | 进行中 | 70% |
+| ⏳ ScheduledTaskDialog.tsx（优先级 4） | 进行中 | 85% |
+| ⏳ ProjectBasicSettings.tsx（优先级 4） | 待迁移 | 0% |
 
 **已完成的核心基础设施**：
 - ✅ i18next 系统初始化
