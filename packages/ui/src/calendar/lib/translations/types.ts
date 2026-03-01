@@ -122,6 +122,10 @@ export interface Translations {
 	october: string
 	november: string
 	december: string
+
+	// Event form time range (reminders)
+	timeRange: string
+	timeRangeHint: string
 }
 
 export type TranslationKey = keyof Translations

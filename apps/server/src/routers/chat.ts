@@ -37,6 +37,7 @@ import {
 } from '@/ai/services/chat/repositories/chatFileStore'
 import { promises as fsPromises } from 'node:fs'
 import nodePath from 'node:path'
+import { getErrorMessage } from '@/shared/errorMessages'
 
 const TITLE_MAX_CHARS = 16
 const TITLE_CONTEXT_TAKE = 24
@@ -376,7 +377,7 @@ export class ChatRouterImpl extends BaseChatRouter {
             where: { id: input.sessionId },
             select: { id: true, deletedAt: true },
           })
-          if (!session || session.deletedAt) throw new Error('session not found')
+          if (!session || session.deletedAt) throw new Error(getErrorMessage('CHAT_SESSION_NOT_FOUND', ctx.lang))
 
           const content = await resolveSessionPrefaceText(ctx.prisma, input.sessionId)
           let jsonlPath: string | undefined
@@ -400,7 +401,7 @@ export class ChatRouterImpl extends BaseChatRouter {
             where: { id: input.sessionId },
             select: { id: true, title: true, isUserRename: true, deletedAt: true },
           })
-          if (!session || session.deletedAt) throw new Error('session not found')
+          if (!session || session.deletedAt) throw new Error(getErrorMessage('CHAT_SESSION_NOT_FOUND', ctx.lang))
 
           if (session.isUserRename) return { ok: true, title: session.title }
 

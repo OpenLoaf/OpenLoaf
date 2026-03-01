@@ -83,3 +83,14 @@ export const calendarMutateToolDef = {
   needsApproval: true,
   component: null,
 } as const
+
+/**
+ * Get calendar tools definitions in specified language.
+ * Currently returns Chinese version. English translation can be added
+ * by creating separate .en.ts variant in future iterations.
+ */
+export function getCalendarToolDefs(lang?: string) {
+  // Currently all tools default to Chinese
+  // Can be extended to support other languages: en-US, ja-JP, etc.
+  return { calendarQueryToolDef, calendarMutateToolDef }
+}

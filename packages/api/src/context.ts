@@ -21,15 +21,20 @@ export type CreateContextOptions = {
 };
 
 export async function createContext({
-  context: _context,
+  context: honoContext,
 }: CreateContextOptions): Promise<{
   session: null;
   prisma: typeof prisma;
+  lang: string;
 }> {
-  // No auth configured
+  // Extract language from request headers or default to 'zh-CN'
+  const lang =
+    (honoContext.req.header("x-ui-language") as string) || "zh-CN";
+
   return {
     session: null,
     prisma,
+    lang,
   };
 }
 

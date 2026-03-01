@@ -2,7 +2,7 @@
 
 ## 执行现状
 
-**✅ 第四步进行中：服务端国际化基础设施完成 70%**
+**✅ 第四步进行中：服务端国际化基础设施完成 75%**
 **✅ 第三步完成：优先级 1-4 全部组件迁移（Priority 1-4 已全部完成）**
 
 **迁移总结**：
@@ -10,7 +10,7 @@
 - 📝 650+ 个翻译 key 已添加
 - 🌍 3 种语言完整支持（zh-CN、zh-TW、en-US）
 - ✨ 1200+ 硬编码字符串已替换
-- 🔧 10 个有针对性的 commit 完成迁移
+- 🔧 15+ 个有针对性的 commit 完成迁移
 
 | 任务 | 状态 | 完成度 |
 |-----|------|--------|
@@ -55,9 +55,9 @@
 - ✅ AI Agent Prompt 完全多语言化（10 个 prompt.en.md，586 行）
 - ✅ agentFactory 多语言基础设施（getTemplatePrompt 函数）
 - ✅ chatCommands 英文化
-- ⏳ tRPC 路由错误消息国际化（需改动生成代码）
-- ⏳ Tool description 多语言化（10+ 文件）
-- ⏳ Calendar eventForm 翻译
+- ✅ Calendar eventForm 翻译（3 个键完整支持）
+- ⏳ tRPC 路由错误消息国际化（context.ts 支持lang；errorMessages.ts 创建；workspace/chat 已更新；settings 部分更新）
+- ✅ Tool description 多语言框架（task、email、calendar、browser 已支持 getter 函数）
 
 ---
 

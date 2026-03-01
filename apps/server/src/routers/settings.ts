@@ -52,6 +52,7 @@ import { CAPABILITY_GROUPS } from "@/ai/tools/capabilityGroups";
 import { resolveSystemCliInfo } from "@/modules/settings/resolveSystemCliInfo";
 import { resolveOfficeInfo } from "@/modules/settings/resolveOfficeInfo";
 import { isSystemAgentId } from "@/ai/shared/systemAgentDefinitions";
+import { getErrorMessage } from "@/shared/errorMessages";
 
 /** Normalize ignoreSkills list for persistence. */
 function normalizeIgnoreSkills(values?: unknown): string[] {
@@ -180,13 +181,13 @@ function readWorkspaceIgnoreSkills(): string[] {
 }
 
 /** Update ignoreSkills in active workspace config. */
-function updateWorkspaceIgnoreSkills(input: { ignoreKey: string; enabled: boolean }): void {
+function updateWorkspaceIgnoreSkills(input: { ignoreKey: string; enabled: boolean }, lang: string = 'en-US'): void {
   const workspaces = getWorkspaces();
   const activeIndex = workspaces.findIndex((workspace) => workspace.isActive);
   const targetIndex = activeIndex >= 0 ? activeIndex : 0;
   const target = workspaces[targetIndex];
   if (!target) {
-    throw new Error("Active workspace not found.");
+    throw new Error(getErrorMessage('ACTIVE_WORKSPACE_NOT_FOUND', lang));
   }
   const normalizedKey = normalizeWorkspaceIgnoreKey(input.ignoreKey);
   if (!normalizedKey) return;
@@ -452,26 +453,26 @@ export class SettingRouterImpl extends BaseSettingRouter {
       setSkillEnabled: shieldedProcedure
         .input(settingSchemas.setSkillEnabled.input)
         .output(settingSchemas.setSkillEnabled.output)
-        .mutation(async ({ input }) => {
+        .mutation(async ({ input, ctx }) => {
           const ignoreKey = input.ignoreKey.trim();
           if (!ignoreKey) {
-            throw new Error("Ignore key is required.");
+            throw new Error(getErrorMessage('IGNORE_KEY_REQUIRED', ctx.lang));
           }
           // 全局技能与工作空间技能共用 workspace 级别的 ignoreSkills 列表。
           if (input.scope === "workspace" || input.scope === "global") {
             updateWorkspaceIgnoreSkills({
               ignoreKey,
               enabled: input.enabled,
-            });
+            }, ctx.lang);
             return { ok: true };
           }
           const projectId = input.projectId?.trim();
           if (!projectId) {
-            throw new Error("Project id is required.");
+            throw new Error(getErrorMessage('PROJECT_ID_REQUIRED', ctx.lang));
           }
           const projectRootPath = getProjectRootPath(projectId);
           if (!projectRootPath) {
-            throw new Error("Project not found.");
+            throw new Error(getErrorMessage('PROJECT_NOT_FOUND', ctx.lang));
           }
           await updateProjectIgnoreSkills({
             projectRootPath,
