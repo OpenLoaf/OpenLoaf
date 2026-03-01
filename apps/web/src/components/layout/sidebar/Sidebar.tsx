@@ -11,6 +11,7 @@
 
 import { startTransition, useCallback } from "react";
 import { useQuery, skipToken } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { SidebarProject } from "@/components/layout/sidebar/SidebarProject";
 import { SidebarFeedback } from "@/components/layout/sidebar/SidebarFeedback";
 import { SidebarWorkspace } from "../../workspace/SidebarWorkspace";
