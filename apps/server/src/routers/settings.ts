@@ -1176,6 +1176,54 @@ export class SettingRouterImpl extends BaseSettingRouter {
           await fs.writeFile(jsonPath, JSON.stringify(updated, null, 2), "utf8");
           return { ok: true };
         }),
+      /** Get auxiliary model config. */
+      getAuxiliaryModelConfig: shieldedProcedure
+        .output(settingSchemas.getAuxiliaryModelConfig.output)
+        .query(async () => {
+          const { readAuxiliaryModelConf } = await import(
+            "@/modules/settings/auxiliaryModelConfStore"
+          );
+          return readAuxiliaryModelConf();
+        }),
+      /** Save auxiliary model config. */
+      saveAuxiliaryModelConfig: shieldedProcedure
+        .input(settingSchemas.saveAuxiliaryModelConfig.input)
+        .output(settingSchemas.saveAuxiliaryModelConfig.output)
+        .mutation(async ({ input }) => {
+          const { readAuxiliaryModelConf, writeAuxiliaryModelConf } =
+            await import("@/modules/settings/auxiliaryModelConfStore");
+          const current = readAuxiliaryModelConf();
+          const merged = {
+            modelSource: input.modelSource ?? current.modelSource,
+            localModelIds: input.localModelIds ?? current.localModelIds,
+            cloudModelIds: input.cloudModelIds ?? current.cloudModelIds,
+            capabilities: {
+              ...current.capabilities,
+              ...(input.capabilities ?? {}),
+            },
+          };
+          writeAuxiliaryModelConf(merged);
+          return { ok: true };
+        }),
+      /** Get auxiliary capability definitions. */
+      getAuxiliaryCapabilities: shieldedProcedure
+        .output(settingSchemas.getAuxiliaryCapabilities.output)
+        .query(async () => {
+          const { CAPABILITY_KEYS, AUXILIARY_CAPABILITIES } = await import(
+            "@/ai/services/auxiliaryCapabilities"
+          );
+          return CAPABILITY_KEYS.map((key) => {
+            const cap = AUXILIARY_CAPABILITIES[key]!;
+            return {
+              key: cap.key,
+              label: cap.label,
+              description: cap.description,
+              triggers: cap.triggers,
+              defaultPrompt: cap.defaultPrompt,
+              outputSchema: cap.outputSchema,
+            };
+          });
+        }),
     });
   }
 }

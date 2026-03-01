@@ -9,6 +9,7 @@
  */
 "use client"
 
+import { AnimatePresence, motion } from "motion/react"
 import { Bot, Terminal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -39,24 +40,30 @@ export default function ChatModeSelector({
   const isAgent = value === "agent"
 
   const control = (
-    <div
+    <motion.div
       className={cn(
         "relative flex h-8 cursor-pointer items-center rounded-full border border-border/60 bg-muted/60 p-0.5",
-        compact ? "w-[68px]" : "w-[160px]",
         disabled && "pointer-events-none opacity-50",
         className,
       )}
+      animate={{ width: compact ? 68 : 160 }}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
       role="radiogroup"
       aria-label="聊天模式"
     >
       {/* Sliding indicator pill */}
-      <span
-        className={cn(
-          "absolute top-[3px] bottom-[3px] w-[calc(50%-3px)] rounded-full transition-all duration-200",
-          isAgent
-            ? "left-[3px] bg-violet-500/15 dark:bg-violet-500/20"
-            : "left-[50%] bg-amber-500/15 dark:bg-amber-500/20",
-        )}
+      <motion.span
+        className="absolute top-[3px] bottom-[3px] rounded-full"
+        animate={{
+          left: isAgent ? 3 : "50%",
+          width: "calc(50% - 3px)",
+        }}
+        transition={{ type: "spring", stiffness: 500, damping: 35 }}
+        style={{
+          backgroundColor: isAgent
+            ? "rgba(139, 92, 246, 0.15)"
+            : "rgba(245, 158, 11, 0.15)",
+        }}
       />
 
       {/* Agent segment */}
@@ -65,7 +72,7 @@ export default function ChatModeSelector({
         role="radio"
         aria-checked={isAgent}
         className={cn(
-          "relative z-10 flex h-[26px] flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors",
+          "relative z-10 flex h-[26px] flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors duration-200",
           isAgent
             ? "text-violet-600 dark:text-violet-300"
             : "text-muted-foreground",
@@ -75,8 +82,27 @@ export default function ChatModeSelector({
         }}
         tabIndex={isAgent ? 0 : -1}
       >
-        <Bot className="h-3.5 w-3.5 shrink-0" />
-        {!compact && <span>Agent</span>}
+        <motion.span
+          className="flex shrink-0"
+          animate={{ scale: isAgent ? 1.1 : 1 }}
+          transition={{ type: "spring", stiffness: 500, damping: 25 }}
+        >
+          <Bot className="h-3.5 w-3.5" />
+        </motion.span>
+        <AnimatePresence mode="popLayout">
+          {!compact && (
+            <motion.span
+              key="agent-label"
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden whitespace-nowrap"
+            >
+              Agent
+            </motion.span>
+          )}
+        </AnimatePresence>
       </button>
 
       {/* CLI segment */}
@@ -85,7 +111,7 @@ export default function ChatModeSelector({
         role="radio"
         aria-checked={!isAgent}
         className={cn(
-          "relative z-10 flex h-[26px] flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors",
+          "relative z-10 flex h-[26px] flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors duration-200",
           !isAgent
             ? "text-amber-600 dark:text-amber-300"
             : "text-muted-foreground",
@@ -95,10 +121,29 @@ export default function ChatModeSelector({
         }}
         tabIndex={!isAgent ? 0 : -1}
       >
-        <Terminal className="h-3.5 w-3.5 shrink-0" />
-        {!compact && <span>CLI</span>}
+        <motion.span
+          className="flex shrink-0"
+          animate={{ scale: !isAgent ? 1.1 : 1 }}
+          transition={{ type: "spring", stiffness: 500, damping: 25 }}
+        >
+          <Terminal className="h-3.5 w-3.5" />
+        </motion.span>
+        <AnimatePresence mode="popLayout">
+          {!compact && (
+            <motion.span
+              key="cli-label"
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden whitespace-nowrap"
+            >
+              CLI
+            </motion.span>
+          )}
+        </AnimatePresence>
       </button>
-    </div>
+    </motion.div>
   )
 
   if (compact) {

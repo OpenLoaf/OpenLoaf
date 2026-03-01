@@ -1,0 +1,19 @@
+{
+  "modelProviders": [
+    {
+      "id": "e2e-test-provider",
+      "title": "E2E Test Provider",
+      "providerId": "${TEST_PROVIDER_ID}",
+      "apiUrl": "${TEST_API_URL}",
+      "authConfig": { "apiKey": "${TEST_API_KEY}" },
+      "models": {
+        "${TEST_MODEL_ID}": {
+          "id": "${TEST_MODEL_ID}",
+          "name": "${TEST_MODEL_NAME}"
+        }
+      },
+      "updatedAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "s3Providers": []
+}

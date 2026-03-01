@@ -330,6 +330,50 @@ export const settingSchemas = {
     }),
     output: z.object({ ok: z.boolean() }),
   },
+  /** Get auxiliary model config. */
+  getAuxiliaryModelConfig: {
+    output: z.object({
+      modelSource: z.enum(["local", "cloud"]),
+      localModelIds: z.array(z.string()),
+      cloudModelIds: z.array(z.string()),
+      capabilities: z.record(
+        z.string(),
+        z.object({
+          customPrompt: z.string().nullable().optional(),
+        }),
+      ),
+    }),
+  },
+  /** Save auxiliary model config. */
+  saveAuxiliaryModelConfig: {
+    input: z.object({
+      modelSource: z.enum(["local", "cloud"]).optional(),
+      localModelIds: z.array(z.string()).optional(),
+      cloudModelIds: z.array(z.string()).optional(),
+      capabilities: z
+        .record(
+          z.string(),
+          z.object({
+            customPrompt: z.string().nullable().optional(),
+          }),
+        )
+        .optional(),
+    }),
+    output: z.object({ ok: z.boolean() }),
+  },
+  /** Get auxiliary capability definitions. */
+  getAuxiliaryCapabilities: {
+    output: z.array(
+      z.object({
+        key: z.string(),
+        label: z.string(),
+        description: z.string(),
+        triggers: z.array(z.string()),
+        defaultPrompt: z.string(),
+        outputSchema: z.record(z.string(), z.unknown()),
+      }),
+    ),
+  },
 };
 
 export abstract class BaseSettingRouter {
@@ -478,6 +522,22 @@ export abstract class BaseSettingRouter {
         .input(settingSchemas.saveAgentSkillsByName.input)
         .output(settingSchemas.saveAgentSkillsByName.output)
         .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getAuxiliaryModelConfig: shieldedProcedure
+        .output(settingSchemas.getAuxiliaryModelConfig.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      saveAuxiliaryModelConfig: shieldedProcedure
+        .input(settingSchemas.saveAuxiliaryModelConfig.input)
+        .output(settingSchemas.saveAuxiliaryModelConfig.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getAuxiliaryCapabilities: shieldedProcedure
+        .output(settingSchemas.getAuxiliaryCapabilities.output)
+        .query(async () => {
           throw new Error("Not implemented in base class");
         }),
     });

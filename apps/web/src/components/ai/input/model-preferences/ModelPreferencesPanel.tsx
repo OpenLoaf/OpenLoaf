@@ -26,6 +26,7 @@ interface ModelPreferencesPanelProps {
   prefs: Prefs
   showCloudLogin: boolean
   authLoggedIn: boolean
+  chatMode?: 'agent' | 'cli'
   onOpenLogin: () => void
   onClose: () => void
 }
@@ -34,6 +35,7 @@ export function ModelPreferencesPanel({
   prefs,
   showCloudLogin,
   authLoggedIn,
+  chatMode = 'agent',
   onOpenLogin,
   onClose,
 }: ModelPreferencesPanelProps) {
@@ -61,6 +63,15 @@ export function ModelPreferencesPanel({
       return
     }
     prefs.setVideoAuto(auto)
+  }
+
+  // CLI 模式下只显示 CLI 工具列表
+  if (chatMode === 'cli') {
+    return (
+      <div className="flex flex-col gap-2">
+        <CliToolsList />
+      </div>
+    )
   }
 
   const needsLogin = isChatTab ? showCloudLogin : !authLoggedIn

@@ -159,9 +159,6 @@ type FormSnapshot = {
   icon: string
   modelLocalIds: string[]
   modelCloudIds: string[]
-  auxiliaryModelLocalIds: string[]
-  auxiliaryModelCloudIds: string[]
-  auxiliaryModelSource: string
   /** Selected image model ids (empty = Auto). */
   imageModelIds: string[]
   /** Selected video model ids (empty = Auto). */
@@ -592,9 +589,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const [icon, setIcon] = useState('bot')
   const [modelLocalIds, setModelLocalIds] = useState<string[]>([])
   const [modelCloudIds, setModelCloudIds] = useState<string[]>([])
-  const [auxiliaryModelSource, setAuxiliaryModelSource] = useState('local')
-  const [auxiliaryModelLocalIds, setAuxiliaryModelLocalIds] = useState<string[]>([])
-  const [auxiliaryModelCloudIds, setAuxiliaryModelCloudIds] = useState<string[]>([])
   const [imageModelIds, setImageModelIds] = useState<string[]>([])
   const [videoModelIds, setVideoModelIds] = useState<string[]>([])
   const [thinkingMode, setThinkingMode] = useState<ThinkingMode>('fast')
@@ -649,8 +643,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const baseChatSource = normalizeChatModelSource(basic.chatSource)
   const chatModelSource = isMasterAgent ? baseChatSource : localChatSource
   const isCloudSource = chatModelSource === 'cloud'
-  const auxiliaryChatSource = normalizeChatModelSource(auxiliaryModelSource)
-  const isAuxCloudSource = auxiliaryChatSource === 'cloud'
   const chatModels = useMemo(
     () =>
       buildChatModelOptions(
@@ -661,27 +653,8 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       ),
     [chatModelSource, providerItems, cloudModels, installedCliProviderIds],
   )
-  const auxiliaryChatModels = useMemo(
-    () =>
-      buildChatModelOptions(
-        auxiliaryChatSource,
-        providerItems,
-        cloudModels,
-        installedCliProviderIds,
-      ),
-    [
-      auxiliaryChatSource,
-      providerItems,
-      cloudModels,
-      installedCliProviderIds,
-    ],
-  )
   const showChatCloudLogin = isCloudSource && !authLoggedIn
-  const showAuxChatCloudLogin = isAuxCloudSource && !authLoggedIn
   const activeModelIds = isCloudSource ? modelCloudIds : modelLocalIds
-  const activeAuxModelIds = isAuxCloudSource
-    ? auxiliaryModelCloudIds
-    : auxiliaryModelLocalIds
   const hasReasoningModel = useMemo(() => {
     if (!chatModels.length) return false
     const normalized = Array.from(
@@ -836,15 +809,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
         ? 'local'
         : fallbackChatSource
     setLocalChatSource(isMasterAgent ? fallbackChatSource : inferredChatSource)
-    setAuxiliaryModelSource(
-      normalizeChatModelSource(d.auxiliaryModelSource ?? basic.chatSource),
-    )
-    setAuxiliaryModelLocalIds(
-      Array.isArray(d.auxiliaryModelLocalIds) ? d.auxiliaryModelLocalIds : [],
-    )
-    setAuxiliaryModelCloudIds(
-      Array.isArray(d.auxiliaryModelCloudIds) ? d.auxiliaryModelCloudIds : [],
-    )
     setImageModelIds(Array.isArray(d.imageModelIds) ? d.imageModelIds : [])
     setVideoModelIds(Array.isArray(d.videoModelIds) ? d.videoModelIds : [])
     setToolIds(Array.isArray(d.toolIds) ? d.toolIds : [])
@@ -863,15 +827,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       icon: d.icon,
       modelLocalIds: Array.isArray(d.modelLocalIds) ? d.modelLocalIds : [],
       modelCloudIds: Array.isArray(d.modelCloudIds) ? d.modelCloudIds : [],
-      auxiliaryModelSource: normalizeChatModelSource(
-        d.auxiliaryModelSource ?? basic.chatSource,
-      ),
-      auxiliaryModelLocalIds: Array.isArray(d.auxiliaryModelLocalIds)
-        ? d.auxiliaryModelLocalIds
-        : [],
-      auxiliaryModelCloudIds: Array.isArray(d.auxiliaryModelCloudIds)
-        ? d.auxiliaryModelCloudIds
-        : [],
       imageModelIds: Array.isArray(d.imageModelIds) ? d.imageModelIds : [],
       videoModelIds: Array.isArray(d.videoModelIds) ? d.videoModelIds : [],
       toolIds: Array.isArray(d.toolIds) ? d.toolIds : [],
@@ -886,15 +841,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       icon: d.icon,
       modelLocalIds: Array.isArray(d.modelLocalIds) ? d.modelLocalIds : [],
       modelCloudIds: Array.isArray(d.modelCloudIds) ? d.modelCloudIds : [],
-      auxiliaryModelSource: normalizeChatModelSource(
-        d.auxiliaryModelSource ?? basic.chatSource,
-      ),
-      auxiliaryModelLocalIds: Array.isArray(d.auxiliaryModelLocalIds)
-        ? d.auxiliaryModelLocalIds
-        : [],
-      auxiliaryModelCloudIds: Array.isArray(d.auxiliaryModelCloudIds)
-        ? d.auxiliaryModelCloudIds
-        : [],
       imageModelIds: Array.isArray(d.imageModelIds) ? d.imageModelIds : [],
       videoModelIds: Array.isArray(d.videoModelIds) ? d.videoModelIds : [],
       toolIds: Array.isArray(d.toolIds) ? d.toolIds : [],
@@ -914,13 +860,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     if (toolIds.length === 0 && baseToolIds.length > 0) {
       setToolIds(baseToolIds)
     }
-    setAuxiliaryModelSource(normalizeChatModelSource(basic.chatSource))
     setLocalChatSource(normalizeChatModelSource(basic.chatSource))
     const snapshot = makeSnapshot({
       name: '', description: '', icon: 'bot', modelLocalIds: [], modelCloudIds: [],
-      auxiliaryModelSource: normalizeChatModelSource(basic.chatSource),
-      auxiliaryModelLocalIds: [],
-      auxiliaryModelCloudIds: [],
       imageModelIds: [], videoModelIds: [],
       toolIds: baseToolIds, skills: [], allowSubAgents: false,
       maxDepth: 1, systemPrompt: '',
@@ -935,9 +877,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     icon,
     modelLocalIds,
     modelCloudIds,
-    auxiliaryModelSource,
-    auxiliaryModelLocalIds,
-    auxiliaryModelCloudIds,
     imageModelIds,
     videoModelIds,
     toolIds,
@@ -965,9 +904,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     setIcon(parsed.icon)
     setModelLocalIds(parsed.modelLocalIds)
     setModelCloudIds(parsed.modelCloudIds)
-    setAuxiliaryModelSource(parsed.auxiliaryModelSource)
-    setAuxiliaryModelLocalIds(parsed.auxiliaryModelLocalIds)
-    setAuxiliaryModelCloudIds(parsed.auxiliaryModelCloudIds)
     setImageModelIds(parsed.imageModelIds)
     setVideoModelIds(parsed.videoModelIds)
     setToolIds(parsed.toolIds)
@@ -1068,9 +1004,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           icon,
           modelLocalIds,
           modelCloudIds,
-          auxiliaryModelSource,
-          auxiliaryModelLocalIds,
-          auxiliaryModelCloudIds,
           imageModelIds,
           videoModelIds,
           toolIds,
@@ -1095,9 +1028,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
         icon: nextSnapshot.icon.trim() || undefined,
         modelLocalIds: normalizeIds(nextSnapshot.modelLocalIds),
         modelCloudIds: normalizeIds(nextSnapshot.modelCloudIds),
-        auxiliaryModelSource: nextSnapshot.auxiliaryModelSource,
-        auxiliaryModelLocalIds: normalizeIds(nextSnapshot.auxiliaryModelLocalIds),
-        auxiliaryModelCloudIds: normalizeIds(nextSnapshot.auxiliaryModelCloudIds),
         imageModelIds: normalizeIds(nextSnapshot.imageModelIds),
         videoModelIds: normalizeIds(nextSnapshot.videoModelIds),
         toolIds: normalizeIds(nextSnapshot.toolIds),
@@ -1110,9 +1040,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     [
       allowSubAgents,
       agentPath,
-      auxiliaryModelCloudIds,
-      auxiliaryModelLocalIds,
-      auxiliaryModelSource,
       toolIds,
       description,
       getSavedSnapshot,
@@ -1141,8 +1068,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     }
     const normalizedModelLocalIds = normalizeIds(modelLocalIds)
     const normalizedModelCloudIds = normalizeIds(modelCloudIds)
-    const normalizedAuxLocalIds = normalizeIds(auxiliaryModelLocalIds)
-    const normalizedAuxCloudIds = normalizeIds(auxiliaryModelCloudIds)
     const normalizedImageModelIds = normalizeIds(imageModelIds)
     const normalizedVideoModelIds = normalizeIds(videoModelIds)
     const normalizedToolIds = normalizeIds(toolIds)
@@ -1155,9 +1080,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       icon: icon.trim() || undefined,
       modelLocalIds: normalizedModelLocalIds,
       modelCloudIds: normalizedModelCloudIds,
-      auxiliaryModelSource,
-      auxiliaryModelLocalIds: normalizedAuxLocalIds,
-      auxiliaryModelCloudIds: normalizedAuxCloudIds,
       imageModelIds: normalizedImageModelIds,
       videoModelIds: normalizedVideoModelIds,
       toolIds: normalizedToolIds,
@@ -1172,9 +1094,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     icon,
     modelLocalIds,
     modelCloudIds,
-    auxiliaryModelSource,
-    auxiliaryModelLocalIds,
-    auxiliaryModelCloudIds,
     imageModelIds,
     videoModelIds,
     toolIds,
@@ -1500,56 +1419,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                 </div>
               </div>
             </div>
-            {isMasterAgent ? (
-              <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
-                <span className="flex items-center gap-2 text-sm font-medium">
-                  <Sparkles className="h-4 w-4 text-emerald-500" />
-                  辅助模型
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground hover:text-foreground">
-                        <HelpCircle className="h-3.5 w-3.5" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[240px] text-xs">
-                      用于生成建议、补全与优化等辅助内容，不影响主对话输出。
-                    </TooltipContent>
-                  </Tooltip>
-                </span>
-                <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                  <ChatModelSelect
-                    models={auxiliaryChatModels}
-                    value={activeAuxModelIds}
-                    showCloudLogin={showAuxChatCloudLogin}
-                    onChange={(nextIds) => {
-                      if (isAuxCloudSource) {
-                        setAuxiliaryModelCloudIds(nextIds)
-                        return
-                      }
-                      setAuxiliaryModelLocalIds(nextIds)
-                    }}
-                    onOpenLogin={() => setLoginOpen(true)}
-                    emptyText="暂无对话模型"
-                  />
-                  <div className="flex shrink-0 items-center rounded-full border border-border/70 bg-muted/40">
-                    <FilterTab
-                      text="本地"
-                      selected={!isAuxCloudSource}
-                      onSelect={() => setAuxiliaryModelSource('local')}
-                      icon={<HardDrive className="h-3 w-3 text-amber-500" />}
-                      layoutId="agent-aux-source"
-                    />
-                    <FilterTab
-                      text="云端"
-                      selected={isAuxCloudSource}
-                      onSelect={() => setAuxiliaryModelSource('cloud')}
-                      icon={<Cloud className="h-3 w-3 text-sky-500" />}
-                      layoutId="agent-aux-source"
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : null}
             {isMasterAgent ? (
               <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
                 <span className="flex items-center gap-2 text-sm font-medium">

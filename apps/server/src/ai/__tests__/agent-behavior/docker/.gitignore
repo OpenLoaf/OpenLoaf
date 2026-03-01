@@ -1,0 +1,4 @@
+.env
+openloaf-root/providers.json
+openloaf-root/openloaf.db
+openloaf-root/auth.json

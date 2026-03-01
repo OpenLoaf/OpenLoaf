@@ -15,6 +15,7 @@ const nextConfig = {
   transpilePackages: ["@openloaf/ui", "@openloaf-saas/sdk"],
   experimental: {
     externalDir: true,
+    optimizePackageImports: ["@phosphor-icons/react"],
   },
   output: "export",
   webpack: (config) => {

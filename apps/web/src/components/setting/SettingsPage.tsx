@@ -30,6 +30,7 @@ import {
   Sparkles,
   Wand2Icon,
   Terminal,
+  Cpu,
 } from "lucide-react";
 
 import { BasicSettings } from "./menus/BasicSettings";
@@ -37,6 +38,7 @@ import { AboutOpenLoaf } from "./menus/AboutOpenLoaf";
 import { ProviderManagement } from "./menus/ProviderManagement";
 import { ObjectStorageService } from "./menus/ObjectStorageService";
 import { AgentManagement } from "./menus/agent/AgentManagement";
+import { AuxiliaryModelSettings } from "./menus/AuxiliaryModelSettings";
 import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import { WorkspaceSettings } from "./menus/Workspace";
 import TestSetting from "./menus/TestSetting";
@@ -55,6 +57,7 @@ type SettingsMenuKey =
   | "keys"
   | "storage"
   | "agents"
+  | "auxiliaryModel"
   | "workspace"
   | "skills"
   | "thirdPartyTools"
@@ -69,6 +72,7 @@ const SETTINGS_MENU_ICON_COLOR = {
   keys: "text-[#9334e6] dark:text-violet-300",
   storage: "text-[#188038] dark:text-emerald-300",
   agents: "text-[#1a73e8] dark:text-sky-300",
+  auxiliaryModel: "text-[#188038] dark:text-emerald-300",
   shortcuts: "text-[#f9ab00] dark:text-amber-300",
   projectTest: "text-[#f4511e] dark:text-orange-300",
   about: "text-[#5f6368] dark:text-slate-300",
@@ -148,6 +152,12 @@ const MENU: Array<{
     label: "Agent助手",
     Icon: createMenuIcon(Bot, SETTINGS_MENU_ICON_COLOR.agents),
     Component: AgentManagement,
+  },
+  {
+    key: "auxiliaryModel",
+    label: "辅助模型",
+    Icon: createMenuIcon(Cpu, SETTINGS_MENU_ICON_COLOR.auxiliaryModel),
+    Component: AuxiliaryModelSettings,
   },
   {
     key: "shortcuts",
@@ -282,6 +292,7 @@ export default function SettingsPage({
     ].filter(filterVisible);
     const group2 = [
       byKey.get("agents"),
+      byKey.get("auxiliaryModel"),
       byKey.get("skills"),
       byKey.get("keys"),
       byKey.get("storage"),

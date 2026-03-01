@@ -20,19 +20,19 @@ import {
 } from "react";
 import type { ComponentType, ForwardRefExoticComponent } from "react";
 import {
-  MousePointer2,
-  Hand,
-  Pen,
-  Highlighter,
-  Eraser,
-  StickyNote,
-  Image as LucideImageIcon,
-  Film,
-  Eye,
-  Images,
-  Video,
-} from "lucide-react";
-import type { LucideProps } from "lucide-react";
+  Cursor as PhCursor,
+  Hand as PhHand,
+  PenNib as PhPenNib,
+  HighlighterCircle as PhHighlighter,
+  Eraser as PhEraser,
+  NotePencil as PhNotePencil,
+  Image as PhImage,
+  FilmStrip as PhFilmStrip,
+  Eye as PhEye,
+  MagicWand as PhMagicWand,
+  VideoCamera as PhVideoCamera,
+} from "@phosphor-icons/react";
+import type { IconProps as PhIconProps } from "@phosphor-icons/react";
 import { cn } from "@udecode/cn";
 
 import type { CanvasEngine } from "../engine/CanvasEngine";
@@ -73,7 +73,7 @@ export interface BoardToolbarProps {
 
 type ToolMode = "select" | "hand" | "pen" | "highlighter" | "eraser";
 
-type IconProps = LucideProps;
+type IconProps = PhIconProps;
 
 type IconComponent = ComponentType<IconProps> | ForwardRefExoticComponent<IconProps>;
 
@@ -155,7 +155,7 @@ const INSERT_ITEMS: InsertItem[] = [
     id: "note",
     title: "笔记",
     description: "快速笔记卡片。",
-    icon: StickyNote,
+    icon: PhNotePencil,
     nodeType: "text",
     props: { autoFocus: true },
     size: [200, TEXT_NODE_DEFAULT_HEIGHT],
@@ -164,7 +164,7 @@ const INSERT_ITEMS: InsertItem[] = [
     id: "image",
     title: "图片",
     description: "图片块。",
-    icon: LucideImageIcon,
+    icon: PhImage,
     size: [320, 220],
     opensPicker: true,
   },
@@ -172,7 +172,7 @@ const INSERT_ITEMS: InsertItem[] = [
     id: "video",
     title: "视频",
     description: "视频块。",
-    icon: Film,
+    icon: PhFilmStrip,
     size: [360, 240],
     opensPicker: true,
   },
@@ -180,7 +180,7 @@ const INSERT_ITEMS: InsertItem[] = [
     id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
     title: "视频图片理解",
     description: "分析图片/视频并生成描述",
-    icon: Eye,
+    icon: PhEye,
     nodeType: IMAGE_PROMPT_GENERATE_NODE_TYPE,
     props: {},
     size: [320, 220],
@@ -189,7 +189,7 @@ const INSERT_ITEMS: InsertItem[] = [
     id: IMAGE_GENERATE_NODE_TYPE,
     title: "图片生成",
     description: "输入图片与文字生成新图",
-    icon: Images,
+    icon: PhMagicWand,
     nodeType: IMAGE_GENERATE_NODE_TYPE,
     props: {},
     size: [320, 260],
@@ -198,7 +198,7 @@ const INSERT_ITEMS: InsertItem[] = [
     id: VIDEO_GENERATE_NODE_TYPE,
     title: "生成视频",
     description: "基于图片与提示词生成视频",
-    icon: Video,
+    icon: PhVideoCamera,
     nodeType: VIDEO_GENERATE_NODE_TYPE,
     props: {},
     size: [360, 280],
@@ -779,18 +779,18 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     return parentRelative;
   }, [fileContext?.boardFolderUri, fileContext?.rootUri]);
 
-  // 统一按钮尺寸（“宽松”密度）
-  const iconSize = 20;
+  // Phosphor icon weight: light 用于默认态，fill 用于激活态
+  const phWeight = "light" as const;
   /** 底部工具栏图标尺寸。 */
-  const toolbarIconSize = 22;
-  /** 中间插入工具图标尺寸（直接使用放大后的尺寸）。 */
-  const insertIconSize = 26;
+  const toolbarIconSize = 20;
+  /** 中间插入工具图标尺寸。 */
+  const insertIconSize = 22;
   /** 底部工具栏图标 hover 放大样式。 */
   const toolbarIconClassName =
-    "origin-center transition-transform duration-150 ease-out group-hover:scale-[1.2]";
+    "origin-center transition-transform duration-150 ease-out group-hover:scale-[1.15]";
   /** 中间插入工具图标 hover 旋转样式。 */
   const insertIconClassName =
-    "origin-center transition-transform duration-150 ease-out group-hover:-rotate-15";
+    "origin-center transition-transform duration-150 ease-out group-hover:-rotate-12";
 
   return (
     <div
@@ -815,8 +815,9 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             onPointerDown={() => handleToolChange("select")}
             className="group"
           >
-            <MousePointer2
+            <PhCursor
               size={toolbarIconSize}
+              weight={isSelectTool ? "fill" : phWeight}
               className={cn(toolbarIconClassName, isSelectTool && "dark:text-foreground")}
             />
           </IconBtn>
@@ -826,8 +827,9 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             onPointerDown={() => handleToolChange("hand")}
             className="group"
           >
-            <Hand
+            <PhHand
               size={toolbarIconSize}
+              weight={isHandTool ? "fill" : phWeight}
               className={cn(toolbarIconClassName, isHandTool && "dark:text-foreground")}
             />
           </IconBtn>
@@ -848,14 +850,16 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
               disabled={isLocked}
             >
               {penVariant === "highlighter" ? (
-                <Highlighter
+                <PhHighlighter
                   size={toolbarIconSize}
+                  weight={isPenTool ? "fill" : phWeight}
                   className={toolbarIconClassName}
                   style={{ color: penColor }}
                 />
               ) : (
-                <Pen
+                <PhPenNib
                   size={toolbarIconSize}
+                  weight={isPenTool ? "fill" : phWeight}
                   className={toolbarIconClassName}
                   style={{ color: penColor }}
                 />
@@ -871,7 +875,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                     size="sm"
                     showLabel={false}
                   >
-                    <Pen size={16} style={{ color: penColor }} />
+                    <PhPenNib size={16} weight={phWeight} style={{ color: penColor }} />
                   </PanelItem>
                   <PanelItem
                     title={highlighterTitle}
@@ -880,7 +884,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                     size="sm"
                     showLabel={false}
                   >
-                    <Highlighter size={16} style={{ color: penColor }} />
+                    <PhHighlighter size={16} weight={phWeight} style={{ color: penColor }} />
                   </PanelItem>
                 </div>
                 <span className="h-6 w-px bg-[#e3e8ef] dark:bg-slate-700" />
@@ -940,8 +944,9 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             className="group"
             disabled={isLocked}
           >
-            <Eraser
+            <PhEraser
               size={toolbarIconSize}
+              weight={isEraserTool ? "fill" : phWeight}
               className={toolbarIconClassName}
             />
           </IconBtn>
@@ -1002,7 +1007,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                 disabled={isLocked}
                 className="group"
               >
-                <Icon size={insertIconSize} className={insertIconClassName} />
+                <Icon size={insertIconSize} weight={isActive ? "fill" : phWeight} className={insertIconClassName} />
               </IconBtn>
             );
           })}

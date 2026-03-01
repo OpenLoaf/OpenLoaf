@@ -163,6 +163,7 @@ export default function SelectMode({
               prefs={prefs}
               showCloudLogin={prefs.showCloudLogin}
               authLoggedIn={prefs.authLoggedIn}
+              chatMode={chatMode}
               onOpenLogin={handleOpenLogin}
               onClose={() => setPopoverOpen(false)}
             />

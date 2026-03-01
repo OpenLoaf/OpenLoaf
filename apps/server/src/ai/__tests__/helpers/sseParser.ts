@@ -91,7 +91,22 @@ export function extractToolCallsFromSseEvents(events: SseEvent[]): any[] {
  * 用于 E2E Provider 解析 runChatStream() 返回的 SSE Response。
  */
 export async function consumeSseResponse(response: Response): Promise<SseStreamResult> {
-  const raw = await response.text()
+  // 手动读取流，处理 string 和 Uint8Array 混合块
+  // （AI SDK 的 JsonToSseTransformStream 可能输出字符串而非字节）
+  const reader = response.body?.getReader()
+  let raw = ''
+  if (reader) {
+    const decoder = new TextDecoder()
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      if (typeof value === 'string') {
+        raw += value
+      } else if (value instanceof Uint8Array) {
+        raw += decoder.decode(value, { stream: true })
+      }
+    }
+  }
   const events = parseSseText(raw)
 
   let textOutput = ''
