@@ -10,6 +10,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@openloaf/ui/button";
 import { Input } from "@openloaf/ui/input";
@@ -130,6 +131,7 @@ function buildCliStatusMap(list?: CliToolStatus[]): CliStatusMap {
 
 /** Compose the third-party tools settings. */
 export function ThirdPartyTools() {
+  const { t } = useTranslation('settings');
   const { basic, setBasic } = useBasicConfig();
   const [cliSettings, setCliSettings] = useState<CliSettingsMap>(() =>
     buildCliSettingsFromBasic(basic.cliTools),
@@ -169,8 +171,8 @@ export function ThirdPartyTools() {
   const isOfficeInfoLoading = officeInfoQuery.isLoading && !officeInfo;
 
   const systemVersionValue = useMemo(() => {
-    if (isSystemCliLoading) return "检测中";
-    if (!systemCliInfo) return "未知";
+    if (isSystemCliLoading) return t('thirdPartyTools.detecting');
+    if (!systemCliInfo) return t('thirdPartyTools.unknown');
     // 逻辑：兼容旧缓存或旧接口缺少 system 字段的情况。
     const fallbackName =
       systemCliInfo.platform === "darwin"
@@ -179,37 +181,37 @@ export function ThirdPartyTools() {
           ? "Linux"
           : systemCliInfo.platform === "win32"
             ? "Windows"
-            : "未知系统";
+            : t('thirdPartyTools.unknown');
     const name = systemCliInfo.system?.name || fallbackName;
     const version = systemCliInfo.system?.version
       ? ` ${systemCliInfo.system.version}`
       : "";
     return `${name}${version}`;
-  }, [isSystemCliLoading, systemCliInfo]);
+  }, [isSystemCliLoading, systemCliInfo, t]);
 
   const shellSupportLabel = useMemo(() => {
     // 逻辑：优先展示检测状态，其次拼接 shell 版本与路径。
-    if (isSystemCliLoading) return "检测中";
-    if (!systemCliInfo?.shell.available) return "未检测到命令行支持";
+    if (isSystemCliLoading) return t('thirdPartyTools.detecting');
+    if (!systemCliInfo?.shell.available) return t('thirdPartyTools.noShellSupport');
     const name =
       systemCliInfo.shell.name === "powershell" ? "PowerShell" : "bash";
     const version = systemCliInfo.shell.version
-      ? ` · 版本：${systemCliInfo.shell.version}`
+      ? ` · ${t('thirdPartyTools.version')}：${systemCliInfo.shell.version}`
       : "";
     const path = systemCliInfo.shell.path
-      ? ` · 路径：${systemCliInfo.shell.path}`
+      ? ` · ${t('thirdPartyTools.path')}：${systemCliInfo.shell.path}`
       : "";
     return `${name}${version}${path}`;
-  }, [isSystemCliLoading, systemCliInfo]);
+  }, [isSystemCliLoading, systemCliInfo, t]);
 
   const wpsStatusLabel = useMemo(() => {
-    if (isOfficeInfoLoading) return "检测中";
-    if (!wpsInfo) return "未知";
-    if (!wpsInfo.installed) return "未安装";
-    const version = wpsInfo.version ? ` · 版本：${wpsInfo.version}` : "";
-    const pathLabel = wpsInfo.path ? ` · 路径：${wpsInfo.path}` : "";
-    return `已安装${version}${pathLabel}`;
-  }, [isOfficeInfoLoading, wpsInfo]);
+    if (isOfficeInfoLoading) return t('thirdPartyTools.detecting');
+    if (!wpsInfo) return t('thirdPartyTools.unknown');
+    if (!wpsInfo.installed) return t('thirdPartyTools.notInstalled');
+    const version = wpsInfo.version ? ` · ${t('thirdPartyTools.version')}：${wpsInfo.version}` : "";
+    const pathLabel = wpsInfo.path ? ` · ${t('thirdPartyTools.path')}：${wpsInfo.path}` : "";
+    return `${t('thirdPartyTools.installed')}${version}${pathLabel}`;
+  }, [isOfficeInfoLoading, wpsInfo, t]);
 
   /** Update cached CLI status list. */
   const updateCliStatusCache = (nextStatus: CliToolStatus) => {
@@ -235,7 +237,7 @@ export function ThirdPartyTools() {
     trpc.settings.installCliTool.mutationOptions({
       onSuccess: (result) => {
         updateCliStatusCache(result.status as CliToolStatus);
-        toast.success("安装完成");
+        toast.success(t('thirdPartyTools.installSuccess'));
       },
       onError: (error) => {
         toast.error(error.message);
@@ -249,14 +251,14 @@ export function ThirdPartyTools() {
         const status = result.status as CliToolStatus;
         updateCliStatusCache(status);
         if (status.hasUpdate && status.latestVersion) {
-          toast.message(`发现更新 v${status.latestVersion}`);
+          toast.message(t('thirdPartyTools.foundUpdate', { version: status.latestVersion }));
           return;
         }
         if (status.latestVersion) {
-          toast.success("已是最新版本");
+          toast.success(t('thirdPartyTools.isLatest'));
           return;
         }
-        toast.message("暂时无法获取最新版本");
+        toast.message(t('thirdPartyTools.cannotGetLatest'));
       },
       onError: (error) => {
         toast.error(error.message);
@@ -267,10 +269,10 @@ export function ThirdPartyTools() {
   /** Resolve CLI tool version label. */
   const resolveCliVersionLabel = (status: CliToolStatus) => {
     // 逻辑：优先显示安装版本，其次显示安装状态。
-    if (isCliStatusLoading) return "检测中";
+    if (isCliStatusLoading) return t('thirdPartyTools.detecting');
     if (status.installed && status.version) return `v${status.version}`;
-    if (status.installed) return "已安装";
-    return "未安装";
+    if (status.installed) return t('thirdPartyTools.installed_label');
+    return t('thirdPartyTools.notInstalled_label');
   };
 
   /** Trigger install or update check based on current status. */
@@ -293,10 +295,10 @@ export function ThirdPartyTools() {
     try {
       // 逻辑：统一保存整组 CLI 配置，避免只更新局部导致丢失。
       await setBasic({ cliTools: cliSettings });
-      toast.success("已保存");
+      toast.success(t('thirdPartyTools.saved'));
       setCliDialogOpen(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "保存失败";
+      const message = error instanceof Error ? error.message : t('thirdPartyTools.save');
       toast.error(message);
     }
   };
@@ -308,17 +310,17 @@ export function ThirdPartyTools() {
 
   /** CLI tool labels. */
   const cliToolLabels: Record<CliToolKind, string> = {
-    codex: "Codex CLI",
-    claudeCode: "Claude Code",
-    python: "Python",
+    codex: t('thirdPartyTools.codex'),
+    claudeCode: t('thirdPartyTools.claudeCode'),
+    python: t('thirdPartyTools.python'),
   };
   /** CLI tool descriptions. */
   const cliToolDescriptions: Record<CliToolKind, string> = {
-    codex: "OpenAI Codex CLI 编程助手",
-    claudeCode: "Anthropic Claude Code CLI 编程助手",
-    python: "Python 运行时环境",
+    codex: t('thirdPartyTools.codexDesc'),
+    claudeCode: t('thirdPartyTools.claudeCodeDesc'),
+    python: t('thirdPartyTools.pythonDesc'),
   };
-  const cliDialogTitle = `${cliToolLabels[activeCliTool]} 设置`;
+  const cliDialogTitle = t('thirdPartyTools.setupDialog', { tool: cliToolLabels[activeCliTool] });
 
   /** Open CLI settings dialog for a tool. */
   const openCliSettings = (tool: CliToolKind) => {
@@ -352,15 +354,15 @@ export function ThirdPartyTools() {
       document.execCommand("copy");
       document.body.removeChild(el);
     }
-    toast.success("已复制");
+    toast.success(t('common:copy'));
   };
 
   return (
     <div className="space-y-3">
-      <OpenLoafSettingsGroup title="系统信息" subtitle="当前设备与命令行支持情况。">
+      <OpenLoafSettingsGroup title={t('thirdPartyTools.systemInfo')} subtitle={t('thirdPartyTools.systemInfoDesc')}>
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 flex-1 text-sm font-medium">系统版本</div>
+            <div className="min-w-0 flex-1 text-sm font-medium">{t('thirdPartyTools.systemVersion')}</div>
             <OpenLoafSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
               <Button
                 type="button"
@@ -368,8 +370,8 @@ export function ThirdPartyTools() {
                 variant="ghost"
                 className="h-auto px-2 py-1 text-xs text-muted-foreground"
                 onClick={() => void handleCopySystemInfo(systemVersionValue)}
-                aria-label="复制系统版本"
-                title="点击复制"
+                aria-label={t('thirdPartyTools.copySystemVersion')}
+                title={t('thirdPartyTools.clickToCopy')}
               >
                 {systemVersionValue || "—"}
               </Button>
@@ -377,7 +379,7 @@ export function ThirdPartyTools() {
           </div>
 
           <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 flex-1 text-sm font-medium">命令行环境</div>
+            <div className="min-w-0 flex-1 text-sm font-medium">{t('thirdPartyTools.cmdEnv')}</div>
             <OpenLoafSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
               <Button
                 type="button"
@@ -385,8 +387,8 @@ export function ThirdPartyTools() {
                 variant="ghost"
                 className="h-auto px-2 py-1 text-xs text-muted-foreground"
                 onClick={() => void handleCopySystemInfo(shellSupportLabel)}
-                aria-label="复制命令行环境"
-                title="点击复制"
+                aria-label={t('thirdPartyTools.copyCmdEnv')}
+                title={t('thirdPartyTools.clickToCopy')}
               >
                 {shellSupportLabel || "—"}
               </Button>
@@ -395,7 +397,7 @@ export function ThirdPartyTools() {
         </div>
       </OpenLoafSettingsGroup>
 
-      <OpenLoafSettingsGroup title="第三方工具">
+      <OpenLoafSettingsGroup title={t('thirdPartyTools.title')}>
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
@@ -404,9 +406,9 @@ export function ThirdPartyTools() {
                 <span>{cliToolLabels.python}</span>
               </div>
               <div className="text-xs text-muted-foreground">
-                {cliToolDescriptions.python} · 版本：
+                {cliToolDescriptions.python} · {t('thirdPartyTools.version')}：
                 {resolveCliVersionLabel(cliStatuses.python)}
-                {cliStatuses.python.path ? ` · 路径：${cliStatuses.python.path}` : ""}
+                {cliStatuses.python.path ? ` · ${t('thirdPartyTools.path')}：${cliStatuses.python.path}` : ""}
               </div>
             </div>
 
@@ -425,17 +427,17 @@ export function ThirdPartyTools() {
                 {cliStatuses.python.installed
                   ? installCliMutation.isPending &&
                     installCliMutation.variables?.id === "python"
-                    ? "升级中..."
+                    ? t('thirdPartyTools.upgrading')
                     : cliStatuses.python.hasUpdate && cliStatuses.python.latestVersion
-                      ? `升级到v${cliStatuses.python.latestVersion}`
+                      ? t('thirdPartyTools.upgradeTo', { version: cliStatuses.python.latestVersion })
                       : checkUpdateMutation.isPending &&
                           checkUpdateMutation.variables?.id === "python"
-                        ? "检测中..."
-                        : "检测更新"
+                        ? t('thirdPartyTools.checking')
+                        : t('thirdPartyTools.detectUpdate')
                   : installCliMutation.isPending &&
                       installCliMutation.variables?.id === "python"
-                    ? "安装中..."
-                    : "安装"}
+                    ? t('thirdPartyTools.installing')
+                    : t('thirdPartyTools.install')}
               </Button>
             </OpenLoafSettingsField>
           </div>
@@ -452,7 +454,7 @@ export function ThirdPartyTools() {
                 <span>{cliToolLabels.codex}</span>
               </div>
               <div className="text-xs text-muted-foreground">
-                {cliToolDescriptions.codex} · 版本：{resolveCliVersionLabel(cliStatuses.codex)}
+                {cliToolDescriptions.codex} · {t('thirdPartyTools.version')}：{resolveCliVersionLabel(cliStatuses.codex)}
               </div>
             </div>
 
@@ -471,17 +473,17 @@ export function ThirdPartyTools() {
                 {cliStatuses.codex.installed
                   ? installCliMutation.isPending &&
                     installCliMutation.variables?.id === "codex"
-                    ? "升级中..."
+                    ? t('thirdPartyTools.upgrading')
                     : cliStatuses.codex.hasUpdate && cliStatuses.codex.latestVersion
-                      ? `升级到v${cliStatuses.codex.latestVersion}`
+                      ? t('thirdPartyTools.upgradeTo', { version: cliStatuses.codex.latestVersion })
                       : checkUpdateMutation.isPending &&
                           checkUpdateMutation.variables?.id === "codex"
-                        ? "检测中..."
-                        : "检测更新"
+                        ? t('thirdPartyTools.checking')
+                        : t('thirdPartyTools.detectUpdate')
                   : installCliMutation.isPending &&
                       installCliMutation.variables?.id === "codex"
-                    ? "安装中..."
-                    : "安装"}
+                    ? t('thirdPartyTools.installing')
+                    : t('thirdPartyTools.install')}
               </Button>
               {cliStatuses.codex.installed ? (
                 <Button
@@ -489,7 +491,7 @@ export function ThirdPartyTools() {
                   variant="secondary"
                   onClick={() => openCliSettings("codex")}
                 >
-                  设置
+                  {t('thirdPartyTools.settings')}
                 </Button>
               ) : null}
             </OpenLoafSettingsField>
@@ -502,7 +504,7 @@ export function ThirdPartyTools() {
                 <span>{cliToolLabels.claudeCode}</span>
               </div>
               <div className="text-xs text-muted-foreground">
-                {cliToolDescriptions.claudeCode} · 版本：
+                {cliToolDescriptions.claudeCode} · {t('thirdPartyTools.version')}：
                 {resolveCliVersionLabel(cliStatuses.claudeCode)}
               </div>
             </div>
@@ -522,18 +524,18 @@ export function ThirdPartyTools() {
                 {cliStatuses.claudeCode.installed
                   ? installCliMutation.isPending &&
                     installCliMutation.variables?.id === "claudeCode"
-                    ? "升级中..."
+                    ? t('thirdPartyTools.upgrading')
                     : cliStatuses.claudeCode.hasUpdate &&
                         cliStatuses.claudeCode.latestVersion
-                      ? `升级到v${cliStatuses.claudeCode.latestVersion}`
+                      ? t('thirdPartyTools.upgradeTo', { version: cliStatuses.claudeCode.latestVersion })
                       : checkUpdateMutation.isPending &&
                           checkUpdateMutation.variables?.id === "claudeCode"
-                        ? "检测中..."
-                        : "检测更新"
+                        ? t('thirdPartyTools.checking')
+                        : t('thirdPartyTools.detectUpdate')
                   : installCliMutation.isPending &&
                       installCliMutation.variables?.id === "claudeCode"
-                    ? "安装中..."
-                    : "安装"}
+                    ? t('thirdPartyTools.installing')
+                    : t('thirdPartyTools.install')}
               </Button>
               {cliStatuses.claudeCode.installed ? (
                 <Button
@@ -541,7 +543,7 @@ export function ThirdPartyTools() {
                   variant="secondary"
                   onClick={() => openCliSettings("claudeCode")}
                 >
-                  设置
+                  {t('thirdPartyTools.settings')}
                 </Button>
               ) : null}
             </OpenLoafSettingsField>
@@ -549,10 +551,10 @@ export function ThirdPartyTools() {
         </div>
       </OpenLoafSettingsGroup>
 
-      <OpenLoafSettingsGroup title="WPS" subtitle="WPS Office 安装状态">
+      <OpenLoafSettingsGroup title={t('thirdPartyTools.wps')} subtitle={t('thirdPartyTools.wpsOfficeStatus')}>
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 flex-1 text-sm font-medium">WPS Office</div>
+            <div className="min-w-0 flex-1 text-sm font-medium">{t('thirdPartyTools.wpsOffice')}</div>
             <OpenLoafSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
               <Button
                 type="button"
@@ -560,8 +562,8 @@ export function ThirdPartyTools() {
                 variant="ghost"
                 className="h-auto px-2 py-1 text-xs text-muted-foreground"
                 onClick={() => void handleCopySystemInfo(wpsStatusLabel)}
-                aria-label="复制 WPS 状态"
-                title="点击复制"
+                aria-label={t('thirdPartyTools.copyWpsStatus')}
+                title={t('thirdPartyTools.clickToCopy')}
               >
                 {wpsStatusLabel || "—"}
               </Button>
@@ -574,12 +576,12 @@ export function ThirdPartyTools() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{cliDialogTitle}</DialogTitle>
-            <DialogDescription>配置 API URL 与密钥</DialogDescription>
+            <DialogDescription>{t('thirdPartyTools.configApiDialog')}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="cli-api-url">API URL</Label>
+              <Label htmlFor="cli-api-url">{t('thirdPartyTools.apiUrl')}</Label>
               <Input
                 id="cli-api-url"
                 value={activeCliSettings.apiUrl}
@@ -590,7 +592,7 @@ export function ThirdPartyTools() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cli-api-key">API Key</Label>
+              <Label htmlFor="cli-api-key">{t('thirdPartyTools.apiKey')}</Label>
               <Input
                 id="cli-api-key"
                 type="password"
@@ -603,9 +605,9 @@ export function ThirdPartyTools() {
             </div>
             <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
               <div className="space-y-1">
-                <div className="text-sm font-medium">强制使用自定义 API Key</div>
+                <div className="text-sm font-medium">{t('thirdPartyTools.forceCustomKey')}</div>
                 <div className="text-xs text-muted-foreground">
-                  开启后使用供应商 API Key 覆盖本地登录
+                  {t('thirdPartyTools.forceCustomKeyDesc')}
                 </div>
               </div>
               <div className="origin-right scale-110">
@@ -622,9 +624,9 @@ export function ThirdPartyTools() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setCliDialogOpen(false)}>
-              取消
+              {t('thirdPartyTools.cancel')}
             </Button>
-            <Button onClick={() => void handleSaveCliSettings()}>保存</Button>
+            <Button onClick={() => void handleSaveCliSettings()}>{t('thirdPartyTools.save')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

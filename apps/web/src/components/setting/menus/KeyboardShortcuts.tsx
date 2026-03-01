@@ -10,40 +10,50 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Kbd, KbdGroup } from "@openloaf/ui/kbd";
 import { GLOBAL_SHORTCUTS } from "@/lib/globalShortcuts";
 import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
 import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 
-const SHORTCUT_TRANSLATIONS: Record<string, { label: string; note?: string }> = {
-  "sidebar.toggle": { label: "切换侧边栏" },
-  "chat.toggle": { label: "切换聊天面板" },
-  "search.toggle": { label: "搜索" },
-  "open.calendar": { label: "打开日历" },
-  "open.inbox": { label: "打开收件箱" },
-  "open.ai": { label: "打开工作台" },
-  "open.template": { label: "打开模板" },
-  "tab.new": { label: "新建标签页" },
-  "tab.switch": { label: "切换标签页" },
-  "tab.close": { label: "关闭标签页" },
-  "settings.open": { label: "打开设置", note: "仅限 Electron + macOS" },
-  "refresh.disable": { label: "禁用刷新", note: "仅限生产环境" },
+const SHORTCUT_KEYS_MAP: Record<string, string> = {
+  "sidebar.toggle": "sidebarToggle",
+  "chat.toggle": "chatToggle",
+  "search.toggle": "searchToggle",
+  "open.calendar": "openCalendar",
+  "open.inbox": "openInbox",
+  "open.ai": "openAi",
+  "open.template": "openTemplate",
+  "tab.new": "tabNew",
+  "tab.switch": "tabSwitch",
+  "tab.close": "tabClose",
+  "settings.open": "settingsOpen",
+  "refresh.disable": "refreshDisable",
 };
 
-const PROJECT_SHORTCUTS = [
-  { id: "project.tab.index", label: "项目 · 首页", keys: "Alt+1" },
-  { id: "project.tab.canvas", label: "项目 · 画布", keys: "Alt+2" },
-  { id: "project.tab.tasks", label: "项目 · 历史", keys: "Alt+3" },
-  { id: "project.tab.materials", label: "项目 · 资料", keys: "Alt+4" },
-  { id: "project.tab.skills", label: "项目 · 技能", keys: "Alt+5" },
+const SHORTCUT_NOTE_KEYS_MAP: Record<string, string> = {
+  "settings.open": "settingsOpenNote",
+  "refresh.disable": "refreshDisableNote",
+};
+
+const PROJECT_SHORTCUT_KEYS = [
+  "projectTabIndex",
+  "projectTabCanvas",
+  "projectTabTasks",
+  "projectTabMaterials",
+  "projectTabSkills",
 ];
 
 /** Returns the localized label/note for a shortcut, falling back to the original text. */
-function getShortcutText(input: { id: string; label: string; note?: string }) {
-  const translated = SHORTCUT_TRANSLATIONS[input.id];
+function getShortcutText(
+  input: { id: string; label: string; note?: string },
+  t: (key: string) => string
+) {
+  const keyPath = SHORTCUT_KEYS_MAP[input.id];
+  const noteKeyPath = SHORTCUT_NOTE_KEYS_MAP[input.id];
   return {
-    label: translated?.label ?? input.label,
-    note: translated?.note ?? input.note,
+    label: keyPath ? t(`keyboardShortcuts:${keyPath}`) : input.label,
+    note: noteKeyPath ? t(`keyboardShortcuts:${noteKeyPath}`) : input.note,
   };
 }
 
@@ -103,14 +113,23 @@ function ShortcutKeys({ keys, isMac }: { keys: string; isMac: boolean }) {
 }
 
 export function KeyboardShortcuts() {
+  const { t } = useTranslation('settings');
   const isMac = useIsMac();
+
+  const PROJECT_SHORTCUTS = useMemo(() => [
+    { id: "project.tab.index", label: t('keyboardShortcuts:projectTabIndex'), keys: "Alt+1" },
+    { id: "project.tab.canvas", label: t('keyboardShortcuts:projectTabCanvas'), keys: "Alt+2" },
+    { id: "project.tab.tasks", label: t('keyboardShortcuts:projectTabTasks'), keys: "Alt+3" },
+    { id: "project.tab.materials", label: t('keyboardShortcuts:projectTabMaterials'), keys: "Alt+4" },
+    { id: "project.tab.skills", label: t('keyboardShortcuts:projectTabSkills'), keys: "Alt+5" },
+  ], [t]);
 
   return (
     <div className="space-y-6">
-      <OpenLoafSettingsGroup title="快捷键">
+      <OpenLoafSettingsGroup title={t('keyboardShortcuts:title')}>
         <div className="divide-y divide-border">
           {GLOBAL_SHORTCUTS.map((shortcut) => {
-            const text = getShortcutText(shortcut);
+            const text = getShortcutText(shortcut, (key) => t(key));
             return (
               <div
                 key={shortcut.id}
@@ -130,7 +149,7 @@ export function KeyboardShortcuts() {
           })}
         </div>
       </OpenLoafSettingsGroup>
-      <OpenLoafSettingsGroup title="项目快捷键">
+      <OpenLoafSettingsGroup title={t('keyboardShortcuts:projectShortcuts')}>
         <div className="divide-y divide-border">
           {PROJECT_SHORTCUTS.map((shortcut) => (
             <div

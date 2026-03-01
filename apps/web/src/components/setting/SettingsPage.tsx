@@ -11,6 +11,7 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import type { ComponentType } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Tooltip,
   TooltipContent,
@@ -84,85 +85,81 @@ function createMenuIcon(
   };
 }
 
-const DEV_MENU: Array<{
+function buildMenu(t: (key: string) => string): Array<{
   key: SettingsMenuKey;
   label: string;
   Icon: ComponentType<{ className?: string }>;
   Component: ComponentType;
-}> =
-  process.env.NODE_ENV === "development"
+}> {
+  const DEV_MENU = process.env.NODE_ENV === "development"
     ? [
         {
-          key: "projectTest",
-          label: "测试",
+          key: "projectTest" as SettingsMenuKey,
+          label: t('settings:menu.projectTest'),
           Icon: createMenuIcon(FlaskConical, SETTINGS_MENU_ICON_COLOR.projectTest),
           Component: TestSetting,
         },
       ]
     : [];
 
-const MENU: Array<{
-  key: SettingsMenuKey;
-  label: string;
-  Icon: ComponentType<{ className?: string }>;
-  Component: ComponentType;
-}> = [
-  {
-    key: "basic",
-    label: "基础",
-    Icon: createMenuIcon(SlidersHorizontal, SETTINGS_MENU_ICON_COLOR.basic),
-    Component: BasicSettings,
-  },
-  {
-    key: "workspace",
-    label: "工作空间",
-    Icon: createMenuIcon(Building2, SETTINGS_MENU_ICON_COLOR.workspace),
-    Component: WorkspaceSettings,
-  },
-  {
-    key: "skills",
-    label: "技能",
-    Icon: createMenuIcon(Wand2Icon, SETTINGS_MENU_ICON_COLOR.skills),
-    Component: SkillSettings,
-  },
-  {
-    key: "thirdPartyTools",
-    label: "第三方工具",
-    Icon: createMenuIcon(Terminal, SETTINGS_MENU_ICON_COLOR.thirdPartyTools),
-    Component: ThirdPartyTools,
-  },
-  {
-    key: "keys",
-    label: "AI模型服务",
-    Icon: createMenuIcon(Sparkles, SETTINGS_MENU_ICON_COLOR.keys),
-    Component: ProviderManagement,
-  },
-  {
-    key: "storage",
-    label: "S3存储服务",
-    Icon: createMenuIcon(Database, SETTINGS_MENU_ICON_COLOR.storage),
-    Component: ObjectStorageService,
-  },
-  {
-    key: "agents",
-    label: "Agent助手",
-    Icon: createMenuIcon(Bot, SETTINGS_MENU_ICON_COLOR.agents),
-    Component: AgentManagement,
-  },
-  {
-    key: "shortcuts",
-    label: "快捷键",
-    Icon: createMenuIcon(Keyboard, SETTINGS_MENU_ICON_COLOR.shortcuts),
-    Component: KeyboardShortcuts,
-  },
-  ...DEV_MENU,
-  {
-    key: "about",
-    label: "关于OpenLoaf",
-    Icon: createMenuIcon(Info, SETTINGS_MENU_ICON_COLOR.about),
-    Component: AboutOpenLoaf,
-  },
-];
+  return [
+    {
+      key: "basic",
+      label: t('settings:menu.basic'),
+      Icon: createMenuIcon(SlidersHorizontal, SETTINGS_MENU_ICON_COLOR.basic),
+      Component: BasicSettings,
+    },
+    {
+      key: "workspace",
+      label: t('settings:menu.workspace'),
+      Icon: createMenuIcon(Building2, SETTINGS_MENU_ICON_COLOR.workspace),
+      Component: WorkspaceSettings,
+    },
+    {
+      key: "skills",
+      label: t('settings:menu.skills'),
+      Icon: createMenuIcon(Wand2Icon, SETTINGS_MENU_ICON_COLOR.skills),
+      Component: SkillSettings,
+    },
+    {
+      key: "thirdPartyTools",
+      label: t('settings:menu.thirdPartyTools'),
+      Icon: createMenuIcon(Terminal, SETTINGS_MENU_ICON_COLOR.thirdPartyTools),
+      Component: ThirdPartyTools,
+    },
+    {
+      key: "keys",
+      label: t('settings:menu.keys'),
+      Icon: createMenuIcon(Sparkles, SETTINGS_MENU_ICON_COLOR.keys),
+      Component: ProviderManagement,
+    },
+    {
+      key: "storage",
+      label: t('settings:menu.storage'),
+      Icon: createMenuIcon(Database, SETTINGS_MENU_ICON_COLOR.storage),
+      Component: ObjectStorageService,
+    },
+    {
+      key: "agents",
+      label: t('settings:menu.agents'),
+      Icon: createMenuIcon(Bot, SETTINGS_MENU_ICON_COLOR.agents),
+      Component: AgentManagement,
+    },
+    {
+      key: "shortcuts",
+      label: t('settings:menu.shortcuts'),
+      Icon: createMenuIcon(Keyboard, SETTINGS_MENU_ICON_COLOR.shortcuts),
+      Component: KeyboardShortcuts,
+    },
+    ...DEV_MENU,
+    {
+      key: "about",
+      label: t('settings:menu.about'),
+      Icon: createMenuIcon(Info, SETTINGS_MENU_ICON_COLOR.about),
+      Component: AboutOpenLoaf,
+    },
+  ];
+}
 
 const MENU_KEY_SET = new Set<SettingsMenuKey>(MENU.map((item) => item.key));
 const HIDDEN_MENU_KEYS = new Set<SettingsMenuKey>([]);
@@ -190,6 +187,8 @@ export default function SettingsPage({
   tabId,
   settingsMenu,
 }: SettingsPageProps) {
+  const { t } = useTranslation('settings');
+  const MENU = useMemo(() => buildMenu((key) => t(key)), [t]);
   const [activeKey, setActiveKey] = useState<SettingsMenuKey>(() =>
     isVisibleSettingsMenuKey(settingsMenu) ? settingsMenu : "basic",
   );
