@@ -440,7 +440,7 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                           onValueChange={(v) => setTargetProjectId(v)}
                         >
                           <SelectTrigger className={cn(selectBase, 'w-[220px]')}>
-                            <SelectValue placeholder={projectsQuery.isLoading ? '加载项目...' : '选择项目'} />
+                            <SelectValue placeholder={projectsQuery.isLoading ? t('schedule.loadingProjects') : t('schedule.selectProject')} />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl">
                             {projectOptions.length > 0 ? (
@@ -454,13 +454,13 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                               })
                             ) : (
                               <SelectItem value="__empty__" disabled className="rounded-lg text-xs text-muted-foreground">
-                                暂无项目
+                                {t('schedule.noProjects')}
                               </SelectItem>
                             )}
                           </SelectContent>
                         </Select>
                         {resolvedProjectId ? null : (
-                          <div className="text-[11px] text-rose-500">请选择项目</div>
+                          <div className="text-[11px] text-rose-500">{t('schedule.selectProjectError')}</div>
                         )}
                       </div>
                     </FormRow>

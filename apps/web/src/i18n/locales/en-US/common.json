@@ -69,6 +69,13 @@
   "inbox": "Inbox",
   "workbench": "Workbench",
   "template": "Template",
+  "connecting": "Connecting…",
+  "webOnlyNoLocalFile": "Opening local files is not supported in the web version",
+  "filePathNotFound": "File path not found",
+  "cannotOpenFile": "Cannot open file",
+  "pathCopied": "Path copied",
+  "openInSystem": "Open in system",
+  "copyPath": "Copy path",
   "email": {
     "compose": "Compose",
     "reply": "Reply",

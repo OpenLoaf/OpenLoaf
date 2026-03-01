@@ -95,7 +95,12 @@
     "noPlanContent": "暂无计划内容",
     "chatGeneratedOnExecution": "对话记录将在任务执行时生成",
     "logGeneratedOnExecution": "执行日志将在任务执行时生成",
-    "noAutomaticTasks": "暂无自动任务"
+    "noAutomaticTasks": "暂无自动任务",
+    "justNow": "刚刚",
+    "minutesAgo": "{{minutes}}分钟前",
+    "hoursAgo": "{{hours}}小时前",
+    "daysAgo": "{{days}}天前",
+    "chatPrefill": "帮我创建一个任务："
   },
   "schedule": {
     "automaticTasks": "自动任务",
@@ -185,7 +190,26 @@
     "createButton": "创建",
     "savingButton": "保存中...",
     "cronLabel": "Cron",
-    "cronPlaceholder": "0 9 * * *"
+    "cronPlaceholder": "0 9 * * *",
+    "conditionType": "条件类型",
+    "conditionFrom": "发件人",
+    "conditionSubject": "主题",
+    "conditionBody": "正文",
+    "conditionFromPlaceholder": "如 bank.com",
+    "conditionSubjectPlaceholder": "如 账单",
+    "conditionBodyPlaceholder": "可选",
+    "conditionKeywords": "关键词",
+    "conditionKeywordsPlaceholder": "逗号分隔",
+    "conditionMatchMode": "匹配模式",
+    "conditionMatchAny": "任意匹配",
+    "conditionMatchAll": "全部匹配",
+    "conditionWatchPaths": "监听路径",
+    "conditionWatchPathsPlaceholder": "如 src/, docs/",
+    "conditionExtensions": "扩展名",
+    "conditionExtensionsPlaceholder": "如 .ts, .tsx",
+    "conditionRulePlaceholder": "自然语言规则（可选）— Agent 据此判断是否执行",
+    "projectScope": "项目",
+    "workspaceScope": "工作区"
   },
   "actorLabels": {
     "system": "系统",

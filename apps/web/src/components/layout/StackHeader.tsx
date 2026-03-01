@@ -12,6 +12,7 @@
 import * as React from "react";
 import { Copy, ExternalLink, Minus, RotateCw, X } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@openloaf/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
@@ -55,6 +56,7 @@ export function StackHeader({
   canClose?: boolean;
   className?: string;
 }) {
+  const { t } = useTranslation('common');
   /** Open the current file in the system default program. */
   const handleOpenExternal = React.useCallback(async () => {
     if (!openUri) return;
@@ -70,18 +72,18 @@ export function StackHeader({
     })();
     const api = window.openloafElectron;
     if (!api?.openPath) {
-      toast.error("网页版不支持打开本地文件");
+      toast.error(t('webOnlyNoLocalFile'));
       return;
     }
     if (!resolvedUri) {
-      toast.error("未找到文件路径");
+      toast.error(t('filePathNotFound'));
       return;
     }
     const res = await api.openPath({ uri: resolvedUri });
     if (!res?.ok) {
-      toast.error(res?.reason ?? "无法打开文件");
+      toast.error(res?.reason ?? t('cannotOpenFile'));
     }
-  }, [openRootUri, openUri]);
+  }, [openRootUri, openUri, t]);
 
   /** Copy the resolved file path to clipboard. */
   const handleCopyPath = React.useCallback(async () => {
@@ -101,12 +103,12 @@ export function StackHeader({
       const url = new URL(resolvedUri);
       const filePath = decodeURIComponent(url.pathname).replace(/^\/([A-Za-z]:)/, "$1");
       await navigator.clipboard.writeText(filePath);
-      toast.success("已复制路径");
+      toast.success(t('pathCopied'));
     } catch {
       await navigator.clipboard.writeText(resolvedUri);
-      toast.success("已复制路径");
+      toast.success(t('pathCopied'));
     }
-  }, [openRootUri, openUri]);
+  }, [openRootUri, openUri, t]);
 
   return (
     <div className={cn("shrink-0 bg-background/70 backdrop-blur-sm", className)}>
@@ -122,13 +124,13 @@ export function StackHeader({
                 <Button
                   size="sm"
                   variant="ghost"
-                  aria-label="系统打开"
+                  aria-label={t('openInSystem')}
                   onClick={handleOpenExternal}
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">系统打开</TooltipContent>
+              <TooltipContent side="bottom">{t('openInSystem')}</TooltipContent>
             </Tooltip>
           ) : null}
           {openUri ? (
@@ -137,23 +139,23 @@ export function StackHeader({
                 <Button
                   size="sm"
                   variant="ghost"
-                  aria-label="复制路径"
+                  aria-label={t('copyPath')}
                   onClick={handleCopyPath}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">复制路径</TooltipContent>
+              <TooltipContent side="bottom">{t('copyPath')}</TooltipContent>
             </Tooltip>
           ) : null}
           {onRefresh ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="sm" variant="ghost" onClick={onRefresh} aria-label="刷新">
+                <Button size="sm" variant="ghost" onClick={onRefresh} aria-label={t('refresh')}>
                   <RotateCw className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">刷新</TooltipContent>
+              <TooltipContent side="bottom">{t('refresh')}</TooltipContent>
             </Tooltip>
           ) : null}
           {rightSlotAfter}

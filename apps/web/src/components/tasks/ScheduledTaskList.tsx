@@ -333,7 +333,7 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
             {listQuery.isLoading ? (
               <TableRow>
                 <TableCell colSpan={colSpan} className="py-10 text-center text-xs text-muted-foreground">
-                  {t('common.loading') || 'Loading...'}
+                  {t('common:loading')}
                 </TableCell>
               </TableRow>
             ) : tasks.length === 0 ? (
@@ -403,7 +403,7 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
                     </TableCell>
                     <TableCell>
                       <span className="text-[12px] text-muted-foreground whitespace-nowrap">
-                        {task.scope === 'project' ? '项目' : '工作区'}
+                        {task.scope === 'project' ? t('schedule.projectScope') : t('schedule.workspaceScope')}
                       </span>
                     </TableCell>
                     <TableCell>

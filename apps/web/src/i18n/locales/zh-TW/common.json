@@ -69,6 +69,13 @@
   "inbox": "收件箱",
   "workbench": "工作台",
   "template": "範本",
+  "connecting": "正在連接中…",
+  "webOnlyNoLocalFile": "網頁版不支援開啟本機檔案",
+  "filePathNotFound": "未找到檔案路徑",
+  "cannotOpenFile": "無法開啟檔案",
+  "pathCopied": "已複製路徑",
+  "openInSystem": "以系統開啟",
+  "copyPath": "複製路徑",
   "email": {
     "compose": "撰寫郵件",
     "reply": "回覆",

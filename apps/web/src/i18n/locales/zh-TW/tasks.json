@@ -95,7 +95,12 @@
     "noPlanContent": "暫無計畫內容",
     "chatGeneratedOnExecution": "對話紀錄將在任務執行時生成",
     "logGeneratedOnExecution": "執行日誌將在任務執行時生成",
-    "noAutomaticTasks": "暫無自動任務"
+    "noAutomaticTasks": "暫無自動任務",
+    "justNow": "剛剛",
+    "minutesAgo": "{{minutes}}分鐘前",
+    "hoursAgo": "{{hours}}小時前",
+    "daysAgo": "{{days}}天前",
+    "chatPrefill": "幫我建立一個任務："
   },
   "schedule": {
     "automaticTasks": "自動任務",
@@ -185,7 +190,26 @@
     "createButton": "建立",
     "savingButton": "保存中...",
     "cronLabel": "Cron",
-    "cronPlaceholder": "0 9 * * *"
+    "cronPlaceholder": "0 9 * * *",
+    "conditionType": "條件類型",
+    "conditionFrom": "寄件人",
+    "conditionSubject": "主旨",
+    "conditionBody": "正文",
+    "conditionFromPlaceholder": "如 bank.com",
+    "conditionSubjectPlaceholder": "如 帳單",
+    "conditionBodyPlaceholder": "可選",
+    "conditionKeywords": "關鍵字",
+    "conditionKeywordsPlaceholder": "逗號分隔",
+    "conditionMatchMode": "比對模式",
+    "conditionMatchAny": "任意比對",
+    "conditionMatchAll": "全部比對",
+    "conditionWatchPaths": "監聽路徑",
+    "conditionWatchPathsPlaceholder": "如 src/, docs/",
+    "conditionExtensions": "副檔名",
+    "conditionExtensionsPlaceholder": "如 .ts, .tsx",
+    "conditionRulePlaceholder": "自然語言規則（可選）— Agent 據此判斷是否執行",
+    "projectScope": "專案",
+    "workspaceScope": "工作區"
   },
   "actorLabels": {
     "system": "系統",

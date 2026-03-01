@@ -194,15 +194,15 @@ function isValidTransition(from: TaskStatus, to: TaskStatus): boolean {
   return VALID_TRANSITIONS[from]?.includes(to) ?? false
 }
 
-function formatTimeAgo(dateStr: string): string {
+function formatTimeAgo(dateStr: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
+  if (minutes < 1) return t('messages.justNow')
+  if (minutes < 60) return t('messages.minutesAgo', { minutes })
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}小时前`
+  if (hours < 24) return t('messages.hoursAgo', { hours })
   const days = Math.floor(hours / 24)
-  return `${days}天前`
+  return t('messages.daysAgo', { days })
 }
 
 
@@ -627,11 +627,11 @@ export default function TaskBoardPage({
     setTimeout(() => {
       window.dispatchEvent(
         new CustomEvent('openloaf:chat-prefill-input', {
-          detail: { text: '帮我创建一个任务：' },
+          detail: { text: t('messages.chatPrefill') },
         }),
       )
     }, 300)
-  }, [activeTabId, setTabRightChatCollapsed])
+  }, [activeTabId, setTabRightChatCollapsed, t])
 
   // Filter tasks
   const filteredTasks = useMemo(() => {
@@ -814,13 +814,13 @@ export default function TaskBoardPage({
                   {STATUS_COLUMNS.find((c) => c.status === task.status)?.label ?? task.status}
                 </Badge>
                 <span className="text-[10px] text-muted-foreground">
-                  {formatTimeAgo(task.updatedAt)}
+                  {formatTimeAgo(task.updatedAt, t)}
                 </span>
               </div>
             ))}
             {filteredTasks.length === 0 && (
               <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-                暂无任务
+                {t('messages.noTasks')}
               </div>
             )}
           </div>

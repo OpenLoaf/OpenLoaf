@@ -95,7 +95,12 @@
     "noPlanContent": "No plan content",
     "chatGeneratedOnExecution": "Chat records will be generated during task execution",
     "logGeneratedOnExecution": "Execution logs will be generated during task execution",
-    "noAutomaticTasks": "No automatic tasks"
+    "noAutomaticTasks": "No automatic tasks",
+    "justNow": "Just now",
+    "minutesAgo": "{{minutes}}m ago",
+    "hoursAgo": "{{hours}}h ago",
+    "daysAgo": "{{days}}d ago",
+    "chatPrefill": "Help me create a task: "
   },
   "schedule": {
     "automaticTasks": "Automatic Tasks",
@@ -185,7 +190,26 @@
     "createButton": "Create",
     "savingButton": "Saving...",
     "cronLabel": "Cron",
-    "cronPlaceholder": "0 9 * * *"
+    "cronPlaceholder": "0 9 * * *",
+    "conditionType": "Condition Type",
+    "conditionFrom": "From",
+    "conditionSubject": "Subject",
+    "conditionBody": "Body",
+    "conditionFromPlaceholder": "e.g. bank.com",
+    "conditionSubjectPlaceholder": "e.g. invoice",
+    "conditionBodyPlaceholder": "Optional",
+    "conditionKeywords": "Keywords",
+    "conditionKeywordsPlaceholder": "Comma-separated",
+    "conditionMatchMode": "Match Mode",
+    "conditionMatchAny": "Any",
+    "conditionMatchAll": "All",
+    "conditionWatchPaths": "Watch Paths",
+    "conditionWatchPathsPlaceholder": "e.g. src/, docs/",
+    "conditionExtensions": "Extensions",
+    "conditionExtensionsPlaceholder": "e.g. .ts, .tsx",
+    "conditionRulePlaceholder": "Natural language rule (optional) — Agent uses this to decide whether to execute",
+    "projectScope": "Project",
+    "workspaceScope": "Workspace"
   },
   "actorLabels": {
     "system": "System",

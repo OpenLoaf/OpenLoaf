@@ -179,7 +179,7 @@ export function Search({
       return results.map((entry) => ({
         entry,
         projectId: scopedProjectId,
-        projectTitle: scopedProjectTitle ?? "未命名项目",
+        projectTitle: scopedProjectTitle ?? t('untitledProject'),
         relativePath: entry.uri,
       }));
     }
@@ -305,7 +305,7 @@ export function Search({
       addTab({
         workspaceId: activeWorkspace.id,
         createNew: true,
-        title: projectTitle || "未命名项目",
+        title: projectTitle || t('untitledProject'),
         icon: projectHierarchy.projectById.get(projectId)?.icon ?? undefined,
         leftWidthPercent: 90,
         base: {
@@ -418,7 +418,7 @@ export function Search({
           ext: item.ext ?? undefined,
         };
         const projectTitle =
-          projectHierarchy.projectById.get(item.projectId)?.title ?? "未命名项目";
+          projectHierarchy.projectById.get(item.projectId)?.title ?? t('untitledProject');
         return [
           {
             entry,

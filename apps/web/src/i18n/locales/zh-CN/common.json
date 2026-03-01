@@ -69,6 +69,13 @@
   "inbox": "收集箱",
   "workbench": "工作台",
   "template": "模版",
+  "connecting": "正在连接中…",
+  "webOnlyNoLocalFile": "网页版不支持打开本地文件",
+  "filePathNotFound": "未找到文件路径",
+  "cannotOpenFile": "无法打开文件",
+  "pathCopied": "已复制路径",
+  "openInSystem": "系统打开",
+  "copyPath": "复制路径",
   "email": {
     "compose": "写邮件",
     "reply": "回复",
