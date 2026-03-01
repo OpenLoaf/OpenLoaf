@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { useTranslation } from "react-i18next";
 import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
@@ -69,37 +70,39 @@ export function ModelDialog({
   onDraftModelContextKChange,
   onSubmit,
 }: ModelDialogProps) {
+  const { t } = useTranslation('settings');
+  const { t: tc } = useTranslation('common');
   const isEditing = Boolean(editingModelId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[80vh] w-full max-w-4xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "编辑模型" : "新建模型"}</DialogTitle>
+          <DialogTitle>{isEditing ? t('provider.editModel') : t('provider.newModel')}</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
-            <div className="text-sm font-medium">模型 ID</div>
+            <div className="text-sm font-medium">{t('provider.modelId')}</div>
             <Input
               value={draftModelId}
-              placeholder="例如：custom-chat-1"
+              placeholder={t('provider.modelIdPlaceholder')}
               disabled={isEditing}
               onChange={(event) => onDraftModelIdChange(event.target.value)}
             />
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <div className="text-sm font-medium">模型名称</div>
+            <div className="text-sm font-medium">{t('provider.modelName')}</div>
             <Input
               value={draftModelName}
-              placeholder="例如：自定义对话模型"
+              placeholder={t('provider.modelNamePlaceholder')}
               onChange={(event) => onDraftModelNameChange(event.target.value)}
             />
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <div className="text-sm font-medium">能力标签</div>
+            <div className="text-sm font-medium">{t('provider.capabilityTags')}</div>
             <div className="flex flex-wrap gap-2">
               {MODEL_TAG_OPTIONS.map((option) => (
                 <Button
@@ -118,10 +121,10 @@ export function ModelDialog({
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <div className="text-sm font-medium">上下文长度 (K)</div>
+            <div className="text-sm font-medium">{t('provider.contextLength')}</div>
             <Input
               value={draftModelContextK}
-              placeholder="例如：128"
+              placeholder={t('provider.contextLengthPlaceholder')}
               onChange={(event) => onDraftModelContextKChange(event.target.value)}
             />
           </div>
@@ -131,9 +134,9 @@ export function ModelDialog({
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            取消
+            {tc('cancel')}
           </Button>
-          <Button onClick={onSubmit}>保存</Button>
+          <Button onClick={onSubmit}>{tc('save')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

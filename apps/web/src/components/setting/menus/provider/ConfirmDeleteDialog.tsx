@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { useTranslation } from "react-i18next";
 import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
@@ -39,6 +40,7 @@ export function ConfirmDeleteDialog({
   onClose,
   onConfirm,
 }: ConfirmDeleteDialogProps) {
+  const { t } = useTranslation('common');
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-h-[80vh] w-full max-w-3xl overflow-y-auto">
@@ -48,7 +50,7 @@ export function ConfirmDeleteDialog({
         <div className="text-sm text-muted-foreground">{description}</div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
-            取消
+            {t('cancel')}
           </Button>
           <Button
             variant="destructive"
@@ -56,7 +58,7 @@ export function ConfirmDeleteDialog({
               await onConfirm();
             }}
           >
-            删除
+            {t('delete')}
           </Button>
         </DialogFooter>
       </DialogContent>
