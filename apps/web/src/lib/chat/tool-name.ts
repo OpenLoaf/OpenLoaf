@@ -9,6 +9,7 @@
  */
 "use client";
 
+import i18next from "i18next";
 import { testApprovalToolDef } from "@openloaf/api/types/tools/approvalTest";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
@@ -94,15 +95,21 @@ export const TOOL_NAME_BY_ID = TOOL_DEFS.reduce<Record<string, string>>((acc, de
 // 兼容旧工具 id，保持显示为 JSX 创建。
 TOOL_NAME_BY_ID["jsx-preview"] = TOOL_NAME_BY_ID[jsxCreateToolDef.id] ?? "JSX 创建";
 
+/** Resolve a translated display name for a tool id. */
+function getTranslatedName(toolId: string): string {
+  const translated = i18next.t(`toolNames.${toolId}`, { ns: "ai", defaultValue: "" });
+  return translated || TOOL_NAME_BY_ID[toolId] || toolId;
+}
+
 /** Resolve a display name for tool parts shown in the UI. */
 export function resolveToolDisplayName(target: ToolNameTarget): string {
   // 名称解析仅根据 tool 定义与消息字段，不涉及审批逻辑。
   if (target.title) return target.title;
-  if (target.toolName) return TOOL_NAME_BY_ID[target.toolName] ?? target.toolName;
+  if (target.toolName) return getTranslatedName(target.toolName);
   if (target.type?.startsWith("tool-")) {
     const toolId = target.type.slice("tool-".length);
-    return TOOL_NAME_BY_ID[toolId] ?? toolId;
+    return getTranslatedName(toolId);
   }
   if (target.type) return target.type;
-  return "工具";
+  return i18next.t("tools.tool", { ns: "ai", defaultValue: "工具" });
 }
