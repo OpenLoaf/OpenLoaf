@@ -17,6 +17,7 @@
 | ✅ MessageHelper.tsx | 完成 | 100% |
 | ✅ ProviderDialog.tsx（优先级 3） | 完成 | 100% |
 | ✅ LocalAccess.tsx（优先级 3） | 完成 | 100% |
+| 🔄 Workspace.tsx（优先级 3） | 翻译已准备 | 60% |
 | ⏳ 其他 Settings 页组件（优先级 3） | 待做 | 0% |
 | ⏳ 功能模块（优先级 4） | 待做 | 0% |
 
