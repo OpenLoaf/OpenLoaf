@@ -28,6 +28,7 @@ import {
   Check,
   CornerUpLeft,
   FeatherIcon,
+  Languages,
   ListEnd,
   ListMinus,
   ListPlus,
@@ -488,6 +489,18 @@ Start writing a new paragraph AFTER <Document> ONLY ONE SENTENCE`
       });
     },
   },
+  translate: {
+    icon: <Languages />,
+    label: 'Translate',
+    value: 'translate',
+    onSelect: ({ editor, input }) => {
+      void editor.getApi(AIChatPlugin).aiChat.submit(input, {
+        prompt:
+          'Translate the selected text. If in Chinese, translate to English. If in English, translate to Chinese. Preserve formatting.',
+        toolName: 'edit',
+      });
+    },
+  },
   tryAgain: {
     icon: <CornerUpLeft />,
     label: 'Try again',
@@ -552,6 +565,7 @@ const menuStateItems: Record<
         aiChatItems.makeShorter,
         aiChatItems.fixSpelling,
         aiChatItems.simplifyLanguage,
+        aiChatItems.translate,
       ],
     },
   ],

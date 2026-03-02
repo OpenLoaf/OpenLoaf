@@ -17,8 +17,6 @@ import {
   type ChatUIMessage,
 } from '@openloaf/api'
 import { z } from 'zod'
-import { generateText } from 'ai'
-import { xai } from '@ai-sdk/xai'
 import { replaceFileTokensWithNames } from '@/common/chatTitle'
 import {
   getChatViewFromFile,
@@ -118,27 +116,17 @@ function buildTitlePrompt(chainRows: Array<{ role: string; parts: unknown }>): s
   return lines.join('\n').trim()
 }
 
-function createTitleAgent() {
-  return {
-    name: 'session-title-agent',
-    model: xai('grok-4-1-fast-reasoning'),
-    system: `
-你是一个"对话标题生成器"。
-- 只输出一个标题，不要解释。
-- 标题不超过 ${TITLE_MAX_CHARS} 个字符。
-- 不要输出引号、编号、Markdown。
-`,
-  } as const
-}
-
 async function generateTitleFromHistory(historyText: string): Promise<string> {
-  const agent = createTitleAgent()
-  const res = await generateText({
-    model: agent.model,
-    system: agent.system,
-    prompt: `请根据下面的对话内容生成一个简短标题：\n\n${historyText}`,
+  const { auxiliaryInfer } = await import('@/ai/services/auxiliaryInferenceService')
+  const { CAPABILITY_SCHEMAS } = await import('@/ai/services/auxiliaryCapabilities')
+  const result = await auxiliaryInfer({
+    capabilityKey: 'chat.title',
+    context: historyText,
+    schema: CAPABILITY_SCHEMAS['chat.title'],
+    fallback: { title: '' },
+    noCache: true,
   })
-  return normalizeTitle(res.text)
+  return normalizeTitle(result.title)
 }
 
 type UsageTotals = {

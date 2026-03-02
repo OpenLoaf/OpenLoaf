@@ -990,6 +990,183 @@ export async function checkPathIsGitProject(dirPath: string): Promise<boolean> {
   return ctx !== null;
 }
 
+// ---------------------------------------------------------------------------
+// Git status / diff / commit — used by the git.commitMessage capability
+// ---------------------------------------------------------------------------
+
+export type ProjectGitFileStatus = {
+  /** File path relative to the repo root. */
+  path: string;
+  /** Status: 'added' | 'modified' | 'deleted' | 'renamed' | 'untracked'. */
+  status: string;
+};
+
+export type ProjectGitStatusResult = {
+  staged: ProjectGitFileStatus[];
+  unstaged: ProjectGitFileStatus[];
+  hasStagedChanges: boolean;
+  hasUnstagedChanges: boolean;
+};
+
+export type ProjectGitDiffResult = {
+  diff: string;
+  summary: string;
+};
+
+export type ProjectGitCommitResult = {
+  ok: boolean;
+  oid?: string;
+  error?: string;
+};
+
+/** Get git status (staged + unstaged) for a project. */
+export async function getProjectGitStatus(
+  projectId: string,
+): Promise<ProjectGitStatusResult> {
+  const trimmedId = projectId.trim();
+  if (!trimmedId) throw new Error("项目 ID 不能为空");
+  const rootUri = getProjectRootUri(trimmedId);
+  if (!rootUri) throw new Error("项目不存在");
+  const rootPath = resolveFilePathFromUri(rootUri);
+  const ctx = await resolveGitRepoContext(rootPath);
+  if (!ctx) return { staged: [], unstaged: [], hasStagedChanges: false, hasUnstagedChanges: false };
+
+  if (await checkGitCliAvailable(ctx.workdir)) {
+    try {
+      const { stdout } = await execFileAsync("git", [
+        "status", "--porcelain=v1", "-z",
+      ], { cwd: ctx.workdir, timeout: 5000 });
+
+      const staged: ProjectGitFileStatus[] = [];
+      const unstaged: ProjectGitFileStatus[] = [];
+      const entries = (stdout ?? "").split("\0").filter(Boolean);
+      for (const entry of entries) {
+        const indexStatus = entry[0] ?? " ";
+        const workTreeStatus = entry[1] ?? " ";
+        const filePath = entry.slice(3);
+        if (!filePath) continue;
+        if (indexStatus !== " " && indexStatus !== "?") {
+          staged.push({ path: filePath, status: mapGitStatusChar(indexStatus) });
+        }
+        if (workTreeStatus !== " " && workTreeStatus !== "?") {
+          unstaged.push({ path: filePath, status: mapGitStatusChar(workTreeStatus) });
+        }
+        if (indexStatus === "?" && workTreeStatus === "?") {
+          unstaged.push({ path: filePath, status: "untracked" });
+        }
+      }
+      return {
+        staged,
+        unstaged,
+        hasStagedChanges: staged.length > 0,
+        hasUnstagedChanges: unstaged.length > 0,
+      };
+    } catch {
+      // fallback below
+    }
+  }
+
+  return { staged: [], unstaged: [], hasStagedChanges: false, hasUnstagedChanges: false };
+}
+
+/** Get git diff for staged changes (or all changes if nothing staged). */
+export async function getProjectGitDiff(
+  projectId: string,
+): Promise<ProjectGitDiffResult> {
+  const trimmedId = projectId.trim();
+  if (!trimmedId) throw new Error("项目 ID 不能为空");
+  const rootUri = getProjectRootUri(trimmedId);
+  if (!rootUri) throw new Error("项目不存在");
+  const rootPath = resolveFilePathFromUri(rootUri);
+  const ctx = await resolveGitRepoContext(rootPath);
+  if (!ctx) return { diff: "", summary: "" };
+
+  if (await checkGitCliAvailable(ctx.workdir)) {
+    try {
+      // Try staged diff first
+      const { stdout: stagedDiff } = await execFileAsync("git", [
+        "diff", "--cached", "--stat", "--patch",
+      ], { cwd: ctx.workdir, timeout: 5000, maxBuffer: 1024 * 1024 });
+
+      if (stagedDiff?.trim()) {
+        const { stdout: statLine } = await execFileAsync("git", [
+          "diff", "--cached", "--shortstat",
+        ], { cwd: ctx.workdir, timeout: 3000 });
+        return { diff: stagedDiff.trim(), summary: statLine?.trim() ?? "" };
+      }
+
+      // No staged changes — get unstaged diff
+      const { stdout: unstagedDiff } = await execFileAsync("git", [
+        "diff", "--stat", "--patch",
+      ], { cwd: ctx.workdir, timeout: 5000, maxBuffer: 1024 * 1024 });
+      const { stdout: statLine } = await execFileAsync("git", [
+        "diff", "--shortstat",
+      ], { cwd: ctx.workdir, timeout: 3000 });
+      return { diff: unstagedDiff?.trim() ?? "", summary: statLine?.trim() ?? "" };
+    } catch {
+      // fallback
+    }
+  }
+
+  return { diff: "", summary: "" };
+}
+
+/** Create a git commit for a project. */
+export async function commitProjectGit(
+  projectId: string,
+  options: { subject: string; body?: string; stageAll?: boolean },
+): Promise<ProjectGitCommitResult> {
+  const trimmedId = projectId.trim();
+  if (!trimmedId) return { ok: false, error: "项目 ID 不能为空" };
+  const rootUri = getProjectRootUri(trimmedId);
+  if (!rootUri) return { ok: false, error: "项目不存在" };
+  const rootPath = resolveFilePathFromUri(rootUri);
+  const ctx = await resolveGitRepoContext(rootPath);
+  if (!ctx) return { ok: false, error: "Not a git repository" };
+
+  if (!(await checkGitCliAvailable(ctx.workdir))) {
+    return { ok: false, error: "Git CLI not available" };
+  }
+
+  try {
+    // Stage all if requested
+    if (options.stageAll) {
+      await execFileAsync("git", ["add", "-A"], { cwd: ctx.workdir, timeout: 5000 });
+    }
+
+    // Build commit message
+    const message = options.body
+      ? `${options.subject}\n\n${options.body}`
+      : options.subject;
+
+    const { stdout } = await execFileAsync("git", [
+      "commit", "-m", message,
+    ], { cwd: ctx.workdir, timeout: 10000 });
+
+    // Extract oid from output
+    const oidMatch = /\[.+\s([a-f0-9]+)\]/.exec(stdout ?? "");
+    const oid = oidMatch?.[1] ?? undefined;
+
+    return { ok: true, oid };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
+  }
+}
+
+/** Map single-char git status to human-readable label. */
+function mapGitStatusChar(char: string): string {
+  switch (char) {
+    case "A": return "added";
+    case "M": return "modified";
+    case "D": return "deleted";
+    case "R": return "renamed";
+    case "C": return "copied";
+    case "U": return "unmerged";
+    default: return "modified";
+  }
+}
+
 /** Get git commits for a project within a time range. */
 export async function getProjectGitCommitsInRange(input: {
   projectId: string;

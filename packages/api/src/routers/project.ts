@@ -41,6 +41,9 @@ import {
   getProjectGitBranches,
   getProjectGitCommits,
   getProjectGitInfo,
+  getProjectGitStatus,
+  getProjectGitDiff,
+  commitProjectGit,
   ensureGitRepository,
   checkPathIsGitProject,
   cloneGitRepository,
@@ -1074,6 +1077,36 @@ export const projectRouter = t.router({
         rootUri: projectRootUri,
       };
     }),
+
+  getGitStatus: shieldedProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(async ({ input }) => {
+      return getProjectGitStatus(input.projectId);
+    }),
+
+  getGitDiff: shieldedProcedure
+    .input(z.object({ projectId: z.string() }))
+    .query(async ({ input }) => {
+      return getProjectGitDiff(input.projectId);
+    }),
+
+  gitCommit: shieldedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        subject: z.string().min(1),
+        body: z.string().optional(),
+        stageAll: z.boolean().optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return commitProjectGit(input.projectId, {
+        subject: input.subject,
+        body: input.body,
+        stageAll: input.stageAll,
+      });
+    }),
+
 });
 
 export type ProjectRouter = typeof projectRouter;

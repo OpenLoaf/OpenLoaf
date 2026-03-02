@@ -10,9 +10,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Copy, SmilePlus } from "lucide-react";
+import { Copy, Loader2, SmilePlus, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { useMutation } from "@tanstack/react-query";
+import { trpc } from "@/utils/trpc";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import { Button } from "@openloaf/ui/button";
 import { EmojiPicker } from "@openloaf/ui/emoji-picker";
@@ -68,6 +70,19 @@ export default function ProjectTitle({
     if (nextTitle === latestTitle) return;
     onUpdateTitle(nextTitle);
   };
+
+  const inferNameMutation = useMutation(
+    trpc.settings.inferProjectName.mutationOptions({
+      onSuccess: (data) => {
+        onUpdateTitle(data.title);
+        if (data.icon) onUpdateIcon(data.icon);
+        toast.success(t("project.aiNameSuccess"));
+      },
+      onError: () => {
+        toast.error(t("project.aiNameFailed"));
+      },
+    }),
+  );
 
   return (
     <h1 className="text-xl font-semibold flex items-center gap-2 min-w-0">
@@ -138,6 +153,26 @@ export default function ProjectTitle({
               >
                 {projectTitle}
               </button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="shrink-0 opacity-0 group-hover/title:opacity-100 focus-visible:opacity-100 text-muted-foreground hover:text-foreground"
+                aria-label={t("project.aiName")}
+                title={t("project.aiName")}
+                disabled={!projectId || isUpdating || inferNameMutation.isPending}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (projectId) inferNameMutation.mutate({ projectId });
+                }}
+              >
+                {inferNameMutation.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Sparkles className="size-4" />
+                )}
+              </Button>
               <Button
                 type="button"
                 variant="ghost"

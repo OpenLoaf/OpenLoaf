@@ -167,9 +167,21 @@ export default function ProjectPage({
   const {
     data: projectData,
     isLoading,
+    isError,
     invalidateProject,
     invalidateProjectList,
   } = useProject(projectId);
+  const closeTab = useTabs((s) => s.closeTab);
+
+  // 项目已被删除或不存在时自动关闭 tab，避免子组件持续发起无效请求。
+  useEffect(() => {
+    if (!tabId || !projectId) return;
+    if (isLoading) return;
+    if (isError) {
+      closeTab(tabId);
+    }
+  }, [tabId, projectId, isLoading, isError, closeTab]);
+
   const [localTitle, setLocalTitle] = useState<string | null>(null);
   const [localIcon, setLocalIcon] = useState<string | null>(null);
   const lastTitleRef = useRef<string | null>(null);

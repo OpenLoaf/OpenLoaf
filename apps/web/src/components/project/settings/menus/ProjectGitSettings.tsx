@@ -26,8 +26,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@openloaf/ui/select";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, GitCommitHorizontal } from "lucide-react";
 import { trpc } from "@/utils/trpc";
+import { GitCommitDialog } from "./GitCommitDialog";
 
 type ProjectGitSettingsProps = {
   /** Project id. */
@@ -101,6 +102,7 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
 }: ProjectGitSettingsProps) {
   const { t } = useTranslation(["settings", "common"]);
   const unknownAuthor = t("project.git.unknownAuthor");
+  const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const gitInfoQuery = useQuery({
     ...trpc.project.getGitInfo.queryOptions(projectId ? { projectId } : skipToken),
     staleTime: 5000,
@@ -323,6 +325,28 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
           </OpenLoafSettingsField>
         </div>
       </OpenLoafSettingsGroup>
+
+      {gitInfo?.isGitProject && projectId ? (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setCommitDialogOpen(true)}
+          >
+            <GitCommitHorizontal className="size-4" />
+            {t("project.git.commitButton")}
+          </Button>
+          <GitCommitDialog
+            projectId={projectId}
+            open={commitDialogOpen}
+            onOpenChange={setCommitDialogOpen}
+            onCommitSuccess={() => {
+              commitQuery.refetch();
+            }}
+          />
+        </div>
+      ) : null}
 
       <OpenLoafSettingsGroup
         title={t("project.git.commitHistory")}

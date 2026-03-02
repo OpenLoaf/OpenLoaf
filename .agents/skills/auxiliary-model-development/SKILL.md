@@ -63,9 +63,9 @@ description: >
 | Key | Label | Output Mode | 用途 |
 |-----|-------|-------------|------|
 | `project.classify` | 项目分类 | `structured` | 扫描文件结构，判断项目类型 + 推荐图标 |
-| `chat.suggestions` | 输入推荐 | `structured` | 输入框停顿时生成智能补全建议 |
+| `chat.suggestions` | 输入推荐 | `structured` | 打开聊天窗口或输入停顿时生成智能补全建议 |
 | `chat.title` | 摘要标题 | `structured` | 对话结束后自动生成标题 |
-| `project.ephemeralName` | 临时项目命名 | `structured` | Agent 创建临时项目时生成名称 |
+| `project.ephemeralName` | 项目重命名 | `structured` | 用户手动触发，为项目生成名称 |
 | `git.commitMessage` | Commit 信息 | `structured` | 根据 diff 生成规范 commit message |
 | `text.translate` | 文本翻译 | `text` | 选中文本翻译为目标语言 |
 

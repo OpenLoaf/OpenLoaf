@@ -29,6 +29,7 @@ export type SystemAgentId =
   | 'calendar'
   | 'widget'
   | 'project'
+  | 'wps-agent'
 
 /** 系统 Agent 定义。 */
 export type SystemAgentDefinition = {

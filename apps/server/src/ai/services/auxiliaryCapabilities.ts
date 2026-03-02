@@ -119,7 +119,7 @@ export const AUXILIARY_CAPABILITIES: Record<string, AuxiliaryCapability> = {
     label: '输入推荐',
     description: '当用户在输入框停顿时，根据上下文生成智能输入建议。',
     outputMode: 'structured',
-    triggers: ['输入框停顿 500ms', '输入框获得焦点时（无内容）'],
+    triggers: ['打开聊天窗口时', '输入框停顿 500ms'],
     defaultPrompt: `你是一个智能输入建议助手。根据用户当前的输入文本和对话上下文，生成 2-4 条有用的输入补全建议。
 
 规则：
@@ -148,10 +148,10 @@ export const AUXILIARY_CAPABILITIES: Record<string, AuxiliaryCapability> = {
 
   'project.ephemeralName': {
     key: 'project.ephemeralName',
-    label: '临时项目命名',
-    description: 'Agent 创建临时项目时，根据任务上下文自动生成项目名称、图标和类型。',
+    label: '项目重命名',
+    description: '根据项目内容和上下文，为项目生成一个直观的名称、图标和类型。',
     outputMode: 'structured',
-    triggers: ['Agent 创建临时项目时'],
+    triggers: ['用户手动触发项目重命名'],
     defaultPrompt: `你是一个项目命名专家。根据 Agent 的任务描述，为临时项目生成一个直观的名称、图标和类型。
 
 规则：

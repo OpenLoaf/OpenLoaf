@@ -1017,7 +1017,7 @@ export function ChatInputBox({
                 />
               ) : null}
 
-              {!compact && !(chatMode === 'cli' && conversationStarted) ? <SelectMode triggerVariant="icon" className="shrink-0" chatMode={chatMode} /> : null}
+              {!compact ? <SelectMode triggerVariant="icon" className="shrink-0" chatMode={chatMode} disabled={chatMode === 'cli' && conversationStarted} /> : null}
 
               {actionVariant === "text" && onCancel && (
                 <PromptInputButton

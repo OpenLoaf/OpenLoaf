@@ -38,12 +38,15 @@ interface SelectModeProps {
   triggerVariant?: 'text' | 'icon'
   /** Current chat mode — adjusts trigger colour accent. */
   chatMode?: 'agent' | 'cli'
+  /** When true, show the icon but disable interaction (no popover). */
+  disabled?: boolean
 }
 
 export default function SelectMode({
   className,
   triggerVariant = 'text',
   chatMode = 'agent',
+  disabled = false,
 }: SelectModeProps) {
   const { t } = useTranslation('ai')
   const [popoverOpen, setPopoverOpen] = useState(false)
@@ -140,6 +143,43 @@ export default function SelectMode({
       <span className="truncate">{t('mode.customizeSettings')}</span>
     </PromptInputButton>
   )
+
+  if (disabled) {
+    return isIconTrigger ? (
+      <PromptInputButton
+        type="button"
+        size="icon-sm"
+        variant="ghost"
+        disabled
+        className={cn(
+          'h-8 w-8 rounded-full transition-colors pointer-events-none opacity-60',
+          chatMode === 'cli'
+            ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300'
+            : 'bg-violet-500/10 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
+          className,
+        )}
+        aria-label={t('mode.customizeSettings')}
+      >
+        {CliIcon ? <CliIcon size={16} className="h-4 w-4" /> : <Settings2 className="h-4 w-4" />}
+      </PromptInputButton>
+    ) : (
+      <PromptInputButton
+        type="button"
+        size="sm"
+        disabled
+        className={cn(
+          'h-7 w-auto min-w-0 shrink inline-flex items-center gap-1 rounded-md px-1.5 text-xs font-medium transition-colors pointer-events-none opacity-60',
+          chatMode === 'cli'
+            ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300'
+            : 'bg-violet-500/10 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
+          className,
+        )}
+      >
+        {CliIcon ? <CliIcon size={14} className="h-3.5 w-3.5" /> : <Settings2 className="h-3.5 w-3.5" />}
+        <span className="truncate">{t('mode.customizeSettings')}</span>
+      </PromptInputButton>
+    )
+  }
 
   return (
     <>

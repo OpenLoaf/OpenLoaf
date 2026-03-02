@@ -56,6 +56,12 @@ function evictExpired(): void {
 // Run eviction every 2 minutes.
 setInterval(evictExpired, 2 * 60 * 1000).unref?.()
 
+const LOG_PREFIX = '[AuxiliaryInfer]'
+
+function truncate(text: string, maxLen = 200): string {
+  return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text
+}
+
 type AuxiliaryInferInput<T extends z.ZodType> = {
   capabilityKey: CapabilityKey
   context: string
@@ -95,11 +101,23 @@ export async function auxiliaryInfer<T extends z.ZodType>({
   promptOverride,
 }: AuxiliaryInferInput<T>): Promise<z.infer<T>> {
   try {
+    console.log(
+      `${LOG_PREFIX} [${capabilityKey}] 调用开始`,
+      `| 输入: ${truncate(context)}`,
+    )
+
     // Check cache
     const key = cacheKey(capabilityKey, context)
     if (!noCache) {
       const cached = getCached<z.infer<T>>(key)
-      if (cached !== undefined) return cached
+      if (cached !== undefined) {
+        console.log(
+          `${LOG_PREFIX} [${capabilityKey}] 命中缓存`,
+          `| 输出:`,
+          cached,
+        )
+        return cached
+      }
     }
 
     // Read config
@@ -107,7 +125,10 @@ export async function auxiliaryInfer<T extends z.ZodType>({
 
     // Build prompt
     const capability = AUXILIARY_CAPABILITIES[capabilityKey]
-    if (!capability) return fallback
+    if (!capability) {
+      console.warn(`${LOG_PREFIX} [${capabilityKey}] 未找到能力定义，返回 fallback`)
+      return fallback
+    }
     const customPrompt = conf.capabilities[capabilityKey]?.customPrompt
     const systemPrompt =
       typeof promptOverride === 'string'
@@ -115,6 +136,10 @@ export async function auxiliaryInfer<T extends z.ZodType>({
         : typeof customPrompt === 'string'
           ? customPrompt
           : capability.defaultPrompt
+
+    console.log(
+      `${LOG_PREFIX} [${capabilityKey}] 模型来源: ${conf.modelSource}`,
+    )
 
     // SaaS branch — delegate to SaaS backend
     if (conf.modelSource === 'saas') {
@@ -130,6 +155,11 @@ export async function auxiliaryInfer<T extends z.ZodType>({
       if (!res.ok) throw new Error(res.message)
       const value = schema.parse(res.result) as z.infer<T>
       if (!noCache) setCache(key, value)
+      console.log(
+        `${LOG_PREFIX} [${capabilityKey}] SaaS 推理完成`,
+        `| 输出:`,
+        value,
+      )
       return value
     }
 
@@ -159,12 +189,22 @@ export async function auxiliaryInfer<T extends z.ZodType>({
 
       const value = result.object as z.infer<T>
       if (!noCache) setCache(key, value)
+      console.log(
+        `${LOG_PREFIX} [${capabilityKey}] 本地/云端推理完成`,
+        `| 输出:`,
+        value,
+      )
       return value
     } finally {
       clearTimeout(timeout)
     }
-  } catch {
+  } catch (err) {
     // Silent fallback — never block the main flow.
+    console.warn(
+      `${LOG_PREFIX} [${capabilityKey}] 推理失败，返回 fallback`,
+      `| 错误:`,
+      err instanceof Error ? err.message : err,
+    )
     return fallback
   }
 }
@@ -185,16 +225,32 @@ export async function auxiliaryInferText({
   promptOverride,
 }: AuxiliaryInferTextInput): Promise<string> {
   try {
+    console.log(
+      `${LOG_PREFIX} [${capabilityKey}] (text) 调用开始`,
+      `| 输入: ${truncate(context)}`,
+    )
+
     const key = cacheKey(capabilityKey, context)
     if (!noCache) {
       const cached = getCached<string>(key)
-      if (cached !== undefined) return cached
+      if (cached !== undefined) {
+        console.log(
+          `${LOG_PREFIX} [${capabilityKey}] (text) 命中缓存`,
+          `| 输出: ${truncate(cached)}`,
+        )
+        return cached
+      }
     }
 
     const conf = readAuxiliaryModelConf()
 
     const capability = AUXILIARY_CAPABILITIES[capabilityKey]
-    if (!capability) return fallback
+    if (!capability) {
+      console.warn(
+        `${LOG_PREFIX} [${capabilityKey}] (text) 未找到能力定义，返回 fallback`,
+      )
+      return fallback
+    }
     const customPrompt = conf.capabilities[capabilityKey]?.customPrompt
     const systemPrompt =
       typeof promptOverride === 'string'
@@ -202,6 +258,10 @@ export async function auxiliaryInferText({
         : typeof customPrompt === 'string'
           ? customPrompt
           : capability.defaultPrompt
+
+    console.log(
+      `${LOG_PREFIX} [${capabilityKey}] (text) 模型来源: ${conf.modelSource}`,
+    )
 
     // SaaS branch — delegate to SaaS backend
     if (conf.modelSource === 'saas') {
@@ -217,6 +277,10 @@ export async function auxiliaryInferText({
       if (!res.ok) throw new Error(res.message)
       const text = String(res.result)
       if (!noCache) setCache(key, text)
+      console.log(
+        `${LOG_PREFIX} [${capabilityKey}] (text) SaaS 推理完成`,
+        `| 输出: ${truncate(text)}`,
+      )
       return text
     }
 
@@ -242,11 +306,20 @@ export async function auxiliaryInferText({
       })
 
       if (!noCache) setCache(key, result.text)
+      console.log(
+        `${LOG_PREFIX} [${capabilityKey}] (text) 本地/云端推理完成`,
+        `| 输出: ${truncate(result.text)}`,
+      )
       return result.text
     } finally {
       clearTimeout(timeout)
     }
-  } catch {
+  } catch (err) {
+    console.warn(
+      `${LOG_PREFIX} [${capabilityKey}] (text) 推理失败，返回 fallback`,
+      `| 错误:`,
+      err instanceof Error ? err.message : err,
+    )
     return fallback
   }
 }

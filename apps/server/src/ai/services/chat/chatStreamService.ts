@@ -17,6 +17,7 @@ import type { ImageGenerateOptions, OpenLoafImageMetadataV1 } from "@openloaf/ap
 import type { AiImageRequest } from "@openloaf-saas/sdk";
 import type { OpenLoafUIMessage, TokenUsage } from "@openloaf/api/types/message";
 import { createMasterAgentRunner } from "@/ai";
+import { getTemplate, isTemplateId } from "@/ai/agent-templates";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import { resolveCliChatModelId } from "@/ai/models/cli/cliProviderEntry";
 import { resolveAgentModelIdsFromConfig } from "@/ai/shared/resolveAgentModelFromConfig";
@@ -553,10 +554,22 @@ export async function runChatStream(input: {
         projectRootPath,
       });
 
+      // agentHint：当请求 params 中包含 agentHint 时，使用对应模版的 systemPrompt 和 toolIds
+      const agentHint = input.request.params?.agentHint;
+      let hintToolIds: readonly string[] | undefined;
+      if (typeof agentHint === 'string' && agentHint.trim() && isTemplateId(agentHint.trim())) {
+        const hintTemplate = getTemplate(agentHint.trim());
+        if (hintTemplate && !hintTemplate.isPrimary) {
+          instructions = hintTemplate.systemPrompt;
+          hintToolIds = hintTemplate.toolIds;
+        }
+      }
+
       masterAgent = createMasterAgentRunner({
         model: resolved.model,
         modelInfo: resolved.modelInfo,
         instructions,
+        ...(hintToolIds ? { toolIds: hintToolIds } : {}),
       });
     }
     setChatModel(resolved.model);

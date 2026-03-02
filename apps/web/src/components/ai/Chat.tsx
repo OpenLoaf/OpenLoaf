@@ -488,7 +488,7 @@ function ChatFullPageLayout({
                 blockedCompact
               />
               <div className="mt-4">
-                <MessageHelper compact />
+                <MessageHelper compact projectId={projectId} />
               </div>
             </div>
           </div>
@@ -496,7 +496,7 @@ function ChatFullPageLayout({
         </div>
       ) : (
         <div className="flex flex-1 flex-col min-h-0">
-          <MessageList className="flex-1 min-h-0" />
+          <MessageList className="flex-1 min-h-0" projectId={projectId} />
           <RecentSessionsBar />
           <ChatInput
             className="mx-2 mb-2"
@@ -1233,7 +1233,7 @@ export function Chat({
             onCloseSession={onCloseSession}
             iconPalette="email"
           />
-          <MessageList className="flex-1 min-h-0" />
+          <MessageList className="flex-1 min-h-0" projectId={projectId} />
           <RecentSessionsBar />
           <ChatInput
             className="mx-2 mb-2"

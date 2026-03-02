@@ -15,12 +15,48 @@ export const OFFICE_ACTIONS = [
   "readText",
   "replaceText",
   "insertAtCursor",
+  "getDocumentInfo",
+  "getSelectedText",
+  "insertText",
+  "deleteText",
+  "findReplace",
+  "formatText",
+  "addTable",
+  "readTable",
+  "addComment",
+  "getComments",
+  "addBookmark",
+  "save",
+  "saveAs",
+  "exportPdf",
+  "getDocumentStructure",
+  "insertImage",
 ] as const;
 export type OfficeAction = (typeof OFFICE_ACTIONS)[number];
 
 export type OfficeCommandPayload = {
   filePath?: string;
   text?: string;
+  searchText?: string;
+  replaceWith?: string;
+  matchCase?: boolean;
+  matchWholeWord?: boolean;
+  position?: "start" | "end" | "cursor" | "bookmark" | "afterParagraph";
+  bookmarkName?: string;
+  paragraphIndex?: number;
+  formatting?: {
+    bold?: boolean;
+    italic?: boolean;
+    fontSize?: number;
+    fontName?: string;
+    fontColor?: string;
+  };
+  tableRows?: number;
+  tableCols?: number;
+  tableIndex?: number;
+  commentText?: string;
+  imageUrl?: string;
+  pdfPath?: string;
 };
 
 export type OfficeCommandContext = {
@@ -48,6 +84,18 @@ export type OfficeCommandAck = {
   output?: {
     text?: string;
     docName?: string;
+    docInfo?: {
+      name: string;
+      path: string;
+      saved: boolean;
+      readOnly: boolean;
+    };
+    selectedText?: string;
+    comments?: Array<{ author: string; text: string; date: string }>;
+    tableData?: string[][];
+    structure?: Array<{ level: number; text: string; index: number }>;
+    replacedCount?: number;
+    success?: boolean;
   };
   errorText?: string | null;
   requestedAt: string;

@@ -424,6 +424,43 @@ export const settingSchemas = {
       confidence: z.number(),
     }),
   },
+  /** Infer project name, icon and type via auxiliary model. */
+  inferProjectName: {
+    input: z.object({
+      projectId: z.string(),
+    }),
+    output: z.object({
+      title: z.string(),
+      icon: z.string(),
+      type: z.string(),
+    }),
+  },
+  /** Generate dynamic chat suggestions based on project context. */
+  generateChatSuggestions: {
+    input: z.object({
+      projectId: z.string().optional(),
+      currentInput: z.string().optional(),
+    }),
+    output: z.object({
+      suggestions: z.array(
+        z.object({
+          label: z.string(),
+          value: z.string(),
+          type: z.enum(['completion', 'question', 'action']),
+        }),
+      ),
+    }),
+  },
+  /** Generate commit message via auxiliary model. */
+  generateCommitMessage: {
+    input: z.object({
+      projectId: z.string(),
+    }),
+    output: z.object({
+      subject: z.string(),
+      body: z.string(),
+    }),
+  },
 };
 
 export abstract class BaseSettingRouter {
@@ -604,6 +641,24 @@ export abstract class BaseSettingRouter {
       inferProjectType: shieldedProcedure
         .input(settingSchemas.inferProjectType.input)
         .output(settingSchemas.inferProjectType.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      inferProjectName: shieldedProcedure
+        .input(settingSchemas.inferProjectName.input)
+        .output(settingSchemas.inferProjectName.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      generateChatSuggestions: shieldedProcedure
+        .input(settingSchemas.generateChatSuggestions.input)
+        .output(settingSchemas.generateChatSuggestions.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      generateCommitMessage: shieldedProcedure
+        .input(settingSchemas.generateCommitMessage.input)
+        .output(settingSchemas.generateCommitMessage.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

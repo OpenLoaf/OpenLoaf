@@ -26,6 +26,7 @@ export type AgentTemplateId =
   | 'project'
   | 'vision'
   | 'coder'
+  | 'wps-agent'
 
 /** Agent 模版定义。 */
 export type AgentTemplate = {

@@ -20,21 +20,33 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
+import { useMutation } from "@tanstack/react-query";
+import { trpc } from "@/utils/trpc";
+
+type SuggestionItem = {
+  label: string;
+  value: string;
+  icon: typeof Sparkles;
+  color: string;
+};
 
 const ICON_ORDER = [Sparkles, ClipboardList, Code2, FileText];
 const COLORS = ["text-amber-500", "text-sky-500", "text-emerald-500", "text-violet-500"];
 
-export default function MessageHelper({ compact }: { compact?: boolean } = {}) {
+export default function MessageHelper({
+  compact,
+  projectId,
+}: { compact?: boolean; projectId?: string } = {}) {
   const { setInput } = useChatOptions();
   const { t } = useTranslation('ai');
 
-  // Build suggestions from translation data
+  // Build static suggestions from translation data (fallback)
   const rawSuggestions = t('helper.suggestions', { returnObjects: true }) as Array<{
     label: string;
     value: string;
   }> | null;
 
-  const SUGGESTIONS = rawSuggestions
+  const staticSuggestions: SuggestionItem[] = rawSuggestions
     ? rawSuggestions.map((item, index) => ({
         label: item.label,
         value: item.value,
@@ -42,6 +54,30 @@ export default function MessageHelper({ compact }: { compact?: boolean } = {}) {
         color: COLORS[index] || "text-blue-500",
       }))
     : [];
+
+  // Dynamic suggestions from auxiliary model
+  const dynamicMutation = useMutation(
+    trpc.settings.generateChatSuggestions.mutationOptions(),
+  );
+
+  React.useEffect(() => {
+    dynamicMutation.mutate({ projectId: projectId || undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  const SUGGESTIONS: SuggestionItem[] = React.useMemo(() => {
+    const dynamic = dynamicMutation.data?.suggestions;
+    if (dynamic && dynamic.length > 0) {
+      return dynamic.map((item: { label: string; value: string }, index: number) => ({
+        label: item.label,
+        value: item.value,
+        icon: ICON_ORDER[index % ICON_ORDER.length] || Sparkles,
+        color: COLORS[index % COLORS.length] || "text-blue-500",
+      }));
+    }
+    return staticSuggestions;
+  }, [dynamicMutation.data, staticSuggestions]);
+
   const [hoveredIndex, setHoveredIndex] = React.useState(-1);
 
   const focusChatInput = React.useCallback(() => {

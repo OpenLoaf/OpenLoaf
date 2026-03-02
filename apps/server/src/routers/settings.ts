@@ -1488,6 +1488,121 @@ export class SettingRouterImpl extends BaseSettingRouter {
             confidence: result.confidence,
           };
         }),
+
+      inferProjectName: shieldedProcedure
+        .input(settingSchemas.inferProjectName.input)
+        .output(settingSchemas.inferProjectName.output)
+        .mutation(async ({ input }) => {
+          const rootPath = getProjectRootPath(input.projectId);
+          const config = rootPath ? await readProjectConfig(rootPath) : null;
+          const fileList = rootPath
+            ? await scanProjectFiles(rootPath, 2, 30)
+            : [];
+
+          const contextParts: string[] = [];
+          if (config?.title) contextParts.push(`Current name: ${config.title}`);
+          if (config?.projectType) contextParts.push(`Type: ${config.projectType}`);
+          if (fileList.length > 0)
+            contextParts.push(`Files:\n${fileList.join("\n")}`);
+
+          const context = contextParts.join("\n") || "Empty project";
+
+          const { auxiliaryInfer } = await import(
+            "@/ai/services/auxiliaryInferenceService"
+          );
+          const { CAPABILITY_SCHEMAS } = await import(
+            "@/ai/services/auxiliaryCapabilities"
+          );
+
+          const result = await auxiliaryInfer({
+            capabilityKey: "project.ephemeralName",
+            context,
+            schema: CAPABILITY_SCHEMAS["project.ephemeralName"],
+            fallback: {
+              title: config?.title ?? "Untitled",
+              icon: config?.icon ?? "📁",
+              type: (config?.projectType ?? "general") as any,
+            },
+            noCache: true,
+          });
+
+          return { title: result.title, icon: result.icon, type: result.type };
+        }),
+
+      generateChatSuggestions: shieldedProcedure
+        .input(settingSchemas.generateChatSuggestions.input)
+        .output(settingSchemas.generateChatSuggestions.output)
+        .mutation(async ({ input }) => {
+          const contextParts: string[] = [];
+
+          if (input.projectId) {
+            const rootPath = getProjectRootPath(input.projectId);
+            if (rootPath) {
+              const config = await readProjectConfig(rootPath);
+              if (config?.title) contextParts.push(`Project: ${config.title}`);
+              if (config?.projectType)
+                contextParts.push(`Type: ${config.projectType}`);
+            }
+          }
+
+          if (input.currentInput) {
+            contextParts.push(`Current input: ${input.currentInput}`);
+          } else {
+            contextParts.push("The user just opened a new chat (empty conversation).");
+          }
+
+          const context = contextParts.join("\n");
+
+          const { auxiliaryInfer } = await import(
+            "@/ai/services/auxiliaryInferenceService"
+          );
+          const { CAPABILITY_SCHEMAS } = await import(
+            "@/ai/services/auxiliaryCapabilities"
+          );
+
+          const result = await auxiliaryInfer({
+            capabilityKey: "chat.suggestions",
+            context,
+            schema: CAPABILITY_SCHEMAS["chat.suggestions"],
+            fallback: { suggestions: [] },
+          });
+
+          return { suggestions: result.suggestions };
+        }),
+
+      generateCommitMessage: shieldedProcedure
+        .input(settingSchemas.generateCommitMessage.input)
+        .output(settingSchemas.generateCommitMessage.output)
+        .mutation(async ({ input }) => {
+          const { getProjectGitDiff } = await import(
+            "@openloaf/api/services/projectGitService"
+          );
+          const diffResult = await getProjectGitDiff(input.projectId);
+          if (!diffResult.diff) {
+            return { subject: "", body: "" };
+          }
+          const truncatedDiff =
+            diffResult.diff.length > 3000
+              ? `${diffResult.diff.slice(0, 3000)}\n... (truncated)`
+              : diffResult.diff;
+
+          const { auxiliaryInfer } = await import(
+            "@/ai/services/auxiliaryInferenceService"
+          );
+          const { CAPABILITY_SCHEMAS } = await import(
+            "@/ai/services/auxiliaryCapabilities"
+          );
+
+          const result = await auxiliaryInfer({
+            capabilityKey: "git.commitMessage",
+            context: truncatedDiff,
+            schema: CAPABILITY_SCHEMAS["git.commitMessage"],
+            fallback: { subject: "", body: undefined },
+            noCache: true,
+          });
+
+          return { subject: result.subject, body: result.body ?? "" };
+        }),
     });
   }
 }
