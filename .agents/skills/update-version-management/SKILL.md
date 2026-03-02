@@ -112,7 +112,7 @@ git log {app}-v{lastVersion}..HEAD --oneline --no-merges -- apps/{app}/ packages
 
 - 使用路径过滤（`-- apps/{app}/ packages/`）只看该 app 相关的变更
 - `packages/` 包含共享代码（db、ui、api、config），变更可能影响所有 app
-- 按 emoji 类别分组，使用项目统一的 changelog 格式（详见 `DEVELOPMENT.md` 的「Changelog 更新日志规范」）
+- 按 emoji 类别分组，使用项目统一的 changelog 格式（详见 `docs/DEVELOPMENT.md` 的「Changelog 更新日志规范」）
 - 分类及顺序：💥 Breaking Changes → ✨ 新功能 → 🚀 改进 → 💄 界面优化 → ⚡ 性能优化 → 🌐 国际化 → 🐛 问题修复 → 🔒 安全 → 🔧 重构 → 📦 依赖更新 → 🗑️ 废弃
 - 只列出有内容的分类，空分类不出现
 - 生成中文和英文两个版本

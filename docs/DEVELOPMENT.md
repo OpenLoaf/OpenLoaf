@@ -2,6 +2,8 @@
 
 OpenLoaf 开发规范。适用于核心开发者和外部贡献者。
 
+<strong>简体中文</strong> | <a href="./DEVELOPMENT_en.md">English</a>
+
 ## Commit 规范
 
 项目使用 [Conventional Commits](https://www.conventionalcommits.org/) 规范，通过 [commitlint](https://commitlint.js.org/) 自动校验。
@@ -116,7 +118,7 @@ chore/upgrade-prisma
 ### 要求
 
 1. PR 标题遵循 Commit 规范格式（`<type>(<scope>): <subject>`）
-2. 使用 [PR Template](.github/PULL_REQUEST_TEMPLATE.md) 填写描述
+2. 使用 [PR Template](../.github/PULL_REQUEST_TEMPLATE.md) 填写描述
 3. 至少 1 人 approve
 4. CI 通过（类型检查 + lint）
 5. 使用 **Squash Merge** 保持历史整洁
@@ -256,8 +258,8 @@ date: 2026-03-15
 ## 发布流程
 
 详见版本管理 Skill 文档：
-- [发布流程](.agents/skills/update-version-management/publish-release.md)
-- [更新系统](.agents/skills/update-version-management/update-system.md)
+- [发布流程](../.agents/skills/update-version-management/publish-release.md)
+- [更新系统](../.agents/skills/update-version-management/update-system.md)
 
 ## 开发环境设置
 
@@ -279,4 +281,4 @@ pnpm run dev          # Web + Server
 pnpm run desktop      # Electron 桌面应用
 ```
 
-更多命令详见 [CLAUDE.md](CLAUDE.md) 的「常用命令」部分。
+更多命令详见 [CLAUDE.md](../CLAUDE.md) 的「常用命令」部分。

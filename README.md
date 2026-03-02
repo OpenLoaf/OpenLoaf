@@ -215,7 +215,7 @@ packages/
 4. 🚀 推送到远程：`git push origin feature/my-feature`
 5. 📬 发起 **Pull Request**
 
-> 📖 提交 PR 前请务必阅读 [贡献指南](.github/CONTRIBUTING.md) 和 [开发规范](DEVELOPMENT.md)，并签署 [CLA（贡献者许可协议）](.github/CLA.md)。
+> 📖 提交 PR 前请务必阅读 [贡献指南](.github/CONTRIBUTING.md) 和 [开发规范](docs/DEVELOPMENT.md)，并签署 [CLA（贡献者许可协议）](.github/CLA.md)。
 
 ---
 

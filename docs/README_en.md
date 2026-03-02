@@ -215,7 +215,7 @@ We warmly welcome community contributions!
 4. 🚀 Push to remote: `git push origin feature/my-feature`
 5. 📬 Open a **Pull Request**
 
-> 📖 Before submitting a PR, please read the [Contributing Guide](../.github/CONTRIBUTING.md) and [Development Guide](../DEVELOPMENT.md), and sign the [CLA (Contributor License Agreement)](../.github/CLA.md).
+> 📖 Before submitting a PR, please read the [Contributing Guide](../.github/CONTRIBUTING.md) and [Development Guide](./DEVELOPMENT_en.md), and sign the [CLA (Contributor License Agreement)](../.github/CLA.md).
 
 ---
 

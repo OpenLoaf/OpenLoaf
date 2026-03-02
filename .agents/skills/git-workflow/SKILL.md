@@ -13,7 +13,7 @@ description: >
 
 OpenLoaf 使用 [Conventional Commits](https://www.conventionalcommits.org/) 规范，通过 commitlint 自动校验。项目支持两种工作模式：核心开发者直接在 main 提交，协作者通过 PR 流程贡献代码。
 
-完整规范见项目根目录 `DEVELOPMENT.md`。
+完整规范见 `docs/DEVELOPMENT.md`。
 
 ## When to Use
 
@@ -146,13 +146,13 @@ chore/<description>              # 杂项
 | 💥 | 破坏性变更 | Breaking Changes |
 | 🗑️ | 废弃 | Deprecated |
 
-完整格式和示例见 `DEVELOPMENT.md` 的「Changelog 更新日志规范」章节。
+完整格式和示例见 `docs/DEVELOPMENT.md` 的「Changelog 更新日志规范」章节。
 
 ## 关键文件
 
 | 文件 | 说明 |
 |------|------|
-| `DEVELOPMENT.md` | 完整开发规范文档 |
+| `docs/DEVELOPMENT.md` | 完整开发规范文档 |
 | `commitlint.config.mjs` | commitlint 配置（type/scope 枚举） |
 | `.husky/commit-msg` | husky 钩子，自动运行 commitlint |
 | `.github/PULL_REQUEST_TEMPLATE.md` | PR 模板 |

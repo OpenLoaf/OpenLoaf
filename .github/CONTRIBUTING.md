@@ -14,7 +14,7 @@ You can read the full text of our CLA [here](./CLA.md).
 
 ## 🚀 How to Contribute
 
-Please read [DEVELOPMENT.md](../DEVELOPMENT.md) for the complete development guide, including commit conventions, branch strategy, and PR workflow.
+Please read [DEVELOPMENT.md](../docs/DEVELOPMENT.md) for the complete development guide, including commit conventions, branch strategy, and PR workflow.
 
 1. **Fork the Repository** and clone your fork locally.
 2. **Install Dependencies:**
@@ -35,7 +35,7 @@ Please read [DEVELOPMENT.md](../DEVELOPMENT.md) for the complete development gui
    # Format: <type>(<scope>): <subject>
    git commit -m "feat(web): add dark mode toggle"
    ```
-   Commit messages are automatically validated by commitlint. See [DEVELOPMENT.md](../DEVELOPMENT.md) for the full list of types and scopes.
+   Commit messages are automatically validated by commitlint. See [DEVELOPMENT.md](../docs/DEVELOPMENT.md) for the full list of types and scopes.
 6. **Push to Your Fork** and open a Pull Request against the `main` branch.
 
 ## 🐛 Reporting Bugs
