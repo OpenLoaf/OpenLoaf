@@ -108,9 +108,7 @@
     "animationMedium": "中",
     "animationHigh": "高",
     "notificationSound": "通知聲音提示",
-    "notificationSoundDesc": "語音輸入開始時播放提示音",
-    "toolAllowOutsideScopeTitle": "允許工具存取工作區外路徑",
-    "toolAllowOutsideScopeDesc": "關閉時僅允許在 project / workspace 根目錄內存取"
+    "notificationSoundDesc": "語音輸入開始時播放提示音"
   },
   "localAccess": {
     "title": "本機存取密碼",
@@ -183,6 +181,7 @@
     "detecting": "偵測中",
     "unknown": "未知",
     "notInstalled": "未安裝",
+    "download": "前往下載",
     "installed": "已安裝",
     "shellNotDetected": "未偵測到命令列支援",
     "version": "版本",

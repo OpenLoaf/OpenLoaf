@@ -50,8 +50,6 @@ export function BasicSettings() {
   const animationLevelRaw = basic.uiAnimationLevel;
   const uiTheme = basic.uiTheme;
   const uiThemeManual = basic.uiThemeManual;
-  const toolAllowOutsideScope = Boolean(basic.toolAllowOutsideScope);
-
   // Empty = follow system; FOLLOW_SYSTEM_VALUE is the sentinel for the radio group
   const FOLLOW_SYSTEM_VALUE = '';
   const isFollowingSystem = !uiLanguageRaw || !SUPPORTED_UI_LANGUAGES.some(l => l.value === uiLanguageRaw);
@@ -301,26 +299,6 @@ export function BasicSettings() {
                   </OpenLoafSettingsField>
                 </div>
 
-                <div className="flex flex-wrap items-start gap-3 py-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">{t('basicSettings.toolAllowOutsideScopeTitle')}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {t('basicSettings.toolAllowOutsideScopeDesc')}
-                    </div>
-                  </div>
-
-                  <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
-                    <div className="origin-right scale-125">
-                      <Switch
-                        checked={toolAllowOutsideScope}
-                        onCheckedChange={(checked) =>
-                          void setBasic({ toolAllowOutsideScope: checked })
-                        }
-                        aria-label="Allow tool outside scope"
-                      />
-                    </div>
-                  </OpenLoafSettingsField>
-                </div>
               </div>
             </OpenLoafSettingsGroup>
 

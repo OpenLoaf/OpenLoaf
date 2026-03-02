@@ -555,7 +555,7 @@ export function ThirdPartyTools() {
         <div className="divide-y divide-border">
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1 text-sm font-medium">{t('thirdPartyTools.wpsOffice')}</div>
-            <OpenLoafSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
+            <OpenLoafSettingsField className="flex items-center justify-end gap-2 text-right text-xs text-muted-foreground">
               <Button
                 type="button"
                 size="sm"
@@ -567,6 +567,16 @@ export function ThirdPartyTools() {
               >
                 {wpsStatusLabel || "—"}
               </Button>
+              {!isOfficeInfoLoading && !wpsInfo?.installed && (
+                <a
+                  href="https://platform.wps.cn"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex shrink-0 items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-400 dark:hover:bg-blue-900"
+                >
+                  {t('thirdPartyTools.download')}
+                </a>
+              )}
             </OpenLoafSettingsField>
           </div>
         </div>

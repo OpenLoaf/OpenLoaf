@@ -9,7 +9,7 @@
  */
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, LogIn, RotateCcw, Settings, Sparkles } from "lucide-react";
+import { Check, Copy, ImagePlus, LogIn, RotateCcw, Settings, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -662,7 +662,7 @@ export function ImageGenerateNodeView({
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <div ref={containerRef} className={containerClassName}>
         <div className="flex items-center gap-2">
-          <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${BOARD_GENERATE_DOT_IMAGE}`} />
+          <ImagePlus size={16} className="shrink-0 text-[#1a73e8] dark:text-sky-400" />
           <div className="text-[13px] font-semibold leading-5">{t('imageGenerate.title')}</div>
           <span className={`rounded-full px-2 py-0.5 text-[10px] leading-3 ${BOARD_GENERATE_PILL_IMAGE}`}>
             {subtitleText}

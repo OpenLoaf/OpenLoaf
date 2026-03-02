@@ -108,9 +108,7 @@
     "animationMedium": "中",
     "animationHigh": "高",
     "notificationSound": "通知声音提示",
-    "notificationSoundDesc": "语音输入开始时播放提示音",
-    "toolAllowOutsideScopeTitle": "允许工具访问工作区外路径",
-    "toolAllowOutsideScopeDesc": "关闭时仅允许在 project / workspace 根目录内访问"
+    "notificationSoundDesc": "语音输入开始时播放提示音"
   },
   "localAccess": {
     "title": "本地访问密码",
@@ -183,6 +181,7 @@
     "detecting": "检测中",
     "unknown": "未知",
     "notInstalled": "未安装",
+    "download": "前往下载",
     "installed": "已安装",
     "shellNotDetected": "未检测到命令行支持",
     "version": "版本",

@@ -14,7 +14,7 @@ import type {
 } from "../../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Cloud, Copy, LogIn, Monitor, Play, RotateCcw, Square } from "lucide-react";
+import { Cloud, Copy, LogIn, Monitor, Play, RotateCcw, ScanEye, Square } from "lucide-react";
 import { generateId } from "ai";
 
 import { useBoardContext } from "../../core/BoardProvider";
@@ -513,7 +513,7 @@ export function ImagePromptGenerateNodeView({
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <div className={containerClassName} ref={containerRef}>
       <div className="flex items-center gap-2">
-        <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${BOARD_GENERATE_DOT_PROMPT}`} />
+        <ScanEye size={16} className="shrink-0 text-[#f9ab00] dark:text-amber-400" />
         <div className="text-[13px] font-semibold leading-5">{t('imagePromptGenerate.title')}</div>
         <div className="flex-1" />
         {viewStatus === "running" ? (

@@ -9,7 +9,7 @@
  */
 import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../../engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Copy, LogIn, Play, RotateCcw, Settings } from "lucide-react";
+import { Copy, Film, LogIn, Play, RotateCcw, Settings } from "lucide-react";
 import type { ModelCapabilities, ModelParameterFeature } from "@openloaf/api/common";
 import { toast } from "sonner";
 
@@ -742,7 +742,7 @@ export function VideoGenerateNodeView({
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <div ref={containerRef} className={containerClassName}>
       <div className="flex items-center gap-2">
-        <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${BOARD_GENERATE_DOT_VIDEO}`} />
+        <Film size={16} className="shrink-0 text-[#9334e6] dark:text-violet-400" />
         <div className="text-[13px] font-semibold leading-5">{t('videoGenerate.title')}</div>
         <span className={`rounded-full px-2 py-0.5 text-[10px] leading-3 ${BOARD_GENERATE_PILL_VIDEO}`}>
           {statusLabel}

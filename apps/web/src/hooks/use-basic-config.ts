@@ -44,7 +44,6 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   modelDefaultToolModelId: "",
   appProjectRule: "按项目划分",
   autoApproveTools: false,
-  toolAllowOutsideScope: false,
   stepUpInitialized: false,
   proxyEnabled: false,
   proxyHost: "",

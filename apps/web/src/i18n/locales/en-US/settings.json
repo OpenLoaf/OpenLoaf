@@ -108,9 +108,7 @@
     "animationMedium": "Medium",
     "animationHigh": "High",
     "notificationSound": "Notification Sound",
-    "notificationSoundDesc": "Play sound cue when voice input starts",
-    "toolAllowOutsideScopeTitle": "Allow Tool Access Outside Workspace",
-    "toolAllowOutsideScopeDesc": "When disabled, tools can only access within the project/workspace root"
+    "notificationSoundDesc": "Play sound cue when voice input starts"
   },
   "localAccess": {
     "title": "Local Access Password",
@@ -183,6 +181,7 @@
     "detecting": "Detecting...",
     "unknown": "Unknown",
     "notInstalled": "Not installed",
+    "download": "Download",
     "installed": "Installed",
     "shellNotDetected": "No command-line support detected",
     "version": "Version",

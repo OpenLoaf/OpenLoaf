@@ -24,7 +24,7 @@ export function LoadingScreen({ label }: { label?: string }) {
           height={40}
           className="h-10 w-10 motion-safe:animate-pulse"
         />
-        <span className="text-sm">{label ?? t('connecting')}</span>
+        <span className="text-sm" suppressHydrationWarning>{label ?? t('connecting')}</span>
       </div>
     </div>
   );
