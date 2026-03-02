@@ -364,8 +364,9 @@ function extractVersionFromKey(key) {
     }
   }
   // 旧平铺结构回退：从文件名提取
+  // pre-release 标识以小写字母开头（beta、rc 等），平台名以大写开头（MacOS、Windows）
   const filename = parts.pop() ?? ''
-  const match = filename.match(/^OpenLoaf-(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?)/)
+  const match = filename.match(/^OpenLoaf-(\d+\.\d+\.\d+(?:-[a-z][a-zA-Z0-9.]*)?)/)
   return match ? match[1] : null
 }
 
