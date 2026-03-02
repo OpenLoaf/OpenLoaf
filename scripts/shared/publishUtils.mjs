@@ -54,14 +54,16 @@ export function createS3Client({ endpoint, accessKeyId, secretAccessKey }) {
 
 /**
  * 创建腾讯 COS S3 兼容客户端。
- * COS 需要 forcePathStyle: false（默认虚拟主机风格）和明确的 region。
+ * 使用 forcePathStyle:true，bucket 走 URL path 而非 subdomain，
+ * 避免 SDK 将 bucket 名前置到 endpoint 主机名导致 TLS 证书不匹配。
+ * COS_ENDPOINT 应设为 https://cos.{region}.myqcloud.com（不含 bucket）。
  */
 export function createCosS3Client({ endpoint, region, accessKeyId, secretAccessKey }) {
   return new S3Client({
     region,
     endpoint,
     credentials: { accessKeyId, secretAccessKey },
-    forcePathStyle: false,
+    forcePathStyle: true,
   })
 }
 
