@@ -10,7 +10,6 @@
 import { spawn as spawnPty } from "node-pty";
 import { tool, zodSchema } from "ai";
 import { execCommandToolDef } from "@openloaf/api/types/tools/runtime";
-import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { resolveToolWorkdir } from "@/ai/tools/toolScope";
 import {
   buildExecEnv,
@@ -100,8 +99,7 @@ export const execCommandTool = tool({
       }
     }
 
-    const allowOutside = readBasicConf().toolAllowOutsideScope;
-    const { cwd } = resolveToolWorkdir({ workdir, allowOutside });
+    const { cwd } = resolveToolWorkdir({ workdir });
     const { file, args } = buildShellCommand({ cmd, shell, login });
 
     ensurePtyHelperExecutable();

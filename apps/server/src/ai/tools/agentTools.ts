@@ -26,6 +26,7 @@ import {
 import type { RequestContext } from '@/ai/shared/context/requestContext'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { resolveEffectiveAgentName } from '@/ai/services/agentFactory'
+import type { ModelTag } from '@openloaf/api/common'
 import {
   resolveAgentModelIdsFromConfig,
   type AgentModelIds,
@@ -35,8 +36,8 @@ import {
  *
  * Priority:
  * 1. modelOverride — explicit override from tool call
- * 2. agentType — read from agent config
- * 3. config.model — (reserved for future inline model)
+ * 2. agentType — read from agent config (chatModelId)
+ * 3. requiredModelTags — auto-resolve model by tag constraints
  * 4. fallback — master agent's current model
  */
 async function resolveSpawnModel(input: {
@@ -71,9 +72,23 @@ async function resolveSpawnModel(input: {
       if (!masterModel) throw new Error('chat model is not available.')
       return { model: masterModel, agentModelIds }
     }
+
+    // 3. requiredModelTags — 用标签约束自动解析满足条件的模型
+    const tags = agentModelIds.requiredModelTags
+    if (tags && tags.length > 0) {
+      try {
+        const resolved = await resolveChatModel({
+          requiredTags: tags as ModelTag[],
+          saasAccessToken: input.requestContext.saasAccessToken,
+        })
+        return { model: resolved.model, agentModelIds }
+      } catch {
+        // 无满足标签的模型，降级到 master
+      }
+    }
   }
 
-  // 3. fallback: master 的模型
+  // 4. fallback: master 的模型
   const masterModel = getChatModel()
   if (!masterModel) throw new Error('chat model is not available.')
   return { model: masterModel }

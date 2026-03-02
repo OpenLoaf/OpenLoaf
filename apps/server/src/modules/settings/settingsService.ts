@@ -410,10 +410,6 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     typeof next.autoApproveTools === "boolean"
       ? next.autoApproveTools
       : current.autoApproveTools;
-  const toolAllowOutsideScope =
-    typeof next.toolAllowOutsideScope === "boolean"
-      ? next.toolAllowOutsideScope
-      : current.toolAllowOutsideScope;
   const stepUpInitialized =
     typeof next.stepUpInitialized === "boolean"
       ? next.stepUpInitialized
@@ -459,7 +455,6 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     modelDefaultToolModelId,
     appProjectRule,
     autoApproveTools,
-    toolAllowOutsideScope,
     stepUpInitialized,
     proxyEnabled,
     proxyHost,

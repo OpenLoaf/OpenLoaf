@@ -42,10 +42,9 @@ function isPathInside(root: string, target: string): boolean {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
-/** Resolve a tool path with scope enforcement. */
+/** Resolve a tool path (always allows outside scope; caller handles approval). */
 export function resolveToolPath(input: {
   target: string;
-  allowOutside: boolean;
 }): { absPath: string; rootLabel: "workspace" | "project" | "external" } {
   const workspaceId = getWorkspaceId();
   if (!workspaceId) throw new Error("workspaceId is required.");
@@ -56,21 +55,32 @@ export function resolveToolPath(input: {
   );
   const insideProject = projectRoot ? isPathInside(projectRoot, absPath) : false;
   const insideWorkspace = isPathInside(workspaceRoot, absPath);
-  // 中文注释：默认只允许在 workspace/project 根目录内访问。
-  if (!input.allowOutside && !insideProject && !insideWorkspace) {
-    throw new Error("Path is outside the workspace/project scope.");
-  }
   const rootLabel = insideProject ? "project" : insideWorkspace ? "workspace" : "external";
   return { absPath, rootLabel };
 }
 
-/** Resolve a working directory with scope enforcement. */
+/** Check whether a path target is outside workspace/project scope (no-throw, for approval gates). */
+export function isTargetOutsideScope(target: string): boolean {
+  try {
+    const workspaceId = getWorkspaceId();
+    if (!workspaceId) return false;
+    const projectId = getProjectId();
+    const { workspaceRoot, projectRoot } = resolveToolRoots();
+    const absPath = path.resolve(resolveScopedPath({ workspaceId, projectId, target }));
+    const insideProject = projectRoot ? isPathInside(projectRoot, absPath) : false;
+    const insideWorkspace = isPathInside(workspaceRoot, absPath);
+    return !insideProject && !insideWorkspace;
+  } catch {
+    return false;
+  }
+}
+
+/** Resolve a working directory (always allows outside scope; caller handles approval). */
 export function resolveToolWorkdir(input: {
   workdir?: string;
-  allowOutside: boolean;
 }): { cwd: string; rootLabel: "workspace" | "project" | "external" } {
   if (input.workdir) {
-    const resolved = resolveToolPath({ target: input.workdir, allowOutside: input.allowOutside });
+    const resolved = resolveToolPath({ target: input.workdir });
     return { cwd: resolved.absPath, rootLabel: resolved.rootLabel };
   }
   const { workspaceRoot, projectRoot } = resolveToolRoots();

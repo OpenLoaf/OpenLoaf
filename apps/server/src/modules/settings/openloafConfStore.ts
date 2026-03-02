@@ -71,7 +71,6 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   modelDefaultToolModelId: "",
   appProjectRule: "按项目划分",
   autoApproveTools: false,
-  toolAllowOutsideScope: false,
   stepUpInitialized: false,
   proxyEnabled: false,
   proxyHost: "",
@@ -326,12 +325,6 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : typeof fallbackSource.autoApproveTools === "boolean"
         ? fallbackSource.autoApproveTools
         : DEFAULT_BASIC_CONF.autoApproveTools;
-  const toolAllowOutsideScope =
-    typeof source.toolAllowOutsideScope === "boolean"
-      ? source.toolAllowOutsideScope
-      : typeof fallbackSource.toolAllowOutsideScope === "boolean"
-        ? fallbackSource.toolAllowOutsideScope
-        : DEFAULT_BASIC_CONF.toolAllowOutsideScope;
   const stepUpInitialized =
     typeof source.stepUpInitialized === "boolean"
       ? source.stepUpInitialized
@@ -402,7 +395,6 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     modelDefaultToolModelId,
     appProjectRule,
     autoApproveTools,
-    toolAllowOutsideScope,
     stepUpInitialized,
     proxyEnabled,
     proxyHost,

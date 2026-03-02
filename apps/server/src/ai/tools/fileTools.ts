@@ -21,8 +21,7 @@ import {
   applyReplacements,
 } from "@/ai/tools/applyPatch";
 import picomatch from "picomatch";
-import { readBasicConf } from "@/modules/settings/openloafConfStore";
-import { resolveToolPath, resolveToolRoots } from "@/ai/tools/toolScope";
+import { resolveToolPath, resolveToolRoots, isTargetOutsideScope } from "@/ai/tools/toolScope";
 import { resolveSecretTokens } from "@/ai/tools/secretStore";
 import { buildGitignoreMatcher } from "@/ai/tools/gitignoreMatcher";
 import { getProjectId, getWorkspaceId } from "@/ai/shared/context/requestContext";
@@ -365,6 +364,7 @@ function readIndentationBlock(
 export const readFileTool = tool({
   description: readFileToolDef.description,
   inputSchema: zodSchema(readFileToolDef.parameters),
+  needsApproval: ({ path: filePath }) => isTargetOutsideScope(filePath),
   execute: async ({
     path: filePath,
     offset,
@@ -376,8 +376,7 @@ export const readFileTool = tool({
     includeHeader,
     maxLines,
   }): Promise<string> => {
-    const allowOutside = readBasicConf().toolAllowOutsideScope;
-    const { absPath } = resolveToolPath({ target: filePath, allowOutside });
+    const { absPath } = resolveToolPath({ target: filePath });
     // 过滤常见二进制文件后缀，避免读取非文本文件内容。
     if (hasBlockedBinaryExtension(absPath)) {
       throw new Error("Only text files are supported; binary file extensions are not allowed.");
@@ -498,12 +497,12 @@ export const applyPatchTool = tool({
 export const listDirTool = tool({
   description: listDirToolDef.description,
   inputSchema: zodSchema(listDirToolDef.parameters),
+  needsApproval: ({ path: targetPath }) => isTargetOutsideScope(targetPath),
   execute: async ({
     path: targetPath, offset, limit, depth, ignoreGitignore,
     format, pattern, sort, showModified,
   }): Promise<string> => {
-    const allowOutside = readBasicConf().toolAllowOutsideScope;
-    const { absPath } = resolveToolPath({ target: targetPath, allowOutside });
+    const { absPath } = resolveToolPath({ target: targetPath });
     const stat = await fs.stat(absPath);
     if (!stat.isDirectory()) throw new Error("Path is not a directory.");
 

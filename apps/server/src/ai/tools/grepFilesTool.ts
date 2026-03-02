@@ -10,8 +10,7 @@
 import { execFile } from "node:child_process";
 import { tool, zodSchema } from "ai";
 import { grepFilesToolDef } from "@openloaf/api/types/tools/runtime";
-import { readBasicConf } from "@/modules/settings/openloafConfStore";
-import { resolveToolPath } from "@/ai/tools/toolScope";
+import { resolveToolPath, isTargetOutsideScope } from "@/ai/tools/toolScope";
 
 const DEFAULT_LIMIT = 100;
 const TIMEOUT_MS = 30_000;
@@ -46,11 +45,11 @@ function getRgBin(): string | null {
 export const grepFilesTool = tool({
   description: grepFilesToolDef.description,
   inputSchema: zodSchema(grepFilesToolDef.parameters),
+  needsApproval: ({ path: searchPath }) => searchPath ? isTargetOutsideScope(searchPath) : false,
   execute: async ({ pattern, include, path: searchPath, limit }): Promise<string> => {
-    const allowOutside = readBasicConf().toolAllowOutsideScope;
     const resolvedPath = searchPath
-      ? resolveToolPath({ target: searchPath, allowOutside }).absPath
-      : resolveToolPath({ target: ".", allowOutside }).absPath;
+      ? resolveToolPath({ target: searchPath }).absPath
+      : resolveToolPath({ target: "." }).absPath;
 
     const resolvedLimit = typeof limit === "number" ? limit : DEFAULT_LIMIT;
     const rgBin = getRgBin();

@@ -10,7 +10,6 @@
 import { spawn } from "node:child_process";
 import { tool, zodSchema } from "ai";
 import { shellCommandToolDef } from "@openloaf/api/types/tools/runtime";
-import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { resolveToolWorkdir } from "@/ai/tools/toolScope";
 import { buildExecEnv, formatFreeformOutput } from "@/ai/tools/execUtils";
 import { needsApprovalForCommand } from "@/ai/tools/commandApproval";
@@ -59,8 +58,7 @@ export const shellCommandTool = tool({
   ],
   needsApproval: ({ command }) => needsApprovalForCommand(command),
   execute: async ({ command, workdir, timeoutMs, login }): Promise<string> => {
-    const allowOutside = readBasicConf().toolAllowOutsideScope;
-    const { cwd } = resolveToolWorkdir({ workdir, allowOutside });
+    const { cwd } = resolveToolWorkdir({ workdir });
     const { file, args } = buildShellCommand({ command, login });
 
     const startAt = Date.now();
