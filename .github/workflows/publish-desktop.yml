@@ -408,19 +408,21 @@ jobs:
       - name: List artifacts
         run: ls -la apps/desktop/dist/
 
-      - name: Publish to R2 (and COS if configured)
+      - name: Publish to R2
         env:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          COS_BUCKET: ${{ secrets.COS_BUCKET }}
-          COS_PUBLIC_URL: ${{ secrets.COS_PUBLIC_URL }}
-          COS_ENDPOINT: ${{ secrets.COS_ENDPOINT }}
-          COS_REGION: ${{ secrets.COS_REGION }}
-          COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
-          COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
+          # COS sync disabled (slow cross-region upload)
+          # Re-enable by uncommenting COS_* lines below:
+          # COS_BUCKET: ${{ secrets.COS_BUCKET }}
+          # COS_PUBLIC_URL: ${{ secrets.COS_PUBLIC_URL }}
+          # COS_ENDPOINT: ${{ secrets.COS_ENDPOINT }}
+          # COS_REGION: ${{ secrets.COS_REGION }}
+          # COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
+          # COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
         run: node apps/desktop/scripts/publish-update.mjs --skip-build
 
   create-release:
