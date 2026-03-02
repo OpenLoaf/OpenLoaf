@@ -42,10 +42,38 @@ function normalizeText(text: string): string {
   return decodeHtmlEntities(text).replace(/\s+/g, " ").trim();
 }
 
-/** Parse attributes from a single HTML tag. */
+/**
+ * Find all occurrences of a self-closing HTML tag (e.g. <meta ...>, <link ...>).
+ * Uses indexOf scanning instead of regex to avoid ReDoS on crafted input.
+ */
+function findSelfClosingTags(html: string, tagName: string): string[] {
+  const tags: string[] = [];
+  const needle = `<${tagName}`;
+  const needleLen = needle.length;
+  const lower = html.toLowerCase();
+  let pos = 0;
+  while (pos < lower.length) {
+    const start = lower.indexOf(needle, pos);
+    if (start === -1) break;
+    // Ensure it's a real tag boundary (followed by whitespace or >)
+    const ch = lower[start + needleLen];
+    if (ch !== undefined && ch !== " " && ch !== "\t" && ch !== "\n" && ch !== "\r" && ch !== ">" && ch !== "/") {
+      pos = start + 1;
+      continue;
+    }
+    const end = html.indexOf(">", start);
+    if (end === -1) break;
+    tags.push(html.slice(start, end + 1));
+    pos = end + 1;
+  }
+  return tags;
+}
+
+/** Parse attributes from a single HTML tag string using non-backtracking regex. */
 function parseTagAttributes(tag: string): Record<string, string> {
   const attrs: Record<string, string> = {};
-  const attrPattern = /([a-zA-Z:-]+)\s*=\s*(".*?"|'.*?'|[^'"\s>]+)/g;
+  // Use [^"]* and [^']* instead of .*? to prevent backtracking
+  const attrPattern = /([a-zA-Z:-]+)\s*=\s*("[^"]*"|'[^']*'|[^'"\s>]+)/g;
   let match: RegExpExecArray | null;
   while ((match = attrPattern.exec(tag))) {
     const name = match[1]?.toLowerCase();
@@ -64,11 +92,9 @@ function parseTagAttributes(tag: string): Record<string, string> {
 
 /** Extract meta tag content for matching names/properties. */
 function extractMetaContent(html: string, keys: string[]): string {
-  const pattern = /<meta\s+[^>]*>/gi;
   const candidates = keys.map((key) => key.toLowerCase());
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(html))) {
-    const attrs = parseTagAttributes(match[0]);
+  for (const tag of findSelfClosingTags(html, "meta")) {
+    const attrs = parseTagAttributes(tag);
     const name = (attrs.name ?? attrs.property ?? "").toLowerCase();
     if (!name || !candidates.includes(name)) continue;
     const content = attrs.content ?? "";
@@ -77,12 +103,18 @@ function extractMetaContent(html: string, keys: string[]): string {
   return "";
 }
 
-/** Extract the document title from HTML. */
+/** Extract the document title from HTML using indexOf (no regex). */
 function extractTitle(html: string): string {
   const metaTitle = extractMetaContent(html, ["og:title", "twitter:title", "title"]);
   if (metaTitle) return metaTitle;
-  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  const rawTitle = match?.[1];
+  const lower = html.toLowerCase();
+  const openStart = lower.indexOf("<title");
+  if (openStart === -1) return "";
+  const openEnd = html.indexOf(">", openStart);
+  if (openEnd === -1) return "";
+  const closeStart = lower.indexOf("</title>", openEnd);
+  if (closeStart === -1) return "";
+  const rawTitle = html.slice(openEnd + 1, closeStart);
   return rawTitle ? normalizeText(rawTitle) : "";
 }
 
@@ -97,26 +129,16 @@ function extractDescription(html: string): string {
 
 /** Extract the base href for resolving relative URLs. */
 function extractBaseHref(html: string): string {
-  const match = html.match(
-    /<base\s+[^>]*href\s*=\s*(".*?"|'.*?'|[^'"\s>]+)[^>]*>/i
-  );
-  if (!match) return "";
-  let href = match[1] ?? "";
-  if (
-    (href.startsWith("\"") && href.endsWith("\"")) ||
-    (href.startsWith("'") && href.endsWith("'"))
-  ) {
-    href = href.slice(1, -1);
-  }
-  return href.trim();
+  const tags = findSelfClosingTags(html, "base");
+  if (tags.length === 0) return "";
+  const attrs = parseTagAttributes(tags[0] as string);
+  return (attrs.href ?? "").trim();
 }
 
 /** Resolve an icon URL from link tags. */
 function extractIconHref(html: string, baseUrl: string): string {
-  const pattern = /<link\s+[^>]*>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(html))) {
-    const attrs = parseTagAttributes(match[0]);
+  for (const tag of findSelfClosingTags(html, "link")) {
+    const attrs = parseTagAttributes(tag);
     const rel = (attrs.rel ?? "").toLowerCase();
     if (!rel) continue;
     const relTokens = rel.split(/\s+/);
@@ -137,7 +159,7 @@ export function parseWebMetadataFromHtml(html: string, url: string): WebMetadata
   if (!html) {
     return { title: "", description: "", iconUrl: "" };
   }
-  // Limit input size to prevent ReDoS on crafted HTML (metadata lives in <head>)
+  // Limit input size — metadata lives in <head>, no need to scan full document
   const MAX_HTML_LEN = 100_000;
   if (html.length > MAX_HTML_LEN) {
     html = html.slice(0, MAX_HTML_LEN);

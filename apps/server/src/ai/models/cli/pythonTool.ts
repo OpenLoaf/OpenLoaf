@@ -164,13 +164,15 @@ export async function openPythonInstaller(filePath: string): Promise<void> {
     return;
   }
   if (process.platform === "win32") {
-    // Validate the path to prevent command injection via cmd.exe shell
     if (!existsSync(filePath)) throw new Error("Installer file not found");
     const ext = path.extname(filePath).toLowerCase();
     if (ext !== ".exe" && ext !== ".msi") {
       throw new Error(`Unsupported installer extension: ${ext}`);
     }
-    await execa("cmd", ["/c", "start", "", filePath], { windowsHide: true });
+    // Use rundll32 to open via ShellExecute, avoiding cmd.exe shell entirely
+    await execa("rundll32.exe", ["url.dll,FileProtocolHandler", filePath], {
+      windowsHide: true,
+    });
     return;
   }
   throw new Error("Installer open only supported on macOS/Windows");
