@@ -678,5 +678,35 @@
       "description": "將選取文字或對話內容翻譯為目標語言，自動偵測來源語言。",
       "triggers": ["使用者選取文字請求翻譯", "對話中要求翻譯內容"]
     }
+  },
+  "agentTemplates": {
+    "browser": { "name": "瀏覽器助手", "description": "網頁瀏覽和資料擷取" },
+    "calendar": { "name": "行事曆助手", "description": "行事曆事件管理" },
+    "coder": { "name": "程式設計助手", "description": "使用 AI CLI 工具進行程式開發" },
+    "document": { "name": "文件助手", "description": "檔案讀寫、文件分析與自動摘要" },
+    "email": { "name": "郵件助手", "description": "郵件查詢和操作" },
+    "master": { "name": "主助手", "description": "混合模式主助手，可直接執行簡單任務，也可排程子 Agent" },
+    "project": { "name": "專案助手", "description": "專案資料查詢操作" },
+    "shell": { "name": "終端助手", "description": "Shell 指令執行" },
+    "vision": { "name": "視覺分析", "description": "圖片/影片理解與描述生成" },
+    "widget": { "name": "工作台元件助手", "description": "動態 Widget 建立" }
+  },
+  "capabilityGroups": {
+    "browser": "瀏覽器操作",
+    "file-read": "檔案讀取",
+    "file-write": "檔案寫入",
+    "shell": "終端指令",
+    "email": "郵件",
+    "calendar": "行事曆",
+    "office": "Office 文件",
+    "image-generate": "圖片生成",
+    "video-generate": "影片生成",
+    "chart": "圖表",
+    "widget": "Widget",
+    "project": "專案管理",
+    "web": "網路請求",
+    "agent": "子 Agent",
+    "code-interpreter": "JavaScript REPL",
+    "system": "系統工具"
   }
 }

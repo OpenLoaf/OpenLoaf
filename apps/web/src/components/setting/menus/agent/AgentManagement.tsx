@@ -624,7 +624,9 @@ function WorkspaceAgentView() {
                             })()}
                           </span>
                           <span className="min-w-0 truncate text-sm font-medium text-foreground">
-                            {agent.name}
+                            {agent.isSystem
+                              ? t(`settings:agentTemplates.${agent.folderName}.name`, { defaultValue: agent.name })
+                              : agent.name}
                           </span>
                           {(() => {
                             const label = agent.scope === "project" ? t("settings:agent.badgeProject") : t("settings:agent.badgeWorkspace");
@@ -650,7 +652,9 @@ function WorkspaceAgentView() {
                         </div>
                         {agent.description?.trim() ? (
                           <p className="truncate pl-1 text-xs text-muted-foreground">
-                            {agent.description}
+                            {agent.isSystem
+                              ? t(`settings:agentTemplates.${agent.folderName}.description`, { defaultValue: agent.description })
+                              : agent.description}
                           </p>
                         ) : null}
                         {agent.toolIds.length > 0 ? (
@@ -666,7 +670,7 @@ function WorkspaceAgentView() {
                                   className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] ${bgClass}`}
                                 >
                                   <CapIcon className={`h-3 w-3 ${iconClass}`} />
-                                  {group.label || group.id}
+                                  {t(`settings:capabilityGroups.${group.id}`, { defaultValue: group.label || group.id })}
                                 </span>
                               );
                             })}

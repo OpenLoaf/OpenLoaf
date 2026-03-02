@@ -678,5 +678,35 @@
       "description": "将选中文本或对话内容翻译为目标语言，自动检测源语言。",
       "triggers": ["用户选中文本请求翻译", "对话中要求翻译内容"]
     }
+  },
+  "agentTemplates": {
+    "browser": { "name": "浏览器助手", "description": "网页浏览和数据抓取" },
+    "calendar": { "name": "日历助手", "description": "日历事件管理" },
+    "coder": { "name": "编码助手", "description": "使用 AI CLI 工具进行代码开发" },
+    "document": { "name": "文档助手", "description": "文件读写、文档分析与自动总结" },
+    "email": { "name": "邮件助手", "description": "邮件查询和操作" },
+    "master": { "name": "主助手", "description": "混合模式主助手，可直接执行简单任务，也可调度子 Agent" },
+    "project": { "name": "项目助手", "description": "项目数据查询操作" },
+    "shell": { "name": "终端助手", "description": "Shell 命令执行" },
+    "vision": { "name": "视觉分析", "description": "图片/视频理解与描述生成" },
+    "widget": { "name": "工作台组件助手", "description": "动态 Widget 创建" }
+  },
+  "capabilityGroups": {
+    "browser": "浏览器操作",
+    "file-read": "文件读取",
+    "file-write": "文件写入",
+    "shell": "终端命令",
+    "email": "邮件",
+    "calendar": "日历",
+    "office": "Office 文档",
+    "image-generate": "图片生成",
+    "video-generate": "视频生成",
+    "chart": "图表",
+    "widget": "Widget",
+    "project": "项目管理",
+    "web": "网络请求",
+    "agent": "子 Agent",
+    "code-interpreter": "JavaScript REPL",
+    "system": "系统工具"
   }
 }
