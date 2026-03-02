@@ -182,6 +182,15 @@ export function registerSessionDir(
   sessionDirCache.set(sessionId, path.join(root, sessionId))
 }
 
+/**
+ * 解析 session 的文件存储子目录：<sessionDir>/files/
+ * 用于存储用户拖拽上传的任意类型文件。
+ */
+export async function resolveSessionFilesDir(sessionId: string): Promise<string> {
+  const sessionDir = await resolveSessionDir(sessionId)
+  return path.join(sessionDir, 'files')
+}
+
 /** 清除 session 目录缓存 */
 export function clearSessionDirCache(sessionId?: string): void {
   if (sessionId) {

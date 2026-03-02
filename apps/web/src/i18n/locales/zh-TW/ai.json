@@ -311,5 +311,17 @@
     "statusOk": "成功",
     "statusFailed": "失敗",
     "viewChat": "查看對話"
+  },
+  "featureIntro": {
+    "index": {
+      "title": "啟用專案首頁",
+      "description": "專案首頁是一個可自訂的資訊面板，展示專案概覽、關鍵指標和快速入口。確定後將為此專案建立首頁。"
+    },
+    "tasks": {
+      "title": "啟用專案歷史",
+      "description": "專案歷史會記錄和展示檔案變更摘要與每日工作匯總。確定後將為此專案啟用歷史記錄功能。"
+    },
+    "cancel": "取消",
+    "confirm": "啟用"
   }
 }

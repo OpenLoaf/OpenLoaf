@@ -7,6 +7,8 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { getWorkspaceByIdConfig } from "@openloaf/api/services/workspaceConfig";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import {
@@ -14,6 +16,7 @@ import {
   saveChatImageAttachment,
   saveChatImageAttachmentFromPath,
 } from "@/ai/services/image/attachmentResolver";
+import { resolveSessionFilesDir } from "@/ai/services/chat/repositories/chatFileStore";
 
 /** Max upload size for chat images. */
 const MAX_CHAT_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -290,6 +293,52 @@ export class ChatAttachmentController {
         type: "json",
         status: 500,
         body: { error: error instanceof Error ? error.message : "Preview failed" },
+      };
+    }
+  }
+
+  /** Handle generic file upload — copies file as-is into session's files/ directory. */
+  async uploadGenericFile(body: ChatAttachmentBody): Promise<ChatAttachmentResponse> {
+    const { workspaceId, sessionId, file } = parseChatAttachmentBody(body);
+
+    if (!workspaceId || !sessionId || !file) {
+      return { type: "json", status: 400, body: { error: "Missing required upload fields" } };
+    }
+
+    if (!isFileLike(file)) {
+      return { type: "json", status: 400, body: { error: "Expected a file upload" } };
+    }
+
+    try {
+      const filesDir = await resolveSessionFilesDir(sessionId);
+      await fs.mkdir(filesDir, { recursive: true });
+
+      // 处理同名文件冲突：追加数字后缀。
+      const baseName = file.name || "upload";
+      const ext = path.extname(baseName);
+      const nameWithoutExt = path.basename(baseName, ext);
+      let destName = baseName;
+      let counter = 1;
+      while (true) {
+        try {
+          await fs.access(path.join(filesDir, destName));
+          destName = `${nameWithoutExt}_${counter}${ext}`;
+          counter++;
+        } catch {
+          break;
+        }
+      }
+
+      const destPath = path.join(filesDir, destName);
+      const buffer = Buffer.from(await file.arrayBuffer());
+      await fs.writeFile(destPath, buffer);
+
+      return { type: "json", status: 200, body: { path: destPath } };
+    } catch (error) {
+      return {
+        type: "json",
+        status: 500,
+        body: { error: error instanceof Error ? error.message : "File upload failed" },
       };
     }
   }

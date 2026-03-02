@@ -74,11 +74,10 @@ export function useChatSessions(input?: UseChatSessionsInput) {
   const resolvedTabId = input?.tabId ?? activeTabId ?? undefined;
   const tab = useTabView(resolvedTabId);
   const workspaceId = normalizeOptionalId(tab?.workspaceId);
-  // 只有项目页才按项目范围过滤会话。
-  const isProjectTab = tab?.base?.component === "plant-page";
-  const scopedProjectId = isProjectTab
-    ? normalizeOptionalId((tab?.chatParams as Record<string, unknown> | undefined)?.projectId)
-    : undefined;
+  // 有 chatParams.projectId 的 tab（项目聊天、plant-page 等）按项目范围过滤会话。
+  const scopedProjectId = normalizeOptionalId(
+    (tab?.chatParams as Record<string, unknown> | undefined)?.projectId,
+  );
   const listInput = useMemo(() => {
     if (!workspaceId) return undefined;
     // 逻辑：聊天面板仅展示未绑定 board 的会话。

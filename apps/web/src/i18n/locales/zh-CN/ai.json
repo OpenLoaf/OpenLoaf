@@ -311,5 +311,17 @@
     "statusOk": "成功",
     "statusFailed": "失败",
     "viewChat": "查看对话"
+  },
+  "featureIntro": {
+    "index": {
+      "title": "启用项目首页",
+      "description": "项目首页是一个可自定义的信息面板，展示项目概览、关键指标和快速入口。确定后将为此项目创建首页。"
+    },
+    "tasks": {
+      "title": "启用项目历史",
+      "description": "项目历史会记录和展示文件变更摘要与每日工作汇总。确定后将为此项目启用历史记录功能。"
+    },
+    "cancel": "取消",
+    "confirm": "启用"
   }
 }

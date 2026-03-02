@@ -56,7 +56,10 @@ import {
   buildUriFromRoot,
   formatScopedProjectPath,
   parseScopedProjectPath,
+  resolveFileUriFromRoot,
 } from "@/components/project/filesystem/utils/file-system-utils";
+import { ChatInputEditor, type ChatInputEditorHandle } from "./ChatInputEditor";
+import { createFileEntryFromUri, openFile } from "@/components/file/lib/open-file";
 import { trpc } from "@/utils/trpc";
 import { useQueryClient } from "@tanstack/react-query";
 import { useProjects } from "@/hooks/use-projects";
@@ -67,6 +70,7 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { resolveProjectRootUri } from "@/lib/chat/mention-pointer";
+import { resolveServerUrl } from "@/utils/server-url";
 import { toast } from "sonner";
 import ChatImageOutputOption, { type ChatImageOutputTarget } from "./ChatImageOutputOption";
 import CodexOption from "./CodexOption";
@@ -83,7 +87,6 @@ import {
   PromptInput,
   PromptInputButton,
   PromptInputFooter,
-  PromptInputTextarea,
   PromptInputSubmit,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
@@ -237,6 +240,11 @@ export interface ChatInputBoxProps {
   conversationStarted?: boolean;
   /** Display label for the selected CLI tool (e.g. "Claude Code"). */
   cliToolLabel?: string;
+  /**
+   * 上传文件到 session files 目录，返回绝对路径。
+   * 用于系统文件拖拽场景，生成 @[/abs/path] mention。
+   */
+  uploadFileToSession?: (file: File) => Promise<string | null>;
 }
 
 export function ChatInputBox({
@@ -286,6 +294,7 @@ export function ChatInputBox({
   conversationStarted = false,
   cliToolLabel,
   blockedCompact = false,
+  uploadFileToSession,
 }: ChatInputBoxProps) {
   const { t } = useTranslation('ai');
   const resolvedSubmitLabel = submitLabel ?? t('chat.send');
@@ -300,6 +309,8 @@ export function ChatInputBox({
   });
   const imageAttachmentsRef = useRef<ChatImageAttachmentsHandle | null>(null);
   const valueRef = useRef(value);
+  /** ContentEditable editor handle for focus/insert/mention operations. */
+  const editorHandleRef = useRef<ChatInputEditorHandle | null>(null);
   /** Whether the file picker dialog is open. */
   const [filePickerOpen, setFilePickerOpen] = useState(false);
   /** Slash command menu handle. */
@@ -409,28 +420,15 @@ export function ChatInputBox({
     return () => ro.disconnect();
   }, [footerEl]);
 
-  /** Resolve textarea element in current chat input container. */
-  const getInputElement = useCallback(() => {
-    return inputContainerRef.current?.querySelector<HTMLTextAreaElement>(
-      "textarea[data-openloaf-chat-input='true']",
-    ) ?? null;
-  }, []);
-
-  /** Focus textarea safely and optionally move caret to the end. */
+  /** Focus the editor and optionally move caret to the end. */
   const focusInputSafely = useCallback(
     (position: "keep" | "end" = "keep") => {
-      const input = getInputElement();
-      if (!input) return;
-      input.focus();
-      if (position === "end") {
-        const end = input.value.length;
-        input.setSelectionRange(end, end);
-      }
+      editorHandleRef.current?.focus(position);
     },
-    [getInputElement],
+    [],
   );
 
-  /** Insert text into textarea selection and keep caret in sync. */
+  /** Insert text or a mention chip at the editor's current caret position. */
   const insertTextAtSelection = useCallback(
     (
       rawText: string,
@@ -440,32 +438,32 @@ export function ChatInputBox({
         ensureTrailingSpace?: boolean;
       },
     ) => {
-      const input = getInputElement();
-      const currentValue = input?.value ?? valueRef.current;
-      const start = input?.selectionStart ?? currentValue.length;
-      const end = input?.selectionEnd ?? start;
-      const prevChar = start > 0 ? currentValue[start - 1] : "";
-      const nextChar = end < currentValue.length ? currentValue[end] : "";
-      const leading =
-        options?.ensureLeadingSpace && prevChar && !/\s/u.test(prevChar) ? " " : "";
-      const trailing =
-        options?.ensureTrailingSpace && (!nextChar || !/\s/u.test(nextChar)) ? " " : "";
-      const inserted = `${leading}${rawText}${trailing}`;
-      const nextValue = `${currentValue.slice(0, start)}${inserted}${currentValue.slice(end)}`;
-      valueRef.current = nextValue;
-      onChange(nextValue);
-
-      requestAnimationFrame(() => {
-        const nextInput = getInputElement();
-        if (!nextInput) return;
-        if (!options?.skipFocus) {
-          nextInput.focus();
-        }
-        const caret = start + inserted.length;
-        nextInput.setSelectionRange(caret, caret);
-      });
+      const handle = editorHandleRef.current;
+      if (!handle) return;
+      const insertOpts = {
+        ensureLeadingSpace: options?.ensureLeadingSpace,
+        ensureTrailingSpace: options?.ensureTrailingSpace,
+      };
+      // Single mention token → insert as chip
+      if (/^@\[[^\]]+\]$/.test(rawText)) {
+        handle.insertMention(rawText, insertOpts);
+        return;
+      }
+      // Plain text (no mention tokens) → insert as text
+      if (!/@\[[^\]]+\]/.test(rawText)) {
+        handle.insertText(rawText, insertOpts);
+        return;
+      }
+      // Mixed content (rare): append to value and let sync re-render
+      const current = valueRef.current;
+      const leading = insertOpts.ensureLeadingSpace && current && !/\s$/.test(current) ? " " : "";
+      const trailing = insertOpts.ensureTrailingSpace ? " " : "";
+      const newValue = `${current}${leading}${rawText}${trailing}`;
+      valueRef.current = newValue;
+      onChange(newValue);
+      requestAnimationFrame(() => handle.focus("end"));
     },
-    [getInputElement, onChange],
+    [onChange],
   );
 
   const resolveRootUri = useCallback(
@@ -477,6 +475,46 @@ export function ChatInputBox({
     const resolved = resolveProjectRootUri(projects, defaultProjectId);
     return resolved || undefined;
   }, [defaultProjectId, projects]);
+
+  /** Handle click on a mention chip — open file preview via generic open-file pipeline. */
+  const handleChipClick = useCallback(
+    (ref: string) => {
+      const clean = ref.replace(/:\d+-\d+$/, "");
+      let uri: string | null = null;
+      let projectId: string | undefined;
+      let rootUri: string | undefined;
+
+      if (clean.startsWith("/")) {
+        uri = `file://${clean}`;
+      } else {
+        const parsed = parseScopedProjectPath(clean);
+        if (parsed?.projectId) {
+          projectId = parsed.projectId;
+          rootUri = resolveRootUri(parsed.projectId) || undefined;
+          if (rootUri) {
+            uri = resolveFileUriFromRoot(rootUri, parsed.relativePath);
+          }
+        }
+      }
+
+      if (!uri) return;
+
+      const parts = clean.split("/");
+      const name = parts[parts.length - 1] ?? "file";
+      const entry = createFileEntryFromUri({ uri, name });
+      if (!entry) return;
+
+      openFile({
+        entry,
+        tabId,
+        projectId: projectId || defaultProjectId || undefined,
+        rootUri: rootUri || defaultRootUri,
+        mode: "stack",
+        readOnly: true,
+      });
+    },
+    [defaultRootUri, defaultProjectId, resolveRootUri, tabId],
+  );
 
   useEffect(() => {
     /** Handle external focus requests for the chat input. */
@@ -528,7 +566,7 @@ export function ChatInputBox({
     return scoped;
   }, [defaultProjectId]);
 
-  /** Insert a file reference token and keep cursor behaviour stable. */
+  /** Insert a file reference token at the current cursor position. */
   const insertFileMention = useCallback(
     (fileRef: string, options?: { skipFocus?: boolean }) => {
       const normalizedRef = normalizeFileRef(fileRef);
@@ -720,11 +758,21 @@ export function ChatInputBox({
       }
       return;
     }
+    // 优先级 3：系统文件拖拽 — 上传到 session files 目录，插入 @[/abs/path] mention
     const files = Array.from(event.dataTransfer.files ?? []);
     if (files.length > 0) {
+      if (uploadFileToSession) {
+        for (const file of files) {
+          const absPath = await uploadFileToSession(file);
+          if (absPath) {
+            insertTextAtSelection(`@[${absPath}]`, { ensureLeadingSpace: true, ensureTrailingSpace: true });
+          }
+        }
+        return;
+      }
+      // 无 uploadFileToSession 时回退到原有附件逻辑（兼容外部使用）。
       if (!onAddAttachments) return;
       if (!canAttachAll && !canAttachImage) return;
-      // 中文注释：支持从系统直接拖入图片文件。
       if (canAttachAll) {
         onAddAttachments(files);
       } else {
@@ -744,10 +792,12 @@ export function ChatInputBox({
     canAttachImage,
     defaultProjectId,
     handleProjectFileRefsInsert,
+    insertTextAtSelection,
     isRelativePath,
     onAddAttachments,
     onAddMaskedAttachment,
     normalizeFileRef,
+    uploadFileToSession,
   ]);
 
   return (
@@ -773,9 +823,10 @@ export function ChatInputBox({
           event.dataTransfer.types.includes(FILE_DRAG_URI_MIME) ||
           Boolean(readImageDragPayload(event.dataTransfer));
         const hasFileRef = event.dataTransfer.types.includes(FILE_DRAG_REF_MIME);
-        const hasFiles = event.dataTransfer.files?.length > 0;
+        // 修复：dragover 阶段 files 始终为空，改用 items 检测。
+        const hasFiles = (event.dataTransfer.items?.length ?? 0) > 0;
         if (!hasImageDrag && !hasFileRef && !hasFiles) return;
-        if (!canAttachAll && !canAttachImage) return;
+        if (!canAttachAll && !canAttachImage && !uploadFileToSession) return;
         event.preventDefault();
       }}
       onDropCapture={(event) => {
@@ -899,17 +950,20 @@ export function ChatInputBox({
               attachments && attachments.length > 0 && "pt-1"
             )}
           >
-            <div className="w-full h-full min-h-0 overflow-auto show-scrollbar">
-              <PromptInputTextarea
+            <div className="w-full h-full min-h-0">
+              <ChatInputEditor
+                ref={editorHandleRef}
                 value={value}
-                onChange={(event) => onChange(event.currentTarget.value)}
-                className={cn(
-                  "text-[13px] leading-5 px-3 py-2.5",
-                  isOverLimit && "text-destructive",
-                )}
-                placeholder={resolvedPlaceholder}
+                onChange={onChange}
                 onKeyDown={handleKeyDown}
-                data-openloaf-chat-input="true"
+                onChipClick={handleChipClick}
+                onPasteFiles={onAddAttachments ? (files) => {
+                  const dt = new DataTransfer();
+                  for (const f of files) dt.items.add(f);
+                  onAddAttachments(dt.files);
+                } : undefined}
+                placeholder={resolvedPlaceholder}
+                className={cn(isOverLimit && "text-destructive")}
               />
             </div>
           </div>
@@ -954,7 +1008,7 @@ export function ChatInputBox({
                 </span>
               )}
 
-              {!compact && hasCliTools && !conversationStarted ? (
+              {!compact && !!defaultProjectId && hasCliTools && !conversationStarted ? (
                 <ChatModeSelector
                   value={chatMode}
                   onChange={(mode) => onChatModeChange?.(mode)}
@@ -1087,8 +1141,31 @@ export default function ChatInput({
   const { status, isHistoryLoading, messages } = useChatState();
   const conversationStarted = messages.length > 0;
   const { input, setInput, imageOptions, codexOptions, addMaskedAttachment } = useChatOptions();
-  const { projectId, workspaceId, tabId } = useChatSession();
+  const { projectId, workspaceId, tabId, sessionId } = useChatSession();
   const hasReasoningModel = useHasPreferredReasoningModel(projectId);
+
+  /** 上传文件到 session files 目录，返回绝对路径（用于系统文件拖拽场景）。 */
+  const uploadFileToSession = useCallback(
+    async (file: File): Promise<string | null> => {
+      if (!workspaceId) return null;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("workspaceId", workspaceId);
+      if (projectId) formData.append("projectId", projectId);
+      formData.append("sessionId", sessionId);
+      try {
+        const apiBase = resolveServerUrl();
+        const endpoint = apiBase ? `${apiBase}/chat/files` : "/chat/files";
+        const res = await fetch(endpoint, { method: "POST", body: formData });
+        if (!res.ok) return null;
+        const data = (await res.json()) as { path?: string };
+        return data?.path ?? null;
+      } catch {
+        return null;
+      }
+    },
+    [sessionId, projectId, workspaceId]
+  );
   const activeTabId = useTabs((state) => state.activeTabId);
   const setTabChatParams = useTabs((state) => state.setTabChatParams);
   const tabOnlineSearchEnabled = useTabs((state) => {
@@ -1485,6 +1562,7 @@ export default function ChatInput({
         conversationStarted={conversationStarted}
         cliToolLabel={cliToolLabel}
         blockedCompact={blockedCompact}
+        uploadFileToSession={uploadFileToSession}
         header={
           !isUnconfigured && (showImageOutputOptions || isCodexProvider) ? (
             <div className="flex flex-col gap-2">

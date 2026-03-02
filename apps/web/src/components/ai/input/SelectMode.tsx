@@ -16,21 +16,21 @@ import { cn } from '@/lib/utils'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
 import { useModelPreferences } from './model-preferences/useModelPreferences'
 import { ModelPreferencesPanel } from './model-preferences/ModelPreferencesPanel'
-import { ModelSelectionTooltip } from './model-preferences/ModelSelectionTooltip'
+
 import { CLI_TOOLS_META } from './model-preferences/CliToolsList'
 import { useOptionalChatSession } from '../context'
 import { useTabs } from '@/hooks/use-tabs'
-import {
-  PromptInputButton,
-  PromptInputHoverCard,
-  PromptInputHoverCardContent,
-  PromptInputHoverCardTrigger,
-} from '@/components/ai-elements/prompt-input'
+import { PromptInputButton } from '@/components/ai-elements/prompt-input'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@openloaf/ui/popover'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@openloaf/ui/tooltip'
 
 interface SelectModeProps {
   className?: string
@@ -116,8 +116,8 @@ export default function SelectMode({
       className={cn(
         'h-8 w-8 rounded-full transition-colors',
         chatMode === 'cli'
-          ? 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 hover:text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25 dark:hover:text-amber-200'
-          : 'bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 hover:text-violet-700 dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25 dark:hover:text-violet-200',
+          ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300'
+          : 'bg-violet-500/10 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
         className,
       )}
       aria-label={t('mode.customizeSettings')}
@@ -144,26 +144,15 @@ export default function SelectMode({
   return (
     <>
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
-      <PromptInputHoverCard
-        open={popoverOpen ? false : undefined}
-        openDelay={300}
-      >
+      <Tooltip open={popoverOpen ? false : undefined}>
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-          <PromptInputHoverCardTrigger asChild>
+          <TooltipTrigger asChild>
             <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
-          </PromptInputHoverCardTrigger>
-          {chatMode !== 'cli' && (
-            <PromptInputHoverCardContent className="max-w-[16rem]">
-              <ModelSelectionTooltip
-                chatModels={prefs.chatModels}
-                imageModels={prefs.imageModels}
-                videoModels={prefs.videoModels}
-                preferredChatIds={prefs.preferredChatIds}
-                preferredImageIds={prefs.preferredImageIds}
-                preferredVideoIds={prefs.preferredVideoIds}
-              />
-            </PromptInputHoverCardContent>
-          )}
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            {t('mode.customizeSettings')}
+          </TooltipContent>
+
           <PopoverContent
             side="top"
             align="end"
@@ -182,7 +171,7 @@ export default function SelectMode({
             />
           </PopoverContent>
         </Popover>
-      </PromptInputHoverCard>
+      </Tooltip>
     </>
   )
 }

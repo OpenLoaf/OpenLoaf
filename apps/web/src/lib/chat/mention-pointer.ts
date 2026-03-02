@@ -15,7 +15,7 @@ import {
   parseScopedProjectPath,
   type FileSystemEntry,
 } from "@/components/project/filesystem/utils/file-system-utils";
-import { openFilePreview } from "@/components/file/lib/open-file";
+import { createFileEntryFromUri, openFile, openFilePreview } from "@/components/file/lib/open-file";
 import { queryClient, trpc } from "@/utils/trpc";
 
 /** Shape of the project tree data used for root uri resolution. */
@@ -109,6 +109,8 @@ function parseMentionFileRef(value: string, defaultProjectId?: string): MentionF
   }
   const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
   const baseValue = match?.[1] ?? normalized;
+  // 绝对路径不走项目文件解析。
+  if (baseValue.startsWith("/")) return null;
   const parsed = parseScopedProjectPath(baseValue);
   const projectId = parsed?.projectId ?? defaultProjectId;
   if (!projectId || !parsed?.relativePath) return null;
@@ -140,7 +142,25 @@ export function handleChatMentionPointerDown(
     mentionEl.getAttribute("data-slate-value") ||
     "";
   const fileRef = value ? parseMentionFileRef(value, defaultProjectId) : null;
-  if (!fileRef) return;
+
+  // 绝对路径：直接用 file:// URI 打开，不走项目解析。
+  if (!fileRef) {
+    const normalized = value.startsWith("@[") && value.endsWith("]")
+      ? value.slice(2, -1)
+      : value.startsWith("@") ? value.slice(1) : value;
+    const baseValue = normalized.replace(/:\d+-\d+$/, "");
+    if (baseValue.startsWith("/")) {
+      const uri = `file://${baseValue}`;
+      const name = baseValue.split("/").pop() ?? "file";
+      const entry = createFileEntryFromUri({ uri, name });
+      if (entry) {
+        event.preventDefault();
+        event.stopPropagation();
+        openFile({ entry, tabId: activeTabId, mode: "stack", readOnly: true });
+      }
+    }
+    return;
+  }
   const { projectId, relativePath } = fileRef;
   if (!projectId || !relativePath) return;
   const rootUri = resolveProjectRootUri(projects, projectId);

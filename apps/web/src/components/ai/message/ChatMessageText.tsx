@@ -10,6 +10,7 @@
 "use client";
 
 import * as React from "react";
+import { FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import { MessageResponse } from "@/components/ai-elements/message";
@@ -19,6 +20,7 @@ import {
   preprocessChatText,
   type ChatTextToken,
 } from "./text-tokenizer";
+import { getFileLabel } from "@/components/ai/input/chat-input-utils";
 
 interface ChatMessageTextProps {
   value: string;
@@ -82,25 +84,17 @@ export default function ChatMessageText({ value, className }: ChatMessageTextPro
     }
 
     if (segment.type === "mention") {
-      const mentionValue = `@${segment.value}`;
+      const label = getFileLabel(segment.value);
       return (
         <span
           key={`mention-${index}`}
           data-openloaf-mention="true"
           data-mention-value={segment.value}
           data-slate-value={segment.value}
-          className="inline-flex align-middle"
+          className="inline-flex items-center gap-[3px] align-middle py-px px-1.5 mx-0.5 rounded-md bg-blue-500 text-white dark:bg-blue-600 dark:text-white text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-[200px] hover:bg-blue-600 dark:hover:bg-blue-500 transition-colors"
         >
-          <Snippet
-            code={mentionValue}
-            className="inline-flex h-6 w-auto max-w-full rounded-md border border-primary/40 bg-primary/10"
-          >
-            <SnippetAddon>
-              <SnippetText className="px-2 text-[11px] font-semibold text-foreground">
-                {mentionValue}
-              </SnippetText>
-            </SnippetAddon>
-          </Snippet>
+          <FileText className="size-3 shrink-0" />
+          <span className="overflow-hidden text-ellipsis">{label}</span>
         </span>
       );
     }

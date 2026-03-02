@@ -22,7 +22,7 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { generateId } from "ai";
 import * as React from "react";
 import { motion } from "motion/react";
-import { LayoutDashboard, CalendarDays, Mail, Clock } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Mail, Clock, Folder, Settings } from "lucide-react";
 import {
   CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES,
   formatFileSize,
@@ -50,6 +50,19 @@ import { useTabView } from "@/hooks/use-tab-view";
 import { resolveServerUrl } from "@/utils/server-url";
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { useChatModelSelection } from "./hooks/use-chat-model-selection";
+import { useProject } from "@/hooks/use-project";
+import { useMutation } from "@tanstack/react-query";
+import { trpc } from "@/utils/trpc";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@openloaf/ui/alert-dialog";
 import MessageHelper from "./message/MessageHelper";
 
 type ChatProps = {
@@ -139,12 +152,120 @@ const QUICK_LAUNCH_ITEMS = [
   },
 ] as const
 
-/** Quick launch bar shown at bottom of full-page empty state. */
-function QuickLaunchBar() {
-  const { t } = useTranslation('ai')
-  const { tabId } = useChatSession()
+/** Project-level quick launch items – aligned with PROJECT_TABS in ProjectTabs.tsx / ExpandableDockTabs. */
+const PROJECT_QUICK_LAUNCH_ITEMS = [
+  {
+    value: "index", icon: LayoutDashboard, labelKey: "project.tabHome", featureGated: true,
+    iconColor: "text-sky-700/70 dark:text-sky-300/70 group-hover:text-sky-700 dark:group-hover:text-sky-200",
+    bgColor: "bg-sky-500/10 dark:bg-sky-400/10 group-hover:bg-sky-500/20 dark:group-hover:bg-sky-400/20",
+  },
+  {
+    value: "files", icon: Folder, labelKey: "project.tabFiles", featureGated: false,
+    iconColor: "text-emerald-700/70 dark:text-emerald-300/70 group-hover:text-emerald-700 dark:group-hover:text-emerald-200",
+    bgColor: "bg-emerald-500/10 dark:bg-emerald-400/10 group-hover:bg-emerald-500/20 dark:group-hover:bg-emerald-400/20",
+  },
+  {
+    value: "tasks", icon: CalendarDays, labelKey: "project.tabHistory", featureGated: true,
+    iconColor: "text-amber-700/70 dark:text-amber-300/70 group-hover:text-amber-700 dark:group-hover:text-amber-200",
+    bgColor: "bg-amber-500/10 dark:bg-amber-400/10 group-hover:bg-amber-500/20 dark:group-hover:bg-amber-400/20",
+  },
+  {
+    value: "scheduled", icon: Clock, labelKey: "project.tabScheduled", featureGated: false,
+    iconColor: "text-amber-700/70 dark:text-amber-300/70 group-hover:text-amber-700 dark:group-hover:text-amber-200",
+    bgColor: "bg-amber-500/10 dark:bg-amber-400/10 group-hover:bg-amber-500/20 dark:group-hover:bg-amber-400/20",
+  },
+  {
+    value: "settings", icon: Settings, labelKey: "project.tabSettings", featureGated: false,
+    iconColor: "text-slate-600/70 dark:text-slate-300/70 group-hover:text-slate-700 dark:group-hover:text-slate-200",
+    bgColor: "bg-slate-500/10 dark:bg-slate-400/10 group-hover:bg-slate-500/20 dark:group-hover:bg-slate-400/20",
+  },
+] as const
 
-  const handleQuickLaunch = React.useCallback(
+/** Feature-specific icon + color mapping for intro dialog. */
+const FEATURE_INTRO_STYLE = {
+  index: {
+    icon: LayoutDashboard,
+    iconColor: "text-sky-600 dark:text-sky-400",
+    iconBg: "bg-sky-500/10 dark:bg-sky-400/10",
+  },
+  tasks: {
+    icon: CalendarDays,
+    iconColor: "text-amber-600 dark:text-amber-400",
+    iconBg: "bg-amber-500/10 dark:bg-amber-400/10",
+  },
+} as const
+
+/** Feature intro dialog for gated project features. */
+function FeatureIntroDialog({
+  feature,
+  open,
+  onOpenChange,
+  onConfirm,
+}: {
+  feature: "index" | "tasks"
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: () => void
+}) {
+  const { t } = useTranslation('ai')
+  const style = FEATURE_INTRO_STYLE[feature]
+  const Icon = style.icon
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="shadow-none border-border/60">
+        <AlertDialogHeader>
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+              style.iconBg,
+            )}>
+              <Icon className={cn("size-5", style.iconColor)} />
+            </div>
+            <AlertDialogTitle className="text-base">{t(`featureIntro.${feature}.title`)}</AlertDialogTitle>
+          </div>
+          <AlertDialogDescription className="pt-1">
+            {t(`featureIntro.${feature}.description`)}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t('featureIntro.cancel')}</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onConfirm}
+            className="bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 dark:hover:bg-sky-500/20"
+          >
+            {t('featureIntro.confirm')}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+/** Quick launch bar shown at bottom of full-page empty state. */
+function QuickLaunchBar({ projectId }: { projectId?: string }) {
+  const { t } = useTranslation('ai')
+  const { t: tWorkspace } = useTranslation('workspace')
+  const { tabId } = useChatSession()
+  const { data: projectData, invalidateProject } = useProject(projectId || undefined)
+  const [introFeature, setIntroFeature] = React.useState<"index" | "tasks" | null>(null)
+  const initFeatureMutation = useMutation(trpc.project.initFeature.mutationOptions())
+
+  // initializedFeatures 为 undefined → 旧项目，全部激活
+  const initFeatures = projectData?.project?.initializedFeatures
+  const isAllActive = !initFeatures
+
+  const sortedProjectItems = React.useMemo(() => {
+    if (!projectId || isAllActive) return [...PROJECT_QUICK_LAUNCH_ITEMS]
+    const active = PROJECT_QUICK_LAUNCH_ITEMS.filter(
+      item => !item.featureGated || initFeatures.includes(item.value)
+    )
+    const inactive = PROJECT_QUICK_LAUNCH_ITEMS.filter(
+      item => item.featureGated && !initFeatures.includes(item.value)
+    )
+    return [...active, ...inactive]
+  }, [projectId, initFeatures, isAllActive])
+
+  const handleWorkspaceQuickLaunch = React.useCallback(
     (item: (typeof QUICK_LAUNCH_ITEMS)[number]) => {
       if (!tabId) return
       const tabState = useTabs.getState()
@@ -160,38 +281,110 @@ function QuickLaunchBar() {
     [tabId, t],
   )
 
+  const handleProjectQuickLaunch = React.useCallback(
+    (item: (typeof PROJECT_QUICK_LAUNCH_ITEMS)[number]) => {
+      if (!tabId || !projectId) return
+      const runtime = useTabRuntime.getState()
+      const tabState = useTabs.getState()
+      const rootUri = projectData?.project?.rootUri
+      // 设置左侧面板为项目页面，并切换到对应的项目子标签。
+      runtime.setTabBase(tabId, {
+        id: `project:${projectId}`,
+        component: "plant-page",
+        params: { projectId, rootUri, projectTab: item.value },
+      })
+      runtime.setTabLeftWidthPercent(tabId, 90)
+      if (projectData?.project?.title) {
+        tabState.setTabTitle(tabId, projectData.project.title)
+      }
+      if (projectData?.project?.icon) {
+        tabState.setTabIcon(tabId, projectData.project.icon)
+      }
+    },
+    [tabId, projectId, projectData],
+  )
+
+  const handleProjectItemClick = React.useCallback(
+    (item: (typeof PROJECT_QUICK_LAUNCH_ITEMS)[number]) => {
+      const isInactive = !isAllActive && item.featureGated
+        && !initFeatures?.includes(item.value)
+      if (isInactive && (item.value === "index" || item.value === "tasks")) {
+        setIntroFeature(item.value)
+      } else {
+        handleProjectQuickLaunch(item)
+      }
+    },
+    [isAllActive, initFeatures, handleProjectQuickLaunch],
+  )
+
+  const handleIntroConfirm = React.useCallback(async () => {
+    if (!introFeature || !projectId) return
+    const feature = introFeature
+    setIntroFeature(null)
+    await initFeatureMutation.mutateAsync({ projectId, feature })
+    await invalidateProject()
+    // 初始化完成后导航到对应页面
+    const item = PROJECT_QUICK_LAUNCH_ITEMS.find(i => i.value === feature)
+    if (item) handleProjectQuickLaunch(item)
+  }, [introFeature, projectId, initFeatureMutation, invalidateProject, handleProjectQuickLaunch])
+
+  const items = projectId ? sortedProjectItems : QUICK_LAUNCH_ITEMS
+
   return (
-    <motion.div
-      className="flex items-center justify-center gap-10 pb-8 pt-2"
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.25, duration: 0.3 }}
-    >
-      {QUICK_LAUNCH_ITEMS.map((item, index) => {
-        const Icon = item.icon
-        return (
-          <motion.button
-            key={item.baseId}
-            type="button"
-            className="group flex flex-col items-center gap-1.5"
-            onClick={() => handleQuickLaunch(item)}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 + index * 0.06, duration: 0.25 }}
-          >
-            <div className={cn(
-              "flex h-14 w-14 items-center justify-center rounded-2xl transition-all duration-150 group-hover:scale-105",
-              item.bgColor,
-            )}>
-              <Icon className={cn("size-6 transition-colors duration-150", item.iconColor)} />
-            </div>
-            <span className="text-[11px] text-muted-foreground transition-colors duration-150 group-hover:text-foreground">
-              {t(item.labelKey)}
-            </span>
-          </motion.button>
-        )
-      })}
-    </motion.div>
+    <>
+      <motion.div
+        className="flex items-center justify-center gap-10 pb-8 pt-2"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25, duration: 0.3 }}
+      >
+        {items.map((item, index) => {
+          const Icon = item.icon
+          const label = projectId
+            ? tWorkspace((item as (typeof PROJECT_QUICK_LAUNCH_ITEMS)[number]).labelKey)
+            : t((item as (typeof QUICK_LAUNCH_ITEMS)[number]).labelKey)
+          const isInactive = projectId && !isAllActive
+            && (item as (typeof PROJECT_QUICK_LAUNCH_ITEMS)[number]).featureGated
+            && !initFeatures?.includes((item as (typeof PROJECT_QUICK_LAUNCH_ITEMS)[number]).value)
+          return (
+            <motion.button
+              key={"value" in item ? item.value : item.baseId}
+              type="button"
+              className={cn("group flex flex-col items-center gap-1.5", isInactive && "opacity-50")}
+              onClick={() =>
+                projectId
+                  ? handleProjectItemClick(item as (typeof PROJECT_QUICK_LAUNCH_ITEMS)[number])
+                  : handleWorkspaceQuickLaunch(item as (typeof QUICK_LAUNCH_ITEMS)[number])
+              }
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: isInactive ? 0.5 : 1, y: 0 }}
+              transition={{ delay: 0.3 + index * 0.06, duration: 0.25 }}
+            >
+              <div className={cn(
+                "flex h-14 w-14 items-center justify-center rounded-2xl transition-all duration-150 group-hover:scale-105",
+                isInactive ? "bg-slate-500/8 dark:bg-slate-400/8" : item.bgColor,
+              )}>
+                <Icon className={cn(
+                  "size-6 transition-colors duration-150",
+                  isInactive ? "text-slate-400 dark:text-slate-500" : item.iconColor,
+                )} />
+              </div>
+              <span className="text-[11px] text-muted-foreground transition-colors duration-150 group-hover:text-foreground">
+                {label}
+              </span>
+            </motion.button>
+          )
+        })}
+      </motion.div>
+      {introFeature && (
+        <FeatureIntroDialog
+          feature={introFeature}
+          open={Boolean(introFeature)}
+          onOpenChange={(open) => { if (!open) setIntroFeature(null) }}
+          onConfirm={handleIntroConfirm}
+        />
+      )}
+    </>
   )
 }
 
@@ -199,6 +392,7 @@ function QuickLaunchBar() {
 function ChatFullPageLayout({
   onNewSession,
   onCloseSession,
+  projectId,
   attachments,
   onAddAttachments,
   onRemoveAttachment,
@@ -219,6 +413,7 @@ function ChatFullPageLayout({
 }: {
   onNewSession?: () => void
   onCloseSession?: () => void
+  projectId?: string
   attachments: ChatAttachment[]
   onAddAttachments: (files: FileList | ChatAttachmentInput[]) => void
   onRemoveAttachment: (id: string) => void
@@ -297,7 +492,7 @@ function ChatFullPageLayout({
               </div>
             </div>
           </div>
-          <QuickLaunchBar />
+          <QuickLaunchBar projectId={projectId} />
         </div>
       ) : (
         <div className="flex flex-1 flex-col min-h-0">
@@ -801,10 +996,10 @@ export function Chat({
       hasOpenLoafImage ||
       (Boolean(fileRef || fileName) && isImageFileRef(fileRef || fileName));
     const wantsImage = hasImageUpload || hasOpenLoafImage || isFileRefImage;
+    // 系统文件（hasFiles）现在通过 /chat/files 端点统一处理，无需 deny。
     const shouldDeny =
-      (wantsImage && !canAttachImage) ||
-      ((hasOpenLoafRef || hasOpenLoafUri) && !canAttachAll) ||
-      (hasFiles && !hasImageUpload);
+      (wantsImage && !canAttachImage && !hasFiles) ||
+      ((hasOpenLoafRef || hasOpenLoafUri) && !canAttachAll);
     if (shouldDeny) {
       event.preventDefault();
       setIsDragActive(true);
@@ -834,10 +1029,10 @@ export function Chat({
       hasOpenLoafImage ||
       (Boolean(fileRef || fileName) && isImageFileRef(fileRef || fileName));
     const wantsImage = hasImageUpload || hasOpenLoafImage || isFileRefImage;
+    // 系统文件（hasFiles）现在通过 /chat/files 端点统一处理，无需 deny。
     const shouldDeny =
-      (wantsImage && !canAttachImage) ||
-      ((hasOpenLoafRef || hasOpenLoafUri) && !canAttachAll) ||
-      (hasFiles && !hasImageUpload);
+      (wantsImage && !canAttachImage && !hasFiles) ||
+      ((hasOpenLoafRef || hasOpenLoafUri) && !canAttachAll);
     event.preventDefault();
     if (shouldDeny) {
       setIsDragActive(true);
@@ -1018,6 +1213,7 @@ export function Chat({
         <ChatFullPageLayout
           onNewSession={onNewSession}
           onCloseSession={onCloseSession}
+          projectId={projectId}
           {...sharedInputProps}
           handleDragEnter={handleDragEnter}
           handleDragOver={handleDragOver}

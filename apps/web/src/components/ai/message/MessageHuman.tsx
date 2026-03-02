@@ -89,6 +89,8 @@ function parseSingleFileToken(text: string, defaultProjectId?: string): FileToke
   const normalizedValue = match[1] ?? "";
   const rangeMatch = normalizedValue.match(/^(.*?)(?::(\d+)-(\d+))?$/);
   const baseValue = rangeMatch?.[1] ?? normalizedValue;
+  // 绝对路径不走项目文件解析，交由 ChatMessageText 渲染 chip。
+  if (baseValue.startsWith("/")) return null;
   const parsed = parseScopedProjectPath(baseValue);
   const projectId = parsed?.projectId ?? defaultProjectId;
   if (!projectId || !parsed?.relativePath) return null;

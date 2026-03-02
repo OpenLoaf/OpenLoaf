@@ -34,6 +34,17 @@ export function registerChatAttachmentRoutes(app: Hono) {
     });
   });
 
+  app.post("/chat/files", async (c) => {
+    let body: ChatAttachmentBody;
+    try {
+      body = (await c.req.parseBody()) as ChatAttachmentBody;
+    } catch {
+      return c.json({ error: "Invalid multipart body" }, 400);
+    }
+    const result = await controller.uploadGenericFile(body);
+    return c.json(result.body, result.status);
+  });
+
   app.get("/chat/attachments/preview", async (c) => {
     const query = controller.parsePreviewQuery({
       path: c.req.query("path")?.trim(),

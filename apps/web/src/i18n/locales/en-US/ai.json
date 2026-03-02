@@ -311,5 +311,17 @@
     "statusOk": "Success",
     "statusFailed": "Failed",
     "viewChat": "View Chat"
+  },
+  "featureIntro": {
+    "index": {
+      "title": "Enable Project Homepage",
+      "description": "The project homepage is a customizable dashboard showing project overview, key metrics, and quick access links. This will create a homepage for this project."
+    },
+    "tasks": {
+      "title": "Enable Project History",
+      "description": "Project history tracks and displays file change summaries and daily work reports. This will enable the history feature for this project."
+    },
+    "cancel": "Cancel",
+    "confirm": "Enable"
   }
 }
