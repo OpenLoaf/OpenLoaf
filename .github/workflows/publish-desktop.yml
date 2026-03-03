@@ -55,6 +55,7 @@ jobs:
       mode: ${{ steps.action.outputs.mode }}
       version: ${{ steps.action.outputs.version }}
       beta_version: ${{ steps.action.outputs.beta_version }}
+      channel: ${{ steps.action.outputs.channel }}
     steps:
       - uses: actions/checkout@v4
 
@@ -82,10 +83,12 @@ jobs:
 
           if [[ "$VERSION" == *"-beta"* ]]; then
             echo "mode=beta" >> $GITHUB_OUTPUT
+            echo "channel=beta" >> $GITHUB_OUTPUT
             echo "beta_version=$VERSION" >> $GITHUB_OUTPUT
             echo "🔵 Mode: beta build for $VERSION"
           else
             # 稳定版本 tag：检查 R2 中是否有对应的 beta 版本
+            echo "channel=stable" >> $GITHUB_OUTPUT
             echo "🔍 Stable tag detected, checking for beta versions in R2..."
             # 安装 aws cli 以列举 R2
             pip install awscli --quiet
@@ -138,14 +141,6 @@ jobs:
       - name: Generate Prisma client
         run: pnpm run db:generate
 
-      - name: Set version from tag
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          TAG_VERSION="${GITHUB_REF#refs/tags/desktop@}"
-          cd apps/desktop
-          npm version "$TAG_VERSION" --no-git-tag-version --allow-same-version
-          echo "Set desktop version to $TAG_VERSION"
-
       - name: Build workspace packages
         run: pnpm --filter @openloaf/widget-sdk run build
 
@@ -168,6 +163,9 @@ jobs:
             apps/server/dist/seed.db
             apps/web/out
 
+  # ---------------------------------------------------------------------------
+  # macOS ARM64（Apple Silicon）
+  # ---------------------------------------------------------------------------
   build-mac-arm64:
     needs: [determine-mode, build-prerequisites]
     if: needs.determine-mode.outputs.mode != 'promote' && (github.event_name == 'push' || inputs.build_mac)
@@ -220,6 +218,14 @@ jobs:
           name: openloaf-build
           path: apps
 
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/desktop@}"
+          cd apps/desktop
+          npm version "$TAG_VERSION" --no-git-tag-version --allow-same-version
+          echo "Set desktop version to $TAG_VERSION"
+
       - name: Build and package desktop (macOS ARM64)
         working-directory: apps/desktop
         env:
@@ -242,81 +248,31 @@ jobs:
             apps/desktop/dist/*-MacOS-*.zip.blockmap
             apps/desktop/dist/latest-mac.yml
 
-  build-mac-x64:
-    needs: [determine-mode, build-prerequisites]
-    if: needs.determine-mode.outputs.mode != 'promote' && (github.event_name == 'push' || inputs.build_mac)
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
+      # 构建完成后立即上传到 R2（不等待其他平台）
+      - name: Install publish dependencies
+        run: |
+          cd scripts/shared
+          npm init -y > /dev/null 2>&1
+          npm install @aws-sdk/client-s3
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js (x64 via Rosetta 2)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          architecture: x64
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            pnpm-store-${{ runner.os }}-${{ runner.arch }}-
-
-      - name: Cache Electron
-        uses: actions/cache@v4
-        with:
-          path: |
-            .cache/electron
-            .cache/electron-builder
-          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            electron-${{ runner.os }}-${{ runner.arch }}-
-
-      - name: Use HTTPS for git dependencies
-        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --filter desktop...
-
-      - name: Generate Prisma client
-        run: pnpm run db:generate
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: openloaf-build
-          path: apps
-
-      - name: Build and package desktop (macOS x64)
-        working-directory: apps/desktop
+      - name: Upload to R2 (immediate, per-build)
         env:
-          CSC_LINK: ${{ secrets.MAC_CER_BASE64 }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CER_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm run dist:mac:ci
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: node apps/desktop/scripts/publish-update.mjs --skip-build --upload-only --platform=mac-arm64
 
-      - name: Upload macOS x64 artifacts
+      - name: Upload platform metadata artifact
         uses: actions/upload-artifact@v4
         with:
-          name: openloaf-desktop-macos-x64
-          path: |
-            apps/desktop/dist/*.dmg
-            apps/desktop/dist/*.dmg.blockmap
-            apps/desktop/dist/*-MacOS-*.zip
-            apps/desktop/dist/*-MacOS-*.zip.blockmap
-            apps/desktop/dist/latest-mac.yml
+          name: openloaf-platform-meta-arm64
+          path: apps/desktop/dist/platform-meta-mac-arm64.json
 
+  # ---------------------------------------------------------------------------
+  # Windows
+  # ---------------------------------------------------------------------------
   build-windows:
     needs: [determine-mode, build-prerequisites]
     if: needs.determine-mode.outputs.mode != 'promote' && (github.event_name == 'push' || inputs.build_windows)
@@ -369,6 +325,14 @@ jobs:
           name: openloaf-build
           path: apps
 
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/desktop@}"
+          cd apps/desktop
+          npm version "$TAG_VERSION" --no-git-tag-version --allow-same-version
+          echo "Set desktop version to $TAG_VERSION"
+
       - name: Build and package desktop (Windows)
         working-directory: apps/desktop
         run: pnpm run dist:win:ci
@@ -382,6 +346,31 @@ jobs:
             apps/desktop/dist/*.exe.blockmap
             apps/desktop/dist/latest.yml
 
+      # 构建完成后立即上传到 R2（不等待其他平台）
+      - name: Install publish dependencies
+        run: |
+          cd scripts/shared
+          npm init -y > /dev/null 2>&1
+          npm install @aws-sdk/client-s3
+
+      - name: Upload to R2 (immediate, per-build)
+        env:
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: node apps/desktop/scripts/publish-update.mjs --skip-build --upload-only --platform=win-x64
+
+      - name: Upload platform metadata artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openloaf-platform-meta-win
+          path: apps/desktop/dist/platform-meta-win-x64.json
+
+  # ---------------------------------------------------------------------------
+  # Linux
+  # ---------------------------------------------------------------------------
   build-linux:
     needs: [determine-mode, build-prerequisites]
     if: needs.determine-mode.outputs.mode != 'promote' && (github.event_name == 'push' || inputs.build_linux)
@@ -434,6 +423,14 @@ jobs:
           name: openloaf-build
           path: apps
 
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/desktop@}"
+          cd apps/desktop
+          npm version "$TAG_VERSION" --no-git-tag-version --allow-same-version
+          echo "Set desktop version to $TAG_VERSION"
+
       - name: Build and package desktop (Linux)
         working-directory: apps/desktop
         run: pnpm run dist:linux:ci
@@ -446,11 +443,33 @@ jobs:
             apps/desktop/dist/*.AppImage
             apps/desktop/dist/latest-linux.yml
 
+      # 构建完成后立即上传到 R2（不等待其他平台）
+      - name: Install publish dependencies
+        run: |
+          cd scripts/shared
+          npm init -y > /dev/null 2>&1
+          npm install @aws-sdk/client-s3
+
+      - name: Upload to R2 (immediate, per-build)
+        env:
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: node apps/desktop/scripts/publish-update.mjs --skip-build --upload-only --platform=linux-x64
+
+      - name: Upload platform metadata artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openloaf-platform-meta-linux
+          path: apps/desktop/dist/platform-meta-linux-x64.json
+
   # ---------------------------------------------------------------------------
-  # 发布到 R2（仅 beta/build 模式）
+  # 写版本 manifest + 更新渠道指针（仅 beta/build 模式，等所有平台完成后执行）
   # ---------------------------------------------------------------------------
-  publish-to-r2:
-    needs: [determine-mode, build-mac-arm64, build-mac-x64, build-windows, build-linux]
+  publish-manifest:
+    needs: [determine-mode, build-mac-arm64, build-windows, build-linux]
     if: >-
       always() &&
       needs.determine-mode.outputs.mode != 'promote' &&
@@ -471,86 +490,32 @@ jobs:
           npm init -y > /dev/null 2>&1
           npm install @aws-sdk/client-s3
 
-      - name: Download macOS ARM64 artifacts
-        uses: actions/download-artifact@v4
-        if: needs.build-mac-arm64.result == 'success'
-        with:
-          name: openloaf-desktop-macos-arm64
-          path: apps/desktop/dist
-
-      - name: Save ARM64 latest-mac.yml
-        if: needs.build-mac-arm64.result == 'success'
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
-          if [ -f apps/desktop/dist/latest-mac.yml ]; then
-            cp apps/desktop/dist/latest-mac.yml /tmp/latest-mac-arm64.yml
-          fi
+          TAG_VERSION="${GITHUB_REF#refs/tags/desktop@}"
+          cd apps/desktop
+          npm version "$TAG_VERSION" --no-git-tag-version --allow-same-version
 
-      - name: Download macOS x64 artifacts
+      # 下载各平台的轻量元数据 JSON（而非大体积安装包）
+      - name: Download platform metadata artifacts
         uses: actions/download-artifact@v4
-        if: needs.build-mac-x64.result == 'success'
         with:
-          name: openloaf-desktop-macos-x64
+          pattern: openloaf-platform-meta-*
           path: apps/desktop/dist
+          merge-multiple: true
 
-      - name: Save x64 latest-mac.yml
-        if: needs.build-mac-x64.result == 'success'
-        run: |
-          if [ -f apps/desktop/dist/latest-mac.yml ]; then
-            cp apps/desktop/dist/latest-mac.yml /tmp/latest-mac-x64.yml
-          fi
+      - name: List downloaded metadata
+        run: ls -la apps/desktop/dist/platform-meta-*.json 2>/dev/null || echo "(no metadata files found)"
 
-      - name: Download Windows artifacts
-        uses: actions/download-artifact@v4
-        if: needs.build-windows.result == 'success'
-        with:
-          name: openloaf-desktop-windows
-          path: apps/desktop/dist
-
-      - name: Download Linux artifacts
-        uses: actions/download-artifact@v4
-        if: needs.build-linux.result == 'success'
-        with:
-          name: openloaf-desktop-linux
-          path: apps/desktop/dist
-
-      - name: Merge macOS latest-mac.yml (ARM64 + x64)
-        run: |
-          # Merge both architectures' files entries into one latest-mac.yml.
-          # If both exist, concatenate the 'files:' sections from x64 into arm64.
-          ARM="/tmp/latest-mac-arm64.yml"
-          X64="/tmp/latest-mac-x64.yml"
-          OUT="apps/desktop/dist/latest-mac.yml"
-          if [ -f "$ARM" ] && [ -f "$X64" ]; then
-            # Use ARM64 as base, insert x64 file entries into the files: block
-            node -e "
-              const fs = require('fs');
-              const arm = fs.readFileSync('$ARM','utf8');
-              const x64 = fs.readFileSync('$X64','utf8');
-              // Extract 'files:' entries from x64 (lines starting with '  - ' or '    ')
-              const x64FilesMatch = x64.match(/^files:\n((?:[ \t]+.*\n?)*)/m);
-              const x64Entries = x64FilesMatch ? x64FilesMatch[1].trimEnd() : '';
-              // Insert x64 entries inside the files: block of arm64 yml (before the 'path:' line)
-              const merged = arm.replace(/^(path:)/m, x64Entries + '\n\$1');
-              fs.writeFileSync('$OUT', merged);
-              console.log('Merged latest-mac.yml (arm64 + x64)');
-            "
-          elif [ -f "$ARM" ]; then
-            cp "$ARM" "$OUT"
-          elif [ -f "$X64" ]; then
-            cp "$X64" "$OUT"
-          fi
-
-      - name: List artifacts
-        run: ls -la apps/desktop/dist/
-
-      - name: Publish to R2
+      - name: Write version manifest and update channel pointer
         env:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        run: node apps/desktop/scripts/publish-update.mjs --skip-build
+        run: node apps/desktop/scripts/publish-update.mjs --manifest-only
 
   # ---------------------------------------------------------------------------
   # Promote：stable tag → 从 beta 目录 promote（不重新构建）
@@ -585,11 +550,11 @@ jobs:
         run: node scripts/promote-desktop.mjs
 
   create-release:
-    needs: [determine-mode, publish-to-r2, promote-to-stable]
+    needs: [determine-mode, publish-manifest, promote-to-stable]
     if: >-
       always() &&
       startsWith(github.ref, 'refs/tags/') &&
-      (needs.publish-to-r2.result == 'success' || needs.promote-to-stable.result == 'success')
+      (needs.publish-manifest.result == 'success' || needs.promote-to-stable.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -601,7 +566,6 @@ jobs:
         run: |
           VERSION="${GITHUB_REF#refs/tags/desktop@}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          # 判断是否为 prerelease
           if [[ "$VERSION" == *"-beta"* ]]; then
             echo "prerelease=true" >> $GITHUB_OUTPUT
           else
@@ -609,18 +573,14 @@ jobs:
           fi
 
       - name: Read changelog
-        id: changelog
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           CHANGELOG_FILE="apps/desktop/changelogs/${VERSION}/en.md"
           if [ -f "$CHANGELOG_FILE" ]; then
-            # Strip frontmatter (between --- markers)
-            BODY=$(sed '/^---$/,/^---$/d' "$CHANGELOG_FILE")
+            sed '/^---$/,/^---$/d' "$CHANGELOG_FILE" > /tmp/release-notes.md
           else
-            BODY="Release v${VERSION}"
+            echo "Release v${VERSION}" > /tmp/release-notes.md
           fi
-          # Write to file for gh release create --notes-file
-          echo "$BODY" > /tmp/release-notes.md
 
       - name: Download all platform artifacts (beta/build mode only)
         if: needs.determine-mode.outputs.mode != 'promote'
@@ -635,12 +595,10 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           cd dist
-          # MacOS ARM64 → "MacOS" (default, Apple Silicon)
-          [ -f "OpenLoaf-${VERSION}-MacOS-arm64.dmg" ] && \
+          # MacOS ARM64 → "MacOS"（Apple Silicon，用户友好名称）
+          if [ -f "OpenLoaf-${VERSION}-MacOS-arm64.dmg" ]; then
             mv "OpenLoaf-${VERSION}-MacOS-arm64.dmg" "OpenLoaf-${VERSION}-MacOS.dmg"
-          # MacOS x64 → "MacOS-Intel"
-          [ -f "OpenLoaf-${VERSION}-MacOS-x64.dmg" ] && \
-            mv "OpenLoaf-${VERSION}-MacOS-x64.dmg" "OpenLoaf-${VERSION}-MacOS-Intel.dmg"
+          fi
 
       - name: Create GitHub Release (with artifacts)
         if: needs.determine-mode.outputs.mode != 'promote'
@@ -708,6 +666,5 @@ jobs:
           SERVER_VERSION=$(node -p "require('./apps/server/package.json').version")
           WEB_VERSION=$(node -p "require('./apps/web/package.json').version")
           git add apps/desktop/package.json apps/server/package.json apps/web/package.json
-          git commit -m "chore: bump version to desktop@${DESKTOP_VERSION}, server-v${SERVER_VERSION}, web-v${WEB_VERSION} [skip ci]"
-          git pull --rebase origin main
+          git commit -m "chore: bump version to desktop-v${DESKTOP_VERSION}, server-v${SERVER_VERSION}, web-v${WEB_VERSION} [skip ci]"
           git push origin main

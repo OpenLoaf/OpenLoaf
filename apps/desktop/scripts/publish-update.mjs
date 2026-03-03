@@ -2,23 +2,28 @@
 
 /**
  * Electron 整包更新发布脚本（Beta-first 模式）：
- * 1. （可选）运行 dist:mac 构建签名后的安装包
- * 2. 扫描 dist/ 目录中的构建产物和 latest-*.yml
- * 3. 计算安装包 sha256/size，构建完整 versionManifest
- * 4. 安装包 + yml 上传到 R2 的 desktop/{version}/ 版本目录下
- * 5. yml 同时上传到 desktop/beta/ 渠道目录（供渠道感知的 electron-updater 使用）
- *    以及 desktop/ 根目录（向后兼容旧版客户端）
- * 6. 写 desktop/{version}/manifest.json（完整版本信息：sha256、url、size 等）
- * 7. 更新 beta/manifest.json → { "desktop": { "version": "{version}" } }
- * 8. （可选）同步上传到腾讯 COS
- * 9. 上传 changelogs 到版本目录 + changelogs/ 目录
- * 10. 清理旧版本（保留最近 3 个）
  *
- * R2 存储结构（新格式）：
+ * 三种运行模式：
+ *
+ * 1. 默认（完整）模式：node publish-update.mjs [--skip-build]
+ *    - 构建（可跳过） → 上传所有平台文件 → 写 manifest → 更新渠道指针
+ *
+ * 2. 上传模式（per-build CI）：node publish-update.mjs --skip-build --upload-only --platform=<p>
+ *    - 仅上传指定平台的文件到 R2
+ *    - 保存平台元数据到 dist/platform-meta-{platform}.json（供 --manifest-only 读取）
+ *    - 跳过 manifest 写入
+ *
+ * 3. manifest 模式（CI 汇总步骤）：node publish-update.mjs --manifest-only
+ *    - 读取 dist/platform-meta-*.json（各平台上传后保存的元数据）
+ *    - 写 desktop/{version}/manifest.json
+ *    - 更新渠道指针 {channel}/manifest.json
+ *    - 上传 changelogs + 清理旧版本
+ *
+ * R2 存储结构（Beta-first 格式）：
  *   beta/manifest.json              ← 轻量渠道指针: { "desktop": { "version": "0.1.1-beta.1" } }
  *   desktop/
  *     beta/
- *       latest-mac.yml              ← beta 渠道更新清单（供渠道感知的客户端使用）
+ *       latest-mac.yml              ← beta 渠道更新清单
  *       latest.yml
  *       latest-linux.yml
  *     latest-mac.yml                ← 根目录（向后兼容）
@@ -27,15 +32,12 @@
  *     0.1.1-beta.1/
  *       manifest.json               ← 完整版本信息（sha256、url、size、platforms）
  *       CHANGELOG.md                ← 本版本更新记录
- *       OpenLoaf-0.1.1-beta.1-arm64.dmg
+ *       OpenLoaf-0.1.1-beta.1-MacOS-arm64.dmg
  *       OpenLoaf-0.1.1-beta.1.exe
  *       OpenLoaf-0.1.1-beta.1.AppImage
  *       latest-mac.yml              ← electron-updater 兼容文件（版本目录内）
  *       latest.yml
- *
- * 用法：
- *   node scripts/publish-update.mjs                   # 先构建再上传
- *   node scripts/publish-update.mjs --skip-build      # 跳过构建，仅上传已有产物
+ *       latest-linux.yml
  *
  * 配置来自 apps/desktop/.env.prod（自动加载，命令行环境变量优先）
  */
@@ -109,13 +111,39 @@ function isDesktopArtifact(filename) {
 // ---------------------------------------------------------------------------
 
 /**
+ * 平台过滤规则（--upload-only --platform=xxx 时使用）
+ */
+const PLATFORM_FILTERS = {
+  'mac-arm64': {
+    installerFilter: (f) =>
+      /[-_]arm64[-_.]/.test(f) || f.includes('-MacOS-arm64'),
+    ymls: ['latest-mac.yml'],
+  },
+  'mac-x64': {
+    installerFilter: (f) =>
+      (/[-_]x64[-_.]/.test(f) && (f.endsWith('.dmg') || f.endsWith('.dmg.blockmap') || f.endsWith('.zip') || f.endsWith('.zip.blockmap'))),
+    ymls: ['latest-mac.yml'],
+  },
+  'win-x64': {
+    installerFilter: (f) => f.endsWith('.exe') || f.endsWith('.exe.blockmap'),
+    ymls: ['latest.yml'],
+  },
+  'linux-x64': {
+    installerFilter: (f) => f.endsWith('.AppImage') || f.endsWith('.AppImage.blockmap'),
+    ymls: ['latest-linux.yml'],
+  },
+}
+
+/**
  * 从文件名推断 platform key（用于 versionManifest.platforms）。
  */
 function inferPlatform(filename) {
-  if (filename.includes('-arm64') && (filename.endsWith('.dmg') || filename.endsWith('.zip'))) {
+  if ((filename.includes('-arm64') || filename.includes('_arm64')) &&
+      (filename.endsWith('.dmg') || filename.endsWith('.zip'))) {
     return 'mac-arm64'
   }
-  if ((filename.includes('-x64') || filename.includes('-MacOS-x64')) && (filename.endsWith('.dmg') || filename.endsWith('.zip'))) {
+  if ((filename.includes('-x64') || filename.includes('_x64') || filename.includes('-MacOS-x64')) &&
+      (filename.endsWith('.dmg') || filename.endsWith('.zip'))) {
     return 'mac-x64'
   }
   if (filename.endsWith('.exe')) return 'win-x64'
@@ -134,17 +162,14 @@ function inferPlatform(filename) {
  */
 function patchYmlUrls(ymlPath, version) {
   const content = readFileSync(ymlPath, 'utf-8')
-  // 匹配 "url: SomeFile.ext" 和 "  - url: SomeFile.ext" 格式
   const patched = content.replace(
     /^(\s*-?\s*url:\s*)(.+)$/gm,
     (match, prefix, url) => {
       const trimmedUrl = url.trim()
-      // 跳过已经有路径前缀或者是完整 URL 的
       if (trimmedUrl.startsWith('http') || trimmedUrl.includes('/')) return match
       return `${prefix}${version}/${trimmedUrl}`
     }
   )
-  // 同样修改顶层 path 字段
   const patchedPath = patched.replace(
     /^(path:\s*)(.+)$/m,
     (match, prefix, p) => {
@@ -157,88 +182,192 @@ function patchYmlUrls(ymlPath, version) {
 }
 
 // ---------------------------------------------------------------------------
+// 上传文件（R2 + COS 同步）
+// ---------------------------------------------------------------------------
+
+async function uploadToAll(key, filePath) {
+  const uploads = [
+    uploadFile(s3, r2Config.bucket, key, filePath).then(() => console.log(`   [R2]  ${key}`)),
+  ]
+  if (cos && cosConfig) {
+    uploads.push(
+      uploadFile(cos, cosConfig.bucket, key, filePath).then(() => console.log(`   [COS] ${key}`)),
+    )
+  }
+  await Promise.all(uploads)
+}
+
+async function uploadJsonToAll(key, data) {
+  await uploadJson(s3, r2Config.bucket, key, data)
+  console.log(`   [R2]  ${key}`)
+  if (cos && cosConfig) {
+    await uploadJson(cos, cosConfig.bucket, key, data)
+    console.log(`   [COS] ${key}`)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 主流程
 // ---------------------------------------------------------------------------
 
 async function main() {
   const args = process.argv.slice(2)
   const skipBuild = args.includes('--skip-build')
+  const uploadOnly = args.includes('--upload-only')
+  const manifestOnly = args.includes('--manifest-only')
+  const platformArg = args.find((a) => a.startsWith('--platform='))?.split('=')[1]
 
   // 1. 读取版本号
   const pkg = JSON.parse(readFileSync(path.join(electronRoot, 'package.json'), 'utf-8'))
   const version = pkg.version
   console.log(`📦 Electron version: ${version}`)
 
-  // 检测渠道（beta 还是 stable）
   const isBeta = version.includes('-beta')
   const channel = isBeta ? 'beta' : 'stable'
   console.log(`📡 Channel: ${channel}`)
 
-  // 2. 构建（可选）
+  const distDir = path.join(electronRoot, 'dist')
+
+  // -------------------------------------------------------------------------
+  // Manifest-only 模式：读取元数据 → 写 manifest → 更新渠道指针
+  // -------------------------------------------------------------------------
+  if (manifestOnly) {
+    console.log('\n📝 Manifest-only mode: reading platform metadata...')
+
+    const platforms = {}
+    if (existsSync(distDir)) {
+      for (const f of readdirSync(distDir)) {
+        if (f.startsWith('platform-meta-') && f.endsWith('.json')) {
+          const meta = JSON.parse(readFileSync(path.join(distDir, f), 'utf-8'))
+          Object.assign(platforms, meta)
+          console.log(`   Read: ${f} → ${Object.keys(meta).join(', ')}`)
+        }
+      }
+    }
+
+    if (Object.keys(platforms).length === 0) {
+      console.warn('⚠️  No platform metadata found in dist/. Version manifest will have empty platforms.')
+    }
+
+    // 写 desktop/{version}/manifest.json
+    const versionManifest = {
+      version,
+      publishedAt: new Date().toISOString(),
+      channel,
+      platforms,
+    }
+    const versionManifestKey = `desktop/${version}/manifest.json`
+    await uploadJsonToAll(versionManifestKey, versionManifest)
+    console.log(`\n✅ Written version manifest: ${versionManifestKey}`)
+
+    // 更新渠道指针 {channel}/manifest.json（只写 desktop.version，保留其他字段）
+    const channelManifestKey = `${channel}/manifest.json`
+    let channelManifest = {}
+    try {
+      channelManifest = await downloadJson(s3, r2Config.bucket, channelManifestKey)
+    } catch {
+      // 首次创建
+    }
+    channelManifest.desktop = { version }
+    await uploadJsonToAll(channelManifestKey, channelManifest)
+    console.log(`✅ Updated ${channelManifestKey}: desktop.version = "${version}"`)
+
+    // 上传 changelogs
+    console.log('\n📝 Uploading changelogs...')
+    const changelogsDir = path.join(electronRoot, 'changelogs')
+    await uploadChangelogs({
+      s3,
+      bucket: r2Config.bucket,
+      component: 'desktop',
+      changelogsDir,
+      publicUrl: r2Config.publicUrl,
+      versionDirPrefix: `desktop/${version}`,
+    })
+    if (cos && cosConfig) {
+      await uploadChangelogs({
+        s3: cos,
+        bucket: cosConfig.bucket,
+        component: 'desktop',
+        changelogsDir,
+        publicUrl: cosConfig.publicUrl,
+        versionDirPrefix: `desktop/${version}`,
+      })
+    }
+
+    // 清理旧版本（保留最近 3 个）
+    await cleanupOldVersions({ s3, bucket: r2Config.bucket, prefix: 'desktop/', keep: 3 })
+    if (cos && cosConfig) {
+      await cleanupOldVersions({ s3: cos, bucket: cosConfig.bucket, prefix: 'desktop/', keep: 3 })
+    }
+
+    console.log(`\n🎉 Manifest written for v${version} (${channel} channel)`)
+    return
+  }
+
+  // -------------------------------------------------------------------------
+  // 构建（可选）
+  // -------------------------------------------------------------------------
   if (!skipBuild) {
     console.log('🔨 Building Electron app (dist:mac)...')
     execSync('pnpm run dist:mac', { cwd: electronRoot, stdio: 'inherit' })
   }
 
-  // 3. 扫描 dist/ 目录
-  const distDir = path.join(electronRoot, 'dist')
+  // -------------------------------------------------------------------------
+  // 扫描 dist/ 目录
+  // -------------------------------------------------------------------------
   if (!existsSync(distDir)) {
     console.error('❌ dist/ 目录不存在。请先运行构建或去掉 --skip-build')
     process.exit(1)
   }
 
   const allFiles = readdirSync(distDir)
-  const filesToUpload = allFiles.filter(isDesktopArtifact)
+  let installerFiles = allFiles.filter(isInstallerArtifact)
+  let ymlFiles = allFiles.filter(isAutoUpdateYml)
 
-  if (filesToUpload.length === 0) {
+  // 如果指定了 --platform，过滤只处理该平台的文件
+  if (platformArg && PLATFORM_FILTERS[platformArg]) {
+    const filter = PLATFORM_FILTERS[platformArg]
+    installerFiles = installerFiles.filter(filter.installerFilter)
+    ymlFiles = ymlFiles.filter((f) => filter.ymls.includes(f))
+    console.log(`\n🎯 Platform filter: ${platformArg}`)
+  }
+
+  if (installerFiles.length === 0 && ymlFiles.length === 0) {
     console.error('❌ dist/ 目录中没有找到可上传的构建产物')
     process.exit(1)
   }
 
-  const installerFiles = filesToUpload.filter(isInstallerArtifact)
-  const ymlFiles = filesToUpload.filter(isAutoUpdateYml)
-
-  console.log(`\n📋 将上传 ${installerFiles.length} 个安装包到 desktop/${version}/：`)
-  for (const f of installerFiles) {
-    console.log(`   - ${f}`)
-  }
+  console.log(`\n📋 将上传 ${installerFiles.length} 个安装包：`)
+  for (const f of installerFiles) console.log(`   - ${f}`)
   if (ymlFiles.length > 0) {
-    console.log(`\n📋 将上传 ${ymlFiles.length} 个更新清单到版本目录 + 渠道目录：`)
-    for (const f of ymlFiles) {
-      console.log(`   - ${f}`)
-    }
+    console.log(`📋 将上传 ${ymlFiles.length} 个更新清单：`)
+    for (const f of ymlFiles) console.log(`   - ${f}`)
   }
-  console.log()
 
-  // 4. 修改 yml 中的 url 路径（加版本前缀）
+  // -------------------------------------------------------------------------
+  // 修改 yml 中的 url 路径（加版本前缀）
+  // -------------------------------------------------------------------------
   for (const file of ymlFiles) {
     const ymlPath = path.join(distDir, file)
     patchYmlUrls(ymlPath, version)
     console.log(`   ✏️  Patched ${file} urls with ${version}/ prefix`)
   }
 
-  // 5. 上传安装包到 desktop/{version}/
+  // -------------------------------------------------------------------------
+  // 上传安装包到 desktop/{version}/
+  // -------------------------------------------------------------------------
   const platforms = {}
   for (const file of installerFiles) {
     const key = `desktop/${version}/${file}`
     const filePath = path.join(distDir, file)
     const fileSize = statSync(filePath).size
 
-    const uploads = [
-      uploadFile(s3, r2Config.bucket, key, filePath).then(() => console.log(`   [R2]  ${key}`)),
-    ]
-    if (cos && cosConfig) {
-      uploads.push(
-        uploadFile(cos, cosConfig.bucket, key, filePath).then(() => console.log(`   [COS] ${key}`)),
-      )
-    }
-    await Promise.all(uploads)
+    await uploadToAll(key, filePath)
 
-    // 为 versionManifest 收集平台信息（仅对主安装包，跳过 blockmap 等）
+    // 收集平台信息（仅对主安装包，跳过 blockmap 等）
     if (!file.endsWith('.blockmap')) {
       const platform = inferPlatform(file)
       if (platform) {
-        // 计算 sha256（只对主安装包）
         const sha256 = await computeSha256(filePath)
         platforms[platform] = {
           url: `${r2Config.publicUrl}/desktop/${version}/${file}`,
@@ -249,45 +378,46 @@ async function main() {
     }
   }
 
-  // 6. 上传 yml 到版本目录 desktop/{version}/
+  // -------------------------------------------------------------------------
+  // 上传 yml 到：版本目录 + 渠道目录 + 根目录（向后兼容）
+  // -------------------------------------------------------------------------
   for (const file of ymlFiles) {
-    const key = `desktop/${version}/${file}`
     const filePath = path.join(distDir, file)
-    const uploads = [
-      uploadFile(s3, r2Config.bucket, key, filePath).then(() => console.log(`   [R2]  ${key}`)),
-    ]
-    if (cos && cosConfig) {
-      uploads.push(
-        uploadFile(cos, cosConfig.bucket, key, filePath).then(() => console.log(`   [COS] ${key}`)),
-      )
-    }
-    await Promise.all(uploads)
-  }
 
-  // 7. 上传 yml 到渠道目录 desktop/{channel}/ 及根目录 desktop/
-  for (const file of ymlFiles) {
-    const filePath = path.join(distDir, file)
+    // 版本目录
+    await uploadToAll(`desktop/${version}/${file}`, filePath)
 
     // 渠道目录
-    const channelKey = `desktop/${channel}/${file}`
-    await uploadFile(s3, r2Config.bucket, channelKey, filePath)
-    console.log(`   [R2]  ${channelKey}`)
-    if (cos && cosConfig) {
-      await uploadFile(cos, cosConfig.bucket, channelKey, filePath)
-      console.log(`   [COS] ${channelKey}`)
-    }
+    await uploadToAll(`desktop/${channel}/${file}`, filePath)
 
     // 根目录（向后兼容旧版客户端）
-    const rootKey = `desktop/${file}`
-    await uploadFile(s3, r2Config.bucket, rootKey, filePath)
-    console.log(`   [R2]  ${rootKey} (compat)`)
+    await uploadFile(s3, r2Config.bucket, `desktop/${file}`, filePath)
+    console.log(`   [R2]  desktop/${file} (compat)`)
     if (cos && cosConfig) {
-      await uploadFile(cos, cosConfig.bucket, rootKey, filePath)
-      console.log(`   [COS] ${rootKey} (compat)`)
+      await uploadFile(cos, cosConfig.bucket, `desktop/${file}`, filePath)
+      console.log(`   [COS] desktop/${file} (compat)`)
     }
   }
 
-  // 8. 写 desktop/{version}/manifest.json（完整版本信息）
+  // -------------------------------------------------------------------------
+  // upload-only 模式：保存元数据，不写 manifest
+  // -------------------------------------------------------------------------
+  if (uploadOnly) {
+    const metaFilename = platformArg
+      ? `platform-meta-${platformArg}.json`
+      : `platform-meta-${Object.keys(platforms)[0] || 'unknown'}.json`
+    const metaPath = path.join(distDir, metaFilename)
+    writeFileSync(metaPath, JSON.stringify(platforms, null, 2))
+    console.log(`\n✅ Saved platform metadata: dist/${metaFilename}`)
+    console.log(JSON.stringify(platforms, null, 2))
+    return
+  }
+
+  // -------------------------------------------------------------------------
+  // 完整模式：写版本 manifest + 更新渠道指针 + changelogs + 清理
+  // -------------------------------------------------------------------------
+
+  // 写 desktop/{version}/manifest.json
   const versionManifest = {
     version,
     publishedAt: new Date().toISOString(),
@@ -295,14 +425,10 @@ async function main() {
     platforms,
   }
   const versionManifestKey = `desktop/${version}/manifest.json`
-  await uploadJson(s3, r2Config.bucket, versionManifestKey, versionManifest)
+  await uploadJsonToAll(versionManifestKey, versionManifest)
   console.log(`\n✅ Written version manifest: ${versionManifestKey}`)
-  if (cos && cosConfig) {
-    await uploadJson(cos, cosConfig.bucket, versionManifestKey, versionManifest)
-  }
 
-  // 9. 更新渠道指针 {channel}/manifest.json
-  //    只写 desktop.version（轻量指针），保留其他字段不变
+  // 更新渠道指针
   const channelManifestKey = `${channel}/manifest.json`
   let channelManifest = {}
   try {
@@ -311,20 +437,10 @@ async function main() {
     // 首次创建
   }
   channelManifest.desktop = { version }
-  await uploadJson(s3, r2Config.bucket, channelManifestKey, channelManifest)
+  await uploadJsonToAll(channelManifestKey, channelManifest)
   console.log(`✅ Updated ${channelManifestKey}: desktop.version = "${version}"`)
-  if (cos && cosConfig) {
-    let cosChannelManifest = {}
-    try {
-      cosChannelManifest = await downloadJson(cos, cosConfig.bucket, channelManifestKey)
-    } catch {
-      // ignore
-    }
-    cosChannelManifest.desktop = { version }
-    await uploadJson(cos, cosConfig.bucket, channelManifestKey, cosChannelManifest)
-  }
 
-  // 10. 上传 changelogs（同时写到版本目录和 changelogs/ 目录）
+  // 上传 changelogs
   console.log('\n📝 Uploading changelogs...')
   const changelogsDir = path.join(electronRoot, 'changelogs')
   await uploadChangelogs({
@@ -346,7 +462,7 @@ async function main() {
     })
   }
 
-  // 11. 清理旧版本（保留最近 3 个版本文件夹）
+  // 清理旧版本（保留最近 3 个）
   await cleanupOldVersions({ s3, bucket: r2Config.bucket, prefix: 'desktop/', keep: 3 })
   if (cos && cosConfig) {
     await cleanupOldVersions({ s3: cos, bucket: cosConfig.bucket, prefix: 'desktop/', keep: 3 })
@@ -354,12 +470,7 @@ async function main() {
 
   console.log(`\n🎉 Electron v${version} published to ${channel} channel!`)
   console.log(`   R2:  ${r2Config.publicUrl}/desktop/${version}/`)
-  if (cosConfig) {
-    console.log(`   COS: ${cosConfig.publicUrl}/desktop/${version}/`)
-  }
-  console.log(`\n📥 Version manifest:`)
-  console.log(`   ${r2Config.publicUrl}/${channelManifestKey}`)
-  console.log(`   ${r2Config.publicUrl}/${versionManifestKey}`)
+  if (cosConfig) console.log(`   COS: ${cosConfig.publicUrl}/desktop/${version}/`)
   console.log(`\n📥 Download URLs:`)
   for (const [platform, info] of Object.entries(platforms)) {
     console.log(`   [${platform}] ${info.url}`)
