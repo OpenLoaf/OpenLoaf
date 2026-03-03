@@ -51,10 +51,13 @@ function readProxyConfig(env: Record<string, string | undefined> = process.env):
 }
 
 /**
- * Check whether any proxy value is configured.
+ * Check whether an actual proxy server is configured.
+ * Only httpProxy/httpsProxy count — a lone noProxy (e.g. inherited from
+ * the user's shell) should NOT trigger EnvHttpProxyAgent installation,
+ * because the experimental dispatcher can interfere with direct connections.
  */
 function hasProxyConfig(config: ProxyConfig): boolean {
-  return Boolean(config.httpProxy || config.httpsProxy || config.noProxy);
+  return Boolean(config.httpProxy || config.httpsProxy);
 }
 
 /**

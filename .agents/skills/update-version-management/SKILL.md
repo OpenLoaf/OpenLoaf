@@ -23,7 +23,7 @@ description: >
 
 OpenLoaf 的版本发布采用"先发布、后加一"的流程：提交变更 → 打 tag 触发 CI → 构建发布 → 版本号自动加一。每个 app 使用独立 tag，支持各 app 独立版本节奏。
 
-**Desktop 采用 Beta-first 发布策略**：所有新版本必须先发 beta 渠道，经内部测试后通过打 stable tag 直接 promote（无需重新构建）。Server/Web 增量更新沿用旧的 stable/beta 渠道分离机制。
+**Desktop 采用 Beta-only 构建策略**：所有新构建只能打 beta tag（`desktop@x.y.z-beta.n`），CI 构建并上传到 R2。生产版本（stable）**只能**从已有的 beta 版本中指定 promote（打 `desktop@x.y.z` tag），不重新构建。禁止直接打 stable tag 触发构建。Server/Web 增量更新沿用旧的 stable/beta 渠道分离机制。
 
 ## When to Use
 
@@ -158,7 +158,7 @@ pnpm check-types
 
 #### Step 6: 打 git tag 并推送（触发 GitHub Actions 自动构建发布）
 
-Server/Web 的打包和发布完全由 **GitHub Actions CI/CD** 完成，**不使用本地 `publish-update` 命令**。推送 tag 后 CI 自动执行：构建 → 上传到 R2 → 版本号自动加一并提交。
+Server/Web 的打包和发布完全由 **GitHub Actions CI/CD** 完成。推送 tag 后 CI 自动执行：构建 → 上传到 R2 → 版本号自动加一并提交。
 
 ```bash
 # 打 tag（轻量 tag 即可，CI 从 tag 名提取版本号）
@@ -221,9 +221,14 @@ gh run list --limit 5
 
 ---
 
-### Electron 桌面端发布（Beta-first CI/CD）
+### Electron 桌面端发布（Beta-only 构建）
 
-Desktop 采用 **Beta-first 策略**：所有新版本先发 beta 渠道，测试通过后打 stable tag 直接 promote（不重新构建）。CI 通过 tag 格式自动判断模式。
+Desktop 采用 **Beta-only 构建策略**：
+- **所有新构建只能打 beta tag**（`desktop@x.y.z-beta.n`），CI 执行多平台构建并上传到 R2
+- **生产版本（stable）只能从已有 beta promote**：打 `desktop@x.y.z` tag 触发 promote 流程，不重新构建
+- **禁止直接打 stable tag 触发构建**：如果 R2 中没有对应的 beta 版本，CI 会报错
+
+CI 通过 tag 格式自动判断模式。
 
 #### Tag 格式（重要）
 
@@ -261,29 +266,31 @@ Step 4: Beta 用户安装测试
 
 Step 5: 如有 bug → 打 desktop@{x.y.z-beta.2} → 重复 Step 3-4
 
-Step 6: 测试通过 → 打 stable tag（触发 promote，不重新构建）
+Step 6: 测试通过 → 打 stable tag 从 beta promote（不重新构建）
   git tag desktop@{x.y.z}
   git push origin desktop@{x.y.z}
 
   CI 自动完成：
   ├── determine-mode → mode=promote（检测到 R2 中有 {x.y.z-beta.N}）
+  │   ⚠️ 若 R2 中无对应 beta 版本，CI 报错终止（不允许直接构建 stable）
   ├── 跳过所有构建步骤
   ├── promote-to-stable（scripts/promote-desktop.mjs）
   │   desktop/{x.y.z}/manifest.json  ← redirect 文件（含 redirectTo 字段）
-  │   desktop/stable/latest-*.yml    ← 复制自 beta 版本目录
-  │   desktop/latest-*.yml           ← 向后兼容（根目录）
+  │   desktop/stable/latest-*.yml    ← 复制自 beta 版本目录（electron-updater feed URL 指向此处）
+  │   desktop/latest-*.yml           ← 向后兼容旧版客户端（<= v0.2.4-beta.2）
   │   stable/manifest.json           ← 轻量指针更新
   ├── create-release（GitHub Release，正式版）
   └── version-bump（三个 app 版本号 +1）
 ```
 
-#### CI 三种模式
+#### CI 两种模式
 
 | mode | 触发条件 | 构建 | promote | version-bump |
 |------|---------|------|---------|-------------|
 | `beta` | tag 含 `-beta` | ✅ | ❌ | ❌ |
-| `promote` | stable tag + R2 中有 beta 版本 | ❌（跳过） | ✅ | ✅ |
-| `build` | stable tag + R2 无 beta（兼容旧流程） | ✅ | ❌ | ✅ |
+| `promote` | stable tag（R2 中必须有对应 beta 版本） | ❌（跳过） | ✅ | ✅ |
+
+> ⚠️ 打 stable tag 时 R2 中必须有对应的 beta 版本，否则 CI 报错。不支持直接打 stable tag 触发构建。
 
 #### CI 产物命名规范
 
@@ -332,7 +339,7 @@ git push origin desktop@{version}
   NEXT_PUBLIC_OPENLOAF_SAAS_URL: https://openloaf.hexems.com
   NEXT_PUBLIC_UPDATE_BASE_URL: https://r2-openloaf-update.hexems.com
   ```
-- **`dist.mjs`** 自动添加 `--publish=never` 阻止 electron-builder 自动发布
+- **`dist.mjs`** 自动添加 `--publish=never` 阻止 electron-builder 自动发布；支持 `--beta[=N]` 参数临时将版本号改为 `x.y.z-beta.N` 打包（打包后自动恢复，用于本地测试自动更新）
 - **Linux 仅构建 AppImage**（`package.json` 中 `build.linux.target: ["AppImage"]`）
 - **publish-to-r2 条件**：允许部分平台跳过（skipped），但任一平台失败则阻止发布
 
@@ -361,22 +368,25 @@ git push origin desktop@{version}
 | 版本号加一（patch） | `npm version patch --no-git-tag-version` |
 | 版本号加一（minor） | `npm version minor --no-git-tag-version` |
 | Beta 版本号 | `x.y.z-beta.n`（desktop 专用，server/web 也支持） |
+| 本地打包 beta 测试 | `pnpm run dist:mac -- --beta=2`（临时改为 x.y.z-beta.2，打包后自动恢复） |
 
 ## Common Mistakes
 
 | 错误 | 后果 | 正确做法 |
 |------|------|----------|
 | Desktop 用旧格式 `desktop-v*` 打 tag | CI 不触发 | 必须用 `desktop@{version}` 格式 |
-| 直接打 stable tag 跳过 beta | 问题版本影响全量用户，且 promote 模式找不到 beta 会 fallback 到重新构建 | 先打 `desktop@{x.y.z-beta.1}`，测试通过再打 `desktop@{x.y.z}` |
+| 直接打 stable tag 跳过 beta | CI 报错终止（R2 中无 beta 版本可 promote） | 必须先打 `desktop@{x.y.z-beta.1}`，测试通过再打 `desktop@{x.y.z}` promote |
 | 未打 app 前缀 tag | 下次发布 `git describe --match` 找不到上次发布点 | 始终为每个发布的 app 打前缀 tag |
 | 未等 GitHub Actions 完成就继续 | 发布不完整，版本号未自动加一 | 用 `gh run watch` 等 Actions 成功后再 `git pull` |
 | 发布前先改版本号 | 版本号与发布产物不一致 | 先发布，CI 自动加一 |
-| 使用本地 `publish-update` 命令 | 绕过 CI，产物不一致 | 通过 git tag 触发 GitHub Actions |
+| 试图在本地手动打包发布 | 绕过 CI，产物不一致 | 通过 git tag 触发 GitHub Actions |
 | commit 范围未加路径过滤 | changelog 包含不相关的变更 | 使用 `-- apps/{app}/ packages/` 过滤 |
 | SDK 混淆后 dev 编译挂起 | Turbopack 无限卡住 | 见「@openloaf-saas/sdk 依赖管理」排查步骤 |
 | Tag 所在 commit 包含 `[skip ci]` | CI 不会被触发 | commit 消息不要包含 `[skip ci]` |
 | Lockfile 未更新就推送 tag | CI 构建失败 `ERR_PNPM_OUTDATED_LOCKFILE` | 打包前先运行 `pnpm install --no-frozen-lockfile` 提交后再推送 tag |
 | Desktop 打包的 server/web 落后于 stable manifest | Desktop 更新期间增量更新被跳过，用户暂时拿不到最新修复 | 发布 Desktop 前先确保其打包版本 ≥ stable manifest 中的版本 |
+| Beta 用户 `updateChannel` 未设为 `beta` | Electron feed URL 指向 `desktop/stable/`，找不到 beta 更新 | 确保 beta 用户的 `~/.openloaf/.settings.json` 中 `updateChannel: "beta"` |
+| Electron feed URL 不含渠道路径 | electron-updater 请求 `desktop/latest-mac.yml`（根目录），R2 上可能不存在或指向旧版本 | `resolveElectronFeedUrl()` 必须返回 `${base}/desktop/${channel}` |
 
 ---
 

@@ -11,6 +11,10 @@
       "output": "dist"
     },
     "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "artifactName": "${productName}-${version}-MacOS-${arch}.${ext}",
       "timestamp": "http://timestamp.apple.com/ts01"
     },

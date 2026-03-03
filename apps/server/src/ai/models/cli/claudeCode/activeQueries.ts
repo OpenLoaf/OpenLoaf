@@ -9,26 +9,14 @@
  */
 
 /**
- * In-memory registry that maps active Claude Code session IDs to their
- * SDK Query objects. This allows external callers (e.g. tRPC routes) to
- * send user responses back to a running Claude Code session.
+ * Stub module – kept for import compatibility.
+ * The CLI subprocess mode does not support interactive query handles.
  */
 
-/** Opaque handle – we only need the streamInput method. */
-type QueryHandle = {
-  streamInput(stream: AsyncIterable<unknown>): Promise<void>;
-};
+export function setActiveQuery(_sessionId: string, _query: unknown) {}
 
-const activeQueries = new Map<string, QueryHandle>();
-
-export function setActiveQuery(sessionId: string, query: QueryHandle) {
-  activeQueries.set(sessionId, query);
+export function getActiveQuery(_sessionId: string): undefined {
+  return undefined;
 }
 
-export function getActiveQuery(sessionId: string): QueryHandle | undefined {
-  return activeQueries.get(sessionId);
-}
-
-export function clearActiveQuery(sessionId: string) {
-  activeQueries.delete(sessionId);
-}
+export function clearActiveQuery(_sessionId: string) {}

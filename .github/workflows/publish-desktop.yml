@@ -244,8 +244,8 @@ jobs:
           path: |
             apps/desktop/dist/*.dmg
             apps/desktop/dist/*.dmg.blockmap
-            apps/desktop/dist/*-MacOS-*.zip
-            apps/desktop/dist/*-MacOS-*.zip.blockmap
+            apps/desktop/dist/*.zip
+            apps/desktop/dist/*.zip.blockmap
             apps/desktop/dist/latest-mac.yml
 
       # 构建完成后立即上传到 R2（不等待其他平台）

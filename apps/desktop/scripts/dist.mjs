@@ -25,6 +25,29 @@ import path from 'node:path'
 const arch = os.arch()
 const mainPath = `.webpack/${arch}/main/index.js`
 
+// --beta[=N] 支持：临时将版本号改为 x.y.z-beta.N 进行打包（用于本地测试自动更新）
+// 例：node scripts/dist.mjs --mac --beta     → x.y.z-beta.1
+//     node scripts/dist.mjs --mac --beta=2   → x.y.z-beta.2
+const betaArg = process.argv.find((a) => a === '--beta' || a.startsWith('--beta='))
+let originalVersion = null
+if (betaArg) {
+  const betaNum = betaArg.includes('=') ? betaArg.split('=')[1] : '1'
+  const pkgPath = path.resolve('package.json')
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
+  originalVersion = pkg.version
+  // 去掉已有的 prerelease 标签再拼接
+  const baseVersion = pkg.version.replace(/-.*$/, '')
+  pkg.version = `${baseVersion}-beta.${betaNum}`
+  fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8')
+  console.log(`[dist] Beta mode: version ${originalVersion} → ${pkg.version}`)
+  // 打包结束后恢复（注册 exit hook）
+  process.on('exit', () => {
+    pkg.version = originalVersion
+    fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8')
+    console.log(`[dist] Restored version → ${originalVersion}`)
+  })
+}
+
 if (process.platform === 'win32' && process.env.CSC_IDENTITY_AUTO_DISCOVERY == null) {
   const hasCodeSignEnv = Boolean(
     process.env.CSC_LINK ||
@@ -106,7 +129,7 @@ const args = [
   '--config.afterPack=./scripts/afterPack.js',
   ...(hasPublishFlag ? [] : ['--publish=never']),
   ...extraFlags,
-  ...process.argv.slice(2),
+  ...process.argv.slice(2).filter((a) => a !== '--beta' && !a.startsWith('--beta=')),
 ]
 
 const pnpmBin = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'

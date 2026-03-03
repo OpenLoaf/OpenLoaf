@@ -7,18 +7,66 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import dns from "node:dns";
 import { SaaSClient } from "@openloaf-saas/sdk";
+import { logger } from "../../common/logger";
 import { getSaasBaseUrl } from "./core/config";
 
 /** Connect timeout for SaaS requests (ms). */
 const SAAS_TIMEOUT_MS = 30_000;
 
-/** Fetch wrapper with configurable timeout. */
+/** Resolve DNS for a hostname and log the results for diagnostics. */
+function diagnoseDns(hostname: string): void {
+  const t0 = Date.now();
+  dns.resolve4(hostname, (err4, ipv4) => {
+    const ms4 = Date.now() - t0;
+    if (err4) {
+      logger.warn({ hostname, err: err4.message, ms: ms4 }, "[saas-diag] DNS A lookup failed");
+    } else {
+      logger.info({ hostname, ipv4, ms: ms4 }, "[saas-diag] DNS A lookup ok");
+    }
+  });
+  dns.resolve6(hostname, (err6, ipv6) => {
+    const ms6 = Date.now() - t0;
+    if (err6) {
+      logger.info({ hostname, err: err6.message, ms: ms6 }, "[saas-diag] DNS AAAA lookup (no IPv6, ok)");
+    } else {
+      logger.info({ hostname, ipv6, ms: ms6 }, "[saas-diag] DNS AAAA lookup ok");
+    }
+  });
+}
+
+/** Fetch wrapper with configurable timeout and diagnostics logging. */
 const timeoutFetcher: typeof fetch = (input, init) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+  const t0 = Date.now();
+  logger.info({ url }, "[saas-fetch] start");
+
   return fetch(input, {
     ...init,
     signal: init?.signal ?? AbortSignal.timeout(SAAS_TIMEOUT_MS),
-  });
+  }).then(
+    (res) => {
+      logger.info({ url, status: res.status, ms: Date.now() - t0 }, "[saas-fetch] ok");
+      return res;
+    },
+    (err) => {
+      const ms = Date.now() - t0;
+      const code = (err as { cause?: { code?: string } })?.cause?.code;
+      logger.error(
+        { url, ms, code, err: err instanceof Error ? err.message : String(err) },
+        "[saas-fetch] failed",
+      );
+      // 连接超时时做一次 DNS 诊断
+      if (code === "ETIMEDOUT" || code === "ECONNREFUSED" || code === "ENOTFOUND") {
+        try {
+          const hostname = new URL(url).hostname;
+          diagnoseDns(hostname);
+        } catch { /* ignore parse errors */ }
+      }
+      throw err;
+    },
+  );
 };
 
 /** Cache SaaS client instance by base URL. */

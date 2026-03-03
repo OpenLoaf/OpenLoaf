@@ -124,10 +124,11 @@ export function resolveManifestUrl(): string {
   return `${base}/${channel}/manifest.json`
 }
 
-/** Electron 本体更新源 URL：${baseUrl}/desktop（固定，不分渠道） */
+/** Electron 本体更新源 URL：${baseUrl}/desktop/${channel} */
 export function resolveElectronFeedUrl(): string {
   const base = resolveUpdateBaseUrl()
-  return `${base}/desktop`
+  const channel = resolveUpdateChannel()
+  return `${base}/desktop/${channel}`
 }
 
 // ---------------------------------------------------------------------------

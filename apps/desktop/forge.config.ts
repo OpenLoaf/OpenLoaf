@@ -262,6 +262,7 @@ const config: ForgeConfig = {
       '../../apps/server/dist/seed.db',
       '../../apps/web/out',
       '../../apps/desktop/resources/speech',
+      '../../apps/desktop/resources/calendar',
       '../../apps/desktop/resources/runtime.env',
       '../../apps/desktop/resources/icon.icns',
       '../../apps/desktop/resources/icon.ico',
