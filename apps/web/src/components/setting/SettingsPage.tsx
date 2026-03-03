@@ -22,6 +22,7 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import {
   Bot,
+  Crown,
   Cpu,
   SlidersHorizontal,
   Info,
@@ -39,6 +40,7 @@ import { AboutOpenLoaf } from "./menus/AboutOpenLoaf";
 import { ProviderManagement } from "./menus/ProviderManagement";
 import { ObjectStorageService } from "./menus/ObjectStorageService";
 import { AgentManagement } from "./menus/agent/AgentManagement";
+import { MasterAgentSettings } from "./menus/agent/MasterAgentSettings";
 import { AuxiliaryModelSettings } from "./menus/AuxiliaryModelSettings";
 import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import { WorkspaceSettings } from "./menus/Workspace";
@@ -57,6 +59,7 @@ type SettingsMenuKey =
   | "about"
   | "keys"
   | "storage"
+  | "masterAgent"
   | "agents"
   | "auxiliaryModel"
   | "workspace"
@@ -70,10 +73,11 @@ const SETTINGS_MENU_ICON_COLOR = {
   workspace: "text-[#5f6368] dark:text-slate-300",
   skills: "text-[#9334e6] dark:text-violet-300",
   thirdPartyTools: "text-[#188038] dark:text-emerald-300",
-  keys: "text-[#9334e6] dark:text-violet-300",
+  keys: "text-[#e91e63] dark:text-pink-300",
   storage: "text-[#188038] dark:text-emerald-300",
-  agents: "text-[#1a73e8] dark:text-sky-300",
-  auxiliaryModel: "text-[#188038] dark:text-emerald-300",
+  masterAgent: "text-[#f9ab00] dark:text-amber-300",
+  agents: "text-[#4f46e5] dark:text-indigo-300",
+  auxiliaryModel: "text-[#0d9488] dark:text-teal-300",
   shortcuts: "text-[#f9ab00] dark:text-amber-300",
   projectTest: "text-[#f4511e] dark:text-orange-300",
   about: "text-[#5f6368] dark:text-slate-300",
@@ -144,6 +148,12 @@ function buildMenu(t: (key: string) => string): Array<{
       Component: ObjectStorageService,
     },
     {
+      key: "masterAgent",
+      label: t('settings:menu.masterAgent'),
+      Icon: createMenuIcon(Crown, SETTINGS_MENU_ICON_COLOR.masterAgent),
+      Component: MasterAgentSettings,
+    },
+    {
       key: "agents",
       label: t('settings:menu.agents'),
       Icon: createMenuIcon(Bot, SETTINGS_MENU_ICON_COLOR.agents),
@@ -172,7 +182,7 @@ function buildMenu(t: (key: string) => string): Array<{
 }
 
 const ALL_MENU_KEYS: SettingsMenuKey[] = [
-  'basic', 'workspace', 'skills', 'thirdPartyTools', 'keys', 'storage', 'agents', 'auxiliaryModel', 'shortcuts', 'about', 'projectTest',
+  'basic', 'workspace', 'skills', 'thirdPartyTools', 'keys', 'storage', 'masterAgent', 'agents', 'auxiliaryModel', 'shortcuts', 'about', 'projectTest',
 ];
 const MENU_KEY_SET = new Set<SettingsMenuKey>(ALL_MENU_KEYS);
 const HIDDEN_MENU_KEYS = new Set<SettingsMenuKey>([]);
@@ -299,6 +309,7 @@ export default function SettingsPage({
       byKey.get("about"),
     ].filter(filterVisible);
     const group2 = [
+      byKey.get("masterAgent"),
       byKey.get("agents"),
       byKey.get("auxiliaryModel"),
       byKey.get("skills"),

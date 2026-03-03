@@ -1533,6 +1533,30 @@ export class SettingRouterImpl extends BaseSettingRouter {
         .input(settingSchemas.generateChatSuggestions.input)
         .output(settingSchemas.generateChatSuggestions.output)
         .mutation(async ({ input }) => {
+          const { readLatestEntry, appendEntry } = await import(
+            "@/modules/settings/chatSuggestionsStore"
+          );
+
+          // Determine scope
+          const scope = input.projectId
+            ? `project:${input.projectId}`
+            : input.workspaceId
+              ? `workspace:${input.workspaceId}`
+              : "global";
+
+          // Count current sessions for this scope
+          const sessionCount = input.projectId
+            ? await prisma.chatSession.count({ where: { projectId: input.projectId } })
+            : input.workspaceId
+              ? await prisma.chatSession.count({ where: { workspaceId: input.workspaceId } })
+              : await prisma.chatSession.count();
+
+          // Check JSONL cache
+          const cached = readLatestEntry(scope);
+          if (cached && cached.sessionCount === sessionCount) {
+            return { suggestions: cached.suggestions };
+          }
+
           const contextParts: string[] = [];
 
           if (input.projectId) {
@@ -1566,6 +1590,8 @@ export class SettingRouterImpl extends BaseSettingRouter {
             schema: CAPABILITY_SCHEMAS["chat.suggestions"],
             fallback: { suggestions: [] },
           });
+
+          appendEntry(scope, sessionCount, result.suggestions);
 
           return { suggestions: result.suggestions };
         }),

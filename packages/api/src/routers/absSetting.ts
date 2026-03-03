@@ -439,6 +439,7 @@ export const settingSchemas = {
   generateChatSuggestions: {
     input: z.object({
       projectId: z.string().optional(),
+      workspaceId: z.string().optional(),
       currentInput: z.string().optional(),
     }),
     output: z.object({

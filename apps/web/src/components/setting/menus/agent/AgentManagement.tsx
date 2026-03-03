@@ -259,15 +259,6 @@ function WorkspaceAgentView() {
       agents.some((agent) => agent.folderName.toLowerCase() !== "master"),
     [agents],
   );
-  const masterAgent = useMemo(
-    () =>
-      agents.find(
-        (agent) =>
-          agent.folderName === "master" && agent.scope === "workspace",
-      ),
-    [agents],
-  );
-
   const filteredAgents = useMemo(() => {
     const filtered = agents.filter((agent) => {
       if (agent.folderName.toLowerCase() === "master") return false;
@@ -426,11 +417,6 @@ function WorkspaceAgentView() {
     [activeTabId, pushStackItem],
   );
 
-  const handleEditMasterAgent = useCallback(() => {
-    if (!masterAgent) return;
-    handleEditAgent(masterAgent);
-  }, [handleEditAgent, masterAgent]);
-
   const handleCreateAgent = useCallback(() => {
     if (!activeTabId) return;
     pushStackItem(activeTabId, {
@@ -513,25 +499,6 @@ function WorkspaceAgentView() {
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
               {t("settings:agent.openDirTooltip")}
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="h-8 rounded-full border border-border/70 bg-background/85 px-2.5 text-xs transition-colors hover:bg-muted/55 sm:px-3"
-                onClick={handleEditMasterAgent}
-                disabled={!activeTabId || !masterAgent?.path}
-                aria-label={t("settings:agent.masterSettings")}
-              >
-                <Bot className="h-3.5 w-3.5" />
-                <span className="ml-1.5 hidden sm:inline">{t("settings:agent.masterSettings")}</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={6}>
-              {t("settings:agent.masterSettings")}
             </TooltipContent>
           </Tooltip>
         </div>
