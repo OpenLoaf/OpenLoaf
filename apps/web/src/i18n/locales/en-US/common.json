@@ -71,6 +71,18 @@
   "template": "Template",
   "connecting": "Connecting…",
   "applyingUpdate": "Applying update…",
+  "updateGate": {
+    "title": "Update Ready",
+    "descDesktop": "{{version}} is ready. The app will close, update, and restart automatically.",
+    "descIncremental": "{{version}} is ready. Restart to apply the update.",
+    "loadingChangelog": "Loading changelog...",
+    "later": "Later",
+    "restartNow": "Restart Now",
+    "newVersion": "New version",
+    "serverVersion": "Server v{{version}}",
+    "webVersion": "Web v{{version}}",
+    "desktopVersion": "Desktop v{{version}}"
+  },
   "crashScreen": {
     "title": "Service failed to start",
     "updateCrashedDesc": "The updated server (v{{version}}) failed to start and has been rolled back to the bundled version.",

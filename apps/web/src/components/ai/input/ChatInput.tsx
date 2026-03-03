@@ -1215,12 +1215,13 @@ export default function ChatInput({
     (nextProjectId: string | undefined) => {
       const targetTabId = tabId ?? activeTabId;
       if (!targetTabId || !sessionId) return;
+      // 更新 session 的 projectId；TabLayout useEffect 会自动同步 leftDock
       setSessionProjectId(targetTabId, sessionId, nextProjectId ?? "");
     },
     [tabId, activeTabId, sessionId, setSessionProjectId],
   );
-  const { providerItems } = useSettingsValues();
-  const { loggedIn: authLoggedIn } = useSaasAuth();
+  const { providerItems, loaded: settingsLoaded } = useSettingsValues();
+  const { loggedIn: authLoggedIn, loading: authLoading } = useSaasAuth();
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
   const { basic, setBasic } = useBasicConfig();
   const setTabDictationStatus = useChatRuntime((s) => s.setTabDictationStatus);
@@ -1283,9 +1284,14 @@ export default function ChatInput({
     [providerItems],
   );
   // 逻辑：云端模式未登录 / 本地模式无 provider / 未登录且无本地配置时，禁用输入并显示引导。
-  const needsCloudLogin = basic.chatSource === 'cloud' && !authLoggedIn;
-  const needsLocalConfig = basic.chatSource === 'local' && !hasConfiguredProviders;
-  const isUnconfigured = needsCloudLogin || needsLocalConfig || (!authLoggedIn && !hasConfiguredProviders);
+  // 数据未加载完成时不判定为 unconfigured，避免刷新页面时闪现登录遮罩。
+  const authResolved = !authLoading;
+  const settingsResolved = settingsLoaded;
+  const needsCloudLogin = authResolved && basic.chatSource === 'cloud' && !authLoggedIn;
+  const needsLocalConfig = settingsResolved && basic.chatSource === 'local' && !hasConfiguredProviders;
+  const isUnconfigured = (authResolved && settingsResolved)
+    ? (needsCloudLogin || needsLocalConfig || (!authLoggedIn && !hasConfiguredProviders))
+    : false;
   useEffect(() => {
     return () => {
       if (!tabId) return;

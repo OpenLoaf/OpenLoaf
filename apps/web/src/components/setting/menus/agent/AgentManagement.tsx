@@ -542,7 +542,7 @@ function WorkspaceAgentView() {
 
       <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-1">
         {filteredAgents.length > 0 ? (
-          <div className="flex flex-col gap-2 pb-1">
+          <div className="grid grid-cols-2 gap-2 pb-1">
             {filteredAgents.map((agent) => {
               const baseRootUri =
                 agent.scope === "global" ? undefined : workspace?.rootUri;
@@ -560,14 +560,14 @@ function WorkspaceAgentView() {
                 >
                   <ContextMenuTrigger asChild>
                     <div
-                      className="group flex items-center gap-3 rounded-xl bg-zinc-100 px-3 py-2.5 transition-[background-color] duration-200 hover:bg-zinc-200/75 dark:bg-zinc-800 dark:hover:bg-zinc-700/85"
+                      className="group flex flex-col gap-2 rounded-xl bg-zinc-100 px-3 py-2.5 transition-[background-color] duration-200 hover:bg-zinc-200/75 dark:bg-zinc-800 dark:hover:bg-zinc-700/85"
                       onDoubleClick={() => {
                         handleEditAgent(agent);
                       }}
                     >
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-background/70 text-foreground/80 shadow-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-background/70 text-foreground/80 shadow-sm">
                             {(() => {
                               const iconValue = agent.icon?.trim() ?? "";
                               if (iconValue && /[^a-z0-9-_]/i.test(iconValue)) {
@@ -595,64 +595,62 @@ function WorkspaceAgentView() {
                               ? t(`settings:agentTemplates.${agent.folderName}.name`, { defaultValue: agent.name })
                               : agent.name}
                           </span>
-                          {(() => {
-                            const label = agent.scope === "project" ? t("settings:agent.badgeProject") : t("settings:agent.badgeWorkspace");
-                            const colorClass = agent.scope === "project"
-                              ? "bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400"
-                              : "bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400";
-                            return (
-                              <span className={`shrink-0 rounded px-1 py-px text-[10px] ${colorClass}`}>
-                                {label}
-                              </span>
-                            );
-                          })()}
-                          {agent.isSystem ? (
-                            <span className="shrink-0 rounded px-1 py-px text-[10px] bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
-                              {t("settings:agent.system")}
-                            </span>
-                          ) : null}
-                          {agent.model ? (
-                            <span className="shrink-0 rounded border border-border/60 bg-background/60 px-1 py-px font-mono text-[10px] text-foreground/70">
-                              {agent.model}
-                            </span>
-                          ) : null}
                         </div>
-                        {agent.description?.trim() ? (
-                          <p className="truncate pl-1 text-xs text-muted-foreground">
-                            {agent.isSystem
-                              ? t(`settings:agentTemplates.${agent.folderName}.description`, { defaultValue: agent.description })
-                              : agent.description}
-                          </p>
-                        ) : null}
-                        {agent.toolIds.length > 0 ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {resolveAgentGroups(agent.toolIds).map((group) => {
-                              const capMeta = CAP_ICON_MAP[group.id];
-                              const CapIcon = capMeta?.icon ?? Blocks;
-                              const iconClass = capMeta?.className ?? "text-muted-foreground";
-                              const bgClass = CAP_BG_MAP[group.id] ?? "bg-muted/30";
-                              return (
-                                <span
-                                  key={group.id}
-                                  className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] ${bgClass}`}
-                                >
-                                  <CapIcon className={`h-3 w-3 ${iconClass}`} />
-                                  {t(`settings:capabilityGroups.${group.id}`, { defaultValue: group.label || group.id })}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        ) : null}
+                        <Switch
+                          checked={agent.isEnabled}
+                          onCheckedChange={(checked) =>
+                            handleToggleAgent(agent, checked)
+                          }
+                          className="shrink-0 border-zinc-300/70 bg-zinc-200/55 data-[state=checked]:bg-emerald-300/60 dark:border-zinc-600/80 dark:bg-zinc-700/45 dark:data-[state=checked]:bg-emerald-600/45"
+                          aria-label={t("settings:agent.enableLabel", { name: agent.name })}
+                          disabled={updateAgentMutation.isPending}
+                        />
                       </div>
-                      <Switch
-                        checked={agent.isEnabled}
-                        onCheckedChange={(checked) =>
-                          handleToggleAgent(agent, checked)
-                        }
-                        className="shrink-0 border-zinc-300/70 bg-zinc-200/55 data-[state=checked]:bg-emerald-300/60 dark:border-zinc-600/80 dark:bg-zinc-700/45 dark:data-[state=checked]:bg-emerald-600/45"
-                        aria-label={t("settings:agent.enableLabel", { name: agent.name })}
-                        disabled={updateAgentMutation.isPending}
-                      />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {(() => {
+                          const label = agent.scope === "project" ? t("settings:agent.badgeProject") : t("settings:agent.badgeWorkspace");
+                          const colorClass = agent.scope === "project"
+                            ? "bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400"
+                            : "bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400";
+                          return (
+                            <span className={`shrink-0 rounded px-1 py-px text-[10px] ${colorClass}`}>
+                              {label}
+                            </span>
+                          );
+                        })()}
+                        {agent.isSystem ? (
+                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
+                            {t("settings:agent.system")}
+                          </span>
+                        ) : null}
+                        {agent.model ? (
+                          <span className="shrink-0 rounded border border-border/60 bg-background/60 px-1 py-px font-mono text-[10px] text-foreground/70">
+                            {agent.model}
+                          </span>
+                        ) : null}
+                        {agent.toolIds.length > 0 ? resolveAgentGroups(agent.toolIds).map((group) => {
+                          const capMeta = CAP_ICON_MAP[group.id];
+                          const CapIcon = capMeta?.icon ?? Blocks;
+                          const iconClass = capMeta?.className ?? "text-muted-foreground";
+                          const bgClass = CAP_BG_MAP[group.id] ?? "bg-muted/30";
+                          return (
+                            <span
+                              key={group.id}
+                              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] ${bgClass}`}
+                            >
+                              <CapIcon className={`h-3 w-3 ${iconClass}`} />
+                              {t(`settings:capabilityGroups.${group.id}`, { defaultValue: group.label || group.id })}
+                            </span>
+                          );
+                        }) : null}
+                      </div>
+                      {agent.description?.trim() ? (
+                        <p className="line-clamp-2 text-xs text-muted-foreground">
+                          {agent.isSystem
+                            ? t(`settings:agentTemplates.${agent.folderName}.description`, { defaultValue: agent.description })
+                            : agent.description}
+                        </p>
+                      ) : null}
                     </div>
                   </ContextMenuTrigger>
                   <ContextMenuContent className="w-44">

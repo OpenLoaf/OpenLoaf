@@ -12,7 +12,7 @@ import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Logger } from '../logging/startupLogger';
-import { getAutoUpdateStatus, restartForUpdates } from '../autoUpdate';
+import { checkForUpdates, getAutoUpdateStatus, restartForUpdates } from '../autoUpdate';
 import {
   checkForIncrementalUpdates,
   getIncrementalUpdateStatus,
@@ -302,6 +302,8 @@ export function registerIpcHandlers(args: { log: Logger }) {
   ipcMain.handle('openloaf:app:relaunch', async () => restartForUpdates());
   // 获取 desktop 整包更新状态快照。
   ipcMain.handle('openloaf:auto-update:get-status', async () => getAutoUpdateStatus());
+  // 手动触发 desktop 整包更新检查。
+  ipcMain.handle('openloaf:auto-update:check', async () => checkForUpdates('manual'));
 
   // Provide runtime port info for renderer initialization.
   ipcMain.on('openloaf:runtime:ports', (event) => {

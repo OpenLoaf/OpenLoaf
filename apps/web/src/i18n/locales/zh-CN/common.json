@@ -71,6 +71,18 @@
   "template": "模版",
   "connecting": "正在连接中…",
   "applyingUpdate": "正在应用更新…",
+  "updateGate": {
+    "title": "更新已准备好",
+    "descDesktop": "{{version}} 已准备好，点击关闭应用后将自动更新并启动。",
+    "descIncremental": "{{version}} 已准备好，重启后即可完成更新。",
+    "loadingChangelog": "加载更新日志...",
+    "later": "稍后",
+    "restartNow": "立即重启",
+    "newVersion": "新版本",
+    "serverVersion": "服务端 v{{version}}",
+    "webVersion": "Web v{{version}}",
+    "desktopVersion": "Desktop v{{version}}"
+  },
   "crashScreen": {
     "title": "服务启动失败",
     "updateCrashedDesc": "更新版本（v{{version}}）的服务启动失败，已自动回滚到内置版本。",

@@ -45,7 +45,7 @@ import {
   installCliTool,
 } from "@/ai/models/cli/cliToolService";
 import { loadSkillSummaries } from "@/ai/services/skillsLoader";
-import { resolveMemoryContent } from "@/ai/shared/memoryLoader";
+import { resolveMemoryContent, writeMemoryFile } from "@/ai/shared/memoryLoader";
 import { readAgentJson, resolveAgentDir } from "@/ai/shared/defaultAgentResolver";
 import { loadAgentSummaries, readAgentConfigFromPath, serializeAgentToMarkdown } from "@/ai/services/agentConfigService";
 import { CAPABILITY_GROUPS } from "@/ai/tools/capabilityGroups";
@@ -1146,6 +1146,18 @@ export class SettingRouterImpl extends BaseSettingRouter {
             parentProjectRootPaths,
           });
           return { content };
+        }),
+      /** Save memory content for the master agent. */
+      saveMemory: shieldedProcedure
+        .input(settingSchemas.saveMemory.input)
+        .output(settingSchemas.saveMemory.output)
+        .mutation(async ({ input }) => {
+          const rootPath = input.projectId
+            ? getProjectRootPath(input.projectId)
+            : getWorkspaceRootPath();
+          if (!rootPath) return { ok: false };
+          writeMemoryFile(rootPath, input.content);
+          return { ok: true };
         }),
       /** Get skills for a sub-agent by name. */
       getAgentSkillsByName: shieldedProcedure

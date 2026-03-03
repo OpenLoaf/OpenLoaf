@@ -250,7 +250,7 @@ Step 2: 确认 changelog
   - apps/desktop/changelogs/{x.y.z-beta.n}/en.md
 
 Step 3: 升版本号并提交（⚠️ commit message 禁止包含 [skip ci]）
-  cd apps/desktop && npm version {x.y.z-beta.n} --no-git-tag-version
+  npm version {x.y.z-beta.n} --no-git-tag-version --prefix apps/desktop
   git add apps/desktop/package.json
   git commit -m "chore(desktop): bump version to {x.y.z-beta.n}"
 
@@ -275,17 +275,20 @@ Step 5: Beta 用户安装测试
 
 Step 6: 如有 bug → 打 desktop@{x.y.z-beta.2} → 重复 Step 3-5
 
-Step 7: 测试通过 → 打 stable tag 从 beta promote（不重新构建）
+Step 7: 测试通过 → 发布 stable 版本（重新构建）
+  npm version {x.y.z} --no-git-tag-version --prefix apps/desktop
+  git add apps/desktop/package.json
+  git commit -m "chore(desktop): bump version to {x.y.z}"
   git tag desktop@{x.y.z}
-  git push origin desktop@{x.y.z}
+  git push origin main --tags
 
-  CI 自动完成：
-  ├── determine-mode → mode=promote（检测到 R2 中有 {x.y.z-beta.N}）
-  │   ⚠️ 若 R2 中无对应 beta 版本，CI 报错终止（不允许直接构建 stable）
-  ├── 跳过所有构建步骤
-  ├── promote-to-stable（scripts/promote-desktop.mjs）
-  │   desktop/{x.y.z}/manifest.json  ← redirect 文件（含 redirectTo 字段）
-  │   desktop/stable/latest-*.yml    ← 复制自 beta 版本目录（electron-updater feed URL 指向此处）
+  CI 自动完成（与 beta 相同的完整构建流程）：
+  ├── build-prerequisites（编译 server + web）
+  ├── build-mac-arm64 / build-mac-x64 / build-windows / build-linux
+  ├── publish-to-r2（上传安装包到版本目录 + 写版本 manifest）
+  │   desktop/{x.y.z}/manifest.json
+  │   desktop/{x.y.z}/latest-*.yml
+  │   desktop/stable/latest-*.yml    ← stable 渠道的 electron-updater feed
   │   desktop/latest-*.yml           ← 向后兼容旧版客户端（<= v0.2.4-beta.2）
   │   stable/manifest.json           ← 轻量指针更新
   ├── create-release（GitHub Release，正式版）
@@ -294,12 +297,12 @@ Step 7: 测试通过 → 打 stable tag 从 beta promote（不重新构建）
 
 #### CI 两种模式
 
-| mode | 触发条件 | 构建 | promote | version-bump |
-|------|---------|------|---------|-------------|
-| `beta` | tag 含 `-beta` | ✅ | ❌ | ❌ |
-| `promote` | stable tag（R2 中必须有对应 beta 版本） | ❌（跳过） | ✅ | ✅ |
+| mode | 触发条件 | 构建 | version-bump |
+|------|---------|------|-------------|
+| `beta` | tag 含 `-beta` | ✅ | ❌ |
+| `stable` | tag 不含 `-beta` | ✅（完整重新构建） | ✅ |
 
-> ⚠️ 打 stable tag 时 R2 中必须有对应的 beta 版本，否则 CI 报错。不支持直接打 stable tag 触发构建。
+> Stable 版本会完整重新构建，确保 app 内显示的版本号是正式版（不含 `-beta.N`）。
 
 #### CI 产物命名规范
 
@@ -371,7 +374,7 @@ git push origin desktop@{version}
 | Server 增量发布 | `git tag server-v{version} && git push origin server-v{version}` |
 | Web 增量发布 | `git tag web-v{version} && git push origin web-v{version}` |
 | Desktop beta 发布 | `git tag desktop@{x.y.z-beta.n} && git push origin desktop@{x.y.z-beta.n}` |
-| Desktop stable promote | `git tag desktop@{x.y.z} && git push origin desktop@{x.y.z}` |
+| Desktop stable 发布 | 升版本号 → `git tag desktop@{x.y.z}` → `git push origin main --tags` |
 | widget-sdk npm 发布 | `cd packages/widget-sdk && pnpm version patch && pnpm publish --no-git-checks` |
 | @openloaf-saas/sdk 更新 | 见下方「@openloaf-saas/sdk 依赖管理」章节 |
 | 版本号加一（patch） | `npm version patch --no-git-tag-version` |
@@ -384,7 +387,7 @@ git push origin desktop@{version}
 | 错误 | 后果 | 正确做法 |
 |------|------|----------|
 | Desktop 用旧格式 `desktop-v*` 打 tag | CI 不触发 | 必须用 `desktop@{version}` 格式 |
-| 直接打 stable tag 跳过 beta | CI 报错终止（R2 中无 beta 版本可 promote） | 必须先打 `desktop@{x.y.z-beta.1}`，测试通过再打 `desktop@{x.y.z}` promote |
+| Stable 发布前未升版本号 | app 内显示 beta 版本号 | 先 `npm version {x.y.z} --no-git-tag-version --prefix apps/desktop`，提交后再打 tag |
 | 未打 app 前缀 tag | 下次发布 `git describe --match` 找不到上次发布点 | 始终为每个发布的 app 打前缀 tag |
 | 未等 GitHub Actions 完成就继续 | 发布不完整，版本号未自动加一 | 用 `gh run watch` 等 Actions 成功后再 `git pull` |
 | 发布前先改版本号 | 版本号与发布产物不一致 | 先发布，CI 自动加一 |

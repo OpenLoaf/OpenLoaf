@@ -206,6 +206,8 @@ declare global {
       getIncrementalUpdateStatus?: () => Promise<OpenLoafIncrementalUpdateStatus>;
       /** Get desktop auto-update status snapshot. */
       getAutoUpdateStatus?: () => Promise<OpenLoafAutoUpdateStatus>;
+      /** Trigger desktop auto-update check. */
+      checkDesktopUpdate?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
       /** Reset incremental updates to bundled version. */
       resetIncrementalUpdate?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
       /** Get current update channel (stable / beta). */

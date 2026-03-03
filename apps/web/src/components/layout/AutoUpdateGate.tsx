@@ -10,6 +10,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
@@ -88,6 +89,7 @@ async function fetchChangelogs(baseUrls: string[]): Promise<string | null> {
  * Shows a global update prompt when incremental updates are ready.
  */
 export default function AutoUpdateGate() {
+  const { t } = useTranslation("common");
   const [state, setState] = React.useState<AutoUpdateGateState>({
     status: null,
     autoUpdateStatus: null,
@@ -180,14 +182,14 @@ export default function AutoUpdateGate() {
   const nextVersionLabel = React.useMemo(() => {
     if (isDesktopUpdate) {
       const v = state.autoUpdateStatus?.nextVersion;
-      return v ? `Desktop v${v}` : "新版本";
+      return v ? t("updateGate.desktopVersion", { version: v }) : t("updateGate.newVersion");
     }
-    if (!state.status) return "新版本";
+    if (!state.status) return t("updateGate.newVersion");
     const parts: string[] = [];
-    if (state.status.server?.newVersion) parts.push(`服务端 v${state.status.server.newVersion}`);
-    if (state.status.web?.newVersion) parts.push(`Web v${state.status.web.newVersion}`);
-    return parts.length > 0 ? parts.join(" / ") : "新版本";
-  }, [isDesktopUpdate, state.status, state.autoUpdateStatus]);
+    if (state.status.server?.newVersion) parts.push(t("updateGate.serverVersion", { version: state.status.server.newVersion }));
+    if (state.status.web?.newVersion) parts.push(t("updateGate.webVersion", { version: state.status.web.newVersion }));
+    return parts.length > 0 ? parts.join(" / ") : t("updateGate.newVersion");
+  }, [isDesktopUpdate, state.status, state.autoUpdateStatus, t]);
 
   return (
     <Dialog
@@ -196,13 +198,15 @@ export default function AutoUpdateGate() {
     >
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>更新已准备好</DialogTitle>
+          <DialogTitle>{t("updateGate.title")}</DialogTitle>
           <DialogDescription>
-            {nextVersionLabel} 已准备好，重启后即可完成更新。
+            {isDesktopUpdate
+              ? t("updateGate.descDesktop", { version: nextVersionLabel })
+              : t("updateGate.descIncremental", { version: nextVersionLabel })}
           </DialogDescription>
         </DialogHeader>
         {!isDesktopUpdate && state.changelogLoading ? (
-          <div className="py-2 text-xs text-muted-foreground">加载更新日志...</div>
+          <div className="py-2 text-xs text-muted-foreground">{t("updateGate.loadingChangelog")}</div>
         ) : !isDesktopUpdate && state.changelog ? (
           <div className="max-h-48 overflow-y-auto rounded-md border p-3">
             <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-xs">
@@ -215,9 +219,9 @@ export default function AutoUpdateGate() {
             variant="ghost"
             onClick={() => setState((prev) => ({ ...prev, open: false }))}
           >
-            稍后
+            {t("updateGate.later")}
           </Button>
-          <Button onClick={() => void handleRelaunch()}>立即重启</Button>
+          <Button onClick={() => void handleRelaunch()}>{t("updateGate.restartNow")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

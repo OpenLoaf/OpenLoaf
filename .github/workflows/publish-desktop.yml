@@ -47,20 +47,18 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # 判断发布模式：beta（构建+发布）或 promote（跳过构建，直接 promote 到 stable）
+  # 解析版本号和发布渠道（beta / stable）
   # ---------------------------------------------------------------------------
   determine-mode:
     runs-on: ubuntu-latest
     outputs:
-      mode: ${{ steps.action.outputs.mode }}
-      version: ${{ steps.action.outputs.version }}
-      beta_version: ${{ steps.action.outputs.beta_version }}
-      channel: ${{ steps.action.outputs.channel }}
+      version: ${{ steps.resolve.outputs.version }}
+      channel: ${{ steps.resolve.outputs.channel }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get version from tag or input
-        id: get_version
+      - name: Resolve version and channel
+        id: resolve
         run: |
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF#refs/tags/desktop@}"
@@ -70,55 +68,16 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Determine action (beta or promote)
-        id: action
-        env:
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
           if [[ "$VERSION" == *"-beta"* ]]; then
-            echo "mode=beta" >> $GITHUB_OUTPUT
             echo "channel=beta" >> $GITHUB_OUTPUT
-            echo "beta_version=$VERSION" >> $GITHUB_OUTPUT
-            echo "🔵 Mode: beta build for $VERSION"
+            echo "🔵 Channel: beta — $VERSION"
           else
-            # 稳定版本 tag：检查 R2 中是否有对应的 beta 版本
             echo "channel=stable" >> $GITHUB_OUTPUT
-            echo "🔍 Stable tag detected, checking for beta versions in R2..."
-            # 安装 aws cli 以列举 R2
-            pip install awscli --quiet
-            BETA_VERSION=$(
-              aws s3 ls "s3://${R2_BUCKET}/desktop/" \
-                --endpoint-url "$R2_ENDPOINT" \
-                --recursive \
-              2>/dev/null \
-              | grep "/${VERSION}-beta" \
-              | grep "manifest.json$" \
-              | sed 's|.*desktop/\([^/]*\)/manifest.json|\1|' \
-              | sort -V \
-              | tail -1 \
-              || true
-            )
-            if [[ -n "$BETA_VERSION" ]]; then
-              echo "mode=promote" >> $GITHUB_OUTPUT
-              echo "beta_version=$BETA_VERSION" >> $GITHUB_OUTPUT
-              echo "✅ Mode: promote $BETA_VERSION → $VERSION"
-            else
-              # 没有找到对应 beta，直接构建（兼容旧流程）
-              echo "mode=build" >> $GITHUB_OUTPUT
-              echo "beta_version=" >> $GITHUB_OUTPUT
-              echo "⚠️  Mode: build (no beta found for $VERSION, building directly)"
-            fi
+            echo "🟢 Channel: stable — $VERSION"
           fi
 
   build-prerequisites:
     needs: determine-mode
-    if: needs.determine-mode.outputs.mode != 'promote'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -168,7 +127,7 @@ jobs:
   # ---------------------------------------------------------------------------
   build-mac-arm64:
     needs: [determine-mode, build-prerequisites]
-    if: needs.determine-mode.outputs.mode != 'promote' && (github.event_name == 'push' || inputs.build_mac)
+    if: github.event_name == 'push' || inputs.build_mac
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -275,7 +234,7 @@ jobs:
   # ---------------------------------------------------------------------------
   build-windows:
     needs: [determine-mode, build-prerequisites]
-    if: needs.determine-mode.outputs.mode != 'promote' && (github.event_name == 'push' || inputs.build_windows)
+    if: github.event_name == 'push' || inputs.build_windows
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -373,7 +332,7 @@ jobs:
   # ---------------------------------------------------------------------------
   build-linux:
     needs: [determine-mode, build-prerequisites]
-    if: needs.determine-mode.outputs.mode != 'promote' && (github.event_name == 'push' || inputs.build_linux)
+    if: github.event_name == 'push' || inputs.build_linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -470,10 +429,7 @@ jobs:
   # ---------------------------------------------------------------------------
   publish-finalize:
     needs: [determine-mode, build-mac-arm64, build-windows, build-linux]
-    if: >-
-      always() &&
-      needs.determine-mode.outputs.mode != 'promote' &&
-      contains(needs.*.result, 'success')
+    if: always() && contains(needs.*.result, 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -517,45 +473,12 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: node apps/desktop/scripts/publish-update.mjs --manifest-only
 
-  # ---------------------------------------------------------------------------
-  # Promote：stable tag → 从 beta 目录 promote（不重新构建）
-  # ---------------------------------------------------------------------------
-  promote-to-stable:
-    needs: determine-mode
-    if: needs.determine-mode.outputs.mode == 'promote'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install promote dependencies
-        run: |
-          cd scripts/shared
-          npm init -y > /dev/null 2>&1
-          npm install @aws-sdk/client-s3
-
-      - name: Promote beta to stable
-        env:
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          STABLE_VERSION: ${{ needs.determine-mode.outputs.version }}
-          BETA_VERSION: ${{ needs.determine-mode.outputs.beta_version }}
-        run: node scripts/promote-desktop.mjs
-
   create-release:
-    needs: [determine-mode, publish-finalize, promote-to-stable]
+    needs: [determine-mode, publish-finalize]
     if: >-
       always() &&
       startsWith(github.ref, 'refs/tags/') &&
-      needs.determine-mode.outputs.mode != 'beta' &&
-      (needs.publish-finalize.result == 'success' || needs.promote-to-stable.result == 'success')
+      needs.publish-finalize.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -583,8 +506,7 @@ jobs:
             echo "Release v${VERSION}" > /tmp/release-notes.md
           fi
 
-      - name: Download all platform artifacts (beta/build mode only)
-        if: needs.determine-mode.outputs.mode != 'promote'
+      - name: Download all platform artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: openloaf-desktop-*
@@ -592,7 +514,6 @@ jobs:
           merge-multiple: true
 
       - name: Rename installers for release
-        if: needs.determine-mode.outputs.mode != 'promote'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           cd dist
@@ -601,8 +522,7 @@ jobs:
             mv "OpenLoaf-${VERSION}-MacOS-arm64.dmg" "OpenLoaf-${VERSION}-MacOS.dmg"
           fi
 
-      - name: Create GitHub Release (with artifacts)
-        if: needs.determine-mode.outputs.mode != 'promote'
+      - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -619,28 +539,14 @@ jobs:
             $PRERELEASE_FLAG \
             $FILES
 
-      - name: Create GitHub Release (promote, no artifacts)
-        if: needs.determine-mode.outputs.mode == 'promote'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          BETA_VERSION="${{ needs.determine-mode.outputs.beta_version }}"
-          echo "" >> /tmp/release-notes.md
-          echo "---" >> /tmp/release-notes.md
-          echo "_Promoted from ${BETA_VERSION} (no rebuild)_" >> /tmp/release-notes.md
-          gh release create "desktop@${VERSION}" \
-            --title "OpenLoaf Desktop v${VERSION}" \
-            --notes-file /tmp/release-notes.md
-
   version-bump:
     needs: [determine-mode, create-release]
-    # 只在 stable 发布后 bump 版本（beta 和 promote 均跳过）
+    # 只在 stable 发布后 bump 版本（beta 跳过）
     if: >-
       always() &&
       startsWith(github.ref, 'refs/tags/') &&
       needs.create-release.result == 'success' &&
-      !contains(needs.determine-mode.outputs.version, '-beta')
+      needs.determine-mode.outputs.channel == 'stable'
     runs-on: ubuntu-latest
     permissions:
       contents: write

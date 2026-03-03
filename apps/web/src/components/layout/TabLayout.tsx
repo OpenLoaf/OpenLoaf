@@ -267,9 +267,10 @@ function RightChatPanel({ tabId }: { tabId: string }) {
     return "";
   }, []);
 
-  /** 创建或更新 plant-page base（保留当前 projectTab） */
+  /** 创建或更新 plant-page base（保留当前 projectTab）。
+   *  createIfMissing=true 时，若无 base 则创建；false 时仅更新已有 plant-page。 */
   const applyPlantPageForProject = React.useCallback(
-    (projectId: string) => {
+    (projectId: string, createIfMissing = true) => {
       if (!projectId) return;
       const runtime = useTabRuntime.getState().runtimeByTabId[tabId];
       const currentBase = runtime?.base;
@@ -284,8 +285,8 @@ function RightChatPanel({ tabId }: { tabId: string }) {
           component: "plant-page",
           params: { projectId, rootUri, projectTab: currentParams.projectTab },
         });
-      } else if (!currentBase) {
-        // 无 base（Workspace 模式）→ 创建 plant-page
+      } else if (!currentBase && createIfMissing) {
+        // 无 base（Workspace 模式）→ 仅在 createIfMissing 时创建 plant-page
         setTabBase(tabId, {
           id: `project:${projectId}`,
           component: "plant-page",
@@ -327,7 +328,8 @@ function RightChatPanel({ tabId }: { tabId: string }) {
 
     if (projectChanged) {
       // —— 同一会话内切换项目（如 ChatInput 项目选择器）——
-      applyPlantPageForProject(currentProjectId);
+      // 仅更新已有的 plant-page，不自动打开 leftDock
+      applyPlantPageForProject(currentProjectId, false);
     }
   }, [
     activeSessionId,

@@ -626,6 +626,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const [promptPreview, setPromptPreview] = useState(true)
   const [activeConfigTab, setActiveConfigTab] = useState('capabilities')
   const [loginOpen, setLoginOpen] = useState(false)
+  const [memoryContent, setMemoryContent] = useState('')
+  const [memoryPreview, setMemoryPreview] = useState(false)
+  const [memorySynced, setMemorySynced] = useState(false)
   const [defaultSnapshot, setDefaultSnapshot] = useState('')
 
   // 逻辑：保存初始快照用于脏检测。
@@ -835,6 +838,30 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     ...trpc.settings.getMemory.queryOptions(projectId ? { projectId } : undefined),
     enabled: isMasterAgent && !isNew,
   })
+
+  // 逻辑：memory 查询结果同步到本地编辑 state，有内容时默认预览，空内容默认编辑。
+  useEffect(() => {
+    if (memoryQuery.data && !memorySynced) {
+      setMemoryContent(memoryQuery.data.content)
+      setMemoryPreview(Boolean(memoryQuery.data.content))
+      setMemorySynced(true)
+    }
+  }, [memoryQuery.data, memorySynced])
+
+  const saveMemoryMutation = useMutation({
+    ...trpc.settings.saveMemory.mutationOptions(),
+    onSuccess: () => {
+      toast.success(t('settings:agent.panel.memorySaved'))
+      memoryQuery.refetch()
+    },
+  })
+
+  const handleSaveMemory = useCallback(() => {
+    saveMemoryMutation.mutate({
+      content: memoryContent,
+      projectId: projectId || undefined,
+    })
+  }, [memoryContent, projectId, saveMemoryMutation])
 
   // 逻辑：详情加载后回填表单并保存初始快照。
   useEffect(() => {
@@ -1267,7 +1294,17 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       return (
         <div
           key={group.id}
-          className={`relative flex flex-col rounded-2xl p-3 transition-colors ${bgClass}`}
+          className={`relative flex cursor-pointer flex-col rounded-2xl p-3 transition-colors ${bgClass}`}
+          onClick={(e) => {
+            if ((e.target as HTMLElement).closest('[role="switch"]')) return
+            if ((e.target as HTMLElement).closest('input[type="checkbox"]')) return
+            setExpandedGroupIds((prev) =>
+              prev.includes(group.id)
+                ? prev.filter((id) => id !== group.id)
+                : [...prev, group.id],
+            )
+          }}
+          aria-expanded={isExpanded}
         >
           <div className="flex items-center gap-2">
             <CapIcon className={`h-4 w-4 shrink-0 ${capIconClass}`} />
@@ -1275,37 +1312,24 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             <span className="text-[10px] text-muted-foreground">
               {selectedCount}/{groupToolIds.length}
             </span>
-            <div className="ml-auto flex items-center gap-2">
-              <Switch
-                checked={isGroupEnabled(group)}
-                onCheckedChange={(checked) =>
-                  handleToggleGroup(group.id, Boolean(checked))
-                }
-              />
-              <button
-                type="button"
-                className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:bg-background/60 hover:text-foreground"
-                onClick={() =>
-                  setExpandedGroupIds((prev) =>
-                    prev.includes(group.id)
-                      ? prev.filter((id) => id !== group.id)
-                      : [...prev, group.id],
-                  )
-                }
-                aria-expanded={isExpanded}
-                aria-label={isExpanded ? t('settings:agent.panel.collapseCapGroup') : t('settings:agent.panel.expandCapGroup')}
-              >
-                <ChevronDown
-                  className={`h-3.5 w-3.5 transition-transform ${
-                    isExpanded ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-            </div>
+            <Switch
+              checked={isGroupEnabled(group)}
+              onCheckedChange={(checked) =>
+                handleToggleGroup(group.id, Boolean(checked))
+              }
+              className="ml-auto data-[state=checked]:bg-blue-500 dark:data-[state=checked]:bg-blue-500"
+            />
           </div>
-          <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground line-clamp-2">
-            {group.description}
-          </p>
+          <div className="mt-1.5 flex items-start gap-1">
+            <p className="min-w-0 flex-1 text-[10px] leading-relaxed text-muted-foreground line-clamp-2">
+              {group.description}
+            </p>
+            <ChevronDown
+              className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${
+                isExpanded ? 'rotate-180' : ''
+              }`}
+            />
+          </div>
           {isExpanded && tools.length > 0 ? (
             <div className="mt-2 space-y-1">
               {tools.map((tool) => {
@@ -1626,7 +1650,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     />
                   ) : (
                     <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500" onClick={() => setLoginOpen(true)}>
-                      <img src="/head_s.png" alt="OpenLoaf" className="mr-1 h-4 w-4" />
+                      <img src="/head_s.png" alt="OpenLoaf" className="mr-1 h-5 w-5" />
                       {t('settings:agent.panel.loginCloudShort')}
                     </Button>
                   )
@@ -1664,7 +1688,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     />
                   ) : (
                     <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500" onClick={() => setLoginOpen(true)}>
-                      <img src="/head_s.png" alt="OpenLoaf" className="mr-1 h-4 w-4" />
+                      <img src="/head_s.png" alt="OpenLoaf" className="mr-1 h-5 w-5" />
                       {t('settings:agent.panel.loginCloudShort')}
                     </Button>
                   )
@@ -1735,6 +1759,22 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       {promptPreview ? t('settings:agent.panel.promptEdit') : t('settings:agent.panel.promptPreview')}
                     </Button>
                   ) : null}
+                  {activeConfigTab === 'memory' ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 rounded-full px-3 text-xs bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/50 dark:hover:text-emerald-300"
+                      onClick={() => setMemoryPreview((v) => !v)}
+                    >
+                      {memoryPreview ? (
+                        <PencilLine className="mr-1 h-3.5 w-3.5" />
+                      ) : (
+                        <Eye className="mr-1 h-3.5 w-3.5" />
+                      )}
+                      {memoryPreview ? t('settings:agent.panel.promptEdit') : t('settings:agent.panel.promptPreview')}
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     size="sm"
@@ -1754,7 +1794,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     {enabledCapGroups.map(renderCapGroupCard)}
                   </div>
                   {enabledCapGroups.length > 0 && disabledCapGroups.length > 0 ? (
-                    <div className="border-t border-border/60" />
+                    <div className="my-6 border-t border-border/60" />
                   ) : null}
                   <div className="grid grid-cols-2 gap-3">
                     {disabledCapGroups.map(renderCapGroupCard)}
@@ -1848,19 +1888,46 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                   <div className="py-3">
                     {memoryQuery.isLoading ? (
                       <p className="text-xs text-muted-foreground">{t('settings:agent.panel.memoryLoading')}</p>
-                    ) : memoryQuery.data?.content ? (
-                      <OpenLoafSettingsCard padding="none">
-                        <pre className="whitespace-pre-wrap break-words p-4 font-mono text-xs leading-relaxed text-foreground/80">
-                          {memoryQuery.data.content}
-                        </pre>
-                      </OpenLoafSettingsCard>
                     ) : (
-                      <div className="flex flex-col items-center gap-2 py-6 text-muted-foreground">
-                        <Brain className="h-8 w-8 opacity-40" />
-                        <p className="text-xs">{t('settings:agent.panel.noMemory')}</p>
-                        <p className="text-[10px]">
-                          {t('settings:agent.panel.memoryHint')}
-                        </p>
+                      <div className="space-y-2">
+                        {memoryPreview ? (
+                          <OpenLoafSettingsCard padding="none">
+                            <div className="min-h-[400px] overflow-auto p-4">
+                              <Streamdown
+                                mode="static"
+                                className="streamdown-viewer space-y-3"
+                                remarkPlugins={PROMPT_REMARK_PLUGINS}
+                                shikiTheme={PROMPT_SHIKI_THEME}
+                              >
+                                {memoryContent || t('settings:agent.panel.memoryPlaceholder')}
+                              </Streamdown>
+                            </div>
+                          </OpenLoafSettingsCard>
+                        ) : (
+                          <OpenLoafSettingsCard padding="none">
+                            <Textarea
+                              value={memoryContent}
+                              onChange={(e) => setMemoryContent(e.target.value)}
+                              placeholder={t('settings:agent.panel.memoryPlaceholder')}
+                              rows={16}
+                              className="min-h-[400px] resize-none border-0 bg-transparent font-mono text-xs shadow-none focus-visible:ring-0"
+                              style={{ height: `${Math.max(400, (memoryContent.split('\n').length + 2) * 18)}px` }}
+                            />
+                          </OpenLoafSettingsCard>
+                        )}
+                        {!memoryPreview ? (
+                          <div className="flex justify-end">
+                            <Button
+                              size="sm"
+                              className="h-7 rounded-full px-4 text-xs bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                              onClick={handleSaveMemory}
+                              disabled={saveMemoryMutation.isPending || memoryContent === (memoryQuery.data?.content ?? '')}
+                            >
+                              <Save className="mr-1 h-3.5 w-3.5" />
+                              {saveMemoryMutation.isPending ? t('settings:agent.panel.memoryLoading') : t('settings:agent.panel.memorySaveBtn')}
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
                     )}
                   </div>

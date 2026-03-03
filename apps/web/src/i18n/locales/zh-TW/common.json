@@ -71,6 +71,18 @@
   "template": "範本",
   "connecting": "正在連接中…",
   "applyingUpdate": "正在套用更新…",
+  "updateGate": {
+    "title": "更新已準備好",
+    "descDesktop": "{{version}} 已準備好，點擊關閉應用程式後將自動更新並啟動。",
+    "descIncremental": "{{version}} 已準備好，重新啟動後即可完成更新。",
+    "loadingChangelog": "載入更新日誌...",
+    "later": "稍後",
+    "restartNow": "立即重新啟動",
+    "newVersion": "新版本",
+    "serverVersion": "服務端 v{{version}}",
+    "webVersion": "Web v{{version}}",
+    "desktopVersion": "Desktop v{{version}}"
+  },
   "crashScreen": {
     "title": "服務啟動失敗",
     "updateCrashedDesc": "更新版本（v{{version}}）的服務啟動失敗，已自動回退到內建版本。",

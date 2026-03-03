@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import path from 'node:path'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolveAgentDir } from '@/ai/shared/defaultAgentResolver'
 
 /** Default agent folder name. */
@@ -30,6 +30,14 @@ export function readMemoryFile(rootPath: string): string {
   } catch {
     return ''
   }
+}
+
+/** Write memory content to <rootPath>/.openloaf/agents/default/MEMORY.md. */
+export function writeMemoryFile(rootPath: string, content: string): void {
+  const agentDir = resolveAgentDir(rootPath, DEFAULT_AGENT_FOLDER)
+  mkdirSync(agentDir, { recursive: true })
+  const filePath = path.join(agentDir, MEMORY_FILE_NAME)
+  writeFileSync(filePath, content, 'utf8')
 }
 
 /**

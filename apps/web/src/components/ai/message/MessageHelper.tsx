@@ -66,18 +66,27 @@ export default function MessageHelper({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, workspaceId]);
 
+  // 缓存上一次的有效建议，加载期间保持不变避免布局弹跳
+  const prevSuggestionsRef = React.useRef<SuggestionItem[]>(staticSuggestions);
   const SUGGESTIONS: SuggestionItem[] = React.useMemo(() => {
     const dynamic = dynamicMutation.data?.suggestions;
     if (dynamic && dynamic.length > 0) {
-      return dynamic.map((item: { label: string; value: string }, index: number) => ({
+      const result = dynamic.map((item: { label: string; value: string }, index: number) => ({
         label: item.label,
         value: item.value,
         icon: ICON_ORDER[index % ICON_ORDER.length] || Sparkles,
         color: COLORS[index % COLORS.length] || "text-blue-500",
       }));
+      prevSuggestionsRef.current = result;
+      return result;
     }
+    // 加载中时保留上一次的建议，而非回退到静态建议
+    if (dynamicMutation.isPending) {
+      return prevSuggestionsRef.current;
+    }
+    prevSuggestionsRef.current = staticSuggestions;
     return staticSuggestions;
-  }, [dynamicMutation.data, staticSuggestions]);
+  }, [dynamicMutation.data, dynamicMutation.isPending, staticSuggestions]);
 
   const [hoveredIndex, setHoveredIndex] = React.useState(-1);
 
@@ -99,7 +108,7 @@ export default function MessageHelper({
   }, []);
 
   return (
-    <div className={cn("flex flex-col items-center", compact ? "gap-2" : "h-full justify-center")}>
+    <div className={cn("flex flex-col items-center", compact ? "min-h-[2rem] gap-2" : "h-full justify-center")}>
       {/* 推荐内容 - ExpandableDockTabs pill 风格 */}
       <div className={cn("mx-auto flex w-full items-center gap-2", compact ? "max-w-2xl flex-row flex-wrap justify-center" : "max-w-md flex-col")}>
         {!compact && (

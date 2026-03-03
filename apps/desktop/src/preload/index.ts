@@ -130,6 +130,9 @@ contextBridge.exposeInMainWorld('openloafElectron', {
   // 获取 desktop 整包更新状态快照。
   getAutoUpdateStatus: (): Promise<unknown> =>
     ipcRenderer.invoke('openloaf:auto-update:get-status'),
+  // 手动触发 desktop 整包更新检查。
+  checkDesktopUpdate: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('openloaf:auto-update:check'),
   // 重置增量更新到打包版本。
   resetIncrementalUpdate: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
     ipcRenderer.invoke('openloaf:incremental-update:reset'),

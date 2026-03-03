@@ -313,6 +313,16 @@ export const settingSchemas = {
       content: z.string(),
     }),
   },
+  /** Save memory content for the master agent. */
+  saveMemory: {
+    input: z.object({
+      content: z.string(),
+      projectId: z.string().optional(),
+    }),
+    output: z.object({
+      ok: z.boolean(),
+    }),
+  },
   /** Get skills for a sub-agent by name. */
   getAgentSkillsByName: {
     input: z.object({
@@ -598,6 +608,12 @@ export abstract class BaseSettingRouter {
         .input(settingSchemas.getMemory.input)
         .output(settingSchemas.getMemory.output)
         .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      saveMemory: shieldedProcedure
+        .input(settingSchemas.saveMemory.input)
+        .output(settingSchemas.saveMemory.output)
+        .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),
       getAgentSkillsByName: shieldedProcedure

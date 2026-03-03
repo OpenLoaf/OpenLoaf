@@ -203,12 +203,16 @@ export function AboutOpenLoaf() {
     }
   }, [isElectron]);
 
-  /** Trigger incremental update check. */
+  /** Trigger update check: desktop first, then incremental. */
   const triggerUpdateAction = React.useCallback(async () => {
     const api = window.openloafElectron;
     // 开发模式禁用更新检查，避免触发无效请求。
     if (!isElectron || isDevDesktop || !api) return;
-    await api.checkIncrementalUpdate?.();
+    // 优先触发 desktop 整包更新检查，同时也检查增量更新。
+    await Promise.all([
+      api.checkDesktopUpdate?.(),
+      api.checkIncrementalUpdate?.(),
+    ]);
   }, [isElectron, isDevDesktop]);
 
   /** Fetch WebContentsView count from Electron main process via IPC. */
@@ -410,16 +414,19 @@ export function AboutOpenLoaf() {
     }
   }, [isElectron, isDevDesktop, isDesktopUpdating, updateStatus, downloadPercent, t]);
 
+  const isChecking = updateStatus?.state === "checking" || autoUpdateStatus?.state === "checking";
   const updateActionLabel = isDevDesktop
     ? t('aboutAdditions.devModeUnavailable')
     : updateStatus?.state === "ready"
       ? t('aboutAdditions.updateReady')
-      : t('aboutAdditions.checkUpdate');
+      : isChecking
+        ? t('aboutAdditions.checking')
+        : t('aboutAdditions.checkUpdate');
   const updateActionDisabled =
     !isElectron ||
     isDevDesktop ||
     isDesktopUpdating ||
-    updateStatus?.state === "checking" ||
+    isChecking ||
     updateStatus?.state === "downloading" ||
     updateStatus?.state === "ready";
 
