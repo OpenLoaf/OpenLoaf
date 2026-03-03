@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -148,6 +148,45 @@ function getUnixUserPaths(): string[] {
   return paths;
 }
 
+/** 从 Windows 注册表读取最新的 PATH 值。 */
+function getWindowsRegistryPath(): string | null {
+  try {
+    // 通过 PowerShell 读取用户级和系统级 PATH，确保拿到最新值。
+    // Electron GUI 应用从 Explorer 启动时继承的 PATH 可能是过期的缓存值，
+    // 而注册表中的值才是安装工具后更新过的真实值。
+    const result = execSync(
+      'powershell.exe -NoProfile -NonInteractive -Command "[Environment]::GetEnvironmentVariable(\'Path\', \'Machine\') + \';\' + [Environment]::GetEnvironmentVariable(\'Path\', \'User\')"',
+      {
+        encoding: 'utf8',
+        timeout: 5000,
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
+      },
+    );
+    return result.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** 动态扫描 Python 安装目录（支持任意版本）。 */
+function scanWindowsPythonPaths(localAppData: string): string[] {
+  const pythonBase = path.join(localAppData, 'Programs', 'Python');
+  const paths: string[] = [];
+  try {
+    if (!existsSync(pythonBase)) return paths;
+    const entries = readdirSync(pythonBase, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !entry.name.startsWith('Python')) continue;
+      paths.push(path.join(pythonBase, entry.name));
+      paths.push(path.join(pythonBase, entry.name, 'Scripts'));
+    }
+  } catch {
+    // 扫描失败时不阻塞。
+  }
+  return paths;
+}
+
 /** 获取 Windows 常见的用户级 bin 目录。 */
 function getWindowsUserPaths(): string[] {
   const home = os.homedir();
@@ -164,13 +203,25 @@ function getWindowsUserPaths(): string[] {
   // yarn 全局目录。
   paths.push(path.join(localAppData, 'Yarn', 'bin'));
 
-  // Python（用户安装）。
-  paths.push(path.join(localAppData, 'Programs', 'Python', 'Python312', 'Scripts'));
-  paths.push(path.join(localAppData, 'Programs', 'Python', 'Python311', 'Scripts'));
-  paths.push(path.join(localAppData, 'Programs', 'Python', 'Python310', 'Scripts'));
-  paths.push(path.join(localAppData, 'Programs', 'Python', 'Python312'));
-  paths.push(path.join(localAppData, 'Programs', 'Python', 'Python311'));
-  paths.push(path.join(localAppData, 'Programs', 'Python', 'Python310'));
+  // Python（动态扫描所有版本）。
+  paths.push(...scanWindowsPythonPaths(localAppData));
+
+  // Python（系统级安装常见路径）。
+  paths.push('C:\\Python3\\Scripts');
+  paths.push('C:\\Python3');
+
+  // Windows App Execution Aliases（Microsoft Store 安装的 Python 等）。
+  paths.push(path.join(localAppData, 'Microsoft', 'WindowsApps'));
+
+  // pyenv-win。
+  paths.push(path.join(home, '.pyenv', 'pyenv-win', 'bin'));
+  paths.push(path.join(home, '.pyenv', 'pyenv-win', 'shims'));
+
+  // conda / miniconda。
+  paths.push(path.join(home, 'miniconda3'));
+  paths.push(path.join(home, 'miniconda3', 'Scripts'));
+  paths.push(path.join(home, 'anaconda3'));
+  paths.push(path.join(home, 'anaconda3', 'Scripts'));
 
   // scoop。
   paths.push(path.join(home, 'scoop', 'shims'));
@@ -218,8 +269,13 @@ function getNpmGlobalPrefix(): string | null {
 export function fixPath(): string {
   const originalPath = process.env.PATH ?? '';
 
-  // Windows：追加常见用户目录。
+  // Windows：先从注册表读取最新 PATH，再追加常见用户目录。
   if (process.platform === 'win32') {
+    const registryPath = getWindowsRegistryPath();
+    if (registryPath) {
+      const registryPaths = registryPath.split(';').filter(Boolean);
+      appendToPath(registryPaths);
+    }
     appendToPath(getWindowsUserPaths());
     return process.env.PATH ?? originalPath;
   }
