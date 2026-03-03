@@ -32,7 +32,7 @@ export function useTaskNotifications() {
   const { data: tasks } = useQuery(
     trpc.scheduledTask.list.queryOptions(
       workspace ? { workspaceId: workspace.id } : skipToken,
-      { refetchInterval: 15000 },
+      { refetchInterval: 60_000 },
     ),
   )
 

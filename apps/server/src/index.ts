@@ -7,8 +7,14 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import dns from "node:dns";
 import "dotenv/config";
 import { fixServerPath } from "@/common/fixServerPath";
+
+// 强制 DNS 解析优先返回 IPv4 地址。
+// Electron 子进程中 IPv6 连接经常超时（Happy Eyeballs 耗尽 connect timeout），
+// 导致 SaaS 请求（Cloudflare 双栈域名）因 ConnectTimeoutError 失败。
+dns.setDefaultResultOrder("ipv4first");
 import { startServer } from "@/bootstrap/startServer";
 import { installHttpProxy } from "@/modules/proxy/httpProxy";
 import { syncSystemProxySettings } from "@/modules/proxy/systemProxySync";

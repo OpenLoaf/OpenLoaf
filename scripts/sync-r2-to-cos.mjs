@@ -72,6 +72,34 @@ console.log(`📡 R2:  ${r2Config.bucket}`)
 console.log(`☁️  COS: ${cosConfig.bucket}`)
 
 // ---------------------------------------------------------------------------
+// 可变文件判断
+// ---------------------------------------------------------------------------
+
+/**
+ * 判断一个 key 是否是可变文件（每次发布都会更新）。
+ *
+ * 可变文件（增量模式下也总是覆盖）：
+ *   - stable/manifest.json, beta/manifest.json — 渠道指针，每次发布都更新
+ *   - desktop/latest-*.yml, desktop/latest.yml — 根目录向后兼容，promote 时更新
+ *   - desktop/stable/latest-*.yml, desktop/beta/latest-*.yml — 渠道目录，每次发布更新
+ *
+ * 不可变文件（版本目录内产物，写入后永远不变）：
+ *   - desktop/{version}/...（安装包、manifest、changelog、yml）
+ *   - server/{version}/server.mjs.gz
+ *   - web/{version}/web.tar.gz
+ */
+function isMutable(key) {
+  // 渠道级 manifest
+  if (/^(stable|beta)\/manifest\.json$/.test(key)) return true
+
+  // desktop 根目录或渠道目录（stable/ / beta/）下的 latest-*.yml
+  // 注意：版本目录（如 desktop/0.1.1-beta.1/latest-mac.yml）不匹配
+  if (/^desktop\/(stable\/|beta\/)?latest(-[a-z0-9-]+)?\.yml$/.test(key)) return true
+
+  return false
+}
+
+// ---------------------------------------------------------------------------
 // 工具函数
 // ---------------------------------------------------------------------------
 
@@ -147,14 +175,23 @@ async function main() {
     console.log('\n🔍 Checking COS for existing objects...')
     toSync = []
     let checked = 0
+    let mutableCount = 0
     for (const obj of r2Objects) {
       checked++
       process.stdout.write(`\r   Checking ${checked}/${r2Objects.length}...`)
+      // 可变文件（manifest.json、latest-*.yml）总是覆盖，无需检查 COS 是否存在
+      if (isMutable(obj.key)) {
+        toSync.push(obj)
+        mutableCount++
+        continue
+      }
       const exists = await existsInCos(obj.key)
       if (!exists) toSync.push(obj)
     }
+    const newCount = toSync.length - mutableCount
+    const skipCount = r2Objects.length - toSync.length
     console.log(
-      `\r   ${toSync.length} new, ${r2Objects.length - toSync.length} already exist          `
+      `\r   ${mutableCount} mutable (always overwrite), ${newCount} new, ${skipCount} already exist          `
     )
   }
 

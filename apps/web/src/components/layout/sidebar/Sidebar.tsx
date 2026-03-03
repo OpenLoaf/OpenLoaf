@@ -100,7 +100,7 @@ export const AppSidebar = ({
       activeWorkspace
         ? { workspaceId: activeWorkspace.id, status: ['review'] }
         : skipToken,
-      { refetchInterval: 30000 },
+      { refetchInterval: 60_000 },
     ),
   );
   const reviewTaskCount = reviewTasksQuery.data?.length ?? 0;

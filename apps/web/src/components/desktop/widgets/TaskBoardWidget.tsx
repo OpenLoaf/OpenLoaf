@@ -47,7 +47,7 @@ export default function TaskBoardWidget() {
   const { data: tasks, isLoading } = useQuery(
     trpc.scheduledTask.list.queryOptions(
       workspaceId ? { workspaceId } : skipToken,
-      { refetchInterval: 15000 },
+      { refetchInterval: 60_000 },
     ),
   );
 

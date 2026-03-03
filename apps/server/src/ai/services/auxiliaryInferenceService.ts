@@ -174,9 +174,9 @@ export async function auxiliaryInfer<T extends z.ZodType>({
       chatModelSource: conf.modelSource,
     })
 
-    // Call with 3s timeout
+    // Call with 10s timeout
     const abortController = new AbortController()
-    const timeout = setTimeout(() => abortController.abort(), 3000)
+    const timeout = setTimeout(() => abortController.abort(), 10_000)
 
     try {
       const result = await generateObject({
@@ -295,7 +295,7 @@ export async function auxiliaryInferText({
     })
 
     const abortController = new AbortController()
-    const timeout = setTimeout(() => abortController.abort(), 3000)
+    const timeout = setTimeout(() => abortController.abort(), 10_000)
 
     try {
       const result = await generateText({
