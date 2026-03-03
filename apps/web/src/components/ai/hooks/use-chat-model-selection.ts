@@ -66,7 +66,6 @@ export function useChatModelSelection(_tabId?: string, projectId?: string) {
   const canImageGeneration = false;
   const canImageEdit = supportsImageInput(selectedModel);
   const isCodexProvider = selectedModel?.providerId === "codex-cli";
-  const isClaudeCodeProvider = selectedModel?.providerId === "claude-code-cli";
 
   return {
     chatModelSource,
@@ -80,7 +79,6 @@ export function useChatModelSelection(_tabId?: string, projectId?: string) {
     canImageGeneration,
     canImageEdit,
     isCodexProvider,
-    isClaudeCodeProvider,
     imageModelId: masterDetail?.imageModelIds?.[0]?.trim() || undefined,
     videoModelId: masterDetail?.videoModelIds?.[0]?.trim() || undefined,
   };

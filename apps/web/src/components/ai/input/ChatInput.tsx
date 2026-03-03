@@ -74,7 +74,6 @@ import { resolveServerUrl } from "@/utils/server-url";
 import { toast } from "sonner";
 import ChatImageOutputOption, { type ChatImageOutputTarget } from "./ChatImageOutputOption";
 import CodexOption from "./CodexOption";
-import ClaudeCodeOption from "./ClaudeCodeOption";
 import { useSpeechDictation } from "@/hooks/use-speech-dictation";
 import ChatCommandMenu, { type ChatCommandMenuHandle } from "./ChatCommandMenu";
 import { useChatMessageComposer } from "../hooks/use-chat-message-composer";
@@ -112,8 +111,6 @@ interface ChatInputProps {
   canImageGeneration?: boolean;
   canImageEdit?: boolean;
   isCodexProvider?: boolean;
-  isClaudeCodeProvider?: boolean;
-  claudeCodeModelId?: string;
   onDropHandled?: () => void;
   /** When true, hides icon/title/subtitle in blocked state (used in centered layout). */
   blockedCompact?: boolean;
@@ -1137,8 +1134,6 @@ export default function ChatInput({
   blockedCompact,
   canImageEdit,
   isCodexProvider,
-  isClaudeCodeProvider,
-  claudeCodeModelId,
   onDropHandled,
 }: ChatInputProps) {
   const { t } = useTranslation('ai');
@@ -1408,7 +1403,6 @@ export default function ChatInput({
   const resolvedCanImageGeneration = Boolean(canImageGeneration);
   const resolvedCanImageEdit = Boolean(canImageEdit);
   const resolvedIsCodexProvider = Boolean(isCodexProvider);
-  const resolvedIsClaudeCodeProvider = Boolean(isClaudeCodeProvider);
   // 模型声明图片生成时显示图片输出选项。
   const showImageOutputOptions = resolvedCanImageGeneration;
   const allowAll = Boolean(canAttachAll);
@@ -1576,7 +1570,7 @@ export default function ChatInput({
         blockedCompact={blockedCompact}
         uploadFileToSession={uploadFileToSession}
         header={
-          !isUnconfigured && (showImageOutputOptions || isCodexProvider || resolvedIsClaudeCodeProvider) ? (
+          !isUnconfigured && (showImageOutputOptions || isCodexProvider) ? (
             <div className="flex flex-col gap-2">
               {showImageOutputOptions ? (
                 <ChatImageOutputOption
@@ -1586,9 +1580,6 @@ export default function ChatInput({
                 />
               ) : null}
               {resolvedIsCodexProvider ? <CodexOption variant="inline" /> : null}
-              {resolvedIsClaudeCodeProvider ? (
-                <ClaudeCodeOption variant="inline" modelId={claudeCodeModelId} />
-              ) : null}
             </div>
           ) : null
         }

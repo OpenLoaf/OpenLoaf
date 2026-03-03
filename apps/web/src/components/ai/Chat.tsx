@@ -405,8 +405,6 @@ function ChatFullPageLayout({
   canImageGeneration,
   canImageEdit,
   isCodexProvider,
-  isClaudeCodeProvider,
-  claudeCodeModelId,
   onDropHandled,
   handleDragEnter,
   handleDragOver,
@@ -428,8 +426,6 @@ function ChatFullPageLayout({
   canImageGeneration: boolean
   canImageEdit: boolean
   isCodexProvider: boolean
-  isClaudeCodeProvider: boolean
-  claudeCodeModelId?: string
   onDropHandled: () => void
   handleDragEnter: (e: React.DragEvent) => void
   handleDragOver: (e: React.DragEvent) => void
@@ -488,8 +484,6 @@ function ChatFullPageLayout({
                 canImageGeneration={canImageGeneration}
                 canImageEdit={canImageEdit}
                 isCodexProvider={isCodexProvider}
-                isClaudeCodeProvider={isClaudeCodeProvider}
-                claudeCodeModelId={claudeCodeModelId}
                 onDropHandled={onDropHandled}
                 blockedCompact
               />
@@ -518,8 +512,6 @@ function ChatFullPageLayout({
             canImageGeneration={canImageGeneration}
             canImageEdit={canImageEdit}
             isCodexProvider={isCodexProvider}
-            isClaudeCodeProvider={isClaudeCodeProvider}
-            claudeCodeModelId={claudeCodeModelId}
             onDropHandled={onDropHandled}
           />
         </div>
@@ -624,7 +616,6 @@ export function Chat({
     canImageGeneration,
     canImageEdit,
     isCodexProvider,
-    isClaudeCodeProvider,
     imageModelId,
     videoModelId,
   } = useChatModelSelection(tabId, projectId);
@@ -1204,8 +1195,6 @@ export function Chat({
     canImageGeneration,
     canImageEdit,
     isCodexProvider,
-    isClaudeCodeProvider,
-    claudeCodeModelId: isClaudeCodeProvider ? selectedModel?.id : undefined,
     onDropHandled: resetDragState,
   };
 
