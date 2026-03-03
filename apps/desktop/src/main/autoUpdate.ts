@@ -15,6 +15,7 @@ import {
 } from 'electron-updater'
 import type { Logger } from './logging/startupLogger'
 import { resolveElectronFeedUrl } from './updateConfig'
+import { skipQuitConfirmation } from './windows/mainWindow'
 
 /** Auto update options. */
 type AutoUpdateOptions = {
@@ -188,6 +189,8 @@ export function restartForUpdates(): AutoUpdateResult {
   }
 
   try {
+    // 跳过退出确认弹窗，直接退出安装更新。
+    skipQuitConfirmation()
     if (lastStatus.state === 'downloaded') {
       // 中文注释：若已下载本体更新，优先走 autoUpdater 安装。
       autoUpdater.quitAndInstall()

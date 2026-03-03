@@ -461,7 +461,7 @@ export function AboutOpenLoaf() {
                   size="sm"
                   onClick={() => void window.openloafElectron?.relaunchApp?.()}
                 >
-                  {t('aboutAdditions.updateReady')}
+                  {t('aboutAdditions.installNow')}
                 </Button>
               )}
             </div>

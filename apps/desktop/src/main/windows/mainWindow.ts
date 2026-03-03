@@ -14,6 +14,14 @@ import type { ServiceManager } from '../services/serviceManager';
 import { waitForUrlOk } from '../services/urlHealth';
 import { WEBPACK_ENTRIES } from '../webpackEntries';
 
+// 模块级标志：外部可通过 skipQuitConfirmation() 跳过退出确认（如自动更新重启）。
+let _skipQuitConfirm = false;
+
+/** 跳过下次退出确认弹窗，供自动更新安装时调用。 */
+export function skipQuitConfirmation(): void {
+  _skipQuitConfirm = true;
+}
+
 /**
  * 在 loading 页面上显示错误信息，替换 "Launching" 文本和动画。
  */
@@ -251,6 +259,12 @@ export async function createMainWindow(args: {
   };
   const requestQuit = async () => {
     if (allowClose) return;
+    if (_skipQuitConfirm) {
+      allowClose = true;
+      scheduleForceExit();
+      app.quit();
+      return;
+    }
     const confirmed = await confirmQuit();
     if (!confirmed) {
       mainWindow.show();
@@ -262,13 +276,13 @@ export async function createMainWindow(args: {
     app.quit();
   };
   app.on('before-quit', (event) => {
-    if (allowClose) return;
+    if (allowClose || _skipQuitConfirm) return;
     event.preventDefault();
     // Cmd+Q 触发 before-quit：只有用户取消时才阻止退出。
     void requestQuit();
   });
   mainWindow.on('close', (event) => {
-    if (allowClose) return;
+    if (allowClose || _skipQuitConfirm) return;
     // 中文注释：关闭主窗口时弹出确认框，避免误退出。
     event.preventDefault();
     void requestQuit();

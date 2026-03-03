@@ -82,6 +82,7 @@ git status
 
 - 有未提交变更 → 总结内容，`git add -A && git commit -m "<summary>" && git push`
 - 工作区干净 → 跳过
+- ⚠️ **commit message 禁止包含 `[skip ci]`**：tag 所指向 commit 若含此标记，GitHub Actions 不会被触发
 
 #### Step 2: 通过 git tag 定位上次发布点（用于生成发布说明）
 
@@ -248,9 +249,17 @@ Step 2: 确认 changelog
   - apps/desktop/changelogs/{x.y.z-beta.n}/zh.md
   - apps/desktop/changelogs/{x.y.z-beta.n}/en.md
 
-Step 3: 打 beta tag → CI 自动构建
+Step 3: 升版本号并提交（⚠️ commit message 禁止包含 [skip ci]）
+  cd apps/desktop && npm version {x.y.z-beta.n} --no-git-tag-version
+  git add apps/desktop/package.json
+  git commit -m "chore(desktop): bump version to {x.y.z-beta.n}"
+
+  > ⚠️ 此 commit 是 tag 的目标，GitHub Actions 会检查 tag 所指向
+  > commit 的 message。若包含 [skip ci] 则 workflow 不会被触发。
+
+Step 4: 打 beta tag → CI 自动构建
   git tag desktop@{x.y.z-beta.n}
-  git push origin desktop@{x.y.z-beta.n}
+  git push origin main --tags
 
   CI 自动完成：
   ├── determine-mode → mode=beta
@@ -262,11 +271,11 @@ Step 3: 打 beta tag → CI 自动构建
   │   beta/manifest.json                    ← 轻量指针（只有版本号）
   └── create-release（GitHub Release，标记 prerelease=true）
 
-Step 4: Beta 用户安装测试
+Step 5: Beta 用户安装测试
 
-Step 5: 如有 bug → 打 desktop@{x.y.z-beta.2} → 重复 Step 3-4
+Step 6: 如有 bug → 打 desktop@{x.y.z-beta.2} → 重复 Step 3-5
 
-Step 6: 测试通过 → 打 stable tag 从 beta promote（不重新构建）
+Step 7: 测试通过 → 打 stable tag 从 beta promote（不重新构建）
   git tag desktop@{x.y.z}
   git push origin desktop@{x.y.z}
 

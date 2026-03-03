@@ -52,9 +52,14 @@ import {
   MessageSquare,
   Trash2,
   Brain,
+  Eye,
+  PencilLine,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { Streamdown, defaultRemarkPlugins, type StreamdownProps } from 'streamdown'
 import { toast } from 'sonner'
+
+import '@/components/file/style/streamdown-viewer.css'
 import { useTabs } from '@/hooks/use-tabs'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@openloaf/ui/tooltip'
@@ -79,6 +84,15 @@ import { ModelIcon } from '@/components/setting/menus/provider/ModelIcon'
 import type { AiModel } from '@openloaf-saas/sdk'
 import type { ProviderModelOption } from '@/lib/provider-models'
 import { useTranslation } from 'react-i18next'
+
+/** Streamdown 代码高亮主题。 */
+const PROMPT_SHIKI_THEME: NonNullable<StreamdownProps['shikiTheme']> = [
+  'github-light',
+  'github-dark-high-contrast',
+]
+
+/** Streamdown remark 插件列表。 */
+const PROMPT_REMARK_PLUGINS = Object.values(defaultRemarkPlugins)
 
 /** 能力组 ID → 彩色图标映射 */
 const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
@@ -609,6 +623,8 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const [allowSubAgents, setAllowSubAgents] = useState(false)
   const [maxDepth, setMaxDepth] = useState(1)
   const [systemPrompt, setSystemPrompt] = useState('')
+  const [promptPreview, setPromptPreview] = useState(true)
+  const [activeConfigTab, setActiveConfigTab] = useState('capabilities')
   const [loginOpen, setLoginOpen] = useState(false)
   const [defaultSnapshot, setDefaultSnapshot] = useState('')
 
@@ -1308,11 +1324,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     />
                     <div className="min-w-0">
                       <div className="truncate font-medium">{tool.label}</div>
-                      {tool.description ? (
-                        <p className="mt-0.5 line-clamp-1 text-[10px] text-muted-foreground">
-                          {tool.description}
-                        </p>
-                      ) : null}
                     </div>
                   </label>
                 )
@@ -1614,17 +1625,20 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       emptyText={t('settings:agent.panel.noImageModel')}
                     />
                   ) : (
-                    <Button size="sm" onClick={() => setLoginOpen(true)}>
+                    <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500" onClick={() => setLoginOpen(true)}>
+                      <img src="/head_s.png" alt="OpenLoaf" className="mr-1 h-4 w-4" />
                       {t('settings:agent.panel.loginCloudShort')}
                     </Button>
                   )
                 ) : null}
-                <Switch
-                  checked={hasImageGenerate}
-                  onCheckedChange={(checked) =>
-                    handleToggleTool('image-generate', Boolean(checked))
-                  }
-                />
+                {authLoggedIn ? (
+                  <Switch
+                    checked={hasImageGenerate}
+                    onCheckedChange={(checked) =>
+                      handleToggleTool('image-generate', Boolean(checked))
+                    }
+                  />
+                ) : null}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
@@ -1649,23 +1663,26 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       emptyText={t('settings:agent.panel.noVideoModel')}
                     />
                   ) : (
-                    <Button size="sm" onClick={() => setLoginOpen(true)}>
+                    <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500" onClick={() => setLoginOpen(true)}>
+                      <img src="/head_s.png" alt="OpenLoaf" className="mr-1 h-4 w-4" />
                       {t('settings:agent.panel.loginCloudShort')}
                     </Button>
                   )
                 ) : null}
-                <Switch
-                  checked={hasVideoGenerate}
-                  onCheckedChange={(checked) =>
-                    handleToggleTool('video-generate', Boolean(checked))
-                  }
-                />
+                {authLoggedIn ? (
+                  <Switch
+                    checked={hasVideoGenerate}
+                    onCheckedChange={(checked) =>
+                      handleToggleTool('video-generate', Boolean(checked))
+                    }
+                  />
+                ) : null}
               </div>
             </div>
           </OpenLoafSettingsCard>
 
           {/* Tabs: 能力组 / 技能 / 提示词 */}
-          <Tabs defaultValue="capabilities">
+          <Tabs value={activeConfigTab} onValueChange={setActiveConfigTab}>
             <div className="sticky top-0 z-10 bg-background">
               <div className="text-sm font-medium">{t('settings:agent.panel.configLabel')}</div>
               <div className="flex items-center justify-between gap-2">
@@ -1701,16 +1718,34 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     </TabsTrigger>
                   ) : null}
                 </TabsList>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 rounded-full px-3 text-xs"
-                  onClick={handleResetToDefault}
-                  disabled={!canReset}
-                >
-                  {t('settings:agent.panel.resetBtn')}
-                </Button>
+                <div className="flex items-center gap-1">
+                  {activeConfigTab === 'prompt' ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 rounded-full px-3 text-xs bg-amber-50 text-amber-600 hover:bg-amber-100 hover:text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-900/50 dark:hover:text-amber-300"
+                      onClick={() => setPromptPreview((v) => !v)}
+                    >
+                      {promptPreview ? (
+                        <PencilLine className="mr-1 h-3.5 w-3.5" />
+                      ) : (
+                        <Eye className="mr-1 h-3.5 w-3.5" />
+                      )}
+                      {promptPreview ? t('settings:agent.panel.promptEdit') : t('settings:agent.panel.promptPreview')}
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 rounded-full px-3 text-xs"
+                    onClick={handleResetToDefault}
+                    disabled={!canReset}
+                  >
+                    {t('settings:agent.panel.resetBtn')}
+                  </Button>
+                </div>
               </div>
             </div>
               <TabsContent value="capabilities" className="mt-0">
@@ -1780,15 +1815,31 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
 
               <TabsContent value="prompt" className="mt-0">
                 <div className="py-3">
-                  <OpenLoafSettingsCard padding="none">
-                    <Textarea
-                      value={systemPrompt}
-                      onChange={(e) => setSystemPrompt(e.target.value)}
-                      placeholder={t('settings:agent.panel.promptPlaceholder')}
-                      rows={16}
-                      className="border-0 bg-transparent font-mono text-xs shadow-none focus-visible:ring-0"
-                    />
-                  </OpenLoafSettingsCard>
+                  {promptPreview ? (
+                    <OpenLoafSettingsCard padding="none">
+                      <div className="min-h-[400px] overflow-auto p-4">
+                        <Streamdown
+                          mode="static"
+                          className="streamdown-viewer space-y-3"
+                          remarkPlugins={PROMPT_REMARK_PLUGINS}
+                          shikiTheme={PROMPT_SHIKI_THEME}
+                        >
+                          {systemPrompt || t('settings:agent.panel.promptPlaceholder')}
+                        </Streamdown>
+                      </div>
+                    </OpenLoafSettingsCard>
+                  ) : (
+                    <OpenLoafSettingsCard padding="none">
+                      <Textarea
+                        value={systemPrompt}
+                        onChange={(e) => setSystemPrompt(e.target.value)}
+                        placeholder={t('settings:agent.panel.promptPlaceholder')}
+                        rows={16}
+                        className="min-h-[400px] resize-none border-0 bg-transparent font-mono text-xs shadow-none focus-visible:ring-0"
+                        style={{ height: `${Math.max(400, (systemPrompt.split('\n').length + 2) * 18)}px` }}
+                      />
+                    </OpenLoafSettingsCard>
+                  )}
                 </div>
               </TabsContent>
 

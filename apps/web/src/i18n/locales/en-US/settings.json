@@ -286,6 +286,7 @@
     "checkUpdate": "Check for Updates",
     "devModeUnavailable": "Unavailable in dev mode",
     "updateReady": "Update Ready",
+    "installNow": "Install Now",
     "betaChannel": "Beta Channel",
     "betaChannelDesc": "Receive beta updates first. May include unfinished features.",
     "bundledVersion": "Built-in"
@@ -530,6 +531,8 @@
       "selectNone": "Select None",
       "noSkills": "No skills available",
       "promptPlaceholder": "System prompt in Markdown...",
+      "promptPreview": "Formatted Preview",
+      "promptEdit": "Edit",
       "memoryLoading": "Loading...",
       "noMemory": "No memory content",
       "memoryHint": "Create a MEMORY.md file in .openloaf/agents/default/ to add memory.",

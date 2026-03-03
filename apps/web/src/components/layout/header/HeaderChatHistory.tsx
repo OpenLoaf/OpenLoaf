@@ -143,7 +143,7 @@ export function HeaderChatHistory({ workspaceId }: HeaderChatHistoryProps) {
         <PopoverContent
           className="w-72 p-0"
           side="bottom"
-          align="end"
+          align="start"
           sideOffset={6}
         >
           <SessionList

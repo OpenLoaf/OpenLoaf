@@ -18,7 +18,7 @@ export default function StepUpGate({ children }: { children: React.ReactNode }) 
 
   // 临时：跳过 step-up 初始化流程，不再自动跳转或阻塞主界面。
   if (isLoading) {
-    return <LoadingScreen label="Loading app..." />;
+    return <LoadingScreen />;
   }
 
   return <>{children}</>;

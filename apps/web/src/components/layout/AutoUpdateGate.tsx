@@ -21,9 +21,13 @@ import {
 } from "@openloaf/ui/dialog";
 import { isElectronEnv } from "@/utils/is-electron-env";
 
+type UpdateSource = "incremental" | "desktop";
+
 type AutoUpdateGateState = {
   status: OpenLoafIncrementalUpdateStatus | null;
+  autoUpdateStatus: OpenLoafAutoUpdateStatus | null;
   open: boolean;
+  source: UpdateSource | null;
   changelog: string | null;
   changelogLoading: boolean;
 };
@@ -86,86 +90,104 @@ async function fetchChangelogs(baseUrls: string[]): Promise<string | null> {
 export default function AutoUpdateGate() {
   const [state, setState] = React.useState<AutoUpdateGateState>({
     status: null,
+    autoUpdateStatus: null,
     open: false,
+    source: null,
     changelog: null,
     changelogLoading: false,
   });
-  /** Last ready timestamp to avoid duplicate prompts. */
   const lastReadyTsRef = React.useRef<number | null>(null);
+  const lastAutoTsRef = React.useRef<number | null>(null);
   const isElectron = React.useMemo(() => isElectronEnv(), []);
 
-  /** Fetch initial incremental update status from the main process. */
-  const fetchInitialStatus = React.useCallback(async () => {
+  /** Fetch initial status from main process. */
+  React.useEffect(() => {
+    if (!isElectron) return;
     const api = window.openloafElectron;
-    if (!isElectron || !api?.getIncrementalUpdateStatus) return;
-    try {
-      const status = await api.getIncrementalUpdateStatus();
-      if (status) setState((prev) => ({ ...prev, status }));
-    } catch {
-      // ignore
-    }
+    void api?.getIncrementalUpdateStatus?.().then((s) => {
+      if (s) setState((prev) => ({ ...prev, status: s }));
+    }).catch(() => {});
+    void api?.getAutoUpdateStatus?.().then((s) => {
+      if (s) setState((prev) => ({ ...prev, autoUpdateStatus: s }));
+    }).catch(() => {});
   }, [isElectron]);
 
-  /** Handle incremental update status events from Electron main process. */
-  const handleStatusEvent = React.useCallback((event: Event) => {
-    const detail = (event as CustomEvent<OpenLoafIncrementalUpdateStatus>).detail;
-    if (!detail) return;
-    setState((prev) => ({ ...prev, status: detail }));
-  }, []);
+  /** Listen for status events. */
+  React.useEffect(() => {
+    if (!isElectron) return;
+    const onIncremental = (e: Event) => {
+      const detail = (e as CustomEvent<OpenLoafIncrementalUpdateStatus>).detail;
+      if (detail) setState((prev) => ({ ...prev, status: detail }));
+    };
+    const onAuto = (e: Event) => {
+      const detail = (e as CustomEvent<OpenLoafAutoUpdateStatus>).detail;
+      if (detail) setState((prev) => ({ ...prev, autoUpdateStatus: detail }));
+    };
+    window.addEventListener("openloaf:incremental-update:status", onIncremental);
+    window.addEventListener("openloaf:auto-update:status", onAuto);
+    return () => {
+      window.removeEventListener("openloaf:incremental-update:status", onIncremental);
+      window.removeEventListener("openloaf:auto-update:status", onAuto);
+    };
+  }, [isElectron]);
 
-  /** Restart the app to apply updates. */
+  // Desktop 整包更新下载完成 → 立即弹出提示
+  React.useEffect(() => {
+    if (!state.autoUpdateStatus || state.autoUpdateStatus.state !== "downloaded") return;
+    if (state.autoUpdateStatus.ts === lastAutoTsRef.current) return;
+    lastAutoTsRef.current = state.autoUpdateStatus.ts;
+    setState((prev) => ({
+      ...prev,
+      open: true,
+      source: "desktop",
+      changelog: null,
+      changelogLoading: false,
+    }));
+  }, [state.autoUpdateStatus]);
+
+  // 增量更新就绪 → 弹出提示（desktop 更新优先）
+  React.useEffect(() => {
+    if (!state.status || state.status.state !== "ready") return;
+    if (state.status.ts === lastReadyTsRef.current) return;
+    // Desktop 更新下载完成时不弹增量更新提示
+    if (state.autoUpdateStatus?.state === "downloaded") return;
+    lastReadyTsRef.current = state.status.ts;
+
+    const urls: string[] = [];
+    if (state.status.server?.changelogUrl) urls.push(state.status.server.changelogUrl);
+    if (state.status.web?.changelogUrl) urls.push(state.status.web.changelogUrl);
+
+    if (urls.length > 0) {
+      setState((prev) => ({ ...prev, open: true, source: "incremental", changelog: null, changelogLoading: true }));
+      void fetchChangelogs(urls).then((changelog) => {
+        setState((prev) => ({ ...prev, changelog, changelogLoading: false }));
+      });
+    } else {
+      setState((prev) => ({ ...prev, open: true, source: "incremental", changelog: null, changelogLoading: false }));
+    }
+  }, [state.status, state.autoUpdateStatus]);
+
+  /** Restart the app to apply updates (skips quit confirmation). */
   const handleRelaunch = React.useCallback(async () => {
     const api = window.openloafElectron;
     if (!isElectron || !api?.relaunchApp) return;
     await api.relaunchApp();
   }, [isElectron]);
 
-  React.useEffect(() => {
-    if (!isElectron) return;
-    void fetchInitialStatus();
-  }, [isElectron, fetchInitialStatus]);
-
-  React.useEffect(() => {
-    if (!isElectron) return;
-    window.addEventListener("openloaf:incremental-update:status", handleStatusEvent);
-    return () =>
-      window.removeEventListener("openloaf:incremental-update:status", handleStatusEvent);
-  }, [isElectron, handleStatusEvent]);
-
-  React.useEffect(() => {
-    if (!state.status || state.status.state !== "ready") return;
-    // 防止重复弹窗；同一条下载事件只提示一次。
-    if (state.status.ts === lastReadyTsRef.current) return;
-    lastReadyTsRef.current = state.status.ts;
-
-    // 收集 changelog URLs
-    const urls: string[] = [];
-    if (state.status.server?.changelogUrl) urls.push(state.status.server.changelogUrl);
-    if (state.status.web?.changelogUrl) urls.push(state.status.web.changelogUrl);
-
-    if (urls.length > 0) {
-      setState((prev) => ({ ...prev, open: true, changelog: null, changelogLoading: true }));
-      void fetchChangelogs(urls).then((changelog) => {
-        setState((prev) => ({ ...prev, changelog, changelogLoading: false }));
-      });
-    } else {
-      setState((prev) => ({ ...prev, open: true, changelog: null, changelogLoading: false }));
-    }
-  }, [state.status]);
-
   if (!isElectron) return null;
 
+  const isDesktopUpdate = state.source === "desktop";
   const nextVersionLabel = React.useMemo(() => {
+    if (isDesktopUpdate) {
+      const v = state.autoUpdateStatus?.nextVersion;
+      return v ? `Desktop v${v}` : "新版本";
+    }
     if (!state.status) return "新版本";
     const parts: string[] = [];
-    if (state.status.server?.newVersion) {
-      parts.push(`服务端 v${state.status.server.newVersion}`);
-    }
-    if (state.status.web?.newVersion) {
-      parts.push(`Web v${state.status.web.newVersion}`);
-    }
+    if (state.status.server?.newVersion) parts.push(`服务端 v${state.status.server.newVersion}`);
+    if (state.status.web?.newVersion) parts.push(`Web v${state.status.web.newVersion}`);
     return parts.length > 0 ? parts.join(" / ") : "新版本";
-  }, [state.status]);
+  }, [isDesktopUpdate, state.status, state.autoUpdateStatus]);
 
   return (
     <Dialog
@@ -179,9 +201,9 @@ export default function AutoUpdateGate() {
             {nextVersionLabel} 已准备好，重启后即可完成更新。
           </DialogDescription>
         </DialogHeader>
-        {state.changelogLoading ? (
+        {!isDesktopUpdate && state.changelogLoading ? (
           <div className="py-2 text-xs text-muted-foreground">加载更新日志...</div>
-        ) : state.changelog ? (
+        ) : !isDesktopUpdate && state.changelog ? (
           <div className="max-h-48 overflow-y-auto rounded-md border p-3">
             <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-xs">
               {state.changelog}

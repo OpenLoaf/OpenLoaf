@@ -73,8 +73,8 @@ export const Header = () => {
     (navigator.platform.includes("Mac") || navigator.userAgent.includes("Mac"));
   const trafficLightsWidth = isElectron && isMac ? "72px" : "0px";
   const collapsedSidebarWidthClass = isMac
-    ? "w-[max(5rem,calc(6rem-var(--macos-traffic-lights-width)))] "
-    : "w-[4.5rem] ";
+    ? "w-[max(7rem,calc(8rem-var(--macos-traffic-lights-width)))] "
+    : "w-[6.5rem] ";
 
   const canToggleChat = Boolean(activeTab?.base);
   const isChatCollapsed = Boolean(activeTab?.rightChatCollapsed);
@@ -96,7 +96,7 @@ export const Header = () => {
       }
     >
       <div
-        className={`flex shrink-0 h-(--header-height) items-center transition-[width] duration-200 ease-linear ${
+        className={`flex shrink-0 h-(--header-height) items-center gap-1 px-1 transition-[width] duration-200 ease-linear ${
           leftOpen
             ? "w-[calc(var(--sidebar-width)-var(--macos-traffic-lights-width))] "
             : collapsedSidebarWidthClass
@@ -106,7 +106,7 @@ export const Header = () => {
           <TooltipTrigger asChild>
             <Button
               data-no-drag="true"
-              className="ml-1 h-8 w-8 shrink-0"
+              className="mr-auto h-8 w-8 shrink-0"
               variant="ghost"
               size="icon"
               onClick={toggleSidebar}
@@ -122,7 +122,6 @@ export const Header = () => {
             {t('header.toggleSidebar', { shortcut: sidebarShortcut })}
           </TooltipContent>
         </Tooltip>
-        <div className="flex-1"></div>
         {workspaceId && <HeaderChatHistory workspaceId={workspaceId} />}
         <Tooltip>
           <TooltipTrigger asChild>

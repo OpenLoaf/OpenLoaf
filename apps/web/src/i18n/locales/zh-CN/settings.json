@@ -286,6 +286,7 @@
     "checkUpdate": "检测更新",
     "devModeUnavailable": "开发模式不可用",
     "updateReady": "更新已就绪",
+    "installNow": "立即安装",
     "betaChannel": "Beta 体验",
     "betaChannelDesc": "开启后优先获取测试版更新，可能包含未完善的功能",
     "bundledVersion": "内置版本"
@@ -530,6 +531,8 @@
       "selectNone": "全不选",
       "noSkills": "暂无可用技能",
       "promptPlaceholder": "Markdown 格式的系统提示词...",
+      "promptPreview": "格式化预览",
+      "promptEdit": "编辑",
       "memoryLoading": "加载中...",
       "noMemory": "暂无记忆内容",
       "memoryHint": "在 .openloaf/agents/default/ 目录下创建 MEMORY.md 文件以添加记忆。",
