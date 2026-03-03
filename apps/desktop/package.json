@@ -1,7 +1,7 @@
 {
   "name": "desktop",
   "productName": "OpenLoaf",
-  "version": "0.2.4-beta.8",
+  "version": "0.2.4-beta.9",
   "description": "OpenLoaf desktop app",
   "main": ".webpack/main",
   "build": {
