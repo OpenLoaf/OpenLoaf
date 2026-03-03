@@ -12,9 +12,7 @@
     },
     "mac": {
       "artifactName": "${productName}-${version}-MacOS-${arch}.${ext}",
-      "signOptions": {
-        "timestamp": "http://timestamp.apple.com/ts01"
-      }
+      "timestamp": "http://timestamp.apple.com/ts01"
     },
     "linux": {
       "target": [
