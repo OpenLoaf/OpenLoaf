@@ -344,6 +344,7 @@ function ChatFullPageLayout({
   onNewSession,
   onCloseSession,
   projectId,
+  workspaceId,
   attachments,
   onAddAttachments,
   onRemoveAttachment,
@@ -365,6 +366,7 @@ function ChatFullPageLayout({
   onNewSession?: () => void
   onCloseSession?: () => void
   projectId?: string
+  workspaceId?: string
   attachments: ChatAttachment[]
   onAddAttachments: (files: FileList | ChatAttachmentInput[]) => void
   onRemoveAttachment: (id: string) => void
@@ -439,7 +441,7 @@ function ChatFullPageLayout({
                 blockedCompact
               />
               <div className="mt-4">
-                <MessageHelper compact projectId={projectId} />
+                <MessageHelper compact projectId={projectId} workspaceId={workspaceId || undefined} />
               </div>
             </div>
           </div>
@@ -447,7 +449,7 @@ function ChatFullPageLayout({
         </div>
       ) : (
         <div className="flex flex-1 flex-col min-h-0">
-          <MessageList className="flex-1 min-h-0" projectId={projectId} />
+          <MessageList className="flex-1 min-h-0" projectId={projectId} workspaceId={workspaceId || undefined} />
           <RecentSessionsBar />
           <ChatInput
             className="mx-2 mb-2"
@@ -1165,6 +1167,7 @@ export function Chat({
           onNewSession={onNewSession}
           onCloseSession={onCloseSession}
           projectId={projectId}
+          workspaceId={workspaceId || undefined}
           {...sharedInputProps}
           handleDragEnter={handleDragEnter}
           handleDragOver={handleDragOver}
@@ -1184,7 +1187,7 @@ export function Chat({
             onCloseSession={onCloseSession}
             iconPalette="email"
           />
-          <MessageList className="flex-1 min-h-0" projectId={projectId} />
+          <MessageList className="flex-1 min-h-0" projectId={projectId} workspaceId={workspaceId || undefined} />
           <RecentSessionsBar />
           <ChatInput
             className="mx-2 mb-2"

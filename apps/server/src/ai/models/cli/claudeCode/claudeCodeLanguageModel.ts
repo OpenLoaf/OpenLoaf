@@ -27,9 +27,7 @@ import {
 } from "@/ai/shared/context/requestContext";
 import { getProjectRootPath, getWorkspaceRootPathById } from "@openloaf/api/services/vfsService";
 import { execa } from "execa";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-// 逻辑：MCP SDK 的 ZodRawShapeCompat 兼容 zod/v3 类型签名，须从该路径导入。
-import { z } from "zod/v3";
+import { z } from "zod";
 import {
   registerPendingCliQuestion,
 } from "./pendingCliQuestions";
@@ -213,7 +211,7 @@ async function* createClaudeCodeStream(
   options: LanguageModelV3CallOptions,
 ): AsyncGenerator<LanguageModelV3StreamPart> {
   // 逻辑：动态导入 SDK，避免顶层加载时 CLI 未安装导致崩溃。
-  const { query } = await import("@anthropic-ai/claude-agent-sdk");
+  const { query, createSdkMcpServer } = await import("@anthropic-ai/claude-agent-sdk");
 
   const sessionId = getSessionId();
   const promptText = extractPromptText(options.prompt);
@@ -240,67 +238,78 @@ async function* createClaudeCodeStream(
     "[cli] claude-code stream start",
   );
 
-  // 构建进程内 MCP server，提供 AskUserQuestion 工具，使 AI 能暂停等待用户交互。
-  const openloafMcpServer = new McpServer({ name: "openloaf", version: "1.0" });
-  // biome-ignore lint/suspicious/noExplicitAny: 绕过 MCP SDK 深层 Zod 泛型推断，TS2589 类型递归超限
-  ;(openloafMcpServer as any).tool(
-    "AskUserQuestion",
-    "Ask the user questions and wait for their response before continuing. Use this to gather user input, preferences, or clarifications.",
-    {
-      // 逻辑：使用简单类型避免深层嵌套 Zod schema 导致 TS 推断超限。
-      questions: z.string().describe("JSON array of question objects with question, header, options[], multiSelect"),
-    },
-    async (args: { questions: string }) => {
-      // 解析 questions（可能是 JSON 字符串或直接对象）
-      let parsedQuestions: unknown[];
-      try {
-        const raw = typeof args.questions === "string" ? JSON.parse(args.questions) : args.questions;
-        parsedQuestions = Array.isArray(raw) ? raw : [];
-      } catch {
-        parsedQuestions = [];
-      }
-      const toolUseId = `cc-ask-${Date.now()}`;
-      const currentSessionId = sessionId ?? "unknown";
-      // 推送问题到前端 SSE，让前端渲染交互 UI。
-      if (uiWriter) {
-        uiWriter.write({
-          type: "data-cc-user-question",
-          data: {
-            sessionId: currentSessionId,
-            toolUseId,
-            questions: parsedQuestions,
-            answered: false,
-          },
-        } as any);
-      }
-      logger.debug(
-        { sessionId: currentSessionId, toolUseId },
-        "[cli] AskUserQuestion: waiting for user answer",
-      );
-      // 阻塞等待前端提交答案（超时自动返回空答案）。
-      const answers = await registerPendingCliQuestion(currentSessionId, toolUseId);
-      logger.debug(
-        { sessionId: currentSessionId, toolUseId, answers },
-        "[cli] AskUserQuestion: answer received",
-      );
-      // 通知前端问题已回答。
-      if (uiWriter) {
-        uiWriter.write({
-          type: "data-cc-user-question",
-          data: {
-            sessionId: currentSessionId,
-            toolUseId,
-            questions: parsedQuestions,
-            answered: true,
-            answers,
-          },
-        } as any);
-      }
-      return {
-        content: [{ type: "text", text: JSON.stringify(answers) }],
-      };
-    },
-  );
+  // 逻辑：必须使用 SDK 内置的 createSdkMcpServer，否则 McpServer 类不匹配，
+  // connectSdkMcpServer 的 in-process transport 会静默失败（工具列表为空）。
+  const currentSessionId = sessionId ?? "unknown";
+  // biome-ignore lint/suspicious/noExplicitAny: SDK 的 SdkMcpToolDefinition 泛型推断与外层 z 版本不兼容
+  const openloafServerConfig = (createSdkMcpServer as any)({
+    name: "openloaf",
+    tools: [
+      {
+        name: "AskUserQuestion",
+        description:
+          "Ask the user questions and wait for their response before continuing. Use this to gather user input, preferences, or clarifications.",
+        inputSchema: {
+          // 逻辑：使用简单字符串类型，避免深层嵌套 Zod schema 导致 TS 推断超限。
+          questions: z
+            .string()
+            .describe(
+              "JSON array of question objects with question, header, options[], multiSelect",
+            ),
+        },
+        handler: async (args: { questions: string }) => {
+          // 解析 questions（可能是 JSON 字符串或直接对象）
+          let parsedQuestions: unknown[];
+          try {
+            const raw =
+              typeof args.questions === "string" ? JSON.parse(args.questions) : args.questions;
+            parsedQuestions = Array.isArray(raw) ? raw : [];
+          } catch {
+            parsedQuestions = [];
+          }
+          const toolUseId = `cc-ask-${Date.now()}`;
+          // 推送问题到前端 SSE，让前端渲染交互 UI。
+          if (uiWriter) {
+            uiWriter.write({
+              type: "data-cc-user-question",
+              data: {
+                sessionId: currentSessionId,
+                toolUseId,
+                questions: parsedQuestions,
+                answered: false,
+              },
+            } as any);
+          }
+          logger.debug(
+            { sessionId: currentSessionId, toolUseId },
+            "[cli] AskUserQuestion: waiting for user answer",
+          );
+          // 阻塞等待前端提交答案（超时自动返回空答案）。
+          const answers = await registerPendingCliQuestion(currentSessionId, toolUseId);
+          logger.debug(
+            { sessionId: currentSessionId, toolUseId, answers },
+            "[cli] AskUserQuestion: answer received",
+          );
+          // 通知前端问题已回答。
+          if (uiWriter) {
+            uiWriter.write({
+              type: "data-cc-user-question",
+              data: {
+                sessionId: currentSessionId,
+                toolUseId,
+                questions: parsedQuestions,
+                answered: true,
+                answers,
+              },
+            } as any);
+          }
+          return {
+            content: [{ type: "text", text: JSON.stringify(answers) }],
+          };
+        },
+      },
+    ],
+  });
 
   let usage = buildEmptyUsage();
   let textId: string | null = null;
@@ -321,7 +330,7 @@ async function* createClaudeCodeStream(
         abortController,
         persistSession: false,
         mcpServers: {
-          openloaf: { type: "sdk", name: "openloaf", instance: openloafMcpServer },
+          openloaf: openloafServerConfig,
         },
         ...(claudePath ? { pathToClaudeCodeExecutable: claudePath } : {}),
       },

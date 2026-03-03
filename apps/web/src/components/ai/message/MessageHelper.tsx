@@ -36,7 +36,8 @@ const COLORS = ["text-amber-500", "text-sky-500", "text-emerald-500", "text-viol
 export default function MessageHelper({
   compact,
   projectId,
-}: { compact?: boolean; projectId?: string } = {}) {
+  workspaceId,
+}: { compact?: boolean; projectId?: string; workspaceId?: string } = {}) {
   const { setInput } = useChatOptions();
   const { t } = useTranslation('ai');
 
@@ -61,9 +62,9 @@ export default function MessageHelper({
   );
 
   React.useEffect(() => {
-    dynamicMutation.mutate({ projectId: projectId || undefined });
+    dynamicMutation.mutate({ projectId: projectId || undefined, workspaceId: workspaceId || undefined });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  }, [projectId, workspaceId]);
 
   const SUGGESTIONS: SuggestionItem[] = React.useMemo(() => {
     const dynamic = dynamicMutation.data?.suggestions;

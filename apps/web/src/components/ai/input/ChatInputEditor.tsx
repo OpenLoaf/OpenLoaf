@@ -14,6 +14,7 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
   type RefObject,
 } from "react";
 import { cn } from "@/lib/utils";
@@ -310,13 +311,24 @@ export function ChatInputEditor({
     }
   }, [value]);
 
+  const [domEmpty, setDomEmpty] = useState(true);
+
+  const updateDomEmpty = useCallback(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    const hasText = !!(el.textContent?.length);
+    const hasChip = !!el.querySelector(`.${CHIP_CLASS}`);
+    setDomEmpty(!hasText && !hasChip);
+  }, []);
+
   // ── Input handler ──
   const handleInput = useCallback(() => {
     if (composingRef.current) return;
     const el = editorRef.current;
     if (!el) return;
     triggerChange(el);
-  }, [triggerChange]);
+    updateDomEmpty();
+  }, [triggerChange, updateDomEmpty]);
 
   // ── Click handler (chip clicks) ──
   const handleClick = useCallback(
@@ -392,13 +404,24 @@ export function ChatInputEditor({
 
   const handleCompositionStart = useCallback(() => {
     composingRef.current = true;
+    // 输入法激活时立即隐藏 placeholder，避免拼音与提示文字重叠
+    setDomEmpty(false);
   }, []);
   const handleCompositionEnd = useCallback(() => {
     composingRef.current = false;
     handleInput();
-  }, [handleInput]);
+    // compositionend 后重新从 DOM 读取真实状态
+    updateDomEmpty();
+  }, [handleInput, updateDomEmpty]);
 
-  const isEmpty = !value;
+  // 同步外部 value 变化（如清空输入框）
+  useEffect(() => {
+    if (!composingRef.current) {
+      updateDomEmpty();
+    }
+  }, [value, updateDomEmpty]);
+
+  const isEmpty = domEmpty;
 
   return (
     <div className="relative">

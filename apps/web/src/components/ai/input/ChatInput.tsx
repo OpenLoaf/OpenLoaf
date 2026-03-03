@@ -59,9 +59,10 @@ import {
   resolveFileUriFromRoot,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { ChatInputEditor, type ChatInputEditorHandle } from "./ChatInputEditor";
+import { ChatProjectSelector } from "./ChatProjectSelector";
 import { createFileEntryFromUri, openFile } from "@/components/file/lib/open-file";
 import { trpc } from "@/utils/trpc";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useProjects } from "@/hooks/use-projects";
 import { useTabs } from "@/hooks/use-tabs";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
@@ -240,6 +241,12 @@ export interface ChatInputBoxProps {
   conversationStarted?: boolean;
   /** Display label for the selected CLI tool (e.g. "Claude Code"). */
   cliToolLabel?: string;
+  /** Workspace display name shown in project selector. */
+  workspaceName?: string;
+  /** Called when user switches project from selector. */
+  onProjectChange?: (projectId: string | undefined) => void;
+  /** Whether the conversation has already started (disables project switching). */
+  projectSelectorDisabled?: boolean;
   /**
    * 上传文件到 session files 目录，返回绝对路径。
    * 用于系统文件拖拽场景，生成 @[/abs/path] mention。
@@ -295,6 +302,9 @@ export function ChatInputBox({
   cliToolLabel,
   blockedCompact = false,
   uploadFileToSession,
+  workspaceName,
+  onProjectChange,
+  projectSelectorDisabled = false,
 }: ChatInputBoxProps) {
   const { t } = useTranslation('ai');
   const resolvedSubmitLabel = submitLabel ?? t('chat.send');
@@ -950,6 +960,18 @@ export function ChatInputBox({
               attachments && attachments.length > 0 && "pt-1"
             )}
           >
+            {onProjectChange && (workspaceId || projects.length > 0) && (
+              <div className="px-3 pt-2 pb-0.5">
+                <ChatProjectSelector
+                  projectId={defaultProjectId}
+                  workspaceId={workspaceId}
+                  workspaceName={workspaceName}
+                  projects={projects}
+                  onProjectChange={onProjectChange}
+                  disabled={projectSelectorDisabled}
+                />
+              </div>
+            )}
             <div className="w-full h-full min-h-0">
               <ChatInputEditor
                 ref={editorHandleRef}
@@ -1176,6 +1198,25 @@ export default function ChatInput({
       ?.chatOnlineSearchEnabled;
     return typeof value === "boolean" ? value : undefined;
   });
+  /** Resolve workspace display name for project selector. */
+  const { data: workspaceList } = useQuery({
+    ...trpc.workspace.getList.queryOptions(),
+    staleTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  const workspaceName = useMemo(
+    () => workspaceList?.find((w: { id: string; name: string }) => w.id === workspaceId)?.name,
+    [workspaceList, workspaceId],
+  );
+  /** Switch project scope from the project selector. */
+  const handleProjectChange = useCallback(
+    (nextProjectId: string | undefined) => {
+      const targetTabId = tabId ?? activeTabId;
+      if (!targetTabId) return;
+      setTabChatParams(targetTabId, { projectId: nextProjectId ?? "" });
+    },
+    [tabId, activeTabId, setTabChatParams],
+  );
   const { providerItems } = useSettingsValues();
   const { loggedIn: authLoggedIn } = useSaasAuth();
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
@@ -1569,6 +1610,9 @@ export default function ChatInput({
         cliToolLabel={cliToolLabel}
         blockedCompact={blockedCompact}
         uploadFileToSession={uploadFileToSession}
+        workspaceName={workspaceName}
+        onProjectChange={handleProjectChange}
+        projectSelectorDisabled={conversationStarted}
         header={
           !isUnconfigured && (showImageOutputOptions || isCodexProvider) ? (
             <div className="flex flex-col gap-2">

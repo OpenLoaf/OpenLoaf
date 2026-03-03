@@ -43,7 +43,7 @@ export function OpenLoafSettingsMenu({
         {groups.map((group, groupIndex) => (
           <div key={`group_${groupIndex}`}>
             {groupIndex > 0 && (
-              <div className="my-2 border-t border-border/50" />
+              <div className="my-4 border-t border-border/50" />
             )}
             <div className="space-y-2">
             {group.map((item) => {

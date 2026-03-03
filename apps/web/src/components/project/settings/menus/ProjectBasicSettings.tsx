@@ -31,6 +31,13 @@ import {
   DialogTitle,
 } from "@openloaf/ui/dialog";
 import { Input } from "@openloaf/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@openloaf/ui/select";
 import { Label } from "@openloaf/ui/label";
 import {
   AlertDialog,
@@ -173,6 +180,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
     staleTime: 5000,
   });
 
+
   const workspaceId = useMemo(() => {
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
     const rawWorkspaceId = activeTab?.workspaceId ?? "";
@@ -224,6 +232,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
     "flex-1 text-right text-xs text-muted-foreground hover:text-foreground hover:underline disabled:cursor-default disabled:no-underline disabled:text-muted-foreground";
   const baseValueTruncateClass = `${baseValueClass} truncate`;
   const baseValueWrapClass = `${baseValueClass} break-all`;
+
   /** Whether cache management is available. */
   const canManageCache = Boolean(cacheScope);
   const projectTree = projectsQuery.data ?? [];
@@ -632,6 +641,39 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             >
               <PencilLine className="size-4" />
             </Button>
+          </OpenLoafSettingsField>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 py-3">
+          <div className="min-w-0 sm:w-56">
+            <div className="text-sm font-medium">{t("project.projectType")}</div>
+          </div>
+
+          <OpenLoafSettingsField>
+            <Select
+              value={project?.projectType ?? "general"}
+              onValueChange={(value) => {
+                if (!projectId) return;
+                updateProject.mutate({
+                  projectId,
+                  projectType: value as "code" | "document" | "data" | "design" | "research" | "general",
+                });
+              }}
+              disabled={!projectId}
+            >
+              <SelectTrigger className="h-8 w-32 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(["code", "document", "data", "design", "research", "general"] as const).map(
+                  (type) => (
+                    <SelectItem key={type} value={type} className="text-xs">
+                      {t(`project.typeLabel.${type}`)}
+                    </SelectItem>
+                  ),
+                )}
+              </SelectContent>
+            </Select>
           </OpenLoafSettingsField>
         </div>
 

@@ -241,56 +241,48 @@ export default function ChatHeader({
       )}
     >
       {showDockButton && (
-        hasBase ? (
-          <MessageAction
-            aria-label="关闭面板"
-            className={cn("mr-0.5", resolveActionIconClass(hasBase ? "closeDock" : "openDock"))}
-            tooltip="关闭面板"
-            label="关闭面板"
-            onClick={handleCloseDock}
-          >
-            <PanelLeft size={20} className="rotate-180 transition-transform duration-200" />
-          </MessageAction>
-        ) : (
-          <Popover open={quickLaunchOpen} onOpenChange={setQuickLaunchOpen}>
-            <PopoverTrigger asChild>
-              <MessageAction
-                aria-label="打开面板"
-                className={cn("mr-0.5", resolveActionIconClass(hasBase ? "closeDock" : "openDock"))}
-                tooltip="打开面板"
-                label="打开面板"
-              >
-                <PanelLeft size={20} />
-              </MessageAction>
-            </PopoverTrigger>
-            <PopoverContent
-              side="bottom"
-              align="start"
-              className="w-40 p-1"
+        <Popover
+          open={!hasBase && quickLaunchOpen}
+          onOpenChange={(open) => { if (!hasBase) setQuickLaunchOpen(open); }}
+        >
+          <PopoverTrigger asChild>
+            <MessageAction
+              aria-label={hasBase ? "关闭面板" : "打开面板"}
+              className={cn("mr-0.5", resolveActionIconClass(hasBase ? "closeDock" : "openDock"))}
+              tooltip={hasBase ? "关闭面板" : "打开面板"}
+              label={hasBase ? "关闭面板" : "打开面板"}
+              onClick={hasBase ? handleCloseDock : undefined}
             >
-              {(quickLaunchProjectId
-                ? PROJECT_QUICK_LAUNCH_ITEMS
-                : QUICK_LAUNCH_ITEMS
-              ).map((item) => {
-                const Icon = item.icon;
-                const label = quickLaunchProjectId
-                  ? tWorkspace((item as (typeof PROJECT_QUICK_LAUNCH_ITEMS)[number]).labelKey)
-                  : tAi((item as (typeof QUICK_LAUNCH_ITEMS)[number]).labelKey);
-                return (
-                  <button
-                    key={"value" in item ? item.value : (item as (typeof QUICK_LAUNCH_ITEMS)[number]).baseId}
-                    type="button"
-                    className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors hover:bg-muted/60"
-                    onClick={() => handleQuickLaunch(item)}
-                  >
-                    <Icon className={cn("size-4 shrink-0", item.iconColor)} />
-                    <span className="truncate">{label}</span>
-                  </button>
-                );
-              })}
-            </PopoverContent>
-          </Popover>
-        )
+              <PanelLeft size={20} className={cn("transition-transform duration-200", hasBase && "rotate-180")} />
+            </MessageAction>
+          </PopoverTrigger>
+          <PopoverContent
+            side="bottom"
+            align="start"
+            className="w-40 p-1"
+          >
+            {(quickLaunchProjectId
+              ? PROJECT_QUICK_LAUNCH_ITEMS
+              : QUICK_LAUNCH_ITEMS
+            ).map((item) => {
+              const Icon = item.icon;
+              const label = quickLaunchProjectId
+                ? tWorkspace((item as (typeof PROJECT_QUICK_LAUNCH_ITEMS)[number]).labelKey)
+                : tAi((item as (typeof QUICK_LAUNCH_ITEMS)[number]).labelKey);
+              return (
+                <button
+                  key={"value" in item ? item.value : (item as (typeof QUICK_LAUNCH_ITEMS)[number]).baseId}
+                  type="button"
+                  className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors hover:bg-muted/60"
+                  onClick={() => handleQuickLaunch(item)}
+                >
+                  <Icon className={cn("size-4 shrink-0", item.iconColor)} />
+                  <span className="truncate">{label}</span>
+                </button>
+              );
+            })}
+          </PopoverContent>
+        </Popover>
       )}
       <div className="min-w-0 w-full truncate pr-2 text-left text-sm font-medium">
         {showSessionIndex && sessionIndex ? (

@@ -532,6 +532,7 @@ export const projectRouter = t.router({
           icon: config.icon ?? undefined,
           rootUri: toFileUriWithoutEncoding(rootPath),
           initializedFeatures: config.initializedFeatures,
+          projectType: config.projectType ?? undefined,
         },
       };
     }),
@@ -571,6 +572,9 @@ export const projectRouter = t.router({
         projectId: z.string(),
         title: z.string().optional(),
         icon: z.string().nullable().optional(),
+        projectType: z
+          .enum(['code', 'document', 'data', 'design', 'research', 'general'])
+          .optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -581,6 +585,9 @@ export const projectRouter = t.router({
         ...existing,
         ...(input.title !== undefined ? { title: input.title } : {}),
         ...(input.icon !== undefined ? { icon: input.icon } : {}),
+        ...(input.projectType !== undefined
+          ? { projectType: input.projectType, typeManuallySet: true }
+          : {}),
       });
       await writeJsonAtomic(metaPath, next);
       return { ok: true };
