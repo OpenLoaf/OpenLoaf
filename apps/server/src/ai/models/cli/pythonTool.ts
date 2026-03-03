@@ -191,34 +191,66 @@ export async function resolvePythonInstallInfo(): Promise<{
   );
   for (const command of candidates) {
     try {
-      // On macOS, resolve the path first to avoid triggering the system stub dialog.
-      // /usr/bin/python3 is an Apple stub that shows an "Install Developer Tools" popup.
+      let resolvedPath: string | undefined;
+
       if (process.platform === "darwin") {
-        const whichResult = await execa("which", [command], { all: true, reject: false });
-        const resolvedPath = (whichResult.stdout || "").trim();
-        logger.info({ command, resolvedPath, exitCode: whichResult.exitCode }, "[cli] python which result");
-        if (!resolvedPath || resolvedPath === `/usr/bin/${command}`) {
-          logger.info({ command, resolvedPath }, "[cli] skipping macOS python stub");
+        // macOS: 用 which -a 找所有匹配路径，优先选非 /usr/bin 的（避免 Apple stub）。
+        const whichResult = await execa("which", ["-a", command], { all: true, reject: false });
+        const allPaths = (whichResult.stdout || "")
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean);
+        logger.info({ command, allPaths, exitCode: whichResult.exitCode }, "[cli] python which -a result");
+
+        if (allPaths.length === 0) {
+          logger.info({ command }, "[cli] python not found in PATH");
           continue;
         }
+
+        // 优先选非 /usr/bin 的路径（避免可能的 Apple stub）。
+        const preferred = allPaths.find((p) => !p.startsWith("/usr/bin/"));
+        if (preferred) {
+          resolvedPath = preferred;
+        } else {
+          // 只有 /usr/bin/python3，验证它是否是真 Python（非 stub）。
+          // Apple stub 不支持 --version，真 Python 会正常输出。
+          const testResult = await execa(allPaths[0]!, ["--version"], {
+            all: true,
+            reject: false,
+            timeout: 3000,
+          });
+          if (testResult.exitCode !== 0) {
+            logger.info({ command, path: allPaths[0] }, "[cli] skipping macOS python stub");
+            continue;
+          }
+          resolvedPath = allPaths[0];
+        }
       }
-      const result = await execa(command, ["--version"], { all: true });
+
+      // 获取版本号。
+      const versionTarget = resolvedPath ?? command;
+      const result = await execa(versionTarget, ["--version"], { all: true });
       const output = (result.stdout || result.stderr || result.all || "").trim();
       const versionMatch = output.match(/(\d+\.\d+\.\d+)/);
       const version = versionMatch?.[1];
-      const pathResult =
-        process.platform === "win32"
-          ? await execa("where", [command], { all: true })
-          : await execa("which", [command], { all: true });
-      const pathLine = (pathResult.stdout || pathResult.stderr || "")
-        .split("\n")
-        .map((line) => line.trim())
-        .find(Boolean);
-      logger.info({ command, version, path: pathLine }, "[cli] python found");
+
+      // 解析实际路径。
+      if (!resolvedPath) {
+        const pathResult =
+          process.platform === "win32"
+            ? await execa("where", [command], { all: true })
+            : await execa("which", [command], { all: true });
+        resolvedPath = (pathResult.stdout || pathResult.stderr || "")
+          .split("\n")
+          .map((line) => line.trim())
+          .find(Boolean);
+      }
+
+      logger.info({ command, version, path: resolvedPath }, "[cli] python found");
       return {
         installed: true,
         version: version ?? undefined,
-        path: pathLine ?? undefined,
+        path: resolvedPath ?? undefined,
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message.slice(0, 200) : String(error).slice(0, 200);

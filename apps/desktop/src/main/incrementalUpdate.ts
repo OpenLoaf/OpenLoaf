@@ -193,8 +193,9 @@ function pruneOutdatedUpdates(log: Logger): void {
         fs.rmSync(currentDir, { recursive: true, force: true })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-        log(`[incremental-update] Warning: failed to prune outdated ${component}: ${msg}`)
-        continue
+        log(`[incremental-update] Warning: failed to prune outdated ${component} files: ${msg}. Updating manifest to use bundled version anyway.`)
+        // 即使文件删除失败（如 Windows EPERM），也更新 local manifest，
+        // 这样 resolveServerPath/resolveWebRoot 会回退到打包版本。
       }
     }
     delete local[component]
