@@ -554,6 +554,7 @@ jobs:
     if: >-
       always() &&
       startsWith(github.ref, 'refs/tags/') &&
+      needs.determine-mode.outputs.mode != 'beta' &&
       (needs.publish-manifest.result == 'success' || needs.promote-to-stable.result == 'success')
     runs-on: ubuntu-latest
     permissions:
