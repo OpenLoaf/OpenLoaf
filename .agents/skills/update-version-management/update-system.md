@@ -201,7 +201,21 @@ resolveWebRoot():
 | `openloaf:incremental-update:status` | main → renderer | 状态变更广播 |
 | `openloaf:app:get-update-channel` | renderer → main | 获取渠道 |
 | `openloaf:app:switch-update-channel` | renderer → main | 切换渠道 |
+| `openloaf:auto-update:check` | renderer → main | 手动触发 Desktop 本体更新检查 |
+| `openloaf:auto-update:status` | main → renderer | Desktop 本体更新状态广播 |
 | `openloaf:app:relaunch` | renderer → main | 重启应用 |
+
+## 主进程错误处理策略
+
+`index.ts` 注册了进程级错误处理器：
+
+- `uncaughtException` → **致命**：调用 `handleProcessTermination()` 关闭应用（不可恢复）
+- `unhandledRejection` → **非致命**：仅记录日志，**不终止进程**
+  - electron-updater 自动下载失败（如 CDN 404、网络超时）会产生未捕获的 Promise 拒绝
+  - 更新下载失败不应影响应用正常使用
+  - 若改为致命处理会导致：更新服务器异常时用户无法启动应用
+
+> **规则：** 新增异步操作时，确保 Promise 链有 `.catch()` 或在 `async` 函数中有 `try/catch`。但即使遗漏，`unhandledRejection` 也只记录日志不会崩溃。
 
 ## Electron 本体更新
 
@@ -214,7 +228,9 @@ resolveWebRoot():
   - R2 根目录 `desktop/latest-*.yml` 仅用于向后兼容旧版客户端（<= v0.2.4-beta.2）
 - 启动后 8 秒首次检查，之后每 6 小时检查一次
 - `autoDownload: true`，下载完成后等待用户确认安装
-- `autoInstallOnAppQuit: true`
+- `autoInstallOnAppQuit: false`（禁止退出时自动启动安装程序）
+  - Windows 上 `autoInstallOnAppQuit: true` 会在关闭时静默启动 NSIS installer，用户可能立即重新打开应用导致安装程序与主程序同时运行、安装失败
+  - 更新安装统一由用户在 UI 点击"立即安装"触发（走 `quitAndInstall` 路径，先退出再安装，不冲突）
 - 通过 `openloaf:auto-update:status` 广播状态
 
 ## AutoUpdateGate UI

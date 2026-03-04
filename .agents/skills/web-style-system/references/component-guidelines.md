@@ -97,30 +97,101 @@
 - 不允许面板层级遮挡核心交互入口。
 - 面板、卡片、输入框统一 `shadow-none`。
 
-## 6. Inputs, Dialogs, Menus
+## 6. Inputs and Menus
 
 适用对象：
 
-- 输入框、下拉菜单、上下文菜单、弹窗
+- 输入框、下拉菜单、上下文菜单
 
 原则：
 
 - 输入控件在同一页面保持尺寸与圆角一致。**输入框禁止 box-shadow**，使用 `shadow-none`，聚焦时仅通过边框色变化反馈。
-- 对话框优先遵循”标题-描述-主体-动作区”结构。
 - 菜单的 hover/active 反馈保持轻量，不做重动效。
-- **按钮必须带有语义扁平色**：主操作用 sky、危险用 red、确认用 emerald，次要操作可用 ghost 但同组至少一个带色。
 
 护栏：
 
 - focus 态必须可见（通过 border 变化，不依赖 ring/shadow）。
 - 禁止依赖颜色唯一表达错误/警告状态。
 - 输入框 focus 样式：`focus-visible:ring-0 focus-visible:shadow-none focus-visible:border-border/70`。
-- **多步骤 Dialog 状态重置时机**：内部步骤/表单状态必须在**打开时**重置，**禁止在关闭时重置**。关闭时重置会导致关闭动画（~200ms）期间状态闪回到初始步骤。具体做法：
-  - **自控 Dialog**（组件内部管理 `open` state）：提取 `openDialog()` 函数，同时 reset 状态并 `setOpen(true)`；`onOpenChange` 关闭时只 `setOpen(false)`。
-  - **受控 Dialog**（`open` 从 props 传入）：用 `useEffect(() => { if (open) reset() }, [open])` 在打开时自动 reset。
-  - 如果需要关闭后清理副作用（如取消请求），使用 `setTimeout` 延迟至动画结束后执行。
 
-## 7. Motion and State
+## 7. Dialog
+
+适用对象：
+
+- `packages/ui/src/dialog.tsx`（基础 Dialog）
+- `packages/ui/src/alert-dialog.tsx`（AlertDialog）
+- 所有业务弹窗
+
+### 基础组件（`DialogContent`）
+
+已在 `packages/ui/src/dialog.tsx` 中统一的属性：
+
+- `rounded-xl` — 大圆角，与全站胶囊语法对齐
+- `shadow-none` — **禁止 box-shadow**，通过 overlay 背景（`bg-black/50`）建立层次
+- `border` — 细描边分割弹窗与背景
+- 关闭按钮：`focus-visible:ring-0 focus-visible:shadow-none focus-visible:border-border/70`，不使用 ring
+
+### 结构规范
+
+Dialog 遵循四区结构，每区可选但顺序固定：
+
+```
+┌─ DialogHeader ──────────────────┐
+│  DialogTitle                    │
+│  DialogDescription（可选）       │
+├─ Body ──────────────────────────┤
+│  表单 / 内容区                   │
+├─ DialogFooter ──────────────────┤
+│  [取消]          [主操作按钮]    │
+└─────────────────────────────────┘
+```
+
+- **DialogTitle**：必须存在（无障碍要求）。简洁明确，如”项目重命名”、”删除确认”。
+- **DialogDescription**：仅在需要补充说明时使用。简单弹窗（如重命名）**省略 Description**，避免冗余。
+- **Body**：表单字段使用堆叠布局（label 在上、input 在下），**不使用 `grid-cols-4` 横向排列**。间距 `gap-2 py-2`。
+- **DialogFooter**：取消按钮 `variant=”outline”`，主操作按钮使用语义扁平色。
+
+### 按钮色彩
+
+**按钮必须带有语义扁平色**，禁止所有按钮都用无色 ghost：
+
+| 语义     | 样式                                                                        |
+|----------|----------------------------------------------------------------------------|
+| 主操作   | `bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none` |
+| 危险操作 | `bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:text-red-400 shadow-none` |
+| 确认/成功 | `bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400 shadow-none` |
+| 次要操作 | `variant=”outline”` 或 `variant=”ghost”`，同组内至少一个按钮带色             |
+
+### 表单布局
+
+- **简单表单**（1-2 个字段）：堆叠式，label 在上、input 在下，`gap-2`。
+- **带图标选择**的表单：图标按钮在左，输入框在右，`flex items-center gap-3`。图标按钮使用 `variant=”ghost”` + emoji 或默认占位图标（如 `SmilePlus`），点击弹出 Popover 内嵌 EmojiPicker。
+- **多字段表单**：每个字段独立一行堆叠，字段间 `gap-4`。Switch 类控件使用 `flex items-center gap-3`。
+- **禁止** `grid grid-cols-4 items-center gap-4` 的 label-左 input-右 横向布局。
+
+### Input 样式
+
+Dialog 内所有 Input 统一添加：
+
+```
+className=”shadow-none focus-visible:ring-0 focus-visible:shadow-none focus-visible:border-border/70”
+```
+
+### 状态重置时机
+
+**多步骤 Dialog 状态重置时机**：内部步骤/表单状态必须在**打开时**重置，**禁止在关闭时重置**。关闭时重置会导致关闭动画（~200ms）期间状态闪回到初始步骤。具体做法：
+
+- **自控 Dialog**（组件内部管理 `open` state）：提取 `openDialog()` 函数，同时 reset 状态并 `setOpen(true)`；`onOpenChange` 关闭时只 `setOpen(false)`。
+- **受控 Dialog**（`open` 从 props 传入）：用 `useEffect(() => { if (open) reset() }, [open])` 在打开时自动 reset。
+- 如果需要关闭后清理副作用（如取消请求），使用 `setTimeout` 延迟至动画结束后执行。
+
+### 参考实现
+
+- 重命名弹窗：`ProjectTree.tsx`（带图标选择 + 输入框）
+- 关闭确认弹窗：`CloseConfirmDialog.tsx`（AlertDialog + Checkbox）
+- 图标选择器：`ProjectBasicSettings.tsx`（Popover + EmojiPicker）
+
+## 8. Motion and State
 
 适用对象：
 
@@ -138,7 +209,7 @@
 - 避免大位移与长时动画影响可用性。
 - 需考虑 reduced-motion 退化。
 
-## 8. Dark Mode Consistency
+## 9. Dark Mode Consistency
 
 适用对象：
 
@@ -154,7 +225,7 @@
 
 - 任何新增组件需同时定义 light/dark 表达。
 
-## 9. Domain-Specific Application Notes
+## 10. Domain-Specific Application Notes
 
 建议优先级：
 
