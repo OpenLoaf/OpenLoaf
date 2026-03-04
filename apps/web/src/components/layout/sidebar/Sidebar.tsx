@@ -152,12 +152,22 @@ export const AppSidebar = ({
       const view = { type: viewType } as any;
       setActiveView(view);
 
+      // 映射视图类型到组件名称
+      const componentMap: Record<string, string> = {
+        workbench: "workspace-desktop",
+        calendar: "calendar-page",
+        email: "email-page",
+        "scheduled-tasks": "scheduled-tasks-page",
+      };
+
+      const component = componentMap[viewType];
+
       // 初始化视图运行时状态
       const viewKey = getViewKey(view);
       setViewRuntime(viewKey, {
         leftDock: {
           id: `base:${viewType}`,
-          component: `${viewType}-page`,
+          component,
         },
         stack: [],
         leftWidthPercent: 100,

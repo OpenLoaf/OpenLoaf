@@ -159,7 +159,8 @@ export function PageLayout() {
       case "email":
       case "scheduled-tasks": {
         // 功能页面：暂时显示占位内容
-        // TODO: Phase 5 将实现完整的功能页面支持
+        // TODO: 需要创建适配层让 LeftDock 在新导航系统中工作
+        // 或者重构 LeftDock 以支持新导航系统
         const viewNames = {
           workbench: "工作台",
           calendar: "日历",
@@ -170,6 +171,9 @@ export function PageLayout() {
         return (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
             {viewNames[activeView.type]}视图开发中...
+            <div className="text-xs mt-2">
+              （需要适配 LeftDock 组件到新导航系统）
+            </div>
           </div>
         );
       }
