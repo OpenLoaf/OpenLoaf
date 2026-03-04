@@ -37,12 +37,13 @@ import { registerIpcHandlers } from './ipc';
 import { createServiceManager, type ServiceManager } from './services/serviceManager';
 import { resolveRuntimePorts, type RuntimePorts } from './services/portAllocation';
 import { WEBPACK_ENTRIES } from './webpackEntries';
-import { createMainWindow } from './windows/mainWindow';
+import { createMainWindow, forceQuit } from './windows/mainWindow';
 import {
   resolveWindowIconImage,
   resolveWindowIconInfo,
   resolveWindowIconPath,
 } from './resolveWindowIcon';
+import { createTray, destroyTray } from './tray';
 import { registerAppProtocol } from './services/appProtocol';
 
 // 中文注释：开发态追加 Dev 后缀，避免与打包版名称混淆。
@@ -495,6 +496,37 @@ async function boot() {
     initialCdpPort,
   });
   mainWindow = created.win;
+
+  // 创建系统托盘（显示/隐藏窗口、新建对话、退出应用）。
+  createTray(log, {
+    toggleWindow: () => {
+      const win = mainWindow ?? BrowserWindow.getAllWindows()[0];
+      if (!win) return;
+      if (win.isVisible()) {
+        win.hide();
+        // macOS：窗口隐藏后同时隐藏 Dock 图标，实现完全后台运行。
+        if (process.platform === 'darwin') app.dock?.hide();
+      } else {
+        // macOS：恢复窗口前先显示 Dock 图标。
+        if (process.platform === 'darwin') app.dock?.show();
+        win.show();
+        win.focus();
+      }
+    },
+    showWindow: () => {
+      if (process.platform === 'darwin') app.dock?.show();
+      focusMainWindow();
+    },
+    newConversation: () => {
+      if (process.platform === 'darwin') app.dock?.show();
+      const win = focusMainWindow();
+      if (win) {
+        win.webContents.send('openloaf:tray:new-conversation');
+      }
+    },
+    quitApp: () => forceQuit(),
+  });
+
   if (pendingProtocolUrl) {
     handleProtocolUrl(pendingProtocolUrl);
   }
@@ -543,7 +575,10 @@ if (!gotTheLock) {
     // 真正的清理交给 will-quit（不可取消）。
   });
 
-  app.on('will-quit', () => stopServices('will-quit'));
+  app.on('will-quit', () => {
+    destroyTray();
+    stopServices('will-quit');
+  });
   app.on('quit', () => stopServices('quit'));
 
   const handleProcessTermination = (reason: string) => {
@@ -560,7 +595,12 @@ if (!gotTheLock) {
   process.on('SIGHUP', handleSignal);
   process.once('exit', (code) => handleProcessTermination(`exit:${code ?? 'null'}`));
   process.once('uncaughtException', () => handleProcessTermination('uncaughtException'));
-  process.once('unhandledRejection', () => handleProcessTermination('unhandledRejection'));
+  // unhandledRejection 仅记录日志，不终止进程。
+  // electron-updater 自动下载失败（如 404）会产生未捕获的 rejection，
+  // 不应因此崩溃整个应用。
+  process.on('unhandledRejection', (reason) => {
+    log(`Unhandled rejection (non-fatal): ${String(reason)}`);
+  });
 
   app.whenReady().then(() => {
     log('App ready.');
@@ -580,7 +620,8 @@ if (!gotTheLock) {
     void boot();
   });
 
-  // 除 macOS 外：所有窗口关闭即退出。
+  // 所有窗口关闭时：macOS 和使用托盘的场景不退出。
+  // 注意：窗口 hide() 不会触发此事件，只有真正关闭/销毁窗口才会。
   app.on('window-all-closed', () => {
     log('All windows closed.');
     if (process.platform !== 'darwin') {
@@ -589,10 +630,15 @@ if (!gotTheLock) {
     }
   });
 
-  // macOS：点击 dock 图标且没有窗口时重新创建主窗口。
+  // macOS：点击 dock 图标时恢复窗口；没有窗口时重新创建。
   app.on('activate', () => {
     log('Activate event.');
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (process.platform === 'darwin') app.dock?.show();
+    const win = BrowserWindow.getAllWindows()[0];
+    if (win) {
+      win.show();
+      win.focus();
+    } else {
       void boot();
     }
   });

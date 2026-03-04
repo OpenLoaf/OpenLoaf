@@ -267,6 +267,8 @@ const config: ForgeConfig = {
       '../../apps/desktop/resources/icon.icns',
       '../../apps/desktop/resources/icon.ico',
       '../../apps/desktop/resources/icon.png',
+      // macOS 托盘图标（16x16 和 16x16@2x Template 图标）。
+      '../../apps/desktop/resources/icon.iconset',
       // npm 包（sharp、@libsql、playwright-core 等）及其所有传递依赖
       // 由 postPackage 钩子递归解析并复制到 Resources/node_modules/，
       // 不再在此手动列出，避免遗漏传递依赖导致运行时 module not found。

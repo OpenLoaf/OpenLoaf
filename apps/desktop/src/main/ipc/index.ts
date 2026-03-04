@@ -39,6 +39,8 @@ import { captureWebMeta } from './captureWebMeta';
 import { createCalendarService } from '../calendar/calendarService';
 import { createCalendarSync } from '../calendar/calendarSync';
 import { resolveWindowIconInfo } from '../resolveWindowIcon';
+import { updateTrayBadge, refreshTrayMenu } from '../tray';
+import { setLanguage, getMinimizeToTray, setMinimizeToTray } from '../updateConfig';
 
 let ipcHandlersRegistered = false;
 
@@ -859,6 +861,39 @@ export function registerIpcHandlers(args: { log: Logger }) {
       return { ok: true as const }
     }
   )
+
+  // 同步 UI 语言到主进程（用于托盘菜单、对话框等原生 UI 翻译）。
+  ipcMain.handle('openloaf:app:set-language', async (_event, payload: { language: string }) => {
+    const lang = String(payload?.language ?? '').trim();
+    if (!lang) return { ok: false as const, reason: 'Missing language' };
+    setLanguage(lang);
+    // 刷新托盘菜单文本。
+    refreshTrayMenu();
+    args.log(`[i18n] Language synced: ${lang}`);
+    return { ok: true as const };
+  });
+
+  // 更新系统托盘角标计数。
+  ipcMain.handle('openloaf:tray:set-badge', async (_event, payload: { count: number }) => {
+    const count = Number(payload?.count ?? 0);
+    updateTrayBadge(count);
+    // macOS 同时更新 Dock 角标数字。
+    if (process.platform === 'darwin') {
+      app.dock?.setBadge(count > 0 ? String(count) : '');
+    }
+    return { ok: true as const };
+  });
+
+  // 读取"关闭时最小化到托盘"偏好。
+  ipcMain.handle('openloaf:app:get-minimize-to-tray', async () => {
+    return { ok: true as const, value: getMinimizeToTray() };
+  });
+
+  // 设置"关闭时最小化到托盘"偏好。
+  ipcMain.handle('openloaf:app:set-minimize-to-tray', async (_event, payload: { value: boolean }) => {
+    setMinimizeToTray(payload?.value === true);
+    return { ok: true as const };
+  });
 
   args.log('IPC handlers registered');
 }

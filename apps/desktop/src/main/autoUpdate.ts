@@ -227,7 +227,11 @@ export function installAutoUpdate(options: AutoUpdateOptions): void {
 
   configureFeedUrl(log)
   autoUpdater.autoDownload = true
-  autoUpdater.autoInstallOnAppQuit = true
+  // 禁止退出时自动启动安装程序。
+  // Windows 上 autoInstallOnAppQuit 会在关闭时静默启动 NSIS installer，
+  // 但用户可能立即重新打开应用，导致安装程序和主程序同时运行，安装失败。
+  // 更新安装统一由用户在 UI 点击"立即安装"触发（走 quitAndInstall 路径）。
+  autoUpdater.autoInstallOnAppQuit = false
 
   // 监听更新流程事件，便于定位更新失败原因。
   autoUpdater.on('checking-for-update', () => {

@@ -198,6 +198,25 @@ contextBridge.exposeInMainWorld('openloafElectron', {
     taskId?: string;
   }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
     ipcRenderer.invoke('openloaf:notification:show', payload),
+  // 更新系统托盘角标计数（0 表示清除角标）。
+  setTrayBadge: (payload: { count: number }): Promise<{ ok: true }> =>
+    ipcRenderer.invoke('openloaf:tray:set-badge', payload),
+  // 同步 UI 语言到主进程（托盘菜单、对话框等原生 UI 翻译）。
+  setLanguage: (language: string): Promise<{ ok: true } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('openloaf:app:set-language', { language }),
+  // 关闭确认对话框：web 端将用户选择发回主进程。
+  respondCloseConfirm: (payload: {
+    action: 'cancel' | 'minimize' | 'quit';
+    minimizeToTray?: boolean;
+  }): void => {
+    ipcRenderer.send('openloaf:confirm-close:response', payload)
+  },
+  // 读取"关闭时最小化到托盘"偏好。
+  getMinimizeToTray: (): Promise<{ ok: true; value: boolean }> =>
+    ipcRenderer.invoke('openloaf:app:get-minimize-to-tray'),
+  // 设置"关闭时最小化到托盘"偏好。
+  setMinimizeToTray: (value: boolean): Promise<{ ok: true }> =>
+    ipcRenderer.invoke('openloaf:app:set-minimize-to-tray', { value }),
   // Resolve local file path from a File object.
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   // System calendar access.
@@ -368,6 +387,28 @@ ipcRenderer.on('openloaf:server-crash', (_event, detail) => {
   try {
     window.dispatchEvent(
       new CustomEvent('openloaf:server-crash', { detail })
+    );
+  } catch {
+    // ignore
+  }
+});
+
+// 托盘菜单"新建对话"事件转发到 web 端。
+ipcRenderer.on('openloaf:tray:new-conversation', () => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('openloaf:tray:new-conversation')
+    );
+  } catch {
+    // ignore
+  }
+});
+
+// 主进程请求关闭确认：转发到 web 端弹出 UI 对话框。
+ipcRenderer.on('openloaf:confirm-close', (_event, detail) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('openloaf:confirm-close', { detail })
     );
   } catch {
     // ignore

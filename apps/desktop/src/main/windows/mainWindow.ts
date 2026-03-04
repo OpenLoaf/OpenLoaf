@@ -7,8 +7,9 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { app, BrowserWindow, dialog, screen, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, shell } from 'electron';
 import { resolveWindowIconPath } from '../resolveWindowIcon';
+import { getMinimizeToTray, setMinimizeToTray } from '../updateConfig';
 import type { Logger } from '../logging/startupLogger';
 import type { ServiceManager } from '../services/serviceManager';
 import { waitForUrlOk } from '../services/urlHealth';
@@ -16,10 +17,17 @@ import { WEBPACK_ENTRIES } from '../webpackEntries';
 
 // 模块级标志：外部可通过 skipQuitConfirmation() 跳过退出确认（如自动更新重启）。
 let _skipQuitConfirm = false;
+// 模块级强制退出函数：在 createMainWindow 内部设置，供托盘"Quit"菜单调用。
+let _forceQuitFn: (() => void) | null = null;
 
 /** 跳过下次退出确认弹窗，供自动更新安装时调用。 */
 export function skipQuitConfirmation(): void {
   _skipQuitConfirm = true;
+}
+
+/** 强制退出应用，跳过确认弹窗（供托盘菜单等调用）。 */
+export function forceQuit(): void {
+  _forceQuitFn?.();
 }
 
 /**
@@ -188,6 +196,9 @@ export async function createMainWindow(args: {
       sandbox: true,
       // webview 用于应用内嵌浏览面板（WebContentsView 相关功能）。
       webviewTag: true,
+      // 禁用后台节流：最小化到托盘后，保持 tRPC 连接/订阅活跃，
+      // 避免恢复窗口时出现"断连"假象。
+      backgroundThrottling: false,
     },
   });
 
@@ -231,7 +242,7 @@ export async function createMainWindow(args: {
   });
 
   let allowClose = false;
-  let quitConfirming = false;
+  let closeConfirming = false;
   let forceExitTimer: ReturnType<typeof setTimeout> | null = null;
   const scheduleForceExit = () => {
     if (forceExitTimer) return;
@@ -240,24 +251,45 @@ export async function createMainWindow(args: {
       app.exit(0);
     }, 5000);
   };
-  const confirmQuit = async () => {
-    if (quitConfirming) return false;
-    quitConfirming = true;
+
+  /** Web 端 IPC 响应通道名。 */
+  const CLOSE_RESPONSE_CHANNEL = 'openloaf:confirm-close:response';
+
+  /**
+   * 通过 IPC 通知 web 端弹出关闭确认对话框，等待用户操作结果。
+   */
+  const confirmCloseAction = async (): Promise<'cancel' | 'minimize' | 'quit'> => {
+    if (closeConfirming) return 'cancel';
+    closeConfirming = true;
+    const currentPref = getMinimizeToTray();
+
     try {
-      const { response } = await dialog.showMessageBox(mainWindow, {
-        type: 'question',
-        buttons: ['Cancel', 'Quit'],
-        defaultId: 1,
-        cancelId: 0,
-        title: 'Confirm Exit',
-        message: 'Are you sure you want to quit OpenLoaf?',
+      const result = await new Promise<'cancel' | 'minimize' | 'quit'>((resolve) => {
+        ipcMain.once(CLOSE_RESPONSE_CHANNEL, (_event, payload: {
+          action?: 'cancel' | 'minimize' | 'quit';
+          minimizeToTray?: boolean;
+        }) => {
+          const action = payload?.action;
+          if (action === 'minimize' || action === 'quit') {
+            if (typeof payload?.minimizeToTray === 'boolean') {
+              setMinimizeToTray(payload.minimizeToTray);
+            }
+            resolve(action);
+          } else {
+            resolve('cancel');
+          }
+        });
+
+        // 通知 web 端弹出对话框。
+        mainWindow.webContents.send('openloaf:confirm-close', { minimizeToTray: currentPref });
       });
-      return response === 1;
+      return result;
     } finally {
-      quitConfirming = false;
+      closeConfirming = false;
     }
   };
-  const requestQuit = async () => {
+
+  const requestClose = async () => {
     if (allowClose) return;
     if (_skipQuitConfirm) {
       allowClose = true;
@@ -265,27 +297,51 @@ export async function createMainWindow(args: {
       app.quit();
       return;
     }
-    const confirmed = await confirmQuit();
-    if (!confirmed) {
+    // 用户已选择"后台运行，下次不再提醒"时直接最小化到托盘。
+    if (getMinimizeToTray()) {
+      args.log('[close] minimizeToTray enabled, hiding to tray directly.');
+      mainWindow.hide();
+      if (process.platform === 'darwin') app.dock?.hide();
+      return;
+    }
+    const action = await confirmCloseAction();
+    if (action === 'cancel') {
       mainWindow.show();
       mainWindow.focus();
       return;
     }
+    if (action === 'minimize') {
+      // 隐藏窗口到托盘，服务继续运行（不触发 will-quit / window-all-closed）。
+      args.log('[close] Minimizing to tray (window.hide).');
+      mainWindow.hide();
+      // macOS：同时隐藏 Dock 图标，实现完全后台运行。
+      if (process.platform === 'darwin') app.dock?.hide();
+      return;
+    }
+    // action === 'quit'
     allowClose = true;
     scheduleForceExit();
     app.quit();
   };
+
+  // 供托盘"Quit"菜单和其他需要强制退出的场景调用。
+  _forceQuitFn = () => {
+    allowClose = true;
+    scheduleForceExit();
+    app.quit();
+  };
+
   app.on('before-quit', (event) => {
     if (allowClose || _skipQuitConfirm) return;
     event.preventDefault();
-    // Cmd+Q 触发 before-quit：只有用户取消时才阻止退出。
-    void requestQuit();
+    // Cmd+Q 触发 before-quit：弹出关闭确认框。
+    void requestClose();
   });
   mainWindow.on('close', (event) => {
     if (allowClose || _skipQuitConfirm) return;
-    // 中文注释：关闭主窗口时弹出确认框，避免误退出。
+    // 中文注释：关闭主窗口时弹出确认框，支持最小化到托盘或退出。
     event.preventDefault();
-    void requestQuit();
+    void requestClose();
   });
   // 生产模式：直接加载 web 应用（通过 app:// 协议即时可用），
   // ServerConnectionGate 会自动轮询等待后端就绪。

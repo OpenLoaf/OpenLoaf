@@ -26,6 +26,8 @@ export type UpdateChannel = 'stable' | 'beta'
 
 type SettingsJson = {
   updateChannel?: UpdateChannel
+  minimizeToTray?: boolean
+  language?: string
   [key: string]: unknown
 }
 
@@ -110,6 +112,40 @@ export function resolveUpdateChannel(): UpdateChannel {
 export function switchUpdateChannel(channel: UpdateChannel): void {
   const settings = readSettings()
   settings.updateChannel = channel
+  writeSettings(settings)
+}
+
+// ---------------------------------------------------------------------------
+// 托盘偏好
+// ---------------------------------------------------------------------------
+
+/** 读取"最小化到托盘"偏好，默认 false。 */
+export function getMinimizeToTray(): boolean {
+  const settings = readSettings()
+  return settings.minimizeToTray === true
+}
+
+/** 持久化"最小化到托盘"偏好。 */
+export function setMinimizeToTray(value: boolean): void {
+  const settings = readSettings()
+  settings.minimizeToTray = value
+  writeSettings(settings)
+}
+
+// ---------------------------------------------------------------------------
+// 语言偏好
+// ---------------------------------------------------------------------------
+
+/** 读取 UI 语言偏好。优先使用用户显式设置，其次 fallback 为 'en-US'。 */
+export function getLanguage(): string {
+  const settings = readSettings()
+  return settings.language || 'en-US'
+}
+
+/** 持久化 UI 语言偏好（由 web 端通过 IPC 同步）。 */
+export function setLanguage(lang: string): void {
+  const settings = readSettings()
+  settings.language = lang
   writeSettings(settings)
 }
 
