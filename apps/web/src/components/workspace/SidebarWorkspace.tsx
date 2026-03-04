@@ -58,25 +58,7 @@ import { isElectronEnv } from "@/utils/is-electron-env";
 
 // Membership labels will be dynamically set via useTranslation hook in component
 
-/** All known system-generated default workspace names across supported languages. */
-const KNOWN_DEFAULT_WORKSPACE_NAMES = new Set([
-  '默认工作空间',
-  '預設工作區',
-  'Default Workspace',
-  'デフォルト ワークスペース',
-  '기본 작업 공간',
-  'Espace de travail par défaut',
-  'Standardarbeitsbereich',
-  'Espacio de trabajo predeterminado',
-]);
-
-/** Resolve display name for a workspace, translating system defaults to current language. */
-function resolveWorkspaceDisplayName(name: string, t: (key: string) => string): string {
-  if (KNOWN_DEFAULT_WORKSPACE_NAMES.has(name)) {
-    return t('defaultWorkspaceName');
-  }
-  return name;
-}
+import { resolveWorkspaceDisplayName } from "@/utils/workspace-display-name";
 
 /** 会员等级胶囊徽章样式 — 低透明彩色背景 + 对应文字色，light/dark 双套。 */
 const MEMBERSHIP_BADGE_STYLES: Record<string, string> = {

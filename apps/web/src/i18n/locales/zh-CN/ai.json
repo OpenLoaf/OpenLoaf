@@ -306,5 +306,12 @@
     },
     "cancel": "取消",
     "confirm": "启用"
+  },
+  "projectSelector": {
+    "workspace": "工作空间",
+    "searchProject": "搜索项目...",
+    "noProjectFound": "未找到项目",
+    "projects": "项目",
+    "current": "当前"
   }
 }

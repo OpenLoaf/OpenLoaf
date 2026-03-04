@@ -38,6 +38,7 @@ import {
   FILE_DRAG_URI_MIME,
   FILE_DRAG_MASK_URI_MIME,
 } from "@/components/ai-elements/drag-drop";
+import { resolveWorkspaceDisplayName } from "@/utils/workspace-display-name";
 import { readImageDragPayload } from "@/lib/image/drag";
 import { fetchBlobFromUri, resolveFileName } from "@/lib/image/uri";
 import { buildMaskedPreviewUrl, resolveMaskFileName } from "@/lib/image/mask";
@@ -1200,16 +1201,18 @@ export default function ChatInput({
       ?.chatOnlineSearchEnabled;
     return typeof value === "boolean" ? value : undefined;
   });
-  /** Resolve workspace display name for project selector. */
+  /** Resolve workspace display name for project selector (with i18n). */
+  const { t: tWorkspace } = useTranslation('workspace', { keyPrefix: 'workspace' });
   const { data: workspaceList } = useQuery({
     ...trpc.workspace.getList.queryOptions(),
     staleTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
-  const workspaceName = useMemo(
-    () => workspaceList?.find((w: { id: string; name: string }) => w.id === workspaceId)?.name,
-    [workspaceList, workspaceId],
-  );
+  const workspaceName = useMemo(() => {
+    const raw = workspaceList?.find((w: { id: string; name: string }) => w.id === workspaceId)?.name;
+    if (!raw) return undefined;
+    return resolveWorkspaceDisplayName(raw, tWorkspace);
+  }, [workspaceList, workspaceId, tWorkspace]);
   /** Switch project scope from the project selector. */
   const handleProjectChange = useCallback(
     (nextProjectId: string | undefined) => {

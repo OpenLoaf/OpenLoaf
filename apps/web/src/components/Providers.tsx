@@ -31,6 +31,7 @@ import { initModelRegistry } from "@/lib/model-registry";
 import { resolveSaasBaseUrl } from "@/lib/saas-auth";
 import { useLanguageSync } from "@/i18n/useLanguageSync";
 import CloseConfirmDialog from "@/components/layout/CloseConfirmDialog";
+import TrayNavigationListener from "@/components/layout/TrayNavigationListener";
 
 type ThemeSelection = "light" | "dark" | "system";
 type FontSizeSelection = "small" | "medium" | "large" | "xlarge";
@@ -360,6 +361,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             <FilePreviewDialog />
             <AutoUpdateGate />
             <CloseConfirmDialog />
+            <TrayNavigationListener />
           </LocalAuthGate>
           {/* <ReactQueryDevtools initialIsOpen={false} /> */}
         </MotionSettingsBootstrap>

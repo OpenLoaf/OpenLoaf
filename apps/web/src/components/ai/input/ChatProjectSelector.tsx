@@ -10,6 +10,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, FolderOpen, Layers } from "lucide-react";
 import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import { cn } from "@/lib/utils";
@@ -64,7 +65,25 @@ export function ChatProjectSelector({
     [flatProjects, projectId],
   );
 
-  const displayLabel = selectedProject?.title ?? workspaceName ?? "工作空间";
+  const { t } = useTranslation('ai');
+
+  const displayLabel = selectedProject?.title ?? workspaceName ?? t('projectSelector.workspace');
+
+  // No projects to select — show workspace label only (read-only)
+  if (flatProjects.length === 0) {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 max-w-[160px]",
+          "text-[12px] font-medium leading-none",
+          "text-muted-foreground/60 select-none",
+        )}
+      >
+        <Layers className="w-3 h-3 shrink-0" />
+        <span className="truncate">{displayLabel}</span>
+      </span>
+    );
+  }
 
   return (
     <Popover open={disabled ? false : open} onOpenChange={disabled ? undefined : setOpen}>
@@ -100,14 +119,15 @@ export function ChatProjectSelector({
         sideOffset={6}
       >
         <Command>
-          <CommandInput placeholder="搜索项目..." className="h-8 text-xs" />
+          <CommandInput placeholder={t('projectSelector.searchProject')} className="h-8 text-xs" />
           <CommandList>
             <CommandEmpty className="py-3 text-xs text-center text-muted-foreground">
-              未找到项目
+              {t('projectSelector.noProjectFound')}
             </CommandEmpty>
 
+            {/* Workspace scope option (clear project selection) */}
             {workspaceId && (
-              <CommandGroup heading="工作空间">
+              <CommandGroup heading={t('projectSelector.workspace')}>
                 <CommandItem
                   value={`workspace:${workspaceId}`}
                   onSelect={() => {
@@ -117,40 +137,38 @@ export function ChatProjectSelector({
                   className="text-xs gap-2"
                 >
                   <Layers className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">{workspaceName ?? "工作空间"}</span>
+                  <span className="truncate">{workspaceName ?? t('projectSelector.workspace')}</span>
                   {!projectId && (
-                    <span className="ml-auto text-[10px] text-muted-foreground">当前</span>
+                    <span className="ml-auto text-[10px] text-muted-foreground">{t('projectSelector.current')}</span>
                   )}
                 </CommandItem>
               </CommandGroup>
             )}
 
-            {flatProjects.length > 0 && (
-              <CommandGroup heading="项目">
-                {flatProjects.map((p) => (
-                  <CommandItem
-                    key={p.projectId}
-                    value={`${p.projectId}:${p.title}`}
-                    onSelect={() => {
-                      onProjectChange(p.projectId);
-                      setOpen(false);
-                    }}
-                    className="text-xs gap-2"
-                    style={{ paddingLeft: p.depth > 0 ? `${8 + p.depth * 12}px` : undefined }}
-                  >
-                    {p.icon ? (
-                      <span className="text-[13px] leading-none shrink-0">{p.icon}</span>
-                    ) : (
-                      <FolderOpen className="w-3.5 h-3.5 shrink-0" />
-                    )}
-                    <span className="truncate">{p.title}</span>
-                    {p.projectId === projectId && (
-                      <span className="ml-auto text-[10px] text-muted-foreground">当前</span>
-                    )}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
+            <CommandGroup heading={t('projectSelector.projects')}>
+              {flatProjects.map((p) => (
+                <CommandItem
+                  key={p.projectId}
+                  value={`${p.projectId}:${p.title}`}
+                  onSelect={() => {
+                    onProjectChange(p.projectId);
+                    setOpen(false);
+                  }}
+                  className="text-xs gap-2"
+                  style={{ paddingLeft: p.depth > 0 ? `${8 + p.depth * 12}px` : undefined }}
+                >
+                  {p.icon ? (
+                    <span className="text-[13px] leading-none shrink-0">{p.icon}</span>
+                  ) : (
+                    <FolderOpen className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  <span className="truncate">{p.title}</span>
+                  {p.projectId === projectId && (
+                    <span className="ml-auto text-[10px] text-muted-foreground">{t('projectSelector.current')}</span>
+                  )}
+                </CommandItem>
+              ))}
+            </CommandGroup>
           </CommandList>
         </Command>
       </PopoverContent>

@@ -306,5 +306,12 @@
     },
     "cancel": "Cancel",
     "confirm": "Enable"
+  },
+  "projectSelector": {
+    "workspace": "Workspace",
+    "searchProject": "Search projects...",
+    "noProjectFound": "No projects found",
+    "projects": "Projects",
+    "current": "Current"
   }
 }

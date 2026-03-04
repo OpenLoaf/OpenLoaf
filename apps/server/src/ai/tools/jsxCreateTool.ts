@@ -46,19 +46,20 @@ export const jsxCreateTool = tool({
     {
       input: {
         content:
-          '<div className="p-4 bg-blue-50 rounded-lg">'
-          + '<h3 className="font-bold text-lg mb-3 text-blue-800">文件夹整理方案</h3>'
-          + '<div className="grid grid-cols-2 gap-3">'
-          + '<div className="bg-white p-3 rounded">'
-          + '<h4 className="font-semibold text-sm text-blue-700 mb-2">图片文件 → images/</h4>'
-          + '<ul className="text-xs text-gray-600 space-y-1">'
-          + '<li>screenshot.png</li><li>photo.jpg</li>'
-          + '</ul></div>'
-          + '<div className="bg-white p-3 rounded">'
-          + '<h4 className="font-semibold text-sm text-blue-700 mb-2">文档 → docs/</h4>'
-          + '<ul className="text-xs text-gray-600 space-y-1">'
-          + '<li>readme.md</li><li>notes.txt</li>'
-          + '</ul></div>'
+          '<div className="p-4 bg-card rounded-xl">'
+          + '<div className="flex items-center gap-2 mb-3">'
+          + '<h3 className="font-semibold text-sm text-card-foreground">任务状态</h3>'
+          + '<span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs text-emerald-600">已完成</span>'
+          + '</div>'
+          + '<div className="space-y-2">'
+          + '<div className="flex items-center justify-between bg-muted p-3 rounded-lg">'
+          + '<span className="text-xs text-foreground">图片文件整理</span>'
+          + '<span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-600">images/</span>'
+          + '</div>'
+          + '<div className="flex items-center justify-between bg-muted p-3 rounded-lg">'
+          + '<span className="text-xs text-foreground">文档归档</span>'
+          + '<span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-600">docs/</span>'
+          + '</div>'
           + '</div></div>',
       },
     },

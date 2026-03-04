@@ -267,7 +267,9 @@ const config: ForgeConfig = {
       '../../apps/desktop/resources/icon.icns',
       '../../apps/desktop/resources/icon.ico',
       '../../apps/desktop/resources/icon.png',
-      // macOS 托盘图标（16x16 和 16x16@2x Template 图标）。
+      // macOS 托盘 Template 图标（纯黑 + 透明背景，系统自动适配深浅模式）。
+      '../../apps/desktop/resources/trayIconTemplate.png',
+      '../../apps/desktop/resources/trayIconTemplate@2x.png',
       '../../apps/desktop/resources/icon.iconset',
       // npm 包（sharp、@libsql、playwright-core 等）及其所有传递依赖
       // 由 postPackage 钩子递归解析并复制到 Resources/node_modules/，

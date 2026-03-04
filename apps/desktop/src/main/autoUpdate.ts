@@ -165,6 +165,9 @@ export async function checkForUpdates(reason = 'manual'): Promise<AutoUpdateResu
     return { ok: false, reason: 'not-packaged' }
   }
 
+  // 每次检查前重新配置 feed URL，确保渠道切换后立即生效（无需重启）。
+  if (cachedLog) configureFeedUrl(cachedLog)
+
   try {
     await autoUpdater.checkForUpdates()
     return { ok: true }

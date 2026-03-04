@@ -404,6 +404,17 @@ ipcRenderer.on('openloaf:tray:new-conversation', () => {
   }
 });
 
+// 托盘菜单导航事件转发到 web 端。
+ipcRenderer.on('openloaf:tray:navigate', (_event, detail) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('openloaf:tray:navigate', { detail })
+    );
+  } catch {
+    // ignore
+  }
+});
+
 // 主进程请求关闭确认：转发到 web 端弹出 UI 对话框。
 ipcRenderer.on('openloaf:confirm-close', (_event, detail) => {
   try {

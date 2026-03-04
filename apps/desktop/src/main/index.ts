@@ -528,6 +528,13 @@ async function boot() {
         win.webContents.send('openloaf:tray:new-conversation');
       }
     },
+    navigateTo: (target) => {
+      if (process.platform === 'darwin') app.dock?.show();
+      const win = focusMainWindow();
+      if (win) {
+        win.webContents.send('openloaf:tray:navigate', { target });
+      }
+    },
     quitApp: () => forceQuit(),
   });
 

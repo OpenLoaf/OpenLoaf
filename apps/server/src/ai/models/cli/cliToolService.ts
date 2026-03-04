@@ -85,8 +85,20 @@ function resolveNpmCommand(): string {
 /** Check whether error indicates a missing command. */
 function isCommandNotFound(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
-  const code = (error as { code?: string }).code;
-  return code === "ENOENT" || code === "ERR_NOT_FOUND";
+  const err = error as { code?: string; exitCode?: number; stderr?: string };
+  // Unix: ENOENT / ERR_NOT_FOUND when binary not in PATH
+  if (err.code === "ENOENT" || err.code === "ERR_NOT_FOUND") return true;
+  // Windows: exit code 9009 is the canonical "command not found" from cmd.exe
+  if (err.exitCode === 9009) return true;
+  // Windows: exit code 1 with "is not recognized" (English) or garbled GBK (Chinese locale)
+  if (
+    err.exitCode === 1 &&
+    typeof err.stderr === "string" &&
+    (err.stderr.includes("is not recognized") || err.stderr.includes("not found"))
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /** Extract a version-like value from CLI output. */
@@ -155,12 +167,23 @@ async function resolveCliToolInstallInfo(definition: CliToolDefinition): Promise
     if (isCommandNotFound(result.error)) {
       return { installed: false };
     }
-    logger.warn(
-      { err: result.error, tool: definition.id },
-      "[cli] failed to resolve version",
+    // Command exists but returned an error — try to extract a version from
+    // combined output. If no version-like string is found the command is most
+    // likely not installed (e.g. Windows "not recognized" in non-English locale).
+    const combined = ((result.error as any)?.all ?? (result.error as any)?.stderr ?? "") as string;
+    const fallbackVersion = extractVersion(combined);
+    if (fallbackVersion) {
+      logger.warn(
+        { err: result.error, tool: definition.id },
+        "[cli] failed to resolve version but found version in output",
+      );
+      return { installed: true, version: fallbackVersion };
+    }
+    logger.info(
+      { tool: definition.id },
+      "[cli] command not found (no version in error output)",
     );
-    // 命令存在但版本解析失败时仍标记为已安装，避免误提示安装。
-    return { installed: true };
+    return { installed: false };
   }
   const output = result.stdout.trim() ? result.stdout : result.stderr ?? "";
   const version = extractVersion(output);

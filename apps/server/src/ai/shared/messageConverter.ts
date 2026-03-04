@@ -21,8 +21,12 @@ export async function buildModelMessages(
   tools?: ToolSet,
   options?: { modelId?: string },
 ) {
-  validateUIMessages({ messages: messages as any });
-  const modelMessages = await convertToModelMessages(messages as any, {
+  // 过滤被中止的空 assistant 消息，避免 AI_TypeValidationError
+  const sanitized = messages.filter(
+    (m) => m.role === "user" || (Array.isArray(m.parts) && m.parts.length > 0),
+  );
+  validateUIMessages({ messages: sanitized as any });
+  const modelMessages = await convertToModelMessages(sanitized as any, {
     tools,
     convertDataPart: (part) => {
       // 逻辑：将 data-skill 转为模型可读的文本块。

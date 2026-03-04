@@ -43,7 +43,7 @@ function FloatingPaths({ position }: { position: number }) {
             animate={{
               pathLength: 1,
               opacity: [0.3, 0.6, 0.3],
-              pathOffset: [0, 1, 0],
+              pathOffset: [1, 0, 1],
             }}
             transition={{
               duration: 20 + Math.random() * 10,

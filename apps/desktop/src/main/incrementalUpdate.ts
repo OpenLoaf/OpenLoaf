@@ -606,8 +606,15 @@ export async function checkForIncrementalUpdates(
       let betaManifest: RemoteManifest | null = null
       try {
         const betaRaw = (await fetchJson(manifestUrl)) as RemoteManifest
-        if (betaRaw.schemaVersion === 1) {
+        // 兼容 schemaVersion 为 undefined 的情况（服务端数据未更新）
+        const isValidSchema = betaRaw.schemaVersion === undefined || betaRaw.schemaVersion === 1
+        if (isValidSchema) {
           betaManifest = betaRaw
+          if (betaRaw.schemaVersion === undefined) {
+            log(
+              `[incremental-update] Beta manifest missing schemaVersion (assuming v1)`
+            )
+          }
         } else {
           log(
             `[incremental-update] Ignoring beta manifest with schemaVersion ${betaRaw.schemaVersion}`
@@ -623,7 +630,8 @@ export async function checkForIncrementalUpdates(
       const stableUrl = `${updateBaseUrl}/stable/manifest.json`
       try {
         const stableRaw = (await fetchJson(stableUrl)) as RemoteManifest
-        if (stableRaw.schemaVersion === 1) {
+        const isValidSchema = stableRaw.schemaVersion === undefined || stableRaw.schemaVersion === 1
+        if (isValidSchema) {
           stable = stableRaw
         } else {
           log(
@@ -657,7 +665,8 @@ export async function checkForIncrementalUpdates(
       }
     } else {
       const remoteRaw = (await fetchJson(manifestUrl)) as RemoteManifest
-      if (remoteRaw.schemaVersion !== 1) {
+      const isValidSchema = remoteRaw.schemaVersion === undefined || remoteRaw.schemaVersion === 1
+      if (!isValidSchema) {
         throw new Error(`Unsupported manifest schemaVersion: ${remoteRaw.schemaVersion}`)
       }
       remote = remoteRaw

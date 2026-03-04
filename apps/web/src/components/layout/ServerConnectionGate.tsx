@@ -33,6 +33,15 @@ export default function ServerConnectionGate({
     gcTime: 0,
   });
 
+  // 服务连通后预取 basic config，避免 StepUpGate 挂载第二个 LoadingScreen 导致动画重置。
+  const { isLoading: configLoading } = useQuery({
+    ...trpc.settings.getBasic.queryOptions(),
+    enabled: isSuccess,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+
   // 监听 Electron 主进程推送的 server crash 事件
   useEffect(() => {
     const handler = (event: Event) => {
@@ -58,8 +67,8 @@ export default function ServerConnectionGate({
   // 崩溃时显示全屏错误页
   if (crashInfo) return <ServerCrashScreen crashInfo={crashInfo} />;
 
-  // 未连接时显示 loading
-  if (!isSuccess) {
+  // 服务未连通或 basic config 未加载完时持续显示同一个 LoadingScreen
+  if (!isSuccess || configLoading) {
     return <LoadingScreen />;
   }
 

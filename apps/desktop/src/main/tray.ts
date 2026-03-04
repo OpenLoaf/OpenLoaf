@@ -44,12 +44,14 @@ function resolveTrayIcon(): Electron.NativeImage {
     path.join(app.getAppPath(), '..', 'resources'),
   ]
 
-  // macOS 使用 16x16@2x Template 图标
+  // macOS 使用专用 Template 图标（纯黑 + 透明背景），系统自动适配深浅模式。
   if (isMac) {
     const macCandidates = roots.flatMap((root) => [
+      path.join(root, 'trayIconTemplate@2x.png'),
+      path.join(root, 'trayIconTemplate.png'),
+      // 兜底使用应用图标
       path.join(root, 'icon.iconset', 'icon_16x16@2x.png'),
       path.join(root, 'icon.iconset', 'icon_16x16.png'),
-      path.join(root, 'icon.png'),
     ])
     for (const candidate of macCandidates) {
       if (fs.existsSync(candidate)) {
@@ -141,10 +143,19 @@ function createBadgeIcon(base: Electron.NativeImage, count: number): Electron.Na
 // 右键菜单
 // ---------------------------------------------------------------------------
 
+export type TrayNavigateTarget =
+  | 'search'
+  | 'ai-assistant'
+  | 'workbench'
+  | 'calendar'
+  | 'email'
+  | 'tasks'
+
 export type TrayCallbacks = {
   toggleWindow: () => void
   showWindow: () => void
   newConversation: () => void
+  navigateTo: (target: TrayNavigateTarget) => void
   quitApp: () => void
 }
 
@@ -156,8 +167,28 @@ function buildContextMenu(callbacks: TrayCallbacks): Electron.Menu {
     },
     { type: 'separator' },
     {
-      label: t('tray.newConversation'),
-      click: callbacks.newConversation,
+      label: t('tray.search'),
+      click: () => callbacks.navigateTo('search'),
+    },
+    {
+      label: t('tray.aiAssistant'),
+      click: () => callbacks.navigateTo('ai-assistant'),
+    },
+    {
+      label: t('tray.workbench'),
+      click: () => callbacks.navigateTo('workbench'),
+    },
+    {
+      label: t('tray.calendar'),
+      click: () => callbacks.navigateTo('calendar'),
+    },
+    {
+      label: t('tray.email'),
+      click: () => callbacks.navigateTo('email'),
+    },
+    {
+      label: t('tray.tasks'),
+      click: () => callbacks.navigateTo('tasks'),
     },
     { type: 'separator' },
     {
