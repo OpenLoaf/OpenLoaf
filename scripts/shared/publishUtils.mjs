@@ -401,16 +401,45 @@ function extractVersionFromKey(key) {
 
 /**
  * 按语义化版本降序排序。
+ * 正确处理 prerelease：0.2.4 > 0.2.4-beta.10 > 0.2.4-beta.9
  */
 function compareVersionsDesc(a, b) {
-  const pa = a.split(/[-.]/)
-  const pb = b.split(/[-.]/)
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const na = Number(pa[i]) || 0
-    const nb = Number(pb[i]) || 0
+  // 分离主版本号和 prerelease 部分
+  const [aMain, aPre] = a.split('-', 2)
+  const [bMain, bPre] = b.split('-', 2)
+
+  // 比较主版本号（X.Y.Z）
+  const aMainParts = aMain.split('.').map(Number)
+  const bMainParts = bMain.split('.').map(Number)
+  for (let i = 0; i < Math.max(aMainParts.length, bMainParts.length); i++) {
+    const na = aMainParts[i] ?? 0
+    const nb = bMainParts[i] ?? 0
     if (na !== nb) return nb - na
-    // 非数字部分按字符串比较（如 beta vs rc）
-    if (pa[i] !== pb[i]) return (pb[i] ?? '').localeCompare(pa[i] ?? '')
+  }
+
+  // 主版本号相同，比较 prerelease：
+  // 无 prerelease（正式版）> 有 prerelease（如 beta.10）
+  if (!aPre && bPre) return -1  // a 是正式版，排前面
+  if (aPre && !bPre) return 1   // b 是正式版，排前面
+  if (!aPre && !bPre) return 0
+
+  // 都有 prerelease：逐段比较
+  const aPreParts = aPre.split('.')
+  const bPreParts = bPre.split('.')
+  for (let i = 0; i < Math.max(aPreParts.length, bPreParts.length); i++) {
+    const ap = aPreParts[i]
+    const bp = bPreParts[i]
+    if (ap === undefined && bp !== undefined) return 1  // 更短的 prerelease 排后面
+    if (ap !== undefined && bp === undefined) return -1
+    const an = Number(ap)
+    const bn = Number(bp)
+    // 都是数字：按数值比较
+    if (!isNaN(an) && !isNaN(bn)) {
+      if (an !== bn) return bn - an
+      continue
+    }
+    // 字符串比较
+    if (ap !== bp) return (bp ?? '').localeCompare(ap ?? '')
   }
   return 0
 }
