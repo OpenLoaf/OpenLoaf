@@ -16,7 +16,6 @@ import {
   Cloud,
   Mic,
   Paperclip,
-  Sparkles,
   Settings2,
 } from "lucide-react";
 import { useChatActions, useChatOptions, useChatSession, useChatState } from "../context";
@@ -249,6 +248,8 @@ export interface ChatInputBoxProps {
   onProjectChange?: (projectId: string | undefined) => void;
   /** Whether the conversation has already started (disables project switching). */
   projectSelectorDisabled?: boolean;
+  /** Optional content rendered after project selector. */
+  afterProjectSelector?: ReactNode;
   /**
    * 上传文件到 session files 目录，返回绝对路径。
    * 用于系统文件拖拽场景，生成 @[/abs/path] mention。
@@ -307,6 +308,7 @@ export function ChatInputBox({
   workspaceName,
   onProjectChange,
   projectSelectorDisabled = false,
+  afterProjectSelector,
 }: ChatInputBoxProps) {
   const { t } = useTranslation('ai');
   const resolvedSubmitLabel = submitLabel ?? t('chat.send');
@@ -417,6 +419,9 @@ export function ChatInputBox({
   const resolvedPlaceholder = chatMode === "cli"
     ? t('input.cliPlaceholder', { tool: cliToolLabel || "CLI" })
     : (placeholder ?? t('input.defaultPlaceholder'));
+  const showProjectSelector = Boolean(
+    onProjectChange && (workspaceId || projects.length > 0),
+  );
 
   // Responsive: collapse ChatModeSelector labels when footer is narrow
   const [footerEl, setFooterEl] = useState<HTMLDivElement | null>(null);
@@ -962,16 +967,25 @@ export function ChatInputBox({
               attachments && attachments.length > 0 && "pt-1"
             )}
           >
-            {onProjectChange && (workspaceId || projects.length > 0) && (
+            {showProjectSelector && (
               <div className="px-3 pt-2 pb-0.5">
-                <ChatProjectSelector
-                  projectId={defaultProjectId}
-                  workspaceId={workspaceId}
-                  workspaceName={workspaceName}
-                  projects={projects}
-                  onProjectChange={onProjectChange}
-                  disabled={projectSelectorDisabled}
-                />
+                <div className="flex items-center gap-2 min-w-0">
+                  <ChatProjectSelector
+                    projectId={defaultProjectId}
+                    workspaceId={workspaceId}
+                    workspaceName={workspaceName}
+                    projects={projects}
+                    onProjectChange={onProjectChange}
+                    disabled={projectSelectorDisabled}
+                  />
+                  {afterProjectSelector ? (
+                    <div className="min-w-0 flex-1 overflow-x-auto">
+                      <div className="flex w-full min-w-max items-center justify-end">
+                        {afterProjectSelector}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             )}
             <div className="w-full h-full min-h-0">
@@ -1228,7 +1242,7 @@ export default function ChatInput({
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
   const { basic, setBasic } = useBasicConfig();
   const setTabDictationStatus = useChatRuntime((s) => s.setTabDictationStatus);
-  const dictationLanguage = basic.modelResponseLanguage ?? undefined;
+  const dictationLanguage = basic.uiLanguage ?? undefined;
   const dictationSoundEnabled = basic.appNotificationSoundEnabled;
   const onlineSearchMemoryScope: "tab" | "global" =
     basic.chatOnlineSearchMemoryScope === "global" ? "global" : "tab";
@@ -1257,23 +1271,66 @@ export default function ChatInput({
   /** Detect installed CLI tools to control mode selector visibility. */
   const installedCliProviderIds = useInstalledCliProviderIds();
   const hasCliTools = installedCliProviderIds.size > 0;
+  const hasCodexCli = installedCliProviderIds.has("codex-cli");
+  const hasClaudeCodeCli = installedCliProviderIds.has("claude-code-cli");
   /** Resolve selected CLI tool label for placeholder. */
-  const { detail: mainAgentDetail } = useMainAgentModel(projectId);
+  const { detail: mainAgentDetail, setCodeModelIds } = useMainAgentModel(projectId);
+  const selectedCodeModelId = mainAgentDetail?.codeModelIds?.[0] ?? "";
+  const isLegacyCodexSelected = selectedCodeModelId === "codex";
+  const isLegacyClaudeCodeSelected = selectedCodeModelId === "claudeCode";
   const cliToolLabel = useMemo(() => {
-    const codeId = mainAgentDetail?.codeModelIds?.[0];
-    if (!codeId) return CLI_TOOLS_META[0]?.label;
-    const tool = CLI_TOOLS_META.find((t) => t.id === codeId);
-    return tool?.label ?? codeId;
-  }, [mainAgentDetail?.codeModelIds]);
-  // 逻辑：判断当前选中的 CLI 工具是否为 Claude Code，用于显示专属选项栏。
-  const isClaudeCodeSelected = useMemo(() => {
-    const codeId = mainAgentDetail?.codeModelIds?.[0];
-    if (!codeId) {
-      // 未指定时，检查 Claude Code 是否是第一个已安装的 CLI 工具。
-      return installedCliProviderIds.has("claude-code-cli");
+    if (selectedCodeModelId.startsWith("claude-code-cli:")) {
+      return CLI_TOOLS_META.find((item) => item.id === "claudeCode")?.label ?? selectedCodeModelId;
     }
-    return codeId.startsWith("claude-code-cli:");
-  }, [mainAgentDetail?.codeModelIds, installedCliProviderIds]);
+    if (selectedCodeModelId.startsWith("codex-cli:")) {
+      return CLI_TOOLS_META.find((item) => item.id === "codex")?.label ?? selectedCodeModelId;
+    }
+    if (isLegacyClaudeCodeSelected) {
+      return CLI_TOOLS_META.find((item) => item.id === "claudeCode")?.label ?? "Claude Code";
+    }
+    if (isLegacyCodexSelected) {
+      return CLI_TOOLS_META.find((item) => item.id === "codex")?.label ?? "Codex CLI";
+    }
+    if (hasClaudeCodeCli) {
+      return CLI_TOOLS_META.find((item) => item.id === "claudeCode")?.label ?? "Claude Code";
+    }
+    if (hasCodexCli) {
+      return CLI_TOOLS_META.find((item) => item.id === "codex")?.label ?? "Codex CLI";
+    }
+    return CLI_TOOLS_META[0]?.label;
+  }, [hasClaudeCodeCli, hasCodexCli, isLegacyClaudeCodeSelected, isLegacyCodexSelected, selectedCodeModelId]);
+  // 逻辑：根据当前 code model 判断 CLI 工具类型，驱动参数面板展示与请求 metadata。
+  const isCodexCliSelected = useMemo(() => {
+    if (!selectedCodeModelId) return false;
+    return selectedCodeModelId.startsWith("codex-cli:") || isLegacyCodexSelected;
+  }, [isLegacyCodexSelected, selectedCodeModelId]);
+  const isClaudeCodeCliSelected = useMemo(() => {
+    if (!selectedCodeModelId) return false;
+    return selectedCodeModelId.startsWith("claude-code-cli:") || isLegacyClaudeCodeSelected;
+  }, [isLegacyClaudeCodeSelected, selectedCodeModelId]);
+  const activeCliProvider = useMemo<"codex-cli" | "claude-code-cli" | undefined>(() => {
+    // 优先根据已选择的 code model 判断
+    if (isCodexCliSelected) return "codex-cli";
+    if (isClaudeCodeCliSelected) return "claude-code-cli";
+    // 非 CLI 模式直接返回
+    if (chatMode !== "cli") return undefined;
+    // CLI 模式下，即使未选择具体模型，也根据已安装的 CLI 工具返回默认值
+    // 优先返回 Codex（保持向后兼容）
+    if (hasCodexCli) return "codex-cli";
+    if (hasClaudeCodeCli) return "claude-code-cli";
+    // 如果都未安装，仍返回 codex-cli 作为默认值（避免 UI 闪烁）
+    return "codex-cli";
+  }, [chatMode, hasClaudeCodeCli, hasCodexCli, isClaudeCodeCliSelected, isCodexCliSelected]);
+  useEffect(() => {
+    // 逻辑：兼容历史错误值（codex/claudeCode），自动迁移到 provider:modelId。
+    if (selectedCodeModelId === "codex") {
+      setCodeModelIds(["codex-cli:gpt-5.2-codex"]);
+      return;
+    }
+    if (selectedCodeModelId === "claudeCode") {
+      setCodeModelIds(["claude-code-cli:claude-sonnet-4-6"]);
+    }
+  }, [selectedCodeModelId, setCodeModelIds]);
   /** Global online-search switch state. */
   const [globalOnlineSearchEnabled, setGlobalOnlineSearchEnabled] =
     useState(false);
@@ -1464,6 +1521,13 @@ export default function ChatInput({
   const resolvedCanImageGeneration = Boolean(canImageGeneration);
   const resolvedCanImageEdit = Boolean(canImageEdit);
   const resolvedIsCodexProvider = Boolean(isCodexProvider);
+  const showCodexModelSelector =
+    resolvedIsCodexProvider || (chatMode === "cli" && activeCliProvider === "codex-cli");
+  const showClaudeCodeModelSelector =
+    chatMode === "cli" && activeCliProvider === "claude-code-cli";
+  // 逻辑：CLI 直连且选中 Codex 时，也要携带 codexOptions 元数据。
+  const codexOptionsEnabled =
+    resolvedIsCodexProvider || (chatMode === "cli" && isCodexCliSelected);
   // 模型声明图片生成时显示图片输出选项。
   const showImageOutputOptions = resolvedCanImageGeneration;
   const allowAll = Boolean(canAttachAll);
@@ -1471,7 +1535,9 @@ export default function ChatInput({
   const handleAddAttachments = allowImage ? onAddAttachments : undefined;
   const composeMessage = useChatMessageComposer({
     canImageGeneration: resolvedCanImageGeneration,
-    isCodexProvider: resolvedIsCodexProvider,
+    isCodexProvider: codexOptionsEnabled,
+    selectedCliProvider: chatMode === "cli" ? activeCliProvider : undefined,
+    selectedCliModelId: chatMode === "cli" ? selectedCodeModelId : undefined,
   });
 
   const isLoading = status === "submitted" || status === "streaming";
@@ -1539,12 +1605,15 @@ export default function ChatInput({
       };
       return [base, maskPart];
     });
-    const { parts, metadata } = composeMessage({
+    const { parts, metadata, chatModelId } = composeMessage({
       textValue,
       imageParts,
       imageOptions,
-      codexOptions,
-      claudeCodeOptions,
+      codexOptions: codexOptionsEnabled ? codexOptions : undefined,
+      claudeCodeOptions:
+        chatMode === "cli" && activeCliProvider === "claude-code-cli"
+          ? claudeCodeOptions
+          : undefined,
       reasoningMode: hasReasoningModel ? (basic.chatThinkingMode === "deep" ? "deep" : "fast") : undefined,
       onlineSearchEnabled,
       autoApproveTools: approvalMode === "auto",
@@ -1559,7 +1628,12 @@ export default function ChatInput({
       return
     }
     // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
-    sendMessage({ parts, ...(metadata ? { metadata } : {}) } as any);
+    // chatModelId 通过 body 传递，transport.ts 会将其提取到请求顶层
+    sendMessage({
+      parts,
+      ...(metadata ? { metadata } : {}),
+      ...(chatModelId ? { body: { chatModelId } } : {})
+    } as any);
     setInput("");
     onClearAttachments?.();
   };
@@ -1634,21 +1708,33 @@ export default function ChatInput({
         workspaceName={workspaceName}
         onProjectChange={handleProjectChange}
         projectSelectorDisabled={conversationStarted}
+        afterProjectSelector={
+          !isUnconfigured && (showCodexModelSelector || showClaudeCodeModelSelector) ? (
+            showCodexModelSelector ? (
+              <CodexOption
+                variant="inline"
+                showMode={false}
+                hideLabels
+                disabled={conversationStarted}
+                className="gap-2 px-0 py-0 flex-nowrap"
+              />
+            ) : showClaudeCodeModelSelector ? (
+              <ClaudeCodeOption
+                variant="inline"
+                hideLabels
+                disabled={conversationStarted}
+                className="gap-2 px-0 py-0 flex-nowrap"
+              />
+            ) : null
+          ) : null
+        }
         header={
-          !isUnconfigured && (showImageOutputOptions || isCodexProvider || (chatMode === 'cli' && isClaudeCodeSelected)) ? (
-            <div className="flex flex-col gap-2">
-              {showImageOutputOptions ? (
-                <ChatImageOutputOption
-                  model={model ?? null}
-                  variant="inline"
-                  hideAspectRatio={hasMaskedAttachment}
-                />
-              ) : null}
-              {resolvedIsCodexProvider ? <CodexOption variant="inline" /> : null}
-              {chatMode === 'cli' && isClaudeCodeSelected ? (
-                <ClaudeCodeOption variant="inline" />
-              ) : null}
-            </div>
+          !isUnconfigured && showImageOutputOptions ? (
+            <ChatImageOutputOption
+              model={model ?? null}
+              variant="inline"
+              hideAspectRatio={hasMaskedAttachment}
+            />
           ) : null
         }
       />

@@ -68,4 +68,50 @@ describe('useChatMessageComposer', () => {
     expect((metadata as any).toolApproval).toEqual({ autoApprove: true })
     expect((metadata as any).reasoning).toEqual({ mode: 'deep' })
   })
+
+  it('does not include claudeCodeOptions when directCli uses codex provider', () => {
+    const { result } = renderHook(() =>
+      useChatMessageComposer({
+        canImageGeneration: false,
+        isCodexProvider: true,
+        selectedCliProvider: 'codex-cli',
+      }),
+    )
+    const compose = result.current
+
+    const { metadata } = compose({
+      ...baseParams,
+      directCli: true,
+      codexOptions: { mode: 'chat', reasoningEffort: 'high' },
+      claudeCodeOptions: { effort: 'high' },
+    })
+
+    expect(metadata).toBeDefined()
+    expect((metadata as any).codexOptions).toEqual({
+      mode: 'chat',
+      reasoningEffort: 'high',
+    })
+    expect((metadata as any).claudeCodeOptions).toBeUndefined()
+  })
+
+  it('includes claudeCodeOptions only when directCli uses claude provider', () => {
+    const { result } = renderHook(() =>
+      useChatMessageComposer({
+        canImageGeneration: false,
+        isCodexProvider: false,
+        selectedCliProvider: 'claude-code-cli',
+      }),
+    )
+    const compose = result.current
+
+    const { metadata } = compose({
+      ...baseParams,
+      directCli: true,
+      claudeCodeOptions: { effort: 'high' },
+    })
+
+    expect(metadata).toBeDefined()
+    expect((metadata as any).claudeCodeOptions).toEqual({ effort: 'high' })
+    expect((metadata as any).codexOptions).toBeUndefined()
+  })
 })

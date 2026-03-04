@@ -8,15 +8,131 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { Hono } from "hono";
+import { promises as fsPromises } from "node:fs";
+import nodePath from "node:path";
+import JSZip from "jszip";
 import {
   ChatAttachmentController,
   type ChatAttachmentBody,
 } from "@/ai/interface/controllers/ChatAttachmentController";
+import { resolveMessagesJsonlPath } from "@/ai/services/chat/repositories/chatFileStore";
 
 const controller = new ChatAttachmentController();
+const SESSION_EXPORT_MAX_BYTES = 10 * 1024 * 1024;
+const SESSION_COMPACT_FILE_NAMES = new Set([
+  "messages.jsonl",
+  "session.json",
+  "system.json",
+]);
+
+type SessionFileEntry = {
+  /** Absolute file path on disk. */
+  absolutePath: string;
+  /** Relative path inside zip archive. */
+  relativePath: string;
+  /** File size in bytes. */
+  size: number;
+};
+
+/** Normalize path separators to zip-friendly POSIX style. */
+function toZipRelativePath(value: string): string {
+  return value.split(nodePath.sep).join("/");
+}
+
+/** Recursively collect all files under a directory. */
+async function collectDirectoryFiles(
+  rootDir: string,
+  currentDir = rootDir,
+): Promise<SessionFileEntry[]> {
+  const entries = await fsPromises.readdir(currentDir, { withFileTypes: true });
+  const files: SessionFileEntry[] = [];
+  for (const entry of entries) {
+    const absolutePath = nodePath.join(currentDir, entry.name);
+    if (entry.isDirectory()) {
+      const nested = await collectDirectoryFiles(rootDir, absolutePath);
+      files.push(...nested);
+      continue;
+    }
+    if (!entry.isFile()) continue;
+    const stat = await fsPromises.stat(absolutePath);
+    const relativePath = toZipRelativePath(nodePath.relative(rootDir, absolutePath));
+    files.push({ absolutePath, relativePath, size: stat.size });
+  }
+  return files;
+}
+
+/** Resolve export entries with size-based fallback strategy. */
+function resolveExportEntries(input: {
+  allFiles: SessionFileEntry[];
+  sourceBytes: number;
+}): { files: SessionFileEntry[]; compactMode: boolean } {
+  if (input.sourceBytes <= SESSION_EXPORT_MAX_BYTES) {
+    return { files: input.allFiles, compactMode: false };
+  }
+  // 逻辑：会话目录超过 10MB 时，仅保留核心会话文件，避免上传超大 zip。
+  const compactFiles = input.allFiles.filter((file) => {
+    const parsed = nodePath.posix.parse(file.relativePath);
+    return (
+      (parsed.dir === "" || parsed.dir === ".") &&
+      SESSION_COMPACT_FILE_NAMES.has(parsed.base)
+    );
+  });
+  return { files: compactFiles, compactMode: true };
+}
+
+/** Build a zip archive from file entries. */
+async function buildZipFromEntries(entries: SessionFileEntry[]): Promise<Uint8Array> {
+  const zip = new JSZip();
+  for (const entry of entries) {
+    const content = await fsPromises.readFile(entry.absolutePath);
+    zip.file(entry.relativePath, content);
+  }
+  return zip.generateAsync({
+    type: "uint8array",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 },
+  });
+}
 
 /** Register chat attachment routes. */
 export function registerChatAttachmentRoutes(app: Hono) {
+  app.get("/chat/sessions/:sessionId/export-zip", async (c) => {
+    const sessionId = c.req.param("sessionId")?.trim();
+    if (!sessionId) {
+      return c.json({ error: "sessionId is required" }, 400);
+    }
+
+    let sessionDir = "";
+    try {
+      const messagesPath = await resolveMessagesJsonlPath(sessionId);
+      sessionDir = nodePath.dirname(messagesPath);
+      const stat = await fsPromises.stat(sessionDir);
+      if (!stat.isDirectory()) {
+        return c.json({ error: "Session directory not found" }, 404);
+      }
+    } catch {
+      return c.json({ error: "Session directory not found" }, 404);
+    }
+
+    const allFiles = await collectDirectoryFiles(sessionDir);
+    const sourceBytes = allFiles.reduce((sum, file) => sum + file.size, 0);
+    const { files, compactMode } = resolveExportEntries({ allFiles, sourceBytes });
+    if (files.length === 0) {
+      return c.json({ error: "No exportable files in session directory" }, 404);
+    }
+
+    const zipped = await buildZipFromEntries(files);
+    const exportMode = compactMode ? "compact" : "full";
+    const filename = `${sessionId}-${exportMode}.zip`;
+    return c.body(zipped, 200, {
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "X-OpenLoaf-Export-Mode": exportMode,
+      "X-OpenLoaf-Source-Bytes": String(sourceBytes),
+      "Cache-Control": "no-store",
+    });
+  });
+
   app.post("/chat/attachments", async (c) => {
     let body: ChatAttachmentBody;
     try {

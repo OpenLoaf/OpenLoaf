@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { memo, useCallback, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { trpc } from '@/utils/trpc'
@@ -18,6 +18,12 @@ import { useTabs } from '@/hooks/use-tabs'
 import { Button } from '@openloaf/ui/button'
 import { Input } from '@openloaf/ui/input'
 import { Badge } from '@openloaf/ui/badge'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@openloaf/ui/context-menu'
 import { cn } from '@/lib/utils'
 import {
   CheckCircle2,
@@ -29,9 +35,9 @@ import {
   Loader2,
   Play,
   Plus,
+  RefreshCw,
   Search,
   Sparkles,
-  X,
   XCircle,
 } from 'lucide-react'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
@@ -56,6 +62,11 @@ type ReviewType = 'plan' | 'completion'
 type Priority = 'urgent' | 'high' | 'medium' | 'low'
 type TriggerMode = 'manual' | 'scheduled' | 'condition'
 
+type TaskSchedule =
+  | { type: 'once'; scheduleAt: string }
+  | { type: 'interval'; intervalMs: number }
+  | { type: 'cron'; cronExpression: string }
+
 type TaskConfig = {
   id: string
   name: string
@@ -64,6 +75,7 @@ type TaskConfig = {
   reviewType?: ReviewType
   priority?: Priority
   triggerMode: TriggerMode
+  schedule?: TaskSchedule
   agentName?: string
   enabled: boolean
   createdAt: string
@@ -96,6 +108,12 @@ const PRIORITY_COLORS: Record<Priority, string> = {
   high: 'bg-[#fef7e0] text-[#e37400] border-transparent dark:bg-amber-900/40 dark:text-amber-300',
   medium: 'bg-[#e8f0fe] text-[#1a73e8] border-transparent dark:bg-sky-900/40 dark:text-sky-300',
   low: 'bg-[#f1f3f4] text-[#5f6368] border-transparent dark:bg-slate-800/40 dark:text-slate-400',
+}
+
+const TRIGGER_COLORS: Record<TriggerMode, string> = {
+  manual: 'bg-[#e6f4ea] text-[#188038] border-transparent dark:bg-emerald-900/40 dark:text-emerald-300',
+  scheduled: 'bg-[#f3e8fd] text-[#9334e6] border-transparent dark:bg-violet-900/40 dark:text-violet-300',
+  condition: 'bg-[#fef7e0] text-[#e37400] border-transparent dark:bg-amber-900/40 dark:text-amber-300',
 }
 
 const PRIORITY_FILTER_COLORS: Record<Priority, { active: string; inactive: string }> = {
@@ -205,6 +223,60 @@ function formatTimeAgo(dateStr: string, t: (key: string, opts?: Record<string, u
   return t('messages.daysAgo', { days })
 }
 
+function formatFullDate(dateStr: string): string {
+  const date = new Date(dateStr)
+  if (Number.isNaN(date.getTime())) return dateStr
+
+  // 格式化为 "2026-03-05 14:30:25"
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).replace(/\//g, '-')
+}
+
+function formatSchedule(schedule: TaskSchedule | undefined, t: (key: string, opts?: Record<string, unknown>) => string): string | null {
+  if (!schedule) return null
+
+  if (schedule.type === 'once') {
+    const date = new Date(schedule.scheduleAt)
+    if (Number.isNaN(date.getTime())) return schedule.scheduleAt
+
+    // 格式化为 "3月5日 08:00"
+    return date.toLocaleString('zh-CN', {
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+  }
+
+  if (schedule.type === 'interval') {
+    const hours = schedule.intervalMs / (1000 * 60 * 60)
+    const days = hours / 24
+
+    if (days >= 1 && days % 1 === 0) {
+      return days === 1 ? t('schedule.daily') : t('schedule.everyNDays', { days })
+    }
+    if (hours >= 1 && hours % 1 === 0) {
+      return t('schedule.everyNHours', { hours })
+    }
+    const minutes = schedule.intervalMs / (1000 * 60)
+    return t('schedule.everyNMinutes', { minutes })
+  }
+
+  if (schedule.type === 'cron') {
+    return schedule.cronExpression
+  }
+
+  return null
+}
+
 
 // ─── Task Card ────────────────────────────────────────────────────────
 
@@ -225,6 +297,7 @@ const TaskCard = memo(function TaskCard({
   const priority = task.priority ?? 'medium'
   const summary = task.executionSummary
   const isDraggable = VALID_TRANSITIONS[task.status]?.length > 0
+  const canCancel = task.status === 'todo' || task.status === 'running' || task.status === 'review'
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: task.id,
@@ -232,7 +305,7 @@ const TaskCard = memo(function TaskCard({
     disabled: !isDraggable,
   })
 
-  return (
+  const cardContent = (
     <div
       ref={setNodeRef}
       {...(isDraggable ? { ...listeners, ...attributes } : {})}
@@ -251,11 +324,24 @@ const TaskCard = memo(function TaskCard({
         </Badge>
       </div>
 
+      {/* Description */}
+      {task.description && (
+        <p className="mb-2 text-xs text-muted-foreground line-clamp-2">
+          {task.description}
+        </p>
+      )}
+
       {/* Tags row */}
       <div className="mb-2 flex flex-wrap gap-1">
-        <Badge variant="secondary" className="text-[10px]">
+        <Badge variant="outline" className={cn('text-[10px]', TRIGGER_COLORS[task.triggerMode as TriggerMode])}>
           {TRIGGER_LABELS[task.triggerMode]}
         </Badge>
+        {task.schedule && formatSchedule(task.schedule, t) && (
+          <Badge variant="secondary" className="text-[10px] bg-[#f3e8fd] text-[#9334e6] border-transparent dark:bg-violet-900/30 dark:text-violet-300">
+            <Clock className="mr-1 h-2.5 w-2.5" />
+            {formatSchedule(task.schedule, t)}
+          </Badge>
+        )}
         {task.agentName && (
           <Badge variant="secondary" className="text-[10px]">
             {task.agentName}
@@ -343,24 +429,23 @@ const TaskCard = memo(function TaskCard({
           )}
         </div>
       )}
-
-      {/* Footer: time + cancel */}
-      <div className="mt-2 flex items-center justify-between">
-        <span className="text-[10px] text-muted-foreground">
-          {task.updatedAt}
-        </span>
-        {(task.status === 'todo' || task.status === 'running' || task.status === 'review') && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-5 w-5 p-0 opacity-0 transition-opacity group-hover:opacity-100"
-            onClick={(e) => { e.stopPropagation(); onCancel(task.id) }}
-          >
-            <X className="h-3 w-3" />
-          </Button>
-        )}
-      </div>
     </div>
+  )
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{cardContent}</ContextMenuTrigger>
+      <ContextMenuContent className="w-40">
+        <ContextMenuItem
+          icon={XCircle}
+          variant="destructive"
+          disabled={!canCancel}
+          onSelect={() => onCancel(task.id)}
+        >
+          {t('task.delete')}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 })
 
@@ -539,6 +624,7 @@ export default function TaskBoardPage({
   const [priorityFilter, setPriorityFilter] = useState<Priority[]>([])
   const [triggerFilter, setTriggerFilter] = useState<TriggerMode[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const priorityLabels = useMemo(() => getPriorityLabels(t), [t])
   const triggerLabels = useMemo(() => getTriggerLabels(t), [t])
@@ -546,9 +632,21 @@ export default function TaskBoardPage({
 
   const workspaceId = workspace?.id ?? ''
 
-  const { data: tasks = [], isLoading } = useQuery(
-    trpc.scheduledTask.list.queryOptions({ workspaceId, projectId }),
+  const { data: tasks = [], isLoading, refetch } = useQuery(
+    trpc.scheduledTask.list.queryOptions({ workspaceId, projectId }, {
+      refetchInterval: 60_000, // 每1分钟自动刷新
+    }),
   )
+
+  // 手动刷新功能
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true)
+    try {
+      await refetch()
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [refetch])
 
   const resolveReviewMutation = useMutation(
     trpc.scheduledTask.resolveReview.mutationOptions({
@@ -694,6 +792,15 @@ export default function TaskBoardPage({
           onTriggerFilterChange={setTriggerFilter}
         />
         <div className="ml-auto flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 rounded-full px-2.5 text-xs font-medium text-[#5f6368] shadow-none transition-colors duration-150 hover:bg-[#f1f3f4] dark:text-slate-400 dark:hover:bg-slate-800"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
+          </Button>
           <div className="flex gap-0.5 rounded-full bg-[#f1f3f4] p-0.5 dark:bg-[hsl(var(--muted)/0.38)]">
             <button
               type="button"

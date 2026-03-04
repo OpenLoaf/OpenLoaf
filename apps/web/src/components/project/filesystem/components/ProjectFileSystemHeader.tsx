@@ -325,7 +325,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5 text-muted-foreground"
+                className="h-5 w-5 text-blue-600 dark:text-blue-400 transition-colors duration-150 disabled:opacity-40"
                 aria-label={t('workspace:filesystem.undo')}
                 disabled={!canUndo}
                 onClick={onUndo}
@@ -342,7 +342,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5 text-muted-foreground"
+                className="h-5 w-5 text-blue-600 dark:text-blue-400 transition-colors duration-150 disabled:opacity-40"
                 aria-label={t('workspace:filesystem.redo')}
                 disabled={!canRedo}
                 onClick={onRedo}
@@ -372,10 +372,10 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
                 <ToolbarToggleItem
                   value="grid"
                   size="sm"
-                  className="h-5 w-5 min-w-5 px-0 text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
+                  className="h-7 w-7 min-w-7 px-0 text-slate-500 dark:text-slate-400 transition-colors duration-150 data-[state=on]:bg-blue-100 dark:data-[state=on]:bg-blue-950 data-[state=on]:text-blue-600 dark:data-[state=on]:text-blue-400"
                   aria-label={t('workspace:filesystem.gridView')}
                 >
-                  <LayoutGrid className="size-3" />
+                  <LayoutGrid className="size-4" />
                 </ToolbarToggleItem>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={6}>
@@ -387,10 +387,10 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
                 <ToolbarToggleItem
                   value="list"
                   size="sm"
-                  className="h-5 w-5 min-w-5 px-0 text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
+                  className="h-7 w-7 min-w-7 px-0 text-slate-500 dark:text-slate-400 transition-colors duration-150 data-[state=on]:bg-blue-100 dark:data-[state=on]:bg-blue-950 data-[state=on]:text-blue-600 dark:data-[state=on]:text-blue-400"
                   aria-label={t('workspace:filesystem.listView')}
                 >
-                  <LayoutList className="size-3" />
+                  <LayoutList className="size-4" />
                 </ToolbarToggleItem>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={6}>
@@ -402,10 +402,10 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
                 <ToolbarToggleItem
                   value="columns"
                   size="sm"
-                  className="h-5 w-5 min-w-5 px-0 text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
+                  className="h-7 w-7 min-w-7 px-0 text-slate-500 dark:text-slate-400 transition-colors duration-150 data-[state=on]:bg-blue-100 dark:data-[state=on]:bg-blue-950 data-[state=on]:text-blue-600 dark:data-[state=on]:text-blue-400"
                   aria-label={t('workspace:filesystem.columnsView')}
                 >
-                  <Columns2 className="size-3" />
+                  <Columns2 className="size-4" />
                 </ToolbarToggleItem>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={6}>
@@ -418,10 +418,10 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
                   <ToolbarToggleItem
                     value="tree"
                     size="sm"
-                    className="h-5 w-5 min-w-5 px-0 text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground"
+                    className="h-7 w-7 min-w-7 px-0 text-slate-500 dark:text-slate-400 transition-colors duration-150 data-[state=on]:bg-blue-100 dark:data-[state=on]:bg-blue-950 data-[state=on]:text-blue-600 dark:data-[state=on]:text-blue-400"
                     aria-label={t('workspace:filesystem.treeView')}
                   >
-                    <FolderTree className="size-3" />
+                    <FolderTree className="size-4" />
                   </ToolbarToggleItem>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" sideOffset={6}>
@@ -438,8 +438,10 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
             <Button
               variant="ghost"
               size="icon"
-              className={`h-5 w-5 text-muted-foreground ${
-                sortField === "name" ? "bg-foreground/10 text-foreground" : ""
+              className={`h-5 w-5 transition-colors duration-150 ${
+                sortField === "name"
+                  ? "bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400"
+                  : "text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
               }`}
               aria-label={t('workspace:filesystem.sortByName')}
               onClick={onSortByName}
@@ -460,8 +462,10 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
             <Button
               variant="ghost"
               size="icon"
-              className={`h-5 w-5 text-muted-foreground ${
-                sortField === "mtime" ? "bg-foreground/10 text-foreground" : ""
+              className={`h-5 w-5 transition-colors duration-150 ${
+                sortField === "mtime"
+                  ? "bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400"
+                  : "text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
               }`}
               aria-label={t('workspace:filesystem.sortByTime')}
               onClick={onSortByTime}
@@ -483,7 +487,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
             <Button
               variant="ghost"
               size="icon"
-              className="h-5 w-5 text-muted-foreground"
+              className="h-5 w-5 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950 transition-colors duration-150"
               aria-label={t('workspace:filesystem.newFolder')}
               onClick={onCreateFolder}
             >
@@ -499,7 +503,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
             <Button
               variant="ghost"
               size="icon"
-              className="h-5 w-5 text-muted-foreground"
+              className="h-5 w-5 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-950 transition-colors duration-150"
               aria-label={t('workspace:filesystem.newDocument')}
               onClick={onCreateDocument}
             >
@@ -515,7 +519,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
             <Button
               variant="ghost"
               size="icon"
-              className="h-5 w-5 text-muted-foreground"
+              className="h-5 w-5 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-950 transition-colors duration-150"
               aria-label={t('workspace:filesystem.addFile')}
               onClick={() => {
                 uploadInputRef.current?.click();
@@ -551,7 +555,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
             <Button
               variant="ghost"
               size="icon"
-              className={`h-5 w-5 text-muted-foreground duration-150 ease-linear ${
+              className={`h-5 w-5 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950 transition-colors duration-150 ${
                 isSearchVisible ? "w-0 opacity-0 pointer-events-none" : "opacity-100"
               }`}
               aria-label={t('workspace:filesystem.searchLabel')}

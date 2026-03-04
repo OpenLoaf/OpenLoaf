@@ -25,6 +25,13 @@ const CLI_PROVIDER_BINDINGS: CliProviderBinding[] = [
   { providerId: "claude-code-cli", configKey: "claudeCode" },
 ];
 
+type CliModelSelection = {
+  /** CLI provider id. */
+  providerId: string;
+  /** CLI model id. */
+  modelId: string;
+};
+
 /** Hardcoded fallback definitions for CLI providers (used when SaaS API has no entry). */
 const CLI_PROVIDER_FALLBACKS: Record<string, ProviderDefinition> = {
   "claude-code-cli": {
@@ -42,7 +49,9 @@ const CLI_PROVIDER_FALLBACKS: Record<string, ProviderDefinition> = {
     label: "Codex CLI",
     adapterId: "cli",
     models: [
-      { id: "codex-mini", name: "Codex Mini", tags: ["code"] },
+      { id: "gpt-5.3-codex", name: "GPT-5.3-Codex", tags: ["code"] },
+      { id: "gpt-5.2-codex", name: "GPT-5.2-Codex", tags: ["code"] },
+      { id: "gpt-5-codex", name: "GPT-5-Codex", tags: ["code"] },
     ],
   } as ProviderDefinition,
 };
@@ -60,8 +69,8 @@ function buildModelMap(definition: ProviderDefinition): Record<string, ModelDefi
 
 /** Build CLI provider settings entry for runtime. */
 async function buildCliProviderEntry(binding: CliProviderBinding): Promise<ProviderSettingEntry | null> {
-  const definition = await getProviderDefinition(binding.providerId)
-    ?? CLI_PROVIDER_FALLBACKS[binding.providerId];
+  // 逻辑：CLI provider 始终使用本地定义，不从 SaaS 获取（避免被远程配置覆盖）
+  const definition = CLI_PROVIDER_FALLBACKS[binding.providerId];
   if (!definition) return null;
   // 逻辑：未安装的 CLI 工具不注入 provider，避免 Auto 模式误选。
   const status = await getCliToolStatus(binding.configKey);
@@ -96,18 +105,78 @@ export async function buildCliProviderEntries(): Promise<ProviderSettingEntry[]>
   return entries;
 }
 
+/** Parse provider:modelId form from a selection string. */
+function parseCliModelSelection(selection: string): CliModelSelection | null {
+  const normalized = selection.trim();
+  const separatorIndex = normalized.indexOf(":");
+  if (separatorIndex <= 0 || separatorIndex >= normalized.length - 1) return null;
+  const providerId = normalized.slice(0, separatorIndex).trim();
+  const modelId = normalized.slice(separatorIndex + 1).trim();
+  if (!providerId || !modelId) return null;
+  return { providerId, modelId };
+}
+
+/** Resolve first available model id from a binding. */
+async function resolveFirstModelId(binding: CliProviderBinding): Promise<string | null> {
+  const entry = await buildCliProviderEntry(binding);
+  if (!entry) return null;
+  const firstModelId = Object.keys(entry.models)[0];
+  if (!firstModelId) return null;
+  return `${entry.id}:${firstModelId}`;
+}
+
 /**
- * 将 CLI 工具配置键映射为可用的 chatModelId。
- * 例如 "claudeCode" → "claude-code-cli:sonnet"
+ * 将 CLI 选择映射为可用的 chatModelId。
+ * 支持：
+ * 1) 旧格式 configKey（例如 "codex" / "claudeCode"）
+ * 2) 新格式 provider:modelId（例如 "codex-cli:gpt-5.3-codex"）
+ * 3) providerId（例如 "codex-cli"）
  */
 export async function resolveCliChatModelId(
-  configKey: string,
+  selection: string,
 ): Promise<string | null> {
-  const binding = CLI_PROVIDER_BINDINGS.find((b) => b.configKey === configKey)
-  if (!binding) return null
-  const entry = await buildCliProviderEntry(binding)
-  if (!entry) return null
-  const firstModelId = Object.keys(entry.models)[0]
-  if (!firstModelId) return null
-  return `${entry.id}:${firstModelId}`
+  const normalized = selection.trim();
+  if (!normalized) return null;
+
+  const parsed = parseCliModelSelection(normalized);
+  if (parsed) {
+    const binding = CLI_PROVIDER_BINDINGS.find(
+      (item) => item.providerId === parsed.providerId,
+    );
+    if (!binding) return null;
+    const entry = await buildCliProviderEntry(binding);
+    if (!entry) return null;
+    if (entry.models[parsed.modelId]) {
+      return `${entry.id}:${parsed.modelId}`;
+    }
+    // 逻辑：当选择的模型已不存在时，自动回退到该 provider 的首个可用模型。
+    return resolveFirstModelId(binding);
+  }
+
+  const providerBinding = CLI_PROVIDER_BINDINGS.find(
+    (item) => item.providerId === normalized,
+  );
+  if (providerBinding) {
+    return resolveFirstModelId(providerBinding);
+  }
+
+  const configBinding = CLI_PROVIDER_BINDINGS.find(
+    (item) => item.configKey === normalized,
+  );
+  if (!configBinding) return null;
+  return resolveFirstModelId(configBinding);
+}
+
+/** Get available Codex CLI models from fallback definition. */
+export function getCodexCliModels() {
+  const definition = CLI_PROVIDER_FALLBACKS["codex-cli"];
+  if (!definition) return [];
+  return Array.isArray(definition.models) ? definition.models : [];
+}
+
+/** Get available Claude Code CLI models from fallback definition. */
+export function getClaudeCodeCliModels() {
+  const definition = CLI_PROVIDER_FALLBACKS["claude-code-cli"];
+  if (!definition) return [];
+  return Array.isArray(definition.models) ? definition.models : [];
 }

@@ -48,7 +48,6 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   activeS3Id: undefined,
   s3AutoUpload: true,
   s3AutoDeleteHours: 2,
-  modelResponseLanguage: null,
   modelQuality: "medium",
   chatOnlineSearchMemoryScope: "tab",
   modelSoundEnabled: true,
@@ -178,18 +177,6 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
         ? fallbackSource.s3AutoDeleteHours
         : DEFAULT_BASIC_CONF.s3AutoDeleteHours;
   const s3AutoDeleteHours = Math.min(168, Math.max(1, Math.floor(rawDeleteHours)));
-  const VALID_RESPONSE_LANGS = ["zh-CN", "zh-TW", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"];
-  const modelResponseLanguage =
-    source.modelResponseLanguage === null
-      ? null
-      : source.modelResponseLanguage && VALID_RESPONSE_LANGS.includes(source.modelResponseLanguage)
-        ? source.modelResponseLanguage
-        : fallbackSource.modelResponseLanguage === null
-          ? null
-          : fallbackSource.modelResponseLanguage &&
-              VALID_RESPONSE_LANGS.includes(fallbackSource.modelResponseLanguage)
-            ? fallbackSource.modelResponseLanguage
-            : DEFAULT_BASIC_CONF.modelResponseLanguage;
   const modelQuality =
     source.modelQuality === "high" || source.modelQuality === "medium" || source.modelQuality === "low"
       ? source.modelQuality
@@ -374,7 +361,6 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     activeS3Id,
     s3AutoUpload,
     s3AutoDeleteHours,
-    modelResponseLanguage,
     modelQuality,
     chatOnlineSearchMemoryScope,
     modelSoundEnabled,

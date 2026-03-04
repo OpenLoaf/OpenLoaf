@@ -528,7 +528,13 @@ export const useTabs = create<TabsState>()(
               nextActiveIndex = nextIds.length - 1;
             }
             // 切换活跃会话时，从映射中读取 projectId 并同步到 chatParams
-            const sessionProjectId = (tab.chatSessionProjectIds ?? {})[sessionId] ?? "";
+            // 如果新会话没有 projectId 记录，继承当前活跃会话的 projectId（左侧边栏当前项目）
+            const { activeSessionId } = normalizeTabSessionState(tab);
+            const currentActiveProjectId =
+              (tab.chatSessionProjectIds ?? {})[activeSessionId ?? ""] ??
+              ((tab.chatParams as Record<string, unknown> | undefined)?.projectId as string | undefined) ??
+              "";
+            const sessionProjectId = (tab.chatSessionProjectIds ?? {})[sessionId] ?? currentActiveProjectId;
             const currentParams =
               typeof tab.chatParams === "object" && tab.chatParams
                 ? (tab.chatParams as Record<string, unknown>)

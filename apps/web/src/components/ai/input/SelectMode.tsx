@@ -60,8 +60,20 @@ export default function SelectMode({
   // CLI 模式下显示选中工具的 icon
   const cliToolMeta = useMemo(() => {
     if (chatMode !== 'cli') return null
-    const selectedId = prefs.preferredCodeIds[0]
-    return CLI_TOOLS_META.find((t) => t.id === selectedId) ?? CLI_TOOLS_META[0]
+    const selectedCodeId = prefs.preferredCodeIds[0] ?? ''
+    if (selectedCodeId === 'codex') {
+      return CLI_TOOLS_META.find((item) => item.id === 'codex') ?? CLI_TOOLS_META[0]
+    }
+    if (selectedCodeId === 'claudeCode') {
+      return CLI_TOOLS_META.find((item) => item.id === 'claudeCode') ?? CLI_TOOLS_META[0]
+    }
+    if (selectedCodeId.startsWith('codex-cli:')) {
+      return CLI_TOOLS_META.find((item) => item.id === 'codex') ?? CLI_TOOLS_META[0]
+    }
+    if (selectedCodeId.startsWith('claude-code-cli:')) {
+      return CLI_TOOLS_META.find((item) => item.id === 'claudeCode') ?? CLI_TOOLS_META[0]
+    }
+    return CLI_TOOLS_META[0]
   }, [chatMode, prefs.preferredCodeIds])
   const CliIcon = cliToolMeta?.icon
 

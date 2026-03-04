@@ -1,7 +1,6 @@
 {
   "basic": {
     "chatSource": "local",
-    "modelResponseLanguage": "zh-CN",
     "modelQuality": "medium",
     "uiLanguage": "zh-CN",
     "uiTheme": "system",

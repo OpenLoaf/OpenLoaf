@@ -12,14 +12,18 @@
 import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@openloaf/ui/badge'
-import { TrafficLights } from '@openloaf/ui/traffic-lights'
+import { Button } from '@openloaf/ui/button'
 import { cn } from '@/lib/utils'
 import {
   Archive,
   CalendarClock,
+  CheckCircle2,
   CheckSquare,
+  Circle,
+  Clock,
   ExternalLink,
   ListTodo,
+  Loader2,
   Play,
   Trash2,
   XCircle,
@@ -165,6 +169,14 @@ const STATUS_BADGE_COLORS: Record<TaskStatus, string> = {
   cancelled: 'bg-[#f1f3f4] text-[#5f6368] border-transparent dark:bg-slate-800/40 dark:text-slate-400',
 }
 
+const STATUS_ICONS: Record<TaskStatus, typeof Circle> = {
+  todo: Circle,
+  running: Loader2,
+  review: Clock,
+  done: CheckCircle2,
+  cancelled: XCircle,
+}
+
 const RESOLVE_ACTION_KEYS: Record<string, string> = {
   approve: 'actions.pass',
   reject: 'actions.reject',
@@ -228,14 +240,6 @@ export default function TaskTool({
   const isError = Boolean(part.errorText) || (output?.ok === false)
   const isBatch = action === 'cancelAll' || action === 'deleteAll' || action === 'archiveAll'
 
-  const windowState = isError
-    ? 'error'
-    : streaming
-      ? 'running'
-      : output
-        ? 'success'
-        : 'idle'
-
   const handleOpenTaskBoard = useCallback(() => {
     if (!activeTabId) return
     pushStackItem(activeTabId, {
@@ -246,13 +250,26 @@ export default function TaskTool({
     })
   }, [activeTabId, pushStackItem, t])
 
+  const handleOpenTaskDetail = useCallback(() => {
+    if (!activeTabId) return
+    const taskId = output?.task?.id ?? output?.taskId
+    if (!taskId) return
+    pushStackItem(activeTabId, {
+      id: `task-detail:${taskId}`,
+      sourceKey: `task-detail:${taskId}`,
+      component: 'task-detail',
+      title: output?.task?.name ?? t('taskLabels.background'),
+      params: { taskId },
+    })
+  }, [activeTabId, pushStackItem, output, t])
+
   const toolName = getToolName(part)
 
   // ── Derive display fields ──────────────────────────────────────────
 
   const actionLabel = t(config.labelKey)
 
-  // Title
+  // Title: 对于 create 操作，直接显示任务名称，不显示 "创建XXX的周期任务"
   let title: string
   if (action === 'create') {
     title = input.title ?? output?.task?.name ?? t('taskLabels.background')
@@ -264,122 +281,117 @@ export default function TaskTool({
 
   // Determine status for badge
   const taskStatus = output?.task?.status ?? output?.newStatus as TaskStatus | undefined
+  const StatusIcon = taskStatus ? STATUS_ICONS[taskStatus] : Circle
 
   // Schedule label (create only)
   const scheduleLabel = action === 'create' ? formatScheduleLabel(input.schedule) : null
   const hasSchedule = action === 'create' && Boolean(input.schedule?.type)
-  const DisplayIcon = hasSchedule ? CalendarClock : ActionIcon
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-lg border bg-card text-card-foreground">
-        {/* macOS 风格标题栏 */}
-        <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
-          <TrafficLights state={windowState} />
-          <span className="flex-1" />
-          <DisplayIcon className={cn('size-3', config.color, 'opacity-60')} />
-          <span className="shrink-0 text-xs font-medium text-muted-foreground">
-            {toolName}
-          </span>
-        </div>
-
-        {/* 内容区 */}
-        <div className="px-3 py-3">
-          {/* 标题 */}
-          <h4 className="text-sm font-medium leading-tight">{title}</h4>
-
-          {/* 描述 (create) */}
-          {action === 'create' && input.description && (
-            <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2">{input.description}</p>
-          )}
-
-          {/* 审批动作说明 (resolve) */}
-          {action === 'resolve' && input.resolveAction && (
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              {t('taskLabels.resolveAction')}{t(RESOLVE_ACTION_KEYS[input.resolveAction] ?? '') || input.resolveAction}
-              {input.reason ? ` — ${input.reason}` : ''}
-            </p>
-          )}
-
-          {/* 取消原因 (cancel) */}
-          {action === 'cancel' && input.reason && (
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              {t('taskLabels.cancelReason')}{input.reason}
-            </p>
-          )}
-
-          {/* 批量操作结果 */}
-          {isBatch && output && output.ok && (
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              {output.message}
-            </p>
-          )}
-
-          {/* 错误信息 */}
-          {(part.errorText || (output?.ok === false && output?.error)) && (
-            <div className="mt-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">
-              {part.errorText || output?.error}
-            </div>
-          )}
-
-          {/* 底部：标签 + 查看看板 */}
-          <div className="mt-2 flex flex-wrap items-center gap-1">
-            {/* Action badge */}
-            <Badge variant="outline" className={cn('text-[10px]', config.badgeColor)}>
-              {actionLabel}
-            </Badge>
-
-            {/* Priority badge (create only) */}
-            {action === 'create' && (
-              <Badge variant="outline" className={cn('text-[10px]', PRIORITY_COLORS[input.priority ?? 'medium'])}>
-                {t(`priority.${input.priority ?? 'medium'}`)}
-              </Badge>
+      {/* 任务卡片样式 - 可点击 */}
+      <div
+        className="cursor-pointer overflow-hidden rounded-lg border bg-card p-3 shadow-sm transition-colors hover:bg-accent/50"
+        onClick={!streaming ? handleOpenTaskBoard : undefined}
+      >
+        {/* Header: 状态图标 + 标题 + 优先级 */}
+        <div className="mb-2 flex items-start gap-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {taskStatus && (
+              <StatusIcon
+                className={cn(
+                  'h-4 w-4 shrink-0',
+                  taskStatus === 'running' && 'animate-spin',
+                  taskStatus === 'todo' && 'text-[#1a73e8] dark:text-sky-300',
+                  taskStatus === 'running' && 'text-[#f9ab00] dark:text-amber-300',
+                  taskStatus === 'review' && 'text-[#9334e6] dark:text-violet-300',
+                  taskStatus === 'done' && 'text-[#188038] dark:text-emerald-300',
+                  taskStatus === 'cancelled' && 'text-[#5f6368] dark:text-slate-400',
+                )}
+              />
             )}
-
-            {/* Status badge */}
-            {taskStatus && STATUS_BADGE_COLORS[taskStatus] && (
-              <Badge variant="outline" className={cn('text-[10px]', STATUS_BADGE_COLORS[taskStatus])}>
-                {t(`status.${taskStatus}`)}
-              </Badge>
-            )}
-
-            {/* Schedule badge (create) */}
-            {scheduleLabel && (
-              <Badge
-                variant="outline"
-                className="bg-[#fef7e0] text-[10px] text-[#e37400] border-transparent dark:bg-amber-900/40 dark:text-amber-300"
-              >
-                {scheduleLabel}
-              </Badge>
-            )}
-
-            {/* Agent badge (create) */}
-            {action === 'create' && input.agentName && (
-              <Badge variant="secondary" className="text-[10px]">
-                {input.agentName}
-              </Badge>
-            )}
-
-            {/* Batch count */}
-            {isBatch && output && typeof (output.cancelled ?? output.deleted ?? output.archived) === 'number' && (
-              <Badge variant="secondary" className="text-[10px]">
-                {output.cancelled ?? output.deleted ?? output.archived}/{output.total ?? '?'}
-              </Badge>
-            )}
-
-            {/* 查看看板按钮 */}
-            {!streaming && (
-              <button
-                type="button"
-                onClick={handleOpenTaskBoard}
-                className="ml-auto inline-flex items-center gap-1 rounded-full border border-transparent bg-[#e8f0fe] px-2.5 py-1 text-[11px] font-medium text-[#1a73e8] transition-colors duration-150 hover:bg-[#d2e3fc] dark:bg-sky-900/40 dark:text-sky-300 dark:hover:bg-sky-900/60"
-              >
-                <ExternalLink className="size-3" />
-                {t('taskLabels.viewBoard')}
-              </button>
-            )}
+            <h4 className="text-sm font-medium leading-tight line-clamp-2 flex-1">{title}</h4>
           </div>
+          {action === 'create' && (
+            <Badge variant="outline" className={cn('shrink-0 text-[10px]', PRIORITY_COLORS[input.priority ?? 'medium'])}>
+              {t(`priority.${input.priority ?? 'medium'}`)}
+            </Badge>
+          )}
         </div>
+
+        {/* 描述 (create) - 不再显示，因为标题已经是任务名称 */}
+        {action === 'create' && input.description && input.description !== title && (
+          <p className="mb-2 text-xs text-muted-foreground line-clamp-2">{input.description}</p>
+        )}
+
+        {/* Tags row */}
+        <div className="flex flex-wrap gap-1">
+          {/* Action badge */}
+          <Badge variant="outline" className={cn('text-[10px]', config.badgeColor)}>
+            {actionLabel}
+          </Badge>
+
+          {/* Status badge */}
+          {taskStatus && (
+            <Badge variant="outline" className={cn('text-[10px]', STATUS_BADGE_COLORS[taskStatus])}>
+              {t(`status.${taskStatus}`)}
+            </Badge>
+          )}
+
+          {/* Schedule badge (create) */}
+          {scheduleLabel && (
+            <Badge
+              variant="outline"
+              className="bg-[#fef7e0] text-[10px] text-[#e37400] border-transparent dark:bg-amber-900/40 dark:text-amber-300"
+            >
+              <CalendarClock className="mr-1 h-3 w-3" />
+              {scheduleLabel}
+            </Badge>
+          )}
+
+          {/* Agent badge (create) */}
+          {action === 'create' && input.agentName && (
+            <Badge variant="secondary" className="text-[10px]">
+              {input.agentName}
+            </Badge>
+          )}
+
+          {/* Batch count */}
+          {isBatch && output && typeof (output.cancelled ?? output.deleted ?? output.archived) === 'number' && (
+            <Badge variant="secondary" className="text-[10px]">
+              {output.cancelled ?? output.deleted ?? output.archived}/{output.total ?? '?'}
+            </Badge>
+          )}
+        </div>
+
+        {/* 审批动作说明 (resolve) */}
+        {action === 'resolve' && input.resolveAction && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t('taskLabels.resolveAction')}{t(RESOLVE_ACTION_KEYS[input.resolveAction] ?? '') || input.resolveAction}
+            {input.reason ? ` — ${input.reason}` : ''}
+          </p>
+        )}
+
+        {/* 取消原因 (cancel) */}
+        {action === 'cancel' && input.reason && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t('taskLabels.cancelReason')}{input.reason}
+          </p>
+        )}
+
+        {/* 批量操作结果 */}
+        {isBatch && output && output.ok && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {output.message}
+          </p>
+        )}
+
+        {/* 错误信息 */}
+        {(part.errorText || (output?.ok === false && output?.error)) && (
+          <div className="mt-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+            {part.errorText || output?.error}
+          </div>
+        )}
       </div>
     </div>
   )

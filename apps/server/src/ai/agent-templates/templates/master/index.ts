@@ -8,8 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { AgentTemplate } from '../../types'
-import MASTER_PROMPT_ZH from './prompt.zh.md'
-import MASTER_PROMPT_EN from './prompt.en.md'
+import MASTER_PROMPT_ZH from './prompt-v2.zh.md'
+import MASTER_PROMPT_EN from './prompt-v2.en.md'
 
 export const masterTemplate: AgentTemplate = {
   id: 'master',

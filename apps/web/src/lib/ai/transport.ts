@@ -90,15 +90,25 @@ export function createChatTransport({
         };
       }
 
-      const rawLastMessage = messages[messages.length - 1] as UIMessage & { parts?: any[] };
+      const rawLastMessage = messages[messages.length - 1] as UIMessage & { parts?: any[]; body?: any };
       const lastMessage = stripTotalUsageFromMetadata(rawLastMessage as any);
       const messagesPayload = [lastMessage] as ChatRequestBody["messages"];
+
+      // 逻辑：从 message.body 中提取 chatModelId（CLI 直连模式需要）
+      const messageLevelBody = rawLastMessage.body && typeof rawLastMessage.body === 'object'
+        ? rawLastMessage.body
+        : {};
+      const chatModelId = typeof messageLevelBody.chatModelId === 'string'
+        ? messageLevelBody.chatModelId
+        : undefined;
 
       return {
         body: {
           // 后端会从 DB 补全完整历史链路；前端只需发送最后一条消息即可。
           ...payloadBase,
           messages: messagesPayload,
+          // 将 chatModelId 提升到请求顶层
+          ...(chatModelId ? { chatModelId } : {}),
         },
         headers: nextHeaders,
       };

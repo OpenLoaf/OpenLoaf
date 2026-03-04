@@ -181,6 +181,24 @@
       "within30": "30天內"
     }
   },
+  "chatFeedback": {
+    "button": "回饋會話",
+    "title": "回饋與建議",
+    "description": "請填寫你的回饋內容。提交時會自動打包並上傳目前會話的 ZIP 附件。",
+    "placeholder": "請輸入你遇到的問題、重現步驟或建議（必填）",
+    "cancel": "取消",
+    "submit": "提交",
+    "submitting": "提交中…",
+    "emptyError": "請填寫回饋內容",
+    "sessionMissing": "找不到目前會話",
+    "saasNotConfigured": "SaaS 位址未設定",
+    "zipEmpty": "會話壓縮包為空，無法上傳",
+    "success": "回饋已提交",
+    "failed": "回饋提交失敗，請稍後重試",
+    "failedWithMessage": "回饋提交失敗：{{message}}",
+    "exportFailed": "會話匯出失敗，請稍後重試",
+    "exportFailedWithMessage": "會話匯出失敗：{{message}}"
+  },
   "image": {
     "noEditingSupport": "目前模型不支援影像編輯",
     "noInputSupport": "目前模型不支援影像輸入",
@@ -243,7 +261,22 @@
     "stopGenerating": "停止生成",
     "sendMessage": "傳送訊息",
     "characterLimitExceeded": "內容超出 {{max}} 字元限制，請縮短訊息",
-    "manageModels": "管理模型"
+    "manageModels": "管理模型",
+    "cliOptions": {
+      "title": "CLI 模型參數",
+      "codexTitle": "Codex",
+      "claudeCodeTitle": "Claude Code",
+      "modelLabel": "模型",
+      "modeLabel": "模式",
+      "strengthLabel": "強度",
+      "modeChat": "Chat",
+      "modeAgent": "Agent",
+      "modeAgentFullAccess": "Agent Full Access",
+      "strengthLow": "低",
+      "strengthMedium": "中",
+      "strengthHigh": "高",
+      "strengthExtraHigh": "極高"
+    }
   },
   "dock": {
     "aiAssistant": "AI 助手",

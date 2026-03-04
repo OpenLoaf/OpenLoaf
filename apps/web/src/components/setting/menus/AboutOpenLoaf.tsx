@@ -338,6 +338,14 @@ export function AboutOpenLoaf() {
     }
   }, [setBasic]);
 
+  /**
+   * Toggle chat preface viewer button.
+   */
+  const handleToggleChatPreface = React.useCallback((checked: boolean) => {
+    // 逻辑：实时控制 Chat Header 是否展示 Preface 查看按钮。
+    void setBasic({ chatPrefaceEnabled: checked });
+  }, [setBasic]);
+
   const currentVersion = appVersion ?? "—";
   const serverVersion = updateStatus?.server?.version ?? "—";
   const webVersion = updateStatus?.web?.version ?? "—";
@@ -668,6 +676,19 @@ export function AboutOpenLoaf() {
               <Button type="button" variant="outline" size="sm" onClick={() => void restartSetup()}>
                 {t('aboutAdditions.enter')}
               </Button>
+            </OpenLoafSettingsField>
+          </div>
+          <div className="flex flex-wrap items-start gap-3 px-3 py-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">{t('aboutAdditions.aiDebugMode')}</div>
+              <div className="text-xs text-muted-foreground">{t('aboutAdditions.aiDebugModeDesc')}</div>
+            </div>
+            <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+              <Switch
+                checked={Boolean(basic.chatPrefaceEnabled)}
+                onCheckedChange={handleToggleChatPreface}
+                aria-label={t('aboutAdditions.aiDebugMode')}
+              />
             </OpenLoafSettingsField>
           </div>
         </div>

@@ -48,19 +48,6 @@ import {
   type ProviderEntry,
 } from "@/components/setting/menus/provider/use-provider-management";
 
-type ModelResponseLanguageId =
-  | "zh-CN"
-  | "zh-TW"
-  | "en-US"
-  | "ja-JP"
-  | "ko-KR"
-  | "fr-FR"
-  | "de-DE"
-  | "es-ES";
-
-const FOLLOW_UI_VALUE = "";
-
-
 /**
  * Compose provider management sections and dialogs.
  */
@@ -78,10 +65,6 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
   const { models: cloudModels } = useCloudModels();
   const installedCliProviderIds = useInstalledCliProviderIds();
 
-  const isFollowingUI = !basic.modelResponseLanguage;
-  const modelResponseLanguage: ModelResponseLanguageId | "" = isFollowingUI
-    ? FOLLOW_UI_VALUE
-    : (basic.modelResponseLanguage as ModelResponseLanguageId);
   const chatOnlineSearchMemoryScope: "tab" | "global" =
     basic.chatOnlineSearchMemoryScope === "global" ? "global" : "tab";
   const localToolModelOptions = useMemo(
@@ -91,17 +74,6 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
       ),
     [providerItems, cloudModels, installedCliProviderIds],
   );
-  const modelResponseLanguageLabelById: Record<string, string> = useMemo(() => ({
-    "": t('provider.modelResponseLanguageFollowUI'),
-    "zh-CN": t('provider.zh-CN'),
-    "zh-TW": t('provider.zh-TW'),
-    "en-US": t('provider.en-US'),
-    "ja-JP": t('provider.ja-JP'),
-    "ko-KR": t('provider.ko-KR'),
-    "fr-FR": t('provider.fr-FR'),
-    "de-DE": t('provider.de-DE'),
-    "es-ES": t('provider.es-ES'),
-  }), [t]);
   const workspaceQuery = useQuery(trpc.workspace.getActive.queryOptions());
   const workspaceId = workspaceQuery.data?.id ?? "";
   const activeTabId = useTabs((state) => state.activeTabId);
@@ -195,48 +167,6 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
         className="pb-4"
       >
         <div className="divide-y divide-border">
-          <div className="flex flex-wrap items-start gap-2 py-3">
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">{t('provider.modelResponseLanguage')}</div>
-              <div className="text-xs text-muted-foreground">
-                {t('provider.modelResponseLanguageNote')}
-              </div>
-            </div>
-
-            <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-w-[200px] w-auto justify-between font-normal"
-                  >
-                    <span className="truncate">
-                      {modelResponseLanguageLabelById[modelResponseLanguage]}
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[320px]">
-                  <DropdownMenuRadioGroup
-                    value={modelResponseLanguage}
-                    onValueChange={(next) =>
-                      void setBasic({ modelResponseLanguage: (next as ModelResponseLanguageId) || null })
-                    }
-                  >
-                    {Object.entries(modelResponseLanguageLabelById).map(
-                      ([id, label]) => (
-                        <DropdownMenuRadioItem key={id} value={id}>
-                          {label}
-                        </DropdownMenuRadioItem>
-                      ),
-                    )}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </OpenLoafSettingsField>
-          </div>
-
           <div className="flex flex-wrap items-start gap-2 py-3">
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{t('provider.chatMemoryScope')}</div>

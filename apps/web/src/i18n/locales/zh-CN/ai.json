@@ -181,6 +181,24 @@
       "within30": "30天内"
     }
   },
+  "chatFeedback": {
+    "button": "反馈会话",
+    "title": "反馈与建议",
+    "description": "请填写你的反馈内容。提交时会自动打包并上传当前会话的 ZIP 附件。",
+    "placeholder": "请输入你遇到的问题、复现步骤或建议（必填）",
+    "cancel": "取消",
+    "submit": "提交",
+    "submitting": "提交中…",
+    "emptyError": "请填写反馈内容",
+    "sessionMissing": "未找到当前会话",
+    "saasNotConfigured": "SaaS 地址未配置",
+    "zipEmpty": "会话压缩包为空，无法上传",
+    "success": "反馈已提交",
+    "failed": "反馈提交失败，请稍后重试",
+    "failedWithMessage": "反馈提交失败：{{message}}",
+    "exportFailed": "会话导出失败，请稍后重试",
+    "exportFailedWithMessage": "会话导出失败：{{message}}"
+  },
   "image": {
     "noEditingSupport": "当前模型不支持图片编辑",
     "noInputSupport": "当前模型不支持图片输入",
@@ -243,7 +261,22 @@
     "stopGenerating": "停止生成",
     "sendMessage": "发送消息",
     "characterLimitExceeded": "内容超出 {{max}} 字符限制，请缩短消息",
-    "manageModels": "管理模型"
+    "manageModels": "管理模型",
+    "cliOptions": {
+      "title": "CLI 模型参数",
+      "codexTitle": "Codex",
+      "claudeCodeTitle": "Claude Code",
+      "modelLabel": "模型",
+      "modeLabel": "模式",
+      "strengthLabel": "强度",
+      "modeChat": "Chat",
+      "modeAgent": "Agent",
+      "modeAgentFullAccess": "Agent Full Access",
+      "strengthLow": "低",
+      "strengthMedium": "中",
+      "strengthHigh": "高",
+      "strengthExtraHigh": "极高"
+    }
   },
   "modelTags": {
     "chat": "对话",

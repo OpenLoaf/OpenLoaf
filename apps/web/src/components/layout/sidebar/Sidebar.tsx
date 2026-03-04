@@ -94,7 +94,7 @@ export const AppSidebar = ({
   );
   // 逻辑：未读数量统一按 workspace 汇总，避免跨账号漏计。
   const unreadCount = unreadCountQuery.data?.count ?? 0;
-  // 待审批任务数量查询。
+  // 待审批任务数量查询（每1分钟自动刷新）。
   const reviewTasksQuery = useQuery(
     trpc.scheduledTask.listByStatus.queryOptions(
       activeWorkspace

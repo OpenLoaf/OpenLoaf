@@ -319,14 +319,36 @@ export async function runChatStream(input: {
   // 逻辑：CLI 直连模式 — 跳过 agent 系统指令和工具编排，消息直接发给 CLI 适配模型。
   const directCli = !!(lastMessage as any).metadata?.directCli;
 
-  // 逻辑：CLI 直连模式覆盖 chatModelId — 使用 codeModelIds 解析 CLI 适配模型。
+  // 逻辑：CLI 直连模式覆盖 chatModelId — 优先使用前端传递的 chatModelId，否则从 codeModelIds 解析。
   if (directCli) {
-    const cliConfigKey = agentModelIds.codeModelIds?.[0]
-    if (cliConfigKey) {
-      const cliChatModelId = await resolveCliChatModelId(cliConfigKey)
-      if (cliChatModelId) {
-        chatModelId = cliChatModelId
-        chatModelSource = 'local'
+    // 优先使用前端明确传递的 chatModelId（例如 "codex-cli:gpt-5.3-codex"）
+    const explicitChatModelId = input.request.chatModelId?.trim();
+    if (explicitChatModelId) {
+      chatModelId = explicitChatModelId;
+      chatModelSource = 'local';
+      logger.info(
+        { sessionId, chatModelId: explicitChatModelId },
+        "[chat] directCli using explicit chatModelId from request",
+      );
+    } else {
+      // 回退：从 master agent 的 codeModelIds 配置解析
+      const cliSelection = agentModelIds.codeModelIds?.[0]?.trim()
+      if (cliSelection) {
+        const cliChatModelId = await resolveCliChatModelId(cliSelection)
+        if (cliChatModelId) {
+          chatModelId = cliChatModelId
+          chatModelSource = 'local'
+        } else {
+          logger.warn(
+            { sessionId, cliSelection },
+            "[chat] directCli resolve selected CLI model failed, fallback to chat model",
+          );
+        }
+      } else {
+        logger.warn(
+          { sessionId },
+          "[chat] directCli missing codeModelIds, fallback to chat model",
+        );
       }
     }
   }
@@ -493,12 +515,14 @@ export async function runChatStream(input: {
     }
     messages = chainResult.messages as UIMessage[];
     modelMessages = chainResult.modelMessages as UIMessage[];
-    setCodexOptions(resolveCodexRequestOptions(messages));
-    setClaudeCodeOptions(resolveClaudeCodeRequestOptions(messages));
   } else {
     // directCli：modelMessages 只需要最后一条用户消息
     modelMessages = [lastMessage] as UIMessage[];
   }
+  // 逻辑：从当前请求用户消息中解析 CLI 参数，兼容 directCli 与普通模式。
+  const optionSourceMessages = directCli ? modelMessages : messages;
+  setCodexOptions(resolveCodexRequestOptions(optionSourceMessages));
+  setClaudeCodeOptions(resolveClaudeCodeRequestOptions(optionSourceMessages));
 
   setParentProjectRootPaths(parentProjectRootPaths);
 

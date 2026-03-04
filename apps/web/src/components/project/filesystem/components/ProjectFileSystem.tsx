@@ -72,7 +72,7 @@ type FileSystemToolbarState = {
 
 /** Default toolbar state for file system view. */
 const DEFAULT_TOOLBAR_STATE: FileSystemToolbarState = {
-  viewMode: "grid",
+  viewMode: "list",
   sortField: "name",
   sortOrder: "asc",
 };

@@ -122,14 +122,6 @@ const TestSetting = memo(function TestSetting() {
     }
   }
 
-  /**
-   * Toggle chat preface viewer button.
-   */
-  function handleToggleChatPreface(checked: boolean) {
-    // 逻辑：实时控制 Chat Header 是否展示 Preface 查看按钮。
-    void setBasic({ chatPrefaceEnabled: checked });
-  }
-
   return (
     <div className="space-y-6">
       <OpenLoafSettingsGroup title="实验功能">
@@ -266,21 +258,6 @@ const TestSetting = memo(function TestSetting() {
             </OpenLoafSettingsField>
           </div>
 
-          <div className="flex flex-wrap items-start gap-3 py-3">
-            <div className="min-w-0">
-              <div className="text-sm font-medium">AI调试模式</div>
-              <div className="text-xs text-muted-foreground">
-                开启后在 Chat Header 显示调试按钮，并在每次请求时保存完整的系统提示词和工具列表到 system.json
-              </div>
-            </div>
-            <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
-              <Switch
-                checked={Boolean(basic.chatPrefaceEnabled)}
-                onCheckedChange={handleToggleChatPreface}
-                aria-label="Chat preface viewer"
-              />
-            </OpenLoafSettingsField>
-          </div>
         </div>
       </OpenLoafSettingsGroup>
 

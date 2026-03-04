@@ -44,6 +44,10 @@ import {
   getCliToolsStatus,
   installCliTool,
 } from "@/ai/models/cli/cliToolService";
+import {
+  getCodexCliModels,
+  getClaudeCodeCliModels,
+} from "@/ai/models/cli/cliProviderEntry";
 import { loadSkillSummaries } from "@/ai/services/skillsLoader";
 import { resolveMemoryContent, writeMemoryFile } from "@/ai/shared/memoryLoader";
 import { readAgentJson, resolveAgentDir } from "@/ai/shared/defaultAgentResolver";
@@ -341,6 +345,18 @@ export class SettingRouterImpl extends BaseSettingRouter {
         .output(settingSchemas.officeInfo.output)
         .query(async () => {
           return resolveOfficeInfo();
+        }),
+      /** Get Codex CLI available models. */
+      getCodexModels: shieldedProcedure
+        .output(settingSchemas.getCodexModels.output)
+        .query(() => {
+          return getCodexCliModels();
+        }),
+      /** Get Claude Code CLI available models. */
+      getClaudeCodeModels: shieldedProcedure
+        .output(settingSchemas.getClaudeCodeModels.output)
+        .query(() => {
+          return getClaudeCodeCliModels();
         }),
       /** List skills for settings UI. */
       getSkills: shieldedProcedure

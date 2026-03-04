@@ -11,7 +11,7 @@
 
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { Bug, BrushCleaning, History, PanelLeft, X } from "lucide-react";
+import { Bug, BrushCleaning, History, MessageSquarePlus, PanelLeft, X } from "lucide-react";
 import { QUICK_LAUNCH_ITEMS, PROJECT_QUICK_LAUNCH_ITEMS } from "./quick-launch-items";
 import { useProject } from "@/hooks/use-project";
 import SessionList from "@/components/ai/session/SessionList";
@@ -24,9 +24,24 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useTabView } from "@/hooks/use-tab-view";
 import { invalidateChatSessions, useChatSessions } from "@/hooks/use-chat-sessions";
 import { useBasicConfig } from "@/hooks/use-basic-config";
+import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { toast } from "sonner";
+import { SaaSClient, SaaSHttpError } from "@openloaf-saas/sdk";
 import { MessageAction, MessageActions } from "@/components/ai-elements/message";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@openloaf/ui/dialog";
+import { Textarea } from "@openloaf/ui/textarea";
+import { Button } from "@openloaf/ui/button";
+import { getAccessToken, resolveSaasBaseUrl } from "@/lib/saas-auth";
+import { resolveServerUrl } from "@/utils/server-url";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 interface ChatHeaderProps {
   className?: string;
@@ -38,6 +53,7 @@ interface ChatHeaderProps {
 
 const CHAT_HEADER_EMAIL_ICON_CLASS = {
   debug: "text-[#9334e6] dark:text-violet-300",
+  feedback: "text-[#7c3aed] dark:text-violet-300",
   openDock: "text-[#188038] dark:text-emerald-300",
   closeDock: "text-[#f9ab00] dark:text-amber-300",
   clear: "text-[#d93025] dark:text-rose-300",
@@ -60,13 +76,21 @@ export default function ChatHeader({
   const [quickLaunchOpen, setQuickLaunchOpen] = React.useState(false);
   /** Preface button loading state. */
   const [prefaceLoading, setPrefaceLoading] = React.useState(false);
+  /** Chat feedback dialog open state. */
+  const [chatFeedbackOpen, setChatFeedbackOpen] = React.useState(false);
+  /** Chat feedback input content. */
+  const [chatFeedbackContent, setChatFeedbackContent] = React.useState("");
+  /** Chat feedback submitting state. */
+  const [chatFeedbackSubmitting, setChatFeedbackSubmitting] = React.useState(false);
   const menuLockRef = React.useRef(false);
   const { sessions, refetch: refetchSessions } = useChatSessions({ tabId });
   const setTabTitle = useTabs((s) => s.setTabTitle);
   const setSessionProjectId = useTabs((s) => s.setSessionProjectId);
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
   const { basic } = useBasicConfig();
+  const { loggedIn: saasLoggedIn } = useSaasAuth();
   const tabView = useTabView(tabId);
+  const workspaceId = typeof tabView?.workspaceId === "string" ? tabView.workspaceId : "";
 
   // Quick launch: derive project context from tab chatParams.
   const quickLaunchProjectId = React.useMemo(() => {
@@ -119,6 +143,11 @@ export default function ChatHeader({
 
   // 逻辑：仅在存在历史消息时显示 Preface 查看按钮。
   const showPrefaceButton = Boolean(basic.chatPrefaceEnabled) && messages.length > 0;
+
+  React.useEffect(() => {
+    if (saasLoggedIn) return;
+    setChatFeedbackOpen(false);
+  }, [saasLoggedIn]);
 
   const syncHistoryTitleToTabTitle = useMutation({
     ...(trpc.chatsession.updateManyChatSession.mutationOptions() as any),
@@ -232,6 +261,191 @@ export default function ChatHeader({
     }
   }, [activeSessionId, prefaceLoading, pushStackItem, requestLeafMessageId, tabId]);
 
+  /** Resolve server endpoint for exporting current chat session zip. */
+  const resolveSessionZipExportUrl = React.useCallback((sessionId: string) => {
+    const encodedSessionId = encodeURIComponent(sessionId);
+    const apiBase = resolveServerUrl();
+    if (!apiBase) return `/chat/sessions/${encodedSessionId}/export-zip`;
+    return `${apiBase}/chat/sessions/${encodedSessionId}/export-zip`;
+  }, []);
+
+  /** Build feedback context for SaaS submission. */
+  const buildChatFeedbackContext = React.useCallback(async (zipInfo: {
+    url: string;
+    key: string;
+    bytes: number;
+    exportMode?: string;
+    sourceBytes?: number;
+  }) => {
+    const appVersion = isElectronEnv()
+      ? await window.openloafElectron?.getAppVersion?.().catch(() => null)
+      : null;
+    const context: Record<string, unknown> = {
+      env: isElectronEnv() ? "electron" : "web",
+      page: typeof window !== "undefined" ? window.location.pathname : undefined,
+      appVersion: typeof appVersion === "string" ? appVersion : undefined,
+      workspaceId: workspaceId || undefined,
+      tabId: tabId || undefined,
+      sessionId: activeSessionId || undefined,
+      leafMessageId: requestLeafMessageId,
+      projectId: quickLaunchProjectId || undefined,
+      messageCount: messages.length,
+      chatSessionZipUrl: zipInfo.url,
+      chatSessionZipKey: zipInfo.key,
+      chatSessionZipBytes: zipInfo.bytes,
+      chatSessionZipExportMode: zipInfo.exportMode,
+      chatSessionSourceBytes: zipInfo.sourceBytes,
+    };
+    return Object.fromEntries(
+      Object.entries(context).filter(([, value]) => value !== undefined && value !== null),
+    );
+  }, [
+    activeSessionId,
+    messages.length,
+    quickLaunchProjectId,
+    requestLeafMessageId,
+    tabId,
+    workspaceId,
+  ]);
+
+  /** Submit feedback payload to SaaS with SDK-first + HTTP fallback. */
+  const submitChatFeedbackPayload = React.useCallback(async (input: {
+    baseUrl: string;
+    content: string;
+    context: Record<string, unknown>;
+  }) => {
+    const client = new SaaSClient({
+      baseUrl: input.baseUrl,
+      getAccessToken: async () => (await getAccessToken()) ?? "",
+    });
+    try {
+      await client.feedback.submit({
+        source: "openloaf",
+        type: "chat",
+        content: input.content,
+        context: input.context,
+      } as any);
+      return;
+    } catch {
+      // 逻辑：兼容旧版 SDK（未包含 chat 类型）时，退回到公开反馈接口直连提交。
+    }
+
+    const accessToken = (await getAccessToken()) ?? "";
+    const response = await fetch(`${input.baseUrl}/api/public/feedback`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify({
+        source: "openloaf",
+        type: "chat",
+        content: input.content,
+        context: input.context,
+      }),
+    });
+    if (response.ok) return;
+
+    let message = "";
+    try {
+      const json = await response.json();
+      message = typeof json?.message === "string" ? json.message : "";
+    } catch {
+      message = "";
+    }
+    throw new Error(message || `HTTP ${response.status}`);
+  }, []);
+
+  /** Submit chat feedback with current session zip attachment. */
+  const handleSubmitChatFeedback = React.useCallback(async () => {
+    const sessionId = typeof activeSessionId === "string" ? activeSessionId.trim() : "";
+    if (!sessionId) {
+      toast.error(tAi("chatFeedback.sessionMissing"));
+      return;
+    }
+    const content = chatFeedbackContent.trim();
+    if (!content) {
+      toast.error(tAi("chatFeedback.emptyError"));
+      return;
+    }
+    const baseUrl = resolveSaasBaseUrl();
+    if (!baseUrl) {
+      toast.error(tAi("chatFeedback.saasNotConfigured"));
+      return;
+    }
+
+    setChatFeedbackSubmitting(true);
+    try {
+      const exportUrl = resolveSessionZipExportUrl(sessionId);
+      const exportResponse = await fetch(exportUrl, { method: "GET" });
+      if (!exportResponse.ok) {
+        const responseText = await exportResponse.text().catch(() => "");
+        const message = responseText.trim() || `HTTP ${exportResponse.status}`;
+        throw new Error(`export:${message}`);
+      }
+      const zipBlob = await exportResponse.blob();
+      if (zipBlob.size <= 0) {
+        toast.error(tAi("chatFeedback.zipEmpty"));
+        return;
+      }
+
+      const client = new SaaSClient({
+        baseUrl,
+        getAccessToken: async () => (await getAccessToken()) ?? "",
+      });
+      const attachment = await client.feedback.uploadAttachment(
+        zipBlob,
+        `chat-session-${sessionId}.zip`,
+      );
+      const context = await buildChatFeedbackContext({
+        url: attachment.url,
+        key: attachment.key,
+        bytes: zipBlob.size,
+        exportMode: exportResponse.headers.get("X-OpenLoaf-Export-Mode") ?? undefined,
+        sourceBytes: Number(exportResponse.headers.get("X-OpenLoaf-Source-Bytes") ?? 0) || undefined,
+      });
+      await submitChatFeedbackPayload({ baseUrl, content, context });
+
+      toast.success(tAi("chatFeedback.success"));
+      setChatFeedbackContent("");
+      setChatFeedbackOpen(false);
+    } catch (error) {
+      if (error instanceof SaaSHttpError) {
+        const payload = error.payload as { message?: unknown } | undefined;
+        const message = typeof payload?.message === "string" ? payload.message : "";
+        toast.error(
+          message
+            ? tAi("chatFeedback.failedWithMessage", { message })
+            : tAi("chatFeedback.failed"),
+        );
+        return;
+      }
+      if (error instanceof Error && error.message.startsWith("export:")) {
+        const message = error.message.slice("export:".length).trim();
+        toast.error(
+          message
+            ? tAi("chatFeedback.exportFailedWithMessage", { message })
+            : tAi("chatFeedback.exportFailed"),
+        );
+        return;
+      }
+      if (error instanceof Error && error.message.trim()) {
+        toast.error(tAi("chatFeedback.failedWithMessage", { message: error.message.trim() }));
+        return;
+      }
+      toast.error(tAi("chatFeedback.failed"));
+    } finally {
+      setChatFeedbackSubmitting(false);
+    }
+  }, [
+    activeSessionId,
+    buildChatFeedbackContext,
+    chatFeedbackContent,
+    resolveSessionZipExportUrl,
+    submitChatFeedbackPayload,
+    tAi,
+  ]);
+
   return (
     <div
       className={cn(
@@ -305,6 +519,18 @@ export default function ChatHeader({
             label="查看上下文调试信息"
           >
             <Bug size={20} />
+          </MessageAction>
+        ) : null}
+        {saasLoggedIn ? (
+          <MessageAction
+            aria-label={tAi("chatFeedback.button")}
+            onClick={() => setChatFeedbackOpen(true)}
+            className={resolveActionIconClass("feedback")}
+            disabled={chatFeedbackSubmitting || !activeSessionId}
+            tooltip={tAi("chatFeedback.button")}
+            label={tAi("chatFeedback.button")}
+          >
+            <MessageSquarePlus size={20} />
           </MessageAction>
         ) : null}
         {messages.length > 0 && (
@@ -394,6 +620,53 @@ export default function ChatHeader({
           </MessageAction>
         )}
       </MessageActions>
+      <Dialog
+        open={chatFeedbackOpen}
+        onOpenChange={(open) => {
+          if (!chatFeedbackSubmitting) setChatFeedbackOpen(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{tAi("chatFeedback.title")}</DialogTitle>
+            <DialogDescription>{tAi("chatFeedback.description")}</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={chatFeedbackContent}
+            onChange={(event) => setChatFeedbackContent(event.target.value)}
+            placeholder={tAi("chatFeedback.placeholder")}
+            className="min-h-[120px]"
+            autoFocus
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                event.preventDefault();
+                if (!chatFeedbackSubmitting && chatFeedbackContent.trim()) {
+                  void handleSubmitChatFeedback();
+                }
+              }
+            }}
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setChatFeedbackOpen(false)}
+              disabled={chatFeedbackSubmitting}
+            >
+              {tAi("chatFeedback.cancel")}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleSubmitChatFeedback()}
+              disabled={chatFeedbackSubmitting || chatFeedbackContent.trim().length === 0}
+            >
+              {chatFeedbackSubmitting
+                ? tAi("chatFeedback.submitting")
+                : tAi("chatFeedback.submit")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

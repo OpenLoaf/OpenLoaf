@@ -299,8 +299,8 @@ function resolveAccountSnapshot(): AccountSnapshot {
 function resolveResponseLanguage(): string {
   try {
     const conf = readBasicConf();
-    // null means "follow UI language"
-    return conf.modelResponseLanguage ?? conf.uiLanguage ?? "zh-CN";
+    // Use UI language directly
+    return conf.uiLanguage ?? "zh-CN";
   } catch {
     return UNKNOWN_VALUE;
   }

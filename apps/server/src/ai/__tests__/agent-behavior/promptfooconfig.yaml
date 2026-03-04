@@ -123,6 +123,31 @@ tests:
             ? { pass: true, score: 1, reason: '未使用 shell-command' }
             : { pass: false, score: 0, reason: '不应使用 shell-command 来读取文件' };
 
+  - description: "e2e-006: JSX 渲染请求应调用 jsx-create 且不输出伪工具标签"
+    vars:
+      prompt: "给我写首诗，关于中国山河的，使用组件渲染组件"
+    assert:
+      - type: javascript
+        value: |
+          const tools = context.providerResponse?.metadata?.toolNames || [];
+          return tools.includes('jsx-create')
+            ? { pass: true, score: 1, reason: '正确调用了 jsx-create' }
+            : { pass: false, score: 0, reason: `未调用 jsx-create，实际: [${tools}]` };
+      - type: javascript
+        value: |
+          const responseText = String(context.providerResponse?.output || '');
+          const hasFakeToolText = /<function=|<parameter=|<\/tool_call>/i.test(responseText);
+          return !hasFakeToolText
+            ? { pass: true, score: 1, reason: '未输出伪工具调用标签' }
+            : { pass: false, score: 0, reason: '输出中包含伪工具调用标签（应使用真实 tool call）' };
+      - type: javascript
+        value: |
+          const calls = context.providerResponse?.metadata?.toolCalls || [];
+          const jsxCalls = calls.filter((c) => c?.toolName === 'jsx-create');
+          return jsxCalls.length === 1
+            ? { pass: true, score: 1, reason: 'jsx-create 调用次数正确（1 次）' }
+            : { pass: false, score: 0, reason: `jsx-create 调用次数应为 1，实际: ${jsxCalls.length}` };
+
   - description: "e2e-010: 多轮对话保持上下文"
     vars:
       prompt: "dummy"

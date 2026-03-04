@@ -17,6 +17,7 @@ import {
   type UIMessageChunk,
 } from "ai";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
 import { useChatRuntime, type ToolPartSnapshot } from "@/hooks/use-chat-runtime";
@@ -24,6 +25,7 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { createChatTransport } from "@/lib/ai/transport";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
+import { refreshAccessToken } from "@/lib/saas-auth";
 import type { PendingCloudMessage } from "./context/ChatStateContext";
 import type { ImageGenerateOptions } from "@openloaf/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
@@ -88,6 +90,24 @@ function findLastAssistantMessage(messages: UIMessage[]): UIMessage | undefined 
     if (messages[i]?.role === "assistant") return messages[i];
   }
   return undefined;
+}
+
+/** Check whether the error text indicates SaaS token unauthorized. */
+function isSaasUnauthorizedErrorMessage(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  const lower = trimmed.toLowerCase();
+  if (lower.includes("\"message\":\"unauthorized\"")) return true;
+  if (lower.includes("'message':'unauthorized'")) return true;
+  if (/\bunauthorized\b/u.test(lower)) return true;
+  const jsonStart = trimmed.indexOf("{");
+  if (jsonStart < 0) return false;
+  try {
+    const parsed = JSON.parse(trimmed.slice(jsonStart)) as Record<string, unknown>;
+    return String(parsed.message ?? "").trim().toLowerCase() === "unauthorized";
+  } catch {
+    return false;
+  }
 }
 
 /** Map tool call ids to parts from a message. */
@@ -435,6 +455,10 @@ export default function ChatCoreProvider({
   // 关键：用于自动标题更新的回复计数与首条消息刷新。
   const assistantReplyCountRef = React.useRef(0);
   const pendingInitialTitleRefreshRef = React.useRef(false);
+  // 关键：同一条用户消息仅自动刷新 token 并重试一次，避免无限重试。
+  const authRetryMessageIdsRef = React.useRef(new Set<string>());
+  // 关键：防止并发进入多次自动刷新流程。
+  const authRetryInFlightRef = React.useRef(false);
   /** Queued approval payloads keyed by tool call id. */
   const approvalPayloadsRef = React.useRef<Record<string, Record<string, unknown>>>({});
   /** Track ongoing approval submission to avoid duplicate sends. */
@@ -769,6 +793,51 @@ export default function ChatCoreProvider({
     soundEnabled: basic.modelSoundEnabled,
     snapshotEnabled: chat.status !== "ready",
   });
+
+  React.useEffect(() => {
+    if (chat.status !== "ready") return;
+    if (basic.chatSource !== "cloud") return;
+    const errorText = chat.error?.message ?? sessionErrorMessage ?? "";
+    if (!isSaasUnauthorizedErrorMessage(errorText)) return;
+    if (authRetryInFlightRef.current) return;
+
+    const targetUserMessageId = pendingUserMessageIdRef.current;
+    if (!targetUserMessageId) return;
+    if (authRetryMessageIdsRef.current.has(targetUserMessageId)) return;
+
+    authRetryMessageIdsRef.current.add(targetUserMessageId);
+    authRetryInFlightRef.current = true;
+    void (async () => {
+      try {
+        // 中文注释：云端 Unauthorized 时先刷新 token，再自动重试当前消息。
+        const refreshed = await refreshAccessToken();
+        if (!refreshed) {
+          // 中文注释：仅刷新失败时提示用户重新登录。
+          useSaasAuth.getState().logout();
+          toast.error("登录失败，请重新登录");
+          return;
+        }
+        chat.clearError();
+        try {
+          await chat.regenerate();
+        } catch {
+          // 中文注释：重发失败时保留原错误态，由既有错误展示链路处理。
+        }
+      } catch {
+        useSaasAuth.getState().logout();
+        toast.error("登录失败，请重新登录");
+      } finally {
+        authRetryInFlightRef.current = false;
+      }
+    })();
+  }, [
+    basic.chatSource,
+    chat.clearError,
+    chat.error,
+    chat.regenerate,
+    chat.status,
+    sessionErrorMessage,
+  ]);
 
   React.useEffect(() => {
     if (!tabId) return;

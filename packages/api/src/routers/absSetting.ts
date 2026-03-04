@@ -56,6 +56,13 @@ const officeInfoSchema = z.object({
   }),
 });
 
+/** CLI model definition schema. */
+const cliModelSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  tags: z.array(z.string()).optional(),
+});
+
 /** Skill / Agent scope enum. */
 const skillScopeSchema = z.enum(["workspace", "project", "global"]);
 
@@ -134,6 +141,14 @@ export const settingSchemas = {
   },
   officeInfo: {
     output: officeInfoSchema,
+  },
+  /** Get Codex CLI available models. */
+  getCodexModels: {
+    output: z.array(cliModelSchema),
+  },
+  /** Get Claude Code CLI available models. */
+  getClaudeCodeModels: {
+    output: z.array(cliModelSchema),
   },
   /** Get skills summary list. */
   getSkills: {

@@ -20,6 +20,9 @@ import type { ClaudeCodeOptions } from "@/lib/chat/claude-code-options";
 export function useChatMessageComposer(input: {
   canImageGeneration: boolean;
   isCodexProvider: boolean;
+  selectedCliProvider?: "codex-cli" | "claude-code-cli";
+  /** Selected CLI model ID (e.g., "codex-cli:gpt-5.3-codex") */
+  selectedCliModelId?: string;
 }) {
   return React.useCallback(
     (params: {
@@ -40,7 +43,8 @@ export function useChatMessageComposer(input: {
       const normalizedCodexOptions = input.isCodexProvider
         ? normalizeCodexOptions(params.codexOptions)
         : undefined;
-      const normalizedCcOptions = params.directCli
+      const normalizedCcOptions =
+        params.directCli && input.selectedCliProvider === "claude-code-cli"
         ? normalizeClaudeCodeOptions(params.claudeCodeOptions)
         : undefined;
       const metadataPayload = {
@@ -62,8 +66,12 @@ export function useChatMessageComposer(input: {
         ...params.imageParts,
         ...(params.textValue ? [{ type: "text", text: params.textValue }] : []),
       ];
-      return { parts, metadata };
+      // 逻辑：CLI 直连模式下，将选择的模型 ID 作为 chatModelId 传递给后端
+      const bodyExtras = params.directCli && input.selectedCliModelId
+        ? { chatModelId: input.selectedCliModelId }
+        : {};
+      return { parts, metadata, ...bodyExtras };
     },
-    [input.canImageGeneration, input.isCodexProvider]
+    [input.canImageGeneration, input.isCodexProvider, input.selectedCliProvider, input.selectedCliModelId]
   );
 }

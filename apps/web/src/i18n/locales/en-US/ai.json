@@ -181,6 +181,24 @@
       "within30": "Last 30 days"
     }
   },
+  "chatFeedback": {
+    "button": "Report Session",
+    "title": "Feedback & Suggestion",
+    "description": "Please enter your feedback. We will automatically attach a ZIP export of the current session.",
+    "placeholder": "Describe the issue, repro steps, or suggestions (required)",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "submitting": "Submitting…",
+    "emptyError": "Please enter feedback content",
+    "sessionMissing": "Current session not found",
+    "saasNotConfigured": "SaaS URL is not configured",
+    "zipEmpty": "Session zip is empty and cannot be uploaded",
+    "success": "Feedback submitted",
+    "failed": "Failed to submit feedback. Please try again.",
+    "failedWithMessage": "Failed to submit feedback: {{message}}",
+    "exportFailed": "Failed to export session. Please try again.",
+    "exportFailedWithMessage": "Failed to export session: {{message}}"
+  },
   "image": {
     "noEditingSupport": "Current model does not support image editing",
     "noInputSupport": "Current model does not support image input",
@@ -243,7 +261,22 @@
     "stopGenerating": "Stop generating",
     "sendMessage": "Send message",
     "characterLimitExceeded": "Content exceeds the {{max}} character limit. Please shorten your message.",
-    "manageModels": "Manage models"
+    "manageModels": "Manage models",
+    "cliOptions": {
+      "title": "CLI model options",
+      "codexTitle": "Codex",
+      "claudeCodeTitle": "Claude Code",
+      "modelLabel": "Model",
+      "modeLabel": "Mode",
+      "strengthLabel": "Strength",
+      "modeChat": "Chat",
+      "modeAgent": "Agent",
+      "modeAgentFullAccess": "Agent Full Access",
+      "strengthLow": "Low",
+      "strengthMedium": "Medium",
+      "strengthHigh": "High",
+      "strengthExtraHigh": "Extra high"
+    }
   },
   "dock": {
     "aiAssistant": "AI Assistant",

@@ -11,17 +11,29 @@
 
 import { motion } from "framer-motion";
 
+/**
+ * 浮动路径动画组件
+ * @param position - 路径位置偏移（1 或 -1），用于创建对称的双向动画效果
+ *
+ * 动画参数说明：
+ * - length: 28 - 路径数量（线条数量）
+ * - y 坐标基准值：-239, 166, 293, 420, 825 - 控制路径垂直位置（数值越小越靠上）
+ * - width: 0.5 + i * 0.04 - 线条粗细（从 0.5 到 1.58 渐变）
+ * - strokeOpacity: 0.15 + path.id * 0.05 - 透明度（从 0.15 到 1.5 渐变）
+ * - duration: 5 + Math.random() * 3 - 动画周期（5-8 秒）
+ * - pathOffset: [1, 0, 1] - 反向播放（从终点到起点再回到终点）
+ */
 function FloatingPaths({ position }: { position: number }) {
-  const paths = Array.from({ length: 36 }, (_, i) => ({
+  const paths = Array.from({ length: 28 }, (_, i) => ({
     id: i,
-    d: `M-${380 - i * 5 * position} -${189 + i * 6}C-${
+    d: `M-${380 - i * 5 * position} -${239 + i * 6}C-${
       380 - i * 5 * position
-    } -${189 + i * 6} -${312 - i * 5 * position} ${216 - i * 6} ${
+    } -${239 + i * 6} -${312 - i * 5 * position} ${166 - i * 6} ${
       152 - i * 5 * position
-    } ${343 - i * 6}C${616 - i * 5 * position} ${470 - i * 6} ${
+    } ${293 - i * 6}C${616 - i * 5 * position} ${420 - i * 6} ${
       684 - i * 5 * position
-    } ${875 - i * 6} ${684 - i * 5 * position} ${875 - i * 6}`,
-    width: 0.5 + i * 0.03,
+    } ${825 - i * 6} ${684 - i * 5 * position} ${825 - i * 6}`,
+    width: 0.5 + i * 0.04,
   }));
 
   return (
@@ -38,15 +50,15 @@ function FloatingPaths({ position }: { position: number }) {
             d={path.d}
             stroke="currentColor"
             strokeWidth={path.width}
-            strokeOpacity={0.1 + path.id * 0.03}
-            initial={{ pathLength: 0.3, opacity: 0.6 }}
+            strokeOpacity={0.15 + path.id * 0.05}
+            initial={{ pathLength: 1, opacity: 0.6 }}
             animate={{
               pathLength: 1,
-              opacity: [0.3, 0.6, 0.3],
+              opacity: [0.4, 0.7, 0.4],
               pathOffset: [1, 0, 1],
             }}
             transition={{
-              duration: 20 + Math.random() * 10,
+              duration: 5 + Math.random() * 3,
               repeat: Number.POSITIVE_INFINITY,
               ease: "linear",
             }}

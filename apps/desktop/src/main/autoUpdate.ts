@@ -8,6 +8,9 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { app, BrowserWindow } from 'electron'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import {
   autoUpdater,
   type ProgressInfo,
@@ -52,6 +55,11 @@ type AutoUpdateStatus = {
 /** Auto update action result. */
 type AutoUpdateResult = { ok: true } | { ok: false; reason: string }
 
+/** Persisted launch metadata for post-install cleanup. */
+type AutoUpdateLaunchState = {
+  lastLaunchedVersion?: string
+}
+
 // ---------------------------------------------------------------------------
 // 常量
 // ---------------------------------------------------------------------------
@@ -61,6 +69,12 @@ const INITIAL_CHECK_DELAY_MS = 8_000
 
 /** 定期检查间隔（6 小时）。 */
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
+
+/** File name used to persist launch version metadata. */
+const AUTO_UPDATE_LAUNCH_STATE_FILE = 'auto-update-launch-state.json'
+
+/** app-update.yml key for updater cache directory name. */
+const UPDATER_CACHE_DIR_KEY = 'updaterCacheDirName'
 
 // ---------------------------------------------------------------------------
 // 模块状态
@@ -149,6 +163,95 @@ function configureFeedUrl(log: Logger): void {
   }
 }
 
+/** Returns the absolute path of persisted launch metadata. */
+function launchStatePath(): string {
+  return path.join(app.getPath('userData'), AUTO_UPDATE_LAUNCH_STATE_FILE)
+}
+
+/** Reads persisted launch metadata. */
+function readLaunchState(): AutoUpdateLaunchState {
+  try {
+    const raw = fs.readFileSync(launchStatePath(), 'utf-8')
+    return JSON.parse(raw) as AutoUpdateLaunchState
+  } catch {
+    return {}
+  }
+}
+
+/** Writes persisted launch metadata. */
+function writeLaunchState(state: AutoUpdateLaunchState): void {
+  const filePath = launchStatePath()
+  try {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
+    fs.writeFileSync(filePath, JSON.stringify(state), 'utf-8')
+  } catch {
+    // ignore
+  }
+}
+
+/** Resolves updater cache root path by current platform. */
+function resolveUpdaterBaseCachePath(): string {
+  const homeDir = os.homedir()
+  if (process.platform === 'win32') {
+    return process.env.LOCALAPPDATA || path.join(homeDir, 'AppData', 'Local')
+  }
+  if (process.platform === 'darwin') {
+    return path.join(homeDir, 'Library', 'Caches')
+  }
+  return process.env.XDG_CACHE_HOME || path.join(homeDir, '.cache')
+}
+
+/** Extracts updater cache directory name from app-update.yml content. */
+function parseUpdaterCacheDirName(raw: string): string | null {
+  const pattern = new RegExp(`^\\s*${UPDATER_CACHE_DIR_KEY}\\s*:\\s*(.+)$`, 'm')
+  const matched = raw.match(pattern)
+  if (!matched?.[1]) return null
+  const value = matched[1].trim().replace(/^['"]|['"]$/g, '')
+  return value || null
+}
+
+/** Resolves updater cache directory name from app-update.yml with fallback. */
+function resolveUpdaterCacheDirName(log: Logger): string {
+  try {
+    const appUpdatePath = path.join(process.resourcesPath, 'app-update.yml')
+    if (fs.existsSync(appUpdatePath)) {
+      const raw = fs.readFileSync(appUpdatePath, 'utf-8')
+      const dirName = parseUpdaterCacheDirName(raw)
+      if (dirName) return dirName
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    log(`Auto update cache dir resolve failed: ${message}`)
+  }
+  return app.getName()
+}
+
+/** Cleans stale pending installer files only after version change. */
+function cleanPendingInstallerAfterVersionUpgrade(log: Logger): void {
+  const currentVersion = app.getVersion()
+  const lastVersion = readLaunchState().lastLaunchedVersion
+  writeLaunchState({ lastLaunchedVersion: currentVersion })
+
+  // 中文注释：仅在版本变化后清理，避免误删尚未安装的已下载更新包。
+  if (!lastVersion || lastVersion === currentVersion) return
+
+  try {
+    const cacheRoot = resolveUpdaterBaseCachePath()
+    const cacheDirName = resolveUpdaterCacheDirName(log)
+    const pendingDir = path.join(cacheRoot, cacheDirName, 'pending')
+    if (!fs.existsSync(pendingDir)) return
+
+    // 中文注释：只清理 pending，保留其它缓存目录，降低误伤风险。
+    fs.rmSync(pendingDir, { recursive: true, force: true })
+    log(
+      `Auto update pending installer cache cleared: ${pendingDir} (version ${lastVersion} -> ${currentVersion}).`
+    )
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    log(`Auto update pending installer cache cleanup failed: ${message}`)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 对外方法
 // ---------------------------------------------------------------------------
@@ -227,6 +330,9 @@ export function installAutoUpdate(options: AutoUpdateOptions): void {
     return
   }
   autoUpdateInstalled = true
+
+  // 中文注释：在新版本首次启动时清理旧安装包，释放磁盘占用。
+  cleanPendingInstallerAfterVersionUpgrade(log)
 
   configureFeedUrl(log)
   autoUpdater.autoDownload = true

@@ -70,18 +70,6 @@ const MODEL_PROVIDER_CATEGORY = "provider";
 const S3_PROVIDER_CATEGORY = "s3Provider";
 /** Setting key for chat model source. */
 const CHAT_SOURCE_KEY = "model.chatSource";
-/** Setting key for model response language. */
-const MODEL_RESPONSE_LANGUAGE_KEY = "model.responseLanguage";
-/** Supported response languages. */
-const MODEL_RESPONSE_LANGUAGES = [
-  "zh-CN",
-  "en-US",
-  "ja-JP",
-  "ko-KR",
-  "fr-FR",
-  "de-DE",
-  "es-ES",
-] as const;
 /** Setting key for model chat quality. */
 const MODEL_CHAT_QUALITY_KEY = "model.chatQuality";
 
@@ -318,14 +306,6 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     ...current,
     ...update,
   };
-  const responseLanguage =
-    next.modelResponseLanguage === null
-      ? null
-      : ["zh-CN", "zh-TW", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES"].includes(
-            next.modelResponseLanguage as string,
-          )
-        ? next.modelResponseLanguage
-        : current.modelResponseLanguage;
   const modelQuality =
     next.modelQuality === "high" || next.modelQuality === "medium" || next.modelQuality === "low"
       ? next.modelQuality
@@ -434,7 +414,6 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
       : undefined,
     s3AutoUpload: Boolean(next.s3AutoUpload),
     s3AutoDeleteHours: Math.min(168, Math.max(1, Math.floor(next.s3AutoDeleteHours))),
-    modelResponseLanguage: responseLanguage,
     modelQuality,
     chatOnlineSearchMemoryScope,
     modelSoundEnabled,
@@ -548,16 +527,6 @@ export async function setSettingValueFromWeb(
     writeBasicConf({ ...readBasicConfig(), chatSource: value === "cloud" ? "cloud" : "local" });
     return;
   }
-  if (key === MODEL_RESPONSE_LANGUAGE_KEY) {
-    const basic = readBasicConfig();
-    const next =
-      typeof value === "string" &&
-      (MODEL_RESPONSE_LANGUAGES as readonly string[]).includes(value)
-        ? (value as (typeof MODEL_RESPONSE_LANGUAGES)[number])
-        : basic.modelResponseLanguage;
-    writeBasicConf({ ...basic, modelResponseLanguage: next });
-    return;
-  }
   if (key === MODEL_CHAT_QUALITY_KEY) {
     const basic = readBasicConfig();
     const next =
@@ -581,10 +550,6 @@ export async function deleteSettingValueFromWeb(key: string, category?: string) 
   }
   if (key === CHAT_SOURCE_KEY) {
     writeBasicConf({ ...readBasicConfig(), chatSource: "local" });
-    return;
-  }
-  if (key === MODEL_RESPONSE_LANGUAGE_KEY) {
-    writeBasicConf({ ...readBasicConfig(), modelResponseLanguage: null });
     return;
   }
   if (key === MODEL_CHAT_QUALITY_KEY) {

@@ -9,17 +9,6 @@
  */
 import { z } from "zod";
 
-export const modelResponseLanguageSchema = z.enum([
-  "zh-CN",
-  "zh-TW",
-  "en-US",
-  "ja-JP",
-  "ko-KR",
-  "fr-FR",
-  "de-DE",
-  "es-ES",
-]);
-
 export const modelQualitySchema = z.enum(["high", "medium", "low"]);
 export const chatOnlineSearchMemoryScopeSchema = z.enum(["tab", "global"]);
 export const chatThinkingModeSchema = z.enum(["fast", "deep"]);
@@ -86,7 +75,6 @@ export const basicConfigSchema = z.object({
   activeS3Id: z.string().optional(),
   s3AutoUpload: z.boolean(),
   s3AutoDeleteHours: z.number().int().min(1).max(168),
-  modelResponseLanguage: modelResponseLanguageSchema.nullable(),
   /** @deprecated Use per-agent model config instead. */
   modelQuality: modelQualitySchema,
   chatOnlineSearchMemoryScope: chatOnlineSearchMemoryScopeSchema,
