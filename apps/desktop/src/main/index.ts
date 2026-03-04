@@ -169,6 +169,8 @@ function focusMainWindow(): BrowserWindow | null {
   if (win.isMinimized()) win.restore();
   win.show();
   win.focus();
+  // 从托盘恢复后清除旧的焦点状态，避免按钮 tooltip 自动弹出。
+  win.webContents.executeJavaScript('document.activeElement?.blur()').catch(() => {});
   return win;
 }
 
@@ -511,6 +513,8 @@ async function boot() {
         if (process.platform === 'darwin') app.dock?.show();
         win.show();
         win.focus();
+        // 清除旧焦点状态，避免按钮 tooltip 自动弹出。
+        win.webContents.executeJavaScript('document.activeElement?.blur()').catch(() => {});
       }
     },
     showWindow: () => {
@@ -638,6 +642,8 @@ if (!gotTheLock) {
     if (win) {
       win.show();
       win.focus();
+      // 清除旧焦点状态，避免按钮 tooltip 自动弹出。
+      win.webContents.executeJavaScript('document.activeElement?.blur()').catch(() => {});
     } else {
       void boot();
     }
