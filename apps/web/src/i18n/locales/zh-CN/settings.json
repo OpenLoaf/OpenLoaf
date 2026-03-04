@@ -110,7 +110,9 @@
     "animationMedium": "中",
     "animationHigh": "高",
     "notificationSound": "通知声音提示",
-    "notificationSoundDesc": "语音输入开始时播放提示音"
+    "notificationSoundDesc": "语音输入开始时播放提示音",
+    "minimizeToTray": "关闭时最小化到托盘",
+    "minimizeToTrayDesc": "开启后，关闭窗口时应用将最小化到系统托盘而不是退出"
   },
   "localAccess": {
     "title": "本地访问密码",

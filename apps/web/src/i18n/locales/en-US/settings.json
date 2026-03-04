@@ -110,7 +110,9 @@
     "animationMedium": "Medium",
     "animationHigh": "High",
     "notificationSound": "Notification Sound",
-    "notificationSoundDesc": "Play sound cue when voice input starts"
+    "notificationSoundDesc": "Play sound cue when voice input starts",
+    "minimizeToTray": "Minimize to Tray on Close",
+    "minimizeToTrayDesc": "When enabled, closing the window minimizes the app to the system tray instead of quitting"
   },
   "localAccess": {
     "title": "Local Access Password",

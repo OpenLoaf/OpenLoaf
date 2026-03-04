@@ -110,7 +110,9 @@
     "animationMedium": "中",
     "animationHigh": "高",
     "notificationSound": "通知聲音提示",
-    "notificationSoundDesc": "語音輸入開始時播放提示音"
+    "notificationSoundDesc": "語音輸入開始時播放提示音",
+    "minimizeToTray": "關閉時最小化至系統匣",
+    "minimizeToTrayDesc": "開啟後，關閉視窗時應用程式將最小化至系統匣而不是結束"
   },
   "localAccess": {
     "title": "本機存取密碼",

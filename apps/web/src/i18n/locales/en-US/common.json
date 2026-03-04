@@ -20,6 +20,7 @@
   "download": "Download",
   "upload": "Upload",
   "rename": "Rename",
+  "renameProject": "Rename Project",
   "duplicate": "Duplicate",
   "loading": "Loading…",
   "saving": "Saving…",
@@ -93,6 +94,12 @@
     "feedbackSuccess": "Bug report submitted. Thank you!",
     "feedbackFailed": "Failed to submit report. Please try again.",
     "restart": "Restart app"
+  },
+  "closeConfirm": {
+    "title": "Close OpenLoaf",
+    "description": "Are you sure you want to close the application?",
+    "checkboxLabel": "Run in background and don't ask again",
+    "ok": "OK"
   },
   "webOnlyNoLocalFile": "Opening local files is not supported in the web version",
   "filePathNotFound": "File path not found",

@@ -35,6 +35,10 @@ export function useLanguageSync() {
     } catch {
       // Silently ignore if localStorage is unavailable
     }
+
+    // 同步语言到 Electron 主进程（托盘菜单、对话框等原生 UI 翻译）。
+    window.openloafElectron?.setLanguage?.(target)?.catch?.(() => {});
+
   }, [basic.uiLanguage, isLoading, i18n]);
 }
 

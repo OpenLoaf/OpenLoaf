@@ -20,6 +20,7 @@
   "download": "下載",
   "upload": "上傳",
   "rename": "重新命名",
+  "renameProject": "專案重新命名",
   "duplicate": "複製副本",
   "loading": "載入中…",
   "saving": "保存中…",
@@ -93,6 +94,12 @@
     "feedbackSuccess": "回饋已提交，感謝！",
     "feedbackFailed": "提交失敗，請稍後重試。",
     "restart": "重新啟動應用程式"
+  },
+  "closeConfirm": {
+    "title": "關閉 OpenLoaf",
+    "description": "確定要關閉應用程式嗎？",
+    "checkboxLabel": "背景執行，下次不再提醒",
+    "ok": "確定"
   },
   "webOnlyNoLocalFile": "網頁版不支援開啟本機檔案",
   "filePathNotFound": "未找到檔案路徑",
