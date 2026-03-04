@@ -422,6 +422,12 @@ export function ChatInputBox({
   const showProjectSelector = Boolean(
     onProjectChange && (workspaceId || projects.length > 0),
   );
+  const handleProjectSelectorChange = useCallback(
+    (projectId: string | undefined) => {
+      onProjectChange?.(projectId);
+    },
+    [onProjectChange],
+  );
 
   // Responsive: collapse ChatModeSelector labels when footer is narrow
   const [footerEl, setFooterEl] = useState<HTMLDivElement | null>(null);
@@ -975,7 +981,7 @@ export function ChatInputBox({
                     workspaceId={workspaceId}
                     workspaceName={workspaceName}
                     projects={projects}
-                    onProjectChange={onProjectChange}
+                    onProjectChange={handleProjectSelectorChange}
                     disabled={projectSelectorDisabled}
                   />
                   {afterProjectSelector ? (
