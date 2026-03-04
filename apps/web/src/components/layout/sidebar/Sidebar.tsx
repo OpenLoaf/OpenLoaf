@@ -100,9 +100,6 @@ export const AppSidebar = ({
   const setSearchOpen = useGlobalOverlay((s) => s.setSearchOpen);
   const isNarrow = useIsNarrowScreen(900);
 
-  // 功能开关
-  const USE_NEW_NAVIGATION = process.env.NEXT_PUBLIC_USE_NEW_NAVIGATION === "true";
-
   // 未读邮件数量查询。
   const unreadCountQuery = useQuery(
     trpc.email.listUnreadCount.queryOptions(
@@ -366,12 +363,8 @@ export const AppSidebar = ({
             <SidebarMenuButton
               tooltip={t('aiAssistant')}
               className={SIDEBAR_WORKSPACE_COLOR_CLASS.aiAssistant}
-              isActive={
-                USE_NEW_NAVIGATION
-                  ? activeView?.type === 'workspace-chat'
-                  : isMenuActive(AI_ASSISTANT_TAB_INPUT)
-              }
-              onClick={() => USE_NEW_NAVIGATION ? openAIAssistant() : openSingletonTab(AI_ASSISTANT_TAB_INPUT)}
+              isActive={activeView?.type === 'workspace-chat'}
+              onClick={() => openAIAssistant()}
               type="button"
             >
               <Sparkles className="h-4 w-4" />
@@ -382,8 +375,8 @@ export const AppSidebar = ({
             <SidebarMenuButton
               tooltip={t('workbench')}
               className={SIDEBAR_WORKSPACE_COLOR_CLASS.workbench}
-              isActive={USE_NEW_NAVIGATION ? isMenuActiveNew('workbench') : isMenuActive(WORKBENCH_TAB_INPUT)}
-              onClick={() => USE_NEW_NAVIGATION ? openView('workbench') : openWorkspacePageTab(WORKBENCH_TAB_INPUT)}
+              isActive={isMenuActiveNew('workbench')}
+              onClick={() => openView('workbench')}
               type="button"
             >
               <LayoutDashboard className="h-4 w-4" />
@@ -400,21 +393,8 @@ export const AppSidebar = ({
             <SidebarMenuButton
               tooltip={t('calendar')}
               className={SIDEBAR_WORKSPACE_COLOR_CLASS.calendar}
-              isActive={USE_NEW_NAVIGATION ? isMenuActiveNew('calendar') : isMenuActive({
-                baseId: "base:calendar",
-                component: "calendar-page",
-                title: t('calendar'),
-              })}
-              onClick={() =>
-                USE_NEW_NAVIGATION
-                  ? openView('calendar')
-                  : openWorkspacePageTab({
-                      baseId: "base:calendar",
-                      component: "calendar-page",
-                      title: t('calendar'),
-                      icon: "🗓️",
-                    })
-              }
+              isActive={isMenuActiveNew('calendar')}
+              onClick={() => openView('calendar')}
               type="button"
             >
               <CalendarDays />
@@ -431,21 +411,8 @@ export const AppSidebar = ({
             <SidebarMenuButton
               tooltip={t('email')}
               className={SIDEBAR_WORKSPACE_COLOR_CLASS.email}
-              isActive={USE_NEW_NAVIGATION ? isMenuActiveNew('email') : isMenuActive({
-                baseId: "base:mailbox",
-                component: "email-page",
-                title: t('email'),
-              })}
-              onClick={() =>
-                USE_NEW_NAVIGATION
-                  ? openView('email')
-                  : openWorkspacePageTab({
-                      baseId: "base:mailbox",
-                      component: "email-page",
-                      title: t('email'),
-                      icon: "📧",
-                    })
-              }
+              isActive={isMenuActiveNew('email')}
+              onClick={() => openView('email')}
               type="button"
             >
               <Mail />
@@ -464,21 +431,8 @@ export const AppSidebar = ({
             <SidebarMenuButton
               tooltip={t('tasks')}
               className={SIDEBAR_WORKSPACE_COLOR_CLASS.scheduledTasks}
-              isActive={USE_NEW_NAVIGATION ? isMenuActiveNew('scheduled-tasks') : isMenuActive({
-                baseId: "base:scheduled-tasks",
-                component: "scheduled-tasks-page",
-                title: t('tasks'),
-              })}
-              onClick={() =>
-                USE_NEW_NAVIGATION
-                  ? openView('scheduled-tasks')
-                  : openWorkspacePageTab({
-                      baseId: "base:scheduled-tasks",
-                      component: "scheduled-tasks-page",
-                      title: t('tasks'),
-                      icon: "⏰",
-                    })
-              }
+              isActive={isMenuActiveNew('scheduled-tasks')}
+              onClick={() => openView('scheduled-tasks')}
               type="button"
             >
               <Clock />
