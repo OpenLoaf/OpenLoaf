@@ -145,14 +145,67 @@ export function PageLayout() {
       }
 
       case "project": {
-        // 项目视图：左侧 LeftDock + 右侧 Chat
-        // TODO: 实现项目视图的 LeftDock 支持
-        const chatSessionId = getChatSessionId();
+        // 项目视图：LeftDockNew + RightChat 布局（多会话模式）
+        if (!viewRuntime || !viewKey) return null;
+
+        // 获取项目信息
+        const projectId = activeView.projectId;
+
+        // 确保 leftDock 已初始化（使用项目文件系统面板）
+        const leftDock = viewRuntime.leftDock || {
+          id: `project:${projectId}`,
+          component: "plant-page",
+          params: { projectId, rootUri: "" }, // rootUri 稍后会从项目信息获取
+        };
+
+        // 获取或创建 Chat Session ID（用于 Right Chat）
+        const chatSessionId = viewRuntime.chatSessionId || (() => {
+          const newSessionId = createChatSessionId();
+          setViewRuntime(viewKey, { chatSessionId: newSessionId });
+          return newSessionId;
+        })();
+
+        const showRightChat = !rightChatCollapsed;
+        const showDivider = showRightChat && leftWidthPercent > 0;
 
         return (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-            项目视图开发中...
-            {/* 临时占位，Phase 5 将实现完整的项目视图 */}
+          <div className="flex h-full w-full">
+            {/* Left Dock */}
+            {leftWidthPercent > 0 && (
+              <div
+                className="relative flex-shrink-0 overflow-hidden"
+                style={{ width: `${leftWidthPx}px` }}
+              >
+                <LeftDockNew
+                  workspaceId={activeWorkspaceId || ""}
+                  base={leftDock}
+                  stack={viewRuntime.stack || []}
+                  stackHidden={viewRuntime.stackHidden ?? false}
+                  activeStackItemId={viewRuntime.activeStackItemId}
+                />
+              </div>
+            )}
+
+            {/* Divider */}
+            {showDivider && (
+              <div
+                className="relative flex-shrink-0 cursor-col-resize bg-border hover:bg-primary/20 transition-colors"
+                style={{ width: `${DIVIDER_WIDTH_PX}px` }}
+                onMouseDown={handleDividerMouseDown}
+              />
+            )}
+
+            {/* Right Chat - 多会话模式 */}
+            {showRightChat && (
+              <div className="relative flex-1 overflow-hidden">
+                <Chat
+                  chatSessionId={chatSessionId}
+                  chatParams={{ projectId }}
+                  chatLoadHistory={true}
+                  enableMultiSession={true}
+                />
+              </div>
+            )}
           </div>
         );
       }
