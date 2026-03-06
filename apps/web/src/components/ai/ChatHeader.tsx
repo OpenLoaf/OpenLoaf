@@ -150,10 +150,7 @@ export default function ChatHeader({
   // 新建会话按钮显示条件：有历史消息 + 启用多会话模式
   const shouldShowNewSessionButton = messages.length > 0 && (enableMultiSession ?? Boolean(quickLaunchProjectId));
 
-  React.useEffect(() => {
-    if (saasLoggedIn) return;
-    setChatFeedbackOpen(false);
-  }, [saasLoggedIn]);
+  const effectiveChatFeedbackOpen = chatFeedbackOpen && saasLoggedIn;
 
   const syncHistoryTitleToTabTitle = useMutation({
     ...(trpc.chatsession.updateManyChatSession.mutationOptions() as any),
@@ -627,7 +624,7 @@ export default function ChatHeader({
         )}
       </MessageActions>
       <Dialog
-        open={chatFeedbackOpen}
+        open={effectiveChatFeedbackOpen}
         onOpenChange={(open) => {
           if (!chatFeedbackSubmitting) setChatFeedbackOpen(open);
         }}

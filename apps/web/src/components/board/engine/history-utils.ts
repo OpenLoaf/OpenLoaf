@@ -18,10 +18,7 @@ type CanvasHistoryState = {
 
 /** Clone elements to avoid mutation across history states. */
 function cloneElements(elements: CanvasElement[]): CanvasElement[] {
-  if (typeof structuredClone === "function") {
-    return structuredClone(elements);
-  }
-  return JSON.parse(JSON.stringify(elements)) as CanvasElement[];
+  return structuredClone(elements);
 }
 
 /** Compare two history snapshots for equality. */

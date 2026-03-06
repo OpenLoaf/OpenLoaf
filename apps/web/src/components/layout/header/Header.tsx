@@ -66,7 +66,6 @@ export const Header = () => {
   const workspaceId = workspace?.id;
   const activeTabId = useTabs((s) => s.activeTabId);
   const activeTab = useTabView(activeTabId ?? undefined);
-  const setTabRightChatCollapsed = useTabRuntime((s) => s.setTabRightChatCollapsed);
   const searchOpen = useGlobalOverlay((s) => s.searchOpen);
   const setSearchOpen = useGlobalOverlay((s) => s.setSearchOpen);
 
@@ -186,7 +185,7 @@ export const Header = () => {
               size="icon"
               onClick={() => {
                 if (!activeTabId) return;
-                setTabRightChatCollapsed(activeTabId, !isChatCollapsed);
+                useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, !isChatCollapsed);
               }}
             >
               <motion.div

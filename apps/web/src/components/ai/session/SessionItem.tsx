@@ -58,7 +58,7 @@ interface SessionItemProps {
   className?: string;
 }
 
-export default function SessionItem({
+function SessionItem({
   session,
   isActive,
   isOpenInTab,
@@ -308,3 +308,5 @@ export default function SessionItem({
     </>
   );
 }
+
+export default React.memo(SessionItem);

@@ -111,12 +111,11 @@ export default function SelectMode({
     }
   }, [popoverOpen, tabId])
 
-  // 逻辑：登录成功后自动关闭登录弹窗
   useEffect(() => {
-    if (prefs.authLoggedIn && loginOpen) {
+    if (prefs.authLoggedIn) {
       setLoginOpen(false)
     }
-  }, [prefs.authLoggedIn, loginOpen])
+  }, [prefs.authLoggedIn])
 
   const handleOpenLogin = () => {
     setPopoverOpen(false)

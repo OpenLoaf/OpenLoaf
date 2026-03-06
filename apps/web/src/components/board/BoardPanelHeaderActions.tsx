@@ -111,8 +111,6 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
   const canToggleSidebar = Boolean(sidebar) || leftOpenFallback !== null;
   const setOpen = sidebar?.setOpen;
   const setOpenMobile = sidebar?.setOpenMobile;
-  const setTabRightChatCollapsed = useTabRuntime((state) => state.setTabRightChatCollapsed);
-  const setStackItemParams = useTabRuntime((state) => state.setStackItemParams);
   const rightChatCollapsed = useTabRuntime(
     (state) => state.runtimeByTabId[tabId]?.rightChatCollapsed ?? false,
   );
@@ -172,8 +170,8 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
     } else {
       emitSidebarOpenRequest(nextLeftOpen);
     }
-    setTabRightChatCollapsed(tabId, shouldCollapse);
-    setStackItemParams(tabId, item.id, { __boardFull: shouldCollapse });
+    useTabRuntime.getState().setTabRightChatCollapsed(tabId, shouldCollapse);
+    useTabRuntime.getState().setStackItemParams(tabId, item.id, { __boardFull: shouldCollapse });
   }, [
     isMobile,
     leftOpen,
@@ -181,8 +179,6 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
     setOpen,
     setOpenMobile,
     sidebar,
-    setTabRightChatCollapsed,
-    setStackItemParams,
     tabId,
     item.id,
   ]);

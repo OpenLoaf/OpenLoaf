@@ -88,7 +88,7 @@ const defaultHomeData = pageDefaultData as Data;
 
 /** Build homepage data when no saved content exists. */
 function buildDefaultHomeData(projectTitle: string): Data {
-  const nextData = JSON.parse(JSON.stringify(defaultHomeData)) as Data;
+  const nextData = structuredClone(defaultHomeData) as Data;
   const safeTitle = projectTitle.trim() || "Project Home";
   // 中文注释：没有保存内容时，用项目名填充标题。
   const heading = nextData.content.find((item) => item.type === "Heading");
@@ -103,7 +103,7 @@ function buildDefaultHomeData(projectTitle: string): Data {
 
 /** Clone homepage data to avoid mutation side effects. */
 function cloneHomeData(data: Data): Data {
-  return JSON.parse(JSON.stringify(data)) as Data;
+  return structuredClone(data) as Data;
 }
 
 /** Serialize homepage data for dirty comparison. */

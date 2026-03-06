@@ -617,7 +617,6 @@ export default function TaskBoardPage({
   const { workspace } = useWorkspace()
   const queryClient = useQueryClient()
   const pushStackItem = useTabRuntime((state) => state.pushStackItem)
-  const setTabRightChatCollapsed = useTabRuntime((state) => state.setTabRightChatCollapsed)
   const { activeTabId } = useTabs()
   const [viewMode, setViewMode] = useState<ViewMode>('kanban')
   const [search, setSearch] = useState('')
@@ -730,7 +729,7 @@ export default function TaskBoardPage({
 
   const activateAiChat = useCallback(() => {
     if (!activeTabId) return
-    setTabRightChatCollapsed(activeTabId, false)
+    useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, false)
     setTimeout(() => {
       window.dispatchEvent(
         new CustomEvent('openloaf:chat-prefill-input', {
@@ -738,7 +737,7 @@ export default function TaskBoardPage({
         }),
       )
     }, 300)
-  }, [activeTabId, setTabRightChatCollapsed, t])
+  }, [activeTabId, t])
 
   // Filter tasks
   const filteredTasks = useMemo(() => {

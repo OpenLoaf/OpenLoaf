@@ -159,9 +159,10 @@ function trimSheetRows(rows: CellValue[][]): CellValue[][] {
 /** Build a unique sheet name from existing names. */
 function createSheetName(existingNames: string[]): string {
   // 逻辑：从 Sheet1 开始递增，避免重名。
+  const nameSet = new Set(existingNames);
   let index = existingNames.length + 1;
   let name = `Sheet${index}`;
-  while (existingNames.includes(name)) {
+  while (nameSet.has(name)) {
     index += 1;
     name = `Sheet${index}`;
   }

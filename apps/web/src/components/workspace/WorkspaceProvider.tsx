@@ -12,7 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { WorkspaceContext } from "@/components/workspace/workspaceContext";
 import type { Workspace } from "@openloaf/api/types/workspace";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useTabs } from "@/hooks/use-tabs";
 import { DEFAULT_TAB_INFO } from "@openloaf/api/common";
 
@@ -57,13 +57,13 @@ export const WorkspaceProvider = ({ children }: WorkspaceProviderProps) => {
     });
   }, [workspace?.id, isLoading, activeTabId, tabs, addTab]);
 
+  const contextValue = useMemo(
+    () => ({ workspace, isLoading }),
+    [workspace, isLoading],
+  );
+
   return (
-    <WorkspaceContext.Provider
-      value={{
-        workspace,
-        isLoading,
-      }}
-    >
+    <WorkspaceContext.Provider value={contextValue}>
       {!isLoading && children}
     </WorkspaceContext.Provider>
   );

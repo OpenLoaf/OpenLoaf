@@ -39,6 +39,8 @@ export function useUploadFile({
   const [uploadingFile, setUploadingFile] = React.useState<File>();
   const [progress, setProgress] = React.useState<number>(0);
   const [isUploading, setIsUploading] = React.useState(false);
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => () => { mountedRef.current = false; }, []);
 
   /**
    * Uploads a single file and updates local upload state.
@@ -89,8 +91,9 @@ export function useUploadFile({
       let progress = 0;
 
       const simulateProgress = async () => {
-        while (progress < 100) {
+        while (progress < 100 && mountedRef.current) {
           await new Promise((resolve) => setTimeout(resolve, 50));
+          if (!mountedRef.current) break;
           progress += 2;
           setProgress(Math.min(progress, 100));
         }

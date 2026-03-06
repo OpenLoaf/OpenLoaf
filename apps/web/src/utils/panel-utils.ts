@@ -13,53 +13,60 @@
 import React from "react";
 import i18next from "i18next";
 import { Chat } from "@/components/ai/Chat";
-import ElectrronBrowserWindow from "@/components/browser/ElectrronBrowserWindow";
-import ToolResultPanel from "@/components/tools/ToolResultPanel";
-import SettingsPage from "@/components/setting/SettingsPage";
-import { ProviderManagement } from "@/components/setting/menus/ProviderManagement";
-import CalendarPage from "@/components/calendar/Calendar";
-import EmailPage from "@/components/email/EmailPage";
-import EmailComposeStackPanel from "@/components/email/EmailComposeStackPanel";
-import EmailMessageStackPanel from "@/components/email/EmailMessageStackPanel";
-import InboxPage from "@/components/inbox/Inbox";
-import TemplatePage from "@/components/template/Template";
-import FileViewer from "@/components/file/FileViewer";
-import ImageViewer from "@/components/file/ImageViewer";
-import CodeViewer from "@/components/file/CodeViewer";
-import MarkdownViewer from "@/components/file/MarkdownViewer";
-import PdfViewer from "@/components/file/PdfViewer";
-import DocViewer from "@/components/file/DocViewer";
-import ExcelViewer from "@/components/file/ExcelViewer";
-import VideoViewer from "@/components/file/VideoViewer";
-import BoardFileViewer from "@/components/board/BoardFileViewer";
-import TerminalViewer from "@/components/file/TerminalViewer";
-import DesktopWidgetLibraryPanel from "@/components/desktop/DesktopWidgetLibraryPanel";
-import WorkspaceDesktop from "@/components/workspace/WorkspaceDesktop";
-import FolderTreePreview from "@/components/project/filesystem/FolderTreePreview";
-import { SchedulerTaskHistoryStackPanel } from "@/components/summary/SchedulerTaskHistoryStackPanel";
-import { AgentDetailPanel } from "@/components/setting/menus/agent/AgentDetailPanel";
-import { AgentManagement } from "@/components/setting/menus/agent/AgentManagement";
-import { SkillSettings } from "@/components/setting/menus/SkillSettings";
 import { useStackPanelSlot } from "@/hooks/use-stack-panel-slot";
 import { openSettingsTab } from "@/lib/globalShortcuts";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { ExternalLink } from "lucide-react";
-import ScheduledTasksPage from "@/components/tasks/ScheduledTasksPage";
-import StreamingCodeViewer from "@/components/file/StreamingCodeViewer";
-import DynamicWidgetStackPanel from "@/components/desktop/dynamic-widgets/DynamicWidgetStackPanel";
-import SubAgentChatPanel from "@/components/ai/SubAgentChatPanel";
-import AiDebugViewer from "@/components/ai/AiDebugViewer";
-import { TaskDetailPanel } from "@/components/tasks/TaskDetailPanel";
 
-// 逻辑：文稿编辑器包含完整 Plate.js 插件集，使用 lazy 避免首屏阻塞。
+// Lazy-load all panel components to reduce initial bundle size.
+// LeftDock wraps ComponentMap entries in <React.Suspense>.
+const LazyElectrronBrowserWindow = React.lazy(() => import("@/components/browser/ElectrronBrowserWindow"));
+const LazyToolResultPanel = React.lazy(() => import("@/components/tools/ToolResultPanel"));
+const LazySettingsPage = React.lazy(() => import("@/components/setting/SettingsPage"));
+const LazyProviderManagement = React.lazy(() =>
+  import("@/components/setting/menus/ProviderManagement").then(m => ({ default: m.ProviderManagement })),
+);
+const LazyCalendarPage = React.lazy(() => import("@/components/calendar/Calendar"));
+const LazyEmailPage = React.lazy(() => import("@/components/email/EmailPage"));
+const LazyEmailComposeStackPanel = React.lazy(() => import("@/components/email/EmailComposeStackPanel"));
+const LazyEmailMessageStackPanel = React.lazy(() => import("@/components/email/EmailMessageStackPanel"));
+const LazyInboxPage = React.lazy(() => import("@/components/inbox/Inbox"));
+const LazyTemplatePage = React.lazy(() => import("@/components/template/Template"));
+const LazyFileViewer = React.lazy(() => import("@/components/file/FileViewer"));
+const LazyImageViewer = React.lazy(() => import("@/components/file/ImageViewer"));
+const LazyCodeViewer = React.lazy(() => import("@/components/file/CodeViewer"));
+const LazyMarkdownViewer = React.lazy(() => import("@/components/file/MarkdownViewer"));
+const LazyPdfViewer = React.lazy(() => import("@/components/file/PdfViewer"));
+const LazyDocViewer = React.lazy(() => import("@/components/file/DocViewer"));
+const LazyExcelViewer = React.lazy(() => import("@/components/file/ExcelViewer"));
+const LazyVideoViewer = React.lazy(() => import("@/components/file/VideoViewer"));
+const LazyBoardFileViewer = React.lazy(() => import("@/components/board/BoardFileViewer"));
+const LazyTerminalViewer = React.lazy(() => import("@/components/file/TerminalViewer"));
+const LazyDesktopWidgetLibraryPanel = React.lazy(() => import("@/components/desktop/DesktopWidgetLibraryPanel"));
+const LazyWorkspaceDesktop = React.lazy(() => import("@/components/workspace/WorkspaceDesktop"));
+const LazyFolderTreePreview = React.lazy(() => import("@/components/project/filesystem/FolderTreePreview"));
+const LazySchedulerTaskHistoryStackPanel = React.lazy(() =>
+  import("@/components/summary/SchedulerTaskHistoryStackPanel").then(m => ({ default: m.SchedulerTaskHistoryStackPanel })),
+);
+const LazyAgentDetailPanel = React.lazy(() =>
+  import("@/components/setting/menus/agent/AgentDetailPanel").then(m => ({ default: m.AgentDetailPanel })),
+);
+const LazyAgentManagement = React.lazy(() =>
+  import("@/components/setting/menus/agent/AgentManagement").then(m => ({ default: m.AgentManagement })),
+);
+const LazySkillSettings = React.lazy(() =>
+  import("@/components/setting/menus/SkillSettings").then(m => ({ default: m.SkillSettings })),
+);
+const LazyScheduledTasksPage = React.lazy(() => import("@/components/tasks/ScheduledTasksPage"));
+const LazyStreamingCodeViewer = React.lazy(() => import("@/components/file/StreamingCodeViewer"));
+const LazyDynamicWidgetStackPanel = React.lazy(() => import("@/components/desktop/dynamic-widgets/DynamicWidgetStackPanel"));
+const LazySubAgentChatPanel = React.lazy(() => import("@/components/ai/SubAgentChatPanel"));
+const LazyAiDebugViewer = React.lazy(() => import("@/components/ai/AiDebugViewer"));
+const LazyTaskDetailPanel = React.lazy(() =>
+  import("@/components/tasks/TaskDetailPanel").then(m => ({ default: m.TaskDetailPanel })),
+);
 const LazyPlateDocViewer = React.lazy(() => import("@/components/file/PlateDocViewer"));
 const LazyStreamingPlateViewer = React.lazy(() => import("@/components/file/StreamingPlateViewer"));
-
-/**
- * 组件名称到组件的映射关系
- * 用于根据字符串名称动态渲染不同组件
- */
-// 逻辑：项目页包含 Plate 编辑器，使用 lazy 避免首屏被重组件阻塞。
 const LazyProjectPage = React.lazy(() => import("@/components/project/Project"));
 
 /** Stack wrapper that injects a "open in settings" button into the header slot. */
@@ -92,7 +99,7 @@ function SettingsStackSlotButton({ settingsMenu }: { settingsMenu: string }) {
 function AgentManagementStack(props: Record<string, unknown>) {
   return React.createElement(React.Fragment, null,
     React.createElement(SettingsStackSlotButton, { settingsMenu: "agents" }),
-    React.createElement(AgentManagement, props as any),
+    React.createElement(LazyAgentManagement, props as any),
   );
 }
 
@@ -100,50 +107,50 @@ function AgentManagementStack(props: Record<string, unknown>) {
 function SkillSettingsStack(props: Record<string, unknown>) {
   return React.createElement(React.Fragment, null,
     React.createElement(SettingsStackSlotButton, { settingsMenu: "skills" }),
-    React.createElement(SkillSettings),
+    React.createElement(LazySkillSettings),
   );
 }
 
 type PanelComponent = React.ComponentType<any> | React.LazyExoticComponent<React.ComponentType<any>>;
 
 export const ComponentMap: Record<string, PanelComponent> = {
-  "ai-chat": Chat, // AI聊天组件
-  "plant-page": LazyProjectPage, // 植物页面组件
-  "electron-browser-window": ElectrronBrowserWindow, // 新窗口浏览器组件
-  "tool-result": ToolResultPanel,
-  "settings-page": SettingsPage,
-  "provider-management": ProviderManagement,
-  "calendar-page": CalendarPage,
-  "email-page": EmailPage,
-  "email-compose-stack": EmailComposeStackPanel,
-  "email-message-stack": EmailMessageStackPanel,
-  "inbox-page": InboxPage,
-  "template-page": TemplatePage,
-  "file-viewer": FileViewer,
-  "image-viewer": ImageViewer,
-  "code-viewer": CodeViewer,
-  "markdown-viewer": MarkdownViewer,
-  "pdf-viewer": PdfViewer,
-  "doc-viewer": DocViewer,
-  "sheet-viewer": ExcelViewer,
-  "video-viewer": VideoViewer,
-  "board-viewer": BoardFileViewer,
-  "terminal-viewer": TerminalViewer,
-  "desktop-widget-library": DesktopWidgetLibraryPanel,
-  "workspace-desktop": WorkspaceDesktop,
-  "folder-tree-preview": FolderTreePreview,
-  "scheduler-task-history": SchedulerTaskHistoryStackPanel,
-  "scheduled-tasks-page": ScheduledTasksPage,
-  "agent-detail": AgentDetailPanel,
+  "ai-chat": Chat,
+  "plant-page": LazyProjectPage,
+  "electron-browser-window": LazyElectrronBrowserWindow,
+  "tool-result": LazyToolResultPanel,
+  "settings-page": LazySettingsPage,
+  "provider-management": LazyProviderManagement,
+  "calendar-page": LazyCalendarPage,
+  "email-page": LazyEmailPage,
+  "email-compose-stack": LazyEmailComposeStackPanel,
+  "email-message-stack": LazyEmailMessageStackPanel,
+  "inbox-page": LazyInboxPage,
+  "template-page": LazyTemplatePage,
+  "file-viewer": LazyFileViewer,
+  "image-viewer": LazyImageViewer,
+  "code-viewer": LazyCodeViewer,
+  "markdown-viewer": LazyMarkdownViewer,
+  "pdf-viewer": LazyPdfViewer,
+  "doc-viewer": LazyDocViewer,
+  "sheet-viewer": LazyExcelViewer,
+  "video-viewer": LazyVideoViewer,
+  "board-viewer": LazyBoardFileViewer,
+  "terminal-viewer": LazyTerminalViewer,
+  "desktop-widget-library": LazyDesktopWidgetLibraryPanel,
+  "workspace-desktop": LazyWorkspaceDesktop,
+  "folder-tree-preview": LazyFolderTreePreview,
+  "scheduler-task-history": LazySchedulerTaskHistoryStackPanel,
+  "scheduled-tasks-page": LazyScheduledTasksPage,
+  "agent-detail": LazyAgentDetailPanel,
   "agent-management": AgentManagementStack,
   "skill-settings": SkillSettingsStack,
-  "streaming-code-viewer": StreamingCodeViewer,
+  "streaming-code-viewer": LazyStreamingCodeViewer,
   "plate-doc-viewer": LazyPlateDocViewer,
   "streaming-plate-viewer": LazyStreamingPlateViewer,
-  "dynamic-widget-viewer": DynamicWidgetStackPanel,
-  "sub-agent-chat": SubAgentChatPanel,
-  "ai-debug-viewer": AiDebugViewer,
-  "task-detail": TaskDetailPanel,
+  "dynamic-widget-viewer": LazyDynamicWidgetStackPanel,
+  "sub-agent-chat": LazySubAgentChatPanel,
+  "ai-debug-viewer": LazyAiDebugViewer,
+  "task-detail": LazyTaskDetailPanel,
 };
 
 /**

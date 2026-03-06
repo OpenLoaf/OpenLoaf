@@ -52,5 +52,5 @@ export function writeBoardDocPayload(
 /** Convert payload to a JSON-safe structure. */
 function sanitizeBoardPayload(payload: BoardDocPayload): BoardDocPayload {
   // 逻辑：移除 undefined 等非 JSON 字段，保证 Yjs 持久化稳定。
-  return JSON.parse(JSON.stringify(payload)) as BoardDocPayload;
+  return structuredClone(payload);
 }

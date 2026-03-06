@@ -95,14 +95,16 @@ export function WorkspaceSettings() {
 
   const updateWorkspaceName = useMutation(
     trpc.workspace.updateName.mutationOptions({
-      onSuccess: () => {
+      onSuccess: async () => {
         toast.success(t('settings.workspaceNameUpdated'));
-        queryClient.invalidateQueries({
-          queryKey: trpc.workspace.getActive.queryOptions().queryKey,
-        });
-        queryClient.invalidateQueries({
-          queryKey: trpc.workspace.getList.queryOptions().queryKey,
-        });
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.workspace.getActive.queryOptions().queryKey,
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.workspace.getList.queryOptions().queryKey,
+          }),
+        ]);
       },
       onError: (error) => {
         toast.error(error.message);

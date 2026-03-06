@@ -256,8 +256,6 @@ export function BoardCanvasInteraction({
   onOpenImagePreview,
 }: BoardCanvasInteractionProps) {
   const showUi = !uiHidden;
-  const setStackItemParams = useTabRuntime((state) => state.setStackItemParams);
-  const setTabRightChatCollapsed = useTabRuntime((state) => state.setTabRightChatCollapsed);
   const rightChatCollapsed = useTabRuntime(
     (state) => state.runtimeByTabId[tabId ?? ""]?.rightChatCollapsed ?? false,
   );
@@ -322,9 +320,9 @@ export function BoardCanvasInteraction({
     } else {
       emitSidebarOpenRequest(nextLeftOpen);
     }
-    setTabRightChatCollapsed(tabId, shouldCollapse);
+    useTabRuntime.getState().setTabRightChatCollapsed(tabId, shouldCollapse);
     if (panelKey) {
-      setStackItemParams(tabId, panelKey, { __boardFull: shouldCollapse });
+      useTabRuntime.getState().setStackItemParams(tabId, panelKey, { __boardFull: shouldCollapse });
     }
   }, [
     isMobile,
@@ -333,8 +331,6 @@ export function BoardCanvasInteraction({
     rightChatCollapsed,
     setOpen,
     setOpenMobile,
-    setStackItemParams,
-    setTabRightChatCollapsed,
     sidebar,
     tabId,
   ]);
@@ -509,7 +505,8 @@ export function BoardCanvasInteraction({
     return () => {
       container.removeEventListener("wheel", handleWheelCapture, {
         capture: true,
-      });
+        passive: true,
+      } as EventListenerOptions);
     };
   }, [showUi]);
 
@@ -618,7 +615,7 @@ export function BoardCanvasInteraction({
   const handlePanelRefresh = () => {
     if (tabId && panelKey) {
       // 逻辑：通过 __refreshKey 触发 panel remount，保持与右上角刷新一致。
-      setStackItemParams(tabId, panelKey, { __refreshKey: Date.now() });
+      useTabRuntime.getState().setStackItemParams(tabId, panelKey, { __refreshKey: Date.now() });
       return;
     }
     engine.refreshView();

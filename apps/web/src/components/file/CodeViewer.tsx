@@ -218,8 +218,7 @@ export default function CodeViewer({
   const lastSavedRef = useRef("");
   /** Active tab id for AI panel control. */
   const activeTabId = useTabs((s) => s.activeTabId);
-  /** Collapse state setter for AI panel. */
-  const setTabRightChatCollapsed = useTabRuntime((s) => s.setTabRightChatCollapsed);
+  /** Collapse state setter for AI panel (accessed via getState to avoid subscription). */
   /** Current file content string. */
   const fileContent = useMemo(
     () => fileQuery.data?.content ?? "",
@@ -518,9 +517,9 @@ export default function CodeViewer({
     });
     if (activeTabId) {
       // 展开右侧 AI 面板（不使用 stack）。
-      setTabRightChatCollapsed(activeTabId, false);
+      useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, false);
     }
-  }, [activeTabId, draftContent, projectId, rootUri, setTabRightChatCollapsed, uri]);
+  }, [activeTabId, draftContent, projectId, rootUri, uri]);
 
   /** Save current draft content to the file system. */
   const handleSave = useCallback(() => {

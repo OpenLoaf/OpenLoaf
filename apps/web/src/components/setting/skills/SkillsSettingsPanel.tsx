@@ -185,7 +185,6 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   const { data: projectData } = useProject(projectId);
   const activeTabId = useTabs((state) => state.activeTabId);
   const pushStackItem = useTabRuntime((state) => state.pushStackItem);
-  const setTabRightChatCollapsed = useTabRuntime((state) => state.setTabRightChatCollapsed);
   const workspaceId = workspace?.id ?? "";
 
   /** Filtered skills based on search query and filters. */
@@ -364,10 +363,10 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
       );
       window.dispatchEvent(new CustomEvent("openloaf:chat-focus-input"));
       if (activeTabId) {
-        setTabRightChatCollapsed(activeTabId, false);
+        useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, false);
       }
     },
-    [activeTabId, setTabRightChatCollapsed],
+    [activeTabId],
   );
 
   /** Delete a skill folder with confirmation. */

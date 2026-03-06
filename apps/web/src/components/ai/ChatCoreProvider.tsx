@@ -489,6 +489,8 @@ export default function ChatCoreProvider({
           for await (const message of messageStream as AsyncIterable<{
             parts?: unknown[];
           }>) {
+            // Guard: stop processing if stream was aborted (e.g. session change)
+            if (!subAgentStreamControllersRef.current.has(toolCallId)) break;
             setSubAgentStreams((prev) => {
               const current = prev[toolCallId] ?? {
                 toolCallId,

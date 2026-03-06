@@ -271,30 +271,17 @@ export default function ProjectPage({
   }, [projectId, rootUri, tabId]);
 
   useEffect(() => {
-    // 中文注释：同步服务端标题，避免更新后短暂回退。
     if (!projectData?.project) return;
     setLocalTitle(projectData.project.title ?? null);
-  }, [projectData?.project]);
-
-  useEffect(() => {
-    // 中文注释：同步服务端图标，避免更新后短暂回退。
-    if (!projectData?.project) return;
     setLocalIcon(projectData.project.icon ?? null);
   }, [projectData?.project]);
 
   useEffect(() => {
     if (!tabId) return;
     if (!shouldSyncTabMeta) return;
-    // 中文注释：同步标题到 tab，保持标题一致。
     setTabTitle(tabId, pageTitle);
-  }, [pageTitle, setTabTitle, shouldSyncTabMeta, tabId]);
-
-  useEffect(() => {
-    if (!tabId) return;
-    if (!shouldSyncTabMeta) return;
-    // 中文注释：同步图标到 tab，保持图标一致。
     setTabIcon(tabId, titleIcon);
-  }, [setTabIcon, shouldSyncTabMeta, tabId, titleIcon]);
+  }, [pageTitle, setTabTitle, setTabIcon, shouldSyncTabMeta, tabId, titleIcon]);
 
   // 页面切换时重置只读状态，避免沿用旧页面的编辑状态。
   useEffect(() => {

@@ -211,20 +211,9 @@ function getElementPadding(element: HTMLElement): { x: number; y: number } {
 
 /** Create a hidden element for text measurement. */
 function createMeasureElement(reference: HTMLElement): HTMLDivElement {
-  const style = window.getComputedStyle(reference);
+  const s = window.getComputedStyle(reference);
   const element = document.createElement("div");
-  element.style.position = "absolute";
-  element.style.visibility = "hidden";
-  element.style.pointerEvents = "none";
-  element.style.whiteSpace = "pre";
-  element.style.fontFamily = style.fontFamily;
-  element.style.fontSize = style.fontSize;
-  element.style.fontWeight = style.fontWeight;
-  element.style.fontStyle = style.fontStyle;
-  element.style.letterSpacing = style.letterSpacing;
-  element.style.lineHeight = style.lineHeight;
-  element.style.overflowWrap = "break-word";
-  element.style.wordBreak = "break-word";
+  element.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;white-space:pre;overflow-wrap:break-word;word-break:break-word;font-family:${s.fontFamily};font-size:${s.fontSize};font-weight:${s.fontWeight};font-style:${s.fontStyle};letter-spacing:${s.letterSpacing};line-height:${s.lineHeight}`;
   return element;
 }
 
