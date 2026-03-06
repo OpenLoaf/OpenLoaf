@@ -9,21 +9,30 @@
  */
 import path from 'node:path'
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { resolveAgentDir } from '@/ai/shared/defaultAgentResolver'
 
-/** Default agent folder name. */
-const DEFAULT_AGENT_FOLDER = 'default'
+/** Memory directory name under .openloaf/. */
+const MEMORY_DIR_NAME = 'memory'
 /** Memory file name. */
 const MEMORY_FILE_NAME = 'MEMORY.md'
-/** Default max characters per single memory file. */
-const DEFAULT_MAX_CHARS = 4000
+/** Default max lines per single memory file. */
+const DEFAULT_MAX_LINES = 200
 
-/** Read a memory file from <rootPath>/.openloaf/agents/default/MEMORY.md. */
+/** Resolve memory directory path: <rootPath>/.openloaf/memory/ */
+export function resolveMemoryDir(rootPath: string): string {
+  return path.join(rootPath, '.openloaf', MEMORY_DIR_NAME)
+}
+
+/** A structured memory block with scope metadata. */
+export type MemoryBlock = {
+  scope: 'workspace' | 'parent-project' | 'project'
+  label: string
+  filePath: string
+  content: string
+}
+
+/** Read a memory file from <rootPath>/.openloaf/memory/MEMORY.md. */
 export function readMemoryFile(rootPath: string): string {
-  const filePath = path.join(
-    resolveAgentDir(rootPath, DEFAULT_AGENT_FOLDER),
-    MEMORY_FILE_NAME,
-  )
+  const filePath = path.join(resolveMemoryDir(rootPath), MEMORY_FILE_NAME)
   if (!existsSync(filePath)) return ''
   try {
     return readFileSync(filePath, 'utf8').trim()
@@ -32,48 +41,49 @@ export function readMemoryFile(rootPath: string): string {
   }
 }
 
-/** Write memory content to <rootPath>/.openloaf/agents/default/MEMORY.md. */
+/** Write memory content to <rootPath>/.openloaf/memory/MEMORY.md. */
 export function writeMemoryFile(rootPath: string, content: string): void {
-  const agentDir = resolveAgentDir(rootPath, DEFAULT_AGENT_FOLDER)
-  mkdirSync(agentDir, { recursive: true })
-  const filePath = path.join(agentDir, MEMORY_FILE_NAME)
+  const memoryDir = resolveMemoryDir(rootPath)
+  mkdirSync(memoryDir, { recursive: true })
+  const filePath = path.join(memoryDir, MEMORY_FILE_NAME)
   writeFileSync(filePath, content, 'utf8')
 }
 
 /**
- * Truncate memory content when it exceeds maxChars.
- * Strategy: head 70% + truncation marker + tail 20%.
+ * Truncate memory content when it exceeds maxLines.
+ * Keeps the first maxLines lines + truncation marker.
  */
 export function truncateMemory(
   content: string,
-  maxChars: number = DEFAULT_MAX_CHARS,
+  maxLines: number = DEFAULT_MAX_LINES,
 ): string {
-  if (!content || content.length <= maxChars) return content
-  const headSize = Math.floor(maxChars * 0.7)
-  const tailSize = Math.floor(maxChars * 0.2)
-  const head = content.slice(0, headSize)
-  const tail = content.slice(-tailSize)
-  return `${head}\n\n... [memory truncated] ...\n\n${tail}`
+  if (!content) return content
+  const lines = content.split('\n')
+  if (lines.length <= maxLines) return content
+  return `${lines.slice(0, maxLines).join('\n')}\n\n... [memory truncated, ${maxLines} lines limit] ...`
 }
 
 /**
- * Resolve merged memory content from workspace + parent projects + current project.
- * Memory files are merged (not overridden) because they represent different scopes.
+ * Resolve structured memory blocks from workspace + parent projects + current project.
+ * Each block carries its own scope, label, file path, and content.
  */
-export function resolveMemoryContent(input: {
+export function resolveMemoryBlocks(input: {
   workspaceRootPath?: string
   projectRootPath?: string
   parentProjectRootPaths?: string[]
-}): string {
-  const sections: string[] = []
+}): MemoryBlock[] {
+  const blocks: MemoryBlock[] = []
 
   // 1. workspace 级 memory — 所有项目共享
   if (input.workspaceRootPath) {
     const content = readMemoryFile(input.workspaceRootPath)
     if (content) {
-      sections.push(
-        `## Workspace Memory\n${truncateMemory(content)}`,
-      )
+      blocks.push({
+        scope: 'workspace',
+        label: 'workspace memory',
+        filePath: path.join(resolveMemoryDir(input.workspaceRootPath), MEMORY_FILE_NAME),
+        content: truncateMemory(content),
+      })
     }
   }
 
@@ -83,9 +93,12 @@ export function resolveMemoryContent(input: {
       const content = readMemoryFile(parentRoot)
       if (content) {
         const dirName = path.basename(parentRoot)
-        sections.push(
-          `## Parent Project Memory (${dirName})\n${truncateMemory(content)}`,
-        )
+        blocks.push({
+          scope: 'parent-project',
+          label: `parent project memory (${dirName})`,
+          filePath: path.join(resolveMemoryDir(parentRoot), MEMORY_FILE_NAME),
+          content: truncateMemory(content),
+        })
       }
     }
   }
@@ -94,11 +107,38 @@ export function resolveMemoryContent(input: {
   if (input.projectRootPath) {
     const content = readMemoryFile(input.projectRootPath)
     if (content) {
-      sections.push(
-        `## Project Memory\n${truncateMemory(content)}`,
-      )
+      blocks.push({
+        scope: 'project',
+        label: 'project memory',
+        filePath: path.join(resolveMemoryDir(input.projectRootPath), MEMORY_FILE_NAME),
+        content: truncateMemory(content),
+      })
     }
   }
 
-  return sections.join('\n\n')
+  return blocks
+}
+
+/**
+ * Resolve merged memory content from workspace + parent projects + current project.
+ * @deprecated Use resolveMemoryBlocks() for structured output instead.
+ */
+export function resolveMemoryContent(input: {
+  workspaceRootPath?: string
+  projectRootPath?: string
+  parentProjectRootPaths?: string[]
+}): string {
+  const blocks = resolveMemoryBlocks(input)
+  if (blocks.length === 0) return ''
+  return blocks
+    .map((block) => {
+      const scopeLabel =
+        block.scope === 'workspace'
+          ? 'Workspace Memory'
+          : block.scope === 'parent-project'
+            ? `Parent Project Memory (${path.basename(path.dirname(path.dirname(block.filePath)))})`
+            : 'Project Memory'
+      return `## ${scopeLabel}\n${block.content}`
+    })
+    .join('\n\n')
 }

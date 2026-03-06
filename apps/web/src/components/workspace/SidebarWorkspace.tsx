@@ -155,16 +155,18 @@ export const SidebarWorkspace = () => {
   }, [refreshSession]);
 
   React.useEffect(() => {
-    if (authLoggedIn && loginOpen) {
+    if (authLoggedIn) {
       setLoginOpen(false);
     }
-  }, [authLoggedIn, loginOpen]);
+  }, [authLoggedIn]);
 
-  React.useEffect(() => {
-    if (!createOpen) return;
-    setNewWorkspaceName("");
-    setNewWorkspacePath("");
-  }, [createOpen]);
+  const handleCreateOpenChange = (open: boolean) => {
+    setCreateOpen(open);
+    if (open) {
+      setNewWorkspaceName("");
+      setNewWorkspacePath("");
+    }
+  };
 
   const workspacesQuery = useQuery(trpc.workspace.getList.queryOptions());
   // 微信登录账号展示规则。
@@ -264,7 +266,7 @@ export const SidebarWorkspace = () => {
     toast.success(t('loggedOut'));
   };
 
-  const isElectron = React.useMemo(() => isElectronEnv(), []);
+  const isElectron = isElectronEnv();
   const isDevDesktop = isElectron && process.env.NODE_ENV !== "production";
 
   // Feedback-related memoized values.
@@ -285,11 +287,8 @@ export const SidebarWorkspace = () => {
   }, [activeTabId, runtimeByTabId]);
 
   /** Validate optional email input. */
-  const isEmailValid = React.useMemo(() => {
-    const trimmed = feedbackEmail.trim();
-    if (!trimmed) return true;
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
-  }, [feedbackEmail]);
+  const trimmedEmail = feedbackEmail.trim();
+  const isEmailValid = !trimmedEmail || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
 
   /** Build feedback context payload. */
   const buildFeedbackContext = React.useCallback(async () => {
@@ -392,15 +391,15 @@ export const SidebarWorkspace = () => {
     }
   }, [authLoggedIn, buildFeedbackContext, feedbackContent, feedbackEmail, feedbackIncludeLogs, feedbackType, isEmailValid, tNav]);
 
-  /** Reset feedback form when dialog opens/closes. */
-  React.useEffect(() => {
-    if (!feedbackOpen) {
+  const handleFeedbackOpenChange = (open: boolean) => {
+    setFeedbackOpen(open);
+    if (!open) {
       setFeedbackContent("");
       setFeedbackEmail("");
       setFeedbackType("other");
       setFeedbackIncludeLogs(false);
     }
-  }, [feedbackOpen]);
+  };
 
   const [updateStatus, setUpdateStatus] = React.useState<OpenLoafIncrementalUpdateStatus | null>(null);
   const [restartDialogOpen, setRestartDialogOpen] = React.useState(false);
@@ -474,7 +473,7 @@ export const SidebarWorkspace = () => {
       <SidebarMenuItem>
         <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
 
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <Dialog open={createOpen} onOpenChange={handleCreateOpenChange}>
           <DropdownMenu open={workspaceOpen} onOpenChange={setWorkspaceOpen}>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
@@ -522,24 +521,24 @@ export const SidebarWorkspace = () => {
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium leading-5">
-                        {authUser?.name || t('currentAccount')}
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground leading-4">
-                        <span className="truncate">{dropdownAccountLabel}</span>
+                      <div className="flex items-center gap-1.5 leading-5">
+                        <span className="min-w-0 truncate text-sm font-medium">
+                          {authUser?.name || t('currentAccount')}
+                        </span>
                         {userProfileQuery.data && (
-                          <span className="ml-auto flex shrink-0 items-center gap-1.5">
-                            <span
-                              className={`inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${MEMBERSHIP_BADGE_STYLES[userProfileQuery.data.membershipLevel] ?? "bg-secondary text-secondary-foreground"}`}
-                            >
-                              {MEMBERSHIP_LABELS[userProfileQuery.data.membershipLevel] ?? userProfileQuery.data.membershipLevel}
-                            </span>
-                            <span className="text-[11px] leading-4">
-                              {Math.floor(userProfileQuery.data.creditsBalance).toLocaleString()} {t('credits')}
-                            </span>
+                          <span
+                            className={`inline-flex shrink-0 items-center rounded-full px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${MEMBERSHIP_BADGE_STYLES[userProfileQuery.data.membershipLevel] ?? "bg-secondary text-secondary-foreground"}`}
+                          >
+                            {MEMBERSHIP_LABELS[userProfileQuery.data.membershipLevel] ?? userProfileQuery.data.membershipLevel}
+                          </span>
+                        )}
+                        {userProfileQuery.data && (
+                          <span className="ml-auto shrink-0 whitespace-nowrap text-[11px] leading-4 text-muted-foreground">
+                            {Math.floor(userProfileQuery.data.creditsBalance).toLocaleString()} {t('credits')}
                           </span>
                         )}
                       </div>
+                      <div className="truncate text-xs text-muted-foreground leading-4">{dropdownAccountLabel}</div>
                     </div>
                   </div>
 
@@ -548,30 +547,41 @@ export const SidebarWorkspace = () => {
               )}
 
               <div className="space-y-1">
-                <DropdownMenuItem
-                  onSelect={() => setFeedbackOpen(true)}
-                  className="rounded-lg bg-violet-500/8 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400 focus:bg-violet-500/15 focus:text-violet-600 dark:focus:bg-violet-500/15 dark:focus:text-violet-400"
-                >
-                  <Lightbulb className="size-4 text-violet-600 dark:text-violet-400" />
-                  {tNav('sidebar.feedback.title')}
-                </DropdownMenuItem>
                 {authLoggedIn ? (
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onSelect={() => void handleLogout()}
-                    className="rounded-lg"
-                  >
-                    <LogOut className="size-4" />
-                    {t('logout')}
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem
+                      onSelect={() => setFeedbackOpen(true)}
+                      className="rounded-lg"
+                    >
+                      <Lightbulb className="size-4" />
+                      {tNav('sidebar.feedback.title')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => void handleLogout()}
+                      className="rounded-lg"
+                    >
+                      <LogOut className="size-4" />
+                      {t('logout')}
+                    </DropdownMenuItem>
+                  </>
                 ) : (
-                  <DropdownMenuItem
-                    onSelect={() => handleOpenLogin()}
-                    className="rounded-lg bg-sky-500/8 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400 focus:bg-sky-500/15 focus:text-sky-600 dark:focus:bg-sky-500/15 dark:focus:text-sky-400"
-                  >
-                    <LogIn className="size-4 text-sky-600 dark:text-sky-400" />
-                    {t('loginAccount')}
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem
+                      onSelect={() => handleOpenLogin()}
+                      className="rounded-lg bg-sky-500/8 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400 focus:bg-sky-500/15 focus:text-sky-600 dark:focus:bg-sky-500/15 dark:focus:text-sky-400"
+                    >
+                      <LogIn className="size-4 text-sky-600 dark:text-sky-400" />
+                      {t('loginAccount')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => setFeedbackOpen(true)}
+                      className="rounded-lg"
+                    >
+                      <Lightbulb className="size-4" />
+                      {tNav('sidebar.feedback.title')}
+                    </DropdownMenuItem>
+                  </>
                 )}
                 {isElectron && (
                   <DropdownMenuItem
@@ -743,7 +753,7 @@ export const SidebarWorkspace = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+      <Dialog open={feedbackOpen} onOpenChange={handleFeedbackOpenChange}>
         <DialogContent className="sm:max-w-md shadow-none border-border/60">
           <DialogHeader>
             <div className="flex items-center gap-2">

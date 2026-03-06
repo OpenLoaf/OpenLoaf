@@ -51,15 +51,15 @@ const ROOT_RULES_FILE = 'AGENTS.md'
 
 /** 子 agent 可用 agent 摘要（用于 preface 注入）。 */
 type SubAgentEntry = {
+  key: string
   name: string
   description: string
-  toolIds: string[]
 }
 
 /** 构建可用子 Agent 列表章节。 */
 export function buildSubAgentListSection(agents: SubAgentEntry[]): string {
   const lines = [
-    '# 可用子 Agent',
+    '可用子 Agent',
     '- 以下是可通过 spawn-agent 工具调用的 agent 列表。',
   ]
   if (agents.length === 0) {
@@ -67,10 +67,7 @@ export function buildSubAgentListSection(agents: SubAgentEntry[]): string {
     return lines.join('\n')
   }
   for (const agent of agents) {
-    const tools = agent.toolIds.length > 0
-      ? agent.toolIds.join(', ')
-      : '无'
-    lines.push(`- **${agent.name}**: ${agent.description} (tools: ${tools})`)
+    lines.push(`- **${agent.key}**: ${agent.description}`)
   }
   return lines.join('\n')
 }
@@ -87,15 +84,15 @@ export function collectAvailableAgents(input: {
   // 逻辑：内置模板 agent（排除 master 和 builtinOnly）
   for (const tpl of ALL_TEMPLATES) {
     if (tpl.isPrimary || tpl.isBuiltinOnly) {
-      seen.add(tpl.name) // 加入 seen，防止动态 agent 同名覆盖（如 "主助手"）
+      seen.add(tpl.id) // 加入 seen，防止动态 agent 同名覆盖
       continue
     }
-    if (seen.has(tpl.name)) continue
-    seen.add(tpl.name)
+    if (seen.has(tpl.id)) continue
+    seen.add(tpl.id)
     entries.push({
+      key: tpl.id,
       name: tpl.name,
       description: tpl.description,
-      toolIds: [...tpl.toolIds],
     })
   }
 
@@ -107,12 +104,12 @@ export function collectAvailableAgents(input: {
       parentProjectRootPaths: input.parentProjectRootPaths,
     })
     for (const agent of dynamicAgents) {
-      if (seen.has(agent.name)) continue
-      seen.add(agent.name)
+      if (seen.has(agent.folderName)) continue
+      seen.add(agent.folderName)
       entries.push({
+        key: agent.folderName,
         name: agent.name,
         description: agent.description,
-        toolIds: [...agent.toolIds],
       })
     }
   } catch (err) {

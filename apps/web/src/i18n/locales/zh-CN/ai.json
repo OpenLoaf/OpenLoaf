@@ -240,11 +240,8 @@
     "openLogFolder": "打开日志目录",
     "systemPrompt": "系统提示词",
     "noSystemPrompt": "暂无系统提示词（需发送一次消息后生成）",
-    "toolList": "工具列表",
-    "noToolList": "暂无工具列表（需发送一次消息后生成）",
-    "noPreface": "暂无 Preface",
-    "noTools": "_无工具_",
-    "toolCount": "共 {{count}} 个工具",
+    "chatPreface": "对话前言",
+    "noPreface": "暂无对话前言",
     "copySuccess": "已复制聊天日志路径",
     "copyError": "未找到聊天日志文件"
   },

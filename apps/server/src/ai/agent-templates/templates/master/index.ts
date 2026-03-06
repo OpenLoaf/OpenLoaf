@@ -8,8 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { AgentTemplate } from '../../types'
-import MASTER_PROMPT_ZH from './prompt-v2.zh.md'
-import MASTER_PROMPT_EN from './prompt-v2.en.md'
+import MASTER_PROMPT_ZH from './prompt-v3.zh.md'
+import MASTER_PROMPT_EN from './prompt-v3.en.md'
 
 export const masterTemplate: AgentTemplate = {
   id: 'master',
@@ -17,32 +17,34 @@ export const masterTemplate: AgentTemplate = {
   description: '混合模式主助手，可直接执行简单任务，也可调度子 Agent',
   icon: 'sparkles',
   toolIds: [
+    'tool-search',
+  ],
+  deferredToolIds: [
     // system
     'time-now',
     'update-plan',
     'jsx-create',
+    'request-user-input',
     // agent
     'spawn-agent',
     'send-input',
     'wait-agent',
     'abort-agent',
-    // file-read
+    // file
     'read-file',
     'list-dir',
     'grep-files',
-    // file-write (直接修改文件，避免简单编辑也要 spawn)
     'apply-patch',
-    // shell (直接执行简单命令，避免不必要的子 Agent 调度)
+    // shell
     'shell-command',
     // web
     'open-url',
-    // image-generate
+    // media
     'image-generate',
-    // video-generate
     'video-generate',
     // chart
     'chart-render',
-    // code-interpreter
+    // code
     'js-repl',
     'js-repl-reset',
     // task
@@ -55,8 +57,6 @@ export const masterTemplate: AgentTemplate = {
     'calendar-query',
     // email
     'email-query',
-    // extra
-    'request-user-input',
   ],
   allowSubAgents: true,
   maxDepth: 2,

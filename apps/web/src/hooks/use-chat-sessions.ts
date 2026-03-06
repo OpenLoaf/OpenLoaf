@@ -35,6 +35,8 @@ export type ChatSessionListItem = {
   projectId: string | null;
   /** Project name resolved from tree. */
   projectName: string | null;
+  /** Project icon resolved from tree. */
+  projectIcon: string | null;
   /** Session message count. */
   messageCount: number;
 };

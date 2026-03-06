@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { createAlibaba } from "@ai-sdk/alibaba";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createDeepSeek } from "@ai-sdk/deepseek";
@@ -101,7 +102,27 @@ function resolveBedrockRegion(apiUrl: string): string {
   }
 }
 
-/** Build SaaS AI SDK adapter (OpenAI compatible). */
+/**
+ * SaaS provider → AI SDK model factory 映射。
+ * 根据模型的原始 provider 字段选择对应的 @ai-sdk/* SDK，
+ * 确保各 provider 特有的消息格式（如 reasoning_content）被正确处理。
+ */
+const SAAS_PROVIDER_FACTORIES: Record<
+  string,
+  (opts: { baseURL: string; apiKey: string; fetch?: typeof fetch }) => (modelId: string) => LanguageModelV3
+> = {
+  anthropic: ({ baseURL, apiKey, fetch }) => createAnthropic({ baseURL, apiKey, fetch }),
+  moonshot: ({ baseURL, apiKey, fetch }) => createMoonshotAI({ baseURL, apiKey, fetch }),
+  deepseek: ({ baseURL, apiKey, fetch }) => createDeepSeek({ baseURL, apiKey, fetch }),
+  google: ({ baseURL, apiKey, fetch }) => createGoogleGenerativeAI({ baseURL, apiKey, fetch }),
+  xai: ({ baseURL, apiKey, fetch }) => createXai({ baseURL, apiKey, fetch }),
+  grok: ({ baseURL, apiKey, fetch }) => createXai({ baseURL, apiKey, fetch }),
+  alibaba: ({ baseURL, apiKey, fetch }) => createAlibaba({ baseURL, apiKey, fetch }),
+  dashscope: ({ baseURL, apiKey, fetch }) => createAlibaba({ baseURL, apiKey, fetch }),
+  qwen: ({ baseURL, apiKey, fetch }) => createAlibaba({ baseURL, apiKey, fetch }),
+};
+
+/** Build SaaS AI SDK adapter — 根据模型的 provider 字段路由到正确的 SDK。 */
 function buildSaasAdapter(): ProviderAdapter {
   return {
     id: SAAS_ADAPTER_ID,
@@ -109,13 +130,15 @@ function buildSaasAdapter(): ProviderAdapter {
       const apiKey = readApiKey(provider.authConfig);
       const resolvedApiUrl = provider.apiUrl.trim();
       const debugFetch = buildAiDebugFetch();
-      // 中文注释：SaaS 必须带 token 与固定 apiUrl。
       if (!apiKey || !resolvedApiUrl) return null;
-      const openaiProvider = createOpenAI({
-        baseURL: ensureOpenAiCompatibleBaseUrl(resolvedApiUrl),
-        apiKey,
-        fetch: debugFetch,
-      });
+      const baseURL = ensureOpenAiCompatibleBaseUrl(resolvedApiUrl);
+      // 根据 provider.id（SaaS 模型的原始 provider，如 "moonshot"）选择对应 SDK。
+      const factory = SAAS_PROVIDER_FACTORIES[provider.id];
+      if (factory) {
+        return factory({ baseURL, apiKey, fetch: debugFetch })(modelId);
+      }
+      // 未匹配的 provider 回退到 OpenAI chat completions。
+      const openaiProvider = createOpenAI({ baseURL, apiKey, fetch: debugFetch });
       return openaiProvider.chat(modelId);
     },
   };

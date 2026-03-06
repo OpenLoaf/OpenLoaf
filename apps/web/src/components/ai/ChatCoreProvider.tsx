@@ -38,6 +38,7 @@ import { handleSubAgentToolParts } from "@/lib/chat/sub-agent-tool-parts";
 import type { ChatAttachmentInput, MaskedAttachmentInput } from "./input/chat-attachments";
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { getMessagePlainText } from "@/lib/chat/message-text";
+import { isHiddenToolPart } from "@/lib/chat/message-parts";
 import {
   resolveParentMessageId as resolveParentMessageIdPure,
   findParentUserForRetry as findParentUserForRetryPure,
@@ -81,6 +82,7 @@ function isCommandAtStart(text: string, command: string): boolean {
 function isToolPartCandidate(part: any): boolean {
   if (!part || typeof part !== "object") return false;
   const type = typeof part.type === "string" ? part.type : "";
+  if (isHiddenToolPart(part)) return false;
   return type === "dynamic-tool" || type.startsWith("tool-") || typeof part.toolName === "string";
 }
 
@@ -858,6 +860,7 @@ export default function ChatCoreProvider({
       const isTool =
         type === "dynamic-tool" || type.startsWith("tool-") || typeof part?.toolName === "string";
       if (!isTool) continue;
+      if (isHiddenToolPart(part)) continue;
       const toolName = typeof part?.toolName === "string" ? part.toolName : "";
       const isFrontendTool = toolName === "open-url" || type === "tool-open-url";
       // 中文注释：前端 UI 控制类工具不做历史重放，避免错误回放与输入缺失。
@@ -1170,6 +1173,32 @@ export default function ChatCoreProvider({
       });
       if (!parentUserMessageId) return;
 
+      // CLI rewind：提取元数据
+      const isDirectCli = !!(
+        (chat.messages as any[]).find((m) => String(m?.id) === parentUserMessageId)
+          ?.metadata as any
+      )?.directCli;
+      const originalChatModelId =
+        (assistant as any)?.metadata?.agent?.chatModelId ??
+        (assistant as any)?.agent?.chatModelId;
+
+      // 获取 rewind 目标：parent user 之前最近的 assistant 的 sdkAssistantUuid
+      let prevAssistantUuid: string | undefined;
+      if (isDirectCli) {
+        const parentIdx = (chat.messages as any[]).findIndex(
+          (m) => String(m?.id) === parentUserMessageId,
+        );
+        if (parentIdx > 0) {
+          for (let i = parentIdx - 1; i >= 0; i--) {
+            const m = (chat.messages as any[])[i];
+            if (m?.role === "assistant") {
+              prevAssistantUuid = m?.metadata?.sdkAssistantUuid;
+              break;
+            }
+          }
+        }
+      }
+
       chat.stop();
 
       // 关键：retry 不应在 SSE 完成前请求历史接口（此时 DB 还没落库，拿不到新 sibling）。
@@ -1191,11 +1220,15 @@ export default function ChatCoreProvider({
       }
 
       // 关键：retry 走 AI SDK v6 原生 regenerate（trigger: regenerate-message）
-      // - 我们先把本地 messages 切到目标 user（成为最后一条消息）
-      // - 然后直接 regenerate()：服务端按 regenerate-message 复用该 user 节点生成新 assistant sibling
       pendingUserMessageIdRef.current = parentUserMessageId;
       needsBranchMetaRefreshRef.current = true;
-      await (chat.regenerate as any)({ body: { retry: true } });
+      await (chat.regenerate as any)({
+        body: {
+          retry: true,
+          ...(isDirectCli && originalChatModelId ? { chatModelId: originalChatModelId } : {}),
+          ...(isDirectCli && prevAssistantUuid ? { sdkRewindTarget: prevAssistantUuid } : {}),
+        },
+      });
     },
     [
       chat.stop,

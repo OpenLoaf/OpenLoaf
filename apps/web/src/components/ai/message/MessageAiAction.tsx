@@ -222,16 +222,30 @@ export default function MessageAiAction({
     | { model?: { provider?: string; modelId?: string } }
     | undefined;
   const agentModel = agentInfo?.model as { provider?: string; modelId?: string } | undefined;
+  const isSaasModel = agentModel?.provider === "openloaf-saas";
+
+  const isCliMessage = agentModel?.provider?.includes("cli");
 
   const handleCompactConfirm = React.useCallback(() => {
     if (isBusy) return;
     setCompactOpen(false);
     if (status === "error") clearError();
-    sendMessage({
-      role: "user",
-      parts: [{ type: "text", text: SUMMARY_HISTORY_COMMAND }],
-    } as any);
-  }, [clearError, isBusy, sendMessage, status]);
+
+    if (isCliMessage) {
+      // CLI 模式：发送 /compact 到 CLI SDK（由 SDK 原生处理 compact）
+      sendMessage({
+        role: "user",
+        parts: [{ type: "text", text: "/compact" }],
+        metadata: { directCli: true, cliCompact: true },
+      } as any);
+    } else {
+      // 普通模式：走 /summary-history
+      sendMessage({
+        role: "user",
+        parts: [{ type: "text", text: SUMMARY_HISTORY_COMMAND }],
+      } as any);
+    }
+  }, [clearError, isBusy, isCliMessage, sendMessage, status]);
 
   return (
     <MessageActions className={cn("group select-none justify-start gap-0.5", className)}>
@@ -347,71 +361,73 @@ export default function MessageAiAction({
         </ModelSelector>
       ) : null}
 
-      <PromptInputHoverCard openDelay={120} closeDelay={120}>
-        <PromptInputHoverCardTrigger asChild>
-          <MessageAction
-            disabled={!usage}
-            className={MESSAGE_ACTION_CLASSNAME}
-            label={t("ai:message.tokenUsage")}
-            aria-label={t("ai:message.tokenUsage")}
-            title={t("ai:message.tokenUsage")}
-          >
-            <BarChart3 className="size-3" />
-          </MessageAction>
-        </PromptInputHoverCardTrigger>
-        <PromptInputHoverCardContent className="max-w-[200px] p-2">
-          {usage ? (
-            <div className="space-y-0.5 text-xs">
-              <div className="font-medium text-xs">{t("ai:message.tokenUsage")}</div>
-              {agentModel?.provider || agentModel?.modelId ? (
-                <div className="text-[11px] text-muted-foreground truncate">
-                  {agentModel?.provider ?? "-"} / {agentModel?.modelId ?? "-"}
-                </div>
-              ) : null}
-              <div className="grid grid-cols-2 gap-x-2 gap-y-0 text-[11px]">
-                <div className="text-muted-foreground">{t("ai:message.tokenInput")}</div>
-                <div className="text-right tabular-nums">
-                  {formatTokenCount(usage.inputTokens)}
-                </div>
-                {typeof usage.cachedInputTokens === "number" ? (
-                  <>
-                    <div className="text-muted-foreground">{t("ai:message.tokenCached")}</div>
-                    <div className="text-right tabular-nums">
-                      {formatTokenCount(usage.cachedInputTokens)}
-                    </div>
-                  </>
+      {!isSaasModel ? (
+        <PromptInputHoverCard openDelay={120} closeDelay={120}>
+          <PromptInputHoverCardTrigger asChild>
+            <MessageAction
+              disabled={!usage}
+              className={MESSAGE_ACTION_CLASSNAME}
+              label={t("ai:message.tokenUsage")}
+              aria-label={t("ai:message.tokenUsage")}
+              title={t("ai:message.tokenUsage")}
+            >
+              <BarChart3 className="size-3" />
+            </MessageAction>
+          </PromptInputHoverCardTrigger>
+          <PromptInputHoverCardContent className="max-w-[200px] p-2">
+            {usage ? (
+              <div className="space-y-0.5 text-xs">
+                <div className="font-medium text-xs">{t("ai:message.tokenUsage")}</div>
+                {agentModel?.provider || agentModel?.modelId ? (
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {agentModel?.provider ?? "-"} / {agentModel?.modelId ?? "-"}
+                  </div>
                 ) : null}
-                {typeof usage.noCacheTokens === "number" ? (
-                  <>
-                    <div className="text-muted-foreground">{t("ai:message.tokenNoCache")}</div>
-                    <div className="text-right tabular-nums">
-                      {formatTokenCount(usage.noCacheTokens)}
-                    </div>
-                  </>
-                ) : null}
-                {typeof usage.reasoningTokens === "number" ? (
-                  <>
-                    <div className="text-muted-foreground">{t("ai:message.tokenReasoning")}</div>
-                    <div className="text-right tabular-nums">
-                      {formatTokenCount(usage.reasoningTokens)}
-                    </div>
-                  </>
-                ) : null}
-                <div className="text-muted-foreground">{t("ai:message.tokenOutput")}</div>
-                <div className="text-right tabular-nums">
-                  {formatTokenCount(usage.outputTokens)}
-                </div>
-                <div className="text-muted-foreground font-medium">{t("ai:message.tokenTotal")}</div>
-                <div className="text-right tabular-nums font-medium">
-                  {formatTokenCount(usage.totalTokens)}
+                <div className="grid grid-cols-2 gap-x-2 gap-y-0 text-[11px]">
+                  <div className="text-muted-foreground">{t("ai:message.tokenInput")}</div>
+                  <div className="text-right tabular-nums">
+                    {formatTokenCount(usage.inputTokens)}
+                  </div>
+                  {typeof usage.cachedInputTokens === "number" ? (
+                    <>
+                      <div className="text-muted-foreground">{t("ai:message.tokenCached")}</div>
+                      <div className="text-right tabular-nums">
+                        {formatTokenCount(usage.cachedInputTokens)}
+                      </div>
+                    </>
+                  ) : null}
+                  {typeof usage.noCacheTokens === "number" ? (
+                    <>
+                      <div className="text-muted-foreground">{t("ai:message.tokenNoCache")}</div>
+                      <div className="text-right tabular-nums">
+                        {formatTokenCount(usage.noCacheTokens)}
+                      </div>
+                    </>
+                  ) : null}
+                  {typeof usage.reasoningTokens === "number" ? (
+                    <>
+                      <div className="text-muted-foreground">{t("ai:message.tokenReasoning")}</div>
+                      <div className="text-right tabular-nums">
+                        {formatTokenCount(usage.reasoningTokens)}
+                      </div>
+                    </>
+                  ) : null}
+                  <div className="text-muted-foreground">{t("ai:message.tokenOutput")}</div>
+                  <div className="text-right tabular-nums">
+                    {formatTokenCount(usage.outputTokens)}
+                  </div>
+                  <div className="text-muted-foreground font-medium">{t("ai:message.tokenTotal")}</div>
+                  <div className="text-right tabular-nums font-medium">
+                    {formatTokenCount(usage.totalTokens)}
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="text-xs text-muted-foreground">{t("ai:message.tokenNoInfo")}</div>
-          )}
-        </PromptInputHoverCardContent>
-      </PromptInputHoverCard>
+            ) : (
+              <div className="text-xs text-muted-foreground">{t("ai:message.tokenNoInfo")}</div>
+            )}
+          </PromptInputHoverCardContent>
+        </PromptInputHoverCard>
+      ) : null}
 
       <MessageBranchNav messageId={message.id} />
 

@@ -271,7 +271,8 @@ export async function startProductionServices(args: {
         },
         windowsHide: true,
         detached: false,
-        stdio: ['ignore', 'pipe', 'pipe'],
+        // fd3 = IPC channel，让 server 通过 process.on('disconnect') 感知父进程退出
+        stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       });
 
       // 防僵尸进程：当 Electron 退出时，强制杀掉 Server

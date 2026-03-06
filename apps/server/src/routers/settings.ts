@@ -813,8 +813,8 @@ export class SettingRouterImpl extends BaseSettingRouter {
             if (!descriptor) {
               throw new Error(`Agent not found at ${input.agentPath}`);
             }
-            // 逻辑：读取同目录下的 AGENT.md 作为 systemPrompt。
-            const agentMdPath = path.join(agentDir, "AGENT.md");
+            // 逻辑：读取同目录下的 prompt.md 作为 systemPrompt。
+            const agentMdPath = path.join(agentDir, "prompt.md");
             let systemPrompt = "";
             try {
               const { readFileSync, existsSync } = await import("node:fs");
@@ -822,7 +822,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
                 systemPrompt = readFileSync(agentMdPath, "utf8").trim();
               }
             } catch { /* ignore */ }
-            // 逻辑：AGENT.md 不存在时，fallback 到内嵌模板的 systemPrompt。
+            // 逻辑：prompt.md 不存在时，fallback 到内嵌模板的 systemPrompt。
             if (!systemPrompt) {
               const { getTemplate } = await import("@/ai/agent-templates");
               const folderName = path.basename(agentDir);
@@ -934,20 +934,20 @@ export class SettingRouterImpl extends BaseSettingRouter {
                 maxDepth: input.maxDepth,
               };
               writeFileSync(input.agentPath, JSON.stringify(descriptor, null, 2), "utf8");
-              // 逻辑：prompt 与模板默认相同 → 删除 AGENT.md；不同 → 写入作为覆盖。
+              // 逻辑：prompt 与模板默认相同 → 删除 prompt.md；不同 → 写入作为覆盖。
               const { getTemplate } = await import("@/ai/agent-templates");
               const folderName = path.basename(agentDir);
               const template = getTemplate(folderName);
-              const agentMdPath = path.join(agentDir, "AGENT.md");
+              const promptMdPath = path.join(agentDir, "prompt.md");
               const isDefault = !input.systemPrompt?.trim()
                 || input.systemPrompt.trim() === template?.systemPrompt?.trim();
               if (isDefault) {
                 const { unlinkSync } = await import("node:fs");
-                if (existsFsSync(agentMdPath)) {
-                  try { unlinkSync(agentMdPath); } catch { /* ignore */ }
+                if (existsFsSync(promptMdPath)) {
+                  try { unlinkSync(promptMdPath); } catch { /* ignore */ }
                 }
               } else {
-                writeFileSync(agentMdPath, input.systemPrompt!.trim(), "utf8");
+                writeFileSync(promptMdPath, input.systemPrompt!.trim(), "utf8");
               }
               return { ok: true, agentPath: input.agentPath };
             }
@@ -1033,7 +1033,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
           const jsonPath = path.join(agentDir, "agent.json");
           writeFsSync(jsonPath, JSON.stringify(descriptor, null, 2), "utf8");
           if (input.systemPrompt?.trim()) {
-            writeFsSync(path.join(agentDir, "AGENT.md"), input.systemPrompt.trim(), "utf8");
+            writeFsSync(path.join(agentDir, "prompt.md"), input.systemPrompt.trim(), "utf8");
           }
           return { ok: true, agentPath: jsonPath };
         }),
@@ -1060,16 +1060,16 @@ export class SettingRouterImpl extends BaseSettingRouter {
           mkdirSync(targetDir, { recursive: true });
 
           if (sourceBaseName === "agent.json") {
-            // 逻辑：.openloaf/agents/ 结构 — 复制 agent.json + AGENT.md。
+            // 逻辑：.openloaf/agents/ 结构 — 复制 agent.json + prompt.md。
             const { readAgentJson } = await import("@/ai/shared/defaultAgentResolver");
             const descriptor = readAgentJson(sourceDir);
             if (!descriptor) throw new Error("Source agent not found.");
             const targetJsonPath = path.join(targetDir, "agent.json");
             writeFsSync(targetJsonPath, JSON.stringify(descriptor, null, 2), "utf8");
-            const sourceMdPath = path.join(sourceDir, "AGENT.md");
+            const sourceMdPath = path.join(sourceDir, "prompt.md");
             if (existsSync(sourceMdPath)) {
               const mdContent = readFileSync(sourceMdPath, "utf8");
-              writeFsSync(path.join(targetDir, "AGENT.md"), mdContent, "utf8");
+              writeFsSync(path.join(targetDir, "prompt.md"), mdContent, "utf8");
             }
             return { ok: true, agentPath: targetJsonPath };
           }
@@ -1097,7 +1097,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
           const targetJsonPath = path.join(targetDir, "agent.json");
           writeFsSync(targetJsonPath, JSON.stringify(descriptor, null, 2), "utf8");
           if (config.systemPrompt?.trim()) {
-            writeFsSync(path.join(targetDir, "AGENT.md"), config.systemPrompt.trim(), "utf8");
+            writeFsSync(path.join(targetDir, "prompt.md"), config.systemPrompt.trim(), "utf8");
           }
           return { ok: true, agentPath: targetJsonPath };
         }),

@@ -27,6 +27,7 @@ import { clearThemeOverride, readThemeOverride } from "@/lib/theme-override";
 import FilePreviewDialog from "@/components/file/FilePreviewDialog";
 import LocalAuthGate from "@/components/local-auth/LocalAuthGate";
 import { isElectronEnv } from "@/utils/is-electron-env";
+import { initOverlayDetector } from "@/lib/overlay-detector";
 import { initModelRegistry } from "@/lib/model-registry";
 import { resolveSaasBaseUrl } from "@/lib/saas-auth";
 import { useLanguageSync } from "@/i18n/useLanguageSync";
@@ -256,6 +257,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
     document.documentElement.classList.toggle("electron", isElectron);
     document.documentElement.classList.toggle("titlebar-overlay", hasTitlebarOverlay);
+  }, []);
+
+  useEffect(() => {
+    if (!isElectronEnv()) return;
+    return initOverlayDetector();
   }, []);
 
   useEffect(() => {

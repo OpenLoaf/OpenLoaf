@@ -20,9 +20,7 @@ type MasterAgentRunnerInput = {
   model: LanguageModelV3
   /** Model metadata for the agent frame. */
   modelInfo: MasterAgentModelInfo
-  /** Optional tool ids override. */
-  toolIds?: readonly string[]
-  /** Optional instructions override (assembled from IDENTITY + SOUL + AGENT). */
+  /** Optional instructions override. */
   instructions?: string
 }
 
@@ -40,7 +38,6 @@ export function createMasterAgentRunner(input: MasterAgentRunnerInput): MasterAg
   return {
     agent: createMasterAgent({
       model: input.model,
-      toolIds: input.toolIds,
       instructions: input.instructions,
     }),
     frame: createMasterAgentFrame({ model: input.modelInfo }),

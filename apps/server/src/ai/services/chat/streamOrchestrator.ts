@@ -24,6 +24,8 @@ import {
   setAbortSignal,
   setUiWriter,
 } from "@/ai/shared/context/requestContext";
+import { prisma } from "@openloaf/db";
+import { setCachedCcSession } from "@/ai/models/cli/claudeCode/claudeCodeSessionStore";
 import type { MasterAgentRunner } from "@/ai/services/masterAgentRunner";
 import { buildModelMessages } from "@/ai/shared/messageConverter";
 import {
@@ -235,6 +237,14 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
             if (Object.keys(input.agentMetadata).length > 0) {
               mergedMetadata.agent = input.agentMetadata;
             }
+            // CLI provider 传回的 SDK UUID（用于 rewind/resume）
+            const sdkMeta = (part as any)?.providerMetadata;
+            if (sdkMeta?.sdkAssistantUuid) {
+              mergedMetadata.sdkAssistantUuid = sdkMeta.sdkAssistantUuid;
+            }
+            if (sdkMeta?.sdkSessionId) {
+              mergedMetadata.sdkSessionId = sdkMeta.sdkSessionId;
+            }
             return mergedMetadata;
           },
           onFinish: async ({ isAborted, responseMessage, finishReason }) => {
@@ -315,6 +325,24 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               if (!isAborted && finishReason !== "error") {
                 // 中文注释：仅在成功完成时清空会话错误。
                 await clearSessionErrorMessage({ sessionId: currentSessionId });
+              }
+
+              // SDK 返回的真正 session ID 更新到 DB（CLI persist/resume）
+              const sdkSessionId = (finalizedMetadata as any)?.sdkSessionId as string | undefined;
+              if (sdkSessionId && currentSessionId) {
+                try {
+                  await prisma.chatSession.update({
+                    where: { id: currentSessionId },
+                    data: { cliId: `claude-code_${sdkSessionId}` },
+                  });
+                  setCachedCcSession(currentSessionId, {
+                    sdkSessionId,
+                    modelId: "",
+                    lastUsedAt: Date.now(),
+                  });
+                } catch (err) {
+                  logger.warn({ err, sessionId: currentSessionId }, "[chat] update SDK session ID failed");
+                }
               }
             } catch (err) {
               logger.error({ err }, "[chat] save assistant failed");

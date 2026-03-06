@@ -11,7 +11,6 @@
 
 import * as React from "react";
 import { useMutation } from "@tanstack/react-query";
-import ProjectTitle from "../ProjectTitle";
 import DesktopPage, { getInitialDesktopItems } from "@/components/desktop/DesktopPage";
 import DesktopEditToolbar from "@/components/desktop/DesktopEditToolbar";
 import type { DesktopItem } from "@/components/desktop/types";
@@ -31,35 +30,7 @@ import { queryClient, trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
-
-interface ProjectIndexHeaderProps {
-  /** Whether the project data is loading. */
-  isLoading: boolean;
-  /** Current project id. */
-  projectId?: string;
-  /** Current project title. */
-  projectTitle: string;
-  /** Current icon for project title. */
-  titleIcon?: string;
-  /** Current title value from cache. */
-  currentTitle?: string;
-  /** Whether the title is being updated. */
-  isUpdating: boolean;
-  /** Update title callback. */
-  onUpdateTitle: (nextTitle: string) => void;
-  /** Update icon callback. */
-  onUpdateIcon: (nextIcon: string) => void;
-  /** Whether the homepage is read-only. */
-  isReadOnly: boolean;
-  /** Toggle read-only mode. */
-  onSetReadOnly: (nextReadOnly: boolean) => void;
-  /** Controls slot for header actions. */
-  controlsSlotRef: React.RefObject<HTMLDivElement | null>;
-  /** Whether to show editing controls. */
-  showControls: boolean;
-  /** Whether desktop edit mode is active. */
-  editMode: boolean;
-}
+import { useHeaderSlot } from "@/hooks/use-header-slot";
 
 interface ProjectIndexProps {
   /** Whether the page data is loading. */
@@ -78,8 +49,6 @@ interface ProjectIndexProps {
   onDirtyChange: (dirty: boolean) => void;
   /** Notify parent when publish succeeds. */
   onPublishSuccess: () => void;
-  /** Controls slot for header actions. */
-  controlsSlotRef: React.RefObject<HTMLDivElement | null>;
   /** Notify parent when edit mode changes. */
   onEditModeChange?: (nextEditMode: boolean) => void;
 }
@@ -93,48 +62,10 @@ interface DesktopHistorySnapshot {
   suspended: boolean;
 }
 
-/** Render the project index header for the new desktop MVP. */
-const ProjectIndexHeader = React.memo(function ProjectIndexHeader({
-  isLoading,
-  projectId,
-  projectTitle,
-  titleIcon,
-  currentTitle,
-  isUpdating,
-  onUpdateTitle,
-  onUpdateIcon,
-  controlsSlotRef,
-  editMode,
-}: ProjectIndexHeaderProps) {
-  return (
-    <div
-      className="project-index-header flex items-center justify-between gap-3 w-full min-w-0"
-    >
-      {editMode ? null : (
-        <ProjectTitle
-          isLoading={isLoading}
-          projectId={projectId}
-          projectTitle={projectTitle}
-          titleIcon={titleIcon}
-          currentTitle={currentTitle}
-          isUpdating={isUpdating}
-          onUpdateTitle={onUpdateTitle}
-          onUpdateIcon={onUpdateIcon}
-        />
-      )}
-
-      <div className="project-index-header-controls">
-        <div ref={controlsSlotRef} />
-      </div>
-    </div>
-  );
-});
-
 /** Render the new iOS-like desktop MVP (UI only). */
 const ProjectIndex = React.memo(function ProjectIndex({
   isActive,
   onDirtyChange,
-  controlsSlotRef,
   onEditModeChange,
   projectId,
   rootUri,
@@ -159,7 +90,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
     future: [],
     suspended: false,
   });
-  const [controlsTarget, setControlsTarget] = React.useState<HTMLDivElement | null>(null);
+  const headerActionsTarget = useHeaderSlot((s) => s.headerActionsTarget);
   // 逻辑：桌面布局持久化文件路径。
   const desktopFileUri = React.useMemo(
     () => (rootUri ? getDesktopFileUri(rootUri) : null),
@@ -204,11 +135,6 @@ const ProjectIndex = React.memo(function ProjectIndex({
     // 桌面 MVP 暂时不产生“脏状态”，先专注交互与动画。
     onDirtyChange(false);
   }, [onDirtyChange]);
-
-  React.useEffect(() => {
-    // header slot ref 由上层控制，这里等其挂载后再渲染 portal。
-    setControlsTarget(controlsSlotRef.current);
-  }, [controlsSlotRef]);
 
   React.useLayoutEffect(() => {
     // 逻辑：同步桌面编辑态到头部控制区，避免首帧闪动。
@@ -408,12 +334,14 @@ const ProjectIndex = React.memo(function ProjectIndex({
   const effectiveEditBreakpoint =
     editBreakpointLock === "auto" ? viewBreakpoint : editBreakpointLock;
 
+  const effectiveTarget = isActive ? headerActionsTarget : null;
+
   if (!isActive) return null;
 
   return (
     <>
       <DesktopEditToolbar
-        controlsTarget={controlsTarget}
+        controlsTarget={effectiveTarget}
         editMode={editMode}
         activeBreakpoint={effectiveEditBreakpoint}
         items={items}
@@ -446,5 +374,4 @@ const ProjectIndex = React.memo(function ProjectIndex({
   );
 });
 
-export { ProjectIndexHeader };
 export default ProjectIndex;

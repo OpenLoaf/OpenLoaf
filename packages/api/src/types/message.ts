@@ -135,6 +135,8 @@ export type ChatRequestBody = {
   toolApprovalPayloads?: Record<string, Record<string, unknown>>;
   /** Whether to auto-approve simple tool calls. */
   autoApproveTools?: boolean;
+  /** SDK assistant UUID for CLI rewind (resumeSessionAt). */
+  sdkRewindTarget?: string;
 };
 
 export type TokenUsage = {

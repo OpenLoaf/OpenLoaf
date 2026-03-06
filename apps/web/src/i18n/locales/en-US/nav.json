@@ -118,7 +118,8 @@
     "moveNote": "Sub-projects will move along with the project.",
     "reordering": "Reordering...",
     "moving": "Moving...",
-    "rootProject": "Root"
+    "rootProject": "Root",
+    "projectSettings": "Project Settings"
   },
   "workspace": {
     "title": "Workspace",

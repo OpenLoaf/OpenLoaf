@@ -31,6 +31,12 @@ export function createToolCallRepair(): ToolCallRepairFunction<any> {
           return { ...toolCall, toolName: canonical };
         }
       }
+      // Tool exists but not yet activated via tool-search — let SDK report
+      // the error so LLM learns to use tool-search first.
+      logger.info(
+        { toolCallId: toolCall.toolCallId, toolName: toolCall.toolName },
+        "[tool-repair] tool not active; LLM should use tool-search to load it",
+      );
       return null;
     }
 

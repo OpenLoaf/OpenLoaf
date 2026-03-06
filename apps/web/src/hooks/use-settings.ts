@@ -9,21 +9,8 @@
  */
 "use client";
 
-import { useEffect } from "react";
-import { create } from "zustand";
-import { trpcClient } from "@/utils/trpc";
-
-type SettingsState = {
-  providerItems: SettingItem[];
-  s3ProviderItems: SettingItem[];
-  loaded: boolean;
-  loading: boolean;
-  load: () => Promise<void>;
-  /** Reload settings from server. */
-  refresh: () => Promise<void>;
-  setValue: (key: string, value: unknown, category?: string) => Promise<void>;
-  removeValue: (key: string, category?: string) => Promise<void>;
-};
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
 type SettingItem = {
   id?: string;
@@ -35,124 +22,128 @@ type SettingItem = {
   syncToCloud?: boolean;
 };
 
-const useSettingsStore = create<SettingsState>((set, get) => ({
-  providerItems: [],
-  s3ProviderItems: [],
-  loaded: false,
-  loading: false,
-  load: async () => {
-    if (get().loading || get().loaded) return;
-    set({ loading: true });
-    try {
-      const [providers, s3Providers] = await Promise.all([
-        trpcClient.settings.getProviders.query(),
-        trpcClient.settings.getS3Providers.query(),
-      ]);
-      set({
-        providerItems: providers,
-        s3ProviderItems: s3Providers,
-        loaded: true,
-        loading: false,
-      });
-    } catch {
-      set({ loading: false });
-    }
-  },
-  refresh: async () => {
-    if (get().loading) return;
-    set({ loading: true });
-    try {
-      const [providers, s3Providers] = await Promise.all([
-        trpcClient.settings.getProviders.query(),
-        trpcClient.settings.getS3Providers.query(),
-      ]);
-      set({
-        providerItems: providers,
-        s3ProviderItems: s3Providers,
-        loaded: true,
-        loading: false,
-      });
-    } catch {
-      set({ loading: false });
-    }
-  },
-  setValue: async (key, value, category) => {
-    set((state) => {
-      const resolvedCategory = category ?? "general";
-      const isProvider = resolvedCategory === "provider";
-      const isS3Provider = resolvedCategory === "s3Provider";
-      if (!isProvider && !isS3Provider) return state;
-      const pickList = (list: SettingItem[]) =>
-        list.filter(
-          (item) =>
-            item.key !== key || (item.category ?? "general") !== resolvedCategory,
-        );
-      const preserve = (list: SettingItem[]) =>
-        list.find(
-          (item) =>
-            item.key === key && (item.category ?? "general") === resolvedCategory,
-        );
-      const nextItem: SettingItem = {
-        ...(preserve(isProvider ? state.providerItems : state.s3ProviderItems) ?? {}),
-        key,
-        value,
-        category,
-      };
-      return {
-        providerItems: isProvider ? [...pickList(state.providerItems), nextItem] : state.providerItems,
-        s3ProviderItems: isS3Provider
-          ? [...pickList(state.s3ProviderItems), nextItem]
-          : state.s3ProviderItems,
-      };
-    });
-    await trpcClient.settings.set.mutate({ key, value, category });
-  },
-  removeValue: async (key, category) => {
-    set((state) => {
-      const resolvedCategory = category ?? "general";
-      const isProvider = resolvedCategory === "provider";
-      const isS3Provider = resolvedCategory === "s3Provider";
-      if (!isProvider && !isS3Provider) return state;
-      const filterList = (list: SettingItem[]) =>
-        list.filter(
-          (item) =>
-            item.key !== key || (item.category ?? "general") !== resolvedCategory,
-        );
-      return {
-        providerItems: isProvider ? filterList(state.providerItems) : state.providerItems,
-        s3ProviderItems: isS3Provider ? filterList(state.s3ProviderItems) : state.s3ProviderItems,
-      };
-    });
-    await trpcClient.settings.remove.mutate({ key, category });
-  },
-}));
+const providersQueryOptions = () => trpc.settings.getProviders.queryOptions();
+const s3ProvidersQueryOptions = () => trpc.settings.getS3Providers.queryOptions();
 
-/** Trigger settings loading at least once. */
+function resolveQueryKeyForCategory(category: string | undefined) {
+  const resolved = category ?? "general";
+  if (resolved === "provider") return providersQueryOptions().queryKey;
+  if (resolved === "s3Provider") return s3ProvidersQueryOptions().queryKey;
+  return null;
+}
+
+function invalidateAll(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: providersQueryOptions().queryKey });
+  qc.invalidateQueries({ queryKey: s3ProvidersQueryOptions().queryKey });
+}
+
+/** Trigger settings prefetch (can be called outside React). */
 export function ensureSettingsLoaded() {
-  void useSettingsStore.getState().load();
+  void queryClient.prefetchQuery(providersQueryOptions());
+  void queryClient.prefetchQuery(s3ProvidersQueryOptions());
 }
 
 /** React hook for all settings with setter. */
 export function useSettingsValues() {
-  const providerItems = useSettingsStore((state) => state.providerItems);
-  const s3ProviderItems = useSettingsStore((state) => state.s3ProviderItems);
-  const loaded = useSettingsStore((state) => state.loaded);
-  const load = useSettingsStore((state) => state.load);
-  const refresh = useSettingsStore((state) => state.refresh);
-  const setValue = useSettingsStore((state) => state.setValue);
-  const removeValue = useSettingsStore((state) => state.removeValue);
+  const qc = useQueryClient();
 
-  useEffect(() => {
-    if (loaded) return;
-    void load();
-  }, [loaded, load]);
+  const providersQuery = useQuery(providersQueryOptions());
+  const s3ProvidersQuery = useQuery(s3ProvidersQueryOptions());
+
+  const setMutation = useMutation({
+    mutationFn: (vars: { key: string; value: unknown; category?: string }) =>
+      trpcClient.settings.set.mutate(vars),
+    onMutate: async (vars) => {
+      const queryKey = resolveQueryKeyForCategory(vars.category);
+      if (!queryKey) return { queryKey: null, previous: undefined };
+
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<SettingItem[]>(queryKey);
+
+      if (previous) {
+        const resolvedCategory = vars.category ?? "general";
+        const filtered = previous.filter(
+          (item) =>
+            item.key !== vars.key ||
+            (item.category ?? "general") !== resolvedCategory,
+        );
+        const existing = previous.find(
+          (item) =>
+            item.key === vars.key &&
+            (item.category ?? "general") === resolvedCategory,
+        );
+        const nextItem: SettingItem = {
+          ...(existing ?? {}),
+          key: vars.key,
+          value: vars.value,
+          category: vars.category,
+        };
+        qc.setQueryData<SettingItem[]>(queryKey, [...filtered, nextItem]);
+      }
+
+      return { queryKey, previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.queryKey && context.previous) {
+        qc.setQueryData(context.queryKey, context.previous);
+      }
+    },
+    onSettled: () => invalidateAll(qc),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (vars: { key: string; category?: string }) =>
+      trpcClient.settings.remove.mutate(vars),
+    onMutate: async (vars) => {
+      const queryKey = resolveQueryKeyForCategory(vars.category);
+      if (!queryKey) return { queryKey: null, previous: undefined };
+
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<SettingItem[]>(queryKey);
+
+      if (previous) {
+        const resolvedCategory = vars.category ?? "general";
+        qc.setQueryData<SettingItem[]>(
+          queryKey,
+          previous.filter(
+            (item) =>
+              item.key !== vars.key ||
+              (item.category ?? "general") !== resolvedCategory,
+          ),
+        );
+      }
+
+      return { queryKey, previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.queryKey && context.previous) {
+        qc.setQueryData(context.queryKey, context.previous);
+      }
+    },
+    onSettled: () => invalidateAll(qc),
+  });
+
+  const setValue = async (key: string, value: unknown, category?: string) => {
+    await setMutation.mutateAsync({ key, value, category });
+  };
+
+  const removeValue = async (key: string, category?: string) => {
+    await removeMutation.mutateAsync({ key, category });
+  };
+
+  const refresh = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: providersQueryOptions().queryKey }),
+      qc.invalidateQueries({ queryKey: s3ProvidersQueryOptions().queryKey }),
+    ]);
+  };
 
   return {
-    providerItems,
-    s3ProviderItems,
+    providerItems: (providersQuery.data ?? []) as SettingItem[],
+    s3ProviderItems: (s3ProvidersQuery.data ?? []) as SettingItem[],
     setValue,
     removeValue,
     refresh,
-    loaded,
+    loaded: providersQuery.isFetched && s3ProvidersQuery.isFetched,
   };
 }

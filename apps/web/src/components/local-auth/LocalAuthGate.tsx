@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@openloaf/ui/button";
 import { Input } from "@openloaf/ui/input";
@@ -52,6 +52,8 @@ async function fetchLocalAuthSession(
 /** Render local auth gate overlay. */
 export default function LocalAuthGate({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation("common");
+  const tRef = useRef(t);
+  tRef.current = t;
   const baseUrl = resolveServerUrl();
   const isElectron = isElectronEnv();
   // 逻辑：SSG 时 isElectron 为 false，会将遮罩烘焙进静态 HTML。
@@ -76,7 +78,7 @@ export default function LocalAuthGate({ children }: { children: React.ReactNode 
       return;
     }
     try {
-      const session = await fetchLocalAuthSession(baseUrl, t("localAuth.fetchError"));
+      const session = await fetchLocalAuthSession(baseUrl, tRef.current("localAuth.fetchError"));
       if (session.isLocal) {
         setStatus("ready");
         return;
@@ -92,9 +94,9 @@ export default function LocalAuthGate({ children }: { children: React.ReactNode 
       setStatus("locked");
     } catch (err) {
       setStatus("error");
-      setError((err as Error)?.message ?? t("localAuth.authFailed"));
+      setError((err as Error)?.message ?? tRef.current("localAuth.authFailed"));
     }
-  }, [baseUrl, isElectron, t]);
+  }, [baseUrl, isElectron]);
 
   useEffect(() => {
     void loadSession();
@@ -131,7 +133,7 @@ export default function LocalAuthGate({ children }: { children: React.ReactNode 
     }
   }, [baseUrl, loadSession, password, remember, t]);
 
-  if (!mounted || isElectron || status === "ready") {
+  if (!mounted || isElectron || status === "checking" || status === "ready") {
     return <>{children}</>;
   }
 

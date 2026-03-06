@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { t, shieldedProcedure } from '../../generated/routers/helpers/createRouter'
 import { chatSchemas } from './absChat'
 import {
+  buildProjectIconMap,
   buildProjectTitleMap,
   collectProjectSubtreeIds,
   findProjectNodeWithParent,
@@ -63,6 +64,8 @@ export type ChatSessionSummary = {
   projectId: string | null
   /** Project name resolved from tree. */
   projectName: string | null
+  /** Project icon resolved from tree. */
+  projectIcon: string | null
   /** Session message count. */
   messageCount: number
 }
@@ -179,6 +182,7 @@ export const chatRouter = t.router({
       for (const [id, title] of fileProjectTitleMap) {
         projectTitleMap.set(id, title)
       }
+      const projectIconMap = buildProjectIconMap(projectTrees)
 
       const sessions = await ctx.prisma.chatSession.findMany({
         where: {
@@ -205,6 +209,9 @@ export const chatRouter = t.router({
         ...session,
         projectName: session.projectId
           ? projectTitleMap.get(session.projectId) ?? null
+          : null,
+        projectIcon: session.projectId
+          ? projectIconMap.get(session.projectId) ?? null
           : null,
       })) as ChatSessionSummary[]
     }),

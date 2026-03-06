@@ -9,6 +9,8 @@
  */
 "use client";
 
+import { isHiddenToolPart, isToolPart } from "./message-parts";
+
 /**
  * 判断消息是否有“可见内容”（文本/工具卡片等）。
  * - 用于控制：MessageActions 是否显示、Thinking 是否显示等 UI 逻辑
@@ -43,12 +45,7 @@ export function messageHasVisibleContent(
 
   if (hasPlanMetadata(message)) return true;
 
-  return parts.some((part: any) => {
-    return (
-      typeof part?.type === "string" &&
-      (part.type === "dynamic-tool" || part.type.startsWith("tool-"))
-    );
-  });
+  return parts.some((part: any) => isToolPart(part) && !isHiddenToolPart(part));
 }
 
 /** Check whether message metadata carries a non-empty plan update. */

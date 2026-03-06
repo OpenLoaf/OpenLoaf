@@ -14,6 +14,7 @@ import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { getTabViewById } from "@/hooks/use-tab-view";
 import { extractPatchFileInfo } from "@/lib/chat/patch-utils";
+import { isHiddenToolPart } from "@/lib/chat/message-parts";
 
 // 逻辑：按文件路径分组 apply-patch stack，同文件复用同一个 stack panel。
 const writeFileStackByPath = new Map<string, string>(); // filePath → stackId
@@ -41,6 +42,8 @@ export function syncToolPartsFromMessages({
       const type = typeof part?.type === "string" ? part.type : "";
       const isTool = type === "dynamic-tool" || type.startsWith("tool-");
       if (!isTool) continue;
+      // 中文注释：tool-search 属于内部工具加载流程，不同步到 Web 侧工具面板。
+      if (isHiddenToolPart(part)) continue;
       const toolKey = String(part.toolCallId ?? `${messageId}:${index}`);
       const current = useChatRuntime.getState().toolPartsByTabId[tabId]?.[toolKey];
       upsertToolPart(tabId, toolKey, { ...current, ...part } as any);

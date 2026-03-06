@@ -15,6 +15,18 @@ import { parseScopedProjectPath } from "@/components/project/filesystem/utils/fi
 // 逻辑：匹配 @[...] 方括号包裹的文件引用格式。
 export const FILE_TOKEN_REGEX = /@\[([^\]]+)\]/g;
 
+export const MAX_CHARS = 20000;
+export const ONLINE_SEARCH_GLOBAL_STORAGE_KEY = "openloaf:chat-online-search:global-enabled";
+export const CHAT_MODE_STORAGE_KEY = "openloaf:chat-mode";
+
+/** Convert serialized chat text into a plain-text string for character counting. */
+export function getPlainTextFromInput(value: string): string {
+  if (!value) return "";
+  return value.replace(FILE_TOKEN_REGEX, (_token, pathToken: string) =>
+    getFileLabel(pathToken),
+  );
+}
+
 /** Normalize mention value by trimming @[...] or leading "@". */
 const normalizeMentionValue = (value: string) => {
   const trimmed = value.trim();

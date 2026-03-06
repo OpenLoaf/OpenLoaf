@@ -144,13 +144,13 @@ export function WorkspaceChatList({ workspaceId }: WorkspaceChatListProps) {
           return (
             <div
               key={chat.id}
-              className={`group/chat-item flex items-center gap-1 rounded-md px-2 py-1.5 hover:bg-accent cursor-pointer ${
-                isActive ? "bg-accent" : ""
+              className={`group/chat-item flex h-8 items-center gap-2 rounded-lg px-2 text-sm hover:bg-[var(--sidebar-project-accent)] dark:hover:bg-[var(--sidebar-project-accent)] cursor-pointer ${
+                isActive ? "bg-[var(--sidebar-project-accent)] dark:bg-[var(--sidebar-project-accent)]" : ""
               }`}
               onClick={() => handleChatClick(chat.id, chat.title)}
             >
             <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <span className="flex-1 truncate text-sm min-w-0">{chat.title}</span>
+            <span className="flex-1 truncate min-w-0">{chat.title}</span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button

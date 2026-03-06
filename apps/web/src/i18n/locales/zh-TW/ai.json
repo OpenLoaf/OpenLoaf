@@ -240,11 +240,8 @@
     "openLogFolder": "開啟日誌目錄",
     "systemPrompt": "系統提示詞",
     "noSystemPrompt": "暫無系統提示詞（需發送一次訊息後生成）",
-    "toolList": "工具列表",
-    "noToolList": "暫無工具列表（需發送一次訊息後生成）",
-    "noPreface": "暫無 Preface",
-    "noTools": "_無工具_",
-    "toolCount": "共 {{count}} 個工具",
+    "chatPreface": "對話前言",
+    "noPreface": "暫無對話前言",
     "copySuccess": "已複製聊天日誌路徑",
     "copyError": "未找到聊天日誌檔案"
   },

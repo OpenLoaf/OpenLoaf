@@ -649,19 +649,19 @@ export default function TaskBoardPage({
 
   const resolveReviewMutation = useMutation(
     trpc.scheduledTask.resolveReview.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: [['scheduledTask']] }),
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.scheduledTask.pathKey() }),
     }),
   )
 
   const cancelMutation = useMutation(
     trpc.scheduledTask.updateStatus.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: [['scheduledTask']] }),
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.scheduledTask.pathKey() }),
     }),
   )
 
   const updateStatusMutation = useMutation(
     trpc.scheduledTask.updateStatus.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: [['scheduledTask']] }),
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.scheduledTask.pathKey() }),
     }),
   )
 
@@ -942,7 +942,7 @@ export default function TaskBoardPage({
       <ScheduledTaskDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onSuccess={() => queryClient.invalidateQueries({ queryKey: [['scheduledTask']] })}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: trpc.scheduledTask.pathKey() })}
         workspaceId={workspaceId}
         projectId={projectId}
         task={null}

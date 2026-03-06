@@ -38,8 +38,8 @@ export const chatSchemas = {
       content: z.string(),
       /** Absolute jsonl file path for debugging when available. */
       jsonlPath: z.string().optional(),
-      /** Raw system.json content as string for AI debug mode. */
-      systemJsonRaw: z.string().optional(),
+      /** Full prompt content (PROMPT.md) for AI debug mode. */
+      promptContent: z.string().optional(),
     }),
   },
 };

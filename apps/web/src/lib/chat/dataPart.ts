@@ -12,6 +12,42 @@
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 
+const HIDDEN_TOOL_NAME = "tool-search";
+const hiddenToolCallIds = new Set<string>();
+
+/** Check whether the tool stream chunk marks the end of a tool call. */
+function isTerminalToolChunk(type: string): boolean {
+  return (
+    type === "tool-output-available" ||
+    type === "tool-output-error" ||
+    type === "tool-output-denied" ||
+    type === "tool-input-error"
+  );
+}
+
+/** Check whether the tool chunk should be ignored in Web chat. */
+function shouldIgnoreToolChunk(dataPart: any): boolean {
+  const type = typeof dataPart?.type === "string" ? dataPart.type : "";
+  const toolCallId = typeof dataPart?.toolCallId === "string" ? dataPart.toolCallId : "";
+  const toolName =
+    typeof dataPart?.toolName === "string" ? dataPart.toolName.trim().toLowerCase() : "";
+
+  if (toolName === HIDDEN_TOOL_NAME) {
+    if (toolCallId) {
+      // 中文注释：记录 tool-search 的 toolCallId，忽略后续 delta/output 事件。
+      if (isTerminalToolChunk(type)) hiddenToolCallIds.delete(toolCallId);
+      else hiddenToolCallIds.add(toolCallId);
+    }
+    return true;
+  }
+
+  if (!toolCallId) return false;
+  if (!hiddenToolCallIds.has(toolCallId)) return false;
+
+  if (isTerminalToolChunk(type)) hiddenToolCallIds.delete(toolCallId);
+  return true;
+}
+
 export function handleChatDataPart({
   dataPart,
   tabId,
@@ -224,6 +260,8 @@ function handleToolChunk({
 }) {
   // MVP：tool parts（用于 ToolResultPanel 渲染）
   if (!tabId) return;
+  // 中文注释：tool-search 仅用于动态加载工具，不在 Web 聊天界面展示。
+  if (shouldIgnoreToolChunk(dataPart)) return;
   switch (dataPart?.type) {
     case "data-cli-thinking-delta": {
       const payload = dataPart?.data ?? {};

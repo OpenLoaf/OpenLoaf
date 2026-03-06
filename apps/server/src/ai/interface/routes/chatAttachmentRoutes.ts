@@ -23,6 +23,8 @@ const SESSION_COMPACT_FILE_NAMES = new Set([
   "messages.jsonl",
   "session.json",
   "system.json",
+  "PROMPT.md",
+  "PREFACE.md",
 ]);
 
 type SessionFileEntry = {

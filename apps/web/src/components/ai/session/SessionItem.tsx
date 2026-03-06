@@ -12,7 +12,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { MoreHorizontal, PencilLine, Pin, Trash2, Layers } from "lucide-react";
+import { MessageSquare, MoreHorizontal, PencilLine, Pin, Trash2, Layers } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
@@ -35,6 +35,8 @@ export interface Session {
   displayName?: string;
   /** Project label for session list. */
   projectLabel?: string;
+  /** Project icon (emoji). */
+  projectIcon?: string;
   /** Session created time. */
   createdAt: string | Date;
   /** Whether the session is pinned. */
@@ -159,11 +161,13 @@ function SessionItem({
             {isOpenInTab && (
               <span className="inline-block size-1.5 shrink-0 rounded-full bg-sky-500" />
             )}
-            {session.projectLabel ? (
-              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                {session.projectLabel}
-              </span>
-            ) : null}
+            <span className="shrink-0 text-sm leading-none">
+              {session.projectIcon ? (
+                session.projectIcon
+              ) : (
+                <MessageSquare size={14} className="text-muted-foreground" />
+              )}
+            </span>
             <span className="truncate">{session.displayName ?? session.name}</span>
             {session.hasLayers && (
               <Layers size={14} className="text-muted-foreground" />

@@ -22,12 +22,12 @@ import { resolveServerUrl } from "@/utils/server-url";
 
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
-    onError: (error) => {
+    onError: (error, query) => {
       toast.error(error.message, {
         action: {
           label: "retry",
           onClick: () => {
-            queryClient.invalidateQueries();
+            queryClient.invalidateQueries({ queryKey: query.queryKey });
           },
         },
       });

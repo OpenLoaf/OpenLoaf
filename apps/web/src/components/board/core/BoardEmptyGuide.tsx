@@ -171,12 +171,6 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
                   )}
                 >
                   <div className="relative">
-                    <span
-                      className={cn(
-                        "absolute -left-1.5 -top-1.5 h-2.5 w-2.5 rounded-full",
-                        tpl.dotClass,
-                      )}
-                    />
                     <Icon
                       size={40}
                       weight="duotone"

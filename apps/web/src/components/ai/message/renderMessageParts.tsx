@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./tools/MessageTool";
 import MessageFile from "./tools/MessageFile";
-import { isToolPart } from "@/lib/chat/message-parts";
+import { isHiddenToolPart, isToolPart } from "@/lib/chat/message-parts";
 import type React from "react";
 import { MessageResponse } from "@/components/ai-elements/message";
 import {
@@ -164,7 +164,7 @@ export function renderMessageParts(
   const isAnimating = Boolean(options?.isAnimating);
   const motionProps = options?.motionProps;
   const list = Array.isArray(parts) ? parts : [];
-  const transientParts = list.filter((part) => isTransientPart(part));
+  const transientParts = list.filter((part) => isTransientPart(part) && !isHiddenToolPart(part));
   const transientToolCallIds = new Set(
     transientParts
       .map((part) => (typeof part.toolCallId === "string" ? part.toolCallId : ""))
@@ -172,6 +172,7 @@ export function renderMessageParts(
   );
   const visibleList = list.filter(
     (part) =>
+      !isHiddenToolPart(part) &&
       !isTransientPart(part) &&
       !(part?.toolCallId && transientToolCallIds.has(String(part.toolCallId))),
   );
@@ -326,6 +327,8 @@ export function renderMessageParts(
 
     // 关键：tool part 也属于消息内容的一部分，需要保持与 MessageList 一致的渲染规则（支持嵌套）。
     if (isToolPart(part)) {
+      // 中文注释：tool-search 为内部加载工具，不在 Web 聊天中展示。
+      if (isHiddenToolPart(part)) continue;
       if (!renderTools) continue;
       const toolPart = part as any;
       nodes.push(

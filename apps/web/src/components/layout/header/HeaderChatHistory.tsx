@@ -11,8 +11,10 @@
 
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { History } from "lucide-react";
+import { Filter, History } from "lucide-react";
 import { Button } from "@openloaf/ui/button";
+import { Checkbox } from "@openloaf/ui/checkbox";
+import { Label } from "@openloaf/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import {
@@ -40,6 +42,8 @@ export function HeaderChatHistory({ workspaceId }: HeaderChatHistoryProps) {
   const [popoverOpen, setPopoverOpen] = React.useState(false);
   const [menuLock, setMenuLock] = React.useState(false);
   const [alertOpen, setAlertOpen] = React.useState(false);
+  const [showProjectSessions, setShowProjectSessions] = React.useState(true);
+  const [filterOpen, setFilterOpen] = React.useState(false);
   const pendingRef = React.useRef<{
     tabId: string;
     sessionId: string;
@@ -51,7 +55,11 @@ export function HeaderChatHistory({ workspaceId }: HeaderChatHistoryProps) {
   const addTab = useTabs((s) => s.addTab);
 
   const { openSessionIds, sessionToTabId } = useOpenSessionIds(workspaceId);
-  const { sessions, isLoading } = useWorkspaceChatSessions({ workspaceId });
+  const { sessions: allSessions, isLoading } = useWorkspaceChatSessions({ workspaceId });
+  const sessions = React.useMemo(
+    () => showProjectSessions ? allSessions : allSessions.filter((s) => !s.projectId),
+    [allSessions, showProjectSessions],
+  );
 
   // 当前 Tab 中所有的 session id
   const currentTabSessionIds = React.useMemo(() => {
@@ -146,6 +154,35 @@ export function HeaderChatHistory({ workspaceId }: HeaderChatHistoryProps) {
           align="start"
           sideOffset={6}
         >
+          <div className="flex items-center justify-between border-b px-3 py-2">
+            <span className="text-sm font-medium">{t("header.chatHistory")}</span>
+            <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                >
+                  <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" align="end" className="w-48 p-2">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="filter-project-sessions"
+                    checked={showProjectSessions}
+                    onCheckedChange={(checked) => setShowProjectSessions(checked === true)}
+                  />
+                  <Label
+                    htmlFor="filter-project-sessions"
+                    className="text-xs cursor-pointer select-none"
+                  >
+                    显示项目对话历史
+                  </Label>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
           <SessionList
             externalSessions={sessions}
             externalLoading={isLoading}

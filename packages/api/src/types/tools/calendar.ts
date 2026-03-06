@@ -42,7 +42,7 @@ export const calendarMutateToolDef = {
   id: 'calendar-mutate',
   name: '日历变更',
   description:
-    '触发：当你需要创建、更新、删除日程/任务/提醒事项/会议/约会，或切换任务/提醒完成状态时调用。用途：执行日历数据变更操作。返回：{ ok: true, data: { action, item|id } }。不适用：仅需读取时不要使用。',
+    '触发：当你需要创建、更新、删除日程/任务/提醒事项/会议/约会，或切换任务/提醒完成状态时调用。用途：执行日历数据变更操作。返回：{ ok: true, data: { action, item|id } }。不适用：仅需读取时不要使用。action 选择：用户说"取消/撤销/删除"日程或提醒 → 使用 delete；用户说"完成/标记完成" → 使用 toggle-completed。',
   parameters: z.object({
     actionName: z
       .string()

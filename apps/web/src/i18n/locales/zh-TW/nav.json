@@ -118,7 +118,8 @@
     "moveNote": "調整後子專案會隨專案一起移動。",
     "reordering": "調整中...",
     "moving": "移動中...",
-    "rootProject": "根專案"
+    "rootProject": "根專案",
+    "projectSettings": "專案設定"
   },
   "workspace": {
     "title": "工作區",

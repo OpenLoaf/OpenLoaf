@@ -21,5 +21,6 @@ export * from "./office";
 export * from "./mediaGenerate";
 export * from "./jsxCreate";
 export * from "./toolCatalog";
+export * from "./toolSearch";
 export * from "./chart";
 export * from "./task";

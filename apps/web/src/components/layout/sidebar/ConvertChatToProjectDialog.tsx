@@ -11,6 +11,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import {
   Dialog,
@@ -51,26 +52,31 @@ export function ConvertChatToProjectDialog({
   const [parentProjectId, setParentProjectId] = useState<string | undefined>(undefined);
 
   // 查询对话信息
-  const { data: chatData } = trpc.chat.getSession.useQuery(
-    { sessionId: chatSessionId },
-    { enabled: open }
-  );
+  const { data: chatData } = useQuery({
+    ...trpc.chat.getSession.queryOptions({ sessionId: chatSessionId }),
+    enabled: open,
+  });
 
   // 查询项目列表
-  const { data: projectsData } = trpc.project.list.useQuery(undefined, { enabled: open });
-
-  const convertMutation = trpc.project.convertChatToProject.useMutation({
-    onSuccess: () => {
-      onSuccess?.();
-    },
+  const { data: projectsData } = useQuery({
+    ...trpc.project.list.queryOptions(),
+    enabled: open,
   });
+
+  const convertMutation = useMutation(
+    trpc.project.convertChatToProject.mutationOptions({
+      onSuccess: () => {
+        onSuccess?.();
+      },
+    }),
+  );
 
   // 初始化项目标题
   useEffect(() => {
-    if (chatData?.session) {
+    if (open && chatData?.session) {
       setProjectTitle(chatData.session.title || "");
     }
-  }, [chatData]);
+  }, [open, chatData]);
 
   const handleSubmit = () => {
     if (!projectTitle.trim()) {

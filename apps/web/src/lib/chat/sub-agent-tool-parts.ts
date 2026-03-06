@@ -7,6 +7,8 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { isHiddenToolPart } from "./message-parts";
+
 type ToolPartLike = {
   toolCallId?: string;
   toolName?: string;
@@ -37,6 +39,7 @@ export function handleSubAgentToolParts(input: HandleSubAgentToolPartsInput): vo
     const isTool =
       toolName != null || type === "dynamic-tool" || (type && type.startsWith("tool-"));
     if (!isTool) continue;
+    if (isHiddenToolPart(part)) continue;
 
     if (toolName === "open-url") {
       // 逻辑：记录子代理 open-url 原始入参，便于排查 url 丢失问题。

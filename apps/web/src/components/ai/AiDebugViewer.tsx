@@ -9,65 +9,137 @@
  */
 'use client'
 
-import { useMemo, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useTheme } from 'next-themes'
+import Editor, { type OnMount } from '@monaco-editor/react'
+import type * as Monaco from 'monaco-editor'
 import { StackHeader } from '@/components/layout/StackHeader'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
 import { requestStackMinimize } from '@/lib/stack-dock-animation'
-import {
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionContent,
-} from '@openloaf/ui/accordion'
-import { Streamdown, defaultRemarkPlugins, type StreamdownProps } from 'streamdown'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@openloaf/ui/tabs'
 import { Copy, FolderOpen } from 'lucide-react'
 import { Button } from '@openloaf/ui/button'
 import { useWorkspace } from '@/components/workspace/workspaceContext'
 import { toast } from 'sonner'
-
-import '@/components/file/style/streamdown-viewer.css'
 
 interface AiDebugViewerProps {
   tabId?: string
   panelKey?: string
   /** Chat preface markdown content. */
   prefaceContent?: string
-  /** System instructions from system.json. */
-  systemInstructions?: string
-  /** Serialized tools from system.json. */
-  systemTools?: Record<string, any>
+  /** Full prompt content (PROMPT.md). */
+  promptContent?: string
   /** Session id for chat history folder. */
   sessionId?: string
   /** Absolute jsonl path. */
   jsonlPath?: string
 }
 
-const SHIKI_THEME: NonNullable<StreamdownProps['shikiTheme']> = ['github-light', 'github-dark-high-contrast']
+const MONACO_THEME_DARK = 'openloaf-debug-dark'
+const MONACO_THEME_LIGHT = 'vs'
 
-/** Format tools object into readable markdown. */
-function formatToolsMarkdown(tools: Record<string, any>, t: (key: string, opts?: Record<string, unknown>) => string): string {
-  const entries = Object.entries(tools)
-  if (!entries.length) return t('debug.noTools')
-  const lines: string[] = [`${t('debug.toolCount', { count: entries.length })}\n`]
-  for (const [name, def] of entries) {
-    lines.push(`### ${name}`)
-    if (def?.description) lines.push(`${def.description}\n`)
-    if (def?.parameters) {
-      lines.push('```json')
-      lines.push(JSON.stringify(def.parameters, null, 2))
-      lines.push('```\n')
-    }
+const DARK_THEME_COLORS: Monaco.editor.IColors = {
+  'editor.background': '#0c1118',
+  'editor.foreground': '#e6e6e6',
+  'editorLineNumber.foreground': '#6b7280',
+  'editorLineNumber.activeForeground': '#e5e7eb',
+  'editorGutter.background': '#0c1118',
+  'editor.selectionBackground': '#1f3a5f',
+  'editor.inactiveSelectionBackground': '#19293f',
+  'editorCursor.foreground': '#e6e6e6',
+}
+
+function applyDebugTheme(monaco: typeof Monaco, themeName: string) {
+  if (themeName === MONACO_THEME_DARK) {
+    monaco.editor.defineTheme(MONACO_THEME_DARK, {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: DARK_THEME_COLORS,
+    })
   }
-  return lines.join('\n')
+  monaco.editor.setTheme(themeName)
+}
+
+const EDITOR_OPTIONS: Monaco.editor.IStandaloneEditorConstructionOptions = {
+  readOnly: true,
+  fontSize: 13,
+  lineHeight: 22,
+  fontFamily: "var(--font-mono, Menlo, Monaco, 'Courier New', monospace)",
+  minimap: { enabled: false },
+  scrollBeyondLastLine: false,
+  renderLineHighlight: 'none',
+  overviewRulerLanes: 0,
+  hideCursorInOverviewRuler: true,
+  lineNumbersMinChars: 3,
+  folding: true,
+  wordWrap: 'on',
+  smoothScrolling: true,
+  domReadOnly: true,
+  readOnlyMessage: { value: '' },
+  scrollbar: {
+    verticalScrollbarSize: 10,
+    horizontalScrollbarSize: 10,
+  },
+}
+
+function ReadOnlyEditor({ value, language }: { value: string; language: string }) {
+  const { resolvedTheme } = useTheme()
+  const monacoRef = useRef<typeof Monaco | null>(null)
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
+
+  const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>(
+    resolvedTheme === 'dark' ? 'dark' : 'light',
+  )
+  const monacoThemeName = effectiveTheme === 'dark' ? MONACO_THEME_DARK : MONACO_THEME_LIGHT
+
+  useEffect(() => {
+    const root = document.documentElement
+    const readDomTheme = () => (root.classList.contains('dark') ? 'dark' : 'light')
+    if (resolvedTheme === 'dark' || resolvedTheme === 'light') {
+      setEffectiveTheme(resolvedTheme)
+    } else {
+      setEffectiveTheme(readDomTheme())
+    }
+    const observer = new MutationObserver(() => setEffectiveTheme(readDomTheme()))
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [resolvedTheme])
+
+  useEffect(() => {
+    const monaco = monacoRef.current
+    if (!monaco) return
+    applyDebugTheme(monaco, monacoThemeName)
+  }, [monacoThemeName])
+
+  const handleMount = useCallback<OnMount>(
+    (editor, monaco) => {
+      editorRef.current = editor
+      monacoRef.current = monaco
+      applyDebugTheme(monaco, monacoThemeName)
+    },
+    [monacoThemeName],
+  )
+
+  return (
+    <Editor
+      height="100%"
+      width="100%"
+      value={value}
+      language={language}
+      theme={monacoThemeName}
+      onMount={handleMount}
+      options={EDITOR_OPTIONS}
+    />
+  )
 }
 
 export default function AiDebugViewer({
   tabId,
   panelKey,
   prefaceContent,
-  systemInstructions,
-  systemTools,
+  promptContent,
   sessionId,
   jsonlPath,
 }: AiDebugViewerProps) {
@@ -76,13 +148,6 @@ export default function AiDebugViewer({
   const pushStackItem = useTabRuntime((s) => s.pushStackItem)
   const { workspace } = useWorkspace()
   const shouldRenderStackHeader = Boolean(tabId && panelKey)
-
-  const remarkPlugins = useMemo(() => Object.values(defaultRemarkPlugins), [])
-
-  const toolsMarkdown = useMemo(
-    () => (systemTools ? formatToolsMarkdown(systemTools, t) : ''),
-    [systemTools, t],
-  )
 
   const handleCopyJsonlPath = useCallback(async () => {
     if (!jsonlPath) {
@@ -114,18 +179,10 @@ export default function AiDebugViewer({
     }
   }, [jsonlPath])
 
-  const hasInstructions = Boolean(systemInstructions?.trim())
-  const hasTools = Boolean(systemTools && Object.keys(systemTools).length)
+  const hasPrompt = Boolean(promptContent?.trim())
   const hasPreface = Boolean(prefaceContent?.trim())
 
-  // 逻辑：默认展开有内容的面板。
-  const defaultOpen = useMemo(() => {
-    const items: string[] = []
-    if (hasInstructions) items.push('instructions')
-    if (hasTools) items.push('tools')
-    if (hasPreface) items.push('preface')
-    return items
-  }, [hasInstructions, hasTools, hasPreface])
+  const defaultTab = hasPrompt ? 'prompt' : 'preface'
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
@@ -167,69 +224,26 @@ export default function AiDebugViewer({
           }}
         />
       ) : null}
-      <div className="min-h-0 flex-1 overflow-auto px-4 py-2">
-        <Accordion type="multiple" defaultValue={defaultOpen}>
-          <AccordionItem value="instructions">
-            <AccordionTrigger>{t('debug.systemPrompt')}</AccordionTrigger>
-            <AccordionContent>
-              {hasInstructions ? (
-                <div className="max-h-[60vh] overflow-auto rounded-md border bg-muted/30 p-3">
-                  <Streamdown
-                    mode="static"
-                    className="streamdown-viewer space-y-3"
-                    remarkPlugins={remarkPlugins}
-                    shikiTheme={SHIKI_THEME}
-                  >
-                    {systemInstructions!}
-                  </Streamdown>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t('debug.noSystemPrompt')}</p>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="tools">
-            <AccordionTrigger>{t('debug.toolList')}</AccordionTrigger>
-            <AccordionContent>
-              {hasTools ? (
-                <div className="max-h-[60vh] overflow-auto rounded-md border bg-muted/30 p-3">
-                  <Streamdown
-                    mode="static"
-                    className="streamdown-viewer space-y-3"
-                    remarkPlugins={remarkPlugins}
-                    shikiTheme={SHIKI_THEME}
-                  >
-                    {toolsMarkdown}
-                  </Streamdown>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t('debug.noToolList')}</p>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="preface">
-            <AccordionTrigger>Chat Preface</AccordionTrigger>
-            <AccordionContent>
-              {hasPreface ? (
-                <div className="max-h-[60vh] overflow-auto rounded-md border bg-muted/30 p-3">
-                  <Streamdown
-                    mode="static"
-                    className="streamdown-viewer space-y-3"
-                    remarkPlugins={remarkPlugins}
-                    shikiTheme={SHIKI_THEME}
-                  >
-                    {prefaceContent!}
-                  </Streamdown>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t('debug.noPreface')}</p>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      </div>
+      <Tabs defaultValue={defaultTab} className="flex min-h-0 flex-1 flex-col">
+        <TabsList className="mx-4 mt-2 shrink-0">
+          <TabsTrigger value="prompt">{t('debug.systemPrompt')}</TabsTrigger>
+          <TabsTrigger value="preface">{t('debug.chatPreface')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="prompt" className="min-h-0 flex-1">
+          {hasPrompt ? (
+            <ReadOnlyEditor value={promptContent!} language="markdown" />
+          ) : (
+            <p className="px-4 py-2 text-sm text-muted-foreground">{t('debug.noSystemPrompt')}</p>
+          )}
+        </TabsContent>
+        <TabsContent value="preface" className="min-h-0 flex-1">
+          {hasPreface ? (
+            <ReadOnlyEditor value={prefaceContent!} language="markdown" />
+          ) : (
+            <p className="px-4 py-2 text-sm text-muted-foreground">{t('debug.noPreface')}</p>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

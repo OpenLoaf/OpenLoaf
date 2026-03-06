@@ -186,13 +186,13 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
 
   const resolveReviewMutation = useMutation(
     trpc.scheduledTask.resolveReview.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: [['scheduledTask']] }),
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.scheduledTask.pathKey() }),
     }),
   )
 
   const cancelMutation = useMutation(
     trpc.scheduledTask.updateStatus.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: [['scheduledTask']] }),
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.scheduledTask.pathKey() }),
     }),
   )
 

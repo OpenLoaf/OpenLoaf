@@ -30,6 +30,7 @@ import {
   setParentProjectRootPaths,
   setAssistantParentMessageId,
   setCliSession,
+  setCliRewindTarget,
   getWorkspaceId,
   getProjectId,
 } from "@/ai/shared/context/requestContext";
@@ -86,6 +87,8 @@ import type { ChatImageRequest, ChatImageRequestResult } from "@/ai/services/ima
 import { buildTimingMetadata } from "./metadataBuilder";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { resolveMessagesJsonlPath, writeSessionJson } from "@/ai/services/chat/repositories/chatFileStore";
+import { buildHardRules } from "@/ai/shared/hardRules";
+import { buildToolSearchGuidance } from "@/ai/services/agentFactory";
 import {
   createChatStreamResponse,
   createErrorStreamResponse,
@@ -318,6 +321,12 @@ export async function runChatStream(input: {
 
   // 逻辑：CLI 直连模式 — 跳过 agent 系统指令和工具编排，消息直接发给 CLI 适配模型。
   const directCli = !!(lastMessage as any).metadata?.directCli;
+  const isCliCompact = directCli && !!(lastMessage as any).metadata?.cliCompact;
+
+  // CLI compact：标记用户消息为 compact_prompt
+  if (isCliCompact) {
+    (lastMessage as any).messageKind = "compact_prompt";
+  }
 
   // 逻辑：CLI 直连模式覆盖 chatModelId — 优先使用前端传递的 chatModelId，否则从 codeModelIds 解析。
   if (directCli) {
@@ -491,6 +500,16 @@ export async function runChatStream(input: {
       { sessionId, sdkSessionId, isResume: !prefaceText },
       "[chat] directCli session resolved",
     );
+
+    // 传递 rewind target（用于 retry 时 SDK resumeSessionAt）
+    const sdkRewindTarget = input.request.sdkRewindTarget?.trim();
+    if (sdkRewindTarget) {
+      setCliRewindTarget(sdkRewindTarget);
+      logger.debug(
+        { sessionId, sdkRewindTarget },
+        "[chat] directCli rewind target set",
+      );
+    }
   }
 
   // ── directCli 跳过消息链加载，直接进模型解析 ──
@@ -562,32 +581,17 @@ export async function runChatStream(input: {
         model: resolved.model,
         modelInfo: resolved.modelInfo,
         instructions,
-        toolIds: [],
       });
     } else {
-      // 逻辑：组装默认 agent instructions（IDENTITY + SOUL + AGENT），支持自定义文件覆盖。
-      let workspaceRootPath: string | undefined;
-      try {
-        workspaceRootPath =
-          (resolvedWorkspaceId ? getWorkspaceRootPathById(resolvedWorkspaceId) : null) ??
-          getWorkspaceRootPath();
-      } catch {
-        workspaceRootPath = undefined;
-      }
-      const projectRootPath = resolvedProjectId ? getProjectRootPath(resolvedProjectId) ?? undefined : undefined;
-      instructions = assembleDefaultAgentInstructions({
-        workspaceRootPath,
-        projectRootPath,
-      });
+      // 逻辑：组装默认 agent instructions（template.systemPrompt）。
+      instructions = assembleDefaultAgentInstructions();
 
-      // agentHint：当请求 params 中包含 agentHint 时，使用对应模版的 systemPrompt 和 toolIds
+      // agentHint：当请求 params 中包含 agentHint 时，使用对应模版的 systemPrompt 替换 instructions
       const agentHint = input.request.params?.agentHint;
-      let hintToolIds: readonly string[] | undefined;
       if (typeof agentHint === 'string' && agentHint.trim() && isTemplateId(agentHint.trim())) {
         const hintTemplate = getTemplate(agentHint.trim());
         if (hintTemplate && !hintTemplate.isPrimary) {
           instructions = hintTemplate.systemPrompt;
-          hintToolIds = hintTemplate.toolIds;
         }
       }
 
@@ -595,7 +599,6 @@ export async function runChatStream(input: {
         model: resolved.model,
         modelInfo: resolved.modelInfo,
         instructions,
-        ...(hintToolIds ? { toolIds: hintToolIds } : {}),
       });
     }
     setChatModel(resolved.model);
@@ -630,36 +633,24 @@ export async function runChatStream(input: {
     });
   }
 
-  // 逻辑：AI调试模式 — 保存 system.json（instructions + tools）到 session 目录。
+  // 逻辑：AI调试模式 — 保存 PROMPT.md + PREFACE.md 到 session 目录。
   if (!directCli) {
     try {
       const basicConf = readBasicConf()
       if (basicConf.chatPrefaceEnabled) {
         const jsonlPath = await resolveMessagesJsonlPath(sessionId)
         const sessionDir = path.dirname(jsonlPath)
-        const tools = masterAgent.agent.tools ?? {}
-        const serializedTools: Record<string, { description?: string; parameters?: unknown }> = {}
-        for (const [name, t] of Object.entries(tools)) {
-          const desc = (t as any).description
-          // 逻辑：AI SDK tool 的 inputSchema 可能是 zod wrapper，尝试提取 jsonSchema。
-          let params: unknown = undefined
-          try {
-            const schema = (t as any).inputSchema ?? (t as any).parameters
-            if (schema?.jsonSchema) {
-              params = schema.jsonSchema
-            } else if (schema && typeof schema === 'object') {
-              // 尝试安全序列化，失败则跳过
-              const test = JSON.stringify(schema)
-              if (test && test !== '{}') params = JSON.parse(test)
-            }
-          } catch { /* 不可序列化，跳过 */ }
-          serializedTools[name] = { description: desc, ...(params ? { parameters: params } : {}) }
+        // 完整指令 = prompt + hardRules + toolSearchGuidance（与 agentFactory 组装一致）
+        const fullPrompt = `${instructions}\n\n${buildHardRules()}\n\n${buildToolSearchGuidance()}`
+        await fs.writeFile(path.join(sessionDir, 'PROMPT.md'), fullPrompt, 'utf-8')
+        // sessionPreface → 独立 PREFACE.md
+        const prefaceText = await resolveSessionPrefaceText(sessionId)
+        if (prefaceText) {
+          await fs.writeFile(path.join(sessionDir, 'PREFACE.md'), prefaceText, 'utf-8')
         }
-        const systemJson = JSON.stringify({ instructions, tools: serializedTools }, null, 2)
-        await fs.writeFile(path.join(sessionDir, 'system.json'), systemJson, 'utf-8')
       }
     } catch (err) {
-      logger.warn({ err, sessionId }, '[chat] failed to save system.json')
+      logger.warn({ err, sessionId }, '[chat] failed to save PROMPT.md / PREFACE.md')
     }
   }
 
@@ -678,7 +669,7 @@ export async function runChatStream(input: {
     agentRunner: masterAgent,
     agentMetadata,
     abortController,
-    assistantMessageKind: isCompactCommand ? "compact_summary" : undefined,
+    assistantMessageKind: (isCompactCommand || isCliCompact) ? "compact_summary" : undefined,
   });
 }
 

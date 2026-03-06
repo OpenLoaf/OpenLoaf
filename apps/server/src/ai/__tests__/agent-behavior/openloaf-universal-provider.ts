@@ -26,7 +26,7 @@ import type {
   CallApiContextParams,
   CallApiOptionsParams,
 } from 'promptfoo'
-import { createMasterAgentRunner } from '@/ai/services/masterAgentRunner'
+import { createSubAgent } from '@/ai/services/agentFactory'
 import { getTemplate } from '@/ai/agent-templates'
 import { runChatStream } from '@/ai/services/chat/chatStreamService'
 import { consumeSseResponse, type SseStreamResult } from '../helpers/sseParser'
@@ -241,14 +241,17 @@ export default class OpenLoafUniversalProvider implements ApiProvider {
       options.abortSignal.addEventListener('abort', () => ac.abort(), { once: true })
     }
 
-    const runner = createMasterAgentRunner({
+    const agent = createSubAgent({
+      agentType: 'system',
       model: resolved.model,
-      modelInfo: resolved.modelInfo,
-      toolIds: template.toolIds as readonly string[],
-      instructions: template.systemPrompt,
+      rawAgentType: agentType,
+      inlineConfig: {
+        systemPrompt: template.systemPrompt,
+        toolIds: [...template.toolIds],
+      },
     })
 
-    const agentStream = await runner.agent.stream({
+    const agentStream = await agent.stream({
       messages: [{ role: 'user' as const, content: prompt }],
       abortSignal: ac.signal,
     })

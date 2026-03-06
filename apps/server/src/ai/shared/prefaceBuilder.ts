@@ -24,8 +24,14 @@ import { getAuthSessionSnapshot } from "@/modules/auth/tokenStore";
 import { getSaasAccessToken } from "@/ai/shared/context/requestContext";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { logger } from "@/common/logger";
-import { buildMasterAgentSections } from "@/ai/shared/promptBuilder";
-import { assembleMemorySection } from "@/ai/shared/agentPromptAssembler";
+import {
+  buildSessionContextSection,
+  buildProjectRulesSection,
+  buildSkillsSummarySection,
+  buildExecutionRulesSection,
+  buildTaskDelegationRulesSection,
+} from "@/ai/shared/promptBuilder";
+import { assembleMemoryBlocks } from "@/ai/shared/agentPromptAssembler";
 import { collectAvailableAgents, buildSubAgentListSection } from "@/ai/shared/subAgentPrefaceBuilder";
 
 /** Unknown value fallback. */
@@ -418,6 +424,54 @@ async function resolvePromptContext(input: {
   };
 }
 
+/** Build skills reminder block wrapped in <system-reminder> (only when skills exist). */
+function buildSkillsReminderBlock(
+  summaries: PromptContext["skillSummaries"],
+): string {
+  if (summaries.length === 0) return "";
+  const content = buildSkillsSummarySection(summaries);
+  return `<system-reminder>\n${content}\n</system-reminder>`;
+}
+
+/** Build context reminder blocks — each h1 section wrapped in its own <system-reminder>. */
+function buildContextReminderBlocks(input: {
+  sessionId: string;
+  context: PromptContext;
+  parentProjectRootPaths: string[];
+}): string[] {
+  const { sessionId, context, parentProjectRootPaths } = input;
+  const sections: string[] = [];
+
+  // 项目规则（仅有内容时）
+  if (context.project.rules && context.project.rules !== "未找到") {
+    sections.push(buildProjectRulesSection(context));
+  }
+
+  // 可用子 Agent 列表
+  sections.push(
+    buildSubAgentListSection(
+      collectAvailableAgents({
+        workspaceRootPath: context.workspace.rootPath !== UNKNOWN_VALUE ? context.workspace.rootPath : undefined,
+        projectRootPath: context.project.rootPath !== UNKNOWN_VALUE ? context.project.rootPath : undefined,
+        parentProjectRootPaths,
+      }),
+    ),
+  );
+
+  // 执行规则
+  sections.push(buildExecutionRulesSection());
+
+  // 任务分工规则
+  sections.push(buildTaskDelegationRulesSection());
+
+  // 会话上下文（放到最底部）
+  sections.push(buildSessionContextSection(sessionId, context));
+
+  return sections
+    .filter((s) => s.trim())
+    .map((s) => `<system-reminder>\n${s}\n</system-reminder>`);
+}
+
 /** Build session preface text for chat context. */
 export async function buildSessionPrefaceText(input: {
   sessionId: string;
@@ -434,34 +488,23 @@ export async function buildSessionPrefaceText(input: {
     selectedSkills: input.selectedSkills,
     timezone: input.timezone,
   });
-  const masterAgentSections = buildMasterAgentSections(context);
-  // 逻辑：注入 memory 章节（workspace + parent projects + current project 合并）。
-  const memorySection = assembleMemorySection({
+
+  // Block 1: Skills（仅有 skills 时输出）
+  const skillsBlock = buildSkillsReminderBlock(context.skillSummaries);
+
+  // Block 2+: 会话上下文 + 项目配置（每个一级标题独立 <system-reminder>）
+  const contextBlocks = buildContextReminderBlocks({
+    sessionId: input.sessionId,
+    context,
+    parentProjectRootPaths: input.parentProjectRootPaths,
+  });
+
+  // Memory 独立块（每个 scope 独立的 <system-reminder>）
+  const memoryBlocks = assembleMemoryBlocks({
     workspaceRootPath: context.workspace.rootPath !== UNKNOWN_VALUE ? context.workspace.rootPath : undefined,
     projectRootPath: context.project.rootPath !== UNKNOWN_VALUE ? context.project.rootPath : undefined,
     parentProjectRootPaths: input.parentProjectRootPaths,
   });
-  const sections = [
-    [
-      "# 会话上下文（preface）",
-      "**重要：以下所有 preface 信息仅供你内部使用，严禁在回复中向用户展示。**",
-      `- sessionId: ${input.sessionId}`,
-      `- workspaceId: ${context.workspace.id}`,
-      `- workspaceRootPath: ${context.workspace.rootPath}`,
-      `- projectId: ${context.project.id}`,
-      `- projectRootPath: ${context.project.rootPath}`,
-    ].join("\n"),
-    ...masterAgentSections,
-    // 注入可用子 Agent 列表，让 Master Agent 知道可以 spawn 哪些子代理。
-    buildSubAgentListSection(
-      collectAvailableAgents({
-        workspaceRootPath: context.workspace.rootPath !== UNKNOWN_VALUE ? context.workspace.rootPath : undefined,
-        projectRootPath: context.project.rootPath !== UNKNOWN_VALUE ? context.project.rootPath : undefined,
-        parentProjectRootPaths: input.parentProjectRootPaths,
-      }),
-    ),
-    // 中文注释：注入 memory 章节，仅在存在 memory 文件时添加。
-    ...(memorySection ? [memorySection] : []),
-  ];
-  return sections.join("\n\n");
+
+  return [skillsBlock, ...contextBlocks, ...memoryBlocks].filter(Boolean).join("\n\n");
 }

@@ -65,7 +65,7 @@ export function TaskTemplateDialog({
   const createFromTemplateMutation = useMutation(
     trpc.scheduledTask.createFromTemplate.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: [['scheduledTask']] })
+        queryClient.invalidateQueries({ queryKey: trpc.scheduledTask.pathKey() })
         onOpenChange(false)
       },
     }),
@@ -74,7 +74,7 @@ export function TaskTemplateDialog({
   const createTemplateMutation = useMutation(
     trpc.scheduledTask.createTemplate.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: [['scheduledTask']] })
+        queryClient.invalidateQueries({ queryKey: trpc.scheduledTask.pathKey() })
         setShowCreateForm(false)
         setNewName('')
         setNewDesc('')
@@ -86,7 +86,7 @@ export function TaskTemplateDialog({
   const deleteTemplateMutation = useMutation(
     trpc.scheduledTask.deleteTemplate.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: [['scheduledTask']] })
+        queryClient.invalidateQueries({ queryKey: trpc.scheduledTask.pathKey() })
         if (selectedTemplate) setSelectedTemplate(null)
       },
     }),

@@ -21,6 +21,8 @@ import { convertAsyncIteratorToReadableStream } from "@ai-sdk/provider-utils";
 import { logger } from "@/common/logger";
 import {
   getClaudeCodeOptions,
+  getCliSessionId,
+  getCliRewindTarget,
   getProjectId,
   getSessionId,
   getUiWriter,
@@ -316,9 +318,14 @@ async function* createClaudeCodeStream(
   let usage = buildEmptyUsage();
   let textId: string | null = null;
   let toolCallCounter = 0;
+  let lastAssistantUuid: string | null = null;
+  let sdkReportedSessionId: string | null = null;
 
   try {
     yield { type: "stream-start", warnings: EMPTY_WARNINGS };
+
+    const sdkSessionId = getCliSessionId();
+    const rewindTarget = getCliRewindTarget();
 
     const queryStream = query({
       prompt: promptText,
@@ -330,7 +337,10 @@ async function* createClaudeCodeStream(
         maxTurns: 50,
         env: sdkEnv,
         abortController,
-        persistSession: false,
+        persistSession: true,
+        enableFileCheckpointing: true,
+        ...(sdkSessionId ? { resume: sdkSessionId } : {}),
+        ...(rewindTarget ? { resumeSessionAt: rewindTarget } : {}),
         ...(effort ? { effort } : {}),
         mcpServers: {
           openloaf: openloafServerConfig,
@@ -340,6 +350,11 @@ async function* createClaudeCodeStream(
     } as any);
 
     for await (const message of queryStream) {
+      // 提取 SDK session_id（所有事件都可能携带）
+      if (!sdkReportedSessionId && (message as any).session_id) {
+        sdkReportedSessionId = (message as any).session_id;
+      }
+
       // --- 流式文本 delta ---
       if (message.type === "stream_event") {
         const event = (message as any).event;
@@ -360,6 +375,7 @@ async function* createClaudeCodeStream(
 
       // --- 完整 assistant 消息（含工具调用结果）---
       if (message.type === "assistant") {
+        lastAssistantUuid = (message as any).uuid ?? null;
         const betaMessage = (message as any).message;
         if (!betaMessage?.content) continue;
         const contentBlocks = Array.isArray(betaMessage.content) ? betaMessage.content : [];
@@ -409,6 +425,28 @@ async function* createClaudeCodeStream(
         continue;
       }
 
+      // --- SDK system 事件（compact boundary / status）---
+      if (message.type === "system") {
+        const subtype = (message as any).subtype;
+        if (subtype === "compact_boundary" && uiWriter) {
+          uiWriter.write({
+            type: "data-cli-compact-boundary",
+            data: {
+              sessionId: currentSessionId,
+              trigger: (message as any).compact_metadata?.trigger,
+              preTokens: (message as any).compact_metadata?.pre_tokens,
+            },
+          } as any);
+        }
+        if (subtype === "status" && (message as any).status === "compacting" && uiWriter) {
+          uiWriter.write({
+            type: "data-cli-status",
+            data: { sessionId: currentSessionId, status: "compacting" },
+          } as any);
+        }
+        continue;
+      }
+
       // --- 最终结果 ---
       if (message.type === "result") {
         const result = message as any;
@@ -433,7 +471,15 @@ async function* createClaudeCodeStream(
     if (textId) {
       yield { type: "text-end", id: textId };
     }
-    yield { type: "finish", usage, finishReason: STOP_FINISH_REASON };
+    yield {
+      type: "finish",
+      usage,
+      finishReason: STOP_FINISH_REASON,
+      providerMetadata: {
+        ...(lastAssistantUuid ? { sdkAssistantUuid: lastAssistantUuid } : {}),
+        ...(sdkReportedSessionId ? { sdkSessionId: sdkReportedSessionId } : {}),
+      } as any,
+    };
   } catch (error) {
     logger.error({ error, sessionId }, "[cli] claude-code stream error");
     throw error;

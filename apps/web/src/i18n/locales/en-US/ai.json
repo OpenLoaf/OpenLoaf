@@ -240,11 +240,8 @@
     "openLogFolder": "Open log folder",
     "systemPrompt": "System prompt",
     "noSystemPrompt": "No system prompt yet (send a message first to generate)",
-    "toolList": "Tool list",
-    "noToolList": "No tools yet (send a message first to generate)",
-    "noPreface": "No Preface",
-    "noTools": "_No tools_",
-    "toolCount": "{{count}} tools total",
+    "chatPreface": "Chat Preface",
+    "noPreface": "No preface yet",
     "copySuccess": "Chat log path copied",
     "copyError": "Chat log file not found"
   },

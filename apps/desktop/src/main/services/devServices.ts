@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { execSync, spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { delay, isUrlOk, waitForUrlOk } from './urlHealth';
@@ -83,13 +83,54 @@ export function cleanupNextDevLock(args: {
 }
 
 /**
+ * 尝试终止占用指定端口的 node 进程（仅限 LISTEN 状态）。
+ * 用于清理上次 Electron 退出时残留的 stale server。
+ */
+function killStaleServerOnPort(host: string, port: number, log: Logger): void {
+  try {
+    if (process.platform === 'win32') {
+      // netstat + taskkill：查找监听指定端口的进程并终止。
+      const output = execSync(
+        `netstat -ano | findstr "LISTENING" | findstr ":${port}"`,
+        { encoding: 'utf-8', timeout: 3000 },
+      ).trim();
+      for (const line of output.split(/\r?\n/)) {
+        const pid = line.trim().split(/\s+/).pop();
+        if (pid && /^\d+$/.test(pid) && pid !== '0') {
+          log(`Killing stale server PID ${pid} on port ${port}`);
+          spawnSync('taskkill', ['/pid', pid, '/f'], { stdio: 'ignore' });
+        }
+      }
+    } else {
+      // lsof：查找监听指定端口的进程 PID。
+      const output = execSync(
+        `lsof -ti tcp:${port} -sTCP:LISTEN`,
+        { encoding: 'utf-8', timeout: 3000 },
+      ).trim();
+      for (const pid of output.split(/\s+/)) {
+        if (pid && /^\d+$/.test(pid)) {
+          log(`Killing stale server PID ${pid} on port ${port}`);
+          try {
+            process.kill(Number(pid), 'SIGTERM');
+          } catch {
+            // 进程可能已退出
+          }
+        }
+      }
+    }
+  } catch {
+    // lsof/netstat 未找到进程或执行失败，忽略。
+  }
+}
+
+/**
  * 启动子进程并把 stdout/stderr 打上 label 输出到父进程控制台，便于排查 dev 启动问题。
  */
 function spawnLogged(
   label: string,
   command: string,
   args: string[],
-  opts: { cwd: string; env: NodeJS.ProcessEnv }
+  opts: { cwd: string; env: NodeJS.ProcessEnv; ipc?: boolean }
 ): ChildProcess {
   // On Windows, .cmd/.bat files require shell mode for proper execution.
   // Node.js handles cmd.exe escaping internally when shell: true is set.
@@ -99,7 +140,8 @@ function spawnLogged(
   const child = spawn(command, args, {
     cwd: opts.cwd,
     env: opts.env,
-    stdio: ['ignore', 'pipe', 'pipe'],
+    // ipc: 添加 IPC channel（fd3），让子进程通过 disconnect 感知父进程退出
+    stdio: opts.ipc ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],
     shell: useCmdShim,
   });
 
@@ -169,10 +211,16 @@ export async function ensureDevServices(args: {
   const serverHost = new URL(serverUrl).hostname || '127.0.0.1';
   let serverPort = Number(new URL(serverUrl).port || 23333);
   if (!serverOk && !(await isPortFree(serverHost, serverPort))) {
-    // 默认端口被占用时，自动选择可用端口，避免 spawn 后才失败。
-    serverPort = await getFreePort(serverHost);
-    serverUrl = `http://${serverHost}:${serverPort}`;
-    args.log(`Server port in use; switched to ${serverUrl}`);
+    // 端口被占用但 HTTP 不健康 → 可能是上次残留的 stale server，尝试清理。
+    killStaleServerOnPort(serverHost, serverPort, args.log);
+    // 给进程一点时间释放端口。
+    await delay(500);
+    if (!(await isPortFree(serverHost, serverPort))) {
+      // 清理失败，换端口。
+      serverPort = await getFreePort(serverHost);
+      serverUrl = `http://${serverHost}:${serverPort}`;
+      args.log(`Server port still in use; switched to ${serverUrl}`);
+    }
   }
 
   // 开发态为 server 单独开启 Node Inspector，避免影响 Electron 主进程。
@@ -241,6 +289,7 @@ export async function ensureDevServices(args: {
       {
         cwd: path.join(repoRoot, 'apps/server'),
         env: serverEnv,
+        ipc: true,
       }
     );
 

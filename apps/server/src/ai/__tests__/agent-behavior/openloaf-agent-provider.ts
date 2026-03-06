@@ -35,10 +35,8 @@ type ToolCallRecord = {
 }
 
 export default class OpenLoafAgentProvider implements ApiProvider {
-  config: { toolIds?: string[] }
-
   constructor(options?: { config?: Record<string, unknown> }) {
-    this.config = (options?.config ?? {}) as { toolIds?: string[] }
+    // Master agent always uses ToolSearch Pull Mode — no toolIds config needed.
   }
 
   id() {
@@ -65,19 +63,10 @@ export default class OpenLoafAgentProvider implements ApiProvider {
         options.abortSignal.addEventListener('abort', () => ac.abort(), { once: true })
       }
 
-      // 2. 获取工具集（优先从 test vars，其次 provider config）
-      // 注意：Promptfoo vars 中的数组会被展开为多个测试，所以 toolIds 以 JSON 字符串传入
-      const rawToolIds = context?.vars?.toolIds ?? this.config.toolIds
-      const toolIds: string[] | undefined =
-        typeof rawToolIds === 'string' ? JSON.parse(rawToolIds) :
-        Array.isArray(rawToolIds) ? (rawToolIds as string[]) :
-        undefined
-
-      // 3. 创建 Agent 并发送消息
+      // 2. 创建 Agent（ToolSearch Pull Mode）并发送消息
       const runner = createMasterAgentRunner({
         model: resolved.model,
         modelInfo: resolved.modelInfo,
-        toolIds: toolIds ? (toolIds as readonly string[]) : undefined,
       })
 
       const agentStream = await runner.agent.stream({

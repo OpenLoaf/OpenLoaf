@@ -156,6 +156,7 @@ export default function SessionList({
       projectLabel: showProjectLabel
         ? String(s.projectName ?? "").trim() || undefined
         : undefined,
+      projectIcon: (s as any).projectIcon ?? undefined,
       createdAt: s.createdAt,
       pinned: s.isPin,
     }));

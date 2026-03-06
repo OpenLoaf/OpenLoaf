@@ -61,6 +61,7 @@ import {
   PencilLine,
   SmilePlus,
   Star,
+  Settings,
   StarOff,
   Trash2,
   X,
@@ -86,6 +87,7 @@ import {
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { cn } from "@/lib/utils";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
+import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 
 type ProjectInfo = ProjectNode;
@@ -463,9 +465,9 @@ function FileTreeNode({
                 }
               >
                 {node.projectIcon ? (
-                  <span className="text-sm leading-none">{node.projectIcon}</span>
+                  <span className="text-xs leading-none">{node.projectIcon}</span>
                 ) : (
-                  <Folder className="h-4 w-4" />
+                  <img src="/head_s.png" alt="" className="h-4 w-4 rounded-sm" />
                 )}
                 <span>{node.name}</span>
               </div>
@@ -1665,12 +1667,23 @@ export const PageTreeMenu = ({
           {t("nav:projectTree.copyPath")}
         </ContextMenuItem>
       ) : null}
+      {node.kind === "project" ? <ContextMenuSeparator /> : null}
       {node.kind === "project" ? (
         <ContextMenuItem
           icon={node.isFavorite ? StarOff : Star}
           onClick={() => void handleToggleFavorite(node)}
         >
           {t(node.isFavorite ? "nav:projectTree.unfavorite" : "nav:projectTree.favorite")}
+        </ContextMenuItem>
+      ) : null}
+      {node.kind === "project" ? (
+        <ContextMenuItem
+          icon={Settings}
+          onClick={() => {
+            useGlobalOverlay.getState().setProjectSettingsOpen(true, node.projectId, node.uri);
+          }}
+        >
+          {t("nav:projectTree.projectSettings")}
         </ContextMenuItem>
       ) : null}
       {node.kind === "project" ? (
@@ -1771,9 +1784,9 @@ export const PageTreeMenu = ({
         >
           <div className="flex max-w-[240px] items-center gap-2 rounded-md border border-border/70 bg-background/90 px-2 py-1 text-xs text-foreground shadow-lg">
             {dragGhost.icon ? (
-              <span className="text-sm leading-none">{dragGhost.icon}</span>
+              <span className="text-xs leading-none">{dragGhost.icon}</span>
             ) : (
-              <Folder className="h-3.5 w-3.5" />
+              <img src="/head_s.png" alt="" className="h-3.5 w-3.5 rounded-sm" />
             )}
             <span className="truncate">{dragGhost.title}</span>
           </div>

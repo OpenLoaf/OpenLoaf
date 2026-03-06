@@ -121,7 +121,7 @@ function parseDataUrl(dataUrl: string): Uint8Array {
 
 /** 构建 AI 请求调试用的 fetch。 */
 export function buildAiDebugFetch(): typeof fetch {
-  const enabled = Boolean(getEnvString(process.env, "OPENLOAF_DEBUG_AI_STREAM"));
+  const enabled = process.env.NODE_ENV !== "production";
   const log = logger.debug.bind(logger);
   return async (input, init) => {
     const url =
@@ -134,23 +134,28 @@ export function buildAiDebugFetch(): typeof fetch {
       typeof input === "string" ? undefined : input instanceof Request ? input.headers : undefined;
     const headerRecord = toHeaderRecord(init?.headers ?? fallbackHeaders);
     if (enabled) {
-      // 仅输出请求头，避免打印正文。
       log({ url, headers: headerRecord }, "[ai-debug] request headers");
+      // 输出完整请求体（含 messages / tools）
+      if (init?.body) {
+        try {
+          const bodyStr = typeof init.body === "string" ? init.body : String(init.body);
+          const parsed = JSON.parse(bodyStr);
+          logger.info(
+            { url, requestBody: JSON.stringify(parsed, null, 2) },
+            "[ai-debug] >>> REQUEST BODY",
+          );
+        } catch {
+          logger.info({ url, rawBody: String(init.body).slice(0, 2000) }, "[ai-debug] >>> REQUEST BODY (raw)");
+        }
+      }
     }
     const response = await fetch(input, init);
     try {
       const contentType = response.headers.get("content-type") ?? "";
+      const isSse = contentType.includes("text/event-stream");
       const shouldLogBody = url.includes("/images/") && contentType.includes("application/json");
       if (enabled && shouldLogBody) {
         const responseText = await response.clone().text();
-        // 中文注释：响应体若为 JSON 字符串，尝试解析后再输出。
-        // const parsedResponseBody = (() => {
-        //   try {
-        //     return JSON.parse(responseText);
-        //   } catch {
-        //     return responseText;
-        //   }
-        // })();
         log(
           {
             url,
@@ -160,15 +165,33 @@ export function buildAiDebugFetch(): typeof fetch {
           },
           "[ai-debug] response body",
         );
+      } else if (enabled && isSse && response.body) {
+        // 流式 SSE 响应：tee 一份用于日志，另一份返回给调用方
+        const [logStream, passStream] = response.body.tee();
+        // 异步收集完整 SSE 内容并输出
+        collectSseStream(logStream, url).catch((err) => {
+          logger.warn({ url, error: String(err) }, "[ai-debug] SSE collect failed");
+        });
+        const loggedResponse = new Response(passStream, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+        return sanitizeChatCompletionStream(url, loggedResponse);
       } else if (enabled) {
-        log(
-          {
-            url,
-            status: response.status,
-            contentType,
-          },
-          "[ai-debug] response info",
-        );
+        // 非流式、非 SSE 的错误响应也输出 body
+        if (response.status >= 400) {
+          const errorText = await response.clone().text();
+          logger.info(
+            { url, status: response.status, body: errorText.slice(0, 4000) },
+            "[ai-debug] <<< ERROR RESPONSE",
+          );
+        } else {
+          log(
+            { url, status: response.status, contentType },
+            "[ai-debug] response info",
+          );
+        }
       }
     } catch (error) {
       if (!enabled) return sanitizeChatCompletionStream(url, response);
@@ -182,6 +205,40 @@ export function buildAiDebugFetch(): typeof fetch {
     }
     return sanitizeChatCompletionStream(url, response);
   };
+}
+
+/** 异步收集 SSE 流内容并输出到日志。 */
+async function collectSseStream(stream: ReadableStream<Uint8Array>, url: string): Promise<void> {
+  const decoder = new TextDecoder();
+  const reader = stream.getReader();
+  const chunks: string[] = [];
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(decoder.decode(value, { stream: true }));
+    }
+    chunks.push(decoder.decode());
+  } finally {
+    reader.releaseLock();
+  }
+  const full = chunks.join("");
+  // 逐事件解析，输出每个 SSE data 行
+  const events = full.split(/\r?\n\r?\n/).filter(Boolean);
+  const parsed: unknown[] = [];
+  for (const event of events) {
+    const dataLine = readSseData(event);
+    if (!dataLine || dataLine === "[DONE]") continue;
+    try {
+      parsed.push(JSON.parse(dataLine));
+    } catch {
+      parsed.push(dataLine);
+    }
+  }
+  logger.info(
+    { url, eventCount: parsed.length, events: JSON.stringify(parsed, null, 2) },
+    "[ai-debug] <<< SSE RESPONSE (all events)",
+  );
 }
 
 /** 下载图片并转换为二进制数据。 */

@@ -24,6 +24,8 @@ import type { PrepareStepFunction, StopCondition } from 'ai'
 import type { AgentFrame } from '@/ai/shared/context/requestContext'
 import { buildToolset } from '@/ai/tools/toolRegistry'
 import { createToolCallRepair } from '@/ai/shared/repairToolCall'
+import { ActivatedToolSet } from '@/ai/tools/toolSearchState'
+import { createToolSearchTool } from '@/ai/tools/toolSearchTool'
 import {
   getTemplate,
   isTemplateId,
@@ -51,6 +53,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { getWorkspaceRootPath } from '@openloaf/api'
 import { resolveAgentDir } from '@/ai/shared/defaultAgentResolver'
+import { buildHardRules } from '@/ai/shared/hardRules'
 
 // ---------------------------------------------------------------------------
 // 模版工具 ID 解析
@@ -100,7 +103,6 @@ export function readMasterAgentBasePrompt(lang?: string): string {
 
 type CreateMasterAgentInput = {
   model: LanguageModelV3
-  toolIds?: readonly string[]
   instructions?: string
 }
 
@@ -111,95 +113,63 @@ const MASTER_HARD_MAX_STEPS = 30
 const SUB_AGENT_MAX_STEPS = 15
 
 // ---------------------------------------------------------------------------
-// 工具动态选择 — prepareStep + activeTools (Anthropic Best Practice)
+// ToolSearch Pull 模式 — prepareStep + ActivatedToolSet
 // ---------------------------------------------------------------------------
 
-/** 工具按功能域分组，用于动态收窄 activeTools。 */
-const TOOL_GROUPS: Record<string, readonly string[]> = {
-  /** 核心工具 — 始终可用。 */
-  core: ['time-now', 'update-plan', 'request-user-input', 'jsx-create'],
-  /** Agent 协作 — 使用后持续可用。 */
-  agent: ['spawn-agent', 'send-input', 'wait-agent', 'abort-agent'],
-  /** 文件读取。 */
-  fileRead: ['read-file', 'list-dir', 'grep-files'],
-  /** 文件写入。 */
-  fileWrite: ['apply-patch', 'edit-document'],
-  /** Shell / 命令执行。 */
-  shell: ['shell', 'shell-command', 'exec-command', 'write-stdin'],
-  /** 代码执行。 */
-  code: ['js-repl', 'js-repl-reset'],
-  /** Web / 浏览器。 */
-  web: ['open-url', 'browser-snapshot', 'browser-observe', 'browser-extract', 'browser-act', 'browser-wait'],
-  /** 媒体生成。 */
-  media: ['image-generate', 'video-generate', 'list-media-models'],
-  /** UI / 组件。 */
-  ui: ['generate-widget', 'widget-init', 'widget-list', 'widget-get', 'widget-check', 'chart-render'],
-  /** 任务管理。 */
-  task: ['task-manage', 'task-status'],
-  /** 数据库 / 项目。 */
-  db: ['project-query', 'project-mutate'],
-  /** 日历。 */
-  calendar: ['calendar-query', 'calendar-mutate'],
-  /** 邮件。 */
-  email: ['email-query', 'email-mutate'],
-  /** Office。 */
-  office: ['office-execute'],
-}
-
-/** 反向映射：工具 ID → 所属功能域。 */
-const TOOL_TO_GROUP = new Map<string, string>()
-for (const [group, ids] of Object.entries(TOOL_GROUPS)) {
-  for (const id of ids) {
-    TOOL_TO_GROUP.set(id, group)
-  }
-}
+/** Core tool IDs that are always visible (never deferred). */
+const CORE_TOOL_IDS = ['tool-search'] as const
 
 /**
- * 创建 Master Agent 的 prepareStep 回调。
- *
- * - 第 0 步：不限制工具（LLM 自由判断意图）
- * - 后续步骤：根据已使用工具的功能域自动收窄 activeTools
- * - core 组始终可用；agent 组一旦使用后始终可用
+ * Creates a prepareStep that only exposes tool-search + dynamically activated tools.
+ * Replaces the old TOOL_GROUPS push-based narrowing logic.
  */
-function createMasterPrepareStep(
+function createToolSearchPrepareStep(
   allToolIds: readonly string[],
+  activatedSet: ActivatedToolSet,
 ): PrepareStepFunction {
-  return ({ steps, stepNumber }) => {
-    // 第一步不限制
-    if (stepNumber === 0) return {}
-
-    // 收集已使用工具所属的功能域
-    const activeGroups = new Set<string>(['core'])
-    for (const step of steps) {
-      for (const tc of step.toolCalls) {
-        const group = TOOL_TO_GROUP.get(tc.toolName)
-        if (group) activeGroups.add(group)
-      }
-    }
-    // agent 组一旦激活，后续始终可用
-    if (activeGroups.has('agent')) activeGroups.add('agent')
-    // fileRead 和 fileWrite 绑定：使用写入时也需要读取
-    if (activeGroups.has('fileWrite')) activeGroups.add('fileRead')
-
-    // 构建允许的工具集
-    const allowed = new Set<string>()
-    for (const group of activeGroups) {
-      const ids = TOOL_GROUPS[group]
-      if (ids) {
-        for (const id of ids) allowed.add(id)
-      }
-    }
-
-    // 与实际注册的工具 ID 取交集
-    const activeTools = allToolIds.filter((id) => allowed.has(id))
-
-    logger.debug(
-      { stepNumber, activeGroups: [...activeGroups], activeToolCount: activeTools.length },
-      '[master-agent] prepareStep: narrowed activeTools',
-    )
-
+  return () => {
+    const activeToolIds = activatedSet.getActiveToolIds()
+    const activeTools = allToolIds.filter((id) => activeToolIds.includes(id))
+    // Ensure tool-search is always visible
+    if (!activeTools.includes('tool-search')) activeTools.push('tool-search')
     return { activeTools }
   }
+}
+
+// ---------------------------------------------------------------------------
+// ToolSearch 引导 — 运行时注入 <tool-search-guidance>
+// ---------------------------------------------------------------------------
+
+/**
+ * Build ToolSearch guidance text appended to instructions at runtime.
+ * Model discovers tools dynamically via tool-search; no pre-populated list needed.
+ */
+export function buildToolSearchGuidance(): string {
+  return `<tool-search-guidance>
+你启动时只有 tool-search 一个工具可用。当用户请求需要执行操作时，必须先用 tool-search 加载所需工具。
+
+使用方式：
+- 关键词搜索：tool-search(query: "file read") — 返回最匹配的工具并立即加载
+- 直接选择：tool-search(query: "select:read-file,list-dir") — 按 ID 精确加载
+- 搜索到的工具立即可用，无需额外步骤
+- 可一次加载多个：用逗号分隔 ID
+
+必须使用工具的场景（不可纯文本回答）：
+- 查询时间/日期 → select:time-now
+- 用户提及未来时间+事件（"明天开会"、"3小时后提醒"、"记一下周三拜访"、"设闹钟"）→ 先 time-now 获取当前时间，再 task-manage 创建定时任务（必须包含 schedule 参数），不可仅文字确认
+- 多个事件 → 每个事件各调用一次 task-manage
+- 查询待办/任务列表 → select:task-status
+- 创建/修改/取消任务 → select:task-manage（取消前先 task-status 查询）
+- 查询日程安排 → select:calendar-query
+- 查询/操作邮件 → select:email-query
+- 文件/目录操作 → read-file, list-dir, grep-files, apply-patch
+- 打开链接/URL → select:open-url
+- 渲染组件/诗歌/UI 展示 → select:jsx-create
+- 画图表/折线图/柱状图 → select:chart-render
+- 代码开发（"帮我开发"、"Claude Code"）→ select:spawn-agent（coder 子代理）
+
+重要：简单对话直接回答，不需要加载任何工具。
+</tool-search-guidance>`
 }
 
 // ---------------------------------------------------------------------------
@@ -249,23 +219,39 @@ function wrapModelWithExamples(model: LanguageModelV3): LanguageModelV3 {
 /** Creates the master agent instance. */
 export function createMasterAgent(input: CreateMasterAgentInput) {
   const template = getPrimaryTemplate()
-  const toolIds = input.toolIds ?? resolveTemplateToolIds(template)
   const instructions = input.instructions || template.systemPrompt
-  const tools = buildToolset(toolIds)
   const wrappedModel = wrapModelWithExamples(input.model)
 
-  // prepareStep 通过 ToolLoopAgent settings 传递到内部 streamText 调用。
-  // ToolLoopAgentSettings 类型未声明 prepareStep，但运行时会透传到 streamText。
-  // 使用 Object.assign 在运行时注入 prepareStep，避免影响 ToolLoopAgent 的泛型推断。
+  // ToolSearch Pull mode
+  const coreToolIds = [...CORE_TOOL_IDS] as string[]
+  const deferredToolIds = template.deferredToolIds ?? []
+  const allToolIds = [...new Set([...coreToolIds, ...deferredToolIds])]
+
+  // Build full toolset (all tools registered, but only core visible via activeTools)
+  const tools = buildToolset(allToolIds)
+
+  // Create per-session ActivatedToolSet
+  const activatedSet = new ActivatedToolSet(coreToolIds)
+
+  // Inject tool-search (dynamically created, closes over activatedSet)
+  tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds))
+
+  // ★ Append Hard Rules + ToolSearch guidance to instructions (Layer 2)
+  const hardRules = buildHardRules()
+  const toolSearchGuidance = buildToolSearchGuidance()
+  const finalInstructions = `${instructions}\n\n${hardRules}\n\n${toolSearchGuidance}`
+
   const baseSettings = {
     model: wrappedModel,
-    instructions,
+    instructions: finalInstructions,
     tools,
     stopWhen: [stepCountIs(MASTER_HARD_MAX_STEPS), dynamicStepLimit()] as StopCondition<any>[],
     experimental_repairToolCall: createToolCallRepair(),
   }
-  // 运行时注入 prepareStep — ToolLoopAgent 内部 spread 到 streamText 时会生效
-  Object.assign(baseSettings, { prepareStep: createMasterPrepareStep(toolIds) })
+  // Inject prepareStep — ToolSearch pull mode
+  Object.assign(baseSettings, {
+    prepareStep: createToolSearchPrepareStep(allToolIds, activatedSet),
+  })
 
   return new ToolLoopAgent(baseSettings)
 }
@@ -460,7 +446,7 @@ function readSystemAgentOverride(
   ].filter(Boolean) as string[]
 
   for (const root of roots) {
-    const agentMdPath = path.join(resolveAgentDir(root, templateId), 'AGENT.md')
+    const agentMdPath = path.join(resolveAgentDir(root, templateId), 'prompt.md')
     if (existsSync(agentMdPath)) {
       try {
         const content = readFileSync(agentMdPath, 'utf8').trim()

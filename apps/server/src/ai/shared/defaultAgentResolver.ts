@@ -10,8 +10,6 @@
 import path from 'node:path'
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import {
-  BUILTIN_IDENTITY_PROMPT,
-  BUILTIN_SOUL_PROMPT,
   BUILTIN_AGENT_PROMPT,
 } from '@/ai/shared/builtinPrompts'
 import {
@@ -28,19 +26,6 @@ const AGENTS_DIR_NAME = 'agents'
 const DEFAULT_AGENT_FOLDER = 'master'
 /** Agent descriptor file name. */
 const AGENT_JSON_FILE = 'agent.json'
-
-/** Prompt file names for the default agent. */
-type DefaultAgentFileName = 'IDENTITY.md' | 'SOUL.md' | 'AGENT.md'
-
-/** Resolved prompt parts for the default agent. */
-export type DefaultAgentPromptParts = {
-  /** Identity prompt content. */
-  identity: string
-  /** Soul prompt content. */
-  soul: string
-  /** Agent prompt content. */
-  agent: string
-}
 
 /** Agent JSON descriptor shape. */
 export type AgentJsonDescriptor = {
@@ -104,70 +89,26 @@ export function readAgentJson(
 }
 
 /**
- * Resolve a single default agent file by priority:
- * project/.openloaf/agents/master/ → workspace/.openloaf/agents/master/ → builtin.
+ * Resolve user's custom prompt.md by priority:
+ * project/.openloaf/agents/master/ → workspace/.openloaf/agents/master/ → null.
+ * Returns null if no user override exists or if the content matches the builtin default.
  */
-export function resolveDefaultAgentFile(
-  fileName: DefaultAgentFileName,
+export function resolveUserAgentOverride(
   workspaceRootPath?: string,
   projectRootPath?: string,
-): string {
-  // 逻辑：project 级优先，缺失则回退 workspace 级，再回退内置默认值。
-  if (projectRootPath) {
+): string | null {
+  const candidates = [projectRootPath, workspaceRootPath].filter(Boolean) as string[]
+  for (const root of candidates) {
     const filePath = path.join(
-      resolveAgentDir(projectRootPath, DEFAULT_AGENT_FOLDER),
-      fileName,
+      resolveAgentDir(root, DEFAULT_AGENT_FOLDER),
+      'prompt.md',
     )
     const content = readTextFile(filePath)
-    if (content) return content
+    if (content && content !== BUILTIN_AGENT_PROMPT) {
+      return content
+    }
   }
-
-  if (workspaceRootPath) {
-    const filePath = path.join(
-      resolveAgentDir(workspaceRootPath, DEFAULT_AGENT_FOLDER),
-      fileName,
-    )
-    const content = readTextFile(filePath)
-    if (content) return content
-  }
-
-  return resolveBuiltinFallback(fileName)
-}
-
-/** Resolve all three prompt parts for the default agent. */
-export function resolveDefaultAgentPromptParts(
-  workspaceRootPath?: string,
-  projectRootPath?: string,
-): DefaultAgentPromptParts {
-  return {
-    identity: resolveDefaultAgentFile(
-      'IDENTITY.md',
-      workspaceRootPath,
-      projectRootPath,
-    ),
-    soul: resolveDefaultAgentFile(
-      'SOUL.md',
-      workspaceRootPath,
-      projectRootPath,
-    ),
-    agent: resolveDefaultAgentFile(
-      'AGENT.md',
-      workspaceRootPath,
-      projectRootPath,
-    ),
-  }
-}
-
-/** Map file name to builtin fallback constant. */
-function resolveBuiltinFallback(fileName: DefaultAgentFileName): string {
-  switch (fileName) {
-    case 'IDENTITY.md':
-      return BUILTIN_IDENTITY_PROMPT
-    case 'SOUL.md':
-      return BUILTIN_SOUL_PROMPT
-    case 'AGENT.md':
-      return BUILTIN_AGENT_PROMPT
-  }
+  return null
 }
 
 /** Default agent.json content (derived from primary template). */
@@ -187,9 +128,7 @@ function buildDefaultAgentFiles(): Array<{ name: string; content: string }> {
       name: AGENT_JSON_FILE,
       content: JSON.stringify(buildDefaultAgentJson(), null, 2),
     },
-    { name: 'IDENTITY.md', content: BUILTIN_IDENTITY_PROMPT },
-    { name: 'SOUL.md', content: BUILTIN_SOUL_PROMPT },
-    { name: 'AGENT.md', content: BUILTIN_AGENT_PROMPT },
+    { name: 'prompt.md', content: BUILTIN_AGENT_PROMPT },
   ]
 }
 

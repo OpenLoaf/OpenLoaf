@@ -7,14 +7,17 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import path from 'node:path'
 import type { PromptContext, PrefaceCapabilities } from '@/ai/shared/types'
+
+const UNKNOWN_VALUE = 'unknown'
 
 /** Build skills summary section for a session preface. */
 export function buildSkillsSummarySection(
   summaries: PromptContext['skillSummaries'],
 ): string {
   const lines = [
-    '# Skills 列表（摘要）',
+    'Skills 列表（摘要）',
     '- 仅注入 YAML front matter（name/description）。',
     '- 需要完整说明请使用工具读取对应 SKILL.md。',
   ]
@@ -65,47 +68,39 @@ function buildActiveSkillsSection(
 export function buildPythonRuntimeSection(context: PromptContext): string {
   const version = context.python.version ?? 'unknown'
   const pathValue = context.python.path ?? 'unknown'
-  const installedLabel = context.python.installed ? '已安装' : '未安装'
-  return [
-    '# Python 运行时（内部参考，严禁输出给用户）',
-    `- 安装状态: ${installedLabel}`,
-    `- version: ${version}`,
-    `- path: ${pathValue}`,
-  ].join('\n')
+  return `Python 运行时: ${version} (${pathValue})`
 }
 
 /** Build language enforcement section. */
 export function buildLanguageSection(context: PromptContext): string {
-  return [
-    '# 语言强制',
-    `- 当前输出语言：${context.responseLanguage}`,
-    '- 你的所有输出必须严格使用上述语言，不得混用或夹杂其他语言。',
-  ].join('\n')
+  return `输出语言：${context.responseLanguage}（严格使用，不得混用其他语言）`
 }
 
 /** Build environment and identity section. */
 export function buildEnvironmentSection(context: PromptContext): string {
-  return [
-    '# 环境与身份（内部参考，严禁输出给用户）',
-    `- workspaceId: ${context.workspace.id}`,
-    `- workspaceName: ${context.workspace.name}`,
+  const lines = [
+    '环境与身份',
+    `- workspace: ${context.workspace.name} (${context.workspace.id})`,
     `- workspaceRootPath: ${context.workspace.rootPath}`,
-    `- projectId: ${context.project.id}`,
-    `- projectName: ${context.project.name}`,
-    `- projectRootPath: ${context.project.rootPath}`,
+  ]
+  if (!isUnknown(context.project.id)) {
+    lines.push(`- project: ${context.project.name} (${context.project.id})`)
+    lines.push(`- projectRootPath: ${context.project.rootPath}`)
+  } else {
+    lines.push('- 临时对话（未绑定项目）')
+  }
+  lines.push(
     `- platform: ${context.platform}`,
-    `- date: ${context.date}`,
-    `- timezone: ${context.timezone}`,
-    `- accountId: ${context.account.id}`,
-    `- accountName: ${context.account.name}`,
-    `- accountEmail: ${context.account.email}`,
-  ].join('\n')
+    `- date: ${context.date} | timezone: ${context.timezone}`,
+    `- account: ${context.account.name} (${context.account.email})`,
+  )
+  return lines.join('\n')
 }
 
 /** Build project rules section. */
 export function buildProjectRulesSection(context: PromptContext): string {
   return [
-    '# 项目规则（已注入，必须严格遵守）',
+    '项目规则（已注入，必须严格遵守）',
     '<project-rules>',
     context.project.rules,
     '</project-rules>',
@@ -115,7 +110,7 @@ export function buildProjectRulesSection(context: PromptContext): string {
 /** Build execution rules section. */
 export function buildExecutionRulesSection(): string {
   return [
-    '# 执行规则（强制）',
+    '执行规则（强制）',
     '- 工具优先：先用工具获取事实，再输出结论。',
     '- 工具结果必须先简要总结后再继续下一步。',
     '- 文件与命令工具仅允许访问 projectRootPath 内的路径。',
@@ -142,7 +137,7 @@ export function buildFileReferenceRulesSection(): string {
 /** Build task delegation rules section. */
 export function buildTaskDelegationRulesSection(): string {
   return [
-    '# 任务分工（强制）',
+    '任务分工（强制）',
     '- 轻量任务由你直接完成。',
     '- 复杂任务必须调用 subAgent 工具。',
     '- 复杂任务判定标准（满足任一条即视为复杂）：',
@@ -209,24 +204,73 @@ export function buildAgentSections(
   return sections.filter((section) => section.trim().length > 0)
 }
 
-/** Build master agent context sections for session preface. */
-export function buildMasterAgentSections(context: PromptContext): string[] {
-  const skillsSummarySection = buildSkillsSummarySection(context.skillSummaries)
-  const activeSkillsSection = buildActiveSkillsSection(
-    context.selectedSkills,
-    context.skillSummaries,
-  )
-  return [
-    buildLanguageSection(context),
-    buildEnvironmentSection(context),
-    buildPythonRuntimeSection(context),
-    buildProjectRulesSection(context),
-    skillsSummarySection,
-    activeSkillsSection,
-    buildExecutionRulesSection(),
-    buildFileReferenceRulesSection(),
-    buildTaskDelegationRulesSection(),
-    buildAgentsDynamicLoadingSection(),
-    buildCompletionSection(),
-  ].filter((section) => section.trim().length > 0)
+/** Check if a value is the unknown fallback. */
+function isUnknown(value: string): boolean {
+  return !value || value === UNKNOWN_VALUE
+}
+
+/** Build session context section with merged environment and identity info. */
+export function buildSessionContextSection(
+  sessionId: string,
+  context: PromptContext,
+): string {
+  const isTempChat = isUnknown(context.project.id) || isUnknown(context.project.name)
+  const lines = [
+    '会话上下文',
+    `- chatSessionId: ${sessionId}`,
+    `- workspace: ${context.workspace.name} (${context.workspace.id})`,
+    `- workspaceRootPath: ${context.workspace.rootPath}`,
+  ]
+  if (isTempChat) {
+    lines.push('- 临时对话（未绑定项目）')
+    const sessionRootPath = path.join(context.workspace.rootPath, '.openloaf', 'chat-history', sessionId, 'root')
+    lines.push(`- projectRootPath: ${sessionRootPath}`)
+  } else {
+    lines.push(`- project: ${context.project.name} (${context.project.id})`)
+    lines.push(`- projectRootPath: ${context.project.rootPath}`)
+  }
+  lines.push(`- platform: ${context.platform}`)
+  if (context.python.installed) {
+    const version = context.python.version ?? 'unknown'
+    const pyPath = context.python.path ?? 'unknown'
+    lines.push(`- python: ${version} (${pyPath})`)
+  }
+  lines.push(`- date: ${context.date} | timezone: ${context.timezone}`)
+  if (context.account.id !== '未登录' && context.account.name !== '未登录') {
+    lines.push(`- account: ${context.account.name} (${context.account.email})`)
+  } else {
+    lines.push('- account: 未登录')
+  }
+  return lines.join('\n')
+}
+
+/**
+ * Build master agent context sections for session preface.
+ * @deprecated Use individual section builders directly from prefaceBuilder.ts.
+ * Kept for backward compatibility — AGENTS dynamic loading and completion
+ * criteria are now in hardRules.ts (Layer 2).
+ */
+export function buildMasterAgentSections(
+  sessionId: string,
+  context: PromptContext,
+): string[] {
+  const sections: string[] = []
+
+  sections.push(buildSessionContextSection(sessionId, context))
+  sections.push(buildLanguageSection(context))
+
+  // Python 运行时 — 仅已安装时添加
+  if (context.python.installed) {
+    sections.push(buildPythonRuntimeSection(context))
+  }
+
+  // 项目规则 — 仅有内容时添加
+  if (context.project.rules && context.project.rules !== '未找到') {
+    sections.push(buildProjectRulesSection(context))
+  }
+
+  // NOTE: buildAgentsDynamicLoadingSection() and buildCompletionSection()
+  // are no longer called here — they moved to hardRules.ts (system instructions Layer 2).
+
+  return sections.filter((section) => section.trim().length > 0)
 }

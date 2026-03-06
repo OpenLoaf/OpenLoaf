@@ -78,7 +78,7 @@ export const taskManageToolDef = {
           .describe('时区，不传使用系统默认'),
       })
       .optional()
-      .describe('定时/周期执行的调度配置（仅 create 使用）'),
+      .describe('定时/周期执行的调度配置（仅 create 使用）。当用户提及未来时间点或周期（"明天8点"、"3小时后"、"每天9点"）时必须传入此参数，不传则立即执行。'),
     skipPlanConfirm: z
       .boolean()
       .optional()

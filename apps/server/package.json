@@ -32,10 +32,12 @@
     "test:ai:behavior:view": "npx promptfoo view"
   },
   "dependencies": {
+    "@ai-sdk/alibaba": "^1.0.10",
     "@ai-sdk/amazon-bedrock": "^4.0.51",
     "@ai-sdk/anthropic": "^3.0.23",
     "@ai-sdk/deepseek": "^2.0.11",
     "@ai-sdk/google": "^3.0.13",
+    "@ai-sdk/luma": "^2.0.24",
     "@ai-sdk/moonshotai": "^2.0.3",
     "@ai-sdk/openai": "^3.0.18",
     "@ai-sdk/provider-utils": "^4.0.9",

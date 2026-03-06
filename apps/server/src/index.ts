@@ -45,10 +45,15 @@ const { app } = startServer();
 // 暂停启动时自动总结调度，避免无 workspace/project 上下文触发总结流程。
 // void initSummaryScheduler();
 
-// 针对 ELECTRON_RUN_AS_NODE 启动的场景，父进程挂了自动退出 (防止成为僵尸进程)
-if (process.env.ELECTRON_RUN_AS_NODE) {
+// 响应 SIGINT/SIGTERM，确保 turbo/pnpm/Electron 发送终止信号时 server 能正确退出
+process.on("SIGINT", () => process.exit(0));
+process.on("SIGTERM", () => process.exit(0));
+
+// 通过 IPC channel 检测父进程退出（Electron desktop 场景）：
+// 当父进程崩溃或退出时 disconnect 会触发，防止成为僵尸进程。
+// 需要 spawn 时 stdio 包含 'ipc'（如 ['ignore', 'pipe', 'pipe', 'ipc']）。
+if (typeof process.send === "function") {
   process.on("disconnect", () => process.exit(0));
-  process.stdin.on("end", () => process.exit(0));
 }
 
 export default app;

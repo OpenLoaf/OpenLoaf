@@ -11,7 +11,6 @@
 
 import * as React from "react";
 import { useMutation } from "@tanstack/react-query";
-import { LayoutDashboard } from "lucide-react";
 import DesktopEditToolbar from "@/components/desktop/DesktopEditToolbar";
 import DesktopPage, { getInitialDesktopItems } from "@/components/desktop/DesktopPage";
 import type { DesktopItem } from "@/components/desktop/types";
@@ -31,6 +30,7 @@ import { queryClient, trpc } from "@/utils/trpc";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useHeaderSlot } from "@/hooks/use-header-slot";
 
 interface DesktopHistorySnapshot {
   /** Past snapshots (oldest -> newest). */
@@ -70,8 +70,8 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop({
     future: [],
     suspended: false,
   });
-  const controlsSlotRef = React.useRef<HTMLDivElement | null>(null);
-  const [controlsTarget, setControlsTarget] = React.useState<HTMLDivElement | null>(null);
+  const headerActionsTarget = useHeaderSlot((s) => s.headerActionsTarget);
+  const isActiveTab = !ownTabId || globalActiveTabId === ownTabId;
   const loadedUriRef = React.useRef<string | null>(null);
   const saveDesktopMutation = useMutation(trpc.fs.writeFile.mutationOptions());
 
@@ -120,11 +120,6 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop({
     if (!workspaceId || !workspaceRootUri) return;
     setTabBaseParams(ownTabId, { workspaceId, rootUri: workspaceRootUri });
   }, [ownTabId, setTabBaseParams, workspaceId, workspaceRootUri]);
-
-  React.useEffect(() => {
-    // header slot ref 由上层控制，这里等其挂载后再渲染 portal。
-    setControlsTarget(controlsSlotRef.current);
-  }, []);
 
   /** Update edit mode state. */
   const handleSetEditMode = React.useCallback(
@@ -318,29 +313,23 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop({
   const effectiveEditBreakpoint =
     editBreakpointLock === "auto" ? viewBreakpoint : editBreakpointLock;
 
+  const effectiveTarget = isActiveTab ? headerActionsTarget : null;
+
   return (
     <div className="flex h-full w-full min-h-0 flex-col">
-      <div className="flex items-center justify-between gap-3 bg-background/80 px-3 py-2 backdrop-blur-sm">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <LayoutDashboard className="h-4 w-4 text-amber-700/70 dark:text-amber-300/70" />
-          <span>工作台</span>
-        </div>
-        <div ref={controlsSlotRef} className="workspace-desktop-header-controls" />
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col">
-        <DesktopEditToolbar
-          controlsTarget={controlsTarget}
-          editMode={editMode}
-          activeBreakpoint={effectiveEditBreakpoint}
-          items={items}
-          onAddItem={handleAddItem}
-          onCompact={handleCompact}
-          onCancel={handleCancel}
-          onDone={handleDone}
-          onEnterEditMode={() => handleSetEditMode(true)}
-        />
-        <div className="min-h-0 flex-1">
-          <DesktopPage
+      <DesktopEditToolbar
+        controlsTarget={effectiveTarget}
+        editMode={editMode}
+        activeBreakpoint={effectiveEditBreakpoint}
+        items={items}
+        onAddItem={handleAddItem}
+        onCompact={handleCompact}
+        onCancel={handleCancel}
+        onDone={handleDone}
+        onEnterEditMode={() => handleSetEditMode(true)}
+      />
+      <div className="min-h-0 flex-1">
+        <DesktopPage
             items={items}
             scope="workspace"
             editMode={editMode}
@@ -358,7 +347,6 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop({
             onCancel={handleCancel}
             onDone={handleDone}
           />
-        </div>
       </div>
     </div>
   );

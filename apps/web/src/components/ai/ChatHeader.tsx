@@ -11,7 +11,7 @@
 
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { Bug, BrushCleaning, History, MessageSquarePlus, PanelLeft, X } from "lucide-react";
+import { Bug, History, Lightbulb, MessageSquarePlus, PanelLeft, X } from "lucide-react";
 import { QUICK_LAUNCH_ITEMS, PROJECT_QUICK_LAUNCH_ITEMS } from "./quick-launch-items";
 import { useProject } from "@/hooks/use-project";
 import SessionList from "@/components/ai/session/SessionList";
@@ -58,7 +58,7 @@ const CHAT_HEADER_EMAIL_ICON_CLASS = {
   feedback: "text-[#7c3aed] dark:text-violet-300",
   openDock: "text-[#188038] dark:text-emerald-300",
   closeDock: "text-[#f9ab00] dark:text-amber-300",
-  clear: "text-[#d93025] dark:text-rose-300",
+  clear: "text-[#188038] dark:text-emerald-300",
   history: "text-[#1a73e8] dark:text-sky-300",
   close: "text-[#5f6368] dark:text-slate-300",
 } as const;
@@ -230,18 +230,8 @@ export default function ChatHeader({
       });
       const content = typeof res?.content === "string" ? res.content : "";
       const jsonlPath = typeof res?.jsonlPath === "string" ? res.jsonlPath : "";
-      // 逻辑：解析 system.json 原始字符串，提取 instructions 和 tools。
-      let systemInstructions = "";
-      let systemTools: Record<string, any> = {};
-      if (typeof res?.systemJsonRaw === "string" && res.systemJsonRaw.trim()) {
-        try {
-          const parsed = JSON.parse(res.systemJsonRaw);
-          if (typeof parsed.instructions === "string") systemInstructions = parsed.instructions;
-          if (parsed.tools && typeof parsed.tools === "object") systemTools = parsed.tools;
-        } catch { /* ignore parse errors */ }
-      }
+      const promptContent = typeof res?.promptContent === "string" ? res.promptContent : "";
       const panelKey = `preface:${activeSessionId}`;
-      // 逻辑：使用 ai-debug-viewer 组件，按 Accordion 分区展示调试信息。
       pushStackItem(tabId, {
         id: panelKey,
         sourceKey: panelKey,
@@ -249,8 +239,7 @@ export default function ChatHeader({
         title: "AI调试",
         params: {
           prefaceContent: content,
-          systemInstructions,
-          systemTools,
+          promptContent,
           sessionId: activeSessionId,
           jsonlPath: jsonlPath || undefined,
           __customHeader: true,
@@ -503,52 +492,54 @@ export default function ChatHeader({
           </PopoverContent>
         </Popover>
       )}
-      <div className="min-w-0 w-full truncate pr-2 text-left text-sm font-medium">
-        {showSessionIndex && sessionIndex ? (
-          <span className="mr-1 text-[11px] text-muted-foreground/70 tabular-nums">
-            #{sessionIndex}
-          </span>
-        ) : null}
-        {sessionTitle.length > 0 ? sessionTitle : null}
-      </div>
-      <MessageActions className="min-w-0 justify-end gap-0">
+      <div className="flex min-w-0 w-full items-center pr-2">
+        <span className="min-w-0 truncate text-left text-sm font-medium">
+          {showSessionIndex && sessionIndex ? (
+            <span className="mr-1 text-[11px] text-muted-foreground/70 tabular-nums">
+              #{sessionIndex}
+            </span>
+          ) : null}
+          {sessionTitle.length > 0 ? sessionTitle : null}
+        </span>
         {showPrefaceButton ? (
           <MessageAction
             aria-label="View Debug Context"
             onClick={handleViewPreface}
             disabled={prefaceLoading}
-            className={resolveActionIconClass("debug")}
+            className={cn("ml-0.5 shrink-0", resolveActionIconClass("debug"))}
             tooltip="查看上下文调试信息"
             label="查看上下文调试信息"
           >
-            <Bug size={20} />
+            <Bug size={16} />
           </MessageAction>
         ) : null}
-        {saasLoggedIn ? (
+        {saasLoggedIn && messages.length > 0 ? (
           <MessageAction
             aria-label={tAi("chatFeedback.button")}
             onClick={() => setChatFeedbackOpen(true)}
-            className={resolveActionIconClass("feedback")}
+            className={cn("shrink-0", resolveActionIconClass("feedback"))}
             disabled={chatFeedbackSubmitting || !activeSessionId}
             tooltip={tAi("chatFeedback.button")}
             label={tAi("chatFeedback.button")}
           >
-            <MessageSquarePlus size={20} />
+            <Lightbulb size={16} />
           </MessageAction>
         ) : null}
+      </div>
+      <MessageActions className="min-w-0 justify-end gap-0">
         {shouldShowNewSessionButton && (
           <MessageAction
-            aria-label="清理会话"
+            aria-label="重新开始会话"
             className={resolveActionIconClass("clear")}
             onClick={() => {
               setHistoryOpen(false);
               menuLockRef.current = false;
               newSession();
             }}
-            tooltip="清理会话"
-            label="清理会话"
+            tooltip="重新开始会话"
+            label="重新开始会话"
           >
-            <BrushCleaning size={20} />
+            <MessageSquarePlus size={20} />
           </MessageAction>
         )}
         <Popover open={historyOpen} onOpenChange={setHistoryOpen}>

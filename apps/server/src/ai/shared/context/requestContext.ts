@@ -83,6 +83,8 @@ export type RequestContext = {
   cliSessionId?: string;
   /** Session preface text (only set for first message in a CLI session). */
   cliSessionPreface?: string;
+  /** SDK assistant UUID for resumeSessionAt (rewind target). */
+  cliRewindTarget?: string;
 };
 
 const storage = new AsyncLocalStorage<RequestContext>();
@@ -350,4 +352,16 @@ export function getCliSessionId(): string | undefined {
 /** Get CLI session preface text (only set for first message). */
 export function getCliSessionPreface(): string | undefined {
   return getRequestContext()?.cliSessionPreface;
+}
+
+/** Set CLI rewind target (SDK assistant UUID for resumeSessionAt). */
+export function setCliRewindTarget(uuid: string): void {
+  const ctx = getRequestContext();
+  if (!ctx) return;
+  ctx.cliRewindTarget = uuid;
+}
+
+/** Get CLI rewind target (SDK assistant UUID for resumeSessionAt). */
+export function getCliRewindTarget(): string | undefined {
+  return getRequestContext()?.cliRewindTarget;
 }

@@ -1,3 +1,13 @@
+## License
+MIT
+## License
+MIT
+## License
+MIT
+## License
+MIT
+## License
+MIT
 # E2E Test Workspace
 
 This workspace contains test projects for OpenLoaf E2E behavior testing.

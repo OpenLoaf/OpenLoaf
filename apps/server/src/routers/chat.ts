@@ -369,16 +369,24 @@ export class ChatRouterImpl extends BaseChatRouter {
 
           const content = await resolveSessionPrefaceText(ctx.prisma, input.sessionId)
           let jsonlPath: string | undefined
-          let systemJsonRaw: string | undefined
+          let promptContent: string | undefined
           try {
             jsonlPath = await resolveMessagesJsonlPath(input.sessionId)
-            // 逻辑：读取 system.json 原始内容，直接作为字符串返回给前端解析。
-            const systemJsonPath = nodePath.join(nodePath.dirname(jsonlPath), 'system.json')
-            systemJsonRaw = await fsPromises.readFile(systemJsonPath, 'utf-8')
+            const sessionDir = nodePath.dirname(jsonlPath)
+            // 优先读 PROMPT.md，回退读 system.json（兼容旧会话）
+            try {
+              promptContent = await fsPromises.readFile(nodePath.join(sessionDir, 'PROMPT.md'), 'utf-8')
+            } catch {
+              try {
+                const raw = await fsPromises.readFile(nodePath.join(sessionDir, 'system.json'), 'utf-8')
+                const parsed = JSON.parse(raw)
+                if (typeof parsed.instructions === 'string') promptContent = parsed.instructions
+              } catch { /* ignore */ }
+            }
           } catch {
             // 非关键操作
           }
-          return { content, jsonlPath, systemJsonRaw }
+          return { content, jsonlPath, promptContent }
         }),
 
       autoTitle: shieldedProcedure

@@ -368,3 +368,18 @@ export function buildProjectTitleMap(projects: ProjectNode[]): Map<string, strin
   }
   return map;
 }
+
+/** Build a projectId -> icon map from trees. */
+export function buildProjectIconMap(projects: ProjectNode[]): Map<string, string> {
+  const map = new Map<string, string>();
+  const stack = [...projects];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+    if (current.projectId && current.icon) map.set(current.projectId, current.icon);
+    for (const child of current.children ?? []) {
+      stack.push(child);
+    }
+  }
+  return map;
+}

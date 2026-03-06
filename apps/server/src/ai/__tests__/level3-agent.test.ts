@@ -19,7 +19,7 @@ import {
   setChatModel,
   setAbortSignal,
 } from './helpers/testEnv'
-import { createMasterAgentRunner } from '@/ai/services/masterAgentRunner'
+import { createSubAgent } from '@/ai/services/agentFactory'
 import {
   printSection,
   printModelInfo,
@@ -60,13 +60,15 @@ async function main() {
 
   try {
     const callStart = Date.now()
-    const runner = createMasterAgentRunner({
+    const agent = createSubAgent({
+      agentType: 'system',
       model: resolved.model,
-      modelInfo: resolved.modelInfo,
-      toolIds: ALLOWED_TOOL_IDS,
+      inlineConfig: {
+        toolIds: [...ALLOWED_TOOL_IDS],
+      },
     })
 
-    const agentStream = await runner.agent.stream({
+    const agentStream = await agent.stream({
       messages: [{ role: 'user' as const, content: TEST_PROMPT }],
       abortSignal: ac.signal,
     })
