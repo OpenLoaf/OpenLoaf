@@ -127,6 +127,7 @@ export function createApp() {
   );
 
   app.get("/", (c) => c.text("OK"));
+  app.get("/health", (c) => c.text("OK"));
 
   return app;
 }

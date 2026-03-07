@@ -14,6 +14,7 @@ import {
   t,
   getWorkspaceRootPath,
   getProjectRootPath,
+  getAllProjectRootPaths,
 } from '@openloaf/api'
 import {
   listTasks,
@@ -44,10 +45,10 @@ export class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .output(scheduledTaskSchemas.list.output)
         .query(async ({ input }) => {
           const workspaceRoot = getWorkspaceRootPath()
-          const projectRoot = input.projectId
+          const projectRoots = input.projectId
             ? getProjectRootPath(input.projectId, input.workspaceId)
-            : null
-          return listTasks(workspaceRoot, projectRoot)
+            : getAllProjectRootPaths(input.workspaceId)
+          return listTasks(workspaceRoot, projectRoots)
         }),
       create: shieldedProcedure
         .input(scheduledTaskSchemas.create.input)
@@ -174,10 +175,10 @@ export class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .output(scheduledTaskSchemas.getTaskDetail.output)
         .query(async ({ input }) => {
           const workspaceRoot = getWorkspaceRootPath()
-          const projectRoot = input.projectId
+          const projectRoots = input.projectId
             ? getProjectRootPath(input.projectId, input.workspaceId)
-            : null
-          const task = getTask(input.id, workspaceRoot, projectRoot)
+            : getAllProjectRootPaths(input.workspaceId)
+          const task = getTask(input.id, workspaceRoot, projectRoots)
           if (!task) throw new Error(`Task not found: ${input.id}`)
           return task
         }),
@@ -186,13 +187,13 @@ export class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .output(scheduledTaskSchemas.listByStatus.output)
         .query(async ({ input }) => {
           const workspaceRoot = getWorkspaceRootPath()
-          const projectRoot = input.projectId
+          const projectRoots = input.projectId
             ? getProjectRootPath(input.projectId, input.workspaceId)
-            : null
+            : getAllProjectRootPaths(input.workspaceId)
           if (input.status && input.status.length > 0) {
-            return listTasksByStatus(input.status, workspaceRoot, projectRoot)
+            return listTasksByStatus(input.status, workspaceRoot, projectRoots)
           }
-          return listTasks(workspaceRoot, projectRoot)
+          return listTasks(workspaceRoot, projectRoots)
         }),
       archiveCompleted: shieldedProcedure
         .input(scheduledTaskSchemas.archiveCompleted.input)

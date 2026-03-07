@@ -114,6 +114,20 @@ export function getProjectRootPath(projectId: string, workspaceId?: string): str
   return resolveFilePathFromUri(rootUri);
 }
 
+/** Get all project root paths for a workspace. */
+export function getAllProjectRootPaths(workspaceId?: string): string[] {
+  const entries = getWorkspaceProjectEntries(workspaceId);
+  const paths: string[] = [];
+  for (const [, rootUri] of entries) {
+    try {
+      paths.push(resolveFilePathFromUri(rootUri));
+    } catch {
+      // skip invalid URIs
+    }
+  }
+  return paths;
+}
+
 /** Upsert project root URI into active workspace config. */
 export function upsertActiveWorkspaceProject(projectId: string, rootUri: string): void {
   upsertWorkspaceProjectEntry(projectId, rootUri);

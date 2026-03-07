@@ -11,7 +11,7 @@
 
 import TaskBoardPage from './TaskBoardPage'
 
-/** Workspace-level scheduled tasks page (shown in sidebar tab). */
-export default function ScheduledTasksPage() {
-  return <TaskBoardPage />
+/** Scheduled tasks page (shown in sidebar tab or opened from chat). */
+export default function ScheduledTasksPage({ projectId }: { projectId?: string }) {
+  return <TaskBoardPage projectId={projectId} />
 }

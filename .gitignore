@@ -55,11 +55,9 @@ temp
 .ruler
 .trae
 
+.codex/
+
 # START Ruler Generated Files
-/.codex/config.json
-/.codex/config.json.bak
-/.codex/config.toml
-/.codex/config.toml.bak
 /.cursor/mcp.json
 /.cursor/mcp.json.bak
 /.mcp.json

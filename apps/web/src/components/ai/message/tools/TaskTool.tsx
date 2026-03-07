@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
 import { useTabs } from '@/hooks/use-tabs'
+import { useOptionalChatSession } from '@/components/ai/context/ChatSessionContext'
 import type { AnyToolPart } from './shared/tool-utils'
 import { getToolName, normalizeToolInput, isToolStreaming } from './shared/tool-utils'
 
@@ -195,6 +196,8 @@ export default function TaskTool({
   const { t } = useTranslation('tasks')
   const pushStackItem = useTabRuntime((state) => state.pushStackItem)
   const { activeTabId } = useTabs()
+  const chatSession = useOptionalChatSession()
+  const projectId = chatSession?.projectId
   const streaming = isToolStreaming(part)
 
   const formatScheduleLabel = useCallback((schedule?: ScheduleInput): string | null => {
@@ -247,8 +250,9 @@ export default function TaskTool({
       sourceKey: 'scheduled-tasks-page',
       component: 'scheduled-tasks-page',
       title: t('task.board'),
+      params: projectId ? { projectId } : undefined,
     })
-  }, [activeTabId, pushStackItem, t])
+  }, [activeTabId, pushStackItem, t, projectId])
 
   const handleOpenTaskDetail = useCallback(() => {
     if (!activeTabId) return
@@ -259,9 +263,9 @@ export default function TaskTool({
       sourceKey: `task-detail:${taskId}`,
       component: 'task-detail',
       title: output?.task?.name ?? t('taskLabels.background'),
-      params: { taskId },
+      params: { taskId, projectId },
     })
-  }, [activeTabId, pushStackItem, output, t])
+  }, [activeTabId, pushStackItem, output, t, projectId])
 
   const toolName = getToolName(part)
 

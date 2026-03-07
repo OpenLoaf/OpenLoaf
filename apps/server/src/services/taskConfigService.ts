@@ -181,12 +181,15 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
 /** List tasks from workspace + optional project roots. */
 export function listTasks(
   workspaceRoot: string,
-  projectRoot?: string | null,
+  projectRoots?: string | string[] | null,
 ): TaskConfig[] {
   const tasks: TaskConfig[] = []
   tasks.push(...scanTasks(workspaceRoot, 'workspace'))
-  if (projectRoot) {
-    tasks.push(...scanTasks(projectRoot, 'project'))
+  if (projectRoots) {
+    const roots = Array.isArray(projectRoots) ? projectRoots : [projectRoots]
+    for (const root of roots) {
+      tasks.push(...scanTasks(root, 'project'))
+    }
   }
   tasks.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))
   return tasks
@@ -196,22 +199,25 @@ export function listTasks(
 export function listTasksByStatus(
   status: TaskStatus | TaskStatus[],
   workspaceRoot: string,
-  projectRoot?: string | null,
+  projectRoots?: string | string[] | null,
 ): TaskConfig[] {
   const statuses = Array.isArray(status) ? status : [status]
-  return listTasks(workspaceRoot, projectRoot).filter((t) => statuses.includes(t.status))
+  return listTasks(workspaceRoot, projectRoots).filter((t) => statuses.includes(t.status))
 }
 
 /** Get a single task by ID. */
 export function getTask(
   id: string,
   workspaceRoot: string,
-  projectRoot?: string | null,
+  projectRoots?: string | string[] | null,
 ): TaskConfig | null {
-  if (projectRoot) {
-    const taskDir = path.join(resolveTasksDir(projectRoot), id)
-    const task = readTaskFromDir(taskDir, 'project')
-    if (task) return task
+  if (projectRoots) {
+    const roots = Array.isArray(projectRoots) ? projectRoots : [projectRoots]
+    for (const root of roots) {
+      const taskDir = path.join(resolveTasksDir(root), id)
+      const task = readTaskFromDir(taskDir, 'project')
+      if (task) return task
+    }
   }
   const taskDir = path.join(resolveTasksDir(workspaceRoot), id)
   return readTaskFromDir(taskDir, 'workspace')

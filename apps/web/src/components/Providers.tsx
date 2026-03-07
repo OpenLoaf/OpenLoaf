@@ -305,6 +305,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       if (isResizeObserverNoise(message)) {
         return;
       }
+      // 过滤 SaaS SDK 网络请求失败的 console 噪音（离线/本地模式下常见）。
+      if (typeof args[0] === "string" && args[0].includes("[sdk] request error")) {
+        return;
+      }
       originalConsoleError(...args);
     };
     const overlayElementId = "webpack-dev-server-client-overlay";

@@ -22,7 +22,8 @@ import { widgetTemplate } from './templates/widget'
 import { projectTemplate } from './templates/project'
 import { visionTemplate } from './templates/vision'
 import { coderTemplate } from './templates/coder'
-import { wpsAgentTemplate } from './templates/wps-agent'
+// TODO: WPS Agent 暂时屏蔽，待 WPS 插件联调完成后恢复
+// import { wpsAgentTemplate } from './templates/wps-agent'
 
 /** 所有 Agent 模版。 */
 export const ALL_TEMPLATES: readonly AgentTemplate[] = [
@@ -36,7 +37,7 @@ export const ALL_TEMPLATES: readonly AgentTemplate[] = [
   projectTemplate,
   visionTemplate,
   coderTemplate,
-  wpsAgentTemplate,
+  // wpsAgentTemplate,
 ] as const
 
 /** 模版 ID → AgentTemplate 映射。 */
