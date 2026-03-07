@@ -23,7 +23,7 @@
     "logout": "退出登录",
     "loginAccount": "登录OpenLoaf账户",
     "checkUpdate": "检查更新",
-    "defaultWorkspaceName": "默认工作空间",
+    "defaultWorkspaceName": "临时对话",
     "title": "工作空间",
     "loading": "加载中…",
     "addWorkspace": "新增工作空间",

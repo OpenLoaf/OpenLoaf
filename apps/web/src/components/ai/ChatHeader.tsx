@@ -150,6 +150,9 @@ export default function ChatHeader({
   // 新建会话按钮显示条件：有历史消息 + 启用多会话模式
   const shouldShowNewSessionButton = messages.length > 0 && (enableMultiSession ?? Boolean(quickLaunchProjectId));
 
+  // 临时对话不显示历史按钮
+  const shouldShowHistoryButton = enableMultiSession ?? Boolean(quickLaunchProjectId);
+
   const effectiveChatFeedbackOpen = chatFeedbackOpen && saasLoggedIn;
 
   const syncHistoryTitleToTabTitle = useMutation({
@@ -300,7 +303,7 @@ export default function ChatHeader({
     workspaceId,
   ]);
 
-  /** Submit feedback payload to SaaS with SDK-first + HTTP fallback. */
+  /** Submit feedback payload to SaaS. */
   const submitChatFeedbackPayload = React.useCallback(async (input: {
     baseUrl: string;
     content: string;
@@ -310,42 +313,12 @@ export default function ChatHeader({
       baseUrl: input.baseUrl,
       getAccessToken: async () => (await getAccessToken()) ?? "",
     });
-    try {
-      await client.feedback.submit({
-        source: "openloaf",
-        type: "chat",
-        content: input.content,
-        context: input.context,
-      } as any);
-      return;
-    } catch {
-      // 逻辑：兼容旧版 SDK（未包含 chat 类型）时，退回到公开反馈接口直连提交。
-    }
-
-    const accessToken = (await getAccessToken()) ?? "";
-    const response = await fetch(`${input.baseUrl}/api/public/feedback`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      },
-      body: JSON.stringify({
-        source: "openloaf",
-        type: "chat",
-        content: input.content,
-        context: input.context,
-      }),
+    await client.feedback.submit({
+      source: "openloaf",
+      type: "chat",
+      content: input.content,
+      context: input.context,
     });
-    if (response.ok) return;
-
-    let message = "";
-    try {
-      const json = await response.json();
-      message = typeof json?.message === "string" ? json.message : "";
-    } catch {
-      message = "";
-    }
-    throw new Error(message || `HTTP ${response.status}`);
   }, []);
 
   /** Submit chat feedback with current session zip attachment. */
@@ -542,66 +515,68 @@ export default function ChatHeader({
             <MessageSquarePlus size={20} />
           </MessageAction>
         )}
-        <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
-          <PopoverTrigger asChild>
-            <MessageAction
-              aria-label="History"
-              className={resolveActionIconClass("history")}
-              onClick={() => {
-                // 中文注释：点击历史按钮立即刷新会话列表，确保拿到最新数据。
-                void refetchSessions();
+        {shouldShowHistoryButton && (
+          <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
+            <PopoverTrigger asChild>
+              <MessageAction
+                aria-label="History"
+                className={resolveActionIconClass("history")}
+                onClick={() => {
+                  // 中文注释：点击历史按钮立即刷新会话列表，确保拿到最新数据。
+                  void refetchSessions();
+                }}
+                tooltip="历史会话"
+                label="历史会话"
+              >
+                <History size={20} />
+              </MessageAction>
+            </PopoverTrigger>
+            <PopoverContent
+              side="bottom"
+              align="end"
+              className="flex w-80 max-h-[min(80svh,var(--radix-popover-content-available-height))] flex-col overflow-hidden p-2"
+              onInteractOutside={(e) => {
+                if (menuLockRef.current) e.preventDefault();
               }}
-              tooltip="历史会话"
-              label="历史会话"
             >
-              <History size={20} />
-            </MessageAction>
-          </PopoverTrigger>
-          <PopoverContent
-            side="bottom"
-            align="end"
-            className="flex w-80 max-h-[min(80svh,var(--radix-popover-content-available-height))] flex-col overflow-hidden p-2"
-            onInteractOutside={(e) => {
-              if (menuLockRef.current) e.preventDefault();
-            }}
-          >
-            <SessionList
-              tabId={tabId}
-              activeSessionId={activeSessionId}
-              onMenuOpenChange={handleMenuOpenChange}
-              onSelect={(session) => {
-                // 选中历史会话后：关闭弹层 + 切换会话并加载历史
-                setHistoryOpen(false);
-                menuLockRef.current = false;
-                const hasTabBase = Boolean(tabView?.base);
-                const tabTitle = String(tabView?.title ?? "").trim();
-                const selectedSessionMeta = sessions.find((item) => item.id === session.id);
-                const isSelectedUserRename = Boolean(selectedSessionMeta?.isUserRename);
-                // 无左侧 base 的 tab：如果历史会话还没被用户重命名/仍是默认标题，则用当前 tab title 覆盖它
-                if (
-                  !hasTabBase &&
-                  tabTitle.length > 0 &&
-                  !isSelectedUserRename &&
-                  (session.name.trim().length === 0 || session.name.trim() === "新对话")
-                ) {
-                  syncHistoryTitleToTabTitle.mutate({
-                    where: { id: session.id, isUserRename: false },
-                    data: { title: tabTitle },
-                  } as any);
-                }
-                if (tabId && !hasTabBase) {
-                  const nextTitle = session.name.trim();
-                  if (nextTitle) setTabTitle(tabId, nextTitle);
-                }
-                // 历史会话可能属于不同项目，写入 chatSessionProjectIds 映射
-                if (tabId && selectedSessionMeta?.projectId) {
-                  setSessionProjectId(tabId, session.id, selectedSessionMeta.projectId);
-                }
-                selectSession(session.id);
-              }}
-            />
-          </PopoverContent>
-        </Popover>
+              <SessionList
+                tabId={tabId}
+                activeSessionId={activeSessionId}
+                onMenuOpenChange={handleMenuOpenChange}
+                onSelect={(session) => {
+                  // 选中历史会话后：关闭弹层 + 切换会话并加载历史
+                  setHistoryOpen(false);
+                  menuLockRef.current = false;
+                  const hasTabBase = Boolean(tabView?.base);
+                  const tabTitle = String(tabView?.title ?? "").trim();
+                  const selectedSessionMeta = sessions.find((item) => item.id === session.id);
+                  const isSelectedUserRename = Boolean(selectedSessionMeta?.isUserRename);
+                  // 无左侧 base 的 tab：如果历史会话还没被用户重命名/仍是默认标题，则用当前 tab title 覆盖它
+                  if (
+                    !hasTabBase &&
+                    tabTitle.length > 0 &&
+                    !isSelectedUserRename &&
+                    (session.name.trim().length === 0 || session.name.trim() === "新对话")
+                  ) {
+                    syncHistoryTitleToTabTitle.mutate({
+                      where: { id: session.id, isUserRename: false },
+                      data: { title: tabTitle },
+                    } as any);
+                  }
+                  if (tabId && !hasTabBase) {
+                    const nextTitle = session.name.trim();
+                    if (nextTitle) setTabTitle(tabId, nextTitle);
+                  }
+                  // 历史会话可能属于不同项目，写入 chatSessionProjectIds 映射
+                  if (tabId && selectedSessionMeta?.projectId) {
+                    setSessionProjectId(tabId, session.id, selectedSessionMeta.projectId);
+                  }
+                  selectSession(session.id);
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
         {onCloseSession && (
           <MessageAction
             aria-label="关闭会话"

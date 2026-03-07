@@ -492,6 +492,7 @@ export const settingSchemas = {
     input: z.object({
       workspaceId: z.string(),
       boardFolderUri: z.string(),
+      saasAccessToken: z.string().optional(),
     }),
     output: z.object({
       title: z.string(),

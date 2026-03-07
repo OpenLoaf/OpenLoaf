@@ -48,7 +48,7 @@ const ProjectTreeSkeleton = () => (
   <div className="flex flex-col gap-1 px-1 py-1">
     <SidebarMenuSkeleton
       showIcon
-      className="[&_[data-sidebar=menu-skeleton-icon]]:bg-sidebar-accent/80 [&_[data-sidebar=menu-skeleton-text]]:bg-sidebar-accent/80"
+      className="[&_[data-sidebar=menu-skeleton-icon]]:bg-muted-foreground/15 [&_[data-sidebar=menu-skeleton-text]]:bg-muted-foreground/15"
     />
     <SidebarMenuSub className="mx-1 px-1">
       <SidebarMenuSkeleton
@@ -66,11 +66,11 @@ const ProjectTreeSkeleton = () => (
     </SidebarMenuSub>
     <SidebarMenuSkeleton
       showIcon
-      className="[&_[data-sidebar=menu-skeleton-icon]]:bg-sidebar-accent/80 [&_[data-sidebar=menu-skeleton-text]]:bg-sidebar-accent/80"
+      className="[&_[data-sidebar=menu-skeleton-icon]]:bg-muted-foreground/15 [&_[data-sidebar=menu-skeleton-text]]:bg-muted-foreground/15"
     />
     <SidebarMenuSkeleton
       showIcon
-      className="[&_[data-sidebar=menu-skeleton-icon]]:bg-sidebar-accent/80 [&_[data-sidebar=menu-skeleton-text]]:bg-sidebar-accent/80"
+      className="[&_[data-sidebar=menu-skeleton-icon]]:bg-muted-foreground/15 [&_[data-sidebar=menu-skeleton-text]]:bg-muted-foreground/15"
     />
     <SidebarMenuSub className="mx-1 px-1">
       <SidebarMenuSkeleton
@@ -88,7 +88,7 @@ const ProjectTreeSkeleton = () => (
     </SidebarMenuSub>
     <SidebarMenuSkeleton
       showIcon
-      className="[&_[data-sidebar=menu-skeleton-icon]]:bg-sidebar-accent/80 [&_[data-sidebar=menu-skeleton-text]]:bg-sidebar-accent/80"
+      className="[&_[data-sidebar=menu-skeleton-icon]]:bg-muted-foreground/15 [&_[data-sidebar=menu-skeleton-text]]:bg-muted-foreground/15"
     />
   </div>
 );

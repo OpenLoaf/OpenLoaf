@@ -49,6 +49,9 @@ import {
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { trpc } from "@/utils/trpc";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
+import { useSaasAuth } from "@/hooks/use-saas-auth";
+import { getCachedAccessToken } from "@/lib/saas-auth";
+import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import i18next from "i18next";
 
 export type BoardCanvasProps = {
@@ -259,6 +262,8 @@ export function BoardCanvas({
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [aiNaming, setAiNaming] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const { loggedIn: saasLoggedIn } = useSaasAuth();
   const [saveToProjectOpen, setSaveToProjectOpen] = useState(false);
   const closeTab = useTabs((s) => s.closeTab);
   const inferBoardNameMutation = useMutation(trpc.settings.inferBoardName.mutationOptions());
@@ -276,11 +281,16 @@ export function BoardCanvas({
   }, [renameValue, tabId, setTabTitle]);
   const handleAiName = useCallback(async () => {
     if (!boardFolderUri || !resolvedWorkspaceId) return;
+    if (!saasLoggedIn) {
+      setLoginOpen(true);
+      return;
+    }
     setAiNaming(true);
     try {
       const result = await inferBoardNameMutation.mutateAsync({
         workspaceId: resolvedWorkspaceId,
         boardFolderUri,
+        saasAccessToken: getCachedAccessToken() ?? undefined,
       });
       if (result.title) {
         setRenameValue(result.title);
@@ -292,7 +302,7 @@ export function BoardCanvas({
     } finally {
       setAiNaming(false);
     }
-  }, [boardFolderUri, resolvedWorkspaceId, inferBoardNameMutation]);
+  }, [boardFolderUri, resolvedWorkspaceId, saasLoggedIn, inferBoardNameMutation]);
   const handleDeleteBoard = useCallback(() => {
     if (!boardFolderUri || !resolvedWorkspaceId || !tabId) return;
     if (!confirm(i18next.t('nav:canvasList.confirmDelete'))) return;
@@ -311,6 +321,11 @@ export function BoardCanvas({
       },
     );
   }, [boardFolderUri, resolvedWorkspaceId, tabId, workspace?.rootUri, deleteBoardMutation, closeTab]);
+  // Auto-close login dialog on successful login
+  useEffect(() => {
+    if (saasLoggedIn && loginOpen) setLoginOpen(false);
+  }, [saasLoggedIn, loginOpen]);
+
   const effectiveTarget = isActiveTab ? headerActionsTarget : null;
   /** Board thumbnail writer mutation. */
   const writeThumbnailMutation = useMutation(trpc.fs.writeBinary.mutationOptions());
@@ -478,9 +493,15 @@ export function BoardCanvas({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8 shrink-0"
+                    className={`h-8 w-8 shrink-0 transition-colors duration-150 ${
+                      aiNaming || snapshot.elements.length === 0
+                        ? "text-muted-foreground opacity-50"
+                        : saasLoggedIn
+                          ? "text-amber-500 hover:text-amber-600 hover:border-amber-300 dark:text-amber-400 dark:hover:text-amber-300"
+                          : "text-muted-foreground"
+                    }`}
                     title={i18next.t('nav:canvasList.aiName')}
-                    disabled={aiNaming}
+                    disabled={aiNaming || snapshot.elements.length === 0}
                     onClick={handleAiName}
                   >
                     {aiNaming ? (
@@ -525,6 +546,7 @@ export function BoardCanvas({
         </div>,
         effectiveTarget
       )}
+      <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <ProjectFileSystemTransferDialog
         open={saveToProjectOpen}
         onOpenChange={setSaveToProjectOpen}

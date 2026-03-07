@@ -244,6 +244,13 @@
     "confirmDelete": "Delete this canvas?",
     "aiName": "AI Name",
     "aiNameEmpty": "Canvas is empty, cannot generate a name",
-    "aiNameFailed": "AI naming failed, please try again later"
+    "aiNameFailed": "AI naming failed, please try again later",
+    "copyPath": "Copy Path",
+    "pathCopied": "Path copied",
+    "moveToProject": "Move to Project",
+    "selectProject": "Select Target Project",
+    "selectProjectDesc": "Select the project to move this canvas to",
+    "movedToProject": "Moved to project",
+    "moveFailed": "Move failed"
   }
 }

@@ -244,6 +244,13 @@
     "confirmDelete": "確認刪除此畫布？",
     "aiName": "AI 命名",
     "aiNameEmpty": "畫布內容為空，無法產生名稱",
-    "aiNameFailed": "AI 命名失敗，請稍後重試"
+    "aiNameFailed": "AI 命名失敗，請稍後重試",
+    "copyPath": "複製路徑",
+    "pathCopied": "已複製路徑",
+    "moveToProject": "移動到專案",
+    "selectProject": "選擇目標專案",
+    "selectProjectDesc": "選擇要將畫布移動到的專案",
+    "movedToProject": "已移動到專案",
+    "moveFailed": "移動失敗"
   }
 }

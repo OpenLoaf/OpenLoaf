@@ -1668,11 +1668,17 @@ export class SettingRouterImpl extends BaseSettingRouter {
           const rootPath = getWorkspaceRootPathById(input.workspaceId);
           if (!rootPath) return { title: "" };
 
+          // boardFolderUri may be a full file:// URI or a relative path like .openloaf/boards/tnboard_xxx
+          let folderName = input.boardFolderUri;
+          if (folderName.startsWith("file://")) {
+            folderName = folderName.replace(/^file:\/\//, "");
+          }
+          folderName = path.basename(folderName);
           const boardPath = path.join(
             rootPath,
             ".openloaf",
             "boards",
-            path.basename(input.boardFolderUri),
+            folderName,
             "index.tnboard.json",
           );
 
@@ -1693,14 +1699,25 @@ export class SettingRouterImpl extends BaseSettingRouter {
           const { CAPABILITY_SCHEMAS } = await import(
             "@/ai/services/auxiliaryCapabilities"
           );
+          const { runWithContext } = await import(
+            "@/ai/shared/context/requestContext"
+          );
 
-          const result = await auxiliaryInfer({
-            capabilityKey: "file.title",
-            context: markdown,
-            schema: CAPABILITY_SCHEMAS["file.title"],
-            fallback: { title: "" },
-            noCache: true,
-          });
+          const result = await runWithContext(
+            {
+              sessionId: "",
+              cookies: {},
+              saasAccessToken: input.saasAccessToken,
+            },
+            () =>
+              auxiliaryInfer({
+                capabilityKey: "file.title",
+                context: markdown,
+                schema: CAPABILITY_SCHEMAS["file.title"],
+                fallback: { title: "" },
+                noCache: true,
+              }),
+          );
 
           return { title: result.title };
         }),
@@ -1729,7 +1746,7 @@ function boardSnapshotToMarkdown(snapshot: any, maxLines: number): string {
   for (const node of nodes) {
     if (lines.length >= maxLines) break;
     const type = node.type || "unknown";
-    const props = node.data?.props ?? node.data ?? {};
+    const props = node.props ?? node.data?.props ?? node.data ?? {};
 
     switch (type) {
       case "text": {
@@ -1743,19 +1760,25 @@ function boardSnapshotToMarkdown(snapshot: any, maxLines: number): string {
         break;
       }
       case "image": {
-        if (props.fileName) lines.push(`- [Image] ${props.fileName}`);
+        const fileName = props.fileName || props.src || props.url;
+        if (fileName) lines.push(`- [Image] ${fileName}`);
         break;
       }
-      case "image-generate": {
-        if (props.promptText) lines.push(`- [ImageGen] ${props.promptText}`);
+      case "image-generate":
+      case "image_generate": {
+        const prompt = props.promptText || props.prompt;
+        if (prompt) lines.push(`- [ImageGen] ${prompt}`);
         break;
       }
-      case "video-generate": {
-        if (props.promptText) lines.push(`- [VideoGen] ${props.promptText}`);
+      case "video-generate":
+      case "video_generate": {
+        const prompt = props.promptText || props.prompt;
+        if (prompt) lines.push(`- [VideoGen] ${prompt}`);
         break;
       }
       case "group": {
-        const children = Array.isArray(node.data?.children) ? node.data.children.length : 0;
+        const children = Array.isArray(node.children) ? node.children.length
+          : Array.isArray(node.data?.children) ? node.data.children.length : 0;
         lines.push(`- [Group] ${children} children`);
         break;
       }

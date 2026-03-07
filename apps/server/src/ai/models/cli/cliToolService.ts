@@ -106,7 +106,7 @@ function extractVersion(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
   const match = trimmed.match(/\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/);
-  return match?.[0] ?? trimmed;
+  return match?.[0] ?? null;
 }
 
 /** Compare two semver-like strings. */
