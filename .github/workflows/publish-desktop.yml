@@ -560,18 +560,12 @@ jobs:
         run: |
           cd apps/desktop
           npm version patch --no-git-tag-version
-          cd ../server
-          npm version patch --no-git-tag-version
-          cd ../web
-          npm version patch --no-git-tag-version
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           DESKTOP_VERSION=$(node -p "require('./apps/desktop/package.json').version")
-          SERVER_VERSION=$(node -p "require('./apps/server/package.json').version")
-          WEB_VERSION=$(node -p "require('./apps/web/package.json').version")
-          git add apps/desktop/package.json apps/server/package.json apps/web/package.json
-          git commit -m "chore: bump version to desktop-v${DESKTOP_VERSION}, server-v${SERVER_VERSION}, web-v${WEB_VERSION} [skip ci]"
+          git add apps/desktop/package.json
+          git commit -m "chore(desktop): bump version to ${DESKTOP_VERSION} [skip ci]"
           git push origin main

@@ -80,29 +80,3 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: node apps/server/scripts/publish-update.mjs --channel=${{ steps.channel.outputs.channel }}
 
-  version-bump:
-    needs: build-and-publish
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Bump patch version
-        run: |
-          cd apps/server
-          npm version patch --no-git-tag-version
-
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          NEW_VERSION=$(node -p "require('./apps/server/package.json').version")
-          git add apps/server/package.json
-          git pull --rebase origin main || true
-          git commit -m "chore(server): bump version to ${NEW_VERSION} [skip ci]"
-          git push origin main
