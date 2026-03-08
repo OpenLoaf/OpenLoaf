@@ -344,6 +344,8 @@ export const fsRouter = t.router({
   list: shieldedProcedure.input(fsListSchema).query(async ({ input }) => {
     const rootPath = resolveFsRootPath(input);
     const fullPath = resolveFsTarget(input, input.uri);
+    const dirExists = await fs.stat(fullPath).then(s => s.isDirectory(), () => false);
+    if (!dirExists) return { entries: [] };
     const entries = await fs.readdir(fullPath, { withFileTypes: true });
     const includeHidden = Boolean(input.includeHidden);
     const nodes = [];

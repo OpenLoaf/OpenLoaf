@@ -141,7 +141,8 @@ export function shouldUseBundled(
   updated?: string | null,
 ): boolean {
   if (!bundled || !updated) return false;
-  return compareVersions(bundled, updated) > 0;
+  // 版本相同时优先使用打包版本，确保 Web 和 Server 来自同一次构建。
+  return compareVersions(bundled, updated) >= 0;
 }
 
 /**
