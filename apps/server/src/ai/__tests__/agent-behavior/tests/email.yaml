@@ -1,0 +1,155 @@
+# ════════════════════════════════════════════════════════════════
+# Email 邮件工具行为测试（Master E2E pipeline）
+# ════════════════════════════════════════════════════════════════
+
+- description: "email-001: 列出邮件账户应使用 email-query mode=list-accounts"
+  vars:
+    prompt: "列出我的邮件账户"
+  assert:
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'email-query');
+        if (!call) return { pass: false, score: 0, reason: '未调用 email-query' };
+        return call.args?.mode === 'list-accounts'
+          ? { pass: true, score: 1, reason: 'mode=list-accounts' }
+          : { pass: false, score: 0, reason: `args.mode 应为 list-accounts，实际: ${call.args?.mode}` };
+
+- description: "email-002: 收件箱查询应使用 email-query"
+  vars:
+    prompt: "查看收件箱邮件"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('email-query')
+          ? { pass: true, score: 1, reason: '正确调用了 email-query' }
+          : { pass: false, score: 0, reason: `未调用 email-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'email-query');
+        if (!call) return { pass: false, score: 0, reason: '未找到 email-query 调用' };
+        const mode = call.args?.mode;
+        const valid = ['list-messages', 'list-unified', 'list'].includes(mode);
+        return valid
+          ? { pass: true, score: 1, reason: `mode=${mode}` }
+          : { pass: false, score: 0, reason: `args.mode 应为 list-messages/list-unified，实际: ${mode}` };
+
+- description: "email-003: 未读邮件统计应使用 email-query"
+  vars:
+    prompt: "有多少未读邮件"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('email-query')
+          ? { pass: true, score: 1, reason: '正确调用了 email-query' }
+          : { pass: false, score: 0, reason: `未调用 email-query，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应提及未读邮件数量或说明无法获取"
+
+- description: "email-004: 邮件搜索应传入搜索关键词参数"
+  vars:
+    prompt: "搜索标题含「会议」的邮件"
+  assert:
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'email-query');
+        if (!call) return { pass: false, score: 0, reason: '未调用 email-query' };
+        const hasQuery = call.args?.query != null || call.args?.keyword != null || call.args?.subject != null;
+        return hasQuery
+          ? { pass: true, score: 1, reason: '搜索关键词参数存在' }
+          : { pass: false, score: 0, reason: '应传入搜索关键词参数' };
+
+- description: "email-005: 获取邮件详情应使用 email-query"
+  vars:
+    prompt: "打开第一封邮件"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('email-query')
+          ? { pass: true, score: 1, reason: '调用了 email-query' }
+          : { pass: false, score: 0, reason: `未调用 email-query，实际: [${tools}]` };
+
+- description: "email-006: 发送邮件应使用 email-mutate action=send"
+  vars:
+    prompt: "发一封邮件给 test@example.com，内容是明天开会"
+  assert:
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'email-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未调用 email-mutate' };
+        const action = call.args?.action;
+        return (action === 'send' || action === 'compose')
+          ? { pass: true, score: 1, reason: `action=${action}` }
+          : { pass: false, score: 0, reason: `args.action 应为 send，实际: ${action}` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'email-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未找到 email-mutate 调用' };
+        const to = call.args?.to;
+        return to != null
+          ? { pass: true, score: 1, reason: `to=${JSON.stringify(to)}` }
+          : { pass: false, score: 0, reason: 'args.to 应存在（收件人）' };
+
+- description: "email-007: 标记已读应使用 email-mutate"
+  vars:
+    prompt: "把这封邮件标为已读"
+  assert:
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'email-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未调用 email-mutate' };
+        const action = call.args?.action;
+        return (action === 'mark-read' || action === 'read' || action === 'update')
+          ? { pass: true, score: 1, reason: `action=${action}` }
+          : { pass: false, score: 0, reason: `args.action 应为 mark-read，实际: ${action}` };
+
+- description: "email-008: 加星标应使用 email-mutate"
+  vars:
+    prompt: "给这封邮件加星标"
+  assert:
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'email-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未调用 email-mutate' };
+        const action = call.args?.action;
+        return (action === 'flag' || action === 'star' || action === 'update')
+          ? { pass: true, score: 1, reason: `action=${action}` }
+          : { pass: false, score: 0, reason: `args.action 应为 flag/star，实际: ${action}` };
+
+- description: "email-009: 删除邮件应使用 email-mutate action=delete"
+  vars:
+    prompt: "删除这封邮件"
+  assert:
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'email-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未调用 email-mutate' };
+        const action = call.args?.action;
+        return (action === 'delete' || action === 'trash')
+          ? { pass: true, score: 1, reason: `action=${action}` }
+          : { pass: false, score: 0, reason: `args.action 应为 delete/trash，实际: ${action}` };
+
+- description: "email-010: 移动邮件应使用 email-mutate action=move"
+  vars:
+    prompt: "把 messageId 为 msg-001 的邮件移到归档文件夹"
+  assert:
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'email-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未调用 email-mutate' };
+        const action = call.args?.action;
+        return (action === 'move' || action === 'archive')
+          ? { pass: true, score: 1, reason: `action=${action}` }
+          : { pass: false, score: 0, reason: `args.action 应为 move/archive，实际: ${action}` };
+

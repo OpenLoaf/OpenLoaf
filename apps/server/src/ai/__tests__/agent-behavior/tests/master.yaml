@@ -1,0 +1,633 @@
+# ════════════════════════════════════════════════════════════════
+# Master 主助手 — 完整 E2E pipeline（agentType 不设置）
+# ════════════════════════════════════════════════════════════════
+
+- description: "e2e-001: 项目列表查询应使用 project-query"
+  vars:
+    prompt: "现在有哪些项目"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('project-query')
+          ? { pass: true, score: 1, reason: '正确调用了 project-query' }
+          : { pass: false, score: 0, reason: `未调用 project-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('list-dir')
+          ? { pass: true, score: 1, reason: '未调用 list-dir' }
+          : { pass: false, score: 0, reason: '错误调用了 list-dir（文件目录列出）' };
+    - type: llm-rubric
+      value: |
+        回复应包含应用层的项目列表信息。
+        不应返回文件系统目录结构。
+        不应说"没有项目"或"无法获取"（工具可能返回空列表，但应正常展示结果）。
+
+- description: "e2e-002: 时间查询应使用 time-now"
+  vars:
+    prompt: "现在几点了？"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('time-now')
+          ? { pass: true, score: 1, reason: '正确调用了 time-now' }
+          : { pass: false, score: 0, reason: `未调用 time-now，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        const forbidden = ['shell-command', 'js-repl'];
+        const used = forbidden.filter(t => tools.includes(t));
+        return used.length === 0
+          ? { pass: true, score: 1, reason: '未使用禁止工具' }
+          : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };
+
+- description: "e2e-003: 任务创建应使用 task-manage"
+  vars:
+    prompt: "帮我创建一个任务：提醒开会"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('task-manage')
+          ? { pass: true, score: 1, reason: '正确调用了 task-manage' }
+          : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };
+    - type: llm-rubric
+      value: |
+        回复应体现 Agent 尝试了创建任务的操作（可能成功，也可能因缺少上下文而需要追问用户）。
+        不应完全忽略用户的创建任务请求。
+        语气应友好。
+
+- description: "e2e-004: 邮件查询应使用 email-query"
+  vars:
+    prompt: "查看最近的邮件"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('email-query')
+          ? { pass: true, score: 1, reason: '正确调用了 email-query' }
+          : { pass: false, score: 0, reason: `未调用 email-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        const forbidden = ['list-dir', 'shell-command', 'read-file'];
+        const used = forbidden.filter(t => tools.includes(t));
+        return used.length === 0
+          ? { pass: true, score: 1, reason: '未使用禁止工具' }
+          : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };
+
+- description: "e2e-005: 文件读取应使用 read-file"
+  vars:
+    prompt: "读一下 README.md 的内容"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('read-file')
+          ? { pass: true, score: 1, reason: '正确调用了 read-file' }
+          : { pass: false, score: 0, reason: `未调用 read-file，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('shell-command')
+          ? { pass: true, score: 1, reason: '未使用 shell-command' }
+          : { pass: false, score: 0, reason: '不应使用 shell-command 来读取文件' };
+
+- description: "e2e-006: JSX 渲染请求应调用 jsx-create 且不输出伪工具标签"
+  vars:
+    prompt: "给我写首诗，关于中国山河的，使用组件渲染组件"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('jsx-create')
+          ? { pass: true, score: 1, reason: '正确调用了 jsx-create' }
+          : { pass: false, score: 0, reason: `未调用 jsx-create，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const responseText = String(context.providerResponse?.output || '');
+        const hasFakeToolText = /<function=|<parameter=|<\/tool_call>/i.test(responseText);
+        return !hasFakeToolText
+          ? { pass: true, score: 1, reason: '未输出伪工具调用标签' }
+          : { pass: false, score: 0, reason: '输出中包含伪工具调用标签（应使用真实 tool call）' };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const jsxCalls = calls.filter((c) => c?.toolName === 'jsx-create');
+        return jsxCalls.length === 1
+          ? { pass: true, score: 1, reason: 'jsx-create 调用次数正确（1 次）' }
+          : { pass: false, score: 0, reason: `jsx-create 调用次数应为 1，实际: ${jsxCalls.length}` };
+
+- description: "e2e-010: 多轮对话保持上下文"
+  vars:
+    prompt: "dummy"
+    turns: '[{"text": "现在几点了？"}, {"text": "刚才的时间用英文说一次"}]'
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('time-now')
+          ? { pass: true, score: 1, reason: '第一轮正确调用了 time-now' }
+          : { pass: false, score: 0, reason: `未调用 time-now，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "第二轮回复应包含与第一轮相同的时间信息，以英文表达"
+
+# ─── Master 新增工具覆盖测试（master-001 ~ master-010）───
+
+- description: "master-001: 待办任务查询应使用 task-status"
+  vars:
+    prompt: "查一下我有哪些待办任务"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('task-status')
+          ? { pass: true, score: 1, reason: '正确调用了 task-status' }
+          : { pass: false, score: 0, reason: `未调用 task-status，实际: [${tools}]` };
+
+- description: "master-002: 日程查询应使用 calendar-query 而非 task-manage"
+  vars:
+    prompt: "明天有什么日程"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('calendar-query')
+          ? { pass: true, score: 1, reason: '正确调用了 calendar-query' }
+          : { pass: false, score: 0, reason: `未调用 calendar-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('task-manage')
+          ? { pass: true, score: 1, reason: '未误用 task-manage' }
+          : { pass: false, score: 0, reason: '日程查询不应调用 task-manage' };
+
+- description: "master-003: 图表渲染应使用 chart-render"
+  vars:
+    prompt: "帮我画一个折线图，数据是 1,3,2,5,4"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('chart-render')
+          ? { pass: true, score: 1, reason: '正确调用了 chart-render' }
+          : { pass: false, score: 0, reason: `未调用 chart-render，实际: [${tools}]` };
+
+- description: "master-004: JS 计算应使用 js-repl 而非 shell-command"
+  vars:
+    prompt: "用 JS 计算 2 的 32 次方"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('js-repl')
+          ? { pass: true, score: 1, reason: '正确调用了 js-repl' }
+          : { pass: false, score: 0, reason: `未调用 js-repl，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('shell-command')
+          ? { pass: true, score: 1, reason: '未误用 shell-command' }
+          : { pass: false, score: 0, reason: 'JS 计算不应使用 shell-command' };
+
+- description: "master-005: 图片生成应使用 image-generate"
+  vars:
+    prompt: "生成一张宇宙星空的图片"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('image-generate')
+          ? { pass: true, score: 1, reason: '正确调用了 image-generate' }
+          : { pass: false, score: 0, reason: `未调用 image-generate，实际: [${tools}]` };
+
+- description: "master-006: 目录列表应使用 list-dir 而非 project-query"
+  vars:
+    prompt: "列出 /tmp 目录有哪些文件"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('list-dir')
+          ? { pass: true, score: 1, reason: '正确调用了 list-dir' }
+          : { pass: false, score: 0, reason: `未调用 list-dir，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('project-query')
+          ? { pass: true, score: 1, reason: '未误用 project-query' }
+          : { pass: false, score: 0, reason: '文件系统目录不应使用 project-query' };
+
+- description: "master-007: 代码搜索应使用 grep-files"
+  vars:
+    prompt: "在当前项目中搜索 TODO 注释"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('grep-files')
+          ? { pass: true, score: 1, reason: '正确调用了 grep-files' }
+          : { pass: false, score: 0, reason: `未调用 grep-files，实际: [${tools}]` };
+
+- description: "master-008: 任务取消应使用任务相关工具"
+  vars:
+    prompt: "帮我取消一个进行中的任务"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        const hasTaskTool = tools.includes('task-manage') || tools.includes('task-status');
+        return hasTaskTool
+          ? { pass: true, score: 1, reason: `调用了任务工具: [${tools.filter(t => t.startsWith('task-'))}]` }
+          : { pass: false, score: 0, reason: `未调用任务工具，实际: [${tools}]` };
+
+- description: "master-009: 打开链接应使用 open-url"
+  vars:
+    prompt: "打开 github.com"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('open-url')
+          ? { pass: true, score: 1, reason: '正确调用了 open-url' }
+          : { pass: false, score: 0, reason: `未调用 open-url，实际: [${tools}]` };
+
+- description: "master-010: 重置 JS 解释器应使用 js-repl-reset"
+  vars:
+    prompt: "重置 JS 解释器"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('js-repl-reset')
+          ? { pass: true, score: 1, reason: '正确调用了 js-repl-reset' }
+          : { pass: false, score: 0, reason: `未调用 js-repl-reset，实际: [${tools}]` };
+
+# ─── Master 反混淆测试（master-020 ~ master-023）───
+
+- description: "master-020: 日程安排应使用 calendar-query 而非 task-manage"
+  vars:
+    prompt: "我的日程安排"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('calendar-query')
+          ? { pass: true, score: 1, reason: '正确调用了 calendar-query' }
+          : { pass: false, score: 0, reason: `未调用 calendar-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('task-manage')
+          ? { pass: true, score: 1, reason: '未误用 task-manage' }
+          : { pass: false, score: 0, reason: '日程查询不应使用 task-manage（日程≠任务）' };
+
+- description: "master-021: 代码计算应使用 js-repl 而非 shell-command"
+  vars:
+    prompt: "用代码算一下圆周率"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('js-repl')
+          ? { pass: true, score: 1, reason: '正确调用了 js-repl' }
+          : { pass: false, score: 0, reason: `未调用 js-repl，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('shell-command')
+          ? { pass: true, score: 1, reason: '未误用 shell-command' }
+          : { pass: false, score: 0, reason: '计算任务应使用 js-repl 而非 shell-command' };
+
+- description: "master-022: 邮件查询不应使用 list-dir"
+  vars:
+    prompt: "查看未读邮件数"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('email-query')
+          ? { pass: true, score: 1, reason: '正确调用了 email-query' }
+          : { pass: false, score: 0, reason: `未调用 email-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('list-dir')
+          ? { pass: true, score: 1, reason: '未误用 list-dir' }
+          : { pass: false, score: 0, reason: '邮件不是文件，不应使用 list-dir' };
+
+- description: "master-023: 文件系统目录查询应使用 list-dir 而非 project-query"
+  vars:
+    prompt: "这个文件夹里有什么"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('list-dir')
+          ? { pass: true, score: 1, reason: '正确调用了 list-dir' }
+          : { pass: false, score: 0, reason: `未调用 list-dir，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('project-query')
+          ? { pass: true, score: 1, reason: '未误用 project-query' }
+          : { pass: false, score: 0, reason: '文件系统目录查询不应使用 project-query（文件系统目录≠应用项目）' };
+
+# ─── Master 输出质量测试（master-030 ~ master-032）───
+
+- description: "master-030: 星期几查询回复应包含具体名称"
+  vars:
+    prompt: "今天是星期几"
+  assert:
+    - type: llm-rubric
+      value: "回复中应包含具体的星期几名称（如：星期一、星期二、Monday 等），不应只说「今天」而不说具体是几"
+
+- description: "master-031: 任务创建回复应确认任务名称"
+  vars:
+    prompt: "帮我创建任务：明天下午3点开组会"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('task-manage')
+          ? { pass: true, score: 1, reason: '调用了 task-manage' }
+          : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应确认任务已创建，并复述任务名称（组会）或时间信息（明天下午3点）"
+
+- description: "master-032: 项目查询回复应包含实际内容"
+  vars:
+    prompt: "有哪些项目"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('project-query')
+          ? { pass: true, score: 1, reason: '调用了 project-query' }
+          : { pass: false, score: 0, reason: `未调用 project-query，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应包含实际项目信息或明确说明当前没有项目，不应返回错误或空白"
+
+# ─── Master Sub-Agent 调度测试（master-040 ~ master-041）───
+
+- description: "master-040: Claude Code 开发请求应派发子 Agent"
+  vars:
+    prompt: "帮我用 Claude Code 开发一个新功能"
+  assert:
+    - type: javascript
+      value: |
+        const hasSub = context.providerResponse?.metadata?.hasSubAgentDispatch;
+        return hasSub
+          ? { pass: true, score: 1, reason: '正确派发了子 Agent' }
+          : { pass: false, score: 0, reason: '应派发子 Agent（Claude Code）但未检测到' };
+
+- description: "master-041: 浏览器截图请求应派发子 Agent"
+  vars:
+    prompt: "帮我在浏览器里打开并截图一个网页"
+  assert:
+    - type: javascript
+      value: |
+        const hasSub = context.providerResponse?.metadata?.hasSubAgentDispatch;
+        return hasSub
+          ? { pass: true, score: 1, reason: '正确派发了子 Agent' }
+          : { pass: false, score: 0, reason: '应派发子 Agent（浏览器）但未检测到' };
+
+# ─── Master 多轮对话测试（master-050 ~ master-051）───
+
+- description: "master-050: 多轮任务操作保持上下文"
+  vars:
+    prompt: "dummy"
+    turns: '[{"text": "帮我创建购物任务"}, {"text": "把它的优先级改高"}]'
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('task-manage')
+          ? { pass: true, score: 1, reason: '调用了 task-manage' }
+          : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "最终回复应体现对购物任务优先级的修改，上下文应从第一轮保持"
+
+- description: "master-051: 多轮项目操作保持上下文"
+  vars:
+    prompt: "dummy"
+    turns: '[{"text": "有哪些项目"}, {"text": "给第一个项目再建一个子项目"}]'
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('project-mutate')
+          ? { pass: true, score: 1, reason: '第二轮调用了 project-mutate' }
+          : { pass: false, score: 0, reason: `未调用 project-mutate，实际: [${tools}]` };
+
+# ─── Master 身份与通用对话测试（master-060 ~）───
+
+- description: "master-060: 自我介绍不应调用任何工具"
+  vars:
+    prompt: "自我介绍一下"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.length === 0
+          ? { pass: true, score: 1, reason: '未调用任何工具，直接文本回复' }
+          : { pass: false, score: 0, reason: `不应调用工具，实际调用了: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应说明自己是 OpenLoaf AI 助手，并简要介绍自身能力（如项目管理、邮件、日历、文件操作、AI 对话等），语气友好简洁"
+
+# ─── Master 直接执行测试（master-070 ~ master-079）───
+
+- description: "master-070: 隐含调度意图应直接创建任务不问确认"
+  vars:
+    prompt: "明天8点我要开会"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('task-manage')
+          ? { pass: true, score: 1, reason: '正确调用了 task-manage' }
+          : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('calendar-query')
+          ? { pass: true, score: 1, reason: '未错误调用 calendar-query' }
+          : { pass: false, score: 0, reason: '错误调用了 calendar-query（应用 task-manage）' };
+    - type: llm-rubric
+      value: "回复应确认已创建任务/提醒，不应包含'需要我帮你创建吗'/'是否要'/'要不要我'等确认性反问句"
+
+- description: "master-071: 闹钟/提醒请求应直接创建定时任务"
+  vars:
+    prompt: "帮我订个闹钟后天早上7点"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('task-manage')
+          ? { pass: true, score: 1, reason: '正确调用了 task-manage' }
+          : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'task-manage');
+        if (!call) return { pass: false, score: 0, reason: '未找到 task-manage 调用' };
+        const schedule = call.args?.schedule;
+        return schedule != null
+          ? { pass: true, score: 1, reason: `schedule 参数存在: ${JSON.stringify(schedule)}` }
+          : { pass: false, score: 0, reason: 'task-manage 应传 schedule 参数' };
+    - type: llm-rubric
+      value: "回复应确认闹钟/提醒已设置，包含时间信息"
+
+- description: "master-072: '记一下'未来事件应直接创建不反问"
+  vars:
+    prompt: "记一下下周三有客户拜访"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('task-manage')
+          ? { pass: true, score: 1, reason: '正确调用了 task-manage' }
+          : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('calendar-query')
+          ? { pass: true, score: 1, reason: '未错误调用 calendar-query' }
+          : { pass: false, score: 0, reason: '错误调用了 calendar-query（应用 task-manage）' };
+    - type: llm-rubric
+      value: "回复应确认已记录/创建，不应包含'是否要记录'/'需要我帮你'等确认性反问句"
+
+- description: "master-073: 相对时间提醒应使用 once 类型 schedule"
+  vars:
+    prompt: "3小时后提醒我吃药"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('task-manage')
+          ? { pass: true, score: 1, reason: '正确调用了 task-manage' }
+          : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'task-manage');
+        if (!call) return { pass: false, score: 0, reason: '未找到 task-manage 调用' };
+        const schedule = call.args?.schedule;
+        if (!schedule) return { pass: false, score: 0, reason: 'task-manage 应传 schedule 参数' };
+        return schedule.type === 'once'
+          ? { pass: true, score: 1, reason: 'schedule.type=once' }
+          : { pass: false, score: 0, reason: `schedule.type 应为 once，实际: ${schedule.type}` };
+    - type: llm-rubric
+      value: "回复应确认提醒已设置，包含时间信息（3小时后）"
+
+- description: "master-074: 简单问候不应调用任何工具"
+  vars:
+    prompt: "你好"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.length === 0
+          ? { pass: true, score: 1, reason: '未调用任何工具' }
+          : { pass: false, score: 0, reason: `简单问候不应调用工具，实际调用了: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应友好地问候用户，不应调用任何工具"
+
+- description: "master-075: 超出能力范围应诚实告知"
+  vars:
+    prompt: "帮我查一下明天北京的天气"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        const forbidden = ['shell-command', 'open-url', 'spawn-agent'];
+        const used = forbidden.filter(t => tools.includes(t));
+        return used.length === 0
+          ? { pass: true, score: 1, reason: '未尝试用不适合的工具模拟天气查询' }
+          : { pass: false, score: 0, reason: `不应用 ${used} 模拟天气查询能力` };
+    - type: llm-rubric
+      value: "回复应诚实告知无法查询天气或不具备此能力，不应伪装实现"
+
+- description: "master-076: 每日重复提醒应使用 cron 类型 schedule"
+  vars:
+    prompt: "每天早上9点提醒我看报告"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('task-manage')
+          ? { pass: true, score: 1, reason: '正确调用了 task-manage' }
+          : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'task-manage');
+        if (!call) return { pass: false, score: 0, reason: '未找到 task-manage 调用' };
+        const schedule = call.args?.schedule;
+        if (!schedule) return { pass: false, score: 0, reason: 'task-manage 应传 schedule 参数' };
+        return schedule.type === 'cron'
+          ? { pass: true, score: 1, reason: 'schedule.type=cron' }
+          : { pass: false, score: 0, reason: `schedule.type 应为 cron，实际: ${schedule.type}` };
+    - type: llm-rubric
+      value: "回复应确认每日提醒已设置"
+
+- description: "master-077: 陈述式未来事件应直接创建不问确认"
+  vars:
+    prompt: "下午两点半有个电话会议"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('task-manage')
+          ? { pass: true, score: 1, reason: '正确调用了 task-manage' }
+          : { pass: false, score: 0, reason: `未调用 task-manage，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('calendar-query')
+          ? { pass: true, score: 1, reason: '未错误调用 calendar-query' }
+          : { pass: false, score: 0, reason: '错误调用了 calendar-query（陈述事件应创建任务）' };
+    - type: llm-rubric
+      value: "回复应确认已创建任务/提醒，不应包含'需要我帮你创建吗'/'是否要'/'要不要我'等确认性反问句"
+
+- description: "master-078: 多个未来事件应批量创建"
+  vars:
+    prompt: "明天上午10点开周会，下午3点见客户"
+  assert:
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const taskManageCalls = calls.filter(t => t.toolName === 'task-manage');
+        return taskManageCalls.length >= 2
+          ? { pass: true, score: 1, reason: `task-manage 调用 ${taskManageCalls.length} 次（批量创建）` }
+          : { pass: false, score: 0, reason: `应至少调用 task-manage 2 次（两个事件），实际: ${taskManageCalls.length} 次` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('calendar-query')
+          ? { pass: true, score: 1, reason: '未错误调用 calendar-query' }
+          : { pass: false, score: 0, reason: '错误调用了 calendar-query' };
+    - type: llm-rubric
+      value: "回复应确认两个事件均已创建，不应逐一询问确认"
+
+- description: "master-079: 查询安排应使用 calendar-query 不创建任务"
+  vars:
+    prompt: "明天有什么安排"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('calendar-query')
+          ? { pass: true, score: 1, reason: '正确调用了 calendar-query' }
+          : { pass: false, score: 0, reason: `未调用 calendar-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('task-manage')
+          ? { pass: true, score: 1, reason: '未错误调用 task-manage（查询不应创建）' }
+          : { pass: false, score: 0, reason: '错误调用了 task-manage（查询安排不应创建任务）' };
+    - type: llm-rubric
+      value: "回复应展示明天的日程安排或说明暂无安排，不应创建新任务"
+

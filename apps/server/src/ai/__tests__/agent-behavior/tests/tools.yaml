@@ -1,0 +1,645 @@
+# ════════════════════════════════════════════════════════════════
+# 文件信息 — file-info 工具
+# ════════════════════════════════════════════════════════════════
+
+- description: "fileinfo-001: 查看图片分辨率应使用 file-info 或 image-process"
+  vars:
+    prompt: "这张图片的分辨率是多少？文件路径：photos/banner.png"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('file-info') || tools.includes('image-process')
+          ? { pass: true, score: 1, reason: '调用了 file-info 或 image-process' }
+          : { pass: false, score: 0, reason: `未调用 file-info 或 image-process，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('shell-command')
+          ? { pass: true, score: 1, reason: '未使用 shell' }
+          : { pass: false, score: 0, reason: '查看图片信息不应使用 shell-command' };
+    - type: llm-rubric
+      value: "回复应包含图片的分辨率数据（宽x高像素），或指出文件未找到/不存在"
+
+- description: "fileinfo-002: 查看视频时长应使用 file-info 或 video-convert"
+  vars:
+    prompt: "videos/demo.mp4 这个视频有多长？分辨率多少？"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('file-info') || tools.includes('video-convert')
+          ? { pass: true, score: 1, reason: '调用了 file-info 或 video-convert' }
+          : { pass: false, score: 0, reason: `未调用 file-info 或 video-convert，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应包含视频时长和分辨率信息，或指出目标文件未找到/不存在（列出其他视频文件供用户选择也可接受）。不应编造数据"
+
+- description: "fileinfo-003: 查看 PDF 页数应使用 file-info"
+  vars:
+    prompt: "report.pdf 有多少页？"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('file-info') || tools.includes('pdf-query')
+          ? { pass: true, score: 1, reason: '调用了 file-info 或 pdf-query' }
+          : { pass: false, score: 0, reason: `未调用 file-info 或 pdf-query，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应包含 PDF 页数，或指出文件未找到/不存在/找不到（询问用户确认路径也可接受）。不应猜测页数"
+
+- description: "fileinfo-004: 查看 Excel 有几个 sheet 应使用 file-info"
+  vars:
+    prompt: "data.xlsx 这个表格有几个 sheet？每个 sheet 叫什么？"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('file-info') || tools.includes('excel-query')
+          ? { pass: true, score: 1, reason: '调用了 file-info 或 excel-query' }
+          : { pass: false, score: 0, reason: `未调用 file-info 或 excel-query，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应列出 sheet 名称，或指出文件未找到/不存在（列出类似文件并询问用户也可接受）"
+
+- description: "fileinfo-005: 查看文件大小应使用 file-info 而非 shell"
+  vars:
+    prompt: "看看 output.zip 这个文件有多大"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('file-info') || tools.includes('list-dir')
+          ? { pass: true, score: 1, reason: '调用了 file-info 或 list-dir' }
+          : { pass: false, score: 0, reason: `未调用 file-info 或 list-dir，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('shell-command')
+          ? { pass: true, score: 1, reason: '未使用 shell' }
+          : { pass: false, score: 0, reason: '查看文件大小不应使用 shell-command' };
+    - type: llm-rubric
+      value: "回复应包含文件大小（KB/MB/GB），或指出文件未找到/不存在"
+
+# ════════════════════════════════════════════════════════════════
+# 图片处理 — image-process 工具
+# ════════════════════════════════════════════════════════════════
+
+- description: "imgproc-001: 缩小图片应使用 image-process"
+  vars:
+    prompt: "帮我把 test/chart2.png 的尺寸调整为 400x300"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('image-process')
+          ? { pass: true, score: 1, reason: '正确调用了 image-process' }
+          : { pass: false, score: 0, reason: `未调用 image-process，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应确认图片尺寸已调整，并提及新的宽高数值"
+
+- description: "imgproc-002: PNG 转 WebP 应使用 image-process"
+  vars:
+    prompt: "把 logo.png 转成 WebP 格式，保存到 logo.webp"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('image-process')
+          ? { pass: true, score: 1, reason: '正确调用了 image-process' }
+          : { pass: false, score: 0, reason: `未调用 image-process，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应确认格式转换操作（PNG→WebP），或指出文件未找到/不存在"
+
+- description: "imgproc-003: 旋转图片应使用 image-process"
+  vars:
+    prompt: "把 photo.jpg 顺时针旋转 90 度"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('image-process')
+          ? { pass: true, score: 1, reason: '正确调用了 image-process' }
+          : { pass: false, score: 0, reason: `未调用 image-process，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应确认旋转操作已完成，或指出文件未找到/不存在（请求用户提供正确路径也可接受）"
+
+- description: "imgproc-004: 查看图片尺寸应使用 file-info 或 image-process"
+  vars:
+    prompt: "看一下 cover.jpg 的宽高是多少"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('file-info') || tools.includes('image-process')
+          ? { pass: true, score: 1, reason: '调用了 file-info 或 image-process' }
+          : { pass: false, score: 0, reason: `未调用 file-info 或 image-process，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应包含图片的宽高像素数据，或指出目标文件未找到/不存在（列出其他文件供选择也可接受）"
+
+# ════════════════════════════════════════════════════════════════
+# 视频转换 — video-convert 工具
+# ════════════════════════════════════════════════════════════════
+
+- description: "vidconv-001: 视频转格式应使用 video-convert"
+  vars:
+    prompt: "把 recording.mp4 转成 WebM 格式，保存到 recording.webm"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('video-convert')
+          ? { pass: true, score: 1, reason: '正确调用了 video-convert' }
+          : { pass: false, score: 0, reason: `未调用 video-convert，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应确认视频格式转换操作（MP4→WebM），或指出文件未找到/不存在/FFmpeg 不可用"
+
+- description: "vidconv-002: 从视频提取音频应使用 video-convert"
+  vars:
+    prompt: "从 meeting.mp4 中提取音频，保存为 meeting.mp3"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('video-convert')
+          ? { pass: true, score: 1, reason: '正确调用了 video-convert' }
+          : { pass: false, score: 0, reason: `未调用 video-convert，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应确认音频提取操作，或指出文件未找到/不存在"
+
+- description: "vidconv-003: 查看视频信息应使用 file-info 或 video-convert get-info"
+  vars:
+    prompt: "video.mp4 这个视频文件的编码格式是什么？时长多少？"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('file-info') || tools.includes('video-convert')
+          ? { pass: true, score: 1, reason: '调用了 file-info 或 video-convert' }
+          : { pass: false, score: 0, reason: `未调用 file-info 或 video-convert，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应包含视频编码和时长信息，或指出文件未找到/不存在"
+
+- description: "vidconv-004: 音频格式转换应使用 video-convert"
+  vars:
+    prompt: "把 audio.wav 转换成 MP3 格式，保存到 audio.mp3"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('video-convert')
+          ? { pass: true, score: 1, reason: '正确调用了 video-convert' }
+          : { pass: false, score: 0, reason: `未调用 video-convert，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应确认音频格式转换（WAV→MP3），或指出文件未找到/不存在"
+
+# ════════════════════════════════════════════════════════════════
+# 文档转换 — doc-convert 工具
+# ════════════════════════════════════════════════════════════════
+
+- description: "docconv-001: Markdown 转 PDF 应使用 doc-convert"
+  vars:
+    prompt: "把 README.md 转成 PDF 格式，保存到 README.pdf"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('doc-convert')
+          ? { pass: true, score: 1, reason: '正确调用了 doc-convert' }
+          : { pass: false, score: 0, reason: `未调用 doc-convert，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('pdf-mutate')
+          ? { pass: true, score: 1, reason: '未使用 pdf-mutate' }
+          : { pass: false, score: 0, reason: '格式转换应使用 doc-convert 而非 pdf-mutate' };
+    - type: llm-rubric
+      value: "回复应确认 Markdown→PDF 转换已完成，或指出文件未找到/不存在"
+
+- description: "docconv-002: PDF 转 Word 应使用 doc-convert"
+  vars:
+    prompt: "把 test/contract.pdf 转成 Word 文档"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('doc-convert')
+          ? { pass: true, score: 1, reason: '正确调用了 doc-convert' }
+          : { pass: false, score: 0, reason: `未调用 doc-convert，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应确认 PDF→Word 转换已完成，可能提及有损转换的限制"
+
+- description: "docconv-003: CSV 转 Excel 应使用 doc-convert"
+  vars:
+    prompt: "把 test/sample.csv 转成 Excel 格式"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('doc-convert')
+          ? { pass: true, score: 1, reason: '正确调用了 doc-convert' }
+          : { pass: false, score: 0, reason: `未调用 doc-convert，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('excel-mutate')
+          ? { pass: true, score: 1, reason: '未使用 excel-mutate' }
+          : { pass: false, score: 0, reason: 'CSV 转 XLSX 应使用 doc-convert 而非 excel-mutate' };
+    - type: llm-rubric
+      value: "回复应确认 CSV→Excel 转换已完成，并说明输出文件位置"
+
+- description: "docconv-004: HTML 转 Markdown 应使用 doc-convert"
+  vars:
+    prompt: "把 test/page.html 转成 Markdown 格式，保存到 test/page.md"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('doc-convert')
+          ? { pass: true, score: 1, reason: '正确调用了 doc-convert' }
+          : { pass: false, score: 0, reason: `未调用 doc-convert，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应确认 HTML→Markdown 转换已完成"
+
+- description: "docconv-005: 读取 PDF 内容不应使用 doc-convert"
+  vars:
+    prompt: "帮我读一下 contract.pdf 的内容"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('pdf-query') || tools.includes('read-file')
+          ? { pass: true, score: 1, reason: '正确使用了读取工具' }
+          : { pass: false, score: 0, reason: `应使用 pdf-query 或 read-file，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('doc-convert')
+          ? { pass: true, score: 1, reason: '未使用 doc-convert' }
+          : { pass: false, score: 0, reason: '读取内容不应使用 doc-convert（那是格式转换工具）' };
+    - type: llm-rubric
+      value: "回复应包含 PDF 的文字内容摘要或全文，或指出文件未找到/不存在（列出其他 PDF 文件供选择、询问用户确认路径也可接受）。不应说'转换完成'"
+
+# ════════════════════════════════════════════════════════════════
+# Office 文档工具 — Word / PPTX / PDF / Excel 创建与编辑
+# ════════════════════════════════════════════════════════════════
+
+# ---- Word (word-query / word-mutate) ----
+
+- description: "office-001: 创建 Word 文档应使用 word-mutate + action=create"
+  vars:
+    prompt: "创建一个 Word 文档 meeting-notes.docx，标题是「项目周会纪要」，包含三个段落：参会人员、讨论事项、行动计划"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('word-mutate')
+          ? { pass: true, score: 1, reason: '正确调用了 word-mutate' }
+          : { pass: false, score: 0, reason: `未调用 word-mutate，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'word-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未找到 word-mutate 调用' };
+        const a = call.args ?? call.input;
+        const action = a?.action;
+        return action === 'create'
+          ? { pass: true, score: 1, reason: 'action=create' }
+          : { pass: false, score: 0, reason: `action 应为 create，实际: ${action}` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'word-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未找到 word-mutate 调用' };
+        const a = call.args ?? call.input;
+        const content = a?.content;
+        return Array.isArray(content) && content.length >= 3
+          ? { pass: true, score: 1, reason: `content 包含 ${content.length} 个元素` }
+          : { pass: false, score: 0, reason: `content 应为数组且至少 3 个元素，实际: ${JSON.stringify(content)?.slice(0, 200)}` };
+
+- description: "office-002: 读取 Word 文档结构应使用 word-query + mode=read-structure"
+  vars:
+    prompt: "查看 report.docx 的文档结构，有哪些段落和表格"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('word-query')
+          ? { pass: true, score: 1, reason: '正确调用了 word-query' }
+          : { pass: false, score: 0, reason: `未调用 word-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'word-query');
+        if (!call) return { pass: false, score: 0, reason: '未找到 word-query 调用' };
+        const a = call.args ?? call.input;
+        const mode = a?.mode;
+        return mode === 'read-structure'
+          ? { pass: true, score: 1, reason: 'mode=read-structure' }
+          : { pass: false, score: 0, reason: `mode 应为 read-structure，实际: ${mode}` };
+
+- description: "office-003: 读取 Word 文档文本应使用 word-query + mode=read-text"
+  vars:
+    prompt: "把 letter.docx 的文字内容读出来"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('word-query')
+          ? { pass: true, score: 1, reason: '正确调用了 word-query' }
+          : { pass: false, score: 0, reason: `未调用 word-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'word-query');
+        if (!call) return { pass: false, score: 0, reason: '未找到 word-query 调用' };
+        const a = call.args ?? call.input;
+        const mode = a?.mode;
+        return mode === 'read-text'
+          ? { pass: true, score: 1, reason: 'mode=read-text' }
+          : { pass: false, score: 0, reason: `mode 应为 read-text，实际: ${mode}` };
+
+- description: "office-004: 编辑 Word 文档应使用 word-mutate"
+  vars:
+    prompt: "在 report.docx 末尾添加一段总结文字：「以上为本季度工作报告全文」"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('word-mutate') || tools.includes('word-query')
+          ? { pass: true, score: 1, reason: '调用了 word 工具' }
+          : { pass: false, score: 0, reason: `未调用 word 工具，实际: [${tools}]` };
+
+- description: "office-005: 不应用 read-file 读取 docx 二进制文件"
+  vars:
+    prompt: "读取 proposal.docx 的内容"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('word-query')
+          ? { pass: true, score: 1, reason: '正确使用 word-query 读取 docx' }
+          : { pass: false, score: 0, reason: `应使用 word-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('read-file')
+          ? { pass: true, score: 1, reason: '未使用 read-file' }
+          : { pass: false, score: 0, reason: 'docx 是二进制文件，不应使用 read-file' };
+
+# ---- PPTX (pptx-query / pptx-mutate) ----
+
+- description: "office-006: 创建 PPTX 应使用 pptx-mutate + action=create"
+  vars:
+    prompt: "创建一个 PPT presentation.pptx，包含 3 张幻灯片：封面、目录、总结"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('pptx-mutate')
+          ? { pass: true, score: 1, reason: '正确调用了 pptx-mutate' }
+          : { pass: false, score: 0, reason: `未调用 pptx-mutate，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'pptx-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未找到 pptx-mutate 调用' };
+        const a = call.args ?? call.input;
+        const action = a?.action;
+        return action === 'create'
+          ? { pass: true, score: 1, reason: 'action=create' }
+          : { pass: false, score: 0, reason: `action 应为 create，实际: ${action}` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'pptx-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未找到 pptx-mutate 调用' };
+        const a = call.args ?? call.input;
+        const slides = a?.slides;
+        return Array.isArray(slides) && slides.length >= 3
+          ? { pass: true, score: 1, reason: `slides 包含 ${slides.length} 张` }
+          : { pass: false, score: 0, reason: `slides 应为数组且至少 3 张，实际: ${JSON.stringify(slides)?.slice(0, 200)}` };
+
+- description: "office-007: 读取 PPTX 结构应使用 pptx-query + mode=read-structure"
+  vars:
+    prompt: "看看 slides.pptx 有几张幻灯片，每张的标题是什么"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('pptx-query')
+          ? { pass: true, score: 1, reason: '正确调用了 pptx-query' }
+          : { pass: false, score: 0, reason: `未调用 pptx-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'pptx-query');
+        if (!call) return { pass: false, score: 0, reason: '未找到 pptx-query 调用' };
+        const a = call.args ?? call.input;
+        const mode = a?.mode;
+        return mode === 'read-structure'
+          ? { pass: true, score: 1, reason: 'mode=read-structure' }
+          : { pass: false, score: 0, reason: `mode 应为 read-structure，实际: ${mode}` };
+
+- description: "office-008: 编辑 PPTX 应使用 pptx-mutate + action=edit"
+  vars:
+    prompt: "修改 slides.pptx 第一张幻灯片的标题为「Q4 季度总结」"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('pptx-mutate') || tools.includes('pptx-query')
+          ? { pass: true, score: 1, reason: '调用了 pptx 工具' }
+          : { pass: false, score: 0, reason: `未调用 pptx 工具，实际: [${tools}]` };
+
+# ---- PDF (pdf-query / pdf-mutate) ----
+
+- description: "office-009: 创建 PDF 应使用 pdf-mutate + action=create"
+  vars:
+    prompt: "创建一个 PDF 文档 invoice.pdf，包含标题「发票」和一个表格列出商品名称、数量、单价"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('pdf-mutate')
+          ? { pass: true, score: 1, reason: '正确调用了 pdf-mutate' }
+          : { pass: false, score: 0, reason: `未调用 pdf-mutate，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'pdf-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未找到 pdf-mutate 调用' };
+        const a = call.args ?? call.input;
+        const action = a?.action;
+        return action === 'create'
+          ? { pass: true, score: 1, reason: 'action=create' }
+          : { pass: false, score: 0, reason: `action 应为 create，实际: ${action}` };
+
+- description: "office-010: 读取 PDF 文本应使用 pdf-query + mode=read-text"
+  vars:
+    prompt: "读取 contract.pdf 的文字内容"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('pdf-query')
+          ? { pass: true, score: 1, reason: '正确调用了 pdf-query' }
+          : { pass: false, score: 0, reason: `未调用 pdf-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'pdf-query');
+        if (!call) return { pass: false, score: 0, reason: '未找到 pdf-query 调用' };
+        const a = call.args ?? call.input;
+        const mode = a?.mode;
+        return mode === 'read-text'
+          ? { pass: true, score: 1, reason: 'mode=read-text' }
+          : { pass: false, score: 0, reason: `mode 应为 read-text，实际: ${mode}` };
+
+- description: "office-011: 查看 PDF 表单字段应使用 pdf-query + mode=read-form-fields"
+  vars:
+    prompt: "查看 application-form.pdf 有哪些可填写的表单字段"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('pdf-query')
+          ? { pass: true, score: 1, reason: '正确调用了 pdf-query' }
+          : { pass: false, score: 0, reason: `未调用 pdf-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'pdf-query');
+        if (!call) return { pass: false, score: 0, reason: '未找到 pdf-query 调用' };
+        const a = call.args ?? call.input;
+        const mode = a?.mode;
+        return mode === 'read-form-fields'
+          ? { pass: true, score: 1, reason: 'mode=read-form-fields' }
+          : { pass: false, score: 0, reason: `mode 应为 read-form-fields，实际: ${mode}` };
+
+- description: "office-012: 填写 PDF 表单应使用 pdf-mutate"
+  vars:
+    prompt: "填写 application-form.pdf 的表单，姓名填「张三」，电话填「13800138000」"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('pdf-mutate') || tools.includes('pdf-query')
+          ? { pass: true, score: 1, reason: '调用了 pdf 工具' }
+          : { pass: false, score: 0, reason: `未调用 pdf 工具，实际: [${tools}]` };
+
+- description: "office-013: 合并多个 PDF 应使用 pdf-mutate + action=merge"
+  vars:
+    prompt: "把 part1.pdf、part2.pdf、part3.pdf 合并成一个 combined.pdf"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('pdf-mutate')
+          ? { pass: true, score: 1, reason: '正确调用了 pdf-mutate' }
+          : { pass: false, score: 0, reason: `未调用 pdf-mutate，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'pdf-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未找到 pdf-mutate 调用' };
+        const a = call.args ?? call.input;
+        const action = a?.action;
+        return action === 'merge'
+          ? { pass: true, score: 1, reason: 'action=merge' }
+          : { pass: false, score: 0, reason: `action 应为 merge，实际: ${action}` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'pdf-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未找到调用' };
+        const a = call.args ?? call.input;
+        const sources = a?.sourcePaths;
+        return Array.isArray(sources) && sources.length >= 3
+          ? { pass: true, score: 1, reason: `sourcePaths 包含 ${sources.length} 个文件` }
+          : { pass: false, score: 0, reason: `sourcePaths 应至少 3 个，实际: ${JSON.stringify(sources)?.slice(0, 200)}` };
+
+- description: "office-014: 不应用 read-file 读取 pptx 二进制文件"
+  vars:
+    prompt: "读取 presentation.pptx 的内容"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('pptx-query')
+          ? { pass: true, score: 1, reason: '正确使用 pptx-query' }
+          : { pass: false, score: 0, reason: `应使用 pptx-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('read-file')
+          ? { pass: true, score: 1, reason: '未使用 read-file' }
+          : { pass: false, score: 0, reason: 'pptx 是二进制文件，不应使用 read-file' };
+
+# ---- Excel 补充 (excel-query / excel-mutate) ----
+
+- description: "office-015: 创建 Excel 应使用 excel-mutate + action=create"
+  vars:
+    prompt: "创建一个 Excel 表格 budget.xlsx，包含 Sheet1 有「部门、预算、实际支出」三列，填入市场部和研发部的数据"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('excel-mutate')
+          ? { pass: true, score: 1, reason: '正确调用了 excel-mutate' }
+          : { pass: false, score: 0, reason: `未调用 excel-mutate，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'excel-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未找到 excel-mutate 调用' };
+        const a = call.args ?? call.input;
+        const action = a?.action;
+        return action === 'create'
+          ? { pass: true, score: 1, reason: 'action=create' }
+          : { pass: false, score: 0, reason: `action 应为 create，实际: ${action}` };
+
+- description: "office-016: 读取 Excel 内容应使用 excel-query 而非 read-file"
+  vars:
+    prompt: "读取 sales-data.xlsx 第一个 Sheet 的数据"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('excel-query')
+          ? { pass: true, score: 1, reason: '正确使用 excel-query' }
+          : { pass: false, score: 0, reason: `应使用 excel-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('read-file')
+          ? { pass: true, score: 1, reason: '未使用 read-file' }
+          : { pass: false, score: 0, reason: 'xlsx 是二进制文件，不应使用 read-file' };
+
+# ---- 跨格式选择（验证 LLM 选对工具类型）----
+
+- description: "office-017: docx 用 word 工具而非 doc-convert"
+  vars:
+    prompt: "帮我在 notes.docx 里加一个标题「第二章」和两段正文"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('word-mutate')
+          ? { pass: true, score: 1, reason: '正确使用 word-mutate' }
+          : { pass: false, score: 0, reason: `应使用 word-mutate，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('doc-convert')
+          ? { pass: true, score: 1, reason: '未错误使用 doc-convert' }
+          : { pass: false, score: 0, reason: '编辑 docx 内容不应使用 doc-convert' };
+
+- description: "office-018: PDF 结构查询应使用 pdf-query + mode=read-structure"
+  vars:
+    prompt: "report.pdf 有多少页？文件大小多少？有没有表单？"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('pdf-query') || tools.includes('file-info')
+          ? { pass: true, score: 1, reason: '调用了 pdf-query 或 file-info' }
+          : { pass: false, score: 0, reason: `未调用 pdf-query 或 file-info，实际: [${tools}]` };

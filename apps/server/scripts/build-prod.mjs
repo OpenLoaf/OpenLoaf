@@ -47,7 +47,13 @@ await build({
   target: "node20",
   format: "esm",
   outfile: "dist/server.mjs",
-  external: ["playwright-core", "sharp", "@anthropic-ai/claude-agent-sdk"],
+  external: [
+    "playwright-core",
+    "sharp",
+    "@anthropic-ai/claude-agent-sdk",
+    "@ffmpeg-installer/ffmpeg",
+    "@ffprobe-installer/ffprobe",
+  ],
   alias: {
     "@trpc/client": path.resolve(repoRoot, "node_modules", "@trpc", "client"),
     "@trpc/server": path.resolve(repoRoot, "node_modules", "@trpc", "server"),

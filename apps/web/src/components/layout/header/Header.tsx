@@ -195,13 +195,11 @@ export const Header = () => {
           ref={headerTitleExtraRef}
           className="flex shrink-0 items-center"
           data-slot="header-title-extra"
-          data-no-drag="true"
         />
         <div
           ref={headerActionsRef}
           className="flex min-w-0 flex-1 items-center justify-end"
           data-slot="header-actions"
-          data-no-drag="true"
         />
       </div>
       <div className="flex shrink-0 h-(--header-height) items-center pr-2 relative">

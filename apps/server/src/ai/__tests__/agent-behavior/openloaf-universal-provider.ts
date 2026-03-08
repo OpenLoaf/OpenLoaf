@@ -10,8 +10,10 @@
 /**
  * Promptfoo 通用 Provider — 根据 vars.agentType 路由到不同的 Agent 执行路径。
  *
- * - agentType 未设置 / 'master-e2e'：走完整 runChatStream() E2E pipeline（等同于 openloaf-e2e-provider.ts）
- * - agentType = 'calendar' / 'email' / ... ：从注册表查找模板，用 createMasterAgentRunner() 直接运行
+ * - agentType 未设置 / 'master-e2e'：走完整 AiExecuteService pipeline（含 command 解析、skill 注入）
+ * - agentType = 'calendar' / 'email' / ... ：从注册表查找模板，用 createSubAgent() 直接运行
+ *
+ * 支持 command 指令测试（如 /summary-title），通过多轮对话 vars.turns 实现。
  *
  * 使用方式：在 promptfooconfig.yaml 中设置唯一 provider，测试用例通过 vars.agentType 指定 Agent 类型。
  *
@@ -19,6 +21,11 @@
  *   vars:
  *     agentType: calendar
  *     prompt: "今天有什么日程"
+ *
+ *   # command 测试（多轮）
+ *   vars:
+ *     turns: '[{"text": "你好"}, {"text": "/summary-title"}]'
+ *     prompt: "多轮对话测试"
  */
 import type {
   ApiProvider,
@@ -27,7 +34,7 @@ import type {
   CallApiOptionsParams,
 } from 'promptfoo'
 import { createSubAgent } from '@/ai/services/agentFactory'
-import { runChatStream } from '@/ai/services/chat/chatStreamService'
+import { AiExecuteService } from '@/ai/services/chat/AiExecuteService'
 import { consumeSseResponse, type SseStreamResult } from '../helpers/sseParser'
 import { installHttpProxy } from '@/modules/proxy/httpProxy'
 import {
@@ -175,7 +182,8 @@ export default class OpenLoafUniversalProvider implements ApiProvider {
     const sessionId = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const messageId = crypto.randomUUID()
 
-    const response = await runChatStream({
+    const service = new AiExecuteService()
+    const response = await service.execute({
       request: {
         sessionId,
         workspaceId: this.ensureWorkspace(),
@@ -194,6 +202,7 @@ export default class OpenLoafUniversalProvider implements ApiProvider {
       cookies: {},
       requestSignal: ac.signal,
       saasAccessToken,
+      autoApproveTools: true,
     })
 
     const parsed = await consumeSseResponse(response)
@@ -203,6 +212,7 @@ export default class OpenLoafUniversalProvider implements ApiProvider {
         toolCalls: parsed.toolCalls,
         toolNames: parsed.toolNames,
         toolCallCount: parsed.toolCalls.length,
+        commandEvents: parsed.commandEvents,
         subAgentEvents: parsed.subAgentEvents,
         hasSubAgentDispatch: parsed.subAgentEvents.some((e) =>
           e.type.includes('sub-agent-start'),
@@ -295,10 +305,12 @@ export default class OpenLoafUniversalProvider implements ApiProvider {
     const sessionId = `e2e-mt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     let lastParsed: SseStreamResult | undefined
     const allToolCalls: SseStreamResult['toolCalls'] = []
+    const allCommandEvents: Array<{ type: string; data: unknown }> = []
+    const service = new AiExecuteService()
 
     for (const turn of turns) {
       const msgId = crypto.randomUUID()
-      const response = await runChatStream({
+      const response = await service.execute({
         request: {
           sessionId,
           workspaceId: this.ensureWorkspace(),
@@ -317,9 +329,11 @@ export default class OpenLoafUniversalProvider implements ApiProvider {
         cookies: {},
         requestSignal: ac.signal,
         saasAccessToken,
+        autoApproveTools: true,
       })
       lastParsed = await consumeSseResponse(response)
       allToolCalls.push(...lastParsed.toolCalls)
+      allCommandEvents.push(...lastParsed.commandEvents)
     }
 
     return {
@@ -328,6 +342,7 @@ export default class OpenLoafUniversalProvider implements ApiProvider {
         toolCalls: allToolCalls,
         toolNames: [...new Set(allToolCalls.map((t) => t.toolName))],
         toolCallCount: allToolCalls.length,
+        commandEvents: allCommandEvents,
         sessionId,
         agentType: 'master-e2e',
       },

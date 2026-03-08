@@ -13,10 +13,10 @@
  */
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import { execSync } from 'node:child_process'
 import { tool, zodSchema } from 'ai'
 import { fileInfoToolDef } from '@openloaf/api/types/tools/fileInfo'
 import { resolveToolPath } from '@/ai/tools/toolScope'
+import { isFfprobeAvailable } from '@/common/ffmpegPaths'
 
 // ---------------------------------------------------------------------------
 // MIME type mapping (extension-based, no magic bytes needed)
@@ -90,14 +90,6 @@ function detectFileType(ext: string): FileType {
 // ffprobe helper
 // ---------------------------------------------------------------------------
 
-function checkFfprobe(): boolean {
-  try {
-    execSync('ffprobe -version', { stdio: 'ignore' })
-    return true
-  } catch {
-    return false
-  }
-}
 
 function probeFile(absPath: string): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -184,7 +176,7 @@ export const fileInfoTool = tool({
 
         case 'video':
         case 'audio': {
-          if (!checkFfprobe()) {
+          if (!isFfprobeAvailable()) {
             details = { error: '系统未安装 FFmpeg/ffprobe，无法读取媒体文件详细信息。macOS: brew install ffmpeg' }
             break
           }

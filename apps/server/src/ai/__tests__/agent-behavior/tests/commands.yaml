@@ -1,0 +1,54 @@
+# ════════════════════════════════════════════════════════════════
+# Command 指令 — 通过 AiExecuteService 完整管道测试
+# ════════════════════════════════════════════════════════════════
+
+- description: "cmd-001: /summary-title 应生成对话标题"
+  vars:
+    prompt: "多轮对话：先聊天再生成标题"
+    turns: '[{"text": "请用一句话介绍人工智能的定义"}, {"text": "/summary-title"}]'
+  assert:
+    - type: javascript
+      value: |
+        const events = context.providerResponse?.metadata?.commandEvents || [];
+        const titleEvent = events.find(e => e.type === 'data-session-title');
+        if (!titleEvent) {
+          return { pass: false, score: 0, reason: '未收到 data-session-title 事件' };
+        }
+        const title = titleEvent.data?.title;
+        return title && typeof title === 'string' && title.length > 0
+          ? { pass: true, score: 1, reason: `生成标题: ${title}` }
+          : { pass: false, score: 0, reason: `标题为空或无效: ${JSON.stringify(titleEvent.data)}` };
+
+- description: "cmd-002: /summary-title 带额外要求应生成英文标题"
+  vars:
+    prompt: "多轮对话：先聊天再生成英文标题"
+    turns: '[{"text": "帮我解释什么是机器学习"}, {"text": "/summary-title 用英文生成标题"}]'
+  assert:
+    - type: javascript
+      value: |
+        const events = context.providerResponse?.metadata?.commandEvents || [];
+        const titleEvent = events.find(e => e.type === 'data-session-title');
+        if (!titleEvent) {
+          return { pass: false, score: 0, reason: '未收到 data-session-title 事件' };
+        }
+        const title = titleEvent.data?.title;
+        return title && typeof title === 'string' && title.length > 0
+          ? { pass: true, score: 1, reason: `生成标题: ${title}` }
+          : { pass: false, score: 0, reason: `标题为空或无效` };
+    - type: llm-rubric
+      value: |
+        标题应为英文（或至少主要使用英文单词），因为用户要求"用英文生成标题"。
+        标题应与机器学习话题相关。
+      # 注意：grading LLM 拿到的 output 是最后一轮的 textOutput（可能为空），
+      # 所以这里主要依赖 javascript 断言。llm-rubric 作为辅助校验。
+
+- description: "cmd-003: 普通聊天不应触发 command 事件"
+  vars:
+    prompt: "1+1等于几？"
+  assert:
+    - type: javascript
+      value: |
+        const events = context.providerResponse?.metadata?.commandEvents || [];
+        return events.length === 0
+          ? { pass: true, score: 1, reason: '未触发 command 事件（符合预期）' }
+          : { pass: false, score: 0, reason: `意外收到 command 事件: ${JSON.stringify(events)}` };

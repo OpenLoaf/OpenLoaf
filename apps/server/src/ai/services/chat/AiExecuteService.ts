@@ -33,6 +33,8 @@ type AiExecuteServiceInput = {
   requestSignal: AbortSignal;
   /** SaaS access token from request header. */
   saasAccessToken?: string;
+  /** Skip tool approval (for tests / task executor). */
+  autoApproveTools?: boolean;
 };
 
 export class AiExecuteService {
@@ -121,6 +123,7 @@ export class AiExecuteService {
       sessionId,
       lastMessage: enrichedLastMessage,
       selectedSkills,
+      autoApproveTools: input.autoApproveTools,
     });
     return new ChatStreamUseCase().execute({
       request: chatRequest,
@@ -147,6 +150,7 @@ function buildChatStreamRequest(input: {
   sessionId: string;
   lastMessage: OpenLoafUIMessage;
   selectedSkills: string[];
+  autoApproveTools?: boolean;
 }): ChatStreamRequest {
   return {
     sessionId: input.sessionId,
@@ -166,6 +170,7 @@ function buildChatStreamRequest(input: {
     toolApprovalPayloads: input.request.toolApprovalPayloads,
     chatModelId: input.request.chatModelId,
     chatModelSource: input.request.chatModelSource,
+    autoApproveTools: input.autoApproveTools,
   };
 }
 

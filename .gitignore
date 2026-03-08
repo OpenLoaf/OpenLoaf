@@ -45,6 +45,7 @@ lerna-debug.log*
 # Testing
 coverage
 .nyc_output
+.behavior-test-output.json
 
 # Misc
 *.tgz

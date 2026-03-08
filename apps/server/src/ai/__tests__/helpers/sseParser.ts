@@ -29,6 +29,7 @@ export type SseStreamResult = {
   toolCalls: SseToolCall[]
   toolNames: string[]
   subAgentEvents: Array<{ type: string; data: unknown }>
+  commandEvents: Array<{ type: string; data: unknown }>
   finishReason: string
 }
 
@@ -112,6 +113,7 @@ export async function consumeSseResponse(response: Response): Promise<SseStreamR
   let textOutput = ''
   const toolCalls: SseToolCall[] = []
   const subAgentEvents: Array<{ type: string; data: unknown }> = []
+  const commandEvents: Array<{ type: string; data: unknown }> = []
   let finishReason = ''
 
   for (const event of events) {
@@ -146,6 +148,20 @@ export async function consumeSseResponse(response: Response): Promise<SseStreamR
         })
         break
 
+      case 'tool-input-error': {
+        // Capture failed tool calls too — important for asserting tool SELECTION
+        // (the model chose the right tool even if parameters were invalid)
+        const existingError = toolCalls.find((t) => t.toolCallId === d.toolCallId)
+        if (!existingError) {
+          toolCalls.push({
+            toolCallId: d.toolCallId ?? '',
+            toolName: d.toolName ?? '',
+            input: d.input,
+          })
+        }
+        break
+      }
+
       case 'tool-output-available': {
         const match = toolCalls.find((t) => t.toolCallId === d.toolCallId)
         if (match) match.output = d.output
@@ -159,6 +175,8 @@ export async function consumeSseResponse(response: Response): Promise<SseStreamR
       default:
         if (type.startsWith('data-sub-agent')) {
           subAgentEvents.push({ type, data: d })
+        } else if (type.startsWith('data-')) {
+          commandEvents.push({ type, data: d })
         }
         break
     }
@@ -169,6 +187,7 @@ export async function consumeSseResponse(response: Response): Promise<SseStreamR
     toolCalls,
     toolNames: [...new Set(toolCalls.map((t) => t.toolName))],
     subAgentEvents,
+    commandEvents,
     finishReason,
   }
 }

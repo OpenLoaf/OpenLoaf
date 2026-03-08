@@ -234,6 +234,11 @@ function CanvasDomLayerBase({
 
   useEffect(() => {
     if (lastDocRevisionRef.current === snapshot.docRevision) return;
+    // 逻辑：拖拽期间跳过空间索引重建，拖拽结束后自动刷新。
+    if (snapshot.draggingId) {
+      lastDocRevisionRef.current = snapshot.docRevision;
+      return;
+    }
     const nodeCount = snapshot.elements.reduce((count, element) => {
       if (element.kind !== "node") return count;
       return count + 1;
@@ -254,7 +259,7 @@ function CanvasDomLayerBase({
     gridIndexRef.current = buildGridIndex(snapshot.elements, GRID_CELL_SIZE, groupPadding);
     lastDocRevisionRef.current = snapshot.docRevision;
     setCullingView(viewStateRef.current);
-  }, [snapshot.docRevision, snapshot.elements]);
+  }, [snapshot.docRevision, snapshot.elements, snapshot.draggingId]);
 
   useEffect(() => {
     const handleViewChange = () => {

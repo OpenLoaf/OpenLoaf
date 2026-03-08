@@ -415,23 +415,26 @@ export class SelectTool implements CanvasTool {
     const snapped = snapMoveRect(nextRect, others, threshold, margin);
     const snappedDx = snapped.rect.x - group.x;
     const snappedDy = snapped.rect.y - group.y;
-    ctx.engine.doc.transact(() => {
-      this.draggingIds.forEach(id => {
-        const startRect = this.dragStartRects.get(id);
-        if (!startRect) return;
-        const element = ctx.engine.doc.getElementById(id);
-        if (!element) return;
-        ctx.engine.doc.updateElement(id, {
-          xywh: [
-            startRect[0] + snappedDx,
-            startRect[1] + snappedDy,
-            startRect[2],
-            startRect[3],
-          ],
+    // 逻辑：batch 合并 transact + setAlignmentGuides，避免拖拽每帧两次 emitChange。
+    ctx.engine.batch(() => {
+      ctx.engine.doc.transact(() => {
+        this.draggingIds.forEach(id => {
+          const startRect = this.dragStartRects.get(id);
+          if (!startRect) return;
+          const element = ctx.engine.doc.getElementById(id);
+          if (!element) return;
+          ctx.engine.doc.updateElement(id, {
+            xywh: [
+              startRect[0] + snappedDx,
+              startRect[1] + snappedDy,
+              startRect[2],
+              startRect[3],
+            ],
+          });
         });
       });
+      ctx.engine.setAlignmentGuides(snapped.guides);
     });
-    ctx.engine.setAlignmentGuides(snapped.guides);
   }
 
   /** Handle pointer up to stop dragging. */

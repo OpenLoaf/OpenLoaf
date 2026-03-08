@@ -13,12 +13,12 @@
  */
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import { execSync } from 'node:child_process'
 import ffmpeg from 'fluent-ffmpeg'
 import { tool, zodSchema } from 'ai'
 import { videoConvertToolDef } from '@openloaf/api/types/tools/videoConvert'
 import { resolveToolPath } from '@/ai/tools/toolScope'
 import { resolveOfficeFile } from '@/ai/tools/office/streamingZip'
+import { isFfmpegAvailable } from '@/common/ffmpegPaths'
 
 const VIDEO_EXTENSIONS = [
   '.mp4', '.avi', '.mkv', '.mov', '.webm', '.flv', '.wmv', '.m4v',
@@ -26,15 +26,6 @@ const VIDEO_EXTENSIONS = [
 const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.aac', '.flac', '.ogg']
 const ALL_MEDIA_EXTENSIONS = [...VIDEO_EXTENSIONS, ...AUDIO_EXTENSIONS]
 
-/** Check if FFmpeg is available on the system. */
-function checkFfmpeg(): boolean {
-  try {
-    execSync('ffmpeg -version', { stdio: 'ignore' })
-    return true
-  } catch {
-    return false
-  }
-}
 
 /** Wrap ffmpeg.ffprobe as a Promise. */
 function probeFile(filePath: string): Promise<ffmpeg.FfprobeData> {
@@ -73,10 +64,10 @@ export const videoConvertTool = tool({
       audioFormat?: string
     }
 
-    if (!checkFfmpeg()) {
+    if (!isFfmpegAvailable()) {
       return {
         ok: false,
-        error: '系统未安装 FFmpeg。请先安装 FFmpeg 后再使用视频转换功能。macOS: brew install ffmpeg，Windows: choco install ffmpeg，Linux: apt install ffmpeg',
+        error: '系统未安装 FFmpeg，视频转换功能不可用。macOS: brew install ffmpeg，Windows: choco install ffmpeg，Linux: apt install ffmpeg',
       }
     }
 

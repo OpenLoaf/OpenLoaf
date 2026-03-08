@@ -498,7 +498,8 @@ export function BoardCanvasCollab({
     };
 
     const unsubscribe = engine.subscribe(() => {
-      // 逻辑：节点入库后扫描一次，触发转码。
+      // 逻辑：节点入库后扫描一次，触发转码。拖拽期间跳过。
+      if (engine.isDragging()) return;
       scanTranscodingNodes();
     });
     scanTranscodingNodes();
@@ -511,6 +512,8 @@ export function BoardCanvasCollab({
   useEffect(() => {
     if (!boardFolderUri) return;
     const sync = () => {
+      // 逻辑：拖拽期间跳过计数同步，减少不必要的开销。
+      if (engine.isDragging()) return;
       setBoardElementCount(boardFolderUri, engine.doc.getElements().length);
     };
     const unsubscribe = engine.subscribe(sync);
@@ -645,6 +648,8 @@ export function BoardCanvasCollab({
     const scheduleDocSync = () => {
       if (applyingRemoteRef.current) return;
       if (!doc) return;
+      // 逻辑：拖拽期间跳过 Yjs 同步，避免每帧序列化大型元素数据。
+      if (engine.isDragging()) return;
       const revision = engine.doc.getRevision();
       if (revision === lastRevisionRef.current) return;
       lastRevisionRef.current = revision;

@@ -49,20 +49,20 @@ export const imageProcessToolDef = {
       .string()
       .optional()
       .describe('输出文件路径。不指定则覆盖源文件；convert 时必填。'),
-    // resize
-    width: z.number().int().positive().optional().describe('resize 时的目标宽度（像素）'),
-    height: z.number().int().positive().optional().describe('resize 时的目标高度（像素）'),
+    // resize (transform abs for robustness — some models send negative values)
+    width: z.coerce.number().int().transform(Math.abs).pipe(z.number().positive()).optional().describe('resize 时的目标宽度（像素）'),
+    height: z.coerce.number().int().transform(Math.abs).pipe(z.number().positive()).optional().describe('resize 时的目标高度（像素）'),
     fit: z
       .enum(['cover', 'contain', 'fill', 'inside', 'outside'])
       .optional()
       .describe('resize 时的缩放模式，默认 cover'),
     // crop
-    left: z.number().int().min(0).optional().describe('crop 时的左偏移（像素）'),
-    top: z.number().int().min(0).optional().describe('crop 时的上偏移（像素）'),
-    cropWidth: z.number().int().positive().optional().describe('crop 时的裁剪宽度（像素）'),
-    cropHeight: z.number().int().positive().optional().describe('crop 时的裁剪高度（像素）'),
+    left: z.coerce.number().int().min(0).optional().describe('crop 时的左偏移（像素）'),
+    top: z.coerce.number().int().min(0).optional().describe('crop 时的上偏移（像素）'),
+    cropWidth: z.coerce.number().int().transform(Math.abs).pipe(z.number().positive()).optional().describe('crop 时的裁剪宽度（像素）'),
+    cropHeight: z.coerce.number().int().transform(Math.abs).pipe(z.number().positive()).optional().describe('crop 时的裁剪高度（像素）'),
     // rotate
-    angle: z.number().optional().describe('rotate 时的旋转角度（度，顺时针）'),
+    angle: z.coerce.number().optional().describe('rotate 时的旋转角度（度，顺时针）'),
     // flip
     direction: z
       .enum(['horizontal', 'vertical'])
@@ -70,7 +70,7 @@ export const imageProcessToolDef = {
       .describe('flip 时的翻转方向'),
     // blur
     sigma: z
-      .number()
+      .coerce.number()
       .min(0.3)
       .max(100)
       .optional()
@@ -86,7 +86,7 @@ export const imageProcessToolDef = {
       .optional()
       .describe('convert 时的目标格式'),
     quality: z
-      .number()
+      .coerce.number()
       .int()
       .min(1)
       .max(100)

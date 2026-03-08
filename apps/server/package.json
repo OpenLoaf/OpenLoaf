@@ -31,7 +31,7 @@
     "test:office:tools": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/tools/__tests__/officeTools.test.ts",
     "test:task:all": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/services/__tests__/taskConfigService.test.ts && node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/services/__tests__/taskEventBus.test.ts && node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/services/__tests__/taskExecutor.test.ts && node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/services/__tests__/taskOrchestrator.test.ts && node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/services/supervision/__tests__/supervisionService.test.ts",
     "test:ai:behavior": "node --no-warnings --env-file=.env --import tsx/esm scripts/run-behavior-test.mjs",
-    "test:ai:behavior:view": "npx promptfoo view"
+    "test:ai:behavior:view": "PROMPTFOO_LOG_LEVEL=error pnpm exec promptfoo view -y"
   },
   "dependencies": {
     "@ai-sdk/alibaba": "^1.0.10",
@@ -49,6 +49,8 @@
     "@aws-sdk/client-s3": "^3.975.0",
     "@aws-sdk/s3-request-presigner": "^3.975.0",
     "@babel/parser": "^7.26.2",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "@hocuspocus/server": "^3.4.3",
     "@hono/node-server": "^1.19.9",
     "@hono/trpc-server": "^0.4.2",

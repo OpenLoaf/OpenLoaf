@@ -7,21 +7,30 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CanvasSnapshot } from "../engine/types";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 
 /** Subscribe to engine updates and return the latest snapshot. */
 export function useBoardSnapshot(engine: CanvasEngine): CanvasSnapshot {
   const [snapshot, setSnapshot] = useState(() => engine.getSnapshot());
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // 订阅引擎变更，确保 UI 与模型保持同步。
+    // 逻辑：通过 rAF 节流快照刷新，确保每帧最多更新一次，避免拖拽时多次重渲染。
     const unsubscribe = engine.subscribe(() => {
-      setSnapshot(engine.getSnapshot());
+      if (rafRef.current !== null) return;
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        setSnapshot(engine.getSnapshot());
+      });
     });
     return () => {
       unsubscribe();
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
   }, [engine]);
 

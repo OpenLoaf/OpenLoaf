@@ -14,6 +14,7 @@ import path from 'path';
 import { fixPath } from './fixPath';
 import { installAutoUpdate } from './autoUpdate';
 import { getComponentInfo, installIncrementalUpdate } from './incrementalUpdate';
+import { resolveUpdateChannel, switchUpdateChannel } from './updateConfig';
 
 // 中文注释：在最早期修复 PATH，确保后续 spawn 的进程能找到用户级命令（npm global、homebrew 等）。
 // 必须在 app.isPackaged 检查之前执行，因为 fixPath 内部会根据打包状态选择策略。
@@ -463,6 +464,13 @@ async function installReactDevTools(log: Logger): Promise<void> {
  * - 创建主窗口并加载 apps/web
  */
 async function boot() {
+  // Beta 版本自动启用 beta 更新渠道，确保用户能接收到 beta 增量更新。
+  const currentVersion = app.getVersion()
+  if (currentVersion.includes('-beta') && resolveUpdateChannel() !== 'beta') {
+    switchUpdateChannel('beta')
+    log(`[update-channel] Auto-switched to beta (detected beta version: v${currentVersion})`)
+  }
+
   installApplicationMenu();
 
   ensureLocalNoProxy();

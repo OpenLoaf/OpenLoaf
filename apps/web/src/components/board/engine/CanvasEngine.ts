@@ -206,6 +206,14 @@ export class CanvasEngine {
   private elementsBoundsDirty = true;
   /** Active dragging element id. */
   private draggingElementId: string | null = null;
+  /** Batch depth counter — when > 0, emitChange is deferred. */
+  private batchDepth = 0;
+  /** Whether a deferred emitChange is pending inside a batch. */
+  private batchPending = false;
+  /** rAF id for throttled change emission during drag. */
+  private dragEmitRaf: number | null = null;
+  /** Whether a drag-throttled change is pending. */
+  private dragEmitPending = false;
   /** Node id currently in edit mode. */
   private editingNodeId: string | null = null;
   /** Whether the viewport is currently being panned. */
@@ -644,7 +652,16 @@ export class CanvasEngine {
 
   /** Mark the currently dragging element id. */
   setDraggingElementId(id: string | null): void {
+    const wasDragging = this.draggingElementId !== null;
     this.draggingElementId = id;
+    // 逻辑：拖拽结束时取消挂起的 rAF，立即同步刷新，确保最终状态一致。
+    if (wasDragging && id === null) {
+      if (this.dragEmitRaf !== null) {
+        cancelAnimationFrame(this.dragEmitRaf);
+        this.dragEmitRaf = null;
+        this.dragEmitPending = false;
+      }
+    }
     this.emitChange();
   }
 
@@ -2179,8 +2196,54 @@ export class CanvasEngine {
     });
   }
 
+  /**
+   * Run a callback with batched change notifications.
+   * All emitChange calls inside fn are deferred; a single notification fires
+   * after fn completes. Nesting is supported.
+   */
+  batch(fn: () => void): void {
+    this.batchDepth++;
+    try {
+      fn();
+    } finally {
+      this.batchDepth--;
+      if (this.batchDepth === 0 && this.batchPending) {
+        this.batchPending = false;
+        this.flushChange();
+      }
+    }
+  }
+
+  /** Whether an element is currently being dragged. */
+  isDragging(): boolean {
+    return this.draggingElementId !== null;
+  }
+
   /** Emit change notifications to subscribers. */
   private emitChange(): void {
+    if (this.batchDepth > 0) {
+      this.batchPending = true;
+      return;
+    }
+    this.flushChange();
+  }
+
+  /** Actually flush change notifications to listeners. */
+  private flushChange(): void {
+    // 逻辑：拖拽期间通过 rAF 节流变更通知，避免每帧多次重渲染。
+    if (this.draggingElementId !== null) {
+      this.dragEmitPending = true;
+      if (this.dragEmitRaf === null) {
+        this.dragEmitRaf = requestAnimationFrame(() => {
+          this.dragEmitRaf = null;
+          if (this.dragEmitPending) {
+            this.dragEmitPending = false;
+            this.listeners.forEach(listener => listener());
+          }
+        });
+      }
+      return;
+    }
     this.listeners.forEach(listener => listener());
   }
 

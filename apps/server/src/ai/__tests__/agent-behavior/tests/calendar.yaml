@@ -1,0 +1,165 @@
+# ════════════════════════════════════════════════════════════════
+# Calendar 日历工具行为测试（Master E2E pipeline）
+# ════════════════════════════════════════════════════════════════
+
+- description: "cal-001: 列出日历源应使用 calendar-query mode=list-sources"
+  vars:
+    prompt: "列出我的日历源"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('calendar-query')
+          ? { pass: true, score: 1, reason: '正确调用了 calendar-query' }
+          : { pass: false, score: 0, reason: `未调用 calendar-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'calendar-query');
+        if (!call) return { pass: false, score: 0, reason: '未找到 calendar-query 调用' };
+        const mode = call.args?.mode;
+        return mode === 'list-sources'
+          ? { pass: true, score: 1, reason: `mode=${mode}` }
+          : { pass: false, score: 0, reason: `args.mode 应为 list-sources，实际: ${mode}` };
+
+- description: "cal-002: 今天日程查询 rangeStart 应存在"
+  vars:
+    prompt: "今天有什么日程"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('calendar-query')
+          ? { pass: true, score: 1, reason: '正确调用了 calendar-query' }
+          : { pass: false, score: 0, reason: `未调用 calendar-query，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'calendar-query');
+        if (!call) return { pass: false, score: 0, reason: '未找到 calendar-query 调用' };
+        const hasRange = call.args?.rangeStart != null;
+        return hasRange
+          ? { pass: true, score: 1, reason: 'rangeStart 存在' }
+          : { pass: false, score: 0, reason: 'rangeStart 应存在（今日范围查询）' };
+
+- description: "cal-003: 本周日程查询 rangeStart 和 rangeEnd 应同时存在"
+  vars:
+    prompt: "本周日程安排"
+  assert:
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'calendar-query');
+        if (!call) return { pass: false, score: 0, reason: '未调用 calendar-query' };
+        const hasStart = call.args?.rangeStart != null;
+        const hasEnd = call.args?.rangeEnd != null;
+        return (hasStart && hasEnd)
+          ? { pass: true, score: 1, reason: 'rangeStart 和 rangeEnd 均存在' }
+          : { pass: false, score: 0, reason: `本周查询应有两端时间范围，rangeStart=${hasStart}, rangeEnd=${hasEnd}` };
+
+- description: "cal-004: 下个月日程查询 rangeStart 应存在"
+  vars:
+    prompt: "下个月有什么安排"
+  assert:
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'calendar-query');
+        if (!call) return { pass: false, score: 0, reason: '未调用 calendar-query' };
+        return call.args?.rangeStart != null
+          ? { pass: true, score: 1, reason: 'rangeStart 存在' }
+          : { pass: false, score: 0, reason: 'rangeStart 应存在' };
+
+- description: "cal-005: 创建会议事件应使用 calendar-mutate action=create"
+  vars:
+    prompt: "创建一个明天上午10点的会议"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('calendar-mutate')
+          ? { pass: true, score: 1, reason: '正确调用了 calendar-mutate' }
+          : { pass: false, score: 0, reason: `未调用 calendar-mutate，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'calendar-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未找到 calendar-mutate 调用' };
+        return call.args?.action === 'create'
+          ? { pass: true, score: 1, reason: 'action=create' }
+          : { pass: false, score: 0, reason: `args.action 应为 create，实际: ${call.args?.action}` };
+
+- description: "cal-006: 修改会议时间应使用 calendar-mutate action=update"
+  vars:
+    prompt: "把3点的会议改到4点"
+  assert:
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'calendar-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未调用 calendar-mutate' };
+        return call.args?.action === 'update'
+          ? { pass: true, score: 1, reason: 'action=update' }
+          : { pass: false, score: 0, reason: `args.action 应为 update，实际: ${call.args?.action}` };
+
+- description: "cal-007: 取消提醒应使用 calendar-mutate action=delete"
+  vars:
+    prompt: "取消今天的提醒"
+  assert:
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'calendar-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未调用 calendar-mutate' };
+        const action = call.args?.action;
+        return (action === 'delete' || action === 'cancel')
+          ? { pass: true, score: 1, reason: `action=${action}` }
+          : { pass: false, score: 0, reason: `args.action 应为 delete/cancel，实际: ${action}` };
+
+- description: "cal-008: 标记任务完成应使用 calendar-mutate"
+  vars:
+    prompt: "标记锻炼任务已完成"
+  assert:
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'calendar-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未调用 calendar-mutate' };
+        const action = call.args?.action;
+        return (action === 'toggle-completed' || action === 'complete' || action === 'update')
+          ? { pass: true, score: 1, reason: `action=${action}` }
+          : { pass: false, score: 0, reason: `args.action 应为 toggle-completed/update，实际: ${action}` };
+
+- description: "cal-009: 创建提醒应使用 calendar-mutate"
+  vars:
+    prompt: "创建一个每天提醒我喝水的提醒"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('calendar-mutate')
+          ? { pass: true, score: 1, reason: '正确调用了 calendar-mutate' }
+          : { pass: false, score: 0, reason: `未调用 calendar-mutate，实际: [${tools}]` };
+    - type: javascript
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'calendar-mutate');
+        if (!call) return { pass: false, score: 0, reason: '未找到 calendar-mutate 调用' };
+        const kind = call.args?.kind;
+        return (kind === 'reminder' || call.args?.action === 'create')
+          ? { pass: true, score: 1, reason: `kind=${kind}, action=${call.args?.action}` }
+          : { pass: false, score: 0, reason: `应创建提醒类型，kind=${kind}` };
+
+- description: "cal-010: 日程数量查询应包含数量或列表信息"
+  vars:
+    prompt: "今天有几个日程"
+  assert:
+    - type: javascript
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('calendar-query')
+          ? { pass: true, score: 1, reason: '调用了 calendar-query' }
+          : { pass: false, score: 0, reason: `未调用 calendar-query，实际: [${tools}]` };
+    - type: llm-rubric
+      value: "回复应提及今天日程的数量（如：没有日程、有N个日程）或列出具体日程内容"
+

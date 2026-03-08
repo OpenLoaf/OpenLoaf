@@ -10,6 +10,7 @@
 import dns from "node:dns";
 import "dotenv/config";
 import { fixServerPath } from "@/common/fixServerPath";
+import { initFfmpegPaths } from "@/common/ffmpegPaths";
 
 // 强制 DNS 解析优先返回 IPv4 地址。
 // Electron 子进程中 IPv6 连接经常超时（Happy Eyeballs 耗尽 connect timeout），
@@ -28,6 +29,10 @@ import { embeddedMigrations } from "@openloaf/db/migrations.generated";
 // 修复 PATH：当 server 作为 Electron 子进程运行时，继承的 PATH 可能不完整。
 // 从用户 shell（macOS/Linux）或注册表（Windows）读取完整 PATH。
 fixServerPath();
+
+// 初始化 ffmpeg/ffprobe 路径：优先使用打包的静态二进制，回退到系统 PATH。
+// 必须在 fixServerPath() 之后调用，确保系统 PATH 已修复。
+initFfmpegPaths();
 
 installHttpProxy();
 void syncSystemProxySettings();

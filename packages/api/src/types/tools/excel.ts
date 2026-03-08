@@ -45,7 +45,7 @@ export const excelMutateToolDef = {
   id: 'excel-mutate',
   name: 'Excel 操作',
   description:
-    '触发：当你需要创建或编辑 Excel 文件时调用。用途：create 创建新工作簿（含初始数据），edit 使用 XPath 定位 + XML 编辑修改已有文件（支持修改单元格、公式、样式、图表等任意内容）。返回：{ ok: true, data: { action, ... } }。编辑流程：先用 excel-query(read-structure 或 read-xml) 查看文件结构，然后用 edit 的 edits 数组批量操作。不适用：仅需读取时不要使用，改用 excel-query。',
+    '触发：当你需要创建或编辑 Excel 文件时调用。用途：create 创建新工作簿（含初始数据），edit 使用 XPath 定位 + XML 编辑修改已有文件（支持修改单元格、公式、样式、图表等任意内容）。返回：{ ok: true, data: { action, ... } }。编辑流程：先用 excel-query(read-structure 或 read-xml) 查看文件结构，然后用 edit 的 edits 数组批量操作。不适用：仅需读取时改用 excel-query；格式转换（如 CSV→Excel、Excel→CSV/JSON）改用 doc-convert。',
   parameters: z.object({
     actionName: z
       .string()
