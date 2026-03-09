@@ -301,6 +301,15 @@ export const boardRouter = t.router({
         where: { id: input.boardId },
         data: { deletedAt: new Date() },
       });
+      // Soft-delete associated ChatSession
+      try {
+        await ctx.prisma.chatSession.updateMany({
+          where: { boardId: input.boardId, deletedAt: null },
+          data: { deletedAt: new Date() },
+        });
+      } catch {
+        // Non-critical, ignore
+      }
       return { success: true };
     }),
 
@@ -323,6 +332,15 @@ export const boardRouter = t.router({
       await ctx.prisma.board.delete({
         where: { id: input.boardId },
       });
+
+      // Delete associated ChatSession (boardId = sessionId for board chat)
+      try {
+        await ctx.prisma.chatSession.deleteMany({
+          where: { boardId: input.boardId },
+        });
+      } catch (error) {
+        console.warn("[board.hardDelete] failed to delete chat session", error);
+      }
 
       // Delete file folder
       try {

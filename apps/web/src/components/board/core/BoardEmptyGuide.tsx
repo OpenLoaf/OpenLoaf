@@ -37,6 +37,7 @@ import {
 interface BoardEmptyGuideProps {
   engine: CanvasEngine;
   visible: boolean;
+  activeToolId: string | null;
 }
 
 type TemplateItem = {
@@ -67,8 +68,10 @@ type TemplateItem = {
 const BoardEmptyGuide = memo(function BoardEmptyGuide({
   engine,
   visible,
+  activeToolId,
 }: BoardEmptyGuideProps) {
   const { t } = useTranslation('board');
+  const isSelectTool = activeToolId === "select";
 
   const templates = useMemo<TemplateItem[]>(() => [
     {
@@ -140,7 +143,7 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
     <div
       className={cn(
         "pointer-events-none absolute inset-0 z-30 transition-opacity duration-300",
-        visible ? "opacity-100" : "opacity-0 invisible",
+        visible ? (isSelectTool ? "opacity-100" : "opacity-30") : "opacity-0 invisible",
       )}
     >
       {/* ── Center: template selector ── */}
@@ -164,7 +167,10 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
         <div
           data-canvas-toolbar
           onPointerDown={(e) => e.stopPropagation()}
-          className="pointer-events-auto grid w-[50%] grid-cols-4 gap-[2%]"
+          className={cn(
+            "grid w-[50%] grid-cols-4 gap-[2%]",
+            isSelectTool ? "pointer-events-auto" : "pointer-events-none",
+          )}
         >
             {templates.map((tpl) => {
               const Icon = tpl.icon;

@@ -311,6 +311,8 @@ export type CanvasSnapshot = {
   pendingInsertPoint: CanvasPoint | null;
   /** Whether a toolbar drag-insert gesture is active. */
   toolbarDragging: boolean;
+  /** Recent user-picked colors shared across all toolbar color panels. */
+  colorHistory: string[];
 };
 
 /** Props delivered to a node renderer component. */
@@ -363,6 +365,8 @@ export type CanvasToolbarItem = {
   panel?: ReactNode | ((ctx: { closePanel: () => void }) => ReactNode);
   /** Optional className for the panel container. */
   panelClassName?: string;
+  /** Called when the panel closes (e.g. to commit deferred state like color history). */
+  onPanelClose?: () => void;
 };
 
 /** Toolbar context passed to node definitions. */
@@ -385,6 +389,10 @@ export type CanvasToolbarContext<P> = {
   layoutGroup: (groupId: string, direction?: "row" | "column") => void;
   /** Resolve the current layout axis for a group. */
   getGroupLayoutAxis: (groupId: string) => "row" | "column" | "mixed";
+  /** Recent user-picked colors shared across all toolbar color panels. */
+  colorHistory: string[];
+  /** Add a color to the shared color history. */
+  addColorHistory: (color: string) => void;
 };
 
 /** Node definition used for registration. */

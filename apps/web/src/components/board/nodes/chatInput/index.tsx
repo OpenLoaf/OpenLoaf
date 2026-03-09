@@ -51,6 +51,9 @@ const CHAT_MESSAGE_DEFAULT_HEIGHT = 120;
 const OUTPUT_SIDE_GAP = 60;
 const OUTPUT_STACK_GAP = 16;
 
+/** Fixed Y-offset for left/right anchors (center of header bar). */
+const CHAT_ANCHOR_Y_OFFSET = 18;
+
 /** Collect messageIdChain by walking upstream connectors. */
 function collectMessageIdChain(
   engine: ReturnType<typeof useBoardContext>["engine"],
@@ -440,5 +443,9 @@ export const ChatInputNodeDefinition: CanvasNodeDefinition<ChatInputNodeProps> =
     connectable: "auto",
     minSize: { w: 280, h: 160 },
   },
+  anchors: (_props, bounds) => [
+    { id: "left", point: [bounds.x, bounds.y + CHAT_ANCHOR_Y_OFFSET] },
+    { id: "right", point: [bounds.x + bounds.w, bounds.y + CHAT_ANCHOR_Y_OFFSET] },
+  ],
   connectorTemplates: () => [],
 };

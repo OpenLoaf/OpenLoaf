@@ -127,9 +127,9 @@ export function VideoNodeView({
     <NodeFrame>
       <div
         className={[
-          "flex h-full w-full items-center justify-center rounded-sm border box-border",
-          "border-slate-200 bg-white text-slate-900",
-          "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
+          "flex h-full w-full items-center justify-center rounded-xl border box-border",
+          "border-neutral-200/80 bg-white text-neutral-800",
+          "dark:border-neutral-700/60 dark:bg-neutral-900 dark:text-neutral-100",
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
@@ -137,7 +137,7 @@ export function VideoNodeView({
         }}
       >
         {posterSrc ? (
-          <div className="relative h-full w-full overflow-hidden rounded-sm">
+          <div className="relative h-full w-full overflow-hidden rounded-xl">
             <img
               src={posterSrc}
               alt={displayName}
@@ -145,7 +145,7 @@ export function VideoNodeView({
               loading="lazy"
               decoding="async"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/50 via-slate-900/10 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/50 via-neutral-900/10 to-transparent" />
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <span className="flex h-[24%] min-h-8 aspect-square items-center justify-center rounded-full border border-white/40 bg-black/40 text-white">
                 <Play className="h-[55%] w-[55%] min-h-4 min-w-4 translate-x-[0.5px]" />
@@ -157,10 +157,10 @@ export function VideoNodeView({
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 px-3 text-center">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-300">
               <Play className="h-5 w-5" />
             </div>
-            <div className="line-clamp-2 text-[11px] text-slate-600 dark:text-slate-300">
+            <div className="line-clamp-2 text-[11px] text-neutral-600 dark:text-neutral-400">
               {displayName}
             </div>
           </div>

@@ -87,7 +87,7 @@ function getExtBadgeColor(ext?: string): string {
   )
     return "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300";
   if (normalized === "md" || normalized === "txt")
-    return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
+    return "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300";
   return "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300";
 }
 
@@ -172,9 +172,9 @@ export function FileAttachmentNodeView({
     <NodeFrame>
       <div
         className={[
-          "flex h-full w-full items-center gap-3 rounded-sm border box-border px-3",
-          "border-slate-200 bg-white text-slate-900",
-          "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
+          "flex h-full w-full items-center gap-3 rounded-xl border box-border px-3",
+          "border-neutral-200/80 bg-white text-neutral-800",
+          "dark:border-neutral-700/60 dark:bg-neutral-900 dark:text-neutral-100",
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
@@ -200,7 +200,7 @@ export function FileAttachmentNodeView({
               </span>
             ) : null}
             {sizeText ? (
-              <span className="text-[10px] text-slate-400 dark:text-slate-500">
+              <span className="text-[10px] text-neutral-400 dark:text-neutral-500">
                 {sizeText}
               </span>
             ) : null}

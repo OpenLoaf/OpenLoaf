@@ -64,6 +64,8 @@ export function SingleSelectionToolbar({
   const { fileContext } = useBoardContext();
   // 逻辑：Hook 必须在条件 return 之前调用，避免 Hook 顺序变化。
   const [openPanelId, setOpenPanelId] = useState<string | null>(null);
+  const prevPanelIdRef = useRef<string | null>(null);
+  const toolbarItemsRef = useRef<CanvasToolbarItem[]>([]);
   useEffect(() => {
     if (!openPanelId) return;
     const handlePointerDown = (event: PointerEvent) => {
@@ -74,6 +76,15 @@ export function SingleSelectionToolbar({
     };
     window.addEventListener("pointerdown", handlePointerDown);
     return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [openPanelId]);
+  // 逻辑：面板关闭时触发 onPanelClose，用于保存颜色历史等延迟操作。
+  useEffect(() => {
+    const prev = prevPanelIdRef.current;
+    prevPanelIdRef.current = openPanelId;
+    if (prev && prev !== openPanelId) {
+      const closedItem = toolbarItemsRef.current.find(i => i.id === prev);
+      closedItem?.onPanelClose?.();
+    }
   }, [openPanelId]);
 
   // 逻辑：画布锁定时隐藏节点工具条。
@@ -92,6 +103,8 @@ export function SingleSelectionToolbar({
     uniformGroupSize: groupId => engine.uniformGroupSize(groupId),
     layoutGroup: (groupId, direction) => engine.layoutGroup(groupId, direction),
     getGroupLayoutAxis: groupId => engine.getGroupLayoutAxis(groupId),
+    colorHistory: engine.getColorHistory(),
+    addColorHistory: color => engine.addColorHistory(color),
   });
 
   const hasOverlap = hasNodeOverlap(element, snapshot.elements);
@@ -103,6 +116,8 @@ export function SingleSelectionToolbar({
   });
   const mindmapLayoutItems = buildMindmapLayoutItems(t, engine, element, snapshot);
   const customItems = items ?? [];
+  const allItems = [...customItems, ...mindmapLayoutItems, ...commonItems];
+  toolbarItemsRef.current = allItems;
   if (
     customItems.length === 0
     && commonItems.length === 0
@@ -272,6 +287,8 @@ export function MultiSelectionToolbar({
   const { fileContext } = useBoardContext();
   // 逻辑：Hook 必须在条件 return 之前调用，避免 Hook 顺序变化。
   const [openPanelId, setOpenPanelId] = useState<string | null>(null);
+  const prevMultiPanelIdRef = useRef<string | null>(null);
+  const multiToolbarItemsRef = useRef<CanvasToolbarItem[]>([]);
   useEffect(() => {
     if (!openPanelId) return;
     const handlePointerDown = (event: PointerEvent) => {
@@ -282,6 +299,15 @@ export function MultiSelectionToolbar({
     };
     window.addEventListener("pointerdown", handlePointerDown);
     return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [openPanelId]);
+  // 逻辑：面板关闭时触发 onPanelClose。
+  useEffect(() => {
+    const prev = prevMultiPanelIdRef.current;
+    prevMultiPanelIdRef.current = openPanelId;
+    if (prev && prev !== openPanelId) {
+      const closedItem = multiToolbarItemsRef.current.find(i => i.id === prev);
+      closedItem?.onPanelClose?.();
+    }
   }, [openPanelId]);
 
   // 逻辑：画布锁定时隐藏节点工具条。
@@ -314,8 +340,11 @@ export function MultiSelectionToolbar({
       uniformGroupSize: groupId => engine.uniformGroupSize(groupId),
       layoutGroup: (groupId, direction) => engine.layoutGroup(groupId, direction),
       getGroupLayoutAxis: groupId => engine.getGroupLayoutAxis(groupId),
+      colorHistory: engine.getColorHistory(),
+      addColorHistory: color => engine.addColorHistory(color),
     })
     : [];
+  multiToolbarItemsRef.current = customItems;
 
   const layoutLabel = t('selection.toolbar.autoLayout');
   const layoutIcon = <LayoutGrid size={14} />;
@@ -408,7 +437,7 @@ export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlin
     <>
       <div
         data-board-selection-outline
-        className="pointer-events-none absolute z-10 rounded-lg border border-dashed border-slate-400/70 dark:border-slate-300/60"
+        className="pointer-events-none absolute z-10 rounded-xl border border-dashed border-neutral-400/60 dark:border-neutral-400/40"
         style={{
           left: left - padding,
           top: top - padding,
@@ -792,7 +821,7 @@ function MultiSelectionResizeHandle({
       aria-label="Resize selection"
       data-multi-resize-handle
       onPointerDown={handlePointerDown}
-      className="pointer-events-auto absolute z-20 flex items-center justify-center rounded-md border border-[#e3e8ef] bg-background/90 text-[#5f6368] shadow-[0_6px_12px_rgba(15,23,42,0.12)] transition-colors duration-150 hover:text-[#202124] dark:border-slate-700 dark:text-slate-400 dark:hover:text-slate-100"
+      className="pointer-events-auto absolute z-20 flex items-center justify-center rounded-md border border-[#e3e8ef] bg-background/90 text-[#5f6368] shadow-[0_6px_12px_rgba(15,23,42,0.12)] transition-colors duration-150 hover:text-[#202124] dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-100"
       style={{ left: x, top: y, width: size, height: size }}
     >
       <Maximize2 size={14} className="pointer-events-none rotate-90" />

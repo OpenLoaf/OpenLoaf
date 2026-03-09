@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { OpenLoafUIMessage } from '@openloaf/api/types/message'
-import { loadMessageChainFromFile } from './chatFileStore'
+import { loadMessageChainFromFile, loadMessageTree } from './chatFileStore'
 
 /** Default max messages in a chain. */
 const DEFAULT_MAX_MESSAGES = 80
@@ -42,4 +42,33 @@ export async function loadMessageChain(input: {
     metadata: (row.metadata as any) ?? undefined,
     messageKind: (row as any).messageKind ?? 'normal',
   }))
+}
+
+/** Load messages by explicit ID list (board chat messageIdChain). */
+export async function loadMessageChainByIds(input: {
+  /** Session id. */
+  sessionId: string
+  /** Ordered message IDs from canvas connector chain. */
+  messageIds: string[]
+}): Promise<OpenLoafUIMessage[]> {
+  if (!input.messageIds.length) return []
+
+  const tree = await loadMessageTree(input.sessionId)
+  const result: OpenLoafUIMessage[] = []
+
+  for (const id of input.messageIds) {
+    const msg = tree.byId.get(id)
+    if (!msg) continue
+    if (msg.role === 'subagent') continue
+    result.push({
+      id: msg.id,
+      role: msg.role as any,
+      parentMessageId: msg.parentMessageId ?? null,
+      parts: (msg.parts as any) ?? [],
+      metadata: (msg.metadata as any) ?? undefined,
+      messageKind: (msg as any).messageKind ?? 'normal',
+    })
+  }
+
+  return result
 }

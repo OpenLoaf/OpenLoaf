@@ -191,7 +191,7 @@ export function AdvancedSettingsPanel({
                 {field.title}
               </div>
               {field.description ? (
-                <div className="text-[10px] leading-[14px] text-slate-400 dark:text-slate-500">
+                <div className="text-[10px] leading-[14px] text-neutral-400 dark:text-neutral-500">
                   {field.description}
                 </div>
               ) : null}
@@ -261,7 +261,7 @@ export function AdvancedSettingsPanel({
                     className="h-7 w-20 px-2 text-[11px]"
                   />
                   {field.unit ? (
-                    <div className="text-[11px] text-slate-400 dark:text-slate-500">
+                    <div className="text-[11px] text-neutral-400 dark:text-neutral-500">
                       {field.unit}
                     </div>
                   ) : null}

@@ -30,6 +30,8 @@ export type ChatStreamRequest = ChatRequestBody & {
   chatModelId?: string;
   /** Explicit chat model source from frontend (e.g. board nodes). */
   chatModelSource?: ChatModelSource;
+  /** Board chat: explicit message ID chain from canvas connector graph. */
+  messageIdChain?: string[];
 };
 
 export type AiIntent = "chat" | "image" | "command" | "utility";
@@ -77,6 +79,8 @@ export type AiExecuteRequest = {
   chatModelSource?: ChatModelSource;
   /** Client platform for conditional tool registration. */
   clientPlatform?: ClientPlatform;
+  /** Board chat: explicit message ID chain from canvas connector graph. */
+  messageIdChain?: string[];
 };
 
 export type AiCommandContext = {

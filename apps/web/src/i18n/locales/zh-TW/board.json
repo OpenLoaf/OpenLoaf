@@ -52,7 +52,8 @@
     "file": "檔案",
     "imagePromptGenerate": "影片圖片理解",
     "imageGenerate": "圖片生成",
-    "videoGenerate": "生成影片"
+    "videoGenerate": "生成影片",
+    "aiChat": "AI 對話"
   },
   "textToolTip": {
     "title": "文字工具",
@@ -72,7 +73,8 @@
     "file": "檔案附件",
     "imagePromptGenerate": "分析圖片/影片並生成描述",
     "imageGenerate": "輸入圖片與文字生成新圖",
-    "videoGenerate": "基於圖片與提示詞生成影片"
+    "videoGenerate": "基於圖片與提示詞生成影片",
+    "aiChat": "在畫布中與 AI 對話"
   },
   "picker": {
     "imageTitle": "選擇圖片檔案",
@@ -442,6 +444,29 @@
   "nodePicker": {
     "title": "選擇節點",
     "empty": "無可用節點"
+  },
+  "chatInput": {
+    "title": "AI 對話",
+    "placeholder": "輸入訊息，按 Enter 傳送…",
+    "send": "傳送",
+    "sending": "傳送中…",
+    "sent": "已傳送",
+    "retry": "重試",
+    "autoModel": "自動選擇模型"
+  },
+  "chatMessage": {
+    "title": "AI 回覆",
+    "streaming": "生成中",
+    "thinking": "思考中…",
+    "otherGenerating": "正在生成中…",
+    "stop": "停止",
+    "retry": "重試",
+    "copied": "已複製",
+    "copyFailed": "複製失敗",
+    "hiddenPart": "已隱藏的內容",
+    "show": "顯示",
+    "continueChatLabel": "繼續對話",
+    "continueChatDesc": "從此處繼續對話"
   },
   "styles": {
     "realistic": "寫實",

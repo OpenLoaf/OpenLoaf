@@ -81,7 +81,7 @@ function ConnectorActionPanel({
   return (
     <div
       data-connector-action
-      className="pointer-events-auto absolute z-30 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-[#e3e8ef] bg-background/90 px-2 py-1 shadow-[0_12px_28px_rgba(15,23,42,0.18)] backdrop-blur dark:border-slate-700"
+      className="pointer-events-auto absolute z-30 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-[#e3e8ef] bg-background/90 px-2 py-1 shadow-[0_12px_28px_rgba(15,23,42,0.18)] backdrop-blur dark:border-neutral-700"
       style={{ left: screen[0], top: screen[1] - offsetScreenY }}
       onPointerDown={event => {
         // 逻辑：避免面板交互触发画布选择。
@@ -125,7 +125,7 @@ function ConnectorActionPanel({
           <Sparkles size={14} />
         </ConnectorStyleButton>
       </div>
-      <span className="mx-1 h-4 w-px bg-[#e3e8ef] dark:bg-slate-700" />
+      <span className="mx-1 h-4 w-px bg-[#e3e8ef] dark:bg-neutral-700" />
       <div className="flex items-center gap-1">
         {MINDMAP_BRANCH_COLORS.map(color => {
           const isActive = connector.color === color;
@@ -139,7 +139,7 @@ function ConnectorActionPanel({
                 onColorChange(color);
               }}
               className={cn(
-                "h-6 w-6 rounded-full border border-[#e3e8ef] transition-colors duration-150 dark:border-slate-600",
+                "h-6 w-6 rounded-full border border-[#e3e8ef] transition-colors duration-150 dark:border-neutral-600",
                 isActive ? "ring-2 ring-[#1a73e8] ring-offset-2 ring-offset-background dark:ring-sky-400" : ""
               )}
               style={{ backgroundColor: color }}
@@ -155,7 +155,7 @@ function ConnectorActionPanel({
             onDashedChange(!currentDashed);
           }}
           className={cn(
-            "inline-flex h-6 w-6 items-center justify-center rounded-full border border-[#e3e8ef] text-[#5f6368] transition-colors duration-150 dark:border-slate-600 dark:text-slate-400",
+            "inline-flex h-6 w-6 items-center justify-center rounded-full border border-[#e3e8ef] text-[#5f6368] transition-colors duration-150 dark:border-neutral-600 dark:text-neutral-400",
             currentDashed
               ? "bg-[#d3e3fd] text-[#1a73e8] ring-2 ring-[#1a73e8] ring-offset-2 ring-offset-background dark:bg-sky-800/60 dark:text-sky-50 dark:ring-sky-400"
               : "hover:bg-[hsl(var(--muted)/0.58)] dark:hover:bg-[hsl(var(--muted)/0.46)]"
@@ -165,7 +165,7 @@ function ConnectorActionPanel({
           <span className="block w-4 border-t-2 border-dashed border-current" />
         </button>
       </div>
-      <span className="mx-1 h-4 w-px bg-[#e3e8ef] dark:bg-slate-700" />
+      <span className="mx-1 h-4 w-px bg-[#e3e8ef] dark:bg-neutral-700" />
       <button
         type="button"
         onPointerDown={event => {
@@ -173,7 +173,7 @@ function ConnectorActionPanel({
           event.stopPropagation();
           onDelete();
         }}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[#5f6368] transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive dark:text-slate-400"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[#5f6368] transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive dark:text-neutral-400"
         title={t('connector.deleteConnector')}
       >
         <Trash2 size={14} />
@@ -287,10 +287,10 @@ function ConnectorStyleButton({
       }}
       className={cn(
         "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors duration-150",
-        "text-[#5f6368] dark:text-slate-400",
+        "text-[#5f6368] dark:text-neutral-400",
         active
-          ? "bg-[#202124] text-white shadow-[0_0_0_1px_rgba(15,23,42,0.2)] dark:bg-slate-100 dark:text-slate-900"
-          : "hover:bg-[hsl(var(--muted)/0.58)] hover:text-[#3c4043] dark:hover:bg-[hsl(var(--muted)/0.46)] dark:hover:text-slate-100"
+          ? "bg-[#202124] text-white shadow-[0_0_0_1px_rgba(15,23,42,0.2)] dark:bg-neutral-100 dark:text-neutral-900"
+          : "hover:bg-[hsl(var(--muted)/0.58)] hover:text-[#3c4043] dark:hover:bg-[hsl(var(--muted)/0.46)] dark:hover:text-neutral-100"
       )}
       title={title}
     >
@@ -327,7 +327,7 @@ function NodeInspectorPanel({ element, onClose }: NodeInspectorPanelProps) {
       className={cn(
         "pointer-events-auto absolute z-30 min-w-[220px] -translate-x-1/2 rounded-xl",
         "border border-[#e3e8ef] bg-background/95 px-3 py-2 text-xs text-[#5f6368] shadow-[0_12px_28px_rgba(15,23,42,0.18)] backdrop-blur",
-        "dark:border-slate-700 dark:text-slate-200",
+        "dark:border-neutral-700 dark:text-neutral-200",
         showBelow ? "mt-3" : "mb-3"
       )}
       style={{ left: screen[0], top: screen[1] }}
@@ -337,7 +337,7 @@ function NodeInspectorPanel({ element, onClose }: NodeInspectorPanelProps) {
       }}
     >
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-[#5f6368] dark:text-slate-300">
+        <span className="text-[11px] font-semibold text-[#5f6368] dark:text-neutral-300">
           {t('nodeInspector.panelTitle')}
         </span>
         <button
@@ -347,7 +347,7 @@ function NodeInspectorPanel({ element, onClose }: NodeInspectorPanelProps) {
             event.stopPropagation();
             onClose();
           }}
-          className="rounded-full px-1 py-0.5 text-[11px] text-[#5f6368] transition-colors duration-150 hover:text-[#202124] dark:text-slate-400 dark:hover:text-slate-100"
+          className="rounded-full px-1 py-0.5 text-[11px] text-[#5f6368] transition-colors duration-150 hover:text-[#202124] dark:text-neutral-400 dark:hover:text-neutral-100"
         >
           {t('nodeInspector.close')}
         </button>
@@ -355,10 +355,10 @@ function NodeInspectorPanel({ element, onClose }: NodeInspectorPanelProps) {
       <div className="space-y-1">
         {details.map(detail => (
           <div key={detail.label} className="flex items-center justify-between gap-3">
-            <span className="text-[11px] text-[#5f6368] dark:text-slate-400">
+            <span className="text-[11px] text-[#5f6368] dark:text-neutral-400">
               {detail.label}
             </span>
-            <span className="text-[11px] font-medium text-[#202124] dark:text-slate-100">
+            <span className="text-[11px] font-medium text-[#202124] dark:text-neutral-100">
               {detail.value}
             </span>
           </div>

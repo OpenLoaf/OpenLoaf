@@ -65,6 +65,7 @@ import {
   formatInvalidRequestMessage,
   initRequestContext,
   loadAndPrepareMessageChain,
+  loadAndPrepareMessageChainFromIds,
   saveLastMessageAndResolveParent,
   stripImagePartsForNonVisionModel,
 } from "./chatStreamHelpers";
@@ -517,24 +518,49 @@ export async function runChatStream(input: {
   let messages: UIMessage[] = [];
   let modelMessages: UIMessage[] = [];
 
+  // Board chat: 使用 messageIdChain 从画布链路加载历史
+  const messageIdChain = Array.isArray(input.request.messageIdChain) && input.request.messageIdChain.length > 0
+    ? input.request.messageIdChain
+    : null;
+
   if (!directCli) {
-    const chainResult = await loadAndPrepareMessageChain({
-      sessionId,
-      leafMessageId,
-      assistantParentUserId,
-      includeCompactPrompt,
-      formatError: (message) => `请求失败：${message}`,
-    });
-    if (!chainResult.ok) {
-      return createErrorStreamResponse({
+    if (messageIdChain) {
+      // Board chat 模式：按画布链路 ID 列表提取消息
+      const chainResult = await loadAndPrepareMessageChainFromIds({
         sessionId,
-        assistantMessageId,
-        parentMessageId: assistantParentUserId ?? (await resolveRightmostLeafId(sessionId)),
-        errorText: chainResult.errorText,
+        messageIdChain,
+        includeCompactPrompt,
+        formatError: (message) => `请求失败：${message}`,
       });
+      if (!chainResult.ok) {
+        return createErrorStreamResponse({
+          sessionId,
+          assistantMessageId,
+          parentMessageId: assistantParentUserId ?? (await resolveRightmostLeafId(sessionId)),
+          errorText: chainResult.errorText,
+        });
+      }
+      messages = chainResult.messages as UIMessage[];
+      modelMessages = chainResult.modelMessages as UIMessage[];
+    } else {
+      const chainResult = await loadAndPrepareMessageChain({
+        sessionId,
+        leafMessageId,
+        assistantParentUserId,
+        includeCompactPrompt,
+        formatError: (message) => `请求失败：${message}`,
+      });
+      if (!chainResult.ok) {
+        return createErrorStreamResponse({
+          sessionId,
+          assistantMessageId,
+          parentMessageId: assistantParentUserId ?? (await resolveRightmostLeafId(sessionId)),
+          errorText: chainResult.errorText,
+        });
+      }
+      messages = chainResult.messages as UIMessage[];
+      modelMessages = chainResult.modelMessages as UIMessage[];
     }
-    messages = chainResult.messages as UIMessage[];
-    modelMessages = chainResult.modelMessages as UIMessage[];
   } else {
     // directCli：modelMessages 只需要最后一条用户消息
     modelMessages = [lastMessage] as UIMessage[];

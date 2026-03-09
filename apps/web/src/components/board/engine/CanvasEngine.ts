@@ -186,6 +186,8 @@ export class CanvasEngine {
   private pendingInsertPoint: CanvasPoint | null = null;
   /** Whether a toolbar drag-insert gesture is active. */
   private toolbarDragging = false;
+  /** Recent user-picked colors shared across all toolbar color panels. Max 7. */
+  private colorHistory: string[] = [];
   /** Alignment guides for snapping feedback. */
   private alignmentGuides: CanvasAlignmentGuide[] = [];
   /** Selection box for rectangle selection. */
@@ -538,6 +540,7 @@ export class CanvasEngine {
       pendingInsert: this.pendingInsert,
       pendingInsertPoint: this.pendingInsertPoint,
       toolbarDragging: this.toolbarDragging,
+      colorHistory: this.colorHistory,
     };
   }
 
@@ -636,6 +639,17 @@ export class CanvasEngine {
     if (!active && !this.pendingInsert) {
       this.pendingInsertPoint = null;
     }
+    this.emitChange();
+  }
+
+  /** Return the color history array. */
+  getColorHistory(): string[] {
+    return this.colorHistory;
+  }
+
+  /** Add a color to the shared history (max 6, most recent first). */
+  addColorHistory(color: string): void {
+    this.colorHistory = [color, ...this.colorHistory.filter(c => c !== color)].slice(0, 6);
     this.emitChange();
   }
 
@@ -765,7 +779,7 @@ export class CanvasEngine {
         this.doc.updateElement(id, { color });
       });
     });
-    this.autoLayoutMindmap();
+    this.emitChange();
   }
 
   /** Return the current connector draft. */
@@ -1215,7 +1229,6 @@ export class CanvasEngine {
     });
     this.selection.setSelection(selectionIds);
     this.commitHistory();
-    this.autoLayoutMindmap();
   }
 
   /** Check whether the internal clipboard has content. */
@@ -1586,6 +1599,52 @@ export class CanvasEngine {
     }
   }
 
+  /** Auto layout mindmap, keeping a pinned node in its original position. */
+  autoLayoutMindmapPinned(pinnedId: string): void {
+    const before = this.doc.getElementById(pinnedId);
+    if (!before || before.kind !== "node") {
+      this.autoLayoutMindmap();
+      return;
+    }
+    const [bx, by] = before.xywh;
+    this.autoLayoutMindmap();
+    const after = this.doc.getElementById(pinnedId);
+    if (!after || after.kind !== "node") return;
+    const [ax, ay] = after.xywh;
+    const dx = bx - ax;
+    const dy = by - ay;
+    if (dx === 0 && dy === 0) return;
+    // 逻辑：将整棵树偏移回去，使 pinned 节点保持原位。
+    const rootId = this.resolveMindmapRootId(pinnedId);
+    const descendants = this.collectMindmapSubtree(rootId);
+    this.doc.transact(() => {
+      descendants.forEach(id => {
+        const el = this.doc.getElementById(id);
+        if (!el || el.kind !== "node") return;
+        const [ex, ey, ew, eh] = el.xywh;
+        this.doc.updateElement(id, { xywh: [ex + dx, ey + dy, ew, eh] });
+      });
+    });
+  }
+
+  /** Collect all node ids in a mindmap subtree rooted at nodeId. */
+  private collectMindmapSubtree(rootId: string): string[] {
+    const result: string[] = [rootId];
+    const queue = [rootId];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      const outbound = this.getMindmapOutboundConnectors(current);
+      outbound.forEach(connector => {
+        if (!("elementId" in connector.target)) return;
+        const childId = connector.target.elementId;
+        if (result.includes(childId)) return;
+        result.push(childId);
+        queue.push(childId);
+      });
+    }
+    return result;
+  }
+
   /** Extract inheritable text style props from a text node element. */
   private getInheritableTextProps(element: CanvasNodeElement): Record<string, unknown> {
     if (element.type !== "text") return {};
@@ -1648,7 +1707,7 @@ export class CanvasEngine {
     );
     this.selection.setSelection([childId]);
     this.commitHistory();
-    this.autoLayoutMindmap();
+    this.autoLayoutMindmapPinned(parentId);
     return childId;
   }
 
@@ -1683,7 +1742,7 @@ export class CanvasEngine {
       if (!siblingId) return null;
       this.selection.setSelection([siblingId]);
       this.commitHistory();
-      this.autoLayoutMindmap();
+      this.autoLayoutMindmapPinned(nodeId);
       return siblingId;
     }
 
@@ -1952,8 +2011,10 @@ export class CanvasEngine {
     if (!options?.skipHistory) {
       this.commitHistory();
     }
-    if (!options?.skipMindmapLayout) {
-      this.autoLayoutMindmap();
+    // 逻辑：插入节点后自动切回选择工具，画笔和荧光笔除外。
+    const currentTool = this.tools.getActiveToolId();
+    if (currentTool !== "pen" && currentTool !== "highlighter") {
+      this.tools.setActive("select");
     }
     return id;
   }
@@ -2011,6 +2072,10 @@ export class CanvasEngine {
       point
     );
     this.doc.updateElement(id, { zIndex: this.getNextZIndex() });
+    // 逻辑：画笔/荧光笔落笔时记录颜色到历史。
+    if (settings.color) {
+      this.addColorHistory(settings.color);
+    }
     return id;
   }
 

@@ -56,6 +56,7 @@ import {
   isVideoFile,
   resolveViewerType,
 } from "../utils/board-asset";
+import { HueSlider, buildColorSwatches, DEFAULT_COLOR_PRESETS } from "../ui/HueSlider";
 
 export interface BoardToolbarProps {
   /** Canvas engine instance. */
@@ -71,7 +72,7 @@ type IconProps = LucideProps;
 type IconComponent = ComponentType<IconProps> | ForwardRefExoticComponent<IconProps>;
 
 const PEN_SIZES = [3, 6, 10, 14];
-const PEN_COLORS = ["#111827", "#1d4ed8", "#f59e0b", "#ef4444", "#16a34a"];
+const PEN_DEFAULT_COLORS = DEFAULT_COLOR_PRESETS;
 
 type InsertItem = {
   id: string;
@@ -339,6 +340,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const [penColor, setPenColor] = useState<string>("#ef4444");
   const [hlSize, setHlSize] = useState<number>(10);
   const [hlColor, setHlColor] = useState<string>("#16a34a");
+  const penColors = buildColorSwatches(PEN_DEFAULT_COLORS, snapshot.colorHistory);
   const selectTitle = buildToolTitle(t('tools.select'), TOOL_SHORTCUTS.select);
   const handTitle = buildToolTitle(t('tools.hand'), TOOL_SHORTCUTS.hand);
   const penTitle = buildToolTitle(t('tools.pen'), TOOL_SHORTCUTS.pen);
@@ -1144,52 +1146,60 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
               }}
             >
               <div
-                className="flex items-center gap-2"
-                onPointerDownCapture={() => { if (!isLocked && !isBrushTool) handleToolChange("pen", { keepPanel: true }); }}
+                className="flex flex-col gap-1.5"
+                onPointerDownCapture={() => {
+                  if (!isBrushTool) handleToolChange("pen", { keepPanel: true });
+                }}
               >
                 <div className="flex items-center gap-2">
-                  {PEN_SIZES.map(size => (
-                    <button
-                      key={`pen-size-${size}`}
-                      type="button"
-                      onPointerDown={event => {
-                        event.stopPropagation();
-                        if (isLocked) return;
-                        setPenSize(size);
-                      }}
-                      className={cn(
-                        "inline-flex h-7 w-7 items-center justify-center rounded-full",
-                        penSize === size
-                          ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-white"
-                          : "hover:bg-accent/60"
-                      )}
-                      aria-label={`Pen size ${size}`}
-                    >
-                      <span className="rounded-full bg-current" style={{ width: size, height: size }} />
-                    </button>
-                  ))}
+                  <div className="flex items-center gap-2">
+                    {PEN_SIZES.map(size => (
+                      <button
+                        key={`pen-size-${size}`}
+                        type="button"
+                        onPointerDown={event => {
+                          event.stopPropagation();
+                          if (isLocked) return;
+                          setPenSize(size);
+                        }}
+                        className={cn(
+                          "inline-flex h-7 w-7 items-center justify-center rounded-full",
+                          penSize === size
+                            ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-white"
+                            : "hover:bg-accent/60"
+                        )}
+                        aria-label={`Pen size ${size}`}
+                      >
+                        <span className="rounded-full bg-current" style={{ width: size, height: size }} />
+                      </button>
+                    ))}
+                  </div>
+                  <span className="h-6 w-px bg-border/70" />
+                  <div className="flex flex-wrap items-center gap-1.5 max-w-[180px]">
+                    {penColors.map(color => (
+                      <button
+                        key={`pen-color-${color}`}
+                        type="button"
+                        onPointerDown={event => {
+                          event.stopPropagation();
+                          if (isLocked) return;
+                          setPenColor(color);
+                        }}
+                        className={cn(
+                          "h-6 w-6 rounded-full ring-1 ring-border",
+                          penColor === color &&
+                            "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
+                        )}
+                        style={{ backgroundColor: color }}
+                        aria-label={`Pen color ${color}`}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <span className="h-6 w-px bg-border/70" />
-                <div className="flex items-center gap-1.5">
-                  {PEN_COLORS.map(color => (
-                    <button
-                      key={`pen-color-${color}`}
-                      type="button"
-                      onPointerDown={event => {
-                        event.stopPropagation();
-                        if (isLocked) return;
-                        setPenColor(color);
-                      }}
-                      className={cn(
-                        "h-6 w-6 rounded-full ring-1 ring-border",
-                        penColor === color &&
-                          "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
-                      )}
-                      style={{ backgroundColor: color }}
-                      aria-label={`Pen color ${color}`}
-                    />
-                  ))}
-                </div>
+                <HueSlider
+                  value={penColor}
+                  onChange={(c) => setPenColor(c)}
+                />
               </div>
             </HoverPanel>
             <span className="pointer-events-none mt-1 select-none text-[9px] leading-none text-muted-foreground/70">{t('tools.pen')}</span>
@@ -1236,52 +1246,60 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
               }}
             >
               <div
-                className="flex items-center gap-2"
-                onPointerDownCapture={() => { if (!isLocked && !isHighlighterTool) handleToolChange("highlighter", { keepPanel: true }); }}
+                className="flex flex-col gap-1.5"
+                onPointerDownCapture={() => {
+                  if (!isHighlighterTool) handleToolChange("highlighter", { keepPanel: true });
+                }}
               >
                 <div className="flex items-center gap-2">
-                  {PEN_SIZES.map(size => (
-                    <button
-                      key={`hl-size-${size}`}
-                      type="button"
-                      onPointerDown={event => {
-                        event.stopPropagation();
-                        if (isLocked) return;
-                        setHlSize(size);
-                      }}
-                      className={cn(
-                        "inline-flex h-7 w-7 items-center justify-center rounded-full",
-                        hlSize === size
-                          ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-white"
-                          : "hover:bg-accent/60"
-                      )}
-                      aria-label={`Pen size ${size}`}
-                    >
-                      <span className="rounded-full bg-current" style={{ width: size, height: size }} />
-                    </button>
-                  ))}
+                  <div className="flex items-center gap-2">
+                    {PEN_SIZES.map(size => (
+                      <button
+                        key={`hl-size-${size}`}
+                        type="button"
+                        onPointerDown={event => {
+                          event.stopPropagation();
+                          if (isLocked) return;
+                          setHlSize(size);
+                        }}
+                        className={cn(
+                          "inline-flex h-7 w-7 items-center justify-center rounded-full",
+                          hlSize === size
+                            ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-white"
+                            : "hover:bg-accent/60"
+                        )}
+                        aria-label={`Highlighter size ${size}`}
+                      >
+                        <span className="rounded-full bg-current" style={{ width: size, height: size }} />
+                      </button>
+                    ))}
+                  </div>
+                  <span className="h-6 w-px bg-border/70" />
+                  <div className="flex flex-wrap items-center gap-1.5 max-w-[180px]">
+                    {penColors.map(color => (
+                      <button
+                        key={`hl-color-${color}`}
+                        type="button"
+                        onPointerDown={event => {
+                          event.stopPropagation();
+                          if (isLocked) return;
+                          setHlColor(color);
+                        }}
+                        className={cn(
+                          "h-6 w-6 rounded-full ring-1 ring-border",
+                          hlColor === color &&
+                            "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
+                        )}
+                        style={{ backgroundColor: color }}
+                        aria-label={`Highlighter color ${color}`}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <span className="h-6 w-px bg-border/70" />
-                <div className="flex items-center gap-1.5">
-                  {PEN_COLORS.map(color => (
-                    <button
-                      key={`hl-color-${color}`}
-                      type="button"
-                      onPointerDown={event => {
-                        event.stopPropagation();
-                        if (isLocked) return;
-                        setHlColor(color);
-                      }}
-                      className={cn(
-                        "h-6 w-6 rounded-full ring-1 ring-border",
-                        hlColor === color &&
-                          "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
-                      )}
-                      style={{ backgroundColor: color }}
-                      aria-label={`Pen color ${color}`}
-                    />
-                  ))}
-                </div>
+                <HueSlider
+                  value={hlColor}
+                  onChange={(c) => setHlColor(c)}
+                />
               </div>
             </HoverPanel>
             <span className="pointer-events-none mt-1 select-none text-[9px] leading-none text-muted-foreground/70">{t('tools.highlighter')}</span>
@@ -1371,6 +1389,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                   onPointerDown={event => {
                     event.preventDefault();
                     if (isLocked) return;
+                    if (item.id === "note" && !isSelectTool) return;
                     if (item.id === "note") {
                       engine.getContainer()?.focus();
                       if (pendingInsert?.id === item.id) {

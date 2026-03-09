@@ -151,9 +151,9 @@ export function AudioNodeView({
     <NodeFrame>
       <div
         className={[
-          "flex h-full w-full flex-col rounded-sm border box-border",
-          "border-slate-200 bg-white text-slate-900",
-          "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
+          "flex h-full w-full flex-col rounded-xl border box-border",
+          "border-neutral-200/80 bg-white text-neutral-800",
+          "dark:border-neutral-700/60 dark:bg-neutral-900 dark:text-neutral-100",
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
@@ -170,7 +170,7 @@ export function AudioNodeView({
               {displayName}
             </span>
             {durationText ? (
-              <span className="text-[10px] text-slate-400 dark:text-slate-500">
+              <span className="text-[10px] text-neutral-400 dark:text-neutral-500">
                 {durationText}
               </span>
             ) : null}
@@ -190,11 +190,11 @@ export function AudioNodeView({
               controls
               controlsList="nodownload"
               preload="metadata"
-              className="h-8 w-full [&::-webkit-media-controls-panel]:bg-slate-50 dark:[&::-webkit-media-controls-panel]:bg-slate-800"
+              className="h-8 w-full [&::-webkit-media-controls-panel]:bg-neutral-50 dark:[&::-webkit-media-controls-panel]:bg-neutral-800"
               src={audioSrc}
             />
           ) : (
-            <div className="flex h-8 w-full items-center justify-center text-[10px] text-slate-400 dark:text-slate-500">
+            <div className="flex h-8 w-full items-center justify-center text-[10px] text-neutral-400 dark:text-neutral-500">
               {i18next.t("board:audioNode.noSource")}
             </div>
           )}

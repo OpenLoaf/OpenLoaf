@@ -22,12 +22,12 @@ export function CalendarNodeView(_props: CanvasNodeViewProps<CalendarNodeProps>)
     <NodeFrame>
       <div
         className={[
-          "h-full w-full min-h-0 min-w-0 rounded-sm border border-slate-300 box-border",
-          "bg-white/95 dark:border-slate-700 dark:bg-slate-900/90",
+          "h-full w-full min-h-0 min-w-0 rounded-xl border border-neutral-200/80 box-border",
+          "bg-white/95 dark:border-neutral-700/60 dark:bg-neutral-900/90",
         ].join(" ")}
       >
         {/* 逻辑：日历直接填充节点容器。 */}
-        <Calendar className="h-full w-full rounded-sm border border-border/80 bg-background/95 shadow-sm" />
+        <Calendar className="h-full w-full rounded-xl border border-border/80 bg-background/95 shadow-sm" />
       </div>
     </NodeFrame>
   );

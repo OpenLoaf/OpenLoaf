@@ -19,7 +19,7 @@ import {
   setSaasAccessToken,
   setMediaModelIds,
 } from "@/ai/shared/context/requestContext";
-import { loadMessageChain } from "@/ai/services/chat/repositories/messageChainLoader";
+import { loadMessageChain, loadMessageChainByIds } from "@/ai/services/chat/repositories/messageChainLoader";
 import {
   resolveRightmostLeafId,
   resolveSessionPrefaceText,
@@ -438,6 +438,39 @@ export async function loadAndPrepareMessageChain(input: {
   if (!input.assistantParentUserId) {
     return { ok: false, errorText: input.formatError("找不到父消息。") };
   }
+  return { ok: true, messages: messages as UIMessage[], modelMessages };
+}
+
+/** Load message chain by explicit ID list (board chat). */
+export async function loadAndPrepareMessageChainFromIds(input: {
+  /** Chat session id. */
+  sessionId: string;
+  /** Ordered message IDs from canvas connector chain. */
+  messageIdChain: string[];
+  /** Whether to include compact prompt in model chain. */
+  includeCompactPrompt?: boolean;
+  /** Formatter for chain errors. */
+  formatError: (message: string) => string;
+}): Promise<LoadMessageChainResult> {
+  const messages = await loadMessageChainByIds({
+    sessionId: input.sessionId,
+    messageIds: input.messageIdChain,
+  });
+  const sessionPrefaceText = await resolveSessionPrefaceText(input.sessionId);
+  logger.debug(
+    {
+      sessionId: input.sessionId,
+      chainLength: input.messageIdChain.length,
+      messageCount: messages.length,
+    },
+    "[chat] load message chain by IDs (board)",
+  );
+
+  const modelChain = buildModelChain(messages as UIMessage[], {
+    includeCompactPrompt: input.includeCompactPrompt,
+    sessionPrefaceText,
+  });
+  const modelMessages = await replaceRelativeFileParts(modelChain as UIMessage[]);
   return { ok: true, messages: messages as UIMessage[], modelMessages };
 }
 

@@ -52,7 +52,8 @@
     "file": "File",
     "imagePromptGenerate": "Image/Video Analysis",
     "imageGenerate": "Image Generation",
-    "videoGenerate": "Video Generation"
+    "videoGenerate": "Video Generation",
+    "aiChat": "AI Chat"
   },
   "textToolTip": {
     "title": "Text Tool",
@@ -72,7 +73,8 @@
     "file": "File attachment",
     "imagePromptGenerate": "Analyze images/videos and generate descriptions",
     "imageGenerate": "Generate new images from images and text",
-    "videoGenerate": "Generate videos from images and prompts"
+    "videoGenerate": "Generate videos from images and prompts",
+    "aiChat": "Chat with AI on canvas"
   },
   "picker": {
     "imageTitle": "Select Image File",
@@ -442,6 +444,29 @@
   "nodePicker": {
     "title": "Select Node",
     "empty": "No available nodes"
+  },
+  "chatInput": {
+    "title": "AI Chat",
+    "placeholder": "Type a message, press Enter to send…",
+    "send": "Send",
+    "sending": "Sending…",
+    "sent": "Sent",
+    "retry": "Retry",
+    "autoModel": "Auto select model"
+  },
+  "chatMessage": {
+    "title": "AI Response",
+    "streaming": "Generating",
+    "thinking": "Thinking…",
+    "otherGenerating": "Generating…",
+    "stop": "Stop",
+    "retry": "Retry",
+    "copied": "Copied",
+    "copyFailed": "Copy failed",
+    "hiddenPart": "Hidden content",
+    "show": "Show",
+    "continueChatLabel": "Continue Chat",
+    "continueChatDesc": "Continue conversation from here"
   },
   "styles": {
     "realistic": "Realistic",

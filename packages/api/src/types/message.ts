@@ -140,6 +140,8 @@ export type ChatRequestBody = {
   sdkRewindTarget?: string;
   /** Client platform for conditional tool registration. */
   clientPlatform?: ClientPlatform;
+  /** Board chat: explicit message ID chain from canvas connector graph. */
+  messageIdChain?: string[];
 };
 
 export type TokenUsage = {

@@ -20,7 +20,7 @@ import { cn } from "@udecode/cn";
 
 /** 笔迹工具条颜色预设。 */
 const STROKE_COLORS = [
-  { label: "黑", value: "#111827" },
+  { label: "黑", value: "#171717" },
   { label: "蓝", value: "#1d4ed8" },
   { label: "橙", value: "#f59e0b" },
   { label: "红", value: "#ef4444" },

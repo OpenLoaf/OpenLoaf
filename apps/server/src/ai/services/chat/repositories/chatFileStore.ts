@@ -147,7 +147,9 @@ function resolveChatHistoryRoot(
   projectId?: string | null,
   boardId?: string | null,
 ): string {
-  // 画布内聊天：boardId + sessionId 同时存在时，文件存储在画布目录下
+  // 画布内聊天：boardId 存在时，chat 文件直接存在画布目录下（不嵌套 chat-history/）
+  // sessionId === boardId，resolveSessionDir 会拼接 sessionId，
+  // 最终路径：<scopeRoot>/.openloaf/boards/<boardId>/
   if (boardId) {
     const scopeRoot = projectId
       ? getProjectRootPath(projectId, workspaceId ?? undefined)
@@ -155,7 +157,7 @@ function resolveChatHistoryRoot(
         ? getWorkspaceRootPathById(workspaceId)
         : null
     if (scopeRoot) {
-      return path.join(scopeRoot, '.openloaf', 'boards', boardId, CHAT_HISTORY_DIR)
+      return path.join(scopeRoot, '.openloaf', 'boards')
     }
   }
   if (projectId) {

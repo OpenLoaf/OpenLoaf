@@ -22,7 +22,7 @@
 export const BOARD_TOOLBAR_SURFACE_CLASS =
   "bg-card/90 dark:bg-sidebar ring-1 ring-border/70 shadow-[0_10px_26px_rgba(15,23,42,0.18)] backdrop-blur-md cursor-default [&_*]:!cursor-default";
 
-/** Icon button active state — blue selection following design system. */
+/** Icon button active state — subtle tinted background following design system. */
 export const BOARD_ICON_BTN_ACTIVE =
   "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50";
 
@@ -47,35 +47,35 @@ export const BOARD_PEN_COLORS = [
 ] as const;
 
 /** Primary text color. */
-export const BOARD_TEXT_PRIMARY = "text-[#202124] dark:text-slate-50";
+export const BOARD_TEXT_PRIMARY = "text-[#202124] dark:text-neutral-50";
 
 /** Secondary text color. */
-export const BOARD_TEXT_SECONDARY = "text-[#3c4043] dark:text-slate-300";
+export const BOARD_TEXT_SECONDARY = "text-[#3c4043] dark:text-neutral-300";
 
 /** Auxiliary text color. */
-export const BOARD_TEXT_AUXILIARY = "text-[#5f6368] dark:text-slate-400";
+export const BOARD_TEXT_AUXILIARY = "text-[#5f6368] dark:text-neutral-400";
 
 /** Divider class for board separators. */
-export const BOARD_DIVIDER_CLASS = "bg-[#e3e8ef] dark:bg-slate-700";
+export const BOARD_DIVIDER_CLASS = "bg-[#e3e8ef] dark:bg-neutral-700";
 
 /** Border class for board panels. */
-export const BOARD_BORDER_CLASS = "border-[#e3e8ef] dark:border-slate-700";
+export const BOARD_BORDER_CLASS = "border-[#e3e8ef] dark:border-neutral-700";
 
 /** Connector style button — idle state. */
 export const BOARD_CONNECTOR_BTN_IDLE =
-  "text-[#5f6368] dark:text-slate-400";
+  "text-[#5f6368] dark:text-neutral-400";
 
 /** Connector style button — active state. */
 export const BOARD_CONNECTOR_BTN_ACTIVE =
-  "bg-[#202124] text-white shadow-[0_0_0_1px_rgba(15,23,42,0.2)] dark:bg-slate-100 dark:text-slate-900";
+  "bg-[#202124] text-white shadow-[0_0_0_1px_rgba(15,23,42,0.2)] dark:bg-neutral-100 dark:text-neutral-900";
 
 /** Connector style button — hover state. */
 export const BOARD_CONNECTOR_BTN_HOVER =
-  "hover:bg-[hsl(var(--muted)/0.58)] hover:text-[#3c4043] dark:hover:bg-[hsl(var(--muted)/0.46)] dark:hover:text-slate-100";
+  "hover:bg-[hsl(var(--muted)/0.58)] hover:text-[#3c4043] dark:hover:bg-[hsl(var(--muted)/0.46)] dark:hover:text-neutral-100";
 
 /** Connector color swatch border. */
 export const BOARD_CONNECTOR_SWATCH_BORDER =
-  "border-[#e3e8ef] dark:border-slate-600";
+  "border-[#e3e8ef] dark:border-neutral-600";
 
 /** Connector color swatch active ring. */
 export const BOARD_CONNECTOR_SWATCH_ACTIVE_RING =
@@ -83,22 +83,22 @@ export const BOARD_CONNECTOR_SWATCH_ACTIVE_RING =
 
 /** Advanced settings card border. */
 export const BOARD_SETTINGS_CARD_BORDER =
-  "border-[#e3e8ef] dark:border-slate-700/80";
+  "border-[#e3e8ef] dark:border-neutral-700/80";
 
 /** Advanced settings label text. */
-export const BOARD_SETTINGS_LABEL = "text-[#5f6368] dark:text-slate-300";
+export const BOARD_SETTINGS_LABEL = "text-[#5f6368] dark:text-neutral-300";
 
 /** Advanced settings tabs list background. */
 export const BOARD_SETTINGS_TABS_BG =
-  "bg-[#f1f3f4] dark:bg-slate-800/80";
+  "bg-[#f1f3f4] dark:bg-neutral-800/80";
 
 /** Advanced settings tabs trigger active state. */
 export const BOARD_SETTINGS_TABS_ACTIVE =
-  "data-[state=active]:bg-white data-[state=active]:text-[#1a73e8] dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-sky-300";
+  "data-[state=active]:bg-white data-[state=active]:text-[#1a73e8] dark:data-[state=active]:bg-neutral-900 dark:data-[state=active]:text-sky-300";
 
 /** Advanced settings dropdown hover. */
 export const BOARD_SETTINGS_DROPDOWN_HOVER =
-  "hover:bg-[#f1f3f4] dark:hover:bg-slate-800";
+  "hover:bg-[#f1f3f4] dark:hover:bg-neutral-800";
 
 /** Advanced settings dropdown item active. */
 export const BOARD_SETTINGS_DROPDOWN_ITEM_ACTIVE =
@@ -192,7 +192,7 @@ export const BOARD_GENERATE_DOT_PROMPT = "bg-[#f9ab00] dark:bg-amber-400";
 
 /** Flat input field for generation nodes. */
 export const BOARD_GENERATE_INPUT =
-  "border-transparent bg-[#edf2fa] text-[#202124] placeholder:text-[#5f6368] focus-visible:border-[#d2e3fc] focus-visible:ring-1 focus-visible:ring-[rgba(26,115,232,0.22)] dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-100 dark:placeholder:text-slate-400";
+  "border-transparent bg-[#edf2fa] text-[#202124] placeholder:text-[#5f6368] focus-visible:border-[#d2e3fc] focus-visible:ring-1 focus-visible:ring-[rgba(26,115,232,0.22)] dark:bg-[hsl(var(--muted)/0.38)] dark:text-neutral-100 dark:placeholder:text-neutral-400";
 
 /** Node base — chat node (teal tinted). */
 export const BOARD_GENERATE_NODE_BASE_CHAT =

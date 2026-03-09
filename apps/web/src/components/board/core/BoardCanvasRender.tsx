@@ -162,7 +162,7 @@ export function BoardCanvasRender({
         </div>
       ) : null}
       {showUi ? (
-        <BoardEmptyGuide engine={engine} visible={snapshot.docRevision > 0 && snapshot.elements.length === 0 && !snapshot.pendingInsert && toolbarsReady} />
+        <BoardEmptyGuide engine={engine} visible={snapshot.docRevision > 0 && snapshot.elements.length === 0 && !snapshot.pendingInsert && toolbarsReady} activeToolId={snapshot.activeToolId} />
       ) : null}
       {showUi && selectedConnector ? (
         <ConnectorActionPanel
@@ -175,7 +175,7 @@ export function BoardCanvasRender({
         />
       ) : null}
       {showUi ? <MultiSelectionOutline snapshot={snapshot} engine={engine} /> : null}
-      {showUi && selectedNode && selectedNode.type !== "image_generate" && selectedNode.type !== "image_prompt_generate" && selectedNode.type !== "video_generate" ? (
+      {showUi && selectedNode && selectedNode.type !== "image_generate" && selectedNode.type !== "image_prompt_generate" && selectedNode.type !== "video_generate" && selectedNode.type !== "chat_input" && selectedNode.type !== "chat_message" ? (
         <SingleSelectionOutline snapshot={snapshot} engine={engine} element={selectedNode} />
       ) : null}
       {showUi && selectedNode ? (

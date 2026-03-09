@@ -39,7 +39,7 @@ export const MIN_ZOOM_EPS = 0.0001;
 
 export const HISTORY_MAX_SIZE = 100;
 export const PASTE_OFFSET_STEP = 24;
-export const LAYOUT_GAP = 32;
+export const LAYOUT_GAP = 80;
 export const DEFAULT_FIT_PADDING = 120;
 export const ERASER_RADIUS = 12;
 export const MINDMAP_NODE_VERTICAL_SPACING = 45;

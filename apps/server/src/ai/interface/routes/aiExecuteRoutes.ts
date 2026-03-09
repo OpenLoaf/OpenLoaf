@@ -107,6 +107,7 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
       chatModelId: toText(raw.chatModelId) || undefined,
       chatModelSource,
       clientPlatform: normalizeClientPlatform(raw.clientPlatform),
+      messageIdChain: normalizeMessageIdChain(raw.messageIdChain),
     },
   };
 }
@@ -152,6 +153,13 @@ function normalizeToolApprovalPayloads(
 /** Check whether a key is safe for object assignment. */
 function isSafeKey(value: string): boolean {
   return value !== "__proto__" && value !== "prototype" && value !== "constructor";
+}
+
+/** Normalize messageIdChain (board chat). */
+function normalizeMessageIdChain(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const ids = value.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+  return ids.length > 0 ? ids : undefined;
 }
 
 function normalizeIntent(value: unknown): AiIntent | undefined {

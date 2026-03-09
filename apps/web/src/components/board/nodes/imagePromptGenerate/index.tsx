@@ -451,7 +451,7 @@ export function ImagePromptGenerateNodeView({
   }, []);
 
   const containerClassName = [
-    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-2 rounded-xl border p-3 text-[#202124] dark:text-slate-100 transition-colors duration-150",
+    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-2 rounded-xl border p-3 text-[#202124] dark:text-neutral-100 transition-colors duration-150",
     BOARD_GENERATE_NODE_BASE_PROMPT,
     viewStatus === "running"
       ? "openloaf-thinking-border openloaf-thinking-border-on border-transparent"
@@ -578,13 +578,13 @@ export function ImagePromptGenerateNodeView({
       </div>
 
       <div className="mt-1 flex items-center gap-2">
-        <div className="text-[11px] text-[#5f6368] dark:text-slate-400">{t('imagePromptGenerate.model')}</div>
+        <div className="text-[11px] text-[#5f6368] dark:text-neutral-400">{t('imagePromptGenerate.model')}</div>
         <div className="min-w-0 flex-1">
           {!authLoggedIn && candidates.length === 0 ? (
             <button
               type="button"
               disabled={isLoginBusy}
-              className="inline-flex h-7 w-full items-center justify-center rounded-full bg-[#edf2fa] px-3 text-[11px] text-[#5f6368] transition-colors duration-150 hover:bg-[#d2e3fc] disabled:opacity-50 dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.5)]"
+              className="inline-flex h-7 w-full items-center justify-center rounded-full bg-[#edf2fa] px-3 text-[11px] text-[#5f6368] transition-colors duration-150 hover:bg-[#d2e3fc] disabled:opacity-50 dark:bg-[hsl(var(--muted)/0.38)] dark:text-neutral-400 dark:hover:bg-[hsl(var(--muted)/0.5)]"
               onPointerDown={(event) => {
                 event.stopPropagation();
                 if (!isLoginBusy) setLoginOpen(true);
@@ -624,7 +624,7 @@ export function ImagePromptGenerateNodeView({
                         {isCloud ? (
                           <Cloud className="h-3 w-3 shrink-0 text-[#1a73e8] dark:text-sky-400" />
                         ) : (
-                          <Monitor className="h-3 w-3 shrink-0 text-[#5f6368] dark:text-slate-400" />
+                          <Monitor className="h-3 w-3 shrink-0 text-[#5f6368] dark:text-neutral-400" />
                         )}
                         {option.providerName}:{option.modelDefinition?.name || option.modelId}
                       </span>
@@ -640,12 +640,12 @@ export function ImagePromptGenerateNodeView({
       {resultText ? (
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-[11px] text-[#5f6368] dark:text-slate-400">
+            <div className="text-[11px] text-[#5f6368] dark:text-neutral-400">
               {t('imagePromptGenerate.contentDescription')}
             </div>
             <button
               type="button"
-              className="rounded-full px-1.5 py-0.5 text-[10px] text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100"
+              className="rounded-full px-1.5 py-0.5 text-[10px] text-neutral-500 hover:text-neutral-700 dark:text-neutral-300 dark:hover:text-neutral-100"
               onPointerDown={(event) => {
                 event.stopPropagation();
               }}
@@ -658,7 +658,7 @@ export function ImagePromptGenerateNodeView({
           </div>
           <div
             data-board-scroll
-            className={`rounded-xl p-2 text-[12px] leading-5 text-[#202124] dark:text-slate-200 ${BOARD_GENERATE_INSET}`}
+            className={`rounded-xl p-2 text-[12px] leading-5 text-[#202124] dark:text-neutral-200 ${BOARD_GENERATE_INSET}`}
           >
             <pre className="whitespace-pre-wrap break-words font-sans">
               {resultText}

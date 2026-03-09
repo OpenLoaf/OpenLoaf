@@ -57,11 +57,11 @@ const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
 function ImageNodeSkeleton() {
   return (
     <div
-      className="h-full w-full animate-pulse"
+      className="h-full w-full animate-pulse rounded-xl"
       style={{
-        backgroundColor: "#f8fafc",
+        backgroundColor: "#fafafa",
         backgroundImage:
-          "linear-gradient(45deg, #e2e8f0 25%, transparent 25%, transparent 75%, #e2e8f0 75%, #e2e8f0), linear-gradient(45deg, #e2e8f0 25%, transparent 25%, transparent 75%, #e2e8f0 75%, #e2e8f0)",
+          "linear-gradient(45deg, #e5e5e5 25%, transparent 25%, transparent 75%, #e5e5e5 75%, #e5e5e5), linear-gradient(45deg, #e5e5e5 25%, transparent 25%, transparent 75%, #e5e5e5 75%, #e5e5e5)",
         backgroundSize: "16px 16px",
         backgroundPosition: "0 0, 8px 8px",
       }}
@@ -469,7 +469,7 @@ export function ImageNodeView({
     <NodeFrame ref={rootRef}>
       <div
         className={[
-          "relative h-full w-full overflow-hidden rounded-sm box-border",
+          "relative h-full w-full overflow-hidden rounded-xl box-border",
         ].join(" ")}
         onPointerDownCapture={event => {
           if (isLocked) return;
@@ -509,7 +509,7 @@ export function ImageNodeView({
             ) : null}
           </>
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-sm border border-dashed border-border">
+          <div className="flex h-full w-full items-center justify-center rounded-xl border border-neutral-200/80 dark:border-neutral-700/60">
             {isPreviewLoading || isTranscoding ? (
               <ImageNodeSkeleton />
             ) : (
@@ -525,7 +525,7 @@ export function ImageNodeView({
           </div>
         )}
         {isTranscoding ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/70 text-xs text-slate-600">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl bg-white/80 text-xs text-neutral-600 dark:bg-neutral-900/80 dark:text-neutral-400">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
             <span>{transcodingLabel}</span>
           </div>

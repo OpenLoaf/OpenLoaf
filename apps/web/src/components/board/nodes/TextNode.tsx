@@ -44,6 +44,7 @@ import {
 import { useBoardContext } from "../core/BoardProvider";
 import { VIDEO_GENERATE_NODE_TYPE } from "./videoGenerate";
 import { MINDMAP_META } from "../engine/mindmap-layout";
+import { HueSlider, buildColorSwatches, DEFAULT_COLOR_PRESETS } from "../ui/HueSlider";
 
 /** Text value stored on the text node. */
 export type TextNodeValue = string;
@@ -84,7 +85,7 @@ const DEFAULT_TEXT_VALUE = "";
 const getTextNodePlaceholder = () => i18next.t('board:textNode.placeholder');
 /** Shared text styling for text node content. */
 const TEXT_CONTENT_CLASSNAME =
-  "text-[11px] leading-4 text-slate-900 dark:text-slate-100 md:text-[11px]";
+  "text-[11px] leading-4 text-neutral-800 dark:text-neutral-100 md:text-[11px]";
 /** Text styling for view mode. */
 const TEXT_VIEW_CLASSNAME = `${TEXT_CONTENT_CLASSNAME} whitespace-pre-wrap break-words`;
 /** Text styling for edit mode. */
@@ -117,9 +118,9 @@ const TEXT_NODE_DEFAULT_TEXT_DECORATION: TextNodeDecoration = "none";
 /** Default text alignment for text nodes. */
 const TEXT_NODE_DEFAULT_TEXT_ALIGN: TextNodeTextAlign = "left";
 /** Auto text color when background is light. */
-const TEXT_NODE_AUTO_TEXT_LIGHT = "#111827";
+const TEXT_NODE_AUTO_TEXT_LIGHT = "#171717";
 /** Auto text color when background is dark. */
-const TEXT_NODE_AUTO_TEXT_DARK = "#ffffff";
+const TEXT_NODE_AUTO_TEXT_DARK = "#fafafa";
 /** Preset font size options (H1-H5) for text toolbar. */
 const TEXT_NODE_FONT_SIZES = [
   { label: "H1", value: 52 },
@@ -137,28 +138,9 @@ const getTextNodeFontWeights = () => [
   { label: i18next.t('board:textNode.fontWeights.semibold'), value: 600 },
   { label: i18next.t('board:textNode.fontWeights.bold'), value: 700 },
 ] as const;
-/** Preset color options for text toolbar – resolved at render time. */
-const getTextNodeColorPresets = (): Array<{ label: string; value?: string }> => [
-  { label: i18next.t('board:textNode.colors.default'), value: undefined },
-  { label: i18next.t('board:textNode.colors.black'), value: '#111827' },
-  { label: i18next.t('board:textNode.colors.blue'), value: '#1d4ed8' },
-  { label: i18next.t('board:textNode.colors.orange'), value: '#f59e0b' },
-  { label: i18next.t('board:textNode.colors.red'), value: '#ef4444' },
-  { label: i18next.t('board:textNode.colors.green'), value: '#16a34a' },
-  { label: i18next.t('board:textNode.colors.purple'), value: '#7c3aed' },
-  { label: i18next.t('board:textNode.colors.gray'), value: '#6b7280' },
-];
-/** Preset background color options for text toolbar – resolved at render time. */
-const getTextNodeBackgroundPresets = (): Array<{ label: string; value?: string }> => [
-  { label: i18next.t('board:textNode.backgrounds.transparent'), value: undefined },
-  { label: i18next.t('board:textNode.backgrounds.black'), value: '#111827' },
-  { label: i18next.t('board:textNode.backgrounds.blue'), value: '#1d4ed8' },
-  { label: i18next.t('board:textNode.backgrounds.orange'), value: '#f59e0b' },
-  { label: i18next.t('board:textNode.backgrounds.red'), value: '#ef4444' },
-  { label: i18next.t('board:textNode.backgrounds.green'), value: '#16a34a' },
-  { label: i18next.t('board:textNode.backgrounds.purple'), value: '#7c3aed' },
-  { label: i18next.t('board:textNode.backgrounds.gray'), value: '#6b7280' },
-];
+/** The "reset" entry always shown first in color panels. */
+const COLOR_RESET_ENTRY: { label: string; value?: string } = { label: 'Default', value: undefined };
+const BG_RESET_ENTRY: { label: string; value?: string } = { label: 'Transparent', value: undefined };
 /** Connector templates offered by the text node – resolved at render time. */
 const getTextNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
   {
@@ -346,8 +328,10 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
   const backgroundColor = ctx.element.props.backgroundColor;
   const autoTextColor = getAutoTextColor(backgroundColor);
   const fontWeights = getTextNodeFontWeights();
-  const colorPresets = getTextNodeColorPresets();
-  const backgroundPresets = getTextNodeBackgroundPresets();
+  const { colorHistory, addColorHistory } = ctx;
+  const swatches = buildColorSwatches(DEFAULT_COLOR_PRESETS, colorHistory);
+  const colorPresets = [COLOR_RESET_ENTRY, ...swatches.map(c => ({ label: c, value: c }))];
+  const backgroundPresets = [BG_RESET_ENTRY, ...swatches.map(c => ({ label: c, value: c }))];
 
   return [
     {
@@ -476,45 +460,51 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       showLabel: true,
       icon: <Palette size={14} />,
       className: BOARD_TOOLBAR_ITEM_PURPLE,
+      onPanelClose: () => {
+        if (textColor) addColorHistory(textColor);
+      },
       panel: (
-        <div className="grid grid-cols-4 gap-1">
-          {colorPresets.map(color => {
-            const isActive = (color.value ?? undefined) === (textColor ?? undefined);
-            return (
-              <TextToolbarPanelButton
-                key={color.label}
-                title={color.label}
-                active={isActive}
-                onSelect={() => ctx.updateNodeProps({ color: color.value })}
-                className="h-8 w-8 p-0"
-              >
-                {color.value ? (
-                  <span
-                    className={cn(
-                      "h-5 w-5 rounded-full ring-1 ring-border",
-                      isActive
-                        ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
-                        : ""
-                    )}
-                    style={{ backgroundColor: color.value }}
-                  />
-                ) : (
-                  <span
-                    className={cn(
-                      "inline-flex h-5 w-5 items-center justify-center rounded-full ring-1 ring-border text-[10px]",
-                      autoTextColor ? "" : "text-slate-900 dark:text-slate-100",
-                      isActive
-                        ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
-                        : ""
-                    )}
-                    style={autoTextColor ? { color: autoTextColor } : undefined}
-                  >
-                    A
-                  </span>
-                )}
-              </TextToolbarPanelButton>
-            );
-          })}
+        <div>
+          <div className="grid grid-cols-4 gap-1">
+            {colorPresets.map(color => {
+              const isActive = (color.value ?? undefined) === (textColor ?? undefined);
+              return (
+                <TextToolbarPanelButton
+                  key={color.label}
+                  title={color.label}
+                  active={isActive}
+                  onSelect={() => ctx.updateNodeProps({ color: color.value })}
+                  className="h-8 w-8 p-0"
+                >
+                  {color.value ? (
+                    <span
+                      className={cn(
+                        "h-5 w-5 rounded-full ring-1 ring-border",
+                        isActive
+                          ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
+                          : ""
+                      )}
+                      style={{ backgroundColor: color.value }}
+                    />
+                  ) : (
+                    <span
+                      className={cn(
+                        "inline-flex h-5 w-5 items-center justify-center rounded-full ring-1 ring-border text-[10px]",
+                        autoTextColor ? "" : "text-neutral-800 dark:text-neutral-100",
+                        isActive
+                          ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
+                          : ""
+                      )}
+                      style={autoTextColor ? { color: autoTextColor } : undefined}
+                    >
+                      A
+                    </span>
+                  )}
+                </TextToolbarPanelButton>
+              );
+            })}
+          </div>
+          <HueSlider value={textColor} onChange={(c) => ctx.updateNodeProps({ color: c })} />
         </div>
       ),
     },
@@ -524,44 +514,50 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       showLabel: true,
       icon: <PaintBucket size={14} />,
       className: BOARD_TOOLBAR_ITEM_PURPLE,
+      onPanelClose: () => {
+        if (backgroundColor) addColorHistory(backgroundColor);
+      },
       panel: (
-        <div className="grid grid-cols-4 gap-1">
-          {backgroundPresets.map(color => {
-            const isActive =
-              (color.value ?? undefined) === (backgroundColor ?? undefined);
-            return (
-              <TextToolbarPanelButton
-                key={color.label}
-                title={color.label}
-                active={isActive}
-                onSelect={() => ctx.updateNodeProps({ backgroundColor: color.value })}
-                className="h-8 w-8 p-0"
-              >
-                {color.value ? (
-                  <span
-                    className={cn(
-                      "h-5 w-5 rounded-sm ring-1 ring-border",
-                      isActive
-                        ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
-                        : ""
-                    )}
-                    style={{ backgroundColor: color.value }}
-                  />
-                ) : (
-                  <span
-                    className={cn(
-                      "inline-flex h-5 w-5 items-center justify-center rounded-sm ring-1 ring-border text-[10px] text-slate-500",
-                      isActive
-                        ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
-                        : ""
-                    )}
-                  >
-                    {color.label.slice(0, 1)}
-                  </span>
-                )}
-              </TextToolbarPanelButton>
-            );
-          })}
+        <div>
+          <div className="grid grid-cols-4 gap-1">
+            {backgroundPresets.map(color => {
+              const isActive =
+                (color.value ?? undefined) === (backgroundColor ?? undefined);
+              return (
+                <TextToolbarPanelButton
+                  key={color.label}
+                  title={color.label}
+                  active={isActive}
+                  onSelect={() => ctx.updateNodeProps({ backgroundColor: color.value })}
+                  className="h-8 w-8 p-0"
+                >
+                  {color.value ? (
+                    <span
+                      className={cn(
+                        "h-5 w-5 rounded-sm ring-1 ring-border",
+                        isActive
+                          ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
+                          : ""
+                      )}
+                      style={{ backgroundColor: color.value }}
+                    />
+                  ) : (
+                    <span
+                      className={cn(
+                        "inline-flex h-5 w-5 items-center justify-center rounded-sm ring-1 ring-border text-[10px] text-neutral-500",
+                        isActive
+                          ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
+                          : ""
+                      )}
+                    >
+                      {color.label.slice(0, 1)}
+                    </span>
+                  )}
+                </TextToolbarPanelButton>
+              );
+            })}
+          </div>
+          <HueSlider value={backgroundColor} onChange={(c) => ctx.updateNodeProps({ backgroundColor: c })} />
         </div>
       ),
     },
@@ -878,6 +874,17 @@ export function TextNodeView({
     };
   }, [isGhost]);
 
+  // 逻辑：字号/字重等文本样式变化时立即重算节点高度。
+  const resolvedFontSize = textStyle.fontSize;
+  useEffect(() => {
+    if (isGhost) return;
+    if (isEditing) {
+      expandToContent();
+    } else {
+      fitToContentIfNeeded();
+    }
+  }, [resolvedFontSize, isEditing, isGhost, expandToContent, fitToContentIfNeeded]);
+
   /** Enter edit mode on node double click. */
   const handleDoubleClick = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -944,7 +951,7 @@ export function TextNodeView({
     return (
       <button
         type="button"
-        className="flex h-full w-full items-center justify-center rounded-full border border-slate-200 bg-white text-[11px] font-medium text-slate-600 shadow-sm transition hover:bg-slate-50"
+        className="flex h-full w-full items-center justify-center rounded-full border border-neutral-200 bg-white text-[11px] font-medium text-neutral-500 shadow-sm transition hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800"
         style={branchColor ? { borderColor: branchColor, color: branchColor } : undefined}
         onPointerDown={event => {
           event.preventDefault();
@@ -980,8 +987,8 @@ export function TextNodeView({
         />
         {isEmpty ? (
           <div
-            className="pointer-events-none absolute left-4 right-4 top-3 text-[11px] leading-4 text-slate-400 dark:text-slate-500"
-            style={{ textAlign }}
+            className="pointer-events-none absolute inset-0 flex items-center px-4 text-neutral-400 dark:text-neutral-500"
+            style={{ textAlign, fontSize: textStyle.fontSize, lineHeight: textStyle.lineHeight }}
           >
             {getTextNodePlaceholder()}
           </div>
@@ -1002,8 +1009,8 @@ export function TextNodeView({
       </div>
       {isEmpty ? (
         <div
-          className="pointer-events-none absolute left-4 right-4 top-3 text-[11px] leading-4 text-slate-400 dark:text-slate-500"
-          style={{ textAlign }}
+          className="pointer-events-none absolute inset-0 flex items-center px-4 text-neutral-400 dark:text-neutral-500"
+          style={{ textAlign, fontSize: textStyle.fontSize, lineHeight: textStyle.lineHeight }}
         >
           {getTextNodePlaceholder()}
         </div>

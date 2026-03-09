@@ -78,6 +78,16 @@ type ToolbarGroupProps = {
 /** Render a group of toolbar items with optional divider. */
 function ToolbarGroup({ items, openPanelId, setOpenPanelId, showDivider }: ToolbarGroupProps) {
   if (items.length === 0) return null;
+
+  // 逻辑：关闭面板时触发 onPanelClose 回调（如保存颜色历史）。
+  const closePanelWithCallback = (nextId: string | null) => {
+    if (openPanelId && openPanelId !== nextId) {
+      const closingItem = items.find(i => i.id === openPanelId);
+      closingItem?.onPanelClose?.();
+    }
+    setOpenPanelId(nextId);
+  };
+
   return (
     <>
       {items.map(item => {
@@ -85,7 +95,7 @@ function ToolbarGroup({ items, openPanelId, setOpenPanelId, showDivider }: Toolb
         const isPanelOpen = openPanelId === item.id;
         const panelContent = item.panel
           ? typeof item.panel === "function"
-            ? item.panel({ closePanel: () => setOpenPanelId(null) })
+            ? item.panel({ closePanel: () => closePanelWithCallback(null) })
             : item.panel
           : null;
         const isActive = Boolean(item.active) || isPanelOpen;
@@ -97,10 +107,10 @@ function ToolbarGroup({ items, openPanelId, setOpenPanelId, showDivider }: Toolb
               active={isActive}
               onClick={() => {
                 if (hasPanel) {
-                  setOpenPanelId(isPanelOpen ? null : item.id);
+                  closePanelWithCallback(isPanelOpen ? null : item.id);
                   return;
                 }
-                setOpenPanelId(null);
+                closePanelWithCallback(null);
                 item.onSelect?.();
               }}
               showLabel={item.showLabel}
@@ -119,7 +129,7 @@ function ToolbarGroup({ items, openPanelId, setOpenPanelId, showDivider }: Toolb
           </div>
         );
       })}
-      {showDivider ? <span className="mx-1 h-5 w-px bg-[#e3e8ef] dark:bg-slate-700" /> : null}
+      {showDivider ? <span className="mx-1 h-5 w-px bg-[#e3e8ef] dark:bg-neutral-700" /> : null}
     </>
   );
 }

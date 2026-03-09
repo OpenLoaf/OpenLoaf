@@ -20,6 +20,8 @@ import { LinkNodeDefinition } from "../nodes/LinkNode";
 import { StrokeNodeDefinition } from "../nodes/StrokeNode";
 import { TextNodeDefinition } from "../nodes/TextNode";
 import { LoadingNodeDefinition } from "../nodes/LoadingNode";
+import { ChatInputNodeDefinition } from "../nodes/chatInput";
+import { ChatMessageNodeDefinition } from "../nodes/chatMessage";
 
 /** Default node definitions registered for board canvases. */
 export const BOARD_NODE_DEFINITIONS = [
@@ -35,6 +37,8 @@ export const BOARD_NODE_DEFINITIONS = [
   ImageGenerateNodeDefinition,
   VideoGenerateNodeDefinition,
   LoadingNodeDefinition,
+  ChatInputNodeDefinition,
+  ChatMessageNodeDefinition,
   GroupNodeDefinition,
   ImageGroupNodeDefinition,
 ];

@@ -172,6 +172,7 @@ function buildChatStreamRequest(input: {
     chatModelSource: input.request.chatModelSource,
     autoApproveTools: input.autoApproveTools,
     clientPlatform: input.request.clientPlatform,
+    messageIdChain: input.request.messageIdChain,
   };
 }
 
