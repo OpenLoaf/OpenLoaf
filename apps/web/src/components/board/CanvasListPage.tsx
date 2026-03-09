@@ -12,7 +12,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { Palette, Plus, Edit2, Trash2, MoreHorizontal, Copy, CalendarDays, Search, X, FolderOpen } from "lucide-react";
+import { Palette, Plus, Edit2, Trash2, MoreHorizontal, Copy, CopyPlus, CalendarDays, Search, X, FolderOpen } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 
@@ -270,6 +270,14 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     }),
   );
 
+  const duplicateMutation = useMutation(
+    trpc.board.duplicate.mutationOptions({
+      onSuccess: () => {
+        invalidateBoardList();
+      },
+    }),
+  );
+
   const createMutation = useMutation(
     trpc.board.create.mutationOptions({
       onSuccess: (board) => {
@@ -352,6 +360,18 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     [deleteMutation, t],
   );
 
+  const handleDuplicate = useCallback(
+    (boardId: string) => {
+      if (!workspaceId || duplicateMutation.isPending) return;
+      duplicateMutation.mutate({
+        boardId,
+        workspaceId,
+        ...(projectId ? { projectId } : {}),
+      });
+    },
+    [workspaceId, projectId, duplicateMutation],
+  );
+
   const activeBase = activeTabId ? runtimeByTabId[activeTabId]?.base : undefined;
   const activeBoardBaseId =
     activeBase?.component === "board-viewer" ? activeBase.id : undefined;
@@ -429,6 +449,15 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
                   <DropdownMenuItem
                     onClick={(e) => {
                       e.stopPropagation();
+                      handleDuplicate(board.id);
+                    }}
+                  >
+                    <CopyPlus className="mr-2 h-4 w-4" />
+                    {t("canvasList.duplicate")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
                       const fullPath = boardFolderUri.startsWith("file://")
                         ? decodeURIComponent(new URL(boardFolderUri).pathname).replace(/\/$/, "")
                         : boardFolderUri.replace(/\/$/, "");
@@ -475,7 +504,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
         </motion.div>
       );
     },
-    [rootUri, activeBoardBaseId, thumbMap, projectInfoById, lang, handleBoardClick, handleRename, handleDelete, t],
+    [rootUri, activeBoardBaseId, thumbMap, projectInfoById, lang, handleBoardClick, handleRename, handleDelete, handleDuplicate, t],
   );
 
   return (

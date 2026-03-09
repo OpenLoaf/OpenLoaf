@@ -761,6 +761,19 @@ export async function checkForIncrementalUpdates(
     const local = readLocalManifest()
     const currentServerVersion = resolveCurrentVersion('server', local)
     const currentWebVersion = resolveCurrentVersion('web', local)
+    const bundledServerVersion = resolveBundledVersion('server')
+    const bundledWebVersion = resolveBundledVersion('web')
+    log(
+      `[incremental-update] Remote: server=${remote.server?.version ?? 'N/A'}, web=${remote.web?.version ?? 'N/A'}`
+    )
+    log(
+      `[incremental-update] Local: server=${currentServerVersion ?? 'N/A'} (bundled=${bundledServerVersion ?? 'N/A'}), web=${currentWebVersion ?? 'N/A'} (bundled=${bundledWebVersion ?? 'N/A'})`
+    )
+    if (local.pending?.server || local.pending?.web) {
+      log(
+        `[incremental-update] Pending: server=${local.pending?.server?.version ?? 'none'}, web=${local.pending?.web?.version ?? 'none'}`
+      )
+    }
     let hasUpdate = false
 
     // 检查 server 更新（跳过黑名单和已 pending 的版本）

@@ -764,18 +764,16 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
     })
   }
 
-  // Handle unlinked nodes: single nodes stay in place, multi-node clusters use shelf packing
+  // Unlinked nodes: grid-align multi-node clusters, keep singles in place
   const unlinkedClusters = buildUnlinkedClusters(unlinkedLayoutNodes, UNLINKED_CLUSTER_PADDING)
   unlinkedClusters.forEach((cluster) => {
-    if (cluster.length < 2) {
-      // Single node: keep original position
-      return
-    }
+    if (cluster.length < 2) return
     gridAlignCluster(cluster, unlinkedLayoutNodes, layoutPositions)
   })
 
-  // Global overlap resolution — only push apart components that actually overlap.
-  // Preserves user's spatial organization; does NOT rearrange everything.
+  // ── Global: only resolve overlaps between groups ──
+  // Each group was already laid out in-place (Sugiyama centered on original,
+  // grid-align centered on original). Now just push apart any groups that overlap.
   const getRectWithLayoutPosition = (node: LayoutNode): RectTuple => {
     const pos = layoutPositions.get(node.id)
     const [x, y, w, h] = node.xywh
@@ -811,7 +809,7 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
     componentRects.set(component.id, rect)
   })
 
-  // Collect all rects as obstacles (locked first, then resolve movable in Y order)
+  // Place locked groups first as immovable obstacles
   const placedRects = new Map<string, RectTuple>()
   componentEntries.forEach((component) => {
     if (!component.locked) return
@@ -819,107 +817,62 @@ export function computeAutoLayoutUpdates(elements: CanvasElement[]): AutoLayoutU
     if (rect) placedRects.set(component.id, rect)
   })
 
+  // Process movable groups sorted by Y — push away only when overlapping
   const movableComponents = componentEntries
-    .filter((component) => !component.locked)
-    .sort((left, right) => {
-      const leftRect = componentRects.get(left.id)
-      const rightRect = componentRects.get(right.id)
-      if (!leftRect || !rightRect) return 0
-      return leftRect[1] - rightRect[1]
+    .filter((c) => !c.locked)
+    .sort((a, b) => {
+      const ar = componentRects.get(a.id)
+      const br = componentRects.get(b.id)
+      if (!ar || !br) return 0
+      return ar[1] - br[1]
     })
 
   movableComponents.forEach((component) => {
     const rect = componentRects.get(component.id)
     if (!rect) return
 
-    // Check overlap with all already-placed rects
-    const paddedRect: RectTuple = [
-      rect[0] - COMPONENT_GAP / 2,
-      rect[1] - COMPONENT_GAP / 2,
-      rect[2] + COMPONENT_GAP,
-      rect[3] + COMPONENT_GAP,
-    ]
-    const overlappingSpans = Array.from(placedRects.values())
-      .filter((obsRect) => {
-        const paddedObs: RectTuple = [
-          obsRect[0] - COMPONENT_GAP / 2,
-          obsRect[1] - COMPONENT_GAP / 2,
-          obsRect[2] + COMPONENT_GAP,
-          obsRect[3] + COMPONENT_GAP,
-        ]
-        return rectsIntersect(paddedRect, paddedObs)
-      })
+    // Check overlap against all already-placed groups
+    const obstacles = Array.from(placedRects.values()).filter((obs) =>
+      rectsIntersect(
+        [rect[0] - COMPONENT_GAP / 2, rect[1] - COMPONENT_GAP / 2, rect[2] + COMPONENT_GAP, rect[3] + COMPONENT_GAP],
+        obs,
+      ),
+    )
 
-    if (overlappingSpans.length === 0) {
-      // No overlap — keep original position
+    if (obstacles.length === 0) {
       placedRects.set(component.id, rect)
       return
     }
 
-    // Only resolve Y-axis overlap (minimal disturbance)
-    const obstacleYSpans = overlappingSpans
-      .filter((obsRect) =>
+    // Find minimal Y shift to clear all overlapping obstacles
+    const ySpans = obstacles
+      .filter((obs) =>
         spansOverlap(
           { start: rect[0], end: rect[0] + rect[2] },
-          { start: obsRect[0], end: obsRect[0] + obsRect[2] },
+          { start: obs[0], end: obs[0] + obs[2] },
         ),
       )
-      .map((obsRect) => ({
-        start: obsRect[1] - COMPONENT_GAP,
-        end: obsRect[1] + obsRect[3] + COMPONENT_GAP,
+      .map((obs) => ({
+        start: obs[1] - COMPONENT_GAP,
+        end: obs[1] + obs[3] + COMPONENT_GAP,
       }))
 
-    const preferred = rect[1]
-    const size = rect[3]
-    const resolved = resolveSecondaryPosition(preferred, size, obstacleYSpans)
-    if (Math.abs(resolved - preferred) < 1) {
+    const resolved = resolveSecondaryPosition(rect[1], rect[3], ySpans)
+    if (Math.abs(resolved - rect[1]) < 1) {
       placedRects.set(component.id, rect)
       return
     }
-    const deltaY = resolved - rect[1]
+    const dy = resolved - rect[1]
     component.nodeIds.forEach((nodeId) => {
       const node = layoutNodes.get(nodeId)
-      if (!node) return
-      const [x, y, w, h] = getRectWithLayoutPosition(node)
-      layoutPositions.set(nodeId, [x, y + deltaY])
+      if (!node || node.locked) return
+      const [x, y] = getRectWithLayoutPosition(node)
+      layoutPositions.set(nodeId, [x, y + dy])
     })
     const nextRect: RectTuple = [rect[0], resolved, rect[2], rect[3]]
     componentRects.set(component.id, nextRect)
     placedRects.set(component.id, nextRect)
   })
-
-  // Anchor: preserve the overall centroid so nodes don't drift on repeated layouts
-  const movedIds = Array.from(layoutPositions.keys())
-  if (movedIds.length > 0) {
-    let origSumX = 0
-    let origSumY = 0
-    let newSumX = 0
-    let newSumY = 0
-    let cnt = 0
-    movedIds.forEach((id) => {
-      const node = layoutNodes.get(id)
-      if (!node || node.locked) return
-      const [ox, oy, w, h] = node.xywh
-      const pos = layoutPositions.get(id)!
-      origSumX += ox + w / 2
-      origSumY += oy + h / 2
-      newSumX += pos[0] + w / 2
-      newSumY += pos[1] + h / 2
-      cnt += 1
-    })
-    if (cnt > 0) {
-      const driftX = origSumX / cnt - newSumX / cnt
-      const driftY = origSumY / cnt - newSumY / cnt
-      if (Math.abs(driftX) > 1 || Math.abs(driftY) > 1) {
-        movedIds.forEach((id) => {
-          const node = layoutNodes.get(id)
-          if (!node || node.locked) return
-          const pos = layoutPositions.get(id)!
-          layoutPositions.set(id, [pos[0] + driftX, pos[1] + driftY])
-        })
-      }
-    }
-  }
 
   // Build final updates with grid snapping
   const updates: AutoLayoutUpdate[] = []

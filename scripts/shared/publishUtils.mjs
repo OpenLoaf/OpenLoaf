@@ -158,6 +158,8 @@ export async function downloadJson(s3, bucket, key) {
 
 /**
  * 上传 JSON 到 R2。
+ * manifest.json 等频繁更新的元数据文件需要禁止 CDN 缓存，
+ * 否则客户端会拿到过期版本导致检测不到新版本。
  */
 export async function uploadJson(s3, bucket, key, data) {
   await s3.send(
@@ -166,6 +168,7 @@ export async function uploadJson(s3, bucket, key, data) {
       Key: key,
       Body: JSON.stringify(data, null, 2),
       ContentType: 'application/json',
+      CacheControl: 'no-cache, no-store, must-revalidate',
     })
   )
 }

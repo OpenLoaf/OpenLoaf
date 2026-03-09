@@ -236,6 +236,7 @@
     "aiName": "AI 命名",
     "aiNameEmpty": "画布内容为空，无法生成名称",
     "aiNameFailed": "AI 命名失败，请稍后重试",
+    "duplicate": "复制画布",
     "copyPath": "复制路径",
     "pathCopied": "已复制路径",
     "moveToProject": "移动到项目",

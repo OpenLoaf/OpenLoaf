@@ -293,6 +293,70 @@ export const boardRouter = t.router({
       return board;
     }),
 
+  /** Duplicate a board (DB record + file folder). */
+  duplicate: shieldedProcedure
+    .input(
+      z.object({
+        boardId: z.string().min(1),
+        workspaceId: z.string().trim().min(1),
+        projectId: z.string().trim().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const original = await ctx.prisma.board.findUnique({
+        where: { id: input.boardId },
+      });
+      if (!original) throw new Error("Board not found");
+
+      const newBoardId = createBoardId();
+      const newFolderUri = `.openloaf/boards/${newBoardId}/`;
+
+      // Copy board folder on disk
+      try {
+        const rootPath = resolveScopedRootPath({
+          workspaceId: input.workspaceId,
+          projectId: input.projectId,
+        });
+        const boardsDir = path.join(rootPath, ".openloaf", "boards");
+        const originalFolderName = original.folderUri.replace(/\/$/, "").split("/").pop()!;
+        const srcDir = path.join(boardsDir, originalFolderName);
+        const destDir = path.join(boardsDir, newBoardId);
+
+        await fs.cp(srcDir, destDir, { recursive: true });
+
+        // Replace old board references in JSON snapshot so paths stay correct
+        const jsonPath = path.join(destDir, "index.tnboard.json");
+        try {
+          const jsonContent = await fs.readFile(jsonPath, "utf-8");
+          const updated = jsonContent.replaceAll(originalFolderName, newBoardId);
+          await fs.writeFile(jsonPath, updated);
+        } catch {
+          // JSON file may not exist — non-critical
+        }
+
+        // Remove binary Yjs snapshot so board recovers from the updated JSON
+        try {
+          await fs.rm(path.join(destDir, "index.tnboard"), { force: true });
+        } catch {
+          // Non-critical
+        }
+      } catch (error) {
+        console.warn("[board.duplicate] failed to copy folder", error);
+      }
+
+      const board = await ctx.prisma.board.create({
+        data: {
+          id: newBoardId,
+          title: `${original.title} (copy)`,
+          workspaceId: input.workspaceId,
+          projectId: input.projectId ?? original.projectId,
+          folderUri: newFolderUri,
+        },
+      });
+
+      return board;
+    }),
+
   /** Soft-delete a board. */
   delete: shieldedProcedure
     .input(z.object({ boardId: z.string().min(1) }))
