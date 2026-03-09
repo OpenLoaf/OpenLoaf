@@ -307,21 +307,20 @@ Step 7: 测试通过 → 发布 stable 版本（重新构建）
   │   desktop/stable/latest-*.yml    ← stable 渠道的 electron-updater feed
   │   desktop/latest-*.yml           ← 向后兼容旧版客户端（<= v0.2.4-beta.2）
   │   stable/manifest.json           ← 轻量指针更新
-  ├── create-release（GitHub Release，正式版）
-  └── version-bump（仅 desktop 版本号 +1，不再碰 server/web）
+  └── create-release（GitHub Release，正式版）
 ```
 
 #### CI 两种模式
 
-| mode | 触发条件 | 构建 | create-release | version-bump（仅 desktop） |
-|------|---------|------|----------------|-------------|
-| `beta` | tag 含 `-beta` | ✅ | ✅（prerelease） | ❌ |
-| `stable` | tag 不含 `-beta` | ✅（完整重新构建） | ✅ | ✅ |
-| `workflow_dispatch` | 手动触发 | ✅ | ✅ | ❌ |
+| mode | 触发条件 | 构建 | create-release |
+|------|---------|------|----------------|
+| `beta` | tag 含 `-beta` | ✅ | ✅（prerelease） |
+| `stable` | tag 不含 `-beta` | ✅（完整重新构建） | ✅ |
+| `workflow_dispatch` | 手动触发 | ✅ | ✅ |
 
 > Stable 版本会完整重新构建，确保 app 内显示的版本号是正式版（不含 `-beta.N`）。
 > `create-release` 对所有触发方式开放，会自动创建 tag（如尚未存在）和 GitHub Release。
-> **version-bump 仅 bump desktop 自身的版本号**，server/web 版本由各自发布时手动管理。
+> **CI 不再自动 bump 版本号**，所有 app 版本完全由开发者手动管理。
 
 #### CI 产物命名规范
 

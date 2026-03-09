@@ -539,33 +539,3 @@ jobs:
             $PRERELEASE_FLAG \
             $FILES
 
-  version-bump:
-    needs: [determine-mode, create-release]
-    # 只在 tag 触发的 stable 发布后 bump 版本（beta 和 workflow_dispatch 跳过）
-    if: >-
-      always() &&
-      startsWith(github.ref, 'refs/tags/') &&
-      needs.create-release.result == 'success' &&
-      needs.determine-mode.outputs.channel == 'stable'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Bump patch version
-        run: |
-          cd apps/desktop
-          npm version patch --no-git-tag-version
-
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          DESKTOP_VERSION=$(node -p "require('./apps/desktop/package.json').version")
-          git add apps/desktop/package.json
-          git commit -m "chore(desktop): bump version to ${DESKTOP_VERSION} [skip ci]"
-          git push origin main
