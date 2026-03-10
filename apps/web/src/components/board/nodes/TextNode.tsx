@@ -15,6 +15,7 @@ import type {
 } from "../engine/types";
 import type {
   ChangeEvent as ReactChangeEvent,
+  CompositionEvent as ReactCompositionEvent,
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
   ReactNode,
@@ -612,6 +613,8 @@ export function TextNodeView({
   const isEditingRef = useRef(false);
   /** Pending auto-resize animation frame id. */
   const resizeRafRef = useRef<number | null>(null);
+  /** Whether an IME composition is in progress. */
+  const composingRef = useRef(false);
 
   const normalizedValue = useMemo(
     () => normalizeTextValue(element.props.value),
@@ -875,15 +878,23 @@ export function TextNodeView({
   }, [isGhost]);
 
   // 逻辑：字号/字重等文本样式变化时立即重算节点高度。
+  // 使用 ref 存储函数，避免 element.xywh 变化导致 effect 重复执行（覆盖手动调整）。
   const resolvedFontSize = textStyle.fontSize;
+  const expandToContentRef = useRef(expandToContent);
+  const fitToContentIfNeededRef = useRef(fitToContentIfNeeded);
+  useEffect(() => {
+    expandToContentRef.current = expandToContent;
+    fitToContentIfNeededRef.current = fitToContentIfNeeded;
+  }, [expandToContent, fitToContentIfNeeded]);
+
   useEffect(() => {
     if (isGhost) return;
     if (isEditing) {
-      expandToContent();
+      expandToContentRef.current();
     } else {
-      fitToContentIfNeeded();
+      fitToContentIfNeededRef.current();
     }
-  }, [resolvedFontSize, isEditing, isGhost, expandToContent, fitToContentIfNeeded]);
+  }, [resolvedFontSize, isEditing, isGhost]);
 
   /** Enter edit mode on node double click. */
   const handleDoubleClick = useCallback(
@@ -924,9 +935,32 @@ export function TextNodeView({
       if (isGhost) return;
       const nextValue = event.target.value;
       setDraftText(nextValue);
+      // 逻辑：IME 组合输入期间仅更新本地 draft，不同步到引擎，避免中间态文字被破坏。
+      if (composingRef.current) return;
       if (nextValue === lastValueRef.current) return;
       lastValueRef.current = nextValue;
-      // 逻辑：每次编辑同步节点数据，保证刷新后内容一致。
+      onUpdate({ value: nextValue, autoFocus: false });
+      if (isEditing) {
+        expandToContent();
+      }
+    },
+    [expandToContent, isEditing, isGhost, onUpdate]
+  );
+
+  /** Mark the start of an IME composition session. */
+  const handleCompositionStart = useCallback(() => {
+    composingRef.current = true;
+  }, []);
+
+  /** Commit the final text when IME composition ends. */
+  const handleCompositionEnd = useCallback(
+    (event: ReactCompositionEvent<HTMLTextAreaElement>) => {
+      composingRef.current = false;
+      if (isGhost) return;
+      const nextValue = event.currentTarget.value;
+      setDraftText(nextValue);
+      if (nextValue === lastValueRef.current) return;
+      lastValueRef.current = nextValue;
       onUpdate({ value: nextValue, autoFocus: false });
       if (isEditing) {
         expandToContent();
@@ -981,6 +1015,8 @@ export function TextNodeView({
           rows={1}
           value={draftText}
           onChange={handleTextChange}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
           onBlur={handleEditorBlur}
           onPointerDown={handleEditorPointerDown}
           data-allow-context-menu

@@ -13,7 +13,7 @@ import { Component, useCallback, useEffect, useMemo, useRef, useState, useId, ty
 import { createPortal } from "react-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { FolderDown, Loader2, MoreHorizontal, PencilLine, Sparkles, Trash2 } from "lucide-react";
+import { Copy, CopyPlus, FolderDown, Loader2, MoreHorizontal, PencilLine, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@openloaf/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
@@ -255,6 +255,28 @@ export function BoardCanvas({
   const closeTab = useTabs((s) => s.closeTab);
   const inferBoardNameMutation = useMutation(trpc.settings.inferBoardName.mutationOptions());
   const deleteBoardMutation = useMutation(trpc.fs.delete.mutationOptions());
+  const duplicateBoardMutation = useMutation(trpc.board.duplicate.mutationOptions({
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: trpc.board.list.queryKey() });
+      toast.success(i18next.t('nav:canvasList.duplicateSuccess'));
+    },
+  }));
+  const handleDuplicateBoard = useCallback(() => {
+    if (!resolvedBoardId || !resolvedWorkspaceId || duplicateBoardMutation.isPending) return;
+    duplicateBoardMutation.mutate({
+      boardId: resolvedBoardId,
+      workspaceId: resolvedWorkspaceId,
+      ...(projectId ? { projectId } : {}),
+    });
+  }, [resolvedBoardId, resolvedWorkspaceId, projectId, duplicateBoardMutation]);
+  const handleCopyBoardPath = useCallback(() => {
+    if (!boardFolderUri) return;
+    const fullPath = boardFolderUri.startsWith("file://")
+      ? decodeURIComponent(new URL(boardFolderUri).pathname).replace(/\/$/, "")
+      : boardFolderUri.replace(/\/$/, "");
+    navigator.clipboard.writeText(fullPath);
+    toast.success(i18next.t('nav:canvasList.pathCopied'));
+  }, [boardFolderUri]);
   const handleRenameOpen = useCallback((open: boolean) => {
     if (open) setRenameValue(currentTabTitle);
     setRenameOpen(open);
@@ -396,10 +418,12 @@ export function BoardCanvas({
         .catch(() => undefined)
         .then(async () => {
           const target = resolveExportTarget();
-          if (!target) return;
+          if (!target || !target.isConnected) return;
           try {
             setBoardExporting(target, true);
             await waitForAnimationFrames(2);
+            // 逻辑：动画帧后再检查一次，避免卸载期间截图报错。
+            if (!target.isConnected) return;
             const blob = await captureBoardImageBlob(target);
             if (!blob) return;
             const thumbnailBlob = await renderBoardThumbnailBlob(
@@ -566,6 +590,14 @@ export function BoardCanvas({
               <DropdownMenuItem onClick={() => setSaveToProjectOpen(true)}>
                 <FolderDown className="mr-2 size-4" />
                 {tBoard('board.saveToProject')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDuplicateBoard}>
+                <CopyPlus className="mr-2 size-4" />
+                {i18next.t('nav:canvasList.duplicate')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleCopyBoardPath}>
+                <Copy className="mr-2 size-4" />
+                {i18next.t('nav:canvasList.copyPath')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

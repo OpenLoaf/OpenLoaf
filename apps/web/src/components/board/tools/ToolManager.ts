@@ -232,6 +232,10 @@ export class ToolManager {
     if (this.handleAutoLayoutShortcut(event)) {
       return;
     }
+    // 逻辑：通用快捷键在任何工具模式下都可用（复制/剪切/撤销/重做）。
+    if (this.handleCommonShortcut(event)) {
+      return;
+    }
     this.getActiveTool()?.onKeyDown?.(event, this.engine);
   }
 
@@ -323,6 +327,44 @@ export class ToolManager {
     event.preventDefault();
     this.engine.autoLayoutBoard();
     return true;
+  }
+
+  /** Handle common shortcuts available in all tool modes (copy/cut/undo/redo/delete). */
+  private handleCommonShortcut(event: KeyboardEvent): boolean {
+    if (this.isEditableTarget(event.target)) return false;
+    const isMeta = event.metaKey || event.ctrlKey;
+    const key = event.key.toLowerCase();
+
+    if (isMeta) {
+      if (key === "c") {
+        event.preventDefault();
+        this.engine.copySelection();
+        return true;
+      }
+      if (key === "x") {
+        event.preventDefault();
+        this.engine.cutSelection();
+        return true;
+      }
+      if (key === "z") {
+        event.preventDefault();
+        if (this.engine.isLocked()) return true;
+        if (event.shiftKey) {
+          this.engine.redo();
+        } else {
+          this.engine.undo();
+        }
+        return true;
+      }
+      if (key === "y") {
+        event.preventDefault();
+        if (this.engine.isLocked()) return true;
+        this.engine.redo();
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /** Check if the key event target is an editable element. */

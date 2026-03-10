@@ -529,34 +529,7 @@ export class SelectTool implements CanvasTool {
     const key = event.key.toLowerCase();
 
     if (isMeta) {
-      if (key === "z") {
-        event.preventDefault();
-        // 逻辑：画布锁定时禁用撤销/重做快捷键。
-        if (engine.isLocked()) return;
-        if (event.shiftKey) {
-          engine.redo();
-          return;
-        }
-        engine.undo();
-        return;
-      }
-      if (key === "y") {
-        event.preventDefault();
-        // 逻辑：画布锁定时禁用撤销/重做快捷键。
-        if (engine.isLocked()) return;
-        engine.redo();
-        return;
-      }
-      if (key === "c") {
-        event.preventDefault();
-        engine.copySelection();
-        return;
-      }
-      if (key === "x") {
-        event.preventDefault();
-        engine.cutSelection();
-        return;
-      }
+      // 逻辑：copy/cut/undo/redo/delete 已提升到 ToolManager，此处仅保留 select 工具特有的快捷键。
       if (key === "g") {
         event.preventDefault();
         if (event.shiftKey) {

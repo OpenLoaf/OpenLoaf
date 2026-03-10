@@ -963,6 +963,10 @@ export function BoardCanvasInteraction({
 
   const handleNodeDoubleClick = (element: CanvasElement) => {
     if (element.kind !== "node") return;
+    // 逻辑：双击节点时自动切换到选择工具，确保画笔等模式下也能进入编辑。
+    if (snapshot.activeToolId !== "select") {
+      engine.setActiveTool("select");
+    }
     if (element.type === "link") {
       const props = element.props as LinkNodeProps;
       openLinkInStackAction({
@@ -1134,7 +1138,6 @@ export function BoardCanvasInteraction({
                   ? rawTarget.parentElement
                   : null;
             if (!target) return;
-            if (snapshot.activeToolId !== "select") return;
             if (snapshot.pendingInsert || snapshot.toolbarDragging) return;
             if (engine.isLocked()) return;
             if (isBoardUiTarget(target, ["[data-connector-drop-panel]"])) {
