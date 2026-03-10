@@ -57,10 +57,12 @@ export function resolveServerPath(): string {
   const updatedPath = path.join(getUpdatesRoot(), 'server', 'current', 'server.mjs')
 
   if (fs.existsSync(updatedPath)) {
-    // 版本比较：打包版本更新时回退到打包版本
     const bundledVersion = readBundledVersion('server')
     const updatedVersion = readLocalVersion('server')
-    if (shouldUseBundled(bundledVersion, updatedVersion)) {
+    // 孤立文件（manifest 无版本记录）或打包版本更新时，回退到打包版本。
+    // 孤立文件场景：pruneOutdatedUpdates 清理了 manifest 但因 Windows 文件锁定
+    // 未能删除 updates/ 目录，此时文件存在但无法验证版本。
+    if (!updatedVersion || shouldUseBundled(bundledVersion, updatedVersion)) {
       return bundledPath
     }
     return updatedPath
@@ -82,7 +84,7 @@ export function resolveWebRoot(): string {
   if (fs.existsSync(indexPath)) {
     const bundledVersion = readBundledVersion('web')
     const updatedVersion = readLocalVersion('web')
-    if (shouldUseBundled(bundledVersion, updatedVersion)) {
+    if (!updatedVersion || shouldUseBundled(bundledVersion, updatedVersion)) {
       return bundledRoot
     }
     return updatedRoot

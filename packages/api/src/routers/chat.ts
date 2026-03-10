@@ -362,7 +362,7 @@ export const chatRouter = t.router({
     .input(
       z.object({
         workspaceId: z.string().trim().min(1),
-        projectId: z.string().nullable(),
+        projectId: z.string().nullable().optional(),
         limit: z.number().optional(),
       }),
     )
