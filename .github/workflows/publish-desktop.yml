@@ -230,6 +230,113 @@ jobs:
           path: apps/desktop/dist/platform-meta-mac-arm64.json
 
   # ---------------------------------------------------------------------------
+  # macOS x64（Intel）
+  # ---------------------------------------------------------------------------
+  build-mac-x64:
+    needs: [determine-mode, build-prerequisites]
+    if: github.event_name == 'push' || inputs.build_mac
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: pnpm-store-${{ runner.os }}-x64-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-x64-
+
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/.cache/electron
+            ${{ github.workspace }}/.cache/electron-builder
+          key: electron-${{ runner.os }}-x64-${{ hashFiles('apps/desktop/package.json') }}
+          restore-keys: |
+            electron-${{ runner.os }}-x64-
+
+      - name: Use HTTPS for git dependencies
+        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter desktop... --filter server...
+
+      - name: Generate Prisma client
+        run: pnpm run db:generate
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: openloaf-build
+          path: apps
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/desktop@}"
+          cd apps/desktop
+          npm version "$TAG_VERSION" --no-git-tag-version --allow-same-version
+          echo "Set desktop version to $TAG_VERSION"
+
+      - name: Build and package desktop (macOS x64)
+        working-directory: apps/desktop
+        env:
+          CSC_LINK: ${{ secrets.MAC_CER_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CER_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm run dist:mac:ci
+
+      - name: Upload macOS x64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: openloaf-desktop-macos-x64
+          path: |
+            apps/desktop/dist/*.dmg
+            apps/desktop/dist/*.dmg.blockmap
+            apps/desktop/dist/*.zip
+            apps/desktop/dist/*.zip.blockmap
+            apps/desktop/dist/latest-mac.yml
+
+      # 构建完成后立即上传到 R2（不等待其他平台）
+      - name: Install publish dependencies
+        run: |
+          cd scripts/shared
+          npm init -y > /dev/null 2>&1
+          npm install @aws-sdk/client-s3
+
+      - name: Upload to R2 (immediate, per-build)
+        env:
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: node apps/desktop/scripts/publish-update.mjs --skip-build --upload-only --platform=mac-x64
+
+      - name: Upload platform metadata artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openloaf-platform-meta-x64
+          path: apps/desktop/dist/platform-meta-mac-x64.json
+
+  # ---------------------------------------------------------------------------
   # Windows
   # ---------------------------------------------------------------------------
   build-windows:
@@ -428,7 +535,7 @@ jobs:
   # 收尾步骤：上传 changelogs + 清理旧版本（各平台已各自写 manifest）
   # ---------------------------------------------------------------------------
   publish-finalize:
-    needs: [determine-mode, build-mac-arm64, build-windows, build-linux]
+    needs: [determine-mode, build-mac-arm64, build-mac-x64, build-windows, build-linux]
     if: always() && contains(needs.*.result, 'success')
     runs-on: ubuntu-latest
     steps:
@@ -517,6 +624,10 @@ jobs:
           # MacOS ARM64 → "MacOS"（Apple Silicon，用户友好名称）
           if [ -f "OpenLoaf-${VERSION}-MacOS-arm64.dmg" ]; then
             mv "OpenLoaf-${VERSION}-MacOS-arm64.dmg" "OpenLoaf-${VERSION}-MacOS.dmg"
+          fi
+          # MacOS x64 → "MacOS-Intel"（Intel，用户友好名称）
+          if [ -f "OpenLoaf-${VERSION}-MacOS-x64.dmg" ]; then
+            mv "OpenLoaf-${VERSION}-MacOS-x64.dmg" "OpenLoaf-${VERSION}-MacOS-Intel.dmg"
           fi
 
       - name: Create GitHub Release
