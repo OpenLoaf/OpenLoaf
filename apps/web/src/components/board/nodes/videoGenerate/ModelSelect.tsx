@@ -49,9 +49,9 @@ export function ModelSelect({
         type="button"
         disabled={isLoginBusy}
         className={[
-          "flex h-9 w-full items-center justify-between rounded-full bg-[#edf2fa] px-3 text-[13px] text-slate-500",
-          "hover:bg-[#d2e3fc] disabled:cursor-not-allowed disabled:opacity-60",
-          "dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-300 dark:hover:bg-[hsl(var(--muted)/0.5)]",
+          "flex h-7 w-full items-center justify-between rounded-full border border-[#dadce0] bg-[#f8f9fa] px-3 text-[11px] text-slate-500",
+          "hover:bg-[#e8eaed] disabled:cursor-not-allowed disabled:opacity-60",
+          "dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60",
         ].join(" ")}
         onPointerDown={(event) => {
           event.stopPropagation();
@@ -82,9 +82,9 @@ export function ModelSelect({
           type="button"
           disabled={candidates.length === 0 || disabled}
           className={[
-            "flex h-7 w-full items-center justify-between rounded-full bg-[#edf2fa] border-transparent px-2 text-[11px] text-slate-600",
-            "hover:bg-[#d2e3fc] disabled:cursor-not-allowed disabled:opacity-60",
-            "dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-200 dark:hover:bg-[hsl(var(--muted)/0.5)]",
+            "flex h-7 w-full items-center justify-between rounded-full border border-[#dadce0] bg-[#f8f9fa] px-2 text-[11px] text-slate-600",
+            "hover:bg-[#e8eaed] disabled:cursor-not-allowed disabled:opacity-60",
+            "dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-700/60",
           ].join(" ")}
           onPointerDown={(event) => {
             event.stopPropagation();

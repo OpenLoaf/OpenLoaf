@@ -10,7 +10,6 @@
 "use client";
 
 import { startTransition, useCallback } from "react";
-import { useQuery, skipToken } from "@tanstack/react-query";
 import i18next from "i18next";
 import { useTranslation } from "react-i18next";
 import { SidebarProject } from "@/components/layout/sidebar/SidebarProject";
@@ -24,7 +23,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@openloaf/ui/sidebar";
-import { CalendarDays, Clock, Inbox, LayoutDashboard, LayoutTemplate, Mail, Palette, Sparkles } from "lucide-react";
+import { Inbox, LayoutDashboard, LayoutTemplate, Palette, Sparkles } from "lucide-react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useNavigation } from "@/hooks/use-navigation";
@@ -33,8 +32,6 @@ import { Kbd, KbdGroup } from "@openloaf/ui/kbd";
 import { AI_ASSISTANT_TAB_INPUT, CANVAS_LIST_TAB_INPUT, TEMP_CANVAS_TAB_INPUT, TEMP_CHAT_TAB_INPUT, WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useIsNarrowScreen } from "@/hooks/use-mobile";
-import { trpc } from "@/utils/trpc";
-import { useTaskNotifications } from "@/hooks/use-task-notifications";
 import { useSidebarNavigation } from "@/hooks/use-sidebar-navigation";
 
 const SIDEBAR_WORKSPACE_COLOR_CLASS = {
@@ -45,7 +42,7 @@ const SIDEBAR_WORKSPACE_COLOR_CLASS = {
   email:
     "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-emerald-700/70 dark:[&>svg]:text-emerald-300/70 hover:[&>svg]:text-emerald-700 dark:hover:[&>svg]:text-emerald-200 data-[active=true]:!bg-emerald-100 dark:data-[active=true]:!bg-emerald-500/25 data-[active=true]:!text-emerald-700 dark:data-[active=true]:!text-emerald-200 data-[active=true]:[&>svg]:!text-emerald-600 dark:data-[active=true]:[&>svg]:!text-emerald-300",
   workbench:
-    "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-slate-700/70 dark:[&>svg]:text-slate-300/70 hover:[&>svg]:text-slate-700 dark:hover:[&>svg]:text-slate-200 data-[active=true]:!bg-slate-100 dark:data-[active=true]:!bg-slate-500/25 data-[active=true]:!text-slate-700 dark:data-[active=true]:!text-slate-200 data-[active=true]:[&>svg]:!text-slate-600 dark:data-[active=true]:[&>svg]:!text-slate-300",
+    "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-emerald-700/70 dark:[&>svg]:text-emerald-300/70 hover:[&>svg]:text-emerald-700 dark:hover:[&>svg]:text-emerald-200 data-[active=true]:!bg-emerald-100 dark:data-[active=true]:!bg-emerald-500/25 data-[active=true]:!text-emerald-700 dark:data-[active=true]:!text-emerald-200 data-[active=true]:[&>svg]:!text-emerald-600 dark:data-[active=true]:[&>svg]:!text-emerald-300",
   aiAssistant:
     "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-amber-700/70 dark:[&>svg]:text-amber-300/70 hover:[&>svg]:text-amber-700 dark:hover:[&>svg]:text-amber-200 data-[active=true]:!bg-amber-100 dark:data-[active=true]:!bg-amber-500/25 data-[active=true]:!text-amber-700 dark:data-[active=true]:!text-amber-200 data-[active=true]:[&>svg]:!text-amber-600 dark:data-[active=true]:[&>svg]:!text-amber-300",
   canvas:
@@ -89,44 +86,6 @@ export const AppSidebar = ({
   const setActiveWorkspaceChat = useNavigation((s) => s.setActiveWorkspaceChat);
   const isNarrow = useIsNarrowScreen(900);
   const nav = useSidebarNavigation(activeWorkspace?.id ?? '');
-  // 未读邮件数量查询。
-  const unreadCountQuery = useQuery(
-    trpc.email.listUnreadCount.queryOptions(
-      activeWorkspace ? { workspaceId: activeWorkspace.id } : skipToken,
-    ),
-  );
-  // 逻辑：未读数量统一按 workspace 汇总，避免跨账号漏计。
-  const unreadCount = unreadCountQuery.data?.count ?? 0;
-  // 任务数量查询：待办、进行中、待审批（每1分钟自动刷新）。
-  const todoTasksQuery = useQuery(
-    trpc.scheduledTask.listByStatus.queryOptions(
-      activeWorkspace
-        ? { workspaceId: activeWorkspace.id, status: ['todo'] }
-        : skipToken,
-      { refetchInterval: 60_000 },
-    ),
-  );
-  const runningTasksQuery = useQuery(
-    trpc.scheduledTask.listByStatus.queryOptions(
-      activeWorkspace
-        ? { workspaceId: activeWorkspace.id, status: ['running'] }
-        : skipToken,
-      { refetchInterval: 60_000 },
-    ),
-  );
-  const reviewTasksQuery = useQuery(
-    trpc.scheduledTask.listByStatus.queryOptions(
-      activeWorkspace
-        ? { workspaceId: activeWorkspace.id, status: ['review'] }
-        : skipToken,
-      { refetchInterval: 60_000 },
-    ),
-  );
-  const todoTaskCount = todoTasksQuery.data?.length ?? 0;
-  const runningTaskCount = runningTasksQuery.data?.length ?? 0;
-  const reviewTaskCount = reviewTasksQuery.data?.length ?? 0;
-  // 逻辑：任务状态变更 toast 通知。
-  useTaskNotifications();
 
   const activeTab =
     activeWorkspace && activeTabId
@@ -352,109 +311,6 @@ export const AppSidebar = ({
                   <Kbd className="bg-transparent px-0 h-auto rounded-none">T</Kbd>
                 </KbdGroup>
               </span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip={t('calendar')}
-              // 逻辑：与底部 DockTabs 的色调保持一致，增强主入口识别度。
-              className={SIDEBAR_WORKSPACE_COLOR_CLASS.calendar}
-              isActive={isMenuActive({
-                baseId: "base:calendar",
-                component: "calendar-page",
-                title: t('calendar'),
-              })}
-              onClick={() =>
-                openWorkspacePageTab({
-                  baseId: "base:calendar",
-                  component: "calendar-page",
-                  title: t('calendar'),
-                  icon: "🗓️",
-                  viewType: 'calendar',
-                })
-              }
-              type="button"
-            >
-              <CalendarDays />
-              <span className="flex-1 truncate">{t('calendar')}</span>
-              <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
-                <KbdGroup className="gap-1">
-                  <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
-                  <Kbd className="bg-transparent px-0 h-auto rounded-none">L</Kbd>
-                </KbdGroup>
-              </span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip={t('email')}
-              className={SIDEBAR_WORKSPACE_COLOR_CLASS.email}
-              isActive={isMenuActive({
-                baseId: "base:mailbox",
-                component: "email-page",
-                title: t('email'),
-              })}
-              onClick={() =>
-                openWorkspacePageTab({
-                  baseId: "base:mailbox",
-                  component: "email-page",
-                  title: t('email'),
-                  icon: "📧",
-                  viewType: 'email',
-                })
-              }
-              type="button"
-            >
-              <Mail />
-              <span className="flex-1 truncate">{t('email')}</span>
-              {unreadCount > 0 ? (
-                <span className="ml-auto inline-flex min-w-[1.125rem] items-center justify-center rounded-full bg-[#e6f4ea] px-1 py-px text-[10px] font-medium leading-[1] text-[#188038] dark:bg-emerald-900/40 dark:text-emerald-300">
-                  {unreadCount}
-                </span>
-              ) : null}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip={t('tasks')}
-              className={SIDEBAR_WORKSPACE_COLOR_CLASS.scheduledTasks}
-              isActive={isMenuActive({
-                baseId: "base:scheduled-tasks",
-                component: "scheduled-tasks-page",
-                title: t('tasks'),
-              })}
-              onClick={() =>
-                openWorkspacePageTab({
-                  baseId: "base:scheduled-tasks",
-                  component: "scheduled-tasks-page",
-                  title: t('tasks'),
-                  icon: "⏰",
-                  viewType: 'scheduled-tasks',
-                })
-              }
-              type="button"
-            >
-              <Clock />
-              <span className="flex-1 truncate">{t('tasks')}</span>
-              {(todoTaskCount > 0 || runningTaskCount > 0 || reviewTaskCount > 0) ? (
-                <span className="ml-auto flex items-center gap-1">
-                  {todoTaskCount > 0 && (
-                    <span className="inline-flex min-w-[1.125rem] items-center justify-center rounded-full bg-[#e8f0fe] px-1 py-px text-[10px] font-medium leading-[1] text-[#1a73e8] dark:bg-sky-900/40 dark:text-sky-300">
-                      {todoTaskCount}
-                    </span>
-                  )}
-                  {runningTaskCount > 0 && (
-                    <span className="inline-flex min-w-[1.125rem] items-center justify-center rounded-full bg-[#fef7e0] px-1 py-px text-[10px] font-medium leading-[1] text-[#e37400] dark:bg-amber-900/40 dark:text-amber-300">
-                      {runningTaskCount}
-                    </span>
-                  )}
-                  {reviewTaskCount > 0 && (
-                    <span className="inline-flex min-w-[1.125rem] items-center justify-center rounded-full bg-[#f3e8fd] px-1 py-px text-[10px] font-medium leading-[1] text-[#9334e6] dark:bg-violet-900/40 dark:text-violet-300">
-                      {reviewTaskCount}
-                    </span>
-                  )}
-                </span>
-              ) : null}
             </SidebarMenuButton>
           </SidebarMenuItem>
           {/* 先隐藏收集箱入口，后续再开放。 */}

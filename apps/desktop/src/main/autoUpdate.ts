@@ -298,8 +298,13 @@ export function restartForUpdates(): AutoUpdateResult {
     // 跳过退出确认弹窗，直接退出安装更新。
     skipQuitConfirmation()
     if (lastStatus.state === 'downloaded') {
-      // 中文注释：若已下载本体更新，优先走 autoUpdater 安装。
-      autoUpdater.quitAndInstall()
+      // isSilent=true：静默安装，避免 NSIS 弹出"请先关闭应用"对话框。
+      // isForceRunAfter=true：安装完成后自动重启应用。
+      autoUpdater.quitAndInstall(true, true)
+      // 兜底：quitAndInstall 内部调用 app.quit() 是异步的，
+      // 在 Windows 上可能因窗口关闭流程未完成而进程仍在运行，
+      // 延迟强制退出确保 NSIS 安装程序能获得文件独占访问。
+      setTimeout(() => app.exit(0), 1000)
       return { ok: true }
     }
     // 中文注释：增量更新仅需重启应用即可生效。

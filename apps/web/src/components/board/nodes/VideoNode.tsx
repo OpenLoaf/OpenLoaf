@@ -16,7 +16,7 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import Hls from "hls.js";
-import { Info, Loader2, Pause, Play, Sparkles } from "lucide-react";
+import { Info, Loader2, Play, Sparkles } from "lucide-react";
 import i18next from "i18next";
 import { BOARD_TOOLBAR_ITEM_BLUE, BOARD_TOOLBAR_ITEM_GREEN } from "../ui/board-style-system";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./imagePromptGenerate";
@@ -150,7 +150,6 @@ export function VideoNodeView({
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [playing, setPlaying] = useState(false);
-  const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const resolvedPath = useMemo(
@@ -179,21 +178,8 @@ export function VideoNodeView({
   const handlePlayInline = useCallback(() => {
     if (!resolvedPath) return;
     setPlaying(true);
-    setPaused(false);
     setLoading(true);
   }, [resolvedPath]);
-
-  const handleTogglePause = useCallback(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (video.paused) {
-      video.play();
-      setPaused(false);
-    } else {
-      video.pause();
-      setPaused(true);
-    }
-  }, []);
 
   // 逻辑：playing 后轮询 HLS 转码状态，就绪后用 hls.js 或原生 HLS 播放。
   useEffect(() => {
@@ -304,7 +290,6 @@ export function VideoNodeView({
               controlsList="nodownload nofullscreen"
               muted
               className="absolute inset-0 h-full w-full object-contain"
-              onClick={handleTogglePause}
               onEnded={handleStop}
             />
             {loading && (
@@ -314,13 +299,7 @@ export function VideoNodeView({
             )}
           </div>
         ) : posterSrc ? (
-          <div
-            className="group/play relative h-full w-full overflow-hidden rounded-xl cursor-pointer"
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              handlePlayInline();
-            }}
-          >
+          <div className="relative h-full w-full overflow-hidden rounded-xl">
             <img
               src={posterSrc}
               alt={displayName}
@@ -329,26 +308,34 @@ export function VideoNodeView({
               decoding="async"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/50 via-neutral-900/10 to-transparent" />
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <span className="flex h-[12%] min-h-5 aspect-square items-center justify-center rounded-full border border-white/40 bg-black/40 text-white transition-transform duration-200 ease-out group-hover/play:scale-125">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <button
+                type="button"
+                className="flex h-[12%] min-h-5 aspect-square cursor-pointer items-center justify-center rounded-full border border-white/40 bg-black/40 text-white transition-transform duration-200 ease-out hover:scale-125"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  handlePlayInline();
+                }}
+              >
                 <Play className="h-[50%] w-[50%] min-h-2.5 min-w-2.5 translate-x-[0.5px]" />
-              </span>
+              </button>
             </div>
             <div className="absolute bottom-2 left-2 right-2 line-clamp-2 text-[11px] text-white/90 drop-shadow">
               {displayName}
             </div>
           </div>
         ) : (
-          <div
-            className="group/play flex flex-col items-center justify-center gap-2 px-3 text-center cursor-pointer"
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              handlePlayInline();
-            }}
-          >
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 transition-transform duration-200 ease-out group-hover/play:scale-125 dark:bg-neutral-800 dark:text-neutral-300">
+          <div className="flex flex-col items-center justify-center gap-2 px-3 text-center">
+            <button
+              type="button"
+              className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-neutral-100 text-neutral-500 transition-transform duration-200 ease-out hover:scale-125 dark:bg-neutral-800 dark:text-neutral-300"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                handlePlayInline();
+              }}
+            >
               <Play className="h-5 w-5" />
-            </div>
+            </button>
             <div className="line-clamp-2 text-[11px] text-neutral-600 dark:text-neutral-400">
               {displayName}
             </div>

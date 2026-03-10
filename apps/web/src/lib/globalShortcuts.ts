@@ -141,9 +141,48 @@ function openSingletonTab(
   if (options?.closeSearch) useGlobalOverlay.getState().setSearchOpen(false);
 }
 
-/** 打开设置 Dialog。 */
+/** Open settings in the active tab's left dock base panel. */
 export function openSettingsTab(_workspaceId: string, settingsMenu?: string) {
-  useGlobalOverlay.getState().setSettingsOpen(true, settingsMenu);
+  const { activeTabId } = useTabs.getState();
+  if (!activeTabId) return;
+
+  const { runtimeByTabId, setTabBase, setTabBaseParams } = useTabRuntime.getState();
+  const runtime = runtimeByTabId[activeTabId];
+  const currentBase = runtime?.base;
+
+  // Already on settings page – just update the active menu if specified
+  if (currentBase?.component === 'settings-page') {
+    if (settingsMenu) {
+      setTabBaseParams(activeTabId, { settingsMenu });
+    }
+    return;
+  }
+
+  // Save current base and switch to settings
+  setTabBase(activeTabId, {
+    id: 'settings',
+    component: 'settings-page',
+    params: {
+      ...(settingsMenu ? { settingsMenu } : {}),
+      __previousBase: currentBase ?? null,
+    },
+  });
+}
+
+/** Close settings and restore the previous left dock base panel. */
+export function closeSettingsTab() {
+  const { activeTabId } = useTabs.getState();
+  if (!activeTabId) return;
+
+  const runtime = useTabRuntime.getState().runtimeByTabId[activeTabId];
+  const base = runtime?.base;
+  if (base?.component !== 'settings-page') return;
+
+  const previousBase = (base.params as any)?.__previousBase;
+  useTabRuntime.getState().setTabBase(
+    activeTabId,
+    previousBase && typeof previousBase === 'object' ? previousBase : undefined,
+  );
 }
 
 export type GlobalShortcutContext = {

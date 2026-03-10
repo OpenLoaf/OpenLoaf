@@ -114,23 +114,25 @@ const PRUNE_PATHS_COMMON = [
   'node_modules/sharp/node_modules',
 ]
 
-const PRUNE_PATHS_MAC = [
-  ...PRUNE_PATHS_COMMON,
-  // node-pty: wrong-arch / wrong-platform prebuilds
-  'prebuilds/darwin-x64',
-  'prebuilds/win32-arm64',
-  'prebuilds/win32-x64',
-  'prebuilds/linux-x64',
-  // speech: source code & Windows files
-  'speech/windows',
-  'speech/macos/SpeechRecognizer.swift',
-  // calendar: source code & Windows files
-  'calendar/windows',
-  'calendar/macos/CalendarHelper.swift',
-  'calendar/macos/README.md',
-  // Windows icon — not needed on macOS
-  'icon.ico',
-]
+/** Build macOS prune paths dynamically based on target arch. */
+function buildMacPrunePaths(targetArch) {
+  const ALL_PREBUILDS = ['darwin-arm64', 'darwin-x64', 'win32-arm64', 'win32-x64', 'linux-x64']
+  const keep = `darwin-${targetArch}`
+  return [
+    ...PRUNE_PATHS_COMMON,
+    // node-pty: remove prebuilds for non-target platforms/architectures
+    ...ALL_PREBUILDS.filter(a => a !== keep).map(a => `prebuilds/${a}`),
+    // speech: source code & Windows files
+    'speech/windows',
+    'speech/macos/SpeechRecognizer.swift',
+    // calendar: source code & Windows files
+    'calendar/windows',
+    'calendar/macos/CalendarHelper.swift',
+    'calendar/macos/README.md',
+    // Windows icon — not needed on macOS
+    'icon.ico',
+  ]
+}
 
 const PRUNE_PATHS_WIN = [
   ...PRUNE_PATHS_COMMON,
@@ -331,9 +333,10 @@ exports.default = async function afterPack(context) {
   // 从 Forge 产物复制原生模块到 electron-builder 产物
   copyForgeNativeModules(resourcesDir, context)
 
+  const arch = archToString(context.arch)
   let prunePaths
   if (targetPlatform === 'darwin') {
-    prunePaths = PRUNE_PATHS_MAC
+    prunePaths = buildMacPrunePaths(arch)
   } else if (targetPlatform === 'win32') {
     prunePaths = PRUNE_PATHS_WIN
   } else {

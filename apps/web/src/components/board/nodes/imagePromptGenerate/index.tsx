@@ -15,6 +15,7 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Cloud, Copy, LogIn, Monitor, Play, RotateCcw, ScanEye, Square } from "lucide-react";
+import { cn } from "@udecode/cn";
 import { generateId } from "ai";
 
 import { useBoardContext } from "../../core/BoardProvider";
@@ -450,8 +451,8 @@ export function ImagePromptGenerateNodeView({
     };
   }, []);
 
-  const containerClassName = [
-    "relative flex h-full w-full min-h-0 min-w-0 flex-col gap-2 rounded-xl border p-3 text-[#202124] dark:text-neutral-100 transition-colors duration-150",
+  const containerClassName = cn(
+    "relative flex h-full w-full min-h-0 min-w-0 flex-col rounded-xl border-2 overflow-hidden text-[#202124] dark:text-neutral-100 transition-all duration-150",
     BOARD_GENERATE_NODE_BASE_PROMPT,
     viewStatus === "running"
       ? "openloaf-thinking-border openloaf-thinking-border-on border-transparent"
@@ -460,7 +461,7 @@ export function ImagePromptGenerateNodeView({
         : selected
           ? BOARD_GENERATE_SELECTED_PROMPT
           : BOARD_GENERATE_BORDER_PROMPT,
-  ].join(" ");
+  );
 
   const handleCopyResult = useCallback(async () => {
     if (!resultText) return;
@@ -512,160 +513,153 @@ export function ImagePromptGenerateNodeView({
     >
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <div className={containerClassName} ref={containerRef}>
-      <div className="flex items-center gap-2">
-        <ScanEye size={16} className="shrink-0 text-[#f9ab00] dark:text-amber-400" />
-        <div className="text-[13px] font-semibold leading-5">{t('imagePromptGenerate.title')}</div>
-        <div className="flex-1" />
-        {viewStatus === "running" ? (
-          <button
-            type="button"
-            className={`inline-flex h-7 items-center justify-center rounded-full px-3 text-[12px] leading-none transition-colors duration-150 ${BOARD_GENERATE_BTN_PROMPT}`}
-            onPointerDown={(event) => {
-              event.stopPropagation();
-              stopImagePromptGenerate();
-            }}
-          >
-            <span className="inline-flex items-center gap-1">
-              <Square size={12} />
-              {t('imagePromptGenerate.stop')}
-            </span>
-          </button>
-        ) : !authLoggedIn && candidates.length === 0 ? (
-          <button
-            type="button"
-            disabled={isLoginBusy}
-            className={`inline-flex h-7 items-center justify-center rounded-full px-3 text-[12px] leading-none transition-colors duration-150 disabled:opacity-50 ${BOARD_GENERATE_BTN_PROMPT}`}
-            onPointerDown={(event) => {
-              event.stopPropagation();
-              onSelect();
-              if (!isLoginBusy) setLoginOpen(true);
-            }}
-          >
-            <span className="inline-flex items-center gap-1">
-              <LogIn size={12} />
-              {isLoginBusy ? t('imagePromptGenerate.loggingIn') : t('imagePromptGenerate.login')}
-            </span>
-          </button>
-        ) : hasValidInput ? (
-          <button
-            type="button"
-            disabled={
-              candidates.length === 0 ||
-              !effectiveModelId ||
-              engine.isLocked() ||
-              element.locked
-            }
-            className={`inline-flex h-7 items-center justify-center rounded-full px-3 text-[12px] leading-none transition-colors duration-150 disabled:opacity-50 ${BOARD_GENERATE_BTN_PROMPT}`}
-            onPointerDown={(event) => {
-              event.stopPropagation();
-              onSelect();
-              runImagePromptGenerate({
-                chatModelId: effectiveModelId,
-                chatModelSource: effectiveModelSource,
-              });
-            }}
-          >
-            <span className="inline-flex items-center gap-1">
-              {viewStatus === "error" || resultText ? (
-                <RotateCcw size={12} />
-              ) : (
-                <Play size={12} />
-              )}
-              {viewStatus === "error" ? t('imagePromptGenerate.retry') : resultText ? t('imagePromptGenerate.regenerate') : t('imagePromptGenerate.run')}
-            </span>
-          </button>
-        ) : null}
-      </div>
-
-      <div className="mt-1 flex items-center gap-2">
-        <div className="text-[11px] text-[#5f6368] dark:text-neutral-400">{t('imagePromptGenerate.model')}</div>
-        <div className="min-w-0 flex-1">
-          {!authLoggedIn && candidates.length === 0 ? (
-            <button
-              type="button"
-              disabled={isLoginBusy}
-              className="inline-flex h-7 w-full items-center justify-center rounded-full bg-[#edf2fa] px-3 text-[11px] text-[#5f6368] transition-colors duration-150 hover:bg-[#d2e3fc] disabled:opacity-50 dark:bg-[hsl(var(--muted)/0.38)] dark:text-neutral-400 dark:hover:bg-[hsl(var(--muted)/0.5)]"
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                if (!isLoginBusy) setLoginOpen(true);
-              }}
-            >
-              <span className="inline-flex items-center gap-1">
-                <LogIn size={12} />
-                {isLoginBusy ? t('imagePromptGenerate.loggingIn') : t('imagePromptGenerate.loginHint')}
-              </span>
-            </button>
-          ) : (
-            <Select
-              value={effectiveModelId}
-              onValueChange={(value) => {
-                onUpdate({ chatModelId: value });
-              }}
-              disabled={candidates.length === 0 || isRunning}
-            >
-              <SelectTrigger className="h-7 w-full px-2 text-[11px] shadow-none">
-                <SelectValue placeholder={t('imagePromptGenerate.noModel')} />
-              </SelectTrigger>
-              <SelectContent className="text-[11px]">
-                {candidates.length ? null : (
-                  <SelectItem value="__none__" disabled className="text-[11px]">
-                    {t('imagePromptGenerate.noModel')}
-                  </SelectItem>
-                )}
-                {candidates.map((option) => {
-                  const isCloud = cloudModelIds.has(option.id);
-                  return (
-                    <SelectItem
-                      key={option.id}
-                      value={option.id}
-                      className="text-[11px]"
-                    >
-                      <span className="inline-flex items-center gap-1">
-                        {isCloud ? (
-                          <Cloud className="h-3 w-3 shrink-0 text-[#1a73e8] dark:text-sky-400" />
-                        ) : (
-                          <Monitor className="h-3 w-3 shrink-0 text-[#5f6368] dark:text-neutral-400" />
-                        )}
-                        {option.providerName}:{option.modelDefinition?.name || option.modelId}
-                      </span>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          )}
+        {/* Header */}
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
+          <ScanEye className="h-4 w-4 shrink-0 text-[#f9ab00] dark:text-amber-400" />
+          <div className="text-xs font-medium text-[#f9ab00] dark:text-amber-400">{t('imagePromptGenerate.title')}</div>
         </div>
-      </div>
 
-      {resultText ? (
-        <div className="space-y-1">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-[11px] text-[#5f6368] dark:text-neutral-400">
-              {t('imagePromptGenerate.contentDescription')}
+        {/* Body */}
+        <div className="flex-1 p-3 flex flex-col gap-2" data-board-editor>
+          {resultText ? (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[11px] text-[#5f6368] dark:text-neutral-400">
+                  {t('imagePromptGenerate.contentDescription')}
+                </div>
+                <button
+                  type="button"
+                  className="rounded-full px-1.5 py-0.5 text-[10px] text-neutral-500 hover:text-neutral-700 dark:text-neutral-300 dark:hover:text-neutral-100"
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                  }}
+                  onClick={handleCopyResult}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <Copy size={10} />
+                  </span>
+                </button>
+              </div>
+              <div
+                data-board-scroll
+                className={cn("rounded-xl p-2 text-[12px] leading-5 text-[#202124] dark:text-neutral-200", BOARD_GENERATE_INSET)}
+              >
+                <pre className="whitespace-pre-wrap break-words font-sans">
+                  {resultText}
+                </pre>
+              </div>
             </div>
+          ) : null}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center gap-2 px-3 py-2 border-t border-border/20">
+          <div className="min-w-0 flex-1">
+            {!authLoggedIn && candidates.length === 0 ? (
+              <button
+                type="button"
+                disabled={isLoginBusy}
+                className="inline-flex h-7 w-full items-center justify-center rounded-full border border-[#dadce0] bg-[#f8f9fa] px-3 text-[11px] text-[#5f6368] transition-colors duration-150 hover:bg-[#e8eaed] disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/60 dark:text-neutral-400 dark:hover:bg-slate-700/60"
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  if (!isLoginBusy) setLoginOpen(true);
+                }}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <LogIn size={12} />
+                  {isLoginBusy ? t('imagePromptGenerate.loggingIn') : t('imagePromptGenerate.loginHint')}
+                </span>
+              </button>
+            ) : (
+              <Select
+                value={effectiveModelId}
+                onValueChange={(value) => {
+                  onUpdate({ chatModelId: value });
+                }}
+                disabled={candidates.length === 0 || isRunning}
+              >
+                <SelectTrigger className="h-7 w-full rounded-full border-[#dadce0] bg-[#f8f9fa] px-2 text-[11px] shadow-none hover:bg-[#e8eaed] dark:border-slate-600 dark:bg-slate-800/60 dark:hover:bg-slate-700/60">
+                  <SelectValue placeholder={t('imagePromptGenerate.noModel')} />
+                </SelectTrigger>
+                <SelectContent className="text-[11px]">
+                  {candidates.length ? null : (
+                    <SelectItem value="__none__" disabled className="text-[11px]">
+                      {t('imagePromptGenerate.noModel')}
+                    </SelectItem>
+                  )}
+                  {candidates.map((option) => {
+                    const isCloud = cloudModelIds.has(option.id);
+                    return (
+                      <SelectItem
+                        key={option.id}
+                        value={option.id}
+                        className="text-[11px]"
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {isCloud ? (
+                            <Cloud className="h-3 w-3 shrink-0 text-[#1a73e8] dark:text-sky-400" />
+                          ) : (
+                            <Monitor className="h-3 w-3 shrink-0 text-[#5f6368] dark:text-neutral-400" />
+                          )}
+                          {option.providerName}:{option.modelDefinition?.name || option.modelId}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          {viewStatus === "running" ? (
             <button
               type="button"
-              className="rounded-full px-1.5 py-0.5 text-[10px] text-neutral-500 hover:text-neutral-700 dark:text-neutral-300 dark:hover:text-neutral-100"
+              className={cn(
+                "shrink-0 inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-medium transition-colors duration-150",
+                BOARD_GENERATE_BTN_PROMPT,
+              )}
               onPointerDown={(event) => {
                 event.stopPropagation();
+                stopImagePromptGenerate();
               }}
-              onClick={handleCopyResult}
             >
               <span className="inline-flex items-center gap-1">
-                <Copy size={10} />
+                <Square size={12} />
+                {t('imagePromptGenerate.stop')}
               </span>
             </button>
-          </div>
-          <div
-            data-board-scroll
-            className={`rounded-xl p-2 text-[12px] leading-5 text-[#202124] dark:text-neutral-200 ${BOARD_GENERATE_INSET}`}
-          >
-            <pre className="whitespace-pre-wrap break-words font-sans">
-              {resultText}
-            </pre>
-          </div>
+          ) : hasValidInput ? (
+            <button
+              type="button"
+              disabled={
+                candidates.length === 0 ||
+                !effectiveModelId ||
+                engine.isLocked() ||
+                element.locked
+              }
+              className={cn(
+                "shrink-0 inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-medium transition-colors duration-150 disabled:opacity-50",
+                BOARD_GENERATE_BTN_PROMPT,
+              )}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                onSelect();
+                runImagePromptGenerate({
+                  chatModelId: effectiveModelId,
+                  chatModelSource: effectiveModelSource,
+                });
+              }}
+            >
+              <span className="inline-flex items-center gap-1">
+                {viewStatus === "error" || resultText ? (
+                  <RotateCcw size={12} />
+                ) : (
+                  <Play size={12} />
+                )}
+                {viewStatus === "error" ? t('imagePromptGenerate.retry') : resultText ? t('imagePromptGenerate.regenerate') : t('imagePromptGenerate.run')}
+              </span>
+            </button>
+          ) : null}
         </div>
-      ) : null}
       </div>
     </NodeFrame>
   );

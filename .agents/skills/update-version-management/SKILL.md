@@ -407,7 +407,7 @@ git push origin desktop@{version}
   ```yaml
   NEXT_PUBLIC_SERVER_URL: http://127.0.0.1:23333
   NEXT_PUBLIC_OPENLOAF_SAAS_URL: https://openloaf.hexems.com
-  NEXT_PUBLIC_UPDATE_BASE_URL: https://r2-openloaf-update.hexems.com
+  NEXT_PUBLIC_UPDATE_BASE_URL: https://openloaf-update.hexems.com
   ```
 - **`dist.mjs`** 自动添加 `--publish=never` 阻止 electron-builder 自动发布；支持 `--beta[=N]` 参数临时将版本号改为 `x.y.z-beta.N` 打包（打包后自动恢复，用于本地测试自动更新）
 - **Linux 仅构建 AppImage**（`package.json` 中 `build.linux.target: ["AppImage"]`）

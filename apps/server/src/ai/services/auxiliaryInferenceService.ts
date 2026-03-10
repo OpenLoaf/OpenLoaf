@@ -146,11 +146,13 @@ export async function auxiliaryInfer<T extends z.ZodType>({
       const token = getSaasAccessToken()
       if (!token) throw new Error('未登录云端账号，请先登录')
       const saasClient = getSaasClient(token)
+      const capability = AUXILIARY_CAPABILITIES[capabilityKey]
       const res = await saasClient.auxiliary.infer({
         capabilityKey,
         systemPrompt,
         context,
         outputMode: 'structured',
+        schema: capability?.outputSchema,
       })
       if (!res.ok) throw new Error(res.message)
       const value = schema.parse(res.result) as z.infer<T>

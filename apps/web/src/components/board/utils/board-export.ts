@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { toBlob } from "html-to-image";
+import { resolveServerUrl } from "@/utils/server-url";
 
 /** Selector list for elements excluded from board exports. */
 export const BOARD_EXPORT_IGNORE_SELECTOR = [
@@ -23,6 +24,23 @@ export const BOARD_EXPORT_IGNORE_SELECTOR = [
   "[data-board-selection-outline]",
 ].join(",");
 
+/** Resolve the set of trusted origins (page origin + API server origin). */
+function getTrustedOrigins(): Set<string> {
+  const origins = new Set<string>();
+  if (typeof window !== "undefined") {
+    origins.add(window.location.origin);
+  }
+  const serverUrl = resolveServerUrl();
+  if (serverUrl) {
+    try {
+      origins.add(new URL(serverUrl).origin);
+    } catch {
+      // ignore invalid server URL
+    }
+  }
+  return origins;
+}
+
 /** Return true when the media element is cross-origin and may taint canvas. */
 export function isCrossOriginMediaElement(element: Element): boolean {
   if (typeof window === "undefined") return false;
@@ -34,7 +52,7 @@ export function isCrossOriginMediaElement(element: Element): boolean {
   if (rawSrc.startsWith("data:") || rawSrc.startsWith("blob:")) return false;
   try {
     const url = new URL(rawSrc, window.location.href);
-    return url.origin !== window.location.origin;
+    return !getTrustedOrigins().has(url.origin);
   } catch {
     return true;
   }

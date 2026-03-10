@@ -3,7 +3,8 @@
   "aiAssistant": "AI小助理",
   "smartCanvas": "智能画布",
   "save": "保存",
-  "workbench": "看板",
+  "cancel": "取消",
+  "workbench": "全局看板",
   "calendar": "日历",
   "email": "邮箱",
   "tasks": "任务",
@@ -173,7 +174,8 @@
     "sessionAlreadyOpenDesc": "该对话已在其他标签页中打开，是否切换到对应标签页？",
     "stayHere": "留在这里",
     "switchTab": "切换标签页",
-    "showProjectSessions": "显示工作区对话历史"
+    "showProjectSessions": "显示工作区对话历史",
+    "back": "返回"
   },
   "panelTitle": {
     "ai-chat": "AI 对话",
@@ -197,7 +199,7 @@
     "board-viewer": "画布",
     "terminal-viewer": "终端",
     "desktop-widget-library": "组件库",
-    "workspace-desktop": "看板",
+    "workspace-desktop": "全局看板",
     "folder-tree-preview": "文件夹",
     "scheduler-task-history": "任务历史",
     "scheduled-tasks-page": "任务看板",

@@ -31,7 +31,6 @@ import {
   Sparkles,
   Wand2Icon,
   Terminal,
-  X,
 } from "lucide-react";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { Button } from "@openloaf/ui/button";
@@ -209,7 +208,6 @@ export default function SettingsPage({
   const lastCollapsedRef = useRef<boolean | null>(null);
   const { basic } = useBasicConfig();
   const shouldAnimate = basic.uiAnimationLevel !== "low";
-  const setSettingsOpen = useGlobalOverlay((s) => s.setSettingsOpen);
   const isDialogMode = !tabId;
 
   const activeItem = useMemo(
@@ -362,14 +360,6 @@ export default function SettingsPage({
                 {ActiveIcon && <ActiveIcon className="h-4 w-4" />}
                 {activeLabel}
               </h2>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 rounded-full text-muted-foreground"
-                onClick={() => setSettingsOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
           )}
           <div

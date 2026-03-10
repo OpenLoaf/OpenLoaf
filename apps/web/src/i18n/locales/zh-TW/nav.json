@@ -3,7 +3,8 @@
   "aiAssistant": "AI小助理",
   "smartCanvas": "智能畫布",
   "save": "儲存",
-  "workbench": "工作台",
+  "cancel": "取消",
+  "workbench": "全域看板",
   "calendar": "行事曆",
   "email": "信箱",
   "tasks": "任務",
@@ -173,7 +174,8 @@
     "sessionAlreadyOpenDesc": "該對話已在其他分頁中開啟，是否切換到對應分頁？",
     "stayHere": "留在這裡",
     "switchTab": "切換分頁",
-    "showProjectSessions": "顯示專案對話歷史"
+    "showProjectSessions": "顯示專案對話歷史",
+    "back": "返回"
   },
   "panelTitle": {
     "ai-chat": "AI 對話",
@@ -197,7 +199,7 @@
     "board-viewer": "畫布",
     "terminal-viewer": "終端機",
     "desktop-widget-library": "元件庫",
-    "workspace-desktop": "工作台",
+    "workspace-desktop": "全域看板",
     "folder-tree-preview": "資料夾",
     "scheduler-task-history": "任務記錄",
     "scheduled-tasks-page": "任務看板",

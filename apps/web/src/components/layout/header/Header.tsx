@@ -18,8 +18,7 @@ import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useTabView } from "@/hooks/use-tab-view";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
-import { useGlobalOverlay } from "@/lib/globalShortcuts";
-import { SettingsDialog } from "@/components/setting/SettingsDialog";
+import { useGlobalOverlay, openSettingsTab } from "@/lib/globalShortcuts";
 import { ProjectSettingsDialog } from "@/components/project/settings/ProjectSettingsDialog";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
@@ -95,8 +94,6 @@ export const Header = () => {
   const activeTab = useTabView(activeTabId ?? undefined);
   const searchOpen = useGlobalOverlay((s) => s.searchOpen);
   const setSearchOpen = useGlobalOverlay((s) => s.setSearchOpen);
-  const setSettingsOpen = useGlobalOverlay((s) => s.setSettingsOpen);
-
   const isElectron = isElectronEnv();
   const isMac =
     typeof navigator !== "undefined" &&
@@ -178,7 +175,7 @@ export const Header = () => {
               className="h-8 w-8 shrink-0"
               variant="ghost"
               size="icon"
-              onClick={() => setSettingsOpen(true)}
+              onClick={() => { if (workspaceId) openSettingsTab(workspaceId); }}
             >
               <Settings className="h-4 w-4 text-orange-700/70 dark:text-orange-300/70" />
             </Button>
@@ -270,7 +267,6 @@ export const Header = () => {
         </Tooltip>
       </div>
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
-      <SettingsDialog />
       <ProjectSettingsDialog />
     </header>
   );

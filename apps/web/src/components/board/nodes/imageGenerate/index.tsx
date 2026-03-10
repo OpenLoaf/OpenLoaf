@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, ImagePlus, LogIn, RotateCcw, Settings, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { cn } from "@udecode/cn";
 
 import { useBoardContext } from "../../core/BoardProvider";
 import { useMediaModels } from "@/hooks/use-media-models";
@@ -19,8 +20,8 @@ import { getWorkspaceIdFromCookie } from "../../core/boardSession";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import type { ImageNodeProps } from "../ImageNode";
-import { Input } from "@openloaf/ui/input";
-import { Textarea } from "@openloaf/ui/textarea";
+
+
 import {
   IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
   IMAGE_GENERATE_MAX_INPUT_IMAGES,
@@ -542,15 +543,15 @@ export function ImageGenerateNodeView({
     outputImages.length,
   ]);
 
-  const containerClassName = [
-    "relative flex w-full min-w-0 flex-col gap-3 rounded-xl border p-3 text-[#202124] dark:text-slate-100 transition-colors duration-150",
+  const containerClassName = cn(
+    "relative flex w-full min-w-0 flex-col rounded-xl border-2 overflow-hidden text-[#202124] dark:text-slate-100 transition-all duration-150",
     BOARD_GENERATE_NODE_BASE_IMAGE,
     viewStatus === "error"
       ? BOARD_GENERATE_ERROR
       : selected
         ? BOARD_GENERATE_SELECTED_IMAGE
         : BOARD_GENERATE_BORDER_IMAGE,
-  ].join(" ");
+  );
 
   const statusHint = useMemo(() => {
     if (viewStatus === "needs_prompt") {
@@ -691,98 +692,46 @@ export function ImageGenerateNodeView({
     >
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <div ref={containerRef} className={containerClassName}>
-        <div className="flex items-center gap-2">
-          <ImagePlus size={16} className="shrink-0 text-[#1a73e8] dark:text-sky-400" />
-          <div className="text-[13px] font-semibold leading-5">{t('imageGenerate.title')}</div>
-          <span className={`rounded-full px-2 py-0.5 text-[10px] leading-3 ${BOARD_GENERATE_PILL_IMAGE}`}>
+        {/* Header */}
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
+          <ImagePlus className="h-4 w-4 shrink-0 text-[#1a73e8] dark:text-sky-400" />
+          <div className="text-xs font-medium text-[#1a73e8] dark:text-sky-400">{t('imageGenerate.title')}</div>
+          <span className={cn("rounded-full px-2 py-0.5 text-[10px] leading-3", BOARD_GENERATE_PILL_IMAGE)}>
             {subtitleText}
           </span>
-          <div className="flex-1" />
-          <button
-            type="button"
-            className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors duration-150 ${
-              isAdvancedOpen
-                ? "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50"
-                : "text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-400 dark:hover:bg-slate-800"
-            }`}
-            onPointerDown={(event) => {
-              event.stopPropagation();
-              onSelect();
-              setAdvancedOpen((prev) => !prev);
-            }}
-          >
-            <Settings size={14} />
-          </button>
-          <button
-            type="button"
-            disabled={authLoggedIn ? !canGenerate : isLoginBusy}
-            className={`inline-flex h-7 items-center justify-center rounded-full px-3 text-[12px] leading-none transition-colors duration-150 disabled:opacity-50 ${BOARD_GENERATE_BTN_IMAGE}`}
-            onPointerDown={(event) => {
-              event.stopPropagation();
-              onSelect();
-              handlePrimaryAction();
-            }}
-          >
-            <span className="inline-flex items-center gap-1">
-              {PrimaryIcon ? <PrimaryIcon size={14} /> : null}
-              {primaryLabel}
-            </span>
-          </button>
         </div>
 
-        <div className="mt-1 flex shrink-0 flex-col gap-3" data-board-editor>
-          <div className="flex items-center gap-3">
-            <div className="text-[12px] text-[#5f6368] dark:text-slate-400">{t('imageGenerate.model')}</div>
-            <div className="min-w-0 flex-1">
-              <ModelSelect
-                authLoggedIn={authLoggedIn}
-                isLoginBusy={isLoginBusy}
-                candidates={candidates}
-                selectedModel={selectedModel}
-                effectiveModelId={effectiveModelId}
-                disabled={isLocked}
-                modelSelectOpen={modelSelectOpen}
-                onOpenChange={setModelSelectOpen}
-                onSelect={onSelect}
-                onSelectModel={(modelId) => {
-                  onUpdate({ modelId });
-                }}
-                onOpenLogin={handleOpenLogin}
-              />
-            </div>
-          </div>
-          <div className="min-w-0 flex shrink-0 flex-col gap-2">
-            <div className="text-[12px] text-[#5f6368] dark:text-slate-400">
-              {t('imageGenerate.prompt')}
-            </div>
-            <Textarea
-              value={localPromptText}
-              maxLength={500}
-              placeholder={t('imageGenerate.promptPlaceholder')}
-              onChange={(event) => {
-                const next = event.target.value.slice(0, 500);
-                setLocalPromptText(next);
-                if (!composingRef.current) {
-                  onUpdate({ promptText: next });
-                }
-              }}
-              onCompositionStart={() => { composingRef.current = true; }}
-              onCompositionEnd={(event) => {
-                composingRef.current = false;
-                const next = (event.target as HTMLTextAreaElement).value.slice(0, 500);
-                setLocalPromptText(next);
+        {/* Body */}
+        <div className="flex-1 p-3" data-board-editor>
+          <textarea
+            className="w-full min-h-[60px] resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+            value={localPromptText}
+            maxLength={500}
+            placeholder={t('imageGenerate.promptPlaceholder')}
+            onChange={(event) => {
+              const next = event.target.value.slice(0, 500);
+              setLocalPromptText(next);
+              if (!composingRef.current) {
                 onUpdate({ promptText: next });
-              }}
-              data-board-scroll
-              className="min-h-[96px] flex-1 overflow-y-auto border-[#d2e3fc]/60 bg-[#edf2fa] px-3.5 py-2.5 text-[14px] leading-6 text-[#202124] shadow-none placeholder:text-[#5f6368] focus-visible:border-[#d2e3fc] focus-visible:ring-1 focus-visible:ring-[rgba(26,115,232,0.22)] dark:border-slate-600 dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-100 dark:placeholder:text-slate-400 md:text-[14px]"
-              disabled={isLocked}
-            />
-          </div>
+              }
+            }}
+            onCompositionStart={() => { composingRef.current = true; }}
+            onCompositionEnd={(event) => {
+              composingRef.current = false;
+              const next = (event.target as HTMLTextAreaElement).value.slice(0, 500);
+              setLocalPromptText(next);
+              onUpdate({ promptText: next });
+            }}
+            data-board-scroll
+            disabled={isLocked}
+          />
+
         </div>
 
+        {/* Advanced Settings (between body and footer) */}
         {isAdvancedOpen ? (
           <div
-            className="pt-1"
+            className="px-3 pb-2"
             data-board-editor
             onPointerDown={(event) => {
               event.stopPropagation();
@@ -812,6 +761,61 @@ export function ImageGenerateNodeView({
             />
           </div>
         ) : null}
+
+        {/* Footer */}
+        <div className="flex items-center gap-2 px-3 py-2 border-t border-border/20">
+          <div className="min-w-0 flex-1">
+            <ModelSelect
+              authLoggedIn={authLoggedIn}
+              isLoginBusy={isLoginBusy}
+              candidates={candidates}
+              selectedModel={selectedModel}
+              effectiveModelId={effectiveModelId}
+              disabled={isLocked}
+              modelSelectOpen={modelSelectOpen}
+              onOpenChange={setModelSelectOpen}
+              onSelect={onSelect}
+              onSelectModel={(modelId) => {
+                onUpdate({ modelId });
+              }}
+              onOpenLogin={handleOpenLogin}
+            />
+          </div>
+          <button
+            type="button"
+            className={cn(
+              "shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors duration-150",
+              isAdvancedOpen
+                ? "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50"
+                : "text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-400 dark:hover:bg-slate-800",
+            )}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onSelect();
+              setAdvancedOpen((prev) => !prev);
+            }}
+          >
+            <Settings size={14} />
+          </button>
+          <button
+            type="button"
+            disabled={authLoggedIn ? !canGenerate : isLoginBusy}
+            className={cn(
+              "shrink-0 inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-medium transition-colors duration-150 disabled:opacity-50",
+              BOARD_GENERATE_BTN_IMAGE,
+            )}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onSelect();
+              handlePrimaryAction();
+            }}
+          >
+            <span className="inline-flex items-center gap-1">
+              {PrimaryIcon ? <PrimaryIcon size={14} /> : null}
+              {primaryLabel}
+            </span>
+          </button>
+        </div>
       </div>
       {statusHint ? (
         <div
@@ -822,26 +826,26 @@ export function ImageGenerateNodeView({
           }}
         >
           <div
-            className={[
+            className={cn(
               "rounded-lg px-3 py-2 text-[12px] leading-5 shadow-sm",
               statusHint.tone === "error"
                 ? "border border-[#d93025]/20 bg-[#fce8e6] text-[#d93025] dark:border-rose-400/30 dark:bg-rose-950/40 dark:text-rose-200"
                 : statusHint.tone === "warn"
                   ? "border border-amber-200/70 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
                   : "border border-sky-200/70 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-200",
-            ].join(" ")}
+            )}
           >
             <div className="relative">
               {statusHint.tone === "error" ? (
                 <>
                   <button
                     type="button"
-                    className={[
+                    className={cn(
                       "absolute right-0 top-0 inline-flex h-6 w-6 items-center justify-center rounded-full text-[12px] leading-none",
                       copied
                         ? "text-emerald-600 dark:text-emerald-400"
                         : "text-current/70 hover:text-current",
-                    ].join(" ")}
+                    )}
                     onPointerDown={(event) => {
                       event.stopPropagation();
                     }}

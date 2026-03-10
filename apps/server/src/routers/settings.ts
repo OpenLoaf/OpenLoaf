@@ -1784,6 +1784,21 @@ function boardSnapshotToMarkdown(snapshot: any, maxLines: number): string {
         lines.push(`- [Group] ${children} children`);
         break;
       }
+      case "chat_input": {
+        const inputText = props.inputText || "";
+        if (inputText) lines.push(`- [ChatInput] ${inputText.slice(0, 200)}`);
+        break;
+      }
+      case "chat_message": {
+        const msgText = props.messageText || props.content || "";
+        const imageUrls = Array.isArray(props.resolvedImageUrls) ? props.resolvedImageUrls : [];
+        const parts: string[] = [];
+        if (msgText) parts.push(msgText.slice(0, 200));
+        if (imageUrls.length) parts.push(`${imageUrls.length} image(s)`);
+        if (parts.length) lines.push(`- [ChatMessage] ${parts.join(" | ")}`);
+        else lines.push("- [ChatMessage]");
+        break;
+      }
       case "stroke":
         // Skip strokes — not helpful for naming
         break;

@@ -26,7 +26,7 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useProject } from "@/hooks/use-project";
 import { useProjects } from "@/hooks/use-projects";
 import { createPortal } from "react-dom";
-import { LayoutDashboard } from "lucide-react";
+import { FolderOpen, LayoutDashboard } from "lucide-react";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
 import ProjectIndex from "./index/ProjectIndex";
 import ProjectHistory from "./history/ProjectHistoryPage";
@@ -372,6 +372,7 @@ export default function ProjectPage({
   const panelBaseClass =
     "absolute inset-0 box-border pt-0 transform-gpu transition-[opacity,transform] duration-[300ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,transform]";
   const showIndexTitleExtra = tabActive && activeTab === "index";
+  const showFilesTitleExtra = tabActive && activeTab === "files";
 
   /** Toggle read-only mode for the homepage editor. */
   const handleSetIndexReadOnly = useCallback(
@@ -441,9 +442,19 @@ export default function ProjectPage({
       {showIndexTitleExtra && headerTitleExtraTarget
         ? createPortal(
             <div className="flex items-center gap-1.5 text-sm text-foreground/50">
-              <span className="mx-1">|</span>
+              <div className="mx-1 h-5 w-px bg-foreground/20" />
               <LayoutDashboard className="h-3.5 w-3.5 text-amber-700/70 dark:text-amber-300/70" />
               <span className="font-medium text-foreground/80">首页</span>
+            </div>,
+            headerTitleExtraTarget,
+          )
+        : null}
+      {showFilesTitleExtra && headerTitleExtraTarget
+        ? createPortal(
+            <div className="flex items-center gap-1.5 text-sm text-foreground/50">
+              <div className="mx-1 h-5 w-px bg-foreground/20" />
+              <FolderOpen className="h-3.5 w-3.5 text-blue-700/70 dark:text-blue-300/70" />
+              <span className="font-medium text-foreground/80">文件</span>
             </div>,
             headerTitleExtraTarget,
           )
@@ -508,6 +519,7 @@ export default function ProjectPage({
                       rootUri={rootUri}
                       currentUri={fileUri}
                       isLoading={isLoading}
+                      isActive={tabActive && activeTab === "files"}
                       isGitProject={isGitProject}
                       canConvertToSubproject={canConvertToSubproject}
                       projectLookup={projectLookup}

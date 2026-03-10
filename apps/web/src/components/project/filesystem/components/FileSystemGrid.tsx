@@ -405,8 +405,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   }, []);
 
   const gridClassName = compact
-    ? "grid gap-4 justify-start [grid-template-columns:repeat(1,minmax(120px,1fr))] @[300px]/fs-grid:[grid-template-columns:repeat(2,minmax(120px,1fr))] @[420px]/fs-grid:[grid-template-columns:repeat(3,minmax(120px,1fr))] @[560px]/fs-grid:[grid-template-columns:repeat(4,minmax(120px,1fr))] @[700px]/fs-grid:[grid-template-columns:repeat(5,minmax(120px,1fr))] @[840px]/fs-grid:[grid-template-columns:repeat(6,minmax(120px,1fr))]"
-    : "grid gap-5 justify-start [grid-template-columns:repeat(1,minmax(140px,1fr))] @[320px]/fs-grid:[grid-template-columns:repeat(2,minmax(140px,1fr))] @[480px]/fs-grid:[grid-template-columns:repeat(3,minmax(140px,1fr))] @[640px]/fs-grid:[grid-template-columns:repeat(4,minmax(140px,1fr))] @[800px]/fs-grid:[grid-template-columns:repeat(5,minmax(140px,1fr))] @[960px]/fs-grid:[grid-template-columns:repeat(6,minmax(140px,1fr))]";
+    ? "grid gap-3 justify-start [grid-template-columns:repeat(1,minmax(100px,1fr))] @[240px]/fs-grid:[grid-template-columns:repeat(2,minmax(100px,1fr))] @[360px]/fs-grid:[grid-template-columns:repeat(3,minmax(100px,1fr))] @[480px]/fs-grid:[grid-template-columns:repeat(4,minmax(100px,1fr))] @[600px]/fs-grid:[grid-template-columns:repeat(5,minmax(100px,1fr))] @[720px]/fs-grid:[grid-template-columns:repeat(6,minmax(100px,1fr))] @[840px]/fs-grid:[grid-template-columns:repeat(7,minmax(100px,1fr))] @[960px]/fs-grid:[grid-template-columns:repeat(8,minmax(100px,1fr))]"
+    : "grid gap-4 justify-start [grid-template-columns:repeat(1,minmax(120px,1fr))] @[280px]/fs-grid:[grid-template-columns:repeat(2,minmax(120px,1fr))] @[400px]/fs-grid:[grid-template-columns:repeat(3,minmax(120px,1fr))] @[530px]/fs-grid:[grid-template-columns:repeat(4,minmax(120px,1fr))] @[660px]/fs-grid:[grid-template-columns:repeat(5,minmax(120px,1fr))] @[790px]/fs-grid:[grid-template-columns:repeat(6,minmax(120px,1fr))] @[920px]/fs-grid:[grid-template-columns:repeat(7,minmax(120px,1fr))] @[1050px]/fs-grid:[grid-template-columns:repeat(8,minmax(120px,1fr))]";
 
   return (
     <div className="flex min-h-full h-full flex-col">

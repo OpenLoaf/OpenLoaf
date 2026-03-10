@@ -30,6 +30,7 @@ import {
   computeSha256,
   resolveChannel,
   buildChangelogUrl,
+  uploadChangelogs,
 } from '../../../scripts/shared/publishUtils.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -118,6 +119,17 @@ async function main() {
   }
 
   await uploadJson(s3, r2Config.bucket, manifestKey, manifest)
+
+  // 上传 changelogs
+  const changelogsDir = path.join(webRoot, 'changelogs')
+  await uploadChangelogs({
+    s3,
+    bucket: r2Config.bucket,
+    component: 'web',
+    changelogsDir,
+    publicUrl: r2Config.publicUrl,
+    versionDirPrefix: `web/${version}`,
+  })
 
   console.log(`\n/**
  * Copyright (c) OpenLoaf. All rights reserved.

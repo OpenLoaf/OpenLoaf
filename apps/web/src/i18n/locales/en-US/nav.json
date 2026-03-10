@@ -3,7 +3,8 @@
   "aiAssistant": "AI Helper",
   "smartCanvas": "Smart Canvas",
   "save": "Save",
-  "workbench": "Workbench",
+  "cancel": "Cancel",
+  "workbench": "Global Board",
   "calendar": "Calendar",
   "email": "Mail",
   "tasks": "Tasks",
@@ -173,7 +174,8 @@
     "sessionAlreadyOpenDesc": "This conversation is already open in another tab. Would you like to switch to it?",
     "stayHere": "Stay Here",
     "switchTab": "Switch Tab",
-    "showProjectSessions": "Show project chat history"
+    "showProjectSessions": "Show project chat history",
+    "back": "Back"
   },
   "panelTitle": {
     "ai-chat": "AI Chat",
@@ -197,7 +199,7 @@
     "board-viewer": "Canvas",
     "terminal-viewer": "Terminal",
     "desktop-widget-library": "Widget Library",
-    "workspace-desktop": "Workbench",
+    "workspace-desktop": "Global Board",
     "folder-tree-preview": "Folder",
     "scheduler-task-history": "Task History",
     "scheduled-tasks-page": "Task Board",

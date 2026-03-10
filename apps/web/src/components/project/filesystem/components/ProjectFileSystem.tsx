@@ -19,6 +19,7 @@ import {
   type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -36,8 +37,10 @@ import ProjectFileSystemTransferBar from "./ProjectFileSystemTransferBar";
 import FileSystemGitTree from "./FileSystemGitTree";
 import {
   ProjectFileSystemHeader,
+  ProjectFileSystemToolbar,
   type ProjectBreadcrumbInfo,
 } from "./ProjectFileSystemHeader";
+import { useHeaderSlot } from "@/hooks/use-header-slot";
 import { DragDropOverlay } from "@openloaf/ui/openloaf/drag-drop-overlay";
 import { useProjectFileSystemModel } from "../models/file-system-model";
 import { useFileSystemContextMenu } from "@/hooks/use-file-system-context-menu";
@@ -55,6 +58,8 @@ type ProjectFileSystemProps = {
   currentUri?: string | null;
   /** Whether the file system data is loading. */
   isLoading?: boolean;
+  /** Whether this filesystem panel is currently active and visible. */
+  isActive?: boolean;
   /** Whether the current project is a git repository. */
   isGitProject?: boolean;
   /** Whether folders can be converted into child projects. */
@@ -70,9 +75,17 @@ type FileSystemToolbarState = {
   sortOrder: "asc" | "desc" | null;
 };
 
+/** Detect default view mode by platform: Windows → list, others → grid. */
+function getDefaultViewMode(): FileSystemToolbarState["viewMode"] {
+  if (typeof navigator === "undefined") return "grid";
+  const ua = navigator.userAgent;
+  if (ua.includes("Windows") || navigator.platform?.startsWith("Win")) return "list";
+  return "grid";
+}
+
 /** Default toolbar state for file system view. */
 const DEFAULT_TOOLBAR_STATE: FileSystemToolbarState = {
-  viewMode: "list",
+  viewMode: getDefaultViewMode(),
   sortField: "name",
   sortOrder: "asc",
 };
@@ -103,9 +116,9 @@ function normalizeFileSystemToolbarState(
   const hasSortField = Object.prototype.hasOwnProperty.call(raw, "sortField");
   const hasSortOrder = Object.prototype.hasOwnProperty.call(raw, "sortOrder");
   const viewMode =
-    raw.viewMode === "list" || raw.viewMode === "columns" || raw.viewMode === "tree"
+    raw.viewMode === "grid" || raw.viewMode === "list" || raw.viewMode === "columns" || raw.viewMode === "tree"
       ? raw.viewMode
-      : "grid";
+      : DEFAULT_TOOLBAR_STATE.viewMode;
   if (!hasSortField && !hasSortOrder) {
     return {
       viewMode,
@@ -156,12 +169,14 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
   rootUri,
   currentUri,
   isLoading,
+  isActive,
   isGitProject,
   canConvertToSubproject = true,
   projectLookup,
   onNavigate,
 }: ProjectFileSystemProps) {
   const { t } = useTranslation(['workspace']);
+  const headerActionsTarget = useHeaderSlot((s) => s.headerActionsTarget);
   const queryClient = useQueryClient();
   const createProjectMutation = useMutation(trpc.project.create.mutationOptions());
   // 从本地缓存恢复文件系统工具栏状态。
@@ -528,35 +543,43 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
 
   return (
     <div className="h-full flex flex-col">
-      {/* 文件系统面包屑与工具栏在面板上方渲染。 */}
+      {/* 工具栏通过 portal 传送到全局 header 的 actions 区域。 */}
+      {isActive && headerActionsTarget
+        ? createPortal(
+            <ProjectFileSystemToolbar
+              canUndo={model.canUndo}
+              canRedo={model.canRedo}
+              onUndo={model.undo}
+              onRedo={model.redo}
+              viewMode={viewMode}
+              isTreeViewEnabled={isTreeViewEnabled}
+              onViewModeChange={handleViewModeChange}
+              sortField={model.sortField}
+              sortOrder={model.sortOrder}
+              onSortByName={handleSortByNameClick}
+              onSortByTime={handleSortByTimeClick}
+              onCreateFolder={handleCreateFolder}
+              onCreateDocument={handleCreateDocument}
+              onUploadFiles={model.handleUploadFiles}
+              uploadInputRef={model.uploadInputRef}
+              searchContainerRef={model.searchContainerRef}
+              searchInputRef={model.searchInputRef}
+              searchValue={model.searchValue}
+              isSearchVisible={isSearchVisible}
+              onSearchValueChange={model.setSearchValue}
+              onSearchOpenChange={model.setIsSearchOpen}
+              searchShortcutLabel={searchShortcutLabel}
+            />,
+            headerActionsTarget,
+          )
+        : null}
+      {/* 文件系统面包屑路径显示。 */}
       <ProjectFileSystemHeader
         isLoading={isLoading ?? false}
         rootUri={rootUri}
         currentUri={model.displayUri}
         projectLookup={projectLookup}
         onNavigate={model.handleNavigate}
-        canUndo={model.canUndo}
-        canRedo={model.canRedo}
-        onUndo={model.undo}
-        onRedo={model.redo}
-        viewMode={viewMode}
-        isTreeViewEnabled={isTreeViewEnabled}
-        onViewModeChange={handleViewModeChange}
-        sortField={model.sortField}
-        sortOrder={model.sortOrder}
-        onSortByName={handleSortByNameClick}
-        onSortByTime={handleSortByTimeClick}
-        onCreateFolder={handleCreateFolder}
-        onCreateDocument={handleCreateDocument}
-        onUploadFiles={model.handleUploadFiles}
-        uploadInputRef={model.uploadInputRef}
-        searchContainerRef={model.searchContainerRef}
-        searchInputRef={model.searchInputRef}
-        searchValue={model.searchValue}
-        isSearchVisible={isSearchVisible}
-        onSearchValueChange={model.setSearchValue}
-        onSearchOpenChange={model.setIsSearchOpen}
-        searchShortcutLabel={searchShortcutLabel}
       />
       <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <ProjectFileSystemTransferBar
@@ -746,7 +769,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
             </div>
           ) : (
             <div
-              className="flex-1 min-h-0 h-full overflow-auto bg-background p-4"
+              className="flex-1 min-h-0 h-full overflow-auto bg-background px-4 pt-2 pb-4"
               onDragEnter={model.handleDragEnter}
               onDragOver={model.handleDragOver}
               onDragLeave={model.handleDragLeave}

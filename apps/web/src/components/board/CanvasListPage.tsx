@@ -12,7 +12,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { Palette, Plus, Edit2, Trash2, MoreHorizontal, Copy, CopyPlus, CalendarDays, Search, X, FolderOpen } from "lucide-react";
+import { Palette, Plus, Edit2, Trash2, MoreHorizontal, Copy, CopyPlus, CalendarDays, Search, X, FolderOpen, Sparkles, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 
@@ -22,6 +22,10 @@ import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useProjects } from "@/hooks/use-projects";
 import { buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { BOARD_INDEX_FILE_NAME } from "@/lib/file-name";
+import { useSaasAuth } from "@/hooks/use-saas-auth";
+import { getCachedAccessToken } from "@/lib/saas-auth";
+import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
+import { toast } from "sonner";
 import { Button } from "@openloaf/ui/button";
 import { Input } from "@openloaf/ui/input";
 import {
@@ -172,10 +176,15 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   const activeTabId = useTabs((s) => s.activeTabId);
   const runtimeByTabId = useTabRuntime((s) => s.runtimeByTabId);
 
+  const { loggedIn: saasLoggedIn } = useSaasAuth();
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [aiNaming, setAiNaming] = useState(false);
+  const inferBoardNameMutation = useMutation(trpc.settings.inferBoardName.mutationOptions());
   const [renameTarget, setRenameTarget] = useState<{
     boardId: string;
     title: string;
     nextTitle: string;
+    folderUri?: string;
   } | null>(null);
   const [groupByTime, setGroupByTime] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -340,8 +349,8 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   );
 
   const handleRename = useCallback(
-    (boardId: string, title: string) => {
-      setRenameTarget({ boardId, title, nextTitle: title });
+    (boardId: string, title: string, folderUri?: string) => {
+      setRenameTarget({ boardId, title, nextTitle: title, folderUri });
     },
     [],
   );
@@ -353,6 +362,37 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
       title: renameTarget.nextTitle.trim(),
     });
   }, [renameTarget, updateMutation]);
+
+  const handleAiName = useCallback(async () => {
+    if (!renameTarget?.folderUri || !workspaceId) return;
+    if (!saasLoggedIn) {
+      setLoginOpen(true);
+      return;
+    }
+    setAiNaming(true);
+    try {
+      const boardFolderUri = rootUri
+        ? buildFileUriFromRoot(rootUri, renameTarget.folderUri)
+        : "";
+      if (!boardFolderUri) return;
+      const result = await inferBoardNameMutation.mutateAsync({
+        workspaceId,
+        boardFolderUri,
+        saasAccessToken: getCachedAccessToken() ?? undefined,
+      });
+      if (result.title) {
+        setRenameTarget((prev) =>
+          prev ? { ...prev, nextTitle: result.title } : prev,
+        );
+      } else {
+        toast.error(t("canvasList.aiNameEmpty"));
+      }
+    } catch {
+      toast.error(t("canvasList.aiNameFailed"));
+    } finally {
+      setAiNaming(false);
+    }
+  }, [renameTarget, workspaceId, rootUri, saasLoggedIn, inferBoardNameMutation, t]);
 
   const handleDelete = useCallback(
     (boardId: string) => {
@@ -443,7 +483,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
                   <DropdownMenuItem
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleRename(board.id, board.title);
+                      handleRename(board.id, board.title, board.folderUri);
                     }}
                   >
                     <Edit2 className="mr-2 h-4 w-4" />
@@ -634,23 +674,53 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
             <DialogTitle>{t("canvasList.renameTitle")}</DialogTitle>
             <DialogDescription>{t("canvasList.renameDesc")}</DialogDescription>
           </DialogHeader>
-          <Input
-            value={renameTarget?.nextTitle ?? ""}
-            onChange={(e) =>
-              setRenameTarget((prev) =>
-                prev ? { ...prev, nextTitle: e.target.value } : prev,
-              )
-            }
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleRenameSave();
-            }}
-            autoFocus
-          />
+          <div className="flex items-center gap-1.5">
+            <Input
+              value={renameTarget?.nextTitle ?? ""}
+              onChange={(e) =>
+                setRenameTarget((prev) =>
+                  prev ? { ...prev, nextTitle: e.target.value } : prev,
+                )
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleRenameSave();
+              }}
+              className="flex-1 shadow-none focus-visible:ring-0 focus-visible:shadow-none focus-visible:border-border/70"
+              autoFocus
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={`h-9 w-9 shrink-0 rounded-full shadow-none transition-colors duration-150 ${
+                aiNaming
+                  ? "text-muted-foreground opacity-50"
+                  : saasLoggedIn
+                    ? "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
+                    : "text-muted-foreground"
+              }`}
+              title={t("canvasList.aiName")}
+              disabled={aiNaming || !renameTarget?.folderUri}
+              onClick={handleAiName}
+            >
+              {aiNaming ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Sparkles className="size-4" />
+              )}
+            </Button>
+          </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline">{t("cancel")}</Button>
+              <Button
+                variant="ghost"
+                className="rounded-full text-muted-foreground shadow-none transition-colors duration-150"
+              >
+                {t("cancel")}
+              </Button>
             </DialogClose>
             <Button
+              className="rounded-full bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none transition-colors duration-150"
               onClick={handleRenameSave}
               disabled={updateMutation.isPending}
             >
@@ -659,6 +729,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
     </div>
   );
 }

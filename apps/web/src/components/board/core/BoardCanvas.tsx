@@ -16,7 +16,14 @@ import { useTranslation } from "react-i18next";
 import { Copy, CopyPlus, FolderDown, Loader2, MoreHorizontal, PencilLine, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@openloaf/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@openloaf/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -433,29 +440,15 @@ export function BoardCanvas({
   /** Capture and persist the current board thumbnail. */
   const saveBoardThumbnail = useCallback(
     (reason: "close" | "autoLayout" | "init") => {
-      console.log("[BoardThumbnail] saveBoardThumbnail called", {
-        reason,
-        boardFolderUri,
-        resolvedWorkspaceId,
-        elementCount: elementCountRef.current,
-      });
       if (!boardFolderUri) return;
       if (!resolvedWorkspaceId) return;
       // 逻辑：空画布不截图，保持默认渐变预览。
-      if (elementCountRef.current === 0) {
-        console.log("[BoardThumbnail] skipped: elementCount is 0");
-        return;
-      }
+      if (elementCountRef.current === 0) return;
       // 逻辑：顺序执行截图任务，避免并发占用渲染资源。
       thumbnailQueueRef.current = thumbnailQueueRef.current
         .catch(() => undefined)
         .then(async () => {
           const target = resolveExportTarget();
-          console.log("[BoardThumbnail] queue executing", {
-            reason,
-            hasTarget: !!target,
-            isConnected: target?.isConnected,
-          });
           if (!target || !target.isConnected) return;
           // 逻辑：截图前保存当前视口状态，然后适配全部元素以获取完整缩略图。
           const prevState = engine.viewport.getState();
@@ -464,23 +457,17 @@ export function BoardCanvas({
             setBoardExporting(target, true);
             await waitForAnimationFrames(2);
             // 逻辑：动画帧后再检查一次，避免卸载期间截图报错。
-            if (!target.isConnected) {
-              console.log("[BoardThumbnail] aborted: target disconnected after animation frames");
-              return;
-            }
+            if (!target.isConnected) return;
             const blob = await captureBoardImageBlob(target);
-            console.log("[BoardThumbnail] captured blob", { reason, blobSize: blob?.size });
             if (!blob) return;
             const thumbnailBlob = await renderBoardThumbnailBlob(
               blob,
               BOARD_THUMBNAIL_WIDTH,
               BOARD_THUMBNAIL_HEIGHT
             );
-            console.log("[BoardThumbnail] rendered thumbnail", { reason, thumbnailSize: thumbnailBlob?.size });
             if (!thumbnailBlob) return;
             const contentBase64 = await blobToBase64(thumbnailBlob);
             const uri = buildChildUri(boardFolderUri, BOARD_THUMBNAIL_FILE_NAME);
-            console.log("[BoardThumbnail] writing thumbnail", { reason, uri, base64Length: contentBase64.length });
             await writeThumbnailRef.current({
               workspaceId: resolvedWorkspaceId,
               projectId,
@@ -488,7 +475,6 @@ export function BoardCanvas({
               contentBase64,
             });
             boardModifiedRef.current = false;
-            console.log("[BoardThumbnail] thumbnail saved successfully", { reason });
             // 逻辑：截图成功后让画布列表的缩略图缓存失效，返回时能看到最新预览。
             queryClient.invalidateQueries({ queryKey: trpc.board.thumbnails.queryKey() });
           } catch (error) {
@@ -526,32 +512,20 @@ export function BoardCanvas({
     return unsubscribe;
   }, [engine]);
 
-  /** Initial thumbnail capture: when collab syncs, always re-capture to ensure freshness. */
+  /** Initial thumbnail capture: fires once when elements are first loaded from collab sync. */
+  const elementCount = snapshot.elements.length;
   useEffect(() => {
-    console.log("[BoardThumbnail] init effect fired", {
-      canSyncLog: syncLogState.canSyncLog,
-      initDone: thumbnailInitDoneRef.current,
-      boardFolderUri,
-      resolvedWorkspaceId,
-    });
-    if (!syncLogState.canSyncLog) return;
+    if (elementCount === 0) return;
     if (thumbnailInitDoneRef.current) return;
     if (!boardFolderUri || !resolvedWorkspaceId) return;
     thumbnailInitDoneRef.current = true;
-    console.log("[BoardThumbnail] calling saveBoardThumbnail('init')");
-    // 逻辑：协作同步完成后始终重新截取缩略图，确保预览图反映最新画布内容。
+    // 逻辑：元素首次从协作层加载完成后截取缩略图，确保预览图反映最新内容。
     saveBoardThumbnail("init");
-  }, [syncLogState.canSyncLog, boardFolderUri, resolvedWorkspaceId, saveBoardThumbnail]);
+  }, [elementCount, boardFolderUri, resolvedWorkspaceId, saveBoardThumbnail]);
 
   /** On unmount (close/back): capture thumbnail if board was modified. */
   useEffect(() => {
     return () => {
-      console.log("[BoardThumbnail] close effect cleanup", {
-        boardModified: boardModifiedRef.current,
-        boardFolderUri,
-        resolvedWorkspaceId,
-        elementCount: elementCountRef.current,
-      });
       if (autoLayoutTimerRef.current) {
         window.clearTimeout(autoLayoutTimerRef.current);
         autoLayoutTimerRef.current = null;
@@ -560,7 +534,6 @@ export function BoardCanvas({
       if (!boardFolderUri || !resolvedWorkspaceId) return;
       if (elementCountRef.current === 0) return;
       const target = resolveExportTarget();
-      console.log("[BoardThumbnail] close: target", { hasTarget: !!target, isConnected: target?.isConnected });
       if (!target || !target.isConnected) return;
       // 逻辑：关闭时直接启动截图，不经过队列也不等待动画帧，
       // html-to-image 会同步克隆 DOM，后续渲染和写盘可异步完成。
@@ -568,7 +541,6 @@ export function BoardCanvas({
       captureBoardImageBlob(target)
         .then(async (blob) => {
           setBoardExporting(target, false);
-          console.log("[BoardThumbnail] close: captured blob", { blobSize: blob?.size });
           if (!blob) return;
           const thumbnailBlob = await renderBoardThumbnailBlob(
             blob,
@@ -578,19 +550,15 @@ export function BoardCanvas({
           if (!thumbnailBlob) return;
           const contentBase64 = await blobToBase64(thumbnailBlob);
           const uri = buildChildUri(boardFolderUri, BOARD_THUMBNAIL_FILE_NAME);
-          console.log("[BoardThumbnail] close: writing thumbnail", { uri, base64Length: contentBase64.length });
           await writeThumbnailRef.current({
             workspaceId: resolvedWorkspaceId,
             projectId,
             uri,
             contentBase64,
           });
-          console.log("[BoardThumbnail] close: thumbnail saved successfully");
           queryClient.invalidateQueries({ queryKey: trpc.board.thumbnails.queryKey() });
         })
-        .catch((err) => {
-          console.error("[BoardThumbnail] close: capture failed", err);
-        });
+        .catch(() => {});
     };
   }, [boardFolderUri, projectId, resolvedWorkspaceId, resolveExportTarget, queryClient]);
 
@@ -599,60 +567,68 @@ export function BoardCanvas({
     <>
       {effectiveTarget && snapshot.elements.length > 0 && createPortal(
         <div className="flex items-center justify-end">
-          <Popover open={renameOpen} onOpenChange={handleRenameOpen}>
-            <PopoverTrigger asChild>
-              <span className="sr-only" />
-            </PopoverTrigger>
-            <PopoverContent className="w-72 p-3" align="end">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    placeholder={tBoard('board.renameCanvasPlaceholder')}
-                    className="h-8 text-sm flex-1"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleRenameConfirm();
-                      }
-                    }}
-                    autoFocus
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className={`h-8 w-8 shrink-0 transition-colors duration-150 ${
-                      aiNaming || snapshot.elements.length === 0
-                        ? "text-muted-foreground opacity-50"
-                        : saasLoggedIn
-                          ? "text-amber-500 hover:text-amber-600 hover:border-amber-300 dark:text-amber-400 dark:hover:text-amber-300"
-                          : "text-muted-foreground"
-                    }`}
-                    title={i18next.t('nav:canvasList.aiName')}
-                    disabled={aiNaming || snapshot.elements.length === 0}
-                    onClick={handleAiName}
-                  >
-                    {aiNaming ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="size-3.5" />
-                    )}
-                  </Button>
-                </div>
+          <Dialog open={renameOpen} onOpenChange={handleRenameOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>{i18next.t('nav:canvasList.renameTitle')}</DialogTitle>
+                <DialogDescription>{i18next.t('nav:canvasList.renameDesc')}</DialogDescription>
+              </DialogHeader>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  placeholder={tBoard('board.renameCanvasPlaceholder')}
+                  className="h-9 flex-1 text-sm shadow-none focus-visible:ring-0 focus-visible:shadow-none focus-visible:border-border/70"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleRenameConfirm();
+                    }
+                  }}
+                  autoFocus
+                />
                 <Button
                   type="button"
-                  size="sm"
-                  className="h-7 w-full text-xs bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] hover:text-[#1a73e8] dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70 transition-colors duration-150"
+                  variant="ghost"
+                  size="icon"
+                  className={`h-9 w-9 shrink-0 rounded-full shadow-none transition-colors duration-150 ${
+                    aiNaming || snapshot.elements.length === 0
+                      ? "text-muted-foreground opacity-50"
+                      : saasLoggedIn
+                        ? "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
+                        : "text-muted-foreground"
+                  }`}
+                  title={i18next.t('nav:canvasList.aiName')}
+                  disabled={aiNaming || snapshot.elements.length === 0}
+                  onClick={handleAiName}
+                >
+                  {aiNaming ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="size-4" />
+                  )}
+                </Button>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="rounded-full text-muted-foreground shadow-none transition-colors duration-150"
+                  onClick={() => handleRenameOpen(false)}
+                >
+                  {tBoard('board.cancel')}
+                </Button>
+                <Button
+                  type="button"
+                  className="rounded-full bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none transition-colors duration-150"
                   disabled={!renameValue.trim()}
                   onClick={handleRenameConfirm}
                 >
-                  {tBoard('board.renameCanvas')}
+                  {i18next.t('nav:save')}
                 </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

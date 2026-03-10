@@ -65,13 +65,13 @@ export function resolveBoardFolderScope(
   fileContext?: BoardFileContext
 ): BoardFolderScope | null {
   if (!fileContext?.boardFolderUri) return null;
-  if (!fileContext.projectId || !fileContext.rootUri) return null;
+  if (!fileContext.rootUri) return null;
   const relativeFolderPath = getRelativePathFromUri(
     fileContext.rootUri,
     fileContext.boardFolderUri
   );
   if (!relativeFolderPath) return null;
-  return { projectId: fileContext.projectId, relativeFolderPath };
+  return { projectId: fileContext.projectId ?? "", relativeFolderPath };
 }
 
 /** Resolve a board-relative path into an absolute URI. */

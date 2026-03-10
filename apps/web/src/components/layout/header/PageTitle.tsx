@@ -12,10 +12,11 @@
 import { useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, CalendarDays, Clock, LayoutDashboard, Mail, Palette, Sparkles } from "lucide-react";
+import { ArrowLeft, CalendarDays, Clock, LayoutDashboard, Mail, Palette, Settings, Sparkles } from "lucide-react";
 import { useNavigation } from "@/hooks/use-navigation";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabView } from "@/hooks/use-tab-view";
+import { closeSettingsTab } from "@/lib/globalShortcuts";
 
 /**
  * PageTitle 组件
@@ -31,12 +32,23 @@ export const PageTitle = () => {
   const closeTab = useTabs((s) => s.closeTab);
 
   const isBoardViewer = activeTab?.base?.component === 'board-viewer';
+  const isSettingsPage = activeTab?.base?.component === 'settings-page';
 
   const handleBack = useCallback(() => {
     if (activeTabId) closeTab(activeTabId);
   }, [activeTabId, closeTab]);
 
+  const handleSettingsBack = useCallback(() => {
+    closeSettingsTab();
+  }, []);
+
   const { title, icon } = useMemo<{ title: string; icon: ReactNode | null }>(() => {
+    if (isSettingsPage) {
+      return {
+        title: t('settings'),
+        icon: <Settings className="h-4 w-4 text-orange-700/70 dark:text-orange-300/70" />,
+      };
+    }
     if (isBoardViewer) {
       return {
         title: activeTab?.title ?? t('canvas'),
@@ -70,12 +82,22 @@ export const PageTitle = () => {
     if (baseComponent === 'scheduled-tasks-page') return { title: t('panelTitle.scheduled-tasks-page'), icon: <Clock className="h-4 w-4 text-blue-700/70 dark:text-blue-300/70" /> };
 
     return { title: '', icon: null };
-  }, [viewType, activeTab, isBoardViewer, t]);
+  }, [viewType, activeTab, isBoardViewer, isSettingsPage, t]);
 
   if (!title) return null;
 
   return (
     <div className="flex items-center gap-2 min-w-0">
+      {isSettingsPage && (
+        <button
+          type="button"
+          onClick={handleSettingsBack}
+          className="flex items-center gap-1 h-6 rounded-full px-2 text-xs font-medium bg-orange-500/10 text-orange-700 hover:bg-orange-500/20 dark:bg-orange-400/15 dark:text-orange-300 dark:hover:bg-orange-400/25 transition-colors duration-150"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          {t('header.back')}
+        </button>
+      )}
       {isBoardViewer && (
         <button
           type="button"

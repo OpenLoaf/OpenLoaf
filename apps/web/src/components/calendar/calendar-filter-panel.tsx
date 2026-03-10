@@ -405,10 +405,12 @@ export function CalendarFilterPanel({
         </AccordionItem>
       </Accordion>
       <div className="mt-1 border-t border-[#e3e8ef] dark:border-slate-700 pt-2 px-1">
-        <button
-          type="button"
-          className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/60"
+        <div
+          role="button"
+          tabIndex={0}
+          className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/60 cursor-pointer"
           onClick={onToggleTasks}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleTasks?.(); } }}
         >
           <span className="flex items-center gap-2 text-sm text-foreground">
             <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
@@ -418,7 +420,7 @@ export function CalendarFilterPanel({
             )}
           </span>
           <Checkbox checked={showTasks} onCheckedChange={onToggleTasks} />
-        </button>
+        </div>
       </div>
     </div>
   );

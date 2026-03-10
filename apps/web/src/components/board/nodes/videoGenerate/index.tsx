@@ -16,7 +16,6 @@ import { toast } from "sonner";
 import { useBoardContext } from "../../core/BoardProvider";
 import { useMediaModels } from "@/hooks/use-media-models";
 import { filterVideoMediaModels } from "../lib/image-generation";
-import { Textarea } from "@openloaf/ui/textarea";
 import { Switch } from "@openloaf/ui/switch";
 import { getWorkspaceIdFromCookie } from "../../core/boardSession";
 import type { ImageNodeProps } from "../ImageNode";
@@ -36,6 +35,7 @@ import { blobToBase64 } from "../../utils/base64";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import { useTranslation } from "react-i18next";
+import { cn } from "@udecode/cn";
 import {
   VIDEO_GENERATE_DEFAULT_MAX_INPUT_IMAGES,
   VIDEO_GENERATE_NODE_FIRST_GAP,
@@ -746,15 +746,15 @@ export function VideoGenerateNodeView({
     minHeight: 0,
   });
 
-  const containerClassName = [
-    "relative flex w-full min-w-0 flex-col gap-2 rounded-xl border p-3 text-[#202124] dark:text-slate-100 transition-colors duration-150",
+  const containerClassName = cn(
+    "relative flex w-full min-w-0 flex-col rounded-xl border-2 overflow-hidden text-[#202124] dark:text-slate-100 transition-all duration-150",
     BOARD_GENERATE_NODE_BASE_VIDEO,
     viewStatus === "error"
       ? BOARD_GENERATE_ERROR
       : selected
         ? BOARD_GENERATE_SELECTED_VIDEO
         : BOARD_GENERATE_BORDER_VIDEO,
-  ].join(" ");
+  );
 
   return (
     <NodeFrame
@@ -771,59 +771,92 @@ export function VideoGenerateNodeView({
     >
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <div ref={containerRef} className={containerClassName}>
-      <div className="flex items-center gap-2">
-        <Film size={16} className="shrink-0 text-[#9334e6] dark:text-violet-400" />
-        <div className="text-[13px] font-semibold leading-5">{t('videoGenerate.title')}</div>
-        <span className={`rounded-full px-2 py-0.5 text-[10px] leading-3 ${BOARD_GENERATE_PILL_VIDEO}`}>
-          {statusLabel}
-        </span>
-        <div className="flex-1" />
-        <button
-          type="button"
-          className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors duration-150 ${
-            isAdvancedOpen
-              ? "bg-[#f3e8fd] text-[#9334e6] dark:bg-violet-800/60 dark:text-violet-200"
-              : "text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-400 dark:hover:bg-slate-800"
-          }`}
-          onPointerDown={(event) => {
-            event.stopPropagation();
-            onSelect();
-            setAdvancedOpen((prev) => !prev);
-          }}
-        >
-          <Settings size={14} />
-        </button>
-        <button
-          type="button"
-          disabled={authLoggedIn ? !canGenerate : isLoginBusy}
-          className={`inline-flex h-7 items-center justify-center rounded-full px-3 text-[12px] leading-none transition-colors duration-150 disabled:opacity-50 ${BOARD_GENERATE_BTN_VIDEO}`}
-          onPointerDown={(event) => {
-            event.stopPropagation();
-            onSelect();
-            handlePrimaryAction();
-          }}
-        >
-          <span className="inline-flex items-center gap-1">
-            {PrimaryIcon ? <PrimaryIcon size={14} /> : null}
-            {primaryLabel}
+        {/* Header */}
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
+          <Film className="h-4 w-4 shrink-0 text-[#9334e6] dark:text-violet-400" />
+          <div className="text-xs font-medium text-[#9334e6] dark:text-violet-400">{t('videoGenerate.title')}</div>
+          <span className={cn("rounded-full px-2 py-0.5 text-[10px] leading-3", BOARD_GENERATE_PILL_VIDEO)}>
+            {statusLabel}
           </span>
-        </button>
-      </div>
-
-      <div className="mt-1 flex shrink-0 flex-col gap-2" data-board-editor>
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-[11px] text-[#5f6368] dark:text-slate-400">{t('videoGenerate.outputAudio')}</div>
-          <Switch
-            checked={outputAudio}
-            onCheckedChange={(checked) => {
-              onUpdate({ outputAudio: checked });
-            }}
-            disabled={isLocked}
-            aria-label={t('videoGenerate.outputAudio')}
-          />
         </div>
-        <div className="flex items-center gap-2">
-          <div className="text-[11px] text-[#5f6368] dark:text-slate-400">{t('videoGenerate.model')}</div>
+
+        {/* Body */}
+        <div className="flex-1 p-3 flex flex-col gap-2" data-board-editor>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[11px] text-[#5f6368] dark:text-slate-400">{t('videoGenerate.outputAudio')}</div>
+            <Switch
+              checked={outputAudio}
+              onCheckedChange={(checked) => {
+                onUpdate({ outputAudio: checked });
+              }}
+              disabled={isLocked}
+              aria-label={t('videoGenerate.outputAudio')}
+            />
+          </div>
+          {allowsPrompt ? (
+            <textarea
+              className="w-full min-h-[60px] resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+              value={localPromptText}
+              maxLength={500}
+              placeholder={t('videoGenerate.promptPlaceholder')}
+              onChange={(event) => {
+                const next = event.target.value.slice(0, 500);
+                setLocalPromptText(next);
+                if (!composingRef.current) {
+                  onUpdate({ promptText: next });
+                }
+              }}
+              onCompositionStart={() => { composingRef.current = true; }}
+              onCompositionEnd={(event) => {
+                composingRef.current = false;
+                const next = (event.target as HTMLTextAreaElement).value.slice(0, 500);
+                setLocalPromptText(next);
+                onUpdate({ promptText: next });
+              }}
+              data-board-scroll
+              disabled={isLocked}
+            />
+          ) : null}
+        </div>
+
+        {/* Advanced Settings (between body and footer) */}
+        {isAdvancedOpen ? (
+          <div
+            className="px-3 pb-2"
+            data-board-editor
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <AdvancedSettingsPanel
+              parameterFields={parameterFields}
+              resolvedParameters={resolvedParameters}
+              onParameterChange={handleParameterChange}
+              aspectRatioValue={outputAspectRatioValue}
+              aspectRatioOpen={aspectRatioOpen}
+              onAspectRatioOpenChange={setAspectRatioOpen}
+              onAspectRatioChange={(value) => {
+                onUpdate({ aspectRatio: value });
+              }}
+              durationSeconds={durationSeconds}
+              onDurationChange={(value) => {
+                onUpdate({ durationSeconds: value });
+              }}
+              styleTags={styleTags}
+              onStyleChange={(value) => {
+                onUpdate({ style: value.join(",") });
+              }}
+              negativePromptText={negativePromptText}
+              onNegativePromptChange={(value) => {
+                onUpdate({ negativePrompt: value });
+              }}
+              disabled={isLocked}
+            />
+          </div>
+        ) : null}
+
+        {/* Footer */}
+        <div className="flex items-center gap-2 px-3 py-2 border-t border-border/20">
           <div className="min-w-0 flex-1">
             <ModelSelect
               authLoggedIn={authLoggedIn}
@@ -841,74 +874,41 @@ export function VideoGenerateNodeView({
               onOpenLogin={handleOpenLogin}
             />
           </div>
+          <button
+            type="button"
+            className={cn(
+              "shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors duration-150",
+              isAdvancedOpen
+                ? "bg-[#f3e8fd] text-[#9334e6] dark:bg-violet-800/60 dark:text-violet-200"
+                : "text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-400 dark:hover:bg-slate-800",
+            )}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onSelect();
+              setAdvancedOpen((prev) => !prev);
+            }}
+          >
+            <Settings size={14} />
+          </button>
+          <button
+            type="button"
+            disabled={authLoggedIn ? !canGenerate : isLoginBusy}
+            className={cn(
+              "shrink-0 inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-medium transition-colors duration-150 disabled:opacity-50",
+              BOARD_GENERATE_BTN_VIDEO,
+            )}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onSelect();
+              handlePrimaryAction();
+            }}
+          >
+            <span className="inline-flex items-center gap-1">
+              {PrimaryIcon ? <PrimaryIcon size={14} /> : null}
+              {primaryLabel}
+            </span>
+          </button>
         </div>
-        <div className="flex shrink-0 flex-col gap-1">
-          {allowsPrompt ? (
-            <>
-              <div className="text-[11px] text-[#5f6368] dark:text-slate-400">{t('videoGenerate.prompt')}</div>
-              <div className="min-w-0 flex shrink-0 flex-col gap-1">
-                <Textarea
-                  value={localPromptText}
-                  maxLength={500}
-                  placeholder={t('videoGenerate.promptPlaceholder')}
-                  onChange={(event) => {
-                    const next = event.target.value.slice(0, 500);
-                    setLocalPromptText(next);
-                    if (!composingRef.current) {
-                      onUpdate({ promptText: next });
-                    }
-                  }}
-                  onCompositionStart={() => { composingRef.current = true; }}
-                  onCompositionEnd={(event) => {
-                    composingRef.current = false;
-                    const next = (event.target as HTMLTextAreaElement).value.slice(0, 500);
-                    setLocalPromptText(next);
-                    onUpdate({ promptText: next });
-                  }}
-                  data-board-scroll
-                  className="h-full min-h-[96px] flex-1 overflow-y-auto border-[#d2e3fc]/60 bg-[#edf2fa] px-3 py-2 text-[13px] leading-5 text-[#202124] shadow-none placeholder:text-[#5f6368] focus-visible:border-[#d2e3fc] focus-visible:ring-1 focus-visible:ring-[rgba(26,115,232,0.22)] dark:border-slate-600 dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-100 dark:placeholder:text-slate-400 md:text-[13px]"
-                  disabled={isLocked}
-                />
-              </div>
-            </>
-          ) : null}
-        </div>
-      </div>
-
-      {isAdvancedOpen ? (
-        <div
-          className="pt-1"
-          data-board-editor
-          onPointerDown={(event) => {
-            event.stopPropagation();
-          }}
-        >
-          <AdvancedSettingsPanel
-            parameterFields={parameterFields}
-            resolvedParameters={resolvedParameters}
-            onParameterChange={handleParameterChange}
-            aspectRatioValue={outputAspectRatioValue}
-            aspectRatioOpen={aspectRatioOpen}
-            onAspectRatioOpenChange={setAspectRatioOpen}
-            onAspectRatioChange={(value) => {
-              onUpdate({ aspectRatio: value });
-            }}
-            durationSeconds={durationSeconds}
-            onDurationChange={(value) => {
-              onUpdate({ durationSeconds: value });
-            }}
-            styleTags={styleTags}
-            onStyleChange={(value) => {
-              onUpdate({ style: value.join(",") });
-            }}
-            negativePromptText={negativePromptText}
-            onNegativePromptChange={(value) => {
-              onUpdate({ negativePrompt: value });
-            }}
-            disabled={isLocked}
-          />
-        </div>
-      ) : null}
       </div>
       {statusHint ? (
         <div
@@ -939,12 +939,12 @@ export function VideoGenerateNodeView({
             </div>
           ) : (
             <div
-              className={[
+              className={cn(
                 "rounded-lg border px-2 py-1.5 text-[11px] leading-4 shadow-sm",
                 statusHint.tone === "warn"
                   ? "border-amber-200/70 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
                   : "border-sky-200/70 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-200",
-              ].join(" ")}
+              )}
             >
               {statusHint.text}
             </div>

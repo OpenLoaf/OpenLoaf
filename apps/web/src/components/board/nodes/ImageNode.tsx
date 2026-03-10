@@ -509,7 +509,7 @@ export function ImageNodeView({
             ) : null}
           </>
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-xl border border-neutral-200/80 dark:border-neutral-700/60">
+          <div className="flex h-full w-full items-center justify-center rounded-xl border border-neutral-200/80 bg-neutral-50 dark:border-neutral-700/60 dark:bg-neutral-800/80">
             {isPreviewLoading || isTranscoding ? (
               <ImageNodeSkeleton />
             ) : (

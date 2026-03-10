@@ -43,6 +43,37 @@ import { PanelItem } from "../ui/ToolbarParts";
 import { useBoardContext } from "./BoardProvider";
 import { useBoardViewState } from "./useBoardViewState";
 
+/** Detect whether the viewport is actively panning or zooming. */
+function useIsViewportMoving(engine: CanvasEngine) {
+  const viewState = useBoardViewState(engine);
+  const [zooming, setZooming] = useState(false);
+  const timerRef = useRef<number | null>(null);
+  const initialRef = useRef(true);
+
+  useEffect(() => {
+    // 逻辑：初始化时不标记缩放，仅后续变化才触发。
+    if (initialRef.current) {
+      initialRef.current = false;
+      return;
+    }
+    setZooming(true);
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+    }
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      setZooming(false);
+    }, 100);
+    return () => {
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
+      }
+    };
+  }, [viewState.viewport.zoom]);
+
+  return { isMoving: viewState.panning || zooming, viewState };
+}
+
 type SingleSelectionToolbarProps = {
   /** Canvas engine instance. */
   engine: CanvasEngine;
@@ -412,13 +443,15 @@ type MultiSelectionOutlineProps = {
 /** Render outline box for multi-selected nodes. */
 export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlineProps) {
   // 逻辑：视图状态单独订阅，避免多选框跟随缩放时触发全局渲染。
-  const viewState = useBoardViewState(engine);
+  const { isMoving, viewState } = useIsViewportMoving(engine);
   const selectedElements = snapshot.selectedIds
     .map(id => snapshot.elements.find(element => element.id === id))
     .filter((element): element is CanvasElement =>
       Boolean(element && element.kind === "node")
     );
   if (selectedElements.length <= 1) return null;
+  // 逻辑：平移或缩放画布时隐藏选区框，避免 React 状态与 DOM transform 帧差导致位置偏移。
+  if (isMoving) return null;
   const selectedNodes = selectedElements.filter(
     (element): element is CanvasNodeElement => element.kind === "node"
   );
@@ -521,7 +554,9 @@ export function SingleSelectionOutline({
   const canResize = definition?.capabilities?.resizable !== false;
 
   // 逻辑：视图变化时单独更新控制柄位置，避免全量快照渲染。
-  const viewState = useBoardViewState(engine);
+  const { isMoving, viewState } = useIsViewportMoving(engine);
+  // 逻辑：平移或缩放画布时隐藏选中框，避免 React 状态与 DOM transform 帧差导致位置偏移。
+  if (isMoving) return null;
   const { zoom, offset } = viewState.viewport;
   const bounds = computeSelectionBounds([element], viewState.viewport.zoom);
   const left = bounds.x * zoom + offset[0];
