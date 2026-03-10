@@ -241,6 +241,40 @@ gh run list --limit 5
    git push origin server-v{version} web-v{version}
    ```
 
+#### 撤回已发布版本
+
+如果版本已成功发布到 R2 但发现问题，需要撤回：
+
+```bash
+# 1. 清理 R2 构件和 manifest（先 dry-run 预览）
+node scripts/cleanup-r2-version.mjs --server={version} --web={version} --dry-run
+# 确认无误后正式执行
+node scripts/cleanup-r2-version.mjs --server={version} --web={version}
+
+# 也可只撤回其中一个
+node scripts/cleanup-r2-version.mjs --server={version}
+node scripts/cleanup-r2-version.mjs --web={version}
+```
+
+脚本自动完成：
+- 删除 R2 中的构件文件（`server/{version}/`、`web/{version}/`）
+- 从 `beta/manifest.json` 和 `stable/manifest.json` 中移除对应条目（仅当版本匹配时）
+
+```bash
+# 2. 删除 git tag
+git push origin :refs/tags/server-v{version} :refs/tags/web-v{version}
+git tag -d server-v{version} web-v{version}
+
+# 3. 回退版本号（恢复到 bump 前的值，下次发布可复用同一版本号）
+npm version {previous-version} --no-git-tag-version --prefix apps/server
+npm version {previous-version} --no-git-tag-version --prefix apps/web
+git add apps/server/package.json apps/web/package.json
+git commit -m "chore(server,web): revert version bump ({version} withdrawn)"
+git push origin main
+```
+
+> **注意：** 回退版本号后，代码变更仍保留在 main 分支上。下次发布时 bump 会得到与撤回版本相同的版本号，这是正常的——R2 中该版本已被清除，不会冲突。
+
 ---
 
 ### Electron 桌面端发布（Beta-only 构建）
@@ -405,6 +439,8 @@ git push origin desktop@{version}
 | 版本号加一（minor） | `npm version minor --no-git-tag-version` |
 | Beta 版本号 | `x.y.z-beta.n`（所有 app 通用） |
 | 本地打包 beta 测试 | `pnpm run dist:mac -- --beta=2`（临时改为 x.y.z-beta.2，打包后自动恢复） |
+| 撤回已发布的 server/web | `node scripts/cleanup-r2-version.mjs --server={ver} --web={ver}` |
+| 撤回前预览（dry-run） | `node scripts/cleanup-r2-version.mjs --server={ver} --web={ver} --dry-run` |
 
 ## 用户参数解析
 

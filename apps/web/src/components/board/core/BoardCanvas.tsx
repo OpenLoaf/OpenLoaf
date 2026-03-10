@@ -433,15 +433,29 @@ export function BoardCanvas({
   /** Capture and persist the current board thumbnail. */
   const saveBoardThumbnail = useCallback(
     (reason: "close" | "autoLayout" | "init") => {
+      console.log("[BoardThumbnail] saveBoardThumbnail called", {
+        reason,
+        boardFolderUri,
+        resolvedWorkspaceId,
+        elementCount: elementCountRef.current,
+      });
       if (!boardFolderUri) return;
       if (!resolvedWorkspaceId) return;
       // 逻辑：空画布不截图，保持默认渐变预览。
-      if (elementCountRef.current === 0) return;
+      if (elementCountRef.current === 0) {
+        console.log("[BoardThumbnail] skipped: elementCount is 0");
+        return;
+      }
       // 逻辑：顺序执行截图任务，避免并发占用渲染资源。
       thumbnailQueueRef.current = thumbnailQueueRef.current
         .catch(() => undefined)
         .then(async () => {
           const target = resolveExportTarget();
+          console.log("[BoardThumbnail] queue executing", {
+            reason,
+            hasTarget: !!target,
+            isConnected: target?.isConnected,
+          });
           if (!target || !target.isConnected) return;
           // 逻辑：截图前保存当前视口状态，然后适配全部元素以获取完整缩略图。
           const prevState = engine.viewport.getState();
@@ -450,17 +464,23 @@ export function BoardCanvas({
             setBoardExporting(target, true);
             await waitForAnimationFrames(2);
             // 逻辑：动画帧后再检查一次，避免卸载期间截图报错。
-            if (!target.isConnected) return;
+            if (!target.isConnected) {
+              console.log("[BoardThumbnail] aborted: target disconnected after animation frames");
+              return;
+            }
             const blob = await captureBoardImageBlob(target);
+            console.log("[BoardThumbnail] captured blob", { reason, blobSize: blob?.size });
             if (!blob) return;
             const thumbnailBlob = await renderBoardThumbnailBlob(
               blob,
               BOARD_THUMBNAIL_WIDTH,
               BOARD_THUMBNAIL_HEIGHT
             );
+            console.log("[BoardThumbnail] rendered thumbnail", { reason, thumbnailSize: thumbnailBlob?.size });
             if (!thumbnailBlob) return;
             const contentBase64 = await blobToBase64(thumbnailBlob);
             const uri = buildChildUri(boardFolderUri, BOARD_THUMBNAIL_FILE_NAME);
+            console.log("[BoardThumbnail] writing thumbnail", { reason, uri, base64Length: contentBase64.length });
             await writeThumbnailRef.current({
               workspaceId: resolvedWorkspaceId,
               projectId,
@@ -468,6 +488,7 @@ export function BoardCanvas({
               contentBase64,
             });
             boardModifiedRef.current = false;
+            console.log("[BoardThumbnail] thumbnail saved successfully", { reason });
             // 逻辑：截图成功后让画布列表的缩略图缓存失效，返回时能看到最新预览。
             queryClient.invalidateQueries({ queryKey: trpc.board.thumbnails.queryKey() });
           } catch (error) {
@@ -505,37 +526,32 @@ export function BoardCanvas({
     return unsubscribe;
   }, [engine]);
 
-  /** Initial thumbnail capture: when collab syncs, check if thumbnail exists, if not, capture one. */
+  /** Initial thumbnail capture: when collab syncs, always re-capture to ensure freshness. */
   useEffect(() => {
+    console.log("[BoardThumbnail] init effect fired", {
+      canSyncLog: syncLogState.canSyncLog,
+      initDone: thumbnailInitDoneRef.current,
+      boardFolderUri,
+      resolvedWorkspaceId,
+    });
     if (!syncLogState.canSyncLog) return;
     if (thumbnailInitDoneRef.current) return;
     if (!boardFolderUri || !resolvedWorkspaceId) return;
     thumbnailInitDoneRef.current = true;
-    let cancelled = false;
-    const thumbnailUri = buildChildUri(boardFolderUri, BOARD_THUMBNAIL_FILE_NAME);
-    // 逻辑：协作同步完成后检查缩略图是否存在，不存在则立即截取。
-    trpcClient.fs.stat
-      .query({
-        workspaceId: resolvedWorkspaceId,
-        projectId,
-        uri: thumbnailUri,
-      })
-      .then((result) => {
-        if (cancelled) return;
-        if (!result) saveBoardThumbnail("init");
-      })
-      .catch(() => {
-        if (cancelled) return;
-        saveBoardThumbnail("init");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [syncLogState.canSyncLog, boardFolderUri, resolvedWorkspaceId, projectId, saveBoardThumbnail]);
+    console.log("[BoardThumbnail] calling saveBoardThumbnail('init')");
+    // 逻辑：协作同步完成后始终重新截取缩略图，确保预览图反映最新画布内容。
+    saveBoardThumbnail("init");
+  }, [syncLogState.canSyncLog, boardFolderUri, resolvedWorkspaceId, saveBoardThumbnail]);
 
   /** On unmount (close/back): capture thumbnail if board was modified. */
   useEffect(() => {
     return () => {
+      console.log("[BoardThumbnail] close effect cleanup", {
+        boardModified: boardModifiedRef.current,
+        boardFolderUri,
+        resolvedWorkspaceId,
+        elementCount: elementCountRef.current,
+      });
       if (autoLayoutTimerRef.current) {
         window.clearTimeout(autoLayoutTimerRef.current);
         autoLayoutTimerRef.current = null;
@@ -544,6 +560,7 @@ export function BoardCanvas({
       if (!boardFolderUri || !resolvedWorkspaceId) return;
       if (elementCountRef.current === 0) return;
       const target = resolveExportTarget();
+      console.log("[BoardThumbnail] close: target", { hasTarget: !!target, isConnected: target?.isConnected });
       if (!target || !target.isConnected) return;
       // 逻辑：关闭时直接启动截图，不经过队列也不等待动画帧，
       // html-to-image 会同步克隆 DOM，后续渲染和写盘可异步完成。
@@ -551,6 +568,7 @@ export function BoardCanvas({
       captureBoardImageBlob(target)
         .then(async (blob) => {
           setBoardExporting(target, false);
+          console.log("[BoardThumbnail] close: captured blob", { blobSize: blob?.size });
           if (!blob) return;
           const thumbnailBlob = await renderBoardThumbnailBlob(
             blob,
@@ -560,15 +578,19 @@ export function BoardCanvas({
           if (!thumbnailBlob) return;
           const contentBase64 = await blobToBase64(thumbnailBlob);
           const uri = buildChildUri(boardFolderUri, BOARD_THUMBNAIL_FILE_NAME);
+          console.log("[BoardThumbnail] close: writing thumbnail", { uri, base64Length: contentBase64.length });
           await writeThumbnailRef.current({
             workspaceId: resolvedWorkspaceId,
             projectId,
             uri,
             contentBase64,
           });
+          console.log("[BoardThumbnail] close: thumbnail saved successfully");
           queryClient.invalidateQueries({ queryKey: trpc.board.thumbnails.queryKey() });
         })
-        .catch(() => undefined);
+        .catch((err) => {
+          console.error("[BoardThumbnail] close: capture failed", err);
+        });
     };
   }, [boardFolderUri, projectId, resolvedWorkspaceId, resolveExportTarget, queryClient]);
 

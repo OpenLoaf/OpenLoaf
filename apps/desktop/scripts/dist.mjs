@@ -22,7 +22,9 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-const arch = os.arch()
+// --arch=x64 支持：覆盖宿主架构，用于在 Apple Silicon 上交叉编译 x64 版本
+const archArg = process.argv.find((a) => a.startsWith('--arch='))
+const arch = archArg ? archArg.split('=')[1] : os.arch()
 const mainPath = `.webpack/${arch}/main/index.js`
 
 // --beta[=N] 支持：临时将版本号改为 x.y.z-beta.N 进行打包（用于本地测试自动更新）
@@ -129,7 +131,7 @@ const args = [
   '--config.afterPack=./scripts/afterPack.js',
   ...(hasPublishFlag ? [] : ['--publish=never']),
   ...extraFlags,
-  ...process.argv.slice(2).filter((a) => a !== '--beta' && !a.startsWith('--beta=')),
+  ...process.argv.slice(2).filter((a) => a !== '--beta' && !a.startsWith('--beta=') && !a.startsWith('--arch=')),
 ]
 
 const pnpmBin = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'

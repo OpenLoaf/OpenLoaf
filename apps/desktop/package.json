@@ -1,7 +1,7 @@
 {
   "name": "desktop",
   "productName": "OpenLoaf",
-  "version": "0.2.5-beta.13",
+  "version": "0.2.5-beta.14",
   "description": "OpenLoaf desktop app",
   "main": ".webpack/main",
   "build": {
@@ -76,8 +76,13 @@
     "build:calendar-helper": "node scripts/buildCalendarHelper.mjs",
     "package": "pnpm run predesktop && pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge package",
     "package:ci": "pnpm run predesktop && electron-forge package",
+    "package:x64": "pnpm run predesktop && pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge package --arch=x64",
+    "package:x64:ci": "pnpm run predesktop && electron-forge package --arch=x64",
     "dist:mac": "pnpm run package && node scripts/dist.mjs --mac",
     "dist:mac:ci": "pnpm run package:ci && node scripts/dist.mjs --mac",
+    "dist:mac:x64": "pnpm run package:x64 && node scripts/dist.mjs --mac --x64 --arch=x64",
+    "dist:mac:x64:ci": "pnpm run package:x64:ci && node scripts/dist.mjs --mac --x64 --arch=x64",
+    "dist:mac:x64:dev": "pnpm run package:x64 && node scripts/dist.mjs --mac --x64 --arch=x64 --config.mac.identity=null --config.mac.target=dmg",
     "dist:mac:dev": "pnpm run package && node scripts/dist.mjs --mac --config.mac.identity=null --config.mac.target=dmg",
     "dist:win": "pnpm run package && node scripts/dist.mjs --win --config.npmRebuild=false",
     "dist:win:ci": "pnpm run package:ci && node scripts/dist.mjs --win --config.npmRebuild=false",

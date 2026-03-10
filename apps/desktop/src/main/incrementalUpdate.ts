@@ -428,19 +428,41 @@ async function extractTarGz(srcPath: string, destDir: string): Promise<void> {
 // 原子替换
 // ---------------------------------------------------------------------------
 
+/**
+ * Windows junction points（node_modules/prebuilds）必须在 rmSync 前单独移除，
+ * 否则 rmSync({recursive}) 会跟随 junction 进入目标目录（resources/node_modules/）
+ * 并删除真实文件，导致打包的依赖被破坏。
+ */
+function removeJunctionsBeforeDelete(dir: string): void {
+  if (process.platform !== 'win32') return
+  if (!fs.existsSync(dir)) return
+  for (const junctionName of ['node_modules', 'prebuilds']) {
+    const junctionPath = path.join(dir, junctionName)
+    try {
+      const stat = fs.lstatSync(junctionPath)
+      if (stat.isSymbolicLink() || stat.isDirectory()) {
+        // rmSync without {recursive} on a junction just removes the junction, not target contents.
+        fs.rmSync(junctionPath)
+      }
+    } catch { /* junction doesn't exist, ignore */ }
+  }
+}
+
 function atomicSwap(pendingDir: string, currentDir: string): void {
   const backupDir = currentDir + '.bak'
 
-  // 清理上次可能残留的备份
+  // 清理上次可能残留的备份（先移除 junction 避免 rmSync 破坏真实依赖）
   if (fs.existsSync(backupDir)) {
+    removeJunctionsBeforeDelete(backupDir)
     fs.rmSync(backupDir, { recursive: true, force: true })
   }
 
   // 确保父目录存在
   fs.mkdirSync(path.dirname(currentDir), { recursive: true })
 
-  // current → current.bak
+  // current → current.bak（先移除 junction，确保 rename 后的 .bak 不含危险链接）
   if (fs.existsSync(currentDir)) {
+    removeJunctionsBeforeDelete(currentDir)
     fs.renameSync(currentDir, backupDir)
   }
 
@@ -449,6 +471,7 @@ function atomicSwap(pendingDir: string, currentDir: string): void {
 
   // 删除备份
   if (fs.existsSync(backupDir)) {
+    removeJunctionsBeforeDelete(backupDir)
     fs.rmSync(backupDir, { recursive: true, force: true })
   }
 }
@@ -510,8 +533,9 @@ export function applyPendingSwaps(log: Logger): void {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       log(`[incremental-update] Failed to apply pending ${component}: ${msg}`)
-      // 清理失败的 pending
+      // 清理失败的 pending（先移除 junction 避免破坏 resources/node_modules/）
       try {
+        removeJunctionsBeforeDelete(pendingDir)
         fs.rmSync(pendingDir, { recursive: true, force: true })
       } catch { /* ignore */ }
       if (local.pending) {
@@ -1095,6 +1119,7 @@ export function recordServerCrash(): ServerCrashResult {
   if (fs.existsSync(serverCurrentDir)) {
     cachedLog?.('[incremental-update] Server crashed. Rolling back to bundled version.')
     try {
+      removeJunctionsBeforeDelete(serverCurrentDir)
       fs.rmSync(serverCurrentDir, { recursive: true, force: true })
     } catch (rmErr) {
       const msg = rmErr instanceof Error ? rmErr.message : String(rmErr)
