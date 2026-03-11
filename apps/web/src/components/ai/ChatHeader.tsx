@@ -17,7 +17,7 @@ import { useProject } from "@/hooks/use-project";
 import SessionList from "@/components/ai/session/SessionList";
 import * as React from "react";
 import { useChatActions, useChatSession, useChatState } from "./context";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
@@ -92,12 +92,7 @@ export default function ChatHeader({
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
   const { basic } = useBasicConfig();
   const { loggedIn: saasLoggedIn } = useSaasAuth();
-  const workspaceCompatQuery = useQuery({
-    ...trpc.settings.getWorkspaceCompat.queryOptions(),
-    staleTime: 5 * 60 * 1000,
-  });
   const tabView = useTabView(tabId);
-  const workspaceId = workspaceCompatQuery.data?.id ?? "";
 
   // Quick launch: derive project context from tab chatParams.
   const quickLaunchProjectId = React.useMemo(() => {
@@ -283,7 +278,6 @@ export default function ChatHeader({
       env: isElectronEnv() ? "electron" : "web",
       page: typeof window !== "undefined" ? window.location.pathname : undefined,
       appVersion: typeof appVersion === "string" ? appVersion : undefined,
-      workspaceId: workspaceId || undefined,
       tabId: tabId || undefined,
       sessionId: activeSessionId || undefined,
       leafMessageId: requestLeafMessageId,
