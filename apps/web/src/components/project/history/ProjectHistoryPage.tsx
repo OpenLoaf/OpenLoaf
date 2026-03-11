@@ -24,7 +24,6 @@ import { FileSystemGrid } from "@/components/project/filesystem/components/FileS
 import { Calendar } from "@openloaf/ui/date-picker";
 import { useChatSessions, type ChatSessionListItem } from "@/hooks/use-chat-sessions";
 import { useTabs } from "@/hooks/use-tabs";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
 import { type FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
@@ -111,8 +110,6 @@ const ProjectHistory = memo(function ProjectHistory({
   const { t } = useTranslation("workspace");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { sessions, isLoading: isSessionsLoading, scopeProjectId } = useChatSessions();
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
   const activeTabId = useTabs((s) => s.activeTabId);
   const activeTab = useTabs((s) =>
     s.activeTabId ? s.getTabById(s.activeTabId) : undefined
@@ -159,7 +156,7 @@ const ProjectHistory = memo(function ProjectHistory({
   const summaryUri = scopeProjectId ? `.openloaf/summary/${activeDateKey}.md` : "";
   const summaryQuery = useQuery(
     trpc.fs.readFile.queryOptions(
-      summaryUri && workspaceId && scopeProjectId
+      summaryUri && scopeProjectId
         ? { projectId: scopeProjectId, uri: summaryUri }
         : skipToken
     )

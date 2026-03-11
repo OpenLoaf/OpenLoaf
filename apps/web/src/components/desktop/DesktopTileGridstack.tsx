@@ -11,13 +11,14 @@
 
 import * as React from "react";
 import { motion } from "motion/react";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { PencilLine, Pin, PinOff, RotateCw, Layers, Trash2, Settings } from "lucide-react";
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@openloaf/api/common";
 import { cn } from "@/lib/utils";
 import { GlowingEffect } from "@openloaf/ui/glowing-effect";
 import { useBasicConfig } from "@/hooks/use-basic-config";
-import { useWorkspace } from "@/hooks/use-workspace";
+import { trpc } from "@/utils/trpc";
 import { normalizeUrl } from "@/components/browser/browser-utils";
 import { fetchWebMeta } from "@/lib/web-meta";
 import { Button } from "@openloaf/ui/button";
@@ -82,7 +83,10 @@ export default function DesktopTileGridstack({
   const longPressTimerRef = React.useRef<number | null>(null);
   const pointerStartRef = React.useRef<{ id: number; x: number; y: number } | null>(null);
   const { basic } = useBasicConfig();
-  const { workspace } = useWorkspace();
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
   const tabs = useTabs((state) => state.tabs);
   const activeTabId = useTabs((state) => state.activeTabId);
   const tabRuntime = useTabRuntime((state) =>
@@ -110,10 +114,10 @@ export default function DesktopTileGridstack({
       : typeof activeTab?.chatParams?.projectId === "string"
         ? String(activeTab.chatParams.projectId)
         : undefined;
-  const workspaceId = workspace?.id;
+  const workspaceId = workspaceCompatQuery.data?.id;
   const projectRootUri =
     typeof tabParams?.rootUri === "string" ? String(tabParams.rootUri) : undefined;
-  const defaultRootUri = projectRootUri || workspace?.rootUri;
+  const defaultRootUri = projectRootUri || workspaceCompatQuery.data?.rootUri;
   // 网页组件修改对话框状态。
   const [isWebDialogOpen, setIsWebDialogOpen] = React.useState(false);
   const [webUrlInput, setWebUrlInput] = React.useState("");

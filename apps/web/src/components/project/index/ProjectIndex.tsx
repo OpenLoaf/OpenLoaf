@@ -27,7 +27,6 @@ import {
   serializeDesktopItems,
 } from "@/components/desktop/desktop-persistence";
 import { queryClient, trpc } from "@/utils/trpc";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
@@ -70,8 +69,6 @@ const ProjectIndex = React.memo(function ProjectIndex({
   projectId,
   rootUri,
 }: ProjectIndexProps) {
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
   const activeTabId = useTabs((state) => state.activeTabId);
   const pushStackItem = useTabRuntime((state) => state.pushStackItem);
   const [items, setItems] = React.useState<DesktopItem[]>(() =>
@@ -101,7 +98,6 @@ const ProjectIndex = React.memo(function ProjectIndex({
 
   React.useEffect(() => {
     if (!desktopFileUri) return;
-    if (!workspaceId) return;
     if (loadedUriRef.current === desktopFileUri) return;
     loadedUriRef.current = desktopFileUri;
     let alive = true;
@@ -128,7 +124,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
     return () => {
       alive = false;
     };
-  }, [desktopFileUri, projectId, workspaceId]);
+  }, [desktopFileUri, projectId]);
 
   React.useEffect(() => {
     // 桌面 MVP 暂时不产生“脏状态”，先专注交互与动画。
@@ -185,7 +181,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
         nextItems = updated;
         return updated;
       });
-      if (!desktopFileUri || !workspaceId || !nextItems) return;
+      if (!desktopFileUri || !nextItems) return;
       // 中文注释：编辑对话框保存时立即持久化桌面布局。
       const payload = serializeDesktopItems(nextItems);
       void saveDesktopMutation.mutateAsync({
@@ -194,7 +190,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
         content: JSON.stringify(payload, null, 2),
       });
     },
-    [desktopFileUri, projectId, saveDesktopMutation, workspaceId]
+    [desktopFileUri, projectId, saveDesktopMutation]
   );
 
   /** Undo the latest edit. */
@@ -241,7 +237,6 @@ const ProjectIndex = React.memo(function ProjectIndex({
     editSnapshotRef.current = null;
     setEditMode(false);
     if (!desktopFileUri) return;
-    if (!workspaceId) return;
     // 逻辑：保存当前桌面布局到 desktop.openloaf。
     const payload = serializeDesktopItems(items);
     await saveDesktopMutation.mutateAsync({
@@ -249,7 +244,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
       uri: desktopFileUri,
       content: JSON.stringify(payload, null, 2),
     });
-  }, [desktopFileUri, items, projectId, saveDesktopMutation, workspaceId]);
+  }, [desktopFileUri, items, projectId, saveDesktopMutation]);
 
   /** Trigger a compact layout pass. */
   const handleCompact = React.useCallback(() => {

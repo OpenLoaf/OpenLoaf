@@ -76,7 +76,6 @@ import {
 import { useFileSystemHistory, type HistoryAction } from "./file-system-history";
 import { useTerminalStatus } from "@/hooks/use-terminal-status";
 import { useDebounce } from "@/hooks/use-debounce";
-import { useWorkspace } from "@/hooks/use-workspace";
 
 // 用于"复制/粘贴"的内存剪贴板。
 let fileClipboard: FileSystemEntry[] | null = null;
@@ -323,8 +322,6 @@ export function useProjectFileSystemModel({
     ? getRelativePathFromUri(rootUri ?? "", currentUri)
     : null;
   const activeUri = normalizedCurrentUri ?? (rootUri ? normalizedRootUri : null);
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
   const isElectron = useMemo(() => isElectronEnv(), []);
   const terminalStatus = useTerminalStatus();
   const isTerminalEnabled = terminalStatus.enabled;
@@ -378,7 +375,7 @@ export function useProjectFileSystemModel({
   const stableUriRef = useRef(activeUri);
   const listQuery = useQuery({
     ...trpc.fs.list.queryOptions(
-      activeUri !== null && workspaceId
+      activeUri !== null
         ? {
             projectId,
             uri: activeUri,
@@ -400,7 +397,7 @@ export function useProjectFileSystemModel({
   }, [activeUri, isPlaceholderData]);
   const searchQuery = useQuery({
     ...trpc.fs.search.queryOptions(
-      activeUri !== null && debouncedSearchValue && workspaceId
+      activeUri !== null && debouncedSearchValue
         ? {
             projectId,
             rootUri: activeUri,
@@ -555,7 +552,6 @@ export function useProjectFileSystemModel({
   /** Refresh the current folder list and thumbnails. */
   const refreshList = useCallback((targetUri = activeUri) => {
     if (targetUri === null || targetUri === undefined) return;
-    if (!workspaceId) return;
     queryClient.invalidateQueries({
       queryKey: trpc.fs.list.queryOptions({
         projectId,
@@ -570,7 +566,7 @@ export function useProjectFileSystemModel({
         includeHidden: showHidden,
       }).queryKey,
     });
-  }, [activeUri, projectId, queryClient, showHidden, workspaceId]);
+  }, [activeUri, projectId, queryClient, showHidden]);
 
   const {
     canUndo,
@@ -628,12 +624,10 @@ export function useProjectFileSystemModel({
   );
 
   useEffect(() => {
-    if (!projectId || !workspaceId || activeUri === null) return;
+    if (!projectId || activeUri === null) return;
     const baseUrl = resolveServerUrl();
     const url = `${baseUrl}/fs/watch?projectId=${encodeURIComponent(
       projectId
-    )}&workspaceId=${encodeURIComponent(
-      workspaceId
     )}&dirUri=${encodeURIComponent(activeUri)}`;
     const eventSource = new EventSource(url);
     eventSource.onmessage = (event) => {
@@ -651,7 +645,7 @@ export function useProjectFileSystemModel({
     return () => {
       eventSource.close();
     };
-  }, [projectId, activeUri, refreshList, workspaceId]);
+  }, [projectId, activeUri, refreshList]);
 
   useEffect(() => {
     clearHistory();
@@ -1108,7 +1102,7 @@ export function useProjectFileSystemModel({
 
   /** Rename a file or folder with validation and history tracking. */
   const renameEntry = async (entry: FileSystemEntry, nextName: string) => {
-    if (activeUri === null || !workspaceId) return null;
+    if (activeUri === null) return null;
     const normalizedName =
       entry.kind === "folder" && isBoardFolderName(entry.name)
         ? ensureBoardFolderName(nextName)
@@ -1139,7 +1133,6 @@ export function useProjectFileSystemModel({
 
   /** Delete file or folder. */
   const handleDelete = async (entry: FileSystemEntry) => {
-    if (!workspaceId) return;
     const ok = window.confirm(`确认删除「${entry.name}」？`);
     if (!ok) return;
     if (!trashRootUri) return;
@@ -1165,7 +1158,6 @@ export function useProjectFileSystemModel({
   /** Delete multiple files or folders with a single confirmation. */
   const handleDeleteBatch = async (entries: FileSystemEntry[]) => {
     if (entries.length === 0) return;
-    if (!workspaceId) return;
     const ok = window.confirm(`确认删除已选择的 ${entries.length} 项？`);
     if (!ok) return;
     if (!trashRootUri) return;
@@ -1197,7 +1189,6 @@ export function useProjectFileSystemModel({
 
   /** Permanently delete (system trash if available). */
   const handleDeletePermanent = async (entry: FileSystemEntry) => {
-    if (!workspaceId) return;
     const ok = window.confirm(`彻底删除「${entry.name}」？此操作不可撤回。`);
     if (!ok) return;
     if (isElectron && window.openloafElectron?.trashItem) {
@@ -1227,7 +1218,6 @@ export function useProjectFileSystemModel({
   /** Permanently delete multiple entries with a single confirmation. */
   const handleDeletePermanentBatch = async (entries: FileSystemEntry[]) => {
     if (entries.length === 0) return;
-    if (!workspaceId) return;
     const ok = window.confirm(
       `彻底删除已选择的 ${entries.length} 项？此操作不可撤回。`
     );
@@ -1269,7 +1259,7 @@ export function useProjectFileSystemModel({
 
   /** Create a new folder in the current directory. */
   const handleCreateFolder = async () => {
-    if (activeUri === null || !workspaceId) return null;
+    if (activeUri === null) return null;
     // 以默认名称创建并做唯一性处理，避免覆盖已有目录。
     const targetName = getUniqueName("新建文件夹", new Set(existingNames));
     const targetUri = buildChildUri(activeUri, targetName);
@@ -1285,7 +1275,7 @@ export function useProjectFileSystemModel({
 
   /** Create a new document folder in the current directory. */
   const handleCreateMarkdown = async () => {
-    if (activeUri === null || !workspaceId) return null;
+    if (activeUri === null) return null;
     const baseName = ensureDocFolderName("新建文稿");
     const targetName = getUniqueName(baseName, new Set(existingNames));
     const docFolderUri = buildChildUri(activeUri, targetName);
@@ -1644,7 +1634,7 @@ export function useProjectFileSystemModel({
   /** Move multiple entries into the target folder by raw uris. */
   const moveEntriesByUris = useCallback(
     async (rawSourceUris: string[], target: FileSystemEntry): Promise<number> => {
-      if (!workspaceId || !projectId) return 0;
+      if (!projectId) return 0;
       const uniqueSourceUris = Array.from(
         new Set(
           rawSourceUris.filter(

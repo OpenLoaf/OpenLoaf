@@ -19,7 +19,6 @@ import { Button } from "@openloaf/ui/button";
 import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
 import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { useProjects } from "@/hooks/use-projects";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
@@ -67,7 +66,11 @@ function SettingIcon({ icon: Icon, bg, fg }: { icon: LucideIcon; bg: string; fg:
 export function WorkspaceSettings() {
   const { t } = useTranslation("workspace", { keyPrefix: "workspace" });
   const { loggedIn } = useSaasAuth();
-  const { workspace: activeWorkspace } = useWorkspace();
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const activeWorkspace = workspaceCompatQuery.data;
   const projectsQuery = useProjects();
 
   const membershipLabels = {

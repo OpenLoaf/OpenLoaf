@@ -10,7 +10,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Terminal } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -22,7 +22,6 @@ import { TerminalTabsBar } from "@/components/file/TerminalTabsBar";
 import { TERMINAL_WINDOW_PANEL_ID, type TerminalTab } from "@openloaf/api/common";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -384,7 +383,11 @@ export default function TerminalViewer({
 }: TerminalViewerProps) {
   const { t } = useTranslation('common');
   const terminalStatus = useTerminalStatus();
-  const { workspace } = useWorkspace();
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const workspaceRootUri = workspaceCompatQuery.data?.rootUri ?? "";
   const tabActive = useTabActive();
   const safeTabId = typeof tabId === "string" ? tabId : undefined;
   const resolvedPanelKey = panelKey ?? TERMINAL_WINDOW_PANEL_ID;
@@ -503,7 +506,7 @@ export default function TerminalViewer({
       return;
     }
     const activePwd = activeTab ? getTerminalTabPwdUri(activeTab) : "";
-    const fallbackPwd = activePwd || workspace?.rootUri || "";
+    const fallbackPwd = activePwd || workspaceRootUri || "";
     if (!fallbackPwd) {
       toast.error(t('terminal.noWorkspaceDir'));
       return;
@@ -516,7 +519,7 @@ export default function TerminalViewer({
       params: { pwdUri: fallbackPwd },
     };
     updateTerminalState([...tabsRef.current, nextTab], nextTab.id);
-  }, [activeTab, enabled, safeTabId, updateTerminalState, workspace?.rootUri]);
+  }, [activeTab, enabled, safeTabId, t, updateTerminalState, workspaceRootUri]);
 
   /** Select terminal tab by numeric index (1-based shortcut). */
   const selectTerminalTabByIndex = useCallback(

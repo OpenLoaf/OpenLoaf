@@ -24,7 +24,6 @@ import { FloatingToolbarKit } from '@/components/editor/plugins/floating-toolbar
 import { ViewerGuard } from '@/components/file/lib/viewer-guard'
 import { StackHeader } from '@/components/layout/StackHeader'
 import { resolveFileUriFromRoot } from '@/components/project/filesystem/utils/file-system-utils'
-import { useWorkspace } from '@/hooks/use-workspace'
 import { Button } from '@openloaf/ui/button'
 import { Editor, EditorContainer } from '@openloaf/ui/editor'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
@@ -58,8 +57,6 @@ export default function PlateDocViewer({
   tabId,
 }: PlateDocViewerProps) {
   const { t } = useTranslation('common')
-  const { workspace } = useWorkspace()
-  const workspaceId = workspace?.id ?? ''
   const [status, setStatus] = useState<DocStatus>('idle')
   const [isDirty, setIsDirty] = useState(false)
   const [saveIndicator, setSaveIndicator] = useState<SaveIndicator>('idle')
@@ -90,7 +87,7 @@ export default function PlateDocViewer({
       projectId,
       uri: readUri,
     }),
-    enabled: shouldUseFs && Boolean(readUri) && Boolean(workspaceId),
+    enabled: shouldUseFs && Boolean(readUri),
   })
 
   const writeFileMutation = useMutation(trpc.fs.writeFile.mutationOptions())
@@ -135,7 +132,7 @@ export default function PlateDocViewer({
 
   // 逻辑：静默保存（自动保存用），不弹 toast。
   const doSave = useCallback(async (silent = false) => {
-    if (!readUri || !shouldUseFs || !workspaceId || !editor) return
+    if (!readUri || !shouldUseFs || !editor) return
     setSaveIndicator('saving')
     try {
       const md = serializeMd(editor)
@@ -153,7 +150,7 @@ export default function PlateDocViewer({
       setSaveIndicator('idle')
       if (!silent) toast.error(t('saveFailed'))
     }
-  }, [readUri, shouldUseFs, workspaceId, editor, projectId, writeFileMutation])
+  }, [editor, projectId, readUri, shouldUseFs, t, writeFileMutation])
 
   const handleValueChange = useCallback((_nextValue: Value) => {
     if (initializingRef.current) return

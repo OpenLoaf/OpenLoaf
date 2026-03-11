@@ -35,7 +35,6 @@ import {
   ContextMenuTrigger,
 } from "@openloaf/ui/context-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import {
@@ -227,6 +226,10 @@ function WorkspaceAgentView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [showAllProjects, setShowAllProjects] = useState(true);
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
 
   const agentsQuery = useQuery(trpc.settings.getAgents.queryOptions({ includeAllProjects: true }));
   const agents = (agentsQuery.data ?? []) as AgentSummary[];
@@ -249,10 +252,9 @@ function WorkspaceAgentView() {
     },
     [capGroups],
   );
-  const { workspace } = useWorkspace();
   const activeTabId = useTabs((s) => s.activeTabId);
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
-  const workspaceId = workspace?.id ?? "";
+  const workspaceCompatRootUri = workspaceCompatQuery.data?.rootUri;
 
   const hasNonMasterAgents = useMemo(
     () =>
@@ -329,8 +331,8 @@ function WorkspaceAgentView() {
   );
 
   const handleOpenAgentsRoot = useCallback(async () => {
-    const rootUri = workspace?.rootUri;
-    if (!rootUri || !workspaceId) {
+    const rootUri = workspaceCompatRootUri;
+    if (!rootUri) {
       toast.error(t("settings:agent.workspaceNotFound"));
       return;
     }
@@ -366,13 +368,13 @@ function WorkspaceAgentView() {
       : `${rootUri.replace(/[/\\]+$/, "")}/.openloaf/agents`;
     const res = await api.openPath({ uri: agentsUri });
     if (!res?.ok) toast.error(res?.reason ?? t("settings:agent.openFolderFailed"));
-  }, [activeTabId, mkdirMutation, pushStackItem, workspace?.rootUri, workspaceId]);
+  }, [activeTabId, mkdirMutation, pushStackItem, t, workspaceCompatRootUri]);
 
   const handleOpenAgent = useCallback(
     (agent: AgentSummary) => {
       if (!activeTabId) return;
       const baseRootUri =
-        agent.scope === "global" ? undefined : workspace?.rootUri;
+        agent.scope === "global" ? undefined : workspaceCompatRootUri;
       const rootUri = resolveAgentFolderUri(agent.path, baseRootUri);
       if (!rootUri) return;
       const stackKey = agent.ignoreKey.trim() || agent.path || agent.name;
@@ -393,7 +395,7 @@ function WorkspaceAgentView() {
         },
       });
     },
-    [activeTabId, pushStackItem, workspace?.rootUri],
+    [activeTabId, pushStackItem, workspaceCompatRootUri, t],
   );
 
   const handleEditAgent = useCallback(
@@ -487,7 +489,7 @@ function WorkspaceAgentView() {
                 variant="secondary"
                 className="h-8 rounded-full border border-border/70 bg-background/85 px-2.5 text-xs transition-colors hover:bg-muted/55 sm:px-3"
                 onClick={() => void handleOpenAgentsRoot()}
-                disabled={!workspace?.rootUri || !workspaceId}
+                disabled={!workspaceCompatRootUri}
                 aria-label={t("settings:agent.openDirTooltip")}
               >
                 <FolderOpen className="h-3.5 w-3.5" />
@@ -542,7 +544,7 @@ function WorkspaceAgentView() {
           <div className="grid grid-cols-2 gap-2 pb-1">
             {filteredAgents.map((agent) => {
               const baseRootUri =
-                agent.scope === "global" ? undefined : workspace?.rootUri;
+                agent.scope === "global" ? undefined : workspaceCompatRootUri;
               const canOpen = Boolean(
                 activeTabId && resolveAgentFolderUri(agent.path, baseRootUri),
               );

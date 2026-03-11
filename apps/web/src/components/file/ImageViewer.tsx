@@ -35,7 +35,6 @@ import type { MaskedAttachmentInput } from "@/components/ai/input/chat-attachmen
 import { fetchBlobFromUri, loadImageFromUri } from "@/lib/image/uri";
 import { resolveMaskFileName } from "@/lib/image/mask";
 import { supportsImageInput } from "@/lib/model-capabilities";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { ViewerGuard } from "@/components/file/lib/viewer-guard";
 
 interface ImageViewerProps {
@@ -43,7 +42,7 @@ interface ImageViewerProps {
   name?: string;
   ext?: string;
   projectId?: string;
-  /** Workspace id for file queries (overrides useWorkspace). */
+  /** Legacy prop kept for compatibility. */
   workspaceId?: string;
   /** Optional thumbnail placeholder to show before full image loads. */
   thumbnailSrc?: string;
@@ -200,7 +199,6 @@ export default function ImageViewer({
   name,
   ext,
   projectId: projectIdProp,
-  workspaceId: workspaceIdProp,
   thumbnailSrc,
   title,
   saveName,
@@ -249,10 +247,8 @@ export default function ImageViewer({
   const [canUndo, setCanUndo] = React.useState(false);
   const [canRedo, setCanRedo] = React.useState(false);
   const appliedRef = React.useRef<string>("");
-  const { workspace } = useWorkspace();
-  const workspaceId = workspaceIdProp || workspace?.id || "";
   const shouldUseBinary =
-    Boolean(uri) && Boolean(workspaceId) && (shouldUseFs || isRelative);
+    Boolean(uri) && (shouldUseFs || isRelative);
   const chat = useOptionalChatOptions();
   const chatSession = useOptionalChatSession();
   const projectId = projectIdProp ?? chatSession?.projectId;

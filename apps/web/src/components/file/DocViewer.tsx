@@ -36,7 +36,6 @@ import { getBlockType, setBlockType } from "@/components/editor/transforms";
 import { ViewerGuard } from "@/components/file/lib/viewer-guard";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { resolveFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { Button } from "@openloaf/ui/button";
 import {
   DropdownMenu,
@@ -66,7 +65,7 @@ interface DocViewerProps {
   ext?: string;
   /** Project id for file access. */
   projectId?: string;
-  /** Workspace id for file queries (overrides useWorkspace). */
+  /** Legacy prop kept for compatibility. */
   workspaceId?: string;
   /** Root uri for system open. */
   rootUri?: string;
@@ -168,15 +167,12 @@ export default function DocViewer({
   openUri,
   name,
   projectId,
-  workspaceId: workspaceIdProp,
   rootUri,
   panelKey,
   tabId,
   readOnly,
 }: DocViewerProps) {
   const { t } = useTranslation('common');
-  const { workspace } = useWorkspace();
-  const workspaceId = workspaceIdProp || workspace?.id || "";
   /** Current viewer status. */
   const [status, setStatus] = useState<DocViewerStatus>("idle");
   /** Track whether content has been edited. */
@@ -230,7 +226,7 @@ export default function DocViewer({
       projectId,
       uri: readUri,
     }),
-    enabled: shouldUseFs && Boolean(readUri) && Boolean(workspaceId),
+    enabled: shouldUseFs && Boolean(readUri),
   });
 
   /** Persist binary payload back to file system. */
@@ -322,10 +318,6 @@ export default function DocViewer({
     // 逻辑：仅在可编辑且内容变更时保存。
     if (!uri || !shouldUseFs) {
       toast.error(t('file.noSaveTarget'));
-      return;
-    }
-    if (!workspaceId) {
-      toast.error(t('noWorkspace'));
       return;
     }
     if (!canEdit || !isDirty || !editor) return;

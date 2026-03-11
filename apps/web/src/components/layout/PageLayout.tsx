@@ -16,7 +16,6 @@ import { Chat } from "@/components/ai/Chat";
 import { cn } from "@/lib/utils";
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { LeftDockNew } from "./LeftDockNew";
-import { useWorkspace } from "@/hooks/use-workspace";
 
 const RIGHT_CHAT_MIN_PX = 360;
 const LEFT_DOCK_MIN_PX = 300;

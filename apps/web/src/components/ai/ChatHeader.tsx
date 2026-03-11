@@ -17,7 +17,7 @@ import { useProject } from "@/hooks/use-project";
 import SessionList from "@/components/ai/session/SessionList";
 import * as React from "react";
 import { useChatActions, useChatSession, useChatState } from "./context";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
@@ -25,7 +25,6 @@ import { useTabView } from "@/hooks/use-tab-view";
 import { invalidateChatSessions, useChatSessions } from "@/hooks/use-chat-sessions";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { toast } from "sonner";
 import { SaaSClient, SaaSHttpError } from "@openloaf-saas/sdk";
 import { MessageAction, MessageActions } from "@/components/ai-elements/message";
@@ -93,9 +92,12 @@ export default function ChatHeader({
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
   const { basic } = useBasicConfig();
   const { loggedIn: saasLoggedIn } = useSaasAuth();
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
   const tabView = useTabView(tabId);
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
+  const workspaceId = workspaceCompatQuery.data?.id ?? "";
 
   // Quick launch: derive project context from tab chatParams.
   const quickLaunchProjectId = React.useMemo(() => {

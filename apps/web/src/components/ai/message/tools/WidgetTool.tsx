@@ -10,11 +10,12 @@
 'use client'
 
 import * as React from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { FolderOpen, LayoutGrid } from 'lucide-react'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
 import { useTabs } from '@/hooks/use-tabs'
-import { useWorkspace } from '@/hooks/use-workspace'
+import { useProject } from '@/hooks/use-project'
 import {
   DESKTOP_WIDGET_SELECTED_EVENT,
   type DesktopWidgetSelectedDetail,
@@ -35,6 +36,7 @@ import {
   parseOutputJson,
 } from './shared/widget-shared'
 import ToolApprovalActions from './shared/ToolApprovalActions'
+import { trpc } from '@/utils/trpc'
 
 export default function WidgetTool({
   part,
@@ -43,8 +45,12 @@ export default function WidgetTool({
   part: AnyToolPart
   className?: string
 }) {
-  const { tabId, workspaceId, projectId } = useChatSession()
-  const { workspace } = useWorkspace()
+  const { tabId, projectId } = useChatSession()
+  const projectQuery = useProject(projectId)
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  })
   const pushStackItem = useTabRuntime((s) => s.pushStackItem)
   const input = normalizeToolInput(part.input)
   const inputObj = asPlainObject(input)
@@ -77,9 +83,12 @@ export default function WidgetTool({
   const showToolKind = Boolean(toolKind) && title !== toolKind
   const approvalId = getApprovalId(part)
   const isPending = isApprovalPending(part)
+  const baseRootUri = projectId
+    ? projectQuery.data?.project?.rootUri
+    : workspaceCompatQuery.data?.rootUri
 
   const canRender =
-    part.state === 'output-available' && Boolean(workspaceId) && !hasError
+    part.state === 'output-available' && !hasError
 
   const windowState = hasError
     ? 'error' as const
@@ -90,10 +99,7 @@ export default function WidgetTool({
         : 'idle' as const
 
   const handleOpenWidget = () => {
-    if (!tabId || !workspaceId) return
-    const baseRootUri = projectId
-      ? workspace?.projects?.[projectId]
-      : workspace?.rootUri
+    if (!tabId) return
     if (!baseRootUri) return
     const widgetFolderUri = `${baseRootUri.replace(/\/$/, '')}/.openloaf/dynamic-widgets/${widgetId}`
     const mainFileUri = `${widgetFolderUri}/widget.tsx`
@@ -185,7 +191,7 @@ export default function WidgetTool({
         ) : null}
 
         {/* 逻辑：实际渲染 widget 组件 */}
-        {canRender && workspaceId ? (
+        {canRender ? (
           <WidgetPreview
             widgetId={widgetId}
             projectId={projectId}

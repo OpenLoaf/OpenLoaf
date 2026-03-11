@@ -20,7 +20,6 @@ import i18next from "i18next";
 import { BOARD_TOOLBAR_ITEM_BLUE } from "../ui/board-style-system";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
 import type { FilePreviewViewer } from "@/components/file/lib/file-preview-types";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { useBoardContext, type BoardFileContext } from "../core/BoardProvider";
 import {
   resolveBoardFolderScope,
@@ -111,8 +110,7 @@ export function FileAttachmentNodeView({
   element,
 }: CanvasNodeViewProps<FileAttachmentNodeProps>) {
   const { fileContext } = useBoardContext();
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
+  const workspaceId = fileContext?.workspaceId ?? "";
 
   const projectRelativePath = useMemo(
     () => resolveProjectRelativePath(element.props.sourcePath, fileContext),

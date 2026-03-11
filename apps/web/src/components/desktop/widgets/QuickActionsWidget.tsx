@@ -12,12 +12,11 @@
 import * as React from "react";
 import { Sparkles, Terminal, Search, LayoutDashboard } from "lucide-react";
 import { Button } from "@openloaf/ui/button";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import i18next from "i18next";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { trpc } from "@/utils/trpc";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useTerminalStatus } from "@/hooks/use-terminal-status";
@@ -46,8 +45,11 @@ export interface QuickActionsWidgetProps {
 /** Render a quick actions widget (MVP placeholder). */
 export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
   const { t } = useTranslation('desktop');
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const workspaceRootUri = workspaceCompatQuery.data?.rootUri ?? "";
   const activeTabId = useTabs((state) => state.activeTabId);
   const tabs = useTabs((state) => state.tabs);
   const mkdirMutation = useMutation(trpc.fs.mkdir.mutationOptions());
@@ -59,10 +61,6 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
   const handleCreateCanvas = React.useCallback(async () => {
     if (scope !== "project") {
       toast.error(t('quickActions.cannotCreateCanvas'));
-      return;
-    }
-    if (!workspaceId) {
-      toast.error(t('quickActions.noWorkspace'));
       return;
     }
     // 逻辑：从当前激活 tab 获取项目上下文。
@@ -133,7 +131,7 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
     } finally {
       setCreating(false);
     }
-  }, [scope, workspaceId, activeTabId, tabs, mkdirMutation, writeBinaryMutation]);
+  }, [scope, activeTabId, tabs, mkdirMutation, t, writeBinaryMutation]);
 
   /** Open the global search overlay. */
   const handleOpenSearch = React.useCallback(() => {
@@ -163,7 +161,7 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
     const baseParams = (runtime?.base?.params ?? {}) as Record<string, unknown>;
     const rootUri =
       (typeof baseParams.rootUri === "string" ? baseParams.rootUri : undefined) ??
-      workspace?.rootUri ??
+      workspaceRootUri ??
       "";
     const pwdUri = rootUri ? resolveFileUriFromRoot(rootUri, rootUri) : "";
     if (!pwdUri) {
@@ -181,7 +179,7 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
         __open: { pwdUri },
       },
     });
-  }, [activeTabId, terminalStatus, tabs, workspace?.rootUri, workspaceId]);
+  }, [activeTabId, terminalStatus, tabs, t, workspaceRootUri]);
 
   /** Open/ensure right AI chat panel visible and focus the input. */
   const handleOpenAiChat = React.useCallback(() => {

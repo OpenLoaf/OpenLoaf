@@ -10,9 +10,10 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { trpc } from "@/utils/trpc";
 import { EmailAddAccountDialog } from "./EmailAddAccountDialog";
 import { EmailMessageList } from "./EmailMessageList";
 import { EmailSidebar } from "./EmailSidebar";
@@ -27,11 +28,15 @@ export default function EmailPage({
   tabId: string;
 }) {
   const { t } = useTranslation('common');
-  const { workspace } = useWorkspace();
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const workspaceId = workspaceCompatQuery.data?.id;
   const pushStackItem = useTabRuntime((state) => state.pushStackItem);
   const removeStackItem = useTabRuntime((state) => state.removeStackItem);
   const { sidebar, messageList, addDialog } = useEmailPageState({
-    workspaceId: workspace?.id,
+    workspaceId,
   });
 
   useEffect(() => {
@@ -62,11 +67,11 @@ export default function EmailPage({
       component: "email-compose-stack",
       title: t('email.compose'),
       params: {
-        workspaceId: workspace?.id,
+        workspaceId,
         __opaque: true,
       },
     });
-  }, [pushStackItem, removeStackItem, tabId, workspace?.id]);
+  }, [pushStackItem, removeStackItem, t, tabId, workspaceId]);
 
   /** Open message detail in stack panel (Gmail-style list -> stack detail). */
   const handleOpenMessageStack = useCallback(
@@ -83,7 +88,7 @@ export default function EmailPage({
         title: detailTitle,
         params: {
           messageId: message.id,
-          workspaceId: workspace?.id,
+          workspaceId,
           fallbackFrom: message.from,
           fallbackTime: message.time ?? "",
           fallbackPreview: message.preview,
@@ -91,7 +96,7 @@ export default function EmailPage({
         },
       });
     },
-    [messageList.hasSelection, pushStackItem, tabId, workspace?.id],
+    [messageList.hasSelection, pushStackItem, t, tabId, workspaceId],
   );
 
   return (

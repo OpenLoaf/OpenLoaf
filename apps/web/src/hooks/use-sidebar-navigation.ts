@@ -17,10 +17,14 @@ import { useNavigation } from '@/hooks/use-navigation'
 import { AI_ASSISTANT_TAB_INPUT, TEMP_CHAT_TAB_INPUT, TEMP_CANVAS_TAB_INPUT } from '@openloaf/api/common'
 import { buildFileUriFromRoot } from '@/components/project/filesystem/utils/file-system-utils'
 import { BOARD_INDEX_FILE_NAME } from '@/lib/file-name'
-import { useWorkspace } from '@/hooks/use-workspace'
+import { useQuery } from '@tanstack/react-query'
+import { trpc } from '@/utils/trpc'
 
 export function useSidebarNavigation() {
-  const { workspace } = useWorkspace()
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  })
   const addTab = useTabs((s) => s.addTab)
   const setActiveTab = useTabs((s) => s.setActiveTab)
   const setTabTitle = useTabs((s) => s.setTabTitle)
@@ -85,7 +89,7 @@ export function useSidebarNavigation() {
   }, [addTab, setActiveTab, setActiveView, setActiveWorkspaceChat])
 
   const openTempCanvas = useCallback(() => {
-    const rootUri = workspace?.rootUri
+    const rootUri = workspaceCompatQuery.data?.rootUri
     if (!rootUri) return
     const tabTitle = i18next.t(TEMP_CANVAS_TAB_INPUT.titleKey)
 
@@ -108,7 +112,7 @@ export function useSidebarNavigation() {
 
     setActiveWorkspaceChat(null)
     setActiveView('canvas-list')
-  }, [workspace, addTab, setActiveView, setActiveWorkspaceChat])
+  }, [workspaceCompatQuery.data?.rootUri, addTab, setActiveView, setActiveWorkspaceChat])
 
   return { openChat, openTempChat, openTempCanvas }
 }

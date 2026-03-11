@@ -9,7 +9,8 @@
  */
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import {
@@ -22,20 +23,28 @@ import {
   X,
   Star,
   GitBranch,
+  Layers3,
+  Filter,
 } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
-import { toast } from "sonner";
 
-import { useWorkspace } from "@/hooks/use-workspace";
-import { useProjects, getProjectsQueryKey } from "@/hooks/use-projects";
+import { useIsInView } from "@/hooks/use-is-in-view";
+import { useHeaderSlot } from "@/hooks/use-header-slot";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useProjectLayout } from "@/hooks/use-project-layout";
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
-import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
+import type { ProjectListItem } from "@openloaf/api/services/projectTreeService";
 import { Button } from "@openloaf/ui/button";
 import { Input } from "@openloaf/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@openloaf/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +61,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@openloaf/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@openloaf/ui/tooltip";
 
 const CARD_GRADIENTS = [
   "from-sky-100 to-blue-50 dark:from-sky-900/40 dark:to-blue-900/30",
@@ -64,6 +78,24 @@ const CARD_GRADIENTS = [
   "from-lime-100 to-yellow-50 dark:from-lime-900/40 dark:to-yellow-900/30",
 ];
 
+const PROJECT_TYPE_ORDER = [
+  "general",
+  "code",
+  "document",
+  "data",
+  "design",
+  "research",
+] as const;
+const PROJECT_PAGE_SIZE = 48;
+const LOAD_MORE_IN_VIEW_MARGIN = "640px 0px";
+
+type ProjectTypeKey = (typeof PROJECT_TYPE_ORDER)[number];
+
+interface GroupedProjectSection {
+  key: ProjectTypeKey;
+  projects: ProjectListItem[];
+}
+
 function hashCode(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -72,19 +104,35 @@ function hashCode(str: string): number {
   return Math.abs(hash);
 }
 
-/** Flatten project tree into a flat array with depth info. */
-function flattenProjects(
-  nodes: ProjectNode[],
-  depth = 0,
-): Array<ProjectNode & { depth: number }> {
-  const result: Array<ProjectNode & { depth: number }> = [];
-  for (const node of nodes) {
-    result.push({ ...node, depth });
-    if (node.children?.length) {
-      result.push(...flattenProjects(node.children, depth + 1));
-    }
+/** Normalize project type into supported filter/group values. */
+function normalizeProjectType(projectType?: string): ProjectTypeKey {
+  if (PROJECT_TYPE_ORDER.includes(projectType as ProjectTypeKey)) {
+    return projectType as ProjectTypeKey;
   }
-  return result;
+  return "general";
+}
+
+/** Group projects by normalized project type while preserving type order. */
+function groupProjectsByType(
+  projects: ProjectListItem[],
+): GroupedProjectSection[] {
+  const grouped = new Map<ProjectTypeKey, ProjectListItem[]>();
+
+  for (const project of projects) {
+    const projectType = normalizeProjectType(project.projectType);
+    const bucket = grouped.get(projectType);
+    if (bucket) {
+      bucket.push(project);
+      continue;
+    }
+    grouped.set(projectType, [project]);
+  }
+
+  return PROJECT_TYPE_ORDER.flatMap((projectType) => {
+    const items = grouped.get(projectType);
+    if (!items?.length) return [];
+    return [{ key: projectType, projects: items }];
+  });
 }
 
 interface ProjectGridPageProps {
@@ -94,16 +142,19 @@ interface ProjectGridPageProps {
 
 export default function ProjectGridPage({ tabId }: ProjectGridPageProps) {
   const { t } = useTranslation("nav");
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
+  const { t: tSettings } = useTranslation("settings");
+  const { t: tWorkspace } = useTranslation("workspace");
 
   const addTab = useTabs((s) => s.addTab);
   const setActiveTab = useTabs((s) => s.setActiveTab);
   const tabs = useTabs((s) => s.tabs);
   const activeTabId = useTabs((s) => s.activeTabId);
   const runtimeByTabId = useTabRuntime((s) => s.runtimeByTabId);
+  const headerTitleExtraTarget = useHeaderSlot((s) => s.headerTitleExtraTarget);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterProjectType, setFilterProjectType] = useState<string>("__all__");
+  const [groupByType, setGroupByType] = useState(true);
   const [renameTarget, setRenameTarget] = useState<{
     projectId: string;
     title: string;
@@ -111,24 +162,58 @@ export default function ProjectGridPage({ tabId }: ProjectGridPageProps) {
   } | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createTitle, setCreateTitle] = useState("");
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  const { data: projectList } = useProjects();
-  const projects = projectList ?? [];
+  const pagedProjectsInput = useMemo(
+    () => ({
+      pageSize: PROJECT_PAGE_SIZE,
+      ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+      ...(filterProjectType !== "__all__"
+        ? { projectType: filterProjectType as ProjectTypeKey }
+        : {}),
+    }),
+    [filterProjectType, searchQuery],
+  );
 
-  const flatProjects = useMemo(() => flattenProjects(projects), [projects]);
+  const projectsQuery = useInfiniteQuery({
+    ...trpc.project.listPaged.infiniteQueryOptions(pagedProjectsInput, {
+      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+      staleTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    }),
+  });
 
-  const filteredProjects = useMemo(() => {
-    if (!searchQuery.trim()) return flatProjects;
-    const q = searchQuery.trim().toLowerCase();
-    return flatProjects.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) ||
-        getDisplayPathFromUri(p.rootUri).toLowerCase().includes(q),
-    );
-  }, [flatProjects, searchQuery]);
+  const filteredProjects = useMemo(
+    () => projectsQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [projectsQuery.data],
+  );
+
+  const groupedProjects = useMemo(
+    () =>
+      groupByType && filteredProjects.length > 0
+        ? groupProjectsByType(filteredProjects)
+        : [],
+    [filteredProjects, groupByType],
+  );
+
+  const totalProjects = projectsQuery.data?.pages[0]?.total ?? 0;
+  const hasMoreProjects = Boolean(projectsQuery.hasNextPage);
+  const isFetchingNextProjects = projectsQuery.isFetchingNextPage;
+  const fetchNextProjects = projectsQuery.fetchNextPage;
+  const { ref: loadMoreInViewRef, isInView: isLoadMoreInView } = useIsInView(loadMoreRef, {
+    inView: hasMoreProjects,
+    inViewMargin: LOAD_MORE_IN_VIEW_MARGIN,
+  });
+
+  useEffect(() => {
+    if (!hasMoreProjects || !isLoadMoreInView || isFetchingNextProjects) {
+      return;
+    }
+    void fetchNextProjects();
+  }, [fetchNextProjects, hasMoreProjects, isFetchingNextProjects, isLoadMoreInView]);
 
   const invalidateProjects = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: getProjectsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: trpc.project.pathKey() });
   }, []);
 
   const updateMutation = useMutation(
@@ -173,8 +258,7 @@ export default function ProjectGridPage({ tabId }: ProjectGridPageProps) {
   }, [createTitle, createMutation]);
 
   const handleProjectClick = useCallback(
-    (project: ProjectNode) => {
-      if (!workspaceId) return;
+    (project: ProjectListItem) => {
       const targetProjectId = project.projectId;
       const baseId = `project:${targetProjectId}`;
 
@@ -209,7 +293,7 @@ export default function ProjectGridPage({ tabId }: ProjectGridPageProps) {
         chatParams: { projectId: targetProjectId },
       });
     },
-    [workspaceId, tabs, runtimeByTabId, addTab, setActiveTab, t],
+    [tabs, runtimeByTabId, addTab, setActiveTab, t],
   );
 
   const handleRenameSave = useCallback(() => {
@@ -244,10 +328,14 @@ export default function ProjectGridPage({ tabId }: ProjectGridPageProps) {
     : undefined;
   const activeProjectBaseId =
     activeBase?.component === "plant-page" ? activeBase.id : undefined;
+  const isActiveTab = activeTabId === tabId;
+  const isInitialLoading = projectsQuery.isPending && filteredProjects.length === 0;
+  const hasActiveFilter =
+    Boolean(searchQuery.trim()) || filterProjectType !== "__all__";
 
   const renderProjectCard = useCallback(
     (
-      project: ProjectNode & { depth: number },
+      project: ProjectListItem,
       index: number,
     ) => {
       const baseId = `project:${project.projectId}`;
@@ -255,7 +343,7 @@ export default function ProjectGridPage({ tabId }: ProjectGridPageProps) {
       const gradientIndex =
         hashCode(project.projectId) % CARD_GRADIENTS.length;
       const displayPath = getDisplayPathFromUri(project.rootUri);
-      const childCount = project.children?.length ?? 0;
+      const childCount = project.childCount;
 
       return (
         <motion.div
@@ -263,22 +351,22 @@ export default function ProjectGridPage({ tabId }: ProjectGridPageProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: index * 0.04 }}
-          className={`group relative flex flex-col overflow-hidden rounded-xl border cursor-pointer transition-all duration-200 hover:shadow-md hover:border-sky-300 dark:hover:border-sky-600 ${
+          className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-background/70 backdrop-blur-sm cursor-pointer shadow-none transition-colors duration-200 hover:border-sky-300/80 dark:bg-background/30 dark:hover:border-sky-600/80 ${
             isActive
-              ? "border-sky-400 dark:border-sky-500 shadow-sm ring-1 ring-sky-200 dark:ring-sky-700"
-              : "border-border"
+              ? "border-sky-400 bg-sky-500/[0.04] dark:border-sky-500 dark:bg-sky-400/[0.08]"
+              : "border-border/70"
           }`}
           onClick={() => handleProjectClick(project)}
         >
           {/* Preview area */}
           <div
-            className={`relative flex items-center justify-center h-44 bg-gradient-to-br ${CARD_GRADIENTS[gradientIndex]}`}
+            className={`relative flex h-36 items-center justify-center bg-gradient-to-br ${CARD_GRADIENTS[gradientIndex]}`}
           >
-            <div className="flex flex-col items-center gap-3 opacity-40">
+            <div className="flex flex-col items-center gap-2.5 opacity-40">
               {project.icon ? (
-                <span className="text-5xl leading-none">{project.icon}</span>
+                <span className="text-4xl leading-none">{project.icon}</span>
               ) : (
-                <FolderOpen className="h-10 w-10" />
+                <FolderOpen className="h-8 w-8" />
               )}
               <div className="flex gap-1">
                 <div className="h-1.5 w-6 rounded-full bg-current opacity-30" />
@@ -313,10 +401,10 @@ export default function ProjectGridPage({ tabId }: ProjectGridPageProps) {
                   <Button
                     variant="secondary"
                     size="icon"
-                    className="h-7 w-7 rounded-lg bg-background/80 backdrop-blur-sm shadow-sm"
+                    className="h-6 w-6 rounded-full bg-background/80 backdrop-blur-sm shadow-none"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <MoreHorizontal className="h-3.5 w-3.5" />
+                    <MoreHorizontal className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -366,8 +454,8 @@ export default function ProjectGridPage({ tabId }: ProjectGridPageProps) {
           </div>
 
           {/* Info area */}
-          <div className="flex flex-col gap-1.5 px-4 py-3">
-            <span className="text-sm font-medium truncate flex items-center gap-1.5">
+          <div className="flex flex-col gap-1 px-3.5 py-2.5">
+            <span className="flex items-center gap-1.5 truncate text-sm font-medium">
               {project.icon && (
                 <span className="text-sm leading-none shrink-0">
                   {project.icon}
@@ -375,7 +463,7 @@ export default function ProjectGridPage({ tabId }: ProjectGridPageProps) {
               )}
               {project.title || t("workspaceListPage.untitled")}
             </span>
-            <div className="flex items-center justify-between gap-1.5 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
               <span className="truncate">{displayPath}</span>
               {childCount > 0 && (
                 <span className="shrink-0">
@@ -398,41 +486,79 @@ export default function ProjectGridPage({ tabId }: ProjectGridPageProps) {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Page header */}
-      <div className="px-6 pt-6 pb-2">
-        <h1 className="flex items-center gap-2 text-lg font-semibold">
-          <FolderOpen className="h-5 w-5 text-sky-600 dark:text-sky-400" />
-          {t("workspaceListPage.helpTitle")}
-        </h1>
-        <p className="mt-1 text-xs text-muted-foreground">{t("workspaceListPage.helpDesc")}</p>
-      </div>
-
+      {isActiveTab && headerTitleExtraTarget
+        ? createPortal(
+            <div className="flex min-w-0 items-center gap-1.5 text-sm text-foreground/60">
+              <FolderOpen className="h-3.5 w-3.5 shrink-0 text-sky-700/70 dark:text-sky-300/70" />
+              <span className="max-w-[240px] truncate font-medium text-foreground/85">
+                {tWorkspace("workspace.title")}
+              </span>
+            </div>,
+            headerTitleExtraTarget,
+          )
+        : null}
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-6 py-2">
-        <div className="relative max-w-52">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t("search")}
-            className="h-8 pl-8 pr-7 text-sm rounded-full bg-muted/40 border-transparent focus:border-border"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
+      <div className="flex items-center justify-between px-6 pt-6 pb-2">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="relative max-w-52">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t("search")}
+              className="h-8 rounded-full border-transparent bg-muted/40 pl-8 pr-7 text-sm focus:border-border"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          <Select
+            value={filterProjectType}
+            onValueChange={setFilterProjectType}
+          >
+            <SelectTrigger className="h-8 w-auto max-w-40 gap-1.5 rounded-full border-transparent bg-muted/40 px-3 text-sm focus:border-border [&>svg]:h-3.5 [&>svg]:w-3.5">
+              <Filter className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">
+                {t("workspaceListPage.allProjectTypes")}
+              </SelectItem>
+              {PROJECT_TYPE_ORDER.map((projectType) => (
+                <SelectItem key={projectType} value={projectType}>
+                  {tSettings(`project.typeLabel.${projectType}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
             {t("workspaceListPage.totalCount", {
-              count: flatProjects.length,
+              count: totalProjects,
             })}
           </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={groupByType ? "secondary" : "ghost"}
+                size="icon"
+                className={`h-8 w-8 rounded-full ${groupByType ? "bg-sky-500/10 text-sky-700 dark:bg-sky-400/15 dark:text-sky-300" : ""}`}
+                onClick={() => setGroupByType((value) => !value)}
+              >
+                <Layers3 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {t("workspaceListPage.groupByProjectType")}
+            </TooltipContent>
+          </Tooltip>
           <Button
             className="rounded-full bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none transition-colors duration-150"
             onClick={() => setIsCreateOpen(true)}
@@ -445,17 +571,69 @@ export default function ProjectGridPage({ tabId }: ProjectGridPageProps) {
 
       {/* Grid */}
       <div className="flex-1 overflow-y-auto p-4">
-        {filteredProjects.length === 0 ? (
+        {isInitialLoading ? (
+          <div className="flex h-60 items-center justify-center">
+            <div className="h-8 w-8 rounded-full border-2 border-border/60 border-t-sky-500 animate-spin" />
+          </div>
+        ) : filteredProjects.length === 0 ? (
           <div className="flex flex-col h-60 items-center justify-center gap-3 text-muted-foreground">
             <FolderOpen className="h-10 w-10 opacity-30" />
-            <p className="text-sm">{t("workspaceListPage.empty")}</p>
+            <p className="text-sm">
+              {hasActiveFilter
+                ? t("workspaceListPage.emptyFiltered")
+                : t("workspaceListPage.empty")}
+            </p>
+          </div>
+        ) : groupByType ? (
+          <div className="space-y-6">
+            {groupedProjects.map((group) => (
+              <div key={group.key}>
+                <div className="mb-3 flex items-center justify-between px-1">
+                  <h3 className="text-xs font-medium text-muted-foreground/70">
+                    {tSettings(`project.typeLabel.${group.key}`)}
+                  </h3>
+                  <span className="text-[11px] text-muted-foreground/60">
+                    {group.projects.length}
+                  </span>
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3.5">
+                  {group.projects.map((project, i) =>
+                    renderProjectCard(project, i),
+                  )}
+                </div>
+              </div>
+            ))}
+            {hasMoreProjects ? (
+              <div
+                ref={loadMoreInViewRef}
+                className="flex h-12 w-full items-center justify-center"
+                aria-hidden="true"
+              >
+                {isFetchingNextProjects ? (
+                  <div className="h-6 w-6 rounded-full border-2 border-border/60 border-t-sky-500 animate-spin" />
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
-            {filteredProjects.map((project, i) =>
-              renderProjectCard(project, i),
-            )}
-          </div>
+          <>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3.5">
+              {filteredProjects.map((project, i) =>
+                renderProjectCard(project, i),
+              )}
+            </div>
+            {hasMoreProjects ? (
+              <div
+                ref={loadMoreInViewRef}
+                className="flex h-12 w-full items-center justify-center"
+                aria-hidden="true"
+              >
+                {isFetchingNextProjects ? (
+                  <div className="h-6 w-6 rounded-full border-2 border-border/60 border-t-sky-500 animate-spin" />
+                ) : null}
+              </div>
+            ) : null}
+          </>
         )}
       </div>
 

@@ -10,10 +10,11 @@
 "use client";
 
 import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
-import { useWorkspace } from "@/hooks/use-workspace";
+import { trpc } from "@/utils/trpc";
 import { EmailForwardEditor } from "./EmailForwardEditor";
 import { EMAIL_GLASS_PANEL_CLASS } from "./email-style-system";
 import { useEmailPageState } from "./use-email-page-state";
@@ -28,8 +29,11 @@ export default function EmailComposeStackPanel({
   workspaceId,
 }: EmailComposeStackPanelProps) {
   const { t } = useTranslation('common');
-  const { workspace } = useWorkspace();
-  const resolvedWorkspaceId = workspaceId ?? workspace?.id;
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const resolvedWorkspaceId = workspaceId ?? workspaceCompatQuery.data?.id;
   const { detail } = useEmailPageState({ workspaceId: resolvedWorkspaceId });
 
   useEffect(() => {

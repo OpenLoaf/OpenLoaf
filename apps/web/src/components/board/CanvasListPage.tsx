@@ -9,17 +9,17 @@
  */
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { Palette, Plus, Edit2, Trash2, MoreHorizontal, Copy, CopyPlus, CalendarDays, Search, X, FolderOpen, Sparkles, Loader2 } from "lucide-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { useProjects } from "@/hooks/use-projects";
+import { useIsInView } from "@/hooks/use-is-in-view";
 import { buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { BOARD_INDEX_FILE_NAME } from "@/lib/file-name";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
@@ -68,6 +68,11 @@ const PREVIEW_GRADIENTS = [
   "from-lime-100 to-yellow-50 dark:from-lime-900/40 dark:to-yellow-900/30",
 ];
 
+const BOARD_PAGE_SIZE = 24;
+const THUMBNAIL_BATCH_SIZE = 8;
+const CARD_IN_VIEW_MARGIN = "240px 0px";
+const LOAD_MORE_IN_VIEW_MARGIN = "640px 0px";
+
 function hashCode(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -101,6 +106,65 @@ interface BoardGroup {
   key: string;
   labelKey: string;
   boards: BoardItem[];
+}
+
+/** Build projectId -> rootUri map from the project tree. */
+function buildProjectRootUriMap(
+  projects?: Array<{
+    projectId: string;
+    rootUri: string;
+    children?: Array<any>;
+  }>,
+) {
+  const map = new Map<string, string>();
+  const walk = (items?: typeof projects) => {
+    items?.forEach((item) => {
+      if (item.projectId) map.set(item.projectId, item.rootUri);
+      if (item.children?.length) walk(item.children);
+    });
+  };
+  walk(projects);
+  return map;
+}
+
+interface BoardCardLabels {
+  untitled: string;
+  rename: string;
+  duplicate: string;
+  copyPath: string;
+  delete: string;
+}
+
+interface BoardThumbnailBatch {
+  boardIds: string[];
+  projectId?: string;
+}
+
+interface BoardCardProps {
+  activeBoardBaseId?: string;
+  board: BoardItem;
+  index: number;
+  isThumbLoading: boolean;
+  labels: BoardCardLabels;
+  lang: string;
+  onBoardClick: (board: { id: string; title: string; folderUri: string }) => void;
+  onBoardVisible: (boardId: string) => void;
+  onDelete: (boardId: string) => void;
+  onDuplicate: (boardId: string) => void;
+  onRename: (boardId: string, title: string, folderUri?: string) => void;
+  projectInfo?: { name: string; icon?: string };
+  rootUri?: string;
+  thumb?: string;
+}
+
+/** Split items into fixed-size chunks for smaller thumbnail requests. */
+function chunkItems<T>(items: T[], size: number): T[][] {
+  if (items.length === 0) return [];
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
 }
 
 function startOfDay(date: Date) {
@@ -154,6 +218,163 @@ function groupBoardsByTime(boards: BoardItem[]): BoardGroup[] {
   return groups;
 }
 
+/** Track card visibility and render a lazy thumbnail preview. */
+function BoardCard({
+  activeBoardBaseId,
+  board,
+  index,
+  isThumbLoading,
+  labels,
+  lang,
+  onBoardClick,
+  onBoardVisible,
+  onDelete,
+  onDuplicate,
+  onRename,
+  projectInfo,
+  rootUri,
+  thumb,
+}: BoardCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const { ref: inViewRef, isInView } = useIsInView(cardRef, {
+    inView: true,
+    inViewMargin: CARD_IN_VIEW_MARGIN,
+    inViewOnce: true,
+  });
+
+  useEffect(() => {
+    if (!isInView) return;
+    onBoardVisible(board.id);
+  }, [board.id, isInView, onBoardVisible]);
+
+  const boardFolderUri = rootUri
+    ? buildFileUriFromRoot(rootUri, board.folderUri)
+    : "";
+  const baseId = `board:${boardFolderUri}`;
+  const isActive = activeBoardBaseId === baseId;
+  const gradientIndex = hashCode(board.id) % PREVIEW_GRADIENTS.length;
+
+  return (
+    <motion.div
+      ref={inViewRef}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3, delay: index * 0.04 }}
+      className={`group relative flex flex-col overflow-hidden rounded-xl border cursor-pointer transition-all duration-200 hover:shadow-md hover:border-teal-300 dark:hover:border-teal-600 ${
+        isActive
+          ? "border-teal-400 dark:border-teal-500 shadow-sm ring-1 ring-teal-200 dark:ring-teal-700"
+          : "border-border"
+      }`}
+      onClick={() => onBoardClick(board)}
+    >
+      <div
+        className={`relative flex items-center justify-center h-36 ${
+          thumb ? "bg-muted/30" : `bg-gradient-to-br ${PREVIEW_GRADIENTS[gradientIndex]}`
+        }`}
+      >
+        {thumb ? (
+          <img
+            src={thumb}
+            alt={board.title}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex flex-col items-center gap-2 opacity-40">
+            <Palette className="h-8 w-8" />
+            <div className="flex gap-1">
+              <div className="h-1.5 w-6 rounded-full bg-current opacity-30" />
+              <div className="h-1.5 w-4 rounded-full bg-current opacity-20" />
+              <div className="h-1.5 w-8 rounded-full bg-current opacity-25" />
+            </div>
+          </div>
+        )}
+
+        {isThumbLoading && !thumb ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/10 backdrop-blur-[1px]">
+            <Loader2 className="h-5 w-5 animate-spin text-foreground/35" />
+          </div>
+        ) : null}
+
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="h-7 w-7 rounded-lg bg-background/80 backdrop-blur-sm shadow-sm"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRename(board.id, board.title, board.folderUri);
+                }}
+              >
+                <Edit2 className="mr-2 h-4 w-4" />
+                {labels.rename}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDuplicate(board.id);
+                }}
+              >
+                <CopyPlus className="mr-2 h-4 w-4" />
+                {labels.duplicate}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const fullPath = boardFolderUri.startsWith("file://")
+                    ? decodeURIComponent(new URL(boardFolderUri).pathname).replace(/\/$/, "")
+                    : boardFolderUri.replace(/\/$/, "");
+                  navigator.clipboard.writeText(fullPath);
+                }}
+              >
+                <Copy className="mr-2 h-4 w-4" />
+                {labels.copyPath}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(board.id);
+                }}
+                className="text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {labels.delete}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1 px-3 py-2.5">
+        <span className="text-sm font-medium truncate">
+          {board.title || labels.untitled}
+        </span>
+        <div className="flex items-center justify-between gap-1.5 text-xs text-muted-foreground">
+          <span>{formatBoardDate(board.updatedAt, lang)}</span>
+          {projectInfo ? (
+            <span className="flex items-center gap-1 shrink-0 truncate max-w-[50%]">
+              {projectInfo.icon ? (
+                <span className="text-xs leading-none">{projectInfo.icon}</span>
+              ) : (
+                <img src="/head_s.png" alt="" className="h-3.5 w-3.5 rounded-sm" />
+              )}
+              <span className="truncate">{projectInfo.name}</span>
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 interface CanvasListPageProps {
   tabId: string;
   panelKey: string;
@@ -165,9 +386,11 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   const { t, i18n } = useTranslation("nav");
   const { t: tAi } = useTranslation("ai");
   const lang = i18n.language;
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
-  const rootUri = workspace?.rootUri;
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const workspaceRootUri = workspaceCompatQuery.data?.rootUri;
   const queryClient = useQueryClient();
 
   const addTab = useTabs((s) => s.addTab);
@@ -189,8 +412,11 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   const [groupByTime, setGroupByTime] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterProjectId, setFilterProjectId] = useState<string>("__all__");
+  const [visibleBoardCount, setVisibleBoardCount] = useState(BOARD_PAGE_SIZE);
+  const [visibleThumbIds, setVisibleThumbIds] = useState<string[]>([]);
 
   const { data: projectList } = useProjects();
+  const projectRootUriMap = useMemo(() => buildProjectRootUriMap(projectList), [projectList]);
   const projectInfoById = useMemo(() => {
     const map = new Map<string, { name: string; icon?: string }>();
     const walk = (nodes: typeof projectList) => {
@@ -202,39 +428,20 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     walk(projectList);
     return map;
   }, [projectList]);
+  const resolveBoardRootUri = useCallback(
+    (targetProjectId?: string | null) =>
+      targetProjectId ? projectRootUriMap.get(targetProjectId) : workspaceRootUri,
+    [projectRootUriMap, workspaceRootUri],
+  );
 
   const queryInput = useMemo(
-    () =>
-      workspaceId
-        ? { workspaceId, ...(projectId ? { projectId } : {}) }
-        : { workspaceId: "" },
-    [workspaceId, projectId],
+    () => (projectId ? { projectId } : {}),
+    [projectId],
   );
 
   const { data: boards } = useQuery(
-    trpc.board.list.queryOptions(queryInput as any),
+    trpc.board.list.queryOptions(queryInput),
   );
-
-  const thumbInput = useMemo(
-    () =>
-      workspaceId && boards && boards.length > 0
-        ? {
-            workspaceId,
-            ...(projectId ? { projectId } : {}),
-            boardIds: boards.map((b) => b.id),
-          }
-        : null,
-    [workspaceId, projectId, boards],
-  );
-
-  const { data: thumbData } = useQuery(
-    trpc.board.thumbnails.queryOptions(thumbInput as any, {
-      enabled: !!thumbInput,
-      staleTime: 5 * 60 * 1000,
-    }),
-  );
-
-  const thumbMap = thumbData?.items as Record<string, string> | undefined;
 
   const filteredBoards = useMemo(() => {
     if (!boards) return [];
@@ -253,9 +460,98 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     return result;
   }, [boards, filterProjectId, searchQuery]);
 
+  useEffect(() => {
+    setVisibleBoardCount(BOARD_PAGE_SIZE);
+  }, [filterProjectId, projectId, searchQuery]);
+
+  const displayedBoards = useMemo(
+    () => filteredBoards.slice(0, visibleBoardCount),
+    [filteredBoards, visibleBoardCount],
+  );
+
+  const hasMoreBoards = displayedBoards.length < filteredBoards.length;
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const { ref: loadMoreInViewRef, isInView: isLoadMoreInView } = useIsInView(loadMoreRef, {
+    inView: hasMoreBoards,
+    inViewMargin: LOAD_MORE_IN_VIEW_MARGIN,
+  });
+
+  useEffect(() => {
+    if (!hasMoreBoards || !isLoadMoreInView) return;
+    setVisibleBoardCount((prev) => Math.min(prev + BOARD_PAGE_SIZE, filteredBoards.length));
+  }, [filteredBoards.length, hasMoreBoards, isLoadMoreInView]);
+
+  const handleBoardVisible = useCallback((boardId: string) => {
+    setVisibleThumbIds((prev) => (prev.includes(boardId) ? prev : [...prev, boardId]));
+  }, []);
+
+  const visibleThumbIdSet = useMemo(() => new Set(visibleThumbIds), [visibleThumbIds]);
+  const visibleThumbBoards = useMemo(
+    () => displayedBoards.filter((board) => visibleThumbIdSet.has(board.id)),
+    [displayedBoards, visibleThumbIdSet],
+  );
+
+  const thumbnailBatches = useMemo(() => {
+    // 中文注释：缩略图需要按 projectId 分组，才能命中正确的项目根目录。
+    const groups = new Map<string, BoardThumbnailBatch>();
+    for (const board of visibleThumbBoards) {
+      const key = board.projectId ?? "__workspace__";
+      const group = groups.get(key);
+      if (group) {
+        group.boardIds.push(board.id);
+      } else {
+        groups.set(key, {
+          boardIds: [board.id],
+          ...(board.projectId ? { projectId: board.projectId } : {}),
+        });
+      }
+    }
+
+    const batches: BoardThumbnailBatch[] = [];
+    for (const group of groups.values()) {
+      const boardIdChunks = chunkItems(group.boardIds, THUMBNAIL_BATCH_SIZE);
+      for (const boardIds of boardIdChunks) {
+        batches.push({
+          boardIds,
+          ...(group.projectId ? { projectId: group.projectId } : {}),
+        });
+      }
+    }
+    return batches;
+  }, [visibleThumbBoards]);
+
+  const thumbnailQueries = useQueries({
+    queries: thumbnailBatches.map((batch) =>
+      trpc.board.thumbnails.queryOptions(
+        batch.projectId
+          ? { projectId: batch.projectId, boardIds: batch.boardIds }
+          : { boardIds: batch.boardIds },
+        {
+          staleTime: 5 * 60 * 1000,
+        },
+      )),
+  });
+
+  const thumbMap = useMemo(() => {
+    const merged: Record<string, string> = {};
+    for (const query of thumbnailQueries) {
+      Object.assign(merged, query.data?.items ?? {});
+    }
+    return merged;
+  }, [thumbnailQueries]);
+
+  const loadingThumbIds = useMemo(() => {
+    const loading = new Set<string>();
+    thumbnailQueries.forEach((query, index) => {
+      if (!query.isPending && !query.isFetching) return;
+      thumbnailBatches[index]?.boardIds.forEach((boardId) => loading.add(boardId));
+    });
+    return loading;
+  }, [thumbnailBatches, thumbnailQueries]);
+
   const boardGroups = useMemo(
-    () => (groupByTime && filteredBoards.length > 0 ? groupBoardsByTime(filteredBoards as BoardItem[]) : []),
-    [groupByTime, filteredBoards],
+    () => (groupByTime && displayedBoards.length > 0 ? groupBoardsByTime(displayedBoards as BoardItem[]) : []),
+    [displayedBoards, groupByTime],
   );
 
   const invalidateBoardList = useCallback(() => {
@@ -298,25 +594,25 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   );
 
   const handleCreate = useCallback(() => {
-    if (!workspaceId || !rootUri || createMutation.isPending) return;
+    if (!resolveBoardRootUri(projectId) || createMutation.isPending) return;
     createMutation.mutate({
       title: t("canvasList.defaultName"),
       ...(projectId ? { projectId } : {}),
     });
-  }, [workspaceId, rootUri, projectId, createMutation, t]);
+  }, [resolveBoardRootUri, projectId, createMutation, t]);
 
   const handleBoardClick = useCallback(
-    (board: { id: string; title: string; folderUri: string }) => {
-      if (!rootUri) return;
-      const boardFolderUri = buildFileUriFromRoot(rootUri, board.folderUri);
+    (board: { id: string; title: string; folderUri: string; projectId?: string | null }) => {
+      const boardRootUri = resolveBoardRootUri(board.projectId);
+      if (!boardRootUri) return;
+      const boardFolderUri = buildFileUriFromRoot(boardRootUri, board.folderUri);
       const boardFileUri = buildFileUriFromRoot(
-        rootUri,
+        boardRootUri,
         `${board.folderUri}${BOARD_INDEX_FILE_NAME}`,
       );
       const baseId = `board:${boardFolderUri}`;
 
       const existingTab = tabs.find((tab) => {
-        if (workspaceId !== workspaceId) return false;
         const base = runtimeByTabId[tab.id]?.base;
         return base?.id === baseId;
       });
@@ -336,14 +632,14 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
               boardFolderUri,
               boardFileUri,
               boardId: board.id,
-              projectId,
-              rootUri,
+              projectId: board.projectId ?? undefined,
+              rootUri: boardRootUri,
             },
           },
         });
       }
     },
-    [rootUri, workspaceId, projectId, tabs, runtimeByTabId, addTab, setActiveTab, t],
+    [resolveBoardRootUri, tabs, runtimeByTabId, addTab, setActiveTab, t],
   );
 
   const handleRename = useCallback(
@@ -362,19 +658,18 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   }, [renameTarget, updateMutation]);
 
   const handleAiName = useCallback(async () => {
-    if (!renameTarget?.folderUri || !workspaceId) return;
+    if (!renameTarget?.folderUri) return;
     if (!saasLoggedIn) {
       setLoginOpen(true);
       return;
     }
     setAiNaming(true);
     try {
-      const boardFolderUri = rootUri
-        ? buildFileUriFromRoot(rootUri, renameTarget.folderUri)
-        : "";
-      if (!boardFolderUri) return;
+      const board = boards?.find((item) => item.id === renameTarget.boardId);
+      if (!board) return;
       const result = await inferBoardNameMutation.mutateAsync({
-        boardFolderUri,
+        boardFolderUri: board.folderUri,
+        projectId: board.projectId ?? undefined,
         saasAccessToken: getCachedAccessToken() ?? undefined,
       });
       if (result.title) {
@@ -389,7 +684,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     } finally {
       setAiNaming(false);
     }
-  }, [renameTarget, workspaceId, rootUri, saasLoggedIn, inferBoardNameMutation, t]);
+  }, [renameTarget, boards, saasLoggedIn, inferBoardNameMutation, t]);
 
   const handleDelete = useCallback(
     (boardId: string) => {
@@ -402,149 +697,30 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
 
   const handleDuplicate = useCallback(
     (boardId: string) => {
-      if (!workspaceId || duplicateMutation.isPending) return;
+      if (duplicateMutation.isPending) return;
       duplicateMutation.mutate({
         boardId,
         ...(projectId ? { projectId } : {}),
       });
     },
-    [workspaceId, projectId, duplicateMutation],
+    [projectId, duplicateMutation],
   );
 
   const activeBase = activeTabId ? runtimeByTabId[activeTabId]?.base : undefined;
   const activeBoardBaseId =
     activeBase?.component === "board-viewer" ? activeBase.id : undefined;
 
-  const renderBoardCard = useCallback(
-    (board: { id: string; title: string; folderUri: string; updatedAt: string | Date; projectId?: string | null }, index: number) => {
-      const boardFolderUri = rootUri
-        ? buildFileUriFromRoot(rootUri, board.folderUri)
-        : "";
-      const baseId = `board:${boardFolderUri}`;
-      const isActive = activeBoardBaseId === baseId;
-      const gradientIndex = hashCode(board.id) % PREVIEW_GRADIENTS.length;
-      const thumb = thumbMap?.[board.id];
-      const projectInfo = board.projectId ? projectInfoById.get(board.projectId) : undefined;
-
-      return (
-        <motion.div
-          key={board.id}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3, delay: index * 0.04 }}
-          className={`group relative flex flex-col overflow-hidden rounded-xl border cursor-pointer transition-all duration-200 hover:shadow-md hover:border-teal-300 dark:hover:border-teal-600 ${
-            isActive
-              ? "border-teal-400 dark:border-teal-500 shadow-sm ring-1 ring-teal-200 dark:ring-teal-700"
-              : "border-border"
-          }`}
-          onClick={() => handleBoardClick(board)}
-        >
-          {/* Preview area */}
-          <div
-            className={`relative flex items-center justify-center h-36 ${
-              thumb ? "bg-muted/30" : `bg-gradient-to-br ${PREVIEW_GRADIENTS[gradientIndex]}`
-            }`}
-          >
-            {thumb ? (
-              <img
-                src={thumb}
-                alt={board.title}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-2 opacity-40">
-                <Palette className="h-8 w-8" />
-                <div className="flex gap-1">
-                  <div className="h-1.5 w-6 rounded-full bg-current opacity-30" />
-                  <div className="h-1.5 w-4 rounded-full bg-current opacity-20" />
-                  <div className="h-1.5 w-8 rounded-full bg-current opacity-25" />
-                </div>
-              </div>
-            )}
-
-            {/* Dropdown menu overlay */}
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="h-7 w-7 rounded-lg bg-background/80 backdrop-blur-sm shadow-sm"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <MoreHorizontal className="h-3.5 w-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRename(board.id, board.title, board.folderUri);
-                    }}
-                  >
-                    <Edit2 className="mr-2 h-4 w-4" />
-                    {t("workspaceChatList.contextMenu.rename")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDuplicate(board.id);
-                    }}
-                  >
-                    <CopyPlus className="mr-2 h-4 w-4" />
-                    {t("canvasList.duplicate")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const fullPath = boardFolderUri.startsWith("file://")
-                        ? decodeURIComponent(new URL(boardFolderUri).pathname).replace(/\/$/, "")
-                        : boardFolderUri.replace(/\/$/, "");
-                      navigator.clipboard.writeText(fullPath);
-                    }}
-                  >
-                    <Copy className="mr-2 h-4 w-4" />
-                    {t("canvasList.copyPath")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(board.id);
-                    }}
-                    className="text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    {t("workspaceChatList.contextMenu.delete")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-
-          {/* Info area */}
-          <div className="flex flex-col gap-1 px-3 py-2.5">
-            <span className="text-sm font-medium truncate">
-              {board.title || t("canvasList.untitled")}
-            </span>
-            <div className="flex items-center justify-between gap-1.5 text-xs text-muted-foreground">
-              <span>{formatBoardDate(board.updatedAt, lang)}</span>
-              {projectInfo ? (
-                <span className="flex items-center gap-1 shrink-0 truncate max-w-[50%]">
-                  {projectInfo.icon ? (
-                    <span className="text-xs leading-none">{projectInfo.icon}</span>
-                  ) : (
-                    <img src="/head_s.png" alt="" className="h-3.5 w-3.5 rounded-sm" />
-                  )}
-                  <span className="truncate">{projectInfo.name}</span>
-                </span>
-              ) : null}
-            </div>
-          </div>
-        </motion.div>
-      );
-    },
-    [rootUri, activeBoardBaseId, thumbMap, projectInfoById, lang, handleBoardClick, handleRename, handleDelete, handleDuplicate, t],
+  const boardCardLabels = useMemo<BoardCardLabels>(
+    () => ({
+      untitled: t("canvasList.untitled"),
+      rename: t("workspaceChatList.contextMenu.rename"),
+      duplicate: t("canvasList.duplicate"),
+      copyPath: t("canvasList.copyPath"),
+      delete: t("workspaceChatList.contextMenu.delete"),
+    }),
+    [t],
   );
+  const canCreateBoard = Boolean(resolveBoardRootUri(projectId));
 
   return (
     <div className="flex h-full flex-col">
@@ -613,7 +789,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
             size="sm"
             className="rounded-full bg-teal-500/10 text-teal-700 hover:bg-teal-500/20 dark:bg-teal-400/15 dark:text-teal-300 dark:hover:bg-teal-400/25"
             onClick={handleCreate}
-            disabled={!workspaceId || !rootUri || createMutation.isPending}
+            disabled={!canCreateBoard || createMutation.isPending}
           >
             <Plus className="mr-1.5 h-4 w-4" />
             {t("canvasList.defaultName")}
@@ -632,7 +808,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
               size="sm"
               className="rounded-full mt-1 bg-teal-500/10 text-teal-700 hover:bg-teal-500/20 dark:bg-teal-400/15 dark:text-teal-300 dark:hover:bg-teal-400/25"
               onClick={handleCreate}
-              disabled={!workspaceId || !rootUri || createMutation.isPending}
+              disabled={!canCreateBoard || createMutation.isPending}
             >
               <Plus className="mr-1.5 h-4 w-4" />
               {t("canvasList.defaultName")}
@@ -646,15 +822,55 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
                   {tAi(group.labelKey, { defaultValue: group.labelKey })}
                 </h3>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
-                  {group.boards.map((board, i) => renderBoardCard(board, i))}
+                  {group.boards.map((board, i) => (
+                    <BoardCard
+                      key={board.id}
+                      activeBoardBaseId={activeBoardBaseId}
+                      board={board}
+                      index={i}
+                      isThumbLoading={loadingThumbIds.has(board.id)}
+                      labels={boardCardLabels}
+                      lang={lang}
+                      onBoardClick={handleBoardClick}
+                      onBoardVisible={handleBoardVisible}
+                      onDelete={handleDelete}
+                      onDuplicate={handleDuplicate}
+                      onRename={handleRename}
+                      projectInfo={board.projectId ? projectInfoById.get(board.projectId) : undefined}
+                      rootUri={resolveBoardRootUri(board.projectId)}
+                      thumb={thumbMap[board.id]}
+                    />
+                  ))}
                 </div>
               </div>
             ))}
+            {hasMoreBoards ? <div ref={loadMoreInViewRef} className="h-6 w-full" aria-hidden="true" /> : null}
           </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
-            {filteredBoards.map((board, i) => renderBoardCard(board, i))}
-          </div>
+          <>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
+              {displayedBoards.map((board, i) => (
+                <BoardCard
+                  key={board.id}
+                  activeBoardBaseId={activeBoardBaseId}
+                  board={board}
+                  index={i}
+                  isThumbLoading={loadingThumbIds.has(board.id)}
+                  labels={boardCardLabels}
+                  lang={lang}
+                  onBoardClick={handleBoardClick}
+                  onBoardVisible={handleBoardVisible}
+                  onDelete={handleDelete}
+                  onDuplicate={handleDuplicate}
+                  onRename={handleRename}
+                  projectInfo={board.projectId ? projectInfoById.get(board.projectId) : undefined}
+                  rootUri={resolveBoardRootUri(board.projectId)}
+                  thumb={thumbMap[board.id]}
+                />
+              ))}
+            </div>
+            {hasMoreBoards ? <div ref={loadMoreInViewRef} className="h-6 w-full" aria-hidden="true" /> : null}
+          </>
         )}
       </div>
 

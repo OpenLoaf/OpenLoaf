@@ -11,7 +11,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { trpc } from '@/utils/trpc'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
 import { useTabs } from '@/hooks/use-tabs'
@@ -56,7 +56,6 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import { ScheduledTaskDialog } from './ScheduledTaskDialog'
-import { useWorkspace } from '@/hooks/use-workspace'
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -681,7 +680,6 @@ export default function TaskBoardPage({
   const { t } = useTranslation('tasks')
   const PRIORITY_LABELS = getPriorityLabels(t)
   const TRIGGER_LABELS = getTriggerLabels(t)
-  const { workspace } = useWorkspace()
   const queryClient = useQueryClient()
   const pushStackItem = useTabRuntime((state) => state.pushStackItem)
   const { activeTabId } = useTabs()
@@ -697,11 +695,9 @@ export default function TaskBoardPage({
   const triggerLabels = useMemo(() => getTriggerLabels(t), [t])
   const statusColumns = useMemo(() => getStatusColumns(t), [t])
 
-  const workspaceId = workspace?.id ?? ''
-
   const { data: tasks = [], isLoading, refetch } = useQuery(
     trpc.scheduledTask.list.queryOptions(
-      workspaceId ? { projectId } : skipToken,
+      { projectId },
       { refetchInterval: 60_000, staleTime: 0, refetchOnMount: 'always' },
     ),
   )
@@ -793,7 +789,7 @@ export default function TaskBoardPage({
         params: { taskId: id, projectId },
       })
     },
-    [activeTabId, pushStackItem, tasks, workspaceId, projectId, t],
+    [activeTabId, pushStackItem, tasks, projectId, t],
   )
 
   const activateAiChat = useCallback(() => {
@@ -843,8 +839,6 @@ export default function TaskBoardPage({
     }
     return groups
   }, [filteredTasks])
-
-  if (!workspace) return null
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">

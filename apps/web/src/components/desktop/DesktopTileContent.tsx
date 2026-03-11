@@ -12,7 +12,6 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { openSettingsTab, useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
@@ -51,7 +50,6 @@ export default function DesktopTileContent({
   onConfigure,
 }: DesktopTileContentProps) {
   const { t } = useTranslation('desktop');
-  const { workspace } = useWorkspace();
   const tabs = useTabs((state) => state.tabs);
   const activeTabId = useTabs((state) => state.activeTabId);
   const setTabBaseParams = useTabRuntime((state) => state.setTabBaseParams);
@@ -68,10 +66,6 @@ export default function DesktopTileContent({
     (iconKey: DesktopIconKey) => {
       if (iconKey === "search") {
         setSearchOpen(true);
-        return;
-      }
-      if (!workspace?.id) {
-        toast.error(t('content.noWorkspace'));
         return;
       }
       if (iconKey === "settings" && scope === "workspace") {
@@ -115,7 +109,7 @@ export default function DesktopTileContent({
       // 中文注释：仅更新当前激活的项目 tab 子页签。
       setTabBaseParams(activeTab.id, { projectTab: nextTab });
     },
-    [activeTabId, scope, setSearchOpen, setTabBaseParams, tabs, workspace?.id]
+    [activeTabId, scope, setSearchOpen, setTabBaseParams, t, tabs]
   );
 
   React.useEffect(() => {

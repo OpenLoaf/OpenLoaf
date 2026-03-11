@@ -13,7 +13,6 @@ import { memo, useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { trpc } from '@/utils/trpc'
-import { useWorkspace } from '@/hooks/use-workspace'
 import { Button } from '@openloaf/ui/button'
 import { Badge } from '@openloaf/ui/badge'
 import { cn } from '@/lib/utils'
@@ -167,7 +166,6 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
   projectId,
 }: TaskDetailPanelProps) {
   const { t } = useTranslation('tasks')
-  const { workspace } = useWorkspace()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<Tab>('plan')
 

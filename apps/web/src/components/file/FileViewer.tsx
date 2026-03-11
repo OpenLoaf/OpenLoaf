@@ -11,7 +11,6 @@
 
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { ViewerGuard } from "@/components/file/lib/viewer-guard";
 
 interface FileViewerProps {
@@ -19,7 +18,7 @@ interface FileViewerProps {
   name?: string;
   ext?: string;
   projectId?: string;
-  /** Workspace id for file queries (overrides useWorkspace). */
+  /** Legacy prop kept for compatibility. */
   workspaceId?: string;
   rootUri?: string;
 }
@@ -123,15 +122,13 @@ function shouldUseBinaryFallback(ext?: string): boolean {
 }
 
 /** Render a simple file preview panel. */
-export default function FileViewer({ uri, name, ext, projectId, workspaceId: workspaceIdProp, rootUri }: FileViewerProps) {
-  const { workspace } = useWorkspace();
-  const workspaceId = workspaceIdProp || workspace?.id || "";
+export default function FileViewer({ uri, name, ext, projectId, rootUri }: FileViewerProps) {
   const resolvedExt = ext ?? name?.split(".").pop();
   // 逻辑：二进制文件不走文本读取，直接提示使用系统程序或下载查看。
   const isBinaryFallback = shouldUseBinaryFallback(resolvedExt);
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(
-      uri && workspaceId && !isBinaryFallback ? { projectId, uri } : skipToken
+      uri && !isBinaryFallback ? { projectId, uri } : skipToken
     )
   );
 

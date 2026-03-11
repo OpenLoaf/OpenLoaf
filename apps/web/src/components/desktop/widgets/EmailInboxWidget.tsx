@@ -18,7 +18,6 @@ import { toast } from "sonner";
 import { Input } from "@openloaf/ui/input";
 import { trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { formatDateTime } from "@/components/email/email-utils";
@@ -27,8 +26,6 @@ import { MESSAGE_PAGE_SIZE, type EmailMessageSummary } from "@/components/email/
 /** Render unified inbox list widget. */
 export default function EmailInboxWidget() {
   const { t } = useTranslation('desktop');
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
   const activeTabId = useTabs((s) => s.activeTabId);
   const [searchKeyword, setSearchKeyword] = React.useState("");
   const [activeMessageId, setActiveMessageId] = React.useState<string | null>(null);
@@ -36,17 +33,15 @@ export default function EmailInboxWidget() {
   const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
 
   const accountsQuery = useQuery(
-    trpc.email.listAccounts.queryOptions(
-      workspaceId ? {} : skipToken,
-    ),
+    trpc.email.listAccounts.queryOptions({}),
   );
   const accounts = (accountsQuery.data ?? []) as Array<{ emailAddress: string }>;
   const hasAccounts = accounts.length > 0;
 
   const unifiedMessagesInput = React.useMemo(() => {
-    if (!workspaceId || !hasAccounts) return null;
-    return { workspaceId, scope: "all-inboxes" as const, pageSize: MESSAGE_PAGE_SIZE };
-  }, [hasAccounts, workspaceId]);
+    if (!hasAccounts) return null;
+    return { scope: "all-inboxes" as const, pageSize: MESSAGE_PAGE_SIZE };
+  }, [hasAccounts]);
 
   const messagesQuery = useInfiniteQuery({
     ...trpc.email.listUnifiedMessages.infiniteQueryOptions(
@@ -147,11 +142,7 @@ export default function EmailInboxWidget() {
         ref={messagesListRef}
         className="mt-3 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1 text-sm show-scrollbar"
       >
-        {!workspaceId ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
-            {t('emailInbox.noWorkspace')}
-          </div>
-        ) : accountsQuery.isLoading ? (
+        {accountsQuery.isLoading ? (
           <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
             {t('emailInbox.loadingAccounts')}
           </div>

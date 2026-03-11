@@ -15,7 +15,6 @@ import { Download, Paperclip } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { resolveServerUrl } from "@/utils/server-url";
 import { trpc } from "@/utils/trpc";
 import type { EmailMessageDetail } from "./email-types";
@@ -47,8 +46,11 @@ export default function EmailMessageStackPanel({
   fallbackPreview,
 }: EmailMessageStackPanelProps) {
   const { t } = useTranslation('common');
-  const { workspace } = useWorkspace();
-  const resolvedWorkspaceId = workspaceId ?? workspace?.id;
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const resolvedWorkspaceId = workspaceId ?? workspaceCompatQuery.data?.id;
 
   const messageQuery = useQuery(
     trpc.email.getMessage.queryOptions(

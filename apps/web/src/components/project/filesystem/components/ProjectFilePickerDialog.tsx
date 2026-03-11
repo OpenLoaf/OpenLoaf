@@ -38,7 +38,6 @@ import {
 } from "@openloaf/ui/dialog";
 import { Button } from "@openloaf/ui/button";
 import { PageTreePicker } from "@/components/layout/sidebar/ProjectTree";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { useProjects } from "@/hooks/use-projects";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { trpc } from "@/utils/trpc";
@@ -145,8 +144,6 @@ export function ProjectFilePickerDialog({
   onImportFromComputer,
 }: ProjectFilePickerDialogProps) {
   const { t } = useTranslation(['workspace']);
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
   const projectListQuery = useProjects();
   const projectOptions = useMemo(
     () => flattenProjects(projectListQuery.data as ProjectTreeNode[] | undefined),
@@ -197,7 +194,7 @@ export function ProjectFilePickerDialog({
 
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(
-      activeUri !== null && workspaceId
+      activeUri !== null
         ? { projectId: activeProjectId, uri: activeUri }
         : skipToken
     )

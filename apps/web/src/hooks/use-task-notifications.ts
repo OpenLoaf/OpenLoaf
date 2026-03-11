@@ -8,11 +8,10 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { useEffect, useRef } from 'react'
-import { useQuery, skipToken } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { trpc } from '@/utils/trpc'
 import { isElectronEnv } from '@/utils/is-electron-env'
-import { useWorkspace } from '@/hooks/use-workspace'
 
 type TaskSummary = {
   id: string
@@ -26,12 +25,11 @@ type TaskSummary = {
  * transition to review or done status.
  */
 export function useTaskNotifications() {
-  const { workspace } = useWorkspace()
   const prevTasksRef = useRef<Map<string, string>>(new Map())
 
   const { data: tasks } = useQuery(
     trpc.scheduledTask.list.queryOptions(
-      workspace ? {} : skipToken,
+      {},
       { refetchInterval: 60_000 },
     ),
   )

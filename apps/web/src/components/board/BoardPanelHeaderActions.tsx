@@ -30,7 +30,6 @@ import {
 } from "@/lib/file-name";
 import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { trpcClient } from "@/utils/trpc";
 import { getBoardEngine } from "./engine/board-engine-registry";
 import type { BoardJsonSnapshot } from "@openloaf/api/types/boardCollab";
@@ -116,7 +115,6 @@ const REPAIR_GRID_COLS = 4;
 export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeaderActionsProps) {
   const { t } = useTranslation('board');
   const isBoardPanel = item.component === "board-viewer";
-  const { workspace } = useWorkspace();
   const sidebar = useOptionalSidebar();
   const isMobile = sidebar?.isMobile ?? false;
   const open = sidebar?.open ?? false;
@@ -186,7 +184,6 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
       toast.error(t('panelHeader.repairNoEngine'));
       return;
     }
-    const workspaceId = workspace?.id ?? '';
     const jsonUri = boardFolderUri.replace(/\/$/, '') + '/index.tnboard.json';
     try {
       const result = await trpcClient.fs.readFile.query({
@@ -246,7 +243,7 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
       console.error('[board repair] failed', error);
       toast.error(t('panelHeader.repairFailed'));
     }
-  }, [item.id, item.params, workspace?.id, t]);
+  }, [item.id, item.params, t]);
 
   /** Toggle the left sidebar and right AI panel together. */
   const handleTogglePanels = useCallback(() => {

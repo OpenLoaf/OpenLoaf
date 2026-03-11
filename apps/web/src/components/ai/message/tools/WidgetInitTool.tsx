@@ -10,10 +10,11 @@
 'use client'
 
 import * as React from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { FolderOpen, FileCode } from 'lucide-react'
 import { useTabRuntime } from '@/hooks/use-tab-runtime'
-import { useWorkspace } from '@/hooks/use-workspace'
+import { useProject } from '@/hooks/use-project'
 import { useChatSession } from '../../context'
 import {
   getApprovalId,
@@ -27,6 +28,7 @@ import {
 import { TrafficLights } from '@openloaf/ui/traffic-lights'
 import { parseOutputJson } from './shared/widget-shared'
 import ToolApprovalActions from './shared/ToolApprovalActions'
+import { trpc } from '@/utils/trpc'
 
 export default function WidgetInitTool({
   part,
@@ -35,10 +37,17 @@ export default function WidgetInitTool({
   part: AnyToolPart
   className?: string
 }) {
-  const { tabId, workspaceId, projectId } = useChatSession()
-  const { workspace } = useWorkspace()
+  const { tabId, projectId } = useChatSession()
+  const projectQuery = useProject(projectId)
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  })
   const pushStackItem = useTabRuntime((s) => s.pushStackItem)
   const input = asPlainObject(normalizeToolInput(part.input))
+  const baseRootUri = projectId
+    ? projectQuery.data?.project?.rootUri
+    : workspaceCompatQuery.data?.rootUri
 
   const outputJson = parseOutputJson(part)
   const widgetId = (outputJson?.widgetId as string) || 'Widget'
@@ -63,10 +72,7 @@ export default function WidgetInitTool({
         : ('idle' as const)
 
   const handleOpenWidget = () => {
-    if (!tabId || !workspaceId || !widgetId) return
-    const baseRootUri = projectId
-      ? workspace?.projects?.[projectId]
-      : workspace?.rootUri
+    if (!tabId || !widgetId) return
     if (!baseRootUri) return
     const widgetFolderUri = `${baseRootUri.replace(/\/$/, '')}/.openloaf/dynamic-widgets/${widgetId}`
     const mainFileUri = `${widgetFolderUri}/widget.tsx`

@@ -43,7 +43,6 @@ import { sortEntriesByType } from "../utils/entry-sort";
 import { getEntryVisual } from "./FileSystemEntryVisual";
 import { useFileSystemDrag } from "../hooks/use-file-system-drag";
 import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
-import { useWorkspace } from "@/hooks/use-workspace";
 
 type FileSystemGitTreeProps = {
   /** Project root uri. */
@@ -273,8 +272,6 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
   onContextMenuCapture,
 }: FileSystemGitTreeNodeProps) {
   const { t } = useTranslation(['workspace']);
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
   const isExpanded = expandedNodes[node.entry.uri] ?? false;
   const isSelected = selectedUris.has(node.entry.uri);
   const canExpand = node.isFolder && node.entry.isEmpty !== true;
@@ -286,7 +283,7 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
   // 逻辑：仅在展开时拉取子目录，避免深层目录导致请求爆炸。
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(
-      shouldFetchChildren && workspaceId
+      shouldFetchChildren
         ? {
             projectId,
             uri: node.entry.uri,

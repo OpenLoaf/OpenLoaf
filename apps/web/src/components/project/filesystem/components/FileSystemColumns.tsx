@@ -50,7 +50,6 @@ import { useFileSystemPreview } from "../hooks/use-file-system-preview";
 import { useFolderThumbnails } from "../hooks/use-folder-thumbnails";
 import { FileSystemPreviewPanel } from "./FileSystemPreviewPanel";
 import { FileSystemPreviewStack } from "./FileSystemPreviewStack";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { handleFileSystemEntryOpen } from "../utils/entry-open";
 
 /** Return true when the entry represents a board folder. */
@@ -384,8 +383,6 @@ const FileSystemColumns = memo(function FileSystemColumns({
   onGridContextMenuCapture,
 }: FileSystemColumnsProps) {
   const { t } = useTranslation(['workspace']);
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
   const activeUri = currentUri ?? rootUri ?? null;
   const searchText = searchQuery?.trim() ?? "";
   const hasSearchQuery = searchText.length > 0;
@@ -408,7 +405,6 @@ const FileSystemColumns = memo(function FileSystemColumns({
         sort:
           sortField && sortOrder ? { field: sortField, order: sortOrder } : undefined,
       }),
-      enabled: Boolean(workspaceId),
     })),
   });
   const hasExplicitSelection = (selectedUris?.size ?? 0) > 0;

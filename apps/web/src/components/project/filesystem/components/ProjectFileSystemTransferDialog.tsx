@@ -51,7 +51,6 @@ import { Ban, FolderPlus, PencilLine } from "lucide-react";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { useFileRename } from "@/hooks/use-file-rename";
 import { useProjects } from "@/hooks/use-projects";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { isBoardFolderName } from "@/lib/file-name";
 import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import {
@@ -146,8 +145,6 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
   onSelectFileRefs,
 }: ProjectFileSystemTransferDialogProps) {
   const { t } = useTranslation(['workspace']);
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
   const queryClient = useQueryClient();
   const projectListQuery = useProjects();
   const [activeRootUri, setActiveRootUri] = useState<string | null>(
@@ -178,7 +175,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
   );
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(
-      activeUri !== null && workspaceId
+      activeUri !== null
         ? { projectId: activeProjectId, uri: activeUri }
         : skipToken
     )
@@ -266,7 +263,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
         return null;
       }
     },
-    [activeProjectId, activeUri, listQuery, renameMutation, workspaceId]
+    [activeProjectId, activeUri, listQuery, renameMutation, t]
   );
 
   /** Manage rename state for folder entries. */

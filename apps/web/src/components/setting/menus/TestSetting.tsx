@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { Button } from "@openloaf/ui/button";
+import { useQuery } from "@tanstack/react-query";
 import {
   BROWSER_WINDOW_COMPONENT,
   BROWSER_WINDOW_PANEL_ID,
@@ -22,12 +23,12 @@ import { Bug, Globe, Layers, Monitor, RefreshCw } from "lucide-react";
 import { memo, useState, useCallback, useEffect } from "react";
 import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
 import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { toast } from "sonner";
 import { useTerminalStatus } from "@/hooks/use-terminal-status";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { Switch } from "@openloaf/ui/switch";
 import { isElectronEnv } from "@/utils/is-electron-env";
+import { trpc } from "@/utils/trpc";
 
 /** Flat-color icon badge for settings items. */
 function SettingIcon({ icon: Icon, bg, fg }: { icon: LucideIcon; bg: string; fg: string }) {
@@ -42,9 +43,11 @@ function SettingIcon({ icon: Icon, bg, fg }: { icon: LucideIcon; bg: string; fg:
 const STEP_UP_ROUTE = "/step-up";
 
 const TestSetting = memo(function TestSetting() {
-  /** Active workspace info. */
-  const { workspace } = useWorkspace();
   const { basic, setBasic } = useBasicConfig();
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
   const activeTabId = useTabs((s) => s.activeTabId);
   const activeStackCount = useTabRuntime((s) => {
     const runtime = activeTabId ? s.runtimeByTabId[activeTabId] : undefined;
@@ -139,7 +142,7 @@ const TestSetting = memo(function TestSetting() {
       toast.error("终端功能未开启");
       return;
     }
-    const rootUri = workspace?.rootUri;
+    const rootUri = workspaceCompatQuery.data?.rootUri;
     if (!rootUri) {
       toast.error("未找到工作区目录");
       return;

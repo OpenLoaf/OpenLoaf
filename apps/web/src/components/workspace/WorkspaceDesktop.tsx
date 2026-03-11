@@ -10,7 +10,7 @@
 "use client";
 
 import * as React from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import DesktopEditToolbar from "@/components/desktop/DesktopEditToolbar";
 import DesktopPage, { getInitialDesktopItems } from "@/components/desktop/DesktopPage";
 import type { DesktopItem } from "@/components/desktop/types";
@@ -27,7 +27,6 @@ import {
   serializeDesktopItems,
 } from "@/components/desktop/desktop-persistence";
 import { queryClient, trpc } from "@/utils/trpc";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
@@ -47,9 +46,12 @@ const WorkspaceDesktop = React.memo(function WorkspaceDesktop({
 }: {
   tabId?: string;
 }) {
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
-  const workspaceRootUri = workspace?.rootUri ?? "";
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const workspaceId = workspaceCompatQuery.data?.id ?? "";
+  const workspaceRootUri = workspaceCompatQuery.data?.rootUri ?? "";
   const globalActiveTabId = useTabs((state) => state.activeTabId);
   const activeTabId = ownTabId || globalActiveTabId;
   const setTabBaseParams = useTabRuntime((state) => state.setTabBaseParams);

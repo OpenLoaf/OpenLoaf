@@ -58,7 +58,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
-import { useWorkspace } from "@/hooks/use-workspace";
 
 import "@univerjs/design/lib/index.css";
 import "@univerjs/ui/lib/index.css";
@@ -426,8 +425,6 @@ export default function SheetViewer({
   const canMinimize = Boolean(tabId);
   const canClose = Boolean(tabId && panelKey);
   const isReadOnly = Boolean(readOnly);
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
   /** Tracks the current loading status. */
   const [status, setStatus] = useState<SheetViewerStatus>("idle");
   /** Track whether the workbook has unsaved changes. */
@@ -464,7 +461,7 @@ export default function SheetViewer({
       projectId,
       uri: uri ?? "",
     }),
-    enabled: shouldUseFs && Boolean(uri) && Boolean(workspaceId),
+    enabled: shouldUseFs && Boolean(uri),
   });
   /** Mutation handler for persisting binary payloads. */
   const writeBinaryMutation = useMutation(trpc.fs.writeBinary.mutationOptions());

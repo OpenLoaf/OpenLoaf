@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from 'next-themes'
 import Editor, { type OnMount } from '@monaco-editor/react'
@@ -20,7 +20,6 @@ import { requestStackMinimize } from '@/lib/stack-dock-animation'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@openloaf/ui/tabs'
 import { Copy, FolderOpen } from 'lucide-react'
 import { Button } from '@openloaf/ui/button'
-import { useWorkspace } from '@/hooks/use-workspace'
 import { toast } from 'sonner'
 
 interface AiDebugViewerProps {
@@ -145,8 +144,6 @@ export default function AiDebugViewer({
 }: AiDebugViewerProps) {
   const { t } = useTranslation('ai')
   const removeStackItem = useTabRuntime((s) => s.removeStackItem)
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem)
-  const { workspace } = useWorkspace()
   const shouldRenderStackHeader = Boolean(tabId && panelKey)
 
   const handleCopyJsonlPath = useCallback(async () => {

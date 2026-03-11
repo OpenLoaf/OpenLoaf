@@ -20,7 +20,6 @@ import {
   CommandShortcut,
 } from "@openloaf/ui/command";
 import { Kbd, KbdGroup } from "@openloaf/ui/kbd";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useTabView } from "@/hooks/use-tab-view";
@@ -73,7 +72,11 @@ export function Search({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { workspace: activeWorkspace } = useWorkspace();
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const activeWorkspaceId = workspaceCompatQuery.data?.id;
   const addTab = useTabs((s) => s.addTab);
   const setActiveTab = useTabs((s) => s.setActiveTab);
   const setTabBaseParams = useTabRuntime((s) => s.setTabBaseParams);
@@ -106,20 +109,20 @@ export function Search({
   );
   /** Refresh recent open lists for workspace and project scopes. */
   const refreshRecentItems = React.useCallback(() => {
-    if (!activeWorkspace?.id) {
+    if (!activeWorkspaceId) {
       setRecentProjectItems([]);
       setRecentWorkspaceItems([]);
       return;
     }
     // 逻辑：只在弹层打开时刷新最近打开数据，避免无意义读写。
     const recent = getRecentOpens({
-      workspaceId: activeWorkspace.id,
+      workspaceId: activeWorkspaceId,
       projectId: scopedProjectId,
       limit: 5,
     });
     setRecentProjectItems(recent.project);
     setRecentWorkspaceItems(recent.workspace);
-  }, [activeWorkspace?.id, scopedProjectId]);
+  }, [activeWorkspaceId, scopedProjectId]);
   /** 当前激活 Tab 的面板参数。 */
   const activeBaseParams = activeTab?.base?.params as Record<string, unknown> | undefined;
   /** 当前激活 Tab 的聊天参数。 */
@@ -146,7 +149,7 @@ export function Search({
   /** 项目范围内的搜索结果。 */
   const projectSearchQuery = useQuery({
     ...trpc.fs.search.queryOptions(
-      searchEnabled && scopedProjectId && scopedProjectRootUri && activeWorkspace?.id
+      searchEnabled && scopedProjectId && scopedProjectRootUri && activeWorkspaceId
         ? {
             projectId: scopedProjectId,
             rootUri: scopedProjectRootUri,
@@ -161,7 +164,7 @@ export function Search({
   /** 工作区范围内的搜索结果。 */
   const workspaceSearchQuery = useQuery({
     ...trpc.fs.searchWorkspace.queryOptions(
-      searchEnabled && !scopedProjectId && activeWorkspace?.id
+      searchEnabled && !scopedProjectId && activeWorkspaceId
         ? {
             query: debouncedSearchValue,
             includeHidden: false,
@@ -279,7 +282,6 @@ export function Search({
   /** 打开项目的文件系统定位到指定目录。 */
   const handleOpenProjectFileSystem = React.useCallback(
     (projectId: string, projectTitle: string, rootUri: string, targetUri: string) => {
-      if (!activeWorkspace?.id) return;
       const baseId = `project:${projectId}`;
       const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
       const existing = useTabs
@@ -314,7 +316,6 @@ export function Search({
       handleOpenChange(false);
     },
     [
-      activeWorkspace?.id,
       addTab,
       handleOpenChange,
       projectHierarchy.projectById,
@@ -337,14 +338,14 @@ export function Search({
     if (!open) return;
     const handleRecentEvent = (event: Event) => {
       const detail = (event as CustomEvent<{ workspaceId?: string }>).detail;
-      if (detail?.workspaceId && detail.workspaceId !== activeWorkspace?.id) return;
+      if (detail?.workspaceId && detail.workspaceId !== activeWorkspaceId) return;
       refreshRecentItems();
     };
     window.addEventListener(RECENT_OPEN_EVENT, handleRecentEvent);
     return () => {
       window.removeEventListener(RECENT_OPEN_EVENT, handleRecentEvent);
     };
-  }, [activeWorkspace?.id, open, refreshRecentItems]);
+  }, [activeWorkspaceId, open, refreshRecentItems]);
   React.useEffect(() => {
     const wasOpen = prevOpenRef.current;
     prevOpenRef.current = open;
@@ -454,7 +455,7 @@ export function Search({
   ]);
   /** 按项目分组构建缩略图请求列表。 */
   const thumbnailGroups = React.useMemo(() => {
-    if (!activeWorkspace?.id) return [];
+    if (!activeWorkspaceId) return [];
     const grouped = new Map<string, string[]>();
     for (const result of thumbnailTargets) {
       if (result.entry.kind !== "file") continue;
@@ -466,12 +467,12 @@ export function Search({
       projectId,
       uris: Array.from(new Set(uris)).slice(0, 50),
     }));
-  }, [activeWorkspace?.id, thumbnailTargets]);
+  }, [activeWorkspaceId, thumbnailTargets]);
   /** 请求可见文件的缩略图数据。 */
   const thumbnailQueries = useQueries({
     queries: thumbnailGroups.map((group) => {
       const queryOptions = trpc.fs.thumbnails.queryOptions(
-        group.uris.length && activeWorkspace?.id
+        group.uris.length && activeWorkspaceId
           ? { projectId: group.projectId, uris: group.uris }
           : skipToken,
       );
@@ -479,7 +480,7 @@ export function Search({
         ...(queryOptions as unknown as Record<string, unknown>),
         queryKey: queryOptions.queryKey,
         queryFn: queryOptions.queryFn,
-        enabled: Boolean(group.uris.length) && Boolean(activeWorkspace?.id),
+        enabled: Boolean(group.uris.length) && Boolean(activeWorkspaceId),
         refetchOnWindowFocus: false,
         staleTime: 5 * 60 * 1000,
       };

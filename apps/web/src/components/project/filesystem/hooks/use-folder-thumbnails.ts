@@ -12,7 +12,6 @@
 import { useMemo } from "react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { useWorkspace } from "@/hooks/use-workspace";
 
 type UseFolderThumbnailsParams = {
   currentUri?: string | null;
@@ -26,9 +25,7 @@ function useFolderThumbnails({
   includeHidden,
   projectId,
 }: UseFolderThumbnailsParams) {
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
-  const shouldFetch = currentUri !== null && currentUri !== undefined && Boolean(workspaceId);
+  const shouldFetch = currentUri !== null && currentUri !== undefined;
   const thumbnailsQuery = useQuery(
     trpc.fs.folderThumbnails.queryOptions(
       shouldFetch

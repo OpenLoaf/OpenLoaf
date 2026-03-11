@@ -19,7 +19,6 @@ import {
   type StackPanelSlot,
 } from "@/hooks/use-stack-panel-slot";
 import { useTabView } from "@/hooks/use-tab-view";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import type { DockItem } from "@openloaf/api/common";
 import WorkspaceSwitchDockTabs from "./WorkspaceSwitchDockTabs";
@@ -273,8 +272,6 @@ function parseRenamePath(uri: string) {
 // Render the left dock contents for a tab.
 export function LeftDock({ tabId }: { tabId: string }) {
   const tab = useTabView(tabId);
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
   const stackHidden = Boolean(tab?.stackHidden);
   const activeStackItemId = tab?.activeStackItemId;
   const removeStackItem = useTabRuntime((s) => s.removeStackItem);
@@ -347,12 +344,11 @@ export function LeftDock({ tabId }: { tabId: string }) {
       setRenameValue(getBoardDisplayName(name));
       setRenameDialog({ tabId, itemId: item.id, uri, name, ext, projectId });
     },
-    [removeStackItem, tabId, deleteMutation, workspaceId, queryClient],
+    [removeStackItem, tabId, deleteMutation, queryClient],
   );
 
   const handleRenameConfirm = React.useCallback(async () => {
     if (!renameDialog) return;
-    if (!workspaceId) return;
     const rawName = renameValue.trim();
     if (!rawName) return;
     const nextName = ensureBoardFolderName(rawName);
@@ -386,7 +382,6 @@ export function LeftDock({ tabId }: { tabId: string }) {
   /** Delete the board folder and close the stack item. */
   const handleDeleteBoard = React.useCallback(async () => {
     if (!renameDialog) return;
-    if (!workspaceId) return;
     try {
       await deleteMutation.mutateAsync({
         projectId: renameDialog.projectId,
@@ -406,7 +401,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
       console.warn("[LeftDock] delete board failed", error);
       toast.error("删除画布失败");
     }
-  }, [removeStackItem, renameDialog, deleteMutation, workspaceId, queryClient]);
+  }, [removeStackItem, renameDialog, deleteMutation, queryClient]);
 
   React.useEffect(() => {
     if (stack.length === 0) return;

@@ -11,6 +11,7 @@
 
 import type { IlamyCalendarProps } from "@openloaf/ui/calendar";
 import { IlamyCalendar } from "@openloaf/ui/calendar";
+import { useQuery } from "@tanstack/react-query";
 import styles from "./Calendar.module.css";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -42,9 +43,9 @@ import { useCalendarPageState } from "./use-calendar-page-state";
 import { useCalendarTasks } from "./use-calendar-tasks";
 import { useProjects } from "@/hooks/use-projects";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { toast } from "sonner";
 import { isElectronEnv } from "@/utils/is-electron-env";
+import { trpc } from "@/utils/trpc";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -383,8 +384,11 @@ export default function CalendarPage({
 }) {
   const { t } = useTranslation('calendar');
   const { basic } = useBasicConfig();
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id;
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const workspaceId = workspaceCompatQuery.data?.id;
   const uiLanguageRaw = basic.uiLanguage;
   // 逻辑：未知语言回退到 zh-CN。
   const uiLanguage: LanguageId =

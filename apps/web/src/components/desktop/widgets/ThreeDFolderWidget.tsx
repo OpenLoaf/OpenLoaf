@@ -21,7 +21,6 @@ import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import { trpc } from "@/utils/trpc";
 import { getEntryVisual, IMAGE_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import { openFilePreview } from "@/components/file/lib/open-file";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import {
@@ -124,8 +123,6 @@ export default function ThreeDFolderWidget({
   hovered,
 }: ThreeDFolderWidgetProps) {
   const { t } = useTranslation('desktop');
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
   const activeTabId = useTabs((state) => state.activeTabId);
   const tabs = useTabs((state) => state.tabs);
   const setActiveTab = useTabs((state) => state.setActiveTab);
@@ -149,7 +146,7 @@ export default function ThreeDFolderWidget({
 
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(
-      resolvedFolder && workspaceId
+      resolvedFolder
         ? {
             projectId: resolvedFolder.projectId,
             uri: resolvedFolder.fileUri,
@@ -229,10 +226,6 @@ export default function ThreeDFolderWidget({
   const resolvedHover = hovered ?? false;
   const openFolderInFileSystem = React.useCallback(
     (input: { projectId?: string; rootUri?: string; uri?: string }) => {
-      if (!workspaceId) {
-        toast.error(t('content.noWorkspace'));
-        return;
-      }
       if (!input.projectId || !input.rootUri || input.uri === undefined || input.uri === null) {
         toast.error(t('threeDFolder.noFolderInfo'));
         return;
@@ -269,7 +262,7 @@ export default function ThreeDFolderWidget({
         chatParams: { projectId: input.projectId },
       });
     },
-    [addTab, projectRoots, setActiveTab, setTabBaseParams, tabs, workspaceId]
+    [addTab, projectRoots, setActiveTab, setTabBaseParams, t, tabs]
   );
   const handleProjectOpen = React.useCallback(
     (project: AnimatedFolderProject) => {

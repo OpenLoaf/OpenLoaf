@@ -15,7 +15,6 @@ import i18next from "i18next";
 import { Chat } from "@/components/ai/Chat";
 import { useStackPanelSlot } from "@/hooks/use-stack-panel-slot";
 import { openSettingsTab } from "@/lib/globalShortcuts";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { ExternalLink } from "lucide-react";
 
 // Lazy-load all panel components to reduce initial bundle size.
@@ -74,7 +73,6 @@ const LazyProjectGridPage = React.lazy(() => import("@/components/workspace/Proj
 /** Stack wrapper that injects a "open in settings" button into the header slot. */
 function SettingsStackSlotButton({ settingsMenu }: { settingsMenu: string }) {
   const slotCtx = useStackPanelSlot();
-  const { workspace } = useWorkspace();
   React.useEffect(() => {
     if (!slotCtx) return;
     slotCtx.setSlot({
@@ -86,14 +84,14 @@ function SettingsStackSlotButton({ settingsMenu }: { settingsMenu: string }) {
           title: i18next.t('nav:panelTitle.openInSettings'),
           "aria-label": i18next.t('nav:panelTitle.openInSettings'),
           onClick: () => {
-            if (workspace?.id) openSettingsTab(settingsMenu);
+            openSettingsTab(settingsMenu);
           },
         },
         React.createElement(ExternalLink, { className: "h-3.5 w-3.5" }),
       ),
     });
     return () => slotCtx.setSlot(null);
-  }, [slotCtx, workspace?.id, settingsMenu]);
+  }, [slotCtx, settingsMenu]);
   return null;
 }
 

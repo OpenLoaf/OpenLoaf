@@ -28,7 +28,6 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 import CodeViewer, { type CodeViewerActions, type CodeViewerStatus } from "@/components/file/CodeViewer";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { ViewerGuard } from "@/components/file/lib/viewer-guard";
 import { stopFindShortcutPropagation } from "@/components/file/lib/viewer-shortcuts";
 import { buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
@@ -49,7 +48,7 @@ interface MarkdownViewerProps {
   tabId?: string;
   rootUri?: string;
   projectId?: string;
-  /** Workspace id for file queries (overrides useWorkspace). */
+  /** Legacy prop kept for compatibility. */
   workspaceId?: string;
   /** Whether the viewer is read-only. */
   readOnly?: boolean;
@@ -376,15 +375,16 @@ export default function MarkdownViewer({
   tabId,
   rootUri,
   projectId,
-  workspaceId: workspaceIdProp,
   readOnly,
   __chatHistorySessionId,
   __chatHistoryJsonlPath,
 }: MarkdownViewerProps) {
   const { t } = useTranslation('common');
-  const { workspace } = useWorkspace();
-  const workspaceId = workspaceIdProp || workspace?.id || "";
-  const workspaceRootUri = workspace?.rootUri ?? "";
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const workspaceRootUri = workspaceCompatQuery.data?.rootUri ?? "";
   const hasInlineContent = typeof inlineContent === "string";
   const chatHistorySessionId =
     typeof __chatHistorySessionId === "string" ? __chatHistorySessionId.trim() : "";
@@ -392,7 +392,7 @@ export default function MarkdownViewer({
     typeof __chatHistoryJsonlPath === "string" ? __chatHistoryJsonlPath.trim() : "";
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(
-      !hasInlineContent && uri && workspaceId ? { projectId, uri } : skipToken
+      !hasInlineContent && uri ? { projectId, uri } : skipToken
     )
   );
   const resolvedDefaultMode: MarkdownViewerMode =

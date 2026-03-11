@@ -11,13 +11,12 @@
 
 import * as React from "react";
 import { KanbanSquare } from "lucide-react";
-import { useQuery, skipToken } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 import { trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 
@@ -40,13 +39,11 @@ const STATUS_DOT: Record<string, string> = {
 /** Compact task board widget for desktop. */
 export default function TaskBoardWidget() {
   const { t } = useTranslation('desktop');
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
   const activeTabId = useTabs((s) => s.activeTabId);
 
   const { data: tasks, isLoading } = useQuery(
     trpc.scheduledTask.list.queryOptions(
-      workspaceId ? {} : skipToken,
+      {},
       { refetchInterval: 60_000 },
     ),
   );
@@ -110,11 +107,7 @@ export default function TaskBoardWidget() {
         </div>
       </div>
       <div className="mt-3 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1 text-sm show-scrollbar">
-        {!workspaceId ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
-            {t('content.noWorkspace')}
-          </div>
-        ) : isLoading ? (
+        {isLoading ? (
           <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
             {t('taskBoard.loading')}
           </div>

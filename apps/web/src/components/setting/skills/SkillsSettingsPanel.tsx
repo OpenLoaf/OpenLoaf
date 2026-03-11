@@ -28,7 +28,6 @@ import {
   ContextMenuTrigger,
 } from "@openloaf/ui/context-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { useProject } from "@/hooks/use-project";
 import {
   buildFileUriFromRoot,
@@ -180,12 +179,15 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     : trpc.settings.getSkills.queryOptions();
   const skillsQuery = useQuery(queryOptions);
   const skills = (skillsQuery.data ?? []) as SkillSummary[];
-  const { workspace } = useWorkspace();
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
   const { data: projectData } = useProject(projectId);
   const activeTabId = useTabs((state) => state.activeTabId);
   const pushStackItem = useTabRuntime((state) => state.pushStackItem);
   const setSettingsOpen = useGlobalOverlay((s) => s.setSettingsOpen);
-  const workspaceId = workspace?.id ?? "";
+  const workspaceCompatRootUri = workspaceCompatQuery.data?.rootUri;
 
   /** Filtered skills based on search query and filters. */
   const filteredSkills = useMemo(() => {
@@ -211,14 +213,16 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
 
   /** Skills root uri for system file manager open. */
   const skillsRootUri = useMemo(() => {
-    const baseRootUri = isProjectList ? projectData?.project?.rootUri : workspace?.rootUri;
+    const baseRootUri = isProjectList
+      ? projectData?.project?.rootUri
+      : workspaceCompatRootUri;
     if (!baseRootUri) return "";
     if (baseRootUri.startsWith("file://")) {
       return buildFileUriFromRoot(baseRootUri, ".agents/skills");
     }
     const normalizedRoot = baseRootUri.replace(/[/\\]+$/, "");
     return normalizedRoot ? `${normalizedRoot}/.agents/skills` : "";
-  }, [isProjectList, projectData?.project?.rootUri, workspace?.rootUri]);
+  }, [isProjectList, projectData?.project?.rootUri, workspaceCompatRootUri]);
 
   const mkdirMutation = useMutation(
     trpc.fs.mkdir.mutationOptions({
@@ -267,10 +271,6 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   /** Open skills folder in system file manager. */
   const handleOpenSkillsRoot = useCallback(async () => {
     if (!skillsRootUri) return;
-    if (!workspaceId) {
-      toast.error(t('skills.workspaceNotFound'));
-      return;
-    }
     if (isProjectList && !projectId) {
       toast.error(t('skills.projectNotFound'));
       return;
@@ -293,7 +293,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     if (!res?.ok) {
       toast.error(res?.reason ?? t('skills.openDirFailed'));
     }
-  }, [isProjectList, mkdirMutation, projectId, skillsRootUri, workspaceId]);
+  }, [isProjectList, mkdirMutation, projectId, skillsRootUri, t]);
 
   /** Open a skill folder tree in stack. */
   const handleOpenSkill = useCallback(
@@ -306,7 +306,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
         ? undefined
         : isProjectSkill
           ? projectData?.project?.rootUri
-          : workspace?.rootUri;
+          : workspaceCompatRootUri;
       const rootUri = resolveSkillFolderUri(skill.path, baseRootUri);
       if (!rootUri) return;
       const currentUri = resolveSkillUri(skill.path, rootUri);
@@ -332,7 +332,14 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
       // 关闭设置对话框，避免对话框遮挡 stack 预览面板。
       setSettingsOpen(false);
     },
-    [activeTabId, projectData?.project?.rootUri, projectId, pushStackItem, setSettingsOpen, workspace?.rootUri],
+    [
+      activeTabId,
+      projectData?.project?.rootUri,
+      projectId,
+      pushStackItem,
+      setSettingsOpen,
+      workspaceCompatRootUri,
+    ],
   );
 
   /** Toggle skill enable state for current scope. */
@@ -402,7 +409,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
               variant="secondary"
               className="h-8 rounded-full border border-border/70 bg-background/85 px-2.5 text-xs transition-colors hover:bg-muted/55 sm:px-3"
               onClick={() => void handleOpenSkillsRoot()}
-              disabled={!skillsRootUri || !workspaceId || (isProjectList && !projectId)}
+              disabled={!skillsRootUri || (isProjectList && !projectId)}
               aria-label={t('skills.openDirAriaLabel')}
             >
               <FolderOpen className="h-3.5 w-3.5" />
@@ -484,7 +491,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                   ? undefined
                   : skill.scope === "project"
                     ? projectData?.project?.rootUri
-                    : workspace?.rootUri;
+                    : workspaceCompatRootUri;
               const canOpenSkill = Boolean(
                 activeTabId && resolveSkillFolderUri(skill.path, baseRootUri),
               );

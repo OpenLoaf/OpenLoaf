@@ -11,7 +11,7 @@
 
 import { Component, useCallback, useEffect, useMemo, useRef, useState, useId, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Copy, CopyPlus, FolderDown, Loader2, MoreHorizontal, PencilLine, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -48,7 +48,6 @@ import {
   waitForAnimationFrames,
 } from "../utils/board-export";
 import { useBasicConfig } from "@/hooks/use-basic-config";
-import { useWorkspace } from "@/hooks/use-workspace";
 import {
   closeFilePreview,
   openFilePreview,
@@ -199,8 +198,12 @@ export function BoardCanvas({
   uiHidden,
   className,
 }: BoardCanvasProps) {
-  const { workspace } = useWorkspace();
-  const resolvedWorkspaceId = workspaceId ?? workspace?.id ?? "";
+  const workspaceCompatQuery = useQuery({
+    ...trpc.settings.getWorkspaceCompat.queryOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const resolvedWorkspaceId = workspaceId ?? workspaceCompatQuery.data?.id ?? "";
+  const resolvedRootUri = rootUri ?? workspaceCompatQuery.data?.rootUri;
   const queryClient = useQueryClient();
   // 逻辑：提取画布文件夹名（末段路径），服务端通过 .openloaf/boards/<boardId>/ 前缀还原完整路径。
   // decodeURIComponent 防止 URI 中已编码的中文被 URLSearchParams 双重编码。
@@ -344,7 +347,7 @@ export function BoardCanvas({
     if (!boardFolderUri || !resolvedWorkspaceId || !tabId) return;
     if (!confirm(i18next.t('nav:canvasList.confirmDelete'))) return;
     // Derive relative URI from boardFolderUri
-    const rootUriBase = workspace?.rootUri ?? '';
+    const rootUriBase = resolvedRootUri ?? '';
     const relativeUri = rootUriBase && boardFolderUri.startsWith(rootUriBase)
       ? boardFolderUri.slice(rootUriBase.length).replace(/^\//, '')
       : boardFolderUri;
@@ -357,7 +360,7 @@ export function BoardCanvas({
         },
       },
     );
-  }, [boardFolderUri, resolvedWorkspaceId, tabId, workspace?.rootUri, deleteBoardMutation, closeTab]);
+  }, [boardFolderUri, resolvedRootUri, resolvedWorkspaceId, tabId, deleteBoardMutation, closeTab]);
   // Auto-close login dialog on successful login
   useEffect(() => {
     if (saasLoggedIn && loginOpen) setLoginOpen(false);
@@ -687,7 +690,7 @@ export function BoardCanvas({
         fileContext={{
           workspaceId: resolvedWorkspaceId || undefined,
           projectId,
-          rootUri,
+          rootUri: resolvedRootUri,
           boardId: resolvedBoardId || undefined,
           boardFolderUri,
         }}
@@ -697,7 +700,7 @@ export function BoardCanvas({
           initialElements={initialElements}
           workspaceId={resolvedWorkspaceId}
           projectId={projectId}
-          rootUri={rootUri}
+          rootUri={resolvedRootUri}
           boardFolderUri={boardFolderUri}
           boardFileUri={boardFileUri}
           onSyncLogChange={setSyncLogState}
@@ -707,7 +710,7 @@ export function BoardCanvas({
           snapshot={snapshot}
           containerRef={containerRef}
           projectId={projectId}
-          rootUri={rootUri}
+          rootUri={resolvedRootUri}
           tabId={tabId}
           panelKey={panelKey}
           uiHidden={uiHidden}

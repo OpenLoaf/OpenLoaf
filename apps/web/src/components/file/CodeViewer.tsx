@@ -31,7 +31,6 @@ import { Button } from "@openloaf/ui/button";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
-import { useWorkspace } from "@/hooks/use-workspace";
 import { ViewerGuard } from "@/components/file/lib/viewer-guard";
 import { stopFindShortcutPropagation } from "@/components/file/lib/viewer-shortcuts";
 
@@ -54,7 +53,7 @@ interface CodeViewerProps {
   ext?: string;
   rootUri?: string;
   projectId?: string;
-  /** Workspace id for file queries (overrides useWorkspace). */
+  /** Legacy prop kept for compatibility. */
   workspaceId?: string;
   /** Whether the viewer should be read-only. */
   readOnly?: boolean;
@@ -170,7 +169,6 @@ export default function CodeViewer({
   ext,
   rootUri,
   projectId,
-  workspaceId: workspaceIdProp,
   readOnly,
   mode,
   visible = true,
@@ -178,12 +176,10 @@ export default function CodeViewer({
   onStatusChange,
 }: CodeViewerProps) {
   const { t } = useTranslation('common');
-  const { workspace } = useWorkspace();
-  const workspaceId = workspaceIdProp || workspace?.id || "";
   /** File content query. */
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(
-      uri && workspaceId ? { projectId, uri } : skipToken
+      uri ? { projectId, uri } : skipToken
     )
   );
   const queryClient = useQueryClient();

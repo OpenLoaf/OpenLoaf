@@ -37,7 +37,6 @@ import {
 } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import { buildImageNodePayloadFromUri } from "../utils/image";
 import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
-import { useWorkspace } from "@/hooks/use-workspace";
 import {
   ProjectFilePickerDialog,
   type ProjectFilePickerSelection,
@@ -320,8 +319,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
   const { fileContext } = useBoardContext();
-  const { workspace } = useWorkspace();
-  const workspaceId = workspace?.id ?? "";
+  const workspaceId = fileContext?.workspaceId ?? "";
   const [videoPickerOpen, setVideoPickerOpen] = useState(false);
   const [filePickerOpen, setFilePickerOpen] = useState(false);
   const imageImportInputRef = useRef<HTMLInputElement | null>(null);
