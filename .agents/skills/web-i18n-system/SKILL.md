@@ -15,6 +15,8 @@ version: 0.1.0
 
 # OpenLoaf i18n System Skill
 
+> **术语映射**：翻译 UI 文案时注意 — 代码 `workspace` 对应产品「工作空间」，代码 `project` 对应产品「工作区」。
+
 ## Overview
 
 OpenLoaf 使用 **react-i18next** + **i18next** 实现完整多语言国际化。系统支持三种主要语言：

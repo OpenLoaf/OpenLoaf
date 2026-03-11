@@ -6,6 +6,8 @@ version: 1.0.0
 
 # 系统 Agent 架构
 
+> **术语映射**：代码 `workspace` = 产品「工作空间」，代码 `project` = 产品「工作区」。
+
 ## 核心原则
 
 1. 每个 Agent 独立配置模型，默认 Auto（主 Agent 在 spawn 时决定用什么模型）

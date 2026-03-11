@@ -311,6 +311,12 @@ body {
   --radius: var(----radius)
 }
 
+@keyframes sparkle-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  33% { transform: translateY(-1.5px) rotate(-4deg); }
+  66% { transform: translateY(-0.5px) rotate(4deg); }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

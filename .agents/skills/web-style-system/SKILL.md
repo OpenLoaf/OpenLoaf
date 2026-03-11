@@ -6,6 +6,8 @@ version: 0.1.0
 
 # Web Style System
 
+> **术语映射**：代码 `workspace` = 产品「工作空间」，代码 `project` = 产品「工作区」。
+
 ## Purpose
 
 建立并执行 OpenLoaf Web 端统一设计语言。优先把 `layout + tabs + dock` 作为风格母版，再向全站组件扩展。

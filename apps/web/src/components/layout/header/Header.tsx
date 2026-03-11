@@ -20,7 +20,6 @@ import { useTabView } from "@/hooks/use-tab-view";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { useGlobalOverlay, openSettingsTab } from "@/lib/globalShortcuts";
 import { ProjectSettingsDialog } from "@/components/project/settings/ProjectSettingsDialog";
-import { motion } from "motion/react";
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
 import { isElectronEnv } from "@/utils/is-electron-env";
@@ -235,30 +234,13 @@ export const Header = () => {
                 useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, !isChatCollapsed);
               }}
             >
-              <motion.div
-                animate={{
-                  y: [0, -1.5, 0],
-                  rotate: [0, -4, 4, 0],
-                }}
-                transition={{
-                  duration: 2.2,
-                  ease: "easeInOut",
-                  repeat: Number.POSITIVE_INFINITY,
-                }}
-                whileHover={{ y: -2, rotate: 10 }}
-                whileTap={{ scale: 0.95, rotate: 0 }}
-              >
-                {/* <PanelRight
-                  className={`h-4 w-4 transition-transform duration-200 ${
-                    isChatCollapsed ? "rotate-180" : ""
-                  }`}
-                /> */}
+              <div className="animate-[sparkle-float_2.2s_ease-in-out_infinite] hover:animate-none hover:-translate-y-0.5 hover:rotate-[10deg] active:scale-95 active:rotate-0 transition-transform">
                 <Sparkles
                   aria-hidden="true"
-                  className="h-5 w-5 text-amber-500 transition-transform duration-200 ease-out hover:rotate-8"
+                  className="h-5 w-5 text-amber-500"
                   fill="currentColor"
                 />
-              </motion.div>
+              </div>
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" sideOffset={6}>

@@ -23,13 +23,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@openloaf/ui/sidebar";
-import { Inbox, LayoutDashboard, LayoutTemplate, Palette, Sparkles } from "lucide-react";
+import { Building2, Inbox, LayoutDashboard, LayoutTemplate, Palette, Sparkles } from "lucide-react";
 import { useTabs } from "@/hooks/use-tabs";
 import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useNavigation } from "@/hooks/use-navigation";
 import { useWorkspace } from "@/components/workspace/workspaceContext";
 import { Kbd, KbdGroup } from "@openloaf/ui/kbd";
-import { AI_ASSISTANT_TAB_INPUT, CANVAS_LIST_TAB_INPUT, TEMP_CANVAS_TAB_INPUT, TEMP_CHAT_TAB_INPUT, WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
+import { AI_ASSISTANT_TAB_INPUT, CANVAS_LIST_TAB_INPUT, TEMP_CANVAS_TAB_INPUT, TEMP_CHAT_TAB_INPUT, WORKBENCH_TAB_INPUT, WORKSPACE_LIST_TAB_INPUT } from "@openloaf/api/common";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useIsNarrowScreen } from "@/hooks/use-mobile";
 import { useSidebarNavigation } from "@/hooks/use-sidebar-navigation";
@@ -47,6 +47,8 @@ const SIDEBAR_WORKSPACE_COLOR_CLASS = {
     "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-amber-700/70 dark:[&>svg]:text-amber-300/70 hover:[&>svg]:text-amber-700 dark:hover:[&>svg]:text-amber-200 data-[active=true]:!bg-amber-100 dark:data-[active=true]:!bg-amber-500/25 data-[active=true]:!text-amber-700 dark:data-[active=true]:!text-amber-200 data-[active=true]:[&>svg]:!text-amber-600 dark:data-[active=true]:[&>svg]:!text-amber-300",
   canvas:
     "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-violet-700/70 dark:[&>svg]:text-violet-300/70 hover:[&>svg]:text-violet-700 dark:hover:[&>svg]:text-violet-200 data-[active=true]:!bg-violet-100 dark:data-[active=true]:!bg-violet-500/25 data-[active=true]:!text-violet-700 dark:data-[active=true]:!text-violet-200 data-[active=true]:[&>svg]:!text-violet-600 dark:data-[active=true]:[&>svg]:!text-violet-300",
+  workspace:
+    "group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-sky-700/70 dark:[&>svg]:text-sky-300/70 hover:[&>svg]:text-sky-700 dark:hover:[&>svg]:text-sky-200 data-[active=true]:!bg-sky-100 dark:data-[active=true]:!bg-sky-500/25 data-[active=true]:!text-sky-700 dark:data-[active=true]:!text-sky-200 data-[active=true]:[&>svg]:!text-sky-600 dark:data-[active=true]:[&>svg]:!text-sky-300",
 } as const;
 
 const SIDEBAR_SEARCH_ICON_CLASS =
@@ -58,6 +60,7 @@ const SIDEBAR_WORKSPACE_PAGE_BASE_IDS = new Set([
   "base:scheduled-tasks",
   "base:mailbox",
   CANVAS_LIST_TAB_INPUT.baseId,
+  WORKSPACE_LIST_TAB_INPUT.baseId,
 ]);
 
 const SIDEBAR_WORKSPACE_PAGE_COMPONENTS = new Set([
@@ -66,6 +69,7 @@ const SIDEBAR_WORKSPACE_PAGE_COMPONENTS = new Set([
   "scheduled-tasks-page",
   "email-page",
   CANVAS_LIST_TAB_INPUT.component,
+  WORKSPACE_LIST_TAB_INPUT.component,
 ]);
 
 export const AppSidebar = ({
@@ -293,6 +297,23 @@ export const AppSidebar = ({
             >
               <Palette className="h-4 w-4" />
               <span className="flex-1 truncate">{t('smartCanvas')}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip={t('workspaceList')}
+              className={SIDEBAR_WORKSPACE_COLOR_CLASS.workspace}
+              isActive={isMenuActive(WORKSPACE_LIST_TAB_INPUT)}
+              onClick={() =>
+                openWorkspacePageTab({
+                  ...WORKSPACE_LIST_TAB_INPUT,
+                  viewType: 'workspace-list',
+                })
+              }
+              type="button"
+            >
+              <Building2 className="h-4 w-4" />
+              <span className="flex-1 truncate">{t('workspaceList')}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

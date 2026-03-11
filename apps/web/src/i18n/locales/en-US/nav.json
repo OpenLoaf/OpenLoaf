@@ -5,6 +5,7 @@
   "save": "Save",
   "cancel": "Cancel",
   "workbench": "Global Board",
+  "workspaceList": "Workspaces",
   "calendar": "Calendar",
   "email": "Mail",
   "tasks": "Tasks",
@@ -212,6 +213,7 @@
     "sub-agent-chat": "Sub-agent",
     "task-detail": "Task Detail",
     "canvas-list-page": "Canvas List",
+    "workspace-list-page": "Workspace Management",
     "openInSettings": "Open in Settings"
   },
   "project": "Project",
@@ -251,5 +253,14 @@
     "groupByTime": "Group by Time",
     "allProjects": "All Projects",
     "noProject": "No Project"
+  },
+  "workspaceListPage": {
+    "empty": "No projects yet",
+    "untitled": "Untitled Project",
+    "renameTitle": "Rename Project",
+    "renameDesc": "Enter a new name for the project.",
+    "confirmRemove": "Remove this project? Only removes from the list, disk files are not deleted.",
+    "totalCount": "{{count}} total",
+    "childCount": "{{count}} sub-projects"
   }
 }

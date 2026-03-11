@@ -5,6 +5,8 @@ description: Use when working on or debugging the web app layout in apps/web/src
 
 # Web Layout Structure（apps/web/src/components/layout）
 
+> **术语映射**：代码 `workspace` = 产品「工作空间」（顶层容器），代码 `project` = 产品「工作区」（项目文件夹）。
+
 ## Overview
 这个 skill 用来快速理解 Web 端整体布局的结构、渲染顺序和关键状态来源，避免在 Header / Sidebar / TabLayout / LeftDock / Chat 面板之间迷路。
 

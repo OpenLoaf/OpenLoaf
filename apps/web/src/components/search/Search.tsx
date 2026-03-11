@@ -99,6 +99,7 @@ export function Search({
   /** 关闭动画期间保持内容渲染，避免先消失列表。 */
   const [isClosing, setIsClosing] = React.useState(false);
   const closeResetTimerRef = React.useRef<number | null>(null);
+  const prevOpenRef = React.useRef(open);
   const projectHierarchy = React.useMemo(
     () => buildProjectHierarchyIndex(projects),
     [projects],
@@ -352,34 +353,37 @@ export function Search({
     };
   }, [activeWorkspace?.id, open, refreshRecentItems]);
   React.useEffect(() => {
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
+
     if (!open) {
-      // 逻辑：等弹窗关闭动画结束后再清理状态，避免列表先消失导致闪断。
-      if (closeResetTimerRef.current) {
-        window.clearTimeout(closeResetTimerRef.current);
+      // 逻辑：仅在 open→closed 转换时启动关闭动画，避免 isClosing 循环触发。
+      if (wasOpen) {
+        if (closeResetTimerRef.current) {
+          window.clearTimeout(closeResetTimerRef.current);
+        }
+        setIsClosing(true);
+        closeResetTimerRef.current = window.setTimeout(() => {
+          setSearchValue("");
+          setCommittedSearchValue("");
+          setIsComposing(false);
+          setScopedProjectId(null);
+          setProjectCleared(false);
+          setIsClosing(false);
+          closeResetTimerRef.current = null;
+        }, 200);
       }
-      setIsClosing(true);
-      closeResetTimerRef.current = window.setTimeout(() => {
-        setSearchValue("");
-        setCommittedSearchValue("");
-        setIsComposing(false);
-        setScopedProjectId(null);
-        setProjectCleared(false);
-        setIsClosing(false);
-        closeResetTimerRef.current = null;
-      }, 200);
       return;
     }
     if (closeResetTimerRef.current) {
       window.clearTimeout(closeResetTimerRef.current);
       closeResetTimerRef.current = null;
     }
-    if (isClosing) {
-      setIsClosing(false);
-    }
+    setIsClosing(false);
     if (projectCleared) return;
     // 逻辑：搜索开启时同步当前项目范围。
     setScopedProjectId(activeProjectId);
-  }, [activeProjectId, isClosing, open, projectCleared]);
+  }, [activeProjectId, open, projectCleared]);
   React.useEffect(() => {
     return () => {
       if (closeResetTimerRef.current) {

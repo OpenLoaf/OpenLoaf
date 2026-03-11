@@ -2,6 +2,15 @@
 
 OpenLoaf 开发规范。适用于核心开发者和外部贡献者。
 
+## 术语规范
+
+| 产品术语 | 英文 | 代码标识符 | 说明 |
+|---------|------|-----------|------|
+| **工作空间** | Workspace | `Workspace`、`workspace` | 顶层容器 |
+| **工作区** | Project | `Project`、`project` | 工作空间下的项目文件夹 |
+
+代码中的变量名和路由名保持 `workspace` / `project` 不变，仅在面向用户的 UI 文案中使用产品术语。
+
 <strong>简体中文</strong> | <a href="./DEVELOPMENT_en.md">English</a>
 
 ## Commit 规范

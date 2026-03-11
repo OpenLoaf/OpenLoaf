@@ -89,6 +89,13 @@ export const CANVAS_LIST_TAB_INPUT = {
   icon: "🎨",
 } as const;
 
+export const WORKSPACE_LIST_TAB_INPUT = {
+  baseId: "base:workspace-list",
+  component: "workspace-list-page",
+  titleKey: "nav:workspaceList",
+  icon: "🏢",
+} as const;
+
 export const DEFAULT_TAB_INFO = {
   titleKey: AI_ASSISTANT_TAB_INPUT.titleKey,
   icon: AI_ASSISTANT_TAB_INPUT.icon,

@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, lazy, Suspense } from "react";
 import {
   buildChildUri,
   getEntryExt,
@@ -22,16 +22,29 @@ import {
   getDisplayFileName,
   isBoardFolderName,
 } from "@/lib/file-name";
-import BoardFileViewer from "@/components/board/BoardFileViewer";
-import CodeViewer from "@/components/file/CodeViewer";
-import DocViewer from "@/components/file/DocViewer";
 import FileViewer from "@/components/file/FileViewer";
 import ImageViewer from "@/components/file/ImageViewer";
-import MarkdownViewer from "@/components/file/MarkdownViewer";
-import PdfViewer from "@/components/file/PdfViewer";
-import ExcelViewer from "@/components/file/ExcelViewer";
-import VideoViewer from "@/components/file/VideoViewer";
 import { resolveFileViewerTarget } from "./file-viewer-target";
+
+// Heavy viewers are lazy-loaded to avoid pulling in large dependencies at startup:
+// BoardFileViewer → hls.js (306KB), CodeViewer → highlight.js (359KB),
+// PdfViewer → pdfjs-dist (165KB), DocViewer → xmlbuilder2 (168KB),
+// ExcelViewer → xlsx (222KB), VideoViewer → vidstack + media-chrome
+const BoardFileViewer = lazy(() => import("@/components/board/BoardFileViewer"));
+const CodeViewer = lazy(() => import("@/components/file/CodeViewer"));
+const DocViewer = lazy(() => import("@/components/file/DocViewer"));
+const MarkdownViewer = lazy(() => import("@/components/file/MarkdownViewer"));
+const PdfViewer = lazy(() => import("@/components/file/PdfViewer"));
+const ExcelViewer = lazy(() => import("@/components/file/ExcelViewer"));
+const VideoViewer = lazy(() => import("@/components/file/VideoViewer"));
+
+function ViewerFallback() {
+  return (
+    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+      加载中...
+    </div>
+  );
+}
 
 /** Resolve preview display label for an entry. */
 function resolvePreviewDisplayName(entry: FileSystemEntry): string {
@@ -63,12 +76,14 @@ export function renderFilePreviewContent(input: {
     const boardFolderUri = entry.uri;
     const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
     return (
-      <BoardFileViewer
-        boardFolderUri={boardFolderUri}
-        boardFileUri={boardFileUri}
-        projectId={projectId}
-        rootUri={rootUri}
-      />
+      <Suspense fallback={<ViewerFallback />}>
+        <BoardFileViewer
+          boardFolderUri={boardFolderUri}
+          boardFileUri={boardFileUri}
+          projectId={projectId}
+          rootUri={rootUri}
+        />
+      </Suspense>
     );
   }
 
@@ -94,26 +109,30 @@ export function renderFilePreviewContent(input: {
       return <ImageViewer uri={entry.uri} name={displayName} ext={ext} projectId={projectId} />;
     case "markdown":
       return (
-        <MarkdownViewer
-          uri={entry.uri}
-          openUri={entry.uri}
-          name={displayName}
-          ext={ext}
-          rootUri={rootUri}
-          projectId={projectId}
-          readOnly={readOnly}
-        />
+        <Suspense fallback={<ViewerFallback />}>
+          <MarkdownViewer
+            uri={entry.uri}
+            openUri={entry.uri}
+            name={displayName}
+            ext={ext}
+            rootUri={rootUri}
+            projectId={projectId}
+            readOnly={readOnly}
+          />
+        </Suspense>
       );
     case "code":
       return (
-        <CodeViewer
-          uri={entry.uri}
-          name={displayName}
-          ext={ext}
-          rootUri={rootUri}
-          projectId={projectId}
-          readOnly={readOnly}
-        />
+        <Suspense fallback={<ViewerFallback />}>
+          <CodeViewer
+            uri={entry.uri}
+            name={displayName}
+            ext={ext}
+            rootUri={rootUri}
+            projectId={projectId}
+            readOnly={readOnly}
+          />
+        </Suspense>
       );
     case "pdf": {
       if (!projectId || !rootUri) {
@@ -125,49 +144,57 @@ export function renderFilePreviewContent(input: {
         return <div className="h-full w-full p-4 text-destructive">无法解析PDF路径</div>;
       }
       return (
-        <PdfViewer
-          uri={relativePath}
-          openUri={entry.uri}
-          name={displayName}
-          ext={ext}
-          projectId={projectId}
-          rootUri={rootUri}
-        />
+        <Suspense fallback={<ViewerFallback />}>
+          <PdfViewer
+            uri={relativePath}
+            openUri={entry.uri}
+            name={displayName}
+            ext={ext}
+            projectId={projectId}
+            rootUri={rootUri}
+          />
+        </Suspense>
       );
     }
     case "doc":
       return (
-        <DocViewer
-          uri={entry.uri}
-          openUri={entry.uri}
-          name={displayName}
-          ext={ext}
-          projectId={projectId}
-          rootUri={rootUri}
-          readOnly={readOnly}
-        />
+        <Suspense fallback={<ViewerFallback />}>
+          <DocViewer
+            uri={entry.uri}
+            openUri={entry.uri}
+            name={displayName}
+            ext={ext}
+            projectId={projectId}
+            rootUri={rootUri}
+            readOnly={readOnly}
+          />
+        </Suspense>
       );
     case "sheet":
       return (
-        <ExcelViewer
-          uri={entry.uri}
-          openUri={entry.uri}
-          name={displayName}
-          ext={ext}
-          projectId={projectId}
-          rootUri={rootUri}
-          readOnly={readOnly}
-        />
+        <Suspense fallback={<ViewerFallback />}>
+          <ExcelViewer
+            uri={entry.uri}
+            openUri={entry.uri}
+            name={displayName}
+            ext={ext}
+            projectId={projectId}
+            rootUri={rootUri}
+            readOnly={readOnly}
+          />
+        </Suspense>
       );
     case "video":
       return (
-        <VideoViewer
-          uri={entry.uri}
-          openUri={entry.uri}
-          name={displayName}
-          projectId={projectId}
-          rootUri={rootUri}
-        />
+        <Suspense fallback={<ViewerFallback />}>
+          <VideoViewer
+            uri={entry.uri}
+            openUri={entry.uri}
+            name={displayName}
+            projectId={projectId}
+            rootUri={rootUri}
+          />
+        </Suspense>
       );
     default:
       return (

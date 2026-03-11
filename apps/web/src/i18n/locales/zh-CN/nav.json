@@ -5,6 +5,7 @@
   "save": "保存",
   "cancel": "取消",
   "workbench": "全局看板",
+  "workspaceList": "工作区",
   "calendar": "日历",
   "email": "邮箱",
   "tasks": "任务",
@@ -212,6 +213,7 @@
     "sub-agent-chat": "子代理",
     "task-detail": "任务详情",
     "canvas-list-page": "画布列表",
+    "workspace-list-page": "工作区管理",
     "openInSettings": "在设置中打开"
   },
   "project": "工作区",
@@ -251,5 +253,14 @@
     "groupByTime": "按时间分组",
     "allProjects": "全部工作区",
     "noProject": "未归属工作区"
+  },
+  "workspaceListPage": {
+    "empty": "暂无工作区",
+    "untitled": "未命名工作区",
+    "renameTitle": "重命名工作区",
+    "renameDesc": "输入工作区的新名称。",
+    "confirmRemove": "确认移除此工作区？仅从列表移除，不会删除磁盘文件。",
+    "totalCount": "共 {{count}} 个",
+    "childCount": "{{count}} 个子工作区"
   }
 }

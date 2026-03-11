@@ -11,6 +11,8 @@ description: >
 
 # Database Migration System
 
+> **术语映射**：代码 `workspace` = 产品「工作空间」，代码 `project` = 产品「工作区」。数据库表 `Project` 对应产品中的「工作区」。
+
 OpenLoaf 使用 **Prisma Migrate + 自定义 migrationRunner** 实现数据库 schema 版本管理。迁移 SQL 在构建时内嵌到 `server.mjs`，运行时由 migrationRunner 自动执行，支持跨版本增量更新和崩溃回退。
 
 ## When to Use

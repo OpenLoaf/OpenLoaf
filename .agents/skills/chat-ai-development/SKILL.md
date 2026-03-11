@@ -9,6 +9,8 @@ description: >
 
 # Chat & AI Development
 
+> **术语映射**：代码 `workspace` = 产品「工作空间」，代码 `project` = 产品「工作区」。
+
 ## Overview
 
 Chat & AI 系统分为前端 Chat UI 和后端 AI Agent 两层。前端基于 Vercel AI SDK `useChat` + 5 个 Context Provider 管理聊天状态；后端基于 `ToolLoopAgent` + `AsyncLocalStorage` 实现工具循环代理。两层通过 SSE 流式通信，工具接口通过 `@openloaf/api/types/tools/` 共享类型定义对齐。

@@ -270,7 +270,6 @@ function Sidebar({
           hover
           controlledItems
           mode="parent"
-          forceUpdateBounds
           transition={transition}
         >
           <div
