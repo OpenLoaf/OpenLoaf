@@ -71,7 +71,7 @@
 | **Sidebar.tsx** | SidebarHeader 顶部渲染 `<SidebarUserAccount />`，移除原 SidebarWorkspace 引用 |
 | **WorkspaceBootstrap.tsx** | 兼容层启动器，仅负责默认 workspace cookie 与默认 AI 标签页初始化；`useWorkspace()` 已改为轻量 query hook |
 | **Scope 替换** | 6 个组件中 `"workspace"` → `"global"`：`use-main-agent-model.ts`、`AgentDetailPanel.tsx`、`AgentManagement.tsx`、`ProjectAgentView.tsx`、`SkillsSettingsPanel.tsx`、`ScheduledTaskDialog.tsx` |
-| **workspaceId / useWorkspace 清理** | 继续清理 AI、Board、Calendar、Email、File、Desktop、Tasks、Settings、Project 页面中的 `workspaceId` 传递与 `useWorkspace()` 依赖；前端业务组件已不再直接依赖 `useWorkspace()`，仅保留 `hooks/use-workspace.ts` 与 `WorkspaceBootstrap.tsx` 兼容层；Calendar 页面/任务聚合/Electron 桥接类型、Email 页面/栈/下载链接/OAuth、Search 弹层 / recent-open 本地缓存，以及 Markdown / Terminal 文件视图内的 compat fallback 均已不再依赖前端 `workspaceId` guard |
+| **workspaceId / useWorkspace 清理** | 继续清理 AI、Board、Calendar、Email、File、Desktop、Tasks、Settings、Project 页面中的 `workspaceId` 传递与 `useWorkspace()` 依赖；前端业务组件已不再直接依赖 `useWorkspace()`，仅保留 `hooks/use-workspace.ts` 与 `WorkspaceBootstrap.tsx` 兼容层；Calendar 页面/任务聚合/Electron 桥接类型、Email 页面/栈/下载链接/OAuth、Search 弹层 / recent-open 本地缓存、Markdown / Terminal 文件视图，以及 Settings 中 Skills / Agent 管理页的目录定位逻辑均已不再依赖前端 `workspaceId` guard |
 | **Hooks** | `use-tabs.ts`（移除 workspaceId 字段及 workspaceTabs 逻辑）、`use-navigation.ts`、`use-sidebar-navigation.ts`、`use-chat-sessions.ts` 等 |
 | **i18n** | `nav.json`（3 语言）更新导航翻译 key |
 

@@ -140,6 +140,17 @@ function resolveSkillFolderUri(
   return toFileUri(directoryPath);
 }
 
+function resolveSkillsRootUri(skillPath: string): string | undefined {
+  if (!skillPath) return undefined;
+  const normalizedPath = normalizePath(skillPath).replace(/\/+$/, "");
+  const lastSlashIndex = normalizedPath.lastIndexOf("/");
+  if (lastSlashIndex < 0) return undefined;
+  const skillDirPath = normalizedPath.slice(0, lastSlashIndex);
+  const parentSlashIndex = skillDirPath.lastIndexOf("/");
+  if (parentSlashIndex < 0) return undefined;
+  return toFileUri(skillDirPath.slice(0, parentSlashIndex));
+}
+
 /** Resolve skill file uri for preview. */
 function resolveSkillUri(skillPath: string, rootUri?: string): string | undefined {
   if (!skillPath) return undefined;
@@ -179,15 +190,16 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     : trpc.settings.getSkills.queryOptions();
   const skillsQuery = useQuery(queryOptions);
   const skills = (skillsQuery.data ?? []) as SkillSummary[];
-  const workspaceCompatQuery = useQuery({
-    ...trpc.settings.getWorkspaceCompat.queryOptions(),
-    staleTime: 5 * 60 * 1000,
-  });
   const { data: projectData } = useProject(projectId);
   const activeTabId = useTabs((state) => state.activeTabId);
   const pushStackItem = useTabRuntime((state) => state.pushStackItem);
   const setSettingsOpen = useGlobalOverlay((s) => s.setSettingsOpen);
-  const workspaceCompatRootUri = workspaceCompatQuery.data?.rootUri;
+  const globalSkillsRootUri = useMemo(() => {
+    const globalSkill = skills.find(
+      (skill) => skill.scope === "global" && typeof skill.path === "string" && skill.path.trim(),
+    );
+    return globalSkill ? resolveSkillsRootUri(globalSkill.path) : "";
+  }, [skills]);
 
   /** Filtered skills based on search query and filters. */
   const filteredSkills = useMemo(() => {
@@ -213,16 +225,17 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
 
   /** Skills root uri for system file manager open. */
   const skillsRootUri = useMemo(() => {
-    const baseRootUri = isProjectList
-      ? projectData?.project?.rootUri
-      : workspaceCompatRootUri;
+    const baseRootUri = isProjectList ? projectData?.project?.rootUri : globalSkillsRootUri;
     if (!baseRootUri) return "";
     if (baseRootUri.startsWith("file://")) {
-      return buildFileUriFromRoot(baseRootUri, ".agents/skills");
+      return isProjectList
+        ? buildFileUriFromRoot(baseRootUri, ".agents/skills")
+        : baseRootUri;
     }
     const normalizedRoot = baseRootUri.replace(/[/\\]+$/, "");
-    return normalizedRoot ? `${normalizedRoot}/.agents/skills` : "";
-  }, [isProjectList, projectData?.project?.rootUri, workspaceCompatRootUri]);
+    if (!normalizedRoot) return "";
+    return isProjectList ? `${normalizedRoot}/.agents/skills` : normalizedRoot;
+  }, [globalSkillsRootUri, isProjectList, projectData?.project?.rootUri]);
 
   const mkdirMutation = useMutation(
     trpc.fs.mkdir.mutationOptions({
@@ -306,7 +319,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
         ? undefined
         : isProjectSkill
           ? projectData?.project?.rootUri
-          : workspaceCompatRootUri;
+          : undefined;
       const rootUri = resolveSkillFolderUri(skill.path, baseRootUri);
       if (!rootUri) return;
       const currentUri = resolveSkillUri(skill.path, rootUri);
@@ -338,7 +351,6 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
       projectId,
       pushStackItem,
       setSettingsOpen,
-      workspaceCompatRootUri,
     ],
   );
 
@@ -491,7 +503,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                   ? undefined
                   : skill.scope === "project"
                     ? projectData?.project?.rootUri
-                    : workspaceCompatRootUri;
+                    : undefined;
               const canOpenSkill = Boolean(
                 activeTabId && resolveSkillFolderUri(skill.path, baseRootUri),
               );

@@ -200,6 +200,17 @@ function resolveAgentFolderUri(
   return toFileUri(dirPath);
 }
 
+function resolveAgentsRootUri(agentPath: string): string | undefined {
+  if (!agentPath) return undefined;
+  const normalizedPath = normalizePath(agentPath).replace(/\/+$/, "");
+  const lastSlash = normalizedPath.lastIndexOf("/");
+  if (lastSlash < 0) return undefined;
+  const agentDirPath = normalizedPath.slice(0, lastSlash);
+  const parentSlash = agentDirPath.lastIndexOf("/");
+  if (parentSlash < 0) return undefined;
+  return toFileUri(agentDirPath.slice(0, parentSlash));
+}
+
 type AgentManagementProps = {
   projectId?: string;
 };
@@ -226,10 +237,6 @@ function WorkspaceAgentView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [showAllProjects, setShowAllProjects] = useState(true);
-  const workspaceCompatQuery = useQuery({
-    ...trpc.settings.getWorkspaceCompat.queryOptions(),
-    staleTime: 5 * 60 * 1000,
-  });
 
   const agentsQuery = useQuery(trpc.settings.getAgents.queryOptions({ includeAllProjects: true }));
   const agents = (agentsQuery.data ?? []) as AgentSummary[];
@@ -254,7 +261,12 @@ function WorkspaceAgentView() {
   );
   const activeTabId = useTabs((s) => s.activeTabId);
   const pushStackItem = useTabRuntime((s) => s.pushStackItem);
-  const workspaceCompatRootUri = workspaceCompatQuery.data?.rootUri;
+  const globalAgentsRootUri = useMemo(() => {
+    const globalAgent = agents.find(
+      (agent) => agent.scope === "global" && typeof agent.path === "string" && agent.path.trim(),
+    );
+    return globalAgent ? resolveAgentsRootUri(globalAgent.path) : undefined;
+  }, [agents]);
 
   const hasNonMasterAgents = useMemo(
     () =>
@@ -331,7 +343,7 @@ function WorkspaceAgentView() {
   );
 
   const handleOpenAgentsRoot = useCallback(async () => {
-    const rootUri = workspaceCompatRootUri;
+    const rootUri = globalAgentsRootUri;
     if (!rootUri) {
       toast.error(t("settings:agent.workspaceNotFound"));
       return;
@@ -368,14 +380,12 @@ function WorkspaceAgentView() {
       : `${rootUri.replace(/[/\\]+$/, "")}/.openloaf/agents`;
     const res = await api.openPath({ uri: agentsUri });
     if (!res?.ok) toast.error(res?.reason ?? t("settings:agent.openFolderFailed"));
-  }, [activeTabId, mkdirMutation, pushStackItem, t, workspaceCompatRootUri]);
+  }, [activeTabId, globalAgentsRootUri, mkdirMutation, pushStackItem, t]);
 
   const handleOpenAgent = useCallback(
     (agent: AgentSummary) => {
       if (!activeTabId) return;
-      const baseRootUri =
-        agent.scope === "global" ? undefined : workspaceCompatRootUri;
-      const rootUri = resolveAgentFolderUri(agent.path, baseRootUri);
+      const rootUri = resolveAgentFolderUri(agent.path);
       if (!rootUri) return;
       const stackKey = agent.ignoreKey.trim() || agent.path || agent.name;
       const titlePrefix =
@@ -391,11 +401,10 @@ function WorkspaceAgentView() {
           rootUri,
           currentEntryKind: "file",
           projectTitle: agent.name,
-          viewerRootUri: baseRootUri,
         },
       });
     },
-    [activeTabId, pushStackItem, workspaceCompatRootUri, t],
+    [activeTabId, pushStackItem, t],
   );
 
   const handleEditAgent = useCallback(
@@ -489,7 +498,7 @@ function WorkspaceAgentView() {
                 variant="secondary"
                 className="h-8 rounded-full border border-border/70 bg-background/85 px-2.5 text-xs transition-colors hover:bg-muted/55 sm:px-3"
                 onClick={() => void handleOpenAgentsRoot()}
-                disabled={!workspaceCompatRootUri}
+                disabled={!globalAgentsRootUri}
                 aria-label={t("settings:agent.openDirTooltip")}
               >
                 <FolderOpen className="h-3.5 w-3.5" />
@@ -543,10 +552,8 @@ function WorkspaceAgentView() {
         {filteredAgents.length > 0 ? (
           <div className="grid grid-cols-2 gap-2 pb-1">
             {filteredAgents.map((agent) => {
-              const baseRootUri =
-                agent.scope === "global" ? undefined : workspaceCompatRootUri;
               const canOpen = Boolean(
-                activeTabId && resolveAgentFolderUri(agent.path, baseRootUri),
+                activeTabId && resolveAgentFolderUri(agent.path),
               );
 
               return (
