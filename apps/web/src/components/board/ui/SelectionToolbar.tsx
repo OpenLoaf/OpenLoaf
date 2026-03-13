@@ -51,7 +51,7 @@ function SelectionToolbarContainer({
     <div
       data-node-toolbar
       className={cn(
-        "pointer-events-auto nodrag nopan absolute z-20 -translate-x-1/2 rounded-xl",
+        "pointer-events-auto nodrag nopan absolute z-20 -translate-x-1/2 rounded-lg",
         "p-2",
         toolbarSurfaceClassName,
         offsetClass

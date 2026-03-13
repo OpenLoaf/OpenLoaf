@@ -82,7 +82,7 @@ function VideoGenerateProjectionView({
     <NodeFrame>
       <div
         className={cn(
-          "flex h-full w-full flex-col overflow-hidden rounded-xl border-2",
+          "flex h-full w-full flex-col overflow-hidden rounded-lg border-2",
           BOARD_GENERATE_NODE_BASE_VIDEO,
           selected ? BOARD_GENERATE_SELECTED_VIDEO : BOARD_GENERATE_BORDER_VIDEO,
           status === "error" && BOARD_GENERATE_ERROR,
@@ -812,7 +812,7 @@ function EditableVideoGenerateNodeView({
   });
 
   const containerClassName = cn(
-    "relative flex w-full min-w-0 flex-col rounded-xl border-2 overflow-hidden text-ol-text-primary transition-all duration-150",
+    "relative flex w-full min-w-0 flex-col rounded-lg border-2 overflow-hidden text-ol-text-primary transition-all duration-150",
     BOARD_GENERATE_NODE_BASE_VIDEO,
     viewStatus === "error"
       ? BOARD_GENERATE_ERROR

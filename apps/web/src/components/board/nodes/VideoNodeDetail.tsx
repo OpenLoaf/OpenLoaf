@@ -45,7 +45,7 @@ export function VideoNodeDetail({
   return (
     <div
       className={cn(
-        "relative h-[96px] w-[360px] rounded-xl border border-border bg-card shadow-lg",
+        "relative h-[96px] w-[360px] rounded-lg border border-border bg-card shadow-sm",
         className
       )}
     >

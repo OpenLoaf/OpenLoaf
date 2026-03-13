@@ -86,7 +86,7 @@ function ImageGenerateProjectionView({
     <NodeFrame>
       <div
         className={cn(
-          "flex h-full w-full flex-col overflow-hidden rounded-xl border-2",
+          "flex h-full w-full flex-col overflow-hidden rounded-lg border-2",
           BOARD_GENERATE_NODE_BASE_IMAGE,
           selected ? BOARD_GENERATE_SELECTED_IMAGE : BOARD_GENERATE_BORDER_IMAGE,
           status === "error" && BOARD_GENERATE_ERROR,
@@ -615,7 +615,7 @@ function EditableImageGenerateNodeView({
   ]);
 
   const containerClassName = cn(
-    "relative flex w-full min-w-0 flex-col rounded-xl border-2 overflow-hidden text-ol-text-primary transition-all duration-150",
+    "relative flex w-full min-w-0 flex-col rounded-lg border-2 overflow-hidden text-ol-text-primary transition-all duration-150",
     BOARD_GENERATE_NODE_BASE_IMAGE,
     viewStatus === "error"
       ? BOARD_GENERATE_ERROR

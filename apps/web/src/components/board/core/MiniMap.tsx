@@ -87,7 +87,7 @@ export function MiniMap({ snapshot, viewport, visible }: MiniMapProps) {
         visible ? "opacity-100" : "opacity-0"
       )}
     >
-      <div className="rounded-xl bg-background p-2 shadow-[0_8px_20px_rgba(15,23,42,0.12)] backdrop-blur dark:bg-background/90">
+      <div className="rounded-lg bg-background p-2 shadow-sm backdrop-blur dark:bg-background/90">
         <svg
           width={mapWidth}
           height={mapHeight}

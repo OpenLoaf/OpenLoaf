@@ -13,7 +13,6 @@ import type { CSSProperties } from "react";
 import {
   SidebarInset,
   SidebarProvider,
-  useSidebar,
 } from "@openloaf/ui/sidebar";
 import { AppBootstrap } from "@/components/layout/AppBootstrap";
 import { Header } from "@/components/layout/header/Header";
@@ -22,14 +21,12 @@ import { MainContent } from "@/components/layout/MainContext";
 import { cn } from "@/lib/utils";
 
 function PageContent() {
-  const { open } = useSidebar();
-
   return (
     <>
       <Header />
       <div
         data-slot="page-main-row"
-        className={cn("flex flex-1 min-w-0 overflow-hidden", !open && "ml-2")}
+        className={cn("flex flex-1 min-w-0 overflow-hidden")}
       >
         <AppSidebar />
         <SidebarInset className=" h-[calc(calc(100svh-var(--header-height))-0.5rem)]!">
@@ -46,7 +43,7 @@ export default function Page() {
       <AppBootstrap />
       <SidebarProvider
           className="flex flex-col"
-          style={{ "--sidebar-width": "14rem" } as CSSProperties}
+          style={{ "--sidebar-width": "3.5rem" } as CSSProperties}
         >
           <PageContent />
         </SidebarProvider>

@@ -285,7 +285,7 @@ function BoardCard({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: index * 0.04 }}
-          className={`group relative flex flex-col overflow-hidden rounded-xl border cursor-pointer transition-all duration-200 hover:shadow-md hover:border-ol-purple/60 ${
+          className={`group relative flex flex-col overflow-hidden rounded-lg border cursor-pointer transition-all duration-200 hover:shadow-sm hover:border-ol-purple/60 ${
             isActive
               ? "border-ol-purple shadow-sm ring-1 ring-ol-purple/30"
               : "border-border"

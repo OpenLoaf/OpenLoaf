@@ -359,3 +359,251 @@ export function SidebarUserAccount() {
     </SidebarMenu>
   )
 }
+
+export function CompactUserAvatar() {
+  const { t } = useTranslation('project', { keyPrefix: 'global' })
+  const { t: tNav } = useTranslation('nav')
+
+  const [loginOpen, setLoginOpen] = React.useState(false)
+  const [dropdownOpen, setDropdownOpen] = React.useState(false)
+  const setFeedbackOpen = useGlobalOverlay((s) => s.setFeedbackOpen)
+
+  const {
+    loggedIn: authLoggedIn,
+    user: authUser,
+    refreshSession,
+    logout,
+  } = useSaasAuth()
+
+  const userProfileQuery = useQuery({
+    queryKey: ["saas", "userProfile", "compact"],
+    queryFn: fetchUserProfile,
+    enabled: authLoggedIn,
+    staleTime: 60_000,
+  })
+
+  React.useEffect(() => {
+    void refreshSession()
+  }, [refreshSession])
+
+  React.useEffect(() => {
+    if (authLoggedIn) setLoginOpen(false)
+  }, [authLoggedIn])
+
+  const isWechatLogin = Boolean(authUser?.email?.endsWith("@wechat.local"))
+  const baseAccountLabel =
+    authUser?.email ?? authUser?.name ?? (authLoggedIn ? t('loggedIn') : undefined)
+  const sidebarAccountLabel = isWechatLogin
+    ? authUser?.name?.trim() || t('wechatUser')
+    : baseAccountLabel
+  const avatarAlt = sidebarAccountLabel ?? "User"
+  const displayAvatar = authUser?.avatarUrl
+
+  // Electron update
+  const isElectron = isElectronEnv()
+  const isDevDesktop = isElectron && process.env.NODE_ENV !== "production"
+
+  const [updateStatus, setUpdateStatus] = React.useState<OpenLoafIncrementalUpdateStatus | null>(null)
+  const [restartDialogOpen, setRestartDialogOpen] = React.useState(false)
+  const updateTriggeredRef = React.useRef(false)
+  const UPDATE_TOAST_ID = 'compact-update-check'
+
+  React.useEffect(() => {
+    if (!isElectron) return
+    const onUpdateStatus = (event: Event) => {
+      const detail = (event as CustomEvent<OpenLoafIncrementalUpdateStatus>).detail
+      if (detail) setUpdateStatus(detail)
+    }
+    window.addEventListener("openloaf:incremental-update:status", onUpdateStatus)
+    void window.openloafElectron?.getIncrementalUpdateStatus?.().then((s) => {
+      if (s) setUpdateStatus(s)
+    })
+    return () => window.removeEventListener("openloaf:incremental-update:status", onUpdateStatus)
+  }, [isElectron])
+
+  React.useEffect(() => {
+    if (!updateStatus) return
+    switch (updateStatus.state) {
+      case 'checking':
+        break
+      case 'downloading': {
+        const pct = updateStatus.progress?.percent
+        const msg = pct != null
+          ? `${t('downloadingUpdate')} ${Math.round(pct)}%`
+          : t('downloadingUpdate')
+        toast.loading(msg, { id: UPDATE_TOAST_ID })
+        break
+      }
+      case 'ready':
+        toast.dismiss(UPDATE_TOAST_ID)
+        setRestartDialogOpen(true)
+        break
+      case 'error':
+        toast.error(updateStatus.error ?? t('checkUpdateError'), { id: UPDATE_TOAST_ID })
+        updateTriggeredRef.current = false
+        break
+      case 'idle':
+        if (updateTriggeredRef.current && updateStatus.lastCheckedAt) {
+          toast.success(t('isLatest'), { id: UPDATE_TOAST_ID })
+          updateTriggeredRef.current = false
+        }
+        break
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateStatus])
+
+  const handleCheckUpdate = React.useCallback(async () => {
+    if (isDevDesktop) {
+      toast.message(t('devModeNoUpdate'))
+      return
+    }
+    const api = window.openloafElectron
+    if (!api?.checkIncrementalUpdate) {
+      toast.message(t('envNoUpdate'))
+      return
+    }
+    updateTriggeredRef.current = true
+    toast.loading(t('checkingUpdate'), { id: UPDATE_TOAST_ID })
+    await api.checkIncrementalUpdate()
+  }, [isDevDesktop, t])
+
+  const handleLogout = () => {
+    logout()
+    toast.success(t('loggedOut'))
+  }
+
+  return (
+    <>
+      <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
+      <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-sidebar-accent transition-colors"
+          >
+            <Avatar className="size-7 rounded-md">
+              <AvatarImage src={displayAvatar || undefined} alt={avatarAlt} />
+              <AvatarFallback className="bg-transparent">
+                <img
+                  src="/head_s.png"
+                  alt="OpenLoaf"
+                  className="size-full object-contain"
+                />
+              </AvatarFallback>
+            </Avatar>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          side="right"
+          sideOffset={8}
+          className="w-72 rounded-xl p-2"
+        >
+          {authLoggedIn && (
+            <>
+              <div className="flex items-center gap-3 px-2 py-2">
+                <Avatar className="size-9">
+                  <AvatarImage src={displayAvatar || undefined} alt={avatarAlt} />
+                  <AvatarFallback>
+                    <img src="/logo.svg" alt="OpenLoaf" className="size-full object-cover" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 leading-5">
+                    <span className="min-w-0 truncate text-sm font-medium">
+                      {authUser?.name || t('currentAccount')}
+                    </span>
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground leading-4">
+                    {isWechatLogin ? t('wechatLogin') : baseAccountLabel}
+                  </div>
+                </div>
+              </div>
+              <DropdownMenuSeparator className="my-2" />
+            </>
+          )}
+          <div className="space-y-1">
+            {!authLoggedIn && (
+              <DropdownMenuItem
+                onSelect={() => setLoginOpen(true)}
+                className="rounded-lg bg-ol-blue-bg text-ol-blue focus:bg-ol-blue-bg-hover focus:text-ol-blue"
+              >
+                <LogIn className="size-4 text-ol-blue" />
+                {t('loginAccount')}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              onSelect={() => setFeedbackOpen(true)}
+              className="rounded-lg"
+            >
+              <Lightbulb className="size-4" />
+              {tNav('sidebar.feedback.title')}
+            </DropdownMenuItem>
+            {isElectron && (
+              <DropdownMenuItem
+                onSelect={() => void handleCheckUpdate()}
+                disabled={
+                  isDevDesktop ||
+                  updateStatus?.state === "checking" ||
+                  updateStatus?.state === "downloading" ||
+                  updateStatus?.state === "ready"
+                }
+                className="rounded-lg text-ol-amber focus:bg-ol-amber-bg focus:text-ol-amber"
+              >
+                <RefreshCcw className="size-4 text-ol-amber" />
+                <span className="flex-1">
+                  {updateStatus?.state === "ready"
+                    ? t('updateReady')
+                    : updateStatus?.state === "checking" || updateStatus?.state === "downloading"
+                      ? t('updating')
+                      : t('checkUpdate')}
+                </span>
+                {updateStatus?.state === "ready" && (
+                  <span className="ml-1 size-2 rounded-full bg-ol-blue" />
+                )}
+              </DropdownMenuItem>
+            )}
+            {authLoggedIn && (
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => void handleLogout()}
+                className="rounded-lg"
+              >
+                <LogOut className="size-4" />
+                {t('logout')}
+              </DropdownMenuItem>
+            )}
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={restartDialogOpen} onOpenChange={setRestartDialogOpen}>
+        <DialogContent className="sm:max-w-sm shadow-none border-border/60">
+          <DialogHeader>
+            <DialogTitle>{t('updateReady')}</DialogTitle>
+            <DialogDescription>{t('restartToApply')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRestartDialogOpen(false)}
+            >
+              {t('cancelButton')}
+            </Button>
+            <Button
+              type="button"
+              className="bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none"
+              onClick={async () => {
+                setRestartDialogOpen(false)
+                await window.openloafElectron?.relaunchApp?.()
+              }}
+            >
+              {t('relaunchNow')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}

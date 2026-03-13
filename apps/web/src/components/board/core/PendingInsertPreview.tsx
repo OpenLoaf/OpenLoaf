@@ -261,7 +261,7 @@ function PendingInsertPreviewBase({
       >
         <div
           className={[
-            "relative flex w-full flex-col gap-3 rounded-xl border p-3 text-ol-text-primary",
+            "relative flex w-full flex-col gap-3 rounded-lg border p-3 text-ol-text-primary",
             previewH ? "h-full" : "",
             config.base,
             config.border,

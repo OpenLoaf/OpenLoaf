@@ -114,7 +114,7 @@ const AIGenerateToolbar = memo(function AIGenerateToolbar({
       onPointerDown={(e) => e.stopPropagation()}
       className={cn(
         "pointer-events-auto absolute right-4 top-1/2 z-20 -translate-y-1/2",
-        "flex flex-col rounded-2xl py-2 px-1.5 gap-1.5",
+        "flex flex-col rounded-lg py-2 px-1.5 gap-1.5",
         BOARD_TOOLBAR_SURFACE_CLASS,
       )}
     >
@@ -141,7 +141,7 @@ const AIGenerateToolbar = memo(function AIGenerateToolbar({
               });
             }}
             className={cn(
-              "flex w-18 flex-col items-center gap-1 px-2 py-2 rounded-xl transition-all duration-150 select-none",
+              "flex w-18 flex-col items-center gap-1 px-2 py-2 rounded-md transition-all duration-150 select-none",
               isActive
                 ? cn(item.colorClass, "border", item.activeClass)
                 : cn(item.colorClass, "border border-transparent"),

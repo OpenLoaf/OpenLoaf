@@ -325,7 +325,7 @@ function NodeInspectorPanel({ element, onClose }: NodeInspectorPanelProps) {
     <div
       data-node-inspector
       className={cn(
-        "pointer-events-auto absolute z-30 min-w-[220px] -translate-x-1/2 rounded-xl",
+        "pointer-events-auto absolute z-30 min-w-[220px] -translate-x-1/2 rounded-lg",
         "border border-ol-divider bg-background/95 px-3 py-2 text-xs text-ol-text-auxiliary shadow-[0_12px_28px_rgba(15,23,42,0.18)] backdrop-blur",
         showBelow ? "mt-3" : "mb-3"
       )}

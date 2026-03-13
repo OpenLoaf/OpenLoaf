@@ -1,7 +1,7 @@
 ---
 name: teenage-engineering-brand-design
-description: This skill should be used when the user asks to "做成 teenage engineering 风格", "分析 teenage engineering 设计", "参考 teenage engineering 做页面", "做工业玩具极简风格", "做北欧电子产品品牌风格", "做像 teenage engineering 一样的产品页", "做像 teenage engineering 一样的商店页", or wants a design system inspired by teenage engineering's industrial, editorial, hardware-first visual language.
-version: 0.1.0
+description: This skill should be used when the user asks to "做成 teenage engineering 风格", "分析 teenage engineering 设计", "分析 OP-XY 页面样式", "参考 teenage engineering 做页面", "做工业玩具极简风格", "做北欧电子产品品牌风格", "做像 teenage engineering 一样的产品页", "做像 teenage engineering 一样的商店页", or wants a design system inspired by teenage engineering's industrial, editorial, hardware-first visual language.
+version: 0.2.0
 ---
 
 ## Purpose
@@ -21,6 +21,10 @@ version: 0.1.0
 
 - `references/style-dna.md`
 
+当任务明确提到 `OP–XY`、`teenage.engineering/products/op-xy`，或需要复用它那种“黑场产品剧场”页面骨架时，再补充读取：
+
+- `references/op-xy-style-rules.md`
+
 当任务需要落到 OpenLoaf Web 端实现时，再补充参考：
 
 - `../web-style-system/SKILL.md`
@@ -29,7 +33,8 @@ version: 0.1.0
 
 1. 用户本次明确要求
 2. `references/style-dna.md`
-3. `../web-style-system/SKILL.md`
+3. `references/op-xy-style-rules.md`
+4. `../web-style-system/SKILL.md`
 
 ### Analysis Mode
 
@@ -43,7 +48,8 @@ version: 0.1.0
 
 1. 先定义一句话风格结论。
 2. 再拆 `版式 / 色彩 / 字体 / 图像 / 组件 / 动效 / 文案语气`。
-3. 最后给出一句可复用的风格公式。
+3. 如果目标是 `OP–XY` 页面，补拆 `章节节奏 / 黑浅反转 / 商店卡片收尾 / 技术规格尾段`。
+4. 最后给出一句可复用的风格公式。
 
 输出要求：
 
@@ -66,8 +72,10 @@ version: 0.1.0
    `轻参考`：只借骨架和气质。
    `中参考`：默认，能明显看出风格来源，但保留项目自身识别度。
    `强参考`：只用于风格研究稿或内部概念稿，不直接复刻品牌资产。
-3. 先建立硬网格和留白秩序，再放产品图与技术标签。
-4. 最后才补强调色、状态和轻交互。
+3. 如果目标是 `OP–XY` 变体，优先套用：
+   `黑场 hero -> 中段功能叙事 -> 图解/接口段 -> 浅灰商店卡片 -> 黑底规格尾段`。
+4. 先建立硬网格和留白秩序，再放产品图与技术标签。
+5. 最后才补强调色、状态和轻交互。
 
 输出要求：
 
@@ -105,6 +113,16 @@ version: 0.1.0
    `产品摄影 / 英文字重与字号 / 边距 / 标签密度 / 信息层级`。
 5. 最后检查是否掉进泛科技/SaaS 模板：
    渐变背景、发光边框、重阴影、过度圆润、组件堆砌、无差别按钮强调。
+
+### OP–XY Variant
+
+当目标不是泛 teenage engineering，而是更接近 `https://teenage.engineering/products/op-xy` 这类页面时，优先使用下面这条骨架：
+
+1. 用 `纯黑舞台 + 单一硬件主角 + 极少文案` 建立首屏。
+2. 用 `居中轻字重标题 + 短德语标题 + 英文技术说明` 组织章节。
+3. 用 `无卡片的功能矩阵 / 图解式接口标注 / 局部特写` 维持器材手册感。
+4. 在中后段切入 `浅灰大圆角商店卡片`，制造黑浅反差。
+5. 用 `黑底双列技术规格` 收尾，而不是用营销 FAQ 或大 CTA 收尾。
 
 ### 1. Product First
 
@@ -167,3 +185,4 @@ version: 0.1.0
 ## Additional Resources
 
 - `references/style-dna.md`：品牌风格 DNA、组件语法、配色与 Do/Don't
+- `references/op-xy-style-rules.md`：`OP–XY` 页面专属的版式节奏、色板、组件语法与复用清单

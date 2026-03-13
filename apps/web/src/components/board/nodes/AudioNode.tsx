@@ -145,7 +145,7 @@ export function AudioNodeView({
     <NodeFrame>
       <div
         className={[
-          "flex h-full w-full flex-col rounded-xl border box-border",
+          "flex h-full w-full flex-col rounded-lg border box-border",
           "border-ol-divider bg-background text-ol-text-primary",
         ].join(" ")}
         onDoubleClick={(event) => {

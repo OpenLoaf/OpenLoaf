@@ -46,14 +46,14 @@ const ZOOM_HOLD_INTERVAL = 80;
 const controlIconClassName =
   "origin-center transition-transform duration-150 ease-out group-hover:scale-[1.2]";
 
-/* ── 语义图标颜色 ── */
-/** 操作类（撤销/重做）— 蓝色。 */
-const iconColorAction = "text-ol-blue";
-/** 视图类（缩放）— 绿色。 */
-const iconColorView = "text-ol-green";
-/** 布局类（自动布局/最大化）— 琥珀色。 */
-const iconColorLayout = "text-ol-amber";
-/** 安全类（锁定）— 红色。 */
+/* ── 图标颜色（TE 工业风：统一单色，仅 active 才着色） ── */
+/** 操作类（撤销/重做）。 */
+const iconColorAction = "text-ol-text-secondary";
+/** 视图类（缩放）。 */
+const iconColorView = "text-ol-text-secondary";
+/** 布局类（自动布局/最大化）。 */
+const iconColorLayout = "text-ol-text-secondary";
+/** 安全类（锁定）— 红色保留警示。 */
 const iconColorSafety = "text-ol-red";
 /** Build a tooltip title with optional shortcut. */
 const buildControlTitle = (label: string, shortcut?: string) =>
@@ -179,7 +179,7 @@ const BoardControls = memo(function BoardControls({
     >
       <div
         className={cn(
-          "pointer-events-auto flex flex-col items-center gap-1 rounded-2xl px-1.5 py-1",
+          "pointer-events-auto flex flex-col items-center gap-1 rounded-lg px-1.5 py-1",
           toolbarSurfaceClassName
         )}
       >

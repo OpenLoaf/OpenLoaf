@@ -180,7 +180,7 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
                   type="button"
                   onPointerDown={() => handleTemplate(tpl)}
                   className={cn(
-                    "group flex w-full flex-col items-center gap-3 rounded-2xl border border-transparent px-[8%] py-[16%]",
+                    "group flex w-full flex-col items-center gap-3 rounded-lg border border-transparent px-[8%] py-[16%]",
                     "transition-all duration-150 cursor-pointer select-none",
                     tpl.bgClass,
                     tpl.hoverBorderClass,

@@ -55,7 +55,7 @@ export function AdvancedSettingsPanel({
 }: AdvancedSettingsPanelProps) {
   const { t } = useTranslation('board');
   return (
-    <div className="rounded-xl bg-ol-surface-input p-2.5 dark:bg-muted/26">
+    <div className="rounded-lg bg-ol-surface-input p-2.5 dark:bg-muted/26">
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-1">
           <div className="min-w-0 flex-1 text-[11px] text-ol-text-auxiliary">

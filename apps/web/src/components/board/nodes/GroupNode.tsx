@@ -38,7 +38,7 @@ function GroupNodeView(_props: CanvasNodeViewProps<GroupNodeProps>) {
     <NodeFrame>
       <div
         className={cn(
-          "pointer-events-none absolute inset-0 rounded-xl",
+          "pointer-events-none absolute inset-0 rounded-lg",
           "bg-foreground/10 dark:bg-foreground/8"
         )}
       />

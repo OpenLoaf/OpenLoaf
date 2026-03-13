@@ -1048,7 +1048,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const insertIconClassName =
     "origin-center transition-transform duration-150 ease-out group-hover:-rotate-15";
   /** 底部持久工具按钮统一使用更紧凑的圆角，避免选中态出现过胖的椭圆。 */
-  const persistentToolButtonClassName = "group h-10 w-9 overflow-hidden rounded-[12px]";
+  const persistentToolButtonClassName = "group h-10 w-9 overflow-hidden rounded-md";
 
   return (
     <div
@@ -1060,7 +1060,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
       }}
       className={cn(
         "pointer-events-auto absolute bottom-4 left-1/2 z-20 -translate-x-1/2",
-        "h-16 rounded-[14px] px-2",
+        "h-16 rounded-lg px-2",
         toolbarSurfaceClassName
       )}
     >

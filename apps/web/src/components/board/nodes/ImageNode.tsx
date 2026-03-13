@@ -59,7 +59,7 @@ const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
 function ImageNodeSkeleton() {
   return (
     <div
-      className="h-full w-full animate-pulse rounded-xl"
+      className="h-full w-full animate-pulse rounded-lg"
       style={{
         backgroundColor: "#fafafa",
         backgroundImage:
@@ -475,7 +475,7 @@ export function ImageNodeView({
     <NodeFrame ref={rootRef}>
       <div
         className={[
-          "relative h-full w-full overflow-hidden rounded-xl box-border",
+          "relative h-full w-full overflow-hidden rounded-lg box-border",
         ].join(" ")}
         onPointerDownCapture={event => {
           if (isLocked) return;
@@ -515,7 +515,7 @@ export function ImageNodeView({
             ) : null}
           </>
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-xl border border-ol-divider bg-ol-surface-muted">
+          <div className="flex h-full w-full items-center justify-center rounded-lg border border-ol-divider bg-ol-surface-muted">
             {isPreviewLoading || isTranscoding ? (
               <ImageNodeSkeleton />
             ) : (
@@ -531,7 +531,7 @@ export function ImageNodeView({
           </div>
         )}
         {isTranscoding ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl bg-background/80 text-xs text-ol-text-secondary">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/80 text-xs text-ol-text-secondary">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
             <span>{transcodingLabel}</span>
           </div>

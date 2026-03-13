@@ -32,7 +32,7 @@ export const NodePicker = forwardRef<HTMLDivElement, NodePickerProps>(
         className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-3"
         style={{ left: position[0], top: position[1] }}
       >
-        <div className="pointer-events-auto min-w-[260px] rounded-2xl border border-ol-divider bg-background/95 p-2.5 text-ol-text-auxiliary shadow-[0_24px_56px_rgba(15,23,42,0.24)] ring-1 ring-ol-divider backdrop-blur">
+        <div className="pointer-events-auto min-w-[260px] rounded-lg border border-ol-divider bg-background/95 p-2.5 text-ol-text-auxiliary shadow-sm ring-1 ring-ol-divider backdrop-blur">
           <div className="mb-2 text-[11px] text-ol-text-auxiliary">{t('nodePicker.title')}</div>
           <div className="flex max-h-[280px] flex-col gap-1 overflow-auto pr-1">
             {templates.length ? (
@@ -45,7 +45,7 @@ export const NodePicker = forwardRef<HTMLDivElement, NodePickerProps>(
                     event.stopPropagation();
                     onSelect(item.id);
                   }}
-                  className="group flex w-full items-start gap-2 rounded-xl border border-ol-divider bg-ol-surface-muted px-2.5 py-2 text-left transition-colors duration-150 hover:bg-ol-divider"
+                  className="group flex w-full items-start gap-2 rounded-lg border border-ol-divider bg-ol-surface-muted px-2.5 py-2 text-left transition-colors duration-150 hover:bg-ol-divider"
                 >
                   <span className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-lg bg-ol-surface-muted text-ol-text-auxiliary">
                     {item.icon ?? <Type size={14} />}
@@ -61,7 +61,7 @@ export const NodePicker = forwardRef<HTMLDivElement, NodePickerProps>(
                 </button>
               ))
             ) : (
-              <div className="rounded-xl border border-dashed border-ol-divider px-2.5 py-2 text-[11px] text-ol-text-auxiliary">
+              <div className="rounded-lg border border-dashed border-ol-divider px-2.5 py-2 text-[11px] text-ol-text-auxiliary">
                 {t('nodePicker.empty')}
               </div>
             )}

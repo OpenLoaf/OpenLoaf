@@ -546,7 +546,7 @@ export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlin
       <div
         ref={outlineRef}
         data-board-selection-outline
-        className="pointer-events-none absolute z-10 rounded-xl border border-dashed border-muted-foreground/40"
+        className="pointer-events-none absolute z-10 rounded-lg border border-dashed border-muted-foreground/40"
         style={{
           left: left - padding,
           top: top - padding,

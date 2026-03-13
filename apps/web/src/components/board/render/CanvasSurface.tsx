@@ -241,8 +241,19 @@ export function CanvasSurface({ snapshot, onStats }: CanvasSurfaceProps) {
   }, [onStats]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
+    let canvas = canvasRef.current;
     if (!canvas) return;
+
+    // A canvas that has already been transferred cannot be reused.
+    // Replace it with a fresh element so `transferControlToOffscreen` succeeds
+    // (this happens in React Strict Mode where effects are double-invoked).
+    if ((canvas as any).__offscreenTransferred) {
+      const fresh = document.createElement("canvas");
+      fresh.className = canvas.className;
+      canvas.parentNode?.replaceChild(fresh, canvas);
+      canvasRef.current = fresh;
+      canvas = fresh;
+    }
 
     let worker: Worker;
     try {
@@ -279,6 +290,7 @@ export function CanvasSurface({ snapshot, onStats }: CanvasSurfaceProps) {
     let offscreen: OffscreenCanvas;
     try {
       offscreen = canvas.transferControlToOffscreen();
+      (canvas as any).__offscreenTransferred = true;
     } catch (err) {
       console.error("[board] transferControlToOffscreen failed", err);
       worker.terminate();
@@ -304,6 +316,7 @@ export function CanvasSurface({ snapshot, onStats }: CanvasSurfaceProps) {
       worker.postMessage({ type: "dispose", reason: "unmount" } satisfies GpuMessage);
       worker.terminate();
       workerRef.current = null;
+      // Canvas that has been transferred cannot be reused; bump key to create a fresh element.
     };
   }, []);
 

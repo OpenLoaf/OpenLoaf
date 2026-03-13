@@ -175,7 +175,7 @@ export function FileAttachmentNodeView({
     <NodeFrame>
       <div
         className={[
-          "flex h-full w-full items-center gap-3 rounded-xl border box-border px-3",
+          "flex h-full w-full items-center gap-3 rounded-lg border box-border px-3",
           "border-ol-divider bg-background text-ol-text-primary",
         ].join(" ")}
         onDoubleClick={(event) => {

@@ -37,13 +37,13 @@ export const BOARD_PANEL_ITEM_ACTIVE = BOARD_ICON_BTN_ACTIVE;
 export const BOARD_PANEL_ITEM_HOVER =
   "hover:bg-muted/58 dark:hover:bg-muted/46";
 
-/** Design-system-aligned pen colors (semantic palette). */
+/** Design-system-aligned pen colors (TE palette). */
 export const BOARD_PEN_COLORS = [
-  "#202124", // neutral dark
-  "#1a73e8", // blue (primary)
-  "#f9ab00", // amber (in-progress)
-  "#d93025", // red (urgent)
-  "#188038", // green (complete)
+  "#0f0e12", // neutral dark (TE black)
+  "#f05a24", // orange (TE primary)
+  "#0071bb", // blue (TE blue)
+  "#b81d13", // red (TE red)
+  "#006837", // green (TE green)
 ] as const;
 
 /** Primary text color. */

@@ -225,7 +225,7 @@ export function ChatMessageNodeView({
       <div
         ref={containerRef}
         className={cn(
-          "flex flex-col rounded-xl border-2 overflow-hidden transition-all",
+          "flex flex-col rounded-lg border-2 overflow-hidden transition-all",
           BOARD_GENERATE_NODE_BASE_CHAT,
           selected ? BOARD_GENERATE_SELECTED_CHAT : BOARD_GENERATE_BORDER_CHAT,
           isError && BOARD_GENERATE_ERROR,
