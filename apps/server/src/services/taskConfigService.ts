@@ -11,13 +11,14 @@ import path from 'node:path'
 import {
   existsSync,
   readFileSync,
-  writeFileSync,
   mkdirSync,
   readdirSync,
   rmSync,
   renameSync,
 } from 'node:fs'
+import { writeFileAtomic } from './taskFileUtils'
 import { v4 as uuidv4 } from 'uuid'
+import { logger } from '@/common/logger'
 
 const OPENLOAF_DIR = '.openloaf'
 const TASKS_DIR = 'tasks'
@@ -276,6 +277,11 @@ export function createTask(
   const taskDir = path.join(resolveTasksDir(rootPath), id)
   mkdirSync(taskDir, { recursive: true })
 
+  // Condition triggers are experimental — log a warning
+  if (data.triggerMode === 'condition') {
+    logger.warn({ taskName: data.name }, '[task-config] Condition trigger is experimental and not yet implemented in backend')
+  }
+
   const config: Omit<TaskConfig, 'scope' | 'filePath'> = {
     id,
     name: data.name,
@@ -315,7 +321,7 @@ export function createTask(
   }
 
   const filePath = path.join(taskDir, 'task.json')
-  writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf8')
+  writeFileAtomic(filePath, JSON.stringify(config, null, 2))
   return { ...config, scope, filePath }
 }
 
@@ -335,7 +341,7 @@ export function updateTask(
     updatedAt: new Date().toISOString(),
   }
 
-  writeFileSync(existing.filePath, JSON.stringify(updated, null, 2), 'utf8')
+  writeFileAtomic(existing.filePath, JSON.stringify(updated, null, 2))
   return { ...updated, scope: existing.scope, filePath: existing.filePath }
 }
 
@@ -357,9 +363,13 @@ export function appendActivityLog(
   const data = stripMeta(existing)
   if (!data.activityLog) data.activityLog = []
   data.activityLog.push(logEntry)
+  // Keep only the most recent 50 entries to prevent unbounded growth
+  if (data.activityLog.length > 50) {
+    data.activityLog = data.activityLog.slice(-50)
+  }
   data.updatedAt = new Date().toISOString()
 
-  writeFileSync(existing.filePath, JSON.stringify(data, null, 2), 'utf8')
+  writeFileAtomic(existing.filePath, JSON.stringify(data, null, 2))
   return true
 }
 
@@ -377,7 +387,7 @@ export function updateExecutionSummary(
   data.executionSummary = { ...data.executionSummary, ...summary }
   data.updatedAt = new Date().toISOString()
 
-  writeFileSync(existing.filePath, JSON.stringify(data, null, 2), 'utf8')
+  writeFileAtomic(existing.filePath, JSON.stringify(data, null, 2))
   return true
 }
 

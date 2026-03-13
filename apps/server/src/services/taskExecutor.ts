@@ -8,8 +8,6 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { randomUUID } from 'node:crypto'
-import { writeFileSync, mkdirSync } from 'node:fs'
-import path from 'node:path'
 import { logger } from '@/common/logger'
 import { runChatStream } from '@/ai/services/chat/chatStreamService'
 import {
@@ -17,7 +15,6 @@ import {
   updateTask,
   appendActivityLog,
   updateExecutionSummary,
-  getTaskDir,
   type TaskConfig,
   type TaskStatus,
 } from './taskConfigService'
@@ -33,10 +30,12 @@ type RunningTask = {
 
 type ConfirmationResult = 'approved' | 'cancelled' | 'timeout'
 
+const MAX_CONSECUTIVE_ERRORS = 3
+
 /**
- * TaskExecutor handles the two-phase execution of autonomous tasks:
- * Phase 1: Generate plan → wait for confirmation
- * Phase 2: Execute plan → mark for review or done
+ * TaskExecutor handles task execution with two modes:
+ * - Two-phase: Generate plan → wait for confirmation → execute plan
+ * - Single-phase: Execute directly (when skipPlanConfirm=true and requiresReview=false)
  */
 class TaskExecutor {
   private running = new Map<string, RunningTask>()
@@ -70,8 +69,13 @@ class TaskExecutor {
   }
 
   /**
-   * Execute a task through the full lifecycle:
-   * todo → running (plan) → review(plan) → running (execute) → review(completion) / done
+   * Execute a task through its lifecycle.
+   *
+   * Single-phase (skipPlanConfirm=true && requiresReview=false):
+   *   todo → running → done
+   *
+   * Two-phase:
+   *   todo → running (plan) → review(plan) → running (execute) → review(completion) / done
    */
   async execute(
     taskId: string,
@@ -116,75 +120,104 @@ class TaskExecutor {
       }, task.timeoutMs || 600_000)
 
       try {
-        // ─── Phase 1: Generate Plan ─────────────────────────────
-        const planInstruction = this.buildPlanInstruction(task)
-        await this.runAgentPhase(sessionId, planInstruction, abortController.signal, taskId, globalRoot, projectRoot)
+        const isSinglePhase = task.skipPlanConfirm && !task.requiresReview
 
-        // ─── Plan Confirmation ──────────────────────────────────
-        if (!task.skipPlanConfirm) {
-          this.transitionStatus(taskId, 'running', 'review', globalRoot, projectRoot, {
-            reviewType: 'plan',
+        if (isSinglePhase) {
+          // ─── Single-phase: Direct execution ─────────────────────
+          const instruction = this.buildDirectInstruction(task)
+          await this.runAgentPhase(sessionId, instruction, abortController.signal, taskId, globalRoot, projectRoot)
+
+          // Mark done
+          const now = new Date().toISOString()
+          this.transitionStatus(taskId, 'running', 'done', globalRoot, projectRoot, {
+            completedAt: now,
+            lastStatus: 'ok',
+            lastError: null,
+            consecutiveErrors: 0,
           })
 
-          const confirmResult = await this.waitForConfirmation(taskId, task.planConfirmTimeoutMs)
+          appendRunLog(taskId, {
+            trigger: task.triggerMode === 'scheduled' ? 'scheduled' : 'autonomous',
+            status: 'ok',
+            agentSessionId: sessionId,
+            startedAt,
+            finishedAt: now,
+            durationMs: Date.now() - new Date(startedAt).getTime(),
+          }, projectRoot ?? globalRoot)
 
-          if (confirmResult === 'cancelled') {
-            this.transitionStatus(taskId, 'review', 'cancelled', globalRoot, projectRoot, undefined, {
-              reason: '用户拒绝计划',
-              actor: 'user',
+        } else {
+          // ─── Two-phase: Plan → Confirm → Execute ────────────────
+
+          // Phase 1: Generate Plan
+          const planInstruction = this.buildPlanInstruction(task)
+          await this.runAgentPhase(sessionId, planInstruction, abortController.signal, taskId, globalRoot, projectRoot)
+
+          // Plan Confirmation
+          if (!task.skipPlanConfirm) {
+            this.transitionStatus(taskId, 'running', 'review', globalRoot, projectRoot, {
+              reviewType: 'plan',
             })
-            return
+
+            const confirmResult = await this.waitForConfirmation(taskId, task.planConfirmTimeoutMs)
+
+            if (confirmResult === 'cancelled') {
+              this.transitionStatus(taskId, 'review', 'cancelled', globalRoot, projectRoot, undefined, {
+                reason: '用户拒绝计划',
+                actor: 'user',
+              })
+              return
+            }
+
+            // approved or timeout → continue execution
+            const actor = confirmResult === 'timeout' ? 'timeout' : 'user'
+            const reason = confirmResult === 'timeout' ? '计划确认超时，自动继续' : '用户确认计划'
+            appendActivityLog(taskId, {
+              from: 'review',
+              to: 'running',
+              reviewType: 'plan',
+              reason,
+              actor,
+            }, globalRoot, projectRoot ?? undefined)
+
+            updateTask(taskId, {
+              status: 'running',
+              reviewType: undefined,
+            }, globalRoot, projectRoot ?? undefined)
+
+            taskEventBus.emitStatusChange({
+              taskId,
+              status: 'running',
+              previousStatus: 'review',
+              title: task.name,
+              updatedAt: new Date().toISOString(),
+            })
           }
 
-          // approved or timeout → continue execution
-          const actor = confirmResult === 'timeout' ? 'timeout' : 'user'
-          const reason = confirmResult === 'timeout' ? '计划确认超时，自动继续' : '用户确认计划'
-          appendActivityLog(taskId, {
-            from: 'review',
-            to: 'running',
-            reviewType: 'plan',
-            reason,
-            actor,
-          }, globalRoot, projectRoot ?? undefined)
+          // Phase 2: Execute Plan
+          const execInstruction = '请按照已生成的计划开始执行。逐步完成每个步骤，完成后汇报结果。'
+          await this.runAgentPhase(sessionId, execInstruction, abortController.signal, taskId, globalRoot, projectRoot)
 
-          updateTask(taskId, {
-            status: 'running',
-            reviewType: undefined,
-          }, globalRoot, projectRoot ?? undefined)
+          // Completion
+          const nextStatus: TaskStatus = task.requiresReview ? 'review' : 'done'
+          const now = new Date().toISOString()
 
-          taskEventBus.emitStatusChange({
-            taskId,
-            status: 'running',
-            previousStatus: 'review',
-            title: task.name,
-            updatedAt: new Date().toISOString(),
+          this.transitionStatus(taskId, 'running', nextStatus, globalRoot, projectRoot, {
+            reviewType: task.requiresReview ? 'completion' : undefined,
+            completedAt: now,
+            lastStatus: 'ok',
+            lastError: null,
+            consecutiveErrors: 0,
           })
+
+          appendRunLog(taskId, {
+            trigger: 'autonomous',
+            status: 'ok',
+            agentSessionId: sessionId,
+            startedAt,
+            finishedAt: now,
+            durationMs: Date.now() - new Date(startedAt).getTime(),
+          }, projectRoot ?? globalRoot)
         }
-
-        // ─── Phase 2: Execute Plan ──────────────────────────────
-        const execInstruction = '请按照已生成的计划开始执行。逐步完成每个步骤，完成后汇报结果。'
-        await this.runAgentPhase(sessionId, execInstruction, abortController.signal, taskId, globalRoot, projectRoot)
-
-        // ─── Completion ─────────────────────────────────────────
-        const nextStatus: TaskStatus = task.requiresReview ? 'review' : 'done'
-        const now = new Date().toISOString()
-
-        this.transitionStatus(taskId, 'running', nextStatus, globalRoot, projectRoot, {
-          reviewType: task.requiresReview ? 'completion' : undefined,
-          completedAt: now,
-          lastStatus: 'ok',
-          lastError: null,
-          consecutiveErrors: 0,
-        })
-
-        appendRunLog(taskId, {
-          trigger: 'autonomous',
-          status: 'ok',
-          agentSessionId: sessionId,
-          startedAt,
-          finishedAt: now,
-          durationMs: Date.now() - new Date(startedAt).getTime(),
-        }, projectRoot ?? globalRoot)
 
       } finally {
         clearTimeout(timeoutId)
@@ -194,31 +227,39 @@ class TaskExecutor {
 
       const errorMessage = err instanceof Error ? err.message : String(err)
       const task = getTask(taskId, globalRoot, projectRoot ?? undefined)
+      const newConsecutiveErrors = (task?.consecutiveErrors ?? 0) + 1
+
+      // Determine next status: retry if under threshold, cancel otherwise
+      const shouldRetry = newConsecutiveErrors < MAX_CONSECUTIVE_ERRORS
+        && task?.triggerMode !== 'scheduled' // scheduled tasks rely on their timer for retry
+      const nextStatus: TaskStatus = shouldRetry ? 'todo' : 'cancelled'
 
       updateTask(taskId, {
-        status: 'cancelled',
+        status: nextStatus,
         lastStatus: 'error',
         lastError: errorMessage,
-        consecutiveErrors: (task?.consecutiveErrors ?? 0) + 1,
+        consecutiveErrors: newConsecutiveErrors,
       }, globalRoot, projectRoot ?? undefined)
 
       appendActivityLog(taskId, {
         from: task?.status ?? 'running',
-        to: 'cancelled',
+        to: nextStatus,
         actor: 'system',
-        reason: errorMessage,
+        reason: shouldRetry
+          ? `执行失败 (${newConsecutiveErrors}/${MAX_CONSECUTIVE_ERRORS})，等待重试`
+          : `连续失败 ${newConsecutiveErrors} 次，任务取消`,
       }, globalRoot, projectRoot ?? undefined)
 
       taskEventBus.emitStatusChange({
         taskId,
-        status: 'cancelled',
+        status: nextStatus,
         previousStatus: task?.status ?? 'running',
         title: task?.name ?? taskId,
         updatedAt: new Date().toISOString(),
       })
 
       appendRunLog(taskId, {
-        trigger: 'autonomous',
+        trigger: task?.triggerMode === 'scheduled' ? 'scheduled' : 'autonomous',
         status: 'error',
         error: errorMessage,
         agentSessionId: this.running.get(taskId)?.sessionId,
@@ -293,9 +334,6 @@ class TaskExecutor {
         reader.releaseLock()
       }
     }
-
-    // Save plan.md if generated during plan phase
-    this.savePlanIfPresent(taskId, globalRoot, projectRoot)
   }
 
   /** Extract the last meaningful text from an SSE chunk. */
@@ -315,6 +353,21 @@ class TaskExecutor {
       }
     }
     return lastText
+  }
+
+  /** Build instruction for single-phase direct execution. */
+  private buildDirectInstruction(task: TaskConfig): string {
+    const parts: string[] = []
+    parts.push(`## 自主任务执行\n`)
+    parts.push(`你正在执行一个后台自主任务。请直接开始执行，完成后汇报结果。\n`)
+    parts.push(`### 任务名称\n${task.name}\n`)
+    if (task.description) {
+      parts.push(`### 任务描述\n${task.description}\n`)
+    }
+    if (task.payload?.message && typeof task.payload.message === 'string') {
+      parts.push(`### 用户原始指令\n${task.payload.message}\n`)
+    }
+    return parts.join('\n')
   }
 
   /** Build the instruction for plan generation phase. */
@@ -387,29 +440,6 @@ class TaskExecutor {
       title: task.name,
       updatedAt: new Date().toISOString(),
     })
-  }
-
-  /** Save plan.md from the task session if update-plan was used. */
-  private savePlanIfPresent(
-    taskId: string,
-    globalRoot: string,
-    projectRoot?: string | null,
-  ) {
-    // Plan content is stored by update-plan tool in the session.
-    // We create a plan.md file in the task directory for display.
-    const taskDir = getTaskDir(taskId, globalRoot, projectRoot ?? undefined)
-    if (!taskDir) return
-
-    try {
-      const planPath = path.join(taskDir, 'plan.md')
-      // The plan is written by the update-plan tool to the session.
-      // For now, create a placeholder that will be populated by the tool.
-      mkdirSync(taskDir, { recursive: true })
-      // plan.md will be written by the update-plan tool integration
-      void planPath
-    } catch {
-      // Ignore
-    }
   }
 }
 

@@ -13,8 +13,14 @@ import {
   readFileSync,
   appendFileSync,
   mkdirSync,
+  statSync,
 } from 'node:fs'
 import { v4 as uuidv4 } from 'uuid'
+import { writeFileAtomic } from './taskFileUtils'
+
+const MAX_LOG_LINES = 2000
+const KEEP_LOG_LINES = 1500
+const MAX_LOG_BYTES = 2_000_000 // 2MB
 
 const OPENLOAF_DIR = '.openloaf'
 const TASKS_DIR = 'tasks'
@@ -53,7 +59,27 @@ export function appendRunLog(
   const logEntry: TaskRunLog = { id: uuidv4(), ...entry }
   const filePath = resolveRunLogPath(rootPath, taskId)
   appendFileSync(filePath, `${JSON.stringify(logEntry)}\n`, 'utf8')
+  rotateIfNeeded(filePath)
   return logEntry
+}
+
+/** Rotate the JSONL file if it exceeds size/line limits. */
+function rotateIfNeeded(filePath: string): void {
+  try {
+    if (!existsSync(filePath)) return
+    const stats = statSync(filePath)
+    if (stats.size < MAX_LOG_BYTES) return
+
+    const content = readFileSync(filePath, 'utf8')
+    const lines = content.trim().split('\n').filter(Boolean)
+    if (lines.length <= MAX_LOG_LINES) return
+
+    // Keep only the most recent lines
+    const kept = lines.slice(-KEEP_LOG_LINES)
+    writeFileAtomic(filePath, kept.join('\n') + '\n')
+  } catch {
+    // Rotation failure is non-critical, skip silently
+  }
 }
 
 /** Read run logs for a task, most recent first. */

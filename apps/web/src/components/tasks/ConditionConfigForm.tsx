@@ -53,6 +53,9 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
 
   return (
     <div className="divide-y divide-border/60">
+      <div className="rounded-md border border-amber-500/30 bg-amber-50/50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 mb-2">
+        {t('schedule.conditionExperimental', { defaultValue: 'Condition triggers are experimental — backend not yet implemented.' })}
+      </div>
       <Row label={t('schedule.conditionType')}>
         <Tabs
           value={value.type}

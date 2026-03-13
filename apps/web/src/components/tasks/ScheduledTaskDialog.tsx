@@ -410,7 +410,7 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                       {t('schedule.scheduled')}
                     </TabsTrigger>
                     <TabsTrigger value="condition" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-                      {t('schedule.condition')}
+                      {t('schedule.condition')} <span className="ml-1 text-[10px] text-amber-500">(Beta)</span>
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>

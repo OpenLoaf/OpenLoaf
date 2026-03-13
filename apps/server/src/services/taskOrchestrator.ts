@@ -8,7 +8,6 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { getOpenLoafRootDir } from '@openloaf/config'
-import { generateText } from 'ai'
 import { logger } from '@/common/logger'
 import {
   listTasks,
@@ -264,6 +263,19 @@ class TaskOrchestrator {
       if (task.dependsOn && task.dependsOn.length > 0) {
         const allDepsComplete = task.dependsOn.every((depId) => doneTaskIds.has(depId))
         if (!allDepsComplete) continue
+      }
+
+      // Check cooldown period
+      if (task.cooldownMs && task.cooldownMs > 0 && task.lastRunAt) {
+        const elapsed = Date.now() - new Date(task.lastRunAt).getTime()
+        if (elapsed < task.cooldownMs) continue
+      }
+
+      // Check retry backoff for tasks that previously failed
+      if (task.consecutiveErrors > 0 && task.lastRunAt) {
+        const backoffMs = Math.min(Math.pow(2, task.consecutiveErrors) * 60_000, 600_000)
+        const elapsed = Date.now() - new Date(task.lastRunAt).getTime()
+        if (elapsed < backoffMs) continue
       }
 
       candidates.push(task)

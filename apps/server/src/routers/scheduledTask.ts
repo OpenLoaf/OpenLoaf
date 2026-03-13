@@ -73,6 +73,14 @@ export class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
             ? getProjectRootPath(input.projectId) ?? globalRoot
             : globalRoot
 
+          // Validate cron expression before creating
+          if (input.triggerMode === 'scheduled' && input.schedule?.type === 'cron' && input.schedule.cronExpr) {
+            const cronError = taskScheduler.validateCronExpr(input.schedule.cronExpr, input.schedule.timezone)
+            if (cronError) {
+              throw new Error(`Invalid cron expression "${input.schedule.cronExpr}": ${cronError}`)
+            }
+          }
+
           const task = createTask(
             {
               name: input.name,
