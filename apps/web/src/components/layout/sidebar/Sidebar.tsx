@@ -22,7 +22,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@openloaf/ui/sidebar";
-import { Building2, LayoutDashboard, Palette, Search, Settings, Sparkles } from "lucide-react";
+import { FolderKanban, LayoutDashboard, Palette, Search, Settings, Sparkles } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
@@ -47,13 +47,15 @@ const ICON_BTN_BASE =
 
 const ICON_COLOR = {
   amber:
-    "[&>svg]:text-ol-amber/70 hover:[&>svg]:text-ol-amber data-[active=true]:bg-ol-amber-bg data-[active=true]:[&>svg]:text-ol-amber",
+    "[&>svg]:text-ol-amber/70 hover:[&>svg]:text-ol-amber data-[active=true]:bg-ol-amber/15 dark:data-[active=true]:bg-ol-amber/20 data-[active=true]:[&>svg]:text-ol-amber",
   green:
-    "[&>svg]:text-ol-green/70 hover:[&>svg]:text-ol-green data-[active=true]:bg-ol-green-bg data-[active=true]:[&>svg]:text-ol-green",
+    "[&>svg]:text-ol-green/70 hover:[&>svg]:text-ol-green data-[active=true]:bg-ol-green/15 dark:data-[active=true]:bg-ol-green/20 data-[active=true]:[&>svg]:text-ol-green",
   purple:
-    "[&>svg]:text-ol-purple/70 hover:[&>svg]:text-ol-purple data-[active=true]:bg-ol-purple-bg data-[active=true]:[&>svg]:text-ol-purple",
+    "[&>svg]:text-ol-purple/70 hover:[&>svg]:text-ol-purple data-[active=true]:bg-ol-purple/15 dark:data-[active=true]:bg-ol-purple/20 data-[active=true]:[&>svg]:text-ol-purple",
   blue:
-    "[&>svg]:text-ol-blue/70 hover:[&>svg]:text-ol-blue data-[active=true]:bg-ol-blue-bg data-[active=true]:[&>svg]:text-ol-blue",
+    "[&>svg]:text-ol-blue/70 hover:[&>svg]:text-ol-blue data-[active=true]:bg-ol-blue/15 dark:data-[active=true]:bg-ol-blue/20 data-[active=true]:[&>svg]:text-ol-blue",
+  black:
+    "[&>svg]:text-sidebar-foreground/80 hover:[&>svg]:text-sidebar-foreground data-[active=true]:[&>svg]:text-sidebar-accent-foreground",
 } as const;
 
 function IconNavItem({
@@ -96,6 +98,7 @@ export const AppSidebar = ({
   const { t } = useTranslation("nav");
   const setTitle = useAppView((s) => s.setTitle);
   const setIcon = useAppView((s) => s.setIcon);
+  const setProjectShell = useAppView((s) => s.setProjectShell);
   const appState = useAppState();
   const setBase = useLayoutState((s) => s.setBase);
   const clearStack = useLayoutState((s) => s.clearStack);
@@ -150,8 +153,10 @@ export const AppSidebar = ({
       clearStack();
       setTitle(tabTitle);
       setIcon(input.icon);
+      // Exit project mode when navigating to a global page.
+      setProjectShell(null);
     },
-    [clearStack, setActiveView, setBase, setIcon, setTitle],
+    [clearStack, setActiveView, setBase, setIcon, setTitle, setProjectShell],
   );
 
   if (isNarrow) return null;
@@ -171,7 +176,7 @@ export const AppSidebar = ({
             icon={Sparkles}
             tooltip={t("aiAssistant")}
             color="amber"
-            isActive={(() => {
+            isActive={!isInProject && (() => {
               const tempTitle = i18next.t(TEMP_CHAT_TAB_INPUT.titleKey);
               if (!appState.base && appState.title === tempTitle) return true;
               return isMenuActive(AI_ASSISTANT_TAB_INPUT);
@@ -182,7 +187,7 @@ export const AppSidebar = ({
             icon={LayoutDashboard}
             tooltip={t("workbench")}
             color="green"
-            isActive={isWorkbenchActive || isMenuActive(WORKBENCH_TAB_INPUT)}
+            isActive={!isInProject && (isWorkbenchActive || isMenuActive(WORKBENCH_TAB_INPUT))}
             onClick={() =>
               openPrimaryPageTab({ ...WORKBENCH_TAB_INPUT, viewType: "workbench" })
             }
@@ -192,16 +197,17 @@ export const AppSidebar = ({
             tooltip={t("smartCanvas")}
             color="purple"
             isActive={
-              isCanvasListActive ||
+              !isInProject &&
+              (isCanvasListActive ||
               isMenuActive(CANVAS_LIST_TAB_INPUT) ||
-              isCanvasViewerActive
+              isCanvasViewerActive)
             }
             onClick={() =>
               openPrimaryPageTab({ ...CANVAS_LIST_TAB_INPUT, viewType: "canvas-list" })
             }
           />
           <IconNavItem
-            icon={Building2}
+            icon={FolderKanban}
             tooltip={t("sidebarProjectSpace")}
             color="blue"
             isActive={
@@ -228,7 +234,7 @@ export const AppSidebar = ({
           <IconNavItem
             icon={Settings}
             tooltip={t("settings")}
-            color="amber"
+            color="black"
             isActive={isSettingsActive}
             onClick={() => openSettingsTab()}
           />

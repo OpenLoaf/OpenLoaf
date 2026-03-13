@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const Digit = ({ value }: { value: number }) => {
   return (
-    <div className="relative flex h-14 w-10 items-center justify-center overflow-hidden rounded-md bg-ol-text-primary text-white font-mono text-3xl font-bold">
+    <div className="relative flex h-14 w-10 items-center justify-center overflow-hidden rounded-md bg-foreground text-background font-mono text-3xl font-bold">
       <AnimatePresence mode="popLayout">
         <motion.span
           key={value}

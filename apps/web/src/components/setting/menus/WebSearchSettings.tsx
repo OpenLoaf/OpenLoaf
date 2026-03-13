@@ -26,8 +26,10 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import { toast } from "sonner";
 import { Eye, EyeOff, Globe, Key, CheckCircle2, XCircle } from "lucide-react";
 
+const DISABLED_PROVIDER_VALUE = "__disabled__";
+
 const SEARCH_PROVIDERS = [
-  { id: "", label: "未启用" },
+  { id: DISABLED_PROVIDER_VALUE, label: "未启用" },
   { id: "jina", label: "Jina Search" },
 ] as const;
 
@@ -38,12 +40,16 @@ export function WebSearchSettings() {
   const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
 
   const provider = basic.webSearchProvider || "";
+  // 中文注释：Radix Select 使用空串表示“清空选择”，这里用内部占位值承载“未启用”选项，避免运行时报错。
+  const providerSelectValue = provider || DISABLED_PROVIDER_VALUE;
   const apiKey = basic.webSearchApiKey || "";
   const isConfigured = !!(provider && apiKey);
 
   const handleProviderChange = (value: string) => {
     setTestResult(null);
-    void setBasic({ webSearchProvider: value });
+    void setBasic({
+      webSearchProvider: value === DISABLED_PROVIDER_VALUE ? "" : value,
+    });
   };
 
   const handleApiKeyChange = (value: string) => {
@@ -103,7 +109,7 @@ export function WebSearchSettings() {
             </div>
             <Label className="text-sm font-medium">搜索服务</Label>
             <OpenLoafSettingsField>
-              <Select value={provider} onValueChange={handleProviderChange}>
+              <Select value={providerSelectValue} onValueChange={handleProviderChange}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="选择搜索提供商" />
                 </SelectTrigger>

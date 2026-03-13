@@ -359,10 +359,9 @@ export default function DesktopTileGridstack({
       animate={{ scale: 1, boxShadow: "none" }}
       transition={{ type: "spring", stiffness: 450, damping: 32 }}
       className={cn(
-        "desktop-tile-handle relative h-full w-full select-none rounded-2xl",
+        "desktop-tile-handle relative h-full w-full select-none rounded-lg",
         allowOverflow ? "overflow-visible" : "overflow-hidden",
-        "bg-card border border-border/40 dark:bg-card",
-        "bg-ol-surface-inset/90",
+        "bg-card border border-border dark:bg-card",
         isPinned ? "ring-2 ring-primary/40" : ""
       )}
       title={widgetKey === "3d-folder" ? undefined : item.title}

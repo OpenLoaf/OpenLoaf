@@ -462,16 +462,14 @@ export default function ProjectPage({
         : null}
 
       <div className="relative flex-1 min-h-0 w-full">
-        {!isProjectShellMode ? (
-          <ProjectTabs
-            value={activeTab}
-            onValueChange={handleProjectTabChange}
-            isActive={tabActive}
-            revealDelayMs={200}
-            size="md"
-            tabId={tabId}
-          />
-        ) : null}
+        <ProjectTabs
+          value={activeTab}
+          onValueChange={handleProjectTabChange}
+          isActive={tabActive}
+          revealDelayMs={200}
+          size="md"
+          tabId={tabId}
+        />
         <div
           className={`h-full w-full overflow-auto show-scrollbar ${
             activeTab === "index" ? "pb-2" : "pb-16"

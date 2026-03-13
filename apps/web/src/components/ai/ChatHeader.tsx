@@ -351,17 +351,6 @@ export default function ChatHeader({
 
   const headerActions = (
     <MessageActions className="min-w-0 shrink-0 justify-end gap-0">
-      {shouldShowCloseDockButton ? (
-        <MessageAction
-          aria-label="关闭面板"
-          className={resolveActionIconClass("closeDock")}
-          tooltip="关闭面板"
-          label="关闭面板"
-          onClick={handleCloseDock}
-        >
-          <PanelLeft size={20} className="rotate-180 transition-transform duration-200" />
-        </MessageAction>
-      ) : null}
       {showPrefaceButton ? (
         <MessageAction
           aria-label="View Debug Context"

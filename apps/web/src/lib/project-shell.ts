@@ -40,16 +40,44 @@ export function isProjectShellSection(value: unknown): value is ProjectShellSect
 /** Build the left-dock base item for one project-shell section. */
 export function buildProjectShellBase(
   input: ProjectShellState,
-): { id: string; component: string; params?: Record<string, unknown> } {
-  return {
-    id: `project-shell:${input.projectId}`,
-    component: "project-shell",
-    params: {
-      projectId: input.projectId,
-      rootUri: input.rootUri,
-      section: input.section,
-    },
-  };
+): { id: string; component: string; params?: Record<string, unknown> } | undefined {
+  switch (input.section) {
+    case "assistant":
+      return undefined;
+    case "settings":
+      return {
+        id: `project-settings:${input.projectId}`,
+        component: "project-settings-page",
+        params: {
+          projectId: input.projectId,
+          rootUri: input.rootUri,
+        },
+      };
+    case "history":
+      return {
+        id: `project:${input.projectId}`,
+        component: "plant-page",
+        params: {
+          projectId: input.projectId,
+          rootUri: input.rootUri,
+          projectTab: "tasks",
+        },
+      };
+    case "canvas":
+    case "index":
+    case "files":
+      return {
+        id: `project:${input.projectId}`,
+        component: "plant-page",
+        params: {
+          projectId: input.projectId,
+          rootUri: input.rootUri,
+          projectTab: input.section,
+        },
+      };
+    default:
+      return undefined;
+  }
 }
 
 /** Find whether the current view is a project-shell for the given project. */
@@ -76,17 +104,19 @@ export function applyProjectShellToTab(_tabId: string, input: ProjectShellState)
   layout.clearStack();
   layout.setBase(base);
 
-  const nextLeftWidth =
-    layout.leftWidthPercent && layout.leftWidthPercent > 0
-      ? layout.leftWidthPercent
-      : savedLayout?.leftWidthPercent ?? 90;
-  layout.setLeftWidthPercent(nextLeftWidth);
+  if (base) {
+    const nextLeftWidth =
+      layout.leftWidthPercent && layout.leftWidthPercent > 0
+        ? layout.leftWidthPercent
+        : savedLayout?.leftWidthPercent ?? 90;
+    layout.setLeftWidthPercent(nextLeftWidth);
 
-  const nextRightCollapsed =
-    layout.base && typeof layout.rightChatCollapsed === "boolean"
-      ? layout.rightChatCollapsed
-      : savedLayout?.rightChatCollapsed ?? false;
-  layout.setRightChatCollapsed(nextRightCollapsed);
+    const nextRightCollapsed =
+      layout.base && typeof layout.rightChatCollapsed === "boolean"
+        ? layout.rightChatCollapsed
+        : savedLayout?.rightChatCollapsed ?? false;
+    layout.setRightChatCollapsed(nextRightCollapsed);
+  }
 
   useNavigation.getState().setActiveProject(input.projectId);
 }
@@ -106,14 +136,16 @@ export function openProjectShell(input: ProjectShellInput) {
     .getState()
     .getProjectLayout(input.projectId);
   const base = buildProjectShellBase(resolved);
-  const leftWidthPercent = savedLayout?.leftWidthPercent ?? 90;
+  const leftWidthPercent = base
+    ? savedLayout?.leftWidthPercent ?? 90
+    : 0;
 
   useAppView.getState().navigate({
     title: input.title,
     icon: input.icon ?? undefined,
     base,
     leftWidthPercent,
-    rightChatCollapsed: savedLayout?.rightChatCollapsed ?? false,
+    rightChatCollapsed: base ? savedLayout?.rightChatCollapsed ?? false : false,
     chatParams: { projectId: input.projectId },
     projectShell: resolved,
   });

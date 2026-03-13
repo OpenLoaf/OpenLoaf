@@ -505,9 +505,16 @@ export function TabLayout() {
   }, [splitPercent])
 
   const initialLayoutDoneRef = React.useRef(false)
+  const prevTargetRef = React.useRef(targetSplitPercent)
   React.useEffect(() => {
     if (isDragging) return
-    if (reduceMotion || !initialLayoutDoneRef.current) {
+    const prev = prevTargetRef.current
+    prevTargetRef.current = targetSplitPercent
+    // Skip animation when swapping between fully-left and fully-right (0↔100).
+    const isFullSwap =
+      (prev === 0 && targetSplitPercent === 100) ||
+      (prev === 100 && targetSplitPercent === 0)
+    if (reduceMotion || !initialLayoutDoneRef.current || isFullSwap) {
       splitPercent.jump(targetSplitPercent)
       if (containerWidth > 0) initialLayoutDoneRef.current = true
       return

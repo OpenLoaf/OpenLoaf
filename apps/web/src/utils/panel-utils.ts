@@ -70,7 +70,6 @@ const LazyProjectPage = React.lazy(() => import("@/components/project/Project"))
 const LazyProjectSettingsPage = React.lazy(() => import("@/components/project/settings/ProjectSettingsPage"));
 const LazyCanvasListPage = React.lazy(() => import("@/components/board/CanvasListPage"));
 const LazyProjectListPage = React.lazy(() => import("@/components/project/ProjectListPage"));
-const LazyProjectShellLayout = React.lazy(() => import("@/components/project/ProjectShellLayout"));
 
 /** Stack wrapper that injects a "open in settings" button into the header slot. */
 function SettingsStackSlotButton({ settingsMenu }: { settingsMenu: string }) {
@@ -156,7 +155,6 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "canvas-list-page": LazyCanvasListPage,
   "project-list-page": LazyProjectListPage,
   "project-settings-page": LazyProjectSettingsPage,
-  "project-shell": LazyProjectShellLayout,
 };
 
 /**

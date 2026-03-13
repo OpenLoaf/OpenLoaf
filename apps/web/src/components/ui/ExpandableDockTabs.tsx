@@ -731,7 +731,7 @@ export function ExpandableDockTabs({
       <motion.div
         ref={dockRef}
         className={cn(
-          "absolute bottom-3.5 left-1/2 z-[60] flex -translate-x-1/2 items-center overflow-visible rounded-3xl border border-black/[0.06] bg-background/75 text-secondary-foreground shadow-[0_8px_24px_rgba(0,0,0,0.12),0_20px_48px_rgba(0,0,0,0.16)] backdrop-blur-2xl backdrop-saturate-200 dark:border-white/[0.14] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4),0_20px_48px_rgba(0,0,0,0.55)]",
+          "absolute bottom-3.5 left-1/2 z-[60] flex -translate-x-1/2 items-center overflow-visible rounded-lg border border-border bg-card text-secondary-foreground shadow-sm dark:border-border dark:shadow-sm",
           sizeToken.container,
           "gap-1",
           className,
@@ -745,7 +745,7 @@ export function ExpandableDockTabs({
             <motion.div
               key="stack-tray"
               className={cn(
-                "absolute bottom-full right-1 mb-2 flex flex-col items-stretch rounded-3xl border border-white/35 bg-background/25 text-secondary-foreground shadow-[0_16px_36px_rgba(0,0,0,0.14)] backdrop-blur-2xl backdrop-saturate-200 dark:border-white/10 dark:shadow-[0_16px_36px_rgba(0,0,0,0.6)]",
+                "absolute bottom-full right-1 mb-2 flex flex-col items-stretch rounded-lg border border-border bg-card text-secondary-foreground shadow-sm dark:border-border dark:shadow-sm",
                 sizeToken.container,
                 "gap-1",
               )}

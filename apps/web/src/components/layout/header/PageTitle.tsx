@@ -15,6 +15,11 @@ import { ArrowLeft } from "lucide-react";
 import { useNavigation } from "@/hooks/use-navigation";
 import { useAppState } from "@/hooks/use-app-state";
 import { closeSettingsTab } from "@/lib/globalShortcuts";
+import { isProjectMode } from "@/lib/project-mode";
+import { applyProjectShellToTab, exitProjectShellToProjectList } from "@/lib/project-shell";
+import { PROJECT_LIST_TAB_INPUT, CANVAS_LIST_TAB_INPUT } from "@openloaf/api/common";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 
 /**
  * PageTitle 组件
@@ -29,15 +34,31 @@ export const PageTitle = () => {
 
   const isBoardViewer = activeTab?.base?.component === 'board-viewer';
   const isSettingsPage = activeTab?.base?.component === 'settings-page';
+  const inProject = isProjectMode(activeTab?.projectShell);
 
-  const handleBack = useCallback(() => {
-    // In single-view mode, navigate back by closing the settings/board view.
-    closeSettingsTab();
-  }, []);
+  const handleBackFromBoard = useCallback(() => {
+    if (inProject) {
+      // Board opened from within a project → return to project
+      const shell = activeTab?.projectShell;
+      if (shell) {
+        applyProjectShellToTab("main", { ...shell, section: shell.section ?? "canvas" });
+      }
+    } else {
+      // Board opened from global canvas list → return to canvas list
+      const layout = useLayoutState.getState();
+      const view = useAppView.getState();
+      layout.setBase({ id: CANVAS_LIST_TAB_INPUT.baseId, component: CANVAS_LIST_TAB_INPUT.component });
+      layout.clearStack();
+      view.setTitle(t('canvas'));
+      view.setIcon(CANVAS_LIST_TAB_INPUT.icon);
+      useNavigation.getState().setActiveView("canvas-list");
+    }
+  }, [inProject, activeTab?.projectShell, t]);
 
-  const handleSettingsBack = useCallback(() => {
-    closeSettingsTab();
-  }, []);
+  const handleBackToProjectList = useCallback(() => {
+    const title = t('sidebarProjectSpace');
+    exitProjectShellToProjectList("main", title, PROJECT_LIST_TAB_INPUT.icon);
+  }, [t]);
 
   const title = useMemo(() => {
     const projectShellTitle = activeTab?.projectShell?.title?.trim() ?? '';
@@ -77,14 +98,14 @@ export const PageTitle = () => {
 
   return (
     <div className="flex items-center gap-2 min-w-0">
-      {isSettingsPage && (
+      {inProject && !isBoardViewer && (
         <button
           type="button"
-          onClick={handleSettingsBack}
-          className="flex items-center gap-1 h-6 rounded-md px-2 text-xs font-medium bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover transition-colors duration-150"
+          onClick={handleBackToProjectList}
+          className="flex items-center gap-1 h-6 rounded-md px-2 text-xs font-medium bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover transition-colors duration-150"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          {t('header.back')}
+          {t('sidebarProjectSpace')}
         </button>
       )}
       {isBoardViewer && (
