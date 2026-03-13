@@ -519,10 +519,10 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
                         <div className="font-mono">{commit.shortOid}</div>
                         <div className="mt-1">
                           {(commit.filesChanged ?? 0).toLocaleString()} files ·{" "}
-                          <span className="text-emerald-600 dark:text-emerald-400">
+                          <span className="text-ol-green">
                             +{(commit.insertions ?? 0).toLocaleString()}
                           </span>{" "}
-                          <span className="text-rose-600 dark:text-rose-400">
+                          <span className="text-ol-red">
                             -{(commit.deletions ?? 0).toLocaleString()}
                           </span>
                         </div>

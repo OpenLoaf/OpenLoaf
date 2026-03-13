@@ -21,8 +21,8 @@ import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import { trpc } from "@/utils/trpc";
 import { getEntryVisual, IMAGE_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import { openFilePreview } from "@/components/file/lib/open-file";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import {
   buildUriFromRoot,
   getDisplayPathFromUri,
@@ -123,11 +123,8 @@ export default function ThreeDFolderWidget({
   hovered,
 }: ThreeDFolderWidgetProps) {
   const { t } = useTranslation('desktop');
-  const activeTabId = useTabs((state) => state.activeTabId);
-  const tabs = useTabs((state) => state.tabs);
-  const setActiveTab = useTabs((state) => state.setActiveTab);
-  const addTab = useTabs((state) => state.addTab);
-  const setTabBaseParams = useTabRuntime((state) => state.setTabBaseParams);
+  const navigate = useAppView((state) => state.navigate);
+  const setBaseParams = useLayoutState((state) => state.setBaseParams);
   const resolvedTitle = React.useMemo(() => {
     // 中文注释：优先使用外部传入的标题，其次从目录路径提取显示名。
     if (title && title.trim().length > 0) return title.trim();
@@ -231,10 +228,7 @@ export default function ThreeDFolderWidget({
         return;
       }
       const baseId = `project:${input.projectId}`;
-      const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
-      const existing = tabs.find(
-        (tab) => runtimeByTabId[tab.id]?.base?.id === baseId
-      );
+      const currentBase = useLayoutState.getState().base;
       const projectNode = projectRoots.find((node) => node.projectId === input.projectId);
       const baseParams = {
         projectId: input.projectId,
@@ -243,14 +237,12 @@ export default function ThreeDFolderWidget({
         fileUri: input.uri,
       };
 
-      if (existing) {
-        setActiveTab(existing.id);
-        setTabBaseParams(existing.id, baseParams);
+      if (currentBase?.id === baseId) {
+        setBaseParams(baseParams);
         return;
       }
 
-      addTab({
-        createNew: true,
+      navigate({
         title: projectNode?.title || t('threeDFolder.unnamedProject'),
         icon: projectNode?.icon ?? undefined,
         leftWidthPercent: 90,
@@ -262,7 +254,7 @@ export default function ThreeDFolderWidget({
         chatParams: { projectId: input.projectId },
       });
     },
-    [addTab, projectRoots, setActiveTab, setTabBaseParams, t, tabs]
+    [navigate, projectRoots, setBaseParams, t]
   );
   const handleProjectOpen = React.useCallback(
     (project: AnimatedFolderProject) => {
@@ -276,10 +268,6 @@ export default function ThreeDFolderWidget({
         return;
       }
 
-      if (!activeTabId) {
-        toast.error(t('content.noTab'));
-        return;
-      }
       if (!project.uri) return;
 
       const entry: FileSystemEntry = {
@@ -290,12 +278,11 @@ export default function ThreeDFolderWidget({
       };
       openFilePreview({
         entry,
-        tabId: activeTabId,
         projectId: project.projectId,
         rootUri: project.rootUri,
       });
     },
-    [activeTabId, openFolderInFileSystem]
+    [openFolderInFileSystem]
   );
 
   return (

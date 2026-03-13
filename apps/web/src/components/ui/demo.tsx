@@ -23,7 +23,7 @@ const customCharacters: Character[] = [
     emoji: "🧙‍♂️",
     name: "Wizard",
     online: true,
-    backgroundColor: "bg-green-300",
+    backgroundColor: "bg-ol-green",
     gradientColors: "#86efac, #dcfce7",
     avatar:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=80&q=80",
@@ -50,7 +50,7 @@ const customCharacters: Character[] = [
     emoji: "🤖",
     name: "Robot",
     online: false,
-    backgroundColor: "bg-red-300",
+    backgroundColor: "bg-ol-red",
     gradientColors: "#fca5a5, #fef2f2",
     avatar:
       "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?auto=format&fit=crop&w=80&q=80",

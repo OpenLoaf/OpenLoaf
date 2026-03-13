@@ -16,8 +16,8 @@ import { Palette, Plus, Edit2, Trash2, MoreHorizontal, Copy, CopyPlus, CalendarD
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { useProjects } from "@/hooks/use-projects";
 import { useIsInView } from "@/hooks/use-is-in-view";
 import { useProjectStorageRootUri } from "@/hooks/use-project-storage-root-uri";
@@ -285,9 +285,9 @@ function BoardCard({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: index * 0.04 }}
-          className={`group relative flex flex-col overflow-hidden rounded-xl border cursor-pointer transition-all duration-200 hover:shadow-md hover:border-violet-300 dark:hover:border-violet-600 ${
+          className={`group relative flex flex-col overflow-hidden rounded-xl border cursor-pointer transition-all duration-200 hover:shadow-md hover:border-ol-purple/60 ${
             isActive
-              ? "border-violet-400 dark:border-violet-500 shadow-sm ring-1 ring-violet-200 dark:ring-violet-700"
+              ? "border-ol-purple shadow-sm ring-1 ring-ol-purple/30"
               : "border-border"
           }`}
           onClick={() => onBoardClick(board)}
@@ -427,11 +427,8 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   const projectStorageRootUri = useProjectStorageRootUri();
   const queryClient = useQueryClient();
 
-  const addTab = useTabs((s) => s.addTab);
-  const setActiveTab = useTabs((s) => s.setActiveTab);
-  const tabs = useTabs((s) => s.tabs);
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const runtimeByTabId = useTabRuntime((s) => s.runtimeByTabId);
+  const navigate = useAppView((s) => s.navigate);
+  const base = useLayoutState((s) => s.base);
 
   const { loggedIn: saasLoggedIn } = useSaasAuth();
   const [loginOpen, setLoginOpen] = useState(false);
@@ -646,35 +643,25 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
       );
       const baseId = `board:${boardFolderUri}`;
 
-      const existingTab = tabs.find((tab) => {
-        const base = runtimeByTabId[tab.id]?.base;
-        return base?.id === baseId;
-      });
-
-      if (existingTab) {
-        setActiveTab(existingTab.id);
-      } else {
-        addTab({
-          createNew: true,
-          title: board.title || t("canvasList.untitled"),
-          icon: "🎨",
-          ...buildBoardChatTabState(board.id, board.projectId),
-          leftWidthPercent: 100,
-          base: {
-            id: baseId,
-            component: "board-viewer",
-            params: {
-              boardFolderUri,
-              boardFileUri,
-              boardId: board.id,
-              projectId: board.projectId ?? undefined,
-              rootUri: boardRootUri,
-            },
+      navigate({
+        title: board.title || t("canvasList.untitled"),
+        icon: "🎨",
+        ...buildBoardChatTabState(board.id, board.projectId),
+        leftWidthPercent: 100,
+        base: {
+          id: baseId,
+          component: "board-viewer",
+          params: {
+            boardFolderUri,
+            boardFileUri,
+            boardId: board.id,
+            projectId: board.projectId ?? undefined,
+            rootUri: boardRootUri,
           },
-        });
-      }
+        },
+      });
     },
-    [resolveBoardRootUri, tabs, runtimeByTabId, addTab, setActiveTab, t],
+    [resolveBoardRootUri, navigate, t],
   );
 
   const handleRename = useCallback(
@@ -741,9 +728,8 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     [projectId, duplicateMutation],
   );
 
-  const activeBase = activeTabId ? runtimeByTabId[activeTabId]?.base : undefined;
   const activeBoardBaseId =
-    activeBase?.component === "board-viewer" ? activeBase.id : undefined;
+    base?.component === "board-viewer" ? base.id : undefined;
 
   const boardCardLabels = useMemo<BoardCardLabels>(
     () => ({
@@ -811,7 +797,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
               <Button
                 variant={groupByTime ? "secondary" : "ghost"}
                 size="icon"
-                className={`h-8 w-8 rounded-full ${groupByTime ? "bg-violet-500/10 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300" : ""}`}
+                className={`h-8 w-8 rounded-full ${groupByTime ? "bg-ol-purple/10 text-ol-purple" : ""}`}
                 onClick={() => setGroupByTime((v) => !v)}
               >
                 <CalendarDays className="h-4 w-4" />
@@ -822,7 +808,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-full bg-violet-500/10 text-violet-700 hover:bg-violet-500/20 dark:bg-violet-400/15 dark:text-violet-300 dark:hover:bg-violet-400/25"
+            className="rounded-full bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20"
             onClick={handleCreate}
             disabled={!canCreateBoard || createMutation.isPending}
           >
@@ -841,7 +827,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
             <Button
               variant="ghost"
               size="sm"
-              className="rounded-full mt-1 bg-violet-500/10 text-violet-700 hover:bg-violet-500/20 dark:bg-violet-400/15 dark:text-violet-300 dark:hover:bg-violet-400/25"
+              className="rounded-full mt-1 bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20"
               onClick={handleCreate}
               disabled={!canCreateBoard || createMutation.isPending}
             >
@@ -943,7 +929,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
                 aiNaming
                   ? "text-muted-foreground opacity-50"
                   : saasLoggedIn
-                    ? "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
+                    ? "bg-ol-amber/10 text-ol-amber hover:bg-ol-amber/20"
                     : "text-muted-foreground"
               }`}
               title={t("canvasList.aiName")}
@@ -967,7 +953,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
               </Button>
             </DialogClose>
             <Button
-              className="rounded-full bg-violet-500/10 text-violet-700 hover:bg-violet-500/20 dark:bg-violet-400/15 dark:text-violet-300 shadow-none transition-colors duration-150"
+              className="rounded-full bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20 shadow-none transition-colors duration-150"
               onClick={handleRenameSave}
               disabled={updateMutation.isPending}
             >

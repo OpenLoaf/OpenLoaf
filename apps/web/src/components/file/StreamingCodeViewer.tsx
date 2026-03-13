@@ -291,13 +291,13 @@ export default function StreamingCodeViewer({
   } else if (isDone && patchResult?.isDelete) {
     statusIndicator = { text: t('file.fileDeleted'), color: 'bg-destructive', destructive: true }
   } else if (isDone && patchResult?.isAdd) {
-    statusIndicator = { text: t('file.newFile'), color: 'bg-green-500' }
+    statusIndicator = { text: t('file.newFile'), color: 'bg-ol-green' }
   } else if (isDone) {
-    statusIndicator = { text: t('saved'), color: 'bg-green-500' }
+    statusIndicator = { text: t('saved'), color: 'bg-ol-green' }
   } else if (loadingOriginal) {
-    statusIndicator = { text: t('file.loadingFile'), color: 'bg-blue-500 animate-pulse' }
+    statusIndicator = { text: t('file.loadingFile'), color: 'bg-ol-blue animate-pulse' }
   } else if (isStreaming) {
-    statusIndicator = { text: t('file.changing'), color: 'bg-blue-500 animate-pulse' }
+    statusIndicator = { text: t('file.changing'), color: 'bg-ol-blue animate-pulse' }
   }
 
   return (

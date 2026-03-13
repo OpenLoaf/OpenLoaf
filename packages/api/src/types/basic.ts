@@ -115,6 +115,10 @@ export const basicConfigSchema = z.object({
   proxyPassword: z.string(),
   /** CLI tool settings. */
   cliTools: cliToolsConfigSchema,
+  /** Web search provider id (empty or 'none' = disabled). */
+  webSearchProvider: z.string(),
+  /** Web search API key. */
+  webSearchApiKey: z.string(),
 });
 
 export const basicConfigUpdateSchema = basicConfigSchema.partial();

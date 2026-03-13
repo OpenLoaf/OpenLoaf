@@ -14,7 +14,7 @@ import { Presentation } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@openloaf/ui/button";
 import { StackHeader } from "@/components/layout/StackHeader";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { resolveFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 
@@ -40,7 +40,7 @@ export default function PptxViewer({
 }: PptxViewerProps) {
   const canMinimize = Boolean(tabId);
   const canClose = Boolean(tabId && panelKey);
-  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
+  const removeStackItem = useLayoutState((s) => s.removeStackItem);
   const displayTitle = useMemo(() => name ?? uri ?? "PPTX", [name, uri]);
 
   /** Open PPTX with system default application. */
@@ -90,7 +90,7 @@ export default function PptxViewer({
         onClose={
           canClose
             ? () => {
-                removeStackItem(tabId!, panelKey!);
+                removeStackItem(panelKey!);
               }
             : undefined
         }

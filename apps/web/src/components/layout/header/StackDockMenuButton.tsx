@@ -25,8 +25,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { getPanelTitle } from "@/utils/panel-utils";
 import { BROWSER_WINDOW_COMPONENT, type DockItem } from "@openloaf/api/common";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { getStackMinimizeSignal } from "@/lib/stack-dock-animation";
 import { isElectronEnv } from "@/utils/is-electron-env";
 
@@ -63,28 +63,17 @@ function destroyBrowserViewsIfNeeded(item: DockItem) {
 
 export function StackDockMenuButton() {
   const { t } = useTranslation('nav');
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const stack = useTabRuntime((s) =>
-    activeTabId ? s.runtimeByTabId[activeTabId]?.stack ?? EMPTY_STACK : EMPTY_STACK,
-  );
-  const activeTabTitle = useTabs((s) => {
-    const tab = s.activeTabId ? s.tabs.find((t) => t.id === s.activeTabId) : undefined;
-    return String(tab?.title ?? "");
-  });
-  const activeStackItemId = useTabRuntime((s) =>
-    activeTabId ? s.runtimeByTabId[activeTabId]?.activeStackItemId ?? "" : "",
-  );
-  const stackHidden = useTabRuntime((s) =>
-    activeTabId ? Boolean(s.runtimeByTabId[activeTabId]?.stackHidden) : false,
-  );
+  const stack = useLayoutState((s) => s.stack ?? EMPTY_STACK);
+  const activeTabTitle = useAppView((s) => String(s.title ?? ""));
+  const activeStackItemId = useLayoutState((s) => s.activeStackItemId ?? "");
+  const stackHidden = useLayoutState((s) => Boolean(s.stackHidden));
   const nudgeControls = useAnimationControls();
   const lastSignalRef = React.useRef(0);
 
   React.useEffect(() => {
-    if (!activeTabId) return;
     if (!stackHidden) return;
     if (stack.length === 0) return;
-    const signal = getStackMinimizeSignal(activeTabId);
+    const signal = getStackMinimizeSignal("single");
     if (!signal || signal === lastSignalRef.current) return;
     lastSignalRef.current = signal;
     void nudgeControls.start({
@@ -92,9 +81,9 @@ export function StackDockMenuButton() {
       x: [0, -2, 2, -1.5, 1.5, 0],
       transition: { duration: 0.48, ease: "easeInOut" },
     });
-  }, [activeTabId, nudgeControls, stack.length, stackHidden]);
+  }, [nudgeControls, stack.length, stackHidden]);
 
-  if (!activeTabId || stack.length === 0) return null;
+  if (stack.length === 0) return null;
   // 只有一个 stack 且正在显示时，不需要入口按钮（避免 UI 冗余）。
   if (!stackHidden && stack.length === 1) return null;
 
@@ -102,23 +91,23 @@ export function StackDockMenuButton() {
 
   const openStackItem = (item: DockItem) => {
     // 恢复显示并切换到目标 item（不再重排 stack 数组）。
-    useTabRuntime.getState().pushStackItem(activeTabId, item);
+    useLayoutState.getState().pushStackItem(item);
   };
 
   const closeStackItem = (item: DockItem) => {
     destroyBrowserViewsIfNeeded(item);
-    useTabRuntime.getState().removeStackItem(activeTabId, item.id);
+    useLayoutState.getState().removeStackItem(item.id);
     // 如果关闭后 stack 为空，自动解除隐藏。
-    const nextRuntime = useTabRuntime.getState().runtimeByTabId[activeTabId];
-    if ((nextRuntime?.stack ?? []).length === 0) {
-      useTabRuntime.getState().setStackHidden(activeTabId, false);
+    const nextLayout = useLayoutState.getState();
+    if ((nextLayout.stack ?? []).length === 0) {
+      useLayoutState.getState().setStackHidden(false);
     }
   };
 
   const closeAll = () => {
     for (const item of stack) destroyBrowserViewsIfNeeded(item);
-    useTabRuntime.getState().clearStack(activeTabId);
-    useTabRuntime.getState().setStackHidden(activeTabId, false);
+    useLayoutState.getState().clearStack();
+    useLayoutState.getState().setStackHidden(false);
   };
 
   if (stackHidden && stack.length === 1) {

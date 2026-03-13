@@ -13,8 +13,7 @@ import * as React from "react";
 import { Maximize2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import CalendarPage from "@/components/calendar/Calendar";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { Button } from "@openloaf/ui/button";
 
 export interface CalendarWidgetProps {
@@ -42,9 +41,7 @@ export default function CalendarWidget({ tabId, variant }: CalendarWidgetProps) 
   const hideViewControls = Boolean(variant && variant !== 'full');
 
   const handleOpenCalendarPage = React.useCallback(() => {
-    const activeTabId = useTabs.getState().activeTabId;
-    if (!activeTabId) return;
-    useTabRuntime.getState().pushStackItem(activeTabId, {
+    useLayoutState.getState().pushStackItem({
       id: "calendar-page",
       sourceKey: "calendar-page",
       component: "calendar-page",

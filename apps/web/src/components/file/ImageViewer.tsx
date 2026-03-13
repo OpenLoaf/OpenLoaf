@@ -997,7 +997,7 @@ export default function ImageViewer({
                 onClick={isAdjusting ? handleFinishAdjust : handleStartAdjust}
               >
                 <Sparkles
-                  className={`h-4 w-4 ${isAdjusting ? "text-emerald-500" : "text-sky-500"}`}
+                  className={`h-4 w-4 ${isAdjusting ? "text-ol-green" : "text-ol-blue"}`}
                 />
                 <span className="ml-1">{isAdjusting ? "完成" : "修改"}</span>
               </Button>

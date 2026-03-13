@@ -56,8 +56,8 @@ export default function ChatModeSelector({
         className={cn(
           "absolute top-[3px] bottom-[3px] w-[calc(50%-3px)] rounded-full transition-all duration-200",
           isAgent
-            ? "left-[3px] bg-violet-500/15 dark:bg-violet-500/20"
-            : "left-[50%] bg-amber-500/15 dark:bg-amber-500/20",
+            ? "left-[3px] bg-ol-purple/15"
+            : "left-[50%] bg-ol-amber/15",
         )}
       />
 
@@ -69,7 +69,7 @@ export default function ChatModeSelector({
         className={cn(
           "relative z-10 flex h-[26px] flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors",
           isAgent
-            ? "text-violet-600 dark:text-violet-300"
+            ? "text-ol-purple"
             : "text-muted-foreground",
         )}
         onClick={() => {
@@ -89,7 +89,7 @@ export default function ChatModeSelector({
         className={cn(
           "relative z-10 flex h-[26px] flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors",
           !isAgent
-            ? "text-amber-600 dark:text-amber-300"
+            ? "text-ol-amber"
             : "text-muted-foreground",
         )}
         onClick={() => {

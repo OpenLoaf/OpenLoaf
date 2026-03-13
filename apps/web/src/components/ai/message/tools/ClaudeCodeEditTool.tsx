@@ -68,10 +68,10 @@ function DiffHunk({ hunk }: { hunk: EditHunk }) {
         <div
           // biome-ignore lint/suspicious/noArrayIndexKey: stable preview lines
           key={`old-${i}`}
-          className="flex gap-1 bg-red-500/8 px-2 dark:bg-red-500/12"
+          className="flex gap-1 bg-ol-red/8 px-2"
         >
-          <span className="shrink-0 select-none text-red-500">−</span>
-          <span className="text-red-700 dark:text-red-400 break-all">{line}</span>
+          <span className="shrink-0 select-none text-ol-red">−</span>
+          <span className="text-ol-red break-all">{line}</span>
         </div>
       ))}
       {oldLines.length > maxPreview ? (
@@ -81,10 +81,10 @@ function DiffHunk({ hunk }: { hunk: EditHunk }) {
         <div
           // biome-ignore lint/suspicious/noArrayIndexKey: stable preview lines
           key={`new-${i}`}
-          className="flex gap-1 bg-emerald-500/8 px-2 dark:bg-emerald-500/12"
+          className="flex gap-1 bg-ol-green/8 px-2"
         >
-          <span className="shrink-0 select-none text-emerald-500">+</span>
-          <span className="text-emerald-700 dark:text-emerald-400 break-all">{line}</span>
+          <span className="shrink-0 select-none text-ol-green">+</span>
+          <span className="text-ol-green break-all">{line}</span>
         </div>
       ))}
       {newLines.length > maxPreview ? (
@@ -120,7 +120,7 @@ export default function ClaudeCodeEditTool({
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-lg border bg-card text-card-foreground">
+      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
         {/* 标题栏 */}
         <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
           <TrafficLights state="success" />

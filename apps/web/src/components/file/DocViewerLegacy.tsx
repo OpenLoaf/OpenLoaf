@@ -15,7 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { renderAsync } from "docx-preview";
 import { StackHeader } from "@/components/layout/StackHeader";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 
@@ -60,7 +60,7 @@ export default function DocViewer({
   /** Tracks the document render status. */
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   /** Close current stack panel. */
-  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
+  const removeStackItem = useLayoutState((s) => s.removeStackItem);
 
   /** Flags whether the viewer should load via fs.readBinary. */
   const shouldUseFs = typeof uri === "string" && uri.startsWith("file://");
@@ -138,7 +138,7 @@ export default function DocViewer({
         }}
         onClose={() => {
           if (!tabId || !panelKey) return;
-          removeStackItem(tabId, panelKey);
+          removeStackItem(panelKey);
         }}
       />
       <div className="relative flex-1 overflow-auto">

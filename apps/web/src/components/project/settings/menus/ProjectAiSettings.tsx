@@ -19,8 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import { Button } from "@openloaf/ui/button";
 import { trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 
 type ProjectAiSettingsProps = {
   /** Project id for AI settings. */
@@ -62,8 +61,7 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
     }),
   );
   const [manualDate, setManualDate] = useState("");
-  const activeTabId = useTabs((state) => state.activeTabId);
-  const pushStackItem = useTabRuntime((state) => state.pushStackItem);
+  const pushStackItem = useLayoutState((state) => state.pushStackItem);
 
   const aiSettings = aiSettingsQuery.data?.aiSettings ?? {};
   const overrideEnabled = aiSettings.overrideEnabled ?? false;
@@ -112,8 +110,8 @@ const ProjectAiSettings = memo(function ProjectAiSettings({
   }
 
   function handleOpenHistoryPanel() {
-    if (!activeTabId || !projectId) return;
-    pushStackItem(activeTabId, {
+    if (!projectId) return;
+    pushStackItem({
       id: `summary-history:project:${projectId}`,
       sourceKey: `summary-history:project:${projectId}`,
       component: "scheduler-task-history",

@@ -71,15 +71,15 @@ export function ModelPreferencesHeader({
               className={cn(
                 'absolute top-0.5 h-5 w-[calc(50%-2px)] rounded-full transition-all duration-200',
                 isCloudSource
-                  ? 'left-[calc(50%+1px)] bg-sky-500/15 dark:bg-sky-500/20'
-                  : 'left-0.5 bg-amber-500/15 dark:bg-amber-500/20',
+                  ? 'left-[calc(50%+1px)] bg-ol-blue/15'
+                  : 'left-0.5 bg-ol-amber/15',
               )}
             />
             <span
               className={cn(
                 'relative z-10 inline-flex h-5 items-center justify-center gap-0.5 px-1.5 transition-colors text-[11px]',
                 !isCloudSource
-                  ? 'text-amber-600 dark:text-amber-300'
+                  ? 'text-ol-amber'
                   : 'text-muted-foreground',
               )}
             >
@@ -90,7 +90,7 @@ export function ModelPreferencesHeader({
               className={cn(
                 'relative z-10 inline-flex h-5 items-center justify-center gap-0.5 px-1.5 transition-colors text-[11px]',
                 isCloudSource
-                  ? 'text-sky-600 dark:text-sky-300'
+                  ? 'text-ol-blue'
                   : 'text-muted-foreground',
               )}
             >
@@ -106,7 +106,7 @@ export function ModelPreferencesHeader({
             'inline-flex h-6 items-center gap-1 rounded-full px-2 text-[11px] transition-colors',
             disableAuto && 'cursor-not-allowed opacity-40',
             isAuto
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+              ? 'bg-ol-green/10 text-ol-green'
               : 'bg-muted/60 text-muted-foreground hover:text-foreground',
           )}
           onClick={() => onAutoChange(true)}

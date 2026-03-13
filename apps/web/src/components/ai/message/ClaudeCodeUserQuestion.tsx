@@ -157,7 +157,7 @@ export default React.memo(function ClaudeCodeUserQuestion({
         </button>
       )}
       {answered && (
-        <span className="text-xs text-green-600 dark:text-green-400">
+        <span className="text-xs text-ol-green">
           {"\u2713"} Answered
         </span>
       )}

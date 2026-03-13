@@ -15,7 +15,7 @@ import { skipToken, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OpenLoafSettingsLayout } from "@openloaf/ui/openloaf/OpenLoafSettingsLayout";
 import { OpenLoafSettingsMenu } from "@openloaf/ui/openloaf/OpenLoafSettingsMenu";
-import { Bot, Cpu, GitBranch, SlidersHorizontal, Wand2 } from "lucide-react";
+import { Bot, Brain, Cpu, GitBranch, SlidersHorizontal, Wand2 } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { cn } from "@/lib/utils";
@@ -25,20 +25,22 @@ import { ProjectAiSettings } from "./menus/ProjectAiSettings";
 import { ProjectGitSettings } from "./menus/ProjectGitSettings";
 import { ProjectSkillsSettings } from "./menus/ProjectSkillsSettings";
 import { ProjectAgentSettings } from "./menus/ProjectAgentSettings";
+import { ProjectMemorySettings } from "@/components/setting/menus/MemorySettings";
 
 type ProjectSettingsPanelProps = {
   projectId?: string;
   rootUri?: string;
 };
 
-type ProjectSettingsMenuKey = "basic" | "ai" | "skills" | "agents" | "git";
+type ProjectSettingsMenuKey = "basic" | "ai" | "memory" | "skills" | "agents" | "git";
 
 const PROJECT_MENU_ICON_COLOR = {
-  basic: "text-[#1a73e8] dark:text-sky-300",
-  ai: "text-[#9334e6] dark:text-violet-300",
-  skills: "text-[#7c3aed] dark:text-purple-300",
-  agents: "text-[#059669] dark:text-emerald-300",
-  git: "text-[#188038] dark:text-emerald-300",
+  basic: "text-ol-blue",
+  ai: "text-ol-purple",
+  memory: "text-ol-green",
+  skills: "text-ol-purple",
+  agents: "text-ol-green",
+  git: "text-ol-green",
 } as const;
 
 /** Build a menu icon component with fixed email-style color tone. */
@@ -58,7 +60,7 @@ type SettingsMenuItem = {
   Component: ComponentType<ProjectSettingsPanelProps>;
 };
 
-const ALL_MENU_KEYS: ProjectSettingsMenuKey[] = ["basic", "ai", "skills", "agents", "git"];
+const ALL_MENU_KEYS: ProjectSettingsMenuKey[] = ["basic", "ai", "memory", "skills", "agents", "git"];
 const MENU_KEY_SET = new Set<ProjectSettingsMenuKey>(ALL_MENU_KEYS);
 
 /** Check whether the value is a valid project settings menu key. */
@@ -131,6 +133,12 @@ export default function ProjectSettingsPage({
       label: t("settings:project.tabAI"),
       Icon: createMenuIcon(Cpu, PROJECT_MENU_ICON_COLOR.ai),
       Component: ProjectAiSettings,
+    },
+    {
+      key: "memory",
+      label: t("settings:menu.memory"),
+      Icon: createMenuIcon(Brain, PROJECT_MENU_ICON_COLOR.memory),
+      Component: ProjectMemorySettings,
     },
     {
       key: "skills",

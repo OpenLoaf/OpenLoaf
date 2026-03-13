@@ -336,7 +336,7 @@ export const SidebarProject = () => {
         }}
       >
         <DialogContent
-          className="max-w-[420px] rounded-2xl border border-border/60 bg-background p-0 shadow-[0_12px_32px_rgba(15,23,42,0.12)]"
+          className="max-w-[420px] rounded-2xl border border-border/60 bg-background p-0 shadow-ol-float"
           onInteractOutside={(e) => { if (isBusy) e.preventDefault(); }}
           onEscapeKeyDown={(e) => { if (isBusy) e.preventDefault(); }}
         >
@@ -349,10 +349,10 @@ export const SidebarProject = () => {
             <div className="flex flex-col gap-2.5 px-6 pt-3 pb-7">
               <button
                 type="button"
-                className="group flex w-full items-center gap-3.5 rounded-xl border border-sky-200/60 bg-sky-50/50 px-4 py-3.5 text-left transition-colors duration-150 hover:border-sky-300 hover:bg-sky-50 dark:border-sky-800/40 dark:bg-sky-950/30 dark:hover:border-sky-700 dark:hover:bg-sky-950/50"
+                className="group flex w-full items-center gap-3.5 rounded-xl border border-ol-blue/20 bg-ol-blue-bg px-4 py-3.5 text-left transition-colors duration-150 hover:border-ol-blue/30 hover:bg-ol-blue-bg-hover"
                 onClick={() => setAddMode("create")}
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ol-blue-bg text-ol-blue">
                   <FolderPlus className="h-4.5 w-4.5" />
                 </div>
                 <div>
@@ -362,7 +362,7 @@ export const SidebarProject = () => {
               </button>
               <button
                 type="button"
-                className="group flex w-full items-center gap-3.5 rounded-xl border border-emerald-200/60 bg-emerald-50/50 px-4 py-3.5 text-left transition-colors duration-150 hover:border-emerald-300 hover:bg-emerald-50 dark:border-emerald-800/40 dark:bg-emerald-950/30 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/50"
+                className="group flex w-full items-center gap-3.5 rounded-xl border border-ol-green/20 bg-ol-green-bg px-4 py-3.5 text-left transition-colors duration-150 hover:border-ol-green/30 hover:bg-ol-green-bg-hover"
                 onClick={async () => {
                   const dir = await pickDirectory();
                   if (!dir) return;
@@ -394,7 +394,7 @@ export const SidebarProject = () => {
                   }
                 }}
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ol-green-bg text-ol-green">
                   <FolderOpen className="h-4.5 w-4.5" />
                 </div>
                 <div>
@@ -404,10 +404,10 @@ export const SidebarProject = () => {
               </button>
               <button
                 type="button"
-                className="group flex w-full items-center gap-3.5 rounded-xl border border-violet-200/60 bg-violet-50/50 px-4 py-3.5 text-left transition-colors duration-150 hover:border-violet-300 hover:bg-violet-50 dark:border-violet-800/40 dark:bg-violet-950/30 dark:hover:border-violet-700 dark:hover:bg-violet-950/50"
+                className="group flex w-full items-center gap-3.5 rounded-xl border border-ol-purple/20 bg-ol-purple-bg px-4 py-3.5 text-left transition-colors duration-150 hover:border-ol-purple/30 hover:bg-ol-purple-bg-hover"
                 onClick={() => setAddMode("git")}
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ol-purple-bg text-ol-purple">
                   <GitBranch className="h-4.5 w-4.5" />
                 </div>
                 <div>
@@ -484,7 +484,7 @@ export const SidebarProject = () => {
               {(isBusy || gitDone) && (
                 <div className="flex flex-col gap-2">
                   {gitDone && (
-                    <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+                    <div className="flex items-center gap-2 text-sm text-ol-green">
                       <CheckCircle2 className="h-4 w-4" />
                       <span>{t('sidebar.cloneComplete')}</span>
                     </div>
@@ -505,7 +505,7 @@ export const SidebarProject = () => {
               <Button
                 variant="outline"
                 type="button"
-                className="h-9 rounded-full px-5 text-[13px] text-[var(--btn-neutral-fg,#5f6368)] hover:bg-[var(--btn-neutral-bg-hover,#e8eaed)] dark:text-slate-300 dark:hover:bg-slate-700"
+                className="h-9 rounded-full px-5 text-[13px] text-ol-text-auxiliary hover:bg-ol-surface-muted"
                 onClick={() => { setAddMode(null); setCreateTitle(""); }}
               >
                 {t('sidebar.back')}
@@ -513,7 +513,7 @@ export const SidebarProject = () => {
               <Button
                 onClick={handleAddProject}
                 disabled={isSubmitDisabled}
-                className="h-9 rounded-full px-5 text-[13px] bg-[var(--btn-primary-bg,#0b57d0)] text-[var(--btn-primary-fg,#ffffff)] shadow-none hover:bg-[var(--btn-primary-bg-hover,#0a4cbc)] dark:bg-sky-600 dark:hover:bg-sky-500"
+                className="h-9 rounded-full px-5 text-[13px] bg-ol-blue text-white shadow-none hover:opacity-90"
               >
                 {isBusy ? t('sidebar.creating') : t('sidebar.create')}
               </Button>
@@ -529,7 +529,7 @@ export const SidebarProject = () => {
                     <Button
                       variant="outline"
                       type="button"
-                      className="h-9 rounded-full px-5 text-[13px] text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950/40"
+                      className="h-9 rounded-full px-5 text-[13px] text-ol-red border-ol-red/20 hover:bg-ol-red-bg"
                       onClick={handleAbortClone}
                     >
                       <Square className="mr-1.5 h-3.5 w-3.5" />
@@ -539,7 +539,7 @@ export const SidebarProject = () => {
                     <Button
                       variant="outline"
                       type="button"
-                      className="h-9 rounded-full px-5 text-[13px] text-[var(--btn-neutral-fg,#5f6368)] hover:bg-[var(--btn-neutral-bg-hover,#e8eaed)] dark:text-slate-300 dark:hover:bg-slate-700"
+                      className="h-9 rounded-full px-5 text-[13px] text-ol-text-auxiliary hover:bg-ol-surface-muted"
                       onClick={() => { setAddMode(null); }}
                     >
                       {t('sidebar.back')}
@@ -548,7 +548,7 @@ export const SidebarProject = () => {
                   <Button
                     onClick={handleCloneFromGit}
                     disabled={isBusy || !gitUrl.trim()}
-                    className="h-9 rounded-full px-5 text-[13px] bg-violet-600 text-white shadow-none hover:bg-violet-500 dark:bg-violet-600 dark:hover:bg-violet-500"
+                    className="h-9 rounded-full px-5 text-[13px] bg-ol-purple text-white shadow-none hover:opacity-90"
                   >
                     {isBusy ? t('sidebar.cloning') : t('sidebar.startClone')}
                   </Button>
@@ -556,7 +556,7 @@ export const SidebarProject = () => {
               ) : (
                 <Button
                   onClick={() => setIsAddOpen(false)}
-                  className="h-9 rounded-full px-5 text-[13px] bg-emerald-600 text-white shadow-none hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                  className="h-9 rounded-full px-5 text-[13px] bg-ol-green text-white shadow-none hover:opacity-90"
                 >
                   {t('sidebar.done')}
                 </Button>

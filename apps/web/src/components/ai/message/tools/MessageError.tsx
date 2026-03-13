@@ -124,7 +124,7 @@ export default function MessageError({ error }: MessageErrorProps) {
       transition={{ duration: 0.16, ease: "easeOut" }}
       className="my-0.5 px-2 pr-5"
     >
-      <div className="overflow-hidden rounded-xl bg-[#fef0f0] dark:bg-red-950/25">
+      <div className="overflow-hidden rounded-xl bg-ol-red-bg">
         {/* 第一行：红绿灯（左） + 标题（右对齐） */}
         <div className="flex items-center justify-between px-3.5 py-2">
           <div className="flex shrink-0 items-center gap-[5px]">
@@ -132,24 +132,24 @@ export default function MessageError({ error }: MessageErrorProps) {
             <span className="size-[10px] rounded-full bg-[#febc2e] dark:bg-[#febc2e]" />
             <span className="size-[10px] rounded-full bg-[#28c840] dark:bg-[#28c840]" />
           </div>
-          <span className="text-[11px] font-medium text-[#d93025]/60 dark:text-red-400/60">
+          <span className="text-[11px] font-medium text-ol-red/60">
             {parsed.title}
           </span>
         </div>
 
         {/* 第二行：错误信息（始终显示） */}
         <div className="px-3.5 pb-2.5">
-          <p className="whitespace-pre-wrap break-words text-[12px] leading-relaxed text-[#d93025] dark:text-red-300">
+          <p className="whitespace-pre-wrap break-words text-[12px] leading-relaxed text-ol-red">
             {parsed.message}
           </p>
         </div>
 
         {/* 第三行：操作按钮 */}
-        <div className="flex items-center justify-end gap-1.5 border-t border-[#d93025]/10 px-3.5 py-2 dark:border-red-500/10">
+        <div className="flex items-center justify-end gap-1.5 border-t border-ol-red/10 px-3.5 py-2">
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[#d93025]/20 bg-white/60 px-3 text-[11px] font-medium text-[#d93025] transition-colors duration-150 hover:bg-[#fce8e6] dark:border-red-500/20 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
+            className="inline-flex h-7 items-center gap-1.5 rounded-full border border-ol-red/20 bg-white/60 px-3 text-[11px] font-medium text-ol-red transition-colors duration-150 hover:bg-ol-red-bg dark:bg-ol-red-bg"
           >
             {copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
             {copied ? t('error.copied') : t('error.copyLog')}
@@ -158,7 +158,7 @@ export default function MessageError({ error }: MessageErrorProps) {
             type="button"
             onClick={handleRetry}
             disabled={isBusy}
-            className="inline-flex h-7 items-center gap-1.5 rounded-full bg-[#d93025] px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:bg-[#b7271d] disabled:opacity-40 dark:bg-red-700 dark:hover:bg-red-600"
+            className="inline-flex h-7 items-center gap-1.5 rounded-full bg-ol-red px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:brightness-110 disabled:opacity-40"
           >
             <RotateCcw className="size-3" />
             {t('error.retry')}

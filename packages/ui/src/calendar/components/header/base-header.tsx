@@ -103,8 +103,8 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 						className={cn(
 							'h-7 w-7 inline-flex items-center justify-center rounded-full transition-colors duration-150',
 							isSidebarOpen
-								? 'bg-[#f3e8fd] text-[#9334e6] dark:bg-violet-900/40 dark:text-violet-300'
-								: 'text-[#9334e6] hover:bg-[#f3e8fd] dark:text-violet-300 dark:hover:bg-violet-900/40',
+								? 'bg-ol-purple-bg text-ol-purple'
+								: 'text-ol-purple hover:bg-ol-purple-bg',
 							!sidebar && 'opacity-50 pointer-events-none'
 						)}
 						disabled={!sidebar}
@@ -160,7 +160,7 @@ const Header: React.FC<HeaderProps> = ({ className = '' }) => {
 					{hideNewEventButton ? null : (
 					<button
 						type="button"
-						className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70 shadow-none transition-colors duration-150"
+						className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none transition-colors duration-150"
 						onClick={() => openEventForm()}
 					>
 						<Plus className="h-4 w-4" />

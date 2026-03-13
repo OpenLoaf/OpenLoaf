@@ -101,7 +101,7 @@
 
 html,
 body {
-  @apply bg-white dark:bg-gray-950;
+  @apply bg-background text-foreground;
   height: 100%;
   overflow: hidden;
   margin: 0;
@@ -152,6 +152,53 @@ body {
   --radius: 0.625rem;
   --macos-traffic-lights-width: 0px;
   --titlebar-controls-width: 0px;
+
+  /* ── OpenLoaf Design Tokens ── */
+
+  /* 语义色 - 基色（文字/图标/圆点） */
+  --ol-blue: oklch(0.546 0.245 262.881);
+  --ol-green: oklch(0.507 0.155 155.77);
+  --ol-amber: oklch(0.702 0.174 62.8);
+  --ol-red: oklch(0.577 0.245 27.325);
+  --ol-purple: oklch(0.541 0.252 293.5);
+
+  /* 语义色 - 浅色背景 */
+  --ol-blue-bg: oklch(0.942 0.032 253);
+  --ol-green-bg: oklch(0.949 0.032 156);
+  --ol-amber-bg: oklch(0.972 0.035 90);
+  --ol-red-bg: oklch(0.961 0.03 25);
+  --ol-purple-bg: oklch(0.955 0.04 295);
+
+  /* 语义色 - 浅色背景 hover */
+  --ol-blue-bg-hover: oklch(0.901 0.05 254);
+  --ol-green-bg-hover: oklch(0.908 0.055 155);
+  --ol-amber-bg-hover: oklch(0.955 0.05 90);
+  --ol-red-bg-hover: oklch(0.935 0.045 25);
+  --ol-purple-bg-hover: oklch(0.925 0.06 295);
+
+  /* 中性文字 */
+  --ol-text-primary: oklch(0.168 0.004 285);
+  --ol-text-secondary: oklch(0.296 0.006 286);
+  --ol-text-auxiliary: oklch(0.412 0.007 286);
+
+  /* 中性背景 */
+  --ol-surface-muted: oklch(0.951 0.004 264);
+  --ol-surface-inset: oklch(0.972 0.007 258);
+  --ol-surface-input: oklch(0.947 0.012 254);
+  --ol-divider: oklch(0.916 0.008 250);
+
+  /* 焦点环 */
+  --ol-focus-ring: oklch(0.546 0.245 263 / 22%);
+  --ol-focus-border: oklch(0.901 0.05 254);
+
+  /* 阴影 */
+  --ol-shadow-glass: 0 10px 24px rgba(15, 23, 42, 0.10);
+  --ol-shadow-toolbar: 0 10px 26px rgba(15, 23, 42, 0.18);
+  --ol-shadow-float: 0 12px 32px rgba(15, 23, 42, 0.12);
+
+  /* 滚动条 */
+  --ol-scrollbar-thumb: rgba(127, 127, 127, 0.35);
+  --ol-scrollbar-thumb-hover: rgba(127, 127, 127, 0.55);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -208,6 +255,44 @@ body {
 }
 
 .dark {
+  /* ── OpenLoaf Design Tokens (dark) ── */
+  --ol-blue: oklch(0.748 0.12 233);
+  --ol-green: oklch(0.765 0.12 163);
+  --ol-amber: oklch(0.807 0.135 72);
+  --ol-red: oklch(0.756 0.12 22);
+  --ol-purple: oklch(0.78 0.11 290);
+
+  --ol-blue-bg: oklch(0.28 0.08 233 / 40%);
+  --ol-green-bg: oklch(0.27 0.08 163 / 40%);
+  --ol-amber-bg: oklch(0.28 0.08 72 / 40%);
+  --ol-red-bg: oklch(0.25 0.08 22 / 40%);
+  --ol-purple-bg: oklch(0.27 0.08 290 / 40%);
+
+  --ol-blue-bg-hover: oklch(0.28 0.08 233 / 60%);
+  --ol-green-bg-hover: oklch(0.27 0.08 163 / 60%);
+  --ol-amber-bg-hover: oklch(0.28 0.08 72 / 60%);
+  --ol-red-bg-hover: oklch(0.25 0.08 22 / 60%);
+  --ol-purple-bg-hover: oklch(0.27 0.08 290 / 60%);
+
+  --ol-text-primary: oklch(0.985 0 0);
+  --ol-text-secondary: oklch(0.87 0 0);
+  --ol-text-auxiliary: oklch(0.708 0 0);
+
+  --ol-surface-muted: oklch(0.28 0.02 250 / 40%);
+  --ol-surface-inset: oklch(0.269 0.01 250 / 26%);
+  --ol-surface-input: oklch(0.269 0.01 250 / 38%);
+  --ol-divider: oklch(0.37 0 0);
+
+  --ol-focus-ring: oklch(0.748 0.12 233 / 30%);
+  --ol-focus-border: oklch(0.28 0.08 233 / 50%);
+
+  --ol-shadow-glass: 0 10px 24px rgba(0, 0, 0, 0.4);
+  --ol-shadow-toolbar: 0 10px 26px rgba(0, 0, 0, 0.5);
+  --ol-shadow-float: 0 12px 32px rgba(0, 0, 0, 0.5);
+
+  --ol-scrollbar-thumb: rgba(200, 200, 200, 0.3);
+  --ol-scrollbar-thumb-hover: rgba(200, 200, 200, 0.5);
+
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -309,7 +394,37 @@ body {
   --color-folder-back: var(--folder-back);
   --color-folder-front: var(--folder-front);
   --color-folder-tab: var(--folder-tab);
-  --radius: var(----radius)
+
+  /* ── OpenLoaf Design Token Mappings ── */
+  --color-ol-blue: var(--ol-blue);
+  --color-ol-blue-bg: var(--ol-blue-bg);
+  --color-ol-blue-bg-hover: var(--ol-blue-bg-hover);
+  --color-ol-green: var(--ol-green);
+  --color-ol-green-bg: var(--ol-green-bg);
+  --color-ol-green-bg-hover: var(--ol-green-bg-hover);
+  --color-ol-amber: var(--ol-amber);
+  --color-ol-amber-bg: var(--ol-amber-bg);
+  --color-ol-amber-bg-hover: var(--ol-amber-bg-hover);
+  --color-ol-red: var(--ol-red);
+  --color-ol-red-bg: var(--ol-red-bg);
+  --color-ol-red-bg-hover: var(--ol-red-bg-hover);
+  --color-ol-purple: var(--ol-purple);
+  --color-ol-purple-bg: var(--ol-purple-bg);
+  --color-ol-purple-bg-hover: var(--ol-purple-bg-hover);
+  --color-ol-text-primary: var(--ol-text-primary);
+  --color-ol-text-secondary: var(--ol-text-secondary);
+  --color-ol-text-auxiliary: var(--ol-text-auxiliary);
+  --color-ol-surface-muted: var(--ol-surface-muted);
+  --color-ol-surface-inset: var(--ol-surface-inset);
+  --color-ol-surface-input: var(--ol-surface-input);
+  --color-ol-divider: var(--ol-divider);
+  --color-ol-focus-ring: var(--ol-focus-ring);
+  --color-ol-focus-border: var(--ol-focus-border);
+
+  /* 阴影令牌 */
+  --shadow-ol-glass: var(--ol-shadow-glass);
+  --shadow-ol-toolbar: var(--ol-shadow-toolbar);
+  --shadow-ol-float: var(--ol-shadow-float);
 }
 
 @keyframes sparkle-float {
@@ -489,13 +604,40 @@ body {
   display: block;
 }
 .show-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(127,127,127,0.35);
+  background: var(--ol-scrollbar-thumb);
   border-radius: 6px;
 }
 .show-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(127,127,127,0.55);
+  background: var(--ol-scrollbar-thumb-hover);
 }
 .show-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Board text node: always-visible square scrollbar.
+   scrollbar-width must be reverted (not set to auto/thin) so that
+   ::-webkit-scrollbar custom styles take effect in Chrome 121+. */
+.board-text-scrollbar {
+  scrollbar-width: revert !important;
+  -ms-overflow-style: auto !important;
+}
+.board-text-scrollbar::-webkit-scrollbar {
+  width: 4px !important;
+  height: 4px !important;
+  display: block !important;
+}
+.board-text-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--ol-scrollbar-thumb);
+  border-radius: 0;
+}
+.board-text-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--ol-scrollbar-thumb-hover);
+}
+.board-text-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 0;
+}
+.board-text-scrollbar::-webkit-scrollbar-corner {
   background: transparent;
 }
 
@@ -925,11 +1067,11 @@ body {
 }
 
 /* Diff 行装饰（StreamingCodeViewer patch 模式） */
-.diff-line-added { background-color: rgba(34, 197, 94, 0.12); }
-.diff-line-removed { background-color: rgba(239, 68, 68, 0.12); }
-.diff-line-header { background-color: rgba(139, 92, 246, 0.10); }
-.diff-gutter-added { border-left: 3px solid rgba(34, 197, 94, 0.6); margin-left: 3px; }
-.diff-gutter-removed { border-left: 3px solid rgba(239, 68, 68, 0.6); margin-left: 3px; }
+.diff-line-added { background-color: oklch(from var(--ol-green) l c h / 12%); }
+.diff-line-removed { background-color: oklch(from var(--ol-red) l c h / 12%); }
+.diff-line-header { background-color: oklch(from var(--ol-purple) l c h / 10%); }
+.diff-gutter-added { border-left: 3px solid oklch(from var(--ol-green) l c h / 60%); margin-left: 3px; }
+.diff-gutter-removed { border-left: 3px solid oklch(from var(--ol-red) l c h / 60%); margin-left: 3px; }
 
 /* 逻辑：动画级别为低时禁用全局 CSS 动画与过渡。 */
 html[data-ui-animation-level="low"] *,

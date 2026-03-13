@@ -58,7 +58,7 @@ export const ResourceDayHorizontal: React.FC = () => {
 							<AnimatedSection
 								className={cn(
 									'min-w-20 flex-1 border-b border-r last:border-r-0 flex items-center justify-center text-xs shrink-0',
-									isNowHour && 'bg-blue-50 text-blue-600 font-medium'
+									isNowHour && 'bg-ol-blue-bg text-ol-blue font-medium'
 								)}
 								data-testid={`resource-day-time-label-${col.format('HH')}`}
 								delay={index * 0.05}

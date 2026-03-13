@@ -28,8 +28,7 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react'
-import { useTabRuntime } from '@/hooks/use-tab-runtime'
-import { useTabs } from '@/hooks/use-tabs'
+import { useLayoutState } from '@/hooks/use-layout-state'
 import { useOptionalChatSession } from '@/components/ai/context/ChatSessionContext'
 import type { AnyToolPart } from './shared/tool-utils'
 import { getToolName, normalizeToolInput, isToolStreaming } from './shared/tool-utils'
@@ -100,74 +99,74 @@ const ACTION_CONFIG: Record<TaskAction, {
   create: {
     icon: ListTodo,
     labelKey: 'taskAction.create',
-    color: 'text-[#1a73e8] dark:text-sky-300',
-    badgeColor: 'bg-[#e8f0fe] text-[#1a73e8] border-transparent dark:bg-sky-900/40 dark:text-sky-300',
+    color: 'text-ol-blue',
+    badgeColor: 'bg-ol-blue-bg text-ol-blue border-transparent',
   },
   cancel: {
     icon: XCircle,
     labelKey: 'taskAction.cancel',
-    color: 'text-[#d93025] dark:text-red-300',
-    badgeColor: 'bg-[#fce8e6] text-[#d93025] border-transparent dark:bg-red-900/40 dark:text-red-300',
+    color: 'text-ol-red',
+    badgeColor: 'bg-ol-red-bg text-ol-red border-transparent',
   },
   delete: {
     icon: Trash2,
     labelKey: 'taskAction.delete',
-    color: 'text-[#d93025] dark:text-red-300',
-    badgeColor: 'bg-[#fce8e6] text-[#d93025] border-transparent dark:bg-red-900/40 dark:text-red-300',
+    color: 'text-ol-red',
+    badgeColor: 'bg-ol-red-bg text-ol-red border-transparent',
   },
   run: {
     icon: Play,
     labelKey: 'taskAction.run',
-    color: 'text-[#188038] dark:text-emerald-300',
-    badgeColor: 'bg-[#e6f4ea] text-[#188038] border-transparent dark:bg-emerald-900/40 dark:text-emerald-300',
+    color: 'text-ol-green',
+    badgeColor: 'bg-ol-green-bg text-ol-green border-transparent',
   },
   resolve: {
     icon: CheckSquare,
     labelKey: 'taskAction.resolve',
-    color: 'text-[#9334e6] dark:text-violet-300',
-    badgeColor: 'bg-[#f3e8fd] text-[#9334e6] border-transparent dark:bg-violet-900/40 dark:text-violet-300',
+    color: 'text-ol-purple',
+    badgeColor: 'bg-ol-purple-bg text-ol-purple border-transparent',
   },
   archive: {
     icon: Archive,
     labelKey: 'taskAction.archive',
-    color: 'text-[#5f6368] dark:text-slate-400',
-    badgeColor: 'bg-[#f1f3f4] text-[#5f6368] border-transparent dark:bg-slate-800/40 dark:text-slate-400',
+    color: 'text-ol-text-auxiliary',
+    badgeColor: 'bg-ol-surface-muted text-ol-text-auxiliary border-transparent',
   },
   cancelAll: {
     icon: XCircle,
     labelKey: 'taskAction.cancelAll',
-    color: 'text-[#d93025] dark:text-red-300',
-    badgeColor: 'bg-[#fce8e6] text-[#d93025] border-transparent dark:bg-red-900/40 dark:text-red-300',
+    color: 'text-ol-red',
+    badgeColor: 'bg-ol-red-bg text-ol-red border-transparent',
   },
   deleteAll: {
     icon: Trash2,
     labelKey: 'taskAction.deleteAll',
-    color: 'text-[#d93025] dark:text-red-300',
-    badgeColor: 'bg-[#fce8e6] text-[#d93025] border-transparent dark:bg-red-900/40 dark:text-red-300',
+    color: 'text-ol-red',
+    badgeColor: 'bg-ol-red-bg text-ol-red border-transparent',
   },
   archiveAll: {
     icon: Archive,
     labelKey: 'taskAction.archiveAll',
-    color: 'text-[#5f6368] dark:text-slate-400',
-    badgeColor: 'bg-[#f1f3f4] text-[#5f6368] border-transparent dark:bg-slate-800/40 dark:text-slate-400',
+    color: 'text-ol-text-auxiliary',
+    badgeColor: 'bg-ol-surface-muted text-ol-text-auxiliary border-transparent',
   },
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 const PRIORITY_COLORS: Record<Priority, string> = {
-  urgent: 'bg-[#fce8e6] text-[#d93025] border-transparent dark:bg-red-900/40 dark:text-red-300',
-  high: 'bg-[#fef7e0] text-[#e37400] border-transparent dark:bg-amber-900/40 dark:text-amber-300',
-  medium: 'bg-[#e8f0fe] text-[#1a73e8] border-transparent dark:bg-sky-900/40 dark:text-sky-300',
-  low: 'bg-[#f1f3f4] text-[#5f6368] border-transparent dark:bg-slate-800/40 dark:text-slate-400',
+  urgent: 'bg-ol-red-bg text-ol-red border-transparent',
+  high: 'bg-ol-amber-bg text-ol-amber border-transparent',
+  medium: 'bg-ol-blue-bg text-ol-blue border-transparent',
+  low: 'bg-ol-surface-muted text-ol-text-auxiliary border-transparent',
 }
 
 const STATUS_BADGE_COLORS: Record<TaskStatus, string> = {
-  todo: 'bg-[#e8f0fe] text-[#1a73e8] border-transparent dark:bg-sky-900/40 dark:text-sky-300',
-  running: 'bg-[#fef7e0] text-[#e37400] border-transparent dark:bg-amber-900/40 dark:text-amber-300',
-  review: 'bg-[#f3e8fd] text-[#9334e6] border-transparent dark:bg-violet-900/40 dark:text-violet-300',
-  done: 'bg-[#e6f4ea] text-[#188038] border-transparent dark:bg-emerald-900/40 dark:text-emerald-300',
-  cancelled: 'bg-[#f1f3f4] text-[#5f6368] border-transparent dark:bg-slate-800/40 dark:text-slate-400',
+  todo: 'bg-ol-blue-bg text-ol-blue border-transparent',
+  running: 'bg-ol-amber-bg text-ol-amber border-transparent',
+  review: 'bg-ol-purple-bg text-ol-purple border-transparent',
+  done: 'bg-ol-green-bg text-ol-green border-transparent',
+  cancelled: 'bg-ol-surface-muted text-ol-text-auxiliary border-transparent',
 }
 
 const STATUS_ICONS: Record<TaskStatus, typeof Circle> = {
@@ -194,8 +193,7 @@ export default function TaskTool({
   className?: string
 }) {
   const { t } = useTranslation('tasks')
-  const pushStackItem = useTabRuntime((state) => state.pushStackItem)
-  const { activeTabId } = useTabs()
+  const pushStackItem = useLayoutState((state) => state.pushStackItem)
   const chatSession = useOptionalChatSession()
   const projectId = chatSession?.projectId
   const streaming = isToolStreaming(part)
@@ -244,28 +242,26 @@ export default function TaskTool({
   const isBatch = action === 'cancelAll' || action === 'deleteAll' || action === 'archiveAll'
 
   const handleOpenTaskBoard = useCallback(() => {
-    if (!activeTabId) return
-    pushStackItem(activeTabId, {
+    pushStackItem({
       id: 'scheduled-tasks-page',
       sourceKey: 'scheduled-tasks-page',
       component: 'scheduled-tasks-page',
       title: t('task.board'),
       params: projectId ? { projectId } : undefined,
     })
-  }, [activeTabId, pushStackItem, t, projectId])
+  }, [pushStackItem, t, projectId])
 
   const handleOpenTaskDetail = useCallback(() => {
-    if (!activeTabId) return
     const taskId = output?.task?.id ?? output?.taskId
     if (!taskId) return
-    pushStackItem(activeTabId, {
+    pushStackItem({
       id: `task-detail:${taskId}`,
       sourceKey: `task-detail:${taskId}`,
       component: 'task-detail',
       title: output?.task?.name ?? t('taskLabels.background'),
       params: { taskId, projectId },
     })
-  }, [activeTabId, pushStackItem, output, t, projectId])
+  }, [pushStackItem, output, t, projectId])
 
   const toolName = getToolName(part)
 
@@ -306,11 +302,11 @@ export default function TaskTool({
                 className={cn(
                   'h-4 w-4 shrink-0',
                   taskStatus === 'running' && 'animate-spin',
-                  taskStatus === 'todo' && 'text-[#1a73e8] dark:text-sky-300',
-                  taskStatus === 'running' && 'text-[#f9ab00] dark:text-amber-300',
-                  taskStatus === 'review' && 'text-[#9334e6] dark:text-violet-300',
-                  taskStatus === 'done' && 'text-[#188038] dark:text-emerald-300',
-                  taskStatus === 'cancelled' && 'text-[#5f6368] dark:text-slate-400',
+                  taskStatus === 'todo' && 'text-ol-blue',
+                  taskStatus === 'running' && 'text-ol-amber',
+                  taskStatus === 'review' && 'text-ol-purple',
+                  taskStatus === 'done' && 'text-ol-green',
+                  taskStatus === 'cancelled' && 'text-ol-text-auxiliary',
                 )}
               />
             )}
@@ -346,7 +342,7 @@ export default function TaskTool({
           {scheduleLabel && (
             <Badge
               variant="outline"
-              className="bg-[#fef7e0] text-[10px] text-[#e37400] border-transparent dark:bg-amber-900/40 dark:text-amber-300"
+              className="bg-ol-amber-bg text-[10px] text-ol-amber border-transparent"
             >
               <CalendarClock className="mr-1 h-3 w-3" />
               {scheduleLabel}

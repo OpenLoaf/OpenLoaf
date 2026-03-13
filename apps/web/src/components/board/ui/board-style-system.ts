@@ -20,22 +20,22 @@
 
 /** Glass-effect toolbar container (canvas-specific exception). */
 export const BOARD_TOOLBAR_SURFACE_CLASS =
-  "bg-card/90 dark:bg-sidebar ring-1 ring-border/70 shadow-[0_10px_26px_rgba(15,23,42,0.18)] backdrop-blur-md cursor-default [&_*]:!cursor-default";
+  "bg-card/90 dark:bg-sidebar ring-1 ring-border/70 shadow-ol-toolbar backdrop-blur-md cursor-default [&_*]:!cursor-default";
 
 /** Icon button active state — subtle tinted background following design system. */
 export const BOARD_ICON_BTN_ACTIVE =
-  "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50";
+  "bg-ol-blue-bg-hover text-ol-blue";
 
 /** Icon button hover state — muted background following design system. */
 export const BOARD_ICON_BTN_HOVER =
-  "hover:bg-[hsl(var(--muted)/0.58)] dark:hover:bg-[hsl(var(--muted)/0.46)]";
+  "hover:bg-muted/58 dark:hover:bg-muted/46";
 
 /** Panel item active state (same as icon button). */
 export const BOARD_PANEL_ITEM_ACTIVE = BOARD_ICON_BTN_ACTIVE;
 
 /** Panel item hover state. */
 export const BOARD_PANEL_ITEM_HOVER =
-  "hover:bg-[hsl(var(--muted)/0.58)] dark:hover:bg-[hsl(var(--muted)/0.46)]";
+  "hover:bg-muted/58 dark:hover:bg-muted/46";
 
 /** Design-system-aligned pen colors (semantic palette). */
 export const BOARD_PEN_COLORS = [
@@ -47,175 +47,175 @@ export const BOARD_PEN_COLORS = [
 ] as const;
 
 /** Primary text color. */
-export const BOARD_TEXT_PRIMARY = "text-[#202124] dark:text-neutral-50";
+export const BOARD_TEXT_PRIMARY = "text-ol-text-primary";
 
 /** Secondary text color. */
-export const BOARD_TEXT_SECONDARY = "text-[#3c4043] dark:text-neutral-300";
+export const BOARD_TEXT_SECONDARY = "text-ol-text-secondary";
 
 /** Auxiliary text color. */
-export const BOARD_TEXT_AUXILIARY = "text-[#5f6368] dark:text-neutral-400";
+export const BOARD_TEXT_AUXILIARY = "text-ol-text-auxiliary";
 
 /** Divider class for board separators. */
-export const BOARD_DIVIDER_CLASS = "bg-[#e3e8ef] dark:bg-neutral-700";
+export const BOARD_DIVIDER_CLASS = "bg-ol-divider";
 
 /** Border class for board panels. */
-export const BOARD_BORDER_CLASS = "border-[#e3e8ef] dark:border-neutral-700";
+export const BOARD_BORDER_CLASS = "border-ol-divider";
 
 /** Connector style button — idle state. */
 export const BOARD_CONNECTOR_BTN_IDLE =
-  "text-[#5f6368] dark:text-neutral-400";
+  "text-ol-text-auxiliary";
 
 /** Connector style button — active state. */
 export const BOARD_CONNECTOR_BTN_ACTIVE =
-  "bg-[#202124] text-white shadow-[0_0_0_1px_rgba(15,23,42,0.2)] dark:bg-neutral-100 dark:text-neutral-900";
+  "bg-ol-text-primary text-white shadow-[0_0_0_1px_rgba(15,23,42,0.2)] dark:bg-foreground dark:text-background";
 
 /** Connector style button — hover state. */
 export const BOARD_CONNECTOR_BTN_HOVER =
-  "hover:bg-[hsl(var(--muted)/0.58)] hover:text-[#3c4043] dark:hover:bg-[hsl(var(--muted)/0.46)] dark:hover:text-neutral-100";
+  "hover:bg-muted/58 hover:text-ol-text-secondary dark:hover:bg-muted/46 dark:hover:text-foreground";
 
 /** Connector color swatch border. */
 export const BOARD_CONNECTOR_SWATCH_BORDER =
-  "border-[#e3e8ef] dark:border-neutral-600";
+  "border-ol-divider";
 
 /** Connector color swatch active ring. */
 export const BOARD_CONNECTOR_SWATCH_ACTIVE_RING =
-  "ring-2 ring-[#1a73e8] ring-offset-2 ring-offset-background dark:ring-sky-400";
+  "ring-2 ring-ol-blue ring-offset-2 ring-offset-background";
 
 /** Advanced settings card border. */
 export const BOARD_SETTINGS_CARD_BORDER =
-  "border-[#e3e8ef] dark:border-neutral-700/80";
+  "border-ol-divider";
 
 /** Advanced settings label text. */
-export const BOARD_SETTINGS_LABEL = "text-[#5f6368] dark:text-neutral-300";
+export const BOARD_SETTINGS_LABEL = "text-ol-text-auxiliary";
 
 /** Advanced settings tabs list background. */
 export const BOARD_SETTINGS_TABS_BG =
-  "bg-[#f1f3f4] dark:bg-neutral-800/80";
+  "bg-ol-surface-muted";
 
 /** Advanced settings tabs trigger active state. */
 export const BOARD_SETTINGS_TABS_ACTIVE =
-  "data-[state=active]:bg-white data-[state=active]:text-[#1a73e8] dark:data-[state=active]:bg-neutral-900 dark:data-[state=active]:text-sky-300";
+  "data-[state=active]:bg-background data-[state=active]:text-ol-blue";
 
 /** Advanced settings dropdown hover. */
 export const BOARD_SETTINGS_DROPDOWN_HOVER =
-  "hover:bg-[#f1f3f4] dark:hover:bg-neutral-800";
+  "hover:bg-ol-surface-muted";
 
 /** Advanced settings dropdown item active. */
 export const BOARD_SETTINGS_DROPDOWN_ITEM_ACTIVE =
-  "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50";
+  "bg-ol-blue-bg-hover text-ol-blue";
 
 /* ── Toolbar Item Semantic Colors ── */
 
 /** Toolbar item — blue (primary / info actions). */
 export const BOARD_TOOLBAR_ITEM_BLUE =
-  "text-[#1a73e8] hover:bg-[#e8f0fe] dark:text-sky-300 dark:hover:bg-sky-900/40";
+  "text-ol-blue hover:bg-ol-blue-bg";
 
 /** Toolbar item — green (download / save actions). */
 export const BOARD_TOOLBAR_ITEM_GREEN =
-  "text-[#188038] hover:bg-[#e6f4ea] dark:text-emerald-300 dark:hover:bg-emerald-900/40";
+  "text-ol-green hover:bg-ol-green-bg";
 
 /** Toolbar item — amber (toggle / warning actions). */
 export const BOARD_TOOLBAR_ITEM_AMBER =
-  "text-[#e37400] hover:bg-[#fef7e0] dark:text-amber-300 dark:hover:bg-amber-900/40";
+  "text-ol-amber hover:bg-ol-amber-bg";
 
 /** Toolbar item — red (destructive actions). */
 export const BOARD_TOOLBAR_ITEM_RED =
-  "text-[#d93025] hover:bg-[#fce8e6] dark:text-rose-300 dark:hover:bg-rose-900/40";
+  "text-ol-red hover:bg-ol-red-bg";
 
 /** Toolbar item — purple (style / color actions). */
 export const BOARD_TOOLBAR_ITEM_PURPLE =
-  "text-[#9334e6] hover:bg-[#f3e8fd] dark:text-violet-300 dark:hover:bg-violet-900/40";
+  "text-ol-purple hover:bg-ol-purple-bg";
 
 /* ── Generation Node Style Constants ── */
 
 /** Glass container base for generation nodes (neutral fallback). */
 export const BOARD_GENERATE_NODE_BASE =
-  "bg-white/95 shadow-[0_10px_24px_rgba(15,23,42,0.10)] backdrop-blur-lg dark:bg-[hsl(var(--background)/0.92)] dark:shadow-[0_10px_24px_rgba(0,0,0,0.4)]";
+  "bg-background/95 dark:bg-background/92 shadow-ol-glass backdrop-blur-lg";
 
 /** Semantic glass base — image generation (light blue tint). */
 export const BOARD_GENERATE_NODE_BASE_IMAGE =
-  "bg-[#f0f6ff]/95 shadow-[0_10px_24px_rgba(15,23,42,0.10)] backdrop-blur-lg dark:bg-[hsl(210_60%_8%/0.92)] dark:shadow-[0_10px_24px_rgba(0,0,0,0.4)]";
+  "bg-[#f0f6ff]/95 shadow-ol-glass backdrop-blur-lg dark:bg-[hsl(210_60%_8%/0.92)]";
 /** Semantic glass base — image prompt (light amber tint). */
 export const BOARD_GENERATE_NODE_BASE_PROMPT =
-  "bg-[#fffbf0]/95 shadow-[0_10px_24px_rgba(15,23,42,0.10)] backdrop-blur-lg dark:bg-[hsl(35_50%_8%/0.92)] dark:shadow-[0_10px_24px_rgba(0,0,0,0.4)]";
+  "bg-[#fffbf0]/95 shadow-ol-glass backdrop-blur-lg dark:bg-[hsl(35_50%_8%/0.92)]";
 /** Semantic glass base — video generation (light purple tint). */
 export const BOARD_GENERATE_NODE_BASE_VIDEO =
-  "bg-[#f8f0ff]/95 shadow-[0_10px_24px_rgba(15,23,42,0.10)] backdrop-blur-lg dark:bg-[hsl(270_50%_8%/0.92)] dark:shadow-[0_10px_24px_rgba(0,0,0,0.4)]";
+  "bg-[#f8f0ff]/95 shadow-ol-glass backdrop-blur-lg dark:bg-[hsl(270_50%_8%/0.92)]";
 
 /** Semantic border — image generation (blue). */
-export const BOARD_GENERATE_BORDER_IMAGE = "border-[#d2e3fc] dark:border-sky-800/60";
+export const BOARD_GENERATE_BORDER_IMAGE = "border-ol-focus-border";
 /** Semantic border — video generation (purple). */
-export const BOARD_GENERATE_BORDER_VIDEO = "border-[#e9d5fb] dark:border-violet-800/60";
+export const BOARD_GENERATE_BORDER_VIDEO = "border-ol-purple-bg-hover";
 /** Semantic border — image prompt (amber). */
-export const BOARD_GENERATE_BORDER_PROMPT = "border-[#fcefc8] dark:border-amber-800/60";
+export const BOARD_GENERATE_BORDER_PROMPT = "border-ol-amber-bg-hover";
 
 /** Selected state — image generation. */
 export const BOARD_GENERATE_SELECTED_IMAGE =
-  "border-[#1a73e8] ring-1 ring-[#1a73e8]/20 dark:border-sky-400 dark:ring-sky-400/20";
+  "border-ol-blue ring-1 ring-ol-blue/20";
 /** Selected state — video generation. */
 export const BOARD_GENERATE_SELECTED_VIDEO =
-  "border-[#9334e6] ring-1 ring-[#9334e6]/20 dark:border-violet-400 dark:ring-violet-400/20";
+  "border-ol-purple ring-1 ring-ol-purple/20";
 /** Selected state — image prompt. */
 export const BOARD_GENERATE_SELECTED_PROMPT =
-  "border-[#f9ab00] ring-1 ring-[#f9ab00]/20 dark:border-amber-400 dark:ring-amber-400/20";
+  "border-ol-amber ring-1 ring-ol-amber/20";
 
 /** Error state for generation nodes. */
 export const BOARD_GENERATE_ERROR =
-  "border-[#d93025] bg-[#fce8e6]/60 dark:border-rose-400/70 dark:bg-rose-950/30";
+  "border-ol-red bg-ol-red-bg/60";
 
 /** Primary button — image generation (blue). */
 export const BOARD_GENERATE_BTN_IMAGE =
-  "bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70";
+  "bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover";
 /** Primary button — video generation (purple). */
 export const BOARD_GENERATE_BTN_VIDEO =
-  "bg-[#f3e8fd] text-[#9334e6] hover:bg-[#e9d5fb] dark:bg-violet-900/40 dark:text-violet-300 dark:hover:bg-violet-900/60";
+  "bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover";
 /** Primary button — image prompt (amber). */
 export const BOARD_GENERATE_BTN_PROMPT =
-  "bg-[#fef7e0] text-[#e37400] hover:bg-[#fcefc8] dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60";
+  "bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover";
 
 /** Status pill — image generation. */
 export const BOARD_GENERATE_PILL_IMAGE =
-  "bg-[#e8f0fe] text-[#1a73e8] dark:bg-sky-900/40 dark:text-sky-300";
+  "bg-ol-blue-bg text-ol-blue";
 /** Status pill — video generation. */
 export const BOARD_GENERATE_PILL_VIDEO =
-  "bg-[#f3e8fd] text-[#9334e6] dark:bg-violet-900/40 dark:text-violet-300";
+  "bg-ol-purple-bg text-ol-purple";
 /** Status pill — image prompt. */
 export const BOARD_GENERATE_PILL_PROMPT =
-  "bg-[#fef7e0] text-[#e37400] dark:bg-amber-900/40 dark:text-amber-300";
+  "bg-ol-amber-bg text-ol-amber";
 
 /** Semantic dot — image generation. */
-export const BOARD_GENERATE_DOT_IMAGE = "bg-[#1a73e8] dark:bg-sky-400";
+export const BOARD_GENERATE_DOT_IMAGE = "bg-ol-blue";
 /** Semantic dot — video generation. */
-export const BOARD_GENERATE_DOT_VIDEO = "bg-[#9334e6] dark:bg-violet-400";
+export const BOARD_GENERATE_DOT_VIDEO = "bg-ol-purple";
 /** Semantic dot — image prompt. */
-export const BOARD_GENERATE_DOT_PROMPT = "bg-[#f9ab00] dark:bg-amber-400";
+export const BOARD_GENERATE_DOT_PROMPT = "bg-ol-amber";
 
 /** Flat input field for generation nodes. */
 export const BOARD_GENERATE_INPUT =
-  "border-transparent bg-[#edf2fa] text-[#202124] placeholder:text-[#5f6368] focus-visible:border-[#d2e3fc] focus-visible:ring-1 focus-visible:ring-[rgba(26,115,232,0.22)] dark:bg-[hsl(var(--muted)/0.38)] dark:text-neutral-100 dark:placeholder:text-neutral-400";
+  "border-transparent bg-ol-surface-input text-ol-text-primary placeholder:text-ol-text-auxiliary focus-visible:border-ol-focus-border focus-visible:ring-1 focus-visible:ring-ol-focus-ring";
 
 /** Node base — chat node (teal tinted). */
 export const BOARD_GENERATE_NODE_BASE_CHAT =
-  "bg-[#f0faf5]/95 shadow-[0_10px_24px_rgba(15,23,42,0.10)] backdrop-blur-lg dark:bg-[hsl(160_40%_8%/0.92)] dark:shadow-[0_10px_24px_rgba(0,0,0,0.4)]";
+  "bg-[#f0faf5]/95 shadow-ol-glass backdrop-blur-lg dark:bg-[hsl(160_40%_8%/0.92)]";
 
 /** Semantic border — chat node (teal). */
-export const BOARD_GENERATE_BORDER_CHAT = "border-[#b7e4cf] dark:border-teal-800/60";
+export const BOARD_GENERATE_BORDER_CHAT = "border-ol-green-bg-hover";
 
 /** Selected state — chat node. */
 export const BOARD_GENERATE_SELECTED_CHAT =
-  "border-[#188038] ring-1 ring-[#188038]/20 dark:border-emerald-400 dark:ring-emerald-400/20";
+  "border-ol-green ring-1 ring-ol-green/20";
 
 /** Primary button — chat node (teal). */
 export const BOARD_GENERATE_BTN_CHAT =
-  "bg-[#e6f4ea] text-[#188038] hover:bg-[#ceead6] dark:bg-emerald-900/50 dark:text-emerald-200 dark:hover:bg-emerald-900/70";
+  "bg-ol-green-bg text-ol-green hover:bg-ol-green-bg-hover";
 
 /** Status pill — chat node. */
 export const BOARD_GENERATE_PILL_CHAT =
-  "bg-[#e6f4ea] text-[#188038] dark:bg-emerald-900/40 dark:text-emerald-300";
+  "bg-ol-green-bg text-ol-green";
 
 /** Semantic dot — chat node. */
-export const BOARD_GENERATE_DOT_CHAT = "bg-[#188038] dark:bg-emerald-400";
+export const BOARD_GENERATE_DOT_CHAT = "bg-ol-green";
 
 /** Inset area for results / nested content. */
 export const BOARD_GENERATE_INSET =
-  "bg-[#f6f8fc] dark:bg-[hsl(var(--muted)/0.26)] border border-transparent";
+  "bg-ol-surface-inset border border-transparent";

@@ -10,7 +10,7 @@
 "use client";
 
 import { trpcClient } from "@/utils/trpc";
-import { getTabViewById } from "@/hooks/use-tab-view";
+import { getAppState } from "@/hooks/use-app-state";
 import { getWebClientId } from "@/lib/chat/streamClientId";
 
 type CacheKey = string;
@@ -29,7 +29,7 @@ export async function upsertTabSnapshotNow(input: {
   sessionId: string;
   tabId: string;
 }) {
-  const tab = getTabViewById(input.tabId);
+  const tab = getAppState();
   if (!tab) return;
 
   let json = "";

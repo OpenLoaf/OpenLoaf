@@ -80,11 +80,11 @@ export const TaskRunLogPanel = memo(function TaskRunLogPanel({
                     <div className="flex flex-col items-center">
                       <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
                         isOk
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40'
-                          : 'bg-rose-50 dark:bg-rose-950/40'
+                          ? 'bg-ol-green-bg'
+                          : 'bg-ol-red-bg'
                       }`}>
                         {isOk
-                          ? <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                          ? <CheckCircle2 className="h-3 w-3 text-ol-green" />
                           : <XCircle className="h-3 w-3 text-rose-500" />
                         }
                       </div>
@@ -93,7 +93,7 @@ export const TaskRunLogPanel = memo(function TaskRunLogPanel({
                     {/* 内容 */}
                     <div className={`flex-1 pb-4 ${isLast ? '' : ''}`}>
                       <div className="flex items-center justify-between">
-                        <span className={`text-xs font-medium ${isOk ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                        <span className={`text-xs font-medium ${isOk ? 'text-ol-green' : 'text-ol-red'}`}>
                           {isOk ? t('taskRunLog.statusOk') : t('taskRunLog.statusFailed')}
                         </span>
                         <span className="text-[11px] text-muted-foreground/60">
@@ -104,7 +104,7 @@ export const TaskRunLogPanel = memo(function TaskRunLogPanel({
                         {new Date(log.startedAt).toLocaleString()}
                       </div>
                       {log.error ? (
-                        <div className="mt-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 px-2.5 py-1.5 text-[11px] text-rose-600 dark:text-rose-400 break-all">
+                        <div className="mt-1.5 rounded-lg bg-ol-red-bg px-2.5 py-1.5 text-[11px] text-ol-red break-all">
                           {log.error}
                         </div>
                       ) : null}
@@ -112,7 +112,7 @@ export const TaskRunLogPanel = memo(function TaskRunLogPanel({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="mt-1.5 h-6 rounded-full px-2 text-[11px] text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                          className="mt-1.5 h-6 rounded-full px-2 text-[11px] text-ol-blue hover:bg-ol-blue/10"
                           onClick={() => onOpenChat(log.agentSessionId!)}
                         >
                           <MessageSquare className="mr-1 h-3 w-3" />

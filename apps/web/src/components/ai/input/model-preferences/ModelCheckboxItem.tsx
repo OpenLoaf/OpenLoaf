@@ -17,33 +17,33 @@ import { Check } from 'lucide-react'
 
 const TAG_COLOR_CLASSES: Record<string, string> = {
   // 对话类
-  chat: 'bg-sky-500/15 text-sky-700 dark:bg-sky-500/25 dark:text-sky-200',
-  code: 'bg-blue-500/15 text-blue-700 dark:bg-blue-500/25 dark:text-blue-200',
+  chat: 'bg-ol-blue/15 text-ol-blue',
+  code: 'bg-ol-blue/15 text-ol-blue',
   tool_call:
-    'bg-teal-500/15 text-teal-700 dark:bg-teal-500/25 dark:text-teal-200',
+    'bg-ol-green/15 text-ol-green',
   reasoning:
-    'bg-amber-500/20 text-amber-800 dark:bg-amber-500/25 dark:text-amber-100',
+    'bg-ol-amber/20 text-ol-amber',
   // 图像类
   image_generation:
     'bg-fuchsia-500/15 text-fuchsia-700 dark:bg-fuchsia-500/25 dark:text-fuchsia-200',
   image_input:
-    'bg-pink-500/15 text-pink-700 dark:bg-pink-500/25 dark:text-pink-200',
+    'bg-ol-red/15 text-ol-red',
   image_multi_input:
-    'bg-rose-500/15 text-rose-700 dark:bg-rose-500/25 dark:text-rose-200',
+    'bg-ol-red/15 text-ol-red',
   image_multi_generation:
     'bg-purple-500/15 text-purple-700 dark:bg-purple-500/25 dark:text-purple-200',
   image_edit:
-    'bg-orange-500/15 text-orange-700 dark:bg-orange-500/25 dark:text-orange-200',
+    'bg-ol-amber/15 text-ol-amber',
   image_analysis:
-    'bg-cyan-500/15 text-cyan-700 dark:bg-cyan-500/25 dark:text-cyan-200',
+    'bg-ol-blue/15 text-ol-blue',
   // 视频类
   video_generation:
-    'bg-violet-500/15 text-violet-700 dark:bg-violet-500/25 dark:text-violet-200',
+    'bg-ol-purple/15 text-ol-purple',
   video_analysis:
-    'bg-indigo-500/15 text-indigo-700 dark:bg-indigo-500/25 dark:text-indigo-200',
+    'bg-ol-purple/15 text-ol-purple',
   // 音频类
   audio_analysis:
-    'bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/25 dark:text-emerald-200',
+    'bg-ol-green/15 text-ol-green',
   default: 'bg-foreground/5 text-muted-foreground dark:bg-foreground/10',
 }
 

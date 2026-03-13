@@ -410,7 +410,7 @@ export function SettingsDialog() {
           {/* <div className="space-y-4">
             <div className="flex items-center gap-2">
               <div className="size-8 rounded-full bg-red-100 p-2 dark:bg-red-900">
-                <Upload className="size-4 text-red-600 dark:text-red-400" />
+                <Upload className="size-4 text-ol-red" />
               </div>
               <h4 className="font-semibold">Upload</h4>
             </div>

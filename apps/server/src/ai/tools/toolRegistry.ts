@@ -43,6 +43,7 @@ import { imageProcessTool } from "@/ai/tools/imageProcessTools";
 import { videoConvertTool } from "@/ai/tools/videoConvertTools";
 import { docConvertTool } from "@/ai/tools/docConvertTools";
 import { fileInfoTool } from "@/ai/tools/fileInfoTool";
+import { webSearchTool } from "@/ai/tools/webSearchTool";
 import { loadSkillTool } from "@/ai/tools/loadSkillTool";
 import { requestUserInputTool } from "@/ai/tools/requestUserInputTool";
 import { jsxCreateTool } from "@/ai/tools/jsxCreateTool";
@@ -89,6 +90,7 @@ import { imageProcessToolDef } from "@openloaf/api/types/tools/imageProcess";
 import { videoConvertToolDef } from "@openloaf/api/types/tools/videoConvert";
 import { docConvertToolDef } from "@openloaf/api/types/tools/docConvert";
 import { fileInfoToolDef } from "@openloaf/api/types/tools/fileInfo";
+import { webSearchToolDef } from "@openloaf/api/types/tools/webSearch";
 import { loadSkillToolDef } from "@openloaf/api/types/tools/skill";
 import { requestUserInputToolDef } from "@openloaf/api/types/tools/userInput";
 import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
@@ -305,6 +307,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [fileInfoToolDef.id]: {
     tool: fileInfoTool,
   },
+  [webSearchToolDef.id]: {
+    tool: webSearchTool,
+  },
   [loadSkillToolDef.id]: {
     tool: loadSkillTool,
   },
@@ -360,6 +365,9 @@ const TOOL_ALIASES: Record<string, string> = {
   "md-to-pdf": "doc-convert",
   "csv-to-excel": "doc-convert",
   "excel-to-csv": "doc-convert",
+  "search-web": "web-search",
+  "internet-search": "web-search",
+  "google": "web-search",
   "send-email": "email-mutate",
   "compose-email": "email-mutate",
   "delete-email": "email-mutate",

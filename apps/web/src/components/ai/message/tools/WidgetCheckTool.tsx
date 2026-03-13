@@ -12,8 +12,7 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { FolderOpen, LayoutGrid, CheckCircle2, XCircle } from 'lucide-react'
-import { useTabRuntime } from '@/hooks/use-tab-runtime'
-import { useTabs } from '@/hooks/use-tabs'
+import { useLayoutState } from '@/hooks/use-layout-state'
 import { useProject } from '@/hooks/use-project'
 import {
   DESKTOP_WIDGET_SELECTED_EVENT,
@@ -43,9 +42,9 @@ export default function WidgetCheckTool({
   part: AnyToolPart
   className?: string
 }) {
-  const { tabId, projectId } = useChatSession()
+  const { projectId } = useChatSession()
   const projectQuery = useProject(projectId)
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem)
+  const pushStackItem = useLayoutState((s) => s.pushStackItem)
   const input = asPlainObject(normalizeToolInput(part.input))
 
   const outputJson = parseOutputJson(part)
@@ -88,7 +87,7 @@ export default function WidgetCheckTool({
     part.state === 'output-available' && ok && isLatest
 
   const handleOpenWidget = () => {
-    if (!tabId || !widgetId) return
+    if (!widgetId) return
     const widgetFolderUri = resolveWidgetFolderUri({
       outputJson,
       widgetId,
@@ -96,7 +95,7 @@ export default function WidgetCheckTool({
     })
     if (!widgetFolderUri) return
     const mainFileUri = resolveWidgetMainFileUri(widgetFolderUri)
-    pushStackItem(tabId, {
+    pushStackItem({
       id: `widget:${widgetId}`,
       sourceKey: `widget:${widgetId}`,
       component: 'folder-tree-preview',
@@ -113,25 +112,17 @@ export default function WidgetCheckTool({
   }
 
   const handleAddToDesktop = () => {
-    const runtimeByTabId = useTabRuntime.getState().runtimeByTabId
-    let desktopTabId: string | null = null
-    for (const [tid, runtime] of Object.entries(runtimeByTabId)) {
-      if (runtime?.base?.component === 'global-desktop') {
-        desktopTabId = tid
-        break
-      }
-    }
-    if (!desktopTabId) return
+    const layoutBase = useLayoutState.getState().base
+    const isDesktop = layoutBase?.component === 'global-desktop'
+    if (!isDesktop) return
 
-    useTabs.getState().setActiveTab(desktopTabId)
-    const targetTabId = desktopTabId
     requestAnimationFrame(() => {
       window.dispatchEvent(
         new CustomEvent<DesktopWidgetSelectedDetail>(
           DESKTOP_WIDGET_SELECTED_EVENT,
           {
             detail: {
-              tabId: targetTabId,
+              tabId: '',
               widgetKey: 'dynamic',
               title: widgetName,
               dynamicWidgetId: widgetId,
@@ -151,9 +142,9 @@ export default function WidgetCheckTool({
       <div className={cn('w-full min-w-0', className)}>
         <div className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs text-muted-foreground">
           {ok ? (
-            <CheckCircle2 className="size-3.5 text-green-500" />
+            <CheckCircle2 className="size-3.5 text-ol-green" />
           ) : (
-            <XCircle className="size-3.5 text-red-500" />
+            <XCircle className="size-3.5 text-ol-red" />
           )}
           <span className="font-mono">{widgetName}</span>
           <span>{ok ? '编译通过' : `${errors.length} 个错误`}</span>
@@ -164,7 +155,7 @@ export default function WidgetCheckTool({
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-lg border bg-card text-card-foreground">
+      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
         {/* 标题栏 */}
         <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
           <TrafficLights state={windowState} />
@@ -210,7 +201,7 @@ export default function WidgetCheckTool({
           <div className="flex items-center justify-end gap-2 border-t px-3 py-2">
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-500/20 dark:text-sky-400"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ol-blue/10 px-2.5 py-1 text-xs font-medium text-ol-blue hover:bg-ol-blue/20"
               onClick={handleOpenWidget}
             >
               <FolderOpen className="size-3.5" />
@@ -218,7 +209,7 @@ export default function WidgetCheckTool({
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md bg-violet-500/10 px-2.5 py-1 text-xs font-medium text-violet-700 hover:bg-violet-500/20 dark:text-violet-400"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ol-purple/10 px-2.5 py-1 text-xs font-medium text-ol-purple hover:bg-ol-purple/20"
               onClick={handleAddToDesktop}
             >
               <LayoutGrid className="size-3.5" />

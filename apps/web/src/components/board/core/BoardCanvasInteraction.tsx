@@ -73,7 +73,7 @@ import {
   resolveProjectPathFromBoardUri,
 } from "./boardFilePath";
 import { buildLinkNodePayloadFromUrl } from "../utils/link";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { BoardContextMenu } from "./BoardContextMenu";
 import { useOptionalSidebar } from "@openloaf/ui/sidebar";
 import {
@@ -370,8 +370,8 @@ export function BoardCanvasInteraction({
 }: BoardCanvasInteractionProps) {
   const { fileContext } = useBoardContext();
   const showUi = !uiHidden;
-  const rightChatCollapsed = useTabRuntime(
-    (state) => state.runtimeByTabId[tabId ?? ""]?.rightChatCollapsed ?? false,
+  const rightChatCollapsed = useLayoutState(
+    (state) => state.rightChatCollapsed ?? false,
   );
   const sidebar = useOptionalSidebar();
   const isMobile = sidebar?.isMobile ?? false;
@@ -437,11 +437,11 @@ export function BoardCanvasInteraction({
     } else {
       emitSidebarOpenRequest(nextLeftOpen);
     }
-    useTabRuntime.getState().setTabRightChatCollapsed(tabId, shouldCollapse);
+    useLayoutState.getState().setRightChatCollapsed(shouldCollapse);
     if (panelKey) {
-      useTabRuntime
+      useLayoutState
         .getState()
-        .setStackItemParams(tabId, panelKey, { __boardFull: shouldCollapse });
+        .setStackItemParams(panelKey, { __boardFull: shouldCollapse });
     }
   }, [
     isMobile,
@@ -597,6 +597,10 @@ export function BoardCanvasInteraction({
     const handleWheelCapture = (event: WheelEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
+      // 逻辑：节点工具栏区域的滚轮事件不交给画布处理。
+      if (target.closest("[data-node-toolbar]")) {
+        return;
+      }
       const scrollTarget = target.closest(
         "[data-board-scroll]",
       ) as HTMLElement | null;
@@ -750,9 +754,9 @@ export function BoardCanvasInteraction({
   const handlePanelRefresh = () => {
     if (tabId && panelKey) {
       // 逻辑：通过 __refreshKey 触发 panel remount，保持与右上角刷新一致。
-      useTabRuntime
+      useLayoutState
         .getState()
-        .setStackItemParams(tabId, panelKey, { __refreshKey: Date.now() });
+        .setStackItemParams(panelKey, { __refreshKey: Date.now() });
       return;
     }
     engine.refreshView();

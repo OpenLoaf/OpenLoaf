@@ -13,8 +13,7 @@ import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft } from "lucide-react";
 import { useNavigation } from "@/hooks/use-navigation";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabView } from "@/hooks/use-tab-view";
+import { useAppState } from "@/hooks/use-app-state";
 import { closeSettingsTab } from "@/lib/globalShortcuts";
 
 /**
@@ -26,16 +25,15 @@ import { closeSettingsTab } from "@/lib/globalShortcuts";
 export const PageTitle = () => {
   const { t } = useTranslation('nav');
   const viewType = useNavigation((s) => s.activeViewType);
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const activeTab = useTabView(activeTabId ?? undefined);
-  const closeTab = useTabs((s) => s.closeTab);
+  const activeTab = useAppState();
 
   const isBoardViewer = activeTab?.base?.component === 'board-viewer';
   const isSettingsPage = activeTab?.base?.component === 'settings-page';
 
   const handleBack = useCallback(() => {
-    if (activeTabId) closeTab(activeTabId);
-  }, [activeTabId, closeTab]);
+    // In single-view mode, navigate back by closing the settings/board view.
+    closeSettingsTab();
+  }, []);
 
   const handleSettingsBack = useCallback(() => {
     closeSettingsTab();
@@ -83,7 +81,7 @@ export const PageTitle = () => {
         <button
           type="button"
           onClick={handleSettingsBack}
-          className="flex items-center gap-1 h-6 rounded-full px-2 text-xs font-medium bg-orange-500/10 text-orange-700 hover:bg-orange-500/20 dark:bg-orange-400/15 dark:text-orange-300 dark:hover:bg-orange-400/25 transition-colors duration-150"
+          className="flex items-center gap-1 h-6 rounded-full px-2 text-xs font-medium bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover transition-colors duration-150"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           {t('header.back')}
@@ -93,7 +91,7 @@ export const PageTitle = () => {
         <button
           type="button"
           onClick={handleBack}
-          className="flex items-center gap-1 h-6 rounded-full px-2 text-xs font-medium bg-violet-500/10 text-violet-700 hover:bg-violet-500/20 dark:bg-violet-400/15 dark:text-violet-300 dark:hover:bg-violet-400/25 transition-colors duration-150"
+          className="flex items-center gap-1 h-6 rounded-full px-2 text-xs font-medium bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover transition-colors duration-150"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           {t('canvasList.back')}

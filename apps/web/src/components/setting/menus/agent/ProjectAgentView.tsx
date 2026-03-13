@@ -47,8 +47,7 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import dynamicIconImports from "lucide-react/dynamicIconImports"
-import { useTabs } from "@/hooks/use-tabs"
-import { useTabRuntime } from "@/hooks/use-tab-runtime"
+import { useLayoutState } from "@/hooks/use-layout-state"
 import { useSettingsValues } from "@/hooks/use-settings"
 import { useCloudModels } from "@/hooks/use-cloud-models"
 import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed"
@@ -88,37 +87,37 @@ type CapabilityGroup = {
 }
 
 const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
-  browser: { icon: Globe, className: "text-blue-500" },
-  "file-read": { icon: FileSearch, className: "text-emerald-500" },
-  "file-write": { icon: FilePen, className: "text-green-600" },
-  shell: { icon: Terminal, className: "text-slate-500" },
-  email: { icon: Mail, className: "text-red-500" },
-  calendar: { icon: Calendar, className: "text-orange-500" },
-  "image-generate": { icon: Image, className: "text-pink-500" },
-  "video-generate": { icon: Video, className: "text-purple-500" },
-  widget: { icon: LayoutGrid, className: "text-violet-500" },
-  project: { icon: FolderKanban, className: "text-cyan-500" },
-  web: { icon: Link, className: "text-sky-500" },
-  agent: { icon: Users, className: "text-indigo-500" },
-  "code-interpreter": { icon: Code, className: "text-amber-500" },
-  system: { icon: Settings, className: "text-slate-400" },
+  browser: { icon: Globe, className: "text-ol-blue" },
+  "file-read": { icon: FileSearch, className: "text-ol-green" },
+  "file-write": { icon: FilePen, className: "text-ol-green" },
+  shell: { icon: Terminal, className: "text-ol-text-auxiliary" },
+  email: { icon: Mail, className: "text-ol-red" },
+  calendar: { icon: Calendar, className: "text-ol-amber" },
+  "image-generate": { icon: Image, className: "text-ol-red" },
+  "video-generate": { icon: Video, className: "text-ol-purple" },
+  widget: { icon: LayoutGrid, className: "text-ol-purple" },
+  project: { icon: FolderKanban, className: "text-ol-blue" },
+  web: { icon: Link, className: "text-ol-blue" },
+  agent: { icon: Users, className: "text-ol-purple" },
+  "code-interpreter": { icon: Code, className: "text-ol-amber" },
+  system: { icon: Settings, className: "text-ol-text-auxiliary" },
 }
 
 const CAP_BG_MAP: Record<string, string> = {
-  browser: "bg-blue-50 dark:bg-blue-950/40",
-  "file-read": "bg-emerald-50 dark:bg-emerald-950/40",
-  "file-write": "bg-green-50 dark:bg-green-950/40",
-  shell: "bg-slate-50 dark:bg-slate-950/40",
-  email: "bg-red-50 dark:bg-red-950/40",
-  calendar: "bg-orange-50 dark:bg-orange-950/40",
-  "image-generate": "bg-pink-50 dark:bg-pink-950/40",
-  "video-generate": "bg-purple-50 dark:bg-purple-950/40",
-  widget: "bg-violet-50 dark:bg-violet-950/40",
-  project: "bg-cyan-50 dark:bg-cyan-950/40",
-  web: "bg-sky-50 dark:bg-sky-950/40",
-  agent: "bg-indigo-50 dark:bg-indigo-950/40",
-  "code-interpreter": "bg-amber-50 dark:bg-amber-950/40",
-  system: "bg-gray-50 dark:bg-gray-950/40",
+  browser: "bg-ol-blue-bg",
+  "file-read": "bg-ol-green-bg",
+  "file-write": "bg-ol-green-bg",
+  shell: "bg-ol-surface-muted",
+  email: "bg-ol-red-bg",
+  calendar: "bg-ol-amber-bg",
+  "image-generate": "bg-ol-red-bg",
+  "video-generate": "bg-ol-purple-bg",
+  widget: "bg-ol-purple-bg",
+  project: "bg-ol-blue-bg",
+  web: "bg-ol-blue-bg",
+  agent: "bg-ol-purple-bg",
+  "code-interpreter": "bg-ol-amber-bg",
+  system: "bg-ol-surface-muted",
 }
 
 const AGENT_ICON_MAP: Partial<Record<string, LucideIcon>> = {
@@ -128,11 +127,11 @@ const AGENT_ICON_MAP: Partial<Record<string, LucideIcon>> = {
 }
 
 const AGENT_ICON_COLOR_MAP: Record<string, string> = {
-  bot: "text-indigo-500", sparkles: "text-violet-500",
-  "file-text": "text-emerald-500", terminal: "text-slate-500",
-  globe: "text-sky-500", mail: "text-red-500",
-  calendar: "text-orange-500", "layout-grid": "text-violet-500",
-  "folder-kanban": "text-cyan-500",
+  bot: "text-ol-purple", sparkles: "text-ol-purple",
+  "file-text": "text-ol-green", terminal: "text-ol-text-auxiliary",
+  globe: "text-ol-blue", mail: "text-ol-red",
+  calendar: "text-ol-amber", "layout-grid": "text-ol-purple",
+  "folder-kanban": "text-ol-blue",
 }
 
 function normalizeIconName(value: string): string {
@@ -191,7 +190,7 @@ function CopyAgentDialog({
                   ) : null}
                 </div>
                 {agent.folderName === "master" ? (
-                  <span className="shrink-0 rounded bg-violet-100 px-1 py-px text-[10px] text-violet-600 dark:bg-violet-900/50 dark:text-violet-400">
+                  <span className="shrink-0 rounded bg-ol-purple-bg px-1 py-px text-[10px] text-ol-purple">
                     {t("settings:agent.master")}
                   </span>
                 ) : null}
@@ -265,8 +264,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
     [capGroups],
   )
 
-  const activeTabId = useTabs((s) => s.activeTabId)
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem)
+  const pushStackItem = useLayoutState((s) => s.pushStackItem)
 
   const masterAgent = useMemo(
     () => agents.find((a) => a.folderName === "master"),
@@ -377,8 +375,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
 
   const handleEditAgent = useCallback(
     (agent: AgentSummary) => {
-      if (!activeTabId) return
-      pushStackItem(activeTabId, {
+      pushStackItem({
         id: `agent-detail:${agent.scope}:${agent.name}`,
         sourceKey: `agent-detail:${agent.scope}:${agent.name}`,
         component: "agent-detail",
@@ -391,30 +388,28 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
         },
       })
     },
-    [activeTabId, projectId, pushStackItem],
+    [projectId, pushStackItem],
   )
 
   const handleCreateBlank = useCallback(() => {
-    if (!activeTabId) return
-    pushStackItem(activeTabId, {
+    pushStackItem({
       id: `agent-detail:new:${Date.now()}`,
       sourceKey: "agent-detail:new",
       component: "agent-detail",
       title: t("settings:agent.createTitle"),
       params: { isNew: true, scope: "project", projectId },
     })
-  }, [activeTabId, projectId, pushStackItem])
+  }, [projectId, pushStackItem])
 
   const handleOpenGlobalAgents = useCallback(() => {
-    if (!activeTabId) return
-    pushStackItem(activeTabId, {
+    pushStackItem({
       id: "global-agents",
       sourceKey: "global-agents",
       component: "agent-management",
       title: t("settings:agent.globalTitle"),
       params: {},
     })
-  }, [activeTabId, pushStackItem])
+  }, [pushStackItem])
 
   const handleToggleAgent = useCallback(
     (agent: AgentSummary, nextEnabled: boolean) => {
@@ -487,7 +482,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                 type="button"
                 size="sm"
                 className="h-8 rounded-full px-2.5 text-xs sm:px-3"
-                disabled={!activeTabId}
+
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span className="ml-1.5 hidden sm:inline">{t("settings:agent.createBtn")}</span>
@@ -519,7 +514,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                 variant="secondary"
                 className="h-8 rounded-full border border-border/70 bg-background/85 px-2.5 text-xs transition-colors hover:bg-muted/55 sm:px-3"
                 onClick={handleOpenGlobalAgents}
-                disabled={!activeTabId}
+
               >
                 <ArrowRight className="h-3.5 w-3.5" />
                 <span className="ml-1.5 hidden sm:inline">{t("settings:agent.viewGlobal")}</span>
@@ -573,7 +568,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
               <ContextMenu key={agent.ignoreKey || agent.path || `${agent.scope}:${agent.name}`}>
                 <ContextMenuTrigger asChild>
                   <div
-                    className="group flex items-center gap-3 rounded-xl bg-sky-100 px-3 py-2.5 transition-[background-color] duration-200 hover:bg-sky-200/75 dark:bg-sky-900/55 dark:hover:bg-sky-800/70"
+                    className="group flex items-center gap-3 rounded-xl bg-ol-blue-bg px-3 py-2.5 transition-[background-color] duration-200 hover:bg-ol-blue-bg-hover"
                     onDoubleClick={() => handleEditAgent(agent)}
                   >
                     <div className="min-w-0 flex-1 space-y-1">
@@ -583,18 +578,18 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                           {agent.name}
                         </span>
                         {agent.folderName === "master" ? (
-                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400">
+                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-ol-purple-bg text-ol-purple">
                             {t("settings:agent.master")}
                           </span>
                         ) : null}
                         {agent.isSystem ? (
-                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
+                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-ol-blue-bg text-ol-blue">
                             {t("settings:agent.system")}
                           </span>
                         ) : null}
                         {/* 逻辑：当前项目 Agent 与全局同名时显示覆盖标记。 */}
                         {!agent.isInherited && globalAgentFolderSet.has(agent.folderName) ? (
-                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400">
+                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-ol-amber-bg text-ol-amber">
                             {t("settings:agent.override")}
                           </span>
                         ) : null}
@@ -629,7 +624,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                     <Switch
                       checked={agent.isEnabled}
                       onCheckedChange={(checked) => handleToggleAgent(agent, checked)}
-                      className="shrink-0 border-zinc-300/70 bg-zinc-200/55 data-[state=checked]:bg-emerald-300/60 dark:border-zinc-600/80 dark:bg-zinc-700/45 dark:data-[state=checked]:bg-emerald-600/45"
+                      className="shrink-0 border-ol-divider bg-ol-surface-muted data-[state=checked]:bg-ol-green/60 dark:data-[state=checked]:bg-ol-green/45"
                       aria-label={t("settings:agent.enableLabel", { name: agent.name })}
                       disabled={updateAgentMutation.isPending}
                     />

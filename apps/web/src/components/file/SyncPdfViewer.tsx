@@ -27,7 +27,7 @@ import {
 } from "@syncfusion/ej2-react-pdfviewer";
 import PdfViewer from "@/components/file/PdfViewer";
 import { StackHeader } from "@/components/layout/StackHeader";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { fetchBlobFromUri, isPreviewTooLargeError } from "@/lib/image/uri";
 import { resolveFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
@@ -115,7 +115,7 @@ function LicensedSyncPdfViewer({
     kind: "too-large";
     sizeBytes?: number;
   } | null>(null);
-  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
+  const removeStackItem = useLayoutState((s) => s.removeStackItem);
   const viewerRef = useRef<PdfViewerComponent | null>(null);
   const { resolvedTheme } = useTheme();
 
@@ -205,7 +205,7 @@ function LicensedSyncPdfViewer({
       onClose={
         canClose
           ? () => {
-              removeStackItem(tabId!, panelKey!);
+              removeStackItem(panelKey!);
             }
           : undefined
       }

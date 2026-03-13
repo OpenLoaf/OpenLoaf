@@ -30,7 +30,7 @@ import {
 } from "@/lib/file-name";
 import { resolveFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { trpcClient } from "@/utils/trpc";
 import { getBoardEngine } from "./engine/board-engine-registry";
 import type { BoardJsonSnapshot } from "@openloaf/api/types/boardCollab";
@@ -129,14 +129,14 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
   const canToggleSidebar = Boolean(sidebar) || leftOpenFallback !== null;
   const setOpen = sidebar?.setOpen;
   const setOpenMobile = sidebar?.setOpenMobile;
-  const rightChatCollapsed = useTabRuntime(
-    (state) => state.runtimeByTabId[tabId]?.rightChatCollapsed ?? false,
+  const rightChatCollapsed = useLayoutState(
+    (state) => state.rightChatCollapsed ?? false,
   );
-  const runtimeStack = useTabRuntime((state) => state.runtimeByTabId[tabId]?.stack);
-  const runtimeActiveStackId = useTabRuntime(
-    (state) => state.runtimeByTabId[tabId]?.activeStackItemId,
+  const runtimeStack = useLayoutState((state) => state.stack);
+  const runtimeActiveStackId = useLayoutState(
+    (state) => state.activeStackItemId,
   );
-  const stackHidden = useTabRuntime((state) => Boolean(state.runtimeByTabId[tabId]?.stackHidden));
+  const stackHidden = useLayoutState((state) => Boolean(state.stackHidden));
   const stack = Array.isArray(runtimeStack) ? runtimeStack : [];
   const activeStackItemId =
     typeof runtimeActiveStackId === "string"
@@ -182,7 +182,7 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
     }
 
     // 逻辑：网页版不走系统文件管理器，改为把当前画布目录作为独立根目录推入 stack。
-    useTabRuntime.getState().pushStackItem(tabId, {
+    useLayoutState.getState().pushStackItem({
       id: `board-folder:${resolvedBoardFolderUri}`,
       sourceKey: `board-folder:${resolvedBoardFolderUri}`,
       component: "folder-tree-preview",
@@ -314,8 +314,8 @@ export function BoardPanelHeaderActions({ item, title, tabId }: BoardPanelHeader
     } else {
       emitSidebarOpenRequest(nextLeftOpen);
     }
-    useTabRuntime.getState().setTabRightChatCollapsed(tabId, shouldCollapse);
-    useTabRuntime.getState().setStackItemParams(tabId, item.id, { __boardFull: shouldCollapse });
+    useLayoutState.getState().setRightChatCollapsed(shouldCollapse);
+    useLayoutState.getState().setStackItemParams(item.id, { __boardFull: shouldCollapse });
   }, [
     isMobile,
     leftOpen,

@@ -365,8 +365,8 @@ export function ChatInputNodeView({
       >
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
-          <MessageSquare className="h-4 w-4 text-[#188038] dark:text-emerald-400" />
-          <span className="text-xs font-medium text-[#188038] dark:text-emerald-300">
+          <MessageSquare className="h-4 w-4 text-ol-green" />
+          <span className="text-xs font-medium text-ol-green">
             {t("chatInput.title")}
           </span>
         </div>

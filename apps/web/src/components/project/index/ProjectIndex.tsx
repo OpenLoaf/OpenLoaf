@@ -27,8 +27,7 @@ import {
   serializeDesktopItems,
 } from "@/components/desktop/desktop-persistence";
 import { queryClient, trpc } from "@/utils/trpc";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
 
 interface ProjectIndexProps {
@@ -69,8 +68,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
   projectId,
   rootUri,
 }: ProjectIndexProps) {
-  const activeTabId = useTabs((state) => state.activeTabId);
-  const pushStackItem = useTabRuntime((state) => state.pushStackItem);
+  const pushStackItem = useLayoutState((state) => state.pushStackItem);
   const [items, setItems] = React.useState<DesktopItem[]>(() =>
     ensureLayoutByBreakpoint(getInitialDesktopItems("project"))
   );
@@ -254,14 +252,13 @@ const ProjectIndex = React.memo(function ProjectIndex({
 
   /** Open the desktop widget library stack panel. */
   const handleOpenWidgetLibrary = React.useCallback(() => {
-    if (!activeTabId) return;
-    pushStackItem(activeTabId, {
+    pushStackItem({
       id: "desktop-widget-library",
       sourceKey: "desktop-widget-library",
       component: "desktop-widget-library",
       title: "组件库",
     });
-  }, [activeTabId, pushStackItem]);
+  }, [pushStackItem]);
 
   React.useEffect(() => {
     if (!editMode) {

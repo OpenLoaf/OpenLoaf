@@ -40,10 +40,10 @@ type GitCommitDialogProps = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  added: "text-emerald-600 dark:text-emerald-400",
-  modified: "text-amber-600 dark:text-amber-400",
-  deleted: "text-rose-600 dark:text-rose-400",
-  renamed: "text-blue-600 dark:text-blue-400",
+  added: "text-ol-green",
+  modified: "text-ol-amber",
+  deleted: "text-ol-red",
+  renamed: "text-ol-blue",
   untracked: "text-muted-foreground",
 };
 

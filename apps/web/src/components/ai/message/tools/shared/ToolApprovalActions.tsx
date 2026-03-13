@@ -219,7 +219,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
         variant="default"
         className={
           isLarge
-            ? "h-8 rounded-md px-3 text-xs bg-emerald-500 text-white hover:bg-emerald-600 border-0"
+            ? "h-8 rounded-md px-3 text-xs bg-ol-green text-white hover:bg-ol-green-bg-hover border-0"
             : "h-6 px-2 text-[10px]"
         }
         disabled={disabled}

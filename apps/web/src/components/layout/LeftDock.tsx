@@ -13,12 +13,12 @@ import * as React from "react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { ComponentMap, getPanelTitle } from "@/utils/panel-utils";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import {
   StackPanelSlotCtx,
   type StackPanelSlot,
 } from "@/hooks/use-stack-panel-slot";
-import { useTabView } from "@/hooks/use-tab-view";
+import { useAppState } from "@/hooks/use-app-state";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import type { DockItem } from "@openloaf/api/common";
 import GlobalEntryDockTabs from "./GlobalEntryDockTabs";
@@ -270,15 +270,14 @@ function parseRenamePath(uri: string) {
 
 // Render the left dock contents for a tab.
 export function LeftDock({ tabId }: { tabId: string }) {
-  const tab = useTabView(tabId);
+  const tab = useAppState();
   const stackHidden = Boolean(tab?.stackHidden);
   const activeStackItemId = tab?.activeStackItemId;
-  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
+  const removeStackItem = useLayoutState((s) => s.removeStackItem);
   const queryClient = useQueryClient();
   const renameMutation = useMutation(trpc.fs.rename.mutationOptions());
   const deleteMutation = useMutation(trpc.fs.delete.mutationOptions());
   const [renameDialog, setRenameDialog] = React.useState<{
-    tabId: string;
     itemId: string;
     uri: string;
     name: string;
@@ -317,7 +316,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
         uri &&
         isBoardFolderName(name);
       if (!shouldPromptRename) {
-        removeStackItem(tabId, item.id);
+        removeStackItem(item.id);
         return;
       }
       // 逻辑：空画布直接删除，不弹重命名对话框。
@@ -337,13 +336,13 @@ export function LeftDock({ tabId }: { tabId: string }) {
         } catch (error) {
           console.warn("[LeftDock] delete empty board failed", error);
         }
-        removeStackItem(tabId, item.id);
+        removeStackItem(item.id);
         return;
       }
       setRenameValue(getBoardDisplayName(name));
-      setRenameDialog({ tabId, itemId: item.id, uri, name, ext, projectId });
+      setRenameDialog({ itemId: item.id, uri, name, ext, projectId });
     },
-    [removeStackItem, tabId, deleteMutation, queryClient],
+    [removeStackItem, deleteMutation, queryClient],
   );
 
   const handleRenameConfirm = React.useCallback(async () => {
@@ -365,7 +364,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
         }).queryKey,
       });
       setRenameDialog(null);
-      removeStackItem(renameDialog.tabId, renameDialog.itemId);
+      removeStackItem(renameDialog.itemId);
     } catch (error) {
       console.warn("[LeftDock] rename board failed", error);
       toast.error("重命名失败");
@@ -395,7 +394,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
       });
       setConfirmingDelete(false);
       setRenameDialog(null);
-      removeStackItem(renameDialog.tabId, renameDialog.itemId);
+      removeStackItem(renameDialog.itemId);
     } catch (error) {
       console.warn("[LeftDock] delete board failed", error);
       toast.error("删除画布失败");
@@ -418,8 +417,6 @@ export function LeftDock({ tabId }: { tabId: string }) {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [stack.length, stackHidden, tabId]);
-
-  if (!tab) return null;
 
   return (
     <div

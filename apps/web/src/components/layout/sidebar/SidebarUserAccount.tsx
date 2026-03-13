@@ -52,10 +52,10 @@ import { useGlobalOverlay } from "@/lib/globalShortcuts"
 
 /** 侧边栏等级徽章样式 — 使用更轻的浅色底，避免与 sidebar 背景相同，同时不过分抢眼。 */
 const SIDEBAR_MEMBERSHIP_BADGE_STYLES: Record<string, string> = {
-  free: "bg-foreground/[0.05] text-foreground/65 dark:bg-white/[0.06] dark:text-foreground/65",
-  vip: "bg-amber-500/10 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300",
-  svip: "bg-violet-500/10 text-violet-700 dark:bg-violet-400/10 dark:text-violet-300",
-  infinity: "bg-sky-500/10 text-sky-700 dark:bg-sky-400/10 dark:text-sky-300",
+  free: "bg-foreground/[0.05] text-foreground/65 dark:bg-foreground/[0.06] dark:text-foreground/65",
+  vip: "bg-ol-amber-bg text-ol-amber",
+  svip: "bg-ol-purple-bg text-ol-purple",
+  infinity: "bg-ol-blue-bg text-ol-blue",
 }
 
 export function SidebarUserAccount() {
@@ -277,9 +277,9 @@ export function SidebarUserAccount() {
               {!authLoggedIn && (
                 <DropdownMenuItem
                   onSelect={() => handleOpenLogin()}
-                  className="rounded-lg bg-sky-500/8 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400 focus:bg-sky-500/15 focus:text-sky-600 dark:focus:bg-sky-500/15 dark:focus:text-sky-400"
+                  className="rounded-lg bg-ol-blue-bg text-ol-blue focus:bg-ol-blue-bg-hover focus:text-ol-blue"
                 >
-                  <LogIn className="size-4 text-sky-600 dark:text-sky-400" />
+                  <LogIn className="size-4 text-ol-blue" />
                   {t('loginAccount')}
                 </DropdownMenuItem>
               )}
@@ -299,9 +299,9 @@ export function SidebarUserAccount() {
                     updateStatus?.state === "downloading" ||
                     updateStatus?.state === "ready"
                   }
-                  className="rounded-lg text-amber-600 dark:text-amber-400 focus:bg-amber-500/10 focus:text-amber-600 dark:focus:bg-amber-500/10 dark:focus:text-amber-400"
+                  className="rounded-lg text-ol-amber focus:bg-ol-amber-bg focus:text-ol-amber"
                 >
-                  <RefreshCcw className="size-4 text-amber-600 dark:text-amber-400" />
+                  <RefreshCcw className="size-4 text-ol-amber" />
                   <span className="flex-1">
                     {updateStatus?.state === "ready"
                       ? t('updateReady')
@@ -310,7 +310,7 @@ export function SidebarUserAccount() {
                         : t('checkUpdate')}
                   </span>
                   {updateStatus?.state === "ready" && (
-                    <span className="ml-1 size-2 rounded-full bg-blue-500" />
+                    <span className="ml-1 size-2 rounded-full bg-ol-blue" />
                   )}
                 </DropdownMenuItem>
               )}
@@ -344,7 +344,7 @@ export function SidebarUserAccount() {
               </Button>
               <Button
                 type="button"
-                className="bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 dark:hover:bg-sky-500/20 shadow-none"
+                className="bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none"
                 onClick={async () => {
                   setRestartDialogOpen(false)
                   await window.openloafElectron?.relaunchApp?.()

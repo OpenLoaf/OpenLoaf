@@ -387,7 +387,7 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[640px] h-[78vh] flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-background p-0 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+      <DialogContent className="max-w-[640px] h-[78vh] flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-background p-0 shadow-ol-float">
         <DialogHeader className="shrink-0 px-6 pt-6 pb-3">
           <DialogTitle className="text-[16px] font-semibold">{isEditing ? t('schedule.editTitle') : t('schedule.createTitle')}</DialogTitle>
         </DialogHeader>
@@ -410,7 +410,7 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                       {t('schedule.scheduled')}
                     </TabsTrigger>
                     <TabsTrigger value="condition" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-                      {t('schedule.condition')} <span className="ml-1 text-[10px] text-amber-500">(Beta)</span>
+                      {t('schedule.condition')} <span className="ml-1 text-[10px] text-ol-amber">(Beta)</span>
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
@@ -683,14 +683,14 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="h-9 rounded-full px-5 text-[13px] text-[var(--btn-neutral-fg,#5f6368)] hover:bg-[var(--btn-neutral-bg-hover,#e8eaed)] dark:text-slate-300 dark:hover:bg-slate-700"
+            className="h-9 rounded-full px-5 text-[13px] text-ol-text-auxiliary hover:bg-ol-surface-muted"
           >
             {t('schedule.cancelButton')}
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!canSubmit || isPending}
-            className="h-9 rounded-full px-5 text-[13px] bg-[var(--btn-primary-bg,#0b57d0)] text-[var(--btn-primary-fg,#ffffff)] shadow-none hover:bg-[var(--btn-primary-bg-hover,#0a4cbc)] dark:bg-sky-600 dark:hover:bg-sky-500"
+            className="h-9 rounded-full px-5 text-[13px] bg-ol-blue text-white shadow-none hover:bg-ol-blue/85"
           >
             {isPending ? t('schedule.savingButton') : isEditing ? t('schedule.saveButton') : t('schedule.createButton')}
           </Button>

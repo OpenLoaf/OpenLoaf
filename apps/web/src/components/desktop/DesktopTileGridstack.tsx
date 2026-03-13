@@ -46,8 +46,8 @@ import { getWidgetVariants, getWidgetVariantConfig } from "./widget-variants";
 import DesktopTileContent from "./DesktopTileContent";
 import DesktopTileDeleteButton from "./DesktopTileDeleteButton";
 import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { createBrowserTabId } from "@/hooks/tab-id";
 import { useProjectStorageRootUri } from "@/hooks/use-project-storage-root-uri";
 
@@ -83,12 +83,8 @@ export default function DesktopTileGridstack({
   const pointerStartRef = React.useRef<{ id: number; x: number; y: number } | null>(null);
   const { basic } = useBasicConfig();
   const projectStorageRootUri = useProjectStorageRootUri();
-  const tabs = useTabs((state) => state.tabs);
-  const activeTabId = useTabs((state) => state.activeTabId);
-  const tabRuntime = useTabRuntime((state) =>
-    activeTabId ? state.runtimeByTabId[activeTabId] : undefined
-  );
-  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const chatParams = useAppView((state) => state.chatParams);
+  const layoutBase = useLayoutState((state) => state.base);
   // 逻辑：Flip Clock 默认展示秒数。
   const showSeconds =
     item.kind === "widget" && item.widgetKey === "flip-clock"
@@ -103,15 +99,15 @@ export default function DesktopTileGridstack({
   const variants = widgetKey ? getWidgetVariants(widgetKey) : undefined;
   const hasVariants = Boolean(variants?.length);
   const webMetaFetchRef = React.useRef(false);
-  const tabParams = tabRuntime?.base?.params as Record<string, unknown> | undefined;
+  const baseParams = layoutBase?.params as Record<string, unknown> | undefined;
   const projectId =
-    typeof tabParams?.projectId === "string"
-      ? String(tabParams.projectId)
-      : typeof activeTab?.chatParams?.projectId === "string"
-        ? String(activeTab.chatParams.projectId)
+    typeof baseParams?.projectId === "string"
+      ? String(baseParams.projectId)
+      : typeof chatParams?.projectId === "string"
+        ? String(chatParams.projectId)
         : undefined;
   const projectRootUri =
-    typeof tabParams?.rootUri === "string" ? String(tabParams.rootUri) : undefined;
+    typeof baseParams?.rootUri === "string" ? String(baseParams.rootUri) : undefined;
   const defaultRootUri = projectRootUri || projectStorageRootUri;
   // 网页组件修改对话框状态。
   const [isWebDialogOpen, setIsWebDialogOpen] = React.useState(false);
@@ -318,12 +314,9 @@ export default function DesktopTileGridstack({
   const handleWebOpen = React.useCallback(() => {
     if (!isWebStack) return;
     const normalizedUrl = normalizeUrl(webUrl ?? "");
-    if (!activeTabId || !normalizedUrl) return;
-    const tab = useTabs.getState().getTabById(activeTabId);
-    if (!tab) return;
+    if (!normalizedUrl) return;
     const viewKey = createBrowserTabId();
-    useTabRuntime.getState().pushStackItem(
-      activeTabId,
+    useLayoutState.getState().pushStackItem(
       {
         id: BROWSER_WINDOW_PANEL_ID,
         sourceKey: BROWSER_WINDOW_PANEL_ID,
@@ -336,7 +329,7 @@ export default function DesktopTileGridstack({
       if (current.kind !== "widget" || current.widgetKey !== "web-stack") return current;
       return { ...current, webMetaStatus: "loading" };
     });
-  }, [activeTabId, isWebStack, item.id, item.title, onUpdateItem, webUrl]);
+  }, [isWebStack, item.id, item.title, onUpdateItem, webUrl]);
 
   /** Handle video file selection from the file dialog. */
   const handleVideoFileSelect = React.useCallback(
@@ -369,7 +362,7 @@ export default function DesktopTileGridstack({
         "desktop-tile-handle relative h-full w-full select-none rounded-2xl",
         allowOverflow ? "overflow-visible" : "overflow-hidden",
         "bg-card border border-border/40 dark:bg-card",
-        "bg-slate-50/90",
+        "bg-ol-surface-inset/90",
         isPinned ? "ring-2 ring-primary/40" : ""
       )}
       title={widgetKey === "3d-folder" ? undefined : item.title}
@@ -450,7 +443,7 @@ export default function DesktopTileGridstack({
             type="button"
             className={cn(
               "desktop-edit-action-button flex size-6 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm",
-              isPinned ? "text-red-500" : "",
+              isPinned ? "text-ol-red" : "",
               isPinned
                 ? "opacity-100 pointer-events-auto"
                 : "opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto"

@@ -20,7 +20,7 @@ import {
 import { emitJsxCreateRefresh } from '@/lib/chat/jsx-create-events'
 import { TrafficLights } from '@openloaf/ui/traffic-lights'
 import { useChatSession, useChatTools } from '../../context'
-import { useTabRuntime } from '@/hooks/use-tab-runtime'
+import { useLayoutState } from '@/hooks/use-layout-state'
 import { useChatRuntime } from '@/hooks/use-chat-runtime'
 import {
   asPlainObject,
@@ -96,10 +96,10 @@ function DiffBar({ added, removed }: { added: number; removed: number }) {
   return (
     <span className="inline-flex gap-px">
       {Array.from({ length: greenCount }, (_, i) => (
-        <span key={`g${i}`} className="inline-block size-1.5 rounded-[1px] bg-green-600" />
+        <span key={`g${i}`} className="inline-block size-1.5 rounded-[1px] bg-ol-green" />
       ))}
       {Array.from({ length: redCount }, (_, i) => (
-        <span key={`r${i}`} className="inline-block size-1.5 rounded-[1px] bg-red-500" />
+        <span key={`r${i}`} className="inline-block size-1.5 rounded-[1px] bg-ol-red" />
       ))}
     </span>
   )
@@ -115,7 +115,7 @@ export default function WriteFileTool({
   const { t } = useTranslation('ai')
   const { tabId, projectId } = useChatSession()
   const { toolParts } = useChatTools()
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem)
+  const pushStackItem = useLayoutState((s) => s.pushStackItem)
   /** Track refresh emission to avoid duplicates. */
   const refreshKeyRef = React.useRef<string | null>(null)
 
@@ -187,14 +187,14 @@ export default function WriteFileTool({
   const handleClick = () => {
     if (!tabId || !toolCallId) return
 
-    const runtime = useTabRuntime.getState().runtimeByTabId[tabId]
-    const existingItem = runtime?.stack?.find((s: any) => {
+    const layoutState = useLayoutState.getState()
+    const existingItem = layoutState.stack?.find((s: any) => {
       const ids = (s.params?.toolCallIds as string[]) ?? []
       return ids.includes(toolCallId)
     })
 
     if (existingItem) {
-      pushStackItem(tabId, existingItem)
+      pushStackItem(existingItem)
       return
     }
 
@@ -212,7 +212,7 @@ export default function WriteFileTool({
     }
 
     const stackId = `streaming-write:${toolCallId}`
-    pushStackItem(tabId, {
+    pushStackItem({
       id: stackId,
       sourceKey: stackId,
       component: 'streaming-code-viewer',
@@ -245,7 +245,7 @@ export default function WriteFileTool({
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-lg border bg-card text-card-foreground">
+      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
         {/* macOS 风格标题栏 */}
         <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
           <TrafficLights state={windowState} />
@@ -271,14 +271,14 @@ export default function WriteFileTool({
             >
               <span className={
                 file.status === 'added'
-                  ? 'text-emerald-500'
+                  ? 'text-ol-green'
                   : file.status === 'deleted'
-                    ? 'text-red-500'
-                    : 'text-amber-500'
+                    ? 'text-ol-red'
+                    : 'text-ol-amber'
               }>
                 {file.status === 'added' ? '+' : file.status === 'deleted' ? '-' : '~'}
               </span>
-              <span className="flex-1 break-all text-amber-700 dark:text-amber-400">
+              <span className="flex-1 break-all text-ol-amber">
                 {file.path}
               </span>
               <span className="shrink-0 text-[10px] text-muted-foreground">
@@ -297,8 +297,8 @@ export default function WriteFileTool({
                     key={i}
                     className={cn(
                       'px-1.5',
-                      line.type === '+' && 'bg-green-500/10 text-green-700 dark:text-green-400',
-                      line.type === '-' && 'bg-red-500/10 text-red-700 dark:text-red-400',
+                      line.type === '+' && 'bg-ol-green/10 text-ol-green',
+                      line.type === '-' && 'bg-ol-red/10 text-ol-red',
                     )}
                   >
                     <span className="inline-block w-7 select-none pr-1 text-right tabular-nums text-[10px] text-muted-foreground/50">

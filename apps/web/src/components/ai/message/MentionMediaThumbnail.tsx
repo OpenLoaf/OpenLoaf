@@ -63,7 +63,7 @@ function MentionFallbackChip({ filePath }: { filePath: string }) {
       data-openloaf-mention="true"
       data-mention-value={filePath}
       data-slate-value={filePath}
-      className="inline-flex items-center gap-[3px] align-bottom py-px px-1.5 mx-0.5 rounded-md bg-blue-500 text-white dark:bg-blue-600 dark:text-white text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-[200px] hover:bg-blue-600 dark:hover:bg-blue-500 transition-colors"
+      className="inline-flex items-center gap-[3px] align-bottom py-px px-1.5 mx-0.5 rounded-md bg-ol-blue text-white text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-[200px] hover:bg-ol-blue/90 transition-colors"
     >
       <FileText className="size-3 shrink-0" />
       <span className="overflow-hidden text-ellipsis">{label}</span>

@@ -11,7 +11,7 @@
 
 import { type ReactNode } from "react";
 import { toast } from "sonner";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import {
   buildChildUri,
   getRelativePathFromUri,
@@ -41,7 +41,7 @@ export type FileOpenMode = "stack" | "modal" | "embed";
 export type FileOpenInput = {
   /** Target entry to open. */
   entry: FileSystemEntry;
-  /** Current tab id for stack open. */
+  /** @deprecated No longer used in single-view mode. */
   tabId?: string | null;
   /** Project id for file previews. */
   projectId?: string;
@@ -365,14 +365,10 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
   };
   const boardEntry = resolveBoardFolderEntryFromIndexFile(input.entry);
   if (boardEntry && mode !== "embed") {
-    if (!input.tabId) {
-      toast.error("未找到当前标签页");
-      return true;
-    }
     const boardFolderUri = boardEntry.uri;
     const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
     const displayName = getBoardDisplayName(boardEntry.name);
-    useTabRuntime.getState().pushStackItem(input.tabId, {
+    useLayoutState.getState().pushStackItem({
       id: boardFolderUri,
       component: "board-viewer",
       title: displayName,
@@ -392,14 +388,10 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
   // 逻辑：检测 index.mdx 文件，自动打开所属文稿文件夹。
   const docEntry = resolveDocFolderEntryFromIndexFile(input.entry);
   if (docEntry && mode !== "embed") {
-    if (!input.tabId) {
-      toast.error("未找到当前标签页");
-      return true;
-    }
     const docFolderUri = docEntry.uri;
     const docFileUri = buildChildUri(docFolderUri, DOC_INDEX_FILE_NAME);
     const displayName = getDocDisplayName(docEntry.name);
-    useTabRuntime.getState().pushStackItem(input.tabId, {
+    useLayoutState.getState().pushStackItem({
       id: docFolderUri,
       component: "plate-doc-viewer",
       title: displayName,
@@ -425,14 +417,10 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
       });
     }
     if (isBoardFolderName(input.entry.name)) {
-      if (!input.tabId) {
-        toast.error("未找到当前标签页");
-        return true;
-      }
       const boardFolderUri = input.entry.uri;
       const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
       const displayName = getBoardDisplayName(input.entry.name);
-      useTabRuntime.getState().pushStackItem(input.tabId, {
+      useLayoutState.getState().pushStackItem({
         id: boardFolderUri,
         component: "board-viewer",
         title: displayName,
@@ -451,14 +439,10 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
     }
     // 逻辑：检测文稿文件夹，打开 PlateDocViewer。
     if (isDocFolderName(input.entry.name)) {
-      if (!input.tabId) {
-        toast.error("未找到当前标签页");
-        return true;
-      }
       const docFolderUri = input.entry.uri;
       const docFileUri = buildChildUri(docFolderUri, DOC_INDEX_FILE_NAME);
       const displayName = getDocDisplayName(input.entry.name);
-      useTabRuntime.getState().pushStackItem(input.tabId, {
+      useLayoutState.getState().pushStackItem({
         id: docFolderUri,
         component: "plate-doc-viewer",
         title: displayName,
@@ -520,11 +504,6 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
     return true;
   }
 
-  if (!input.tabId) {
-    toast.error("未找到当前标签页");
-    return true;
-  }
-
   const stackItem = buildStackItemForEntry({
     entry: input.entry,
     projectId: input.projectId,
@@ -534,7 +513,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
   });
   if (!stackItem) return true;
   recordFileOpen();
-  useTabRuntime.getState().pushStackItem(input.tabId, stackItem);
+  useLayoutState.getState().pushStackItem(stackItem);
   return true;
 }
 

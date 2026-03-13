@@ -12,7 +12,7 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { FolderOpen, FileCode } from 'lucide-react'
-import { useTabRuntime } from '@/hooks/use-tab-runtime'
+import { useLayoutState } from '@/hooks/use-layout-state'
 import { useProject } from '@/hooks/use-project'
 import { useChatSession } from '../../context'
 import {
@@ -39,9 +39,9 @@ export default function WidgetInitTool({
   part: AnyToolPart
   className?: string
 }) {
-  const { tabId, projectId } = useChatSession()
+  const { projectId } = useChatSession()
   const projectQuery = useProject(projectId)
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem)
+  const pushStackItem = useLayoutState((s) => s.pushStackItem)
   const input = asPlainObject(normalizeToolInput(part.input))
 
   const outputJson = parseOutputJson(part)
@@ -67,7 +67,7 @@ export default function WidgetInitTool({
         : ('idle' as const)
 
   const handleOpenWidget = () => {
-    if (!tabId || !widgetId) return
+    if (!widgetId) return
     const widgetFolderUri = resolveWidgetFolderUri({
       outputJson,
       widgetId,
@@ -75,7 +75,7 @@ export default function WidgetInitTool({
     })
     if (!widgetFolderUri) return
     const mainFileUri = resolveWidgetMainFileUri(widgetFolderUri)
-    pushStackItem(tabId, {
+    pushStackItem({
       id: `widget:${widgetId}`,
       sourceKey: `widget:${widgetId}`,
       component: 'folder-tree-preview',
@@ -95,7 +95,7 @@ export default function WidgetInitTool({
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-lg border bg-card text-card-foreground">
+      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
         {/* 标题栏 */}
         <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
           <TrafficLights state={windowState} />
@@ -149,7 +149,7 @@ export default function WidgetInitTool({
           <div className="flex items-center justify-end gap-2 border-t px-3 py-2">
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-500/20 dark:text-sky-400"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ol-blue/10 px-2.5 py-1 text-xs font-medium text-ol-blue hover:bg-ol-blue/20"
               onClick={handleOpenWidget}
             >
               <FolderOpen className="size-3.5" />

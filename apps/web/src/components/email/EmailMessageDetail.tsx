@@ -51,7 +51,7 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
       <div className={cn("border-b px-4 py-3", EMAIL_TINT_DETAIL_CLASS, EMAIL_DIVIDER_CLASS)}>
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            {detail.isPrivate ? <Lock className="h-3.5 w-3.5 text-[hsl(var(--chart-3)/0.9)]" /> : null}
+            {detail.isPrivate ? <Lock className="h-3.5 w-3.5 text-chart-3/90" /> : null}
             <span className="truncate">{detail.detailSubject}</span>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
@@ -59,7 +59,7 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
               <ContextMenu>
                 <ContextMenuTrigger asChild>
                   <div className="flex items-center gap-1 truncate">
-                    {detail.isPrivate ? <Lock className="h-3 w-3 text-[hsl(var(--chart-3)/0.9)]" /> : null}
+                    {detail.isPrivate ? <Lock className="h-3 w-3 text-chart-3/90" /> : null}
                     <span className="truncate">{detail.detailFrom}</span>
                   </div>
                 </ContextMenuTrigger>
@@ -121,11 +121,11 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
                 variant="ghost"
                 size="sm"
                 className={`h-7 gap-1 px-2 text-[11px] ${
-                  detail.isFlagged ? "bg-[hsl(var(--chart-3)/0.16)] text-[hsl(var(--chart-3)/0.95)]" : ""
+                  detail.isFlagged ? "bg-chart-3/16 text-chart-3/95" : ""
                 }`}
                 onClick={detail.onToggleFlagged}
               >
-                <Star className={`h-3 w-3 ${detail.isFlagged ? "fill-[hsl(var(--chart-3)/0.95)]" : ""}`} />
+                <Star className={`h-3 w-3 ${detail.isFlagged ? "fill-chart-3/95" : ""}`} />
                 {t('email.favorite')}
               </Button>
               <Button
@@ -143,7 +143,7 @@ export function EmailMessageDetail({ detail }: EmailMessageDetailProps) {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-[#ffffff] p-3 dark:bg-slate-900/82">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-background p-3">
         <div className={cn("px-5 py-3 text-xs text-muted-foreground", EMAIL_GLASS_INSET_CLASS)}>
           <div className="flex flex-wrap items-center gap-2">
             <span className="shrink-0">{t('email.to')}</span>

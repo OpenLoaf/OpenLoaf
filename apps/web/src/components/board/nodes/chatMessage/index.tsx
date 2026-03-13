@@ -234,8 +234,8 @@ export function ChatMessageNodeView({
       >
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
-          <Bot className="h-4 w-4 text-[#188038] dark:text-emerald-400" />
-          <span className="text-xs font-medium text-[#188038] dark:text-emerald-300">
+          <Bot className="h-4 w-4 text-ol-green" />
+          <span className="text-xs font-medium text-ol-green">
             {t("chatMessage.title")}
           </span>
           {element.props.chatModelId && (
@@ -409,7 +409,7 @@ export function ChatMessageNodeView({
               )
             }
           >
-            <MessageSquarePlus className="h-3.5 w-3.5 text-[#188038] dark:text-emerald-400" />
+            <MessageSquarePlus className="h-3.5 w-3.5 text-ol-green" />
             {t("chatMessage.continueChatLabel")}
           </button>
           {element.props.resolvedImageUrls?.length ? (
@@ -428,7 +428,7 @@ export function ChatMessageNodeView({
                   )
                 }
               >
-                <Sparkles className="h-3.5 w-3.5 text-purple-500 dark:text-purple-400" />
+                <Sparkles className="h-3.5 w-3.5 text-ol-purple" />
                 {t("connector.imageGenerate")}
               </button>
               <button
@@ -445,7 +445,7 @@ export function ChatMessageNodeView({
                   )
                 }
               >
-                <Play className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
+                <Play className="h-3.5 w-3.5 text-ol-blue" />
                 {t("connector.videoGenerate")}
               </button>
             </>

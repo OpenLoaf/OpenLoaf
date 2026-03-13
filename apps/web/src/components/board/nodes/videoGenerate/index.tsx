@@ -90,8 +90,8 @@ function VideoGenerateProjectionView({
         onClick={onSelect}
       >
         <div className="flex items-center gap-2 border-b border-border/30 px-3 py-2">
-          <Film className="h-4 w-4 text-[#9334e6] dark:text-violet-400" />
-          <span className="text-xs font-medium text-[#9334e6] dark:text-violet-400">
+          <Film className="h-4 w-4 text-ol-purple" />
+          <span className="text-xs font-medium text-ol-purple">
             {t("videoGenerate.title")}
           </span>
           <span className={cn("ml-auto rounded-full px-1.5 py-0.5 text-[10px]", BOARD_GENERATE_PILL_VIDEO)}>
@@ -812,7 +812,7 @@ function EditableVideoGenerateNodeView({
   });
 
   const containerClassName = cn(
-    "relative flex w-full min-w-0 flex-col rounded-xl border-2 overflow-hidden text-[#202124] dark:text-slate-100 transition-all duration-150",
+    "relative flex w-full min-w-0 flex-col rounded-xl border-2 overflow-hidden text-ol-text-primary transition-all duration-150",
     BOARD_GENERATE_NODE_BASE_VIDEO,
     viewStatus === "error"
       ? BOARD_GENERATE_ERROR
@@ -838,8 +838,8 @@ function EditableVideoGenerateNodeView({
       <div ref={containerRef} className={containerClassName}>
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
-          <Film className="h-4 w-4 shrink-0 text-[#9334e6] dark:text-violet-400" />
-          <div className="text-xs font-medium text-[#9334e6] dark:text-violet-400">{t('videoGenerate.title')}</div>
+          <Film className="h-4 w-4 shrink-0 text-ol-purple" />
+          <div className="text-xs font-medium text-ol-purple">{t('videoGenerate.title')}</div>
           <span className={cn("rounded-full px-2 py-0.5 text-[10px] leading-3", BOARD_GENERATE_PILL_VIDEO)}>
             {statusLabel}
           </span>
@@ -848,7 +848,7 @@ function EditableVideoGenerateNodeView({
         {/* Body */}
         <div className="flex-1 p-3 flex flex-col gap-2" data-board-editor>
           <div className="flex items-center justify-between gap-2">
-            <div className="text-[11px] text-[#5f6368] dark:text-slate-400">{t('videoGenerate.outputAudio')}</div>
+            <div className="text-[11px] text-ol-text-auxiliary">{t('videoGenerate.outputAudio')}</div>
             <Switch
               checked={outputAudio}
               onCheckedChange={(checked) => {
@@ -944,8 +944,8 @@ function EditableVideoGenerateNodeView({
             className={cn(
               "shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors duration-150",
               isAdvancedOpen
-                ? "bg-[#f3e8fd] text-[#9334e6] dark:bg-violet-800/60 dark:text-violet-200"
-                : "text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-400 dark:hover:bg-slate-800",
+                ? "bg-ol-purple-bg text-ol-purple"
+                : "text-ol-text-auxiliary hover:bg-ol-surface-muted",
             )}
             onPointerDown={(event) => {
               event.stopPropagation();
@@ -984,10 +984,10 @@ function EditableVideoGenerateNodeView({
           }}
         >
           {statusHint.tone === "error" ? (
-            <div className="relative rounded-lg border border-[#d93025]/20 bg-[#fce8e6] p-2 text-[11px] leading-4 text-[#d93025] shadow-sm dark:border-rose-400/30 dark:bg-rose-950/40 dark:text-rose-200">
+            <div className="relative rounded-lg border border-ol-red/20 bg-ol-red-bg p-2 text-[11px] leading-4 text-ol-red shadow-sm">
               <button
                 type="button"
-                className="absolute right-2 top-2 rounded-full border border-[#d93025]/20 bg-background px-2 py-0.5 text-[10px] text-[#d93025] hover:bg-[#fce8e6] dark:border-rose-400/30 dark:text-rose-200 dark:hover:bg-rose-950/60"
+                className="absolute right-2 top-2 rounded-full border border-ol-red/20 bg-background px-2 py-0.5 text-[10px] text-ol-red hover:bg-ol-red-bg"
                 onPointerDown={(event) => {
                   event.stopPropagation();
                 }}
@@ -1007,8 +1007,8 @@ function EditableVideoGenerateNodeView({
               className={cn(
                 "rounded-lg border px-2 py-1.5 text-[11px] leading-4 shadow-sm",
                 statusHint.tone === "warn"
-                  ? "border-amber-200/70 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
-                  : "border-sky-200/70 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-200",
+                  ? "border-ol-amber/20 bg-ol-amber-bg text-ol-amber"
+                  : "border-ol-blue/20 bg-ol-blue-bg text-ol-blue",
               )}
             >
               {statusHint.text}

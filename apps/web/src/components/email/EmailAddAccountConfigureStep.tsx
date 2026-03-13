@@ -27,14 +27,14 @@ import type { AddDialogState } from './use-email-page-state'
 
 /** 预设账户类型（id 为存储键，labelKey 用于 i18n 显示） */
 const ACCOUNT_TYPE_PRESETS = [
-  { id: 'work', labelKey: 'email.accountPreset_work', color: 'bg-blue-500' },
-  { id: 'personal', labelKey: 'email.accountPreset_personal', color: 'bg-green-500' },
-  { id: 'support', labelKey: 'email.accountPreset_support', color: 'bg-orange-500' },
+  { id: 'work', labelKey: 'email.accountPreset_work', color: 'bg-ol-blue' },
+  { id: 'personal', labelKey: 'email.accountPreset_personal', color: 'bg-ol-green' },
+  { id: 'support', labelKey: 'email.accountPreset_support', color: 'bg-ol-amber' },
   { id: 'notifications', labelKey: 'email.accountPreset_notifications', color: 'bg-purple-500' },
   { id: 'marketing', labelKey: 'email.accountPreset_marketing', color: 'bg-pink-500' },
-  { id: 'finance', labelKey: 'email.accountPreset_finance', color: 'bg-amber-500' },
+  { id: 'finance', labelKey: 'email.accountPreset_finance', color: 'bg-ol-amber' },
   { id: 'tech', labelKey: 'email.accountPreset_tech', color: 'bg-cyan-500' },
-  { id: 'subscriptions', labelKey: 'email.accountPreset_subscriptions', color: 'bg-slate-500' },
+  { id: 'subscriptions', labelKey: 'email.accountPreset_subscriptions', color: 'bg-ol-text-auxiliary' },
 ] as const
 
 type ConfigureStepProps = {
@@ -121,9 +121,9 @@ export function ConfigureStep({ addDialog }: ConfigureStepProps) {
       {isOAuth ? (
         <>
           {addDialog.formState.oauthAuthorized ? (
-            <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2.5">
-              <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
-              <span className="text-xs text-emerald-600 dark:text-emerald-400">
+            <div className="flex items-center gap-2 rounded-lg bg-ol-green/10 px-3 py-2.5">
+              <CheckCircle2 className="size-4 text-ol-green" />
+              <span className="text-xs text-ol-green">
                 {t('email.authorized')}
                 {addDialog.formState.oauthEmail
                   ? ` ${addDialog.formState.oauthEmail}`
@@ -221,7 +221,7 @@ export function ConfigureStep({ addDialog }: ConfigureStepProps) {
             <CollapsibleContent className="mt-3 space-y-4">
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2 text-xs font-medium text-foreground/70">
-                  <span className="size-1.5 rounded-full bg-blue-500" />
+                  <span className="size-1.5 rounded-full bg-ol-blue" />
                   {t('email.imapIncoming')}
                 </div>
                 <div className="grid grid-cols-[1fr,90px] gap-2">
@@ -266,7 +266,7 @@ export function ConfigureStep({ addDialog }: ConfigureStepProps) {
               </div>
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2 text-xs font-medium text-foreground/70">
-                  <span className="size-1.5 rounded-full bg-green-500" />
+                  <span className="size-1.5 rounded-full bg-ol-green" />
                   {t('email.smtpOutgoing')}
                 </div>
                 <div className="grid grid-cols-[1fr,90px] gap-2">
@@ -381,7 +381,7 @@ export function ConfigureStep({ addDialog }: ConfigureStepProps) {
         </div>
       ) : null}
       {addDialog.testStatus === 'ok' ? (
-        <div className="rounded-lg bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-600 dark:text-emerald-400">
+        <div className="rounded-lg bg-ol-green/10 px-3 py-2.5 text-xs text-ol-green">
           {t('email.testSuccess')}
         </div>
       ) : null}

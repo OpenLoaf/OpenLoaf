@@ -46,6 +46,7 @@ import {
 import { resolveAgentByName } from '@/ai/tools/AgentSelector'
 import { buildHardRules } from '@/ai/shared/hardRules'
 import { buildToolSearchGuidance } from '@/ai/shared/toolSearchGuidance'
+import { isWebSearchConfigured } from '@/ai/tools/webSearchTool'
 
 // ---------------------------------------------------------------------------
 // 子 Agent 行为类型
@@ -166,13 +167,17 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
   const instructions = input.instructions || template.systemPrompt
   const wrappedModel = wrapModelWithExamples(input.model)
 
-  // ToolSearch Pull mode — filter by client platform
+  // ToolSearch Pull mode — filter by client platform and feature flags
   const ctx = getRequestContext()
   const coreToolIds = [...CORE_TOOL_IDS] as string[]
-  const filteredDeferredToolIds = filterToolIdsByPlatform(
+  let filteredDeferredToolIds = filterToolIdsByPlatform(
     template.deferredToolIds ?? [],
     ctx?.clientPlatform,
   )
+  // web-search requires configured provider + API key
+  if (!isWebSearchConfigured()) {
+    filteredDeferredToolIds = filteredDeferredToolIds.filter((id) => id !== 'web-search')
+  }
   const allToolIds = [...new Set([...coreToolIds, ...filteredDeferredToolIds])]
 
   // Build full toolset (all tools registered, but only core visible via activeTools)
@@ -265,10 +270,13 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   const masterTpl = getPrimaryTemplate()
   const ctx = getRequestContext()
   const coreToolIds = ['tool-search'] as string[]
-  const deferredToolIds = filterToolIdsByPlatform(
+  let deferredToolIds = filterToolIdsByPlatform(
     (masterTpl.deferredToolIds ?? []).filter((id) => !AGENT_TOOL_IDS_TO_EXCLUDE.has(id)),
     ctx?.clientPlatform,
   )
+  if (!isWebSearchConfigured()) {
+    deferredToolIds = deferredToolIds.filter((id) => id !== 'web-search')
+  }
   const allToolIds = [...new Set([...coreToolIds, ...deferredToolIds])]
 
   const tools = buildToolset(allToolIds)

@@ -9,9 +9,8 @@
  */
 "use client";
 
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState, type LayoutState } from "@/hooks/use-layout-state";
 import { emitSidebarOpenRequest, getLeftSidebarOpen } from "@/lib/sidebar-state";
-import type { TabRuntime } from "@/hooks/tab-types";
 
 /** Selector for the dock button anchor element. */
 const STACK_DOCK_BUTTON_SELECTOR = "[data-stack-dock-button]";
@@ -32,18 +31,18 @@ let currentCleanup: (() => void) | null = null;
 let minimizeSignalSeed = 0;
 const minimizeSignalByTabId = new Map<string, number>();
 
-/** Resolve the active stack item for a tab. */
-function getActiveStackItem(runtime?: TabRuntime) {
-  const stack = runtime?.stack ?? [];
-  const activeId = runtime?.activeStackItemId || stack.at(-1)?.id || "";
+/** Resolve the active stack item for the layout. */
+function getActiveStackItem(layout?: LayoutState) {
+  const stack = layout?.stack ?? [];
+  const activeId = layout?.activeStackItemId || stack.at(-1)?.id || "";
   return stack.find((item) => item.id === activeId) ?? stack.at(-1);
 }
 
 /** Return true when the board stack is in full mode. */
-function isBoardStackFull(runtime?: TabRuntime) {
-  const activeItem = getActiveStackItem(runtime);
+function isBoardStackFull(layout?: LayoutState) {
+  const activeItem = getActiveStackItem(layout);
   if (activeItem?.component !== BOARD_VIEWER_COMPONENT) return false;
-  if (!runtime?.rightChatCollapsed) return false;
+  if (!layout?.rightChatCollapsed) return false;
   const leftOpen = getLeftSidebarOpen();
   return leftOpen === false;
 }
@@ -263,31 +262,30 @@ export async function animateStackRestore(tabId: string) {
 /** Request a minimize animation and hide the stack afterward. */
 export function requestStackMinimize(tabId: string) {
   if (!tabId) return;
-  const state = useTabRuntime.getState();
-  const runtime = state.runtimeByTabId[tabId];
-  if (runtime?.stackHidden) return;
+  const layoutState = useLayoutState.getState();
+  if (layoutState.stackHidden) return;
   // 逻辑：动画级别为低时直接隐藏，不执行最小化动画。
   if (getUiAnimationLevel() === "low") {
-    state.setStackHidden(tabId, true);
+    layoutState.setStackHidden(true);
     return;
   }
-  const shouldRestoreFull = isBoardStackFull(runtime);
-  const activeItem = getActiveStackItem(runtime);
+  const shouldRestoreFull = isBoardStackFull(layoutState);
+  const activeItem = getActiveStackItem(layoutState);
   if (activeItem?.component === BOARD_VIEWER_COMPONENT) {
     // 逻辑：最小化前记录画布全屏状态，供恢复时读取。
-    state.setStackItemParams(tabId, activeItem.id, { __boardFull: shouldRestoreFull });
+    layoutState.setStackItemParams(activeItem.id, { __boardFull: shouldRestoreFull });
   }
   if (shouldRestoreFull) {
     // 逻辑：最小化时退出全屏模式，恢复左右侧边栏。
     emitSidebarOpenRequest(true);
-    state.setTabRightChatCollapsed(tabId, false);
+    layoutState.setRightChatCollapsed(false);
   }
   minimizeSignalSeed += 1;
   minimizeSignalByTabId.set(tabId, minimizeSignalSeed);
   const panel = getStackPanel(tabId);
   const target = getDockButton();
   if (!panel || !target || prefersReducedMotion()) {
-    state.setStackHidden(tabId, true);
+    layoutState.setStackHidden(true);
     return;
   }
   let restoreHidden: (() => void) | null = null;
@@ -297,12 +295,12 @@ export function requestStackMinimize(tabId: string) {
       restoreHidden = hidePanel(panel);
       didHide = true;
       // 触发隐藏状态，确保按钮及时出现并可提示。
-      state.setStackHidden(tabId, true);
+      useLayoutState.getState().setStackHidden(true);
     },
   })
     .then((didRun) => {
       if (!didRun && !didHide) {
-        state.setStackHidden(tabId, true);
+        useLayoutState.getState().setStackHidden(true);
       }
     })
     .finally(() => {

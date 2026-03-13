@@ -230,7 +230,7 @@ function MediaUrlDialogContent({
             e.preventDefault();
             embedMedia();
           }}
-          className="bg-[#1a73e8] text-white hover:bg-[#1557b0] dark:bg-sky-600 dark:hover:bg-sky-700"
+          className="bg-ol-blue text-white hover:bg-ol-blue/85"
         >
           Accept
         </AlertDialogAction>

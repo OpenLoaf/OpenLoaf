@@ -78,18 +78,18 @@ function formatFileSize(bytes?: number): string {
 /** Extension badge color mapping. */
 function getExtBadgeColor(ext?: string): string {
   const normalized = (ext ?? "").toLowerCase();
-  if (normalized === "pdf") return "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300";
+  if (normalized === "pdf") return "bg-ol-red-bg text-ol-red";
   if (normalized === "docx" || normalized === "doc")
-    return "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300";
+    return "bg-ol-blue-bg text-ol-blue";
   if (
     normalized === "xlsx" ||
     normalized === "xls" ||
     normalized === "csv"
   )
-    return "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300";
+    return "bg-ol-green-bg text-ol-green";
   if (normalized === "md" || normalized === "txt")
-    return "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300";
-  return "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300";
+    return "bg-ol-surface-muted text-ol-text-secondary";
+  return "bg-ol-purple-bg text-ol-purple";
 }
 
 /** Build toolbar items for file attachment nodes. */
@@ -176,8 +176,7 @@ export function FileAttachmentNodeView({
       <div
         className={[
           "flex h-full w-full items-center gap-3 rounded-xl border box-border px-3",
-          "border-neutral-200/80 bg-white text-neutral-800",
-          "dark:border-neutral-700/60 dark:bg-neutral-900 dark:text-neutral-100",
+          "border-ol-divider bg-background text-ol-text-primary",
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
@@ -203,7 +202,7 @@ export function FileAttachmentNodeView({
               </span>
             ) : null}
             {sizeText ? (
-              <span className="text-[10px] text-neutral-400 dark:text-neutral-500">
+              <span className="text-[10px] text-muted-foreground">
                 {sizeText}
               </span>
             ) : null}

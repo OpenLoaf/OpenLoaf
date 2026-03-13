@@ -38,26 +38,26 @@ const VIEW_CONFIG: {
 	{
 		type: 'month',
 		icon: Calendar,
-		activeBg: 'bg-[#e8f0fe]',
-		activeText: 'text-[#1a73e8]',
-		darkActiveBg: 'dark:bg-sky-900/50',
-		darkActiveText: 'dark:text-sky-300',
+		activeBg: 'bg-ol-blue-bg',
+		activeText: 'text-ol-blue',
+		darkActiveBg: '',
+		darkActiveText: '',
 	},
 	{
 		type: 'week',
 		icon: Grid3x3,
-		activeBg: 'bg-[#f3e8fd]',
-		activeText: 'text-[#9334e6]',
-		darkActiveBg: 'dark:bg-violet-900/40',
-		darkActiveText: 'dark:text-violet-300',
+		activeBg: 'bg-ol-purple-bg',
+		activeText: 'text-ol-purple',
+		darkActiveBg: '',
+		darkActiveText: '',
 	},
 	{
 		type: 'day',
 		icon: Clock,
-		activeBg: 'bg-[#fef7e0]',
-		activeText: 'text-[#e37400]',
-		darkActiveBg: 'dark:bg-amber-900/40',
-		darkActiveText: 'dark:text-amber-300',
+		activeBg: 'bg-ol-amber-bg',
+		activeText: 'text-ol-amber',
+		darkActiveBg: '',
+		darkActiveText: '',
 	},
 ]
 
@@ -88,7 +88,7 @@ const ViewControls: React.FC<ViewControlsProps> = ({
 								'inline-flex items-center justify-center rounded-full transition-all duration-150',
 								isActive
 									? `h-7 gap-1 px-2.5 ${activeBg} ${activeText} ${darkActiveBg} ${darkActiveText}`
-									: 'h-7 w-7 text-[#5f6368] hover:bg-[#f1f3f4] hover:text-[#202124] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.42)] dark:hover:text-slate-200'
+									: 'h-7 w-7 text-ol-text-auxiliary hover:bg-ol-surface-muted hover:text-ol-text-primary'
 							)}
 							key={type}
 							onClick={() => onChange(type)}

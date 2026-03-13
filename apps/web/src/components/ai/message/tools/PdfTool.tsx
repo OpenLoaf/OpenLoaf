@@ -47,12 +47,12 @@ function PdfStructureView({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-3 text-xs">
-        <span className="rounded bg-blue-500/10 px-2 py-0.5 font-medium text-blue-600 dark:text-blue-400">
+        <span className="rounded bg-ol-blue/10 px-2 py-0.5 font-medium text-ol-blue">
           {t('tool.pdf.pageCount', { count: pageCount })}
         </span>
         <span className="text-muted-foreground">{t('tool.pdf.fileSize')}: {formatSize(fileSize)}</span>
         {hasForm && (
-          <span className="rounded bg-purple-500/10 px-2 py-0.5 text-purple-600 dark:text-purple-400">
+          <span className="rounded bg-ol-purple/10 px-2 py-0.5 text-ol-purple">
             {t('tool.pdf.formFieldCount', { count: formFieldCount })}
           </span>
         )}
@@ -97,7 +97,7 @@ function PdfTextPreviewView({
       <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
         {pageCount != null && <span>{t('tool.pdf.pageCount', { count: pageCount })}</span>}
         <span>{t('tool.word.characterCount', { count: characterCount })}</span>
-        {uiTruncated && <span className="text-amber-500">{t('tool.word.textTruncated')}</span>}
+        {uiTruncated && <span className="text-ol-amber">{t('tool.word.textTruncated')}</span>}
       </div>
       <pre className="max-h-[280px] overflow-auto whitespace-pre-wrap rounded bg-muted/40 p-2 text-xs leading-relaxed">
         {displayText}

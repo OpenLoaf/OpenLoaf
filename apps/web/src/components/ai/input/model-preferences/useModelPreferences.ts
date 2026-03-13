@@ -20,8 +20,8 @@ import {
 import { useMediaModels } from '@/hooks/use-media-models'
 import { useInstalledCliProviderIds } from '@/hooks/use-cli-tools-installed'
 import { useSaasAuth } from '@/hooks/use-saas-auth'
-import { useTabs } from '@/hooks/use-tabs'
-import { useTabRuntime } from '@/hooks/use-tab-runtime'
+import { useAppView } from '@/hooks/use-app-view'
+import { useLayoutState } from '@/hooks/use-layout-state'
 import {
   buildChatModelOptions,
   buildCliModelOptions,
@@ -52,8 +52,8 @@ export function useModelPreferences() {
   const { loggedIn: authLoggedIn, refreshSession } = useSaasAuth()
   const chatSession = useOptionalChatSession()
   const projectId = chatSession?.projectId
-  const activeTabId = useTabs((s) => s.activeTabId)
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem)
+  const chatSessionId = useAppView((s) => s.chatSessionId)
+  const pushStackItem = useLayoutState((s) => s.pushStackItem)
   const {
     modelIds: masterModelIds,
     detail: masterDetail,
@@ -63,7 +63,7 @@ export function useModelPreferences() {
     setCodeModelIds,
   } = useMainAgentModel(projectId)
 
-  const tabId = chatSession?.tabId ?? activeTabId
+  const tabId = chatSession?.tabId ?? chatSessionId
   const chatModelSource = normalizeChatModelSource(basic.chatSource)
   const isCloudSource = chatModelSource === 'cloud'
 
@@ -342,9 +342,7 @@ export function useModelPreferences() {
   ])
 
   const openProviderSettings = useCallback(() => {
-    if (!tabId) return
     pushStackItem(
-      tabId,
       {
         id: 'provider-management',
         sourceKey: 'provider-management',
@@ -353,7 +351,7 @@ export function useModelPreferences() {
       },
       100,
     )
-  }, [pushStackItem, tabId])
+  }, [pushStackItem, t])
 
   // 逻辑：偏好列表中是否包含推理模型
   const hasPreferredReasoningModel = useMemo(

@@ -368,8 +368,8 @@ function ReadOnlyMarkdownProjection(props: {
     <div
       className={cn(
         "relative w-full box-border p-3",
-        props.backgroundColor ? "" : "bg-[#f5f5f5] dark:bg-neutral-800/60",
-        "text-neutral-800 dark:text-neutral-100",
+        props.backgroundColor ? "" : "bg-ol-surface-muted",
+        "text-ol-text-primary",
       )}
       style={props.backgroundColor ? { backgroundColor: props.backgroundColor } : undefined}
     >
@@ -488,7 +488,7 @@ function buildColorToolbarItems(
                     <span
                       className={cn(
                         "inline-flex h-5 w-5 items-center justify-center rounded-full ring-1 ring-border text-[10px]",
-                        autoTextColor ? "" : "text-neutral-800 dark:text-neutral-100",
+                        autoTextColor ? "" : "text-ol-text-primary",
                         isActive
                           ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
                           : ""
@@ -542,7 +542,7 @@ function buildColorToolbarItems(
                   ) : (
                     <span
                       className={cn(
-                        "inline-flex h-5 w-5 items-center justify-center rounded-sm ring-1 ring-border text-[10px] text-neutral-500",
+                        "inline-flex h-5 w-5 items-center justify-center rounded-sm ring-1 ring-border text-[10px] text-ol-text-auxiliary",
                         isActive
                           ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
                           : ""
@@ -1076,14 +1076,14 @@ function EditableTextNodeView({
   // ---- Render ----
 
   const containerStyle = backgroundColor ? { backgroundColor } : undefined;
-  const defaultBg = backgroundColor ? "" : "bg-[#f5f5f5] dark:bg-neutral-800/60";
+  const defaultBg = backgroundColor ? "" : "bg-ol-surface-muted";
   const containerClasses = [
     "relative h-full w-full box-border p-2.5",
     isEditing && !backgroundColor
-      ? "bg-white dark:bg-neutral-900/90"
+      ? "bg-background"
       : defaultBg,
-    "text-neutral-800 dark:text-neutral-100",
-    "overflow-y-auto",
+    "text-ol-text-primary",
+    "overflow-y-auto board-text-scrollbar",
     isEditing ? "cursor-text" : "cursor-default",
   ].join(" ");
 
@@ -1091,7 +1091,7 @@ function EditableTextNodeView({
     return (
       <button
         type="button"
-        className="flex h-full w-full items-center justify-center rounded-full border border-neutral-200 bg-white text-[11px] font-medium text-neutral-500 shadow-sm transition hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800"
+        className="flex h-full w-full items-center justify-center rounded-full border border-ol-divider bg-background text-[11px] font-medium text-ol-text-auxiliary shadow-sm transition hover:bg-ol-surface-muted"
         style={branchColor ? { borderColor: branchColor, color: branchColor } : undefined}
         onPointerDown={event => {
           event.preventDefault();
@@ -1121,7 +1121,7 @@ function EditableTextNodeView({
           readOnly={!isEditing}
           className={cn(
             "w-full bg-transparent outline-none p-0",
-            "text-neutral-800 dark:text-neutral-100",
+            "text-ol-text-primary",
             "[&>[data-slate-node=element]+[data-slate-node=element]]:mt-1",
             // 逻辑：view 模式下整体禁止指针交互，但 checkbox 保留可点击。
             !isEditing && "pointer-events-none [&_[data-slot=checkbox]]:!pointer-events-auto",
@@ -1133,7 +1133,7 @@ function EditableTextNodeView({
       </Plate>
       {isEmpty && !isEditing ? (
         <div
-          className="pointer-events-none absolute inset-0 flex items-start px-4 pt-2.5 text-neutral-400 dark:text-neutral-500"
+          className="pointer-events-none absolute inset-0 flex items-start px-4 pt-2.5 text-muted-foreground"
           style={{
             textAlign,
             fontSize: textStyle.fontSize,

@@ -83,7 +83,7 @@ function ProjectListView({ projects, t }: { projects: ProjectItem[]; t: TFunctio
       {hasMore && !expanded && (
         <button
           type="button"
-          className="text-[11px] text-blue-600 hover:underline dark:text-blue-400"
+          className="text-[11px] text-ol-blue hover:underline"
           onClick={() => setExpanded(true)}
         >
           {t('tool.project.showAll', { defaultValue: '显示全部', count: projects.length })}

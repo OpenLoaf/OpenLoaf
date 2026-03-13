@@ -1,11 +1,10 @@
 "use client";
 
-import { startTransition } from "react";
 import { PROJECT_LIST_TAB_INPUT } from "@openloaf/api/common";
 import { useNavigation } from "@/hooks/use-navigation";
 import { useProjectLayout } from "@/hooks/use-project-layout";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 
 export const PROJECT_SHELL_SECTIONS = [
   "assistant",
@@ -81,60 +80,56 @@ export function buildProjectShellBase(
   }
 }
 
-/** Find an existing project-shell tab by project id. */
+/** Find whether the current view is a project-shell for the given project. */
 export function findProjectShellTab(projectId: string) {
-  return useTabs
-    .getState()
-    .tabs.find((tab) => tab.projectShell?.projectId === projectId);
+  const state = useAppView.getState()
+  if (state.projectShell?.projectId === projectId) return true
+  return false
 }
 
-/** Apply one project-shell section onto an existing tab. */
-export function applyProjectShellToTab(tabId: string, input: ProjectShellState) {
-  const tabs = useTabs.getState();
-  const runtime = useTabRuntime.getState();
-  const currentRuntime = runtime.runtimeByTabId[tabId];
+/** Apply one project-shell section onto the current view. */
+export function applyProjectShellToTab(_tabId: string, input: ProjectShellState) {
+  const view = useAppView.getState();
+  const layout = useLayoutState.getState();
   const savedLayout = useProjectLayout
     .getState()
     .getProjectLayout(input.projectId);
   const base = buildProjectShellBase(input);
 
-  tabs.setTabTitle(tabId, input.title);
-  tabs.setTabIcon(tabId, input.icon ?? undefined);
-  tabs.setTabProjectShell(tabId, input);
-  tabs.setTabChatParams(tabId, { projectId: input.projectId });
+  view.setTitle(input.title);
+  view.setIcon(input.icon ?? undefined);
+  view.setProjectShell(input);
+  view.setChatParams({ projectId: input.projectId });
 
-  runtime.clearStack(tabId);
-  runtime.setTabBase(tabId, base);
+  layout.clearStack();
+  layout.setBase(base);
 
   if (base) {
     const nextLeftWidth =
-      currentRuntime?.leftWidthPercent && currentRuntime.leftWidthPercent > 0
-        ? currentRuntime.leftWidthPercent
+      layout.leftWidthPercent && layout.leftWidthPercent > 0
+        ? layout.leftWidthPercent
         : savedLayout?.leftWidthPercent ?? 90;
-    runtime.setTabLeftWidthPercent(tabId, nextLeftWidth);
+    layout.setLeftWidthPercent(nextLeftWidth);
 
     const nextRightCollapsed =
-      currentRuntime?.base && typeof currentRuntime.rightChatCollapsed === "boolean"
-        ? currentRuntime.rightChatCollapsed
+      layout.base && typeof layout.rightChatCollapsed === "boolean"
+        ? layout.rightChatCollapsed
         : savedLayout?.rightChatCollapsed ?? false;
-    runtime.setTabRightChatCollapsed(tabId, nextRightCollapsed);
+    layout.setRightChatCollapsed(nextRightCollapsed);
   }
 
   useNavigation.getState().setActiveProject(input.projectId);
 }
 
-/** Open or focus a project-shell tab in the current renderer. */
+/** Open or focus a project-shell view in the current renderer. */
 export function openProjectShell(input: ProjectShellInput) {
   const section = input.section ?? "assistant";
   const resolved: ProjectShellState = { ...input, section };
-  const existingTab = findProjectShellTab(input.projectId);
+  const isCurrentProject = findProjectShellTab(input.projectId);
 
-  if (existingTab) {
-    applyProjectShellToTab(existingTab.id, resolved);
-    startTransition(() => {
-      useTabs.getState().setActiveTab(existingTab.id);
-    });
-    return existingTab.id;
+  if (isCurrentProject) {
+    applyProjectShellToTab("main", resolved);
+    return "main";
   }
 
   const savedLayout = useProjectLayout
@@ -145,8 +140,7 @@ export function openProjectShell(input: ProjectShellInput) {
     ? savedLayout?.leftWidthPercent ?? 90
     : 0;
 
-  useTabs.getState().addTab({
-    createNew: true,
+  useAppView.getState().navigate({
     title: input.title,
     icon: input.icon ?? undefined,
     base,
@@ -157,26 +151,26 @@ export function openProjectShell(input: ProjectShellInput) {
   });
 
   useNavigation.getState().setActiveProject(input.projectId);
-  return useTabs.getState().activeTabId ?? "";
+  return "main";
 }
 
 /** Exit the project-shell context and return to the project-space list in-place. */
-export function exitProjectShellToProjectList(tabId: string, title: string, icon: string) {
-  const tabs = useTabs.getState();
-  const runtime = useTabRuntime.getState();
+export function exitProjectShellToProjectList(_tabId: string, title: string, icon: string) {
+  const view = useAppView.getState();
+  const layout = useLayoutState.getState();
 
-  tabs.setTabProjectShell(tabId, null);
-  tabs.setTabChatParams(tabId, { projectId: null });
-  tabs.setTabTitle(tabId, title);
-  tabs.setTabIcon(tabId, icon);
+  view.setProjectShell(null);
+  view.setChatParams({ projectId: null });
+  view.setTitle(title);
+  view.setIcon(icon);
 
-  runtime.clearStack(tabId);
-  runtime.setTabBase(tabId, {
+  layout.clearStack();
+  layout.setBase({
     id: PROJECT_LIST_TAB_INPUT.baseId,
     component: PROJECT_LIST_TAB_INPUT.component,
   });
-  runtime.setTabLeftWidthPercent(tabId, 100);
-  runtime.setTabRightChatCollapsed(tabId, true);
+  layout.setLeftWidthPercent(100);
+  layout.setRightChatCollapsed(true);
 
   useNavigation.getState().setActiveView("project-list");
 }

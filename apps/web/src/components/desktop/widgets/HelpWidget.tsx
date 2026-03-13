@@ -25,8 +25,7 @@ import {
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
 import type { TFunction } from "i18next"
-import { useTabs } from "@/hooks/use-tabs"
-import { useTabRuntime } from "@/hooks/use-tab-runtime"
+import { useLayoutState } from "@/hooks/use-layout-state"
 import { useGlobalOverlay } from "@/lib/globalShortcuts"
 import { cn } from "@/lib/utils"
 
@@ -54,92 +53,79 @@ function getHelpPages(t: TFunction): HelpPage[] {
       title: t('desktop:help.pages.welcome.title'),
       description: t('desktop:help.pages.welcome.description'),
       icon: Sparkles,
-      iconColorClass: "bg-[#e8f0fe] text-[#1a73e8] dark:bg-sky-900/50 dark:text-sky-200",
+      iconColorClass: "bg-ol-blue-bg text-ol-blue",
     },
     {
       title: t('desktop:help.pages.aiChat.title'),
       description: t('desktop:help.pages.aiChat.description'),
       icon: MessageSquareText,
-      iconColorClass: "bg-[#f3e8fd] text-[#9334e6] dark:bg-violet-900/40 dark:text-violet-300",
+      iconColorClass: "bg-ol-purple-bg text-ol-purple",
       action: "open-ai-chat",
     },
     {
       title: t('desktop:help.pages.dock.title'),
       description: t('desktop:help.pages.dock.description'),
       icon: PanelBottom,
-      iconColorClass: "bg-[#e0f2fe] text-[#0284c7] dark:bg-cyan-900/40 dark:text-cyan-300",
+      iconColorClass: "bg-ol-blue-bg text-ol-blue",
     },
     {
       title: t('desktop:help.pages.search.title'),
       description: t('desktop:help.pages.search.description'),
       icon: Search,
-      iconColorClass: "bg-[#e8f0fe] text-[#1a73e8] dark:bg-sky-900/50 dark:text-sky-200",
+      iconColorClass: "bg-ol-blue-bg text-ol-blue",
       action: "open-search",
     },
     {
       title: t('desktop:help.pages.calendar.title'),
       description: t('desktop:help.pages.calendar.description'),
       icon: CalendarDays,
-      iconColorClass: "bg-[#e6f4ea] text-[#188038] dark:bg-emerald-900/40 dark:text-emerald-300",
+      iconColorClass: "bg-ol-green-bg text-ol-green",
       action: "open-calendar",
     },
     {
       title: t('desktop:help.pages.email.title'),
       description: t('desktop:help.pages.email.description'),
       icon: Mail,
-      iconColorClass: "bg-[#fef7e0] text-[#e37400] dark:bg-amber-900/40 dark:text-amber-300",
+      iconColorClass: "bg-ol-amber-bg text-ol-amber",
       action: "open-email",
     },
     {
       title: t('desktop:help.pages.tasks.title'),
       description: t('desktop:help.pages.tasks.description'),
       icon: KanbanSquare,
-      iconColorClass: "bg-[#fef7e0] text-[#e37400] dark:bg-amber-900/40 dark:text-amber-300",
+      iconColorClass: "bg-ol-amber-bg text-ol-amber",
       action: "open-tasks",
     },
     {
       title: t('desktop:help.pages.desktop.title'),
       description: t('desktop:help.pages.desktop.description'),
       icon: LayoutGrid,
-      iconColorClass: "bg-[#f3e8fd] text-[#9334e6] dark:bg-violet-900/40 dark:text-violet-300",
+      iconColorClass: "bg-ol-purple-bg text-ol-purple",
     },
   ]
 }
 
 /** Execute a help action by dispatching to the appropriate store or overlay. */
-function executeHelpAction(action: HelpAction, activeTabId: string | null, t: TFunction) {
+function executeHelpAction(action: HelpAction, t: TFunction) {
   if (action === "open-search") {
     useGlobalOverlay.getState().setSearchOpen(true)
     return
   }
 
   if (action === "open-ai-chat") {
-    if (!activeTabId) {
-      toast.error(t('desktop:help.noTab'))
-      return
-    }
-    const runtime = useTabRuntime.getState().runtimeByTabId[activeTabId]
-    if (!runtime) {
-      toast.error(t('desktop:help.noRuntimeContext'))
-      return
-    }
-    if (runtime.rightChatCollapsed) {
-      useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, false)
+    const layoutState = useLayoutState.getState()
+    if (layoutState.rightChatCollapsed) {
+      useLayoutState.getState().setRightChatCollapsed(false)
     }
     const requestFocus = () => {
       window.dispatchEvent(new CustomEvent("openloaf:chat-focus-input"))
     }
-    if (runtime.rightChatCollapsed) {
+    if (layoutState.rightChatCollapsed) {
       setTimeout(requestFocus, 180)
       setTimeout(requestFocus, 360)
       return
     }
     requestFocus()
-    return
-  }
-
-  if (!activeTabId) {
-    toast.error(t('desktop:help.noTab'))
     return
   }
 
@@ -150,7 +136,7 @@ function executeHelpAction(action: HelpAction, activeTabId: string | null, t: TF
   }
   const target = componentMap[action]
   if (target) {
-    useTabRuntime.getState().pushStackItem(activeTabId, {
+    useLayoutState.getState().pushStackItem({
       id: target.id,
       sourceKey: target.id,
       component: target.component,
@@ -168,7 +154,6 @@ export default function HelpWidget() {
   const [current, setCurrent] = React.useState(0)
   const [isHovered, setIsHovered] = React.useState(false)
   const pausedUntilRef = React.useRef(0)
-  const activeTabId = useTabs((state) => state.activeTabId)
   const helpPages = React.useMemo(() => getHelpPages(t), [t])
   const total = helpPages.length
 
@@ -208,9 +193,9 @@ export default function HelpWidget() {
 
   const handleAction = React.useCallback(
     (action: HelpAction) => {
-      executeHelpAction(action, activeTabId, t)
+      executeHelpAction(action, t)
     },
-    [activeTabId, t],
+    [t],
   )
 
   return (

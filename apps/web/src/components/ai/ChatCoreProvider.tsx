@@ -19,9 +19,9 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
-import { useTabs } from "@/hooks/use-tabs";
+import { useAppView } from "@/hooks/use-app-view";
 import { useChatRuntime, type ToolPartSnapshot } from "@/hooks/use-chat-runtime";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { createChatTransport } from "@/lib/ai/transport";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
@@ -736,14 +736,14 @@ export default function ChatCoreProvider({
             typeof dataPart?.data?.title === "string" ? dataPart.data.title.trim() : "";
           const sessionIdInData =
             typeof dataPart?.data?.sessionId === "string" ? dataPart.data.sessionId : "";
-          if (title && tabId && (!sessionIdInData || sessionIdInData === sessionIdRef.current)) {
-            const tab = useTabs.getState().getTabById(tabId);
-            const hasBase = Boolean(useTabRuntime.getState().runtimeByTabId[tabId]?.base);
-            if (tab?.projectShell) {
+          if (title && (!sessionIdInData || sessionIdInData === sessionIdRef.current)) {
+            const viewState = useAppView.getState();
+            const hasBase = Boolean(useLayoutState.getState().base);
+            if (viewState.projectShell) {
               return;
             }
-            if (tab && !hasBase && tab.title !== title) {
-              useTabs.getState().setTabTitle(tabId, title);
+            if (!hasBase && viewState.title !== title) {
+              viewState.setTitle(title);
             }
           }
           return;
@@ -1118,11 +1118,11 @@ export default function ChatCoreProvider({
         const currentTabId = tabIdRef.current;
         if (currentTabId) {
           const tempTitle = i18next.t(TEMP_CHAT_TAB_INPUT.titleKey);
-          const tab = useTabs.getState().getTabById(currentTabId);
-          if (tab && !tab.projectShell && tab.title === tempTitle) {
+          const viewState = useAppView.getState();
+          if (!viewState.projectShell && viewState.title === tempTitle) {
             const userText = getMessagePlainText(nextMessage);
             const truncated = userText.slice(0, 30).trim() || "新对话";
-            useTabs.getState().setTabTitle(currentTabId, truncated);
+            viewState.setTitle(truncated);
           }
         }
       }

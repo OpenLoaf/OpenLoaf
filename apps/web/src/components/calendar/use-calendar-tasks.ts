@@ -17,11 +17,11 @@ type TaskStatus = 'todo' | 'running' | 'review' | 'done' | 'cancelled'
 
 /** Background colors for task events by status (light / dark handled via CSS). */
 const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
-  todo: '#1a73e8',
-  running: '#e37400',
-  review: '#9334e6',
-  done: '#188038',
-  cancelled: '#5f6368',
+  todo: 'var(--ol-blue)',
+  running: 'var(--ol-amber)',
+  review: 'var(--ol-purple)',
+  done: 'var(--ol-green)',
+  cancelled: 'var(--ol-text-auxiliary)',
 }
 
 export function useCalendarTasks({

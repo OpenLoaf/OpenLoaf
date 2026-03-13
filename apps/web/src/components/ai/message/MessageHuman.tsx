@@ -18,8 +18,7 @@ import {
   useFilePreviewStore,
 } from "@/components/file/lib/file-preview-store";
 import MaskedImage from "@/components/file/MaskedImage";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { useProjects } from "@/hooks/use-projects";
 import { useChatSession } from "@/components/ai/context";
 import { setImageDragPayload } from "@/lib/image/drag";
@@ -218,8 +217,7 @@ export default function MessageHuman({
   const { t } = useTranslation('ai')
   const { data: projects = [] } = useProjects();
   const { projectId } = useChatSession();
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
+  const pushStackItem = useLayoutState((s) => s.pushStackItem);
   const [imageState, setImageState] = React.useState<Record<string, ImagePreviewState>>({});
   const imageStateRef = React.useRef<Record<string, ImagePreviewState>>({});
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
@@ -228,13 +226,13 @@ export default function MessageHuman({
   const handleMentionPointerDown = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       handleChatMentionPointerDown(event, {
-        activeTabId,
+        activeTabId: "main",
         projectId,
         projects,
-        pushStackItem,
+        pushStackItem: (_tabId: string, item: any) => pushStackItem(item),
       });
     },
-    [activeTabId, projectId, projects, pushStackItem]
+    [projectId, projects, pushStackItem]
   );
 
   React.useEffect(() => {

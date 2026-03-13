@@ -31,7 +31,7 @@ type SuggestionItem = {
 };
 
 const ICON_ORDER = [Sparkles, ClipboardList, Code2, FileText];
-const COLORS = ["text-amber-500", "text-sky-500", "text-emerald-500", "text-violet-500"];
+const COLORS = ["text-ol-amber", "text-ol-blue", "text-ol-green", "text-ol-purple"];
 
 export default function MessageHelper({
   compact,
@@ -51,7 +51,7 @@ export default function MessageHelper({
         label: item.label,
         value: item.value,
         icon: ICON_ORDER[index] || Sparkles,
-        color: COLORS[index] || "text-blue-500",
+        color: COLORS[index] || "text-ol-blue",
       }))
     : [];
 
@@ -78,7 +78,7 @@ export default function MessageHelper({
         label: item.label,
         value: item.value,
         icon: ICON_ORDER[index % ICON_ORDER.length] || Sparkles,
-        color: COLORS[index % COLORS.length] || "text-blue-500",
+        color: COLORS[index % COLORS.length] || "text-ol-blue",
       }));
       prevSuggestionsRef.current = result;
       return result;

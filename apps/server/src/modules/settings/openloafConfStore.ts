@@ -94,6 +94,8 @@ const DEFAULT_BASIC_CONF: BasicConf = {
       forceCustomApiKey: false,
     },
   },
+  webSearchProvider: "",
+  webSearchApiKey: "",
 };
 
 /** Normalize CLI tool config. */
@@ -360,6 +362,18 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     DEFAULT_BASIC_CONF.cliTools,
   );
   const cliTools = normalizeCliToolsConfig(source.cliTools, fallbackCliTools);
+  const webSearchProvider =
+    typeof source.webSearchProvider === "string"
+      ? source.webSearchProvider
+      : typeof fallbackSource.webSearchProvider === "string"
+        ? fallbackSource.webSearchProvider
+        : DEFAULT_BASIC_CONF.webSearchProvider;
+  const webSearchApiKey =
+    typeof source.webSearchApiKey === "string"
+      ? source.webSearchApiKey
+      : typeof fallbackSource.webSearchApiKey === "string"
+        ? fallbackSource.webSearchApiKey
+        : DEFAULT_BASIC_CONF.webSearchApiKey;
 
   return {
     chatSource,
@@ -396,6 +410,8 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     proxyUsername,
     proxyPassword,
     cliTools,
+    webSearchProvider,
+    webSearchApiKey,
   };
 }
 

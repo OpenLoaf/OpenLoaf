@@ -17,7 +17,7 @@ import type { AnyToolPart } from "./shared/tool-utils";
 import { getToolOutputState } from "./shared/tool-utils";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import { getPreviewEndpoint, resolveFileName } from "@/lib/image/uri";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import {
   Attachment,
   Attachments,
@@ -205,17 +205,15 @@ function MediaAttachmentList({
   kindLabel: string;
   previewCtx?: { projectId?: string };
 }) {
-  const { tabId } = useChatSession();
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
+  const pushStackItem = useLayoutState((s) => s.pushStackItem);
   const attachments = React.useMemo(
     () => buildMediaAttachments({ urls, kind, previewCtx }),
     [urls, kind, previewCtx],
   );
 
   const openMediaViewer = (record: MediaAttachmentRecord) => {
-    if (!tabId) return;
     if (kind === "image") {
-      pushStackItem(tabId, {
+      pushStackItem({
         id: `generated-image:${record.previewUrl}`,
         component: "image-viewer",
         title: `生成的${kindLabel}`,
@@ -225,7 +223,7 @@ function MediaAttachmentList({
         },
       });
     } else {
-      pushStackItem(tabId, {
+      pushStackItem({
         id: `generated-video:${record.sourceUrl}`,
         component: "video-viewer",
         title: `生成的${kindLabel}`,
@@ -350,8 +348,8 @@ function MediaGenerateError({
     const canRetry = loggedIn && messageId;
     return (
       <>
-        <div className="flex max-w-sm items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-          <span className="flex-1 text-xs text-amber-700 dark:text-amber-300">
+        <div className="flex max-w-sm items-center gap-2 rounded-lg border border-ol-amber/30 bg-ol-amber/5 px-3 py-2">
+          <span className="flex-1 text-xs text-ol-amber">
             {canRetry
               ? `已登录，可重新生成${kindLabel}`
               : errorText || `需要登录才能生成${kindLabel}`}
@@ -392,8 +390,8 @@ function MediaGenerateError({
 
   if (errorCode === "no_model") {
     return (
-      <div className="max-w-sm rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-        <span className="text-xs text-amber-700 dark:text-amber-300">
+      <div className="max-w-sm rounded-lg border border-ol-amber/30 bg-ol-amber/5 px-3 py-2">
+        <span className="text-xs text-ol-amber">
           {errorText || `未选择${kindLabel}生成模型`}
         </span>
       </div>
@@ -402,8 +400,8 @@ function MediaGenerateError({
 
   if (errorCode === "invalid_input") {
     return (
-      <div className="max-w-sm rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-        <span className="text-xs text-amber-700 dark:text-amber-300">
+      <div className="max-w-sm rounded-lg border border-ol-amber/30 bg-ol-amber/5 px-3 py-2">
+        <span className="text-xs text-ol-amber">
           {errorText || `${kindLabel}生成参数异常，请重试`}
         </span>
       </div>

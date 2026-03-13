@@ -515,7 +515,7 @@ export function ImageNodeView({
             ) : null}
           </>
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-xl border border-neutral-200/80 bg-neutral-50 dark:border-neutral-700/60 dark:bg-neutral-800/80">
+          <div className="flex h-full w-full items-center justify-center rounded-xl border border-ol-divider bg-ol-surface-muted">
             {isPreviewLoading || isTranscoding ? (
               <ImageNodeSkeleton />
             ) : (
@@ -531,7 +531,7 @@ export function ImageNodeView({
           </div>
         )}
         {isTranscoding ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl bg-white/80 text-xs text-neutral-600 dark:bg-neutral-900/80 dark:text-neutral-400">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl bg-background/80 text-xs text-ol-text-secondary">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
             <span>{transcodingLabel}</span>
           </div>

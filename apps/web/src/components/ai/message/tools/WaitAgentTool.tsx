@@ -71,12 +71,12 @@ function AgentStatusRow({ agentId, stream, toolParts }: {
         {hasError ? (
           <XCircleIcon className="size-3.5 shrink-0 text-destructive" />
         ) : isDone ? (
-          <CheckCircle2Icon className="size-3.5 shrink-0 text-emerald-500" />
+          <CheckCircle2Icon className="size-3.5 shrink-0 text-ol-green" />
         ) : hasPending ? (
-          <ShieldAlertIcon className="size-3.5 shrink-0 text-amber-500" />
+          <ShieldAlertIcon className="size-3.5 shrink-0 text-ol-amber" />
         ) : (
           <div className="size-3.5 shrink-0 flex items-center justify-center">
-            <span className="size-2 animate-pulse rounded-full bg-blue-500" />
+            <span className="size-2 animate-pulse rounded-full bg-ol-blue" />
           </div>
         )}
         <span className="min-w-0 flex-1 truncate text-[11px] text-foreground/80">
@@ -85,9 +85,9 @@ function AgentStatusRow({ agentId, stream, toolParts }: {
         <span className={cn(
           'text-[10px]',
           hasError && 'text-destructive',
-          isDone && 'text-emerald-600 dark:text-emerald-400',
-          hasPending && 'text-amber-600 dark:text-amber-400',
-          isRunning && !hasPending && 'text-blue-600 dark:text-blue-400',
+          isDone && 'text-ol-green',
+          hasPending && 'text-ol-amber',
+          isRunning && !hasPending && 'text-ol-blue',
         )}>
           {hasError ? '出错' : isDone ? '完成' : hasPending ? '待审批' : '运行中'}
         </span>
@@ -217,12 +217,12 @@ export default function WaitAgentTool({
       {outputObj && !isWaiting ? (
         <div className="border-t bg-muted/30 px-3 py-1.5">
           {completedId ? (
-            <div className="text-[11px] text-emerald-600 dark:text-emerald-400">
+            <div className="text-[11px] text-ol-green">
               首个完成: {completedId}
             </div>
           ) : null}
           {timedOut ? (
-            <div className="text-[11px] text-amber-600 dark:text-amber-400">
+            <div className="text-[11px] text-ol-amber">
               等待超时
             </div>
           ) : null}
@@ -233,7 +233,7 @@ export default function WaitAgentTool({
                   <span className="truncate">{id}</span>
                   <span>→</span>
                   <span className={cn(
-                    status === 'completed' && 'text-emerald-600 dark:text-emerald-400',
+                    status === 'completed' && 'text-ol-green',
                     status === 'failed' && 'text-destructive',
                   )}>
                     {status}

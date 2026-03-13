@@ -20,8 +20,7 @@ import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { TerminalTabsBar } from "@/components/file/TerminalTabsBar";
 import { TERMINAL_WINDOW_PANEL_ID, type TerminalTab } from "@openloaf/api/common";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -386,26 +385,17 @@ export default function TerminalViewer({
   const tabActive = useTabActive();
   const safeTabId = typeof tabId === "string" ? tabId : undefined;
   const resolvedPanelKey = panelKey ?? TERMINAL_WINDOW_PANEL_ID;
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const runtimeStack = useTabRuntime((s) =>
-    safeTabId ? s.runtimeByTabId[safeTabId]?.stack : undefined,
-  );
-  const runtimeActiveStackId = useTabRuntime((s) =>
-    safeTabId ? s.runtimeByTabId[safeTabId]?.activeStackItemId : undefined,
-  );
-  const stackHidden = useTabRuntime((s) =>
-    safeTabId ? Boolean(s.runtimeByTabId[safeTabId]?.stackHidden) : false,
-  );
+  const runtimeStack = useLayoutState((s) => s.stack);
+  const runtimeActiveStackId = useLayoutState((s) => s.activeStackItemId);
+  const stackHidden = useLayoutState((s) => Boolean(s.stackHidden));
   const stack = Array.isArray(runtimeStack) ? runtimeStack : [];
   const activeStackItemId =
     typeof runtimeActiveStackId === "string" ? runtimeActiveStackId : "";
   const coveredByAnotherStackItem = useMemo(() => {
-    if (!safeTabId) return false;
-    if (activeTabId !== safeTabId) return false;
     if (!stack.some((item) => item.id === resolvedPanelKey)) return false;
     const activeStackId = activeStackItemId || stack.at(-1)?.id || "";
     return Boolean(activeStackId) && activeStackId !== resolvedPanelKey;
-  }, [activeStackItemId, activeTabId, resolvedPanelKey, safeTabId, stack]);
+  }, [activeStackItemId, resolvedPanelKey, stack]);
   const enabled = terminalStatus.enabled && !terminalStatus.isLoading;
 
   const normalizedTabs = useMemo(() => {
@@ -438,14 +428,14 @@ export default function TerminalViewer({
     if (Array.isArray(terminalTabs)) return;
     if (!pwdUri) return;
     // 中文注释：迁移旧的 pwdUri 参数到 terminalTabs 结构。
-    useTabRuntime.getState().setTerminalTabs(safeTabId, normalizedTabs, activeId);
+    useLayoutState.getState().setTerminalTabs(normalizedTabs, activeId);
   }, [safeTabId, terminalTabs, pwdUri, normalizedTabs, activeId]);
 
   /** Sync terminal tabs state into the tab store. */
   const updateTerminalState = useCallback(
     (nextTabs: TerminalTab[], nextActiveId?: string) => {
       if (!safeTabId) return;
-      useTabRuntime.getState().setTerminalTabs(safeTabId, nextTabs, nextActiveId);
+      useLayoutState.getState().setTerminalTabs(nextTabs, nextActiveId);
     },
     [safeTabId],
   );
@@ -565,19 +555,17 @@ export default function TerminalViewer({
     if (!safeTabId) return;
     const ok = window.confirm(t('terminal.closeConfirm'));
     if (!ok) return;
-    useTabRuntime.getState().removeStackItem(safeTabId, resolvedPanelKey);
+    useLayoutState.getState().removeStackItem(resolvedPanelKey);
   };
 
   /** Force remount the terminal panel by bumping refresh key. */
   const onRefreshPanel = () => {
     if (!safeTabId) return;
-    const state = useTabRuntime.getState();
-    const runtime = state.runtimeByTabId[safeTabId];
-    const item = runtime?.stack?.find((x) => x.id === resolvedPanelKey);
+    const state = useLayoutState.getState();
+    const item = state.stack?.find((x) => x.id === resolvedPanelKey);
     if (!item) return;
     const current = Number((item.params as any)?.__refreshKey ?? 0);
     state.pushStackItem(
-      safeTabId,
       { ...item, params: { ...(item.params ?? {}), __refreshKey: current + 1 } } as any,
       100,
     );

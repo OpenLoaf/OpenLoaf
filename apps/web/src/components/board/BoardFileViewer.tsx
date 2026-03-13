@@ -12,7 +12,7 @@
 import { memo } from "react";
 import { BoardCanvas } from "./core/BoardCanvas";
 import { BOARD_NODE_DEFINITIONS } from "./core/board-nodes";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 
 export interface BoardFileViewerProps {
   /** Target board folder uri. */
@@ -40,15 +40,9 @@ const BoardFileViewer = memo(function BoardFileViewer({
   panelKey,
   tabId,
 }: BoardFileViewerProps) {
-  const runtimeStack = useTabRuntime((state) =>
-    tabId ? state.runtimeByTabId[tabId]?.stack : undefined,
-  );
-  const runtimeActiveStackId = useTabRuntime((state) =>
-    tabId ? state.runtimeByTabId[tabId]?.activeStackItemId : undefined,
-  );
-  const stackHidden = useTabRuntime((state) =>
-    tabId ? Boolean(state.runtimeByTabId[tabId]?.stackHidden) : false,
-  );
+  const runtimeStack = useLayoutState((state) => state.stack);
+  const runtimeActiveStackId = useLayoutState((state) => state.activeStackItemId);
+  const stackHidden = useLayoutState((state) => Boolean(state.stackHidden));
   const stack = Array.isArray(runtimeStack) ? runtimeStack : [];
   const isStackItem = Boolean(panelKey && stack.some((item) => item.id === panelKey));
   const activeStackId =

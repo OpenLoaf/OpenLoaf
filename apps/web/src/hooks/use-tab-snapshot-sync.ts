@@ -10,15 +10,14 @@
 "use client";
 
 import * as React from "react";
-import { useTabs } from "./use-tabs";
-import { useTabRuntime } from "./use-tab-runtime";
-import { getTabViewById } from "./use-tab-view";
+import { useAppView } from "./use-app-view";
+import { useLayoutState } from "./use-layout-state";
+import { getAppState } from "./use-app-state";
 import { upsertTabSnapshotNow } from "@/lib/tab-snapshot";
 
 /**
  * SSE 期间同步 Tab 快照（MVP）：
- * - 只同步本次聊天请求绑定的 tabId
- * - 首次立即上报一次，后续仅在该 Tab 发生变化时上报
+ * - 首次立即上报一次，后续仅在视图发生变化时上报
  */
 export function useTabSnapshotSync(input: {
   enabled: boolean;
@@ -36,7 +35,6 @@ export function useTabSnapshotSync(input: {
     const tabId = input.tabId;
     lastJsonRef.current = "";
 
-    // 发送一次“当前状态”，确保 server 缓存立刻可用。
     const sendNow = () => {
       void upsertTabSnapshotNow({ sessionId: input.sessionId, tabId });
     };
@@ -44,7 +42,7 @@ export function useTabSnapshotSync(input: {
     sendNow();
 
     const scheduleSendIfChanged = () => {
-      const snapshot = getTabViewById(tabId);
+      const snapshot = getAppState();
       if (!snapshot) return;
       let json = "";
       try {
@@ -64,13 +62,12 @@ export function useTabSnapshotSync(input: {
       }, 200);
     };
 
-    // 订阅 meta 与 runtime 的变化，避免无关 store 触发同步。
-    const unsubscribeTabs = useTabs.subscribe(scheduleSendIfChanged);
-    const unsubscribeRuntime = useTabRuntime.subscribe(scheduleSendIfChanged);
+    const unsubscribeView = useAppView.subscribe(scheduleSendIfChanged);
+    const unsubscribeLayout = useLayoutState.subscribe(scheduleSendIfChanged);
 
     return () => {
-      unsubscribeTabs();
-      unsubscribeRuntime();
+      unsubscribeView();
+      unsubscribeLayout();
       if (debounceTimerRef.current) {
         window.clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = null;

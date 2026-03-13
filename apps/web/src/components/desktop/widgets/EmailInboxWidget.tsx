@@ -18,15 +18,13 @@ import { toast } from "sonner";
 import { Input } from "@openloaf/ui/input";
 import { trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { formatDateTime } from "@/components/email/email-utils";
 import { MESSAGE_PAGE_SIZE, type EmailMessageSummary } from "@/components/email/email-types";
 
 /** Render unified inbox list widget. */
 export default function EmailInboxWidget() {
   const { t } = useTranslation('desktop');
-  const activeTabId = useTabs((s) => s.activeTabId);
   const [searchKeyword, setSearchKeyword] = React.useState("");
   const [activeMessageId, setActiveMessageId] = React.useState<string | null>(null);
   const messagesListRef = React.useRef<HTMLDivElement | null>(null);
@@ -95,17 +93,13 @@ export default function EmailInboxWidget() {
 
   /** Open the email page in stack panel. */
   const handleOpenEmailPage = React.useCallback(() => {
-    if (!activeTabId) {
-      toast.error(t('emailInbox.noTab'));
-      return;
-    }
-    useTabRuntime.getState().pushStackItem(activeTabId, {
+    useLayoutState.getState().pushStackItem({
       id: "email-page",
       sourceKey: "email-page",
       component: "email-page",
       title: t('emailInbox.emailPage'),
     });
-  }, [activeTabId, t]);
+  }, [t]);
 
   /** Handle message selection. */
   const handleSelectMessage = React.useCallback(

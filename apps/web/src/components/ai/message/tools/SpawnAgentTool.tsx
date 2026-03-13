@@ -12,8 +12,7 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { BotIcon, ChevronRightIcon } from 'lucide-react'
-import { useTabs } from '@/hooks/use-tabs'
-import { useTabRuntime } from '@/hooks/use-tab-runtime'
+import { useLayoutState } from '@/hooks/use-layout-state'
 import { useChatRuntime } from '@/hooks/use-chat-runtime'
 import { useChatSession } from '../../context'
 import type { AnyToolPart } from './shared/tool-utils'
@@ -44,15 +43,15 @@ function AgentStatusBadge({ stream, part }: {
   }
   if (isDone) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
-        <span className="size-1.5 rounded-full bg-emerald-500" />
+      <span className="inline-flex items-center gap-1 text-[11px] text-ol-green">
+        <span className="size-1.5 rounded-full bg-ol-green" />
         已完成
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400">
-      <span className="size-1.5 animate-pulse rounded-full bg-blue-500" />
+    <span className="inline-flex items-center gap-1 text-[11px] text-ol-blue">
+      <span className="size-1.5 animate-pulse rounded-full bg-ol-blue" />
       运行中
     </span>
   )
@@ -75,8 +74,6 @@ export default function SpawnAgentTool({
   className?: string
 }) {
   const { tabId: contextTabId, sessionId } = useChatSession()
-  const activeTabId = useTabs((s) => s.activeTabId)
-  const tabId = contextTabId ?? activeTabId ?? undefined
 
   // 从 input / output 解析 agent 信息
   const inputObj = asPlainObject(normalizeToolInput(part.input))
@@ -86,8 +83,8 @@ export default function SpawnAgentTool({
   const agentId = typeof outputObj?.agent_id === 'string' ? outputObj.agent_id : ''
   // 性能关键：直接从 zustand 按 agentId selector 订阅，避免 context 整体刷新。
   const stream = useChatRuntime((s) => {
-    if (!tabId || !agentId) return undefined
-    return s.subAgentStreamsByTabId[tabId]?.[agentId]
+    if (!contextTabId || !agentId) return undefined
+    return s.subAgentStreamsByTabId[contextTabId]?.[agentId]
   })
 
   const agentName = stream?.name
@@ -106,15 +103,15 @@ export default function SpawnAgentTool({
   const outputPreview = getOutputPreview(stream?.output ?? '', 3)
 
   const handleClick = React.useCallback(() => {
-    if (!tabId || !agentId) return
-    useTabRuntime.getState().pushStackItem(tabId, {
+    if (!agentId) return
+    useLayoutState.getState().pushStackItem({
       id: `sub-agent-chat:${agentId}`,
       sourceKey: `sub-agent-chat:${agentId}`,
       component: 'sub-agent-chat',
       title: agentName,
       params: { agentId, sessionId },
     })
-  }, [tabId, agentId, agentName, sessionId])
+  }, [agentId, agentName, sessionId])
 
   return (
     <div

@@ -29,8 +29,7 @@ import {
   TERMINAL_WINDOW_COMPONENT,
   TERMINAL_WINDOW_PANEL_ID,
 } from "@openloaf/api/common";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { resolveServerUrl } from "@/utils/server-url";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { openFilePreview } from "@/components/file/lib/open-file";
@@ -330,8 +329,7 @@ export function useProjectFileSystemModel({
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const dragCounterRef = useRef(0);
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
+  const pushStackItem = useLayoutState((s) => s.pushStackItem);
 
   /** Install drag session cleanup hooks for Electron. */
   useEffect(() => {
@@ -818,9 +816,8 @@ export function useProjectFileSystemModel({
   /** Open item in system file manager, or push a folder-tree stack in web. */
   const handleOpenInFileManager = async (entry: FileSystemEntry) => {
     if (!isElectron) {
-      if (!activeTabId) return
       if (entry.kind === 'folder') {
-        pushStackItem(activeTabId, {
+        pushStackItem({
           id: entry.uri,
           sourceKey: entry.uri,
           component: 'folder-tree-preview',
@@ -859,7 +856,6 @@ export function useProjectFileSystemModel({
   /** Open the current folder in the system file manager, or push a folder-tree stack in web. */
   const handleOpenInFileManagerAtCurrent = async () => {
     if (!isElectron) {
-      if (!activeTabId) return
       const targetUri = activeUri ?? normalizedRootUri ?? ''
       if (!targetUri && !rootUri) {
         toast.error('未找到项目目录')
@@ -867,7 +863,7 @@ export function useProjectFileSystemModel({
       }
       const folderUri = targetUri || ''
       const folderName = folderUri.split('/').filter(Boolean).pop() || 'Folder'
-      pushStackItem(activeTabId, {
+      pushStackItem({
         id: `current-folder:${folderUri}`,
         sourceKey: `current-folder:${folderUri}`,
         component: 'folder-tree-preview',
@@ -899,14 +895,13 @@ export function useProjectFileSystemModel({
     (entry: FileSystemEntry, thumbnailSrc?: string) => {
       openFilePreview({
         entry,
-        tabId: activeTabId,
         projectId,
         rootUri,
         thumbnailSrc,
         onNavigate: handleNavigate,
       });
     },
-    [activeTabId, handleNavigate, projectId, rootUri]
+    [handleNavigate, projectId, rootUri]
   );
 
   /** Open an image file inside the current tab stack. */
@@ -914,13 +909,12 @@ export function useProjectFileSystemModel({
     (entry: FileSystemEntry, thumbnailSrc?: string) => {
       openFilePreview({
         entry,
-        tabId: activeTabId,
         projectId,
         rootUri,
         thumbnailSrc,
       });
     },
-    [activeTabId, projectId, rootUri]
+    [projectId, rootUri]
   );
 
   /** Open a markdown file inside the current tab stack. */
@@ -928,12 +922,11 @@ export function useProjectFileSystemModel({
     (entry: FileSystemEntry) => {
       openFilePreview({
         entry,
-        tabId: activeTabId,
         projectId,
         rootUri,
       });
     },
-    [activeTabId, projectId, rootUri]
+    [projectId, rootUri]
   );
 
   /** Open a code file inside the current tab stack. */
@@ -941,12 +934,11 @@ export function useProjectFileSystemModel({
     (entry: FileSystemEntry) => {
       openFilePreview({
         entry,
-        tabId: activeTabId,
         projectId,
         rootUri,
       });
     },
-    [activeTabId, projectId, rootUri]
+    [projectId, rootUri]
   );
 
   /** Open a PDF file inside the current tab stack. */
@@ -954,12 +946,11 @@ export function useProjectFileSystemModel({
     (entry: FileSystemEntry) => {
       openFilePreview({
         entry,
-        tabId: activeTabId,
         projectId,
         rootUri,
       });
     },
-    [activeTabId, projectId, rootUri]
+    [projectId, rootUri]
   );
 
   /** Open a DOC file inside the current tab stack. */
@@ -967,12 +958,11 @@ export function useProjectFileSystemModel({
     (entry: FileSystemEntry) => {
       openFilePreview({
         entry,
-        tabId: activeTabId,
         projectId,
         rootUri,
       });
     },
-    [activeTabId, projectId, rootUri]
+    [projectId, rootUri]
   );
 
   /** Open a spreadsheet file inside the current tab stack. */
@@ -980,12 +970,11 @@ export function useProjectFileSystemModel({
     (entry: FileSystemEntry) => {
       openFilePreview({
         entry,
-        tabId: activeTabId,
         projectId,
         rootUri,
       });
     },
-    [activeTabId, projectId, rootUri]
+    [projectId, rootUri]
   );
 
   /** Open a video file inside the current tab stack. */
@@ -993,12 +982,11 @@ export function useProjectFileSystemModel({
     (entry: FileSystemEntry) => {
       openFilePreview({
         entry,
-        tabId: activeTabId,
         projectId,
         rootUri,
       });
     },
-    [activeTabId, projectId, rootUri]
+    [projectId, rootUri]
   );
 
   /** Open a board folder inside the current tab stack. */
@@ -1006,7 +994,6 @@ export function useProjectFileSystemModel({
     (entry: FileSystemEntry, options?: { pendingRename?: boolean }) => {
       openFilePreview({
         entry,
-        tabId: activeTabId,
         projectId,
         rootUri,
         board: {
@@ -1014,16 +1001,12 @@ export function useProjectFileSystemModel({
         },
       });
     },
-    [activeTabId, projectId, rootUri]
+    [projectId, rootUri]
   );
 
   /** Open a terminal inside the current tab stack. */
   const handleOpenTerminal = useCallback(
     (entry: FileSystemEntry) => {
-      if (!activeTabId) {
-        toast.error("未找到当前标签页");
-        return;
-      }
       if (terminalStatus.isLoading) {
         toast.message("正在获取终端状态");
         return;
@@ -1044,7 +1027,7 @@ export function useProjectFileSystemModel({
         toast.error("无法解析终端目录");
         return;
       }
-      pushStackItem(activeTabId, {
+      pushStackItem({
         id: TERMINAL_WINDOW_PANEL_ID,
         sourceKey: TERMINAL_WINDOW_PANEL_ID,
         component: TERMINAL_WINDOW_COMPONENT,
@@ -1055,15 +1038,11 @@ export function useProjectFileSystemModel({
         },
       });
     },
-    [activeTabId, isTerminalEnabled, pushStackItem, rootUri, terminalStatus.isLoading]
+    [isTerminalEnabled, pushStackItem, rootUri, terminalStatus.isLoading]
   );
 
   /** Open a terminal at the current directory. */
   const handleOpenTerminalAtCurrent = useCallback(() => {
-    if (!activeTabId) {
-      toast.error("未找到当前标签页");
-      return;
-    }
     if (terminalStatus.isLoading) {
       toast.message("正在获取终端状态");
       return;
@@ -1080,7 +1059,7 @@ export function useProjectFileSystemModel({
       toast.error("未找到项目目录");
       return;
     }
-    pushStackItem(activeTabId, {
+    pushStackItem({
       id: TERMINAL_WINDOW_PANEL_ID,
       sourceKey: TERMINAL_WINDOW_PANEL_ID,
       component: TERMINAL_WINDOW_COMPONENT,
@@ -1091,7 +1070,6 @@ export function useProjectFileSystemModel({
       },
     });
   }, [
-    activeTabId,
     activeUri,
     isTerminalEnabled,
     normalizedRootUri,

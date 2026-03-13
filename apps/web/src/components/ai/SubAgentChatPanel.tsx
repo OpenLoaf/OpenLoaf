@@ -12,7 +12,6 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { BotIcon, Sparkles } from 'lucide-react'
-import { useTabs } from '@/hooks/use-tabs'
 import { useChatRuntime } from '@/hooks/use-chat-runtime'
 import { renderMessageParts } from '@/components/ai/message/renderMessageParts'
 import type { SubAgentStreamState } from '@/components/ai/context/ChatToolContext'
@@ -107,8 +106,8 @@ function StatusBadge({ stream, hasHistory }: {
 }) {
   if (!stream && hasHistory) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
-        <span className="size-1.5 rounded-full bg-emerald-500" />
+      <span className="inline-flex items-center gap-1 text-[11px] text-ol-green">
+        <span className="size-1.5 rounded-full bg-ol-green" />
         已完成
       </span>
     )
@@ -130,15 +129,15 @@ function StatusBadge({ stream, hasHistory }: {
   }
   if (isDone) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
-        <span className="size-1.5 rounded-full bg-emerald-500" />
+      <span className="inline-flex items-center gap-1 text-[11px] text-ol-green">
+        <span className="size-1.5 rounded-full bg-ol-green" />
         已完成
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400">
-      <span className="size-1.5 animate-pulse rounded-full bg-blue-500" />
+    <span className="inline-flex items-center gap-1 text-[11px] text-ol-blue">
+      <span className="size-1.5 animate-pulse rounded-full bg-ol-blue" />
       运行中
     </span>
   )
@@ -155,8 +154,7 @@ export default function SubAgentChatPanel({
   tabId?: string
   [key: string]: unknown
 }) {
-  const activeTabId = useTabs((s) => s.activeTabId)
-  const tabId = propTabId ?? activeTabId ?? ''
+  const tabId = propTabId ?? ''
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const wasAtBottomRef = React.useRef(true)
 

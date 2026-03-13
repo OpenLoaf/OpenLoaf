@@ -13,7 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { VideoPlayer } from "@openloaf/ui/video-player";
 import { StackHeader } from "@/components/layout/StackHeader";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { resolveServerUrl } from "@/utils/server-url";
 import { cn } from "@/lib/utils";
 import {
@@ -99,7 +99,7 @@ export default function VideoViewer({
   tabId,
 }: VideoViewerProps) {
   const { t } = useTranslation("common");
-  const removeStackItem = useTabRuntime((state) => state.removeStackItem);
+  const removeStackItem = useLayoutState((state) => state.removeStackItem);
   const displayTitle = name ?? "";
   const shouldRenderStackHeader = Boolean(tabId && panelKey);
   const shouldRenderInlineHeader = Boolean(!shouldRenderStackHeader && displayTitle);
@@ -437,7 +437,7 @@ export default function VideoViewer({
           onClose={
             canClose
               ? () => {
-                  removeStackItem(tabId!, panelKey!);
+                  removeStackItem(panelKey!);
                 }
               : undefined
           }

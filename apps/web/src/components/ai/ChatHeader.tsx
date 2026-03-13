@@ -17,9 +17,9 @@ import * as React from "react";
 import { useChatActions, useChatSession, useChatState } from "./context";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { useTabView } from "@/hooks/use-tab-view";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
+import { useAppState } from "@/hooks/use-app-state";
 import { invalidateChatSessions, useChatSessions } from "@/hooks/use-chat-sessions";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
@@ -54,14 +54,14 @@ interface ChatHeaderProps {
 }
 
 const CHAT_HEADER_EMAIL_ICON_CLASS = {
-  debug: "text-[#9334e6] dark:text-violet-300",
-  feedback: "text-[#7c3aed] dark:text-violet-300",
+  debug: "text-ol-purple",
+  feedback: "text-ol-purple",
   copyToCanvas:
-    "text-violet-700/70 dark:text-violet-300/70 hover:text-violet-700 dark:hover:text-violet-200",
-  closeDock: "text-[#f9ab00] dark:text-amber-300",
-  clear: "text-[#188038] dark:text-emerald-300",
-  history: "text-[#1a73e8] dark:text-sky-300",
-  close: "text-[#5f6368] dark:text-slate-300",
+    "text-ol-purple/70 hover:text-ol-purple",
+  closeDock: "text-ol-amber",
+  clear: "text-ol-green",
+  history: "text-ol-blue",
+  close: "text-ol-text-auxiliary",
 } as const;
 
 export default function ChatHeader({
@@ -87,22 +87,21 @@ export default function ChatHeader({
   const [chatFeedbackSubmitting, setChatFeedbackSubmitting] = React.useState(false);
   const menuLockRef = React.useRef(false);
   const { sessions, refetch: refetchSessions } = useChatSessions({ tabId });
-  const isActiveTab = useTabs((s) => s.activeTabId === tabId);
-  const setTabTitle = useTabs((s) => s.setTabTitle);
-  const setSessionProjectId = useTabs((s) => s.setSessionProjectId);
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
+  const setTitle = useAppView((s) => s.setTitle);
+  const setChatParams = useAppView((s) => s.setChatParams);
+  const pushStackItem = useLayoutState((s) => s.pushStackItem);
   const { basic } = useBasicConfig();
   const headerActionsTarget = useHeaderSlot((s) => s.headerActionsTarget);
   const { loggedIn: saasLoggedIn } = useSaasAuth();
-  const tabView = useTabView(tabId);
+  const appState = useAppState();
 
   // Quick launch: derive project context from tab chatParams.
   const quickLaunchProjectId = React.useMemo(() => {
-    const params = tabView?.chatParams as Record<string, unknown> | undefined;
+    const params = appState?.chatParams as Record<string, unknown> | undefined;
     const pid = params?.projectId;
     return typeof pid === "string" ? pid.trim() : "";
-  }, [tabView?.chatParams]);
-  const hasBase = Boolean(tabView?.base);
+  }, [appState?.chatParams]);
+  const hasBase = Boolean(appState?.base);
   // 逻辑：临时隐藏“打开面板”入口，仅在已有左侧面板时保留关闭能力。
   const shouldShowCloseDockButton = hasBase;
   /** Resolve icon tone classes for header actions. */
@@ -153,18 +152,13 @@ export default function ChatHeader({
 
   /** Close the left dock by removing the base panel. */
   const handleCloseDock = React.useCallback(() => {
-    if (!tabId) return;
-    useTabRuntime.getState().setTabBase(tabId, undefined);
-  }, [tabId]);
+    useLayoutState.getState().setBase(undefined);
+  }, []);
 
   /**
    * Open the current session preface in a markdown stack panel.
    */
   const handleViewPreface = React.useCallback(async () => {
-    if (!tabId) {
-      toast.error("未找到当前标签页");
-      return;
-    }
     if (!activeSessionId) {
       toast.error("未找到当前会话");
       return;
@@ -181,7 +175,7 @@ export default function ChatHeader({
       const jsonlPath = typeof res?.jsonlPath === "string" ? res.jsonlPath : "";
       const promptContent = typeof res?.promptContent === "string" ? res.promptContent : "";
       const panelKey = `preface:${activeSessionId}`;
-      pushStackItem(tabId, {
+      pushStackItem({
         id: panelKey,
         sourceKey: panelKey,
         component: "ai-debug-viewer",
@@ -200,7 +194,7 @@ export default function ChatHeader({
     } finally {
       setPrefaceLoading(false);
     }
-  }, [activeSessionId, prefaceLoading, pushStackItem, requestLeafMessageId, tabId]);
+  }, [activeSessionId, prefaceLoading, pushStackItem, requestLeafMessageId]);
 
   /** Resolve server endpoint for exporting current chat session zip. */
   const resolveSessionZipExportUrl = React.useCallback((sessionId: string) => {
@@ -454,8 +448,8 @@ export default function ChatHeader({
                 // 选中历史会话后：关闭弹层 + 切换会话并加载历史
                 setHistoryOpen(false);
                 menuLockRef.current = false;
-                const hasTabBase = Boolean(tabView?.base);
-                const tabTitle = String(tabView?.title ?? "").trim();
+                const hasTabBase = Boolean(appState?.base);
+                const tabTitle = String(appState?.title ?? "").trim();
                 const selectedSessionMeta = sessions.find((item) => item.id === session.id);
                 const isSelectedUserRename = Boolean(selectedSessionMeta?.isUserRename);
                 // 无左侧 base 的 tab：如果历史会话还没被用户重命名/仍是默认标题，则用当前 tab title 覆盖它
@@ -470,13 +464,13 @@ export default function ChatHeader({
                     data: { title: tabTitle },
                   } as any);
                 }
-                if (tabId && !hasTabBase) {
+                if (!hasTabBase) {
                   const nextTitle = session.name.trim();
-                  if (nextTitle) setTabTitle(tabId, nextTitle);
+                  if (nextTitle) setTitle(nextTitle);
                 }
-                // 历史会话可能属于不同项目，写入 chatSessionProjectIds 映射
-                if (tabId && selectedSessionMeta?.projectId) {
-                  setSessionProjectId(tabId, session.id, selectedSessionMeta.projectId);
+                // 历史会话可能属于不同项目，写入 chatParams
+                if (selectedSessionMeta?.projectId) {
+                  setChatParams({ projectId: selectedSessionMeta.projectId });
                 }
                 selectSession(session.id);
               }}
@@ -500,7 +494,7 @@ export default function ChatHeader({
 
   return (
     <>
-      {isActiveTab && headerActionsTarget
+      {headerActionsTarget
         ? createPortal(
             <div
               className="flex min-w-0 items-center justify-end"

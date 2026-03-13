@@ -39,8 +39,8 @@ import { Input } from '@openloaf/ui/input'
 import { trpc } from '@/utils/trpc'
 import { useProjects } from '@/hooks/use-projects'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
-import { useTabs } from '@/hooks/use-tabs'
-import { useTabRuntime } from '@/hooks/use-tab-runtime'
+import { useAppView } from '@/hooks/use-app-view'
+import { useLayoutState } from '@/hooks/use-layout-state'
 import { useNavigation } from '@/hooks/use-navigation'
 import { buildFileUriFromRoot } from '@/components/project/filesystem/utils/file-system-utils'
 import { BOARD_META_FILE_NAME } from '@/lib/file-name'
@@ -131,14 +131,14 @@ function groupItemsByTime(items: HistoryItem[]): HistoryGroup[] {
 }
 
 const PROJECT_LABEL_COLORS = [
-  { bg: 'bg-sky-500/15 dark:bg-sky-500/20', text: 'text-sky-600 dark:text-sky-400' },
-  { bg: 'bg-violet-500/15 dark:bg-violet-500/20', text: 'text-violet-600 dark:text-violet-400' },
-  { bg: 'bg-amber-500/15 dark:bg-amber-500/20', text: 'text-amber-600 dark:text-amber-400' },
-  { bg: 'bg-emerald-500/15 dark:bg-emerald-500/20', text: 'text-emerald-600 dark:text-emerald-400' },
-  { bg: 'bg-rose-500/15 dark:bg-rose-500/20', text: 'text-rose-600 dark:text-rose-400' },
-  { bg: 'bg-indigo-500/15 dark:bg-indigo-500/20', text: 'text-indigo-600 dark:text-indigo-400' },
-  { bg: 'bg-teal-500/15 dark:bg-teal-500/20', text: 'text-teal-600 dark:text-teal-400' },
-  { bg: 'bg-orange-500/15 dark:bg-orange-500/20', text: 'text-orange-600 dark:text-orange-400' },
+  { bg: 'bg-ol-blue-bg', text: 'text-ol-blue' },
+  { bg: 'bg-ol-purple-bg', text: 'text-ol-purple' },
+  { bg: 'bg-ol-amber-bg', text: 'text-ol-amber' },
+  { bg: 'bg-ol-green-bg', text: 'text-ol-green' },
+  { bg: 'bg-ol-red-bg', text: 'text-ol-red' },
+  { bg: 'bg-ol-purple-bg', text: 'text-ol-purple' },
+  { bg: 'bg-ol-green-bg', text: 'text-ol-green' },
+  { bg: 'bg-ol-amber-bg', text: 'text-ol-amber' },
 ]
 
 function hashString(str: string): number {
@@ -193,10 +193,8 @@ export function SidebarHoverPanel({
   const projectRootUriMap = useMemo(() => buildProjectRootUriMap(projects), [projects])
   const queryClient = useQueryClient()
 
-  const addTab = useTabs((s) => s.addTab)
-  const setActiveTab = useTabs((s) => s.setActiveTab)
-  const tabs = useTabs((s) => s.tabs)
-  const runtimeByTabId = useTabRuntime((s) => s.runtimeByTabId)
+  const navigate = useAppView((s) => s.navigate)
+  const base = useLayoutState((s) => s.base)
   const setActiveView = useNavigation((s) => s.setActiveView)
 
   // --- Controlled HoverCard: lock when menu/dialog is open ---
@@ -336,36 +334,26 @@ export function SidebarHoverPanel({
       )
       const baseId = `board:${boardFolderUri}`
 
-      const existingTab = tabs.find((tab) => {
-        const base = runtimeByTabId[tab.id]?.base
-        return base?.id === baseId
-      })
-
-      if (existingTab) {
-        setActiveTab(existingTab.id)
-      } else {
-        addTab({
-          createNew: true,
-          title: item.title || t('canvasList.untitled'),
-          icon: '🎨',
-          ...buildBoardChatTabState(item.id, targetProjectId),
-          leftWidthPercent: 100,
-          base: {
-            id: baseId,
-            component: 'board-viewer',
-            params: {
-              boardFolderUri,
-              boardFileUri,
-              boardId: item.id,
-              projectId: targetProjectId,
-              rootUri: targetRootUri,
-            },
+      navigate({
+        title: item.title || t('canvasList.untitled'),
+        icon: '🎨',
+        ...buildBoardChatTabState(item.id, targetProjectId),
+        leftWidthPercent: 100,
+        base: {
+          id: baseId,
+          component: 'board-viewer',
+          params: {
+            boardFolderUri,
+            boardFileUri,
+            boardId: item.id,
+            projectId: targetProjectId,
+            rootUri: targetRootUri,
           },
-        })
-      }
+        },
+      })
       setActiveView('canvas-list')
     },
-    [projectId, projectRootUriMap, tabs, runtimeByTabId, addTab, setActiveTab, setActiveView, t],
+    [projectId, projectRootUriMap, navigate, setActiveView, t],
   )
 
   const handleItemClick = useCallback(
@@ -529,9 +517,9 @@ export function SidebarHoverPanel({
                           onClick={() => handleItemClick(item)}
                         >
                           {item.kind === 'board' ? (
-                            <Palette className="h-3.5 w-3.5 shrink-0 text-teal-600/70 dark:text-teal-400/70" />
+                            <Palette className="h-3.5 w-3.5 shrink-0 text-ol-green/70" />
                           ) : (
-                            <Sparkles className="h-3.5 w-3.5 shrink-0 text-violet-700/70 dark:text-violet-300/70" />
+                            <Sparkles className="h-3.5 w-3.5 shrink-0 text-ol-purple/70" />
                           )}
                           {type === 'all-chats' &&
                             item.projectId &&

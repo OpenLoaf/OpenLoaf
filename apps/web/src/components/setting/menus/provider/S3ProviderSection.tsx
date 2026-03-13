@@ -88,7 +88,7 @@ export function S3ProviderSection({
       >
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Cloud} bg="bg-sky-500/10" fg="text-sky-600 dark:text-sky-400" />
+            <SettingIcon icon={Cloud} bg="bg-ol-blue-bg" fg="text-ol-blue" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{t("s3.autoUpload")}</div>
               <div className="text-xs text-muted-foreground">{t("s3.autoUploadDesc")}</div>
@@ -98,7 +98,7 @@ export function S3ProviderSection({
             </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Clock} bg="bg-amber-500/10" fg="text-amber-600 dark:text-amber-400" />
+            <SettingIcon icon={Clock} bg="bg-ol-amber-bg" fg="text-ol-amber" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{t("s3.autoDelete")}</div>
               <div className="text-xs text-muted-foreground">{t("s3.autoDeleteDesc")}</div>
@@ -161,7 +161,7 @@ export function S3ProviderSection({
                       <div className="flex items-center gap-2 text-sm">
                         <span>{entry.key}</span>
                         {isActive ? (
-                          <span className="px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-700">
+                          <span className="px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-ol-green-bg text-ol-green">
                             {t("s3.active")}
                           </span>
                         ) : null}

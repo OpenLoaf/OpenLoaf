@@ -47,7 +47,7 @@ import {
   getClaudeCodeCliModels,
 } from "@/ai/models/cli/cliProviderEntry";
 import { loadSkillSummaries } from "@/ai/services/skillsLoader";
-import { resolveMemoryContent, writeMemoryFile } from "@/ai/shared/memoryLoader";
+import { readMemoryFile, writeMemoryFile } from "@/ai/shared/memoryLoader";
 import { readAgentJson, resolveAgentDir } from "@/ai/shared/defaultAgentResolver";
 import { loadAgentSummaries, readAgentConfigFromPath, serializeAgentToMarkdown } from "@/ai/services/agentConfigService";
 import { CAPABILITY_GROUPS } from "@/ai/tools/capabilityGroups";
@@ -1095,40 +1095,38 @@ export class SettingRouterImpl extends BaseSettingRouter {
         .mutation(async ({ input }) => {
           return await setBasicConfigFromWeb(input);
         }),
-      /** Get merged memory content for the master agent. */
+      /** Get memory content by scope ('user' = global, 'project' = project-level). */
       getMemory: shieldedProcedure
         .input(settingSchemas.getMemory.input)
         .output(settingSchemas.getMemory.output)
         .query(async ({ input }) => {
+          const scope = input?.scope ?? 'user';
+          if (scope === 'user') {
+            const content = readMemoryFile(getOpenLoafRootDir());
+            return { content };
+          }
+          // scope === 'project'
           const projectRootPath = input?.projectId
             ? getProjectRootPath(input.projectId) ?? undefined
             : undefined;
-          const parentProjectRootUris = input?.projectId
-            ? await resolveProjectAncestorRootUris(prisma, input.projectId)
-            : [];
-          const parentProjectRootPaths = parentProjectRootUris
-            .map((rootUri) => {
-              try {
-                return resolveFilePathFromUri(rootUri);
-              } catch {
-                return null;
-              }
-            })
-            .filter((p): p is string => Boolean(p));
-          const content = resolveMemoryContent({
-            projectRootPath,
-            parentProjectRootPaths,
-          });
+          if (!projectRootPath) return { content: '' };
+          const content = readMemoryFile(projectRootPath);
           return { content };
         }),
-      /** Save memory content for the master agent. */
+      /** Save memory content by scope ('user' = global, 'project' = project-level). */
       saveMemory: shieldedProcedure
         .input(settingSchemas.saveMemory.input)
         .output(settingSchemas.saveMemory.output)
         .mutation(async ({ input }) => {
+          const scope = input.scope ?? 'user';
+          if (scope === 'user') {
+            writeMemoryFile(getOpenLoafRootDir(), input.content);
+            return { ok: true };
+          }
+          // scope === 'project'
           const rootPath = input.projectId
             ? getProjectRootPath(input.projectId)
-            : getOpenLoafRootDir();
+            : null;
           if (!rootPath) return { ok: false };
           writeMemoryFile(rootPath, input.content);
           return { ok: true };

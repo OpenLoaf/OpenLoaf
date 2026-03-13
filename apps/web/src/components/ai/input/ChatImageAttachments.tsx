@@ -208,7 +208,7 @@ export const ChatImageAttachments = React.forwardRef<
                         draggable={false}
                       />
                       {attachment.hasMask && (
-                        <div className="absolute bottom-1 left-1 rounded bg-emerald-500/80 px-1 py-0.5 text-[9px] leading-none text-white">
+                        <div className="absolute bottom-1 left-1 rounded bg-ol-green/80 px-1 py-0.5 text-[9px] leading-none text-white">
                           已调整
                         </div>
                       )}

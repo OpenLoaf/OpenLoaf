@@ -44,7 +44,7 @@ import {
 import { ScheduledTaskDialog } from './ScheduledTaskDialog'
 import { TaskRunLogPanel } from './TaskRunLogPanel'
 import { Tabs, TabsList, TabsTrigger } from '@openloaf/ui/tabs'
-import { useTabs } from '@/hooks/use-tabs'
+import { useAppView } from '@/hooks/use-app-view'
 
 type TaskConfig = {
   id: string
@@ -160,10 +160,10 @@ function formatStatusLine(status: string | null | undefined, lastRunAt: string |
 
 function statusClass(status: string | null | undefined): string {
   switch (status) {
-    case 'ok': return 'text-emerald-600 dark:text-emerald-400'
-    case 'error': return 'text-rose-600 dark:text-rose-400'
-    case 'skipped': return 'text-amber-600 dark:text-amber-400'
-    case 'running': return 'text-blue-600 dark:text-blue-400'
+    case 'ok': return 'text-ol-green'
+    case 'error': return 'text-ol-red'
+    case 'skipped': return 'text-ol-amber'
+    case 'running': return 'text-ol-blue'
     default: return 'text-muted-foreground'
   }
 }
@@ -261,13 +261,13 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
     invalidateList()
   }, [invalidateList])
 
-  const addTab = useTabs((s) => s.addTab)
+  const navigate = useAppView((s) => s.navigate)
   const handleOpenChat = useCallback((sessionId: string) => {
-    addTab({
+    navigate({
       chatSessionId: sessionId,
       chatLoadHistory: true,
     })
-  }, [addTab])
+  }, [navigate])
 
   const colSpan = 7
 
@@ -281,7 +281,7 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
         </div>
         <Button
           size="sm"
-          className="h-8 rounded-full bg-[var(--btn-primary-bg,#0b57d0)] text-white shadow-none hover:bg-[var(--btn-primary-bg-hover,#0a4cbc)] dark:bg-sky-600 dark:hover:bg-sky-500"
+          className="h-8 rounded-full bg-ol-blue text-white shadow-none hover:bg-ol-blue/85"
           onClick={handleCreate}
         >
           <Plus className="mr-1 h-3.5 w-3.5" />
@@ -294,17 +294,17 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
         <Tabs value={filterTab} onValueChange={(value) => setFilterTab(value as TaskFilter)}>
           <TabsList className="h-8 w-max rounded-full border border-border/40 bg-muted/30 p-1">
             <TabsTrigger value="all" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-              <Layers className="mr-1 h-3.5 w-3.5 text-violet-500" />
+              <Layers className="mr-1 h-3.5 w-3.5 text-ol-purple" />
               {t('schedule.all')}
               <span className="ml-1 text-[10px] text-muted-foreground">{allTasks.length}</span>
             </TabsTrigger>
             <TabsTrigger value="scheduled" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-              <Clock className="mr-1 h-3.5 w-3.5 text-blue-500" />
+              <Clock className="mr-1 h-3.5 w-3.5 text-ol-blue" />
               {t('task.scheduled')}
               <span className="ml-1 text-[10px] text-muted-foreground">{scheduledCount}</span>
             </TabsTrigger>
             <TabsTrigger value="condition" className="h-6 rounded-full px-2 text-xs whitespace-nowrap">
-              <Zap className="mr-1 h-3.5 w-3.5 text-amber-500" />
+              <Zap className="mr-1 h-3.5 w-3.5 text-ol-amber" />
               {t('schedule.condition')}
               <span className="ml-1 text-[10px] text-muted-foreground">{conditionCount}</span>
             </TabsTrigger>
@@ -353,7 +353,7 @@ export const ScheduledTaskList = memo(function ScheduledTaskList({
                         <Switch
                           checked={task.enabled}
                           onCheckedChange={() => handleToggleEnabled(task)}
-                          className="mt-0.5 scale-[0.75] data-[state=checked]:bg-emerald-500"
+                          className="mt-0.5 scale-[0.75] data-[state=checked]:bg-ol-green"
                         />
                         <div>
                           <div className={`text-[13px] font-medium ${task.enabled ? 'text-foreground' : 'text-muted-foreground line-through'}`}>

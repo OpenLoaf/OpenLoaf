@@ -40,6 +40,7 @@ export const masterTemplate: AgentTemplate = {
     'shell-command',
     // web
     'open-url',
+    'web-search',
     // browser automation
     'browser-snapshot',
     'browser-observe',

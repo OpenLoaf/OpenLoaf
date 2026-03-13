@@ -14,14 +14,13 @@ import { PanelLeft, PanelRight, Settings, Sparkles, Search } from "lucide-react"
 import { Button } from "@openloaf/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { useSidebar } from "@openloaf/ui/sidebar";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { useTabView } from "@/hooks/use-tab-view";
+import { useAppState } from "@/hooks/use-app-state";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { useGlobalOverlay, openSettingsTab } from "@/lib/globalShortcuts";
 import { ProjectSettingsDialog } from "@/components/project/settings/ProjectSettingsDialog";
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
-import { isSettingsForegroundPage, shouldDisableRightChat } from "@/hooks/tab-utils";
+import { isSettingsForegroundPage, shouldDisableRightChat } from "@/hooks/layout-utils";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { cn } from "@/lib/utils";
 import { isProjectMode } from "@/lib/project-mode";
@@ -88,8 +87,7 @@ export const Header = () => {
     (node: HTMLDivElement | null) => setHeaderTitleExtraTarget(node),
     [setHeaderTitleExtraTarget],
   );
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const activeTab = useTabView(activeTabId ?? undefined);
+  const activeTab = useAppState();
   const searchOpen = useGlobalOverlay((s) => s.searchOpen);
   const setSearchOpen = useGlobalOverlay((s) => s.setSearchOpen);
   const isElectron = isElectronEnv();
@@ -140,7 +138,7 @@ export const Header = () => {
               onClick={toggleSidebar}
             >
               <PanelLeft
-                className={`h-4 w-4 text-indigo-700/70 dark:text-indigo-300/70 transition-transform duration-200 ${
+                className={`h-4 w-4 text-ol-purple/70 transition-transform duration-200 ${
                   !leftOpen ? "rotate-180" : ""
                 }`}
               />
@@ -176,7 +174,7 @@ export const Header = () => {
                 className={cn(
                   "h-8 w-8 shrink-0",
                   isSettingsPageActive
-                    ? "bg-orange-500/10 text-orange-700 hover:bg-orange-500/20 dark:bg-orange-400/15 dark:text-orange-300 dark:hover:bg-orange-400/25"
+                    ? "bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover"
                     : undefined,
                 )}
                 variant="ghost"
@@ -185,9 +183,9 @@ export const Header = () => {
               >
                 <Settings
                   className={cn(
-                    "h-4 w-4 text-orange-700/70 dark:text-orange-300/70",
+                    "h-4 w-4 text-ol-amber/70",
                     isSettingsPageActive
-                      ? "text-orange-700 dark:text-orange-300"
+                      ? "text-ol-amber"
                       : undefined,
                   )}
                 />
@@ -231,14 +229,14 @@ export const Header = () => {
               variant="ghost"
               size="icon"
               onClick={() => {
-                if (!activeTabId || !canToggleChat) return;
-                useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, !isChatCollapsed);
+                if (!canToggleChat) return;
+                useLayoutState.getState().setRightChatCollapsed(!isChatCollapsed);
               }}
             >
               <div className="animate-[sparkle-float_2.2s_ease-in-out_infinite] hover:animate-none hover:-translate-y-0.5 hover:rotate-[10deg] active:scale-95 active:rotate-0 transition-transform">
                 <Sparkles
                   aria-hidden="true"
-                  className="h-5 w-5 text-amber-500"
+                  className="h-5 w-5 text-ol-amber"
                   fill="currentColor"
                 />
               </div>

@@ -412,7 +412,7 @@ export function AboutOpenLoaf() {
           {/* 版本一行显示 */}
           <div className="py-3">
             <div className="flex flex-wrap items-center gap-2">
-              <SettingIcon icon={Monitor} bg="bg-sky-500/10" fg="text-sky-600 dark:text-sky-400" />
+              <SettingIcon icon={Monitor} bg="bg-ol-blue-bg" fg="text-ol-blue" />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">{t('aboutAdditions.currentVersion')}</div>
                 <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
@@ -436,7 +436,7 @@ export function AboutOpenLoaf() {
                 {isElectron && (
                   <Button
                     size="sm"
-                    className="h-8 rounded-full bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none"
+                    className="h-8 rounded-full bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none"
                     disabled={updateActionDisabled}
                     onClick={() => void triggerUpdateAction()}
                   >
@@ -451,13 +451,13 @@ export function AboutOpenLoaf() {
               <div className="mt-2 flex items-center gap-2">
                 {autoUpdateStatus.state === "downloaded" && (
                   <>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-ol-green-bg px-2 py-0.5 text-xs font-medium text-ol-green">
                       <Download className="h-3 w-3" />
                       {t('aboutAdditions.desktop')} v{autoUpdateStatus.nextVersion ?? "?"} {t('aboutAdditions.readyRestart')}
                     </span>
                     <Button
                       size="sm"
-                      className="rounded-full bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400 shadow-none"
+                      className="rounded-full bg-ol-green-bg text-ol-green hover:bg-ol-green-bg-hover shadow-none"
                       onClick={() => void window.openloafElectron?.relaunchApp?.()}
                     >
                       {t('aboutAdditions.installNow')}
@@ -468,7 +468,7 @@ export function AboutOpenLoaf() {
                   <div className="w-full space-y-1">
                     <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-blue-500 transition-all duration-300"
+                        className="h-full rounded-full bg-ol-blue transition-all duration-300"
                         style={{ width: `${Math.min(autoUpdateStatus.progress.percent, 100)}%` }}
                       />
                     </div>
@@ -483,13 +483,13 @@ export function AboutOpenLoaf() {
             {(serverHasUpdate || webHasUpdate) && (
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 {serverHasUpdate && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-ol-blue-bg px-2 py-0.5 text-xs font-medium text-ol-blue">
                     <Download className="h-3 w-3" />
                     {t('aboutAdditions.server')} → v{updateStatus?.server?.newVersion}
                   </span>
                 )}
                 {webHasUpdate && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-ol-blue-bg px-2 py-0.5 text-xs font-medium text-ol-blue">
                     <Download className="h-3 w-3" />
                     Web → v{updateStatus?.web?.newVersion}
                   </span>
@@ -500,7 +500,7 @@ export function AboutOpenLoaf() {
           {/* Beta 渠道 */}
           {isElectron && (
             <div className="flex flex-wrap items-center gap-2 py-3">
-              <SettingIcon icon={FlaskConical} bg="bg-amber-500/10" fg="text-amber-600 dark:text-amber-400" />
+              <SettingIcon icon={FlaskConical} bg="bg-ol-amber-bg" fg="text-ol-amber" />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">{t('aboutAdditions.betaChannel')}</div>
                 <div className="text-xs text-muted-foreground">
@@ -522,19 +522,19 @@ export function AboutOpenLoaf() {
       <OpenLoafSettingsGroup title={t('aboutAdditions.actions')}>
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={RefreshCw} bg="bg-sky-500/10" fg="text-sky-600 dark:text-sky-400" />
+            <SettingIcon icon={RefreshCw} bg="bg-ol-blue-bg" fg="text-ol-blue" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{t('aboutAdditions.pageReload')}</div>
               <div className="text-xs text-muted-foreground">{t('aboutAdditions.reloadDesc')}</div>
             </div>
             <OpenLoafSettingsField>
-              <Button type="button" size="sm" className="rounded-full bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none" onClick={reloadPage}>
+              <Button type="button" size="sm" className="rounded-full bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none" onClick={reloadPage}>
                 {t('aboutAdditions.reload')}
               </Button>
             </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Bug} bg="bg-violet-500/10" fg="text-violet-600 dark:text-violet-400" />
+            <SettingIcon icon={Bug} bg="bg-ol-purple-bg" fg="text-ol-purple" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{t('aboutAdditions.aiDebugMode')}</div>
               <div className="text-xs text-muted-foreground">{t('aboutAdditions.aiDebugModeDesc')}</div>
@@ -549,7 +549,7 @@ export function AboutOpenLoaf() {
           </div>
           {isElectron ? (
             <div className="flex flex-wrap items-center gap-2 py-3">
-              <SettingIcon icon={ScrollText} bg="bg-emerald-500/10" fg="text-emerald-600 dark:text-emerald-400" />
+              <SettingIcon icon={ScrollText} bg="bg-ol-green-bg" fg="text-ol-green" />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">{t('aboutAdditions.openLogsFolder')}</div>
                 <div className="text-xs text-muted-foreground">{t('aboutAdditions.openLogsFolderDesc')}</div>
@@ -558,7 +558,7 @@ export function AboutOpenLoaf() {
                 <Button
                   type="button"
                   size="sm"
-                  className="rounded-full bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400 shadow-none"
+                  className="rounded-full bg-ol-green-bg text-ol-green hover:bg-ol-green-bg-hover shadow-none"
                   onClick={() => void window.openloafElectron?.openLogsFolder?.()}
                 >
                   <FolderOpen className="mr-1.5 h-3.5 w-3.5" />
@@ -573,7 +573,7 @@ export function AboutOpenLoaf() {
       <OpenLoafSettingsGroup title={t('aboutAdditions.info')}>
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Fingerprint} bg="bg-slate-500/10" fg="text-slate-600 dark:text-slate-400" />
+            <SettingIcon icon={Fingerprint} bg="bg-ol-surface-muted" fg="text-ol-text-auxiliary" />
             <div className="text-sm font-medium">{t('aboutAdditions.clientId')}</div>
             <OpenLoafSettingsField className="max-w-[70%]">
               <button
@@ -597,32 +597,32 @@ export function AboutOpenLoaf() {
             </OpenLoafSettingsField>
           </div>
           <div className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-md transition-colors">
-            <SettingIcon icon={Scale} bg="bg-sky-500/10" fg="text-sky-600 dark:text-sky-400" />
+            <SettingIcon icon={Scale} bg="bg-ol-blue-bg" fg="text-ol-blue" />
             <div className="min-w-0 flex-1 text-sm font-medium">{t('aboutAdditions.license')}</div>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
           </div>
           <div className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-md transition-colors">
-            <SettingIcon icon={Shield} bg="bg-emerald-500/10" fg="text-emerald-600 dark:text-emerald-400" />
+            <SettingIcon icon={Shield} bg="bg-ol-green-bg" fg="text-ol-green" />
             <div className="min-w-0 flex-1 text-sm font-medium">{t('aboutAdditions.privacy')}</div>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
           </div>
           <div className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-md transition-colors">
-            <SettingIcon icon={Code2} bg="bg-violet-500/10" fg="text-violet-600 dark:text-violet-400" />
+            <SettingIcon icon={Code2} bg="bg-ol-purple-bg" fg="text-ol-purple" />
             <div className="min-w-0 flex-1 text-sm font-medium">{t('aboutAdditions.oss')}</div>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
           </div>
           <div className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-md transition-colors">
-            <SettingIcon icon={BookOpen} bg="bg-teal-500/10" fg="text-teal-600 dark:text-teal-400" />
+            <SettingIcon icon={BookOpen} bg="bg-ol-green-bg" fg="text-ol-green" />
             <div className="min-w-0 flex-1 text-sm font-medium">{t('aboutAdditions.docs')}</div>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
           </div>
           <div className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-md transition-colors">
-            <SettingIcon icon={Mail} bg="bg-amber-500/10" fg="text-amber-600 dark:text-amber-400" />
+            <SettingIcon icon={Mail} bg="bg-ol-amber-bg" fg="text-ol-amber" />
             <div className="min-w-0 flex-1 text-sm font-medium">{t('aboutAdditions.contact')}</div>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
           </div>
           <div className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-md transition-colors">
-            <SettingIcon icon={CircleAlert} bg="bg-red-500/10" fg="text-red-600 dark:text-red-400" />
+            <SettingIcon icon={CircleAlert} bg="bg-ol-red-bg" fg="text-ol-red" />
             <div className="min-w-0 flex-1 text-sm font-medium">{t('aboutAdditions.issues')}</div>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
           </div>
@@ -638,8 +638,8 @@ export function AboutOpenLoaf() {
           <div className="px-4">
             <Accordion type="multiple" defaultValue={["server", "web"]}>
               {[
-                { key: "server", label: t('aboutAdditions.server'), version: serverVersion, icon: Server, bg: "bg-emerald-500/10", fg: "text-emerald-600 dark:text-emerald-400" },
-                { key: "web", label: "Web", version: webVersion, icon: Globe, bg: "bg-violet-500/10", fg: "text-violet-600 dark:text-violet-400" },
+                { key: "server", label: t('aboutAdditions.server'), version: serverVersion, icon: Server, bg: "bg-ol-green-bg", fg: "text-ol-green" },
+                { key: "web", label: "Web", version: webVersion, icon: Globe, bg: "bg-ol-purple-bg", fg: "text-ol-purple" },
               ].map((item) => {
                 const entry = changelogSheet.changelogs[item.key];
                 return (

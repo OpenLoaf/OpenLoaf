@@ -64,32 +64,32 @@ import type { LucideIcon } from 'lucide-react'
 
 /** Output mode → badge style mapping (label resolved via t()). */
 const OUTPUT_MODE_CLASS: Record<string, string> = {
-  structured: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
-  text: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  'tool-call': 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-  skill: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  structured: 'bg-ol-blue-bg text-ol-blue',
+  text: 'bg-ol-green-bg text-ol-green',
+  'tool-call': 'bg-ol-purple-bg text-ol-purple',
+  skill: 'bg-ol-amber-bg text-ol-amber',
 }
 
 /** Capability key → icon + color mapping. */
 const CAP_ICON_MAP: Record<string, { icon: LucideIcon; color: string }> = {
-  'project.classify': { icon: FolderKanban, color: 'text-sky-500 dark:text-sky-400' },
-  'chat.suggestions': { icon: MessageSquareText, color: 'text-violet-500 dark:text-violet-400' },
-  'chat.title': { icon: FileText, color: 'text-amber-500 dark:text-amber-400' },
-  'project.ephemeralName': { icon: Folder, color: 'text-emerald-500 dark:text-emerald-400' },
-  'git.commitMessage': { icon: GitCommitHorizontal, color: 'text-orange-500 dark:text-orange-400' },
-  'text.translate': { icon: Languages, color: 'text-teal-500 dark:text-teal-400' },
+  'project.classify': { icon: FolderKanban, color: 'text-ol-blue' },
+  'chat.suggestions': { icon: MessageSquareText, color: 'text-ol-purple' },
+  'chat.title': { icon: FileText, color: 'text-ol-amber' },
+  'project.ephemeralName': { icon: Folder, color: 'text-ol-green' },
+  'git.commitMessage': { icon: GitCommitHorizontal, color: 'text-ol-amber' },
+  'text.translate': { icon: Languages, color: 'text-ol-green' },
 }
 
 /** Flat color palette for trigger scenario badges. */
 const TRIGGER_COLORS = [
-  'bg-sky-500/10 text-sky-600 dark:text-sky-400',
-  'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-  'bg-rose-500/10 text-rose-600 dark:text-rose-400',
-  'bg-teal-500/10 text-teal-600 dark:text-teal-400',
-  'bg-orange-500/10 text-orange-600 dark:text-orange-400',
-  'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+  'bg-ol-blue-bg text-ol-blue',
+  'bg-ol-amber-bg text-ol-amber',
+  'bg-ol-green-bg text-ol-green',
+  'bg-ol-purple-bg text-ol-purple',
+  'bg-ol-red-bg text-ol-red',
+  'bg-ol-green-bg text-ol-green',
+  'bg-ol-amber-bg text-ol-amber',
+  'bg-ol-purple-bg text-ol-purple',
 ]
 
 /** Format token count into compact K/M notation. */
@@ -272,14 +272,14 @@ export function AuxiliaryModelSettings() {
                   text={t('auxiliaryModel.sourceLocal')}
                   selected={modelSource === 'local'}
                   onSelect={() => setModelSource('local')}
-                  icon={<HardDrive className="h-3 w-3 text-amber-500" />}
+                  icon={<HardDrive className="h-3 w-3 text-ol-amber" />}
                   layoutId="aux-model-source"
                 />
                 <FilterTab
                   text={t('auxiliaryModel.sourceSaas')}
                   selected={modelSource === 'saas'}
                   onSelect={() => setModelSource('saas')}
-                  icon={<Sparkles className="h-3 w-3 text-violet-500" />}
+                  icon={<Sparkles className="h-3 w-3 text-ol-purple" />}
                   layoutId="aux-model-source"
                 />
               </div>
@@ -291,8 +291,8 @@ export function AuxiliaryModelSettings() {
             <div className="flex flex-col gap-2.5 py-3">
               {showSaasLogin ? (
                 /* Not logged in — show login prompt */
-                <div className="flex items-center gap-3 rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
-                  <Sparkles className="h-4 w-4 shrink-0 text-violet-500" />
+                <div className="flex items-center gap-3 rounded-xl border border-ol-purple/20 bg-ol-purple/5 px-4 py-3">
+                  <Sparkles className="h-4 w-4 shrink-0 text-ol-purple" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground">{t('auxiliaryModel.needLogin')}</p>
                     <p className="text-xs text-muted-foreground">{t('auxiliaryModel.needLoginHint')}</p>
@@ -309,8 +309,8 @@ export function AuxiliaryModelSettings() {
               ) : (
                 /* Logged in — show SaaS info + quota */
                 <div className="flex flex-col gap-2.5">
-                  <div className="flex items-center gap-3 rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
-                    <Sparkles className="h-4 w-4 shrink-0 text-violet-500" />
+                  <div className="flex items-center gap-3 rounded-xl border border-ol-purple/20 bg-ol-purple/5 px-4 py-3">
+                    <Sparkles className="h-4 w-4 shrink-0 text-ol-purple" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-foreground">{t('auxiliaryModel.saasProvided')}</p>
                       <p className="text-xs text-muted-foreground">{t('auxiliaryModel.saasProvidedHint')}</p>
@@ -381,8 +381,8 @@ export function AuxiliaryModelSettings() {
                       <Icon className={cn('h-3.5 w-3.5 shrink-0', iconColor)} />
                       <span className="truncate">{t(`auxiliaryCapabilities.${cap.key}.label`, { defaultValue: cap.label })}</span>
                       {hasCustom && (
-                        <span className="ml-auto flex h-4 w-4 items-center justify-center rounded-full bg-sky-500/15 dark:bg-sky-400/15">
-                          <Check className="h-2.5 w-2.5 text-sky-600 dark:text-sky-400" />
+                        <span className="ml-auto flex h-4 w-4 items-center justify-center rounded-full bg-ol-blue-bg">
+                          <Check className="h-2.5 w-2.5 text-ol-blue" />
                         </span>
                       )}
                     </button>
@@ -425,7 +425,7 @@ export function AuxiliaryModelSettings() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 shrink-0 gap-1 rounded-full bg-sky-500/10 px-2.5 text-xs text-sky-600 hover:bg-sky-500/20 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 transition-colors duration-150"
+                        className="h-7 shrink-0 gap-1 rounded-full bg-ol-blue-bg px-2.5 text-xs text-ol-blue hover:bg-ol-blue-bg-hover transition-colors duration-150"
                         onClick={() => setTestDialogOpen(true)}
                       >
                         <Play className="h-3 w-3" />
@@ -469,7 +469,7 @@ export function AuxiliaryModelSettings() {
                       <span className="text-xs font-medium text-muted-foreground">{t('auxiliaryModel.prompt')}</span>
                       <span className="text-[10px] text-muted-foreground/50">{currentPrompt.length}</span>
                       {isCustomized && (
-                        <span className="rounded-full bg-amber-500/10 px-1.5 py-px text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                        <span className="rounded-full bg-ol-amber-bg px-1.5 py-px text-[10px] font-medium text-ol-amber">
                           {t('auxiliaryModel.modified')}
                         </span>
                       )}
@@ -671,7 +671,7 @@ function TestCapabilityDialog({
                   </pre>
                 )
               ) : (
-                <div className="rounded-xl border border-red-500/15 bg-red-500/5 p-3.5 text-xs leading-relaxed text-red-600 dark:text-red-400">
+                <div className="rounded-xl border border-ol-red/15 bg-ol-red/5 p-3.5 text-xs leading-relaxed text-ol-red">
                   {result.error ?? t('auxiliaryModel.testFailed')}
                 </div>
               )}
@@ -681,18 +681,18 @@ function TestCapabilityDialog({
                 <span className={cn(
                   'inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium',
                   result.ok
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                    : 'bg-red-500/10 text-red-600 dark:text-red-400',
+                    ? 'bg-ol-green-bg text-ol-green'
+                    : 'bg-ol-red-bg text-ol-red',
                 )}>
                   {result.ok ? t('auxiliaryModel.testSuccess') : t('auxiliaryModel.testFailed')}
                 </span>
                 <span className={cn(
                   'inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium tabular-nums',
                   result.durationMs < 1000
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                    ? 'bg-ol-green-bg text-ol-green'
                     : result.durationMs < 3000
-                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                      : 'bg-red-500/10 text-red-600 dark:text-red-400',
+                      ? 'bg-ol-amber-bg text-ol-amber'
+                      : 'bg-ol-red-bg text-ol-red',
                 )}>
                   {result.durationMs < 1000
                     ? t('auxiliaryModel.testDuration', { duration: result.durationMs })
@@ -730,7 +730,7 @@ function TestCapabilityDialog({
             size="sm"
             variant="ghost"
             className={cn(
-              'gap-1.5 rounded-full bg-sky-500/10 px-5 text-xs text-sky-600 hover:bg-sky-500/20 hover:text-sky-700 dark:text-sky-400 dark:hover:bg-sky-500/15 dark:hover:text-sky-300 transition-all duration-200',
+              'gap-1.5 rounded-full bg-ol-blue-bg px-5 text-xs text-ol-blue hover:bg-ol-blue-bg-hover transition-all duration-200',
               testMutation.isPending && 'opacity-80',
             )}
             onClick={handleRun}
@@ -829,15 +829,15 @@ function SaasQuotaBar({ quota }: { quota: { used: number; limit: number; remaini
   const isExhausted = quota.remaining <= 0
 
   const barColor = isExhausted
-    ? 'bg-red-500 dark:bg-red-400'
+    ? 'bg-ol-red'
     : isWarning
-      ? 'bg-amber-500 dark:bg-amber-400'
-      : 'bg-violet-500 dark:bg-violet-400'
+      ? 'bg-ol-amber'
+      : 'bg-ol-purple'
 
   const textColor = isExhausted
-    ? 'text-red-600 dark:text-red-400'
+    ? 'text-ol-red'
     : isWarning
-      ? 'text-amber-600 dark:text-amber-400'
+      ? 'text-ol-amber'
       : 'text-muted-foreground'
 
   return (
@@ -857,7 +857,7 @@ function SaasQuotaBar({ quota }: { quota: { used: number; limit: number; remaini
         />
       </div>
       {isExhausted && (
-        <p className="text-[11px] text-red-600 dark:text-red-400">
+        <p className="text-[11px] text-ol-red">
           {t('auxiliaryModel.quotaExhausted')}
         </p>
       )}

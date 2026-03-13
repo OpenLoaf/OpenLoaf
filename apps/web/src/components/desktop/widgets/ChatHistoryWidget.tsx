@@ -17,7 +17,7 @@ import { Calendar } from "@openloaf/ui/date-picker";
 import { Button } from "@openloaf/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import { cn } from "@/lib/utils";
-import { useTabs } from "@/hooks/use-tabs";
+import { useAppView } from "@/hooks/use-app-view";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
 
 /** Build date key for grouping chat sessions. */
@@ -41,13 +41,9 @@ function formatDateLabel(date: Date): string {
 const ChatHistoryWidget = memo(function ChatHistoryWidget() {
   const { t } = useTranslation('desktop');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const activeTab = useTabs((s) =>
-    s.activeTabId ? s.getTabById(s.activeTabId) : undefined
-  );
-  const setTabChatSession = useTabs((s) => s.setTabChatSession);
-  const activeChatSessionId = activeTab?.chatSessionId;
-  const { sessions, isLoading } = useChatSessions({ tabId: activeTabId ?? undefined });
+  const activeChatSessionId = useAppView((s) => s.chatSessionId);
+  const setChatSession = useAppView((s) => s.setChatSession);
+  const { sessions, isLoading } = useChatSessions();
 
   const { sessionsByDay, sessionDates } = useMemo(() => {
     const map = new Map<string, typeof sessions>();
@@ -90,15 +86,11 @@ const ChatHistoryWidget = memo(function ChatHistoryWidget() {
   /** Switch chat session for the active tab. */
   const handleSessionSelect = useCallback(
     (sessionId: string) => {
-      if (!activeTabId) return;
       if (activeChatSessionId === sessionId) return;
       // 中文注释：点击历史会话后切换右侧聊天并加载历史记录。
-      setTabChatSession(activeTabId, sessionId, {
-        loadHistory: true,
-        replaceCurrent: true,
-      });
+      setChatSession(sessionId, true);
     },
-    [activeChatSessionId, activeTabId, setTabChatSession]
+    [activeChatSessionId, setChatSession]
   );
 
   return (
@@ -134,7 +126,7 @@ const ChatHistoryWidget = memo(function ChatHistoryWidget() {
                   modifiers={{ hasHistory: sessionDates }}
                   modifiersClassNames={{
                     hasHistory:
-                      "after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:h-1.5 after:w-1.5 after:-translate-x-1/2 after:rounded-full after:bg-amber-400/80 dark:after:bg-amber-300/90 after:pointer-events-none after:z-10",
+                      "after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:h-1.5 after:w-1.5 after:-translate-x-1/2 after:rounded-full after:bg-ol-amber/80 dark:after:bg-ol-amber/90 after:pointer-events-none after:z-10",
                   }}
                   className="w-full rounded-xl border border-border/60 bg-background p-3"
                 />

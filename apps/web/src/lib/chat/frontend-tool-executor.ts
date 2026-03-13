@@ -10,12 +10,12 @@
 "use client";
 
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@openloaf/api/common";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
+import { useAppView } from "@/hooks/use-app-view";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { createBrowserTabId } from "@/hooks/tab-id";
 import { resolveServerUrl } from "@/utils/server-url";
 import { isElectronEnv } from "@/utils/is-electron-env";
-import { useTabs } from "@/hooks/use-tabs";
 import { queryClient } from "@/utils/trpc";
 import { getProjectsQueryKey } from "@/hooks/use-projects";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
@@ -76,15 +76,12 @@ function normalizeUrl(raw: string): string {
 /** Resolve file entry context from a file:// url. */
 function resolveFileEntryFromUrl(input: {
   url: string;
-  tabId?: string;
 }): { entry: FileSystemEntry; projectId: string } | null {
-  if (!input.tabId) return null;
   if (!input.url.startsWith("file://")) return null;
 
-  const tab = useTabs.getState().getTabById(input.tabId);
-  if (!tab) return null;
+  const appView = useAppView.getState();
   const projectId =
-    typeof tab.chatParams?.projectId === "string" ? tab.chatParams.projectId : null;
+    typeof appView.chatParams?.projectId === "string" ? appView.chatParams.projectId : null;
   if (!projectId) return null;
 
   const projects =
@@ -318,8 +315,7 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
     }
 
     const viewKey = createBrowserTabId();
-    useTabRuntime.getState().pushStackItem(
-      tabId,
+    useLayoutState.getState().pushStackItem(
       {
         component: BROWSER_WINDOW_COMPONENT,
         id: BROWSER_WINDOW_PANEL_ID,
@@ -329,7 +325,7 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
       70,
     );
 
-    const recent = resolveFileEntryFromUrl({ url: normalizedUrl, tabId });
+    const recent = resolveFileEntryFromUrl({ url: normalizedUrl });
     if (recent) {
       recordRecentOpen({
         projectId: recent.projectId,

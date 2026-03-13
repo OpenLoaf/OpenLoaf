@@ -17,11 +17,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@openloaf/ui/tooltip";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import {
   Bot,
+  Brain,
   Cpu,
   SlidersHorizontal,
   Keyboard,
@@ -31,6 +32,7 @@ import {
   Sparkles,
   Wand2Icon,
   Terminal,
+  Search,
 } from "lucide-react";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { Button } from "@openloaf/ui/button";
@@ -46,6 +48,8 @@ import { GlobalSettings } from "./menus/GlobalSettings";
 import TestSetting from "./menus/TestSetting";
 import { SkillSettings } from "./menus/SkillSettings";
 import { ThirdPartyTools } from "./menus/ThirdPartyTools";
+import { WebSearchSettings } from "./menus/WebSearchSettings";
+import { MemorySettings } from "./menus/MemorySettings";
 import { OpenLoafSettingsLayout } from "@openloaf/ui/openloaf/OpenLoafSettingsLayout";
 import {
   OpenLoafSettingsMenu,
@@ -60,22 +64,26 @@ type SettingsMenuKey =
   | "agents"
   | "auxiliaryModel"
   | "global"
+  | "memory"
   | "skills"
   | "thirdPartyTools"
+  | "webSearch"
   | "shortcuts"
   | "projectTest";
 
 const SETTINGS_MENU_ICON_COLOR = {
-  basic: "text-[#1a73e8] dark:text-sky-300",
-  global: "text-[#5f6368] dark:text-slate-300",
-  skills: "text-[#9334e6] dark:text-violet-300",
-  thirdPartyTools: "text-[#188038] dark:text-emerald-300",
-  keys: "text-[#e91e63] dark:text-pink-300",
-  storage: "text-[#188038] dark:text-emerald-300",
-  agents: "text-[#4f46e5] dark:text-indigo-300",
-  auxiliaryModel: "text-[#0d9488] dark:text-teal-300",
-  shortcuts: "text-[#f9ab00] dark:text-amber-300",
-  projectTest: "text-[#f4511e] dark:text-orange-300",
+  basic: "text-ol-blue",
+  global: "text-ol-text-auxiliary",
+  memory: "text-ol-green",
+  skills: "text-ol-purple",
+  thirdPartyTools: "text-ol-green",
+  webSearch: "text-ol-blue",
+  keys: "text-ol-red",
+  storage: "text-ol-green",
+  agents: "text-ol-purple",
+  auxiliaryModel: "text-ol-green",
+  shortcuts: "text-ol-amber",
+  projectTest: "text-ol-amber",
 } as const;
 
 /** Build a menu icon component with fixed email-style color tone. */
@@ -119,6 +127,12 @@ function buildMenu(t: (key: string) => string): Array<{
       Component: GlobalSettings,
     },
     {
+      key: "memory",
+      label: t('settings:menu.memory'),
+      Icon: createMenuIcon(Brain, SETTINGS_MENU_ICON_COLOR.memory),
+      Component: MemorySettings,
+    },
+    {
       key: "skills",
       label: t('settings:menu.skills'),
       Icon: createMenuIcon(Wand2Icon, SETTINGS_MENU_ICON_COLOR.skills),
@@ -129,6 +143,12 @@ function buildMenu(t: (key: string) => string): Array<{
       label: t('settings:menu.thirdPartyTools'),
       Icon: createMenuIcon(Terminal, SETTINGS_MENU_ICON_COLOR.thirdPartyTools),
       Component: ThirdPartyTools,
+    },
+    {
+      key: "webSearch",
+      label: "网页搜索",
+      Icon: createMenuIcon(Search, SETTINGS_MENU_ICON_COLOR.webSearch),
+      Component: WebSearchSettings,
     },
     {
       key: "keys",
@@ -165,7 +185,7 @@ function buildMenu(t: (key: string) => string): Array<{
 }
 
 const ALL_MENU_KEYS: SettingsMenuKey[] = [
-  'basic', 'global', 'skills', 'thirdPartyTools', 'keys', 'storage', 'agents', 'auxiliaryModel', 'shortcuts', 'projectTest',
+  'basic', 'global', 'memory', 'skills', 'thirdPartyTools', 'webSearch', 'keys', 'storage', 'agents', 'auxiliaryModel', 'shortcuts', 'projectTest',
 ];
 const MENU_KEY_SET = new Set<SettingsMenuKey>(ALL_MENU_KEYS);
 const HIDDEN_MENU_KEYS = new Set<SettingsMenuKey>([]);
@@ -222,22 +242,21 @@ export default function SettingsPage({
   const activeLabel = activeItem?.label ?? t('nav:settings');
   const ActiveIcon = activeItem?.Icon;
 
-  const setTabMinLeftWidth = useTabRuntime((s) => s.setTabMinLeftWidth);
-  const setTabBaseParams = useTabRuntime((s) => s.setTabBaseParams);
-  const setTabTitle = useTabs((s) => s.setTabTitle);
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const isActiveTab = !tabId || activeTabId === tabId;
+  const setMinLeftWidth = useLayoutState((s) => s.setMinLeftWidth);
+  const setBaseParams = useLayoutState((s) => s.setBaseParams);
+  const setTitle = useAppView((s) => s.setTitle);
+  const isActiveTab = true; // single-view mode, always active
 
   // Keep tab title in sync with current language.
   useEffect(() => {
-    if (tabId) setTabTitle(tabId, t('nav:settings'));
-  }, [tabId, t, setTabTitle]);
+    if (tabId) setTitle(t('nav:settings'));
+  }, [tabId, t, setTitle]);
 
   useEffect(() => {
     if (!tabId) return;
-    setTabMinLeftWidth(tabId, 500);
-    return () => setTabMinLeftWidth(tabId, undefined);
-  }, [tabId, setTabMinLeftWidth]);
+    setMinLeftWidth(500);
+    return () => setMinLeftWidth(undefined);
+  }, [tabId, setMinLeftWidth]);
 
   useEffect(() => {
     if (isActiveTab) return;
@@ -301,6 +320,7 @@ export default function SettingsPage({
     const group1 = [
       byKey.get("basic"),
       byKey.get("global"),
+      byKey.get("memory"),
       byKey.get("shortcuts"),
       byKey.get("projectTest"),
       byKey.get("thirdPartyTools"),
@@ -309,6 +329,7 @@ export default function SettingsPage({
       byKey.get("agents"),
       byKey.get("auxiliaryModel"),
       byKey.get("skills"),
+      byKey.get("webSearch"),
       byKey.get("keys"),
       byKey.get("storage"),
     ].filter(filterVisible);
@@ -319,7 +340,7 @@ export default function SettingsPage({
   const handleMenuChange = (nextKey: SettingsMenuKey) => {
     setActiveKey(nextKey);
     if (!tabId) return;
-    setTabBaseParams(tabId, { settingsMenu: nextKey });
+    setBaseParams({ settingsMenu: nextKey });
   };
 
   return (

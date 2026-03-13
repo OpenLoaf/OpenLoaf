@@ -12,11 +12,10 @@
 import * as React from "react";
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@openloaf/api/common";
 import { cn } from "@/lib/utils";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { createBrowserTabId } from "@/hooks/tab-id";
 import { isElectronEnv } from "@/utils/is-electron-env";
-import { useChatSession } from "../../context";
 import {
   Source,
   Sources,
@@ -56,11 +55,7 @@ export default function OpenUrlTool({
   const url = typeof input.url === "string" ? normalizeUrl(input.url) : "";
   const title = typeof input.title === "string" ? input.title : undefined;
 
-  const { tabId: contextTabId } = useChatSession();
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const tabId = contextTabId ?? activeTabId ?? undefined;
-
-  const isDisabled = !url || (isElectronEnv() && !tabId);
+  const isDisabled = !url;
 
   const onOpen = React.useCallback(() => {
     if (isDisabled) return;
@@ -68,14 +63,11 @@ export default function OpenUrlTool({
       window.open(url, '_blank', 'noopener,noreferrer')
       return
     }
-    if (!tabId) return;
-    const state = useTabs.getState();
-    const tab = state.getTabById(tabId);
-    if (!tab) return;
-    const baseKey = `browser:${tabId}:${tab.chatSessionId}`;
+    const appView = useAppView.getState();
+    const chatSessionId = appView.chatSessionId;
+    const baseKey = `browser:${chatSessionId}`;
     const viewKey = `${baseKey}:${createBrowserTabId()}`;
-    useTabRuntime.getState().pushStackItem(
-      tabId,
+    useLayoutState.getState().pushStackItem(
       {
         id: BROWSER_WINDOW_PANEL_ID,
         sourceKey: BROWSER_WINDOW_PANEL_ID,
@@ -84,7 +76,7 @@ export default function OpenUrlTool({
       } as any,
       70,
     );
-  }, [isDisabled, tabId, title, url]);
+  }, [isDisabled, title, url]);
 
   return (
     <div className={cn("flex w-full min-w-0 max-w-full justify-start", className)}>

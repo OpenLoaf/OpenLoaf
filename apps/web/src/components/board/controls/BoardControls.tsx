@@ -48,13 +48,13 @@ const controlIconClassName =
 
 /* ── 语义图标颜色 ── */
 /** 操作类（撤销/重做）— 蓝色。 */
-const iconColorAction = "text-[#1a73e8] dark:text-sky-400";
+const iconColorAction = "text-ol-blue";
 /** 视图类（缩放）— 绿色。 */
-const iconColorView = "text-[#188038] dark:text-emerald-400";
+const iconColorView = "text-ol-green";
 /** 布局类（自动布局/最大化）— 琥珀色。 */
-const iconColorLayout = "text-[#e37400] dark:text-amber-400";
+const iconColorLayout = "text-ol-amber";
 /** 安全类（锁定）— 红色。 */
-const iconColorSafety = "text-[#d93025] dark:text-rose-400";
+const iconColorSafety = "text-ol-red";
 /** Build a tooltip title with optional shortcut. */
 const buildControlTitle = (label: string, shortcut?: string) =>
   shortcut ? `${label} (${shortcut})` : label;

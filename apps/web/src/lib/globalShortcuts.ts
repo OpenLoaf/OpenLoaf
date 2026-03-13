@@ -9,13 +9,12 @@
  */
 "use client";
 
-import { startTransition } from "react";
 import { create } from "zustand";
 import i18next from "i18next";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { getTabViewById } from "@/hooks/use-tab-view";
-import { shouldDisableRightChat } from "@/hooks/tab-utils";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
+import { getAppState } from "@/hooks/use-app-state";
+import { shouldDisableRightChat } from "@/hooks/layout-utils";
 import { AI_ASSISTANT_TAB_INPUT, CANVAS_LIST_TAB_INPUT, WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
 import { resolveProjectModeProjectShell } from "@/lib/project-mode";
 import { applyProjectShellToTab } from "@/lib/project-shell";
@@ -102,34 +101,29 @@ function isEditableTarget(target: EventTarget | null) {
   );
 }
 
-/** 打开一个"单例 Tab"：若已存在则激活，否则创建并可选关闭搜索浮层。 */
+/** 打开一个"单例视图"：若当前 base 已匹配则跳过，否则 navigate 切换。 */
 function openSingletonTab(
   input: { baseId: string; component: string; title?: string; titleKey?: string; icon: string },
   options?: { leftWidthPercent?: number; closeSearch?: boolean },
 ) {
-  const { tabs, addTab, setActiveTab } = useTabs.getState();
-  const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
+  const layout = useLayoutState.getState();
 
   // Resolve title from titleKey using i18next
   const title = input.titleKey ? i18next.t(input.titleKey) : input.title || 'Tab';
 
-  const existing = tabs.find((tab) => {
-    const runtime = runtimeByTabId[tab.id];
-    if (runtime?.base?.id === input.baseId) return true;
-    // ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
-    if (input.component === "ai-chat" && !runtime?.base && tab.title === title) return true;
-    return false;
-  });
-  if (existing) {
-    startTransition(() => {
-      setActiveTab(existing.id);
-    });
+  // Check if already on this view
+  if (input.component === "ai-chat") {
+    // AI chat has no base
+    if (!layout.base) {
+      if (options?.closeSearch) useGlobalOverlay.getState().setSearchOpen(false);
+      return;
+    }
+  } else if (layout.base?.id === input.baseId) {
     if (options?.closeSearch) useGlobalOverlay.getState().setSearchOpen(false);
     return;
   }
 
-  addTab({
-    createNew: true,
+  useAppView.getState().navigate({
     title,
     icon: input.icon,
     leftWidthPercent: options?.leftWidthPercent,
@@ -142,38 +136,34 @@ function openSingletonTab(
   if (options?.closeSearch) useGlobalOverlay.getState().setSearchOpen(false);
 }
 
-/** Open settings in the active tab's left dock base panel. */
+/** Open settings in the current view's left dock base panel. */
 export function openSettingsTab(settingsMenu?: string) {
-  const { activeTabId } = useTabs.getState();
-  if (!activeTabId) return;
-
-  const activeTab = useTabs.getState().getTabById(activeTabId);
-  const projectShell = resolveProjectModeProjectShell(activeTab?.projectShell, "settings");
+  const layout = useLayoutState.getState();
+  const view = useAppView.getState();
+  const projectShell = resolveProjectModeProjectShell(view.projectShell, "settings");
   if (projectShell) {
-    applyProjectShellToTab(activeTabId, {
+    applyProjectShellToTab("main", {
       ...projectShell,
       section: "settings",
     });
     if (settingsMenu) {
-      useTabRuntime.getState().setTabBaseParams(activeTabId, { settingsMenu });
+      layout.setBaseParams({ settingsMenu });
     }
     return;
   }
 
-  const { runtimeByTabId, setTabBase, setTabBaseParams } = useTabRuntime.getState();
-  const runtime = runtimeByTabId[activeTabId];
-  const currentBase = runtime?.base;
+  const currentBase = layout.base;
 
   // Already on settings page – just update the active menu if specified
   if (currentBase?.component === 'settings-page') {
     if (settingsMenu) {
-      setTabBaseParams(activeTabId, { settingsMenu });
+      layout.setBaseParams({ settingsMenu });
     }
     return;
   }
 
   // Save current base and switch to settings
-  setTabBase(activeTabId, {
+  layout.setBase({
     id: 'settings',
     component: 'settings-page',
     params: {
@@ -185,16 +175,12 @@ export function openSettingsTab(settingsMenu?: string) {
 
 /** Close settings and restore the previous left dock base panel. */
 export function closeSettingsTab() {
-  const { activeTabId } = useTabs.getState();
-  if (!activeTabId) return;
-
-  const runtime = useTabRuntime.getState().runtimeByTabId[activeTabId];
-  const base = runtime?.base;
+  const layout = useLayoutState.getState();
+  const base = layout.base;
   if (base?.component !== 'settings-page') return;
 
   const previousBase = (base.params as any)?.__previousBase;
-  useTabRuntime.getState().setTabBase(
-    activeTabId,
+  layout.setBase(
     previousBase && typeof previousBase === 'object' ? previousBase : undefined,
   );
 }
@@ -214,8 +200,6 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
   if (!event.key) return
   const keyLower = event.key.toLowerCase();
 
-  // Cmd/Ctrl + T 也应视为"全局快捷键"，即使当前焦点在输入框里也要生效（打开工作台）。
-  // 注意：浏览器环境可能会被系统/浏览器占用；这里仍然尽量拦截并执行应用内行为。
   if (keyLower === "t" && withMod && !event.shiftKey && !event.altKey) {
     const quickOpenLeftWidthPercent = overlay.searchOpen ? 70 : 100;
     event.preventDefault();
@@ -226,7 +210,6 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
     return;
   }
 
-  // Cmd/Ctrl + I：打开 AI 助手（全局快捷键，在输入框中也生效）。
   if (keyLower === "i" && withMod && !event.shiftKey && !event.altKey) {
     event.preventDefault();
     openSingletonTab(
@@ -236,7 +219,6 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
     return;
   }
 
-  // Cmd/Ctrl + K：打开画布列表（在输入框中不生效）。
   if (keyLower === "k" && withMod && !event.shiftKey && !event.altKey) {
     if (!isEditableTarget(event.target)) {
       const quickOpenLeftWidthPercent = overlay.searchOpen ? 70 : 100;
@@ -275,7 +257,6 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
     }
   }
 
-  // Mod+Shift+U：打开意见反馈（全局快捷键）。
   if (keyLower === "u" && withMod && event.shiftKey && !event.altKey) {
     event.preventDefault();
     overlay.setFeedbackOpen(!overlay.feedbackOpen);
@@ -289,18 +270,15 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
   }
 
   if (keyLower === "b" && withMod && !event.shiftKey && !event.altKey) {
-    const state = useTabs.getState();
-    const tabId = state.activeTabId;
-    if (!tabId) return;
-    const runtime = useTabRuntime.getState().runtimeByTabId[tabId];
-    if (!runtime?.base) return;
-    if (shouldDisableRightChat(getTabViewById(tabId))) {
+    const layout = useLayoutState.getState();
+    if (!layout.base) return;
+    if (shouldDisableRightChat(getAppState())) {
       event.preventDefault();
       return;
     }
 
     event.preventDefault();
-    useTabRuntime.getState().setTabRightChatCollapsed(tabId, !runtime.rightChatCollapsed);
+    layout.setRightChatCollapsed(!layout.rightChatCollapsed);
     return;
   }
 

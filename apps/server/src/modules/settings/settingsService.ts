@@ -409,6 +409,10 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
   const proxyPassword =
     typeof next.proxyPassword === "string" ? next.proxyPassword : current.proxyPassword;
   const cliTools = normalizeCliToolsConfig(next.cliTools, current.cliTools);
+  const webSearchProvider =
+    typeof next.webSearchProvider === "string" ? next.webSearchProvider : current.webSearchProvider;
+  const webSearchApiKey =
+    typeof next.webSearchApiKey === "string" ? next.webSearchApiKey : current.webSearchApiKey;
   const normalized: BasicConfig = {
     chatSource: next.chatSource === "cloud" ? "cloud" : "local",
     chatThinkingMode,
@@ -446,6 +450,8 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     proxyUsername,
     proxyPassword,
     cliTools,
+    webSearchProvider,
+    webSearchApiKey,
   };
   writeBasicConf(normalized);
   return normalized;

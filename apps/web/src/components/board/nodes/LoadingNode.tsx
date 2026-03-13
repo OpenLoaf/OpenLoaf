@@ -367,11 +367,10 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
     <NodeFrame>
       <div
         className={[
-          "relative flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-neutral-300/80 bg-white/90 p-3 text-center text-neutral-700 shadow-[0_10px_24px_rgba(15,23,42,0.12)]",
-          "dark:border-neutral-700/90 dark:bg-neutral-900/80 dark:text-neutral-100",
+          "relative flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-ol-divider bg-background/90 p-3 text-center text-ol-text-primary shadow-[0_10px_24px_rgba(15,23,42,0.12)]",
           !errorText ? "openloaf-thinking-border openloaf-thinking-border-on border-transparent" : "",
           errorText
-            ? "border-rose-400/80 bg-rose-50/60 dark:border-rose-400/70 dark:bg-rose-950/30"
+            ? "border-ol-red/80 bg-ol-red-bg/60"
             : "",
         ].join(" ")}
       >
@@ -379,7 +378,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
           <Loader2 className={isRunning ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
           <span>{statusText}</span>
         </div>
-        <div className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-3">
+        <div className="text-[11px] text-ol-text-auxiliary line-clamp-3">
           {promptLabel}
         </div>
       </div>

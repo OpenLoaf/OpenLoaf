@@ -34,7 +34,7 @@ export default function ClaudeCodeTaskTool({
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-lg border bg-card text-card-foreground">
+      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
         {/* 标题栏 */}
         <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
           <TrafficLights state="success" />

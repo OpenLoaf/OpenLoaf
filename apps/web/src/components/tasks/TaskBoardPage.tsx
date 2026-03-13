@@ -13,8 +13,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { trpc } from '@/utils/trpc'
-import { useTabRuntime } from '@/hooks/use-tab-runtime'
-import { useTabs } from '@/hooks/use-tabs'
+import { useLayoutState } from '@/hooks/use-layout-state'
 import { Button } from '@openloaf/ui/button'
 import { Input } from '@openloaf/ui/input'
 import { Badge } from '@openloaf/ui/badge'
@@ -106,49 +105,49 @@ type ViewMode = 'kanban' | 'list'
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 const PRIORITY_COLORS: Record<Priority, string> = {
-  urgent: 'bg-[#fce8e6] text-[#d93025] border-transparent dark:bg-red-900/40 dark:text-red-300',
-  high: 'bg-[#fef7e0] text-[#e37400] border-transparent dark:bg-amber-900/40 dark:text-amber-300',
-  medium: 'bg-[#e8f0fe] text-[#1a73e8] border-transparent dark:bg-sky-900/40 dark:text-sky-300',
-  low: 'bg-[#f1f3f4] text-[#5f6368] border-transparent dark:bg-slate-800/40 dark:text-slate-400',
+  urgent: 'bg-ol-red-bg text-ol-red border-transparent',
+  high: 'bg-ol-amber-bg text-ol-amber border-transparent',
+  medium: 'bg-ol-blue-bg text-ol-blue border-transparent',
+  low: 'bg-ol-surface-muted text-ol-text-auxiliary border-transparent',
 }
 
 const TRIGGER_COLORS: Record<TriggerMode, string> = {
-  manual: 'bg-[#e6f4ea] text-[#188038] border-transparent dark:bg-emerald-900/40 dark:text-emerald-300',
-  scheduled: 'bg-[#f3e8fd] text-[#9334e6] border-transparent dark:bg-violet-900/40 dark:text-violet-300',
-  condition: 'bg-[#fef7e0] text-[#e37400] border-transparent dark:bg-amber-900/40 dark:text-amber-300',
+  manual: 'bg-ol-green-bg text-ol-green border-transparent',
+  scheduled: 'bg-ol-purple-bg text-ol-purple border-transparent',
+  condition: 'bg-ol-amber-bg text-ol-amber border-transparent',
 }
 
 const PRIORITY_FILTER_COLORS: Record<Priority, { active: string; inactive: string }> = {
   urgent: {
-    active: 'bg-[#d93025] text-white dark:bg-red-700 dark:text-red-50',
-    inactive: 'bg-[#fce8e6] text-[#d93025] hover:bg-[#f8d0cc] dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50',
+    active: 'bg-ol-red text-white',
+    inactive: 'bg-ol-red-bg text-ol-red hover:bg-ol-red-bg-hover',
   },
   high: {
-    active: 'bg-[#e37400] text-white dark:bg-amber-700 dark:text-amber-50',
-    inactive: 'bg-[#fef7e0] text-[#e37400] hover:bg-[#fcefc8] dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50',
+    active: 'bg-ol-amber text-white',
+    inactive: 'bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover',
   },
   medium: {
-    active: 'bg-[#1a73e8] text-white dark:bg-sky-700 dark:text-sky-50',
-    inactive: 'bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] dark:bg-sky-900/30 dark:text-sky-300 dark:hover:bg-sky-900/50',
+    active: 'bg-ol-blue text-white',
+    inactive: 'bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover',
   },
   low: {
-    active: 'bg-[#5f6368] text-white dark:bg-slate-600 dark:text-slate-50',
-    inactive: 'bg-[#f1f3f4] text-[#5f6368] hover:bg-[#e3e5e8] dark:bg-slate-800/30 dark:text-slate-400 dark:hover:bg-slate-800/50',
+    active: 'bg-ol-text-auxiliary text-white',
+    inactive: 'bg-ol-surface-muted text-ol-text-auxiliary hover:bg-ol-surface-muted/80',
   },
 }
 
 const TRIGGER_FILTER_COLORS: Record<TriggerMode, { active: string; inactive: string }> = {
   manual: {
-    active: 'bg-[#188038] text-white dark:bg-emerald-700 dark:text-emerald-50',
-    inactive: 'bg-[#e6f4ea] text-[#188038] hover:bg-[#ceead6] dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50',
+    active: 'bg-ol-green text-white',
+    inactive: 'bg-ol-green-bg text-ol-green hover:bg-ol-green-bg-hover',
   },
   scheduled: {
-    active: 'bg-[#9334e6] text-white dark:bg-violet-700 dark:text-violet-50',
-    inactive: 'bg-[#f3e8fd] text-[#9334e6] hover:bg-[#e9d5fb] dark:bg-violet-900/30 dark:text-violet-300 dark:hover:bg-violet-900/50',
+    active: 'bg-ol-purple text-white',
+    inactive: 'bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover',
   },
   condition: {
-    active: 'bg-[#f9ab00] text-white dark:bg-amber-600 dark:text-amber-50',
-    inactive: 'bg-[#fef7e0] text-[#e37400] hover:bg-[#fcefc8] dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50',
+    active: 'bg-ol-amber text-white',
+    inactive: 'bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover',
   },
 }
 
@@ -174,29 +173,29 @@ const getStatusColumns = (t: (key: string) => string): { status: TaskStatus; lab
 
 const STATUS_FLAT_COLORS: Record<TaskStatus, { icon: string; badge: string; bg: string }> = {
   todo: {
-    icon: 'text-[#1a73e8] dark:text-sky-300',
-    badge: 'bg-[#e8f0fe] text-[#1a73e8] dark:bg-sky-900/40 dark:text-sky-300',
-    bg: 'bg-[#f8faff] dark:bg-sky-950/10',
+    icon: 'text-ol-blue',
+    badge: 'bg-ol-blue-bg text-ol-blue',
+    bg: 'bg-ol-blue-bg/30',
   },
   running: {
-    icon: 'text-[#f9ab00] dark:text-amber-300',
-    badge: 'bg-[#fef7e0] text-[#e37400] dark:bg-amber-900/40 dark:text-amber-300',
-    bg: 'bg-[#fffcf5] dark:bg-amber-950/10',
+    icon: 'text-ol-amber',
+    badge: 'bg-ol-amber-bg text-ol-amber',
+    bg: 'bg-ol-amber-bg/30',
   },
   review: {
-    icon: 'text-[#9334e6] dark:text-violet-300',
-    badge: 'bg-[#f3e8fd] text-[#9334e6] dark:bg-violet-900/40 dark:text-violet-300',
-    bg: 'bg-[#fdf8ff] dark:bg-violet-950/10',
+    icon: 'text-ol-purple',
+    badge: 'bg-ol-purple-bg text-ol-purple',
+    bg: 'bg-ol-purple-bg/30',
   },
   done: {
-    icon: 'text-[#188038] dark:text-emerald-300',
-    badge: 'bg-[#e6f4ea] text-[#188038] dark:bg-emerald-900/40 dark:text-emerald-300',
-    bg: 'bg-[#f7fcf8] dark:bg-emerald-950/10',
+    icon: 'text-ol-green',
+    badge: 'bg-ol-green-bg text-ol-green',
+    bg: 'bg-ol-green-bg/30',
   },
   cancelled: {
-    icon: 'text-[#5f6368] dark:text-slate-400',
-    badge: 'bg-[#f1f3f4] text-[#5f6368] dark:bg-slate-800/40 dark:text-slate-400',
-    bg: 'bg-[#fafafa] dark:bg-slate-950/10',
+    icon: 'text-ol-text-auxiliary',
+    badge: 'bg-ol-surface-muted text-ol-text-auxiliary',
+    bg: 'bg-ol-surface-muted/30',
   },
 }
 
@@ -339,7 +338,7 @@ const TaskCard = memo(function TaskCard({
           {TRIGGER_LABELS[task.triggerMode]}
         </Badge>
         {task.schedule && formatSchedule(task.schedule, t) && (
-          <Badge variant="secondary" className="text-[10px] bg-[#f3e8fd] text-[#9334e6] border-transparent dark:bg-violet-900/30 dark:text-violet-300">
+          <Badge variant="secondary" className="text-[10px] bg-ol-purple-bg text-ol-purple border-transparent">
             <Clock className="mr-1 h-2.5 w-2.5" />
             {formatSchedule(task.schedule, t)}
           </Badge>
@@ -350,12 +349,12 @@ const TaskCard = memo(function TaskCard({
           </Badge>
         )}
         {task.status === 'review' && task.reviewType === 'plan' && (
-          <Badge variant="default" className="bg-amber-500/15 text-amber-600 text-[10px]">
+          <Badge variant="default" className="bg-ol-amber/15 text-ol-amber text-[10px]">
             {t('reviewType.plan')}
           </Badge>
         )}
         {task.status === 'review' && task.reviewType === 'completion' && (
-          <Badge variant="default" className="bg-green-500/15 text-green-600 text-[10px]">
+          <Badge variant="default" className="bg-ol-green/15 text-ol-green text-[10px]">
             {t('reviewType.completion')}
           </Badge>
         )}
@@ -558,12 +557,12 @@ function FilterBar({
   return (
     <div className="flex items-center gap-2">
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#5f6368] dark:text-slate-400" />
+        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ol-text-auxiliary" />
         <Input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={tl('messages.searchPlaceholder')}
-          className="h-7 w-44 rounded-full border-transparent bg-[#edf2fa] pl-8 text-xs text-[#1f1f1f] placeholder:text-[#5f6368] focus-visible:border-[#d2e3fc] focus-visible:ring-[rgba(26,115,232,0.22)] dark:bg-[hsl(var(--muted)/0.38)] dark:text-slate-100 dark:placeholder:text-slate-400"
+          className="h-7 w-44 rounded-full border-transparent bg-ol-surface-input pl-8 text-xs text-ol-text-primary placeholder:text-ol-text-auxiliary focus-visible:border-ol-focus-border focus-visible:ring-ol-focus-ring"
         />
       </div>
 
@@ -576,8 +575,8 @@ function FilterBar({
               'flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
               'border border-transparent',
               priorityCount > 0
-                ? 'bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] dark:bg-sky-900/40 dark:text-sky-300 dark:hover:bg-sky-900/60'
-                : 'bg-[#f1f3f4] text-[#5f6368] hover:bg-[#e3e5e8] dark:bg-slate-800/30 dark:text-slate-400 dark:hover:bg-slate-800/50',
+                ? 'bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover'
+                : 'bg-ol-surface-muted text-ol-text-auxiliary hover:bg-ol-surface-muted/80',
             )}
           >
             <Filter className="h-3 w-3" />
@@ -626,8 +625,8 @@ function FilterBar({
               'flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
               'border border-transparent',
               triggerCount > 0
-                ? 'bg-[#f3e8fd] text-[#9334e6] hover:bg-[#e9d5fb] dark:bg-violet-900/40 dark:text-violet-300 dark:hover:bg-violet-900/60'
-                : 'bg-[#f1f3f4] text-[#5f6368] hover:bg-[#e3e5e8] dark:bg-slate-800/30 dark:text-slate-400 dark:hover:bg-slate-800/50',
+                ? 'bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover'
+                : 'bg-ol-surface-muted text-ol-text-auxiliary hover:bg-ol-surface-muted/80',
             )}
           >
             <Filter className="h-3 w-3" />
@@ -681,8 +680,7 @@ export default function TaskBoardPage({
   const PRIORITY_LABELS = getPriorityLabels(t)
   const TRIGGER_LABELS = getTriggerLabels(t)
   const queryClient = useQueryClient()
-  const pushStackItem = useTabRuntime((state) => state.pushStackItem)
-  const { activeTabId } = useTabs()
+  const pushStackItem = useLayoutState((state) => state.pushStackItem)
   const [viewMode, setViewMode] = useState<ViewMode>('kanban')
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState<Priority[]>([])
@@ -779,9 +777,8 @@ export default function TaskBoardPage({
 
   const onOpenDetail = useCallback(
     (id: string) => {
-      if (!activeTabId) return
       const task = (tasks as TaskConfig[]).find((taskItem) => taskItem.id === id)
-      pushStackItem(activeTabId, {
+      pushStackItem({
         id: `task-detail:${id}`,
         sourceKey: `task-detail:${id}`,
         component: 'task-detail',
@@ -789,12 +786,11 @@ export default function TaskBoardPage({
         params: { taskId: id, projectId },
       })
     },
-    [activeTabId, pushStackItem, tasks, projectId, t],
+    [pushStackItem, tasks, projectId, t],
   )
 
   const activateAiChat = useCallback(() => {
-    if (!activeTabId) return
-    useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, false)
+    useLayoutState.getState().setRightChatCollapsed(false)
     setTimeout(() => {
       window.dispatchEvent(
         new CustomEvent('openloaf:chat-prefill-input', {
@@ -802,7 +798,7 @@ export default function TaskBoardPage({
         }),
       )
     }, 300)
-  }, [activeTabId, t])
+  }, [t])
 
   // Filter tasks
   const filteredTasks = useMemo(() => {
@@ -856,20 +852,20 @@ export default function TaskBoardPage({
           <Button
             size="sm"
             variant="ghost"
-            className="h-7 rounded-full px-2.5 text-xs font-medium text-[#5f6368] shadow-none transition-colors duration-150 hover:bg-[#f1f3f4] dark:text-slate-400 dark:hover:bg-slate-800"
+            className="h-7 rounded-full px-2.5 text-xs font-medium text-ol-text-auxiliary shadow-none transition-colors duration-150 hover:bg-ol-surface-muted"
             onClick={handleRefresh}
             disabled={isRefreshing}
           >
             <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
           </Button>
-          <div className="flex gap-0.5 rounded-full bg-[#f1f3f4] p-0.5 dark:bg-[hsl(var(--muted)/0.38)]">
+          <div className="flex gap-0.5 rounded-full bg-ol-surface-muted p-0.5">
             <button
               type="button"
               className={cn(
                 'rounded-full p-1.5 transition-colors duration-150',
                 viewMode === 'kanban'
-                  ? 'bg-white text-[#1a73e8] shadow-sm dark:bg-[hsl(var(--background)/0.9)] dark:text-sky-300'
-                  : 'text-[#5f6368] hover:text-[#202124] dark:text-slate-400 dark:hover:text-slate-200',
+                  ? 'bg-background text-ol-blue shadow-sm'
+                  : 'text-ol-text-auxiliary hover:text-ol-text-primary',
               )}
               onClick={() => setViewMode('kanban')}
             >
@@ -880,8 +876,8 @@ export default function TaskBoardPage({
               className={cn(
                 'rounded-full p-1.5 transition-colors duration-150',
                 viewMode === 'list'
-                  ? 'bg-white text-[#1a73e8] shadow-sm dark:bg-[hsl(var(--background)/0.9)] dark:text-sky-300'
-                  : 'text-[#5f6368] hover:text-[#202124] dark:text-slate-400 dark:hover:text-slate-200',
+                  ? 'bg-background text-ol-blue shadow-sm'
+                  : 'text-ol-text-auxiliary hover:text-ol-text-primary',
               )}
               onClick={() => setViewMode('list')}
             >
@@ -890,7 +886,7 @@ export default function TaskBoardPage({
           </div>
           <Button
             size="sm"
-            className="h-7 rounded-full border-transparent bg-[#e8f0fe] px-3 text-xs font-medium text-[#1a73e8] shadow-none transition-colors duration-150 hover:bg-[#d2e3fc] dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70"
+            className="h-7 rounded-full border-transparent bg-ol-blue-bg px-3 text-xs font-medium text-ol-blue shadow-none transition-colors duration-150 hover:bg-ol-blue-bg-hover"
             onClick={() => setDialogOpen(true)}
           >
             <Plus className="mr-1 h-3.5 w-3.5" />
@@ -899,7 +895,7 @@ export default function TaskBoardPage({
           <Button
             size="sm"
             variant="ghost"
-            className="h-7 rounded-full bg-[#fef7e0] px-3 text-xs font-medium text-[#e37400] shadow-none transition-colors duration-150 hover:bg-[#fcefc8] dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60"
+            className="h-7 rounded-full bg-ol-amber-bg px-3 text-xs font-medium text-ol-amber shadow-none transition-colors duration-150 hover:bg-ol-amber-bg-hover"
             onClick={activateAiChat}
           >
             <Sparkles className="mr-1 h-3.5 w-3.5" />
@@ -1007,11 +1003,11 @@ export default function TaskBoardPage({
                 <Badge
                   variant="outline"
                   className={cn('text-[10px]', {
-                    'bg-blue-500/15 text-blue-600': task.status === 'todo',
-                    'bg-amber-500/15 text-amber-600': task.status === 'running',
-                    'bg-purple-500/15 text-purple-600': task.status === 'review',
-                    'bg-green-500/15 text-green-600': task.status === 'done',
-                    'bg-zinc-500/15 text-zinc-500': task.status === 'cancelled',
+                    'bg-ol-blue/15 text-ol-blue': task.status === 'todo',
+                    'bg-ol-amber/15 text-ol-amber': task.status === 'running',
+                    'bg-ol-purple/15 text-ol-purple': task.status === 'review',
+                    'bg-ol-green/15 text-ol-green': task.status === 'done',
+                    'bg-ol-text-auxiliary/15 text-ol-text-auxiliary': task.status === 'cancelled',
                   })}
                 >
                   {statusColumns.find((c) => c.status === task.status)?.label ?? task.status}

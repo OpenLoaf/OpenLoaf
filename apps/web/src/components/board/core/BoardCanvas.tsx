@@ -33,8 +33,8 @@ import {
 } from "@openloaf/ui/dropdown-menu";
 import { Input } from "@openloaf/ui/input";
 import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { buildBoardChatTabState } from "../utils/board-chat-tab";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
@@ -267,22 +267,17 @@ export function BoardCanvas({
   /** Header action buttons state. */
   const { t: tBoard } = useTranslation('board');
   const headerActionsTarget = useHeaderSlot((s) => s.headerActionsTarget);
-  const globalActiveTabId = useTabs((s) => s.activeTabId);
-  const setTabTitle = useTabs((s) => s.setTabTitle);
-  const currentTabTitle = useTabs((s) => {
-    if (!tabId) return '';
-    return s.tabs.find((t) => t.id === tabId)?.title ?? '';
-  });
-  const isActiveTab = !tabId || globalActiveTabId === tabId;
+  const setTitle = useAppView((s) => s.setTitle);
+  const currentTabTitle = useAppView((s) => s.title);
+  const isActiveTab = true;
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [aiNaming, setAiNaming] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const { loggedIn: saasLoggedIn } = useSaasAuth();
   const [saveToProjectOpen, setSaveToProjectOpen] = useState(false);
-  const closeTab = useTabs((s) => s.closeTab);
-  const addTab = useTabs((s) => s.addTab);
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
+  const navigate = useAppView((s) => s.navigate);
+  const pushStackItem = useLayoutState((s) => s.pushStackItem);
   const inferBoardNameMutation = useMutation(trpc.settings.inferBoardName.mutationOptions());
   const deleteBoardMutation = useMutation(trpc.fs.delete.mutationOptions());
   const duplicateBoardMutation = useMutation(trpc.board.duplicate.mutationOptions({
@@ -292,8 +287,7 @@ export function BoardCanvas({
       if (!resolvedRootUri) return;
       const newBoardFolderUri = buildBoardFolderUri(resolvedRootUri, newBoard.folderUri);
       const newBoardFileUri = buildBoardFolderUri(resolvedRootUri, `${newBoard.folderUri}${BOARD_INDEX_FILE_NAME}`);
-      addTab({
-        createNew: true,
+      navigate({
         title: newBoard.title,
         icon: "🎨",
         ...buildBoardChatTabState(newBoard.id, projectId),
@@ -340,12 +334,12 @@ export function BoardCanvas({
       return;
     }
 
-    if (!tabId || !resolvedRootUri || !boardFolderRelativeUri) {
+    if (!resolvedRootUri || !boardFolderRelativeUri) {
       toast.error(tBoard("panelHeader.openBoardFolderMissing"));
       return;
     }
 
-    pushStackItem(tabId, {
+    pushStackItem({
       id: `board-folder:${boardFolderRelativeUri}`,
       sourceKey: `board-folder:${boardFolderRelativeUri}`,
       component: "folder-tree-preview",
@@ -364,7 +358,6 @@ export function BoardCanvas({
     resolvedBoardFolderUri,
     resolvedRootUri,
     tBoard,
-    tabId,
   ]);
   const handleRenameOpen = useCallback((open: boolean) => {
     if (open) setRenameValue(currentTabTitle);
@@ -372,11 +365,11 @@ export function BoardCanvas({
   }, [currentTabTitle]);
   const handleRenameConfirm = useCallback(() => {
     const trimmed = renameValue.trim();
-    if (trimmed && tabId) {
-      setTabTitle(tabId, trimmed);
+    if (trimmed) {
+      setTitle(trimmed);
     }
     setRenameOpen(false);
-  }, [renameValue, tabId, setTabTitle]);
+  }, [renameValue, setTitle]);
   const handleAiName = useCallback(async () => {
     if (!boardFolderUri) return;
     if (!saasLoggedIn) {
@@ -401,7 +394,7 @@ export function BoardCanvas({
     }
   }, [boardFolderUri, saasLoggedIn, inferBoardNameMutation]);
   const handleDeleteBoard = useCallback(() => {
-    if (!boardFolderUri || !tabId) return;
+    if (!boardFolderUri) return;
     if (!confirm(i18next.t('nav:canvasList.confirmDelete'))) return;
     // Derive relative URI from boardFolderUri
     const rootUriBase = resolvedRootUri ?? '';
@@ -412,12 +405,12 @@ export function BoardCanvas({
       { uri: relativeUri },
       {
         onSuccess: () => {
-          // Close current tab and open a fresh canvas
-          closeTab(tabId);
+          // Navigate to a fresh view
+          navigate({});
         },
       },
     );
-  }, [boardFolderUri, resolvedRootUri, tabId, deleteBoardMutation, closeTab]);
+  }, [boardFolderUri, resolvedRootUri, deleteBoardMutation, navigate]);
   // Auto-close login dialog on successful login
   useEffect(() => {
     if (saasLoggedIn && loginOpen) setLoginOpen(false);
@@ -648,7 +641,7 @@ export function BoardCanvas({
                     aiNaming || snapshot.elements.length === 0
                       ? "text-muted-foreground opacity-50"
                       : saasLoggedIn
-                        ? "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
+                        ? "bg-ol-amber/10 text-ol-amber hover:bg-ol-amber/20"
                         : "text-muted-foreground"
                   }`}
                   title={i18next.t('nav:canvasList.aiName')}
@@ -673,7 +666,7 @@ export function BoardCanvas({
                 </Button>
                 <Button
                   type="button"
-                  className="rounded-full bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none transition-colors duration-150"
+                  className="rounded-full bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20 shadow-none transition-colors duration-150"
                   disabled={!renameValue.trim()}
                   onClick={handleRenameConfirm}
                 >

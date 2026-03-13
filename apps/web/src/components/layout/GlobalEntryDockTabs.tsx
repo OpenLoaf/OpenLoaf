@@ -14,8 +14,8 @@ import {
   type DockTabItem,
 } from "@/components/ui/ExpandableDockTabs";
 import { isWorkbenchDockContextComponent } from "@/components/layout/global-entry-dock";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { useTabs } from "@/hooks/use-tabs";
+import { useLayoutState } from "@/hooks/use-layout-state";
+import { useAppView } from "@/hooks/use-app-view";
 import { WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
 import { CalendarDays, Clock, LayoutDashboard, Mail, Palette } from "lucide-react";
 import { useMemo } from "react";
@@ -112,13 +112,12 @@ const GLOBAL_ENTRY_COMPONENT_TO_TAB_ID: Record<string, GlobalEntryTabId> = {
 /** Render bottom quick switcher for global entry pages. */
 export default function GlobalEntryDockTabs({ tabId }: { tabId: string }) {
   const { t } = useTranslation();
-  const setTabBase = useTabRuntime((state) => state.setTabBase);
-  const setTabTitle = useTabs((state) => state.setTabTitle);
-  const setTabIcon = useTabs((state) => state.setTabIcon);
-  const activeTabId = useTabs((state) => state.activeTabId);
-  const isActive = activeTabId === tabId;
-  const currentBaseComponent = useTabRuntime(
-    (state) => state.runtimeByTabId[tabId]?.base?.component ?? "",
+  const setBase = useLayoutState((state) => state.setBase);
+  const setTitle = useAppView((state) => state.setTitle);
+  const setIcon = useAppView((state) => state.setIcon);
+  const isActive = true; // single-view mode, always active
+  const currentBaseComponent = useLayoutState(
+    (state) => state.base?.component ?? "",
   );
   const hideCanvasTab = isWorkbenchDockContextComponent(currentBaseComponent);
 
@@ -140,12 +139,12 @@ export default function GlobalEntryDockTabs({ tabId }: { tabId: string }) {
     if (!nextTab) return;
     if (!tabId) return;
     if (nextTab.component === currentBaseComponent) return;
-    setTabBase(tabId, {
+    setBase({
       id: nextTab.baseId,
       component: nextTab.component,
     });
-    setTabTitle(tabId, nextTab.title);
-    setTabIcon(tabId, nextTab.tabIcon);
+    setTitle(nextTab.title);
+    setIcon(nextTab.tabIcon);
   };
 
   return (

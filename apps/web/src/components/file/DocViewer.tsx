@@ -49,7 +49,7 @@ import { RedoToolbarButton, UndoToolbarButton } from "@openloaf/ui/history-toolb
 import { BulletedListToolbarButton, NumberedListToolbarButton } from "@openloaf/ui/list-toolbar-button";
 import { MarkToolbarButton } from "@openloaf/ui/mark-toolbar-button";
 import { Toolbar, ToolbarButton, ToolbarGroup } from "@openloaf/ui/toolbar";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 import { stopFindShortcutPropagation } from "@/components/file/lib/viewer-shortcuts";
@@ -184,7 +184,7 @@ export default function DocViewer({
   /** Prevent dirty flag during initial load. */
   const initializingRef = useRef(true);
   /** Close current stack panel. */
-  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
+  const removeStackItem = useLayoutState((s) => s.removeStackItem);
   /** Whether to render the stack header. */
   const shouldRenderStackHeader = Boolean(tabId && panelKey);
   /** Current display title. */
@@ -388,7 +388,7 @@ export default function DocViewer({
               const ok = window.confirm(t('file.unsavedDoc'));
               if (!ok) return;
             }
-            removeStackItem(tabId, panelKey);
+            removeStackItem(panelKey);
           }}
         />
       ) : null}

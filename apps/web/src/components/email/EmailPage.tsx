@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { EmailAddAccountDialog } from "./EmailAddAccountDialog";
 import { EmailMessageList } from "./EmailMessageList";
 import { EmailSidebar } from "./EmailSidebar";
@@ -26,33 +26,31 @@ export default function EmailPage({
   tabId: string;
 }) {
   const { t } = useTranslation('common');
-  const pushStackItem = useTabRuntime((state) => state.pushStackItem);
-  const removeStackItem = useTabRuntime((state) => state.removeStackItem);
+  const pushStackItem = useLayoutState((state) => state.pushStackItem);
+  const removeStackItem = useLayoutState((state) => state.removeStackItem);
   const { sidebar, messageList, addDialog } = useEmailPageState();
 
   useEffect(() => {
-    if (!tabId) return;
-    const runtime = useTabRuntime.getState().getRuntimeByTabId(tabId);
-    const legacyDetailIds = (runtime?.stack ?? [])
+    const layoutStack = useLayoutState.getState().stack ?? [];
+    const legacyDetailIds = layoutStack
       .filter(
         (item) => item.component === "email-message-stack" && item.id === "email-message-stack",
       )
       .map((item) => item.id);
     legacyDetailIds.forEach((itemId) => {
-      // 逻辑：清理旧版“单例详情 stack”残留，防止与多实例模式混用。
-      removeStackItem(tabId, itemId);
+      // 逻辑：清理旧版"单例详情 stack"残留，防止与多实例模式混用。
+      removeStackItem(itemId);
     });
-  }, [removeStackItem, tabId]);
+  }, [removeStackItem]);
 
   /** Open compose editor in stack panel. */
   const handleOpenComposeStack = useCallback(() => {
-    if (!tabId) return;
-    const runtime = useTabRuntime.getState().getRuntimeByTabId(tabId);
-    const detailStackIds = (runtime?.stack ?? [])
+    const layoutStack = useLayoutState.getState().stack ?? [];
+    const detailStackIds = layoutStack
       .filter((item) => item.component === "email-message-stack")
       .map((item) => item.id);
-    detailStackIds.forEach((itemId) => removeStackItem(tabId, itemId));
-    pushStackItem(tabId, {
+    detailStackIds.forEach((itemId) => removeStackItem(itemId));
+    pushStackItem({
       id: "email-compose",
       sourceKey: "email-compose",
       component: "email-compose-stack",
@@ -61,17 +59,16 @@ export default function EmailPage({
         __opaque: true,
       },
     });
-  }, [pushStackItem, removeStackItem, t, tabId]);
+  }, [pushStackItem, removeStackItem, t]);
 
   /** Open message detail in stack panel (Gmail-style list -> stack detail). */
   const handleOpenMessageStack = useCallback(
     (message: EmailMessageSummary) => {
       // 逻辑：多选模式下不打开详情面板。
       if (messageList.hasSelection) return;
-      if (!tabId) return;
       const detailStackId = `email-message:${message.id}`;
       const detailTitle = message.subject?.trim() || t('email.noSubject');
-      pushStackItem(tabId, {
+      pushStackItem({
         id: detailStackId,
         sourceKey: detailStackId,
         component: "email-message-stack",
@@ -85,7 +82,7 @@ export default function EmailPage({
         },
       });
     },
-    [messageList.hasSelection, pushStackItem, t, tabId],
+    [messageList.hasSelection, pushStackItem, t],
   );
 
   return (

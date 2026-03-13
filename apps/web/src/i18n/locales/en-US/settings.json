@@ -157,9 +157,23 @@
     "storage": "Cloud Storage",
     "agents": "Agent Management",
     "auxiliaryModel": "Auxiliary Capabilities",
+    "memory": "AI Memory",
     "shortcuts": "Keyboard Shortcuts",
     "projectTest": "Test",
     "about": "About OpenLoaf"
+  },
+  "memory": {
+    "title": "AI Memory",
+    "subtitle": "AI will automatically reference memory content during conversations to better understand your preferences and context.",
+    "subtitleProject": "AI will reference this project's memory during conversations. Project memory is independent from global memory.",
+    "placeholder": "Enter memory content here (Markdown format)...",
+    "preview": "Preview",
+    "edit": "Edit",
+    "save": "Save",
+    "saving": "Saving...",
+    "saved": "Memory saved",
+    "loading": "Loading...",
+    "empty": "No memory content yet. Click edit to start adding."
   },
   "thirdPartyTools": {
     "title": "Third-Party Tools",

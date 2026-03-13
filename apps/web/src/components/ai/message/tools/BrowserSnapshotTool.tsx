@@ -96,7 +96,7 @@ function ElementsTable({ elements, t }: { elements: SnapshotElement[]; t: TFunct
           <tbody>
             {visible.map((el, i) => (
               <tr key={i} className="border-b border-border/20 last:border-0">
-                <td className="whitespace-nowrap px-2 py-0.5 font-mono text-blue-600 dark:text-blue-400">{el.tag}</td>
+                <td className="whitespace-nowrap px-2 py-0.5 font-mono text-ol-blue">{el.tag}</td>
                 <td className="max-w-[200px] truncate px-2 py-0.5 font-mono">{el.selector}</td>
                 <td className="max-w-[160px] truncate px-2 py-0.5 text-muted-foreground">{el.text || '—'}</td>
               </tr>
@@ -107,7 +107,7 @@ function ElementsTable({ elements, t }: { elements: SnapshotElement[]; t: TFunct
       {hasMore && !expanded && (
         <button
           type="button"
-          className="mt-1 text-[11px] text-blue-600 hover:underline dark:text-blue-400"
+          className="mt-1 text-[11px] text-ol-blue hover:underline"
           onClick={() => setExpanded(true)}
         >
           {t('tool.browser.showAll', { defaultValue: '显示全部', count: elements.length })}
@@ -135,7 +135,7 @@ function TextPreview({ text, t }: { text: string; t: TFunction }) {
       {truncated && !expanded && (
         <button
           type="button"
-          className="mt-1 text-[11px] text-blue-600 hover:underline dark:text-blue-400"
+          className="mt-1 text-[11px] text-ol-blue hover:underline"
           onClick={() => setExpanded(true)}
         >
           {t('tool.browser.expandText', { defaultValue: '展开全文' })}

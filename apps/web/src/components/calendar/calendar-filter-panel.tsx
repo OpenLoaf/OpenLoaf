@@ -188,16 +188,16 @@ export function CalendarFilterPanel({
       }`}
     >
       <div className="flex items-center px-2 h-9">
-        <Filter className="h-3.5 w-3.5 text-[#5f6368] dark:text-slate-400" />
+        <Filter className="h-3.5 w-3.5 text-ol-text-auxiliary" />
         <span className="text-sm font-semibold text-foreground ml-1.5">{t('filter')}</span>
       </div>
-      <div className="border-b border-[#e3e8ef] dark:border-slate-700 mb-1.5" />
+      <div className="border-b border-ol-divider mb-1.5" />
       <div className="flex items-center gap-0.5 rounded-full border bg-background p-0.5 mx-1 mb-2">
         {([
-          { value: "all" as const, labelKey: "all", activeBg: "bg-[#e8f0fe]", activeText: "text-[#1a73e8]", darkActiveBg: "dark:bg-sky-900/50", darkActiveText: "dark:text-sky-300" },
-          { value: "local" as const, labelKey: "local", activeBg: "bg-[#e6f4ea]", activeText: "text-[#188038]", darkActiveBg: "dark:bg-emerald-900/40", darkActiveText: "dark:text-emerald-300" },
-          { value: "system" as const, labelKey: "system", activeBg: "bg-[#f3e8fd]", activeText: "text-[#9334e6]", darkActiveBg: "dark:bg-violet-900/40", darkActiveText: "dark:text-violet-300" },
-        ] as const).map(({ value, labelKey, activeBg, activeText, darkActiveBg, darkActiveText }) => {
+          { value: "all" as const, labelKey: "all", activeBg: "bg-ol-blue-bg", activeText: "text-ol-blue" },
+          { value: "local" as const, labelKey: "local", activeBg: "bg-ol-green-bg", activeText: "text-ol-green" },
+          { value: "system" as const, labelKey: "system", activeBg: "bg-ol-purple-bg", activeText: "text-ol-purple" },
+        ] as const).map(({ value, labelKey, activeBg, activeText }) => {
           const isActive = sourceFilter === value;
           return (
             <button
@@ -205,8 +205,8 @@ export function CalendarFilterPanel({
               type="button"
               className={`flex-1 inline-flex items-center justify-center gap-1 rounded-full transition-all duration-150 h-7 text-[11px] font-medium ${
                 isActive
-                  ? `${activeBg} ${activeText} ${darkActiveBg} ${darkActiveText}`
-                  : "text-[#5f6368] hover:bg-[#f1f3f4] hover:text-[#202124] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.42)] dark:hover:text-slate-200"
+                  ? `${activeBg} ${activeText}`
+                  : "text-ol-text-auxiliary hover:bg-ol-surface-muted hover:text-ol-text-primary"
               }`}
               onClick={() => onSourceFilterChange(value)}
             >
@@ -403,7 +403,7 @@ export function CalendarFilterPanel({
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-      <div className="mt-1 border-t border-[#e3e8ef] dark:border-slate-700 pt-2 px-1">
+      <div className="mt-1 border-t border-ol-divider pt-2 px-1">
         <div
           role="button"
           tabIndex={0}

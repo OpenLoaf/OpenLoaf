@@ -157,9 +157,23 @@
     "storage": "雲端儲存",
     "agents": "Agent 管理",
     "auxiliaryModel": "輔助能力",
+    "memory": "AI 記憶",
     "shortcuts": "快速鍵",
     "projectTest": "測試",
     "about": "關於 OpenLoaf"
+  },
+  "memory": {
+    "title": "AI 記憶",
+    "subtitle": "AI 對話時會自動參考記憶內容，幫助 AI 更好地理解你的偏好和上下文。",
+    "subtitleProject": "AI 對話時會自動參考本專案的記憶內容。專案記憶與全域記憶互相獨立。",
+    "placeholder": "在此輸入記憶內容（Markdown 格式）...",
+    "preview": "預覽",
+    "edit": "編輯",
+    "save": "儲存",
+    "saving": "儲存中...",
+    "saved": "記憶已儲存",
+    "loading": "載入中...",
+    "empty": "暫無記憶內容，點擊編輯開始新增。"
   },
   "thirdPartyTools": {
     "title": "第三方工具",

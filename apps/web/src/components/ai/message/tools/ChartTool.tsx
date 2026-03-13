@@ -584,7 +584,7 @@ export default function ChartTool({
   return (
     <div className={cn("w-full min-w-0", className)}>
       <div
-        className="overflow-hidden rounded-lg border bg-card text-card-foreground"
+        className="overflow-hidden rounded-xl border bg-card text-card-foreground"
         style={errorText ? undefined : { height: cardHeight }}
       >
         <div className="flex h-8 items-center gap-2 border-b bg-muted/50 px-3">

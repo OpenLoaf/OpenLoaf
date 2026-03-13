@@ -35,8 +35,7 @@ import {
   ContextMenuTrigger,
 } from "@openloaf/ui/context-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import {
   buildFileUriFromRoot,
   buildUriFromRoot,
@@ -94,37 +93,37 @@ function buildScopedAgentsUri(rootUri: string): string {
 }
 
 const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
-  browser: { icon: Globe, className: "text-blue-500" },
-  "file-read": { icon: FileSearch, className: "text-emerald-500" },
-  "file-write": { icon: FilePen, className: "text-green-600" },
-  shell: { icon: Terminal, className: "text-slate-500" },
-  email: { icon: Mail, className: "text-red-500" },
-  calendar: { icon: Calendar, className: "text-orange-500" },
-  "image-generate": { icon: Image, className: "text-pink-500" },
-  "video-generate": { icon: Video, className: "text-purple-500" },
-  widget: { icon: LayoutGrid, className: "text-violet-500" },
-  project: { icon: FolderKanban, className: "text-cyan-500" },
-  web: { icon: Link, className: "text-sky-500" },
-  agent: { icon: Users, className: "text-indigo-500" },
-  "code-interpreter": { icon: Code, className: "text-amber-500" },
-  system: { icon: Settings, className: "text-slate-400" },
+  browser: { icon: Globe, className: "text-ol-blue" },
+  "file-read": { icon: FileSearch, className: "text-ol-green" },
+  "file-write": { icon: FilePen, className: "text-ol-green" },
+  shell: { icon: Terminal, className: "text-ol-text-auxiliary" },
+  email: { icon: Mail, className: "text-ol-red" },
+  calendar: { icon: Calendar, className: "text-ol-amber" },
+  "image-generate": { icon: Image, className: "text-ol-red" },
+  "video-generate": { icon: Video, className: "text-ol-purple" },
+  widget: { icon: LayoutGrid, className: "text-ol-purple" },
+  project: { icon: FolderKanban, className: "text-ol-blue" },
+  web: { icon: Link, className: "text-ol-blue" },
+  agent: { icon: Users, className: "text-ol-purple" },
+  "code-interpreter": { icon: Code, className: "text-ol-amber" },
+  system: { icon: Settings, className: "text-ol-text-auxiliary" },
 };
 
 const CAP_BG_MAP: Record<string, string> = {
-  browser: "bg-blue-50 dark:bg-blue-950/40",
-  "file-read": "bg-emerald-50 dark:bg-emerald-950/40",
-  "file-write": "bg-green-50 dark:bg-green-950/40",
-  shell: "bg-slate-50 dark:bg-slate-950/40",
-  email: "bg-red-50 dark:bg-red-950/40",
-  calendar: "bg-orange-50 dark:bg-orange-950/40",
-  "image-generate": "bg-pink-50 dark:bg-pink-950/40",
-  "video-generate": "bg-purple-50 dark:bg-purple-950/40",
-  widget: "bg-violet-50 dark:bg-violet-950/40",
-  project: "bg-cyan-50 dark:bg-cyan-950/40",
-  web: "bg-sky-50 dark:bg-sky-950/40",
-  agent: "bg-indigo-50 dark:bg-indigo-950/40",
-  "code-interpreter": "bg-amber-50 dark:bg-amber-950/40",
-  system: "bg-gray-50 dark:bg-gray-950/40",
+  browser: "bg-ol-blue-bg",
+  "file-read": "bg-ol-green-bg",
+  "file-write": "bg-ol-green-bg",
+  shell: "bg-ol-surface-muted",
+  email: "bg-ol-red-bg",
+  calendar: "bg-ol-amber-bg",
+  "image-generate": "bg-ol-red-bg",
+  "video-generate": "bg-ol-purple-bg",
+  widget: "bg-ol-purple-bg",
+  project: "bg-ol-blue-bg",
+  web: "bg-ol-blue-bg",
+  agent: "bg-ol-purple-bg",
+  "code-interpreter": "bg-ol-amber-bg",
+  system: "bg-ol-surface-muted",
 };
 
 /** Fallback map for commonly used agent icons. */
@@ -141,15 +140,15 @@ const AGENT_ICON_MAP: Partial<Record<string, LucideIcon>> = {
 };
 
 const AGENT_ICON_COLOR_MAP: Record<string, string> = {
-  bot: "text-indigo-500",
-  sparkles: "text-violet-500",
-  "file-text": "text-emerald-500",
-  terminal: "text-slate-500",
-  globe: "text-sky-500",
-  mail: "text-red-500",
-  calendar: "text-orange-500",
-  "layout-grid": "text-violet-500",
-  "folder-kanban": "text-cyan-500",
+  bot: "text-ol-purple",
+  sparkles: "text-ol-purple",
+  "file-text": "text-ol-green",
+  terminal: "text-ol-text-auxiliary",
+  globe: "text-ol-blue",
+  mail: "text-ol-red",
+  calendar: "text-ol-amber",
+  "layout-grid": "text-ol-purple",
+  "folder-kanban": "text-ol-blue",
 };
 
 /** Normalize path to use forward slashes. */
@@ -273,8 +272,7 @@ function GlobalAgentView() {
     },
     [capGroups],
   );
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
+  const pushStackItem = useLayoutState((s) => s.pushStackItem);
   const globalAgentsRootUri = useMemo(() => {
     const globalAgent = agents.find(
       (agent) => agent.scope === "global" && typeof agent.path === "string" && agent.path.trim(),
@@ -372,29 +370,26 @@ function GlobalAgentView() {
     }
     const api = window.openloafElectron;
     if (!api?.openPath) {
-      if (activeTabId) {
-        const agentsUri = buildScopedAgentsUri(rootUri);
-        pushStackItem(activeTabId, {
-          id: `agents-root:global`,
-          sourceKey: `agents-root:global`,
-          component: 'folder-tree-preview',
-          title: 'Agents',
-          params: {
-            rootUri: agentsUri,
-            currentUri: '',
-          },
-        })
-      }
+      const agentsUri = buildScopedAgentsUri(rootUri);
+      pushStackItem({
+        id: `agents-root:global`,
+        sourceKey: `agents-root:global`,
+        component: 'folder-tree-preview',
+        title: 'Agents',
+        params: {
+          rootUri: agentsUri,
+          currentUri: '',
+        },
+      })
       return;
     }
     const agentsUri = buildScopedAgentsUri(rootUri);
     const res = await api.openPath({ uri: agentsUri });
     if (!res?.ok) toast.error(res?.reason ?? t("settings:agent.openFolderFailed"));
-  }, [activeTabId, globalAgentsRootUri, mkdirMutation, pushStackItem, t]);
+  }, [globalAgentsRootUri, mkdirMutation, pushStackItem, t]);
 
   const handleOpenAgent = useCallback(
     (agent: AgentSummary) => {
-      if (!activeTabId) return;
       const rootUri = resolveAgentFolderUri(agent.path);
       if (!rootUri) return;
       const stackKey = agent.ignoreKey.trim() || agent.path || agent.name;
@@ -402,7 +397,7 @@ function GlobalAgentView() {
         agent.scope === "global"
           ? t("settings:agent.scopeGlobal")
           : t("settings:agent.scopeProject");
-      pushStackItem(activeTabId, {
+      pushStackItem({
         id: `agent:${agent.scope}:${stackKey}`,
         sourceKey: `agent:${agent.scope}:${stackKey}`,
         component: "folder-tree-preview",
@@ -414,13 +409,12 @@ function GlobalAgentView() {
         },
       });
     },
-    [activeTabId, pushStackItem, t],
+    [pushStackItem, t],
   );
 
   const handleEditAgent = useCallback(
     (agent: AgentSummary) => {
-      if (!activeTabId) return;
-      pushStackItem(activeTabId, {
+      pushStackItem({
         id: `agent-detail:${agent.scope}:${agent.name}`,
         sourceKey: `agent-detail:${agent.scope}:${agent.name}`,
         component: "agent-detail",
@@ -432,12 +426,11 @@ function GlobalAgentView() {
         },
       });
     },
-    [activeTabId, pushStackItem],
+    [pushStackItem],
   );
 
   const handleCreateAgent = useCallback(() => {
-    if (!activeTabId) return;
-    pushStackItem(activeTabId, {
+    pushStackItem({
       id: `agent-detail:new:${Date.now()}`,
       sourceKey: `agent-detail:new`,
       component: "agent-detail",
@@ -447,7 +440,7 @@ function GlobalAgentView() {
         scope: "global",
       },
     });
-  }, [activeTabId, pushStackItem]);
+  }, [pushStackItem]);
 
   const handleToggleAgent = useCallback(
     (agent: AgentSummary, nextEnabled: boolean) => {
@@ -494,7 +487,6 @@ function GlobalAgentView() {
             size="sm"
             className="h-8 rounded-full px-2.5 text-xs sm:px-3"
             onClick={handleCreateAgent}
-            disabled={!activeTabId}
             aria-label={t("settings:agent.createBtn")}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -563,7 +555,7 @@ function GlobalAgentView() {
           <div className="grid grid-cols-2 gap-2 pb-1">
             {filteredAgents.map((agent) => {
               const canOpen = Boolean(
-                activeTabId && resolveAgentFolderUri(agent.path),
+                resolveAgentFolderUri(agent.path),
               );
 
               return (
@@ -576,7 +568,7 @@ function GlobalAgentView() {
                 >
                   <ContextMenuTrigger asChild>
                     <div
-                      className="group flex flex-col gap-2 rounded-xl bg-zinc-100 px-3 py-2.5 transition-[background-color] duration-200 hover:bg-zinc-200/75 dark:bg-zinc-800 dark:hover:bg-zinc-700/85"
+                      className="group flex flex-col gap-2 rounded-xl bg-ol-surface-muted px-3 py-2.5 transition-[background-color] duration-200 hover:bg-ol-divider"
                       onDoubleClick={() => {
                         handleEditAgent(agent);
                       }}
@@ -617,7 +609,7 @@ function GlobalAgentView() {
                           onCheckedChange={(checked) =>
                             handleToggleAgent(agent, checked)
                           }
-                          className="shrink-0 border-zinc-300/70 bg-zinc-200/55 data-[state=checked]:bg-emerald-300/60 dark:border-zinc-600/80 dark:bg-zinc-700/45 dark:data-[state=checked]:bg-emerald-600/45"
+                          className="shrink-0 border-ol-divider bg-ol-surface-muted data-[state=checked]:bg-ol-green/60 dark:data-[state=checked]:bg-ol-green/45"
                           aria-label={t("settings:agent.enableLabel", { name: agent.name })}
                           disabled={updateAgentMutation.isPending}
                         />
@@ -626,8 +618,8 @@ function GlobalAgentView() {
                         {(() => {
                           const label = agent.scope === "project" ? t("settings:agent.badgeProject") : t("settings:agent.badgeGlobal");
                           const colorClass = agent.scope === "project"
-                            ? "bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400"
-                            : "bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400";
+                            ? "bg-ol-blue-bg text-ol-blue"
+                            : "bg-ol-purple-bg text-ol-purple";
                           return (
                             <span className={`shrink-0 rounded px-1 py-px text-[10px] ${colorClass}`}>
                               {label}
@@ -635,7 +627,7 @@ function GlobalAgentView() {
                           );
                         })()}
                         {agent.isSystem ? (
-                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
+                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-ol-blue-bg text-ol-blue">
                             {t("settings:agent.system")}
                           </span>
                         ) : null}

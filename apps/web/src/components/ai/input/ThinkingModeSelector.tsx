@@ -58,15 +58,15 @@ export default function ThinkingModeSelector({
         className={cn(
           "absolute top-0.5 h-7 w-7 rounded-full transition-all duration-200",
           isDeep
-            ? "left-0.5 bg-violet-500/15 dark:bg-violet-500/20"
-            : "left-[calc(100%-1.875rem)] bg-emerald-500/15 dark:bg-emerald-500/20",
+            ? "left-0.5 bg-ol-purple/15"
+            : "left-[calc(100%-1.875rem)] bg-ol-green/15",
         )}
       />
       <span
         className={cn(
           "relative z-10 inline-flex h-7 w-7 items-center justify-center transition-colors",
           isDeep
-            ? "text-violet-600 dark:text-violet-300"
+            ? "text-ol-purple"
             : "text-muted-foreground",
         )}
       >
@@ -76,7 +76,7 @@ export default function ThinkingModeSelector({
         className={cn(
           "relative z-10 inline-flex h-7 w-7 items-center justify-center transition-colors",
           !isDeep
-            ? "text-emerald-600 dark:text-emerald-300"
+            ? "text-ol-green"
             : "text-muted-foreground",
         )}
       >

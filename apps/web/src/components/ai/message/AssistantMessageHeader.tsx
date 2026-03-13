@@ -52,7 +52,7 @@ export default function AssistantMessageHeader({
     <div className={cn("flex items-center gap-2 px-1", className)}>
       <Avatar className="size-6 ring-1 ring-border/60">
         {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
-        <AvatarFallback className="bg-violet-500/10 text-violet-600 dark:bg-violet-400/15 dark:text-violet-300">
+        <AvatarFallback className="bg-ol-purple/10 text-ol-purple">
           <Sparkles className="size-3.5" />
         </AvatarFallback>
       </Avatar>

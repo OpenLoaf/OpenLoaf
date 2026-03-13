@@ -7,63 +7,33 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-"use client";
+"use client"
 
-import * as React from "react";
+import * as React from "react"
 import {
-  AnimatePresence,
-  LayoutGroup,
   motion,
   useSpring,
   useTransform,
   useReducedMotion,
-} from "motion/react";
-import { ArrowDown, ArrowUp, PencilLine, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Chat } from "@/components/ai/Chat";
-import { ChatSessionBarItem } from "@/components/ai/session/ChatSessionBar";
-import { useTabs, LEFT_DOCK_MIN_PX, LEFT_DOCK_DEFAULT_PERCENT } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { shouldDisableRightChat } from "@/hooks/tab-utils";
-import { useProjectLayout } from "@/hooks/use-project-layout";
-import { useTabView } from "@/hooks/use-tab-view";
-import { createChatSessionId } from "@/lib/chat-session-id";
-import { useChatRuntime, type ChatStatus } from "@/hooks/use-chat-runtime";
-import { invalidateChatSessions, useChatSessions } from "@/hooks/use-chat-sessions";
-import { useRecordEntityVisit } from "@/hooks/use-record-entity-visit";
-import { useSessionTitles } from "@/hooks/use-session-titles";
-import { LeftDock } from "./LeftDock";
-import type { TabMeta } from "@/hooks/tab-types";
-import { Button } from "@openloaf/ui/button";
-import { Input } from "@openloaf/ui/input";
-import { Label } from "@openloaf/ui/label";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@openloaf/ui/context-menu";
-import { useMutation } from "@tanstack/react-query";
-import { queryClient, trpc } from "@/utils/trpc";
-import { toast } from "sonner";
+} from "motion/react"
+import { cn } from "@/lib/utils"
+import { Chat } from "@/components/ai/Chat"
+import { useAppView } from "@/hooks/use-app-view"
+import { useLayoutState } from "@/hooks/use-layout-state"
+import { useAppState } from "@/hooks/use-app-state"
+import { shouldDisableRightChat, LEFT_DOCK_MIN_PX, LEFT_DOCK_DEFAULT_PERCENT } from "@/hooks/layout-utils"
+import { useProjectLayout } from "@/hooks/use-project-layout"
+import { useRecordEntityVisit } from "@/hooks/use-record-entity-visit"
+import { useChatSessions } from "@/hooks/use-chat-sessions"
+import { LeftDock } from "./LeftDock"
 import {
   bindPanelHost,
   hasPanel,
   renderPanel,
   setPanelActive,
-  syncPanelTabs,
-} from "@/lib/panel-runtime";
-import { buildBoardChatTabState } from "@/components/board/utils/board-chat-tab";
+} from "@/lib/panel-runtime"
+import { queryClient, trpc } from "@/utils/trpc"
+import { buildBoardChatTabState } from "@/components/board/utils/board-chat-tab"
 
 /** Recursively find a project node by id in a tree. */
 function findProjectInTree(
@@ -71,1037 +41,553 @@ function findProjectInTree(
   targetId: string,
 ): { projectId: string; rootUri: string } | undefined {
   for (const node of nodes) {
-    if (node.projectId === targetId) return node;
+    if (node.projectId === targetId) return node
     if (Array.isArray(node.children) && node.children.length > 0) {
       const found = findProjectInTree(
         node.children as Array<{ projectId: string; rootUri: string; children?: unknown[] }>,
         targetId,
-      );
-      if (found) return found;
+      )
+      if (found) return found
     }
   }
-  return undefined;
+  return undefined
 }
 
-const RIGHT_CHAT_MIN_PX = 360;
-const DIVIDER_GAP_PX = 10;
-const SPRING_CONFIG = { type: "spring", stiffness: 140, damping: 30 };
-const PANEL_SWITCH_DELAY_MS = 180;
+const RIGHT_CHAT_MIN_PX = 360
+const DIVIDER_GAP_PX = 10
+const SPRING_CONFIG = { type: "spring", stiffness: 140, damping: 30 }
 
-/** Session item in multi-session accordion. */
-type SessionListItem = {
-  sessionId: string;
-  title: string;
-  index: number;
-};
-type SessionIndicator = {
-  hasUnread?: boolean;
-  lastSeenAt?: number;
-  lastUpdatedAt?: number;
-};
+// Render the right chat panel (single session, no multi-session accordion).
+function RightChatPanel() {
+  const appView = useAppView()
+  const layout = useLayoutState()
+  const { recordEntityVisit } = useRecordEntityVisit()
+  const { sessions: remoteSessions } = useChatSessions()
 
-// Render the right chat panel for a tab.
-function RightChatPanel({ tabId }: { tabId: string }) {
-  const tab = useTabView(tabId);
-  const isActiveTab = useTabs((s) => s.activeTabId === tabId);
-  const addTabSession = useTabs((s) => s.addTabSession);
-  const removeTabSession = useTabs((s) => s.removeTabSession);
-  const setActiveTabSession = useTabs((s) => s.setActiveTabSession);
-  const setTabChatParams = useTabs((s) => s.setTabChatParams);
-  const moveTabSession = useTabs((s) => s.moveTabSession);
-  const setTabSessionTitles = useTabs((s) => s.setTabSessionTitles);
-  const { recordEntityVisit } = useRecordEntityVisit();
-  const { sessions: remoteSessions } = useChatSessions({ tabId });
-  useSessionTitles({ tabId, sessions: remoteSessions });
-  const chatStatusBySessionId = useChatRuntime((s) => s.chatStatusBySessionId);
-  const [sessionIndicators, setSessionIndicators] = React.useState<
-    Record<string, SessionIndicator>
-  >({});
-  const prevSessionStatusRef = React.useRef<Record<string, ChatStatus | null | undefined>>({});
-  const [renameOpen, setRenameOpen] = React.useState(false);
-  const [renameSessionId, setRenameSessionId] = React.useState<string | null>(null);
-  const [renameValue, setRenameValue] = React.useState("");
-
-  const activeSessionId = tab?.chatSessionId;
-  const activeSessionUpdatedAt = React.useMemo(() => {
-    if (!activeSessionId) return undefined;
-    const match = remoteSessions.find((session) => session.id === activeSessionId);
-    if (!match) return undefined;
-    return new Date(match.updatedAt).getTime();
-  }, [activeSessionId, remoteSessions]);
+  const activeSessionId = appView.chatSessionId
   const hasRemoteActiveSession = React.useMemo(() => {
-    if (!activeSessionId) return false;
-    return remoteSessions.some((session) => session.id === activeSessionId);
-  }, [activeSessionId, remoteSessions]);
-  const sessionIds = React.useMemo(() => {
-    if (!tab) return [];
-    const ids =
-      Array.isArray(tab.chatSessionIds) && tab.chatSessionIds.length > 0
-        ? tab.chatSessionIds
-        : tab.chatSessionId
-          ? [tab.chatSessionId]
-          : [];
-    return ids.filter((id): id is string => typeof id === "string" && id.length > 0);
-  }, [tab]);
-  const sessionList = React.useMemo<SessionListItem[]>(() => {
-    const titleMap = tab?.chatSessionTitles ?? {};
-    return sessionIds.map((sessionId, index) => {
-      const title = titleMap[sessionId];
-      return { sessionId, title: title?.trim() || "新对话", index };
-    });
-  }, [sessionIds, tab?.chatSessionTitles]);
-  const handleSessionChange = React.useCallback(
-    (sessionId: string, options?: { loadHistory?: boolean; replaceCurrent?: boolean }) => {
-      if (!tabId) return;
-      setActiveTabSession(tabId, sessionId, options);
-    },
-    [setActiveTabSession, tabId],
-  );
+    if (!activeSessionId) return false
+    return remoteSessions.some((session) => session.id === activeSessionId)
+  }, [activeSessionId, remoteSessions])
 
-  // 清理不存在的会话状态
-  React.useEffect(() => {
-    if (sessionIds.length === 0) return;
-    setSessionIndicators((prev) => {
-      const validIds = new Set(sessionIds);
-      const next = Object.fromEntries(
-        Object.entries(prev).filter(([id]) => validIds.has(id))
-      );
-      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
-    });
-  }, [sessionIds]);
-
-  // 记录活跃会话已读时间（使用服务端 updatedAt，避免客户端/服务端时钟偏差）
-  React.useEffect(() => {
-    if (!activeSessionId) return;
-    setSessionIndicators((prev) => {
-      const current = prev[activeSessionId] ?? {};
-      const nextSeenAt =
-        typeof activeSessionUpdatedAt === "number" ? activeSessionUpdatedAt : Date.now();
-      if (current.lastSeenAt === nextSeenAt && current.hasUnread === false) {
-        return prev;
-      }
-      return {
-        ...prev,
-        [activeSessionId]: {
-          ...current,
-          lastSeenAt: nextSeenAt,
-          hasUnread: false,
-        },
-      };
-    });
-  }, [activeSessionId, activeSessionUpdatedAt]);
-
-  // 根据远端更新时间推断未读与 streaming 完成
-  React.useEffect(() => {
-    if (remoteSessions.length === 0) return;
-    setSessionIndicators((prev) => {
-      let changed = false;
-      const next = { ...prev };
-      for (const session of remoteSessions) {
-        const updatedAtMs = new Date(session.updatedAt).getTime();
-        const current = next[session.id] ?? {};
-        if (current.lastUpdatedAt !== updatedAtMs) {
-          next[session.id] = {
-            ...current,
-            lastUpdatedAt: updatedAtMs,
-          };
-          changed = true;
-        }
-        if (session.id !== activeSessionId) {
-          const lastSeenAt = current.lastSeenAt ?? 0;
-          if (updatedAtMs > lastSeenAt && current.hasUnread !== true) {
-            next[session.id] = {
-              ...next[session.id],
-              hasUnread: true,
-            };
-            changed = true;
-          }
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [activeSessionId, remoteSessions]);
-
-  // 基于流状态完成时标记未读，避免依赖列表刷新。
-  React.useEffect(() => {
-    const prevStatuses = prevSessionStatusRef.current;
-    const nextStatuses = chatStatusBySessionId;
-    prevSessionStatusRef.current = nextStatuses;
-
-    let changed = false;
-    setSessionIndicators((prev) => {
-      let next = prev;
-      for (const [sessionId, status] of Object.entries(nextStatuses)) {
-        const prevStatus = prevStatuses[sessionId];
-        const wasStreaming =
-          prevStatus === "submitted" || prevStatus === "streaming";
-        const isStreaming = status === "submitted" || status === "streaming";
-        if (!wasStreaming || isStreaming) continue;
-        if (sessionId === activeSessionId) continue;
-        const current = next[sessionId] ?? {};
-        if (current.hasUnread === true) continue;
-        if (next === prev) next = { ...prev };
-        next[sessionId] = {
-          ...current,
-          hasUnread: true,
-        };
-        changed = true;
-      }
-      return changed ? next : prev;
-    });
-  }, [activeSessionId, chatStatusBySessionId]);
-
-  // 切换会话 / 切换项目时，保存恢复 LeftDock 状态并同步 plant-page
-  const saveDockSnapshot = useTabRuntime((s) => s.saveDockSnapshot);
-  const restoreDockSnapshot = useTabRuntime((s) => s.restoreDockSnapshot);
-  const setTabBase = useTabRuntime((s) => s.setTabBase);
-  const setTabLeftWidthPercent = useTabRuntime((s) => s.setTabLeftWidthPercent);
   const boardBaseParams = React.useMemo(
     () =>
-      tab?.base?.component === "board-viewer"
-        ? (tab.base.params as Record<string, unknown> | undefined)
+      layout.base?.component === "board-viewer"
+        ? (layout.base.params as Record<string, unknown> | undefined)
         : undefined,
-    [tab?.base],
-  );
+    [layout.base],
+  )
   const boardChatSessionId = React.useMemo(() => {
-    const boardId = boardBaseParams?.boardId;
-    return typeof boardId === "string" ? boardId.trim() : "";
-  }, [boardBaseParams]);
-  const isBoardChatTab = boardChatSessionId.length > 0;
+    const boardId = boardBaseParams?.boardId
+    return typeof boardId === "string" ? boardId.trim() : ""
+  }, [boardBaseParams])
+  const isBoardChatTab = boardChatSessionId.length > 0
   const currentProjectId = React.useMemo(() => {
-    const params = tab?.chatParams as Record<string, unknown> | undefined;
-    const pid = boardBaseParams?.projectId ?? params?.projectId;
-    return typeof pid === "string" ? pid.trim() : "";
-  }, [boardBaseParams, tab?.chatParams]);
+    const params = appView.chatParams as Record<string, unknown> | undefined
+    const pid = boardBaseParams?.projectId ?? params?.projectId
+    return typeof pid === "string" ? pid.trim() : ""
+  }, [boardBaseParams, appView.chatParams])
 
+  // Sync board chat session
   React.useEffect(() => {
-    if (!tabId || !isBoardChatTab) return;
+    if (!isBoardChatTab) return
 
     if (activeSessionId !== boardChatSessionId) {
-      setActiveTabSession(tabId, boardChatSessionId, {
-        loadHistory: true,
-        replaceCurrent: true,
-      });
+      appView.setChatSession(boardChatSessionId, true)
     }
 
-    const currentChatParams =
-      typeof tab?.chatParams === "object" && tab.chatParams
-        ? (tab.chatParams as Record<string, unknown>)
-        : {};
+    const currentChatParams = appView.chatParams as Record<string, unknown>
     const nextChatParams = buildBoardChatTabState(
       boardChatSessionId,
       currentProjectId || null,
-    ).chatParams;
+    ).chatParams
     const same =
       Object.keys(nextChatParams).length === Object.keys(currentChatParams).length
-      && Object.entries(nextChatParams).every(([key, value]) => currentChatParams[key] === value);
+      && Object.entries(nextChatParams).every(([key, value]) => currentChatParams[key] === value)
 
     if (!same) {
-      setTabChatParams(tabId, nextChatParams);
+      appView.setChatParams(nextChatParams)
     }
   }, [
     activeSessionId,
     boardChatSessionId,
     currentProjectId,
     isBoardChatTab,
-    setActiveTabSession,
-    setTabChatParams,
-    tab?.chatParams,
-    tabId,
-  ]);
-  const prevActiveSessionIdRef = React.useRef(activeSessionId);
-  const prevProjectIdRef = React.useRef(currentProjectId);
+    appView,
+  ])
+
+  // Record entity visit
   const prevVisitRef = React.useRef<{
-    isActive: boolean;
-    sessionId: string | null;
-    projectId: string | null;
+    sessionId: string | null
+    projectId: string | null
   }>({
-    isActive: false,
     sessionId: null,
     projectId: null,
-  });
+  })
 
   React.useEffect(() => {
-    const prev = prevVisitRef.current;
-    const nextSessionId = activeSessionId ?? null;
-    const nextProjectId = currentProjectId || null;
-    const activated = isActiveTab && !prev.isActive;
-    const sessionChanged = prev.sessionId !== nextSessionId;
-    const projectChanged = prev.projectId !== nextProjectId;
+    const prev = prevVisitRef.current
+    const nextSessionId = activeSessionId ?? null
+    const nextProjectId = currentProjectId || null
+    const sessionChanged = prev.sessionId !== nextSessionId
+    const projectChanged = prev.projectId !== nextProjectId
 
     prevVisitRef.current = {
-      isActive: isActiveTab,
       sessionId: nextSessionId,
       projectId: nextProjectId,
-    };
+    }
 
-    if (isBoardChatTab) return;
-    if (!isActiveTab || !nextSessionId || !hasRemoteActiveSession) return;
-    if (!activated && !sessionChanged && !projectChanged) return;
+    if (isBoardChatTab) return
+    if (!nextSessionId || !hasRemoteActiveSession) return
+    if (!sessionChanged && !projectChanged) return
 
     recordEntityVisit({
       entityType: "chat",
       entityId: nextSessionId,
       projectId: nextProjectId,
       trigger: "chat-open",
-    });
+    })
   }, [
     activeSessionId,
     currentProjectId,
     isBoardChatTab,
     hasRemoteActiveSession,
-    isActiveTab,
     recordEntityVisit,
-  ]);
+  ])
 
-  /** 从 projects 缓存查找 rootUri */
+  // Resolve project rootUri from cache
   const resolveProjectRootUri = React.useCallback((projectId: string) => {
-    const projectsQueryKey = trpc.project.list.pathKey();
+    const projectsQueryKey = trpc.project.list.pathKey()
     const cachedProjects = queryClient.getQueriesData<
       Array<{ projectId: string; rootUri: string; title: string; icon?: string }>
-    >({ queryKey: projectsQueryKey });
+    >({ queryKey: projectsQueryKey })
     for (const [, data] of cachedProjects) {
-      if (!Array.isArray(data)) continue;
-      const found = findProjectInTree(data, projectId);
-      if (found) return found.rootUri;
+      if (!Array.isArray(data)) continue
+      const found = findProjectInTree(data, projectId)
+      if (found) return found.rootUri
     }
-    return "";
-  }, []);
+    return ""
+  }, [])
 
-  /** 创建或更新 plant-page base（保留当前 projectTab）。
-   *  createIfMissing=true 时，若无 base 则创建；false 时仅更新已有 plant-page。 */
+  /** Apply plant-page base for a project. */
   const applyPlantPageForProject = React.useCallback(
     (projectId: string, createIfMissing = true) => {
-      if (!projectId) return;
-      const runtime = useTabRuntime.getState().runtimeByTabId[tabId];
-      const currentBase = runtime?.base;
-      const currentParams = (currentBase?.params ?? {}) as Record<string, unknown>;
-      const rootUri = resolveProjectRootUri(projectId);
+      if (!projectId) return
+      const currentBase = layout.base
+      const currentParams = (currentBase?.params ?? {}) as Record<string, unknown>
+      const rootUri = resolveProjectRootUri(projectId)
 
       if (currentBase?.component === "plant-page") {
-        // 已有 plant-page → 更新项目，保留 projectTab 子页签
-        if (currentParams.projectId === projectId) return;
-        setTabBase(tabId, {
+        if (currentParams.projectId === projectId) return
+        useLayoutState.getState().setBase({
           id: `project:${projectId}`,
           component: "plant-page",
           params: { projectId, rootUri, projectTab: currentParams.projectTab },
-        });
+        })
       } else if (!currentBase && createIfMissing) {
-        // 无 base（空白视图模式）→ 仅在 createIfMissing 时创建 plant-page
-        setTabBase(tabId, {
+        useLayoutState.getState().setBase({
           id: `project:${projectId}`,
           component: "plant-page",
           params: { projectId, rootUri, projectTab: "files" },
-        });
-        // 给 LeftDock 一个合理的初始宽度（优先使用该项目保存的宽度偏好）
-        if (!runtime?.leftWidthPercent || runtime.leftWidthPercent === 0) {
-          const savedLayout = useProjectLayout.getState().getProjectLayout(projectId);
-          const savedPercent = savedLayout?.leftWidthPercent;
-          setTabLeftWidthPercent(
-            tabId,
+        })
+        if (!layout.leftWidthPercent || layout.leftWidthPercent === 0) {
+          const savedLayout = useProjectLayout.getState().getProjectLayout(projectId)
+          const savedPercent = savedLayout?.leftWidthPercent
+          useLayoutState.getState().setLeftWidthPercent(
             savedPercent && savedPercent > 0 ? savedPercent : LEFT_DOCK_DEFAULT_PERCENT,
-          );
+          )
         }
       }
-      // 其他类型的 base（文件查看器等）不动
     },
-    [tabId, resolveProjectRootUri, setTabBase, setTabLeftWidthPercent],
-  );
+    [layout.base, layout.leftWidthPercent, resolveProjectRootUri],
+  )
+
+  // Sync project on session/project change
+  const prevActiveSessionIdRef = React.useRef(activeSessionId)
+  const prevProjectIdRef = React.useRef(currentProjectId)
 
   React.useEffect(() => {
-    const prevSessionId = prevActiveSessionIdRef.current;
-    const prevProjectId = prevProjectIdRef.current;
-    const sessionChanged = activeSessionId !== prevSessionId;
-    const projectChanged = currentProjectId !== prevProjectId;
-    prevActiveSessionIdRef.current = activeSessionId;
-    prevProjectIdRef.current = currentProjectId;
+    const prevSessionId = prevActiveSessionIdRef.current
+    const prevProjectId = prevProjectIdRef.current
+    const sessionChanged = activeSessionId !== prevSessionId
+    const projectChanged = currentProjectId !== prevProjectId
+    prevActiveSessionIdRef.current = activeSessionId
+    prevProjectIdRef.current = currentProjectId
 
-    if (!activeSessionId) return;
-    if (!sessionChanged && !projectChanged) return;
-    if (tab?.projectShell) return;
-
-    if (sessionChanged) {
-      // —— 切换会话：save 旧 dock → restore 新 dock ——
-      if (prevSessionId) {
-        saveDockSnapshot(tabId, prevSessionId);
-      }
-      const restored = restoreDockSnapshot(tabId, activeSessionId);
-      if (!restored) {
-        // 无快照 fallback：根据新会话的 projectId 创建/更新 plant-page
-        applyPlantPageForProject(currentProjectId);
-      }
-      return;
-    }
+    if (!activeSessionId) return
+    if (!sessionChanged && !projectChanged) return
+    if (appView.projectShell) return
 
     if (projectChanged) {
-      // —— 同一会话内切换项目（如 ChatInput 项目选择器）——
-      // 仅更新已有的 plant-page，不自动打开 leftDock
-      applyPlantPageForProject(currentProjectId, false);
+      applyPlantPageForProject(currentProjectId, false)
     }
   }, [
     activeSessionId,
     currentProjectId,
-    tabId,
-    tab?.chatSessionProjectIds,
-    tab?.projectShell,
-    saveDockSnapshot,
-    restoreDockSnapshot,
+    appView.projectShell,
     applyPlantPageForProject,
-  ]);
-  // 新建会话
-  const handleNewSession = React.useCallback(() => {
-    const newId = createChatSessionId();
-    addTabSession(tabId, newId);
-  }, [addTabSession, tabId]);
-
-  // 选择会话
-  const handleSelectSession = React.useCallback(
-    (id: string) => {
-      handleSessionChange(id, { loadHistory: true });
-    },
-    [handleSessionChange]
-  );
-
-  // 移除会话（从本地列表移除，不删除服务端数据）
-  const clearDockSnapshot = useTabRuntime((s) => s.clearDockSnapshot);
-  const handleRemoveSession = React.useCallback(
-    (id: string) => {
-      removeTabSession(tabId, id);
-      clearDockSnapshot(tabId, id);
-      setSessionIndicators((prev) => {
-        if (!prev[id]) return prev;
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-    },
-    [removeTabSession, clearDockSnapshot, tabId]
-  );
-  const handleCloseActiveSession = React.useCallback(() => {
-    if (!activeSessionId) return;
-    handleRemoveSession(activeSessionId);
-  }, [activeSessionId, handleRemoveSession]);
-
-  const updateSession = useMutation({
-    ...(trpc.chatsession.updateOneChatSession.mutationOptions() as any),
-    onSuccess: () => {
-      invalidateChatSessions(queryClient);
-    },
-  });
-
-  const openRenameDialog = React.useCallback((session: SessionListItem) => {
-    setRenameSessionId(session.sessionId);
-    setRenameValue(session.title);
-    setRenameOpen(true);
-  }, []);
-
-  const handleRenameConfirm = React.useCallback(async () => {
-    const sessionId = renameSessionId;
-    const title = renameValue.trim();
-    if (!sessionId || !title) return;
-    try {
-      await updateSession.mutateAsync({
-        where: { id: sessionId },
-        data: { title, isUserRename: true },
-      } as any);
-      if (tabId) setTabSessionTitles(tabId, { [sessionId]: title });
-      toast.success("重命名成功");
-      setRenameOpen(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "重命名失败";
-      toast.error(message);
-    }
-  }, [renameSessionId, renameValue, setTabSessionTitles, tabId, updateSession]);
-
-
-  const showNewSessionButton = !isBoardChatTab && sessionList.length > 0;
-  const showCloseSessionButton = !isBoardChatTab && sessionList.length > 1;
-  const showSessionIndex = !isBoardChatTab && sessionList.length > 1;
-  const activeIndex = sessionList.findIndex((s) => s.sessionId === activeSessionId);
-  const useAccordion = !isBoardChatTab && sessionList.length > 1 && activeIndex >= 0;
-  const sessionsAbove = useAccordion ? sessionList.slice(0, activeIndex) : [];
-  const sessionsBelow = useAccordion ? sessionList.slice(activeIndex + 1) : [];
-  const resolvedActiveSessionId =
-    activeSessionId ?? sessionList[0]?.sessionId ?? "";
-  const renderSessionItem = React.useCallback(
-    (session: SessionListItem) => {
-      const canMoveUp = session.index > 0;
-      const canMoveDown = session.index < sessionList.length - 1;
-      return (
-        <ContextMenu>
-          <ContextMenuTrigger asChild>
-            <div className="w-full">
-              <ChatSessionBarItem
-                sessionId={session.sessionId}
-                title={session.title}
-                index={session.index}
-                showIndex={showSessionIndex}
-                onSelect={() => handleSelectSession(session.sessionId)}
-                onRemove={() => handleRemoveSession(session.sessionId)}
-                isStreaming={
-                  chatStatusBySessionId[session.sessionId] === "submitted" ||
-                  chatStatusBySessionId[session.sessionId] === "streaming"
-                }
-                hasUnread={Boolean(sessionIndicators[session.sessionId]?.hasUnread)}
-                className="rounded-lg bg-background"
-              />
-            </div>
-          </ContextMenuTrigger>
-          <ContextMenuContent className="w-44">
-            <ContextMenuItem icon={PencilLine} onSelect={() => openRenameDialog(session)}>
-              重命名
-            </ContextMenuItem>
-            <ContextMenuItem
-              icon={ArrowUp}
-              disabled={!canMoveUp}
-              onSelect={() => moveTabSession(tabId, session.sessionId, "up")}
-            >
-              上移
-            </ContextMenuItem>
-            <ContextMenuItem
-              icon={ArrowDown}
-              disabled={!canMoveDown}
-              onSelect={() => moveTabSession(tabId, session.sessionId, "down")}
-            >
-              下移
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem icon={Trash2} onSelect={() => handleRemoveSession(session.sessionId)}>
-              关闭
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
-      );
-    },
-    [
-      chatStatusBySessionId,
-      handleRemoveSession,
-      handleSelectSession,
-      moveTabSession,
-      openRenameDialog,
-      sessionIndicators,
-      sessionList.length,
-      showSessionIndex,
-      tabId,
-    ]
-  );
-  const renderSessionStack = () => (
-    <div className="relative flex min-h-0 flex-1 flex-col rounded-lg bg-background overflow-hidden">
-      {sessionList.map((session) => {
-        const isActive = session.sessionId === resolvedActiveSessionId;
-        // 活跃会话始终允许加载历史，避免 chatLoadHistory 丢失（持久化恢复/新建会话）导致空态。
-        const shouldLoadHistory = isActive;
-        return (
-          <div
-            key={session.sessionId}
-            className={cn(
-              "absolute inset-0 flex min-h-0 flex-col",
-              isActive ? "opacity-100" : "opacity-0 pointer-events-none",
-            )}
-            aria-hidden={isActive ? undefined : true}
-          >
-            <Chat
-              className="flex-1 min-h-0"
-              fullPage={!tab?.base}
-              panelKey={`chat:${tab?.id ?? ""}`}
-              sessionId={session.sessionId}
-              loadHistory={shouldLoadHistory}
-              tabId={tab?.id}
-              enableMultiSession={!isBoardChatTab}
-              {...(tab?.chatParams ?? {})}
-              onSessionChange={handleSessionChange}
-              onNewSession={showNewSessionButton ? handleNewSession : undefined}
-              onCloseSession={
-                showCloseSessionButton && isActive
-                  ? handleCloseActiveSession
-                  : undefined
-              }
-              active={isActive}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
-
-  if (!tab) return null;
+  ])
 
   return (
     <div
       className="flex h-full w-full min-h-0 min-w-0 flex-col bg-sidebar"
       style={{ minWidth: RIGHT_CHAT_MIN_PX }}
     >
-      {useAccordion ? (
-        <LayoutGroup>
-          <div className="flex min-h-0 flex-1 flex-col">
-            <AnimatePresence mode="popLayout">
-              {sessionsAbove.map((session) => (
-                <React.Fragment key={session.sessionId}>
-                  {renderSessionItem(session)}
-                  <div className="shrink-0 h-[6px] bg-sidebar" />
-                </React.Fragment>
-              ))}
-            </AnimatePresence>
-
-            {renderSessionStack()}
-
-            <AnimatePresence mode="popLayout">
-              {sessionsBelow.map((session) => (
-                <React.Fragment key={session.sessionId}>
-                  <div className="shrink-0 h-[6px] bg-sidebar" />
-                  {renderSessionItem(session)}
-                </React.Fragment>
-              ))}
-            </AnimatePresence>
-          </div>
-        </LayoutGroup>
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col">
-          {renderSessionStack()}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="relative flex min-h-0 flex-1 flex-col rounded-lg bg-background overflow-hidden">
+          <Chat
+            className="flex-1 min-h-0"
+            fullPage={!layout.base}
+            panelKey="chat:main"
+            sessionId={activeSessionId}
+            loadHistory={true}
+            tabId="main"
+            {...(appView.chatParams ?? {})}
+            active={true}
+          />
         </div>
-      )}
-
-      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>重命名会话</DialogTitle>
-            <DialogDescription>请输入新的会话名称。</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="session-rename" className="text-right">
-                名称
-              </Label>
-              <Input
-                id="session-rename"
-                value={renameValue}
-                onChange={(event) => setRenameValue(event.target.value)}
-                className="col-span-3"
-                autoFocus
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    handleRenameConfirm();
-                  }
-                }}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" type="button">
-                取消
-              </Button>
-            </DialogClose>
-            <Button onClick={handleRenameConfirm} disabled={updateSession.isPending}>
-              保存
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
+      </div>
     </div>
-  );
+  )
 }
 
-// Render the main tab layout container.
-export function TabLayout({
-  tabs,
-  activeTabId,
-}: {
-  tabs: TabMeta[];
-  activeTabId: string;
-}) {
-  const activeTab = useTabView(activeTabId);
-  const { recordEntityVisit } = useRecordEntityVisit();
-  const stackHidden = Boolean(activeTab?.stackHidden);
-  const setTabLeftWidthPercent = useTabRuntime((s) => s.setTabLeftWidthPercent);
-  // 逻辑：按 MotionConfig / 系统偏好关闭侧边栏切换动画。
-  const reduceMotion = useReducedMotion();
+// Render the main layout container (single view, no tab switching).
+export function TabLayout() {
+  const appState = useAppState()
+  const layout = useLayoutState()
+  const { recordEntityVisit } = useRecordEntityVisit()
+  const stackHidden = Boolean(appState.stackHidden)
+  const reduceMotion = useReducedMotion()
 
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const leftHostRef = React.useRef<HTMLDivElement>(null);
-  const rightHostRef = React.useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = React.useState(0);
-  const [isDragging, setIsDragging] = React.useState(false);
-  const [minLeftEnabled, setMinLeftEnabled] = React.useState(true);
-  const activeTabIdRef = React.useRef<string | null>(null);
-  const projectVisitRef = React.useRef<{ tabId: string | null; projectId: string | null }>({
-    tabId: null,
-    projectId: null,
-  });
-  const boardVisitRef = React.useRef<{ tabId: string | null; boardId: string | null }>({
-    tabId: null,
-    boardId: null,
-  });
-  const mountTimerRef = React.useRef<number | null>(null);
-  const switchTokenRef = React.useRef(0);
-  const prevLeftVisibleRef = React.useRef<boolean | null>(null);
-  const pendingMinLeftEnableRef = React.useRef(false);
-  const leftVisibleRef = React.useRef(false);
-  const minLeftEnableRafRef = React.useRef<number | null>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const leftHostRef = React.useRef<HTMLDivElement>(null)
+  const rightHostRef = React.useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = React.useState(0)
+  const [isDragging, setIsDragging] = React.useState(false)
+  const [minLeftEnabled, setMinLeftEnabled] = React.useState(true)
+  const projectVisitRef = React.useRef<{ projectId: string | null }>({ projectId: null })
+  const boardVisitRef = React.useRef<{ boardId: string | null }>({ boardId: null })
+  const prevLeftVisibleRef = React.useRef<boolean | null>(null)
+  const pendingMinLeftEnableRef = React.useRef(false)
+  const leftVisibleRef = React.useRef(false)
+  const minLeftEnableRafRef = React.useRef<number | null>(null)
+  const mountedRef = React.useRef(false)
 
   React.useLayoutEffect(() => {
-    bindPanelHost("left", leftHostRef.current);
-    bindPanelHost("right", rightHostRef.current);
+    bindPanelHost("left", leftHostRef.current)
+    bindPanelHost("right", rightHostRef.current)
     return () => {
-      bindPanelHost("left", null);
-      bindPanelHost("right", null);
-    };
-  }, []);
+      mountedRef.current = false
+      bindPanelHost("left", null)
+      bindPanelHost("right", null)
+    }
+  }, [])
 
+  // Mount panels
   React.useEffect(() => {
-    const tabIds = tabs.map((tab) => tab.id);
-    syncPanelTabs("left", tabIds);
-    syncPanelTabs("right", tabIds);
-  }, [tabs]);
+    if (mountedRef.current) return
+    mountedRef.current = true
 
-  React.useEffect(() => {
-    const prevTabId = activeTabIdRef.current;
-    if (prevTabId && prevTabId !== activeTabId) {
-      setPanelActive("left", prevTabId, false);
-      setPanelActive("right", prevTabId, false);
+    const shouldHideRightChat = shouldDisableRightChat(appState)
+
+    if (!hasPanel("left", "main")) {
+      renderPanel("left", "main", <LeftDock tabId="main" />, true)
+    } else {
+      setPanelActive("left", "main", true)
     }
 
-    activeTabIdRef.current = activeTabId;
+    if (shouldHideRightChat) {
+      setPanelActive("right", "main", false)
+    } else if (!hasPanel("right", "main")) {
+      renderPanel("right", "main", <RightChatPanel />, true)
+    } else {
+      setPanelActive("right", "main", true)
+    }
+  }, [])
 
-    if (mountTimerRef.current) {
-      window.clearTimeout(mountTimerRef.current);
+  // Update panel visibility on layout changes
+  React.useEffect(() => {
+    if (!mountedRef.current) return
+
+    // Recover left panel if it was destroyed (e.g. StrictMode remount)
+    if (!hasPanel("left", "main")) {
+      renderPanel("left", "main", <LeftDock tabId="main" />, true)
     }
 
-    if (!activeTabId) return;
-
-    switchTokenRef.current += 1;
-    const token = switchTokenRef.current;
-    const delay = reduceMotion || !prevTabId ? 0 : PANEL_SWITCH_DELAY_MS;
-
-    mountTimerRef.current = window.setTimeout(() => {
-      if (switchTokenRef.current !== token) return;
-      // 中文注释：延迟挂载活跃 tab，避开切换动画期的主线程峰值。
-      if (!hasPanel("left", activeTabId)) {
-        renderPanel("left", activeTabId, <LeftDock tabId={activeTabId} />, true);
-      } else {
-        setPanelActive("left", activeTabId, true);
-      }
-
-      const shouldHideRightChat = shouldDisableRightChat(activeTab);
-
-      if (shouldHideRightChat) {
-        setPanelActive("right", activeTabId, false);
-      } else if (!hasPanel("right", activeTabId)) {
-        renderPanel("right", activeTabId, <RightChatPanel tabId={activeTabId} />, true);
-      } else {
-        setPanelActive("right", activeTabId, true);
-      }
-    }, delay);
-
-    return () => {
-      if (mountTimerRef.current) {
-        window.clearTimeout(mountTimerRef.current);
-        mountTimerRef.current = null;
-      }
-    };
-  }, [
-    activeTabId,
-    activeTab?.activeStackItemId,
-    activeTab?.base,
-    activeTab?.projectShell?.section,
-    activeTab?.stack,
-    reduceMotion,
-  ]);
+    const shouldHide = shouldDisableRightChat(appState)
+    if (shouldHide) {
+      setPanelActive("right", "main", false)
+    } else if (!hasPanel("right", "main")) {
+      renderPanel("right", "main", <RightChatPanel />, true)
+    } else {
+      setPanelActive("right", "main", true)
+    }
+  }, [appState.activeStackItemId, appState.base, appState.projectShell?.section, appState.stack])
 
   React.useLayoutEffect(() => {
-    // App should never horizontally scroll; prevent focus/scrollIntoView from shifting the page.
-    if (typeof window === "undefined") return;
-    if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
-    const scrollingEl = document.scrollingElement as HTMLElement | null;
-    if (scrollingEl && scrollingEl.scrollLeft !== 0) scrollingEl.scrollLeft = 0;
-  }, [activeTabId]);
+    if (typeof window === "undefined") return
+    if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0)
+    const scrollingEl = document.scrollingElement as HTMLElement | null
+    if (scrollingEl && scrollingEl.scrollLeft !== 0) scrollingEl.scrollLeft = 0
+  }, [])
 
-  const activeBase = activeTab?.base;
+  const activeBase = appState.base
   const activeBaseParams = React.useMemo(
     () => ((activeBase?.params ?? {}) as Record<string, unknown>),
     [activeBase?.params],
-  );
+  )
   const activePlantProjectId = React.useMemo(() => {
-    if (activeBase?.component !== "plant-page") return "";
-    const projectId = activeBaseParams.projectId;
-    return typeof projectId === "string" ? projectId.trim() : "";
-  }, [activeBase?.component, activeBaseParams]);
+    if (activeBase?.component !== "plant-page") return ""
+    const projectId = activeBaseParams.projectId
+    return typeof projectId === "string" ? projectId.trim() : ""
+  }, [activeBase?.component, activeBaseParams])
   const activeBoardProjectId = React.useMemo(() => {
-    if (activeBase?.component !== "board-viewer") return "";
-    const projectId = activeBaseParams.projectId;
-    return typeof projectId === "string" ? projectId.trim() : "";
-  }, [activeBase?.component, activeBaseParams]);
+    if (activeBase?.component !== "board-viewer") return ""
+    const projectId = activeBaseParams.projectId
+    return typeof projectId === "string" ? projectId.trim() : ""
+  }, [activeBase?.component, activeBaseParams])
   const activeBoardEntityId = React.useMemo(() => {
-    if (activeBase?.component !== "board-viewer") return "";
-    const boardFolderUri = activeBaseParams.boardFolderUri;
+    if (activeBase?.component !== "board-viewer") return ""
+    const boardFolderUri = activeBaseParams.boardFolderUri
     if (typeof boardFolderUri === "string" && boardFolderUri.trim()) {
-      const normalized = boardFolderUri.trim().replace(/\/+$/u, "");
-      const parts = normalized.split("/").filter(Boolean);
-      return parts[parts.length - 1] ?? "";
+      const normalized = boardFolderUri.trim().replace(/\/+$/u, "")
+      const parts = normalized.split("/").filter(Boolean)
+      return parts[parts.length - 1] ?? ""
     }
-    const explicitBoardId = activeBaseParams.boardId;
-    return typeof explicitBoardId === "string" ? explicitBoardId.trim() : "";
-  }, [activeBase?.component, activeBaseParams]);
+    const explicitBoardId = activeBaseParams.boardId
+    return typeof explicitBoardId === "string" ? explicitBoardId.trim() : ""
+  }, [activeBase?.component, activeBaseParams])
 
   React.useEffect(() => {
-    const nextProjectId = activePlantProjectId || null;
-    const prev = projectVisitRef.current;
-    const shouldTrack = Boolean(nextProjectId)
-      && (prev.tabId !== activeTabId || prev.projectId !== nextProjectId);
+    const nextProjectId = activePlantProjectId || null
+    const prev = projectVisitRef.current
+    const shouldTrack = Boolean(nextProjectId) && prev.projectId !== nextProjectId
 
-    projectVisitRef.current = {
-      tabId: activeTabId ?? null,
-      projectId: nextProjectId,
-    };
+    projectVisitRef.current = { projectId: nextProjectId }
 
-    if (!nextProjectId || !shouldTrack) return;
+    if (!nextProjectId || !shouldTrack) return
 
     recordEntityVisit({
       entityType: "project",
       entityId: nextProjectId,
       projectId: nextProjectId,
       trigger: "project-open",
-    });
-  }, [activePlantProjectId, activeTabId, recordEntityVisit]);
+    })
+  }, [activePlantProjectId, recordEntityVisit])
 
   React.useEffect(() => {
-    const nextBoardId = activeBoardEntityId || null;
-    const prev = boardVisitRef.current;
-    const shouldTrack = Boolean(nextBoardId)
-      && (prev.tabId !== activeTabId || prev.boardId !== nextBoardId);
+    const nextBoardId = activeBoardEntityId || null
+    const prev = boardVisitRef.current
+    const shouldTrack = Boolean(nextBoardId) && prev.boardId !== nextBoardId
 
-    boardVisitRef.current = {
-      tabId: activeTabId ?? null,
-      boardId: nextBoardId,
-    };
+    boardVisitRef.current = { boardId: nextBoardId }
 
-    if (!nextBoardId || !shouldTrack) return;
+    if (!nextBoardId || !shouldTrack) return
 
     recordEntityVisit({
       entityType: "board",
       entityId: nextBoardId,
       projectId: activeBoardProjectId || null,
       trigger: "board-open",
-    });
-  }, [activeBoardEntityId, activeBoardProjectId, activeTabId, recordEntityVisit]);
+    })
+  }, [activeBoardEntityId, activeBoardProjectId, recordEntityVisit])
 
   React.useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    const container = containerRef.current
+    if (!container) return
 
-    // 通过 rAF 节流 + 数值去抖，避免 ResizeObserver 回调内同步 setState 引发布局循环
-    let rafId: number | null = null;
-    let lastWidth = -1;
+    let rafId: number | null = null
+    let lastWidth = -1
     const observer = new ResizeObserver((entries) => {
-      // 拖拽时跳过，避免容器内部频繁重排触发循环通知
-      if (draggingRef.current) return;
-      const entry = entries[0];
-      if (!entry) return;
-      const nextWidth = Math.round(entry.contentRect.width);
-      if (nextWidth === lastWidth) return;
-      lastWidth = nextWidth;
-      if (rafId !== null) return; // 同一帧只更新一次
+      if (draggingRef.current) return
+      const entry = entries[0]
+      if (!entry) return
+      const nextWidth = Math.round(entry.contentRect.width)
+      if (nextWidth === lastWidth) return
+      lastWidth = nextWidth
+      if (rafId !== null) return
       rafId = window.requestAnimationFrame(() => {
-        rafId = null;
-        setContainerWidth(nextWidth);
-      });
-    });
+        rafId = null
+        setContainerWidth(nextWidth)
+      })
+    })
 
-    observer.observe(container);
+    observer.observe(container)
     return () => {
       if (rafId !== null) {
-        window.cancelAnimationFrame(rafId);
-        rafId = null;
+        window.cancelAnimationFrame(rafId)
+        rafId = null
       }
-      observer.disconnect();
-    };
-  }, []);
+      observer.disconnect()
+    }
+  }, [])
 
   const hasLeftContent =
-    Boolean(activeTab?.base) ||
-    (!stackHidden && (activeTab?.stack?.length ?? 0) > 0);
-  const storedLeftWidthPercent = hasLeftContent ? activeTab?.leftWidthPercent ?? 0 : 0;
-  const isRightChatDisabled = shouldDisableRightChat(activeTab);
-  const isRightCollapsed = Boolean(activeTab?.base) && (isRightChatDisabled || Boolean(activeTab?.rightChatCollapsed));
+    Boolean(appState.base) ||
+    (!stackHidden && (appState.stack?.length ?? 0) > 0)
+  const storedLeftWidthPercent = hasLeftContent ? appState.leftWidthPercent ?? 0 : 0
+  const isRightChatDisabled = shouldDisableRightChat(appState)
+  const isRightCollapsed = Boolean(appState.base) && (isRightChatDisabled || Boolean(appState.rightChatCollapsed))
 
-  const effectiveMinLeft = activeTab?.minLeftWidth ?? LEFT_DOCK_MIN_PX;
+  const effectiveMinLeft = appState.minLeftWidth ?? LEFT_DOCK_MIN_PX
 
-  const isLeftVisible = storedLeftWidthPercent > 0;
-  const isRightVisible = !isRightCollapsed;
+  const isLeftVisible = storedLeftWidthPercent > 0
+  const isRightVisible = !isRightCollapsed
 
-  let targetSplitPercent = 50;
-  let targetDividerWidth = 0;
+  let targetSplitPercent = 50
+  let targetDividerWidth = 0
 
   if (!isLeftVisible && isRightVisible) {
-    // Mode C: Right Only (Left hidden)
-    targetSplitPercent = 0;
-    targetDividerWidth = 0;
+    targetSplitPercent = 0
+    targetDividerWidth = 0
   } else if (isLeftVisible && !isRightVisible) {
-    // Mode B: Left Only (Right hidden)
-    targetSplitPercent = 100;
-    targetDividerWidth = 0;
+    targetSplitPercent = 100
+    targetDividerWidth = 0
   } else {
-    // Mode A: Both visible
-    targetDividerWidth = DIVIDER_GAP_PX;
+    targetDividerWidth = DIVIDER_GAP_PX
     if (containerWidth > 0) {
-      const minLeft = effectiveMinLeft;
-      const maxLeft = Math.max(minLeft, containerWidth - RIGHT_CHAT_MIN_PX - targetDividerWidth);
-
-      // leftWidthPercent 直接表示容器宽度的百分比
-      const storedLeftPx = (storedLeftWidthPercent / 100) * containerWidth;
-      const targetPx = Math.max(minLeft, Math.min(storedLeftPx, maxLeft));
-      targetSplitPercent = (targetPx / containerWidth) * 100;
+      const minLeft = effectiveMinLeft
+      const maxLeft = Math.max(minLeft, containerWidth - RIGHT_CHAT_MIN_PX - targetDividerWidth)
+      const storedLeftPx = (storedLeftWidthPercent / 100) * containerWidth
+      const targetPx = Math.max(minLeft, Math.min(storedLeftPx, maxLeft))
+      targetSplitPercent = (targetPx / containerWidth) * 100
     } else {
-      targetSplitPercent = 30;
+      targetSplitPercent = 30
     }
   }
 
-  const splitPercent = useSpring(targetSplitPercent, SPRING_CONFIG);
+  const splitPercent = useSpring(targetSplitPercent, SPRING_CONFIG)
 
   React.useEffect(() => {
-    leftVisibleRef.current = isLeftVisible;
-  }, [isLeftVisible]);
+    leftVisibleRef.current = isLeftVisible
+  }, [isLeftVisible])
 
-  // 中文注释：左侧从隐藏切到显示时先关闭 minWidth，让宽度从 0 动画到目标，动画完成后再恢复 minWidth，避免 30% 闪动。
   React.useLayoutEffect(() => {
-    const prevLeftVisible = prevLeftVisibleRef.current;
-    prevLeftVisibleRef.current = isLeftVisible;
+    const prevLeftVisible = prevLeftVisibleRef.current
+    prevLeftVisibleRef.current = isLeftVisible
 
     if (!isLeftVisible) {
-      pendingMinLeftEnableRef.current = false;
+      pendingMinLeftEnableRef.current = false
       if (minLeftEnableRafRef.current !== null) {
-        cancelAnimationFrame(minLeftEnableRafRef.current);
-        minLeftEnableRafRef.current = null;
+        cancelAnimationFrame(minLeftEnableRafRef.current)
+        minLeftEnableRafRef.current = null
       }
-      if (minLeftEnabled) setMinLeftEnabled(false);
-      return;
+      if (minLeftEnabled) setMinLeftEnabled(false)
+      return
     }
 
     if (prevLeftVisible === false) {
       if (reduceMotion) {
-        pendingMinLeftEnableRef.current = false;
-        setMinLeftEnabled(true);
+        pendingMinLeftEnableRef.current = false
+        setMinLeftEnabled(true)
       } else {
-        pendingMinLeftEnableRef.current = true;
-        setMinLeftEnabled(false);
+        pendingMinLeftEnableRef.current = true
+        setMinLeftEnabled(false)
       }
-      return;
+      return
     }
 
     if (prevLeftVisible === null && !minLeftEnabled) {
-      setMinLeftEnabled(true);
+      setMinLeftEnabled(true)
     }
-  }, [isLeftVisible, reduceMotion, minLeftEnabled]);
+  }, [isLeftVisible, reduceMotion, minLeftEnabled])
 
   React.useEffect(() => {
-    // Enable min width after the split animation settles.
     const handleComplete = () => {
-      if (!pendingMinLeftEnableRef.current) return;
-      pendingMinLeftEnableRef.current = false;
-      if (!leftVisibleRef.current) return;
-      // 中文注释：动画完成后下一帧再开启 minWidth，避开 ResizeObserver 循环警告。
+      if (!pendingMinLeftEnableRef.current) return
+      pendingMinLeftEnableRef.current = false
+      if (!leftVisibleRef.current) return
       if (minLeftEnableRafRef.current !== null) {
-        cancelAnimationFrame(minLeftEnableRafRef.current);
+        cancelAnimationFrame(minLeftEnableRafRef.current)
       }
       minLeftEnableRafRef.current = requestAnimationFrame(() => {
-        minLeftEnableRafRef.current = null;
-        if (leftVisibleRef.current) setMinLeftEnabled(true);
-      });
-    };
-
-    const unsubComplete = splitPercent.on("animationComplete", handleComplete);
-    const unsubCancel = splitPercent.on("animationCancel", handleComplete);
-    return () => {
-      unsubComplete();
-      unsubCancel();
-      if (minLeftEnableRafRef.current !== null) {
-        cancelAnimationFrame(minLeftEnableRafRef.current);
-        minLeftEnableRafRef.current = null;
-      }
-    };
-  }, [splitPercent]);
-
-  // 切换 Tab 或首次容器测量时用 jump（跳到目标位置，无动画），避免可见的布局跳动
-  const initialLayoutDoneRef = React.useRef(false);
-  React.useEffect(() => {
-    initialLayoutDoneRef.current = false;
-  }, [activeTabId]);
-  React.useEffect(() => {
-    if (isDragging) return;
-    if (reduceMotion || !initialLayoutDoneRef.current) {
-      splitPercent.jump(targetSplitPercent);
-      if (containerWidth > 0) initialLayoutDoneRef.current = true;
-      return;
+        minLeftEnableRafRef.current = null
+        if (leftVisibleRef.current) setMinLeftEnabled(true)
+      })
     }
-    splitPercent.set(targetSplitPercent);
-  }, [targetSplitPercent, isDragging, splitPercent, reduceMotion]);
 
-  // 拖拽状态写入 ref，供 ResizeObserver 回调读取，避免闭包状态过期
-  const draggingRef = React.useRef(false);
+    const unsubComplete = splitPercent.on("animationComplete", handleComplete)
+    const unsubCancel = splitPercent.on("animationCancel", handleComplete)
+    return () => {
+      unsubComplete()
+      unsubCancel()
+      if (minLeftEnableRafRef.current !== null) {
+        cancelAnimationFrame(minLeftEnableRafRef.current)
+        minLeftEnableRafRef.current = null
+      }
+    }
+  }, [splitPercent])
+
+  const initialLayoutDoneRef = React.useRef(false)
   React.useEffect(() => {
-    draggingRef.current = isDragging;
-  }, [isDragging]);
+    if (isDragging) return
+    if (reduceMotion || !initialLayoutDoneRef.current) {
+      splitPercent.jump(targetSplitPercent)
+      if (containerWidth > 0) initialLayoutDoneRef.current = true
+      return
+    }
+    splitPercent.set(targetSplitPercent)
+  }, [targetSplitPercent, isDragging, splitPercent, reduceMotion])
 
-  // Handle the start of the resize drag.
+  const draggingRef = React.useRef(false)
+  React.useEffect(() => {
+    draggingRef.current = isDragging
+  }, [isDragging])
+
   const handleDragStart = (e: React.PointerEvent) => {
-    if (targetDividerWidth === 0) return;
-    setIsDragging(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
-    e.preventDefault();
-  };
+    if (targetDividerWidth === 0) return
+    setIsDragging(true)
+    e.currentTarget.setPointerCapture(e.pointerId)
+    e.preventDefault()
+  }
 
-  // Handle the resize drag move.
   const handleDragMove = (e: React.PointerEvent) => {
-    if (!isDragging || !containerRef.current) return;
+    if (!isDragging || !containerRef.current) return
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const relativeX = e.clientX - rect.left;
+    const rect = containerRef.current.getBoundingClientRect()
+    const relativeX = e.clientX - rect.left
 
-    const minLeft = effectiveMinLeft;
-    const maxLeft = Math.max(minLeft, rect.width - RIGHT_CHAT_MIN_PX - targetDividerWidth);
-    const newLeftPx = Math.max(minLeft, Math.min(relativeX, maxLeft));
+    const minLeft = effectiveMinLeft
+    const maxLeft = Math.max(minLeft, rect.width - RIGHT_CHAT_MIN_PX - targetDividerWidth)
+    const newLeftPx = Math.max(minLeft, Math.min(relativeX, maxLeft))
 
-    const newPercent = (newLeftPx / rect.width) * 100;
-    splitPercent.jump(newPercent);
-  };
+    const newPercent = (newLeftPx / rect.width) * 100
+    splitPercent.jump(newPercent)
+  }
 
-  // Handle the end of the resize drag.
   const handleDragEnd = (e: React.PointerEvent) => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    e.currentTarget.releasePointerCapture(e.pointerId);
+    if (!isDragging) return
+    setIsDragging(false)
+    e.currentTarget.releasePointerCapture(e.pointerId)
 
-    const container = containerRef.current;
-    if (!container || !activeTabId) return;
+    const container = containerRef.current
+    if (!container) return
 
-    const rect = container.getBoundingClientRect();
-    const currentLeftPx = (splitPercent.get() / 100) * rect.width;
-    // 直接保存容器百分比，语义清晰：70 = 左侧占 70%
-    const nextPercent = (currentLeftPx / rect.width) * 100;
-    setTabLeftWidthPercent(activeTabId, Math.round(nextPercent * 10) / 10);
-  };
+    const rect = container.getBoundingClientRect()
+    const currentLeftPx = (splitPercent.get() / 100) * rect.width
+    const nextPercent = (currentLeftPx / rect.width) * 100
+    layout.setLeftWidthPercent(Math.round(nextPercent * 10) / 10)
+  }
 
-  // 将布局偏好同步到 per-project 缓存，以便下次打开该项目时恢复
+  // Sync layout preferences to per-project cache
   const activeProjectId = React.useMemo(() => {
-    const params = activeTab?.chatParams as Record<string, unknown> | undefined;
-    const pid = params?.projectId;
-    return typeof pid === "string" ? pid.trim() : "";
-  }, [activeTab?.chatParams]);
-  const activeRightCollapsed = activeTab?.rightChatCollapsed;
-  const activeLeftPercent = activeTab?.leftWidthPercent;
+    const params = appState.chatParams as Record<string, unknown> | undefined
+    const pid = params?.projectId
+    return typeof pid === "string" ? pid.trim() : ""
+  }, [appState.chatParams])
+  const activeRightCollapsed = appState.rightChatCollapsed
+  const activeLeftPercent = appState.leftWidthPercent
 
   React.useEffect(() => {
-    if (!activeProjectId) return;
-    // 只在 base 存在（左侧面板已初始化）后才保存，避免初始空状态覆盖
-    if (!activeTab?.base) return;
+    if (!activeProjectId) return
+    if (!appState.base) return
     useProjectLayout.getState().saveProjectLayout(activeProjectId, {
       rightChatCollapsed: Boolean(activeRightCollapsed),
       leftWidthPercent: activeLeftPercent ?? 0,
-    });
-  }, [activeProjectId, activeRightCollapsed, activeLeftPercent, activeTab?.base]);
+    })
+  }, [activeProjectId, activeRightCollapsed, activeLeftPercent, appState.base])
 
-  const isDividerHidden = targetDividerWidth === 0;
+  const isDividerHidden = targetDividerWidth === 0
 
   return (
     <div
@@ -1156,5 +642,5 @@ export function TabLayout({
         <div ref={rightHostRef} className="relative h-full w-full min-h-0 min-w-0" />
       </motion.div>
     </div>
-  );
+  )
 }

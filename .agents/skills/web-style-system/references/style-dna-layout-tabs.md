@@ -46,16 +46,15 @@
 
 局部强调：
 
-- tabs tone 使用低透明彩色背景 + 对应文字色（`sky/emerald/amber/violet/slate`）
+- tabs tone 使用 `ol-*` 设计令牌的低透明背景 + 对应文字色（`ol-blue/ol-green/ol-amber/ol-purple`）
 - 彩色只承载状态识别，不做大面积背景
 
 按钮色彩策略：
 
 - **按钮必须带有语义扁平色**，禁止全部使用无色 ghost
-- 主操作：`bg-sky-500/10 text-sky-600 dark:text-sky-400`，hover `bg-sky-500/20`
-- 危险操作：`bg-red-500/10 text-red-600 dark:text-red-400`
-- 成功/确认：`bg-emerald-500/10 text-emerald-600 dark:text-emerald-400`
+- 使用 `ol-*` 令牌：`bg-ol-blue/10 text-ol-blue`（主操作）、`bg-ol-red/10 text-ol-red`（危险）、`bg-ol-green/10 text-ol-green`（确认）等
 - 次要操作可用 ghost，但同一区域至少有一个带色按钮作为视觉锚点
+- 完整令牌定义见 `apps/web/src/index.css` 和 `apps/web/src/styles/semantic-tokens.ts`
 
 ## 4. Motion Grammar
 
@@ -99,7 +98,7 @@
 - 优先使用 token 与语义色，而非魔法色值。
 - 保持 tabs 与 dock 的状态语法一致（active/inactive/hover/focus）。
 - 优先通过布局密度和层次解决信息拥挤。
-- **按钮使用扁平语义色**（sky/emerald/amber/red），让用户一眼识别操作意图。
+- **按钮使用 `ol-*` 语义令牌扁平色**（ol-blue/ol-green/ol-amber/ol-red），让用户一眼识别操作意图。
 - 输入框、卡片、面板使用 `shadow-none`，通过透明度和边框建立层次。
 
 ### Don't

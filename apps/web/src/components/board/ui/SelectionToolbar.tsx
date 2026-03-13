@@ -131,7 +131,7 @@ function ToolbarGroup({ items, openPanelId, setOpenPanelId, showDivider }: Toolb
           </div>
         );
       })}
-      {showDivider ? <span className="mx-1 h-5 w-px bg-[#e3e8ef] dark:bg-neutral-700" /> : null}
+      {showDivider ? <span className="mx-1 h-5 w-px bg-ol-divider" /> : null}
     </>
   );
 }

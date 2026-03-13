@@ -13,8 +13,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { openSettingsTab, useGlobalOverlay } from "@/lib/globalShortcuts";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import type { DesktopItem, DesktopScope } from "./types";
 import DesktopIconLabel from "./DesktopIconLabel";
 import ClockWidget from "./widgets/ClockWidget";
@@ -50,9 +49,8 @@ export default function DesktopTileContent({
   onConfigure,
 }: DesktopTileContentProps) {
   const { t } = useTranslation('desktop');
-  const tabs = useTabs((state) => state.tabs);
-  const activeTabId = useTabs((state) => state.activeTabId);
-  const setTabBaseParams = useTabRuntime((state) => state.setTabBaseParams);
+  const base = useLayoutState((state) => state.base);
+  const setBaseParams = useLayoutState((state) => state.setBaseParams);
   const setSearchOpen = useGlobalOverlay((state) => state.setSearchOpen);
   const hoverBoundaryRef = React.useRef<HTMLDivElement | null>(null);
   const rafIdRef = React.useRef<number | null>(null);
@@ -73,8 +71,7 @@ export default function DesktopTileContent({
         return;
       }
       if (iconKey === "agent-settings") {
-        if (!activeTabId) { toast.error(t('content.noTab')); return; }
-        useTabRuntime.getState().pushStackItem(activeTabId, {
+        useLayoutState.getState().pushStackItem({
           id: "agent-management",
           sourceKey: "agent-management",
           component: "agent-management",
@@ -83,8 +80,7 @@ export default function DesktopTileContent({
         return;
       }
       if (iconKey === "skill-settings") {
-        if (!activeTabId) { toast.error(t('content.noTab')); return; }
-        useTabRuntime.getState().pushStackItem(activeTabId, {
+        useLayoutState.getState().pushStackItem({
           id: "skill-settings",
           sourceKey: "skill-settings",
           component: "skill-settings",
@@ -92,24 +88,17 @@ export default function DesktopTileContent({
         });
         return;
       }
-      const activeTab = tabs.find(
-        (tab) => tab.id === activeTabId
-      );
-      if (!activeTab) {
-        toast.error(t('content.tabNotFound'));
-        return;
-      }
-      const runtime = activeTab ? useTabRuntime.getState().runtimeByTabId[activeTab.id] : undefined;
-      if (!runtime?.base?.id?.startsWith("project:")) {
+      const currentBase = useLayoutState.getState().base;
+      if (!currentBase?.id?.startsWith("project:")) {
         toast.error(t('content.openProjectTab'));
         return;
       }
       const nextTab =
         iconKey === "tasks" ? "tasks" : iconKey === "settings" ? "settings" : "files";
-      // 中文注释：仅更新当前激活的项目 tab 子页签。
-      setTabBaseParams(activeTab.id, { projectTab: nextTab });
+      // 中文注释：仅更新当前项目子页签。
+      setBaseParams({ projectTab: nextTab });
     },
-    [activeTabId, scope, setSearchOpen, setTabBaseParams, t, tabs]
+    [scope, setSearchOpen, setBaseParams, t]
   );
 
   React.useEffect(() => {
@@ -226,7 +215,7 @@ export default function DesktopTileContent({
     return (
       <div className="h-full w-full p-2">
         <CalendarWidget
-          tabId={activeTabId ?? undefined}
+          tabId={undefined}
           variant={item.variant as 'month' | 'week' | 'day' | 'full' | undefined}
         />
       </div>

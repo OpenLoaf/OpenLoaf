@@ -15,7 +15,7 @@ import { ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@openloaf/ui/button";
 import { StackHeader } from "@/components/layout/StackHeader";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { fetchBlobFromUri, isPreviewTooLargeError } from "@/lib/image/uri";
 import { resolveFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
@@ -61,7 +61,7 @@ export default function PdfViewer({
   } | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1.1);
-  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
+  const removeStackItem = useLayoutState((s) => s.removeStackItem);
   const zoomFrameRef = useRef<number | null>(null);
   const pendingScaleRef = useRef(scale);
 
@@ -173,7 +173,7 @@ export default function PdfViewer({
       onClose={
         canClose
           ? () => {
-              removeStackItem(tabId!, panelKey!);
+              removeStackItem(panelKey!);
             }
           : undefined
       }

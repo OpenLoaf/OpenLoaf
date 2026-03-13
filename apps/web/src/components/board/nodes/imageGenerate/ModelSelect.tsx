@@ -49,9 +49,8 @@ export function ModelSelect({
         type="button"
         disabled={isLoginBusy}
         className={[
-          "flex h-7 w-full items-center justify-between rounded-full border border-[#dadce0] bg-[#f8f9fa] px-3 text-[11px] text-slate-500",
-          "hover:bg-[#e8eaed] disabled:cursor-not-allowed disabled:opacity-60",
-          "dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60",
+          "flex h-7 w-full items-center justify-between rounded-full border border-ol-divider bg-ol-surface-muted px-3 text-[11px] text-ol-text-auxiliary",
+          "hover:bg-ol-divider disabled:cursor-not-allowed disabled:opacity-60",
         ].join(" ")}
         onPointerDown={(event) => {
           event.stopPropagation();
@@ -82,9 +81,8 @@ export function ModelSelect({
           type="button"
           disabled={candidates.length === 0 || disabled}
           className={[
-            "flex h-7 w-full items-center justify-between rounded-full border border-[#dadce0] bg-[#f8f9fa] px-2 text-[11px] text-slate-600",
-            "hover:bg-[#e8eaed] disabled:cursor-not-allowed disabled:opacity-60",
-            "dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-700/60",
+            "flex h-7 w-full items-center justify-between rounded-full border border-ol-divider bg-ol-surface-muted px-2 text-[11px] text-ol-text-secondary",
+            "hover:bg-ol-divider disabled:cursor-not-allowed disabled:opacity-60",
           ].join(" ")}
           onPointerDown={(event) => {
             event.stopPropagation();
@@ -101,10 +99,10 @@ export function ModelSelect({
         side="bottom"
         align="start"
         sideOffset={4}
-        className="w-[var(--radix-popover-trigger-width)] max-h-40 overflow-auto rounded-md border border-[#e3e8ef] bg-white p-1 text-[11px] text-slate-700 shadow-none backdrop-blur-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        className="w-[var(--radix-popover-trigger-width)] max-h-40 overflow-auto rounded-md border border-ol-divider bg-background p-1 text-[11px] text-ol-text-secondary shadow-none backdrop-blur-none"
       >
         {candidates.length === 0 ? (
-          <div className="px-2 py-1.5 text-[12px] text-slate-500 dark:text-slate-400">
+          <div className="px-2 py-1.5 text-[12px] text-ol-text-auxiliary">
             {t('imageGenerate.modelSelect.noModel')}
           </div>
         ) : (
@@ -114,10 +112,10 @@ export function ModelSelect({
               type="button"
               className={[
                 "flex w-full items-center rounded px-2 py-1.5 text-left text-[11px]",
-                "hover:bg-[#f1f3f4] dark:hover:bg-slate-800",
+                "hover:bg-ol-surface-muted",
                 option.id === effectiveModelId
-                  ? "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50"
-                  : "text-slate-700 dark:text-slate-200",
+                  ? "bg-ol-blue-bg-hover text-ol-blue"
+                  : "text-ol-text-secondary",
               ].join(" ")}
               onClick={() => {
                 onSelectModel(option.id);

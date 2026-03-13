@@ -12,8 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { PROJECT_LIST_TAB_INPUT } from "@openloaf/api/common";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabView } from "@/hooks/use-tab-view";
+import { useAppState } from "@/hooks/use-app-state";
 import {
   applyProjectShellToTab,
   type ProjectShellSection,
@@ -42,17 +41,17 @@ const ACTIVE_CLASS =
 
 const ITEM_CLASS = {
   back:
-    `group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-sky-700/70 dark:[&>svg]:text-sky-300/70 hover:[&>svg]:text-sky-700 dark:hover:[&>svg]:text-sky-200 ${ACTIVE_CLASS}`,
+    `group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-ol-blue/70 hover:[&>svg]:text-ol-blue ${ACTIVE_CLASS}`,
   assistant:
-    `group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-amber-700/70 dark:[&>svg]:text-amber-300/70 hover:[&>svg]:text-amber-700 dark:hover:[&>svg]:text-amber-200 ${ACTIVE_CLASS}`,
+    `group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-ol-amber/70 hover:[&>svg]:text-ol-amber ${ACTIVE_CLASS}`,
   canvas:
-    `group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-violet-700/70 dark:[&>svg]:text-violet-300/70 hover:[&>svg]:text-violet-700 dark:hover:[&>svg]:text-violet-200 ${ACTIVE_CLASS}`,
+    `group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-ol-purple/70 hover:[&>svg]:text-ol-purple ${ACTIVE_CLASS}`,
   index:
-    `group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-emerald-700/70 dark:[&>svg]:text-emerald-300/70 hover:[&>svg]:text-emerald-700 dark:hover:[&>svg]:text-emerald-200 ${ACTIVE_CLASS}`,
+    `group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-ol-green/70 hover:[&>svg]:text-ol-green ${ACTIVE_CLASS}`,
   files:
-    `group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-cyan-700/70 dark:[&>svg]:text-cyan-300/70 hover:[&>svg]:text-cyan-700 dark:hover:[&>svg]:text-cyan-200 ${ACTIVE_CLASS}`,
+    `group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-ol-blue/70 hover:[&>svg]:text-ol-blue ${ACTIVE_CLASS}`,
   settings:
-    `group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-slate-700/70 dark:[&>svg]:text-slate-300/70 hover:[&>svg]:text-slate-700 dark:hover:[&>svg]:text-slate-200 ${ACTIVE_CLASS}`,
+    `group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-ol-text-auxiliary/70 hover:[&>svg]:text-ol-text-auxiliary ${ACTIVE_CLASS}`,
   history:
     `group/menu-item sidebar-menu-icon-tilt text-sidebar-foreground/80 [&>svg]:text-rose-700/70 dark:[&>svg]:text-rose-300/70 hover:[&>svg]:text-rose-700 dark:hover:[&>svg]:text-rose-200 ${ACTIVE_CLASS}`,
 } as const;
@@ -74,7 +73,7 @@ const FILE_FOREGROUND_COMPONENTS = new Set([
 /** Resolve the current project-shell section from the active tab view. */
 function resolveActiveProjectSection(
   projectShell: ProjectShellState,
-  activeTab: ReturnType<typeof useTabView>,
+  activeTab: { base?: { component?: string; params?: Record<string, unknown> }; stack?: Array<{ id: string; component: string }>; activeStackItemId?: string },
 ): ProjectShellSection {
   const foregroundComponent =
     activeTab?.stack?.find((item) => item.id === activeTab.activeStackItemId)?.component ??
@@ -119,12 +118,11 @@ export function ProjectSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
 export function ProjectSidebarContent() {
   const { t } = useTranslation(["nav", "settings"]);
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const activeTab = useTabView(activeTabId ?? undefined);
+  const activeTab = useAppState();
   const { data: projects = [] } = useProjects();
   const projectShell = React.useMemo(
-    () => resolveProjectModeProjectShell(activeTab?.projectShell),
-    [activeTab?.projectShell],
+    () => resolveProjectModeProjectShell(activeTab.projectShell),
+    [activeTab.projectShell],
   );
   const projectWindowMode = isProjectWindowMode();
   const projectHierarchy = React.useMemo(
@@ -144,23 +142,22 @@ export function ProjectSidebarContent() {
 
   const handleSelectSection = React.useCallback(
     (section: ProjectShellSection) => {
-      if (!activeTabId || !projectShell) return;
-      applyProjectShellToTab(activeTabId, {
+      if (!projectShell) return;
+      applyProjectShellToTab("main", {
         ...projectShell,
         section,
       });
     },
-    [activeTabId, projectShell],
+    [projectShell],
   );
 
   const handleBack = React.useCallback(() => {
-    if (!activeTabId) return;
     exitProjectShellToProjectList(
-      activeTabId,
+      "main",
       t("sidebarProjectSpace"),
       PROJECT_LIST_TAB_INPUT.icon,
     );
-  }, [activeTabId, t]);
+  }, [t]);
 
   if (!projectShell) return null;
 

@@ -20,7 +20,7 @@ export const ModeToggle = () => {
     <Tooltip>
       <TooltipTrigger asChild>
         <AnimatedThemeToggle
-          className="h-8 w-8 rounded-full px-0 text-[#1a73e8] hover:bg-[#e8f0fe] hover:text-[#1765cc] dark:text-sky-300 dark:hover:bg-[hsl(var(--muted)/0.46)] dark:hover:text-sky-200"
+          className="h-8 w-8 rounded-full px-0 text-ol-blue hover:bg-ol-blue-bg hover:text-ol-blue"
         />
       </TooltipTrigger>
       <TooltipContent side="bottom" sideOffset={6}>

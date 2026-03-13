@@ -12,8 +12,7 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { FolderOpen, LayoutGrid } from 'lucide-react'
-import { useTabRuntime } from '@/hooks/use-tab-runtime'
-import { useTabs } from '@/hooks/use-tabs'
+import { useLayoutState } from '@/hooks/use-layout-state'
 import { useProject } from '@/hooks/use-project'
 import {
   DESKTOP_WIDGET_SELECTED_EVENT,
@@ -45,9 +44,9 @@ export default function WidgetTool({
   part: AnyToolPart
   className?: string
 }) {
-  const { tabId, projectId } = useChatSession()
+  const { projectId } = useChatSession()
   const projectQuery = useProject(projectId)
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem)
+  const pushStackItem = useLayoutState((s) => s.pushStackItem)
   const input = normalizeToolInput(part.input)
   const inputObj = asPlainObject(input)
 
@@ -92,7 +91,6 @@ export default function WidgetTool({
         : 'idle' as const
 
   const handleOpenWidget = () => {
-    if (!tabId) return
     const widgetFolderUri = resolveWidgetFolderUri({
       outputJson,
       widgetId,
@@ -100,7 +98,7 @@ export default function WidgetTool({
     })
     if (!widgetFolderUri) return
     const mainFileUri = resolveWidgetMainFileUri(widgetFolderUri)
-    pushStackItem(tabId, {
+    pushStackItem({
       id: `widget:${widgetId}`,
       sourceKey: `widget:${widgetId}`,
       component: 'folder-tree-preview',
@@ -117,25 +115,17 @@ export default function WidgetTool({
   }
 
   const handleAddToDesktop = () => {
-    const runtimeByTabId = useTabRuntime.getState().runtimeByTabId
-    let desktopTabId: string | null = null
-    for (const [tid, runtime] of Object.entries(runtimeByTabId)) {
-      if (runtime?.base?.component === 'global-desktop') {
-        desktopTabId = tid
-        break
-      }
-    }
-    if (!desktopTabId) return
+    const layoutBase = useLayoutState.getState().base
+    const isDesktop = layoutBase?.component === 'global-desktop'
+    if (!isDesktop) return
 
-    useTabs.getState().setActiveTab(desktopTabId)
-    const targetTabId = desktopTabId
     requestAnimationFrame(() => {
       window.dispatchEvent(
         new CustomEvent<DesktopWidgetSelectedDetail>(
           DESKTOP_WIDGET_SELECTED_EVENT,
           {
             detail: {
-              tabId: targetTabId,
+              tabId: '',
               widgetKey: 'dynamic',
               title: displayTitle,
               dynamicWidgetId: widgetId,
@@ -155,7 +145,7 @@ export default function WidgetTool({
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-lg border bg-card text-card-foreground">
+      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
         {/* macOS 风格标题栏 */}
         <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
           <TrafficLights state={windowState} />
@@ -172,8 +162,8 @@ export default function WidgetTool({
         {/* 命令区域 — widgetId */}
         <div className="border-b bg-muted/20 px-3 py-2">
           <div className="flex items-center gap-2 font-mono text-xs">
-            <span className="text-emerald-500">$</span>
-            <span className="flex-1 break-all text-amber-700 dark:text-amber-400">
+            <span className="text-ol-green">$</span>
+            <span className="flex-1 break-all text-ol-amber">
               {widgetId}
             </span>
           </div>
@@ -210,7 +200,7 @@ export default function WidgetTool({
           <div className="flex items-center justify-end gap-2 border-t px-3 py-2">
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-500/20 dark:text-sky-400"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ol-blue/10 px-2.5 py-1 text-xs font-medium text-ol-blue hover:bg-ol-blue/20"
               onClick={handleOpenWidget}
             >
               <FolderOpen className="size-3.5" />
@@ -218,7 +208,7 @@ export default function WidgetTool({
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md bg-violet-500/10 px-2.5 py-1 text-xs font-medium text-violet-700 hover:bg-violet-500/20 dark:text-violet-400"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ol-purple/10 px-2.5 py-1 text-xs font-medium text-ol-purple hover:bg-ol-purple/20"
               onClick={handleAddToDesktop}
             >
               <LayoutGrid className="size-3.5" />

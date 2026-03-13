@@ -123,12 +123,12 @@ export type FileSystemContextMenuProps = {
 };
 
 const FILESYSTEM_MENU_ICON_CLASS = {
-  info: "text-[#1a73e8] dark:text-sky-300",
-  success: "text-[#188038] dark:text-emerald-300",
-  warning: "text-[#f9ab00] dark:text-amber-300",
-  danger: "text-[#d93025] dark:text-red-300",
-  accent: "text-[#9334e6] dark:text-violet-300",
-  neutral: "text-[#5f6368] dark:text-slate-400",
+  info: "text-ol-blue",
+  success: "text-ol-green",
+  warning: "text-ol-amber",
+  danger: "text-ol-red",
+  accent: "text-ol-purple",
+  neutral: "text-ol-text-auxiliary",
 } as const;
 
 /** Render context menu content for the file system grid. */

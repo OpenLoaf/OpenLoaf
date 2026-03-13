@@ -168,16 +168,19 @@ View 按钮不需要语义色彩，保持低调以突出 Action 按钮。
 
 Action 按钮的颜色由操作语义决定，**禁止所有按钮都用无色 ghost**：
 
-| 语义       | 色系    | 样式                                                                                          |
-|-----------|---------|----------------------------------------------------------------------------------------------|
-| 主操作     | sky     | `rounded-full bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none`   |
-| 危险操作   | red     | `rounded-full bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:text-red-400 shadow-none`   |
-| 确认/成功  | emerald | `rounded-full bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400 shadow-none` |
-| 调试/代码  | violet  | `rounded-full bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 dark:text-violet-400 shadow-none` |
-| 测试/实验  | amber   | `rounded-full bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400 shadow-none` |
-| 文档/帮助  | teal    | `rounded-full bg-teal-500/10 text-teal-600 hover:bg-teal-500/20 dark:text-teal-400 shadow-none` |
-| 中性操作   | slate   | `rounded-full bg-slate-500/10 text-slate-600 hover:bg-slate-500/20 dark:text-slate-400 shadow-none` |
-| 次要操作   | —       | `variant=”outline”` 或 `variant=”ghost”`，同组内至少一个按钮带色                                  |
+| 语义       | 令牌    | 用法                                                                           |
+|-----------|---------|-------------------------------------------------------------------------------|
+| 主操作     | blue    | `rounded-full bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none` |
+| 危险操作   | red     | `rounded-full bg-ol-red-bg text-ol-red hover:bg-ol-red-bg-hover shadow-none`    |
+| 确认/成功  | green   | `rounded-full bg-ol-green-bg text-ol-green hover:bg-ol-green-bg-hover shadow-none` |
+| 调试/代码  | purple  | `rounded-full bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover shadow-none` |
+| 测试/实验  | amber   | `rounded-full bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover shadow-none` |
+| 中性操作   | neutral | `rounded-full bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none` |
+| 次要操作   | —       | `variant=”outline”` 或 `variant=”ghost”`，同组内至少一个按钮带色                    |
+
+也可直接使用 `semantic-tokens.ts` 中的预组合常量（如 `OL_BLUE.button`）。
+
+**完整令牌定义**见 `apps/web/src/index.css`（CSS 变量）和 `apps/web/src/styles/semantic-tokens.ts`（TS 常量）。
 
 ### 按钮通用公式
 
@@ -243,16 +246,18 @@ Dialog 内所有 Input 统一添加：
 - 内层图标：`h-3 w-3`
 - 背景色与前景色使用语义扁平色（与按钮色系一致）
 
-语义色彩映射示例：
+语义色彩映射（使用 `ol-*` 设计令牌，自动适配 light/dark）：
 
-| 语义         | bg                  | fg                                  |
-|-------------|---------------------|-------------------------------------|
-| 版本/信息    | `bg-sky-500/10`     | `text-sky-600 dark:text-sky-400`    |
-| 安全/许可    | `bg-emerald-500/10` | `text-emerald-600 dark:text-emerald-400` |
-| 调试/代码    | `bg-violet-500/10`  | `text-violet-600 dark:text-violet-400` |
-| 警告/实验    | `bg-amber-500/10`   | `text-amber-600 dark:text-amber-400` |
-| 危险/删除    | `bg-red-500/10`     | `text-red-600 dark:text-red-400`    |
-| 中性/系统    | `bg-slate-500/10`   | `text-slate-600 dark:text-slate-400` |
+| 语义         | bg                 | fg                |
+|-------------|--------------------|--------------------|
+| 版本/信息    | `bg-ol-blue/10`    | `text-ol-blue`     |
+| 安全/许可    | `bg-ol-green/10`   | `text-ol-green`    |
+| 调试/代码    | `bg-ol-purple/10`  | `text-ol-purple`   |
+| 警告/实验    | `bg-ol-amber/10`   | `text-ol-amber`    |
+| 危险/删除    | `bg-ol-red/10`     | `text-ol-red`      |
+| 中性/系统    | `bg-ol-surface-muted` | `text-ol-text-auxiliary` |
+
+令牌自动切换 light/dark 模式，无需 `dark:` 前缀。
 
 ### Settings 行布局
 

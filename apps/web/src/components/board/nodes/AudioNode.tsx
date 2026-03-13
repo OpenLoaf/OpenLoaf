@@ -146,8 +146,7 @@ export function AudioNodeView({
       <div
         className={[
           "flex h-full w-full flex-col rounded-xl border box-border",
-          "border-neutral-200/80 bg-white text-neutral-800",
-          "dark:border-neutral-700/60 dark:bg-neutral-900 dark:text-neutral-100",
+          "border-ol-divider bg-background text-ol-text-primary",
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
@@ -156,7 +155,7 @@ export function AudioNodeView({
       >
         {/* Header: icon + name + duration */}
         <div className="flex items-center gap-2.5 px-3 pt-2.5 pb-1.5">
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-ol-amber-bg text-ol-amber">
             <Music className="h-4 w-4" />
           </div>
           <div className="flex min-w-0 flex-1 flex-col">
@@ -164,7 +163,7 @@ export function AudioNodeView({
               {displayName}
             </span>
             {durationText ? (
-              <span className="text-[10px] text-neutral-400 dark:text-neutral-500">
+              <span className="text-[10px] text-muted-foreground">
                 {durationText}
               </span>
             ) : null}
@@ -188,7 +187,7 @@ export function AudioNodeView({
               src={audioSrc}
             />
           ) : (
-            <div className="flex h-8 w-full items-center justify-center text-[10px] text-neutral-400 dark:text-neutral-500">
+            <div className="flex h-8 w-full items-center justify-center text-[10px] text-muted-foreground">
               {i18next.t("board:audioNode.noSource")}
             </div>
           )}

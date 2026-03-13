@@ -85,15 +85,15 @@ export default function ApprovalModeSelector({
               className={cn(
                 "absolute top-[3px] bottom-[3px] w-[26px] rounded-full transition-all duration-200",
                 isManual
-                  ? "left-[3px] bg-blue-500/15 dark:bg-blue-500/20"
-                  : "right-[3px] left-auto bg-amber-500/15 dark:bg-amber-500/20",
+                  ? "left-[3px] bg-ol-blue/15"
+                  : "right-[3px] left-auto bg-ol-amber/15",
               )}
             />
             <span
               className={cn(
                 "relative z-10 inline-flex h-[26px] w-[26px] items-center justify-center transition-colors",
                 isManual
-                  ? "text-blue-600 dark:text-blue-300"
+                  ? "text-ol-blue"
                   : "text-muted-foreground",
               )}
             >
@@ -103,7 +103,7 @@ export default function ApprovalModeSelector({
               className={cn(
                 "relative z-10 inline-flex h-[26px] w-[26px] items-center justify-center transition-colors",
                 !isManual
-                  ? "text-amber-600 dark:text-amber-300"
+                  ? "text-ol-amber"
                   : "text-muted-foreground",
               )}
             >
@@ -129,7 +129,7 @@ export default function ApprovalModeSelector({
           <AlertDialogFooter>
             <AlertDialogCancel>{t('approval.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
+              className="bg-ol-amber text-white hover:bg-ol-amber/90"
               onClick={() => onChange("auto")}
             >
               {t('approval.confirmEnable')}

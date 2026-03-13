@@ -27,8 +27,7 @@ import {
   serializeDesktopItems,
 } from "@/components/desktop/desktop-persistence";
 import { queryClient, trpc } from "@/utils/trpc";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
 import { useProjectStorageRootUri } from "@/hooks/use-project-storage-root-uri";
 
@@ -48,10 +47,8 @@ const GlobalDesktop = React.memo(function GlobalDesktop({
   tabId?: string;
 }) {
   const globalRootUri = useProjectStorageRootUri() ?? "";
-  const globalActiveTabId = useTabs((state) => state.activeTabId);
-  const activeTabId = ownTabId || globalActiveTabId;
-  const setTabBaseParams = useTabRuntime((state) => state.setTabBaseParams);
-  const pushStackItem = useTabRuntime((state) => state.pushStackItem);
+  const setBaseParams = useLayoutState((state) => state.setBaseParams);
+  const pushStackItem = useLayoutState((state) => state.pushStackItem);
   const [items, setItems] = React.useState<DesktopItem[]>(() =>
     ensureLayoutByBreakpoint(getInitialDesktopItems("global"))
   );
@@ -69,7 +66,7 @@ const GlobalDesktop = React.memo(function GlobalDesktop({
     suspended: false,
   });
   const headerActionsTarget = useHeaderSlot((s) => s.headerActionsTarget);
-  const isActiveTab = !ownTabId || globalActiveTabId === ownTabId;
+  const isActiveTab = true;
   const loadedUriRef = React.useRef<string | null>(null);
   const saveDesktopMutation = useMutation(trpc.fs.writeFile.mutationOptions());
 
@@ -110,12 +107,10 @@ const GlobalDesktop = React.memo(function GlobalDesktop({
   }, [desktopFileUri]);
 
   React.useEffect(() => {
-    // 逻辑：同步全局桌面上下文到自身 tab 的 base 参数，供桌面组件读取。
-    // 使用 ownTabId 而非全局 activeTabId，避免切换 tab 时覆盖其他 tab 的 rootUri。
-    if (!ownTabId) return;
+    // 逻辑：同步全局桌面上下文到 base 参数，供桌面组件读取。
     if (!globalRootUri) return;
-    setTabBaseParams(ownTabId, { rootUri: globalRootUri });
-  }, [globalRootUri, ownTabId, setTabBaseParams]);
+    setBaseParams({ rootUri: globalRootUri });
+  }, [globalRootUri, setBaseParams]);
 
   /** Update edit mode state. */
   const handleSetEditMode = React.useCallback(
@@ -234,14 +229,13 @@ const GlobalDesktop = React.memo(function GlobalDesktop({
 
   /** Open the desktop widget library stack panel. */
   const handleOpenWidgetLibrary = React.useCallback(() => {
-    if (!activeTabId) return;
-    pushStackItem(activeTabId, {
+    pushStackItem({
       id: "desktop-widget-library",
       sourceKey: "desktop-widget-library",
       component: "desktop-widget-library",
       title: "组件库",
     });
-  }, [activeTabId, pushStackItem]);
+  }, [pushStackItem]);
 
   React.useEffect(() => {
     if (!editMode) {

@@ -14,8 +14,8 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { BROWSER_WINDOW_PANEL_ID, type BrowserTab } from "@openloaf/api/common";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { upsertTabSnapshotNow } from "@/lib/tab-snapshot";
 import { StackHeader } from "@/components/layout/StackHeader";
@@ -72,16 +72,9 @@ export default function ElectrronBrowserWindow({
 }: ElectrronBrowserWindowProps) {
   const tabActive = useTabActive();
   const safeTabId = typeof tabId === "string" ? tabId : undefined;
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const runtimeStack = useTabRuntime((s) =>
-    safeTabId ? s.runtimeByTabId[safeTabId]?.stack : undefined,
-  );
-  const runtimeActiveStackId = useTabRuntime((s) =>
-    safeTabId ? s.runtimeByTabId[safeTabId]?.activeStackItemId : undefined,
-  );
-  const stackHidden = useTabRuntime((s) =>
-    safeTabId ? Boolean(s.runtimeByTabId[safeTabId]?.stackHidden) : false,
-  );
+  const runtimeStack = useLayoutState((s) => s.stack);
+  const runtimeActiveStackId = useLayoutState((s) => s.activeStackItemId);
+  const stackHidden = useLayoutState((s) => Boolean(s.stackHidden));
   const stack = Array.isArray(runtimeStack) ? runtimeStack : [];
   const activeStackItemId =
     typeof runtimeActiveStackId === "string" ? runtimeActiveStackId : "";
@@ -97,12 +90,11 @@ export default function ElectrronBrowserWindow({
 
   const coveredByAnotherStackItem = useMemo(() => {
     if (!safeTabId) return false;
-    if (activeTabId !== safeTabId) return false;
     if (!stack.some((item) => item.id === panelKey)) return false;
 
     const activeStackId = activeStackItemId || stack.at(-1)?.id || "";
     return Boolean(activeStackId) && activeStackId !== panelKey;
-  }, [activeStackItemId, activeTabId, panelKey, safeTabId, stack]);
+  }, [activeStackItemId, panelKey, safeTabId, stack]);
   const [loading, setLoading] = useState(true);
   const [overlayBlocked, setOverlayBlocked] = useState(false);
   const overlayBlockedRef = useRef(false);
@@ -166,8 +158,7 @@ export default function ElectrronBrowserWindow({
 
   const buildViewKey = (browserTabId: string) => {
     if (!safeTabId) return `${BROWSER_WINDOW_PANEL_ID}:${browserTabId}`;
-    const tab = useTabs.getState().getTabById(safeTabId);
-    const chatSessionId = tab?.chatSessionId ?? "unknown";
+    const chatSessionId = useAppView.getState().chatSessionId ?? "unknown";
     return `browser:${safeTabId}:${chatSessionId}:${browserTabId}`;
   };
 
@@ -206,8 +197,8 @@ export default function ElectrronBrowserWindow({
     // 立即更新运行时引用，避免并发事件把已关闭的标签重新写回。
     const normalizedTabs = Array.isArray(nextTabs) ? nextTabs : [];
     tabsRef.current = normalizedTabs;
-    // 浏览器面板内的状态（tabs/active）统一写回到 tab.stack，作为单一事实来源。
-    useTabRuntime.getState().setBrowserTabs(safeTabId, normalizedTabs, nextActiveId);
+    // 浏览器面板内的状态（tabs/active）统一写回到 layout stack，作为单一事实来源。
+    useLayoutState.getState().setBrowserTabs(normalizedTabs, nextActiveId);
   };
 
   useEffect(() => {
@@ -261,7 +252,7 @@ export default function ElectrronBrowserWindow({
       );
       updateBrowserState(nextTabs, activeId);
 
-      const sessionId = useTabs.getState().getTabById(safeTabId)?.chatSessionId;
+      const sessionId = useAppView.getState().chatSessionId;
       if (sessionId) void upsertTabSnapshotNow({ sessionId, tabId: safeTabId });
     })();
 
@@ -745,18 +736,16 @@ export default function ElectrronBrowserWindow({
       lastSentByKeyRef.current.clear();
     }
 
-    useTabRuntime.getState().removeStackItem(safeTabId, panelKey);
+    useLayoutState.getState().removeStackItem(panelKey);
   };
 
   const onRefreshPanel = () => {
     if (!safeTabId) return;
-    const state = useTabRuntime.getState();
-    const runtime = state.runtimeByTabId[safeTabId];
-    const item = runtime?.stack?.find((x) => x.id === panelKey);
+    const layoutState = useLayoutState.getState();
+    const item = layoutState.stack?.find((x) => x.id === panelKey);
     if (!item) return;
     const current = Number((item.params as any)?.__refreshKey ?? 0);
-    state.pushStackItem(
-      safeTabId,
+    layoutState.pushStackItem(
       { ...item, params: { ...(item.params ?? {}), __refreshKey: current + 1 } } as any,
       70,
     );

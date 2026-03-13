@@ -11,7 +11,7 @@
 
 import type { UIMessage } from "@ai-sdk/react";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { extractPatchFileInfo } from "@/lib/chat/patch-utils";
 import { isHiddenToolPart } from "@/lib/chat/message-parts";
 
@@ -60,17 +60,17 @@ export function syncToolPartsFromMessages({
         const input = part?.input;
         const patchText = typeof input?.patch === "string" ? input.patch : "";
         const { fileName, firstPath } = extractPatchFileInfo(patchText);
-        const baseParams = useTabRuntime.getState().runtimeByTabId[tabId]?.base?.params as Record<string, unknown> | undefined;
+        const baseParams = useLayoutState.getState().base?.params as Record<string, unknown> | undefined;
         const projectId = typeof baseParams?.projectId === "string" ? baseParams.projectId : undefined;
 
         if (firstPath && writeFileStackByPath.has(firstPath)) {
           // 逻辑：同文件已有 stack → 追加 toolCallId 到已有 stack 的 toolCallIds[]。
           const existingStackId = writeFileStackByPath.get(firstPath)!;
-          const rt = useTabRuntime.getState().runtimeByTabId[tabId];
-          const item = rt?.stack?.find((s: any) => s.id === existingStackId);
+          const layoutState = useLayoutState.getState();
+          const item = layoutState.stack?.find((s: any) => s.id === existingStackId);
           const ids = (item?.params?.toolCallIds as string[]) ?? [];
           if (!ids.includes(toolKey)) {
-            useTabRuntime.getState().setStackItemParams(tabId, existingStackId, {
+            useLayoutState.getState().setStackItemParams(existingStackId, {
               toolCallIds: [...ids, toolKey],
               __isStreaming: true,
             });
@@ -79,7 +79,7 @@ export function syncToolPartsFromMessages({
         } else {
           // 逻辑：新文件 → 创建新 stack，params 用 toolCallIds 数组。
           const stackId = `streaming-write:${toolKey}`;
-          useTabRuntime.getState().pushStackItem(tabId, {
+          useLayoutState.getState().pushStackItem({
             id: stackId,
             sourceKey: stackId,
             component: "streaming-code-viewer",
@@ -104,23 +104,23 @@ export function syncToolPartsFromMessages({
 
           if (existingStackId && existingStackId !== myStackId && myStackId) {
             // 逻辑：路径对应的 stack 已存在且不是当前 stack → 合并。
-            const rt = useTabRuntime.getState().runtimeByTabId[tabId];
-            const targetItem = rt?.stack?.find((s: any) => s.id === existingStackId);
+            const layoutState = useLayoutState.getState();
+            const targetItem = layoutState.stack?.find((s: any) => s.id === existingStackId);
             const targetIds = (targetItem?.params?.toolCallIds as string[]) ?? [];
             if (!targetIds.includes(toolKey)) {
-              useTabRuntime.getState().setStackItemParams(tabId, existingStackId, {
+              useLayoutState.getState().setStackItemParams(existingStackId, {
                 toolCallIds: [...targetIds, toolKey],
                 __isStreaming: true,
               });
             }
             // 逻辑：从旧 stack 移除此 toolCallId，若为空则删除整个 stack。
-            const oldItem = rt?.stack?.find((s: any) => s.id === myStackId);
+            const oldItem = layoutState.stack?.find((s: any) => s.id === myStackId);
             const oldIds = (oldItem?.params?.toolCallIds as string[]) ?? [];
             const remaining = oldIds.filter((id: string) => id !== toolKey);
             if (remaining.length === 0) {
-              useTabRuntime.getState().removeStackItem(tabId, myStackId);
+              useLayoutState.getState().removeStackItem(myStackId);
             } else {
-              useTabRuntime.getState().setStackItemParams(tabId, myStackId, {
+              useLayoutState.getState().setStackItemParams(myStackId, {
                 toolCallIds: remaining,
               });
             }
@@ -128,12 +128,12 @@ export function syncToolPartsFromMessages({
           } else if (!existingStackId && myStackId) {
             // 逻辑：首次看到此路径 → 记录并更新标题。
             writeFileStackByPath.set(firstPath, myStackId);
-            const rt = useTabRuntime.getState().runtimeByTabId[tabId];
-            const item = rt?.stack?.find((s: any) => s.id === myStackId);
+            const layoutState2 = useLayoutState.getState();
+            const item = layoutState2.stack?.find((s: any) => s.id === myStackId);
             if (item && item.title !== fileName) {
-              const bp2 = useTabRuntime.getState().runtimeByTabId[tabId]?.base?.params as Record<string, unknown> | undefined;
+              const bp2 = layoutState2.base?.params as Record<string, unknown> | undefined;
               const pId = typeof bp2?.projectId === "string" ? bp2.projectId : undefined;
-              useTabRuntime.getState().pushStackItem(tabId, {
+              useLayoutState.getState().pushStackItem({
                 id: myStackId,
                 sourceKey: myStackId,
                 component: "streaming-code-viewer",
@@ -152,8 +152,8 @@ export function syncToolPartsFromMessages({
       ) {
         const myStackId = toolCallIdToStackId.get(toolKey);
         if (myStackId) {
-          const rt = useTabRuntime.getState().runtimeByTabId[tabId];
-          const item = rt?.stack?.find((s: any) => s.id === myStackId);
+          const layoutState3 = useLayoutState.getState();
+          const item = layoutState3.stack?.find((s: any) => s.id === myStackId);
           const allIds = (item?.params?.toolCallIds as string[]) ?? [];
           const allDone = allIds.every((id: string) => {
             const tp = useChatRuntime.getState().toolPartsByTabId[tabId]?.[id];
@@ -161,7 +161,7 @@ export function syncToolPartsFromMessages({
             return st === "input-available" || st === "output-available" || st === "output-error";
           });
           if (allDone) {
-            useTabRuntime.getState().setStackItemParams(tabId, myStackId, {
+            useLayoutState.getState().setStackItemParams(myStackId, {
               __isStreaming: false,
             });
           }
@@ -179,12 +179,12 @@ export function syncToolPartsFromMessages({
         const editInput = part?.input;
         const editPath = typeof editInput?.path === "string" ? editInput.path : "";
         const editFileName = editPath ? (editPath.split("/").pop() || editPath) : "";
-        useTabRuntime.getState().pushStackItem(tabId, {
+        useLayoutState.getState().pushStackItem({
           id: `streaming-edit-doc:${toolKey}`,
           sourceKey: `streaming-edit-doc:${toolKey}`,
           component: "streaming-plate-viewer",
           title: editFileName || "编辑文稿...",
-          params: { toolCallId: toolKey, tabId, __isStreaming: true },
+          params: { toolCallId: toolKey, __isStreaming: true },
         });
       }
       // 逻辑：edit-document path 可能在后续 delta 中才解析出来，更新标题。
@@ -196,17 +196,17 @@ export function syncToolPartsFromMessages({
         const editPath = String(part.input.path);
         const editFileName = editPath.split("/").pop() || editPath;
         const editStackId = `streaming-edit-doc:${toolKey}`;
-        const editRuntime = useTabRuntime.getState().runtimeByTabId[tabId];
-        const editExisting = editRuntime?.stack?.find(
+        const editLayoutState = useLayoutState.getState();
+        const editExisting = editLayoutState.stack?.find(
           (s: any) => s.id === editStackId || s.sourceKey === editStackId,
         );
         if (editExisting && editExisting.title !== editFileName) {
-          useTabRuntime.getState().pushStackItem(tabId, {
+          useLayoutState.getState().pushStackItem({
             id: editStackId,
             sourceKey: editStackId,
             component: "streaming-plate-viewer",
             title: editFileName,
-            params: { toolCallId: toolKey, tabId, __isStreaming: true },
+            params: { toolCallId: toolKey, __isStreaming: true },
           });
         }
       }
@@ -217,7 +217,7 @@ export function syncToolPartsFromMessages({
         (state === "input-available" || state === "output-available" || state === "output-error")
       ) {
         const editStackId = `streaming-edit-doc:${toolKey}`;
-        useTabRuntime.getState().setStackItemParams(tabId, editStackId, {
+        useLayoutState.getState().setStackItemParams(editStackId, {
           __isStreaming: false,
         });
       }

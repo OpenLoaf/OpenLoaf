@@ -514,7 +514,7 @@ export default function ExcelTool({
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-lg border bg-card text-card-foreground">
+      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
         {/* macOS 风格标题栏（可点击折叠/展开） */}
         <button
           type="button"

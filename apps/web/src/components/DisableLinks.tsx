@@ -11,8 +11,7 @@
 
 import { useEffect } from "react";
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@openloaf/api/common";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { isElectronEnv } from "@/utils/is-electron-env";
 
 export function DisableLinks() {
@@ -42,28 +41,20 @@ export function DisableLinks() {
       e.preventDefault();
       e.stopPropagation();
 
-      const { activeTabId } = useTabs.getState();
-      const { pushStackItem } = useTabRuntime.getState();
+      // Use the text content as title, or fallback to href
+      let title = anchor.textContent?.trim() || href;
+      if (title.length > 50) title = title.substring(0, 47) + "...";
 
-      if (activeTabId) {
-        // Use the text content as title, or fallback to href
-        let title = anchor.textContent?.trim() || href;
-        if (title.length > 50) title = title.substring(0, 47) + "...";
-
-        pushStackItem(
-          activeTabId,
-          {
-            id: BROWSER_WINDOW_PANEL_ID,
-            sourceKey: BROWSER_WINDOW_PANEL_ID,
-            component: BROWSER_WINDOW_COMPONENT,
-            title: title,
-            params: { __customHeader: true, __open: { url: href, title } },
-          } as any,
-          70
-        );
-      } else {
-        console.warn("GlobalLinkHandler: No active tab found to open link.");
-      }
+      useLayoutState.getState().pushStackItem(
+        {
+          id: BROWSER_WINDOW_PANEL_ID,
+          sourceKey: BROWSER_WINDOW_PANEL_ID,
+          component: BROWSER_WINDOW_COMPONENT,
+          title: title,
+          params: { __customHeader: true, __open: { url: href, title } },
+        } as any,
+        70
+      );
     };
 
     document.addEventListener("click", handleClick, true);

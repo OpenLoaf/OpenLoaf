@@ -161,7 +161,7 @@ export function BasicSettings() {
             <OpenLoafSettingsGroup title={t('basicSettings.systemConfig')}>
               <div className="divide-y divide-border/40">
                 <div className="flex flex-wrap items-center gap-2 py-3">
-                  <SettingIcon icon={Languages} bg="bg-sky-500/10" fg="text-sky-600 dark:text-sky-400" />
+                  <SettingIcon icon={Languages} bg="bg-ol-blue-bg" fg="text-ol-blue" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{t('basicSettings.language')}</div>
                     <div className="text-xs text-muted-foreground">
@@ -207,7 +207,7 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 py-3">
-                  <SettingIcon icon={Palette} bg="bg-violet-500/10" fg="text-violet-600 dark:text-violet-400" />
+                  <SettingIcon icon={Palette} bg="bg-ol-purple-bg" fg="text-ol-purple" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{t('basicSettings.theme')}</div>
                     <div className="text-xs text-muted-foreground">
@@ -260,7 +260,7 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 py-3">
-                  <SettingIcon icon={Type} bg="bg-teal-500/10" fg="text-teal-600 dark:text-teal-400" />
+                  <SettingIcon icon={Type} bg="bg-ol-green-bg" fg="text-ol-green" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{t('basicSettings.fontSize')}</div>
                     <div className="text-xs text-muted-foreground">
@@ -286,7 +286,7 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 py-3">
-                  <SettingIcon icon={PanelBottomClose} bg="bg-amber-500/10" fg="text-amber-600 dark:text-amber-400" />
+                  <SettingIcon icon={PanelBottomClose} bg="bg-ol-amber-bg" fg="text-ol-amber" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{t('basicSettings.projectOpenMode')}</div>
                     <div className="text-xs text-muted-foreground">
@@ -321,7 +321,7 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 py-3">
-                  <SettingIcon icon={Sparkles} bg="bg-emerald-500/10" fg="text-emerald-600 dark:text-emerald-400" />
+                  <SettingIcon icon={Sparkles} bg="bg-ol-green-bg" fg="text-ol-green" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{t('basicSettings.animationLevel')}</div>
                     <div className="text-xs text-muted-foreground">
@@ -346,7 +346,7 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 py-3">
-                  <SettingIcon icon={Bell} bg="bg-sky-500/10" fg="text-sky-600 dark:text-sky-400" />
+                  <SettingIcon icon={Bell} bg="bg-ol-blue-bg" fg="text-ol-blue" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{t('basicSettings.notificationSound')}</div>
                     <div className="text-xs text-muted-foreground">
@@ -369,7 +369,7 @@ export function BasicSettings() {
 
                 {isElectron && (
                   <div className="flex flex-wrap items-center gap-2 py-3">
-                    <SettingIcon icon={PanelBottomClose} bg="bg-slate-500/10" fg="text-slate-600 dark:text-slate-400" />
+                    <SettingIcon icon={PanelBottomClose} bg="bg-ol-surface-muted" fg="text-ol-text-auxiliary" />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium">{t('basicSettings.minimizeToTray')}</div>
                       <div className="text-xs text-muted-foreground">

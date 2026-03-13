@@ -28,8 +28,8 @@ import {
 } from "@openloaf/ui/select";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@openloaf/ui/sidebar";
 import { Textarea } from "@openloaf/ui/textarea";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { resolveSaasBaseUrl, getAccessToken } from "@/lib/saas-auth";
 import { isElectronEnv } from "@/utils/is-electron-env";
@@ -62,9 +62,8 @@ function buildDeviceInfo(): { platform?: string; userAgent?: string } | undefine
 /** Sidebar feedback entry with popover form. */
 export function SidebarFeedback() {
   const { t } = useTranslation('nav');
-  const activeTabId = useTabs((state) => state.activeTabId);
-  const tabs = useTabs((state) => state.tabs);
-  const runtimeByTabId = useTabRuntime((state) => state.runtimeByTabId);
+  const appViewState = useAppView();
+  const layoutState = useLayoutState();
   // 登录状态：用于决定是否显示邮箱输入框。
   const { loggedIn: authLoggedIn } = useSaasAuth();
 
@@ -79,18 +78,15 @@ export function SidebarFeedback() {
   // 仅在 Electron 环境下显示日志上传选项。
   const showLogOption = isElectronEnv();
 
-  /** Resolve active tab metadata for context. */
-  const activeTab = React.useMemo(() => {
-    if (!activeTabId) return null;
-    const target = tabs.find((tab) => tab.id === activeTabId) ?? null;
-    return target;
-  }, [activeTabId, tabs]);
+  /** Resolve active view metadata for context. */
+  const activeViewInfo = React.useMemo(() => {
+    return { id: "main", title: appViewState.title };
+  }, [appViewState.title]);
 
-  /** Resolve active runtime params for context. */
+  /** Resolve active layout params for context. */
   const activeParams = React.useMemo(() => {
-    if (!activeTabId) return {};
-    return (runtimeByTabId[activeTabId]?.base?.params ?? {}) as Record<string, unknown>;
-  }, [activeTabId, runtimeByTabId]);
+    return (layoutState.base?.params ?? {}) as Record<string, unknown>;
+  }, [layoutState.base?.params]);
 
   /** Validate optional email input. */
   const isEmailValid = React.useMemo(() => {
@@ -118,8 +114,8 @@ export function SidebarFeedback() {
       env: isElectron ? "electron" : "web",
       device: buildDeviceInfo(),
       appVersion: toOptionalText(appVersion ?? ""),
-      tabId: toOptionalText(activeTab?.id ?? ""),
-      tabTitle: toOptionalText(activeTab?.title ?? ""),
+      tabId: toOptionalText(activeViewInfo.id),
+      tabTitle: toOptionalText(activeViewInfo.title),
       projectId,
       rootUri,
       openUri,
@@ -129,7 +125,7 @@ export function SidebarFeedback() {
     return Object.fromEntries(
       Object.entries(context).filter(([, value]) => value !== undefined && value !== null)
     );
-  }, [activeParams, activeTab]);
+  }, [activeParams, activeViewInfo]);
 
   /** Submit feedback to SaaS. */
   const submitFeedback = React.useCallback(async () => {
@@ -214,8 +210,8 @@ export function SidebarFeedback() {
           <PopoverContent side="top" align="start" className="w-80 p-3 shadow-none">
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-500/15 dark:bg-sky-500/20">
-                  <MessageSquare className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ol-blue-bg">
+                  <MessageSquare className="h-3.5 w-3.5 text-ol-blue" />
                 </div>
                 <span className="text-sm font-medium">{t('sidebar.feedback.title')}</span>
               </div>
@@ -282,7 +278,7 @@ export function SidebarFeedback() {
                 <Button
                   size="sm"
                   type="button"
-                  className="rounded-full bg-sky-500/15 text-sky-600 shadow-none hover:bg-sky-500/25 dark:bg-sky-500/20 dark:text-sky-400 dark:hover:bg-sky-500/30 transition-colors duration-150"
+                  className="rounded-full bg-ol-blue-bg text-ol-blue shadow-none hover:bg-ol-blue-bg-hover transition-colors duration-150"
                   onClick={submitFeedback}
                   disabled={submitting}
                 >

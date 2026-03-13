@@ -37,13 +37,14 @@ const fetchNextPageMock = vi.fn();
 const useInfiniteQueryMock = vi.fn();
 const useIsInViewMock = vi.fn();
 
-const tabsState = {
-  activeTabId: null as string | null,
-  tabs: [] as Array<Record<string, unknown>>,
+const appViewState = {
+  chatSessionId: "",
+  chatParams: {},
+  projectShell: null,
 };
 
-const runtimeState = {
-  runtimeByTabId: {} as Record<string, { base?: { id?: string; component?: string; params?: Record<string, unknown> } }>,
+const layoutState = {
+  base: undefined as { id?: string; component?: string; params?: Record<string, unknown> } | undefined,
 };
 
 vi.mock("react-i18next", () => ({
@@ -89,12 +90,12 @@ vi.mock("@/hooks/use-sidebar-navigation", () => ({
   }),
 }));
 
-vi.mock("@/hooks/use-tabs", () => ({
-  useTabs: (selector: (state: typeof tabsState) => unknown) => selector(tabsState),
+vi.mock("@/hooks/use-app-view", () => ({
+  useAppView: (selector: (state: typeof appViewState) => unknown) => selector(appViewState),
 }));
 
-vi.mock("@/hooks/use-tab-runtime", () => ({
-  useTabRuntime: (selector: (state: typeof runtimeState) => unknown) => selector(runtimeState),
+vi.mock("@/hooks/use-layout-state", () => ({
+  useLayoutState: (selector: (state: typeof layoutState) => unknown) => selector(layoutState),
 }));
 
 vi.mock("@openloaf/ui/sidebar", () => ({

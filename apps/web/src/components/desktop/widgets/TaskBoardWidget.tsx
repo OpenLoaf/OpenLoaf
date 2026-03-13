@@ -17,8 +17,7 @@ import { useTranslation } from "react-i18next";
 
 import { trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 
 type TaskSummary = {
   id: string;
@@ -29,18 +28,16 @@ type TaskSummary = {
 };
 
 const STATUS_DOT: Record<string, string> = {
-  running: "bg-blue-500",
-  review: "bg-amber-500",
-  todo: "bg-slate-400",
-  done: "bg-green-500",
-  cancelled: "bg-red-400",
+  running: "bg-ol-blue",
+  review: "bg-ol-amber",
+  todo: "bg-ol-text-auxiliary",
+  done: "bg-ol-green",
+  cancelled: "bg-ol-red",
 };
 
 /** Compact task board widget for desktop. */
 export default function TaskBoardWidget() {
   const { t } = useTranslation('desktop');
-  const activeTabId = useTabs((s) => s.activeTabId);
-
   const { data: tasks, isLoading } = useQuery(
     trpc.scheduledTask.list.queryOptions(
       {},
@@ -72,17 +69,13 @@ export default function TaskBoardWidget() {
 
   /** Open task board page in stack panel. */
   const handleOpenTaskBoard = React.useCallback(() => {
-    if (!activeTabId) {
-      toast.error(t('content.noTab'));
-      return;
-    }
-    useTabRuntime.getState().pushStackItem(activeTabId, {
+    useLayoutState.getState().pushStackItem({
       id: "scheduled-tasks-page",
       sourceKey: "scheduled-tasks-page",
       component: "scheduled-tasks-page",
       title: t('catalog.task-board'),
     });
-  }, [activeTabId]);
+  }, []);
 
   return (
     <section className="flex h-full min-h-0 flex-col">
@@ -92,16 +85,16 @@ export default function TaskBoardWidget() {
           <div className="text-sm font-semibold text-foreground">{t('catalog.task-board')}</div>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400">
+          <span className="inline-flex items-center gap-1 rounded-full bg-ol-blue/10 px-1.5 py-0.5 text-[10px] font-medium text-ol-blue">
             {counts.running} {t('taskBoard.statusRunning')}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+          <span className="inline-flex items-center gap-1 rounded-full bg-ol-amber/10 px-1.5 py-0.5 text-[10px] font-medium text-ol-amber">
             {counts.review} {t('taskBoard.statusReview')}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-400">
+          <span className="inline-flex items-center gap-1 rounded-full bg-ol-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-ol-text-auxiliary">
             {counts.todo} {t('taskBoard.statusTodo')}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-1.5 py-0.5 text-[10px] font-medium text-green-600 dark:text-green-400">
+          <span className="inline-flex items-center gap-1 rounded-full bg-ol-green/10 px-1.5 py-0.5 text-[10px] font-medium text-ol-green">
             {counts.done} {t('taskBoard.statusDone')}
           </span>
         </div>
@@ -131,12 +124,12 @@ export default function TaskBoardWidget() {
               className="w-full rounded-lg border border-transparent px-2 py-2 text-left transition hover:border-border/50 hover:bg-muted/40"
             >
               <div className="flex items-center gap-2">
-                <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_DOT[task.status] ?? "bg-slate-400")} />
+                <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_DOT[task.status] ?? "bg-ol-text-auxiliary")} />
                 <span className="line-clamp-1 flex-1 text-sm text-foreground">{task.name}</span>
                 {task.priority && task.priority !== "medium" ? (
                   <span className={cn(
                     "shrink-0 text-[10px] font-medium",
-                    task.priority === "urgent" ? "text-red-500" : task.priority === "high" ? "text-orange-500" : "text-slate-400",
+                    task.priority === "urgent" ? "text-ol-red" : task.priority === "high" ? "text-ol-amber" : "text-ol-text-auxiliary",
                   )}>
                     {priorityLabel[task.priority as keyof typeof priorityLabel] ?? task.priority}
                   </span>

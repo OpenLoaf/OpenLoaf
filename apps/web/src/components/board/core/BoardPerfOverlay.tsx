@@ -141,7 +141,7 @@ export function BoardPerfOverlay({ stats, gpuStats }: BoardPerfOverlayProps) {
             </div>
             <div className="mt-0.5 flex items-center justify-between gap-3">
               <span>裁剪节点</span>
-              <span className="font-mono text-emerald-400/60">{stats.culledNodes}</span>
+              <span className="font-mono text-ol-green/60">{stats.culledNodes}</span>
             </div>
             <div className="mt-0.5 flex items-center justify-between gap-3">
               <span>可见率</span>

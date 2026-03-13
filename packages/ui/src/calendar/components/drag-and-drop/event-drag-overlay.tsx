@@ -172,7 +172,7 @@ export const EventDragOverlay = forwardRef<EventDragOverlayHandle, {}>(
 							className={cn(
 								resolveEventColor(
 									activeEvent.event.backgroundColor,
-									'bg-blue-500',
+									'bg-ol-blue',
 									'backgroundColor'
 								).className,
 								resolveEventColor(
@@ -195,7 +195,7 @@ export const EventDragOverlay = forwardRef<EventDragOverlayHandle, {}>(
 							style={{
 								...resolveEventColor(
 									activeEvent.event.backgroundColor,
-									'bg-blue-500',
+									'bg-ol-blue',
 									'backgroundColor'
 								).style,
 								...resolveEventColor(

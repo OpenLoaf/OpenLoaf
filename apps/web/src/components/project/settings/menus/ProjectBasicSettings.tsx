@@ -54,8 +54,8 @@ import {
   getDisplayPathFromUri,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { buildProjectHierarchyIndex, filterProjectTree } from "@/lib/project-tree";
 
 type ProjectBasicSettingsProps = {
@@ -125,9 +125,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
     projectId,
   );
   const project = projectData?.project;
-  const tabs = useTabs((s) => s.tabs);
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const setTabTitle = useTabs((s) => s.setTabTitle);
+  const setTitle = useAppView((s) => s.setTitle);
   /** Track rename dialog open state. */
   const [renameOpen, setRenameOpen] = useState(false);
   /** Track rename draft title. */
@@ -328,11 +326,12 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
     try {
       setRenameBusy(true);
       await updateProject.mutateAsync({ projectId, title: nextTitle });
+      // In single-view mode, update the title if the current base matches this project.
+      const currentBase = useLayoutState.getState().base;
       const baseId = `project:${projectId}`;
-      const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
-      tabs
-        .filter((tab) => runtimeByTabId[tab.id]?.base?.id === baseId)
-        .forEach((tab) => setTabTitle(tab.id, nextTitle));
+      if (currentBase?.id === baseId) {
+        setTitle(nextTitle);
+      }
       toast.success(t("project.renameSuccess"));
       setRenameOpen(false);
     } catch (err: any) {
@@ -340,7 +339,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
     } finally {
       setRenameBusy(false);
     }
-  }, [projectId, renameDraft, project?.title, updateProject, tabs, setTabTitle, t]);
+  }, [projectId, renameDraft, project?.title, updateProject, setTitle, t]);
 
   /** Open the parent picker dialog. */
   const handleOpenParentPicker = useCallback(() => {
@@ -853,7 +852,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
               </Button>
             </DialogClose>
             <Button
-              className="bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none"
+              className="bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20 shadow-none"
               onClick={() => void handleRename()}
               disabled={renameBusy}
             >
@@ -942,7 +941,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
                 void handleConfirmParentMove();
               }}
               disabled={moveParentBusy}
-              className="bg-[#1a73e8] text-white hover:bg-[#1557b0] dark:bg-sky-600 dark:hover:bg-sky-700"
+              className="bg-ol-blue text-white hover:brightness-110"
             >
               {moveParentBusy ? t("project.movingButton") : t("project.confirmMove")}
             </AlertDialogAction>
@@ -998,7 +997,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
                 void handleConfirmMove();
               }}
               disabled={moveBusy}
-              className="bg-[#1a73e8] text-white hover:bg-[#1557b0] dark:bg-sky-600 dark:hover:bg-sky-700"
+              className="bg-ol-blue text-white hover:brightness-110"
             >
               {moveBusy ? t("project.movingButton") : t("project.confirmMove")}
             </AlertDialogAction>

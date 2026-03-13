@@ -24,7 +24,7 @@ import type { ToolbarItem } from "@syncfusion/ej2-documenteditor";
 import DocViewer from "@/components/file/DocViewer";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { Button } from "@openloaf/ui/button";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { hasSyncfusionPublicLicense } from "@/lib/syncfusion-license";
 import { trpc, trpcClient } from "@/utils/trpc";
@@ -140,7 +140,7 @@ function LicensedSyncDocViewer({
   const pendingSfdtRef = useRef<string | null>(null);
   const editorReadyRef = useRef(false);
   const openingDocumentRef = useRef(false);
-  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
+  const removeStackItem = useLayoutState((s) => s.removeStackItem);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const shouldRenderStackHeader = Boolean(tabId && panelKey);
@@ -348,7 +348,7 @@ function LicensedSyncDocViewer({
               const ok = window.confirm(t("file.unsavedDoc"));
               if (!ok) return;
             }
-            removeStackItem(tabId, panelKey);
+            removeStackItem(panelKey);
           }}
         />
       ) : null}

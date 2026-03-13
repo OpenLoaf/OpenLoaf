@@ -17,8 +17,8 @@ import ChatInput from "./input/ChatInput";
 import ChatHeader from "./ChatHeader";
 import { useChatActions, useChatSession, useChatState } from "./context";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { generateId } from "ai";
 import * as React from "react";
 import { motion } from "motion/react";
@@ -52,7 +52,7 @@ import {
   matchProjectFileDragSession,
   clearProjectFileDragSession,
 } from "@/lib/project-file-drag-session";
-import { useTabView } from "@/hooks/use-tab-view";
+import { useAppState } from "@/hooks/use-app-state";
 import { resolveServerUrl } from "@/utils/server-url";
 import { createChatSessionId } from "@/lib/chat-session-id";
 import { useChatModelSelection } from "./hooks/use-chat-model-selection";
@@ -143,13 +143,13 @@ function RecentSessionsBar() {
 const FEATURE_INTRO_STYLE = {
   index: {
     icon: LayoutDashboard,
-    iconColor: "text-sky-600 dark:text-sky-400",
-    iconBg: "bg-sky-500/10 dark:bg-sky-400/10",
+    iconColor: "text-ol-blue",
+    iconBg: "bg-ol-blue/10",
   },
   tasks: {
     icon: CalendarDays,
-    iconColor: "text-amber-600 dark:text-amber-400",
-    iconBg: "bg-amber-500/10 dark:bg-amber-400/10",
+    iconColor: "text-ol-amber",
+    iconBg: "bg-ol-amber/10",
   },
 } as const
 
@@ -189,7 +189,7 @@ function FeatureIntroDialog({
           <AlertDialogCancel>{t('featureIntro.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className="bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 dark:hover:bg-sky-500/20"
+            className="bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20"
           >
             {t('featureIntro.confirm')}
           </AlertDialogAction>
@@ -225,45 +225,40 @@ function QuickLaunchBar({ projectId }: { projectId?: string }) {
 
   const handleGlobalQuickLaunch = React.useCallback(
     (item: (typeof QUICK_LAUNCH_ITEMS)[number]) => {
-      if (!tabId) return
-      const tabState = useTabs.getState()
-      const currentTab = tabState.tabs.find((tab) => tab.id === tabId)
-      if (!currentTab) return
-      // 在当前 tab 左侧面板打开，保持右侧 AI 聊天。
-      const runtime = useTabRuntime.getState()
-      runtime.setTabBase(tabId, { id: item.baseId, component: item.component })
-      runtime.setTabLeftWidthPercent(tabId, 100)
-      tabState.setTabTitle(tabId, t(item.titleKey))
-      tabState.setTabIcon(tabId, item.tabIcon)
+      // 在当前视图左侧面板打开，保持右侧 AI 聊天。
+      const layout = useLayoutState.getState()
+      layout.setBase({ id: item.baseId, component: item.component })
+      layout.setLeftWidthPercent(100)
+      useAppView.getState().setTitle(t(item.titleKey))
+      useAppView.getState().setIcon(item.tabIcon)
     },
-    [tabId, t],
+    [t],
   )
 
   const handleProjectQuickLaunch = React.useCallback(
     (item: (typeof PROJECT_QUICK_LAUNCH_ITEMS)[number]) => {
-      if (!tabId || !projectId) return
+      if (!projectId) return
       const rootUri = projectData?.project?.rootUri
       // settings 改为 dialog 模式
       if (item.value === "settings") {
         useGlobalOverlay.getState().setProjectSettingsOpen(true, projectId, rootUri)
         return
       }
-      const runtime = useTabRuntime.getState()
-      const tabState = useTabs.getState()
-      runtime.setTabBase(tabId, {
+      const layout = useLayoutState.getState()
+      layout.setBase({
         id: `project:${projectId}`,
         component: "plant-page",
         params: { projectId, rootUri, projectTab: item.value },
       })
-      runtime.setTabLeftWidthPercent(tabId, 90)
+      layout.setLeftWidthPercent(90)
       if (projectData?.project?.title) {
-        tabState.setTabTitle(tabId, projectData.project.title)
+        useAppView.getState().setTitle(projectData.project.title)
       }
       if (projectData?.project?.icon) {
-        tabState.setTabIcon(tabId, projectData.project.icon)
+        useAppView.getState().setIcon(projectData.project.icon)
       }
     },
-    [tabId, projectId, projectData],
+    [projectId, projectData],
   )
 
   const handleProjectItemClick = React.useCallback(
@@ -324,11 +319,11 @@ function QuickLaunchBar({ projectId }: { projectId?: string }) {
             >
               <div className={cn(
                 "flex h-14 w-14 items-center justify-center rounded-2xl transition-all duration-150 group-hover:scale-105",
-                isInactive ? "bg-slate-500/8 dark:bg-slate-400/8" : item.bgColor,
+                isInactive ? "bg-ol-text-auxiliary/8" : item.bgColor,
               )}>
                 <Icon className={cn(
                   "size-6 transition-colors duration-150",
-                  isInactive ? "text-slate-400 dark:text-slate-500" : item.iconColor,
+                  isInactive ? "text-ol-text-auxiliary" : item.iconColor,
                 )} />
               </div>
               <span className="text-[11px] text-muted-foreground transition-colors duration-150 group-hover:text-foreground">
@@ -553,7 +548,7 @@ export function Chat({
 }: ChatProps) {
   const { t } = useTranslation('ai');
   const rawParams = React.useMemo(() => ({ ...params }), [params]);
-  const tab = useTabView(tabId);
+  const tab = useAppState();
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const dragCounterRef = React.useRef(0);
   const attachmentsRef = React.useRef<ChatAttachment[]>([]);

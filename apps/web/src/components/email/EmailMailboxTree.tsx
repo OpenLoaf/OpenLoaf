@@ -105,19 +105,19 @@ function MailboxNodeRow({
   const isTrashMailbox = isTrashMailboxView(node);
   const mailboxIconClassName = cn(
     "h-3.5 w-3.5",
-    isInboxMailbox && "text-[#1a73e8] dark:text-sky-300",
-    isFlaggedMailbox && "text-[#f9ab00] dark:text-amber-300",
-    isDraftMailbox && "text-[#9334e6] dark:text-violet-300",
-    isSentMailbox && "text-[#188038] dark:text-emerald-300",
-    isJunkMailbox && "text-[#f4511e] dark:text-orange-300",
-    isTrashMailbox && "text-[#d93025] dark:text-rose-300",
+    isInboxMailbox && "text-ol-blue",
+    isFlaggedMailbox && "text-ol-amber",
+    isDraftMailbox && "text-ol-purple",
+    isSentMailbox && "text-ol-green",
+    isJunkMailbox && "text-ol-red",
+    isTrashMailbox && "text-ol-red",
     !isInboxMailbox &&
       !isFlaggedMailbox &&
       !isDraftMailbox &&
       !isSentMailbox &&
       !isJunkMailbox &&
       !isTrashMailbox &&
-      "text-[#5f6368] dark:text-slate-400",
+      "text-ol-text-auxiliary",
   );
   const [, dragRef] = useDrag(
     () => ({
@@ -212,7 +212,7 @@ function MailboxNodeRow({
     >
       {showBefore ? (
         <div
-          className="h-[2px] w-full rounded-full bg-[#1a73e8]"
+          className="h-[2px] w-full rounded-full bg-ol-blue"
           style={{ marginLeft: `${8 + depth * 12}px` }}
         />
       ) : null}
@@ -231,7 +231,7 @@ function MailboxNodeRow({
           "flex w-full items-center justify-between rounded-full py-1.5 pr-2 text-[13px] transition-colors duration-150",
           isActive
             ? EMAIL_TONE_ACTIVE_CLASS
-            : cn("text-[#444746] dark:text-slate-300", EMAIL_TONE_HOVER_CLASS),
+            : cn("text-ol-text-secondary", EMAIL_TONE_HOVER_CLASS),
           selectable || hasChildren ? "" : "cursor-not-allowed opacity-60",
         )}
       >
@@ -246,7 +246,7 @@ function MailboxNodeRow({
                 className={cn(
                   "rounded-full text-[10px]",
                   EMAIL_META_CHIP_CLASS,
-                  isActive ? "text-[#001d35] dark:text-sky-100" : "text-[#5f6368] dark:text-slate-300",
+                  isActive ? "text-ol-blue" : "text-ol-text-auxiliary",
                 )}
               >
                 {count}
@@ -255,9 +255,9 @@ function MailboxNodeRow({
             {hasChildren ? (
               <ChevronRight
                 className={cn(
-                  "h-3.5 w-3.5 text-[#9aa0a6] transition-transform duration-150 dark:text-slate-500",
+                  "h-3.5 w-3.5 text-muted-foreground transition-transform duration-150",
                   isExpanded && "rotate-90",
-                  isActive && "text-[#1a73e8] dark:text-sky-300",
+                  isActive && "text-ol-blue",
                 )}
               />
             ) : null}
@@ -266,7 +266,7 @@ function MailboxNodeRow({
       </button>
       {showAfter ? (
         <div
-          className="h-[2px] w-full rounded-full bg-[#1a73e8]"
+          className="h-[2px] w-full rounded-full bg-ol-blue"
           style={{ marginLeft: `${8 + depth * 12}px` }}
         />
       ) : null}

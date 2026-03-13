@@ -79,7 +79,7 @@ export default function CliThinkingTool({ part }: { part: CliThinkingToolPart })
         <TerminalContent
           className={cn(
             "max-h-72 text-xs",
-            hasError ? "text-red-300" : undefined,
+            hasError ? "text-ol-red" : undefined,
           )}
         />
       </Terminal>

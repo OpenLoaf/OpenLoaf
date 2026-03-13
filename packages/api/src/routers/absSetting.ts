@@ -323,10 +323,11 @@ export const settingSchemas = {
     input: basicConfigUpdateSchema,
     output: basicConfigSchema,
   },
-  /** Get memory content for the master agent. */
+  /** Get memory content by scope ('user' = global, 'project' = project-level). */
   getMemory: {
     input: z
       .object({
+        scope: z.enum(['user', 'project']).default('user'),
         projectId: z.string().optional(),
       })
       .optional(),
@@ -334,9 +335,10 @@ export const settingSchemas = {
       content: z.string(),
     }),
   },
-  /** Save memory content for the master agent. */
+  /** Save memory content by scope ('user' = global, 'project' = project-level). */
   saveMemory: {
     input: z.object({
+      scope: z.enum(['user', 'project']).default('user'),
       content: z.string(),
       projectId: z.string().optional(),
     }),

@@ -36,8 +36,6 @@ import type { LucideIcon } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { Switch } from "@openloaf/ui/animate-ui/components/radix/switch";
 import { toast } from "sonner";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
@@ -83,8 +81,6 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
       ),
     [providerItems, cloudModels, installedCliProviderIds],
   );
-  const activeTabId = useTabs((state) => state.activeTabId);
-  const pushStackItem = useTabRuntime((state) => state.pushStackItem);
   const {
     entries,
     dialogOpen,
@@ -175,7 +171,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
       >
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={MessageSquare} bg="bg-sky-500/10" fg="text-sky-600 dark:text-sky-400" />
+            <SettingIcon icon={MessageSquare} bg="bg-ol-blue-bg" fg="text-ol-blue" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{t('provider.chatMemoryScope')}</div>
               <div className="text-xs text-muted-foreground">
@@ -202,7 +198,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Volume2} bg="bg-emerald-500/10" fg="text-emerald-600 dark:text-emerald-400" />
+            <SettingIcon icon={Volume2} bg="bg-ol-green-bg" fg="text-ol-green" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{t('provider.modelSound')}</div>
               <div className="text-xs text-muted-foreground">

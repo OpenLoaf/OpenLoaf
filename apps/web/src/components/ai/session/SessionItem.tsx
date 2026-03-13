@@ -159,7 +159,7 @@ function SessionItem({
         >
           <span className="flex min-w-0 items-center gap-1.5">
             {isOpenInTab && (
-              <span className="inline-block size-1.5 shrink-0 rounded-full bg-sky-500" />
+              <span className="inline-block size-1.5 shrink-0 rounded-full bg-ol-blue" />
             )}
             <span className="shrink-0 text-sm leading-none">
               {session.projectIcon ? (
@@ -252,7 +252,7 @@ function SessionItem({
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
                 className={cn(
-                  "h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground",
+                  "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground",
                   "outline-none ring-offset-background placeholder:text-muted-foreground",
                   "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                 )}

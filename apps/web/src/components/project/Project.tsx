@@ -21,9 +21,9 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useTabActive } from "@/components/layout/TabActiveContext";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { useTabView } from "@/hooks/use-tab-view";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
+import { useAppState } from "@/hooks/use-app-state";
 import { useProject } from "@/hooks/use-project";
 import { useProjects } from "@/hooks/use-projects";
 import { createPortal } from "react-dom";
@@ -160,11 +160,11 @@ export default function ProjectPage({
   fileUri: externalFileUri,
 }: ProjectPageProps) {
   const tabActive = useTabActive();
-  const setTabLeftWidthPercent = useTabRuntime((s) => s.setTabLeftWidthPercent);
-  const setTabBaseParams = useTabRuntime((s) => s.setTabBaseParams);
-  const setTabTitle = useTabs((s) => s.setTabTitle);
-  const setTabIcon = useTabs((s) => s.setTabIcon);
-  const tabView = useTabView(tabId);
+  const setLeftWidthPercent = useLayoutState((s) => s.setLeftWidthPercent);
+  const setBaseParams = useLayoutState((s) => s.setBaseParams);
+  const setTitle = useAppView((s) => s.setTitle);
+  const setIcon = useAppView((s) => s.setIcon);
+  const tabView = useAppState();
   const appliedWidthRef = useRef(false);
   const mountedScopeRef = useRef<{ rootUri?: string; tabId?: string }>({
     rootUri,
@@ -178,16 +178,14 @@ export default function ProjectPage({
     invalidateProject,
     invalidateProjectList,
   } = useProject(projectId);
-  const closeTab = useTabs((s) => s.closeTab);
-
-  // 项目已被删除或不存在时自动关闭 tab，避免子组件持续发起无效请求。
+  // 项目已被删除或不存在时导航回默认视图，避免子组件持续发起无效请求。
   useEffect(() => {
-    if (!tabId || !projectId) return;
+    if (!projectId) return;
     if (isLoading) return;
     if (isError) {
-      closeTab(tabId);
+      useAppView.getState().navigate({});
     }
-  }, [tabId, projectId, isLoading, isError, closeTab]);
+  }, [projectId, isLoading, isError]);
 
   const [localTitle, setLocalTitle] = useState<string | null>(null);
   const [localIcon, setLocalIcon] = useState<string | null>(null);
@@ -289,11 +287,10 @@ export default function ProjectPage({
   }, [projectData?.project]);
 
   useEffect(() => {
-    if (!tabId) return;
     if (!shouldSyncTabMeta) return;
-    setTabTitle(tabId, pageTitle);
-    setTabIcon(tabId, titleIcon);
-  }, [pageTitle, setTabTitle, setTabIcon, shouldSyncTabMeta, tabId, titleIcon]);
+    setTitle(pageTitle);
+    setIcon(titleIcon);
+  }, [pageTitle, setTitle, setIcon, shouldSyncTabMeta, titleIcon]);
 
   // 页面切换时重置只读状态，避免沿用旧页面的编辑状态。
   useEffect(() => {
@@ -371,9 +368,9 @@ export default function ProjectPage({
     if (!tabActive) return;
     if (appliedWidthRef.current) return;
     if (!tabId) return;
-    setTabLeftWidthPercent(tabId, 90);
+    setLeftWidthPercent(90);
     appliedWidthRef.current = true;
-  }, [tabActive, tabId, setTabLeftWidthPercent]);
+  }, [tabActive, tabId, setLeftWidthPercent]);
 
   const panelBaseClass =
     "absolute inset-0 box-border pt-0 transform-gpu transition-[opacity,transform] duration-[300ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[opacity,transform]";
@@ -410,9 +407,9 @@ export default function ProjectPage({
         setActiveTab(nextTab);
       });
       if (!tabId) return;
-      setTabBaseParams(tabId, { projectTab: nextTab });
+      setBaseParams({ projectTab: nextTab });
     },
-    [setTabBaseParams, tabId, projectId, rootUri]
+    [setBaseParams, tabId, projectId, rootUri]
   );
 
   // 项目快捷键流程：只有当前 tab 处于激活态才拦截按键；

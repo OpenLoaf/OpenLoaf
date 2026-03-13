@@ -52,7 +52,7 @@ function CustomColorDemo() {
     <div className="flex flex-col gap-4">
       <ExpandableTabs
         tabs={tabs}
-        activeColor="text-blue-500"
+        activeColor="text-ol-blue"
         className="border-blue-200 dark:border-blue-800"
       />
     </div>

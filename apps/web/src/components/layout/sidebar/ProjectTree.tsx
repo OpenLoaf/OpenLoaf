@@ -9,10 +9,11 @@
  */
 "use client";
 
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
+import { useAppState, getAppState } from "@/hooks/use-app-state";
 import { useProjectLayout } from "@/hooks/use-project-layout";
 import { useNavigation } from "@/hooks/use-navigation";
 import { isElectronEnv } from "@/utils/is-electron-env";
@@ -557,11 +558,9 @@ export const PageTreeMenu = ({
 }: PageTreeMenuProps) => {
   const trpc = trpcContext;
   const { t } = useTranslation(["nav", "common"]);
-  const addTab = useTabs((s) => s.addTab);
-  const setActiveTab = useTabs((s) => s.setActiveTab);
-  const setTabTitle = useTabs((s) => s.setTabTitle);
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const tabs = useTabs((s) => s.tabs);
+  const navigate = useAppView((s) => s.navigate);
+  const setViewTitle = useAppView((s) => s.setTitle);
+  const appState = useAppState();
   const setActiveProject = useNavigation((s) => s.setActiveProject);
   const isElectron = isElectronEnv();
   const queryClient = useQueryClient();
@@ -649,12 +648,9 @@ export const PageTreeMenu = ({
     return /project not found/i.test(message);
   };
 
-  const activeRuntime = useTabRuntime((state) =>
-    activeTabId ? state.runtimeByTabId[activeTabId] : undefined,
-  );
   const activeTabParams = useMemo(
-    () => (activeRuntime?.base?.params ?? {}) as Record<string, unknown>,
-    [activeRuntime?.base?.params],
+    () => (appState.base?.params ?? {}) as Record<string, unknown>,
+    [appState.base?.params],
   );
   const activeUri = useMemo(() => {
     const rootUri = activeTabParams.rootUri;
@@ -667,12 +663,11 @@ export const PageTreeMenu = ({
     const projectId = activeTabParams.projectId;
     if (typeof projectId === "string" && projectId.trim()) return projectId;
     // 聊天标签页没有 base.params，回退到 chatParams.projectId
-    const chatProjectId = tabs.find((tab) => tab.id === activeTabId)?.chatParams
-      ?.projectId;
+    const chatProjectId = appState.chatParams?.projectId;
     return typeof chatProjectId === "string" && chatProjectId.trim()
       ? chatProjectId
       : null;
-  }, [activeTabParams, activeTabId, tabs]);
+  }, [activeTabParams, appState.chatParams]);
 
   const setExpanded = (uri: string, isExpanded: boolean) => {
     setExpandedNodes((prev) => ({
@@ -714,9 +709,8 @@ export const PageTreeMenu = ({
 
   useEffect(() => {
     // 逻辑：激活带 projectId 的标签时，自动展开祖先与当前项目，刷新后也能看到最新子项目。
-    const activeTab = tabs.find((tab) => tab.id === activeTabId);
-    const params = activeRuntime?.base?.params as any;
-    const projectId = params?.projectId ?? activeTab?.chatParams?.projectId;
+    const params = appState.base?.params as any;
+    const projectId = params?.projectId ?? appState.chatParams?.projectId;
     if (!projectId) return;
     const ancestorNodeKeys = ancestorNodeKeysByProjectId.get(projectId) ?? [];
     const rootUri = projectRootById.get(projectId);
@@ -733,69 +727,23 @@ export const PageTreeMenu = ({
       return Object.keys(patches).length > 0 ? { ...prev, ...patches } : prev;
     });
   }, [
-    activeRuntime,
-    activeTabId,
+    appState.base,
+    appState.chatParams,
     ancestorNodeKeysByProjectId,
     projectRootById,
     setExpandedNodes,
-    tabs,
   ]);
 
-  const setActiveTabSession = useTabs((s) => s.setActiveTabSession);
+  const setChatSession = useAppView((s) => s.setChatSession);
   const openProjectTab = (project: ProjectInfo) => {
-    const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
     const targetProjectId = project.projectId;
 
     // 更新导航状态
     setActiveProject(targetProjectId);
 
-    // 1. 当前 Tab：遍历 chatSessionProjectIds 查找匹配的 sessionId
-    const currentTab = activeTabId ? tabs.find((t) => t.id === activeTabId) : undefined;
-    if (currentTab && !runtimeByTabId[currentTab.id]?.base) {
-      const projectMap = currentTab.chatSessionProjectIds ?? {};
-      const matchedSessionId = Object.entries(projectMap).find(
-        ([, pid]) => pid === targetProjectId,
-      )?.[0];
-      if (matchedSessionId) {
-        startTransition(() => {
-          setActiveTabSession(currentTab.id, matchedSessionId, { loadHistory: true });
-        });
-        return;
-      }
-      // 也检查旧的 chatParams.projectId（无映射的 Tab）
-      if (currentTab.chatParams?.projectId === targetProjectId && !Object.keys(projectMap).length) {
-        return; // 已经在当前 Tab 上
-      }
-    }
-
-    // 2. 其他 Tab：遍历所有 Tab 的 chatSessionProjectIds 查找匹配
-    for (const tab of tabs) {
-      if (tab.id === activeTabId) continue;
-      if (runtimeByTabId[tab.id]?.base) continue;
-      const projectMap = tab.chatSessionProjectIds ?? {};
-      const matchedSessionId = Object.entries(projectMap).find(
-        ([, pid]) => pid === targetProjectId,
-      )?.[0];
-      if (matchedSessionId) {
-        startTransition(() => {
-          setActiveTab(tab.id);
-          setActiveTabSession(tab.id, matchedSessionId, { loadHistory: true });
-        });
-        return;
-      }
-      // 向后兼容：旧 Tab 可能只有 chatParams.projectId
-      if (tab.chatParams?.projectId === targetProjectId && !Object.keys(projectMap).length) {
-        startTransition(() => {
-          setActiveTab(tab.id);
-        });
-        return;
-      }
-    }
-
-    // 3. 创建新 Tab（直接打开文件面板 + 聊天窗口，恢复该项目保存的布局偏好）
+    // 逻辑：单视图模式下直接导航到项目，恢复该项目保存的布局偏好。
     const savedLayout = useProjectLayout.getState().getProjectLayout(targetProjectId);
-    addTab({
-      createNew: true,
+    navigate({
       title: project.title || "Untitled Project",
       icon: project.icon ?? undefined,
       base: {
@@ -814,23 +762,11 @@ export const PageTreeMenu = ({
     const displayName = isBoardFolderName(node.name)
       ? getBoardDisplayName(node.name)
       : getDisplayFileName(node.name, node.ext);
-    const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
-    const existing = tabs.find(
-      (tab) =>
-        runtimeByTabId[tab.id]?.base?.id === baseId,
-    );
-    if (existing) {
-      startTransition(() => {
-        setActiveTab(existing.id);
-      });
-      return;
-    }
 
     const resolvedRootUri = projectRootById.get(node.projectId ?? "") ?? undefined;
     if (isBoardFolderName(node.name)) {
       const boardId = node.uri.split("/").filter(Boolean).pop() ?? node.uri;
-      addTab({
-        createNew: true,
+      navigate({
         title: displayName,
         icon: "📄",
         ...buildBoardChatTabState(boardId, node.projectId),
@@ -839,7 +775,7 @@ export const PageTreeMenu = ({
           id: baseId,
           component: "board-viewer",
           params: {
-            // 逻辑：画布面板不显示“系统打开”按钮。
+            // 逻辑：画布面板不显示"系统打开"按钮。
             uri: node.uri,
             boardFolderUri: node.uri,
             boardFileUri: buildChildUri(node.uri, BOARD_INDEX_FILE_NAME),
@@ -863,8 +799,7 @@ export const PageTreeMenu = ({
       rootUri: resolvedRootUri,
     });
     if (!stackItem) return;
-    addTab({
-      createNew: true,
+    navigate({
       title: displayName,
       icon: "📄",
       leftWidthPercent: 70,
@@ -922,10 +857,8 @@ export const PageTreeMenu = ({
   const handleOpenInFileManager = async (node: FileNode) => {
     const api = window.openloafElectron;
     if (!api?.openPath) {
-      if (!activeTabId) return
       const rootUri = node.projectId ? projectRootById.get(node.projectId) : undefined
-      const pushStackItem = useTabRuntime.getState().pushStackItem
-      pushStackItem(activeTabId, {
+      useLayoutState.getState().pushStackItem({
         id: `project-folder:${node.projectId ?? node.uri}`,
         sourceKey: `project-folder:${node.projectId ?? node.uri}`,
         component: 'folder-tree-preview',
@@ -1032,12 +965,11 @@ export const PageTreeMenu = ({
             ? { icon: renameTarget.nextIcon }
             : {}),
         });
-        // 逻辑：同步已打开的项目 Tab 标题，避免缓存导致 UI 不更新。
-        const baseId = `project:${projectId}`;
-        const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
-        tabs
-          .filter((tab) => runtimeByTabId[tab.id]?.base?.id === baseId)
-          .forEach((tab) => setTabTitle(tab.id, nextName));
+        // 逻辑：同步已打开的项目标题，避免缓存导致 UI 不更新。
+        const currentBase = useLayoutState.getState().base;
+        if (currentBase?.id === `project:${projectId}`) {
+          setViewTitle(nextName);
+        }
         await queryClient.invalidateQueries({
           queryKey: trpc.project.get.queryOptions({ projectId }).queryKey,
         });
@@ -1940,7 +1872,7 @@ export const PageTreeMenu = ({
               </Button>
             </DialogClose>
             <Button
-              className="bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none"
+              className="bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none"
               onClick={handleRename}
               disabled={isBusy}
             >

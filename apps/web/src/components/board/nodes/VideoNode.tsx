@@ -271,8 +271,7 @@ export function VideoNodeView({
       <div
         className={[
           "flex h-full w-full items-center justify-center rounded-xl border box-border",
-          "border-neutral-200/80 bg-white text-neutral-800",
-          "dark:border-neutral-700/60 dark:bg-neutral-900 dark:text-neutral-100",
+          "border-ol-divider bg-background text-ol-text-primary",
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
@@ -330,7 +329,7 @@ export function VideoNodeView({
           <div className="flex flex-col items-center justify-center gap-2 px-3 text-center">
             <button
               type="button"
-              className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-neutral-100 text-neutral-500 transition-transform duration-200 ease-out hover:scale-125 dark:bg-neutral-800 dark:text-neutral-300"
+              className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-ol-surface-muted text-ol-text-auxiliary transition-transform duration-200 ease-out hover:scale-125"
               onPointerDown={(e) => {
                 e.stopPropagation();
                 handlePlayInline();
@@ -338,7 +337,7 @@ export function VideoNodeView({
             >
               <Play className="h-5 w-5" />
             </button>
-            <div className="line-clamp-2 text-[11px] text-neutral-600 dark:text-neutral-400">
+            <div className="line-clamp-2 text-[11px] text-ol-text-secondary">
               {displayName}
             </div>
           </div>

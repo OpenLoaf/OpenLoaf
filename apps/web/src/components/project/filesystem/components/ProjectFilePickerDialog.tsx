@@ -505,7 +505,7 @@ export function ProjectFilePickerDialog({
             <Button
               type="button"
               disabled={confirmDisabled}
-              className="rounded-full bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none transition-colors duration-150"
+              className="rounded-full bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20 shadow-none transition-colors duration-150"
               onClick={() => handleConfirm()}
             >
               {t('project:filesystem.selectConfirmLabel')}

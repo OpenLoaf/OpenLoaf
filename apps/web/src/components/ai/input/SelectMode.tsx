@@ -19,7 +19,7 @@ import { ModelPreferencesPanel } from './model-preferences/ModelPreferencesPanel
 
 import { CLI_TOOLS_META } from './model-preferences/CliToolsList'
 import { useOptionalChatSession } from '../context'
-import { useTabs } from '@/hooks/use-tabs'
+import { useAppView } from '@/hooks/use-app-view'
 import { PromptInputButton } from '@/components/ai-elements/prompt-input'
 import {
   Popover,
@@ -53,8 +53,8 @@ export default function SelectMode({
   const [loginOpen, setLoginOpen] = useState(false)
   const prefs = useModelPreferences()
   const chatSession = useOptionalChatSession()
-  const activeTabId = useTabs((s) => s.activeTabId)
-  const tabId = chatSession?.tabId ?? activeTabId
+  const chatSessionId = useAppView((s) => s.chatSessionId)
+  const tabId = chatSession?.tabId ?? chatSessionId
   const isIconTrigger = triggerVariant === 'icon'
 
   // CLI 模式下显示选中工具的 icon
@@ -131,8 +131,8 @@ export default function SelectMode({
       className={cn(
         'h-8 w-8 rounded-full transition-colors',
         chatMode === 'cli'
-          ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300'
-          : 'bg-violet-500/10 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
+          ? 'bg-ol-amber/10 text-ol-amber'
+          : 'bg-ol-purple/10 text-ol-purple',
         className,
       )}
       aria-label={t('mode.customizeSettings')}
@@ -146,8 +146,8 @@ export default function SelectMode({
       className={cn(
         'h-7 w-auto min-w-0 shrink inline-flex items-center gap-1 rounded-md px-1.5 text-xs font-medium transition-colors',
         chatMode === 'cli'
-          ? 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25'
-          : 'bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25',
+          ? 'bg-ol-amber/10 text-ol-amber hover:bg-ol-amber/20'
+          : 'bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20',
         className,
       )}
     >
@@ -166,8 +166,8 @@ export default function SelectMode({
         className={cn(
           'h-8 w-8 rounded-full transition-colors pointer-events-none opacity-60',
           chatMode === 'cli'
-            ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300'
-            : 'bg-violet-500/10 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
+            ? 'bg-ol-amber/10 text-ol-amber'
+            : 'bg-ol-purple/10 text-ol-purple',
           className,
         )}
         aria-label={t('mode.customizeSettings')}
@@ -182,8 +182,8 @@ export default function SelectMode({
         className={cn(
           'h-7 w-auto min-w-0 shrink inline-flex items-center gap-1 rounded-md px-1.5 text-xs font-medium transition-colors pointer-events-none opacity-60',
           chatMode === 'cli'
-            ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300'
-            : 'bg-violet-500/10 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300',
+            ? 'bg-ol-amber/10 text-ol-amber'
+            : 'bg-ol-purple/10 text-ol-purple',
           className,
         )}
       >

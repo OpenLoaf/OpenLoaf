@@ -136,7 +136,7 @@ function QuestionField({
           value={value}
           disabled={disabled}
           className={cn(
-            'h-9 w-full rounded-md border bg-background px-3 text-sm text-foreground',
+            'h-9 w-full rounded-lg border bg-background px-3 text-sm text-foreground',
             'outline-none ring-offset-background',
             'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
             'disabled:cursor-not-allowed disabled:opacity-50',
@@ -168,7 +168,7 @@ function QuestionField({
           rows={3}
           maxLength={question.maxLength}
           className={cn(
-            'w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground',
+            'w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground',
             'outline-none ring-offset-background placeholder:text-muted-foreground',
             'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
             'disabled:cursor-not-allowed disabled:opacity-50',
@@ -199,7 +199,7 @@ function QuestionField({
         disabled={disabled}
         maxLength={question.maxLength}
         className={cn(
-          'h-9 w-full rounded-md border bg-background px-3 text-sm text-foreground',
+          'h-9 w-full rounded-lg border bg-background px-3 text-sm text-foreground',
           'outline-none ring-offset-background placeholder:text-muted-foreground',
           'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
           'disabled:cursor-not-allowed disabled:opacity-50',
@@ -757,7 +757,7 @@ export default function RequestUserInputTool({
       open={isOpen}
       onOpenChange={setIsOpen}
       className={cn(
-        'w-full min-w-0 text-xs overflow-hidden rounded-lg border bg-card text-card-foreground',
+        'w-full min-w-0 text-xs overflow-hidden rounded-xl border bg-card text-card-foreground',
         className,
         isStreaming && 'openloaf-tool-streaming',
       )}

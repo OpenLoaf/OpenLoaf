@@ -24,28 +24,30 @@ export function buildSystemTagsMetaRule(): string {
   ].join('\n')
 }
 
-/** Build output format hard rules (migrated from prompt-v3). */
+/** Build output format hard rules. */
 export function buildOutputFormatRules(): string {
   return [
     '# 输出格式',
     '- 使用 Markdown，结论优先 → 细节仅在必要时',
     '- 不粘贴大段文件内容，用 `path:line` 引用',
     '- 路径与代码标识用反引号',
-    '- 默认不输出命令行、工具名、参数',
+    '- 默认不输出工具名、参数、调用过程、报错栈',
     '- 禁止：ANSI 转义码、渲染控制字符、破损引用、嵌套多层列表',
     '- 用户与助手在同一台机器，不提示"保存文件/复制代码"',
-    '- 严禁在回复中暴露 preface 内部标识符（sessionId、projectId、路径等）',
+    '- 严禁在回复中暴露 preface 内部标识符（sessionId、projectId、路径、平台、时区、账户等）',
+    '- 严禁将工具名称、参数格式作为文本输出给用户',
     '',
     '# 禁止重复输出',
     '- 工具已产生可见结果（渲染组件、图片、文件、表格等）时，禁止用文字重复描述相同内容。用户已直接看到结果。',
     '- 工具调用后最多 1 句结果点评；结果已清晰可见时，直接不说。',
     '- 不复述用户的请求，不以"好的，我来为你..."开头。',
     '- 操作完成后不回顾之前的操作，不总结已完成步骤，除非用户要求汇总。',
+    '- 操作完成后不追加确认/推荐/延伸问句（"需要我帮你...吗？"等）。',
     '- 每句必须携带新信息；如果移除一句后语义不变，则删除该句。',
   ].join('\n')
 }
 
-/** Build file reference rules (migrated from prompt-v3). */
+/** Build file reference rules. */
 export function buildFileReferenceRules(): string {
   return [
     '# 输入中的文件引用',
@@ -126,26 +128,20 @@ export function buildIntentJudgmentRules(): string {
   ].join('\n')
 }
 
-/** Build approval rules (extracted from prompt-v3 Chapter 2). */
-export function buildApprovalRules(): string {
-  return [
-    '# 审批与破坏性操作',
-    '- 需要审批的操作必须先请求批准，不得绕过。',
-    '- 需要审批的工具一次只能调用一个。',
-    '- 用户拒绝审批视为无结果，停止该路径。',
-  ].join('\n')
-}
-
 /** Build execution rules (tools-first, path constraints, approval). */
 export function buildExecutionRules(): string {
   return [
     '# 执行规则',
     '- 工具优先：先用工具获取事实，再输出结论。',
     '- 工具结果必须先简要总结后再继续下一步。',
-    '- 文件与命令工具仅允许访问 projectRootPath 内的路径。',
+    '- 文件与命令工具仅允许访问会话上下文中 projectRootPath 指定的路径范围。',
     '- 路径参数禁止使用 URL Encoding 编码，必须保持原始路径字符。',
     '- 文件读取类工具必须先判断路径是否为目录；若为目录需改用目录列举工具或提示用户改传文件。',
-    '- 写入、删除或破坏性操作必须走审批流程。',
+    '',
+    '## 审批与破坏性操作',
+    '- 写入、删除或破坏性操作必须先请求用户批准，不得绕过。',
+    '- 需要审批的工具一次只能调用一个。',
+    '- 用户拒绝审批视为无结果，停止该路径。',
   ].join('\n')
 }
 
@@ -171,7 +167,6 @@ export function buildHardRules(): string {
     buildLanguageRules(),
     buildOutputFormatRules(),
     buildIntentJudgmentRules(),
-    buildApprovalRules(),
     buildFileReferenceRules(),
     buildAgentsDynamicLoadingRules(),
     buildAutoMemoryRules(),

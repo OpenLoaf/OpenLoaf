@@ -194,7 +194,7 @@ function FullMessageView({ message, t }: { message: FullMessage; t: TFunction })
       {truncated && !expanded && (
         <button
           type="button"
-          className="text-[11px] text-blue-600 hover:underline dark:text-blue-400"
+          className="text-[11px] text-ol-blue hover:underline"
           onClick={() => setExpanded(true)}
         >
           {t('tool.email.expandBody', { defaultValue: '展开全文' })}

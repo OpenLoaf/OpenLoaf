@@ -39,8 +39,8 @@ const PLAN_STATUS_META: Record<
   completed: {
     label: "已完成",
     Icon: CheckCircle2,
-    badgeClassName: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-    iconClassName: "text-emerald-600 dark:text-emerald-400",
+    badgeClassName: "bg-ol-green/15 text-ol-green",
+    iconClassName: "text-ol-green",
   },
 };
 

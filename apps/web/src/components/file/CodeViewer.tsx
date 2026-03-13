@@ -28,8 +28,7 @@ import { Sparkles, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/utils/trpc";
 import { Button } from "@openloaf/ui/button";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { ViewerGuard } from "@/components/file/lib/viewer-guard";
 import { stopFindShortcutPropagation } from "@/components/file/lib/viewer-shortcuts";
@@ -213,8 +212,6 @@ export default function CodeViewer({
   const [isReadOnly, setIsReadOnly] = useState(false);
   /** Snapshot of the last saved content. */
   const lastSavedRef = useRef("");
-  /** Active tab id for AI panel control. */
-  const activeTabId = useTabs((s) => s.activeTabId);
   /** Collapse state setter for AI panel (accessed via getState to avoid subscription). */
   /** Current file content string. */
   const fileContent = useMemo(
@@ -493,10 +490,6 @@ export default function CodeViewer({
     } catch (error) {
       console.warn("[CodeViewer] copy for ai failed", error);
     }
-    if (!activeTabId) {
-      toast.error(t('noTab'));
-      return;
-    }
     const relativePath = uri ? getRelativePathFromUri(rootUri ?? "", uri) : null;
     if (!projectId || !relativePath) {
       toast.error(t('file.cannotResolvePath'));
@@ -512,11 +505,9 @@ export default function CodeViewer({
       at: new Date().toISOString(),
       mentionValue,
     });
-    if (activeTabId) {
-      // 展开右侧 AI 面板（不使用 stack）。
-      useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, false);
-    }
-  }, [activeTabId, draftContent, projectId, rootUri, uri]);
+    // 展开右侧 AI 面板（不使用 stack）。
+    useLayoutState.getState().setRightChatCollapsed(false);
+  }, [draftContent, projectId, rootUri, uri]);
 
   /** Save current draft content to the file system. */
   const handleSave = useCallback(() => {

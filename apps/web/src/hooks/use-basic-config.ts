@@ -67,6 +67,8 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
       forceCustomApiKey: false,
     },
   },
+  webSearchProvider: "",
+  webSearchApiKey: "",
 };
 
 export function useBasicConfig() {

@@ -73,7 +73,7 @@ const defaultCharacters: Character[] = [
     emoji: "🧙‍♂️",
     name: "Wizard",
     online: true,
-    backgroundColor: "bg-green-300",
+    backgroundColor: "bg-ol-green",
     gradientFrom: "from-green-300",
     gradientTo: "to-green-100",
     gradientColors: "#86efac, #dcfce7",
@@ -100,7 +100,7 @@ const defaultCharacters: Character[] = [
     emoji: "🤖",
     name: "Robot",
     online: false,
-    backgroundColor: "bg-red-300",
+    backgroundColor: "bg-ol-red",
     gradientFrom: "from-red-300",
     gradientTo: "to-red-100",
     gradientColors: "#fca5a5, #fef2f2",
@@ -313,7 +313,7 @@ export function MessageDock({
           )}
 
           <motion.div
-            className="w-px h-6 bg-gray-300 mr-2 -ml-2"
+            className="w-px h-6 bg-ol-divider mr-2 -ml-2"
             animate={{
               opacity: isExpanded ? 0 : 1,
               scaleY: isExpanded ? 0 : 1,
@@ -377,7 +377,7 @@ export function MessageDock({
 
                   {character.online && (
                     <motion.div
-                      className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"
+                      className="absolute bottom-0 right-0 w-3 h-3 bg-ol-green border-2 border-white rounded-full"
                       initial={{ scale: 0 }}
                       animate={{ scale: isExpanded && !isSelected ? 0 : 1 }}
                       transition={{
@@ -416,9 +416,7 @@ export function MessageDock({
                 placeholder={placeholder(selectedCharacter?.name || "")}
                 className={cn(
                   "w-[300px] absolute left-14 right-0 bg-transparent border-none outline-none text-sm font-medium z-50",
-                  theme === "dark"
-                    ? "text-gray-100 placeholder-gray-400"
-                    : "text-gray-700 placeholder-gray-600"
+                  "text-ol-text-secondary placeholder-ol-text-auxiliary"
                 )}
                 autoFocus={autoFocus}
                 initial={{ opacity: 0, x: 20 }}
@@ -444,7 +442,7 @@ export function MessageDock({
           </AnimatePresence>
 
           <motion.div
-            className="w-px h-6 bg-gray-300 ml-2 -mr-2"
+            className="w-px h-6 bg-ol-divider ml-2 -mr-2"
             animate={{
               opacity: isExpanded ? 0 : 1,
               scaleY: isExpanded ? 0 : 1,
@@ -487,7 +485,7 @@ export function MessageDock({
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   >
                     <Menu
-                      className={theme === "dark" ? "text-gray-300" : "text-gray-600"}
+                      className="text-ol-text-secondary"
                       size={20}
                     />
                   </motion.button>
@@ -522,7 +520,7 @@ export function MessageDock({
                     }}
                   >
                     <Send
-                      className={theme === "dark" ? "text-gray-300" : "text-gray-600"}
+                      className="text-ol-text-secondary"
                       size={16}
                     />
                   </motion.button>

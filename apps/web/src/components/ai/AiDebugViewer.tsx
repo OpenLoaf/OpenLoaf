@@ -15,8 +15,8 @@ import { useTheme } from 'next-themes'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type * as Monaco from 'monaco-editor'
 import { StackHeader } from '@/components/layout/StackHeader'
-import { useTabRuntime } from '@/hooks/use-tab-runtime'
-import { requestStackMinimize } from '@/lib/stack-dock-animation'
+import { useLayoutState } from '@/hooks/use-layout-state'
+
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@openloaf/ui/tabs'
 import { Copy, FolderOpen } from 'lucide-react'
 import { Button } from '@openloaf/ui/button'
@@ -143,7 +143,7 @@ export default function AiDebugViewer({
   jsonlPath,
 }: AiDebugViewerProps) {
   const { t } = useTranslation('ai')
-  const removeStackItem = useTabRuntime((s) => s.removeStackItem)
+  const removeStackItem = useLayoutState((s) => s.removeStackItem)
   const shouldRenderStackHeader = Boolean(tabId && panelKey)
 
   const handleCopyJsonlPath = useCallback(async () => {
@@ -212,12 +212,11 @@ export default function AiDebugViewer({
           }
           showMinimize
           onMinimize={() => {
-            if (!tabId) return
-            requestStackMinimize(tabId)
+            useLayoutState.getState().setStackHidden(true)
           }}
           onClose={() => {
-            if (!tabId || !panelKey) return
-            removeStackItem(tabId, panelKey)
+            if (!panelKey) return
+            removeStackItem(panelKey)
           }}
         />
       ) : null}

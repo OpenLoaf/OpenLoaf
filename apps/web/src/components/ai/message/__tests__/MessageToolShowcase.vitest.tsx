@@ -45,26 +45,28 @@ vi.mock('@/hooks/use-project', () => ({
   useProject: () => ({ data: { project: { rootUri: '/mock/project-space' } } }),
 }))
 
-// useTabs is a Zustand store — must support selector call pattern: useTabs((s) => s.field)
-vi.mock('@/hooks/use-tabs', () => {
+vi.mock('@/hooks/use-app-view', () => {
   const state = {
-    tabs: [],
-    addTab: vi.fn(),
-    removeTab: vi.fn(),
-    activeTabId: 'tab-1',
-    setActiveTabId: vi.fn(),
+    chatSessionId: 'session-1',
+    chatParams: {},
+    projectShell: null,
+    title: 'Test',
+    icon: '',
+    navigate: vi.fn(),
+    setChatSession: vi.fn(),
+    setChatParams: vi.fn(),
   }
-  const useTabs = (selector?: any) => (typeof selector === 'function' ? selector(state) : state)
-  useTabs.getState = () => state
-  useTabs.subscribe = vi.fn(() => vi.fn())
-  return { useTabs }
+  const useAppView = (selector?: any) => (typeof selector === 'function' ? selector(state) : state)
+  useAppView.getState = () => state
+  useAppView.subscribe = vi.fn(() => vi.fn())
+  return { useAppView }
 })
 
-vi.mock('@/hooks/use-tab-runtime', () => {
-  const state = { activeTabId: 'tab-1', setActiveTabId: () => {}, addTab: () => {} }
-  const useTabRuntime = () => state
-  useTabRuntime.getState = () => state
-  return { useTabRuntime }
+vi.mock('@/hooks/use-layout-state', () => {
+  const state = { base: undefined, stack: [], pushStackItem: vi.fn(), removeStackItem: vi.fn() }
+  const useLayoutState = (selector?: any) => (typeof selector === 'function' ? selector(state) : state)
+  useLayoutState.getState = () => state
+  return { useLayoutState }
 })
 
 vi.mock('@/hooks/use-chat-runtime', () => ({

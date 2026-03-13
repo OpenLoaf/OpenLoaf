@@ -94,8 +94,8 @@ function ImageGenerateProjectionView({
         onClick={onSelect}
       >
         <div className="flex items-center gap-2 border-b border-border/30 px-3 py-2">
-          <Sparkles className="h-4 w-4 text-[#1a73e8] dark:text-sky-400" />
-          <span className="text-xs font-medium text-[#1a73e8] dark:text-sky-400">
+          <Sparkles className="h-4 w-4 text-ol-blue" />
+          <span className="text-xs font-medium text-ol-blue">
             {t("imageGenerate.title")}
           </span>
           <span className={cn("ml-auto rounded-full px-1.5 py-0.5 text-[10px]", BOARD_GENERATE_PILL_IMAGE)}>
@@ -615,7 +615,7 @@ function EditableImageGenerateNodeView({
   ]);
 
   const containerClassName = cn(
-    "relative flex w-full min-w-0 flex-col rounded-xl border-2 overflow-hidden text-[#202124] dark:text-slate-100 transition-all duration-150",
+    "relative flex w-full min-w-0 flex-col rounded-xl border-2 overflow-hidden text-ol-text-primary transition-all duration-150",
     BOARD_GENERATE_NODE_BASE_IMAGE,
     viewStatus === "error"
       ? BOARD_GENERATE_ERROR
@@ -765,8 +765,8 @@ function EditableImageGenerateNodeView({
       <div ref={containerRef} className={containerClassName}>
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
-          <ImagePlus className="h-4 w-4 shrink-0 text-[#1a73e8] dark:text-sky-400" />
-          <div className="text-xs font-medium text-[#1a73e8] dark:text-sky-400">{t('imageGenerate.title')}</div>
+          <ImagePlus className="h-4 w-4 shrink-0 text-ol-blue" />
+          <div className="text-xs font-medium text-ol-blue">{t('imageGenerate.title')}</div>
           <span className={cn("rounded-full px-2 py-0.5 text-[10px] leading-3", BOARD_GENERATE_PILL_IMAGE)}>
             {subtitleText}
           </span>
@@ -857,8 +857,8 @@ function EditableImageGenerateNodeView({
             className={cn(
               "shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors duration-150",
               isAdvancedOpen
-                ? "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50"
-                : "text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-400 dark:hover:bg-slate-800",
+                ? "bg-ol-blue-bg-hover text-ol-blue"
+                : "text-ol-text-auxiliary hover:bg-ol-surface-muted",
             )}
             onPointerDown={(event) => {
               event.stopPropagation();
@@ -900,10 +900,10 @@ function EditableImageGenerateNodeView({
             className={cn(
               "rounded-lg px-3 py-2 text-[12px] leading-5 shadow-sm",
               statusHint.tone === "error"
-                ? "border border-[#d93025]/20 bg-[#fce8e6] text-[#d93025] dark:border-rose-400/30 dark:bg-rose-950/40 dark:text-rose-200"
+                ? "border border-ol-red/20 bg-ol-red-bg text-ol-red"
                 : statusHint.tone === "warn"
-                  ? "border border-amber-200/70 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200"
-                  : "border border-sky-200/70 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-200",
+                  ? "border border-ol-amber/20 bg-ol-amber-bg text-ol-amber"
+                  : "border border-ol-blue/20 bg-ol-blue-bg text-ol-blue",
             )}
           >
             <div className="relative">
@@ -914,7 +914,7 @@ function EditableImageGenerateNodeView({
                     className={cn(
                       "absolute right-0 top-0 inline-flex h-6 w-6 items-center justify-center rounded-full text-[12px] leading-none",
                       copied
-                        ? "text-emerald-600 dark:text-emerald-400"
+                        ? "text-ol-green"
                         : "text-current/70 hover:text-current",
                     )}
                     onPointerDown={(event) => {

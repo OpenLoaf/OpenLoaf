@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { Button } from "@openloaf/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
@@ -197,7 +197,7 @@ export default function ExcelViewer({
   /** Index of the active sheet. */
   const [activeSheetIndex, setActiveSheetIndex] = useState(0);
   /** Close current stack panel. */
-  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
+  const removeStackItem = useLayoutState((s) => s.removeStackItem);
   /** Resolve current theme for grid rendering. */
   const { resolvedTheme } = useTheme();
 
@@ -442,7 +442,7 @@ export default function ExcelViewer({
                   const ok = window.confirm(t('file.unsavedSheet'));
                   if (!ok) return;
                 }
-                removeStackItem(tabId!, panelKey!);
+                removeStackItem(panelKey!);
               }
             : undefined
         }

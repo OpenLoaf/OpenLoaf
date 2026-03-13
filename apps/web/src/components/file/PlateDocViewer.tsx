@@ -26,7 +26,7 @@ import { StackHeader } from '@/components/layout/StackHeader'
 import { resolveFileUriFromRoot } from '@/components/project/filesystem/utils/file-system-utils'
 import { Button } from '@openloaf/ui/button'
 import { Editor, EditorContainer } from '@openloaf/ui/editor'
-import { useTabRuntime } from '@/hooks/use-tab-runtime'
+import { useLayoutState } from '@/hooks/use-layout-state'
 import { requestStackMinimize } from '@/lib/stack-dock-animation'
 import { trpc } from '@/utils/trpc'
 import { stopFindShortcutPropagation } from '@/components/file/lib/viewer-shortcuts'
@@ -62,7 +62,7 @@ export default function PlateDocViewer({
   const [saveIndicator, setSaveIndicator] = useState<SaveIndicator>('idle')
   const initializingRef = useRef(true)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const removeStackItem = useTabRuntime((s) => s.removeStackItem)
+  const removeStackItem = useLayoutState((s) => s.removeStackItem)
   const shouldRenderStackHeader = Boolean(tabId && panelKey)
   const displayTitle = useMemo(
     () => (name ? getDocDisplayName(name) : uri ?? '文稿'),
@@ -194,7 +194,7 @@ export default function PlateDocViewer({
 
   const saveIcon =
     saveIndicator === 'saving' ? <Loader2 className="h-4 w-4 animate-spin" /> :
-    saveIndicator === 'saved' ? <Check className="h-4 w-4 text-green-500" /> :
+    saveIndicator === 'saved' ? <Check className="h-4 w-4 text-ol-green" /> :
     <Save className="h-4 w-4" />
 
   return (
@@ -225,7 +225,7 @@ export default function PlateDocViewer({
             if (!tabId || !panelKey) return
             if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
             if (isDirty) void doSave(true)
-            removeStackItem(tabId, panelKey)
+            removeStackItem(panelKey)
           }}
         />
       ) : null}

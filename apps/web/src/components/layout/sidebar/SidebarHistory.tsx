@@ -7,8 +7,8 @@ import { ArrowUpDown, FolderOpen, MessageSquare, Palette } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useIsInView } from "@/hooks/use-is-in-view";
 import { useSidebarNavigation } from "@/hooks/use-sidebar-navigation";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { trpc } from "@/utils/trpc";
 import {
   SidebarGroup,
@@ -114,12 +114,12 @@ function renderHistoryItemIcon(item: SidebarHistoryItem) {
         </span>
       );
     }
-    return <FolderOpen className="h-4 w-4 shrink-0 self-center text-sky-600/80 dark:text-sky-300/80" />;
+    return <FolderOpen className="h-4 w-4 shrink-0 self-center text-ol-blue/80" />;
   }
   if (item.entityType === "chat") {
-    return <MessageSquare className="h-4 w-4 shrink-0 self-center text-amber-600/80 dark:text-amber-300/80" />;
+    return <MessageSquare className="h-4 w-4 shrink-0 self-center text-ol-amber/80" />;
   }
-  return <Palette className="h-4 w-4 shrink-0 self-center text-violet-600/80 dark:text-violet-300/80" />;
+  return <Palette className="h-4 w-4 shrink-0 self-center text-ol-purple/80" />;
 }
 
 export function SidebarHistory({ projectId }: SidebarHistoryProps) {
@@ -177,23 +177,19 @@ export function SidebarHistory({ projectId }: SidebarHistoryProps) {
     void historyQuery.fetchNextPage();
   }, [hasMore, historyQuery, isFetchingNextPage, isLoadMoreInView]);
 
-  const activeTabId = useTabs((state) => state.activeTabId);
-  const tabs = useTabs((state) => state.tabs);
-  const runtimeByTabId = useTabRuntime((state) => state.runtimeByTabId);
-  const activeTab = activeTabId
-    ? tabs.find((tab) => tab.id === activeTabId)
-    : undefined;
-  const activeBase = activeTabId ? runtimeByTabId[activeTabId]?.base : undefined;
+  const chatSessionId = useAppView((state) => state.chatSessionId);
+  const projectShell = useAppView((state) => state.projectShell);
+  const activeBase = useLayoutState((state) => state.base);
 
   const isItemActive = useCallback(
     (item: SidebarHistoryItem) => {
       if (item.entityType === "chat") {
-        return activeTab?.chatSessionId === item.chatId;
+        return chatSessionId === item.chatId;
       }
       if (item.entityType === "project") {
         return (
           activeBase?.id === `project:${item.projectId}`
-          || activeTab?.projectShell?.projectId === item.projectId
+          || projectShell?.projectId === item.projectId
         );
       }
       const boardEntityId = resolveBoardEntityId(activeBase?.params?.boardFolderUri);
@@ -206,7 +202,7 @@ export function SidebarHistory({ projectId }: SidebarHistoryProps) {
         && (boardEntityId === item.entityId || explicitBoardId === item.boardId)
       );
     },
-    [activeBase, activeTab?.chatSessionId, activeTab?.projectShell?.projectId],
+    [activeBase, chatSessionId, projectShell?.projectId],
   );
 
   const handleHistoryItemClick = useCallback(

@@ -34,6 +34,12 @@ version: 0.1.0
 4. `references/review-checklist.md`
 5. `references/external-skill-extensions.md`（仅当需要扩展）
 
+**设计令牌系统源文件**（颜色规则的唯一权威来源）：
+- `apps/web/src/index.css` — CSS 变量定义（`:root` / `.dark`）+ Tailwind `@theme inline` 映射
+- `apps/web/src/styles/semantic-tokens.ts` — TS 预组合常量（颜色、圆角、玻璃效果、阴影、过渡）
+- `apps/web/src/components/board/ui/board-style-system.ts` — Board 领域适配层
+- `apps/web/src/components/email/email-style-system.ts` — Email 领域适配层
+
 如遇冲突，优先级如下：
 
 1. 用户本次明确要求
@@ -96,7 +102,7 @@ version: 0.1.0
 
 以中性底色承载信息密度，色彩强调只用于局部状态与语义高亮。按钮分为两类：
 
-- **Action 按钮**（触发操作）：`rounded-full` 胶囊形 + 语义扁平色背景（如 `bg-sky-500/10 text-sky-600`）。按语义选色——sky=主操作、red=危险、emerald=确认、violet=调试、amber=测试。
+- **Action 按钮**（触发操作）：`rounded-full` 胶囊形 + 语义扁平色背景。按语义选色——blue=主操作、red=危险、green=确认、purple=调试、amber=测试。颜色使用 `ol-*` 设计令牌（如 `bg-ol-blue/10 text-ol-blue`），禁止硬编码 hex 或 Tailwind 原生色。
 - **View 按钮**（查看/导航）：`rounded-full` 胶囊形 + `variant="ghost"` + `text-muted-foreground`，无背景色，保持低调。
 
 禁止所有按钮都用无色 ghost 样式——用户需要通过颜色快速区分操作语义与查看导航。
@@ -115,7 +121,19 @@ version: 0.1.0
 
 ### 7. Token-First Implementation
 
-优先复用现有 token（`--color-*`, `--sidebar-*`, `--radius-*`）。禁止在全站组件里散落难以维护的硬编码色值。
+**所有颜色必须使用统一设计令牌系统**，禁止硬编码 hex 值或 Tailwind 原生色（sky/emerald/violet 等）。
+
+令牌体系分三层：
+
+1. **CSS 变量**（`:root` / `.dark`）：`--ol-blue`、`--ol-green`、`--ol-amber`、`--ol-red`、`--ol-purple` 及对应的 `-bg`、`-bg-hover` 变体，中性色 `--ol-text-primary/secondary/auxiliary`、`--ol-surface-muted/inset/input`、`--ol-divider`、阴影 `--ol-shadow-glass/toolbar/float`。定义在 `apps/web/src/index.css`。
+2. **Tailwind 映射**：通过 `@theme inline` 映射为 `ol-*` utility class（如 `text-ol-blue`、`bg-ol-green-bg`、`border-ol-divider`、`shadow-ol-glass`），支持透明度语法（`bg-ol-blue/10`）。
+3. **TS 常量**：`apps/web/src/styles/semantic-tokens.ts` 导出预组合常量（`OL_BLUE.badge`、`OL_GLASS.toolbar`、`OL_RADIUS.card` 等），供复杂场景直接引用。
+
+**领域 style-system 文件**作为各领域的适配层：
+- `apps/web/src/components/board/ui/board-style-system.ts`
+- `apps/web/src/components/email/email-style-system.ts`
+
+修改颜色时只需调整 `:root` / `.dark` 中的 CSS 变量，全局自动生效，支持一键换肤。
 
 ## Guardrail Metrics
 

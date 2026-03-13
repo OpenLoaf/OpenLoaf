@@ -15,8 +15,7 @@ import { Cloud, HardDrive, Settings2, Sparkles } from 'lucide-react'
 import { useChatActions, useChatSession, useChatState } from '../context'
 import { useBasicConfig } from '@/hooks/use-basic-config'
 import { useSettingsValues } from '@/hooks/use-settings'
-import { useTabRuntime } from '@/hooks/use-tab-runtime'
-import { useTabs } from '@/hooks/use-tabs'
+import { useLayoutState } from '@/hooks/use-layout-state'
 import { useSaasAuth } from '@/hooks/use-saas-auth'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
 import { Message, MessageContent } from '@/components/ai-elements/message'
@@ -28,16 +27,13 @@ export default function PendingCloudLoginPrompt() {
   const { basic, setBasic } = useBasicConfig()
   const { providerItems } = useSettingsValues()
   const { tabId } = useChatSession()
-  const { activeTabId } = useTabs()
-  const { pushStackItem } = useTabRuntime()
+  const { pushStackItem } = useLayoutState()
   const reduceMotion = useReducedMotion()
   const authLoggedIn = useSaasAuth((s) => s.loggedIn)
 
   const [loginOpen, setLoginOpen] = useState(false)
   const [autoSendOnSourceChange, setAutoSendOnSourceChange] = useState(false)
   const prevChatSourceRef = useRef(basic.chatSource)
-
-  const activeChatTabId = tabId ?? activeTabId
 
   const hasConfiguredProviders = providerItems.some(
     (item) => (item.category ?? 'general') === 'provider',
@@ -73,9 +69,8 @@ export default function PendingCloudLoginPrompt() {
     if (hasConfiguredProviders) {
       setAutoSendOnSourceChange(true)
       void setBasic({ chatSource: 'local' })
-    } else if (activeChatTabId) {
+    } else {
       pushStackItem(
-        activeChatTabId,
         {
           id: 'provider-management',
           sourceKey: 'provider-management',
@@ -88,9 +83,7 @@ export default function PendingCloudLoginPrompt() {
   }
 
   const handleGoToProviderConfig = () => {
-    if (!activeChatTabId) return
     pushStackItem(
-      activeChatTabId,
       {
         id: 'provider-management',
         sourceKey: 'provider-management',
@@ -127,16 +120,16 @@ export default function PendingCloudLoginPrompt() {
             transition={{ duration: 0.14, delay: 0.06, ease: 'easeOut' }}
           >
             <MessageContent className="w-full !bg-transparent !p-0">
-              <div className="overflow-hidden rounded-xl bg-[#e8f0fe] dark:bg-sky-900/30">
+              <div className="overflow-hidden rounded-xl bg-ol-blue-bg">
                 <div className="flex items-center gap-2.5 px-3.5 py-2.5">
-                  <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-[#fef7e0] dark:bg-amber-900/40">
-                    <Sparkles className="size-3 text-[#f9ab00] dark:text-amber-300" />
+                  <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-ol-amber-bg">
+                    <Sparkles className="size-3 text-ol-amber" />
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate text-[12px] font-medium text-[#1a73e8] dark:text-sky-300">
+                    <p className="truncate text-[12px] font-medium text-ol-blue">
                       {isLoggedInLocalEmpty ? '本地模型未配置' : '需要登录后继续'}
                     </p>
-                    <p className="truncate text-[10px] text-[#5f6368] dark:text-slate-400">
+                    <p className="truncate text-[10px] text-ol-text-auxiliary">
                       {isLoggedInLocalEmpty
                         ? '切换到云端模型继续对话，或先完成本地模型配置'
                         : hasConfiguredProviders
@@ -146,13 +139,13 @@ export default function PendingCloudLoginPrompt() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 border-t border-[#1a73e8]/10 px-3.5 py-2.5 dark:border-sky-500/10">
+                <div className="flex items-center gap-1.5 border-t border-ol-blue/10 px-3.5 py-2.5">
                   {isLoggedInLocalEmpty ? (
                     <>
                       <button
                         type="button"
                         onClick={handleUseCloud}
-                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#1a73e8] px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:bg-[#1557b0] dark:bg-sky-600 dark:hover:bg-sky-500"
+                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full bg-ol-blue px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:brightness-110"
                       >
                         <Cloud className="size-3" />
                         使用云端模型
@@ -160,7 +153,7 @@ export default function PendingCloudLoginPrompt() {
                       <button
                         type="button"
                         onClick={handleGoToProviderConfig}
-                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full border border-[#1a73e8]/25 bg-white/70 px-3 text-[11px] font-medium text-[#1a73e8] transition-colors duration-150 hover:bg-[#d2e3fc] dark:border-sky-500/25 dark:bg-sky-900/40 dark:text-sky-300 dark:hover:bg-sky-900/60"
+                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full border border-ol-blue/25 bg-white/70 px-3 text-[11px] font-medium text-ol-blue transition-colors duration-150 hover:bg-ol-blue-bg-hover dark:bg-ol-blue-bg"
                       >
                         <Settings2 className="size-3" />
                         前往模型配置
@@ -171,7 +164,7 @@ export default function PendingCloudLoginPrompt() {
                       <button
                         type="button"
                         onClick={() => handleLogin()}
-                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#1a73e8] px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:bg-[#1557b0] dark:bg-sky-600 dark:hover:bg-sky-500"
+                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full bg-ol-blue px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:brightness-110"
                       >
                         <Cloud className="size-3" />
                         登录云端模型
@@ -179,7 +172,7 @@ export default function PendingCloudLoginPrompt() {
                       <button
                         type="button"
                         onClick={() => handleUseLocal()}
-                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full border border-[#1a73e8]/25 bg-white/70 px-3 text-[11px] font-medium text-[#1a73e8] transition-colors duration-150 hover:bg-[#d2e3fc] dark:border-sky-500/25 dark:bg-sky-900/40 dark:text-sky-300 dark:hover:bg-sky-900/60"
+                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full border border-ol-blue/25 bg-white/70 px-3 text-[11px] font-medium text-ol-blue transition-colors duration-150 hover:bg-ol-blue-bg-hover dark:bg-ol-blue-bg"
                       >
                         {hasConfiguredProviders ? (
                           <HardDrive className="size-3" />

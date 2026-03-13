@@ -7,30 +7,28 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-"use client";
+"use client"
 
-import { useEffect } from "react";
-import { DEFAULT_TAB_INFO } from "@openloaf/api/common";
-import { openProjectShell } from "@/lib/project-shell";
-import { getProjectWindowBootstrapPayload } from "@/lib/window-mode";
-import { useTabs } from "@/hooks/use-tabs";
-import { useProjectStorageRootQuery } from "@/hooks/use-project-storage-root-uri";
+import { useEffect } from "react"
+import { DEFAULT_TAB_INFO } from "@openloaf/api/common"
+import { openProjectShell } from "@/lib/project-shell"
+import { getProjectWindowBootstrapPayload } from "@/lib/window-mode"
+import { useAppView } from "@/hooks/use-app-view"
+import { useProjectStorageRootQuery } from "@/hooks/use-project-storage-root-uri"
 
 /**
  * Bootstrap application side effects.
  */
 export function AppBootstrap() {
-  const { isLoading } = useProjectStorageRootQuery();
-  const addTab = useTabs((state) => state.addTab);
-  const tabs = useTabs((state) => state.tabs);
-  const activeTabId = useTabs((state) => state.activeTabId);
+  const { isLoading } = useProjectStorageRootQuery()
+  const initialized = useAppView((s) => s.initialized)
+  const navigate = useAppView((s) => s.navigate)
 
   useEffect(() => {
-    if (isLoading) return;
-    if (activeTabId) return;
-    if (tabs.length > 0) return;
+    if (isLoading) return
+    if (initialized) return
 
-    const projectWindowPayload = getProjectWindowBootstrapPayload();
+    const projectWindowPayload = getProjectWindowBootstrapPayload()
     if (projectWindowPayload) {
       openProjectShell({
         projectId: projectWindowPayload.projectId,
@@ -38,19 +36,18 @@ export function AppBootstrap() {
         title: projectWindowPayload.title,
         icon: projectWindowPayload.icon,
         section: "assistant",
-      });
-      return;
+      })
+      return
     }
 
-    // 逻辑：首次启动且无任何标签页时，补一个默认 AI 标签页，保持旧行为不变。
-    addTab({
-      createNew: true,
+    // First launch with no saved state: create a default AI assistant view.
+    navigate({
       title: DEFAULT_TAB_INFO.titleKey,
       icon: DEFAULT_TAB_INFO.icon,
       leftWidthPercent: 0,
       rightChatCollapsed: false,
-    });
-  }, [isLoading, activeTabId, tabs.length, addTab]);
+    })
+  }, [isLoading, initialized, navigate])
 
-  return null;
+  return null
 }

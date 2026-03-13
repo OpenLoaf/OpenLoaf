@@ -447,7 +447,7 @@ export function ImagePromptGenerateNodeView({
   }, []);
 
   const containerClassName = cn(
-    "relative flex h-full w-full min-h-0 min-w-0 flex-col rounded-xl border-2 overflow-hidden text-[#202124] dark:text-neutral-100 transition-all duration-150",
+    "relative flex h-full w-full min-h-0 min-w-0 flex-col rounded-xl border-2 overflow-hidden text-ol-text-primary transition-all duration-150",
     BOARD_GENERATE_NODE_BASE_PROMPT,
     viewStatus === "running"
       ? "openloaf-thinking-border openloaf-thinking-border-on border-transparent"
@@ -510,8 +510,8 @@ export function ImagePromptGenerateNodeView({
       <div className={containerClassName} ref={containerRef}>
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
-          <ScanEye className="h-4 w-4 shrink-0 text-[#f9ab00] dark:text-amber-400" />
-          <div className="text-xs font-medium text-[#f9ab00] dark:text-amber-400">{t('imagePromptGenerate.title')}</div>
+          <ScanEye className="h-4 w-4 shrink-0 text-ol-amber" />
+          <div className="text-xs font-medium text-ol-amber">{t('imagePromptGenerate.title')}</div>
         </div>
 
         {/* Body */}
@@ -519,12 +519,12 @@ export function ImagePromptGenerateNodeView({
           {resultText ? (
             <div className="space-y-1">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[11px] text-[#5f6368] dark:text-neutral-400">
+                <div className="text-[11px] text-ol-text-auxiliary">
                   {t('imagePromptGenerate.contentDescription')}
                 </div>
                 <button
                   type="button"
-                  className="rounded-full px-1.5 py-0.5 text-[10px] text-neutral-500 hover:text-neutral-700 dark:text-neutral-300 dark:hover:text-neutral-100"
+                  className="rounded-full px-1.5 py-0.5 text-[10px] text-ol-text-auxiliary hover:text-ol-text-primary"
                   onPointerDown={(event) => {
                     event.stopPropagation();
                   }}
@@ -537,7 +537,7 @@ export function ImagePromptGenerateNodeView({
               </div>
               <div
                 data-board-scroll
-                className={cn("rounded-xl p-2 text-[12px] leading-5 text-[#202124] dark:text-neutral-200", BOARD_GENERATE_INSET)}
+                className={cn("rounded-xl p-2 text-[12px] leading-5 text-ol-text-primary", BOARD_GENERATE_INSET)}
               >
                 <pre className="whitespace-pre-wrap break-words font-sans">
                   {resultText}
@@ -554,7 +554,7 @@ export function ImagePromptGenerateNodeView({
               <button
                 type="button"
                 disabled={isLoginBusy}
-                className="inline-flex h-7 w-full items-center justify-center rounded-full border border-[#dadce0] bg-[#f8f9fa] px-3 text-[11px] text-[#5f6368] transition-colors duration-150 hover:bg-[#e8eaed] disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/60 dark:text-neutral-400 dark:hover:bg-slate-700/60"
+                className="inline-flex h-7 w-full items-center justify-center rounded-full border border-ol-divider bg-ol-surface-muted px-3 text-[11px] text-ol-text-auxiliary transition-colors duration-150 hover:bg-ol-divider disabled:opacity-50"
                 onPointerDown={(event) => {
                   event.stopPropagation();
                   if (!isLoginBusy) setLoginOpen(true);
@@ -573,7 +573,7 @@ export function ImagePromptGenerateNodeView({
                 }}
                 disabled={candidates.length === 0 || isRunning}
               >
-                <SelectTrigger className="h-7 w-full rounded-full border-[#dadce0] bg-[#f8f9fa] px-2 text-[11px] shadow-none hover:bg-[#e8eaed] dark:border-slate-600 dark:bg-slate-800/60 dark:hover:bg-slate-700/60">
+                <SelectTrigger className="h-7 w-full rounded-full border-ol-divider bg-ol-surface-muted px-2 text-[11px] shadow-none hover:bg-ol-divider">
                   <SelectValue placeholder={t('imagePromptGenerate.noModel')} />
                 </SelectTrigger>
                 <SelectContent className="text-[11px]">
@@ -592,9 +592,9 @@ export function ImagePromptGenerateNodeView({
                       >
                         <span className="inline-flex items-center gap-1">
                           {isCloud ? (
-                            <Cloud className="h-3 w-3 shrink-0 text-[#1a73e8] dark:text-sky-400" />
+                            <Cloud className="h-3 w-3 shrink-0 text-ol-blue" />
                           ) : (
-                            <Monitor className="h-3 w-3 shrink-0 text-[#5f6368] dark:text-neutral-400" />
+                            <Monitor className="h-3 w-3 shrink-0 text-ol-text-auxiliary" />
                           )}
                           {option.providerName}:{option.modelDefinition?.name || option.modelId}
                         </span>

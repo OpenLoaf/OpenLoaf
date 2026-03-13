@@ -71,7 +71,7 @@ const formatDuration = (start: CalendarEvent['start'], end: CalendarEvent['end']
 function EventHoverCard({ event }: { event: CalendarEvent }) {
 	const background = resolveEventColor(
 		event.backgroundColor,
-		'bg-blue-500',
+		'bg-ol-blue',
 		'backgroundColor'
 	)
 
@@ -224,7 +224,7 @@ function DraggableEventUnmemoized({
 
 		const background = resolveEventColor(
 			event.backgroundColor,
-			'bg-blue-500',
+			'bg-ol-blue',
 			'backgroundColor'
 		)
 		const textColor = resolveEventColor(event.color, 'text-white', 'color')

@@ -11,7 +11,7 @@
 
 import type { UiEvent } from "@openloaf/api/types/event";
 import { UiEventKind } from "@openloaf/api/types/event";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { getProjectsQueryKey } from "@/hooks/use-projects";
 import { queryClient } from "@/utils/trpc";
 
@@ -26,26 +26,26 @@ export function handleUiEvent(event: UiEvent | undefined) {
     [UiEventKind.PushStackItem]: (
       e: Extract<UiEvent, { kind: UiEventKind.PushStackItem }>,
     ) => {
-      useTabRuntime.getState().pushStackItem(e.tabId, e.item, 70);
+      useLayoutState.getState().pushStackItem(e.item, 70);
     },
     [UiEventKind.CloseStack]: (
-      e: Extract<UiEvent, { kind: UiEventKind.CloseStack }>,
+      _e: Extract<UiEvent, { kind: UiEventKind.CloseStack }>,
     ) => {
-      useTabRuntime.getState().clearStack(e.tabId);
+      useLayoutState.getState().clearStack();
     },
     [UiEventKind.RefreshPageTree]: () => {
       const queryKey = getProjectsQueryKey();
       void queryClient.invalidateQueries({ queryKey });
     },
     [UiEventKind.RefreshBasePanel]: (
-      e: Extract<UiEvent, { kind: UiEventKind.RefreshBasePanel }>,
+      _e: Extract<UiEvent, { kind: UiEventKind.RefreshBasePanel }>,
     ) => {
-      const state = useTabRuntime.getState();
-      const base = state.runtimeByTabId[e.tabId]?.base;
+      const layoutState = useLayoutState.getState();
+      const base = layoutState.base;
       if (!base) return;
 
       const current = Number((base.params as any)?.__refreshKey ?? 0);
-      state.setTabBase(e.tabId, {
+      layoutState.setBase({
         ...base,
         params: { ...(base.params ?? {}), __refreshKey: current + 1 },
       });

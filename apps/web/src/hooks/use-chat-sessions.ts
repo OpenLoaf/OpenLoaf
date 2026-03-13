@@ -12,8 +12,7 @@
 import { useMemo } from "react";
 import { skipToken, useQuery, type QueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabView } from "@/hooks/use-tab-view";
+import { useAppState } from "@/hooks/use-app-state";
 
 /** Session list item used by chat UI. */
 export type ChatSessionListItem = {
@@ -71,10 +70,8 @@ function buildRecentSessions(sessions: ChatSessionListItem[]): ChatSessionListIt
 }
 
 /** Fetch chat sessions for list + header + recent usage. */
-export function useChatSessions(input?: UseChatSessionsInput) {
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const resolvedTabId = input?.tabId ?? activeTabId ?? undefined;
-  const tab = useTabView(resolvedTabId);
+export function useChatSessions(_input?: UseChatSessionsInput) {
+  const tab = useAppState();
   const boardBaseParams =
     tab?.base?.component === "board-viewer"
       ? (tab.base.params as Record<string, unknown> | undefined)

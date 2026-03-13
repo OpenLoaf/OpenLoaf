@@ -51,7 +51,6 @@ import {
   Gauge,
   MessageSquare,
   Trash2,
-  Brain,
   Eye,
   PencilLine,
 } from 'lucide-react'
@@ -60,8 +59,7 @@ import { Streamdown, defaultRemarkPlugins, type StreamdownProps } from 'streamdo
 import { toast } from 'sonner'
 
 import '@/components/file/style/streamdown-viewer.css'
-import { useTabs } from '@/hooks/use-tabs'
-import { useTabRuntime } from '@/hooks/use-tab-runtime'
+import { useLayoutState } from '@/hooks/use-layout-state'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@openloaf/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@openloaf/ui/popover'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
@@ -96,40 +94,40 @@ const PROMPT_REMARK_PLUGINS = Object.values(defaultRemarkPlugins)
 
 /** 能力组 ID → 彩色图标映射 */
 const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
-  browser: { icon: Globe, className: 'text-blue-500' },
-  'file-read': { icon: FileSearch, className: 'text-emerald-500' },
-  'file-write': { icon: FilePen, className: 'text-green-600' },
-  shell: { icon: Terminal, className: 'text-slate-500' },
-  email: { icon: Mail, className: 'text-red-500' },
-  calendar: { icon: Calendar, className: 'text-orange-500' },
-  office: { icon: Edit3, className: 'text-teal-500' },
-  'image-generate': { icon: Image, className: 'text-pink-500' },
-  'video-generate': { icon: Video, className: 'text-purple-500' },
-  widget: { icon: LayoutGrid, className: 'text-violet-500' },
-  project: { icon: FolderKanban, className: 'text-cyan-500' },
-  web: { icon: Link, className: 'text-sky-500' },
-  agent: { icon: Users, className: 'text-indigo-500' },
-  'code-interpreter': { icon: Code, className: 'text-amber-500' },
-  system: { icon: Settings, className: 'text-slate-400' },
+  browser: { icon: Globe, className: 'text-ol-blue' },
+  'file-read': { icon: FileSearch, className: 'text-ol-green' },
+  'file-write': { icon: FilePen, className: 'text-ol-green' },
+  shell: { icon: Terminal, className: 'text-ol-text-auxiliary' },
+  email: { icon: Mail, className: 'text-ol-red' },
+  calendar: { icon: Calendar, className: 'text-ol-amber' },
+  office: { icon: Edit3, className: 'text-ol-green' },
+  'image-generate': { icon: Image, className: 'text-ol-red' },
+  'video-generate': { icon: Video, className: 'text-ol-purple' },
+  widget: { icon: LayoutGrid, className: 'text-ol-purple' },
+  project: { icon: FolderKanban, className: 'text-ol-blue' },
+  web: { icon: Link, className: 'text-ol-blue' },
+  agent: { icon: Users, className: 'text-ol-purple' },
+  'code-interpreter': { icon: Code, className: 'text-ol-amber' },
+  system: { icon: Settings, className: 'text-ol-text-auxiliary' },
 }
 
 /** 能力组 ID → 扁平 pastel 背景色映射 */
 const CAP_BG_MAP: Record<string, string> = {
-  browser: 'bg-blue-50 dark:bg-blue-950/40',
-  'file-read': 'bg-emerald-50 dark:bg-emerald-950/40',
-  'file-write': 'bg-green-50 dark:bg-green-950/40',
-  shell: 'bg-slate-50 dark:bg-slate-950/40',
-  email: 'bg-red-50 dark:bg-red-950/40',
-  calendar: 'bg-orange-50 dark:bg-orange-950/40',
-  office: 'bg-teal-50 dark:bg-teal-950/40',
-  'image-generate': 'bg-pink-50 dark:bg-pink-950/40',
-  'video-generate': 'bg-purple-50 dark:bg-purple-950/40',
-  widget: 'bg-violet-50 dark:bg-violet-950/40',
-  project: 'bg-cyan-50 dark:bg-cyan-950/40',
-  web: 'bg-sky-50 dark:bg-sky-950/40',
-  agent: 'bg-indigo-50 dark:bg-indigo-950/40',
-  'code-interpreter': 'bg-amber-50 dark:bg-amber-950/40',
-  system: 'bg-gray-50 dark:bg-gray-950/40',
+  browser: 'bg-ol-blue-bg',
+  'file-read': 'bg-ol-green-bg',
+  'file-write': 'bg-ol-green-bg',
+  shell: 'bg-ol-surface-muted',
+  email: 'bg-ol-red-bg',
+  calendar: 'bg-ol-amber-bg',
+  office: 'bg-ol-green-bg',
+  'image-generate': 'bg-ol-red-bg',
+  'video-generate': 'bg-ol-purple-bg',
+  widget: 'bg-ol-purple-bg',
+  project: 'bg-ol-blue-bg',
+  web: 'bg-ol-blue-bg',
+  agent: 'bg-ol-purple-bg',
+  'code-interpreter': 'bg-ol-amber-bg',
+  system: 'bg-ol-surface-muted',
 }
 
 type AgentDetailPanelProps = {
@@ -321,7 +319,7 @@ function MediaModelSelect({
               </span>
             ) : (
               <>
-                <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-ol-green" />
                 <span className="truncate">Auto</span>
               </>
             )}
@@ -358,10 +356,10 @@ function MediaModelSelect({
               className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs hover:bg-muted/50"
               onClick={() => applyChange([])}
             >
-              <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
+              <Sparkles className="h-3.5 w-3.5 text-ol-green" />
               <span className="flex-1 truncate">Auto</span>
               {normalizedValue.length === 0 ? (
-                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                <Check className="h-3.5 w-3.5 text-ol-green" />
               ) : (
                 <span className="h-3.5 w-3.5" />
               )}
@@ -523,7 +521,7 @@ function ChatModelSelect({
               </span>
             ) : (
               <>
-                <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-ol-green" />
                 <span className="truncate">Auto</span>
               </>
             )}
@@ -560,10 +558,10 @@ function ChatModelSelect({
               className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs hover:bg-muted/50"
               onClick={() => applyChange([])}
             >
-              <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
+              <Sparkles className="h-3.5 w-3.5 text-ol-green" />
               <span className="flex-1 truncate">Auto</span>
               {normalizedValue.length === 0 ? (
-                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                <Check className="h-3.5 w-3.5 text-ol-green" />
               ) : (
                 <span className="h-3.5 w-3.5" />
               )}
@@ -626,9 +624,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const [promptPreview, setPromptPreview] = useState(true)
   const [activeConfigTab, setActiveConfigTab] = useState('capabilities')
   const [loginOpen, setLoginOpen] = useState(false)
-  const [memoryContent, setMemoryContent] = useState('')
-  const [memoryPreview, setMemoryPreview] = useState(false)
-  const [memorySynced, setMemorySynced] = useState(false)
   const [defaultSnapshot, setDefaultSnapshot] = useState('')
 
   // 逻辑：保存初始快照用于脏检测。
@@ -638,10 +633,8 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const isDirtyRef = useRef(false)
 
   const panelSlot = useStackPanelSlot()
-  const activeTabId = useTabs((s) => s.activeTabId)
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem)
-  const removeStackItem = useTabRuntime((s) => s.removeStackItem)
-  const getRuntimeByTabId = useTabRuntime((s) => s.getRuntimeByTabId)
+  const pushStackItem = useLayoutState((s) => s.pushStackItem)
+  const removeStackItem = useLayoutState((s) => s.removeStackItem)
   const { loggedIn: authLoggedIn } = useSaasAuth()
   const { imageModels, videoModels } = useMediaModels()
   const { providerItems } = useSettingsValues()
@@ -746,20 +739,18 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       })
       return
     }
-    if (activeTabId) {
-      pushStackItem(activeTabId, {
-        id: `agent-folder:${agentPath}`,
-        sourceKey: `agent-folder:${agentPath}`,
-        component: 'folder-tree-preview',
-        title: t('settings:agent.tabTitle', { name: name || 'folder' }),
-        params: {
-          rootUri: dirUri,
-          currentUri: '',
-          projectId: scope === 'project' ? projectId : undefined,
-        },
-      })
-    }
-  }, [agentPath, activeTabId, pushStackItem, name, scope, projectId])
+    pushStackItem({
+      id: `agent-folder:${agentPath}`,
+      sourceKey: `agent-folder:${agentPath}`,
+      component: 'folder-tree-preview',
+      title: t('settings:agent.tabTitle', { name: name || 'folder' }),
+      params: {
+        rootUri: dirUri,
+        currentUri: '',
+        projectId: scope === 'project' ? projectId : undefined,
+      },
+    })
+  }, [agentPath, pushStackItem, name, scope, projectId])
 
   // 逻辑：加载能力组列表。
   const capGroupsQuery = useQuery(
@@ -832,36 +823,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     () => (skillsQuery.data ?? []) as SkillSummary[],
     [skillsQuery.data],
   )
-
-  // 逻辑：仅主助手加载 memory 内容。
-  const memoryQuery = useQuery({
-    ...trpc.settings.getMemory.queryOptions(projectId ? { projectId } : undefined),
-    enabled: isMasterAgent && !isNew,
-  })
-
-  // 逻辑：memory 查询结果同步到本地编辑 state，有内容时默认预览，空内容默认编辑。
-  useEffect(() => {
-    if (memoryQuery.data && !memorySynced) {
-      setMemoryContent(memoryQuery.data.content)
-      setMemoryPreview(Boolean(memoryQuery.data.content))
-      setMemorySynced(true)
-    }
-  }, [memoryQuery.data, memorySynced])
-
-  const saveMemoryMutation = useMutation({
-    ...trpc.settings.saveMemory.mutationOptions(),
-    onSuccess: () => {
-      toast.success(t('settings:agent.panel.memorySaved'))
-      memoryQuery.refetch()
-    },
-  })
-
-  const handleSaveMemory = useCallback(() => {
-    saveMemoryMutation.mutate({
-      content: memoryContent,
-      projectId: projectId || undefined,
-    })
-  }, [memoryContent, projectId, saveMemoryMutation])
 
   // 逻辑：详情加载后回填表单并保存初始快照。
   useEffect(() => {
@@ -1081,11 +1042,8 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
         toast.success(t('settings:agent.panel.deletedSuccess'))
         // 逻辑：删除后关闭当前 stack 面板。
         savedSnapshotRef.current = currentSnapshot
-        if (activeTabId) {
-          const runtime = getRuntimeByTabId(activeTabId)
-          const stackItemId = runtime?.activeStackItemId
-          if (stackItemId) removeStackItem(activeTabId, stackItemId)
-        }
+        const stackItemId = useLayoutState.getState().activeStackItemId
+        if (stackItemId) removeStackItem(stackItemId)
       },
       onError: (err) => toast.error(err.message),
     }),
@@ -1317,7 +1275,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
               onCheckedChange={(checked) =>
                 handleToggleGroup(group.id, Boolean(checked))
               }
-              className="ml-auto data-[state=checked]:bg-blue-500 dark:data-[state=checked]:bg-blue-500"
+              className="ml-auto data-[state=checked]:bg-ol-blue dark:data-[state=checked]:bg-ol-blue"
             />
           </div>
           <div className="mt-1.5 flex items-start gap-1">
@@ -1465,7 +1423,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           {/* Apple 风格基本信息区 */}
           <div className="flex flex-col items-center gap-2 pt-2 pb-1">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40">
-              <Bot className="h-7 w-7 text-blue-600 dark:text-blue-400" />
+              <Bot className="h-7 w-7 text-ol-blue" />
             </div>
             <Input
               value={name}
@@ -1479,7 +1437,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           <OpenLoafSettingsCard divided>
             <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
               <span className="flex items-center gap-2 text-sm font-medium">
-                <MessageSquare className="h-4 w-4 text-sky-500" />
+                <MessageSquare className="h-4 w-4 text-ol-blue" />
                 {t('settings:agent.panel.chatModel')}
                 {isMasterAgent ? (
                   <Tooltip>
@@ -1526,14 +1484,14 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     text={t('settings:agent.panel.sourceLocal')}
                     selected={!isCloudSource}
                     onSelect={() => handleChatSourceSelect('local')}
-                    icon={<HardDrive className="h-3 w-3 text-amber-500" />}
+                    icon={<HardDrive className="h-3 w-3 text-ol-amber" />}
                     layoutId="agent-chat-source"
                   />
                   <FilterTab
                     text={t('settings:agent.panel.sourceCloud')}
                     selected={isCloudSource}
                     onSelect={() => handleChatSourceSelect('cloud')}
-                    icon={<Cloud className="h-3 w-3 text-sky-500" />}
+                    icon={<Cloud className="h-3 w-3 text-ol-blue" />}
                     layoutId="agent-chat-source"
                   />
                 </div>
@@ -1542,7 +1500,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             {isMasterAgent ? (
               <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
                 <span className="flex items-center gap-2 text-sm font-medium">
-                  <Sparkles className="h-4 w-4 text-emerald-500" />
+                  <Sparkles className="h-4 w-4 text-ol-green" />
                   {t('settings:agent.panel.auxModel')}
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -1575,14 +1533,14 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       text={t('settings:agent.panel.sourceLocal')}
                       selected={!isAuxCloudSource}
                       onSelect={() => setAuxiliaryModelSource('local')}
-                      icon={<HardDrive className="h-3 w-3 text-amber-500" />}
+                      icon={<HardDrive className="h-3 w-3 text-ol-amber" />}
                       layoutId="agent-aux-source"
                     />
                     <FilterTab
                       text={t('settings:agent.panel.sourceCloud')}
                       selected={isAuxCloudSource}
                       onSelect={() => setAuxiliaryModelSource('cloud')}
-                      icon={<Cloud className="h-3 w-3 text-sky-500" />}
+                      icon={<Cloud className="h-3 w-3 text-ol-blue" />}
                       layoutId="agent-aux-source"
                     />
                   </div>
@@ -1592,7 +1550,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             {isMasterAgent ? (
               <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
                 <span className="flex items-center gap-2 text-sm font-medium">
-                  <Gauge className="h-4 w-4 text-violet-500" />
+                  <Gauge className="h-4 w-4 text-ol-purple" />
                   {t('settings:agent.panel.maxSubagents')}
                 </span>
                 <div className="ml-auto flex items-center rounded-full border border-border/70 bg-muted/40">
@@ -1613,7 +1571,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             ) : (
               <div className="flex items-center gap-3 py-2.5">
                 <span className="flex items-center gap-2 text-sm font-medium">
-                  <Edit3 className="h-4 w-4 text-amber-500" />
+                  <Edit3 className="h-4 w-4 text-ol-amber" />
                   {t('settings:agent.panel.notes')}
                 </span>
                 <Input
@@ -1629,7 +1587,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           <OpenLoafSettingsCard divided>
             <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <Image className="h-4 w-4 text-pink-500" />
+                <Image className="h-4 w-4 text-ol-red" />
                 {t('settings:agent.panel.imageGen')}
               </div>
               <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -1649,7 +1607,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       emptyText={t('settings:agent.panel.noImageModel')}
                     />
                   ) : (
-                    <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500" onClick={() => setLoginOpen(true)}>
+                    <Button size="sm" className="bg-ol-blue text-white hover:bg-ol-blue" onClick={() => setLoginOpen(true)}>
                       <img src="/head_s.png" alt="OpenLoaf" className="mr-1 h-5 w-5" />
                       {t('settings:agent.panel.loginCloudShort')}
                     </Button>
@@ -1667,7 +1625,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             </div>
             <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <Video className="h-4 w-4 text-purple-500" />
+                <Video className="h-4 w-4 text-ol-purple" />
                 {t('settings:agent.panel.videoGen')}
               </div>
               <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -1687,7 +1645,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       emptyText={t('settings:agent.panel.noVideoModel')}
                     />
                   ) : (
-                    <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500" onClick={() => setLoginOpen(true)}>
+                    <Button size="sm" className="bg-ol-blue text-white hover:bg-ol-blue" onClick={() => setLoginOpen(true)}>
                       <img src="/head_s.png" alt="OpenLoaf" className="mr-1 h-5 w-5" />
                       {t('settings:agent.panel.loginCloudShort')}
                     </Button>
@@ -1715,32 +1673,23 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     value="capabilities"
                     className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
                   >
-                    <Blocks className="mr-1 h-3 w-3 text-blue-500" />
+                    <Blocks className="mr-1 h-3 w-3 text-ol-blue" />
                     {t('settings:agent.panel.capabilitiesTab')}
                   </TabsTrigger>
                   <TabsTrigger
                     value="skills"
                     className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
                   >
-                    <Sparkles className="mr-1 h-3 w-3 text-purple-500" />
+                    <Sparkles className="mr-1 h-3 w-3 text-ol-purple" />
                     {t('settings:agent.panel.skillsTab')}
                   </TabsTrigger>
                   <TabsTrigger
                     value="prompt"
                     className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
                   >
-                    <ScrollText className="mr-1 h-3 w-3 text-amber-500" />
+                    <ScrollText className="mr-1 h-3 w-3 text-ol-amber" />
                     {t('settings:agent.panel.promptTab')}
                   </TabsTrigger>
-                  {isMasterAgent ? (
-                    <TabsTrigger
-                      value="memory"
-                      className="h-6 rounded-full px-2.5 text-xs whitespace-nowrap"
-                    >
-                      <Brain className="mr-1 h-3 w-3 text-emerald-500" />
-                      {t('settings:agent.panel.memoryTab')}
-                    </TabsTrigger>
-                  ) : null}
                 </TabsList>
                 <div className="flex items-center gap-1">
                   {activeConfigTab === 'prompt' ? (
@@ -1748,7 +1697,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="h-7 rounded-full px-3 text-xs bg-amber-50 text-amber-600 hover:bg-amber-100 hover:text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-900/50 dark:hover:text-amber-300"
+                      className="h-7 rounded-full px-3 text-xs bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover"
                       onClick={() => setPromptPreview((v) => !v)}
                     >
                       {promptPreview ? (
@@ -1757,22 +1706,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                         <Eye className="mr-1 h-3.5 w-3.5" />
                       )}
                       {promptPreview ? t('settings:agent.panel.promptEdit') : t('settings:agent.panel.promptPreview')}
-                    </Button>
-                  ) : null}
-                  {activeConfigTab === 'memory' ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 rounded-full px-3 text-xs bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/50 dark:hover:text-emerald-300"
-                      onClick={() => setMemoryPreview((v) => !v)}
-                    >
-                      {memoryPreview ? (
-                        <PencilLine className="mr-1 h-3.5 w-3.5" />
-                      ) : (
-                        <Eye className="mr-1 h-3.5 w-3.5" />
-                      )}
-                      {memoryPreview ? t('settings:agent.panel.promptEdit') : t('settings:agent.panel.promptPreview')}
                     </Button>
                   ) : null}
                   <Button
@@ -1825,7 +1758,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                           return (
                             <label
                               key={skill.ignoreKey || skill.path || skill.name}
-                              className="flex cursor-pointer flex-col rounded-[22px] bg-zinc-100 p-3.5 transition-colors hover:bg-zinc-200/75 dark:bg-zinc-800 dark:hover:bg-zinc-700/85"
+                              className="flex cursor-pointer flex-col rounded-[22px] bg-ol-surface-muted p-3.5 transition-colors hover:bg-ol-divider"
                             >
                               <div className="flex items-start gap-2">
                                 <Checkbox
@@ -1883,56 +1816,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                 </div>
               </TabsContent>
 
-              {isMasterAgent ? (
-                <TabsContent value="memory" className="mt-0">
-                  <div className="py-3">
-                    {memoryQuery.isLoading ? (
-                      <p className="text-xs text-muted-foreground">{t('settings:agent.panel.memoryLoading')}</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {memoryPreview ? (
-                          <OpenLoafSettingsCard padding="none">
-                            <div className="min-h-[400px] overflow-auto p-4">
-                              <Streamdown
-                                mode="static"
-                                className="streamdown-viewer space-y-3"
-                                remarkPlugins={PROMPT_REMARK_PLUGINS}
-                                shikiTheme={PROMPT_SHIKI_THEME}
-                              >
-                                {memoryContent || t('settings:agent.panel.memoryPlaceholder')}
-                              </Streamdown>
-                            </div>
-                          </OpenLoafSettingsCard>
-                        ) : (
-                          <OpenLoafSettingsCard padding="none">
-                            <Textarea
-                              value={memoryContent}
-                              onChange={(e) => setMemoryContent(e.target.value)}
-                              placeholder={t('settings:agent.panel.memoryPlaceholder')}
-                              rows={16}
-                              className="min-h-[400px] resize-none border-0 bg-transparent font-mono text-xs shadow-none focus-visible:ring-0"
-                              style={{ height: `${Math.max(400, (memoryContent.split('\n').length + 2) * 18)}px` }}
-                            />
-                          </OpenLoafSettingsCard>
-                        )}
-                        {!memoryPreview ? (
-                          <div className="flex justify-end">
-                            <Button
-                              size="sm"
-                              className="h-7 rounded-full px-4 text-xs bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
-                              onClick={handleSaveMemory}
-                              disabled={saveMemoryMutation.isPending || memoryContent === (memoryQuery.data?.content ?? '')}
-                            >
-                              <Save className="mr-1 h-3.5 w-3.5" />
-                              {saveMemoryMutation.isPending ? t('settings:agent.panel.memoryLoading') : t('settings:agent.panel.memorySaveBtn')}
-                            </Button>
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-              ) : null}
           </Tabs>
         </div>
       </div>

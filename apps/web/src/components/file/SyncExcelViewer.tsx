@@ -20,7 +20,7 @@ import ExcelViewer from "@/components/file/ExcelViewer";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { Button } from "@openloaf/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { hasSyncfusionPublicLicense } from "@/lib/syncfusion-license";
 import { trpc } from "@/utils/trpc";
@@ -112,7 +112,7 @@ function LicensedSyncExcelViewer({
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [isDirty, setIsDirty] = useState(false);
   const spreadsheetRef = useRef<SpreadsheetComponent | null>(null);
-  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
+  const removeStackItem = useLayoutState((s) => s.removeStackItem);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
@@ -283,7 +283,7 @@ function LicensedSyncExcelViewer({
                   const ok = window.confirm(t("file.unsavedSheet"));
                   if (!ok) return;
                 }
-                removeStackItem(tabId!, panelKey!);
+                removeStackItem(panelKey!);
               }
             : undefined
         }

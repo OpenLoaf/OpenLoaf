@@ -12,8 +12,8 @@
 import * as React from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { useTabs } from "@/hooks/use-tabs";
+import { useLayoutState } from "@/hooks/use-layout-state";
+import { useAppView } from "@/hooks/use-app-view";
 import { useProjects } from "@/hooks/use-projects";
 import { Input } from "@openloaf/ui/input";
 import { Button } from "@openloaf/ui/button";
@@ -149,8 +149,8 @@ export default function DesktopWidgetLibraryPanel({
   tabId,
 }: DesktopWidgetLibraryPanelProps) {
   const { t } = useTranslation('desktop');
-  // 当前 tab 的 stack 删除方法。
-  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
+  // 当前 layout 的 stack 删除方法。
+  const removeStackItem = useLayoutState((s) => s.removeStackItem);
   // 过滤关键字。
   const [query, setQuery] = React.useState("");
   // 项目列表（用于解析项目目录引用）。
@@ -159,8 +159,8 @@ export default function DesktopWidgetLibraryPanel({
     () => flattenProjectTree(projectListQuery.data),
     [projectListQuery.data]
   );
-  const tabRuntime = useTabRuntime((s) => s.runtimeByTabId[tabId]);
-  const tabBaseParams = tabRuntime?.base?.params as Record<string, unknown> | undefined;
+  const layoutBase = useLayoutState((s) => s.base);
+  const tabBaseParams = layoutBase?.params as Record<string, unknown> | undefined;
   // 中文注释：根据 tab base 是否包含 projectId 判断作用域。
   const scope: DesktopScope =
     typeof tabBaseParams?.projectId === "string" ? "project" : "global";
@@ -232,7 +232,7 @@ export default function DesktopWidgetLibraryPanel({
                   tabId,
                   widgetKey: item.widgetKey,
                 });
-                removeStackItem(tabId, panelKey);
+                removeStackItem(panelKey);
               }}
               onKeyDown={(event) => {
                 if (event.key !== "Enter" && event.key !== " ") return;
@@ -241,7 +241,7 @@ export default function DesktopWidgetLibraryPanel({
                   tabId,
                   widgetKey: item.widgetKey,
                 });
-                removeStackItem(tabId, panelKey);
+                removeStackItem(panelKey);
               }}
             >
               <div className="pointer-events-none flex h-28 items-center justify-center overflow-hidden rounded-lg border border-border bg-card p-2">
@@ -281,7 +281,7 @@ export default function DesktopWidgetLibraryPanel({
                       iconKey: item.iconKey,
                       title: t('iconCatalog.' + item.iconKey),
                     });
-                    removeStackItem(tabId, panelKey);
+                    removeStackItem(panelKey);
                   }}
                   onKeyDown={(event) => {
                     if (event.key !== "Enter" && event.key !== " ") return;
@@ -292,7 +292,7 @@ export default function DesktopWidgetLibraryPanel({
                       iconKey: item.iconKey,
                       title: t('iconCatalog.' + item.iconKey),
                     });
-                    removeStackItem(tabId, panelKey);
+                    removeStackItem(panelKey);
                   }}
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground">
@@ -315,15 +315,13 @@ export default function DesktopWidgetLibraryPanel({
                 size="sm"
                 className="h-6 px-2 text-xs"
                 onClick={() => {
-                  const addTab = useTabs.getState().addTab;
-                  addTab({
-                    createNew: true,
+                  useAppView.getState().navigate({
                     title: t('library.aiAssistant'),
                     icon: "sparkles",
                     leftWidthPercent: 100,
                     base: undefined,
                   });
-                  removeStackItem(tabId, panelKey);
+                  removeStackItem(panelKey);
                 }}
               >
                 {t('library.newItem')}
@@ -344,7 +342,7 @@ export default function DesktopWidgetLibraryPanel({
                       dynamicWidgetId: dw.id,
                       dynamicProjectId: dw.projectId,
                     });
-                    removeStackItem(tabId, panelKey);
+                    removeStackItem(panelKey);
                   }}
                   onKeyDown={(event) => {
                     if (event.key !== "Enter" && event.key !== " ") return;
@@ -356,7 +354,7 @@ export default function DesktopWidgetLibraryPanel({
                       dynamicWidgetId: dw.id,
                       dynamicProjectId: dw.projectId,
                     });
-                    removeStackItem(tabId, panelKey);
+                    removeStackItem(panelKey);
                   }}
                 >
                   <button
@@ -390,15 +388,13 @@ export default function DesktopWidgetLibraryPanel({
               type="button"
               className="w-full rounded-xl border border-dashed border-border/60 p-4 text-center text-sm text-muted-foreground hover:bg-accent"
               onClick={() => {
-                const addTab = useTabs.getState().addTab;
-                addTab({
-                  createNew: true,
+                useAppView.getState().navigate({
                   title: t('library.aiAssistant'),
                   icon: "sparkles",
                   leftWidthPercent: 100,
                   base: undefined,
                 });
-                removeStackItem(tabId, panelKey);
+                removeStackItem(panelKey);
               }}
             >
               {t('library.generateWithAi')}

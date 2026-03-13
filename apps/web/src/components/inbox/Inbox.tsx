@@ -68,7 +68,7 @@ export default function InboxPage({
               <textarea
                 aria-label="快速记录"
                 placeholder="输入或粘贴你的文字，支持 markdown。"
-                className="mt-2 h-28 w-full resize-none rounded-md border border-border bg-background p-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-foreground/60"
+                className="mt-2 h-28 w-full resize-none rounded-lg border border-border bg-background p-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-foreground/60"
               />
             </div>
             <div className="rounded-lg border border-border bg-background p-3">

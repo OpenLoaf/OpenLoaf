@@ -1363,13 +1363,13 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                         <div className="flex gap-4 pl-2">
                           <div className="flex flex-col items-center">
                             <span className="h-px w-3 bg-border" />
-                            <span className="inline-flex items-center rounded-md bg-blue-500/10 dark:bg-blue-400/15 px-1.5 py-0.5 text-[9px] text-blue-600 dark:text-blue-400">{t('textToolTip.mindmapExample.child1')}</span>
+                            <span className="inline-flex items-center rounded-md bg-ol-blue/10 px-1.5 py-0.5 text-[9px] text-ol-blue">{t('textToolTip.mindmapExample.child1')}</span>
                           </div>
                           <div className="flex flex-col items-center">
                             <span className="h-px w-3 bg-border" />
-                            <span className="inline-flex items-center rounded-md bg-amber-500/10 dark:bg-amber-400/15 px-1.5 py-0.5 text-[9px] text-amber-600 dark:text-amber-400">{t('textToolTip.mindmapExample.child2')}</span>
+                            <span className="inline-flex items-center rounded-md bg-ol-amber/10 px-1.5 py-0.5 text-[9px] text-ol-amber">{t('textToolTip.mindmapExample.child2')}</span>
                             <span className="h-1.5 w-px bg-border" />
-                            <span className="inline-flex items-center rounded-md bg-emerald-500/10 dark:bg-emerald-400/15 px-1.5 py-0.5 text-[9px] text-emerald-600 dark:text-emerald-400">{t('textToolTip.mindmapExample.grandchild')}</span>
+                            <span className="inline-flex items-center rounded-md bg-ol-green/10 px-1.5 py-0.5 text-[9px] text-ol-green">{t('textToolTip.mindmapExample.grandchild')}</span>
                           </div>
                         </div>
                       </div>

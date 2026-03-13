@@ -11,7 +11,6 @@
 
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { useTabs } from "@/hooks/use-tabs";
 import { useChatActions, useChatSession, useChatState, useChatTools } from "@/components/ai/context";
 import { queryClient, trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
@@ -121,8 +120,7 @@ export default function UnifiedTool({
   const { upsertToolPart } = useChatTools();
   const { updateMessage } = useChatActions();
   const { status } = useChatState();
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const tabId = contextTabId ?? activeTabId ?? undefined;
+  const tabId = contextTabId;
 
   const toolKind = getToolKind(part).toLowerCase();
   const title = getToolName(part);

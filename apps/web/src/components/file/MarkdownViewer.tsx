@@ -24,7 +24,7 @@ import remarkMdx from "remark-mdx";
 import { Copy, Eye, FolderOpen, PencilLine, Save, Undo2 } from "lucide-react";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { Button } from "@openloaf/ui/button";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { trpc } from "@/utils/trpc";
 import CodeViewer, { type CodeViewerActions, type CodeViewerStatus } from "@/components/file/CodeViewer";
@@ -395,8 +395,8 @@ export default function MarkdownViewer({
   const codeActionsRef = useRef<CodeViewerActions | null>(null);
   /** 头部按钮状态。 */
   const [codeStatus, setCodeStatus] = useState<CodeViewerStatus>(DEFAULT_CODE_STATUS);
-  const removeStackItem = useTabRuntime((s) => s.removeStackItem);
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
+  const removeStackItem = useLayoutState((s) => s.removeStackItem);
+  const pushStackItem = useLayoutState((s) => s.pushStackItem);
   const shouldRenderStackHeader = Boolean(tabId && panelKey);
   const displayTitle = useMemo(() => name ?? uri ?? "Markdown", [name, uri]);
 
@@ -464,7 +464,7 @@ export default function MarkdownViewer({
     if (!api?.openPath) {
       const folderName = targetUri.split('/').filter(Boolean).pop() || 'Chat History';
       if (tabId) {
-        pushStackItem(tabId, {
+        pushStackItem({
           id: `chat-history:${chatHistorySessionId}`,
           sourceKey: `chat-history:${chatHistorySessionId}`,
           component: 'folder-tree-preview',
@@ -646,7 +646,7 @@ export default function MarkdownViewer({
           }}
           onClose={() => {
             if (!tabId || !panelKey) return;
-            removeStackItem(tabId, panelKey);
+            removeStackItem(panelKey);
           }}
         />
       ) : null}

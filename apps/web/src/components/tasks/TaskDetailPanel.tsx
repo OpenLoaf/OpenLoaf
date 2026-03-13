@@ -48,18 +48,18 @@ type Tab = 'plan' | 'chat' | 'log' | 'activity'
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 const PRIORITY_COLORS: Record<Priority, string> = {
-  urgent: 'bg-red-500/15 text-red-600 border-red-500/20',
-  high: 'bg-orange-500/15 text-orange-600 border-orange-500/20',
-  medium: 'bg-blue-500/15 text-blue-600 border-blue-500/20',
-  low: 'bg-zinc-500/15 text-zinc-500 border-zinc-500/20',
+  urgent: 'bg-ol-red/15 text-ol-red border-ol-red/20',
+  high: 'bg-ol-amber/15 text-ol-amber border-ol-amber/20',
+  medium: 'bg-ol-blue/15 text-ol-blue border-ol-blue/20',
+  low: 'bg-ol-text-auxiliary/15 text-ol-text-auxiliary border-ol-text-auxiliary/20',
 }
 
 const STATUS_COLORS: Record<TaskStatus, string> = {
-  todo: 'bg-blue-500/15 text-blue-600',
-  running: 'bg-amber-500/15 text-amber-600',
-  review: 'bg-purple-500/15 text-purple-600',
-  done: 'bg-green-500/15 text-green-600',
-  cancelled: 'bg-zinc-500/15 text-zinc-500',
+  todo: 'bg-ol-blue/15 text-ol-blue',
+  running: 'bg-ol-amber/15 text-ol-amber',
+  review: 'bg-ol-purple/15 text-ol-purple',
+  done: 'bg-ol-green/15 text-ol-green',
+  cancelled: 'bg-ol-text-auxiliary/15 text-ol-text-auxiliary',
 }
 
 const getPriorityLabels = (t: (key: string) => string): Record<Priority, string> => ({

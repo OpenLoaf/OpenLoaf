@@ -14,8 +14,7 @@ import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { Button } from "@openloaf/ui/button";
 import { Switch } from "@openloaf/ui/switch";
 import { Input } from "@openloaf/ui/input";
@@ -71,9 +70,9 @@ type StatusFilter = "all" | "enabled" | "disabled";
 /** Card styles per scope. */
 const SCOPE_CARD_CLASS: Record<SkillScope, string> = {
   project:
-    "bg-sky-100 hover:bg-sky-200/75 dark:bg-sky-900/55 dark:hover:bg-sky-800/70",
+    "bg-ol-blue-bg hover:bg-ol-blue-bg-hover",
   global:
-    "bg-slate-100 hover:bg-slate-200/78 dark:bg-slate-800 dark:hover:bg-slate-700/85",
+    "bg-ol-surface-muted hover:bg-ol-divider",
 };
 
 /** Normalize a local path string for URI building. */
@@ -191,8 +190,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   const skillsQuery = useQuery(queryOptions);
   const skills = (skillsQuery.data ?? []) as SkillSummary[];
   const { data: projectData } = useProject(projectId);
-  const activeTabId = useTabs((state) => state.activeTabId);
-  const pushStackItem = useTabRuntime((state) => state.pushStackItem);
+  const pushStackItem = useLayoutState((state) => state.pushStackItem);
   const setSettingsOpen = useGlobalOverlay((s) => s.setSettingsOpen);
   const globalSkillsRootUri = useMemo(() => {
     const globalSkill = skills.find(
@@ -311,7 +309,6 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   /** Open a skill folder tree in stack. */
   const handleOpenSkill = useCallback(
     (skill: SkillSummary) => {
-      if (!activeTabId) return;
       const isProjectSkill = skill.scope === "project";
       const isGlobalSkill = skill.scope === "global";
       // 全局技能路径为绝对路径，不依赖全局或项目 rootUri。
@@ -328,7 +325,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
         ? t('skills.scopeGlobal')
         : t('skills.scopeProject');
       // 打开左侧 stack 的文件系统预览，根目录固定为技能所在目录。
-      pushStackItem(activeTabId, {
+      pushStackItem({
         id: `skill:${skill.scope}:${stackKey}`,
         sourceKey: `skill:${skill.scope}:${stackKey}`,
         component: "folder-tree-preview",
@@ -346,7 +343,6 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
       setSettingsOpen(false);
     },
     [
-      activeTabId,
       projectData?.project?.rootUri,
       projectId,
       pushStackItem,
@@ -380,11 +376,9 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
         })
       );
       window.dispatchEvent(new CustomEvent("openloaf:chat-focus-input"));
-      if (activeTabId) {
-        useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, false);
-      }
+      useLayoutState.getState().setRightChatCollapsed(false);
     },
-    [activeTabId],
+    [],
   );
 
   /** Delete a skill folder with confirmation. */
@@ -505,7 +499,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                     ? projectData?.project?.rootUri
                     : undefined;
               const canOpenSkill = Boolean(
-                activeTabId && resolveSkillFolderUri(skill.path, baseRootUri),
+                resolveSkillFolderUri(skill.path, baseRootUri),
               );
 
               return (
@@ -528,7 +522,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                         <Switch
                           checked={skill.isEnabled}
                           onCheckedChange={(checked) => handleToggleSkill(skill, checked)}
-                          className="border-zinc-300/70 bg-zinc-200/55 data-[state=checked]:bg-emerald-300/60 dark:border-zinc-600/80 dark:bg-zinc-700/45 dark:data-[state=checked]:bg-emerald-600/45"
+                          className="border-ol-divider bg-ol-surface-muted data-[state=checked]:bg-ol-green/60 dark:data-[state=checked]:bg-ol-green/45"
                           aria-label={t('skills.enableSkillAriaLabel', { name: skill.name })}
                           disabled={updateSkillMutation.isPending}
                         />
@@ -541,7 +535,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                           type="button"
                           size="icon"
                           variant="secondary"
-                          className="h-8 w-8 flex-none rounded-full border-0 bg-sky-200/85 text-sky-900 hover:bg-sky-300/85 dark:bg-sky-500/30 dark:text-sky-100 dark:hover:bg-sky-500/40"
+                          className="h-8 w-8 flex-none rounded-full border-0 bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover"
                           onClick={() => handleInsertSkillCommand(skill)}
                           aria-label={t('skills.useSkillAriaLabel', { name: skill.name })}
                         >

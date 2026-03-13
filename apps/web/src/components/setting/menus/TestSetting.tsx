@@ -14,8 +14,7 @@ import {
   TERMINAL_WINDOW_COMPONENT,
   TERMINAL_WINDOW_PANEL_ID,
 } from "@openloaf/api/common";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import type { LucideIcon } from "lucide-react";
 import { Bug, Globe, Layers, Monitor, RefreshCw } from "lucide-react";
@@ -44,13 +43,9 @@ const STEP_UP_ROUTE = "/step-up";
 const TestSetting = memo(function TestSetting() {
   const { basic, setBasic } = useBasicConfig();
   const projectStorageRootUri = useProjectStorageRootUri();
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const activeStackCount = useTabRuntime((s) => {
-    const runtime = activeTabId ? s.runtimeByTabId[activeTabId] : undefined;
-    return runtime?.stack?.length ?? 0;
-  });
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
-  const clearStack = useTabRuntime((s) => s.clearStack);
+  const activeStackCount = useLayoutState((s) => s.stack?.length ?? 0);
+  const pushStackItem = useLayoutState((s) => s.pushStackItem);
+  const clearStack = useLayoutState((s) => s.clearStack);
   const upsertToolPart = useChatRuntime((s) => s.upsertToolPart);
 
   /** Terminal feature status reported by server. */
@@ -101,12 +96,10 @@ const TestSetting = memo(function TestSetting() {
    * Pushes 3 demo stack items into the active tab for quick UI testing.
    */
   function handleCreateThreeStacks() {
-    if (!activeTabId) return;
-
     // 这里用三个 tool-result 作为通用 demo（非 Electron 环境也能正常渲染）。
     for (let index = 0; index < 3; index += 1) {
       const toolKey = `demo:${Date.now()}:${index + 1}`;
-      upsertToolPart(activeTabId, toolKey, {
+      upsertToolPart("main", toolKey, {
         type: "tool-demo",
         title: `Demo Result #${index + 1}`,
         input: { from: "TestSetting", index: index + 1 },
@@ -116,7 +109,7 @@ const TestSetting = memo(function TestSetting() {
           timestamp: new Date().toISOString(),
         },
       });
-      pushStackItem(activeTabId, {
+      pushStackItem({
         id: `tool-demo:${toolKey}`,
         component: "tool-result",
         params: { toolKey },
@@ -129,7 +122,6 @@ const TestSetting = memo(function TestSetting() {
    * Opens a Terminal stack at the default project storage root directory.
    */
   function handleOpenGlobalTerminal() {
-    if (!activeTabId) return;
     if (terminalStatus.isLoading) {
       toast.message("正在获取终端状态");
       return;
@@ -144,7 +136,7 @@ const TestSetting = memo(function TestSetting() {
       return;
     }
     // 中文注释：终端使用默认项目存储根目录作为 pwd。
-    pushStackItem(activeTabId, {
+    pushStackItem({
       id: TERMINAL_WINDOW_PANEL_ID,
       sourceKey: TERMINAL_WINDOW_PANEL_ID,
       component: TERMINAL_WINDOW_COMPONENT,
@@ -176,7 +168,7 @@ const TestSetting = memo(function TestSetting() {
       <OpenLoafSettingsGroup title="实验功能">
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Layers} bg="bg-sky-500/10" fg="text-sky-600 dark:text-sky-400" />
+            <SettingIcon icon={Layers} bg="bg-ol-blue-bg" fg="text-ol-blue" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">Stack Demo</div>
               <div className="text-xs text-muted-foreground">
@@ -184,16 +176,15 @@ const TestSetting = memo(function TestSetting() {
               </div>
             </div>
             <OpenLoafSettingsField className="flex-wrap gap-2">
-              <Button size="sm" className="rounded-full bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none" onClick={handleCreateThreeStacks}>
+              <Button size="sm" className="rounded-full bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none" onClick={handleCreateThreeStacks}>
                 Stack: Create 3 (demo)
               </Button>
               <Button
                 size="sm"
-                className="rounded-full bg-slate-500/10 text-slate-600 hover:bg-slate-500/20 dark:text-slate-400 shadow-none"
+                className="rounded-full bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none"
                 onClick={() => {
-                  if (!activeTabId) return;
                   const toolKey = `demo:${Date.now()}`;
-                  upsertToolPart(activeTabId, toolKey, {
+                  upsertToolPart("main", toolKey, {
                     type: "tool-demo",
                     title: "Demo Result",
                     input: { from: "TestSetting" },
@@ -203,7 +194,7 @@ const TestSetting = memo(function TestSetting() {
                       timestamp: new Date().toISOString(),
                     },
                   });
-                  pushStackItem(activeTabId, {
+                  pushStackItem({
                     id: `tool-demo:${toolKey}`,
                     component: "tool-result",
                     params: { toolKey },
@@ -217,7 +208,7 @@ const TestSetting = memo(function TestSetting() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Monitor} bg="bg-violet-500/10" fg="text-violet-600 dark:text-violet-400" />
+            <SettingIcon icon={Monitor} bg="bg-ol-purple-bg" fg="text-ol-purple" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">面板模拟</div>
               <div className="text-xs text-muted-foreground">
@@ -226,16 +217,15 @@ const TestSetting = memo(function TestSetting() {
             </div>
             <OpenLoafSettingsField className="flex-wrap gap-2">
               {terminalStatus.enabled ? (
-                <Button size="sm" className="rounded-full bg-slate-500/10 text-slate-600 hover:bg-slate-500/20 dark:text-slate-400 shadow-none" onClick={handleOpenGlobalTerminal}>
+                <Button size="sm" className="rounded-full bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none" onClick={handleOpenGlobalTerminal}>
                   Stack: Terminal (global)
                 </Button>
               ) : null}
               <Button
                 size="sm"
-                className="rounded-full bg-slate-500/10 text-slate-600 hover:bg-slate-500/20 dark:text-slate-400 shadow-none"
+                className="rounded-full bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none"
                 onClick={() => {
-                  if (!activeTabId) return;
-                  pushStackItem(activeTabId, {
+                  pushStackItem({
                     id: "project:current",
                     component: "plant-page",
                     params: {},
@@ -250,10 +240,9 @@ const TestSetting = memo(function TestSetting() {
                 <>
                   <Button
                     size="sm"
-                    className="rounded-full bg-slate-500/10 text-slate-600 hover:bg-slate-500/20 dark:text-slate-400 shadow-none"
+                    className="rounded-full bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none"
                     onClick={() => {
-                      if (!activeTabId) return;
-                      pushStackItem(activeTabId, {
+                      pushStackItem({
                         id: `browser:${Date.now()}`,
                         component: "electron-browser",
                         params: { url: "https://inside.hexems.com" },
@@ -266,10 +255,9 @@ const TestSetting = memo(function TestSetting() {
                   </Button>
                   <Button
                     size="sm"
-                    className="rounded-full bg-slate-500/10 text-slate-600 hover:bg-slate-500/20 dark:text-slate-400 shadow-none"
+                    className="rounded-full bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none"
                     onClick={() => {
-                      if (!activeTabId) return;
-                      pushStackItem(activeTabId, {
+                      pushStackItem({
                         id: BROWSER_WINDOW_PANEL_ID,
                         sourceKey: BROWSER_WINDOW_PANEL_ID,
                         component: BROWSER_WINDOW_COMPONENT,
@@ -291,7 +279,7 @@ const TestSetting = memo(function TestSetting() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Bug} bg="bg-amber-500/10" fg="text-amber-600 dark:text-amber-400" />
+            <SettingIcon icon={Bug} bg="bg-ol-amber-bg" fg="text-ol-amber" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">画布调试信息</div>
               <div className="text-xs text-muted-foreground">
@@ -316,17 +304,17 @@ const TestSetting = memo(function TestSetting() {
       <OpenLoafSettingsGroup title="操作">
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={RefreshCw} bg="bg-amber-500/10" fg="text-amber-600 dark:text-amber-400" />
+            <SettingIcon icon={RefreshCw} bg="bg-ol-amber-bg" fg="text-ol-amber" />
             <div className="text-sm font-medium">重新进入初始化</div>
             <OpenLoafSettingsField>
-              <Button type="button" size="sm" className="rounded-full bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400 shadow-none" onClick={handleRestartSetup}>
+              <Button type="button" size="sm" className="rounded-full bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover shadow-none" onClick={handleRestartSetup}>
                 进入
               </Button>
             </OpenLoafSettingsField>
           </div>
           {isElectron ? (
             <div className="flex flex-wrap items-center gap-2 py-3">
-              <SettingIcon icon={Monitor} bg="bg-slate-500/10" fg="text-slate-600 dark:text-slate-400" />
+              <SettingIcon icon={Monitor} bg="bg-ol-surface-muted" fg="text-ol-text-auxiliary" />
               <div className="text-sm font-medium">WebContentsView 数</div>
               <OpenLoafSettingsField className="max-w-[70%] gap-2">
                 <button
@@ -358,7 +346,7 @@ const TestSetting = memo(function TestSetting() {
       <OpenLoafSettingsGroup title="Stack 状态">
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Layers} bg="bg-emerald-500/10" fg="text-emerald-600 dark:text-emerald-400" />
+            <SettingIcon icon={Layers} bg="bg-ol-green-bg" fg="text-ol-green" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">当前 Stack</div>
               <div className="text-xs text-muted-foreground">
@@ -374,8 +362,7 @@ const TestSetting = memo(function TestSetting() {
                 variant="ghost"
                 className="rounded-full"
                 onClick={() => {
-                  if (!activeTabId) return;
-                  clearStack(activeTabId);
+                  clearStack();
                 }}
                 disabled={activeStackCount === 0}
               >

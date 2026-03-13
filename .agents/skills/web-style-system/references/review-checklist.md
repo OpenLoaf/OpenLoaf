@@ -42,11 +42,15 @@
 - 是否使用统一材质家族（圆角、透明层、边框、阴影）
 - 背景层次是否可辨
 - dark 模式下层次是否失真
+- **颜色是否使用 `ol-*` 设计令牌**（禁止 Tailwind 原生色如 sky/emerald/violet/slate/gray 等，禁止硬编码 hex）
+- 阴影是否使用 `shadow-ol-glass/toolbar/float` 令牌
+- 中性色是否使用 `ol-text-primary/secondary/auxiliary`、`ol-surface-muted/inset/input`、`ol-divider`
 
 典型问题：
 
 - 同区混用不同圆角体系
 - 高饱和色块破坏中性基底
+- 散落的硬编码颜色（`#1a73e8`、`text-sky-500`、`bg-gray-100` 等）
 
 ## D. Motion and Feedback
 

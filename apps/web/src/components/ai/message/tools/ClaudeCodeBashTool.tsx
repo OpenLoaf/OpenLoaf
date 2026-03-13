@@ -34,7 +34,7 @@ export default function ClaudeCodeBashTool({
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-lg border bg-card text-card-foreground">
+      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
         {/* 标题栏：description 居左，Bash 居右 */}
         <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
           <TrafficLights state="success" />
@@ -50,8 +50,8 @@ export default function ClaudeCodeBashTool({
         {command ? (
           <div className="border-b bg-muted/20 px-3 py-2">
             <div className="flex items-center gap-2 font-mono text-xs">
-              <span className="text-emerald-500">$</span>
-              <span className="flex-1 break-all text-amber-700 dark:text-amber-400">{command}</span>
+              <span className="text-ol-green">$</span>
+              <span className="flex-1 break-all text-ol-amber">{command}</span>
               <button
                 type="button"
                 className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"

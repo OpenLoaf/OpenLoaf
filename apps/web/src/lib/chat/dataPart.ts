@@ -10,7 +10,7 @@
 "use client";
 
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 
 const HIDDEN_TOOL_NAME = "tool-search";
 const hiddenToolCallIds = new Set<string>();
@@ -189,7 +189,7 @@ function handleClaudeCodeDataPart({
     case "data-cc-plan-file": {
       const filePath = data.filePath as string;
       const title = (data.title as string) || "Plan";
-      useTabRuntime.getState().pushStackItem(tabId, {
+      useLayoutState.getState().pushStackItem({
         id: `cc-plan-${filePath}`,
         component: "markdown-viewer",
         title,

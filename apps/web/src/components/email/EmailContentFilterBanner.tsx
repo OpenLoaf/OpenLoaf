@@ -27,7 +27,7 @@ export function EmailContentFilterBanner({
 }: EmailContentFilterBannerProps) {
   const { t } = useTranslation('common')
   return (
-    <div className="flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+    <div className="flex items-center gap-2 rounded-md bg-ol-amber-bg px-3 py-2 text-xs text-ol-amber">
       <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
       <span className="flex-1">
         {showingRawHtml
@@ -38,7 +38,7 @@ export function EmailContentFilterBanner({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-6 px-2 text-[11px] text-amber-800 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/40"
+        className="h-6 px-2 text-[11px] text-ol-amber hover:bg-ol-amber-bg"
         onClick={onToggle}
       >
         {showingRawHtml ? t('email.showSafeContent') : t('email.loadRawContent')}

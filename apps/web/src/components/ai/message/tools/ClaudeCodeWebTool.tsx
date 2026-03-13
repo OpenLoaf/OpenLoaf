@@ -48,7 +48,7 @@ export default function ClaudeCodeWebTool({
   return (
     <div className={cn('w-full min-w-0', className)}>
       <div className="flex w-full items-center gap-2 overflow-hidden rounded-lg border bg-card px-3 py-2">
-        <Icon className="size-3.5 shrink-0 text-blue-500" />
+        <Icon className="size-3.5 shrink-0 text-ol-blue" />
         <span className="flex-1 truncate text-xs text-foreground">
           {primary || label}
         </span>

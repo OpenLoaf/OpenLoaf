@@ -346,7 +346,7 @@ export function ThirdPartyTools() {
       <OpenLoafSettingsGroup title={t('thirdPartyTools.systemInfo')} subtitle={t('thirdPartyTools.systemInfoDesc')}>
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Monitor} bg="bg-sky-500/10" fg="text-sky-600 dark:text-sky-400" />
+            <SettingIcon icon={Monitor} bg="bg-ol-blue-bg" fg="text-ol-blue" />
             <div className="min-w-0 flex-1 text-sm font-medium">{t('thirdPartyTools.systemVersion')}</div>
             <OpenLoafSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
               <Button
@@ -364,7 +364,7 @@ export function ThirdPartyTools() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Terminal} bg="bg-emerald-500/10" fg="text-emerald-600 dark:text-emerald-400" />
+            <SettingIcon icon={Terminal} bg="bg-ol-green-bg" fg="text-ol-green" />
             <div className="min-w-0 flex-1 text-sm font-medium">{t('thirdPartyTools.cmdEnv')}</div>
             <OpenLoafSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
               <Button
@@ -401,7 +401,7 @@ export function ThirdPartyTools() {
             <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
               <Button
                 size="sm"
-                className="rounded-full bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none"
+                className="rounded-full bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none"
                 disabled={
                   (installCliMutation.isPending &&
                     installCliMutation.variables?.id === "python") ||
@@ -447,7 +447,7 @@ export function ThirdPartyTools() {
             <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
               <Button
                 size="sm"
-                className="rounded-full bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none"
+                className="rounded-full bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none"
                 disabled={
                   (installCliMutation.isPending &&
                     installCliMutation.variables?.id === "codex") ||
@@ -474,7 +474,7 @@ export function ThirdPartyTools() {
               {cliStatuses.codex.installed ? (
                 <Button
                   size="sm"
-                  className="rounded-full bg-slate-500/10 text-slate-600 hover:bg-slate-500/20 dark:text-slate-400 shadow-none"
+                  className="rounded-full bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none"
                   onClick={() => openCliSettings("codex")}
                 >
                   {t('thirdPartyTools.settings')}
@@ -498,7 +498,7 @@ export function ThirdPartyTools() {
             <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
               <Button
                 size="sm"
-                className="rounded-full bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none"
+                className="rounded-full bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none"
                 disabled={
                   (installCliMutation.isPending &&
                     installCliMutation.variables?.id === "claudeCode") ||
@@ -526,7 +526,7 @@ export function ThirdPartyTools() {
               {cliStatuses.claudeCode.installed ? (
                 <Button
                   size="sm"
-                  className="rounded-full bg-slate-500/10 text-slate-600 hover:bg-slate-500/20 dark:text-slate-400 shadow-none"
+                  className="rounded-full bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none"
                   onClick={() => openCliSettings("claudeCode")}
                 >
                   {t('thirdPartyTools.settings')}

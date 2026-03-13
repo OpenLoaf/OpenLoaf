@@ -7,4 +7,10 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-export const plugins = [];
+import webpack from 'webpack';
+
+export const plugins = [
+  new webpack.DefinePlugin({
+    'process.env.OPENLOAF_EDITION': JSON.stringify(process.env.OPENLOAF_EDITION || 'community'),
+  }),
+];

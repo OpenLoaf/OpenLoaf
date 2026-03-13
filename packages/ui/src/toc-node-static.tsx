@@ -51,7 +51,7 @@ export function TocElementStatic(props: SlateElementProps) {
             </Button>
           ))
         ) : (
-          <div className="text-gray-500 text-sm">
+          <div className="text-ol-text-auxiliary text-sm">
             Create a heading to display the table of contents.
           </div>
         )}

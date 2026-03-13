@@ -32,3 +32,4 @@ export * from "./imageProcess";
 export * from "./videoConvert";
 export * from "./docConvert";
 export * from "./fileInfo";
+export * from "./webSearch";

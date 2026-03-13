@@ -404,7 +404,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
       {/* Actions */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={`${btnBase} text-amber-600/80 dark:text-amber-400/80 hover:text-amber-600 dark:hover:text-amber-400`} aria-label={t('project:filesystem.newFolder')} onClick={onCreateFolder}>
+          <Button variant="ghost" size="icon" className={`${btnBase} text-ol-amber/80 hover:text-ol-amber`} aria-label={t('project:filesystem.newFolder')} onClick={onCreateFolder}>
             <FolderPlus className={iconSize} />
           </Button>
         </TooltipTrigger>
@@ -412,7 +412,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={`${btnBase} text-green-600/80 dark:text-green-400/80 hover:text-green-600 dark:hover:text-green-400`} aria-label={t('project:filesystem.newDocument')} onClick={onCreateDocument}>
+          <Button variant="ghost" size="icon" className={`${btnBase} text-ol-green/80 hover:text-ol-green`} aria-label={t('project:filesystem.newDocument')} onClick={onCreateDocument}>
             <FilePlus className={iconSize} />
           </Button>
         </TooltipTrigger>
@@ -420,7 +420,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={`${btnBase} text-purple-600/80 dark:text-purple-400/80 hover:text-purple-600 dark:hover:text-purple-400`} aria-label={t('project:filesystem.addFile')} onClick={() => uploadInputRef.current?.click()}>
+          <Button variant="ghost" size="icon" className={`${btnBase} text-ol-purple/80 hover:text-ol-purple`} aria-label={t('project:filesystem.addFile')} onClick={() => uploadInputRef.current?.click()}>
             <Upload className={iconSize} />
           </Button>
         </TooltipTrigger>

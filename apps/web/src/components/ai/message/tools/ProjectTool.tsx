@@ -10,8 +10,8 @@
 "use client";
 
 import React from "react";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { getProjectsQueryKey } from "@/hooks/use-projects";
 import { queryClient } from "@/utils/trpc";
 import UnifiedTool from "./UnifiedTool";
@@ -70,9 +70,6 @@ export default function ProjectTool({
   variant?: ToolVariant;
   messageId?: string;
 }) {
-  const tabs = useTabs((state) => state.tabs);
-  const setTabTitle = useTabs((state) => state.setTabTitle);
-  const setTabIcon = useTabs((state) => state.setTabIcon);
   const handledRef = React.useRef<Set<string>>(new Set());
 
   React.useEffect(() => {
@@ -86,7 +83,7 @@ export default function ProjectTool({
     const isDone = part.output != null || part.state === "output-available";
     if (!isDone || hasErrorText || isDenied) return;
 
-    // 工具成功完成后刷新项目树，并同步已打开的项目 Tab 元信息。
+    // 工具成功完成后刷新项目树，并同步已打开的项目视图元信息。
     handledRef.current.add(toolCallId);
     queryClient.invalidateQueries({ queryKey: getProjectsQueryKey() });
 
@@ -94,14 +91,12 @@ export default function ProjectTool({
     if (!projectInfo) return;
 
     const baseId = `project:${projectInfo.projectId}`;
-    const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
-    tabs
-      .filter((tab) => runtimeByTabId[tab.id]?.base?.id === baseId)
-      .forEach((tab) => {
-        if (projectInfo.title) setTabTitle(tab.id, projectInfo.title);
-        if (projectInfo.icon !== undefined) setTabIcon(tab.id, projectInfo.icon);
-      });
-  }, [part, setTabIcon, setTabTitle, tabs]);
+    const currentBase = useLayoutState.getState().base;
+    if (currentBase?.id === baseId) {
+      if (projectInfo.title) useAppView.getState().setTitle(projectInfo.title);
+      if (projectInfo.icon !== undefined) useAppView.getState().setIcon(projectInfo.icon);
+    }
+  }, [part]);
 
   return (
     <UnifiedTool

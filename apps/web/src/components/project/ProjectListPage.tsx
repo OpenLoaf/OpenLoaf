@@ -30,8 +30,7 @@ import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
 
 import { useIsInView } from "@/hooks/use-is-in-view";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { useProjectOpen } from "@/hooks/use-project-open";
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import type { ProjectListItem } from "@openloaf/api/services/projectTreeService";
@@ -150,8 +149,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
   const { t } = useTranslation("nav");
   const { t: tSettings } = useTranslation("settings");
 
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const runtimeByTabId = useTabRuntime((s) => s.runtimeByTabId);
+  const layoutBase = useLayoutState((s) => s.base);
   const openProject = useProjectOpen();
   const canOpenProjectWindow =
     typeof window !== "undefined" &&
@@ -331,11 +329,8 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     [toggleFavoriteMutation],
   );
 
-  const activeBase = activeTabId
-    ? runtimeByTabId[activeTabId]?.base
-    : undefined;
   const activeProjectBaseId =
-    activeBase?.component === "plant-page" ? activeBase.id : undefined;
+    layoutBase?.component === "plant-page" ? layoutBase.id : undefined;
   const isInitialLoading = projectsQuery.isPending && filteredProjects.length === 0;
   const hasActiveFilter =
     Boolean(searchQuery.trim()) || filterProjectType !== "__all__";
@@ -359,9 +354,9 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3, delay: index * 0.04 }}
-              className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-background/70 backdrop-blur-sm cursor-pointer shadow-none transition-colors duration-200 hover:border-sky-300/80 dark:bg-background/30 dark:hover:border-sky-600/80 ${
+              className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-background/70 backdrop-blur-sm cursor-pointer shadow-none transition-colors duration-200 hover:border-ol-blue/60 dark:bg-background/30 ${
                 isActive
-                  ? "border-sky-400 bg-sky-500/[0.04] dark:border-sky-500 dark:bg-sky-400/[0.08]"
+                  ? "border-ol-blue bg-ol-blue/[0.04] dark:bg-ol-blue/[0.08]"
                   : "border-border/70"
               }`}
               onClick={() => handleProjectClick(project)}
@@ -386,17 +381,17 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 {/* Badges */}
                 <div className="absolute top-2 left-2 flex items-center gap-1.5">
                   {project.isFavorite && (
-                    <span className="inline-flex items-center rounded-full bg-amber-500/90 p-1 text-white dark:bg-amber-400/90 dark:text-amber-950">
+                    <span className="inline-flex items-center rounded-full bg-ol-amber p-1 text-white">
                       <Star className="h-2.5 w-2.5 fill-current" />
                     </span>
                   )}
                   {project.isGitProject && (
-                    <span className="inline-flex items-center rounded-full bg-black/50 p-1 text-white dark:bg-white/20">
+                    <span className="inline-flex items-center rounded-full bg-black/50 p-1 text-white dark:bg-foreground/20">
                       <GitBranch className="h-2.5 w-2.5" />
                     </span>
                   )}
                   {project.depth > 0 && (
-                    <span className="inline-flex items-center rounded-full bg-black/30 px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-white/15">
+                    <span className="inline-flex items-center rounded-full bg-black/30 px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-foreground/15">
                       L{project.depth}
                     </span>
                   )}
@@ -459,7 +454,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                         }}
                       >
                         <Star
-                          className={`mr-2 h-4 w-4 ${project.isFavorite ? "fill-amber-500 text-amber-500" : ""}`}
+                          className={`mr-2 h-4 w-4 ${project.isFavorite ? "fill-ol-amber text-ol-amber" : ""}`}
                         />
                         {project.isFavorite
                           ? t("projectTree.unfavorite")
@@ -533,7 +528,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               }
             >
               <Star
-                className={`mr-2 h-4 w-4 ${project.isFavorite ? "fill-amber-500 text-amber-500" : ""}`}
+                className={`mr-2 h-4 w-4 ${project.isFavorite ? "fill-ol-amber text-ol-amber" : ""}`}
               />
               {project.isFavorite
                 ? t("projectTree.unfavorite")
@@ -617,7 +612,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               <Button
                 variant={groupByType ? "secondary" : "ghost"}
                 size="icon"
-                className={`h-8 w-8 rounded-full ${groupByType ? "bg-sky-500/10 text-sky-700 dark:bg-sky-400/15 dark:text-sky-300" : ""}`}
+                className={`h-8 w-8 rounded-full ${groupByType ? "bg-ol-blue/10 text-ol-blue" : ""}`}
                 onClick={() => setGroupByType((value) => !value)}
               >
                 <Layers3 className="h-4 w-4" />
@@ -630,7 +625,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-full bg-sky-500/10 text-sky-700 hover:bg-sky-500/20 dark:bg-sky-400/15 dark:text-sky-300 dark:hover:bg-sky-400/25"
+            className="rounded-full bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20"
             onClick={() => setIsCreateOpen(true)}
           >
             <Plus className="mr-1.5 h-4 w-4" />
@@ -643,7 +638,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
       <div className="flex-1 overflow-y-auto p-4">
         {isInitialLoading ? (
           <div className="flex h-60 items-center justify-center">
-            <div className="h-8 w-8 rounded-full border-2 border-border/60 border-t-sky-500 animate-spin" />
+            <div className="h-8 w-8 rounded-full border-2 border-border/60 border-t-ol-blue animate-spin" />
           </div>
         ) : filteredProjects.length === 0 ? (
           <div className="flex flex-col h-60 items-center justify-center gap-3 text-muted-foreground">
@@ -680,7 +675,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 aria-hidden="true"
               >
                 {isFetchingNextProjects ? (
-                  <div className="h-6 w-6 rounded-full border-2 border-border/60 border-t-sky-500 animate-spin" />
+                  <div className="h-6 w-6 rounded-full border-2 border-border/60 border-t-ol-blue animate-spin" />
                 ) : null}
               </div>
             ) : null}
@@ -699,7 +694,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 aria-hidden="true"
               >
                 {isFetchingNextProjects ? (
-                  <div className="h-6 w-6 rounded-full border-2 border-border/60 border-t-sky-500 animate-spin" />
+                  <div className="h-6 w-6 rounded-full border-2 border-border/60 border-t-ol-blue animate-spin" />
                 ) : null}
               </div>
             ) : null}
@@ -744,7 +739,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               </Button>
             </DialogClose>
             <Button
-              className="rounded-full bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none transition-colors duration-150"
+              className="rounded-full bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20 shadow-none transition-colors duration-150"
               onClick={handleRenameSave}
               disabled={updateMutation.isPending}
             >
@@ -787,7 +782,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               </Button>
             </DialogClose>
             <Button
-              className="rounded-full bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 shadow-none transition-colors duration-150"
+              className="rounded-full bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20 shadow-none transition-colors duration-150"
               onClick={handleCreateProject}
               disabled={createMutation.isPending || !createTitle.trim()}
             >

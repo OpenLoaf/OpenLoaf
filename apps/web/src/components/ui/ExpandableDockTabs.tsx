@@ -30,8 +30,7 @@ import {
   TERMINAL_WINDOW_COMPONENT,
   type DockItem,
 } from "@openloaf/api/common";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { getStackMinimizeSignal } from "@/lib/stack-dock-animation";
 import { cn } from "@/lib/utils";
 import { getPanelTitle } from "@/utils/panel-utils";
@@ -110,34 +109,34 @@ const sizeConfig = {
 
 const toneConfig = {
   sky: {
-    activeBg: "bg-sky-500/15 dark:bg-sky-400/20",
-    activeText: "text-sky-700 dark:text-sky-200",
-    inactiveText: "text-sky-700/70 dark:text-sky-200/70",
+    activeBg: "bg-ol-blue-bg",
+    activeText: "text-ol-blue",
+    inactiveText: "text-ol-blue/70",
   },
   emerald: {
-    activeBg: "bg-emerald-500/15 dark:bg-emerald-400/20",
-    activeText: "text-emerald-700 dark:text-emerald-200",
-    inactiveText: "text-emerald-700/70 dark:text-emerald-200/70",
+    activeBg: "bg-ol-green-bg",
+    activeText: "text-ol-green",
+    inactiveText: "text-ol-green/70",
   },
   amber: {
-    activeBg: "bg-amber-500/15 dark:bg-amber-400/20",
-    activeText: "text-amber-700 dark:text-amber-200",
-    inactiveText: "text-amber-700/70 dark:text-amber-200/70",
+    activeBg: "bg-ol-amber-bg",
+    activeText: "text-ol-amber",
+    inactiveText: "text-ol-amber/70",
   },
   violet: {
-    activeBg: "bg-violet-500/15 dark:bg-violet-400/20",
-    activeText: "text-violet-700 dark:text-violet-200",
-    inactiveText: "text-violet-700/70 dark:text-violet-200/70",
+    activeBg: "bg-ol-purple-bg",
+    activeText: "text-ol-purple",
+    inactiveText: "text-ol-purple/70",
   },
   slate: {
-    activeBg: "bg-slate-500/15 dark:bg-slate-400/20",
-    activeText: "text-slate-700 dark:text-slate-200",
-    inactiveText: "text-slate-600/70 dark:text-slate-300/70",
+    activeBg: "bg-ol-text-auxiliary/15",
+    activeText: "text-ol-text-auxiliary",
+    inactiveText: "text-ol-text-auxiliary/70",
   },
   rose: {
-    activeBg: "bg-rose-500/15 dark:bg-rose-400/20",
-    activeText: "text-rose-700 dark:text-rose-200",
-    inactiveText: "text-rose-700/70 dark:text-rose-200/70",
+    activeBg: "bg-ol-red-bg",
+    activeText: "text-ol-red",
+    inactiveText: "text-ol-red/70",
   },
   teal: {
     activeBg: "bg-teal-500/15 dark:bg-teal-400/20",
@@ -290,9 +289,9 @@ export function ExpandableDockTabs({
   const resolvedInputPlaceholder = inputPlaceholder ?? t('dock.inputPlaceholder');
   const aiSuggestions = useMemo(
     () => [
-      { text: t('dock.suggestion1'), icon: ClipboardList, color: 'text-sky-500' },
-      { text: t('dock.suggestion2'), icon: Code2, color: 'text-emerald-500' },
-      { text: t('dock.suggestion3'), icon: FileText, color: 'text-violet-500' },
+      { text: t('dock.suggestion1'), icon: ClipboardList, color: 'text-ol-blue' },
+      { text: t('dock.suggestion2'), icon: Code2, color: 'text-ol-green' },
+      { text: t('dock.suggestion3'), icon: FileText, color: 'text-ol-purple' },
     ],
     [t],
   );
@@ -321,16 +320,9 @@ export function ExpandableDockTabs({
   const [countWidth, setCountWidth] = useState<number | null>(null);
   const [availableWidth, setAvailableWidth] = useState<number | null>(null);
   const [stackTrayOpen, setStackTrayOpen] = useState(false);
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const stack = useTabRuntime((s) =>
-    activeTabId ? s.runtimeByTabId[activeTabId]?.stack ?? EMPTY_STACK : EMPTY_STACK,
-  );
-  const activeStackItemId = useTabRuntime((s) =>
-    activeTabId ? s.runtimeByTabId[activeTabId]?.activeStackItemId ?? "" : "",
-  );
-  const stackHidden = useTabRuntime((s) =>
-    activeTabId ? Boolean(s.runtimeByTabId[activeTabId]?.stackHidden) : false,
-  );
+  const stack = useLayoutState((s) => s.stack ?? EMPTY_STACK);
+  const activeStackItemId = useLayoutState((s) => s.activeStackItemId ?? "");
+  const stackHidden = useLayoutState((s) => Boolean(s.stackHidden));
   const lastSignalRef = useRef(0);
   const stackNudgeRefs = useRef(new Map<string, HTMLSpanElement>());
   const isControlled = selectedIndex !== undefined;
@@ -454,10 +446,9 @@ export function ExpandableDockTabs({
   }, [isExpanded]);
 
   useEffect(() => {
-    if (!activeTabId) return;
     if (!stackHidden) return;
     if (stack.length === 0) return;
-    const signal = getStackMinimizeSignal(activeTabId);
+    const signal = getStackMinimizeSignal("main");
     if (!signal || signal === lastSignalRef.current) return;
     lastSignalRef.current = signal;
     const targetId = topStackId || stack.at(-1)?.id || "";
@@ -475,13 +466,13 @@ export function ExpandableDockTabs({
       ],
       { duration: 480, easing: "ease-in-out" },
     );
-  }, [activeTabId, stack.length, stackHidden, topStackId]);
+  }, [stack.length, stackHidden, topStackId]);
 
   /** Handle tab selection. */
   const handleSelect = (index: number) => {
     // 切换 dock 时自动隐藏已打开的 stack 面板
-    if (activeTabId && stack.length > 0 && !stackHidden) {
-      useTabRuntime.getState().setStackHidden(activeTabId, true);
+    if (stack.length > 0 && !stackHidden) {
+      useLayoutState.getState().setStackHidden(true);
     }
     if (!isControlled) {
       setUncontrolledSelected(index);
@@ -506,16 +497,15 @@ export function ExpandableDockTabs({
 
   /** Open a stack item. */
   const openStackItem = (item: DockItem) => {
-    if (!activeTabId) return;
-    useTabRuntime.getState().pushStackItem(activeTabId, item);
+    useLayoutState.getState().pushStackItem(item);
   };
 
   /** 逻辑：发送文本到 AI Chat 面板。 */
   const sendToAiChat = (text: string) => {
     if (onSend) {
       onSend(text);
-    } else if (activeTabId) {
-      useTabRuntime.getState().setTabRightChatCollapsed(activeTabId, false);
+    } else {
+      useLayoutState.getState().setRightChatCollapsed(false);
       window.setTimeout(() => {
         window.dispatchEvent(
           new CustomEvent('openloaf:chat-send-message', { detail: { text } }),
@@ -741,7 +731,7 @@ export function ExpandableDockTabs({
       <motion.div
         ref={dockRef}
         className={cn(
-          "absolute bottom-3.5 left-1/2 z-[60] flex -translate-x-1/2 items-center overflow-visible rounded-3xl border border-black/[0.06] bg-white/75 text-secondary-foreground shadow-[0_8px_24px_rgba(0,0,0,0.12),0_20px_48px_rgba(0,0,0,0.16)] backdrop-blur-2xl backdrop-saturate-200 dark:border-white/[0.14] dark:bg-slate-900/75 dark:shadow-[0_8px_24px_rgba(0,0,0,0.4),0_20px_48px_rgba(0,0,0,0.55)]",
+          "absolute bottom-3.5 left-1/2 z-[60] flex -translate-x-1/2 items-center overflow-visible rounded-3xl border border-black/[0.06] bg-background/75 text-secondary-foreground shadow-[0_8px_24px_rgba(0,0,0,0.12),0_20px_48px_rgba(0,0,0,0.16)] backdrop-blur-2xl backdrop-saturate-200 dark:border-white/[0.14] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4),0_20px_48px_rgba(0,0,0,0.55)]",
           sizeToken.container,
           "gap-1",
           className,
@@ -755,7 +745,7 @@ export function ExpandableDockTabs({
             <motion.div
               key="stack-tray"
               className={cn(
-                "absolute bottom-full right-1 mb-2 flex flex-col items-stretch rounded-3xl border border-white/35 bg-white/25 text-secondary-foreground shadow-[0_16px_36px_rgba(0,0,0,0.14)] backdrop-blur-2xl backdrop-saturate-200 dark:border-white/10 dark:bg-slate-950/30 dark:shadow-[0_16px_36px_rgba(0,0,0,0.6)]",
+                "absolute bottom-full right-1 mb-2 flex flex-col items-stretch rounded-3xl border border-white/35 bg-background/25 text-secondary-foreground shadow-[0_16px_36px_rgba(0,0,0,0.14)] backdrop-blur-2xl backdrop-saturate-200 dark:border-white/10 dark:shadow-[0_16px_36px_rgba(0,0,0,0.6)]",
                 sizeToken.container,
                 "gap-1",
               )}
@@ -903,7 +893,7 @@ export function ExpandableDockTabs({
               >
                 <Sparkles
                   size={sizeToken.icon}
-                  className="text-amber-500"
+                  className="text-ol-amber"
                   fill="currentColor"
                 />
               </motion.span>
@@ -1205,8 +1195,8 @@ export function ExpandableDockTabs({
                     const fallbackIcon = getStackItemFallbackIcon(item);
                     const title = getStackItemTitle(item);
                     const isActiveStack = !stackHidden && item.id === activeStackItemId;
-                    const colorClass = isActiveStack ? "bg-sky-500/15 dark:bg-sky-400/20" : "bg-transparent";
-                    const textClass = isActiveStack ? "text-sky-700 dark:text-sky-200" : "text-muted-foreground";
+                    const colorClass = isActiveStack ? "bg-ol-blue-bg" : "bg-transparent";
+                    const textClass = isActiveStack ? "text-ol-blue" : "text-muted-foreground";
                     const tooltipKey = item.id;
                     const button = (
                       <motion.button

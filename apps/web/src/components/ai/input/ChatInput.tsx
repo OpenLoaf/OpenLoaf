@@ -45,9 +45,9 @@ import { ChatInputEditor, type ChatInputEditorHandle } from "./ChatInputEditor";
 import { ChatProjectSelector } from "./ChatProjectSelector";
 import { ChatInputBlockedOverlay } from "./ChatInputBlockedOverlay";
 import { useChatInputDrop } from "./useChatInputDrop";
-import { useTabs } from "@/hooks/use-tabs";
+import { useAppView } from "@/hooks/use-app-view";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSettingsValues } from "@/hooks/use-settings";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
@@ -283,7 +283,6 @@ export function ChatInputBox({
   const commandMenuRef = useRef<ChatCommandMenuHandle | null>(null);
   /** Focus tracking container ref. */
   const inputContainerRef = useRef<HTMLDivElement | null>(null);
-  const activeTabId = useTabs((s) => s.activeTabId);
   const [isFocused, setIsFocused] = useState(false);
   const { isListening, isSupported: isDictationSupported, toggle: toggleDictation } =
     useSpeechDictation({
@@ -417,10 +416,6 @@ export function ChatInputBox({
 
   useEffect(() => {
     const handleInsertMention = (event: Event) => {
-      // 中文注释：仅活跃标签页响应插入事件，避免隐藏面板误写输入内容。
-      if (tabId) {
-        if (!activeTabId || activeTabId !== tabId) return;
-      }
       const detail = (event as CustomEvent<{ value?: string; keepSelection?: boolean }>).detail;
       const value = detail?.value ?? "";
       const normalizedRef = normalizeFileRef(value);
@@ -431,7 +426,7 @@ export function ChatInputBox({
     return () => {
       window.removeEventListener("openloaf:chat-insert-mention", handleInsertMention);
     };
-  }, [activeTabId, insertFileMention, normalizeFileRef, tabId]);
+  }, [insertFileMention, normalizeFileRef]);
 
   return (
     <div
@@ -680,10 +675,10 @@ export function ChatInputBox({
                         isLoading
                           ? "bg-destructive/10 text-destructive hover:bg-destructive/15 dark:bg-destructive/15"
                           : isOverLimit
-                            ? "bg-blue-100 text-blue-300 cursor-not-allowed dark:bg-blue-950 dark:text-blue-800"
+                            ? "bg-ol-blue/15 text-ol-blue/40 cursor-not-allowed"
                             : canSubmit
-                              ? "bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600"
-                              : "bg-blue-100 text-blue-400 dark:bg-blue-950 dark:text-blue-700"
+                              ? "bg-ol-blue hover:bg-ol-blue/90 text-white"
+                              : "bg-ol-blue/15 text-ol-blue/50"
                       )}
                     />
                   </TooltipTrigger>
@@ -761,14 +756,9 @@ export default function ChatInput({
     },
     [sessionId, projectId]
   );
-  const activeTabId = useTabs((state) => state.activeTabId);
-  const setSessionProjectId = useTabs((state) => state.setSessionProjectId);
-  const setTabChatParams = useTabs((state) => state.setTabChatParams);
-  const tabOnlineSearchEnabled = useTabs((state) => {
-    const targetTabId = tabId ?? state.activeTabId;
-    if (!targetTabId) return undefined;
-    const tab = state.tabs.find((item) => item.id === targetTabId);
-    const value = (tab?.chatParams as Record<string, unknown> | undefined)
+  const setChatParams = useAppView((state) => state.setChatParams);
+  const tabOnlineSearchEnabled = useAppView((state) => {
+    const value = (state.chatParams as Record<string, unknown> | undefined)
       ?.chatOnlineSearchEnabled;
     return typeof value === "boolean" ? value : undefined;
   });
@@ -776,16 +766,15 @@ export default function ChatInput({
   /** Switch project scope from the project selector. */
   const handleProjectChange = useCallback(
     (nextProjectId: string | undefined) => {
-      const targetTabId = tabId ?? activeTabId;
-      if (!targetTabId || !sessionId) return;
-      // 更新 session 的 projectId；TabLayout useEffect 会自动同步 leftDock
-      setSessionProjectId(targetTabId, sessionId, nextProjectId ?? "");
+      if (!sessionId) return;
+      // 更新 chatParams 的 projectId
+      setChatParams({ projectId: nextProjectId ?? "" });
     },
-    [tabId, activeTabId, sessionId, setSessionProjectId],
+    [sessionId, setChatParams],
   );
   const { providerItems, loaded: settingsLoaded } = useSettingsValues();
   const { loggedIn: authLoggedIn, loading: authLoading } = useSaasAuth();
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
+  const pushStackItem = useLayoutState((s) => s.pushStackItem);
   const { basic, setBasic } = useBasicConfig();
   const setTabDictationStatus = useChatRuntime((s) => s.setTabDictationStatus);
   const dictationLanguage = basic.uiLanguage ?? undefined;
@@ -882,8 +871,8 @@ export default function ChatInput({
     useState(false);
   /** Keep last memory scope to detect scope switches. */
   const onlineSearchScopeRef = useRef<"tab" | "global">(onlineSearchMemoryScope);
-  // 逻辑：聊天场景优先使用上下文 tabId，非聊天场景回退到当前激活 tab。
-  const activeChatTabId = tabId ?? activeTabId;
+  // 逻辑：单视图模式下 tabId 仅用于兼容上下文标识。
+  const activeChatTabId = tabId;
   // 逻辑：检查用户是否配置了至少一个本地 provider（排除注册表默认 CLI 项）。
   const hasConfiguredProviders = useMemo(
     () => providerItems.some((item) => (item.category ?? "general") === "provider"),
@@ -950,17 +939,16 @@ export default function ChatInput({
         );
       }
       setGlobalOnlineSearchEnabled(nextValue);
-    } else if (activeChatTabId) {
-      setTabChatParams(activeChatTabId, {
+    } else {
+      setChatParams({
         chatOnlineSearchEnabled: globalOnlineSearchEnabled,
       });
     }
     onlineSearchScopeRef.current = onlineSearchMemoryScope;
   }, [
-    activeChatTabId,
     globalOnlineSearchEnabled,
     onlineSearchMemoryScope,
-    setTabChatParams,
+    setChatParams,
     tabOnlineSearchEnabled,
   ]);
 
@@ -977,10 +965,9 @@ export default function ChatInput({
         setGlobalOnlineSearchEnabled(enabled);
         return;
       }
-      if (!activeChatTabId) return;
-      setTabChatParams(activeChatTabId, { chatOnlineSearchEnabled: enabled });
+      setChatParams({ chatOnlineSearchEnabled: enabled });
     },
-    [activeChatTabId, onlineSearchMemoryScope, setTabChatParams]
+    [onlineSearchMemoryScope, setChatParams]
   );
   const handleApprovalModeChange = useCallback(
     (mode: ApprovalMode) => {
@@ -996,10 +983,8 @@ export default function ChatInput({
 
   /** Open the provider management panel inside the current tab stack. */
   const handleOpenProviderSettings = () => {
-    if (!activeChatTabId) return;
     // 直接打开模型管理面板，避免进入设置菜单列表。
     pushStackItem(
-      activeChatTabId,
       {
         id: "provider-management",
         sourceKey: "provider-management",
@@ -1023,10 +1008,6 @@ export default function ChatInput({
   /** Handle skill insert events. */
   useEffect(() => {
     const handleInsertSkill = (event: Event) => {
-      // 中文注释：仅活跃标签页响应插入事件，避免隐藏面板写入输入内容。
-      if (tabId) {
-        if (!activeTabId || activeTabId !== tabId) return;
-      }
       const detail = (event as CustomEvent<{ skillName?: string }>).detail;
       const skillName = detail?.skillName?.trim() ?? "";
       if (!skillName) return;
@@ -1041,14 +1022,11 @@ export default function ChatInput({
     return () => {
       window.removeEventListener("openloaf:chat-insert-skill", handleInsertSkill);
     };
-  }, [activeTabId, setInput, tabId]);
+  }, [setInput]);
 
   /** Handle prefill text events (e.g. from task board "让AI创建"). */
   useEffect(() => {
     const handlePrefill = (event: Event) => {
-      if (tabId) {
-        if (!activeTabId || activeTabId !== tabId) return;
-      }
       const detail = (event as CustomEvent<{ text?: string }>).detail;
       const text = detail?.text ?? "";
       if (!text) return;
@@ -1061,7 +1039,7 @@ export default function ChatInput({
     return () => {
       window.removeEventListener("openloaf:chat-prefill-input", handlePrefill);
     };
-  }, [activeTabId, setInput, tabId]);
+  }, [setInput]);
 
   const resolvedIsAutoModel = Boolean(isAutoModel);
   const resolvedCanImageGeneration = Boolean(canImageGeneration);

@@ -63,7 +63,7 @@ const NODE_PREVIEW_MAP: Record<string, NodePreviewConfig> = {
     border: BOARD_GENERATE_BORDER_IMAGE,
     btnClass: BOARD_GENERATE_BTN_IMAGE,
     pillClass: BOARD_GENERATE_PILL_IMAGE,
-    iconColor: "text-[#1a73e8] dark:text-sky-400",
+    iconColor: "text-ol-blue",
     icon: ImagePlus,
     titleKey: "imageGenerate.title",
     pillKey: "imageGenerate.mode.textToImage",
@@ -75,7 +75,7 @@ const NODE_PREVIEW_MAP: Record<string, NodePreviewConfig> = {
     border: BOARD_GENERATE_BORDER_VIDEO,
     btnClass: BOARD_GENERATE_BTN_VIDEO,
     pillClass: BOARD_GENERATE_PILL_VIDEO,
-    iconColor: "text-[#9334e6] dark:text-violet-400",
+    iconColor: "text-ol-purple",
     icon: Film,
     titleKey: "videoGenerate.title",
     pillKey: "videoGenerate.status.idle",
@@ -86,7 +86,7 @@ const NODE_PREVIEW_MAP: Record<string, NodePreviewConfig> = {
     base: BOARD_GENERATE_NODE_BASE_PROMPT,
     border: BOARD_GENERATE_BORDER_PROMPT,
     btnClass: BOARD_GENERATE_BTN_PROMPT,
-    iconColor: "text-[#f9ab00] dark:text-amber-400",
+    iconColor: "text-ol-amber",
     icon: ScanEye,
     titleKey: "imagePromptGenerate.title",
     btnKey: "imagePromptGenerate.run",
@@ -96,7 +96,7 @@ const NODE_PREVIEW_MAP: Record<string, NodePreviewConfig> = {
     base: BOARD_GENERATE_NODE_BASE_CHAT,
     border: BOARD_GENERATE_BORDER_CHAT,
     btnClass: BOARD_GENERATE_BTN_CHAT,
-    iconColor: "text-[#188038] dark:text-emerald-400",
+    iconColor: "text-ol-green",
     icon: Sparkles,
     titleKey: "aiToolbar.aiAssistant",
     btnKey: "imagePromptGenerate.run",
@@ -107,14 +107,14 @@ const NODE_PREVIEW_MAP: Record<string, NodePreviewConfig> = {
 /** Extension badge color mapping (matches FileAttachmentNode). */
 function getExtBadgeColor(ext?: string): string {
   const normalized = (ext ?? "").toLowerCase();
-  if (normalized === "pdf") return "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300";
+  if (normalized === "pdf") return "bg-ol-red-bg text-ol-red";
   if (normalized === "docx" || normalized === "doc")
-    return "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300";
+    return "bg-ol-blue-bg text-ol-blue";
   if (normalized === "xlsx" || normalized === "xls" || normalized === "csv")
-    return "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300";
+    return "bg-ol-green-bg text-ol-green";
   if (normalized === "md" || normalized === "txt")
-    return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
-  return "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300";
+    return "bg-ol-surface-muted text-ol-text-secondary";
+  return "bg-ol-purple-bg text-ol-purple";
 }
 
 type PendingInsertPreviewProps = {
@@ -129,12 +129,12 @@ function TextNodePreview({ t }: { t: (key: string) => string }) {
     <div
       className={[
         "flex h-full w-full items-center gap-1.5 rounded-sm outline outline-1 outline-dashed p-2.5",
-        "outline-slate-300 bg-white",
-        "dark:outline-slate-600 dark:bg-slate-900",
+        "outline-ol-divider bg-background",
+        "",
       ].join(" ")}
     >
-      <Type size={13} className="shrink-0 text-slate-400 dark:text-slate-500" />
-      <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+      <Type size={13} className="shrink-0 text-muted-foreground" />
+      <span className="text-[11px] font-medium text-muted-foreground">
         {t("textNode.placeholder")}
       </span>
     </div>
@@ -157,12 +157,12 @@ function FileNodePreview({
     <div
       className={[
         "flex h-full w-full items-center gap-3 rounded-sm border box-border px-3",
-        "border-slate-200 bg-white text-slate-900",
-        "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
+        "border-ol-divider bg-background text-ol-text-primary",
+        "",
       ].join(" ")}
     >
       <div className="flex h-10 w-8 shrink-0 items-center justify-center">
-        <FileText size={28} className="text-slate-300 dark:text-slate-600" />
+        <FileText size={28} className="text-muted-foreground" />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-[12px] font-medium leading-tight">
@@ -261,7 +261,7 @@ function PendingInsertPreviewBase({
       >
         <div
           className={[
-            "relative flex w-full flex-col gap-3 rounded-xl border p-3 text-[#202124] dark:text-slate-100",
+            "relative flex w-full flex-col gap-3 rounded-xl border p-3 text-ol-text-primary",
             previewH ? "h-full" : "",
             config.base,
             config.border,
@@ -291,19 +291,19 @@ function PendingInsertPreviewBase({
 
           {/* Model skeleton */}
           <div className="flex items-center gap-3">
-            <div className="text-[12px] text-[#5f6368] dark:text-slate-400">
+            <div className="text-[12px] text-ol-text-auxiliary">
               {t("imageGenerate.model")}
             </div>
-            <div className="h-7 flex-1 rounded-lg bg-black/[0.04] dark:bg-white/[0.06]" />
+            <div className="h-7 flex-1 rounded-lg bg-black/[0.04] dark:bg-foreground/[0.06]" />
           </div>
 
           {/* Prompt skeleton (only for image/video generate) */}
           {config.showPrompt ? (
             <div className="flex flex-1 flex-col gap-2">
-              <div className="text-[12px] text-[#5f6368] dark:text-slate-400">
+              <div className="text-[12px] text-ol-text-auxiliary">
                 {t("imageGenerate.prompt")}
               </div>
-              <div className="flex-1 rounded-lg bg-black/[0.04] dark:bg-white/[0.06]" />
+              <div className="flex-1 rounded-lg bg-black/[0.04] dark:bg-foreground/[0.06]" />
             </div>
           ) : null}
         </div>

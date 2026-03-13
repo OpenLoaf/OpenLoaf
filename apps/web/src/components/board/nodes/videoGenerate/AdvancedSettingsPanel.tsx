@@ -67,10 +67,10 @@ export function AdvancedSettingsPanel({
 }: AdvancedSettingsPanelProps) {
   const { t } = useTranslation('board');
   return (
-    <div className="rounded-xl bg-[#f6f8fc] p-2.5 dark:bg-[hsl(var(--muted)/0.26)]">
+    <div className="rounded-xl bg-ol-surface-input p-2.5 dark:bg-muted/26">
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-1">
-          <div className="min-w-0 flex-1 text-[11px] text-[#5f6368] dark:text-slate-300">
+          <div className="min-w-0 flex-1 text-[11px] text-ol-text-auxiliary">
             {t('videoGenerate.advanced.aspectRatio')}
           </div>
           <Popover
@@ -85,9 +85,8 @@ export function AdvancedSettingsPanel({
                 type="button"
                 disabled={disabled}
                 className={[
-                  "flex h-6 w-26 items-center justify-between rounded-full border border-[#e3e8ef] bg-white/90 px-2 text-[11px] text-[#5f6368]",
-                  "hover:bg-[#f1f3f4] disabled:cursor-not-allowed disabled:opacity-60",
-                  "dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-800",
+                  "flex h-6 w-26 items-center justify-between rounded-full border border-ol-divider bg-background/90 px-2 text-[11px] text-ol-text-auxiliary",
+                  "hover:bg-ol-surface-muted disabled:cursor-not-allowed disabled:opacity-60",
                 ].join(" ")}
               >
                 <span className="truncate">
@@ -100,7 +99,7 @@ export function AdvancedSettingsPanel({
               side="bottom"
               align="start"
               sideOffset={4}
-              className="w-[var(--radix-popover-trigger-width)] max-h-40 overflow-auto rounded-md border border-[#e3e8ef] bg-white p-1 text-[11px] text-[#5f6368] shadow-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="w-[var(--radix-popover-trigger-width)] max-h-40 overflow-auto rounded-md border border-ol-divider bg-background p-1 text-[11px] text-ol-text-auxiliary shadow-none"
             >
               {["auto", ...VIDEO_GENERATE_ASPECT_RATIO_OPTIONS].map((option) => {
                 const label = option === "auto" ? t('videoGenerate.advanced.auto') : option;
@@ -114,10 +113,10 @@ export function AdvancedSettingsPanel({
                     type="button"
                     className={[
                       "flex w-full items-center rounded px-2 py-1.5 text-left text-[11px] transition-colors duration-150",
-                      "hover:bg-[#f1f3f4] dark:hover:bg-slate-800",
+                      "hover:bg-ol-surface-muted",
                       isActive
-                        ? "bg-[#d3e3fd] text-[#1a73e8] dark:bg-sky-800/60 dark:text-sky-50"
-                        : "text-[#5f6368] dark:text-slate-200",
+                        ? "bg-ol-blue-bg-hover text-ol-blue"
+                        : "text-ol-text-auxiliary",
                     ].join(" ")}
                     onClick={() => {
                       onAspectRatioChange(option === "auto" ? undefined : option);
@@ -132,7 +131,7 @@ export function AdvancedSettingsPanel({
           </Popover>
         </div>
         <div className="flex items-center gap-1">
-          <div className="min-w-0 flex-1 text-[11px] text-[#5f6368] dark:text-slate-300">
+          <div className="min-w-0 flex-1 text-[11px] text-ol-text-auxiliary">
             {t('videoGenerate.advanced.duration')}
           </div>
           <Tabs
@@ -142,12 +141,12 @@ export function AdvancedSettingsPanel({
               onDurationChange(Number.isFinite(parsed) ? parsed : undefined);
             }}
           >
-            <TabsList className="grid h-6 w-20 grid-cols-2 rounded-md bg-[#f1f3f4] p-0.5 dark:bg-slate-800/80">
+            <TabsList className="grid h-6 w-20 grid-cols-2 rounded-md bg-ol-surface-muted p-0.5">
               {VIDEO_GENERATE_DURATION_OPTIONS.map((option) => (
                 <TabsTrigger
                   key={option}
                   value={String(option)}
-                  className="h-5 text-[10px] text-[#5f6368] data-[state=active]:bg-white data-[state=active]:text-[#1a73e8] dark:text-slate-300 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-sky-300"
+                  className="h-5 text-[10px] text-ol-text-auxiliary data-[state=active]:bg-background data-[state=active]:text-ol-blue"
                   disabled={disabled}
                 >
                   {option}s
@@ -178,7 +177,7 @@ export function AdvancedSettingsPanel({
               onNegativePromptChange(next);
             }}
             data-board-scroll
-            className="min-h-[48px] w-full resize-none overflow-y-auto px-2.5 py-1.5 text-[10px] leading-4 text-slate-600 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500"
+            className="min-h-[48px] w-full resize-none overflow-y-auto px-2.5 py-1.5 text-[10px] leading-4 text-ol-text-secondary shadow-none placeholder:text-muted-foreground focus-visible:ring-0"
             disabled={disabled}
           />
         </div>
@@ -187,11 +186,11 @@ export function AdvancedSettingsPanel({
           const valueString = value === undefined ? "" : String(value);
           const label = (
             <div className="min-w-0 flex-1 space-y-0.5">
-              <div className="text-[11px] text-[#5f6368] dark:text-slate-300">
+              <div className="text-[11px] text-ol-text-auxiliary">
                 {field.title}
               </div>
               {field.description ? (
-                <div className="text-[10px] leading-[14px] text-neutral-400 dark:text-neutral-500">
+                <div className="text-[10px] leading-[14px] text-muted-foreground">
                   {field.description}
                 </div>
               ) : null}
@@ -261,7 +260,7 @@ export function AdvancedSettingsPanel({
                     className="h-7 w-20 px-2 text-[11px]"
                   />
                   {field.unit ? (
-                    <div className="text-[11px] text-neutral-400 dark:text-neutral-500">
+                    <div className="text-[11px] text-muted-foreground">
                       {field.unit}
                     </div>
                   ) : null}

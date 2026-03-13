@@ -20,9 +20,9 @@ import {
   CommandShortcut,
 } from "@openloaf/ui/command";
 import { Kbd, KbdGroup } from "@openloaf/ui/kbd";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
-import { useTabView } from "@/hooks/use-tab-view";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
+import { useAppState } from "@/hooks/use-app-state";
 import { useProjects } from "@/hooks/use-projects";
 import { useDebounce } from "@/hooks/use-debounce";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
@@ -73,11 +73,9 @@ export function Search({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const addTab = useTabs((s) => s.addTab);
-  const setActiveTab = useTabs((s) => s.setActiveTab);
-  const setTabBaseParams = useTabRuntime((s) => s.setTabBaseParams);
-  const activeTabId = useTabs((s) => s.activeTabId);
-  const activeTab = useTabView(activeTabId ?? undefined);
+  const navigate = useAppView((s) => s.navigate);
+  const setBaseParams = useLayoutState((s) => s.setBaseParams);
+  const activeTab = useAppState();
   const activeProjectShell = React.useMemo(
     () => resolveProjectModeProjectShell(activeTab?.projectShell),
     [activeTab?.projectShell],
@@ -237,24 +235,20 @@ export function Search({
     (input: { baseId: string; component: string; title?: string; titleKey?: string; icon: string }) => {
       const tabTitle = input.titleKey ? i18next.t(input.titleKey) : (input.title ?? '');
 
-      const state = useTabs.getState();
-      const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
-      const existing = state.tabs.find((tab) => {
-        if (runtimeByTabId[tab.id]?.base?.id === input.baseId) return true;
-        // ai-chat 的 base 会在 store 层被归一化为 undefined，因此需要用 title 做单例去重。
-        if (input.component === "ai-chat" && !runtimeByTabId[tab.id]?.base && tab.title === tabTitle) return true;
-        return false;
-      });
-      if (existing) {
-        React.startTransition(() => {
-          setActiveTab(existing.id);
-        });
+      // In single-view mode, check if current base already matches
+      const currentBase = useLayoutState.getState().base;
+      if (currentBase?.id === input.baseId) {
+        handleOpenChange(false);
+        return;
+      }
+      // ai-chat singleton check by title
+      const currentTitle = useAppView.getState().title;
+      if (input.component === "ai-chat" && !currentBase && currentTitle === tabTitle) {
         handleOpenChange(false);
         return;
       }
 
-      addTab({
-        createNew: true,
+      navigate({
         title: tabTitle,
         icon: input.icon,
         leftWidthPercent: 70,
@@ -265,7 +259,7 @@ export function Search({
       });
       handleOpenChange(false);
     },
-    [addTab, handleOpenChange, setActiveTab],
+    [handleOpenChange, navigate],
   );
   /** Trigger AI chat with current search query. */
   const handleAiFallback = React.useCallback(() => {
@@ -283,26 +277,17 @@ export function Search({
   const handleOpenProjectFileSystem = React.useCallback(
     (projectId: string, projectTitle: string, rootUri: string, targetUri: string) => {
       const baseId = `project:${projectId}`;
-      const runtimeByTabId = useTabRuntime.getState().runtimeByTabId;
-      const existing = useTabs
-        .getState()
-        .tabs.find(
-          (tab) =>
-            runtimeByTabId[tab.id]?.base?.id === baseId,
-        );
-      if (existing) {
-        React.startTransition(() => {
-          setActiveTab(existing.id);
-        });
-        setTabBaseParams(existing.id, {
+      // In single-view mode, check if current base already matches this project
+      const currentBase = useLayoutState.getState().base;
+      if (currentBase?.id === baseId) {
+        setBaseParams({
           projectTab: "files",
           fileUri: targetUri,
         });
         handleOpenChange(false);
         return;
       }
-      addTab({
-        createNew: true,
+      navigate({
         title: projectTitle || t('untitledProject'),
         icon: projectHierarchy.projectById.get(projectId)?.icon ?? undefined,
         leftWidthPercent: 90,
@@ -316,11 +301,10 @@ export function Search({
       handleOpenChange(false);
     },
     [
-      addTab,
+      navigate,
       handleOpenChange,
       projectHierarchy.projectById,
-      setActiveTab,
-      setTabBaseParams,
+      setBaseParams,
     ],
   );
 
@@ -513,10 +497,8 @@ export function Search({
           handleOpenProjectFileSystem(result.projectId, projectTitle, rootUri, result.entry.uri);
           return;
         }
-        if (!activeTabId) return;
         openFilePreview({
           entry: result.entry,
-          tabId: activeTabId,
           projectId: result.projectId,
           rootUri,
           mode: "stack",
@@ -566,7 +548,6 @@ export function Search({
       );
     },
     [
-      activeTabId,
       handleOpenChange,
       handleOpenProjectFileSystem,
       projectHierarchy.rootUriById,

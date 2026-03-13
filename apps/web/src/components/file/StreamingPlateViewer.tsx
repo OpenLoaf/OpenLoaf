@@ -123,13 +123,13 @@ export default function StreamingPlateViewer({
       </Plate>
       {isStreaming && (
         <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm">
-          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
+          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-ol-blue" />
           编辑中...
         </div>
       )}
       {isDone && (
         <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-ol-green" />
           已完成
         </div>
       )}

@@ -63,6 +63,7 @@ import { imageProcessToolDef } from "./imageProcess";
 import { videoConvertToolDef } from "./videoConvert";
 import { docConvertToolDef } from "./docConvert";
 import { fileInfoToolDef } from "./fileInfo";
+import { webSearchToolDef } from "./webSearch";
 import { toolSearchToolDef } from "./toolSearch";
 
 export type ToolCatalogItem = {
@@ -138,6 +139,7 @@ const TOOL_DEFS: ToolDefLike[] = [
   videoConvertToolDef,
   docConvertToolDef,
   fileInfoToolDef,
+  webSearchToolDef,
 ];
 
 // 逻辑：统一生成工具元数据，避免前端重复维护名称与描述。
@@ -217,6 +219,7 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'video-convert': { keywords: ['video', 'audio', 'convert', 'format', 'ffmpeg', 'mp4', 'mp3', 'extract', 'transcode'], group: 'convert' },
   'doc-convert': { keywords: ['document', 'convert', 'format', 'docx', 'pdf', 'html', 'markdown', 'csv', 'xlsx', 'txt', 'transform', 'word', 'export', 'import', 'to'], group: 'convert' },
   'file-info': { keywords: ['file', 'info', 'metadata', 'size', 'type', 'mime', 'resolution', 'duration', 'pages', 'details', 'stat', 'width', 'height', 'image', 'picture', 'photo', 'video', 'audio', 'pdf', 'excel', 'spreadsheet'], group: 'fileRead' },
+  'web-search': { keywords: ['search', 'web', 'internet', 'google', 'query', 'lookup', 'find', 'latest', 'news', 'information', 'online'], group: 'web' },
 };
 
 export const TOOL_CATALOG_EXTENDED: ToolCatalogExtendedItem[] = TOOL_CATALOG.map(

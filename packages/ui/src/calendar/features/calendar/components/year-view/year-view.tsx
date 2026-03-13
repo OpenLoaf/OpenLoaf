@@ -14,7 +14,7 @@ import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 const DAY_HEADER_NAMES = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-const EVENT_DOT_COLORS = ['bg-primary', 'bg-blue-500', 'bg-green-500']
+const EVENT_DOT_COLORS = ['bg-primary', 'bg-ol-blue', 'bg-ol-green']
 const DAYS_IN_MINI_CALENDAR = 42
 
 const getDayTooltip = (eventCount: number): string => {
@@ -109,7 +109,7 @@ const YearView = () => {
 			? ''
 			: 'text-muted-foreground opacity-50'
 		const todayClass = day.isToday
-			? 'bg-[#1a73e8] text-white rounded-full dark:bg-sky-500'
+			? 'bg-ol-blue text-white rounded-full'
 			: ''
 		const selectedClass =
 			day.isSelected && !day.isToday ? 'bg-muted rounded-full font-bold' : ''

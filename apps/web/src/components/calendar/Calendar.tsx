@@ -308,12 +308,12 @@ function SystemEventFormDialog({
                   : translations?.addNewEvent}
               </DialogDescription>
             </div>
-            <div className="flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-white/70 px-3 py-2 sm:justify-end">
+            <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-background/70 px-3 py-2 sm:justify-end">
               <div className="flex flex-col">
-                <span className="text-xs font-medium text-slate-700">
+                <span className="text-xs font-medium text-ol-text-secondary">
                   {t('reminderToggleLabel')}
                 </span>
-                <span className="text-[11px] text-slate-500">
+                <span className="text-[11px] text-ol-text-auxiliary">
                   {t('reminderToggleDesc')}
                 </span>
               </div>
@@ -325,7 +325,7 @@ function SystemEventFormDialog({
           </div>
         </DialogHeader>
         <div className="grid gap-2">
-          <span className="text-xs font-medium text-slate-700">
+          <span className="text-xs font-medium text-ol-text-secondary">
             {t(eventKind === "reminder" ? "reminderListLabel" : "calendarTypeLabel")}
           </span>
           <Select value={calendarId} onValueChange={setCalendarId} disabled={listSource.length === 0}>
@@ -653,7 +653,7 @@ export default function CalendarPage({
               : shouldShowImportButton ? (
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-[#e6f4ea] text-[#188038] hover:bg-[#ceead6] dark:bg-emerald-900/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 shadow-none transition-colors duration-150 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-ol-green-bg text-ol-green hover:bg-ol-green-bg-hover shadow-none transition-colors duration-150 disabled:opacity-50"
                   onClick={handleImportCalendar}
                   disabled={isLoading}
                 >
@@ -689,7 +689,7 @@ export default function CalendarPage({
                   >
                     <span
                       className="inline-flex h-2 w-2 shrink-0 rounded-[2px]"
-                      style={{ backgroundColor: event.backgroundColor ?? "#1a73e8" }}
+                      style={{ backgroundColor: event.backgroundColor ?? "var(--ol-blue)" }}
                     />
                     <span className={`${eventTextClassName} font-semibold text-foreground truncate`}>
                       {event.title}
@@ -830,7 +830,7 @@ export default function CalendarPage({
             <AlertDialogCancel>{t('later')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRelaunchApp}
-              className="bg-[#1a73e8] text-white hover:bg-[#1557b0] dark:bg-sky-600 dark:hover:bg-sky-700"
+              className="bg-ol-blue text-white hover:bg-ol-blue/85"
             >
               {t('restart')}
             </AlertDialogAction>

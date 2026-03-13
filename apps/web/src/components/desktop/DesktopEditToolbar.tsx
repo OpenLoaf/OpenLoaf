@@ -21,8 +21,7 @@ import {
 import { useTranslation } from "react-i18next";
 import i18next from "i18next";
 import { Button } from "@openloaf/ui/button";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { desktopWidgetCatalog } from "./widget-catalog";
 import { desktopIconCatalog, getDesktopIconNode } from "./desktop-icon-catalog";
 import { getWidgetVariantConfig } from "./widget-variants";
@@ -220,21 +219,18 @@ export default function DesktopEditToolbar({
   onEnterEditMode,
 }: DesktopEditToolbarProps) {
   const { t } = useTranslation('desktop');
-  // 当前激活的 tab。
-  const activeTabId = useTabs((s) => s.activeTabId);
   // 打开 stack 面板的方法。
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
+  const pushStackItem = useLayoutState((s) => s.pushStackItem);
 
   /** Open the desktop widget library stack panel. */
   const handleOpenWidgetLibrary = React.useCallback(() => {
-    if (!activeTabId) return;
-    pushStackItem(activeTabId, {
+    pushStackItem({
       id: DESKTOP_WIDGET_LIBRARY_PANEL_ID,
       sourceKey: DESKTOP_WIDGET_LIBRARY_PANEL_ID,
       component: DESKTOP_WIDGET_LIBRARY_COMPONENT,
       title: i18next.t('desktop:editToolbar.libraryTitle'),
     });
-  }, [activeTabId, pushStackItem]);
+  }, [pushStackItem]);
 
   React.useEffect(() => {
     /** Handle widget selection event from the stack panel. */
@@ -242,9 +238,7 @@ export default function DesktopEditToolbar({
       if (!(event instanceof CustomEvent)) return;
       const detail = event.detail as DesktopWidgetSelectedDetail | undefined;
       if (!detail) return;
-      // 逻辑：从 store 直接读取最新 activeTabId，避免闭包捕获旧值导致跨 tab 事件被拒绝。
-      const currentActiveTabId = useTabs.getState().activeTabId;
-      if (currentActiveTabId && detail.tabId !== currentActiveTabId) return;
+      // 逻辑：单视图模式下不需要跨 tab 校验。
 
       // 逻辑：根据 widgetKey 区分 icon 与 widget 类型。
       if (detail.widgetKey === "__icon__" && detail.iconKey) {
@@ -295,7 +289,7 @@ export default function DesktopEditToolbar({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 gap-1.5 rounded-full px-3 text-xs bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] hover:text-[#1a73e8] dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70 transition-colors duration-150"
+          className="h-7 gap-1.5 rounded-full px-3 text-xs bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover hover:text-ol-blue transition-colors duration-150"
           onClick={handleAddAndEdit}
         >
           <Plus className="size-3.5" />
@@ -305,7 +299,7 @@ export default function DesktopEditToolbar({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 gap-1.5 rounded-full px-3 text-xs text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-400 dark:hover:bg-[hsl(var(--muted)/0.42)] transition-colors duration-150"
+          className="h-7 gap-1.5 rounded-full px-3 text-xs text-ol-text-auxiliary hover:bg-ol-surface-muted transition-colors duration-150"
           onClick={onEnterEditMode}
         >
           <PencilLine className="size-3.5" />
@@ -322,7 +316,7 @@ export default function DesktopEditToolbar({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 rounded-full px-3 text-xs bg-[#e8f0fe] text-[#1a73e8] hover:bg-[#d2e3fc] hover:text-[#1a73e8] dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-900/70 transition-colors duration-150"
+        className="h-7 gap-1.5 rounded-full px-3 text-xs bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover hover:text-ol-blue transition-colors duration-150"
         onClick={handleOpenWidgetLibrary}
       >
         <Plus className="size-3.5" />
@@ -332,7 +326,7 @@ export default function DesktopEditToolbar({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 rounded-full px-3 text-xs bg-[#fef7e0] text-[#e37400] hover:bg-[#fcefc8] hover:text-[#e37400] dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors duration-150"
+        className="h-7 gap-1.5 rounded-full px-3 text-xs bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover hover:text-ol-amber transition-colors duration-150"
         onClick={onCompact}
       >
         <Box className="size-3.5" />
@@ -342,7 +336,7 @@ export default function DesktopEditToolbar({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 rounded-full px-3 text-xs text-[#d93025] hover:bg-[#fce8e6] hover:text-[#d93025] dark:text-red-300 dark:hover:bg-red-900/40 transition-colors duration-150"
+        className="h-7 gap-1.5 rounded-full px-3 text-xs text-ol-red hover:bg-ol-red-bg hover:text-ol-red transition-colors duration-150"
         onClick={onCancel}
       >
         <X className="size-3.5" />
@@ -352,7 +346,7 @@ export default function DesktopEditToolbar({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 rounded-full px-3 text-xs bg-[#e6f4ea] text-[#188038] hover:bg-[#ceead6] hover:text-[#188038] dark:bg-emerald-900/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 transition-colors duration-150"
+        className="h-7 gap-1.5 rounded-full px-3 text-xs bg-ol-green-bg text-ol-green hover:bg-ol-green-bg-hover hover:text-ol-green transition-colors duration-150"
         onClick={onDone}
       >
         <Check className="size-3.5" />

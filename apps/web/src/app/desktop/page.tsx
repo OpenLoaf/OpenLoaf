@@ -19,8 +19,7 @@ import { desktopWidgetCatalog } from "@/components/desktop/widget-catalog";
 import type { DesktopBreakpoint } from "@/components/desktop/desktop-breakpoints";
 import type { DesktopItem } from "@/components/desktop/types";
 import { Button } from "@openloaf/ui/button";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { areDesktopItemsEqual, cloneDesktopItems } from "@/components/desktop/desktop-history";
 
 // 组件库面板标识。
@@ -71,10 +70,8 @@ export default function DesktopDemoPage() {
     future: [] as DesktopItem[][],
     suspended: false,
   });
-  // 当前激活的 tab。
-  const activeTabId = useTabs((s) => s.activeTabId);
   // 打开 stack 面板的方法。
-  const pushStackItem = useTabRuntime((s) => s.pushStackItem);
+  const pushStackItem = useLayoutState((s) => s.pushStackItem);
 
   /** Update edit mode with snapshot handling. */
   const handleSetEditMode = React.useCallback((nextEditMode: boolean) => {
@@ -128,14 +125,13 @@ export default function DesktopDemoPage() {
 
   /** Open the desktop widget library stack panel. */
   const handleOpenWidgetLibrary = React.useCallback(() => {
-    if (!activeTabId) return;
-    pushStackItem(activeTabId, {
+    pushStackItem({
       id: DESKTOP_WIDGET_LIBRARY_PANEL_ID,
       sourceKey: DESKTOP_WIDGET_LIBRARY_PANEL_ID,
       component: DESKTOP_WIDGET_LIBRARY_COMPONENT,
       title: "组件库",
     });
-  }, [activeTabId, pushStackItem]);
+  }, [pushStackItem]);
 
   /** Trigger a compact layout pass. */
   const handleCompact = React.useCallback(() => {
@@ -149,7 +145,7 @@ export default function DesktopDemoPage() {
       if (!(event instanceof CustomEvent)) return;
       const detail = event.detail as DesktopWidgetSelectedDetail | undefined;
       if (!detail) return;
-      if (!activeTabId || detail.tabId !== activeTabId) return;
+      if (detail.tabId && detail.tabId !== "main") return;
 
       // 逻辑：直接将新组件追加到列表末尾。
       setItems((prev) => {
@@ -180,7 +176,7 @@ export default function DesktopDemoPage() {
     return () => {
       window.removeEventListener(DESKTOP_WIDGET_SELECTED_EVENT, handleWidgetSelected as EventListener);
     };
-  }, [activeTabId]);
+  }, []);
 
   React.useEffect(() => {
     if (!editMode) {

@@ -13,6 +13,7 @@
  */
 
 import type { ClientPlatform } from '@openloaf/api/types/platform'
+import { isWebSearchConfigured } from '@/ai/tools/webSearchTool'
 
 /**
  * Build ToolSearch guidance text.
@@ -55,6 +56,14 @@ export function buildToolSearchGuidance(platform?: ClientPlatform): string {
     '- doc-convert：文档格式转换（Word↔PDF、Excel↔CSV、Markdown↔HTML）',
   )
 
+  if (isWebSearchConfigured()) {
+    toolCatalog.push('- web-search：搜索互联网获取最新信息、查找事实（无明确 URL 时优先使用，而非 browser）')
+  }
+
+  toolCatalog.push(
+    '- spawn-agent：派发子代理执行复杂或专项任务（browser、coder 等）',
+  )
+
   return `# 工具目录
 通过 tool-search 加载所需工具。
 
@@ -64,9 +73,5 @@ export function buildToolSearchGuidance(platform?: ClientPlatform): string {
 - 可一次加载多个：用逗号分隔 ID
 
 可用工具能力：
-${toolCatalog.join('\n')}
-
-补充：
-- 浏览器操作（打开网页、截图、网页自动化）→ 用 sub-agent 派发 browser 子代理
-- 代码开发请求（提到 Claude Code、帮我开发）→ 用 sub-agent 派发 coder 子代理`
+${toolCatalog.join('\n')}`
 }

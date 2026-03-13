@@ -8,17 +8,16 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@openloaf/api/common";
-import { useTabs } from "@/hooks/use-tabs";
-import { useTabRuntime } from "@/hooks/use-tab-runtime";
+import { useAppView } from "@/hooks/use-app-view";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { createBrowserTabId } from "@/hooks/tab-id";
 
 /** Build the browser view key for stack entries. */
 function buildBrowserViewKey(input: {
-  tabId: string;
   chatSessionId: string;
   browserTabId: string;
 }) {
-  return `browser:${input.tabId}:${input.chatSessionId}:${input.browserTabId}`;
+  return `browser:${input.chatSessionId}:${input.browserTabId}`;
 }
 
 export type OpenLinkInput = {
@@ -39,25 +38,20 @@ export function resolveLinkTitle(url: string, title?: string) {
 }
 
 /** Open a link in the current tab stack. */
-export function openLinkInStack({ url, title, activeTabId }: OpenLinkInput) {
+export function openLinkInStack({ url, title }: OpenLinkInput) {
   const trimmedUrl = url.trim();
   if (!trimmedUrl) return;
   const resolvedTitle = resolveLinkTitle(trimmedUrl, title);
-  const state = useTabs.getState();
-  const tabId = activeTabId ?? state.activeTabId;
-  if (!tabId) return;
-  const tab = state.getTabById(tabId);
-  if (!tab) return;
+  const appViewState = useAppView.getState();
+  const chatSessionId = appViewState.chatSessionId ?? "unknown";
 
   const viewKey = buildBrowserViewKey({
-    tabId,
-    chatSessionId: tab.chatSessionId ?? "unknown",
+    chatSessionId,
     browserTabId: createBrowserTabId(),
   });
 
   // 逻辑：统一复用浏览器 stack 打开行为，保证多入口一致。
-  useTabRuntime.getState().pushStackItem(
-    tabId,
+  useLayoutState.getState().pushStackItem(
     {
       component: BROWSER_WINDOW_COMPONENT,
       id: BROWSER_WINDOW_PANEL_ID,
