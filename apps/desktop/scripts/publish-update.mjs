@@ -27,8 +27,8 @@
  *       latest-mac.yml              ← beta 渠道更新清单
  *       latest.yml
  *       latest-linux.yml
- *     beta/latest-mac.yml           ← beta 渠道更新清单（x64）
- *     beta/latest-mac-arm64.yml    ← beta 渠道更新清单（arm64）
+ *     beta/latest-mac.yml           ← macOS 通用更新清单（同时包含 arm64/x64）
+ *     beta/latest-mac-arm64.yml    ← arm64 兼容别名（可选）
  *     latest.yml
  *     latest-linux.yml
  *     0.1.1-beta.1/
@@ -120,7 +120,7 @@ const PLATFORM_FILTERS = {
   'mac-arm64': {
     installerFilter: (f) =>
       /[-_]arm64[-_.]/.test(f) || f.includes('-MacOS-arm64'),
-    ymls: ['latest-mac-arm64.yml'],
+    ymls: ['latest-mac.yml', 'latest-mac-arm64.yml'],
   },
   'mac-x64': {
     installerFilter: (f) =>
@@ -208,13 +208,13 @@ function computeSha512Base64(filePath) {
  * 从上传的安装包列表中，按平台生成 electron-updater 格式的 yml 文件。
  *
  * 平台 → yml 文件名映射：
- * - mac-arm64 → latest-mac-arm64.yml（arm64 客户端优先查找此文件）
- * - mac-x64   → latest-mac.yml（x64 客户端使用此文件）
+ * - mac-arm64 / mac-x64 → latest-mac.yml（generic provider 实际读取的入口）
+ * - mac-arm64           → latest-mac-arm64.yml（兼容别名，内容与 latest-mac.yml 一致）
  * - win-x64   → latest.yml（使用 .exe）
  * - linux-x64 → latest-linux.yml（使用 .AppImage）
  */
 const YML_PLATFORM_MAP = {
-  'mac-arm64':  { yml: 'latest-mac-arm64.yml', ext: '.zip' },
+  'mac-arm64':  { yml: 'latest-mac.yml',       ext: '.zip' },
   'mac-x64':    { yml: 'latest-mac.yml',       ext: '.zip' },
   'win-x64':    { yml: 'latest.yml',           ext: '.exe' },
   'linux-x64':  { yml: 'latest-linux.yml',     ext: '.AppImage' },
@@ -284,6 +284,17 @@ async function generateAndUploadYmls(version, channel, installerFiles, distDir, 
     await uploadToAll(`desktop/${version}/${ymlName}`, ymlPath)
     await uploadToAll(`desktop/${channel}/${ymlName}`, ymlPath)
     console.log(`   ✅ Generated & uploaded ${ymlName}`)
+
+    // 中文注释：electron-updater 的 generic provider 在 macOS 上默认读取 latest-mac.yml。
+    // 为避免 ARM64 客户端误下到 x64 包，latest-mac.yml 必须包含双架构 zip 列表，
+    // 同时额外发布一个 latest-mac-arm64.yml 兼容别名，便于后续显式切换或排障。
+    if (ymlName === 'latest-mac.yml') {
+      const aliasPath = path.join(distDir, 'latest-mac-arm64.yml')
+      writeFileSync(aliasPath, yml, 'utf-8')
+      await uploadToAll(`desktop/${version}/latest-mac-arm64.yml`, aliasPath)
+      await uploadToAll(`desktop/${channel}/latest-mac-arm64.yml`, aliasPath)
+      console.log('   ✅ Generated & uploaded latest-mac-arm64.yml alias')
+    }
   }
 }
 
