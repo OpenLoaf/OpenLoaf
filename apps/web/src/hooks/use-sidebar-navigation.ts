@@ -17,7 +17,7 @@ import { useNavigation } from '@/hooks/use-navigation'
 import { useOpenSessionIds } from '@/hooks/use-open-session-ids'
 import { useProjectOpen } from '@/hooks/use-project-open'
 import { AI_ASSISTANT_TAB_INPUT, TEMP_CHAT_TAB_INPUT, TEMP_CANVAS_TAB_INPUT } from '@openloaf/api/common'
-import { buildFileUriFromRoot } from '@/components/project/filesystem/utils/file-system-utils'
+import { buildBoardFolderUri, buildFileUriFromRoot } from '@/components/project/filesystem/utils/file-system-utils'
 import { BOARD_INDEX_FILE_NAME } from '@/lib/file-name'
 import { resolveProjectModeProjectShell } from '@/lib/project-mode'
 import { buildBoardChatTabState } from '@/components/board/utils/board-chat-tab'
@@ -140,8 +140,8 @@ export function useSidebarNavigation() {
       projectId?: string | null
     }) => {
       const resolvedProjectId = input.projectId?.trim() || activeProjectId
-      const boardFolderUri = buildFileUriFromRoot(input.rootUri, input.folderUri)
-      const boardFileUri = buildFileUriFromRoot(
+      const boardFolderUri = buildBoardFolderUri(input.rootUri, input.folderUri)
+      const boardFileUri = buildBoardFolderUri(
         input.rootUri,
         `${input.folderUri}${BOARD_INDEX_FILE_NAME}`,
       )

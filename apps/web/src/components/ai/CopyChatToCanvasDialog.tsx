@@ -34,7 +34,7 @@ import {
 import { useProjects } from "@/hooks/use-projects";
 import { useProjectStorageRootUri } from "@/hooks/use-project-storage-root-uri";
 import { useSidebarNavigation } from "@/hooks/use-sidebar-navigation";
-import { buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
+import { buildBoardFolderUri, buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { queuePendingBoardElements } from "@/components/board/engine/pending-elements-store";
 import { buildImportedChatBoardElements } from "@/components/board/utils/imported-chat-board";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
@@ -159,7 +159,7 @@ export function CopyChatToCanvasDialog({
         return;
       }
 
-      const boardFolderUri = buildFileUriFromRoot(rootUri, result.board.folderUri);
+      const boardFolderUri = buildBoardFolderUri(rootUri, result.board.folderUri);
 
       try {
         const importedElements = await buildImportedChatBoardElements({

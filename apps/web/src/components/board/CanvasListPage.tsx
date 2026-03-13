@@ -21,7 +21,7 @@ import { useTabRuntime } from "@/hooks/use-tab-runtime";
 import { useProjects } from "@/hooks/use-projects";
 import { useIsInView } from "@/hooks/use-is-in-view";
 import { useProjectStorageRootUri } from "@/hooks/use-project-storage-root-uri";
-import { buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
+import { buildBoardFolderUri, buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { BOARD_INDEX_FILE_NAME } from "@/lib/file-name";
 import { buildBoardChatTabState } from "./utils/board-chat-tab";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
@@ -256,7 +256,7 @@ function BoardCard({
   }, [board.id, isInView, onBoardVisible]);
 
   const boardFolderUri = rootUri
-    ? buildFileUriFromRoot(rootUri, board.folderUri)
+    ? buildBoardFolderUri(rootUri, board.folderUri)
     : "";
   const baseId = `board:${boardFolderUri}`;
   const isActive = activeBoardBaseId === baseId;
@@ -639,8 +639,8 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     (board: { id: string; title: string; folderUri: string; projectId?: string | null }) => {
       const boardRootUri = resolveBoardRootUri(board.projectId);
       if (!boardRootUri) return;
-      const boardFolderUri = buildFileUriFromRoot(boardRootUri, board.folderUri);
-      const boardFileUri = buildFileUriFromRoot(
+      const boardFolderUri = buildBoardFolderUri(boardRootUri, board.folderUri);
+      const boardFileUri = buildBoardFolderUri(
         boardRootUri,
         `${board.folderUri}${BOARD_INDEX_FILE_NAME}`,
       );

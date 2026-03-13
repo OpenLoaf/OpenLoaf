@@ -255,6 +255,26 @@ export function buildChildUri(baseUri: string, name: string) {
   }
 }
 
+/**
+ * Build a board folder URI from a root URI and a board's folderUri.
+ *
+ * Board folderUri is always ".openloaf/boards/<id>/" (relative to a project root).
+ * For global boards, rootUri IS the .openloaf directory itself ("file://~/.openloaf"),
+ * which would produce a double ".openloaf" when naively joined.
+ * This function strips the redundant ".openloaf/" prefix in that case.
+ */
+export function buildBoardFolderUri(rootUri: string, folderUri: string): string {
+  const rootPath = rootUri.replace(/\/$/, "");
+  const isOpenLoafRoot =
+    rootPath.endsWith("/.openloaf") ||
+    decodeURIComponent(rootPath).endsWith("/.openloaf");
+  const normalized =
+    isOpenLoafRoot && folderUri.startsWith(".openloaf/")
+      ? folderUri.slice(".openloaf/".length)
+      : folderUri;
+  return buildFileUriFromRoot(rootUri, normalized);
+}
+
 /** Build a file:// URI by joining root with a relative path. */
 export function buildFileUriFromRoot(rootUri: string, relativePath: string) {
   if (!rootUri?.trim() || !rootUri.startsWith("file://")) return "";

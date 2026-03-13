@@ -58,7 +58,6 @@ const GLOBAL_ENTRY_COMPONENTS = new Set([
   "email-page",
   "scheduled-tasks-page",
   "global-desktop",
-  "canvas-list-page",
 ]);
 
 /** Returns true when the event target is an editable element. */

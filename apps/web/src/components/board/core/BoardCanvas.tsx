@@ -56,6 +56,7 @@ import {
   useFilePreviewStore,
 } from "@/components/file/lib/file-preview-store";
 import {
+  buildBoardFolderUri,
   buildChildUri,
   buildFileUriFromRoot,
   getRelativePathFromUri,
@@ -289,8 +290,8 @@ export function BoardCanvas({
       queryClient.invalidateQueries({ queryKey: trpc.board.list.queryKey() });
       toast.success(i18next.t('nav:canvasList.duplicateSuccess'));
       if (!resolvedRootUri) return;
-      const newBoardFolderUri = buildFileUriFromRoot(resolvedRootUri, newBoard.folderUri);
-      const newBoardFileUri = buildFileUriFromRoot(resolvedRootUri, `${newBoard.folderUri}${BOARD_INDEX_FILE_NAME}`);
+      const newBoardFolderUri = buildBoardFolderUri(resolvedRootUri, newBoard.folderUri);
+      const newBoardFileUri = buildBoardFolderUri(resolvedRootUri, `${newBoard.folderUri}${BOARD_INDEX_FILE_NAME}`);
       addTab({
         createNew: true,
         title: newBoard.title,

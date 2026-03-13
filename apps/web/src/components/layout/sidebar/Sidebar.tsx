@@ -336,6 +336,24 @@ export const AppSidebar = ({
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
+                    tooltip={t('workbench')}
+                    className={SIDEBAR_PRIMARY_COLOR_CLASS.workbench}
+                    isActive={isWorkbenchActive || isMenuActive(WORKBENCH_TAB_INPUT)}
+                    onClick={() => openPrimaryPageTab({ ...WORKBENCH_TAB_INPUT, viewType: 'workbench' })}
+                    type="button"
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span className="flex-1 truncate">{t('workbench')}</span>
+                    <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
+                      <KbdGroup className="gap-1">
+                        <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
+                        <Kbd className="bg-transparent px-0 h-auto rounded-none">T</Kbd>
+                      </KbdGroup>
+                    </span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
                     tooltip={t('smartCanvas')}
                     className={SIDEBAR_PRIMARY_COLOR_CLASS.canvas}
                     isActive={isCanvasListActive || isMenuActive(CANVAS_LIST_TAB_INPUT) || isCanvasViewerActive}
@@ -366,24 +384,6 @@ export const AppSidebar = ({
                   >
                     <Building2 className="h-4 w-4" />
                     <span className="flex-1 truncate">{t('sidebarProjectSpace')}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    tooltip={t('workbench')}
-                    className={SIDEBAR_PRIMARY_COLOR_CLASS.workbench}
-                    isActive={isWorkbenchActive || isMenuActive(WORKBENCH_TAB_INPUT)}
-                    onClick={() => openPrimaryPageTab({ ...WORKBENCH_TAB_INPUT, viewType: 'workbench' })}
-                    type="button"
-                  >
-                    <LayoutDashboard className="h-4 w-4" />
-                    <span className="flex-1 truncate">{t('workbench')}</span>
-                    <span className="ml-auto opacity-0 transition-opacity delay-0 group-hover/menu-item:opacity-100 group-hover/menu-item:delay-200 group-focus-visible/menu-item:opacity-100 group-focus-visible/menu-item:delay-200 group-data-[collapsible=icon]:hidden">
-                      <KbdGroup className="gap-1">
-                        <Kbd className="bg-transparent px-0 h-auto rounded-none">⌘</Kbd>
-                        <Kbd className="bg-transparent px-0 h-auto rounded-none">T</Kbd>
-                      </KbdGroup>
-                    </span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 {/* 先隐藏收集箱入口，后续再开放。 */}
