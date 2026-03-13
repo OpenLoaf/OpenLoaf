@@ -21,12 +21,14 @@ import {
   buildPythonRuntimeSection,
   buildProjectRulesSection,
   buildSkillsSummarySection,
-  buildExecutionRulesSection,
-  buildFileReferenceRulesSection,
-  buildTaskDelegationRulesSection,
-  buildAgentsDynamicLoadingSection,
-  buildCompletionSection,
 } from '@/ai/shared/promptBuilder'
+import {
+  buildExecutionRules,
+  buildFileReferenceRules,
+  buildTaskDelegationRules,
+  buildAgentsDynamicLoadingRules,
+  buildCompletionCriteria,
+} from '@/ai/shared/hardRules'
 import { loadSkillSummaries } from '@/ai/services/skillsLoader'
 import { loadAgentSummaries } from '@/ai/services/agentConfigService'
 import { resolvePythonInstallInfo } from '@/ai/models/cli/pythonTool'
@@ -37,7 +39,6 @@ import { readBasicConf } from '@/modules/settings/openloafConfStore'
 import {
   getProjectRootPath,
 } from '@openloaf/api/services/vfsService'
-import { getOpenLoafRootDir } from '@openloaf/config'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { logger } from '@/common/logger'
@@ -240,19 +241,17 @@ export async function buildSubAgentPrefaceText(input: {
     sections.push(buildProjectRulesSection(context))
   }
 
-  // TODO: 可用子 Agent 列表 — 暂时禁用，待后续重新整理后恢复
-
   // 执行规则
-  sections.push(buildExecutionRulesSection())
+  sections.push(buildExecutionRules())
 
   // 文件引用规则（可选）
   if (capabilities.needsFileReferenceRules) {
-    sections.push(buildFileReferenceRulesSection())
+    sections.push(buildFileReferenceRules())
   }
 
   // 任务分工规则（可选）
   if (capabilities.needsTaskDelegationRules) {
-    sections.push(buildTaskDelegationRulesSection())
+    sections.push(buildTaskDelegationRules())
   }
 
   // Skills 列表（子 agent 默认无技能，仅勾选的才注入）
@@ -264,10 +263,10 @@ export async function buildSubAgentPrefaceText(input: {
   }
 
   // AGENTS 动态加载
-  sections.push(buildAgentsDynamicLoadingSection())
+  sections.push(buildAgentsDynamicLoadingRules())
 
   // 完成条件
-  sections.push(buildCompletionSection())
+  sections.push(buildCompletionCriteria())
 
   return sections.filter((s) => s.trim().length > 0).join('\n\n')
 }

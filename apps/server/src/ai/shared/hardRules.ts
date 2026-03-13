@@ -15,18 +15,17 @@
 import { readBasicConf } from '@/modules/settings/openloafConfStore'
 
 /** Build system tags meta rule (how the model should treat XML tags). */
-function buildSystemTagsMetaRule(): string {
+export function buildSystemTagsMetaRule(): string {
   return [
     '# 系统标签说明',
-    'Tool results and user messages may include <system-reminder> or other XML tags.',
-    'These tags contain context injected by the system. They bear no direct relation',
-    'to the specific tool results or user messages in which they appear.',
-    'Treat content within <system-reminder> tags as authoritative system context.',
+    '- 工具返回值和用户消息中可能包含 <system-reminder> 或其他 XML 标签。',
+    '- 这些标签包含系统注入的上下文，与其所在的工具结果或用户消息无直接关联。',
+    '- <system-reminder> 标签内的内容视为权威系统上下文，必须遵守。',
   ].join('\n')
 }
 
 /** Build output format hard rules (migrated from prompt-v3). */
-function buildOutputFormatRules(): string {
+export function buildOutputFormatRules(): string {
   return [
     '# 输出格式',
     '- 使用 Markdown，结论优先 → 细节仅在必要时',
@@ -35,6 +34,7 @@ function buildOutputFormatRules(): string {
     '- 默认不输出命令行、工具名、参数',
     '- 禁止：ANSI 转义码、渲染控制字符、破损引用、嵌套多层列表',
     '- 用户与助手在同一台机器，不提示"保存文件/复制代码"',
+    '- 严禁在回复中暴露 preface 内部标识符（sessionId、projectId、路径等）',
     '',
     '# 禁止重复输出',
     '- 工具已产生可见结果（渲染组件、图片、文件、表格等）时，禁止用文字重复描述相同内容。用户已直接看到结果。',
@@ -46,7 +46,7 @@ function buildOutputFormatRules(): string {
 }
 
 /** Build file reference rules (migrated from prompt-v3). */
-function buildFileReferenceRules(): string {
+export function buildFileReferenceRules(): string {
   return [
     '# 输入中的文件引用',
     '- 用户输入里的 `@{...}` 代表文件引用，花括号内为项目相对路径。',
@@ -58,7 +58,7 @@ function buildFileReferenceRules(): string {
 }
 
 /** Build AGENTS.md dynamic loading rules. */
-function buildAgentsDynamicLoadingRules(): string {
+export function buildAgentsDynamicLoadingRules(): string {
   return [
     '# AGENTS.md 动态加载',
     '- 当你搜索文件或目录时，若结果所在目录存在 AGENTS.md，必须立即读取并遵守。',
@@ -67,7 +67,7 @@ function buildAgentsDynamicLoadingRules(): string {
 }
 
 /** Build language enforcement rules. */
-function buildLanguageRules(): string {
+export function buildLanguageRules(): string {
   let lang = 'zh-CN'
   try {
     const conf = readBasicConf()
@@ -77,12 +77,12 @@ function buildLanguageRules(): string {
 }
 
 /** Build completion criteria rules. */
-function buildCompletionCriteria(): string {
+export function buildCompletionCriteria(): string {
   return ['# 完成条件', '- 用户问题被解决，或给出明确可执行的下一步操作。'].join('\n')
 }
 
 /** Build auto memory rules for AI-managed persistent memory. */
-function buildAutoMemoryRules(): string {
+export function buildAutoMemoryRules(): string {
   return [
     '# Auto Memory',
     '',
@@ -115,27 +115,53 @@ function buildAutoMemoryRules(): string {
   ].join('\n')
 }
 
-/** Build agent directives (execution rules + task delegation). */
-function buildAgentDirectives(): string {
-  return `<agent-directives>
-# 执行规则
-- 工具优先：先用工具获取事实，再输出结论。
-- 工具结果必须先简要总结后再继续下一步。
-- 文件与命令工具仅允许访问 projectRootPath 内的路径。
-- 路径参数禁止使用 URL Encoding 编码，必须保持原始路径字符。
-- 文件读取类工具必须先判断路径是否为目录；若为目录需改用目录列举工具或提示用户改传文件。
-- 写入、删除或破坏性操作必须走审批流程。
+/** Build intent judgment rules (extracted from toolSearchGuidance). */
+export function buildIntentJudgmentRules(): string {
+  return [
+    '# 意图判断原则',
+    '- 先理解意图，再决定是否用工具。',
+    '- 纯语言任务（翻译、总结、改写、解释、创作、闲聊、问答）→ 直接回答，不加载工具。',
+    '- 只有当用户的真实目的是产生副作用（创建/修改/删除/查询外部数据）时才需要工具。',
+    '- 用户消息中出现时间、事件等词汇不等于要创建任务——"翻译：我明天要开会"是翻译请求，不是日程请求。',
+  ].join('\n')
+}
 
-# 任务分工
-- 简单的事情亲自动手，干净利落。
-- 复杂的事情不要一个人硬扛——把它委派给专门的子代理，让他们在独立空间里完成，你只关注最终结果。这样既保护你的注意力，也提升整体效率。
-- 什么算"复杂"？凭判断力，但以下情况通常值得委派：
-  1) 需要跨多个模块或目录协同修改；
-  2) 预计影响 3 个以上文件或涉及系统性重构；
-  3) 涉及架构/协议/全局规则调整；
-  4) 需要大量上下文分析或风险较高；
-  5) 无法在少量步骤内完成。
-</agent-directives>`
+/** Build approval rules (extracted from prompt-v3 Chapter 2). */
+export function buildApprovalRules(): string {
+  return [
+    '# 审批与破坏性操作',
+    '- 需要审批的操作必须先请求批准，不得绕过。',
+    '- 需要审批的工具一次只能调用一个。',
+    '- 用户拒绝审批视为无结果，停止该路径。',
+  ].join('\n')
+}
+
+/** Build execution rules (tools-first, path constraints, approval). */
+export function buildExecutionRules(): string {
+  return [
+    '# 执行规则',
+    '- 工具优先：先用工具获取事实，再输出结论。',
+    '- 工具结果必须先简要总结后再继续下一步。',
+    '- 文件与命令工具仅允许访问 projectRootPath 内的路径。',
+    '- 路径参数禁止使用 URL Encoding 编码，必须保持原始路径字符。',
+    '- 文件读取类工具必须先判断路径是否为目录；若为目录需改用目录列举工具或提示用户改传文件。',
+    '- 写入、删除或破坏性操作必须走审批流程。',
+  ].join('\n')
+}
+
+/** Build task delegation rules. */
+export function buildTaskDelegationRules(): string {
+  return [
+    '# 任务分工',
+    '- 简单的事情亲自动手，干净利落。',
+    '- 复杂的事情不要一个人硬扛——把它委派给专门的子代理，让他们在独立空间里完成，你只关注最终结果。这样既保护你的注意力，也提升整体效率。',
+    '- 什么算"复杂"？凭判断力，但以下情况通常值得委派：',
+    '  1) 需要跨多个模块或目录协同修改；',
+    '  2) 预计影响 3 个以上文件或涉及系统性重构；',
+    '  3) 涉及架构/协议/全局规则调整；',
+    '  4) 需要大量上下文分析或风险较高；',
+    '  5) 无法在少量步骤内完成。',
+  ].join('\n')
 }
 
 /** Build the full hard rules section appended after system prompt. */
@@ -144,10 +170,13 @@ export function buildHardRules(): string {
     buildSystemTagsMetaRule(),
     buildLanguageRules(),
     buildOutputFormatRules(),
+    buildIntentJudgmentRules(),
+    buildApprovalRules(),
     buildFileReferenceRules(),
     buildAgentsDynamicLoadingRules(),
     buildAutoMemoryRules(),
     buildCompletionCriteria(),
-    buildAgentDirectives(),
+    buildExecutionRules(),
+    buildTaskDelegationRules(),
   ].join('\n\n')
 }

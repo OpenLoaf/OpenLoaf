@@ -287,16 +287,6 @@ function resolveHeadingFontSize(fontSize?: number): number {
   return closest;
 }
 
-/** Read element padding sizes in pixels. */
-function getElementPadding(element: HTMLElement): { x: number; y: number } {
-  const style = window.getComputedStyle(element);
-  const toNumber = (value: string) => Number.parseFloat(value) || 0;
-  return {
-    x: toNumber(style.paddingLeft) + toNumber(style.paddingRight),
-    y: toNumber(style.paddingTop) + toNumber(style.paddingBottom),
-  };
-}
-
 /** Parse hex color to RGB if possible. */
 function parseHexColor(value: string): { r: number; g: number; b: number } | null {
   const trimmed = value.trim();
@@ -377,7 +367,7 @@ function ReadOnlyMarkdownProjection(props: {
   return (
     <div
       className={cn(
-        "relative w-full rounded-xl box-border p-3",
+        "relative w-full box-border p-3",
         props.backgroundColor ? "" : "bg-[#f5f5f5] dark:bg-neutral-800/60",
         "text-neutral-800 dark:text-neutral-100",
       )}
@@ -842,10 +832,7 @@ function EditableTextNodeView({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const autoFocusConsumedRef = useRef(false);
-  const collapsedHeightRef = useRef<number | null>(null);
-  const wasEditingRef = useRef(false);
   const isEditingRef = useRef(false);
-  const resizeRafRef = useRef<number | null>(null);
 
   // Normalize stored value to Slate Value (handles legacy string migration)
   const incomingSlateValue = useMemo(
@@ -991,127 +978,6 @@ function EditableTextNodeView({
     isEditingRef.current = isEditing;
   }, [isEditing, isGhost]);
 
-  // ---- Height auto-resize ----
-
-  /** Fit height to content when exiting edit mode (width unchanged). */
-  const fitToContentIfNeeded = useCallback(() => {
-    const container = containerRef.current;
-    const content = contentRef.current;
-    if (!container || !content) return;
-    if (engine.isLocked() || element.locked) return;
-    const { y: paddingY } = getElementPadding(container);
-    const [x, y, currentWidth, currentHeight] = element.xywh;
-    const contentHeight = content.scrollHeight;
-    const requiredHeight = contentHeight + paddingY;
-    const clampedHeight = Math.min(
-      TEXT_NODE_MAX_SIZE.h,
-      Math.max(TEXT_NODE_MIN_SIZE.h, requiredHeight)
-    );
-    const nextHeight =
-      Math.abs(clampedHeight - currentHeight) > TEXT_NODE_RESIZE_EPSILON
-        ? clampedHeight
-        : currentHeight;
-    if (nextHeight === currentHeight) return;
-    engine.doc.updateElement(element.id, { xywh: [x, y, currentWidth, nextHeight] });
-  }, [element.id, element.locked, element.xywh, engine]);
-
-  /** Expand the node height to fit the full text content during editing. */
-  const expandToContent = useCallback(() => {
-    if (resizeRafRef.current !== null) return;
-    resizeRafRef.current = window.requestAnimationFrame(() => {
-      resizeRafRef.current = null;
-      if (!isEditingRef.current) return;
-      const content = contentRef.current;
-      const container = containerRef.current;
-      if (!content || !container) return;
-      if (engine.isLocked() || element.locked) return;
-      const snapshot = engine.getSnapshot();
-      if (snapshot.draggingId === element.id || snapshot.toolbarDragging) return;
-      const contentHeight = Math.ceil(content.scrollHeight);
-      const { y: paddingY } = getElementPadding(container);
-      const [x, y, w, h] = element.xywh;
-      const baseHeight =
-        collapsedHeightRef.current ??
-        element.props.collapsedHeight ??
-        element.xywh[3];
-      const targetHeight = Math.max(baseHeight, contentHeight + paddingY);
-      if (Math.abs(targetHeight - h) <= TEXT_NODE_RESIZE_EPSILON) return;
-      engine.doc.updateElement(element.id, { xywh: [x, y, w, targetHeight] });
-    });
-  }, [engine, element.id, element.locked, element.props.collapsedHeight, element.xywh]);
-
-  // Edit mode enter/exit height management
-  useEffect(() => {
-    if (isGhost) return;
-    if (isEditing) {
-      if (!wasEditingRef.current) {
-        const collapsedHeight = element.props.collapsedHeight ?? element.xywh[3];
-        collapsedHeightRef.current = collapsedHeight;
-        wasEditingRef.current = true;
-        if (element.props.collapsedHeight !== collapsedHeight) {
-          onUpdate({ collapsedHeight });
-        }
-      }
-      expandToContent();
-      return;
-    }
-
-    if (wasEditingRef.current) {
-      wasEditingRef.current = false;
-      fitToContentIfNeeded();
-      collapsedHeightRef.current = null;
-    }
-  }, [
-    element.id, element.props.collapsedHeight, element.xywh,
-    expandToContent, fitToContentIfNeeded, isEditing, isGhost, onUpdate,
-  ]);
-
-  // Track collapsed height when not editing
-  useEffect(() => {
-    if (isGhost || isEditing) return;
-    const currentHeight = element.xywh[3];
-    if (
-      element.props.collapsedHeight === undefined ||
-      Math.abs((element.props.collapsedHeight ?? 0) - currentHeight) > TEXT_NODE_RESIZE_EPSILON
-    ) {
-      onUpdate({ collapsedHeight: currentHeight });
-    }
-  }, [element.props.collapsedHeight, element.xywh, isEditing, isGhost, onUpdate]);
-
-  // Cleanup animation frames
-  useEffect(() => {
-    if (isGhost) return;
-    if (!isEditing && resizeRafRef.current !== null) {
-      window.cancelAnimationFrame(resizeRafRef.current);
-      resizeRafRef.current = null;
-    }
-  }, [isEditing, isGhost]);
-
-  useEffect(() => {
-    if (isGhost) return;
-    return () => {
-      if (resizeRafRef.current !== null) {
-        window.cancelAnimationFrame(resizeRafRef.current);
-      }
-    };
-  }, [isGhost]);
-
-  // Re-fit on font size changes
-  const expandToContentRef = useRef(expandToContent);
-  const fitToContentIfNeededRef = useRef(fitToContentIfNeeded);
-  useEffect(() => {
-    expandToContentRef.current = expandToContent;
-    fitToContentIfNeededRef.current = fitToContentIfNeeded;
-  }, [expandToContent, fitToContentIfNeeded]);
-
-  useEffect(() => {
-    if (isGhost) return;
-    if (isEditing) {
-      expandToContentRef.current();
-    } else {
-      fitToContentIfNeededRef.current();
-    }
-  }, [resolvedFontSize, isEditing, isGhost]);
 
   // ---- Event handlers ----
 
@@ -1162,11 +1028,8 @@ function EditableTextNodeView({
       if (json === lastValueJsonRef.current) return;
       lastValueJsonRef.current = json;
       onUpdate({ value: nextValue, autoFocus: false });
-      if (isEditingRef.current) {
-        expandToContent();
-      }
     },
-    [expandToContent, isGhost, onUpdate]
+    [isGhost, onUpdate]
   );
 
   /** Toggle todo checkbox in view mode (readOnly blocks Plate's onCheckedChange). */
@@ -1215,12 +1078,13 @@ function EditableTextNodeView({
   const containerStyle = backgroundColor ? { backgroundColor } : undefined;
   const defaultBg = backgroundColor ? "" : "bg-[#f5f5f5] dark:bg-neutral-800/60";
   const containerClasses = [
-    "relative h-full w-full rounded-xl box-border p-2.5 flex flex-col justify-start",
+    "relative h-full w-full box-border p-2.5",
     isEditing && !backgroundColor
       ? "bg-white dark:bg-neutral-900/90"
       : defaultBg,
     "text-neutral-800 dark:text-neutral-100",
-    isEditing ? "cursor-text overflow-visible" : "cursor-default overflow-hidden",
+    "overflow-y-auto",
+    isEditing ? "cursor-text" : "cursor-default",
   ].join(" ");
 
   if (isGhost) {
@@ -1247,6 +1111,7 @@ function EditableTextNodeView({
       className={containerClasses}
       style={containerStyle}
       data-board-editor={isEditing ? "true" : undefined}
+      data-board-scroll
       onDoubleClick={handleDoubleClick}
       onPointerDown={isEditing ? handleEditorPointerDown : handleCheckboxPointerDown}
     >
@@ -1266,9 +1131,9 @@ function EditableTextNodeView({
           data-allow-context-menu
         />
       </Plate>
-      {isEmpty ? (
+      {isEmpty && !isEditing ? (
         <div
-          className="pointer-events-none absolute inset-0 flex items-center px-4 text-neutral-400 dark:text-neutral-500"
+          className="pointer-events-none absolute inset-0 flex items-start px-4 pt-2.5 text-neutral-400 dark:text-neutral-500"
           style={{
             textAlign,
             fontSize: textStyle.fontSize,

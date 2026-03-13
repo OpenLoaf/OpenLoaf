@@ -51,7 +51,7 @@ export function assembleMemoryBlocks(
   })
 
   return blocks.map((block) => {
-    const header = `Contents of ${block.filePath}\n(user's auto-memory for ${block.label}, persists across conversations):`
+    const header = `# 记忆（${block.label}）\n来源: ${block.filePath}`
     return `<system-reminder>\n${header}\n\n${block.content}\n</system-reminder>`
   })
 }

@@ -14,10 +14,8 @@ import {
   getProjectRootPath,
 } from "@openloaf/api/services/vfsService";
 import { getOpenLoafRootDir } from "@openloaf/config";
-import type { ClientPlatform } from "@openloaf/api/types/platform";
 import type { PromptContext } from "@/ai/shared/types";
-import { getPrimaryTemplate } from "@/ai/agent-templates";
-import { filterToolIdsByPlatform } from "@/ai/tools/toolPlatformFilter";
+import type { ClientPlatform } from "@openloaf/api/types/platform";
 import { loadSkillSummaries, type SkillSummary } from "@/ai/services/skillsLoader";
 import { resolvePythonInstallInfo } from "@/ai/models/cli/pythonTool";
 import { getAuthSessionSnapshot } from "@/modules/auth/tokenStore";
@@ -29,7 +27,7 @@ import {
   buildProjectRulesSection,
   buildSkillsSummarySection,
 } from "@/ai/shared/promptBuilder";
-import { buildToolSearchGuidance } from "@/ai/services/agentFactory";
+import { buildToolSearchGuidance } from "@/ai/shared/toolSearchGuidance";
 import { assembleMemoryBlocks } from "@/ai/shared/agentPromptAssembler";
 import { collectAvailableAgents, buildSubAgentListSection } from "@/ai/shared/subAgentPrefaceBuilder";
 
@@ -280,9 +278,11 @@ function resolveFilteredSkillSummaries(input: {
   parentProjectRootPaths: string[];
   selectedSkills: string[];
 }): { summaries: SkillSummary[]; selectedSkills: string[] } {
+  const globalSkillsPath = path.join(os.homedir(), ".agents", "skills");
   const skillSummaries = loadSkillSummaries({
     projectRootPath: input.projectRootPath || undefined,
     parentProjectRootPaths: input.parentProjectRootPaths,
+    globalSkillsPath,
   });
   const projectIgnoreSkills = resolveProjectIgnoreSkills(input.projectRootPath);
   const projectCandidates: Array<{ rootPath: string; projectId: string }> = [];
@@ -361,15 +361,6 @@ function buildSkillsReminderBlock(
   return `<system-reminder>\n${content}\n</system-reminder>`;
 }
 
-/** Build available tools section as a comma-separated list. */
-function buildAvailableToolsSection(clientPlatform?: ClientPlatform): string {
-  const template = getPrimaryTemplate();
-  const allToolIds = template.deferredToolIds ?? [];
-  const filtered = filterToolIdsByPlatform(allToolIds, clientPlatform);
-  if (filtered.length === 0) return "";
-  return `# Available Tools\n${filtered.join(", ")}`;
-}
-
 /** Build context reminder blocks — each h1 section wrapped in its own <system-reminder>. */
 function buildContextReminderBlocks(input: {
   sessionId: string;
@@ -397,11 +388,8 @@ function buildContextReminderBlocks(input: {
 
   // NOTE: 执行规则 + 任务分工已移至 hardRules.ts <agent-directives>
 
-  // ToolSearch guidance（平台感知，按 clientPlatform 过滤场景）
+  // 工具目录（平台感知，按 clientPlatform 过滤场景）
   sections.push(buildToolSearchGuidance(input.clientPlatform));
-
-  // 可用工具列表（会话上下文之前）
-  sections.push(buildAvailableToolsSection(input.clientPlatform));
 
   // 会话上下文（放到最底部）
   sections.push(buildSessionContextSection(sessionId, context));

@@ -120,7 +120,7 @@ function HoverPanel(props: {
         className
       )}
     >
-      <div className="w-full">{children}</div>
+      <div className="w-full max-h-[60vh] overflow-y-auto">{children}</div>
     </div>
   );
 }

@@ -148,7 +148,7 @@
     "detail": "Details"
   },
   "textNode": {
-    "placeholder": "Enter Markdown",
+    "placeholder": "Enter text",
     "toolbar": {
       "heading": "Headings",
       "inline": "Inline",

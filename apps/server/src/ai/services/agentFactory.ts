@@ -27,7 +27,6 @@ import type {
   LanguageModelV3,
 } from '@ai-sdk/provider'
 import type { PrepareStepFunction, StopCondition } from 'ai'
-import type { ClientPlatform } from '@openloaf/api/types/platform'
 import { getRequestContext, type AgentFrame } from '@/ai/shared/context/requestContext'
 import { buildToolset } from '@/ai/tools/toolRegistry'
 import { filterToolIdsByPlatform } from '@/ai/tools/toolPlatformFilter'
@@ -46,6 +45,7 @@ import {
 } from '@/ai/services/agentConfigService'
 import { resolveAgentByName } from '@/ai/tools/AgentSelector'
 import { buildHardRules } from '@/ai/shared/hardRules'
+import { buildToolSearchGuidance } from '@/ai/shared/toolSearchGuidance'
 
 // ---------------------------------------------------------------------------
 // 子 Agent 行为类型
@@ -113,73 +113,6 @@ function createToolSearchPrepareStep(
     if (!activeTools.includes('tool-search')) activeTools.push('tool-search')
     return { activeTools }
   }
-}
-
-// ---------------------------------------------------------------------------
-// ToolSearch 引导 — 运行时注入 <tool-search-guidance>
-// ---------------------------------------------------------------------------
-
-/**
- * Build ToolSearch guidance text.
- *
- * Scenarios are filtered by client platform — tools unavailable on
- * the current platform are omitted from the guidance list.
- */
-export function buildToolSearchGuidance(platform?: ClientPlatform): string {
-  const isWeb = platform === 'web'
-  const isCli = platform === 'cli'
-
-  const toolCatalog: string[] = [
-    '- time-now：获取当前时间与时区',
-    '- calendar-query：查询日程/会议/提醒列表',
-    '- calendar-mutate：创建/修改/删除日历事件或提醒（修改/删除前需先 calendar-query 查到 itemId）',
-    '- task-manage：创建/修改/取消待办任务或定时提醒（定时任务必须传 schedule 参数）',
-    '- task-status：查询待办/任务列表',
-    '- email-query：查询/搜索邮件（必须传 mode 参数）',
-    '- email-mutate：发送/标记已读/加星标/删除/移动邮件',
-    '- read-file, list-dir, grep-files, apply-patch：文件系统读写',
-    '- file-info：查看文件元数据（大小、分辨率、时长、页数等）',
-  ]
-
-  if (!isWeb && !isCli) {
-    toolCatalog.push('- open-url：在系统浏览器中打开链接')
-  }
-
-  if (!isCli) {
-    toolCatalog.push('- jsx-create：渲染 React 组件/可视化内容')
-    toolCatalog.push('- chart-render：绘制图表（折线图、柱状图等）')
-  }
-
-  toolCatalog.push(
-    '- word-query, word-mutate：Word/docx 文档读写',
-    '- excel-query, excel-mutate：Excel/xlsx 电子表格读写',
-    '- pptx-query, pptx-mutate：PPT/pptx 演示文稿读写',
-    '- pdf-query, pdf-mutate：PDF 文档读取/创建/合并/填表',
-    '- image-process：图片处理（缩放、裁剪、格式转换、滤镜）',
-    '- video-convert：视频/音频转换（格式转换、提取音频、调整分辨率）',
-    '- doc-convert：文档格式转换（Word↔PDF、Excel↔CSV、Markdown↔HTML）',
-  )
-
-  return `<tool-search-guidance>
-你启动时只有 tool-search 一个工具可用。当用户请求需要执行操作时，必须先用 tool-search 加载所需工具。
-
-使用方式：
-- 关键词搜索：tool-search(query: "file read") — 返回最匹配的工具并立即加载
-- 直接选择：tool-search(query: "select:read-file,list-dir") — 按 ID 精确加载
-- 可一次加载多个：用逗号分隔 ID
-
-判断原则——先理解意图，再决定是否用工具：
-1. 纯语言任务（翻译、总结、改写、解释、创作、闲聊、问答）→ 直接回答，不加载工具
-2. 只有当用户的真实目的是产生副作用（创建/修改/删除/查询外部数据）时才需要工具
-3. 用户消息中出现时间、事件等词汇不等于要创建任务——"翻译：我明天要开会"是翻译请求，不是日程请求
-
-可用工具能力：
-${toolCatalog.join('\n')}
-
-补充：
-- 浏览器操作（打开网页、截图、网页自动化）→ 用 sub-agent 派发 browser 子代理
-- 代码开发请求（提到 Claude Code、帮我开发）→ 用 sub-agent 派发 coder 子代理
-</tool-search-guidance>`
 }
 
 
