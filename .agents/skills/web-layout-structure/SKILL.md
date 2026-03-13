@@ -1,6 +1,6 @@
 ---
 name: web-layout-structure
-description: Use when working on or debugging the web app layout in apps/web/src/components/layout, including header, sidebar, single-view split, left dock stack panels, right chat panel, panel-runtime, or layout gates.
+description: Use when working on or debugging the web app layout in apps/web/src/components/layout, including header, sidebar, single-view split, left dock stack panels, right chat panel, or layout gates.
 ---
 
 # Web Layout Structure（apps/web/src/components/layout）
@@ -8,13 +8,12 @@ description: Use when working on or debugging the web app layout in apps/web/src
 > **术语映射**：代码 `workspace` = 产品「工作空间」（顶层容器），代码 `project` = 产品「项目」（项目文件夹）。
 
 ## Overview
-单视图架构：没有多 Tab，没有多 Session。一个全局视图 + 一个布局状态，通过侧边栏导航切换。
+单视图架构：没有多 Tab，没有多 Session，没有独立 React Root。一个全局视图 + 一个布局状态，左右面板作为普通 React 子组件直接渲染，通过侧边栏导航切换。
 
 ## When to Use
 - 需要调整全局布局（Header / Sidebar / 主内容区）
 - 需要改动左右分栏、拖拽宽度、聊天面板折叠/展开
 - 需要理解 LeftDock 的 base + stack 叠加逻辑
-- 需要理解 panel-runtime 独立 React Root 机制
 - 需要定位 Loading / Gate / Providers 导致的渲染阻塞
 - **维护规则**：只要修改了上述布局相关文件或逻辑，必须第一时间同步更新本 skill。
 
@@ -22,14 +21,33 @@ description: Use when working on or debugging the web app layout in apps/web/src
 
 ## Architecture Overview
 
+### 组件树
+
 ```
-Page (page.tsx)
-├── AppBootstrap              ← 初始化：首次加载调用 navigate() 设置默认视图
-├── SidebarProvider
-│   ├── Header                ← 顶栏（标题、设置、主题切换）
-│   ├── AppSidebar            ← 侧边栏导航（普通 / 项目模式）
-│   └── MainContent           ← 根据 initialized 决定渲染
-│       └── TabLayout         ← 核心布局容器（左右分栏）
+RootLayout (layout.tsx)
+└── Providers (ThemeProvider, QueryClient, MotionConfig, ...)
+    └── ServerConnectionGate
+        └── StepUpGate
+            └── Page (page.tsx)
+                ├── AppBootstrap              ← 初始化：首次加载调用 navigate()
+                └── SidebarProvider
+                    ├── Header                ← 顶栏
+                    ├── AppSidebar            ← 侧边栏导航
+                    └── MainContent           ← initialized → TabLayout
+                        └── TabLayout         ← 核心布局容器
+                            ├── Left (motion.div)
+                            │   └── PanelErrorBoundary
+                            │       └── TabActiveProvider
+                            │           └── LeftDock
+                            │               ├── base 面板
+                            │               ├── stack 浮层
+                            │               └── DockTabs 底部栏
+                            ├── Divider (拖拽分割线)
+                            └── Right (motion.div)
+                                └── PanelErrorBoundary
+                                    └── TabActiveProvider
+                                        └── RightChatPanel
+                                            └── Chat
 ```
 
 ### 数据流
@@ -39,8 +57,16 @@ Sidebar → navigate() / openPrimaryPageTab()
               ↓
   useAppView (视图状态) + useLayoutState (布局状态)
               ↓
-  TabLayout 读取状态 → 计算左右面板宽度 → panel-runtime 渲染面板
+  TabLayout 读取状态 → 计算左右面板宽度 → 直接渲染子组件
 ```
+
+### 渲染特点
+
+1. **纯 React 组件树** — 左右面板是 TabLayout 的直接子组件，继承主应用全部 Provider（ThemeProvider、QueryClient 等），无 `createRoot()` 独立树
+2. **精确 selector 订阅** — TabLayout 和 LeftDock 用 `useLayoutState(s => s.base)` 等精确 selector，而非整个 state 对象。chatSessionId 变化不会触发 TabLayout 重渲染
+3. **始终挂载** — 左右面板始终在 DOM 中，通过 CSS `opacity` + `pointerEvents` 控制可见性，切换页面不销毁/重建组件
+4. **TabActiveProvider** — 向子组件广播面板是否活跃。Terminal、Browser、Project 通过 `useTabActive()` 读取
+5. **PanelErrorBoundary** — 左右面板各自包裹错误边界，渲染崩溃时显示"重新加载面板"按钮
 
 ---
 
@@ -71,8 +97,7 @@ interface AppViewState {
 
 **`navigate()`** 是最重要的方法：
 1. 设置所有视图字段 + `initialized = true`
-2. 调用 `useLayoutState.getState().resetLayout()` 重置布局
-3. 设置 base / leftWidthPercent / rightChatCollapsed
+2. 调用 `useLayoutState.getState().applyNavigation()` **一次性**重置并设置布局
 
 ### `useLayoutState`（布局状态）
 - 文件：`apps/web/src/hooks/use-layout-state.ts`
@@ -90,6 +115,10 @@ interface LayoutState {
 }
 ```
 
+**关键方法**：
+- `applyNavigation({ base, leftWidthPercent, rightChatCollapsed })` — 一次性重置并设置布局（单次 normalize）
+- `setBase()` / `pushStackItem()` / `removeStackItem()` / `clearStack()` — 增量修改
+
 **`normalize()` 函数**：每次 `set` 都通过 normalize 确保状态一致：
 - 有 base 但 leftWidthPercent=0 → 自动改为 `LEFT_DOCK_DEFAULT_PERCENT`（30%）
 - 无 base 无 stack → leftWidthPercent 强制为 0
@@ -97,7 +126,8 @@ interface LayoutState {
 
 ### `useAppState()`（组合 hook）
 - 文件：`apps/web/src/hooks/use-app-state.ts`
-- 合并 useAppView + useLayoutState 的关键字段，供组件消费
+- 合并 useAppView + useLayoutState 的关键字段
+- **注意**：订阅 14 个字段，适用于需要完整状态的场景。高频渲染组件应使用精确 selector 直接订阅
 
 ---
 
@@ -132,12 +162,45 @@ interface LayoutState {
 
 ### DOM 结构
 ```
-div[data-slot="tab-layout"]
-├── motion.div (左面板容器，宽度由 splitPercent 驱动)
-│   └── div ref={leftHostRef}     ← panel-runtime 左 host
-├── motion.div (分割线，可拖拽)
+div[data-slot="tab-layout"]  (flex 容器，pointer 事件接收)
+├── motion.div (左面板容器，宽度由 splitPercent spring 驱动)
+│   └── div (pointerEvents 控制)
+│       └── PanelErrorBoundary
+│           └── TabActiveProvider active={isLeftVisible}
+│               └── LeftDock tabId="main"
+├── motion.div (分割线，可拖拽 col-resize)
 └── motion.div (右面板容器，flex-1)
-    └── div ref={rightHostRef}    ← panel-runtime 右 host
+    └── div (pointerEvents 控制)
+        └── PanelErrorBoundary
+            └── TabActiveProvider active={isRightVisible}
+                └── RightChatPanel → Chat
+```
+
+### 三种布局模式
+
+```
+模式 1: 纯聊天 (leftWidthPercent = 0)
+┌──────────────────────────────────┐
+│          RightChatPanel          │
+│            (Chat)                │
+│           width: 100%            │
+└──────────────────────────────────┘
+
+模式 2: 左满屏 (shouldDisableRightChat = true)
+┌──────────────────────────────────┐
+│           LeftDock               │
+│    (项目空间/画布列表/设置/...)     │
+│           width: 100%            │
+└──────────────────────────────────┘
+
+模式 3: 左右分栏 (项目 + 聊天)
+┌──────────────────┬─┬─────────────┐
+│    LeftDock      │ │ RightChat   │
+│  (plant-page)    │ │  (Chat)     │
+│   30~70%         │ │  剩余空间    │
+│  min: 680px      │ │ min: 360px  │
+└──────────────────┴─┴─────────────┘
+                   ↑ 拖拽分割线
 ```
 
 ### 宽度计算逻辑
@@ -145,16 +208,14 @@ div[data-slot="tab-layout"]
 ```javascript
 hasLeftContent = Boolean(base) || stack.length > 0
 storedLeftWidthPercent = hasLeftContent ? leftWidthPercent : 0
-isRightChatDisabled = shouldDisableRightChat(appState)
+isRightChatDisabled = shouldDisableRightChat(layoutSnapshot)
 isRightCollapsed = Boolean(base) && (isRightChatDisabled || rightChatCollapsed)
 
 isLeftVisible  = storedLeftWidthPercent > 0
 isRightVisible = !isRightCollapsed
 
-// 三种布局模式：
-if (!isLeftVisible && isRightVisible)  → 纯聊天（左0% 右100%）— AI 助手
-if (isLeftVisible && !isRightVisible)  → 全屏左面板（左100%）— 项目列表、画布列表等
-else                                    → 分栏（左N% 右rest）— 项目+聊天
+// splitPercent 使用 motion/react 的 useSpring 驱动（stiffness:140, damping:30）
+// 拖拽时 splitPercent.jump() 直接更新，非拖拽时 spring 动画过渡
 ```
 
 ### shouldDisableRightChat（隐藏右聊天面板的页面）
@@ -166,46 +227,16 @@ else                                    → 分栏（左N% 右rest）— 项目+
   - 项目壳内的 `board-viewer`（`projectShell.section === "canvas"`）
   - `plant-page` 的 `index` / `canvas` / `files` / `tasks` 子页
 
----
-
-## panel-runtime（独立 React Root）
-
-文件：`apps/web/src/lib/panel-runtime.tsx`
-
-### 核心设计
-左右面板不在 TabLayout 的 React 树中，而是通过 `createRoot` 创建**独立 React 根**。这样面板切换时不需要重新挂载，只改 opacity/pointerEvents。
-
-### 关键 API
-
-| 函数 | 作用 |
-|------|------|
-| `bindPanelHost(side, host)` | 绑定 DOM 宿主元素，切换宿主时异步清理旧面板 |
-| `renderPanel(side, tabId, element, active)` | 创建面板节点 + React root，渲染组件 |
-| `setPanelActive(side, tabId, active)` | 切换 opacity/pointerEvents，不重建 DOM |
-| `hasPanel(side, tabId)` | 检查面板是否存在 |
-| `syncPanelTabs(side, tabIds)` | 清理不再需要的面板 |
-
-### 面板包裹结构
+### TabLayout 订阅模式
+TabLayout 使用精确 selector 订阅，避免不必要的重渲染：
+```typescript
+const base = useLayoutState((s) => s.base)
+const stack = useLayoutState((s) => s.stack)
+const leftWidthPercent = useLayoutState((s) => s.leftWidthPercent)
+const chatParams = useAppView((s) => s.chatParams)
+const projectShell = useAppView((s) => s.projectShell)
+// ... 只订阅实际使用的字段
 ```
-PanelProviders
-├── ThemeProvider
-├── QueryClientProvider (共享 queryClient)
-├── ThemeSettingsBootstrap
-├── AppBootstrap (initialized=true 时空操作)
-└── PanelErrorBoundary
-    └── TabActiveProvider
-        └── 实际内容 (LeftDock / RightChatPanel)
-```
-
-### 面板挂载时序（TabLayout mount）
-1. `useLayoutEffect([])` → `bindPanelHost("left/right", ref)` 绑定 host
-2. `useEffect([])` → `renderPanel("left", "main", <LeftDock/>)` + `renderPanel("right", "main", <RightChatPanel/>)`
-3. `useEffect([deps])` → 布局变化时更新面板可见性，恢复丢失的面板
-
-### 重要注意事项
-- `bindPanelHost` 切换宿主时通过 `setTimeout(0)` **异步卸载**旧面板，避免与 React 渲染冲突
-- React StrictMode 的 mount→unmount→remount 周期会导致面板丢失；必须在 `useLayoutEffect` cleanup 中重置 `mountedRef.current = false`
-- 布局变化 effect 中需同时检查左右面板是否存在，缺失时重新创建
 
 ---
 
@@ -223,6 +254,15 @@ LeftDock
 │       └── board-viewer, terminal, browser, tool-result 等
 ├── ProjectDockTabs (base=plant-page 时，项目底部导航)
 └── GlobalEntryDockTabs (base=calendar/email/tasks/workbench 时，全局底部导航)
+```
+
+### LeftDock 订阅模式
+LeftDock 只订阅 `useLayoutState`，不依赖 `useAppView`：
+```typescript
+const base = useLayoutState((s) => s.base)
+const stack = useLayoutState((s) => s.stack) ?? []
+const stackHidden = Boolean(useLayoutState((s) => s.stackHidden))
+const activeStackItemId = useLayoutState((s) => s.activeStackItemId)
 ```
 
 ### 重要参数
@@ -257,21 +297,12 @@ LeftDock
 
 ## Navigation（导航方式）
 
-### 1. `navigate()`（完整重置）
-- 用于：新建视图、打开项目壳、openTempChat、openTempCanvas
-- 调用：`useAppView.getState().navigate(input)`
-- 行为：重置所有状态（resetLayout → setBase → setLeftWidthPercent → ...）
-
-### 2. `openPrimaryPageTab()`（轻量切换）
-- 用于：侧边栏主页面切换（项目空间、个性看板、智能画布）
-- 调用：`setBase()` + `clearStack()` + `setTitle()` + `setIcon()`
-- **不调用 resetLayout**，不重置 chatSession
-- `normalize()` 自动确保 leftWidthPercent 非零
-
-### 3. 侧边栏历史记录
-- `openChat(chatId)` → `setChatSession(chatId, true)`
-- `openBoard(params)` → `pushStackItem(boardItem)`
-- `openProject(projectId)` → `openProjectShell({...})`
+| 方式 | 触发者 | 行为 |
+|------|--------|------|
+| `navigate()` | Sidebar 主入口、项目 shell、openTempChat | 全量重置：调用 `applyNavigation()` 一次性清空 stack、重设 base/width/collapsed，新建 session |
+| `setBase()` + `clearStack()` | Sidebar `openPrimaryPageTab()` | 轻量切换：只换 base 面板，`normalize()` 自动修正宽度。**不调用 navigate**，不重置 session |
+| `pushStackItem()` | AI 工具、用户操作 | 叠加浮层到 stack，不影响 base |
+| `setChatSession()` | 侧边栏历史 `openChat()` | 只切换聊天 session |
 
 ---
 
@@ -311,11 +342,10 @@ LeftDock
 |-------|------|------|
 | `useAppView` | `hooks/use-app-view.ts` | 视图状态（session、project shell、title） |
 | `useLayoutState` | `hooks/use-layout-state.ts` | 布局状态（base、stack、宽度、折叠） |
-| `useAppState()` | `hooks/use-app-state.ts` | 组合 hook（合并上述两个 store） |
-| `getAppState()` | `hooks/use-app-state.ts` | 非 React 调用（如 tab-snapshot-sync） |
+| `useAppState()` | `hooks/use-app-state.ts` | 组合 hook（合并上述两个 store，14 字段全订阅） |
+| `getAppState()` | `hooks/use-app-state.ts` | 非 React 调用 |
 
 - 项目独立窗口使用 `sessionStorage`，主窗口使用 `localStorage`（通过 `isProjectWindowMode()` 判断）
-- 旧的 `useTabs` / `useTabRuntime` / `useTabView` 已删除
 
 ---
 
@@ -340,25 +370,24 @@ LeftDock
 ---
 
 ## Common Pitfalls
-- 忘记 `bindPanelHost` 或面板恢复逻辑，导致面板消失（尤其 React StrictMode 下）
 - `openPrimaryPageTab` 不调用 `navigate()`，不会重置 session；如需重置用 `navigate()`
 - `normalize()` 会自动设置 leftWidthPercent，直接调 `setBase()` 不需要手动设宽度
 - `stackHidden` 与 `stack` 状态不同步，导致面板"看不见但仍拦截点击"
 - 修改 `TabLayout` 时忽略 `minLeftWidth` 动画保护，导致宽度抖动
-- 直接改 DOM 结构绕开 `panel-runtime`（会破坏独立 root 机制）
-- panel-runtime 的异步卸载（setTimeout(0)）可能与新面板创建竞态；确保 bindPanelHost 在 useLayoutEffect，renderPanel 在 useEffect
+- 高频渲染组件（TabLayout、LeftDock）应使用精确 selector，避免 `useAppState()` 导致的过度订阅
+- `applyNavigation()` 是原子操作（单次 normalize），不要拆成多次 set 调用
 
 ## Quick File Map
 - `apps/web/src/app/layout.tsx` — RootLayout + Providers
 - `apps/web/src/app/page.tsx` — 页面骨架
 - `apps/web/src/components/layout/AppBootstrap.tsx` — 初始化
 - `apps/web/src/components/layout/MainContext.tsx` — initialized 门控
-- `apps/web/src/components/layout/TabLayout.tsx` — 核心布局 + RightChatPanel
+- `apps/web/src/components/layout/TabLayout.tsx` — 核心布局 + RightChatPanel + PanelErrorBoundary
 - `apps/web/src/components/layout/LeftDock.tsx` — 左面板（base + stack）
+- `apps/web/src/components/layout/TabActiveContext.tsx` — 面板活跃状态 Context
 - `apps/web/src/components/layout/StackHeader.tsx` — 统一面板标题栏
 - `apps/web/src/components/layout/header/*` — Header
 - `apps/web/src/components/layout/sidebar/*` — Sidebar
-- `apps/web/src/lib/panel-runtime.tsx` — 面板独立 React Root 管理
 - `apps/web/src/hooks/use-app-view.ts` — 视图状态 store
 - `apps/web/src/hooks/use-layout-state.ts` — 布局状态 store
 - `apps/web/src/hooks/use-app-state.ts` — 组合 hook

@@ -78,6 +78,8 @@ export type LayoutStateActions = LayoutState & {
   setTerminalTabs: (tabs: TerminalTab[], activeId?: string) => void
   /** Reset layout to default. */
   resetLayout: () => void
+  /** Reset and apply navigation layout in a single update. */
+  applyNavigation: (input: { base?: DockItem; leftWidthPercent?: number; rightChatCollapsed?: boolean }) => void
 }
 
 const DEFAULT_STATE: LayoutState = {
@@ -471,6 +473,15 @@ export const useLayoutState = create<LayoutStateActions>()(
 
       resetLayout: () => {
         set(normalize(DEFAULT_STATE))
+      },
+
+      applyNavigation: (input) => {
+        set(normalize({
+          ...DEFAULT_STATE,
+          base: input.base,
+          leftWidthPercent: input.leftWidthPercent ?? (input.base ? LEFT_DOCK_DEFAULT_PERCENT : 0),
+          rightChatCollapsed: input.base ? Boolean(input.rightChatCollapsed) : false,
+        }))
       },
     }),
     {

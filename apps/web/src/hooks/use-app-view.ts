@@ -17,7 +17,6 @@ import { createChatSessionId } from "@/lib/chat-session-id"
 import { isProjectWindowMode } from "@/lib/window-mode"
 import type { ProjectShellState } from "@/lib/project-shell"
 import { useLayoutState } from "./use-layout-state"
-import { LEFT_DOCK_DEFAULT_PERCENT } from "./layout-utils"
 
 export const APP_VIEW_STORAGE_KEY = "openloaf:app-view"
 
@@ -116,20 +115,12 @@ export const useAppView = create<AppViewState>()(
           initialized: true,
         })
 
-        // Set up layout state
-        useLayoutState.getState().resetLayout()
-        if (normalizedBase || leftWidthPercent !== undefined || rightChatCollapsed !== undefined) {
-          const layout = useLayoutState.getState()
-          if (normalizedBase) {
-            layout.setBase(normalizedBase)
-            layout.setLeftWidthPercent(leftWidthPercent ?? LEFT_DOCK_DEFAULT_PERCENT)
-          } else {
-            layout.setLeftWidthPercent(leftWidthPercent ?? 0)
-          }
-          if (rightChatCollapsed !== undefined) {
-            layout.setRightChatCollapsed(rightChatCollapsed)
-          }
-        }
+        // Set up layout state in a single update
+        useLayoutState.getState().applyNavigation({
+          base: normalizedBase,
+          leftWidthPercent,
+          rightChatCollapsed,
+        })
       },
 
       setChatSession: (id, loadHistory) => {
@@ -176,68 +167,10 @@ export const useAppView = create<AppViewState>()(
         icon: state.icon,
         initialized: state.initialized,
       }),
-      merge: (persisted, current) => {
-        const merged = { ...current, ...(persisted as Partial<AppViewState>) }
-
-        // Migration: read from old openloaf:tabs if new store is empty
-        if (!merged.initialized && typeof window !== "undefined") {
-          try {
-            const storage = resolveStorage()
-            const oldData = storage.getItem("openloaf:tabs")
-            if (oldData) {
-              const parsed = JSON.parse(oldData)
-              const state = parsed?.state
-              const activeTabId = state?.activeTabId
-              const tabs = state?.tabs
-              if (Array.isArray(tabs) && activeTabId) {
-                const activeTab = tabs.find((t: any) => t.id === activeTabId) ?? tabs[0]
-                if (activeTab) {
-                  merged.chatSessionId = activeTab.chatSessionId ?? createChatSessionId()
-                  merged.chatParams = activeTab.chatParams ?? {}
-                  merged.chatLoadHistory = activeTab.chatLoadHistory ?? false
-                  merged.projectShell = activeTab.projectShell ?? null
-                  merged.title = activeTab.title ?? DEFAULT_TAB_INFO.titleKey
-                  merged.icon = activeTab.icon ?? DEFAULT_TAB_INFO.icon
-                  merged.initialized = true
-
-                  // Also migrate layout state from old tab-runtime
-                  try {
-                    const oldRuntimeData = storage.getItem("openloaf:tab-runtime")
-                    if (oldRuntimeData) {
-                      const parsedRuntime = JSON.parse(oldRuntimeData)
-                      const runtimeMap = parsedRuntime?.state?.runtimeByTabId
-                      const tabRuntime = runtimeMap?.[activeTabId]
-                      if (tabRuntime) {
-                        const layout = useLayoutState.getState()
-                        if (tabRuntime.base) layout.setBase(tabRuntime.base)
-                        if (Array.isArray(tabRuntime.stack) && tabRuntime.stack.length > 0) {
-                          for (const item of tabRuntime.stack) {
-                            layout.pushStackItem(item)
-                          }
-                        }
-                        if (typeof tabRuntime.leftWidthPercent === "number") {
-                          layout.setLeftWidthPercent(tabRuntime.leftWidthPercent)
-                        }
-                        if (typeof tabRuntime.rightChatCollapsed === "boolean") {
-                          layout.setRightChatCollapsed(tabRuntime.rightChatCollapsed)
-                        }
-                      }
-                    }
-                  } catch { /* ignore runtime migration errors */ }
-
-                  // Clean up old storage keys
-                  try {
-                    storage.removeItem("openloaf:tabs")
-                    storage.removeItem("openloaf:tab-runtime")
-                  } catch { /* ignore cleanup errors */ }
-                }
-              }
-            }
-          } catch { /* ignore migration errors */ }
-        }
-
-        return merged
-      },
+      merge: (persisted, current) => ({
+        ...current,
+        ...(persisted as Partial<AppViewState>),
+      }),
     },
   ),
 )

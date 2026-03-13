@@ -20,18 +20,12 @@ import { cn } from "@/lib/utils"
 import { Chat } from "@/components/ai/Chat"
 import { useAppView } from "@/hooks/use-app-view"
 import { useLayoutState } from "@/hooks/use-layout-state"
-import { useAppState } from "@/hooks/use-app-state"
 import { shouldDisableRightChat, LEFT_DOCK_MIN_PX, LEFT_DOCK_DEFAULT_PERCENT } from "@/hooks/layout-utils"
 import { useProjectLayout } from "@/hooks/use-project-layout"
 import { useRecordEntityVisit } from "@/hooks/use-record-entity-visit"
 import { useChatSessions } from "@/hooks/use-chat-sessions"
 import { LeftDock } from "./LeftDock"
-import {
-  bindPanelHost,
-  hasPanel,
-  renderPanel,
-  setPanelActive,
-} from "@/lib/panel-runtime"
+import { TabActiveProvider } from "./TabActiveContext"
 import { queryClient, trpc } from "@/utils/trpc"
 import { buildBoardChatTabState } from "@/components/board/utils/board-chat-tab"
 
@@ -56,6 +50,42 @@ function findProjectInTree(
 const RIGHT_CHAT_MIN_PX = 360
 const DIVIDER_GAP_PX = 10
 const SPRING_CONFIG = { type: "spring", stiffness: 140, damping: 30 }
+
+/** Error boundary for panel render errors. */
+class PanelErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error) {
+    console.error("[PanelErrorBoundary]", error)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-full w-full items-center justify-center">
+          <button
+            type="button"
+            className="rounded-full bg-muted px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted/80"
+            onClick={() => this.setState({ hasError: false })}
+          >
+            重新加载面板
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 // Render the right chat panel (single session, no multi-session accordion).
 function RightChatPanel() {
@@ -253,15 +283,20 @@ function RightChatPanel() {
 
 // Render the main layout container (single view, no tab switching).
 export function TabLayout() {
-  const appState = useAppState()
   const layout = useLayoutState()
+  const base = useLayoutState((s) => s.base)
+  const stack = useLayoutState((s) => s.stack)
+  const leftWidthPercent = useLayoutState((s) => s.leftWidthPercent)
+  const minLeftWidth = useLayoutState((s) => s.minLeftWidth)
+  const rightChatCollapsed = useLayoutState((s) => s.rightChatCollapsed)
+  const activeStackItemId = useLayoutState((s) => s.activeStackItemId)
+  const stackHidden = Boolean(useLayoutState((s) => s.stackHidden))
+  const chatParams = useAppView((s) => s.chatParams)
+  const projectShell = useAppView((s) => s.projectShell)
   const { recordEntityVisit } = useRecordEntityVisit()
-  const stackHidden = Boolean(appState.stackHidden)
   const reduceMotion = useReducedMotion()
 
   const containerRef = React.useRef<HTMLDivElement>(null)
-  const leftHostRef = React.useRef<HTMLDivElement>(null)
-  const rightHostRef = React.useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = React.useState(0)
   const [isDragging, setIsDragging] = React.useState(false)
   const [minLeftEnabled, setMinLeftEnabled] = React.useState(true)
@@ -271,58 +306,6 @@ export function TabLayout() {
   const pendingMinLeftEnableRef = React.useRef(false)
   const leftVisibleRef = React.useRef(false)
   const minLeftEnableRafRef = React.useRef<number | null>(null)
-  const mountedRef = React.useRef(false)
-
-  React.useLayoutEffect(() => {
-    bindPanelHost("left", leftHostRef.current)
-    bindPanelHost("right", rightHostRef.current)
-    return () => {
-      mountedRef.current = false
-      bindPanelHost("left", null)
-      bindPanelHost("right", null)
-    }
-  }, [])
-
-  // Mount panels
-  React.useEffect(() => {
-    if (mountedRef.current) return
-    mountedRef.current = true
-
-    const shouldHideRightChat = shouldDisableRightChat(appState)
-
-    if (!hasPanel("left", "main")) {
-      renderPanel("left", "main", <LeftDock tabId="main" />, true)
-    } else {
-      setPanelActive("left", "main", true)
-    }
-
-    if (shouldHideRightChat) {
-      setPanelActive("right", "main", false)
-    } else if (!hasPanel("right", "main")) {
-      renderPanel("right", "main", <RightChatPanel />, true)
-    } else {
-      setPanelActive("right", "main", true)
-    }
-  }, [])
-
-  // Update panel visibility on layout changes
-  React.useEffect(() => {
-    if (!mountedRef.current) return
-
-    // Recover left panel if it was destroyed (e.g. StrictMode remount)
-    if (!hasPanel("left", "main")) {
-      renderPanel("left", "main", <LeftDock tabId="main" />, true)
-    }
-
-    const shouldHide = shouldDisableRightChat(appState)
-    if (shouldHide) {
-      setPanelActive("right", "main", false)
-    } else if (!hasPanel("right", "main")) {
-      renderPanel("right", "main", <RightChatPanel />, true)
-    } else {
-      setPanelActive("right", "main", true)
-    }
-  }, [appState.activeStackItemId, appState.base, appState.projectShell?.section, appState.stack])
 
   React.useLayoutEffect(() => {
     if (typeof window === "undefined") return
@@ -331,23 +314,22 @@ export function TabLayout() {
     if (scrollingEl && scrollingEl.scrollLeft !== 0) scrollingEl.scrollLeft = 0
   }, [])
 
-  const activeBase = appState.base
   const activeBaseParams = React.useMemo(
-    () => ((activeBase?.params ?? {}) as Record<string, unknown>),
-    [activeBase?.params],
+    () => ((base?.params ?? {}) as Record<string, unknown>),
+    [base?.params],
   )
   const activePlantProjectId = React.useMemo(() => {
-    if (activeBase?.component !== "plant-page") return ""
+    if (base?.component !== "plant-page") return ""
     const projectId = activeBaseParams.projectId
     return typeof projectId === "string" ? projectId.trim() : ""
-  }, [activeBase?.component, activeBaseParams])
+  }, [base?.component, activeBaseParams])
   const activeBoardProjectId = React.useMemo(() => {
-    if (activeBase?.component !== "board-viewer") return ""
+    if (base?.component !== "board-viewer") return ""
     const projectId = activeBaseParams.projectId
     return typeof projectId === "string" ? projectId.trim() : ""
-  }, [activeBase?.component, activeBaseParams])
+  }, [base?.component, activeBaseParams])
   const activeBoardEntityId = React.useMemo(() => {
-    if (activeBase?.component !== "board-viewer") return ""
+    if (base?.component !== "board-viewer") return ""
     const boardFolderUri = activeBaseParams.boardFolderUri
     if (typeof boardFolderUri === "string" && boardFolderUri.trim()) {
       const normalized = boardFolderUri.trim().replace(/\/+$/u, "")
@@ -356,7 +338,7 @@ export function TabLayout() {
     }
     const explicitBoardId = activeBaseParams.boardId
     return typeof explicitBoardId === "string" ? explicitBoardId.trim() : ""
-  }, [activeBase?.component, activeBaseParams])
+  }, [base?.component, activeBaseParams])
 
   React.useEffect(() => {
     const nextProjectId = activePlantProjectId || null
@@ -423,13 +405,17 @@ export function TabLayout() {
   }, [])
 
   const hasLeftContent =
-    Boolean(appState.base) ||
-    (!stackHidden && (appState.stack?.length ?? 0) > 0)
-  const storedLeftWidthPercent = hasLeftContent ? appState.leftWidthPercent ?? 0 : 0
-  const isRightChatDisabled = shouldDisableRightChat(appState)
-  const isRightCollapsed = Boolean(appState.base) && (isRightChatDisabled || Boolean(appState.rightChatCollapsed))
+    Boolean(base) ||
+    (!stackHidden && (stack?.length ?? 0) > 0)
+  const storedLeftWidthPercent = hasLeftContent ? leftWidthPercent ?? 0 : 0
+  const layoutSnapshot = React.useMemo(
+    () => ({ base, stack, activeStackItemId, rightChatCollapsed, projectShell }),
+    [base, stack, activeStackItemId, rightChatCollapsed, projectShell],
+  )
+  const isRightChatDisabled = shouldDisableRightChat(layoutSnapshot)
+  const isRightCollapsed = Boolean(base) && (isRightChatDisabled || Boolean(rightChatCollapsed))
 
-  const effectiveMinLeft = appState.minLeftWidth ?? LEFT_DOCK_MIN_PX
+  const effectiveMinLeft = minLeftWidth ?? LEFT_DOCK_MIN_PX
 
   const isLeftVisible = storedLeftWidthPercent > 0
   const isRightVisible = !isRightCollapsed
@@ -571,21 +557,19 @@ export function TabLayout() {
 
   // Sync layout preferences to per-project cache
   const activeProjectId = React.useMemo(() => {
-    const params = appState.chatParams as Record<string, unknown> | undefined
+    const params = chatParams as Record<string, unknown> | undefined
     const pid = params?.projectId
     return typeof pid === "string" ? pid.trim() : ""
-  }, [appState.chatParams])
-  const activeRightCollapsed = appState.rightChatCollapsed
-  const activeLeftPercent = appState.leftWidthPercent
+  }, [chatParams])
 
   React.useEffect(() => {
     if (!activeProjectId) return
-    if (!appState.base) return
+    if (!base) return
     useProjectLayout.getState().saveProjectLayout(activeProjectId, {
-      rightChatCollapsed: Boolean(activeRightCollapsed),
-      leftWidthPercent: activeLeftPercent ?? 0,
+      rightChatCollapsed: Boolean(rightChatCollapsed),
+      leftWidthPercent: leftWidthPercent ?? 0,
     })
-  }, [activeProjectId, activeRightCollapsed, activeLeftPercent, appState.base])
+  }, [activeProjectId, rightChatCollapsed, leftWidthPercent, base])
 
   const isDividerHidden = targetDividerWidth === 0
 
@@ -611,7 +595,16 @@ export function TabLayout() {
             : { duration: 0.18, ease: "easeOut" }
         }
       >
-        <div ref={leftHostRef} className="relative h-full w-full min-h-0 min-w-0" />
+        <div
+          className="relative h-full w-full min-h-0 min-w-0"
+          style={{ pointerEvents: isLeftVisible ? "auto" : "none" }}
+        >
+          <PanelErrorBoundary>
+            <TabActiveProvider active={isLeftVisible}>
+              <LeftDock tabId="main" />
+            </TabActiveProvider>
+          </PanelErrorBoundary>
+        </div>
       </motion.div>
 
       <motion.div
@@ -639,7 +632,16 @@ export function TabLayout() {
             : { duration: 0.18, ease: "easeOut" }
         }
       >
-        <div ref={rightHostRef} className="relative h-full w-full min-h-0 min-w-0" />
+        <div
+          className="relative h-full w-full min-h-0 min-w-0"
+          style={{ pointerEvents: isRightVisible ? "auto" : "none" }}
+        >
+          <PanelErrorBoundary>
+            <TabActiveProvider active={isRightVisible}>
+              <RightChatPanel />
+            </TabActiveProvider>
+          </PanelErrorBoundary>
+        </div>
       </motion.div>
     </div>
   )

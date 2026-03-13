@@ -13,13 +13,16 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import {
+  CheckCircle2,
   ExternalLink,
   FolderOpen,
+  FolderPlus,
   Plus,
   Edit2,
   Trash2,
   MoreHorizontal,
   Search,
+  Square,
   X,
   Star,
   GitBranch,
@@ -27,7 +30,7 @@ import {
   Filter,
 } from "lucide-react";
 import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, trpc } from "@/utils/trpc";
+import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 
 import { useIsInView } from "@/hooks/use-is-in-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
@@ -36,6 +39,7 @@ import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/fil
 import type { ProjectListItem } from "@openloaf/api/services/projectTreeService";
 import { Button } from "@openloaf/ui/button";
 import { Input } from "@openloaf/ui/input";
+import { Label } from "@openloaf/ui/label";
 import {
   Select,
   SelectContent,
@@ -164,7 +168,15 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     nextTitle: string;
   } | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  /** "create" = new empty project, "git" = clone from git, null = mode selection screen. */
+  const [addMode, setAddMode] = useState<"create" | "git" | null>(null);
   const [createTitle, setCreateTitle] = useState("");
+  const [isBusy, setIsBusy] = useState(false);
+  const [gitUrl, setGitUrl] = useState("");
+  const [gitTargetDir, setGitTargetDir] = useState("");
+  const [gitProgress, setGitProgress] = useState<string[]>([]);
+  const [gitDone, setGitDone] = useState(false);
+  const gitSubRef = useRef<{ unsubscribe: () => void } | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const pagedProjectsInput = useMemo(
@@ -245,20 +257,135 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
   );
 
   const createMutation = useMutation(
-    trpc.project.create.mutationOptions({
-      onSuccess: () => {
-        invalidateProjects();
-        setIsCreateOpen(false);
-        setCreateTitle("");
-      },
-    }),
+    trpc.project.create.mutationOptions(),
   );
 
-  const handleCreateProject = useCallback(() => {
+  /** Open the add-project dialog with a clean state. */
+  const openAddDialog = useCallback(() => {
+    setAddMode(null);
+    setCreateTitle("");
+    setGitUrl("");
+    setGitTargetDir("");
+    setGitProgress([]);
+    setGitDone(false);
+    setIsCreateOpen(true);
+  }, []);
+
+  /** Pick a directory from system dialog (Electron only). */
+  const pickDirectory = async (initialValue?: string) => {
+    const api = window.openloafElectron;
+    if (api?.pickDirectory) {
+      const result = await api.pickDirectory(
+        initialValue ? { defaultPath: initialValue } : undefined,
+      );
+      if (result?.ok && result.path) return result.path;
+    }
+    if (initialValue) return initialValue;
+    return null;
+  };
+
+  /** Submit handler for creating a new empty project. */
+  const handleCreateProject = useCallback(async () => {
     const title = createTitle.trim();
     if (!title) return;
-    createMutation.mutate({ title, enableVersionControl: true });
-  }, [createTitle, createMutation]);
+    try {
+      setIsBusy(true);
+      const res = await createMutation.mutateAsync({ title, enableVersionControl: true });
+      invalidateProjects();
+      setIsCreateOpen(false);
+      setCreateTitle("");
+      // Fire-and-forget: infer project type via auxiliary model.
+      if (res.project?.projectId) {
+        trpcClient.settings.inferProjectType
+          .mutate({ projectId: res.project.projectId })
+          .then(() => invalidateProjects())
+          .catch(() => {});
+      }
+    } catch (err: any) {
+      toast.error(err?.message ?? t("projectListPage.createError"));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [createTitle, createMutation, invalidateProjects, t]);
+
+  /** Import existing folder as project. */
+  const handleImportFolder = useCallback(async () => {
+    const dir = await pickDirectory();
+    if (!dir) return;
+    try {
+      setIsBusy(true);
+      const result = await trpcClient.project.checkPath.query({ dirPath: dir });
+      const autoIcon = (result.isCodeProject && !result.hasIcon) ? "💻" : undefined;
+      const res = await createMutation.mutateAsync({
+        rootUri: dir,
+        enableVersionControl: true,
+        icon: autoIcon,
+      });
+      invalidateProjects();
+      setIsCreateOpen(false);
+      // Fire-and-forget: infer project type via auxiliary model.
+      if (res.project?.projectId) {
+        trpcClient.settings.inferProjectType
+          .mutate({ projectId: res.project.projectId })
+          .then(() => invalidateProjects())
+          .catch(() => {});
+      }
+    } catch (err: any) {
+      toast.error(err?.message ?? t("projectListPage.createError"));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [createMutation, invalidateProjects, t]);
+
+  /** Start git clone via SSE subscription. */
+  const handleCloneFromGit = useCallback(() => {
+    const url = gitUrl.trim();
+    if (!url) return;
+    setIsBusy(true);
+    setGitProgress([]);
+    setGitDone(false);
+    const sub = trpcClient.project.cloneFromGit.subscribe(
+      { url, targetDir: gitTargetDir || undefined },
+      {
+        onData(data: any) {
+          if (data.type === "progress") {
+            setGitProgress((prev) => [...prev, data.message]);
+          }
+          if (data.type === "done") {
+            setGitDone(true);
+            setIsBusy(false);
+            gitSubRef.current = null;
+            invalidateProjects();
+            // Fire-and-forget: infer project type via auxiliary model.
+            if (data.projectId) {
+              trpcClient.settings.inferProjectType
+                .mutate({ projectId: data.projectId })
+                .then(() => invalidateProjects())
+                .catch(() => {});
+            }
+          }
+          if (data.type === "error") {
+            toast.error(data.message);
+            setIsBusy(false);
+            gitSubRef.current = null;
+          }
+        },
+        onError(err: any) {
+          toast.error(err?.message ?? t("projectListPage.cloneError"));
+          setIsBusy(false);
+          gitSubRef.current = null;
+        },
+      },
+    );
+    gitSubRef.current = sub;
+  }, [gitUrl, gitTargetDir, invalidateProjects, t]);
+
+  /** Abort a running git clone. */
+  const handleAbortClone = useCallback(() => {
+    gitSubRef.current?.unsubscribe();
+    gitSubRef.current = null;
+    setIsBusy(false);
+  }, []);
 
   const handleProjectClick = useCallback(
     (project: ProjectListItem) => {
@@ -626,7 +753,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
             variant="ghost"
             size="sm"
             className="rounded-full bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20"
-            onClick={() => setIsCreateOpen(true)}
+            onClick={openAddDialog}
           >
             <Plus className="mr-1.5 h-4 w-4" />
             {t("projectListPage.addProject")}

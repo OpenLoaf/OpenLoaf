@@ -18,7 +18,6 @@ import {
   StackPanelSlotCtx,
   type StackPanelSlot,
 } from "@/hooks/use-stack-panel-slot";
-import { useAppState } from "@/hooks/use-app-state";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import type { DockItem } from "@openloaf/api/common";
 import GlobalEntryDockTabs from "./GlobalEntryDockTabs";
@@ -270,9 +269,10 @@ function parseRenamePath(uri: string) {
 
 // Render the left dock contents for a tab.
 export function LeftDock({ tabId }: { tabId: string }) {
-  const tab = useAppState();
-  const stackHidden = Boolean(tab?.stackHidden);
-  const activeStackItemId = tab?.activeStackItemId;
+  const base = useLayoutState((s) => s.base);
+  const stack = useLayoutState((s) => s.stack) ?? [];
+  const stackHidden = Boolean(useLayoutState((s) => s.stackHidden));
+  const activeStackItemId = useLayoutState((s) => s.activeStackItemId);
   const removeStackItem = useLayoutState((s) => s.removeStackItem);
   const queryClient = useQueryClient();
   const renameMutation = useMutation(trpc.fs.rename.mutationOptions());
@@ -288,10 +288,7 @@ export function LeftDock({ tabId }: { tabId: string }) {
   const [renameValue, setRenameValue] = React.useState("");
   const [confirmingDelete, setConfirmingDelete] = React.useState(false);
 
-  // 只订阅面板渲染必需字段，避免切换 tab 时触发无关渲染。
-  const base = tab?.base;
-  const stack = tab?.stack ?? [];
-  // stack 的选中态不再依赖“最后一个=顶部”，而是由 activeStackItemId 决定。
+  // stack 的选中态不再依赖”最后一个=顶部”，而是由 activeStackItemId 决定。
   const activeStackId = activeStackItemId || stack.at(-1)?.id || "";
   const hasOverlay = Boolean(base) && stack.length > 0 && !stackHidden;
   const floating = Boolean(base);
