@@ -19,7 +19,8 @@ export function buildSkillsSummarySection(
   const lines = [
     'Skills 列表（摘要）',
     '- 仅注入 YAML front matter（name/description）。',
-    '- 需要完整说明请使用工具读取对应 SKILL.md。',
+    '- 需要完整说明时，调用 load-skill 工具加载技能（传入技能 name）。',
+    '- load-skill 会返回技能完整内容及 basePath，技能中的相对路径均相对于 basePath。',
   ]
 
   if (summaries.length === 0) {
@@ -44,7 +45,7 @@ function buildActiveSkillsSection(
   if (selectedSkills.length === 0 || selectedSkills.length >= summaries.length) {
     return [
       '# 已启用技能',
-      '- 所有技能均已启用，需要时读取对应 SKILL.md 获取完整指引。',
+      '- 所有技能均已启用，需要时调用 load-skill 工具加载完整指引。',
       '- **当技能与可用子 Agent 功能重叠时，优先通过 spawn-agent 使用子 Agent。**',
     ].join('\n')
   }
