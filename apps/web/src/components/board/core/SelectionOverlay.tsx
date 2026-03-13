@@ -13,7 +13,7 @@ import {
   BOARD_TOOLBAR_ITEM_AMBER,
   BOARD_TOOLBAR_ITEM_RED,
 } from "../ui/board-style-system";
-import { useEffect, useRef, useState, type ReactNode, type SVGProps } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type SVGProps } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { PointerEvent as ReactPointerEvent } from "react";
@@ -440,6 +440,63 @@ type MultiSelectionOutlineProps = {
   engine: CanvasEngine;
 };
 
+/** Sync a multi-selection outline with the DOM rects of all selected nodes. */
+function useMultiDomBoundsSync(
+  engine: CanvasEngine,
+  elementIds: string[],
+  enabled: boolean,
+  outlineRef: React.RefObject<HTMLDivElement | null>,
+  padding: number,
+): void {
+  // 逻辑：用 join 生成稳定 key，仅选区变化时重建 ResizeObserver。
+  const idsKey = elementIds.join(",");
+
+  useLayoutEffect(() => {
+    if (!enabled || elementIds.length === 0) return;
+    const container = engine.getContainer();
+    if (!container || !outlineRef.current) return;
+
+    const nodeEls: HTMLElement[] = [];
+    for (const id of elementIds) {
+      const el = engine.getNodeDomElement(id);
+      if (el) nodeEls.push(el);
+    }
+    if (nodeEls.length === 0) return;
+
+    const sync = () => {
+      const outline = outlineRef.current;
+      if (!outline) return;
+      const containerRect = container.getBoundingClientRect();
+      let minLeft = Number.POSITIVE_INFINITY;
+      let minTop = Number.POSITIVE_INFINITY;
+      let maxRight = Number.NEGATIVE_INFINITY;
+      let maxBottom = Number.NEGATIVE_INFINITY;
+
+      for (const nodeEl of nodeEls) {
+        const nodeRect = nodeEl.getBoundingClientRect();
+        const l = nodeRect.left - containerRect.left;
+        const t = nodeRect.top - containerRect.top;
+        minLeft = Math.min(minLeft, l);
+        minTop = Math.min(minTop, t);
+        maxRight = Math.max(maxRight, l + nodeRect.width);
+        maxBottom = Math.max(maxBottom, t + nodeRect.height);
+      }
+
+      if (!Number.isFinite(minLeft)) return;
+      outline.style.left = `${minLeft - padding}px`;
+      outline.style.top = `${minTop - padding}px`;
+      outline.style.width = `${maxRight - minLeft + padding * 2}px`;
+      outline.style.height = `${maxBottom - minTop + padding * 2}px`;
+    };
+
+    sync();
+    const observer = new ResizeObserver(sync);
+    for (const nodeEl of nodeEls) observer.observe(nodeEl);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine, idsKey, enabled, padding]);
+}
+
 /** Render outline box for multi-selected nodes. */
 export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlineProps) {
   // 逻辑：视图状态单独订阅，避免多选框跟随缩放时触发全局渲染。
@@ -449,9 +506,7 @@ export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlin
     .filter((element): element is CanvasElement =>
       Boolean(element && element.kind === "node")
     );
-  if (selectedElements.length <= 1) return null;
-  // 逻辑：平移或缩放画布时隐藏选区框，避免 React 状态与 DOM transform 帧差导致位置偏移。
-  if (isMoving) return null;
+
   const selectedNodes = selectedElements.filter(
     (element): element is CanvasNodeElement => element.kind === "node"
   );
@@ -461,18 +516,35 @@ export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlin
     return definition?.capabilities?.resizable !== false;
   });
 
+  const padding = MULTI_SELECTION_OUTLINE_PADDING;
+  const outlineRef = useRef<HTMLDivElement>(null);
+  const selectedIds = selectedElements.map(e => e.id);
+
+  // 逻辑：通过 DOM 测量同步多选边框位置，消除 store 与 DOM 之间的帧延迟不一致。
+  useMultiDomBoundsSync(
+    engine,
+    selectedIds,
+    !isMoving && selectedElements.length > 1,
+    outlineRef,
+    padding,
+  );
+
+  if (selectedElements.length <= 1) return null;
+  // 逻辑：平移或缩放画布时隐藏选区框，避免 React 状态与 DOM transform 帧差导致位置偏移。
+  if (isMoving) return null;
+
   const bounds = computeSelectionBounds(selectedElements, viewState.viewport.zoom);
   const { zoom, offset } = viewState.viewport;
   const left = bounds.x * zoom + offset[0];
   const top = bounds.y * zoom + offset[1];
   const width = bounds.w * zoom;
   const height = bounds.h * zoom;
-  const padding = MULTI_SELECTION_OUTLINE_PADDING;
   const handleSize = MULTI_SELECTION_HANDLE_SIZE;
 
   return (
     <>
       <div
+        ref={outlineRef}
         data-board-selection-outline
         className="pointer-events-none absolute z-10 rounded-xl border border-dashed border-neutral-400/60 dark:border-neutral-400/40"
         style={{
@@ -544,6 +616,60 @@ function resolveCornerMeta(
   };
 }
 
+/** Sync a selection outline (and optional corner handles) with the actual node DOM rect.
+ *  Uses useLayoutEffect to correct positions before paint and a ResizeObserver
+ *  for ongoing size-change corrections (e.g. auto-resize of text nodes). */
+function useDomBoundsSync(
+  engine: CanvasEngine,
+  elementId: string,
+  enabled: boolean,
+  outlineRef: React.RefObject<HTMLDivElement | null>,
+  handleRefsMap: React.MutableRefObject<Record<string, HTMLButtonElement | null>>,
+): void {
+  useLayoutEffect(() => {
+    if (!enabled) return;
+    const container = engine.getContainer();
+    if (!container || !outlineRef.current) return;
+    const nodeEl = engine.getNodeDomElement(elementId);
+    if (!nodeEl) return;
+
+    const sync = () => {
+      const outline = outlineRef.current;
+      if (!outline) return;
+      const containerRect = container.getBoundingClientRect();
+      const nodeRect = nodeEl.getBoundingClientRect();
+      const l = nodeRect.left - containerRect.left;
+      const t = nodeRect.top - containerRect.top;
+      const w = nodeRect.width;
+      const h = nodeRect.height;
+
+      outline.style.left = `${l}px`;
+      outline.style.top = `${t}px`;
+      outline.style.width = `${w}px`;
+      outline.style.height = `${h}px`;
+
+      const corners: Record<string, { x: number; y: number }> = {
+        "top-left": { x: l, y: t },
+        "top-right": { x: l + w, y: t },
+        "bottom-right": { x: l + w, y: t + h },
+        "bottom-left": { x: l, y: t + h },
+      };
+      for (const [id, pos] of Object.entries(corners)) {
+        const btn = handleRefsMap.current[id];
+        if (btn) {
+          btn.style.left = `${pos.x}px`;
+          btn.style.top = `${pos.y}px`;
+        }
+      }
+    };
+
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(nodeEl);
+    return () => observer.disconnect();
+  }, [engine, elementId, enabled]);
+}
+
 /** Render selection outline and resize handles for a single node. */
 export function SingleSelectionOutline({
   engine,
@@ -555,6 +681,14 @@ export function SingleSelectionOutline({
 
   // 逻辑：视图变化时单独更新控制柄位置，避免全量快照渲染。
   const { isMoving, viewState } = useIsViewportMoving(engine);
+
+  // Refs for DOM-based position sync.
+  const outlineRef = useRef<HTMLDivElement>(null);
+  const handleRefsMap = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  // 逻辑：通过 DOM 测量同步选区边框位置，消除 store 与 DOM 之间的帧延迟不一致。
+  useDomBoundsSync(engine, element.id, !isMoving, outlineRef, handleRefsMap);
+
   // 逻辑：平移或缩放画布时隐藏选中框，避免 React 状态与 DOM transform 帧差导致位置偏移。
   if (isMoving) return null;
   const { zoom, offset } = viewState.viewport;
@@ -715,6 +849,7 @@ export function SingleSelectionOutline({
   return (
     <>
       <div
+        ref={outlineRef}
         data-board-selection-outline
         className="pointer-events-none absolute z-10 box-border rounded-none border-2 border-[#1E96EB]"
         style={{ left, top, width, height }}
@@ -725,6 +860,7 @@ export function SingleSelectionOutline({
             return (
               <button
                 key={corner.id}
+                ref={(el) => { handleRefsMap.current[corner.id] = el; }}
                 type="button"
                 aria-label={`Resize ${corner.id}`}
                 data-resize-handle

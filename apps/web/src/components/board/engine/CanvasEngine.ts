@@ -435,6 +435,14 @@ export class CanvasEngine {
     return this.container;
   }
 
+  /** Return the DOM element for a rendered node, or null if not mounted/culled. */
+  getNodeDomElement(elementId: string): HTMLElement | null {
+    if (!this.container) return null;
+    return this.container.querySelector(
+      `[data-element-id="${elementId}"]`,
+    ) as HTMLElement | null;
+  }
+
   /** Schedule a viewport resize from observer measurements. */
   private scheduleViewportResize(width: number, height: number): void {
     const nextWidth = Math.max(0, Math.round(width));

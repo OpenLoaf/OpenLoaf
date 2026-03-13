@@ -358,6 +358,7 @@ function CanvasDomLayerBase({
       <div
         key={element.id}
         data-board-node
+        data-element-id={element.id}
         data-board-editor={isEditing || undefined}
         data-node-type={element.type}
         data-selected={selected || undefined}
