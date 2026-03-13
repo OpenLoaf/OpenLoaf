@@ -108,10 +108,20 @@ export const PageTitle = () => {
           {t('sidebarProjectSpace')}
         </button>
       )}
-      {isBoardViewer && (
+      {isBoardViewer && inProject && (
         <button
           type="button"
-          onClick={handleBack}
+          onClick={handleBackFromBoard}
+          className="flex items-center gap-1 h-6 rounded-md px-2 text-xs font-medium bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover transition-colors duration-150"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          {activeTab?.projectShell?.title ?? t('project')}
+        </button>
+      )}
+      {isBoardViewer && !inProject && (
+        <button
+          type="button"
+          onClick={handleBackFromBoard}
           className="flex items-center gap-1 h-6 rounded-md px-2 text-xs font-medium bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover transition-colors duration-150"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
