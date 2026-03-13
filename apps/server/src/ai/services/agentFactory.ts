@@ -97,7 +97,7 @@ const SUB_AGENT_MAX_STEPS = 15
 // ---------------------------------------------------------------------------
 
 /** Core tool IDs that are always visible (never deferred). */
-const CORE_TOOL_IDS = ['tool-search'] as const
+const CORE_TOOL_IDS = ['tool-search', 'load-skill'] as const
 
 /**
  * Creates a prepareStep that only exposes tool-search + dynamically activated tools.

@@ -43,6 +43,7 @@ import { imageProcessTool } from "@/ai/tools/imageProcessTools";
 import { videoConvertTool } from "@/ai/tools/videoConvertTools";
 import { docConvertTool } from "@/ai/tools/docConvertTools";
 import { fileInfoTool } from "@/ai/tools/fileInfoTool";
+import { loadSkillTool } from "@/ai/tools/loadSkillTool";
 import { requestUserInputTool } from "@/ai/tools/requestUserInputTool";
 import { jsxCreateTool } from "@/ai/tools/jsxCreateTool";
 import { jsReplTool, jsReplResetTool } from "@/ai/tools/jsReplTool";
@@ -88,6 +89,7 @@ import { imageProcessToolDef } from "@openloaf/api/types/tools/imageProcess";
 import { videoConvertToolDef } from "@openloaf/api/types/tools/videoConvert";
 import { docConvertToolDef } from "@openloaf/api/types/tools/docConvert";
 import { fileInfoToolDef } from "@openloaf/api/types/tools/fileInfo";
+import { loadSkillToolDef } from "@openloaf/api/types/tools/skill";
 import { requestUserInputToolDef } from "@openloaf/api/types/tools/userInput";
 import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
 import { chartRenderToolDef } from "@openloaf/api/types/tools/chart";
@@ -302,6 +304,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [fileInfoToolDef.id]: {
     tool: fileInfoTool,
+  },
+  [loadSkillToolDef.id]: {
+    tool: loadSkillTool,
   },
 };
 

@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import nodePath from "node:path";
 import {
   convertToModelMessages,
   validateUIMessages,
@@ -36,10 +37,15 @@ export async function buildModelMessages(
       const scope = typeof payload.scope === "string" ? payload.scope : "unknown";
       const path = typeof payload.path === "string" ? payload.path : "unknown";
       const content = typeof payload.content === "string" ? payload.content : "";
+      const basePath = typeof path === "string" ? nodePath.dirname(path) : "unknown";
       const text = [
         `# Skill: ${name}`,
         `- scope: ${scope}`,
-        `- path: ${path}`,
+        `- basePath: ${basePath}`,
+        `- skillFile: ${path}`,
+        "",
+        "注意：技能内容中的相对路径均相对于上述 basePath，请拼接后访问。",
+        "",
         "<skill>",
         content,
         "</skill>",

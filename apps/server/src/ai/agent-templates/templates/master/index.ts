@@ -18,6 +18,7 @@ export const masterTemplate: AgentTemplate = {
   icon: 'sparkles',
   toolIds: [
     'tool-search',
+    'load-skill',
   ],
   deferredToolIds: [
     // system
