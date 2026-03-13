@@ -55,7 +55,7 @@ export function useSidebarNavigation() {
       rootUri: string
       icon?: string | null
     }) => {
-      openProjectWithPreference(input, { section: 'assistant' })
+      openProjectWithPreference(input, { section: 'canvas' })
       setActiveGlobalChat(null)
     },
     [openProjectWithPreference, setActiveGlobalChat],

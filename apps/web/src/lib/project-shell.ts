@@ -123,7 +123,7 @@ export function applyProjectShellToTab(_tabId: string, input: ProjectShellState)
 
 /** Open or focus a project-shell view in the current renderer. */
 export function openProjectShell(input: ProjectShellInput) {
-  const section = input.section ?? "assistant";
+  const section = input.section ?? "index";
   const resolved: ProjectShellState = { ...input, section };
   const isCurrentProject = findProjectShellTab(input.projectId);
 

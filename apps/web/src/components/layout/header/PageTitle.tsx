@@ -14,7 +14,6 @@ import { useTranslation } from "react-i18next";
 import { ArrowLeft } from "lucide-react";
 import { useNavigation } from "@/hooks/use-navigation";
 import { useAppState } from "@/hooks/use-app-state";
-import { closeSettingsTab } from "@/lib/globalShortcuts";
 import { isProjectMode } from "@/lib/project-mode";
 import { applyProjectShellToTab, exitProjectShellToProjectList } from "@/lib/project-shell";
 import { PROJECT_LIST_TAB_INPUT, CANVAS_LIST_TAB_INPUT } from "@openloaf/api/common";
@@ -37,23 +36,39 @@ export const PageTitle = () => {
   const inProject = isProjectMode(activeTab?.projectShell);
 
   const handleBackFromBoard = useCallback(() => {
+    const layout = useLayoutState.getState();
+    const view = useAppView.getState();
+    const previousBase = (activeTab?.base?.params as any)?.__previousBase;
+
     if (inProject) {
-      // Board opened from within a project → return to project
+      // Board opened from within a project → restore previous base within project
       const shell = activeTab?.projectShell;
-      if (shell) {
-        applyProjectShellToTab("main", { ...shell, section: shell.section ?? "canvas" });
+      if (previousBase && typeof previousBase === 'object') {
+        layout.setBase(previousBase);
+        layout.clearStack();
+        if (shell) {
+          view.setTitle(shell.title);
+          view.setIcon(shell.icon ?? undefined);
+        }
+      } else if (shell) {
+        applyProjectShellToTab("main", shell);
       }
     } else {
-      // Board opened from global canvas list → return to canvas list
-      const layout = useLayoutState.getState();
-      const view = useAppView.getState();
-      layout.setBase({ id: CANVAS_LIST_TAB_INPUT.baseId, component: CANVAS_LIST_TAB_INPUT.component });
-      layout.clearStack();
-      view.setTitle(t('canvas'));
-      view.setIcon(CANVAS_LIST_TAB_INPUT.icon);
+      // Board opened from global canvas list → restore previous base or go to canvas list
+      if (previousBase && typeof previousBase === 'object') {
+        layout.setBase(previousBase);
+        layout.clearStack();
+        view.setTitle(t('canvas'));
+        view.setIcon(CANVAS_LIST_TAB_INPUT.icon);
+      } else {
+        layout.setBase({ id: CANVAS_LIST_TAB_INPUT.baseId, component: CANVAS_LIST_TAB_INPUT.component });
+        layout.clearStack();
+        view.setTitle(t('canvas'));
+        view.setIcon(CANVAS_LIST_TAB_INPUT.icon);
+      }
       useNavigation.getState().setActiveView("canvas-list");
     }
-  }, [inProject, activeTab?.projectShell, t]);
+  }, [inProject, activeTab?.projectShell, activeTab?.base?.params, t]);
 
   const handleBackToProjectList = useCallback(() => {
     const title = t('sidebarProjectSpace');

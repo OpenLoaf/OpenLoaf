@@ -75,7 +75,10 @@ export function shouldDisableRightChat(layout?: LayoutSnapshot) {
     foreground === "project-settings-page" ||
     foreground === PROJECT_LIST_TAB_INPUT.component ||
     foreground === WORKBENCH_TAB_INPUT.component ||
-    foreground === CANVAS_LIST_TAB_INPUT.component
+    foreground === CANVAS_LIST_TAB_INPUT.component ||
+    foreground === "calendar-page" ||
+    foreground === "email-page" ||
+    foreground === "scheduled-tasks-page"
   ) {
     return true
   }

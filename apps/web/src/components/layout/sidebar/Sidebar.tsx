@@ -22,7 +22,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@openloaf/ui/sidebar";
-import { FolderKanban, LayoutDashboard, Palette, Search, Settings, Sparkles } from "lucide-react";
+import { CalendarDays, Clock, FolderKanban, LayoutDashboard, Mail, Palette, Search, Settings, Sparkles } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
@@ -133,6 +133,9 @@ export const AppSidebar = ({
   const isWorkbenchActive = activeForegroundComponent
     ? isWorkbenchDockContextComponent(activeForegroundComponent)
     : activeViewType === "workbench";
+  const isCalendarActive = activeForegroundComponent === "calendar-page" || (!activeForegroundComponent && activeViewType === "calendar");
+  const isEmailActive = activeForegroundComponent === "email-page" || (!activeForegroundComponent && activeViewType === "email");
+  const isTasksActive = activeForegroundComponent === "scheduled-tasks-page" || (!activeForegroundComponent && activeViewType === "scheduled-tasks");
   const isSettingsActive = isSettingsForegroundPage(appState);
   const isInProject = isProjectMode(appState.projectShell);
 
@@ -218,6 +221,33 @@ export const AppSidebar = ({
             }
             onClick={() =>
               openPrimaryPageTab({ ...PROJECT_LIST_TAB_INPUT, viewType: "project-list" })
+            }
+          />
+          <IconNavItem
+            icon={CalendarDays}
+            tooltip={t("calendar")}
+            color="blue"
+            isActive={!isInProject && isCalendarActive}
+            onClick={() =>
+              openPrimaryPageTab({ baseId: "base:calendar", component: "calendar-page", titleKey: "nav:calendar", icon: "🗓️", viewType: "calendar" })
+            }
+          />
+          <IconNavItem
+            icon={Mail}
+            tooltip={t("email")}
+            color="green"
+            isActive={!isInProject && isEmailActive}
+            onClick={() =>
+              openPrimaryPageTab({ baseId: "base:mailbox", component: "email-page", titleKey: "nav:email", icon: "📧", viewType: "email" })
+            }
+          />
+          <IconNavItem
+            icon={Clock}
+            tooltip={t("tasks")}
+            color="amber"
+            isActive={!isInProject && isTasksActive}
+            onClick={() =>
+              openPrimaryPageTab({ baseId: "base:scheduled-tasks", component: "scheduled-tasks-page", titleKey: "nav:tasks", icon: "⏰", viewType: "scheduled-tasks" })
             }
           />
         </SidebarMenu>

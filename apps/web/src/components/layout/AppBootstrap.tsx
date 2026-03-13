@@ -35,7 +35,7 @@ export function AppBootstrap() {
         rootUri: projectWindowPayload.rootUri,
         title: projectWindowPayload.title,
         icon: projectWindowPayload.icon,
-        section: "assistant",
+        section: "canvas",
       })
       return
     }

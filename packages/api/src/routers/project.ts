@@ -28,12 +28,14 @@ import {
   findProjectNodeWithParent,
   getProjectMetaPath,
   hasProjectInSubtree,
+  listProjectFlat,
   listProjectListPage,
   projectConfigSchema,
   readProjectConfig,
   readProjectTrees,
   type ProjectConfig,
 } from "../services/projectTreeService";
+import { syncProjectsFromDisk } from "../services/projectDbService";
 import { requireSummaryRuntime } from "../services/summaryRuntime";
 import { listSchedulerTaskRecords } from "../services/schedulerTaskRecordService";
 import {
@@ -75,6 +77,16 @@ async function readJsonFile(filePath: string): Promise<unknown | null> {
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw err;
+  }
+}
+
+/** Sync the project DB snapshot after filesystem mutations without breaking the main flow. */
+async function syncProjectSnapshot(prisma: unknown): Promise<void> {
+  try {
+    await syncProjectsFromDisk(prisma as any);
+  } catch (error) {
+    // 逻辑：项目主操作已经成功落盘时，同步失败只记录告警，避免把成功操作误报成失败。
+    console.warn("[project] sync snapshot failed", error);
   }
 }
 
@@ -411,9 +423,14 @@ export const projectRouter = t.router({
           .optional(),
       })
     )
-    .query(async ({ input }) => {
-      return listProjectListPage(input);
+    .query(async ({ ctx, input }) => {
+      return listProjectListPage(ctx.prisma, input);
     }),
+
+  /** List lightweight flat projects for selectors and filters. */
+  listFlat: shieldedProcedure.query(async ({ ctx }) => {
+    return listProjectFlat(ctx.prisma);
+  }),
 
   /** Check whether a directory path is a git project and detect project type. */
   checkPath: shieldedProcedure
@@ -444,7 +461,7 @@ export const projectRouter = t.router({
         enableVersionControl: z.boolean().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const projectStorageRootPath = getProjectStorageRootPath();
       const rawTitle = input.title?.trim() ?? "";
       const rawFolderName = input.folderName?.trim() ?? "";
@@ -511,6 +528,7 @@ export const projectRouter = t.router({
           projectRootUri
         );
       }
+      await syncProjectSnapshot(ctx.prisma);
       return {
         project: {
           projectId: config.projectId,
@@ -579,7 +597,7 @@ export const projectRouter = t.router({
           .optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const rootPath = resolveProjectRootPath(input.projectId);
       const metaPath = getProjectMetaPath(rootPath);
       const existing = (await readJsonFile(metaPath)) ?? {};
@@ -592,6 +610,7 @@ export const projectRouter = t.router({
           : {}),
       });
       await writeJsonAtomic(metaPath, next);
+      await syncProjectSnapshot(ctx.prisma);
       return { ok: true };
     }),
 
@@ -603,7 +622,7 @@ export const projectRouter = t.router({
         isFavorite: z.boolean(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const rootPath = resolveProjectRootPath(input.projectId);
       const metaPath = getProjectMetaPath(rootPath);
       const existing = (await readJsonFile(metaPath)) ?? {};
@@ -612,13 +631,14 @@ export const projectRouter = t.router({
         isFavorite: input.isFavorite,
       });
       await writeJsonAtomic(metaPath, next);
+      await syncProjectSnapshot(ctx.prisma);
       return { ok: true, isFavorite: input.isFavorite };
     }),
 
   /** Remove a project from the top-level registry without deleting files. */
   remove: shieldedProcedure
     .input(z.object({ projectId: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const projectTrees = await readProjectTrees();
       const sourceEntry = findProjectNodeWithParent(projectTrees, input.projectId);
       if (!sourceEntry) {
@@ -630,13 +650,14 @@ export const projectRouter = t.router({
       } else {
         removeTopLevelProject(input.projectId);
       }
+      await syncProjectSnapshot(ctx.prisma);
       return { ok: true };
     }),
 
   /** Permanently delete a project from disk and remove it from the top-level registry. */
   destroy: shieldedProcedure
     .input(z.object({ projectId: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const projectTrees = await readProjectTrees();
       const sourceEntry = findProjectNodeWithParent(projectTrees, input.projectId);
       if (!sourceEntry) {
@@ -655,6 +676,7 @@ export const projectRouter = t.router({
       } else {
         removeTopLevelProject(input.projectId);
       }
+      await syncProjectSnapshot(ctx.prisma);
       return { ok: true };
     }),
 
@@ -668,7 +690,7 @@ export const projectRouter = t.router({
         targetPosition: z.enum(["before", "after"]).nullable().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const targetSiblingProjectId = input.targetSiblingProjectId?.trim() || null;
       const targetPosition =
         input.targetPosition === "before" ? "before" : "after";
@@ -753,6 +775,7 @@ export const projectRouter = t.router({
         }
       }
 
+      await syncProjectSnapshot(ctx.prisma);
       return { ok: true };
     }),
 
@@ -1032,7 +1055,7 @@ export const projectRouter = t.router({
         icon: z.string().optional(),
       })
     )
-    .subscription(async function* ({ input }) {
+    .subscription(async function* ({ ctx, input }) {
       const url = input.url.trim();
       if (!url) {
         yield { type: "error" as const, message: "请输入 Git 仓库地址" };
@@ -1077,6 +1100,7 @@ export const projectRouter = t.router({
       const metaPath = getProjectMetaPath(targetDir);
       await writeJsonAtomic(metaPath, config);
       upsertTopLevelProject(projectId, projectRootUri);
+      await syncProjectSnapshot(ctx.prisma);
 
       yield {
         type: "done" as const,
@@ -1190,6 +1214,7 @@ export const projectRouter = t.router({
         where: { id: input.chatSessionId },
         data: { projectId },
       });
+      await syncProjectSnapshot(ctx.prisma);
 
       // 7. 清理 sessionDirCache（需要导入 chatFileStore）
       // 注意：这里需要在 server 端调用，暂时跳过，由前端刷新处理

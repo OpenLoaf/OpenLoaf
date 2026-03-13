@@ -278,17 +278,17 @@ body {
   --ol-red: #e04b42;       /* TE 红亮版 */
   --ol-purple: #4a9fd8;    /* TE 蓝亮版 */
 
-  --ol-blue-bg: oklch(0.24 0.07 37 / 35%);
-  --ol-green-bg: oklch(0.24 0.07 163 / 35%);
-  --ol-amber-bg: oklch(0.25 0.07 85 / 35%);
-  --ol-red-bg: oklch(0.23 0.07 22 / 35%);
-  --ol-purple-bg: oklch(0.24 0.07 245 / 35%);
+  --ol-blue-bg: oklch(0.22 0.03 37 / 25%);
+  --ol-green-bg: oklch(0.22 0.03 163 / 25%);
+  --ol-amber-bg: oklch(0.23 0.03 85 / 25%);
+  --ol-red-bg: oklch(0.21 0.03 22 / 25%);
+  --ol-purple-bg: oklch(0.22 0.03 245 / 25%);
 
-  --ol-blue-bg-hover: oklch(0.24 0.07 37 / 55%);
-  --ol-green-bg-hover: oklch(0.24 0.07 163 / 55%);
-  --ol-amber-bg-hover: oklch(0.25 0.07 85 / 55%);
-  --ol-red-bg-hover: oklch(0.23 0.07 22 / 55%);
-  --ol-purple-bg-hover: oklch(0.24 0.07 245 / 55%);
+  --ol-blue-bg-hover: oklch(0.24 0.04 37 / 35%);
+  --ol-green-bg-hover: oklch(0.24 0.04 163 / 35%);
+  --ol-amber-bg-hover: oklch(0.25 0.04 85 / 35%);
+  --ol-red-bg-hover: oklch(0.23 0.04 22 / 35%);
+  --ol-purple-bg-hover: oklch(0.24 0.04 245 / 35%);
 
   --ol-text-primary: #f5f5f5;
   --ol-text-secondary: #cccccc;

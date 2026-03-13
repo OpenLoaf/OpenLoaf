@@ -23,6 +23,139 @@ const BOARD_THUMBNAIL_QUALITY = 60;
 
 const BOARD_FOLDER_PREFIX = "board_";
 const BOARD_FOLDER_PREFIX_LEGACY = "tnboard_";
+const DEFAULT_BOARD_LIST_PAGE_SIZE = 24;
+const MAX_BOARD_LIST_PAGE_SIZE = 120;
+
+type BoardListItem = {
+  id: string;
+  title: string;
+  isPin: boolean;
+  projectId: string | null;
+  folderUri: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type BoardListPage = {
+  items: BoardListItem[];
+  total: number;
+  cursor: string | null;
+  nextCursor: string | null;
+  pageSize: number;
+  hasMore: boolean;
+};
+
+const boardListSelect = {
+  id: true,
+  title: true,
+  isPin: true,
+  projectId: true,
+  folderUri: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+/** Normalize board page size into a safe bounded integer. */
+function normalizeBoardListPageSize(pageSize?: number | null): number {
+  if (!pageSize || Number.isNaN(pageSize)) return DEFAULT_BOARD_LIST_PAGE_SIZE;
+  const normalized = Math.floor(pageSize);
+  if (normalized < 1) return DEFAULT_BOARD_LIST_PAGE_SIZE;
+  return Math.min(normalized, MAX_BOARD_LIST_PAGE_SIZE);
+}
+
+/** Decode offset cursor for paginated board list queries. */
+function decodeBoardListCursor(cursor?: string | null): number {
+  if (!cursor) return 0;
+  const offset = Number.parseInt(cursor, 10);
+  if (Number.isNaN(offset) || offset < 0) return 0;
+  return offset;
+}
+
+/** Build the Prisma where clause used by board list pages. */
+function buildBoardListWhere(input: {
+  projectId?: string;
+  filterProjectId?: string | null;
+  unboundOnly?: boolean;
+  search?: string | null;
+}) {
+  const scopeProjectId = input.projectId?.trim();
+  const filterProjectId = input.filterProjectId?.trim() || null;
+  const search = input.search?.trim();
+
+  const where: Record<string, unknown> = {
+    deletedAt: null,
+  };
+
+  if (scopeProjectId) {
+    where.projectId = scopeProjectId;
+  } else if (input.unboundOnly) {
+    where.projectId = null;
+  } else if (filterProjectId) {
+    where.projectId = filterProjectId;
+  }
+
+  if (search) {
+    where.title = {
+      contains: search,
+    };
+  }
+
+  return where;
+}
+
+/** Query a paginated board list with server-side search and filtering. */
+async function listBoardListPage(
+  prisma: any,
+  input: {
+    cursor?: string | null;
+    pageSize?: number | null;
+    projectId?: string;
+    filterProjectId?: string | null;
+    unboundOnly?: boolean;
+    search?: string | null;
+  },
+): Promise<BoardListPage> {
+  const cursor = input.cursor?.trim() || null;
+  const pageSize = normalizeBoardListPageSize(input.pageSize);
+  const where = buildBoardListWhere(input);
+  const offset = decodeBoardListCursor(cursor);
+
+  const queryPage = async () => {
+    const total = await prisma.board.count({ where });
+    const boundedOffset = Math.min(offset, total);
+    const items = await prisma.board.findMany({
+      where,
+      orderBy: [{ isPin: "desc" }, { updatedAt: "desc" }, { id: "desc" }],
+      skip: boundedOffset,
+      take: pageSize,
+      select: boardListSelect,
+    });
+    const nextOffset = boundedOffset + items.length;
+    const hasMore = nextOffset < total;
+    return {
+      items,
+      total,
+      cursor,
+      nextCursor: hasMore ? String(nextOffset) : null,
+      pageSize,
+      hasMore,
+    };
+  };
+
+  let page = await queryPage();
+  if (page.total === 0 && offset === 0 && !input.search?.trim()) {
+    try {
+      await syncBoardsFromDisk(prisma, {
+        projectId: input.projectId ?? input.filterProjectId ?? undefined,
+      });
+      page = await queryPage();
+    } catch (error) {
+      console.warn("[board.listPaged] sync from disk failed", error);
+    }
+  }
+
+  return page;
+}
 
 /** Extract the canonical board entity id from folderUri. */
 function resolveBoardEntityId(folderUri: string): string {
@@ -215,20 +348,11 @@ export const boardRouter = t.router({
         deletedAt: null,
         ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
       };
-      const selectFields = {
-        id: true,
-        title: true,
-        isPin: true,
-        projectId: true,
-        folderUri: true,
-        createdAt: true,
-        updatedAt: true,
-      };
 
       let boards = await ctx.prisma.board.findMany({
         where,
         orderBy: [{ isPin: "desc" }, { updatedAt: "desc" }],
-        select: selectFields,
+        select: boardListSelect,
       });
 
       // If DB has no records for this scope, try syncing from filesystem.
@@ -240,7 +364,7 @@ export const boardRouter = t.router({
           boards = await ctx.prisma.board.findMany({
             where,
             orderBy: [{ isPin: "desc" }, { updatedAt: "desc" }],
-            select: selectFields,
+            select: boardListSelect,
           });
         } catch (error) {
           console.warn("[board.list] sync from disk failed", error);
@@ -263,6 +387,22 @@ export const boardRouter = t.router({
       boards = Array.from(seen.values());
 
       return boards;
+    }),
+
+  /** List boards with server-side pagination, search, and project filtering. */
+  listPaged: shieldedProcedure
+    .input(
+      z.object({
+        cursor: z.string().nullable().optional(),
+        pageSize: z.number().int().min(1).max(120).nullable().optional(),
+        projectId: z.string().trim().optional(),
+        filterProjectId: z.string().trim().nullable().optional(),
+        unboundOnly: z.boolean().optional(),
+        search: z.string().nullable().optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      return listBoardListPage(ctx.prisma, input);
     }),
 
   /** Batch-load thumbnails for boards. */

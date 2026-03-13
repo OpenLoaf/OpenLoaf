@@ -749,7 +749,7 @@ export const PageTreeMenu = ({
       base: {
         id: `project:${targetProjectId}`,
         component: "plant-page",
-        params: { projectId: targetProjectId, rootUri: project.rootUri, projectTab: "files" },
+        params: { projectId: targetProjectId, rootUri: project.rootUri, projectTab: "canvas" },
       },
       leftWidthPercent: savedLayout?.leftWidthPercent ?? 100,
       rightChatCollapsed: savedLayout?.rightChatCollapsed ?? false,

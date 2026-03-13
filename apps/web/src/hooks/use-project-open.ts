@@ -24,7 +24,7 @@ export function useProjectOpen() {
 
   return useCallback(
     (input: OpenProjectInput, options?: OpenProjectOptions) => {
-      const section = options?.section ?? "assistant";
+      const section = options?.section ?? "canvas";
       const mode = options?.mode ?? "preference";
       const canOpenWindow =
         isElectron &&

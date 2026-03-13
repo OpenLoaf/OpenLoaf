@@ -9,7 +9,7 @@ import type { ProjectShellSection, ProjectShellState } from "./project-shell";
 /** Build project-shell state from one project-window bootstrap payload. */
 export function buildProjectShellStateFromWindowPayload(
   payload: ProjectWindowBootstrapPayload,
-  section: ProjectShellSection = "assistant",
+  section: ProjectShellSection = "canvas",
 ): ProjectShellState {
   return {
     projectId: payload.projectId,
@@ -23,7 +23,7 @@ export function buildProjectShellStateFromWindowPayload(
 /** Resolve the current project-mode shell from tab metadata or window bootstrap context. */
 export function resolveProjectModeProjectShell(
   projectShell?: ProjectShellState | null,
-  fallbackSection: ProjectShellSection = "assistant",
+  fallbackSection: ProjectShellSection = "canvas",
 ): ProjectShellState | null {
   if (projectShell) return projectShell;
   const payload = getProjectWindowBootstrapPayload();

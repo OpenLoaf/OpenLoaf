@@ -13,12 +13,11 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { Palette, Plus, Edit2, Trash2, MoreHorizontal, Copy, CopyPlus, CalendarDays, Search, X, FolderOpen, Sparkles, Loader2 } from "lucide-react";
-import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
-import { useProjects } from "@/hooks/use-projects";
 import { useIsInView } from "@/hooks/use-is-in-view";
 import { useProjectStorageRootUri } from "@/hooks/use-project-storage-root-uri";
 import { buildBoardFolderUri, buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
@@ -116,22 +115,17 @@ interface BoardGroup {
   boards: BoardItem[];
 }
 
-/** Build projectId -> rootUri map from the project tree. */
+/** Build projectId -> rootUri map from the flat project list. */
 function buildProjectRootUriMap(
   projects?: Array<{
     projectId: string;
     rootUri: string;
-    children?: Array<any>;
   }>,
 ) {
   const map = new Map<string, string>();
-  const walk = (items?: typeof projects) => {
-    items?.forEach((item) => {
-      if (item.projectId) map.set(item.projectId, item.rootUri);
-      if (item.children?.length) walk(item.children);
-    });
-  };
-  walk(projects);
+  projects?.forEach((item) => {
+    if (item.projectId) map.set(item.projectId, item.rootUri);
+  });
   return map;
 }
 
@@ -422,6 +416,7 @@ interface CanvasListPageProps {
 
 export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps) {
   const { t, i18n } = useTranslation("nav");
+  const { t: tCommon } = useTranslation("common");
   const { t: tAi } = useTranslation("ai");
   const lang = i18n.language;
   const projectStorageRootUri = useProjectStorageRootUri();
@@ -444,20 +439,19 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   const [groupByTime, setGroupByTime] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterProjectId, setFilterProjectId] = useState<string>("__all__");
-  const [visibleBoardCount, setVisibleBoardCount] = useState(BOARD_PAGE_SIZE);
   const [visibleThumbIds, setVisibleThumbIds] = useState<string[]>([]);
 
-  const { data: projectList } = useProjects();
+  const { data: projectList } = useQuery({
+    ...trpc.project.listFlat.queryOptions(),
+    staleTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
   const projectRootUriMap = useMemo(() => buildProjectRootUriMap(projectList), [projectList]);
   const projectInfoById = useMemo(() => {
     const map = new Map<string, { name: string; icon?: string }>();
-    const walk = (nodes: typeof projectList) => {
-      nodes?.forEach((node) => {
-        if (node.projectId) map.set(node.projectId, { name: node.title, icon: node.icon });
-        if (node.children?.length) walk(node.children);
-      });
-    };
-    walk(projectList);
+    projectList?.forEach((node) => {
+      if (node.projectId) map.set(node.projectId, { name: node.title, icon: node.icon });
+    });
     return map;
   }, [projectList]);
   const resolveBoardRootUri = useCallback(
@@ -466,42 +460,35 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     [projectRootUriMap, projectStorageRootUri],
   );
 
-  const queryInput = useMemo(
-    () => (projectId ? { projectId } : {}),
-    [projectId],
+  const pagedBoardsInput = useMemo(
+    () => ({
+      pageSize: BOARD_PAGE_SIZE,
+      ...(projectId ? { projectId } : {}),
+      ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+      ...(!projectId && filterProjectId !== "__all__" && filterProjectId !== "__none__"
+        ? { filterProjectId }
+        : {}),
+      ...(!projectId && filterProjectId === "__none__" ? { unboundOnly: true } : {}),
+    }),
+    [filterProjectId, projectId, searchQuery],
   );
 
-  const { data: boards } = useQuery(
-    trpc.board.list.queryOptions(queryInput),
-  );
-
-  const filteredBoards = useMemo(() => {
-    if (!boards) return [];
-    let result = [...boards];
-    if (filterProjectId !== "__all__") {
-      if (filterProjectId === "__none__") {
-        result = result.filter((b) => !b.projectId);
-      } else {
-        result = result.filter((b) => b.projectId === filterProjectId);
-      }
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      result = result.filter((b) => b.title.toLowerCase().includes(q));
-    }
-    return result;
-  }, [boards, filterProjectId, searchQuery]);
-
-  useEffect(() => {
-    setVisibleBoardCount(BOARD_PAGE_SIZE);
-  }, [filterProjectId, projectId, searchQuery]);
+  const boardsQuery = useInfiniteQuery({
+    ...trpc.board.listPaged.infiniteQueryOptions(pagedBoardsInput, {
+      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+      staleTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    }),
+  });
 
   const displayedBoards = useMemo(
-    () => filteredBoards.slice(0, visibleBoardCount),
-    [filteredBoards, visibleBoardCount],
+    () => boardsQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [boardsQuery.data],
   );
 
-  const hasMoreBoards = displayedBoards.length < filteredBoards.length;
+  const hasMoreBoards = Boolean(boardsQuery.hasNextPage);
+  const isFetchingNextBoards = boardsQuery.isFetchingNextPage;
+  const fetchNextBoards = boardsQuery.fetchNextPage;
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const { ref: loadMoreInViewRef, isInView: isLoadMoreInView } = useIsInView(loadMoreRef, {
     inView: hasMoreBoards,
@@ -509,9 +496,13 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   });
 
   useEffect(() => {
-    if (!hasMoreBoards || !isLoadMoreInView) return;
-    setVisibleBoardCount((prev) => Math.min(prev + BOARD_PAGE_SIZE, filteredBoards.length));
-  }, [filteredBoards.length, hasMoreBoards, isLoadMoreInView]);
+    if (!hasMoreBoards || !isLoadMoreInView || isFetchingNextBoards) return;
+    void fetchNextBoards();
+  }, [fetchNextBoards, hasMoreBoards, isFetchingNextBoards, isLoadMoreInView]);
+
+  useEffect(() => {
+    setVisibleThumbIds([]);
+  }, [filterProjectId, projectId, searchQuery]);
 
   const handleBoardVisible = useCallback((boardId: string) => {
     setVisibleThumbIds((prev) => (prev.includes(boardId) ? prev : [...prev, boardId]));
@@ -587,7 +578,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   );
 
   const invalidateBoardList = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: trpc.board.list.queryKey() });
+    queryClient.invalidateQueries({ queryKey: trpc.board.pathKey() });
   }, [queryClient]);
 
   const updateMutation = useMutation(
@@ -660,6 +651,8 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
             boardId: board.id,
             projectId: board.projectId ?? undefined,
             rootUri: boardRootUri,
+            // Save previous base so we can restore on back navigation
+            __previousBase: base ?? null,
           },
         },
       });
@@ -690,7 +683,8 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     }
     setAiNaming(true);
     try {
-      const board = boards?.find((item) => item.id === renameTarget.boardId);
+      // 逻辑：AI 命名只针对当前列表里已加载的目标看板，避免引用已移除的旧 boards 变量。
+      const board = displayedBoards.find((item) => item.id === renameTarget.boardId);
       if (!board) return;
       const result = await inferBoardNameMutation.mutateAsync({
         boardFolderUri: board.folderUri,
@@ -709,7 +703,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     } finally {
       setAiNaming(false);
     }
-  }, [renameTarget, boards, saasLoggedIn, inferBoardNameMutation, t]);
+  }, [renameTarget, displayedBoards, saasLoggedIn, inferBoardNameMutation, t]);
 
   const handleDelete = useCallback(
     (boardId: string) => {
@@ -745,6 +739,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     [t],
   );
   const canCreateBoard = Boolean(resolveBoardRootUri(projectId));
+  const isInitialLoading = boardsQuery.isPending && displayedBoards.length === 0;
 
   return (
     <div className="flex h-full flex-col">
@@ -823,7 +818,22 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
 
       {/* Grid */}
       <div className="flex-1 overflow-y-auto p-4">
-        {filteredBoards.length === 0 ? (
+        {isInitialLoading ? (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div
+                key={index}
+                className="overflow-hidden rounded-2xl border border-border/60 bg-card/70"
+              >
+                <div className="h-36 animate-pulse bg-muted/60" />
+                <div className="space-y-2 px-3.5 py-3">
+                  <div className="h-4 w-2/3 animate-pulse rounded bg-muted/60" />
+                  <div className="h-3 w-1/2 animate-pulse rounded bg-muted/50" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : displayedBoards.length === 0 ? (
           <div className="flex flex-col h-60 items-center justify-center gap-3 text-muted-foreground">
             <Palette className="h-10 w-10 opacity-30" />
             <p className="text-sm">{t("canvasList.empty")}</p>
@@ -869,6 +879,12 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
               </div>
             ))}
             {hasMoreBoards ? <div ref={loadMoreInViewRef} className="h-6 w-full" aria-hidden="true" /> : null}
+            {isFetchingNextBoards ? (
+              <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {tCommon("loading")}
+              </div>
+            ) : null}
           </div>
         ) : (
           <>
@@ -894,6 +910,12 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
               ))}
             </div>
             {hasMoreBoards ? <div ref={loadMoreInViewRef} className="h-6 w-full" aria-hidden="true" /> : null}
+            {isFetchingNextBoards ? (
+              <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {tCommon("loading")}
+              </div>
+            ) : null}
           </>
         )}
       </div>

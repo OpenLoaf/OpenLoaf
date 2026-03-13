@@ -13,6 +13,7 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useQuery } from "@tanstack/react-query"
 import {
+  Crown,
   Sparkles,
   Lightbulb,
   LogIn,
@@ -51,11 +52,82 @@ import { useGlobalOverlay } from "@/lib/globalShortcuts"
 
 
 /** 侧边栏等级徽章样式 — 使用更轻的浅色底，避免与 sidebar 背景相同，同时不过分抢眼。 */
-const SIDEBAR_MEMBERSHIP_BADGE_STYLES: Record<string, string> = {
+const SIDEBAR_MEMBERSHIP_BADGE_STYLES = {
   free: "bg-foreground/[0.05] text-foreground/65 dark:bg-foreground/[0.06] dark:text-foreground/65",
   vip: "bg-ol-amber-bg text-ol-amber",
   svip: "bg-ol-purple-bg text-ol-purple",
   infinity: "bg-ol-blue-bg text-ol-blue",
+} satisfies Record<string, string>
+
+const SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE =
+  "bg-foreground/[0.05] text-foreground/65 dark:bg-foreground/[0.06] dark:text-foreground/65"
+
+type SidebarMembershipLevel = keyof typeof SIDEBAR_MEMBERSHIP_BADGE_STYLES
+
+/** Build localized membership labels for sidebar account surfaces. */
+function buildMembershipLabels(input: Record<SidebarMembershipLevel, string>) {
+  return input
+}
+
+type SidebarAccountBenefitSummaryProps = {
+  creditsBalanceLabel: string | null
+  creditsTitle: string
+  emptyText: string
+  isLoading: boolean
+  loadingText: string
+  membershipLabel: string | null
+  membershipLevel: SidebarMembershipLevel | null
+  membershipTitle: string
+}
+
+/** Render account membership and credits summary in the avatar dropdown. */
+function SidebarAccountBenefitSummary({
+  creditsBalanceLabel,
+  creditsTitle,
+  emptyText,
+  isLoading,
+  loadingText,
+  membershipLabel,
+  membershipLevel,
+  membershipTitle,
+}: SidebarAccountBenefitSummaryProps) {
+  const membershipValueText = membershipLabel ?? (isLoading ? loadingText : emptyText)
+  const creditsValueText = creditsBalanceLabel ?? (isLoading ? loadingText : emptyText)
+
+  return (
+    <div className="mx-2 rounded-xl bg-muted/30 p-1.5">
+      <div className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-ol-amber-bg text-ol-amber">
+            <Crown className="size-3.5" />
+          </span>
+          <span className="truncate text-xs text-muted-foreground">{membershipTitle}</span>
+        </div>
+        {membershipLabel ? (
+          <span
+            className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${SIDEBAR_MEMBERSHIP_BADGE_STYLES[membershipLevel ?? "free"] ?? SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE}`}
+          >
+            {membershipValueText}
+          </span>
+        ) : (
+          <span className="shrink-0 text-[11px] text-muted-foreground">
+            {membershipValueText}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-ol-green-bg text-ol-green">
+            <Sparkles className="size-3.5" />
+          </span>
+          <span className="truncate text-xs text-muted-foreground">{creditsTitle}</span>
+        </div>
+        <span className="shrink-0 text-[11px] font-medium tabular-nums text-foreground/90">
+          {creditsValueText}
+        </span>
+      </div>
+    </div>
+  )
 }
 
 export function SidebarUserAccount() {
@@ -90,12 +162,12 @@ export function SidebarUserAccount() {
     }
   }, [authLoggedIn])
 
-  const MEMBERSHIP_LABELS: Record<string, string> = {
+  const membershipLabels = buildMembershipLabels({
     free: t('membership.free'),
     vip: t('membership.vip'),
     svip: t('membership.svip'),
     infinity: t('membership.infinity'),
-  }
+  })
 
   const isWechatLogin = Boolean(authUser?.email?.endsWith("@wechat.local"))
   const baseAccountLabel =
@@ -105,9 +177,9 @@ export function SidebarUserAccount() {
     : baseAccountLabel
   const sidebarDisplayName = authUser?.name?.trim() || sidebarAccountLabel || "OpenLoaf"
   const dropdownAccountLabel = isWechatLogin ? t('wechatLogin') : baseAccountLabel
-  const membershipLevel = userProfileQuery.data?.membershipLevel
+  const membershipLevel = userProfileQuery.data?.membershipLevel ?? null
   const membershipLabel = membershipLevel
-    ? (MEMBERSHIP_LABELS[membershipLevel] ?? membershipLevel)
+    ? (membershipLabels[membershipLevel] ?? membershipLevel)
     : null
   const creditsBalanceLabel = userProfileQuery.data
     ? Math.floor(userProfileQuery.data.creditsBalance).toLocaleString()
@@ -222,7 +294,7 @@ export function SidebarUserAccount() {
                   </span>
                   {membershipLabel ? (
                     <span
-                      className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${SIDEBAR_MEMBERSHIP_BADGE_STYLES[membershipLevel ?? "free"] ?? "bg-foreground/[0.05] text-foreground/65"}`}
+                      className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${SIDEBAR_MEMBERSHIP_BADGE_STYLES[membershipLevel ?? "free"] ?? SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE}`}
                     >
                       {membershipLabel}
                     </span>
@@ -268,6 +340,16 @@ export function SidebarUserAccount() {
                     <div className="truncate text-xs text-muted-foreground leading-4">{dropdownAccountLabel}</div>
                   </div>
                 </div>
+                <SidebarAccountBenefitSummary
+                  creditsBalanceLabel={creditsBalanceLabel}
+                  creditsTitle={t('settings.creditsBalance')}
+                  emptyText="—"
+                  isLoading={userProfileQuery.isLoading}
+                  loadingText={t('settings.loading')}
+                  membershipLabel={membershipLabel}
+                  membershipLevel={membershipLevel}
+                  membershipTitle={t('settings.membershipLevel')}
+                />
 
                 <DropdownMenuSeparator className="my-2" />
               </>
@@ -390,12 +472,25 @@ export function CompactUserAvatar() {
     if (authLoggedIn) setLoginOpen(false)
   }, [authLoggedIn])
 
+  const membershipLabels = buildMembershipLabels({
+    free: t('membership.free'),
+    vip: t('membership.vip'),
+    svip: t('membership.svip'),
+    infinity: t('membership.infinity'),
+  })
   const isWechatLogin = Boolean(authUser?.email?.endsWith("@wechat.local"))
   const baseAccountLabel =
     authUser?.email ?? authUser?.name ?? (authLoggedIn ? t('loggedIn') : undefined)
   const sidebarAccountLabel = isWechatLogin
     ? authUser?.name?.trim() || t('wechatUser')
     : baseAccountLabel
+  const membershipLevel = userProfileQuery.data?.membershipLevel ?? null
+  const membershipLabel = membershipLevel
+    ? (membershipLabels[membershipLevel] ?? membershipLevel)
+    : null
+  const creditsBalanceLabel = userProfileQuery.data
+    ? Math.floor(userProfileQuery.data.creditsBalance).toLocaleString()
+    : null
   const avatarAlt = sidebarAccountLabel ?? "User"
   const displayAvatar = authUser?.avatarUrl
 
@@ -519,6 +614,16 @@ export function CompactUserAvatar() {
                   </div>
                 </div>
               </div>
+              <SidebarAccountBenefitSummary
+                creditsBalanceLabel={creditsBalanceLabel}
+                creditsTitle={t('settings.creditsBalance')}
+                emptyText="—"
+                isLoading={userProfileQuery.isLoading}
+                loadingText={t('settings.loading')}
+                membershipLabel={membershipLabel}
+                membershipLevel={membershipLevel}
+                membershipTitle={t('settings.membershipLevel')}
+              />
               <DropdownMenuSeparator className="my-2" />
             </>
           )}

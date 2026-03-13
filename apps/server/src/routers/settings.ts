@@ -27,7 +27,10 @@ import {
   projectConfigSchema,
   readProjectConfig,
 } from "@openloaf/api/services/projectTreeService";
-import { resolveProjectAncestorRootUris } from "@openloaf/api/services/projectDbService";
+import {
+  resolveProjectAncestorRootUris,
+  syncProjectsFromDisk,
+} from "@openloaf/api/services/projectDbService";
 import { prisma } from "@openloaf/db";
 import {
   deleteSettingValueFromWeb,
@@ -1485,6 +1488,12 @@ export class SettingRouterImpl extends BaseSettingRouter {
               "utf-8",
             );
             await fs.rename(tmpPath, metaPath);
+            try {
+              await syncProjectsFromDisk(prisma as any);
+            } catch (error) {
+              // 逻辑：分类结果已写回 project.json，同步快照失败时仅告警，避免影响主流程。
+              console.warn("[settings.inferProjectType] sync snapshot failed", error);
+            }
           }
 
           return {

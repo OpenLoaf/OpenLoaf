@@ -631,7 +631,7 @@ export function TabLayout() {
       </motion.div>
 
       <motion.div
-        className="flex-1 min-w-0 relative z-10 flex flex-col"
+        className={cn("relative z-10 flex flex-col", isRightVisible ? "flex-1 min-w-0" : "w-0 overflow-hidden")}
         animate={{ opacity: isRightVisible ? 1 : 0 }}
         transition={
           reduceMotion

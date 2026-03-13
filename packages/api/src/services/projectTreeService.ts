@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import { resolveFilePathFromUri, toFileUriWithoutEncoding } from "./fileUri";
 import { getProjectStorageRootUri } from "./vfsService";
 import { getProjectRegistryEntries } from "./projectRegistryConfig";
+import { syncProjectsFromDisk } from "./projectDbService";
 
 /** Directory name for project metadata. */
 export const PROJECT_META_DIR = ".openloaf";
@@ -100,6 +101,20 @@ export type ProjectListItem = {
   childCount: number;
 };
 
+/** Flat project option item used by lightweight selectors. */
+export type ProjectFlatItem = {
+  /** Project id. */
+  projectId: string;
+  /** Project display title. */
+  title: string;
+  /** Project icon. */
+  icon?: string;
+  /** Project root URI. */
+  rootUri: string;
+  /** Nesting depth in the project tree. */
+  depth: number;
+};
+
 /** Paginated project list response. */
 export type ProjectListPage = {
   /** Current page items. */
@@ -128,6 +143,36 @@ export type ProjectNodeWithParent = {
 const PROJECT_ID_PREFIX = "proj_";
 const DEFAULT_PROJECT_LIST_PAGE_SIZE = 48;
 const MAX_PROJECT_LIST_PAGE_SIZE = 120;
+
+type ProjectListDbRow = {
+  id: string;
+  title: string;
+  icon: string | null;
+  rootUri: string;
+  parentId: string | null;
+  sortIndex: number;
+  isFavorite: boolean;
+  type: string | null;
+};
+
+type ProjectListDbClient = {
+  project: {
+    /** Query the project snapshot used by list pages. */
+    findMany: (args: {
+      where: { isDeleted: boolean };
+      select: {
+        id: true;
+        title: true;
+        icon: true;
+        rootUri: true;
+        parentId: true;
+        sortIndex: true;
+        isFavorite: true;
+        type: true;
+      };
+    }) => Promise<ProjectListDbRow[]>;
+  };
+};
 
 /** Create a new project id. */
 function buildProjectId(): string {
@@ -184,6 +229,14 @@ function normalizeProjectListType(projectType?: string | null): string {
   return projectType?.trim() || "general";
 }
 
+/** Compare sibling project rows while preserving stored sort order. */
+function compareProjectListRows(a: ProjectListDbRow, b: ProjectListDbRow): number {
+  if (a.sortIndex !== b.sortIndex) return a.sortIndex - b.sortIndex;
+  const titleCompare = a.title.localeCompare(b.title);
+  if (titleCompare !== 0) return titleCompare;
+  return a.id.localeCompare(b.id);
+}
+
 /** Flatten project trees into a list that preserves visual tree depth. */
 function flattenProjectNodes(
   nodes: ProjectNode[],
@@ -206,6 +259,55 @@ function flattenProjectNodes(
       items.push(...flattenProjectNodes(node.children, depth + 1));
     }
   }
+  return items;
+}
+
+/** Flatten DB project snapshot rows into page items while preserving tree order. */
+function flattenProjectRows(rows: ProjectListDbRow[]): ProjectListItem[] {
+  if (rows.length === 0) return [];
+
+  const rowIdSet = new Set(rows.map((row) => row.id));
+  const childrenByParent = new Map<string | null, ProjectListDbRow[]>();
+
+  for (const row of rows) {
+    const trimmedParentId = row.parentId?.trim() || null;
+    const parentId = trimmedParentId && rowIdSet.has(trimmedParentId)
+      ? trimmedParentId
+      : null;
+    const bucket = childrenByParent.get(parentId);
+    if (bucket) {
+      bucket.push(row);
+      continue;
+    }
+    childrenByParent.set(parentId, [row]);
+  }
+
+  for (const bucket of childrenByParent.values()) {
+    bucket.sort(compareProjectListRows);
+  }
+
+  const items: ProjectListItem[] = [];
+  const visit = (nodes: ProjectListDbRow[], depth: number) => {
+    for (const row of nodes) {
+      const children = childrenByParent.get(row.id) ?? [];
+      items.push({
+        projectId: row.id,
+        title: row.title,
+        icon: row.icon ?? undefined,
+        rootUri: row.rootUri,
+        isGitProject: false,
+        isFavorite: row.isFavorite,
+        projectType: row.type ?? undefined,
+        depth,
+        childCount: children.length,
+      });
+      if (children.length > 0) {
+        visit(children, depth + 1);
+      }
+    }
+  };
+
+  visit(childrenByParent.get(null) ?? [], 0);
   return items;
 }
 
@@ -390,43 +492,111 @@ export async function readProjectTrees(): Promise<ProjectNode[]> {
   return projects;
 }
 
-/** List top-level project trees as a flattened paginated collection. */
-export async function listProjectListPage(input?: {
-  cursor?: string | null;
-  pageSize?: number | null;
-  search?: string | null;
-  projectType?: string | null;
-}): Promise<ProjectListPage> {
-  const trees = await readProjectTrees();
-  let items = flattenProjectNodes(trees);
+/** Read project snapshot rows from the database and backfill once when empty. */
+async function readProjectListRows(prisma: ProjectListDbClient): Promise<ProjectListDbRow[]> {
+  const select = {
+    id: true,
+    title: true,
+    icon: true,
+    rootUri: true,
+    parentId: true,
+    sortIndex: true,
+    isFavorite: true,
+    type: true,
+  } as const;
 
+  let rows = await prisma.project.findMany({
+    where: { isDeleted: false },
+    select,
+  });
+
+  if (rows.length === 0 && getProjectRegistryEntries().length > 0) {
+    // 逻辑：首轮分页命中空快照时，同步一次磁盘项目树，避免旧数据集无法进入新分页链路。
+    await syncProjectsFromDisk(prisma as any);
+    rows = await prisma.project.findMany({
+      where: { isDeleted: false },
+      select,
+    });
+  }
+
+  return rows;
+}
+
+/** Resolve project storage root path for bounded git detection. */
+function resolveProjectStorageRootPath(): string | undefined {
+  const projectStorageRootUri = getProjectStorageRootUri();
+  try {
+    return resolveFilePathFromUri(projectStorageRootUri);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Apply project search and type filters to flattened page items. */
+function filterProjectListItems(
+  items: ProjectListItem[],
+  input?: {
+    search?: string | null;
+    projectType?: string | null;
+  },
+) {
+  let nextItems = items;
   const search = input?.search?.trim().toLowerCase();
   if (search) {
-    items = items.filter(
-      (item) => {
-        if (item.title.toLowerCase().includes(search)) return true;
-        if (item.rootUri.toLowerCase().includes(search)) return true;
-        try {
-          return resolveFilePathFromUri(item.rootUri).toLowerCase().includes(search);
-        } catch {
-          return false;
-        }
-      },
+    nextItems = nextItems.filter(
+      (item) =>
+        item.title.toLowerCase().includes(search) ||
+        item.rootUri.toLowerCase().includes(search),
     );
   }
 
   const projectType = input?.projectType?.trim();
   if (projectType) {
-    items = items.filter(
+    nextItems = nextItems.filter(
       (item) => normalizeProjectListType(item.projectType) === projectType,
     );
   }
+
+  return nextItems;
+}
+
+/** Resolve git flags only for the current page to avoid scanning every project root. */
+async function hydratePagedProjectGitStatus(items: ProjectListItem[]): Promise<ProjectListItem[]> {
+  if (items.length === 0) return items;
+  const projectStorageRootPath = resolveProjectStorageRootPath();
+  return Promise.all(
+    items.map(async (item) => {
+      let isGitProject = false;
+      try {
+        const rootPath = resolveFilePathFromUri(item.rootUri);
+        isGitProject = await resolveGitProjectStatus(rootPath, projectStorageRootPath);
+      } catch {
+        isGitProject = false;
+      }
+      return { ...item, isGitProject };
+    }),
+  );
+}
+
+/** List top-level project trees as a flattened paginated collection. */
+export async function listProjectListPage(
+  prisma: ProjectListDbClient,
+  input?: {
+  cursor?: string | null;
+  pageSize?: number | null;
+  search?: string | null;
+  projectType?: string | null;
+}): Promise<ProjectListPage> {
+  const rows = await readProjectListRows(prisma);
+  const items = filterProjectListItems(flattenProjectRows(rows), input);
 
   const total = items.length;
   const cursor = input?.cursor?.trim() || null;
   const pageSize = normalizeProjectListPageSize(input?.pageSize);
   const offset = Math.min(decodeProjectListCursor(cursor), total);
-  const pageItems = items.slice(offset, offset + pageSize);
+  const pageItems = await hydratePagedProjectGitStatus(
+    items.slice(offset, offset + pageSize),
+  );
   const nextOffset = offset + pageItems.length;
   const hasMore = nextOffset < total;
 
@@ -438,6 +608,18 @@ export async function listProjectListPage(input?: {
     pageSize,
     hasMore,
   };
+}
+
+/** List lightweight flat projects for selectors without loading the full tree. */
+export async function listProjectFlat(prisma: ProjectListDbClient): Promise<ProjectFlatItem[]> {
+  const rows = await readProjectListRows(prisma);
+  return flattenProjectRows(rows).map((item) => ({
+    projectId: item.projectId,
+    title: item.title,
+    icon: item.icon,
+    rootUri: item.rootUri,
+    depth: item.depth,
+  }));
 }
 
 /** Find a project node and its parent id from tree. */

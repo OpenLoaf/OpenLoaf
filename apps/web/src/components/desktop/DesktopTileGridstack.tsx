@@ -92,8 +92,8 @@ export default function DesktopTileGridstack({
       : true;
   // 逻辑：固定状态用于锁定拖拽与占位。
   const isPinned = item.pinned ?? false;
-  // 逻辑：仅在动画等级为高时显示七彩发光。
-  const enableGlow = !editMode && basic.uiAnimationLevel === "high";
+  // 逻辑：TE 工业极简风格下关闭七彩发光效果。
+  const enableGlow = false;
   const widgetKey = item.kind === "widget" ? item.widgetKey : null;
   // 逻辑：读取 widget 的 variant 配置列表。
   const variants = widgetKey ? getWidgetVariants(widgetKey) : undefined;

@@ -14,12 +14,22 @@ import { ProjectSettingsDialog } from "@/components/project/settings/ProjectSett
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
 import { isElectronEnv } from "@/utils/is-electron-env";
+import { useAppState } from "@/hooks/use-app-state";
+import { useLayoutState } from "@/hooks/use-layout-state";
+import { shouldDisableRightChat } from "@/hooks/layout-utils";
+import { Sparkles } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
+import { Button } from "@openloaf/ui/button";
 
 import { PageTitle } from "./PageTitle";
 import { ModeToggle } from "./ModeToggle";
 import { Search as SearchDialog } from "@/components/search/Search";
 
 export const Header = () => {
+  const activeTab = useAppState();
+  const isRightChatDisabled = shouldDisableRightChat(activeTab);
+  const canToggleChat = Boolean(activeTab?.base) && !isRightChatDisabled;
+  const isChatCollapsed = Boolean(activeTab?.rightChatCollapsed);
   const setHeaderActionsTarget = useHeaderSlot((s) => s.setHeaderActionsTarget);
   const setHeaderTitleExtraTarget = useHeaderSlot((s) => s.setHeaderTitleExtraTarget);
   const [actionsNode, setActionsNode] = useState<HTMLDivElement | null>(null);
@@ -91,11 +101,40 @@ export const Header = () => {
           data-slot="header-actions"
         />
       </div>
-      <div className="flex shrink-0 h-(--header-height) items-center pr-2 relative">
+      <div className="flex shrink-0 h-(--header-height) items-center pr-2 relative gap-0.5">
         {hasActions && <div className="mx-1 h-5 w-px bg-foreground/20" />}
         <div data-no-drag="true">
           <ModeToggle />
         </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              data-no-drag="true"
+              className={`h-8 w-8 transition-all duration-200 ease-in-out ${
+                canToggleChat
+                  ? "opacity-100 w-8"
+                  : "opacity-0 w-0 pointer-events-none"
+              }`}
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                if (!canToggleChat) return;
+                useLayoutState.getState().setRightChatCollapsed(!isChatCollapsed);
+              }}
+            >
+              <div className="animate-[sparkle-float_2.2s_ease-in-out_infinite] hover:animate-none hover:-translate-y-0.5 hover:rotate-[10deg] active:scale-95 active:rotate-0 transition-transform">
+                <Sparkles
+                  aria-hidden="true"
+                  className="h-5 w-5 text-ol-amber"
+                  fill="currentColor"
+                />
+              </div>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={6}>
+            AI
+          </TooltipContent>
+        </Tooltip>
       </div>
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
       <ProjectSettingsDialog />
