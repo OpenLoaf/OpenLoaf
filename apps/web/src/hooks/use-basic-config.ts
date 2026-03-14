@@ -34,6 +34,7 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   uiThemeManual: "light",
   projectOpenMode: "sidebar",
   boardDebugEnabled: false,
+  boardSnapEnabled: false,
   // Toggle chat preface viewer button.
   chatPrefaceEnabled: false,
   appLocalStorageDir: "",

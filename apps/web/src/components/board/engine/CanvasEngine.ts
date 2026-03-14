@@ -186,6 +186,8 @@ export class CanvasEngine {
   private toolbarDragging = false;
   /** Recent user-picked colors shared across all toolbar color panels. Max 7. */
   private colorHistory: string[] = [];
+  /** Whether snap-to-align is enabled during drag/resize. */
+  private snapEnabled = false;
   /** Alignment guides for snapping feedback. */
   private alignmentGuides: CanvasAlignmentGuide[] = [];
   /** Selection box for rectangle selection. */
@@ -588,6 +590,19 @@ export class CanvasEngine {
   setLocked(locked: boolean): void {
     this.locked = locked;
     this.emitChange();
+  }
+
+  /** Whether snap-to-align is currently enabled. */
+  isSnapEnabled(): boolean {
+    return this.snapEnabled;
+  }
+
+  /** Toggle snap-to-align during drag/resize. */
+  setSnapEnabled(enabled: boolean): void {
+    this.snapEnabled = enabled;
+    if (!enabled) {
+      this.setAlignmentGuides([]);
+    }
   }
 
   /** Return the current pen settings. */

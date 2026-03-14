@@ -674,7 +674,16 @@
     "confirmDelete": "Delete skill \"{{name}}\"? This cannot be undone.",
     "scopeGlobal": "Global skill",
     "scopeProject": "Project skill",
-    "scopeProjectSpace": "Project Space skill"
+    "scopeProjectSpace": "Project Space skill",
+    "translate": {
+      "buttonTranslate": "Translate to Chinese",
+      "buttonRetranslate": "Re-translate",
+      "buttonTranslating": "Translating...",
+      "buttonTranslated": "Translated",
+      "success": "Translation complete: {{translated}} files translated, {{skipped}} skipped",
+      "failed": "Translation failed",
+      "upToDate": "Already up to date, no update needed"
+    }
   },
   "modelSelector": {
     "noModels": "No available models",

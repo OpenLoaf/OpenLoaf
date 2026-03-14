@@ -429,15 +429,21 @@ export class SelectTool implements CanvasTool {
       w: group.w,
       h: group.h,
     };
-    const { zoom } = ctx.engine.viewport.getState();
-    // 逻辑：阈值与边距随缩放换算，保证屏幕体验一致。
-    const threshold = this.snapPixel / Math.max(zoom, MIN_ZOOM);
-    const margin = this.guideMargin / Math.max(zoom, MIN_ZOOM);
-    const others = this.cachedOthersRects!;
+    let finalDx = dx;
+    let finalDy = dy;
+    let guides: import("../engine/types").CanvasAlignmentGuide[] = [];
 
-    const snapped = snapMoveRect(nextRect, others, threshold, margin);
-    const snappedDx = snapped.rect.x - group.x;
-    const snappedDy = snapped.rect.y - group.y;
+    if (ctx.engine.isSnapEnabled()) {
+      const { zoom } = ctx.engine.viewport.getState();
+      const threshold = this.snapPixel / Math.max(zoom, MIN_ZOOM);
+      const margin = this.guideMargin / Math.max(zoom, MIN_ZOOM);
+      const others = this.cachedOthersRects!;
+      const snapped = snapMoveRect(nextRect, others, threshold, margin);
+      finalDx = snapped.rect.x - group.x;
+      finalDy = snapped.rect.y - group.y;
+      guides = snapped.guides;
+    }
+
     // 逻辑：batch 合并 transact + setAlignmentGuides，避免拖拽每帧两次 emitChange。
     ctx.engine.batch(() => {
       ctx.engine.doc.transact(() => {
@@ -448,15 +454,15 @@ export class SelectTool implements CanvasTool {
           if (!element) return;
           ctx.engine.doc.updateElement(id, {
             xywh: [
-              startRect[0] + snappedDx,
-              startRect[1] + snappedDy,
+              startRect[0] + finalDx,
+              startRect[1] + finalDy,
               startRect[2],
               startRect[3],
             ],
           });
         });
       });
-      ctx.engine.setAlignmentGuides(snapped.guides);
+      ctx.engine.setAlignmentGuides(guides);
     });
   }
 

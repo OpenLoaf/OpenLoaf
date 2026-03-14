@@ -44,6 +44,7 @@ const LazyTerminalViewer = React.lazy(() => import("@/components/file/TerminalVi
 const LazyDesktopWidgetLibraryPanel = React.lazy(() => import("@/components/desktop/DesktopWidgetLibraryPanel"));
 const LazyGlobalDesktop = React.lazy(() => import("@/components/desktop/GlobalDesktop"));
 const LazyFolderTreePreview = React.lazy(() => import("@/components/project/filesystem/FolderTreePreview"));
+const LazySkillTranslateSlot = React.lazy(() => import("@/components/setting/skills/SkillTranslateSlot"));
 const LazySchedulerTaskHistoryStackPanel = React.lazy(() =>
   import("@/components/summary/SchedulerTaskHistoryStackPanel").then(m => ({ default: m.SchedulerTaskHistoryStackPanel })),
 );
@@ -112,6 +113,18 @@ function SkillSettingsStack(props: Record<string, unknown>) {
   );
 }
 
+/** Folder tree preview wrapped with skill translation slot when applicable. */
+function FolderTreePreviewWithSkillSlot(props: Record<string, unknown>) {
+  const skillFolderPath = props.__skillFolderPath as string | undefined;
+  if (skillFolderPath) {
+    return React.createElement(React.Fragment, null,
+      React.createElement(LazySkillTranslateSlot, { skillFolderPath }),
+      React.createElement(LazyFolderTreePreview, props as any),
+    );
+  }
+  return React.createElement(LazyFolderTreePreview, props as any);
+}
+
 type PanelComponent = React.ComponentType<any> | React.LazyExoticComponent<React.ComponentType<any>>;
 
 export const ComponentMap: Record<string, PanelComponent> = {
@@ -139,7 +152,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "terminal-viewer": LazyTerminalViewer,
   "desktop-widget-library": LazyDesktopWidgetLibraryPanel,
   "global-desktop": LazyGlobalDesktop,
-  "folder-tree-preview": LazyFolderTreePreview,
+  "folder-tree-preview": FolderTreePreviewWithSkillSlot,
   "scheduler-task-history": LazySchedulerTaskHistoryStackPanel,
   "scheduled-tasks-page": LazyScheduledTasksPage,
   "agent-detail": LazyAgentDetailPanel,

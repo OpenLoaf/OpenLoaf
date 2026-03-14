@@ -94,6 +94,8 @@ export const basicConfigSchema = z.object({
   projectOpenMode: projectOpenModeSchema,
   /** Show board debug overlay. */
   boardDebugEnabled: z.boolean(),
+  /** Enable snap-to-align guides when dragging/resizing board nodes. */
+  boardSnapEnabled: z.boolean(),
   /** Show chat preface viewer button. */
   chatPrefaceEnabled: z.boolean(),
   appLocalStorageDir: z.string(),

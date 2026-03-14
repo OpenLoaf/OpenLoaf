@@ -524,6 +524,28 @@ export const settingSchemas = {
       title: z.string(),
     }),
   },
+  /** Get skill translation status. */
+  getSkillTranslationStatus: {
+    input: z.object({ skillFolderPath: z.string() }),
+    output: z.object({
+      status: z.enum(['not-translated', 'translated', 'needs-update']),
+      displayName: z.string().optional(),
+      translatedAt: z.string().optional(),
+    }),
+  },
+  /** Translate a skill to Chinese. */
+  translateSkill: {
+    input: z.object({
+      skillFolderPath: z.string(),
+      saasAccessToken: z.string().optional(),
+    }),
+    output: z.object({
+      ok: z.boolean(),
+      translatedFiles: z.number(),
+      skippedFiles: z.number(),
+      error: z.string().optional(),
+    }),
+  },
 };
 
 export abstract class BaseSettingRouter {
@@ -755,6 +777,18 @@ export abstract class BaseSettingRouter {
       inferBoardName: shieldedProcedure
         .input(settingSchemas.inferBoardName.input)
         .output(settingSchemas.inferBoardName.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getSkillTranslationStatus: shieldedProcedure
+        .input(settingSchemas.getSkillTranslationStatus.input)
+        .output(settingSchemas.getSkillTranslationStatus.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      translateSkill: shieldedProcedure
+        .input(settingSchemas.translateSkill.input)
+        .output(settingSchemas.translateSkill.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

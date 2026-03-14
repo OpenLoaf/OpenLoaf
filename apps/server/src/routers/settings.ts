@@ -1697,6 +1697,24 @@ export class SettingRouterImpl extends BaseSettingRouter {
 
           return { title: result.title };
         }),
+      getSkillTranslationStatus: shieldedProcedure
+        .input(settingSchemas.getSkillTranslationStatus.input)
+        .output(settingSchemas.getSkillTranslationStatus.output)
+        .query(async ({ input }) => {
+          const { getSkillTranslationStatus } = await import(
+            "@/ai/services/skillTranslationService"
+          );
+          return getSkillTranslationStatus(input.skillFolderPath);
+        }),
+      translateSkill: shieldedProcedure
+        .input(settingSchemas.translateSkill.input)
+        .output(settingSchemas.translateSkill.output)
+        .mutation(async ({ input }) => {
+          const { translateSkill } = await import(
+            "@/ai/services/skillTranslationService"
+          );
+          return translateSkill(input.skillFolderPath, input.saasAccessToken);
+        }),
     });
   }
 }

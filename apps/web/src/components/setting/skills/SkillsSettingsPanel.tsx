@@ -241,6 +241,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
           projectId: isProjectSkill ? projectId : undefined,
           projectTitle: skill.name,
           viewerRootUri: baseRootUri,
+          __skillFolderPath: skill.path.replace(/[/\\]SKILL\.md$/i, ''),
         },
       });
       // 关闭设置对话框，避免对话框遮挡 stack 预览面板。

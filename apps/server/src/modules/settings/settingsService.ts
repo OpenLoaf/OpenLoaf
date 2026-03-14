@@ -365,6 +365,10 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     typeof next.boardDebugEnabled === "boolean"
       ? next.boardDebugEnabled
       : current.boardDebugEnabled;
+  const boardSnapEnabled =
+    typeof next.boardSnapEnabled === "boolean"
+      ? next.boardSnapEnabled
+      : current.boardSnapEnabled;
   const chatPrefaceEnabled =
     typeof next.chatPrefaceEnabled === "boolean"
       ? next.chatPrefaceEnabled
@@ -434,6 +438,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     uiThemeManual,
     projectOpenMode,
     boardDebugEnabled,
+    boardSnapEnabled,
     chatPrefaceEnabled,
     appLocalStorageDir,
     appAutoBackupDir,

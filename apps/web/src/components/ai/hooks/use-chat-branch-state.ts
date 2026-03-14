@@ -31,13 +31,15 @@ type ApplySnapshotOptions = {
   preserveMessagesWhenMissing?: boolean;
 };
 
-type UseChatBranchStateInput = {
+type UseChatBranchQueryInput = {
   /** Current chat session id. */
   sessionId: string;
   /** Whether the initial history request should be active. */
   enabled: boolean;
   /** Number of messages already present in local chat state. */
   localMessageCount: number;
+  /** Branch snapshot state from useBranchSnapshot(). */
+  branchSnapshot: ReturnType<typeof useBranchSnapshot>;
 };
 
 const EMPTY_BRANCH_SNAPSHOT: ChatBranchSnapshot = {
@@ -78,8 +80,11 @@ function buildSnapshot(
   };
 }
 
-/** Keep the current branch snapshot and server view query in one place. */
-export function useChatBranchState(input: UseChatBranchStateInput) {
+/**
+ * Snapshot state + mutation functions — no dependency on chat messages.
+ * Call this BEFORE useChat so patchSnapshot / refreshBranchMeta are available to onFinish.
+ */
+export function useBranchSnapshot(sessionId: string) {
   const queryClient = useQueryClient();
   const [snapshot, setSnapshot] = React.useState<ChatBranchSnapshot>(
     EMPTY_BRANCH_SNAPSHOT,
@@ -122,6 +127,64 @@ export function useChatBranchState(input: UseChatBranchStateInput) {
     });
   }, [queryClient]);
 
+  const refreshSnapshot = React.useCallback(
+    async (nextInput?: ChatViewInput, options?: ApplySnapshotOptions) => {
+      const data = await queryClient.fetchQuery(
+        trpc.chat.getChatView.queryOptions({
+          sessionId,
+          window: { limit: 50 },
+          includeToolOutput: true,
+          ...(nextInput ?? {}),
+        }),
+      );
+      return applySnapshot(data, options);
+    },
+    [applySnapshot, sessionId, queryClient],
+  );
+
+  const refreshBranchMeta = React.useCallback(
+    async (startMessageId: string) => {
+      const data = await queryClient.fetchQuery(
+        trpc.chat.getChatView.queryOptions({
+          sessionId,
+          anchor: { messageId: startMessageId, strategy: "self" },
+          window: { limit: 50 },
+          include: { messages: false, siblingNav: true },
+          includeToolOutput: false,
+        }),
+      );
+      patchSnapshot(() => ({
+        leafMessageId:
+          typeof data.leafMessageId === "string" ? data.leafMessageId : null,
+        branchMessageIds: Array.isArray(data.branchMessageIds)
+          ? (data.branchMessageIds as string[])
+          : [],
+        siblingNav:
+          data.siblingNav && typeof data.siblingNav === "object"
+            ? (data.siblingNav as Record<string, ChatSiblingNav>)
+            : {},
+      }));
+      return data;
+    },
+    [sessionId, patchSnapshot, queryClient],
+  );
+
+  return {
+    snapshot,
+    applySnapshot,
+    patchSnapshot,
+    resetSnapshot,
+    clearCachedView,
+    refreshSnapshot,
+    refreshBranchMeta,
+  };
+}
+
+/** Query layer — depends on chat.messages.length via localMessageCount. */
+export function useChatBranchState(input: UseChatBranchQueryInput) {
+  const { snapshot, applySnapshot, patchSnapshot, resetSnapshot, clearCachedView, refreshSnapshot, refreshBranchMeta } =
+    input.branchSnapshot;
+
   const query = useQuery({
     ...trpc.chat.getChatView.queryOptions({
       sessionId: input.sessionId,
@@ -145,51 +208,6 @@ export function useChatBranchState(input: UseChatBranchStateInput) {
     (query.isLoading ||
       query.isFetching ||
       (pendingHistoryMessages.length > 0 && input.localMessageCount === 0));
-
-  const refreshSnapshot = React.useCallback(
-    async (nextInput?: ChatViewInput, options?: ApplySnapshotOptions) => {
-      const data = await queryClient.fetchQuery(
-        trpc.chat.getChatView.queryOptions({
-          sessionId: input.sessionId,
-          window: { limit: 50 },
-          includeToolOutput: true,
-          ...(nextInput ?? {}),
-        }),
-      );
-      return applySnapshot(data, options);
-    },
-    [applySnapshot, input.sessionId, queryClient],
-  );
-
-  const refreshBranchMeta = React.useCallback(
-    async (startMessageId: string) => {
-      const data = await queryClient.fetchQuery(
-        trpc.chat.getChatView.queryOptions({
-          sessionId: input.sessionId,
-          anchor: { messageId: startMessageId, strategy: "self" },
-          window: { limit: 50 },
-          include: { messages: false, siblingNav: true },
-          includeToolOutput: false,
-        }),
-      );
-      const nextSnapshot = {
-        ...snapshotRef.current,
-        leafMessageId:
-          typeof data.leafMessageId === "string" ? data.leafMessageId : null,
-        branchMessageIds: Array.isArray(data.branchMessageIds)
-          ? (data.branchMessageIds as string[])
-          : [],
-        siblingNav:
-          data.siblingNav && typeof data.siblingNav === "object"
-            ? (data.siblingNav as Record<string, ChatSiblingNav>)
-            : {},
-      };
-      snapshotRef.current = nextSnapshot;
-      setSnapshot(nextSnapshot);
-      return data;
-    },
-    [input.sessionId, queryClient],
-  );
 
   return {
     snapshot,

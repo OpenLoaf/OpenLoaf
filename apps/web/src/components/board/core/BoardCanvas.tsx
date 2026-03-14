@@ -257,6 +257,10 @@ export function BoardCanvas({
   const { basic } = useBasicConfig();
   /** Whether the performance overlay is visible. */
   const showPerfOverlay = Boolean(basic.boardDebugEnabled);
+  /** Sync snap-to-align setting to engine. */
+  useEffect(() => {
+    engine.setSnapEnabled(Boolean(basic.boardSnapEnabled));
+  }, [engine, basic.boardSnapEnabled]);
   /** Guard for first-time node registration. */
   const nodesRegisteredRef = useRef(false);
   /** Preview source id for board modal coordination. */

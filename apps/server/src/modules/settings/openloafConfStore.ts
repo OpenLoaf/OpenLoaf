@@ -61,6 +61,7 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   uiThemeManual: "light",
   projectOpenMode: "sidebar",
   boardDebugEnabled: false,
+  boardSnapEnabled: false,
   // Show chat preface viewer button.
   chatPrefaceEnabled: false,
   appLocalStorageDir: "",
@@ -267,6 +268,12 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : typeof fallbackSource.boardDebugEnabled === "boolean"
         ? fallbackSource.boardDebugEnabled
         : DEFAULT_BASIC_CONF.boardDebugEnabled;
+  const boardSnapEnabled =
+    typeof source.boardSnapEnabled === "boolean"
+      ? source.boardSnapEnabled
+      : typeof fallbackSource.boardSnapEnabled === "boolean"
+        ? fallbackSource.boardSnapEnabled
+        : DEFAULT_BASIC_CONF.boardSnapEnabled;
   const chatPrefaceEnabled =
     typeof source.chatPrefaceEnabled === "boolean"
       ? source.chatPrefaceEnabled
@@ -394,6 +401,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     uiThemeManual,
     projectOpenMode,
     boardDebugEnabled,
+    boardSnapEnabled,
     chatPrefaceEnabled,
     appLocalStorageDir,
     appAutoBackupDir,

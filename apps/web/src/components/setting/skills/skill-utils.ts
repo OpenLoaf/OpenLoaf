@@ -146,6 +146,7 @@ export async function openSkillInStack(skillName: string, projectId?: string) {
       currentEntryKind: "file",
       projectId: skill.scope === "project" ? projectId : undefined,
       projectTitle: skill.name,
+      __skillFolderPath: skill.path.replace(/[/\\]SKILL\.md$/i, ''),
     },
   });
 }

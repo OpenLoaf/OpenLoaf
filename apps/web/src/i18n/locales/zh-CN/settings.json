@@ -674,7 +674,16 @@
     "confirmDelete": "确认删除技能「{{name}}」？此操作不可撤销。",
     "scopeGlobal": "全局技能",
     "scopeProject": "项目技能",
-    "scopeProjectSpace": "项目空间技能"
+    "scopeProjectSpace": "项目空间技能",
+    "translate": {
+      "buttonTranslate": "翻译为中文",
+      "buttonRetranslate": "重新翻译",
+      "buttonTranslating": "翻译中...",
+      "buttonTranslated": "已翻译",
+      "success": "翻译完成：{{translated}} 个文件已翻译，{{skipped}} 个跳过",
+      "failed": "翻译失败",
+      "upToDate": "已是最新翻译，无需更新"
+    }
   },
   "modelSelector": {
     "noModels": "暂无可选模型",

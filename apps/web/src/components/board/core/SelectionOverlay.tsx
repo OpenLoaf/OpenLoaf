@@ -795,7 +795,7 @@ export function SingleSelectionOutline({
           engine.setAlignmentGuides([]);
           return;
         }
-        if (corner === "bottom-right") {
+        if (corner === "bottom-right" && engine.isSnapEnabled()) {
           const { zoom: currentZoom } = engine.viewport.getState();
           // 逻辑：缩放下按屏幕像素换算吸附阈值。
           const threshold = SNAP_PIXEL / Math.max(currentZoom, MIN_ZOOM);

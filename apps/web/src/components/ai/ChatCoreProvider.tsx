@@ -58,7 +58,7 @@ import {
   ChatStateProvider,
   ChatToolProvider,
 } from "./context";
-import { useChatBranchState } from "./hooks/use-chat-branch-state";
+import { useBranchSnapshot, useChatBranchState } from "./hooks/use-chat-branch-state";
 import { useChatToolStream } from "./hooks/use-chat-tool-stream";
 import { useChatLifecycle } from "./hooks/use-chat-lifecycle";
 import type { SubAgentStreamState } from "./context/ChatToolContext";
@@ -641,6 +641,10 @@ export default function ChatCoreProvider({
     return createChatTransport({ paramsRef, tabIdRef, sessionIdRef });
   }, []);
 
+  // 拆分：snapshot 状态管理独立于 useChat，消除循环依赖
+  const branchSnapshot = useBranchSnapshot(sessionId);
+  const { patchSnapshot, refreshBranchMeta } = branchSnapshot;
+
   const onFinish = React.useCallback(
     ({ message }: { message: UIMessage }) => {
       // 关键：切换 session 后，旧请求的 onFinish 可能晚到；必须忽略，避免污染新会话的 leafMessageId。
@@ -783,15 +787,14 @@ export default function ChatCoreProvider({
     branchQueryData,
     isHistoryLoading,
     applySnapshot,
-    patchSnapshot,
     resetSnapshot,
     clearCachedView,
     refreshSnapshot,
-    refreshBranchMeta,
   } = useChatBranchState({
     sessionId,
     enabled: shouldLoadHistory && chat.messages.length === 0,
     localMessageCount: chat.messages.length,
+    branchSnapshot,
   });
   const leafMessageId = sessionSnapshot.leafMessageId;
   const branchMessageIds = sessionSnapshot.branchMessageIds;

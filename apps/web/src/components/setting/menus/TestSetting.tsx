@@ -17,7 +17,7 @@ import {
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import type { LucideIcon } from "lucide-react";
-import { Bug, Globe, Layers, Monitor, RefreshCw } from "lucide-react";
+import { Bug, Globe, Layers, Magnet, Monitor, RefreshCw } from "lucide-react";
 import { memo, useState, useCallback, useEffect } from "react";
 import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
 import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
@@ -275,6 +275,25 @@ const TestSetting = memo(function TestSetting() {
                   </Button>
                 </>
               ) : null}
+            </OpenLoafSettingsField>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={Magnet} bg="bg-ol-blue-bg" fg="text-ol-blue" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">画布自动对齐</div>
+              <div className="text-xs text-muted-foreground">
+                拖拽/缩放节点时显示对齐参考线并自动吸附
+              </div>
+            </div>
+            <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+              <Switch
+                checked={Boolean(basic.boardSnapEnabled)}
+                onCheckedChange={(checked) => {
+                  void setBasic({ boardSnapEnabled: checked });
+                }}
+                aria-label="Board snap to align"
+              />
             </OpenLoafSettingsField>
           </div>
 
