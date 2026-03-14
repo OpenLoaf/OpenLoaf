@@ -59,7 +59,7 @@ import CodexOption from "./CodexOption";
 import ClaudeCodeOption from "./ClaudeCodeOption";
 import { useSpeechDictation } from "@/hooks/use-speech-dictation";
 import ChatCommandMenu, { type ChatCommandMenuHandle } from "./ChatCommandMenu";
-import ChatAgentMention, { type ChatAgentMentionHandle } from "./ChatAgentMention";
+import ChatAgentMention, { type ChatAgentMentionHandle, type SelectedAgent } from "./ChatAgentMention";
 import { useChatMessageComposer } from "../hooks/use-chat-message-composer";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import ApprovalModeSelector, { type ApprovalMode } from "./ApprovalModeSelector";
@@ -186,6 +186,8 @@ export interface ChatInputBoxProps {
    * 用于系统文件拖拽场景，生成 @{/abs/path} mention。
    */
   uploadFileToSession?: (file: File) => Promise<string | null>;
+  /** Callback when an @agents/ mention is selected or cleared. */
+  onAgentSelect?: (agent: SelectedAgent | null) => void;
 }
 
 export function ChatInputBox({
@@ -240,6 +242,7 @@ export function ChatInputBox({
   onProjectChange,
   projectSelectorDisabled = false,
   afterProjectSelector,
+  onAgentSelect,
 }: ChatInputBoxProps) {
   const { t } = useTranslation('ai');
   const resolvedSubmitLabel = submitLabel ?? t('chat.send');
@@ -487,6 +490,7 @@ export function ChatInputBox({
           ref={agentMentionRef}
           value={value}
           onChange={onChange}
+          onAgentSelect={onAgentSelect}
           onRequestFocus={() => focusInputSafely("keep")}
           isFocused={isFocused}
         />
@@ -803,6 +807,8 @@ export default function ChatInput({
   const dictationSoundEnabled = basic.appNotificationSoundEnabled;
   const onlineSearchMemoryScope: "tab" | "global" =
     basic.chatOnlineSearchMemoryScope === "global" ? "global" : "tab";
+  /** Selected agent from @agents/ mention. */
+  const [selectedAgent, setSelectedAgent] = useState<SelectedAgent | null>(null);
   /** Login dialog open state. */
   const [loginOpen, setLoginOpen] = useState(false);
   /** Approval mode selected from input toolbar. */
@@ -1147,9 +1153,13 @@ export default function ChatInput({
     const imagePrefix = imageRefTokens.length > 0
       ? imageRefTokens.join(' ') + (textValue ? '\n' : '')
       : '';
-    const combinedTextValue = (imagePrefix + textValue).trim();
+    // Strip @agents/.../pm prefix when an agent is selected
+    let finalTextValue = (imagePrefix + textValue).trim();
+    if (selectedAgent) {
+      finalTextValue = finalTextValue.replace(/^@agents\/\S+\/pm\s*/u, '').trim();
+    }
     const { parts, metadata, chatModelId } = composeMessage({
-      textValue: combinedTextValue,
+      textValue: finalTextValue,
       imageParts: [],
       imageOptions,
       codexOptions: codexOptionsEnabled ? codexOptions : undefined,
@@ -1162,23 +1172,39 @@ export default function ChatInput({
       autoApproveTools: approvalMode === "auto",
       directCli: chatMode === "cli",
     });
+    // Inject targetAgent into metadata only for cross-project routing.
+    // When the selected agent targets the same project as the current session,
+    // skip targetAgent — the PM agent is already handling this session directly.
+    const isCrossProject = selectedAgent && selectedAgent.projectId !== projectId;
+    const finalMetadata = isCrossProject
+      ? {
+          ...metadata,
+          targetAgent: {
+            kind: 'pm' as const,
+            projectId: selectedAgent.projectId,
+            projectTitle: selectedAgent.projectTitle,
+          },
+        }
+      : metadata;
     // 逻辑：云端模型 + 未登录时，暂存消息而不发送到服务端
     const isCloudSource = basic.chatSource === 'cloud'
     if (isCloudSource && !authLoggedIn) {
-      setPendingCloudMessage({ parts, metadata, text: combinedTextValue })
+      setPendingCloudMessage({ parts, metadata: finalMetadata, text: finalTextValue })
       setInput('')
       onClearAttachments?.()
+      setSelectedAgent(null)
       return
     }
     // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
     // chatModelId 通过 body 传递，transport.ts 会将其提取到请求顶层
     sendMessage({
       parts,
-      ...(metadata ? { metadata } : {}),
+      ...(finalMetadata ? { metadata: finalMetadata } : {}),
       ...(chatModelId ? { body: { chatModelId } } : {})
     } as any);
     setInput("");
     onClearAttachments?.();
+    setSelectedAgent(null);
   };
 
   useEffect(() => {
@@ -1248,6 +1274,7 @@ export default function ChatInput({
         cliToolLabel={cliToolLabel}
         blockedCompact={blockedCompact}
         uploadFileToSession={uploadFileToSession}
+        onAgentSelect={setSelectedAgent}
         fallbackProjectLabel={fallbackProjectLabel}
         onProjectChange={showProjectSelector ? handleProjectChange : undefined}
         projectSelectorDisabled={showProjectSelector ? conversationStarted : false}

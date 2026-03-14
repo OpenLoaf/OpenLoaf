@@ -135,6 +135,8 @@
     "chart-render": "图表渲染",
     "project-query": "项目查询",
     "project-mutate": "项目变更",
+    "board-query": "画布查询",
+    "board-mutate": "画布变更",
     "email-query": "邮件查询",
     "email-mutate": "邮件操作",
     "jsx-create": "组件渲染",
@@ -333,6 +335,7 @@
   },
   "dock": {
     "aiAssistant": "AI秘书",
+    "pmAgent": "管理员",
     "inputPlaceholder": "输入内容",
     "suggestion1": "帮我总结今天的工作进展",
     "suggestion2": "分析当前项目的代码质量",

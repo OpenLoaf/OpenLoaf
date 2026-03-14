@@ -192,6 +192,18 @@ async function main() {
     assert.equal(result, 'fallback')
   })
 
+  console.log('\n--- E: appendUserMessage ---')
+
+  await test('E1: appendUserMessage returns false for non-running task', async () => {
+    const result = await taskExecutor.appendUserMessage('non-existent-task', 'hello', '/tmp')
+    assert.equal(result, false)
+  })
+
+  await test('E2: appendUserMessage returns false for unknown taskId', async () => {
+    const result = await taskExecutor.appendUserMessage(`unknown-${Date.now()}`, 'test message', '/tmp', null)
+    assert.equal(result, false)
+  })
+
   // Summary
   console.log(`\n${'='.repeat(50)}`)
   console.log(`taskExecutor: ${passed} passed, ${failed} failed`)

@@ -25,7 +25,7 @@ import { useLayoutState } from "@/hooks/use-layout-state";
 import { createChatTransport } from "@/lib/ai/transport";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
-import { refreshAccessToken } from "@/lib/saas-auth";
+import { getCachedAccessToken, refreshAccessToken } from "@/lib/saas-auth";
 import type { PendingCloudMessage } from "./context/ChatStateContext";
 import type { ImageGenerateOptions } from "@openloaf/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
@@ -706,7 +706,7 @@ export default function ChatCoreProvider({
       // 中文注释：每 5 次 assistant 回复触发 AI 自动标题。
       assistantReplyCountRef.current += 1;
       if (assistantReplyCountRef.current % 5 === 0 && !autoTitleMutation.isPending) {
-        autoTitleMutation.mutate({ sessionId } as any);
+        autoTitleMutation.mutate({ sessionId, saasAccessToken: getCachedAccessToken() ?? undefined } as any);
       }
       // 中文注释：请求结束后清理 stepThinking，避免中止后残留"深度思考中"。
       setStepThinking(false);
@@ -917,7 +917,11 @@ export default function ChatCoreProvider({
     // 中文注释：仅在复用组件且 sessionId 确实变化时清理，避免多会话常驻被误清空。
     prevSessionIdRef.current = sessionId;
     stopAndResetSession(true);
-  }, [sessionId, stopAndResetSession]);
+    // 中文注释：切换会话时必须清除 getChatView 缓存，否则 staleTime=Infinity 导致复用过期空数据。
+    queryClient.removeQueries({
+      queryKey: trpc.chat.getChatView.queryKey(),
+    });
+  }, [sessionId, stopAndResetSession, queryClient]);
 
   // 使用 tRPC 拉取"当前视图"（主链消息 + sibling 导航）
   const branchQueryEnabled = shouldLoadHistory && chat.messages.length === 0;

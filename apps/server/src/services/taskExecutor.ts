@@ -31,6 +31,7 @@ type RunningTask = {
   sessionId: string
   abortController: AbortController
   startedAt: string
+  saasAccessToken?: string
 }
 
 type ConfirmationResult = 'approved' | 'cancelled' | 'timeout'
@@ -86,6 +87,7 @@ class TaskExecutor {
     taskId: string,
     globalRoot: string,
     projectRoot?: string | null,
+    saasAccessToken?: string,
   ): Promise<void> {
     const startedAt = new Date().toISOString()
     const abortController = new AbortController()
@@ -109,7 +111,7 @@ class TaskExecutor {
 
       logger.info({ taskId, name: task.name, sessionId }, '[task-executor] Starting task execution')
 
-      this.running.set(taskId, { taskId, sessionId, abortController, startedAt })
+      this.running.set(taskId, { taskId, sessionId, abortController, startedAt, saasAccessToken })
 
       // Transition: → running
       this.transitionStatus(taskId, task.status, 'running', globalRoot, projectRoot, {
@@ -130,7 +132,7 @@ class TaskExecutor {
         if (isSinglePhase) {
           // ─── Single-phase: Direct execution ─────────────────────
           const instruction = this.buildDirectInstruction(task)
-          await this.runAgentPhase(sessionId, instruction, abortController.signal, taskId, globalRoot, projectRoot)
+          await this.runAgentPhase(sessionId, instruction, abortController.signal, taskId, globalRoot, projectRoot, saasAccessToken)
 
           // Mark done
           const now = new Date().toISOString()
@@ -165,7 +167,7 @@ class TaskExecutor {
 
           // Phase 1: Generate Plan
           const planInstruction = this.buildPlanInstruction(task)
-          await this.runAgentPhase(sessionId, planInstruction, abortController.signal, taskId, globalRoot, projectRoot)
+          await this.runAgentPhase(sessionId, planInstruction, abortController.signal, taskId, globalRoot, projectRoot, saasAccessToken)
 
           // Plan Confirmation
           if (!task.skipPlanConfirm) {
@@ -210,7 +212,7 @@ class TaskExecutor {
 
           // Phase 2: Execute Plan
           const execInstruction = '请按照已生成的计划开始执行。逐步完成每个步骤，完成后汇报结果。'
-          await this.runAgentPhase(sessionId, execInstruction, abortController.signal, taskId, globalRoot, projectRoot)
+          await this.runAgentPhase(sessionId, execInstruction, abortController.signal, taskId, globalRoot, projectRoot, saasAccessToken)
 
           // Completion
           const nextStatus: TaskStatus = task.requiresReview ? 'review' : 'done'
@@ -315,6 +317,7 @@ class TaskExecutor {
     taskId: string,
     globalRoot: string,
     projectRoot?: string | null,
+    saasAccessToken?: string,
   ): Promise<void> {
     // Resolve projectId and agentType from task config
     const taskConfig = getTask(taskId, globalRoot, projectRoot ?? undefined)
@@ -348,6 +351,7 @@ class TaskExecutor {
       },
       cookies: {},
       requestSignal: signal,
+      saasAccessToken,
     })
 
     // Consume SSE stream
@@ -362,7 +366,8 @@ class TaskExecutor {
 
           // Try to extract progress from stream data
           if (value) {
-            const chunk = decoder.decode(value, { stream: true })
+            // SSE stream may yield string chunks (JsonToSseTransformStream) or Uint8Array
+            const chunk = typeof value === 'string' ? value : decoder.decode(value, { stream: true })
             lastMessage = this.extractLastMessage(chunk, lastMessage)
 
             // Update execution summary periodically

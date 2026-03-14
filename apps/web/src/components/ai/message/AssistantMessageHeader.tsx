@@ -14,7 +14,11 @@ interface AssistantMessageHeaderProps {
 }
 
 /** Resolve assistant label from message agent metadata with product fallback. */
-function resolveAssistantDisplayName(message: UIMessage | null | undefined, fallbackName: string) {
+function resolveAssistantDisplayName(
+  message: UIMessage | null | undefined,
+  fallbackName: string,
+  pmName: string,
+) {
   const agent = ((message as any)?.agent ?? (message as any)?.metadata?.agent) as
     | { id?: string; kind?: string; name?: string }
     | undefined;
@@ -24,6 +28,10 @@ function resolveAssistantDisplayName(message: UIMessage | null | undefined, fall
   // 逻辑：主代理对用户统一显示产品级名称，避免暴露内部类名如 MasterAgent。
   if (agentKind === "master" || agentId === "master" || /^master(agent)?$/i.test(agentName)) {
     return fallbackName;
+  }
+  // PM Agent 显示产品级名称"管理员"。
+  if (agentKind === "pm" || /^pm(agent)?$/i.test(agentName)) {
+    return pmName;
   }
   return agentName || fallbackName;
 }
@@ -43,7 +51,7 @@ export default function AssistantMessageHeader({
 }: AssistantMessageHeaderProps) {
   const { t } = useTranslation("ai");
   const displayName = React.useMemo(
-    () => resolveAssistantDisplayName(message, t("dock.aiAssistant")),
+    () => resolveAssistantDisplayName(message, t("dock.aiAssistant"), t("dock.pmAgent")),
     [message, t]
   );
   const avatarUrl = React.useMemo(() => resolveAssistantAvatarUrl(message), [message]);

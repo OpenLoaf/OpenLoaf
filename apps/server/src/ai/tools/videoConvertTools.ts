@@ -50,7 +50,6 @@ function runFfmpeg(command: ffmpeg.FfmpegCommand): Promise<void> {
 export const videoConvertTool = tool({
   description: videoConvertToolDef.description,
   inputSchema: zodSchema(videoConvertToolDef.parameters),
-  needsApproval: true,
   execute: async (input) => {
     const {
       action, filePath, outputPath,

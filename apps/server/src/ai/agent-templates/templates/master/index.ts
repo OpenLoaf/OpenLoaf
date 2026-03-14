@@ -8,13 +8,20 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { AgentTemplate } from '../../types'
-import MASTER_PROMPT_ZH from './prompt-v3.zh.md'
-import MASTER_PROMPT_EN from './prompt-v3.en.md'
+import MASTER_IDENTITY_ZH from './identity.zh.md'
+import MASTER_IDENTITY_EN from './identity.en.md'
+import STANDARD_PROMPT_ZH from './prompt-v3.zh.md'
+import STANDARD_PROMPT_EN from './prompt-v3.en.md'
+
+/** Combine identity + standard prompt. */
+function combine(identity: string, prompt: string): string {
+  return `${identity.trim()}\n\n---\n\n${prompt.trim()}`
+}
 
 export const masterTemplate: AgentTemplate = {
   id: 'master',
-  name: '主助手',
-  description: '混合模式主助手，可直接执行简单任务，也可调度子 Agent',
+  name: 'AI 秘书',
+  description: 'AI 秘书，负责全局调度、即时问答、委派复杂任务',
   icon: 'sparkles',
   toolIds: [
     'tool-search',
@@ -31,11 +38,11 @@ export const masterTemplate: AgentTemplate = {
     'send-input',
     'wait-agent',
     'abort-agent',
-    // file
+    // file (read-only — "看"不"做")
     'read-file',
     'list-dir',
     'grep-files',
-    'apply-patch',
+    'file-info',
     // shell
     'shell-command',
     // web
@@ -49,7 +56,7 @@ export const masterTemplate: AgentTemplate = {
     'browser-wait',
     'browser-screenshot',
     'browser-download-image',
-    // media
+    // media (simple one-step generation)
     'image-generate',
     'video-generate',
     // chart
@@ -63,38 +70,23 @@ export const masterTemplate: AgentTemplate = {
     // project
     'project-query',
     'project-mutate',
+    // board (query only — mutate goes to PM/Specialist)
+    'board-query',
     // calendar
     'calendar-query',
     'calendar-mutate',
     // email
     'email-query',
     'email-mutate',
-    // excel
+    // office (query only — mutate goes to PM/Specialist)
     'excel-query',
-    'excel-mutate',
-    // word
     'word-query',
-    'word-mutate',
-    // pptx
     'pptx-query',
-    'pptx-mutate',
-    // pdf
     'pdf-query',
-    'pdf-mutate',
-    // convert
-    'image-process',
-    'video-convert',
-    'doc-convert',
-    // document
-    'edit-document',
-    // widget
-    'generate-widget',
-    'widget-init',
+    // widget (query only)
     'widget-list',
     'widget-get',
     'widget-check',
-    // file info
-    'file-info',
     // memory
     'memory-search',
     'memory-get',
@@ -102,13 +94,21 @@ export const masterTemplate: AgentTemplate = {
   allowSubAgents: true,
   maxDepth: 2,
   isPrimary: true,
-  systemPrompt: MASTER_PROMPT_ZH.trim(),
+  systemPrompt: combine(MASTER_IDENTITY_ZH, STANDARD_PROMPT_ZH),
 }
 
-/** Get prompt in specified language. */
+/** Get master prompt (identity + standard framework) in specified language. */
 export function getMasterPrompt(lang?: string): string {
   if (lang?.startsWith('en')) {
-    return MASTER_PROMPT_EN.trim()
+    return combine(MASTER_IDENTITY_EN, STANDARD_PROMPT_EN)
   }
-  return MASTER_PROMPT_ZH.trim()
+  return combine(MASTER_IDENTITY_ZH, STANDARD_PROMPT_ZH)
+}
+
+/** Get standard thinking framework only (for PM/Project agents to reuse). */
+export function getStandardPrompt(lang?: string): string {
+  if (lang?.startsWith('en')) {
+    return STANDARD_PROMPT_EN.trim()
+  }
+  return STANDARD_PROMPT_ZH.trim()
 }

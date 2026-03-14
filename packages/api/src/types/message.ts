@@ -175,7 +175,7 @@ export type TaskReportMetadata = {
   agentIdentity?: AgentIdentity;
 };
 
-/** Metadata for @agents/ mention routing. */
+/** Metadata for @agents/ mention routing (legacy — prefer TargetAgent). */
 export type AgentMention = {
   /** Target task ID to route the message to. */
   taskId?: string;
@@ -183,6 +183,13 @@ export type AgentMention = {
   agentName: string;
   /** Raw prefix text (e.g., "@agents/pm"). */
   rawPrefix: string;
+};
+
+/** Target agent routing info attached to user message metadata. */
+export type TargetAgent = {
+  kind: 'pm';
+  projectId: string;
+  projectTitle?: string;
 };
 
 export type TokenUsage = {

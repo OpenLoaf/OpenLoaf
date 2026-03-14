@@ -567,7 +567,6 @@ const LOSSY_CONVERSIONS = new Set([
 export const docConvertTool = tool({
   description: docConvertToolDef.description,
   inputSchema: zodSchema(docConvertToolDef.parameters),
-  needsApproval: true,
   execute: async (input) => {
     const { filePath, outputPath, outputFormat } = input as {
       filePath: string

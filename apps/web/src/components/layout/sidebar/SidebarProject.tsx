@@ -13,6 +13,7 @@ import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { trpc, trpcClient } from "@/utils/trpc";
+import { getCachedAccessToken } from "@/lib/saas-auth";
 import { useProjects } from "@/hooks/use-projects";
 import { useProjectStorageRootUri } from "@/hooks/use-project-storage-root-uri";
 import {
@@ -151,7 +152,7 @@ export const SidebarProject = () => {
       // Fire-and-forget: infer project type via auxiliary model.
       if (res.project?.projectId) {
         trpcClient.settings.inferProjectType
-          .mutate({ projectId: res.project.projectId })
+          .mutate({ projectId: res.project.projectId, saasAccessToken: getCachedAccessToken() ?? undefined })
           .then(() => projectListQuery.refetch())
           .catch(() => {});
       }
@@ -243,7 +244,7 @@ export const SidebarProject = () => {
             // Fire-and-forget: infer project type via auxiliary model.
             if (data.projectId) {
               trpcClient.settings.inferProjectType
-                .mutate({ projectId: data.projectId })
+                .mutate({ projectId: data.projectId, saasAccessToken: getCachedAccessToken() ?? undefined })
                 .then(() => projectListQuery.refetch())
                 .catch(() => {});
             }
@@ -383,7 +384,7 @@ export const SidebarProject = () => {
                     // Fire-and-forget: infer project type via auxiliary model.
                     if (res.project?.projectId) {
                       trpcClient.settings.inferProjectType
-                        .mutate({ projectId: res.project.projectId })
+                        .mutate({ projectId: res.project.projectId, saasAccessToken: getCachedAccessToken() ?? undefined })
                         .then(() => projectListQuery.refetch())
                         .catch(() => {});
                     }

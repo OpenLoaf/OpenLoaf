@@ -14,23 +14,28 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
-import { Bot, User } from "lucide-react";
-import { trpc } from "@/utils/trpc";
-import { useQuery } from "@tanstack/react-query";
+import { Bot } from "lucide-react";
+import { useProjects } from "@/hooks/use-projects";
 
-type AgentItem = {
+type MentionItem = {
   id: string;
   label: string;
-  description?: string;
-  agentName: string;
-  taskId?: string;
-  projectTitle?: string;
+  icon?: string;
+  projectId: string;
+  agentType: "pm";
+};
+
+export type SelectedAgent = {
+  projectId: string;
+  projectTitle: string;
+  agentType: "pm";
 };
 
 export type ChatAgentMentionHandle = {
@@ -40,155 +45,208 @@ export type ChatAgentMentionHandle = {
 type ChatAgentMentionProps = {
   value: string;
   onChange: (value: string) => void;
+  onAgentSelect?: (agent: SelectedAgent | null) => void;
   onRequestFocus?: () => void;
   isFocused: boolean;
-  sessionId?: string;
   className?: string;
 };
 
-/** @agents/ trigger pattern. */
-const AGENT_TRIGGER_REGEX = /(^|\s)(@agents\/\S*)$/u;
+/** Trigger: standalone @ at the end (or @agents/...). */
+const AT_TRIGGER_REGEX = /(^|\s)@(\S*)$/u;
 
-/** Resolve @agents/ query from current input value. */
-function resolveAgentQuery(value: string): string | null {
-  const match = value.match(AGENT_TRIGGER_REGEX);
+const MENU_WIDTH = 280;
+const MENU_GAP = 8;
+
+/** Resolve query text after @ from current input value. */
+function resolveAtQuery(value: string): string | null {
+  const match = value.match(AT_TRIGGER_REGEX);
   if (!match) return null;
-  const raw = match[2];
-  if (!raw) return null;
-  // Extract the agent name query after @agents/
-  return raw.slice(8); // Remove "@agents/"
+  return match[2] ?? "";
+}
+
+/** Strip `agents/` prefix if present to get the project search query. */
+function extractProjectQuery(raw: string): string {
+  if (raw.startsWith("agents/")) {
+    const rest = raw.slice(7);
+    const slashIdx = rest.indexOf("/");
+    return slashIdx >= 0 ? rest.slice(0, slashIdx) : rest;
+  }
+  return raw;
 }
 
 const ChatAgentMention = forwardRef<ChatAgentMentionHandle, ChatAgentMentionProps>(
   function ChatAgentMention(
-    { value, onChange, onRequestFocus, isFocused, sessionId, className },
+    { value, onChange, onAgentSelect, onRequestFocus, isFocused, className },
     ref,
   ) {
-    const [selectedIndex, setSelectedIndex] = useState(0);
-    const menuRef = useRef<HTMLDivElement>(null);
+    const [activeIndex, setActiveIndex] = useState(0);
+    const menuRef = useRef<HTMLDivElement | null>(null);
+    const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
 
-    const agentQuery = useMemo(() => (isFocused ? resolveAgentQuery(value) : null), [value, isFocused]);
-    const isOpen = agentQuery !== null;
+    const atQuery = useMemo(() => (isFocused ? resolveAtQuery(value) : null), [value, isFocused]);
+    const isOpen = Boolean(isFocused && atQuery !== null);
 
-    // Query active tasks for this session to get available agents
-    const tasksQuery = useQuery({
-      ...trpc.chat.listSidebarSessions.queryOptions({
-        limit: 20,
-      }),
-      enabled: isOpen,
-      staleTime: 10_000,
-    });
+    const { data: projects } = useProjects({ enabled: isOpen });
 
-    // Build agent items from active tasks
-    const items: AgentItem[] = useMemo(() => {
-      // Default agents always available
-      const defaults: AgentItem[] = [
-        { id: 'pm', label: 'PM', description: '项目经理', agentName: 'pm' },
-      ];
+    const items: MentionItem[] = useMemo(() => {
+      if (!projects || projects.length === 0) return [];
+      const query = extractProjectQuery(atQuery ?? "").toLowerCase();
+      return projects
+        .filter((p) => {
+          if (!query) return true;
+          const title = (p.title ?? "").toLowerCase();
+          return title.includes(query);
+        })
+        .map((p) => ({
+          id: p.projectId,
+          label: p.title ?? p.projectId,
+          icon: p.icon ?? undefined,
+          projectId: p.projectId,
+          agentType: "pm" as const,
+        }));
+    }, [projects, atQuery]);
 
-      if (!agentQuery) return defaults;
+    // Compute fixed position relative to the parent input container.
+    const updatePosition = useCallback(() => {
+      const anchor = menuRef.current?.closest(".openloaf-thinking-border") ??
+        menuRef.current?.parentElement;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      setPos({
+        left: rect.left,
+        bottom: window.innerHeight - rect.top + MENU_GAP,
+      });
+    }, []);
 
-      const query = agentQuery.toLowerCase();
-      return defaults.filter(
-        (item) =>
-          item.agentName.toLowerCase().includes(query) ||
-          (item.description?.toLowerCase().includes(query) ?? false),
-      );
-    }, [agentQuery]);
+    useLayoutEffect(() => {
+      if (!isOpen) return;
+      updatePosition();
+    }, [isOpen, updatePosition]);
 
-    // Reset selection when items change
     useEffect(() => {
-      setSelectedIndex(0);
-    }, [items.length]);
+      if (!isOpen) {
+        setActiveIndex(0);
+        return;
+      }
+      setActiveIndex(0);
+    }, [isOpen, atQuery]);
 
     const selectItem = useCallback(
-      (item: AgentItem) => {
-        // Replace the @agents/... prefix with the completed mention
-        const mention = `@agents/${item.agentName} `;
-        const newValue = value.replace(AGENT_TRIGGER_REGEX, `$1${mention}`);
+      (item: MentionItem) => {
+        const mention = `@agents/${item.label}/pm `;
+        const newValue = value.replace(AT_TRIGGER_REGEX, `$1${mention}`);
         onChange(newValue);
+        onAgentSelect?.({
+          projectId: item.projectId,
+          projectTitle: item.label,
+          agentType: "pm",
+        });
         onRequestFocus?.();
+        setActiveIndex(0);
       },
-      [value, onChange, onRequestFocus],
+      [value, onChange, onAgentSelect, onRequestFocus],
     );
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        handleKeyDown(event: React.KeyboardEvent) {
-          if (!isOpen || items.length === 0) return false;
-          if (event.key === "ArrowDown") {
+    const handleKeyDown = useCallback(
+      (event: React.KeyboardEvent) => {
+        if (!isOpen) return false;
+        if (items.length === 0) return false;
+        switch (event.key) {
+          case "ArrowDown": {
             event.preventDefault();
-            setSelectedIndex((prev) => (prev + 1) % items.length);
+            setActiveIndex((prev) => (prev + 1) % items.length);
             return true;
           }
-          if (event.key === "ArrowUp") {
+          case "ArrowUp": {
             event.preventDefault();
-            setSelectedIndex((prev) => (prev - 1 + items.length) % items.length);
+            setActiveIndex((prev) => (prev - 1 + items.length) % items.length);
             return true;
           }
-          if (event.key === "Tab" || event.key === "Enter") {
-            if (items[selectedIndex]) {
-              event.preventDefault();
-              selectItem(items[selectedIndex]);
-              return true;
-            }
-          }
-          if (event.key === "Escape") {
+          case "Tab":
+          case "Enter": {
+            const item = items[activeIndex];
+            if (!item) return false;
             event.preventDefault();
-            // Clear the @agents/ prefix
-            const newValue = value.replace(AGENT_TRIGGER_REGEX, "$1");
+            selectItem(item);
+            return true;
+          }
+          case "Escape": {
+            event.preventDefault();
+            const newValue = value.replace(AT_TRIGGER_REGEX, "$1");
             onChange(newValue);
+            onAgentSelect?.(null);
             return true;
           }
-          return false;
-        },
-      }),
-      [isOpen, items, selectedIndex, selectItem, value, onChange],
+          default:
+            return false;
+        }
+      },
+      [isOpen, items, activeIndex, selectItem, value, onChange, onAgentSelect],
     );
 
-    if (!isOpen || items.length === 0) return null;
+    useImperativeHandle(ref, () => ({ handleKeyDown }), [handleKeyDown]);
 
-    return createPortal(
+    // Hidden anchor for position calculation.
+    const anchor = <span ref={menuRef} className="hidden" />;
+
+    if (!isOpen || !pos || items.length === 0) {
+      return anchor;
+    }
+
+    const menu = (
       <div
-        ref={menuRef}
         className={cn(
-          "fixed bottom-20 left-1/2 z-50 -translate-x-1/2",
-          "w-64 rounded-lg border bg-popover shadow-md",
+          "fixed z-50 flex flex-col rounded-lg border border-border bg-popover shadow-lg",
           className,
         )}
+        style={{ left: pos.left, bottom: pos.bottom, width: MENU_WIDTH, maxHeight: 320 }}
+        role="listbox"
+        aria-label="Agent mention menu"
+        onMouseDown={(e) => e.preventDefault()}
       >
-        <div className="p-1">
-          <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase">
-            Agents
-          </div>
-          {items.map((item, index) => (
-            <button
-              key={item.id}
-              type="button"
-              className={cn(
-                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm",
-                index === selectedIndex
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-accent/50",
-              )}
-              onClick={() => selectItem(item)}
-              onMouseEnter={() => setSelectedIndex(index)}
-            >
-              <Bot className="size-4 text-muted-foreground" />
-              <span className="font-medium">{item.label}</span>
-              {item.description && (
-                <span className="truncate text-xs text-muted-foreground">
-                  {item.description}
-                </span>
-              )}
-            </button>
-          ))}
+        <div className="shrink-0 px-2.5 py-2 text-xs font-medium text-muted-foreground border-b border-border">
+          选择项目 → 管理员
         </div>
-      </div>,
-      document.body,
+        <div className="flex-1 min-h-0 overflow-y-auto py-1">
+          {items.map((item, index) => {
+            const isActive = index === activeIndex;
+            return (
+              <div
+                key={item.id}
+                role="option"
+                aria-selected={isActive}
+                className={cn(
+                  "flex items-center gap-2 px-2.5 py-2 text-left text-xs cursor-default rounded-sm mx-1",
+                  isActive ? "bg-muted/70" : "hover:bg-muted/60",
+                )}
+                onClick={() => selectItem(item)}
+                onPointerMove={() => setActiveIndex(index)}
+              >
+                {item.icon ? (
+                  <span className="size-4 text-center shrink-0">{item.icon}</span>
+                ) : (
+                  <Bot className="size-4 text-muted-foreground shrink-0" />
+                )}
+                <span className="text-[12px] font-medium text-foreground truncate">
+                  {item.label}
+                </span>
+                <span className="ml-auto text-[11px] text-muted-foreground shrink-0">管理员</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+
+    return (
+      <>
+        {anchor}
+        {createPortal(menu, document.body)}
+      </>
     );
   },
 );
+
+ChatAgentMention.displayName = "ChatAgentMention";
 
 export default ChatAgentMention;

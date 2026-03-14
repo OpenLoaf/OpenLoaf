@@ -94,7 +94,6 @@ export const pdfQueryTool = tool({
 export const pdfMutateTool = tool({
   description: pdfMutateToolDef.description,
   inputSchema: zodSchema(pdfMutateToolDef.parameters),
-  needsApproval: true,
   execute: async (input) => {
     const { action, filePath, content, fields, sourcePaths, overlays } = input as {
       action: string

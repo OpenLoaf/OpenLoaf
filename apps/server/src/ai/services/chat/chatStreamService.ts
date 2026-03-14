@@ -87,8 +87,14 @@ import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { resolveMessagesJsonlPath, writeSessionJson } from "@/ai/services/chat/repositories/chatFileStore";
 import { buildHardRules } from "@/ai/shared/hardRules";
 import { taskExecutor } from "@/services/taskExecutor";
+import {
+  createTask as createTaskConfig,
+  findActivePmTask,
+  updateTask,
+} from "@/services/taskConfigService";
 import { getOpenLoafRootDir } from "@openloaf/config";
 import {
+  createAgentRouteAckResponse,
   createChatStreamResponse,
   createErrorStreamResponse,
   createImageStreamResponse,
@@ -351,38 +357,80 @@ export async function runChatStream(input: {
     }
   }
 
-  // ── @agents/ mention routing ──────────────────────────────────
-  const agentMention = (lastMessage as any)?.metadata?.agentMention as
-    | { taskId?: string; agentName: string; rawPrefix: string }
+  // ── @agents/ mention routing (targetAgent) ──────────────────────
+  // Only route via task system for CROSS-PROJECT mentions.
+  // When targetAgent.projectId matches the current session's projectId,
+  // skip task creation — the PM agent handles this session directly (streaming).
+  const targetAgent = (lastMessage as any)?.metadata?.targetAgent as
+    | { kind: 'pm'; projectId: string; projectTitle?: string }
     | undefined;
-  if (agentMention?.taskId && lastMessage) {
-    const mentionText = (lastMessage.parts as any[])
-      ?.filter((p: any) => p?.type === 'text' && typeof p.text === 'string')
-      .map((p: any) => (p.text as string).replace(agentMention.rawPrefix, '').trim())
-      .join('\n')
-      .trim();
+  const isCrossProjectMention = targetAgent?.kind === 'pm'
+    && targetAgent.projectId
+    && targetAgent.projectId !== projectId;
+  if (isCrossProjectMention && lastMessage) {
+    const mentionText = extractTextFromParts(lastMessage.parts ?? []);
 
     if (mentionText) {
       const globalRoot = getOpenLoafRootDir();
-      const projectRoot = projectId
-        ? await getProjectRootPath(projectId)
-        : undefined;
+      const targetProjectRoot = await getProjectRootPath(targetAgent.projectId);
+      const projectRoots = targetProjectRoot ? [targetProjectRoot] : undefined;
 
-      const sent = await taskExecutor.appendUserMessage(
-        agentMention.taskId,
-        mentionText,
+      // Check for an active PM task for the target project
+      const activePmTask = findActivePmTask(
+        targetAgent.projectId,
         globalRoot,
-        projectRoot,
+        projectRoots,
       );
 
-      if (sent) {
-        logger.info(
-          { sessionId, taskId: agentMention.taskId, agentName: agentMention.agentName },
-          '[chat] @agents/ mention routed to task agent',
+      if (activePmTask && taskExecutor.isRunning(activePmTask.id)) {
+        // Append message to existing PM task
+        const sent = await taskExecutor.appendUserMessage(
+          activePmTask.id,
+          mentionText,
+          globalRoot,
+          targetProjectRoot,
         );
+        logger.info(
+          { sessionId, taskId: activePmTask.id, projectId: targetAgent.projectId },
+          `[chat] @agents/pm routed to existing task (sent=${sent})`,
+        );
+      } else {
+        // Create a new PM task for the target project
+        const newTask = createTaskConfig(
+          {
+            name: mentionText.slice(0, 50),
+            description: mentionText,
+            agentName: 'pm',
+            sourceSessionId: sessionId,
+            skipPlanConfirm: true,
+            autoExecute: true,
+            requiresReview: false,
+            createdBy: 'user',
+          },
+          targetProjectRoot ?? globalRoot,
+          targetProjectRoot ? 'project' : 'global',
+        );
+        // Attach projectId to the task
+        if (targetProjectRoot) {
+          updateTask(newTask.id, { projectId: targetAgent.projectId }, globalRoot, targetProjectRoot);
+        }
+        logger.info(
+          { sessionId, taskId: newTask.id, projectId: targetAgent.projectId },
+          '[chat] @agents/pm created new PM task',
+        );
+        // Start execution
+        void taskExecutor.execute(newTask.id, globalRoot, targetProjectRoot, input.saasAccessToken);
       }
+
+      // Return an ack response instead of running the master agent
+      const displayName = targetAgent.projectTitle ?? targetAgent.projectId;
+      return createAgentRouteAckResponse({
+        sessionId,
+        assistantMessageId,
+        parentMessageId: await resolveRightmostLeafId(sessionId),
+        ackText: `已将指令发送给「${displayName}」的管理员，稍后会在此回报结果。`,
+      });
     }
-    // Even if routing fails, continue normal chat flow so the message is persisted.
   }
 
   // 逻辑：在首条用户消息前确保 preface 已落库。
@@ -630,10 +678,10 @@ export async function runChatStream(input: {
       });
     } else {
       // agentType: 'project' | 'pm' — 使用专用 Agent
-      const agentType = input.request.params?.agentType;
-      const taskId = typeof input.request.params?.taskId === 'string'
-        ? input.request.params.taskId
-        : undefined;
+      // 前端 transport 将 params 展平到顶层，taskExecutor 则放在 params 下——两处都要读取。
+      const agentType = input.request.agentType ?? input.request.params?.agentType;
+      const rawTaskId = input.request.taskId ?? input.request.params?.taskId;
+      const taskId = typeof rawTaskId === 'string' ? rawTaskId : undefined;
       if (agentType === 'pm') {
         masterAgent = createPMAgentRunner({
           model: resolved.model,

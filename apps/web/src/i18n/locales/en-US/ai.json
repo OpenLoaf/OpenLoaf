@@ -135,6 +135,8 @@
     "chart-render": "Chart Render",
     "project-query": "Project Query",
     "project-mutate": "Project Update",
+    "board-query": "Board Query",
+    "board-mutate": "Board Update",
     "email-query": "Email Query",
     "email-mutate": "Email Action",
     "jsx-create": "JSX Render",
@@ -318,6 +320,7 @@
   },
   "dock": {
     "aiAssistant": "AI Assistant",
+    "pmAgent": "Project Manager",
     "inputPlaceholder": "Enter text",
     "suggestion1": "Summarize today's work progress",
     "suggestion2": "Analyze the current project's code quality",

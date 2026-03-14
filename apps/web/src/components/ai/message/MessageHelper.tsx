@@ -22,6 +22,7 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
+import { getCachedAccessToken } from "@/lib/saas-auth";
 
 type SuggestionItem = {
   label: string;
@@ -65,7 +66,7 @@ export default function MessageHelper({
     const key = projectId || "__global__";
     if (lastRequestedKeyRef.current === key) return;
     lastRequestedKeyRef.current = key;
-    dynamicMutation.mutate({ projectId: projectId || undefined });
+    dynamicMutation.mutate({ projectId: projectId || undefined, saasAccessToken: getCachedAccessToken() ?? undefined });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 

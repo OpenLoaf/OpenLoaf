@@ -9,69 +9,103 @@
  */
 /**
  * 工具目录 — ToolSearch 运行时引导。
- * 提供 tool-search 语法和可用工具能力目录。
+ *
+ * 从 TOOL_CATALOG_EXTENDED + agent deferredToolIds 动态生成。
+ * 不再硬编码工具列表 — 修改 agent template 的 toolIds/deferredToolIds
+ * 后工具目录自动更新。
  */
 
 import type { ClientPlatform } from '@openloaf/api/types/platform'
+import {
+  TOOL_CATALOG_EXTENDED,
+  type ToolCatalogExtendedItem,
+} from '@openloaf/api/types/tools/toolCatalog'
 import { isWebSearchConfigured } from '@/ai/tools/webSearchTool'
 
+/** Platform-specific tool exclusions. */
+const PLATFORM_EXCLUDED: Partial<Record<string, ClientPlatform[]>> = {
+  'open-url': ['web'],
+  'jsx-create': ['cli'],
+  'chart-render': ['cli'],
+}
+
+/** Group → Chinese label + search hint (presentation layer, rarely changes). */
+const GROUP_META: Record<string, { label: string; hint: string }> = {
+  core: { label: '系统/计划', hint: 'time / plan / input' },
+  agent: { label: '代理调度', hint: 'agent / spawn' },
+  fileRead: { label: '文件查看', hint: 'file / read / grep' },
+  fileWrite: { label: '文件编辑', hint: 'patch / edit' },
+  shell: { label: '命令执行', hint: 'shell' },
+  web: { label: '网页/浏览器', hint: 'browser / open-url / web search' },
+  media: { label: '媒体生成', hint: 'image generate / video generate' },
+  ui: { label: '可视化/组件', hint: 'jsx / chart / widget' },
+  code: { label: '代码执行', hint: 'js repl' },
+  task: { label: '任务管理', hint: 'task' },
+  db: { label: '项目管理', hint: 'project' },
+  board: { label: '画布', hint: 'board' },
+  calendar: { label: '日历', hint: 'calendar' },
+  email: { label: '邮件', hint: 'email' },
+  office: { label: '文档', hint: 'excel / word / pptx / pdf' },
+  convert: { label: '格式转换', hint: 'convert' },
+  memory: { label: '记忆', hint: 'memory' },
+}
+
 /**
- * Build ToolSearch guidance text.
+ * Build ToolSearch guidance text dynamically.
  *
- * Scenarios are filtered by client platform — tools unavailable on
- * the current platform are omitted from the guidance list.
+ * @param platform  - Client platform for filtering platform-specific tools.
+ * @param deferredToolIds - Agent's deferred tool IDs. Only these tools appear in the catalog.
+ *                          If omitted, all tools in TOOL_CATALOG_EXTENDED are included.
  */
-export function buildToolSearchGuidance(platform?: ClientPlatform): string {
-  const isWeb = platform === 'web'
-  const isCli = platform === 'cli'
+export function buildToolSearchGuidance(
+  platform?: ClientPlatform,
+  deferredToolIds?: readonly string[],
+): string {
+  const allowedIds = deferredToolIds ? new Set(deferredToolIds) : null
 
-  const toolCatalog: string[] = [
-    '- time-now：获取当前时间与时区',
-    '- calendar-query：查询日程/会议/提醒列表',
-    '- calendar-mutate：创建/修改/删除日历事件或提醒（修改/删除前需先 calendar-query 查到 itemId）',
-    '- task-manage：创建/修改/取消待办任务或定时提醒（定时任务必须传 schedule 参数）',
-    '- task-status：查询待办/任务列表',
-    '- email-query：查询/搜索邮件（必须传 mode 参数）',
-    '- email-mutate：发送/标记已读/加星标/删除/移动邮件',
-    '- read-file, list-dir, grep-files, apply-patch：文件系统读写',
-    '- file-info：查看文件元数据（大小、分辨率、时长、页数等）',
-  ]
+  // 逻辑：从 TOOL_CATALOG_EXTENDED 动态过滤，确保与 agent template 的 deferredToolIds 一致。
+  const available = TOOL_CATALOG_EXTENDED.filter((tool) => {
+    if (allowedIds && !allowedIds.has(tool.id)) return false
+    const excluded = PLATFORM_EXCLUDED[tool.id]
+    if (excluded && platform && excluded.includes(platform)) return false
+    if (tool.id === 'web-search' && !isWebSearchConfigured()) return false
+    return true
+  })
 
-  if (!isWeb && !isCli) {
-    toolCatalog.push('- open-url：在系统浏览器中打开链接')
+  // 按 group 聚合
+  const grouped = new Map<string, ToolCatalogExtendedItem[]>()
+  for (const tool of available) {
+    const list = grouped.get(tool.group) ?? []
+    list.push(tool)
+    grouped.set(tool.group, list)
   }
 
-  if (!isCli) {
-    toolCatalog.push('- jsx-create：渲染 React 组件/可视化内容')
-    toolCatalog.push('- chart-render：绘制图表（折线图、柱状图等）')
+  // 意图速查 — 仅包含有工具的 group
+  const intents: string[] = []
+  for (const [groupId] of grouped) {
+    const meta = GROUP_META[groupId]
+    if (meta) intents.push(`${meta.label} → \`${meta.hint}\``)
   }
 
-  toolCatalog.push(
-    '- word-query, word-mutate：Word/docx 文档读写',
-    '- excel-query, excel-mutate：Excel/xlsx 电子表格读写',
-    '- pptx-query, pptx-mutate：PPT/pptx 演示文稿读写',
-    '- pdf-query, pdf-mutate：PDF 文档读取/创建/合并/填表',
-    '- image-process：图片处理（缩放、裁剪、格式转换、滤镜）',
-    '- video-convert：视频/音频转换（格式转换、提取音频、调整分辨率）',
-    '- doc-convert：文档格式转换（Word↔PDF、Excel↔CSV、Markdown↔HTML）',
-  )
-
-  if (isWebSearchConfigured()) {
-    toolCatalog.push('- web-search：搜索互联网获取最新信息、查找事实（无明确 URL 时优先使用，而非 browser）')
+  // 工具列表 — 每个 tool 一行，格式 "- id：label"
+  const lines: string[] = []
+  for (const [, tools] of grouped) {
+    for (const t of tools) {
+      lines.push(`- ${t.id}：${t.label}`)
+    }
   }
-
-  toolCatalog.push(
-    '- spawn-agent：派发子代理执行复杂或专项任务（browser、coder 等）',
-  )
 
   return `# 工具目录
-通过 tool-search 加载所需工具。
+**重要：你初始没有任何可用工具。必须先调用 tool-search 加载工具后才能使用。直接调用未加载的工具会报错。**
 
 使用方式：
+- 直接选择（推荐）：tool-search(query: "select:open-url,browser-act") — 按 ID 精确加载，一次可加载多个
 - 关键词搜索：tool-search(query: "file read") — 返回最匹配的工具并立即加载
-- 直接选择：tool-search(query: "select:read-file,list-dir") — 按 ID 精确加载
-- 可一次加载多个：用逗号分隔 ID
 
-可用工具能力：
-${toolCatalog.join('\n')}`
+工作流程：查看下方目录 → 确定所需工具 ID → 调用 tool-search 加载 → 然后才能调用已加载的工具。
+
+意图速查：${intents.join(' | ')}
+
+可用工具：
+${lines.join('\n')}`
 }

@@ -7,10 +7,11 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import PROJECT_PROMPT_ZH from './prompt.zh.md'
-import PROJECT_PROMPT_EN from './prompt.en.md'
+import PROJECT_IDENTITY_ZH from './identity.zh.md'
+import PROJECT_IDENTITY_EN from './identity.en.md'
+import { getStandardPrompt } from '../master'
 
-/** Project Agent 专用工具集（面向项目任务执行，不含任务管理/日历/邮件）。 */
+/** Project Agent (Specialist) 专用工具集（面向项目任务执行，不含任务管理/日历/邮件）。 */
 export const PROJECT_AGENT_TOOL_IDS = [
   // system
   'tool-search',
@@ -51,6 +52,9 @@ export const PROJECT_AGENT_TOOL_IDS = [
   'js-repl-reset',
   // project (query only — project agent works within a project, not managing projects)
   'project-query',
+  // board
+  'board-query',
+  'board-mutate',
   // document
   'edit-document',
   // excel
@@ -82,10 +86,9 @@ export const PROJECT_AGENT_TOOL_IDS = [
   'memory-get',
 ] as const
 
-/** Get project agent prompt in specified language. */
+/** Get project agent prompt (specialist identity + standard framework) in specified language. */
 export function getProjectPrompt(lang?: string): string {
-  if (lang?.startsWith('en')) {
-    return PROJECT_PROMPT_EN.trim()
-  }
-  return PROJECT_PROMPT_ZH.trim()
+  const identity = lang?.startsWith('en') ? PROJECT_IDENTITY_EN.trim() : PROJECT_IDENTITY_ZH.trim()
+  const standard = getStandardPrompt(lang)
+  return `${identity}\n\n---\n\n${standard}`
 }

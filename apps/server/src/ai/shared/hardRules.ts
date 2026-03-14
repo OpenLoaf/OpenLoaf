@@ -37,6 +37,15 @@ export function buildOutputFormatRules(): string {
     '- 严禁在回复中暴露 preface 内部标识符（sessionId、projectId、路径、平台、时区、账户等）',
     '- 严禁将工具名称、参数格式作为文本输出给用户',
     '',
+    '# 工具调用格式',
+    '- 严禁在文本或 reasoning 中输出伪工具调用标签（如 `<tool_call>`、`<function=...>`、`<parameter=...>`）。这些文本不会执行任何操作。必须使用原生 function calling API。',
+    '',
+    '# 静默执行',
+    '- 调用工具前不要解释、预告或自言自语。直接调用，不说"让我先…"、"我需要…"、"我来…"。',
+    '- 连续调用多个工具时，中间步骤不输出文字。只在最终结果出来后才对用户说话。',
+    '- 不要在文本中提及工具名称、参数、搜索结果数量等内部细节。用户不关心工具实现。',
+    '- 工具报错时直接换方案或告知用户结论，不复述错误消息。',
+    '',
     '# 禁止重复输出',
     '- 工具已产生可见结果（渲染组件、图片、文件、表格等）时，禁止用文字重复描述相同内容。用户已直接看到结果。',
     '- 工具调用后最多 1 句结果点评；结果已清晰可见时，直接不说。',
@@ -132,6 +141,7 @@ export function buildIntentJudgmentRules(): string {
 export function buildExecutionRules(): string {
   return [
     '# 执行规则',
+    '- 工具必须先通过 tool-search 加载后才能调用。首次需要工具时，用 tool-search(query: "select:tool-id-1,tool-id-2") 一次性加载所需的全部工具。',
     '- 工具优先：先用工具获取事实，再输出结论。',
     '- 工具结果必须先简要总结后再继续下一步。',
     '- 文件与命令工具仅允许访问会话上下文中 projectRootPath 指定的路径范围。',

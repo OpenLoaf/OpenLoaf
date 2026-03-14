@@ -178,6 +178,38 @@ export async function createErrorStreamResponse(input: ErrorStreamInput): Promis
   return new Response(body, { headers: UI_MESSAGE_STREAM_HEADERS });
 }
 
+/** Agent route ack input. */
+type AgentRouteAckInput = {
+  sessionId: string;
+  assistantMessageId: string;
+  parentMessageId: string | null;
+  ackText: string;
+};
+
+/** 构建 @agents/ 路由确认的轻量 SSE 响应。 */
+export async function createAgentRouteAckResponse(input: AgentRouteAckInput): Promise<Response> {
+  await saveMessage({
+    sessionId: input.sessionId,
+    parentMessageId: input.parentMessageId,
+    message: {
+      id: input.assistantMessageId,
+      parentMessageId: input.parentMessageId,
+      role: "assistant" as const,
+      messageKind: "normal" as const,
+      parts: [{ type: "text" as const, text: input.ackText }],
+      metadata: {},
+    },
+  });
+  const body = [
+    toSseChunk({ type: "start", messageId: input.assistantMessageId }),
+    toSseChunk({ type: "text-start", id: input.assistantMessageId }),
+    toSseChunk({ type: "text-delta", id: input.assistantMessageId, delta: input.ackText }),
+    toSseChunk({ type: "text-end", id: input.assistantMessageId }),
+    toSseChunk({ type: "finish", finishReason: "stop" }),
+  ].join("");
+  return new Response(body, { headers: UI_MESSAGE_STREAM_HEADERS });
+}
+
 /** 构建聊天流 SSE 响应。 */
 export async function createChatStreamResponse(input: ChatStreamResponseInput): Promise<Response> {
   const popAgentFrameOnce = (() => {

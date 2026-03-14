@@ -135,6 +135,8 @@
     "chart-render": "圖表渲染",
     "project-query": "專案查詢",
     "project-mutate": "專案變更",
+    "board-query": "畫布查詢",
+    "board-mutate": "畫布變更",
     "email-query": "郵件查詢",
     "email-mutate": "郵件操作",
     "jsx-create": "元件渲染",
@@ -318,6 +320,7 @@
   },
   "dock": {
     "aiAssistant": "AI秘書",
+    "pmAgent": "管理員",
     "inputPlaceholder": "輸入內容",
     "suggestion1": "幫我總結今天的工作進展",
     "suggestion2": "分析目前專案的程式碼品質",

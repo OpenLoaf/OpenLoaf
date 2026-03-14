@@ -36,7 +36,6 @@ function parseHexColor(hex: string): { r: number; g: number; b: number } {
 export const imageProcessTool = tool({
   description: imageProcessToolDef.description,
   inputSchema: zodSchema(imageProcessToolDef.parameters),
-  needsApproval: true,
   execute: async (input) => {
     const {
       action, filePath, outputPath, overwrite,

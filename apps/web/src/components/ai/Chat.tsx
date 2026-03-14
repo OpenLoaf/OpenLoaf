@@ -570,8 +570,14 @@ export function Chat({
     typeof rawParams.projectId === "string" ? rawParams.projectId.trim() : "";
   const requestParams = React.useMemo(() => {
     const nextParams: Record<string, unknown> = { ...rawParams };
-    if (projectId) nextParams.projectId = projectId;
-    else delete (nextParams as any).projectId;
+    if (projectId) {
+      nextParams.projectId = projectId;
+      // Project chats use PM agent directly (streaming) instead of Master agent
+      nextParams.agentType = 'pm';
+    } else {
+      delete (nextParams as any).projectId;
+      delete (nextParams as any).agentType;
+    }
     return nextParams;
   }, [rawParams, projectId]);
   const {

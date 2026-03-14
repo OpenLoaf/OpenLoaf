@@ -12,21 +12,28 @@
 import { memo, useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { UIMessage } from '@ai-sdk/react'
 import { trpc } from '@/utils/trpc'
 import { Button } from '@openloaf/ui/button'
 import { Badge } from '@openloaf/ui/badge'
 import { cn } from '@/lib/utils'
 import {
   CheckCircle2,
-  Circle,
   Clock,
   Loader2,
   XCircle,
-  FileText,
-  MessageSquare,
   ScrollText,
   Activity,
+  Play,
+  Bot,
 } from 'lucide-react'
+import {
+  ChatStateProvider,
+  ChatActionsProvider,
+  ChatSessionProvider,
+  ChatToolProvider,
+} from '@/components/ai/context'
+import MessageList from '@/components/ai/message/MessageList'
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -43,7 +50,7 @@ type ActivityLogEntry = {
   actor: string
 }
 
-type Tab = 'plan' | 'chat' | 'log' | 'activity'
+type Tab = 'output' | 'runs' | 'activity'
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -84,16 +91,203 @@ const getActorLabels = (t: (key: string) => string): Record<string, string> => (
   timeout: t('actorLabels.timeout'),
 })
 
-const getTabConfig = (t: (key: string) => string): { key: Tab; label: string; icon: typeof FileText }[] => [
-  { key: 'plan', label: t('tabs.plan'), icon: FileText },
-  { key: 'activity', label: t('tabs.activity'), icon: Activity },
-  { key: 'log', label: t('tabs.log'), icon: ScrollText },
-  { key: 'chat', label: t('tabs.chat'), icon: MessageSquare },
-]
-
 function formatDateTime(dateStr: string): string {
   const d = new Date(dateStr)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+function formatDuration(ms: number | null | undefined): string {
+  if (!ms) return '-'
+  if (ms < 1000) return `${ms}ms`
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+  return `${(ms / 60000).toFixed(1)}m`
+}
+
+// ─── No-op actions for read-only chat context ─────────────────────────
+
+const noop = () => {}
+const noopAsync = () => Promise.resolve(false)
+const READ_ONLY_ACTIONS = {
+  sendMessage: noop as any,
+  regenerate: noop as any,
+  addToolApprovalResponse: noop as any,
+  clearError: noop,
+  stopGenerating: noop,
+  updateMessage: noop,
+  newSession: noop,
+  selectSession: noop,
+  switchSibling: noop,
+  retryAssistantMessage: noop,
+  resendUserMessage: noop,
+  deleteMessageSubtree: noopAsync as any,
+  setPendingCloudMessage: noop,
+  sendPendingCloudMessage: noop,
+}
+
+const READ_ONLY_TOOLS = {
+  toolParts: {} as Record<string, any>,
+  upsertToolPart: noop,
+  markToolStreaming: noop,
+  queueToolApprovalPayload: noop,
+  clearToolApprovalPayload: noop,
+  continueAfterToolApprovals: noop,
+}
+
+// ─── Agent Output Tab ─────────────────────────────────────────────────
+
+function AgentOutputTab({
+  sessionId,
+  status,
+  projectId,
+  t,
+}: {
+  sessionId?: string
+  status: TaskStatus
+  projectId?: string
+  t: (key: string) => string
+}) {
+  const { data: chatView, isLoading } = useQuery({
+    ...trpc.chat.getChatView.queryOptions({
+      sessionId: sessionId ?? '',
+      window: { limit: 200 },
+      include: { messages: true, siblingNav: false },
+      includeToolOutput: true,
+    }),
+    enabled: !!sessionId,
+    staleTime: status === 'running' ? 5_000 : 30_000,
+    refetchInterval: status === 'running' ? 5_000 : false,
+  })
+
+  if (!sessionId) {
+    return (
+      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+        {status === 'todo' ? t('messages.notStarted') : t('messages.noPlanContent')}
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-32 items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  const messages = (chatView?.messages ?? []) as UIMessage[]
+
+  if (messages.length === 0) {
+    return (
+      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+        {status === 'running' ? t('messages.executingRunning') : t('messages.noPlanContent')}
+      </div>
+    )
+  }
+
+  const leafMessageId = (chatView as any)?.leafMessageId ?? messages[messages.length - 1]?.id ?? null
+
+  return (
+    <ChatStateProvider value={{
+      messages,
+      status: 'ready',
+      error: undefined,
+      isHistoryLoading: false,
+      stepThinking: false,
+      pendingCloudMessage: null,
+    }}>
+      <ChatActionsProvider value={READ_ONLY_ACTIONS}>
+        <ChatSessionProvider value={{
+          sessionId: sessionId ?? '',
+          projectId,
+          leafMessageId,
+          branchMessageIds: [],
+          siblingNav: {},
+        }}>
+          <ChatToolProvider value={READ_ONLY_TOOLS}>
+            <MessageList projectId={projectId} />
+          </ChatToolProvider>
+        </ChatSessionProvider>
+      </ChatActionsProvider>
+    </ChatStateProvider>
+  )
+}
+
+// ─── Run Logs Tab ─────────────────────────────────────────────────────
+
+function RunLogsTab({
+  taskId,
+  projectId,
+  t,
+}: {
+  taskId: string
+  projectId?: string
+  t: (key: string) => string
+}) {
+  const { data: logs = [], isLoading } = useQuery(
+    trpc.scheduledTask.runLogs.queryOptions(
+      { taskId, projectId, limit: 50 },
+      { enabled: !!taskId },
+    ),
+  )
+
+  if (isLoading) {
+    return (
+      <div className="flex h-32 items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (logs.length === 0) {
+    return (
+      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+        {t('messages.logGeneratedOnExecution')}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-1">
+      {logs.map((log: any, idx: number) => {
+        const isOk = log.status === 'ok'
+        const isLast = idx === logs.length - 1
+        return (
+          <div key={log.id} className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <div className={cn(
+                'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full',
+                isOk ? 'bg-ol-green-bg' : 'bg-ol-red-bg',
+              )}>
+                {isOk
+                  ? <CheckCircle2 className="h-3 w-3 text-ol-green" />
+                  : <XCircle className="h-3 w-3 text-ol-red" />
+                }
+              </div>
+              {!isLast && <div className="my-1 w-px flex-1 bg-border/40" />}
+            </div>
+            <div className="flex-1 pb-3">
+              <div className="flex items-center justify-between">
+                <span className={cn('text-xs font-medium', isOk ? 'text-ol-green' : 'text-ol-red')}>
+                  {isOk ? t('schedule.statusLabels.ok') : t('schedule.statusLabels.error')}
+                </span>
+                <span className="text-[11px] text-muted-foreground/60">
+                  {formatDuration(log.durationMs)}
+                </span>
+              </div>
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
+                {formatDateTime(log.startedAt)}
+              </div>
+              {log.error && (
+                <div className="mt-1.5 break-all rounded-lg bg-ol-red-bg px-2.5 py-1.5 text-[11px] text-ol-red">
+                  {log.error}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 // ─── Activity Timeline ───────────────────────────────────────────────
@@ -167,16 +361,29 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
 }: TaskDetailPanelProps) {
   const { t } = useTranslation('tasks')
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<Tab>('plan')
+  const [activeTab, setActiveTab] = useState<Tab>('output')
 
   const priorityLabels = useMemo(() => getPriorityLabels(t), [t])
   const statusLabels = useMemo(() => getStatusLabels(t), [t])
   const actorLabels = useMemo(() => getActorLabels(t), [t])
-  const tabConfig = useMemo(() => getTabConfig(t), [t])
+
+  const tabConfig: { key: Tab; label: string; icon: typeof Bot }[] = useMemo(() => [
+    { key: 'output', label: 'Agent', icon: Bot },
+    { key: 'runs', label: t('tabs.log'), icon: ScrollText },
+    { key: 'activity', label: t('tabs.activity'), icon: Activity },
+  ], [t])
 
   const { data: task, isLoading } = useQuery(
     trpc.scheduledTask.getTaskDetail.queryOptions(
       taskId ? { id: taskId, projectId } : { id: '' },
+      { enabled: !!taskId },
+    ),
+  )
+
+  // Get the latest run log to find the agent session ID
+  const { data: runLogs = [] } = useQuery(
+    trpc.scheduledTask.runLogs.queryOptions(
+      { taskId: taskId ?? '', projectId, limit: 1 },
       { enabled: !!taskId },
     ),
   )
@@ -193,18 +400,29 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
     }),
   )
 
+  const runMutation = useMutation(
+    trpc.scheduledTask.run.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.scheduledTask.pathKey() }),
+    }),
+  )
+
   const handleResolve = useCallback(
     (action: 'approve' | 'reject' | 'rework') => {
       if (!taskId) return
-      resolveReviewMutation.mutate({ id: taskId, action })
+      resolveReviewMutation.mutate({ id: taskId, action, projectId })
     },
-    [taskId, resolveReviewMutation],
+    [taskId, projectId, resolveReviewMutation],
   )
 
   const handleCancel = useCallback(() => {
     if (!taskId) return
-    cancelMutation.mutate({ id: taskId, status: 'cancelled' })
-  }, [taskId, cancelMutation])
+    cancelMutation.mutate({ id: taskId, status: 'cancelled', projectId })
+  }, [taskId, projectId, cancelMutation])
+
+  const handleRun = useCallback(() => {
+    if (!taskId) return
+    runMutation.mutate({ id: taskId, projectId })
+  }, [taskId, projectId, runMutation])
 
   if (isLoading) {
     return (
@@ -233,6 +451,15 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
     lastAgentMessage?: string
   } | undefined
 
+  // Resolve agent session ID: from task config or latest run log
+  const agentSessionId = (task as any).sessionId
+    || (runLogs.length > 0 ? (runLogs[0] as any)?.agentSessionId : undefined)
+
+  // Description or payload message
+  const description = (task.description as string)
+    || ((task as any).payload?.message as string)
+    || ''
+
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       {/* Header */}
@@ -248,12 +475,21 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
             </Badge>
           </div>
         </div>
-        {task.description && (
-          <p className="mt-1 text-xs text-muted-foreground">{task.description as string}</p>
+        {description && (
+          <p className="mt-1 text-xs text-muted-foreground line-clamp-3">{description}</p>
         )}
-        <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground">
+        <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
           <span>{t('detail.created')}: {formatDateTime(task.createdAt as string)}</span>
           {task.agentName && <span>{t('detail.agent')}: {task.agentName as string}</span>}
+          {(task as any).runCount > 0 && (
+            <span>#{(task as any).runCount}</span>
+          )}
+          {(task as any).lastRunAt && (
+            <span>
+              <Clock className="mr-0.5 inline h-2.5 w-2.5" />
+              {formatDateTime((task as any).lastRunAt)}
+            </span>
+          )}
         </div>
 
         {/* Progress bar for running tasks */}
@@ -294,29 +530,25 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-auto p-4">
-        {activeTab === 'plan' && (
-          <div className="prose prose-sm max-w-none dark:prose-invert">
-            {summary?.lastAgentMessage ? (
-              <p className="text-sm whitespace-pre-wrap">{summary.lastAgentMessage}</p>
-            ) : (
-              <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-                {status === 'todo' ? t('messages.notStarted') : t('messages.noPlanContent')}
-              </div>
-            )}
-          </div>
+      <div className={cn(
+        'flex-1 overflow-hidden',
+        activeTab !== 'output' && 'overflow-auto p-4',
+      )}>
+        {activeTab === 'output' && (
+          <AgentOutputTab
+            sessionId={agentSessionId}
+            status={status}
+            projectId={projectId}
+            t={t}
+          />
         )}
 
-        {activeTab === 'chat' && (
-          <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            {t('messages.chatGeneratedOnExecution')}
-          </div>
-        )}
-
-        {activeTab === 'log' && (
-          <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            {t('messages.logGeneratedOnExecution')}
-          </div>
+        {activeTab === 'runs' && taskId && (
+          <RunLogsTab
+            taskId={taskId}
+            projectId={projectId}
+            t={t}
+          />
         )}
 
         {activeTab === 'activity' && (
@@ -357,6 +589,17 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
                   {t('actions.rework')}
                 </Button>
               </>
+            )}
+            {status === 'todo' && (
+              <Button
+                size="sm"
+                className="h-7 rounded-md bg-ol-blue-bg px-3 text-xs font-medium text-ol-blue shadow-none hover:bg-ol-blue-bg-hover"
+                onClick={handleRun}
+                disabled={runMutation.isPending}
+              >
+                <Play className="mr-1 h-3 w-3" />
+                {t('schedule.run')}
+              </Button>
             )}
           </div>
           <Button

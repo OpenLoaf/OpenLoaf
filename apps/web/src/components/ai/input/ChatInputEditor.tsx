@@ -23,6 +23,7 @@ import { getFileLabel } from "./chat-input-utils";
 // ─── Constants ──────────────────────────────────────────────────────
 const CHIP_CLASS = "ol-mention-chip";
 const SKILL_CHIP_CLASS = "ol-skill-chip";
+const AGENT_CHIP_CLASS = "ol-agent-chip";
 const FILE_ICON_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" ' +
   'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
@@ -32,6 +33,11 @@ const SKILL_ICON_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" ' +
   'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
   'style="flex-shrink:0"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>';
+const AGENT_ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" ' +
+  'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
+  'style="flex-shrink:0;display:inline-block"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>' +
+  '<circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
 
 const CHIP_BASE_STYLES = "display:inline-flex;align-items:center;gap:3px;padding:1px 6px;margin:0 1px;border-radius:4px;font-size:12px;font-weight:500;line-height:18px;vertical-align:baseline;cursor:pointer;user-select:none;white-space:nowrap;max-width:200px;transition:background-color .15s";
 
@@ -46,15 +52,28 @@ const CHIP_STYLES = `
 .${SKILL_CHIP_CLASS}>span{overflow:hidden;text-overflow:ellipsis}
 .dark .${SKILL_CHIP_CLASS}{background:rgb(88 28 135/.4);color:rgb(216 180 254)}
 .dark .${SKILL_CHIP_CLASS}:hover{background:rgb(88 28 135/.6)}
+.${AGENT_CHIP_CLASS}{${CHIP_BASE_STYLES};background:rgba(254,243,199,0.8);color:#b45309}
+.${AGENT_CHIP_CLASS}:hover{background:rgba(253,230,138,1)}
+.${AGENT_CHIP_CLASS}>span{overflow:hidden;text-overflow:ellipsis}
+.dark .${AGENT_CHIP_CLASS}{background:rgba(120,53,15,0.4);color:#fcd34d}
+.dark .${AGENT_CHIP_CLASS}:hover{background:rgba(120,53,15,0.6)}
 `;
 
-let stylesInjected = false;
+const STYLE_TAG_ID = "ol-chip-styles";
 function ensureStyles() {
-  if (stylesInjected || typeof document === "undefined") return;
-  stylesInjected = true;
-  const style = document.createElement("style");
-  style.textContent = CHIP_STYLES;
-  document.head.appendChild(style);
+  if (typeof document === "undefined") return;
+  // Remove legacy style tags (injected without id by older code / prior HMR cycles).
+  for (const s of document.querySelectorAll("style")) {
+    if (!s.id && s.textContent?.includes("ol-mention-chip")) s.remove();
+  }
+  let el = document.getElementById(STYLE_TAG_ID) as HTMLStyleElement | null;
+  if (!el) {
+    el = document.createElement("style");
+    el.id = STYLE_TAG_ID;
+    document.head.appendChild(el);
+  }
+  // Always overwrite to keep in sync after HMR.
+  el.textContent = CHIP_STYLES;
 }
 
 // ─── HTML helpers ───────────────────────────────────────────────────
@@ -79,9 +98,9 @@ function valueToHtml(value: string): string {
   if (!value) return "";
   let html = "";
   let lastIndex = 0;
-  // Match @{...} file mentions and /skill/xxx skill commands.
+  // Match @{...} file mentions, /skill/xxx skill commands, and @agents/.../pm agent mentions.
   // Skill chip requires trailing whitespace or non-ASCII (prevents broken names when space is deleted).
-  const re = /@\{([^}]+)\}|\/skill\/([\w-]+)(?=\s|[^\x00-\x7F])/g;
+  const re = /@\{([^}]+)\}|\/skill\/([\w-]+)(?=\s|[^\x00-\x7F])|@agents\/([^/\s]+)\/pm(?=\s|$)/g;
   let match: RegExpExecArray | null;
   // biome-ignore lint/suspicious/noAssignInExpressions: intentional loop pattern
   while ((match = re.exec(value)) !== null) {
@@ -94,6 +113,19 @@ function valueToHtml(value: string): string {
         `<span class="${CHIP_CLASS}" data-token="${escapeAttr(token)}" contenteditable="false">` +
         `${FILE_ICON_SVG}<span>${escapeHtml(label)}</span>` +
         "</span>";
+    } else if (match[3] !== undefined) {
+      // Agent mention: @agents/项目名/pm
+      const projectName = match[3];
+      const afterTokenIdx = match.index + token.length;
+      const hasTrailingSpace = value[afterTokenIdx] === " ";
+      const dataToken = hasTrailingSpace ? `${token} ` : token;
+      html +=
+        `<span class="${AGENT_CHIP_CLASS}" data-token="${escapeAttr(dataToken)}" contenteditable="false" ` +
+        `style="${CHIP_BASE_STYLES};background:rgba(254,243,199,0.8);color:#b45309">` +
+        `${AGENT_ICON_SVG}<span style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(projectName)}/管理员</span>` +
+        "</span>";
+      lastIndex = afterTokenIdx + (hasTrailingSpace ? 1 : 0);
+      continue;
     } else {
       // Skill command: /skill/xxx
       const skillName = match[2];
@@ -122,7 +154,7 @@ function domToValue(node: Node): string {
       result += child.textContent ?? "";
     } else if (child.nodeType === Node.ELEMENT_NODE) {
       const el = child as HTMLElement;
-      if (el.classList.contains(CHIP_CLASS) || el.classList.contains(SKILL_CHIP_CLASS)) {
+      if (el.classList.contains(CHIP_CLASS) || el.classList.contains(SKILL_CHIP_CLASS) || el.classList.contains(AGENT_CHIP_CLASS)) {
         result += el.dataset.token ?? "";
       } else if (el.tagName === "BR") {
         result += "\n";
@@ -326,7 +358,7 @@ export function ChatInputEditor({
     isEmpty() {
       const el = editorRef.current;
       if (!el) return !value;
-      return !el.textContent?.trim() && !el.querySelector(`.${CHIP_CLASS},.${SKILL_CHIP_CLASS}`);
+      return !el.textContent?.trim() && !el.querySelector(`.${CHIP_CLASS},.${SKILL_CHIP_CLASS},.${AGENT_CHIP_CLASS}`);
     },
   }));
 
@@ -360,7 +392,7 @@ export function ChatInputEditor({
     const el = editorRef.current;
     if (!el) return;
     const hasText = !!(el.textContent?.length);
-    const hasChip = !!el.querySelector(`.${CHIP_CLASS},.${SKILL_CHIP_CLASS}`);
+    const hasChip = !!el.querySelector(`.${CHIP_CLASS},.${SKILL_CHIP_CLASS},.${AGENT_CHIP_CLASS}`);
     setDomEmpty(!hasText && !hasChip);
   }, []);
 

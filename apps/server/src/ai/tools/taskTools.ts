@@ -24,7 +24,7 @@ import {
 import { taskOrchestrator } from '@/services/taskOrchestrator'
 import { taskScheduler } from '@/services/taskScheduler'
 import { resolveToolRoots, ensureTempProject } from '@/ai/tools/toolScope'
-import { getSessionId } from '@/ai/shared/context/requestContext'
+import { getSessionId, getSaasAccessToken } from '@/ai/shared/context/requestContext'
 
 // ─── Status Protection Constants ──────────────────────────────────────
 
@@ -119,7 +119,7 @@ export const taskManageTool = tool({
         if (isScheduled) {
           taskScheduler.registerTask(task)
         } else {
-          void taskOrchestrator.enqueue(task.id, projectRoot)
+          void taskOrchestrator.enqueue(task.id, projectRoot, getSaasAccessToken())
         }
 
         let message: string
@@ -179,7 +179,7 @@ export const taskManageTool = tool({
           return rejectMsg('run', input.taskId, task.status, 'todo')
         }
 
-        await taskOrchestrator.enqueue(input.taskId, projectRoot)
+        await taskOrchestrator.enqueue(input.taskId, projectRoot, getSaasAccessToken())
         return okMsg(`任务 "${task.name}" 已开始执行。`, { taskId: input.taskId })
       }
 

@@ -151,6 +151,12 @@ const RECOVERY_RULES: RecoveryRule[] = [
     hint: '服务端内部错误。这是外部服务的问题，可以稍后重试。',
   },
 
+  // Tool loading / validation errors
+  {
+    pattern: /Invalid input for tool|invalid_type|Invalid option/i,
+    hint: '工具参数校验失败。可能原因：1) 工具尚未通过 tool-search 加载，缺少参数 schema；2) 参数格式不正确。请先用 tool-search(query: "select:<tool-id>") 加载工具后重试。',
+  },
+
   // Agent / tool specific
   {
     pattern: /Max agent spawn depth/i,

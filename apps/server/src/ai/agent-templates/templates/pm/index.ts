@@ -7,8 +7,9 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import PM_PROMPT_ZH from './prompt.zh.md'
-import PM_PROMPT_EN from './prompt.en.md'
+import PM_IDENTITY_ZH from './identity.zh.md'
+import PM_IDENTITY_EN from './identity.en.md'
+import { getStandardPrompt } from '../master'
 
 /**
  * PM Agent 工具集 — 继承 Project Agent 工具集 + spawn-agent 协作工具。
@@ -49,10 +50,9 @@ export const PM_AGENT_TOOL_IDS = [
   'memory-get',
 ] as const
 
-/** Get PM agent prompt in specified language. */
+/** Get PM agent prompt (PM identity + standard framework) in specified language. */
 export function getPMPrompt(lang?: string): string {
-  if (lang?.startsWith('en')) {
-    return PM_PROMPT_EN.trim()
-  }
-  return PM_PROMPT_ZH.trim()
+  const identity = lang?.startsWith('en') ? PM_IDENTITY_EN.trim() : PM_IDENTITY_ZH.trim()
+  const standard = getStandardPrompt(lang)
+  return `${identity}\n\n---\n\n${standard}`
 }

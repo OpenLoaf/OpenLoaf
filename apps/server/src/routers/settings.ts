@@ -1471,6 +1471,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
             context,
             schema: CAPABILITY_SCHEMAS["project.classify"],
             fallback: { type: "general" as const, icon: "", confidence: 0 },
+            saasAccessToken: input.saasAccessToken,
           });
 
           // Write back to project.json if confidence is sufficient.
@@ -1538,6 +1539,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
               type: (config?.projectType ?? "general") as any,
             },
             noCache: true,
+            saasAccessToken: input.saasAccessToken,
           });
 
           return { title: result.title, icon: result.icon, type: result.type };
@@ -1599,6 +1601,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
             context,
             schema: CAPABILITY_SCHEMAS["chat.suggestions"],
             fallback: { suggestions: [] },
+            saasAccessToken: input.saasAccessToken,
           });
 
           appendEntry(scope, sessionCount, result.suggestions);
@@ -1635,6 +1638,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
             schema: CAPABILITY_SCHEMAS["git.commitMessage"],
             fallback: { subject: "", body: undefined },
             noCache: true,
+            saasAccessToken: input.saasAccessToken,
           });
 
           return { subject: result.subject, body: result.body ?? "" };
@@ -1681,25 +1685,15 @@ export class SettingRouterImpl extends BaseSettingRouter {
           const { CAPABILITY_SCHEMAS } = await import(
             "@/ai/services/auxiliaryCapabilities"
           );
-          const { runWithContext } = await import(
-            "@/ai/shared/context/requestContext"
-          );
 
-          const result = await runWithContext(
-            {
-              sessionId: "",
-              cookies: {},
-              saasAccessToken: input.saasAccessToken,
-            },
-            () =>
-              auxiliaryInfer({
-                capabilityKey: "file.title",
-                context: markdown,
-                schema: CAPABILITY_SCHEMAS["file.title"],
-                fallback: { title: "" },
-                noCache: true,
-              }),
-          );
+          const result = await auxiliaryInfer({
+            capabilityKey: "file.title",
+            context: markdown,
+            schema: CAPABILITY_SCHEMAS["file.title"],
+            fallback: { title: "" },
+            noCache: true,
+            saasAccessToken: input.saasAccessToken,
+          });
 
           return { title: result.title };
         }),

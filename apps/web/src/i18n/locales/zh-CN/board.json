@@ -255,7 +255,9 @@
       "aspectRatio": "宽高比",
       "style": "风格",
       "stylePlaceholder": "回车可自定义风格",
-      "negativePrompt": "不希望出现",
+      "negativePrompt": "不希望在图片中出现的元素",
+      "negativePromptLabel": "反向提示",
+      "clearStyle": "清除",
       "auto": "自动"
     },
     "modelSelect": {
@@ -300,7 +302,9 @@
       "duration": "时长",
       "style": "风格",
       "stylePlaceholder": "回车可自定义风格",
-      "negativePrompt": "不希望出现",
+      "negativePrompt": "不希望在视频中出现的元素",
+      "negativePromptLabel": "反向提示",
+      "clearStyle": "清除",
       "auto": "自动",
       "yes": "是",
       "no": "否",

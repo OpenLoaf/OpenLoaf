@@ -273,7 +273,7 @@ export function createProjectAgent(input: CreateProjectAgentInput) {
   tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds))
 
   const hardRules = buildHardRules()
-  const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform)
+  const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)
   const finalInstructions = `${instructions}\n\n${hardRules}\n\n${toolSearchGuidance}`
 
   return new ToolLoopAgent({
@@ -350,7 +350,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
   tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds))
 
   const hardRules = buildHardRules()
-  const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform)
+  const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)
   const finalInstructions = `${instructions}\n\n${hardRules}\n\n${toolSearchGuidance}`
 
   return new ToolLoopAgent({
@@ -446,7 +446,7 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
 
   // 使用与主 Agent 相同的完整 instructions（sub-agent 不共享 preface，需自带 guidance）
   const basePrompt = masterTpl.systemPrompt
-  const finalInstructions = `${basePrompt}\n\n${buildHardRules()}\n\n${buildToolSearchGuidance(ctx?.clientPlatform)}`
+  const finalInstructions = `${basePrompt}\n\n${buildHardRules()}\n\n${buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)}`
 
   return new ToolLoopAgent({
     id: `sub-agent-general-${Date.now()}`,

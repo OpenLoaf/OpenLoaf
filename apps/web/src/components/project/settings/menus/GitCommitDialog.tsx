@@ -31,6 +31,7 @@ import { ScrollArea } from "@openloaf/ui/scroll-area";
 import { Loader2, Sparkles } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
+import { getCachedAccessToken } from "@/lib/saas-auth";
 
 type GitCommitDialogProps = {
   projectId: string;
@@ -208,7 +209,7 @@ export function GitCommitDialog({
             size="sm"
             className="gap-1.5"
             disabled={generateMutation.isPending}
-            onClick={() => generateMutation.mutate({ projectId })}
+            onClick={() => generateMutation.mutate({ projectId, saasAccessToken: getCachedAccessToken() ?? undefined })}
           >
             {generateMutation.isPending ? (
               <Loader2 className="size-3.5 animate-spin" />

@@ -439,6 +439,28 @@ export function archiveTask(
   }
 }
 
+/** Find an active PM task for a given project. */
+export function findActivePmTask(
+  projectId: string,
+  globalRoot: string,
+  projectRoots?: string | string[] | null,
+): TaskConfig | null {
+  // Check running tasks first
+  const running = listTasksByStatus('running', globalRoot, projectRoots)
+    .filter((t) => t.agentName === 'pm' && t.projectId === projectId)
+  if (running.length > 0) {
+    // Take the most recent
+    return running.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))[0] ?? null
+  }
+  // Fallback: check queued (todo) tasks
+  const queued = listTasksByStatus('todo', globalRoot, projectRoots)
+    .filter((t) => t.agentName === 'pm' && t.projectId === projectId)
+  if (queued.length > 0) {
+    return queued.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))[0] ?? null
+  }
+  return null
+}
+
 /** Get the task directory path for storing plan.md and chat-history. */
 export function getTaskDir(
   id: string,

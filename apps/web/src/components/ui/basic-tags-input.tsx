@@ -30,8 +30,8 @@ export default function TagsInputBasic({
   value,
   defaultValue,
   onValueChange,
-  label = "Frameworks",
-  placeholder = "Add Framework",
+  label,
+  placeholder = "",
   className,
   disabled = false,
   dense = false,
@@ -56,7 +56,7 @@ export default function TagsInputBasic({
     ? "text-[10px] text-ol-text-auxiliary hover:text-ol-text-secondary transition-colors"
     : "text-xs text-ol-text-auxiliary hover:text-ol-text-secondary transition-colors";
   const controlClassName = dense
-    ? "flex flex-wrap gap-1 p-1.5 border border-ol-divider rounded-lg bg-background min-h-7 focus-within:outline-hidden focus-within:ring-2 focus-within:ring-ol-focus-ring focus-within:border-ol-focus-border"
+    ? "flex flex-wrap gap-1 p-1.5 bg-muted/50 min-h-7 focus-within:outline-hidden focus-within:bg-muted/70"
     : "flex flex-wrap gap-1 p-2 border border-ol-divider rounded-lg bg-background min-h-8 focus-within:outline-hidden focus-within:ring-2 focus-within:ring-ol-focus-ring focus-within:border-ol-focus-border";
   const itemClassName = dense
     ? "flex items-center gap-1 px-1.5 py-0.5 bg-ol-surface-muted text-ol-text-primary rounded text-[11px]"
@@ -101,14 +101,11 @@ export default function TagsInputBasic({
         <TagsInput.Context>
           {(tagsInput) => (
             <>
-              <div className={labelRowClassName}>
-                <TagsInput.Label className={labelClassName}>{label}</TagsInput.Label>
-                {tagsInput.value.length > 0 && !disabled ? (
-                  <TagsInput.ClearTrigger className={clearClassName}>
-                    清除
-                  </TagsInput.ClearTrigger>
-                ) : null}
-              </div>
+              {label ? (
+                <div className={labelRowClassName}>
+                  <TagsInput.Label className={labelClassName}>{label}</TagsInput.Label>
+                </div>
+              ) : null}
               <Popover open={suggestionsOpen} onOpenChange={handleOpenChange}>
                 <PopoverAnchor asChild>
                   <div ref={controlRef}>

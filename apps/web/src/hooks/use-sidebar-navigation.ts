@@ -38,9 +38,11 @@ export function useSidebarNavigation() {
 
       // Single-view: just set the chat session directly
       if (projectId) {
-        setChatParams({ projectId })
+        setChatParams({ projectId, boardId: undefined })
         setActiveGlobalChat(null)
       } else {
+        // Clear stale board/project params when switching to global chat
+        setChatParams({ projectId: undefined, boardId: undefined })
         setActiveGlobalChat(chatId)
       }
       setChatSession(chatId, true)

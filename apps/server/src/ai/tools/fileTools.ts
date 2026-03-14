@@ -517,7 +517,7 @@ export const applyPatchTool = tool({
 export const listDirTool = tool({
   description: listDirToolDef.description,
   inputSchema: zodSchema(listDirToolDef.parameters),
-  needsApproval: ({ path: targetPath }) => isTargetOutsideScope(targetPath),
+  needsApproval: false,
   execute: async ({
     path: targetPath, offset, limit, depth, ignoreGitignore,
     format, pattern, sort, showModified,

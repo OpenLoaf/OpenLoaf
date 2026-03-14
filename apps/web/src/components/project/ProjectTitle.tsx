@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
+import { getCachedAccessToken } from "@/lib/saas-auth";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import { Button } from "@openloaf/ui/button";
 import { EmojiPicker } from "@openloaf/ui/emoji-picker";
@@ -164,7 +165,7 @@ export default function ProjectTitle({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  if (projectId) inferNameMutation.mutate({ projectId });
+                  if (projectId) inferNameMutation.mutate({ projectId, saasAccessToken: getCachedAccessToken() ?? undefined });
                 }}
               >
                 {inferNameMutation.isPending ? (

@@ -71,6 +71,8 @@ type AuxiliaryInferInput<T extends z.ZodType> = {
   noCache?: boolean
   /** Override the system prompt (used by test UI). */
   promptOverride?: string
+  /** SaaS access token (fallback when request context is unavailable, e.g. tRPC mutations). */
+  saasAccessToken?: string
 }
 
 type AuxiliaryInferTextInput = {
@@ -81,6 +83,8 @@ type AuxiliaryInferTextInput = {
   noCache?: boolean
   /** Override the system prompt (used by test UI). */
   promptOverride?: string
+  /** SaaS access token (fallback when request context is unavailable, e.g. tRPC mutations). */
+  saasAccessToken?: string
 }
 
 /**
@@ -99,6 +103,7 @@ export async function auxiliaryInfer<T extends z.ZodType>({
   fallback,
   noCache,
   promptOverride,
+  saasAccessToken: inputToken,
 }: AuxiliaryInferInput<T>): Promise<z.infer<T>> {
   try {
     console.log(
@@ -143,7 +148,7 @@ export async function auxiliaryInfer<T extends z.ZodType>({
 
     // SaaS branch — delegate to SaaS backend
     if (conf.modelSource === 'saas') {
-      const token = getSaasAccessToken()
+      const token = getSaasAccessToken() || inputToken
       if (!token) throw new Error('未登录云端账号，请先登录')
       const saasClient = getSaasClient(token)
       const capability = AUXILIARY_CAPABILITIES[capabilityKey]
@@ -225,6 +230,7 @@ export async function auxiliaryInferText({
   fallback,
   noCache,
   promptOverride,
+  saasAccessToken: inputToken,
 }: AuxiliaryInferTextInput): Promise<string> {
   try {
     console.log(
@@ -267,7 +273,7 @@ export async function auxiliaryInferText({
 
     // SaaS branch — delegate to SaaS backend
     if (conf.modelSource === 'saas') {
-      const token = getSaasAccessToken()
+      const token = getSaasAccessToken() || inputToken
       if (!token) throw new Error('未登录云端账号，请先登录')
       const saasClient = getSaasClient(token)
       const res = await saasClient.auxiliary.infer({

@@ -248,7 +248,6 @@ export const excelQueryTool = tool({
 export const excelMutateTool = tool({
   description: excelMutateToolDef.description,
   inputSchema: zodSchema(excelMutateToolDef.parameters),
-  needsApproval: true,
   execute: async (input) => {
     const { action, filePath, sheetName, data, edits } = input as {
       action: string

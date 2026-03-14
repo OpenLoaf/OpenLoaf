@@ -28,6 +28,7 @@ import {
   buildSkillsSummarySection,
 } from "@/ai/shared/promptBuilder";
 import { buildToolSearchGuidance } from "@/ai/shared/toolSearchGuidance";
+import { masterTemplate } from "@/ai/agent-templates/templates/master";
 import { assembleMemoryBlocks } from "@/ai/shared/agentPromptAssembler";
 import { collectAvailableAgents, buildSubAgentListSection } from "@/ai/shared/subAgentPrefaceBuilder";
 
@@ -388,8 +389,8 @@ function buildContextReminderBlocks(input: {
 
   // NOTE: 执行规则 + 任务分工已移至 hardRules.ts <agent-directives>
 
-  // 工具目录（平台感知，按 clientPlatform 过滤场景）
-  sections.push(buildToolSearchGuidance(input.clientPlatform));
+  // 工具目录（从 master deferredToolIds 动态生成，平台感知过滤）
+  sections.push(buildToolSearchGuidance(input.clientPlatform, masterTemplate.deferredToolIds));
 
   // 会话上下文（放到最底部）
   sections.push(buildSessionContextSection(sessionId, context));

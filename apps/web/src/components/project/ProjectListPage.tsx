@@ -33,6 +33,7 @@ import {
 import { useInfiniteQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import { toast } from "sonner";
+import { getCachedAccessToken } from "@/lib/saas-auth";
 
 import { useIsInView } from "@/hooks/use-is-in-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
@@ -311,7 +312,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
       // Fire-and-forget: infer project type via auxiliary model.
       if (res.project?.projectId) {
         trpcClient.settings.inferProjectType
-          .mutate({ projectId: res.project.projectId })
+          .mutate({ projectId: res.project.projectId, saasAccessToken: getCachedAccessToken() ?? undefined })
           .then(() => invalidateProjects())
           .catch(() => {});
       }
@@ -344,7 +345,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
             // Fire-and-forget: infer project type via auxiliary model.
             if (data.projectId) {
               trpcClient.settings.inferProjectType
-                .mutate({ projectId: data.projectId })
+                .mutate({ projectId: data.projectId, saasAccessToken: getCachedAccessToken() ?? undefined })
                 .then(() => invalidateProjects())
                 .catch(() => {});
             }

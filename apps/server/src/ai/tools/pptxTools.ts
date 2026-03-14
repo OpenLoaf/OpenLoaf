@@ -285,7 +285,6 @@ export const pptxQueryTool = tool({
 export const pptxMutateTool = tool({
   description: pptxMutateToolDef.description,
   inputSchema: zodSchema(pptxMutateToolDef.parameters),
-  needsApproval: true,
   execute: async (input) => {
     const { action, filePath, slides, edits } = input as {
       action: string

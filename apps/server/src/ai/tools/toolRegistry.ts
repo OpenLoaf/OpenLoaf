@@ -32,6 +32,7 @@ import {
 } from "@/ai/tools/widgetTools";
 import { updatePlanTool } from "@/ai/tools/updatePlanTool";
 import { projectMutateTool, projectQueryTool } from "@/ai/tools/projectTools";
+import { boardQueryTool, boardMutateTool } from "@/ai/tools/boardTools";
 import { calendarMutateTool, calendarQueryTool } from "@/ai/tools/calendarTools";
 import { emailMutateTool, emailQueryTool } from "@/ai/tools/emailTools";
 import { excelQueryTool, excelMutateTool } from "@/ai/tools/excelTools";
@@ -70,6 +71,7 @@ import {
   abortAgentToolDef,
 } from "@openloaf/api/types/tools/agent";
 import { projectMutateToolDef, projectQueryToolDef } from "@openloaf/api/types/tools/db";
+import { boardQueryToolDef, boardMutateToolDef } from "@openloaf/api/types/tools/board";
 import {
   calendarMutateToolDef,
   calendarQueryToolDef,
@@ -218,6 +220,12 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [projectMutateToolDef.id]: {
     tool: projectMutateTool,
+  },
+  [boardQueryToolDef.id]: {
+    tool: boardQueryTool,
+  },
+  [boardMutateToolDef.id]: {
+    tool: boardMutateTool,
   },
   [calendarQueryToolDef.id]: {
     tool: calendarQueryTool,
@@ -385,6 +393,13 @@ const TOOL_ALIASES: Record<string, string> = {
   "move-email": "email-mutate",
   "mark-read": "email-mutate",
   "flag-email": "email-mutate",
+  "list-boards": "board-query",
+  "list-board": "board-query",
+  "get-board": "board-query",
+  "create-board": "board-mutate",
+  "delete-board": "board-mutate",
+  "clear-boards": "board-mutate",
+  "duplicate-board": "board-mutate",
   "create-event": "calendar-mutate",
   "create-meeting": "calendar-mutate",
   "update-event": "calendar-mutate",

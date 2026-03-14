@@ -67,7 +67,8 @@ export function AdvancedSettingsPanel({
 }: AdvancedSettingsPanelProps) {
   const { t } = useTranslation('board');
   return (
-    <div className="rounded-lg bg-ol-surface-input p-2.5 dark:bg-muted/26">
+    <div>
+      <div className="border-t border-border/40 my-1" />
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-1">
           <div className="min-w-0 flex-1 text-[11px] text-ol-text-auxiliary">
@@ -85,8 +86,8 @@ export function AdvancedSettingsPanel({
                 type="button"
                 disabled={disabled}
                 className={[
-                  "flex h-6 w-26 items-center justify-between rounded-md border border-ol-divider bg-background/90 px-2 text-[11px] text-ol-text-auxiliary",
-                  "hover:bg-ol-surface-muted disabled:cursor-not-allowed disabled:opacity-60",
+                  "flex h-6 w-26 items-center justify-between bg-muted/50 px-2 text-[11px] text-ol-text-auxiliary",
+                  "hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60",
                 ].join(" ")}
               >
                 <span className="truncate">
@@ -99,7 +100,7 @@ export function AdvancedSettingsPanel({
               side="bottom"
               align="start"
               sideOffset={4}
-              className="w-[var(--radix-popover-trigger-width)] max-h-40 overflow-auto rounded-md border border-ol-divider bg-background p-1 text-[11px] text-ol-text-auxiliary shadow-none"
+              className="w-[var(--radix-popover-trigger-width)] max-h-40 overflow-auto border border-border/60 bg-card p-1 text-[11px] text-ol-text-auxiliary shadow-sm"
             >
               {["auto", ...VIDEO_GENERATE_ASPECT_RATIO_OPTIONS].map((option) => {
                 const label = option === "auto" ? t('videoGenerate.advanced.auto') : option;
@@ -155,19 +156,34 @@ export function AdvancedSettingsPanel({
             </TabsList>
           </Tabs>
         </div>
-        <div className="flex items-center gap-1">
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-[11px] text-ol-text-auxiliary">
+              {t('videoGenerate.advanced.style')}
+            </span>
+            {styleTags.length > 0 && !disabled && (
+              <button
+                type="button"
+                className="text-[10px] text-ol-text-auxiliary hover:text-ol-text-secondary transition-colors"
+                onClick={() => onStyleChange([])}
+              >
+                {t('videoGenerate.advanced.clearStyle')}
+              </button>
+            )}
+          </div>
           <TagsInputBasic
             dense
-            label={t('videoGenerate.advanced.style')}
             placeholder={styleTags.length ? "" : t('videoGenerate.advanced.stylePlaceholder')}
             suggestions={[...VIDEO_GENERATE_STYLE_SUGGESTIONS]}
             value={styleTags}
             onValueChange={onStyleChange}
-            className="w-32"
             disabled={disabled}
           />
         </div>
-        <div className="min-w-0">
+        <div>
+          <div className="mb-1 text-[11px] text-ol-text-auxiliary">
+            {t('videoGenerate.advanced.negativePromptLabel')}
+          </div>
           <Textarea
             value={negativePromptText}
             maxLength={200}
@@ -177,7 +193,7 @@ export function AdvancedSettingsPanel({
               onNegativePromptChange(next);
             }}
             data-board-scroll
-            className="min-h-[48px] w-full resize-none overflow-y-auto px-2.5 py-1.5 text-[10px] leading-4 text-ol-text-secondary shadow-none placeholder:text-muted-foreground focus-visible:ring-0"
+            className="min-h-[28px] w-full resize-none overflow-y-auto border-0 bg-muted/50 px-2 py-1 text-[10px] leading-4 text-ol-text-secondary shadow-none placeholder:text-muted-foreground focus-visible:ring-0"
             disabled={disabled}
           />
         </div>

@@ -12,13 +12,14 @@ import { z } from 'zod'
 export const toolSearchToolDef = {
   id: 'tool-search',
   name: 'Tool Search',
-  description: `Search and load available tools. You start with no other tools and must use this to search and load them first.
+  description: `Search and load available tools.
+CRITICAL: You start with ZERO tools available. Every tool MUST be loaded through this function before it can be called. Calling an unloaded tool will fail with a parameter validation error.
 
 Query modes:
-1. Keyword search: enter keywords ("email", "file read"), returns and loads the most relevant tools
-2. Direct selection: enter "select:read-file,apply-patch", loads specified tools by ID
+1. Direct selection (preferred): "select:open-url,browser-act,browser-wait" — loads specified tools by ID, supports multiple comma-separated IDs
+2. Keyword search: "email", "file read" — returns and loads the most relevant tools
 
-Important: searched tools become immediately available. Use select: for efficiency when you know the tool IDs.`,
+Loaded tools become immediately callable. Always use "select:" when you know the tool IDs from the catalog.`,
   parameters: z.object({
     query: z.string().min(1).describe(
       'Search query. Enter keywords for search; use "select:tool-id-1,tool-id-2" for direct selection',

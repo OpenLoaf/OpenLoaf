@@ -229,7 +229,6 @@ export const wordQueryTool = tool({
 export const wordMutateTool = tool({
   description: wordMutateToolDef.description,
   inputSchema: zodSchema(wordMutateToolDef.parameters),
-  needsApproval: true,
   execute: async (input) => {
     const { action, filePath, content, edits } = input as {
       action: string

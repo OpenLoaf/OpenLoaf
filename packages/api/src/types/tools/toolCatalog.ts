@@ -19,6 +19,7 @@ import {
 } from "./browserAutomation";
 import { calendarQueryToolDef, calendarMutateToolDef } from "./calendar";
 import { projectQueryToolDef, projectMutateToolDef } from "./db";
+import { boardQueryToolDef, boardMutateToolDef } from "./board";
 import { emailQueryToolDef, emailMutateToolDef } from "./email";
 import { imageGenerateToolDef, videoGenerateToolDef, listMediaModelsToolDef } from "./mediaGenerate";
 import { excelQueryToolDef, excelMutateToolDef } from "./excel";
@@ -65,6 +66,8 @@ import { docConvertToolDef } from "./docConvert";
 import { fileInfoToolDef } from "./fileInfo";
 import { webSearchToolDef } from "./webSearch";
 import { toolSearchToolDef } from "./toolSearch";
+import { memorySearchToolDef, memoryGetToolDef } from "./memory";
+import { loadSkillToolDef } from "./skill";
 
 export type ToolCatalogItem = {
   id: string;
@@ -120,6 +123,8 @@ const TOOL_DEFS: ToolDefLike[] = [
   generateWidgetToolDef,
   projectQueryToolDef,
   projectMutateToolDef,
+  boardQueryToolDef,
+  boardMutateToolDef,
   spawnAgentToolDef,
   sendInputToolDef,
   waitAgentToolDef,
@@ -140,6 +145,9 @@ const TOOL_DEFS: ToolDefLike[] = [
   docConvertToolDef,
   fileInfoToolDef,
   webSearchToolDef,
+  loadSkillToolDef,
+  memorySearchToolDef,
+  memoryGetToolDef,
 ];
 
 // 逻辑：统一生成工具元数据，避免前端重复维护名称与描述。
@@ -198,6 +206,8 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'calendar-mutate': { keywords: ['calendar', 'event', 'create', 'update', 'delete', 'meeting', 'schedule'], group: 'calendar' },
   'project-query': { keywords: ['project', 'database', 'query', 'data', 'record', 'search', 'list'], group: 'db' },
   'project-mutate': { keywords: ['project', 'database', 'create', 'update', 'delete', 'modify', 'write'], group: 'db' },
+  'board-query': { keywords: ['board', 'canvas', 'whiteboard', 'drawing', 'list', 'query', 'search', '画布', '白板'], group: 'board' },
+  'board-mutate': { keywords: ['board', 'canvas', 'whiteboard', 'drawing', 'create', 'delete', 'update', 'duplicate', 'clear', 'pin', '画布', '白板'], group: 'board' },
   'task-manage': { keywords: ['task', 'todo', 'reminder', 'schedule', 'create', 'manage', 'cancel'], group: 'task' },
   'task-status': { keywords: ['task', 'status', 'progress', 'check', 'query', 'active'], group: 'task' },
   'excel-query': { keywords: ['excel', 'spreadsheet', 'xlsx', 'csv', 'sheet', 'cell', 'read'], group: 'office' },
@@ -220,6 +230,9 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'doc-convert': { keywords: ['document', 'convert', 'format', 'docx', 'pdf', 'html', 'markdown', 'csv', 'xlsx', 'txt', 'transform', 'word', 'export', 'import', 'to'], group: 'convert' },
   'file-info': { keywords: ['file', 'info', 'metadata', 'size', 'type', 'mime', 'resolution', 'duration', 'pages', 'details', 'stat', 'width', 'height', 'image', 'picture', 'photo', 'video', 'audio', 'pdf', 'excel', 'spreadsheet'], group: 'fileRead' },
   'web-search': { keywords: ['search', 'web', 'internet', 'google', 'query', 'lookup', 'find', 'latest', 'news', 'information', 'online'], group: 'web' },
+  'load-skill': { keywords: ['skill', 'load', 'guide', 'expertise', 'knowledge'], group: 'core' },
+  'memory-search': { keywords: ['memory', 'remember', 'recall', 'history', 'search', 'past'], group: 'memory' },
+  'memory-get': { keywords: ['memory', 'read', 'get', 'detail', 'recall'], group: 'memory' },
 };
 
 export const TOOL_CATALOG_EXTENDED: ToolCatalogExtendedItem[] = TOOL_CATALOG.map(

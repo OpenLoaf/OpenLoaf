@@ -16,7 +16,7 @@
  *     src/services/__tests__/taskEventBus.test.ts
  */
 import assert from 'node:assert/strict'
-import { taskEventBus, type TaskStatusChangeEvent, type TaskSummaryUpdateEvent } from '../taskEventBus'
+import { taskEventBus, type TaskStatusChangeEvent, type TaskSummaryUpdateEvent, type TaskReportEvent } from '../taskEventBus'
 
 // ---------------------------------------------------------------------------
 // Test runner
@@ -179,6 +179,131 @@ async function main() {
 
     assert.equal(statusCount, 1)
     assert.equal(summaryCount, 1)
+
+    cleanup1()
+    cleanup2()
+  })
+
+  console.log('\n--- C: Task Report Events ---')
+
+  await test('C1: onTaskReport receives emitted events', () => {
+    let received: TaskReportEvent | null = null
+    const cleanup = taskEventBus.onTaskReport((event) => {
+      received = event
+    })
+
+    const event: TaskReportEvent = {
+      taskId: 'task-report-1',
+      sourceSessionId: 'session-abc',
+      status: 'completed',
+      title: '开发邮件功能',
+      summary: '已完成邮件 API 实现',
+      messageId: 'msg-001',
+    }
+    taskEventBus.emitTaskReport(event)
+
+    assert.ok(received)
+    const ev = received as TaskReportEvent
+    assert.equal(ev.taskId, 'task-report-1')
+    assert.equal(ev.sourceSessionId, 'session-abc')
+    assert.equal(ev.status, 'completed')
+    assert.equal(ev.title, '开发邮件功能')
+    assert.equal(ev.summary, '已完成邮件 API 实现')
+    assert.equal(ev.messageId, 'msg-001')
+
+    cleanup()
+  })
+
+  await test('C2: onTaskReport with failed status', () => {
+    let received: TaskReportEvent | null = null
+    const cleanup = taskEventBus.onTaskReport((event) => {
+      received = event
+    })
+
+    taskEventBus.emitTaskReport({
+      taskId: 'task-report-2',
+      sourceSessionId: 'session-def',
+      status: 'failed',
+      title: '数据库迁移',
+      summary: '迁移脚本执行失败',
+      messageId: 'msg-002',
+    })
+
+    assert.ok(received)
+    assert.equal((received as TaskReportEvent).status, 'failed')
+
+    cleanup()
+  })
+
+  await test('C3: onTaskReport cleanup stops receiving events', () => {
+    let callCount = 0
+    const cleanup = taskEventBus.onTaskReport(() => {
+      callCount++
+    })
+
+    taskEventBus.emitTaskReport({
+      taskId: 't', sourceSessionId: 's', status: 'completed',
+      title: 't', summary: 's', messageId: 'm',
+    })
+    assert.equal(callCount, 1)
+
+    cleanup()
+
+    taskEventBus.emitTaskReport({
+      taskId: 't', sourceSessionId: 's', status: 'completed',
+      title: 't', summary: 's', messageId: 'm',
+    })
+    assert.equal(callCount, 1) // Should not increase
+  })
+
+  await test('C4: sourceSessionId can be used for filtering', () => {
+    const eventsForSession: TaskReportEvent[] = []
+    const targetSession = 'filter-target'
+
+    const cleanup = taskEventBus.onTaskReport((event) => {
+      if (event.sourceSessionId === targetSession) {
+        eventsForSession.push(event)
+      }
+    })
+
+    taskEventBus.emitTaskReport({
+      taskId: 't1', sourceSessionId: targetSession, status: 'completed',
+      title: 't1', summary: 's1', messageId: 'm1',
+    })
+    taskEventBus.emitTaskReport({
+      taskId: 't2', sourceSessionId: 'other-session', status: 'completed',
+      title: 't2', summary: 's2', messageId: 'm2',
+    })
+    taskEventBus.emitTaskReport({
+      taskId: 't3', sourceSessionId: targetSession, status: 'failed',
+      title: 't3', summary: 's3', messageId: 'm3',
+    })
+
+    assert.equal(eventsForSession.length, 2)
+    assert.equal(eventsForSession[0]!.taskId, 't1')
+    assert.equal(eventsForSession[1]!.taskId, 't3')
+
+    cleanup()
+  })
+
+  await test('C5: task report events are independent of status/summary events', () => {
+    let statusCount = 0
+    let reportCount = 0
+    const cleanup1 = taskEventBus.onStatusChange(() => { statusCount++ })
+    const cleanup2 = taskEventBus.onTaskReport(() => { reportCount++ })
+
+    taskEventBus.emitStatusChange({
+      taskId: 't', status: 'running', previousStatus: 'todo',
+      title: 't', updatedAt: new Date().toISOString(),
+    })
+
+    taskEventBus.emitTaskReport({
+      taskId: 't', sourceSessionId: 's', status: 'completed',
+      title: 't', summary: 's', messageId: 'm',
+    })
+
+    assert.equal(statusCount, 1)
+    assert.equal(reportCount, 1)
 
     cleanup1()
     cleanup2()

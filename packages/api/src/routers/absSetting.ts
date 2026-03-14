@@ -465,6 +465,7 @@ export const settingSchemas = {
   inferProjectType: {
     input: z.object({
       projectId: z.string(),
+      saasAccessToken: z.string().optional(),
     }),
     output: z.object({
       projectType: z.string(),
@@ -476,6 +477,7 @@ export const settingSchemas = {
   inferProjectName: {
     input: z.object({
       projectId: z.string(),
+      saasAccessToken: z.string().optional(),
     }),
     output: z.object({
       title: z.string(),
@@ -488,6 +490,7 @@ export const settingSchemas = {
     input: z.object({
       projectId: z.string().optional(),
       currentInput: z.string().optional(),
+      saasAccessToken: z.string().optional(),
     }),
     output: z.object({
       suggestions: z.array(
@@ -503,6 +506,7 @@ export const settingSchemas = {
   generateCommitMessage: {
     input: z.object({
       projectId: z.string(),
+      saasAccessToken: z.string().optional(),
     }),
     output: z.object({
       subject: z.string(),

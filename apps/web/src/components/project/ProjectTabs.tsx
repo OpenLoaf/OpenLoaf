@@ -51,13 +51,19 @@ export const PROJECT_TABS = [
     value: "index",
     icon: LayoutDashboard,
     labelKey: "project:project.tabHome",
-    tone: "sky",
+    tone: "emerald",
   },
   {
     value: "files",
     icon: Folder,
     labelKey: "project:project.tabFiles",
-    tone: "emerald",
+    tone: "sky",
+  },
+  {
+    value: "canvas",
+    icon: Palette,
+    labelKey: "project:project.tabCanvas",
+    tone: "violet",
   },
   {
     value: "tasks",
@@ -69,13 +75,7 @@ export const PROJECT_TABS = [
     value: "scheduled",
     icon: Clock,
     labelKey: "project:project.tabScheduled",
-    tone: "amber",
-  },
-  {
-    value: "canvas",
-    icon: Palette,
-    labelKey: "project:project.tabCanvas",
-    tone: "teal",
+    tone: "rose",
   },
   {
     value: "settings",

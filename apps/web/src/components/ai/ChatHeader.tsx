@@ -472,9 +472,10 @@ export default function ChatHeader({
                       const nextTitle = session.name.trim() || tAi("dock.aiAssistant");
                       setTitle(nextTitle);
                     }
-                    if (selectedSessionMeta?.projectId) {
-                      setChatParams({ projectId: selectedSessionMeta.projectId });
-                    }
+                    setChatParams({
+                      projectId: selectedSessionMeta?.projectId ?? undefined,
+                      boardId: undefined,
+                    });
                     selectSession(session.id);
                   }}
                 />
