@@ -39,7 +39,6 @@ import { Input } from '@openloaf/ui/input'
 import { trpc } from '@/utils/trpc'
 import { useProjects } from '@/hooks/use-projects'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
-import { useNavigation } from '@/hooks/use-navigation'
 import type { ProjectNode } from '@openloaf/api/services/projectTreeService'
 
 interface SidebarHoverPanelProps {
@@ -188,8 +187,6 @@ export function SidebarHoverPanel({
   const projectRootUriMap = useMemo(() => buildProjectRootUriMap(projects), [projects])
   const queryClient = useQueryClient()
 
-  const setActiveView = useNavigation((s) => s.setActiveView)
-
   // --- Controlled HoverCard: lock when menu/dialog is open ---
   const [hoverOpen, setHoverOpen] = useState(false)
   const lockCountRef = useRef(0)
@@ -327,9 +324,8 @@ export function SidebarHoverPanel({
         rootUri: targetRootUri,
         projectId: targetProjectId,
       })
-      setActiveView('canvas-list')
     },
-    [nav, projectId, projectRootUriMap, setActiveView, t],
+    [nav, projectId, projectRootUriMap, t],
   )
 
   const handleItemClick = useCallback(

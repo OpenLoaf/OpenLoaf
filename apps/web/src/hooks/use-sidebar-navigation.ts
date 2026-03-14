@@ -11,43 +11,68 @@
 
 import { useCallback } from 'react'
 import i18next from 'i18next'
+import type { ProjectNode } from '@openloaf/api/services/projectTreeService'
 import { useAppView } from '@/hooks/use-app-view'
 import { useLayoutState } from '@/hooks/use-layout-state'
-import { useNavigation } from '@/hooks/use-navigation'
 import { useProjectOpen } from '@/hooks/use-project-open'
+import { useProjects } from '@/hooks/use-projects'
 import { TEMP_CHAT_TAB_INPUT, TEMP_CANVAS_TAB_INPUT } from '@openloaf/api/common'
 import { buildBoardFolderUri } from '@/components/project/filesystem/utils/file-system-utils'
 import { BOARD_INDEX_FILE_NAME } from '@/lib/file-name'
 import { resolveProjectModeProjectShell } from '@/lib/project-mode'
 import { buildBoardChatTabState } from '@/components/board/utils/board-chat-tab'
 
+function findProjectRootUri(nodes: ProjectNode[] | undefined, projectId: string): string {
+  if (!projectId || !nodes?.length) return ''
+  for (const node of nodes) {
+    if (node.projectId === projectId) return node.rootUri
+    const childRootUri = findProjectRootUri(node.children, projectId)
+    if (childRootUri) return childRootUri
+  }
+  return ''
+}
+
 export function useSidebarNavigation() {
   const navigate = useAppView((s) => s.navigate)
   const setChatSession = useAppView((s) => s.setChatSession)
   const setChatParams = useAppView((s) => s.setChatParams)
   const projectShell = useAppView((s) => s.projectShell)
-  const setActiveView = useNavigation((s) => s.setActiveView)
-  const setActiveGlobalChat = useNavigation((s) => s.setActiveGlobalChat)
   const openProjectWithPreference = useProjectOpen()
+  const { data: projects } = useProjects()
   const activeProjectShell = resolveProjectModeProjectShell(projectShell)
   const activeProjectId = activeProjectShell?.projectId
 
   const openChat = useCallback(
     (chatId: string, chatTitle: string, input?: { projectId?: string | null }) => {
       const projectId = input?.projectId?.trim() || activeProjectId
+      const currentBase = useLayoutState.getState().base
 
       // Single-view: just set the chat session directly
       if (projectId) {
         setChatParams({ projectId, boardId: undefined })
-        setActiveGlobalChat(null)
+        if (currentBase?.component === 'plant-page') {
+          const currentParams = (currentBase.params ?? {}) as Record<string, unknown>
+          const currentProjectId =
+            typeof currentParams.projectId === 'string' ? currentParams.projectId.trim() : ''
+          if (currentProjectId && currentProjectId !== projectId) {
+            useLayoutState.getState().setBase({
+              id: `project:${projectId}`,
+              component: 'plant-page',
+              params: {
+                projectId,
+                rootUri: findProjectRootUri(projects, projectId),
+                projectTab: currentParams.projectTab,
+              },
+            })
+          }
+        }
       } else {
         // Clear stale board/project params when switching to global chat
         setChatParams({ projectId: undefined, boardId: undefined })
-        setActiveGlobalChat(chatId)
       }
       setChatSession(chatId, true)
     },
-    [activeProjectId, setChatSession, setChatParams, setActiveGlobalChat],
+    [activeProjectId, projects, setChatSession, setChatParams],
   )
 
   const openProject = useCallback(
@@ -59,9 +84,8 @@ export function useSidebarNavigation() {
     }) => {
       // 逻辑：Sidebar 项目入口统一落到项目看板。
       openProjectWithPreference(input, { section: 'index' })
-      setActiveGlobalChat(null)
     },
-    [openProjectWithPreference, setActiveGlobalChat],
+    [openProjectWithPreference],
   )
 
   const openBoard = useCallback(
@@ -90,7 +114,6 @@ export function useSidebarNavigation() {
         const boardChatState = buildBoardChatTabState(input.boardId, resolvedProjectId)
         setChatSession(boardChatState.chatSessionId, true)
         setChatParams(boardChatState.chatParams)
-        setActiveGlobalChat(null)
         return
       }
 
@@ -113,7 +136,6 @@ export function useSidebarNavigation() {
           },
         },
       })
-      setActiveGlobalChat(null)
     },
     [
       activeProjectId,
@@ -121,7 +143,6 @@ export function useSidebarNavigation() {
       navigate,
       setChatSession,
       setChatParams,
-      setActiveGlobalChat,
     ],
   )
 
@@ -132,9 +153,8 @@ export function useSidebarNavigation() {
     const layout = useLayoutState.getState()
     const view = useAppView.getState()
     if (!layout.base && view.title === tabTitle) {
-      // Already on temp chat, no-op
-      setActiveGlobalChat(null)
-      setActiveView('ai-assistant')
+      // Already on temp chat, just normalize any leaked scoped chat params.
+      setChatParams({ projectId: undefined, boardId: undefined })
       return
     }
 
@@ -144,10 +164,7 @@ export function useSidebarNavigation() {
       leftWidthPercent: 0,
       rightChatCollapsed: false,
     })
-
-    setActiveGlobalChat(null)
-    setActiveView('ai-assistant')
-  }, [navigate, setActiveView, setActiveGlobalChat])
+  }, [navigate, setChatParams])
 
   const openTempCanvas = useCallback(() => {
     const tabTitle = i18next.t(TEMP_CANVAS_TAB_INPUT.titleKey)
@@ -167,10 +184,7 @@ export function useSidebarNavigation() {
         params: { boardFolderUri, boardFileUri },
       },
     })
-
-    setActiveGlobalChat(null)
-    setActiveView('canvas-list')
-  }, [navigate, setActiveView, setActiveGlobalChat])
+  }, [navigate])
 
   return { openChat, openProject, openBoard, openTempChat, openTempCanvas }
 }

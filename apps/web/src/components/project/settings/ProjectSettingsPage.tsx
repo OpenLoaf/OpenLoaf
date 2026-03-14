@@ -20,10 +20,9 @@ import { trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useAppState } from "@/hooks/use-app-state";
-import { useLayoutState } from "@/hooks/use-layout-state";
 import { cn } from "@/lib/utils";
 import ProjectTabs, { type ProjectTabValue } from "@/components/project/ProjectTabs";
-import { openProjectShell, type ProjectShellSection } from "@/lib/project-shell";
+import { openProjectShellTab } from "@/lib/project-shell";
 
 import { ProjectBasicSettings } from "./menus/ProjectBasicSettings";
 import { ProjectAiSettings } from "./menus/ProjectAiSettings";
@@ -249,25 +248,13 @@ export default function ProjectSettingsPage({
       if (!projectId) return;
       if (nextTab === "settings") return;
 
-      // 中文注释：scheduled 仍复用 plant-page，只是用 projectTab 区分子页。
-      const nextSection: ProjectShellSection =
-        nextTab === "tasks"
-          ? "history"
-          : nextTab === "scheduled"
-            ? "index"
-            : nextTab;
-
-      openProjectShell({
+      openProjectShellTab({
         projectId,
         rootUri: resolvedRootUri,
         title: pageTitle,
         icon: pageIcon,
-        section: nextSection,
+        tab: nextTab,
       });
-
-      if (nextTab === "scheduled") {
-        useLayoutState.getState().setBaseParams({ projectTab: "scheduled" });
-      }
     },
     [projectId, resolvedRootUri, pageTitle, pageIcon],
   );

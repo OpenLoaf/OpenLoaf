@@ -292,6 +292,7 @@ const activeStackItemId = useLayoutState((s) => s.activeStackItemId)
 - 同步 board 画布的聊天会话
 - 记录实体访问（recordEntityVisit）
 - 根据 chatParams.projectId 自动创建/更新 plant-page base
+- `LayoutStateBridge` 会把真实布局反向同步到 `useNavigation`；业务组件不要再直接写导航派生状态
 
 ---
 
@@ -300,7 +301,8 @@ const activeStackItemId = useLayoutState((s) => s.activeStackItemId)
 | 方式 | 触发者 | 行为 |
 |------|--------|------|
 | `navigate()` | Sidebar 主入口、项目 shell、openTempChat | 全量重置：调用 `applyNavigation()` 一次性清空 stack、重设 base/width/collapsed，新建 session |
-| `setBase()` + `clearStack()` | Sidebar `openPrimaryPageTab()` | 轻量切换：只换 base 面板，`normalize()` 自动修正宽度。**不调用 navigate**，不重置 session |
+| `openPrimaryPage()` | Sidebar `openPrimaryPageTab()`、Tray、Chat Quick Launch | 轻量切换：只换全局 base 面板，清空 stack、退出 projectShell、清理 `chatParams.projectId/boardId`。**不调用 navigate**，不重置 session |
+| `openProjectShellTab()` | Project Tabs、Search、Project Settings、3D Folder | 统一项目子页切换：内部映射 `projectTab -> project-shell section`，必要时附加 `fileUri/settingsMenu` 等 base params |
 | `pushStackItem()` | AI 工具、用户操作 | 叠加浮层到 stack，不影响 base |
 | `setChatSession()` | 侧边栏历史 `openChat()` | 只切换聊天 session |
 
@@ -370,12 +372,14 @@ const activeStackItemId = useLayoutState((s) => s.activeStackItemId)
 ---
 
 ## Common Pitfalls
-- `openPrimaryPageTab` 不调用 `navigate()`，不会重置 session；如需重置用 `navigate()`
+- `openPrimaryPage()` 不调用 `navigate()`，不会重置 session；如需重置用 `navigate()`
+- 不要再手写 `setBaseParams({ projectTab })` 做项目切页；优先走 `openProjectShellTab()` 或 `openCurrentProjectShellTab()`
 - `normalize()` 会自动设置 leftWidthPercent，直接调 `setBase()` 不需要手动设宽度
 - `stackHidden` 与 `stack` 状态不同步，导致面板"看不见但仍拦截点击"
 - 修改 `TabLayout` 时忽略 `minLeftWidth` 动画保护，导致宽度抖动
 - 高频渲染组件（TabLayout、LeftDock）应使用精确 selector，避免 `useAppState()` 导致的过度订阅
 - `applyNavigation()` 是原子操作（单次 normalize），不要拆成多次 set 调用
+- `useNavigation` 现在是布局派生状态缓存；若某个业务逻辑想“切页面”，应改真实的 `useAppView` / `useLayoutState`，不要反向写 `activeViewType`
 
 ## Quick File Map
 - `apps/web/src/app/layout.tsx` — RootLayout + Providers
@@ -392,6 +396,7 @@ const activeStackItemId = useLayoutState((s) => s.activeStackItemId)
 - `apps/web/src/hooks/use-layout-state.ts` — 布局状态 store
 - `apps/web/src/hooks/use-app-state.ts` — 组合 hook
 - `apps/web/src/hooks/layout-utils.ts` — 布局工具函数
+- `apps/web/src/lib/primary-page-navigation.ts` — 全局主页面轻量切换 helper
 - `apps/web/src/lib/project-shell.ts` — 项目壳导航
 - `apps/web/src/hooks/use-sidebar-navigation.ts` — 侧边栏导航动作
 - `apps/web/src/lib/globalShortcuts.ts` — 全局快捷键

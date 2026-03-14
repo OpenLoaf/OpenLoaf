@@ -22,7 +22,6 @@ import { useAppView } from "@/hooks/use-app-view"
 import { useLayoutState } from "@/hooks/use-layout-state"
 import {
   LEFT_DOCK_MIN_PX,
-  LEFT_DOCK_DEFAULT_PERCENT,
   resolveRightChatState,
 } from "@/hooks/layout-utils"
 import { useProjectLayout } from "@/hooks/use-project-layout"
@@ -30,26 +29,7 @@ import { useRecordEntityVisit } from "@/hooks/use-record-entity-visit"
 import { useChatSessions } from "@/hooks/use-chat-sessions"
 import { LeftDock } from "./LeftDock"
 import { TabActiveProvider } from "./TabActiveContext"
-import { queryClient, trpc } from "@/utils/trpc"
 import { buildBoardChatTabState } from "@/components/board/utils/board-chat-tab"
-
-/** Recursively find a project node by id in a tree. */
-function findProjectInTree(
-  nodes: Array<{ projectId: string; rootUri: string; children?: unknown[] }>,
-  targetId: string,
-): { projectId: string; rootUri: string } | undefined {
-  for (const node of nodes) {
-    if (node.projectId === targetId) return node
-    if (Array.isArray(node.children) && node.children.length > 0) {
-      const found = findProjectInTree(
-        node.children as Array<{ projectId: string; rootUri: string; children?: unknown[] }>,
-        targetId,
-      )
-      if (found) return found
-    }
-  }
-  return undefined
-}
 
 const RIGHT_CHAT_MIN_PX = 360
 const DIVIDER_GAP_PX = 10
@@ -187,79 +167,6 @@ function RightChatPanel() {
     isBoardChatTab,
     hasRemoteActiveSession,
     recordEntityVisit,
-  ])
-
-  // Resolve project rootUri from cache
-  const resolveProjectRootUri = React.useCallback((projectId: string) => {
-    const projectsQueryKey = trpc.project.list.pathKey()
-    const cachedProjects = queryClient.getQueriesData<
-      Array<{ projectId: string; rootUri: string; title: string; icon?: string }>
-    >({ queryKey: projectsQueryKey })
-    for (const [, data] of cachedProjects) {
-      if (!Array.isArray(data)) continue
-      const found = findProjectInTree(data, projectId)
-      if (found) return found.rootUri
-    }
-    return ""
-  }, [])
-
-  /** Apply plant-page base for a project. */
-  const applyPlantPageForProject = React.useCallback(
-    (projectId: string, createIfMissing = true) => {
-      if (!projectId) return
-      const currentBase = layout.base
-      const currentParams = (currentBase?.params ?? {}) as Record<string, unknown>
-      const rootUri = resolveProjectRootUri(projectId)
-
-      if (currentBase?.component === "plant-page") {
-        if (currentParams.projectId === projectId) return
-        useLayoutState.getState().setBase({
-          id: `project:${projectId}`,
-          component: "plant-page",
-          params: { projectId, rootUri, projectTab: currentParams.projectTab },
-        })
-      } else if (!currentBase && createIfMissing) {
-        useLayoutState.getState().setBase({
-          id: `project:${projectId}`,
-          component: "plant-page",
-          params: { projectId, rootUri, projectTab: "files" },
-        })
-        if (!layout.leftWidthPercent || layout.leftWidthPercent === 0) {
-          const savedLayout = useProjectLayout.getState().getProjectLayout(projectId)
-          const savedPercent = savedLayout?.leftWidthPercent
-          useLayoutState.getState().setLeftWidthPercent(
-            savedPercent && savedPercent > 0 ? savedPercent : LEFT_DOCK_DEFAULT_PERCENT,
-          )
-        }
-      }
-    },
-    [layout.base, layout.leftWidthPercent, resolveProjectRootUri],
-  )
-
-  // Sync project on session/project change
-  const prevActiveSessionIdRef = React.useRef(activeSessionId)
-  const prevProjectIdRef = React.useRef(currentProjectId)
-
-  React.useEffect(() => {
-    const prevSessionId = prevActiveSessionIdRef.current
-    const prevProjectId = prevProjectIdRef.current
-    const sessionChanged = activeSessionId !== prevSessionId
-    const projectChanged = currentProjectId !== prevProjectId
-    prevActiveSessionIdRef.current = activeSessionId
-    prevProjectIdRef.current = currentProjectId
-
-    if (!activeSessionId) return
-    if (!sessionChanged && !projectChanged) return
-    if (appView.projectShell) return
-
-    if (projectChanged) {
-      applyPlantPageForProject(currentProjectId, false)
-    }
-  }, [
-    activeSessionId,
-    currentProjectId,
-    appView.projectShell,
-    applyPlantPageForProject,
   ])
 
   return (

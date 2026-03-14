@@ -33,7 +33,6 @@ import type { ClaudeCodeOptions } from "@/lib/chat/claude-code-options";
 import type { ChatMessageKind } from "@openloaf/api";
 import i18next from "i18next";
 import { SUMMARY_HISTORY_COMMAND, SUMMARY_TITLE_COMMAND, TEMP_CHAT_TAB_INPUT } from "@openloaf/api/common";
-import { useNavigation } from "@/hooks/use-navigation";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
 import { useRecordEntityVisit } from "@/hooks/use-record-entity-visit";
 import { incrementChatPerf } from "@/lib/chat/chat-perf";
@@ -1112,15 +1111,6 @@ export default function ChatCoreProvider({
 
         // 中文注释：首条用户消息完成后刷新会话列表，展示标题。
         pendingInitialTitleRefreshRef.current = true;
-
-        // sidebar 联动：根据是否有项目上下文更新导航状态
-        const nav = useNavigation.getState();
-
-        if (typeof currentProjectId === "string" && currentProjectId.trim()) {
-          nav.setActiveProject(currentProjectId.trim());
-        } else {
-          nav.setActiveGlobalChat(sessionIdRef.current);
-        }
 
         // 修改 tab 标题（打破"临时对话"单例匹配，使下次点击 AI 助手创建新 tab）
         const currentTabId = tabIdRef.current;

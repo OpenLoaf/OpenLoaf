@@ -21,8 +21,7 @@ import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import { trpc } from "@/utils/trpc";
 import { getEntryVisual, IMAGE_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import { openFilePreview } from "@/components/file/lib/open-file";
-import { useLayoutState } from "@/hooks/use-layout-state";
-import { openProjectShell } from "@/lib/project-shell";
+import { openProjectShellTab } from "@/lib/project-shell";
 import {
   buildUriFromRoot,
   getDisplayPathFromUri,
@@ -123,7 +122,6 @@ export default function ThreeDFolderWidget({
   hovered,
 }: ThreeDFolderWidgetProps) {
   const { t } = useTranslation('desktop');
-  const setBaseParams = useLayoutState((state) => state.setBaseParams);
   const resolvedTitle = React.useMemo(() => {
     // 中文注释：优先使用外部传入的标题，其次从目录路径提取显示名。
     if (title && title.trim().length > 0) return title.trim();
@@ -226,31 +224,17 @@ export default function ThreeDFolderWidget({
         toast.error(t('threeDFolder.noFolderInfo'));
         return;
       }
-      const baseId = `project:${input.projectId}`;
-      const currentBase = useLayoutState.getState().base;
       const projectNode = projectRoots.find((node) => node.projectId === input.projectId);
-      const baseParams = {
-        projectId: input.projectId,
-        rootUri: input.rootUri,
-        projectTab: "files",
-        fileUri: input.uri,
-      };
-
-      if (currentBase?.id === baseId) {
-        setBaseParams(baseParams);
-        return;
-      }
-
-      openProjectShell({
+      openProjectShellTab({
         projectId: input.projectId,
         rootUri: input.rootUri,
         title: projectNode?.title || t('threeDFolder.unnamedProject'),
         icon: projectNode?.icon ?? undefined,
-        section: "files",
+        tab: "files",
+        baseParams: { fileUri: input.uri },
       });
-      setBaseParams(baseParams);
     },
-    [projectRoots, setBaseParams, t]
+    [projectRoots, t]
   );
   const handleProjectOpen = React.useCallback(
     (project: AnimatedFolderProject) => {

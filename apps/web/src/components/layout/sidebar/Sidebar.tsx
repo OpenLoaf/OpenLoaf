@@ -24,10 +24,7 @@ import {
 } from "@openloaf/ui/sidebar";
 import { CalendarDays, Clock, FolderKanban, LayoutDashboard, Mail, Palette, Search, Settings, Sparkles } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
-import { useAppView } from "@/hooks/use-app-view";
-import { useLayoutState } from "@/hooks/use-layout-state";
 import { useAppState } from "@/hooks/use-app-state";
-import { useNavigation } from "@/hooks/use-navigation";
 import {
   AI_ASSISTANT_TAB_INPUT,
   CANVAS_LIST_TAB_INPUT,
@@ -41,6 +38,7 @@ import { useSidebarNavigation } from "@/hooks/use-sidebar-navigation";
 import { CompactUserAvatar } from "@/components/layout/sidebar/SidebarUserAccount";
 import { BOARD_VIEWER_COMPONENT, resolveLayoutViewState } from "@/hooks/layout-utils";
 import { isProjectWindowMode, isBoardWindowMode } from "@/lib/window-mode";
+import { openPrimaryPage } from "@/lib/primary-page-navigation";
 
 const ICON_BTN_BASE =
   "flex h-10 w-10 items-center justify-center rounded-lg transition-colors duration-150";
@@ -102,14 +100,8 @@ export const AppSidebar = ({
   ...props
 }: React.ComponentProps<typeof Sidebar>) => {
   const { t } = useTranslation("nav");
-  const setTitle = useAppView((s) => s.setTitle);
-  const setIcon = useAppView((s) => s.setIcon);
-  const setProjectShell = useAppView((s) => s.setProjectShell);
   const appState = useAppState();
   const layoutView = useMemo(() => resolveLayoutViewState(appState), [appState]);
-  const setBase = useLayoutState((s) => s.setBase);
-  const clearStack = useLayoutState((s) => s.clearStack);
-  const setActiveView = useNavigation((s) => s.setActiveView);
   const isNarrow = useIsNarrowScreen(900);
   const nav = useSidebarNavigation();
   const setSearchOpen = useGlobalOverlay((s) => s.setSearchOpen);
@@ -153,22 +145,16 @@ export const AppSidebar = ({
       title?: string;
       titleKey?: string;
       icon: string;
-      viewType?: string;
     }) => {
       const tabTitle = input.titleKey ? i18next.t(input.titleKey) : (input.title ?? "");
-      if (input.viewType) {
-        setActiveView(input.viewType as any);
-      }
-      setBase({ id: input.baseId, component: input.component });
-      clearStack();
-      setTitle(tabTitle);
-      setIcon(input.icon);
-      // Exit project mode when navigating to a global page.
-      setProjectShell(null);
-      // Default right chat to collapsed on global pages.
-      useLayoutState.getState().setRightChatCollapsed(true);
+      openPrimaryPage({
+        baseId: input.baseId,
+        component: input.component,
+        title: tabTitle,
+        icon: input.icon,
+      });
     },
-    [clearStack, setActiveView, setBase, setIcon, setTitle, setProjectShell],
+    [],
   );
 
   if (isNarrow || isProjectWindowMode() || isBoardWindowMode()) return null;
@@ -206,9 +192,7 @@ export const AppSidebar = ({
                 isInProject) &&
               !isSettingsActive
             }
-            onClick={() =>
-              openPrimaryPageTab({ ...PROJECT_LIST_TAB_INPUT, viewType: "project-list" })
-            }
+            onClick={() => openPrimaryPageTab({ ...PROJECT_LIST_TAB_INPUT })}
           />
           <IconNavItem
             icon={Palette}
@@ -220,9 +204,7 @@ export const AppSidebar = ({
               isMenuActive(CANVAS_LIST_TAB_INPUT) ||
               isCanvasViewerActive)
             }
-            onClick={() =>
-              openPrimaryPageTab({ ...CANVAS_LIST_TAB_INPUT, viewType: "canvas-list" })
-            }
+            onClick={() => openPrimaryPageTab({ ...CANVAS_LIST_TAB_INPUT })}
           />
 
           {/* Separator */}
@@ -234,9 +216,7 @@ export const AppSidebar = ({
             tooltip={t("workbench")}
             color="green"
             isActive={!isInProject && (isWorkbenchActive || isMenuActive(WORKBENCH_TAB_INPUT))}
-            onClick={() =>
-              openPrimaryPageTab({ ...WORKBENCH_TAB_INPUT, viewType: "workbench" })
-            }
+            onClick={() => openPrimaryPageTab({ ...WORKBENCH_TAB_INPUT })}
           />
           <IconNavItem
             icon={CalendarDays}
@@ -244,7 +224,7 @@ export const AppSidebar = ({
             color="sky"
             isActive={!isInProject && isCalendarActive}
             onClick={() =>
-              openPrimaryPageTab({ baseId: "base:calendar", component: "calendar-page", titleKey: "nav:calendar", icon: "🗓️", viewType: "calendar" })
+              openPrimaryPageTab({ baseId: "base:calendar", component: "calendar-page", titleKey: "nav:calendar", icon: "🗓️" })
             }
           />
           <IconNavItem
@@ -253,7 +233,7 @@ export const AppSidebar = ({
             color="teal"
             isActive={!isInProject && isEmailActive}
             onClick={() =>
-              openPrimaryPageTab({ baseId: "base:mailbox", component: "email-page", titleKey: "nav:email", icon: "📧", viewType: "email" })
+              openPrimaryPageTab({ baseId: "base:mailbox", component: "email-page", titleKey: "nav:email", icon: "📧" })
             }
           />
           <IconNavItem
@@ -262,7 +242,7 @@ export const AppSidebar = ({
             color="rose"
             isActive={!isInProject && isTasksActive}
             onClick={() =>
-              openPrimaryPageTab({ baseId: "base:scheduled-tasks", component: "scheduled-tasks-page", titleKey: "nav:tasks", icon: "⏰", viewType: "scheduled-tasks" })
+              openPrimaryPageTab({ baseId: "base:scheduled-tasks", component: "scheduled-tasks-page", titleKey: "nav:tasks", icon: "⏰" })
             }
           />
         </SidebarMenu>
