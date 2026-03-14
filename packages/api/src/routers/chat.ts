@@ -218,6 +218,7 @@ export const chatRouter = t.router({
       const sessions = await ctx.prisma.chatSession.findMany({
         where: {
           deletedAt: null,
+          id: { not: { startsWith: 'task-' } },
           ...(boardId !== undefined ? { boardId } : {}),
           ...(projectIdFilter ? { projectId: { in: projectIdFilter } } : {}),
         },

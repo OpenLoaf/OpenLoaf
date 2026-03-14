@@ -86,16 +86,48 @@ version: 2.1.0
 1. PM 发现需要设计图 → 向秘书请求 Designer Agent
 2. 或者 PM 直接联系关联项目的 PM（跨项目协作）
 
-## 五、Prompt 继承链
+## 五、Prompt 组装架构
+
+每个 Agent 的最终 prompt = **identity（自我认知）** + **标准思维框架（共享）** + **hardRules（硬约束）**
+
+### 文件结构
 
 ```
-用户偏好（秘书记忆）
- ↓ 继承
-Secretary Prompt = 思维框架 + 用户偏好 + 任务委派能力
- ↓ 继承基础性格 + 用户偏好
-PM Prompt = 基础性格 + 项目管理职责 + 项目记忆 + 项目上下文
- ↓ 继承项目上下文
-Specialist Prompt = Agent 角色定义（.md 文件）+ 项目上下文 + 任务指令 + 自身经验记忆
+templates/master/
+  identity.zh.md    ← 秘书自我认知（产品介绍 + 秘书角色 + 任务委派规则）
+  identity.en.md
+  prompt-v3.zh.md   ← 标准思维框架（所有 Agent 共享）
+  prompt-v3.en.md
+  index.ts          ← combine(identity, prompt) + 导出 getStandardPrompt()
+
+templates/pm/
+  identity.zh.md    ← PM 自我认知（产品介绍 + PM 角色 + 任务分解/调度/验收/汇报）
+  identity.en.md
+  index.ts          ← pm/identity + master/getStandardPrompt()
+
+templates/project/
+  identity.zh.md    ← Specialist 自我认知（产品简介 + 执行者角色）
+  identity.en.md
+  index.ts          ← project/identity + master/getStandardPrompt()
+```
+
+### 组装公式
+
+```
+Secretary = master/identity + 标准思维框架 + hardRules（+ preface 注入工具目录/会话上下文/记忆）
+PM        = pm/identity     + 标准思维框架 + hardRules + toolSearchGuidance
+Specialist= project/identity+ 标准思维框架 + hardRules + toolSearchGuidance
+```
+
+### 继承链
+
+```
+标准思维框架（prompt-v3.md）—— 所有 Agent 共享
+ ├── Secretary identity → 秘书角色 + 任务委派 + 产品全貌
+ ├── PM identity        → 项目经理角色 + 任务分解/调度/验收
+ └── Specialist identity→ 执行者角色 + 能力清单
+
+hardRules（hardRules.ts）—— 不可覆盖的硬约束（语言/输出格式/静默执行/记忆/执行规则）
 ```
 
 ## 六、三层记忆体系
@@ -115,13 +147,58 @@ Specialist Prompt = Agent 角色定义（.md 文件）+ 项目上下文 + 任务
 - 上下文窗口有限时，按权重排序截取
 - 定期清理极低权重记忆
 
-## 七、Agent 角色管理
+## 七、Specialist Agent 与项目设置的连接
 
-- 用户通过 `.md` 文件定义 Agent 角色（格式兼容 agency-agents）
-- 系统提供角色模板库（用户可一键导入 Coder、Writer、Reviewer 等）
-- 角色文件存储在 `~/.agents/agents/` 或项目级 `.agents/agents/`
-- PM 根据任务需求自动选择合适的 Specialist 角色
-- 如果没有匹配角色 → PM 使用通用 Agent 执行
+### 两种 Specialist 来源
+
+| 来源 | 定义方式 | 存储位置 | 场景 |
+|------|---------|---------|------|
+| **内置默认** | `templates/project/identity.md` + 标准框架 | 代码内 | PM 调用 `spawn-agent(subagent_type: "general-purpose")` 或未匹配自定义 Agent 时的回退 |
+| **项目自定义** | `AGENT.md`（YAML front matter + system prompt） | `.openloaf/agents/<name>/AGENT.md` | 用户在项目设置中创建/管理的专属 Agent |
+
+### 项目自定义 Agent 定义格式
+
+```yaml
+# .openloaf/agents/code-reviewer/AGENT.md
+---
+name: code-reviewer
+description: 代码审查专家
+icon: shield-check
+toolIds:
+  - read-file
+  - list-dir
+  - grep-files
+  - apply-patch
+allowSubAgents: false
+---
+
+你是代码审查专家，负责...（system prompt）
+```
+
+### 解析优先级（AgentSelector）
+
+PM 调用 `spawn-agent(subagent_type: "code-reviewer")` 时，`resolveAgentByName()` 按以下顺序查找：
+
+1. **项目级** — `<projectRoot>/.openloaf/agents/code-reviewer/AGENT.md`
+2. **父项目级** — 关联父项目的同路径
+3. **全局级** — `~/.agents/agents/code-reviewer/AGENT.md`
+4. **内置类型** — `general-purpose` / `explore` / `plan`
+5. **回退** — 未匹配任何 → 使用 `general-purpose`（内置默认 Specialist）
+
+### 项目设置 UI 连接
+
+**路径**：项目 → 设置 → AI → Agents
+
+**功能**：
+- 查看/创建/编辑/删除项目级 Agent（`ProjectAgentSettings.tsx` → `ProjectAgentView.tsx`）
+- 从全局 Agent 复制到项目（"从全局复制"按钮）
+- 启用/禁用 Agent（不删除文件）
+- 每个 Agent 可配置：名称、描述、图标、工具集、模型、是否允许子 Agent
+
+**关键服务**：
+- `agentConfigService.ts` — 扫描 `.openloaf/agents/` 目录，解析 AGENT.md
+- `AgentSelector.ts` — `resolveAgentByName()` 按优先级查找匹配 Agent
+- `agentFactory.ts` — `createDynamicAgentFromConfig()` 从 AgentConfig 实例化 ToolLoopAgent
 
 ## 八、项目即容器
 
@@ -388,9 +465,15 @@ export function findActivePmTask(
 | 任务查找 | `apps/server/src/services/taskConfigService.ts` | findActivePmTask |
 | 任务执行 | `apps/server/src/services/taskExecutor.ts` | PM 任务运行 |
 | 事件总线 | `apps/server/src/services/taskEventBus.ts` | task-report 事件 |
-| Agent 工厂 | `apps/server/src/ai/services/agentFactory.ts` | PM agent 创建 |
+| Agent 工厂 | `apps/server/src/ai/services/agentFactory.ts` | Agent 实例化（内置 + 动态） |
+| Agent 配置加载 | `apps/server/src/ai/services/agentConfigService.ts` | 扫描 .openloaf/agents/ 解析 AGENT.md |
+| Agent 名称解析 | `apps/server/src/ai/tools/AgentSelector.ts` | resolveAgentByName() 按优先级查找 |
+| 项目 Agent 设置 UI | `apps/web/src/components/project/settings/menus/ProjectAgentSettings.tsx` | 项目级 Agent 管理界面 |
+| 项目 Agent 视图 | `apps/web/src/components/setting/menus/agent/ProjectAgentView.tsx` | Agent 列表/创建/编辑/删除 |
 | Task Report UI | `apps/web/src/components/ai/message/MessageTaskReport.tsx` | 任务报告渲染 |
-| Agent 模板 | `apps/server/src/ai/agent-templates/templates/` | master/pm/specialist prompt |
+| Agent 模板 | `apps/server/src/ai/agent-templates/templates/` | identity.md（自我认知）+ prompt-v3.md（标准框架） |
+| 硬约束规则 | `apps/server/src/ai/shared/hardRules.ts` | 不可覆盖的输出/执行/语言/记忆规则 |
+| 工具目录生成 | `apps/server/src/ai/shared/toolSearchGuidance.ts` | 从 TOOL_CATALOG_EXTENDED + deferredToolIds 动态生成 |
 
 ## Skill Sync Policy（强制）
 
@@ -409,6 +492,13 @@ export function findActivePmTask(
 | `taskExecutor.ts` / `taskEventBus.ts` PM 任务执行或 report 机制 | 核心数据流 + 关键文件索引 |
 | `MessageTaskReport.tsx` task-report 渲染逻辑 | 关键文件索引 |
 | 新增 agent 类型（非 pm） | 全文档（数据流、类型、路由、chip 等） |
+| `agentConfigService.ts` Agent 定义加载逻辑变更 | 七、Specialist Agent 与项目设置的连接 |
+| `AgentSelector.ts` Agent 名称解析/优先级变更 | 七、Specialist Agent 与项目设置的连接 |
+| `ProjectAgentSettings.tsx` / `ProjectAgentView.tsx` Agent 设置 UI 变更 | 七、关键文件索引 |
+| `templates/*/identity.*.md` Agent 自我认知变更 | 五、Prompt 组装架构 |
+| `templates/master/prompt-v3.*.md` 标准思维框架变更 | 五、Prompt 组装架构 |
+| `shared/hardRules.ts` 硬约束规则变更 | 五、Prompt 组装架构 + 关键文件索引 |
+| `shared/toolSearchGuidance.ts` 工具目录生成逻辑变更 | 关键文件索引 |
 | 架构层级变更（新增/删除角色层） | 一～八章架构设计部分 |
 
 **同步规则**：

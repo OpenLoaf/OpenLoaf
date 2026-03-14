@@ -465,6 +465,7 @@ export class ChatRouterImpl extends BaseChatRouter {
           const sessions = await ctx.prisma.chatSession.findMany({
             where: {
               deletedAt: null,
+              id: { not: { startsWith: 'task-' } },
               ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
             },
             orderBy: [{ isPin: 'desc' }, { updatedAt: 'desc' }],
