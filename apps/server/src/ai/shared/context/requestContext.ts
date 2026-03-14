@@ -15,12 +15,18 @@ import type { ClaudeCodeRequestOptions } from "@/ai/services/chat/messageOptionR
 import type { ClientPlatform } from "@openloaf/api/types/platform";
 import type { UpdatePlanArgs } from "@openloaf/api/types/tools/runtime";
 
+export type AgentKind = "master" | "secretary" | "pm" | "specialist";
+
 export type AgentFrame = {
-  kind: "master";
+  kind: AgentKind;
   name: string;
   agentId: string;
   path: string[];
   model?: { provider: string; modelId: string };
+  /** Associated task ID (for PM/Specialist agents). */
+  taskId?: string;
+  /** Associated project ID (for PM/Specialist agents). */
+  projectId?: string;
 };
 
 export type RequestContext = {

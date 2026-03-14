@@ -59,6 +59,7 @@ import CodexOption from "./CodexOption";
 import ClaudeCodeOption from "./ClaudeCodeOption";
 import { useSpeechDictation } from "@/hooks/use-speech-dictation";
 import ChatCommandMenu, { type ChatCommandMenuHandle } from "./ChatCommandMenu";
+import ChatAgentMention, { type ChatAgentMentionHandle } from "./ChatAgentMention";
 import { useChatMessageComposer } from "../hooks/use-chat-message-composer";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import ApprovalModeSelector, { type ApprovalMode } from "./ApprovalModeSelector";
@@ -282,6 +283,8 @@ export function ChatInputBox({
   const [filePickerOpen, setFilePickerOpen] = useState(false);
   /** Slash command menu handle. */
   const commandMenuRef = useRef<ChatCommandMenuHandle | null>(null);
+  /** @agents/ mention menu handle. */
+  const agentMentionRef = useRef<ChatAgentMentionHandle | null>(null);
   /** Focus tracking container ref. */
   const inputContainerRef = useRef<HTMLDivElement | null>(null);
   const [isFocused, setIsFocused] = useState(false);
@@ -325,6 +328,9 @@ export function ChatInputBox({
       return;
     }
     if (commandMenuRef.current?.handleKeyDown(e)) {
+      return;
+    }
+    if (agentMentionRef.current?.handleKeyDown(e)) {
       return;
     }
 
@@ -434,15 +440,10 @@ export function ChatInputBox({
     <div
       ref={inputContainerRef}
       className={cn(
-        "relative shrink-0 rounded-xl bg-background transition-all duration-200 flex flex-col overflow-hidden",
+        "relative shrink-0 rounded-xl bg-background transition-all duration-200 flex flex-col overflow-hidden border",
         variant === "default" ? "mt-4 max-h-[30%]" : "max-h-none",
-        "openloaf-thinking-border",
-        isFocused && "openloaf-thinking-border-focus",
-        isOverLimit && "openloaf-thinking-border-danger",
-        // SSE 请求进行中（含非流式）或语音输入中：给输入框加边框流动动画。
-        (isStreaming || isListening) &&
-          !isOverLimit &&
-          "openloaf-thinking-border-on",
+        isFocused && "border-foreground/25",
+        isOverLimit && "border-destructive",
         className
       )}
       onFocusCapture={handleContainerFocus}
@@ -479,6 +480,15 @@ export function ChatInputBox({
           onRequestFocus={() => focusInputSafely("keep")}
           isFocused={isFocused}
           projectId={defaultProjectId}
+        />
+      ) : null}
+      {!isBlocked ? (
+        <ChatAgentMention
+          ref={agentMentionRef}
+          value={value}
+          onChange={onChange}
+          onRequestFocus={() => focusInputSafely("keep")}
+          isFocused={isFocused}
         />
       ) : null}
       {header && !isBlocked ? (

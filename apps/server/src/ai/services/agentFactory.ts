@@ -38,6 +38,8 @@ import {
   getMasterPrompt,
   getProjectPrompt,
   PROJECT_AGENT_TOOL_IDS,
+  getPMPrompt,
+  PM_AGENT_TOOL_IDS,
 } from '@/ai/agent-templates'
 import type { AgentTemplate } from '@/ai/agent-templates'
 import { logger } from '@/common/logger'
@@ -298,6 +300,86 @@ export function createProjectAgentFrame(input: {
     agentId,
     path: [PROJECT_AGENT_NAME],
     model: input.model,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PM Agent
+// ---------------------------------------------------------------------------
+
+/** PM agent display name. */
+const PM_AGENT_NAME = 'PMAgent'
+/** PM agent id prefix. */
+const PM_AGENT_ID_PREFIX = 'pm-agent'
+/** PM agent step limit (same as master). */
+const PM_AGENT_MAX_STEPS = MASTER_HARD_MAX_STEPS
+
+export type CreatePMAgentInput = {
+  model: LanguageModelV3
+  /** Optional language override for prompt selection. */
+  lang?: string
+  /** Optional instructions override. */
+  instructions?: string
+}
+
+/** Read PM agent base prompt. */
+export function readPMAgentBasePrompt(lang?: string): string {
+  return getPMPrompt(lang)
+}
+
+/** Creates a PM agent instance for project management and specialist coordination. */
+export function createPMAgent(input: CreatePMAgentInput) {
+  const instructions = input.instructions || getPMPrompt(input.lang)
+  const wrappedModel = wrapModelWithExamples(input.model)
+
+  const ctx = getRequestContext()
+  const coreToolIds = ['tool-search', 'load-skill'] as string[]
+
+  // Filter PM agent tools by platform
+  let deferredToolIds = filterToolIdsByPlatform(
+    PM_AGENT_TOOL_IDS.filter((id) => !coreToolIds.includes(id)) as string[],
+    ctx?.clientPlatform,
+  )
+  if (!isWebSearchConfigured()) {
+    deferredToolIds = deferredToolIds.filter((id) => id !== 'web-search')
+  }
+  const allToolIds = [...new Set([...coreToolIds, ...deferredToolIds])]
+
+  const tools = buildToolset(allToolIds)
+  const activatedSet = new ActivatedToolSet(coreToolIds)
+  tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds))
+
+  const hardRules = buildHardRules()
+  const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform)
+  const finalInstructions = `${instructions}\n\n${hardRules}\n\n${toolSearchGuidance}`
+
+  return new ToolLoopAgent({
+    model: wrappedModel,
+    instructions: finalInstructions,
+    tools,
+    stopWhen: [stepCountIs(PM_AGENT_MAX_STEPS), dynamicStepLimit()] as StopCondition<any>[],
+    experimental_repairToolCall: createToolCallRepair(),
+    prepareStep: createToolSearchPrepareStep(allToolIds, activatedSet),
+  })
+}
+
+/** Creates the frame metadata for a PM agent. */
+export function createPMAgentFrame(input: {
+  model: MasterAgentModelInfo
+  taskId?: string
+  projectId?: string
+}): AgentFrame {
+  const agentId = input.taskId
+    ? `${PM_AGENT_ID_PREFIX}-${input.taskId}`
+    : `${PM_AGENT_ID_PREFIX}-${Date.now()}`
+  return {
+    kind: 'pm',
+    name: PM_AGENT_NAME,
+    agentId,
+    path: [PM_AGENT_NAME],
+    model: input.model,
+    taskId: input.taskId,
+    projectId: input.projectId,
   }
 }
 

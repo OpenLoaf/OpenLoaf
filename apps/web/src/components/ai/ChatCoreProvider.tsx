@@ -18,7 +18,7 @@ import {
 } from "ai";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { trpc } from "@/utils/trpc";
+import { trpc, trpcClient } from "@/utils/trpc";
 import { useAppView } from "@/hooks/use-app-view";
 import { useChatRuntime, type ToolPartSnapshot } from "@/hooks/use-chat-runtime";
 import { useLayoutState } from "@/hooks/use-layout-state";
@@ -977,6 +977,41 @@ export default function ChatCoreProvider({
     setSiblingNav,
     toolStream,
   ]);
+
+  // ── 后台 Agent 消息实时推送订阅 ──
+  // 当后台任务（PM/Specialist）完成时，实时追加消息到当前会话
+  React.useEffect(() => {
+    if (!sessionId) return;
+    const subscription = trpcClient.chat.onSessionUpdate.subscribe(
+      { sessionId },
+      {
+        onData(event) {
+          if (event.type === 'task-report') {
+            // 通过 getMessageParts 获取完整消息并追加到本地消息列表
+            trpcClient.chat.getMessageParts.query({
+              sessionId,
+              messageId: event.messageId,
+            }).then((msg) => {
+              if (!msg) return;
+              const newMessage: UIMessage = {
+                id: msg.id,
+                role: 'task-report' as any,
+                parts: msg.parts ?? [],
+                metadata: msg.metadata,
+              };
+              chat.setMessages((prev) => {
+                // 避免重复追加
+                if (prev.some((m) => m.id === msg.id)) return prev;
+                return [...prev, newMessage];
+              });
+            }).catch(() => {});
+          }
+        },
+        onError() {},
+      },
+    );
+    return () => { subscription.unsubscribe(); };
+  }, [sessionId, chat.setMessages]);
 
   const updateMessage = React.useCallback(
     (id: string, updates: Partial<UIMessage>) => {

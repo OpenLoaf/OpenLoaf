@@ -151,12 +151,38 @@ export type TaskRefPart = {
   status: "running" | "completed" | "failed";
 };
 
+/** Agent identity information embedded in message metadata. */
+export type AgentIdentity = {
+  /** Agent role type in the multi-agent hierarchy. */
+  type: "secretary" | "pm" | "specialist";
+  /** Display name (e.g., "Document Writer", "PM"). */
+  name: string;
+  /** Associated project ID. */
+  projectId?: string;
+  /** Associated project title. */
+  projectTitle?: string;
+  /** Associated task ID. */
+  taskId?: string;
+};
+
 /** Metadata for task-report messages. */
 export type TaskReportMetadata = {
   taskId: string;
   agentType: string;
   displayName: string;
   projectId?: string;
+  /** Structured agent identity for multi-agent rendering. */
+  agentIdentity?: AgentIdentity;
+};
+
+/** Metadata for @agents/ mention routing. */
+export type AgentMention = {
+  /** Target task ID to route the message to. */
+  taskId?: string;
+  /** Target agent name (e.g., "pm", "coder"). */
+  agentName: string;
+  /** Raw prefix text (e.g., "@agents/pm"). */
+  rawPrefix: string;
 };
 
 export type TokenUsage = {

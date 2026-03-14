@@ -95,6 +95,9 @@ export const masterTemplate: AgentTemplate = {
     'widget-check',
     // file info
     'file-info',
+    // memory
+    'memory-search',
+    'memory-get',
   ],
   allowSubAgents: true,
   maxDepth: 2,

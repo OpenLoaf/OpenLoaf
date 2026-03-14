@@ -153,6 +153,16 @@ const getSubAgentHistoryInputSchema = z.object({
   toolCallId: z.string().min(1),
 })
 
+/** Session update event yielded by onSessionUpdate subscription. */
+export type SessionUpdateEvent = {
+  type: 'task-report'
+  messageId: string
+  taskId: string
+  status: 'completed' | 'failed'
+  title: string
+  summary: string
+}
+
 export const chatRouter = t.router({
   /**
    * Get chat view — 实现放在 server（tRPC router override），
@@ -457,6 +467,16 @@ export const chatRouter = t.router({
       })
 
       return { success: true }
+    }),
+
+  /**
+   * Subscribe to session updates (task reports from background agents).
+   * Yields SessionUpdateEvent when a background task reports to this session.
+   */
+  onSessionUpdate: shieldedProcedure
+    .input(z.object({ sessionId: z.string().min(1) }))
+    .subscription(async function* (): AsyncGenerator<SessionUpdateEvent> {
+      throw new Error('Not implemented: override in server chat router.')
     }),
 
   /**

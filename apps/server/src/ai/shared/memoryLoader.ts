@@ -25,7 +25,7 @@ export function resolveMemoryDir(rootPath: string): string {
 
 /** A structured memory block with scope metadata. */
 export type MemoryBlock = {
-  scope: 'user' | 'parent-project' | 'project'
+  scope: 'user' | 'parent-project' | 'project' | 'agent'
   label: string
   filePath: string
   content: string
@@ -72,6 +72,8 @@ export function resolveMemoryBlocks(input: {
   userHomePath?: string
   projectRootPath?: string
   parentProjectRootPaths?: string[]
+  /** Agent name for specialist memory (e.g., "coder", "document-writer"). */
+  agentName?: string
 }): MemoryBlock[] {
   const blocks: MemoryBlock[] = []
 
@@ -114,6 +116,27 @@ export function resolveMemoryBlocks(input: {
         filePath: path.join(resolveMemoryDir(input.projectRootPath), MEMORY_FILE_NAME),
         content: truncateMemory(content),
       })
+    }
+  }
+
+  // 4. Specialist Agent memory — ~/.openloaf/memory/agents/{agentName}/MEMORY.md
+  if (input.agentName && input.userHomePath) {
+    const agentMemDir = path.join(resolveMemoryDir(input.userHomePath), 'agents', input.agentName)
+    const agentMemPath = path.join(agentMemDir, MEMORY_FILE_NAME)
+    if (existsSync(agentMemPath)) {
+      try {
+        const content = readFileSync(agentMemPath, 'utf8').trim()
+        if (content) {
+          blocks.push({
+            scope: 'agent',
+            label: `agent memory (${input.agentName})`,
+            filePath: agentMemPath,
+            content: truncateMemory(content),
+          })
+        }
+      } catch {
+        // Skip unreadable agent memory
+      }
     }
   }
 

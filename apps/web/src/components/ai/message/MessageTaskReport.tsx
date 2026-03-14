@@ -21,25 +21,43 @@ interface MessageTaskReportProps {
   message: UIMessage
 }
 
+type AgentIdentity = {
+  type?: 'secretary' | 'pm' | 'specialist'
+  name?: string
+  projectId?: string
+  projectTitle?: string
+  taskId?: string
+}
+
 function resolveTaskReportInfo(message: UIMessage) {
   const metadata = (message as any)?.metadata as
-    | { taskId?: string; agentType?: string; displayName?: string; projectId?: string }
+    | { taskId?: string; agentType?: string; displayName?: string; projectId?: string; agentIdentity?: AgentIdentity }
     | undefined
   const parts = Array.isArray(message.parts) ? message.parts : []
   const taskRefPart = parts.find((p: any) => p?.type === 'task-ref') as
     | { taskId?: string; title?: string; agentType?: string; status?: string }
     | undefined
+  const identity = metadata?.agentIdentity
 
   return {
-    displayName: metadata?.displayName || taskRefPart?.agentType || '任务助手',
+    displayName: identity?.name || metadata?.displayName || taskRefPart?.agentType || '任务助手',
+    agentType: identity?.type || (metadata?.agentType === 'pm' ? 'pm' : 'specialist'),
+    projectTitle: identity?.projectTitle,
     taskTitle: taskRefPart?.title || '',
     status: (taskRefPart?.status || 'completed') as 'completed' | 'failed' | 'running',
     taskId: metadata?.taskId || taskRefPart?.taskId || '',
   }
 }
 
+const AGENT_TYPE_LABELS: Record<string, string> = {
+  secretary: '秘书',
+  pm: 'PM',
+  specialist: '专家',
+}
+
 export default React.memo(function MessageTaskReport({ message }: MessageTaskReportProps) {
-  const { displayName, status, taskTitle } = resolveTaskReportInfo(message)
+  const { displayName, agentType, projectTitle, status, taskTitle } = resolveTaskReportInfo(message)
+  const agentTypeLabel = AGENT_TYPE_LABELS[agentType] || agentType
 
   const textParts = React.useMemo(() => {
     const parts = Array.isArray(message.parts) ? (message.parts as any[]) : []
@@ -68,9 +86,17 @@ export default React.memo(function MessageTaskReport({ message }: MessageTaskRep
             {!isCompleted && !isFailed ? <ClipboardList className="size-3.5" /> : null}
           </AvatarFallback>
         </Avatar>
+        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+          {agentTypeLabel}
+        </span>
         <span className="truncate text-[11px] font-medium text-muted-foreground">
           {displayName}
         </span>
+        {projectTitle && (
+          <span className="truncate text-[10px] text-muted-foreground/60">
+            [{projectTitle}]
+          </span>
+        )}
         {taskTitle && (
           <span className={cn(
             "ml-1 truncate rounded-full px-2 py-0.5 text-[10px] font-medium",

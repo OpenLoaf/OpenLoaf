@@ -316,9 +316,18 @@ class TaskExecutor {
     globalRoot: string,
     projectRoot?: string | null,
   ): Promise<void> {
-    // Resolve projectId from task config for project-scoped agent context
+    // Resolve projectId and agentType from task config
     const taskConfig = getTask(taskId, globalRoot, projectRoot ?? undefined)
     const taskProjectId = taskConfig?.projectId
+    const taskAgentName = taskConfig?.agentName
+
+    // Determine agent type: 'pm' for PM agents, 'project' for project-scoped, undefined otherwise
+    let agentType: string | undefined
+    if (taskAgentName === 'pm') {
+      agentType = 'pm'
+    } else if (taskProjectId) {
+      agentType = 'project'
+    }
 
     const messageId = randomUUID()
     const response = await runChatStream({
@@ -333,8 +342,8 @@ class TaskExecutor {
         } as any],
         trigger: 'submit-message',
         projectId: taskProjectId,
-        params: taskProjectId
-          ? { agentType: 'project', taskId }
+        params: agentType
+          ? { agentType, taskId }
           : undefined,
       },
       cookies: {},
@@ -450,6 +459,13 @@ class TaskExecutor {
         ? `任务「${task.name}」已完成。`
         : `任务「${task.name}」执行失败：${task.lastError || '未知错误'}`)
 
+      // Resolve agent identity type from agentName
+      const agentIdentityType = task.agentName === 'pm'
+        ? 'pm' as const
+        : task.agentName === 'secretary'
+          ? 'secretary' as const
+          : 'specialist' as const
+
       const reportMessage = {
         id: randomUUID(),
         parentMessageId: parentId,
@@ -473,6 +489,12 @@ class TaskExecutor {
           agentType: task.agentName || 'general',
           displayName: task.agentName || '任务助手',
           projectId: task.projectId,
+          agentIdentity: {
+            type: agentIdentityType,
+            name: task.agentName || '任务助手',
+            projectId: task.projectId,
+            taskId: task.id,
+          },
         },
         createdAt: new Date().toISOString(),
       }
@@ -500,6 +522,62 @@ class TaskExecutor {
         { taskId: task.id, err },
         '[task-executor] Failed to report to source session',
       )
+    }
+  }
+
+  /**
+   * Append a user message to a running task's agent session.
+   * Used for @agents/ mention routing — users can send follow-up instructions
+   * to a specific running agent.
+   */
+  async appendUserMessage(taskId: string, message: string, globalRoot: string, projectRoot?: string | null): Promise<boolean> {
+    const entry = this.running.get(taskId)
+    if (!entry) {
+      logger.warn({ taskId }, '[task-executor] Cannot append message: task not running')
+      return false
+    }
+
+    const messageId = randomUUID()
+    try {
+      await appendMessage({
+        sessionId: entry.sessionId,
+        message: {
+          id: messageId,
+          parentMessageId: null,
+          role: 'user' as const,
+          messageKind: 'normal' as const,
+          parts: [{ type: 'text' as const, text: message }],
+          metadata: { source: 'agent-mention' },
+          createdAt: new Date().toISOString(),
+        },
+      })
+
+      // Re-trigger agent phase with the new instruction
+      const task = getTask(taskId, globalRoot, projectRoot ?? undefined)
+      if (task) {
+        // Fire-and-forget: run another agent phase in the background
+        void this.runAgentPhase(
+          entry.sessionId,
+          message,
+          entry.abortController.signal,
+          taskId,
+          globalRoot,
+          projectRoot,
+        ).then(async () => {
+          // After handling the follow-up, report back to source session
+          const latestTask = getTask(taskId, globalRoot, projectRoot ?? undefined)
+          if (latestTask) {
+            await this.reportToSourceSession(latestTask, 'completed', latestTask.executionSummary?.lastAgentMessage)
+          }
+        }).catch((err) => {
+          logger.error({ taskId, err }, '[task-executor] Follow-up agent phase failed')
+        })
+      }
+
+      return true
+    } catch (err) {
+      logger.error({ taskId, err }, '[task-executor] Failed to append user message')
+      return false
     }
   }
 

@@ -16,7 +16,7 @@ import { type ChatModelSource, type ModelDefinition } from "@openloaf/api/common
 import type { ImageGenerateOptions, OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
 import type { AiImageRequest } from "@openloaf-saas/sdk";
 import type { OpenLoafUIMessage, TokenUsage } from "@openloaf/api/types/message";
-import { createMasterAgentRunner, createProjectAgentRunner } from "@/ai";
+import { createMasterAgentRunner, createProjectAgentRunner, createPMAgentRunner } from "@/ai";
 import { getTemplate, isTemplateId } from "@/ai/agent-templates";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import { resolveCliChatModelId } from "@/ai/models/cli/cliProviderEntry";
@@ -86,6 +86,8 @@ import { buildTimingMetadata } from "./metadataBuilder";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { resolveMessagesJsonlPath, writeSessionJson } from "@/ai/services/chat/repositories/chatFileStore";
 import { buildHardRules } from "@/ai/shared/hardRules";
+import { taskExecutor } from "@/services/taskExecutor";
+import { getOpenLoafRootDir } from "@openloaf/config";
 import {
   createChatStreamResponse,
   createErrorStreamResponse,
@@ -349,6 +351,40 @@ export async function runChatStream(input: {
     }
   }
 
+  // ── @agents/ mention routing ──────────────────────────────────
+  const agentMention = (lastMessage as any)?.metadata?.agentMention as
+    | { taskId?: string; agentName: string; rawPrefix: string }
+    | undefined;
+  if (agentMention?.taskId && lastMessage) {
+    const mentionText = (lastMessage.parts as any[])
+      ?.filter((p: any) => p?.type === 'text' && typeof p.text === 'string')
+      .map((p: any) => (p.text as string).replace(agentMention.rawPrefix, '').trim())
+      .join('\n')
+      .trim();
+
+    if (mentionText) {
+      const globalRoot = getOpenLoafRootDir();
+      const projectRoot = projectId
+        ? await getProjectRootPath(projectId)
+        : undefined;
+
+      const sent = await taskExecutor.appendUserMessage(
+        agentMention.taskId,
+        mentionText,
+        globalRoot,
+        projectRoot,
+      );
+
+      if (sent) {
+        logger.info(
+          { sessionId, taskId: agentMention.taskId, agentName: agentMention.agentName },
+          '[chat] @agents/ mention routed to task agent',
+        );
+      }
+    }
+    // Even if routing fails, continue normal chat flow so the message is persisted.
+  }
+
   // 逻辑：在首条用户消息前确保 preface 已落库。
   const parentProjectRootPaths = await resolveParentProjectRootPaths(projectId);
   const resolvedProjectId = getProjectId() ?? projectId ?? undefined;
@@ -593,12 +629,19 @@ export async function runChatStream(input: {
         instructions,
       });
     } else {
-      // agentType: 'project' — 使用 Project Agent（专注项目任务执行，无任务管理/日历/邮件工具）
+      // agentType: 'project' | 'pm' — 使用专用 Agent
       const agentType = input.request.params?.agentType;
-      if (agentType === 'project') {
-        const taskId = typeof input.request.params?.taskId === 'string'
-          ? input.request.params.taskId
-          : undefined;
+      const taskId = typeof input.request.params?.taskId === 'string'
+        ? input.request.params.taskId
+        : undefined;
+      if (agentType === 'pm') {
+        masterAgent = createPMAgentRunner({
+          model: resolved.model,
+          modelInfo: resolved.modelInfo,
+          taskId,
+          projectId: input.request.projectId,
+        });
+      } else if (agentType === 'project') {
         masterAgent = createProjectAgentRunner({
           model: resolved.model,
           modelInfo: resolved.modelInfo,

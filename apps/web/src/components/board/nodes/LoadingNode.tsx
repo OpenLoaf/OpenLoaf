@@ -349,8 +349,11 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
 
     return () => {
       controller.abort();
-      if (!finished) {
-        void cancelTask(taskId).catch(() => undefined);
+      // 逻辑：Strict Mode 下 cleanup 会先于第二次 mount 执行，
+      // 重置 ref 以允许第二次 mount 正常启动轮询。
+      // 不在 cleanup 中取消远端任务——仅在用户主动点击取消时才发 cancel 请求。
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
       }
     };
     // 逻辑：仅依赖关键业务字段 + retryCount，不包含 xywh/翻译字符串，避免拖动或切语言触发重新轮询。

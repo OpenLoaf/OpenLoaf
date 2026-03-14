@@ -77,6 +77,9 @@ export const PROJECT_AGENT_TOOL_IDS = [
   'widget-check',
   // file info
   'file-info',
+  // memory
+  'memory-search',
+  'memory-get',
 ] as const
 
 /** Get project agent prompt in specified language. */

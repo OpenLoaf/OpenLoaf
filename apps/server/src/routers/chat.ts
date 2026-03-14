@@ -15,8 +15,10 @@ import {
   appRouterDefine,
   type ChatMessageKind,
   type ChatUIMessage,
+  type SessionUpdateEvent,
 } from '@openloaf/api'
 import { z } from 'zod'
+import { taskEventBus } from '@/services/taskEventBus'
 import { replaceFileTokensWithNames } from '@/common/chatTitle'
 import {
   getChatViewFromFile,
@@ -512,6 +514,42 @@ export class ChatRouterImpl extends BaseChatRouter {
           })
 
           return { success: true }
+        }),
+
+      // onSessionUpdate — 后台 Agent 消息实时推送到前端
+      onSessionUpdate: shieldedProcedure
+        .input(z.object({ sessionId: z.string().min(1) }))
+        .subscription(async function* ({ input }) {
+          const queue: SessionUpdateEvent[] = []
+          let resolve: (() => void) | null = null
+
+          const cleanup = taskEventBus.onTaskReport((event) => {
+            if (event.sourceSessionId !== input.sessionId) return
+            queue.push({
+              type: 'task-report',
+              messageId: event.messageId,
+              taskId: event.taskId,
+              status: event.status,
+              title: event.title,
+              summary: event.summary,
+            })
+            resolve?.()
+          })
+
+          try {
+            while (true) {
+              if (queue.length === 0) {
+                await new Promise<void>((r) => {
+                  resolve = r
+                })
+              }
+              while (queue.length > 0) {
+                yield queue.shift()!
+              }
+            }
+          } finally {
+            cleanup()
+          }
         }),
 
       updateSession: shieldedProcedure

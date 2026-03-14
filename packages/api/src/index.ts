@@ -110,7 +110,7 @@ export { BaseTabRouter, tabSchemas };
 
 // Export chat router components
 export { BaseChatRouter, chatSchemas };
-export type { ChatUIMessage, ChatSessionSummary, CopySessionToBoardResult } from "./routers/chat";
+export type { ChatUIMessage, ChatSessionSummary, CopySessionToBoardResult, SessionUpdateEvent } from "./routers/chat";
 
 // Export setting router components
 export { BaseSettingRouter, settingSchemas };
