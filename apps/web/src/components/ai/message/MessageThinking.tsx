@@ -19,11 +19,11 @@ import { Message, MessageContent } from "@/components/ai-elements/message";
 import { useTranslation } from "react-i18next";
 import AssistantMessageHeader from "./AssistantMessageHeader";
 
-export default function MessageThinking() {
+export default function MessageThinking({ showHeader = true }: { showHeader?: boolean }) {
   const { t } = useTranslation("ai");
   return (
     <Message from="assistant" className="max-w-[80%] mt-2">
-      <AssistantMessageHeader />
+      {showHeader && <AssistantMessageHeader />}
       <MessageContent className="gap-0">
         <Reasoning isStreaming defaultOpen={false} className="mb-0 px-1">
           <ReasoningTrigger

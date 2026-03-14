@@ -185,7 +185,11 @@ export const useCalendarEngine = (
 
 	useEffect(() => {
 		if (events) {
-			setCurrentEvents(events)
+			setCurrentEvents((prev) => {
+				if (prev === events) return prev
+				if (prev.length === events.length && prev.every((e, i) => e === events[i])) return prev
+				return events
+			})
 		}
 	}, [events])
 	useEffect(() => {

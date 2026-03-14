@@ -61,12 +61,12 @@ export const PageTitle = () => {
       if (previousBase && typeof previousBase === 'object') {
         layout.setBase(previousBase);
         layout.clearStack();
-        view.setTitle(t('canvas'));
+        view.setTitle(t('smartCanvas'));
         view.setIcon(CANVAS_LIST_TAB_INPUT.icon);
       } else {
         layout.setBase({ id: CANVAS_LIST_TAB_INPUT.baseId, component: CANVAS_LIST_TAB_INPUT.component });
         layout.clearStack();
-        view.setTitle(t('canvas'));
+        view.setTitle(t('smartCanvas'));
         view.setIcon(CANVAS_LIST_TAB_INPUT.icon);
       }
       useNavigation.getState().setActiveView("canvas-list");
@@ -96,13 +96,13 @@ export const PageTitle = () => {
     if (viewType === 'calendar') return t('calendar');
     if (viewType === 'email') return t('email');
     if (viewType === 'scheduled-tasks') return t('panelTitle.scheduled-tasks-page');
-    if (viewType === 'canvas-list') return t('canvas');
+    if (viewType === 'canvas-list') return t('smartCanvas');
     if (viewType === 'ai-assistant') return t('aiAssistant');
 
     // 逻辑：header 左侧标题保持纯文本，避免与可点击图标的交互语义混淆。
     // 兜底：当 viewType 未及时更新时，从 base component 推断标题。
     const baseComponent = activeTab?.base?.component;
-    if (baseComponent === 'canvas-list-page') return t('canvas');
+    if (baseComponent === 'canvas-list-page') return t('smartCanvas');
     if (baseComponent === 'project-list-page') return t('sidebarProjectSpace');
     if (baseComponent === 'global-desktop') return t('workbench');
     if (baseComponent === 'calendar-page') return t('calendar');

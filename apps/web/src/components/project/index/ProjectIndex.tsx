@@ -95,6 +95,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
   const saveDesktopMutation = useMutation(trpc.fs.writeFile.mutationOptions());
 
   React.useEffect(() => {
+    console.log("[Desktop] useEffect:", { desktopFileUri, loadedUri: loadedUriRef.current, projectId });
     if (!desktopFileUri) return;
     if (loadedUriRef.current === desktopFileUri) return;
     loadedUriRef.current = desktopFileUri;
@@ -103,17 +104,23 @@ const ProjectIndex = React.memo(function ProjectIndex({
     const loadDesktop = async () => {
       try {
         // 逻辑：读取 desktop.openloaf 并初始化桌面布局。
-        const result = await queryClient.fetchQuery(
-          trpc.fs.readFile.queryOptions({
+        // staleTime: 0 强制从磁盘读取，避免缓存返回保存前的旧数据。
+        const result = await queryClient.fetchQuery({
+          ...trpc.fs.readFile.queryOptions({
             projectId,
             uri: desktopFileUri,
-          })
-        );
+          }),
+          staleTime: 0,
+        });
+        console.log("[Desktop] loadDesktop result:", { uri: desktopFileUri, contentLength: result.content.length, alive });
         const parsed = deserializeDesktopItems(result.content);
+        console.log("[Desktop] parsed items:", parsed?.length, parsed?.map(i => ({ id: i.id, lg: i.layoutByBreakpoint?.lg })));
         if (!parsed || !alive) return;
         const scopedItems = filterDesktopItemsByScope("project", parsed);
+        console.log("[Desktop] scopedItems:", scopedItems.length);
         setItems(ensureLayoutByBreakpoint(scopedItems));
-      } catch {
+      } catch (err) {
+        console.error("[Desktop] loadDesktop error:", err);
         // ignore missing desktop file
       }
     };
@@ -186,6 +193,10 @@ const ProjectIndex = React.memo(function ProjectIndex({
         projectId,
         uri: desktopFileUri,
         content: JSON.stringify(payload, null, 2),
+      }).then(() => {
+        void queryClient.invalidateQueries({
+          queryKey: trpc.fs.readFile.queryOptions({ projectId, uri: desktopFileUri }).queryKey,
+        });
       });
     },
     [desktopFileUri, projectId, saveDesktopMutation]
@@ -241,6 +252,10 @@ const ProjectIndex = React.memo(function ProjectIndex({
       projectId,
       uri: desktopFileUri,
       content: JSON.stringify(payload, null, 2),
+    });
+    // 逻辑：使 readFile 缓存失效，确保下次加载时读取最新文件内容。
+    void queryClient.invalidateQueries({
+      queryKey: trpc.fs.readFile.queryOptions({ projectId, uri: desktopFileUri }).queryKey,
     });
   }, [desktopFileUri, items, projectId, saveDesktopMutation]);
 

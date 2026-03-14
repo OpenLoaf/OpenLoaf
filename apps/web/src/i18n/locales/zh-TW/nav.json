@@ -19,8 +19,12 @@
     "addDialog": "新增專案",
     "newEmptyProject": "建立空白專案",
     "newEmptyProjectDescription": "在專案空間中建立新資料夾",
+    "newProject": "新建專案",
+    "newProjectDescription": "選擇一個資料夾作為專案的儲存位置",
     "selectExistingFolder": "選擇現有資料夾",
     "selectExistingFolderDescription": "將電腦上的資料夾作為專案管理",
+    "selectFolder": "點擊選擇資料夾…",
+    "storageLocation": "儲存位置",
     "cloneFromGit": "從 Git 複製",
     "cloneFromGitDescription": "貼上倉庫地址，自動複製到本機",
     "projectName": "專案名稱",
@@ -270,6 +274,7 @@
     "movedToProject": "已移動到專案",
     "moveFailed": "移動失敗",
     "back": "返回",
+    "totalCount": "共 {{count}} 個畫布",
     "groupByTime": "按時間分組",
     "allProjects": "全部專案",
     "noProject": "未歸屬專案"
@@ -290,6 +295,7 @@
     "confirmRemove": "確認移除此專案？僅從列表移除，不會刪除磁碟檔案。",
     "openInNewWindow": "在新視窗開啟",
     "totalCount": "共 {{count}} 個",
-    "childCount": "{{count}} 個子專案"
+    "childCount": "{{count}} 個子專案",
+    "createFailed": "建立失敗"
   }
 }

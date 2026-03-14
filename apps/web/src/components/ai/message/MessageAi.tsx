@@ -28,9 +28,11 @@ interface MessageAiProps {
   isAnimating?: boolean;
   /** Whether this is the last AI message in the conversation. */
   isLastAiMessage?: boolean;
+  /** Whether to show the assistant header (avatar + name). Defaults to true. */
+  showHeader?: boolean;
 }
 
-export default React.memo(function MessageAi({ message, className, isAnimating, isLastAiMessage }: MessageAiProps) {
+export default React.memo(function MessageAi({ message, className, isAnimating, isLastAiMessage, showHeader = true }: MessageAiProps) {
   const { tabId } = useChatSession();
   const messageParts = React.useMemo(() => {
     return Array.isArray(message.parts) ? (message.parts as any[]) : [];
@@ -41,7 +43,7 @@ export default React.memo(function MessageAi({ message, className, isAnimating, 
 
   return (
     <Message from="assistant" className={cn("min-w-0 w-full", className)}>
-      <AssistantMessageHeader message={message} />
+      {showHeader && <AssistantMessageHeader message={message} />}
       <MessageContent className="min-w-0 w-full space-y-2">
         <MessagePlan metadata={message.metadata} parts={message.parts as unknown[]} />
         <MessageParts parts={messageParts} options={{ isAnimating, messageId: message.id }} />
@@ -54,5 +56,6 @@ export default React.memo(function MessageAi({ message, className, isAnimating, 
   if (prev.isAnimating || next.isAnimating) return false;
   // isLastAiMessage 变化时需要重渲染（控制 StatusBar 显示）
   if (prev.isLastAiMessage !== next.isLastAiMessage) return false;
+  if (prev.showHeader !== next.showHeader) return false;
   return prev.message === next.message && prev.className === next.className;
 });

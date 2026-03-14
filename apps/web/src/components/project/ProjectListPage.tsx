@@ -28,6 +28,7 @@ import {
   GitBranch,
   Layers3,
   Filter,
+  FolderSearch,
 } from "lucide-react";
 import { useInfiniteQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
@@ -172,6 +173,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
   /** "create" = new empty project, "git" = clone from git, null = mode selection screen. */
   const [addMode, setAddMode] = useState<"create" | "git" | null>(null);
   const [createTitle, setCreateTitle] = useState("");
+  const [createFolderPath, setCreateFolderPath] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [gitUrl, setGitUrl] = useState("");
   const [gitTargetDir, setGitTargetDir] = useState("");
@@ -266,6 +268,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
   const openAddDialog = useCallback(() => {
     setAddMode(null);
     setCreateTitle("");
+    setCreateFolderPath("");
     setGitUrl("");
     setGitTargetDir("");
     setGitProgress([]);
@@ -286,45 +289,25 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     return null;
   };
 
-  /** Submit handler for creating a new empty project. */
+  /** Submit handler for creating a project at the selected folder. */
   const handleCreateProject = useCallback(async () => {
     const title = createTitle.trim();
-    if (!title) return;
+    const folderPath = createFolderPath.trim();
+    if (!folderPath) return;
     try {
       setIsBusy(true);
-      const res = await createMutation.mutateAsync({ title, enableVersionControl: true });
-      invalidateProjects();
-      setIsCreateOpen(false);
-      setCreateTitle("");
-      // Fire-and-forget: infer project type via auxiliary model.
-      if (res.project?.projectId) {
-        trpcClient.settings.inferProjectType
-          .mutate({ projectId: res.project.projectId })
-          .then(() => invalidateProjects())
-          .catch(() => {});
-      }
-    } catch (err: any) {
-      toast.error(err?.message ?? "创建失败");
-    } finally {
-      setIsBusy(false);
-    }
-  }, [createTitle, createMutation, invalidateProjects]);
-
-  /** Import existing folder as project. */
-  const handleImportFolder = useCallback(async () => {
-    const dir = await pickDirectory();
-    if (!dir) return;
-    try {
-      setIsBusy(true);
-      const result = await trpcClient.project.checkPath.query({ dirPath: dir });
+      const result = await trpcClient.project.checkPath.query({ dirPath: folderPath });
       const autoIcon = (result.isCodeProject && !result.hasIcon) ? "💻" : undefined;
       const res = await createMutation.mutateAsync({
-        rootUri: dir,
+        ...(title ? { title } : {}),
+        rootUri: folderPath,
         enableVersionControl: true,
         icon: autoIcon,
       });
       invalidateProjects();
       setIsCreateOpen(false);
+      setCreateTitle("");
+      setCreateFolderPath("");
       // Fire-and-forget: infer project type via auxiliary model.
       if (res.project?.projectId) {
         trpcClient.settings.inferProjectType
@@ -333,11 +316,11 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
           .catch(() => {});
       }
     } catch (err: any) {
-      toast.error(err?.message ?? "添加失败");
+      toast.error(err?.message ?? t("projectListPage.createFailed"));
     } finally {
       setIsBusy(false);
     }
-  }, [createMutation, invalidateProjects, t]);
+  }, [createTitle, createFolderPath, createMutation, invalidateProjects, t]);
 
   /** Start git clone via SSE subscription. */
   const handleCloneFromGit = useCallback(() => {
@@ -638,6 +621,15 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               <ExternalLink className="mr-2 h-4 w-4" />
               {t("projectListPage.openInNewWindow")}
             </ContextMenuItem>
+            <ContextMenuItem
+              disabled={!window.openloafElectron?.showItemInFolder}
+              onSelect={() => {
+                window.openloafElectron?.showItemInFolder?.({ uri: project.rootUri });
+              }}
+            >
+              <FolderSearch className="mr-2 h-4 w-4" />
+              {t("projectTree.openInFileManager")}
+            </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
               onSelect={() =>
@@ -793,13 +785,10 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
           <div className="space-y-6">
             {groupedProjects.map((group) => (
               <div key={group.key}>
-                <div className="mb-3 flex items-center justify-between px-1">
+                <div className="mb-3 px-1">
                   <h3 className="text-xs font-medium text-muted-foreground/70">
                     {tSettings(`project.typeLabel.${group.key}`)}
                   </h3>
-                  <span className="text-[11px] text-muted-foreground/60">
-                    {group.projects.length}
-                  </span>
                 </div>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3.5">
                   {group.projects.map((project, i) =>
@@ -916,21 +905,8 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                   <FolderPlus className="h-4.5 w-4.5" />
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-foreground">{t("sidebar.newEmptyProject")}</div>
-                  <div className="text-xs text-muted-foreground">{t("sidebar.newEmptyProjectDescription")}</div>
-                </div>
-              </button>
-              <button
-                type="button"
-                className="group flex w-full items-center gap-3.5 rounded-xl border border-ol-green/20 bg-ol-green-bg px-4 py-3.5 text-left transition-colors duration-150 hover:border-ol-green/30 hover:bg-ol-green-bg-hover"
-                onClick={handleImportFolder}
-              >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ol-green-bg text-ol-green">
-                  <FolderOpen className="h-4.5 w-4.5" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-foreground">{t("sidebar.selectExistingFolder")}</div>
-                  <div className="text-xs text-muted-foreground">{t("sidebar.selectExistingFolderDescription")}</div>
+                  <div className="text-sm font-medium text-foreground">{t("sidebar.newProject")}</div>
+                  <div className="text-xs text-muted-foreground">{t("sidebar.newProjectDescription")}</div>
                 </div>
               </button>
               <button
@@ -949,9 +925,33 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
             </div>
           )}
 
-          {/* New empty project form */}
+          {/* New project form */}
           {addMode === "create" && (
             <div className="flex flex-col gap-3 px-6 pt-3 pb-3">
+              <div>
+                <Label className="mb-1.5 block text-sm font-medium text-foreground">
+                  {t("sidebar.storageLocation")}
+                </Label>
+                <button
+                  type="button"
+                  className="flex h-9 w-full items-center rounded-lg border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
+                  onClick={async () => {
+                    const dir = await pickDirectory(createFolderPath || undefined);
+                    if (dir) {
+                      setCreateFolderPath(dir);
+                      if (!createTitle.trim()) {
+                        const folderName = dir.split(/[/\\]/).filter(Boolean).pop() ?? "";
+                        setCreateTitle(folderName);
+                      }
+                    }
+                  }}
+                >
+                  <FolderOpen className="mr-2 h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {createFolderPath || t("sidebar.selectFolder")}
+                  </span>
+                </button>
+              </div>
               <div>
                 <Label htmlFor="add-project-title" className="mb-1.5 block text-sm font-medium text-foreground">
                   {t("sidebar.projectName")}
@@ -961,10 +961,9 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                   value={createTitle}
                   onChange={(e) => setCreateTitle(e.target.value)}
                   className="h-9 rounded-lg"
-                  autoFocus
                   placeholder={t("sidebar.projectNamePlaceholder")}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && createTitle.trim() && !isBusy) {
+                    if (e.key === "Enter" && createFolderPath.trim() && !isBusy) {
                       handleCreateProject();
                     }
                   }}
@@ -1036,13 +1035,13 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 variant="outline"
                 type="button"
                 className="h-9 rounded-md px-5 text-[13px] text-ol-text-auxiliary hover:bg-ol-surface-muted"
-                onClick={() => { setAddMode(null); setCreateTitle(""); }}
+                onClick={() => { setAddMode(null); setCreateTitle(""); setCreateFolderPath(""); }}
               >
                 {t("sidebar.back")}
               </Button>
               <Button
                 onClick={handleCreateProject}
-                disabled={isBusy || !createTitle.trim()}
+                disabled={isBusy || !createFolderPath.trim()}
                 className="h-9 rounded-md px-5 text-[13px] bg-ol-blue text-white shadow-none hover:opacity-90"
               >
                 {isBusy ? t("sidebar.creating") : t("sidebar.create")}

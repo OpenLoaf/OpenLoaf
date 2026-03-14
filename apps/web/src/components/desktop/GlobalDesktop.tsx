@@ -85,11 +85,13 @@ const GlobalDesktop = React.memo(function GlobalDesktop({
     const loadDesktop = async () => {
       try {
         // 逻辑：读取全局 desktop.openloaf 并初始化桌面布局。
-        const result = await queryClient.fetchQuery(
-          trpc.fs.readFile.queryOptions({
+        // staleTime: 0 强制从磁盘读取，避免缓存返回保存前的旧数据。
+        const result = await queryClient.fetchQuery({
+          ...trpc.fs.readFile.queryOptions({
             uri: desktopFileUri,
-          })
-        );
+          }),
+          staleTime: 0,
+        });
         const parsed = deserializeDesktopItems(result.content);
         if (!parsed || !alive) return;
         const scopedItems = filterDesktopItemsByScope("global", parsed);
@@ -164,6 +166,10 @@ const GlobalDesktop = React.memo(function GlobalDesktop({
       void saveDesktopMutation.mutateAsync({
         uri: desktopFileUri,
         content: JSON.stringify(payload, null, 2),
+      }).then(() => {
+        void queryClient.invalidateQueries({
+          queryKey: trpc.fs.readFile.queryOptions({ uri: desktopFileUri }).queryKey,
+        });
       });
     },
     [desktopFileUri, saveDesktopMutation]
@@ -218,6 +224,10 @@ const GlobalDesktop = React.memo(function GlobalDesktop({
     await saveDesktopMutation.mutateAsync({
       uri: desktopFileUri,
       content: JSON.stringify(payload, null, 2),
+    });
+    // 逻辑：使 readFile 缓存失效，确保下次加载时读取最新文件内容。
+    void queryClient.invalidateQueries({
+      queryKey: trpc.fs.readFile.queryOptions({ uri: desktopFileUri }).queryKey,
     });
   }, [desktopFileUri, items, saveDesktopMutation]);
 

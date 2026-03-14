@@ -15,7 +15,6 @@ import { useHeaderSlot } from "@/hooks/use-header-slot";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLayoutState } from "@/hooks/use-layout-state";
-import { shouldDisableRightChat } from "@/hooks/layout-utils";
 import { isBoardWindowMode } from "@/lib/window-mode";
 import { Sparkles } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
@@ -27,10 +26,8 @@ import { Search as SearchDialog } from "@/components/search/Search";
 
 export const Header = () => {
   const activeTab = useAppState();
-  const canToggleChat =
-    isBoardWindowMode() ||
-    (Boolean(activeTab?.base) &&
-    !shouldDisableRightChat(activeTab ?? undefined));
+  // 除 AI 助手页面（无 base）外，所有页面都显示 chat 切换按钮
+  const canToggleChat = isBoardWindowMode() || Boolean(activeTab?.base);
   const isChatCollapsed = Boolean(activeTab?.rightChatCollapsed);
   const setHeaderActionsTarget = useHeaderSlot((s) => s.setHeaderActionsTarget);
   const setHeaderTitleExtraTarget = useHeaderSlot((s) => s.setHeaderTitleExtraTarget);
@@ -49,10 +46,17 @@ export const Header = () => {
       return;
     }
     const observer = new MutationObserver(() => {
-      setHasActions(actionsNode.childElementCount > 0);
+      const visible = Array.from(actionsNode.children).some(
+        (el) => (el as HTMLElement).offsetWidth > 0,
+      );
+      setHasActions(visible);
     });
-    observer.observe(actionsNode, { childList: true });
-    setHasActions(actionsNode.childElementCount > 0);
+    observer.observe(actionsNode, { childList: true, subtree: true, attributes: true });
+    setHasActions(
+      Array.from(actionsNode.children).some(
+        (el) => (el as HTMLElement).offsetWidth > 0,
+      ),
+    );
     return () => observer.disconnect();
   }, [actionsNode]);
   const headerTitleExtraRef = useCallback(

@@ -34,6 +34,8 @@ type ChatMessage = UIMessage & { messageKind?: ChatMessageKind };
 
 interface MessageItemProps {
   message: ChatMessage;
+  /** Whether this message starts a new sender group (first in consecutive same-role messages). */
+  isGroupStart?: boolean;
   isLastHumanMessage?: boolean;
   isLastAiMessage?: boolean;
   /** Whether this assistant message should show actions by default. */
@@ -43,6 +45,7 @@ interface MessageItemProps {
 
 function MessageItem({
   message,
+  isGroupStart = true,
   isLastHumanMessage,
   isLastAiMessage,
   isLastAiActionMessage,
@@ -348,7 +351,7 @@ function MessageItem({
         </>
       ) : (
         <>
-          <MessageAi message={message} isAnimating={isAnimating} isLastAiMessage={isLastAiMessage} />
+          <MessageAi message={message} isAnimating={isAnimating} isLastAiMessage={isLastAiMessage} showHeader={isGroupStart} />
           {!hideAiActions &&
             !shouldHideAiActionsForApproval &&
             (hasVisibleContent || shouldShowBranchNav) && (

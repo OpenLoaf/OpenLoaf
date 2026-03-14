@@ -114,16 +114,21 @@ export default function MessageList({ className, projectId }: MessageListProps) 
 
   const messageNodes = React.useMemo(
     () =>
-      (displayMessages as any[]).map((message, index) => (
-        <MessageItem
-          key={message?.id ?? `m_${index}`}
-          message={message}
-          isLastHumanMessage={index === lastHumanIndex}
-          isLastAiMessage={index === lastAiIndex}
-          isLastAiActionMessage={index === lastAiActionIndex}
-          hideAiActions={hideAiActions && lastMessageIsAssistant && index === lastAiIndex}
-        />
-      )),
+      (displayMessages as any[]).map((message, index) => {
+        const prevRole = index > 0 ? (displayMessages[index - 1] as any)?.role : undefined;
+        const isGroupStart = message?.role !== prevRole;
+        return (
+          <MessageItem
+            key={message?.id ?? `m_${index}`}
+            message={message}
+            isGroupStart={isGroupStart}
+            isLastHumanMessage={index === lastHumanIndex}
+            isLastAiMessage={index === lastAiIndex}
+            isLastAiActionMessage={index === lastAiActionIndex}
+            hideAiActions={hideAiActions && lastMessageIsAssistant && index === lastAiIndex}
+          />
+        );
+      }),
     [
       displayMessages,
       lastHumanIndex,
@@ -165,7 +170,7 @@ export default function MessageList({ className, projectId }: MessageListProps) 
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.12 }}
               >
-                <MessageThinking />
+                <MessageThinking showHeader={!lastMessageIsAssistant} />
               </motion.div>
             ) : null}
           </AnimatePresence>

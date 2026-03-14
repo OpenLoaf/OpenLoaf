@@ -13,8 +13,6 @@ import { create } from "zustand";
 import i18next from "i18next";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
-import { getAppState } from "@/hooks/use-app-state";
-import { shouldDisableRightChat } from "@/hooks/layout-utils";
 import { AI_ASSISTANT_TAB_INPUT, CANVAS_LIST_TAB_INPUT, WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
 import { resolveProjectModeProjectShell } from "@/lib/project-mode";
 import { applyProjectShellToTab } from "@/lib/project-shell";
@@ -258,11 +256,6 @@ export function handleGlobalKeyDown(event: KeyboardEvent, ctx: GlobalShortcutCon
   if (keyLower === "b" && withMod && !event.shiftKey && !event.altKey) {
     const layout = useLayoutState.getState();
     if (!layout.base) return;
-    if (shouldDisableRightChat(getAppState())) {
-      event.preventDefault();
-      return;
-    }
-
     event.preventDefault();
     layout.setRightChatCollapsed(!layout.rightChatCollapsed);
     return;

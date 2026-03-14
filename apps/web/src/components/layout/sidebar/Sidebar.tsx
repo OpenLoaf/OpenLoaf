@@ -35,7 +35,7 @@ import {
   TEMP_CHAT_TAB_INPUT,
   WORKBENCH_TAB_INPUT,
 } from "@openloaf/api/common";
-import { useGlobalOverlay, openSettingsTab } from "@/lib/globalShortcuts";
+import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useIsNarrowScreen } from "@/hooks/use-mobile";
 import { useSidebarNavigation } from "@/hooks/use-sidebar-navigation";
 import { CompactUserAvatar } from "@/components/layout/sidebar/SidebarUserAccount";
@@ -281,7 +281,17 @@ export const AppSidebar = ({
             tooltip={t("settings")}
             color="black"
             isActive={isSettingsActive}
-            onClick={() => openSettingsTab()}
+            onClick={() => {
+              // Sidebar 中的设置按钮始终打开全局设置，不跟随项目上下文
+              const currentBase = useLayoutState.getState().base;
+              if (currentBase?.component === "settings-page") return;
+              openPrimaryPageTab({
+                baseId: "settings",
+                component: "settings-page",
+                titleKey: "nav:settings",
+                icon: "⚙️",
+              });
+            }}
           />
         </SidebarMenu>
       </SidebarFooter>

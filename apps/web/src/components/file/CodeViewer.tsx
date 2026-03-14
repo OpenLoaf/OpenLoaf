@@ -62,6 +62,8 @@ interface CodeViewerProps {
   actionsRef?: MutableRefObject<CodeViewerActions | null>;
   /** Notify external controls about editor state. */
   onStatusChange?: (status: CodeViewerStatus) => void;
+  /** Hide the file-name placeholder shown when content is empty. */
+  hidePlaceholder?: boolean;
 }
 
 type MonacoDisposable = { dispose: () => void };
@@ -171,6 +173,7 @@ export default function CodeViewer({
   visible = true,
   actionsRef,
   onStatusChange,
+  hidePlaceholder,
 }: CodeViewerProps) {
   const { t } = useTranslation('common');
   /** File content query. */
@@ -647,7 +650,7 @@ export default function CodeViewer({
         onChange={handleEditorChange}
         options={editorOptions}
       />
-      {draftContent ? null : (
+      {draftContent || hidePlaceholder ? null : (
         <div className="pointer-events-none absolute left-4 top-4 text-xs text-muted-foreground">
           {name ?? uri}
         </div>

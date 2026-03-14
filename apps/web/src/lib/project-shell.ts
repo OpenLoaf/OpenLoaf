@@ -117,7 +117,7 @@ export function applyProjectShellToTab(_tabId: string, input: ProjectShellState)
     const nextRightCollapsed =
       layout.base && typeof layout.rightChatCollapsed === "boolean"
         ? layout.rightChatCollapsed
-        : savedLayout?.rightChatCollapsed ?? false;
+        : savedLayout?.rightChatCollapsed ?? true;
     layout.setRightChatCollapsed(nextRightCollapsed);
   }
 
@@ -148,7 +148,7 @@ export function openProjectShell(input: ProjectShellInput) {
     icon: input.icon ?? undefined,
     base,
     leftWidthPercent,
-    rightChatCollapsed: base ? savedLayout?.rightChatCollapsed ?? false : false,
+    rightChatCollapsed: base ? savedLayout?.rightChatCollapsed ?? true : false,
     chatParams: { projectId: input.projectId },
     projectShell: resolved,
   });

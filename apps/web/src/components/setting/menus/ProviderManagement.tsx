@@ -9,4 +9,17 @@
  */
 "use client";
 
-export { ProviderManagement } from "@/components/setting/menus/provider/ProviderManagement";
+import { ProviderManagement as ProviderManagementInner } from "@/components/setting/menus/provider/ProviderManagement";
+import { WebSearchSettings } from "@/components/setting/menus/WebSearchSettings";
+
+/** Model configuration page: providers + web search. */
+export function ProviderManagement() {
+  return (
+    <>
+      <ProviderManagementInner />
+      <div className="mt-5">
+        <WebSearchSettings />
+      </div>
+    </>
+  );
+}

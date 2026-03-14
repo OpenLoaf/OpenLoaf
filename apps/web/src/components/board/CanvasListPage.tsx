@@ -840,6 +840,9 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
           ) : null}
         </div>
         <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {t("canvasList.totalCount", { count: boardsQuery.data?.pages[0]?.total ?? displayedBoards.length })}
+          </span>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

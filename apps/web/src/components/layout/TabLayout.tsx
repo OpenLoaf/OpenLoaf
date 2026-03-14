@@ -23,7 +23,6 @@ import { useLayoutState } from "@/hooks/use-layout-state"
 import {
   LEFT_DOCK_MIN_PX,
   LEFT_DOCK_DEFAULT_PERCENT,
-  shouldDisableRightChat,
 } from "@/hooks/layout-utils"
 import { useProjectLayout } from "@/hooks/use-project-layout"
 import { useRecordEntityVisit } from "@/hooks/use-record-entity-visit"
@@ -412,16 +411,9 @@ export function TabLayout() {
     Boolean(base) ||
     (!stackHidden && (stack?.length ?? 0) > 0)
   const storedLeftWidthPercent = hasLeftContent ? leftWidthPercent ?? 0 : 0
-  const layoutSnapshot = React.useMemo(
-    () => ({ base, stack, activeStackItemId, rightChatCollapsed, projectShell }),
-    [base, stack, activeStackItemId, rightChatCollapsed, projectShell],
-  )
-  const isRightChatDisabled = React.useMemo(
-    () => shouldDisableRightChat(layoutSnapshot),
-    [layoutSnapshot],
-  )
-  // 逻辑：项目看板、文件、画布等页面即使恢复了旧布局，也必须隐藏右侧 chat。
-  const isRightCollapsed = Boolean(base) && (isRightChatDisabled || Boolean(rightChatCollapsed))
+  // Chat 面板完全由 rightChatCollapsed 状态控制，用户可在任何有 base 的页面手动 toggle。
+  // 没有 base 时，聊天面板始终可见（全屏聊天模式）。
+  const isRightCollapsed = base ? Boolean(rightChatCollapsed) : false
 
   const effectiveMinLeft = minLeftWidth ?? LEFT_DOCK_MIN_PX
 

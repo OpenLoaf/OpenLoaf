@@ -19,8 +19,12 @@
     "addDialog": "Add Project",
     "newEmptyProject": "Create New Project",
     "newEmptyProjectDescription": "Create a new folder in the project space",
+    "newProject": "New Project",
+    "newProjectDescription": "Select a folder as the project storage location",
     "selectExistingFolder": "Open Existing Folder",
     "selectExistingFolderDescription": "Add a folder from your computer as a project",
+    "selectFolder": "Click to select a folder…",
+    "storageLocation": "Storage Location",
     "cloneFromGit": "Clone from Git",
     "cloneFromGitDescription": "Paste the repository URL and auto-clone to local",
     "projectName": "Project Name",
@@ -270,6 +274,7 @@
     "movedToProject": "Moved to project",
     "moveFailed": "Move failed",
     "back": "Back",
+    "totalCount": "{{count}} canvases",
     "groupByTime": "Group by Time",
     "allProjects": "All Projects",
     "noProject": "No Project"
@@ -290,6 +295,7 @@
     "confirmRemove": "Remove this project? Only removes from the list, disk files are not deleted.",
     "openInNewWindow": "Open in New Window",
     "totalCount": "{{count}} total",
-    "childCount": "{{count}} sub-projects"
+    "childCount": "{{count}} sub-projects",
+    "createFailed": "Failed to create project"
   }
 }

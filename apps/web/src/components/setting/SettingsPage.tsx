@@ -32,7 +32,6 @@ import {
   Sparkles,
   Wand2Icon,
   Terminal,
-  Search,
 } from "lucide-react";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { Button } from "@openloaf/ui/button";
@@ -48,7 +47,6 @@ import { GlobalSettings } from "./menus/GlobalSettings";
 import TestSetting from "./menus/TestSetting";
 import { SkillSettings } from "./menus/SkillSettings";
 import { ThirdPartyTools } from "./menus/ThirdPartyTools";
-import { WebSearchSettings } from "./menus/WebSearchSettings";
 import { MemorySettings } from "./menus/MemorySettings";
 import { OpenLoafSettingsLayout } from "@openloaf/ui/openloaf/OpenLoafSettingsLayout";
 import {
@@ -67,22 +65,20 @@ type SettingsMenuKey =
   | "memory"
   | "skills"
   | "thirdPartyTools"
-  | "webSearch"
   | "shortcuts"
   | "projectTest";
 
 const SETTINGS_MENU_ICON_COLOR = {
   basic: "text-ol-blue",
-  global: "text-ol-text-auxiliary",
-  memory: "text-ol-green",
+  global: "text-ol-amber",
+  shortcuts: "text-ol-text-auxiliary",
+  keys: "text-ol-purple",
+  agents: "text-ol-green",
+  auxiliaryModel: "text-ol-blue",
   skills: "text-ol-purple",
-  thirdPartyTools: "text-ol-green",
-  webSearch: "text-ol-blue",
-  keys: "text-ol-red",
+  memory: "text-ol-green",
+  thirdPartyTools: "text-ol-text-auxiliary",
   storage: "text-ol-green",
-  agents: "text-ol-purple",
-  auxiliaryModel: "text-ol-green",
-  shortcuts: "text-ol-amber",
   projectTest: "text-ol-amber",
 } as const;
 
@@ -114,6 +110,7 @@ function buildMenu(t: (key: string) => string): Array<{
     : [];
 
   return [
+    // Group 1: General
     {
       key: "basic",
       label: t('settings:menu.basic'),
@@ -127,40 +124,17 @@ function buildMenu(t: (key: string) => string): Array<{
       Component: GlobalSettings,
     },
     {
-      key: "memory",
-      label: t('settings:menu.memory'),
-      Icon: createMenuIcon(Brain, SETTINGS_MENU_ICON_COLOR.memory),
-      Component: MemorySettings,
+      key: "shortcuts",
+      label: t('settings:menu.shortcuts'),
+      Icon: createMenuIcon(Keyboard, SETTINGS_MENU_ICON_COLOR.shortcuts),
+      Component: KeyboardShortcuts,
     },
-    {
-      key: "skills",
-      label: t('settings:menu.skills'),
-      Icon: createMenuIcon(Wand2Icon, SETTINGS_MENU_ICON_COLOR.skills),
-      Component: SkillSettings,
-    },
-    {
-      key: "thirdPartyTools",
-      label: t('settings:menu.thirdPartyTools'),
-      Icon: createMenuIcon(Terminal, SETTINGS_MENU_ICON_COLOR.thirdPartyTools),
-      Component: ThirdPartyTools,
-    },
-    {
-      key: "webSearch",
-      label: "网页搜索",
-      Icon: createMenuIcon(Search, SETTINGS_MENU_ICON_COLOR.webSearch),
-      Component: WebSearchSettings,
-    },
+    // Group 2: AI
     {
       key: "keys",
       label: t('settings:menu.keys'),
       Icon: createMenuIcon(Sparkles, SETTINGS_MENU_ICON_COLOR.keys),
       Component: ProviderManagement,
-    },
-    {
-      key: "storage",
-      label: t('settings:menu.storage'),
-      Icon: createMenuIcon(Database, SETTINGS_MENU_ICON_COLOR.storage),
-      Component: ObjectStorageService,
     },
     {
       key: "agents",
@@ -175,17 +149,36 @@ function buildMenu(t: (key: string) => string): Array<{
       Component: AuxiliaryModelSettings,
     },
     {
-      key: "shortcuts",
-      label: t('settings:menu.shortcuts'),
-      Icon: createMenuIcon(Keyboard, SETTINGS_MENU_ICON_COLOR.shortcuts),
-      Component: KeyboardShortcuts,
+      key: "skills",
+      label: t('settings:menu.skills'),
+      Icon: createMenuIcon(Wand2Icon, SETTINGS_MENU_ICON_COLOR.skills),
+      Component: SkillSettings,
+    },
+    {
+      key: "memory",
+      label: t('settings:menu.memory'),
+      Icon: createMenuIcon(Brain, SETTINGS_MENU_ICON_COLOR.memory),
+      Component: MemorySettings,
+    },
+    // Group 3: Services (in general group)
+    {
+      key: "thirdPartyTools",
+      label: t('settings:menu.thirdPartyTools'),
+      Icon: createMenuIcon(Terminal, SETTINGS_MENU_ICON_COLOR.thirdPartyTools),
+      Component: ThirdPartyTools,
+    },
+    {
+      key: "storage",
+      label: t('settings:menu.storage'),
+      Icon: createMenuIcon(Database, SETTINGS_MENU_ICON_COLOR.storage),
+      Component: ObjectStorageService,
     },
     ...DEV_MENU,
   ];
 }
 
 const ALL_MENU_KEYS: SettingsMenuKey[] = [
-  'basic', 'global', 'memory', 'skills', 'thirdPartyTools', 'webSearch', 'keys', 'storage', 'agents', 'auxiliaryModel', 'shortcuts', 'projectTest',
+  'basic', 'global', 'shortcuts', 'thirdPartyTools', 'storage', 'keys', 'agents', 'auxiliaryModel', 'skills', 'memory', 'projectTest',
 ];
 const MENU_KEY_SET = new Set<SettingsMenuKey>(ALL_MENU_KEYS);
 const HIDDEN_MENU_KEYS = new Set<SettingsMenuKey>([]);
@@ -317,23 +310,22 @@ export default function SettingsPage({
     const byKey = new Map(MENU.map((item) => [item.key, item]));
     const filterVisible = (item?: OpenLoafSettingsMenuItem | null) =>
       Boolean(item && !HIDDEN_MENU_KEYS.has(item.key as SettingsMenuKey));
-    const group1 = [
+    const general = [
       byKey.get("basic"),
       byKey.get("global"),
-      byKey.get("memory"),
       byKey.get("shortcuts"),
-      byKey.get("projectTest"),
       byKey.get("thirdPartyTools"),
+      byKey.get("storage"),
+      byKey.get("projectTest"),
     ].filter(filterVisible);
-    const group2 = [
+    const ai = [
+      byKey.get("keys"),
       byKey.get("agents"),
       byKey.get("auxiliaryModel"),
       byKey.get("skills"),
-      byKey.get("webSearch"),
-      byKey.get("keys"),
-      byKey.get("storage"),
+      byKey.get("memory"),
     ].filter(filterVisible);
-    return [group1, group2].filter((group) => group.length > 0) as OpenLoafSettingsMenuItem[][];
+    return [general, ai].filter((group) => group.length > 0) as OpenLoafSettingsMenuItem[][];
   }, [MENU]);
 
   /** Persist the active menu into the dock base params (only when used inside a tab). */

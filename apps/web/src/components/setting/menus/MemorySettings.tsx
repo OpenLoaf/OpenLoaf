@@ -9,16 +9,16 @@
  */
 'use client'
 
-import { memo, useCallback, useMemo, useState } from 'react'
+import { lazy, memo, Suspense, useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Brain, FileText } from 'lucide-react'
 import { OpenLoafSettingsGroup } from '@openloaf/ui/openloaf/OpenLoafSettingsGroup'
 import { OpenLoafSettingsCard } from '@openloaf/ui/openloaf/OpenLoafSettingsCard'
 import { trpc } from '@/utils/trpc'
-import { openFilePreview } from '@/components/file/lib/open-file'
-import type { FileSystemEntry } from '@/components/project/filesystem/utils/file-system-utils'
 import { cn } from '@/lib/utils'
+
+const CodeViewer = lazy(() => import('@/components/file/CodeViewer'))
 
 /** MEMORY.md index file name. */
 const MEMORY_INDEX = 'MEMORY.md'
@@ -34,7 +34,7 @@ type MemoryEditorProps = {
   projectId?: string
 }
 
-/** Memory settings panel — file list + inline preview. */
+/** Memory settings panel — file list + inline editor. */
 const MemoryEditor = memo(function MemoryEditor({ scope, projectId }: MemoryEditorProps) {
   const { t } = useTranslation(['settings'])
 
@@ -85,25 +85,6 @@ const MemoryEditor = memo(function MemoryEditor({ scope, projectId }: MemoryEdit
     setSelectedUri(file.uri)
   }, [])
 
-  // Render file preview content using the project's unified preview system.
-  const previewContent = useMemo(() => {
-    if (!selectedFile) return null
-    const entry: FileSystemEntry = {
-      uri: selectedFile.uri,
-      name: selectedFile.name,
-      kind: selectedFile.kind,
-    }
-    const content = openFilePreview({
-      entry,
-      projectId: scope === 'project' ? projectId : undefined,
-      rootUri: dirUri,
-      readOnly: false,
-      mode: 'embed',
-    })
-    if (!content || typeof content === 'boolean') return null
-    return content
-  }, [selectedFile, scope, projectId, dirUri])
-
   return (
     <OpenLoafSettingsGroup
       title={t('settings:memory.title')}
@@ -147,10 +128,23 @@ const MemoryEditor = memo(function MemoryEditor({ scope, projectId }: MemoryEdit
           </div>
         </OpenLoafSettingsCard>
 
-        {/* File preview / editor */}
+        {/* File editor */}
         <OpenLoafSettingsCard padding="none">
           <div className="h-[400px] overflow-hidden">
-            {previewContent ?? (
+            {selectedFile ? (
+              <Suspense fallback={null}>
+                <CodeViewer
+                  key={selectedFile.uri}
+                  uri={selectedFile.uri}
+                  name={selectedFile.name}
+                  ext="md"
+                  rootUri={dirUri}
+                  projectId={scope === 'project' ? projectId : undefined}
+                  readOnly={false}
+                  hidePlaceholder
+                />
+              </Suspense>
+            ) : (
               <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                 {t('settings:memory.empty')}
               </div>

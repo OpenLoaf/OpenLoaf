@@ -19,8 +19,12 @@
     "addDialog": "添加项目",
     "newEmptyProject": "新建空项目",
     "newEmptyProjectDescription": "在项目空间中创建一个新文件夹",
+    "newProject": "新建项目",
+    "newProjectDescription": "选择一个文件夹作为项目的存储位置",
     "selectExistingFolder": "选择已有文件夹",
     "selectExistingFolderDescription": "将电脑上的文件夹作为项目管理",
+    "selectFolder": "点击选择文件夹…",
+    "storageLocation": "存储位置",
     "cloneFromGit": "从 Git 克隆",
     "cloneFromGitDescription": "粘贴仓库地址，自动克隆到本地",
     "projectName": "项目名称",
@@ -270,6 +274,7 @@
     "movedToProject": "已移动到项目",
     "moveFailed": "移动失败",
     "back": "返回",
+    "totalCount": "共 {{count}} 个画布",
     "groupByTime": "按时间分组",
     "allProjects": "全部项目",
     "noProject": "未归属项目"
@@ -290,6 +295,7 @@
     "confirmRemove": "确认移除此项目？仅从列表移除，不会删除磁盘文件。",
     "openInNewWindow": "新窗口打开",
     "totalCount": "共 {{count}} 个",
-    "childCount": "{{count}} 个子项目"
+    "childCount": "{{count}} 个子项目",
+    "createFailed": "创建失败"
   }
 }
