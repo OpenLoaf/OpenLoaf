@@ -52,7 +52,13 @@
     "tokenReasoning": "Reasoning",
     "tokenOutput": "Output",
     "tokenTotal": "Total",
-    "tokenNoInfo": "No token info available"
+    "tokenNoInfo": "No token info available",
+    "saveAsMarkdown": "Save as Markdown",
+    "saveProject": "Save to project",
+    "saveFileName": "File name",
+    "saveNoFolders": "No subfolders in current directory",
+    "saveSuccess": "Saved",
+    "saveFailed": "Save failed"
   },
   "mode": {
     "approval": "Approval Mode",
@@ -285,7 +291,7 @@
     "suggestions": []
   },
   "input": {
-    "defaultPlaceholder": "Ask, search, or create anything. Type / to pick a skill…",
+    "defaultPlaceholder": "Ask, search, or create. Drop files/images, type / for skills…",
     "cliPlaceholder": "Chat with {{tool}}…",
     "addAttachment": "Add attachment",
     "voiceInput": "Voice input",

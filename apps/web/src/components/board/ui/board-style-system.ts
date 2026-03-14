@@ -132,36 +132,36 @@ export const BOARD_TOOLBAR_ITEM_PURPLE =
 export const BOARD_GENERATE_NODE_BASE =
   "ol-glass-node";
 
-/** Semantic glass base — image generation (subtle tint). */
+/** Semantic base — image generation. */
 export const BOARD_GENERATE_NODE_BASE_IMAGE =
-  "ol-glass-node bg-card/95 dark:bg-card/95";
-/** Semantic glass base — image prompt (subtle tint). */
+  "bg-card border border-border/60";
+/** Semantic base — image prompt. */
 export const BOARD_GENERATE_NODE_BASE_PROMPT =
-  "ol-glass-node bg-card/95 dark:bg-card/95";
-/** Semantic glass base — video generation (subtle tint). */
+  "bg-card border border-border/60";
+/** Semantic base — video generation. */
 export const BOARD_GENERATE_NODE_BASE_VIDEO =
-  "ol-glass-node bg-card/95 dark:bg-card/95";
+  "bg-card border border-border/60";
 
 /** Semantic border — image generation (neutral idle). */
-export const BOARD_GENERATE_BORDER_IMAGE = "border-border/50";
+export const BOARD_GENERATE_BORDER_IMAGE = "";
 /** Semantic border — video generation (neutral idle). */
-export const BOARD_GENERATE_BORDER_VIDEO = "border-border/50";
+export const BOARD_GENERATE_BORDER_VIDEO = "";
 /** Semantic border — image prompt (neutral idle). */
-export const BOARD_GENERATE_BORDER_PROMPT = "border-border/50";
+export const BOARD_GENERATE_BORDER_PROMPT = "";
+
+/** Unified selected state for all generation nodes. */
+const BOARD_GENERATE_SELECTED = "";
 
 /** Selected state — image generation. */
-export const BOARD_GENERATE_SELECTED_IMAGE =
-  "border-ol-blue/60 ring-2 ring-ol-blue/15";
+export const BOARD_GENERATE_SELECTED_IMAGE = BOARD_GENERATE_SELECTED;
 /** Selected state — video generation. */
-export const BOARD_GENERATE_SELECTED_VIDEO =
-  "border-ol-purple/60 ring-2 ring-ol-purple/15";
+export const BOARD_GENERATE_SELECTED_VIDEO = BOARD_GENERATE_SELECTED;
 /** Selected state — image prompt. */
-export const BOARD_GENERATE_SELECTED_PROMPT =
-  "border-ol-amber/60 ring-2 ring-ol-amber/15";
+export const BOARD_GENERATE_SELECTED_PROMPT = BOARD_GENERATE_SELECTED;
 
 /** Error state for generation nodes. */
 export const BOARD_GENERATE_ERROR =
-  "border-ol-red bg-ol-red-bg/60";
+  "bg-ol-red-bg/60";
 
 /** Primary button — image generation (blue). */
 export const BOARD_GENERATE_BTN_IMAGE =
@@ -194,16 +194,15 @@ export const BOARD_GENERATE_DOT_PROMPT = "bg-ol-amber";
 export const BOARD_GENERATE_INPUT =
   "border-transparent bg-ol-surface-input text-ol-text-primary placeholder:text-ol-text-auxiliary focus-visible:border-ol-focus-border focus-visible:ring-1 focus-visible:ring-ol-focus-ring";
 
-/** Node base — chat node (neutral). */
+/** Node base — chat node. */
 export const BOARD_GENERATE_NODE_BASE_CHAT =
-  "ol-glass-node bg-card/95 dark:bg-card/95";
+  "bg-card border border-border/60";
 
 /** Semantic border — chat node (neutral idle). */
-export const BOARD_GENERATE_BORDER_CHAT = "border-border/50";
+export const BOARD_GENERATE_BORDER_CHAT = "";
 
 /** Selected state — chat node. */
-export const BOARD_GENERATE_SELECTED_CHAT =
-  "border-ol-green/60 ring-2 ring-ol-green/15";
+export const BOARD_GENERATE_SELECTED_CHAT = BOARD_GENERATE_SELECTED;
 
 /** Primary button — chat node (teal). */
 export const BOARD_GENERATE_BTN_CHAT =

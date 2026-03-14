@@ -52,7 +52,13 @@
     "tokenReasoning": "推理",
     "tokenOutput": "輸出",
     "tokenTotal": "總計",
-    "tokenNoInfo": "暫無 token 資訊"
+    "tokenNoInfo": "暫無 token 資訊",
+    "saveAsMarkdown": "儲存為 Markdown",
+    "saveProject": "儲存到專案",
+    "saveFileName": "檔案名稱",
+    "saveNoFolders": "目前目錄下無子資料夾",
+    "saveSuccess": "已儲存",
+    "saveFailed": "儲存失敗"
   },
   "mode": {
     "approval": "審批模式",
@@ -285,7 +291,7 @@
     "suggestions": []
   },
   "input": {
-    "defaultPlaceholder": "提問、搜尋或創作任何內容，輸入 / 指定技能…",
+    "defaultPlaceholder": "提問、搜尋或創作，可拖入檔案/圖片，輸入 / 指定技能…",
     "cliPlaceholder": "與 {{tool}} 對話…",
     "addAttachment": "新增附件",
     "voiceInput": "語音輸入",

@@ -386,7 +386,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
     <NodeFrame>
       <div
         className={[
-          "relative flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-border/50 bg-background/95 p-3 text-center text-ol-text-primary shadow-sm",
+          "relative flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center gap-1 rounded-md bg-card border border-border/60 p-3 text-center text-ol-text-primary",
           !errorText ? "openloaf-thinking-border openloaf-thinking-border-on border-transparent" : "",
           errorText
             ? "border-ol-red/80 bg-ol-red-bg/60"

@@ -82,7 +82,7 @@ function VideoGenerateProjectionView({
     <NodeFrame>
       <div
         className={cn(
-          "flex h-full w-full flex-col overflow-hidden rounded-xl border",
+          "flex h-full w-full flex-col rounded-md overflow-hidden",
           BOARD_GENERATE_NODE_BASE_VIDEO,
           selected ? BOARD_GENERATE_SELECTED_VIDEO : BOARD_GENERATE_BORDER_VIDEO,
           status === "error" && BOARD_GENERATE_ERROR,
@@ -767,43 +767,27 @@ function EditableVideoGenerateNodeView({
     : t('videoGenerate.status.idle');
 
   const statusHint = useMemo(() => {
-    if (viewStatus === "needs_prompt") {
-      return { tone: "warn", text: t('videoGenerate.hints.needsPrompt') };
+    if (viewStatus === "error") {
+      return { tone: "error", text: errorText || t('videoGenerate.hints.generateFailed') };
     }
+    return null;
+  }, [errorText, t, viewStatus]);
+
+  const promptPlaceholder = useMemo(() => {
+    if (viewStatus === "needs_prompt") return t('videoGenerate.hints.needsPrompt');
     if (viewStatus === "missing_parameters") {
       const requiredText = missingRequiredParameters
         .map((field) => field.title || field.key)
         .join("、");
-      return { tone: "warn", text: t('videoGenerate.hints.missingParameters', { required: requiredText }) };
+      return t('videoGenerate.hints.missingParameters', { required: requiredText });
     }
     if (viewStatus === "too_many_images") {
-      return {
-        tone: "warn",
-        text: t('videoGenerate.hints.tooManyImages', { max: maxInputImages, connected: inputImageCount }),
-      };
+      return t('videoGenerate.hints.tooManyImages', { max: maxInputImages, connected: inputImageCount });
     }
-    if (viewStatus === "invalid_image") {
-      return {
-        tone: "warn",
-        text: t('videoGenerate.hints.invalidImage'),
-      };
-    }
-    if (viewStatus === "needs_model") {
-      return { tone: "warn", text: t('videoGenerate.hints.needsModel') };
-    }
-    if (viewStatus === "error") {
-      return { tone: "error", text: errorText || t('videoGenerate.hints.generateFailed') };
-    }
-    if (viewStatus === "done") return null;
-    return null;
-  }, [
-    errorText,
-    inputImageCount,
-    maxInputImages,
-    missingRequiredParameters,
-    t,
-    viewStatus,
-  ]);
+    if (viewStatus === "invalid_image") return t('videoGenerate.hints.invalidImage');
+    if (viewStatus === "needs_model") return t('videoGenerate.hints.needsModel');
+    return t('videoGenerate.promptPlaceholder');
+  }, [inputImageCount, maxInputImages, missingRequiredParameters, t, viewStatus]);
 
   const { containerRef } = useAutoResizeNode({
     engine,
@@ -812,7 +796,7 @@ function EditableVideoGenerateNodeView({
   });
 
   const containerClassName = cn(
-    "relative flex w-full min-w-0 flex-col rounded-xl border overflow-hidden text-ol-text-primary transition-all duration-150",
+    "relative flex w-full min-w-0 flex-col rounded-md overflow-hidden text-ol-text-primary transition-all duration-150",
     BOARD_GENERATE_NODE_BASE_VIDEO,
     viewStatus === "error"
       ? BOARD_GENERATE_ERROR
@@ -863,7 +847,7 @@ function EditableVideoGenerateNodeView({
               className="w-full min-h-[60px] resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
               value={localPromptText}
               maxLength={500}
-              placeholder={t('videoGenerate.promptPlaceholder')}
+              placeholder={promptPlaceholder}
               onChange={(event) => {
                 const next = event.target.value.slice(0, 500);
                 setLocalPromptText(next);
@@ -983,37 +967,24 @@ function EditableVideoGenerateNodeView({
             event.stopPropagation();
           }}
         >
-          {statusHint.tone === "error" ? (
-            <div className="relative rounded-xl bg-ol-red-bg/80 p-2 text-[11px] leading-4 text-ol-red">
-              <button
-                type="button"
-                className="absolute right-2 top-2 rounded-md bg-ol-red/10 px-2 py-0.5 text-[10px] text-ol-red hover:bg-ol-red/20"
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                }}
-                onClick={handleCopyError}
-              >
-                <span className="inline-flex items-center gap-1">
-                  <Copy size={10} />
-                  {t('selection.toolbar.copy')}
-                </span>
-              </button>
-              <pre className="whitespace-pre-wrap break-words pr-14 font-sans">
-                {statusHint.text}
-              </pre>
-            </div>
-          ) : (
-            <div
-              className={cn(
-                "rounded-xl px-2 py-1.5 text-[11px] leading-4",
-                statusHint.tone === "warn"
-                  ? "bg-ol-amber-bg/80 text-ol-amber"
-                  : "bg-ol-blue-bg/80 text-ol-blue",
-              )}
+          <div className="relative bg-ol-red-bg/80 p-2 text-[11px] leading-4 text-ol-red rounded-md">
+            <button
+              type="button"
+              className="absolute right-2 top-2 rounded-md bg-ol-red/10 px-2 py-0.5 text-[10px] text-ol-red hover:bg-ol-red/20"
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={handleCopyError}
             >
+              <span className="inline-flex items-center gap-1">
+                <Copy size={10} />
+                {t('selection.toolbar.copy')}
+              </span>
+            </button>
+            <pre className="whitespace-pre-wrap break-words pr-14 font-sans">
               {statusHint.text}
-            </div>
-          )}
+            </pre>
+          </div>
         </div>
       ) : null}
     </NodeFrame>

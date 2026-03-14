@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import {
   BarChart3,
   Clock3,
+  Download,
   Sparkles,
   Copy,
   Minimize2,
@@ -27,6 +28,8 @@ import { toast } from "sonner";
 import { useChatActions, useChatSession, useChatState } from "../context";
 import MessageBranchNav from "./MessageBranchNav";
 import { getMessageTextWithToolCalls } from "@/lib/chat/message-text";
+import { messageToMarkdown } from "@/lib/chat/message-to-markdown";
+import { SaveMessageDialog } from "./SaveMessageDialog";
 import { MessageAction, MessageActions } from "@/components/ai-elements/message";
 import {
   PromptInputButton,
@@ -171,11 +174,14 @@ export default function MessageAiAction({
     useChatActions();
   const { status } = useChatState();
   const { leafMessageId, sessionId } = useChatSession();
+  const { projectId: chatProjectId } = useChatSession();
   const [isCopying, setIsCopying] = React.useState(false);
   const [compactOpen, setCompactOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [saveOpen, setSaveOpen] = React.useState(false);
   const text = getMessageTextWithToolCalls(message);
+  const markdownContent = React.useMemo(() => messageToMarkdown(message), [message]);
 
   const handleCopy = async () => {
     if (!text) return;
@@ -260,6 +266,7 @@ export default function MessageAiAction({
   }, [clearError, isBusy, isCliMessage, sendMessage, status]);
 
   return (
+    <>
     <MessageActions className={cn("group select-none justify-start gap-0.5", className)}>
       <MessageAction
         onClick={handleCopy}
@@ -271,6 +278,18 @@ export default function MessageAiAction({
         title={t("common:copy")}
       >
         <Copy className="size-3" strokeWidth={2.5} />
+      </MessageAction>
+
+      <MessageAction
+        onClick={() => setSaveOpen(true)}
+        disabled={!markdownContent || isBusy}
+        className={MESSAGE_ACTION_CLASSNAME}
+        tooltip={t("ai:message.saveAsMarkdown")}
+        label={t("ai:message.saveAsMarkdown")}
+        aria-label={t("ai:message.saveAsMarkdown")}
+        title={t("ai:message.saveAsMarkdown")}
+      >
+        <Download className="size-3" />
       </MessageAction>
 
       <MessageAction
@@ -457,5 +476,13 @@ export default function MessageAiAction({
         </span>
       ) : null}
     </MessageActions>
+
+      <SaveMessageDialog
+        open={saveOpen}
+        onOpenChange={setSaveOpen}
+        content={markdownContent}
+        lockedProjectId={chatProjectId}
+      />
+    </>
   );
 }

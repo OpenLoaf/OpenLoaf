@@ -86,7 +86,7 @@ function ImageGenerateProjectionView({
     <NodeFrame>
       <div
         className={cn(
-          "flex h-full w-full flex-col overflow-hidden rounded-xl border",
+          "flex h-full w-full flex-col rounded-md overflow-hidden",
           BOARD_GENERATE_NODE_BASE_IMAGE,
           selected ? BOARD_GENERATE_SELECTED_IMAGE : BOARD_GENERATE_BORDER_IMAGE,
           status === "error" && BOARD_GENERATE_ERROR,
@@ -615,7 +615,7 @@ function EditableImageGenerateNodeView({
   ]);
 
   const containerClassName = cn(
-    "relative flex w-full min-w-0 flex-col rounded-xl border overflow-hidden text-ol-text-primary transition-all duration-150",
+    "relative flex w-full min-w-0 flex-col rounded-md overflow-hidden text-ol-text-primary transition-all duration-150",
     BOARD_GENERATE_NODE_BASE_IMAGE,
     viewStatus === "error"
       ? BOARD_GENERATE_ERROR
@@ -625,36 +625,21 @@ function EditableImageGenerateNodeView({
   );
 
   const statusHint = useMemo(() => {
-    if (viewStatus === "needs_prompt") {
-      return { tone: "warn", text: t('imageGenerate.hints.needsPrompt') };
-    }
-    if (viewStatus === "too_many_images") {
-      return {
-        tone: "warn",
-        text: t('imageGenerate.hints.tooManyImages', { max: maxInputImages, connected: inputImageNodes.length }),
-      };
-    }
-    if (viewStatus === "invalid_image") {
-      return { tone: "warn", text: t('imageGenerate.hints.invalidImage') };
-    }
-    if (viewStatus === "needs_model") {
-      return {
-        tone: "warn",
-        text: t('imageGenerate.hints.needsModel'),
-      };
-    }
     if (viewStatus === "error") {
       return { tone: "error", text: errorText || t('imageGenerate.hints.generateFailed') };
     }
-    if (viewStatus === "done") return null;
     return null;
-  }, [
-    errorText,
-    inputImageNodes.length,
-    maxInputImages,
-    t,
-    viewStatus,
-  ]);
+  }, [errorText, t, viewStatus]);
+
+  const promptPlaceholder = useMemo(() => {
+    if (viewStatus === "needs_prompt") return t('imageGenerate.hints.needsPrompt');
+    if (viewStatus === "too_many_images") {
+      return t('imageGenerate.hints.tooManyImages', { max: maxInputImages, connected: inputImageNodes.length });
+    }
+    if (viewStatus === "invalid_image") return t('imageGenerate.hints.invalidImage');
+    if (viewStatus === "needs_model") return t('imageGenerate.hints.needsModel');
+    return t('imageGenerate.promptPlaceholder');
+  }, [inputImageNodes.length, maxInputImages, t, viewStatus]);
 
   const canRun =
     hasPrompt &&
@@ -778,7 +763,7 @@ function EditableImageGenerateNodeView({
             className="w-full min-h-[60px] resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
             value={localPromptText}
             maxLength={500}
-            placeholder={t('imageGenerate.promptPlaceholder')}
+            placeholder={promptPlaceholder}
             onChange={(event) => {
               const next = event.target.value.slice(0, 500);
               setLocalPromptText(next);
@@ -896,41 +881,26 @@ function EditableImageGenerateNodeView({
             event.stopPropagation();
           }}
         >
-          <div
-            className={cn(
-              "rounded-xl px-3 py-2 text-[12px] leading-5",
-              statusHint.tone === "error"
-                ? "bg-ol-red-bg/80 text-ol-red"
-                : statusHint.tone === "warn"
-                  ? "bg-ol-amber-bg/80 text-ol-amber"
-                  : "bg-ol-blue-bg/80 text-ol-blue",
-            )}
-          >
+          <div className="bg-ol-red-bg/80 text-ol-red px-3 py-2 text-[12px] leading-5 rounded-md">
             <div className="relative">
-              {statusHint.tone === "error" ? (
-                <>
-                  <button
-                    type="button"
-                    className={cn(
-                      "absolute right-0 top-0 inline-flex h-6 w-6 items-center justify-center rounded-md text-[12px] leading-none",
-                      copied
-                        ? "text-ol-green"
-                        : "text-current/70 hover:text-current",
-                    )}
-                    onPointerDown={(event) => {
-                      event.stopPropagation();
-                    }}
-                    onClick={handleCopyError}
-                  >
-                    {copied ? <Check size={12} /> : <Copy size={12} />}
-                  </button>
-                  <div className="whitespace-pre-wrap break-words pr-8 font-sans">
-                    {statusHint.text}
-                  </div>
-                </>
-              ) : (
-                <div>{statusHint.text}</div>
-              )}
+              <button
+                type="button"
+                className={cn(
+                  "absolute right-0 top-0 inline-flex h-6 w-6 items-center justify-center rounded-md text-[12px] leading-none",
+                  copied
+                    ? "text-ol-green"
+                    : "text-current/70 hover:text-current",
+                )}
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                }}
+                onClick={handleCopyError}
+              >
+                {copied ? <Check size={12} /> : <Copy size={12} />}
+              </button>
+              <div className="whitespace-pre-wrap break-words pr-8 font-sans">
+                {statusHint.text}
+              </div>
             </div>
           </div>
         </div>

@@ -40,6 +40,12 @@
     "deleteNodeConfirm": "确认删除该节点及其子节点？",
     "deleteNodeDesc": "删除后将无法恢复该节点及其所有后代消息。",
     "deleteNodeBtn": "确认删除",
+    "saveAsMarkdown": "保存为 Markdown",
+    "saveProject": "保存到项目",
+    "saveFileName": "文件名",
+    "saveNoFolders": "当前目录下无子文件夹",
+    "saveSuccess": "已保存",
+    "saveFailed": "保存失败",
     "compactContext": "压缩上下文",
     "compactContextTitle": "确认压缩上下文",
     "compactContextConfirm": "确认压缩上下文？",
@@ -285,7 +291,7 @@
     "suggestions": []
   },
   "input": {
-    "defaultPlaceholder": "提问、搜索或创作任何内容，输入 / 指定技能…",
+    "defaultPlaceholder": "提问、搜索或创作，可拖入文件/图片，输入 / 指定技能…",
     "cliPlaceholder": "与 {{tool}} 对话…",
     "addAttachment": "添加附件",
     "voiceInput": "语音输入",

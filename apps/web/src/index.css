@@ -478,8 +478,6 @@ body {
   }
   .ol-glass-node {
     background: var(--ol-glass-node-bg);
-    backdrop-filter: blur(var(--ol-blur-lg));
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   }
 }
 

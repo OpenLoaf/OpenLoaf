@@ -447,7 +447,7 @@ export function ImagePromptGenerateNodeView({
   }, []);
 
   const containerClassName = cn(
-    "relative flex h-full w-full min-h-0 min-w-0 flex-col rounded-xl border overflow-hidden text-ol-text-primary transition-all duration-150",
+    "relative flex h-full w-full min-h-0 min-w-0 flex-col rounded-md overflow-hidden text-ol-text-primary transition-all duration-150",
     BOARD_GENERATE_NODE_BASE_PROMPT,
     viewStatus === "running"
       ? "openloaf-thinking-border openloaf-thinking-border-on border-transparent"
@@ -554,7 +554,7 @@ export function ImagePromptGenerateNodeView({
               <button
                 type="button"
                 disabled={isLoginBusy}
-                className="inline-flex h-7 w-full items-center justify-center rounded-md border border-ol-divider bg-ol-surface-muted px-3 text-[11px] text-ol-text-auxiliary transition-colors duration-150 hover:bg-ol-divider disabled:opacity-50"
+                className="inline-flex h-7 w-full items-center justify-center bg-muted/50 px-3 text-[11px] text-ol-text-auxiliary transition-colors duration-150 hover:bg-muted disabled:opacity-50"
                 onPointerDown={(event) => {
                   event.stopPropagation();
                   if (!isLoginBusy) setLoginOpen(true);
@@ -573,7 +573,7 @@ export function ImagePromptGenerateNodeView({
                 }}
                 disabled={candidates.length === 0 || isRunning}
               >
-                <SelectTrigger className="h-7 w-full rounded-md border-ol-divider bg-ol-surface-muted px-2 text-[11px] shadow-none hover:bg-ol-divider">
+                <SelectTrigger className="h-7 w-full border-0 bg-muted/50 px-2 text-[11px] shadow-none hover:bg-muted">
                   <SelectValue placeholder={t('imagePromptGenerate.noModel')} />
                 </SelectTrigger>
                 <SelectContent className="text-[11px]">
