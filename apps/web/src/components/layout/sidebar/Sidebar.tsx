@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import i18next from "i18next";
 import { useTranslation } from "react-i18next";
 import { isWorkbenchDockContextComponent } from "@/components/layout/global-entry-dock";
@@ -39,8 +39,7 @@ import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useIsNarrowScreen } from "@/hooks/use-mobile";
 import { useSidebarNavigation } from "@/hooks/use-sidebar-navigation";
 import { CompactUserAvatar } from "@/components/layout/sidebar/SidebarUserAccount";
-import { BOARD_VIEWER_COMPONENT, isSettingsForegroundPage } from "@/hooks/layout-utils";
-import { isProjectMode } from "@/lib/project-mode";
+import { BOARD_VIEWER_COMPONENT, resolveLayoutViewState } from "@/hooks/layout-utils";
 import { isProjectWindowMode, isBoardWindowMode } from "@/lib/window-mode";
 
 const ICON_BTN_BASE =
@@ -107,10 +106,10 @@ export const AppSidebar = ({
   const setIcon = useAppView((s) => s.setIcon);
   const setProjectShell = useAppView((s) => s.setProjectShell);
   const appState = useAppState();
+  const layoutView = useMemo(() => resolveLayoutViewState(appState), [appState]);
   const setBase = useLayoutState((s) => s.setBase);
   const clearStack = useLayoutState((s) => s.clearStack);
   const setActiveView = useNavigation((s) => s.setActiveView);
-  const activeViewType = useNavigation((s) => s.activeViewType);
   const isNarrow = useIsNarrowScreen(900);
   const nav = useSidebarNavigation();
   const setSearchOpen = useGlobalOverlay((s) => s.setSearchOpen);
@@ -120,7 +119,8 @@ export const AppSidebar = ({
   const activeStackComponent =
     appState.stack?.find((item) => item.id === appState.activeStackItemId)?.component ??
     appState.stack?.at(-1)?.component;
-  const activeForegroundComponent = activeStackComponent ?? activeBaseComponent;
+  const activeForegroundComponent =
+    activeStackComponent ?? layoutView.foregroundComponent ?? activeBaseComponent;
 
   const isMenuActive = (input: { baseId?: string; title?: string; component?: string }) => {
     if (activeStackComponent) return false;
@@ -133,18 +133,18 @@ export const AppSidebar = ({
   const isCanvasViewerActive = activeForegroundComponent === BOARD_VIEWER_COMPONENT;
   const isCanvasListActive =
     activeForegroundComponent === CANVAS_LIST_TAB_INPUT.component ||
-    (!activeForegroundComponent && activeViewType === "canvas-list");
+    (!activeForegroundComponent && layoutView.viewType === "canvas-list");
   const isProjectListActive =
     activeForegroundComponent === PROJECT_LIST_TAB_INPUT.component ||
-    (!activeForegroundComponent && activeViewType === "project-list");
+    (!activeForegroundComponent && layoutView.viewType === "project-list");
   const isWorkbenchActive = activeForegroundComponent
     ? isWorkbenchDockContextComponent(activeForegroundComponent)
-    : activeViewType === "workbench";
-  const isCalendarActive = activeForegroundComponent === "calendar-page" || (!activeForegroundComponent && activeViewType === "calendar");
-  const isEmailActive = activeForegroundComponent === "email-page" || (!activeForegroundComponent && activeViewType === "email");
-  const isTasksActive = activeForegroundComponent === "scheduled-tasks-page" || (!activeForegroundComponent && activeViewType === "scheduled-tasks");
-  const isSettingsActive = isSettingsForegroundPage(appState);
-  const isInProject = isProjectMode(appState.projectShell);
+    : layoutView.viewType === "workbench";
+  const isCalendarActive = activeForegroundComponent === "calendar-page" || (!activeForegroundComponent && layoutView.viewType === "calendar");
+  const isEmailActive = activeForegroundComponent === "email-page" || (!activeForegroundComponent && layoutView.viewType === "email");
+  const isTasksActive = activeForegroundComponent === "scheduled-tasks-page" || (!activeForegroundComponent && layoutView.viewType === "scheduled-tasks");
+  const isSettingsActive = layoutView.isSettingsPage;
+  const isInProject = layoutView.isProjectContext;
 
   const openPrimaryPageTab = useCallback(
     (input: {

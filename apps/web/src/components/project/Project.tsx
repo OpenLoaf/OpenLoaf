@@ -20,6 +20,7 @@ import {
 } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import i18next from "i18next";
 import { trpc } from "@/utils/trpc";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useAppView } from "@/hooks/use-app-view";
@@ -27,6 +28,8 @@ import { useLayoutState } from "@/hooks/use-layout-state";
 import { useAppState } from "@/hooks/use-app-state";
 import { useProject } from "@/hooks/use-project";
 import { useProjects } from "@/hooks/use-projects";
+import { PROJECT_LIST_TAB_INPUT } from "@openloaf/api/common";
+import { exitProjectShellToProjectList } from "@/lib/project-shell";
 import { createPortal } from "react-dom";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
 import ProjectIndex from "./index/ProjectIndex";
@@ -185,7 +188,12 @@ export default function ProjectPage({
     if (!projectId) return;
     if (isLoading) return;
     if (isError) {
-      useAppView.getState().navigate({});
+      // 中文注释：项目失效时明确退出到项目空间，避免落到一个新的默认聊天态。
+      exitProjectShellToProjectList(
+        "main",
+        i18next.t("nav:sidebarProjectSpace"),
+        PROJECT_LIST_TAB_INPUT.icon,
+      );
     }
   }, [projectId, isLoading, isError]);
 

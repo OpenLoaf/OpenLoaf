@@ -43,6 +43,7 @@ export default function TrayNavigationListener() {
   const navigate = useAppView((s) => s.navigate)
   const setTitle = useAppView((s) => s.setTitle)
   const setIcon = useAppView((s) => s.setIcon)
+  const setProjectShell = useAppView((s) => s.setProjectShell)
   const setBase = useLayoutState((s) => s.setBase)
   const clearStack = useLayoutState((s) => s.clearStack)
 
@@ -74,8 +75,10 @@ export default function TrayNavigationListener() {
       clearStack()
       setTitle(tabTitle)
       setIcon(input.icon)
+      setProjectShell(null)
+      useLayoutState.getState().setRightChatCollapsed(true)
     },
-    [clearStack, setBase, setIcon, setTitle],
+    [clearStack, setBase, setIcon, setProjectShell, setTitle],
   )
 
   useEffect(() => {

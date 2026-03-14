@@ -21,8 +21,8 @@ import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import { trpc } from "@/utils/trpc";
 import { getEntryVisual, IMAGE_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import { openFilePreview } from "@/components/file/lib/open-file";
-import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
+import { openProjectShell } from "@/lib/project-shell";
 import {
   buildUriFromRoot,
   getDisplayPathFromUri,
@@ -123,7 +123,6 @@ export default function ThreeDFolderWidget({
   hovered,
 }: ThreeDFolderWidgetProps) {
   const { t } = useTranslation('desktop');
-  const navigate = useAppView((state) => state.navigate);
   const setBaseParams = useLayoutState((state) => state.setBaseParams);
   const resolvedTitle = React.useMemo(() => {
     // 中文注释：优先使用外部传入的标题，其次从目录路径提取显示名。
@@ -242,19 +241,16 @@ export default function ThreeDFolderWidget({
         return;
       }
 
-      navigate({
+      openProjectShell({
+        projectId: input.projectId,
+        rootUri: input.rootUri,
         title: projectNode?.title || t('threeDFolder.unnamedProject'),
         icon: projectNode?.icon ?? undefined,
-        leftWidthPercent: 90,
-        base: {
-          id: baseId,
-          component: "plant-page",
-          params: baseParams,
-        },
-        chatParams: { projectId: input.projectId },
+        section: "files",
       });
+      setBaseParams(baseParams);
     },
-    [navigate, projectRoots, setBaseParams, t]
+    [projectRoots, setBaseParams, t]
   );
   const handleProjectOpen = React.useCallback(
     (project: AnimatedFolderProject) => {

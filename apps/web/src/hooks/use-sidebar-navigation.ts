@@ -79,9 +79,13 @@ export function useSidebarNavigation() {
         `${input.folderUri}${BOARD_INDEX_FILE_NAME}`,
       )
       const baseId = `board:${boardFolderUri}`
+      const currentBase = useLayoutState.getState().base
+      const preservedProjectShell =
+        activeProjectShell && resolvedProjectId === activeProjectShell.projectId
+          ? activeProjectShell
+          : undefined
 
       // Check if current view already has this board as base
-      const currentBase = useLayoutState.getState().base
       if (currentBase?.id === baseId) {
         const boardChatState = buildBoardChatTabState(input.boardId, resolvedProjectId)
         setChatSession(boardChatState.chatSessionId, true)
@@ -95,6 +99,7 @@ export function useSidebarNavigation() {
         icon: '\uD83C\uDFA8',
         ...buildBoardChatTabState(input.boardId, resolvedProjectId),
         leftWidthPercent: 100,
+        ...(preservedProjectShell ? { projectShell: preservedProjectShell } : {}),
         base: {
           id: baseId,
           component: 'board-viewer',
@@ -104,12 +109,20 @@ export function useSidebarNavigation() {
             boardId: input.boardId,
             projectId: resolvedProjectId,
             rootUri: input.rootUri,
+            __previousBase: currentBase ?? null,
           },
         },
       })
       setActiveGlobalChat(null)
     },
-    [activeProjectId, navigate, setChatSession, setChatParams, setActiveGlobalChat],
+    [
+      activeProjectId,
+      activeProjectShell,
+      navigate,
+      setChatSession,
+      setChatParams,
+      setActiveGlobalChat,
+    ],
   )
 
   const openTempChat = useCallback(() => {

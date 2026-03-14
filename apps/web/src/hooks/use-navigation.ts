@@ -93,6 +93,13 @@ export interface NavigationState {
   /** 设置激活的全局聊天会话 */
   setActiveGlobalChat: (sessionId: string | null) => void;
 
+  /** Sync the visible view derived from the actual layout state. */
+  syncDerivedView: (input: {
+    viewType: NavigationViewType;
+    projectId?: string | null;
+    globalChatSessionId?: string | null;
+  }) => void;
+
   /** 获取当前激活的视图信息 */
   getActiveView: () => {
     viewType: NavigationViewType;
@@ -152,14 +159,18 @@ export const useNavigation = create<NavigationState>((set, get) => ({
   sidebarTab: "project",
 
   setActiveView: (viewType) => {
-    const state = get();
+    const nextProjectId = viewType === "project" ? get().activeProjectId : null;
+    const nextGlobalChatSessionId =
+      viewType === "global-chat" ? get().activeGlobalChatSessionId : null;
     set({
       activeViewType: viewType,
       activeView: buildActiveView(
         viewType,
-        state.activeProjectId,
-        state.activeGlobalChatSessionId,
+        nextProjectId,
+        nextGlobalChatSessionId,
       ),
+      activeProjectId: nextProjectId,
+      activeGlobalChatSessionId: nextGlobalChatSessionId,
     });
   },
 
@@ -167,6 +178,7 @@ export const useNavigation = create<NavigationState>((set, get) => ({
     set({
       activeViewType: "project",
       activeProjectId: projectId,
+      activeGlobalChatSessionId: null,
       activeView: projectId ? { type: "project", projectId } : null,
     });
   },
@@ -174,10 +186,41 @@ export const useNavigation = create<NavigationState>((set, get) => ({
   setActiveGlobalChat: (sessionId) => {
     set({
       activeViewType: "global-chat",
+      activeProjectId: null,
       activeGlobalChatSessionId: sessionId,
       activeView: sessionId
         ? { type: "global-chat", chatSessionId: sessionId }
         : null,
+    });
+  },
+
+  syncDerivedView: (input) => {
+    set((state) => {
+      const nextViewType = input.viewType ?? null;
+      const nextProjectId =
+        nextViewType === "project" ? input.projectId ?? null : null;
+      const nextGlobalChatSessionId =
+        nextViewType === "global-chat" ? input.globalChatSessionId ?? null : null;
+      const nextActiveView = buildActiveView(
+        nextViewType,
+        nextProjectId,
+        nextGlobalChatSessionId,
+      );
+
+      if (
+        state.activeViewType === nextViewType &&
+        state.activeProjectId === nextProjectId &&
+        state.activeGlobalChatSessionId === nextGlobalChatSessionId
+      ) {
+        return state;
+      }
+
+      return {
+        activeViewType: nextViewType,
+        activeProjectId: nextProjectId,
+        activeGlobalChatSessionId: nextGlobalChatSessionId,
+        activeView: nextActiveView,
+      };
     });
   },
 

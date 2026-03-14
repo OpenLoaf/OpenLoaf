@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { Copy, CopyPlus, FolderDown, FolderOpen, Loader2, MoreHorizontal, PencilLine, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@openloaf/ui/button";
+import { CANVAS_LIST_TAB_INPUT } from "@openloaf/api/common";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +63,8 @@ import {
   getRelativePathFromUri,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { BOARD_INDEX_FILE_NAME } from "@/lib/file-name";
+import { resolveProjectModeProjectShell } from "@/lib/project-mode";
+import { applyProjectShellToTab } from "@/lib/project-shell";
 import { trpc, trpcClient } from "@/utils/trpc";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
@@ -287,11 +290,17 @@ export function BoardCanvas({
       if (!resolvedRootUri) return;
       const newBoardFolderUri = buildBoardFolderUri(resolvedRootUri, newBoard.folderUri);
       const newBoardFileUri = buildBoardFolderUri(resolvedRootUri, `${newBoard.folderUri}${BOARD_INDEX_FILE_NAME}`);
+      const currentView = useAppView.getState();
+      const currentBase = useLayoutState.getState().base;
+      const currentProjectShell = resolveProjectModeProjectShell(currentView.projectShell);
       navigate({
         title: newBoard.title,
         icon: "🎨",
         ...buildBoardChatTabState(newBoard.id, projectId),
         leftWidthPercent: 100,
+        ...(currentProjectShell && currentProjectShell.projectId === projectId
+          ? { projectShell: currentProjectShell }
+          : {}),
         base: {
           id: `board:${newBoardFolderUri}`,
           component: "board-viewer",
@@ -301,6 +310,7 @@ export function BoardCanvas({
             boardId: newBoard.id,
             projectId,
             rootUri: resolvedRootUri,
+            __previousBase: currentBase ?? null,
           },
         },
       });
@@ -405,12 +415,42 @@ export function BoardCanvas({
       { uri: relativeUri },
       {
         onSuccess: () => {
-          // Navigate to a fresh view
-          navigate({});
+          const currentView = useAppView.getState();
+          const currentBase = useLayoutState.getState().base;
+          const previousBase = (currentBase?.params as Record<string, unknown> | undefined)?.__previousBase;
+          const currentProjectShell = resolveProjectModeProjectShell(currentView.projectShell);
+
+          // 中文注释：删除当前画布后优先回到原来的项目上下文，其次回到全局画布列表。
+          if (currentProjectShell && currentProjectShell.projectId === projectId) {
+            applyProjectShellToTab("main", currentProjectShell);
+            return;
+          }
+
+          if (previousBase && typeof previousBase === "object") {
+            currentView.navigate({
+              title: i18next.t("nav:smartCanvas"),
+              icon: CANVAS_LIST_TAB_INPUT.icon,
+              base: previousBase as any,
+              leftWidthPercent: useLayoutState.getState().leftWidthPercent,
+              rightChatCollapsed: useLayoutState.getState().rightChatCollapsed,
+            });
+            return;
+          }
+
+          currentView.navigate({
+            title: i18next.t("nav:smartCanvas"),
+            icon: CANVAS_LIST_TAB_INPUT.icon,
+            leftWidthPercent: 100,
+            rightChatCollapsed: true,
+            base: {
+              id: CANVAS_LIST_TAB_INPUT.baseId,
+              component: CANVAS_LIST_TAB_INPUT.component,
+            },
+          });
         },
       },
     );
-  }, [boardFolderUri, resolvedRootUri, deleteBoardMutation, navigate]);
+  }, [boardFolderUri, projectId, resolvedRootUri, deleteBoardMutation, navigate]);
   // Auto-close login dialog on successful login
   useEffect(() => {
     if (saasLoggedIn && loginOpen) setLoginOpen(false);
