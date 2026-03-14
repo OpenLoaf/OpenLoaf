@@ -16,6 +16,7 @@ import { AI_ASSISTANT_TAB_INPUT, WORKBENCH_TAB_INPUT } from '@openloaf/api/commo
 import { useAppView } from '@/hooks/use-app-view'
 import { useLayoutState } from '@/hooks/use-layout-state'
 import { useGlobalOverlay } from '@/lib/globalShortcuts'
+import { openPrimaryPage } from '@/lib/primary-page-navigation'
 
 type NavTarget = 'search' | 'ai-assistant' | 'workbench' | 'calendar' | 'email' | 'tasks'
 
@@ -41,11 +42,6 @@ const NAV_MAP: Record<Exclude<NavTarget, 'search'>, TabInput> = {
  */
 export default function TrayNavigationListener() {
   const navigate = useAppView((s) => s.navigate)
-  const setTitle = useAppView((s) => s.setTitle)
-  const setIcon = useAppView((s) => s.setIcon)
-  const setProjectShell = useAppView((s) => s.setProjectShell)
-  const setBase = useLayoutState((s) => s.setBase)
-  const clearStack = useLayoutState((s) => s.clearStack)
 
   const openSingletonTab = useCallback(
     (input: TabInput) => {
@@ -69,16 +65,14 @@ export default function TrayNavigationListener() {
   const openPrimaryPageTab = useCallback(
     (input: TabInput) => {
       const tabTitle = input.titleKey ? i18next.t(input.titleKey) : (input.title ?? '')
-
-      // In single-view mode, just switch the base panel directly.
-      setBase({ id: input.baseId, component: input.component })
-      clearStack()
-      setTitle(tabTitle)
-      setIcon(input.icon)
-      setProjectShell(null)
-      useLayoutState.getState().setRightChatCollapsed(true)
+      openPrimaryPage({
+        baseId: input.baseId,
+        component: input.component,
+        title: tabTitle,
+        icon: input.icon,
+      })
     },
-    [clearStack, setBase, setIcon, setProjectShell, setTitle],
+    [],
   )
 
   useEffect(() => {

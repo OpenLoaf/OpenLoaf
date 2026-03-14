@@ -29,7 +29,10 @@ import { useAppState } from "@/hooks/use-app-state";
 import { useProject } from "@/hooks/use-project";
 import { useProjects } from "@/hooks/use-projects";
 import { PROJECT_LIST_TAB_INPUT } from "@openloaf/api/common";
-import { exitProjectShellToProjectList } from "@/lib/project-shell";
+import {
+  exitProjectShellToProjectList,
+  openCurrentProjectShellTab,
+} from "@/lib/project-shell";
 import { createPortal } from "react-dom";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
 import ProjectIndex from "./index/ProjectIndex";
@@ -166,7 +169,6 @@ export default function ProjectPage({
   const { t } = useTranslation("project");
   const tabActive = useTabActive();
   const setLeftWidthPercent = useLayoutState((s) => s.setLeftWidthPercent);
-  const setBaseParams = useLayoutState((s) => s.setBaseParams);
   const setTitle = useAppView((s) => s.setTitle);
   const setIcon = useAppView((s) => s.setIcon);
   const tabView = useAppState();
@@ -417,16 +419,15 @@ export default function ProjectPage({
     setIndexDirty(false);
   }, []);
 
-  /** Persist the active project tab into the dock base params. */
+  /** Switch project sub-pages through the unified project-shell helper. */
   const handleProjectTabChange = useCallback(
     (nextTab: ProjectTabValue) => {
       startTransition(() => {
         setActiveTab(nextTab);
       });
-      if (!tabId) return;
-      setBaseParams({ projectTab: nextTab });
+      openCurrentProjectShellTab({ tab: nextTab });
     },
-    [setBaseParams, tabId]
+    []
   );
 
   // 项目快捷键流程：只有当前 tab 处于激活态才拦截按键；

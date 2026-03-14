@@ -27,7 +27,7 @@ import { useProjects } from "@/hooks/use-projects";
 import { useDebounce } from "@/hooks/use-debounce";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
 import { resolveProjectModeProjectShell } from "@/lib/project-mode";
-import { openProjectShell } from "@/lib/project-shell";
+import { openProjectShellTab } from "@/lib/project-shell";
 import { WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
 import { trpc } from "@/utils/trpc";
 import { useQueries, skipToken, useQuery } from "@tanstack/react-query";
@@ -76,7 +76,6 @@ export function Search({
 }) {
   const { t } = useTranslation('common');
   const navigate = useAppView((s) => s.navigate);
-  const setBaseParams = useLayoutState((s) => s.setBaseParams);
   const activeTab = useAppState();
   const activeProjectShell = React.useMemo(
     () => resolveProjectModeProjectShell(activeTab?.projectShell),
@@ -278,31 +277,19 @@ export function Search({
   /** 打开项目的文件系统定位到指定目录。 */
   const handleOpenProjectFileSystem = React.useCallback(
     (projectId: string, projectTitle: string, rootUri: string, targetUri: string) => {
-      const baseId = `project:${projectId}`;
-      // In single-view mode, check if current base already matches this project
-      const currentBase = useLayoutState.getState().base;
-      if (currentBase?.id === baseId) {
-        setBaseParams({
-          projectTab: "files",
-          fileUri: targetUri,
-        });
-        handleOpenChange(false);
-        return;
-      }
-      openProjectShell({
+      openProjectShellTab({
         projectId,
         rootUri,
         title: projectTitle || t('untitledProject'),
         icon: projectHierarchy.projectById.get(projectId)?.icon ?? undefined,
-        section: "files",
+        tab: "files",
+        baseParams: { fileUri: targetUri },
       });
-      setBaseParams({ projectTab: "files", fileUri: targetUri });
       handleOpenChange(false);
     },
     [
       handleOpenChange,
       projectHierarchy.projectById,
-      setBaseParams,
       t,
     ],
   );

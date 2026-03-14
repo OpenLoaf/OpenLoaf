@@ -84,15 +84,6 @@ export interface NavigationState {
   /** 视图运行时状态缓存 */
   viewRuntimes: Record<string, ViewRuntime>;
 
-  /** 设置激活的视图 */
-  setActiveView: (viewType: NavigationViewType) => void;
-
-  /** 设置激活的项目 */
-  setActiveProject: (projectId: string | null) => void;
-
-  /** 设置激活的全局聊天会话 */
-  setActiveGlobalChat: (sessionId: string | null) => void;
-
   /** Sync the visible view derived from the actual layout state. */
   syncDerivedView: (input: {
     viewType: NavigationViewType;
@@ -150,6 +141,29 @@ function buildActiveView(
   }
 }
 
+function buildDerivedNavigationState(input: {
+  viewType: NavigationViewType;
+  projectId?: string | null;
+  globalChatSessionId?: string | null;
+}) {
+  const activeViewType = input.viewType ?? null;
+  const activeProjectId =
+    activeViewType === "project" ? input.projectId ?? null : null;
+  const activeGlobalChatSessionId =
+    activeViewType === "global-chat" ? input.globalChatSessionId ?? null : null;
+
+  return {
+    activeViewType,
+    activeProjectId,
+    activeGlobalChatSessionId,
+    activeView: buildActiveView(
+      activeViewType,
+      activeProjectId,
+      activeGlobalChatSessionId,
+    ),
+  };
+}
+
 export const useNavigation = create<NavigationState>((set, get) => ({
   activeViewType: null,
   activeProjectId: null,
@@ -158,69 +172,19 @@ export const useNavigation = create<NavigationState>((set, get) => ({
   viewRuntimes: {},
   sidebarTab: "project",
 
-  setActiveView: (viewType) => {
-    const nextProjectId = viewType === "project" ? get().activeProjectId : null;
-    const nextGlobalChatSessionId =
-      viewType === "global-chat" ? get().activeGlobalChatSessionId : null;
-    set({
-      activeViewType: viewType,
-      activeView: buildActiveView(
-        viewType,
-        nextProjectId,
-        nextGlobalChatSessionId,
-      ),
-      activeProjectId: nextProjectId,
-      activeGlobalChatSessionId: nextGlobalChatSessionId,
-    });
-  },
-
-  setActiveProject: (projectId) => {
-    set({
-      activeViewType: "project",
-      activeProjectId: projectId,
-      activeGlobalChatSessionId: null,
-      activeView: projectId ? { type: "project", projectId } : null,
-    });
-  },
-
-  setActiveGlobalChat: (sessionId) => {
-    set({
-      activeViewType: "global-chat",
-      activeProjectId: null,
-      activeGlobalChatSessionId: sessionId,
-      activeView: sessionId
-        ? { type: "global-chat", chatSessionId: sessionId }
-        : null,
-    });
-  },
-
   syncDerivedView: (input) => {
     set((state) => {
-      const nextViewType = input.viewType ?? null;
-      const nextProjectId =
-        nextViewType === "project" ? input.projectId ?? null : null;
-      const nextGlobalChatSessionId =
-        nextViewType === "global-chat" ? input.globalChatSessionId ?? null : null;
-      const nextActiveView = buildActiveView(
-        nextViewType,
-        nextProjectId,
-        nextGlobalChatSessionId,
-      );
+      const nextState = buildDerivedNavigationState(input);
 
       if (
-        state.activeViewType === nextViewType &&
-        state.activeProjectId === nextProjectId &&
-        state.activeGlobalChatSessionId === nextGlobalChatSessionId
+        state.activeViewType === nextState.activeViewType &&
+        state.activeProjectId === nextState.activeProjectId &&
+        state.activeGlobalChatSessionId === nextState.activeGlobalChatSessionId
       ) {
         return state;
       }
 
-      return {
-        activeViewType: nextViewType,
-        activeProjectId: nextProjectId,
-        activeGlobalChatSessionId: nextGlobalChatSessionId,
-        activeView: nextActiveView,
-      };
+      return nextState;
     });
   },
 

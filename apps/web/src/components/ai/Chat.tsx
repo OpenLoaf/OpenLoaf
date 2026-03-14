@@ -17,16 +17,13 @@ import ChatInput from "./input/ChatInput";
 import ChatHeader from "./ChatHeader";
 import { useChatActions, useChatSession, useChatState } from "./context";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
-import { useAppView } from "@/hooks/use-app-view";
-import { useLayoutState } from "@/hooks/use-layout-state";
-import { useNavigation } from "@/hooks/use-navigation";
 import i18next from "i18next";
 import { generateId } from "ai";
 import * as React from "react";
 import { motion } from "motion/react";
 import { LayoutDashboard, CalendarDays, Mail, Clock, Folder, Settings } from "lucide-react";
 import { QUICK_LAUNCH_ITEMS, PROJECT_QUICK_LAUNCH_ITEMS } from "./quick-launch-items";
-import { openProjectShell, resolveProjectShellSectionFromProjectTab } from "@/lib/project-shell";
+import { openProjectShellTab } from "@/lib/project-shell";
 import {
   CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES,
   formatFileSize,
@@ -72,6 +69,7 @@ import {
   AlertDialogTitle,
 } from "@openloaf/ui/alert-dialog";
 import MessageHelper from "./message/MessageHelper";
+import { openPrimaryPage } from "@/lib/primary-page-navigation";
 
 type ChatProps = {
   className?: string;
@@ -227,16 +225,12 @@ function QuickLaunchBar({ projectId }: { projectId?: string }) {
 
   const handleGlobalQuickLaunch = React.useCallback(
     (item: (typeof QUICK_LAUNCH_ITEMS)[number]) => {
-      const layout = useLayoutState.getState()
-      const appView = useAppView.getState()
-      // 与 Sidebar 导航行为一致：设置视图类型、清除 stack、退出项目模式。
-      useNavigation.getState().setActiveView(item.viewType as any)
-      layout.setBase({ id: item.baseId, component: item.component })
-      layout.clearStack()
-      appView.setTitle(i18next.t(item.titleKey))
-      appView.setIcon(item.tabIcon)
-      appView.setProjectShell(null)
-      layout.setRightChatCollapsed(true)
+      openPrimaryPage({
+        baseId: item.baseId,
+        component: item.component,
+        title: i18next.t(item.titleKey),
+        icon: item.tabIcon,
+      })
     },
     [],
   )
@@ -245,15 +239,13 @@ function QuickLaunchBar({ projectId }: { projectId?: string }) {
     (item: (typeof PROJECT_QUICK_LAUNCH_ITEMS)[number]) => {
       if (!projectId) return
       const rootUri = projectData?.project?.rootUri
-      const section = resolveProjectShellSectionFromProjectTab(item.value)
-      if (!section) return
       // 中文注释：项目内快捷入口统一走 project-shell，避免只改 base 导致返回路径和上下文漂移。
-      openProjectShell({
+      openProjectShellTab({
         projectId,
         rootUri: rootUri ?? "",
         title: projectData?.project?.title ?? projectId,
         icon: projectData?.project?.icon ?? null,
-        section,
+        tab: item.value,
       })
     },
     [projectId, projectData],

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { openSettingsTab, useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useLayoutState } from "@/hooks/use-layout-state";
+import { openCurrentProjectShellTab } from "@/lib/project-shell";
 import type { DesktopItem, DesktopScope } from "./types";
 import DesktopIconLabel from "./DesktopIconLabel";
 import ClockWidget from "./widgets/ClockWidget";
@@ -49,8 +50,6 @@ export default function DesktopTileContent({
   onConfigure,
 }: DesktopTileContentProps) {
   const { t } = useTranslation('desktop');
-  const base = useLayoutState((state) => state.base);
-  const setBaseParams = useLayoutState((state) => state.setBaseParams);
   const setSearchOpen = useGlobalOverlay((state) => state.setSearchOpen);
   const hoverBoundaryRef = React.useRef<HTMLDivElement | null>(null);
   const rafIdRef = React.useRef<number | null>(null);
@@ -88,17 +87,14 @@ export default function DesktopTileContent({
         });
         return;
       }
-      const currentBase = useLayoutState.getState().base;
-      if (!currentBase?.id?.startsWith("project:")) {
+      const nextTab =
+        iconKey === "tasks" ? "tasks" : iconKey === "settings" ? "settings" : "files";
+      if (!openCurrentProjectShellTab({ tab: nextTab })) {
         toast.error(t('content.openProjectTab'));
         return;
       }
-      const nextTab =
-        iconKey === "tasks" ? "tasks" : iconKey === "settings" ? "settings" : "files";
-      // 中文注释：仅更新当前项目子页签。
-      setBaseParams({ projectTab: nextTab });
     },
-    [scope, setSearchOpen, setBaseParams, t]
+    [scope, setSearchOpen, t]
   );
 
   React.useEffect(() => {

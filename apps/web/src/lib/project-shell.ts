@@ -2,7 +2,6 @@
 
 import type { DockItem } from "@openloaf/api/common";
 import { PROJECT_LIST_TAB_INPUT } from "@openloaf/api/common";
-import { useNavigation } from "@/hooks/use-navigation";
 import { useProjectLayout } from "@/hooks/use-project-layout";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
@@ -40,6 +39,11 @@ export type ProjectShellPageTab =
   | "tasks"
   | "scheduled"
   | "settings";
+
+export type OpenProjectShellTabInput = Omit<ProjectShellState, "section"> & {
+  tab: ProjectShellPageTab;
+  baseParams?: Record<string, unknown>;
+};
 
 /** Return true when the value is a supported project-shell section. */
 export function isProjectShellSection(value: unknown): value is ProjectShellSection {
@@ -96,6 +100,17 @@ export function buildProjectShellStateFromBase(input: {
     icon: input.icon ?? null,
     section,
   };
+}
+
+function applyProjectShellTabBaseParams(input: {
+  tab: ProjectShellPageTab;
+  baseParams?: Record<string, unknown>;
+}) {
+  if (!input.baseParams || Object.keys(input.baseParams).length === 0) return;
+  useLayoutState.getState().setBaseParams({
+    projectTab: input.tab,
+    ...input.baseParams,
+  });
 }
 
 /** Build the left-dock base item for one project-shell section. */
@@ -189,8 +204,6 @@ export function applyProjectShellToTab(_tabId: string, input: ProjectShellState)
         : savedLayout?.rightChatCollapsed ?? true;
     layout.setRightChatCollapsed(nextRightCollapsed);
   }
-
-  useNavigation.getState().setActiveProject(input.projectId);
 }
 
 /** Open or focus a project-shell view in the current renderer. */
@@ -221,9 +234,55 @@ export function openProjectShell(input: ProjectShellInput) {
     chatParams: { projectId: input.projectId },
     projectShell: resolved,
   });
-
-  useNavigation.getState().setActiveProject(input.projectId);
   return "main";
+}
+
+/** Open one project-shell tab and apply any extra base params in one place. */
+export function openProjectShellTab(input: OpenProjectShellTabInput) {
+  const section = resolveProjectShellSectionFromProjectTab(input.tab);
+  if (!section) return null;
+
+  const tabId = openProjectShell({
+    projectId: input.projectId,
+    rootUri: input.rootUri,
+    title: input.title,
+    icon: input.icon,
+    section,
+  });
+
+  applyProjectShellTabBaseParams({
+    tab: input.tab,
+    baseParams: input.baseParams,
+  });
+
+  return tabId;
+}
+
+/** Switch the current project-shell tab using the active project context. */
+export function openCurrentProjectShellTab(input: {
+  tab: ProjectShellPageTab;
+  baseParams?: Record<string, unknown>;
+}) {
+  const view = useAppView.getState();
+  const layout = useLayoutState.getState();
+  const currentProjectShell =
+    view.projectShell ??
+    buildProjectShellStateFromBase({
+      base: layout.base,
+      title: view.title,
+      icon: view.icon,
+    });
+
+  if (!currentProjectShell) return null;
+
+  return openProjectShellTab({
+    projectId: currentProjectShell.projectId,
+    rootUri: currentProjectShell.rootUri,
+    title: currentProjectShell.title,
+    icon: currentProjectShell.icon ?? undefined,
+    tab: input.tab,
+    baseParams: input.baseParams,
+  });
 }
 
 /** Open project settings as the current project-shell page. */
@@ -251,6 +310,4 @@ export function exitProjectShellToProjectList(_tabId: string, title: string, ico
   });
   layout.setLeftWidthPercent(100);
   layout.setRightChatCollapsed(true);
-
-  useNavigation.getState().setActiveView("project-list");
 }
