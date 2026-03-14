@@ -29,6 +29,7 @@ import { prisma } from "@openloaf/db";
 import { setCachedCcSession } from "@/ai/models/cli/claudeCode/claudeCodeSessionStore";
 import type { MasterAgentRunner } from "@/ai/services/masterAgentRunner";
 import { buildModelMessages } from "@/ai/shared/messageConverter";
+import { getChatViewFromFile } from "@/ai/services/chat/repositories/chatFileStore";
 import {
   appendMessagePart,
   clearSessionErrorMessage,
@@ -360,6 +361,34 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               if (!isAborted && finishReason !== "error") {
                 // 中文注释：仅在成功完成时清空会话错误。
                 await clearSessionErrorMessage({ sessionId: currentSessionId });
+              }
+
+              try {
+                const snapshot = await getChatViewFromFile({
+                  sessionId: currentSessionId,
+                  anchor: { messageId: input.assistantMessageId, strategy: "self" },
+                  window: { limit: 50 },
+                  includeToolOutput: true,
+                });
+                // 中文注释：流完成后主动下发 canonical branch snapshot，
+                // 让前端用服务端真相覆盖 retry/resend 期间的本地临时切链。
+                writer.write({
+                  type: "data-branch-snapshot",
+                  data: {
+                    sessionId: currentSessionId,
+                    snapshot,
+                  },
+                  transient: true,
+                } as any);
+              } catch (error) {
+                logger.warn(
+                  {
+                    err: error,
+                    sessionId: currentSessionId,
+                    assistantMessageId: input.assistantMessageId,
+                  },
+                  "[chat] build branch snapshot failed",
+                );
               }
 
               // SDK 返回的真正 session ID 更新到 DB（CLI persist/resume）

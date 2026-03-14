@@ -310,6 +310,34 @@ function handleStepThinkingDataPart(input: {
   return true;
 }
 
+/** Handle canonical branch snapshot data parts from SSE stream. */
+function handleBranchSnapshotDataPart(input: {
+  dataPart: any;
+  sessionId: string;
+  commitServerSnapshot?: (snapshot: any) => void;
+  markReceived?: () => void;
+}) {
+  if (input.dataPart?.type !== "data-branch-snapshot") return false;
+  const payload =
+    input.dataPart?.data && typeof input.dataPart.data === "object"
+      ? input.dataPart.data
+      : null;
+  const sessionIdInData =
+    typeof payload?.sessionId === "string" ? String(payload.sessionId) : "";
+  if (sessionIdInData && sessionIdInData !== input.sessionId) return true;
+
+  const snapshot =
+    payload?.snapshot && typeof payload.snapshot === "object"
+      ? payload.snapshot
+      : payload;
+  if (!snapshot || typeof snapshot !== "object") return true;
+  if (!input.commitServerSnapshot) return true;
+
+  input.markReceived?.();
+  input.commitServerSnapshot(snapshot);
+  return true;
+}
+
 /** Handle media generate data parts from SSE stream. */
 function handleMediaGenerateDataPart(input: {
   dataPart: any;
@@ -438,8 +466,10 @@ export default function ChatCoreProvider({
 
   // 关键：记录一次请求对应的 userMessageId（用于在 onFinish 补齐 assistant.parentMessageId）
   const pendingUserMessageIdRef = React.useRef<string | null>(null);
-  // 关键：仅 retry/resend 会产生 sibling，需要在 SSE 完整结束后刷新 siblingNav
+  // 关键：retry/resend 仍保留一个兜底分支元数据刷新，但主路径应优先信任服务端 snapshot。
   const needsBranchMetaRefreshRef = React.useRef(false);
+  // 关键：记录当前请求是否已经收到服务端 canonical snapshot。
+  const branchSnapshotReceivedRef = React.useRef(false);
   // 关键：useChat 的 onFinish 里需要 setMessages，但 chat 在 hook 调用之后才可用
   const setMessagesRef = React.useRef<ReturnType<typeof useChat>["setMessages"] | null>(null);
   // 关键：标记当前请求是否为 compact，以便回写 compact_summary。
@@ -640,9 +670,15 @@ export default function ChatCoreProvider({
     return createChatTransport({ paramsRef, tabIdRef, sessionIdRef });
   }, []);
 
-  // 拆分：snapshot 状态管理独立于 useChat，消除循环依赖
+  // 逻辑：先独立初始化 snapshot 状态，保证 useChat 回调在声明时就能访问分支状态工具。
   const branchSnapshot = useBranchSnapshot(sessionId);
   const { patchSnapshot, refreshBranchMeta } = branchSnapshot;
+  const commitServerSnapshotRef = React.useRef<any>(null);
+
+  /** Reset the per-request canonical snapshot receipt flag. */
+  const resetBranchSnapshotReceipt = React.useCallback(() => {
+    branchSnapshotReceivedRef.current = false;
+  }, []);
 
   const onFinish = React.useCallback(
     ({ message }: { message: UIMessage }) => {
@@ -652,10 +688,16 @@ export default function ChatCoreProvider({
         pendingSessionCommandRef.current = null;
         pendingUserMessageIdRef.current = null;
         pendingCompactRequestRef.current = null;
+        needsBranchMetaRefreshRef.current = false;
+        branchSnapshotReceivedRef.current = false;
         return;
       }
       const assistantId = String((message as any)?.id ?? "");
-      if (!assistantId) return;
+      if (!assistantId) {
+        needsBranchMetaRefreshRef.current = false;
+        branchSnapshotReceivedRef.current = false;
+        return;
+      }
       patchSnapshot({
         leafMessageId: assistantId,
         errorMessage: null,
@@ -688,11 +730,16 @@ export default function ChatCoreProvider({
         }
       }
 
-      // 关键：retry/resend 的 sibling 信息必须等 SSE 完全结束后再刷新（否则 DB 还没落库）
+      // 关键：retry/resend 结束时优先信任服务端推送的 canonical snapshot；
+      // 只有没收到 snapshot 时，才退回到旧的 branch meta 补拉。
       if (needsBranchMetaRefreshRef.current) {
+        const shouldRefreshBranchMeta = !branchSnapshotReceivedRef.current;
         needsBranchMetaRefreshRef.current = false;
-        void refreshBranchMeta(assistantId);
+        if (shouldRefreshBranchMeta) {
+          void refreshBranchMeta(assistantId);
+        }
       }
+      branchSnapshotReceivedRef.current = false;
       if (pendingInitialTitleRefreshRef.current) {
         pendingInitialTitleRefreshRef.current = false;
         invalidateChatSessions(queryClient);
@@ -705,7 +752,7 @@ export default function ChatCoreProvider({
       // 中文注释：请求结束后清理 stepThinking，避免中止后残留"深度思考中"。
       setStepThinking(false);
     },
-    [autoTitleMutation, patchSnapshot, queryClient, refreshBranchMeta, sessionId, setStepThinking]
+    [autoTitleMutation, queryClient, sessionId, setStepThinking]
   );
 
   const chatConfig = React.useMemo(
@@ -742,6 +789,17 @@ export default function ChatCoreProvider({
           }
           return;
         }
+        if (
+          handleBranchSnapshotDataPart({
+            dataPart,
+            sessionId,
+            commitServerSnapshot: commitServerSnapshotRef.current ?? undefined,
+            markReceived: () => {
+              branchSnapshotReceivedRef.current = true;
+            },
+          })
+        )
+          return;
         if (handleStepThinkingDataPart({ dataPart, setStepThinking })) return;
         if (
           handleMediaGenerateDataPart({
@@ -838,6 +896,7 @@ export default function ChatCoreProvider({
         }
         chat.clearError();
         try {
+          resetBranchSnapshotReceipt();
           await chat.regenerate();
         } catch {
           // 中文注释：重发失败时保留原错误态，由既有错误展示链路处理。
@@ -855,6 +914,7 @@ export default function ChatCoreProvider({
     chat.error,
     chat.regenerate,
     chat.status,
+    resetBranchSnapshotReceipt,
     sessionSnapshot.errorMessage,
   ]);
 
@@ -892,6 +952,7 @@ export default function ChatCoreProvider({
       chat.setMessages([]);
       pendingUserMessageIdRef.current = null;
       needsBranchMetaRefreshRef.current = false;
+      branchSnapshotReceivedRef.current = false;
       pendingCompactRequestRef.current = null;
       resetSnapshot();
       setSubAgentStreams({});
@@ -926,6 +987,41 @@ export default function ChatCoreProvider({
     clearCachedView();
   }, [sessionId, stopAndResetSession, clearCachedView]);
 
+  /** Replace current chat messages and resync tool runtime from the new snapshot. */
+  const replaceChatMessages = React.useCallback(
+    (messages: UIMessage[]) => {
+      chat.setMessages(messages);
+      if (!tabId) return;
+      clearToolPartsForTab(tabId);
+      toolStream.syncFromMessages({ tabId, messages });
+    },
+    [chat.setMessages, tabId, clearToolPartsForTab, toolStream],
+  );
+
+  /** Apply a server snapshot to the local chat view. */
+  const applyServerSnapshotToChat = React.useCallback(
+    (nextSnapshot: { messages: UIMessage[] }) => {
+      replaceChatMessages(nextSnapshot.messages);
+    },
+    [replaceChatMessages],
+  );
+
+  /** Commit a canonical server snapshot to both local snapshot state and rendered chat messages. */
+  const commitServerSnapshot = React.useCallback(
+    (nextSnapshot: {
+      messages: UIMessage[];
+      leafMessageId?: string | null;
+      branchMessageIds?: string[];
+      siblingNav?: Record<string, unknown>;
+      errorMessage?: string | null;
+    }) => {
+      applySnapshot(nextSnapshot);
+      applyServerSnapshotToChat(nextSnapshot);
+    },
+    [applySnapshot, applyServerSnapshotToChat],
+  );
+  commitServerSnapshotRef.current = commitServerSnapshot;
+
   React.useEffect(() => {
     const data = branchQueryData;
     if (!data) return;
@@ -933,21 +1029,13 @@ export default function ChatCoreProvider({
 
     // 关键：历史接口已按时间正序返回（最早在前），可直接渲染
     if (chat.messages.length === 0) {
-      const messages = nextSnapshot.messages;
-      chat.setMessages(messages);
-      if (tabId) {
-        clearToolPartsForTab(tabId);
-        toolStream.syncFromMessages({ tabId, messages });
-      }
+      applyServerSnapshotToChat(nextSnapshot);
     }
   }, [
     branchQueryData,
+    applyServerSnapshotToChat,
     applySnapshot,
     chat.messages.length,
-    chat.setMessages,
-    tabId,
-    clearToolPartsForTab,
-    toolStream,
   ]);
 
   // ── 后台 Agent 消息实时推送订阅 ──
@@ -1126,6 +1214,7 @@ export default function ChatCoreProvider({
       }
 
       pendingUserMessageIdRef.current = String(nextMessage.id);
+      resetBranchSnapshotReceipt();
 
       const autoApproveBody = basicRef.current.autoApproveTools ? { autoApproveTools: true } : {};
       const mergedOptions = Object.keys(autoApproveBody).length > 0
@@ -1134,7 +1223,7 @@ export default function ChatCoreProvider({
       const result = (chat.sendMessage as any)(nextMessage, mergedOptions);
       return result;
     },
-    [chat.sendMessage, chat.messages, leafMessageId]
+    [chat.sendMessage, chat.messages, leafMessageId, resetBranchSnapshotReceipt]
   );
 
   // 逻辑：发送暂存的云端消息（用于登录后手动或自动触发）
@@ -1171,21 +1260,13 @@ export default function ChatCoreProvider({
         includeToolOutput: true,
       });
       // 关键：切分支时，用服务端返回的"当前链快照"覆盖本地 messages（避免前端拼接导致重复渲染）
-      const messages = nextSnapshot.messages;
-      chat.setMessages(messages);
-      if (tabId) {
-        clearToolPartsForTab(tabId);
-        toolStream.syncFromMessages({ tabId, messages });
-      }
+      applyServerSnapshotToChat(nextSnapshot);
     },
     [
       siblingNav,
       chat.stop,
-      chat.setMessages,
-      tabId,
-      clearToolPartsForTab,
+      applyServerSnapshotToChat,
       refreshSnapshot,
-      toolStream,
     ]
   );
 
@@ -1238,11 +1319,7 @@ export default function ChatCoreProvider({
         parentUserMessageId,
       ) as UIMessage[];
       if (slicedMessages.length === 0) return;
-      chat.setMessages(slicedMessages);
-      if (tabId) {
-        clearToolPartsForTab(tabId);
-        toolStream.syncFromMessages({ tabId, messages: slicedMessages });
-      }
+      replaceChatMessages(slicedMessages);
       patchSnapshot((previous) => {
         const chainIdx = previous.branchMessageIds.indexOf(parentUserMessageId);
         return {
@@ -1257,6 +1334,7 @@ export default function ChatCoreProvider({
       // 关键：retry 走 AI SDK v6 原生 regenerate（trigger: regenerate-message）
       pendingUserMessageIdRef.current = parentUserMessageId;
       needsBranchMetaRefreshRef.current = true;
+      resetBranchSnapshotReceipt();
       await (chat.regenerate as any)({
         body: {
           retry: true,
@@ -1268,13 +1346,11 @@ export default function ChatCoreProvider({
     [
       chat.stop,
       chat.messages,
-      chat.setMessages,
       chat.regenerate,
       siblingNav,
-      tabId,
-      clearToolPartsForTab,
       patchSnapshot,
-      toolStream,
+      replaceChatMessages,
+      resetBranchSnapshotReceipt,
     ]
   );
 
@@ -1295,11 +1371,7 @@ export default function ChatCoreProvider({
           parentMessageId,
         ) as UIMessage[];
         if (slicedMessages.length === 0) return;
-        chat.setMessages(slicedMessages);
-        if (tabId) {
-          clearToolPartsForTab(tabId);
-          toolStream.syncFromMessages({ tabId, messages: slicedMessages });
-        }
+        replaceChatMessages(slicedMessages);
         patchSnapshot((previous) => {
           const chainIdx = previous.branchMessageIds.indexOf(parentMessageId);
           return {
@@ -1311,8 +1383,7 @@ export default function ChatCoreProvider({
           };
         });
       } else {
-        chat.setMessages([]);
-        if (tabId) clearToolPartsForTab(tabId);
+        replaceChatMessages([]);
         resetSnapshot();
       }
 
@@ -1332,13 +1403,10 @@ export default function ChatCoreProvider({
     [
       chat.stop,
       chat.messages,
-      chat.setMessages,
       sendMessage,
-      tabId,
-      clearToolPartsForTab,
       patchSnapshot,
+      replaceChatMessages,
       resetSnapshot,
-      toolStream,
     ]
   );
 
@@ -1358,39 +1426,16 @@ export default function ChatCoreProvider({
         messageId: normalizedId,
       });
       if (!result) return false;
-
-      const parentMessageId = (result as any)?.parentMessageId ?? null;
-
-      // 逻辑：删除后回到父节点视图，刷新消息与分支导航
-      const viewInput: {
-        window: { limit: number };
-        includeToolOutput: boolean;
-        anchor?: { messageId: string; strategy?: "self" | "latestLeafInSubtree" };
-      } = {
-        window: { limit: 50 },
-        includeToolOutput: false,
-      };
-      if (parentMessageId) {
-        viewInput.anchor = { messageId: String(parentMessageId) };
-      }
-
-      const nextSnapshot = await refreshSnapshot(viewInput);
-      const messages = nextSnapshot.messages;
-      chat.setMessages(messages);
-      if (tabId) {
-        clearToolPartsForTab(tabId);
-        toolStream.syncFromMessages({ tabId, messages });
+      const nextSnapshot = (result as any)?.snapshot;
+      if (nextSnapshot) {
+        commitServerSnapshot(nextSnapshot);
       }
       return true;
     },
     [
       chat.stop,
-      chat.setMessages,
+      commitServerSnapshot,
       deleteMessageSubtreeMutation.mutateAsync,
-      tabId,
-      clearToolPartsForTab,
-      refreshSnapshot,
-      toolStream,
     ]
   );
 
@@ -1468,6 +1513,7 @@ export default function ChatCoreProvider({
     // 逻辑：只允许单次续接，避免多次提交同一批审批。
     approvalSubmitInFlightRef.current = true;
     try {
+      resetBranchSnapshotReceipt();
       const autoApproveBody = basicRef.current.autoApproveTools ? { autoApproveTools: true } : {};
       if (Object.keys(payloads).length > 0) {
         await chat.sendMessage(undefined as any, {
@@ -1489,7 +1535,7 @@ export default function ChatCoreProvider({
     } finally {
       approvalSubmitInFlightRef.current = false;
     }
-  }, [chat, tabId, toolParts]);
+  }, [chat, resetBranchSnapshotReceipt, tabId, toolParts]);
 
   /** Reject pending tool approvals after manual stop. */
   const rejectPendingToolApprovals = React.useCallback(async () => {

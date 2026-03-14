@@ -333,7 +333,17 @@ export const chatRouter = t.router({
       sessionId: z.string().min(1),
       messageId: z.string().min(1),
     }))
-    .mutation(async (): Promise<{ deletedCount: number; parentMessageId: string | null }> => {
+    .mutation(async (): Promise<{
+      deletedCount: number
+      parentMessageId: string | null
+      snapshot: {
+        leafMessageId: string | null
+        branchMessageIds: string[]
+        messages: ChatUIMessage[]
+        siblingNav: Record<string, any>
+        errorMessage?: string | null
+      }
+    }> => {
       throw new Error('Not implemented: override in server chat router.')
     }),
 

@@ -165,6 +165,10 @@ Board 节点通过 `intent: "image"` + `responseMode: "json"` 走独立流程：
 
 关键文件: `streamOrchestrator.ts`（创建流式响应）、`requestContext.ts`（`getUiWriter()/setUiWriter()`）
 
+- `data-step-thinking`：按 step 生命周期推送思考态开关，`transient: true`，只用于前端 UI，不应持久化
+- `data-branch-snapshot`：`streamOrchestrator.ts` 在 `toUIMessageStream({ onFinish })` 中，assistant 落库并清理 session error 后，调用 `getChatViewFromFile(...)` 生成 canonical branch snapshot，再通过 `writer.write(..., transient: true)` 下发给前端
+- 前端收到 `data-branch-snapshot` 后应直接覆盖本地 branch/messages；不要在 retry/resend 完成后再额外拼消息或默认补拉一次 `getChatView`
+
 ## Common Mistakes
 
 | 错误 | 正确做法 |

@@ -49,7 +49,7 @@ const VIEWPORT_CULL_PADDING = 240;
 /** Throttle interval for viewport-driven culling updates. */
 const VIEWPORT_CULL_UPDATE_MS = 80;
 /** Minimum node count before enabling viewport culling. */
-const CULLING_NODE_THRESHOLD = 120;
+const CULLING_NODE_THRESHOLD = 40;
 /** Cell size for the node spatial index in world space. */
 const GRID_CELL_SIZE = 512;
 
@@ -217,13 +217,25 @@ function CanvasDomLayerBase({
     [applyTransform]
   );
 
+  const lastCullingViewportRef = useRef<CanvasViewportState | null>(null);
   const scheduleCullingUpdate = useCallback((view: CanvasViewState) => {
     if (!gridIndexRef.current) return;
+    // 逻辑：只在视口实际变化（平移/缩放）时才触发 culling 更新，避免 hover 等非视口操作引起不必要的重渲染。
+    const last = lastCullingViewportRef.current;
+    if (
+      last &&
+      last.zoom === view.viewport.zoom &&
+      last.offset[0] === view.viewport.offset[0] &&
+      last.offset[1] === view.viewport.offset[1]
+    ) {
+      return;
+    }
     pendingCullingRef.current = view;
     if (cullingTimerRef.current !== null) return;
     cullingTimerRef.current = window.setTimeout(() => {
       cullingTimerRef.current = null;
       if (!pendingCullingRef.current) return;
+      lastCullingViewportRef.current = pendingCullingRef.current.viewport;
       setCullingView(pendingCullingRef.current);
     }, VIEWPORT_CULL_UPDATE_MS);
   }, []);
@@ -313,11 +325,11 @@ function CanvasDomLayerBase({
     shouldCull && gridIndexRef.current && viewportBounds
       ? collectCandidateIds(gridIndexRef.current, viewportBounds)
       : null;
+  const elementKindMap = new Map(
+    snapshot.elements.map(item => [item.id, item.kind])
+  );
   const selectedNodeIds = new Set(
-    snapshot.selectedIds.filter(id => {
-      const element = snapshot.elements.find(item => item.id === id);
-      return element?.kind === "node";
-    })
+    snapshot.selectedIds.filter(id => elementKindMap.get(id) === "node")
   );
   const draggingGroup =
     snapshot.draggingId !== null &&

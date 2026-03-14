@@ -978,6 +978,28 @@ function EditableTextNodeView({
     isEditingRef.current = isEditing;
   }, [isEditing, isGhost]);
 
+  // ---- Auto-resize height while editing ----
+  useEffect(() => {
+    if (isGhost || !isEditing) return;
+    const content = contentRef.current;
+    if (!content || typeof ResizeObserver === "undefined") return;
+    const sync = () => {
+      const node = engine.doc.getElementById(element.id);
+      if (!node || node.kind !== "node") return;
+      const nextHeight = Math.max(
+        TEXT_NODE_DEFAULT_HEIGHT,
+        Math.ceil(content.scrollHeight + TEXT_NODE_VERTICAL_PADDING),
+      );
+      const [x, y, w, currentHeight] = node.xywh;
+      if (nextHeight <= currentHeight) return;
+      engine.doc.updateElement(element.id, {
+        xywh: [x, y, w, nextHeight],
+      });
+    };
+    const observer = new ResizeObserver(sync);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [engine, element.id, isEditing, isGhost]);
 
   // ---- Event handlers ----
 

@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type {
+  CanvasAlignmentGuide,
   CanvasAnchorHit,
   CanvasNodeElement,
   CanvasPoint,
@@ -431,10 +432,11 @@ export class SelectTool implements CanvasTool {
     };
     let finalDx = dx;
     let finalDy = dy;
-    let guides: import("../engine/types").CanvasAlignmentGuide[] = [];
+    let guides: CanvasAlignmentGuide[] = [];
 
     if (ctx.engine.isSnapEnabled()) {
       const { zoom } = ctx.engine.viewport.getState();
+      // 逻辑：阈值与边距随缩放换算，保证屏幕体验一致。
       const threshold = this.snapPixel / Math.max(zoom, MIN_ZOOM);
       const margin = this.guideMargin / Math.max(zoom, MIN_ZOOM);
       const others = this.cachedOthersRects!;
@@ -443,7 +445,6 @@ export class SelectTool implements CanvasTool {
       finalDy = snapped.rect.y - group.y;
       guides = snapped.guides;
     }
-
     // 逻辑：batch 合并 transact + setAlignmentGuides，避免拖拽每帧两次 emitChange。
     ctx.engine.batch(() => {
       ctx.engine.doc.transact(() => {

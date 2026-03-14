@@ -307,7 +307,19 @@ export class ChatRouterImpl extends BaseChatRouter {
           messageId: z.string().min(1),
         }))
         .mutation(async ({ input }) => {
-          return deleteSubtreeFromFile(input)
+          const result = await deleteSubtreeFromFile(input)
+          const snapshot = await getChatViewFromFile({
+            sessionId: input.sessionId,
+            window: { limit: 50 },
+            includeToolOutput: false,
+            ...(result.parentMessageId
+              ? { anchor: { messageId: String(result.parentMessageId) } }
+              : {}),
+          })
+          return {
+            ...result,
+            snapshot,
+          }
         }),
 
       // updateMessageParts — 追加到 JSONL
