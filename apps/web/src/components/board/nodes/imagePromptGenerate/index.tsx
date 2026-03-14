@@ -447,7 +447,7 @@ export function ImagePromptGenerateNodeView({
   }, []);
 
   const containerClassName = cn(
-    "relative flex h-full w-full min-h-0 min-w-0 flex-col rounded-lg border-2 overflow-hidden text-ol-text-primary transition-all duration-150",
+    "relative flex h-full w-full min-h-0 min-w-0 flex-col rounded-xl border overflow-hidden text-ol-text-primary transition-all duration-150",
     BOARD_GENERATE_NODE_BASE_PROMPT,
     viewStatus === "running"
       ? "openloaf-thinking-border openloaf-thinking-border-on border-transparent"

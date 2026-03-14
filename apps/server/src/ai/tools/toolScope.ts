@@ -8,12 +8,17 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import path from "node:path";
-import { getProjectId } from "@/ai/shared/context/requestContext";
+import {
+  getProjectId,
+  getRequestContext,
+  getSessionId,
+} from "@/ai/shared/context/requestContext";
 import {
   getProjectRootPath,
   resolveScopedPath,
 } from "@openloaf/api/services/vfsService";
 import { getOpenLoafRootDir } from "@openloaf/config";
+import { createTempProject } from "@openloaf/api/services/tempProjectService";
 
 type ToolRoots = {
   /** Global root path (~/.openloaf/). */
@@ -79,5 +84,36 @@ export function resolveToolWorkdir(input: {
   return {
     cwd,
     rootLabel: projectRoot ? "project" : "external",
+  };
+}
+
+/**
+ * Ensure a writable project scope exists.
+ * If no projectId in context, lazily create a temp project and bind it to the session.
+ */
+export async function ensureTempProject(): Promise<{
+  projectId: string;
+  projectRoot: string;
+}> {
+  const existingProjectId = getProjectId();
+  if (existingProjectId) {
+    const root = getProjectRootPath(existingProjectId);
+    if (root) {
+      return { projectId: existingProjectId, projectRoot: path.resolve(root) };
+    }
+  }
+
+  const sessionId = getSessionId();
+  const temp = await createTempProject({ sessionId });
+
+  // Update RequestContext so sub-agents inherit the new project scope.
+  const ctx = getRequestContext();
+  if (ctx) {
+    ctx.projectId = temp.projectId;
+  }
+
+  return {
+    projectId: temp.projectId,
+    projectRoot: path.resolve(temp.rootPath),
   };
 }

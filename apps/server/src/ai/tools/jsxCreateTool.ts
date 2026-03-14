@@ -20,6 +20,7 @@ import {
   getProjectRootPath,
 } from '@openloaf/api/services/vfsService'
 import { getOpenLoafRootDir } from '@openloaf/config'
+import { ensureTempProject } from '@/ai/tools/toolScope'
 import { resolveMessagesJsonlPath } from '@/ai/services/chat/repositories/chatFileStore'
 import { validateJsxCreateInput } from '@/ai/tools/jsxCreateValidator'
 
@@ -69,11 +70,15 @@ export const jsxCreateTool = tool({
     const messageId = getAssistantMessageId()
     if (!messageId) throw new Error('assistantMessageId is required.')
 
-    const projectId = getProjectId()
-    const rootPath = projectId
+    let projectId = getProjectId()
+    let rootPath = projectId
       ? getProjectRootPath(projectId)
-      : getOpenLoafRootDir()
-    if (!rootPath) throw new Error('Project not found.')
+      : undefined
+    if (!rootPath) {
+      const temp = await ensureTempProject()
+      projectId = temp.projectId
+      rootPath = temp.projectRoot
+    }
 
     const jsx = input.content
 

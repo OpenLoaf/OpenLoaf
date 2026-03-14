@@ -42,6 +42,7 @@ import {
   CHAT_MODE_STORAGE_KEY,
 } from "./chat-input-utils";
 import { ChatInputEditor, type ChatInputEditorHandle } from "./ChatInputEditor";
+import { openSkillInStack } from "@/components/setting/skills/skill-utils";
 import { ChatProjectSelector } from "./ChatProjectSelector";
 import { ChatInputBlockedOverlay } from "./ChatInputBlockedOverlay";
 import { useChatInputDrop } from "./useChatInputDrop";
@@ -550,6 +551,7 @@ export function ChatInputBox({
                 onChange={onChange}
                 onKeyDown={handleKeyDown}
                 onChipClick={handleChipClick}
+                onSkillChipClick={(skillName) => openSkillInStack(skillName, defaultProjectId)}
                 onPasteFiles={uploadFileToSession ? async (files) => {
                   for (const file of files) {
                     const storedPath = await uploadFileToSession(file);

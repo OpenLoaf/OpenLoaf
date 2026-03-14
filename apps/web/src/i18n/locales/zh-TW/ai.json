@@ -285,7 +285,7 @@
     "suggestions": []
   },
   "input": {
-    "defaultPlaceholder": "提問、搜尋或創作任何內容…",
+    "defaultPlaceholder": "提問、搜尋或創作任何內容，輸入 / 指定技能…",
     "cliPlaceholder": "與 {{tool}} 對話…",
     "addAttachment": "新增附件",
     "voiceInput": "語音輸入",

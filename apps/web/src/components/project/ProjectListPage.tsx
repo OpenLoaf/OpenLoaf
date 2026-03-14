@@ -542,6 +542,16 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                         <ExternalLink className="mr-2 h-4 w-4" />
                         {t("projectListPage.openInNewWindow")}
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={!window.openloafElectron?.openPath}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.openloafElectron?.openPath?.({ uri: project.rootUri });
+                        }}
+                      >
+                        <FolderSearch className="mr-2 h-4 w-4" />
+                        {t("projectTree.openInFileManager")}
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={(e) => {
@@ -622,9 +632,9 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               {t("projectListPage.openInNewWindow")}
             </ContextMenuItem>
             <ContextMenuItem
-              disabled={!window.openloafElectron?.showItemInFolder}
+              disabled={!window.openloafElectron?.openPath}
               onSelect={() => {
-                window.openloafElectron?.showItemInFolder?.({ uri: project.rootUri });
+                window.openloafElectron?.openPath?.({ uri: project.rootUri });
               }}
             >
               <FolderSearch className="mr-2 h-4 w-4" />
@@ -868,6 +878,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               </Button>
             </DialogClose>
             <Button
+              variant="ghost"
               className="rounded-md bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20 shadow-none transition-colors duration-150"
               onClick={handleRenameSave}
               disabled={updateMutation.isPending}
@@ -885,7 +896,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
         }}
       >
         <DialogContent
-          className="max-w-[420px] rounded-2xl border border-border/60 bg-background p-0 shadow-ol-float"
+          className="max-w-[420px] overflow-hidden rounded-2xl border border-border/60 bg-background p-0 shadow-ol-float"
           onInteractOutside={(e) => { if (isBusy) e.preventDefault(); }}
           onEscapeKeyDown={(e) => { if (isBusy) e.preventDefault(); }}
         >
@@ -895,31 +906,31 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
 
           {/* Mode selection */}
           {!addMode && (
-            <div className="flex flex-col gap-2.5 px-6 pt-3 pb-7">
+            <div className="flex gap-2.5 px-6 pt-3 pb-7">
               <button
                 type="button"
-                className="group flex w-full items-center gap-3.5 rounded-xl border border-ol-blue/20 bg-ol-blue-bg px-4 py-3.5 text-left transition-colors duration-150 hover:border-ol-blue/30 hover:bg-ol-blue-bg-hover"
+                className="group flex flex-1 flex-col items-center gap-2.5 rounded-xl border border-ol-blue/20 bg-ol-blue-bg px-4 py-4 text-center transition-colors duration-150 hover:border-ol-blue/30 hover:bg-ol-blue-bg-hover"
                 onClick={() => setAddMode("create")}
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ol-blue-bg text-ol-blue">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-ol-blue-bg text-ol-blue">
                   <FolderPlus className="h-4.5 w-4.5" />
                 </div>
                 <div>
                   <div className="text-sm font-medium text-foreground">{t("sidebar.newProject")}</div>
-                  <div className="text-xs text-muted-foreground">{t("sidebar.newProjectDescription")}</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">{t("sidebar.newProjectDescription")}</div>
                 </div>
               </button>
               <button
                 type="button"
-                className="group flex w-full items-center gap-3.5 rounded-xl border border-ol-purple/20 bg-ol-purple-bg px-4 py-3.5 text-left transition-colors duration-150 hover:border-ol-purple/30 hover:bg-ol-purple-bg-hover"
+                className="group flex flex-1 flex-col items-center gap-2.5 rounded-xl border border-ol-purple/20 bg-ol-purple-bg px-4 py-4 text-center transition-colors duration-150 hover:border-ol-purple/30 hover:bg-ol-purple-bg-hover"
                 onClick={() => setAddMode("git")}
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ol-purple-bg text-ol-purple">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-ol-purple-bg text-ol-purple">
                   <GitBranch className="h-4.5 w-4.5" />
                 </div>
                 <div>
                   <div className="text-sm font-medium text-foreground">{t("sidebar.cloneFromGit")}</div>
-                  <div className="text-xs text-muted-foreground">{t("sidebar.cloneFromGitDescription")}</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">{t("sidebar.cloneFromGitDescription")}</div>
                 </div>
               </button>
             </div>
@@ -927,7 +938,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
 
           {/* New project form */}
           {addMode === "create" && (
-            <div className="flex flex-col gap-3 px-6 pt-3 pb-3">
+            <div className="flex min-w-0 flex-col gap-3 px-6 pt-3 pb-3">
               <div>
                 <Label className="mb-1.5 block text-sm font-medium text-foreground">
                   {t("sidebar.storageLocation")}
@@ -947,7 +958,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                   }}
                 >
                   <FolderOpen className="mr-2 h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">
+                  <span dir="rtl" className="truncate text-left">
                     {createFolderPath || t("sidebar.selectFolder")}
                   </span>
                 </button>
@@ -974,7 +985,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
 
           {/* Git clone form */}
           {addMode === "git" && (
-            <div className="flex flex-col gap-3 px-6 pt-3 pb-3">
+            <div className="flex min-w-0 flex-col gap-3 px-6 pt-3 pb-3">
               {!isBusy && !gitDone && (
                 <>
                   <div>
@@ -1040,9 +1051,10 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 {t("sidebar.back")}
               </Button>
               <Button
+                variant="ghost"
                 onClick={handleCreateProject}
                 disabled={isBusy || !createFolderPath.trim()}
-                className="h-9 rounded-md px-5 text-[13px] bg-ol-blue text-white shadow-none hover:opacity-90"
+                className="h-9 rounded-md px-5 text-[13px] bg-ol-blue text-white shadow-none hover:bg-ol-blue hover:text-white hover:opacity-90"
               >
                 {isBusy ? t("sidebar.creating") : t("sidebar.create")}
               </Button>
@@ -1075,17 +1087,19 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                     </Button>
                   )}
                   <Button
+                    variant="ghost"
                     onClick={handleCloneFromGit}
                     disabled={isBusy || !gitUrl.trim()}
-                    className="h-9 rounded-md px-5 text-[13px] bg-ol-purple text-white shadow-none hover:opacity-90"
+                    className="h-9 rounded-md px-5 text-[13px] bg-ol-purple text-white shadow-none hover:bg-ol-purple hover:text-white hover:opacity-90"
                   >
                     {isBusy ? t("sidebar.cloning") : t("sidebar.startClone")}
                   </Button>
                 </>
               ) : (
                 <Button
+                  variant="ghost"
                   onClick={() => setIsCreateOpen(false)}
-                  className="h-9 rounded-md px-5 text-[13px] bg-ol-green text-white shadow-none hover:opacity-90"
+                  className="h-9 rounded-md px-5 text-[13px] bg-ol-green text-white shadow-none hover:bg-ol-green hover:text-white hover:opacity-90"
                 >
                   {t("sidebar.done")}
                 </Button>

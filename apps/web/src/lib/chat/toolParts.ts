@@ -78,14 +78,20 @@ export function syncToolPartsFromMessages({
           toolCallIdToStackId.set(toolKey, existingStackId);
         } else {
           // 逻辑：新文件 → 创建新 stack，params 用 toolCallIds 数组。
+          // 如果用户正在看一个非 streaming 面板（如 AI Debug），不抢夺焦点。
           const stackId = `streaming-write:${toolKey}`;
+          const currentActive = useLayoutState.getState().activeStackItemId;
+          const currentItem = currentActive
+            ? useLayoutState.getState().stack?.find((s) => s.id === currentActive)
+            : undefined;
+          const userHasNonStreamingPanel = currentItem && !((currentItem.params as any)?.__isStreaming);
           useLayoutState.getState().pushStackItem({
             id: stackId,
             sourceKey: stackId,
             component: "streaming-code-viewer",
             title: firstPath ? fileName : "写入文件...",
             params: { toolCallIds: [toolKey], tabId, projectId, __isStreaming: true },
-          });
+          }, undefined, userHasNonStreamingPanel);
           toolCallIdToStackId.set(toolKey, stackId);
           if (firstPath) writeFileStackByPath.set(firstPath, stackId);
         }
@@ -133,13 +139,14 @@ export function syncToolPartsFromMessages({
             if (item && item.title !== fileName) {
               const bp2 = layoutState2.base?.params as Record<string, unknown> | undefined;
               const pId = typeof bp2?.projectId === "string" ? bp2.projectId : undefined;
+              // skipActivation: 仅更新标题，不抢夺用户手动选择的面板
               useLayoutState.getState().pushStackItem({
                 id: myStackId,
                 sourceKey: myStackId,
                 component: "streaming-code-viewer",
                 title: fileName,
                 params: { ...(item.params ?? {}), toolCallIds: (item.params?.toolCallIds as string[]) ?? [toolKey], projectId: pId, __isStreaming: true },
-              });
+              }, undefined, true);
             }
           }
         }
@@ -179,13 +186,19 @@ export function syncToolPartsFromMessages({
         const editInput = part?.input;
         const editPath = typeof editInput?.path === "string" ? editInput.path : "";
         const editFileName = editPath ? (editPath.split("/").pop() || editPath) : "";
+        // 如果用户正在看一个非 streaming 面板，不抢夺焦点。
+        const editCurrentActive = useLayoutState.getState().activeStackItemId;
+        const editCurrentItem = editCurrentActive
+          ? useLayoutState.getState().stack?.find((s) => s.id === editCurrentActive)
+          : undefined;
+        const editUserHasNonStreaming = editCurrentItem && !((editCurrentItem.params as any)?.__isStreaming);
         useLayoutState.getState().pushStackItem({
           id: `streaming-edit-doc:${toolKey}`,
           sourceKey: `streaming-edit-doc:${toolKey}`,
           component: "streaming-plate-viewer",
           title: editFileName || "编辑文稿...",
           params: { toolCallId: toolKey, __isStreaming: true },
-        });
+        }, undefined, editUserHasNonStreaming);
       }
       // 逻辑：edit-document path 可能在后续 delta 中才解析出来，更新标题。
       if (
@@ -201,13 +214,14 @@ export function syncToolPartsFromMessages({
           (s: any) => s.id === editStackId || s.sourceKey === editStackId,
         );
         if (editExisting && editExisting.title !== editFileName) {
+          // skipActivation: 仅更新标题，不抢夺用户手动选择的面板
           useLayoutState.getState().pushStackItem({
             id: editStackId,
             sourceKey: editStackId,
             component: "streaming-plate-viewer",
             title: editFileName,
             params: { toolCallId: toolKey, __isStreaming: true },
-          });
+          }, undefined, true);
         }
       }
       // 逻辑：edit-document 完成时，关闭 stack 面板的流式边框。

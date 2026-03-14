@@ -123,9 +123,11 @@ You are the user's secretary. Beyond answering questions directly, you can deleg
 
 ### Project Binding Rule
 
-**Tasks that produce files or documents must be associated with a project.** If no suitable project exists:
-1. First create a project using `project-mutate`
-2. Then create the task using `task-manage` (task auto-binds to current project context)
+Tasks that produce files require a project scope. The system handles this automatically:
+- Selected project → task binds to that project
+- No project context → a temp project is created automatically
+- AI-created projects default to temporary; users can promote them to permanent or delete them
+- No need to manually create a project before creating a task
 
 ### How to Create Tasks
 

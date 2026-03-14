@@ -24,6 +24,7 @@ import {
   getProjectId,
 } from '@/ai/shared/context/requestContext'
 import { getOpenLoafRootDir } from '@openloaf/config'
+import { ensureTempProject } from '@/ai/tools/toolScope'
 import { logger } from '@/common/logger'
 import { compileWidget } from '@/modules/dynamic-widget/widgetCompiler'
 import {
@@ -37,8 +38,8 @@ import {
   renderWidgetTsx,
 } from './widgetTemplates'
 
-/** Resolve the dynamic widgets root directory. */
-function getDynamicWidgetsDir(): string {
+/** Resolve the dynamic widgets root directory. Auto-creates temp project if needed. */
+async function getDynamicWidgetsDir(): Promise<string> {
   const projectId = getProjectId()
   if (projectId) {
     const projectRoot = getProjectRootPath(projectId)
@@ -47,8 +48,9 @@ function getDynamicWidgetsDir(): string {
     }
     return path.join(projectRoot, '.openloaf', 'dynamic-widgets')
   }
-  const globalRoot = getOpenLoafRootDir()
-  return path.join(globalRoot, 'dynamic-widgets')
+  // No project scope — create a temp project for widget storage.
+  const temp = await ensureTempProject()
+  return path.join(temp.projectRoot, '.openloaf', 'dynamic-widgets')
 }
 
 /** 生成 snake_case widgetId */
@@ -62,7 +64,7 @@ export const generateWidgetTool = tool({
   inputSchema: zodSchema(generateWidgetToolDef.parameters),
   execute: async (input): Promise<string> => {
     const widgetId = makeWidgetId(input.widgetName)
-    const widgetDir = path.join(getDynamicWidgetsDir(), widgetId)
+    const widgetDir = path.join(await getDynamicWidgetsDir(), widgetId)
     await fs.mkdir(widgetDir, { recursive: true })
 
     // 逻辑：通过模板渲染器生成文件
@@ -104,7 +106,7 @@ export const widgetInitTool = tool({
   inputSchema: zodSchema(widgetInitToolDef.parameters),
   execute: async (input): Promise<string> => {
     const widgetId = makeWidgetId(input.widgetName)
-    const widgetDir = path.join(getDynamicWidgetsDir(), widgetId)
+    const widgetDir = path.join(await getDynamicWidgetsDir(), widgetId)
     await fs.mkdir(widgetDir, { recursive: true })
 
     const files: [string, string][] = [
@@ -141,7 +143,7 @@ export const widgetListTool = tool({
   description: widgetListToolDef.description,
   inputSchema: zodSchema(widgetListToolDef.parameters),
   execute: async (): Promise<string> => {
-    const widgetsDir = getDynamicWidgetsDir()
+    const widgetsDir = await getDynamicWidgetsDir()
     try {
       await fs.access(widgetsDir)
     } catch {
@@ -189,7 +191,7 @@ export const widgetGetTool = tool({
   description: widgetGetToolDef.description,
   inputSchema: zodSchema(widgetGetToolDef.parameters),
   execute: async (input): Promise<string> => {
-    const widgetDir = path.join(getDynamicWidgetsDir(), input.widgetId)
+    const widgetDir = path.join(await getDynamicWidgetsDir(), input.widgetId)
     try {
       const raw = await fs.readFile(
         path.join(widgetDir, 'package.json'),
@@ -222,7 +224,7 @@ export const widgetCheckTool = tool({
   description: widgetCheckToolDef.description,
   inputSchema: zodSchema(widgetCheckToolDef.parameters),
   execute: async (input): Promise<string> => {
-    const widgetDir = path.join(getDynamicWidgetsDir(), input.widgetId)
+    const widgetDir = path.join(await getDynamicWidgetsDir(), input.widgetId)
 
     // 逻辑：验证文件结构
     const requiredFiles = ['package.json', 'widget.tsx', 'functions.ts']

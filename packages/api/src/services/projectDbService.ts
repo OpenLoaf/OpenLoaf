@@ -111,7 +111,7 @@ export async function syncProjectsFromDisk(
   prisma: ProjectDbClient,
   projectTrees?: ProjectNode[],
 ): Promise<ProjectRecord[]> {
-  const trees = projectTrees ?? (await readProjectTrees());
+  const trees = projectTrees ?? (await readProjectTrees({ includeTemporary: true }));
   const records = flattenProjectTrees(trees);
   const recordIds = records.map((record) => record.id);
   const upserts = records.map((record) =>

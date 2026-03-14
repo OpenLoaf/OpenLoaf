@@ -79,8 +79,9 @@ function valueToHtml(value: string): string {
   if (!value) return "";
   let html = "";
   let lastIndex = 0;
-  // Match both @{...} file mentions and /skill/xxx skill commands.
-  const re = /@\{([^}]+)\}|\/skill\/(\S+)/g;
+  // Match @{...} file mentions and /skill/xxx skill commands.
+  // Skill chip requires trailing whitespace or non-ASCII (prevents broken names when space is deleted).
+  const re = /@\{([^}]+)\}|\/skill\/([\w-]+)(?=\s|[^\x00-\x7F])/g;
   let match: RegExpExecArray | null;
   // biome-ignore lint/suspicious/noAssignInExpressions: intentional loop pattern
   while ((match = re.exec(value)) !== null) {
@@ -96,10 +97,16 @@ function valueToHtml(value: string): string {
     } else {
       // Skill command: /skill/xxx
       const skillName = match[2];
+      const afterTokenIdx = match.index + token.length;
+      // Absorb the trailing space into data-token so it stays invisible but preserves round-trip.
+      const hasTrailingSpace = value[afterTokenIdx] === " ";
+      const dataToken = hasTrailingSpace ? `${token} ` : token;
       html +=
-        `<span class="${SKILL_CHIP_CLASS}" data-token="${escapeAttr(token)}" contenteditable="false">` +
+        `<span class="${SKILL_CHIP_CLASS}" data-token="${escapeAttr(dataToken)}" contenteditable="false">` +
         `${SKILL_ICON_SVG}<span>${escapeHtml(skillName)}</span>` +
         "</span>";
+      lastIndex = afterTokenIdx + (hasTrailingSpace ? 1 : 0);
+      continue;
     }
     lastIndex = match.index + token.length;
   }
@@ -190,6 +197,7 @@ interface ChatInputEditorProps {
   onChange: (value: string) => void;
   onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
   onChipClick?: (ref: string) => void;
+  onSkillChipClick?: (skillName: string) => void;
   onPasteFiles?: (files: File[]) => void;
   placeholder?: string;
   className?: string;
@@ -204,6 +212,7 @@ export function ChatInputEditor({
   onChange,
   onKeyDown,
   onChipClick,
+  onSkillChipClick,
   onPasteFiles,
   placeholder,
   className,
@@ -373,9 +382,16 @@ export function ChatInputEditor({
         e.preventDefault();
         const tokenRef = chip.dataset.token.slice(2, -1);
         onChipClick(tokenRef);
+        return;
+      }
+      const skillChip = target.closest(`.${SKILL_CHIP_CLASS}`) as HTMLElement | null;
+      if (skillChip?.dataset.token && onSkillChipClick) {
+        e.preventDefault();
+        const skillName = skillChip.dataset.token.replace(/^\/skill\//, "");
+        onSkillChipClick(skillName);
       }
     },
-    [onChipClick],
+    [onChipClick, onSkillChipClick],
   );
 
   // ── Key handler ──

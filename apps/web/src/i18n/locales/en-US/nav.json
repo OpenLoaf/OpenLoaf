@@ -284,7 +284,7 @@
     "helpTitle": "Projects",
     "helpDesc": "Browse and manage all projects in the current project space. Click a card to open it.",
     "addProject": "New Project",
-    "addProjectTitle": "New Project Title",
+    "addProjectTitle": "New Project",
     "addProjectPlaceholder": "Enter project name",
     "allProjectTypes": "All Types",
     "groupByProjectType": "Group by Project Type",

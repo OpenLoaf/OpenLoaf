@@ -21,7 +21,7 @@ import {
   applyReplacements,
 } from "@/ai/tools/applyPatch";
 import picomatch from "picomatch";
-import { resolveToolPath, resolveToolRoots, isTargetOutsideScope } from "@/ai/tools/toolScope";
+import { resolveToolPath, resolveToolRoots, isTargetOutsideScope, ensureTempProject } from "@/ai/tools/toolScope";
 import { resolveSecretTokens } from "@/ai/tools/secretStore";
 import { buildGitignoreMatcher } from "@/ai/tools/gitignoreMatcher";
 import { getProjectId } from "@/ai/shared/context/requestContext";
@@ -145,14 +145,22 @@ function isPathInside(root: string, target: string): boolean {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
-/** Resolve a write target path within the current project root. */
-function resolveWriteTargetPath(targetPath: string): { absPath: string; rootPath: string } {
-  const projectId = getProjectId();
-  const rootPath = projectId
+/** Resolve a write target path within the current project root. Auto-creates temp project if needed. */
+async function resolveWriteTargetPath(targetPath: string): Promise<{ absPath: string; rootPath: string }> {
+  let projectId = getProjectId();
+  let rootPath = projectId
     ? getProjectRootPath(projectId)
-    : getOpenLoafRootDir();
+    : undefined;
+
+  // Auto-create temp project when no project scope is available.
   if (!rootPath) {
-    throw new Error("Project not found.");
+    if (!projectId) {
+      const temp = await ensureTempProject();
+      projectId = temp.projectId;
+      rootPath = temp.projectRoot;
+    } else {
+      throw new Error("Project not found.");
+    }
   }
 
   const trimmed = targetPath.trim();
@@ -466,7 +474,7 @@ export const applyPatchTool = tool({
     const affected: string[] = [];
 
     for (const hunk of hunks) {
-      const { absPath, rootPath } = resolveWriteTargetPath(hunk.path);
+      const { absPath, rootPath } = await resolveWriteTargetPath(hunk.path);
 
       if (hunk.type === "add") {
         await fs.mkdir(path.dirname(absPath), { recursive: true });
@@ -487,7 +495,7 @@ export const applyPatchTool = tool({
         const newContent = lines.join("\n");
 
         if (hunk.movePath) {
-          const { absPath: newAbsPath } = resolveWriteTargetPath(hunk.movePath);
+          const { absPath: newAbsPath } = await resolveWriteTargetPath(hunk.movePath);
           await fs.mkdir(path.dirname(newAbsPath), { recursive: true });
           await fs.writeFile(newAbsPath, newContent, "utf-8");
           await fs.unlink(absPath);

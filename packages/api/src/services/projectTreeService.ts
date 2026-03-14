@@ -38,7 +38,7 @@ export const projectConfigSchema = z
     initializedFeatures: z.array(z.string()).optional(),
     /** AI-inferred or user-set project type. */
     projectType: z
-      .enum(['code', 'document', 'data', 'design', 'research', 'general'])
+      .enum(['code', 'document', 'data', 'design', 'research', 'general', 'temp'])
       .optional(),
     /** When true the user explicitly set the type; auto-inference won't overwrite. */
     typeManuallySet: z.boolean().optional(),
@@ -464,7 +464,9 @@ async function readProjectTree(
 }
 
 /** Read the project trees from the top-level project registry. */
-export async function readProjectTrees(): Promise<ProjectNode[]> {
+export async function readProjectTrees(opts?: {
+  includeTemporary?: boolean;
+}): Promise<ProjectNode[]> {
   const projectStorageRootUri = getProjectStorageRootUri();
   let projectStorageRootPath: string | undefined;
   try {
@@ -487,7 +489,10 @@ export async function readProjectTrees(): Promise<ProjectNode[]> {
       projectStorageRootPath,
       rootUri
     );
-    if (node) projects.push(node);
+    if (!node) continue;
+    // Exclude temp projects from sidebar tree by default.
+    if (!opts?.includeTemporary && node.projectType === "temp") continue;
+    projects.push(node);
   }
   return projects;
 }
@@ -538,9 +543,14 @@ function filterProjectListItems(
   input?: {
     search?: string | null;
     projectType?: string | null;
+    includeTemporary?: boolean;
   },
 ) {
   let nextItems = items;
+  // Exclude temp projects by default.
+  if (!input?.includeTemporary) {
+    nextItems = nextItems.filter((item) => item.projectType !== "temp");
+  }
   const search = input?.search?.trim().toLowerCase();
   if (search) {
     nextItems = nextItems.filter(

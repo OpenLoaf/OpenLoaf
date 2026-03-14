@@ -284,7 +284,7 @@
     "helpTitle": "專案管理",
     "helpDesc": "在這裡瀏覽和管理目前專案空間下的所有專案。點擊卡片即可開啟對應專案。",
     "addProject": "新建專案",
-    "addProjectTitle": "新建專案標題",
+    "addProjectTitle": "新建專案",
     "addProjectPlaceholder": "輸入專案名稱",
     "allProjectTypes": "全部類型",
     "groupByProjectType": "按專案類型分組",

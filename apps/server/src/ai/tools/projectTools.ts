@@ -16,6 +16,11 @@ import {
   projectQueryToolDef,
 } from "@openloaf/api/types/tools/db";
 import { getProjectId } from "@/ai/shared/context/requestContext";
+import {
+  createTempProject,
+  getTempStorageRoot,
+} from "@openloaf/api/services/tempProjectService";
+import { toFileUriWithoutEncoding } from "@openloaf/api/services/fileUri";
 
 /** Flattened project entry for tool output. */
 type ProjectListItem = {
@@ -265,13 +270,30 @@ async function executeProjectGet(projectId?: string) {
   return { project: normalizeProjectSummary(result.project) };
 }
 
-/** Execute create operation. */
+/** Execute create operation. AI-created projects default to temp type. */
 async function executeProjectCreate(input: ProjectMutateInput) {
-  const caller = await createProjectCaller();
   const parentProjectId = resolveParentProjectId({
     parentProjectId: input.parentProjectId ?? null,
     createAsChild: input.createAsChild,
   });
+
+  // AI-created projects default to temp — stored under ~/.openloaf/temp/
+  if (!input.rootUri && !parentProjectId) {
+    const temp = await createTempProject({
+      title: input.title ?? undefined,
+    });
+    return {
+      project: {
+        projectId: temp.projectId,
+        title: input.title ?? "Temp Project",
+        icon: input.icon ?? undefined,
+        rootUri: toFileUriWithoutEncoding(temp.rootPath),
+      },
+      parentProjectId: null,
+    };
+  }
+
+  const caller = await createProjectCaller();
   const result = await caller.create({
     title: input.title ?? undefined,
     folderName: input.folderName ?? undefined,

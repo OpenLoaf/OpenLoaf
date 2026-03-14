@@ -12,7 +12,7 @@
 import { FILE_TOKEN_REGEX } from "../input/chat-input-utils";
 
 const COMMAND_REGEX = /(^|\s)(\/[\w-]+)(?![/\w-])/g;
-const SKILL_REGEX = /\/skill\/([\w-]+)/g;
+const SKILL_REGEX = /\/skill\/([\w-]+)(?=\s|[^\x00-\x7F]|$)/g;
 
 export type ChatTextToken =
   | { type: "text"; value: string }

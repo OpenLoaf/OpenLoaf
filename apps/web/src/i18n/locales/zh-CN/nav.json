@@ -284,7 +284,7 @@
     "helpTitle": "项目管理",
     "helpDesc": "在这里浏览和管理当前项目空间下的所有项目。点击卡片即可打开对应项目。",
     "addProject": "新建项目",
-    "addProjectTitle": "新建项目标题",
+    "addProjectTitle": "新建项目",
     "addProjectPlaceholder": "输入项目名称",
     "allProjectTypes": "全部类型",
     "groupByProjectType": "按项目类型分组",

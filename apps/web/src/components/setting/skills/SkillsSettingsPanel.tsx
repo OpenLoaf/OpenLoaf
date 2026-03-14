@@ -30,9 +30,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { useProject } from "@/hooks/use-project";
 import {
   buildFileUriFromRoot,
-  buildUriFromRoot,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { toast } from "sonner";
+import {
+  resolveSkillFolderUri,
+  resolveSkillUri,
+  resolveSkillsRootUri,
+} from "./skill-utils";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 
 type SkillScope = "project" | "global";
@@ -75,106 +79,6 @@ const SCOPE_CARD_CLASS: Record<SkillScope, string> = {
     "bg-ol-surface-muted hover:bg-ol-divider",
 };
 
-/** Normalize a local path string for URI building. */
-function normalizePath(value: string): string {
-  return value.replace(/\\/g, "/");
-}
-
-/** Convert a local path into file:// uri. */
-function toFileUri(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  if (trimmed.startsWith("file://")) return trimmed;
-  const normalized = normalizePath(trimmed);
-  if (/^[A-Za-z]:\//.test(normalized)) {
-    return `file:///${encodeURI(normalized)}`;
-  }
-  if (normalized.startsWith("/")) {
-    return `file://${encodeURI(normalized)}`;
-  }
-  return `file:///${encodeURI(normalized)}`;
-}
-
-/** Resolve the skill folder uri from a skill file path. */
-function resolveSkillFolderUri(
-  skillPath: string,
-  baseRootUri?: string,
-): string | undefined {
-  if (!skillPath) return undefined;
-  if (skillPath.startsWith("file://")) {
-    try {
-      const url = new URL(skillPath);
-      const filePath = decodeURIComponent(url.pathname);
-      const dirPath = normalizePath(filePath).replace(/\/[^/]*$/, "");
-      return dirPath ? toFileUri(dirPath) : skillPath;
-    } catch {
-      return skillPath;
-    }
-  }
-  const normalizedSkillPath = normalizePath(skillPath).replace(/\/+$/, "");
-  const lastSlashIndex = normalizedSkillPath.lastIndexOf("/");
-  const directoryPath =
-    lastSlashIndex >= 0 ? normalizedSkillPath.slice(0, lastSlashIndex) : "";
-  const isAbsolutePath =
-    normalizedSkillPath.startsWith("/") || /^[A-Za-z]:\//.test(normalizedSkillPath);
-  if (!directoryPath) {
-    return baseRootUri ?? toFileUri(normalizedSkillPath);
-  }
-  if (baseRootUri) {
-    try {
-      const rootUrl = new URL(baseRootUri);
-      const rootPath = normalizePath(decodeURIComponent(rootUrl.pathname)).replace(/\/$/, "");
-      // 技能路径落在 root 之下时，优先转换为相对路径拼接。
-      if (directoryPath.startsWith(rootPath)) {
-        const relative = directoryPath.slice(rootPath.length).replace(/^\/+/, "");
-        return relative ? buildUriFromRoot(baseRootUri, relative) : baseRootUri;
-      }
-    } catch {
-      // ignore and fallback to file uri
-    }
-  }
-  if (!isAbsolutePath && baseRootUri) {
-    return buildUriFromRoot(baseRootUri, directoryPath.replace(/^\/+/, ""));
-  }
-  return toFileUri(directoryPath);
-}
-
-function resolveSkillsRootUri(skillPath: string): string | undefined {
-  if (!skillPath) return undefined;
-  const normalizedPath = normalizePath(skillPath).replace(/\/+$/, "");
-  const lastSlashIndex = normalizedPath.lastIndexOf("/");
-  if (lastSlashIndex < 0) return undefined;
-  const skillDirPath = normalizedPath.slice(0, lastSlashIndex);
-  const parentSlashIndex = skillDirPath.lastIndexOf("/");
-  if (parentSlashIndex < 0) return undefined;
-  return toFileUri(skillDirPath.slice(0, parentSlashIndex));
-}
-
-/** Resolve skill file uri for preview. */
-function resolveSkillUri(skillPath: string, rootUri?: string): string | undefined {
-  if (!skillPath) return undefined;
-  if (skillPath.startsWith("file://")) return skillPath;
-  if (!rootUri) return toFileUri(skillPath);
-  try {
-    const rootUrl = new URL(rootUri);
-    const rootPath = normalizePath(decodeURIComponent(rootUrl.pathname)).replace(/\/$/, "");
-    const normalizedSkillPath = normalizePath(skillPath);
-    if (normalizedSkillPath.startsWith(rootPath)) {
-      // 优先使用 rootUri + 相对路径拼接，保持 URI 编码一致。
-      const relative = normalizedSkillPath.slice(rootPath.length).replace(/^\/+/, "");
-      if (!relative) return rootUri;
-      // file:// URI 需要用 buildFileUriFromRoot 拼接完整 URI，
-      // 否则 buildUriFromRoot 只返回裸相对路径，导致服务端解析到全局根目录。
-      if (rootUri.startsWith("file://")) {
-        return buildFileUriFromRoot(rootUri, relative);
-      }
-      return buildUriFromRoot(rootUri, relative);
-    }
-  } catch {
-    return toFileUri(skillPath);
-  }
-  return toFileUri(skillPath);
-}
 
 /** Shared skills settings panel. */
 export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {

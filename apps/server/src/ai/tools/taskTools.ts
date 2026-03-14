@@ -23,7 +23,7 @@ import {
 } from '@/services/taskConfigService'
 import { taskOrchestrator } from '@/services/taskOrchestrator'
 import { taskScheduler } from '@/services/taskScheduler'
-import { resolveToolRoots } from '@/ai/tools/toolScope'
+import { resolveToolRoots, ensureTempProject } from '@/ai/tools/toolScope'
 import { getSessionId } from '@/ai/shared/context/requestContext'
 
 // ─── Status Protection Constants ──────────────────────────────────────
@@ -54,15 +54,20 @@ export const taskManageTool = tool({
   description: taskManageToolDef.description,
   inputSchema: zodSchema(taskManageToolDef.parameters),
   execute: async (input) => {
-    const { globalRoot, projectRoot } = resolveToolRoots()
-    const scope = projectRoot ? 'project' : 'global'
-    const rootPath = projectRoot ?? globalRoot
+    let { globalRoot, projectRoot } = resolveToolRoots()
     const action = input.action
 
     switch (action) {
       // ── create ──────────────────────────────────────────────────
       case 'create': {
         if (!input.title) return errMsg('create 操作必须提供 title 参数')
+
+        // Auto-create temp project when no project scope is available.
+        if (!projectRoot) {
+          const temp = await ensureTempProject()
+          projectRoot = temp.projectRoot
+        }
+
 
         const schedule = input.schedule
         const isScheduled = !!schedule
@@ -90,6 +95,9 @@ export const taskManageTool = tool({
             }
           }
         }
+
+        const scope = projectRoot ? 'project' : 'global'
+        const rootPath = projectRoot ?? globalRoot
 
         const task = createTask(
           {

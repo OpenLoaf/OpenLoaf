@@ -11,11 +11,10 @@ import path from "node:path"
 import { promises as fs } from "node:fs"
 import { tool, zodSchema } from "ai"
 import { editDocumentToolDef } from "@openloaf/api/types/tools/runtime"
-import { resolveToolPath } from "@/ai/tools/toolScope"
+import { resolveToolPath, ensureTempProject } from "@/ai/tools/toolScope"
 import { readBasicConf } from "@/modules/settings/openloafConfStore"
 import { getProjectId } from "@/ai/shared/context/requestContext"
 import { getProjectRootPath } from "@openloaf/api/services/vfsService"
-import { getOpenLoafRootDir } from "@openloaf/config"
 
 const DOC_FOLDER_PREFIX = "tndoc_"
 const DOC_INDEX_FILE_NAME = "index.mdx"
@@ -34,20 +33,26 @@ function resolveDocIndexPath(targetPath: string): string {
   return trimmed
 }
 
-/** Resolve write target path within project scope. */
-function resolveWriteTargetPath(targetPath: string): { absPath: string; rootPath: string } {
-  const projectId = getProjectId()
-  const rootPath = projectId
+/** Resolve write target path within project scope. Auto-creates temp project if needed. */
+async function resolveWriteTargetPath(targetPath: string): Promise<{ absPath: string; rootPath: string }> {
+  let projectId = getProjectId()
+  let rootPath = projectId
     ? getProjectRootPath(projectId)
-    : getOpenLoafRootDir()
+    : undefined
+
   if (!rootPath) {
-    throw new Error("Project not found.")
+    if (!projectId) {
+      const temp = await ensureTempProject()
+      projectId = temp.projectId
+      rootPath = temp.projectRoot
+    } else {
+      throw new Error("Project not found.")
+    }
   }
 
   const trimmed = targetPath.trim()
   if (!trimmed) throw new Error("path is required.")
   if (trimmed.startsWith("file:")) throw new Error("file:// URIs are not allowed.")
-  // Strip @{...} wrapper from new format, then check for project-scoped paths.
   let normalized: string
   if (trimmed.startsWith("@{") && trimmed.endsWith("}")) {
     normalized = trimmed.slice(2, -1)
@@ -72,7 +77,7 @@ export const editDocumentTool = tool({
   inputSchema: zodSchema(editDocumentToolDef.parameters),
   execute: async ({ path: filePath, content }): Promise<string> => {
     const docPath = resolveDocIndexPath(filePath)
-    const { absPath, rootPath } = resolveWriteTargetPath(docPath)
+    const { absPath, rootPath } = await resolveWriteTargetPath(docPath)
     const dirPath = path.dirname(absPath)
     // 逻辑：写入前确保目录存在。
     await fs.mkdir(dirPath, { recursive: true })

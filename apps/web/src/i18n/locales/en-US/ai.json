@@ -285,7 +285,7 @@
     "suggestions": []
   },
   "input": {
-    "defaultPlaceholder": "Ask, search, or create anything…",
+    "defaultPlaceholder": "Ask, search, or create anything. Type / to pick a skill…",
     "cliPlaceholder": "Chat with {{tool}}…",
     "addAttachment": "Add attachment",
     "voiceInput": "Voice input",

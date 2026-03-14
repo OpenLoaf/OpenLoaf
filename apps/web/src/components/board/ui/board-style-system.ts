@@ -134,30 +134,30 @@ export const BOARD_GENERATE_NODE_BASE =
 
 /** Semantic glass base — image generation (subtle tint). */
 export const BOARD_GENERATE_NODE_BASE_IMAGE =
-  "ol-glass-node bg-card dark:bg-card";
+  "ol-glass-node bg-card/95 dark:bg-card/95";
 /** Semantic glass base — image prompt (subtle tint). */
 export const BOARD_GENERATE_NODE_BASE_PROMPT =
-  "ol-glass-node bg-card dark:bg-card";
+  "ol-glass-node bg-card/95 dark:bg-card/95";
 /** Semantic glass base — video generation (subtle tint). */
 export const BOARD_GENERATE_NODE_BASE_VIDEO =
-  "ol-glass-node bg-card dark:bg-card";
+  "ol-glass-node bg-card/95 dark:bg-card/95";
 
 /** Semantic border — image generation (neutral idle). */
-export const BOARD_GENERATE_BORDER_IMAGE = "border-border";
+export const BOARD_GENERATE_BORDER_IMAGE = "border-border/50";
 /** Semantic border — video generation (neutral idle). */
-export const BOARD_GENERATE_BORDER_VIDEO = "border-border";
+export const BOARD_GENERATE_BORDER_VIDEO = "border-border/50";
 /** Semantic border — image prompt (neutral idle). */
-export const BOARD_GENERATE_BORDER_PROMPT = "border-border";
+export const BOARD_GENERATE_BORDER_PROMPT = "border-border/50";
 
 /** Selected state — image generation. */
 export const BOARD_GENERATE_SELECTED_IMAGE =
-  "border-ol-blue ring-1 ring-ol-blue/20";
+  "border-ol-blue/60 ring-2 ring-ol-blue/15";
 /** Selected state — video generation. */
 export const BOARD_GENERATE_SELECTED_VIDEO =
-  "border-ol-purple ring-1 ring-ol-purple/20";
+  "border-ol-purple/60 ring-2 ring-ol-purple/15";
 /** Selected state — image prompt. */
 export const BOARD_GENERATE_SELECTED_PROMPT =
-  "border-ol-amber ring-1 ring-ol-amber/20";
+  "border-ol-amber/60 ring-2 ring-ol-amber/15";
 
 /** Error state for generation nodes. */
 export const BOARD_GENERATE_ERROR =
@@ -196,14 +196,14 @@ export const BOARD_GENERATE_INPUT =
 
 /** Node base — chat node (neutral). */
 export const BOARD_GENERATE_NODE_BASE_CHAT =
-  "ol-glass-node bg-card dark:bg-card";
+  "ol-glass-node bg-card/95 dark:bg-card/95";
 
 /** Semantic border — chat node (neutral idle). */
-export const BOARD_GENERATE_BORDER_CHAT = "border-border";
+export const BOARD_GENERATE_BORDER_CHAT = "border-border/50";
 
 /** Selected state — chat node. */
 export const BOARD_GENERATE_SELECTED_CHAT =
-  "border-ol-green ring-1 ring-ol-green/20";
+  "border-ol-green/60 ring-2 ring-ol-green/15";
 
 /** Primary button — chat node (teal). */
 export const BOARD_GENERATE_BTN_CHAT =

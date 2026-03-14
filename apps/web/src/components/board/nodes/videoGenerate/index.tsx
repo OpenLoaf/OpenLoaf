@@ -82,7 +82,7 @@ function VideoGenerateProjectionView({
     <NodeFrame>
       <div
         className={cn(
-          "flex h-full w-full flex-col overflow-hidden rounded-lg border-2",
+          "flex h-full w-full flex-col overflow-hidden rounded-xl border",
           BOARD_GENERATE_NODE_BASE_VIDEO,
           selected ? BOARD_GENERATE_SELECTED_VIDEO : BOARD_GENERATE_BORDER_VIDEO,
           status === "error" && BOARD_GENERATE_ERROR,
@@ -812,7 +812,7 @@ function EditableVideoGenerateNodeView({
   });
 
   const containerClassName = cn(
-    "relative flex w-full min-w-0 flex-col rounded-lg border-2 overflow-hidden text-ol-text-primary transition-all duration-150",
+    "relative flex w-full min-w-0 flex-col rounded-xl border overflow-hidden text-ol-text-primary transition-all duration-150",
     BOARD_GENERATE_NODE_BASE_VIDEO,
     viewStatus === "error"
       ? BOARD_GENERATE_ERROR
@@ -984,10 +984,10 @@ function EditableVideoGenerateNodeView({
           }}
         >
           {statusHint.tone === "error" ? (
-            <div className="relative rounded-lg border border-ol-red/20 bg-ol-red-bg p-2 text-[11px] leading-4 text-ol-red shadow-sm">
+            <div className="relative rounded-xl bg-ol-red-bg/80 p-2 text-[11px] leading-4 text-ol-red">
               <button
                 type="button"
-                className="absolute right-2 top-2 rounded-md border border-ol-red/20 bg-background px-2 py-0.5 text-[10px] text-ol-red hover:bg-ol-red-bg"
+                className="absolute right-2 top-2 rounded-md bg-ol-red/10 px-2 py-0.5 text-[10px] text-ol-red hover:bg-ol-red/20"
                 onPointerDown={(event) => {
                   event.stopPropagation();
                 }}
@@ -1005,10 +1005,10 @@ function EditableVideoGenerateNodeView({
           ) : (
             <div
               className={cn(
-                "rounded-lg border px-2 py-1.5 text-[11px] leading-4 shadow-sm",
+                "rounded-xl px-2 py-1.5 text-[11px] leading-4",
                 statusHint.tone === "warn"
-                  ? "border-ol-amber/20 bg-ol-amber-bg text-ol-amber"
-                  : "border-ol-blue/20 bg-ol-blue-bg text-ol-blue",
+                  ? "bg-ol-amber-bg/80 text-ol-amber"
+                  : "bg-ol-blue-bg/80 text-ol-blue",
               )}
             >
               {statusHint.text}

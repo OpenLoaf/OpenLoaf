@@ -418,7 +418,7 @@ export const projectRouter = t.router({
         pageSize: z.number().int().min(1).max(120).nullable().optional(),
         search: z.string().nullable().optional(),
         projectType: z
-          .enum(['code', 'document', 'data', 'design', 'research', 'general'])
+          .enum(['code', 'document', 'data', 'design', 'research', 'general', 'temp'])
           .nullable()
           .optional(),
       })
@@ -593,7 +593,7 @@ export const projectRouter = t.router({
         title: z.string().optional(),
         icon: z.string().nullable().optional(),
         projectType: z
-          .enum(['code', 'document', 'data', 'design', 'research', 'general'])
+          .enum(['code', 'document', 'data', 'design', 'research', 'general', 'temp'])
           .optional(),
       })
     )
@@ -639,7 +639,7 @@ export const projectRouter = t.router({
   remove: shieldedProcedure
     .input(z.object({ projectId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const projectTrees = await readProjectTrees();
+      const projectTrees = await readProjectTrees({ includeTemporary: true });
       const sourceEntry = findProjectNodeWithParent(projectTrees, input.projectId);
       if (!sourceEntry) {
         throw new Error("Project not found.");
@@ -658,7 +658,7 @@ export const projectRouter = t.router({
   destroy: shieldedProcedure
     .input(z.object({ projectId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const projectTrees = await readProjectTrees();
+      const projectTrees = await readProjectTrees({ includeTemporary: true });
       const sourceEntry = findProjectNodeWithParent(projectTrees, input.projectId);
       if (!sourceEntry) {
         throw new Error("Project not found.");
@@ -695,7 +695,7 @@ export const projectRouter = t.router({
       const targetPosition =
         input.targetPosition === "before" ? "before" : "after";
       let targetParentProjectId = input.targetParentProjectId?.trim() || null;
-      const projectTrees = await readProjectTrees();
+      const projectTrees = await readProjectTrees({ includeTemporary: true });
       const sourceEntry = findProjectNodeWithParent(projectTrees, input.projectId);
       if (!sourceEntry) {
         throw new Error("Project not found.");

@@ -86,7 +86,7 @@ function ImageGenerateProjectionView({
     <NodeFrame>
       <div
         className={cn(
-          "flex h-full w-full flex-col overflow-hidden rounded-lg border-2",
+          "flex h-full w-full flex-col overflow-hidden rounded-xl border",
           BOARD_GENERATE_NODE_BASE_IMAGE,
           selected ? BOARD_GENERATE_SELECTED_IMAGE : BOARD_GENERATE_BORDER_IMAGE,
           status === "error" && BOARD_GENERATE_ERROR,
@@ -615,7 +615,7 @@ function EditableImageGenerateNodeView({
   ]);
 
   const containerClassName = cn(
-    "relative flex w-full min-w-0 flex-col rounded-lg border-2 overflow-hidden text-ol-text-primary transition-all duration-150",
+    "relative flex w-full min-w-0 flex-col rounded-xl border overflow-hidden text-ol-text-primary transition-all duration-150",
     BOARD_GENERATE_NODE_BASE_IMAGE,
     viewStatus === "error"
       ? BOARD_GENERATE_ERROR
@@ -898,12 +898,12 @@ function EditableImageGenerateNodeView({
         >
           <div
             className={cn(
-              "rounded-lg px-3 py-2 text-[12px] leading-5 shadow-sm",
+              "rounded-xl px-3 py-2 text-[12px] leading-5",
               statusHint.tone === "error"
-                ? "border border-ol-red/20 bg-ol-red-bg text-ol-red"
+                ? "bg-ol-red-bg/80 text-ol-red"
                 : statusHint.tone === "warn"
-                  ? "border border-ol-amber/20 bg-ol-amber-bg text-ol-amber"
-                  : "border border-ol-blue/20 bg-ol-blue-bg text-ol-blue",
+                  ? "bg-ol-amber-bg/80 text-ol-amber"
+                  : "bg-ol-blue-bg/80 text-ol-blue",
             )}
           >
             <div className="relative">

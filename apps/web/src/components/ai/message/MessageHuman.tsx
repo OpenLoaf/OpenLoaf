@@ -206,7 +206,7 @@ function MessageHumanTextPart(props: {
     );
   }
 
-  return <ChatMessageText value={text} className={className} />;
+  return <ChatMessageText value={text} className={className} projectId={projectId} />;
 }
 
 export default function MessageHuman({

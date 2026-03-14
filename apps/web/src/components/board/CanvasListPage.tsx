@@ -12,7 +12,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { Palette, Plus, Edit2, Trash2, MoreHorizontal, Copy, CopyPlus, CalendarDays, Search, X, FolderOpen, Sparkles, Loader2, ExternalLink } from "lucide-react";
+import { Palette, Plus, Edit2, Trash2, MoreHorizontal, Copy, CopyPlus, CalendarDays, Search, X, FolderOpen, FolderSearch, Sparkles, Loader2, ExternalLink } from "lucide-react";
 import { useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 
@@ -55,6 +55,7 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@openloaf/ui/context-menu";
 import {
@@ -135,6 +136,7 @@ interface BoardCardLabels {
   duplicate: string;
   copyPath: string;
   openInNewWindow: string;
+  openInFileManager: string;
   delete: string;
 }
 
@@ -154,6 +156,7 @@ interface BoardCardProps {
   onBoardVisible: (boardId: string) => void;
   onDelete: (boardId: string) => void;
   onDuplicate: (boardId: string) => void;
+  onOpenInFileManager?: (board: { id: string; folderUri: string; projectId?: string | null }) => void;
   onOpenInNewWindow?: (board: { id: string; title: string; folderUri: string; projectId?: string | null }) => void;
   onRename: (boardId: string, title: string, folderUri?: string) => void;
   projectInfo?: { name: string; icon?: string };
@@ -234,6 +237,7 @@ function BoardCard({
   onBoardVisible,
   onDelete,
   onDuplicate,
+  onOpenInFileManager,
   onOpenInNewWindow,
   onRename,
   projectInfo,
@@ -272,6 +276,9 @@ function BoardCard({
   };
   const handleDeleteSelect = () => {
     onDelete(board.id);
+  };
+  const handleOpenInFileManager = () => {
+    onOpenInFileManager?.(board);
   };
   const handleOpenInNewWindow = () => {
     onOpenInNewWindow?.(board);
@@ -333,6 +340,28 @@ function BoardCard({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {onOpenInNewWindow && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenInNewWindow();
+                      }}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      {labels.openInNewWindow}
+                    </DropdownMenuItem>
+                  )}
+                  {onOpenInFileManager && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenInFileManager();
+                      }}
+                    >
+                      <FolderSearch className="mr-2 h-4 w-4" />
+                      {labels.openInFileManager}
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     onClick={(e) => {
                       e.stopPropagation();
@@ -360,17 +389,6 @@ function BoardCard({
                     <Copy className="mr-2 h-4 w-4" />
                     {labels.copyPath}
                   </DropdownMenuItem>
-                  {onOpenInNewWindow && (
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenInNewWindow();
-                      }}
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      {labels.openInNewWindow}
-                    </DropdownMenuItem>
-                  )}
                   <DropdownMenuItem
                     onClick={(e) => {
                       e.stopPropagation();
@@ -406,7 +424,18 @@ function BoardCard({
           </div>
         </motion.div>
       </ContextMenuTrigger>
-      <ContextMenuContent className="w-44">
+      <ContextMenuContent className="w-48">
+        {onOpenInNewWindow && (
+          <ContextMenuItem icon={ExternalLink} onSelect={handleOpenInNewWindow}>
+            {labels.openInNewWindow}
+          </ContextMenuItem>
+        )}
+        {onOpenInFileManager && (
+          <ContextMenuItem icon={FolderSearch} onSelect={handleOpenInFileManager}>
+            {labels.openInFileManager}
+          </ContextMenuItem>
+        )}
+        {(onOpenInNewWindow || onOpenInFileManager) && <ContextMenuSeparator />}
         <ContextMenuItem icon={Edit2} onSelect={handleRenameSelect}>
           {labels.rename}
         </ContextMenuItem>
@@ -416,11 +445,7 @@ function BoardCard({
         <ContextMenuItem icon={Copy} onSelect={handleCopyPathSelect}>
           {labels.copyPath}
         </ContextMenuItem>
-        {onOpenInNewWindow && (
-          <ContextMenuItem icon={ExternalLink} onSelect={handleOpenInNewWindow}>
-            {labels.openInNewWindow}
-          </ContextMenuItem>
-        )}
+        <ContextMenuSeparator />
         <ContextMenuItem icon={Trash2} onSelect={handleDeleteSelect} className="text-destructive">
           {labels.delete}
         </ContextMenuItem>
@@ -772,6 +797,17 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     [resolveBoardRootUri, currentProjectShell],
   );
 
+  const handleOpenInFileManager = useCallback(
+    (board: { id: string; folderUri: string; projectId?: string | null }) => {
+      const boardRootUri = resolveBoardRootUri(board.projectId);
+      if (!boardRootUri) return;
+      const boardFolderUri = buildBoardFolderUri(boardRootUri, board.folderUri);
+      window.openloafElectron?.openPath?.({ uri: boardFolderUri });
+    },
+    [resolveBoardRootUri],
+  );
+
+  const canOpenInFileManager = Boolean(window.openloafElectron?.openPath);
   const canOpenInNewWindow = Boolean(window.openloafElectron?.openBoardWindow);
 
   const activeBoardBaseId =
@@ -784,6 +820,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
       duplicate: t("canvasList.duplicate"),
       copyPath: t("canvasList.copyPath"),
       openInNewWindow: t("canvasList.openInNewWindow"),
+      openInFileManager: t("projectTree.openInFileManager"),
       delete: t("chatHistoryList.contextMenu.delete"),
     }),
     [t],
@@ -922,6 +959,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
                       onBoardVisible={handleBoardVisible}
                       onDelete={handleDelete}
                       onDuplicate={handleDuplicate}
+                      onOpenInFileManager={canOpenInFileManager ? handleOpenInFileManager : undefined}
                       onOpenInNewWindow={canOpenInNewWindow ? handleOpenInNewWindow : undefined}
                       onRename={handleRename}
                       projectInfo={board.projectId ? projectInfoById.get(board.projectId) : undefined}
@@ -956,6 +994,8 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
                   onBoardVisible={handleBoardVisible}
                   onDelete={handleDelete}
                   onDuplicate={handleDuplicate}
+                  onOpenInFileManager={canOpenInFileManager ? handleOpenInFileManager : undefined}
+                  onOpenInNewWindow={canOpenInNewWindow ? handleOpenInNewWindow : undefined}
                   onRename={handleRename}
                   projectInfo={board.projectId ? projectInfoById.get(board.projectId) : undefined}
                   rootUri={resolveBoardRootUri(board.projectId)}

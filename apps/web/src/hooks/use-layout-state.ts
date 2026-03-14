@@ -64,8 +64,8 @@ export type LayoutStateActions = LayoutState & {
   setStackHidden: (hidden: boolean) => void
   /** Update active stack item id. */
   setActiveStackItemId: (itemId: string) => void
-  /** Push or upsert a stack item. */
-  pushStackItem: (item: DockItem, percent?: number) => void
+  /** Push or upsert a stack item. When `skipActivation` is true, the active stack item is not changed. */
+  pushStackItem: (item: DockItem, percent?: number, skipActivation?: boolean) => void
   /** Remove a stack item. */
   removeStackItem: (itemId: string) => void
   /** Clear stack items. */
@@ -218,7 +218,7 @@ export const useLayoutState = create<LayoutStateActions>()(
         set((state) => normalize({ ...state, activeStackItemId: itemId }))
       },
 
-      pushStackItem: (item, percent) => {
+      pushStackItem: (item, percent, skipActivation) => {
         let shouldRestoreFull = false
         set((state) => {
           const wasBoardOpen = hasBoardStackItem(state.stack)
@@ -303,10 +303,14 @@ export const useLayoutState = create<LayoutStateActions>()(
               : nextStack
 
           const STACK_DEFAULT_PERCENT = 70
+          // skipActivation: 不改变当前激活面板（用于 streaming 工具更新 title/params 时避免抢夺用户手动选择）
+          const resolvedActiveId = skipActivation && state.activeStackItemId
+            ? state.activeStackItemId
+            : activeId
           return normalize({
             ...state,
             stack: normalizedStack,
-            activeStackItemId: activeId,
+            activeStackItemId: resolvedActiveId,
             stackHidden: false,
             leftWidthPercent: clampPercent(
               Number.isFinite(percent)

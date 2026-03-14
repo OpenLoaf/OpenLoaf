@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { existsSync, readFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { getOpenLoafRootDir } from "@openloaf/config";
 import { resolveFilePathFromUri, toFileUri, toFileUriWithoutEncoding } from "./fileUri";
@@ -194,6 +195,11 @@ export function resolveScopedPath(input: {
   }
   if (raw.startsWith("@{") && raw.endsWith("}")) {
     raw = raw.slice(2, -1);
+  }
+  // Expand tilde to home directory.
+  if (raw === "~" || raw.startsWith("~/") || raw.startsWith("~\\")) {
+    const home = os.homedir();
+    raw = raw === "~" ? home : path.join(home, raw.slice(2));
   }
   if (raw.startsWith("file:")) {
     return resolveLocalPathFromUri(raw);

@@ -25,28 +25,27 @@ import {
   MentionImageThumbnail,
   MentionVideoThumbnail,
 } from "./MentionMediaThumbnail";
-import { useLayoutState } from "@/hooks/use-layout-state";
+import { openSkillInStack } from "@/components/setting/skills/skill-utils";
 
 interface ChatMessageTextProps {
   value: string;
   className?: string;
+  projectId?: string;
 }
 
-function openSkillInStack() {
-  useLayoutState.getState().pushStackItem({
-    id: "skill-settings",
-    sourceKey: "skill-settings",
-    component: "skill-settings",
-    title: "技能",
-  });
-}
-
-export default function ChatMessageText({ value, className }: ChatMessageTextProps) {
+export default function ChatMessageText({ value, className, projectId }: ChatMessageTextProps) {
   const normalizedValue = React.useMemo(() => preprocessChatText(value), [value]);
   const segments = React.useMemo(() => parseChatTextTokens(normalizedValue), [normalizedValue]);
   const hasSpecialTokens = React.useMemo(
     () => segments.some((segment) => segment.type !== "text"),
     [segments],
+  );
+
+  const handleSkillClick = React.useCallback(
+    (skillName: string) => {
+      openSkillInStack(skillName, projectId);
+    },
+    [projectId],
   );
 
   if (!hasSpecialTokens) {
@@ -79,7 +78,7 @@ export default function ChatMessageText({ value, className }: ChatMessageTextPro
         <span
           key={`skill-${index}`}
           className="inline-flex items-center gap-[3px] align-middle py-px px-1.5 mx-0.5 rounded-md bg-purple-200/80 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-[200px] hover:bg-purple-300 dark:hover:bg-purple-900/60 transition-colors"
-          onClick={openSkillInStack}
+          onClick={() => handleSkillClick(segment.value)}
         >
           <Sparkles className="size-3 shrink-0" />
           <span className="overflow-hidden text-ellipsis">{segment.value}</span>
