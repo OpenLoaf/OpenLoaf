@@ -1387,7 +1387,6 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                   onPointerDown={event => {
                     event.preventDefault();
                     if (isLocked) return;
-                    if (item.id === "note" && !isSelectTool) return;
                     if (item.id === "note") {
                       engine.getContainer()?.focus();
                       if (pendingInsert?.id === item.id) {

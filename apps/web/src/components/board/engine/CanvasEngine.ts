@@ -1047,8 +1047,7 @@ export class CanvasEngine {
 
   /** Detect the dominant layout axis for a group. */
   getGroupLayoutAxis(groupId: string): "row" | "column" | "mixed" {
-    const elements = this.doc.getElements();
-    const childIds = getGroupMemberIds(elements, groupId);
+    const childIds = this.getGroupMemberIds(groupId);
     const nodes = childIds
       .map(id => this.doc.getElementById(id))
       .filter((element): element is CanvasNodeElement => element?.kind === "node");
@@ -1075,8 +1074,7 @@ export class CanvasEngine {
   /** Normalize child node sizes inside a group. */
   uniformGroupSize(groupId: string): void {
     if (this.locked) return;
-    const elements = this.doc.getElements();
-    const childIds = getGroupMemberIds(elements, groupId);
+    const childIds = this.getGroupMemberIds(groupId);
     const nodes = childIds
       .map(id => this.doc.getElementById(id))
       .filter((element): element is CanvasNodeElement => element?.kind === "node");
@@ -1125,8 +1123,7 @@ export class CanvasEngine {
   /** Auto layout child nodes inside a group. */
   layoutGroup(groupId: string, direction: "row" | "column" = "row"): void {
     if (this.locked) return;
-    const elements = this.doc.getElements();
-    const childIds = getGroupMemberIds(elements, groupId);
+    const childIds = this.getGroupMemberIds(groupId);
     const nodes = childIds
       .map(id => this.doc.getElementById(id))
       .filter((element): element is CanvasNodeElement => element?.kind === "node");
@@ -1166,6 +1163,14 @@ export class CanvasEngine {
 
   /** Return node ids for a given group id. */
   getGroupMemberIds(groupId: string): string[] {
+    // 优先从组节点 props 直接读取，O(1) 查找。
+    const groupElement = this.doc.getElementById(groupId);
+    if (groupElement && groupElement.kind === "node" && isGroupNodeType(groupElement.type)) {
+      const childIds = (groupElement as CanvasNodeElement).props?.childIds;
+      if (Array.isArray(childIds) && childIds.length > 0) {
+        return childIds as string[];
+      }
+    }
     return getGroupMemberIds(this.doc.getElements(), groupId);
   }
 

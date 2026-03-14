@@ -31,6 +31,15 @@ function getNodeGroupId(element: CanvasNodeElement): string | null {
 }
 
 function getGroupMemberIds(elements: CanvasElement[], groupId: string): string[] {
+  // 优先从组节点的 props.childIds 读取，避免全量扫描。
+  const groupElement = elements.find(element => element.id === groupId);
+  if (groupElement && groupElement.kind === "node" && isGroupNodeType(groupElement.type)) {
+    const childIds = (groupElement.props as Record<string, unknown>)?.childIds;
+    if (Array.isArray(childIds) && childIds.length > 0) {
+      return childIds as string[];
+    }
+  }
+  // 回退：全量扫描（兼容 childIds 缺失的旧数据）。
   return elements
     .filter((element): element is CanvasNodeElement => element.kind === "node")
     .filter(element => getNodeGroupId(element) === groupId)
@@ -47,11 +56,15 @@ function resolveGroupSelectionId(
   return groupNode && groupNode.kind === "node" ? groupId : element.id;
 }
 
-function normalizeSelectionIds(
-  elements: CanvasElement[],
+/** Build an element lookup map (shared helper to avoid repeated Map construction). */
+function buildElementMap(elements: CanvasElement[]): Map<string, CanvasElement> {
+  return new Map(elements.map(element => [element.id, element]));
+}
+
+function normalizeSelectionIdsWithMap(
+  elementMap: Map<string, CanvasElement>,
   selectedIds: string[]
 ): string[] {
-  const elementMap = new Map(elements.map(element => [element.id, element]));
   const normalized = new Set<string>();
   selectedIds.forEach(id => {
     const element = elementMap.get(id);
@@ -70,12 +83,19 @@ function normalizeSelectionIds(
   return Array.from(normalized);
 }
 
+function normalizeSelectionIds(
+  elements: CanvasElement[],
+  selectedIds: string[]
+): string[] {
+  return normalizeSelectionIdsWithMap(buildElementMap(elements), selectedIds);
+}
+
 function expandSelectionWithGroupChildren(
   elements: CanvasElement[],
   selectedIds: string[]
 ): string[] {
-  const elementMap = new Map(elements.map(element => [element.id, element]));
-  const normalized = normalizeSelectionIds(elements, selectedIds);
+  const elementMap = buildElementMap(elements);
+  const normalized = normalizeSelectionIdsWithMap(elementMap, selectedIds);
   const expanded = new Set<string>(normalized);
 
   normalized.forEach(id => {

@@ -11,6 +11,8 @@ export const DEFAULT_NODE_SIZE: [number, number] = [320, 180];
 
 export const SNAP_PIXEL = 8;
 export const GUIDE_MARGIN = 16;
+/** Canvas-unit radius for nearby-node snap queries (avoids global scan). */
+export const SNAP_NEARBY_RANGE = 2000;
 export const DRAG_ACTIVATION_DISTANCE = 2;
 export const SELECTION_BOX_THRESHOLD = 4;
 

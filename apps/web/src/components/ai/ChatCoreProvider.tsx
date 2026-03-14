@@ -16,7 +16,7 @@ import {
   readUIMessageStream,
   type UIMessageChunk,
 } from "ai";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { trpc, trpcClient } from "@/utils/trpc";
 import { useAppView } from "@/hooks/use-app-view";
@@ -401,15 +401,6 @@ export default function ChatCoreProvider({
   addAttachments,
   addMaskedAttachment,
 }: ChatCoreProviderProps) {
-  const {
-    leafMessageId,
-    setLeafMessageId,
-    branchMessageIds,
-    setBranchMessageIds,
-    siblingNav,
-    setSiblingNav,
-    refreshBranchMeta,
-  } = useChatBranchState(sessionId);
   const [subAgentStreams, setSubAgentStreams] = React.useState<
     Record<string, SubAgentStreamState>
   >({});
@@ -417,7 +408,6 @@ export default function ChatCoreProvider({
     new Map<string, ReadableStreamDefaultController<UIMessageChunk>>(),
   );
   const [stepThinking, setStepThinking] = React.useState(false);
-  const [sessionErrorMessage, setSessionErrorMessage] = React.useState<string | null>(null);
   const [pendingCloudMessage, setPendingCloudMessage] = React.useState<PendingCloudMessage | null>(null);
   const pendingCloudMessageRef = React.useRef(pendingCloudMessage);
   React.useEffect(() => { pendingCloudMessageRef.current = pendingCloudMessage }, [pendingCloudMessage]);
@@ -663,7 +653,10 @@ export default function ChatCoreProvider({
       }
       const assistantId = String((message as any)?.id ?? "");
       if (!assistantId) return;
-      setLeafMessageId(assistantId);
+      patchSnapshot({
+        leafMessageId: assistantId,
+        errorMessage: null,
+      });
 
       const parentUserMessageId = pendingUserMessageIdRef.current;
       pendingUserMessageIdRef.current = null;
@@ -697,8 +690,6 @@ export default function ChatCoreProvider({
         needsBranchMetaRefreshRef.current = false;
         void refreshBranchMeta(assistantId);
       }
-      // 中文注释：成功完成后清空会话错误提示。
-      setSessionErrorMessage(null);
       if (pendingInitialTitleRefreshRef.current) {
         pendingInitialTitleRefreshRef.current = false;
         invalidateChatSessions(queryClient);
@@ -711,7 +702,7 @@ export default function ChatCoreProvider({
       // 中文注释：请求结束后清理 stepThinking，避免中止后残留"深度思考中"。
       setStepThinking(false);
     },
-    [autoTitleMutation, queryClient, refreshBranchMeta, sessionId, setLeafMessageId, setStepThinking]
+    [autoTitleMutation, patchSnapshot, queryClient, refreshBranchMeta, sessionId, setStepThinking]
   );
 
   const chatConfig = React.useMemo(
@@ -785,11 +776,31 @@ export default function ChatCoreProvider({
 
   const chat = useChat(chatConfig);
   setMessagesRef.current = chat.setMessages;
+  // 中文注释：仅在显式需要时才拉取历史，避免新会话多余请求。
+  const shouldLoadHistory = Boolean(loadHistory);
+  const {
+    snapshot: sessionSnapshot,
+    branchQueryData,
+    isHistoryLoading,
+    applySnapshot,
+    patchSnapshot,
+    resetSnapshot,
+    clearCachedView,
+    refreshSnapshot,
+    refreshBranchMeta,
+  } = useChatBranchState({
+    sessionId,
+    enabled: shouldLoadHistory && chat.messages.length === 0,
+    localMessageCount: chat.messages.length,
+  });
+  const leafMessageId = sessionSnapshot.leafMessageId;
+  const branchMessageIds = sessionSnapshot.branchMessageIds;
+  const siblingNav = sessionSnapshot.siblingNav;
 
   const effectiveError =
     chat.error ??
-    (chat.status === "ready" && sessionErrorMessage
-      ? new Error(sessionErrorMessage)
+    (chat.status === "ready" && sessionSnapshot.errorMessage
+      ? new Error(sessionSnapshot.errorMessage)
       : undefined);
 
   useChatLifecycle({
@@ -803,7 +814,7 @@ export default function ChatCoreProvider({
   React.useEffect(() => {
     if (chat.status !== "ready") return;
     if (basic.chatSource !== "cloud") return;
-    const errorText = chat.error?.message ?? sessionErrorMessage ?? "";
+    const errorText = chat.error?.message ?? sessionSnapshot.errorMessage ?? "";
     if (!isSaasUnauthorizedErrorMessage(errorText)) return;
     if (authRetryInFlightRef.current) return;
 
@@ -842,7 +853,7 @@ export default function ChatCoreProvider({
     chat.error,
     chat.regenerate,
     chat.status,
-    sessionErrorMessage,
+    sessionSnapshot.errorMessage,
   ]);
 
   React.useEffect(() => {
@@ -871,9 +882,6 @@ export default function ChatCoreProvider({
     }
   }, [chat.messages, chat.status, tabId, toolStream]);
 
-  // 中文注释：仅在显式需要时才拉取历史，避免新会话多余请求。
-  const shouldLoadHistory = Boolean(loadHistory);
-
   /** Stop streaming and reset local state before switching sessions. */
   const stopAndResetSession = React.useCallback(
     (clearTools: boolean) => {
@@ -883,16 +891,13 @@ export default function ChatCoreProvider({
       pendingUserMessageIdRef.current = null;
       needsBranchMetaRefreshRef.current = false;
       pendingCompactRequestRef.current = null;
-      setLeafMessageId(null);
-      setBranchMessageIds([]);
-      setSiblingNav({});
+      resetSnapshot();
       setSubAgentStreams({});
       subAgentStreamControllersRef.current.forEach((controller) => {
         controller.close();
       });
       subAgentStreamControllersRef.current.clear();
       setStepThinking(false);
-      setSessionErrorMessage(null);
       if (clearTools && tabId) {
         clearToolPartsForTab(tabId);
         clearCcRuntime(tabId);
@@ -904,9 +909,7 @@ export default function ChatCoreProvider({
       tabId,
       clearToolPartsForTab,
       clearCcRuntime,
-      setLeafMessageId,
-      setBranchMessageIds,
-      setSiblingNav,
+      resetSnapshot,
     ]
   );
 
@@ -918,67 +921,30 @@ export default function ChatCoreProvider({
     prevSessionIdRef.current = sessionId;
     stopAndResetSession(true);
     // 中文注释：切换会话时必须清除 getChatView 缓存，否则 staleTime=Infinity 导致复用过期空数据。
-    queryClient.removeQueries({
-      queryKey: trpc.chat.getChatView.queryKey(),
-    });
-  }, [sessionId, stopAndResetSession, queryClient]);
-
-  // 使用 tRPC 拉取"当前视图"（主链消息 + sibling 导航）
-  const branchQueryEnabled = shouldLoadHistory && chat.messages.length === 0;
-  const branchQuery = useQuery(
-    {
-      ...trpc.chat.getChatView.queryOptions({
-        sessionId,
-        window: { limit: 50 },
-        includeToolOutput: true,
-      }),
-      enabled: branchQueryEnabled,
-      staleTime: Number.POSITIVE_INFINITY,
-      refetchOnWindowFocus: false,
-    },
-  );
-
-  // 查询正在进行 OR 查询已完成但 effect 尚未运行 setMessages（中间态）。
-  // 仅当服务端返回了非空消息列表但本地尚未应用时，才视为"仍在加载"，
-  // 避免 isEmpty 在 "filled" → "empty" → "filled" 之间闪烁导致 AnimatePresence 卡死。
-  // 空会话（服务端返回 0 条消息）不应被视为 loading，否则永远无法进入居中空态。
-  const pendingHistoryMessages = branchQuery.data
-    ? ((branchQuery.data as any).messages ?? [])
-    : [];
-  const isHistoryLoading =
-    shouldLoadHistory &&
-    (branchQuery.isLoading ||
-      branchQuery.isFetching ||
-      (pendingHistoryMessages.length > 0 && chat.messages.length === 0));
+    clearCachedView();
+  }, [sessionId, stopAndResetSession, clearCachedView]);
 
   React.useEffect(() => {
-    const data = branchQuery.data;
+    const data = branchQueryData;
     if (!data) return;
-    const nextErrorMessage =
-      typeof data.errorMessage === "string" ? data.errorMessage : null;
-    setSessionErrorMessage(nextErrorMessage);
+    const nextSnapshot = applySnapshot(data);
 
     // 关键：历史接口已按时间正序返回（最早在前），可直接渲染
     if (chat.messages.length === 0) {
-      const messages = (data.messages ?? []) as UIMessage[];
+      const messages = nextSnapshot.messages;
       chat.setMessages(messages);
       if (tabId) {
         clearToolPartsForTab(tabId);
         toolStream.syncFromMessages({ tabId, messages });
       }
     }
-    setLeafMessageId(data.leafMessageId ?? null);
-    setBranchMessageIds(data.branchMessageIds ?? []);
-    setSiblingNav((data.siblingNav ?? {}) as any);
   }, [
-    branchQuery.data,
+    branchQueryData,
+    applySnapshot,
     chat.messages.length,
     chat.setMessages,
     tabId,
     clearToolPartsForTab,
-    setLeafMessageId,
-    setBranchMessageIds,
-    setSiblingNav,
     toolStream,
   ]);
 
@@ -1070,9 +1036,9 @@ export default function ChatCoreProvider({
   React.useEffect(() => {
     // 关键：空消息列表时不应存在 leafMessageId（否则会把"脏 leaf"带进首条消息的 parentMessageId）
     if ((chat.messages?.length ?? 0) === 0 && leafMessageId) {
-      setLeafMessageId(null);
+      patchSnapshot({ leafMessageId: null });
     }
-  }, [chat.messages?.length, leafMessageId, setLeafMessageId]);
+  }, [chat.messages?.length, leafMessageId, patchSnapshot]);
 
   // 发送消息后立即滚动到底部（即使 AI 还没开始返回内容）
   const sendMessage = React.useCallback(
@@ -1206,36 +1172,26 @@ export default function ChatCoreProvider({
 
       chat.stop();
 
-      const data = await queryClient.fetchQuery(
-        trpc.chat.getChatView.queryOptions({
-          sessionId,
-          anchor: { messageId: targetId, strategy: "latestLeafInSubtree" },
-          window: { limit: 50 },
-          includeToolOutput: true,
-        })
-      );
+      const nextSnapshot = await refreshSnapshot({
+        anchor: { messageId: targetId, strategy: "latestLeafInSubtree" },
+        window: { limit: 50 },
+        includeToolOutput: true,
+      });
       // 关键：切分支时，用服务端返回的"当前链快照"覆盖本地 messages（避免前端拼接导致重复渲染）
-      const messages = (data?.messages ?? []) as UIMessage[];
+      const messages = nextSnapshot.messages;
       chat.setMessages(messages);
       if (tabId) {
         clearToolPartsForTab(tabId);
         toolStream.syncFromMessages({ tabId, messages });
       }
-      setLeafMessageId(data?.leafMessageId ?? null);
-      setBranchMessageIds(data?.branchMessageIds ?? []);
-      setSiblingNav((data?.siblingNav ?? {}) as any);
     },
     [
       siblingNav,
       chat.stop,
       chat.setMessages,
-      queryClient,
-      sessionId,
       tabId,
       clearToolPartsForTab,
-      setLeafMessageId,
-      setBranchMessageIds,
-      setSiblingNav,
+      refreshSnapshot,
       toolStream,
     ]
   );
@@ -1294,11 +1250,16 @@ export default function ChatCoreProvider({
         clearToolPartsForTab(tabId);
         toolStream.syncFromMessages({ tabId, messages: slicedMessages });
       }
-      setLeafMessageId(parentUserMessageId);
-      const chainIdx = branchMessageIds.indexOf(parentUserMessageId);
-      if (chainIdx >= 0) {
-        setBranchMessageIds(branchMessageIds.slice(0, chainIdx + 1));
-      }
+      patchSnapshot((previous) => {
+        const chainIdx = previous.branchMessageIds.indexOf(parentUserMessageId);
+        return {
+          leafMessageId: parentUserMessageId,
+          branchMessageIds:
+            chainIdx >= 0
+              ? previous.branchMessageIds.slice(0, chainIdx + 1)
+              : previous.branchMessageIds,
+        };
+      });
 
       // 关键：retry 走 AI SDK v6 原生 regenerate（trigger: regenerate-message）
       pendingUserMessageIdRef.current = parentUserMessageId;
@@ -1319,9 +1280,7 @@ export default function ChatCoreProvider({
       siblingNav,
       tabId,
       clearToolPartsForTab,
-      branchMessageIds,
-      setLeafMessageId,
-      setBranchMessageIds,
+      patchSnapshot,
       toolStream,
     ]
   );
@@ -1348,17 +1307,20 @@ export default function ChatCoreProvider({
           clearToolPartsForTab(tabId);
           toolStream.syncFromMessages({ tabId, messages: slicedMessages });
         }
-        setLeafMessageId(parentMessageId);
-        const chainIdx = branchMessageIds.indexOf(parentMessageId);
-        if (chainIdx >= 0) {
-          setBranchMessageIds(branchMessageIds.slice(0, chainIdx + 1));
-        }
+        patchSnapshot((previous) => {
+          const chainIdx = previous.branchMessageIds.indexOf(parentMessageId);
+          return {
+            leafMessageId: parentMessageId,
+            branchMessageIds:
+              chainIdx >= 0
+                ? previous.branchMessageIds.slice(0, chainIdx + 1)
+                : previous.branchMessageIds,
+          };
+        });
       } else {
         chat.setMessages([]);
         if (tabId) clearToolPartsForTab(tabId);
-        setLeafMessageId(null);
-        setBranchMessageIds([]);
-        setSiblingNav({});
+        resetSnapshot();
       }
 
       const nextUserId = generateId();
@@ -1381,10 +1343,8 @@ export default function ChatCoreProvider({
       sendMessage,
       tabId,
       clearToolPartsForTab,
-      branchMessageIds,
-      setLeafMessageId,
-      setBranchMessageIds,
-      setSiblingNav,
+      patchSnapshot,
+      resetSnapshot,
       toolStream,
     ]
   );
@@ -1409,8 +1369,11 @@ export default function ChatCoreProvider({
       const parentMessageId = (result as any)?.parentMessageId ?? null;
 
       // 逻辑：删除后回到父节点视图，刷新消息与分支导航
-      const viewInput: Parameters<typeof trpc.chat.getChatView.queryOptions>[0] = {
-        sessionId,
+      const viewInput: {
+        window: { limit: number };
+        includeToolOutput: boolean;
+        anchor?: { messageId: string; strategy?: "self" | "latestLeafInSubtree" };
+      } = {
         window: { limit: 50 },
         includeToolOutput: false,
       };
@@ -1418,31 +1381,22 @@ export default function ChatCoreProvider({
         viewInput.anchor = { messageId: String(parentMessageId) };
       }
 
-      const data = await queryClient.fetchQuery(
-        trpc.chat.getChatView.queryOptions(viewInput)
-      );
-      const messages = (data?.messages ?? []) as UIMessage[];
+      const nextSnapshot = await refreshSnapshot(viewInput);
+      const messages = nextSnapshot.messages;
       chat.setMessages(messages);
       if (tabId) {
         clearToolPartsForTab(tabId);
         toolStream.syncFromMessages({ tabId, messages });
       }
-      setLeafMessageId(data?.leafMessageId ?? null);
-      setBranchMessageIds(data?.branchMessageIds ?? []);
-      setSiblingNav((data?.siblingNav ?? {}) as any);
       return true;
     },
     [
       chat.stop,
       chat.setMessages,
-      queryClient,
       deleteMessageSubtreeMutation.mutateAsync,
-      sessionId,
       tabId,
       clearToolPartsForTab,
-      setLeafMessageId,
-      setBranchMessageIds,
-      setSiblingNav,
+      refreshSnapshot,
       toolStream,
     ]
   );

@@ -123,6 +123,7 @@ export class ToolManager {
           ]);
         });
         this.engine.setPendingInsert(null);
+        this.engine.setActiveTool("select");
         return;
       }
       const [width, height] = pendingInsert.size ?? DEFAULT_NODE_SIZE;
@@ -134,6 +135,8 @@ export class ToolManager {
         height,
       ]);
       this.engine.setPendingInsert(null);
+      // 逻辑：pendingInsert 放置完成后切到选择工具，无论当前工具是什么。
+      this.engine.setActiveTool("select");
       return;
     }
 

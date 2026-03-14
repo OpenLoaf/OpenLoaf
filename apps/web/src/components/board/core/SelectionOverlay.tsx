@@ -33,6 +33,7 @@ import {
   MULTI_SELECTION_OUTLINE_PADDING,
   GUIDE_MARGIN,
   MIN_ZOOM,
+  SNAP_NEARBY_RANGE,
   SNAP_PIXEL,
 } from "../engine/constants";
 import { MINDMAP_META } from "../engine/mindmap-layout";
@@ -799,11 +800,17 @@ export function SingleSelectionOutline({
           // 逻辑：缩放下按屏幕像素换算吸附阈值。
           const threshold = SNAP_PIXEL / Math.max(currentZoom, MIN_ZOOM);
           const margin = GUIDE_MARGIN / Math.max(currentZoom, MIN_ZOOM);
+          // 逻辑：仅查询附近节点作为 resize 吸附候选，避免全局扫描。
+          const [ex, ey, ew, eh] = element.xywh;
+          const nearbyRect = {
+            x: ex - SNAP_NEARBY_RANGE,
+            y: ey - SNAP_NEARBY_RANGE,
+            w: ew + SNAP_NEARBY_RANGE * 2,
+            h: eh + SNAP_NEARBY_RANGE * 2,
+          };
           const others = engine.doc
-            .getElements()
-            .filter(
-              current => current.kind === "node" && current.id !== element.id
-            )
+            .getNodeCandidatesInRect(nearbyRect)
+            .filter(current => current.id !== element.id)
             .map(current => {
               const [x, y, widthValue, heightValue] = current.xywh;
               return { x, y, w: widthValue, h: heightValue };

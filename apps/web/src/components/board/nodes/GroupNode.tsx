@@ -20,7 +20,7 @@ import {
   BOARD_TOOLBAR_ITEM_AMBER,
   BOARD_TOOLBAR_ITEM_BLUE,
 } from "../ui/board-style-system";
-import { GROUP_NODE_TYPE, IMAGE_GROUP_NODE_TYPE, getGroupMemberIds } from "../engine/grouping";
+import { GROUP_NODE_TYPE, IMAGE_GROUP_NODE_TYPE } from "../engine/grouping";
 import { NodeFrame } from "./NodeFrame";
 import {
   getBoardChatMessageMeta,
@@ -79,15 +79,14 @@ function createGroupToolbarItems(ctx: CanvasToolbarContext<GroupNodeProps>) {
     ];
   }
 
-  const elements = ctx.engine.doc.getElements();
-  const memberIds = getGroupMemberIds(elements, groupId);
-  const memberTypes = memberIds.map(id => {
-    const el = elements.find((e: { id: string }) => e.id === id);
+  const memberIds = ctx.engine.getGroupMemberIds(groupId);
+  const memberTypes = memberIds.map((id: string) => {
+    const el = ctx.engine.doc.getElementById(id);
     return el?.kind === "node" ? el.type : null;
   });
   const allSameMediaType =
     memberTypes.length > 0 &&
-    memberTypes.every(t => t !== null && UNIFORM_SIZE_TYPES.has(t)) &&
+    memberTypes.every((type: string | null) => type !== null && UNIFORM_SIZE_TYPES.has(type)) &&
     new Set(memberTypes).size === 1;
 
   const items = [

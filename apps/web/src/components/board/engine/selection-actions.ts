@@ -83,10 +83,10 @@ function groupSelection(deps: SelectionDeps, nodeIds: string[]): void {
       deps.doc.updateElement(node.id, { meta });
     });
 
-    // 逻辑：合并组内节点指向同一外部节点的连线。
+    // 逻辑：按外部目标节点分组合并连线，每个外部节点保留一条。
     const childIdSet = new Set(childIds);
-    const mergeCandidates: CanvasConnectorElement[] = [];
-    const externalIds = new Set<string>();
+    // 按 "方向:外部节点ID" 分桶收集跨组连线。
+    const buckets = new Map<string, CanvasConnectorElement[]>();
     deps.doc.getElements().forEach(element => {
       if (element.kind !== "connector") return;
       if (!("elementId" in element.source) || !("elementId" in element.target)) return;
@@ -95,12 +95,18 @@ function groupSelection(deps: SelectionDeps, nodeIds: string[]): void {
       const sourceInGroup = childIdSet.has(sourceId);
       const targetInGroup = childIdSet.has(targetId);
       if (sourceInGroup === targetInGroup) return;
-      mergeCandidates.push(element);
-      externalIds.add(sourceInGroup ? targetId : sourceId);
+      const key = sourceInGroup ? `out:${targetId}` : `in:${sourceId}`;
+      let bucket = buckets.get(key);
+      if (!bucket) {
+        bucket = [];
+        buckets.set(key, bucket);
+      }
+      bucket.push(element);
     });
 
-    if (externalIds.size === 1 && mergeCandidates.length > 0) {
-      const [keeper, ...toDelete] = mergeCandidates;
+    buckets.forEach(connectors => {
+      if (connectors.length === 0) return;
+      const [keeper, ...toDelete] = connectors;
       const sourceInGroup =
         "elementId" in keeper.source && childIdSet.has(keeper.source.elementId);
       const update: Partial<CanvasConnectorElement> = sourceInGroup
@@ -108,7 +114,7 @@ function groupSelection(deps: SelectionDeps, nodeIds: string[]): void {
         : { target: { ...keeper.target, elementId: groupId } };
       deps.doc.updateElement(keeper.id, update);
       toDelete.forEach(connector => deps.doc.deleteElement(connector.id));
-    }
+    });
   });
   deps.selection.setSelection([groupId]);
   deps.commitHistory();

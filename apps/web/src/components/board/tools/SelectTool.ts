@@ -19,6 +19,7 @@ import {
   GUIDE_MARGIN,
   MIN_ZOOM,
   SELECTION_BOX_THRESHOLD,
+  SNAP_NEARBY_RANGE,
   SNAP_PIXEL,
 } from "../engine/constants";
 import { MINDMAP_META } from "../engine/mindmap-layout";
@@ -397,15 +398,27 @@ export class SelectTool implements CanvasTool {
       // 逻辑：在拖拽激活时一次性计算 group bounds、dragging set 和 snap 目标，避免每帧重复 O(n) 计算。
       this.cachedDragGroupBounds = this.getDragGroupBounds();
       this.cachedDraggingSet = new Set(this.draggingIds);
-      this.cachedOthersRects = ctx.engine.doc
-        .getElements()
-        .reduce<CanvasRect[]>((acc, element) => {
-          if (element.kind === "node" && !this.cachedDraggingSet!.has(element.id)) {
-            const [x, y, width, height] = element.xywh;
-            acc.push({ x, y, w: width, h: height });
-          }
-          return acc;
-        }, []);
+      // 逻辑：仅查询拖拽节点附近的节点作为对齐候选，避免全局扫描。
+      const groupBounds = this.cachedDragGroupBounds;
+      if (groupBounds) {
+        const queryRect: CanvasRect = {
+          x: groupBounds.x - SNAP_NEARBY_RANGE,
+          y: groupBounds.y - SNAP_NEARBY_RANGE,
+          w: groupBounds.w + SNAP_NEARBY_RANGE * 2,
+          h: groupBounds.h + SNAP_NEARBY_RANGE * 2,
+        };
+        this.cachedOthersRects = ctx.engine.doc
+          .getNodeCandidatesInRect(queryRect)
+          .reduce<CanvasRect[]>((acc, node) => {
+            if (!this.cachedDraggingSet!.has(node.id)) {
+              const [x, y, width, height] = node.xywh;
+              acc.push({ x, y, w: width, h: height });
+            }
+            return acc;
+          }, []);
+      } else {
+        this.cachedOthersRects = [];
+      }
     }
 
     const group = this.cachedDragGroupBounds;
