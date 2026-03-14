@@ -10,12 +10,12 @@
 "use client";
 
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLayoutState } from "@/hooks/use-layout-state";
-import { isBoardWindowMode } from "@/lib/window-mode";
+import { resolveRightChatState } from "@/hooks/layout-utils";
 import { Sparkles } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { Button } from "@openloaf/ui/button";
@@ -26,9 +26,13 @@ import { Search as SearchDialog } from "@/components/search/Search";
 
 export const Header = () => {
   const activeTab = useAppState();
-  // 除 AI 助手页面（无 base）外，所有页面都显示 chat 切换按钮
-  const canToggleChat = isBoardWindowMode() || Boolean(activeTab?.base);
-  const isChatCollapsed = Boolean(activeTab?.rightChatCollapsed);
+  const rightChatState = useMemo(
+    () => resolveRightChatState(activeTab),
+    [activeTab],
+  );
+  // 中文注释：右侧聊天按钮与主布局共用同一套显隐规则，避免 Header 和 TabLayout 各自解释状态。
+  const canToggleChat = rightChatState.canToggle;
+  const isChatCollapsed = rightChatState.isCollapsed;
   const setHeaderActionsTarget = useHeaderSlot((s) => s.setHeaderActionsTarget);
   const setHeaderTitleExtraTarget = useHeaderSlot((s) => s.setHeaderTitleExtraTarget);
   const [actionsNode, setActionsNode] = useState<HTMLDivElement | null>(null);

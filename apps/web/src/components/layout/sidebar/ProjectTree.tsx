@@ -14,9 +14,9 @@ import { useTranslation } from "react-i18next";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useAppState, getAppState } from "@/hooks/use-app-state";
-import { useProjectLayout } from "@/hooks/use-project-layout";
-import { useNavigation } from "@/hooks/use-navigation";
 import { isElectronEnv } from "@/utils/is-electron-env";
+import { resolveProjectModeProjectShell } from "@/lib/project-mode";
+import { openProjectShell } from "@/lib/project-shell";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   SidebarMenuAction,
@@ -561,7 +561,6 @@ export const PageTreeMenu = ({
   const navigate = useAppView((s) => s.navigate);
   const setViewTitle = useAppView((s) => s.setTitle);
   const appState = useAppState();
-  const setActiveProject = useNavigation((s) => s.setActiveProject);
   const isElectron = isElectronEnv();
   const queryClient = useQueryClient();
   const renameProject = useMutation(trpc.project.update.mutationOptions());
@@ -736,25 +735,13 @@ export const PageTreeMenu = ({
 
   const setChatSession = useAppView((s) => s.setChatSession);
   const openProjectTab = (project: ProjectInfo) => {
-    const targetProjectId = project.projectId;
-
-    // 更新导航状态
-    setActiveProject(targetProjectId);
-
-    // 逻辑：单视图模式下直接导航到项目，恢复该项目保存的布局偏好。
-    const savedLayout = useProjectLayout.getState().getProjectLayout(targetProjectId);
-    navigate({
+    // 中文注释：项目树打开项目统一走 project-shell，避免旁路导航丢失项目上下文。
+    openProjectShell({
+      projectId: project.projectId,
+      rootUri: project.rootUri,
       title: project.title || "Untitled Project",
       icon: project.icon ?? undefined,
-      base: {
-        id: `project:${targetProjectId}`,
-        component: "plant-page",
-        // 逻辑：从项目树打开项目时回到项目看板，而不是画布列表。
-        params: { projectId: targetProjectId, rootUri: project.rootUri, projectTab: "index" },
-      },
-      leftWidthPercent: savedLayout?.leftWidthPercent ?? 100,
-      rightChatCollapsed: savedLayout?.rightChatCollapsed ?? false,
-      chatParams: { projectId: targetProjectId },
+      section: "index",
     });
   };
 
@@ -765,6 +752,7 @@ export const PageTreeMenu = ({
       : getDisplayFileName(node.name, node.ext);
 
     const resolvedRootUri = projectRootById.get(node.projectId ?? "") ?? undefined;
+    const currentProjectShell = resolveProjectModeProjectShell(appState.projectShell);
     if (isBoardFolderName(node.name)) {
       const boardId = node.uri.split("/").filter(Boolean).pop() ?? node.uri;
       navigate({
@@ -772,6 +760,9 @@ export const PageTreeMenu = ({
         icon: "📄",
         ...buildBoardChatTabState(boardId, node.projectId),
         leftWidthPercent: 70,
+        ...(currentProjectShell && currentProjectShell.projectId === node.projectId
+          ? { projectShell: currentProjectShell }
+          : {}),
         base: {
           id: baseId,
           component: "board-viewer",
@@ -782,6 +773,7 @@ export const PageTreeMenu = ({
             boardFileUri: buildChildUri(node.uri, BOARD_INDEX_FILE_NAME),
             projectId: node.projectId,
             rootUri: resolvedRootUri,
+            __previousBase: appState.base ?? null,
           },
         },
         chatParams: { projectId: node.projectId },

@@ -1,5 +1,6 @@
 "use client";
 
+import type { DockItem } from "@openloaf/api/common";
 import { PROJECT_LIST_TAB_INPUT } from "@openloaf/api/common";
 import { useNavigation } from "@/hooks/use-navigation";
 import { useProjectLayout } from "@/hooks/use-project-layout";
@@ -12,6 +13,7 @@ export const PROJECT_SHELL_SECTIONS = [
   "index",
   "files",
   "history",
+  "scheduled",
   "settings",
 ] as const;
 
@@ -31,12 +33,69 @@ type ProjectShellInput = Omit<ProjectShellState, "section"> & {
 
 export type OpenProjectSettingsPageInput = Omit<ProjectShellState, "section">;
 
+export type ProjectShellPageTab =
+  | "index"
+  | "files"
+  | "canvas"
+  | "tasks"
+  | "scheduled"
+  | "settings";
+
 /** Return true when the value is a supported project-shell section. */
 export function isProjectShellSection(value: unknown): value is ProjectShellSection {
   return (
     typeof value === "string" &&
     (PROJECT_SHELL_SECTIONS as readonly string[]).includes(value)
   );
+}
+
+/** Resolve project-shell section from one plant-page tab value. */
+export function resolveProjectShellSectionFromProjectTab(
+  projectTab: string | null | undefined,
+): ProjectShellSection | null {
+  switch (projectTab?.trim()) {
+    case "index":
+      return "index";
+    case "files":
+      return "files";
+    case "canvas":
+      return "canvas";
+    case "tasks":
+      return "history";
+    case "scheduled":
+      return "scheduled";
+    case "settings":
+      return "settings";
+    default:
+      return null;
+  }
+}
+
+/** Build project-shell state from the current plant-page base when metadata is missing. */
+export function buildProjectShellStateFromBase(input: {
+  base?: DockItem;
+  title?: string;
+  icon?: string | null;
+}): ProjectShellState | null {
+  if (input.base?.component !== "plant-page") return null;
+
+  const params = (input.base.params ?? {}) as Record<string, unknown>;
+  const projectId =
+    typeof params.projectId === "string" ? params.projectId.trim() : "";
+  const rootUri = typeof params.rootUri === "string" ? params.rootUri.trim() : "";
+  const section = resolveProjectShellSectionFromProjectTab(
+    typeof params.projectTab === "string" ? params.projectTab : "",
+  );
+
+  if (!projectId || !rootUri || !section) return null;
+
+  return {
+    projectId,
+    rootUri,
+    title: input.title?.trim() || projectId,
+    icon: input.icon ?? null,
+    section,
+  };
 }
 
 /** Build the left-dock base item for one project-shell section. */
@@ -64,6 +123,16 @@ export function buildProjectShellBase(
           projectId: input.projectId,
           rootUri: input.rootUri,
           projectTab: "tasks",
+        },
+      };
+    case "scheduled":
+      return {
+        id: `project:${input.projectId}`,
+        component: "plant-page",
+        params: {
+          projectId: input.projectId,
+          rootUri: input.rootUri,
+          projectTab: "scheduled",
         },
       };
     case "canvas":

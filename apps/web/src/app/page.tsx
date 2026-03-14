@@ -15,6 +15,7 @@ import {
   SidebarProvider,
 } from "@openloaf/ui/sidebar";
 import { AppBootstrap } from "@/components/layout/AppBootstrap";
+import { LayoutStateBridge } from "@/components/layout/LayoutStateBridge";
 import { Header } from "@/components/layout/header/Header";
 import { AppSidebar } from "@/components/layout/sidebar/Sidebar";
 import { MainContent } from "@/components/layout/MainContext";
@@ -24,6 +25,7 @@ import { FeedbackDialog } from "@/components/layout/sidebar/FeedbackDialog";
 function PageContent() {
   return (
     <>
+      <LayoutStateBridge />
       <Header />
       <div
         data-slot="page-main-row"

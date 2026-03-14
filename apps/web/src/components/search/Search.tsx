@@ -27,6 +27,7 @@ import { useProjects } from "@/hooks/use-projects";
 import { useDebounce } from "@/hooks/use-debounce";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
 import { resolveProjectModeProjectShell } from "@/lib/project-mode";
+import { openProjectShell } from "@/lib/project-shell";
 import { WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
 import { trpc } from "@/utils/trpc";
 import { useQueries, skipToken, useQuery } from "@tanstack/react-query";
@@ -73,6 +74,7 @@ export function Search({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation('common');
   const navigate = useAppView((s) => s.navigate);
   const setBaseParams = useLayoutState((s) => s.setBaseParams);
   const activeTab = useAppState();
@@ -287,24 +289,21 @@ export function Search({
         handleOpenChange(false);
         return;
       }
-      navigate({
+      openProjectShell({
+        projectId,
+        rootUri,
         title: projectTitle || t('untitledProject'),
         icon: projectHierarchy.projectById.get(projectId)?.icon ?? undefined,
-        leftWidthPercent: 90,
-        base: {
-          id: baseId,
-          component: "plant-page",
-          params: { projectId, rootUri, projectTab: "files", fileUri: targetUri },
-        },
-        chatParams: { projectId },
+        section: "files",
       });
+      setBaseParams({ projectTab: "files", fileUri: targetUri });
       handleOpenChange(false);
     },
     [
-      navigate,
       handleOpenChange,
       projectHierarchy.projectById,
       setBaseParams,
+      t,
     ],
   );
 
@@ -554,7 +553,6 @@ export function Search({
       thumbnailByKey,
     ],
   );
-  const { t } = useTranslation('common');
   /** 当前项目最近打开的标题。 */
   const recentProjectHeading = React.useMemo(() => {
     if (scopedProjectTitle?.trim()) return scopedProjectTitle;

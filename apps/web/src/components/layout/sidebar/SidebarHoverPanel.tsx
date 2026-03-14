@@ -39,12 +39,7 @@ import { Input } from '@openloaf/ui/input'
 import { trpc } from '@/utils/trpc'
 import { useProjects } from '@/hooks/use-projects'
 import { useSidebarNavigation } from '@/hooks/use-sidebar-navigation'
-import { useAppView } from '@/hooks/use-app-view'
-import { useLayoutState } from '@/hooks/use-layout-state'
 import { useNavigation } from '@/hooks/use-navigation'
-import { buildFileUriFromRoot } from '@/components/project/filesystem/utils/file-system-utils'
-import { BOARD_META_FILE_NAME } from '@/lib/file-name'
-import { buildBoardChatTabState } from '@/components/board/utils/board-chat-tab'
 import type { ProjectNode } from '@openloaf/api/services/projectTreeService'
 
 interface SidebarHoverPanelProps {
@@ -193,8 +188,6 @@ export function SidebarHoverPanel({
   const projectRootUriMap = useMemo(() => buildProjectRootUriMap(projects), [projects])
   const queryClient = useQueryClient()
 
-  const navigate = useAppView((s) => s.navigate)
-  const base = useLayoutState((s) => s.base)
   const setActiveView = useNavigation((s) => s.setActiveView)
 
   // --- Controlled HoverCard: lock when menu/dialog is open ---
@@ -327,33 +320,16 @@ export function SidebarHoverPanel({
         ? projectRootUriMap.get(targetProjectId)
         : undefined
       if (!targetProjectId || !targetRootUri || !item.folderUri) return
-      const boardFolderUri = buildFileUriFromRoot(targetRootUri, item.folderUri)
-      const boardFileUri = buildFileUriFromRoot(
-        targetRootUri,
-        `${item.folderUri}${BOARD_META_FILE_NAME}`,
-      )
-      const baseId = `board:${boardFolderUri}`
-
-      navigate({
+      nav.openBoard({
+        boardId: item.id,
         title: item.title || t('canvasList.untitled'),
-        icon: '🎨',
-        ...buildBoardChatTabState(item.id, targetProjectId),
-        leftWidthPercent: 100,
-        base: {
-          id: baseId,
-          component: 'board-viewer',
-          params: {
-            boardFolderUri,
-            boardFileUri,
-            boardId: item.id,
-            projectId: targetProjectId,
-            rootUri: targetRootUri,
-          },
-        },
+        folderUri: item.folderUri,
+        rootUri: targetRootUri,
+        projectId: targetProjectId,
       })
       setActiveView('canvas-list')
     },
-    [projectId, projectRootUriMap, navigate, setActiveView, t],
+    [nav, projectId, projectRootUriMap, setActiveView, t],
   )
 
   const handleItemClick = useCallback(

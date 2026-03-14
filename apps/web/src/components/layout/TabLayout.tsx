@@ -23,6 +23,7 @@ import { useLayoutState } from "@/hooks/use-layout-state"
 import {
   LEFT_DOCK_MIN_PX,
   LEFT_DOCK_DEFAULT_PERCENT,
+  resolveRightChatState,
 } from "@/hooks/layout-utils"
 import { useProjectLayout } from "@/hooks/use-project-layout"
 import { useRecordEntityVisit } from "@/hooks/use-record-entity-visit"
@@ -414,14 +415,14 @@ export function TabLayout() {
     Boolean(base) ||
     (!stackHidden && (stack?.length ?? 0) > 0)
   const storedLeftWidthPercent = hasLeftContent ? leftWidthPercent ?? 0 : 0
-  // Chat 面板完全由 rightChatCollapsed 状态控制，用户可在任何有 base 的页面手动 toggle。
-  // 没有 base 时，聊天面板始终可见（全屏聊天模式）。
-  const isRightCollapsed = base ? Boolean(rightChatCollapsed) : false
+  const rightChatState = resolveRightChatState({ base, rightChatCollapsed })
+  // 中文注释：主布局和 Header 统一使用同一个右侧聊天判定，避免折叠状态被各自解释。
+  const isRightCollapsed = rightChatState.isCollapsed
 
   const effectiveMinLeft = minLeftWidth ?? LEFT_DOCK_MIN_PX
 
   const isLeftVisible = storedLeftWidthPercent > 0
-  const isRightVisible = !isRightCollapsed
+  const isRightVisible = rightChatState.isVisible
 
   let targetSplitPercent = 50
   let targetDividerWidth = 0
