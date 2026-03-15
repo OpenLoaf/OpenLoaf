@@ -195,6 +195,19 @@ export class PixiConnectorLayer {
           color: palette.connector,
           alpha: STROKE_ALPHA,
         })
+
+        // draft 箭头
+        if (draftPoints.length >= 2) {
+          this.drawArrowHead(
+            g,
+            draftPoints[draftPoints.length - 2]!,
+            draftPoints[draftPoints.length - 1]!,
+            ARROW_SIZE,
+            palette.connector,
+            STROKE_WIDTH,
+            STROKE_ALPHA,
+          )
+        }
       }
     }
   }
