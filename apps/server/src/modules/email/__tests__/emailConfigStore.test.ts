@@ -14,16 +14,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { setOpenLoafRootOverride } from "@openloaf/config";
-import type { EmailConfigFile } from "../emailConfigStore";
-
-let emailConfig: typeof import("../emailConfigStore");
-try {
-  emailConfig = await import("../emailConfigStore");
-} catch {
-  assert.fail("emailConfigStore module should exist.");
-}
-
-const { getEmailConfigPath, readEmailConfigFile, writeEmailConfigFile } = emailConfig;
+import {
+  getEmailConfigPath,
+  readEmailConfigFile,
+  writeEmailConfigFile,
+  type EmailConfigFile,
+} from "../emailConfigStore";
 
 const configRoot = mkdtempSync(path.join(tmpdir(), "openloaf-email-config-"));
 setOpenLoafRootOverride(configRoot);

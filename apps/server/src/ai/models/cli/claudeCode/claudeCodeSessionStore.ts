@@ -49,11 +49,6 @@ export function setCachedCcSession(chatSessionId: string, entry: CcSessionCacheE
   pruneCcSessionCache();
 }
 
-/** Clear cached Claude Code session for a chat session. */
-export function clearCachedCcSession(chatSessionId: string): void {
-  ccSessionCache.delete(chatSessionId);
-}
-
 /** Check whether cache entry expired. */
 function isCcSessionCacheExpired(entry: CcSessionCacheEntry): boolean {
   return Date.now() - entry.lastUsedAt > CC_CACHE_TTL_MS;

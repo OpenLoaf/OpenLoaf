@@ -14,7 +14,6 @@
 
 export type { AgentTemplate, AgentTemplateId } from './types'
 export {
-  ALL_TEMPLATES,
   getTemplate,
   isTemplateId,
   getPrimaryTemplate,

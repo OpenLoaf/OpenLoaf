@@ -42,7 +42,7 @@ import {
   getRefreshToken,
   applyTokenExchangeResult,
 } from '@/modules/auth/tokenStore'
-import { refreshAccessToken } from '@/modules/saas/modules/auth'
+import { refreshAccessToken } from '@/modules/saas/modules/auth/client'
 import { readBasicConf, writeBasicConf } from '@/modules/settings/openloafConfStore'
 
 import {

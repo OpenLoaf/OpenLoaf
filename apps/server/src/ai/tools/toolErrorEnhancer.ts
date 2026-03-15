@@ -186,7 +186,7 @@ function findRecoveryHint(errorMsg: string): string {
 // ---------------------------------------------------------------------------
 
 /** Enhance an error message with structured recovery hints. */
-export function enhanceToolError(toolId: string, errorMsg: string): string {
+function enhanceToolError(toolId: string, errorMsg: string): string {
   const failureCount = trackFailure(toolId, errorMsg)
   const hint = findRecoveryHint(errorMsg)
 

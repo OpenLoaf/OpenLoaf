@@ -55,20 +55,3 @@ export function assembleMemoryBlocks(
     return `<system-reminder>\n${header}\n\n${block.content}\n</system-reminder>`
   })
 }
-
-/**
- * Assemble memory section for injection into session preface.
- * Returns empty string if no memory files exist.
- * @deprecated Use assembleMemoryBlocks() for independent memory blocks instead.
- */
-export function assembleMemorySection(
-  input: AssembleMemoryInput,
-): string {
-  const content = resolveMemoryContent({
-    userHomePath: input.userHomePath,
-    projectRootPath: input.projectRootPath,
-    parentProjectRootPaths: input.parentProjectRootPaths,
-  })
-  if (!content) return ''
-  return `# Memory\n${content}`
-}

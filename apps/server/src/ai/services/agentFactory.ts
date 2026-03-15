@@ -80,7 +80,7 @@ export type MasterAgentModelInfo = {
 }
 
 /** Read base system prompt markdown content. */
-export function readMasterAgentBasePrompt(lang?: string): string {
+function readMasterAgentBasePrompt(lang?: string): string {
   return getMasterPrompt(lang)
 }
 
@@ -244,7 +244,7 @@ export type CreatePMAgentInput = {
 }
 
 /** Read PM agent base prompt. */
-export function readPMAgentBasePrompt(lang?: string): string {
+function readPMAgentBasePrompt(lang?: string): string {
   return getPMPrompt(lang)
 }
 
@@ -456,7 +456,7 @@ function ensureAgentToolIds(toolIds: readonly string[], allowSubAgents?: boolean
 }
 
 /** Create a ToolLoopAgent from an AgentConfig. */
-export function createDynamicAgentFromConfig(
+function createDynamicAgentFromConfig(
   config: AgentConfig,
   model: LanguageModelV3,
 ): ToolLoopAgent {

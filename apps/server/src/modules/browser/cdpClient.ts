@@ -46,7 +46,7 @@ async function getCachedTargetList(): Promise<CdpTargetList> {
 /**
  * Resolve a CDP websocket URL for a given targetId.
  */
-export async function resolveTargetWebSocketUrl(targetId: string): Promise<string> {
+async function resolveTargetWebSocketUrl(targetId: string): Promise<string> {
   // 通过 /json/list 定位 targetId 对应的 websocket 地址。
   const list = await getCachedTargetList();
   const found = list.find((item) => item?.id === targetId);

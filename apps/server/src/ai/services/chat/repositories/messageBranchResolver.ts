@@ -22,7 +22,7 @@ type ChainPathRow = {
 };
 
 /** Build root-to-leaf prefixes from a materialized path. */
-export function getMessagePathPrefixes(pathValue: string): string[] {
+function getMessagePathPrefixes(pathValue: string): string[] {
   const normalizedPath = String(pathValue ?? "").trim();
   if (!normalizedPath) return [];
   const segments = normalizedPath.split("/").filter(Boolean);

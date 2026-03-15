@@ -80,7 +80,7 @@ export function storeOAuthTokens(
  * Read OAuth tokens from .env for a given email account.
  * Returns null if tokens are not found.
  */
-export function getOAuthTokens(
+function getOAuthTokens(
   emailAddress: string,
 ): OAuthTokenSet | null {
   const slug = toEmailSlug(emailAddress);
@@ -103,7 +103,7 @@ export function getOAuthTokens(
 /**
  * Remove all OAuth token entries from .env for a given email account.
  */
-export function removeOAuthTokens(
+function removeOAuthTokens(
   emailAddress: string,
 ): void {
   const slug = toEmailSlug(emailAddress);

@@ -127,7 +127,7 @@ export function createS3StorageService(provider: S3ProviderConfig): S3StorageSer
 /**
  * Build a public URL for a key based on provider configuration.
  */
-export function resolveS3PublicUrl(config: S3ClientConfig, key: string): string {
+function resolveS3PublicUrl(config: S3ClientConfig, key: string): string {
   if (config.publicBaseUrl) {
     const baseUrl = resolveS3Template(config.publicBaseUrl, config);
     return joinUrl(baseUrl, key);
@@ -156,7 +156,7 @@ export function resolveS3PublicUrl(config: S3ClientConfig, key: string): string 
 /**
  * Build the S3 tagging header string for lifecycle rules.
  */
-export function formatS3TaggingHeader(tagging?: S3ObjectTagging): string | undefined {
+function formatS3TaggingHeader(tagging?: S3ObjectTagging): string | undefined {
   if (!tagging) return undefined;
   const pairs: string[] = [];
 

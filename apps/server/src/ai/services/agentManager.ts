@@ -971,13 +971,13 @@ class AgentManagerRegistry {
 }
 
 /** Global agent manager registry (session-isolated). */
-export const agentRegistry = new AgentManagerRegistry()
+const agentRegistry = new AgentManagerRegistry()
 
 /**
  * Convenience: get the AgentManager for the current session.
  * Falls back to a shared 'global' manager if no sessionId is available.
  */
-export function getAgentManager(): AgentManager {
+function getAgentManager(): AgentManager {
   const sessionId = getSessionId() || '__global__'
   return agentRegistry.get(sessionId)
 }

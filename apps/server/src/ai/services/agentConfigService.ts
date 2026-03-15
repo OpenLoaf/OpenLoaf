@@ -284,17 +284,6 @@ export function readAgentConfigFromPath(
   }
 }
 
-/** Read agent system prompt (body without front matter). */
-export function readAgentContentFromPath(filePath: string): string {
-  if (!existsSync(filePath)) return ''
-  try {
-    const content = readFileSync(filePath, 'utf8')
-    return stripFrontMatter(content)
-  } catch {
-    return ''
-  }
-}
-
 function resolveAgentSources(input: {
   projectRootPath?: string
   parentProjectRootPaths?: string[]
@@ -645,18 +634,4 @@ export function serializeAgentToMarkdown(config: {
     lines.push('')
   }
   return lines.join('\n')
-}
-
-/** Write agent config to AGENT.md file. Creates directory if needed. */
-export function writeAgentFile(
-  rootPath: string,
-  agentName: string,
-  content: string,
-): string {
-  const sanitizedName = agentName.replace(/[^a-zA-Z0-9_-]/g, '-').toLowerCase()
-  const agentDir = path.join(rootPath, AGENTS_META_DIR, AGENTS_DIR_NAME, sanitizedName)
-  mkdirSync(agentDir, { recursive: true })
-  const filePath = path.join(agentDir, AGENT_FILE_NAME)
-  writeFileSync(filePath, content, 'utf8')
-  return filePath
 }

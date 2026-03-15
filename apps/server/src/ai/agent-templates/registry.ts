@@ -16,7 +16,7 @@ import type { AgentTemplate, AgentTemplateId } from './types'
 import { masterTemplate } from './templates/master'
 
 /** 所有 Agent 模版（仅 master）。 */
-export const ALL_TEMPLATES: readonly AgentTemplate[] = [
+const ALL_TEMPLATES: readonly AgentTemplate[] = [
   masterTemplate,
 ] as const
 
@@ -39,4 +39,3 @@ export function isTemplateId(id: string): id is AgentTemplateId {
 export function getPrimaryTemplate(): AgentTemplate {
   return masterTemplate
 }
-

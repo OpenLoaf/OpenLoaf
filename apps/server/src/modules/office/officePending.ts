@@ -60,13 +60,3 @@ export function resolveOfficeCommandAck(
   entry.resolve(payload);
   return "resolved";
 }
-
-export function normalizeTimeoutSec(timeoutSec: number | undefined): number {
-  const value = Number.isFinite(timeoutSec) ? Math.floor(timeoutSec as number) : 60;
-  if (value <= 0) return 60;
-  if (value > 24 * 60 * 60) {
-    logger.warn({ timeoutSec: value }, "office timeoutSec too large; capping to 24h");
-    return 24 * 60 * 60;
-  }
-  return value;
-}

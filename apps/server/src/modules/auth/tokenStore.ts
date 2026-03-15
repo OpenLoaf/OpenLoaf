@@ -86,7 +86,7 @@ export function getAccessToken(): string | undefined {
 /**
  * Check whether access token is valid and not near expiration.
  */
-export function isAccessTokenValid(): boolean {
+function isAccessTokenValid(): boolean {
   if (!sessionState.accessToken) return false;
   if (!sessionState.accessTokenExpiresAt) return true;
   // 逻辑：预留缓冲区，避免即将过期的 token 被继续使用。
@@ -96,7 +96,7 @@ export function isAccessTokenValid(): boolean {
 /**
  * Load refresh token from config when needed.
  */
-export function loadRefreshTokenIfNeeded(): string | undefined {
+function loadRefreshTokenIfNeeded(): string | undefined {
   if (!refreshTokenLoaded) {
     refreshTokenLoaded = true;
     const stored = readAuthRefreshToken();
@@ -108,7 +108,7 @@ export function loadRefreshTokenIfNeeded(): string | undefined {
 /**
  * Persist refresh token to config and memory.
  */
-export function setRefreshToken(refreshToken: string): void {
+function setRefreshToken(refreshToken: string): void {
   sessionState.refreshToken = refreshToken;
   refreshTokenLoaded = true;
   writeAuthRefreshToken(refreshToken);
@@ -117,7 +117,7 @@ export function setRefreshToken(refreshToken: string): void {
 /**
  * Clear auth session and persisted refresh token.
  */
-export function clearAuthSession(): void {
+function clearAuthSession(): void {
   sessionState.accessToken = undefined;
   sessionState.accessTokenExpiresAt = undefined;
   sessionState.user = undefined;

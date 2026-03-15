@@ -155,11 +155,3 @@ export function getCdpSession(input: { targetId: string; wsUrl: string }) {
   sessionPool.set(input.targetId, session);
   return session;
 }
-
-/**
- * Get the current CDP base URL for debugging purposes.
- */
-export function getCdpBaseUrl() {
-  const config = getCdpConfig();
-  return config.baseUrl;
-}

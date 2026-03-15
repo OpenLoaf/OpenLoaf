@@ -91,50 +91,6 @@ export async function ensureSessionPreface(input: {
   })
 }
 
-/** Save a compaction prompt message (user) for context trimming. */
-export async function saveCompactPromptMessage(input: {
-  sessionId: string
-  parentMessageId: string | null
-  text: string
-  createdAt?: Date
-}): Promise<SaveMessageResult> {
-  const message: OpenLoafUIMessage = {
-    id: generateId(),
-    role: 'user',
-    parentMessageId: input.parentMessageId,
-    messageKind: 'compact_prompt',
-    parts: [{ type: 'text', text: input.text }],
-  }
-  return saveMessage({
-    sessionId: input.sessionId,
-    message,
-    parentMessageId: input.parentMessageId,
-    createdAt: input.createdAt,
-  })
-}
-
-/** Save a compaction summary message (assistant) for context trimming. */
-export async function saveCompactSummaryMessage(input: {
-  sessionId: string
-  parentMessageId: string | null
-  text: string
-  createdAt?: Date
-}): Promise<SaveMessageResult> {
-  const message: OpenLoafUIMessage = {
-    id: generateId(),
-    role: 'assistant',
-    parentMessageId: input.parentMessageId,
-    messageKind: 'compact_summary',
-    parts: [{ type: 'text', text: input.text }],
-  }
-  return saveMessage({
-    sessionId: input.sessionId,
-    message,
-    parentMessageId: input.parentMessageId,
-    createdAt: input.createdAt,
-  })
-}
-
 /** Set the latest error message for a chat session. */
 export async function setSessionErrorMessage(input: {
   sessionId: string

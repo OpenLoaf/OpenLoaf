@@ -101,7 +101,7 @@ async function resolveReleaseFiles(releaseId: string): Promise<PythonReleaseFile
 }
 
 /** Resolve installer file for current platform. */
-export async function resolvePythonInstallerFile(): Promise<{
+async function resolvePythonInstallerFile(): Promise<{
   version: string;
   url: string;
   sha256: string;

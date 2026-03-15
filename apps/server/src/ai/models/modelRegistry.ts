@@ -110,12 +110,6 @@ async function loadRegistryCache(): Promise<RegistryCache> {
   return fetchPromise;
 }
 
-/** Invalidate cached registry so next access re-fetches from SaaS. */
-export function invalidateModelRegistry() {
-  cachedRegistry = null;
-  fetchPromise = null;
-}
-
 /** Resolve provider definition by id. */
 export async function getProviderDefinition(
   providerId: string,

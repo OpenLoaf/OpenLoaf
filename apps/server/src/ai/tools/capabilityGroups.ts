@@ -171,18 +171,3 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = RAW_CAPABILITY_GROUPS.map(
 const CAPABILITY_GROUP_MAP = new Map(
   CAPABILITY_GROUPS.map((group) => [group.id, group]),
 )
-
-/** 根据能力组 ID 列表解析出所有工具 ID（去重）。 */
-export function resolveToolIdsFromCapabilities(
-  capabilityIds: readonly string[],
-): string[] {
-  const toolIdSet = new Set<string>()
-  for (const capId of capabilityIds) {
-    const group = CAPABILITY_GROUP_MAP.get(capId)
-    if (!group) continue
-    for (const toolId of group.toolIds) {
-      toolIdSet.add(toolId)
-    }
-  }
-  return Array.from(toolIdSet)
-}

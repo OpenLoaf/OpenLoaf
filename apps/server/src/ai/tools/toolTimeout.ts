@@ -54,7 +54,7 @@ const TOOL_TIMEOUT_MAP: Record<string, number> = {
 const DEFAULT_TIMEOUT_MS = 30_000
 
 /** Resolve timeout for a given tool ID. */
-export function resolveToolTimeout(toolId: string): number {
+function resolveToolTimeout(toolId: string): number {
   return TOOL_TIMEOUT_MAP[toolId] ?? DEFAULT_TIMEOUT_MS
 }
 

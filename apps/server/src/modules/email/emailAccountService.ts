@@ -44,7 +44,7 @@ function normalizeEmailAddress(emailAddress: string): string {
 }
 
 /** Convert email address into slug for env key. */
-export function toEmailSlug(emailAddress: string): string {
+function toEmailSlug(emailAddress: string): string {
   return normalizeEmailAddress(emailAddress)
     .replace(/[^a-z0-9]/g, "_")
     .replace(/^_+|_+$/g, "");
@@ -57,13 +57,13 @@ export function toEmailSlug(emailAddress: string): string {
 const ENV_KEY_SCOPE = "default";
 
 /** Build env key for email password. */
-export function buildEmailPasswordEnvKey(emailAddress: string): string {
+function buildEmailPasswordEnvKey(emailAddress: string): string {
   const slug = toEmailSlug(emailAddress);
   return `EMAIL_PASSWORD__${ENV_KEY_SCOPE}__${slug}`;
 }
 
 /** Build env keys for OAuth tokens. */
-export function buildOAuthEnvKeys(emailAddress: string) {
+function buildOAuthEnvKeys(emailAddress: string) {
   const slug = toEmailSlug(emailAddress);
   return {
     refreshTokenEnvKey: `EMAIL_OAUTH_REFRESH__${ENV_KEY_SCOPE}__${slug}`,

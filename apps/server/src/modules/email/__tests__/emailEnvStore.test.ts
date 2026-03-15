@@ -12,24 +12,16 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-
-const tempRoot = mkdtempSync(path.join(tmpdir(), "openloaf-email-env-"));
-const envPath = path.join(tempRoot, ".env");
-process.env.OPENLOAF_SERVER_ENV_PATH = envPath;
-
-let emailEnvStore: typeof import("../emailEnvStore");
-try {
-  emailEnvStore = await import("../emailEnvStore");
-} catch {
-  assert.fail("emailEnvStore module should exist.");
-}
-
-const {
+import {
   getEmailEnvPath,
   readEmailEnvFile,
   setEmailEnvValue,
   getEmailEnvValue,
-} = emailEnvStore;
+} from "../emailEnvStore";
+
+const tempRoot = mkdtempSync(path.join(tmpdir(), "openloaf-email-env-"));
+const envPath = path.join(tempRoot, ".env");
+process.env.OPENLOAF_SERVER_ENV_PATH = envPath;
 
 assert.equal(getEmailEnvPath(), envPath);
 assert.equal(readEmailEnvFile(), "");

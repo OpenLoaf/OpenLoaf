@@ -118,11 +118,6 @@ function getCookies(): Record<string, string> | undefined {
   return getRequestContext()?.cookies;
 }
 
-/** 获取单个 cookie 值。 */
-export function getCookie(name: string): string | undefined {
-  return getCookies()?.[name];
-}
-
 /** Get projectId (MVP: from request context). */
 export function getProjectId(): string | undefined {
   return getRequestContext()?.projectId;
@@ -249,17 +244,6 @@ export function getAssistantParentMessageId(): string | null | undefined {
   return getRequestContext()?.assistantParentMessageId;
 }
 
-/** Sets the assistant message path for this request. */
-export function setAssistantMessagePath(path: string) {
-  const ctx = getRequestContext();
-  if (!ctx) return;
-  ctx.assistantMessagePath = path;
-}
-
-/** Gets the assistant message path for this request. */
-export function getAssistantMessagePath(): string | undefined {
-  return getRequestContext()?.assistantMessagePath;
-}
 /**
  * Sets the latest plan update for this request.
  */
@@ -328,13 +312,6 @@ export function runWithContext<T>(ctx: RequestContext, fn: () => Promise<T>): Pr
   return storage.run(ctx, fn);
 }
 
-/** Append text to the CLI tool execution summary buffer. */
-export function appendCliSummary(text: string) {
-  const ctx = getRequestContext();
-  if (!ctx) return;
-  ctx.cliSummary = (ctx.cliSummary ?? "") + text;
-}
-
 /** Get the accumulated CLI tool execution summary. */
 export function getCliSummary(): string | undefined {
   return getRequestContext()?.cliSummary;
@@ -351,11 +328,6 @@ export function setCliSession(id: string, preface?: string): void {
 /** Get CLI session id (Claude Code SDK UUID). */
 export function getCliSessionId(): string | undefined {
   return getRequestContext()?.cliSessionId;
-}
-
-/** Get CLI session preface text (only set for first message). */
-export function getCliSessionPreface(): string | undefined {
-  return getRequestContext()?.cliSessionPreface;
 }
 
 /** Set CLI rewind target (SDK assistant UUID for resumeSessionAt). */
@@ -380,9 +352,4 @@ export function addCreditsConsumed(credits: number): void {
 /** Get accumulated credits consumed. */
 export function getCreditsConsumed(): number | undefined {
   return getRequestContext()?.creditsConsumed;
-}
-
-/** Get client platform for conditional tool registration. */
-export function getClientPlatform(): ClientPlatform | undefined {
-  return getRequestContext()?.clientPlatform;
 }

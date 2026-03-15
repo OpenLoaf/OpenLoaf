@@ -184,19 +184,3 @@ export function getErrorMessage(
   // Fallback to en-US
   return messages['en-US' as keyof typeof messages];
 }
-
-/**
- * Template function for error messages with variables.
- * Example: getErrorMessageTemplate('AGENT_NOT_FOUND_AT', { agentPath: '/path/to/agent' }, 'en-US')
- */
-export function getErrorMessageTemplate(
-  template: string,
-  variables: Record<string, string>,
-  lang: string = 'en-US',
-): string {
-  let message = template;
-  Object.entries(variables).forEach(([key, value]) => {
-    message = message.replace(new RegExp(`{{${key}}}`, 'g'), value);
-  });
-  return message;
-}

@@ -802,7 +802,7 @@ export async function saveChatImageAttachmentFromPath(input: {
 }
 
 /** Build UI file part from a relative path. */
-export async function buildFilePartFromPath(input: {
+async function buildFilePartFromPath(input: {
   /** File path. */
   path: string;
   /** Project id for resolving path. */

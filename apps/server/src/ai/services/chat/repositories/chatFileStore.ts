@@ -914,19 +914,6 @@ export async function registerAgentDir(
   return agentDir
 }
 
-/** 列出 session 下所有子代理 ID（子目录名）。 */
-export async function listAgentIds(sessionId: string): Promise<string[]> {
-  const dir = await resolveSessionDir(sessionId)
-  const agentDir = path.join(dir, 'agents')
-  try {
-    const entries = await fs.readdir(agentDir, { withFileTypes: true })
-    return entries.filter((e) => e.isDirectory()).map((e) => e.name)
-  } catch (err: any) {
-    if (err?.code === 'ENOENT') return []
-    throw err
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Cleanup helpers
 // ---------------------------------------------------------------------------

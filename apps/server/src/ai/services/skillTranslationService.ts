@@ -255,40 +255,6 @@ export async function translateSkill(
   }
 }
 
-/**
- * Restore original skill files from origin/ backup.
- */
-export async function restoreSkillTranslation(skillFolderPath: string): Promise<{
-  ok: boolean
-  restoredFiles: number
-}> {
-  const originDir = path.join(skillFolderPath, 'origin')
-  let restoredFiles = 0
-
-  try {
-    const originFiles = await findMdFiles(originDir, originDir)
-    for (const relPath of originFiles) {
-      const originPath = path.join(originDir, relPath)
-      const targetPath = path.join(skillFolderPath, relPath)
-      const content = await fs.readFile(originPath, 'utf-8')
-      await fs.writeFile(targetPath, content, 'utf-8')
-      restoredFiles++
-    }
-
-    // Remove openloaf.json
-    try {
-      await fs.unlink(path.join(skillFolderPath, META_FILE_NAME))
-    } catch {
-      // ignore
-    }
-
-    return { ok: true, restoredFiles }
-  } catch (err) {
-    console.error(`${LOG_PREFIX} 恢复失败:`, err)
-    return { ok: false, restoredFiles: 0 }
-  }
-}
-
 /** Extract name, description, and version from YAML front matter. */
 function extractFrontMatterFields(content: string): { name?: string; description?: string; version?: string } {
   const fmMatch = content.match(/^---\s*\n([\s\S]*?)\n---/)

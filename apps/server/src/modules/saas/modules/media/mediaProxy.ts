@@ -48,7 +48,7 @@ export type MediaSubmitContext = {
 };
 
 /** HTTP error used by media proxy. */
-export class MediaProxyHttpError extends Error {
+class MediaProxyHttpError extends Error {
   /** HTTP status code. */
   readonly status: number;
   /** Error code. */

@@ -37,7 +37,7 @@ export type SseStreamResult = {
 /**
  * 从 SSE 文本流中解析出事件数组。
  */
-export function parseSseText(raw: string): SseEvent[] {
+function parseSseText(raw: string): SseEvent[] {
   const events: SseEvent[] = []
   let currentEvent: string | undefined
 
@@ -56,36 +56,6 @@ export function parseSseText(raw: string): SseEvent[] {
     }
   }
   return events
-}
-
-/**
- * 从 Response 对象解析 SSE 事件。
- */
-export async function parseSseResponse(response: Response): Promise<SseEvent[]> {
-  const text = await response.text()
-  return parseSseText(text)
-}
-
-/**
- * 从 SSE 事件中提取 text-delta 并拼接。
- */
-export function extractTextFromSseEvents(events: SseEvent[]): string {
-  return events
-    .filter((e) => e.event === 'text-delta' || (e.data as any)?.type === 'text-delta')
-    .map((e) => {
-      const d = e.data as any
-      return d?.textDelta ?? d?.text ?? ''
-    })
-    .join('')
-}
-
-/**
- * 从 SSE 事件中提取工具调用。
- */
-export function extractToolCallsFromSseEvents(events: SseEvent[]): any[] {
-  return events.filter(
-    (e) => e.event === 'tool-call' || (e.data as any)?.type === 'tool-call',
-  )
 }
 
 /**

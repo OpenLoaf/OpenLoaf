@@ -29,7 +29,7 @@ import {
 } from "./attachmentResolver";
 
 /** Resolve active S3 storage service. */
-export function resolveActiveS3Storage() {
+function resolveActiveS3Storage() {
   const basic = readBasicConf();
   const activeId = basic.activeS3Id;
   if (!activeId) return null;
@@ -150,34 +150,6 @@ export async function resolveImageInputBuffer(input: {
   throw new Error("图片输入格式不支持");
 }
 
-/** Upload image buffers to S3 and return public URLs. */
-export async function uploadImagesToS3(input: {
-  /** Resolved images. */
-  images: Array<{ buffer: Buffer; mediaType: string; baseName: string }>;
-  /** Session id for temp storage. */
-  sessionId: string;
-}): Promise<string[]> {
-  const storage = resolveActiveS3Storage();
-  if (!storage) {
-    throw new Error("需要配置 S3 存储服务");
-  }
-  const urls: string[] = [];
-  for (const image of input.images) {
-    const baseName = sanitizeFileName(image.baseName || "image");
-    const ext = resolveImageExtension(image.mediaType);
-    const fileName = `${baseName}.${ext}`;
-    const key = `ai-temp/video/${input.sessionId}/${fileName}`;
-    const result = await storage.putObject({
-      key,
-      body: image.buffer,
-      contentType: image.mediaType,
-      contentLength: image.buffer.byteLength,
-    });
-    urls.push(result.url);
-  }
-  return urls;
-}
-
 /** Supported image extensions for directory inference. */
 const IMAGE_SAVE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 /** Scoped project path matcher like @{projectId/path/to/dir}. */
@@ -280,39 +252,6 @@ export async function resolveImageSaveDirectory(input: {
   return null;
 }
 
-/** Save generated images into a local directory. */
-export async function saveGeneratedImagesToDirectory(input: {
-  /** Generated image files from provider. */
-  images: GeneratedFile[];
-  /** Target directory path. */
-  directory: string;
-  /** Optional image metadata. */
-  metadata?: OpenLoafImageMetadataV1;
-}): Promise<string[]> {
-  const savedPaths: string[] = [];
-  await fs.mkdir(input.directory, { recursive: true });
-  const baseTime = Date.now();
-  for (const [index, image] of input.images.entries()) {
-    const mediaType = image.mediaType || "image/png";
-    const buffer = Buffer.from(image.uint8Array);
-    const fileName = buildImageFileName(index, mediaType, baseTime);
-    const filePath = path.join(input.directory, fileName);
-    // 逻辑：metadata 写入 PNG iTXt，并落 sidecar JSON。
-    const metadataPayload = input.metadata ? serializeImageMetadata(input.metadata) : null;
-    const outputBuffer =
-      mediaType === "image/png" && metadataPayload
-        ? injectPngMetadata(buffer, metadataPayload.chunkJson)
-        : buffer;
-    await fs.writeFile(filePath, outputBuffer);
-    if (metadataPayload) {
-      const sidecarPath = resolveMetadataSidecarPath(filePath);
-      await fs.writeFile(sidecarPath, metadataPayload.fullJson, "utf8");
-    }
-    savedPaths.push(filePath);
-  }
-  return savedPaths;
-}
-
 /** Download image urls and save into a local directory. */
 export async function saveImageUrlsToDirectory(input: {
   /** Image urls from SaaS result. */
@@ -346,36 +285,6 @@ export async function saveImageUrlsToDirectory(input: {
     savedPaths.push(filePath);
   }
   return savedPaths;
-}
-
-/** Save generated images and return persisted parts. */
-export async function saveGeneratedImages(input: {
-  /** Generated image files from provider. */
-  images: GeneratedFile[];
-  /** Chat session id for storage scoping. */
-  sessionId: string;
-  /** Optional project id for storage scoping. */
-  projectId?: string;
-  /** Optional image metadata. */
-  metadata?: OpenLoafImageMetadataV1;
-}): Promise<Array<{ type: "file"; url: string; mediaType: string }>> {
-  const parts: Array<{ type: "file"; url: string; mediaType: string }> = [];
-  const baseTime = Date.now();
-  for (const [index, image] of input.images.entries()) {
-    const mediaType = image.mediaType || "image/png";
-    const buffer = Buffer.from(image.uint8Array);
-    const fileName = buildImageFileName(index, mediaType, baseTime);
-    const saved = await saveChatImageAttachment({
-      projectId: input.projectId,
-      sessionId: input.sessionId,
-      fileName,
-      mediaType,
-      buffer,
-      metadata: input.metadata,
-    });
-    parts.push({ type: "file", url: saved.url, mediaType: saved.mediaType });
-  }
-  return parts;
 }
 
 /** Build image file name. */

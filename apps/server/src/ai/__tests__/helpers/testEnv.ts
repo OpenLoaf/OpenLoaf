@@ -124,25 +124,4 @@ export function setupE2eTestEnv(): string {
   return tempRoot
 }
 
-export function getE2eTempRoot(): string | null {
-  return e2eTempRoot
-}
-
-/**
- * 动态写入 master agent 配置到 E2E 测试根目录。
- * 用于多模型对比测试 —— 每次 provider 调用前更新 chatModelId。
- *
- * chatStreamService 从 project-root/.openloaf/agents/master/agent.json 读取
- * modelLocalIds[0] 作为 chatModelId，跳过 requiredTags 过滤。
- */
-export function setE2eAgentModel(chatModelId: string): void {
-  if (!e2eTempRoot) return
-  const agentDir = path.join(e2eTempRoot, 'project-root', '.openloaf', 'agents', 'master')
-  mkdirSync(agentDir, { recursive: true })
-  writeFileSync(
-    path.join(agentDir, 'agent.json'),
-    JSON.stringify({ name: 'master', modelLocalIds: [chatModelId] }),
-  )
-}
-
 export { getProviderSettings, setChatModel, setAbortSignal }

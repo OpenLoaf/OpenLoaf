@@ -54,7 +54,7 @@ export function writeMemoryFile(rootPath: string, content: string): void {
  * Truncate memory content when it exceeds maxLines.
  * Keeps the first maxLines lines + truncation marker.
  */
-export function truncateMemory(
+function truncateMemory(
   content: string,
   maxLines: number = DEFAULT_MAX_LINES,
 ): string {

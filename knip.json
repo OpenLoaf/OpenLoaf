@@ -29,7 +29,9 @@
     "apps/server": {
       "entry": [
         "src/index.ts",
-        "scripts/**/*.{ts,mjs}"
+        "scripts/**/*.{ts,mjs}",
+        "src/**/*.test.{ts,tsx}",
+        "src/ai/__tests__/agent-behavior/openloaf-universal-provider.ts"
       ],
       "project": [
         "src/**/*.{ts,tsx}",
@@ -37,8 +39,6 @@
         "*.mjs"
       ],
       "ignore": [
-        "src/**/*.test.{ts,tsx}",
-        "src/**/__tests__/**",
         "src/ai/__tests__/agent-behavior/**/project-root/**"
       ],
       "ignoreDependencies": [
@@ -49,7 +49,8 @@
         "@ffmpeg-installer/ffmpeg",
         "@ffprobe-installer/ffprobe",
         "@trpc/client",
-        "pino-pretty"
+        "pino-pretty",
+        "vitest"
       ]
     }
   }

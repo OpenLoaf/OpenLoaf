@@ -58,10 +58,3 @@ export function detectNamespaces(entryPath: string): Record<string, string> {
   }
   return ns
 }
-
-/** Build an xmlns attribute string from a namespace map. */
-export function buildXmlnsAttrs(nsMap: Record<string, string>): string {
-  return Object.entries(nsMap)
-    .map(([prefix, uri]) => `xmlns:${prefix}="${uri}"`)
-    .join(' ')
-}

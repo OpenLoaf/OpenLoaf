@@ -494,7 +494,7 @@ function buildThumbnailToken(input: {
 }
 
 /** Parse a segment token into project id and cache key. */
-export function parseSegmentToken(token: string): {
+function parseSegmentToken(token: string): {
   projectId?: string;
   cacheKey: string;
   quality: HlsQuality;
@@ -510,7 +510,7 @@ export function parseSegmentToken(token: string): {
 }
 
 /** Parse a thumbnail token into project id and cache key. */
-export function parseThumbnailToken(token: string): {
+function parseThumbnailToken(token: string): {
   projectId?: string;
   cacheKey: string;
 } | null {

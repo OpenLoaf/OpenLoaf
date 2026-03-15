@@ -81,25 +81,3 @@ export function readAgentJson(
     return null
   }
 }
-
-/**
- * Resolve user's custom prompt.md by priority:
- * project/.openloaf/agents/master/ → null.
- * Returns null if no user override exists or if the content matches the builtin default.
- */
-export function resolveUserAgentOverride(
-  projectRootPath?: string,
-): string | null {
-  const candidates = [projectRootPath].filter(Boolean) as string[]
-  for (const root of candidates) {
-    const filePath = path.join(
-      resolveAgentDir(root, DEFAULT_AGENT_FOLDER),
-      'prompt.md',
-    )
-    const content = readTextFile(filePath)
-    if (content && content !== BUILTIN_AGENT_PROMPT) {
-      return content
-    }
-  }
-  return null
-}

@@ -83,7 +83,7 @@ function rotateIfNeeded(filePath: string): void {
 }
 
 /** Read run logs for a task, most recent first. */
-export function readRunLogs(
+function readRunLogs(
   taskId: string,
   rootPath: string,
   limit = 50,
