@@ -8,27 +8,9 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import path from "node:path";
-import { chmodSync, existsSync, statSync } from "node:fs";
-import { createRequire } from "node:module";
 
 const APPROX_BYTES_PER_TOKEN = 4;
 const DEFAULT_MAX_OUTPUT_TOKENS = 10_000;
-
-/** Resolve a safe yield time in milliseconds. */
-function resolveYieldTimeMs(value?: number): number {
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) return Math.floor(value);
-  return 100;
-}
-
-/** Resolve output length limit from token hint. */
-export function resolveMaxOutputChars(value?: number): number {
-  const tokens =
-    typeof value === "number" && Number.isFinite(value) && value > 0
-      ? Math.floor(value)
-      : DEFAULT_MAX_OUTPUT_TOKENS;
-  // 中文注释：按 token 预算近似为字节预算，避免引入额外分词依赖。
-  return approxBytesForTokens(tokens);
-}
 
 /** Build environment variables for exec tools. */
 export function buildExecEnv(input: { tty?: boolean }): NodeJS.ProcessEnv {
@@ -49,29 +31,6 @@ export function buildExecEnv(input: { tty?: boolean }): NodeJS.ProcessEnv {
   }
   env.PATH = pathEntries.join(path.delimiter);
   return env;
-}
-
-/** Ensure spawn-helper is executable for node-pty on unix. */
-export function ensurePtyHelperExecutable(): void {
-  if (process.platform === "win32") return;
-  try {
-    const require = createRequire(import.meta.url);
-    const packageRoot = path.dirname(require.resolve("node-pty/package.json"));
-    const candidates = [
-      path.join(packageRoot, "build", "Release", "spawn-helper"),
-      path.join(packageRoot, "build", "Debug", "spawn-helper"),
-      path.join(packageRoot, "prebuilds", `${process.platform}-${process.arch}`, "spawn-helper"),
-    ];
-    const helperPath = candidates.find((candidate) => existsSync(candidate));
-    if (!helperPath) return;
-    const stat = statSync(helperPath);
-    // 中文注释：确保 spawn-helper 可执行，避免 posix_spawnp 失败。
-    if ((stat.mode & 0o111) === 0) {
-      chmodSync(helperPath, stat.mode | 0o111);
-    }
-  } catch {
-    // ignore
-  }
 }
 
 type TruncationPolicy = {
@@ -139,7 +98,7 @@ function clampUtf8Start(buffer: Buffer, index: number): number {
 }
 
 /** Truncate text in the middle with a marker. */
-export function truncateText(content: string, policy: TruncationPolicy): TruncationResult {
+function truncateText(content: string, policy: TruncationPolicy): TruncationResult {
   const totalLines = countLines(content);
   if (!content) {
     return { text: "", totalLines, truncatedLines: 0, truncated: false };
@@ -191,57 +150,10 @@ export function truncateText(content: string, policy: TruncationPolicy): Truncat
   };
 }
 
-/** Format truncation for structured outputs. */
-export function formatStructuredOutput(content: string, maxTokens = DEFAULT_MAX_OUTPUT_TOKENS): string {
-  const result = truncateText(content, { kind: "tokens", limit: maxTokens });
-  if (!result.truncated) return result.text;
-  return `Total output lines: ${result.totalLines}\n\n${result.text}`;
-}
-
 /** Format truncation for freeform outputs. */
 export function formatFreeformOutput(
   content: string,
   maxTokens = DEFAULT_MAX_OUTPUT_TOKENS,
 ): TruncationResult {
   return truncateText(content, { kind: "tokens", limit: maxTokens });
-}
-
-/** Wait for a short duration before reading output. */
-export async function waitForOutput(ms?: number): Promise<void> {
-  const delay = resolveYieldTimeMs(ms);
-  await new Promise<void>((resolve) => setTimeout(resolve, delay));
-}
-
-type UnifiedExecFormatInput = {
-  /** Chunk id for the response. */
-  chunkId?: string;
-  /** Wall time in milliseconds. */
-  wallTimeMs: number;
-  /** Process exit code if finished. */
-  exitCode: number | null;
-  /** Session id if still running. */
-  sessionId?: string;
-  /** Output content. */
-  output: string;
-  /** Original token count, if available. */
-  originalTokenCount?: number;
-};
-
-/** Format unified exec output to match Codex. */
-export function formatUnifiedExecOutput(input: UnifiedExecFormatInput): string {
-  const sections: string[] = [];
-  if (input.chunkId) sections.push(`Chunk ID: ${input.chunkId}`);
-  sections.push(`Wall time: ${(input.wallTimeMs / 1000).toFixed(4)} seconds`);
-  if (input.exitCode !== null) {
-    sections.push(`Process exited with code ${input.exitCode}`);
-  }
-  if (input.sessionId) {
-    sections.push(`Process running with session ID ${input.sessionId}`);
-  }
-  if (typeof input.originalTokenCount === "number") {
-    sections.push(`Original token count: ${input.originalTokenCount}`);
-  }
-  sections.push("Output:");
-  sections.push(input.output);
-  return sections.join("\n");
 }

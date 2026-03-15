@@ -132,7 +132,7 @@ async function capturePreview(url: string, targetPath: string): Promise<boolean>
   }
 }
 
-export class WebMetaRouterImpl extends BaseWebMetaRouter {
+class WebMetaRouterImpl extends BaseWebMetaRouter {
   /** Web meta router implementation. */
   public static createRouter() {
     return t.router({

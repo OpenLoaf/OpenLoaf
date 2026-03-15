@@ -25,6 +25,32 @@
         "@syncfusion/ej2-react-pdfviewer",
         "@syncfusion/ej2-react-spreadsheet"
       ]
+    },
+    "apps/server": {
+      "entry": [
+        "src/index.ts",
+        "scripts/**/*.{ts,mjs}"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}",
+        "scripts/**/*.{ts,mjs}",
+        "*.mjs"
+      ],
+      "ignore": [
+        "src/**/*.test.{ts,tsx}",
+        "src/**/__tests__/**",
+        "src/ai/__tests__/agent-behavior/**/project-root/**"
+      ],
+      "ignoreDependencies": [
+        "@openloaf/api",
+        "@openloaf/db",
+        "@openloaf/config",
+        "@ai-sdk/provider",
+        "@ffmpeg-installer/ffmpeg",
+        "@ffprobe-installer/ffprobe",
+        "@trpc/client",
+        "pino-pretty"
+      ]
     }
   }
 }

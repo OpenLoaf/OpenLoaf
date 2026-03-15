@@ -40,7 +40,7 @@ import { taskScheduler } from '@/services/taskScheduler'
 import { taskOrchestrator } from '@/services/taskOrchestrator'
 import { taskEventBus } from '@/services/taskEventBus'
 
-export class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
+class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
   public static createRouter() {
     return t.router({
       list: shieldedProcedure

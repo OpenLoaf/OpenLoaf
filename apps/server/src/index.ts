@@ -60,8 +60,6 @@ if (applied.length > 0) {
 await initDatabase();
 
 const { app } = startServer();
-// 暂停启动时自动总结调度，避免无项目上下文时触发总结流程。
-// void initSummaryScheduler();
 
 // 响应 SIGINT/SIGTERM，退出前先刷盘画布文档，防止热重载丢失未持久化的 Yjs 数据。
 async function gracefulShutdown() {

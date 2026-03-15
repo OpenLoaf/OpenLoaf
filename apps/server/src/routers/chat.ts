@@ -182,7 +182,7 @@ function sumUsageTotals(list: UsageTotals[]): UsageTotals {
   return total
 }
 
-export class ChatRouterImpl extends BaseChatRouter {
+class ChatRouterImpl extends BaseChatRouter {
   public static createRouter() {
     return t.router({
       ...appRouterDefine.chat._def.procedures,

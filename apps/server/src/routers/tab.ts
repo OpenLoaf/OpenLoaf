@@ -10,7 +10,7 @@
 import { BaseTabRouter, tabSchemas, t, shieldedProcedure } from "@openloaf/api";
 import { tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
 
-export class TabRouterImpl extends BaseTabRouter {
+class TabRouterImpl extends BaseTabRouter {
   /** Tab snapshot read/write (server-side TTL cache, MVP). */
   public static createRouter() {
     return t.router({

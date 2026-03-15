@@ -292,7 +292,7 @@ function resolveOwnerProjectId(input: {
   return matched?.projectId ?? null;
 }
 
-export class SettingRouterImpl extends BaseSettingRouter {
+class SettingRouterImpl extends BaseSettingRouter {
   /** Settings read/write (server-side). */
   public static createRouter() {
     return t.router({

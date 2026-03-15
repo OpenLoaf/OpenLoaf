@@ -433,7 +433,7 @@ async function moveMessageToTrash(input: {
   }
 }
 
-export class EmailRouterImpl extends BaseEmailRouter {
+class EmailRouterImpl extends BaseEmailRouter {
   /** Define email router implementation. */
   public static createRouter() {
     /** Get active account emails from config for defensive filtering. */

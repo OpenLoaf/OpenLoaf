@@ -332,8 +332,6 @@ export const taskStatusTool = tool({
 
 // ─── Backward Compatibility ───────────────────────────────────────────
 
-/** @deprecated 使用 taskManageTool 替代 */
-export const createTaskTool = taskManageTool
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 

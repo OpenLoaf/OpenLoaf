@@ -24,7 +24,3 @@ class OfficeEventBus extends EventEmitter {
 }
 
 export const officeEventBus = new OfficeEventBus();
-
-export function publishOfficeCommand(command: OfficeCommand) {
-  officeEventBus.emitCommand(command);
-}

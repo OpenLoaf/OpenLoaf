@@ -15,7 +15,7 @@
 import { readBasicConf } from '@/modules/settings/openloafConfStore'
 
 /** Build system tags meta rule (how the model should treat XML tags). */
-export function buildSystemTagsMetaRule(): string {
+function buildSystemTagsMetaRule(): string {
   return [
     '# 系统标签说明',
     '- 工具返回值和用户消息中可能包含 <system-reminder> 或其他 XML 标签。',
@@ -25,7 +25,7 @@ export function buildSystemTagsMetaRule(): string {
 }
 
 /** Build output format hard rules. */
-export function buildOutputFormatRules(): string {
+function buildOutputFormatRules(): string {
   return [
     '# 输出格式',
     '- 使用 Markdown，结论优先 → 细节仅在必要时',
@@ -78,7 +78,7 @@ export function buildAgentsDynamicLoadingRules(): string {
 }
 
 /** Build language enforcement rules. */
-export function buildLanguageRules(): string {
+function buildLanguageRules(): string {
   let lang = 'zh-CN'
   try {
     const conf = readBasicConf()
@@ -93,7 +93,7 @@ export function buildCompletionCriteria(): string {
 }
 
 /** Build auto memory rules for AI-managed persistent memory. */
-export function buildAutoMemoryRules(): string {
+function buildAutoMemoryRules(): string {
   return [
     '# Auto Memory',
     '',
@@ -127,7 +127,7 @@ export function buildAutoMemoryRules(): string {
 }
 
 /** Build intent judgment rules (extracted from toolSearchGuidance). */
-export function buildIntentJudgmentRules(): string {
+function buildIntentJudgmentRules(): string {
   return [
     '# 意图判断原则',
     '- 先理解意图，再决定是否用工具。',

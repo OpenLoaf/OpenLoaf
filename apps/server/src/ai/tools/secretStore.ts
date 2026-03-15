@@ -23,8 +23,3 @@ export function storeSecret(value: string): string {
 export function resolveSecretTokens(text: string): string {
   return text.replace(SECRET_TOKEN_RE, (match, id) => secrets.get(id) ?? match)
 }
-
-/** Replace all secret tokens in text with a mask. */
-export function maskSecretTokens(text: string): string {
-  return text.replace(SECRET_TOKEN_RE, '••••••')
-}

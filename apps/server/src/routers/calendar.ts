@@ -137,7 +137,7 @@ async function resolveVisibleSourceFilter(
   };
 }
 
-export class CalendarRouterImpl extends BaseCalendarRouter {
+class CalendarRouterImpl extends BaseCalendarRouter {
   /** Define calendar router implementation. */
   public static createRouter() {
     return t.router({

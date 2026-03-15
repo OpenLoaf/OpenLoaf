@@ -19,7 +19,7 @@ import {
   isTerminalEnabled,
 } from "@/modules/terminal/terminalSessionManager";
 
-export class TerminalRouterImpl extends BaseTerminalRouter {
+class TerminalRouterImpl extends BaseTerminalRouter {
   /** Terminal tRPC endpoints for session lifecycle. */
   public static createRouter() {
     return t.router({

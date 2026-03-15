@@ -19,7 +19,7 @@ function throwDeprecated(): never {
   throw new Error(DEPRECATED_MESSAGE);
 }
 
-export class AiRouterImpl extends BaseAiRouter {
+class AiRouterImpl extends BaseAiRouter {
   /** AI tRPC router with deprecated media endpoints. */
   public static createRouter() {
     return t.router({

@@ -32,7 +32,7 @@ import { logger } from '@/common/logger'
  *
  * This avoids a tiktoken dependency while being reasonably accurate.
  */
-export function estimateTokenCount(text: string): number {
+function estimateTokenCount(text: string): number {
   if (!text) return 0
   // Count CJK characters
   const cjkChars = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).length
@@ -42,7 +42,7 @@ export function estimateTokenCount(text: string): number {
 }
 
 /** Estimate token count for a message array. */
-export function estimateMessagesTokens(messages: any[]): number {
+function estimateMessagesTokens(messages: any[]): number {
   let total = 0
   for (const msg of messages) {
     // Handle both UIMessage (parts) and ModelMessage (content) formats
@@ -99,7 +99,7 @@ const MODEL_CONTEXT_SIZES: Record<string, number> = {
 const DEFAULT_CONTEXT_SIZE = 128_000
 
 /** Get the context window size for a model. */
-export function getModelContextSize(modelId?: string): number {
+function getModelContextSize(modelId?: string): number {
   if (!modelId) return DEFAULT_CONTEXT_SIZE
   const lower = modelId.toLowerCase()
   for (const [key, size] of Object.entries(MODEL_CONTEXT_SIZES)) {

@@ -218,7 +218,7 @@ async function fetchLinkMetadata(url: string): Promise<LinkMetadata> {
   }
 }
 
-export class LinkPreviewRouterImpl extends BaseLinkPreviewRouter {
+class LinkPreviewRouterImpl extends BaseLinkPreviewRouter {
   /** Link preview router implementation. */
   public static createRouter() {
     return t.router({

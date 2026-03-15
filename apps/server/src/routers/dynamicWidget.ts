@@ -58,7 +58,7 @@ async function readWidgetPackage(widgetDir: string) {
   }
 }
 
-export class DynamicWidgetRouterImpl extends BaseDynamicWidgetRouter {
+class DynamicWidgetRouterImpl extends BaseDynamicWidgetRouter {
   public static createRouter() {
     return t.router({
       list: shieldedProcedure

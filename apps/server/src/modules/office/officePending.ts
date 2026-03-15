@@ -42,54 +42,6 @@ function storeEarlyAck(payload: OfficeCommandAck): boolean {
   return true;
 }
 
-export function waitOfficeCommandAck(input: {
-  commandId: string;
-  clientId: string;
-  timeoutSec?: number;
-  requestedAt: string;
-}): Promise<OfficeCommandAck> {
-  const commandId = input.commandId.trim();
-  if (!commandId) throw new Error("commandId is required.");
-
-  if (pendingByCommandId.has(commandId)) {
-    throw new Error(`commandId already pending: ${commandId}`);
-  }
-
-  const earlyAck = earlyAckByCommandId.get(commandId);
-  if (earlyAck) {
-    clearTimeout(earlyAck.timer);
-    earlyAckByCommandId.delete(commandId);
-    return Promise.resolve(earlyAck.payload);
-  }
-
-  const timeoutSec = normalizeTimeoutSec(input.timeoutSec);
-  const timeoutMs = timeoutSec * 1000;
-  const requestedAt = input.requestedAt;
-
-  logger.debug({ commandId, timeoutSec }, "[office] pending registered");
-  return new Promise((resolve) => {
-    const deadline = Date.now() + timeoutMs;
-    const timer = setTimeout(() => {
-      pendingByCommandId.delete(commandId);
-      logger.warn({ commandId }, "[office] pending timeout");
-      resolve({
-        commandId,
-        clientId: input.clientId,
-        status: "timeout",
-        errorText: "Office execution timeout",
-        requestedAt,
-      });
-    }, timeoutMs);
-
-    pendingByCommandId.set(commandId, {
-      resolve,
-      timer,
-      deadline,
-      requestedAt,
-    });
-  });
-}
-
 export function resolveOfficeCommandAck(
   payload: OfficeCommandAck,
 ): "resolved" | "stored" | "missing" {

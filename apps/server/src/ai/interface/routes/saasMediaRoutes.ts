@@ -64,7 +64,7 @@ type SaasMediaRouteOptions = {
 };
 
 /** Execute SaaS media handler with unified error handling. */
-export async function handleSaasMediaRoute(
+async function handleSaasMediaRoute(
   c: Context,
   handler: (accessToken: string) => Promise<unknown>,
   options?: SaasMediaRouteOptions,

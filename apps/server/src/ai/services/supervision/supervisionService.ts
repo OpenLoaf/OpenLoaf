@@ -199,5 +199,3 @@ ${request.recentContext ?? '无'}
     return { decision: 'escalate', reason: '无法解析监管 Agent 决策' }
   }
 }
-
-export const supervisionService = new SupervisionService()
