@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { randomUUID } from "node:crypto";
+import { mkdirSync } from "node:fs";
 import type { ModelDefinition } from "@openloaf/api/common";
 import type { BasicConfig, BasicConfigUpdate } from "@openloaf/api/types/basic";
 import {
@@ -468,6 +469,10 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     webSearchApiKey,
   };
   writeBasicConf(normalized);
+  // Ensure the temp storage directory exists when changed.
+  if (normalized.appTempStorageDir) {
+    mkdirSync(normalized.appTempStorageDir, { recursive: true });
+  }
   return normalized;
 }
 

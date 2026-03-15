@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import dns from "node:dns";
+import { mkdirSync } from "node:fs";
 import "dotenv/config";
 import { fixServerPath } from "@/common/fixServerPath";
 import { initFfmpegPaths } from "@/common/ffmpegPaths";
@@ -20,7 +21,7 @@ import { startServer } from "@/bootstrap/startServer";
 import { flushBoardDocuments } from "@/modules/board/boardCollabWebSocket";
 import { installHttpProxy } from "@/modules/proxy/httpProxy";
 import { syncSystemProxySettings } from "@/modules/proxy/systemProxySync";
-import { getAppConfig } from "@openloaf/api/services/appConfigService";
+import { getAppConfig, getDefaultTempStoragePath } from "@openloaf/api/services/appConfigService";
 import { migrateLegacyServerData } from "@openloaf/config";
 import { ensureDefaultAgentCleanup } from "@/ai/shared/agentCleanup";
 import { initDatabase } from "@openloaf/db";
@@ -41,6 +42,9 @@ void syncSystemProxySettings();
 // 启动时确保配置文件存在，避免运行中首次访问配置时才触发创建。
 migrateLegacyServerData();
 getAppConfig();
+
+// 确保临时存储目录存在（按平台创建默认路径）。
+mkdirSync(getDefaultTempStoragePath(), { recursive: true });
 
 // 启动时清理旧版 agent 文件夹。
 ensureDefaultAgentCleanup();
