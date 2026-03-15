@@ -82,8 +82,27 @@ export class PixiOverlayLayer {
       this.alignmentGfx.stroke()
     }
 
-    // 逻辑：选中轮廓由 SelectionOverlay (DOM) 绘制，PixiJS 不再重复绘制。
+    // 逻辑：stroke 节点没有 DOM 表示，需要在 PixiJS 中绘制选中轮廓。
     this.selectionOutlineGfx.clear()
+    if (snapshot.selectedIds.length > 0) {
+      for (const id of snapshot.selectedIds) {
+        const element = snapshot.elements.find((e) => e.id === id)
+        if (!element || element.kind !== "node") continue
+        // 只为 stroke 类型绘制（其他节点由 DOM SelectionOverlay 处理）
+        if (element.type !== "stroke") continue
+        const [x, y, w, h] = element.xywh
+        const sx = x * zoom + offset[0]
+        const sy = y * zoom + offset[1]
+        const sw = w * zoom
+        const sh = h * zoom
+        this.selectionOutlineGfx.roundRect(sx, sy, sw, sh, 4)
+        this.selectionOutlineGfx.stroke({
+          color: palette.selectionBorder,
+          width: 1.5,
+          alpha: 0.8,
+        })
+      }
+    }
   }
 
   /** Sync overlay positions on viewport change (no snapshot change). */
