@@ -129,6 +129,7 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
           top: y - padding,
           width: w + padding * 2,
           height: h + padding * 2,
+          zIndex: element.zIndex ?? 0,
           transform: element.rotate
             ? `rotate(${element.rotate}deg)`
             : undefined,
