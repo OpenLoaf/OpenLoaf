@@ -14,12 +14,11 @@ import { Application, Container } from 'pixi.js'
 import type { CanvasEngine } from '../../engine/CanvasEngine'
 import type { CanvasSnapshot } from '../../engine/types'
 import { PixiViewportSync } from './PixiViewportSync'
-import { PixiNodeManager } from './PixiNodeManager'
 import { PixiConnectorLayer } from './PixiConnectorLayer'
 import { PixiStrokeLayer } from './PixiStrokeLayer'
 import { PixiOverlayLayer } from './PixiOverlayLayer'
 import { PixiThemeResolver } from './PixiThemeResolver'
-import { DomOverlayManager } from './DomOverlayManager'
+import { DomNodeLayer } from './DomNodeLayer'
 
 export type PixiApplicationProps = {
   engine: CanvasEngine
@@ -35,7 +34,6 @@ export type PixiApplicationProps = {
  *     +-- worldContainer (viewport transform: zoom + offset)
  *     |     +-- strokeLayer (pen/highlighter strokes via PixiStrokeLayer)
  *     |     +-- connectorLayer (connector paths)
- *     |     +-- nodeLayer (node sprites/containers)
  *     +-- overlayContainer (screen-space, no viewport transform)
  *           +-- selectionBoxGraphics
  *           +-- alignmentGuideGraphics
@@ -45,7 +43,6 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const appRef = useRef<Application | null>(null)
   const cleanupRef = useRef<(() => void) | null>(null)
-  const nodeManagerRef = useRef<PixiNodeManager | null>(null)
 
   const init = useCallback(async () => {
     const container = containerRef.current
@@ -81,11 +78,6 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
     connectorLayerContainer.label = 'connectorLayer'
     worldContainer.addChild(connectorLayerContainer)
 
-    const nodeLayerContainer = new Container()
-    nodeLayerContainer.label = 'nodeLayer'
-    nodeLayerContainer.sortableChildren = true
-    worldContainer.addChild(nodeLayerContainer)
-
     const overlayContainer = new Container()
     overlayContainer.label = 'overlayContainer'
     app.stage.addChild(overlayContainer)
@@ -95,14 +87,6 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
 
     // 视口同步：engine viewport → worldContainer transform
     const viewportSync = new PixiViewportSync(engine, worldContainer)
-
-    // 节点管理器：engine snapshot → PixiJS 节点
-    const nodeManager = new PixiNodeManager(
-      engine,
-      nodeLayerContainer,
-      themeResolver,
-    )
-    nodeManagerRef.current = nodeManager
 
     // 笔画渲染器
     const strokeLayerRenderer = new PixiStrokeLayer(
@@ -127,8 +111,8 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
     )
 
     // 启动渲染循环
+    // 逻辑：节点由 DomNodeLayer 渲染，PixiJS 只渲染连线/笔画/叠层。
     const unsubSnapshot = engine.subscribe(() => {
-      nodeManager.sync()
       strokeLayerRenderer.sync()
       connectorLayerRenderer.sync()
       overlayLayerRenderer.sync()
@@ -141,7 +125,6 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
 
     // 初始同步
     viewportSync.sync()
-    nodeManager.sync()
     strokeLayerRenderer.sync()
     connectorLayerRenderer.sync()
 
@@ -149,14 +132,12 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
       unsubSnapshot()
       unsubView()
       viewportSync.destroy()
-      nodeManager.destroy()
       strokeLayerRenderer.destroy()
       connectorLayerRenderer.destroy()
       overlayLayerRenderer.destroy()
       themeResolver.destroy()
       app.destroy(true, { children: true })
       appRef.current = null
-      nodeManagerRef.current = null
     }
   }, [engine])
 
@@ -168,26 +149,16 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
     }
   }, [init])
 
-  // 编辑模式下控制 PixiJS 节点可见性的回调
-  const handlePixiNodeVisibility = useCallback(
-    (nodeId: string, visible: boolean) => {
-      nodeManagerRef.current?.setNodeVisible(nodeId, visible)
-    },
-    [],
-  )
-
   return (
     <>
+      {/* PixiJS WebGL 层：连线 + 笔画 + 选区叠层 */}
       <div
         ref={containerRef}
         className="pointer-events-none absolute inset-0"
         style={{ touchAction: 'none' }}
       />
-      <DomOverlayManager
-        engine={engine}
-        snapshot={snapshot}
-        onPixiNodeVisibility={handlePixiNodeVisibility}
-      />
+      {/* DOM 节点层：所有节点始终用 React 组件渲染，保证完整交互 */}
+      <DomNodeLayer engine={engine} snapshot={snapshot} />
     </>
   )
 }
