@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("openloaf-docx-sfdt")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+54ab2f8fb3d6c321a34f2fe6780d451051bc6dc7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dd69056cbcc9090fe0bdfe3a0544f74410034753")]
 [assembly: System.Reflection.AssemblyProductAttribute("openloaf-docx-sfdt")]
 [assembly: System.Reflection.AssemblyTitleAttribute("openloaf-docx-sfdt")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

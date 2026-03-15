@@ -24,6 +24,7 @@ const PixiCanvas = dynamic(
   () => import("../render/pixi").then((m) => m.PixiCanvas),
   { ssr: false },
 );
+import { DomNodeLayer } from "../render/pixi/DomNodeLayer";
 import { AnchorOverlay } from "./AnchorOverlay";
 import BoardEmptyGuide from "./BoardEmptyGuide";
 import { BoardPerfOverlay } from "./BoardPerfOverlay";
@@ -129,8 +130,8 @@ export function BoardCanvasRender({
   return (
     <>
       {showUi && !minimal && snapshot.elements.length > 0 ? <MiniMapLayer engine={engine} snapshot={snapshot} /> : null}
-      {/* PixiJS 统一渲染层 */}
-      <PixiCanvas engine={engine} snapshot={snapshot} />
+      {/* 逻辑：minimal 模式（子画布对话框）不加载 PixiJS，避免销毁时破坏全局 PixiJS 共享状态。 */}
+      {minimal ? <DomNodeLayer engine={engine} snapshot={snapshot} /> : <PixiCanvas engine={engine} snapshot={snapshot} />}
       {showUi && !minimal && snapshot.pendingInsert && snapshot.pendingInsertPoint && PENDING_INSERT_DOM_TYPES.has(snapshot.pendingInsert.type) ? (
         <PendingInsertPreview
           engine={engine}

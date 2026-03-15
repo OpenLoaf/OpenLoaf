@@ -13,8 +13,10 @@ import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { Loader2, X, RotateCw, Trash2 } from "lucide-react";
 import { trpcClient } from "@/utils/trpc";
+import { resolveServerUrl } from "@/utils/server-url";
 import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
 import { cancelTask, pollTask } from "@/lib/saas-media";
+import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import {
   formatScopedProjectPath,
   normalizeProjectRelativePath,
@@ -28,7 +30,7 @@ import { NodeFrame } from "./NodeFrame";
 /** Loading node type identifier. */
 export const LOADING_NODE_TYPE = "loading";
 
-export type LoadingTaskType = "video_generate" | "image_generate";
+export type LoadingTaskType = "video_generate" | "image_generate" | "video_download";
 
 export type LoadingNodeProps = {
   /** Loading task id. */
@@ -49,7 +51,7 @@ export type LoadingNodeProps = {
 
 const LoadingNodeSchema = z.object({
   taskId: z.string().optional(),
-  taskType: z.enum(["video_generate", "image_generate"]).optional(),
+  taskType: z.enum(["video_generate", "image_generate", "video_download"]).optional(),
   sourceNodeId: z.string().optional(),
   promptText: z.string().optional(),
   chatModelId: z.string().optional(),
@@ -85,6 +87,115 @@ function getPollDelay(attempt: number): number {
   return 10000;
 }
 
+/** Compute a fitted size that preserves the original aspect ratio. */
+function fitVideoSize(width: number, height: number, maxDimension: number): [number, number] {
+  if (width <= 0 || height <= 0) return [maxDimension, Math.round(maxDimension * (9 / 16))];
+  const scale = Math.min(maxDimension / width, maxDimension / height);
+  return [Math.round(width * scale), Math.round(height * scale)];
+}
+
+/** Poll video download progress from the server. */
+async function pollVideoDownload(
+  controller: AbortController,
+  taskId: string,
+  loadingNodeId: string,
+  engine: any,
+  ctx: {
+    projectId: string;
+    /** Board folder URI like ".openloaf/boards/board_xxx" */
+    boardFolderUri: string;
+    saveDir: string;
+    xywhRef: React.RefObject<[number, number, number, number]>;
+    tRef: React.RefObject<(key: string) => string>;
+    onProgress: (percent: number) => void;
+  },
+) {
+  const baseUrl = resolveServerUrl();
+  const prefix = baseUrl || "";
+  const maxAttempts = 300;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (controller.signal.aborted) {
+      throw new Error(ctx.tRef.current('loading.cancelled'));
+    }
+
+    const res = await fetch(
+      `${prefix}/media/video-download/progress?taskId=${encodeURIComponent(taskId)}`,
+    );
+    if (!res.ok) {
+      throw new Error(ctx.tRef.current('loading.queryFailed'));
+    }
+    const json = await res.json();
+    if (!json.success || !json.data) {
+      throw new Error(ctx.tRef.current('loading.queryFailed'));
+    }
+
+    const { status, progress, result, error } = json.data;
+
+    if (typeof progress === "number") {
+      ctx.onProgress(progress);
+    }
+
+    if (status === "completed" && result) {
+      ctx.onProgress(100);
+      const fileName = result.fileName || "";
+      const boardRelativePath = `${BOARD_ASSETS_DIR_NAME}/${fileName}`;
+      // 逻辑：fs.thumbnails 和 fetchVideoMetadata 需要 project 相对路径，
+      // 而非 board 相对路径。拼接 boardFolderUri 前缀得到完整 project 路径。
+      const projectRelativePath = ctx.boardFolderUri
+        ? normalizeProjectRelativePath(`${ctx.boardFolderUri}/${boardRelativePath}`)
+        : boardRelativePath;
+
+      // Fetch video metadata and thumbnail in parallel
+      const [metadata, thumbResult] = await Promise.all([
+        fetchVideoMetadata({
+          projectId: ctx.projectId || undefined,
+          uri: projectRelativePath,
+        }).catch(() => null),
+        ctx.projectId
+          ? trpcClient.fs.thumbnails.query({
+              projectId: ctx.projectId,
+              uris: [projectRelativePath],
+            }).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+
+      const posterPath =
+        thumbResult?.items?.find((item) => item.uri === projectRelativePath)?.dataUrl ?? "";
+      const naturalWidth = metadata?.width ?? 16;
+      const naturalHeight = metadata?.height ?? 9;
+
+      const DEFAULT_VIDEO_NODE_MAX = 420;
+      const [nodeW, nodeH] = fitVideoSize(naturalWidth, naturalHeight, DEFAULT_VIDEO_NODE_MAX);
+      const [x, y] = ctx.xywhRef.current;
+
+      engine.addNodeElement(
+        "video",
+        {
+          sourcePath: boardRelativePath,
+          fileName,
+          posterPath: posterPath || undefined,
+          naturalWidth,
+          naturalHeight,
+        },
+        [x, y, nodeW, nodeH],
+      );
+
+      // 逻辑：HLS 预转码由服务端下载完成后自动触发，无需客户端处理。
+      clearLoadingNode(engine, loadingNodeId);
+      return;
+    }
+
+    if (status === "failed") {
+      throw new Error(error || ctx.tRef.current('loading.failed'));
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, getPollDelay(attempt)));
+  }
+
+  throw new Error(ctx.tRef.current('loading.videoTimeout'));
+}
+
 /** Render the loading node. */
 export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProps>) {
   const { t } = useTranslation('board');
@@ -92,6 +203,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
   const [isRunning, setIsRunning] = useState(false);
   const [errorText, setErrorText] = useState("");
   const [retryCount, setRetryCount] = useState(0);
+  const [downloadProgress, setDownloadProgress] = useState(-1);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // 逻辑：用 ref 持有可变值，避免它们出现在 useEffect 依赖中导致轮询被意外重启。
@@ -110,7 +222,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
   const promptLabel = promptText || t('loading.processing');
 
   const canRun = Boolean(
-    taskId && (taskType === "video_generate" || taskType === "image_generate")
+    taskId && (taskType === "video_generate" || taskType === "image_generate" || taskType === "video_download")
   );
 
   useEffect(() => {
@@ -124,6 +236,19 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
 
     const run = async () => {
       try {
+        if (taskType === "video_download") {
+          // saveDir 格式为 ".openloaf/boards/board_xxx/asset"，提取 board 目录
+          const boardFolderUri = saveDir.replace(/\/asset\/?$/, "");
+          await pollVideoDownload(controller, taskId, element.id, engine, {
+            projectId,
+            boardFolderUri,
+            saveDir,
+            xywhRef,
+            tRef,
+            onProgress: setDownloadProgress,
+          });
+          return;
+        }
         const maxAttempts = 300;
         for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
           if (controller.signal.aborted) {
@@ -364,9 +489,19 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    void cancelTask(taskId).catch(() => undefined);
+    if (taskType === "video_download") {
+      const baseUrl = resolveServerUrl();
+      const prefix = baseUrl || "";
+      void fetch(`${prefix}/media/video-download/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId }),
+      }).catch(() => undefined);
+    } else {
+      void cancelTask(taskId).catch(() => undefined);
+    }
     clearLoadingNode(engine, element.id);
-  }, [engine, element.id, taskId]);
+  }, [engine, element.id, taskId, taskType]);
 
   const handleRetry = useCallback(() => {
     // 逻辑：递增 retryCount 触发 useEffect 重新执行轮询。
@@ -381,6 +516,10 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
 
   const statusText = (() => {
     if (errorText) return t('loading.statusFailed');
+    if (taskType === "video_download" && (isRunning || downloadProgress >= 0)) {
+      const pct = Math.max(downloadProgress, 0);
+      return `${t('loading.statusDownloading', { defaultValue: '下载中' })} ${pct}%`;
+    }
     if (isRunning) return t('loading.statusGenerating');
     return t('loading.statusWaiting');
   })();
@@ -403,6 +542,14 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
         <div className="text-[11px] text-ol-text-auxiliary line-clamp-3">
           {promptLabel}
         </div>
+        {taskType === "video_download" && !errorText && (
+          <div className="w-full mt-1 h-1.5 rounded-full bg-border/40 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-ol-blue transition-all duration-300"
+              style={{ width: `${Math.max(Math.min(downloadProgress, 100), 0)}%` }}
+            />
+          </div>
+        )}
         {errorText && (
           <div className="text-[10px] text-ol-red line-clamp-2 mt-0.5">
             {errorText}

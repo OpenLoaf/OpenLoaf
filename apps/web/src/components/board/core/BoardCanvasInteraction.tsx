@@ -73,6 +73,8 @@ import {
   resolveProjectPathFromBoardUri,
 } from "./boardFilePath";
 import { buildLinkNodePayloadFromUrl } from "../utils/link";
+import { isVideoPlatformUrl, probeVideoUrl } from "../utils/video-url";
+import { resolveServerUrl } from "@/utils/server-url";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -668,15 +670,45 @@ export function BoardCanvasInteraction({
         ): payload is Extract<(typeof payloads)[number], { kind: "image" }> =>
           payload.kind === "image",
       );
-      if (imagePayloads.length === 0) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const center =
-        lastPointerWorldRef.current ?? engine.getViewportCenterWorld();
-      void insertImageFilesAtPoint(
-        imagePayloads.map((payload) => payload.file),
-        center,
+      if (imagePayloads.length > 0) {
+        event.preventDefault();
+        event.stopPropagation();
+        const center =
+          lastPointerWorldRef.current ?? engine.getViewportCenterWorld();
+        void insertImageFilesAtPoint(
+          imagePayloads.map((payload) => payload.file),
+          center,
+        );
+        return;
+      }
+      const urlPayload = payloads.find(
+        (payload): payload is Extract<(typeof payloads)[number], { kind: "url" }> =>
+          payload.kind === "url",
       );
+      if (urlPayload) {
+        event.preventDefault();
+        event.stopPropagation();
+        const center =
+          lastPointerWorldRef.current ?? engine.getViewportCenterWorld();
+        if (isVideoPlatformUrl(urlPayload.url)) {
+          void insertVideoFromUrl(urlPayload.url, center);
+        } else {
+          void probeVideoUrl(urlPayload.url).then((isVideo) => {
+            if (isVideo) {
+              void insertVideoFromUrl(urlPayload.url, center);
+            } else {
+              const linkPayload = buildLinkNodePayloadFromUrl(urlPayload.url);
+              const [width, height] = linkPayload.size;
+              engine.addNodeElement("link", linkPayload.props, [
+                center[0] - width / 2,
+                center[1] - height / 2,
+                width,
+                height,
+              ]);
+            }
+          });
+        }
+      }
     };
     document.addEventListener("paste", handleGlobalPaste, { capture: true });
     return () => {
@@ -823,15 +855,7 @@ export function BoardCanvasInteraction({
       return;
     }
     if (payload?.url) {
-      const linkPayload = buildLinkNodePayloadFromUrl(payload.url);
-      const [width, height] = linkPayload.size;
-      // 逻辑：以菜单触发点为中心插入链接节点。
-      engine.addNodeElement("link", linkPayload.props, [
-        pastePoint[0] - width / 2,
-        pastePoint[1] - height / 2,
-        width,
-        height,
-      ]);
+      await insertUrlAtPoint(payload.url, pastePoint);
       return;
     }
     if (engine.hasClipboard()) {
@@ -968,6 +992,77 @@ export function BoardCanvasInteraction({
       } catch {
         // 逻辑：单个视频保存失败不阻塞其他视频的插入。
       }
+    }
+  };
+
+  /** Insert a video from a platform URL: create loading node and start server-side download. */
+  const insertVideoFromUrl = async (url: string, center: CanvasPoint) => {
+    const bfUri = fileContext?.boardFolderUri ?? boardFolderUri;
+    const w = DEFAULT_VIDEO_NODE_MAX;
+    const h = Math.round(w * (9 / 16));
+
+    const baseUrl = resolveServerUrl();
+    const prefix = baseUrl || "";
+
+    try {
+      const startRes = await fetch(`${prefix}/media/video-download/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url,
+          boardFolderUri: bfUri,
+          projectId: fileContext?.projectId,
+          boardId: fileContext?.boardId,
+        }),
+      });
+      const startJson = await startRes.json();
+      if (!startJson.success || !startJson.data?.taskId) {
+        throw new Error(startJson.error || "Failed to start download");
+      }
+
+      engine.addNodeElement(
+        "loading",
+        {
+          taskId: startJson.data.taskId,
+          taskType: "video_download",
+          promptText: url,
+          projectId: fileContext?.projectId || "",
+          saveDir: bfUri ? `${bfUri}/asset` : "",
+        },
+        [center[0] - w / 2, center[1] - h / 2, w, h],
+      );
+    } catch {
+      // 逻辑：下载启动失败时回退为普通链接节点。
+      const linkPayload = buildLinkNodePayloadFromUrl(url);
+      const [lw, lh] = linkPayload.size;
+      engine.addNodeElement("link", linkPayload.props, [
+        center[0] - lw / 2,
+        center[1] - lh / 2,
+        lw,
+        lh,
+      ]);
+    }
+  };
+
+  /** Insert a URL at a canvas point: known video platforms go to download, others get probed, fallback to link. */
+  const insertUrlAtPoint = async (url: string, center: CanvasPoint) => {
+    if (isVideoPlatformUrl(url)) {
+      await insertVideoFromUrl(url, center);
+      return;
+    }
+    // 逻辑：未知平台异步探测，能提取视频信息就下载，否则创建链接节点。
+    const isVideo = await probeVideoUrl(url);
+    if (isVideo) {
+      await insertVideoFromUrl(url, center);
+    } else {
+      const linkPayload = buildLinkNodePayloadFromUrl(url);
+      const [width, height] = linkPayload.size;
+      engine.addNodeElement("link", linkPayload.props, [
+        center[0] - width / 2,
+        center[1] - height / 2,
+        width,
+        height,
+      ]);
     }
   };
 

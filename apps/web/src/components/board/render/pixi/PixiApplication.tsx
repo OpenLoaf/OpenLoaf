@@ -67,8 +67,7 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
     // 底层 PixiJS：连线
     const bottomApp = await createPixiApp(bottomContainer)
     if (disposedRef.current) {
-      bottomApp.ticker.stop()
-      try { bottomApp.destroy(true, { children: true }) } catch { /* 异步销毁竞态 */ }
+      bottomApp.destroy(true, { children: true })
       return
     }
 
@@ -83,10 +82,8 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
     // 上层 PixiJS：笔画 + 叠层
     const topApp = await createPixiApp(topContainer)
     if (disposedRef.current) {
-      bottomApp.ticker.stop()
-      topApp.ticker.stop()
-      try { bottomApp.destroy(true, { children: true }) } catch { /* 异步销毁竞态 */ }
-      try { topApp.destroy(true, { children: true }) } catch { /* 异步销毁竞态 */ }
+      bottomApp.destroy(true, { children: true })
+      topApp.destroy(true, { children: true })
       return
     }
 
@@ -136,21 +133,14 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
     cleanupRef.current = () => {
       unsubSnapshot()
       unsubView()
-      // 逻辑：先停止 ticker 防止新渲染帧被调度。
-      bottomApp.ticker.stop()
-      topApp.ticker.stop()
-      // 逻辑：延迟到下一帧再销毁资源，确保当前帧已调度的 rAF 回调不会访问已释放的对象。
-      // ticker 已停止，所以延迟帧中不会有新的渲染发生。
-      requestAnimationFrame(() => {
-        bottomViewportSync.destroy()
-        topViewportSync.destroy()
-        connectorRenderer.destroy()
-        strokeRenderer.destroy()
-        overlayRenderer.destroy()
-        themeResolver.destroy()
-        try { bottomApp.destroy(true, { children: true }) } catch { /* PixiJS 异步销毁竞态 */ }
-        try { topApp.destroy(true, { children: true }) } catch { /* PixiJS 异步销毁竞态 */ }
-      })
+      bottomViewportSync.destroy()
+      topViewportSync.destroy()
+      connectorRenderer.destroy()
+      strokeRenderer.destroy()
+      overlayRenderer.destroy()
+      themeResolver.destroy()
+      bottomApp.destroy(true, { children: true })
+      topApp.destroy(true, { children: true })
     }
   }, [engine])
 

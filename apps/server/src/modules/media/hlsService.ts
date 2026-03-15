@@ -502,9 +502,9 @@ function parseSegmentToken(token: string): {
   const parts = token.split("::").map((value) => value.trim());
   if (parts.length === 3) {
     const [projectId, cacheKey, qualityRaw] = parts;
-    if (!projectId || !cacheKey || !qualityRaw) return null;
+    if (!cacheKey || !qualityRaw) return null;
     if (!isHlsQuality(qualityRaw)) return null;
-    return { projectId, cacheKey, quality: qualityRaw };
+    return { projectId: projectId || undefined, cacheKey, quality: qualityRaw };
   }
   return null;
 }
@@ -517,9 +517,9 @@ function parseThumbnailToken(token: string): {
   const parts = token.split("::").map((value) => value.trim());
   if (parts.length === 3) {
     const [projectId, cacheKey, marker] = parts;
-    if (!projectId || !cacheKey || !marker) return null;
+    if (!cacheKey || !marker) return null;
     if (marker !== "thumbs") return null;
-    return { projectId, cacheKey };
+    return { projectId: projectId || undefined, cacheKey };
   }
   return null;
 }

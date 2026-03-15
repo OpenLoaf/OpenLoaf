@@ -92,7 +92,8 @@
       "macos-alias",
       "ds-store",
       "appdmg",
-      "fs-xattr"
+      "fs-xattr",
+      "ytdlp-nodejs"
     ],
     "supportedArchitectures": {
       "os": [

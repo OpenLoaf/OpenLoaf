@@ -16,6 +16,7 @@ import type { PixiThemeResolver } from './PixiThemeResolver'
 /** 每条笔画的 PixiJS 状态 */
 type StrokeState = {
   graphics: Graphics
+  alphaFilter: AlphaFilter | null
   lastPropsKey: string
   lastXywhKey: string
 }
@@ -68,7 +69,7 @@ export class PixiStrokeLayer {
           existing.lastPropsKey !== propsKey ||
           existing.lastXywhKey !== xywhKey
         ) {
-          this.renderStroke(existing.graphics, element)
+          this.renderStroke(existing.graphics, element, existing.alphaFilter)
           existing.lastPropsKey = propsKey
           existing.lastXywhKey = xywhKey
         }
@@ -76,13 +77,14 @@ export class PixiStrokeLayer {
         const graphics = new Graphics()
         graphics.label = `stroke:${element.id}`
         graphics.cullable = true
-        this.renderStroke(graphics, element)
         this.container.addChild(graphics)
         this.strokes.set(element.id, {
           graphics,
+          alphaFilter: null,
           lastPropsKey: propsKey,
           lastXywhKey: xywhKey,
         })
+        this.renderStroke(graphics, element, null)
       }
 
       const state = this.strokes.get(element.id)!
@@ -93,6 +95,7 @@ export class PixiStrokeLayer {
     for (const [id, state] of this.strokes) {
       if (!currentIds.has(id)) {
         this.container.removeChild(state.graphics)
+        state.alphaFilter?.destroy()
         state.graphics.destroy()
         this.strokes.delete(id)
       }
@@ -103,6 +106,7 @@ export class PixiStrokeLayer {
   private renderStroke(
     g: Graphics,
     element: CanvasNodeElement<StrokeNodeProps>,
+    existingFilter: AlphaFilter | null,
   ): void {
     g.clear()
 
@@ -119,10 +123,15 @@ export class PixiStrokeLayer {
       g.circle(px, py, lineWidth / 2)
       g.fill({ color: parsedColor, alpha: 1 })
       if (isHighlighter) {
-        g.filters = [new AlphaFilter({ alpha: opacity * 0.4 })]
+        const targetAlpha = opacity * 0.4
+        const filter = existingFilter ?? new AlphaFilter({ alpha: targetAlpha })
+        filter.alpha = targetAlpha
+        g.filters = [filter]
+        this.updateStrokeFilter(element.id, filter)
       } else {
         g.filters = []
         g.alpha = opacity
+        this.updateStrokeFilter(element.id, null)
       }
       return
     }
@@ -158,10 +167,24 @@ export class PixiStrokeLayer {
     if (isHighlighter) {
       // 逻辑：AlphaFilter 会先将 Graphics 渲染到离屏帧缓冲（alpha=1，无自叠加），
       // 再以目标 alpha 合成到画布。这是 PixiJS 中实现"组透明度"的标准方式。
-      g.filters = [new AlphaFilter({ alpha: opacity * 0.4 })]
+      // 复用已有的 AlphaFilter 实例，避免 GPU 资源在帧内被回收导致 BindGroup.setResource 报错。
+      const targetAlpha = opacity * 0.4
+      const filter = existingFilter ?? new AlphaFilter({ alpha: targetAlpha })
+      filter.alpha = targetAlpha
+      g.filters = [filter]
+      this.updateStrokeFilter(element.id, filter)
     } else {
       g.filters = []
       g.alpha = opacity
+      this.updateStrokeFilter(element.id, null)
+    }
+  }
+
+  /** 更新笔画状态中缓存的 AlphaFilter 引用 */
+  private updateStrokeFilter(id: string, filter: AlphaFilter | null): void {
+    const state = this.strokes.get(id)
+    if (state) {
+      state.alphaFilter = filter
     }
   }
 
@@ -240,6 +263,7 @@ export class PixiStrokeLayer {
 
   destroy(): void {
     for (const [, state] of this.strokes) {
+      state.alphaFilter?.destroy()
       state.graphics.destroy()
     }
     this.strokes.clear()

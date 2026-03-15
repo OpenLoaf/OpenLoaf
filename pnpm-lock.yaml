@@ -353,6 +353,9 @@ importers:
       yjs:
         specifier: ^13.6.29
         version: 13.6.29
+      ytdlp-nodejs:
+        specifier: ^3.4.4
+        version: 3.4.4
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -17383,6 +17386,11 @@ packages:
 
   youtube-video-element@1.9.0:
     resolution: {integrity: sha512-Hh0dbQM+FVlUaYUbpYkZNUvdKxTNcSNvTGzkQKYShltnX+LRHEp2eYvC2Zm43eU8Np+CBZuoNR2i+seCYzzAyg==}
+
+  ytdlp-nodejs@3.4.4:
+    resolution: {integrity: sha512-PR2nQOtyOzSuSQpWf6SHD97d6qlcfY2y6CVCeYnuDacYDc1YzNLXYiqAyIpFWk13UUrtQN+XD35h5DERli3SXQ==}
+    engines: {node: '>=16.0.0'}
+    hasBin: true
 
   zeptomatch@2.1.0:
     resolution: {integrity: sha512-KiGErG2J0G82LSpniV0CtIzjlJ10E04j02VOudJsPyPwNZgGnRKQy7I1R7GMyg/QswnE4l7ohSGrQbQbjXPPDA==}
@@ -39961,6 +39969,8 @@ snapshots:
   youtube-video-element@1.9.0:
     dependencies:
       media-played-ranges-mixin: 0.1.0
+
+  ytdlp-nodejs@3.4.4: {}
 
   zeptomatch@2.1.0:
     dependencies:
