@@ -20,124 +20,116 @@ import { PixiOverlayLayer } from './PixiOverlayLayer'
 import { PixiThemeResolver } from './PixiThemeResolver'
 import { DomNodeLayer } from './DomNodeLayer'
 
+/** 创建并初始化一个 PixiJS Application */
+async function createPixiApp(container: HTMLDivElement) {
+  const app = new Application()
+  await app.init({
+    resizeTo: container,
+    backgroundAlpha: 0,
+    antialias: true,
+    resolution: window.devicePixelRatio || 1,
+    autoDensity: true,
+    preference: 'webgl',
+  })
+  const canvasEl = app.canvas as HTMLCanvasElement
+  canvasEl.style.pointerEvents = 'none'
+  container.appendChild(canvasEl)
+  return app
+}
+
 export type PixiApplicationProps = {
   engine: CanvasEngine
   snapshot: CanvasSnapshot
 }
 
 /**
- * React component wrapping a PixiJS v8 Application.
- * This is the single entry point for the PixiJS canvas renderer.
+ * PixiJS 双层画布 + DOM 节点层。
  *
- * Scene graph:
- *   Stage
- *     +-- worldContainer (viewport transform: zoom + offset)
- *     |     +-- strokeLayer (pen/highlighter strokes via PixiStrokeLayer)
- *     |     +-- connectorLayer (connector paths)
- *     +-- overlayContainer (screen-space, no viewport transform)
- *           +-- selectionBoxGraphics
- *           +-- alignmentGuideGraphics
- *           +-- anchorGraphics
+ * 渲染层叠顺序（从底到顶）：
+ *   1. 底层 PixiJS canvas — 连线
+ *   2. DOM 节点层 — 所有节点（React 组件，完整交互）
+ *   3. 上层 PixiJS canvas — 笔画/荧光笔 + 选区框 + 对齐线
+ *
+ * 这样画笔/荧光笔始终覆盖在节点上方，连线始终在节点下方。
  */
 export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const appRef = useRef<Application | null>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const topRef = useRef<HTMLDivElement>(null)
   const cleanupRef = useRef<(() => void) | null>(null)
 
   const init = useCallback(async () => {
-    const container = containerRef.current
-    if (!container) return
+    const bottomContainer = bottomRef.current
+    const topContainer = topRef.current
+    if (!bottomContainer || !topContainer) return
 
-    const app = new Application()
-    await app.init({
-      resizeTo: container,
-      backgroundAlpha: 0,
-      antialias: true,
-      resolution: window.devicePixelRatio || 1,
-      autoDensity: true,
-      preference: 'webgl',
-    })
+    // 底层 PixiJS：连线
+    const bottomApp = await createPixiApp(bottomContainer)
 
-    // PixiJS canvas 需要 pointer-events: none，让事件穿透到 engine 绑定的容器
-    const canvasEl = app.canvas as HTMLCanvasElement
-    canvasEl.style.pointerEvents = 'none'
-    container.appendChild(canvasEl)
-    appRef.current = app
+    const bottomWorld = new Container()
+    bottomWorld.label = 'bottomWorld'
+    bottomApp.stage.addChild(bottomWorld)
 
-    // 场景图层结构
-    const worldContainer = new Container()
-    worldContainer.label = 'worldContainer'
-    app.stage.addChild(worldContainer)
+    const connectorLayer = new Container()
+    connectorLayer.label = 'connectorLayer'
+    bottomWorld.addChild(connectorLayer)
 
-    const strokeLayerContainer = new Container()
-    strokeLayerContainer.label = 'strokeLayer'
-    strokeLayerContainer.sortableChildren = true
-    worldContainer.addChild(strokeLayerContainer)
+    // 上层 PixiJS：笔画 + 叠层
+    const topApp = await createPixiApp(topContainer)
 
-    const connectorLayerContainer = new Container()
-    connectorLayerContainer.label = 'connectorLayer'
-    worldContainer.addChild(connectorLayerContainer)
+    const topWorld = new Container()
+    topWorld.label = 'topWorld'
+    topApp.stage.addChild(topWorld)
+
+    const strokeLayer = new Container()
+    strokeLayer.label = 'strokeLayer'
+    strokeLayer.sortableChildren = true
+    topWorld.addChild(strokeLayer)
 
     const overlayContainer = new Container()
     overlayContainer.label = 'overlayContainer'
-    app.stage.addChild(overlayContainer)
+    topApp.stage.addChild(overlayContainer)
 
     // 主题解析器
-    const themeResolver = new PixiThemeResolver(container)
+    const themeResolver = new PixiThemeResolver(bottomContainer)
 
-    // 视口同步：engine viewport → worldContainer transform
-    const viewportSync = new PixiViewportSync(engine, worldContainer)
+    // 视口同步：两个 worldContainer 都要同步
+    const bottomViewportSync = new PixiViewportSync(engine, bottomWorld)
+    const topViewportSync = new PixiViewportSync(engine, topWorld)
 
-    // 笔画渲染器
-    const strokeLayerRenderer = new PixiStrokeLayer(
-      engine,
-      strokeLayerContainer,
-      themeResolver,
-    )
+    // 渲染器
+    const connectorRenderer = new PixiConnectorLayer(engine, connectorLayer, themeResolver)
+    const strokeRenderer = new PixiStrokeLayer(engine, strokeLayer, themeResolver)
+    const overlayRenderer = new PixiOverlayLayer(engine, overlayContainer, topWorld, themeResolver)
 
-    // 连线渲染器
-    const connectorLayerRenderer = new PixiConnectorLayer(
-      engine,
-      connectorLayerContainer,
-      themeResolver,
-    )
-
-    // 叠层渲染器（选区框、对齐线、锚点）
-    const overlayLayerRenderer = new PixiOverlayLayer(
-      engine,
-      overlayContainer,
-      worldContainer,
-      themeResolver,
-    )
-
-    // 启动渲染循环
-    // 逻辑：节点由 DomNodeLayer 渲染，PixiJS 只渲染连线/笔画/叠层。
     const unsubSnapshot = engine.subscribe(() => {
-      strokeLayerRenderer.sync()
-      connectorLayerRenderer.sync()
-      overlayLayerRenderer.sync()
+      connectorRenderer.sync()
+      strokeRenderer.sync()
+      overlayRenderer.sync()
     })
 
     const unsubView = engine.subscribeView(() => {
-      viewportSync.sync()
-      overlayLayerRenderer.syncView()
+      bottomViewportSync.sync()
+      topViewportSync.sync()
+      overlayRenderer.syncView()
     })
 
     // 初始同步
-    viewportSync.sync()
-    strokeLayerRenderer.sync()
-    connectorLayerRenderer.sync()
+    bottomViewportSync.sync()
+    topViewportSync.sync()
+    connectorRenderer.sync()
+    strokeRenderer.sync()
 
     cleanupRef.current = () => {
       unsubSnapshot()
       unsubView()
-      viewportSync.destroy()
-      strokeLayerRenderer.destroy()
-      connectorLayerRenderer.destroy()
-      overlayLayerRenderer.destroy()
+      bottomViewportSync.destroy()
+      topViewportSync.destroy()
+      connectorRenderer.destroy()
+      strokeRenderer.destroy()
+      overlayRenderer.destroy()
       themeResolver.destroy()
-      app.destroy(true, { children: true })
-      appRef.current = null
+      bottomApp.destroy(true, { children: true })
+      topApp.destroy(true, { children: true })
     }
   }, [engine])
 
@@ -151,14 +143,20 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
 
   return (
     <>
-      {/* PixiJS WebGL 层：连线 + 笔画 + 选区叠层 */}
+      {/* 1. 底层 PixiJS：连线（在节点下方） */}
       <div
-        ref={containerRef}
+        ref={bottomRef}
         className="pointer-events-none absolute inset-0"
         style={{ touchAction: 'none' }}
       />
-      {/* DOM 节点层：所有节点始终用 React 组件渲染，保证完整交互 */}
+      {/* 2. DOM 节点层：所有节点（React 组件，完整交互） */}
       <DomNodeLayer engine={engine} snapshot={snapshot} />
+      {/* 3. 上层 PixiJS：笔画 + 选区框 + 对齐线（在节点上方） */}
+      <div
+        ref={topRef}
+        className="pointer-events-none absolute inset-0"
+        style={{ touchAction: 'none' }}
+      />
     </>
   )
 }
