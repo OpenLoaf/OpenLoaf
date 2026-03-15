@@ -219,9 +219,9 @@ export function BoardContextMenu({
 
             <ContextMenuItem
               icon={Clipboard}
-              disabled={pasteDisabled || !pasteAvailable}
+              disabled={pasteDisabled}
               onSelect={() => {
-                if (pasteDisabled || !pasteAvailable) return;
+                if (pasteDisabled) return;
                 onPaste();
               }}
             >

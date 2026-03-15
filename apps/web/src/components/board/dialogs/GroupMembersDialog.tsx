@@ -149,7 +149,16 @@ export function GroupMembersDialog({
   return (
     // 逻辑：不使用 Radix Dialog Portal，直接渲染固定定位覆盖层，
     // 确保 React effects 正常 flush（Portal 内 effects 不 flush 是已知兼容性问题）。
-    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+    // 逻辑：阻止子画布的交互事件冒泡到主画布，避免两个引擎同时处理导致无限更新循环。
+    <div
+      className="fixed inset-0 z-50"
+      role="dialog"
+      aria-modal="true"
+      onWheel={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerMove={(e) => e.stopPropagation()}
+      onPointerUp={(e) => e.stopPropagation()}
+    >
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-foreground/20 animate-in fade-in-0 duration-200"

@@ -1358,7 +1358,8 @@ export function BoardCanvasInteraction({
           } else {
             setContextNode(null);
           }
-          void updatePasteAvailability();
+          // 逻辑：同步检查内部剪贴板即可，跳过 navigator.clipboard.read() 避免右键卡顿。
+          setPasteAvailable(engine.hasClipboard());
         }}
       >
         <div
