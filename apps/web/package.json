@@ -144,6 +144,7 @@
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "5.4.296",
     "perfect-freehand": "^1.2.2",
+    "pixi.js": "^8.17.0",
     "platejs": "^52.0.17",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
