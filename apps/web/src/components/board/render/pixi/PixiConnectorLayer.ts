@@ -29,11 +29,15 @@ const ARROW_SIZE = 7
 /** 箭头张角 */
 const ARROW_ANGLE = Math.PI / 7.5
 /** 基础线宽 */
-const STROKE_WIDTH = 2.2
+const STROKE_WIDTH = 1.2
 /** 选中线宽 */
-const STROKE_WIDTH_SELECTED = 2.8
+const STROKE_WIDTH_SELECTED = 1.8
 /** 悬停线宽 */
-const STROKE_WIDTH_HOVER = 2.5
+const STROKE_WIDTH_HOVER = 2
+/** 默认连线透明度（偏淡） */
+const STROKE_ALPHA = 0.35
+/** 选中/悬停时的连线透明度 */
+const STROKE_ALPHA_ACTIVE = 0.7
 
 /**
  * Renders connector elements as PixiJS Graphics paths.
@@ -131,20 +135,22 @@ export class PixiConnectorLayer {
           ? STROKE_WIDTH_HOVER
           : STROKE_WIDTH
 
+      const lineAlpha = isSelected || isHovered ? STROKE_ALPHA_ACTIVE : STROKE_ALPHA
+
       // 悬停光晕
       if (isHovered && !isSelected) {
         this.drawDashedPath(g, points, {
           width: STROKE_WIDTH_HOVER,
           color: palette.selectionBorder,
-          alpha: 0.5,
+          alpha: lineAlpha * 0.5,
         })
       }
 
-      // 主线（全部使用虚线）
+      // 主线（虚线，偏淡）
       this.drawDashedPath(g, points, {
         width,
         color: effectiveColor,
-        alpha: 1,
+        alpha: lineAlpha,
       })
 
       // 箭头
@@ -156,7 +162,7 @@ export class PixiConnectorLayer {
           ARROW_SIZE,
           effectiveColor,
           width,
-          1,
+          lineAlpha,
         )
       }
     }
@@ -187,7 +193,7 @@ export class PixiConnectorLayer {
         this.drawDashedPath(g, draftPoints, {
           width: STROKE_WIDTH,
           color: palette.connector,
-          alpha: 0.5,
+          alpha: STROKE_ALPHA,
         })
       }
     }
