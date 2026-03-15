@@ -49,13 +49,6 @@ export type AnyToolPart = {
   };
 };
 
-export type ToolJsonDisplay = {
-  /** JSON text shown in collapsed mode. */
-  collapsedText: string;
-  /** JSON text shown in expanded mode. */
-  expandedText: string;
-};
-
 export type ToolOutputState = {
   /** Raw output text from tool. */
   outputText: string;
@@ -65,11 +58,11 @@ export type ToolOutputState = {
   displayText: string;
 };
 
-export type ToolStatusTone = "default" | "success" | "warning" | "error";
-
 /** Resolve tool display name. */
 export function getToolName(part: AnyToolPart): string {
-  const actionName = getToolActionName(part);
+  const inputPayload = normalizeToolInput(part.input);
+  const inputObject = asPlainObject(inputPayload);
+  const actionName = typeof inputObject?.actionName === "string" ? inputObject.actionName.trim() : "";
   if (actionName) return actionName;
 
   return resolveToolDisplayName({
@@ -95,13 +88,6 @@ export function isToolStreaming(part: { state?: string; streaming?: boolean }): 
     part.state === "input-streaming" ||
     part.state === "output-streaming"
   );
-}
-
-/** Resolve actionName from tool input. */
-export function getToolActionName(part: AnyToolPart): string {
-  const inputPayload = normalizeToolInput(part.input);
-  const inputObject = asPlainObject(inputPayload);
-  return typeof inputObject?.actionName === "string" ? inputObject.actionName.trim() : "";
 }
 
 /** Normalize any value into displayable string. */
@@ -141,20 +127,6 @@ export function asPlainObject(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
-/** Format value into a readable string. */
-export function formatValue(value: unknown): string {
-  if (value == null) return "—";
-  if (typeof value === "boolean") return value ? "是" : "否";
-  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "—";
-  if (typeof value === "string") return value.trim() || "—";
-  if (Array.isArray(value)) return value.map((item) => String(item)).join(" ");
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-}
-
 /** Format duration in milliseconds. */
 export function formatDurationMs(value: unknown): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return "—";
@@ -166,52 +138,13 @@ export function formatDurationMs(value: unknown): string {
 export function formatCommand(value: unknown): string {
   if (Array.isArray(value)) return value.map((item) => String(item)).join(" ");
   if (typeof value === "string") return value.trim();
-  return formatValue(value);
+  return safeStringify(value);
 }
 
 /** Truncate long text for previews. */
 export function truncateText(value: string, maxLength = 120): string {
   if (value.length <= maxLength) return value;
   return `${value.slice(0, maxLength)}…`;
-}
-
-/** Extract the output section from unified tool outputs. */
-export function extractOutputSection(value: string): string {
-  const marker = "Output:";
-  const index = value.indexOf(marker);
-  if (index === -1) return value.trim();
-  return value.slice(index + marker.length).trimStart();
-}
-
-/** Resolve JSON rendering payload when the value is JSON or JSON-like. */
-export function getJsonDisplay(value: unknown): ToolJsonDisplay | null {
-  if (value == null) return null;
-
-  try {
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      // 中文注释：先做轻量前置判断，避免对普通文本频繁 JSON.parse。
-      const maybeJson = trimmed.startsWith("{") || trimmed.startsWith("[");
-      if (!maybeJson) return null;
-
-      const parsed = JSON.parse(trimmed) as unknown;
-      return {
-        collapsedText: JSON.stringify(parsed),
-        expandedText: JSON.stringify(parsed, null, 2),
-      };
-    }
-
-    if (typeof value === "object") {
-      return {
-        collapsedText: JSON.stringify(value),
-        expandedText: JSON.stringify(value, null, 2),
-      };
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
 }
 
 /** Check whether tool input is empty. */
@@ -221,24 +154,6 @@ export function isEmptyInput(value: unknown): boolean {
   if (Array.isArray(value)) return value.length === 0;
   if (typeof value === "object") return Object.keys(value as object).length === 0;
   return false;
-}
-
-/** Resolve status text for tool header. */
-export function getToolStatusText(part: AnyToolPart): string {
-  if (typeof part.errorText === "string" && part.errorText.trim()) return "失败";
-  if (part.state && part.state !== "output-available") return String(part.state);
-  if (part.output != null) return "完成";
-  return "运行中";
-}
-
-/** Resolve status tone for tool header. */
-export function getToolStatusTone(part: AnyToolPart): ToolStatusTone {
-  if (typeof part.errorText === "string" && part.errorText.trim()) return "error";
-  if (isApprovalPending(part)) return "warning";
-  if (part.state === "output-error" || part.state === "output-denied") return "error";
-  if (part.state === "output-available") return "success";
-  if (part.output != null) return "success";
-  return "default";
 }
 
 /** Resolve approval id from tool part. */

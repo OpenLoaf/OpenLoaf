@@ -111,7 +111,7 @@ function createGroupToolbarItems(ctx: CanvasToolbarContext<GroupNodeProps>) {
 
   // 逻辑：自动布局按钮，根据当前布局轴检测方向后排列组内成员。
   const axis = ctx.getGroupLayoutAxis(groupId);
-  const layoutDirection = axis === 'column' ? 'column' : 'row';
+  const layoutDirection = axis === 'row' ? 'row' : 'column';
   items.push({
     id: 'auto-layout',
     label: t('board:selection.toolbar.autoLayout'),
