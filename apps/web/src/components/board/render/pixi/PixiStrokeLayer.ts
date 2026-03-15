@@ -4,7 +4,7 @@
  * This source code is licensed under the AGPLv3 license found in the
  * LICENSE file in the root directory of this source tree.
  */
-import { Container, Graphics } from 'pixi.js'
+import { AlphaFilter, Container, Graphics } from 'pixi.js'
 import type { CanvasEngine } from '../../engine/CanvasEngine'
 import type {
   CanvasNodeElement,
@@ -117,18 +117,21 @@ export class PixiStrokeLayer {
     if (points.length === 1) {
       const [px, py] = points[0]
       g.circle(px, py, lineWidth / 2)
-      g.fill({ color: parsedColor, alpha: isHighlighter ? 1 : opacity })
-      // 逻辑：荧光笔整体透明度在容器 alpha 上设，避免自交叉叠加。
-      g.alpha = isHighlighter ? opacity * 0.4 : 1
+      g.fill({ color: parsedColor, alpha: 1 })
+      if (isHighlighter) {
+        g.filters = [new AlphaFilter({ alpha: opacity * 0.4 })]
+      } else {
+        g.filters = []
+        g.alpha = opacity
+      }
       return
     }
 
-    // 逻辑：荧光笔以 alpha=1 绘制线条，通过 Graphics.alpha 控制整体透明度。
-    // PixiJS 的 displayObject.alpha 作用于最终合成，内部像素不会互相叠加。
+    // 逻辑：所有笔画以 alpha=1 绘制线条。
     g.setStrokeStyle({
       width: lineWidth,
       color: parsedColor,
-      alpha: isHighlighter ? 1 : opacity,
+      alpha: 1,
       cap: 'round',
       join: 'round',
     })
@@ -152,10 +155,14 @@ export class PixiStrokeLayer {
 
     g.stroke()
 
-    // 逻辑：荧光笔整体透明度通过 displayObject.alpha 设置。
-    // 这会让整个 Graphics 对象作为一个合成单元以目标 alpha 混合到画布，
-    // 内部线条不会因为自交叉而 alpha 叠加。
-    g.alpha = isHighlighter ? opacity * 0.4 : 1
+    if (isHighlighter) {
+      // 逻辑：AlphaFilter 会先将 Graphics 渲染到离屏帧缓冲（alpha=1，无自叠加），
+      // 再以目标 alpha 合成到画布。这是 PixiJS 中实现"组透明度"的标准方式。
+      g.filters = [new AlphaFilter({ alpha: opacity * 0.4 })]
+    } else {
+      g.filters = []
+      g.alpha = opacity
+    }
   }
 
   /** 应用节点位置和旋转 */
