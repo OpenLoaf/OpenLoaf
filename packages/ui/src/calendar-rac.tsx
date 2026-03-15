@@ -10,7 +10,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { getLocalTimeZone, today, type CalendarDate } from "@internationalized/date";
+import { getLocalTimeZone, today } from "@internationalized/date";
 import type { ComponentProps } from "react";
 import {
   Button,
@@ -74,7 +74,7 @@ const CalendarGridComponent = ({
         )}
       </CalendarGridHeaderRac>
       <CalendarGridBodyRac className="[&_td]:px-0">
-        {(date: CalendarDate) => {
+        {(date) => {
           // 中文注释：根据 YYYY-MM-DD key 标记历史日期。
           const isMarked = markedDates?.has(date.toString());
 
