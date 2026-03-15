@@ -122,7 +122,7 @@ export function BoardCanvasRender({
   return (
     <>
       {showUi && snapshot.elements.length > 0 ? <MiniMapLayer engine={engine} snapshot={snapshot} /> : null}
-      {/* PixiJS 统一渲染层：替代 CanvasSurface + SvgConnectorLayer + CanvasDomLayer */}
+      {/* PixiJS 统一渲染层 */}
       <PixiCanvas engine={engine} snapshot={snapshot} />
       {showUi && snapshot.pendingInsert && snapshot.pendingInsertPoint && PENDING_INSERT_DOM_TYPES.has(snapshot.pendingInsert.type) ? (
         <PendingInsertPreview

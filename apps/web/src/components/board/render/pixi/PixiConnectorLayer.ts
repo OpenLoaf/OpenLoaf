@@ -37,8 +37,7 @@ const STROKE_WIDTH_HOVER = 2.5
 
 /**
  * Renders connector elements as PixiJS Graphics paths.
- * 使用与 SvgConnectorLayer 相同的 connector-path 路径计算逻辑，
- * 确保曲线和锚点选择行为完全一致。
+ * 使用 connector-path 路径计算逻辑绘制曲线和锚点。
  */
 export class PixiConnectorLayer {
   private engine: CanvasEngine
@@ -68,7 +67,7 @@ export class PixiConnectorLayer {
     const g = this.graphics
     g.clear()
 
-    // 计算节点包围盒（与 SvgConnectorLayer 保持一致）
+    // 计算节点包围盒
     const groupPadding = getGroupOutlinePadding(1)
     const boundsMap: Record<string, CanvasRect | undefined> = {}
     const connectorElements: CanvasConnectorElement[] = []
@@ -290,7 +289,7 @@ export class PixiConnectorLayer {
   }
 }
 
-/** 计算节点包围盒（与 SvgConnectorLayer 保持一致） */
+/** 计算节点包围盒 */
 function getNodeBounds(
   element: CanvasNodeElement,
   groupPadding: number,
