@@ -165,11 +165,11 @@ export function BoardCanvasRender({
           onDelete={() => engine.deleteSelection()}
         />
       ) : null}
-      {showUi ? <MultiSelectionOutline snapshot={snapshot} engine={engine} /> : null}
-      {showUi && selectedNode && selectedNode.type !== "image_generate" && selectedNode.type !== "image_prompt_generate" && selectedNode.type !== "video_generate" && selectedNode.type !== "chat_input" && selectedNode.type !== "chat_message" ? (
+      {showUi && !snapshot.draggingId ? <MultiSelectionOutline snapshot={snapshot} engine={engine} /> : null}
+      {showUi && !snapshot.draggingId && selectedNode && selectedNode.type !== "image_generate" && selectedNode.type !== "image_prompt_generate" && selectedNode.type !== "video_generate" && selectedNode.type !== "chat_input" && selectedNode.type !== "chat_message" ? (
         <SingleSelectionOutline snapshot={snapshot} engine={engine} element={selectedNode} />
       ) : null}
-      {showUi && selectedNode ? (
+      {showUi && !snapshot.draggingId && selectedNode ? (
         <SingleSelectionToolbar
           snapshot={snapshot}
           engine={engine}
@@ -177,7 +177,7 @@ export function BoardCanvasRender({
           onInspect={(elementId) => setInspectorNodeId(elementId)}
         />
       ) : null}
-      {showUi ? (
+      {showUi && !snapshot.draggingId ? (
         <MultiSelectionToolbar
           snapshot={snapshot}
           engine={engine}
