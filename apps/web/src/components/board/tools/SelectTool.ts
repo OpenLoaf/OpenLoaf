@@ -382,6 +382,9 @@ export class SelectTool implements CanvasTool {
       if (!this.selectionBoxActive) {
         this.selectionBoxActive = true;
       }
+      // 逻辑：框选框的视觉位置每帧更新（流畅），节点选区计算仍然节流（性能）。
+      const rect = this.buildSelectionRect(this.selectionStartWorld, ctx.worldPoint);
+      ctx.engine.setSelectionBox(rect);
       this.scheduleSelectionUpdate(ctx.engine, ctx.worldPoint);
       return;
     }
