@@ -116,8 +116,6 @@ export class PixiConnectorLayer {
 
       const isSelected = snapshot.selectedIds.includes(connector.id)
       const isHovered = connector.id === snapshot.connectorHoverId
-      const dashed = connector.dashed ?? snapshot.connectorDashed
-
       // 确定颜色
       const color = connector.color
         ? this.parseCssColor(connector.color) ?? palette.connector
@@ -133,23 +131,20 @@ export class PixiConnectorLayer {
           ? STROKE_WIDTH_HOVER
           : STROKE_WIDTH
 
-      // 虚线降低透明度模拟（PixiJS v8 Graphics 不支持原生虚线）
-      const alpha = dashed ? 0.5 : 1
-
       // 悬停光晕
       if (isHovered && !isSelected) {
-        this.drawPathAndStroke(g, path, {
+        this.drawDashedPath(g, points, {
           width: STROKE_WIDTH_HOVER,
           color: palette.selectionBorder,
-          alpha: alpha * 0.5,
+          alpha: 0.5,
         })
       }
 
-      // 主线
-      this.drawPathAndStroke(g, path, {
+      // 主线（全部使用虚线）
+      this.drawDashedPath(g, points, {
         width,
         color: effectiveColor,
-        alpha,
+        alpha: 1,
       })
 
       // 箭头
@@ -161,7 +156,7 @@ export class PixiConnectorLayer {
           ARROW_SIZE,
           effectiveColor,
           width,
-          alpha,
+          1,
         )
       }
     }
@@ -187,19 +182,75 @@ export class PixiConnectorLayer {
             targetAnchorId: resolved.targetAnchorId,
           },
         )
-        const draftDashed = draft.dashed ?? snapshot.connectorDashed
+        const draftPoints = flattenConnectorPath(path)
 
-        this.drawPathAndStroke(g, path, {
+        this.drawDashedPath(g, draftPoints, {
           width: STROKE_WIDTH,
           color: palette.connector,
-          alpha: draftDashed ? 0.25 : 0.35,
+          alpha: 0.5,
         })
       }
     }
   }
 
-  /** 使用 PixiJS Graphics API 绘制连线路径并立即描边（路径隔离，避免跨连线合并） */
-  private drawPathAndStroke(
+  /** 绘制虚线路径 */
+  private drawDashedPath(
+    g: Graphics,
+    flatPoints: CanvasPoint[],
+    style: { width: number; color: number; alpha: number },
+    dashLength = 6,
+    gapLength = 4,
+  ): void {
+    if (flatPoints.length < 2) return
+    g.setStrokeStyle({
+      width: style.width,
+      color: style.color,
+      alpha: style.alpha,
+      cap: 'round',
+      join: 'round',
+    })
+
+    let drawing = true
+    let remaining = dashLength
+    let [cx, cy] = flatPoints[0]
+    g.moveTo(cx, cy)
+
+    for (let i = 1; i < flatPoints.length; i++) {
+      const [nx, ny] = flatPoints[i]
+      let dx = nx - cx
+      let dy = ny - cy
+      let segLen = Math.hypot(dx, dy)
+
+      while (segLen > 0) {
+        const step = Math.min(remaining, segLen)
+        const ratio = step / segLen
+        const px = cx + dx * ratio
+        const py = cy + dy * ratio
+
+        if (drawing) {
+          g.lineTo(px, py)
+        } else {
+          g.moveTo(px, py)
+        }
+
+        remaining -= step
+        if (remaining <= 0) {
+          drawing = !drawing
+          remaining = drawing ? dashLength : gapLength
+        }
+
+        cx = px
+        cy = py
+        dx = nx - cx
+        dy = ny - cy
+        segLen = Math.hypot(dx, dy)
+      }
+    }
+    g.stroke()
+  }
+
+  /** 绘制实线路径 */
+  private drawSolidPath(
     g: Graphics,
     path: CanvasConnectorPath,
     style: { width: number; color: number; alpha: number },
@@ -219,7 +270,6 @@ export class PixiConnectorLayer {
         g.lineTo(pts[i][0], pts[i][1])
       }
     } else {
-      // bezier
       const [p0, p1, p2, p3] = path.points
       g.moveTo(p0[0], p0[1])
       g.bezierCurveTo(p1[0], p1[1], p2[0], p2[1], p3[0], p3[1])
