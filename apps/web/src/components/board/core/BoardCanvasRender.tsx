@@ -25,7 +25,6 @@ const PixiCanvas = dynamic(
   { ssr: false },
 );
 import { AnchorOverlay } from "./AnchorOverlay";
-import { ConnectorLabels } from "./ConnectorLabels";
 import BoardEmptyGuide from "./BoardEmptyGuide";
 import { BoardPerfOverlay } from "./BoardPerfOverlay";
 import { MiniMap } from "./MiniMap";
@@ -53,6 +52,8 @@ export type BoardCanvasRenderProps = {
   onSyncLog?: () => void;
   /** Auto layout callback. */
   onAutoLayout?: () => void;
+  /** Enter group editing dialog. */
+  onEnterGroup?: (groupId: string) => void;
 };
 
 /** Render board layers and overlays. */
@@ -64,6 +65,7 @@ export function BoardCanvasRender({
   containerRef,
   onSyncLog,
   onAutoLayout,
+  onEnterGroup,
 }: BoardCanvasRenderProps) {
   /** Culling stats for the performance overlay. */
   const [cullingStats, setCullingStats] = useState({
@@ -140,7 +142,6 @@ export function BoardCanvasRender({
         />
       ) : null}
       {showUi && !snapshot.draggingId ? <AnchorOverlay snapshot={snapshot} /> : null}
-      {showUi && !snapshot.draggingId ? <ConnectorLabels snapshot={snapshot} /> : null}
       {showUi ? (
         <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 -translate-x-0" : "opacity-0 -translate-x-4")}>
           <BoardControls engine={engine} snapshot={snapshot} onAutoLayout={onAutoLayout} />
@@ -179,6 +180,7 @@ export function BoardCanvasRender({
           engine={engine}
           element={selectedNode}
           onInspect={(elementId) => setInspectorNodeId(elementId)}
+          onEnterGroup={onEnterGroup}
         />
       ) : null}
       {showUi && !snapshot.draggingId ? (
@@ -186,6 +188,7 @@ export function BoardCanvasRender({
           snapshot={snapshot}
           engine={engine}
           onInspect={(elementId) => setInspectorNodeId(elementId)}
+          onEnterGroup={onEnterGroup}
         />
       ) : null}
       {showUi && inspectorElement ? (

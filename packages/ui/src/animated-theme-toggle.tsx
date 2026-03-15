@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -26,25 +26,39 @@ export const AnimatedThemeToggle = ({
 }) => {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const { basic, setBasic } = useBasicConfig();
-  const [iconTheme, setIconTheme] = useState<"light" | "dark">(
-    (resolvedTheme ?? "light") as "light" | "dark",
+  /** Read theme from the root class list. */
+  const readDomTheme = useCallback(
+    () =>
+      (document.documentElement.classList.contains("dark") ? "dark" : "light") as
+        | "light"
+        | "dark",
+    [],
   );
+  const [domTheme, setDomTheme] = useState<"light" | "dark">(() => {
+    if (typeof document === "undefined") {
+      return (resolvedTheme ?? "light") as "light" | "dark";
+    }
+    return readDomTheme();
+  });
+
+  const iconTheme = useMemo<"light" | "dark">(() => {
+    if (resolvedTheme === "light" || resolvedTheme === "dark") {
+      return resolvedTheme;
+    }
+    return domTheme;
+  }, [domTheme, resolvedTheme]);
 
   useEffect(() => {
     const root = document.documentElement;
-    /** Read theme from the root class list. */
-    const readDomTheme = () =>
-      root.classList.contains("dark") ? "dark" : "light";
 
     // 监听根节点类名变化，确保图标与真实主题一致。
     const observer = new MutationObserver(() => {
-      setIconTheme(readDomTheme());
+      setDomTheme(readDomTheme());
     });
     observer.observe(root, { attributes: true, attributeFilter: ["class"] });
 
-    setIconTheme((resolvedTheme ?? readDomTheme()) as "light" | "dark");
     return () => observer.disconnect();
-  }, [resolvedTheme]);
+  }, [readDomTheme]);
 
   return (
     <ThemeToggler

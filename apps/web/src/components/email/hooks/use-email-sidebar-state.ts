@@ -23,7 +23,7 @@ import type {
   MailboxDropInput,
   MailboxOrderKeyInput,
 } from './use-email-core-state'
-import type { SidebarState } from '../use-email-page-state'
+import type { SidebarState } from '../email-page-state-types'
 
 function getMailboxOrderKey(accountEmail: string, parentPath: string | null) {
   return `${normalizeEmail(accountEmail)}::${parentPath ?? '__root__'}`

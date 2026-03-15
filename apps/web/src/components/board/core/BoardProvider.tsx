@@ -12,35 +12,18 @@
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 
+import type {
+  BoardFileContext,
+  ImagePreviewPayload,
+} from "../board-contracts";
 import type { CanvasEngine } from "../engine/CanvasEngine";
-
-export type ImagePreviewPayload = {
-  /** Original image uri. */
-  originalSrc: string;
-  /** Preview image source. */
-  previewSrc: string;
-  /** File name for alt text. */
-  fileName: string;
-  /** MIME type for the original image. */
-  mimeType?: string;
-};
+export type { BoardFileContext, ImagePreviewPayload } from "../board-contracts";
 
 export type BoardActions = {
   /** Open the fullscreen image preview. */
   openImagePreview: (payload: ImagePreviewPayload) => void;
   /** Close the fullscreen image preview. */
   closeImagePreview: () => void;
-};
-
-export type BoardFileContext = {
-  /** Project id used for file resolution. */
-  projectId?: string;
-  /** Project root uri for file resolution. */
-  rootUri?: string;
-  /** Board id used for chat/session association. */
-  boardId?: string;
-  /** Board folder uri for attachment storage. */
-  boardFolderUri?: string;
 };
 
 export type BoardContextValue = {

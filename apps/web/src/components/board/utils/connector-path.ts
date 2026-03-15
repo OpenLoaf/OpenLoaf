@@ -543,47 +543,65 @@ function buildCurvePath(
   const dy = target[1] - source[1];
   const distance = Math.hypot(dx, dy);
   const offset = Math.min(180, Math.max(60, distance * 0.35));
-  const horizontal =
-    isHorizontalAnchor(options?.sourceAnchorId) ||
-    isHorizontalAnchor(options?.targetAnchorId) ||
-    (!isVerticalAnchor(options?.sourceAnchorId) &&
-      !isVerticalAnchor(options?.targetAnchorId) &&
-      Math.abs(dx) >= Math.abs(dy));
-  const dirX = dx >= 0 ? 1 : -1;
-  const dirY = dy >= 0 ? 1 : -1;
-  const ratio = Math.abs(dy) > 0.001 ? Math.abs(dx) / Math.abs(dy) : Number.POSITIVE_INFINITY;
-  const sourceHorizontal = isHorizontalAnchor(options?.sourceAnchorId);
-  const targetHorizontal = isHorizontalAnchor(options?.targetAnchorId);
-  const sourceVertical = isVerticalAnchor(options?.sourceAnchorId);
-  const targetVertical = isVerticalAnchor(options?.targetAnchorId);
-  const horizontalPair = sourceHorizontal && targetHorizontal;
-  const verticalPair = sourceVertical && targetVertical;
-  const mixedPair = (sourceHorizontal && targetVertical) || (sourceVertical && targetHorizontal);
-  const diagonal = ratio >= 0.6 && ratio <= 1.6 && !horizontalPair && !verticalPair;
-  const useParabola = mixedPair || diagonal;
-  if (useParabola && distance > 1) {
-    const nx = dy / distance;
-    const ny = -dx / distance;
-    const bulge = Math.min(140, Math.max(40, distance * 0.25));
-    const p1: CanvasPoint = [
-      source[0] + dx * 0.33 + nx * bulge,
-      source[1] + dy * 0.33 + ny * bulge,
+
+  // 使用锚点法线方向计算控制点，确保生成 S 形曲线而非 C 形。
+  const sourceDir = anchorDirection(options?.sourceAnchorId ?? "");
+  const targetDir = anchorDirection(options?.targetAnchorId ?? "");
+
+  if (sourceDir && targetDir) {
+    const control1: CanvasPoint = [
+      source[0] + sourceDir[0] * offset,
+      source[1] + sourceDir[1] * offset,
     ];
-    const p2: CanvasPoint = [
-      source[0] + dx * 0.66 + nx * bulge,
-      source[1] + dy * 0.66 + ny * bulge,
+    const control2: CanvasPoint = [
+      target[0] + targetDir[0] * offset,
+      target[1] + targetDir[1] * offset,
     ];
     return {
       kind: "bezier",
-      points: [source, p1, p2, target],
+      points: [source, control1, control2, target],
     };
   }
+
+  // 仅有一侧锚点已知时，用锚点法线 + 对称推断。
+  if (sourceDir) {
+    const control1: CanvasPoint = [
+      source[0] + sourceDir[0] * offset,
+      source[1] + sourceDir[1] * offset,
+    ];
+    const control2: CanvasPoint = [
+      target[0] - sourceDir[0] * offset,
+      target[1] - sourceDir[1] * offset,
+    ];
+    return {
+      kind: "bezier",
+      points: [source, control1, control2, target],
+    };
+  }
+
+  if (targetDir) {
+    const control1: CanvasPoint = [
+      source[0] - targetDir[0] * offset,
+      source[1] - targetDir[1] * offset,
+    ];
+    const control2: CanvasPoint = [
+      target[0] + targetDir[0] * offset,
+      target[1] + targetDir[1] * offset,
+    ];
+    return {
+      kind: "bezier",
+      points: [source, control1, control2, target],
+    };
+  }
+
+  // 无锚点信息时，按主轴方向推断。
+  const horizontal = Math.abs(dx) >= Math.abs(dy);
   const control1: CanvasPoint = horizontal
-    ? [source[0] + dirX * offset, source[1]]
-    : [source[0], source[1] + dirY * offset];
+    ? [source[0] + offset, source[1]]
+    : [source[0], source[1] + offset];
   const control2: CanvasPoint = horizontal
-    ? [target[0] - dirX * offset, target[1]]
-    : [target[0], target[1] - dirY * offset];
+    ? [target[0] - offset, target[1]]
+    : [target[0], target[1] - offset];
   return {
     kind: "bezier",
     points: [source, control1, control2, target],

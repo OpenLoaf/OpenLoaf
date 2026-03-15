@@ -30,6 +30,8 @@ type SkillSummary = {
   description: string
 }
 
+const EMPTY_SKILL_NAMES: string[] = []
+
 /** Inline skills popover for a sub-agent. */
 function SubAgentSkillsPopover({ agentName, projectId }: { agentName: string; projectId?: string }) {
   const skillsQuery = useQuery(
@@ -53,7 +55,10 @@ function SubAgentSkillsPopover({ agentName, projectId }: { agentName: string; pr
     () => (skillsQuery.data ?? []) as SkillSummary[],
     [skillsQuery.data],
   )
-  const enabledSkills = agentSkillsQuery.data?.skills ?? []
+  const enabledSkills = React.useMemo(
+    () => agentSkillsQuery.data?.skills ?? EMPTY_SKILL_NAMES,
+    [agentSkillsQuery.data?.skills],
+  )
 
   const handleToggle = React.useCallback((skillName: string, checked: boolean) => {
     const next = checked
@@ -227,14 +232,6 @@ export default function SubAgentChatPanel({
     wasAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
   }, [])
 
-  if (!agentId) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        未指定子代理
-      </div>
-    )
-  }
-
   const hasParts = Array.isArray(parts) && parts.length > 0
   const hasMessages = historyMessages.length > 0 && !stream
 
@@ -282,6 +279,14 @@ export default function SubAgentChatPanel({
     setPendingCloudMessage: noop as any,
     sendPendingCloudMessage: noop,
   }), [noop, noopAsync])
+
+  if (!agentId) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        未指定子代理
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col">

@@ -14,7 +14,6 @@ import type {
   CanvasPoint,
   CanvasRect,
 } from "../engine/types";
-import type { CanvasEngine } from "../engine/CanvasEngine";
 import {
   DRAG_ACTIVATION_DISTANCE,
   GUIDE_MARGIN,
@@ -34,7 +33,7 @@ import {
 } from "../engine/grouping";
 import { LARGE_ANCHOR_NODE_TYPES } from "../engine/anchorTypes";
 import { snapMoveRect } from "../utils/alignment-guides";
-import type { CanvasTool, ToolContext } from "./ToolTypes";
+import type { CanvasTool, CanvasToolHost, ToolContext } from "./ToolTypes";
 
 // 逻辑：悬停判定比节点实际范围更大，延迟清理锚点避免闪烁。
 const IMAGE_HOVER_PADDING = 36;
@@ -559,7 +558,7 @@ export class SelectTool implements CanvasTool {
   }
 
   /** Handle keyboard shortcuts for selection. */
-  onKeyDown(event: KeyboardEvent, engine: CanvasEngine): void {
+  onKeyDown(event: KeyboardEvent, engine: CanvasToolHost): void {
     if (isEditableTarget(event.target)) return;
     const isMeta = event.metaKey || event.ctrlKey;
     const key = event.key.toLowerCase();
@@ -663,7 +662,7 @@ export class SelectTool implements CanvasTool {
 
   /** Apply a rectangle selection update. */
   private applySelectionUpdate(
-    engine: CanvasEngine,
+    engine: CanvasToolHost,
     endWorld: CanvasPoint,
     clearBox: boolean
   ): void {
@@ -683,7 +682,7 @@ export class SelectTool implements CanvasTool {
   }
 
   /** Schedule rectangle selection updates for the next frame. */
-  private scheduleSelectionUpdate(engine: CanvasEngine, endWorld: CanvasPoint): void {
+  private scheduleSelectionUpdate(engine: CanvasToolHost, endWorld: CanvasPoint): void {
     this.selectionPendingWorld = endWorld;
     if (this.selectionFrameId !== null || this.selectionThrottleTimeout !== null) return;
     const now = performance.now();
@@ -724,7 +723,7 @@ export class SelectTool implements CanvasTool {
 
   /** Find the top-most hovered large-anchor node with expanded hit area. */
   private getHoverAnchorNode(
-    engine: CanvasEngine,
+    engine: CanvasToolHost,
     point: CanvasPoint,
     selectedIds: string[]
   ): CanvasNodeElement | null {
@@ -752,7 +751,7 @@ export class SelectTool implements CanvasTool {
   }
 
   /** Schedule clearing the hover anchor with a short delay. */
-  private scheduleHoverClear(engine: CanvasEngine): void {
+  private scheduleHoverClear(engine: CanvasToolHost): void {
     if (this.hoverClearTimeout) return;
     this.hoverClearTimeout = window.setTimeout(() => {
       engine.setNodeHoverId(null);
@@ -768,7 +767,7 @@ export class SelectTool implements CanvasTool {
   }
 
   /** Check elements intersecting with the selection rectangle. */
-  private pickNodesInRect(rect: CanvasRect, engine: CanvasEngine): string[] {
+  private pickNodesInRect(rect: CanvasRect, engine: CanvasToolHost): string[] {
     const selectionIds = new Set<string>();
     const { zoom } = engine.viewport.getState();
     const queryRect = this.expandRect(rect, getGroupOutlinePadding(zoom));
@@ -813,7 +812,7 @@ export class SelectTool implements CanvasTool {
   }
 
   /** Resolve the selection id for a node element. */
-  private resolveSelectionId(engine: CanvasEngine, element: CanvasNodeElement): string {
+  private resolveSelectionId(engine: CanvasToolHost, element: CanvasNodeElement): string {
     const groupId = getNodeGroupId(element);
     if (!groupId) return element.id;
     const groupNode = engine.doc.getElementById(groupId);

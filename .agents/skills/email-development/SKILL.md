@@ -75,7 +75,8 @@ description: Use when developing, extending, or debugging the email module — c
 | **Provider Presets** | `apps/web/src/components/email/email-provider-presets.ts` | 服务商预设（含 `authType` / `oauthProvider`） |
 | **Types (Web)** | `apps/web/src/components/email/email-types.ts` | 前端表单状态（含 `authType` / `oauthAuthorized` / `ComposeMode` / `ComposeDraft` / `UnifiedMailboxScope` 含 `"deleted"`） |
 | **Add Dialog** | `apps/web/src/components/email/EmailAddAccountDialog.tsx` | 添加账号对话框（OAuth 弹窗 + 密码表单） |
-| **Page State** | `apps/web/src/components/email/use-email-page-state.ts` | 邮箱页面状态管理（含 OAuth 流程、compose/reply/send/delete/draft 状态和 mutations；刷新同时同步邮箱文件夹列表+消息） |
+| **Page State Types** | `apps/web/src/components/email/email-page-state-types.ts` | 邮箱页面组合状态类型定义（sidebar / message list / detail / add dialog），供 hooks 与组件共享 |
+| **Page State** | `apps/web/src/components/email/use-email-page-state.ts` | 邮箱页面状态组合入口（聚合 core/sidebar/message list/detail/add dialog hooks，并处理新邮件订阅刷新） |
 | **Style Tokens** | `apps/web/src/components/email/email-style-system.ts` | 邮箱页面样式系统 token（胶囊玻璃材质、强调色、状态色） |
 | **Message List** | `apps/web/src/components/email/EmailMessageList.tsx` | 邮件列表区（搜索、分页滚动、选中态、移动端进入详情） |
 | **Compose Editor** | `apps/web/src/components/email/EmailForwardEditor.tsx` | 撰写/回复/全部回复/转发编辑器（多模式） |

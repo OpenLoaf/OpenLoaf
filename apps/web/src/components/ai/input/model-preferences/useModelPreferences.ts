@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSettingsValues } from '@/hooks/use-settings'
 import { useBasicConfig } from '@/hooks/use-basic-config'
@@ -115,25 +115,19 @@ export function useModelPreferences() {
   const [overrideImageIds, setOverrideImageIds] = useState<string[] | null>(null)
   const [overrideVideoIds, setOverrideVideoIds] = useState<string[] | null>(null)
   const [overrideCodeIds, setOverrideCodeIds] = useState<string[] | null>(null)
-
-  // 当缓存数据到达时清除 override
-  useEffect(() => {
-    if (masterDetail && overrideChatIds !== null) setOverrideChatIds(null)
-  }, [masterDetail, overrideChatIds])
-  useEffect(() => {
-    if (masterDetail && overrideImageIds !== null) setOverrideImageIds(null)
-  }, [masterDetail, overrideImageIds])
-  useEffect(() => {
-    if (masterDetail && overrideVideoIds !== null) setOverrideVideoIds(null)
-  }, [masterDetail, overrideVideoIds])
-  useEffect(() => {
-    if (masterDetail && overrideCodeIds !== null) setOverrideCodeIds(null)
-  }, [masterDetail, overrideCodeIds])
-
-  const preferredChatIds = overrideChatIds ?? cachedChatIds
-  const preferredImageIds = overrideImageIds ?? cachedImageIds
-  const preferredVideoIds = overrideVideoIds ?? cachedVideoIds
-  const preferredCodeIds = overrideCodeIds ?? cachedCodeIds
+  const prefersCachedModels = Boolean(masterDetail)
+  const preferredChatIds = prefersCachedModels
+    ? cachedChatIds
+    : overrideChatIds ?? cachedChatIds
+  const preferredImageIds = prefersCachedModels
+    ? cachedImageIds
+    : overrideImageIds ?? cachedImageIds
+  const preferredVideoIds = prefersCachedModels
+    ? cachedVideoIds
+    : overrideVideoIds ?? cachedVideoIds
+  const preferredCodeIds = prefersCachedModels
+    ? cachedCodeIds
+    : overrideCodeIds ?? cachedCodeIds
 
   const isAuto = preferredChatIds.length === 0
   const isImageAuto = preferredImageIds.length === 0

@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
@@ -107,24 +107,23 @@ export function CopyChatToCanvasDialog({
       return board.projectId == null;
     });
   }, [boardsQuery.data, sourceProjectId]);
+  const effectiveTargetMode: TargetMode =
+    open && availableBoards.length > 0 ? targetMode : "new";
+  const effectiveSelectedBoardId = useMemo(() => {
+    if (!open || availableBoards.length === 0) return "";
+    if (selectedBoardId && availableBoards.some((board) => board.id === selectedBoardId)) {
+      return selectedBoardId;
+    }
+    return availableBoards[0]?.id ?? "";
+  }, [availableBoards, open, selectedBoardId]);
 
-  useEffect(() => {
-    if (!open) {
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
       setTargetMode("new");
       setSelectedBoardId("");
-      return;
     }
-    if (availableBoards.length === 0) {
-      setTargetMode("new");
-      setSelectedBoardId("");
-      return;
-    }
-    setSelectedBoardId((current) =>
-      current && availableBoards.some((board) => board.id === current)
-        ? current
-        : availableBoards[0]?.id ?? "",
-    );
-  }, [availableBoards, open]);
+    onOpenChange(nextOpen);
+  };
 
   /** Resolve the correct root uri for the target board scope. */
   const resolveBoardRootUri = (projectId?: string | null) => {
@@ -142,7 +141,7 @@ export function CopyChatToCanvasDialog({
       toast.error(t("copyToCanvas.sessionMissing"));
       return;
     }
-    if (targetMode === "existing" && !selectedBoardId) {
+    if (effectiveTargetMode === "existing" && !effectiveSelectedBoardId) {
       toast.error(t("copyToCanvas.targetRequired"));
       return;
     }
@@ -150,7 +149,9 @@ export function CopyChatToCanvasDialog({
     try {
       const result = await copyMutation.mutateAsync({
         sourceSessionId,
-        ...(targetMode === "existing" ? { targetBoardId: selectedBoardId } : {}),
+        ...(effectiveTargetMode === "existing"
+          ? { targetBoardId: effectiveSelectedBoardId }
+          : {}),
       });
 
       const rootUri = resolveBoardRootUri(result.board.projectId);
@@ -186,9 +187,9 @@ export function CopyChatToCanvasDialog({
         projectId: result.board.projectId,
       });
 
-      onOpenChange(false);
+      handleDialogOpenChange(false);
       toast.success(
-        targetMode === "existing"
+        effectiveTargetMode === "existing"
           ? t("copyToCanvas.successExisting")
           : t("copyToCanvas.successNew"),
       );
@@ -202,7 +203,7 @@ export function CopyChatToCanvasDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("copyToCanvas.title")}</DialogTitle>
@@ -215,14 +216,14 @@ export function CopyChatToCanvasDialog({
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
-                variant={targetMode === "new" ? "default" : "outline"}
+                variant={effectiveTargetMode === "new" ? "default" : "outline"}
                 onClick={() => setTargetMode("new")}
               >
                 {t("copyToCanvas.createNew")}
               </Button>
               <Button
                 type="button"
-                variant={targetMode === "existing" ? "default" : "outline"}
+                variant={effectiveTargetMode === "existing" ? "default" : "outline"}
                 disabled={availableBoards.length === 0}
                 onClick={() => setTargetMode("existing")}
               >
@@ -231,10 +232,10 @@ export function CopyChatToCanvasDialog({
             </div>
           </div>
 
-          {targetMode === "existing" ? (
+          {effectiveTargetMode === "existing" ? (
             <div className="space-y-2">
               <Label htmlFor="copy-to-canvas-target">{t("copyToCanvas.targetBoard")}</Label>
-              <Select value={selectedBoardId} onValueChange={setSelectedBoardId}>
+              <Select value={effectiveSelectedBoardId} onValueChange={setSelectedBoardId}>
                 <SelectTrigger id="copy-to-canvas-target">
                   <SelectValue placeholder={t("copyToCanvas.targetPlaceholder")} />
                 </SelectTrigger>

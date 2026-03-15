@@ -87,6 +87,7 @@ import {
   VIDEO_GENERATE_NODE_TYPE,
 } from "../nodes/node-config";
 import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
+import { isGroupNodeType } from "../engine/grouping";
 import {
   ProjectFilePickerDialog,
 } from "@/components/project/filesystem/components/ProjectFilePickerDialog";
@@ -436,6 +437,8 @@ type BoardCanvasInteractionProps = {
   children?: ReactNode;
   /** Handler for image preview. */
   onOpenImagePreview: (payload: ImagePreviewPayload) => void;
+  /** Enter group editing dialog. */
+  onEnterGroup?: (groupId: string) => void;
 };
 
 /** Handle board interactions and pointer events. */
@@ -453,6 +456,7 @@ export function BoardCanvasInteraction({
   onAutoLayout,
   children,
   onOpenImagePreview,
+  onEnterGroup,
 }: BoardCanvasInteractionProps) {
   const { t } = useTranslation('project');
   const { fileContext } = useBoardContext();
@@ -1186,6 +1190,11 @@ export function BoardCanvasInteraction({
     if (snapshot.activeToolId !== "select") {
       engine.setActiveTool("select");
     }
+    // 逻辑：双击组节点时打开组成员对话框。
+    if (isGroupNodeType(element.type)) {
+      onEnterGroup?.(element.id);
+      return;
+    }
     if (element.type === "link") {
       const props = element.props as LinkNodeProps;
       openLinkInStackAction({
@@ -1400,7 +1409,6 @@ export function BoardCanvasInteraction({
             const isUiTarget = target
               ? isBoardUiTarget(target, [
                   "[data-connector-drop-panel]",
-                  "[data-connector-labels]",
                   "[data-resize-handle]",
                   "[data-multi-resize-handle]",
                 ])

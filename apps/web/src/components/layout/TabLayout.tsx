@@ -295,7 +295,7 @@ export function TabLayout() {
     let rafId: number | null = null
     let lastWidth = -1
     const observer = new ResizeObserver((entries) => {
-      if (draggingRef.current) return
+      if (isDragging) return
       const entry = entries[0]
       if (!entry) return
       const nextWidth = Math.round(entry.contentRect.width)
@@ -316,7 +316,7 @@ export function TabLayout() {
       }
       observer.disconnect()
     }
-  }, [])
+  }, [isDragging])
 
   const hasLeftContent =
     Boolean(base) ||
@@ -432,11 +432,6 @@ export function TabLayout() {
     }
     splitPercent.set(targetSplitPercent)
   }, [targetSplitPercent, isDragging, splitPercent, reduceMotion])
-
-  const draggingRef = React.useRef(false)
-  React.useEffect(() => {
-    draggingRef.current = isDragging
-  }, [isDragging])
 
   const handleDragStart = (e: React.PointerEvent) => {
     if (targetDividerWidth === 0) return

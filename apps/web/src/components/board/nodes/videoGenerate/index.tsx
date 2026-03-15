@@ -13,11 +13,11 @@ import { Copy, Film, LogIn, Play, RotateCcw, Settings } from "lucide-react";
 import type { ModelCapabilities, ModelParameterFeature } from "@openloaf/api/common";
 import { toast } from "sonner";
 
+import type { ImageNodeProps } from "../../board-contracts";
 import { useBoardContext } from "../../core/BoardProvider";
 import { useMediaModels } from "@/hooks/use-media-models";
 import { filterVideoMediaModels } from "../lib/image-generation";
 import { Switch } from "@openloaf/ui/switch";
-import type { ImageNodeProps } from "../ImageNode";
 import { normalizeProjectRelativePath } from "@/components/project/filesystem/utils/file-system-utils";
 import {
   resolveBoardFolderScope,

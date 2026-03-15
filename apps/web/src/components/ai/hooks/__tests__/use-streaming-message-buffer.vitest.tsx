@@ -19,9 +19,9 @@ type TestMessage = {
   parts?: Array<{ type?: string; text?: string }>;
 };
 
-let latest:
-  | ReturnType<typeof useStreamingMessageBuffer>
-  | null = null;
+const latestRef: {
+  current: ReturnType<typeof useStreamingMessageBuffer> | null;
+} = { current: null };
 
 function Probe({
   messages,
@@ -32,12 +32,15 @@ function Probe({
   status: "ready" | "submitted" | "streaming" | "error";
   bufferMs: number;
 }) {
-  latest = useStreamingMessageBuffer({
+  const result = useStreamingMessageBuffer({
     messages: messages as UIMessage[],
     status,
     isHistoryLoading: false,
     bufferMs,
   });
+  React.useLayoutEffect(() => {
+    latestRef.current = result;
+  }, [result]);
   return null;
 }
 
@@ -51,9 +54,9 @@ describe("useStreamingMessageBuffer", () => {
 
     render(<Probe messages={[user]} status="ready" bufferMs={32} />);
 
-    expect(latest?.staticMessages).toHaveLength(1);
-    expect(latest?.streamingMessage).toBeNull();
-    expect(latest?.isStreamingActive).toBe(false);
+    expect(latestRef.current?.staticMessages).toHaveLength(1);
+    expect(latestRef.current?.streamingMessage).toBeNull();
+    expect(latestRef.current?.isStreamingActive).toBe(false);
   });
 
   it("buffers last assistant updates during streaming", () => {
@@ -78,19 +81,19 @@ describe("useStreamingMessageBuffer", () => {
       <Probe messages={[user, assistantFirst]} status="streaming" bufferMs={50} />
     );
 
-    expect(latest?.staticMessages).toHaveLength(1);
-    expect((latest?.streamingMessage?.parts?.[0] as any)?.text).toBe("H");
+    expect(latestRef.current?.staticMessages).toHaveLength(1);
+    expect((latestRef.current?.streamingMessage?.parts?.[0] as any)?.text).toBe("H");
 
     rerender(
       <Probe messages={[user, assistantNext]} status="streaming" bufferMs={50} />
     );
-    expect((latest?.streamingMessage?.parts?.[0] as any)?.text).toBe("H");
+    expect((latestRef.current?.streamingMessage?.parts?.[0] as any)?.text).toBe("H");
 
     act(() => {
       vi.advanceTimersByTime(50);
     });
 
-    expect((latest?.streamingMessage?.parts?.[0] as any)?.text).toBe("He");
+    expect((latestRef.current?.streamingMessage?.parts?.[0] as any)?.text).toBe("He");
 
     unmount();
     vi.useRealTimers();
@@ -123,10 +126,12 @@ describe("useStreamingMessageBuffer", () => {
         bufferMs,
       });
       const currentText = (result.streamingMessage?.parts?.[0] as any)?.text ?? "";
-      if (currentText && currentText !== prevText) {
-        flushCount += 1;
-        prevText = currentText;
-      }
+      React.useLayoutEffect(() => {
+        if (currentText && currentText !== prevText) {
+          flushCount += 1;
+          prevText = currentText;
+        }
+      }, [currentText]);
       return null;
     }
 
@@ -245,7 +250,7 @@ describe("useStreamingMessageBuffer", () => {
       <Probe messages={[user, assistant]} status="streaming" bufferMs={50} />,
     );
 
-    expect(latest?.isStreamingActive).toBe(true);
+    expect(latestRef.current?.isStreamingActive).toBe(true);
 
     // Transition to ready
     rerender(
@@ -257,10 +262,10 @@ describe("useStreamingMessageBuffer", () => {
       vi.advanceTimersByTime(200);
     });
 
-    expect(latest?.isStreamingActive).toBe(false);
-    expect(latest?.streamingMessage).toBeNull();
+    expect(latestRef.current?.isStreamingActive).toBe(false);
+    expect(latestRef.current?.streamingMessage).toBeNull();
     // All messages should be in staticMessages
-    expect(latest?.staticMessages).toHaveLength(2);
+    expect(latestRef.current?.staticMessages).toHaveLength(2);
 
     unmount();
     vi.useRealTimers();

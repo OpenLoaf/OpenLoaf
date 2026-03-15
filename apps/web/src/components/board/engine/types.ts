@@ -221,8 +221,6 @@ export type CanvasConnectorTemplateDefinition = {
   size: [number, number];
   /** Optional icon rendered in the picker. */
   icon?: ReactNode;
-  /** Tailwind color classes for the connector label (bg + text). */
-  color?: { bg: string; text: string; hoverBg: string };
   /** Build the node payload inserted by the picker. */
   createNode: (input: { sourceElementId?: string }) => {
     /** Node type identifier to insert. */
@@ -400,6 +398,8 @@ export type CanvasToolbarContext<P> = {
   colorHistory: string[];
   /** Add a color to the shared color history. */
   addColorHistory: (color: string) => void;
+  /** Enter group editing dialog. */
+  enterGroup?: (groupId: string) => void;
 };
 
 /** Resolve dynamic or static min size for a node definition. */

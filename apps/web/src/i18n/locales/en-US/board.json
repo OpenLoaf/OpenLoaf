@@ -223,7 +223,15 @@
     "layoutVertical": "Vertical Layout",
     "layoutHorizontal": "Horizontal Layout",
     "dissolve": "Dissolve",
-    "uniformSize": "Uniform Size"
+    "uniformSize": "Uniform Size",
+    "enter": "Enter",
+    "groupDialog": {
+      "title": "Group Members",
+      "memberCount": "{{count}} members",
+      "locateOnCanvas": "Locate on Canvas",
+      "removeFromGroup": "Remove from Group",
+      "empty": "This group has no members"
+    }
   },
   "selection": {
     "toolbar": {

@@ -145,6 +145,17 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
   }, [shouldFetchPreview, url]);
 
   const resolvedSrc = shouldFetchPreview ? preview?.src ?? "" : url;
+  const resolvedName = title?.trim() || resolveFileName(url, mediaType);
+  const dialogTitle = resolvedName || "图片预览";
+  const entry = React.useMemo(
+    () =>
+      createFileEntryFromUri({
+        uri: url,
+        name: resolvedName || dialogTitle,
+        mediaType,
+      }),
+    [dialogTitle, mediaType, resolvedName, url]
+  );
 
   if (shouldFetchPreview && preview?.status === "loading") {
     return (
@@ -177,18 +188,6 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
   }
 
   if (isImage && !resolvedSrc) return null;
-
-  const resolvedName = title?.trim() || resolveFileName(url, mediaType);
-  const dialogTitle = resolvedName || "图片预览";
-  const entry = React.useMemo(
-    () =>
-      createFileEntryFromUri({
-        uri: url,
-        name: resolvedName || dialogTitle,
-        mediaType,
-      }),
-    [dialogTitle, mediaType, resolvedName, url]
-  );
   const attachmentUrl = isImage ? resolvedSrc : url;
   const attachmentMediaType = mediaType || (isImage ? "image/png" : "application/octet-stream");
   const variant = isImage ? "grid" : "inline";

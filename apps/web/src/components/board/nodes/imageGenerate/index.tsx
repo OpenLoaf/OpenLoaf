@@ -14,13 +14,11 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { cn } from "@udecode/cn";
 
+import type { ImageNodeProps } from "../../board-contracts";
 import { useBoardContext } from "../../core/BoardProvider";
 import { useMediaModels } from "@/hooks/use-media-models";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
-import type { ImageNodeProps } from "../ImageNode";
-
-
 import {
   IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
   IMAGE_GENERATE_MAX_INPUT_IMAGES,

@@ -20,6 +20,7 @@
 
 ## 文件上下文
 
+- 纯类型定义位于 `apps/web/src/components/board/board-contracts.ts`，`BoardProvider` 仅负责注入和转发，不再作为 `BoardFileContext` 的单一声明源。
 - `BoardFileContext` 当前字段为：
   - `projectId?`
   - `rootUri?`

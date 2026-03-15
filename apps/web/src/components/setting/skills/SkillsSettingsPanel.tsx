@@ -78,6 +78,8 @@ type SkillGroup = {
   skills: SkillSummary[];
 };
 
+const EMPTY_SKILLS: SkillSummary[] = [];
+
 /** Shared skills settings panel. */
 export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   const { t } = useTranslation('settings');
@@ -89,7 +91,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     ? trpc.settings.getSkills.queryOptions({ projectId })
     : trpc.settings.getSkills.queryOptions();
   const skillsQuery = useQuery(queryOptions);
-  const skills = (skillsQuery.data ?? []) as SkillSummary[];
+  const skills = (skillsQuery.data ?? EMPTY_SKILLS) as SkillSummary[];
   const { data: projectData } = useProject(projectId);
   const pushStackItem = useLayoutState((state) => state.pushStackItem);
   const setSettingsOpen = useGlobalOverlay((s) => s.setSettingsOpen);

@@ -98,7 +98,10 @@ export default function ChatHeader({
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  const sessions = (sessionsQuery.data ?? []) as Array<{ id: string; title: string; projectId?: string | null; isUserRename?: boolean; updatedAt: string | Date }>;
+  const sessions = React.useMemo(
+    () => (sessionsQuery.data ?? []) as Array<{ id: string; title: string; projectId?: string | null; isUserRename?: boolean; updatedAt: string | Date }>,
+    [sessionsQuery.data],
+  );
   const refetchSessions = sessionsQuery.refetch;
   const setTitle = useAppView((s) => s.setTitle);
   const setChatParams = useAppView((s) => s.setChatParams);

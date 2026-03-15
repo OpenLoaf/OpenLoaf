@@ -17,8 +17,8 @@ import {
   type EmailMessageSummary,
 } from '../email-types'
 import { setStoredDensity } from '../email-style-system'
+import type { MessageListState } from '../email-page-state-types'
 import type { EmailCoreState } from './use-email-core-state'
-import type { MessageListState } from '../use-email-page-state'
 
 export function useEmailMessageListState(core: EmailCoreState): MessageListState {
   const {

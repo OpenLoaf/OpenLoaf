@@ -7,9 +7,8 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import type { CanvasTool, ToolContext } from "./ToolTypes";
+import type { CanvasTool, CanvasToolHost, ToolContext } from "./ToolTypes";
 import type { CanvasPoint } from "../engine/types";
-import type { CanvasEngine } from "../engine/CanvasEngine";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";
 import { isBoardUiTarget } from "../utils/dom";
 import { IMAGE_NODE_STACK_OFFSET } from "../utils/image-insert";
@@ -34,8 +33,8 @@ export class ToolManager {
   private readonly tools = new Map<string, CanvasTool>();
   /** Currently active tool id. */
   private activeToolId: string | null = null;
-  /** Engine reference used for dispatching. */
-  private readonly engine: CanvasEngine;
+  /** Host reference used for dispatching. */
+  private readonly engine: CanvasToolHost;
   /** Whether middle-button panning is active. */
   private middlePanning = false;
   /** Pointer capture target for the active interaction. */
@@ -44,7 +43,7 @@ export class ToolManager {
   private boardUiInteraction = false;
 
   /** Create a new tool manager. */
-  constructor(engine: CanvasEngine) {
+  constructor(engine: CanvasToolHost) {
     this.engine = engine;
   }
 

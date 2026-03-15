@@ -32,9 +32,6 @@ const NoMemoHorizontalGridEventsLayer: React.FC<
 	'data-testid': dataTestId,
 	allDay,
 }) => {
-	if (days.length === 0) return null
-	const weekStart = days[0].startOf('day')
-
 	const processedWeekEvents = useProcessedWeekEvents({
 		days,
 		gridType,
@@ -42,6 +39,9 @@ const NoMemoHorizontalGridEventsLayer: React.FC<
 		dayNumberHeight,
 		allDay,
 	})
+	const weekStart = days[0]?.startOf('day')
+
+	if (days.length === 0 || !weekStart) return null
 
 	return (
 		<div

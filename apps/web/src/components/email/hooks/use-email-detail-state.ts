@@ -29,8 +29,8 @@ import {
   isSentMailboxView,
   normalizeEmail,
 } from '../email-utils'
+import type { DetailState } from '../email-page-state-types'
 import type { EmailCoreState } from './use-email-core-state'
-import type { DetailState } from '../use-email-page-state'
 
 export function useEmailDetailState(core: EmailCoreState): DetailState {
   const {

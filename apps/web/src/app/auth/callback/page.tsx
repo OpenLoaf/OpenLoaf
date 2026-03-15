@@ -38,16 +38,16 @@ function AuthCallbackContent() {
   const router = useRouter();
   const search = useSearchParams();
   const { t } = useTranslation('common');
-  const [status, setStatus] = useState<Status>("loading");
+  const loginCode = search.get("code");
+  const returnTo = search.get("returnTo") ?? "/";
+  const [status, setStatus] = useState<Status>(
+    loginCode ? "loading" : "error",
+  );
+  const effectiveStatus = loginCode ? status : "error";
 
   useEffect(() => {
-    const code = search.get("code");
-    const returnTo = search.get("returnTo") ?? "/";
-    if (!code) {
-      setStatus("error");
-      return;
-    }
-    exchangeLoginCode({ loginCode: code, remember: true })
+    if (!loginCode) return;
+    exchangeLoginCode({ loginCode, remember: true })
       .then((user) => {
         if (!user) {
           setStatus("error");
@@ -58,22 +58,22 @@ function AuthCallbackContent() {
         router.replace(nextPath);
       })
       .catch(() => setStatus("error"));
-  }, [router, search]);
+  }, [loginCode, returnTo, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-6">
       <div className="rounded-2xl border border-border/60 bg-background px-6 py-8 text-center shadow-sm">
         <h1 className="text-lg font-semibold">
-          {status === "loading"
+          {effectiveStatus === "loading"
             ? t('login.completing')
-            : status === "success"
+            : effectiveStatus === "success"
               ? t('login.success')
               : t('login.failed')}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {status === "loading"
+          {effectiveStatus === "loading"
             ? t('login.pleaseWait')
-            : status === "success"
+            : effectiveStatus === "success"
               ? t('login.redirecting')
               : t('login.tryAgain')}
         </p>

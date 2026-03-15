@@ -15,8 +15,8 @@ import { resolveServerUrl } from '@/utils/server-url'
 import { DEFAULT_FORM } from '../email-types'
 import { getProviderById } from '../email-provider-presets'
 import { normalizeEmail } from '../email-utils'
+import type { AddDialogState } from '../email-page-state-types'
 import type { EmailCoreState } from './use-email-core-state'
-import type { AddDialogState } from '../use-email-page-state'
 
 export function useEmailAddDialogState(core: EmailCoreState): AddDialogState {
   const {

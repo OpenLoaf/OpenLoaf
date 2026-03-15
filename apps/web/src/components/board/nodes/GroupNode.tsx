@@ -13,7 +13,7 @@ import type {
   CanvasNodeViewProps,
 } from "../engine/types";
 import { z } from "zod";
-import { Layers, LayoutGrid, Maximize2 } from "lucide-react";
+import { Layers, LayoutGrid, LogIn, Maximize2 } from "lucide-react";
 import { cn } from "@udecode/cn";
 import i18next from "i18next";
 import {
@@ -90,6 +90,13 @@ function createGroupToolbarItems(ctx: CanvasToolbarContext<GroupNodeProps>) {
     new Set(memberTypes).size === 1;
 
   const items = [
+    {
+      id: 'enter-group',
+      label: t('board:groupNode.enter'),
+      icon: <LogIn size={14} />,
+      className: BOARD_TOOLBAR_ITEM_BLUE,
+      onSelect: () => ctx.enterGroup?.(groupId),
+    },
     {
       id: 'ungroup',
       label: t('board:groupNode.dissolve'),

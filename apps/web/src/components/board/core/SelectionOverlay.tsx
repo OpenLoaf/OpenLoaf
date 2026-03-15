@@ -84,6 +84,8 @@ type SingleSelectionToolbarProps = {
   snapshot: CanvasSnapshot;
   /** Open node inspector. */
   onInspect: (elementId: string) => void;
+  /** Enter group editing dialog. */
+  onEnterGroup?: (groupId: string) => void;
 };
 
 /** Render a toolbar for a single selected node. */
@@ -92,6 +94,7 @@ export function SingleSelectionToolbar({
   element,
   snapshot,
   onInspect,
+  onEnterGroup,
 }: SingleSelectionToolbarProps) {
   const { t } = useTranslation('board');
   const { fileContext } = useBoardContext();
@@ -139,6 +142,7 @@ export function SingleSelectionToolbar({
     getGroupLayoutAxis: groupId => engine.getGroupLayoutAxis(groupId),
     colorHistory: engine.getColorHistory(),
     addColorHistory: color => engine.addColorHistory(color),
+    enterGroup: onEnterGroup,
   });
 
   const commonItems = buildCommonToolbarItems();
@@ -199,6 +203,8 @@ type MultiSelectionToolbarProps = {
   engine: CanvasEngine;
   /** Open inspector handler. */
   onInspect: (elementId: string) => void;
+  /** Enter group editing dialog. */
+  onEnterGroup?: (groupId: string) => void;
 };
 
 type MindmapLayoutDirection = "right" | "left" | "balanced";
@@ -310,6 +316,7 @@ export function MultiSelectionToolbar({
   snapshot,
   engine,
   onInspect,
+  onEnterGroup,
 }: MultiSelectionToolbarProps) {
   const { t } = useTranslation('board');
   const { fileContext } = useBoardContext();
@@ -372,6 +379,7 @@ export function MultiSelectionToolbar({
       getGroupLayoutAxis: groupId => engine.getGroupLayoutAxis(groupId),
       colorHistory: engine.getColorHistory(),
       addColorHistory: color => engine.addColorHistory(color),
+      enterGroup: onEnterGroup,
     })
     : [];
   multiToolbarItemsRef.current = customItems;
@@ -583,21 +591,28 @@ function resolveCornerMeta(
   };
 }
 
-/** Sync a selection outline (and optional corner handles) with the actual node DOM rect.
- *  Uses useLayoutEffect to correct positions before paint and a ResizeObserver
- *  for ongoing size-change corrections (e.g. auto-resize of text nodes). */
-function useDomBoundsSync(
-  engine: CanvasEngine,
-  elementId: string,
-  enabled: boolean,
-  outlineRef: React.RefObject<HTMLDivElement | null>,
-  handleRefsMap: React.MutableRefObject<Record<string, HTMLButtonElement | null>>,
-): void {
+/** Render selection outline and resize handles for a single node. */
+export function SingleSelectionOutline({
+  engine,
+  element,
+  snapshot,
+}: SingleSelectionOutlineProps) {
+  const definition = engine.nodes.getDefinition(element.type);
+  const canResize = definition?.capabilities?.resizable !== false;
+
+  // 逻辑：视图变化时单独更新控制柄位置，避免全量快照渲染。
+  const { isMoving, viewState } = useIsViewportMoving(engine);
+
+  // Refs for DOM-based position sync.
+  const outlineRef = useRef<HTMLDivElement>(null);
+  const handleRefsMap = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  // 逻辑：通过 DOM 测量同步选区边框位置，消除 store 与 DOM 之间的帧延迟不一致。
   useLayoutEffect(() => {
-    if (!enabled) return;
+    if (isMoving) return;
     const container = engine.getContainer();
     if (!container || !outlineRef.current) return;
-    const nodeEl = engine.getNodeDomElement(elementId);
+    const nodeEl = engine.getNodeDomElement(element.id);
     if (!nodeEl) return;
 
     const sync = () => {
@@ -634,27 +649,7 @@ function useDomBoundsSync(
     const observer = new ResizeObserver(sync);
     observer.observe(nodeEl);
     return () => observer.disconnect();
-  }, [engine, elementId, enabled]);
-}
-
-/** Render selection outline and resize handles for a single node. */
-export function SingleSelectionOutline({
-  engine,
-  element,
-  snapshot,
-}: SingleSelectionOutlineProps) {
-  const definition = engine.nodes.getDefinition(element.type);
-  const canResize = definition?.capabilities?.resizable !== false;
-
-  // 逻辑：视图变化时单独更新控制柄位置，避免全量快照渲染。
-  const { isMoving, viewState } = useIsViewportMoving(engine);
-
-  // Refs for DOM-based position sync.
-  const outlineRef = useRef<HTMLDivElement>(null);
-  const handleRefsMap = useRef<Record<string, HTMLButtonElement | null>>({});
-
-  // 逻辑：通过 DOM 测量同步选区边框位置，消除 store 与 DOM 之间的帧延迟不一致。
-  useDomBoundsSync(engine, element.id, !isMoving, outlineRef, handleRefsMap);
+  }, [engine, element.id, isMoving]);
 
   // 逻辑：平移或缩放画布时隐藏选中框，避免 React 状态与 DOM transform 帧差导致位置偏移。
   if (isMoving) return null;

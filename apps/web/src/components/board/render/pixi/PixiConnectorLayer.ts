@@ -64,7 +64,8 @@ export class PixiConnectorLayer {
   /** Re-render all connectors from the current snapshot. */
   sync(): void {
     const snapshot = this.engine.getSnapshot()
-    if (snapshot.docRevision === this.lastRevision) return
+    const hasUiOverlay = !!(snapshot.connectorDraft || snapshot.connectorDrop)
+    if (snapshot.docRevision === this.lastRevision && !hasUiOverlay) return
     this.lastRevision = snapshot.docRevision
 
     const palette = this.theme.getPalette()

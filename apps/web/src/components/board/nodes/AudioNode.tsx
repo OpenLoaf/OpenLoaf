@@ -18,7 +18,8 @@ import { Music } from "lucide-react";
 import i18next from "i18next";
 import { BOARD_TOOLBAR_ITEM_BLUE } from "../ui/board-style-system";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
-import { useBoardContext, type BoardFileContext } from "../core/BoardProvider";
+import type { BoardFileContext } from "../board-contracts";
+import { useBoardContext } from "../core/BoardProvider";
 import {
   resolveBoardFolderScope,
   resolveProjectPathFromBoardUri,

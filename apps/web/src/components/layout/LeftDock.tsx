@@ -45,6 +45,7 @@ import {
 } from "@/lib/file-name";
 import { isBoardEmpty } from "@/components/board/core/boardContentTracker";
 import {
+  formatScopedProjectPath,
   getParentRelativePath,
   isProjectAbsolutePath,
   normalizeProjectRelativePath,
@@ -227,11 +228,11 @@ function buildRenamedUri(uri: string, nextName: string): string {
   const parsed = parseRenamePath(uri);
   if (!parsed) return uri;
   const parts = parsed.relativePath.split("/").filter(Boolean);
-  if (parts.length === 0) return parsed.prefix || uri;
+  if (parts.length === 0) return uri;
   parts[parts.length - 1] = nextName;
   const nextRelativePath = parts.join("/");
-  return parsed.prefix
-    ? `${parsed.prefix}${nextRelativePath}`
+  return parsed.projectId
+    ? formatScopedProjectPath({ projectId: parsed.projectId, relativePath: nextRelativePath, includeAt: true })
     : nextRelativePath;
 }
 
@@ -240,11 +241,17 @@ function getParentUri(uri: string): string {
   const parsed = parseRenamePath(uri);
   if (!parsed) return "";
   const parentPath = getParentRelativePath(parsed.relativePath);
-  if (parentPath === null) return parsed.prefix;
-  return parsed.prefix ? `${parsed.prefix}${parentPath}` : parentPath;
+  if (parentPath === null) {
+    return parsed.projectId
+      ? formatScopedProjectPath({ projectId: parsed.projectId, relativePath: "", includeAt: true })
+      : "";
+  }
+  return parsed.projectId
+    ? formatScopedProjectPath({ projectId: parsed.projectId, relativePath: parentPath, includeAt: true })
+    : parentPath;
 }
 
-/** Parse a UI path into a prefix and relative path for safe renaming. */
+/** Parse a UI path into a projectId and relative path for safe renaming. */
 function parseRenamePath(uri: string) {
   const trimmed = uri.trim();
   if (!trimmed) return null;
@@ -252,13 +259,10 @@ function parseRenamePath(uri: string) {
   if (!parsed) return null;
   if (isProjectAbsolutePath(trimmed)) {
     if (!parsed.projectId) return null;
-    return {
-      prefix: `@{${parsed.projectId}}/`,
-      relativePath: parsed.relativePath,
-    };
+    return { projectId: parsed.projectId, relativePath: parsed.relativePath };
   }
   // 中文注释：非 @{} 形式一律视为项目相对路径，避免拼出完整 file:// 路径。
-  return { prefix: "", relativePath: normalizeProjectRelativePath(trimmed) };
+  return { projectId: undefined as string | undefined, relativePath: normalizeProjectRelativePath(trimmed) };
 }
 
 // Render the left dock contents for a tab.

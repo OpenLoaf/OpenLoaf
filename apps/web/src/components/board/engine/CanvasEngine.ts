@@ -1204,6 +1204,19 @@ export class CanvasEngine {
     return getGroupMemberIds(this.doc.getElements(), groupId);
   }
 
+  /** Recalculate group bounds from current member positions. */
+  refreshGroupBounds(groupId: string): void {
+    const childIds = this.getGroupMemberIds(groupId);
+    const nodes = childIds
+      .map(id => this.doc.getElementById(id))
+      .filter((element): element is CanvasNodeElement => element?.kind === "node");
+    if (nodes.length === 0) return;
+    const bounds = computeNodeBounds(nodes);
+    this.doc.updateElement(groupId, {
+      xywh: [bounds.x, bounds.y, bounds.w, bounds.h],
+    });
+  }
+
   /** Delete currently selected elements. */
   deleteSelection(): void {
     const selectionIds = expandSelectionWithGroupChildren(

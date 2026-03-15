@@ -42,6 +42,7 @@ export type ChatSessionListItem = {
 
 /** Max sessions shown in recent section. */
 const RECENT_SESSION_LIMIT = 3;
+const EMPTY_SESSIONS: ChatSessionListItem[] = [];
 
 /** Chat session list scope input. */
 export type UseChatSessionsInput = {
@@ -100,7 +101,7 @@ export function useChatSessions(_input?: UseChatSessionsInput) {
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  const sessions = (query.data ?? []) as ChatSessionListItem[];
+  const sessions = (query.data ?? EMPTY_SESSIONS) as ChatSessionListItem[];
   const recentSessions = useMemo(() => buildRecentSessions(sessions), [sessions]);
 
   return {

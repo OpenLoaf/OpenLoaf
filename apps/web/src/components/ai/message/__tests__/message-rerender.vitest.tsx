@@ -17,6 +17,7 @@ import * as React from 'react'
 import { render } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { mockMotion, mockSyntaxHighlighter } from '../../__tests__/vitest-mocks'
+import { ChatSessionProvider } from '../../context'
 
 mockMotion()
 mockSyntaxHighlighter()
@@ -31,6 +32,9 @@ vi.mock('../tools/MessageTool', () => ({
 vi.mock('../tools/MessageFile', () => ({
   default: () => null,
 }))
+vi.mock('../AssistantMessageHeader', () => ({
+  default: () => null,
+}))
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -39,11 +43,24 @@ vi.mock('../tools/MessageFile', () => ({
 describe('MessageAi memo behavior', () => {
   it('MessageAi re-renders when message reference changes even if content is identical', async () => {
     const MessageAi = (await import('../MessageAi')).default
+    const chatSessionValue = {
+      sessionId: 'test-session',
+      tabId: undefined,
+      leafMessageId: null,
+      branchMessageIds: [],
+      siblingNav: {},
+    } as const
 
-    let renderCount = 0
+    const renderCountRef = { current: 0 }
     const Spy = ({ message, isAnimating }: any) => {
-      renderCount += 1
-      return <MessageAi message={message} isAnimating={isAnimating} />
+      React.useLayoutEffect(() => {
+        renderCountRef.current += 1
+      })
+      return (
+        <ChatSessionProvider value={chatSessionValue}>
+          <MessageAi message={message} isAnimating={isAnimating} />
+        </ChatSessionProvider>
+      )
     }
 
     const msg1 = {
@@ -56,12 +73,12 @@ describe('MessageAi memo behavior', () => {
     const msg2 = { ...msg1 }
 
     const { rerender } = render(<Spy message={msg1} isAnimating={false} />)
-    expect(renderCount).toBe(1)
+    expect(renderCountRef.current).toBe(1)
 
     rerender(<Spy message={msg2} isAnimating={false} />)
     // Parent re-renders because msg2 !== msg1 (different reference)
     // MessageAi is memoized, but Spy wrapper forces re-render with new ref
-    expect(renderCount).toBe(2)
+    expect(renderCountRef.current).toBe(2)
   })
 
   it('MessageAi IS wrapped in React.memo (optimization applied)', async () => {

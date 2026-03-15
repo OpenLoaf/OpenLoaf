@@ -369,7 +369,6 @@ const getVideoNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] =
     description: i18next.t('board:connector.imagePromptGenerateDesc'),
     size: [320, 220],
     icon: <Sparkles size={14} />,
-    color: { bg: 'bg-ol-amber-bg', text: 'text-ol-amber', hoverBg: 'hover:bg-ol-amber-bg-hover' },
     createNode: () => ({
       type: IMAGE_PROMPT_GENERATE_NODE_TYPE,
       props: {},

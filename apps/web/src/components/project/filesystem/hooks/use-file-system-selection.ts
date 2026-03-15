@@ -167,20 +167,21 @@ function useFileSystemSelection({
   );
 
   /** Finish selection when the pointer is released. */
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback(function handleSelectionMouseUp() {
+    const change = onSelectionChangeRef.current;
     if (!selectionStartRef.current) return;
     const rect = selectionRectRef.current;
     selectionStartRef.current = null;
     selectionRectRef.current = null;
     setSelectionRect(null);
     window.removeEventListener("mousemove", handleMouseMove);
-    window.removeEventListener("mouseup", handleMouseUp);
+    window.removeEventListener("mouseup", handleSelectionMouseUp);
     // 未形成拖拽矩形时，视为点击空白处清空选择。
-    if (!rect && onSelectionChange) {
+    if (!rect && change) {
       lastSelectedRef.current = "";
-      onSelectionChange([], "replace");
+      change([], "replace");
     }
-  }, [handleMouseMove, onSelectionChange]);
+  }, [handleMouseMove]);
 
   /** Start drag selection when the user presses on empty space. */
   const handleGridMouseDown = useCallback(

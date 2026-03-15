@@ -405,10 +405,7 @@ export default function MarkdownViewer({
     setCodeStatus(DEFAULT_CODE_STATUS);
   }, [inlineContent, readOnly, uri]);
 
-  if (!uri && !hasInlineContent) {
-    return <div className="h-full w-full p-4 text-muted-foreground">未选择文件</div>;
-  }
-
+  const isEmptyTarget = !uri && !hasInlineContent;
   const resolvedContent = hasInlineContent ? inlineContent ?? "" : fileQuery.data?.content ?? "";
   const { frontMatter, previewMarkdown } = useMemo(() => {
     const extracted = extractFrontMatter(resolvedContent);
@@ -512,6 +509,10 @@ export default function MarkdownViewer({
     // 逻辑：在 Markdown 预览/编辑区域阻止 Cmd/Ctrl+F 冒泡，让浏览器默认查找生效。
     stopFindShortcutPropagation(event);
   }, []);
+
+  if (isEmptyTarget) {
+    return <div className="h-full w-full p-4 text-muted-foreground">未选择文件</div>;
+  }
 
   const hasFileError = !hasInlineContent && (fileQuery.isLoading || fileQuery.data?.tooLarge || fileQuery.isError);
   const previewContent = hasFileError ? (

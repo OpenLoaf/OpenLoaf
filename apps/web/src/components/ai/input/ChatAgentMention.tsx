@@ -12,7 +12,6 @@
 import {
   forwardRef,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -57,6 +56,11 @@ const AT_TRIGGER_REGEX = /(^|\s)@(\S*)$/u;
 const MENU_WIDTH = 280;
 const MENU_GAP = 8;
 
+type MenuIndexState = {
+  key: string;
+  index: number;
+};
+
 /** Resolve query text after @ from current input value. */
 function resolveAtQuery(value: string): string | null {
   const match = value.match(AT_TRIGGER_REGEX);
@@ -79,12 +83,18 @@ const ChatAgentMention = forwardRef<ChatAgentMentionHandle, ChatAgentMentionProp
     { value, onChange, onAgentSelect, onRequestFocus, isFocused, className },
     ref,
   ) {
-    const [activeIndex, setActiveIndex] = useState(0);
+    const [menuIndexState, setMenuIndexState] = useState<MenuIndexState>({
+      key: "",
+      index: 0,
+    });
     const menuRef = useRef<HTMLDivElement | null>(null);
     const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
 
     const atQuery = useMemo(() => (isFocused ? resolveAtQuery(value) : null), [value, isFocused]);
     const isOpen = Boolean(isFocused && atQuery !== null);
+    const menuIndexKey = `${isOpen ? "open" : "closed"}:${atQuery ?? ""}`;
+    const activeIndex =
+      menuIndexState.key === menuIndexKey ? menuIndexState.index : 0;
 
     const { data: projects } = useProjects({ enabled: isOpen });
 
@@ -120,16 +130,26 @@ const ChatAgentMention = forwardRef<ChatAgentMentionHandle, ChatAgentMentionProp
 
     useLayoutEffect(() => {
       if (!isOpen) return;
-      updatePosition();
+      const frameId = window.requestAnimationFrame(updatePosition);
+      return () => window.cancelAnimationFrame(frameId);
     }, [isOpen, updatePosition]);
 
-    useEffect(() => {
-      if (!isOpen) {
-        setActiveIndex(0);
-        return;
-      }
-      setActiveIndex(0);
-    }, [isOpen, atQuery]);
+    const setMenuActiveIndex = useCallback(
+      (nextIndex: number | ((currentIndex: number) => number)) => {
+        setMenuIndexState((current) => {
+          const currentIndex =
+            current.key === menuIndexKey ? current.index : 0;
+          return {
+            key: menuIndexKey,
+            index:
+              typeof nextIndex === "function"
+                ? nextIndex(currentIndex)
+                : nextIndex,
+          };
+        });
+      },
+      [menuIndexKey],
+    );
 
     const selectItem = useCallback(
       (item: MentionItem) => {
@@ -142,9 +162,9 @@ const ChatAgentMention = forwardRef<ChatAgentMentionHandle, ChatAgentMentionProp
           agentType: "pm",
         });
         onRequestFocus?.();
-        setActiveIndex(0);
+        setMenuActiveIndex(0);
       },
-      [value, onChange, onAgentSelect, onRequestFocus],
+      [value, onChange, onAgentSelect, onRequestFocus, setMenuActiveIndex],
     );
 
     const handleKeyDown = useCallback(
@@ -154,12 +174,12 @@ const ChatAgentMention = forwardRef<ChatAgentMentionHandle, ChatAgentMentionProp
         switch (event.key) {
           case "ArrowDown": {
             event.preventDefault();
-            setActiveIndex((prev) => (prev + 1) % items.length);
+            setMenuActiveIndex((prev) => (prev + 1) % items.length);
             return true;
           }
           case "ArrowUp": {
             event.preventDefault();
-            setActiveIndex((prev) => (prev - 1 + items.length) % items.length);
+            setMenuActiveIndex((prev) => (prev - 1 + items.length) % items.length);
             return true;
           }
           case "Tab":
@@ -181,7 +201,16 @@ const ChatAgentMention = forwardRef<ChatAgentMentionHandle, ChatAgentMentionProp
             return false;
         }
       },
-      [isOpen, items, activeIndex, selectItem, value, onChange, onAgentSelect],
+      [
+        isOpen,
+        items,
+        activeIndex,
+        selectItem,
+        value,
+        onChange,
+        onAgentSelect,
+        setMenuActiveIndex,
+      ],
     );
 
     useImperativeHandle(ref, () => ({ handleKeyDown }), [handleKeyDown]);
@@ -220,7 +249,7 @@ const ChatAgentMention = forwardRef<ChatAgentMentionHandle, ChatAgentMentionProp
                   isActive ? "bg-muted/70" : "hover:bg-muted/60",
                 )}
                 onClick={() => selectItem(item)}
-                onPointerMove={() => setActiveIndex(index)}
+                onPointerMove={() => setMenuActiveIndex(index)}
               >
                 {item.icon ? (
                   <span className="size-4 text-center shrink-0">{item.icon}</span>

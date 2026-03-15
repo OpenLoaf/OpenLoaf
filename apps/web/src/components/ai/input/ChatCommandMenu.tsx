@@ -40,6 +40,11 @@ type SkillItem = {
   skillName: string;
 };
 
+type MenuIndexState = {
+  key: string;
+  index: number;
+};
+
 export type ChatCommandMenuHandle = {
   handleKeyDown: (event: React.KeyboardEvent) => boolean;
 };
@@ -103,13 +108,17 @@ function replaceSlashToken(input: string, replacement: string): string {
 
 const MENU_WIDTH = 280;
 const MENU_GAP = 8;
+const EMPTY_SKILLS: SkillSummary[] = [];
 
 const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
   ({ value, onChange, onRequestFocus, isFocused, projectId, className }, ref) => {
     const { t } = useTranslation("ai");
     const { t: tNav } = useTranslation("nav");
     const query = resolveSlashQuery(value);
-    const [activeIndex, setActiveIndex] = useState(0);
+    const [menuIndexState, setMenuIndexState] = useState<MenuIndexState>({
+      key: "",
+      index: 0,
+    });
     const menuRef = useRef<HTMLDivElement | null>(null);
     const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
     const skillsQuery = useQuery({
@@ -118,7 +127,7 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
         : trpc.settings.getSkills.queryOptions()),
       staleTime: 5 * 60 * 1000,
     });
-    const skills = (skillsQuery.data ?? []) as SkillSummary[];
+    const skills = (skillsQuery.data ?? EMPTY_SKILLS) as SkillSummary[];
     const scopeLabels = useMemo<Record<SkillSummary["scope"], string>>(
       () => ({
         global: t("projectSelector.projectSpace"),
@@ -132,6 +141,9 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
       [skills, query, scopeLabels],
     );
     const isOpen = Boolean(isFocused && query !== null);
+    const menuIndexKey = `${isOpen ? "open" : "closed"}:${query ?? ""}`;
+    const activeIndex =
+      menuIndexState.key === menuIndexKey ? menuIndexState.index : 0;
 
     // Compute fixed position relative to the parent input container.
     const updatePosition = useCallback(() => {
@@ -147,37 +159,47 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
 
     useLayoutEffect(() => {
       if (!isOpen) return;
-      updatePosition();
+      const frameId = window.requestAnimationFrame(updatePosition);
+      return () => window.cancelAnimationFrame(frameId);
     }, [isOpen, updatePosition]);
 
-    useEffect(() => {
-      if (!isOpen) {
-        setActiveIndex(0);
-        return;
-      }
-      setActiveIndex(0);
-    }, [isOpen, query]);
+    const setMenuActiveIndex = useCallback(
+      (nextIndex: number | ((currentIndex: number) => number)) => {
+        setMenuIndexState((current) => {
+          const currentIndex =
+            current.key === menuIndexKey ? current.index : 0;
+          return {
+            key: menuIndexKey,
+            index:
+              typeof nextIndex === "function"
+                ? nextIndex(currentIndex)
+                : nextIndex,
+          };
+        });
+      },
+      [menuIndexKey],
+    );
 
     /** Apply the selected skill item. */
-    const selectItem = (item: SkillItem) => {
+    const selectItem = useCallback((item: SkillItem) => {
       onChange(replaceSlashToken(value, buildSkillCommandText(item.skillName)));
       onRequestFocus?.();
-      setActiveIndex(0);
-    };
+      setMenuActiveIndex(0);
+    }, [onChange, onRequestFocus, setMenuActiveIndex, value]);
 
     /** Handle keyboard navigation for the menu. */
-    const handleKeyDown = (event: React.KeyboardEvent) => {
+    const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
       if (!isOpen) return false;
       if (items.length === 0) return false;
       switch (event.key) {
         case "ArrowDown": {
           event.preventDefault();
-          setActiveIndex((prev) => (prev + 1) % items.length);
+          setMenuActiveIndex((prev) => (prev + 1) % items.length);
           return true;
         }
         case "ArrowUp": {
           event.preventDefault();
-          setActiveIndex((prev) => (prev - 1 + items.length) % items.length);
+          setMenuActiveIndex((prev) => (prev - 1 + items.length) % items.length);
           return true;
         }
         case "Enter": {
@@ -190,14 +212,14 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
         default:
           return false;
       }
-    };
+    }, [activeIndex, isOpen, items, selectItem, setMenuActiveIndex]);
 
     useImperativeHandle(
       ref,
       () => ({
         handleKeyDown,
       }),
-      [handleKeyDown]
+      [handleKeyDown],
     );
 
     // Hidden anchor for position calculation.
@@ -239,7 +261,7 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
                     isActive ? "bg-muted/70" : "hover:bg-muted/60",
                   )}
                   onClick={() => selectItem(item)}
-                  onPointerMove={() => setActiveIndex(index)}
+                  onPointerMove={() => setMenuActiveIndex(index)}
                 >
                   <span className="text-[12px] font-medium text-foreground">
                     {item.label}

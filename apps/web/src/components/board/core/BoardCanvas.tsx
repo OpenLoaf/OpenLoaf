@@ -74,6 +74,7 @@ import { getCachedAccessToken } from "@/lib/saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import i18next from "i18next";
 import { isElectronEnv } from "@/utils/is-electron-env";
+import { GroupMembersDialog } from "../dialogs/GroupMembersDialog";
 
 export type BoardCanvasProps = {
   /** External engine instance, optional for integration scenarios. */
@@ -284,6 +285,7 @@ export function BoardCanvas({
   const [loginOpen, setLoginOpen] = useState(false);
   const { loggedIn: saasLoggedIn } = useSaasAuth();
   const [saveToProjectOpen, setSaveToProjectOpen] = useState(false);
+  const [enterGroupId, setEnterGroupId] = useState<string | null>(null);
   const navigate = useAppView((s) => s.navigate);
   const pushStackItem = useLayoutState((s) => s.pushStackItem);
   const inferBoardNameMutation = useMutation(trpc.settings.inferBoardName.mutationOptions());
@@ -848,6 +850,7 @@ export function BoardCanvas({
           boardFolderUri={boardFolderUri}
           onAutoLayout={scheduleAutoLayoutThumbnail}
           onOpenImagePreview={openImagePreview}
+          onEnterGroup={setEnterGroupId}
         >
           <BoardCanvasRender
             engine={engine}
@@ -857,8 +860,14 @@ export function BoardCanvas({
             containerRef={containerRef}
             onSyncLog={syncLogState.canSyncLog ? syncLogState.onSyncLog : undefined}
             onAutoLayout={scheduleAutoLayoutThumbnail}
+            onEnterGroup={setEnterGroupId}
           />
         </BoardCanvasInteraction>
+        <GroupMembersDialog
+          groupId={enterGroupId}
+          engine={engine}
+          onClose={() => setEnterGroupId(null)}
+        />
       </BoardProvider>
     </BoardErrorBoundary>
     </>

@@ -144,6 +144,7 @@ export function WidgetPreview({
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [renderError, setRenderError] = React.useState<string | null>(null)
+  const cachedThemeRef = React.useRef<{ mode: 'dark' | 'light' } | null>(null)
 
   React.useEffect(() => {
     let cancelled = false
@@ -168,17 +169,15 @@ export function WidgetPreview({
   // 逻辑：创建最小化 SDK（chat 上下文不需要完整 desktop SDK）
   // 注意：getTheme 必须返回稳定引用，否则 useSyncExternalStore 会无限循环
   const sdk = React.useMemo(() => {
-    let cachedTheme: { mode: 'dark' | 'light' } | null = null
-
     const detectTheme = () => {
       const mode = (typeof document !== 'undefined' &&
         document.documentElement.classList.contains('dark')
         ? 'dark'
         : 'light') as 'dark' | 'light'
-      if (!cachedTheme || cachedTheme.mode !== mode) {
-        cachedTheme = { mode }
+      if (!cachedThemeRef.current || cachedThemeRef.current.mode !== mode) {
+        cachedThemeRef.current = { mode }
       }
-      return cachedTheme
+      return cachedThemeRef.current
     }
 
     return {

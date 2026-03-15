@@ -73,14 +73,6 @@ export function CliToolsList({ selectedId, onSelect, onOpenInstall, disabled }: 
     return map
   }, [data])
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
-        {t('mode.detectingCli')}
-      </div>
-    )
-  }
-
   const installedTools = useMemo(
     () => CLI_TOOLS_META.filter((tool) => statusMap[tool.id]?.installed),
     [statusMap],
@@ -93,6 +85,14 @@ export function CliToolsList({ selectedId, onSelect, onOpenInstall, disabled }: 
     const first = installedTools[0]
     if (first) onSelect(first.id)
   }, [selectedId, installedTools, onSelect, disabled, statusMap])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
+        {t('mode.detectingCli')}
+      </div>
+    )
+  }
 
   if (installedTools.length === 0) {
     return (

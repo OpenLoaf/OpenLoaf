@@ -47,13 +47,17 @@ function resetCounts() {
 
 /** Simplified MessageAi — Simplified stand-in (production uses React.memo) */
 function SimMessageAi({ message, isAnimating }: { message: any; isAnimating?: boolean }) {
-  renderCounts.messageAi += 1
+  React.useLayoutEffect(() => {
+    renderCounts.messageAi += 1
+  })
   return <SimMessageParts parts={message.parts} isAnimating={isAnimating} />
 }
 
 /** Simplified MessageParts — Simplified stand-in (production uses React.memo) */
 function SimMessageParts({ parts, isAnimating }: { parts: any[]; isAnimating?: boolean }) {
-  renderCounts.messageParts += 1
+  React.useLayoutEffect(() => {
+    renderCounts.messageParts += 1
+  })
   // This recreates motionProps on every render
   const _motionProps = isAnimating
     ? { initial: { opacity: 0 }, animate: { opacity: 1 } }
@@ -72,7 +76,9 @@ function SimMessageParts({ parts, isAnimating }: { parts: any[]; isAnimating?: b
 
 /** Simplified Streamdown stand-in that counts renders */
 function SimStreamdown({ content }: { content: string }) {
-  renderCounts.streamdown += 1
+  React.useLayoutEffect(() => {
+    renderCounts.streamdown += 1
+  })
   return <div data-testid="streamdown">{content}</div>
 }
 
@@ -139,10 +145,12 @@ describe('Streaming integration baseline', () => {
     })
 
     // Track history item render counts
-    let historyRenderCount = 0
+    const historyRenderCountRef = { current: 0 }
 
     const HistoryItem = React.memo(function HistoryItem({ message }: { message: any }) {
-      historyRenderCount += 1
+      React.useLayoutEffect(() => {
+        historyRenderCountRef.current += 1
+      })
       if (message.role === 'user') {
         return <div>{(message.parts?.[0] as any)?.text}</div>
       }
@@ -182,11 +190,11 @@ describe('Streaming integration baseline', () => {
       <MessageList messages={historyMessages} streamingMessage={streamChunks[0]} />,
     )
 
-    const initialHistoryRenders = historyRenderCount
+    const initialHistoryRenders = historyRenderCountRef.current
     expect(initialHistoryRenders).toBe(10) // each history item renders once
 
     // Reset and stream more chunks
-    historyRenderCount = 0
+    historyRenderCountRef.current = 0
     resetCounts()
 
     for (let i = 1; i < streamChunks.length; i++) {
@@ -196,13 +204,13 @@ describe('Streaming integration baseline', () => {
     }
 
     // History messages should NOT re-render (they're memoized and refs are stable)
-    expect(historyRenderCount).toBe(0)
+    expect(historyRenderCountRef.current).toBe(0)
 
     // But the streaming message re-renders on every chunk
     const streamUpdates = streamChunks.length - 1
     expect(renderCounts.messageAi).toBe(streamUpdates)
 
-    console.log(`[streaming-baseline] history re-renders: ${historyRenderCount}`)
+    console.log(`[streaming-baseline] history re-renders: ${historyRenderCountRef.current}`)
     console.log(`[streaming-baseline] streaming updates: ${streamUpdates}`, {
       messageAi: renderCounts.messageAi,
       messageParts: renderCounts.messageParts,

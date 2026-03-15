@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from 'next-themes'
 import Editor, { type OnMount } from '@monaco-editor/react'
@@ -83,28 +83,39 @@ const EDITOR_OPTIONS: Monaco.editor.IStandaloneEditorConstructionOptions = {
   },
 }
 
+function getDocumentTheme(): 'light' | 'dark' {
+  if (typeof document === 'undefined') {
+    return 'light'
+  }
+  return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+}
+
+function subscribeDocumentTheme(callback: () => void) {
+  if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') {
+    return () => {}
+  }
+  const observer = new MutationObserver(callback)
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class'],
+  })
+  return () => observer.disconnect()
+}
+
 function ReadOnlyEditor({ value, language }: { value: string; language: string }) {
   const { resolvedTheme } = useTheme()
   const monacoRef = useRef<typeof Monaco | null>(null)
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
-
-  const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>(
-    resolvedTheme === 'dark' ? 'dark' : 'light',
+  const domTheme = useSyncExternalStore(
+    subscribeDocumentTheme,
+    getDocumentTheme,
+    () => 'light',
   )
+  const effectiveTheme =
+    resolvedTheme === 'dark' || resolvedTheme === 'light'
+      ? resolvedTheme
+      : domTheme
   const monacoThemeName = effectiveTheme === 'dark' ? MONACO_THEME_DARK : MONACO_THEME_LIGHT
-
-  useEffect(() => {
-    const root = document.documentElement
-    const readDomTheme = () => (root.classList.contains('dark') ? 'dark' : 'light')
-    if (resolvedTheme === 'dark' || resolvedTheme === 'light') {
-      setEffectiveTheme(resolvedTheme)
-    } else {
-      setEffectiveTheme(readDomTheme())
-    }
-    const observer = new MutationObserver(() => setEffectiveTheme(readDomTheme()))
-    observer.observe(root, { attributes: true, attributeFilter: ['class'] })
-    return () => observer.disconnect()
-  }, [resolvedTheme])
 
   useEffect(() => {
     const monaco = monacoRef.current

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import type { LinkNodeProps } from "../nodes/LinkNode";
+import type { LinkNodeProps } from "../board-contracts";
 
 export type LinkNodePayload = {
   /** Props used to create the link node. */

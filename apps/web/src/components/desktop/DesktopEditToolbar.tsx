@@ -270,8 +270,6 @@ export default function DesktopEditToolbar({
     };
   }, [activeBreakpoint, items, onAddItem]);
 
-  if (!controlsTarget) return null;
-
   /** Enter edit mode and immediately open the widget library panel. */
   const handleAddAndEdit = React.useCallback(() => {
     onEnterEditMode();
@@ -280,6 +278,8 @@ export default function DesktopEditToolbar({
       handleOpenWidgetLibrary();
     });
   }, [onEnterEditMode, handleOpenWidgetLibrary]);
+
+  if (!controlsTarget) return null;
 
   // 中文注释：非编辑态在头部展示添加组件与编辑入口。
   if (!editMode) {

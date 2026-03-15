@@ -175,9 +175,6 @@ export default function AutoUpdateGate() {
     if (!isElectron || !api?.relaunchApp) return;
     await api.relaunchApp();
   }, [isElectron]);
-
-  if (!isElectron) return null;
-
   const isDesktopUpdate = state.source === "desktop";
   const nextVersionLabel = React.useMemo(() => {
     if (isDesktopUpdate) {
@@ -190,6 +187,8 @@ export default function AutoUpdateGate() {
     if (state.status.web?.newVersion) parts.push(t("updateGate.webVersion", { version: state.status.web.newVersion }));
     return parts.length > 0 ? parts.join(" / ") : t("updateGate.newVersion");
   }, [isDesktopUpdate, state.status, state.autoUpdateStatus, t]);
+
+  if (!isElectron) return null;
 
   return (
     <Dialog

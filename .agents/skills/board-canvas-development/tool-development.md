@@ -4,7 +4,7 @@
 
 | 代码 | 职责 |
 |------|------|
-| [ToolTypes.ts](/Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/apps/web/src/components/board/tools/ToolTypes.ts) | `CanvasTool` 与 `ToolContext` 协议 |
+| [ToolTypes.ts](/Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/apps/web/src/components/board/tools/ToolTypes.ts) | `CanvasTool`、`ToolContext` 与 `CanvasToolHost` 契约 |
 | [ToolManager.ts](/Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/apps/web/src/components/board/tools/ToolManager.ts) | 工具注册、事件分发、快捷键、中键拖拽、公共快捷键 |
 | [CanvasEngine.ts](/Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/apps/web/src/components/board/engine/CanvasEngine.ts) | 在构造函数里注册默认工具并设置当前激活工具 |
 | [BoardToolbar.tsx](/Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/apps/web/src/components/board/toolbar/BoardToolbar.tsx) | 工具按钮、图标与 tooltip 快捷键文案 |
@@ -25,6 +25,8 @@
 - 原始 `PointerEvent`
 - `screenPoint`
 - `worldPoint`
+
+其中 `engine` 在工具层应视为 `CanvasToolHost`，只依赖工具需要的最小接口，不要在 `ToolTypes.ts` 里重新 import `CanvasEngine` 实现类。
 
 实现要求：
 
@@ -87,6 +89,7 @@
 
 - 只写规则和代码链接，不放示例代码
 - 新工具先对齐 `ToolTypes.ts` 和 `ToolManager.ts` 的事件契约，再补 UI 入口
+- 工具层新增依赖时，优先加到 `CanvasToolHost`，不要直接把 `CanvasEngine` 引回 `ToolTypes.ts`
 - 若工具对快捷键、锁定态或编辑态有要求，必须在文档里写清楚边界
 
 ## Common Mistakes
@@ -98,3 +101,4 @@
 | 只改 `ToolManager`，没改 `BoardToolbar` 文案 | 用户可见工具需要同步更新按钮和 tooltip |
 | 忽略锁定态与输入态 | 新工具必须明确在锁定画布和可编辑控件场景下的行为 |
 | 在工具里复制一套通用快捷键处理 | 先复用 `ToolManager` 现有公共快捷键，再补工具特有逻辑 |
+| 在 `ToolTypes.ts` 直接引用 `CanvasEngine` | 改为补齐 `CanvasToolHost`，让工具层依赖接口而不是实现 |

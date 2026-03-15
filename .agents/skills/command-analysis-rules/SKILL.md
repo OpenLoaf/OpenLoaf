@@ -1,7 +1,7 @@
 ---
 name: command-analysis-rules
-description: 当用户要求“用命令分析代码”“分析 knip/tsc/build/lint/jscpd/madge 输出”“清理死代码”“找重复代码”“排查循环依赖”“排查静态扫描误报”“补充后台代码检测规则”“扫描 web 或 server 的未使用代码/依赖/路由/构建问题”时使用。本技能适用于 OpenLoaf 项目内基于命令行结果做代码检测、误报甄别、规则沉淀与回归验证。
-version: 1.1.0
+description: 当用户要求“用命令分析代码”“分析 knip/tsc/build/lint/jscpd/madge/react hooks/react compiler/react-scan 输出”“清理死代码”“找重复代码”“排查循环依赖”“排查静态扫描误报”“补充后台代码检测规则”“扫描 web 或 server 的未使用代码/依赖/路由/构建问题”“分析 React Hook 告警并沉淀规则”时使用。本技能适用于 OpenLoaf 项目内基于命令行结果做代码检测、误报甄别、规则沉淀与回归验证。
+version: 1.2.0
 ---
 
 # 命令分析规则库
@@ -15,6 +15,7 @@ version: 1.1.0
 - 使用 `knip` 扫描 `apps/web`、`apps/server` 或其他工作区
 - 使用 `jscpd` 扫描重复代码，并判断哪些重复值得合并
 - 使用 `madge` 扫描循环依赖，并规划解环策略
+- 使用 `eslint`、React Compiler 规则或 `react-scan` 分析 React Hook、渲染副作用与重渲染热点
 - 使用 `tsc`、`build`、`lint`、脚本输出来定位实际依赖关系
 - 根据命令输出清理未使用文件、依赖、导出
 - 分析“构建通过但扫描报未使用”或“扫描清理后运行报缺包”的情况
@@ -70,6 +71,43 @@ version: 1.1.0
 - 是否存在“允许重复”的目录类别，例如基础组件、设计系统、平台壳层
 
 不要先跑全仓库再在结果里人工挑拣，这样容易把噪音当结论。
+
+### React Hook 分析先分“正确性、建模、性能”三层
+
+对 React Hook 相关扫描，不要把所有 warning 当成一个桶。优先按以下层次处理：
+
+1. 正确性：`rules-of-hooks`、`immutability`、自引用回调、普通函数里调用 Hook
+2. 状态建模：`set-state-in-effect`、把 props/缓存复制进本地 state、打开弹窗后用 effect 重置状态
+3. 性能与维护性：`exhaustive-deps`、`static-components`、运行时重渲染热点
+
+只有前一层收敛后，才应进入下一层。否则容易在大面积 `exhaustive-deps` 中消耗时间，却留下真正会导致行为错误的 Hook 问题。
+
+### Hook 告警优先改状态建模，不优先压制规则
+
+对 Hook 扫描结果，优先修改状态来源与边界，不要默认：
+
+- 加 `eslint-disable`
+- 机械补 `useMemo` / `useCallback`
+- 为了消 warning 把值塞进 `ref`
+- 用 effect 同步一份“镜像 state”
+
+更推荐的规则是：
+
+- 能派生就派生，不复制状态
+- 能在事件里做就不要挪进 effect
+- 能用稳定 key 或受控开关重置 UI，就不要靠 effect 回填
+- 只有确实需要订阅外部系统时，才在 effect 中维护同步
+
+### React 运行时扫描只补性能视角，不替代静态规则
+
+`react-scan` 这类运行时工具适合回答“哪里重渲染过多”，不适合替代静态正确性检查。默认顺序应是：
+
+1. 先用静态规则清 `rules-of-hooks` / `immutability`
+2. 再清一批明显的 `set-state-in-effect`
+3. 再看 `exhaustive-deps`
+4. 最后再用运行时扫描确认是否还有热点组件
+
+如果运行时热点的根因其实是错误的状态复制或 effect 回写，应回到静态规则层解决，而不是只盯渲染次数。
 
 ### 优先删除“整块已脱离入口图”的目录
 
@@ -143,6 +181,36 @@ pnpm --filter @openloaf/ui add <pkg>
 - `duplicates`
 
 不要默认按 `exports`、`types` 大面积清理，因为该项目中存在大量组件内部类型导出与具名导出，这类结果噪音很高，容易误删。
+
+### `apps/web` 的 Hook 治理默认覆盖 `packages/ui/src`
+
+在 OpenLoaf 中，React Hook 问题不能只看 `apps/web/src`。默认还应检查：
+
+- `packages/ui/src`
+
+原因不是“UI 包发布了”，而是 Web 侧通过源码路径直接消费 UI 源码时，Hook 规则、类型检查与运行时行为都会被一起放大。  
+因此，Web 的 Hook 分析任务默认应被视为“web + ui 源码联合治理”，而不是只修页面目录。
+
+### Hook 告警默认按“错误先清、小文件先清、大文件后清”排序
+
+在 OpenLoaf 中处理 Hook 告警时，默认优先级应为：
+
+1. 清掉会造成行为错误或 React Compiler 直接拒绝优化的问题
+2. 清掉量少、收益高的小文件问题，例如自引用回调、`?? []` 依赖噪音、effect 内同步重置状态
+3. 最后再处理 Provider、Layout、输入容器这类大文件里的 `exhaustive-deps`
+
+不要一开始就进入大型上下文文件补依赖，这通常会把一次“规则治理”变成高风险重构。
+
+### Hook 治理要把“规则”与“死代码”分开
+
+当用户要求“分析 Hook 告警并沉淀规则”时，输出重点应是：
+
+- 哪类问题属于错误的状态建模
+- 哪类问题属于依赖写法噪音
+- 哪类问题适合通过统一脚本或配置入口持续治理
+- 哪类问题不应被总结成仓库私有死代码修复模板
+
+不要把某次任务里出现的单个组件修法原样抄回技能；应把它抽象成可迁移的判断规则。
 
 ### `apps/server` 可以做导出级清理，但前提是入口图完整
 
@@ -346,6 +414,10 @@ pnpm --filter server check-types
 pnpm --filter server analyze:unused
 ```
 
+对 React Hook 分析，优先参考：
+
+- `references/react-hooks-checklist.md`
+
 如果 dev 模式曾报模块解析错误，再补一个运行态判断：
 
 - 用 `require.resolve(...)` 检查模块解析
@@ -423,3 +495,4 @@ pnpm --filter server analyze:unused
 - `references/knip-checklist.md`
 - `references/jscpd-madge-checklist.md`
 - `references/server-knip-rules.md`
+- `references/react-hooks-checklist.md`

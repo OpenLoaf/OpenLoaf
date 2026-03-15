@@ -30,10 +30,11 @@ const NoMemoVerticalGridEventsLayer: React.FC<VerticalGridEventsLayerProps> = ({
 	resource,
 	'data-testid': dataTestId,
 }) => {
-	if (days.length === 0) return null
 	const todayEvents = useProcessedDayEvents({ days, gridType, resourceId })
 	const rangeStart = days[0]
-	const rangeEnd = days[days.length - 1]?.add(1, gridType)
+	const rangeEnd = rangeStart ? days[days.length - 1]?.add(1, gridType) : undefined
+
+	if (days.length === 0 || !rangeStart) return null
 
 	return (
 		<div

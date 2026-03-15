@@ -20,26 +20,13 @@ import {
   BOARD_TOOLBAR_ITEM_BLUE,
   BOARD_TOOLBAR_ITEM_GREEN,
 } from "../ui/board-style-system";
+import type { LinkNodeProps } from "../board-contracts";
 import { openLinkInStack as openLinkInStackAction } from "./lib/link-actions";
 import { useBoardContext } from "../core/BoardProvider";
 import WebStackWidget from "@/components/desktop/widgets/WebStackWidget";
 import type { DesktopWidgetItem } from "@/components/desktop/types";
 import { NodeFrame } from "./NodeFrame";
-
-export type LinkNodeProps = {
-  /** Destination URL. */
-  url: string;
-  /** Title text shown in card mode. */
-  title: string;
-  /** Description text shown in card mode. */
-  description: string;
-  /** Logo URL for title/card mode. */
-  logoSrc: string;
-  /** Preview image URL for card mode. */
-  imageSrc: string;
-  /** Refresh token used to trigger reloads. */
-  refreshToken: number;
-};
+export type { LinkNodeProps } from "../board-contracts";
 
 const WEB_STACK_CONSTRAINTS: DesktopWidgetItem["constraints"] = {
   defaultW: 4,

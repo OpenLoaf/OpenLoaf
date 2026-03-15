@@ -15,6 +15,7 @@ import { Awareness } from "y-protocols/awareness";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CanvasConnectorElement, CanvasElement, CanvasNodeElement } from "../engine/types";
+import type { ImageNodeProps } from "../board-contracts";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import {
   buildImageNodePayloadFromFile,
@@ -39,7 +40,6 @@ import {
   BOARD_META_FILE_NAME,
 } from "@/lib/file-name";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";
-import type { ImageNodeProps } from "../nodes/ImageNode";
 import {
   buildChildUri,
   formatScopedProjectPath,

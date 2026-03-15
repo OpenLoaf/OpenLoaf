@@ -223,7 +223,15 @@
     "layoutVertical": "縱向排版",
     "layoutHorizontal": "橫向排版",
     "dissolve": "解散",
-    "uniformSize": "統一大小"
+    "uniformSize": "統一大小",
+    "enter": "進入",
+    "groupDialog": {
+      "title": "組成員",
+      "memberCount": "{{count}} 個成員",
+      "locateOnCanvas": "定位到畫布",
+      "removeFromGroup": "移出分組",
+      "empty": "此組沒有成員"
+    }
   },
   "selection": {
     "toolbar": {
