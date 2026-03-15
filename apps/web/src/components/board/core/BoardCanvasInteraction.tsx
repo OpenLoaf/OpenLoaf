@@ -395,6 +395,8 @@ export function BoardCanvasInteraction({
   const isPointerDownRef = useRef(false);
   /** Last right-click location inside the canvas, in world coordinates. */
   const lastContextMenuWorldRef = useRef<CanvasPoint | null>(null);
+  /** 右键点击到的节点（null 表示空白区域） */
+  const [contextNode, setContextNode] = useState<CanvasNodeElement | null>(null);
   /** Latest cursor applier used by async loaders. */
   const applyCursorRef = useRef<() => void>(() => {});
   /** Track wheel gesture target to avoid mid-gesture handoff. */
@@ -1213,16 +1215,44 @@ export function BoardCanvasInteraction({
         onInsertImageGenerate={handleInsertImageGenerateFromContextMenu}
         onInsertVideoGenerate={handleInsertVideoGenerateFromContextMenu}
         insertDisabled={engine.isLocked()}
+        contextNode={contextNode}
+        onNodeDelete={(nodeId) => {
+          engine.selection.setSelection([nodeId]);
+          engine.deleteSelection();
+        }}
+        onNodeLock={(nodeId, locked) => {
+          engine.setElementLocked(nodeId, locked);
+        }}
+        onNodeBringToFront={(nodeId) => {
+          engine.bringNodeToFront(nodeId);
+        }}
+        onNodeSendToBack={(nodeId) => {
+          engine.sendNodeToBack(nodeId);
+        }}
+        onNodeDuplicate={(nodeId) => {
+          engine.selection.setSelection([nodeId]);
+          engine.copySelection();
+          engine.pasteClipboard();
+        }}
         onContextMenu={(event) => {
           if (!showUi) return;
           event.stopPropagation();
           const rect = containerRef.current?.getBoundingClientRect();
           if (!rect) return;
-          // 逻辑：记录右键位置，保证“粘贴”落点与菜单一致。
-          lastContextMenuWorldRef.current = engine.screenToWorld([
+          // 逻辑：记录右键位置，保证"粘贴"落点与菜单一致。
+          const worldPoint = engine.screenToWorld([
             event.clientX - rect.left,
             event.clientY - rect.top,
           ]);
+          lastContextMenuWorldRef.current = worldPoint;
+          // 逻辑：检测右键点击的是节点还是空白区域，显示不同菜单。
+          const hitElement = engine.pickElementAt(worldPoint);
+          if (hitElement?.kind === "node") {
+            setContextNode(hitElement as CanvasNodeElement);
+            engine.selection.setSelection([hitElement.id]);
+          } else {
+            setContextNode(null);
+          }
           void updatePasteAvailability();
         }}
       >

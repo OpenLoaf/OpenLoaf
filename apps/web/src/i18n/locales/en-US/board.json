@@ -116,7 +116,13 @@
     "insertText": "Insert Text",
     "insertFile": "Insert File",
     "aiImageGenerate": "AI Image Generation",
-    "aiVideoGenerate": "AI Video Generation"
+    "aiVideoGenerate": "AI Video Generation",
+    "duplicate": "Duplicate",
+    "bringToFront": "Bring to Front",
+    "sendToBack": "Send to Back",
+    "lock": "Lock",
+    "unlock": "Unlock",
+    "delete": "Delete"
   },
   "controls": {
     "undo": "Undo",

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { LayoutGrid, Layers, ArrowDown, ArrowUp, Copy, Lock, Trash2, Unlock, Maximize2 } from "lucide-react";
+import { LayoutGrid, Layers, Copy, Maximize2 } from "lucide-react";
 import {
   BOARD_TOOLBAR_ITEM_BLUE,
   BOARD_TOOLBAR_ITEM_AMBER,
@@ -141,13 +141,7 @@ export function SingleSelectionToolbar({
     addColorHistory: color => engine.addColorHistory(color),
   });
 
-  const hasOverlap = hasNodeOverlap(element, snapshot.elements);
-  const isTopMost = isNodeTopMost(element, snapshot.elements);
-  const isBottomMost = isNodeBottomMost(element, snapshot.elements);
-  const commonItems = buildCommonToolbarItems(t, engine, element, {
-    showBringToFront: hasOverlap && !isTopMost,
-    showSendToBack: hasOverlap && isTopMost && !isBottomMost,
-  });
+  const commonItems = buildCommonToolbarItems(t, engine, element);
   const mindmapLayoutItems = buildMindmapLayoutItems(t, engine, element, snapshot);
   const customItems = items ?? [];
   const allItems = [...customItems, ...mindmapLayoutItems, ...commonItems];
@@ -417,13 +411,6 @@ export function MultiSelectionToolbar({
               icon: layoutIcon,
               className: BOARD_TOOLBAR_ITEM_BLUE,
               onSelect: () => engine.layoutSelection(),
-            },
-            {
-              id: "delete",
-              label: t('selection.toolbar.delete'),
-              icon: <Trash2 size={14} />,
-              className: BOARD_TOOLBAR_ITEM_RED,
-              onSelect: () => engine.deleteSelection(),
             },
           ]}
           openPanelId={openPanelId}
@@ -1056,13 +1043,11 @@ function buildCommonToolbarItems(
   t: TFunction,
   engine: CanvasEngine,
   element: CanvasNodeElement,
-  options?: { showBringToFront?: boolean; showSendToBack?: boolean }
 ) {
-  // 逻辑：确保操作目标锁定到当前节点。
   const focusSelection = () => {
     engine.selection.setSelection([element.id]);
   };
-  const isLocked = element.locked === true;
+  // 逻辑：工具栏只保留复制，置顶/删除/锁定已移至右键菜单。
   const items = [
     ...(!DUPLICATE_EXCLUDED_TYPES.has(element.type)
       ? [
@@ -1075,58 +1060,6 @@ function buildCommonToolbarItems(
               focusSelection();
               engine.copySelection();
               engine.pasteClipboard();
-            },
-          },
-        ]
-      : []),
-    ...(options?.showBringToFront
-      ? [
-          {
-            id: 'bring-to-front',
-            label: t('selection.toolbar.bringToFront'),
-            icon: <ArrowUp size={14} />,
-            className: BOARD_TOOLBAR_ITEM_BLUE,
-            onSelect: () => {
-              focusSelection();
-              engine.bringNodeToFront(element.id);
-            },
-          },
-        ]
-      : []),
-    ...(options?.showSendToBack
-      ? [
-          {
-            id: 'send-to-back',
-            label: t('selection.toolbar.sendToBack'),
-            icon: <ArrowDown size={14} />,
-            className: BOARD_TOOLBAR_ITEM_BLUE,
-            onSelect: () => {
-              focusSelection();
-              engine.sendNodeToBack(element.id);
-            },
-          },
-        ]
-      : []),
-    {
-      id: 'lock',
-      label: isLocked ? t('selection.toolbar.unlock') : t('selection.toolbar.lock'),
-      icon: isLocked ? <Unlock size={14} /> : <Lock size={14} />,
-      className: BOARD_TOOLBAR_ITEM_AMBER,
-      onSelect: () => {
-        focusSelection();
-        engine.setElementLocked(element.id, !isLocked);
-      },
-    },
-    ...(!isLocked
-      ? [
-          {
-            id: 'delete',
-            label: t('selection.toolbar.delete'),
-            icon: <Trash2 size={14} />,
-            className: BOARD_TOOLBAR_ITEM_RED,
-            onSelect: () => {
-              focusSelection();
-              engine.deleteSelection();
             },
           },
         ]

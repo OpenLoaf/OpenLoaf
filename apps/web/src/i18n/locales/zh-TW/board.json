@@ -116,7 +116,13 @@
     "insertText": "插入文字",
     "insertFile": "插入檔案",
     "aiImageGenerate": "AI 圖片生成",
-    "aiVideoGenerate": "AI 影片生成"
+    "aiVideoGenerate": "AI 影片生成",
+    "duplicate": "複製",
+    "bringToFront": "置頂",
+    "sendToBack": "置底",
+    "lock": "鎖定",
+    "unlock": "解鎖",
+    "delete": "刪除"
   },
   "controls": {
     "undo": "復原",

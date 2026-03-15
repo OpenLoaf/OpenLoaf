@@ -10,16 +10,22 @@
 "use client";
 
 import {
-  LayoutGrid,
-  RotateCw,
+  ArrowDown,
+  ArrowUp,
   Clipboard,
-  Maximize2,
-  Minimize2,
-  Scan,
-  Type,
+  Copy,
+  Film,
   FileText,
   ImagePlus,
-  Film,
+  LayoutGrid,
+  Lock,
+  Maximize2,
+  Minimize2,
+  RotateCw,
+  Scan,
+  Trash2,
+  Type,
+  Unlock,
 } from "lucide-react";
 import type { ReactElement, MouseEvent as ReactMouseEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -30,6 +36,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@openloaf/ui/context-menu";
+import type { CanvasNodeElement } from "../engine/types";
 
 export type BoardContextMenuProps = {
   /** Trigger element for the context menu. */
@@ -64,6 +71,14 @@ export type BoardContextMenuProps = {
   insertDisabled?: boolean;
   /** Context menu trigger handler. */
   onContextMenu?: (event: ReactMouseEvent) => void;
+  /** 右键点击到的节点（null 表示空白区域） */
+  contextNode?: CanvasNodeElement | null;
+  /** 节点操作回调 */
+  onNodeDelete?: (nodeId: string) => void;
+  onNodeLock?: (nodeId: string, locked: boolean) => void;
+  onNodeBringToFront?: (nodeId: string) => void;
+  onNodeSendToBack?: (nodeId: string) => void;
+  onNodeDuplicate?: (nodeId: string) => void;
 };
 
 /** Render the board context menu. */
@@ -84,99 +99,155 @@ export function BoardContextMenu({
   insertDisabled = false,
   isFullscreen,
   onContextMenu,
+  contextNode,
+  onNodeDelete,
+  onNodeLock,
+  onNodeBringToFront,
+  onNodeSendToBack,
+  onNodeDuplicate,
 }: BoardContextMenuProps) {
   const { t } = useTranslation('board');
+  const isNodeMenu = Boolean(contextNode);
+  const isLocked = contextNode?.locked === true;
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild disabled={triggerDisabled} onContextMenu={onContextMenu}>
         {children}
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
-        <ContextMenuItem
-          icon={Type}
-          disabled={insertDisabled}
-          onSelect={() => {
-            if (insertDisabled) return;
-            onInsertText?.();
-          }}
-        >
-          {t('contextMenu.insertText')}
-        </ContextMenuItem>
-        <ContextMenuItem
-          icon={FileText}
-          disabled={insertDisabled}
-          onSelect={() => {
-            if (insertDisabled) return;
-            onInsertFile?.();
-          }}
-        >
-          {t('contextMenu.insertFile')}
-        </ContextMenuItem>
-        <ContextMenuItem
-          icon={ImagePlus}
-          disabled={insertDisabled}
-          onSelect={() => {
-            if (insertDisabled) return;
-            onInsertImageGenerate?.();
-          }}
-        >
-          {t('contextMenu.aiImageGenerate')}
-        </ContextMenuItem>
-        <ContextMenuItem
-          icon={Film}
-          disabled={insertDisabled}
-          onSelect={() => {
-            if (insertDisabled) return;
-            onInsertVideoGenerate?.();
-          }}
-        >
-          {t('contextMenu.aiVideoGenerate')}
-        </ContextMenuItem>
+        {isNodeMenu && contextNode ? (
+          <>
+            {/* 节点右键菜单 */}
+            <ContextMenuItem
+              icon={Copy}
+              onSelect={() => onNodeDuplicate?.(contextNode.id)}
+            >
+              {t('contextMenu.duplicate')}
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              icon={ArrowUp}
+              onSelect={() => onNodeBringToFront?.(contextNode.id)}
+            >
+              {t('contextMenu.bringToFront')}
+            </ContextMenuItem>
+            <ContextMenuItem
+              icon={ArrowDown}
+              onSelect={() => onNodeSendToBack?.(contextNode.id)}
+            >
+              {t('contextMenu.sendToBack')}
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              icon={isLocked ? Unlock : Lock}
+              onSelect={() => onNodeLock?.(contextNode.id, !isLocked)}
+            >
+              {isLocked ? t('contextMenu.unlock') : t('contextMenu.lock')}
+            </ContextMenuItem>
+            {!isLocked ? (
+              <>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  icon={Trash2}
+                  onSelect={() => onNodeDelete?.(contextNode.id)}
+                  className="text-destructive"
+                >
+                  {t('contextMenu.delete')}
+                </ContextMenuItem>
+              </>
+            ) : null}
+          </>
+        ) : (
+          <>
+            {/* 空白区域右键菜单 */}
+            <ContextMenuItem
+              icon={Type}
+              disabled={insertDisabled}
+              onSelect={() => {
+                if (insertDisabled) return;
+                onInsertText?.();
+              }}
+            >
+              {t('contextMenu.insertText')}
+            </ContextMenuItem>
+            <ContextMenuItem
+              icon={FileText}
+              disabled={insertDisabled}
+              onSelect={() => {
+                if (insertDisabled) return;
+                onInsertFile?.();
+              }}
+            >
+              {t('contextMenu.insertFile')}
+            </ContextMenuItem>
+            <ContextMenuItem
+              icon={ImagePlus}
+              disabled={insertDisabled}
+              onSelect={() => {
+                if (insertDisabled) return;
+                onInsertImageGenerate?.();
+              }}
+            >
+              {t('contextMenu.aiImageGenerate')}
+            </ContextMenuItem>
+            <ContextMenuItem
+              icon={Film}
+              disabled={insertDisabled}
+              onSelect={() => {
+                if (insertDisabled) return;
+                onInsertVideoGenerate?.();
+              }}
+            >
+              {t('contextMenu.aiVideoGenerate')}
+            </ContextMenuItem>
 
-        <ContextMenuSeparator />
+            <ContextMenuSeparator />
 
-        <ContextMenuItem
-          icon={Clipboard}
-          disabled={pasteDisabled || !pasteAvailable}
-          onSelect={() => {
-            if (pasteDisabled || !pasteAvailable) return;
-            onPaste();
-          }}
-        >
-          {t('contextMenu.paste')}
-        </ContextMenuItem>
-        <ContextMenuItem
-          icon={isFullscreen ? Minimize2 : Maximize2}
-          onSelect={() => {
-            onToggleFullscreen();
-          }}
-        >
-          {isFullscreen ? t('contextMenu.exitFullscreen') : t('contextMenu.enterFullscreen')}
-        </ContextMenuItem>
-        <ContextMenuItem
-          icon={Scan}
-          onSelect={() => {
-            onFitView();
-          }}
-        >
-          {t('contextMenu.maximize')}
-        </ContextMenuItem>
-        <ContextMenuItem
-          icon={LayoutGrid}
-          onSelect={() => {
-            onAutoLayout();
-          }}
-        >
-          {t('contextMenu.autoLayout')}
-        </ContextMenuItem>
-        <ContextMenuItem
-          icon={RotateCw}
-          onSelect={() => {
-            onRefresh();
-          }}
-        >
-          {t('contextMenu.reload')}
-        </ContextMenuItem>
+            <ContextMenuItem
+              icon={Clipboard}
+              disabled={pasteDisabled || !pasteAvailable}
+              onSelect={() => {
+                if (pasteDisabled || !pasteAvailable) return;
+                onPaste();
+              }}
+            >
+              {t('contextMenu.paste')}
+            </ContextMenuItem>
+            <ContextMenuItem
+              icon={isFullscreen ? Minimize2 : Maximize2}
+              onSelect={() => {
+                onToggleFullscreen();
+              }}
+            >
+              {isFullscreen ? t('contextMenu.exitFullscreen') : t('contextMenu.enterFullscreen')}
+            </ContextMenuItem>
+            <ContextMenuItem
+              icon={Scan}
+              onSelect={() => {
+                onFitView();
+              }}
+            >
+              {t('contextMenu.maximize')}
+            </ContextMenuItem>
+            <ContextMenuItem
+              icon={LayoutGrid}
+              onSelect={() => {
+                onAutoLayout();
+              }}
+            >
+              {t('contextMenu.autoLayout')}
+            </ContextMenuItem>
+            <ContextMenuItem
+              icon={RotateCw}
+              onSelect={() => {
+                onRefresh();
+              }}
+            >
+              {t('contextMenu.reload')}
+            </ContextMenuItem>
+          </>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   );
