@@ -138,27 +138,19 @@ export class PixiConnectorLayer {
 
       // 悬停光晕
       if (isHovered && !isSelected) {
-        g.setStrokeStyle({
+        this.drawPathAndStroke(g, path, {
           width: STROKE_WIDTH_HOVER,
           color: palette.selectionBorder,
           alpha: alpha * 0.5,
-          cap: 'round',
-          join: 'round',
         })
-        this.drawPath(g, path)
-        g.stroke()
       }
 
       // 主线
-      g.setStrokeStyle({
+      this.drawPathAndStroke(g, path, {
         width,
         color: effectiveColor,
         alpha,
-        cap: 'round',
-        join: 'round',
       })
-      this.drawPath(g, path)
-      g.stroke()
 
       // 箭头
       if (points.length >= 2) {
@@ -197,21 +189,28 @@ export class PixiConnectorLayer {
         )
         const draftDashed = draft.dashed ?? snapshot.connectorDashed
 
-        g.setStrokeStyle({
+        this.drawPathAndStroke(g, path, {
           width: STROKE_WIDTH,
           color: palette.connector,
           alpha: draftDashed ? 0.25 : 0.35,
-          cap: 'round',
-          join: 'round',
         })
-        this.drawPath(g, path)
-        g.stroke()
       }
     }
   }
 
-  /** 使用 PixiJS Graphics API 绘制连线路径 */
-  private drawPath(g: Graphics, path: CanvasConnectorPath): void {
+  /** 使用 PixiJS Graphics API 绘制连线路径并立即描边（路径隔离，避免跨连线合并） */
+  private drawPathAndStroke(
+    g: Graphics,
+    path: CanvasConnectorPath,
+    style: { width: number; color: number; alpha: number },
+  ): void {
+    g.setStrokeStyle({
+      width: style.width,
+      color: style.color,
+      alpha: style.alpha,
+      cap: 'round',
+      join: 'round',
+    })
     if (path.kind === 'polyline') {
       const pts = path.points
       if (pts.length < 2) return
@@ -225,6 +224,7 @@ export class PixiConnectorLayer {
       g.moveTo(p0[0], p0[1])
       g.bezierCurveTo(p1[0], p1[1], p2[0], p2[1], p3[0], p3[1])
     }
+    g.stroke()
   }
 
   /** 绘制箭头 */
