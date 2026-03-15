@@ -18,12 +18,14 @@ import BoardControls from "../controls/BoardControls";
 import AIGenerateToolbar from "../toolbar/AIGenerateToolbar";
 import BoardToolbar from "../toolbar/BoardToolbar";
 import { ConnectorActionPanel, NodeInspectorPanel } from "../ui/CanvasPanels";
-import { CanvasSurface } from "../render/CanvasSurface";
-import { SvgConnectorLayer } from "../render/SvgConnectorLayer";
-import { CanvasDomLayer } from "./CanvasDomLayer";
+import dynamic from "next/dynamic";
+
+const PixiCanvas = dynamic(
+  () => import("../render/pixi").then((m) => m.PixiCanvas),
+  { ssr: false },
+);
 import BoardEmptyGuide from "./BoardEmptyGuide";
 import { BoardPerfOverlay } from "./BoardPerfOverlay";
-import { AnchorOverlay } from "./AnchorOverlay";
 import { MiniMap } from "./MiniMap";
 import {
   MultiSelectionOutline,
@@ -120,18 +122,8 @@ export function BoardCanvasRender({
   return (
     <>
       {showUi && snapshot.elements.length > 0 ? <MiniMapLayer engine={engine} snapshot={snapshot} /> : null}
-      <CanvasSurface
-        snapshot={snapshot}
-        onStats={showPerfOverlay ? setGpuStats : undefined}
-      />
-      <SvgConnectorLayer snapshot={snapshot} />
-      {showUi ? (
-        <CanvasDomLayer
-          engine={engine}
-          snapshot={snapshot}
-          onCullingStatsChange={showPerfOverlay ? setCullingStats : undefined}
-        />
-      ) : null}
+      {/* PixiJS 统一渲染层 */}
+      <PixiCanvas engine={engine} snapshot={snapshot} />
       {showUi && snapshot.pendingInsert && snapshot.pendingInsertPoint && PENDING_INSERT_DOM_TYPES.has(snapshot.pendingInsert.type) ? (
         <PendingInsertPreview
           engine={engine}
@@ -145,7 +137,6 @@ export function BoardCanvasRender({
           gpuStats={gpuStats}
         />
       ) : null}
-      {showUi ? <AnchorOverlay snapshot={snapshot} /> : null}
       {showUi ? (
         <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 -translate-x-0" : "opacity-0 -translate-x-4")}>
           <BoardControls engine={engine} snapshot={snapshot} onAutoLayout={onAutoLayout} />
