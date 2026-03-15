@@ -125,20 +125,29 @@ export class PixiStrokeLayer {
 
     const parsedColor = this.parseCssColor(color) ?? 0xf59e0b
 
-    // 单点笔画：绘制圆点
+    // 单点笔画：绘制圆点（转为节点本地坐标）
     if (points.length === 1) {
+      const [ox, oy] = element.xywh
       const [px, py] = points[0]
-      g.circle(px, py, size / 2)
+      g.circle(px - ox, py - oy, size / 2)
       g.fill({ color: parsedColor, alpha: opacity })
       return
     }
 
-    // 使用 perfect-freehand 计算轮廓点
+    // 使用 perfect-freehand 计算轮廓点（世界坐标）
     const outline = buildStrokeOutline(points, { size, tool })
     if (outline.length === 0) return
 
+    // 逻辑：轮廓点是世界坐标，但 Graphics 已被 applyTransform 移到 (x,y)，
+    // 需要减去节点原点偏移转为节点本地坐标。
+    const [ox, oy] = element.xywh
+    const localOutline: CanvasPoint[] = outline.map(([px, py]) => [
+      px - ox,
+      py - oy,
+    ])
+
     // 使用二次贝塞尔曲线平滑轮廓并填充
-    this.drawSmoothOutline(g, outline, parsedColor, opacity)
+    this.drawSmoothOutline(g, localOutline, parsedColor, opacity)
   }
 
   /** 使用二次贝塞尔曲线绘制平滑的填充轮廓 */
