@@ -21,7 +21,6 @@ import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import {
-  Bot,
   Brain,
   Cpu,
   SlidersHorizontal,
@@ -30,7 +29,6 @@ import {
   FlaskConical,
   Database,
   Sparkles,
-  Wand2Icon,
   Terminal,
 } from "lucide-react";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
@@ -40,12 +38,10 @@ import { BasicSettings } from "./menus/BasicSettings";
 
 import { ProviderManagement } from "./menus/ProviderManagement";
 import { ObjectStorageService } from "./menus/ObjectStorageService";
-import { AgentManagement } from "./menus/agent/AgentManagement";
 import { AuxiliaryModelSettings } from "./menus/AuxiliaryModelSettings";
 import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import { GlobalSettings } from "./menus/GlobalSettings";
 import TestSetting from "./menus/TestSetting";
-import { SkillSettings } from "./menus/SkillSettings";
 import { ThirdPartyTools } from "./menus/ThirdPartyTools";
 import { MemorySettings } from "./menus/MemorySettings";
 import { OpenLoafSettingsLayout } from "@openloaf/ui/openloaf/OpenLoafSettingsLayout";
@@ -59,11 +55,9 @@ type SettingsMenuKey =
   | "basic"
   | "keys"
   | "storage"
-  | "agents"
   | "auxiliaryModel"
   | "global"
   | "memory"
-  | "skills"
   | "thirdPartyTools"
   | "shortcuts"
   | "projectTest";
@@ -73,9 +67,7 @@ const SETTINGS_MENU_ICON_COLOR = {
   global: "text-ol-amber",
   shortcuts: "text-ol-text-auxiliary",
   keys: "text-ol-purple",
-  agents: "text-ol-green",
   auxiliaryModel: "text-ol-blue",
-  skills: "text-ol-purple",
   memory: "text-ol-green",
   thirdPartyTools: "text-ol-text-auxiliary",
   storage: "text-ol-green",
@@ -137,22 +129,10 @@ function buildMenu(t: (key: string) => string): Array<{
       Component: ProviderManagement,
     },
     {
-      key: "agents",
-      label: t('settings:menu.agents'),
-      Icon: createMenuIcon(Bot, SETTINGS_MENU_ICON_COLOR.agents),
-      Component: AgentManagement,
-    },
-    {
       key: "auxiliaryModel",
       label: t('settings:menu.auxiliaryModel'),
       Icon: createMenuIcon(Cpu, SETTINGS_MENU_ICON_COLOR.auxiliaryModel),
       Component: AuxiliaryModelSettings,
-    },
-    {
-      key: "skills",
-      label: t('settings:menu.skills'),
-      Icon: createMenuIcon(Wand2Icon, SETTINGS_MENU_ICON_COLOR.skills),
-      Component: SkillSettings,
     },
     {
       key: "memory",
@@ -178,7 +158,7 @@ function buildMenu(t: (key: string) => string): Array<{
 }
 
 const ALL_MENU_KEYS: SettingsMenuKey[] = [
-  'basic', 'global', 'shortcuts', 'thirdPartyTools', 'storage', 'keys', 'agents', 'auxiliaryModel', 'skills', 'memory', 'projectTest',
+  'basic', 'global', 'shortcuts', 'thirdPartyTools', 'storage', 'keys', 'auxiliaryModel', 'memory', 'projectTest',
 ];
 const MENU_KEY_SET = new Set<SettingsMenuKey>(ALL_MENU_KEYS);
 const HIDDEN_MENU_KEYS = new Set<SettingsMenuKey>([]);
@@ -320,9 +300,7 @@ export default function SettingsPage({
     ].filter(filterVisible);
     const ai = [
       byKey.get("keys"),
-      byKey.get("agents"),
       byKey.get("auxiliaryModel"),
-      byKey.get("skills"),
       byKey.get("memory"),
     ].filter(filterVisible);
     return [general, ai].filter((group) => group.length > 0) as OpenLoafSettingsMenuItem[][];

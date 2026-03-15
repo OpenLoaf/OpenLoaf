@@ -49,7 +49,7 @@ describe('MessageAi memo behavior', () => {
       leafMessageId: null,
       branchMessageIds: [],
       siblingNav: {},
-    } as const
+    }
 
     const renderCountRef = { current: 0 }
     const Spy = ({ message, isAnimating }: any) => {

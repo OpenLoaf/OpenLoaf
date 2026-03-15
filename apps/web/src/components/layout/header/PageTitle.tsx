@@ -19,6 +19,7 @@ import { isProjectWindowMode, isBoardWindowMode } from "@/lib/window-mode";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { resolveLayoutViewState } from "@/hooks/layout-utils";
+import { useProject } from "@/hooks/use-project";
 
 /**
  * PageTitle 组件
@@ -36,6 +37,21 @@ export const PageTitle = () => {
   const inProject = layoutView.isProjectContext;
   const isProjectWindow = isProjectWindowMode();
   const isBoardWindow = isBoardWindowMode();
+
+  // 画布所属项目 id（从 base params 中获取，全局和项目模式均有）
+  const boardProjectId = isBoardViewer
+    ? (activeTab?.base?.params as any)?.projectId as string | undefined
+    : undefined;
+  const { data: boardProjectData } = useProject(boardProjectId);
+
+  // 优先从 projectShell 取项目名（项目模式），否则从查询结果取（全局模式）
+  const boardProjectTitle = useMemo(() => {
+    const queriedTitle = boardProjectData?.project?.title;
+    if (inProject) {
+      return layoutView.projectShell?.title ?? activeTab?.projectShell?.title ?? queriedTitle;
+    }
+    return queriedTitle;
+  }, [inProject, layoutView.projectShell, activeTab?.projectShell, boardProjectData]);
 
   const handleBackFromBoard = useCallback(() => {
     const layout = useLayoutState.getState();
@@ -145,9 +161,9 @@ export const PageTitle = () => {
         </button>
       )}
       <h1 className="text-sm font-medium text-foreground/80 truncate">
-        {isBoardViewer && inProject && (layoutView.projectShell?.title || activeTab?.projectShell?.title) ? (
+        {isBoardViewer && boardProjectTitle ? (
           <>
-            <span className="text-muted-foreground/60">{layoutView.projectShell?.title ?? activeTab?.projectShell?.title}</span>
+            <span className="text-muted-foreground/60">{boardProjectTitle}</span>
             <span className="text-muted-foreground/40 mx-1">/</span>
             {title}
           </>
