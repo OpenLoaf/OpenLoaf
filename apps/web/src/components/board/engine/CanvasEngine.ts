@@ -41,6 +41,7 @@ import {
   DEFAULT_FIT_PADDING,
   DEFAULT_NODE_SIZE,
   HISTORY_MAX_SIZE,
+  GROUP_LAYOUT_GAP,
   LAYOUT_GAP,
   MINDMAP_FIRST_LEVEL_HORIZONTAL_SPACING,
   MINDMAP_NODE_HORIZONTAL_SPACING,
@@ -1175,7 +1176,7 @@ export class CanvasEngine {
         const nextX = direction === "row" ? cursor : bounds.x;
         const nextY = direction === "row" ? bounds.y : cursor;
         this.doc.updateElement(node.id, { xywh: [nextX, nextY, w, h] });
-        cursor += (direction === "row" ? w : h) + LAYOUT_GAP;
+        cursor += (direction === "row" ? w : h) + GROUP_LAYOUT_GAP;
         minX = Math.min(minX, nextX);
         minY = Math.min(minY, nextY);
         maxX = Math.max(maxX, nextX + w);

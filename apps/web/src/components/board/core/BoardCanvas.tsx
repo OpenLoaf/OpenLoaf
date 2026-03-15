@@ -61,6 +61,7 @@ import {
   buildChildUri,
   buildFileUriFromRoot,
   getRelativePathFromUri,
+  parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { BOARD_INDEX_FILE_NAME } from "@/lib/file-name";
 import { resolveProjectModeProjectShell } from "@/lib/project-mode";
@@ -377,13 +378,30 @@ export function BoardCanvas({
     if (open) setRenameValue(currentTabTitle);
     setRenameOpen(open);
   }, [currentTabTitle]);
-  const handleRenameConfirm = useCallback(() => {
+  const updateBoardMutation = useMutation(
+    trpc.board.update.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: trpc.board.pathKey() });
+      },
+    }),
+  );
+  const moveToProjectMutation = useMutation(
+    trpc.board.moveToProject.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: trpc.board.pathKey() });
+      },
+    }),
+  );
+  const handleRenameConfirm = useCallback(async () => {
     const trimmed = renameValue.trim();
     if (trimmed) {
       setTitle(trimmed);
+      if (resolvedBoardId) {
+        await updateBoardMutation.mutateAsync({ boardId: resolvedBoardId, title: trimmed });
+      }
     }
     setRenameOpen(false);
-  }, [renameValue, setTitle]);
+  }, [renameValue, setTitle, resolvedBoardId, updateBoardMutation]);
   const handleAiName = useCallback(async () => {
     if (!boardFolderUri) return;
     if (!saasLoggedIn) {
@@ -774,7 +792,23 @@ export function BoardCanvas({
         mode="select"
         selectTarget="folder"
         defaultRootUri={rootUri}
-        onSelectTarget={(targetUri: string) => {
+        onSelectTarget={async (targetUri: string) => {
+          const parsed = parseScopedProjectPath(targetUri);
+          const targetProjectId = parsed?.projectId?.trim();
+          if (!targetProjectId || !resolvedBoardId) {
+            toast.error(i18next.t('nav:canvasList.moveFailed'));
+            setSaveToProjectOpen(false);
+            return;
+          }
+          try {
+            await moveToProjectMutation.mutateAsync({
+              boardId: resolvedBoardId,
+              targetProjectId,
+            });
+            toast.success(i18next.t('nav:canvasList.movedToProject'));
+          } catch {
+            toast.error(i18next.t('nav:canvasList.moveFailed'));
+          }
           setSaveToProjectOpen(false);
         }}
       />

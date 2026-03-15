@@ -221,6 +221,8 @@ export type CanvasConnectorTemplateDefinition = {
   size: [number, number];
   /** Optional icon rendered in the picker. */
   icon?: ReactNode;
+  /** Tailwind color classes for the connector label (bg + text). */
+  color?: { bg: string; text: string; hoverBg: string };
   /** Build the node payload inserted by the picker. */
   createNode: (input: { sourceElementId?: string }) => {
     /** Node type identifier to insert. */

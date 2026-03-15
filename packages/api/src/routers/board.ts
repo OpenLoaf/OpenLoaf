@@ -601,6 +601,51 @@ export const boardRouter = t.router({
       };
     }),
 
+  /** Move a board to a different project (updates DB + relocates folder). */
+  moveToProject: shieldedProcedure
+    .input(
+      z.object({
+        boardId: z.string().min(1),
+        targetProjectId: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const board = await ctx.prisma.board.findUnique({
+        where: { id: input.boardId },
+        select: { id: true, folderUri: true, projectId: true },
+      });
+      if (!board) throw new Error("Board not found");
+
+      const srcProjectId = board.projectId ?? undefined;
+      const destProjectId = input.targetProjectId.trim();
+
+      // Skip if already in the target project
+      if (srcProjectId === destProjectId) return board;
+
+      // Move physical folder
+      const folderName = resolveBoardFolderName(board.folderUri);
+      try {
+        const srcRoot = resolveScopedRootPath({ projectId: srcProjectId });
+        const destRoot = resolveScopedRootPath({ projectId: destProjectId });
+        const srcDir = resolveScopedOpenLoafPath(srcRoot, "boards", folderName);
+        const destBoardsDir = resolveScopedOpenLoafPath(destRoot, "boards");
+        await fs.mkdir(destBoardsDir, { recursive: true });
+        const destDir = path.join(destBoardsDir, folderName);
+        await fs.rename(srcDir, destDir);
+      } catch (error) {
+        console.warn("[board.moveToProject] failed to move folder", error);
+        // Fall through to update DB even if folder move fails
+      }
+
+      // Update DB record
+      const updated = await ctx.prisma.board.update({
+        where: { id: input.boardId },
+        data: { projectId: destProjectId },
+      });
+
+      return updated;
+    }),
+
   /** Hard-delete all boards that are not attached to any project. */
   clearUnboundBoards: shieldedProcedure
     .input(z.object({}))

@@ -87,6 +87,7 @@ function getImagePromptGenerateConnectorTemplates(): CanvasConnectorTemplateDefi
           draggable={false}
         />
       ),
+      color: { bg: 'bg-ol-purple-bg', text: 'text-ol-purple', hoverBg: 'hover:bg-ol-purple-bg-hover' },
       createNode: () => ({
         type: IMAGE_GENERATE_NODE_TYPE,
         props: {},

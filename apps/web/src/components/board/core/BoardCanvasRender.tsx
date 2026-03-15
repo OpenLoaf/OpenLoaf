@@ -25,6 +25,7 @@ const PixiCanvas = dynamic(
   { ssr: false },
 );
 import { AnchorOverlay } from "./AnchorOverlay";
+import { ConnectorLabels } from "./ConnectorLabels";
 import BoardEmptyGuide from "./BoardEmptyGuide";
 import { BoardPerfOverlay } from "./BoardPerfOverlay";
 import { MiniMap } from "./MiniMap";
@@ -139,6 +140,7 @@ export function BoardCanvasRender({
         />
       ) : null}
       {showUi && !snapshot.draggingId ? <AnchorOverlay snapshot={snapshot} /> : null}
+      {showUi && !snapshot.draggingId ? <ConnectorLabels snapshot={snapshot} /> : null}
       {showUi ? (
         <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 -translate-x-0" : "opacity-0 -translate-x-4")}>
           <BoardControls engine={engine} snapshot={snapshot} onAutoLayout={onAutoLayout} />

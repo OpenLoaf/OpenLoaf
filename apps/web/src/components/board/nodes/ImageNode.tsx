@@ -202,6 +202,7 @@ function getImageNodeConnectorTemplates(): CanvasConnectorTemplateDefinition[] {
       description: i18next.t('board:connector.imagePromptGenerateDesc'),
       size: [320, 220],
       icon: <Sparkles size={14} />,
+      color: { bg: 'bg-ol-amber-bg', text: 'text-ol-amber', hoverBg: 'hover:bg-ol-amber-bg-hover' },
       createNode: () => ({
         type: IMAGE_PROMPT_GENERATE_NODE_TYPE,
         props: {},
@@ -213,6 +214,7 @@ function getImageNodeConnectorTemplates(): CanvasConnectorTemplateDefinition[] {
       description: i18next.t('board:connector.imageGenerateDesc'),
       size: [320, 260],
       icon: <Sparkles size={14} />,
+      color: { bg: 'bg-ol-purple-bg', text: 'text-ol-purple', hoverBg: 'hover:bg-ol-purple-bg-hover' },
       createNode: () => ({
         type: IMAGE_GENERATE_NODE_TYPE,
         props: {},
@@ -224,6 +226,7 @@ function getImageNodeConnectorTemplates(): CanvasConnectorTemplateDefinition[] {
       description: i18next.t('board:connector.videoGenerateDesc'),
       size: [360, 280],
       icon: <Play size={14} />,
+      color: { bg: 'bg-ol-amber-bg', text: 'text-ol-amber', hoverBg: 'hover:bg-ol-amber-bg-hover' },
       createNode: () => ({
         type: VIDEO_GENERATE_NODE_TYPE,
         props: {},

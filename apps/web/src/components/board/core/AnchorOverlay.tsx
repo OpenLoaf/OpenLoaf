@@ -214,8 +214,8 @@ function getSelectedImageAnchors(snapshot: CanvasSnapshot): CanvasAnchorHit[] {
     const anchors = snapshot.anchors[selectedId];
     if (!anchors) return;
     anchors.forEach(anchor => {
-      // 逻辑：大锚点节点选中时仅保留左右锚点。
-      if (anchor.id !== "left" && anchor.id !== "right") return;
+      // 逻辑：大锚点节点选中时仅保留上下锚点，左右锚点由 ConnectorLabels 功能替代。
+      if (anchor.id !== "top" && anchor.id !== "bottom") return;
       selectedAnchors.push({
         elementId: selectedId,
         anchorId: anchor.id,
@@ -245,8 +245,8 @@ function getHoveredImageAnchors(snapshot: CanvasSnapshot): CanvasAnchorHit[] {
   if (!anchors) return [];
   const hoveredAnchors: CanvasAnchorHit[] = [];
   anchors.forEach(anchor => {
-    // 逻辑：大锚点节点悬停时仅展示左右锚点。
-    if (anchor.id !== "left" && anchor.id !== "right") return;
+    // 逻辑：大锚点节点悬停时仅展示上下锚点，左右由 ConnectorLabels 替代。
+    if (anchor.id !== "top" && anchor.id !== "bottom") return;
     hoveredAnchors.push({
       elementId: hoverNodeId,
       anchorId: anchor.id,

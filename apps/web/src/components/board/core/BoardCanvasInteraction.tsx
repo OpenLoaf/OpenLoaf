@@ -74,6 +74,8 @@ import {
 } from "./boardFilePath";
 import { buildLinkNodePayloadFromUrl } from "../utils/link";
 import { useLayoutState } from "@/hooks/use-layout-state";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { BoardContextMenu } from "./BoardContextMenu";
 import { useOptionalSidebar } from "@openloaf/ui/sidebar";
 import {
@@ -85,6 +87,13 @@ import {
   VIDEO_GENERATE_NODE_TYPE,
 } from "../nodes/node-config";
 import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
+import {
+  ProjectFilePickerDialog,
+} from "@/components/project/filesystem/components/ProjectFilePickerDialog";
+import { trpcClient } from "@/utils/trpc";
+import {
+  getRelativePathFromUri,
+} from "@/components/project/filesystem/utils/file-system-utils";
 
 const EDITABLE_NODE_TYPES = new Set([
   "text",
@@ -445,6 +454,7 @@ export function BoardCanvasInteraction({
   children,
   onOpenImagePreview,
 }: BoardCanvasInteractionProps) {
+  const { t } = useTranslation('project');
   const { fileContext } = useBoardContext();
   const showUi = !uiHidden;
   const rightChatCollapsed = useLayoutState(
@@ -1390,6 +1400,7 @@ export function BoardCanvasInteraction({
             const isUiTarget = target
               ? isBoardUiTarget(target, [
                   "[data-connector-drop-panel]",
+                  "[data-connector-labels]",
                   "[data-resize-handle]",
                   "[data-multi-resize-handle]",
                 ])
@@ -1469,6 +1480,59 @@ export function BoardCanvasInteraction({
           />
         </div>
       </BoardContextMenu>
+      {saveAsOpen && saveAsNode ? (
+        <ProjectFilePickerDialog
+          open={saveAsOpen}
+          onOpenChange={(next) => {
+            setSaveAsOpen(next);
+            if (!next) setSaveAsNode(null);
+          }}
+          title={t('filesystem.saveFileTitle')}
+          excludeBoardEntries
+          currentBoardFolderUri={fileContext?.boardFolderUri}
+          defaultRootUri={fileContext?.rootUri}
+          defaultActiveUri={
+            fileContext?.rootUri && fileContext?.boardFolderUri
+              ? getRelativePathFromUri(fileContext.rootUri, fileContext.boardFolderUri) ?? undefined
+              : undefined
+          }
+          folderSelectMode
+          confirmButtonLabel={t('filesystem.saveConfirmLabel')}
+          actionButtonLabel={t('filesystem.saveToComputer')}
+          onImportFromComputer={() => {
+            const node = saveAsNode;
+            setSaveAsOpen(false);
+            setSaveAsNode(null);
+            void saveNodeToComputer(node, fileContext);
+          }}
+          onSelectFolder={async (info) => {
+            const node = saveAsNode;
+            const nodeInfo = resolveNodeFileInfo(node, fileContext);
+            if (!nodeInfo) return;
+            try {
+              const response = await fetch(nodeInfo.href);
+              if (!response.ok) throw new Error("fetch failed");
+              const buffer = await response.arrayBuffer();
+              const contentBase64 = btoa(
+                new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ""),
+              );
+              const targetUri = info.uri
+                ? `${info.uri}/${nodeInfo.fileName}`
+                : nodeInfo.fileName;
+              await trpcClient.fs.writeBinary.mutate({
+                projectId: info.projectId,
+                uri: targetUri,
+                contentBase64,
+              });
+              toast.success(t('filesystem.saveConfirmLabel'));
+            } catch {
+              toast.error(t('filesystem.cannotResolvePath'));
+            }
+            setSaveAsOpen(false);
+            setSaveAsNode(null);
+          }}
+        />
+      ) : null}
     </>
   );
 }

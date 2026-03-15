@@ -1,0 +1,27 @@
+{
+  "path": [
+    "apps",
+    "packages",
+    "scripts"
+  ],
+  "pattern": "**/*.{ts,tsx,js,mjs,cjs,jsx}",
+  "gitignore": true,
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.next/**",
+    "**/.turbo/**",
+    "**/.webpack/**",
+    "**/out/**",
+    "**/coverage/**",
+    "**/report/**",
+    "**/packages/ui/**",
+    "**/packages/api/generated/**",
+    "**/packages/db/prisma/generated/**",
+    "**/src/ai/__tests__/agent-behavior/**/project-root/**"
+  ],
+  "reporters": [
+    "console"
+  ]
+}
