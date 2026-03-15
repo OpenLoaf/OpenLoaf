@@ -820,40 +820,12 @@ export function SingleSelectionOutline({
   };
 
   return (
-    <>
-      <div
-        ref={outlineRef}
-        data-board-selection-outline
-        className="pointer-events-none absolute z-10 box-border rounded-none border-2 border-[#1E96EB]"
-        style={{ left, top, width, height }}
-      />
-      {allowHandles
-        ? SINGLE_SELECTION_CORNERS.map((corner) => {
-            const point = cornerPoints[corner.id];
-            return (
-              <button
-                key={corner.id}
-                ref={(el) => { handleRefsMap.current[corner.id] = el; }}
-                type="button"
-                aria-label={`Resize ${corner.id}`}
-                data-resize-handle
-                onPointerDown={handlePointerDown(corner.id)}
-                className={[
-                  "pointer-events-auto absolute z-20 box-border rounded-[2px] border-2 border-[#1E96EB] bg-background",
-                  "touch-none -translate-x-1/2 -translate-y-1/2",
-                  corner.cursorClass,
-                ].join(" ")}
-                style={{
-                  left: point.x,
-                  top: point.y,
-                  width: SINGLE_SELECTION_HANDLE_SIZE,
-                  height: SINGLE_SELECTION_HANDLE_SIZE,
-                }}
-              />
-            );
-          })
-        : null}
-    </>
+    <div
+      ref={outlineRef}
+      data-board-selection-outline
+      className="pointer-events-none absolute z-10 box-border rounded-none border-2 border-[#1E96EB]"
+      style={{ left, top, width, height }}
+    />
   );
 }
 
