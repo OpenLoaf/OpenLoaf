@@ -210,6 +210,53 @@ export class PixiConnectorLayer {
         }
       }
     }
+
+    // 绘制 connectorDrop 状态的连线（松手后显示节点选择面板时）
+    const drop = snapshot.connectorDrop
+    if (drop) {
+      const sourceEnd = drop.source
+      let sourcePoint: CanvasPoint | null = null
+      if ('point' in sourceEnd) {
+        sourcePoint = sourceEnd.point
+      } else {
+        const sourceAnchors = anchors[sourceEnd.elementId]
+        if (sourceAnchors && sourceAnchors.length > 0) {
+          // 找到离 drop point 最近的锚点
+          let bestDist = Number.POSITIVE_INFINITY
+          for (const a of sourceAnchors) {
+            const d = Math.hypot(a.point[0] - drop.point[0], a.point[1] - drop.point[1])
+            if (d < bestDist) {
+              bestDist = d
+              sourcePoint = a.point
+            }
+          }
+        }
+        if (!sourcePoint) {
+          const el = snapshot.elements.find(e => e.id === sourceEnd.elementId)
+          if (el?.kind === 'node') {
+            const [ex, ey, ew, eh] = el.xywh
+            sourcePoint = [ex + ew / 2, ey + eh / 2]
+          }
+        }
+      }
+      if (sourcePoint) {
+        const dropPoints: CanvasPoint[] = [sourcePoint, drop.point]
+        this.drawDashedPath(g, dropPoints, {
+          width: STROKE_WIDTH,
+          color: palette.connector,
+          alpha: STROKE_ALPHA_ACTIVE,
+        })
+        this.drawArrowHead(
+          g,
+          sourcePoint,
+          drop.point,
+          ARROW_SIZE,
+          palette.connector,
+          STROKE_WIDTH,
+          STROKE_ALPHA_ACTIVE,
+        )
+      }
+    }
   }
 
   /** 绘制虚线路径 */
