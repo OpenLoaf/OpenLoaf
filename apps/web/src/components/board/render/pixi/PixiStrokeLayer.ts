@@ -4,7 +4,7 @@
  * This source code is licensed under the AGPLv3 license found in the
  * LICENSE file in the root directory of this source tree.
  */
-import { Container, Graphics, RenderTexture, Sprite } from 'pixi.js'
+import { Container, Graphics } from 'pixi.js'
 import type { CanvasEngine } from '../../engine/CanvasEngine'
 import type {
   CanvasNodeElement,
@@ -15,14 +15,7 @@ import type { PixiThemeResolver } from './PixiThemeResolver'
 
 /** 每条笔画的 PixiJS 状态 */
 type StrokeState = {
-  /** 容器（持有 graphics 或 sprite） */
-  container: Container
-  /** 原始 Graphics（pen 直接用，highlighter 离屏渲染后销毁） */
   graphics: Graphics
-  /** 荧光笔专用：离屏纹理渲染后的 Sprite */
-  sprite: Sprite | null
-  /** 荧光笔专用：离屏纹理 */
-  renderTexture: RenderTexture | null
   lastPropsKey: string
   lastXywhKey: string
 }
@@ -31,8 +24,8 @@ type StrokeState = {
  * 渲染笔画节点的专用图层。
  *
  * - 笔（pen）：PixiJS Graphics 原生线条描边
- * - 荧光笔（highlighter）：先以 alpha=1 绘制到 RenderTexture，
- *   再用 Sprite 以目标 alpha 显示，避免自交叉处颜色叠加
+ * - 荧光笔（highlighter）：Graphics 以 alpha=1 绘制，容器 alpha 控制整体透明度，
+ *   避免自交叉处颜色叠加。PixiJS 容器的 alpha 作用于合成阶段，不会导致内部像素叠加。
  */
 export class PixiStrokeLayer {
   private engine: CanvasEngine
@@ -75,75 +68,45 @@ export class PixiStrokeLayer {
           existing.lastPropsKey !== propsKey ||
           existing.lastXywhKey !== xywhKey
         ) {
-          this.renderStroke(existing, element)
+          this.renderStroke(existing.graphics, element)
           existing.lastPropsKey = propsKey
           existing.lastXywhKey = xywhKey
         }
       } else {
-        const state = this.createStrokeState(element)
-        this.strokes.set(element.id, state)
-        this.container.addChild(state.container)
+        const graphics = new Graphics()
+        graphics.label = `stroke:${element.id}`
+        graphics.cullable = true
+        this.renderStroke(graphics, element)
+        this.container.addChild(graphics)
+        this.strokes.set(element.id, {
+          graphics,
+          lastPropsKey: propsKey,
+          lastXywhKey: xywhKey,
+        })
       }
 
       const state = this.strokes.get(element.id)!
-      this.applyTransform(state.container, element)
-      state.container.zIndex = element.zIndex ?? 0
+      this.applyTransform(state.graphics, element)
+      state.graphics.zIndex = element.zIndex ?? 0
     }
 
     for (const [id, state] of this.strokes) {
       if (!currentIds.has(id)) {
-        this.container.removeChild(state.container)
-        this.destroyState(state)
+        this.container.removeChild(state.graphics)
+        state.graphics.destroy()
         this.strokes.delete(id)
       }
     }
   }
 
-  /** 创建笔画状态 */
-  private createStrokeState(
-    element: CanvasNodeElement<StrokeNodeProps>,
-  ): StrokeState {
-    const cont = new Container()
-    cont.label = `stroke:${element.id}`
-    cont.cullable = true
-
-    const graphics = new Graphics()
-
-    const state: StrokeState = {
-      container: cont,
-      graphics,
-      sprite: null,
-      renderTexture: null,
-      lastPropsKey: JSON.stringify(element.props),
-      lastXywhKey: element.xywh.join(','),
-    }
-
-    this.renderStroke(state, element)
-    return state
-  }
-
-  /** 渲染单条笔画 */
+  /** 使用 PixiJS 原生线条渲染笔画 */
   private renderStroke(
-    state: StrokeState,
+    g: Graphics,
     element: CanvasNodeElement<StrokeNodeProps>,
   ): void {
-    const { points, color, size, opacity, tool } = element.props
-    const g = state.graphics
     g.clear()
 
-    // 清理上一次的 sprite/texture
-    if (state.sprite) {
-      state.container.removeChild(state.sprite)
-      state.sprite.destroy()
-      state.sprite = null
-    }
-    if (state.renderTexture) {
-      state.renderTexture.destroy(true)
-      state.renderTexture = null
-    }
-    // 先把 graphics 从容器移除（重新添加或用 sprite 替代）
-    if (g.parent) g.parent.removeChild(g)
-
+    const { points, color, size, opacity, tool } = element.props
     if (points.length === 0) return
 
     const parsedColor = this.parseCssColor(color) ?? 0xf59e0b
@@ -154,99 +117,50 @@ export class PixiStrokeLayer {
     if (points.length === 1) {
       const [px, py] = points[0]
       g.circle(px, py, lineWidth / 2)
-      g.fill({ color: parsedColor, alpha: 1 })
-      state.container.addChild(g)
-      state.container.alpha = isHighlighter ? opacity * 0.4 : opacity
+      g.fill({ color: parsedColor, alpha: isHighlighter ? 1 : opacity })
+      // 逻辑：荧光笔整体透明度在容器 alpha 上设，避免自交叉叠加。
+      g.alpha = isHighlighter ? opacity * 0.4 : 1
       return
     }
 
-    // 绘制线条（alpha=1，颜色不叠加）
+    // 逻辑：荧光笔以 alpha=1 绘制线条，通过 Graphics.alpha 控制整体透明度。
+    // PixiJS 的 displayObject.alpha 作用于最终合成，内部像素不会互相叠加。
     g.setStrokeStyle({
       width: lineWidth,
       color: parsedColor,
-      alpha: 1,
+      alpha: isHighlighter ? 1 : opacity,
       cap: 'round',
       join: 'round',
     })
-    this.drawSmoothLine(g, points)
-    g.stroke()
 
-    if (isHighlighter) {
-      // 逻辑：荧光笔用 RenderTexture 离屏渲染后以目标 alpha 显示。
-      // 这样同一笔画内自交叉处不会 alpha 叠加。
-      const renderer = this.getRenderer()
-      if (renderer) {
-        const [, , w, h] = element.xywh
-        // 离屏纹理尺寸需要覆盖笔画范围（加边距避免截断）
-        const padding = lineWidth
-        const texW = Math.ceil(w + padding * 2) || 1
-        const texH = Math.ceil(h + padding * 2) || 1
-
-        const rt = RenderTexture.create({ width: texW, height: texH })
-        // 将 graphics 偏移到纹理坐标系
-        g.position.set(padding, padding)
-        renderer.render({ container: g, target: rt })
-        g.position.set(0, 0)
-
-        const sprite = new Sprite(rt)
-        sprite.position.set(-padding, -padding)
-        sprite.alpha = opacity * 0.4
-        state.container.addChild(sprite)
-        state.sprite = sprite
-        state.renderTexture = rt
-      } else {
-        // renderer 不可用时回退到直接显示
-        state.container.addChild(g)
-        state.container.alpha = opacity * 0.4
-      }
-    } else {
-      // 普通笔：直接添加 Graphics
-      state.container.addChild(g)
-      state.container.alpha = opacity
-    }
-  }
-
-  /** 用二次贝塞尔曲线平滑连接点 */
-  private drawSmoothLine(
-    g: Graphics,
-    points: StrokeNodeProps['points'],
-  ): void {
     const [firstX, firstY] = points[0]
     g.moveTo(firstX, firstY)
 
     if (points.length === 2) {
       g.lineTo(points[1][0], points[1][1])
-      return
+    } else {
+      for (let i = 1; i < points.length - 1; i++) {
+        const curr = points[i]
+        const next = points[i + 1]
+        const midX = (curr[0] + next[0]) / 2
+        const midY = (curr[1] + next[1]) / 2
+        g.quadraticCurveTo(curr[0], curr[1], midX, midY)
+      }
+      const last = points[points.length - 1]
+      g.lineTo(last[0], last[1])
     }
 
-    for (let i = 1; i < points.length - 1; i++) {
-      const curr = points[i]
-      const next = points[i + 1]
-      const midX = (curr[0] + next[0]) / 2
-      const midY = (curr[1] + next[1]) / 2
-      g.quadraticCurveTo(curr[0], curr[1], midX, midY)
-    }
-    const last = points[points.length - 1]
-    g.lineTo(last[0], last[1])
-  }
+    g.stroke()
 
-  /** 获取 PixiJS renderer 引用 */
-  private getRenderer() {
-    // 通过 container 的 parent chain 找到 Application 的 renderer
-    let current: Container | null = this.container
-    while (current) {
-      // PixiJS v8: stage 的 parent 为 null，但 Application 可通过全局获取
-      current = current.parent ?? null
-    }
-    // 回退：通过全局引用获取（PixiApplication 会设置）
-    return (globalThis as Record<string, unknown>).__pixiRenderer as
-      | import('pixi.js').Renderer
-      | undefined
+    // 逻辑：荧光笔整体透明度通过 displayObject.alpha 设置。
+    // 这会让整个 Graphics 对象作为一个合成单元以目标 alpha 混合到画布，
+    // 内部线条不会因为自交叉而 alpha 叠加。
+    g.alpha = isHighlighter ? opacity * 0.4 : 1
   }
 
   /** 应用节点位置和旋转 */
   private applyTransform(
-    target: Container,
+    target: Graphics,
     element: CanvasNodeElement,
   ): void {
     const [x, y, w, h] = element.xywh
@@ -283,19 +197,43 @@ export class PixiStrokeLayer {
       const b = Number.parseInt(rgbMatch[3], 10)
       return (r << 16) | (gVal << 8) | b
     }
+    // hsl(h, s%, l%) 支持
+    const hslMatch = trimmed.match(
+      /hsla?\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%/,
+    )
+    if (hslMatch) {
+      const h = Number.parseFloat(hslMatch[1]) / 360
+      const s = Number.parseFloat(hslMatch[2]) / 100
+      const l = Number.parseFloat(hslMatch[3]) / 100
+      const hue2rgb = (p: number, q: number, t: number) => {
+        if (t < 0) t += 1
+        if (t > 1) t -= 1
+        if (t < 1 / 6) return p + (q - p) * 6 * t
+        if (t < 1 / 2) return q
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
+        return p
+      }
+      let r: number, g: number, b: number
+      if (s === 0) {
+        r = g = b = l
+      } else {
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+        const p = 2 * l - q
+        r = hue2rgb(p, q, h + 1 / 3)
+        g = hue2rgb(p, q, h)
+        b = hue2rgb(p, q, h - 1 / 3)
+      }
+      const ri = Math.round(r * 255)
+      const gi = Math.round(g * 255)
+      const bi = Math.round(b * 255)
+      return (ri << 16) | (gi << 8) | bi
+    }
     return null
-  }
-
-  private destroyState(state: StrokeState): void {
-    if (state.sprite) state.sprite.destroy()
-    if (state.renderTexture) state.renderTexture.destroy(true)
-    state.graphics.destroy()
-    state.container.destroy({ children: true })
   }
 
   destroy(): void {
     for (const [, state] of this.strokes) {
-      this.destroyState(state)
+      state.graphics.destroy()
     }
     this.strokes.clear()
   }
