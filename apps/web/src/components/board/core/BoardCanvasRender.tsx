@@ -24,6 +24,7 @@ const PixiCanvas = dynamic(
   () => import("../render/pixi").then((m) => m.PixiCanvas),
   { ssr: false },
 );
+import { AnchorOverlay } from "./AnchorOverlay";
 import BoardEmptyGuide from "./BoardEmptyGuide";
 import { BoardPerfOverlay } from "./BoardPerfOverlay";
 import { MiniMap } from "./MiniMap";
@@ -137,6 +138,7 @@ export function BoardCanvasRender({
           gpuStats={gpuStats}
         />
       ) : null}
+      {showUi ? <AnchorOverlay snapshot={snapshot} /> : null}
       {showUi ? (
         <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 -translate-x-0" : "opacity-0 -translate-x-4")}>
           <BoardControls engine={engine} snapshot={snapshot} onAutoLayout={onAutoLayout} />

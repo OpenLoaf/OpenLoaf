@@ -12,11 +12,6 @@ import type { PixiThemeResolver } from "./PixiThemeResolver"
  * Renders screen-space overlays: selection box, alignment guides, anchor dots.
  * These are in the overlay container (not affected by viewport transform).
  */
-/** 锚点圆点大小（屏幕像素） */
-const ANCHOR_DOT_RADIUS = 4
-/** 锚点外环大小 */
-const ANCHOR_DOT_RING = 6
-
 export class PixiOverlayLayer {
   private engine: CanvasEngine
   private container: Container
@@ -25,7 +20,6 @@ export class PixiOverlayLayer {
   private selectionBoxGfx = new Graphics()
   private alignmentGfx = new Graphics()
   private selectionOutlineGfx = new Graphics()
-  private anchorGfx = new Graphics()
 
   constructor(
     engine: CanvasEngine,
@@ -41,7 +35,6 @@ export class PixiOverlayLayer {
     container.addChild(this.selectionBoxGfx)
     container.addChild(this.alignmentGfx)
     container.addChild(this.selectionOutlineGfx)
-    container.addChild(this.anchorGfx)
   }
 
   /** Sync overlays with engine snapshot (called on snapshot change). */
@@ -115,35 +108,7 @@ export class PixiOverlayLayer {
       }
     }
 
-    // 锚点圆点（hover 节点和选中节点显示连接锚点）
-    this.anchorGfx.clear()
-    const anchorNodeIds = new Set<string>()
-    // 悬停的节点显示锚点
-    if (snapshot.nodeHoverId) {
-      anchorNodeIds.add(snapshot.nodeHoverId)
-    }
-    // 选中的节点也显示锚点
-    for (const id of snapshot.selectedIds) {
-      const el = snapshot.elements.find(e => e.id === id)
-      if (el?.kind === "node") anchorNodeIds.add(id)
-    }
-
-    if (anchorNodeIds.size > 0) {
-      for (const nodeId of anchorNodeIds) {
-        const anchors = snapshot.anchors[nodeId]
-        if (!anchors) continue
-        for (const anchor of anchors) {
-          const sx = anchor.point[0] * zoom + offset[0]
-          const sy = anchor.point[1] * zoom + offset[1]
-          // 外环（白色）
-          this.anchorGfx.circle(sx, sy, ANCHOR_DOT_RING)
-          this.anchorGfx.fill({ color: 0xffffff, alpha: 0.9 })
-          // 内圆（蓝色）
-          this.anchorGfx.circle(sx, sy, ANCHOR_DOT_RADIUS)
-          this.anchorGfx.fill({ color: palette.anchor, alpha: 1 })
-        }
-      }
-    }
+    // 逻辑：锚点由 AnchorOverlay (DOM) 渲染，支持交互式折叠按钮。
   }
 
   /** Sync overlay positions on viewport change (no snapshot change). */
@@ -156,6 +121,5 @@ export class PixiOverlayLayer {
     this.selectionBoxGfx.destroy()
     this.alignmentGfx.destroy()
     this.selectionOutlineGfx.destroy()
-    this.anchorGfx.destroy()
   }
 }
