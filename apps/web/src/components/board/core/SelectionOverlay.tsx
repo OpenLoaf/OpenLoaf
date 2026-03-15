@@ -495,15 +495,6 @@ export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlin
       Boolean(element && element.kind === "node")
     );
 
-  const selectedNodes = selectedElements.filter(
-    (element): element is CanvasNodeElement => element.kind === "node"
-  );
-  // 逻辑：仅允许可缩放节点参与多选缩放，避免笔迹等节点被拉伸。
-  const resizableNodes = selectedNodes.filter(node => {
-    const definition = engine.nodes.getDefinition(node.type);
-    return definition?.capabilities?.resizable !== false;
-  });
-
   const padding = MULTI_SELECTION_OUTLINE_PADDING;
   const outlineRef = useRef<HTMLDivElement>(null);
   const selectedIds = selectedElements.map(e => e.id);
@@ -527,32 +518,20 @@ export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlin
   const top = bounds.y * zoom + offset[1];
   const width = bounds.w * zoom;
   const height = bounds.h * zoom;
-  const handleSize = MULTI_SELECTION_HANDLE_SIZE;
 
   return (
-    <>
-      <div
-        ref={outlineRef}
-        data-board-selection-outline
-        className="pointer-events-none absolute z-10 rounded-lg border border-dashed border-muted-foreground/40"
-        style={{
-          left: left - padding,
-          top: top - padding,
-          width: width + padding * 2,
-          height: height + padding * 2,
-        }}
-      />
-      {resizableNodes.length > 0 ? (
-        <MultiSelectionResizeHandle
-          engine={engine}
-          nodes={resizableNodes}
-          bounds={bounds}
-          viewport={viewState.viewport}
-          size={handleSize}
-          padding={padding}
-        />
-      ) : null}
-    </>
+    <div
+      ref={outlineRef}
+      data-board-selection-outline
+      className="pointer-events-none absolute z-10 rounded-lg"
+      style={{
+        left: left - padding,
+        top: top - padding,
+        width: width + padding * 2,
+        height: height + padding * 2,
+        border: '1.5px solid #3b82f6',
+      }}
+    />
   );
 }
 
