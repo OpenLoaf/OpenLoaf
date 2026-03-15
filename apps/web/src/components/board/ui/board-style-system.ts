@@ -31,7 +31,8 @@ export const BOARD_ICON_BTN_HOVER =
   "hover:bg-foreground/8 dark:hover:bg-foreground/10";
 
 /** Panel item active state (same as icon button). */
-export const BOARD_PANEL_ITEM_ACTIVE = BOARD_ICON_BTN_ACTIVE;
+export const BOARD_PANEL_ITEM_ACTIVE =
+  "bg-foreground/10 text-ol-blue dark:bg-foreground/15";
 
 /** Panel item hover state. */
 export const BOARD_PANEL_ITEM_HOVER =

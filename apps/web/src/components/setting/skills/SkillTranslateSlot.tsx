@@ -23,7 +23,7 @@ type SkillTranslateSlotProps = {
 }
 
 /** Slot injection component — renders a translate button into StackHeader. */
-export function SkillTranslateSlot({ skillFolderPath }: SkillTranslateSlotProps) {
+function SkillTranslateSlot({ skillFolderPath }: SkillTranslateSlotProps) {
   const { t } = useTranslation('settings')
   const slotCtx = useStackPanelSlot()
 

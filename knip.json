@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "include": ["files", "dependencies", "unlisted", "duplicates"],
   "workspaces": {
     "apps/web": {
       "entry": [
@@ -17,7 +18,12 @@
       "ignoreDependencies": [
         "@openloaf/ui",
         "@openloaf/db",
-        "@openloaf/config"
+        "@openloaf/config",
+        "tw-animate-css",
+        "@syncfusion/ej2-base",
+        "@syncfusion/ej2-react-documenteditor",
+        "@syncfusion/ej2-react-pdfviewer",
+        "@syncfusion/ej2-react-spreadsheet"
       ]
     }
   }
