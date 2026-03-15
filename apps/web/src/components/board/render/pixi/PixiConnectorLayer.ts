@@ -49,6 +49,7 @@ export class PixiConnectorLayer {
   private theme: PixiThemeResolver
   private graphics = new Graphics()
   private lastRevision = -1
+  private hadUiOverlay = false
 
   constructor(
     engine: CanvasEngine,
@@ -65,8 +66,9 @@ export class PixiConnectorLayer {
   sync(): void {
     const snapshot = this.engine.getSnapshot()
     const hasUiOverlay = !!(snapshot.connectorDraft || snapshot.connectorDrop)
-    if (snapshot.docRevision === this.lastRevision && !hasUiOverlay) return
+    if (snapshot.docRevision === this.lastRevision && !hasUiOverlay && !this.hadUiOverlay) return
     this.lastRevision = snapshot.docRevision
+    this.hadUiOverlay = hasUiOverlay
 
     const palette = this.theme.getPalette()
     const g = this.graphics
