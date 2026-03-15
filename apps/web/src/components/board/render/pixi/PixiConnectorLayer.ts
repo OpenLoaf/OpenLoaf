@@ -4,58 +4,41 @@
  * This source code is licensed under the AGPLv3 license found in the
  * LICENSE file in the root directory of this source tree.
  */
-import { Container, Graphics } from "pixi.js"
-import type { CanvasEngine } from "../../engine/CanvasEngine"
+import { Container, Graphics } from 'pixi.js'
+import type { CanvasEngine } from '../../engine/CanvasEngine'
 import type {
   CanvasConnectorElement,
-  CanvasConnectorEnd,
-  CanvasAnchorMap,
+  CanvasNodeElement,
   CanvasPoint,
-} from "../../engine/types"
-import type { PixiThemeResolver } from "./PixiThemeResolver"
+  CanvasRect,
+  CanvasSnapshot,
+} from '../../engine/types'
+import { getGroupOutlinePadding, isGroupNodeType } from '../../engine/grouping'
+import { applyGroupAnchorPadding } from '../../engine/anchors'
+import {
+  buildConnectorPath,
+  buildSourceAxisPreferenceMap,
+  flattenConnectorPath,
+  resolveConnectorEndpointsSmart,
+  type CanvasConnectorPath,
+} from '../../utils/connector-path'
+import type { PixiThemeResolver } from './PixiThemeResolver'
 
-/** Resolve an endpoint to a world point. */
-function resolveEndpoint(
-  end: CanvasConnectorEnd,
-  anchors: CanvasAnchorMap,
-  engine: CanvasEngine,
-): CanvasPoint | null {
-  if ("point" in end) return end.point
-
-  const element = engine.doc.getElementById(end.elementId)
-  if (!element || element.kind !== "node") return null
-
-  const [x, y, w, h] = element.xywh
-  const elementAnchors = anchors[end.elementId]
-
-  if (end.anchorId && elementAnchors) {
-    const anchor = elementAnchors.find((a) => a.id === end.anchorId)
-    if (anchor) return anchor.point
-  }
-
-  // 默认使用节点中心
-  return [x + w / 2, y + h / 2]
-}
-
-/** Draw an arrow head at the target point. */
-function drawArrowHead(
-  g: Graphics,
-  from: CanvasPoint,
-  to: CanvasPoint,
-  size: number,
-): void {
-  const angle = Math.atan2(to[1] - from[1], to[0] - from[0])
-  const a1 = angle + Math.PI * 0.85
-  const a2 = angle - Math.PI * 0.85
-  g.moveTo(to[0] + Math.cos(a1) * size, to[1] + Math.sin(a1) * size)
-  g.lineTo(to[0], to[1])
-  g.lineTo(to[0] + Math.cos(a2) * size, to[1] + Math.sin(a2) * size)
-  g.stroke()
-}
+/** 连线箭头尺寸 */
+const ARROW_SIZE = 7
+/** 箭头张角 */
+const ARROW_ANGLE = Math.PI / 7.5
+/** 基础线宽 */
+const STROKE_WIDTH = 2.2
+/** 选中线宽 */
+const STROKE_WIDTH_SELECTED = 2.8
+/** 悬停线宽 */
+const STROKE_WIDTH_HOVER = 2.5
 
 /**
  * Renders connector elements as PixiJS Graphics paths.
- * Replaces SvgConnectorLayer — all connectors rendered on GPU.
+ * 使用与 SvgConnectorLayer 相同的 connector-path 路径计算逻辑，
+ * 确保曲线和锚点选择行为完全一致。
  */
 export class PixiConnectorLayer {
   private engine: CanvasEngine
@@ -85,126 +68,254 @@ export class PixiConnectorLayer {
     const g = this.graphics
     g.clear()
 
-    const connectors = snapshot.elements.filter(
-      (el): el is CanvasConnectorElement => el.kind === "connector",
+    // 计算节点包围盒（与 SvgConnectorLayer 保持一致）
+    const groupPadding = getGroupOutlinePadding(1)
+    const boundsMap: Record<string, CanvasRect | undefined> = {}
+    const connectorElements: CanvasConnectorElement[] = []
+
+    for (const element of snapshot.elements) {
+      if (element.kind === 'node') {
+        boundsMap[element.id] = getNodeBounds(
+          element as CanvasNodeElement,
+          groupPadding,
+        )
+      } else if (element.kind === 'connector') {
+        connectorElements.push(element)
+      }
+    }
+
+    // 应用组节点锚点偏移
+    const anchors = applyGroupAnchorPadding(
+      snapshot.anchors,
+      snapshot.elements,
+      groupPadding,
     )
-    const anchors = snapshot.anchors
 
-    for (const connector of connectors) {
-      const source = resolveEndpoint(connector.source, anchors, this.engine)
-      const target = resolveEndpoint(connector.target, anchors, this.engine)
-      if (!source || !target) continue
+    // 计算源节点轴偏好
+    const sourceAxisPreference = buildSourceAxisPreferenceMap(
+      connectorElements,
+      (elementId) => boundsMap[elementId],
+    )
 
+    // 绘制所有连线
+    for (const connector of connectorElements) {
+      const resolved = resolveConnectorEndpointsSmart(
+        connector.source,
+        connector.target,
+        anchors,
+        boundsMap,
+        { sourceAxisPreference },
+      )
+      if (!resolved.source || !resolved.target) continue
+
+      const style = connector.style ?? snapshot.connectorStyle
+      const path = buildConnectorPath(style, resolved.source, resolved.target, {
+        sourceAnchorId: resolved.sourceAnchorId,
+        targetAnchorId: resolved.targetAnchorId,
+      })
+      const points = flattenConnectorPath(path)
+
+      const isSelected = snapshot.selectedIds.includes(connector.id)
+      const isHovered = connector.id === snapshot.connectorHoverId
+      const dashed = connector.dashed ?? snapshot.connectorDashed
+
+      // 确定颜色
       const color = connector.color
         ? this.parseCssColor(connector.color) ?? palette.connector
         : palette.connector
-      const isHovered = connector.id === snapshot.connectorHoverId
-      const alpha = isHovered ? 1 : 0.7
-      const width = isHovered ? 2.5 : 1.5
+      const effectiveColor = isSelected || isHovered
+        ? palette.selectionBorder
+        : color
 
-      // PixiJS v8 Graphics 不支持原生虚线，虚线连线用降低透明度区分
-      const effectiveAlpha = connector.dashed ? alpha * 0.5 : alpha
+      // 确定线宽
+      const width = isSelected
+        ? STROKE_WIDTH_SELECTED
+        : isHovered
+          ? STROKE_WIDTH_HOVER
+          : STROKE_WIDTH
 
+      // 虚线降低透明度模拟（PixiJS v8 Graphics 不支持原生虚线）
+      const alpha = dashed ? 0.5 : 1
+
+      // 悬停光晕
+      if (isHovered && !isSelected) {
+        g.setStrokeStyle({
+          width: STROKE_WIDTH_HOVER,
+          color: palette.selectionBorder,
+          alpha: alpha * 0.5,
+          cap: 'round',
+          join: 'round',
+        })
+        this.drawPath(g, path)
+        g.stroke()
+      }
+
+      // 主线
       g.setStrokeStyle({
         width,
-        color,
-        alpha: effectiveAlpha,
-        cap: "round",
-        join: "round",
+        color: effectiveColor,
+        alpha,
+        cap: 'round',
+        join: 'round',
       })
-
-      const style = connector.style || "curve"
-
-      if (style === "straight") {
-        g.moveTo(source[0], source[1])
-        g.lineTo(target[0], target[1])
-      } else if (style === "curve") {
-        const dx = target[0] - source[0]
-        const cpOffset = Math.min(Math.abs(dx) * 0.5, 150)
-        g.moveTo(source[0], source[1])
-        g.bezierCurveTo(
-          source[0] + cpOffset,
-          source[1],
-          target[0] - cpOffset,
-          target[1],
-          target[0],
-          target[1],
-        )
-      } else if (style === "elbow") {
-        const midX = (source[0] + target[0]) / 2
-        g.moveTo(source[0], source[1])
-        g.lineTo(midX, source[1])
-        g.lineTo(midX, target[1])
-        g.lineTo(target[0], target[1])
-      } else {
-        // hand, fly — 简化为曲线
-        const dx = target[0] - source[0]
-        const cpOffset = Math.min(Math.abs(dx) * 0.5, 150)
-        g.moveTo(source[0], source[1])
-        g.bezierCurveTo(
-          source[0] + cpOffset,
-          source[1],
-          target[0] - cpOffset,
-          target[1],
-          target[0],
-          target[1],
-        )
-      }
+      this.drawPath(g, path)
       g.stroke()
 
       // 箭头
-      const secondLast: CanvasPoint =
-        style === "elbow"
-          ? [(source[0] + target[0]) / 2, target[1]]
-          : [
-              target[0] -
-                (target[0] - source[0]) * 0.1,
-              target[1] -
-                (target[1] - source[1]) * 0.1,
-            ]
-      drawArrowHead(g, secondLast, target, 8)
+      if (points.length >= 2) {
+        this.drawArrowHead(
+          g,
+          points[points.length - 2]!,
+          points[points.length - 1]!,
+          ARROW_SIZE,
+          effectiveColor,
+          width,
+          alpha,
+        )
+      }
     }
 
     // 绘制 draft connector
     const draft = snapshot.connectorDraft
     if (draft) {
-      const draftSource = resolveEndpoint(draft.source, anchors, this.engine)
-      const draftTarget = resolveEndpoint(draft.target, anchors, this.engine)
-      if (draftSource && draftTarget) {
-        g.setStrokeStyle({
-          width: 1.5,
-          color: palette.connector,
-          alpha: 0.35,
-        })
-        const dx = draftTarget[0] - draftSource[0]
-        const cpOffset = Math.min(Math.abs(dx) * 0.5, 150)
-        g.moveTo(draftSource[0], draftSource[1])
-        g.bezierCurveTo(
-          draftSource[0] + cpOffset,
-          draftSource[1],
-          draftTarget[0] - cpOffset,
-          draftTarget[1],
-          draftTarget[0],
-          draftTarget[1],
+      const resolved = resolveConnectorEndpointsSmart(
+        draft.source,
+        draft.target,
+        anchors,
+        boundsMap,
+        { sourceAxisPreference },
+      )
+      if (resolved.source && resolved.target) {
+        const style = draft.style ?? snapshot.connectorStyle
+        const path = buildConnectorPath(
+          style,
+          resolved.source,
+          resolved.target,
+          {
+            sourceAnchorId: resolved.sourceAnchorId,
+            targetAnchorId: resolved.targetAnchorId,
+          },
         )
+        const draftDashed = draft.dashed ?? snapshot.connectorDashed
+
+        g.setStrokeStyle({
+          width: STROKE_WIDTH,
+          color: palette.connector,
+          alpha: draftDashed ? 0.25 : 0.35,
+          cap: 'round',
+          join: 'round',
+        })
+        this.drawPath(g, path)
         g.stroke()
       }
     }
   }
 
+  /** 使用 PixiJS Graphics API 绘制连线路径 */
+  private drawPath(g: Graphics, path: CanvasConnectorPath): void {
+    if (path.kind === 'polyline') {
+      const pts = path.points
+      if (pts.length < 2) return
+      g.moveTo(pts[0][0], pts[0][1])
+      for (let i = 1; i < pts.length; i++) {
+        g.lineTo(pts[i][0], pts[i][1])
+      }
+    } else {
+      // bezier
+      const [p0, p1, p2, p3] = path.points
+      g.moveTo(p0[0], p0[1])
+      g.bezierCurveTo(p1[0], p1[1], p2[0], p2[1], p3[0], p3[1])
+    }
+  }
+
+  /** 绘制箭头 */
+  private drawArrowHead(
+    g: Graphics,
+    from: CanvasPoint,
+    to: CanvasPoint,
+    size: number,
+    color: number,
+    width: number,
+    alpha: number,
+  ): void {
+    const dx = to[0] - from[0]
+    const dy = to[1] - from[1]
+    const len = Math.hypot(dx, dy) || 1
+    const ux = dx / len
+    const uy = dy / len
+    const sin = Math.sin(ARROW_ANGLE)
+    const cos = Math.cos(ARROW_ANGLE)
+
+    const lx = ux * cos - uy * sin
+    const ly = ux * sin + uy * cos
+    const rx = ux * cos + uy * sin
+    const ry = -ux * sin + uy * cos
+
+    const leftX = to[0] - lx * size
+    const leftY = to[1] - ly * size
+    const rightX = to[0] - rx * size
+    const rightY = to[1] - ry * size
+
+    g.setStrokeStyle({ width, color, alpha, cap: 'round', join: 'round' })
+    g.moveTo(to[0], to[1])
+    g.lineTo(leftX, leftY)
+    g.moveTo(to[0], to[1])
+    g.lineTo(rightX, rightY)
+    g.stroke()
+  }
+
   /** Parse CSS color string to PixiJS hex number. */
   private parseCssColor(color: string): number | null {
-    if (color.startsWith("#")) {
+    if (color.startsWith('#')) {
       let hex = color.slice(1)
       if (hex.length === 3) {
         hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2]
       }
       return Number.parseInt(hex.slice(0, 6), 16)
     }
+    const rgbMatch = color.match(
+      /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/,
+    )
+    if (rgbMatch) {
+      const r = Number.parseInt(rgbMatch[1], 10)
+      const g = Number.parseInt(rgbMatch[2], 10)
+      const b = Number.parseInt(rgbMatch[3], 10)
+      return (r << 16) | (g << 8) | b
+    }
     return null
   }
 
   destroy(): void {
     this.graphics.destroy()
+  }
+}
+
+/** 计算节点包围盒（与 SvgConnectorLayer 保持一致） */
+function getNodeBounds(
+  element: CanvasNodeElement,
+  groupPadding: number,
+): CanvasRect {
+  const [x, y, w, h] = element.xywh
+  const padding = isGroupNodeType(element.type) ? groupPadding : 0
+  const paddedX = x - padding
+  const paddedY = y - padding
+  const paddedW = w + padding * 2
+  const paddedH = h + padding * 2
+  if (!element.rotate) {
+    return { x: paddedX, y: paddedY, w: paddedW, h: paddedH }
+  }
+  const rad = (element.rotate * Math.PI) / 180
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+  // 旋转节点转成轴对齐包围盒
+  const halfW = (Math.abs(paddedW * cos) + Math.abs(paddedH * sin)) / 2
+  const halfH = (Math.abs(paddedW * sin) + Math.abs(paddedH * cos)) / 2
+  const cx = paddedX + paddedW / 2
+  const cy = paddedY + paddedH / 2
+  return {
+    x: cx - halfW,
+    y: cy - halfH,
+    w: halfW * 2,
+    h: halfH * 2,
   }
 }

@@ -16,6 +16,7 @@ import type { CanvasSnapshot } from '../../engine/types'
 import { PixiViewportSync } from './PixiViewportSync'
 import { PixiNodeManager } from './PixiNodeManager'
 import { PixiConnectorLayer } from './PixiConnectorLayer'
+import { PixiStrokeLayer } from './PixiStrokeLayer'
 import { PixiOverlayLayer } from './PixiOverlayLayer'
 import { PixiThemeResolver } from './PixiThemeResolver'
 import { DomOverlayManager } from './DomOverlayManager'
@@ -32,7 +33,7 @@ export type PixiApplicationProps = {
  * Scene graph:
  *   Stage
  *     +-- worldContainer (viewport transform: zoom + offset)
- *     |     +-- strokeLayer (pen/highlighter strokes)
+ *     |     +-- strokeLayer (pen/highlighter strokes via PixiStrokeLayer)
  *     |     +-- connectorLayer (connector paths)
  *     |     +-- nodeLayer (node sprites/containers)
  *     +-- overlayContainer (screen-space, no viewport transform)
@@ -71,18 +72,19 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
     worldContainer.label = 'worldContainer'
     app.stage.addChild(worldContainer)
 
-    const strokeLayer = new Container()
-    strokeLayer.label = 'strokeLayer'
-    worldContainer.addChild(strokeLayer)
+    const strokeLayerContainer = new Container()
+    strokeLayerContainer.label = 'strokeLayer'
+    strokeLayerContainer.sortableChildren = true
+    worldContainer.addChild(strokeLayerContainer)
 
-    const connectorLayer = new Container()
-    connectorLayer.label = 'connectorLayer'
-    worldContainer.addChild(connectorLayer)
+    const connectorLayerContainer = new Container()
+    connectorLayerContainer.label = 'connectorLayer'
+    worldContainer.addChild(connectorLayerContainer)
 
-    const nodeLayer = new Container()
-    nodeLayer.label = 'nodeLayer'
-    nodeLayer.sortableChildren = true
-    worldContainer.addChild(nodeLayer)
+    const nodeLayerContainer = new Container()
+    nodeLayerContainer.label = 'nodeLayer'
+    nodeLayerContainer.sortableChildren = true
+    worldContainer.addChild(nodeLayerContainer)
 
     const overlayContainer = new Container()
     overlayContainer.label = 'overlayContainer'
@@ -95,13 +97,24 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
     const viewportSync = new PixiViewportSync(engine, worldContainer)
 
     // 节点管理器：engine snapshot → PixiJS 节点
-    const nodeManager = new PixiNodeManager(engine, nodeLayer, themeResolver)
+    const nodeManager = new PixiNodeManager(
+      engine,
+      nodeLayerContainer,
+      themeResolver,
+    )
     nodeManagerRef.current = nodeManager
+
+    // 笔画渲染器
+    const strokeLayerRenderer = new PixiStrokeLayer(
+      engine,
+      strokeLayerContainer,
+      themeResolver,
+    )
 
     // 连线渲染器
     const connectorLayerRenderer = new PixiConnectorLayer(
       engine,
-      connectorLayer,
+      connectorLayerContainer,
       themeResolver,
     )
 
@@ -116,6 +129,7 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
     // 启动渲染循环
     const unsubSnapshot = engine.subscribe(() => {
       nodeManager.sync()
+      strokeLayerRenderer.sync()
       connectorLayerRenderer.sync()
       overlayLayerRenderer.sync()
     })
@@ -128,6 +142,7 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
     // 初始同步
     viewportSync.sync()
     nodeManager.sync()
+    strokeLayerRenderer.sync()
     connectorLayerRenderer.sync()
 
     cleanupRef.current = () => {
@@ -135,6 +150,7 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
       unsubView()
       viewportSync.destroy()
       nodeManager.destroy()
+      strokeLayerRenderer.destroy()
       connectorLayerRenderer.destroy()
       overlayLayerRenderer.destroy()
       themeResolver.destroy()

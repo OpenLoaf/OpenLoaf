@@ -6,3 +6,4 @@
  */
 export { PixiCanvas } from './PixiApplication'
 export type { PixiApplicationProps } from './PixiApplication'
+export { PixiStrokeLayer } from './PixiStrokeLayer'
