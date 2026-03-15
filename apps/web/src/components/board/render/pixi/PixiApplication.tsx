@@ -63,6 +63,8 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
     canvasEl.style.pointerEvents = 'none'
     container.appendChild(canvasEl)
     appRef.current = app
+    // 逻辑：暴露 renderer 全局引用，供 PixiStrokeLayer 的 RenderTexture 使用。
+    ;(globalThis as Record<string, unknown>).__pixiRenderer = app.renderer
 
     // 场景图层结构
     const worldContainer = new Container()
@@ -138,6 +140,7 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
       themeResolver.destroy()
       app.destroy(true, { children: true })
       appRef.current = null
+      delete (globalThis as Record<string, unknown>).__pixiRenderer
     }
   }, [engine])
 
