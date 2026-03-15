@@ -11,7 +11,7 @@
 
 import { Component, useCallback, useEffect, useMemo, useRef, useState, useId, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Copy, CopyPlus, FolderDown, FolderOpen, Loader2, MoreHorizontal, PencilLine, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import { Button } from "@openloaf/ui/button";
 import { CANVAS_LIST_TAB_INPUT } from "@openloaf/api/common";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -33,7 +34,13 @@ import {
   DropdownMenuTrigger,
 } from "@openloaf/ui/dropdown-menu";
 import { Input } from "@openloaf/ui/input";
-import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@openloaf/ui/select";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { buildBoardChatTabState } from "../utils/board-chat-tab";
@@ -61,7 +68,6 @@ import {
   buildChildUri,
   buildFileUriFromRoot,
   getRelativePathFromUri,
-  parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { BOARD_INDEX_FILE_NAME } from "@/lib/file-name";
 import { resolveProjectModeProjectShell } from "@/lib/project-mode";
@@ -285,6 +291,13 @@ export function BoardCanvas({
   const [loginOpen, setLoginOpen] = useState(false);
   const { loggedIn: saasLoggedIn } = useSaasAuth();
   const [saveToProjectOpen, setSaveToProjectOpen] = useState(false);
+  const [saveToProjectTargetId, setSaveToProjectTargetId] = useState<string>('');
+  const { data: projectListForSave } = useQuery({
+    ...trpc.project.listFlat.queryOptions(),
+    staleTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    enabled: saveToProjectOpen,
+  });
   const [enterGroupId, setEnterGroupId] = useState<string | null>(null);
   const navigate = useAppView((s) => s.navigate);
   const pushStackItem = useLayoutState((s) => s.pushStackItem);
@@ -788,32 +801,67 @@ export function BoardCanvas({
         effectiveTarget
       )}
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
-      <ProjectFileSystemTransferDialog
-        open={saveToProjectOpen}
-        onOpenChange={setSaveToProjectOpen}
-        mode="select"
-        selectTarget="folder"
-        defaultRootUri={rootUri}
-        onSelectTarget={async (targetUri: string) => {
-          const parsed = parseScopedProjectPath(targetUri);
-          const targetProjectId = parsed?.projectId?.trim();
-          if (!targetProjectId || !resolvedBoardId) {
-            toast.error(i18next.t('nav:canvasList.moveFailed'));
-            setSaveToProjectOpen(false);
-            return;
-          }
-          try {
-            await moveToProjectMutation.mutateAsync({
-              boardId: resolvedBoardId,
-              targetProjectId,
-            });
-            toast.success(i18next.t('nav:canvasList.movedToProject'));
-          } catch {
-            toast.error(i18next.t('nav:canvasList.moveFailed'));
-          }
-          setSaveToProjectOpen(false);
-        }}
-      />
+      <Dialog open={saveToProjectOpen} onOpenChange={(open) => {
+        setSaveToProjectOpen(open);
+        if (!open) setSaveToProjectTargetId('');
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{i18next.t('nav:canvasList.selectProject')}</DialogTitle>
+            <DialogDescription>{i18next.t('nav:canvasList.selectProjectDesc')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Select value={saveToProjectTargetId} onValueChange={setSaveToProjectTargetId}>
+              <SelectTrigger>
+                <SelectValue placeholder={i18next.t('nav:canvasList.selectProject')} />
+              </SelectTrigger>
+              <SelectContent>
+                {projectListForSave?.map((p) => (
+                  <SelectItem key={p.projectId} value={p.projectId}>
+                    {p.icon ? `${p.icon} ` : ''}{p.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button
+                variant="ghost"
+                className="rounded-md text-muted-foreground shadow-none transition-colors duration-150"
+              >
+                {i18next.t('nav:cancel')}
+              </Button>
+            </DialogClose>
+            <Button
+              className="rounded-md bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20 shadow-none transition-colors duration-150"
+              disabled={!saveToProjectTargetId || moveToProjectMutation.isPending}
+              onClick={async () => {
+                if (!saveToProjectTargetId || !resolvedBoardId) {
+                  toast.error(i18next.t('nav:canvasList.moveFailed'));
+                  setSaveToProjectOpen(false);
+                  return;
+                }
+                try {
+                  await moveToProjectMutation.mutateAsync({
+                    boardId: resolvedBoardId,
+                    targetProjectId: saveToProjectTargetId,
+                  });
+                  toast.success(i18next.t('nav:canvasList.movedToProject'));
+                } catch {
+                  toast.error(i18next.t('nav:canvasList.moveFailed'));
+                }
+                setSaveToProjectOpen(false);
+                setSaveToProjectTargetId('');
+              }}
+            >
+              {moveToProjectMutation.isPending
+                ? i18next.t('common:loading')
+                : i18next.t('nav:save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     <BoardErrorBoundary>
       <BoardProvider
         engine={engine}
@@ -865,7 +913,7 @@ export function BoardCanvas({
         </BoardCanvasInteraction>
         <GroupMembersDialog
           groupId={enterGroupId}
-          engine={engine}
+          parentEngine={engine}
           onClose={() => setEnterGroupId(null)}
         />
       </BoardProvider>

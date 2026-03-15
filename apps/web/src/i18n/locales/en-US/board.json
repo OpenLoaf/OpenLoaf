@@ -227,10 +227,7 @@
     "enter": "Enter",
     "groupDialog": {
       "title": "Group Members",
-      "memberCount": "{{count}} members",
-      "locateOnCanvas": "Locate on Canvas",
-      "removeFromGroup": "Remove from Group",
-      "empty": "This group has no members"
+      "memberCount": "{{count}} members"
     }
   },
   "selection": {

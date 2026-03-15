@@ -145,7 +145,13 @@ export const PageTitle = () => {
         </button>
       )}
       <h1 className="text-sm font-medium text-foreground/80 truncate">
-        {title}
+        {isBoardViewer && inProject && (layoutView.projectShell?.title || activeTab?.projectShell?.title) ? (
+          <>
+            <span className="text-muted-foreground/60">{layoutView.projectShell?.title ?? activeTab?.projectShell?.title}</span>
+            <span className="text-muted-foreground/40 mx-1">/</span>
+            {title}
+          </>
+        ) : title}
       </h1>
     </div>
   );

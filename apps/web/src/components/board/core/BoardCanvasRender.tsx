@@ -54,6 +54,8 @@ export type BoardCanvasRenderProps = {
   onAutoLayout?: () => void;
   /** Enter group editing dialog. */
   onEnterGroup?: (groupId: string) => void;
+  /** Minimal mode hides toolbars, minimap, and empty guide (used in sub-canvas dialogs). */
+  minimal?: boolean;
 };
 
 /** Render board layers and overlays. */
@@ -66,6 +68,7 @@ export function BoardCanvasRender({
   onSyncLog,
   onAutoLayout,
   onEnterGroup,
+  minimal,
 }: BoardCanvasRenderProps) {
   /** Culling stats for the performance overlay. */
   const [cullingStats, setCullingStats] = useState({
@@ -125,10 +128,10 @@ export function BoardCanvasRender({
 
   return (
     <>
-      {showUi && snapshot.elements.length > 0 ? <MiniMapLayer engine={engine} snapshot={snapshot} /> : null}
+      {showUi && !minimal && snapshot.elements.length > 0 ? <MiniMapLayer engine={engine} snapshot={snapshot} /> : null}
       {/* PixiJS 统一渲染层 */}
       <PixiCanvas engine={engine} snapshot={snapshot} />
-      {showUi && snapshot.pendingInsert && snapshot.pendingInsertPoint && PENDING_INSERT_DOM_TYPES.has(snapshot.pendingInsert.type) ? (
+      {showUi && !minimal && snapshot.pendingInsert && snapshot.pendingInsertPoint && PENDING_INSERT_DOM_TYPES.has(snapshot.pendingInsert.type) ? (
         <PendingInsertPreview
           engine={engine}
           pendingInsert={snapshot.pendingInsert}
@@ -142,22 +145,22 @@ export function BoardCanvasRender({
         />
       ) : null}
       {showUi && !snapshot.draggingId ? <AnchorOverlay snapshot={snapshot} /> : null}
-      {showUi ? (
+      {showUi && !minimal ? (
         <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 -translate-x-0" : "opacity-0 -translate-x-4")}>
           <BoardControls engine={engine} snapshot={snapshot} onAutoLayout={onAutoLayout} />
         </div>
       ) : null}
-      {showUi ? (
+      {showUi && !minimal ? (
         <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
           <BoardToolbar engine={engine} snapshot={snapshot} />
         </div>
       ) : null}
-      {showUi ? (
+      {showUi && !minimal ? (
         <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4")}>
           <AIGenerateToolbar engine={engine} snapshot={snapshot} />
         </div>
       ) : null}
-      {showUi ? (
+      {showUi && !minimal ? (
         <BoardEmptyGuide engine={engine} visible={snapshot.docRevision > 0 && snapshot.elements.length === 0 && !snapshot.pendingInsert && toolbarsReady} activeToolId={snapshot.activeToolId} />
       ) : null}
       {showUi && selectedConnector ? (

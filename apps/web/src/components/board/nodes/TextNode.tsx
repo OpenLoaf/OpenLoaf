@@ -371,7 +371,8 @@ function ReadOnlyMarkdownProjection(props: {
         Math.ceil(content.scrollHeight + 24),
       );
       const [, , width, currentHeight] = node.xywh;
-      if (Math.abs(currentHeight - nextHeight) <= TEXT_NODE_RESIZE_EPSILON) return;
+      // 逻辑：只允许增高不允许缩小，避免 Markdown 异步渲染期间 scrollHeight 暂时偏小导致节点高度跳动。
+      if (nextHeight <= currentHeight) return;
       const partMeta = getBoardChatPartMeta(node);
       // 逻辑：只读聊天文本高度变化时，同时同步消息组内垂直布局，避免后续节点重叠。
       engine.batch(() => {

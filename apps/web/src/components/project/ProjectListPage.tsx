@@ -80,14 +80,15 @@ import {
   TooltipTrigger,
 } from "@openloaf/ui/tooltip";
 
+/** Card gradients — order matches ColorPickerSubMenu & PREVIEW_GRADIENTS in CanvasListPage. */
 const CARD_GRADIENTS = [
-  "from-sky-100 to-blue-50 dark:from-sky-900/40 dark:to-blue-900/30",
-  "from-violet-100 to-purple-50 dark:from-violet-900/40 dark:to-purple-900/30",
-  "from-emerald-100 to-green-50 dark:from-emerald-900/40 dark:to-green-900/30",
-  "from-amber-100 to-orange-50 dark:from-amber-900/40 dark:to-orange-900/30",
-  "from-rose-100 to-pink-50 dark:from-rose-900/40 dark:to-pink-900/30",
   "from-teal-100 to-cyan-50 dark:from-teal-900/40 dark:to-cyan-900/30",
-  "from-indigo-100 to-blue-50 dark:from-indigo-900/40 dark:to-blue-900/30",
+  "from-violet-100 to-fuchsia-50 dark:from-violet-900/40 dark:to-fuchsia-900/30",
+  "from-amber-100 to-orange-50 dark:from-amber-900/40 dark:to-orange-900/30",
+  "from-sky-100 to-blue-50 dark:from-sky-900/40 dark:to-blue-900/30",
+  "from-rose-100 to-pink-50 dark:from-rose-900/40 dark:to-pink-900/30",
+  "from-emerald-100 to-green-50 dark:from-emerald-900/40 dark:to-green-900/30",
+  "from-indigo-100 to-purple-50 dark:from-indigo-900/40 dark:to-purple-900/30",
   "from-lime-100 to-yellow-50 dark:from-lime-900/40 dark:to-yellow-900/30",
 ];
 

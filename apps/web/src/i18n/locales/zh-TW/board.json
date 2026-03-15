@@ -227,10 +227,7 @@
     "enter": "進入",
     "groupDialog": {
       "title": "組成員",
-      "memberCount": "{{count}} 個成員",
-      "locateOnCanvas": "定位到畫布",
-      "removeFromGroup": "移出分組",
-      "empty": "此組沒有成員"
+      "memberCount": "{{count}} 個成員"
     }
   },
   "selection": {

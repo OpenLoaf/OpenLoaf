@@ -119,7 +119,7 @@ interface BoardItem {
   title: string;
   folderUri: string;
   projectId?: string | null;
-  updatedAt: string | Date;
+  createdAt: string | Date;
   [key: string]: any;
 }
 
@@ -199,7 +199,7 @@ function groupBoardsByTime(boards: BoardItem[]): BoardGroup[] {
   const oneDay = 24 * 60 * 60 * 1000;
 
   const sorted = [...boards].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 
   const today: BoardItem[] = [];
@@ -209,7 +209,7 @@ function groupBoardsByTime(boards: BoardItem[]): BoardGroup[] {
   const byMonth = new Map<string, BoardItem[]>();
 
   for (const board of sorted) {
-    const t = new Date(board.updatedAt);
+    const t = new Date(board.createdAt);
     const diffDays = Math.floor((todayStart - startOfDay(t).getTime()) / oneDay);
     if (diffDays <= 0) today.push(board);
     else if (diffDays === 1) yesterday.push(board);
@@ -419,7 +419,7 @@ function BoardCard({
               {board.title || labels.untitled}
             </span>
             <div className="flex items-center justify-between gap-1.5 text-xs text-muted-foreground">
-              <span>{formatBoardDate(board.updatedAt, lang)}</span>
+              <span>{formatBoardDate(board.createdAt, lang)}</span>
               {projectInfo ? (
                 <span className="flex items-center gap-1 shrink-0 truncate max-w-[50%]">
                   {projectInfo.icon ? (

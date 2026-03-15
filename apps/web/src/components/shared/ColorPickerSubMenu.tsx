@@ -16,16 +16,19 @@ import {
   ContextMenuSubTrigger,
 } from "@openloaf/ui/context-menu"
 
-/** Preset color palette — matches PREVIEW_GRADIENTS in CanvasListPage. */
+/**
+ * Preset color palette — matches PREVIEW_GRADIENTS in CanvasListPage.
+ * Uses the same Tailwind gradient classes so the swatch visually matches the card.
+ */
 const COLOR_SWATCHES = [
-  { light: "#5eead4", dark: "#0d9488", label: "Teal" },
-  { light: "#c4b5fd", dark: "#7c3aed", label: "Violet" },
-  { light: "#fcd34d", dark: "#d97706", label: "Amber" },
-  { light: "#7dd3fc", dark: "#0284c7", label: "Sky" },
-  { light: "#fda4af", dark: "#e11d48", label: "Rose" },
-  { light: "#6ee7b7", dark: "#059669", label: "Emerald" },
-  { light: "#a5b4fc", dark: "#4f46e5", label: "Indigo" },
-  { light: "#bef264", dark: "#65a30d", label: "Lime" },
+  { gradient: "from-teal-200 to-cyan-100 dark:from-teal-800 dark:to-cyan-900", label: "Teal" },
+  { gradient: "from-violet-200 to-fuchsia-100 dark:from-violet-800 dark:to-fuchsia-900", label: "Violet" },
+  { gradient: "from-amber-200 to-orange-100 dark:from-amber-800 dark:to-orange-900", label: "Amber" },
+  { gradient: "from-sky-200 to-blue-100 dark:from-sky-800 dark:to-blue-900", label: "Sky" },
+  { gradient: "from-rose-200 to-pink-100 dark:from-rose-800 dark:to-pink-900", label: "Rose" },
+  { gradient: "from-emerald-200 to-green-100 dark:from-emerald-800 dark:to-green-900", label: "Emerald" },
+  { gradient: "from-indigo-200 to-purple-100 dark:from-indigo-800 dark:to-purple-900", label: "Indigo" },
+  { gradient: "from-lime-200 to-yellow-100 dark:from-lime-800 dark:to-yellow-900", label: "Lime" },
 ]
 
 interface ColorPickerSubMenuProps {
@@ -57,8 +60,7 @@ export function ColorPickerSubMenu({
                 key={swatch.label}
                 type="button"
                 title={swatch.label}
-                className="relative flex h-7 w-7 items-center justify-center rounded-full transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                style={{ backgroundColor: swatch.light }}
+                className={`relative flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-r ${swatch.gradient} transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
                 onClick={(e) => {
                   e.stopPropagation()
                   onSelect(isActive ? null : index)

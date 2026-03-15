@@ -49,6 +49,7 @@ const boardListSelect = {
   id: true,
   title: true,
   isPin: true,
+  colorIndex: true,
   projectId: true,
   folderUri: true,
   createdAt: true,
@@ -125,7 +126,7 @@ async function listBoardListPage(
     const boundedOffset = Math.min(offset, total);
     const items = await prisma.board.findMany({
       where,
-      orderBy: [{ isPin: "desc" }, { updatedAt: "desc" }, { id: "desc" }],
+      orderBy: [{ isPin: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       skip: boundedOffset,
       take: pageSize,
       select: boardListSelect,
@@ -351,7 +352,7 @@ export const boardRouter = t.router({
 
       let boards = await ctx.prisma.board.findMany({
         where,
-        orderBy: [{ isPin: "desc" }, { updatedAt: "desc" }],
+        orderBy: [{ isPin: "desc" }, { createdAt: "desc" }],
         select: boardListSelect,
       });
 
@@ -363,7 +364,7 @@ export const boardRouter = t.router({
           });
           boards = await ctx.prisma.board.findMany({
             where,
-            orderBy: [{ isPin: "desc" }, { updatedAt: "desc" }],
+            orderBy: [{ isPin: "desc" }, { createdAt: "desc" }],
             select: boardListSelect,
           });
         } catch (error) {

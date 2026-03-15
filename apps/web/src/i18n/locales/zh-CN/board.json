@@ -227,10 +227,7 @@
     "enter": "进入",
     "groupDialog": {
       "title": "组成员",
-      "memberCount": "{{count}} 个成员",
-      "locateOnCanvas": "定位到画布",
-      "removeFromGroup": "移出分组",
-      "empty": "此组没有成员"
+      "memberCount": "{{count}} 个成员"
     }
   },
   "selection": {
@@ -467,7 +464,7 @@
     "showAIPanel": "显示 AI 面板",
     "hideAIPanel": "收起 AI 面板",
     "screenshot": "截图画布",
-    "openInFileSystem": "在文件系统中打开",
+    "openInFileSystem": "文件管理器打开",
     "openBoardFolder": "打开画布文件夹",
     "openBoardFolderMissing": "未找到画布文件夹",
     "openBoardFolderFailed": "无法打开画布文件夹"
