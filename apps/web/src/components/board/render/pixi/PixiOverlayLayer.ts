@@ -82,25 +82,8 @@ export class PixiOverlayLayer {
       this.alignmentGfx.stroke()
     }
 
-    // 选中节点轮廓
+    // 逻辑：选中轮廓由 SelectionOverlay (DOM) 绘制，PixiJS 不再重复绘制。
     this.selectionOutlineGfx.clear()
-    if (snapshot.selectedIds.length > 0 && !snapshot.draggingId) {
-      for (const id of snapshot.selectedIds) {
-        const element = snapshot.elements.find((e) => e.id === id)
-        if (!element || element.kind !== "node") continue
-        const [x, y, w, h] = element.xywh
-        const sx = x * zoom + offset[0]
-        const sy = y * zoom + offset[1]
-        const sw = w * zoom
-        const sh = h * zoom
-        this.selectionOutlineGfx.roundRect(sx, sy, sw, sh, 4)
-        this.selectionOutlineGfx.stroke({
-          color: palette.selectionBorder,
-          width: 1.5,
-          alpha: 0.8,
-        })
-      }
-    }
   }
 
   /** Sync overlay positions on viewport change (no snapshot change). */
