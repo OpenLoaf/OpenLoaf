@@ -6,40 +6,121 @@
  */
 'use client'
 
-import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  type ComponentType,
+  type ReactNode,
+} from 'react'
 import { cn } from '@udecode/cn'
 import type { CanvasEngine } from '../../engine/CanvasEngine'
 import type {
   CanvasNodeElement,
+  CanvasNodeViewProps,
   CanvasSnapshot,
   CanvasViewState,
-  CanvasViewportState,
 } from '../../engine/types'
 import { getGroupOutlinePadding, isGroupNodeType } from '../../engine/grouping'
-
-/** 视口裁剪：屏幕空间外扩 padding（像素） */
-const VIEWPORT_CULL_PADDING = 240
-/** 启用裁剪的最小节点数 */
-const CULLING_NODE_THRESHOLD = 40
 
 type DomNodeLayerProps = {
   engine: CanvasEngine
   snapshot: CanvasSnapshot
 }
 
+// ---------------------------------------------------------------------------
+// 单个节点的 memo 组件（核心性能优化）
+// ---------------------------------------------------------------------------
+
+type DomNodeItemProps = {
+  element: CanvasNodeElement
+  View: ComponentType<CanvasNodeViewProps<Record<string, unknown>>>
+  selected: boolean
+  editing: boolean
+  groupPadding: number
+  onSelect: () => void
+  onUpdate: (patch: Record<string, unknown>) => void
+}
+
+/** 单个节点渲染。memo 确保只有 props 变化时才重渲染。 */
+const DomNodeItem = memo(function DomNodeItem({
+  element,
+  View,
+  selected,
+  editing,
+  groupPadding,
+  onSelect,
+  onUpdate,
+}: DomNodeItemProps) {
+  const [x, y, w, h] = element.xywh
+  const padding = isGroupNodeType(element.type) ? groupPadding : 0
+
+  return (
+    <div
+      data-board-node
+      data-element-id={element.id}
+      data-board-editor={editing || undefined}
+      data-node-type={element.type}
+      data-selected={selected || undefined}
+      className={cn(
+        'absolute',
+        editing ? 'select-text' : 'select-none',
+        isGroupNodeType(element.type)
+          ? 'pointer-events-none'
+          : 'pointer-events-auto',
+      )}
+      style={{
+        left: x - padding,
+        top: y - padding,
+        width: w + padding * 2,
+        height: h + padding * 2,
+        zIndex: element.zIndex ?? 0,
+        transform: element.rotate
+          ? `rotate(${element.rotate}deg)`
+          : undefined,
+        transformOrigin: 'center',
+      }}
+    >
+      <div className="h-full w-full">
+        <View
+          element={element}
+          selected={selected}
+          editing={editing}
+          onSelect={onSelect}
+          onUpdate={onUpdate}
+        />
+      </div>
+    </div>
+  )
+}, (prev, next) => {
+  // 逻辑：只有元素数据、选中/编辑状态变化时才重渲染。
+  // 拖动其他节点时，未变化的节点完全跳过渲染。
+  if (prev.element !== next.element) return false
+  if (prev.selected !== next.selected) return false
+  if (prev.editing !== next.editing) return false
+  if (prev.groupPadding !== next.groupPadding) return false
+  return true
+})
+
+// ---------------------------------------------------------------------------
+// DOM 节点层
+// ---------------------------------------------------------------------------
+
 /**
  * DOM 节点渲染层（混合架构）。
  *
  * 所有节点始终使用 React DOM 组件渲染，保证富文本、视频、表单等完整交互。
- * 整层通过 CSS transform 跟随视口变换（和旧 CanvasDomLayer 一致）。
- * PixiJS 仅负责连线、笔画、选区框等非节点内容。
+ * 整层通过 CSS transform 跟随视口变换。
+ *
+ * 性能优化：每个节点包装为 memo 组件，拖动时只有位置变化的节点重渲染，
+ * 其他节点完全跳过 React 协调。
  */
 function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
   const layerRef = useRef<HTMLDivElement | null>(null)
   const transformRafRef = useRef<number | null>(null)
   const pendingViewRef = useRef<CanvasViewState | null>(null)
 
-  // 逻辑：通过 rAF 合并多个视口变化为单次 DOM transform 更新。
   const applyTransform = useCallback((view: CanvasViewState) => {
     const layer = layerRef.current
     if (!layer) return
@@ -78,7 +159,6 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
     }
   }, [engine, scheduleTransform])
 
-  // 节点元素过滤和渲染
   const { zoom, offset } = snapshot.viewport
   const groupPadding = getGroupOutlinePadding(zoom)
   const selectedNodeIds = new Set(
@@ -87,67 +167,6 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
       return el?.kind === 'node'
     }),
   )
-  const draggingGroup =
-    snapshot.draggingId !== null &&
-    selectedNodeIds.size > 1 &&
-    selectedNodeIds.has(snapshot.draggingId)
-
-  const nodeViews: ReactNode[] = []
-  snapshot.elements.forEach(element => {
-    if (element.kind !== 'node') return
-    // 笔画节点由 PixiJS StrokeLayer 渲染，跳过
-    if (element.type === 'stroke') return
-
-    const definition = engine.nodes.getDefinition(element.type)
-    if (!definition) return
-
-    const View = definition.view
-    const [x, y, w, h] = element.xywh
-    const selected = selectedNodeIds.has(element.id)
-    const isDragging =
-      snapshot.draggingId === element.id || (draggingGroup && selected)
-    const isEditing = element.id === snapshot.editingNodeId
-    const padding = isGroupNodeType(element.type) ? groupPadding : 0
-
-    nodeViews.push(
-      <div
-        key={element.id}
-        data-board-node
-        data-element-id={element.id}
-        data-board-editor={isEditing || undefined}
-        data-node-type={element.type}
-        data-selected={selected || undefined}
-        className={cn(
-          'absolute',
-          isEditing ? 'select-text' : 'select-none',
-          isGroupNodeType(element.type)
-            ? 'pointer-events-none'
-            : 'pointer-events-auto',
-        )}
-        style={{
-          left: x - padding,
-          top: y - padding,
-          width: w + padding * 2,
-          height: h + padding * 2,
-          zIndex: element.zIndex ?? 0,
-          transform: element.rotate
-            ? `rotate(${element.rotate}deg)`
-            : undefined,
-          transformOrigin: 'center',
-        }}
-      >
-        <div className="h-full w-full transition-transform duration-150 ease-out">
-          <View
-            element={element}
-            selected={selected}
-            editing={isEditing}
-            onSelect={() => engine.selection.setSelection([element.id])}
-            onUpdate={patch => engine.doc.updateNodeProps(element.id, patch)}
-          />
-        </div>
-      </div>,
-    )
-  })
 
   return (
     <div
@@ -160,7 +179,29 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
         transform: `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})`,
       }}
     >
-      {nodeViews}
+      {snapshot.elements.map(element => {
+        if (element.kind !== 'node') return null
+        if (element.type === 'stroke') return null
+
+        const definition = engine.nodes.getDefinition(element.type)
+        if (!definition) return null
+
+        const selected = selectedNodeIds.has(element.id)
+        const editing = element.id === snapshot.editingNodeId
+
+        return (
+          <DomNodeItem
+            key={element.id}
+            element={element}
+            View={definition.view as ComponentType<CanvasNodeViewProps<Record<string, unknown>>>}
+            selected={selected}
+            editing={editing}
+            groupPadding={groupPadding}
+            onSelect={() => engine.selection.setSelection([element.id])}
+            onUpdate={patch => engine.doc.updateNodeProps(element.id, patch)}
+          />
+        )
+      })}
     </div>
   )
 }
