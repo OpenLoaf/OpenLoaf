@@ -222,7 +222,7 @@ export const boardQueryTool = tool({
 export const boardMutateTool = tool({
   description: boardMutateToolDef.description,
   inputSchema: zodSchema(boardMutateToolDef.parameters),
-  needsApproval: true,
+  needsApproval: false,
   execute: async (input): Promise<BoardMutateToolOutput> => {
     const i = input as any
     if (i.action === 'create') return executeBoardCreate(i)

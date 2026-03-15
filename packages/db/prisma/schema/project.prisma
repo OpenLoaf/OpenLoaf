@@ -4,6 +4,7 @@ model Project {
   icon         String? /// Project icon.
   rootUri      String /// Project root URI.
   type         String? /// User-defined project type label (e.g. "代码", "知识库", "文档").
+  colorIndex   Int? /// Color palette index (0-7).
   parentId     String? /// Parent project id.
   sortIndex    Int       @default(0) /// Project sort index under parent.
   isFavorite   Boolean   @default(false) /// Whether the project is favorited (pinned to top).

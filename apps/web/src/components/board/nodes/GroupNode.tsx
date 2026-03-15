@@ -13,7 +13,7 @@ import type {
   CanvasNodeViewProps,
 } from "../engine/types";
 import { z } from "zod";
-import { Layers, Maximize2 } from "lucide-react";
+import { Layers, LayoutGrid, Maximize2 } from "lucide-react";
 import { cn } from "@udecode/cn";
 import i18next from "i18next";
 import {
@@ -108,6 +108,17 @@ function createGroupToolbarItems(ctx: CanvasToolbarContext<GroupNodeProps>) {
       onSelect: () => ctx.uniformGroupSize(groupId),
     });
   }
+
+  // 逻辑：自动布局按钮，根据当前布局轴检测方向后排列组内成员。
+  const axis = ctx.getGroupLayoutAxis(groupId);
+  const layoutDirection = axis === 'column' ? 'column' : 'row';
+  items.push({
+    id: 'auto-layout',
+    label: t('board:selection.toolbar.autoLayout'),
+    icon: <LayoutGrid size={14} />,
+    className: BOARD_TOOLBAR_ITEM_BLUE,
+    onSelect: () => ctx.layoutGroup(groupId, layoutDirection),
+  });
 
   return items;
 }

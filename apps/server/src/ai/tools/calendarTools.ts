@@ -225,7 +225,7 @@ export const calendarQueryTool = tool({
 export const calendarMutateTool = tool({
   description: calendarMutateToolDef.description,
   inputSchema: zodSchema(calendarMutateToolDef.parameters),
-  needsApproval: true,
+  needsApproval: false,
   execute: async (input): Promise<CalendarMutateOutput> => {
     const i = input as any
     if (i.action === 'create') return executeCreateItem(i)

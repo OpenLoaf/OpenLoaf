@@ -10,6 +10,8 @@
   "calendar": "Calendar",
   "email": "Mail",
   "tasks": "Tasks",
+  "skills": "Skills",
+  "agents": "Agents",
   "settings": "Settings",
   "sidebar": {
     "projectFolder": "Project List",
@@ -282,7 +284,8 @@
     "createTitle": "New Canvas",
     "createDesc": "Select a project for this canvas, or create a temporary canvas without saving to any project.",
     "tempCanvas": "Temporary Canvas (not saved to project)",
-    "createConfirm": "Create"
+    "createConfirm": "Create",
+    "changeColor": "Change Color"
   },
   "projectListPage": {
     "helpTitle": "Projects",

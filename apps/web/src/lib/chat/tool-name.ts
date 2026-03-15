@@ -10,7 +10,6 @@
 "use client";
 
 import i18next from "i18next";
-import { testApprovalToolDef } from "@openloaf/api/types/tools/approvalTest";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
   browserActToolDef,
@@ -21,15 +20,12 @@ import {
 } from "@openloaf/api/types/tools/browserAutomation";
 import { projectMutateToolDef, projectQueryToolDef } from "@openloaf/api/types/tools/db";
 import {
-  execCommandToolDef,
   grepFilesToolDef,
   listDirToolDef,
   readFileToolDef,
   applyPatchToolDef,
   shellCommandToolDef,
-  shellToolDef,
   updatePlanToolDef,
-  writeStdinToolDef,
 } from "@openloaf/api/types/tools/runtime";
 import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
 import { chartRenderToolDef } from "@openloaf/api/types/tools/chart";
@@ -64,7 +60,6 @@ const TOOL_DEFS: ToolNameSource[] = [
   browserObserveToolDef,
   browserSnapshotToolDef,
   browserWaitToolDef,
-  execCommandToolDef,
   grepFilesToolDef,
   listDirToolDef,
   openUrlToolDef,
@@ -73,15 +68,12 @@ const TOOL_DEFS: ToolNameSource[] = [
   readFileToolDef,
   applyPatchToolDef,
   shellCommandToolDef,
-  shellToolDef,
   spawnAgentToolDef,
   sendInputToolDef,
   waitAgentToolDef,
   abortAgentToolDef,
-  testApprovalToolDef,
   timeNowToolDef,
   updatePlanToolDef,
-  writeStdinToolDef,
   jsxCreateToolDef,
   chartRenderToolDef,
 ];

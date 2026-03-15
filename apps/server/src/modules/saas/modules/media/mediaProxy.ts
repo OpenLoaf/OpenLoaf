@@ -192,17 +192,18 @@ export async function pollMediaProxy(
         urls: resultUrls,
         directory: resolvedDir,
       });
-      if (saveDir.startsWith("file://")) {
-        // 逻辑：file:// URI 转全局相对路径，确保前端可通过 preview endpoint 加载。
-        resultUrls = savedPaths.map((filePath) => {
-          const relativePath = toGlobalRelativePath(filePath);
-          return relativePath ?? path.basename(filePath);
-        });
-      } else {
+      if (ctx?.projectId) {
+        // 逻辑：有 projectId 时返回 saveDir 相对路径，前端通过 projectId 加载。
         const normalizedSaveDir = saveDir.replace(/\\/g, "/").replace(/\/+$/, "");
         resultUrls = savedPaths.map((filePath) => {
           const fileName = path.basename(filePath);
           return normalizedSaveDir ? `${normalizedSaveDir}/${fileName}` : fileName;
+        });
+      } else {
+        // 逻辑：无 projectId 时返回全局相对路径，前端通过 preview endpoint 全局加载。
+        resultUrls = savedPaths.map((filePath) => {
+          const relativePath = toGlobalRelativePath(filePath);
+          return relativePath ?? path.basename(filePath);
         });
       }
     }
@@ -221,16 +222,17 @@ export async function pollMediaProxy(
         directory: resolvedDir,
         fileNameBase: taskId,
       });
-      if (saveDir.startsWith("file://")) {
-        // 逻辑：file:// URI 转全局相对路径，确保前端可通过 preview endpoint 加载。
-        const savedFilePath = path.join(resolvedDir, saved.fileName);
-        const relativePath = toGlobalRelativePath(savedFilePath);
-        resultUrls = [relativePath ?? saved.fileName];
-      } else {
+      if (ctx?.projectId) {
+        // 逻辑：有 projectId 时返回 saveDir 相对路径。
         const normalizedSaveDir = saveDir.replace(/\\/g, "/").replace(/\/+$/, "");
         resultUrls = [
           normalizedSaveDir ? `${normalizedSaveDir}/${saved.fileName}` : saved.fileName,
         ];
+      } else {
+        // 逻辑：无 projectId 时返回全局相对路径。
+        const savedFilePath = path.join(resolvedDir, saved.fileName);
+        const relativePath = toGlobalRelativePath(savedFilePath);
+        resultUrls = [relativePath ?? saved.fileName];
       }
     }
 

@@ -154,7 +154,7 @@
     "skills": "Skills",
     "thirdPartyTools": "Runtime",
     "keys": "Models",
-    "storage": "Object Storage",
+    "storage": "Storage",
     "agents": "Agents",
     "auxiliaryModel": "AI Tools",
     "memory": "Memory",
@@ -660,6 +660,7 @@
     "enableSkillAriaLabel": "Enable skill {{name}}",
     "useSkillAriaLabel": "Use skill {{name}}",
     "viewSkillDir": "View skill directory",
+    "useSkill": "Use skill",
     "deleteSkill": "Delete skill",
     "loading": "Loading skills...",
     "empty": "No skills available. Add a `SKILL.md` in `.agents/skills` or `~/.agents/skills`.",
@@ -686,11 +687,11 @@
     },
     "import": {
       "dropHint": "Drop here to import skills",
-      "dropSubHint": "Supports skill folders or .zip / .skill archives",
+      "dropSubHint": "Supports skill folders or .zip / .tar.gz / .skill archives",
       "importing": "Importing...",
       "success": "Successfully imported {{count}} skill(s): {{names}}",
       "failed": "Import failed",
-      "unsupportedFormat": "Unsupported format. Please drop a folder or .zip / .skill file"
+      "unsupportedFormat": "Unsupported format. Please drop a folder or .zip / .tar.gz / .skill file"
     }
   },
   "modelSelector": {
@@ -740,6 +741,13 @@
     "close": "Close",
     "copied": "Copied",
     "copyFailed": "Copy failed, please copy manually"
+  },
+  "tempStorage": {
+    "title": "Temporary Storage",
+    "subtitle": "Temporary projects and canvases will be stored in this directory.",
+    "path": "Temporary Storage Path",
+    "pathDescription": "Click to select a folder to change the storage location",
+    "selectFolder": "Select Folder"
   },
   "auxiliaryCapabilities": {
     "project.classify": {

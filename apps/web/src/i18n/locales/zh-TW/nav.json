@@ -10,6 +10,8 @@
   "calendar": "行事曆",
   "email": "信箱",
   "tasks": "任務",
+  "skills": "技能",
+  "agents": "智能體",
   "settings": "設定",
   "sidebar": {
     "projectFolder": "專案列表",
@@ -282,7 +284,8 @@
     "createTitle": "新建畫布",
     "createDesc": "選擇畫布所屬的專案，或建立不儲存到專案的臨時畫布。",
     "tempCanvas": "臨時畫布（不儲存到專案）",
-    "createConfirm": "建立"
+    "createConfirm": "建立",
+    "changeColor": "變更顏色"
   },
   "projectListPage": {
     "helpTitle": "專案管理",

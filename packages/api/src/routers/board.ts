@@ -466,7 +466,7 @@ export const boardRouter = t.router({
       return board;
     }),
 
-  /** Update board title, projectId, or pin state. */
+  /** Update board title, projectId, pin state, or color. */
   update: shieldedProcedure
     .input(
       z.object({
@@ -474,6 +474,7 @@ export const boardRouter = t.router({
         title: z.string().optional(),
         projectId: z.string().nullable().optional(),
         isPin: z.boolean().optional(),
+        colorIndex: z.number().int().min(0).max(7).nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {

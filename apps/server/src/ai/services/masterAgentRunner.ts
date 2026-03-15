@@ -12,8 +12,6 @@ import type { AgentFrame } from '@/ai/shared/context/requestContext'
 import {
   createMasterAgent,
   createMasterAgentFrame,
-  createProjectAgent,
-  createProjectAgentFrame,
   createPMAgent,
   createPMAgentFrame,
   type MasterAgentModelInfo,
@@ -45,40 +43,6 @@ export function createMasterAgentRunner(input: MasterAgentRunnerInput): MasterAg
       instructions: input.instructions,
     }),
     frame: createMasterAgentFrame({ model: input.modelInfo }),
-  }
-}
-
-type ProjectAgentRunnerInput = {
-  /** Model instance for the agent. */
-  model: LanguageModelV3
-  /** Model metadata for the agent frame. */
-  modelInfo: MasterAgentModelInfo
-  /** Optional instructions override. */
-  instructions?: string
-  /** Optional language for prompt selection. */
-  lang?: string
-  /** Task ID for agent frame identification. */
-  taskId?: string
-}
-
-export type ProjectAgentRunner = {
-  /** ToolLoopAgent instance. */
-  agent: ReturnType<typeof createProjectAgent>
-  /** Frame metadata for the agent. */
-  frame: AgentFrame
-}
-
-/**
- * Creates a project agent runner for task execution within a project context.
- */
-export function createProjectAgentRunner(input: ProjectAgentRunnerInput): ProjectAgentRunner {
-  return {
-    agent: createProjectAgent({
-      model: input.model,
-      instructions: input.instructions,
-      lang: input.lang,
-    }),
-    frame: createProjectAgentFrame({ model: input.modelInfo, taskId: input.taskId }),
   }
 }
 

@@ -84,6 +84,10 @@ const skillSummarySchema = z.object({
   isEnabled: z.boolean(),
   /** Whether the skill can be deleted in current list. */
   isDeletable: z.boolean(),
+  /** Owner project id (for project-scoped skills). */
+  ownerProjectId: z.string().optional(),
+  /** Owner project title (for project-scoped skills). */
+  ownerProjectTitle: z.string().optional(),
 });
 
 /** Capability group payload. */

@@ -23,6 +23,7 @@ import { useProjectStorageRootUri } from "@/hooks/use-project-storage-root-uri";
 import { buildBoardFolderUri, buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { BOARD_INDEX_FILE_NAME } from "@/lib/file-name";
 import { buildBoardChatTabState } from "./utils/board-chat-tab";
+import { ColorPickerSubMenu } from "@/components/shared/ColorPickerSubMenu";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { getCachedAccessToken } from "@/lib/saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
@@ -74,6 +75,18 @@ const PREVIEW_GRADIENTS = [
   "from-emerald-100 to-green-50 dark:from-emerald-900/40 dark:to-green-900/30",
   "from-indigo-100 to-purple-50 dark:from-indigo-900/40 dark:to-purple-900/30",
   "from-lime-100 to-yellow-50 dark:from-lime-900/40 dark:to-yellow-900/30",
+];
+
+/** Left border accent colors matching PREVIEW_GRADIENTS. */
+const ACCENT_BORDER_COLORS = [
+  "border-l-teal-300 dark:border-l-teal-600",
+  "border-l-violet-300 dark:border-l-violet-600",
+  "border-l-amber-300 dark:border-l-amber-600",
+  "border-l-sky-300 dark:border-l-sky-600",
+  "border-l-rose-300 dark:border-l-rose-600",
+  "border-l-emerald-300 dark:border-l-emerald-600",
+  "border-l-indigo-300 dark:border-l-indigo-600",
+  "border-l-lime-300 dark:border-l-lime-600",
 ];
 
 const BOARD_PAGE_SIZE = 24;
@@ -137,6 +150,7 @@ interface BoardCardLabels {
   copyPath: string;
   openInNewWindow: string;
   openInFileManager: string;
+  changeColor: string;
   delete: string;
 }
 
@@ -158,6 +172,7 @@ interface BoardCardProps {
   onDuplicate: (boardId: string) => void;
   onOpenInFileManager?: (board: { id: string; folderUri: string; projectId?: string | null }) => void;
   onOpenInNewWindow?: (board: { id: string; title: string; folderUri: string; projectId?: string | null }) => void;
+  onChangeColor: (boardId: string, colorIndex: number | null) => void;
   onRename: (boardId: string, title: string, folderUri?: string) => void;
   projectInfo?: { name: string; icon?: string };
   rootUri?: string;
@@ -235,6 +250,7 @@ function BoardCard({
   lang,
   onBoardClick,
   onBoardVisible,
+  onChangeColor,
   onDelete,
   onDuplicate,
   onOpenInFileManager,
@@ -261,7 +277,7 @@ function BoardCard({
     : "";
   const baseId = `board:${boardFolderUri}`;
   const isActive = activeBoardBaseId === baseId;
-  const gradientIndex = hashCode(board.id) % PREVIEW_GRADIENTS.length;
+  const gradientIndex = board.colorIndex != null ? board.colorIndex : hashCode(board.id) % PREVIEW_GRADIENTS.length;
   const handleRenameSelect = () => {
     onRename(board.id, board.title, board.folderUri);
   };
@@ -300,9 +316,7 @@ function BoardCard({
           onClick={() => onBoardClick(board)}
         >
           <div
-            className={`relative flex items-center justify-center h-36 ${
-              thumb ? "bg-muted/30" : `bg-gradient-to-br ${PREVIEW_GRADIENTS[gradientIndex]}`
-            }`}
+            className="relative flex items-center justify-center h-36 bg-muted/30"
           >
             {thumb ? (
               <img
@@ -311,13 +325,8 @@ function BoardCard({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex flex-col items-center gap-2 opacity-40">
+              <div className="flex flex-col items-center gap-2 opacity-30">
                 <Palette className="h-8 w-8" />
-                <div className="flex gap-1">
-                  <div className="h-1.5 w-6 rounded-full bg-current opacity-30" />
-                  <div className="h-1.5 w-4 rounded-full bg-current opacity-20" />
-                  <div className="h-1.5 w-8 rounded-full bg-current opacity-25" />
-                </div>
               </div>
             )}
 
@@ -404,7 +413,8 @@ function BoardCard({
             </div>
           </div>
 
-          <div className="flex flex-col gap-1 px-3 py-2.5">
+          <div className={`flex flex-col gap-1 px-3 py-2.5 bg-gradient-to-r ${PREVIEW_GRADIENTS[gradientIndex]}`}
+          >
             <span className="text-sm font-medium truncate">
               {board.title || labels.untitled}
             </span>
@@ -445,6 +455,11 @@ function BoardCard({
         <ContextMenuItem icon={Copy} onSelect={handleCopyPathSelect}>
           {labels.copyPath}
         </ContextMenuItem>
+        <ColorPickerSubMenu
+          currentIndex={board.colorIndex}
+          onSelect={(ci) => onChangeColor(board.id, ci)}
+          label={labels.changeColor}
+        />
         <ContextMenuSeparator />
         <ContextMenuItem icon={Trash2} onSelect={handleDeleteSelect} className="text-destructive">
           {labels.delete}
@@ -795,6 +810,13 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     [projectId, duplicateMutation],
   );
 
+  const handleChangeColor = useCallback(
+    (boardId: string, colorIndex: number | null) => {
+      updateMutation.mutate({ boardId, colorIndex });
+    },
+    [updateMutation],
+  );
+
   const handleOpenInNewWindow = useCallback(
     (board: { id: string; title: string; folderUri: string; projectId?: string | null }) => {
       const boardRootUri = resolveBoardRootUri(board.projectId);
@@ -843,6 +865,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
       copyPath: t("canvasList.copyPath"),
       openInNewWindow: t("canvasList.openInNewWindow"),
       openInFileManager: t("projectTree.openInFileManager"),
+      changeColor: t("canvasList.changeColor"),
       delete: t("chatHistoryList.contextMenu.delete"),
     }),
     [t],
@@ -980,6 +1003,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
                       lang={lang}
                       onBoardClick={handleBoardClick}
                       onBoardVisible={handleBoardVisible}
+                      onChangeColor={handleChangeColor}
                       onDelete={handleDelete}
                       onDuplicate={handleDuplicate}
                       onOpenInFileManager={canOpenInFileManager ? handleOpenInFileManager : undefined}
@@ -1015,6 +1039,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
                   lang={lang}
                   onBoardClick={handleBoardClick}
                   onBoardVisible={handleBoardVisible}
+                  onChangeColor={handleChangeColor}
                   onDelete={handleDelete}
                   onDuplicate={handleDuplicate}
                   onOpenInFileManager={canOpenInFileManager ? handleOpenInFileManager : undefined}

@@ -182,16 +182,41 @@ export function readSkillSummaryFromPath(filePath: string, scope: SkillScope): S
     const content = readFileSync(filePath, "utf8");
     const frontMatter = parseFrontMatter(content);
     const fallbackName = path.basename(path.dirname(filePath)) || path.basename(filePath);
-    const name = (frontMatter.name || fallbackName).trim();
+    let name = (frontMatter.name || fallbackName).trim();
     if (!name) return null;
-    const description = normalizeDescription(frontMatter.description);
+    let description = normalizeDescription(frontMatter.description);
     const folderName = path.basename(path.dirname(filePath)) || fallbackName;
+
+    // Override name/description from openloaf.json if present
+    const meta = readOpenLoafMeta(path.dirname(filePath));
+    if (meta) {
+      if (meta.name) name = meta.name;
+      if (meta.description) description = meta.description;
+    }
+
     return {
       name,
       description,
       path: filePath,
       folderName,
       scope,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Read openloaf.json metadata from a skill folder. */
+function readOpenLoafMeta(folderPath: string): { name?: string; description?: string } | null {
+  const metaPath = path.join(folderPath, "openloaf.json");
+  if (!existsSync(metaPath)) return null;
+  try {
+    const raw = readFileSync(metaPath, "utf8");
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    return {
+      name: typeof parsed.name === "string" ? parsed.name.trim() || undefined : undefined,
+      description: typeof parsed.description === "string" ? parsed.description.trim() || undefined : undefined,
     };
   } catch {
     return null;

@@ -86,13 +86,6 @@ export class SupervisionService {
       }
     }
 
-    if (toolName === 'exec-command') {
-      const cmd = toolArgs.cmd as string | string[] | undefined
-      if (!needsApprovalForCommand(cmd)) {
-        return { decision: 'approve', reason: '只读 exec 命令，自动放行' }
-      }
-    }
-
     // Agent tools: generally safe within depth limits
     if (toolName === 'spawn-agent' || toolName === 'send-input' || toolName === 'abort-agent') {
       return { decision: 'approve', reason: 'Agent 协作工具，自动放行' }

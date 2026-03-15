@@ -238,5 +238,5 @@ export const FileAttachmentNodeDefinition: CanvasNodeDefinition<FileAttachmentNo
       minSize: { w: 200, h: 80 },
       maxSize: { w: 480, h: 120 },
     },
-    toolbar: (ctx) => createFileAttachmentToolbarItems(ctx),
+    toolbar: () => [],
   };

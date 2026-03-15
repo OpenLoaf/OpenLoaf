@@ -28,6 +28,7 @@ export type ProjectDbClient = {
         sortIndex: number;
         isFavorite: boolean;
         type: string | null;
+        colorIndex: number | null;
         isDeleted: boolean;
         deletedAt: Date | null;
       };
@@ -39,6 +40,7 @@ export type ProjectDbClient = {
         sortIndex: number;
         isFavorite: boolean;
         type: string | null;
+        colorIndex: number | null;
         isDeleted: boolean;
         deletedAt: Date | null;
       };
@@ -68,6 +70,7 @@ type ProjectRecord = {
   sortIndex: number;
   isFavorite: boolean;
   type: string | null;
+  colorIndex: number | null;
 };
 
 /** Flatten project tree nodes into records for persistence. */
@@ -94,6 +97,7 @@ function flattenProjectTrees(projects: ProjectNode[]): ProjectRecord[] {
       sortIndex: current.sortIndex,
       isFavorite: current.node.isFavorite ?? false,
       type: current.node.projectType?.trim() || null,
+      colorIndex: current.node.colorIndex ?? null,
     });
     for (const [index, child] of (current.node.children ?? []).entries()) {
       stack.push({
@@ -130,6 +134,7 @@ export async function syncProjectsFromDisk(
         sortIndex: record.sortIndex,
         isFavorite: record.isFavorite,
         type: record.type,
+        colorIndex: record.colorIndex,
         isDeleted: false,
         deletedAt: null,
       },

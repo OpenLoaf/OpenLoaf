@@ -29,6 +29,8 @@ export const projectConfigSchema = z
     title: z.string().optional().nullable(),
     icon: z.string().optional().nullable(),
     isFavorite: z.boolean().optional(),
+    /** Color palette index (0-7). */
+    colorIndex: z.number().int().min(0).max(7).nullable().optional(),
     childrenIds: z.array(z.string()).optional(),
     // Child project map uses projectId -> rootUri.
     projects: z.record(z.string(), z.string()).optional(),
@@ -75,6 +77,8 @@ export type ProjectNode = {
   isFavorite?: boolean;
   /** AI-inferred or user-set project type. */
   projectType?: string;
+  /** Color palette index (0-7). */
+  colorIndex?: number | null;
   /** Child projects. */
   children: ProjectNode[];
 };
@@ -95,6 +99,8 @@ export type ProjectListItem = {
   isFavorite?: boolean;
   /** AI-inferred or user-set project type. */
   projectType?: string;
+  /** Color palette index (0-7). */
+  colorIndex?: number | null;
   /** Nesting depth in the project tree. */
   depth: number;
   /** Child project count. */
@@ -153,6 +159,7 @@ type ProjectListDbRow = {
   sortIndex: number;
   isFavorite: boolean;
   type: string | null;
+  colorIndex: number | null;
 };
 
 type ProjectListDbClient = {
@@ -169,6 +176,7 @@ type ProjectListDbClient = {
         sortIndex: true;
         isFavorite: true;
         type: true;
+        colorIndex: true;
       };
     }) => Promise<ProjectListDbRow[]>;
   };
@@ -252,6 +260,7 @@ function flattenProjectNodes(
       isGitProject: node.isGitProject,
       isFavorite: node.isFavorite,
       projectType: node.projectType,
+      colorIndex: node.colorIndex,
       depth,
       childCount: node.children?.length ?? 0,
     });
@@ -298,6 +307,7 @@ function flattenProjectRows(rows: ProjectListDbRow[]): ProjectListItem[] {
         isGitProject: false,
         isFavorite: row.isFavorite,
         projectType: row.type ?? undefined,
+        colorIndex: row.colorIndex,
         depth,
         childCount: children.length,
       });
@@ -455,6 +465,7 @@ async function readProjectTree(
       isGitProject,
       isFavorite: config.isFavorite ?? false,
       projectType: config.projectType ?? undefined,
+      colorIndex: config.colorIndex ?? null,
       children: childNodes,
     };
   } catch {
@@ -508,6 +519,7 @@ async function readProjectListRows(prisma: ProjectListDbClient): Promise<Project
     sortIndex: true,
     isFavorite: true,
     type: true,
+    colorIndex: true,
   } as const;
 
   let rows = await prisma.project.findMany({

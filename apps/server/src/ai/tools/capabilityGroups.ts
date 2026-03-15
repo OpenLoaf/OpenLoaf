@@ -61,10 +61,7 @@ const RAW_CAPABILITY_GROUPS = [
     label: '终端命令',
     description: '执行 Shell 命令和脚本',
     toolIds: [
-      'shell',
       'shell-command',
-      'exec-command',
-      'write-stdin',
     ],
   },
   {

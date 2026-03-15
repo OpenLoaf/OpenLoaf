@@ -14,6 +14,7 @@ import {
   ArrowUp,
   Clipboard,
   Copy,
+  Download,
   Film,
   FileText,
   ImagePlus,
@@ -79,6 +80,8 @@ export type BoardContextMenuProps = {
   onNodeBringToFront?: (nodeId: string) => void;
   onNodeSendToBack?: (nodeId: string) => void;
   onNodeDuplicate?: (nodeId: string) => void;
+  /** Save as handler for image/video nodes. */
+  onNodeSaveAs?: (nodeId: string) => void;
 };
 
 /** Render the board context menu. */
@@ -105,10 +108,12 @@ export function BoardContextMenu({
   onNodeBringToFront,
   onNodeSendToBack,
   onNodeDuplicate,
+  onNodeSaveAs,
 }: BoardContextMenuProps) {
   const { t } = useTranslation('board');
   const isNodeMenu = Boolean(contextNode);
   const isLocked = contextNode?.locked === true;
+  const isSaveableNode = contextNode?.type === "image" || contextNode?.type === "video";
 
   return (
     <ContextMenu>
@@ -125,6 +130,14 @@ export function BoardContextMenu({
             >
               {t('contextMenu.duplicate')}
             </ContextMenuItem>
+            {isSaveableNode ? (
+              <ContextMenuItem
+                icon={Download}
+                onSelect={() => onNodeSaveAs?.(contextNode.id)}
+              >
+                {t('contextMenu.saveAs')}
+              </ContextMenuItem>
+            ) : null}
             <ContextMenuSeparator />
             <ContextMenuItem
               icon={ArrowUp}

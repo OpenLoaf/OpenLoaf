@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
@@ -106,4 +107,20 @@ export function getDefaultProjectStoragePath(): string {
 /** Get the default project storage root URI (file://...). */
 export function getDefaultProjectStorageRootUri(): string {
   return resolveDefaultRootUri();
+}
+
+/** Get the platform-specific default temporary storage path. */
+export function getDefaultTempStoragePath(): string {
+  const p = process.platform;
+  if (p === "win32") {
+    // Windows: prefer D:\OpenLoaf\Temp if D: exists, else fallback to user home.
+    const dDrive = "D:\\OpenLoaf\\Temp";
+    if (existsSync("D:\\")) return dDrive;
+    return path.join(homedir(), "OpenLoaf", "Temp");
+  }
+  if (p === "darwin") {
+    return path.join(homedir(), "Documents", "OpenLoaf", "Temp");
+  }
+  // Linux and others.
+  return path.join(homedir(), "OpenLoaf", "Temp");
 }

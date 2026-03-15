@@ -36,8 +36,6 @@ import { createToolSearchTool } from '@/ai/tools/toolSearchTool'
 import {
   getPrimaryTemplate,
   getMasterPrompt,
-  getProjectPrompt,
-  PROJECT_AGENT_TOOL_IDS,
   getPMPrompt,
   PM_AGENT_TOOL_IDS,
 } from '@/ai/agent-templates'
@@ -222,83 +220,6 @@ export function createMasterAgentFrame(input: {
     name: MASTER_AGENT_NAME,
     agentId: MASTER_AGENT_ID,
     path: [MASTER_AGENT_NAME],
-    model: input.model,
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Project Agent
-// ---------------------------------------------------------------------------
-
-/** Project agent display name. */
-const PROJECT_AGENT_NAME = 'ProjectAgent'
-/** Project agent id prefix. */
-const PROJECT_AGENT_ID_PREFIX = 'project-agent'
-/** Project agent step limit (same as master). */
-const PROJECT_AGENT_MAX_STEPS = MASTER_HARD_MAX_STEPS
-
-export type CreateProjectAgentInput = {
-  model: LanguageModelV3
-  /** Optional language override for prompt selection. */
-  lang?: string
-  /** Optional instructions override. */
-  instructions?: string
-}
-
-/** Read project agent base prompt. */
-export function readProjectAgentBasePrompt(lang?: string): string {
-  return getProjectPrompt(lang)
-}
-
-/** Creates a project agent instance for autonomous task execution. */
-export function createProjectAgent(input: CreateProjectAgentInput) {
-  const instructions = input.instructions || getProjectPrompt(input.lang)
-  const wrappedModel = wrapModelWithExamples(input.model)
-
-  const ctx = getRequestContext()
-  const coreToolIds = ['tool-search', 'load-skill'] as string[]
-
-  // Filter project agent tools by platform
-  let deferredToolIds = filterToolIdsByPlatform(
-    PROJECT_AGENT_TOOL_IDS.filter((id) => !coreToolIds.includes(id)),
-    ctx?.clientPlatform,
-  )
-  if (!isWebSearchConfigured()) {
-    deferredToolIds = deferredToolIds.filter((id) => id !== 'web-search')
-  }
-  const allToolIds = [...new Set([...coreToolIds, ...deferredToolIds])]
-
-  const tools = buildToolset(allToolIds)
-  const activatedSet = new ActivatedToolSet(coreToolIds)
-  tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds))
-
-  const hardRules = buildHardRules()
-  const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)
-  const finalInstructions = `${instructions}\n\n${hardRules}\n\n${toolSearchGuidance}`
-
-  return new ToolLoopAgent({
-    model: wrappedModel,
-    instructions: finalInstructions,
-    tools,
-    stopWhen: [stepCountIs(PROJECT_AGENT_MAX_STEPS), dynamicStepLimit()] as StopCondition<any>[],
-    experimental_repairToolCall: createToolCallRepair(),
-    prepareStep: createToolSearchPrepareStep(allToolIds, activatedSet),
-  })
-}
-
-/** Creates the frame metadata for a project agent. */
-export function createProjectAgentFrame(input: {
-  model: MasterAgentModelInfo
-  taskId?: string
-}): AgentFrame {
-  const agentId = input.taskId
-    ? `${PROJECT_AGENT_ID_PREFIX}-${input.taskId}`
-    : `${PROJECT_AGENT_ID_PREFIX}-${Date.now()}`
-  return {
-    kind: 'master',
-    name: PROJECT_AGENT_NAME,
-    agentId,
-    path: [PROJECT_AGENT_NAME],
     model: input.model,
   }
 }

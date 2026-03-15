@@ -595,6 +595,7 @@ export const projectRouter = t.router({
         projectType: z
           .enum(['code', 'document', 'data', 'design', 'research', 'general', 'temp'])
           .optional(),
+        colorIndex: z.number().int().min(0).max(7).nullable().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -608,6 +609,7 @@ export const projectRouter = t.router({
         ...(input.projectType !== undefined
           ? { projectType: input.projectType, typeManuallySet: true }
           : {}),
+        ...(input.colorIndex !== undefined ? { colorIndex: input.colorIndex } : {}),
       });
       await writeJsonAtomic(metaPath, next);
       await syncProjectSnapshot(ctx.prisma);

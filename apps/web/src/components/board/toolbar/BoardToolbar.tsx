@@ -42,7 +42,6 @@ import {
   type ProjectFilePickerSelection,
 } from "@/components/project/filesystem/components/ProjectFilePickerDialog";
 import {
-  getParentRelativePath,
   getRelativePathFromUri,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import {
@@ -1029,10 +1028,8 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     const boardFolderUri = fileContext?.boardFolderUri?.trim() ?? "";
     if (!rootUri || !boardFolderUri) return undefined;
     const relativeBoardPath = getRelativePathFromUri(rootUri, boardFolderUri);
-    if (!relativeBoardPath) return undefined;
-    const parentRelative = getParentRelativePath(relativeBoardPath);
-    if (parentRelative === null) return "";
-    return parentRelative;
+    if (relativeBoardPath === null) return undefined;
+    return relativeBoardPath;
   }, [fileContext?.boardFolderUri, fileContext?.rootUri]);
 
   // 统一按钮尺寸（“宽松”密度）
@@ -1135,7 +1132,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             </IconBtn>
             <HoverPanel
               open={brushPanelOpen}
-              className="w-max"
+              className="w-max p-3"
               onMouseEnter={() => { if (hoverCloseTimer.current) { window.clearTimeout(hoverCloseTimer.current); hoverCloseTimer.current = null; } }}
               onMouseLeave={() => {
                 if (hoverGroup === "pen" && !isBrushTool) {
@@ -1144,7 +1141,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
               }}
             >
               <div
-                className="flex flex-col gap-1.5"
+                className="flex flex-col gap-3"
                 onPointerDownCapture={() => {
                   if (!isBrushTool) handleToolChange("pen", { keepPanel: true });
                 }}
@@ -1235,7 +1232,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             </IconBtn>
             <HoverPanel
               open={highlighterPanelOpen}
-              className="w-max"
+              className="w-max p-3"
               onMouseEnter={() => { if (hoverCloseTimer.current) { window.clearTimeout(hoverCloseTimer.current); hoverCloseTimer.current = null; } }}
               onMouseLeave={() => {
                 if (hoverGroup === "highlighter" && !isHighlighterTool) {
@@ -1244,7 +1241,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
               }}
             >
               <div
-                className="flex flex-col gap-1.5"
+                className="flex flex-col gap-3"
                 onPointerDownCapture={() => {
                   if (!isHighlighterTool) handleToolChange("highlighter", { keepPanel: true });
                 }}

@@ -296,7 +296,13 @@ export async function getS3ProviderSettingsForWeb() {
 
 /** Return basic config for web output. */
 export async function getBasicConfigForWeb(): Promise<BasicConfig> {
-  return readBasicConfig();
+  const config = readBasicConfig();
+  // Fill platform-specific default when temp storage dir is empty.
+  if (!config.appTempStorageDir) {
+    const { getDefaultTempStoragePath } = await import("@openloaf/api/services/appConfigService");
+    config.appTempStorageDir = getDefaultTempStoragePath();
+  }
+  return config;
 }
 
 /** Update basic config from web payload. */
@@ -375,6 +381,8 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
       : current.chatPrefaceEnabled;
   const appLocalStorageDir =
     typeof next.appLocalStorageDir === "string" ? next.appLocalStorageDir : current.appLocalStorageDir;
+  const appTempStorageDir =
+    typeof next.appTempStorageDir === "string" ? next.appTempStorageDir : current.appTempStorageDir;
   const appAutoBackupDir =
     typeof next.appAutoBackupDir === "string" ? next.appAutoBackupDir : current.appAutoBackupDir;
   const appCustomRules =
@@ -441,6 +449,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     boardSnapEnabled,
     chatPrefaceEnabled,
     appLocalStorageDir,
+    appTempStorageDir,
     appAutoBackupDir,
     appCustomRules,
     appNotificationSoundEnabled,

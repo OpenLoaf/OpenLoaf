@@ -11,7 +11,7 @@ import { createWriteStream, promises as fs } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { sanitizeFileName } from "@/ai/services/image/imageStorage";
+import { getResolvedTempStorageDir, sanitizeFileName } from "@/ai/services/image/imageStorage";
 import {
   getProjectRootPath,
   resolveFilePathFromUri,
@@ -52,12 +52,15 @@ function resolveRelativeSaveDirectory(input: {
   const normalized = input.path.replace(/\\/g, "/").replace(/^(\.\/)+/, "").replace(/^\/+/, "");
   if (!normalized) return null;
   if (normalized.split("/").some((segment) => segment === "..")) return null;
-  const rootPath = input.projectId ? getProjectRootPath(input.projectId) : null;
+  // 逻辑：有 projectId 时解析到项目根目录；否则回退到全局临时存储目录。
+  const rootPath = input.projectId
+    ? getProjectRootPath(input.projectId)
+    : getResolvedTempStorageDir();
   if (!rootPath) return null;
 
   const targetPath = path.resolve(rootPath, normalized);
   const rootPathResolved = path.resolve(rootPath);
-  // 限制在 project 根目录内，避免路径穿越。
+  // 限制在根目录内，避免路径穿越。
   if (targetPath !== rootPathResolved && !targetPath.startsWith(rootPathResolved + path.sep)) {
     return null;
   }

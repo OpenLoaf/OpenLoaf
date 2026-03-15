@@ -9,17 +9,13 @@
  */
 import { openUrlTool } from "@/ai/tools/openUrl";
 import { timeNowTool } from "@/ai/tools/timeNowTool";
-import { testApprovalTool } from "@/ai/tools/testApprovalTool";
 import {
   spawnAgentTool,
   sendInputTool,
   waitAgentTool,
   abortAgentTool,
 } from "@/ai/tools/agentTools";
-import { execCommandTool } from "@/ai/tools/execCommandTool";
-import { shellTool } from "@/ai/tools/shellTool";
 import { shellCommandTool } from "@/ai/tools/shellCommandTool";
-import { writeStdinTool } from "@/ai/tools/writeStdinTool";
 import { listDirTool, readFileTool, applyPatchTool } from "@/ai/tools/fileTools";
 import { grepFilesTool } from "@/ai/tools/grepFilesTool";
 import { editDocumentTool } from "@/ai/tools/documentTools";
@@ -63,7 +59,6 @@ import {
   browserDownloadImageToolDef,
 } from "@openloaf/api/types/tools/browserAutomation";
 import { timeNowToolDef } from "@openloaf/api/types/tools/system";
-import { testApprovalToolDef } from "@openloaf/api/types/tools/approvalTest";
 import {
   spawnAgentToolDef,
   sendInputToolDef,
@@ -113,9 +108,6 @@ import {
   editDocumentToolDef,
   grepFilesToolDef,
   shellCommandToolDef,
-  shellToolDef,
-  execCommandToolDef,
-  writeStdinToolDef,
   updatePlanToolDef,
   jsReplToolDef,
   jsReplResetToolDef,
@@ -148,9 +140,6 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [timeNowToolDef.id]: { tool: timeNowTool },
   [openUrlToolDef.id]: {
     tool: openUrlTool,
-  },
-  [testApprovalToolDef.id]: {
-    tool: testApprovalTool,
   },
   [spawnAgentToolDef.id]: {
     tool: spawnAgentTool,
@@ -185,17 +174,8 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [browserDownloadImageToolDef.id]: {
     tool: browserDownloadImageTool,
   },
-  [shellToolDef.id]: {
-    tool: shellTool,
-  },
   [shellCommandToolDef.id]: {
     tool: shellCommandTool,
-  },
-  [execCommandToolDef.id]: {
-    tool: execCommandTool,
-  },
-  [writeStdinToolDef.id]: {
-    tool: writeStdinTool,
   },
   [readFileToolDef.id]: {
     tool: readFileTool,
@@ -334,78 +314,6 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
 };
 
-/** Common aliases for tool names that LLMs might use incorrectly. */
-const TOOL_ALIASES: Record<string, string> = {
-  shell: "shell-command",
-  exec: "shell-command",
-  run: "shell-command",
-  "write-file": "apply-patch",
-  "edit-file": "apply-patch",
-  search: "grep-files",
-  find: "grep-files",
-  "create-task": "task-manage",
-  "read-excel": "excel-query",
-  "write-excel": "excel-mutate",
-  "read-word": "word-query",
-  "read-docx": "word-query",
-  "write-word": "word-mutate",
-  "create-word": "word-mutate",
-  "read-pptx": "pptx-query",
-  "read-ppt": "pptx-query",
-  "write-pptx": "pptx-mutate",
-  "create-pptx": "pptx-mutate",
-  "create-ppt": "pptx-mutate",
-  "read-pdf": "pdf-query",
-  "write-pdf": "pdf-mutate",
-  "create-pdf": "pdf-mutate",
-  "merge-pdf": "pdf-mutate",
-  "fill-pdf": "pdf-mutate",
-  "resize-image": "image-process",
-  "crop-image": "image-process",
-  "convert-image": "image-process",
-  "image-convert": "image-process",
-  "convert-video": "video-convert",
-  "extract-audio": "video-convert",
-  "convert-document": "doc-convert",
-  "document-convert": "doc-convert",
-  "convert-doc": "doc-convert",
-  "docx-to-pdf": "doc-convert",
-  "pdf-to-docx": "doc-convert",
-  "image-info": "file-info",
-  "get-image-info": "file-info",
-  "video-info": "file-info",
-  "get-file-info": "file-info",
-  "file-metadata": "file-info",
-  "file-size": "file-info",
-  "file-stat": "file-info",
-  "pdf-to-word": "doc-convert",
-  "word-to-pdf": "doc-convert",
-  "html-to-md": "doc-convert",
-  "md-to-pdf": "doc-convert",
-  "csv-to-excel": "doc-convert",
-  "excel-to-csv": "doc-convert",
-  "search-web": "web-search",
-  "internet-search": "web-search",
-  "google": "web-search",
-  "send-email": "email-mutate",
-  "compose-email": "email-mutate",
-  "delete-email": "email-mutate",
-  "move-email": "email-mutate",
-  "mark-read": "email-mutate",
-  "flag-email": "email-mutate",
-  "list-boards": "board-query",
-  "list-board": "board-query",
-  "get-board": "board-query",
-  "create-board": "board-mutate",
-  "delete-board": "board-mutate",
-  "clear-boards": "board-mutate",
-  "duplicate-board": "board-mutate",
-  "create-event": "calendar-mutate",
-  "create-meeting": "calendar-mutate",
-  "update-event": "calendar-mutate",
-  "delete-event": "calendar-mutate",
-  "create-reminder": "calendar-mutate",
-};
 
 /** Tool IDs excluded from auto-approval (complex/interactive). */
 const AUTO_APPROVE_EXCLUDED_TOOLS = new Set(["request-user-input"]);
@@ -445,42 +353,14 @@ function getToolById(toolId: string): ToolEntry | undefined {
  * 2. Error enhancement (structured recovery hints for LLM)
  */
 export function buildToolset(toolIds: readonly string[] = []) {
-  // AI SDK 的 ToolLoopAgent 需要一个 { [toolName]: tool } 的对象；这里严格用 ToolDef.id 作为 key。
   const toolset: Record<string, any> = {};
   for (const toolId of toolIds) {
-    let entry = getToolById(toolId);
-    if (!entry) {
-      // 逻辑：工具名不存在时，检查是否为已知别名并自动映射。
-      const canonical = TOOL_ALIASES[toolId];
-      if (canonical) {
-        entry = getToolById(canonical);
-        if (entry) {
-          // 用规范名称注册工具，同时为别名创建一个错误提示入口
-          const withAutoApproval = wrapToolWithAutoApproval(canonical, entry.tool);
-          const withTimeout = wrapToolWithTimeout(canonical, withAutoApproval);
-          const withErrorEnhancer = wrapToolWithErrorEnhancer(canonical, withTimeout);
-          toolset[canonical] = withErrorEnhancer;
-        }
-      }
-      continue;
-    }
-    // 逻辑：依次包装 auto-approval → timeout → error enhancer，增强工具执行的可靠性。
+    const entry = getToolById(toolId);
+    if (!entry) continue;
     const withAutoApproval = wrapToolWithAutoApproval(toolId, entry.tool);
     const withTimeout = wrapToolWithTimeout(toolId, withAutoApproval);
     const withErrorEnhancer = wrapToolWithErrorEnhancer(toolId, withTimeout);
     toolset[toolId] = withErrorEnhancer;
   }
   return toolset;
-}
-
-/**
- * Suggest the canonical tool name for a given alias.
- * Returns the suggestion string if an alias matches, or null.
- */
-export function suggestToolName(toolId: string): string | null {
-  const canonical = TOOL_ALIASES[toolId];
-  if (canonical) {
-    return `Did you mean '${canonical}'? Use that instead.`;
-  }
-  return null;
 }

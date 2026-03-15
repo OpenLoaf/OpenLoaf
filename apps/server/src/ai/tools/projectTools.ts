@@ -453,7 +453,7 @@ export const projectQueryTool = tool({
 export const projectMutateTool = tool({
   description: projectMutateToolDef.description,
   inputSchema: zodSchema(projectMutateToolDef.parameters),
-  needsApproval: true,
+  needsApproval: false,
   execute: async (input): Promise<ProjectMutateToolOutput> => {
     return executeProjectMutate(input as ProjectMutateInput);
   },

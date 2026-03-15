@@ -30,7 +30,7 @@ export type ChatStreamRequest = ChatRequestBody & {
   chatModelSource?: ChatModelSource;
   /** Board chat: explicit message ID chain from canvas connector graph. */
   messageIdChain?: string[];
-  /** Agent type for routing: 'pm' for project manager, 'project' for project agent. */
+  /** Agent type for routing: 'pm' for project manager. */
   agentType?: string;
   /** Task ID when running within a task context. */
   taskId?: string;

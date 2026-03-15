@@ -356,100 +356,108 @@ export class SettingRouterImpl extends BaseSettingRouter {
         .input(settingSchemas.getSkills.input)
         .output(settingSchemas.getSkills.output)
         .query(async ({ input }) => {
-          const projectRootPath = input?.projectId
-            ? getProjectRootPath(input.projectId) ?? undefined
-            : undefined;
-          const parentProjectRootUris = input?.projectId
-            ? await resolveProjectAncestorRootUris(prisma, input.projectId)
-            : [];
-          const parentRootEntries = parentProjectRootUris
-            .map((rootUri) => {
-              try {
-                const rootPath = resolveFilePathFromUri(rootUri);
-                return { rootUri, rootPath };
-              } catch {
-                return null;
-              }
-            })
-            .filter(
-              (entry): entry is { rootUri: string; rootPath: string } =>
-                Boolean(entry),
-            );
-          const parentProjectRootPaths = parentRootEntries.map((entry) => entry.rootPath);
           const globalIgnoreSkills = await readGlobalIgnoreSkills();
-          const projectIgnoreSkills = await readProjectIgnoreSkills(projectRootPath);
-          const summaries = loadSkillSummaries({
-            projectRootPath,
-            parentProjectRootPaths,
+
+          // --- Project-scoped query: load project + parent + global skills ---
+          if (input?.projectId) {
+            const projectRootPath = getProjectRootPath(input.projectId) ?? undefined;
+            const parentProjectRootUris = await resolveProjectAncestorRootUris(prisma, input.projectId);
+            const parentRootEntries = parentProjectRootUris
+              .map((rootUri) => {
+                try { return { rootUri, rootPath: resolveFilePathFromUri(rootUri) } } catch { return null }
+              })
+              .filter((entry): entry is { rootUri: string; rootPath: string } => Boolean(entry));
+            const parentProjectRootPaths = parentRootEntries.map((entry) => entry.rootPath);
+            const projectIgnoreSkills = await readProjectIgnoreSkills(projectRootPath);
+            const summaries = loadSkillSummaries({
+              projectRootPath,
+              parentProjectRootPaths,
+              globalSkillsPath: resolveGlobalSkillsPath(),
+            });
+            const projectCandidates: Array<{ rootPath: string; projectId: string }> = [];
+            if (projectRootPath) {
+              projectCandidates.push({ rootPath: projectRootPath, projectId: input.projectId });
+            }
+            const parentProjectRows = parentProjectRootUris.length
+              ? await prisma.project.findMany({
+                  where: { rootUri: { in: parentProjectRootUris }, isDeleted: false },
+                  select: { id: true, rootUri: true },
+                })
+              : [];
+            const parentIdByRootUri = new Map(parentProjectRows.map((row) => [row.rootUri, row.id]));
+            for (const entry of parentRootEntries) {
+              const parentId = (await readProjectIdFromMeta(entry.rootPath)) ?? parentIdByRootUri.get(entry.rootUri) ?? null;
+              if (!parentId) continue;
+              projectCandidates.push({ rootPath: entry.rootPath, projectId: parentId });
+            }
+            const items = summaries.map((summary) => {
+              const ownerProjectId = summary.scope === "project"
+                ? resolveOwnerProjectId({ skillPath: summary.path, candidates: projectCandidates })
+                : null;
+              const ignoreKey = summary.scope === "global"
+                ? buildGlobalIgnoreKey(summary.folderName)
+                : buildProjectIgnoreKey({ folderName: summary.folderName, ownerProjectId, currentProjectId: input.projectId });
+              const isEnabled = summary.scope === "global"
+                ? !projectIgnoreSkills.includes(ignoreKey)
+                : !projectIgnoreSkills.includes(ignoreKey);
+              const isDeletable = summary.scope === "project" && ownerProjectId === input.projectId;
+              return { ...summary, ignoreKey, isEnabled, isDeletable };
+            });
+            return items.filter(
+              (item) => item.scope !== "global" || !globalIgnoreSkills.includes(item.ignoreKey),
+            );
+          }
+
+          // --- Global query: load global skills + all project skills ---
+          // 1. Global skills
+          const globalSummaries = loadSkillSummaries({
             globalSkillsPath: resolveGlobalSkillsPath(),
           });
-          const projectCandidates: Array<{ rootPath: string; projectId: string }> = [];
-          if (projectRootPath && input?.projectId) {
-            projectCandidates.push({
-              rootPath: projectRootPath,
-              projectId: input.projectId,
+          const globalItems = globalSummaries
+            .filter((s) => s.scope === "global")
+            .map((summary) => {
+              const ignoreKey = buildGlobalIgnoreKey(summary.folderName);
+              const isEnabled = !globalIgnoreSkills.includes(ignoreKey);
+              return { ...summary, ignoreKey, isEnabled, isDeletable: true };
             });
-          }
-          const parentProjectRows = parentProjectRootUris.length
-            ? await prisma.project.findMany({
-                where: { rootUri: { in: parentProjectRootUris }, isDeleted: false },
-                select: { id: true, rootUri: true },
-              })
-            : [];
-          const parentIdByRootUri = new Map(
-            parentProjectRows.map((row) => [row.rootUri, row.id]),
-          );
-          for (const entry of parentRootEntries) {
-            const parentId =
-              (await readProjectIdFromMeta(entry.rootPath)) ??
-              parentIdByRootUri.get(entry.rootUri) ??
-              null;
-            if (!parentId) continue;
-            projectCandidates.push({
-              rootPath: entry.rootPath,
-              projectId: parentId,
-            });
-          }
-          const items = summaries.map((summary) => {
-            // 关键：ignoreKey 按 scope/父项目区分，避免同名冲突。
-            const ownerProjectId =
-              summary.scope === "project"
-                ? resolveOwnerProjectId({
-                    skillPath: summary.path,
-                    candidates: projectCandidates,
-                  })
-                : null;
-            const ignoreKey =
-              summary.scope === "global"
-                ? buildGlobalIgnoreKey(summary.folderName)
-                : buildProjectIgnoreKey({
-                      folderName: summary.folderName,
-                      ownerProjectId,
-                      currentProjectId: input?.projectId ?? null,
-                    });
-            const isEnabled =
-              summary.scope === "global"
-                ? input?.projectId
-                  ? !projectIgnoreSkills.includes(ignoreKey)
-                  : !globalIgnoreSkills.includes(ignoreKey)
-                : !projectIgnoreSkills.includes(ignoreKey);
-            // 全局技能允许删除；项目技能仅允许删除当前项目拥有的。
-            const isDeletable = summary.scope === "global"
-              ? true
-              : input?.projectId
-                ? summary.scope === "project" && ownerProjectId === input.projectId
-                : false;
-            return { ...summary, ignoreKey, isEnabled, isDeletable };
+
+          // 2. All project skills
+          const allProjects = await prisma.project.findMany({
+            where: { isDeleted: false },
+            select: { id: true, rootUri: true, title: true },
           });
-          // 全局级别关闭后不在项目列表展示。
-          if (input?.projectId) {
-            return items.filter(
-              (item) =>
-                item.scope !== "global" ||
-                !globalIgnoreSkills.includes(item.ignoreKey)
-            );
+          const projectItems: Array<typeof globalItems[number] & { ownerProjectId?: string; ownerProjectTitle?: string }> = [];
+          const seenPaths = new Set<string>();
+          for (const project of allProjects) {
+            let rootPath: string;
+            try {
+              rootPath = resolveFilePathFromUri(project.rootUri);
+            } catch {
+              continue;
+            }
+            const projectSkills = loadSkillSummaries({ projectRootPath: rootPath });
+            for (const summary of projectSkills) {
+              if (summary.scope !== "project") continue;
+              // Deduplicate by absolute path
+              if (seenPaths.has(summary.path)) continue;
+              seenPaths.add(summary.path);
+              const ignoreKey = buildProjectIgnoreKey({
+                folderName: summary.folderName,
+                ownerProjectId: project.id,
+                currentProjectId: null,
+              });
+              projectItems.push({
+                ...summary,
+                ignoreKey,
+                isEnabled: true,
+                isDeletable: true,
+                ownerProjectId: project.id,
+                ownerProjectTitle: project.title || undefined,
+              });
+            }
           }
-          return items;
+
+          return [...globalItems, ...projectItems];
         }),
       setSkillEnabled: shieldedProcedure
         .input(settingSchemas.setSkillEnabled.input)

@@ -154,7 +154,7 @@
     "skills": "技能",
     "thirdPartyTools": "執行環境",
     "keys": "模型配置",
-    "storage": "物件儲存",
+    "storage": "儲存",
     "agents": "智能體",
     "auxiliaryModel": "AI 工具",
     "memory": "記憶",
@@ -660,6 +660,7 @@
     "enableSkillAriaLabel": "啟用技能 {{name}}",
     "useSkillAriaLabel": "使用技能 {{name}}",
     "viewSkillDir": "查看技能目錄",
+    "useSkill": "使用技能",
     "deleteSkill": "刪除技能",
     "loading": "正在載入技能列表...",
     "empty": "暫無可用技能，請在 `.agents/skills` 或 `~/.agents/skills` 中新增 `SKILL.md`。",
@@ -686,11 +687,11 @@
     },
     "import": {
       "dropHint": "拖放至此處匯入技能",
-      "dropSubHint": "支援技能資料夾或 .zip / .skill 壓縮檔",
+      "dropSubHint": "支援技能資料夾或 .zip / .tar.gz / .skill 壓縮檔",
       "importing": "正在匯入...",
       "success": "成功匯入 {{count}} 個技能：{{names}}",
       "failed": "匯入失敗",
-      "unsupportedFormat": "不支援的檔案格式，請拖入資料夾或 .zip / .skill 檔案"
+      "unsupportedFormat": "不支援的檔案格式，請拖入資料夾或 .zip / .tar.gz / .skill 檔案"
     }
   },
   "modelSelector": {
@@ -740,6 +741,13 @@
     "close": "關閉",
     "copied": "已複製",
     "copyFailed": "複製失敗，請手動複製"
+  },
+  "tempStorage": {
+    "title": "臨時儲存",
+    "subtitle": "臨時建立的專案和畫布將儲存在此目錄下。",
+    "path": "臨時儲存路徑",
+    "pathDescription": "點擊選擇資料夾以更改儲存位置",
+    "selectFolder": "選擇資料夾"
   },
   "auxiliaryCapabilities": {
     "project.classify": {

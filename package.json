@@ -51,6 +51,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "husky": "^9.1.7",
+    "knip": "^5.86.0",
     "lint-staged": "^16.2.7",
     "shadcn": "^3.7.0",
     "tailwindcss": "^4.1.18",

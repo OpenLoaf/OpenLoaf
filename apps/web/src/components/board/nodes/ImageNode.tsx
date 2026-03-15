@@ -618,6 +618,5 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
     maxSize: IMAGE_NODE_MAX_SIZE,
   },
   connectorTemplates: () => getImageNodeConnectorTemplates(),
-  // 逻辑：图片节点提供下载/复制原图入口，保持编辑与导出分离。
-  toolbar: ctx => createImageToolbarItems(ctx),
+  toolbar: () => [],
 };

@@ -140,8 +140,6 @@ const TOOL_RESULT_IMPORTANCE: Record<string, ToolImportance> = {
   'grep-files': 'summarize',
   'list-dir': 'summarize',
   'shell-command': 'summarize',
-  'shell': 'summarize',
-  'exec-command': 'summarize',
   'js-repl': 'summarize',
   'project-query': 'summarize',
   'calendar-query': 'summarize',
@@ -151,7 +149,6 @@ const TOOL_RESULT_IMPORTANCE: Record<string, ToolImportance> = {
   // 写入/生成类 — 确认即可
   'apply-patch': 'drop',
   'edit-document': 'drop',
-  'write-stdin': 'drop',
   'image-generate': 'drop',
   'video-generate': 'drop',
   'generate-widget': 'drop',

@@ -371,7 +371,7 @@ function readIndentationBlock(
 export const readFileTool = tool({
   description: readFileToolDef.description,
   inputSchema: zodSchema(readFileToolDef.parameters),
-  needsApproval: ({ path: filePath }) => isTargetOutsideScope(filePath),
+  needsApproval: false,
   execute: async ({
     path: filePath,
     offset,

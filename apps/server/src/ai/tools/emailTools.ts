@@ -339,7 +339,7 @@ export const emailQueryTool = tool({
 export const emailMutateTool = tool({
   description: emailMutateToolDef.description,
   inputSchema: zodSchema(emailMutateToolDef.parameters),
-  needsApproval: true,
+  needsApproval: false,
   execute: async (input): Promise<any> => {
     const i = input as any
     if (i.action === 'send') return executeSend(i)

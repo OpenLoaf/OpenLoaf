@@ -401,5 +401,5 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
     maxSize: { w: 1280, h: 720 },
   },
   connectorTemplates: () => getVideoNodeConnectorTemplates(),
-  toolbar: (ctx) => createVideoToolbarItems(ctx),
+  toolbar: () => [],
 };

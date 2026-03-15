@@ -283,15 +283,13 @@ export function ChatInputNodeView({
 
   const imageSaveDir = useMemo(() => {
     if (boardFolderScope) {
+      // 逻辑：使用相对路径，服务端通过 projectId 或全局临时目录解析。
       return normalizeProjectRelativePath(
         `${boardFolderScope.relativeFolderPath}/${BOARD_ASSETS_DIR_NAME}`,
       );
     }
-    if (fileContext?.boardFolderUri) {
-      return `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`;
-    }
     return "";
-  }, [boardFolderScope, fileContext?.boardFolderUri]);
+  }, [boardFolderScope]);
 
   const resolveOutputPlacement = useCallback(() => {
     const el = engine.doc.getElementById(nodeId);

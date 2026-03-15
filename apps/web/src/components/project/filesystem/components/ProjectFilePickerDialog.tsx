@@ -42,6 +42,7 @@ import { useProjects } from "@/hooks/use-projects";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { trpc } from "@/utils/trpc";
 import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
+import { FolderOpen } from "lucide-react";
 import { isBoardFileExt, isBoardFolderName } from "@/lib/file-name";
 import {
   formatScopedProjectPath,
@@ -94,6 +95,14 @@ type ProjectFilePickerDialogProps = {
   onSelectFiles?: (selection: ProjectFilePickerSelection[]) => void;
   /** Callback for importing files from the local computer. */
   onImportFromComputer?: () => void;
+  /** Custom label for the import/action button (bottom-left). */
+  actionButtonLabel?: string;
+  /** Custom label for the confirm button (bottom-right). */
+  confirmButtonLabel?: string;
+  /** When true, confirm returns the current folder instead of requiring file selection. */
+  folderSelectMode?: boolean;
+  /** Callback when confirming in folder select mode. */
+  onSelectFolder?: (info: { uri: string; projectId?: string; rootUri?: string }) => void;
 };
 
 type ProjectTreeNode = ProjectNode;
@@ -142,6 +151,10 @@ export function ProjectFilePickerDialog({
   onSelectFile,
   onSelectFiles,
   onImportFromComputer,
+  actionButtonLabel,
+  confirmButtonLabel,
+  folderSelectMode = false,
+  onSelectFolder,
 }: ProjectFilePickerDialogProps) {
   const { t } = useTranslation(['project']);
   const projectListQuery = useProjects();
@@ -378,8 +391,20 @@ export function ProjectFilePickerDialog({
     return items;
   }, [activeRootUri, activeUri, projectOptions]);
 
-  const confirmDisabled = selectedFileEntries.length === 0;
+  const confirmDisabled = folderSelectMode
+    ? activeUri === null
+    : selectedFileEntries.length === 0;
   const shouldShowImportButton = typeof onImportFromComputer === "function";
+
+  const handleFolderConfirm = useCallback(() => {
+    if (activeUri === null) return;
+    onSelectFolder?.({
+      uri: activeUri,
+      projectId: activeProjectId,
+      rootUri: activeRootUri ?? undefined,
+    });
+    onOpenChange(false);
+  }, [activeProjectId, activeRootUri, activeUri, onOpenChange, onSelectFolder]);
 
   const handleImportFromComputer = useCallback(() => {
     if (!onImportFromComputer) return;
@@ -401,12 +426,31 @@ export function ProjectFilePickerDialog({
         onOpenChange(true);
       }}
     >
-      <DialogContent className="w-[70vw] h-[80vh] max-w-none sm:max-w-none flex flex-col">
+      <DialogContent
+        className="w-[70vw] h-[80vh] max-w-none sm:max-w-none flex flex-col"
+        onContextMenu={(e) => e.stopPropagation()}
+      >
         <DialogHeader>
           <DialogTitle>{title ?? t('project:filesystem.selectFileTitle')}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-2 md:grid-cols-[280px_minmax(0,1fr)] flex-1 min-h-0 overflow-hidden">
           <div className="rounded-2xl border border-border/60 bg-card/60 p-3 min-h-0 overflow-y-auto">
+            {defaultRootUri && defaultActiveUri != null ? (
+              <>
+                <button
+                  type="button"
+                  className="mb-2 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors duration-150"
+                  onClick={() => {
+                    setActiveRootUri(defaultRootUri);
+                    setActiveUri(resolveInitialActiveUri(defaultRootUri, defaultActiveUri));
+                  }}
+                >
+                  <FolderOpen size={14} className="shrink-0" />
+                  <span>{t('project:filesystem.currentFolder')}</span>
+                </button>
+                <div className="mb-2 border-t border-border/40" />
+              </>
+            ) : null}
             <div className="mb-2 flex h-6 items-center text-xs text-muted-foreground">{t('project:filesystem.projectLabel')}</div>
             {projectOptions.length === 0 ? (
               <div className="text-xs text-muted-foreground">{t('project:filesystem.noProject')}</div>
@@ -487,7 +531,7 @@ export function ProjectFilePickerDialog({
               className="rounded-md shadow-none transition-colors duration-150"
               onClick={handleImportFromComputer}
             >
-              {t('project:filesystem.importFromComputer')}
+              {actionButtonLabel ?? t('project:filesystem.importFromComputer')}
             </Button>
           ) : (
             <span />
@@ -506,9 +550,9 @@ export function ProjectFilePickerDialog({
               type="button"
               disabled={confirmDisabled}
               className="rounded-md bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20 shadow-none transition-colors duration-150"
-              onClick={() => handleConfirm()}
+              onClick={() => folderSelectMode ? handleFolderConfirm() : handleConfirm()}
             >
-              {t('project:filesystem.selectConfirmLabel')}
+              {confirmButtonLabel ?? t('project:filesystem.selectConfirmLabel')}
             </Button>
           </div>
         </DialogFooter>

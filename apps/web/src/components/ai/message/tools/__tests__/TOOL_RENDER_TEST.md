@@ -3,7 +3,7 @@
 ## 使用方法
 将下面的 prompt 发送给 AI 对话，观察各工具的渲染效果。
 
-## 可自然触发的工具（8/12）
+## 可自然触发的工具（7/11）
 
 | # | 工具 | 触发方式 |
 |---|------|---------|
@@ -12,8 +12,7 @@
 | 8 | ShellTool (TestResults) | shell 运行测试命令 |
 | 9 | WriteFileTool (Copy) | apply-patch |
 | 10 | EnvFileTool | read-file on .env |
-| 11 | ExecCommandTool (Sandbox) | exec-command |
-| 12 | WidgetTool (JSXPreview) | generate-widget |
+| 11 | WidgetTool (JSXPreview) | generate-widget |
 | 4 | Confirmation | generate-widget 自带 needsApproval |
 
 ## 无法自然触发的工具（4/12）
@@ -36,9 +35,8 @@
 2. 用 shell-command 执行：echo "Hello from shell" && ls -la package.json
 3. 用 shell-command 执行一个会产生错误的 Node.js 命令：node -e "function foo() { throw new TypeError('test error message'); } function bar() { foo(); } bar();"
 4. 用 shell-command 执行项目的测试命令（如果有的话）：pnpm vitest run --reporter=verbose 2>&1 | head -50
-5. 用 exec-command 启动一个交互式命令：echo "interactive session test" && sleep 1 && echo "done"
-6. 创建一个临时测试文件 /tmp/openloaf-tool-test.txt，内容为 "Tool rendering test"
-7. 生成一个简单的时钟 Widget，显示当前时间
+5. 创建一个临时测试文件 /tmp/openloaf-tool-test.txt，内容为 "Tool rendering test"
+6. 生成一个简单的时钟 Widget，显示当前时间
 
 每个任务完成后简要说明结果，然后继续下一个。
 ```

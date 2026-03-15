@@ -44,7 +44,7 @@ import {
   resolveFileName,
 } from "@/lib/image/uri";
 import { getStackedImageRect } from "../utils/image-insert";
-import type { ImagePreviewPayload } from "./BoardProvider";
+import type { ImagePreviewPayload, BoardFileContext } from "./BoardProvider";
 import { useBoardContext } from "./BoardProvider";
 import { useBoardViewState } from "./useBoardViewState";
 import {
@@ -213,6 +213,83 @@ const logPasteClipboardPayload = (event: ClipboardEvent) => {
     textUriListLength: textUriList.length,
   });
 };
+
+/** Resolve the download URL and file name for an image or video node. */
+function resolveNodeFileInfo(
+  node: CanvasNodeElement,
+  fileContext?: BoardFileContext,
+): { href: string; fileName: string } | null {
+  if (node.type === "image") {
+    const props = node.props as import("../nodes/ImageNode").ImageNodeProps;
+    const originalSrc = (props.originalSrc ?? "").trim();
+    if (!originalSrc) return null;
+    const scope = resolveBoardFolderScope(fileContext);
+    const projectPath = resolveProjectPathFromBoardUri({
+      uri: originalSrc,
+      boardFolderScope: scope,
+      currentProjectId: fileContext?.projectId,
+      rootUri: fileContext?.rootUri,
+    });
+    const href = projectPath
+      ? getPreviewEndpoint(projectPath, { projectId: fileContext?.projectId })
+      : originalSrc;
+    if (!href) return null;
+    return { href, fileName: props.fileName || "image.png" };
+  }
+  if (node.type === "video") {
+    const props = node.props as import("../nodes/VideoNode").VideoNodeProps;
+    const sourcePath = (props.sourcePath ?? "").trim();
+    if (!sourcePath) return null;
+    const scope = resolveBoardFolderScope(fileContext);
+    const projectPath = resolveProjectPathFromBoardUri({
+      uri: sourcePath,
+      boardFolderScope: scope,
+      currentProjectId: fileContext?.projectId,
+      rootUri: fileContext?.rootUri,
+    });
+    const href = projectPath
+      ? getPreviewEndpoint(projectPath, { projectId: fileContext?.projectId })
+      : sourcePath;
+    if (!href) return null;
+    return { href, fileName: props.fileName || sourcePath.split("/").pop() || "video.mp4" };
+  }
+  return null;
+}
+
+/** Save a node file to disk via native file dialog or browser download. */
+async function saveNodeToComputer(
+  node: CanvasNodeElement,
+  fileContext?: BoardFileContext,
+) {
+  const info = resolveNodeFileInfo(node, fileContext);
+  if (!info) return;
+  const { href, fileName } = info;
+  const saveFile = window.openloafElectron?.saveFile;
+  if (saveFile) {
+    try {
+      const response = await fetch(href);
+      if (!response.ok) return;
+      const buffer = await response.arrayBuffer();
+      const contentBase64 = btoa(
+        new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ""),
+      );
+      const extension = fileName.split(".").pop() || "bin";
+      await saveFile({
+        contentBase64,
+        suggestedName: fileName,
+        filters: [{ name: "File", extensions: [extension] }],
+      });
+      return;
+    } catch {
+      // Fall through to browser download.
+    }
+  }
+  const link = document.createElement("a");
+  link.href = href;
+  link.download = fileName;
+  link.rel = "noreferrer";
+  link.click();
+}
 
 /** Resolve a pasteable payload from the system clipboard. */
 async function readClipboardPayload(): Promise<ClipboardPastePayload | null> {
@@ -397,6 +474,9 @@ export function BoardCanvasInteraction({
   const lastContextMenuWorldRef = useRef<CanvasPoint | null>(null);
   /** 右键点击到的节点（null 表示空白区域） */
   const [contextNode, setContextNode] = useState<CanvasNodeElement | null>(null);
+  /** 另存为 Dialog 状态 */
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const [saveAsNode, setSaveAsNode] = useState<CanvasNodeElement | null>(null);
   /** Latest cursor applier used by async loaders. */
   const applyCursorRef = useRef<() => void>(() => {});
   /** Track wheel gesture target to avoid mid-gesture handoff. */
@@ -1233,6 +1313,12 @@ export function BoardCanvasInteraction({
           engine.selection.setSelection([nodeId]);
           engine.copySelection();
           engine.pasteClipboard();
+        }}
+        onNodeSaveAs={(nodeId) => {
+          const node = engine.doc.getElementById(nodeId);
+          if (!node || node.kind !== "node") return;
+          setSaveAsNode(node as CanvasNodeElement);
+          setSaveAsOpen(true);
         }}
         onContextMenu={(event) => {
           if (!showUi) return;

@@ -122,7 +122,8 @@
     "sendToBack": "Send to Back",
     "lock": "Lock",
     "unlock": "Unlock",
-    "delete": "Delete"
+    "delete": "Delete",
+    "saveAs": "Save As…"
   },
   "controls": {
     "undo": "Undo",

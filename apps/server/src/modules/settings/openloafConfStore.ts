@@ -65,6 +65,7 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   // Show chat preface viewer button.
   chatPrefaceEnabled: false,
   appLocalStorageDir: "",
+  appTempStorageDir: "",
   appAutoBackupDir: "",
   appCustomRules: "",
   appNotificationSoundEnabled: true,
@@ -286,6 +287,12 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : typeof fallbackSource.appLocalStorageDir === "string"
         ? fallbackSource.appLocalStorageDir
         : DEFAULT_BASIC_CONF.appLocalStorageDir;
+  const appTempStorageDir =
+    typeof source.appTempStorageDir === "string"
+      ? source.appTempStorageDir
+      : typeof fallbackSource.appTempStorageDir === "string"
+        ? fallbackSource.appTempStorageDir
+        : DEFAULT_BASIC_CONF.appTempStorageDir;
   const appAutoBackupDir =
     typeof source.appAutoBackupDir === "string"
       ? source.appAutoBackupDir
@@ -404,6 +411,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     boardSnapEnabled,
     chatPrefaceEnabled,
     appLocalStorageDir,
+    appTempStorageDir,
     appAutoBackupDir,
     appCustomRules,
     appNotificationSoundEnabled,

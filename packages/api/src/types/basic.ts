@@ -99,6 +99,8 @@ export const basicConfigSchema = z.object({
   /** Show chat preface viewer button. */
   chatPrefaceEnabled: z.boolean(),
   appLocalStorageDir: z.string(),
+  /** Temporary storage directory for temp projects and canvases. */
+  appTempStorageDir: z.string(),
   appAutoBackupDir: z.string(),
   appCustomRules: z.string(),
   appNotificationSoundEnabled: z.boolean(),

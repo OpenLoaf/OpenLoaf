@@ -10,6 +10,8 @@
   "calendar": "日历",
   "email": "邮箱",
   "tasks": "任务",
+  "skills": "技能",
+  "agents": "智能体",
   "settings": "设置",
   "sidebar": {
     "projectFolder": "项目列表",
@@ -282,7 +284,8 @@
     "createTitle": "新建画布",
     "createDesc": "选择画布所属的项目，或创建不保存到项目的临时画布。",
     "tempCanvas": "临时画布（不保存到项目）",
-    "createConfirm": "创建"
+    "createConfirm": "创建",
+    "changeColor": "修改颜色"
   },
   "projectListPage": {
     "helpTitle": "项目管理",

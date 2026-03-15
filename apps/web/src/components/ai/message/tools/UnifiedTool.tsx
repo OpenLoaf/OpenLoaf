@@ -86,10 +86,7 @@ function getToolIcon(kind: string): React.ReactNode {
       return <ImageIcon className={iconCls} />;
     case "update-plan":
       return <ListChecksIcon className={iconCls} />;
-    case "shell":
     case "shell-command":
-    case "exec-command":
-    case "write-stdin":
       return <TerminalIcon className={iconCls} />;
     default:
       return <WrenchIcon className={iconCls} />;

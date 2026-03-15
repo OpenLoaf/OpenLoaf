@@ -23,8 +23,5 @@ export {
 // Export master prompt getter
 export { getMasterPrompt } from './templates/master'
 
-// Export project agent prompt and tool IDs
-export { getProjectPrompt, PROJECT_AGENT_TOOL_IDS } from './templates/project'
-
 // Export PM agent prompt and tool IDs
 export { getPMPrompt, PM_AGENT_TOOL_IDS } from './templates/pm'

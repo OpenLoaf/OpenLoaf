@@ -15,6 +15,7 @@ import {
   getProjectRootPath,
   resolveFilePathFromUri,
 } from "@openloaf/api/services/vfsService";
+import { getOpenLoafRootDir } from "@openloaf/config";
 import { readBasicConf, readS3Providers } from "@/modules/settings/openloafConfStore";
 import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
 import type { OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
@@ -202,6 +203,14 @@ async function normalizeImageSaveDirectory(targetPath: string): Promise<string> 
   }
 }
 
+/** Resolve the effective temp storage directory. */
+export function getResolvedTempStorageDir(): string {
+  const conf = readBasicConf();
+  const custom = conf.appTempStorageDir?.trim();
+  if (custom) return custom;
+  return path.join(getOpenLoafRootDir(), "temp");
+}
+
 /** Resolve local directory from a project-relative path. */
 function resolveRelativeSaveDirectory(input: {
   /** Relative path input. */
@@ -212,12 +221,15 @@ function resolveRelativeSaveDirectory(input: {
   const normalized = input.path.replace(/\\/g, "/").replace(/^(\.\/)+/, "").replace(/^\/+/, "");
   if (!normalized) return null;
   if (normalized.split("/").some((segment) => segment === "..")) return null;
-  const rootPath = input.projectId ? getProjectRootPath(input.projectId) : null;
+  // 逻辑：有 projectId 时解析到项目根目录；否则回退到全局临时存储目录。
+  const rootPath = input.projectId
+    ? getProjectRootPath(input.projectId)
+    : getResolvedTempStorageDir();
   if (!rootPath) return null;
 
   const targetPath = path.resolve(rootPath, normalized);
   const rootPathResolved = path.resolve(rootPath);
-  // 限制在 project 根目录内，避免路径穿越。
+  // 限制在根目录内，避免路径穿越。
   if (targetPath !== rootPathResolved && !targetPath.startsWith(rootPathResolved + path.sep)) {
     return null;
   }

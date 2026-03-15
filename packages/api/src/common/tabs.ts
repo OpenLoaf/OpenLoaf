@@ -95,6 +95,20 @@ export const PROJECT_LIST_TAB_INPUT = {
   icon: "📁",
 } as const;
 
+export const SKILLS_TAB_INPUT = {
+  baseId: "base:skills",
+  component: "skill-settings",
+  titleKey: "nav:skills",
+  icon: "🧩",
+} as const;
+
+export const AGENTS_TAB_INPUT = {
+  baseId: "base:agents",
+  component: "agent-management",
+  titleKey: "nav:agents",
+  icon: "🤖",
+} as const;
+
 export const DEFAULT_TAB_INFO = {
   titleKey: AI_ASSISTANT_TAB_INPUT.titleKey,
   icon: AI_ASSISTANT_TAB_INPUT.icon,

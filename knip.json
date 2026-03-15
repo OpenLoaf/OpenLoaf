@@ -1,0 +1,24 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "workspaces": {
+    "apps/web": {
+      "entry": [
+        "src/app/**/*.{ts,tsx}",
+        "src/app/**/layout.{ts,tsx}",
+        "src/app/**/page.{ts,tsx}",
+        "next.config.{js,ts,mjs}"
+      ],
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignore": [
+        "src/**/*.test.{ts,tsx}",
+        "src/**/*.vitest.{ts,tsx}",
+        "src/**/__tests__/**"
+      ],
+      "ignoreDependencies": [
+        "@openloaf/ui",
+        "@openloaf/db",
+        "@openloaf/config"
+      ]
+    }
+  }
+}

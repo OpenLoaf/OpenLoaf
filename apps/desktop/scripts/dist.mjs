@@ -22,6 +22,27 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
+// 提前加载 .env，使后续 process.env 检查（如 APPLE_TEAM_ID）能读到值
+// 脚本由 pnpm 从 apps/desktop/ 目录执行，.env 在当前工作目录
+const dotenvPath = path.resolve('.env')
+if (fs.existsSync(dotenvPath)) {
+  for (const line of fs.readFileSync(dotenvPath, 'utf-8').split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const eqIdx = trimmed.indexOf('=')
+    if (eqIdx === -1) continue
+    const key = trimmed.slice(0, eqIdx).trim()
+    let val = trimmed.slice(eqIdx + 1).trim()
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1)
+    }
+    // 不覆盖已有的环境变量
+    if (process.env[key] == null) {
+      process.env[key] = val
+    }
+  }
+}
+
 // --arch=x64 支持：覆盖宿主架构，用于在 Apple Silicon 上交叉编译 x64 版本
 const archArg = process.argv.find((a) => a.startsWith('--arch='))
 const arch = archArg ? archArg.split('=')[1] : os.arch()

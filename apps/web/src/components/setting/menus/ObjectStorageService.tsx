@@ -22,6 +22,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@openloaf/ui/dialog";
+import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
+import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
+import { FolderOpen } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/ConfirmDeleteDialog";
 import { S3ProviderDialog } from "@/components/setting/menus/provider/S3ProviderDialog";
 import { S3ProviderSection } from "@/components/setting/menus/provider/S3ProviderSection";
@@ -29,6 +33,14 @@ import {
   useProviderManagement,
   type S3ProviderEntry,
 } from "@/components/setting/menus/provider/use-provider-management";
+
+function SettingIcon({ icon: Icon, bg, fg }: { icon: LucideIcon; bg: string; fg: string }) {
+  return (
+    <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded ${bg}`}>
+      <Icon className={`h-3 w-3 ${fg}`} />
+    </div>
+  );
+}
 
 /**
  * Manage object storage providers and global S3 preferences.
@@ -188,8 +200,48 @@ export function ObjectStorageService() {
     });
   }
 
+  async function handlePickTempStorageDir() {
+    const api = window.openloafElectron;
+    if (api?.pickDirectory) {
+      // basic.appTempStorageDir is always populated by the server with the
+      // platform-specific default, so the picker opens at the current path.
+      const result = await api.pickDirectory({ defaultPath: basic.appTempStorageDir });
+      if (result?.ok && result.path) {
+        void setBasic({ appTempStorageDir: result.path });
+      }
+    }
+  }
+
+  const tempStorageDisplay = basic.appTempStorageDir || t("tempStorage.selectFolder");
+
   return (
     <div className="space-y-3">
+      <OpenLoafSettingsGroup
+        title={t("tempStorage.title")}
+        subtitle={t("tempStorage.subtitle")}
+        className="pb-4"
+      >
+        <div className="flex flex-wrap items-center gap-2 py-3">
+          <SettingIcon icon={FolderOpen} bg="bg-ol-amber-bg" fg="text-ol-amber" />
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium">{t("tempStorage.path")}</div>
+            <div className="text-xs text-muted-foreground">{t("tempStorage.pathDescription")}</div>
+          </div>
+          <OpenLoafSettingsField className="w-full sm:w-72 shrink-0">
+            <button
+              type="button"
+              className="flex h-9 w-full items-center rounded-lg border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
+              onClick={handlePickTempStorageDir}
+            >
+              <FolderOpen className="mr-2 h-3.5 w-3.5 shrink-0" />
+              <span dir="rtl" className="truncate text-left">
+                {tempStorageDisplay}
+              </span>
+            </button>
+          </OpenLoafSettingsField>
+        </div>
+      </OpenLoafSettingsGroup>
+
       <S3ProviderSection
         entries={s3Entries}
         autoUploadEnabled={resolvedAutoUpload}

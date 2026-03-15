@@ -10,7 +10,7 @@
 import { execFile } from "node:child_process";
 import { tool, zodSchema } from "ai";
 import { grepFilesToolDef } from "@openloaf/api/types/tools/runtime";
-import { resolveToolPath, isTargetOutsideScope } from "@/ai/tools/toolScope";
+import { resolveToolPath } from "@/ai/tools/toolScope";
 
 const DEFAULT_LIMIT = 100;
 const TIMEOUT_MS = 30_000;
@@ -45,7 +45,7 @@ function getRgBin(): string | null {
 export const grepFilesTool = tool({
   description: grepFilesToolDef.description,
   inputSchema: zodSchema(grepFilesToolDef.parameters),
-  needsApproval: ({ path: searchPath }) => searchPath ? isTargetOutsideScope(searchPath) : false,
+  needsApproval: false,
   execute: async ({ pattern, include, path: searchPath, limit }): Promise<string> => {
     const resolvedPath = searchPath
       ? resolveToolPath({ target: searchPath }).absPath

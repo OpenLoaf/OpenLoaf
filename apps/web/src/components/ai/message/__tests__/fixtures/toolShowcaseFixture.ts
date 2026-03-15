@@ -240,17 +240,6 @@ const shellCodeParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-exec-command',
-    toolCallId: callId(),
-    toolName: 'exec-command',
-    state: 'output-available',
-    input: { cmd: 'node -e "console.log(JSON.stringify({version: process.version}))"' },
-    output: {
-      ok: true,
-      data: { output: '{"version":"v22.14.0"}' },
-    },
-  },
-  {
     type: 'tool-js-repl',
     toolCallId: callId(),
     toolName: 'js-repl',

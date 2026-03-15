@@ -2,6 +2,7 @@ model Board {
   id          String    @id          /// board_{yyyyMMdd}_{HHmmss}_{random8}
   title       String    @default("新画布")
   isPin       Boolean   @default(false)
+  colorIndex  Int?                   /// Index into the preset color palette (0-7).
   projectId   String?
   folderUri   String                 /// 相对路径: .openloaf/boards/board_{id}/
   createdAt   DateTime  @default(now())

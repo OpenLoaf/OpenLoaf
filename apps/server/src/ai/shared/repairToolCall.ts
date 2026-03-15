@@ -9,30 +9,13 @@
  */
 import { InvalidToolInputError, NoSuchToolError, parsePartialJson, type ToolCallRepairFunction } from "ai";
 import { logger } from "@/common/logger";
-import { suggestToolName } from "@/ai/tools/toolRegistry";
 
 /**
  * Creates a repair function for tool calls.
  */
 export function createToolCallRepair(): ToolCallRepairFunction<any> {
   return async ({ toolCall, tools, error, inputSchema }) => {
-    // 逻辑：工具名不存在时，检查别名表并自动修正为正确名称。
     if (NoSuchToolError.isInstance(error)) {
-      const suggestion = suggestToolName(toolCall.toolName);
-      if (suggestion) {
-        // 提取规范名称（从 "Did you mean 'xxx'?" 中）
-        const match = suggestion.match(/'([^']+)'/)
-        const canonical = match?.[1]
-        if (canonical && tools[canonical]) {
-          logger.info(
-            { toolCallId: toolCall.toolCallId, from: toolCall.toolName, to: canonical },
-            "[tool-repair] tool name alias resolved",
-          );
-          return { ...toolCall, toolName: canonical };
-        }
-      }
-      // Tool exists but not yet activated via tool-search — let SDK report
-      // the error so LLM learns to use tool-search first.
       logger.info(
         { toolCallId: toolCall.toolCallId, toolName: toolCall.toolName },
         "[tool-repair] tool not active; LLM should use tool-search to load it",

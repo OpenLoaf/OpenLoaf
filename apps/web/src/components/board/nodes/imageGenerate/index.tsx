@@ -62,8 +62,6 @@ import { normalizeOutputCount, normalizeTextValue } from "./utils";
 import { extractTextNodePlainText } from "../lib/text-node-utils";
 import { AdvancedSettingsPanel } from "./AdvancedSettingsPanel";
 import { ModelSelect } from "./ModelSelect";
-import { getBoardChatMessageMeta } from "../../utils/board-chat-message";
-import { createBoardChatMessageToolbarItems } from "../../utils/board-chat-toolbar";
 
 export { IMAGE_GENERATE_NODE_TYPE };
 
@@ -163,17 +161,13 @@ function EditableImageGenerateNodeView({
   const currentProjectId = boardFolderScope?.projectId ?? fileContext?.projectId;
   const imageSaveDir = useMemo(() => {
     if (boardFolderScope) {
-      // 逻辑：默认写入画布资产目录，避免图片散落在画布根目录。
+      // 逻辑：使用相对路径，服务端通过 projectId 或全局临时目录解析。
       return normalizeProjectRelativePath(
         `${boardFolderScope.relativeFolderPath}/${BOARD_ASSETS_DIR_NAME}`
       );
     }
-    // 逻辑：独立画布无 projectId 时回退到 file:// URI，确保服务端能保存到文件。
-    if (fileContext?.boardFolderUri) {
-      return `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`;
-    }
     return "";
-  }, [boardFolderScope, fileContext?.boardFolderUri]);
+  }, [boardFolderScope]);
   /** Abort controller for the active request. */
   const abortControllerRef = useRef<AbortController | null>(null);
   /** Throttle timestamp for focus-driven viewport moves. */
@@ -936,9 +930,5 @@ export const ImageGenerateNodeDefinition: CanvasNodeDefinition<ImageGenerateNode
     connectable: "auto",
     minSize: { w: 340, h: 280 },
   },
-  toolbar: (ctx) => {
-    if (!ctx.element.props.readOnlyProjection) return [];
-    const messageMeta = getBoardChatMessageMeta(ctx.element);
-    return messageMeta ? createBoardChatMessageToolbarItems(ctx, messageMeta) : [];
-  },
+  toolbar: () => [],
 };

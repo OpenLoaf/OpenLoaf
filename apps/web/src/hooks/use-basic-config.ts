@@ -38,6 +38,7 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   // Toggle chat preface viewer button.
   chatPrefaceEnabled: false,
   appLocalStorageDir: "",
+  appTempStorageDir: "",
   appAutoBackupDir: "",
   appCustomRules: "",
   appNotificationSoundEnabled: true,

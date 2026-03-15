@@ -63,9 +63,6 @@ export const masterTemplate: AgentTemplate = {
     'list-media-models',
     // chart
     'chart-render',
-    // code
-    'js-repl',
-    'js-repl-reset',
     // project
     'project-query',
     'project-mutate',

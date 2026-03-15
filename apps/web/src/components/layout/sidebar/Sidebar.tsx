@@ -22,14 +22,16 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@openloaf/ui/sidebar";
-import { CalendarDays, Clock, FolderKanban, LayoutDashboard, Mail, Palette, Search, Settings, Sparkles } from "lucide-react";
+import { Bot, CalendarDays, Clock, FolderClosed, LayoutDashboard, Mail, Palette, Search, Settings, Sparkles, Wand2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { useAppState } from "@/hooks/use-app-state";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import {
+  AGENTS_TAB_INPUT,
   AI_ASSISTANT_TAB_INPUT,
   CANVAS_LIST_TAB_INPUT,
   PROJECT_LIST_TAB_INPUT,
+  SKILLS_TAB_INPUT,
   TEMP_CHAT_TAB_INPUT,
   WORKBENCH_TAB_INPUT,
 } from "@openloaf/api/common";
@@ -136,6 +138,8 @@ export const AppSidebar = ({
   const isCalendarActive = activeForegroundComponent === "calendar-page" || (!activeForegroundComponent && layoutView.viewType === "calendar");
   const isEmailActive = activeForegroundComponent === "email-page" || (!activeForegroundComponent && layoutView.viewType === "email");
   const isTasksActive = activeForegroundComponent === "scheduled-tasks-page" || (!activeForegroundComponent && layoutView.viewType === "scheduled-tasks");
+  const isSkillsActive = activeForegroundComponent === SKILLS_TAB_INPUT.component || isMenuActive(SKILLS_TAB_INPUT);
+  const isAgentsActive = activeForegroundComponent === AGENTS_TAB_INPUT.component || isMenuActive(AGENTS_TAB_INPUT);
   const isSettingsActive = layoutView.isSettingsPage;
   const isInProject = layoutView.isProjectContext;
 
@@ -196,7 +200,7 @@ export const AppSidebar = ({
             onClick={() => openPrimaryPageTab({ ...CANVAS_LIST_TAB_INPUT })}
           />
           <IconNavItem
-            icon={FolderKanban}
+            icon={FolderClosed}
             tooltip={t("sidebarProjectSpace")}
             color="blue"
             isActive={
@@ -256,6 +260,20 @@ export const AppSidebar = ({
             tooltip={`${t("search")} (⌘K)`}
             color="blue"
             onClick={() => setSearchOpen(true)}
+          />
+          <IconNavItem
+            icon={Bot}
+            tooltip={t("agents")}
+            color="blue"
+            isActive={!isInProject && isAgentsActive}
+            onClick={() => openPrimaryPageTab({ ...AGENTS_TAB_INPUT })}
+          />
+          <IconNavItem
+            icon={Wand2}
+            tooltip={t("skills")}
+            color="purple"
+            isActive={!isInProject && isSkillsActive}
+            onClick={() => openPrimaryPageTab({ ...SKILLS_TAB_INPUT })}
           />
           <IconNavItem
             icon={Settings}

@@ -39,7 +39,6 @@ import { emailQueryToolDef, emailMutateToolDef } from "@openloaf/api/types/tools
 import { imageGenerateToolDef, videoGenerateToolDef } from "@openloaf/api/types/tools/mediaGenerate";
 import { excelQueryToolDef, excelMutateToolDef } from "@openloaf/api/types/tools/excel";
 import { wordQueryToolDef, wordMutateToolDef } from "@openloaf/api/types/tools/word";
-import { testApprovalToolDef } from "@openloaf/api/types/tools/approvalTest";
 import {
   spawnAgentToolDef,
   sendInputToolDef,
@@ -47,10 +46,7 @@ import {
   abortAgentToolDef,
 } from "@openloaf/api/types/tools/agent";
 import {
-  shellToolDef,
   shellCommandToolDef,
-  execCommandToolDef,
-  writeStdinToolDef,
   readFileToolDef,
   applyPatchToolDef,
   editDocumentToolDef,
@@ -90,10 +86,7 @@ const ALL_TOOL_DEFS: ToolDefLike[] = [
   grepFilesToolDef,
   applyPatchToolDef,
   editDocumentToolDef,
-  shellToolDef,
   shellCommandToolDef,
-  execCommandToolDef,
-  writeStdinToolDef,
   emailQueryToolDef,
   emailMutateToolDef,
   calendarQueryToolDef,
@@ -119,7 +112,6 @@ const ALL_TOOL_DEFS: ToolDefLike[] = [
   jsReplResetToolDef,
   timeNowToolDef,
   updatePlanToolDef,
-  testApprovalToolDef,
   requestUserInputToolDef,
   jsxCreateToolDef,
   subAgentToolDef,

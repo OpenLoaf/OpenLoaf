@@ -40,9 +40,6 @@ export const PM_AGENT_TOOL_IDS = [
   'project-query',
   // document
   'edit-document',
-  // code
-  'js-repl',
-  'js-repl-reset',
   // file info
   'file-info',
   // memory

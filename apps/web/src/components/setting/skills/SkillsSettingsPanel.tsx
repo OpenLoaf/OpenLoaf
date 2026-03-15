@@ -18,8 +18,18 @@ import { useLayoutState } from "@/hooks/use-layout-state";
 import { Button } from "@openloaf/ui/button";
 import { Switch } from "@openloaf/ui/switch";
 import { Input } from "@openloaf/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
-import { ArrowRight, Eye, FolderOpen, Import, Loader2, Search, Trash2, X } from "lucide-react";
+import {
+  ArrowRight,
+  Eye,
+  FolderOpen,
+  Globe,
+  Import,
+  Loader2,
+  FolderCog,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -42,50 +52,37 @@ import { useGlobalOverlay } from "@/lib/globalShortcuts";
 type SkillScope = "project" | "global";
 
 type SkillSummary = {
-  /** Skill name. */
   name: string;
-  /** Skill description. */
   description: string;
-  /** Absolute skill file path. */
   path: string;
-  /** Skill folder name. */
   folderName: string;
-  /** Ignore key for toggling. */
   ignoreKey: string;
-  /** Skill scope. */
   scope: SkillScope;
-  /** Whether the skill is enabled in current scope. */
   isEnabled: boolean;
-  /** Whether the skill can be deleted in current list. */
   isDeletable: boolean;
+  ownerProjectId?: string;
+  ownerProjectTitle?: string;
 };
 
 type SkillsSettingsPanelProps = {
-  /** Project id for loading project-scoped skills. */
   projectId?: string;
 };
 
-/** Filter option for skill scope. */
-type ScopeFilter = "all" | SkillScope;
-
-/** Filter option for skill enabled status. */
 type StatusFilter = "all" | "enabled" | "disabled";
 
-/** Card styles per scope. */
-const SCOPE_CARD_CLASS: Record<SkillScope, string> = {
-  project:
-    "bg-ol-blue-bg hover:bg-ol-blue-bg-hover",
-  global:
-    "bg-ol-surface-muted hover:bg-ol-divider",
+/** Group of skills under a scope section. */
+type SkillGroup = {
+  key: string;
+  label: string;
+  icon: typeof Globe;
+  skills: SkillSummary[];
 };
-
 
 /** Shared skills settings panel. */
 export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   const { t } = useTranslation('settings');
   const isProjectList = Boolean(projectId);
   const [searchQuery, setSearchQuery] = useState("");
-  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const queryOptions = projectId
@@ -103,29 +100,75 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     return globalSkill ? resolveSkillsRootUri(globalSkill.path) : "";
   }, [skills]);
 
-  /** Filtered skills based on search query and filters. */
+  /** Filtered skills. */
   const filteredSkills = useMemo(() => {
     return skills.filter((skill) => {
-      // 搜索过滤：匹配名称或描述
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchName = skill.name.toLowerCase().includes(query);
         const matchDesc = skill.description.toLowerCase().includes(query);
         if (!matchName && !matchDesc) return false;
       }
-      // 作用域过滤
-      if (scopeFilter !== "all" && skill.scope !== scopeFilter) return false;
-      // 启用状态过滤
       if (statusFilter === "enabled" && !skill.isEnabled) return false;
       if (statusFilter === "disabled" && skill.isEnabled) return false;
       return true;
     });
-  }, [skills, searchQuery, scopeFilter, statusFilter]);
+  }, [skills, searchQuery, statusFilter]);
 
-  /** Text for current skill list source. */
-  const scopeHintText = isProjectList ? t('skills.scopeHintProject') : t('skills.scopeHintGlobal');
+  /** Group skills: global first, then each project separately. */
+  const skillGroups = useMemo((): SkillGroup[] => {
+    const globalSkills = filteredSkills.filter((s) => s.scope === "global");
+    const projectSkills = filteredSkills.filter((s) => s.scope === "project");
+    const groups: SkillGroup[] = [];
 
-  /** Skills root uri for system file manager open. */
+    // Global group
+    if (globalSkills.length > 0) {
+      groups.push({
+        key: "global",
+        label: t('skills.scopeGlobal'),
+        icon: Globe,
+        skills: globalSkills,
+      });
+    }
+
+    // Group project skills by ownerProjectId
+    if (projectSkills.length > 0) {
+      if (isProjectList) {
+        // In project page, show all project skills as one group
+        groups.push({
+          key: "project",
+          label: t('skills.scopeProject'),
+          icon: FolderCog,
+          skills: projectSkills,
+        });
+      } else {
+        // In global page, group by each project
+        const byProject = new Map<string, SkillSummary[]>();
+        const projectOrder: string[] = [];
+        for (const skill of projectSkills) {
+          const pid = skill.ownerProjectId || "_unknown";
+          if (!byProject.has(pid)) {
+            byProject.set(pid, []);
+            projectOrder.push(pid);
+          }
+          byProject.get(pid)!.push(skill);
+        }
+        for (const pid of projectOrder) {
+          const skills = byProject.get(pid)!;
+          const title = skills[0]?.ownerProjectTitle || pid;
+          groups.push({
+            key: `project:${pid}`,
+            label: title,
+            icon: FolderCog,
+            skills,
+          });
+        }
+      }
+    }
+
+    return groups;
+  }, [filteredSkills, isProjectList, t]);
+
   const skillsRootUri = useMemo(() => {
     const baseRootUri = isProjectList ? projectData?.project?.rootUri : globalSkillsRootUri;
     if (!baseRootUri) return "";
@@ -140,52 +183,27 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   }, [globalSkillsRootUri, isProjectList, projectData?.project?.rootUri]);
 
   const mkdirMutation = useMutation(
-    trpc.fs.mkdir.mutationOptions({
-      onError: (error) => {
-        toast.error(error.message);
-      },
-    }),
+    trpc.fs.mkdir.mutationOptions({ onError: (error) => { toast.error(error.message) } }),
   );
 
   const updateSkillMutation = useMutation(
     trpc.settings.setSkillEnabled.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.settings.getSkills.queryOptions().queryKey,
-        });
-        if (projectId) {
-          queryClient.invalidateQueries({
-            queryKey: trpc.settings.getSkills.queryOptions({ projectId }).queryKey,
-          });
-        }
-      },
-      onError: (error) => {
-        toast.error(error.message);
-      },
+      onSuccess: () => { invalidateSkillQueries() },
+      onError: (error) => { toast.error(error.message) },
     }),
   );
   const deleteSkillMutation = useMutation(
     trpc.settings.deleteSkill.mutationOptions({
       onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.settings.getSkills.queryOptions().queryKey,
-        });
-        if (projectId) {
-          queryClient.invalidateQueries({
-            queryKey: trpc.settings.getSkills.queryOptions({ projectId }).queryKey,
-          });
-        }
+        invalidateSkillQueries();
         toast.success(t('skills.deletedSuccess'));
       },
-      onError: (error) => {
-        toast.error(error.message);
-      },
+      onError: (error) => { toast.error(error.message) },
     }),
   );
 
-  /** Supported archive extensions for drag-and-drop. */
-  const ARCHIVE_EXTENSIONS = useMemo(() => new Set(['.zip', '.skill']), []);
-
+  // --- Drag-and-drop ---
+  const ARCHIVE_EXTENSIONS = useMemo(() => ['.zip', '.skill', '.tar', '.tar.gz', '.tgz'], []);
   const [isDragOver, setIsDragOver] = useState(false);
   const dragCounter = useRef(0);
 
@@ -193,268 +211,204 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     trpc.settings.importSkill.mutationOptions({
       onSuccess: (data) => {
         if (data.ok) {
-          toast.success(
-            t('skills.import.success', { count: data.importedSkills.length, names: data.importedSkills.join(', ') }),
-          );
+          toast.success(t('skills.import.success', { count: data.importedSkills.length, names: data.importedSkills.join(', ') }));
           invalidateSkillQueries();
         } else {
           toast.error(data.error ?? t('skills.import.failed'));
         }
       },
-      onError: (error) => {
-        toast.error(error.message ?? t('skills.import.failed'));
-      },
+      onError: (error) => { toast.error(error.message ?? t('skills.import.failed')) },
     }),
   );
-
   const importArchiveMutation = useMutation(
     trpc.settings.importSkillFromArchive.mutationOptions({
       onSuccess: (data) => {
         if (data.ok) {
-          toast.success(
-            t('skills.import.success', { count: data.importedSkills.length, names: data.importedSkills.join(', ') }),
-          );
+          toast.success(t('skills.import.success', { count: data.importedSkills.length, names: data.importedSkills.join(', ') }));
           invalidateSkillQueries();
         } else {
           toast.error(data.error ?? t('skills.import.failed'));
         }
       },
-      onError: (error) => {
-        toast.error(error.message ?? t('skills.import.failed'));
-      },
+      onError: (error) => { toast.error(error.message ?? t('skills.import.failed')) },
     }),
   );
-
   const isImporting = importSkillMutation.isPending || importArchiveMutation.isPending;
 
-  /** Invalidate skill queries after import. */
   const invalidateSkillQueries = useCallback(() => {
-    queryClient.invalidateQueries({
-      queryKey: trpc.settings.getSkills.queryOptions().queryKey,
-    });
+    queryClient.invalidateQueries({ queryKey: trpc.settings.getSkills.queryOptions().queryKey });
     if (projectId) {
-      queryClient.invalidateQueries({
-        queryKey: trpc.settings.getSkills.queryOptions({ projectId }).queryKey,
-      });
+      queryClient.invalidateQueries({ queryKey: trpc.settings.getSkills.queryOptions({ projectId }).queryKey });
     }
   }, [projectId]);
 
-  /** Resolve local path from a File object (Electron). */
   const resolveFilePath = useCallback((file: File): string | null => {
     const candidate = (file as File & { path?: string }).path;
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate.trim();
-    }
+    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
     if (window.openloafElectron?.getPathForFile) {
-      try {
-        const resolved = window.openloafElectron.getPathForFile(file);
-        if (resolved) return String(resolved);
-      } catch {
-        // fallback
-      }
+      try { const r = window.openloafElectron.getPathForFile(file); if (r) return String(r) } catch { /* */ }
     }
     return null;
   }, []);
 
-  /** Check if file extension is a supported archive. */
   const isArchiveFile = useCallback((name: string) => {
-    const ext = name.lastIndexOf('.') >= 0 ? name.slice(name.lastIndexOf('.')).toLowerCase() : '';
-    return ARCHIVE_EXTENSIONS.has(ext);
+    const lower = name.toLowerCase();
+    return ARCHIVE_EXTENSIONS.some((ext) => lower.endsWith(ext));
   }, [ARCHIVE_EXTENSIONS]);
 
-  /** Handle drag events. */
   const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     dragCounter.current++;
-    if (dragCounter.current === 1) {
-      setIsDragOver(true);
-    }
+    if (dragCounter.current === 1) setIsDragOver(true);
   }, []);
-
   const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     dragCounter.current--;
-    if (dragCounter.current <= 0) {
-      dragCounter.current = 0;
-      setIsDragOver(false);
-    }
+    if (dragCounter.current <= 0) { dragCounter.current = 0; setIsDragOver(false) }
   }, []);
+  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation() }, []);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
-
-  /** Handle drop of files/folders. */
   const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragCounter.current = 0;
-    setIsDragOver(false);
-
+    e.preventDefault(); e.stopPropagation();
+    dragCounter.current = 0; setIsDragOver(false);
     if (isImporting) return;
-
     const scope = isProjectList ? "project" as const : "global" as const;
     const files = Array.from(e.dataTransfer.files);
-
     if (files.length === 0) return;
-
-    // Try Electron path resolution first
     const isElectron = Boolean(window.openloafElectron?.getPathForFile);
-
     for (const file of files) {
       if (isElectron) {
-        // Electron: resolve local path and use importSkill
         const localPath = resolveFilePath(file);
-        if (localPath) {
-          importSkillMutation.mutate({
-            sourcePath: localPath,
-            scope,
-            projectId: scope === "project" ? projectId : undefined,
-          });
-          continue;
-        }
+        if (localPath) { importSkillMutation.mutate({ sourcePath: localPath, scope, projectId: scope === "project" ? projectId : undefined }); continue }
       }
-
-      // Web fallback: only archives can be imported via upload
       if (isArchiveFile(file.name)) {
         const buffer = await file.arrayBuffer();
-        const base64 = btoa(
-          new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''),
-        );
-        importArchiveMutation.mutate({
-          contentBase64: base64,
-          fileName: file.name,
-          scope,
-          projectId: scope === "project" ? projectId : undefined,
-        });
+        const base64 = btoa(new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+        importArchiveMutation.mutate({ contentBase64: base64, fileName: file.name, scope, projectId: scope === "project" ? projectId : undefined });
       } else {
         toast.error(t('skills.import.unsupportedFormat'));
       }
     }
   }, [isImporting, isProjectList, projectId, resolveFilePath, isArchiveFile, importSkillMutation, importArchiveMutation, t]);
 
-  /** Open skills folder in system file manager. */
+  // --- Actions ---
   const handleOpenSkillsRoot = useCallback(async () => {
     if (!skillsRootUri) return;
-    if (isProjectList && !projectId) {
-      toast.error(t('skills.projectNotFound'));
-      return;
-    }
-    try {
-      await mkdirMutation.mutateAsync({
-        projectId: isProjectList ? projectId : undefined,
-        uri: ".agents/skills",
-        recursive: true,
-      });
-    } catch {
-      return;
-    }
+    if (isProjectList && !projectId) { toast.error(t('skills.projectNotFound')); return }
+    try { await mkdirMutation.mutateAsync({ projectId: isProjectList ? projectId : undefined, uri: ".agents/skills", recursive: true }) } catch { return }
     const api = window.openloafElectron;
-    if (!api?.openPath) {
-      toast.error(t('skills.webNotSupported'));
-      return;
-    }
+    if (!api?.openPath) { toast.error(t('skills.webNotSupported')); return }
     const res = await api.openPath({ uri: skillsRootUri });
-    if (!res?.ok) {
-      toast.error(res?.reason ?? t('skills.openDirFailed'));
-    }
+    if (!res?.ok) toast.error(res?.reason ?? t('skills.openDirFailed'));
   }, [isProjectList, mkdirMutation, projectId, skillsRootUri, t]);
 
-  /** Open a skill folder tree in stack. */
-  const handleOpenSkill = useCallback(
-    (skill: SkillSummary) => {
-      const isProjectSkill = skill.scope === "project";
-      const isGlobalSkill = skill.scope === "global";
-      // 全局技能路径为绝对路径，不依赖全局或项目 rootUri。
-      const baseRootUri = isGlobalSkill
-        ? undefined
-        : isProjectSkill
-          ? projectData?.project?.rootUri
-          : undefined;
-      const rootUri = resolveSkillFolderUri(skill.path, baseRootUri);
-      if (!rootUri) return;
-      const currentUri = resolveSkillUri(skill.path, rootUri);
-      const stackKey = skill.ignoreKey.trim() || skill.path || skill.name;
-      const titlePrefix = isGlobalSkill
-        ? t('skills.scopeGlobal')
-        : t('skills.scopeProject');
-      // 打开左侧 stack 的文件系统预览，根目录固定为技能所在目录。
-      pushStackItem({
-        id: `skill:${skill.scope}:${stackKey}`,
-        sourceKey: `skill:${skill.scope}:${stackKey}`,
-        component: "folder-tree-preview",
-        title: `${titlePrefix} · ${skill.name}`,
-        params: {
-          rootUri,
-          currentUri,
-          currentEntryKind: "file",
-          projectId: isProjectSkill ? projectId : undefined,
-          projectTitle: skill.name,
-          viewerRootUri: baseRootUri,
-          __skillFolderPath: skill.path.replace(/[/\\]SKILL\.md$/i, ''),
-        },
-      });
-      // 关闭设置对话框，避免对话框遮挡 stack 预览面板。
-      setSettingsOpen(false);
-    },
-    [
-      projectData?.project?.rootUri,
-      projectId,
-      pushStackItem,
-      setSettingsOpen,
-    ],
-  );
+  const handleOpenSkill = useCallback((skill: SkillSummary) => {
+    const isProjectSkill = skill.scope === "project";
+    const isGlobalSkill = skill.scope === "global";
+    const baseRootUri = isGlobalSkill ? undefined : isProjectSkill ? projectData?.project?.rootUri : undefined;
+    const rootUri = resolveSkillFolderUri(skill.path, baseRootUri);
+    if (!rootUri) return;
+    const currentUri = resolveSkillUri(skill.path, rootUri);
+    const stackKey = skill.ignoreKey.trim() || skill.path || skill.name;
+    const titlePrefix = isGlobalSkill ? t('skills.scopeGlobal') : t('skills.scopeProject');
+    pushStackItem({
+      id: `skill:${skill.scope}:${stackKey}`,
+      sourceKey: `skill:${skill.scope}:${stackKey}`,
+      component: "folder-tree-preview",
+      title: `${titlePrefix} · ${skill.name}`,
+      params: { rootUri, currentUri, currentEntryKind: "file", projectId: isProjectSkill ? projectId : undefined, projectTitle: skill.name, viewerRootUri: baseRootUri, __skillFolderPath: skill.path.replace(/[/\\]SKILL\.md$/i, '') },
+    });
+    setSettingsOpen(false);
+  }, [projectData?.project?.rootUri, projectId, pushStackItem, setSettingsOpen, t]);
 
-  /** Toggle skill enable state for current scope. */
-  const handleToggleSkill = useCallback(
-    (skill: SkillSummary, nextEnabled: boolean) => {
-      if (!skill.ignoreKey.trim()) return;
-      const scope = isProjectList ? "project" : "global";
-      updateSkillMutation.mutate({
-        scope,
-        projectId: scope === "project" ? projectId : undefined,
-        ignoreKey: skill.ignoreKey,
-        enabled: nextEnabled,
-      });
-    },
-    [isProjectList, projectId, updateSkillMutation],
-  );
+  const handleToggleSkill = useCallback((skill: SkillSummary, nextEnabled: boolean) => {
+    if (!skill.ignoreKey.trim()) return;
+    const scope = isProjectList ? "project" : "global";
+    updateSkillMutation.mutate({ scope, projectId: scope === "project" ? projectId : undefined, ignoreKey: skill.ignoreKey, enabled: nextEnabled });
+  }, [isProjectList, projectId, updateSkillMutation]);
 
-  /** Insert skill command into chat input. */
-  const handleInsertSkillCommand = useCallback(
-    (skill: SkillSummary) => {
-      const skillName = skill.name.trim();
-      if (!skillName) return;
-      window.dispatchEvent(
-        new CustomEvent("openloaf:chat-insert-skill", {
-          detail: { skillName },
-        })
-      );
-      window.dispatchEvent(new CustomEvent("openloaf:chat-focus-input"));
-      useLayoutState.getState().setRightChatCollapsed(false);
-    },
-    [],
-  );
+  const handleInsertSkillCommand = useCallback((skill: SkillSummary) => {
+    const skillName = skill.name.trim();
+    if (!skillName) return;
+    window.dispatchEvent(new CustomEvent("openloaf:chat-insert-skill", { detail: { skillName } }));
+    window.dispatchEvent(new CustomEvent("openloaf:chat-focus-input"));
+    useLayoutState.getState().setRightChatCollapsed(false);
+  }, []);
 
-  /** Delete a skill folder with confirmation. */
-  const handleDeleteSkill = useCallback(
-    async (skill: SkillSummary) => {
-      if (!skill.isDeletable || !skill.ignoreKey.trim()) return;
-      const confirmed = window.confirm(t('skills.confirmDelete', { name: skill.name }));
-      if (!confirmed) return;
-      const scope = isProjectList ? "project" : "global";
-      await deleteSkillMutation.mutateAsync({
-        scope,
-        projectId: scope === "project" ? projectId : undefined,
-        ignoreKey: skill.ignoreKey,
-        skillPath: skill.path,
-      });
-    },
-    [deleteSkillMutation, isProjectList, projectId],
-  );
+  const handleDeleteSkill = useCallback(async (skill: SkillSummary) => {
+    if (!skill.isDeletable || !skill.ignoreKey.trim()) return;
+    const confirmed = window.confirm(t('skills.confirmDelete', { name: skill.name }));
+    if (!confirmed) return;
+    const scope = skill.scope === "global" ? "global" : "project";
+    await deleteSkillMutation.mutateAsync({ scope, projectId: scope === "project" ? projectId : undefined, ignoreKey: skill.ignoreKey, skillPath: skill.path });
+  }, [deleteSkillMutation, projectId, t]);
+
+  /** Render a single skill card. */
+  const renderSkillCard = (skill: SkillSummary) => {
+    const baseRootUri = skill.scope === "global" ? undefined : skill.scope === "project" ? projectData?.project?.rootUri : undefined;
+    const canOpenSkill = Boolean(resolveSkillFolderUri(skill.path, baseRootUri));
+
+    return (
+      <ContextMenu key={skill.ignoreKey || skill.path || `${skill.scope}:${skill.name}`}>
+        <ContextMenuTrigger asChild>
+          <div
+            className="group relative flex flex-col rounded-2xl border border-border/70 bg-background/50 p-3.5 transition-colors duration-200 hover:border-ol-green/50 dark:bg-background/30 cursor-pointer"
+            onClick={() => { if (canOpenSkill) handleOpenSkill(skill) }}
+          >
+            {/* Header: name + switch */}
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-foreground">{skill.name}</div>
+              </div>
+              <Switch
+                checked={skill.isEnabled}
+                onCheckedChange={(checked) => handleToggleSkill(skill, checked)}
+                className="border-ol-divider bg-ol-surface-muted data-[state=checked]:bg-ol-green/60 dark:data-[state=checked]:bg-ol-green/45"
+                aria-label={t('skills.enableSkillAriaLabel', { name: skill.name })}
+                disabled={updateSkillMutation.isPending}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+
+            {/* Description */}
+            <p className="mt-1.5 min-w-0 flex-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+              {skill.description?.trim() ? skill.description : skill.name}
+            </p>
+
+            {/* Footer: folder name + use button */}
+            <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
+              <span className="truncate text-[11px] text-muted-foreground/60">{skill.folderName}</span>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 flex-none rounded-lg opacity-0 transition-opacity group-hover:opacity-100 hover:bg-ol-green/10 text-ol-green"
+                onClick={(e) => { e.stopPropagation(); handleInsertSkillCommand(skill) }}
+                aria-label={t('skills.useSkillAriaLabel', { name: skill.name })}
+              >
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-44">
+          <ContextMenuItem icon={Eye} onClick={() => handleOpenSkill(skill)} disabled={!canOpenSkill}>
+            {t('skills.viewSkillDir')}
+          </ContextMenuItem>
+          <ContextMenuItem icon={ArrowRight} onClick={() => handleInsertSkillCommand(skill)}>
+            {t('skills.useSkill')}
+          </ContextMenuItem>
+          {skill.isDeletable ? (
+            <ContextMenuItem icon={Trash2} variant="destructive" onClick={() => void handleDeleteSkill(skill)} disabled={deleteSkillMutation.isPending}>
+              {t('skills.deleteSkill')}
+            </ContextMenuItem>
+          ) : null}
+        </ContextMenuContent>
+      </ContextMenu>
+    );
+  };
+
+  const totalCount = filteredSkills.length;
 
   return (
     <div
@@ -466,15 +420,14 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     >
       {/* Drag overlay */}
       {isDragOver ? (
-        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg border-2 border-dashed border-ol-blue bg-ol-blue-bg/80 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-2 text-ol-blue">
+        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg border-2 border-dashed border-ol-green bg-ol-green/5 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-2 text-ol-green">
             <Import className="h-8 w-8" />
             <p className="text-sm font-medium">{t('skills.import.dropHint')}</p>
             <p className="text-xs text-muted-foreground">{t('skills.import.dropSubHint')}</p>
           </div>
         </div>
       ) : null}
-      {/* Importing indicator */}
       {isImporting ? (
         <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -483,199 +436,105 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
           </div>
         </div>
       ) : null}
-      <div className="flex flex-wrap items-start justify-between gap-2.5 border-b border-border/60 px-3 py-2.5">
-        <div className="space-y-1">
-          <h3 className="text-sm font-semibold tracking-tight text-foreground">{t('skills.title')}</h3>
-          <p className="text-xs text-muted-foreground">
-            {scopeHintText}。{t('skills.subtitle')}
-          </p>
+
+      {/* Header */}
+      <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3">
+        {/* Search */}
+        <div className="relative min-w-0 flex-1">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder={t('skills.searchPlaceholder')}
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            className="h-8 rounded-md border-transparent bg-muted/40 pl-8 pr-7 text-sm focus:border-border"
+          />
+          {searchQuery ? (
+            <Button type="button" variant="ghost" size="icon" className="absolute right-0.5 top-1/2 h-7 w-7 -translate-y-1/2 rounded-md" onClick={() => setSearchQuery("")} aria-label={t('skills.clearSearch')}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          ) : null}
         </div>
+
+        {/* Status filter pills */}
+        <div className="flex items-center gap-1">
+          {(["all", "enabled", "disabled"] as StatusFilter[]).map((value) => (
+            <Button
+              key={value}
+              type="button"
+              size="sm"
+              variant={statusFilter === value ? "secondary" : "ghost"}
+              className={cn(
+                "h-7 rounded-md px-2.5 text-xs",
+                statusFilter === value && "bg-ol-green/10 text-ol-green hover:bg-ol-green/20",
+              )}
+              onClick={() => setStatusFilter(value)}
+            >
+              {value === "all" ? t('skills.statusAll') : value === "enabled" ? t('skills.statusEnabled') : t('skills.statusDisabled')}
+            </Button>
+          ))}
+        </div>
+
+        {/* Count */}
+        <span className="text-xs text-muted-foreground/60 tabular-nums whitespace-nowrap">{totalCount}</span>
+
+        {/* Open folder */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               type="button"
-              size="sm"
-              variant="secondary"
-              className="h-8 rounded-md border border-border/70 bg-background/85 px-2.5 text-xs transition-colors hover:bg-muted/55 sm:px-3"
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 rounded-md"
               onClick={() => void handleOpenSkillsRoot()}
               disabled={!skillsRootUri || (isProjectList && !projectId)}
               aria-label={t('skills.openDirAriaLabel')}
             >
               <FolderOpen className="h-3.5 w-3.5" />
-              <span className="ml-1.5 hidden sm:inline">{t('skills.openDirButton')}</span>
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={6}>
-            {t('skills.openDirTooltip')}
-          </TooltipContent>
+          <TooltipContent side="bottom" sideOffset={6}>{t('skills.openDirTooltip')}</TooltipContent>
         </Tooltip>
       </div>
 
-      <div className="border-b border-border/60 px-3 py-2.5">
-        <div className="grid grid-cols-1 gap-2.5 xl:grid-cols-[minmax(0,1fr)_auto_auto] xl:items-center">
-          <div className="relative min-w-0">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder={t('skills.searchPlaceholder')}
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              className="h-9 rounded-lg border-border/70 bg-background/90 pl-9 pr-9 text-sm"
-            />
-            {searchQuery ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-md"
-                onClick={() => setSearchQuery("")}
-                aria-label={t('skills.clearSearch')}
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
-              ) : null}
-          </div>
-          <div className="min-w-0 overflow-x-auto pb-0.5">
-            <Tabs value={scopeFilter} onValueChange={(value) => setScopeFilter(value as ScopeFilter)}>
-              <TabsList className="h-8 w-max rounded-md border border-border/70 bg-muted/40 p-1">
-                <TabsTrigger value="all" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
-                  {t('skills.filterAll')}
-                </TabsTrigger>
-                {isProjectList ? (
-                  <TabsTrigger value="project" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
-                    {t('skills.filterProject')}
-                  </TabsTrigger>
-                ) : null}
-                <TabsTrigger value="global" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
-                  {t('skills.filterGlobal')}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-
-          <div className="min-w-0 overflow-x-auto pb-0.5">
-            <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
-              <TabsList className="h-8 w-max rounded-md border border-border/70 bg-muted/40 p-1">
-                <TabsTrigger value="all" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
-                  {t('skills.statusAll')}
-                </TabsTrigger>
-                <TabsTrigger value="enabled" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
-                  {t('skills.statusEnabled')}
-                </TabsTrigger>
-                <TabsTrigger value="disabled" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
-                  {t('skills.statusDisabled')}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-1">
-        {filteredSkills.length > 0 ? (
-          <div className="grid gap-3 pb-1 [grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr))]">
-            {filteredSkills.map((skill) => {
-              const baseRootUri =
-                skill.scope === "global"
-                  ? undefined
-                  : skill.scope === "project"
-                    ? projectData?.project?.rootUri
-                    : undefined;
-              const canOpenSkill = Boolean(
-                resolveSkillFolderUri(skill.path, baseRootUri),
-              );
-
-              return (
-                <ContextMenu key={skill.ignoreKey || skill.path || `${skill.scope}:${skill.name}`}>
-                  <ContextMenuTrigger asChild>
-                    <div
-                      className={cn(
-                        "group flex h-full flex-col rounded-[22px] p-3.5 transition-[background-color] duration-200 sm:rounded-[26px] sm:p-4",
-                        SCOPE_CARD_CLASS[skill.scope],
-                      )}
-                      onDoubleClick={() => {
-                        if (!canOpenSkill) return;
-                        handleOpenSkill(skill);
-                      }}
-                    >
-                      <div className="flex min-w-0 items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-foreground">{skill.name}</div>
-                        </div>
-                        <Switch
-                          checked={skill.isEnabled}
-                          onCheckedChange={(checked) => handleToggleSkill(skill, checked)}
-                          className="border-ol-divider bg-ol-surface-muted data-[state=checked]:bg-ol-green/60 dark:data-[state=checked]:bg-ol-green/45"
-                          aria-label={t('skills.enableSkillAriaLabel', { name: skill.name })}
-                          disabled={updateSkillMutation.isPending}
-                        />
-                      </div>
-                      <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
-                        <p className="min-w-0 flex-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                          {skill.description?.trim() ? skill.description : skill.name}
-                        </p>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="secondary"
-                          className="h-8 w-8 flex-none rounded-md border-0 bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover"
-                          onClick={() => handleInsertSkillCommand(skill)}
-                          aria-label={t('skills.useSkillAriaLabel', { name: skill.name })}
-                        >
-                          <ArrowRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent className="w-44">
-                    <ContextMenuItem
-                      icon={Eye}
-                      onClick={() => handleOpenSkill(skill)}
-                      disabled={!canOpenSkill}
-                    >
-                      {t('skills.viewSkillDir')}
-                    </ContextMenuItem>
-                    {skill.isDeletable ? (
-                      <ContextMenuItem
-                        icon={Trash2}
-                        variant="destructive"
-                        onClick={() => void handleDeleteSkill(skill)}
-                        disabled={deleteSkillMutation.isPending}
-                      >
-                        {t('skills.deleteSkill')}
-                      </ContextMenuItem>
-                    ) : null}
-                  </ContextMenuContent>
-                </ContextMenu>
-              );
-            })}
-          </div>
-        ) : null}
-
+      {/* Body */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {skillsQuery.isLoading ? (
-          <div className="py-9 text-center text-sm text-muted-foreground">
-            {t('skills.loading')}
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3.5">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-[104px] animate-pulse rounded-2xl bg-muted/40" />
+            ))}
           </div>
-        ) : null}
-
-        {!skillsQuery.isLoading && !skillsQuery.isError && skills.length === 0 ? (
+        ) : skillsQuery.isError ? (
+          <div className="py-9 text-center text-sm text-destructive">
+            {t('skills.readFailed', { error: skillsQuery.error?.message ?? t('skills.unknownError') })}
+          </div>
+        ) : skills.length === 0 ? (
           <div className="py-9 text-center text-sm text-muted-foreground">
             {t('skills.empty')}
           </div>
-        ) : null}
-
-        {!skillsQuery.isLoading &&
-        !skillsQuery.isError &&
-        skills.length > 0 &&
-        filteredSkills.length === 0 ? (
+        ) : filteredSkills.length === 0 ? (
           <div className="py-9 text-center text-sm text-muted-foreground">
             {t('skills.noMatch')}
           </div>
-        ) : null}
-
-        {skillsQuery.isError ? (
-          <div className="py-9 text-center text-sm text-destructive">
-            {t('skills.readFailed', { error: skillsQuery.error?.message ?? t('skills.unknownError') })}
+        ) : skillGroups.length > 0 ? (
+          <div className="space-y-6">
+            {skillGroups.map((group) => (
+              <div key={group.key}>
+                {skillGroups.length > 1 ? (
+                  <div className="mb-3 flex items-center gap-1.5 px-1">
+                    <group.icon className="h-3.5 w-3.5 text-muted-foreground/50" />
+                    <h3 className="text-xs font-medium text-muted-foreground/70">
+                      {group.label}
+                      <span className="ml-1.5 tabular-nums">({group.skills.length})</span>
+                    </h3>
+                  </div>
+                ) : null}
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3.5">
+                  {group.skills.map(renderSkillCard)}
+                </div>
+              </div>
+            ))}
           </div>
         ) : null}
       </div>

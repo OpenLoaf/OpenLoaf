@@ -11,29 +11,6 @@ import { z } from "zod";
 
 // 中文注释：运行时工具的审批策略由 server 侧 tool 实现决定，API 定义只描述参数与展示信息。
 
-export const shellToolDef = {
-  id: "shell",
-  name: "Shell 命令（数组）",
-  description: `触发：当你需要执行系统命令并希望得到可解析的结构化输出时调用（数组形式）。用途：执行 shell 命令并返回 JSON 字符串输出。返回：{"output": string, "metadata": {"exit_code": number, "duration_seconds": number}}（output 可能被截断）。不适用：只要可读文本输出用 shell-command；需要持续交互用 exec-command/write-stdin。
-
-Runs a shell command and returns its output.
-- Unix: arguments are passed to execvp(). Most terminal commands should be prefixed with ["bash", "-lc"].
-- Windows: arguments are passed to CreateProcessW(). Most commands should be prefixed with ["powershell.exe", "-Command"].
-- Always set the \`workdir\` param when using the shell function. Do not use \`cd\` unless absolutely necessary.`,
-  parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：列出目录内容。"),
-    command: z.array(z.string()).min(1),
-    workdir: z.string().optional(),
-    timeoutMs: z.number().int().positive().optional(),
-    sandboxPermissions: z.enum(["use_default", "require_escalated"]).optional(),
-    justification: z.string().optional(),
-  }),
-  component: null,
-} as const;
-
 export const shellCommandToolDef = {
   id: "shell-command",
   name: "Shell 命令（字符串）",
@@ -54,47 +31,6 @@ Runs a shell command and returns its output.
     timeoutMs: z.number().int().positive().optional(),
     sandboxPermissions: z.enum(["use_default", "require_escalated"]).optional(),
     justification: z.string().optional(),
-  }),
-  component: null,
-} as const;
-
-export const execCommandToolDef = {
-  id: "exec-command",
-  name: "交互命令",
-  description:
-    "触发：当你需要启动可持续交互的命令会话（PTY），并可能后续继续写入 stdin 时调用。用途：启动命令并返回首段输出与会话信息。返回：文本块（含 Chunk ID、Wall time、Exit code、Output；若仍在运行会包含 sessionId）。不适用：一次性命令优先使用 shell/shell-command。",
-  parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：获取当前系统时间。"),
-    cmd: z.string().min(1),
-    workdir: z.string().optional(),
-    shell: z.string().optional(),
-    login: z.boolean().optional(),
-    tty: z.boolean().optional(),
-    yieldTimeMs: z.number().int().positive().optional(),
-    maxOutputTokens: z.number().int().positive().optional(),
-    sandboxPermissions: z.enum(["use_default", "require_escalated"]).optional(),
-    justification: z.string().optional(),
-  }),
-  component: null,
-} as const;
-
-export const writeStdinToolDef = {
-  id: "write-stdin",
-  name: "写入会话",
-  description:
-    "触发：当你需要向已有交互会话写入输入并读取最新输出时调用。用途：向 session 写入字符并读取输出。返回：文本块（含 Chunk ID、Wall time、Exit code、Output；若仍在运行会包含 sessionId）。不适用：没有 sessionId 时不要调用。",
-  parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：向交互会话发送输入。"),
-    sessionId: z.string().min(1),
-    chars: z.string().optional(),
-    yieldTimeMs: z.number().int().positive().optional(),
-    maxOutputTokens: z.number().int().positive().optional(),
   }),
   component: null,
 } as const;

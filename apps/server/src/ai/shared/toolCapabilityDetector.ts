@@ -14,7 +14,7 @@
 import type { PrefaceCapabilities } from '@/ai/shared/types'
 
 /** Shell 类工具 ID。 */
-const SHELL_TOOL_IDS = ['shell', 'shell-command', 'exec-command'] as const
+const SHELL_TOOL_IDS = ['shell-command'] as const
 
 /** 文件类工具 ID。 */
 const FILE_TOOL_IDS = [

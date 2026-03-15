@@ -128,12 +128,6 @@ async function main() {
     assert.equal(result.decision, 'approve')
   })
 
-  await test('D3: exec-command with safe command auto-approves', async () => {
-    const svc = createTestService()
-    const result = await svc.evaluate(makeRequest('exec-command', { cmd: 'ls -la' }))
-    assert.equal(result.decision, 'approve')
-  })
-
   console.log('\n--- E: Decision parsing ---')
 
   await test('E1: parseDecision handles valid JSON', () => {

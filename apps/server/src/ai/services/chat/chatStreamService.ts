@@ -16,7 +16,7 @@ import { type ChatModelSource, type ModelDefinition } from "@openloaf/api/common
 import type { ImageGenerateOptions, OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
 import type { AiImageRequest } from "@openloaf-saas/sdk";
 import type { OpenLoafUIMessage, TokenUsage } from "@openloaf/api/types/message";
-import { createMasterAgentRunner, createProjectAgentRunner, createPMAgentRunner } from "@/ai";
+import { createMasterAgentRunner, createPMAgentRunner } from "@/ai";
 import { getTemplate, isTemplateId } from "@/ai/agent-templates";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import { resolveCliChatModelId } from "@/ai/models/cli/cliProviderEntry";
@@ -677,7 +677,7 @@ export async function runChatStream(input: {
         instructions,
       });
     } else {
-      // agentType: 'project' | 'pm' — 使用专用 Agent
+      // agentType: 'pm' — 使用专用 Agent
       // 前端 transport 将 params 展平到顶层，taskExecutor 则放在 params 下——两处都要读取。
       const agentType = input.request.agentType ?? input.request.params?.agentType;
       const rawTaskId = input.request.taskId ?? input.request.params?.taskId;
@@ -688,12 +688,6 @@ export async function runChatStream(input: {
           modelInfo: resolved.modelInfo,
           taskId,
           projectId: input.request.projectId,
-        });
-      } else if (agentType === 'project') {
-        masterAgent = createProjectAgentRunner({
-          model: resolved.model,
-          modelInfo: resolved.modelInfo,
-          taskId,
         });
       } else {
         // 逻辑：组装默认 agent instructions（template.systemPrompt）。

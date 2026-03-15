@@ -57,8 +57,6 @@ import { isEmptyParamValue, normalizeTextValue, resolveParameterDefaults } from 
 import { extractTextNodePlainText } from "../lib/text-node-utils";
 import { ModelSelect } from "./ModelSelect";
 import { AdvancedSettingsPanel } from "./AdvancedSettingsPanel";
-import { getBoardChatMessageMeta } from "../../utils/board-chat-message";
-import { createBoardChatMessageToolbarItems } from "../../utils/board-chat-toolbar";
 
 export { VIDEO_GENERATE_NODE_TYPE };
 
@@ -153,17 +151,13 @@ function EditableVideoGenerateNodeView({
   const currentProjectId = boardFolderScope?.projectId ?? fileContext?.projectId;
   const videoSaveDir = useMemo(() => {
     if (boardFolderScope) {
-      // 逻辑：默认写入画布资产目录，避免视频散落在画布根目录。
+      // 逻辑：使用相对路径，服务端通过 projectId 或全局临时目录解析。
       return normalizeProjectRelativePath(
         `${boardFolderScope.relativeFolderPath}/${BOARD_ASSETS_DIR_NAME}`
       );
     }
-    // 逻辑：独立画布无 projectId 时回退到 file:// URI，确保服务端能保存到文件。
-    if (fileContext?.boardFolderUri) {
-      return `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`;
-    }
     return "";
-  }, [boardFolderScope, fileContext?.boardFolderUri]);
+  }, [boardFolderScope]);
   /** Throttle timestamp for focus-driven viewport moves. */
   const focusThrottleRef = useRef(0);
   /** Abort controller for the active request. */
@@ -1017,9 +1011,5 @@ export const VideoGenerateNodeDefinition: CanvasNodeDefinition<VideoGenerateNode
     connectable: "anchors",
     minSize: { w: 320, h: 280 },
   },
-  toolbar: (ctx) => {
-    if (!ctx.element.props.readOnlyProjection) return [];
-    const messageMeta = getBoardChatMessageMeta(ctx.element);
-    return messageMeta ? createBoardChatMessageToolbarItems(ctx, messageMeta) : [];
-  },
+  toolbar: () => [],
 };

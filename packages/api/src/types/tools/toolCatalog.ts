@@ -26,7 +26,6 @@ import { excelQueryToolDef, excelMutateToolDef } from "./excel";
 import { wordQueryToolDef, wordMutateToolDef } from "./word";
 import { pptxQueryToolDef, pptxMutateToolDef } from "./pptx";
 import { pdfQueryToolDef, pdfMutateToolDef } from "./pdf";
-import { testApprovalToolDef } from "./approvalTest";
 import {
   spawnAgentToolDef,
   sendInputToolDef,
@@ -34,10 +33,7 @@ import {
   abortAgentToolDef,
 } from "./agent";
 import {
-  shellToolDef,
   shellCommandToolDef,
-  execCommandToolDef,
-  writeStdinToolDef,
   readFileToolDef,
   applyPatchToolDef,
   editDocumentToolDef,
@@ -97,10 +93,7 @@ const TOOL_DEFS: ToolDefLike[] = [
   grepFilesToolDef,
   applyPatchToolDef,
   editDocumentToolDef,
-  shellToolDef,
   shellCommandToolDef,
-  execCommandToolDef,
-  writeStdinToolDef,
   emailQueryToolDef,
   emailMutateToolDef,
   calendarQueryToolDef,
@@ -133,7 +126,6 @@ const TOOL_DEFS: ToolDefLike[] = [
   jsReplResetToolDef,
   timeNowToolDef,
   updatePlanToolDef,
-  testApprovalToolDef,
   requestUserInputToolDef,
   jsxCreateToolDef,
   subAgentToolDef,
@@ -182,10 +174,7 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'grep-files': { keywords: ['grep', 'search', 'find', 'pattern', 'regex', 'match', 'text'], group: 'fileRead' },
   'apply-patch': { keywords: ['patch', 'edit', 'write', 'modify', 'change', 'file', 'update'], group: 'fileWrite' },
   'edit-document': { keywords: ['edit', 'document', 'modify', 'write', 'update', 'doc'], group: 'fileWrite' },
-  'shell': { keywords: ['shell', 'bash', 'terminal', 'command', 'execute', 'run', 'interactive'], group: 'shell' },
   'shell-command': { keywords: ['shell', 'bash', 'command', 'terminal', 'execute', 'run', 'script'], group: 'shell' },
-  'exec-command': { keywords: ['exec', 'execute', 'command', 'run', 'process'], group: 'shell' },
-  'write-stdin': { keywords: ['stdin', 'write', 'input', 'pipe', 'interactive'], group: 'shell' },
   'open-url': { keywords: ['url', 'link', 'browser', 'open', 'web', 'navigate', 'website'], group: 'web' },
   'browser-snapshot': { keywords: ['browser', 'screenshot', 'snapshot', 'capture', 'page'], group: 'web' },
   'browser-observe': { keywords: ['browser', 'observe', 'watch', 'monitor', 'dom', 'elements'], group: 'web' },
@@ -223,7 +212,6 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'widget-list': { keywords: ['widget', 'list', 'available', 'browse'], group: 'ui' },
   'widget-get': { keywords: ['widget', 'get', 'fetch', 'retrieve', 'detail'], group: 'ui' },
   'widget-check': { keywords: ['widget', 'check', 'validate', 'verify', 'status'], group: 'ui' },
-  'test-approval': { keywords: ['test', 'approval', 'review', 'verify', 'check'], group: 'core' },
   'sub-agent': { keywords: ['agent', 'sub', 'delegate', 'dispatch', 'spawn'], group: 'agent' },
   'image-process': { keywords: ['image', 'picture', 'photo', 'resize', 'crop', 'rotate', 'convert', 'format', 'compress', 'sharp', 'jpg', 'png', 'webp'], group: 'convert' },
   'video-convert': { keywords: ['video', 'audio', 'convert', 'format', 'ffmpeg', 'mp4', 'mp3', 'extract', 'transcode'], group: 'convert' },

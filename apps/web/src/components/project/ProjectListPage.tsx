@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import { getCachedAccessToken } from "@/lib/saas-auth";
 
 import { useIsInView } from "@/hooks/use-is-in-view";
+import { ColorPickerSubMenu } from "@/components/shared/ColorPickerSubMenu";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useProjectOpen } from "@/hooks/use-project-open";
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
@@ -432,6 +433,13 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     [removeMutation, t],
   );
 
+  const handleChangeProjectColor = useCallback(
+    (projectId: string, colorIndex: number | null) => {
+      updateMutation.mutate({ projectId, colorIndex });
+    },
+    [updateMutation],
+  );
+
   const handleToggleFavorite = useCallback(
     (projectId: string, currentFavorite: boolean) => {
       toggleFavoriteMutation.mutate({
@@ -455,8 +463,9 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     ) => {
       const baseId = `project:${project.projectId}`;
       const isActive = activeProjectBaseId === baseId;
-      const gradientIndex =
-        hashCode(project.projectId) % CARD_GRADIENTS.length;
+      const gradientIndex = project.colorIndex != null
+        ? project.colorIndex % CARD_GRADIENTS.length
+        : hashCode(project.projectId) % CARD_GRADIENTS.length;
       const displayPath = getDisplayPathFromUri(project.rootUri);
       const childCount = project.childCount;
 
@@ -666,6 +675,11 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 ? t("projectTree.unfavorite")
                 : t("projectTree.favorite")}
             </ContextMenuItem>
+            <ColorPickerSubMenu
+              currentIndex={project.colorIndex}
+              onSelect={(ci) => handleChangeProjectColor(project.projectId, ci)}
+              label={t("canvasList.changeColor")}
+            />
             <ContextMenuSeparator />
             <ContextMenuItem
               onSelect={() => handleRemove(project.projectId)}
@@ -685,6 +699,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
       handleProjectOpenInSidebar,
       handleProjectOpenInWindow,
       handleToggleFavorite,
+      handleChangeProjectColor,
       handleRemove,
       t,
     ],

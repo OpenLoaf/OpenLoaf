@@ -16,7 +16,32 @@ import { getProjectRootPath } from '@openloaf/api'
 const LOG_PREFIX = '[SkillImport]'
 
 /** Supported archive extensions. */
-const ARCHIVE_EXTENSIONS = new Set(['.zip', '.skill'])
+const ARCHIVE_EXTENSIONS = new Set(['.zip', '.skill', '.tar', '.tar.gz', '.tgz'])
+
+/** Archive format detected by magic bytes. */
+type ArchiveFormat = 'zip' | 'tar' | 'gzip' | 'unknown'
+
+/** Detect archive format from file header magic bytes. */
+function detectArchiveFormat(header: Buffer): ArchiveFormat {
+  // ZIP: starts with PK\x03\x04
+  if (header.length >= 4 && header[0] === 0x50 && header[1] === 0x4B && header[2] === 0x03 && header[3] === 0x04) {
+    return 'zip'
+  }
+  // GZIP: starts with \x1f\x8b
+  if (header.length >= 2 && header[0] === 0x1F && header[1] === 0x8B) {
+    return 'gzip'
+  }
+  // TAR: "ustar" at offset 257
+  if (header.length >= 262 && header.toString('ascii', 257, 262) === 'ustar') {
+    return 'tar'
+  }
+  return 'unknown'
+}
+
+/** Check if a filename has a double extension like .tar.gz */
+function hasDoubleExt(name: string): boolean {
+  return /\.tar\.gz$/i.test(name)
+}
 
 /** Resolve the target skills directory for the given scope. */
 function resolveSkillsDir(scope: 'global' | 'project', projectId?: string): string {
@@ -104,22 +129,48 @@ async function importFromFolder(
 }
 
 /**
- * Import a skill from a zip/archive file.
- * The archive should contain a folder with SKILL.md inside it.
+ * Import a skill from an archive file (zip, tar, tar.gz, tgz, .skill).
+ * Auto-detects format by file magic bytes.
  */
 async function importFromArchive(
   archivePath: string,
   targetSkillsDir: string,
 ): Promise<string[]> {
   const buffer = await fs.readFile(archivePath)
-  const zip = await JSZip.loadAsync(buffer)
+  const format = detectArchiveFormat(buffer)
+
+  if (format === 'zip') {
+    return importFromZipBuffer(buffer, archivePath, targetSkillsDir)
+  }
+  if (format === 'gzip' || format === 'tar') {
+    return importFromTar(archivePath, targetSkillsDir, format === 'gzip')
+  }
+
+  throw new Error(
+    `无法识别文件「${path.basename(archivePath)}」的压缩格式，支持 ZIP、TAR、TAR.GZ 格式`,
+  )
+}
+
+/** Import from a ZIP buffer. */
+async function importFromZipBuffer(
+  buffer: Buffer,
+  archivePath: string,
+  targetSkillsDir: string,
+): Promise<string[]> {
+  let zip: JSZip
+  try {
+    zip = await JSZip.loadAsync(buffer)
+  } catch {
+    throw new Error(
+      `无法解压文件「${path.basename(archivePath)}」，文件已损坏或不是有效的 ZIP 压缩包`,
+    )
+  }
 
   const entries = Object.keys(zip.files)
   if (entries.length === 0) {
     throw new Error('压缩文件为空')
   }
 
-  // Find SKILL.md entries
   const skillMdEntries = entries.filter((e) => {
     const name = e.toUpperCase()
     return name.endsWith('/SKILL.MD') || name === 'SKILL.MD'
@@ -129,15 +180,12 @@ async function importFromArchive(
     throw new Error('压缩文件中未找到 SKILL.md')
   }
 
-  // Determine skill root folders from SKILL.md locations
   const skillRoots = new Set<string>()
   for (const entry of skillMdEntries) {
     const parts = entry.split('/')
     if (parts.length === 1) {
-      // SKILL.md at root of zip → use archive filename as folder name
       skillRoots.add('')
     } else {
-      // nested/SKILL.md → use first path segment
       skillRoots.add(parts[0] ?? '')
     }
   }
@@ -147,11 +195,9 @@ async function importFromArchive(
   const imported: string[] = []
   for (const root of skillRoots) {
     const prefix = root ? `${root}/` : ''
-    // Determine folder name
-    let folderName = root || path.basename(archivePath, path.extname(archivePath))
+    let folderName = root || stripArchiveExt(archivePath)
     let destDir = path.join(targetSkillsDir, folderName)
 
-    // Avoid overwriting
     try {
       await fs.access(destDir)
       const suffix = Date.now().toString(36)
@@ -163,7 +209,6 @@ async function importFromArchive(
 
     await fs.mkdir(destDir, { recursive: true })
 
-    // Extract all files under this root
     for (const [entryPath, zipEntry] of Object.entries(zip.files)) {
       if (zipEntry.dir) continue
       const relevant = root ? entryPath.startsWith(prefix) : true
@@ -182,6 +227,48 @@ async function importFromArchive(
   }
 
   return imported
+}
+
+/** Import from a TAR or TAR.GZ file using system tar command. */
+async function importFromTar(
+  archivePath: string,
+  targetSkillsDir: string,
+  isGzipped: boolean,
+): Promise<string[]> {
+  const { execFile } = await import('node:child_process')
+  const { promisify } = await import('node:util')
+  const execFileAsync = promisify(execFile)
+
+  const tmpDir = path.join(targetSkillsDir, `.tmp-tar-${Date.now().toString(36)}`)
+  await fs.mkdir(tmpDir, { recursive: true })
+
+  try {
+    const args = ['-xf', archivePath, '-C', tmpDir]
+    if (isGzipped) args.splice(1, 0, '-z')
+    await execFileAsync('tar', args, { timeout: 30_000 })
+
+    const skillFolders = await findSkillFolders(tmpDir)
+    if (skillFolders.length === 0) {
+      throw new Error('压缩文件中未找到 SKILL.md')
+    }
+
+    return await importFromFolder(tmpDir, targetSkillsDir)
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('SKILL.md')) throw err
+    throw new Error(
+      `无法解压文件「${path.basename(archivePath)}」，文件已损坏或不是有效的 TAR 压缩包`,
+    )
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+/** Strip archive extension(s) from filename to get a clean folder name. */
+function stripArchiveExt(archivePath: string): string {
+  const base = path.basename(archivePath)
+  // Handle .tar.gz first
+  if (/\.tar\.gz$/i.test(base)) return base.slice(0, -7)
+  return path.basename(base, path.extname(base))
 }
 
 /**
@@ -213,9 +300,14 @@ export async function importSkill(input: {
       console.log(`${LOG_PREFIX} 导入技能文件夹: ${sourcePath}`)
       imported = await importFromFolder(sourcePath, targetSkillsDir)
     } else if (stat.isFile()) {
-      const ext = path.extname(sourcePath).toLowerCase()
-      if (!ARCHIVE_EXTENSIONS.has(ext)) {
-        throw new Error(`不支持的文件类型 ${ext}，支持 .zip 和 .skill 格式`)
+      // Check extension (.tar.gz needs special handling)
+      const lower = sourcePath.toLowerCase()
+      const isArchive = [...ARCHIVE_EXTENSIONS].some(
+        (ext) => lower.endsWith(ext),
+      )
+      if (!isArchive) {
+        const ext = path.extname(sourcePath).toLowerCase()
+        throw new Error(`不支持的文件类型 ${ext}，支持 .zip、.tar、.tar.gz、.tgz、.skill 格式`)
       }
       console.log(`${LOG_PREFIX} 导入技能压缩包: ${sourcePath}`)
       imported = await importFromArchive(sourcePath, targetSkillsDir)
