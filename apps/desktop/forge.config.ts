@@ -312,6 +312,14 @@ const config: ForgeConfig = {
               js: './src/preload/index.ts',
             },
           },
+          {
+            html: './src/renderer/browser-tab-bar.html',
+            js: './src/renderer/browser-tab-bar.ts',
+            name: 'browser_tab_bar',
+            preload: {
+              js: './src/preload/browserTabBar.ts',
+            },
+          },
         ],
       },
     }),

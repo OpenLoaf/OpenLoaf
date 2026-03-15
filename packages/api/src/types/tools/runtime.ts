@@ -23,7 +23,7 @@ Runs a shell command and returns its output.
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：列出目录内容。"),
     command: z.array(z.string()).min(1),
     workdir: z.string().optional(),
@@ -46,7 +46,7 @@ Runs a shell command and returns its output.
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：查询系统信息。"),
     command: z.string().min(1),
     workdir: z.string().optional(),
@@ -66,7 +66,7 @@ export const execCommandToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：获取当前系统时间。"),
     cmd: z.string().min(1),
     workdir: z.string().optional(),
@@ -89,7 +89,7 @@ export const writeStdinToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：向交互会话发送输入。"),
     sessionId: z.string().min(1),
     chars: z.string().optional(),
@@ -107,7 +107,7 @@ export const readFileToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：读取配置文件内容。"),
     path: z.string().min(1),
     offset: z.number().int().min(1).optional(),
@@ -153,7 +153,7 @@ export const applyPatchToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的。"),
     patch: z
       .string()
@@ -171,7 +171,7 @@ export const editDocumentToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：修改文稿标题。"),
     path: z.string().min(1).describe("文稿文件夹路径或 index.mdx 路径（相对当前项目或全局根目录）。"),
     content: z.string().describe("修改后的完整 MDX 内容。"),
@@ -187,7 +187,7 @@ export const listDirToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：列出目录内容。"),
     path: z.string().min(1),
     offset: z.number().int().min(1).optional(),
@@ -210,7 +210,7 @@ export const grepFilesToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：搜索包含 TODO 的文件。"),
     pattern: z.string().min(1).describe("正则表达式搜索模式。"),
     include: z.string().optional().describe("Glob 过滤，如 \"*.ts\" 或 \"*.{ts,tsx}\"。"),
@@ -263,8 +263,8 @@ At most one step can be in_progress at a time.`,
     .object({
       mode: planUpdateModeSchema.optional().default("full"),
       actionName: z
-        .string()
-        .min(1)
+      .string()
+      .optional()
         .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：同步当前计划。"),
       explanation: z.string().optional().describe("Optional plan summary."),
       plan: z.array(planUpdateItemSchema).min(1).describe("Plan step list."),

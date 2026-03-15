@@ -11,6 +11,8 @@ declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 declare const LOADING_WINDOW_WEBPACK_ENTRY: string;
 declare const LOADING_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
+declare const BROWSER_TAB_BAR_WEBPACK_ENTRY: string;
+declare const BROWSER_TAB_BAR_PRELOAD_WEBPACK_ENTRY: string;
 
 /**
  * 这些常量由 Electron Forge 的 webpack 插件在构建时注入。
@@ -21,4 +23,6 @@ export const WEBPACK_ENTRIES = {
   mainPreload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
   loadingWindow: LOADING_WINDOW_WEBPACK_ENTRY,
   loadingPreload: LOADING_WINDOW_PRELOAD_WEBPACK_ENTRY,
+  browserTabBar: BROWSER_TAB_BAR_WEBPACK_ENTRY,
+  browserTabBarPreload: BROWSER_TAB_BAR_PRELOAD_WEBPACK_ENTRY,
 } as const;

@@ -59,6 +59,7 @@ import {
 } from "../../ui/board-style-system";
 import { ImageGenerateNodeSchema, type ImageGenerateNodeProps } from "./types";
 import { normalizeOutputCount, normalizeTextValue } from "./utils";
+import { extractTextNodePlainText } from "../lib/text-node-utils";
 import { AdvancedSettingsPanel } from "./AdvancedSettingsPanel";
 import { ModelSelect } from "./ModelSelect";
 import { getBoardChatMessageMeta } from "../../utils/board-chat-message";
@@ -260,7 +261,7 @@ function EditableImageGenerateNodeView({
       continue;
     }
     if (source.type === "text") {
-      const rawText = normalizeTextValue((source.props as any)?.value);
+      const rawText = extractTextNodePlainText((source.props as any)?.value);
       if (rawText.trim()) inputTextSegments.push(rawText.trim());
       continue;
     }

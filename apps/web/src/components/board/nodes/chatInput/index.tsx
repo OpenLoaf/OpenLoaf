@@ -13,14 +13,19 @@ import type {
   CanvasToolbarContext,
   CanvasToolbarItem,
 } from "../../engine/types";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import i18next from "i18next";
 import { MessageSquare, Send, AlertCircle, RotateCcw, Pencil } from "lucide-react";
 import { generateId } from "ai";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@udecode/cn";
+import { trpc } from "@/utils/trpc";
+import { SKILL_COMMAND_PREFIX } from "@openloaf/api/common";
 
 import { useBoardContext } from "../../core/BoardProvider";
+import { extractTextNodePlainText } from "../lib/text-node-utils";
 import { NodeFrame } from "../NodeFrame";
 import { useAutoResizeNode } from "../lib/use-auto-resize-node";
 import { resolveRightStackPlacement } from "../../utils/output-placement";
@@ -54,6 +59,47 @@ import {
 } from "../../ui/board-style-system";
 
 export { CHAT_INPUT_NODE_TYPE };
+
+// ── Skill menu helpers ──
+
+type SkillSummary = {
+  name: string;
+  description: string;
+  scope: "global" | "project";
+  isEnabled: boolean;
+};
+
+/** Detect slash trigger at end of input. */
+const SLASH_TRIGGER_REGEX = /(^|\s)(\/\S*)$/u;
+
+function resolveSlashQuery(value: string): string | null {
+  const match = SLASH_TRIGGER_REGEX.exec(value);
+  if (!match) return null;
+  const token = match[2] ?? "";
+  if (!token.startsWith("/")) return null;
+  return token.slice(1);
+}
+
+function filterEnabledSkills(skills: SkillSummary[], query: string): SkillSummary[] {
+  const keyword = query.trim().toLowerCase();
+  return skills
+    .filter((s) => s.isEnabled)
+    .filter((s) => {
+      if (!keyword) return true;
+      return s.name.toLowerCase().includes(keyword) || s.description.toLowerCase().includes(keyword);
+    });
+}
+
+function replaceSlashToken(input: string, replacement: string): string {
+  const match = SLASH_TRIGGER_REGEX.exec(input);
+  if (!match) return input;
+  const token = match[2] ?? "";
+  const tokenStartIndex = (match.index ?? 0) + (match[1]?.length ?? 0);
+  const before = input.slice(0, tokenStartIndex);
+  const after = input.slice(tokenStartIndex + token.length);
+  const next = `${before}${replacement}${after}`;
+  return next.endsWith(" ") ? next : `${next} `;
+}
 
 const CHAT_INPUT_DEFAULT_WIDTH = 360;
 const CHAT_INPUT_DEFAULT_HEIGHT = 200;
@@ -145,9 +191,9 @@ function collectUpstreamAttachments(
         (source.props as any)?.sourcePath;
       if (filePath) annotations.push(`@${filePath}`);
     } else if (source.type === "text") {
-      const value = (source.props as any)?.value;
-      if (typeof value === "string" && value.trim()) {
-        annotations.push(value.trim());
+      const plainText = extractTextNodePlainText((source.props as any)?.value);
+      if (plainText.trim()) {
+        annotations.push(plainText.trim());
       }
     }
   }
@@ -185,6 +231,50 @@ export function ChatInputNodeView({
 
   const boardId = fileContext?.boardId;
   const projectId = fileContext?.projectId;
+
+  // ── Skill menu state ──
+  const [isFocused, setIsFocused] = useState(false);
+  const [skillMenuIndex, setSkillMenuIndex] = useState(0);
+  const skillsQuery = useQuery({
+    ...(projectId
+      ? trpc.settings.getSkills.queryOptions({ projectId })
+      : trpc.settings.getSkills.queryOptions()),
+    staleTime: 5 * 60 * 1000,
+  });
+  const slashQuery = resolveSlashQuery(localText);
+  const filteredSkills = useMemo(
+    () => filterEnabledSkills((skillsQuery.data ?? []) as SkillSummary[], slashQuery ?? ""),
+    [skillsQuery.data, slashQuery],
+  );
+  const isSkillMenuOpen = isFocused && slashQuery !== null && isEditable;
+
+  useEffect(() => {
+    setSkillMenuIndex(0);
+  }, [slashQuery]);
+
+  const selectSkill = useCallback((skillName: string) => {
+    const replacement = `${SKILL_COMMAND_PREFIX}${skillName}`;
+    const next = replaceSlashToken(localText, replacement);
+    setLocalText(next);
+    onUpdate({ inputText: next });
+    setSkillMenuIndex(0);
+  }, [localText, onUpdate]);
+
+  // ── Skill menu portal positioning ──
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [menuPos, setMenuPos] = useState<{ left: number; bottom: number; width: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!isSkillMenuOpen || !textareaRef.current) {
+      setMenuPos(null);
+      return;
+    }
+    const rect = textareaRef.current.getBoundingClientRect();
+    setMenuPos({
+      left: rect.left,
+      bottom: window.innerHeight - rect.top + 4,
+      width: rect.width,
+    });
+  }, [isSkillMenuOpen, localText]);
 
   const boardFolderScope = useMemo(
     () => resolveBoardFolderScope(fileContext),
@@ -341,17 +431,42 @@ export function ChatInputNodeView({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (composingRef.current) return;
+      // Skill menu keyboard navigation
+      if (isSkillMenuOpen && filteredSkills.length > 0) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setSkillMenuIndex((prev) => (prev + 1) % filteredSkills.length);
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setSkillMenuIndex((prev) => (prev - 1 + filteredSkills.length) % filteredSkills.length);
+          return;
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const skill = filteredSkills[skillMenuIndex];
+          if (skill) selectSkill(skill.name);
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setIsFocused(false);
+          return;
+        }
+      }
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend],
+    [handleSend, isSkillMenuOpen, filteredSkills, skillMenuIndex, selectSkill],
   );
 
   const hasError = isError && element.props.errorText;
 
   return (
+    <>
     <NodeFrame>
       <div
         ref={containerRef}
@@ -384,6 +499,7 @@ export function ChatInputNodeView({
         <div className="flex-1 p-3">
           {isEditable ? (
             <textarea
+              ref={textareaRef}
               className="w-full min-h-[60px] resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
               placeholder={t("chatInput.placeholder")}
               value={localText}
@@ -393,6 +509,8 @@ export function ChatInputNodeView({
                 requestResize();
               }}
               onKeyDown={handleKeyDown}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
               onCompositionStart={() => { composingRef.current = true; }}
               onCompositionEnd={() => { composingRef.current = false; }}
               autoFocus={element.props.autoFocus}
@@ -455,6 +573,49 @@ export function ChatInputNodeView({
         </div>
       </div>
     </NodeFrame>
+    {/* Skill menu portal — floats above the node to avoid overflow clipping */}
+    {isSkillMenuOpen && menuPos && createPortal(
+      <div
+        className="fixed z-[9999] flex flex-col rounded-lg border border-border bg-popover shadow-lg"
+        style={{ left: menuPos.left, bottom: menuPos.bottom, width: menuPos.width, maxHeight: 240 }}
+        onPointerDown={(e) => e.preventDefault()}
+      >
+        <div className="shrink-0 px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground border-b border-border">
+          {t("chatInput.skills", { defaultValue: "技能" })}
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto py-1">
+          {filteredSkills.length === 0 ? (
+            <div className="px-2.5 py-3 text-center text-[11px] text-muted-foreground">
+              {t("chatInput.noSkills", { defaultValue: "暂无可用技能" })}
+            </div>
+          ) : (
+            filteredSkills.map((skill, index) => (
+              <div
+                key={skill.name}
+                className={cn(
+                  "flex flex-col gap-0.5 px-2.5 py-1.5 text-left cursor-default rounded-sm mx-1",
+                  index === skillMenuIndex ? "bg-muted/70" : "hover:bg-muted/60",
+                )}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  selectSkill(skill.name);
+                }}
+                onPointerMove={() => setSkillMenuIndex(index)}
+              >
+                <span className="text-[12px] font-medium text-foreground">{skill.name}</span>
+                {skill.description && (
+                  <span className="text-[11px] text-muted-foreground truncate">
+                    {skill.description}
+                  </span>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>,
+      document.body,
+    )}
+    </>
   );
 }
 

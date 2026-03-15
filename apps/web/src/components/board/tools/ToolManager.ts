@@ -159,6 +159,9 @@ export class ToolManager {
   handlePointerMove(event: PointerEvent): void {
     // 逻辑：交互起点在编辑器内时跳过工具分发，避免干扰文字选择。
     if (this.boardUiInteraction) return;
+    // 逻辑：pointerdown 被编辑器 stopPropagation 拦截时 boardUiInteraction 未被设置，
+    // 这里补充检查避免 pointermove 泄漏到工具导致选字卡顿。
+    if (isBoardUiTarget(event.target)) return;
     const ctx = this.buildContext(event);
     if (!ctx) return;
     if (this.engine.isToolbarDragging()) {
@@ -182,6 +185,8 @@ export class ToolManager {
       this.boardUiInteraction = false;
       return;
     }
+    // 逻辑：同 handlePointerMove，补充检查防止编辑器内 pointerup 触发工具副作用。
+    if (isBoardUiTarget(event.target)) return;
     const ctx = this.buildContext(event);
     if (!ctx) return;
     if (this.engine.isToolbarDragging()) {

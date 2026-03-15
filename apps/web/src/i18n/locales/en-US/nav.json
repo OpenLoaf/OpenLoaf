@@ -278,7 +278,11 @@
     "totalCount": "{{count}} canvases",
     "groupByTime": "Group by Time",
     "allProjects": "All Projects",
-    "noProject": "No Project"
+    "noProject": "No Project",
+    "createTitle": "New Canvas",
+    "createDesc": "Select a project for this canvas, or create a temporary canvas without saving to any project.",
+    "tempCanvas": "Temporary Canvas (not saved to project)",
+    "createConfirm": "Create"
   },
   "projectListPage": {
     "helpTitle": "Projects",

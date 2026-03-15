@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Browser</title>
+    <style>
+      :root {
+        --tab-height: 36px;
+        /* Light theme (default) */
+        --bg: #f5f5f5;
+        --tab-bg: transparent;
+        --tab-active-bg: #ffffff;
+        --tab-hover-bg: #e8e8e8;
+        --text: #0f0e12;
+        --text-muted: #a1a7af;
+        --border: #e0e0e0;
+        --close-hover: #e04b42;
+        --close-hover-text: #ffffff;
+      }
+
+      :root.dark {
+        --bg: #141416;
+        --tab-bg: transparent;
+        --tab-active-bg: #1a1a1e;
+        --tab-hover-bg: #222224;
+        --text: #f5f5f5;
+        --text-muted: #a1a7af;
+        --border: rgba(255, 255, 255, 0.08);
+        --close-hover: #e04b42;
+        --close-hover-text: #ffffff;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+        background: var(--bg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 12px;
+        color: var(--text);
+        user-select: none;
+        -webkit-user-select: none;
+        overflow: hidden;
+        height: var(--tab-height);
+      }
+
+      #tab-bar {
+        display: flex;
+        align-items: stretch;
+        height: var(--tab-height);
+        -webkit-app-region: drag;
+        padding-right: 8px;
+        gap: 1px;
+      }
+
+      /* macOS traffic light spacing */
+      body.darwin #tab-bar {
+        padding-left: 80px;
+      }
+
+      .tab {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 8px 0 10px;
+        min-width: 60px;
+        max-width: 200px;
+        height: 100%;
+        background: var(--tab-bg);
+        border-right: 1px solid var(--border);
+        cursor: pointer;
+        -webkit-app-region: no-drag;
+        transition: background 0.15s;
+        flex-shrink: 1;
+      }
+
+      .tab:hover { background: var(--tab-hover-bg); }
+      .tab.active { background: var(--tab-active-bg); }
+
+      .tab-favicon {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+        border-radius: 2px;
+      }
+
+      .tab-favicon.hidden { display: none; }
+
+      .tab-title {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 11.5px;
+        line-height: var(--tab-height);
+      }
+
+      .tab-close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        flex-shrink: 0;
+        opacity: 0;
+        transition: opacity 0.12s, background 0.12s, color 0.12s;
+        color: var(--text-muted);
+        font-size: 14px;
+        line-height: 1;
+      }
+
+      .tab:hover .tab-close,
+      .tab.active .tab-close { opacity: 1; }
+      .tab-close:hover { background: var(--close-hover); color: var(--close-hover-text); }
+
+      #empty-msg {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        height: var(--tab-height);
+        color: var(--text-muted);
+        font-size: 11px;
+        -webkit-app-region: drag;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="tab-bar"></div>
+    <div id="empty-msg">No tabs open</div>
+  </body>
+</html>

@@ -9,20 +9,16 @@
  */
 "use client";
 
-import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@openloaf/api/common";
-import { useLayoutState } from "@/hooks/use-layout-state";
-import { useAppView } from "@/hooks/use-app-view";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
-import { createBrowserTabId } from "@/hooks/tab-id";
 import { resolveServerUrl } from "@/utils/server-url";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { queryClient } from "@/utils/trpc";
 import { getProjectsQueryKey } from "@/hooks/use-projects";
+import { useAppView } from "@/hooks/use-app-view";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
 import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { createFileEntryFromUri } from "@/components/file/lib/open-file";
 import { recordRecentOpen } from "@/components/file/lib/recent-open";
-import { waitForWebContentsViewReady } from "@/lib/chat/open-url-ack";
 import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import type { FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
 
@@ -308,41 +304,28 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
       return { status: "failed", errorText: "url is required." };
     }
 
-    // 逻辑：非 Electron 环境直接打开新标签页，不走内置浏览器面板。
+    // 逻辑：非 Electron 环境直接打开新标签页。
     if (!isElectronEnv()) {
       window.open(normalizedUrl, '_blank', 'noopener,noreferrer')
       return { status: "success", output: { url: normalizedUrl } }
     }
 
-    const viewKey = createBrowserTabId();
-    useLayoutState.getState().pushStackItem(
-      {
-        component: BROWSER_WINDOW_COMPONENT,
-        id: BROWSER_WINDOW_PANEL_ID,
-        sourceKey: BROWSER_WINDOW_PANEL_ID,
-        params: { __customHeader: true, __open: { url: normalizedUrl, title, viewKey } },
-      } as any,
-      70,
-    );
+    // Electron 环境：新建独立窗口打开网页。
+    try {
+      const result = await window.openloafElectron!.openBrowserWindow(normalizedUrl);
 
-    const recent = resolveFileEntryFromUrl({ url: normalizedUrl });
-    if (recent) {
-      recordRecentOpen({
-        projectId: recent.projectId,
-        entry: recent.entry,
-      });
+      const recent = resolveFileEntryFromUrl({ url: normalizedUrl });
+      if (recent) {
+        recordRecentOpen({
+          projectId: recent.projectId,
+          entry: recent.entry,
+        });
+      }
+
+      return { status: "success", output: { url: normalizedUrl, windowId: result.id } };
+    } catch (err) {
+      const errorText = err instanceof Error ? err.message : String(err);
+      return { status: "failed", output: { url: normalizedUrl }, errorText };
     }
-
-    const readyResult = await waitForWebContentsViewReady(viewKey);
-    if (readyResult?.status === "failed") {
-      const failed = readyResult.detail.failed;
-      return {
-        status: "failed",
-        output: { url: normalizedUrl, viewKey },
-        errorText: failed?.errorDescription || "open-url failed",
-      };
-    }
-
-    return { status: "success", output: { url: normalizedUrl, viewKey } };
   });
 }

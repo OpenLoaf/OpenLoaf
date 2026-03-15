@@ -20,9 +20,16 @@ const LOG_PREFIX = '[SkillTranslation]'
 /** Translation status for a skill. */
 export type SkillTranslationStatus = 'not-translated' | 'translated' | 'needs-update'
 
-/** skill.json metadata format. */
+const META_FILE_NAME = 'openloaf.json'
+
+/** openloaf.json metadata format. */
 interface SkillTranslationMeta {
-  displayName?: string
+  /** Translated skill name (from front matter `name`). */
+  name?: string
+  /** Translated skill description (from front matter `description`). */
+  description?: string
+  /** Skill version (from front matter `version`). */
+  version?: string
   translatedAt?: string
   targetLanguage: string
   files: Record<
@@ -64,20 +71,20 @@ async function findMdFiles(dir: string, baseDir: string): Promise<string[]> {
   return results
 }
 
-/** Read skill.json from a skill folder. */
+/** Read openloaf.json from a skill folder. */
 async function readSkillMeta(skillFolderPath: string): Promise<SkillTranslationMeta | null> {
   try {
-    const raw = await fs.readFile(path.join(skillFolderPath, 'skill.json'), 'utf-8')
+    const raw = await fs.readFile(path.join(skillFolderPath, META_FILE_NAME), 'utf-8')
     return JSON.parse(raw) as SkillTranslationMeta
   } catch {
     return null
   }
 }
 
-/** Write skill.json to a skill folder. */
+/** Write openloaf.json to a skill folder. */
 async function writeSkillMeta(skillFolderPath: string, meta: SkillTranslationMeta): Promise<void> {
   await fs.writeFile(
-    path.join(skillFolderPath, 'skill.json'),
+    path.join(skillFolderPath, META_FILE_NAME),
     JSON.stringify(meta, null, 2),
     'utf-8',
   )
@@ -89,6 +96,7 @@ async function writeSkillMeta(skillFolderPath: string, meta: SkillTranslationMet
 export async function getSkillTranslationStatus(skillFolderPath: string): Promise<{
   status: SkillTranslationStatus
   displayName?: string
+  description?: string
   translatedAt?: string
 }> {
   const meta = await readSkillMeta(skillFolderPath)
@@ -109,32 +117,34 @@ export async function getSkillTranslationStatus(skillFolderPath: string): Promis
   const skillMdMeta = meta.files['SKILL.md']
 
   if (!skillMdMeta) {
-    return { status: 'not-translated', displayName: meta.displayName }
+    return { status: 'not-translated', displayName: meta.name, description: meta.description }
   }
 
   if (currentHash === skillMdMeta.translatedHash) {
     return {
       status: 'translated',
-      displayName: meta.displayName,
+      displayName: meta.name,
+      description: meta.description,
       translatedAt: meta.translatedAt,
     }
   }
 
   if (currentHash === skillMdMeta.originHash) {
-    return { status: 'not-translated', displayName: meta.displayName }
+    return { status: 'not-translated', displayName: meta.name, description: meta.description }
   }
 
   // Content differs from both origin and translation → needs update
   return {
     status: 'needs-update',
-    displayName: meta.displayName,
+    displayName: meta.name,
+    description: meta.description,
     translatedAt: meta.translatedAt,
   }
 }
 
 const SKILL_TRANSLATE_PROMPT = `你是专业技术文档翻译专家。将英文 Markdown 技能文档翻译为中文。
 规则：
-1. YAML front matter 中 name 保持英文，description 翻译为中文
+1. YAML front matter 中 name 和 description 都翻译为中文
 2. 保留所有 Markdown 格式（标题、列表、表格、链接）
 3. 代码块和内联代码不翻译
 4. 文件路径、变量名、函数名保持英文
@@ -218,14 +228,14 @@ export async function translateSkill(
       translatedFiles++
     }
 
-    // Extract displayName from translated SKILL.md front matter
+    // Extract name and description from translated SKILL.md front matter
     const translatedSkillMd = path.join(skillFolderPath, 'SKILL.md')
     try {
       const translatedContent = await fs.readFile(translatedSkillMd, 'utf-8')
-      const displayName = extractDisplayName(translatedContent)
-      if (displayName) {
-        meta.displayName = displayName
-      }
+      const fields = extractFrontMatterFields(translatedContent)
+      if (fields.name) meta.name = fields.name
+      if (fields.description) meta.description = fields.description
+      if (fields.version) meta.version = fields.version
     } catch {
       // ignore
     }
@@ -265,9 +275,9 @@ export async function restoreSkillTranslation(skillFolderPath: string): Promise<
       restoredFiles++
     }
 
-    // Remove skill.json
+    // Remove openloaf.json
     try {
-      await fs.unlink(path.join(skillFolderPath, 'skill.json'))
+      await fs.unlink(path.join(skillFolderPath, META_FILE_NAME))
     } catch {
       // ignore
     }
@@ -279,18 +289,19 @@ export async function restoreSkillTranslation(skillFolderPath: string): Promise<
   }
 }
 
-/** Extract description or name from YAML front matter as displayName. */
-function extractDisplayName(content: string): string | undefined {
+/** Extract name, description, and version from YAML front matter. */
+function extractFrontMatterFields(content: string): { name?: string; description?: string; version?: string } {
   const fmMatch = content.match(/^---\s*\n([\s\S]*?)\n---/)
-  if (!fmMatch?.[1]) return undefined
+  if (!fmMatch?.[1]) return {}
   const fm = fmMatch[1]
-  // Try description first
-  const descMatch = fm.match(/^description:\s*(.+)$/m)
-  if (descMatch?.[1]?.trim()) return descMatch[1].trim()
-  // Fall back to name
+  const result: { name?: string; description?: string; version?: string } = {}
   const nameMatch = fm.match(/^name:\s*(.+)$/m)
-  if (nameMatch?.[1]?.trim()) return nameMatch[1].trim()
-  return undefined
+  if (nameMatch?.[1]?.trim()) result.name = nameMatch[1].trim()
+  const descMatch = fm.match(/^description:\s*(.+)$/m)
+  if (descMatch?.[1]?.trim()) result.description = descMatch[1].trim()
+  const versionMatch = fm.match(/^version:\s*(.+)$/m)
+  if (versionMatch?.[1]?.trim()) result.version = versionMatch[1].trim()
+  return result
 }
 
 /** Call AI model for translation. */

@@ -168,9 +168,9 @@ async function updateProjectIgnoreSkills(input: {
 }
 
 /** Read ignoreSkills from global app config. */
-function readGlobalIgnoreSkills(): string[] {
+async function readGlobalIgnoreSkills(): Promise<string[]> {
   try {
-    const { getAppConfig } = require("@openloaf/api/services/appConfigService") as typeof import("@openloaf/api/services/appConfigService");
+    const { getAppConfig } = await import("@openloaf/api/services/appConfigService");
     const config = getAppConfig();
     return normalizeGlobalIgnoreKeys(config.ignoreSkills);
   } catch {
@@ -179,8 +179,8 @@ function readGlobalIgnoreSkills(): string[] {
 }
 
 /** Update ignoreSkills in global app config. */
-function updateGlobalIgnoreSkills(input: { ignoreKey: string; enabled: boolean }): void {
-  const { getAppConfig, setAppConfig } = require("@openloaf/api/services/appConfigService") as typeof import("@openloaf/api/services/appConfigService");
+async function updateGlobalIgnoreSkills(input: { ignoreKey: string; enabled: boolean }): Promise<void> {
+  const { getAppConfig, setAppConfig } = await import("@openloaf/api/services/appConfigService");
   const config = getAppConfig();
   const normalizedKey = normalizeGlobalIgnoreKey(input.ignoreKey);
   if (!normalizedKey) return;
@@ -376,7 +376,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
                 Boolean(entry),
             );
           const parentProjectRootPaths = parentRootEntries.map((entry) => entry.rootPath);
-          const globalIgnoreSkills = readGlobalIgnoreSkills();
+          const globalIgnoreSkills = await readGlobalIgnoreSkills();
           const projectIgnoreSkills = await readProjectIgnoreSkills(projectRootPath);
           const summaries = loadSkillSummaries({
             projectRootPath,
@@ -433,9 +433,9 @@ export class SettingRouterImpl extends BaseSettingRouter {
                   ? !projectIgnoreSkills.includes(ignoreKey)
                   : !globalIgnoreSkills.includes(ignoreKey)
                 : !projectIgnoreSkills.includes(ignoreKey);
-            // 全局技能不可删除（位于用户主目录）。
+            // 全局技能允许删除；项目技能仅允许删除当前项目拥有的。
             const isDeletable = summary.scope === "global"
-              ? false
+              ? true
               : input?.projectId
                 ? summary.scope === "project" && ownerProjectId === input.projectId
                 : false;
@@ -461,7 +461,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
           }
           // 全局技能共用 global 级别的 ignoreSkills 列表。
           if (input.scope === "global") {
-            updateGlobalIgnoreSkills({
+            await updateGlobalIgnoreSkills({
               ignoreKey,
               enabled: input.enabled,
             });
@@ -490,10 +490,6 @@ export class SettingRouterImpl extends BaseSettingRouter {
           if (!ignoreKey) {
             throw new Error("Ignore key is required.");
           }
-          // 全局技能不允许从设置面板删除。
-          if (input.scope === "global") {
-            throw new Error("Global skills cannot be deleted from settings.");
-          }
           if (input.scope === "project") {
             // 项目页只允许删除当前项目技能，禁止父项目。
             if (ignoreKey.includes(":")) {
@@ -503,25 +499,41 @@ export class SettingRouterImpl extends BaseSettingRouter {
               }
             }
           }
-          const target = resolveSkillDeleteTarget({
-            scope: input.scope,
-            projectId: input.projectId,
-            skillPath: input.skillPath,
-          });
-          await fs.rm(target.skillDir, { recursive: true, force: true });
-          const projectId = input.projectId?.trim();
-          if (!projectId) {
-            throw new Error("Project id is required.");
+          if (input.scope === "global") {
+            // 全局技能：直接通过 skillPath 解析目录并删除。
+            const normalizedSkillPath = normalizeSkillPath(input.skillPath);
+            if (!normalizedSkillPath) throw new Error("Invalid skill path.");
+            const skillDir = path.dirname(normalizedSkillPath);
+            const globalSkillsRoot = resolveGlobalSkillsPath();
+            const normalizedDir = normalizeFsPath(skillDir);
+            const normalizedRoot = normalizeFsPath(globalSkillsRoot);
+            if (normalizedDir === normalizedRoot || !normalizedDir.startsWith(`${normalizedRoot}${path.sep}`)) {
+              throw new Error("Skill path is outside scope.");
+            }
+            await fs.rm(skillDir, { recursive: true, force: true });
+            // 清理全局 ignoreSkills 中对应条目。
+            await updateGlobalIgnoreSkills({ ignoreKey, enabled: true });
+          } else {
+            const target = resolveSkillDeleteTarget({
+              scope: input.scope,
+              projectId: input.projectId,
+              skillPath: input.skillPath,
+            });
+            await fs.rm(target.skillDir, { recursive: true, force: true });
+            const projectId = input.projectId?.trim();
+            if (!projectId) {
+              throw new Error("Project id is required.");
+            }
+            const projectRootPath = getProjectRootPath(projectId);
+            if (!projectRootPath) {
+              throw new Error("Project not found.");
+            }
+            await updateProjectIgnoreSkills({
+              projectRootPath,
+              ignoreKey,
+              enabled: true,
+            });
           }
-          const projectRootPath = getProjectRootPath(projectId);
-          if (!projectRootPath) {
-            throw new Error("Project not found.");
-          }
-          await updateProjectIgnoreSkills({
-            projectRootPath,
-            ignoreKey,
-            enabled: true,
-          });
           return { ok: true };
         }),
       /** List agents for settings UI. */
@@ -549,7 +561,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
                 Boolean(entry),
             );
           const parentProjectRootPaths = parentRootEntries.map((e) => e.rootPath);
-          const globalIgnoreSkills = readGlobalIgnoreSkills();
+          const globalIgnoreSkills = await readGlobalIgnoreSkills();
           const projectIgnoreSkills = await readProjectIgnoreSkills(projectRootPath);
           const summaries = loadAgentSummaries({
             projectRootPath,
@@ -685,7 +697,7 @@ export class SettingRouterImpl extends BaseSettingRouter {
             throw new Error("Ignore key is required.");
           }
           if (input.scope === "global") {
-            updateGlobalIgnoreSkills({
+            await updateGlobalIgnoreSkills({
               ignoreKey,
               enabled: input.enabled,
             });
@@ -1714,6 +1726,34 @@ export class SettingRouterImpl extends BaseSettingRouter {
             "@/ai/services/skillTranslationService"
           );
           return translateSkill(input.skillFolderPath, input.saasAccessToken);
+        }),
+      importSkill: shieldedProcedure
+        .input(settingSchemas.importSkill.input)
+        .output(settingSchemas.importSkill.output)
+        .mutation(async ({ input }) => {
+          const { importSkill } = await import(
+            "@/ai/services/skillImportService"
+          );
+          return importSkill({
+            sourcePath: input.sourcePath,
+            scope: input.scope,
+            projectId: input.projectId,
+          });
+        }),
+      importSkillFromArchive: shieldedProcedure
+        .input(settingSchemas.importSkillFromArchive.input)
+        .output(settingSchemas.importSkillFromArchive.output)
+        .mutation(async ({ input }) => {
+          const { importSkillFromBuffer } = await import(
+            "@/ai/services/skillImportService"
+          );
+          const buffer = Buffer.from(input.contentBase64, "base64");
+          return importSkillFromBuffer({
+            buffer,
+            fileName: input.fileName,
+            scope: input.scope,
+            projectId: input.projectId,
+          });
         }),
     });
   }

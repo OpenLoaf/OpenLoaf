@@ -509,46 +509,13 @@ export function ImagePromptGenerateNodeView({
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <div className={containerClassName} ref={containerRef}>
         {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
+        <div className="flex items-center gap-2 px-3 py-2">
           <ScanEye className="h-4 w-4 shrink-0 text-ol-amber" />
           <div className="text-xs font-medium text-ol-amber">{t('imagePromptGenerate.title')}</div>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 p-3 flex flex-col gap-2" data-board-editor>
-          {resultText ? (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-[11px] text-ol-text-auxiliary">
-                  {t('imagePromptGenerate.contentDescription')}
-                </div>
-                <button
-                  type="button"
-                  className="rounded-md px-1.5 py-0.5 text-[10px] text-ol-text-auxiliary hover:text-ol-text-primary"
-                  onPointerDown={(event) => {
-                    event.stopPropagation();
-                  }}
-                  onClick={handleCopyResult}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    <Copy size={10} />
-                  </span>
-                </button>
-              </div>
-              <div
-                data-board-scroll
-                className={cn("rounded-lg p-2 text-[12px] leading-5 text-ol-text-primary", BOARD_GENERATE_INSET)}
-              >
-                <pre className="whitespace-pre-wrap break-words font-sans">
-                  {resultText}
-                </pre>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center gap-2 px-3 py-2 border-t border-border/20">
+        {/* Model selector + action button */}
+        <div className="flex items-center gap-2 px-3 pb-2 border-b border-border/30">
           <div className="min-w-0 flex-1">
             {!authLoggedIn && candidates.length === 0 ? (
               <button
@@ -653,6 +620,39 @@ export function ImagePromptGenerateNodeView({
                 {viewStatus === "error" ? t('imagePromptGenerate.retry') : resultText ? t('imagePromptGenerate.regenerate') : t('imagePromptGenerate.run')}
               </span>
             </button>
+          ) : null}
+        </div>
+
+        {/* Body — content grows downward */}
+        <div className="flex-1 p-3 flex flex-col gap-2" data-board-editor>
+          {resultText ? (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[11px] text-ol-text-auxiliary">
+                  {t('imagePromptGenerate.contentDescription')}
+                </div>
+                <button
+                  type="button"
+                  className="rounded-md px-1.5 py-0.5 text-[10px] text-ol-text-auxiliary hover:text-ol-text-primary"
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                  }}
+                  onClick={handleCopyResult}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <Copy size={10} />
+                  </span>
+                </button>
+              </div>
+              <div
+                data-board-scroll
+                className={cn("rounded-lg p-2 text-[12px] leading-5 text-ol-text-primary", BOARD_GENERATE_INSET)}
+              >
+                <pre className="whitespace-pre-wrap break-words font-sans">
+                  {resultText}
+                </pre>
+              </div>
+            </div>
           ) : null}
         </div>
       </div>

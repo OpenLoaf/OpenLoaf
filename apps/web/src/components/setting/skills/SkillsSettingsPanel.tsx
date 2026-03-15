@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -19,7 +19,7 @@ import { Button } from "@openloaf/ui/button";
 import { Switch } from "@openloaf/ui/switch";
 import { Input } from "@openloaf/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
-import { ArrowRight, Eye, FolderOpen, Search, Trash2, X } from "lucide-react";
+import { ArrowRight, Eye, FolderOpen, Import, Loader2, Search, Trash2, X } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -183,6 +183,159 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     }),
   );
 
+  /** Supported archive extensions for drag-and-drop. */
+  const ARCHIVE_EXTENSIONS = useMemo(() => new Set(['.zip', '.skill']), []);
+
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounter = useRef(0);
+
+  const importSkillMutation = useMutation(
+    trpc.settings.importSkill.mutationOptions({
+      onSuccess: (data) => {
+        if (data.ok) {
+          toast.success(
+            t('skills.import.success', { count: data.importedSkills.length, names: data.importedSkills.join(', ') }),
+          );
+          invalidateSkillQueries();
+        } else {
+          toast.error(data.error ?? t('skills.import.failed'));
+        }
+      },
+      onError: (error) => {
+        toast.error(error.message ?? t('skills.import.failed'));
+      },
+    }),
+  );
+
+  const importArchiveMutation = useMutation(
+    trpc.settings.importSkillFromArchive.mutationOptions({
+      onSuccess: (data) => {
+        if (data.ok) {
+          toast.success(
+            t('skills.import.success', { count: data.importedSkills.length, names: data.importedSkills.join(', ') }),
+          );
+          invalidateSkillQueries();
+        } else {
+          toast.error(data.error ?? t('skills.import.failed'));
+        }
+      },
+      onError: (error) => {
+        toast.error(error.message ?? t('skills.import.failed'));
+      },
+    }),
+  );
+
+  const isImporting = importSkillMutation.isPending || importArchiveMutation.isPending;
+
+  /** Invalidate skill queries after import. */
+  const invalidateSkillQueries = useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: trpc.settings.getSkills.queryOptions().queryKey,
+    });
+    if (projectId) {
+      queryClient.invalidateQueries({
+        queryKey: trpc.settings.getSkills.queryOptions({ projectId }).queryKey,
+      });
+    }
+  }, [projectId]);
+
+  /** Resolve local path from a File object (Electron). */
+  const resolveFilePath = useCallback((file: File): string | null => {
+    const candidate = (file as File & { path?: string }).path;
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+    if (window.openloafElectron?.getPathForFile) {
+      try {
+        const resolved = window.openloafElectron.getPathForFile(file);
+        if (resolved) return String(resolved);
+      } catch {
+        // fallback
+      }
+    }
+    return null;
+  }, []);
+
+  /** Check if file extension is a supported archive. */
+  const isArchiveFile = useCallback((name: string) => {
+    const ext = name.lastIndexOf('.') >= 0 ? name.slice(name.lastIndexOf('.')).toLowerCase() : '';
+    return ARCHIVE_EXTENSIONS.has(ext);
+  }, [ARCHIVE_EXTENSIONS]);
+
+  /** Handle drag events. */
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (dragCounter.current === 1) {
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current <= 0) {
+      dragCounter.current = 0;
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  /** Handle drop of files/folders. */
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current = 0;
+    setIsDragOver(false);
+
+    if (isImporting) return;
+
+    const scope = isProjectList ? "project" as const : "global" as const;
+    const files = Array.from(e.dataTransfer.files);
+
+    if (files.length === 0) return;
+
+    // Try Electron path resolution first
+    const isElectron = Boolean(window.openloafElectron?.getPathForFile);
+
+    for (const file of files) {
+      if (isElectron) {
+        // Electron: resolve local path and use importSkill
+        const localPath = resolveFilePath(file);
+        if (localPath) {
+          importSkillMutation.mutate({
+            sourcePath: localPath,
+            scope,
+            projectId: scope === "project" ? projectId : undefined,
+          });
+          continue;
+        }
+      }
+
+      // Web fallback: only archives can be imported via upload
+      if (isArchiveFile(file.name)) {
+        const buffer = await file.arrayBuffer();
+        const base64 = btoa(
+          new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''),
+        );
+        importArchiveMutation.mutate({
+          contentBase64: base64,
+          fileName: file.name,
+          scope,
+          projectId: scope === "project" ? projectId : undefined,
+        });
+      } else {
+        toast.error(t('skills.import.unsupportedFormat'));
+      }
+    }
+  }, [isImporting, isProjectList, projectId, resolveFilePath, isArchiveFile, importSkillMutation, importArchiveMutation, t]);
+
   /** Open skills folder in system file manager. */
   const handleOpenSkillsRoot = useCallback(async () => {
     if (!skillsRootUri) return;
@@ -304,7 +457,32 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div
+      className="relative flex h-full min-h-0 flex-col"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={(e) => void handleDrop(e)}
+    >
+      {/* Drag overlay */}
+      {isDragOver ? (
+        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg border-2 border-dashed border-ol-blue bg-ol-blue-bg/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-2 text-ol-blue">
+            <Import className="h-8 w-8" />
+            <p className="text-sm font-medium">{t('skills.import.dropHint')}</p>
+            <p className="text-xs text-muted-foreground">{t('skills.import.dropSubHint')}</p>
+          </div>
+        </div>
+      ) : null}
+      {/* Importing indicator */}
+      {isImporting ? (
+        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-sm">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">{t('skills.import.importing')}</span>
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-start justify-between gap-2.5 border-b border-border/60 px-3 py-2.5">
         <div className="space-y-1">
           <h3 className="text-sm font-semibold tracking-tight text-foreground">{t('skills.title')}</h3>

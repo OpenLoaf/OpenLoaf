@@ -235,6 +235,9 @@ contextBridge.exposeInMainWorld('openloafElectron', {
   // 更新系统托盘角标计数（0 表示清除角标）。
   setTrayBadge: (payload: { count: number }): Promise<{ ok: true }> =>
     ipcRenderer.invoke('openloaf:tray:set-badge', payload),
+  // 同步 UI 主题到主进程 nativeTheme（影响浏览器标签栏等子窗口）。
+  setNativeTheme: (theme: 'light' | 'dark' | 'system'): Promise<{ ok: true }> =>
+    ipcRenderer.invoke('openloaf:app:set-native-theme', { theme }),
   // 同步 UI 语言到主进程（托盘菜单、对话框等原生 UI 翻译）。
   setLanguage: (language: string): Promise<{ ok: true } | { ok: false; reason: string }> =>
     ipcRenderer.invoke('openloaf:app:set-language', { language }),

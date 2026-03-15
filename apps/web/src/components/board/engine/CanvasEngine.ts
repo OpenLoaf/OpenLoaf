@@ -224,6 +224,8 @@ export class CanvasEngine {
   private focusViewportFrameId: number | null = null;
   /** Token used to cancel stale viewport focus animations. */
   private focusViewportToken = 0;
+  /** Deferred fitToElements padding when viewport size was zero at call time. */
+  private pendingFitPadding: number | null = null;
   /** History stack for undo operations. */
   private historyPast: CanvasHistoryState[] = [];
   /** History stack for redo operations. */
@@ -399,6 +401,12 @@ export class CanvasEngine {
     const nextHeight = Math.max(0, Math.round(rect.height));
     this.resizeSize = [nextWidth, nextHeight];
     this.viewport.setSize(nextWidth, nextHeight);
+    // 逻辑：attach 时若已有延迟的 fitToElements 请求且尺寸就绪，立即执行。
+    if (this.pendingFitPadding !== null && nextWidth > 0 && nextHeight > 0) {
+      const padding = this.pendingFitPadding;
+      this.pendingFitPadding = null;
+      fitToElements(this.doc, this.viewport, padding);
+    }
 
     this.resizeObserver = new ResizeObserver(entries => {
       const entry = entries[0];
@@ -463,6 +471,12 @@ export class CanvasEngine {
       this.resizeRaf = null;
       if (!this.resizeSize) return;
       this.viewport.setSize(this.resizeSize[0], this.resizeSize[1]);
+      // 逻辑：viewport 尺寸就绪后执行之前因 size=0 而延迟的 fitToElements。
+      if (this.pendingFitPadding !== null && this.resizeSize[0] > 0 && this.resizeSize[1] > 0) {
+        const padding = this.pendingFitPadding;
+        this.pendingFitPadding = null;
+        fitToElements(this.doc, this.viewport, padding);
+      }
     });
   }
 
@@ -2207,6 +2221,13 @@ export class CanvasEngine {
 
   /** Fit the viewport to include all node elements. */
   fitToElements(padding = DEFAULT_FIT_PADDING): void {
+    const { size } = this.viewport.getState();
+    if (size[0] <= 0 || size[1] <= 0) {
+      // 逻辑：viewport 尺寸还未就绪时延迟执行，等 setSize 触发后重试。
+      this.pendingFitPadding = padding;
+      return;
+    }
+    this.pendingFitPadding = null;
     fitToElements(this.doc, this.viewport, padding);
   }
 

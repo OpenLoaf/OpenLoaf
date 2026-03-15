@@ -18,7 +18,7 @@ export const excelQueryToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：读取销售数据表。'),
     mode: z
       .enum(['read-structure', 'read-xml', 'read-text'])
@@ -49,7 +49,7 @@ export const excelMutateToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：创建销售报表。'),
     action: z
       .enum(['create', 'edit'])

@@ -486,6 +486,8 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   const [groupByTime, setGroupByTime] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterProjectId, setFilterProjectId] = useState<string>("__all__");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createTargetProjectId, setCreateTargetProjectId] = useState<string>("__temp__");
   const [visibleThumbIds, setVisibleThumbIds] = useState<string[]>([]);
 
   const { data: projectList } = useQuery({
@@ -665,12 +667,32 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   );
 
   const handleCreate = useCallback(() => {
-    if (!resolveBoardRootUri(projectId) || createMutation.isPending) return;
+    if (createMutation.isPending) return;
+    // In project context, create directly; globally, show project picker dialog
+    if (projectId) {
+      if (!resolveBoardRootUri(projectId)) return;
+      createMutation.mutate({
+        title: t("canvasList.defaultName"),
+        projectId,
+      });
+    } else {
+      setCreateTargetProjectId("__temp__");
+      setCreateDialogOpen(true);
+    }
+  }, [projectId, createMutation, t, resolveBoardRootUri]);
+
+  const handleCreateConfirm = useCallback(() => {
+    if (createMutation.isPending) return;
+    const targetPid =
+      createTargetProjectId === "__temp__" ? undefined : createTargetProjectId;
+    if (targetPid && !resolveBoardRootUri(targetPid)) return;
+    if (!targetPid && !resolveBoardRootUri(undefined)) return;
     createMutation.mutate({
       title: t("canvasList.defaultName"),
-      ...(projectId ? { projectId } : {}),
+      ...(targetPid ? { projectId: targetPid } : {}),
     });
-  }, [resolveBoardRootUri, projectId, createMutation, t]);
+    setCreateDialogOpen(false);
+  }, [createMutation, createTargetProjectId, resolveBoardRootUri, t]);
 
   const handleBoardClick = useCallback(
     (board: { id: string; title: string; folderUri: string; projectId?: string | null }) => {
@@ -825,7 +847,8 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     }),
     [t],
   );
-  const canCreateBoard = Boolean(resolveBoardRootUri(projectId));
+  // Global mode: always allow (dialog handles project selection); project mode: check root URI
+  const canCreateBoard = projectId ? Boolean(resolveBoardRootUri(projectId)) : true;
   const isInitialLoading = boardsQuery.isPending && displayedBoards.length === 0;
 
   return (
@@ -1082,6 +1105,48 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
         </DialogContent>
       </Dialog>
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
+
+      {/* Create board dialog – shown in global mode to pick a project */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("canvasList.createTitle")}</DialogTitle>
+            <DialogDescription>{t("canvasList.createDesc")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Select value={createTargetProjectId} onValueChange={setCreateTargetProjectId}>
+              <SelectTrigger>
+                <SelectValue placeholder={t("canvasList.selectProject")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__temp__">{t("canvasList.tempCanvas")}</SelectItem>
+                {projectList?.map((p) => (
+                  <SelectItem key={p.projectId} value={p.projectId}>
+                    {p.icon ? `${p.icon} ` : ""}{p.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button
+                variant="ghost"
+                className="rounded-md text-muted-foreground shadow-none transition-colors duration-150"
+              >
+                {t("cancel")}
+              </Button>
+            </DialogClose>
+            <Button
+              className="rounded-md bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20 shadow-none transition-colors duration-150"
+              onClick={handleCreateConfirm}
+              disabled={createMutation.isPending}
+            >
+              {createMutation.isPending ? tCommon("loading") : t("canvasList.createConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -683,6 +683,14 @@
       "success": "翻译完成：{{translated}} 个文件已翻译，{{skipped}} 个跳过",
       "failed": "翻译失败",
       "upToDate": "已是最新翻译，无需更新"
+    },
+    "import": {
+      "dropHint": "拖放到此处导入技能",
+      "dropSubHint": "支持技能文件夹或 .zip / .skill 压缩包",
+      "importing": "正在导入...",
+      "success": "成功导入 {{count}} 个技能：{{names}}",
+      "failed": "导入失败",
+      "unsupportedFormat": "不支持的文件格式，请拖入文件夹或 .zip / .skill 文件"
     }
   },
   "modelSelector": {

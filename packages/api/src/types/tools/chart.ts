@@ -22,7 +22,7 @@ export const chartRenderToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的。"),
     title: z.string().optional().describe("图表标题。"),

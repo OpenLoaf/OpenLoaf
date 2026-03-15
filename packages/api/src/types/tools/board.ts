@@ -17,7 +17,7 @@ export const boardQueryToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：查看画布列表。'),
     mode: z
       .enum(['list', 'get'])
@@ -51,7 +51,7 @@ export const boardMutateToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：创建新画布。'),
     action: z
       .enum(['create', 'update', 'delete', 'hard-delete', 'duplicate', 'clear-unbound'])

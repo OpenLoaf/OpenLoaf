@@ -55,6 +55,10 @@ export default function OpenUrlTool({
   const url = typeof input.url === "string" ? normalizeUrl(input.url) : "";
   const title = typeof input.title === "string" ? input.title : undefined;
 
+  const isError = part.state === 'output-error' || part.state === 'output-denied'
+  const errorText = isError && typeof part.errorText === 'string' && part.errorText.trim()
+    ? part.errorText
+    : undefined
   const isDisabled = !url;
 
   const onOpen = React.useCallback(() => {
@@ -103,6 +107,11 @@ export default function OpenUrlTool({
             </Source>
           </SourcesContent>
         </Sources>
+        {errorText && (
+          <div className="mt-1 rounded-md bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
+            {errorText}
+          </div>
+        )}
       </div>
     </div>
   );

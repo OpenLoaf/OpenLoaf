@@ -33,9 +33,11 @@ import {
   Italic,
   List,
   ListOrdered,
+  MessageSquare,
   Palette,
   PaintBucket,
   Play,
+  Sparkles,
   Strikethrough,
   Type,
   Underline,
@@ -55,6 +57,7 @@ import {
 } from "../ui/board-style-system";
 import { useBoardContext } from "../core/BoardProvider";
 import { VIDEO_GENERATE_NODE_TYPE } from "./videoGenerate";
+import { IMAGE_GENERATE_NODE_TYPE } from "./imageGenerate/constants";
 import { MINDMAP_META } from "../engine/mindmap-layout";
 import { HueSlider, buildColorSwatches, DEFAULT_COLOR_PRESETS } from "../ui/HueSlider";
 import { BoardTextEditorKit } from "./text-editor-kit";
@@ -166,6 +169,28 @@ const textEditorRefs = new Map<string, PlateEditor>();
 
 /** Connector templates offered by the text node – resolved at render time. */
 const getTextNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
+  {
+    id: "text",
+    label: i18next.t('board:connector.textNode'),
+    description: i18next.t('board:connector.textNodeDesc'),
+    size: [200, TEXT_NODE_DEFAULT_HEIGHT],
+    icon: <Type size={14} />,
+    createNode: () => ({
+      type: "text",
+      props: {},
+    }),
+  },
+  {
+    id: IMAGE_GENERATE_NODE_TYPE,
+    label: i18next.t('board:connector.imageGenerate'),
+    description: i18next.t('board:connector.imageGenerateDesc'),
+    size: [320, 260],
+    icon: <Sparkles size={14} />,
+    createNode: () => ({
+      type: IMAGE_GENERATE_NODE_TYPE,
+      props: {},
+    }),
+  },
   {
     id: VIDEO_GENERATE_NODE_TYPE,
     label: i18next.t('board:connector.videoGenerate'),
@@ -1034,7 +1059,8 @@ function EditableTextNodeView({
     [engine, isGhost],
   );
 
-  const handleEditorPointerDown = useCallback(
+  /** Stop pointer events from reaching the canvas tool system while editing. */
+  const stopEditorPointerPropagation = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (isGhost) return;
       event.stopPropagation();
@@ -1135,7 +1161,8 @@ function EditableTextNodeView({
       data-board-editor={isEditing ? "true" : undefined}
       data-board-scroll
       onDoubleClick={handleDoubleClick}
-      onPointerDown={isEditing ? handleEditorPointerDown : handleCheckboxPointerDown}
+      onPointerDown={isEditing ? stopEditorPointerPropagation : handleCheckboxPointerDown}
+      onPointerMove={isEditing ? stopEditorPointerPropagation : undefined}
     >
       <Plate editor={editor} onChange={handleEditorChange}>
         <PlateContent

@@ -1384,10 +1384,24 @@ function ConnectorDropPanel({
   if (!connectorDrop) return null;
   // 逻辑：根据当前视口把世界坐标转换为屏幕位置。
   const screen = toScreenPoint(connectorDrop.point, viewState);
+  // 逻辑：判断连线拖出方向，面板锚定在落点的拖出侧，保持连线在面板内侧。
+  let align: "left" | "right" | "center" = "center";
+  const sourceEnd = connectorDrop.source;
+  if ("elementId" in sourceEnd) {
+    const sourceElement = snapshot.elements.find(
+      item => item.id === sourceEnd.elementId
+    );
+    if (sourceElement?.kind === "node") {
+      const [sx, , sw] = sourceElement.xywh;
+      const sourceCenterX = sx + sw / 2;
+      align = connectorDrop.point[0] >= sourceCenterX ? "left" : "right";
+    }
+  }
   return (
     <NodePicker
       ref={panelRef}
       position={screen}
+      align={align}
       templates={templates}
       onSelect={onSelect}
     />

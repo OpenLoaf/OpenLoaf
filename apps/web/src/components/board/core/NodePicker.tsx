@@ -11,61 +11,86 @@
 
 import { forwardRef } from "react";
 import { useTranslation } from "react-i18next";
+import { cn } from "@udecode/cn";
 import { Type } from "lucide-react";
 
 import type { CanvasConnectorTemplateDefinition } from "../engine/types";
 
 type NodePickerProps = {
   position: [number, number];
+  /** Horizontal alignment relative to the drop point. */
+  align?: "left" | "right" | "center";
   templates: CanvasConnectorTemplateDefinition[];
   onSelect: (templateId: string) => void;
 };
 
+/**
+ * Resolve the CSS translate class for the picker alignment.
+ *
+ * - `left`:   panel sits to the right of the drop point (line enters from left)
+ * - `right`:  panel sits to the left (line enters from right)
+ * - `center`: centered on the drop point
+ */
+function resolveAlignClass(align: NodePickerProps["align"]) {
+  switch (align) {
+    case "left":
+      return "translate-x-0";
+    case "right":
+      return "-translate-x-full";
+    default:
+      return "-translate-x-1/2";
+  }
+}
+
 export const NodePicker = forwardRef<HTMLDivElement, NodePickerProps>(
   /** Render the node picker for connector drops. */
-  function NodePicker({ position, templates, onSelect }, ref) {
+  function NodePicker({ position, align = "center", templates, onSelect }, ref) {
     const { t } = useTranslation('board');
     return (
       <div
         ref={ref}
         data-node-picker
-        className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-3"
+        className={cn(
+          "pointer-events-none absolute z-30 -translate-y-1/2",
+          resolveAlignClass(align),
+        )}
         style={{ left: position[0], top: position[1] }}
       >
-        <div className="pointer-events-auto min-w-[260px] rounded-lg border border-ol-divider bg-background/95 p-2.5 text-ol-text-auxiliary shadow-sm ring-1 ring-ol-divider backdrop-blur">
-          <div className="mb-2 text-[11px] text-ol-text-auxiliary">{t('nodePicker.title')}</div>
-          <div className="flex max-h-[280px] flex-col gap-1 overflow-auto pr-1">
-            {templates.length ? (
-              templates.map((item) => (
+        <div
+          data-connector-drop-panel
+          className="pointer-events-auto ol-glass-toolbar rounded-xl p-1 ring-1 ring-border/70"
+        >
+          {templates.length ? (
+            <div className="flex items-center gap-0.5">
+              {templates.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onPointerDown={(event) => {
-                    // 逻辑：优先响应按下，避免 click 被画布层吞掉。
                     event.stopPropagation();
                     onSelect(item.id);
                   }}
-                  className="group flex w-full items-start gap-2 rounded-lg border border-ol-divider bg-ol-surface-muted px-2.5 py-2 text-left transition-colors duration-150 hover:bg-ol-divider"
+                  className={cn(
+                    "group flex flex-col items-center gap-1 rounded-lg px-3 py-2",
+                    "text-ol-text-auxiliary transition-colors duration-100",
+                    "hover:bg-foreground/8 hover:text-ol-text-primary",
+                    "dark:hover:bg-foreground/10",
+                  )}
                 >
-                  <span className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-lg bg-ol-surface-muted text-ol-text-auxiliary">
-                    {item.icon ?? <Type size={14} />}
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-ol-surface-muted text-ol-text-auxiliary transition-colors group-hover:bg-ol-blue-bg group-hover:text-ol-blue">
+                    {item.icon ?? <Type size={16} />}
                   </span>
-                  <span className="min-w-0">
-                    <div className="text-[12px] font-medium leading-4 text-ol-text-primary">
-                      {item.label}
-                    </div>
-                    <div className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-ol-text-auxiliary">
-                      {item.description}
-                    </div>
+                  <span className="whitespace-nowrap text-[11px] font-medium leading-3">
+                    {item.label}
                   </span>
                 </button>
-              ))
-            ) : (
-              <div className="rounded-lg border border-dashed border-ol-divider px-2.5 py-2 text-[11px] text-ol-text-auxiliary">
-                {t('nodePicker.empty')}
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="px-3 py-2 text-[11px] text-ol-text-auxiliary">
+              {t('nodePicker.empty')}
+            </div>
+          )}
         </div>
       </div>
     );

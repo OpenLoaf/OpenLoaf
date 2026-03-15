@@ -133,6 +133,8 @@
     "videoGenerateDesc": "Generate video from text",
     "imagePromptGenerate": "Image/Video Analysis",
     "imagePromptGenerateDesc": "Analyze video and generate description",
+    "textNode": "Text Node",
+    "textNodeDesc": "Add text content",
     "imageGenerate": "Image Generation",
     "imageGenerateDesc": "Generate new image from prompt and image",
     "straight": "Straight",

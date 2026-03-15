@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import path from "node:path";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 
 type SkillScope = "project" | "global";
 
@@ -125,24 +125,54 @@ function normalizeRootPathList(values?: string[]): string[] {
   return deduped.reverse();
 }
 
-/** Recursively find SKILL.md files under the skills root. */
+/** Recursively find SKILL.md files under the skills root, sorted by folder mtime (oldest first). */
 function findSkillFiles(rootPath: string): string[] {
   if (!existsSync(rootPath)) return [];
   const entries = readdirSync(rootPath, { withFileTypes: true });
-  const files: string[] = [];
+  const results: Array<{ filePath: string; mtime: number }> = [];
 
   for (const entry of entries) {
     const entryPath = path.join(rootPath, entry.name);
     if (entry.isDirectory()) {
-      files.push(...findSkillFiles(entryPath));
+      // Check if this directory directly contains SKILL.md
+      const skillMdPath = path.join(entryPath, SKILL_FILE_NAME);
+      if (existsSync(skillMdPath)) {
+        let mtime = 0;
+        try {
+          mtime = statSync(entryPath).mtimeMs;
+        } catch {
+          // fallback to 0
+        }
+        results.push({ filePath: skillMdPath, mtime });
+      } else {
+        // Recurse into subdirectories
+        const nested = findSkillFiles(entryPath);
+        for (const nestedPath of nested) {
+          let mtime = 0;
+          try {
+            mtime = statSync(path.dirname(nestedPath)).mtimeMs;
+          } catch {
+            // fallback
+          }
+          results.push({ filePath: nestedPath, mtime });
+        }
+      }
       continue;
     }
     if (entry.isFile() && entry.name === SKILL_FILE_NAME) {
-      files.push(entryPath);
+      let mtime = 0;
+      try {
+        mtime = statSync(rootPath).mtimeMs;
+      } catch {
+        // fallback
+      }
+      results.push({ filePath: entryPath, mtime });
     }
   }
 
-  return files;
+  // Sort by mtime ascending (oldest first, newest last)
+  results.sort((a, b) => a.mtime - b.mtime);
+  return results.map((r) => r.filePath);
 }
 
 /** Read a single skill summary from SKILL.md front matter. */

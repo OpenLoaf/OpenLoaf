@@ -17,7 +17,7 @@ export const openUrlToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：打开指定网页。"),
     url: z.string().describe("要打开的 URL（允许不带协议）。"),
     title: z.string().optional().describe("可选：页面标题，用于 UI 展示。"),

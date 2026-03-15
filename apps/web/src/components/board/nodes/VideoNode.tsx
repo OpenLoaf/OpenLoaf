@@ -62,7 +62,7 @@ function resolveProjectRelativePath(path: string, fileContext?: BoardFileContext
 
 /** Open video in the file preview dialog (same as double-click). */
 async function openVideoPreview(props: VideoNodeProps, fileContext?: BoardFileContext) {
-  const boardId = fileContext?.boardId ?? "";
+  const boardId = isBoardRelativePath(props.sourcePath) ? (fileContext?.boardId ?? "") : "";
   const projectRelativePath = resolveProjectRelativePath(props.sourcePath, fileContext);
   const resolvedPath = projectRelativePath || props.sourcePath;
   const displayName = props.fileName || resolvedPath.split("/").pop() || "Video";
@@ -168,6 +168,17 @@ export function VideoNodeView({
     return parsed?.projectId;
   }, [element.props.sourcePath, fileContext?.projectId]);
 
+  // 逻辑：HLS URL 需要未展开的原始路径 + ids，让服务端通过 boardId/projectId 正确解析。
+  // resolvedPath 已经包含 board 目录前缀，直接传会导致服务端重复拼接。
+  const hlsPath = useMemo(() => {
+    if (isBoardRelativePath(element.props.sourcePath)) {
+      return element.props.sourcePath; // "asset/Kapture..." — 服务端用 boardId 解析
+    }
+    const parsed = parseScopedProjectPath(element.props.sourcePath);
+    if (parsed) return parsed.relativePath; // "jimeng.mp4" — 服务端用 projectId 解析
+    return resolvedPath;
+  }, [element.props.sourcePath, resolvedPath]);
+
   const ids = useMemo(
     () => ({
       projectId: effectiveProjectId,
@@ -178,22 +189,22 @@ export function VideoNodeView({
   );
 
   const handlePlayInline = useCallback(() => {
-    if (!resolvedPath) return;
+    if (!hlsPath) return;
     setPlaying(true);
     setLoading(true);
-  }, [resolvedPath]);
+  }, [hlsPath]);
 
   // 逻辑：playing 后轮询 HLS 转码状态，就绪后用 hls.js 或原生 HLS 播放。
   useEffect(() => {
-    if (!playing || !resolvedPath) return;
+    if (!playing || !hlsPath) return;
     const video = videoRef.current;
     if (!video) return;
 
     let cancelled = false;
     let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const qualityUrl = buildHlsQualityUrl(resolvedPath, "720p", ids);
-    const masterUrl = buildHlsManifestUrl(resolvedPath, ids);
+    const qualityUrl = buildHlsQualityUrl(hlsPath, "720p", ids);
+    const masterUrl = buildHlsManifestUrl(hlsPath, ids);
 
     const startPlayback = (url: string) => {
       if (cancelled) return;
@@ -239,7 +250,7 @@ export function VideoNodeView({
         hlsRef.current = null;
       }
     };
-  }, [playing, resolvedPath, ids]);
+  }, [playing, hlsPath, ids]);
 
   // 逻辑：组件卸载时销毁 hls 实例。
   useEffect(() => {
@@ -283,6 +294,7 @@ export function VideoNodeView({
           <div
             className="relative h-full w-full overflow-hidden rounded-lg bg-black"
             data-board-scroll
+            data-board-editor="true"
             onPointerDown={(e) => e.stopPropagation()}
           >
             <video
@@ -312,6 +324,7 @@ export function VideoNodeView({
             <div className="absolute inset-0 flex items-center justify-center">
               <button
                 type="button"
+                data-board-controls
                 className="flex h-[12%] min-h-5 aspect-square cursor-pointer items-center justify-center rounded-md border border-white/40 bg-black/40 text-white transition-transform duration-200 ease-out hover:scale-125"
                 onPointerDown={(e) => {
                   e.stopPropagation();
@@ -329,6 +342,7 @@ export function VideoNodeView({
           <div className="flex flex-col items-center justify-center gap-2 px-3 text-center">
             <button
               type="button"
+              data-board-controls
               className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md bg-ol-surface-muted text-ol-text-auxiliary transition-transform duration-200 ease-out hover:scale-125"
               onPointerDown={(e) => {
                 e.stopPropagation();

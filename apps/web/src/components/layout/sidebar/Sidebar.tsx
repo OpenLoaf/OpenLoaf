@@ -25,6 +25,7 @@ import {
 import { CalendarDays, Clock, FolderKanban, LayoutDashboard, Mail, Palette, Search, Settings, Sparkles } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { useAppState } from "@/hooks/use-app-state";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import {
   AI_ASSISTANT_TAB_INPUT,
   CANVAS_LIST_TAB_INPUT,
@@ -183,18 +184,6 @@ export const AppSidebar = ({
             onClick={nav.openTempChat}
           />
           <IconNavItem
-            icon={FolderKanban}
-            tooltip={t("sidebarProjectSpace")}
-            color="blue"
-            isActive={
-              (isProjectListActive ||
-                isMenuActive(PROJECT_LIST_TAB_INPUT) ||
-                isInProject) &&
-              !isSettingsActive
-            }
-            onClick={() => openPrimaryPageTab({ ...PROJECT_LIST_TAB_INPUT })}
-          />
-          <IconNavItem
             icon={Palette}
             tooltip={t("smartCanvas")}
             color="purple"
@@ -205,6 +194,18 @@ export const AppSidebar = ({
               isCanvasViewerActive)
             }
             onClick={() => openPrimaryPageTab({ ...CANVAS_LIST_TAB_INPUT })}
+          />
+          <IconNavItem
+            icon={FolderKanban}
+            tooltip={t("sidebarProjectSpace")}
+            color="blue"
+            isActive={
+              (isProjectListActive ||
+                isMenuActive(PROJECT_LIST_TAB_INPUT) ||
+                isInProject) &&
+              !isSettingsActive
+            }
+            onClick={() => openPrimaryPageTab({ ...PROJECT_LIST_TAB_INPUT })}
           />
 
           {/* Separator */}

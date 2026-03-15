@@ -55,6 +55,16 @@ export function SkillTranslateSlot({ skillFolderPath }: SkillTranslateSlotProps)
           queryClient.invalidateQueries({
             queryKey: trpc.settings.getSkills.queryOptions().queryKey,
           })
+          // Refresh the file tree and file preview in the stack panel
+          // tRPC query keys start with [["fs", ...]], invalidate all fs queries
+          queryClient.invalidateQueries({
+            predicate: (query) => {
+              const key = query.queryKey
+              if (!Array.isArray(key) || key.length === 0) return false
+              const first = key[0]
+              return Array.isArray(first) && first[0] === 'fs'
+            },
+          })
         } else {
           toast.error(data.error ?? t('skills.translate.failed'))
         }

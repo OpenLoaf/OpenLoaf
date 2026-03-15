@@ -35,7 +35,7 @@ export const imageProcessToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：将图片转换为 WebP 格式。'),
     action: z
       .enum(['get-info', 'resize', 'crop', 'rotate', 'flip', 'grayscale', 'blur', 'sharpen', 'tint', 'convert'])

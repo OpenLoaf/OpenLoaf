@@ -73,7 +73,7 @@ export type WebContentsViewWindowOpen = {
 };
 
 /** Build a Chrome-like user agent for embedded views. */
-function getChromeUserAgent(): string {
+export function getChromeUserAgent(): string {
   const chromeVersion = process.versions.chrome ?? '120.0.0.0';
   let platform = 'X11; Linux x86_64';
   if (process.platform === 'darwin') {
@@ -487,7 +487,7 @@ function installViewStatusEmitter(win: BrowserWindow, key: string, view: WebCont
  * - Electron 的类型定义中未暴露 `webContents.destroy()`，但部分运行时对象确实存在该方法
  * - 优先调用 destroy，兜底调用 close
  */
-function safeDisposeWebContents(webContents: WebContents) {
+export function safeDisposeWebContents(webContents: WebContents) {
   const maybe = webContents as unknown as { destroy?: () => void; close?: () => void };
   if (typeof maybe.destroy === 'function') {
     maybe.destroy();
@@ -599,7 +599,7 @@ function clampViewBounds(bounds: ViewBounds): ViewBounds {
  * - 支持 `localhost:xxxx`（默认补 http）
  * - 其余必须是显式协议的 URL
  */
-function normalizeExternalUrl(raw: string): string {
+export function normalizeExternalUrl(raw: string): string {
   const value = raw.trim();
   if (!value) {
     throw new Error('URL is empty');
@@ -620,12 +620,10 @@ export function createBrowserWindowForUrl(url: string): BrowserWindow {
     throw new Error(`Unsupported protocol: ${parsed.protocol}`);
   }
 
-  const parent = BrowserWindow.getAllWindows()[0];
   const windowIcon = resolveWindowIconPath();
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
-    parent: parent ?? undefined,
     ...(windowIcon ? { icon: windowIcon } : {}),
     webPreferences: {
       contextIsolation: true,

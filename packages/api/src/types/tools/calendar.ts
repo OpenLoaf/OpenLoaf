@@ -17,7 +17,7 @@ export const calendarQueryToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：查看本周日程。'),
     mode: z
       .enum(['list-sources', 'list-items'])
@@ -46,7 +46,7 @@ export const calendarMutateToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：创建会议。'),
     action: z
       .enum(['create', 'update', 'delete', 'toggle-completed'])

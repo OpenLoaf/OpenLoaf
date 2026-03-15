@@ -20,7 +20,7 @@ export const widgetInitToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('本次工具调用目的，例如：初始化天气 Widget 脚手架'),
     widgetName: z
       .string()
@@ -70,7 +70,7 @@ export const widgetListToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('本次工具调用目的，例如：查看已有 Widget 列表'),
   }),
   component: null,
@@ -85,7 +85,7 @@ export const widgetGetToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('本次工具调用目的，例如：查看天气 Widget 详情'),
     widgetId: z
       .string()
@@ -104,7 +104,7 @@ export const widgetCheckToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('本次工具调用目的，例如：验证天气 Widget'),
     widgetId: z
       .string()
@@ -125,7 +125,7 @@ export const generateWidgetToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe(
         '由调用的 LLM 传入，用于说明本次工具调用目的，例如：生成特斯拉股票 Widget。',
       ),

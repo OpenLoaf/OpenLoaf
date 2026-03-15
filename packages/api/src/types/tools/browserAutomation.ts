@@ -17,7 +17,7 @@ export const browserSnapshotToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：获取页面快照。"),
   }),
   component: null,
@@ -31,7 +31,7 @@ export const browserObserveToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：观察页面寻找操作线索。"),
     task: z.string().describe("观察目标/关注点。"),
   }),
@@ -46,7 +46,7 @@ export const browserExtractToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：提取页面关键信息。"),
     query: z.string().describe("要提取的信息描述。"),
   }),
@@ -61,8 +61,8 @@ export const browserActToolDef = {
   parameters: z
     .object({
       actionName: z
-        .string()
-        .min(1)
+      .string()
+      .optional()
         .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：点击按钮或输入文本。"),
       action: z
         .enum(["click-css", "click-text", "type", "fill", "press", "press-on", "scroll"])
@@ -107,7 +107,7 @@ export const browserWaitToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：等待页面加载完成。"),
     type: z.enum(["timeout", "load", "networkidle", "urlIncludes", "textIncludes"]),
     timeoutMs: z.number().int().min(0).optional().describe("最大等待时间（毫秒）。"),
@@ -125,7 +125,7 @@ export const browserScreenshotToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：截取当前页面截图。"),
     format: z
       .enum(["png", "jpeg", "webp"])
@@ -154,7 +154,7 @@ export const browserDownloadImageToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：下载商品图片。"),
     imageUrls: z
       .array(z.string())

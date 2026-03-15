@@ -17,7 +17,7 @@ export const projectQueryToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：查看项目列表。"),
     mode: z
       .enum(["list", "get"])
@@ -39,7 +39,7 @@ export const projectMutateToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：创建新项目。"),
     action: z
       .enum(["create", "update", "move", "remove"])

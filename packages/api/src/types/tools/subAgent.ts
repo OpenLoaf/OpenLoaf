@@ -28,7 +28,7 @@ export const subAgentToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：启动子代理执行网页操作。"),
     name: z
       .enum(subAgentNames)

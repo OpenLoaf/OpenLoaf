@@ -38,10 +38,11 @@ export const masterTemplate: AgentTemplate = {
     'send-input',
     'wait-agent',
     'abort-agent',
-    // file (read-only — "看"不"做")
+    // file
     'read-file',
     'list-dir',
     'grep-files',
+    'apply-patch',
     'file-info',
     // shell
     'shell-command',
@@ -56,34 +57,45 @@ export const masterTemplate: AgentTemplate = {
     'browser-wait',
     'browser-screenshot',
     'browser-download-image',
-    // media (simple one-step generation)
+    // media
     'image-generate',
     'video-generate',
+    'list-media-models',
     // chart
     'chart-render',
     // code
     'js-repl',
     'js-repl-reset',
-    // task
-    'task-manage',
-    'task-status',
     // project
     'project-query',
     'project-mutate',
-    // board (query only — mutate goes to PM/Specialist)
+    // board
     'board-query',
+    'board-mutate',
     // calendar
     'calendar-query',
     'calendar-mutate',
     // email
     'email-query',
     'email-mutate',
-    // office (query only — mutate goes to PM/Specialist)
+    // document
+    'edit-document',
+    // office
     'excel-query',
+    'excel-mutate',
     'word-query',
+    'word-mutate',
     'pptx-query',
+    'pptx-mutate',
     'pdf-query',
-    // widget (query only)
+    'pdf-mutate',
+    // convert
+    'image-process',
+    'video-convert',
+    'doc-convert',
+    // widget
+    'generate-widget',
+    'widget-init',
     'widget-list',
     'widget-get',
     'widget-check',

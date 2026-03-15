@@ -140,6 +140,21 @@ function LanguageSettingsBootstrap() {
   return null;
 }
 
+/** Sync next-themes resolved theme to Electron nativeTheme for browser tab bar etc. */
+function NativeThemeSyncBootstrap() {
+  const { theme } = useTheme();
+
+  useEffect(() => {
+    const api = window.openloafElectron;
+    if (!api?.setNativeTheme) return;
+    if (!isElectronEnv()) return;
+    const mapped = theme === "light" || theme === "dark" ? theme : "system";
+    api.setNativeTheme(mapped).catch(() => {});
+  }, [theme]);
+
+  return null;
+}
+
 function WindowsTitlebarSymbolColorBootstrap() {
   const { resolvedTheme } = useTheme();
 
@@ -365,6 +380,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         <AnimationSettingsBootstrap />
         <SaasAuthBootstrap />
         <ModelRegistryBootstrap />
+        <NativeThemeSyncBootstrap />
         <WindowsTitlebarSymbolColorBootstrap />
         <WindowsTitlebarHeightBootstrap />
         <MotionSettingsBootstrap>

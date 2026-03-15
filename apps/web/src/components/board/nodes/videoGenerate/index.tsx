@@ -54,6 +54,7 @@ import {
 } from "../../ui/board-style-system";
 import { VideoGenerateNodeSchema, type VideoGenerateNodeProps } from "./types";
 import { isEmptyParamValue, normalizeTextValue, resolveParameterDefaults } from "./utils";
+import { extractTextNodePlainText } from "../lib/text-node-utils";
 import { ModelSelect } from "./ModelSelect";
 import { AdvancedSettingsPanel } from "./AdvancedSettingsPanel";
 import { getBoardChatMessageMeta } from "../../utils/board-chat-message";
@@ -195,7 +196,7 @@ function EditableVideoGenerateNodeView({
       continue;
     }
     if (source.type === "text") {
-      const rawText = normalizeTextValue((source.props as any)?.value);
+      const rawText = extractTextNodePlainText((source.props as any)?.value);
       if (rawText.trim()) inputTextSegments.push(rawText.trim());
       continue;
     }

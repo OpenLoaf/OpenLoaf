@@ -17,7 +17,7 @@ export const emailQueryToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：查看未读邮件。'),
     mode: z
       .enum([
@@ -77,7 +77,7 @@ export const emailMutateToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：发送邮件给张三。'),
     action: z
       .enum([

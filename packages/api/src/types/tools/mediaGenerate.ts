@@ -26,7 +26,7 @@ export const listMediaModelsToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：查询可用图片生成模型。'),
     kind: z
       .enum(['image', 'video'])
@@ -43,7 +43,7 @@ export const imageGenerateToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：生成日落海滩图片。'),
     prompt: z
       .string()
@@ -90,7 +90,7 @@ export const videoGenerateToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：生成产品展示视频。'),
     prompt: z
       .string()

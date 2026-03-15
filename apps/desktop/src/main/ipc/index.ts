@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { app, BrowserWindow, dialog, ipcMain, nativeImage, Notification, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, Notification, shell } from 'electron';
 import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -27,7 +27,6 @@ import {
   type UpdateChannel,
 } from '../updateConfig';
 import {
-  createBrowserWindowForUrl,
   destroyAllWebContentsViews,
   destroyWebContentsView,
   getWebContentsView,
@@ -48,6 +47,7 @@ import { updateTrayBadge, refreshTrayMenu } from '../tray';
 import { setLanguage, getMinimizeToTray, setMinimizeToTray } from '../updateConfig';
 import { createProjectWindow } from '../windows/projectWindow';
 import { createBoardWindow } from '../windows/boardWindow';
+import { openUrlInBrowserWindow } from '../windows/browserWindow';
 
 let ipcHandlersRegistered = false;
 
@@ -323,10 +323,9 @@ export function registerIpcHandlers(args: { log: Logger }) {
     }
   );
 
-  // 为用户输入的 URL 打开独立窗口（通常用于外部链接）。
+  // 在标签浏览器窗口中打开 URL（单例窗口，多标签页管理）。
   ipcMain.handle('openloaf:open-browser-window', async (_event, payload: { url: string }) => {
-    const win = createBrowserWindowForUrl(payload?.url ?? '');
-    return { id: win.id };
+    return openUrlInBrowserWindow(payload?.url ?? '');
   });
 
   // 在独立应用窗口中打开项目上下文。
@@ -913,6 +912,15 @@ export function registerIpcHandlers(args: { log: Logger }) {
       return { ok: true as const }
     }
   )
+
+  // 同步 UI 主题到主进程 nativeTheme（影响浏览器标签栏等子窗口）。
+  ipcMain.handle('openloaf:app:set-native-theme', async (_event, payload: { theme: string }) => {
+    const theme = String(payload?.theme ?? '').trim();
+    if (theme === 'light' || theme === 'dark' || theme === 'system') {
+      nativeTheme.themeSource = theme;
+    }
+    return { ok: true as const };
+  });
 
   // 同步 UI 语言到主进程（用于托盘菜单、对话框等原生 UI 翻译）。
   ipcMain.handle('openloaf:app:set-language', async (_event, payload: { language: string }) => {

@@ -278,7 +278,11 @@
     "totalCount": "共 {{count}} 个画布",
     "groupByTime": "按时间分组",
     "allProjects": "全部项目",
-    "noProject": "未归属项目"
+    "noProject": "未归属项目",
+    "createTitle": "新建画布",
+    "createDesc": "选择画布所属的项目，或创建不保存到项目的临时画布。",
+    "tempCanvas": "临时画布（不保存到项目）",
+    "createConfirm": "创建"
   },
   "projectListPage": {
     "helpTitle": "项目管理",

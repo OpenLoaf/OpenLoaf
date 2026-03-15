@@ -28,7 +28,7 @@ export const videoConvertToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：将 MP4 转换为 WebM 格式。'),
     action: z
       .enum(['convert', 'extract-audio', 'get-info'])

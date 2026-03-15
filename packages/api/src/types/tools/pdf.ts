@@ -17,7 +17,7 @@ export const pdfQueryToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：读取 PDF 内容。'),
     mode: z
       .enum(['read-structure', 'read-text', 'read-form-fields', 'structure', 'text', 'form-fields'])
@@ -93,7 +93,7 @@ export const pdfMutateToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：创建 PDF 报告。'),
     action: z
       .enum(['create', 'fill-form', 'merge', 'add-text'])

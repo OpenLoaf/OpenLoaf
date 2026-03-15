@@ -12,18 +12,18 @@ import { LayoutDashboard, CalendarDays, Clock, Folder, FolderKanban, Palette, Se
 
 /**
  * Global quick launch items — order and colors aligned with Sidebar.
- * Sidebar order: 项目空间(blue) → 智能画布(purple) → 工作台(green) → 日历(sky) → 邮件(teal) → 任务(rose)
+ * Sidebar order: 智能画布(purple) → 项目空间(blue) → 工作台(green) → 日历(sky) → 邮件(teal) → 任务(rose)
  */
 export const QUICK_LAUNCH_ITEMS = [
-  {
-    baseId: "base:project-list", component: "project-list-page", labelKey: "quickLaunch.projectSpace", icon: FolderKanban, titleKey: "nav:projectList", tabIcon: "📁", viewType: "project-list",
-    iconColor: "text-ol-blue/70 group-hover:text-ol-blue",
-    bgColor: "bg-ol-blue/10 group-hover:bg-ol-blue/20",
-  },
   {
     baseId: "base:canvas-list", component: "canvas-list-page", labelKey: "quickLaunch.smartCanvas", icon: Palette, titleKey: "nav:canvas", tabIcon: "🎨", viewType: "canvas-list",
     iconColor: "text-ol-purple/70 group-hover:text-ol-purple",
     bgColor: "bg-ol-purple/10 group-hover:bg-ol-purple/20",
+  },
+  {
+    baseId: "base:project-list", component: "project-list-page", labelKey: "quickLaunch.projectSpace", icon: FolderKanban, titleKey: "nav:projectList", tabIcon: "📁", viewType: "project-list",
+    iconColor: "text-ol-blue/70 group-hover:text-ol-blue",
+    bgColor: "bg-ol-blue/10 group-hover:bg-ol-blue/20",
   },
   {
     baseId: "base:workbench", component: "global-desktop", labelKey: "quickLaunch.workbench", icon: LayoutDashboard, titleKey: "nav:workbench", tabIcon: "bot", viewType: "workbench",

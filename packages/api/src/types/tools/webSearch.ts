@@ -17,7 +17,7 @@ export const webSearchToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：搜索最新的 React 19 特性。"),
     query: z
       .string()

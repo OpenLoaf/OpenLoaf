@@ -18,7 +18,7 @@ export const wordQueryToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：读取合同文档。'),
     mode: z
       .enum(['read-structure', 'read-xml', 'read-text'])
@@ -72,7 +72,7 @@ export const wordMutateToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：创建项目报告。'),
     action: z
       .enum(['create', 'edit'])

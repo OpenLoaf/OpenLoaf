@@ -140,9 +140,10 @@ function resolveScopedFilePath(input: {
     return resolveProjectFilePath({ path: resolvedTarget, projectId });
   }
 
-  // Fallback to global root
+  // Fallback to global root — strip leading `.openloaf/` since globalRoot already IS ~/.openloaf/
   const globalRoot = getOpenLoafRootDir();
-  const relativePath = normalizeRelativePath(resolvedTarget);
+  const stripped = resolvedTarget.replace(/^\.openloaf\//, "");
+  const relativePath = normalizeRelativePath(stripped);
   if (!relativePath || hasParentTraversal(relativePath)) return null;
   const absPath = path.resolve(globalRoot, relativePath);
   const rootResolved = path.resolve(globalRoot);

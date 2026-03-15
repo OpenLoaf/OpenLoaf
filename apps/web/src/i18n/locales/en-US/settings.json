@@ -683,6 +683,14 @@
       "success": "Translation complete: {{translated}} files translated, {{skipped}} skipped",
       "failed": "Translation failed",
       "upToDate": "Already up to date, no update needed"
+    },
+    "import": {
+      "dropHint": "Drop here to import skills",
+      "dropSubHint": "Supports skill folders or .zip / .skill archives",
+      "importing": "Importing...",
+      "success": "Successfully imported {{count}} skill(s): {{names}}",
+      "failed": "Import failed",
+      "unsupportedFormat": "Unsupported format. Please drop a folder or .zip / .skill file"
     }
   },
   "modelSelector": {

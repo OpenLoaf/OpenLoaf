@@ -530,6 +530,7 @@ export const settingSchemas = {
     output: z.object({
       status: z.enum(['not-translated', 'translated', 'needs-update']),
       displayName: z.string().optional(),
+      description: z.string().optional(),
       translatedAt: z.string().optional(),
     }),
   },
@@ -543,6 +544,33 @@ export const settingSchemas = {
       ok: z.boolean(),
       translatedFiles: z.number(),
       skippedFiles: z.number(),
+      error: z.string().optional(),
+    }),
+  },
+  /** Import a skill from a local folder or archive path. */
+  importSkill: {
+    input: z.object({
+      sourcePath: z.string(),
+      scope: skillScopeSchema,
+      projectId: z.string().optional(),
+    }),
+    output: z.object({
+      ok: z.boolean(),
+      importedSkills: z.array(z.string()),
+      error: z.string().optional(),
+    }),
+  },
+  /** Import a skill from an uploaded archive (base64). */
+  importSkillFromArchive: {
+    input: z.object({
+      contentBase64: z.string(),
+      fileName: z.string(),
+      scope: skillScopeSchema,
+      projectId: z.string().optional(),
+    }),
+    output: z.object({
+      ok: z.boolean(),
+      importedSkills: z.array(z.string()),
       error: z.string().optional(),
     }),
   },
@@ -789,6 +817,18 @@ export abstract class BaseSettingRouter {
       translateSkill: shieldedProcedure
         .input(settingSchemas.translateSkill.input)
         .output(settingSchemas.translateSkill.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      importSkill: shieldedProcedure
+        .input(settingSchemas.importSkill.input)
+        .output(settingSchemas.importSkill.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      importSkillFromArchive: shieldedProcedure
+        .input(settingSchemas.importSkillFromArchive.input)
+        .output(settingSchemas.importSkillFromArchive.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

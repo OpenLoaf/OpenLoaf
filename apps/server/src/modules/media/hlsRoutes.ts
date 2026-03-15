@@ -26,7 +26,7 @@ export function registerHlsRoutes(app: Hono) {
     const boardId = c.req.query("boardId")?.trim() ?? "";
     const qualityRaw = c.req.query("quality")?.trim();
     const quality = qualityRaw ? qualityRaw.toLowerCase() : undefined;
-    if (!path || (!projectId)) {
+    if (!path) {
       return c.json({ error: "Invalid manifest query" }, 400);
     }
     if (quality && !isHlsQuality(quality)) {
@@ -79,7 +79,7 @@ export function registerHlsRoutes(app: Hono) {
     const boardId = c.req.query("boardId")?.trim() ?? "";
     const qualityRaw = c.req.query("quality")?.trim();
     const quality = qualityRaw ? qualityRaw.toLowerCase() : undefined;
-    if (!path || !quality || (!projectId)) {
+    if (!path || !quality) {
       return c.json({ error: "Invalid progress query" }, 400);
     }
     if (!isHlsQuality(quality)) {
@@ -104,7 +104,7 @@ export function registerHlsRoutes(app: Hono) {
     const projectId = c.req.query("projectId")?.trim() ?? "";
 
     const boardId = c.req.query("boardId")?.trim() ?? "";
-    if (!path || (!projectId)) {
+    if (!path) {
       return c.json({ error: "Invalid thumbnails query" }, 400);
     }
     const thumbnails = await getHlsThumbnails({

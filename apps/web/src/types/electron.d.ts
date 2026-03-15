@@ -290,6 +290,8 @@ declare global {
       }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
       /** Update system tray badge count (0 to clear). */
       setTrayBadge?: (payload: { count: number }) => Promise<{ ok: true }>;
+      /** Sync UI theme to Electron nativeTheme (browser tab bar, etc). */
+      setNativeTheme?: (theme: 'light' | 'dark' | 'system') => Promise<{ ok: true }>;
       /** Sync UI language to Electron main process (tray menu, dialogs). */
       setLanguage?: (language: string) => Promise<{ ok: true } | { ok: false; reason: string }>;
       /** Respond to close confirmation dialog (web → main). */

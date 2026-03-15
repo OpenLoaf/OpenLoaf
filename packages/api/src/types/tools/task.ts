@@ -29,7 +29,7 @@ export const taskManageToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的。'),
     action: z
       .enum([
@@ -138,7 +138,7 @@ export const taskStatusToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的。'),
     taskId: z
       .string()

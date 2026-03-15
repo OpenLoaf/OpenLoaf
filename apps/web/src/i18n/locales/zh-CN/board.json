@@ -133,6 +133,8 @@
     "videoGenerateDesc": "基于文本生成视频",
     "imagePromptGenerate": "视频图片理解",
     "imagePromptGenerateDesc": "分析视频并生成描述",
+    "textNode": "文本节点",
+    "textNodeDesc": "添加文本内容",
     "imageGenerate": "图片生成",
     "imageGenerateDesc": "基于提示词与图片生成新图",
     "straight": "直线",

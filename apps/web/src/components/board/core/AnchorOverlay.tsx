@@ -99,7 +99,6 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
           (item): item is CanvasNodeElement =>
             item.kind === "node" && item.id === anchor.elementId
         );
-        const isTextNode = element?.type === "text";
         const isHover =
           hoverAnchor?.elementId === anchor.elementId &&
           hoverAnchor.anchorId === anchor.anchorId;
@@ -133,38 +132,34 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
         const buttonSize = 20;
         const buttonGap = 6;
         const buttonDistance = baseSize / 2 + buttonGap + buttonSize / 2;
-        const buttonOffset: CanvasPoint = isTextNode
-          ? [0, 0]
-          : resolveAnchorScreenOffset(anchor.anchorId, buttonDistance);
+        const buttonOffset: CanvasPoint = resolveAnchorScreenOffset(anchor.anchorId, buttonDistance);
         return (
           <Fragment key={`${anchor.elementId}-${anchor.anchorId}`}>
-            {!isTextNode ? (
-              <div
-                className={cn(
-                  "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)]",
-                  isHover
-                    ? "bg-[var(--canvas-connector-anchor-hover)]"
-                    : "bg-[var(--canvas-connector-anchor)]",
-                  "border-[var(--canvas-connector-handle-fill)]"
-                )}
-                style={{
-                  left: anchorCenter[0],
-                  top: anchorCenter[1],
-                  width: size,
-                  height: size,
-                  marginLeft: -size / 2,
-                  marginTop: -size / 2,
-                }}
-              >
-                {isSideAnchor && useSelectedStyle ? (
-                  <Plus
-                    size={iconSize}
-                    className="text-[var(--canvas-connector-handle-fill)]"
-                    strokeWidth={2.2}
-                  />
-                ) : null}
-              </div>
-            ) : null}
+            <div
+              className={cn(
+                "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)]",
+                isHover
+                  ? "bg-[var(--canvas-connector-anchor-hover)]"
+                  : "bg-[var(--canvas-connector-anchor)]",
+                "border-[var(--canvas-connector-handle-fill)]"
+              )}
+              style={{
+                left: anchorCenter[0],
+                top: anchorCenter[1],
+                width: size,
+                height: size,
+                marginLeft: -size / 2,
+                marginTop: -size / 2,
+              }}
+            >
+              {isSideAnchor && useSelectedStyle ? (
+                <Plus
+                  size={iconSize}
+                  className="text-[var(--canvas-connector-handle-fill)]"
+                  strokeWidth={2.2}
+                />
+              ) : null}
+            </div>
             {showCollapse ? (
               <button
                 type="button"

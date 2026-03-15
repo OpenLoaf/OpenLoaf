@@ -31,7 +31,7 @@ export const docConvertToolDef = {
   parameters: z.object({
     actionName: z
       .string()
-      .min(1)
+      .optional()
       .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：将 DOCX 转换为 PDF。'),
     filePath: z
       .string()

@@ -202,11 +202,11 @@ export default function UnifiedTool({
     upsertToolPart,
   ]);
 
-  if (toolKind === "image-generate" || toolKind === "video-generate") {
+  if ((toolKind === "image-generate" || toolKind === "video-generate") && part.state !== "output-error" && part.state !== "output-denied") {
     return <MediaGenerateTool part={part} messageId={messageId} />;
   }
 
-  if (toolKind === "open-url") {
+  if (toolKind === "open-url" && part.state !== "output-error" && part.state !== "output-denied") {
     return <OpenUrlTool part={part} className={className} />;
   }
 
