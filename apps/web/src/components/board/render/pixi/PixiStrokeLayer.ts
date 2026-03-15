@@ -116,13 +116,17 @@ export class PixiStrokeLayer {
     const parsedColor = this.parseCssColor(color) ?? 0xf59e0b
     const isHighlighter = tool === 'highlighter'
     const lineWidth = isHighlighter ? size * 3 : size
-    const lineAlpha = isHighlighter ? opacity * 0.4 : opacity
+
+    // 逻辑：荧光笔以 alpha=1 绘制线条，整体透明度在容器级别设置。
+    // 这样自交叉/重叠处不会 alpha 叠加变深。
+    const strokeAlpha = isHighlighter ? 1 : opacity
+    g.alpha = isHighlighter ? opacity * 0.4 : 1
 
     // 单点笔画：绘制圆点
     if (points.length === 1) {
       const [px, py] = points[0]
       g.circle(px, py, lineWidth / 2)
-      g.fill({ color: parsedColor, alpha: lineAlpha })
+      g.fill({ color: parsedColor, alpha: strokeAlpha })
       return
     }
 
@@ -130,7 +134,7 @@ export class PixiStrokeLayer {
     g.setStrokeStyle({
       width: lineWidth,
       color: parsedColor,
-      alpha: lineAlpha,
+      alpha: strokeAlpha,
       cap: 'round',
       join: 'round',
     })
