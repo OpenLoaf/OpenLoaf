@@ -9,15 +9,12 @@
  */
 import type {
   CanvasAnchorHit,
-  CanvasConnectorElement,
   CanvasNodeElement,
   CanvasPoint,
   CanvasSnapshot,
 } from "../engine/types";
 import { cn } from "@udecode/cn";
-import { Fragment } from "react";
-import { ChevronDown, ChevronRight, Plus } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { Plus } from "lucide-react";
 import {
   SELECTED_ANCHOR_EDGE_SIZE,
   SELECTED_ANCHOR_EDGE_SIZE_HOVER,
@@ -25,7 +22,6 @@ import {
   SELECTED_ANCHOR_SIDE_SIZE,
   SELECTED_ANCHOR_SIDE_SIZE_HOVER,
 } from "../engine/constants";
-import { MINDMAP_META } from "../engine/mindmap-layout";
 import { toScreenPoint } from "../utils/coordinates";
 import { LARGE_ANCHOR_NODE_TYPES } from "../engine/anchorTypes";
 import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
@@ -44,7 +40,6 @@ type AnchorOverlayProps = {
 
 /** Render anchor handles above nodes for linking. */
 export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
-  const { t } = useTranslation('board');
   // 逻辑：视图变化时独立刷新锚点位置，避免全量快照重算。
   const engine = useBoardEngine();
   const viewState = useBoardViewState(engine);
@@ -52,20 +47,12 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
     return null;
   }
   const groupPadding = getGroupOutlinePadding(viewState.viewport.zoom);
-  const resolveMindmapLayoutDirection = (nodeId: string) =>
-    engine.getMindmapLayoutDirectionForNode(nodeId);
   const hoverAnchor = snapshot.connectorHover;
-  const hoverNodeId = snapshot.nodeHoverId;
   const selectedAnchors = getSelectedImageAnchors(snapshot);
   const hoverAnchors = getHoveredImageAnchors(snapshot);
   if (!hoverAnchor && selectedAnchors.length === 0 && hoverAnchors.length === 0) {
     return null;
   }
-  const collapseTargets = getMindmapCollapseTargets(
-    snapshot,
-    resolveMindmapLayoutDirection,
-    hoverNodeId
-  );
 
   const anchors: AnchorOverlayItem[] = [];
   selectedAnchors.forEach(anchor => {
@@ -120,74 +107,37 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
         const offsetDistance =
           useSelectedStyle ? baseSize / 2 + SELECTED_ANCHOR_GAP : 0;
         const offset = resolveAnchorScreenOffset(anchor.anchorId, offsetDistance);
-        const collapseTarget = collapseTargets.get(anchor.elementId);
-        const showCollapse =
-          Boolean(collapseTarget)
-          && collapseTarget!.anchorId === anchor.anchorId
-          && useSelectedStyle;
         const anchorCenter: CanvasPoint = [
           screen[0] + offset[0],
           screen[1] + offset[1],
         ];
-        const buttonSize = 20;
-        const buttonGap = 6;
-        const buttonDistance = baseSize / 2 + buttonGap + buttonSize / 2;
-        const buttonOffset: CanvasPoint = resolveAnchorScreenOffset(anchor.anchorId, buttonDistance);
         return (
-          <Fragment key={`${anchor.elementId}-${anchor.anchorId}`}>
-            <div
-              className={cn(
-                "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)]",
-                isHover
-                  ? "bg-[var(--canvas-connector-anchor-hover)]"
-                  : "bg-[var(--canvas-connector-anchor)]",
-                "border-[var(--canvas-connector-handle-fill)]"
-              )}
-              style={{
-                left: anchorCenter[0],
-                top: anchorCenter[1],
-                width: size,
-                height: size,
-                marginLeft: -size / 2,
-                marginTop: -size / 2,
-              }}
-            >
-              {isSideAnchor && useSelectedStyle ? (
-                <Plus
-                  size={iconSize}
-                  className="text-[var(--canvas-connector-handle-fill)]"
-                  strokeWidth={2.2}
-                />
-              ) : null}
-            </div>
-            {showCollapse ? (
-              <button
-                type="button"
-                className={cn(
-                  "pointer-events-auto absolute flex h-5 w-5 items-center justify-center rounded-md border bg-background text-ol-text-auxiliary shadow-sm",
-                  "border-ol-divider hover:bg-ol-surface-muted"
-                )}
-                style={{
-                  left: anchorCenter[0] + buttonOffset[0],
-                  top: anchorCenter[1] + buttonOffset[1],
-                  marginLeft: -buttonSize / 2,
-                  marginTop: -buttonSize / 2,
-                }}
-                onPointerDown={event => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  engine.toggleMindmapCollapse(anchor.elementId);
-                }}
-                title={collapseTarget!.collapsed ? t('anchorOverlay.expand') : t('anchorOverlay.collapse')}
-              >
-                {collapseTarget!.collapsed ? (
-                  <ChevronRight size={12} />
-                ) : (
-                  <ChevronDown size={12} />
-                )}
-              </button>
+          <div
+            key={`${anchor.elementId}-${anchor.anchorId}`}
+            className={cn(
+              "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)]",
+              isHover
+                ? "bg-[var(--canvas-connector-anchor-hover)]"
+                : "bg-[var(--canvas-connector-anchor)]",
+              "border-[var(--canvas-connector-handle-fill)]"
+            )}
+            style={{
+              left: anchorCenter[0],
+              top: anchorCenter[1],
+              width: size,
+              height: size,
+              marginLeft: -size / 2,
+              marginTop: -size / 2,
+            }}
+          >
+            {isSideAnchor && useSelectedStyle ? (
+              <Plus
+                size={iconSize}
+                className="text-[var(--canvas-connector-handle-fill)]"
+                strokeWidth={2.2}
+              />
             ) : null}
-          </Fragment>
+          </div>
         );
       })}
     </div>
@@ -249,113 +199,6 @@ function resolveGroupAnchorPoint(
   // 逻辑：组节点锚点按外扩边框位置偏移，保持连线起点对齐。
   const offset = resolveAnchorScreenOffset(anchor.anchorId, padding);
   return [anchor.point[0] + offset[0], anchor.point[1] + offset[1]];
-}
-
-type MindmapLayoutDirection = "right" | "left" | "balanced";
-type MindmapCollapseTarget = {
-  anchorId: "left" | "right";
-  collapsed: boolean;
-};
-
-/** Collect mindmap collapse anchors for nodes with children. */
-function getMindmapCollapseTargets(
-  snapshot: CanvasSnapshot,
-  resolveLayoutDirection: (nodeId: string) => MindmapLayoutDirection,
-  hoverNodeId?: string | null
-): Map<string, MindmapCollapseTarget> {
-  const targets = new Map<string, MindmapCollapseTarget>();
-  snapshot.elements.forEach(element => {
-    if (element.kind !== "node") return;
-    if (!snapshot.selectedIds.includes(element.id)) return;
-    const meta = element.meta as Record<string, unknown> | undefined;
-    if (Boolean(meta?.[MINDMAP_META.ghost])) return;
-    if (Boolean(meta?.[MINDMAP_META.multiParent])) return;
-    const childCount =
-      typeof meta?.[MINDMAP_META.childCount] === "number"
-        ? (meta?.[MINDMAP_META.childCount] as number)
-        : 0;
-    if (childCount <= 0) return;
-    const layoutDirection = resolveLayoutDirection(element.id);
-    const anchorId = resolveMindmapCollapseAnchor(
-      element,
-      snapshot,
-      layoutDirection
-    );
-    const collapsed = Boolean(meta?.[MINDMAP_META.collapsed]);
-    targets.set(element.id, { anchorId, collapsed });
-  });
-  if (hoverNodeId && !snapshot.selectedIds.includes(hoverNodeId)) {
-    const element = snapshot.elements.find(
-      (item): item is CanvasNodeElement =>
-        item.kind === "node" && item.id === hoverNodeId
-    );
-    if (!element || element.type !== "text") return targets;
-    const meta = element.meta as Record<string, unknown> | undefined;
-    if (Boolean(meta?.[MINDMAP_META.ghost])) return targets;
-    if (Boolean(meta?.[MINDMAP_META.multiParent])) return targets;
-    const childCount =
-      typeof meta?.[MINDMAP_META.childCount] === "number"
-        ? (meta?.[MINDMAP_META.childCount] as number)
-        : 0;
-    if (childCount <= 0) return targets;
-    // 逻辑：文本节点悬停时也需要显示折叠按钮。
-    const layoutDirection = resolveLayoutDirection(element.id);
-    const anchorId = resolveMindmapCollapseAnchor(
-      element,
-      snapshot,
-      layoutDirection
-    );
-    const collapsed = Boolean(meta?.[MINDMAP_META.collapsed]);
-    targets.set(element.id, { anchorId, collapsed });
-  }
-  return targets;
-}
-
-/** Resolve which anchor side should host the collapse toggle. */
-function resolveMindmapCollapseAnchor(
-  element: CanvasNodeElement,
-  snapshot: CanvasSnapshot,
-  layoutDirection: MindmapLayoutDirection
-): "left" | "right" {
-  const [x, y, w, h] = element.xywh;
-  const centerX = x + w / 2;
-  const outbound = snapshot.elements.filter(
-    (item): item is CanvasConnectorElement =>
-      item.kind === "connector" &&
-      "elementId" in item.source &&
-      item.source.elementId === element.id
-  );
-  let leftCount = 0;
-  let rightCount = 0;
-  outbound.forEach(connector => {
-    const targetEnd = connector.target;
-    if ("elementId" in targetEnd) {
-      const target = snapshot.elements.find(
-        item => item.kind === "node" && item.id === targetEnd.elementId
-      );
-      if (!target) return;
-      const targetCenterX = target.xywh[0] + target.xywh[2] / 2;
-      if (targetCenterX >= centerX) {
-        rightCount += 1;
-      } else {
-        leftCount += 1;
-      }
-      return;
-    }
-    const targetX = targetEnd.point[0];
-    if (targetX >= centerX) {
-      rightCount += 1;
-    } else {
-      leftCount += 1;
-    }
-  });
-  if (leftCount === 0 && rightCount === 0) {
-    return layoutDirection === "left" ? "left" : "right";
-  }
-  if (leftCount === rightCount) {
-    return layoutDirection === "left" ? "left" : "right";
-  }
-  return rightCount >= leftCount ? "right" : "left";
 }
 
 /** Collect anchors for selected large-anchor nodes. */
