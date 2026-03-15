@@ -48,7 +48,6 @@ export class PixiConnectorLayer {
   private container: Container
   private theme: PixiThemeResolver
   private graphics = new Graphics()
-  private lastRevision = -1
 
   constructor(
     engine: CanvasEngine,
@@ -64,8 +63,8 @@ export class PixiConnectorLayer {
   /** Re-render all connectors from the current snapshot. */
   sync(): void {
     const snapshot = this.engine.getSnapshot()
-    if (snapshot.docRevision === this.lastRevision) return
-    this.lastRevision = snapshot.docRevision
+    // 逻辑：不能仅靠 docRevision 缓存，connectorDraft/connectorDrop/hover 等
+    // UI 状态变化不会改变 docRevision 但需要重绘连线。
 
     const palette = this.theme.getPalette()
     const g = this.graphics
