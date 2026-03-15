@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { LayoutGrid, Layers, Copy, Maximize2 } from "lucide-react";
+import { LayoutGrid, Layers, Maximize2 } from "lucide-react";
 import {
   BOARD_TOOLBAR_ITEM_BLUE,
   BOARD_TOOLBAR_ITEM_AMBER,
@@ -141,7 +141,7 @@ export function SingleSelectionToolbar({
     addColorHistory: color => engine.addColorHistory(color),
   });
 
-  const commonItems = buildCommonToolbarItems(t, engine, element);
+  const commonItems = buildCommonToolbarItems();
   const mindmapLayoutItems = buildMindmapLayoutItems(t, engine, element, snapshot);
   const customItems = items ?? [];
   const allItems = [...customItems, ...mindmapLayoutItems, ...commonItems];
@@ -1032,40 +1032,9 @@ function getGroupScaleLimits(
   return { minX, minY, maxX, maxY };
 }
 
-/** Node types that should not show the duplicate button. */
-const DUPLICATE_EXCLUDED_TYPES = new Set([
-  "chat_input",
-  "chat_message",
-]);
-
-/** Build shared toolbar items for every node. */
-function buildCommonToolbarItems(
-  t: TFunction,
-  engine: CanvasEngine,
-  element: CanvasNodeElement,
-) {
-  const focusSelection = () => {
-    engine.selection.setSelection([element.id]);
-  };
-  // 逻辑：工具栏只保留复制，置顶/删除/锁定已移至右键菜单。
-  const items = [
-    ...(!DUPLICATE_EXCLUDED_TYPES.has(element.type)
-      ? [
-          {
-            id: 'duplicate',
-            label: t('selection.toolbar.copy'),
-            icon: <Copy size={14} />,
-            className: BOARD_TOOLBAR_ITEM_BLUE,
-            onSelect: () => {
-              focusSelection();
-              engine.copySelection();
-              engine.pasteClipboard();
-            },
-          },
-        ]
-      : []),
-  ];
-  return items;
+/** Build shared toolbar items for every node (currently empty — all moved to context menu). */
+function buildCommonToolbarItems(): CanvasToolbarItem[] {
+  return [];
 }
 
 /** Compute bounds for a list of selected elements. */
