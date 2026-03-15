@@ -18,7 +18,12 @@ import BoardControls from "../controls/BoardControls";
 import AIGenerateToolbar from "../toolbar/AIGenerateToolbar";
 import BoardToolbar from "../toolbar/BoardToolbar";
 import { ConnectorActionPanel, NodeInspectorPanel } from "../ui/CanvasPanels";
-import { PixiCanvas } from "../render/pixi";
+import dynamic from "next/dynamic";
+
+const PixiCanvas = dynamic(
+  () => import("../render/pixi").then((m) => m.PixiCanvas),
+  { ssr: false },
+);
 import BoardEmptyGuide from "./BoardEmptyGuide";
 import { BoardPerfOverlay } from "./BoardPerfOverlay";
 import { MiniMap } from "./MiniMap";
@@ -118,7 +123,7 @@ export function BoardCanvasRender({
     <>
       {showUi && snapshot.elements.length > 0 ? <MiniMapLayer engine={engine} snapshot={snapshot} /> : null}
       {/* PixiJS 统一渲染层：替代 CanvasSurface + SvgConnectorLayer + CanvasDomLayer */}
-      <PixiCanvas engine={engine} />
+      <PixiCanvas engine={engine} snapshot={snapshot} />
       {showUi && snapshot.pendingInsert && snapshot.pendingInsertPoint && PENDING_INSERT_DOM_TYPES.has(snapshot.pendingInsert.type) ? (
         <PendingInsertPreview
           engine={engine}

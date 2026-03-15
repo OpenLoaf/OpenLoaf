@@ -290,6 +290,14 @@ export class PixiNodeManager {
     return element.type
   }
 
+  /** Set the visibility of a specific node by id. */
+  setNodeVisible(nodeId: string, visible: boolean): void {
+    const state = this.nodes.get(nodeId)
+    if (state) {
+      state.container.visible = visible
+    }
+  }
+
   destroy(): void {
     for (const [, state] of this.nodes) {
       state.container.destroy({ children: true })

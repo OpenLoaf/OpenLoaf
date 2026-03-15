@@ -7,19 +7,22 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-"use client"
+'use client'
 
-import { useEffect, useRef, useCallback } from "react"
-import { Application, Container } from "pixi.js"
-import type { CanvasEngine } from "../../engine/CanvasEngine"
-import { PixiViewportSync } from "./PixiViewportSync"
-import { PixiNodeManager } from "./PixiNodeManager"
-import { PixiConnectorLayer } from "./PixiConnectorLayer"
-import { PixiOverlayLayer } from "./PixiOverlayLayer"
-import { PixiThemeResolver, type CanvasThemePalette } from "./PixiThemeResolver"
+import { useEffect, useRef, useCallback } from 'react'
+import { Application, Container } from 'pixi.js'
+import type { CanvasEngine } from '../../engine/CanvasEngine'
+import type { CanvasSnapshot } from '../../engine/types'
+import { PixiViewportSync } from './PixiViewportSync'
+import { PixiNodeManager } from './PixiNodeManager'
+import { PixiConnectorLayer } from './PixiConnectorLayer'
+import { PixiOverlayLayer } from './PixiOverlayLayer'
+import { PixiThemeResolver } from './PixiThemeResolver'
+import { DomOverlayManager } from './DomOverlayManager'
 
 export type PixiApplicationProps = {
   engine: CanvasEngine
+  snapshot: CanvasSnapshot
 }
 
 /**
@@ -37,10 +40,11 @@ export type PixiApplicationProps = {
  *           +-- alignmentGuideGraphics
  *           +-- anchorGraphics
  */
-export function PixiCanvas({ engine }: PixiApplicationProps) {
+export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const appRef = useRef<Application | null>(null)
   const cleanupRef = useRef<(() => void) | null>(null)
+  const nodeManagerRef = useRef<PixiNodeManager | null>(null)
 
   const init = useCallback(async () => {
     const container = containerRef.current
@@ -53,32 +57,35 @@ export function PixiCanvas({ engine }: PixiApplicationProps) {
       antialias: true,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
-      preference: "webgl",
+      preference: 'webgl',
     })
 
-    container.appendChild(app.canvas as HTMLCanvasElement)
+    // PixiJS canvas 需要 pointer-events: none，让事件穿透到 engine 绑定的容器
+    const canvasEl = app.canvas as HTMLCanvasElement
+    canvasEl.style.pointerEvents = 'none'
+    container.appendChild(canvasEl)
     appRef.current = app
 
     // 场景图层结构
     const worldContainer = new Container()
-    worldContainer.label = "worldContainer"
+    worldContainer.label = 'worldContainer'
     app.stage.addChild(worldContainer)
 
     const strokeLayer = new Container()
-    strokeLayer.label = "strokeLayer"
+    strokeLayer.label = 'strokeLayer'
     worldContainer.addChild(strokeLayer)
 
     const connectorLayer = new Container()
-    connectorLayer.label = "connectorLayer"
+    connectorLayer.label = 'connectorLayer'
     worldContainer.addChild(connectorLayer)
 
     const nodeLayer = new Container()
-    nodeLayer.label = "nodeLayer"
+    nodeLayer.label = 'nodeLayer'
     nodeLayer.sortableChildren = true
     worldContainer.addChild(nodeLayer)
 
     const overlayContainer = new Container()
-    overlayContainer.label = "overlayContainer"
+    overlayContainer.label = 'overlayContainer'
     app.stage.addChild(overlayContainer)
 
     // 主题解析器
@@ -89,6 +96,7 @@ export function PixiCanvas({ engine }: PixiApplicationProps) {
 
     // 节点管理器：engine snapshot → PixiJS 节点
     const nodeManager = new PixiNodeManager(engine, nodeLayer, themeResolver)
+    nodeManagerRef.current = nodeManager
 
     // 连线渲染器
     const connectorLayerRenderer = new PixiConnectorLayer(
@@ -132,6 +140,7 @@ export function PixiCanvas({ engine }: PixiApplicationProps) {
       themeResolver.destroy()
       app.destroy(true, { children: true })
       appRef.current = null
+      nodeManagerRef.current = null
     }
   }, [engine])
 
@@ -143,11 +152,26 @@ export function PixiCanvas({ engine }: PixiApplicationProps) {
     }
   }, [init])
 
+  // 编辑模式下控制 PixiJS 节点可见性的回调
+  const handlePixiNodeVisibility = useCallback(
+    (nodeId: string, visible: boolean) => {
+      nodeManagerRef.current?.setNodeVisible(nodeId, visible)
+    },
+    [],
+  )
+
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0"
-      style={{ touchAction: "none" }}
-    />
+    <>
+      <div
+        ref={containerRef}
+        className="pointer-events-none absolute inset-0"
+        style={{ touchAction: 'none' }}
+      />
+      <DomOverlayManager
+        engine={engine}
+        snapshot={snapshot}
+        onPixiNodeVisibility={handlePixiNodeVisibility}
+      />
+    </>
   )
 }

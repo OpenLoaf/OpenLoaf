@@ -102,15 +102,15 @@ export class PixiConnectorLayer {
       const alpha = isHovered ? 1 : 0.7
       const width = isHovered ? 2.5 : 1.5
 
-      const dashArray = connector.dashed ? [6, 4] : undefined
+      // PixiJS v8 Graphics 不支持原生虚线，虚线连线用降低透明度区分
+      const effectiveAlpha = connector.dashed ? alpha * 0.5 : alpha
 
       g.setStrokeStyle({
         width,
         color,
-        alpha,
+        alpha: effectiveAlpha,
         cap: "round",
         join: "round",
-        ...(dashArray ? { dash: dashArray } : {}),
       })
 
       const style = connector.style || "curve"
@@ -174,8 +174,7 @@ export class PixiConnectorLayer {
         g.setStrokeStyle({
           width: 1.5,
           color: palette.connector,
-          alpha: 0.5,
-          dash: [4, 3],
+          alpha: 0.35,
         })
         const dx = draftTarget[0] - draftSource[0]
         const cpOffset = Math.min(Math.abs(dx) * 0.5, 150)
