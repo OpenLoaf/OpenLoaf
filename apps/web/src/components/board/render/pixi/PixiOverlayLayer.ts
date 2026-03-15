@@ -88,13 +88,17 @@ export class PixiOverlayLayer {
       for (const id of snapshot.selectedIds) {
         const element = snapshot.elements.find((e) => e.id === id)
         if (!element || element.kind !== "node") continue
-        // 只为 stroke 类型绘制（其他节点由 DOM SelectionOverlay 处理）
         if (element.type !== "stroke") continue
         const [x, y, w, h] = element.xywh
-        const sx = x * zoom + offset[0]
-        const sy = y * zoom + offset[1]
-        const sw = w * zoom
-        const sh = h * zoom
+        // 逻辑：笔画线宽会超出 xywh 包围盒，需要外扩半个线宽作为选中轮廓的边距。
+        const props = element.props as { size?: number; tool?: string }
+        const strokeSize = props.size ?? 2
+        const lineWidth = props.tool === "highlighter" ? strokeSize * 3 : strokeSize
+        const pad = lineWidth / 2 + 4
+        const sx = (x - pad) * zoom + offset[0]
+        const sy = (y - pad) * zoom + offset[1]
+        const sw = (w + pad * 2) * zoom
+        const sh = (h + pad * 2) * zoom
         this.selectionOutlineGfx.roundRect(sx, sy, sw, sh, 4)
         this.selectionOutlineGfx.stroke({
           color: palette.selectionBorder,

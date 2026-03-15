@@ -166,10 +166,10 @@ export function BoardCanvasRender({
         />
       ) : null}
       {showUi && !snapshot.draggingId ? <MultiSelectionOutline snapshot={snapshot} engine={engine} /> : null}
-      {showUi && !snapshot.draggingId && selectedNode && selectedNode.type !== "image_generate" && selectedNode.type !== "image_prompt_generate" && selectedNode.type !== "video_generate" && selectedNode.type !== "chat_input" && selectedNode.type !== "chat_message" ? (
+      {showUi && !snapshot.draggingId && selectedNode && selectedNode.type !== "image_generate" && selectedNode.type !== "image_prompt_generate" && selectedNode.type !== "video_generate" && selectedNode.type !== "chat_input" && selectedNode.type !== "chat_message" && selectedNode.type !== "stroke" ? (
         <SingleSelectionOutline snapshot={snapshot} engine={engine} element={selectedNode} />
       ) : null}
-      {showUi && !snapshot.draggingId && selectedNode ? (
+      {showUi && !snapshot.draggingId && selectedNode && selectedNode.type !== "stroke" ? (
         <SingleSelectionToolbar
           snapshot={snapshot}
           engine={engine}
