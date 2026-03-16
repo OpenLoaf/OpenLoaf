@@ -88,6 +88,10 @@ const skillSummarySchema = z.object({
   ownerProjectId: z.string().optional(),
   /** Owner project title (for project-scoped skills). */
   ownerProjectTitle: z.string().optional(),
+  /** Color palette index (0-7). */
+  colorIndex: z.number().int().min(0).max(7).nullable().optional(),
+  /** Whether this skill has an openloaf.json metadata file. */
+  hasMeta: z.boolean().optional(),
 });
 
 /** Capability group payload. */
@@ -187,6 +191,37 @@ export const settingSchemas = {
       projectId: z.string().optional(),
       ignoreKey: z.string(),
       skillPath: z.string(),
+    }),
+    output: z.object({ ok: z.boolean() }),
+  },
+  /** Translate a single skill's title (name + description only). Skips if openloaf.json already exists. */
+  translateSkillTitle: {
+    input: z.object({
+      skillFolderPath: z.string(),
+      targetLanguage: z.string(),
+      saasAccessToken: z.string().optional(),
+    }),
+    output: z.object({
+      ok: z.boolean(),
+      /** Whether the title was actually translated (false = skipped). */
+      translated: z.boolean(),
+      name: z.string().optional(),
+      description: z.string().optional(),
+      error: z.string().optional(),
+    }),
+  },
+  /** Reset a skill's translation data (delete openloaf.json and language folders). */
+  resetSkill: {
+    input: z.object({
+      skillFolderPath: z.string(),
+    }),
+    output: z.object({ ok: z.boolean() }),
+  },
+  /** Set skill color index (saved to openloaf.json). */
+  setSkillColor: {
+    input: z.object({
+      skillFolderPath: z.string(),
+      colorIndex: z.number().int().min(0).max(7).nullable(),
     }),
     output: z.object({ ok: z.boolean() }),
   },
@@ -530,18 +565,23 @@ export const settingSchemas = {
   },
   /** Get skill translation status. */
   getSkillTranslationStatus: {
-    input: z.object({ skillFolderPath: z.string() }),
+    input: z.object({
+      skillFolderPath: z.string(),
+      targetLanguage: z.string().optional(),
+    }),
     output: z.object({
       status: z.enum(['not-translated', 'translated', 'needs-update']),
       displayName: z.string().optional(),
       description: z.string().optional(),
       translatedAt: z.string().optional(),
+      sourceLanguage: z.string().optional(),
     }),
   },
-  /** Translate a skill to Chinese. */
+  /** Translate a skill to the target language. */
   translateSkill: {
     input: z.object({
       skillFolderPath: z.string(),
+      targetLanguage: z.string(),
       saasAccessToken: z.string().optional(),
     }),
     output: z.object({
@@ -651,6 +691,24 @@ export abstract class BaseSettingRouter {
       deleteSkill: shieldedProcedure
         .input(settingSchemas.deleteSkill.input)
         .output(settingSchemas.deleteSkill.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      resetSkill: shieldedProcedure
+        .input(settingSchemas.resetSkill.input)
+        .output(settingSchemas.resetSkill.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      translateSkillTitle: shieldedProcedure
+        .input(settingSchemas.translateSkillTitle.input)
+        .output(settingSchemas.translateSkillTitle.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      setSkillColor: shieldedProcedure
+        .input(settingSchemas.setSkillColor.input)
+        .output(settingSchemas.setSkillColor.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

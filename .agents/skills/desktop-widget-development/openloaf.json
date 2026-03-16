@@ -1,0 +1,7 @@
+{
+  "name": "desktop-widget-development",
+  "description": "Desktop 区域与 widget 组件开发指南。用于在 apps/web/src/components/desktop 添加或修改 widget 组件、调整 Desktop 布局与编辑交互、更新 widget catalog 或持久化逻辑时使用；也用于快速理解 Desktop 的基本架构与数据流。",
+  "sourceLanguage": "zh-CN",
+  "targetLanguage": "zh-CN",
+  "translatedAt": "2026-03-16T04:18:50.169Z"
+}

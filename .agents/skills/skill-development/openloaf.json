@@ -1,0 +1,8 @@
+{
+  "name": "技能开发",
+  "description": "当用户希望“创建技能”、“向插件添加技能”、“编写新技能”、“改进技能描述”、“组织技能内容”，或需要关于技能结构、渐进式披露或Claude Code插件的技能开发生最佳实践的指导时，应使用此技能。",
+  "version": "0.1.0",
+  "sourceLanguage": "en",
+  "targetLanguage": "zh-CN",
+  "translatedAt": "2026-03-16T04:18:56.316Z"
+}

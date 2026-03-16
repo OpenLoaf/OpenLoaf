@@ -24,12 +24,14 @@ type SkillTranslateSlotProps = {
 
 /** Slot injection component — renders a translate button into StackHeader. */
 function SkillTranslateSlot({ skillFolderPath }: SkillTranslateSlotProps) {
-  const { t } = useTranslation('settings')
+  const { t, i18n } = useTranslation('settings')
   const slotCtx = useStackPanelSlot()
+  const currentLanguage = i18n.language
 
   const statusQuery = useQuery(
     trpc.settings.getSkillTranslationStatus.queryOptions({
       skillFolderPath,
+      targetLanguage: currentLanguage,
     }),
   )
 
@@ -50,13 +52,13 @@ function SkillTranslateSlot({ skillFolderPath }: SkillTranslateSlotProps) {
           queryClient.invalidateQueries({
             queryKey: trpc.settings.getSkillTranslationStatus.queryOptions({
               skillFolderPath,
+              targetLanguage: currentLanguage,
             }).queryKey,
           })
           queryClient.invalidateQueries({
             queryKey: trpc.settings.getSkills.queryOptions().queryKey,
           })
           // Refresh the file tree and file preview in the stack panel
-          // tRPC query keys start with [["fs", ...]], invalidate all fs queries
           queryClient.invalidateQueries({
             predicate: (query) => {
               const key = query.queryKey
@@ -78,9 +80,10 @@ function SkillTranslateSlot({ skillFolderPath }: SkillTranslateSlotProps) {
   const handleTranslate = useCallback(() => {
     translateMutation.mutate({
       skillFolderPath,
+      targetLanguage: currentLanguage,
       saasAccessToken: getCachedAccessToken() ?? undefined,
     })
-  }, [skillFolderPath, translateMutation])
+  }, [skillFolderPath, currentLanguage, translateMutation])
 
   const status = statusQuery.data?.status ?? 'not-translated'
   const isTranslating = translateMutation.isPending

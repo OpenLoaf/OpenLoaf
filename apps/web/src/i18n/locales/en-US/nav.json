@@ -304,6 +304,7 @@
     "openInNewWindow": "Open in New Window",
     "totalCount": "{{count}} total",
     "childCount": "{{count}} sub-projects",
-    "createFailed": "Failed to create project"
+    "createFailed": "Failed to create project",
+    "dropToCreate": "Drop folder to create project"
   }
 }

@@ -49,7 +49,7 @@ export const MINDMAP_NODE_VERTICAL_SPACING = 45;
 export const MINDMAP_NODE_HORIZONTAL_SPACING = 110;
 export const MINDMAP_FIRST_LEVEL_HORIZONTAL_SPACING = 200;
 export const MINDMAP_BRANCH_COLORS = [
-  "#171717",
+  "#737373",
   "#1d4ed8",
   "#f59e0b",
   "#ef4444",

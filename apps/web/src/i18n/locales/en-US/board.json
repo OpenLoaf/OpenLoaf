@@ -227,6 +227,7 @@
     "enter": "Enter",
     "groupDialog": {
       "title": "Group Members",
+      "editTitle": "Edit Group",
       "memberCount": "{{count}} members"
     }
   },

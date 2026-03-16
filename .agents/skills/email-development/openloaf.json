@@ -1,0 +1,7 @@
+{
+  "name": "email-development",
+  "description": "用于开发、扩展或调试邮件模块——涵盖账户配置、IMAP/SMTP 同步、OAuth2 Graph/Gmail、传输适配器、空闲轮询、邮件发送（SMTP/Gmail/Graph）、文件存储、附件缓存、软删除、消息移动/删除、草稿自动保存、批量操作、搜索、撰写/回复/转发 UI，以及相关数据库架构和测试",
+  "sourceLanguage": "en",
+  "targetLanguage": "zh-CN",
+  "translatedAt": "2026-03-16T04:18:51.319Z"
+}

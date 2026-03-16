@@ -9,7 +9,7 @@
  */
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { XIcon } from "lucide-react"
 import { CanvasEngine } from "../engine/CanvasEngine"
@@ -73,34 +73,52 @@ export function GroupMembersDialog({
   onClose,
 }: GroupMembersDialogProps) {
   const { t } = useTranslation("board")
+  // 逻辑：用 ref 持有子引擎实例，避免 useMemo 内设置 ref 的副作用问题
+  // （React 19 + React Compiler 可能重新执行 useMemo 工厂函数，导致创建新空引擎覆盖已有数据）。
   const subEngineRef = useRef<CanvasEngine | null>(null)
+  const initialElementsRef = useRef<CanvasElement[]>([])
+  // 逻辑：用 state 触发首次渲染，useEffect 内创建引擎保证只执行一次。
+  const [ready, setReady] = useState(false)
+  const prevGroupIdRef = useRef<string | null>(null)
 
-  const subEngine = useMemo(() => {
-    if (!groupId) return null
+  // 逻辑：groupId 变化时创建/销毁子引擎。useEffect 保证只在 mount/groupId 变化时执行，
+  // 避免 React Compiler 重新执行 useMemo 导致引擎被重建。
+  useEffect(() => {
+    if (!groupId) {
+      subEngineRef.current = null
+      initialElementsRef.current = []
+      setReady(false)
+      prevGroupIdRef.current = null
+      return
+    }
+    // 逻辑：相同 groupId 不重复创建。
+    if (groupId === prevGroupIdRef.current && subEngineRef.current) return
+    prevGroupIdRef.current = groupId
+
     const engine = new CanvasEngine()
     const definitions = parentEngine.nodes.getDefinitions()
     if (definitions.length > 0) {
       engine.registerNodes(definitions)
     }
     subEngineRef.current = engine
-    return engine
-  }, [parentEngine, groupId])
-
-  const initialElements = useMemo(
-    () => (groupId ? extractGroupMembers(parentEngine, groupId) : []),
-    [parentEngine, groupId],
-  )
+    initialElementsRef.current = extractGroupMembers(parentEngine, groupId)
+    setReady(true)
+  }, [groupId, parentEngine])
 
   // 逻辑：关闭时将子画布中的改动同步回主引擎。
   const handleClose = useCallback(() => {
     const engine = subEngineRef.current
     if (engine && groupId) {
       try {
+        // 逻辑：先结束子画布中正在进行的编辑（如文本输入），确保最终值已写入 doc。
+        engine.setEditingNodeId(null)
+
         const updatedElements = engine.doc.getElements()
         const updatedMap = new Map(updatedElements.map(el => [el.id, el]))
+        const memberIds = parentEngine.getGroupMemberIds(groupId)
 
+        let syncedCount = 0
         parentEngine.doc.transact(() => {
-          const memberIds = parentEngine.getGroupMemberIds(groupId)
           for (const memberId of memberIds) {
             const updated = updatedMap.get(memberId)
             if (!updated || updated.kind !== "node") continue
@@ -113,12 +131,17 @@ export function GroupMembersDialog({
               zIndex: updated.zIndex,
             })
             parentEngine.doc.updateNodeProps(memberId, updated.props)
+            syncedCount++
           }
           parentEngine.refreshGroupBounds(groupId)
         })
-        parentEngine.commitHistory()
-      } catch {
+        if (syncedCount > 0) {
+          parentEngine.commitHistory()
+          parentEngine.refreshView()
+        }
+      } catch (err) {
         // 逻辑：PixiJS 异步销毁可能导致残留回调访问已释放对象，安全忽略。
+        console.error("[board] group sync failed", err)
       }
     }
     // 逻辑：不在此处调用 detach()，由 GroupCanvasRenderLayer 的 useEffect cleanup 统一处理，
@@ -139,12 +162,13 @@ export function GroupMembersDialog({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [groupId, handleClose])
 
-  if (!groupId || !subEngine) return null
+  const subEngine = subEngineRef.current
+  if (!groupId || !subEngine || !ready) return null
 
   const groupElement = parentEngine.doc.getElementById(groupId)
   if (!groupElement || groupElement.kind !== "node") return null
 
-  const memberCount = initialElements.filter(el => el.kind === "node").length
+  const initialElements = initialElementsRef.current
 
   return (
     // 逻辑：不使用 Radix Dialog Portal，直接渲染固定定位覆盖层，
@@ -170,10 +194,7 @@ export function GroupMembersDialog({
         <div className="flex shrink-0 items-center justify-between border-b border-ol-divider px-4 py-3">
           <div className="flex flex-col gap-1 text-left">
             <h2 className="text-base font-semibold leading-none">
-              {t("groupNode.groupDialog.title")}
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
-                {t("groupNode.groupDialog.memberCount", { count: memberCount })}
-              </span>
+              {t("groupNode.groupDialog.editTitle")}
             </h2>
           </div>
           <button

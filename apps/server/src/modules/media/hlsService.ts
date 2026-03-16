@@ -17,6 +17,7 @@ import {
   toRelativePath,
 } from "@openloaf/api/services/vfsService";
 import { getOpenLoafRootDir } from "@openloaf/config";
+import { logger } from "@/common/logger";
 
 export type HlsManifestResult = {
   /** Manifest content with segment URLs. */
@@ -270,8 +271,11 @@ function ensureManifestTask(input: {
     })
     .catch((error) => {
       finishManifestProgress({ key: input.key, ok: false });
-      // 逻辑：生成失败时让后续请求重新触发。
-      throw error;
+      // 逻辑：生成失败时记录日志并清理任务，让后续请求重新触发。
+      // 不 re-throw——ensureManifestTask 的返回值可能没有被 await，
+      // re-throw 会导致 unhandled promise rejection 崩溃进程。
+      logger.error({ error, key: input.key }, "HLS manifest generation failed");
+      return "";
     })
     .finally(() => {
       hlsManifestTasks.delete(input.key);
@@ -287,8 +291,8 @@ function ensureThumbnailTask(input: { key: string; build: () => Promise<string> 
   const task = input
     .build()
     .catch((error) => {
-      // 逻辑：生成失败时让后续请求重新触发。
-      throw error;
+      logger.error({ error, key: input.key }, "HLS thumbnail generation failed");
+      return "";
     })
     .finally(() => {
       hlsThumbnailTasks.delete(input.key);

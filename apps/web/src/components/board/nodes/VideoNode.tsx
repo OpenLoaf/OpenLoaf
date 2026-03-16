@@ -16,9 +16,14 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import Hls from "hls.js";
-import { Info, Loader2, Play, Sparkles } from "lucide-react";
+import { Download, Info, Loader2, Play, Scissors, Sparkles } from "lucide-react";
 import i18next from "i18next";
-import { BOARD_TOOLBAR_ITEM_BLUE, BOARD_TOOLBAR_ITEM_GREEN } from "../ui/board-style-system";
+import { VideoTrimBar } from "./VideoTrimBar";
+import {
+  BOARD_TOOLBAR_ITEM_AMBER,
+  BOARD_TOOLBAR_ITEM_BLUE,
+  BOARD_TOOLBAR_ITEM_GREEN,
+} from "../ui/board-style-system";
 import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./imagePromptGenerate";
 import { getBoardChatMessageMeta } from "../utils/board-chat-message";
 import { createBoardChatMessageToolbarItems } from "../utils/board-chat-toolbar";
@@ -47,6 +52,10 @@ export type VideoNodeProps = {
   naturalWidth?: number;
   /** Optional video height in pixels. */
   naturalHeight?: number;
+  /** Clip start time in seconds (default 0). */
+  clipStart?: number;
+  /** Clip end time in seconds (default duration). */
+  clipEnd?: number;
 };
 
 /** Resolve a board-scoped path into a project-relative path. */
@@ -94,6 +103,9 @@ async function openVideoPreview(props: VideoNodeProps, fileContext?: BoardFileCo
 
 /** Build toolbar items for video nodes. */
 function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
+  const { clipStart, clipEnd, duration } = ctx.element.props;
+  const hasClip = (clipStart != null && clipStart > 0) || (clipEnd != null && duration != null && clipEnd < duration);
+
   const baseItems = [
     {
       id: 'play',
@@ -102,6 +114,35 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
       className: BOARD_TOOLBAR_ITEM_GREEN,
       onSelect: () => void openVideoPreview(ctx.element.props, ctx.fileContext),
     },
+    {
+      id: 'trim',
+      label: i18next.t('board:videoNode.toolbar.trim', { defaultValue: 'Trim' }),
+      icon: <Scissors size={14} />,
+      className: BOARD_TOOLBAR_ITEM_AMBER,
+      active: hasClip,
+      panel: (
+        <VideoTrimPanel
+          duration={duration ?? 0}
+          clipStart={clipStart ?? 0}
+          clipEnd={clipEnd ?? duration ?? 0}
+          onChange={(start, end) => ctx.updateNodeProps({ clipStart: start, clipEnd: end })}
+        />
+      ),
+      panelClassName: "w-72",
+    },
+    ...(hasClip
+      ? [
+          {
+            id: 'export-clip',
+            label: i18next.t('board:videoNode.toolbar.exportClip', { defaultValue: 'Export Clip' }),
+            icon: <Download size={14} />,
+            className: BOARD_TOOLBAR_ITEM_GREEN,
+            onSelect: () => {
+              void exportVideoClip(ctx.element.props, ctx.fileContext);
+            },
+          },
+        ]
+      : []),
     {
       id: 'inspect',
       label: i18next.t('board:videoNode.toolbar.detail'),
@@ -116,6 +157,101 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
   return (messageMeta.status ?? "streaming") === "complete"
     ? [...chatItems, ...baseItems]
     : chatItems;
+}
+
+/** Inline trim panel rendered inside the toolbar popover. */
+function VideoTrimPanel({
+  duration,
+  clipStart,
+  clipEnd,
+  onChange,
+}: {
+  duration: number;
+  clipStart: number;
+  clipEnd: number;
+  onChange: (start: number, end: number) => void;
+}) {
+  if (duration <= 0) {
+    return (
+      <div className="px-3 py-2 text-xs text-ol-text-auxiliary">
+        {i18next.t('board:videoNode.trim.noDuration', { defaultValue: 'Duration unknown — play the video first.' })}
+      </div>
+    );
+  }
+  return (
+    <div className="px-3 py-2">
+      <VideoTrimBar
+        duration={duration}
+        clipStart={clipStart}
+        clipEnd={clipEnd}
+        onChange={onChange}
+      />
+    </div>
+  );
+}
+
+/** Export the clipped segment via server-side ffmpeg. */
+async function exportVideoClip(props: VideoNodeProps, fileContext?: BoardFileContext) {
+  const startTime = props.clipStart ?? 0;
+  const endTime = props.clipEnd ?? props.duration ?? 0;
+
+  if (endTime <= startTime) {
+    return;
+  }
+
+  // 逻辑：服务端需要原始未解析路径 + boardId/projectId 来定位文件，
+  // 不能传 resolveProjectRelativePath 的结果（已包含 board 目录前缀），否则会双重拼接。
+  const isBoardPath = isBoardRelativePath(props.sourcePath);
+  let sourcePath: string;
+  if (isBoardPath) {
+    sourcePath = props.sourcePath; // e.g. "asset/video.mp4"
+  } else {
+    const parsed = parseScopedProjectPath(props.sourcePath);
+    sourcePath = parsed?.relativePath ?? props.sourcePath;
+  }
+
+  const baseUrl = resolveServerUrl();
+  const url = baseUrl
+    ? `${baseUrl}/media/video-clip/export`
+    : "/media/video-clip/export";
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sourcePath,
+        projectId: fileContext?.projectId,
+        boardId: isBoardPath ? fileContext?.boardId : undefined,
+        startTime,
+        endTime,
+      }),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      console.error("Export clip failed:", data.error);
+      return;
+    }
+
+    // Trigger download
+    const downloadUrl = baseUrl
+      ? `${baseUrl}/media/video-clip/download?file=${encodeURIComponent(data.data.filePath)}`
+      : `/media/video-clip/download?file=${encodeURIComponent(data.data.filePath)}`;
+
+    const electronApi = (window as unknown as Record<string, unknown>).openloafElectron as
+      | { saveFile?: (opts: { url: string; fileName: string }) => void }
+      | undefined;
+    if (electronApi?.saveFile) {
+      electronApi.saveFile({ url: downloadUrl, fileName: data.data.fileName });
+    } else {
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = data.data.fileName;
+      a.click();
+    }
+  } catch (err) {
+    console.error("Export clip error:", err);
+  }
 }
 
 /** Build an HLS manifest URL for a project-relative video path. */
@@ -188,8 +324,33 @@ export function VideoNodeView({
     [effectiveProjectId, fileContext?.boardId, element.props.sourcePath],
   );
 
+  // 逻辑：用 ref 持有 clip 值，避免放入 useEffect deps 导致拖滑块时重建 HLS 播放。
+  const clipStartRef = useRef(element.props.clipStart);
+  clipStartRef.current = element.props.clipStart;
+  const clipEndRef = useRef(element.props.clipEnd);
+  clipEndRef.current = element.props.clipEnd;
+  const stoppedRef = useRef(false);
+
+  const handleStop = useCallback(() => {
+    if (stoppedRef.current) return; // 防止 timeupdate + onEnded 双重触发
+    stoppedRef.current = true;
+    setPlaying(false);
+    setLoading(false);
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    const video = videoRef.current;
+    if (video) {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    }
+  }, []);
+
   const handlePlayInline = useCallback(() => {
     if (!hlsPath) return;
+    stoppedRef.current = false;
     setPlaying(true);
     setLoading(true);
   }, [hlsPath]);
@@ -206,6 +367,22 @@ export function VideoNodeView({
     const qualityUrl = buildHlsQualityUrl(hlsPath, "720p", ids);
     const masterUrl = buildHlsManifestUrl(hlsPath, ids);
 
+    const applyClipAndPlay = () => {
+      const cs = clipStartRef.current;
+      if (cs != null && cs > 0) {
+        video.currentTime = cs;
+      }
+      video.play();
+    };
+
+    const onTimeUpdate = () => {
+      const ce = clipEndRef.current;
+      if (ce != null && video.currentTime >= ce) {
+        handleStop();
+      }
+    };
+    video.addEventListener("timeupdate", onTimeUpdate);
+
     const startPlayback = (url: string) => {
       if (cancelled) return;
       setLoading(false);
@@ -215,11 +392,11 @@ export function VideoNodeView({
         hls.loadSource(url);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          if (!cancelled) video.play();
+          if (!cancelled) applyClipAndPlay();
         });
       } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
         video.src = url;
-        video.play();
+        applyClipAndPlay();
       }
     };
 
@@ -245,12 +422,13 @@ export function VideoNodeView({
     return () => {
       cancelled = true;
       if (pollTimer) clearTimeout(pollTimer);
+      video.removeEventListener("timeupdate", onTimeUpdate);
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
     };
-  }, [playing, hlsPath, ids]);
+  }, [playing, hlsPath, ids, handleStop]);
 
   // 逻辑：组件卸载时销毁 hls 实例。
   useEffect(() => {
@@ -260,21 +438,6 @@ export function VideoNodeView({
         hlsRef.current = null;
       }
     };
-  }, []);
-
-  const handleStop = useCallback(() => {
-    setPlaying(false);
-    setLoading(false);
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
-    const video = videoRef.current;
-    if (video) {
-      video.pause();
-      video.removeAttribute("src");
-      video.load();
-    }
   }, []);
 
   return (
@@ -320,7 +483,7 @@ export function VideoNodeView({
               loading="lazy"
               decoding="async"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/50 via-neutral-900/10 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-b from-neutral-900/50 via-neutral-900/10 to-transparent" />
             <div className="absolute inset-0 flex items-center justify-center">
               <button
                 type="button"
@@ -334,25 +497,27 @@ export function VideoNodeView({
                 <Play className="h-[50%] w-[50%] min-h-2.5 min-w-2.5 translate-x-[0.5px]" />
               </button>
             </div>
-            <div className="absolute bottom-2 left-2 right-2 line-clamp-2 text-[11px] text-white/90 drop-shadow">
+            <div className="absolute top-2 left-2 right-2 line-clamp-2 text-[11px] text-white/90 drop-shadow">
               {displayName}
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 px-3 text-center">
-            <button
-              type="button"
-              data-board-controls
-              className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md bg-ol-surface-muted text-ol-text-auxiliary transition-transform duration-200 ease-out hover:scale-125"
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                handlePlayInline();
-              }}
-            >
-              <Play className="h-5 w-5" />
-            </button>
-            <div className="line-clamp-2 text-[11px] text-ol-text-secondary">
+          <div className="relative h-full w-full">
+            <div className="absolute top-2 left-2 right-2 line-clamp-2 text-[11px] text-ol-text-secondary">
               {displayName}
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <button
+                type="button"
+                data-board-controls
+                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md bg-ol-surface-muted text-ol-text-auxiliary transition-transform duration-200 ease-out hover:scale-125"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  handlePlayInline();
+                }}
+              >
+                <Play className="h-5 w-5" />
+              </button>
             </div>
           </div>
         )}
@@ -386,6 +551,8 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
     duration: z.number().optional(),
     naturalWidth: z.number().optional(),
     naturalHeight: z.number().optional(),
+    clipStart: z.number().optional(),
+    clipEnd: z.number().optional(),
   }),
   defaultProps: {
     sourcePath: "",
@@ -401,5 +568,5 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
     maxSize: { w: 1280, h: 720 },
   },
   connectorTemplates: () => getVideoNodeConnectorTemplates(),
-  toolbar: () => [],
+  toolbar: (ctx) => createVideoToolbarItems(ctx),
 };

@@ -304,6 +304,7 @@
     "openInNewWindow": "新窗口打开",
     "totalCount": "共 {{count}} 个",
     "childCount": "{{count}} 个子项目",
-    "createFailed": "创建失败"
+    "createFailed": "创建失败",
+    "dropToCreate": "拖放文件夹以创建项目"
   }
 }

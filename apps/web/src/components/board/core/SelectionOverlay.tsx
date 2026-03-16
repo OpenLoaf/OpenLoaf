@@ -384,9 +384,30 @@ export function MultiSelectionToolbar({
     : [];
   multiToolbarItemsRef.current = customItems;
 
+  // 逻辑：全部是笔画节点时隐藏自动布局按钮，笔画无法参与网格布局。
+  const allStrokes = selectedNodes.every(node => node.type === "stroke");
   const layoutLabel = t('selection.toolbar.autoLayout');
   const layoutIcon = <LayoutGrid size={14} />;
   const bounds = computeSelectionBounds(selectedNodes, snapshot.viewport.zoom);
+
+  const builtinItems: CanvasToolbarItem[] = [
+    {
+      id: "group",
+      label: t('selection.toolbar.group'),
+      icon: <Layers size={14} />,
+      className: BOARD_TOOLBAR_ITEM_BLUE,
+      onSelect: () => engine.groupSelection(),
+    },
+  ];
+  if (!allStrokes) {
+    builtinItems.push({
+      id: "layout",
+      label: layoutLabel,
+      icon: layoutIcon,
+      className: BOARD_TOOLBAR_ITEM_BLUE,
+      onSelect: () => engine.layoutSelection(),
+    });
+  }
 
   return (
     <SelectionToolbarContainer
@@ -405,22 +426,7 @@ export function MultiSelectionToolbar({
           showDivider={customItems.length > 0}
         />
         <ToolbarGroup
-          items={[
-            {
-              id: "group",
-              label: t('selection.toolbar.group'),
-              icon: <Layers size={14} />,
-              className: BOARD_TOOLBAR_ITEM_BLUE,
-              onSelect: () => engine.groupSelection(),
-            },
-            {
-              id: "layout",
-              label: layoutLabel,
-              icon: layoutIcon,
-              className: BOARD_TOOLBAR_ITEM_BLUE,
-              onSelect: () => engine.layoutSelection(),
-            },
-          ]}
+          items={builtinItems}
           openPanelId={openPanelId}
           setOpenPanelId={setOpenPanelId}
         />
@@ -599,6 +605,7 @@ export function SingleSelectionOutline({
 }: SingleSelectionOutlineProps) {
   const definition = engine.nodes.getDefinition(element.type);
   const canResize = definition?.capabilities?.resizable !== false;
+  const hideOutline = isGroupNodeType(element.type);
 
   // 逻辑：视图变化时单独更新控制柄位置，避免全量快照渲染。
   const { isMoving, viewState } = useIsViewportMoving(engine);
@@ -653,6 +660,8 @@ export function SingleSelectionOutline({
 
   // 逻辑：平移或缩放画布时隐藏选中框，避免 React 状态与 DOM transform 帧差导致位置偏移。
   if (isMoving) return null;
+  // 逻辑：组节点保留选中与工具条能力，但不再绘制蓝色选中边框。
+  if (hideOutline) return null;
   const { zoom, offset } = viewState.viewport;
   const bounds = computeSelectionBounds([element], viewState.viewport.zoom);
   const left = bounds.x * zoom + offset[0];
@@ -1034,17 +1043,30 @@ function computeSelectionBounds(elements: CanvasElement[], zoom: number): Canvas
 /** Resolve bounds for selection calculations. */
 function resolveSelectionBounds(element: CanvasElement, zoom: number): CanvasRect {
   const [x, y, w, h] = element.xywh;
-  if (element.kind !== "node" || !isGroupNodeType(element.type)) {
-    return { x, y, w, h };
+  if (element.kind === "node" && isGroupNodeType(element.type)) {
+    // 逻辑：组节点使用屏幕像素外扩，保证缩放下交互一致。
+    const padding = getGroupOutlinePadding(zoom);
+    return {
+      x: x - padding,
+      y: y - padding,
+      w: w + padding * 2,
+      h: h + padding * 2,
+    };
   }
-  // 逻辑：组节点使用屏幕像素外扩，保证缩放下交互一致。
-  const padding = getGroupOutlinePadding(zoom);
-  return {
-    x: x - padding,
-    y: y - padding,
-    w: w + padding * 2,
-    h: h + padding * 2,
-  };
+  if (element.kind === "node" && element.type === "stroke") {
+    // 逻辑：笔画线宽会超出 xywh 包围盒，需要外扩半个线宽，与 PixiOverlayLayer 单选边框一致。
+    const props = element.props as { size?: number; tool?: string };
+    const strokeSize = props.size ?? 2;
+    const lineWidth = props.tool === "highlighter" ? strokeSize * 3 : strokeSize;
+    const pad = lineWidth / 2 + 4;
+    return {
+      x: x - pad,
+      y: y - pad,
+      w: w + pad * 2,
+      h: h + pad * 2,
+    };
+  }
+  return { x, y, w, h };
 }
 
 /** Build mindmap layout controls for text nodes connected to other text nodes. */

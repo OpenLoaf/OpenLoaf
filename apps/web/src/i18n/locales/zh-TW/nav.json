@@ -304,6 +304,7 @@
     "openInNewWindow": "在新視窗開啟",
     "totalCount": "共 {{count}} 個",
     "childCount": "{{count}} 個子專案",
-    "createFailed": "建立失敗"
+    "createFailed": "建立失敗",
+    "dropToCreate": "拖放資料夾以建立專案"
   }
 }

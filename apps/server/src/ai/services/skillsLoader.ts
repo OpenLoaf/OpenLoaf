@@ -23,6 +23,10 @@ type SkillSummary = {
   folderName: string;
   /** Skill scope (global/project). */
   scope: SkillScope;
+  /** Color palette index (0-7), from openloaf.json. */
+  colorIndex?: number | null;
+  /** Whether this skill has an openloaf.json metadata file. */
+  hasMeta?: boolean;
 };
 
 type SkillSource = {
@@ -187,11 +191,14 @@ export function readSkillSummaryFromPath(filePath: string, scope: SkillScope): S
     let description = normalizeDescription(frontMatter.description);
     const folderName = path.basename(path.dirname(filePath)) || fallbackName;
 
-    // Override name/description from openloaf.json if present
+    // Override name/description/colorIndex from openloaf.json if present
     const meta = readOpenLoafMeta(path.dirname(filePath));
+    let colorIndex: number | null | undefined;
+    const hasMeta = meta !== null;
     if (meta) {
       if (meta.name) name = meta.name;
       if (meta.description) description = meta.description;
+      colorIndex = meta.colorIndex;
     }
 
     return {
@@ -200,6 +207,8 @@ export function readSkillSummaryFromPath(filePath: string, scope: SkillScope): S
       path: filePath,
       folderName,
       scope,
+      colorIndex,
+      hasMeta,
     };
   } catch {
     return null;
@@ -207,7 +216,13 @@ export function readSkillSummaryFromPath(filePath: string, scope: SkillScope): S
 }
 
 /** Read openloaf.json metadata from a skill folder. */
-function readOpenLoafMeta(folderPath: string): { name?: string; description?: string } | null {
+function readOpenLoafMeta(folderPath: string): {
+  name?: string
+  description?: string
+  targetLanguage?: string
+  sourceLanguage?: string
+  colorIndex?: number | null
+} | null {
   const metaPath = path.join(folderPath, "openloaf.json");
   if (!existsSync(metaPath)) return null;
   try {
@@ -217,13 +232,33 @@ function readOpenLoafMeta(folderPath: string): { name?: string; description?: st
     return {
       name: typeof parsed.name === "string" ? parsed.name.trim() || undefined : undefined,
       description: typeof parsed.description === "string" ? parsed.description.trim() || undefined : undefined,
+      targetLanguage: typeof parsed.targetLanguage === "string" ? parsed.targetLanguage : undefined,
+      sourceLanguage: typeof parsed.sourceLanguage === "string" ? parsed.sourceLanguage : undefined,
+      colorIndex: typeof parsed.colorIndex === "number" ? parsed.colorIndex : null,
     };
   } catch {
     return null;
   }
 }
 
-export function readSkillContentFromPath(filePath: string): string {
+/**
+ * Read skill content, optionally preferring a translated version.
+ * If `preferredLanguage` is provided, checks `{skillFolder}/{lang}/SKILL.md` first.
+ */
+export function readSkillContentFromPath(filePath: string, preferredLanguage?: string): string {
+  if (preferredLanguage) {
+    const skillFolder = path.dirname(filePath)
+    const fileName = path.basename(filePath)
+    const translatedPath = path.join(skillFolder, preferredLanguage, fileName)
+    if (existsSync(translatedPath)) {
+      try {
+        const content = readFileSync(translatedPath, "utf8")
+        return stripSkillFrontMatter(content)
+      } catch {
+        // fall through to original
+      }
+    }
+  }
   if (!existsSync(filePath)) return "";
   try {
     const content = readFileSync(filePath, "utf8");

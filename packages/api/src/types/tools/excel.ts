@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { z } from 'zod'
-import { officeEditSchema } from './office'
+import { jsonArrayPreprocess, officeEditSchema } from './office'
 
 export const excelQueryToolDef = {
   id: 'excel-query',
@@ -65,12 +65,16 @@ export const excelMutateToolDef = {
       .optional()
       .describe('create 时可选：初始 sheet 名称（默认 "Sheet1"）'),
     data: z
-      .array(z.array(z.union([z.string(), z.number(), z.boolean(), z.null()])))
-      .optional()
+      .preprocess(
+        jsonArrayPreprocess,
+        z.array(z.array(z.union([z.string(), z.number(), z.boolean(), z.null()]))).optional(),
+      )
       .describe('create 时可选：初始数据（二维数组，如 [["Name","Age"],["Alice",30]]）'),
     edits: z
-      .array(officeEditSchema)
-      .optional()
+      .preprocess(
+        jsonArrayPreprocess,
+        z.array(officeEditSchema).optional(),
+      )
       .describe(
         'edit 时必填：编辑操作数组。每个操作通过 op 指定类型（replace/insert/remove/write/delete），通过 path 指定 ZIP 内文件路径，通过 xpath 定位 XML 元素',
       ),

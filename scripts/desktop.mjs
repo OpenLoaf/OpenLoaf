@@ -11,77 +11,11 @@
  * Intentional processes like behavior tests are NOT touched.
  */
 
-import { spawn, execSync } from 'node:child_process'
-
-// Default dev ports used by desktop session (must match portAllocation.ts dev defaults)
-const SERVER_PORT = process.env.PORT || 23334
-const WEB_PORT = process.env.WEB_PORT || 53665
+import { spawn } from 'node:child_process'
+import { killStaleProcesses } from './kill.mjs'
 
 // ── 1. Kill stale desktop-session processes ──────────────────────────
-function killStaleProcesses() {
-  let killed = 0
-
-  if (process.platform === 'win32') {
-    // Windows: kill by port binding
-    for (const port of [SERVER_PORT, WEB_PORT]) {
-      try {
-        const output = execSync(
-          `netstat -ano | findstr "LISTENING" | findstr ":${port}"`,
-          { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 3000 },
-        ).trim()
-        for (const line of output.split(/\r?\n/)) {
-          const pid = line.trim().split(/\s+/).pop()
-          if (pid && /^\d+$/.test(pid) && pid !== '0') {
-            console.log(`[desktop] Killing stale process PID ${pid} on port ${port}`)
-            try { execSync(`taskkill /pid ${pid} /t /f`, { stdio: 'ignore' }) } catch {}
-            killed++
-          }
-        }
-      } catch {}
-    }
-    return
-  }
-
-  // Unix (macOS / Linux): kill by port binding
-  for (const port of [SERVER_PORT, WEB_PORT]) {
-    try {
-      const output = execSync(
-        `lsof -ti tcp:${port} -sTCP:LISTEN`,
-        { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 3000 },
-      ).trim()
-      for (const pidStr of output.split(/\s+/)) {
-        const pid = parseInt(pidStr, 10)
-        if (!isNaN(pid) && pid !== process.pid && pid !== process.ppid) {
-          console.log(`[desktop] Killing stale process PID ${pid} on port ${port}`)
-          try { process.kill(pid, 'SIGTERM') } catch {}
-          killed++
-        }
-      }
-    } catch {}
-  }
-
-  // Also kill stale electron-forge processes
-  try {
-    const raw = execSync(
-      'ps ax -o pid=,command= | grep -E "electron-forge start|Electron\\.app.*OpenLoaf" | grep -v grep',
-      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
-    )
-    for (const line of raw.trim().split('\n').filter(Boolean)) {
-      const pid = parseInt(line.trim().split(/\s+/)[0], 10)
-      if (!isNaN(pid) && pid !== process.pid && pid !== process.ppid) {
-        console.log(`[desktop] Killing stale Electron process PID ${pid}`)
-        try { process.kill(pid, 'SIGTERM') } catch {}
-        killed++
-      }
-    }
-  } catch {}
-
-  if (killed > 0) {
-    console.log(`[desktop] Cleaned up ${killed} stale process(es)`)
-  }
-}
-
-killStaleProcesses()
+killStaleProcesses({ log: (msg) => console.log(msg.replace('[kill]', '[desktop]')) })
 
 // ── 2. Spawn the desktop command in its own process group ────────────
 const child = spawn('pnpm', ['--filter', 'desktop', 'desktop'], {

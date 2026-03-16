@@ -169,8 +169,6 @@ export function BoardCanvasRender({
           snapshot={snapshot}
           connector={selectedConnector}
           onStyleChange={(style) => engine.setConnectorStyle(style)}
-          onColorChange={(color) => engine.setConnectorColor(color)}
-          onDashedChange={(dashed) => engine.setConnectorDashed(dashed)}
           onDelete={() => engine.deleteSelection()}
         />
       ) : null}

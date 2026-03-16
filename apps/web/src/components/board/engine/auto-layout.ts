@@ -1704,13 +1704,18 @@ export function computePartialLayoutUpdates(
       layoutPositions,
     )
 
+    // 逻辑：对整组做统一 grid-snap 偏移，避免逐节点 snapToGrid 破坏均匀间距。
+    const firstUnlinked = unlinkedNodes[0]
+    const firstPos = firstUnlinked ? layoutPositions.get(firstUnlinked.id) : undefined
+    const snapDx = firstPos ? snapToGrid(firstPos[0]) - firstPos[0] : 0
+    const snapDy = firstPos ? snapToGrid(firstPos[1]) - firstPos[1] : 0
     unlinkedNodes.forEach((node) => {
       const pos = layoutPositions.get(node.id)
       if (!pos) return
       const [, , w, h] = node.xywh
       allUpdates.push({
         id: node.id,
-        xywh: [snapToGrid(pos[0]), snapToGrid(pos[1]), w, h],
+        xywh: [pos[0] + snapDx, pos[1] + snapDy, w, h],
       })
     })
   }
@@ -1728,8 +1733,11 @@ export function computePartialLayoutUpdates(
   const dy = origCy - newCy
 
   if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+    // 逻辑：统一偏移后对齐到 grid，避免逐节点 snap 破坏节点间均匀间距。
+    const snappedDx = snapToGrid(dx)
+    const snappedDy = snapToGrid(dy)
     allUpdates.forEach((u) => {
-      u.xywh = [snapToGrid(u.xywh[0] + dx), snapToGrid(u.xywh[1] + dy), u.xywh[2], u.xywh[3]]
+      u.xywh = [u.xywh[0] + snappedDx, u.xywh[1] + snappedDy, u.xywh[2], u.xywh[3]]
     })
   }
 

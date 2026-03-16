@@ -1,0 +1,8 @@
+{
+  "name": "multi-project-architecture",
+  "description": "多项目组织架构设计。当涉及跨项目协作、项目类型模板、管理层调度、群组通信、Sidebar 重构等需求时使用此 skill。",
+  "version": "0.1.0",
+  "sourceLanguage": "zh-CN",
+  "targetLanguage": "zh-CN",
+  "translatedAt": "2026-03-16T04:18:53.220Z"
+}

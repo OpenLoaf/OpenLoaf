@@ -1,0 +1,7 @@
+{
+  "name": "browser-fullstack-development",
+  "description": "用于构建、扩展或调试跨 Web UI、Electron WebContentsView/IPC、服务器工具、CDP 自动化以及标签页快照/open-url 确认流程（viewKey 不匹配、cdpTargetId 缺失、加载卡住、工具确认超时）的内置浏览器系统。",
+  "sourceLanguage": "en",
+  "targetLanguage": "zh-CN",
+  "translatedAt": "2026-03-16T04:18:47.652Z"
+}

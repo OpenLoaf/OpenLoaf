@@ -12,6 +12,7 @@ import type { VideoInfo as YtVideoInfo, DownloadedVideoInfo } from 'ytdlp-nodejs
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import fs from 'node:fs'
+import ffmpeg from 'fluent-ffmpeg'
 import { logger } from '@/common/logger'
 import { getHlsManifest } from './hlsService'
 
@@ -47,10 +48,12 @@ export interface VideoInfo {
 export interface VideoDownloadTask {
   id: string
   url: string
-  status: 'pending' | 'downloading' | 'completed' | 'failed'
+  status: 'pending' | 'downloading' | 'merging' | 'completed' | 'failed'
+  /** Download phase for UI display. */
+  phase: 'extracting' | 'downloading' | 'merging' | 'done'
   progress: number
   info?: VideoInfo
-  result?: { filePath: string; fileName: string }
+  result?: { filePath: string; fileName: string; posterDataUrl?: string; width?: number; height?: number }
   error?: string
 }
 
@@ -87,6 +90,7 @@ export function startDownload(input: {
     id: taskId,
     url: input.url,
     status: 'pending',
+    phase: 'extracting',
     progress: 0,
   }
   tasks.set(taskId, task)
@@ -137,8 +141,14 @@ async function runDownload(
       .format('bestvideo[height<=720]+bestaudio/best[height<=720]/best')
       .options({ output: outputTemplate })
 
+    // 逻辑：bestvideo+bestaudio 分两次下载再合并，
+    // streamIndex 追踪当前是第几个流，用于计算总体进度。
+    let streamIndex = 0
+    let streamCount = 2 // 默认假设视频+音频双流
+
     builder.on('progress', (p) => {
-      if ((task.status as string) !== 'downloading') return
+      if (task.status !== 'downloading' && task.status !== 'merging') return
+      task.phase = 'downloading'
       let pct: number | undefined
       if (p.percentage != null) {
         pct = p.percentage
@@ -146,12 +156,16 @@ async function runDownload(
         pct = (p.downloaded / p.total) * 100
       }
       if (pct != null) {
-        task.progress = Math.min(Math.round(pct), 100)
-        logger.debug({ taskId: task.id, progress: task.progress }, 'Download progress')
+        // 逻辑：将单流百分比映射到总进度。
+        // 流 0: 0-50%, 流 1: 50-100%（双流时）；单流时直接 0-100%
+        const streamPct = Math.min(pct, 100)
+        const overallPct = (streamIndex * 100 + streamPct) / streamCount
+        task.progress = Math.min(Math.round(overallPct), 99)
       }
     })
 
     builder.on('beforeDownload', (info: DownloadedVideoInfo) => {
+      task.phase = 'downloading'
       task.info = {
         title: info.title || 'Untitled',
         thumbnail: '',
@@ -162,14 +176,35 @@ async function runDownload(
       }
     })
 
-    // 逻辑：通过 stderr 解析进度作为回退（某些平台 progress 事件不触发）
     builder.on('stderr', (data: string) => {
-      if ((task.status as string) !== 'downloading') return
-      const match = data.match(/\[download\]\s+([\d.]+)%/)
-      if (match?.[1]) {
-        const pct = parseFloat(match[1])
-        if (!Number.isNaN(pct)) {
-          task.progress = Math.min(Math.round(pct), 100)
+      if (task.status !== 'downloading' && task.status !== 'merging') return
+      const lines = data.split('\n')
+      for (const line of lines) {
+        // 逻辑：检测新流开始下载（Destination 行出现时代表新一个流）
+        if (line.includes('[download] Destination:')) {
+          if (task.phase === 'downloading' && task.progress > 0) {
+            streamIndex += 1
+          }
+          task.phase = 'downloading'
+        }
+        // 逻辑：解析百分比进度
+        const match = line.match(/\[download\]\s+([\d.]+)%/)
+        if (match?.[1]) {
+          const pct = parseFloat(match[1])
+          if (!Number.isNaN(pct)) {
+            const streamPct = Math.min(pct, 100)
+            const overallPct = (streamIndex * 100 + streamPct) / streamCount
+            task.progress = Math.min(Math.round(overallPct), 99)
+          }
+        }
+        // 逻辑：检测合并阶段
+        if (line.includes('[Merger]') || line.includes('[ffmpeg]')) {
+          task.phase = 'merging'
+          task.status = 'merging'
+        }
+        // 逻辑：单流模式检测（没有合并的情况）
+        if (line.includes('Requested format is not available')) {
+          streamCount = 1
         }
       }
     })
@@ -200,10 +235,20 @@ async function runDownload(
       fs.renameSync(filePath, targetPath)
     }
 
-    task.status = 'completed'
+    task.phase = 'done'
     task.progress = 100
-    task.result = { filePath: targetPath, fileName }
-    logger.info({ taskId: task.id, fileName }, 'Video download completed')
+
+    // Extract poster frame and video dimensions before marking completed
+    const posterMeta = await extractPosterAndMeta(targetPath)
+    task.result = {
+      filePath: targetPath,
+      fileName,
+      posterDataUrl: posterMeta?.posterDataUrl,
+      width: posterMeta?.width,
+      height: posterMeta?.height,
+    }
+    task.status = 'completed'
+    logger.info({ taskId: task.id, fileName, width: posterMeta?.width, height: posterMeta?.height }, 'Video download completed')
 
     // Auto-trigger HLS pre-transcoding
     void triggerPreTranscode(fileName, ctx).catch(() => undefined)
@@ -215,6 +260,97 @@ async function runDownload(
   } finally {
     scheduleCleanup(task.id)
   }
+}
+
+/** Extract a poster frame and video dimensions from a local video file. */
+async function extractPosterAndMeta(filePath: string): Promise<{
+  posterDataUrl: string
+  width: number
+  height: number
+} | null> {
+  return new Promise((resolve) => {
+    ffmpeg.ffprobe(filePath, (err, metadata) => {
+      if (err) {
+        logger.warn({ err, filePath }, 'ffprobe failed for poster extraction')
+        resolve(null)
+        return
+      }
+
+      const videoStream = metadata.streams?.find((s) => s.codec_type === 'video')
+      const width = videoStream?.width || 0
+      const height = videoStream?.height || 0
+
+      // Extract a single frame as JPEG
+      const tmpPoster = `${filePath}.poster.jpg`
+      ffmpeg(filePath)
+        .seekInput(0.5)
+        .frames(1)
+        .outputOptions(['-vf', 'scale=640:-2', '-q:v', '4'])
+        .output(tmpPoster)
+        .on('end', () => {
+          try {
+            const buffer = fs.readFileSync(tmpPoster)
+            const base64 = buffer.toString('base64')
+            fs.unlinkSync(tmpPoster)
+            resolve({
+              posterDataUrl: `data:image/jpeg;base64,${base64}`,
+              width,
+              height,
+            })
+          } catch {
+            resolve({ posterDataUrl: '', width, height })
+          }
+        })
+        .on('error', () => {
+          resolve({ posterDataUrl: '', width, height })
+        })
+        .run()
+    })
+  })
+}
+
+/** Export a clipped segment of a video using ffmpeg. */
+export async function exportVideoClip(input: {
+  absolutePath: string
+  startTime: number
+  endTime: number
+  outputDir: string
+  fileName: string
+}): Promise<{ filePath: string; fileName: string }> {
+  const { absolutePath, startTime, endTime, outputDir, fileName } = input
+  fs.mkdirSync(outputDir, { recursive: true })
+
+  const ext = path.extname(fileName) || '.mp4'
+  const base = path.basename(fileName, ext)
+  const outputName = `${base}_clip_${Math.floor(startTime)}-${Math.floor(endTime)}${ext}`
+  const outputPath = path.join(outputDir, outputName)
+
+  return new Promise((resolve, reject) => {
+    const duration = endTime - startTime
+    const cmd = ffmpeg(absolutePath)
+      .seekInput(startTime)
+      .duration(duration)
+      .outputOptions(['-y', '-c', 'copy'])
+      .output(outputPath)
+
+    cmd.on('end', () => {
+      resolve({ filePath: outputPath, fileName: outputName })
+    })
+    cmd.on('error', (err) => {
+      logger.warn({ err }, 'Stream copy failed, retrying with re-encode')
+      // Fallback: re-encode for frame-accurate cuts
+      const cmd2 = ffmpeg(absolutePath)
+        .seekInput(startTime)
+        .duration(duration)
+        .outputOptions(['-y', '-c:v', 'libx264', '-c:a', 'aac', '-preset', 'fast'])
+        .output(outputPath)
+
+      cmd2.on('end', () => resolve({ filePath: outputPath, fileName: outputName }))
+      cmd2.on('error', (err2) => reject(err2))
+      cmd2.run()
+    })
+    cmd.run()
+  })
 }
 
 /** Trigger HLS pre-transcoding on the server side after download completes. */

@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { z } from 'zod'
-import { officeEditSchema } from './office'
+import { jsonArrayPreprocess, officeEditSchema } from './office'
 
 export const wordQueryToolDef = {
   id: 'word-query',
@@ -84,14 +84,18 @@ export const wordMutateToolDef = {
       .min(1)
       .describe('Word 文件路径（create 时为新文件路径，edit 时为已有文件路径）'),
     content: z
-      .array(contentItemSchema)
-      .optional()
+      .preprocess(
+        jsonArrayPreprocess,
+        z.array(contentItemSchema).optional(),
+      )
       .describe(
         'create 时必填：结构化文档内容数组，每项为 heading/paragraph/table/bullet-list/numbered-list',
       ),
     edits: z
-      .array(officeEditSchema)
-      .optional()
+      .preprocess(
+        jsonArrayPreprocess,
+        z.array(officeEditSchema).optional(),
+      )
       .describe(
         'edit 时必填：编辑操作数组。每个操作通过 op 指定类型（replace/insert/remove/write/delete），通过 path 指定 ZIP 内文件路径，通过 xpath 定位 XML 元素',
       ),

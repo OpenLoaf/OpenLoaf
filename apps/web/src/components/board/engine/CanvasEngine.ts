@@ -251,7 +251,7 @@ export class CanvasEngine {
     highlighterSettings: {
       size: 10,
       color: "#16a34a",
-      opacity: 0.35,
+      opacity: 0.8,
     },
   };
   /** Change subscribers. */
@@ -280,7 +280,11 @@ export class CanvasEngine {
   };
   /** Pointer up handler bound to the engine instance. */
   private readonly onPointerUp = (event: PointerEvent) => {
-    this.tools.handlePointerUp(event);
+    // 逻辑：batch 确保 pointerUp 内的多个状态变更（如 setDraggingElementId + setAlignmentGuides）
+    // 合并为一次变更通知，避免选区边框因多次 snapshot 更新闪烁。
+    this.batch(() => {
+      this.tools.handlePointerUp(event);
+    });
   };
   /** Key down handler bound to the engine instance. */
   private readonly onKeyDown = (event: KeyboardEvent) => {

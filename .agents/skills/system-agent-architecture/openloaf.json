@@ -1,0 +1,8 @@
+{
+  "name": "System Agent Architecture",
+  "description": "系统 Agent 架构设计文档。当涉及系统 Agent 定义、能力组、模型解析、Agent 初始化、spawn 机制、前端 Agent 管理等开发任务时使用此 skill。",
+  "version": "1.0.0",
+  "sourceLanguage": "zh-CN",
+  "targetLanguage": "zh-CN",
+  "translatedAt": "2026-03-16T04:18:56.324Z"
+}

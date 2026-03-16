@@ -30,10 +30,10 @@ const ARROW_SIZE = 7
 const ARROW_ANGLE = Math.PI / 7.5
 /** 基础线宽 */
 const STROKE_WIDTH = 1.2
-/** 选中线宽 */
-const STROKE_WIDTH_SELECTED = 1.8
-/** 悬停线宽 */
-const STROKE_WIDTH_HOVER = 2
+/** 选中高亮外描边增量 */
+const STROKE_OUTLINE_SELECTED = 0.8
+/** 悬停高亮外描边增量 */
+const STROKE_OUTLINE_HOVER = 0.5
 /** 默认连线透明度（偏淡） */
 const STROKE_ALPHA = 0.35
 /** 选中/悬停时的连线透明度 */
@@ -123,47 +123,52 @@ export class PixiConnectorLayer {
 
       const isSelected = snapshot.selectedIds.includes(connector.id)
       const isHovered = connector.id === snapshot.connectorHoverId
+      const dashed = connector.dashed ?? snapshot.connectorDashed
       // 确定颜色
       const color = connector.color
         ? this.parseCssColor(connector.color) ?? palette.connector
         : palette.connector
-      const effectiveColor = isSelected || isHovered
-        ? palette.selectionBorder
-        : color
 
-      // 确定线宽
-      const width = isSelected
-        ? STROKE_WIDTH_SELECTED
-        : isHovered
-          ? STROKE_WIDTH_HOVER
-          : STROKE_WIDTH
+      // 逻辑：选中态只改变高亮描边，不改变主线实际粗细。
+      const width = STROKE_WIDTH
 
       const lineAlpha = isSelected || isHovered ? STROKE_ALPHA_ACTIVE : STROKE_ALPHA
 
-      // 悬停光晕
-      if (isHovered && !isSelected) {
-        this.drawDashedPath(g, points, {
-          width: STROKE_WIDTH_HOVER,
+      // 逻辑：选中态仅作为底部高亮描边，主线颜色始终使用 connector.color。
+      if (isSelected || isHovered) {
+        this.drawConnectorPath(g, path, points, dashed, {
+          width: width + (isSelected ? STROKE_OUTLINE_SELECTED : STROKE_OUTLINE_HOVER),
           color: palette.selectionBorder,
-          alpha: lineAlpha * 0.5,
+          alpha: isSelected ? 0.2 : 0.14,
         })
       }
 
-      // 主线（虚线，偏淡）
-      this.drawDashedPath(g, points, {
+      // 主线
+      this.drawConnectorPath(g, path, points, dashed, {
         width,
-        color: effectiveColor,
+        color,
         alpha: lineAlpha,
       })
 
       // 箭头
       if (points.length >= 2) {
+        if (isSelected || isHovered) {
+          this.drawArrowHead(
+            g,
+            points[points.length - 2]!,
+            points[points.length - 1]!,
+            ARROW_SIZE,
+            palette.selectionBorder,
+            width + (isSelected ? STROKE_OUTLINE_SELECTED : STROKE_OUTLINE_HOVER),
+            isSelected ? 0.2 : 0.14,
+          )
+        }
         this.drawArrowHead(
           g,
           points[points.length - 2]!,
           points[points.length - 1]!,
           ARROW_SIZE,
-          effectiveColor,
+          color,
           width,
           lineAlpha,
         )
@@ -182,6 +187,7 @@ export class PixiConnectorLayer {
       )
       if (resolved.source && resolved.target) {
         const style = draft.style ?? snapshot.connectorStyle
+        const dashed = draft.dashed ?? snapshot.connectorDashed
         const path = buildConnectorPath(
           style,
           resolved.source,
@@ -191,9 +197,8 @@ export class PixiConnectorLayer {
             targetAnchorId: resolved.targetAnchorId,
           },
         )
-        const draftPoints = flattenConnectorPath(path)
 
-        this.drawDashedPath(g, draftPoints, {
+        this.drawConnectorPath(g, path, flattenConnectorPath(path), dashed, {
           width: STROKE_WIDTH,
           color: palette.connector,
           alpha: STROKE_ALPHA,
@@ -202,7 +207,22 @@ export class PixiConnectorLayer {
     }
   }
 
-  /** 绘制虚线路径 */
+  /** Draw connector path with dashed or solid stroke. */
+  private drawConnectorPath(
+    g: Graphics,
+    path: CanvasConnectorPath,
+    flatPoints: CanvasPoint[],
+    dashed: boolean,
+    style: { width: number; color: number; alpha: number },
+  ): void {
+    if (dashed) {
+      this.drawDashedPath(g, flatPoints, style)
+      return
+    }
+    this.drawSolidPath(g, path, style)
+  }
+
+  /** Draw dashed connector path. */
   private drawDashedPath(
     g: Graphics,
     flatPoints: CanvasPoint[],
@@ -258,7 +278,7 @@ export class PixiConnectorLayer {
     g.stroke()
   }
 
-  /** 绘制实线路径 */
+  /** Draw solid connector path. */
   private drawSolidPath(
     g: Graphics,
     path: CanvasConnectorPath,

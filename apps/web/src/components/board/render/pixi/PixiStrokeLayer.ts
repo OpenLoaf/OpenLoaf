@@ -168,7 +168,7 @@ export class PixiStrokeLayer {
       // 逻辑：AlphaFilter 会先将 Graphics 渲染到离屏帧缓冲（alpha=1，无自叠加），
       // 再以目标 alpha 合成到画布。这是 PixiJS 中实现"组透明度"的标准方式。
       // 复用已有的 AlphaFilter 实例，避免 GPU 资源在帧内被回收导致 BindGroup.setResource 报错。
-      const targetAlpha = opacity * 0.4
+      const targetAlpha = opacity * 0.8
       const filter = existingFilter ?? new AlphaFilter({ alpha: targetAlpha })
       filter.alpha = targetAlpha
       g.filters = [filter]

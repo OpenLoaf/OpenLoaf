@@ -13,10 +13,12 @@ import {
   startDownload,
   getTaskStatus,
   cancelDownloadTask,
+  exportVideoClip,
 } from './videoDownloadService'
 import { resolveScopedPath } from '@openloaf/api'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import fs from 'node:fs'
 import { logger } from '@/common/logger'
 
 const BOARD_ASSETS_DIR = 'asset'
@@ -103,9 +105,17 @@ export function registerVideoDownloadRoutes(app: Hono) {
       success: true,
       data: {
         status: task.status,
+        phase: task.phase,
         progress: task.progress,
         info: task.info,
-        result: task.result,
+        result: task.result
+          ? {
+              fileName: task.result.fileName,
+              posterDataUrl: task.result.posterDataUrl,
+              width: task.result.width,
+              height: task.result.height,
+            }
+          : undefined,
         error: task.error,
       },
     })
@@ -120,5 +130,87 @@ export function registerVideoDownloadRoutes(app: Hono) {
     }
     const cancelled = cancelDownloadTask(taskId)
     return c.json({ success: true, data: { cancelled } })
+  })
+
+  /** Export a clipped segment of a video via ffmpeg. */
+  app.post('/media/video-clip/export', async (c) => {
+    try {
+      const body = await c.req.json<{
+        sourcePath?: string
+        projectId?: string
+        boardId?: string
+        startTime?: number
+        endTime?: number
+      }>()
+
+      const { sourcePath, startTime, endTime } = body
+      if (!sourcePath || startTime == null || endTime == null) {
+        return c.json({ error: 'Missing sourcePath, startTime, or endTime' }, 400)
+      }
+      if (endTime <= startTime) {
+        return c.json({ error: 'endTime must be greater than startTime' }, 400)
+      }
+
+      // Resolve source to absolute path — prepend board prefix if boardId is present
+      const effectiveTarget = body.boardId
+        ? `.openloaf/boards/${body.boardId}/${sourcePath.replace(/^\/+/, '')}`
+        : sourcePath
+      const absolutePath = resolveScopedPath({
+        projectId: body.projectId,
+        target: effectiveTarget,
+      })
+
+      if (!fs.existsSync(absolutePath)) {
+        return c.json({ error: 'Source file not found' }, 404)
+      }
+
+      const configDir = process.env.OPENLOAF_CONFIG_DIR
+        || path.join(process.env.HOME || '/tmp', '.openloaf')
+      const outputDir = path.join(configDir, 'temp', 'video-clips')
+      const fileName = path.basename(absolutePath)
+
+      const result = await exportVideoClip({
+        absolutePath,
+        startTime,
+        endTime,
+        outputDir,
+        fileName,
+      })
+
+      return c.json({ success: true, data: result })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Export clip failed'
+      logger.error({ error }, 'video-clip/export failed')
+      return c.json({ error: message }, 500)
+    }
+  })
+
+  /** Download an exported clip file. */
+  app.get('/media/video-clip/download', async (c) => {
+    const filePath = c.req.query('file')?.trim()
+    if (!filePath) {
+      return c.json({ error: 'Missing file parameter' }, 400)
+    }
+
+    // Security: only allow files from our temp directory
+    const configDir = process.env.OPENLOAF_CONFIG_DIR
+      || path.join(process.env.HOME || '/tmp', '.openloaf')
+    const allowedDir = path.join(configDir, 'temp', 'video-clips')
+    const resolved = path.resolve(filePath)
+    if (!resolved.startsWith(allowedDir)) {
+      return c.json({ error: 'Access denied' }, 403)
+    }
+
+    if (!fs.existsSync(resolved)) {
+      return c.json({ error: 'File not found' }, 404)
+    }
+
+    const fileName = path.basename(resolved)
+    const buffer = fs.readFileSync(resolved)
+
+    c.header('Content-Type', 'video/mp4')
+    c.header('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`)
+    c.header('Content-Length', String(buffer.length))
+    return c.body(buffer)
   })
 }

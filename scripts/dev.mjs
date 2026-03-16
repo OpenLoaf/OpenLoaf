@@ -12,34 +12,11 @@
  * group leader.  On ANY exit, kill the entire group via `kill(-pgid)`.
  */
 
-import { spawn, execSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
+import { killStaleProcesses } from './kill.mjs'
 
 // ── 1. Kill stale dev processes from previous runs ──────────────────
-function killStaleDevProcesses() {
-  try {
-    const raw = execSync(
-      'ps ax -o pid=,command= | grep -E "OpenLoaf.*(next dev|--watch src/index|turbo.*dev|webpack-loaders\\.js|postcss\\.js)" | grep -v grep',
-      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
-    )
-    const pids = raw
-      .trim()
-      .split('\n')
-      .filter(Boolean)
-      .map((l) => parseInt(l.trim().split(/\s+/)[0], 10))
-      .filter((p) => !isNaN(p) && p !== process.pid && p !== process.ppid)
-
-    if (pids.length > 0) {
-      console.log(`[dev] Killing ${pids.length} stale processes: ${pids.join(', ')}`)
-      for (const pid of pids) {
-        try { process.kill(pid, 'SIGTERM') } catch {}
-      }
-    }
-  } catch {
-    // No stale processes — normal
-  }
-}
-
-killStaleDevProcesses()
+killStaleProcesses({ log: (msg) => console.log(msg.replace('[kill]', '[dev]')) })
 
 // ── 2. Parse arguments ──────────────────────────────────────────────
 // Usage: node scripts/dev.mjs [filter]

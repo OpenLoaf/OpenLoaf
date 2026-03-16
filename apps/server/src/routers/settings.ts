@@ -544,6 +544,39 @@ class SettingRouterImpl extends BaseSettingRouter {
           }
           return { ok: true };
         }),
+      resetSkill: shieldedProcedure
+        .input(settingSchemas.resetSkill.input)
+        .output(settingSchemas.resetSkill.output)
+        .mutation(async ({ input }) => {
+          const { resetSkill } = await import(
+            "@/ai/services/skillTranslationService"
+          );
+          await resetSkill(input.skillFolderPath);
+          return { ok: true };
+        }),
+      translateSkillTitle: shieldedProcedure
+        .input(settingSchemas.translateSkillTitle.input)
+        .output(settingSchemas.translateSkillTitle.output)
+        .mutation(async ({ input }) => {
+          const { translateSkillTitle } = await import(
+            "@/ai/services/skillTranslationService"
+          );
+          return translateSkillTitle(
+            input.skillFolderPath,
+            input.targetLanguage,
+            input.saasAccessToken,
+          );
+        }),
+      setSkillColor: shieldedProcedure
+        .input(settingSchemas.setSkillColor.input)
+        .output(settingSchemas.setSkillColor.output)
+        .mutation(async ({ input }) => {
+          const { setSkillColorIndex } = await import(
+            "@/ai/services/skillTranslationService"
+          );
+          await setSkillColorIndex(input.skillFolderPath, input.colorIndex);
+          return { ok: true };
+        }),
       /** List agents for settings UI. */
       getAgents: shieldedProcedure
         .input(settingSchemas.getAgents.input)
@@ -1724,7 +1757,10 @@ class SettingRouterImpl extends BaseSettingRouter {
           const { getSkillTranslationStatus } = await import(
             "@/ai/services/skillTranslationService"
           );
-          return getSkillTranslationStatus(input.skillFolderPath);
+          return getSkillTranslationStatus(
+            input.skillFolderPath,
+            input.targetLanguage,
+          );
         }),
       translateSkill: shieldedProcedure
         .input(settingSchemas.translateSkill.input)
@@ -1733,7 +1769,11 @@ class SettingRouterImpl extends BaseSettingRouter {
           const { translateSkill } = await import(
             "@/ai/services/skillTranslationService"
           );
-          return translateSkill(input.skillFolderPath, input.saasAccessToken);
+          return translateSkill(
+            input.skillFolderPath,
+            input.targetLanguage,
+            input.saasAccessToken,
+          );
         }),
       importSkill: shieldedProcedure
         .input(settingSchemas.importSkill.input)

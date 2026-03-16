@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { z } from 'zod'
+import { jsonArrayPreprocess } from './office'
 
 export const pdfQueryToolDef = {
   id: 'pdf-query',
@@ -105,20 +106,26 @@ export const pdfMutateToolDef = {
       .min(1)
       .describe('输出 PDF 文件路径（create/merge 为新文件路径，fill-form/add-text 为已有文件路径）'),
     content: z
-      .array(pdfContentItemSchema)
-      .optional()
+      .preprocess(
+        jsonArrayPreprocess,
+        z.array(pdfContentItemSchema).optional(),
+      )
       .describe('create 时必填：结构化内容数组，支持 heading/paragraph/table/bullet-list/numbered-list/page-break'),
     fields: z
       .record(z.string(), z.string())
       .optional()
       .describe('fill-form 时必填：表单字段名与值的映射'),
     sourcePaths: z
-      .array(z.string())
-      .optional()
+      .preprocess(
+        jsonArrayPreprocess,
+        z.array(z.string()).optional(),
+      )
       .describe('merge 时必填：要合并的源 PDF 文件路径数组'),
     overlays: z
-      .array(pdfTextOverlaySchema)
-      .optional()
+      .preprocess(
+        jsonArrayPreprocess,
+        z.array(pdfTextOverlaySchema).optional(),
+      )
       .describe('add-text 时必填：文字叠加定义数组'),
   }),
   needsApproval: true,

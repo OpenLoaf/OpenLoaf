@@ -227,6 +227,7 @@
     "enter": "進入",
     "groupDialog": {
       "title": "組成員",
+      "editTitle": "編輯組",
       "memberCount": "{{count}} 個成員"
     }
   },

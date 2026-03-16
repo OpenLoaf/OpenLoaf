@@ -94,6 +94,36 @@ function fitVideoSize(width: number, height: number, maxDimension: number): [num
   return [Math.round(width * scale), Math.round(height * scale)];
 }
 
+/** Restart a video download task and return the new taskId. */
+async function restartVideoDownload(ctx: {
+  url: string;
+  saveDir: string;
+  projectId: string;
+  boardId?: string;
+}): Promise<string> {
+  const baseUrl = resolveServerUrl();
+  const prefix = baseUrl || "";
+
+  // saveDir is boardFolderUri/asset — extract boardFolderUri
+  const boardFolderUri = ctx.saveDir.replace(/\/asset\/?$/, "") || undefined;
+
+  const res = await fetch(`${prefix}/media/video-download/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url: ctx.url,
+      boardFolderUri,
+      projectId: ctx.projectId || undefined,
+      boardId: ctx.boardId || undefined,
+    }),
+  });
+  const json = await res.json();
+  if (!json.success || !json.data?.taskId) {
+    throw new Error(json.error || "Failed to restart download");
+  }
+  return json.data.taskId;
+}
+
 /** Poll video download progress from the server. */
 async function pollVideoDownload(
   controller: AbortController,
@@ -102,17 +132,20 @@ async function pollVideoDownload(
   engine: any,
   ctx: {
     projectId: string;
-    /** Board folder URI like ".openloaf/boards/board_xxx" */
-    boardFolderUri: string;
     saveDir: string;
+    downloadUrl: string;
+    boardId?: string;
     xywhRef: React.RefObject<[number, number, number, number]>;
     tRef: React.RefObject<(key: string) => string>;
-    onProgress: (percent: number) => void;
+    onProgress: (percent: number, phase: string) => void;
   },
 ) {
   const baseUrl = resolveServerUrl();
   const prefix = baseUrl || "";
   const maxAttempts = 300;
+  const maxRestarts = 3;
+  let currentTaskId = taskId;
+  let restartCount = 0;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (controller.signal.aborted) {
@@ -120,9 +153,24 @@ async function pollVideoDownload(
     }
 
     const res = await fetch(
-      `${prefix}/media/video-download/progress?taskId=${encodeURIComponent(taskId)}`,
+      `${prefix}/media/video-download/progress?taskId=${encodeURIComponent(currentTaskId)}`,
     );
     if (!res.ok) {
+      // 404 means server restarted and lost the task — restart the download
+      if (res.status === 404 && ctx.downloadUrl && restartCount < maxRestarts) {
+        restartCount += 1;
+        currentTaskId = await restartVideoDownload({
+          url: ctx.downloadUrl,
+          saveDir: ctx.saveDir,
+          projectId: ctx.projectId,
+          boardId: ctx.boardId,
+        });
+        // Update the loading node props so the new taskId persists
+        engine.doc.updateNodeProps(loadingNodeId, { taskId: currentTaskId });
+        ctx.onProgress(0, 'extracting');
+        attempt = 0; // 重置计数器，新任务重新开始
+        continue;
+      }
       throw new Error(ctx.tRef.current('loading.queryFailed'));
     }
     const json = await res.json();
@@ -130,40 +178,22 @@ async function pollVideoDownload(
       throw new Error(ctx.tRef.current('loading.queryFailed'));
     }
 
-    const { status, progress, result, error } = json.data;
+    const { status, progress, result, error, phase } = json.data;
 
     if (typeof progress === "number") {
-      ctx.onProgress(progress);
+      ctx.onProgress(progress, phase || 'downloading');
     }
 
     if (status === "completed" && result) {
-      ctx.onProgress(100);
+      ctx.onProgress(100, 'done');
       const fileName = result.fileName || "";
       const boardRelativePath = `${BOARD_ASSETS_DIR_NAME}/${fileName}`;
-      // 逻辑：fs.thumbnails 和 fetchVideoMetadata 需要 project 相对路径，
-      // 而非 board 相对路径。拼接 boardFolderUri 前缀得到完整 project 路径。
-      const projectRelativePath = ctx.boardFolderUri
-        ? normalizeProjectRelativePath(`${ctx.boardFolderUri}/${boardRelativePath}`)
-        : boardRelativePath;
 
-      // Fetch video metadata and thumbnail in parallel
-      const [metadata, thumbResult] = await Promise.all([
-        fetchVideoMetadata({
-          projectId: ctx.projectId || undefined,
-          uri: projectRelativePath,
-        }).catch(() => null),
-        ctx.projectId
-          ? trpcClient.fs.thumbnails.query({
-              projectId: ctx.projectId,
-              uris: [projectRelativePath],
-            }).catch(() => null)
-          : Promise.resolve(null),
-      ]);
-
-      const posterPath =
-        thumbResult?.items?.find((item) => item.uri === projectRelativePath)?.dataUrl ?? "";
-      const naturalWidth = metadata?.width ?? 16;
-      const naturalHeight = metadata?.height ?? 9;
+      // 逻辑：服务端已在下载完成后通过 ffprobe/ffmpeg 提取缩略图和尺寸，
+      // 直接使用 result 中的数据，不再依赖客户端 tRPC 查询。
+      const posterPath = result.posterDataUrl || "";
+      const naturalWidth = result.width || 16;
+      const naturalHeight = result.height || 9;
 
       const DEFAULT_VIDEO_NODE_MAX = 420;
       const [nodeW, nodeH] = fitVideoSize(naturalWidth, naturalHeight, DEFAULT_VIDEO_NODE_MAX);
@@ -204,6 +234,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
   const [errorText, setErrorText] = useState("");
   const [retryCount, setRetryCount] = useState(0);
   const [downloadProgress, setDownloadProgress] = useState(-1);
+  const [downloadPhase, setDownloadPhase] = useState<string>("extracting");
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // 逻辑：用 ref 持有可变值，避免它们出现在 useEffect 依赖中导致轮询被意外重启。
@@ -237,15 +268,16 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
     const run = async () => {
       try {
         if (taskType === "video_download") {
-          // saveDir 格式为 ".openloaf/boards/board_xxx/asset"，提取 board 目录
-          const boardFolderUri = saveDir.replace(/\/asset\/?$/, "");
           await pollVideoDownload(controller, taskId, element.id, engine, {
             projectId,
-            boardFolderUri,
             saveDir,
+            downloadUrl: promptText,
             xywhRef,
             tRef,
-            onProgress: setDownloadProgress,
+            onProgress: (pct, phase) => {
+              setDownloadProgress(pct);
+              setDownloadPhase(phase);
+            },
           });
           return;
         }
@@ -517,6 +549,12 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
   const statusText = (() => {
     if (errorText) return t('loading.statusFailed');
     if (taskType === "video_download" && (isRunning || downloadProgress >= 0)) {
+      if (downloadPhase === 'extracting' || downloadProgress < 0) {
+        return t('loading.statusExtracting', { defaultValue: '解析视频信息...' });
+      }
+      if (downloadPhase === 'merging') {
+        return t('loading.statusMerging', { defaultValue: '合并音视频...' });
+      }
       const pct = Math.max(downloadProgress, 0);
       return `${t('loading.statusDownloading', { defaultValue: '下载中' })} ${pct}%`;
     }

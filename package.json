@@ -11,6 +11,7 @@
     "dev:native": "node scripts/dev.mjs native",
     "dev:web": "node scripts/dev.mjs web",
     "dev:server": "node scripts/dev.mjs server",
+    "kill": "node scripts/kill.mjs",
     "desktop": "node scripts/desktop.mjs",
     "db:push": "turbo -F @openloaf/db db:push",
     "db:studio": "turbo -F @openloaf/db db:studio",

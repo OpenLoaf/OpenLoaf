@@ -20,7 +20,7 @@
 
 /** Glass-effect toolbar container (canvas-specific exception). */
 export const BOARD_TOOLBAR_SURFACE_CLASS =
-  "ol-glass-toolbar ring-1 ring-border/70 cursor-default [&_*]:!cursor-default";
+  "ol-glass-toolbar border-border/50 cursor-default [&_*]:!cursor-default";
 
 /** Icon button active state — visible contrast for selected tool. */
 export const BOARD_ICON_BTN_ACTIVE =

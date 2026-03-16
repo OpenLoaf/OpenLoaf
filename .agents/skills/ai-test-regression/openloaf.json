@@ -1,0 +1,7 @@
+{
+  "name": "ai-test-regression",
+  "description": "从真实聊天故障历史生成回归测试用例。由 /ai-test-regression 命令消费。",
+  "sourceLanguage": "zh-CN",
+  "targetLanguage": "zh-CN",
+  "translatedAt": "2026-03-16T04:18:44.867Z"
+}

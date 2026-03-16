@@ -83,6 +83,32 @@ export function cleanupNextDevLock(args: {
 }
 
 /**
+ * 调用统一的 kill 脚本清理当前项目的残留进程。
+ */
+function killStaleProjectProcesses(repoRoot: string, log: Logger): boolean {
+  try {
+    const killScript = path.join(repoRoot, 'scripts/kill.mjs');
+    if (!fs.existsSync(killScript)) return false;
+    const result = spawnSync(process.execPath, [killScript], {
+      cwd: repoRoot,
+      encoding: 'utf-8',
+      timeout: 10_000,
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    });
+    let killed = false;
+    if (result.stdout?.trim()) {
+      for (const line of result.stdout.trim().split(/\r?\n/)) {
+        log(line);
+        if (line.includes('Killed')) killed = true;
+      }
+    }
+    return killed;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 尝试终止占用指定端口的 node 进程（仅限 LISTEN 状态）。
  * 用于清理上次 Electron 退出时残留的 stale server。
  */
@@ -185,6 +211,15 @@ export async function ensureDevServices(args: {
       managedServer: null,
       managedWeb: null,
     };
+  }
+
+  // 启动前先杀掉当前项目残留的孤儿进程（next-server、node server 等）。
+  // 避免上次 Electron 非正常退出后残留进程占用内存和端口。
+  const killedStale = killStaleProjectProcesses(repoRoot, args.log);
+
+  // 如果杀了残留进程，等待它们完全退出后再做健康检查。
+  if (killedStale) {
+    await delay(2000);
   }
 
   let serverUrl = args.initialServerUrl;

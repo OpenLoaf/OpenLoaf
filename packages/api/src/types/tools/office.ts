@@ -9,6 +9,17 @@
  */
 import { z } from "zod";
 
+/** Auto-parse JSON strings into arrays (some LLMs serialize array params as strings) */
+export const jsonArrayPreprocess = (val: unknown) => {
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val)
+      if (Array.isArray(parsed)) return parsed
+    } catch {}
+  }
+  return val
+}
+
 /** Shared edit operation schema for Office documents (DOCX/XLSX/PPTX). */
 export const officeEditSchema = z.discriminatedUnion('op', [
   z.object({

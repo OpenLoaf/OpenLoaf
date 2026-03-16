@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { z } from 'zod'
-import { officeEditSchema } from './office'
+import { jsonArrayPreprocess, officeEditSchema } from './office'
 
 export const pptxQueryToolDef = {
   id: 'pptx-query',
@@ -63,12 +63,16 @@ export const pptxMutateToolDef = {
       .min(1)
       .describe('PPTX 文件路径（create 时为新文件路径，edit 时为已有文件路径）'),
     slides: z
-      .array(slideContentSchema)
-      .optional()
+      .preprocess(
+        jsonArrayPreprocess,
+        z.array(slideContentSchema).optional(),
+      )
       .describe('create 时必填：幻灯片内容数组，每项包含 title 和 textBlocks'),
     edits: z
-      .array(officeEditSchema)
-      .optional()
+      .preprocess(
+        jsonArrayPreprocess,
+        z.array(officeEditSchema).optional(),
+      )
       .describe(
         'edit 时必填：编辑操作数组。每个操作通过 op 指定类型（replace/insert/remove/write/delete），通过 path 指定 ZIP 内文件路径，通过 xpath 定位 XML 元素',
       ),

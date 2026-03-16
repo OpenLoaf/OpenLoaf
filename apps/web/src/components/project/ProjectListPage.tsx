@@ -29,6 +29,7 @@ import {
   Layers3,
   Filter,
   FolderSearch,
+  FolderInput,
 } from "lucide-react";
 import { useInfiniteQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
@@ -182,6 +183,8 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
   const [gitTargetDir, setGitTargetDir] = useState("");
   const [gitProgress, setGitProgress] = useState<string[]>([]);
   const [gitDone, setGitDone] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
   const gitSubRef = useRef<{ unsubscribe: () => void } | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
@@ -278,6 +281,58 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     setGitDone(false);
     setIsCreateOpen(true);
   }, []);
+
+  /** Handle folder drop to create project. */
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    if (dragCounterRef.current === 1) setIsDragOver(true);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounterRef.current = 0;
+      setIsDragOver(false);
+
+      const files = e.dataTransfer.files;
+      if (!files.length) return;
+
+      // Electron exposes `path` on File objects
+      const file = files[0] as File & { path?: string };
+      const folderPath = file.path;
+      if (!folderPath) return;
+
+      // Pre-fill path and title, then open dialog in create mode
+      const folderName = folderPath.split(/[/\\]/).filter(Boolean).pop() ?? "";
+      setCreateFolderPath(folderPath);
+      setCreateTitle(folderName);
+      setAddMode("create");
+      setGitUrl("");
+      setGitTargetDir("");
+      setGitProgress([]);
+      setGitDone(false);
+      setIsCreateOpen(true);
+    },
+    [],
+  );
 
   /** Pick a directory from system dialog (Electron only). */
   const pickDirectory = async (initialValue?: string) => {
@@ -707,7 +762,24 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
   );
 
   return (
-    <div className="flex h-full flex-col">
+    <div
+      className="relative flex h-full flex-col"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay */}
+      {isDragOver && (
+        <div className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-ol-blue bg-ol-blue/5 backdrop-blur-sm">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-ol-blue/10">
+            <FolderInput className="h-7 w-7 text-ol-blue" />
+          </div>
+          <p className="text-sm font-medium text-ol-blue">
+            {t("projectListPage.dropToCreate")}
+          </p>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div className="flex min-w-0 items-center gap-3">

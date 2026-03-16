@@ -158,8 +158,6 @@ function EditableVideoGenerateNodeView({
     }
     return "";
   }, [boardFolderScope]);
-  /** Throttle timestamp for focus-driven viewport moves. */
-  const focusThrottleRef = useRef(0);
   /** Abort controller for the active request. */
   const abortControllerRef = useRef<AbortController | null>(null);
   /** Loading node id for the current generation. */
@@ -731,19 +729,6 @@ function EditableVideoGenerateNodeView({
     void runVideoGenerate();
   }, [authLoggedIn, canRun, handleOpenLogin, runVideoGenerate]);
 
-  /** Focus viewport to the node when the node is interacted with. */
-  const handleNodeFocus = useCallback(() => {
-    const now = Date.now();
-    if (now - focusThrottleRef.current < 300) return;
-    focusThrottleRef.current = now;
-    if (engine.getViewState().panning) return;
-    // 逻辑：节点点击后自动聚焦到画布视口，避免在视野外编辑。
-    // 逻辑：引擎实例可能来自旧热更新，缺少方法时直接跳过。
-    if (typeof engine.focusViewportToRect !== "function") return;
-    const [x, y, w, h] = element.xywh;
-    engine.focusViewportToRect({ x, y, w, h }, { padding: 240, durationMs: 280 });
-  }, [engine, element.xywh]);
-
   const statusLabel =
     viewStatus === "done"
       ? t('videoGenerate.status.completed')
@@ -806,11 +791,6 @@ function EditableVideoGenerateNodeView({
         // 逻辑：点击节点本体保持选中。
         event.stopPropagation();
         onSelect();
-      }}
-      onDoubleClick={(event) => {
-        // 逻辑：双击节点聚焦视口，避免单击误触发。
-        event.stopPropagation();
-        handleNodeFocus();
       }}
     >
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />

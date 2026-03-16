@@ -17,6 +17,7 @@ import { Layers, LayoutGrid, LogIn, Maximize2 } from "lucide-react";
 import { cn } from "@udecode/cn";
 import i18next from "i18next";
 import {
+  BOARD_GENERATE_NODE_BASE_IMAGE,
   BOARD_TOOLBAR_ITEM_AMBER,
   BOARD_TOOLBAR_ITEM_BLUE,
 } from "../ui/board-style-system";
@@ -39,7 +40,7 @@ function GroupNodeView(_props: CanvasNodeViewProps<GroupNodeProps>) {
       <div
         className={cn(
           "pointer-events-none absolute inset-0 rounded-lg",
-          "bg-foreground/10 dark:bg-foreground/8"
+          BOARD_GENERATE_NODE_BASE_IMAGE
         )}
       />
     </NodeFrame>

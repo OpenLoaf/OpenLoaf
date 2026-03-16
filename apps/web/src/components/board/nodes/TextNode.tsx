@@ -393,7 +393,7 @@ function ReadOnlyMarkdownProjection(props: {
   return (
     <div
       className={cn(
-        "relative w-full box-border p-3",
+        "relative w-full box-border rounded-lg p-3",
         props.backgroundColor ? "" : "bg-ol-surface-muted",
         "text-ol-text-primary",
       )}
@@ -1127,7 +1127,7 @@ function EditableTextNodeView({
   const containerStyle = backgroundColor ? { backgroundColor } : undefined;
   const defaultBg = backgroundColor ? "" : "bg-ol-surface-muted";
   const containerClasses = [
-    "relative h-full w-full box-border p-2.5",
+    "relative h-full w-full box-border rounded-lg p-2.5",
     isEditing && !backgroundColor
       ? "bg-background"
       : defaultBg,

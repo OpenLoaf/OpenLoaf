@@ -1,0 +1,7 @@
+{
+  "name": "calendar-business-development",
+  "description": "用于开发或调试此仓库中的日历业务逻辑，包括事件/提醒源、系统日历同步、重复处理、数据映射，以及 packages/ui/src/calendar、apps/web/src/components/calendar 和 apps/server/src/ai/tools 中的 AI 日历工具（calendar-query/calendar-mutate）。",
+  "sourceLanguage": "en",
+  "targetLanguage": "zh-CN",
+  "translatedAt": "2026-03-16T04:18:48.679Z"
+}

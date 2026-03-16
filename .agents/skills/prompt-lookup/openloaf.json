@@ -1,0 +1,7 @@
+{
+  "name": "prompt-lookup",
+  "description": "当用户询问 AI 提示词、需要提示词模板、想要搜索提示词或提及 prompts.chat 时激活。用于发现、检索和优化提示词。",
+  "sourceLanguage": "en",
+  "targetLanguage": "zh-CN",
+  "translatedAt": "2026-03-16T04:18:42.605Z"
+}

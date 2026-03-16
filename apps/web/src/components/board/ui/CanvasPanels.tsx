@@ -17,8 +17,6 @@ import {
   ArrowRight,
   ChartSpline,
   CornerRightDown,
-  PencilLine,
-  Sparkles,
   Trash2,
 } from "lucide-react";
 
@@ -41,7 +39,6 @@ import { useBoardEngine } from "../core/BoardProvider";
 import { useBoardViewState } from "../core/useBoardViewState";
 import { applyGroupAnchorPadding } from "../engine/anchors";
 import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
-import { MINDMAP_BRANCH_COLORS } from "../engine/constants";
 
 type ConnectorActionPanelProps = {
   /** Snapshot used for positioning. */
@@ -50,10 +47,6 @@ type ConnectorActionPanelProps = {
   connector: CanvasConnectorElement;
   /** Apply a new connector style. */
   onStyleChange: (style: CanvasConnectorStyle) => void;
-  /** Apply a new connector color. */
-  onColorChange: (color: string) => void;
-  /** Toggle connector dashed style. */
-  onDashedChange: (dashed: boolean) => void;
   /** Delete the selected connector. */
   onDelete: () => void;
 };
@@ -63,8 +56,6 @@ function ConnectorActionPanel({
   snapshot,
   connector,
   onStyleChange,
-  onColorChange,
-  onDashedChange,
   onDelete,
 }: ConnectorActionPanelProps) {
   // 逻辑：面板位置随视口变化实时更新。
@@ -73,10 +64,9 @@ function ConnectorActionPanel({
   const viewState = useBoardViewState(engine);
   const center = resolveConnectorCenter(connector, snapshot, viewState.viewport);
   const screen = toScreenPoint(center, viewState);
-  // 逻辑：工具栏上移，避免遮挡水平连线。
-  const offsetScreenY = 26;
+  // 逻辑：工具栏继续上移一点，减少对连线本体的遮挡。
+  const offsetScreenY = 34;
   const currentStyle = connector.style ?? snapshot.connectorStyle;
-  const currentDashed = connector.dashed ?? snapshot.connectorDashed;
 
   return (
     <div
@@ -110,60 +100,6 @@ function ConnectorActionPanel({
         >
           <ChartSpline size={14} />
         </ConnectorStyleButton>
-        <ConnectorStyleButton
-          title={t('connector.hand')}
-          active={currentStyle === "hand"}
-          onPointerDown={() => onStyleChange("hand")}
-        >
-          <PencilLine size={14} />
-        </ConnectorStyleButton>
-        <ConnectorStyleButton
-          title={t('connector.fly')}
-          active={currentStyle === "fly"}
-          onPointerDown={() => onStyleChange("fly")}
-        >
-          <Sparkles size={14} />
-        </ConnectorStyleButton>
-      </div>
-      <span className="mx-1 h-4 w-px bg-ol-divider" />
-      <div className="flex items-center gap-1">
-        {MINDMAP_BRANCH_COLORS.map(color => {
-          const isActive = connector.color === color;
-          return (
-            <button
-              key={color}
-              type="button"
-              onPointerDown={event => {
-                event.preventDefault();
-                event.stopPropagation();
-                onColorChange(color);
-              }}
-              className={cn(
-                "h-6 w-6 rounded-full border border-ol-divider transition-colors duration-150",
-                isActive ? "ring-2 ring-ol-blue ring-offset-2 ring-offset-background" : ""
-              )}
-              style={{ backgroundColor: color }}
-              title={t('connector.colorTitle', { color })}
-            />
-          );
-        })}
-        <button
-          type="button"
-          onPointerDown={event => {
-            event.preventDefault();
-            event.stopPropagation();
-            onDashedChange(!currentDashed);
-          }}
-          className={cn(
-            "inline-flex h-6 w-6 items-center justify-center rounded-md border border-ol-divider text-ol-text-auxiliary transition-colors duration-150",
-            currentDashed
-              ? "bg-ol-blue-bg-hover text-ol-blue ring-2 ring-ol-blue ring-offset-2 ring-offset-background"
-              : "hover:bg-muted/58 dark:hover:bg-muted/46"
-          )}
-          title={t('connector.dashed')}
-        >
-          <span className="block w-4 border-t-2 border-dashed border-current" />
-        </button>
       </div>
       <span className="mx-1 h-4 w-px bg-ol-divider" />
       <button

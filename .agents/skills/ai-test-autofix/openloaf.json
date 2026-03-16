@@ -1,0 +1,7 @@
+{
+  "name": "ai-test-autofix",
+  "description": "AI Agent 行为测试自动诊断与修复知识库。提供输出 JSON 结构解析、失败分类、修复策略矩阵。由 /ai-test-autofix 命令消费。",
+  "sourceLanguage": "zh-CN",
+  "targetLanguage": "zh-CN",
+  "translatedAt": "2026-03-16T04:18:43.905Z"
+}
