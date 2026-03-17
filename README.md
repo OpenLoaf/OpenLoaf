@@ -14,6 +14,8 @@
 
   <br /><br />
   <a href="https://github.com/OpenLoaf/OpenLoaf/releases/latest">📥 Download for macOS / Windows / Linux</a>
+  <br /><br />
+  <strong>English</strong> | <a href="docs/README.md">简体中文</a>
 </div>
 
 ---
@@ -284,7 +286,7 @@ packages/
 4. Push: `git push origin feature/my-feature`
 5. Open a **Pull Request**
 
-> Before submitting a PR, please read the [Contributing Guide](.github/CONTRIBUTING.md) and [Development Guide](docs/DEVELOPMENT.md), and sign the [CLA](.github/CLA.md).
+> Before submitting a PR, please read the [Contributing Guide](.github/CONTRIBUTING.md) and [Development Guide](docs/DEVELOPMENT_en.md), and sign the [CLA](.github/CLA.md).
 
 ---
 
