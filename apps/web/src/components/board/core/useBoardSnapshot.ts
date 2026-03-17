@@ -17,6 +17,13 @@ export function useBoardSnapshot(engine: CanvasEngine): CanvasSnapshot {
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // 逻辑：effect 运行时同步最新快照，处理 React Strict Mode 下引擎状态
+    // 在 cleanup（取消 rAF）和 re-mount 之间发生变更的情况。
+    setSnapshot(prev => {
+      const current = engine.getSnapshot();
+      return prev.docRevision !== current.docRevision ? current : prev;
+    });
+
     // 逻辑：通过 rAF 节流快照刷新，确保每帧最多更新一次，避免拖拽时多次重渲染。
     const unsubscribe = engine.subscribe(() => {
       if (rafRef.current !== null) return;

@@ -45,14 +45,14 @@ export type FilePreviewItem = {
   thumbnailSrc?: string;
   /** Optional media type for naming. */
   mediaType?: string;
+  /** Optional clip start time in seconds. */
+  clipStart?: number;
+  /** Optional clip end time in seconds. */
+  clipEnd?: number;
   /** Optional mask uri for image edit. */
   maskUri?: string;
   /** Optional file name for save. */
   saveName?: string;
-  /** Optional clip start time in seconds for video preview. */
-  clipStart?: number;
-  /** Optional clip end time in seconds for video preview. */
-  clipEnd?: number;
 };
 
 export type FilePreviewPayload = {

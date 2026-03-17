@@ -44,12 +44,12 @@ type VideoPlayerProps = {
   /** Optional VTT URL for timeline thumbnails. */
   thumbnails?: string;
   title?: string;
-  /** Optional override for layout size switching. */
-  smallLayoutWhen?: boolean;
   /** Optional clip start time in seconds. */
   clipStartTime?: number;
   /** Optional clip end time in seconds. */
   clipEndTime?: number;
+  /** Optional override for layout size switching. */
+  smallLayoutWhen?: boolean;
   className?: string;
 };
 
@@ -62,9 +62,9 @@ export function VideoPlayer({
   controls = true,
   thumbnails,
   title,
-  smallLayoutWhen,
   clipStartTime,
   clipEndTime,
+  smallLayoutWhen,
   className,
 }: VideoPlayerProps) {
   const [isHlsReady, setIsHlsReady] = useState(() => {

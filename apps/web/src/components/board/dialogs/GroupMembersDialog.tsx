@@ -276,16 +276,31 @@ function GroupCanvasRenderLayer({
     engine.setInitialElements(initialElements)
     engine.fitToElements(60)
 
-    // 逻辑：等 fitToElements 完成后再显示内容，避免初始帧位置跳动。
-    // 使用 rAF 确保下一帧渲染完成后再隐藏 loading。
-    let raf = requestAnimationFrame(() => {
-      raf = requestAnimationFrame(() => {
-        setLoading(false)
+    // 逻辑：loading 保持最少 250ms 避免闪烁，同时等两帧渲染完成再隐藏。
+    const start = performance.now()
+    const MIN_LOADING_MS = 250
+    let rafId: number | null = null
+    let timerId: number | null = null
+
+    rafId = requestAnimationFrame(() => {
+      rafId = requestAnimationFrame(() => {
+        rafId = null
+        const elapsed = performance.now() - start
+        const remaining = Math.max(0, MIN_LOADING_MS - elapsed)
+        if (remaining > 0) {
+          timerId = window.setTimeout(() => {
+            timerId = null
+            setLoading(false)
+          }, remaining)
+        } else {
+          setLoading(false)
+        }
       })
     })
 
     return () => {
-      cancelAnimationFrame(raf)
+      if (rafId !== null) cancelAnimationFrame(rafId)
+      if (timerId !== null) window.clearTimeout(timerId)
       engine.detach()
     }
   }, [engine, initialElements])

@@ -467,9 +467,9 @@ export default function VideoViewer({
             poster={thumbnailSrc ?? previewBackground ?? undefined}
             thumbnails={manifest?.thumbnails}
             title={displayTitle}
-            smallLayoutWhen={forceLargeLayout ? false : undefined}
             clipStartTime={clipStartProp}
-            clipEndTime={clipEndProp}
+            clipEndTime={clipEndProp && clipEndProp > 0 ? clipEndProp : undefined}
+            smallLayoutWhen={forceLargeLayout ? false : undefined}
             className={cn(
               "max-h-full max-w-full rounded-lg bg-black",
               isPortrait === null

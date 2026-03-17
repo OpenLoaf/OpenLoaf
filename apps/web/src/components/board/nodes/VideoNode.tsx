@@ -16,9 +16,9 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import Hls from "hls.js";
-import { Download, Info, Loader2, Play, Scissors, Sparkles } from "lucide-react";
+import { Download, Info, Loader2, Pause, Play, Scissors, Sparkles } from "lucide-react";
 import i18next from "i18next";
-import { openVideoTrimDialog } from "../dialogs/VideoTrimDialog";
+import { openVideoTrimDialog } from "../dialogs/video-trim/VideoTrimDialog";
 import {
   BOARD_TOOLBAR_ITEM_AMBER,
   BOARD_TOOLBAR_ITEM_BLUE,
@@ -148,8 +148,10 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
           clipStart: clipStart ?? 0,
           clipEnd: clipEnd ?? duration ?? 0,
           posterSrc: ctx.element.props.posterPath?.trim() || undefined,
-          onConfirm: (start, end) => {
-            ctx.updateNodeProps({ clipStart: start, clipEnd: end });
+          onConfirm: (start, end, posterDataUrl) => {
+            const update: Partial<VideoNodeProps> = { clipStart: start, clipEnd: end };
+            if (posterDataUrl) update.posterPath = posterDataUrl;
+            ctx.updateNodeProps(update);
           },
         });
       },
@@ -284,6 +286,7 @@ export function VideoNodeView({
   const hlsRef = useRef<Hls | null>(null);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   const resolvedPath = useMemo(
     () => resolveProjectRelativePath(element.props.sourcePath, fileContext) || element.props.sourcePath,
@@ -383,9 +386,15 @@ export function VideoNodeView({
     };
 
     const onTimeUpdate = () => {
+      const cs = clipStartRef.current ?? 0;
       const ce = clipEndRef.current;
       if (ce != null && video.currentTime >= ce) {
         handleStop();
+        return;
+      }
+      const dur = (ce ?? video.duration) - cs;
+      if (dur > 0) {
+        setProgress(((video.currentTime - cs) / dur) * 100);
       }
     };
     video.addEventListener("timeupdate", onTimeUpdate);
@@ -463,23 +472,45 @@ export function VideoNodeView({
       >
         {playing ? (
           <div
-            className="relative h-full w-full overflow-hidden rounded-lg bg-black"
+            className="group relative h-full w-full overflow-hidden rounded-lg bg-black"
             data-board-scroll
             data-board-editor="true"
             onPointerDown={(e) => e.stopPropagation()}
           >
             <video
               ref={videoRef}
-              controls
-              controlsList="nodownload nofullscreen"
               muted
               className="absolute inset-0 h-full w-full object-contain"
               onEnded={handleStop}
             />
-            {loading && (
+            {loading ? (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/60">
                 <Loader2 className="h-6 w-6 animate-spin text-white/70" />
               </div>
+            ) : (
+              <>
+                {/* Pause button on hover */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                  <button
+                    type="button"
+                    data-board-controls
+                    className="flex h-[12%] min-h-5 aspect-square cursor-pointer items-center justify-center rounded-md border border-white/40 bg-black/40 text-white transition-transform duration-200 ease-out hover:scale-125"
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      handleStop();
+                    }}
+                  >
+                    <Pause className="h-[50%] w-[50%] min-h-2.5 min-w-2.5" />
+                  </button>
+                </div>
+                {/* Progress bar at bottom */}
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/20 group-hover:h-1 transition-all duration-150">
+                  <div
+                    className="h-full bg-white/80"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </>
             )}
           </div>
         ) : posterSrc ? (

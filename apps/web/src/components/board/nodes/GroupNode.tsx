@@ -18,8 +18,10 @@ import { cn } from "@udecode/cn";
 import i18next from "i18next";
 import {
   BOARD_GENERATE_NODE_BASE_IMAGE,
-  BOARD_TOOLBAR_ITEM_AMBER,
   BOARD_TOOLBAR_ITEM_BLUE,
+  BOARD_TOOLBAR_ITEM_GREEN,
+  BOARD_TOOLBAR_ITEM_PURPLE,
+  BOARD_TOOLBAR_ITEM_RED,
 } from "../ui/board-style-system";
 import { GROUP_NODE_TYPE, IMAGE_GROUP_NODE_TYPE } from "../engine/grouping";
 import { NodeFrame } from "./NodeFrame";
@@ -71,7 +73,7 @@ function createGroupToolbarItems(ctx: CanvasToolbarContext<GroupNodeProps>) {
         id: "ungroup",
         label: t("board:groupNode.dissolve"),
         icon: <Layers size={14} />,
-        className: BOARD_TOOLBAR_ITEM_AMBER,
+        className: BOARD_TOOLBAR_ITEM_RED,
         onSelect: () => ctx.ungroupSelection(),
       },
     ];
@@ -99,7 +101,7 @@ function createGroupToolbarItems(ctx: CanvasToolbarContext<GroupNodeProps>) {
       id: 'ungroup',
       label: t('board:groupNode.dissolve'),
       icon: <Layers size={14} />,
-      className: BOARD_TOOLBAR_ITEM_AMBER,
+      className: BOARD_TOOLBAR_ITEM_RED,
       onSelect: () => ctx.ungroupSelection(),
     },
   ];
@@ -109,7 +111,7 @@ function createGroupToolbarItems(ctx: CanvasToolbarContext<GroupNodeProps>) {
       id: 'uniform-size',
       label: t('board:groupNode.uniformSize'),
       icon: <Maximize2 size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
+      className: BOARD_TOOLBAR_ITEM_PURPLE,
       onSelect: () => ctx.uniformGroupSize(groupId),
     });
   }
@@ -121,7 +123,7 @@ function createGroupToolbarItems(ctx: CanvasToolbarContext<GroupNodeProps>) {
     id: 'auto-layout',
     label: t('board:selection.toolbar.autoLayout'),
     icon: <LayoutGrid size={14} />,
-    className: BOARD_TOOLBAR_ITEM_BLUE,
+    className: BOARD_TOOLBAR_ITEM_GREEN,
     onSelect: () => ctx.layoutGroup(groupId, layoutDirection),
   });
 
