@@ -256,3 +256,4 @@ openloaf.json name = "AI 测试开发"                   → name（显示用）
 3. **消息链**: `resolveMessagePathById` 重建消息链
 4. **模型解析**: `resolveChatModel()` 返回 null → 检查 API key 配置
 5. **上下文检查**: `getRequestContext()` 返回 undefined → 不在 SSE 上下文中
+6. **工具激活问题**: debug 目录 `step*_request.json` 中的 `activeTools` 字段可查看实际发给模型的工具列表；如果模型调用了不在该列表中的工具，说明它幻觉调用了未激活工具 → `applyActivationGuard` 会拦截（详见 ai-backend.md「ToolSearch Pull 模式」）

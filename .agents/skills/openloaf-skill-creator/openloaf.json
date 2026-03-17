@@ -1,0 +1,10 @@
+{
+  "name": "OpenLoaf Skill 创建器",
+  "description": "在 OpenLoaf 平台中创建、编辑和优化 AI Skill",
+  "icon": "🎯",
+  "version": "0.1.0",
+  "sourceLanguage": "zh-CN",
+  "targetLanguage": "zh-CN",
+  "translatedAt": "2026-03-17T00:00:00.000Z",
+  "colorIndex": 1
+}

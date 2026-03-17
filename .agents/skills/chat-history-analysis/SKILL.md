@@ -17,11 +17,11 @@ Reconstruct a chat session from a JSONL log or debug API JSON files and diagnose
 
 当全局设置中的「AI调试模式」（`chatPrefaceEnabled`）开启时，每一步 LLM 调用都会实时写入独立文件。
 
-**文件位置**：`~/.openloaf/sessions/{sessionId}/debug/{messageId}_{hhmmss}/`
+**文件位置**：`~/.openloaf/sessions/{sessionId}/debug/{hhmmss}_{messageId}/`
 
 **目录结构**：
-- `{messageId}` — assistant 消息 ID
-- `{hhmmss}` — 请求发起时的本地时间（时分秒），用于区分同一 messageId 的多次重试
+- `{hhmmss}` — 请求发起时的本地时间（时分秒），前置便于按时间排序
+- `{messageId}` — assistant 消息 ID，用于区分同一 messageId 的多次重试
 
 **文件命名**：`step{N}_{request|response}.json`
 - `N` — 步骤编号（从 0 开始）
@@ -67,14 +67,14 @@ Reconstruct a chat session from a JSONL log or debug API JSON files and diagnose
 **典型目录结构**（3 步对话 + 1 次重试示例）：
 ```
 debug/
-  msg123_143052/          ← 首次请求
+  143052_msg123/          ← 首次请求
     step0_request.json
     step0_response.json
     step1_request.json
     step1_response.json
     step2_request.json
     step2_response.json
-  msg123_143210/          ← 重试（同一 messageId，不同时间戳）
+  143210_msg123/          ← 重试（同一 messageId，不同时间戳）
     step0_request.json
     step0_response.json
 ```
@@ -97,7 +97,7 @@ debug/
 
 2) Parse the data
 - For `.jsonl`: each line is one entry. Parse all lines and keep errors if any.
-- For `debug/{messageId}_{hhmmss}/` directories: each subdirectory is one请求尝试（重试产生新目录）。
+- For `debug/{hhmmss}_{messageId}/` directories: each subdirectory is one请求尝试（重试产生新目录）。
 - `step{N}_request.json`: 该步发给 LLM 的 raw messages。
 - `step{N}_response.json`: LLM 返回的 text、tool calls、usage、finish reason。
 - 按 stepNumber 配对 request/response 重建每步 LLM round-trip。

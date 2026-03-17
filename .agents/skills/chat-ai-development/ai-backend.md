@@ -14,6 +14,98 @@ MasterAgent 使用 Vercel AI SDK 的 `ToolLoopAgent`，配置模型、system pro
 
 工具是否可用由能力组控制：`apps/server/src/ai/tools/capabilityGroups.ts` 定义能力组 → 工具 ID 映射，系统 Agent 的默认能力在 `apps/server/src/ai/shared/systemAgentDefinitions.ts`。
 
+## ToolSearch Pull 模式
+
+Master Agent、PM Agent、通用子 Agent 使用 **ToolSearch Pull 模式**：模型初始只能看到 `tool-search` 和 `load-skill` 两个核心工具的 JSON Schema，其余工具需要先通过 `tool-search` 加载后才可调用。
+
+### 架构概览
+
+```
+┌─────────────────────────────────────────────────────┐
+│  buildToolset(allToolIds)                           │
+│  → 所有工具注册到 tools 对象（含完整 schema）        │
+│  → 每个工具经过 4 层包装：                           │
+│     autoApproval → inputValidation → timeout         │
+│     → errorEnhancer                                  │
+├─────────────────────────────────────────────────────┤
+│  applyActivationGuard(tools, activatedSet, core)    │
+│  → 非核心工具额外包装 execute 和 needsApproval       │
+│  → 未激活工具调用时直接抛 "请先 tool-search" 错误    │
+├─────────────────────────────────────────────────────┤
+│  prepareStep → { activeTools }                      │
+│  → 只返回已激活工具的 ID 列表                        │
+│  → AI SDK 只将这些工具的 schema 发送给模型           │
+├─────────────────────────────────────────────────────┤
+│  ActivatedToolSet                                   │
+│  → 跟踪哪些工具已通过 tool-search 激活              │
+│  → tool-search 调用 activate() 添加工具             │
+└─────────────────────────────────────────────────────┘
+```
+
+### 关键文件
+
+| 文件 | 用途 |
+|------|------|
+| `services/agentFactory.ts` | `CORE_TOOL_IDS`、`createToolSearchPrepareStep()`、`applyActivationGuard()` |
+| `tools/toolSearchTool.ts` | `tool-search` 实现（搜索/激活工具） |
+| `tools/toolSearchState.ts` | `ActivatedToolSet`（per-session 激活状态） |
+| `tools/toolInputValidation.ts` | 将 schema 验证错误延迟到 execute 抛出 |
+| `tools/toolErrorEnhancer.ts` | 错误增强（结构化恢复提示 + 熔断器） |
+| `shared/repairToolCall.ts` | `experimental_repairToolCall`（JSON 修复 + 熔断） |
+
+### AI SDK `activeTools` 与 `tools` 的关键区别
+
+**`activeTools` 只控制"发给模型的 schema"，不阻止"服务端执行"：**
+
+- `tools` 对象：所有注册工具，含完整 schema 和 execute（服务端用于验证+执行）
+- `activeTools`（via `prepareStep`）：工具名列表，AI SDK 只将这些工具的 JSON Schema 发给模型
+- AI SDK 的 `NoSuchToolError` 仅在 `tools[toolName] == null` 时抛出
+- 模型如果幻觉调用一个在 `tools` 中注册但不在 `activeTools` 中的工具，SDK **仍会正常处理**（验证输入 → 执行）
+
+**这意味着 `prepareStep` 无法在执行层面阻止未激活工具的调用。** 这是 AI SDK v6 的设计——`activeTools` 是可见性控制，不是权限控制。
+
+### 激活门卫（Activation Guard）
+
+`applyActivationGuard()` 填补了 AI SDK 的这个 gap：
+
+- **未激活工具**：`execute()` 立即抛错 `"Tool 'xxx' has not been loaded. You must call tool-search(query: 'select:xxx') ..."`
+- **needsApproval 旁路**：未激活工具的 `needsApproval` 强制返回 `false`，避免向用户展示空白/错误的审批 UI
+- **已激活工具**：正常通过，后续包装链照常执行
+
+三个使用 pull 模式的 agent 创建函数都必须调用 `applyActivationGuard(tools, activatedSet, coreToolIds)`：
+- `createMasterAgent()` — 主 Agent
+- `createPMAgent()` — 项目管理 Agent
+- `createGeneralSubAgent()` — 通用子 Agent
+
+### 工具包装链（由外到内）
+
+```
+applyActivationGuard.execute        ← 最外层，激活检查
+  └→ wrapToolWithErrorEnhancer.execute  ← 错误增强 + 熔断
+    └→ wrapToolWithTimeout.execute      ← 超时保护
+      └→ wrapToolWithInputValidation.execute  ← 验证错误延迟
+        └→ wrapToolWithAutoApproval.execute   ← 自动审批
+          └→ original tool.execute              ← 原始工具
+```
+
+**`wrapToolWithInputValidation` 机制**：
+- 重写 `validate()`：原始验证失败时不抛错，而是将错误信息挂载到 input 上（`VALIDATION_ERROR` Symbol）
+- 重写 `execute()`：检查 input 上是否有 `VALIDATION_ERROR`，有则抛出为 tool-error（模型可见）
+- 重写 `needsApproval`：有 `VALIDATION_ERROR` 时返回 `false`，避免空白审批 UI
+
+**为什么需要这个机制**：AI SDK 的 schema 验证抛 `InvalidToolInputError` 时，默认走 `repairToolCall` → 如果修复失败，错误被吞掉或只出现在日志中，模型看不到具体错误信息。延迟到 execute 抛出后，SDK 将其转为 `tool-error` content part，模型可以学习并自我纠正。
+
+### 调试要点
+
+1. **debug 目录**：每次 AI 调用的原始请求/响应保存在 `~/.openloaf/chat-history/<sessionId>/debug/<messageId>/step{N}_{request|response}.json`
+2. **`step*_request.json` 中的 `activeTools`**：检查实际发给模型的工具列表
+3. **模型幻觉调用未激活工具**：看 response 中的 toolName 是否在 request 的 activeTools 中
+4. **搜索日志关键字**：
+   - `[tool-input-validation]` — schema 验证失败，已延迟到 execute
+   - `[tool-repair]` — JSON 修复尝试
+   - `[tool-error-enhancer]` — 错误增强
+5. **弱模型（如 MiniMax M2.5）常见问题**：看到 system prompt 中的工具名后直接调用，不走 tool-search → 激活门卫会拦截并提示
+
 ## Tool 参数约定（ActionName 例外）
 
 - 默认所有工具需要 `actionName` 字段。

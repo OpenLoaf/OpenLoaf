@@ -53,6 +53,9 @@ Chat & AI 系统分为前端 Chat UI 和后端 AI Agent 两层。前端基于 Ve
 | `message/tools/` 新增或修改工具卡片 | chat-frontend.md |
 | `hooks/` 新增或修改 hooks | chat-frontend.md |
 | `tools/toolRegistry.ts` 工具注册变更 | ai-backend.md, fullstack-patterns.md |
+| `tools/toolInputValidation.ts` 验证包装逻辑变更 | ai-backend.md |
+| `tools/toolSearchState.ts` 激活状态逻辑变更 | ai-backend.md |
+| `tools/toolSearchTool.ts` 工具搜索逻辑变更 | ai-backend.md |
 | `tools/capabilityGroups.ts` 能力组变更 | ai-backend.md, fullstack-patterns.md |
 | `agents/masterAgent/` Agent 配置变更 | ai-backend.md |
 | `agents/subagent/` 新增或修改子代理 | ai-backend.md, fullstack-patterns.md |
