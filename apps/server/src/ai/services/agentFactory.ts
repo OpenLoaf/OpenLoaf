@@ -103,6 +103,8 @@ function readMasterAgentBasePrompt(lang?: string): string {
 type CreateMasterAgentInput = {
   model: LanguageModelV3
   instructions?: string
+  /** Historical messages for rehydrating dynamically activated tools. */
+  messages?: { role: string; parts?: unknown[] }[]
 }
 
 // ---------------------------------------------------------------------------
@@ -305,6 +307,11 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
 
   // Create per-session ActivatedToolSet
   const activatedSet = new ActivatedToolSet(coreToolIds)
+
+  // Rehydrate previously activated tools from message history (fixes approval flow state loss)
+  if (input.messages && input.messages.length > 0) {
+    ActivatedToolSet.rehydrateFromMessages(activatedSet, input.messages)
+  }
 
   // Inject tool-search (dynamically created, closes over activatedSet)
   tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds))

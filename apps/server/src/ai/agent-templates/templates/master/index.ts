@@ -99,6 +99,7 @@ export const masterTemplate: AgentTemplate = {
     'widget-get',
     'widget-check',
     // memory
+    'memory-save',
     'memory-search',
     'memory-get',
   ],

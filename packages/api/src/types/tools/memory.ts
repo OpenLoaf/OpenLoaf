@@ -10,6 +10,50 @@
 import { z } from "zod";
 import { RiskType } from "../toolResult";
 
+export const memorySaveToolDef = {
+  id: "memory-save",
+  name: "保存记忆",
+  description:
+    "将信息持久化保存到记忆系统（跨会话可检索）。支持新建、更新、追加、删除记忆。" +
+    "每条记忆由 key 唯一标识，保存为独立 Markdown 文件，自动维护 MEMORY.md 索引。",
+  parameters: z.object({
+    key: z
+      .string()
+      .min(1)
+      .max(60)
+      .describe(
+        "记忆标识符（英文小写字母+数字+连字符，如 food-preferences、debug-patterns）",
+      ),
+    content: z
+      .string()
+      .max(10240)
+      .optional()
+      .describe("记忆内容（Markdown 格式，delete 模式时可省略）"),
+    scope: z
+      .enum(["user", "project", "agent"])
+      .optional()
+      .describe(
+        "保存范围：user=全局记忆（默认），project=当前项目记忆，agent=当前Agent专属记忆",
+      ),
+    mode: z
+      .enum(["upsert", "append", "delete"])
+      .optional()
+      .describe(
+        "操作模式：upsert=新建或覆盖（默认），append=追加到已有文件末尾，delete=删除",
+      ),
+    tags: z
+      .array(z.string())
+      .optional()
+      .describe("检索标签，注入 frontmatter 提升搜索精度（如 [\"food\", \"preference\"]）"),
+    indexEntry: z
+      .string()
+      .max(100)
+      .optional()
+      .describe("MEMORY.md 索引中的一行摘要（不提供则从 content 首行提取）"),
+  }),
+  component: null,
+} as const;
+
 export const memorySearchToolDef = {
   id: "memory-search",
   name: "记忆搜索",
@@ -51,6 +95,7 @@ export const memoryGetToolDef = {
 } as const;
 
 export const memoryToolMeta = {
+  [memorySaveToolDef.id]: { riskType: RiskType.Write },
   [memorySearchToolDef.id]: { riskType: RiskType.Read },
   [memoryGetToolDef.id]: { riskType: RiskType.Read },
 } as const;

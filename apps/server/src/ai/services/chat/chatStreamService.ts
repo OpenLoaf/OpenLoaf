@@ -707,6 +707,7 @@ export async function runChatStream(input: {
           model: resolved.model,
           modelInfo: resolved.modelInfo,
           instructions,
+          messages: modelMessages,
         });
       }
     }

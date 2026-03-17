@@ -64,7 +64,7 @@ import { fileInfoToolDef } from "./fileInfo";
 import { webSearchToolDef } from "./webSearch";
 import { webFetchToolDef } from "./webFetch";
 import { toolSearchToolDef } from "./toolSearch";
-import { memorySearchToolDef, memoryGetToolDef } from "./memory";
+import { memorySaveToolDef, memorySearchToolDef, memoryGetToolDef } from "./memory";
 import { loadSkillToolDef } from "./skill";
 
 export type ToolCatalogItem = {
@@ -142,6 +142,7 @@ const TOOL_DEFS: ToolDefLike[] = [
   webSearchToolDef,
   webFetchToolDef,
   loadSkillToolDef,
+  memorySaveToolDef,
   memorySearchToolDef,
   memoryGetToolDef,
 ];
@@ -225,6 +226,7 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'web-search': { keywords: ['search', 'web', 'internet', 'google', 'query', 'lookup', 'find', 'latest', 'news', 'information', 'online'], group: 'web' },
   'web-fetch': { keywords: ['fetch', 'url', 'http', 'get', 'api', 'request', 'content', 'download', 'page', 'website'], group: 'web' },
   'load-skill': { keywords: ['skill', 'load', 'guide', 'expertise', 'knowledge'], group: 'core' },
+  'memory-save': { keywords: ['memory', 'save', 'remember', 'persist', 'store', 'write', 'forget', 'delete', '记忆', '记住', '保存', '忘记'], group: 'memory' },
   'memory-search': { keywords: ['memory', 'remember', 'recall', 'history', 'search', 'past'], group: 'memory' },
   'memory-get': { keywords: ['memory', 'read', 'get', 'detail', 'recall'], group: 'memory' },
 };

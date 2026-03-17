@@ -49,7 +49,7 @@ import { jsxCreateTool } from "@/ai/tools/jsxCreateTool";
 import { jsReplTool, jsReplResetTool } from "@/ai/tools/jsReplTool";
 import { chartRenderTool } from "@/ai/tools/chartTools";
 import { taskManageTool, taskStatusTool } from "@/ai/tools/taskTools";
-import { memorySearchTool, memoryGetTool } from "@/ai/tools/memoryTools";
+import { memorySaveTool, memorySearchTool, memoryGetTool } from "@/ai/tools/memoryTools";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
   browserActToolDef,
@@ -102,6 +102,7 @@ import {
   taskStatusToolDef,
 } from "@openloaf/api/types/tools/task";
 import {
+  memorySaveToolDef,
   memorySearchToolDef,
   memoryGetToolDef,
 } from "@openloaf/api/types/tools/memory";
@@ -316,6 +317,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [loadSkillToolDef.id]: {
     tool: loadSkillTool,
+  },
+  [memorySaveToolDef.id]: {
+    tool: memorySaveTool,
   },
   [memorySearchToolDef.id]: {
     tool: memorySearchTool,

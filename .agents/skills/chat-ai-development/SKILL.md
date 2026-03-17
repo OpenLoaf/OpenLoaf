@@ -37,6 +37,7 @@ Chat & AI 系统分为前端 Chat UI 和后端 AI Agent 两层。前端基于 Ve
 | [chat-frontend.md](chat-frontend.md) | Context 架构、消息渲染管线、输入区、分支导航、Hooks 速查 | 修改前端聊天 UI |
 | [ai-backend.md](ai-backend.md) | Agent 系统、工具注册、SSE 流式管线、RequestContext、审批机制 | 修改后端 AI 逻辑 |
 | [fullstack-patterns.md](fullstack-patterns.md) | 添加新工具全流程（含前端执行/审批/UI 事件）、添加子代理、修改 Prompt、Skills 系统 | 新增功能或全栈修改 |
+| [memory-system.md](memory-system.md) | 记忆系统架构、memory-save 工具设计、索引管理器、作用域层级、论文驱动的设计原则 | 开发或修改记忆相关功能 |
 
 ## Skill Sync Policy
 
@@ -62,6 +63,9 @@ Chat & AI 系统分为前端 Chat UI 和后端 AI Agent 两层。前端基于 Ve
 | `shared/context/requestContext.ts` 上下文字段变更 | ai-backend.md |
 | `services/chat/` 流式管线变更 | ai-backend.md |
 | `tools/commandApproval.ts` 审批逻辑变更 | ai-backend.md |
+| `tools/memoryTools.ts` 记忆工具变更 | memory-system.md |
+| `memory/memoryIndexManager.ts` 索引管理变更 | memory-system.md |
+| `shared/memoryLoader.ts` 记忆加载变更 | memory-system.md |
 | `@openloaf/api/types/tools/` 新增工具定义 | fullstack-patterns.md |
 | `tools/pendingRegistry.ts` 前端执行机制变更 | fullstack-patterns.md |
 | `lib/chat/frontend-tool-executor.ts` 执行器变更 | fullstack-patterns.md |

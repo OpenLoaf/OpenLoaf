@@ -197,6 +197,53 @@ applyActivationGuard.execute        ← 最外层，激活检查
 | `chat/repositories/chatFileStore.ts` | registerAgentDir / listAgentIds |
 | `chat/repositories/messageStore.ts` | saveAgentMessage / writeAgentSessionJson |
 
+## Provider Adapters & Responses API
+
+`providerAdapters.ts` 根据 `providerId` 路由到对应的 AI SDK 适配器：
+
+| providerId | 适配器 | API 类型 |
+|-----------|--------|---------|
+| `openai` | `@ai-sdk/openai` | Responses API（默认）或 Chat Completions |
+| `custom` | `@ai-sdk/openai` | 由 `enableResponsesApi` 选项决定 |
+| `anthropic` | `@ai-sdk/anthropic` | Messages API |
+| `moonshot` | `@ai-sdk/moonshotai` | Chat Completions |
+| `dashscope`/`qwen` | `qwenAdapter` | Chat Completions |
+| `openloaf-saas` | SaaS 适配器 | 按模型原始 provider 路由 |
+
+### OpenAI Responses API vs Chat Completions
+
+- `provider(modelId)` → Responses API（`/responses` 端点）
+- `provider.chat(modelId)` → Chat Completions（`/chat/completions` 端点）
+- Custom provider 默认走 Chat Completions，除非 `enableResponsesApi: true`
+- Custom provider 不自动拼接 `/v1`（直接使用用户配置的 URL）
+
+### Responses API 的 providerOptions
+
+`agentFactory.ts` 中 `buildResponsesApiProviderOptions()` 为 Responses API 模型注入：
+
+```typescript
+providerOptions: {
+  openai: {
+    store: false,          // 禁用服务端 item 持久化
+    promptCacheKey: sessionId,  // 启用 prompt 缓存
+  }
+}
+```
+
+**store: false**：第三方 Responses API 端点（如 Codex 转发）不支持服务端 item 持久化。如果 `store` 为 `true`（SDK 默认），多轮对话时 SDK 会用 `item_reference` 引用不存在的 item 导致 404。设为 `false` 后 SDK 每轮发送完整历史。
+
+**promptCacheKey**：使用 `chatSessionId` 作为缓存键，同一会话内多轮对话可复用服务端 prompt prefix 缓存，减少重复 token 计费。不支持该字段的第三方 API 会自动忽略。通过 `@ai-sdk/openai` 的 `providerOptions.openai.promptCacheKey` 传递，映射为请求体中的 `prompt_cache_key`。
+
+### extractReasoningMiddleware 注意事项
+
+`wrapModelWithExamples()` 对模型施加中间件时，**原生支持 reasoning 的 provider 必须跳过 `extractReasoningMiddleware`**：
+
+- OpenAI Responses API（`openai.responses`）、Chat Completions（`openai.chat`）、Anthropic（`anthropic.`）有自己的 reasoning 输出机制
+- 对它们施加 `extractReasoningMiddleware({ startWithReasoning: true })` 会导致所有 text 内容被错误归入 reasoning 通道，前端显示为空
+- 仅适用于 DeepSeek R1、Qwen QwQ、Kimi 等使用 `<think>` 标签的模型
+
+判断逻辑通过 `model.provider` 字段前缀匹配：`hasNativeReasoning(model)`
+
 ## Model Registry
 
 模型定义存放在 `apps/web/src/lib/model-registry/providers/*.json`，当前仅保留聊天模型（无图像/视频），服务端通过 `modelRegistry.ts` 加载：

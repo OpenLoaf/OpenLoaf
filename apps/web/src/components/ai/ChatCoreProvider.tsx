@@ -18,6 +18,7 @@ import { useAppView } from "@/hooks/use-app-view";
 import { useChatRuntime, type ToolPartSnapshot } from "@/hooks/use-chat-runtime";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { createChatTransport } from "@/lib/ai/transport";
+import { createChatTransportAsync } from "@/lib/ai/transport-async";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { getCachedAccessToken, refreshAccessToken } from "@/lib/saas-auth";
@@ -156,9 +157,16 @@ export default function ChatCoreProvider({
     [tabId, upsertToolPart]
   );
 
+  // Feature flag: 使用 async transport（后端持久化 LLM 流，支持断线重连）
+  // TODO: 待通过设置项控制，当前默认关闭
+  const useAsyncTransport = false
   const transport = React.useMemo(() => {
+    if (useAsyncTransport) {
+      return createChatTransportAsync({ paramsRef, tabIdRef, sessionIdRef })
+    }
     return createChatTransport({ paramsRef, tabIdRef, sessionIdRef });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useAsyncTransport]);
 
   // ── Branch snapshot ──
   const branchSnapshot = useBranchSnapshot(sessionId);

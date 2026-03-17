@@ -32,4 +32,42 @@ export class ActivatedToolSet {
   isActive(toolId: string): boolean {
     return this.coreToolIds.has(toolId) || this.activatedIds.has(toolId)
   }
+
+  /**
+   * Rehydrate activated tool IDs from message history.
+   *
+   * Scans assistant messages for tool-search results (state: output-available)
+   * and re-activates the tools that were previously loaded. This restores the
+   * dynamic tool activation state that would otherwise be lost when a new
+   * ActivatedToolSet is created (e.g., after an approval flow interruption).
+   */
+  static rehydrateFromMessages(
+    set: ActivatedToolSet,
+    messages: { role: string; parts?: unknown[] }[],
+  ): void {
+    const ids: string[] = []
+    for (const msg of messages) {
+      if (msg.role !== 'assistant') continue
+      const parts = Array.isArray(msg.parts) ? msg.parts : []
+      for (const part of parts) {
+        if (!part || typeof part !== 'object') continue
+        const p = part as Record<string, unknown>
+        if (
+          p.toolName === 'tool-search' &&
+          p.state === 'output-available' &&
+          p.output &&
+          typeof p.output === 'object'
+        ) {
+          const output = p.output as Record<string, unknown>
+          const tools = Array.isArray(output.tools) ? output.tools : []
+          for (const t of tools) {
+            if (t && typeof t === 'object' && typeof (t as any).id === 'string') {
+              ids.push((t as any).id)
+            }
+          }
+        }
+      }
+    }
+    if (ids.length > 0) set.activate(ids)
+  }
 }

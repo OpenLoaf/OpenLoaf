@@ -24,6 +24,8 @@ type MasterAgentRunnerInput = {
   modelInfo: MasterAgentModelInfo
   /** Optional instructions override. */
   instructions?: string
+  /** Historical messages for rehydrating dynamically activated tools. */
+  messages?: { role: string; parts?: unknown[] }[]
 }
 
 export type MasterAgentRunner = {
@@ -41,6 +43,7 @@ export function createMasterAgentRunner(input: MasterAgentRunnerInput): MasterAg
     agent: createMasterAgent({
       model: input.model,
       instructions: input.instructions,
+      messages: input.messages,
     }),
     frame: createMasterAgentFrame({ model: input.modelInfo }),
   }
