@@ -206,8 +206,11 @@ function buildOpenAiAdapter(id: string): ProviderAdapter {
       const resolvedApiUrl = provider.apiUrl.trim() || providerDefinition?.apiUrl?.trim() || "";
       const debugFetch = buildAiDebugFetch();
       if (!apiKey || !resolvedApiUrl) return null;
+      const baseURL = provider.providerId === "custom"
+        ? resolvedApiUrl.replace(/\/+$/, "")
+        : ensureOpenAiCompatibleBaseUrl(resolvedApiUrl);
       const openaiProvider = createOpenAI({
-        baseURL: ensureOpenAiCompatibleBaseUrl(resolvedApiUrl),
+        baseURL,
         apiKey,
         fetch: debugFetch,
       });

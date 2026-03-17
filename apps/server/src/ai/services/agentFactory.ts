@@ -28,7 +28,7 @@ import type {
   LanguageModelV3,
 } from '@ai-sdk/provider'
 import type { PrepareStepFunction, StopCondition } from 'ai'
-import { getRequestContext, type AgentFrame } from '@/ai/shared/context/requestContext'
+import { getRequestContext, getSessionId, type AgentFrame } from '@/ai/shared/context/requestContext'
 import { buildToolset } from '@/ai/tools/toolRegistry'
 import { filterToolIdsByPlatform } from '@/ai/tools/toolPlatformFilter'
 import { createToolCallRepair } from '@/ai/shared/repairToolCall'
@@ -220,20 +220,65 @@ function dynamicStepLimit(): StopCondition<Record<string, never>> {
 // ---------------------------------------------------------------------------
 
 /**
+ * 原生支持 reasoning 的 provider 前缀列表。
+ * 这些 provider 有自己的 reasoning 输出机制，不需要通过 <think> 标签提取。
+ * 对它们施加 extractReasoningMiddleware(startWithReasoning: true) 会导致
+ * 正常 text 内容被错误归入 reasoning 通道，前端显示为空。
+ */
+const NATIVE_REASONING_PROVIDERS = [
+  'openai.responses', // OpenAI Responses API（GPT-5、o1/o3/o4 系列）
+  'openai.chat',      // OpenAI Chat Completions（o1/o3 系列）
+  'anthropic.',       // Anthropic Claude（原生 extended thinking）
+]
+
+/** 判断模型是否原生支持 reasoning（不需要 <think> 提取）。 */
+function hasNativeReasoning(model: LanguageModelV3): boolean {
+  const provider = model.provider ?? ''
+  return NATIVE_REASONING_PROVIDERS.some(prefix => provider.startsWith(prefix))
+}
+
+/**
  * 包装模型以启用中间件：
  * 1. addToolInputExamplesMiddleware — 工具输入示例（Anthropic Best Practice）
  * 2. extractReasoningMiddleware — 提取 <think> 标签为 reasoning 部分
- *    适用于 DeepSeek R1/V3、MiniMax、Qwen QwQ、Kimi 等使用 <think> 标签的模型。
- *    对原生支持 reasoning 的模型（Claude、OpenAI o1）无副作用。
+ *    仅适用于 DeepSeek R1/V3、MiniMax、Qwen QwQ、Kimi 等使用 <think> 标签的模型。
+ *    对原生支持 reasoning 的模型（Claude、OpenAI Responses API）跳过此 middleware。
  */
 function wrapModelWithExamples(model: LanguageModelV3): LanguageModelV3 {
+  const middleware = hasNativeReasoning(model)
+    ? [addToolInputExamplesMiddleware()]
+    : [
+        extractReasoningMiddleware({ tagName: 'think', startWithReasoning: true }),
+        addToolInputExamplesMiddleware(),
+      ]
   return wrapLanguageModel({
     model,
-    middleware: [
-      extractReasoningMiddleware({ tagName: 'think', startWithReasoning: true }),
-      addToolInputExamplesMiddleware(),
-    ],
+    middleware,
   }) as unknown as LanguageModelV3
+}
+
+/**
+ * 为 Responses API 模型构建 providerOptions。
+ * 第三方 Responses API 端点（如 Codex 代理）不支持服务端 item 持久化，
+ * 必须设置 store: false，否则多轮对话时 SDK 会用 item_reference 引用
+ * 不存在的 item 导致 400 错误。
+ */
+function buildResponsesApiProviderOptions(model: LanguageModelV3): Record<string, unknown> {
+  const provider = model.provider ?? ''
+  // 仅对 OpenAI Responses API 模型生效（provider 格式如 "openai.responses"）
+  if (!provider.includes('responses')) return {}
+  const sessionId = getSessionId()
+  return {
+    providerOptions: {
+      openai: {
+        store: false,
+        // Codex 兼容：使用 chatSessionId 作为 prompt_cache_key，
+        // 同一会话内多轮对话可复用服务端 prompt 缓存，减少 token 开销。
+        // 不支持该字段的第三方 API 会自动忽略。
+        ...(sessionId ? { promptCacheKey: sessionId } : {}),
+      },
+    },
+  }
 }
 
 /** Creates the master agent instance. */
@@ -278,6 +323,7 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
     tools,
     stopWhen: [stepCountIs(MASTER_HARD_MAX_STEPS), dynamicStepLimit()] as StopCondition<any>[],
     experimental_repairToolCall: createToolCallRepair(),
+    ...buildResponsesApiProviderOptions(input.model),
   }
   // Inject prepareStep — ToolSearch pull mode
   Object.assign(baseSettings, {
@@ -358,6 +404,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
     stopWhen: [stepCountIs(PM_AGENT_MAX_STEPS), dynamicStepLimit()] as StopCondition<any>[],
     experimental_repairToolCall: createToolCallRepair(),
     prepareStep: createToolSearchPrepareStep(allToolIds, activatedSet),
+    ...buildResponsesApiProviderOptions(input.model),
   })
 }
 

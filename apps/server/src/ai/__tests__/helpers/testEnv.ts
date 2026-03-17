@@ -8,9 +8,10 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import path from 'node:path'
-import { existsSync, mkdirSync, writeFileSync, cpSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, cpSync, readdirSync } from 'node:fs'
 import os from 'node:os'
-import { getProviderSettings } from '@/modules/settings/settingsService'
+import { readApiKey } from '@/ai/shared/util'
+import { getProviderSettings, type ProviderSettingEntry } from '@/modules/settings/settingsService'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { setRequestContext, setChatModel, setAbortSignal } from '@/ai/shared/context/requestContext'
 import { installHttpProxy } from '@/modules/proxy/httpProxy'
@@ -20,6 +21,19 @@ import { getOpenLoafRootDir, setOpenLoafRootOverride, setDefaultProjectStorageRo
 installHttpProxy()
 
 const ENV_KEY = 'OPENLOAF_TEST_CHAT_MODEL_ID'
+
+export type TestProviderModelConfig = {
+  /** Provider entry loaded from providers.json. */
+  provider: ProviderSettingEntry
+  /** Resolved model id. */
+  modelId: string
+  /** Provider API base URL. */
+  apiUrl: string
+  /** Provider API key. */
+  apiKey: string
+  /** Whether the provider should use Responses API. */
+  enableResponsesApi: boolean
+}
 
 /**
  * 读取 OPENLOAF_TEST_CHAT_MODEL_ID 环境变量（格式：profileId:modelId）。
@@ -36,6 +50,56 @@ export function getTestChatModelId(): string | undefined {
 export async function resolveTestModel() {
   const chatModelId = getTestChatModelId()
   return resolveChatModel({ chatModelId, chatModelSource: 'local' })
+}
+
+/** Resolve a provider + model pair from the local providers.json file. */
+export async function resolveProviderModelConfig(input: {
+  modelId: string
+  providerId?: string
+  providerEntryId?: string
+  apiUrlIncludes?: string
+}): Promise<TestProviderModelConfig> {
+  const modelId = input.modelId.trim()
+  const providerId = input.providerId?.trim()
+  const providerEntryId = input.providerEntryId?.trim()
+  const apiUrlIncludes = input.apiUrlIncludes?.trim().toLowerCase()
+
+  if (!modelId) {
+    throw new Error('modelId 不能为空')
+  }
+
+  const providers = await getProviderSettings()
+  const provider = providers.find((entry) => {
+    if (!entry.models[modelId]) return false
+    if (providerId && entry.providerId !== providerId) return false
+    if (providerEntryId && entry.id !== providerEntryId) return false
+    if (apiUrlIncludes && !entry.apiUrl.toLowerCase().includes(apiUrlIncludes)) return false
+    return true
+  })
+
+  if (!provider) {
+    throw new Error(`未在 providers.json 中找到模型配置: ${modelId}`)
+  }
+
+  const apiUrl = provider.apiUrl.trim()
+  const apiKey = readApiKey(provider.authConfig)
+  if (!apiUrl || !apiKey) {
+    throw new Error(`模型配置不完整: ${provider.id} 缺少 apiUrl 或 apiKey`)
+  }
+
+  return {
+    provider,
+    modelId,
+    apiUrl,
+    apiKey,
+    // 逻辑：与生产代码保持一致，自定义 provider 默认走 chat，显式开启后才走 responses。
+    enableResponsesApi: provider.options?.enableResponsesApi ?? provider.providerId !== 'custom',
+  }
+}
+
+/** Build a raw Responses API endpoint from a provider base URL. */
+export function buildResponsesApiUrl(apiUrl: string): string {
+  return `${apiUrl.replace(/\/+$/, '')}/responses`
 }
 
 /**
