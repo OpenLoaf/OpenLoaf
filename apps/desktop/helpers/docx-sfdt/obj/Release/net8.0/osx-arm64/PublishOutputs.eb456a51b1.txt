@@ -1,2 +1,0 @@
-/Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/apps/desktop/resources/docx-sfdt/publish/darwin-arm64/openloaf-docx-sfdt.pdb
-/Users/zhao/Documents/01.Code/Hex/Tenas-All/OpenLoaf/apps/desktop/resources/docx-sfdt/publish/darwin-arm64/openloaf-docx-sfdt
