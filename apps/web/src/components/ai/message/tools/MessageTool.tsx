@@ -65,13 +65,17 @@ export default function MessageTool({
   // Registry lookup
   const entry = findToolEntry(toolKind, providerExecuted, resolvedPart);
   if (entry) {
-    return createElement(entry.component, {
-      part: resolvedPart,
-      className,
-      variant,
-      messageId,
-      ...entry.extraProps,
-    });
+    return (
+      <div className="max-w-lg">
+        {createElement(entry.component, {
+          part: resolvedPart,
+          className,
+          variant,
+          messageId,
+          ...entry.extraProps,
+        })}
+      </div>
+    );
   }
 
   // providerExecuted 但 registry 没匹配到的 CLI 工具，不 fallback
@@ -79,13 +83,17 @@ export default function MessageTool({
   if (providerExecuted) {
     const nonProviderEntry = findToolEntry(toolKind, false, resolvedPart);
     if (nonProviderEntry) {
-      return createElement(nonProviderEntry.component, {
-        part: resolvedPart,
-        className,
-        variant,
-        messageId,
-        ...nonProviderEntry.extraProps,
-      });
+      return (
+        <div className="max-w-lg">
+          {createElement(nonProviderEntry.component, {
+            part: resolvedPart,
+            className,
+            variant,
+            messageId,
+            ...nonProviderEntry.extraProps,
+          })}
+        </div>
+      );
     }
   }
 
@@ -98,6 +106,8 @@ export default function MessageTool({
   if (isCompleted && !hasError && !basic.chatShowAllToolResults) return null
 
   return (
-    <UnifiedTool part={resolvedPart} className={className} variant={variant} messageId={messageId} />
+    <div className="max-w-lg">
+      <UnifiedTool part={resolvedPart} className={className} variant={variant} messageId={messageId} />
+    </div>
   );
 }

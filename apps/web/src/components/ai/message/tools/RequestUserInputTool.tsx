@@ -324,7 +324,8 @@ export default function RequestUserInputTool({
 
   // 逻辑：历史数据从 output.answers 读取已提交的答案
   const savedAnswers = asPlainObject((part.output as any)?.answers) ?? {}
-  const isReadonly = isRejected || isApproved || hasOutput
+  const isError = part.state === 'output-error'
+  const isReadonly = isRejected || isApproved || hasOutput || isError
 
   const [answers, setAnswers] = React.useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {}
@@ -789,7 +790,9 @@ export default function RequestUserInputTool({
         ) : null}
 
         <div className="px-3 py-3">
-          {isRejected ? (
+          {isError ? (
+            <div className="text-[11px] text-destructive/80">参数格式错误，已反馈给模型重试</div>
+          ) : isRejected ? (
             <div className="text-[11px] text-muted-foreground">已跳过</div>
           ) : isReadonly ? (
             mode === 'choice'

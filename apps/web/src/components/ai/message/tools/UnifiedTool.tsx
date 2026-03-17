@@ -219,7 +219,7 @@ export default function UnifiedTool({
       onOpenChange={(open) => {
         if (open) void fetchToolOutput();
       }}
-      className={cn("mb-2 min-w-0 max-w-3xl text-xs", className)}
+      className={cn("mb-2 min-w-0 text-xs", className)}
     >
       {toolType === "dynamic-tool" ? (
         <ToolHeader
