@@ -119,6 +119,54 @@ const SUB_AGENT_MAX_STEPS = 15
 const CORE_TOOL_IDS = ['tool-search', 'load-skill'] as const
 
 /**
+ * Activation guard for ToolSearch pull mode.
+ *
+ * Problem: AI SDK's activeTools only controls which tool schemas are SENT to the
+ * model, but doesn't prevent execution of non-active tools. When a model calls a
+ * registered-but-unloaded tool, the SDK still validates/executes it — and the model
+ * gets generic validation errors instead of "load this tool first via tool-search".
+ * Weak models then repeatedly guess parameters instead of calling tool-search.
+ *
+ * Solution: Wrap execute() so that calling an unloaded tool immediately returns a
+ * clear error directing the model to use tool-search. Also bypass needsApproval
+ * for unloaded tools so the error surfaces directly (no broken approval UI).
+ */
+function applyActivationGuard(
+  tools: Record<string, any>,
+  activatedSet: ActivatedToolSet,
+  coreToolIds: readonly string[],
+): void {
+  const coreSet = new Set(coreToolIds)
+  for (const toolId of Object.keys(tools)) {
+    if (coreSet.has(toolId)) continue
+    const tool = tools[toolId]
+    const originalExecute = tool.execute
+    if (typeof originalExecute !== 'function') continue
+    const originalNeedsApproval = tool.needsApproval
+
+    tools[toolId] = {
+      ...tool,
+      execute: async (input: any, options: any) => {
+        if (!activatedSet.isActive(toolId)) {
+          throw new Error(
+            `Tool "${toolId}" has not been loaded. You must call tool-search(query: "select:${toolId}") to load it first, then call it again with the correct parameters.`
+          )
+        }
+        return originalExecute(input, options)
+      },
+      needsApproval: originalNeedsApproval
+        ? (input: any) => {
+            if (!activatedSet.isActive(toolId)) return false
+            return typeof originalNeedsApproval === 'function'
+              ? originalNeedsApproval(input)
+              : originalNeedsApproval
+          }
+        : originalNeedsApproval,
+    }
+  }
+}
+
+/**
  * Creates a prepareStep that only exposes tool-search + dynamically activated tools.
  */
 function createToolSearchPrepareStep(
@@ -216,6 +264,9 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
   // Inject tool-search (dynamically created, closes over activatedSet)
   tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds))
 
+  // ★ Activation guard — block unloaded tool calls with clear error
+  applyActivationGuard(tools, activatedSet, coreToolIds)
+
   // ★ Append Hard Rules to instructions (Layer 2)
   // ToolSearch guidance is injected via session preface (platform-aware).
   const hardRules = buildHardRules()
@@ -294,6 +345,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
   const tools = buildToolset(allToolIds)
   const activatedSet = new ActivatedToolSet(coreToolIds)
   tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds))
+  applyActivationGuard(tools, activatedSet, coreToolIds)
 
   const hardRules = buildHardRules()
   const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)
@@ -394,6 +446,7 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   const tools = buildToolset(allToolIds)
   const activatedSet = new ActivatedToolSet(coreToolIds)
   tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds))
+  applyActivationGuard(tools, activatedSet, coreToolIds)
 
   // 使用与主 Agent 相同的完整 instructions（sub-agent 不共享 preface，需自带 guidance）
   const basePrompt = masterTpl.systemPrompt

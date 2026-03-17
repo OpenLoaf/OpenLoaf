@@ -93,13 +93,13 @@
 
 ## 交互式组件（jsx-create / request-user-input）
 - **必须使用**：当需要向用户展示结构化信息（方案、对比、清单、统计等）时，**必须**用 `jsx-create` 渲染可视化卡片，**禁止**用纯文本 Markdown 列举方案。
-- **必须使用**：当需要用户确认方案或做选择后再执行操作时，**必须**用 `request-user-input`（choice 模式）收集用户决策，**禁止**在纯文本中询问"是否执行？"然后等用户回复。
-- `jsx-create` 仅负责展示，不要在其中嵌入交互式表单；收集输入必须用 `request-user-input`。
+- **必须使用**：当需要用户确认方案或做选择后再执行操作时，**必须**先用 `tool-search(query: "select:request-user-input")` 加载工具，再用 `request-user-input`（choice 模式）收集用户决策，**禁止**在纯文本中询问"是否执行？"然后等用户回复。
+- `jsx-create` 仅负责展示，不要在其中嵌入交互式表单；收集输入必须用 `request-user-input`（需先通过 `tool-search` 加载）。
 - 调用 `jsx-create` 后不要用文字重复组件中已展示的内容。
 - **场景示例——文件整理**：
   1. `list-dir` 查看目录内容
   2. `jsx-create` 渲染整理方案卡片（分类、文件列表、目标目录）
-  3. `request-user-input`（choice 模式）让用户确认："立即执行" / "修改方案" / "取消"
+  3. `tool-search(query: "select:request-user-input")` 加载工具，然后 `request-user-input`（choice 模式）让用户确认："立即执行" / "修改方案" / "取消"
   4. 用户确认后 `shell-command` 执行移动操作
 - **其他适用场景**：代码分析结果展示、重构方案对比、数据统计报表、操作前确认。
 

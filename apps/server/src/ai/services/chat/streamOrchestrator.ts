@@ -606,7 +606,7 @@ async function writeDebugStepFile(input: {
   try {
     const jsonlPath = await resolveMessagesJsonlPath(input.sessionId);
     const sessionDir = path.dirname(jsonlPath);
-    const debugDir = path.join(sessionDir, "debug", `${input.assistantMessageId}_${input.attemptTag}`);
+    const debugDir = path.join(sessionDir, "debug", `${input.attemptTag}_${input.assistantMessageId}`);
     await fs.mkdir(debugDir, { recursive: true });
     const fileName = `step${input.stepNumber}_${input.kind}.json`;
     const debugPath = path.join(debugDir, fileName);
