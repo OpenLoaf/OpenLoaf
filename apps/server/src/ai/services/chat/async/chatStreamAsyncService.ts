@@ -103,6 +103,9 @@ async function consumeResponseStream(sessionId: string, response: Response): Pro
   const reader = body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  // 追踪流中的错误信息，用于 finish(finishReason: "error") 检测
+  let lastTextContent = ''
+  let isErrorFinish = false
 
   try {
     while (true) {
@@ -133,6 +136,17 @@ async function consumeResponseStream(sessionId: string, response: Response): Pro
               }
             }
 
+            // 追踪 text-delta 内容，用于错误消息提取
+            if (chunk?.type === 'text-start') {
+              lastTextContent = ''
+            }
+            if (chunk?.type === 'text-delta' && typeof chunk?.delta === 'string') {
+              lastTextContent += chunk.delta
+            }
+            if (chunk?.type === 'finish' && chunk?.finishReason === 'error') {
+              isErrorFinish = true
+            }
+
             streamSessionManager.pushChunk(sessionId, chunk)
           } catch {
             // 无法解析的 chunk，作为原始文本推送
@@ -148,12 +162,23 @@ async function consumeResponseStream(sessionId: string, response: Response): Pro
       if (trimmed.startsWith('data: ')) {
         try {
           const chunk = JSON.parse(trimmed.slice(6))
+          if (chunk?.type === 'text-delta' && typeof chunk?.delta === 'string') {
+            lastTextContent += chunk.delta
+          }
+          if (chunk?.type === 'finish' && chunk?.finishReason === 'error') {
+            isErrorFinish = true
+          }
           streamSessionManager.pushChunk(sessionId, chunk)
         } catch {}
       }
     }
 
-    streamSessionManager.complete(sessionId)
+    // 错误响应标记 session 为 error，使状态查询和重连行为正确
+    if (isErrorFinish) {
+      streamSessionManager.fail(sessionId, lastTextContent || 'Stream ended with error')
+    } else {
+      streamSessionManager.complete(sessionId)
+    }
   } catch (err) {
     const session = streamSessionManager.get(sessionId)
     if (session?.status === 'aborted') {

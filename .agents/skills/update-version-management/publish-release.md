@@ -31,6 +31,16 @@ Server/Web 的构建和发布完全由 GitHub Actions 完成（`.github/workflow
 
 Desktop 的构建和发布完全由 GitHub Actions 完成（`.github/workflows/publish-desktop.yml`）。
 
+### Desktop 发布前置检查（本地，必须）
+
+在打 `desktop@*` tag 之前，必须先准备 changelog 文件：
+
+1. 创建 `apps/desktop/changelogs/{version}/en.md`
+2. 建议同步创建 `apps/desktop/changelogs/{version}/zh.md`
+3. 确认 changelog 文件和版本 bump 一起进入发布 commit
+
+> ⚠️ GitHub Release 正文**不是**从 annotated tag 读取，而是由 CI `create-release` job 读取 `apps/desktop/changelogs/{version}/en.md`。如果该文件不存在，workflow 会回退成 `Release v{version}`。
+
 **Beta 构建流程**（打 `desktop@x.y.z-beta.n` tag 触发）：
 
 1. 检测 tag 含 `-beta` → mode=beta
@@ -40,15 +50,17 @@ Desktop 的构建和发布完全由 GitHub Actions 完成（`.github/workflows/p
 5. 上传 yml → `desktop/{version}/{yml}` + `desktop/beta/{yml}`
 6. 写 `desktop/{version}/manifest.json`（完整版本信息）
 7. 更新 `beta/manifest.json` → `desktop.version`（轻量指针）
-8. 创建 GitHub Release（prerelease=true）
+8. 读取 `apps/desktop/changelogs/{version}/en.md` 生成 GitHub Release 正文；缺失时回退成 `Release v{version}`
+9. 创建 GitHub Release（prerelease=true）
 
 **Stable promote 流程**（打 `desktop@x.y.z` tag 触发）：
 
 1. 检测 tag 不含 `-beta` → 检查 R2 中是否有对应 beta 版本
 2. 若有 beta → mode=promote，跳过所有构建
 3. 执行 `scripts/promote-desktop.mjs`（详见下方 Promote 脚本）
-4. 创建 GitHub Release（正式版）
-5. 版本号 +1 并提交推送
+4. 读取 `apps/desktop/changelogs/{version}/en.md` 生成 GitHub Release 正文；缺失时回退成 `Release v{version}`
+5. 创建 GitHub Release（正式版）
+6. 版本号 +1 并提交推送
 
 ## desktop 版本目录 manifest 格式
 
@@ -87,7 +99,8 @@ Server/Web 的 beta → stable promote 使用 `pnpm promote`（或 `scripts/prom
 放在各 app 的 `changelogs/` 目录下：
 
 - 目录结构：`changelogs/{version}/{lang}.md`（如 `changelogs/0.1.0/zh.md`、`changelogs/0.1.0/en.md`）
-- 每个版本必须有 `zh.md`（默认语言），`en.md` 等其他语言可选
+- **Desktop**：`en.md` 为必填，因为 GitHub Release 正文与 `desktop/{version}/CHANGELOG.md` 都优先读取它；建议同时提供 `zh.md`
+- **Server/Web**：`zh.md` 为默认语言，`en.md` 等其他语言可选
 - Desktop changelog 还会被 CI 复制到 R2 版本目录 `desktop/{version}/CHANGELOG.md`（`en.md` 优先，无则取第一个语言）
 - Server/Web 的 changelog 直接从 GitHub raw content 读取（公开仓库），无需上传到 R2
 - manifest 中 `changelogUrl` 指向 GitHub raw URL（不含语言后缀，客户端拼接 `/{lang}.md`）

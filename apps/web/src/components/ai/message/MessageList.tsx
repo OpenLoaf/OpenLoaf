@@ -46,6 +46,21 @@ export default function MessageList({ className, projectId }: MessageListProps) 
     isHistoryLoading,
   });
 
+  // 中文注释：流式结束后短暂保持 instant 模式，避免 action 按钮出现等布局变化触发 smooth 滚动弹跳。
+  const [useInstantResize, setUseInstantResize] = React.useState(false);
+  const wasStreamingRef = React.useRef(false);
+  React.useEffect(() => {
+    if (isStreamingActive) {
+      wasStreamingRef.current = true;
+      setUseInstantResize(true);
+    } else if (wasStreamingRef.current) {
+      wasStreamingRef.current = false;
+      // 延迟切回 smooth，让过渡期的布局变化以 instant 方式处理
+      const timer = setTimeout(() => setUseInstantResize(false), 200);
+      return () => clearTimeout(timer);
+    }
+  }, [isStreamingActive]);
+
   const hasStreamingVisibleContent = React.useMemo(
     () => (streamingMessage ? messageHasVisibleContent(streamingMessage) : false),
     [streamingMessage]
@@ -146,7 +161,7 @@ export default function MessageList({ className, projectId }: MessageListProps) 
         className
       )}
     >
-      <Conversation className="min-h-0 flex-1 overflow-x-hidden [&_*:not(summary)]:!select-text" {...(isStreamingActive ? { resize: "instant" } : {})}>
+      <Conversation className="min-h-0 flex-1 overflow-x-hidden [&_*:not(summary)]:!select-text" {...(useInstantResize ? { resize: "instant" } : {})}>
         <ConversationContent className="flex min-h-full w-full min-w-0 flex-col gap-1 pb-4">
           {shouldShowHelper ? (
             <ConversationEmptyState
@@ -165,10 +180,9 @@ export default function MessageList({ className, projectId }: MessageListProps) 
               <motion.div
                 key="thinking"
                 className="my-0.5 px-2"
-                layout
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
               >
                 <MessageThinking showHeader={!lastMessageIsAssistant} />

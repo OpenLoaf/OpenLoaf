@@ -103,7 +103,9 @@ packages/ 下各子包的消费者不同，**禁止将所有 packages/ 变更笼
 
 - 同时检查已提交 commit 和未提交变更
 - 按 emoji 类别分组：💥 Breaking → ✨ 新功能 → 🚀 改进 → 💄 界面优化 → ⚡ 性能 → 🌐 国际化 → 🐛 修复 → 🔒 安全 → 🔧 重构 → 📦 依赖 → 🗑️ 废弃
-- 生成**英文版**（用于 annotated tag）
+- 生成**英文版**（Desktop 用于 `apps/desktop/changelogs/{version}/en.md`；annotated tag 可复用同一份内容）
+- **Desktop 发布前必须先落 changelog 文件**：至少创建 `apps/desktop/changelogs/{version}/en.md`，建议同时创建 `zh.md`
+- **GitHub Release 正文的单一事实来源是 `apps/desktop/changelogs/{version}/en.md`**，不是 annotated tag；文件缺失时 CI 会回退成 `Release v{version}`
 - **展示给用户确认后再继续**
 
 ### Step 3: Lockfile（如需要）
@@ -150,6 +152,15 @@ Desktop 采用 **Beta-only 构建策略**：新构建只能打 beta tag，stable
 ### Beta 发布流程
 
 **发布 Desktop 时不需要单独 bump/tag server 和 web。** Desktop 打包已包含最新 server + web 代码。
+
+**本地前置步骤（必须，在 commit / tag 之前完成）**
+
+1. 写 `apps/desktop/changelogs/{version}/en.md`
+2. 建议同步写 `apps/desktop/changelogs/{version}/zh.md`
+3. 确认 changelog 文件已加入本次发布 commit
+4. 再 bump `apps/desktop/package.json`、commit、打 `desktop@{version}` tag
+
+> ⚠️ 只写 annotated tag 不会生成正确的 GitHub Release 正文；CI 的 `create-release` 只读取 `apps/desktop/changelogs/{version}/en.md`。
 
 ### CI 模式
 
@@ -213,7 +224,7 @@ Server 增量更新可能含 schema 变更。迁移系统流程：
 |------|------|
 | Server 增量发布 | `git tag -a server-v{ver} -m "..." && git push origin server-v{ver}` |
 | Web 增量发布 | `git tag -a web-v{ver} -m "..." && git push origin web-v{ver}` |
-| Desktop beta | `git tag desktop@{x.y.z-beta.n} && git push origin main --tags` |
+| Desktop beta | `先写 apps/desktop/changelogs/{ver}/en.md` → `git tag desktop@{x.y.z-beta.n} && git push origin main --tags` |
 | Desktop stable | bump → `git tag desktop@{x.y.z}` → `git push origin main --tags` |
 | widget-sdk 发布 | `cd packages/widget-sdk && pnpm version patch && pnpm publish --no-git-checks` |
 | 撤回 server/web | `node scripts/cleanup-r2-version.mjs --server={ver} --web={ver}` |
@@ -229,6 +240,7 @@ Server 增量更新可能含 schema 变更。迁移系统流程：
 | 用 `server-v*`/`web-v*` 作 changelog 基准 | **用所有 tag 中最新的**（通常是 `desktop@*`） |
 | 只看已提交 commit，忽略未提交变更 | **同时检查 `git log` 和 `git diff --stat HEAD`** |
 | 发布 Desktop 时多余 bump server/web | **Desktop 打包已含最新 server+web，无需单独 bump** |
+| 只写 annotated tag，没写 Desktop changelog 文件 | **先创建 `apps/desktop/changelogs/{version}/en.md`；GitHub Release 正文只从该文件读取** |
 | Desktop 用旧格式 `desktop-v*` | 必须用 `desktop@{version}` |
 | commit message 含 `[skip ci]` | CI 不触发，禁止使用 |
 | Lockfile 未更新就推送 tag | 先 `pnpm install --no-frozen-lockfile` |

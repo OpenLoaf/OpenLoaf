@@ -28,20 +28,17 @@ export function buildChatAssetFolderDescriptor(input: {
   const projectId = input.projectId?.trim() ?? "";
   const boardId = input.boardId?.trim() ?? "";
 
-  // 逻辑：header file 按钮始终对应“当前会话”的 asset 目录。
-  // 画布聊天的会话文件存储在 boards/<boardId>/chat-history/<sessionId>/asset 下，
-  // 不应跳到画布级 boards/<boardId>/asset。
-  if (boardId && sessionId) {
+  // Board asset is stored at boards/<boardId>/asset,
+  // aligned with the backend – no chat-history/<sessionId> nesting.
+  if (boardId) {
     return {
       relativePath: joinRelativeSegments([
         projectId ? ".openloaf" : "",
         "boards",
         boardId,
-        "chat-history",
-        sessionId,
         "asset",
       ]),
-      labelKey: "tool.videoDownload.chatAsset",
+      labelKey: "tool.videoDownload.boardAsset",
     };
   }
 

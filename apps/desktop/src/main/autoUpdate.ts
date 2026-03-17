@@ -298,22 +298,31 @@ export function restartForUpdates(): AutoUpdateResult {
     // 跳过退出确认弹窗，直接退出安装更新。
     skipQuitConfirmation()
     if (lastStatus.state === 'downloaded') {
+      cachedLog?.(
+        `[auto-update] restartForUpdates: installing desktop update v${lastStatus.nextVersion ?? 'unknown'} via quitAndInstall...`
+      )
       // isSilent=true：静默安装，避免 NSIS 弹出"请先关闭应用"对话框。
       // isForceRunAfter=true：安装完成后自动重启应用。
       autoUpdater.quitAndInstall(true, true)
-      // 兜底：quitAndInstall 内部调用 app.quit() 是异步的，
-      // 在 Windows 上可能因窗口关闭流程未完成而进程仍在运行，
-      // 延迟强制退出确保 NSIS 安装程序能获得文件独占访问。
-      setTimeout(() => app.exit(0), 1000)
+      // 兜底：quitAndInstall 内部调用 app.quit() 是异步的。
+      // macOS：Squirrel.Mac 可能仍在从本地代理下载更新（约 300MB），需要更长等待时间。
+      //        electron-updater 的 handleUpdateDownloaded 会在 Squirrel 完成后调用 app.exit()。
+      // Windows：1 秒后强制退出，确保 NSIS 安装程序能获得文件独占访问。
+      const fallbackMs = process.platform === 'darwin' ? 30_000 : 1_000
+      setTimeout(() => {
+        cachedLog?.('[auto-update] restartForUpdates: fallback app.exit(0) triggered.')
+        app.exit(0)
+      }, fallbackMs)
       return { ok: true }
     }
-    // 中文注释：增量更新仅需重启应用即可生效。
+    // 增量更新仅需重启应用即可生效。
+    cachedLog?.('[auto-update] restartForUpdates: no desktop update, relaunching for incremental update...')
     app.relaunch()
     app.exit(0)
     return { ok: true }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    cachedLog?.(`Auto update restart failed: ${message}`)
+    cachedLog?.(`[auto-update] restartForUpdates failed: ${message}`)
     return { ok: false, reason: message }
   }
 }
@@ -341,11 +350,11 @@ export function installAutoUpdate(options: AutoUpdateOptions): void {
 
   configureFeedUrl(log)
   autoUpdater.autoDownload = true
-  // 禁止退出时自动启动安装程序。
-  // Windows 上 autoInstallOnAppQuit 会在关闭时静默启动 NSIS installer，
-  // 但用户可能立即重新打开应用，导致安装程序和主程序同时运行，安装失败。
-  // 更新安装统一由用户在 UI 点击"立即安装"触发（走 quitAndInstall 路径）。
-  autoUpdater.autoInstallOnAppQuit = false
+  // macOS：允许 Squirrel.Mac 在 electron-updater 下载完成后预先从本地代理获取更新。
+  // 这样在 quitAndInstall 时 squirrelDownloadedUpdate 已为 true，可同步触发 ShipIt 安装。
+  // Windows：禁止退出时自动启动 NSIS installer，因为用户可能立即重新打开应用，
+  // 导致安装程序和主程序同时运行，安装失败。
+  autoUpdater.autoInstallOnAppQuit = process.platform === 'darwin'
 
   // 监听更新流程事件，便于定位更新失败原因。
   autoUpdater.on('checking-for-update', () => {

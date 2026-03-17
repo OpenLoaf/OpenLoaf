@@ -46,9 +46,12 @@ derivedMetrics:
     value: tool_selection / (tool_selection + tool_selection_fail)
   - name: quality_rate
     value: output_quality / (output_quality + output_quality_fail)
+  - name: async_spawn_accuracy
+    value: async_spawn_no_wait / (async_spawn_no_wait + async_spawn_no_wait_fail)
 
 tests:
   - file://tests/master/master.yaml
+  - file://tests/master/async-spawn.yaml
   - file://tests/calendar/calendar.yaml
   - file://tests/email/email.yaml
   - file://tests/tools/tools.yaml

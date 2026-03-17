@@ -117,8 +117,8 @@ export const memoryGetTool = tool({
 
 // ─── memory-save ────────────────────────────────────────────────────────────
 
-/** Resolve the target write directory based on scope + request context. */
-function resolveWriteDir(scope: 'user' | 'project' | 'agent'): string {
+/** Resolve the target write directory based on scope + request context. Returns null if scope cannot be satisfied. */
+function resolveWriteDir(scope: 'user' | 'project' | 'agent'): string | null {
   const ctx = getRequestContext()
   const userMemDir = resolveMemoryDir(homedir())
 
@@ -128,32 +128,40 @@ function resolveWriteDir(scope: 'user' | 'project' | 'agent'): string {
     if (currentAgent) {
       return path.join(userMemDir, 'agents', currentAgent.name)
     }
-    return userMemDir
+    // No agent context — cannot satisfy agent scope
+    return null
   }
 
   if (scope === 'project') {
-    // Use the deepest (most specific) project root path
     const roots = ctx?.parentProjectRootPaths
     const projectRoot = roots?.[roots.length - 1]
     if (projectRoot) {
       return resolveMemoryDir(projectRoot)
     }
+    // No project context — cannot satisfy project scope
+    return null
   }
 
   return userMemDir
 }
 
-/** Find existing memory file matching `*-{key}.md` or `{key}.md` in a directory. */
+/** Find existing memory file matching `YYYY-MM-DD-{key}.md` or `{key}.md` precisely. */
 function findExistingMemoryFile(memoryDir: string, key: string): string | null {
   if (!existsSync(memoryDir)) return null
-  const suffix = `-${key}.md`
   const exact = `${key}.md`
+  // Match dated pattern: exactly YYYY-MM-DD-{key}.md (no extra prefix before key)
+  const datedPattern = new RegExp(`^\\d{4}-\\d{2}-\\d{2}-${escapeRegexSource(key)}\\.md$`)
   const files = readdirSync(memoryDir)
   const matches = files
-    .filter((f) => f.endsWith(suffix) || f === exact)
+    .filter((f) => f === exact || datedPattern.test(f))
     .sort()
     .reverse()
   return matches[0] ? path.join(memoryDir, matches[0]) : null
+}
+
+/** Escape special regex characters in a string. */
+function escapeRegexSource(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 /** Extract first meaningful line from content (skip frontmatter / headings). */
@@ -209,15 +217,16 @@ function updateMemoryIndex(
     lines = readFileSync(indexPath, 'utf8').split('\n')
   }
 
-  // Remove existing entry with matching key
-  const filtered = lines.filter((line) => !line.includes(`[${key}]`))
+  // Remove existing entry with matching key + strip empty lines
+  const filtered = lines
+    .filter((line) => !line.includes(`[${key}]`))
+    .filter((line) => line.trim() !== '')
 
   if (action === 'add') {
     filtered.push(`- [${key}](${fileName}) — ${summary}`)
   }
 
-  const result = filtered.join('\n').trim()
-  writeFileSync(indexPath, result ? result + '\n' : '', 'utf8')
+  writeFileSync(indexPath, filtered.length > 0 ? filtered.join('\n') + '\n' : '', 'utf8')
 }
 
 /** Validate key format: lowercase alphanumeric + hyphens. */
@@ -254,8 +263,26 @@ export const memorySaveTool = tool({
       }
     }
 
+    // Validate reserved keys (conflict with MEMORY.md on case-insensitive FS)
+    const RESERVED_KEYS = ['memory', 'agents', 'index']
+    if (RESERVED_KEYS.includes(key)) {
+      return {
+        ok: false,
+        error: 'reserved_key',
+        hint: `key "${key}" 是保留名，请使用其他名称`,
+      }
+    }
+
     try {
       const memoryDir = resolveWriteDir(effectiveScope)
+      if (!memoryDir) {
+        const scopeLabel = effectiveScope === 'project' ? '项目' : 'Agent'
+        return {
+          ok: false,
+          error: 'no_scope_context',
+          hint: `当前对话未绑定${scopeLabel}，无法保存 scope="${effectiveScope}" 的记忆。请使用 scope: "user" 或在${scopeLabel}对话中使用。`,
+        }
+      }
       mkdirSync(memoryDir, { recursive: true })
 
       const today = new Date().toISOString().slice(0, 10)

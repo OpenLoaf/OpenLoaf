@@ -10,9 +10,19 @@
 'use client'
 
 import { lazy, memo, Suspense, useCallback, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Brain, FileText } from 'lucide-react'
+import { Brain, FileText, FolderOpen, Trash2 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@openloaf/ui/alert-dialog'
 import { OpenLoafSettingsGroup } from '@openloaf/ui/openloaf/OpenLoafSettingsGroup'
 import { OpenLoafSettingsCard } from '@openloaf/ui/openloaf/OpenLoafSettingsCard'
 import { trpc } from '@/utils/trpc'
@@ -36,7 +46,8 @@ type MemoryEditorProps = {
 
 /** Memory settings panel — file list + inline editor. */
 const MemoryEditor = memo(function MemoryEditor({ scope, projectId }: MemoryEditorProps) {
-  const { t } = useTranslation(['settings'])
+  const { t } = useTranslation(['settings', 'common'])
+  const queryClient = useQueryClient()
 
   const dirUriQuery = useQuery({
     ...trpc.settings.getMemoryDirUri.queryOptions({ scope, projectId }),
@@ -76,6 +87,7 @@ const MemoryEditor = memo(function MemoryEditor({ scope, projectId }: MemoryEdit
   }, [listQuery.data?.entries, indexUri])
 
   const [selectedUri, setSelectedUri] = useState<string | null>(null)
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
 
   // Auto-select MEMORY.md on first load.
   const effectiveSelectedUri = selectedUri ?? indexUri ?? files[0]?.uri ?? null
@@ -85,74 +97,162 @@ const MemoryEditor = memo(function MemoryEditor({ scope, projectId }: MemoryEdit
     setSelectedUri(file.uri)
   }, [])
 
-  return (
-    <OpenLoafSettingsGroup
-      title={t('settings:memory.title')}
-      subtitle={scope === 'project' ? t('settings:memory.subtitleProject') : t('settings:memory.subtitle')}
-      icon={<Brain className="h-4 w-4 text-ol-green" />}
-      showBorder={false}
-    >
-      <div className="space-y-3">
-        {/* File list */}
-        <OpenLoafSettingsCard padding="none">
-          <div className="max-h-[200px] overflow-auto">
-            {dirUriQuery.isLoading || listQuery.isLoading ? (
-              <div className="px-3 py-4 text-xs text-muted-foreground">
-                {t('settings:memory.loading')}
-              </div>
-            ) : files.length === 0 ? (
-              <div className="px-3 py-4 text-xs text-muted-foreground">
-                {t('settings:memory.empty')}
-              </div>
-            ) : (
-              <ul className="divide-y divide-border/40">
-                {files.map((file) => (
-                  <li key={file.uri}>
-                    <button
-                      type="button"
-                      className={cn(
-                        'flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors duration-150',
-                        effectiveSelectedUri === file.uri
-                          ? 'bg-ol-green-bg text-ol-green'
-                          : 'text-foreground hover:bg-muted/50',
-                      )}
-                      onClick={() => handleSelect(file)}
-                    >
-                      <FileText className="h-3.5 w-3.5 shrink-0 opacity-50" />
-                      <span className="truncate font-mono">{file.name}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </OpenLoafSettingsCard>
+  const canOpenFolder = Boolean(dirUri && window.openloafElectron?.openPath)
 
-        {/* File editor */}
-        <OpenLoafSettingsCard padding="none">
-          <div className="h-[400px] overflow-hidden">
-            {selectedFile ? (
-              <Suspense fallback={null}>
-                <CodeViewer
-                  key={selectedFile.uri}
-                  uri={selectedFile.uri}
-                  name={selectedFile.name}
-                  ext="md"
-                  rootUri={dirUri}
-                  projectId={scope === 'project' ? projectId : undefined}
-                  readOnly={false}
-                  hidePlaceholder
-                />
-              </Suspense>
-            ) : (
-              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                {t('settings:memory.empty')}
-              </div>
-            )}
+  const handleOpenFolder = useCallback(() => {
+    if (dirUri) {
+      window.openloafElectron?.openPath?.({ uri: dirUri })
+    }
+  }, [dirUri])
+
+  // Clear all memory mutation.
+  const clearAllMemory = useMutation({
+    ...trpc.settings.clearAllMemory.mutationOptions(),
+    onSuccess: () => {
+      setSelectedUri(null)
+      setClearConfirmOpen(false)
+      // Refresh file list.
+      void queryClient.invalidateQueries({
+        queryKey: trpc.fs.list.queryKey(),
+      })
+    },
+  })
+
+  const handleClearAll = useCallback(() => {
+    clearAllMemory.mutate({ scope, projectId })
+  }, [clearAllMemory, scope, projectId])
+
+  const hasFiles = files.length > 0 && !listQuery.isLoading
+
+  return (
+    <>
+      <OpenLoafSettingsGroup
+        title={t('settings:memory.title')}
+        subtitle={scope === 'project' ? t('settings:memory.subtitleProject') : t('settings:memory.subtitle')}
+        icon={<Brain className="h-4 w-4 text-ol-green" />}
+        showBorder={false}
+        action={
+          <div className="flex items-center gap-1">
+            {hasFiles ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => setClearConfirmOpen(true)}
+                title={t('settings:memory.clearAll')}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+            {canOpenFolder ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:bg-muted/50 hover:text-foreground"
+                onClick={handleOpenFolder}
+                title={t('settings:memory.openFolder')}
+              >
+                <FolderOpen className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
           </div>
-        </OpenLoafSettingsCard>
-      </div>
-    </OpenLoafSettingsGroup>
+        }
+      >
+        <div className="space-y-3">
+          {/* File list */}
+          <OpenLoafSettingsCard padding="none">
+            <div className="max-h-[200px] overflow-auto">
+              {dirUriQuery.isLoading || listQuery.isLoading ? (
+                <div className="px-3 py-4 text-xs text-muted-foreground">
+                  {t('settings:memory.loading')}
+                </div>
+              ) : files.length === 0 ? (
+                <div className="px-3 py-4 text-xs text-muted-foreground">
+                  {t('settings:memory.empty')}
+                </div>
+              ) : (
+                <ul className="divide-y divide-border/40">
+                  {files.map((file) => (
+                    <li key={file.uri}>
+                      <button
+                        type="button"
+                        className={cn(
+                          'flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors duration-150',
+                          effectiveSelectedUri === file.uri
+                            ? 'bg-ol-green-bg text-ol-green'
+                            : 'text-foreground hover:bg-muted/50',
+                        )}
+                        onClick={() => handleSelect(file)}
+                      >
+                        <FileText className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                        <span className="truncate font-mono">{file.name}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </OpenLoafSettingsCard>
+
+          {/* File editor */}
+          <OpenLoafSettingsCard padding="none">
+            <div className="h-[400px] overflow-hidden">
+              {selectedFile ? (
+                <Suspense fallback={null}>
+                  <CodeViewer
+                    key={selectedFile.uri}
+                    uri={selectedFile.uri}
+                    name={selectedFile.name}
+                    ext="md"
+                    rootUri={dirUri}
+                    projectId={scope === 'project' ? projectId : undefined}
+                    readOnly={false}
+                    hidePlaceholder
+                  />
+                </Suspense>
+              ) : (
+                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                  {t('settings:memory.empty')}
+                </div>
+              )}
+            </div>
+          </OpenLoafSettingsCard>
+        </div>
+      </OpenLoafSettingsGroup>
+
+      {/* Clear all memory confirmation dialog */}
+      <AlertDialog
+        open={clearConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open && clearAllMemory.isPending) return
+          setClearConfirmOpen(open)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('settings:memory.clearAllTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('settings:memory.clearAllDescription')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={clearAllMemory.isPending}>
+              {t('common:cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault()
+                handleClearAll()
+              }}
+              disabled={clearAllMemory.isPending}
+            >
+              {clearAllMemory.isPending
+                ? t('settings:memory.clearing')
+                : t('settings:memory.confirmClear')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 })
 

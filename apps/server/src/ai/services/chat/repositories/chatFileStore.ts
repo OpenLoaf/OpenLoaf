@@ -130,8 +130,20 @@ function invalidateCache(sessionId: string) {
 // Path helpers — 根据 session 的 projectId 解析到对应根目录
 // ---------------------------------------------------------------------------
 
-// 逻辑：缓存 sessionId → 目录路径，避免每次都查数据库
+// 逻辑：缓存 sessionId → 目录路径，避免每次都查数据库（LRU 淘汰）
 const sessionDirCache = new Map<string, string>()
+const sessionDirOrder: string[] = []
+
+function touchSessionDirCache(sessionId: string) {
+  const idx = sessionDirOrder.indexOf(sessionId)
+  if (idx >= 0) sessionDirOrder.splice(idx, 1)
+  sessionDirOrder.push(sessionId)
+  // 淘汰超出上限的缓存
+  while (sessionDirOrder.length > LRU_MAX_SIZE) {
+    const oldest = sessionDirOrder.shift()
+    if (oldest) sessionDirCache.delete(oldest)
+  }
+}
 
 /**
  * 解析 session 的 chat-history 根目录：
@@ -165,7 +177,10 @@ function resolveChatHistoryRoot(
 
 async function resolveSessionDir(sessionId: string): Promise<string> {
   const cached = sessionDirCache.get(sessionId)
-  if (cached) return cached
+  if (cached) {
+    touchSessionDirCache(sessionId)
+    return cached
+  }
 
   // 从数据库查 session 的 projectId/boardId
   const session = await prisma.chatSession.findUnique({
@@ -188,6 +203,7 @@ async function resolveSessionDir(sessionId: string): Promise<string> {
         try {
           await fs.stat(path.join(globalDir, MESSAGES_FILE))
           sessionDirCache.set(sessionId, globalDir)
+          touchSessionDirCache(sessionId)
           return globalDir
         } catch { /* 都没有，用原路径 */ }
       }
@@ -195,6 +211,7 @@ async function resolveSessionDir(sessionId: string): Promise<string> {
   }
 
   sessionDirCache.set(sessionId, dir)
+  touchSessionDirCache(sessionId)
   return dir
 }
 
@@ -206,6 +223,18 @@ export function registerSessionDir(
 ): void {
   const root = resolveChatHistoryRoot(projectId, boardId)
   sessionDirCache.set(sessionId, path.join(root, sessionId))
+  touchSessionDirCache(sessionId)
+}
+
+/**
+ * 解析 session 的 asset 目录：<sessionDir>/asset/
+ * 用于 AI 工具在全局对话中的默认工作目录。
+ */
+export async function resolveSessionAssetDir(sessionId: string): Promise<string> {
+  const sessionDir = await resolveSessionDir(sessionId)
+  const assetDir = path.join(sessionDir, 'asset')
+  await fs.mkdir(assetDir, { recursive: true })
+  return assetDir
 }
 
 /**
@@ -238,8 +267,11 @@ export async function resolveSessionFilesDir(sessionId: string): Promise<string>
 export function clearSessionDirCache(sessionId?: string): void {
   if (sessionId) {
     sessionDirCache.delete(sessionId)
+    const idx = sessionDirOrder.indexOf(sessionId)
+    if (idx >= 0) sessionDirOrder.splice(idx, 1)
   } else {
     sessionDirCache.clear()
+    sessionDirOrder.length = 0
   }
 }
 
@@ -912,6 +944,8 @@ export async function deleteSessionFiles(sessionId: string): Promise<void> {
   }
   invalidateCache(sessionId)
   sessionDirCache.delete(sessionId)
+  const idx = sessionDirOrder.indexOf(sessionId)
+  if (idx >= 0) sessionDirOrder.splice(idx, 1)
 }
 
 // ---------------------------------------------------------------------------
@@ -931,6 +965,7 @@ export async function registerAgentDir(
   await fs.mkdir(agentDir, { recursive: true })
   // 复用 sessionDirCache，让后续函数透明使用
   sessionDirCache.set(agentId, agentDir)
+  touchSessionDirCache(agentId)
   return agentDir
 }
 
@@ -976,6 +1011,7 @@ export async function migrateSessionDirToProject(
     // 目标不存在，直接移动整个目录
     await fs.rename(globalDir, targetDir)
     sessionDirCache.set(sessionId, targetDir)
+    touchSessionDirCache(sessionId)
     invalidateCache(sessionId)
     logger.info(
       { sessionId, from: globalDir, to: targetDir },
@@ -998,10 +1034,40 @@ export async function migrateSessionDirToProject(
         await fs.rename(srcPath, dstPath)
       }
     } else if (entry.name === MESSAGES_FILE) {
-      // messages.jsonl：追加合并
+      // messages.jsonl：去重合并
       const globalContent = await fs.readFile(srcPath, 'utf8')
       if (globalContent.trim()) {
-        await fs.appendFile(dstPath, globalContent)
+        // 读取目标文件已有消息的 ID 集合
+        const existingIds = new Set<string>()
+        try {
+          const dstContent = await fs.readFile(dstPath, 'utf8')
+          for (const line of dstContent.split('\n')) {
+            const trimmed = line.trim()
+            if (!trimmed) continue
+            try {
+              const msg = JSON.parse(trimmed)
+              if (msg.id) existingIds.add(msg.id)
+            } catch { /* skip malformed lines */ }
+          }
+        } catch { /* dst file doesn't exist yet */ }
+
+        // 只追加不存在的消息
+        const newLines: string[] = []
+        for (const line of globalContent.split('\n')) {
+          const trimmed = line.trim()
+          if (!trimmed) continue
+          try {
+            const msg = JSON.parse(trimmed)
+            if (msg.id && !existingIds.has(msg.id)) {
+              newLines.push(trimmed)
+            }
+          } catch {
+            newLines.push(trimmed) // 保留无法解析的行
+          }
+        }
+        if (newLines.length > 0) {
+          await fs.appendFile(dstPath, newLines.map(l => `${l}\n`).join(''))
+        }
       }
       await fs.unlink(srcPath)
     } else {
@@ -1022,6 +1088,7 @@ export async function migrateSessionDirToProject(
 
   // 8. 更新缓存
   sessionDirCache.set(sessionId, targetDir)
+  touchSessionDirCache(sessionId)
   invalidateCache(sessionId)
 
   logger.info(
@@ -1048,4 +1115,5 @@ export async function deleteAllChatFiles(): Promise<void> {
   lruCache.clear()
   lruOrder.length = 0
   sessionDirCache.clear()
+  sessionDirOrder.length = 0
 }

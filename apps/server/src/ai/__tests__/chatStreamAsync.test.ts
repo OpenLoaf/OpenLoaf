@@ -11,10 +11,10 @@
  * chatStreamAsyncService + aiChatAsyncRoutes 集成测试。
  *
  * 模拟 LLM 流的 SSE Response，验证：
- * - startChatStreamAsync 正确消费流并推送 chunk 到 StreamSession
+ * - startChatStreamAsync 正确消费流并推送 chunk 到 listeners
  * - 幂等性（重复发起同一 session）
  * - abort 中止
- * - SSE 流消费和 offset 续接
+ * - 实时 subscribe
  *
  * 用法：
  *   pnpm --filter server run test:chat:async
@@ -120,10 +120,9 @@ async function main() {
 
     const session = streamSessionManager.get(sessionId)!
     assert.equal(session.status, 'completed')
-    assert.equal(session.chunks.length, 3)
   })
 
-  await test('startChatStreamAsync: 所有 chunk 正确缓冲', async () => {
+  await test('startChatStreamAsync: chunks 正确推送给 listeners', async () => {
     const sessionId = uniqueId()
     const chunks = [
       { type: 'start', messageId: 'msg-42' },
@@ -135,6 +134,11 @@ async function main() {
     ]
     const mock = createMockExecuteFn(chunks)
 
+    // 先创建 session 并订阅，以捕获所有 chunk
+    streamSessionManager.create(sessionId, 'pre')
+    const received: StreamEvent[] = []
+    streamSessionManager.subscribe(sessionId, (event) => received.push(event))
+
     await startChatStreamAsync({
       request: { sessionId, messages: [] },
       cookies: {},
@@ -143,11 +147,11 @@ async function main() {
 
     await waitFor(() => streamSessionManager.get(sessionId)?.status === 'completed')
 
-    const session = streamSessionManager.get(sessionId)!
-    assert.equal(session.chunks.length, 6)
-    assert.deepEqual(session.chunks[0], { type: 'start', messageId: 'msg-42' })
-    assert.deepEqual(session.chunks[2], { type: 'text-delta', id: 'msg-42', delta: 'foo' })
-    assert.deepEqual(session.chunks[5], { type: 'finish', finishReason: 'stop' })
+    // 6 个 chunk events + 1 个 complete event
+    assert.equal(received.length, 7)
+    assert.equal(received[0]!.type, 'chunk')
+    assert.deepEqual((received[0] as any).chunk, { type: 'start', messageId: 'msg-42' })
+    assert.equal(received[6]!.type, 'complete')
   })
 
   // ── 幂等性 ──
@@ -180,10 +184,10 @@ async function main() {
       executeFn: slowExecuteFn,
     })
 
-    // 等待第一个 chunk 到达
+    // 等待 session 进入 streaming 状态
     await waitFor(() => {
       const session = streamSessionManager.get(sessionId)
-      return (session?.chunks.length ?? 0) > 0
+      return session?.status === 'streaming'
     })
 
     const result2 = await startChatStreamAsync({
@@ -249,49 +253,18 @@ async function main() {
     assert.equal(session.errorMessage, 'Response body is null')
   })
 
-  // ── Listener / SSE 续接模拟 ──
-  console.log('\n─── SSE 续接模拟 Tests ───\n')
+  // ── Listener / 实时订阅 ──
+  console.log('\n─── 实时订阅 Tests ───\n')
 
-  await test('SSE 续接: chunks[offset:] 正确重放', async () => {
-    const sessionId = uniqueId()
-    const chunks = [
-      { type: 'start', messageId: 'msg-replay' },
-      { type: 'text-delta', delta: 'A' },
-      { type: 'text-delta', delta: 'B' },
-      { type: 'text-delta', delta: 'C' },
-      { type: 'finish', finishReason: 'stop' },
-    ]
-    const mock = createMockExecuteFn(chunks)
-
-    await startChatStreamAsync({
-      request: { sessionId, messages: [] },
-      cookies: {},
-      executeFn: mock.fn,
-    })
-
-    await waitFor(() => streamSessionManager.get(sessionId)?.status === 'completed')
-
-    const session = streamSessionManager.get(sessionId)!
-
-    // 模拟客户端从 offset=2 重连
-    const replayed = session.chunks.slice(2)
-    assert.equal(replayed.length, 3)
-    assert.deepEqual(replayed[0], { type: 'text-delta', delta: 'B' })
-    assert.deepEqual(replayed[1], { type: 'text-delta', delta: 'C' })
-    assert.deepEqual(replayed[2], { type: 'finish', finishReason: 'stop' })
-  })
-
-  await test('SSE 续接: 实时 subscribe + 已有 chunks 完整获取', async () => {
+  await test('实时 subscribe: 断连重连后只收到后续事件', () => {
     const sessionId = uniqueId()
     streamSessionManager.create(sessionId, 'msg-sub')
 
-    // 先写入一些 chunks
+    // 先写入一些 chunks（无 listener，模拟前端断连）
     streamSessionManager.pushChunk(sessionId, { type: 'start', messageId: 'msg-sub' })
     streamSessionManager.pushChunk(sessionId, { type: 'text-delta', delta: '1' })
 
-    // 模拟客户端重连：先重放 chunks[0:]，再订阅新事件
-    const session = streamSessionManager.get(sessionId)!
-    const replayed = [...session.chunks] // offset=0 全量
+    // 模拟客户端重连：只订阅新事件，不重放历史
     const liveEvents: StreamEvent[] = []
     const unsub = streamSessionManager.subscribe(sessionId, (event) => liveEvents.push(event))
 
@@ -300,8 +273,7 @@ async function main() {
     streamSessionManager.pushChunk(sessionId, { type: 'text-delta', delta: '3' })
     streamSessionManager.complete(sessionId)
 
-    // 验证：重放 + 实时 = 完整数据
-    assert.equal(replayed.length, 2, '重放 2 个历史 chunk')
+    // 验证：只收到重连后的实时事件
     assert.equal(liveEvents.length, 3, '实时收到 2 个 chunk + 1 个 complete')
     assert.equal(liveEvents[0]!.type, 'chunk')
     assert.equal(liveEvents[1]!.type, 'chunk')
@@ -357,7 +329,8 @@ async function main() {
       executeFn,
     })
 
-    await waitFor(() => (streamSessionManager.get(sessionId)?.chunks.length ?? 0) > 0)
+    // 等待 session 进入 streaming 状态
+    await waitFor(() => streamSessionManager.get(sessionId)?.status === 'streaming')
 
     assert.ok(capturedSignal, 'requestSignal 应传入')
     assert.equal(capturedSignal!.aborted, false, '初始未 abort')

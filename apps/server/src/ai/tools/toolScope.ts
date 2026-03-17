@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import fsSync from "node:fs";
 import path from "node:path";
 import {
   getProjectId,
@@ -18,15 +19,18 @@ import {
   getProjectRootPath,
   resolveScopedPath,
 } from "@openloaf/api/services/vfsService";
-import { getOpenLoafRootDir } from "@openloaf/config";
+import { getOpenLoafRootDir, resolveOpenLoafPath } from "@openloaf/config";
 import { createTempProject } from "@openloaf/api/services/tempProjectService";
 import { migrateSessionDirToProject } from "@/ai/services/chat/repositories/chatFileStore";
+import { updateSessionProjectId } from "@/ai/services/chat/repositories/messageStore";
 
 type ToolRoots = {
   /** Global root path (~/.openloaf/). */
   globalRoot: string;
   /** Project root path if available. */
   projectRoot?: string;
+  /** Chat asset directory for global conversations (no projectId). */
+  chatAssetRoot?: string;
 };
 
 /** Resolve global/project roots for current request context. */
@@ -34,9 +38,20 @@ export function resolveToolRoots(): ToolRoots {
   const globalRoot = getOpenLoafRootDir();
   const projectId = getProjectId();
   const projectRoot = projectId ? getProjectRootPath(projectId) ?? undefined : undefined;
+
+  // 计算 chat asset root（仅全局对话，即无 projectRoot 时）
+  let chatAssetRoot: string | undefined;
+  if (!projectRoot) {
+    const sessionId = getSessionId();
+    if (sessionId) {
+      chatAssetRoot = path.join(resolveOpenLoafPath("chat-history"), sessionId, "asset");
+    }
+  }
+
   return {
     globalRoot: path.resolve(globalRoot),
     projectRoot: projectRoot ? path.resolve(projectRoot) : undefined,
+    chatAssetRoot,
   };
 }
 
@@ -69,7 +84,7 @@ export function isTargetOutsideScope(target: string): boolean {
     const insideProject = projectRoot ? isPathInside(projectRoot, absPath) : false;
     return !insideProject;
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -81,12 +96,18 @@ export function resolveToolWorkdir(input: {
     const resolved = resolveToolPath({ target: input.workdir });
     return { cwd: resolved.absPath, rootLabel: resolved.rootLabel };
   }
-  const { globalRoot, projectRoot } = resolveToolRoots();
-  const cwd = projectRoot ?? globalRoot;
-  return {
-    cwd,
-    rootLabel: projectRoot ? "project" : "external",
-  };
+  const { globalRoot, projectRoot, chatAssetRoot } = resolveToolRoots();
+  if (projectRoot) {
+    return { cwd: projectRoot, rootLabel: "project" };
+  }
+  // 全局对话：使用 chat asset 目录作为默认 cwd
+  if (chatAssetRoot) {
+    if (!fsSync.existsSync(chatAssetRoot)) {
+      fsSync.mkdirSync(chatAssetRoot, { recursive: true });
+    }
+    return { cwd: chatAssetRoot, rootLabel: "external" };
+  }
+  return { cwd: globalRoot, rootLabel: "external" };
 }
 
 /**
@@ -118,6 +139,8 @@ export async function ensureTempProject(): Promise<{
   // so messages written before temp project creation are not orphaned.
   if (sessionId) {
     await migrateSessionDirToProject(sessionId, temp.projectId);
+    // Sync the new projectId to DB so ChatSession.projectId is no longer null.
+    await updateSessionProjectId({ sessionId, projectId: temp.projectId });
   }
 
   // Notify frontend about the temp project creation

@@ -1208,6 +1208,38 @@ class SettingRouterImpl extends BaseSettingRouter {
           writeMemoryFile(rootPath, input.content);
           return { ok: true };
         }),
+      /** Clear all memory files by scope. */
+      clearAllMemory: shieldedProcedure
+        .input(settingSchemas.clearAllMemory.input)
+        .output(settingSchemas.clearAllMemory.output)
+        .mutation(async ({ input }) => {
+          const scope = input?.scope ?? 'user';
+          let rootPath: string | undefined;
+          if (scope === 'user') {
+            rootPath = getOpenLoafRootDir();
+          } else {
+            rootPath = input?.projectId
+              ? getProjectRootPath(input.projectId) ?? undefined
+              : undefined;
+          }
+          if (!rootPath) return { ok: false, deletedCount: 0 };
+          const memoryDirPath = resolveMemoryDir(rootPath);
+          try {
+            const entries = await fs.readdir(memoryDirPath);
+            let deletedCount = 0;
+            for (const entry of entries) {
+              const fullPath = path.join(memoryDirPath, entry);
+              const stat = await fs.stat(fullPath);
+              if (stat.isFile()) {
+                await fs.unlink(fullPath);
+                deletedCount++;
+              }
+            }
+            return { ok: true, deletedCount };
+          } catch {
+            return { ok: true, deletedCount: 0 };
+          }
+        }),
       /** Get skills for a sub-agent by name. */
       getAgentSkillsByName: shieldedProcedure
         .input(settingSchemas.getAgentSkillsByName.input)

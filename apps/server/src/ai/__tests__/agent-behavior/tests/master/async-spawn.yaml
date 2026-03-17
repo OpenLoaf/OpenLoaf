@@ -1,0 +1,167 @@
+# ════════════════════════════════════════════════════════════════
+# Layer 3: Master Agent 异步 spawn 行为测试（Promptfoo）
+#
+# 验证 Master 的 spawn-不-wait 行为模式：
+# - 复杂任务时使用 spawn-agent
+# - spawn 后不调用 wait-agent，直接文本回复
+# - 回复包含"已安排"类似的确认语
+# - 简单任务时不 spawn
+# - 收到 task-report 后能正确引用
+# ════════════════════════════════════════════════════════════════
+
+# ── async-001: 复杂任务应 spawn 子 Agent ──
+- description: "async-001: 复杂代码分析任务应 spawn 子 Agent"
+  vars:
+    prompt: |
+      帮我分析 src/ai/services/ 目录下所有 TypeScript 文件的代码结构，
+      总结每个模块的职责、依赖关系、以及潜在的重构点。输出一份详细报告。
+  assert:
+    - type: javascript
+      weight: 3
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('spawn-agent')
+          ? { pass: true, score: 1, reason: '正确调用了 spawn-agent' }
+          : { pass: false, score: 0, reason: `复杂分析任务应 spawn 子 Agent，实际: [${tools}]` };
+    - type: javascript
+      weight: 3
+      metric: async_spawn_no_wait
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        const hasSpawn = tools.includes('spawn-agent');
+        const hasWait = tools.includes('wait-agent');
+        if (!hasSpawn) {
+          return { pass: false, score: 0, reason: '未调用 spawn-agent' };
+        }
+        // 异步方案核心验证：spawn 后不应 wait
+        return !hasWait
+          ? { pass: true, score: 1, reason: 'spawn 后未调用 wait-agent（异步正确行为）' }
+          : { pass: false, score: 0, reason: 'spawn 后不应调用 wait-agent（应异步执行）' };
+
+# ── async-002: Master spawn 后应直接文本回复 ──
+- description: "async-002: Master spawn 后应直接文本回复确认"
+  vars:
+    prompt: |
+      帮我调研一下当前项目的测试覆盖情况，包括单元测试、集成测试、E2E 测试的分布，
+      找出覆盖不足的模块，并给出改进建议。
+  assert:
+    - type: javascript
+      weight: 2
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('spawn-agent')
+          ? { pass: true, score: 1, reason: '正确 spawn 子 Agent' }
+          : { pass: false, score: 0, reason: `应 spawn 调研子 Agent，实际: [${tools}]` };
+    - type: llm-rubric
+      weight: 2
+      metric: async_reply_quality
+      value: |
+        Master Agent 应在 spawn 子 Agent 后立即给用户一个简短的确认回复，表示已安排任务。
+        回复应当：
+        1. 明确告知用户任务已被安排/委派给子 Agent
+        2. 简要说明子 Agent 会做什么
+        3. 不应说"请等待"或暗示需要长时间等待（因为是异步的）
+        4. 语气自然友好
+
+# ── async-003: spawn 后的文本包含确认语 ──
+- description: "async-003: spawn 后的文本回复包含任务确认"
+  vars:
+    prompt: |
+      帮我重构 utils/dateHelper.ts，把所有 moment.js 调用替换为 dayjs。
+  assert:
+    - type: javascript
+      weight: 2
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('spawn-agent')
+          ? { pass: true, score: 1, reason: '正确 spawn 子 Agent' }
+          : { pass: false, score: 0, reason: `重构任务应 spawn，实际: [${tools}]` };
+    - type: javascript
+      weight: 2
+      metric: async_confirmation_text
+      value: |
+        const output = context.providerResponse?.output || '';
+        // 检查回复中是否包含确认类关键词
+        const confirmPatterns = [
+          /已安排|已分配|已派|已委托|已指派/,
+          /arranged|delegated|assigned|dispatched/i,
+          /子代理|子 Agent|子agent/i,
+          /后台|异步|background/i,
+          /会为你|将为你|将会/,
+        ];
+        const hasConfirm = confirmPatterns.some((p) => p.test(output));
+        return hasConfirm
+          ? { pass: true, score: 1, reason: '回复包含任务确认语' }
+          : { pass: false, score: 0, reason: `回复应包含"已安排"类确认语，实际: "${output.slice(0, 200)}"` };
+
+# ── async-004: 简单任务不应 spawn ──
+- description: "async-004: 简单问答不应 spawn 子 Agent"
+  vars:
+    prompt: "现在几点了？"
+  assert:
+    - type: javascript
+      weight: 3
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('spawn-agent')
+          ? { pass: true, score: 1, reason: '简单问题未 spawn（正确）' }
+          : { pass: false, score: 0, reason: '简单时间查询不应 spawn 子 Agent' };
+    - type: javascript
+      weight: 2
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('time-now')
+          ? { pass: true, score: 1, reason: '正确直接调用 time-now' }
+          : { pass: false, score: 0, reason: `应直接调用 time-now，实际: [${tools}]` };
+
+- description: "async-005: 简单文件读取不应 spawn"
+  vars:
+    prompt: "读一下 README.md 的内容"
+  assert:
+    - type: javascript
+      weight: 3
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('spawn-agent')
+          ? { pass: true, score: 1, reason: '简单文件读取未 spawn（正确）' }
+          : { pass: false, score: 0, reason: '简单文件读取不应 spawn 子 Agent' };
+
+- description: "async-006: 简单创建任务不应 spawn"
+  vars:
+    prompt: "帮我创建一个任务：下午三点开会"
+  assert:
+    - type: javascript
+      weight: 3
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('spawn-agent')
+          ? { pass: true, score: 1, reason: '简单任务创建未 spawn（正确）' }
+          : { pass: false, score: 0, reason: '简单任务创建不应 spawn 子 Agent' };
+
+# ── async-007: 收到 task-report 后能正确引用 ──
+- description: "async-007: Master 收到 task-report 后能引用结果"
+  vars:
+    turns: |
+      [
+        {"text": "帮我分析一下 src/utils/ 目录的代码结构"},
+        {"text": "[Task Complete] Agent \"coder\" (agent_abc): 分析完成。src/utils/ 目录包含 8 个文件：dateHelper.ts 处理日期格式化、stringUtils.ts 处理字符串操作、fileHelper.ts 处理文件读写、validator.ts 数据校验、logger.ts 日志工具、config.ts 配置管理、crypto.ts 加密工具、cache.ts 缓存管理。其中 dateHelper.ts 仍在使用 moment.js，建议迁移到 dayjs。"}
+      ]
+    prompt: "多轮：spawn 后收到 task-report"
+  assert:
+    - type: llm-rubric
+      weight: 2
+      metric: output_quality
+      value: |
+        用户第二条消息是一个 task-report（子 Agent 完成报告）。
+        Master 的回复应当：
+        1. 识别这是子 Agent 的完成报告
+        2. 引用或总结报告中的关键发现（如 8 个文件、moment.js 迁移建议等）
+        3. 不应假装自己做了分析
+        4. 可以主动提供下一步建议

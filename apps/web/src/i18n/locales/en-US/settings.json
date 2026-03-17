@@ -179,7 +179,12 @@
     "saving": "Saving...",
     "saved": "Memory saved",
     "loading": "Loading...",
-    "empty": "No memory content yet. Click edit to start adding."
+    "empty": "No memory content yet. Click edit to start adding.",
+    "clearAll": "Clear All Memory",
+    "clearAllTitle": "Clear All Memory",
+    "clearAllDescription": "This will permanently delete all memory files, including the MEMORY.md index and all topic memories. This action cannot be undone.",
+    "clearing": "Clearing...",
+    "confirmClear": "Confirm Clear"
   },
   "thirdPartyTools": {
     "title": "Third-Party Tools",

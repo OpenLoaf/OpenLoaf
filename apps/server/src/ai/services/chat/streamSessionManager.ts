@@ -13,7 +13,7 @@ import { logger } from '@/common/logger'
 export type StreamSessionStatus = 'streaming' | 'completed' | 'error' | 'aborted'
 
 export type StreamEvent =
-  | { type: 'chunk'; chunk: unknown; index: number }
+  | { type: 'chunk'; chunk: unknown }
   | { type: 'complete' }
   | { type: 'error'; message: string }
   | { type: 'aborted' }
@@ -24,12 +24,19 @@ export type StreamSession = {
   sessionId: string
   assistantMessageId: string
   status: StreamSessionStatus
-  chunks: unknown[]
   abortController: AbortController
   listeners: Set<StreamListener>
   createdAt: number
   completedAt?: number
   errorMessage?: string
+  /**
+   * 首次连接前的临时缓冲区。
+   * 解决 POST 返回 → GET /stream 连接之间的竞态：
+   * 无 listener 时暂存 chunks，第一个 subscriber 连接时 flush 并清空。
+   */
+  pendingBuffer: unknown[]
+  /** 是否已有 subscriber 消费过缓冲区。 */
+  bufferFlushed: boolean
 }
 
 /** 已完成 session 的保留时长 (ms)。 */
@@ -59,10 +66,11 @@ class StreamSessionManager {
       sessionId,
       assistantMessageId,
       status: 'streaming',
-      chunks: [],
       abortController: new AbortController(),
       listeners: new Set(),
       createdAt: Date.now(),
+      pendingBuffer: [],
+      bufferFlushed: false,
     }
     this.sessions.set(sessionId, session)
     return session
@@ -72,12 +80,18 @@ class StreamSessionManager {
     return this.sessions.get(sessionId)
   }
 
+  /** 推送 chunk：有 listener 时实时转发，否则暂存到 pendingBuffer。 */
   pushChunk(sessionId: string, chunk: unknown): void {
     const session = this.sessions.get(sessionId)
     if (!session || session.status !== 'streaming') return
-    const index = session.chunks.length
-    session.chunks.push(chunk)
-    const event: StreamEvent = { type: 'chunk', chunk, index }
+
+    // 无 listener 且未 flush 过 → 暂存，等首个 subscriber 连接时 flush
+    if (session.listeners.size === 0 && !session.bufferFlushed) {
+      session.pendingBuffer.push(chunk)
+      return
+    }
+
+    const event: StreamEvent = { type: 'chunk', chunk }
     for (const listener of session.listeners) {
       try {
         listener(event)
@@ -87,40 +101,33 @@ class StreamSessionManager {
     }
   }
 
+  /**
+   * 订阅实时事件。首次订阅时自动 flush pendingBuffer。
+   * 返回取消订阅函数。
+   */
   subscribe(sessionId: string, listener: StreamListener): () => void {
     const session = this.sessions.get(sessionId)
     if (!session) return () => {}
-    session.listeners.add(listener)
-    return () => {
-      session.listeners.delete(listener)
-    }
-  }
 
-  /**
-   * 原子性订阅：先重放 chunks[offset:]，再订阅后续事件。
-   * 保证在重放和订阅之间不会遗漏任何 chunk。
-   */
-  subscribeFromOffset(
-    sessionId: string,
-    offset: number,
-    listener: StreamListener,
-  ): () => void {
-    const session = this.sessions.get(sessionId)
-    if (!session) return () => {}
-
-    // 先添加 listener（确保新 chunk 不遗漏）
+    // 先注册 listener（确保 flush 期间的并发 pushChunk 不遗漏）
     session.listeners.add(listener)
 
-    // 再重放 chunks[offset:]（同步执行，不会与 pushChunk 交错）
-    for (let i = offset; i < session.chunks.length; i++) {
-      try {
-        listener({ type: 'chunk', chunk: session.chunks[i], index: i })
-      } catch (err) {
-        logger.warn({ err, sessionId }, '[streamSession] listener error on replay')
+    // 首次订阅：flush pendingBuffer
+    if (!session.bufferFlushed && session.pendingBuffer.length > 0) {
+      session.bufferFlushed = true
+      const buffered = session.pendingBuffer.splice(0)
+      for (const chunk of buffered) {
+        try {
+          listener({ type: 'chunk', chunk })
+        } catch (err) {
+          logger.warn({ err, sessionId }, '[streamSession] listener error on buffer flush')
+        }
       }
+    } else {
+      session.bufferFlushed = true
     }
 
-    // 如果已结束，立即通知
+    // 如果流已结束，立即通知
     if (session.status !== 'streaming') {
       try {
         if (session.status === 'completed') {

@@ -126,24 +126,20 @@ export const MESSAGE_FILE_CLASSNAME = cn(
   "flex flex-wrap gap-2",
 );
 
-/** Wrap content in motion.div when animation is needed, plain div otherwise. */
+/** Wrap content in motion.div. Always use motion.div to prevent element-type
+ *  switching (div ↔ motion.div) which causes React to unmount/remount the
+ *  subtree and replay the entrance animation — visible as content "disappearing"
+ *  then fading back in when isAnimating toggles on a historical message. */
 function wrapPart(
   key: string,
   className: string | undefined,
   children: React.ReactNode,
   motionProps?: React.ComponentProps<typeof motion.div>,
 ): React.ReactNode {
-  if (motionProps) {
-    return (
-      <motion.div key={key} className={className} {...motionProps}>
-        {children}
-      </motion.div>
-    );
-  }
   return (
-    <div key={key} className={className}>
+    <motion.div key={key} className={className} {...(motionProps ?? {})}>
       {children}
-    </div>
+    </motion.div>
   );
 }
 

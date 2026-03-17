@@ -174,6 +174,31 @@ export function handleBranchSnapshotDataPart(input: {
   return true;
 }
 
+/**
+ * Handle `data-temp-project` data part.
+ *
+ * When the backend creates a temporary project during a global chat
+ * (via `ensureTempProject()`), it emits this event so the frontend
+ * can update its params / context to the newly created project.
+ *
+ * Returns `true` if the data part was consumed.
+ */
+export function handleTempProjectDataPart(input: {
+  dataPart: any;
+  onTempProject?: (data: { projectId: string; projectRoot: string; isTemp: boolean }) => void;
+}): boolean {
+  if (input.dataPart?.type !== "data-temp-project") return false;
+  const data = input.dataPart?.data;
+  if (!data || typeof data !== "object") return true;
+
+  const projectId = typeof data.projectId === "string" ? data.projectId : "";
+  const projectRoot = typeof data.projectRoot === "string" ? data.projectRoot : "";
+  if (!projectId) return true;
+
+  input.onTempProject?.({ projectId, projectRoot, isTemp: Boolean(data.isTemp) });
+  return true;
+}
+
 /** Handle media generate data parts from SSE stream. */
 export function handleMediaGenerateDataPart(input: {
   dataPart: any;

@@ -428,7 +428,6 @@ async function main() {
 
     const session = streamSessionManager.get(sessionId)!
     assert.equal(session.status, 'completed')
-    assert.equal(session.chunks.length, 3)
   })
 
   await test('回归: 幂等性仍应生效', async () => {
@@ -456,7 +455,7 @@ async function main() {
       executeFn,
     })
 
-    await waitFor(() => (streamSessionManager.get(sessionId)?.chunks.length ?? 0) > 0)
+    await waitFor(() => streamSessionManager.get(sessionId)?.status === 'streaming')
 
     const r2 = await startChatStreamAsync({
       request: { sessionId, messages: [] },
@@ -496,7 +495,7 @@ async function main() {
       executeFn,
     })
 
-    await waitFor(() => (streamSessionManager.get(sessionId)?.chunks.length ?? 0) > 0)
+    await waitFor(() => streamSessionManager.get(sessionId)?.status === 'streaming')
 
     assert.ok(capturedSignal)
     assert.equal(capturedSignal!.aborted, false)

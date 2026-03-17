@@ -405,6 +405,19 @@ export const settingSchemas = {
       ok: z.boolean(),
     }),
   },
+  /** Clear all memory files by scope ('user' = global, 'project' = project-level). */
+  clearAllMemory: {
+    input: z
+      .object({
+        scope: z.enum(['user', 'project']).default('user'),
+        projectId: z.string().optional(),
+      })
+      .optional(),
+    output: z.object({
+      ok: z.boolean(),
+      deletedCount: z.number(),
+    }),
+  },
   /** Get skills for a sub-agent by name. */
   getAgentSkillsByName: {
     input: z.object({
@@ -836,6 +849,12 @@ export abstract class BaseSettingRouter {
       saveMemory: shieldedProcedure
         .input(settingSchemas.saveMemory.input)
         .output(settingSchemas.saveMemory.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      clearAllMemory: shieldedProcedure
+        .input(settingSchemas.clearAllMemory.input)
+        .output(settingSchemas.clearAllMemory.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

@@ -175,6 +175,11 @@ function normalizeGlobalScopedPath(value: string): string {
   if (normalized.startsWith(GLOBAL_META_PREFIX)) {
     return normalized.slice(GLOBAL_META_PREFIX.length);
   }
+  // 防止路径穿越：检查 normalized 的各段是否包含 ".."
+  const segments = normalized.split("/");
+  if (segments.some((s) => s === "..")) {
+    throw new Error("Path traversal is not allowed.");
+  }
   return normalized;
 }
 

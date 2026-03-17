@@ -31,7 +31,6 @@ type AsyncTransportOptions = {
 
 type AsyncSessionStatus = {
   status: 'streaming' | 'completed' | 'error' | 'aborted' | 'not_found'
-  chunkCount: number
   assistantMessageId: string
 }
 
@@ -57,11 +56,12 @@ export function createChatTransportAsync({
   tabIdRef,
   sessionIdRef,
 }: AsyncTransportOptions): ChatTransport<UIMessage> {
-  const serverUrl = resolveServerUrl()
-  const asyncBase = `${serverUrl}/ai/chat/async`
+  // 延迟解析 serverUrl，避免 Electron runtime 未初始化时拿到空字符串
+  const getAsyncBase = () => `${resolveServerUrl()}/ai/chat/async`
 
   return {
     async sendMessages({ messages, body, abortSignal, headers: extraHeaders }) {
+      const asyncBase = getAsyncBase()
       const accessToken = await getAccessToken()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -112,6 +112,7 @@ export function createChatTransportAsync({
       const startRes = await fetch(asyncBase, {
         method: 'POST',
         headers,
+        credentials: 'include',
         body: JSON.stringify(payload),
         signal: abortSignal,
       })
@@ -130,13 +131,13 @@ export function createChatTransportAsync({
       return createChunkStream({
         asyncBase,
         sessionId,
-        offset: 0,
         headers,
         abortSignal,
       })
     },
 
     async reconnectToStream({ chatId, headers: extraHeaders }) {
+      const asyncBase = getAsyncBase()
       const accessToken = await getAccessToken()
       const headers: Record<string, string> = {
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
@@ -148,7 +149,7 @@ export function createChatTransportAsync({
       // 检查是否有活跃的 async stream
       const statusRes = await fetch(
         `${asyncBase}/status?sessionId=${encodeURIComponent(chatId)}`,
-        { headers },
+        { headers, credentials: 'include' },
       )
       if (!statusRes.ok) return null
       const status = await statusRes.json() as AsyncSessionStatus
@@ -158,47 +159,65 @@ export function createChatTransportAsync({
       return createChunkStream({
         asyncBase,
         sessionId: chatId,
-        offset: 0,
         headers,
       })
     },
   }
 }
 
-/** 创建一个将 SSE 流转换为 UIMessageChunk 的 ReadableStream。 */
-function createChunkStream(input: {
+/** 创建一个将 SSE 流转换为 UIMessageChunk 的 ReadableStream。@internal — exported for testing */
+export function createChunkStream(input: {
   asyncBase: string
   sessionId: string
-  offset: number
   headers: Record<string, string>
   abortSignal?: AbortSignal
 }): ReadableStream<UIMessageChunk> {
   const { asyncBase, sessionId, headers, abortSignal } = input
-  let offset = input.offset
 
   return new ReadableStream<UIMessageChunk>({
     async start(controller) {
+      // 追踪最后一个 text part 的内容，用于错误消息提取。
+      let lastTextContent = ''
+      let errored = false
+
       try {
         await consumeSseStream({
           asyncBase,
           sessionId,
-          offset,
           headers,
           abortSignal,
           attempt: 0,
           onChunk(chunk: unknown) {
+            if (errored) return
+            const c = chunk as Record<string, unknown>
+
+            // 每个新 text part 重置累积内容
+            if (c?.type === 'text-start') {
+              lastTextContent = ''
+            }
+            if (c?.type === 'text-delta' && typeof c?.delta === 'string') {
+              lastTextContent += c.delta
+            }
+
+            // 检测 finish(finishReason: "error") — 主动让 ReadableStream 报错，
+            // 使 useChat 设置 chat.error，前端渲染为错误卡片而非普通消息。
+            if (c?.type === 'finish' && c?.finishReason === 'error') {
+              errored = true
+              controller.error(new Error(lastTextContent || 'AI request failed'))
+              return
+            }
+
             controller.enqueue(chunk as UIMessageChunk)
-            offset++
           },
           onDone() {
-            controller.close()
+            if (!errored) controller.close()
           },
           onError(err: Error) {
-            controller.error(err)
+            if (!errored) controller.error(err)
           },
         })
       } catch (err) {
-        controller.error(err)
+        if (!errored) controller.error(err)
       }
     },
     cancel() {
@@ -208,11 +227,10 @@ function createChunkStream(input: {
   })
 }
 
-/** 消费 SSE 流，支持断线重连。 */
-async function consumeSseStream(input: {
+/** 消费 SSE 流，支持断线重连。@internal — exported for testing */
+export async function consumeSseStream(input: {
   asyncBase: string
   sessionId: string
-  offset: number
   headers: Record<string, string>
   abortSignal?: AbortSignal
   attempt: number
@@ -224,12 +242,12 @@ async function consumeSseStream(input: {
     asyncBase, sessionId, headers, abortSignal,
     onChunk, onDone, onError,
   } = input
-  let { offset, attempt } = input
+  let { attempt } = input
 
-  const streamUrl = `${asyncBase}/stream?sessionId=${encodeURIComponent(sessionId)}&offset=${offset}`
+  const streamUrl = `${asyncBase}/stream?sessionId=${encodeURIComponent(sessionId)}`
   let response: Response
   try {
-    response = await fetch(streamUrl, { headers, signal: abortSignal })
+    response = await fetch(streamUrl, { headers, credentials: 'include', signal: abortSignal })
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
       onDone()
@@ -238,7 +256,7 @@ async function consumeSseStream(input: {
     if (attempt < MAX_RECONNECT_ATTEMPTS) {
       const delay = BASE_RECONNECT_DELAY_MS * 2 ** attempt
       await new Promise((r) => setTimeout(r, delay))
-      return consumeSseStream({ ...input, offset, attempt: attempt + 1 })
+      return consumeSseStream({ ...input, attempt: attempt + 1 })
     }
     onError(err instanceof Error ? err : new Error(String(err)))
     return
@@ -262,6 +280,7 @@ async function consumeSseStream(input: {
   const reader = body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let hasReceivedData = false
 
   try {
     while (true) {
@@ -281,7 +300,7 @@ async function consumeSseStream(input: {
         try {
           const chunk = JSON.parse(trimmed.slice(6))
           onChunk(chunk)
-          offset++
+          hasReceivedData = true
         } catch {}
       }
     }
@@ -293,11 +312,12 @@ async function consumeSseStream(input: {
 
     reader.releaseLock()
 
-    // 断线重连
-    if (attempt < MAX_RECONNECT_ATTEMPTS) {
-      const delay = BASE_RECONNECT_DELAY_MS * 2 ** attempt
+    // 成功读取数据后重置 attempt，确保长流多次断线不会耗尽重连次数
+    const nextAttempt = hasReceivedData ? 0 : attempt + 1
+    if (nextAttempt < MAX_RECONNECT_ATTEMPTS) {
+      const delay = BASE_RECONNECT_DELAY_MS * 2 ** nextAttempt
       await new Promise((r) => setTimeout(r, delay))
-      return consumeSseStream({ ...input, offset, attempt: attempt + 1 })
+      return consumeSseStream({ ...input, attempt: nextAttempt })
     }
 
     onError(err instanceof Error ? err : new Error(String(err)))
@@ -333,6 +353,7 @@ export async function abortAsyncStream(sessionId: string): Promise<void> {
     const accessToken = await getAccessToken()
     await fetch(`${serverUrl}/ai/chat/async/abort`, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),

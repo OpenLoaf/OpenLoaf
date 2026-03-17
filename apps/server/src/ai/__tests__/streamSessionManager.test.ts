@@ -50,7 +50,6 @@ async function main() {
     assert.equal(session.sessionId, id)
     assert.equal(session.assistantMessageId, 'msg-1')
     assert.equal(session.status, 'streaming')
-    assert.equal(session.chunks.length, 0)
     assert.ok(session.abortController instanceof AbortController)
     assert.ok(session.listeners instanceof Set)
     assert.ok(session.createdAt > 0)
@@ -89,26 +88,6 @@ async function main() {
   })
 
   // ── pushChunk ──
-  await test('pushChunk: 追加 chunk 到 session', () => {
-    const id = uniqueId()
-    streamSessionManager.create(id, 'msg-1')
-    streamSessionManager.pushChunk(id, { type: 'text-delta', delta: 'hello' })
-    streamSessionManager.pushChunk(id, { type: 'text-delta', delta: ' world' })
-    const session = streamSessionManager.get(id)!
-    assert.equal(session.chunks.length, 2)
-    assert.deepEqual(session.chunks[0], { type: 'text-delta', delta: 'hello' })
-    assert.deepEqual(session.chunks[1], { type: 'text-delta', delta: ' world' })
-  })
-
-  await test('pushChunk: 非 streaming 状态时忽略', () => {
-    const id = uniqueId()
-    streamSessionManager.create(id, 'msg-1')
-    streamSessionManager.complete(id)
-    streamSessionManager.pushChunk(id, { type: 'text-delta', delta: 'ignored' })
-    const session = streamSessionManager.get(id)!
-    assert.equal(session.chunks.length, 0)
-  })
-
   await test('pushChunk: 通知 listeners', () => {
     const id = uniqueId()
     streamSessionManager.create(id, 'msg-1')
@@ -118,8 +97,21 @@ async function main() {
     streamSessionManager.pushChunk(id, { type: 'start', messageId: 'msg-1' })
     assert.equal(received.length, 1)
     assert.equal(received[0]!.type, 'chunk')
-    assert.equal((received[0]! as any).index, 0)
     assert.deepEqual((received[0]! as any).chunk, { type: 'start', messageId: 'msg-1' })
+  })
+
+  await test('pushChunk: 非 streaming 状态时忽略', () => {
+    const id = uniqueId()
+    streamSessionManager.create(id, 'msg-1')
+    const received: StreamEvent[] = []
+    streamSessionManager.subscribe(id, (event) => received.push(event))
+    streamSessionManager.complete(id)
+
+    // complete 之后 listeners 已被清空，再 push 不会有事件
+    streamSessionManager.pushChunk(id, { type: 'text-delta', delta: 'ignored' })
+    // received 应只有 complete 事件
+    assert.equal(received.length, 1)
+    assert.equal(received[0]!.type, 'complete')
   })
 
   // ── subscribe / unsubscribe ──
@@ -302,9 +294,8 @@ async function main() {
     streamSessionManager.pushChunk(id, { type: 'finish', finishReason: 'stop' })
     streamSessionManager.complete(id)
 
-    // 验证 chunks 缓冲
+    // 验证 session 状态
     const session = streamSessionManager.get(id)!
-    assert.equal(session.chunks.length, 4)
     assert.equal(session.status, 'completed')
 
     // 验证 events 完整
@@ -313,40 +304,42 @@ async function main() {
     assert.equal(allEvents[4]!.type, 'complete')
   })
 
-  await test('E2E: 断连重放 — offset 续接', () => {
+  await test('E2E: 断连后重连 — 只接收实时 chunks', () => {
     const id = uniqueId()
-    const session = streamSessionManager.create(id, 'msg-1')
+    streamSessionManager.create(id, 'msg-1')
 
-    // 写入一些 chunks
+    // 写入一些 chunks（无 listener，模拟前端已断连）
     streamSessionManager.pushChunk(id, { type: 'start', messageId: 'msg-1' })
     streamSessionManager.pushChunk(id, { type: 'text-delta', delta: 'A' })
     streamSessionManager.pushChunk(id, { type: 'text-delta', delta: 'B' })
 
-    // 模拟第一个 client 连接并消费了 offset=0..1
-    // 第二个 client 从 offset=2 重连
-    const replayChunks = session.chunks.slice(2)
-    assert.equal(replayChunks.length, 1)
-    assert.deepEqual(replayChunks[0], { type: 'text-delta', delta: 'B' })
-
-    // 新 listener 从 offset=3 开始接收
+    // 新 listener 重连 — 只会收到后续的实时 chunks，不重放历史
     const lateEvents: StreamEvent[] = []
     streamSessionManager.subscribe(id, (event) => lateEvents.push(event))
 
     streamSessionManager.pushChunk(id, { type: 'text-delta', delta: 'C' })
     assert.equal(lateEvents.length, 1)
-    assert.equal((lateEvents[0] as any).index, 3)
+    assert.equal((lateEvents[0] as any).chunk.delta, 'C')
   })
 
   await test('E2E: abort 后 pushChunk 无效', () => {
     const id = uniqueId()
     streamSessionManager.create(id, 'msg-1')
+
+    const events: StreamEvent[] = []
+    streamSessionManager.subscribe(id, (event) => events.push(event))
+
     streamSessionManager.pushChunk(id, { type: 'start', messageId: 'msg-1' })
+    assert.equal(events.length, 1)
 
     streamSessionManager.abort(id)
-    streamSessionManager.pushChunk(id, { type: 'text-delta', delta: 'ignored' })
+    // abort 通知也进入 events
+    assert.equal(events.length, 2)
+    assert.equal(events[1]!.type, 'aborted')
 
-    const session = streamSessionManager.get(id)!
-    assert.equal(session.chunks.length, 1, 'abort 后不再追加 chunk')
+    // abort 后 push 无效（listeners 已清空且状态不是 streaming）
+    streamSessionManager.pushChunk(id, { type: 'text-delta', delta: 'ignored' })
+    assert.equal(events.length, 2, 'abort 后不再有新事件')
   })
 
   // ── 打印结果 ──

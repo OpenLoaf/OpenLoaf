@@ -179,7 +179,12 @@
     "saving": "儲存中...",
     "saved": "記憶已儲存",
     "loading": "載入中...",
-    "empty": "暫無記憶內容，點擊編輯開始新增。"
+    "empty": "暫無記憶內容，點擊編輯開始新增。",
+    "clearAll": "清除所有記憶",
+    "clearAllTitle": "清除所有記憶",
+    "clearAllDescription": "此操作將永久刪除所有記憶檔案，包括 MEMORY.md 索引和所有主題記憶。此操作不可撤銷。",
+    "clearing": "清除中...",
+    "confirmClear": "確認清除"
   },
   "thirdPartyTools": {
     "title": "第三方工具",

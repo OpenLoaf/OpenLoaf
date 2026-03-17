@@ -18,7 +18,6 @@ import { useAppView } from "@/hooks/use-app-view";
 import { useChatRuntime, type ToolPartSnapshot } from "@/hooks/use-chat-runtime";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { createChatTransport } from "@/lib/ai/transport";
-import { createChatTransportAsync } from "@/lib/ai/transport-async";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { getCachedAccessToken, refreshAccessToken } from "@/lib/saas-auth";
@@ -27,6 +26,7 @@ import type { ImageGenerateOptions } from "@openloaf/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
 import type { ClaudeCodeOptions } from "@/lib/chat/claude-code-options";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
+import { getProjectsQueryKey } from "@/hooks/use-projects";
 import { incrementChatPerf } from "@/lib/chat/chat-perf";
 import { isHiddenToolPart } from "@/lib/chat/message-parts";
 import type { ChatAttachmentInput, MaskedAttachmentInput } from "./input/chat-attachments";
@@ -49,6 +49,7 @@ import {
   handleStepThinkingDataPart,
   handleBranchSnapshotDataPart,
   handleMediaGenerateDataPart,
+  handleTempProjectDataPart,
 } from "./utils/chat-data-handlers";
 import { isSaasUnauthorizedErrorMessage } from "./utils/message-predicates";
 
@@ -157,16 +158,11 @@ export default function ChatCoreProvider({
     [tabId, upsertToolPart]
   );
 
-  // Feature flag: 使用 async transport（后端持久化 LLM 流，支持断线重连）
-  // TODO: 待通过设置项控制，当前默认关闭
-  const useAsyncTransport = false
-  const transport = React.useMemo(() => {
-    if (useAsyncTransport) {
-      return createChatTransportAsync({ paramsRef, tabIdRef, sessionIdRef })
-    }
-    return createChatTransport({ paramsRef, tabIdRef, sessionIdRef });
+  const transport = React.useMemo(
+    () => createChatTransport({ paramsRef, tabIdRef, sessionIdRef }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useAsyncTransport]);
+    [],
+  );
 
   // ── Branch snapshot ──
   const branchSnapshot = useBranchSnapshot(sessionId);
@@ -276,6 +272,19 @@ export default function ChatCoreProvider({
           }
           return;
         }
+        if (
+          handleTempProjectDataPart({
+            dataPart,
+            onTempProject: ({ projectId: newProjectId }) => {
+              // 更新 paramsRef，使后续 transport 请求携带新的 projectId
+              paramsRef.current = { ...(paramsRef.current ?? {}), projectId: newProjectId };
+              // 刷新项目列表，使侧栏显示新创建的临时项目
+              void queryClient.invalidateQueries({ queryKey: getProjectsQueryKey() });
+              // 刷新会话列表，因为会话现在关联到了新项目
+              invalidateChatSessions(queryClient);
+            },
+          })
+        ) return;
         if (
           handleBranchSnapshotDataPart({
             dataPart,
