@@ -58,9 +58,11 @@ import { subAgentToolDef } from "./subAgent";
 import { taskManageToolDef, taskStatusToolDef } from "./task";
 import { imageProcessToolDef } from "./imageProcess";
 import { videoConvertToolDef } from "./videoConvert";
+import { videoDownloadToolDef } from "./videoDownload";
 import { docConvertToolDef } from "./docConvert";
 import { fileInfoToolDef } from "./fileInfo";
 import { webSearchToolDef } from "./webSearch";
+import { webFetchToolDef } from "./webFetch";
 import { toolSearchToolDef } from "./toolSearch";
 import { memorySearchToolDef, memoryGetToolDef } from "./memory";
 import { loadSkillToolDef } from "./skill";
@@ -134,9 +136,11 @@ const TOOL_DEFS: ToolDefLike[] = [
   taskStatusToolDef,
   imageProcessToolDef,
   videoConvertToolDef,
+  videoDownloadToolDef,
   docConvertToolDef,
   fileInfoToolDef,
   webSearchToolDef,
+  webFetchToolDef,
   loadSkillToolDef,
   memorySearchToolDef,
   memoryGetToolDef,
@@ -215,9 +219,11 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'sub-agent': { keywords: ['agent', 'sub', 'delegate', 'dispatch', 'spawn'], group: 'agent' },
   'image-process': { keywords: ['image', 'picture', 'photo', 'resize', 'crop', 'rotate', 'convert', 'format', 'compress', 'sharp', 'jpg', 'png', 'webp'], group: 'convert' },
   'video-convert': { keywords: ['video', 'audio', 'convert', 'format', 'ffmpeg', 'mp4', 'mp3', 'extract', 'transcode'], group: 'convert' },
+  'video-download': { keywords: ['video', 'download', 'url', 'yt-dlp', 'save', 'clip', 'reel', 'movie'], group: 'media' },
   'doc-convert': { keywords: ['document', 'convert', 'format', 'docx', 'pdf', 'html', 'markdown', 'csv', 'xlsx', 'txt', 'transform', 'word', 'export', 'import', 'to'], group: 'convert' },
   'file-info': { keywords: ['file', 'info', 'metadata', 'size', 'type', 'mime', 'resolution', 'duration', 'pages', 'details', 'stat', 'width', 'height', 'image', 'picture', 'photo', 'video', 'audio', 'pdf', 'excel', 'spreadsheet'], group: 'fileRead' },
   'web-search': { keywords: ['search', 'web', 'internet', 'google', 'query', 'lookup', 'find', 'latest', 'news', 'information', 'online'], group: 'web' },
+  'web-fetch': { keywords: ['fetch', 'url', 'http', 'get', 'api', 'request', 'content', 'download', 'page', 'website'], group: 'web' },
   'load-skill': { keywords: ['skill', 'load', 'guide', 'expertise', 'knowledge'], group: 'core' },
   'memory-search': { keywords: ['memory', 'remember', 'recall', 'history', 'search', 'past'], group: 'memory' },
   'memory-get': { keywords: ['memory', 'read', 'get', 'detail', 'recall'], group: 'memory' },

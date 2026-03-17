@@ -18,6 +18,7 @@ import ClaudeCodeStatusBar from "./ClaudeCodeStatusBar";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { useChatSession } from "../context";
 import AssistantMessageHeader from "./AssistantMessageHeader";
+import { useBasicConfig } from "@/hooks/use-basic-config";
 
 interface MessageAiProps {
   /** Message data to render. */
@@ -34,6 +35,8 @@ interface MessageAiProps {
 
 export default React.memo(function MessageAi({ message, className, isAnimating, isLastAiMessage, showHeader = true }: MessageAiProps) {
   const { tabId } = useChatSession();
+  const { basic } = useBasicConfig();
+  const showAllToolResults = basic.chatShowAllToolResults;
   const messageParts = React.useMemo(() => {
     return Array.isArray(message.parts) ? (message.parts as any[]) : [];
   }, [message.parts]);
@@ -46,7 +49,7 @@ export default React.memo(function MessageAi({ message, className, isAnimating, 
       {showHeader && <AssistantMessageHeader message={message} />}
       <MessageContent className="min-w-0 w-full space-y-2">
         <MessagePlan metadata={message.metadata} parts={message.parts as unknown[]} />
-        <MessageParts parts={messageParts} options={{ isAnimating, messageId: message.id }} />
+        <MessageParts parts={messageParts} options={{ isAnimating, messageId: message.id, showAllToolResults }} />
         {showStatusBar && tabId && <ClaudeCodeStatusBar tabId={tabId} />}
       </MessageContent>
     </Message>

@@ -48,6 +48,7 @@ const MessageParts = React.memo(function MessageParts({
 }, (prev, next) => {
   // 流式输出期间始终重渲染，确保打字机效果正常
   if (prev.options?.isAnimating || next.options?.isAnimating) return false;
+  if (prev.options?.showAllToolResults !== next.options?.showAllToolResults) return false;
   return prev.parts === next.parts;
 });
 

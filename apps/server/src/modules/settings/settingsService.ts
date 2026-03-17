@@ -426,6 +426,10 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     typeof next.webSearchProvider === "string" ? next.webSearchProvider : current.webSearchProvider;
   const webSearchApiKey =
     typeof next.webSearchApiKey === "string" ? next.webSearchApiKey : current.webSearchApiKey;
+  const chatShowAllToolResults =
+    typeof next.chatShowAllToolResults === "boolean"
+      ? next.chatShowAllToolResults
+      : current.chatShowAllToolResults;
   const normalized: BasicConfig = {
     chatSource: next.chatSource === "cloud" ? "cloud" : "local",
     chatThinkingMode,
@@ -467,6 +471,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     cliTools,
     webSearchProvider,
     webSearchApiKey,
+    chatShowAllToolResults,
   };
   writeBasicConf(normalized);
   // Ensure the temp storage directory exists when changed.

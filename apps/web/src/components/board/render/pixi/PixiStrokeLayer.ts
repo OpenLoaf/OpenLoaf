@@ -34,6 +34,9 @@ export class PixiStrokeLayer {
   private theme: PixiThemeResolver
   private strokes = new Map<string, StrokeState>()
   private lastRevision = -1
+  private pendingFilterDestroy = new Set<AlphaFilter>()
+  private pendingFilterDestroyFrame: number | null = null
+  private destroyed = false
 
   constructor(
     engine: CanvasEngine,
@@ -47,6 +50,8 @@ export class PixiStrokeLayer {
 
   /** 同步笔画渲染与引擎状态 */
   sync(): void {
+    if (this.destroyed) return
+
     const snapshot = this.engine.getSnapshot()
     if (snapshot.docRevision === this.lastRevision) return
     this.lastRevision = snapshot.docRevision
@@ -95,7 +100,7 @@ export class PixiStrokeLayer {
     for (const [id, state] of this.strokes) {
       if (!currentIds.has(id)) {
         this.container.removeChild(state.graphics)
-        state.alphaFilter?.destroy()
+        this.detachFilter(state)
         state.graphics.destroy()
         this.strokes.delete(id)
       }
@@ -126,10 +131,11 @@ export class PixiStrokeLayer {
         const targetAlpha = opacity * 0.4
         const filter = existingFilter ?? new AlphaFilter({ alpha: targetAlpha })
         filter.alpha = targetAlpha
+        g.alpha = 1
         g.filters = [filter]
         this.updateStrokeFilter(element.id, filter)
       } else {
-        g.filters = []
+        this.releaseFilter(existingFilter, g)
         g.alpha = opacity
         this.updateStrokeFilter(element.id, null)
       }
@@ -171,10 +177,11 @@ export class PixiStrokeLayer {
       const targetAlpha = opacity * 0.8
       const filter = existingFilter ?? new AlphaFilter({ alpha: targetAlpha })
       filter.alpha = targetAlpha
+      g.alpha = 1
       g.filters = [filter]
       this.updateStrokeFilter(element.id, filter)
     } else {
-      g.filters = []
+      this.releaseFilter(existingFilter, g)
       g.alpha = opacity
       this.updateStrokeFilter(element.id, null)
     }
@@ -186,6 +193,47 @@ export class PixiStrokeLayer {
     if (state) {
       state.alphaFilter = filter
     }
+  }
+
+  /** Detach and release a stroke filter after the current frame finishes. */
+  private releaseFilter(
+    filter: AlphaFilter | null,
+    target: Graphics,
+  ): void {
+    target.filters = []
+    if (!filter) return
+
+    // 逻辑：先从 Graphics 上解绑 filter，再延后一帧销毁。
+    // 这样可以避开 PixiJS 当前帧仍在消费旧 filter 资源时的 BindGroup 空引用崩溃。
+    this.pendingFilterDestroy.add(filter)
+    if (this.pendingFilterDestroyFrame !== null || typeof window === 'undefined') {
+      if (typeof window === 'undefined') {
+        this.flushPendingFilterDestroy()
+      }
+      return
+    }
+
+    this.pendingFilterDestroyFrame = window.requestAnimationFrame(() => {
+      this.pendingFilterDestroyFrame = null
+      this.flushPendingFilterDestroy()
+    })
+  }
+
+  /** Detach any filter from a stroke state before removing its graphics. */
+  private detachFilter(state: StrokeState): void {
+    const filter = state.alphaFilter
+    state.alphaFilter = null
+    this.releaseFilter(filter, state.graphics)
+  }
+
+  /** Destroy all deferred filters immediately. */
+  private flushPendingFilterDestroy(): void {
+    if (this.pendingFilterDestroy.size === 0) return
+
+    for (const filter of this.pendingFilterDestroy) {
+      filter.destroy()
+    }
+    this.pendingFilterDestroy.clear()
   }
 
   /** 应用节点位置和旋转 */
@@ -262,10 +310,16 @@ export class PixiStrokeLayer {
   }
 
   destroy(): void {
+    this.destroyed = true
+    if (this.pendingFilterDestroyFrame !== null && typeof window !== 'undefined') {
+      window.cancelAnimationFrame(this.pendingFilterDestroyFrame)
+      this.pendingFilterDestroyFrame = null
+    }
     for (const [, state] of this.strokes) {
-      state.alphaFilter?.destroy()
+      this.detachFilter(state)
       state.graphics.destroy()
     }
     this.strokes.clear()
+    this.flushPendingFilterDestroy()
   }
 }

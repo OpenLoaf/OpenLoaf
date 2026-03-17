@@ -10,6 +10,43 @@
 import { InvalidToolInputError, NoSuchToolError, parsePartialJson, type ToolCallRepairFunction } from "ai";
 import { logger } from "@/common/logger";
 
+// ─── Circuit Breaker ─────────────────────────────────────────────────────────
+// 防止同一工具+同一类错误反复触发修复（例如模型持续传入 timeoutMs: -1）。
+
+const repairAttempts = new Map<string, { count: number; lastAt: number }>();
+const MAX_REPAIR_ATTEMPTS = 3;
+const REPAIR_WINDOW_MS = 60_000;
+
+function trackRepairAttempt(toolName: string, errorMsg: string): number {
+  // 将数字替换为占位符，合并同类错误消息。
+  const key = `${toolName}:${errorMsg.replace(/\d+/g, "<n>").slice(0, 120)}`;
+  const now = Date.now();
+  const entry = repairAttempts.get(key);
+  if (entry && now - entry.lastAt < REPAIR_WINDOW_MS) {
+    entry.count++;
+    entry.lastAt = now;
+    return entry.count;
+  }
+  repairAttempts.set(key, { count: 1, lastAt: now });
+  return 1;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** 从 Zod 验证错误中提取无效的顶层字段名。 */
+function extractInvalidPaths(cause: unknown): string[] {
+  if (!cause || typeof cause !== "object") return [];
+  const issues = (cause as any).issues ?? (cause as any).errors;
+  if (!Array.isArray(issues)) return [];
+  const fields = new Set<string>();
+  for (const issue of issues) {
+    if (Array.isArray(issue.path) && typeof issue.path[0] === "string") {
+      fields.add(issue.path[0]);
+    }
+  }
+  return [...fields];
+}
+
 /**
  * Creates a repair function for tool calls.
  */
@@ -24,8 +61,59 @@ export function createToolCallRepair(): ToolCallRepairFunction<any> {
     }
 
     if (!InvalidToolInputError.isInstance(error)) return null;
-    await inputSchema({ toolName: toolCall.toolName });
-    // 逻辑：尝试用内置 JSON 修复逻辑解析工具参数，避免再次调用模型。
+
+    // ── 熔断器检查 ──────────────────────────────────────────────────────
+    const attempts = trackRepairAttempt(toolCall.toolName, error.message);
+    if (attempts >= MAX_REPAIR_ATTEMPTS) {
+      logger.warn(
+        { toolName: toolCall.toolName, attempts },
+        "[tool-repair] circuit breaker: too many repair attempts, returning null to let SDK report error to model",
+      );
+      return null;
+    }
+
+    // ── 尝试语义修复（剥离无效的可选字段）──────────────────────────────
+    let inputObj: Record<string, unknown> | null = null;
+    try {
+      const raw = JSON.parse(toolCall.input);
+      if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        inputObj = raw;
+      }
+    } catch {
+      // JSON 损坏，走下面的 parsePartialJson 逻辑。
+    }
+
+    if (inputObj) {
+      const schema = await inputSchema({ toolName: toolCall.toolName });
+      const requiredFields = new Set<string>();
+      if (schema && typeof schema === "object") {
+        const req = (schema as any).required;
+        if (Array.isArray(req)) {
+          for (const r of req) {
+            if (typeof r === "string") requiredFields.add(r);
+          }
+        }
+      }
+
+      const invalidPaths = extractInvalidPaths(error.cause);
+      let modified = false;
+      for (const fieldName of invalidPaths) {
+        if (!requiredFields.has(fieldName) && fieldName in inputObj) {
+          delete inputObj[fieldName];
+          modified = true;
+          logger.info(
+            { toolName: toolCall.toolName, field: fieldName },
+            "[tool-repair] stripped invalid optional field",
+          );
+        }
+      }
+
+      if (modified) {
+        return { ...toolCall, input: JSON.stringify(inputObj) };
+      }
+    }
+
+    // ── 回退：JSON 语法修复 ─────────────────────────────────────────────
     logger.warn(
       {
         toolCallId: toolCall.toolCallId,

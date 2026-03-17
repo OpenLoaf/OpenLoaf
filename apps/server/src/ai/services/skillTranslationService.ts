@@ -42,6 +42,8 @@ interface SkillTranslationMeta {
   translatedFiles?: string[]
   /** Color palette index (0-7). */
   colorIndex?: number | null
+  /** Emoji icon for the skill. */
+  icon?: string
 }
 
 /** Directories to exclude from translation scanning. */
@@ -338,22 +340,11 @@ export async function translateSkill(
       meta.sourceLanguage = sourceLanguage
     }
 
-    // If source language matches target, skip translation but update meta
+    // If source language matches target, skip file translation but still translate title via AI
     if (isSameLanguage(sourceLanguage, normalizedTarget)) {
-      console.log(`${LOG_PREFIX} 源语言与目标语言相同 (${sourceLanguage}), 跳过翻译`)
+      console.log(`${LOG_PREFIX} 源语言与目标语言相同 (${sourceLanguage}), 跳过文件翻译`)
 
-      // Extract name/description from SKILL.md for display
-      const skillMdPath = path.join(skillFolderPath, 'SKILL.md')
-      try {
-        const content = await fs.readFile(skillMdPath, 'utf-8')
-        const fields = extractFrontMatterFields(content)
-        if (fields.name) meta.name = fields.name
-        if (fields.description) meta.description = fields.description
-        if (fields.version) meta.version = fields.version
-      } catch {
-        // ignore
-      }
-
+      await translateTitleToMeta(skillFolderPath, normalizedTarget, meta, saasAccessToken)
       meta.targetLanguage = normalizedTarget
       meta.translatedAt = new Date().toISOString()
       await writeSkillMeta(skillFolderPath, meta)
@@ -388,17 +379,8 @@ export async function translateSkill(
       translatedFiles++
     }
 
-    // Extract name and description from translated SKILL.md front matter
-    const translatedSkillMd = path.join(translationDir, 'SKILL.md')
-    try {
-      const translatedContent = await fs.readFile(translatedSkillMd, 'utf-8')
-      const fields = extractFrontMatterFields(translatedContent)
-      if (fields.name) meta.name = fields.name
-      if (fields.description) meta.description = fields.description
-      if (fields.version) meta.version = fields.version
-    } catch {
-      // ignore
-    }
+    // Translate title via AI for openloaf.json (same approach as translateSkillTitle)
+    await translateTitleToMeta(skillFolderPath, normalizedTarget, meta, saasAccessToken)
 
     meta.sourceLanguage = sourceLanguage
     meta.targetLanguage = normalizedTarget
@@ -417,19 +399,100 @@ export async function translateSkill(
   }
 }
 
+/**
+ * Read SKILL.md front matter as raw text and call AI to produce
+ * translated name / description / icon, then write them into meta.
+ * Reuses the same prompt as translateSkillTitle for consistent output.
+ */
+async function translateTitleToMeta(
+  skillFolderPath: string,
+  targetLanguage: string,
+  meta: SkillTranslationMeta,
+  saasAccessToken?: string,
+): Promise<void> {
+  const skillMdPath = path.join(skillFolderPath, 'SKILL.md')
+  let content: string
+  try {
+    content = await fs.readFile(skillMdPath, 'utf-8')
+  } catch {
+    return
+  }
+  // Extract raw front matter block and send it to AI as-is
+  const fmMatch = content.match(/^---\s*\n([\s\S]*?)\n---/)
+  if (!fmMatch?.[1]) return
+  const rawFrontMatter = fmMatch[1]
+
+  const prompt = buildTitleTranslatePrompt(targetLanguage)
+  try {
+    const resultText = await callTranslation(rawFrontMatter, prompt, saasAccessToken)
+    const jsonMatch = resultText.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0])
+      if (typeof parsed.name === 'string' && parsed.name.trim()) meta.name = parsed.name.trim()
+      if (typeof parsed.description === 'string' && parsed.description.trim()) meta.description = parsed.description.trim()
+      if (typeof parsed.icon === 'string' && parsed.icon.trim()) meta.icon = parsed.icon.trim()
+    }
+  } catch {
+    // AI call failed — fall back to raw extraction
+    const fields = extractFrontMatterFields(content)
+    if (fields.name) meta.name = fields.name
+    if (fields.description) meta.description = fields.description
+  }
+}
+
 /** Extract name, description, and version from YAML front matter. */
 function extractFrontMatterFields(content: string): { name?: string; description?: string; version?: string } {
   const fmMatch = content.match(/^---\s*\n([\s\S]*?)\n---/)
   if (!fmMatch?.[1]) return {}
   const fm = fmMatch[1]
   const result: { name?: string; description?: string; version?: string } = {}
-  const nameMatch = fm.match(/^name:\s*(.+)$/m)
-  if (nameMatch?.[1]?.trim()) result.name = nameMatch[1].trim()
-  const descMatch = fm.match(/^description:\s*(.+)$/m)
-  if (descMatch?.[1]?.trim()) result.description = descMatch[1].trim()
-  const versionMatch = fm.match(/^version:\s*(.+)$/m)
-  if (versionMatch?.[1]?.trim()) result.version = versionMatch[1].trim()
+  result.name = extractYamlField(fm, 'name')
+  result.description = extractYamlField(fm, 'description')
+  result.version = extractYamlField(fm, 'version')
   return result
+}
+
+/**
+ * Extract a single YAML field value, supporting:
+ * - inline: `key: value`
+ * - block scalar folded: `key: >\n  line1\n  line2` (joined with spaces)
+ * - block scalar literal: `key: |\n  line1\n  line2` (joined with newlines)
+ */
+function extractYamlField(fm: string, key: string): string | undefined {
+  const lines = fm.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? ''
+    const lineMatch = line.match(new RegExp(`^${key}:\\s*(.*)$`))
+    if (!lineMatch) continue
+    const inlineValue = (lineMatch[1] ?? '').trim()
+
+    // Block scalar: > (folded) or | (literal)
+    if (inlineValue === '>' || inlineValue === '|') {
+      const isFolded = inlineValue === '>'
+      const blockLines: string[] = []
+      for (let j = i + 1; j < lines.length; j++) {
+        const nextLine = lines[j] ?? ''
+        // Continuation lines must be indented (start with spaces)
+        if (/^\s+\S/.test(nextLine)) {
+          blockLines.push(nextLine.trim())
+        } else {
+          break
+        }
+      }
+      if (blockLines.length > 0) {
+        return isFolded ? blockLines.join(' ') : blockLines.join('\n')
+      }
+      return undefined
+    }
+
+    // Inline value (strip surrounding quotes if any)
+    if (inlineValue) {
+      const unquoted = inlineValue.replace(/^["']|["']$/g, '')
+      return unquoted || undefined
+    }
+    return undefined
+  }
+  return undefined
 }
 
 /** Call AI model for translation. */
@@ -539,6 +602,7 @@ function buildTitleTranslatePrompt(targetLang: string): string {
 Output a JSON object with exactly these fields:
 - "name": the translated skill name — must be a short, human-readable display name in ${targetName}. If the original name is a technical identifier (e.g. kebab-case like "ai-test-development" or camelCase), convert it into a natural, readable name in ${targetName}.
 - "description": the translated description in ${targetName}
+- "icon": a single emoji character that best represents this skill's purpose (e.g. "🧪" for testing, "📧" for email, "🎨" for design, "🔧" for tools)
 
 Only output the JSON object, nothing else.`
 }
@@ -556,6 +620,7 @@ export async function translateSkillTitle(
   translated: boolean
   name?: string
   description?: string
+  icon?: string
   error?: string
 }> {
   const normalizedTarget = normalizeLanguageCode(targetLanguage)
@@ -581,37 +646,28 @@ export async function translateSkillTitle(
       return { ok: true, translated: false }
     }
 
-    // Quick heuristic: if the text already looks like target language, skip AI call
+    // Detect source language via AI
     const sampleText = [fields.name, fields.description].filter(Boolean).join('\n')
-    const isAlreadyTarget = isLikelyLanguage(sampleText, normalizedTarget)
+    console.log(`${LOG_PREFIX} 检测标题语言: ${skillFolderPath}`)
+    const detected = await detectLanguage(sampleText, saasAccessToken)
+    const sourceLanguage = detected.language
 
-    if (isAlreadyTarget) {
-      const meta: SkillTranslationMeta = {
-        name: fields.name,
-        description: fields.description,
-        version: fields.version,
-        sourceLanguage: normalizedTarget,
-        targetLanguage: normalizedTarget,
-        translatedAt: new Date().toISOString(),
-      }
-      await writeSkillMeta(skillFolderPath, meta)
-      return { ok: true, translated: false, name: fields.name, description: fields.description }
-    }
-
-    // Call AI to translate name + description
-    console.log(`${LOG_PREFIX} 翻译标题: ${skillFolderPath}`)
+    // Always call AI to translate — it handles same-language cases (e.g. humanizing kebab-case names)
+    console.log(`${LOG_PREFIX} 翻译标题: ${skillFolderPath} (${sourceLanguage} → ${normalizedTarget})`)
     const prompt = buildTitleTranslatePrompt(normalizedTarget)
     const inputJson = JSON.stringify({ name: fields.name ?? '', description: fields.description ?? '' })
     const resultText = await callTranslation(inputJson, prompt, saasAccessToken)
 
     let translatedName = fields.name
     let translatedDesc = fields.description
+    let icon: string | undefined
     try {
       const jsonMatch = resultText.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0])
         if (typeof parsed.name === 'string' && parsed.name.trim()) translatedName = parsed.name.trim()
         if (typeof parsed.description === 'string' && parsed.description.trim()) translatedDesc = parsed.description.trim()
+        if (typeof parsed.icon === 'string' && parsed.icon.trim()) icon = parsed.icon.trim()
       }
     } catch {
       // If JSON parse fails, keep original values
@@ -621,47 +677,36 @@ export async function translateSkillTitle(
       name: translatedName,
       description: translatedDesc,
       version: fields.version,
-      sourceLanguage: 'en',
+      icon,
+      sourceLanguage,
       targetLanguage: normalizedTarget,
       translatedAt: new Date().toISOString(),
     }
     await writeSkillMeta(skillFolderPath, meta)
     console.log(`${LOG_PREFIX} 标题翻译完成: ${skillFolderPath}`)
-    return { ok: true, translated: true, name: translatedName, description: translatedDesc }
+    return { ok: true, translated: true, name: translatedName, description: translatedDesc, icon }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
+    const message = extractErrorMessage(err)
     console.error(`${LOG_PREFIX} 标题翻译失败:`, message)
     return { ok: false, translated: false, error: message }
   }
 }
 
-/**
- * Simple heuristic to check if text is likely already in the target language.
- * Avoids unnecessary AI calls.
- */
-function isLikelyLanguage(text: string, langCode: string): boolean {
-  const normalized = normalizeLanguageCode(langCode)
-  // Count CJK characters
-  const cjkCount = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) ?? []).length
-  const totalChars = text.replace(/\s/g, '').length
-  if (totalChars === 0) return true
-
-  const cjkRatio = cjkCount / totalChars
-
-  if (normalized === 'zh-CN' || normalized === 'zh-TW') {
-    return cjkRatio > 0.3
+/** Extract a human-readable error message, including nested SDK payload messages. */
+function extractErrorMessage(err: unknown): string {
+  if (!err || typeof err !== 'object') return String(err)
+  const e = err as Record<string, unknown>
+  // SDK errors may carry a payload with a message (e.g. { payload: { message: "今日配额已用完" } })
+  if (e.payload && typeof e.payload === 'object') {
+    const payload = e.payload as Record<string, unknown>
+    if (typeof payload.message === 'string' && payload.message) return payload.message
   }
-  if (normalized === 'ja') {
-    const jpCount = (text.match(/[\u3040-\u309f\u30a0-\u30ff]/g) ?? []).length
-    return (cjkCount + jpCount) / totalChars > 0.3
+  // Some errors have a cause with a message
+  if (e.cause && typeof e.cause === 'object') {
+    const cause = e.cause as Record<string, unknown>
+    if (typeof cause.message === 'string' && cause.message) return cause.message
   }
-  if (normalized === 'ko') {
-    const koCount = (text.match(/[\uac00-\ud7af]/g) ?? []).length
-    return koCount / totalChars > 0.3
-  }
-  // For latin-based languages (en, fr, de, es, etc.), if no CJK chars it's probably already right
-  if (normalized.startsWith('en') || normalized.startsWith('fr') || normalized.startsWith('de') || normalized.startsWith('es')) {
-    return cjkRatio < 0.1
-  }
-  return false
+  if (err instanceof Error) return err.message
+  return String(err)
 }
+

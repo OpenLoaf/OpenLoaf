@@ -397,7 +397,16 @@
   "videoNode": {
     "toolbar": {
       "play": "播放",
+      "trim": "剪輯",
+      "exportClip": "匯出片段",
       "detail": "詳情"
+    },
+    "trim": {
+      "dialogTitle": "影片剪輯",
+      "reset": "重置",
+      "confirm": "確認",
+      "loading": "載入影片中...",
+      "noDuration": "時長未知 — 請先播放影片。"
     }
   },
   "audioNode": {

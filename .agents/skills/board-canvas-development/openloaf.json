@@ -1,7 +1,8 @@
 {
-  "name": "board-canvas-development",
-  "description": "用于在 apps/web/src/components/board 中开发、扩展或调试 Board 无限画布系统——包括添加节点、工具、连接器、媒体生成、布局，或修复渲染/协作/性能问题",
+  "name": "白板画布开发",
+  "description": "用于在 apps/web/src/components/board 中开发、扩展或调试白板无限画布系统，包括添加节点、工具、连接器、媒体生成、布局设计，以及修复渲染、协作或性能问题。",
+  "icon": "🧩",
   "sourceLanguage": "en",
   "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T04:19:03.092Z"
+  "translatedAt": "2026-03-16T09:28:35.987Z"
 }

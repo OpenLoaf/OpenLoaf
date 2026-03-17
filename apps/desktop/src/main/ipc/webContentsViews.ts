@@ -18,6 +18,9 @@ export type UpsertWebContentsViewArgs = {
   visible?: boolean;
 };
 
+// 中文注释：与 Web 侧 stack 面板的 `rounded-xl` 对齐，避免原生浏览内容顶掉底部圆角。
+const EMBEDDED_VIEW_BORDER_RADIUS = 8;
+
 const viewMapsByWindowId = new Map<number, Map<string, WebContentsView>>();
 const shortcutBridgeInstalled = new WeakSet<WebContentsView>();
 const desiredUrlByView = new WeakMap<WebContentsView, string>();
@@ -593,6 +596,15 @@ function clampViewBounds(bounds: ViewBounds): ViewBounds {
   return safe;
 }
 
+/** Apply the shared panel corner radius to the embedded browser view. */
+function applyEmbeddedViewShape(view: WebContentsView) {
+  try {
+    view.setBorderRadius(EMBEDDED_VIEW_BORDER_RADIUS);
+  } catch {
+    // ignore
+  }
+}
+
 /**
  * 规范化外部 URL：
  * - 支持无协议的 `example.com`（默认补 https）
@@ -744,6 +756,7 @@ export function upsertWebContentsView(
   }
 
   view.setBounds(bounds);
+  applyEmbeddedViewShape(view);
 
   // 仅当“渲染端传入的 URL 发生变化”时才主动 loadURL。
   // 否则如果用户在页面内导航（点击链接/输入地址），每次更新 bounds 都会把页面强制拉回初始 URL。

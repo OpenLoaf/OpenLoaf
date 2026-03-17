@@ -275,6 +275,8 @@ export default function FilePreviewDialog() {
               thumbnailSrc={currentItem.thumbnailSrc}
               width={currentItem.width}
               height={currentItem.height}
+              clipStart={currentItem.clipStart}
+              clipEnd={currentItem.clipEnd}
               forceLargeLayout
             />
           ) : null}

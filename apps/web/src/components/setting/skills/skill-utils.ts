@@ -14,6 +14,7 @@ import {
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { queryClient, trpc } from "@/utils/trpc";
+import { toast } from "sonner";
 
 /** Normalize a local path string for URI building. */
 export function normalizePath(value: string): string {
@@ -113,12 +114,13 @@ export async function openSkillInStack(skillName: string, projectId?: string) {
     staleTime: 5 * 60 * 1000,
   }) as Array<{
     name: string;
+    originalName: string;
     path: string;
     scope: "global" | "project";
     ignoreKey: string;
   }>;
 
-  const skill = skills.find((s) => s.name === skillName);
+  const skill = skills.find((s) => s.originalName === skillName || s.name === skillName);
   if (!skill) {
     pushStackItem({
       id: "skill-settings",
@@ -149,6 +151,53 @@ export async function openSkillInStack(skillName: string, projectId?: string) {
       __skillFolderPath: skill.path.replace(/[/\\]SKILL\.md$/i, ''),
     },
   });
+}
+
+/** Download a skill folder as a zip archive. Shows a loading toast during packaging. */
+export async function exportSkillAsZip(skillFolderPath: string): Promise<boolean> {
+  const toastId = toast.loading("正在打包技能…");
+  try {
+    const result = await queryClient.fetchQuery(
+      trpc.settings.exportSkill.queryOptions({ skillFolderPath }),
+    );
+    if (!result.ok || !result.contentBase64 || !result.fileName) {
+      toast.dismiss(toastId);
+      return false;
+    }
+
+    toast.dismiss(toastId);
+
+    // Electron: use native save dialog
+    const electronApi = window.openloafElectron;
+    if (electronApi?.saveFile) {
+      const res = await electronApi.saveFile({
+        contentBase64: result.contentBase64,
+        suggestedName: result.fileName,
+        filters: [{ name: "ZIP Archive", extensions: ["zip"] }],
+      });
+      return res.ok;
+    }
+
+    // Web fallback: trigger download via blob
+    const binary = atob(result.contentBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: "application/zip" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = result.fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    return true;
+  } catch (err) {
+    toast.dismiss(toastId);
+    throw err;
+  }
 }
 
 /** Resolve skills root uri from a single skill path. */

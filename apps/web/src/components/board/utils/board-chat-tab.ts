@@ -8,6 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 
+import type { ChatPageContext } from '@openloaf/api/types/message'
+
 /** Normalize an optional id-like string. */
 function normalizeOptionalId(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -15,7 +17,11 @@ function normalizeOptionalId(value: unknown): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
-/** Build chat state so a board tab and the right chat share the same session. */
+/**
+ * Build chat params so the right-side chat panel knows the user is on a board.
+ * The right-side chat is fully independent — it does NOT lock its session to boardId.
+ * Board-internal AI nodes use boardId as their own session separately.
+ */
 export function buildBoardChatTabState(boardId: string, projectId?: string | null) {
   const normalizedBoardId = normalizeOptionalId(boardId);
   if (!normalizedBoardId) {
@@ -24,12 +30,19 @@ export function buildBoardChatTabState(boardId: string, projectId?: string | nul
 
   const normalizedProjectId = normalizeOptionalId(projectId);
 
+  const page = normalizedProjectId ? 'project-canvas' : 'temp-canvas'
+  const pageContext: ChatPageContext = {
+    scope: normalizedProjectId ? 'project' : 'global',
+    page,
+    projectId: normalizedProjectId,
+    boardId: normalizedBoardId,
+  }
+
   return {
-    chatSessionId: normalizedBoardId,
     chatParams: {
       boardId: normalizedBoardId,
       projectId: normalizedProjectId ?? null,
+      pageContext,
     },
-    chatLoadHistory: true,
   };
 }

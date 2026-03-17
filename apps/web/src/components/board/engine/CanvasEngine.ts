@@ -161,6 +161,8 @@ export class CanvasEngine {
   readonly tools: ToolManager;
   /** Canvas lock flag. */
   private locked = false;
+  /** Single-select-only mode: disables box selection and shift-multi-select. */
+  private singleSelectOnly = false;
   /** Draft connector during linking. */
   private connectorDraft: CanvasConnectorDraft | null = null;
   /** Hovered anchor while linking. */
@@ -272,7 +274,11 @@ export class CanvasEngine {
   private resizeSize: CanvasPoint | null = null;
   /** Pointer down handler bound to the engine instance. */
   private readonly onPointerDown = (event: PointerEvent) => {
-    this.tools.handlePointerDown(event);
+    // 逻辑：batch 确保 pointerDown 内的多个状态变更（如 setSelection + setAlignmentGuides + setSelectionBox）
+    // 合并为一次变更通知，避免选区边框因多次 snapshot 更新闪烁。
+    this.batch(() => {
+      this.tools.handlePointerDown(event);
+    });
   };
   /** Pointer move handler bound to the engine instance. */
   private readonly onPointerMove = (event: PointerEvent) => {
@@ -611,6 +617,16 @@ export class CanvasEngine {
     this.emitChange();
   }
 
+  /** Return whether single-select-only mode is active. */
+  isSingleSelectOnly(): boolean {
+    return this.singleSelectOnly;
+  }
+
+  /** Enable or disable single-select-only mode (disables box selection and shift-multi-select). */
+  setSingleSelectOnly(enabled: boolean): void {
+    this.singleSelectOnly = enabled;
+  }
+
   /** Whether snap-to-align is currently enabled. */
   isSnapEnabled(): boolean {
     return this.snapEnabled;
@@ -715,6 +731,7 @@ export class CanvasEngine {
 
   /** Mark the currently dragging element id. */
   setDraggingElementId(id: string | null): void {
+    if (this.draggingElementId === id) return;
     const wasDragging = this.draggingElementId !== null;
     this.draggingElementId = id;
     // 逻辑：拖拽结束时取消挂起的 rAF，立即同步刷新，确保最终状态一致。
@@ -844,6 +861,16 @@ export class CanvasEngine {
 
   /** Update the hover anchor used by connector tool. */
   setConnectorHover(hit: CanvasAnchorHit | null): void {
+    // 逻辑：避免相同值重复触发 emitChange，减少不必要的快照更新。
+    if (this.connectorHover === hit) return;
+    if (
+      this.connectorHover !== null &&
+      hit !== null &&
+      this.connectorHover.elementId === hit.elementId &&
+      this.connectorHover.anchorId === hit.anchorId
+    ) {
+      return;
+    }
     this.connectorHover = hit;
     this.emitChange();
   }
@@ -970,12 +997,15 @@ export class CanvasEngine {
 
   /** Update alignment guides for snapping feedback. */
   setAlignmentGuides(guides: CanvasAlignmentGuide[]): void {
+    // 逻辑：空→空不触发通知，减少 pointerUp 等场景的冗余重渲染。
+    if (this.alignmentGuides.length === 0 && guides.length === 0) return;
     this.alignmentGuides = guides;
     this.emitChange();
   }
 
   /** Update the selection box rectangle. */
   setSelectionBox(box: CanvasSelectionBox | null): void {
+    if (this.selectionBox === box) return;
     this.selectionBox = box;
     this.emitChange();
   }

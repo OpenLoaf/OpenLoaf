@@ -33,14 +33,13 @@ import {
 import { readImageDragPayload } from "@/lib/image/drag";
 import ProjectFileSystemTransferDialog from "@/components/project/filesystem/components/ProjectFileSystemTransferDialog";
 import {
-  appendChatInputText,
-  buildSkillCommandText,
   getPlainTextFromInput,
   normalizeFileMentionSpacing,
   MAX_CHARS,
   ONLINE_SEARCH_GLOBAL_STORAGE_KEY,
   CHAT_MODE_STORAGE_KEY,
 } from "./chat-input-utils";
+import { useChatInputEvents } from "./useChatInputEvents";
 import { ChatInputEditor, type ChatInputEditorHandle } from "./ChatInputEditor";
 import { openSkillInStack } from "@/components/setting/skills/skill-utils";
 import { ChatProjectSelector } from "./ChatProjectSelector";
@@ -1033,41 +1032,6 @@ export default function ChatInput({
     void setBasic({ chatSource: 'cloud' });
   }, [setBasic]);
 
-  /** Handle skill insert events. */
-  useEffect(() => {
-    const handleInsertSkill = (event: Event) => {
-      const detail = (event as CustomEvent<{ skillName?: string }>).detail;
-      const skillName = detail?.skillName?.trim() ?? "";
-      if (!skillName) return;
-      const nextToken = buildSkillCommandText(skillName);
-      if (!nextToken) return;
-      setInput((prev) => appendChatInputText(prev, nextToken));
-      requestAnimationFrame(() => {
-        window.dispatchEvent(new CustomEvent("openloaf:chat-focus-input-end"));
-      });
-    };
-    window.addEventListener("openloaf:chat-insert-skill", handleInsertSkill);
-    return () => {
-      window.removeEventListener("openloaf:chat-insert-skill", handleInsertSkill);
-    };
-  }, [setInput]);
-
-  /** Handle prefill text events (e.g. from task board "让AI创建"). */
-  useEffect(() => {
-    const handlePrefill = (event: Event) => {
-      const detail = (event as CustomEvent<{ text?: string }>).detail;
-      const text = detail?.text ?? "";
-      if (!text) return;
-      setInput(text);
-      requestAnimationFrame(() => {
-        window.dispatchEvent(new CustomEvent("openloaf:chat-focus-input-end"));
-      });
-    };
-    window.addEventListener("openloaf:chat-prefill-input", handlePrefill);
-    return () => {
-      window.removeEventListener("openloaf:chat-prefill-input", handlePrefill);
-    };
-  }, [setInput]);
 
   const resolvedIsAutoModel = Boolean(isAutoModel);
   const resolvedCanImageGeneration = Boolean(canImageGeneration);
@@ -1207,20 +1171,8 @@ export default function ChatInput({
     setSelectedAgent(null);
   };
 
-  useEffect(() => {
-    /** Handle AI request forwarded from Search dialog. */
-    const handleSearchAiRequest = (event: Event) => {
-      const detail = (event as CustomEvent<{ text?: string }>).detail;
-      const nextValue = detail?.text?.trim();
-      if (!nextValue) return;
-      // 逻辑：复用统一的发送逻辑，保证校验一致。
-      void handleSubmit(nextValue);
-    };
-    window.addEventListener("openloaf:chat-send-message", handleSearchAiRequest);
-    return () => {
-      window.removeEventListener("openloaf:chat-send-message", handleSearchAiRequest);
-    };
-  }, [handleSubmit]);
+  // Centralized window event listeners (skill insert, prefill, AI request forwarding)
+  useChatInputEvents({ setInput, handleSubmit });
 
   return (
     <>

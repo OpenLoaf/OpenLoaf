@@ -26,10 +26,6 @@ export const videoConvertToolDef = {
     'get-info 返回 { ok, data: { action, duration, resolution, codecs, fileSize, streams } }。' +
     '不适用：需要 AI 生成全新视频时不要使用，改用 video-generate。',
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：将 MP4 转换为 WebM 格式。'),
     action: z
       .enum(['convert', 'extract-audio', 'get-info'])
       .describe(

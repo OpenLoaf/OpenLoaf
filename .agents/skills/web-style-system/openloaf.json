@@ -1,8 +1,9 @@
 {
-  "name": "web-style-system",
-  "description": "当用户请求\"设计页面风格\"、\"统一 layout 风格\"、\"重做 tabs 样式\"、\"对齐 ExpandableDockTabs 风格\"、\"create a web style guide\"、\"align layout and tabs style\"、\"review UI consistency\"或\"audit web UI design\"时，应使用此技能。",
+  "name": "网页风格系统",
+  "description": "当用户请求设计页面风格、统一布局风格、重做标签页样式、对齐可扩展标签页风格、创建网页风格指南、调整布局与标签页样式、审查UI一致性或审计网页UI设计时，应使用此技能。",
   "version": "0.1.0",
-  "sourceLanguage": "en",
+  "icon": "🎨",
+  "sourceLanguage": "zh-CN",
   "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T04:18:58.720Z"
+  "translatedAt": "2026-03-16T09:28:25.164Z"
 }

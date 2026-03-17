@@ -47,19 +47,13 @@ import {
 import {
   asPlainObject,
   getApprovalId,
+  getToolKind,
   getToolName,
   isToolStreaming,
   isApprovalPending,
   normalizeToolInput,
 } from "./shared/tool-utils";
 import type { AnyToolPart, ToolVariant } from "./shared/tool-utils";
-
-/** Resolve tool key for routing. */
-function getToolKind(part: AnyToolPart): string {
-  if (typeof part.toolName === "string" && part.toolName.trim()) return part.toolName;
-  if (part.type.startsWith("tool-")) return part.type.slice("tool-".length);
-  return part.type;
-}
 
 const iconCls = "size-3.5 text-muted-foreground";
 

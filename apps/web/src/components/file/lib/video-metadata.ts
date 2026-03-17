@@ -13,6 +13,7 @@ import { parseScopedProjectPath, normalizeProjectRelativePath } from "@/componen
 export type VideoMetadata = {
   width: number;
   height: number;
+  duration?: number;
 };
 
 /** Fetch video dimensions from the server. */
@@ -34,7 +35,10 @@ export async function fetchVideoMetadata(input: {
       uri: relativePath,
     });
     if (!result?.width || !result?.height) return null;
-    return { width: result.width, height: result.height };
+    const duration = typeof result.duration === 'number' && result.duration > 0
+      ? result.duration
+      : undefined;
+    return { width: result.width, height: result.height, duration };
   } catch {
     return null;
   }

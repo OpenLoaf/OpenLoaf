@@ -78,6 +78,8 @@ export type CanvasToolHost = {
   isLocked: () => boolean;
   /** Update the lock state. */
   setLocked: (locked: boolean) => void;
+  /** Return whether single-select-only mode is active (disables box selection and shift-multi-select). */
+  isSingleSelectOnly: () => boolean;
   /** Return whether snap guides are enabled. */
   isSnapEnabled: () => boolean;
   /** Return stroke settings for a drawing tool. */

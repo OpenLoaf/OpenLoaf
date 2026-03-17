@@ -42,21 +42,15 @@ const AGENT_ICON_SVG =
 const CHIP_BASE_STYLES = "display:inline-flex;align-items:center;gap:3px;padding:1px 6px;margin:0 1px;border-radius:4px;font-size:12px;font-weight:500;line-height:18px;vertical-align:baseline;cursor:pointer;user-select:none;white-space:nowrap;max-width:200px;transition:background-color .15s";
 
 const CHIP_STYLES = `
-.${CHIP_CLASS}{${CHIP_BASE_STYLES};background:rgb(219 234 254/.8);color:rgb(29 78 216)}
-.${CHIP_CLASS}:hover{background:rgb(191 219 254)}
+.${CHIP_CLASS}{${CHIP_BASE_STYLES};background:var(--ol-blue-bg);color:var(--ol-blue);border:1px solid transparent}
+.${CHIP_CLASS}:hover{background:var(--ol-blue-bg-hover)}
 .${CHIP_CLASS}>span{overflow:hidden;text-overflow:ellipsis}
-.dark .${CHIP_CLASS}{background:rgb(30 58 138/.4);color:rgb(147 197 253)}
-.dark .${CHIP_CLASS}:hover{background:rgb(30 58 138/.6)}
-.${SKILL_CHIP_CLASS}{${CHIP_BASE_STYLES};background:rgb(243 232 255/.8);color:rgb(126 34 206)}
-.${SKILL_CHIP_CLASS}:hover{background:rgb(233 213 255)}
+.${SKILL_CHIP_CLASS}{${CHIP_BASE_STYLES};background:var(--ol-skill-chip-bg);color:var(--ol-skill-chip-text);border:1px solid transparent}
+.${SKILL_CHIP_CLASS}:hover{background:var(--ol-skill-chip-bg-hover)}
 .${SKILL_CHIP_CLASS}>span{overflow:hidden;text-overflow:ellipsis}
-.dark .${SKILL_CHIP_CLASS}{background:rgb(88 28 135/.4);color:rgb(216 180 254)}
-.dark .${SKILL_CHIP_CLASS}:hover{background:rgb(88 28 135/.6)}
-.${AGENT_CHIP_CLASS}{${CHIP_BASE_STYLES};background:rgba(254,243,199,0.8);color:#b45309}
-.${AGENT_CHIP_CLASS}:hover{background:rgba(253,230,138,1)}
+.${AGENT_CHIP_CLASS}{${CHIP_BASE_STYLES};background:var(--ol-amber-bg);color:var(--ol-amber);border:1px solid transparent}
+.${AGENT_CHIP_CLASS}:hover{background:var(--ol-amber-bg-hover)}
 .${AGENT_CHIP_CLASS}>span{overflow:hidden;text-overflow:ellipsis}
-.dark .${AGENT_CHIP_CLASS}{background:rgba(120,53,15,0.4);color:#fcd34d}
-.dark .${AGENT_CHIP_CLASS}:hover{background:rgba(120,53,15,0.6)}
 `;
 
 const STYLE_TAG_ID = "ol-chip-styles";
@@ -98,9 +92,9 @@ function valueToHtml(value: string): string {
   if (!value) return "";
   let html = "";
   let lastIndex = 0;
-  // Match @{...} file mentions, /skill/xxx skill commands, and @agents/.../pm agent mentions.
-  // Skill chip requires trailing whitespace or non-ASCII (prevents broken names when space is deleted).
-  const re = /@\{([^}]+)\}|\/skill\/([\w-]+)(?=\s|[^\x00-\x7F])|@agents\/([^/\s]+)\/pm(?=\s|$)/g;
+  // Match @{...} file mentions, /skill/[xxx|yyy] or /skill/[xxx] skill commands (new format),
+  // legacy /skill/xxx skill commands, and @agents/.../pm agent mentions.
+  const re = /@\{([^}]+)\}|\/skill\/\[([\w-]+)(?:\|([^\]]*))?\]|\/skill\/([\w-]+)(?=\s|[^\x00-\x7F])|@agents\/([^/\s]+)\/pm(?=\s|$)/g;
   let match: RegExpExecArray | null;
   // biome-ignore lint/suspicious/noAssignInExpressions: intentional loop pattern
   while ((match = re.exec(value)) !== null) {
@@ -113,24 +107,35 @@ function valueToHtml(value: string): string {
         `<span class="${CHIP_CLASS}" data-token="${escapeAttr(token)}" contenteditable="false">` +
         `${FILE_ICON_SVG}<span>${escapeHtml(label)}</span>` +
         "</span>";
-    } else if (match[3] !== undefined) {
+    } else if (match[5] !== undefined) {
       // Agent mention: @agents/项目名/pm
-      const projectName = match[3];
+      const projectName = match[5];
       const afterTokenIdx = match.index + token.length;
       const hasTrailingSpace = value[afterTokenIdx] === " ";
       const dataToken = hasTrailingSpace ? `${token} ` : token;
       html +=
-        `<span class="${AGENT_CHIP_CLASS}" data-token="${escapeAttr(dataToken)}" contenteditable="false" ` +
-        `style="${CHIP_BASE_STYLES};background:rgba(254,243,199,0.8);color:#b45309">` +
+        `<span class="${AGENT_CHIP_CLASS}" data-token="${escapeAttr(dataToken)}" contenteditable="false">` +
         `${AGENT_ICON_SVG}<span style="overflow:hidden;text-overflow:ellipsis">${escapeHtml(projectName)}/管理员</span>` +
         "</span>";
       lastIndex = afterTokenIdx + (hasTrailingSpace ? 1 : 0);
       continue;
-    } else {
-      // Skill command: /skill/xxx
-      const skillName = match[2];
+    } else if (match[2] !== undefined) {
+      // New format skill command: /skill/[originalName|displayName] or /skill/[originalName]
+      const originalName = match[2];
+      const displayName = match[3] || originalName;
       const afterTokenIdx = match.index + token.length;
-      // Absorb the trailing space into data-token so it stays invisible but preserves round-trip.
+      const hasTrailingSpace = value[afterTokenIdx] === " ";
+      const dataToken = hasTrailingSpace ? `${token} ` : token;
+      html +=
+        `<span class="${SKILL_CHIP_CLASS}" data-token="${escapeAttr(dataToken)}" contenteditable="false">` +
+        `${SKILL_ICON_SVG}<span>${escapeHtml(displayName)}</span>` +
+        "</span>";
+      lastIndex = afterTokenIdx + (hasTrailingSpace ? 1 : 0);
+      continue;
+    } else {
+      // Legacy skill command: /skill/xxx
+      const skillName = match[4];
+      const afterTokenIdx = match.index + token.length;
       const hasTrailingSpace = value[afterTokenIdx] === " ";
       const dataToken = hasTrailingSpace ? `${token} ` : token;
       html +=
@@ -419,7 +424,10 @@ export function ChatInputEditor({
       const skillChip = target.closest(`.${SKILL_CHIP_CLASS}`) as HTMLElement | null;
       if (skillChip?.dataset.token && onSkillChipClick) {
         e.preventDefault();
-        const skillName = skillChip.dataset.token.replace(/^\/skill\//, "");
+        const raw = skillChip.dataset.token.trim();
+        // Extract originalName from /skill/[originalName|...] or /skill/[originalName] or legacy /skill/name
+        const bracketMatch = /^\/skill\/\[([\w-]+)/.exec(raw);
+        const skillName = bracketMatch ? bracketMatch[1] : raw.replace(/^\/skill\//, "");
         onSkillChipClick(skillName);
       }
     },

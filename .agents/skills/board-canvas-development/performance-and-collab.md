@@ -8,6 +8,7 @@
 - **自动高度**：`use-auto-resize-node.ts` 用 `ResizeObserver + requestAnimationFrame` 批处理；不要在回调里直接连续写 engine。
 - **聚焦防抖**：节点聚焦带有防抖，避免双击或快速切换导致重复动画。
 - **渲染分层**：连接线走 Worker/OffscreenCanvas，节点仍由 DOM 层负责。
+- **Pixi 资源释放**：涉及 `AlphaFilter` / offscreen texture 的图层，必须先解绑或停掉 ticker，再释放 filter / graphics / app；不要在当前渲染帧内直接销毁仍可能被 Pixi 指令引用的资源。
 
 ## 协作层
 
@@ -32,6 +33,7 @@
 4. 检查 undo/redo 栈，确认是否出现遗漏事务或重复事务。
 5. 协作问题优先核对 `.board/.meta` 的 `docId` 是否一致。
 6. 视口问题直接查看 `engine.viewport.getState()`。
+7. 如果报错栈落在 `BindGroup.setResource` / `FilterSystem.pop`，优先检查高亮笔 `AlphaFilter` 是否在同一帧被提前销毁，以及 Pixi Application 是否在停表前就开始清理图层资源。
 
 ## Common Mistakes
 

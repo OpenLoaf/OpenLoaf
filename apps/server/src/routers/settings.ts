@@ -1775,6 +1775,60 @@ class SettingRouterImpl extends BaseSettingRouter {
             input.saasAccessToken,
           );
         }),
+      exportSkill: shieldedProcedure
+        .input(settingSchemas.exportSkill.input)
+        .output(settingSchemas.exportSkill.output)
+        .query(async ({ input }) => {
+          const { exportSkill } = await import(
+            "@/ai/services/skillExportService"
+          );
+          return exportSkill(input.skillFolderPath);
+        }),
+      transferSkill: shieldedProcedure
+        .input(settingSchemas.transferSkill.input)
+        .output(settingSchemas.transferSkill.output)
+        .mutation(async ({ input }) => {
+          const skillDir = input.skillFolderPath.replace(/[/\\]SKILL\.md$/i, "");
+          const stat = await fs.stat(skillDir).catch(() => null);
+          if (!stat?.isDirectory()) {
+            return { ok: false, error: "技能文件夹不存在" };
+          }
+          const folderName = path.basename(skillDir);
+          let targetSkillsDir: string;
+          if (input.targetScope === "global") {
+            targetSkillsDir = resolveGlobalSkillsPath();
+          } else {
+            if (!input.targetProjectId) {
+              return { ok: false, error: "目标项目 ID 不能为空" };
+            }
+            const projectRootPath = getProjectRootPath(input.targetProjectId);
+            if (!projectRootPath) {
+              return { ok: false, error: "未找到目标项目" };
+            }
+            targetSkillsDir = path.join(projectRootPath, ".agents", "skills");
+          }
+          await fs.mkdir(targetSkillsDir, { recursive: true });
+          let destDir = path.join(targetSkillsDir, folderName);
+          // Avoid overwriting — add suffix if destination exists
+          try {
+            await fs.access(destDir);
+            const suffix = Date.now().toString(36);
+            destDir = path.join(targetSkillsDir, `${folderName}-${suffix}`);
+          } catch {
+            // destination doesn't exist, safe
+          }
+          // Check source and target are not the same
+          const normalizedSrc = path.resolve(skillDir);
+          const normalizedDest = path.resolve(destDir);
+          if (normalizedSrc === normalizedDest) {
+            return { ok: false, error: "技能已在目标位置" };
+          }
+          await fs.cp(skillDir, destDir, { recursive: true });
+          if (input.mode === "move") {
+            await fs.rm(skillDir, { recursive: true, force: true });
+          }
+          return { ok: true, folderName: path.basename(destDir) };
+        }),
       importSkill: shieldedProcedure
         .input(settingSchemas.importSkill.input)
         .output(settingSchemas.importSkill.output)

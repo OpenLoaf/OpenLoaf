@@ -12,6 +12,7 @@ import {
   getProjectId,
   getRequestContext,
   getSessionId,
+  getUiWriter,
 } from "@/ai/shared/context/requestContext";
 import {
   getProjectRootPath,
@@ -19,6 +20,7 @@ import {
 } from "@openloaf/api/services/vfsService";
 import { getOpenLoafRootDir } from "@openloaf/config";
 import { createTempProject } from "@openloaf/api/services/tempProjectService";
+import { migrateSessionDirToProject } from "@/ai/services/chat/repositories/chatFileStore";
 
 type ToolRoots = {
   /** Global root path (~/.openloaf/). */
@@ -110,6 +112,25 @@ export async function ensureTempProject(): Promise<{
   const ctx = getRequestContext();
   if (ctx) {
     ctx.projectId = temp.projectId;
+  }
+
+  // Migrate existing JSONL files from global path to the new project path,
+  // so messages written before temp project creation are not orphaned.
+  if (sessionId) {
+    await migrateSessionDirToProject(sessionId, temp.projectId);
+  }
+
+  // Notify frontend about the temp project creation
+  const writer = getUiWriter();
+  if (writer) {
+    writer.write({
+      type: 'data-temp-project',
+      data: {
+        projectId: temp.projectId,
+        projectRoot: path.resolve(temp.rootPath),
+        isTemp: true,
+      },
+    } as any);
   }
 
   return {

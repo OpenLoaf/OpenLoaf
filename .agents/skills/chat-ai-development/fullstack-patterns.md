@@ -47,6 +47,9 @@
 - 需要审批时，在 `tool()` 中设置 `needsApproval`（可为 boolean 或 function）
 - 需要 session/tab 上下文时通过 `requestContext` getter 或辅助函数读取
 
+示例补充：
+- `video-download` 属于纯后端工具：定义在 `packages/api/src/types/tools/videoDownload.ts`，实现位于 `apps/server/src/ai/tools/videoDownloadTool.ts`，内部复用已有媒体模块 `videoDownloadService.ts`
+
 ### 3) 注册 & 授权范围
 
 **注册表**：`apps/server/src/ai/tools/toolRegistry.ts`
@@ -148,10 +151,41 @@
 
 **运行时命中优先级**: current project → parent projects → global
 
+### Skill 名称国际化（originalName / name）
+
+`SkillSummary` 有两个名称字段：
+- `originalName`: SKILL.md front-matter 中的原始名称，用于所有**匹配和加载**场景
+- `name`: 显示名称，可能被 `openloaf.json` 翻译覆盖，仅用于**用户界面展示**
+
+**数据流**:
+```
+SKILL.md front-matter name = "ai-test-development"  → originalName（匹配用）
+openloaf.json name = "AI 测试开发"                   → name（显示用）
+```
+
+**命令格式**:
+- 有翻译: `/skill/[ai-test-development|AI 测试开发]` — 方括号内 `|` 前为 originalName，后为 displayName
+- 无翻译: `/skill/[ai-test-development]`
+- 旧格式（兼容）: `/skill/ai-test-development`
+
+**匹配规则**:
+- `SkillSelector.resolveSkillByName()` 先匹配 `originalName`，再 fallback 到 `name`
+- `SkillSelector.extractSkillNamesFromText()` 从 `/skill/[xxx|yyy]` 中提取 `xxx`（originalName），同时兼容旧格式 `/skill/name`
+- `promptBuilder.buildSkillsSummarySection()` 输出 `originalName` 给 AI 模型，确保 `load-skill` 工具传入原始名
+- `skillsLoader.loadSkillSummaries()` 使用 `originalName` 作为去重 key
+
+**前端规则**:
+- `ChatCommandMenu` 选择时调用 `buildSkillCommandText(originalName, displayName)`
+- `ChatInputEditor` 的 `valueToHtml` 同时支持新旧两种格式，新格式 chip 显示 `displayName`
+- `text-tokenizer` 的 `ChatTextToken` skill 类型有 `displayName?` 可选字段
+- `SkillsSettingsPanel` 插入命令时传 `originalName` + `displayName`
+- `SubAgentChatPanel` 技能勾选使用 `originalName` 匹配
+- `openSkillInStack()` 同时匹配 `originalName` 和 `name`
+
 **使用流程**:
-1. 用户消息中输入 `/skill/name`
-2. `SkillSelector.extractSkillNamesFromText()` 解析名称
-3. `AiExecuteService` 加载 SKILL.md 内容
+1. 用户消息中输入 `/skill/[originalName|displayName]`（或旧格式 `/skill/name`）
+2. `SkillSelector.extractSkillNamesFromText()` 解析出 originalName
+3. `AiExecuteService` 通过 `resolveSkillByName(originalName)` 加载 SKILL.md 内容
 4. 作为 `data-skill` part 注入到用户消息前
 5. `messageConverter.ts` 中 `convertDataPart` 转为模型可读文本（`<skill>` 标签包裹）
 

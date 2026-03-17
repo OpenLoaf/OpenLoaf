@@ -16,7 +16,7 @@ import {
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./tools/MessageTool";
 import MessageFile from "./tools/MessageFile";
-import { isHiddenToolPart, isToolPart } from "@/lib/chat/message-parts";
+import { isHiddenToolPart, isToolPart, isToolPartError } from "@/lib/chat/message-parts";
 import type React from "react";
 import { MessageResponse } from "@/components/ai-elements/message";
 import {
@@ -165,14 +165,20 @@ export function renderMessageParts(
     messageId?: string;
     /** Motion props for entrance animation. */
     motionProps?: React.ComponentProps<typeof motion.div>;
+    /** When true, show all tool results including normally hidden ones. */
+    showAllToolResults?: boolean;
   },
 ) {
   const renderTools = options?.renderTools !== false;
   const renderText = options?.renderText !== false;
   const isAnimating = Boolean(options?.isAnimating);
   const motionProps = options?.motionProps;
+  const showAllToolResults = Boolean(options?.showAllToolResults);
+  // 隐藏逻辑：仅隐藏成功返回的隐藏工具，错误状态的工具始终显示。
+  const shouldHide = (part: AnyMessagePart) =>
+    !showAllToolResults && isHiddenToolPart(part) && !isToolPartError(part);
   const list = Array.isArray(parts) ? parts : [];
-  const transientParts = list.filter((part) => isTransientPart(part) && !isHiddenToolPart(part));
+  const transientParts = list.filter((part) => isTransientPart(part) && !shouldHide(part));
   const transientToolCallIds = new Set(
     transientParts
       .map((part) => (typeof part.toolCallId === "string" ? part.toolCallId : ""))
@@ -180,7 +186,7 @@ export function renderMessageParts(
   );
   const visibleList = list.filter(
     (part) =>
-      !isHiddenToolPart(part) &&
+      !shouldHide(part) &&
       !isTransientPart(part) &&
       !(part?.toolCallId && transientToolCallIds.has(String(part.toolCallId))),
   );
@@ -348,7 +354,7 @@ export function renderMessageParts(
     // 关键：tool part 也属于消息内容的一部分，需要保持与 MessageList 一致的渲染规则（支持嵌套）。
     if (isToolPart(part)) {
       // 中文注释：tool-search 为内部加载工具，不在 Web 聊天中展示。
-      if (isHiddenToolPart(part)) continue;
+      if (shouldHide(part)) continue;
       if (!renderTools) continue;
       const toolPart = part as any;
       nodes.push(

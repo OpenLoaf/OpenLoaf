@@ -302,6 +302,8 @@
     "renameDesc": "輸入專案的新名稱。",
     "confirmRemove": "確認移除此專案？僅從列表移除，不會刪除磁碟檔案。",
     "openInNewWindow": "在新視窗開啟",
+    "copyAddress": "複製專案地址",
+    "addressCopied": "已複製專案地址",
     "totalCount": "共 {{count}} 個",
     "childCount": "{{count}} 個子專案",
     "createFailed": "建立失敗",

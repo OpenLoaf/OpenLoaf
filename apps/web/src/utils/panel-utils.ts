@@ -44,6 +44,7 @@ const LazyTerminalViewer = React.lazy(() => import("@/components/file/TerminalVi
 const LazyDesktopWidgetLibraryPanel = React.lazy(() => import("@/components/desktop/DesktopWidgetLibraryPanel"));
 const LazyGlobalDesktop = React.lazy(() => import("@/components/desktop/GlobalDesktop"));
 const LazyFolderTreePreview = React.lazy(() => import("@/components/project/filesystem/FolderTreePreview"));
+const LazyProjectFileSystemStackPanel = React.lazy(() => import("@/components/project/filesystem/ProjectFileSystemStackPanel"));
 const LazySkillTranslateSlot = React.lazy(() => import("@/components/setting/skills/SkillTranslateSlot"));
 const LazySchedulerTaskHistoryStackPanel = React.lazy(() =>
   import("@/components/summary/SchedulerTaskHistoryStackPanel").then(m => ({ default: m.SchedulerTaskHistoryStackPanel })),
@@ -153,6 +154,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "desktop-widget-library": LazyDesktopWidgetLibraryPanel,
   "global-desktop": LazyGlobalDesktop,
   "folder-tree-preview": FolderTreePreviewWithSkillSlot,
+  "project-filesystem-panel": LazyProjectFileSystemStackPanel,
   "scheduler-task-history": LazySchedulerTaskHistoryStackPanel,
   "scheduled-tasks-page": LazyScheduledTasksPage,
   "agent-detail": LazyAgentDetailPanel,

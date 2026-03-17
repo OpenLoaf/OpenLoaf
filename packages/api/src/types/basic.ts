@@ -123,6 +123,8 @@ export const basicConfigSchema = z.object({
   webSearchProvider: z.string(),
   /** Web search API key. */
   webSearchApiKey: z.string(),
+  /** Show all tool call results in chat message list. */
+  chatShowAllToolResults: z.boolean(),
 });
 
 export const basicConfigUpdateSchema = basicConfigSchema.partial();

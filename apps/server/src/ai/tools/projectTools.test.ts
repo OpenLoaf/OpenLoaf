@@ -45,7 +45,6 @@ function setToolContext(input: { projectId?: string }) {
 const { root } = await setupTestRoot();
 
 const parentResult = await executeProjectMutate({
-  actionName: "create root project",
   action: "create",
   title: "Alpha",
 });
@@ -59,7 +58,6 @@ assert.ok(parentProjectId, "projectId should be returned");
 assert.equal(parentResult.data.project.title, "Alpha");
 
 const listResult = await executeProjectQuery({
-  actionName: "list projects",
   mode: "list",
 });
 assert.equal(listResult.data.mode, "list");
@@ -67,7 +65,6 @@ assert.ok(listResult.data.projects.length >= 1);
 
 setToolContext({ projectId: parentProjectId });
 const childResult = await executeProjectMutate({
-  actionName: "create child project",
   action: "create",
   title: "Beta",
   createAsChild: true,
@@ -81,7 +78,6 @@ const childRootUri = childResult.data.project.rootUri;
 assert.ok(childProjectId);
 assert.ok(childRootUri);
 const childGet = await executeProjectQuery({
-  actionName: "get child project",
   mode: "get",
   projectId: childProjectId,
 });
@@ -90,7 +86,6 @@ assert.equal(childGet.data.project.title, "Beta");
 
 setToolContext({ projectId: childProjectId });
 await executeProjectMutate({
-  actionName: "rename project",
   action: "update",
   title: "Beta-Renamed",
   icon: "icon-beta",
@@ -102,7 +97,6 @@ assert.equal(updatedConfig.title, "Beta-Renamed");
 assert.equal(updatedConfig.icon, "icon-beta");
 
 await executeProjectMutate({
-  actionName: "move child to root",
   action: "move",
   projectId: childProjectId,
   targetParentProjectId: null,
@@ -118,7 +112,6 @@ assert.equal(
 );
 
 await executeProjectMutate({
-  actionName: "remove child project",
   action: "remove",
   projectId: childProjectId,
 });

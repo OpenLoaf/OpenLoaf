@@ -11,11 +11,11 @@
 
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { Bug, History, Lightbulb, MessageSquarePlus, Palette, X } from "lucide-react";
+import { Bug, FolderOpen, History, Lightbulb, MessageSquarePlus, Palette, X } from "lucide-react";
 import SessionList from "@/components/ai/session/SessionList";
 import * as React from "react";
 import { useChatActions, useChatSession, useChatState } from "./context";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import { useAppView } from "@/hooks/use-app-view";
 import { invalidateChatSessions, useChatSessions } from "@/hooks/use-chat-sessions";
@@ -23,6 +23,8 @@ import { useLayoutState } from "@/hooks/use-layout-state";
 import { useAppState } from "@/hooks/use-app-state";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
+import { useProject } from "@/hooks/use-project";
+import { useProjectStorageRootUri } from "@/hooks/use-project-storage-root-uri";
 import { toast } from "sonner";
 import { SaaSClient, SaaSHttpError } from "@openloaf-saas/sdk";
 import { MessageAction, MessageActions } from "@/components/ai-elements/message";
@@ -41,13 +43,14 @@ import { getAccessToken, resolveSaasBaseUrl } from "@/lib/saas-auth";
 import { resolveServerUrl } from "@/utils/server-url";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { CopyChatToCanvasDialog } from "./CopyChatToCanvasDialog";
+import { buildChatAssetFolderDescriptor } from "./utils/chat-asset-folder";
 
 interface ChatHeaderProps {
   onNewSession?: () => void;
   onCloseSession?: () => void;
   /** Icon color palette for header action buttons. */
   iconPalette?: "default" | "email";
-  /** Enable multi-session mode (show new session button). Default: auto-detect from projectId. */
+  /** Control whether the header keeps session history / switching UI enabled. */
   enableMultiSession?: boolean;
 }
 
@@ -56,6 +59,7 @@ const CHAT_HEADER_EMAIL_ICON_CLASS = {
   feedback: "text-ol-purple",
   copyToCanvas:
     "text-ol-purple/70 hover:text-ol-purple",
+  asset: "text-ol-amber/80 hover:text-ol-amber",
   closeDock: "text-ol-amber",
   clear: "text-ol-green",
   history: "text-ol-blue",
@@ -71,7 +75,7 @@ export default function ChatHeader({
   const { t: tAi } = useTranslation('ai');
   const { sessionId: activeSessionId, tabId, leafMessageId: activeLeafMessageId } = useChatSession();
   const { newSession, selectSession } = useChatActions();
-  const { messages } = useChatState();
+  const { messages, status } = useChatState();
   const [historyOpen, setHistoryOpen] = React.useState(false);
   /** Preface button loading state. */
   const [prefaceLoading, setPrefaceLoading] = React.useState(false);
@@ -123,6 +127,13 @@ export default function ChatHeader({
     const pid = params?.projectId;
     return typeof pid === "string" ? pid.trim() : "";
   }, [appState?.chatParams]);
+  const currentBoardId = React.useMemo(() => {
+    const params = appState?.chatParams as Record<string, unknown> | undefined;
+    const boardId = params?.boardId;
+    return typeof boardId === "string" ? boardId.trim() : "";
+  }, [appState?.chatParams]);
+  const projectQuery = useProject(quickLaunchProjectId || undefined);
+  const globalRootUri = useProjectStorageRootUri();
   /** Resolve icon tone classes for header actions. */
   const resolveActionIconClass = React.useCallback(
     (action: keyof typeof CHAT_HEADER_EMAIL_ICON_CLASS) =>
@@ -148,10 +159,43 @@ export default function ChatHeader({
   // 逻辑：仅在存在历史消息时显示 Preface 查看按钮。
   const showPrefaceButton = Boolean(basic.chatPrefaceEnabled) && messages.length > 0;
 
-  // 新建会话按钮显示条件：有历史消息 + 启用多会话模式
-  const shouldShowNewSessionButton = messages.length > 0 && (enableMultiSession ?? Boolean(quickLaunchProjectId));
+  // 新建会话按钮显示条件：只要当前会话已有消息就始终显示，避免单会话场景缺少重开入口。
+  const shouldShowNewSessionButton = messages.length > 0;
 
   const shouldShowHistoryButton = enableMultiSession ?? true;
+  const assetFolder = React.useMemo(
+    () =>
+      buildChatAssetFolderDescriptor({
+        sessionId: activeSessionId,
+        projectId: quickLaunchProjectId || undefined,
+        boardId: currentBoardId || undefined,
+      }),
+    [activeSessionId, currentBoardId, quickLaunchProjectId],
+  );
+  const assetRootUri = React.useMemo(() => {
+    const shellRootUri = projectShell?.rootUri?.trim();
+    if (quickLaunchProjectId) {
+      return shellRootUri || projectQuery.data?.project?.rootUri?.trim() || "";
+    }
+    return globalRootUri?.trim() || "";
+  }, [globalRootUri, projectQuery.data?.project?.rootUri, projectShell?.rootUri, quickLaunchProjectId]);
+  const assetFolderQuery = useQuery(
+    trpc.fs.list.queryOptions(
+      assetFolder?.relativePath
+        ? {
+            projectId: quickLaunchProjectId || undefined,
+            uri: assetFolder.relativePath,
+          }
+        : skipToken,
+    ),
+  );
+  const assetEntries = assetFolderQuery.data?.entries ?? [];
+  const refetchAssetFolder = assetFolderQuery.refetch;
+  const shouldShowAssetFolderButton =
+    messages.length > 0 &&
+    Boolean(assetFolder?.relativePath) &&
+    Boolean(assetRootUri) &&
+    assetEntries.length > 0;
 
   const effectiveChatFeedbackOpen = chatFeedbackOpen && saasLoggedIn;
 
@@ -166,6 +210,12 @@ export default function ChatHeader({
     menuLockRef.current = open;
     if (open) setHistoryOpen(true);
   };
+
+  React.useEffect(() => {
+    if (!assetFolder?.relativePath) return;
+    if (messages.length === 0) return;
+    void refetchAssetFolder();
+  }, [activeSessionId, assetFolder?.relativePath, messages.length, refetchAssetFolder, status]);
 
   /**
    * Open the current session preface in a markdown stack panel.
@@ -252,6 +302,24 @@ export default function ChatHeader({
     requestLeafMessageId,
     tabId,
   ]);
+
+  /** Open the current chat asset folder in a filesystem stack panel. */
+  const handleOpenAssetFolder = React.useCallback(() => {
+    if (!assetFolder?.relativePath || !assetRootUri) return;
+    const panelKey = `chat-asset:${quickLaunchProjectId || "global"}:${assetFolder.relativePath}`;
+    pushStackItem({
+      id: panelKey,
+      sourceKey: panelKey,
+      component: "project-filesystem-panel",
+      title: tAi(assetFolder.labelKey),
+      params: {
+        projectId: quickLaunchProjectId || undefined,
+        rootUri: assetRootUri,
+        currentUri: assetFolder.relativePath,
+        openUri: assetFolder.relativePath,
+      },
+    });
+  }, [assetFolder?.labelKey, assetFolder?.relativePath, assetRootUri, pushStackItem, quickLaunchProjectId, tAi]);
 
   /** Submit feedback payload to SaaS. */
   const submitChatFeedbackPayload = React.useCallback(async (input: {
@@ -403,6 +471,17 @@ export default function ChatHeader({
               label={tAi("copyToCanvas.button")}
             >
               <Palette size={16} />
+            </MessageAction>
+          ) : null}
+          {shouldShowAssetFolderButton && assetFolder ? (
+            <MessageAction
+              aria-label={tAi(assetFolder.labelKey)}
+              onClick={handleOpenAssetFolder}
+              className={cn("shrink-0", resolveActionIconClass("asset"))}
+              tooltip={tAi(assetFolder.labelKey)}
+              label={tAi(assetFolder.labelKey)}
+            >
+              <FolderOpen size={18} />
             </MessageAction>
           ) : null}
           {shouldShowNewSessionButton ? (

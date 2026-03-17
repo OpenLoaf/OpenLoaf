@@ -339,6 +339,35 @@
       value: "回复应确认音频格式转换（WAV→MP3），或指出文件未找到/不存在"
 
 # ════════════════════════════════════════════════════════════════
+# 视频下载 — video-download 工具
+# ════════════════════════════════════════════════════════════════
+
+- description: "viddl-001: 根据视频网址下载文件应使用 video-download"
+  vars:
+    prompt: "帮我把这个视频下载下来：https://example.com/demo.mp4"
+  assert:
+    - type: javascript
+      weight: 2
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('video-download')
+          ? { pass: true, score: 1, reason: '正确调用了 video-download' }
+          : { pass: false, score: 0, reason: `未调用 video-download，实际: [${tools}]` };
+    - type: javascript
+      weight: 2
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('video-generate')
+          ? { pass: true, score: 1, reason: '未误用 video-generate' }
+          : { pass: false, score: 0, reason: '下载现成视频链接不应调用 video-generate' };
+    - type: llm-rubric
+      weight: 1
+      metric: output_quality
+      value: "回复应说明已下载或正在处理下载，并给出保存路径、失败原因或下一步可继续处理该文件的说明"
+
+# ════════════════════════════════════════════════════════════════
 # 文档转换 — doc-convert 工具
 # ════════════════════════════════════════════════════════════════
 

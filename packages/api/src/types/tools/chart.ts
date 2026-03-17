@@ -20,11 +20,6 @@ export const chartRenderToolDef = {
 - height: 图表高度（可选，像素）
 输出：渲染所需的 option 与元信息。`,
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .optional()
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的。"),
     title: z.string().optional().describe("图表标题。"),
     option: z
       .union([z.string(), z.record(z.string(), z.unknown())])

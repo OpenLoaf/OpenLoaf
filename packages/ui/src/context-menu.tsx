@@ -13,42 +13,15 @@ import { CheckIcon, ChevronRightIcon, CircleIcon, type LucideIcon } from "lucide
 
 import { cn } from "@/lib/utils"
 
-const CONTEXT_MENU_ICON_TONE_CLASS = {
-  info: "text-ol-blue",
-  success: "text-ol-green",
-  warning: "text-ol-amber",
-  danger: "text-ol-red",
-  accent: "text-ol-purple",
-} as const
-
 /** Resolve a semantic color class for context-menu icons. */
 function resolveContextMenuIconClass(
-  icon?: LucideIcon,
-  variant?: "default" | "destructive",
+  _icon?: LucideIcon,
+  _variant?: "default" | "destructive",
   iconClassName?: string
 ) {
   if (iconClassName) return iconClassName
-  if (variant === "destructive") return CONTEXT_MENU_ICON_TONE_CLASS.danger
-
-  const iconName = (icon?.displayName ?? icon?.name ?? "").toLowerCase()
-  // 逻辑：危险/删除类操作优先使用红色语义。
-  if (/(trash|delete|remove|ban|x$|xicon|circlex|close)/.test(iconName)) {
-    return CONTEXT_MENU_ICON_TONE_CLASS.danger
-  }
-  // 逻辑：新增/确认/刷新类操作使用绿色语义。
-  if (/(plus|check|sparkles|rotate|refresh|import|download|upload)/.test(iconName)) {
-    return CONTEXT_MENU_ICON_TONE_CLASS.success
-  }
-  // 逻辑：复制/粘贴/迁移/配置等操作使用强调紫色。
-  if (/(copy|clipboard|move|arrowrightleft|settings|layout|grid|duplicate)/.test(iconName)) {
-    return CONTEXT_MENU_ICON_TONE_CLASS.accent
-  }
-  // 逻辑：编辑/可见性切换等操作使用警示黄色。
-  if (/(pencil|edit|rename|eye|indent|outdent)/.test(iconName)) {
-    return CONTEXT_MENU_ICON_TONE_CLASS.warning
-  }
-
-  return CONTEXT_MENU_ICON_TONE_CLASS.info
+  // 逻辑：默认跟随菜单项文字颜色，避免同一菜单内出现多套语义色。
+  return "text-current"
 }
 
 /**
@@ -198,7 +171,7 @@ function ContextMenuSubTrigger({
       data-slot="context-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&_svg:not([class*='text-'])]:text-ol-blue flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&_svg:not([class*='text-'])]:text-current flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
@@ -268,7 +241,7 @@ function ContextMenuItem({
       data-inset={inset}
       data-variant={variant}
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-ol-blue relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-current relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}

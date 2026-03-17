@@ -302,6 +302,8 @@
     "renameDesc": "Enter a new name for the project.",
     "confirmRemove": "Remove this project? Only removes from the list, disk files are not deleted.",
     "openInNewWindow": "Open in New Window",
+    "copyAddress": "Copy Project URL",
+    "addressCopied": "Project URL copied",
     "totalCount": "{{count}} total",
     "childCount": "{{count}} sub-projects",
     "createFailed": "Failed to create project",

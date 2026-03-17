@@ -18,7 +18,8 @@ import { useSettingsValues } from '@/hooks/use-settings'
 import { useLayoutState } from '@/hooks/use-layout-state'
 import { useSaasAuth } from '@/hooks/use-saas-auth'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
-import { Message, MessageContent } from '@/components/ai-elements/message'
+import { Message, MessageContent, USER_MESSAGE_SURFACE_CLASS } from '@/components/ai-elements/message'
+import { cn } from '@/lib/utils'
 import AssistantMessageHeader from './AssistantMessageHeader'
 
 export default function PendingCloudLoginPrompt() {
@@ -107,7 +108,7 @@ export default function PendingCloudLoginPrompt() {
         className="my-0.5 px-2 pr-5"
       >
         <Message from="user" className="ml-auto max-w-[78%]">
-          <MessageContent className="show-scrollbar max-h-64 overflow-x-hidden overflow-y-auto border border-primary/35 px-3 py-2 text-[12px] leading-4 shadow-sm group-[.is-user]:!bg-primary/85 group-[.is-user]:!text-primary-foreground">
+          <MessageContent className={cn("show-scrollbar max-h-64 overflow-x-hidden overflow-y-auto border px-3 py-2 text-[12px] leading-4 shadow-sm", USER_MESSAGE_SURFACE_CLASS)}>
             <span className="whitespace-pre-wrap break-words">{pendingCloudMessage.text}</span>
           </MessageContent>
         </Message>

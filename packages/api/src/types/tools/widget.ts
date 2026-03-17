@@ -18,10 +18,6 @@ export const widgetInitToolDef = {
     '创建 widget 目录脚手架（package.json + 占位 widget.tsx + 占位 functions.ts + 可选 .env）。返回 widgetId 和文件路径，随后用 apply-patch 写入实际代码。',
   needsApproval: true,
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('本次工具调用目的，例如：初始化天气 Widget 脚手架'),
     widgetName: z
       .string()
       .min(1)
@@ -67,12 +63,7 @@ export const widgetListToolDef = {
   description:
     '列出当前可见范围内所有动态 Widget 的基本信息（widgetId、名称、描述、函数列表等）。',
   needsApproval: false,
-  parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('本次工具调用目的，例如：查看已有 Widget 列表'),
-  }),
+  parameters: z.object({}),
   component: null,
 } as const
 
@@ -83,10 +74,6 @@ export const widgetGetToolDef = {
     '获取单个 Widget 的详细信息，包括元数据、函数列表、尺寸约束、环境变量等。',
   needsApproval: false,
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('本次工具调用目的，例如：查看天气 Widget 详情'),
     widgetId: z
       .string()
       .min(1)
@@ -102,10 +89,6 @@ export const widgetCheckToolDef = {
     '验证 Widget 文件结构并编译 widget.tsx。成功时前端会显示 Widget 预览。',
   needsApproval: false,
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('本次工具调用目的，例如：验证天气 Widget'),
     widgetId: z
       .string()
       .min(1)
@@ -123,12 +106,6 @@ export const generateWidgetToolDef = {
     '触发：当你需要生成一个可用的动态桌面 Widget，并把完整文件写入本地时调用。用途：写入 package.json/widget.tsx/functions.ts/.env 等文件并注册到桌面组件库。返回：JSON（含 widgetId）；失败会报错。不适用：仅需示例代码或不希望写入文件时不要使用。',
   needsApproval: true,
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe(
-        '由调用的 LLM 传入，用于说明本次工具调用目的，例如：生成特斯拉股票 Widget。',
-      ),
     widgetName: z
       .string()
       .min(1)

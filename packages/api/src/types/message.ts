@@ -140,6 +140,8 @@ export type ChatRequestBody = {
   clientPlatform?: ClientPlatform;
   /** Board chat: explicit message ID chain from canvas connector graph. */
   messageIdChain?: string[];
+  /** Page context for AI agent skill auto-loading. */
+  pageContext?: ChatPageContext;
 };
 
 /** Part type for task references embedded in chat messages. */
@@ -191,6 +193,21 @@ export type TargetAgent = {
   projectId: string;
   projectTitle?: string;
 };
+
+/**
+ * Page context for AI agent skill auto-loading and context awareness.
+ * Injected by frontend into chatParams, flows to server via request body.
+ */
+export type ChatPageContext = {
+  /** Scope: global pages vs project-scoped pages. */
+  scope: 'global' | 'project'
+  /** Page identifier for skill mapping. */
+  page: string
+  /** Project id when scope is 'project'. */
+  projectId?: string
+  /** Board id when on a board/canvas page. */
+  boardId?: string
+}
 
 export type TokenUsage = {
   inputTokens?: number;

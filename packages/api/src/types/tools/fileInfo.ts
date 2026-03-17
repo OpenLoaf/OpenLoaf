@@ -26,10 +26,6 @@ export const fileInfoToolDef = {
     '展示文件大小时，务必将字节转换为人类可读单位（KB/MB/GB），不要直接输出字节数。' +
     '不适用：需要读取文件内容时不要使用，改用 read-file 或对应的 query 工具。',
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：查看图片的分辨率信息。'),
     filePath: z
       .string()
       .min(1)

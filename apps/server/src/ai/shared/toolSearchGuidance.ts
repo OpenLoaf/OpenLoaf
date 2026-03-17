@@ -37,7 +37,7 @@ const GROUP_META: Record<string, { label: string; hint: string }> = {
   fileWrite: { label: '文件编辑', hint: 'patch / edit' },
   shell: { label: '命令执行', hint: 'shell' },
   web: { label: '网页/浏览器', hint: 'browser / open-url / web search' },
-  media: { label: '媒体生成', hint: 'image generate / video generate' },
+  media: { label: '媒体', hint: 'image / video / download / generate' },
   ui: { label: '可视化/组件', hint: 'jsx / chart / widget' },
   code: { label: '代码执行', hint: 'js repl' },
   task: { label: '任务管理', hint: 'task' },

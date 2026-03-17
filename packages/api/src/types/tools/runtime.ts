@@ -21,16 +21,10 @@ Runs a shell command and returns its output.
 - Windows: runs via Powershell.
 - Always set the \`workdir\` param when using the shell_command function. Do not use \`cd\` unless absolutely necessary.`,
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：查询系统信息。"),
     command: z.string().min(1),
     workdir: z.string().optional(),
     login: z.boolean().optional(),
-    timeoutMs: z.number().int().positive().optional(),
-    sandboxPermissions: z.enum(["use_default", "require_escalated"]).optional(),
-    justification: z.string().optional(),
+    timeout: z.number().int().min(1000).max(600000).optional().describe("可选：命令超时时间（毫秒），默认 120000（2 分钟），最大 600000（10 分钟）"),
   }),
   component: null,
 } as const;
@@ -41,10 +35,6 @@ export const readFileToolDef = {
   description:
     "触发：当你需要读取本地文本文件内容并保留行号时调用。用途：按 slice/indentation 模式读取文本文件。返回：带行号的文本行（例如 L1: ...）；仅支持文本文件，二进制会报错。不适用：要查看目录结构请用 list-dir。",
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：读取配置文件内容。"),
     path: z.string().min(1),
     offset: z.number().int().min(1).optional(),
     limit: z.number().int().min(1).optional(),
@@ -87,10 +77,6 @@ export const applyPatchToolDef = {
 
 返回：操作结果摘要。不适用：只读任务不要调用。`,
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的。"),
     patch: z
       .string()
       .min(1)
@@ -105,10 +91,6 @@ export const editDocumentToolDef = {
   description:
     "触发：当用户要求修改文稿（tndoc_ 文件夹中的 index.mdx）时调用。用途：将修改后的完整 MDX 内容写入文稿的 index.mdx 文件。返回：`Wrote document: <relative-path>`。不适用：非文稿文件请用 write-file。",
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：修改文稿标题。"),
     path: z.string().min(1).describe("文稿文件夹路径或 index.mdx 路径（相对当前项目或全局根目录）。"),
     content: z.string().describe("修改后的完整 MDX 内容。"),
   }),
@@ -121,10 +103,6 @@ export const listDirToolDef = {
   description:
     "触发：当你需要列出目录内容并查看统计信息时调用。用途：按深度/分页列出条目并标注类型，支持两种输出格式（tree 树形层级 / flat 扁平路径列表）、glob 过滤（pattern）、多种排序（sort: name/size/modified）、显示修改时间（showModified）。返回：文本（含统计信息、条目列表，可能提示还有更多条目及续读参数）。不适用：需要文件内容时请用 read-file；搜索文件内容请用 grep-files。",
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：列出目录内容。"),
     path: z.string().min(1),
     offset: z.number().int().min(1).optional(),
     limit: z.number().int().min(1).optional(),
@@ -144,10 +122,6 @@ export const grepFilesToolDef = {
   description:
     "触发：当你需要在项目中搜索包含特定模式的文件时调用。用途：使用正则表达式搜索文件内容，返回匹配的文件路径列表（按修改时间排序）。返回：每行一个文件路径；无匹配返回 \"No matches found.\"。不适用：搜索文件名请用 list-dir；读取文件内容请用 read-file。",
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：搜索包含 TODO 的文件。"),
     pattern: z.string().min(1).describe("正则表达式搜索模式。"),
     include: z.string().optional().describe("Glob 过滤，如 \"*.ts\" 或 \"*.{ts,tsx}\"。"),
     path: z.string().optional().describe("搜索路径，默认当前项目根目录。"),

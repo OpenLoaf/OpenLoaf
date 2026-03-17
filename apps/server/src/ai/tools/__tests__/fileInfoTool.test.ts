@@ -164,7 +164,7 @@ async function main() {
 
   await test('F1a: PNG file base info', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.png') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.png') }, toolCtx),
     )
     assert.equal(result.ok, true)
     assert.equal(result.data.base.fileName, 'test.png')
@@ -184,7 +184,7 @@ async function main() {
 
   await test('F1b: TXT file base info', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.txt') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.txt') }, toolCtx),
     )
     assert.equal(result.ok, true)
     assert.equal(result.data.base.fileName, 'test.txt')
@@ -194,7 +194,7 @@ async function main() {
 
   await test('F1c: PDF file base info', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.pdf') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.pdf') }, toolCtx),
     )
     assert.equal(result.ok, true)
     assert.equal(result.data.base.fileName, 'test.pdf')
@@ -203,7 +203,7 @@ async function main() {
 
   await test('F1d: CSV file base info', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.csv') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.csv') }, toolCtx),
     )
     assert.equal(result.ok, true)
     assert.equal(result.data.base.mimeType, 'text/csv')
@@ -211,7 +211,7 @@ async function main() {
 
   await test('F1e: HTML file base info', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.html') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.html') }, toolCtx),
     )
     assert.equal(result.ok, true)
     assert.equal(result.data.base.mimeType, 'text/html')
@@ -219,7 +219,7 @@ async function main() {
 
   await test('F1f: JSON file type and base info', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.json') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.json') }, toolCtx),
     )
     assert.equal(result.ok, true)
     assert.equal(result.data.fileType, 'other')
@@ -233,7 +233,7 @@ async function main() {
 
   await test('F2a: PNG image details', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.png') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.png') }, toolCtx),
     )
     assert.equal(result.data.fileType, 'image')
     assert.equal(result.data.details.width, 200)
@@ -245,7 +245,7 @@ async function main() {
 
   await test('F2b: JPEG image details', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.jpg') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.jpg') }, toolCtx),
     )
     assert.equal(result.data.fileType, 'image')
     assert.equal(result.data.details.width, 300)
@@ -256,21 +256,21 @@ async function main() {
 
   await test('F2c: image details has colorSpace', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.png') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.png') }, toolCtx),
     )
     assert.ok(result.data.details.colorSpace, 'colorSpace should be truthy')
   })
 
   await test('F2d: static PNG isAnimated=false', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.png') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.png') }, toolCtx),
     )
     assert.equal(result.data.details.isAnimated, false)
   })
 
   await test('F2e: image base fileSize matches fs.stat', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.png') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.png') }, toolCtx),
     )
     const stat = await fs.stat(path.join(projectRoot, testSubDir, 'test.png'))
     assert.equal(result.data.base.fileSize, stat.size)
@@ -286,7 +286,7 @@ async function main() {
   } else {
     await test('F3a: MP4 video details', async () => {
       const result: any = await withCtx(() =>
-        fileInfoTool.execute({ actionName: 'test', filePath: rel('test.mp4') }, toolCtx),
+        fileInfoTool.execute({ filePath: rel('test.mp4') }, toolCtx),
       )
       assert.equal(result.data.fileType, 'video')
       assert.ok(result.data.details.duration > 0, 'duration should be > 0')
@@ -296,7 +296,7 @@ async function main() {
 
     await test('F3b: WAV audio details', async () => {
       const result: any = await withCtx(() =>
-        fileInfoTool.execute({ actionName: 'test', filePath: rel('test.wav') }, toolCtx),
+        fileInfoTool.execute({ filePath: rel('test.wav') }, toolCtx),
       )
       assert.equal(result.data.fileType, 'audio')
       assert.ok(result.data.details.duration > 0, 'duration should be > 0')
@@ -306,7 +306,7 @@ async function main() {
 
     await test('F3c: video details.streams is array with length >= 1', async () => {
       const result: any = await withCtx(() =>
-        fileInfoTool.execute({ actionName: 'test', filePath: rel('test.mp4') }, toolCtx),
+        fileInfoTool.execute({ filePath: rel('test.mp4') }, toolCtx),
       )
       assert.ok(Array.isArray(result.data.details.streams), 'streams should be an array')
       assert.ok(result.data.details.streams.length >= 1, 'streams should have at least 1 entry')
@@ -314,7 +314,7 @@ async function main() {
 
     await test('F3d: video details.bitRate is a number', async () => {
       const result: any = await withCtx(() =>
-        fileInfoTool.execute({ actionName: 'test', filePath: rel('test.mp4') }, toolCtx),
+        fileInfoTool.execute({ filePath: rel('test.mp4') }, toolCtx),
       )
       assert.equal(typeof result.data.details.bitRate, 'number', 'bitRate should be a number')
     })
@@ -327,7 +327,7 @@ async function main() {
 
   await test('F4a: PDF file type and page count', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.pdf') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.pdf') }, toolCtx),
     )
     assert.equal(result.data.fileType, 'pdf')
     assert.equal(result.data.details.pageCount, 1)
@@ -336,14 +336,14 @@ async function main() {
 
   await test('F4b: PDF details.metadata is an object', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.pdf') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.pdf') }, toolCtx),
     )
     assert.equal(typeof result.data.details.metadata, 'object', 'metadata should be an object')
   })
 
   await test('F4c: PDF details.fileSize > 0', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.pdf') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.pdf') }, toolCtx),
     )
     assert.ok(result.data.details.fileSize > 0, 'PDF details fileSize should be > 0')
   })
@@ -355,7 +355,7 @@ async function main() {
 
   await test('F5a: CSV spreadsheet details', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.csv') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.csv') }, toolCtx),
     )
     assert.equal(result.data.fileType, 'spreadsheet')
     assert.equal(result.data.details.sheetCount, 1)
@@ -365,7 +365,7 @@ async function main() {
 
   await test('F5b: XLSX spreadsheet sheet count', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.xlsx') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.xlsx') }, toolCtx),
     )
     assert.equal(result.data.fileType, 'spreadsheet')
     assert.equal(result.data.details.sheetCount, 2)
@@ -373,7 +373,7 @@ async function main() {
 
   await test('F5c: XLSX sheet names', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.xlsx') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.xlsx') }, toolCtx),
     )
     assert.equal(result.data.details.sheets[0].name, 'People')
     assert.equal(result.data.details.sheets[1].name, 'Cities')
@@ -381,7 +381,7 @@ async function main() {
 
   await test('F5d: XLSX sheet row/col counts', async () => {
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.xlsx') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.xlsx') }, toolCtx),
     )
     // People sheet: header + 2 data rows = 3 rows, 2 columns (Name, Age)
     assert.equal(result.data.details.sheets[0].rowCount, 3)
@@ -398,7 +398,7 @@ async function main() {
       () =>
         withCtx(() =>
           fileInfoTool.execute(
-            { actionName: 'test', filePath: rel('nonexistent.xyz') },
+            { filePath: rel('nonexistent.xyz') },
             toolCtx,
           ),
         ),
@@ -414,7 +414,7 @@ async function main() {
       () =>
         withCtx(() =>
           fileInfoTool.execute(
-            { actionName: 'test', filePath: rel(subDirName) },
+            { filePath: rel(subDirName) },
             toolCtx,
           ),
         ),
@@ -429,7 +429,7 @@ async function main() {
       path.join(projectRoot, testSubDir, 'test.docx'),
     )
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.docx') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.docx') }, toolCtx),
     )
     assert.equal(result.ok, true)
     assert.equal(result.data.fileType, 'document')
@@ -443,7 +443,7 @@ async function main() {
   await test('F6d: unknown extension returns other with empty details', async () => {
     await fs.writeFile(path.join(projectRoot, testSubDir, 'test.xyz'), 'unknown content')
     const result: any = await withCtx(() =>
-      fileInfoTool.execute({ actionName: 'test', filePath: rel('test.xyz') }, toolCtx),
+      fileInfoTool.execute({ filePath: rel('test.xyz') }, toolCtx),
     )
     assert.equal(result.ok, true)
     assert.equal(result.data.fileType, 'other')

@@ -174,6 +174,26 @@ async function resolveSessionDir(sessionId: string): Promise<string> {
   })
   const root = resolveChatHistoryRoot(session?.projectId, session?.boardId)
   const dir = path.join(root, sessionId)
+
+  // 防御：项目路径下 messages.jsonl 不存在时，回退到全局路径
+  // （常见于项目删除或迁移未完成等场景）。
+  if (session?.projectId) {
+    const globalRoot = resolveOpenLoafPath(CHAT_HISTORY_DIR)
+    const globalDir = path.join(globalRoot, sessionId)
+    if (dir !== globalDir) {
+      try {
+        await fs.stat(path.join(dir, MESSAGES_FILE))
+      } catch {
+        // 项目路径下没有文件，尝试全局路径
+        try {
+          await fs.stat(path.join(globalDir, MESSAGES_FILE))
+          sessionDirCache.set(sessionId, globalDir)
+          return globalDir
+        } catch { /* 都没有，用原路径 */ }
+      }
+    }
+  }
+
   sessionDirCache.set(sessionId, dir)
   return dir
 }
@@ -917,6 +937,98 @@ export async function registerAgentDir(
 // ---------------------------------------------------------------------------
 // Cleanup helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Migrate the entire session directory from global path to a project-scoped path.
+ * Called when ensureTempProject() binds a session to a newly created project,
+ * so that all files (messages.jsonl, session.json, root/, files/, agents/, etc.)
+ * written before the project existed are not orphaned.
+ */
+export async function migrateSessionDirToProject(
+  sessionId: string,
+  projectId: string,
+): Promise<void> {
+  // 1. 全局路径（无 projectId 时的默认路径）
+  const globalRoot = resolveOpenLoafPath(CHAT_HISTORY_DIR)
+  const globalDir = path.join(globalRoot, sessionId)
+
+  // 2. 目标项目路径
+  const projectRoot = getProjectRootPath(projectId)
+  if (!projectRoot) return
+  const targetRoot = resolveScopedOpenLoafPath(projectRoot, CHAT_HISTORY_DIR)
+  const targetDir = path.join(targetRoot, sessionId)
+
+  // 3. 路径相同则跳过
+  if (globalDir === targetDir) return
+
+  // 4. 全局目录不存在则跳过
+  try {
+    await fs.stat(globalDir)
+  } catch {
+    return
+  }
+
+  // 5. 目标目录不存在 → 直接 rename 整个目录（最高效）
+  await fs.mkdir(targetRoot, { recursive: true })
+  try {
+    await fs.stat(targetDir)
+  } catch {
+    // 目标不存在，直接移动整个目录
+    await fs.rename(globalDir, targetDir)
+    sessionDirCache.set(sessionId, targetDir)
+    invalidateCache(sessionId)
+    logger.info(
+      { sessionId, from: globalDir, to: targetDir },
+      '[chat-file-store] migrated session dir to project scope (rename)',
+    )
+    return
+  }
+
+  // 6. 目标目录已存在 → 逐个合并文件
+  const entries = await fs.readdir(globalDir, { withFileTypes: true })
+  for (const entry of entries) {
+    const srcPath = path.join(globalDir, entry.name)
+    const dstPath = path.join(targetDir, entry.name)
+
+    if (entry.isDirectory()) {
+      // 子目录：目标不存在则直接移动，已存在则跳过（保留目标）
+      try {
+        await fs.stat(dstPath)
+      } catch {
+        await fs.rename(srcPath, dstPath)
+      }
+    } else if (entry.name === MESSAGES_FILE) {
+      // messages.jsonl：追加合并
+      const globalContent = await fs.readFile(srcPath, 'utf8')
+      if (globalContent.trim()) {
+        await fs.appendFile(dstPath, globalContent)
+      }
+      await fs.unlink(srcPath)
+    } else {
+      // 其他文件（session.json 等）：目标不存在则移动
+      try {
+        await fs.stat(dstPath)
+        await fs.unlink(srcPath) // 目标已有，删除源文件
+      } catch {
+        await fs.rename(srcPath, dstPath)
+      }
+    }
+  }
+
+  // 7. 清理空的全局目录
+  try {
+    await fs.rmdir(globalDir)
+  } catch { /* 目录非空则忽略 */ }
+
+  // 8. 更新缓存
+  sessionDirCache.set(sessionId, targetDir)
+  invalidateCache(sessionId)
+
+  logger.info(
+    { sessionId, from: globalDir, to: targetDir },
+    '[chat-file-store] migrated session dir to project scope (merge)',
+  )
+}
 
 /** Delete all chat history files for all sessions. */
 export async function deleteAllChatFiles(): Promise<void> {

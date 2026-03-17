@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { BotIcon, Sparkles } from 'lucide-react'
 import { useChatRuntime } from '@/hooks/use-chat-runtime'
 import { renderMessageParts } from '@/components/ai/message/renderMessageParts'
+import { useBasicConfig } from '@/hooks/use-basic-config'
 import type { SubAgentStreamState } from '@/components/ai/context/ChatToolContext'
 import { ChatStateProvider } from '@/components/ai/context/ChatStateContext'
 import { ChatToolProvider } from '@/components/ai/context/ChatToolContext'
@@ -27,6 +28,7 @@ import { toast } from 'sonner'
 
 type SkillSummary = {
   name: string
+  originalName: string
   description: string
 }
 
@@ -60,10 +62,10 @@ function SubAgentSkillsPopover({ agentName, projectId }: { agentName: string; pr
     [agentSkillsQuery.data?.skills],
   )
 
-  const handleToggle = React.useCallback((skillName: string, checked: boolean) => {
+  const handleToggle = React.useCallback((originalName: string, checked: boolean) => {
     const next = checked
-      ? [...enabledSkills, skillName]
-      : enabledSkills.filter((s) => s !== skillName)
+      ? [...enabledSkills, originalName]
+      : enabledSkills.filter((s) => s !== originalName)
     saveMutation.mutate({ agentName, skills: next })
   }, [agentName, enabledSkills, saveMutation])
 
@@ -86,12 +88,12 @@ function SubAgentSkillsPopover({ agentName, projectId }: { agentName: string; pr
           <div className="max-h-48 space-y-1 overflow-y-auto">
             {availableSkills.map((skill) => (
               <label
-                key={skill.name}
+                key={skill.originalName}
                 className="flex items-start gap-2 rounded-md px-1.5 py-1 text-[11px] leading-tight hover:bg-muted/40"
               >
                 <Checkbox
-                  checked={enabledSkills.includes(skill.name)}
-                  onCheckedChange={(checked) => handleToggle(skill.name, Boolean(checked))}
+                  checked={enabledSkills.includes(skill.originalName)}
+                  onCheckedChange={(checked) => handleToggle(skill.originalName, Boolean(checked))}
                   className="mt-0.5"
                 />
                 <span className="truncate">{skill.name}</span>
@@ -160,6 +162,8 @@ export default function SubAgentChatPanel({
   [key: string]: unknown
 }) {
   const tabId = propTabId ?? ''
+  const { basic } = useBasicConfig()
+  const showAllToolResults = basic.chatShowAllToolResults
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const wasAtBottomRef = React.useRef(true)
 
@@ -332,6 +336,7 @@ export default function SubAgentChatPanel({
                             renderText: true,
                             isAnimating: false,
                             toolVariant: 'nested',
+                            showAllToolResults,
                           })}
                         </div>
                       )
@@ -352,6 +357,7 @@ export default function SubAgentChatPanel({
                       renderText: true,
                       isAnimating: isStreaming,
                       toolVariant: 'nested',
+                      showAllToolResults,
                     })}
                   </div>
                 </ChatToolProvider>

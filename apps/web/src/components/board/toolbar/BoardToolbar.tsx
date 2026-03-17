@@ -900,6 +900,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
             posterPath: item.thumbnailSrc,
             naturalWidth,
             naturalHeight,
+            duration: metadata?.duration,
           },
           size: [nodeWidth, nodeHeight] as [number, number],
         });

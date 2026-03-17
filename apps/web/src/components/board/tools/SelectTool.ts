@@ -182,6 +182,11 @@ export class SelectTool implements CanvasTool {
         }
       }
 
+      // 逻辑：单选模式下禁止框选，直接清空选区返回。
+      if (ctx.engine.isSingleSelectOnly()) {
+        ctx.engine.selection.clear();
+        return;
+      }
       // 逻辑：空白拖拽进入框选，按住 Shift 保留原选区。
       this.selectionAdditive = ctx.event.shiftKey;
       this.selectionBaseIds = this.selectionAdditive ? selectedIds : [];
@@ -228,7 +233,7 @@ export class SelectTool implements CanvasTool {
     const isLockedNode = hit.locked === true;
     const elements = ctx.engine.doc.getElements();
     const selectionId = resolveGroupSelectionId(elements, hit);
-    if (ctx.event.shiftKey) {
+    if (ctx.event.shiftKey && !ctx.engine.isSingleSelectOnly()) {
       if (isLockedNode) return;
       ctx.engine.selection.toggle(selectionId);
       return;

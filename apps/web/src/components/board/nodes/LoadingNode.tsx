@@ -445,6 +445,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
                 posterPath: posterPath || undefined,
                 naturalWidth,
                 naturalHeight,
+                duration: metadata?.duration,
               },
               [x, y, w || LOADING_NODE_SIZE[0], h || LOADING_NODE_SIZE[1]]
             );
@@ -577,7 +578,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
           <Loader2 className={isRunning ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
           <span>{statusText}</span>
         </div>
-        <div className="text-[11px] text-ol-text-auxiliary line-clamp-3">
+        <div className="w-full text-[11px] text-ol-text-auxiliary line-clamp-1 truncate">
           {promptLabel}
         </div>
         {taskType === "video_download" && !errorText && (

@@ -276,6 +276,7 @@
     "filterHintDefault": "仅显示可用文件",
     "importFromComputer": "从计算机导入",
     "saveToComputer": "保存到电脑",
+    "saveToComputerUnsupported": "当前环境下仅支持将单个文件直接保存到电脑",
     "saveConfirmLabel": "保存",
     "saveFileTitle": "保存文件",
     "cannotResolvePath": "无法解析文件路径",

@@ -31,7 +31,7 @@ export const MainContent: React.FC<{ className?: string }> = ({ className }) => 
   }
 
   return (
-    <div className={cn("relative h-full w-full", className)}>
+    <div className={cn("relative h-full w-full min-w-0", className)}>
       <TabLayout />
     </div>
   )

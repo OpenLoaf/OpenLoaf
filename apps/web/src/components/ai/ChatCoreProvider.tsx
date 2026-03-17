@@ -11,11 +11,6 @@
 
 import React, { type ReactNode } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
-import {
-  generateId,
-  readUIMessageStream,
-  type UIMessageChunk,
-} from "ai";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { trpc, trpcClient } from "@/utils/trpc";
@@ -30,26 +25,10 @@ import type { PendingCloudMessage } from "./context/ChatStateContext";
 import type { ImageGenerateOptions } from "@openloaf/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
 import type { ClaudeCodeOptions } from "@/lib/chat/claude-code-options";
-import type { ChatMessageKind } from "@openloaf/api";
-import i18next from "i18next";
-import { SUMMARY_HISTORY_COMMAND, SUMMARY_TITLE_COMMAND, TEMP_CHAT_TAB_INPUT } from "@openloaf/api/common";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
-import { useRecordEntityVisit } from "@/hooks/use-record-entity-visit";
 import { incrementChatPerf } from "@/lib/chat/chat-perf";
-import { handleSubAgentToolParts } from "@/lib/chat/sub-agent-tool-parts";
-import type { ChatAttachmentInput, MaskedAttachmentInput } from "./input/chat-attachments";
-import { createChatSessionId } from "@/lib/chat-session-id";
-import { getMessagePlainText } from "@/lib/chat/message-text";
 import { isHiddenToolPart } from "@/lib/chat/message-parts";
-import {
-  resolveParentMessageId as resolveParentMessageIdPure,
-  findParentUserForRetry as findParentUserForRetryPure,
-  sliceMessagesToParent,
-  resolveResendParentMessageId as resolveResendParentMessageIdPure,
-  isCommandAtStart as isCommandAtStartPure,
-  isCompactCommandMessage as isCompactCommandMessagePure,
-  isSessionCommandMessage as isSessionCommandMessagePure,
-} from "@/lib/chat/branch-utils";
+import type { ChatAttachmentInput, MaskedAttachmentInput } from "./input/chat-attachments";
 import {
   ChatActionsProvider,
   ChatOptionsProvider,
@@ -60,361 +39,36 @@ import {
 import { useBranchSnapshot, useChatBranchState } from "./hooks/use-chat-branch-state";
 import { useChatToolStream } from "./hooks/use-chat-tool-stream";
 import { useChatLifecycle } from "./hooks/use-chat-lifecycle";
-import type { SubAgentStreamState } from "./context/ChatToolContext";
+import { useSubAgentStreams } from "./hooks/use-sub-agent-streams";
+import { useChatApproval } from "./hooks/use-chat-approval";
+import { useChatMessageOps } from "./hooks/use-chat-message-ops";
+import { useChatSessionManagement } from "./hooks/use-chat-session-management";
+import {
+  handleSubAgentDataPart,
+  handleStepThinkingDataPart,
+  handleBranchSnapshotDataPart,
+  handleMediaGenerateDataPart,
+} from "./utils/chat-data-handlers";
+import { isSaasUnauthorizedErrorMessage } from "./utils/message-predicates";
 
-/** Check whether the message is a compact command request. */
-function isCompactCommandMessage(input: {
-  parts?: unknown[];
-  messageKind?: ChatMessageKind;
-}): boolean {
-  return isCompactCommandMessagePure(input, getMessagePlainText, SUMMARY_HISTORY_COMMAND);
-}
-
-/** Check whether the message is a session command request. */
-function isSessionCommandMessage(input: { parts?: unknown[] }): boolean {
-  return isSessionCommandMessagePure(input, getMessagePlainText, SUMMARY_TITLE_COMMAND);
-}
-
-/** Check whether text starts with the given command token. */
-function isCommandAtStart(text: string, command: string): boolean {
-  return isCommandAtStartPure(text, command);
-}
-
-/** Check whether a message part looks like a tool invocation. */
-function isToolPartCandidate(part: any): boolean {
-  if (!part || typeof part !== "object") return false;
-  const type = typeof part.type === "string" ? part.type : "";
-  if (isHiddenToolPart(part)) return false;
-  return type === "dynamic-tool" || type.startsWith("tool-") || typeof part.toolName === "string";
-}
-
-/** Resolve the last assistant message from a list of UI messages. */
-function findLastAssistantMessage(messages: UIMessage[]): UIMessage | undefined {
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    if (messages[i]?.role === "assistant") return messages[i];
-  }
-  return undefined;
-}
-
-/** Check whether the error text indicates SaaS token unauthorized. */
-function isSaasUnauthorizedErrorMessage(text: string): boolean {
-  const trimmed = text.trim();
-  if (!trimmed) return false;
-  const lower = trimmed.toLowerCase();
-  if (lower.includes("\"message\":\"unauthorized\"")) return true;
-  if (lower.includes("'message':'unauthorized'")) return true;
-  if (/\bunauthorized\b/u.test(lower)) return true;
-  const jsonStart = trimmed.indexOf("{");
-  if (jsonStart < 0) return false;
-  try {
-    const parsed = JSON.parse(trimmed.slice(jsonStart)) as Record<string, unknown>;
-    return String(parsed.message ?? "").trim().toLowerCase() === "unauthorized";
-  } catch {
-    return false;
-  }
-}
-
-/** Map tool call ids to parts from a message. */
-function mapToolPartsFromMessage(message: UIMessage | undefined): Record<string, any> {
-  const mapping: Record<string, any> = {};
-  const parts = Array.isArray((message as any)?.parts) ? (message as any).parts : [];
-  for (const part of parts) {
-    if (!isToolPartCandidate(part)) continue;
-    const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
-    if (!toolCallId) continue;
-    mapping[toolCallId] = part;
-  }
-  return mapping;
-}
-
-/** Collect tool call ids that require approval from the given message. */
-function collectApprovalToolCallIds(
-  message: UIMessage | undefined,
-  toolParts: Record<string, ToolPartSnapshot>,
-): string[] {
-  const result: string[] = [];
-  const parts = Array.isArray((message as any)?.parts) ? (message as any).parts : [];
-  for (const part of parts) {
-    if (!isToolPartCandidate(part)) continue;
-    const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
-    if (!toolCallId) continue;
-    const snapshot = toolParts[toolCallId];
-    if (Boolean((snapshot as any)?.subAgentToolCallId)) continue;
-    const state = typeof snapshot?.state === "string"
-      ? snapshot.state
-      : typeof part?.state === "string"
-        ? part.state
-        : "";
-    const hasApprovalInfo =
-      Boolean(part?.approval) ||
-      Boolean(snapshot?.approval) ||
-      state === "approval-requested" ||
-      state === "approval-responded" ||
-      state === "input-available";
-    if (!hasApprovalInfo) continue;
-    if (!result.includes(toolCallId)) result.push(toolCallId);
-  }
-  return result;
-}
-
-/** Check whether a tool approval has been resolved. */
-function isToolApprovalResolved(input: {
-  toolCallId: string;
-  toolParts: Record<string, ToolPartSnapshot>;
-  messagePart?: any;
-}): boolean {
-  const approval = input.toolParts[input.toolCallId]?.approval ?? input.messagePart?.approval;
-  if (approval?.approved === true || approval?.approved === false) return true;
-  const state = typeof input.toolParts[input.toolCallId]?.state === "string"
-    ? input.toolParts[input.toolCallId]?.state
-    : typeof input.messagePart?.state === "string"
-      ? input.messagePart.state
-      : "";
-  return state === "approval-responded" || state === "output-denied";
-}
-
-// 中文注释：提供稳定的空对象，避免 useSyncExternalStore 报错。
+// 提供稳定的空对象，避免 useSyncExternalStore 报错。
 const EMPTY_TOOL_PARTS: Record<string, ToolPartSnapshot> = {};
-
-type SubAgentDataPayload = {
-  toolCallId?: string;
-  name?: string;
-  task?: string;
-  delta?: string;
-  output?: string;
-  errorText?: string;
-  chunk?: UIMessageChunk;
-};
-
-function handleSubAgentDataPart(input: {
-  dataPart: any;
-  setSubAgentStreams?: React.Dispatch<React.SetStateAction<Record<string, SubAgentStreamState>>>;
-  enqueueSubAgentChunk?: (toolCallId: string, chunk: UIMessageChunk) => void;
-  closeSubAgentStream?: (
-    toolCallId: string,
-    state: "output-available" | "output-error",
-  ) => void;
-  tabId?: string;
-  upsertToolPart?: (tabId: string, toolCallId: string, next: ToolPartSnapshot) => void;
-}) {
-  const type = input.dataPart?.type;
-  if (
-    type !== "data-sub-agent-start" &&
-    type !== "data-sub-agent-delta" &&
-    type !== "data-sub-agent-end" &&
-    type !== "data-sub-agent-error" &&
-    type !== "data-sub-agent-chunk"
-  ) {
-    return false;
-  }
-
-  const payload = input.dataPart?.data as SubAgentDataPayload | undefined;
-  const toolCallId = typeof payload?.toolCallId === "string" ? payload?.toolCallId : "";
-  if (!toolCallId) return true;
-
-  if (type === "data-sub-agent-chunk") {
-    const chunk = payload?.chunk;
-    if (!chunk) return true;
-    input.enqueueSubAgentChunk?.(toolCallId, chunk);
-    return true;
-  }
-
-  const setSubAgentStreams = input.setSubAgentStreams;
-  if (!setSubAgentStreams) return true;
-  if (type === "data-sub-agent-end") {
-    input.closeSubAgentStream?.(toolCallId, "output-available");
-  }
-  if (type === "data-sub-agent-error") {
-    input.closeSubAgentStream?.(toolCallId, "output-error");
-  }
-
-  setSubAgentStreams((prev) => {
-    const current = prev[toolCallId] ?? {
-      toolCallId,
-      output: "",
-      state: "output-streaming",
-    };
-
-    if (type === "data-sub-agent-start") {
-      const name = typeof payload?.name === "string" ? payload?.name : "";
-      const task = typeof payload?.task === "string" ? payload?.task : "";
-      return {
-        ...prev,
-        [toolCallId]: {
-          ...current,
-          name: name || current.name,
-          task: task || current.task,
-          state: "output-streaming",
-          streaming: true,
-        },
-      };
-    }
-
-    if (type === "data-sub-agent-delta") {
-      const delta = typeof payload?.delta === "string" ? payload?.delta : "";
-      return {
-        ...prev,
-        [toolCallId]: {
-          ...current,
-          output: `${current.output}${delta}`,
-          state: "output-streaming",
-          streaming: true,
-        },
-      };
-    }
-
-    if (type === "data-sub-agent-end") {
-      const output = typeof payload?.output === "string" ? payload?.output : "";
-      return {
-        ...prev,
-        [toolCallId]: {
-          ...current,
-          output: output || current.output,
-          state: "output-available",
-          streaming: false,
-        },
-      };
-    }
-
-    if (type === "data-sub-agent-error") {
-      const errorText = typeof payload?.errorText === "string" ? payload?.errorText : "";
-      return {
-        ...prev,
-        [toolCallId]: {
-          ...current,
-          errorText: errorText || current.errorText,
-          state: "output-error",
-          streaming: false,
-        },
-      };
-    }
-
-    return prev;
-  });
-
-  return true;
-}
-
-function handleStepThinkingDataPart(input: {
-  dataPart: any;
-  setStepThinking?: React.Dispatch<React.SetStateAction<boolean>>;
-}) {
-  const type = input.dataPart?.type;
-  if (type !== "data-step-thinking") return false;
-  const setStepThinking = input.setStepThinking;
-  if (!setStepThinking) return true;
-
-  const active = Boolean(input.dataPart?.data?.active);
-  // 中文注释：由服务端按 step 事件触发显隐。
-  setStepThinking(active);
-  return true;
-}
-
-/** Handle canonical branch snapshot data parts from SSE stream. */
-function handleBranchSnapshotDataPart(input: {
-  dataPart: any;
-  sessionId: string;
-  commitServerSnapshot?: (snapshot: any) => void;
-  markReceived?: () => void;
-}) {
-  if (input.dataPart?.type !== "data-branch-snapshot") return false;
-  const payload =
-    input.dataPart?.data && typeof input.dataPart.data === "object"
-      ? input.dataPart.data
-      : null;
-  const sessionIdInData =
-    typeof payload?.sessionId === "string" ? String(payload.sessionId) : "";
-  if (sessionIdInData && sessionIdInData !== input.sessionId) return true;
-
-  const snapshot =
-    payload?.snapshot && typeof payload.snapshot === "object"
-      ? payload.snapshot
-      : payload;
-  if (!snapshot || typeof snapshot !== "object") return true;
-  if (!input.commitServerSnapshot) return true;
-
-  input.markReceived?.();
-  input.commitServerSnapshot(snapshot);
-  return true;
-}
-
-/** Handle media generate data parts from SSE stream. */
-function handleMediaGenerateDataPart(input: {
-  dataPart: any;
-  upsertToolPartMerged?: (key: string, next: Record<string, unknown>) => void;
-}) {
-  const type = input.dataPart?.type;
-  if (
-    type !== "data-media-generate-start" &&
-    type !== "data-media-generate-progress" &&
-    type !== "data-media-generate-end" &&
-    type !== "data-media-generate-error"
-  ) {
-    return false;
-  }
-  const data = input.dataPart?.data as Record<string, unknown> | undefined;
-  const toolCallId = typeof data?.toolCallId === "string" ? data.toolCallId : "";
-  if (!toolCallId || !input.upsertToolPartMerged) return true;
-
-  if (type === "data-media-generate-start") {
-    input.upsertToolPartMerged(toolCallId, {
-      mediaGenerate: {
-        status: "generating",
-        kind: data?.kind,
-        prompt: data?.prompt,
-      },
-    });
-  } else if (type === "data-media-generate-progress") {
-    input.upsertToolPartMerged(toolCallId, {
-      mediaGenerate: {
-        status: "generating",
-        kind: data?.kind,
-        progress: data?.progress,
-      },
-    });
-  } else if (type === "data-media-generate-end") {
-    input.upsertToolPartMerged(toolCallId, {
-      mediaGenerate: {
-        status: "done",
-        kind: data?.kind,
-        urls: data?.urls,
-      },
-    });
-  } else if (type === "data-media-generate-error") {
-    input.upsertToolPartMerged(toolCallId, {
-      mediaGenerate: {
-        status: "error",
-        kind: data?.kind,
-        errorCode: data?.errorCode,
-      },
-    });
-  }
-  return true;
-}
 
 /**
  * Chat provider component.
  * Provides chat state and actions to children.
  */
 type ChatCoreProviderProps = {
-  /** Children nodes inside chat provider. */
   children: ReactNode;
-  /** Current tab id. */
   tabId?: string;
-  /** Current session id. */
   sessionId: string;
-  /** Whether to load history messages. */
   loadHistory?: boolean;
-  /** Extra params sent with chat requests. */
   params?: Record<string, unknown>;
-  /** Session change handler. */
   onSessionChange?: (
     sessionId: string,
     options?: { loadHistory?: boolean; replaceCurrent?: boolean }
   ) => void;
-  /** Add image attachments to the chat input. */
   addAttachments?: (files: FileList | ChatAttachmentInput[]) => void;
-  /** Add a masked attachment to the chat input. */
   addMaskedAttachment?: (input: MaskedAttachmentInput) => void;
 };
 
@@ -428,12 +82,6 @@ export default function ChatCoreProvider({
   addAttachments,
   addMaskedAttachment,
 }: ChatCoreProviderProps) {
-  const [subAgentStreams, setSubAgentStreams] = React.useState<
-    Record<string, SubAgentStreamState>
-  >({});
-  const subAgentStreamControllersRef = React.useRef(
-    new Map<string, ReadableStreamDefaultController<UIMessageChunk>>(),
-  );
   const [stepThinking, setStepThinking] = React.useState(false);
   const [pendingCloudMessage, setPendingCloudMessage] = React.useState<PendingCloudMessage | null>(null);
   const pendingCloudMessageRef = React.useRef(pendingCloudMessage);
@@ -441,185 +89,51 @@ export default function ChatCoreProvider({
   const { loggedIn: authLoggedIn } = useSaasAuth();
   const upsertToolPart = useChatRuntime((s) => s.upsertToolPart);
   const clearToolPartsForTab = useChatRuntime((s) => s.clearToolPartsForTab);
-  const clearCcRuntime = useChatRuntime((s) => s.clearCcRuntime);
   const queryClient = useQueryClient();
   const { basic } = useBasicConfig();
   const basicRef = React.useRef(basic);
   basicRef.current = basic;
   const toolStream = useChatToolStream();
 
-  // 中文注释：每 5 次 assistant 回复触发自动标题更新。
-  const autoTitleMutation = useMutation({
-    ...(trpc.chat.autoTitle.mutationOptions() as any),
-    onSuccess: () => {
-      invalidateChatSessions(queryClient);
-    },
-  });
-  const deleteMessageSubtreeMutation = useMutation(
-    trpc.chat.deleteMessageSubtree.mutationOptions()
-  );
-  const updateApprovalMutation = useMutation({
-    ...trpc.chat.updateMessageParts.mutationOptions(),
-  });
+  // ── Refs ──
   const sessionIdRef = React.useRef(sessionId);
   sessionIdRef.current = sessionId;
-
-  // 关键：记录一次请求对应的 userMessageId（用于在 onFinish 补齐 assistant.parentMessageId）
   const pendingUserMessageIdRef = React.useRef<string | null>(null);
-  // 关键：retry/resend 仍保留一个兜底分支元数据刷新，但主路径应优先信任服务端 snapshot。
   const needsBranchMetaRefreshRef = React.useRef(false);
-  // 关键：记录当前请求是否已经收到服务端 canonical snapshot。
   const branchSnapshotReceivedRef = React.useRef(false);
-  // 关键：useChat 的 onFinish 里需要 setMessages，但 chat 在 hook 调用之后才可用
   const setMessagesRef = React.useRef<ReturnType<typeof useChat>["setMessages"] | null>(null);
-  // 关键：标记当前请求是否为 compact，以便回写 compact_summary。
   const pendingCompactRequestRef = React.useRef<string | null>(null);
-  // 关键：session command 不应更新 leafMessageId。
   const pendingSessionCommandRef = React.useRef<string | null>(null);
-  // 关键：用于自动标题更新的回复计数与首条消息刷新。
   const assistantReplyCountRef = React.useRef(0);
   const pendingInitialTitleRefreshRef = React.useRef(false);
-  // 关键：同一条用户消息仅自动刷新 token 并重试一次，避免无限重试。
   const authRetryMessageIdsRef = React.useRef(new Set<string>());
-  // 关键：防止并发进入多次自动刷新流程。
   const authRetryInFlightRef = React.useRef(false);
-  /** Queued approval payloads keyed by tool call id. */
-  const approvalPayloadsRef = React.useRef<Record<string, Record<string, unknown>>>({});
-  /** Track ongoing approval submission to avoid duplicate sends. */
-  const approvalSubmitInFlightRef = React.useRef(false);
-  /** Remember the tool call IDs included in the last approval continuation to prevent duplicate sends. */
-  const lastApprovalSubmittedKeyRef = React.useRef<string>("");
+  const paramsRef = React.useRef<Record<string, unknown> | undefined>(params);
+  const tabIdRef = React.useRef<string | null | undefined>(tabId);
 
-  const ensureSubAgentStreamController = React.useCallback(
-    (toolCallId: string) => {
-      const existing = subAgentStreamControllersRef.current.get(toolCallId);
-      if (existing) return existing;
+  const projectId = React.useMemo(() => {
+    if (typeof params?.projectId !== "string") return undefined;
+    const trimmed = params.projectId.trim();
+    return trimmed ? trimmed : undefined;
+  }, [params]);
 
-      let controller: ReadableStreamDefaultController<UIMessageChunk> | null = null;
-      const stream = new ReadableStream<UIMessageChunk>({
-        start(controllerParam) {
-          controller = controllerParam;
-        },
-      });
-      if (!controller) return null;
-      subAgentStreamControllersRef.current.set(toolCallId, controller);
+  React.useEffect(() => { paramsRef.current = params }, [params]);
+  React.useEffect(() => { tabIdRef.current = tabId }, [tabId]);
 
-      const messageStream = readUIMessageStream({
-        stream,
-      });
+  // ── Auto title mutation ──
+  const autoTitleMutation = useMutation({
+    ...(trpc.chat.autoTitle.mutationOptions() as any),
+    onSuccess: () => { invalidateChatSessions(queryClient) },
+  });
 
-      (async () => {
-        try {
-          for await (const message of messageStream as AsyncIterable<{
-            parts?: unknown[];
-          }>) {
-            // Guard: stop processing if stream was aborted (e.g. session change)
-            if (!subAgentStreamControllersRef.current.has(toolCallId)) break;
-            setSubAgentStreams((prev) => {
-              const current = prev[toolCallId] ?? {
-                toolCallId,
-                output: "",
-                state: "output-streaming",
-              };
-              return {
-                ...prev,
-                [toolCallId]: {
-                  ...current,
-                  parts: Array.isArray(message.parts) ? message.parts : current.parts,
-                  state: "output-streaming",
-                  streaming: true,
-                },
-              };
-            });
-
-            const tabId = tabIdRef.current ?? undefined;
-            if (tabId && Array.isArray(message.parts)) {
-              // 中文注释：同步子代理 tool part，并触发前端工具执行（例如 open-url）。
-              handleSubAgentToolParts({
-                parts: message.parts,
-                tabId,
-                subAgentToolCallId: toolCallId,
-                upsertToolPart,
-                executeToolPart: toolStream.executeFromToolPart,
-              });
-            }
-          }
-        } finally {
-          // 中文注释：流结束后清理 controller，避免后续 enqueue 进入已关闭流。
-          subAgentStreamControllersRef.current.delete(toolCallId);
-          setSubAgentStreams((prev) => {
-            const current = prev[toolCallId];
-            if (!current) return prev;
-            return {
-              ...prev,
-              [toolCallId]: {
-                ...current,
-                streaming: false,
-              },
-            };
-          });
-        }
-      })();
-
-      return controller;
-    },
-    [setSubAgentStreams, toolStream, upsertToolPart],
-  );
-
-  const enqueueSubAgentChunk = React.useCallback(
-    (toolCallId: string, chunk: UIMessageChunk) => {
-      const controller = ensureSubAgentStreamController(toolCallId);
-      if (!controller) return;
-      try {
-        controller.enqueue(chunk);
-      } catch {
-        // 中文注释：已关闭的 stream 无法再写入，移除并等待后续重新创建。
-        subAgentStreamControllersRef.current.delete(toolCallId);
-        return;
-      }
-      const type = (chunk as any)?.type;
-      if (type === "finish" || type === "error" || type === "abort") {
-        controller.close();
-        subAgentStreamControllersRef.current.delete(toolCallId);
-        setSubAgentStreams((prev) => {
-          const current = prev[toolCallId];
-          if (!current) return prev;
-          return {
-            ...prev,
-            [toolCallId]: {
-              ...current,
-              streaming: false,
-              state: type === "error" || type === "abort" ? "output-error" : "output-available",
-            },
-          };
-        });
-      }
-    },
-    [ensureSubAgentStreamController, setSubAgentStreams],
-  );
-
-  const closeSubAgentStream = React.useCallback(
-    (toolCallId: string, state: "output-available" | "output-error") => {
-      const controller = subAgentStreamControllersRef.current.get(toolCallId);
-      if (controller) {
-        controller.close();
-        subAgentStreamControllersRef.current.delete(toolCallId);
-      }
-      setSubAgentStreams((prev) => {
-        const current = prev[toolCallId];
-        if (!current) return prev;
-        return {
-          ...prev,
-          [toolCallId]: {
-            ...current,
-            streaming: false,
-            state,
-          },
-        };
-      });
-    },
-    [setSubAgentStreams],
-  );
+  // ── Sub-agent streams ──
+  const {
+    subAgentStreams,
+    setSubAgentStreams,
+    enqueueSubAgentChunk,
+    closeSubAgentStream,
+    resetSubAgentStreams,
+  } = useSubAgentStreams({ tabIdRef, toolStream });
 
   React.useEffect(() => {
     assistantReplyCountRef.current = 0;
@@ -627,35 +141,11 @@ export default function ChatCoreProvider({
   }, [sessionId]);
 
   React.useEffect(() => {
-    // 会话切换时清空审批暂存，避免跨会话串联。
-    approvalPayloadsRef.current = {};
-    approvalSubmitInFlightRef.current = false;
-    lastApprovalSubmittedKeyRef.current = "";
-  }, [sessionId]);
-
-  React.useEffect(() => {
     if (tabId) {
       clearToolPartsForTab(tabId);
-      clearCcRuntime(tabId);
+      useChatRuntime.getState().clearCcRuntime(tabId);
     }
-  }, [tabId, clearToolPartsForTab, clearCcRuntime]);
-
-  const paramsRef = React.useRef<Record<string, unknown> | undefined>(params);
-  const tabIdRef = React.useRef<string | null | undefined>(tabId);
-  const projectId = React.useMemo(() => {
-    if (typeof params?.projectId !== "string") return undefined;
-    const trimmed = params.projectId.trim();
-    return trimmed ? trimmed : undefined;
-  }, [params]);
-  const { recordEntityVisit } = useRecordEntityVisit();
-
-  React.useEffect(() => {
-    paramsRef.current = params;
-  }, [params]);
-
-  React.useEffect(() => {
-    tabIdRef.current = tabId;
-  }, [tabId]);
+  }, [tabId, clearToolPartsForTab]);
 
   const upsertToolPartMerged = React.useCallback(
     (key: string, next: Partial<Parameters<typeof upsertToolPart>[2]>) => {
@@ -670,19 +160,18 @@ export default function ChatCoreProvider({
     return createChatTransport({ paramsRef, tabIdRef, sessionIdRef });
   }, []);
 
-  // 逻辑：先独立初始化 snapshot 状态，保证 useChat 回调在声明时就能访问分支状态工具。
+  // ── Branch snapshot ──
   const branchSnapshot = useBranchSnapshot(sessionId);
   const { patchSnapshot, refreshBranchMeta } = branchSnapshot;
   const commitServerSnapshotRef = React.useRef<any>(null);
 
-  /** Reset the per-request canonical snapshot receipt flag. */
   const resetBranchSnapshotReceipt = React.useCallback(() => {
     branchSnapshotReceivedRef.current = false;
   }, []);
 
+  // ── onFinish callback ──
   const onFinish = React.useCallback(
     ({ message }: { message: UIMessage }) => {
-      // 关键：切换 session 后，旧请求的 onFinish 可能晚到；必须忽略，避免污染新会话的 leafMessageId。
       if (sessionIdRef.current !== sessionId) return;
       if (pendingSessionCommandRef.current) {
         pendingSessionCommandRef.current = null;
@@ -706,13 +195,11 @@ export default function ChatCoreProvider({
       const parentUserMessageId = pendingUserMessageIdRef.current;
       pendingUserMessageIdRef.current = null;
       if (parentUserMessageId && setMessagesRef.current) {
-        // 关键：AI SDK 的 assistant message 默认不带 parentMessageId（我们扩展字段），这里统一补齐
-        setMessagesRef.current((messages) =>
-          (messages as any[]).map((m) =>
-            String((m as any)?.id) === assistantId &&
-            ((m as any)?.parentMessageId === undefined ||
-              (m as any)?.parentMessageId === null)
-              ? { ...(m as any), parentMessageId: parentUserMessageId }
+        setMessagesRef.current((messages: any[]) =>
+          messages.map((m: any) =>
+            String(m?.id) === assistantId &&
+            (m?.parentMessageId === undefined || m?.parentMessageId === null)
+              ? { ...m, parentMessageId: parentUserMessageId }
               : m
           )
         );
@@ -720,18 +207,16 @@ export default function ChatCoreProvider({
       if (parentUserMessageId && pendingCompactRequestRef.current === parentUserMessageId) {
         pendingCompactRequestRef.current = null;
         if (setMessagesRef.current) {
-          setMessagesRef.current((messages) =>
-            (messages as any[]).map((m) =>
-              String((m as any)?.id) === assistantId
-                ? { ...(m as any), messageKind: "compact_summary" }
+          setMessagesRef.current((messages: any[]) =>
+            messages.map((m: any) =>
+              String(m?.id) === assistantId
+                ? { ...m, messageKind: "compact_summary" }
                 : m
             )
           );
         }
       }
 
-      // 关键：retry/resend 结束时优先信任服务端推送的 canonical snapshot；
-      // 只有没收到 snapshot 时，才退回到旧的 branch meta 补拉。
       if (needsBranchMetaRefreshRef.current) {
         const shouldRefreshBranchMeta = !branchSnapshotReceivedRef.current;
         needsBranchMetaRefreshRef.current = false;
@@ -744,23 +229,20 @@ export default function ChatCoreProvider({
         pendingInitialTitleRefreshRef.current = false;
         invalidateChatSessions(queryClient);
       }
-      // 中文注释：每 5 次 assistant 回复触发 AI 自动标题。
       assistantReplyCountRef.current += 1;
       if (assistantReplyCountRef.current % 5 === 0 && !autoTitleMutation.isPending) {
         autoTitleMutation.mutate({ sessionId, saasAccessToken: getCachedAccessToken() ?? undefined } as any);
       }
-      // 中文注释：请求结束后清理 stepThinking，避免中止后残留"深度思考中"。
       setStepThinking(false);
     },
-    [autoTitleMutation, queryClient, sessionId, setStepThinking]
+    [autoTitleMutation, queryClient, sessionId, setStepThinking, patchSnapshot, refreshBranchMeta]
   );
 
+  // ── Chat config & useChat ──
   const chatConfig = React.useMemo(
     () => ({
       id: sessionId,
-      // 关键：不要用 useChat 的自动续接，保持流程可控。
       resume: false,
-      // 审批续接改为手动触发，避免多审批场景提前续接。
       sendAutomaticallyWhen: () => false,
       transport,
       onToolCall: (payload: { toolCall: any }) => {
@@ -768,7 +250,6 @@ export default function ChatCoreProvider({
       },
       onFinish,
       onData: (dataPart: any) => {
-        // 关键：切换 session 后忽略旧流的 dataPart，避免 toolParts 被写回新会话 UI。
         if (sessionIdRef.current !== sessionId) return;
         incrementChatPerf("chat.onData");
         if (dataPart?.type === "data-session-title") {
@@ -780,9 +261,7 @@ export default function ChatCoreProvider({
           if (title && (!sessionIdInData || sessionIdInData === sessionIdRef.current)) {
             const viewState = useAppView.getState();
             const hasBase = Boolean(useLayoutState.getState().base);
-            if (viewState.projectShell) {
-              return;
-            }
+            if (viewState.projectShell) return;
             if (!hasBase && viewState.title !== title) {
               viewState.setTitle(title);
             }
@@ -794,20 +273,11 @@ export default function ChatCoreProvider({
             dataPart,
             sessionId,
             commitServerSnapshot: commitServerSnapshotRef.current ?? undefined,
-            markReceived: () => {
-              branchSnapshotReceivedRef.current = true;
-            },
+            markReceived: () => { branchSnapshotReceivedRef.current = true },
           })
-        )
-          return;
+        ) return;
         if (handleStepThinkingDataPart({ dataPart, setStepThinking })) return;
-        if (
-          handleMediaGenerateDataPart({
-            dataPart,
-            upsertToolPartMerged,
-          })
-        )
-          return;
+        if (handleMediaGenerateDataPart({ dataPart, upsertToolPartMerged })) return;
         if (
           handleSubAgentDataPart({
             dataPart,
@@ -817,8 +287,7 @@ export default function ChatCoreProvider({
             tabId,
             upsertToolPart,
           })
-        )
-          return;
+        ) return;
         toolStream.handleDataPart({ dataPart, tabId, upsertToolPartMerged });
       },
     }),
@@ -832,12 +301,16 @@ export default function ChatCoreProvider({
       setStepThinking,
       queryClient,
       toolStream,
+      enqueueSubAgentChunk,
+      closeSubAgentStream,
+      upsertToolPart,
     ]
   );
 
   const chat = useChat(chatConfig);
   setMessagesRef.current = chat.setMessages;
-  // 中文注释：仅在显式需要时才拉取历史，避免新会话多余请求。
+
+  // ── Branch state ──
   const shouldLoadHistory = Boolean(loadHistory);
   const {
     snapshot: sessionSnapshot,
@@ -871,6 +344,61 @@ export default function ChatCoreProvider({
     snapshotEnabled: chat.status !== "ready",
   });
 
+  // ── Replace & commit helpers ──
+  const replaceChatMessages = React.useCallback(
+    (messages: UIMessage[]) => {
+      chat.setMessages(messages);
+      if (!tabId) return;
+      clearToolPartsForTab(tabId);
+      toolStream.syncFromMessages({ tabId, messages });
+    },
+    [chat.setMessages, tabId, clearToolPartsForTab, toolStream],
+  );
+
+  const applyServerSnapshotToChat = React.useCallback(
+    (nextSnapshot: { messages: UIMessage[] }) => {
+      replaceChatMessages(nextSnapshot.messages);
+    },
+    [replaceChatMessages],
+  );
+
+  const commitServerSnapshot = React.useCallback(
+    (nextSnapshot: {
+      messages: UIMessage[];
+      leafMessageId?: string | null;
+      branchMessageIds?: string[];
+      siblingNav?: Record<string, unknown>;
+      errorMessage?: string | null;
+    }) => {
+      applySnapshot(nextSnapshot);
+      applyServerSnapshotToChat(nextSnapshot);
+    },
+    [applySnapshot, applyServerSnapshotToChat],
+  );
+  commitServerSnapshotRef.current = commitServerSnapshot;
+
+  // ── Session management ──
+  const {
+    stopAndResetSession,
+    newSession,
+    selectSession,
+  } = useChatSessionManagement({
+    sessionId,
+    tabId,
+    projectId,
+    sessionIdRef,
+    chat,
+    pendingUserMessageIdRef,
+    needsBranchMetaRefreshRef,
+    branchSnapshotReceivedRef,
+    pendingCompactRequestRef,
+    resetSnapshot,
+    resetSubAgentStreams,
+    setStepThinking,
+    onSessionChange,
+  });
+
+  // ── Auth retry ──
   React.useEffect(() => {
     if (chat.status !== "ready") return;
     if (basic.chatSource !== "cloud") return;
@@ -886,10 +414,8 @@ export default function ChatCoreProvider({
     authRetryInFlightRef.current = true;
     void (async () => {
       try {
-        // 中文注释：云端 Unauthorized 时先刷新 token，再自动重试当前消息。
         const refreshed = await refreshAccessToken();
         if (!refreshed) {
-          // 中文注释：仅刷新失败时提示用户重新登录。
           useSaasAuth.getState().logout();
           toast.error("登录失败，请重新登录");
           return;
@@ -898,9 +424,7 @@ export default function ChatCoreProvider({
         try {
           resetBranchSnapshotReceipt();
           await chat.regenerate();
-        } catch {
-          // 中文注释：重发失败时保留原错误态，由既有错误展示链路处理。
-        }
+        } catch {}
       } catch {
         useSaasAuth.getState().logout();
         toast.error("登录失败，请重新登录");
@@ -918,9 +442,9 @@ export default function ChatCoreProvider({
     sessionSnapshot.errorMessage,
   ]);
 
+  // ── Tool sync effects ──
   React.useEffect(() => {
     if (!tabId) return;
-    // 中文注释：确保 tool parts 与消息同步，兼容部分运行环境不触发 onData 的场景。
     toolStream.syncFromMessages({ tabId, messages: chat.messages as UIMessage[] });
   }, [chat.messages, tabId, toolStream]);
 
@@ -938,108 +462,32 @@ export default function ChatCoreProvider({
       if (isHiddenToolPart(part)) continue;
       const toolName = typeof part?.toolName === "string" ? part.toolName : "";
       const isFrontendTool = toolName === "open-url" || type === "tool-open-url";
-      // 中文注释：前端 UI 控制类工具不做历史重放，避免错误回放与输入缺失。
       if (isFrontendTool) continue;
       void toolStream.executeFromToolPart({ part, tabId });
     }
   }, [chat.messages, chat.status, tabId, toolStream]);
 
-  /** Stop streaming and reset local state before switching sessions. */
-  const stopAndResetSession = React.useCallback(
-    (clearTools: boolean) => {
-      // 中文注释：切换会话前必须停止流式并清空本地状态，避免脏数据串流。
-      chat.stop();
-      chat.setMessages([]);
-      pendingUserMessageIdRef.current = null;
-      needsBranchMetaRefreshRef.current = false;
-      branchSnapshotReceivedRef.current = false;
-      pendingCompactRequestRef.current = null;
-      resetSnapshot();
-      setSubAgentStreams({});
-      subAgentStreamControllersRef.current.forEach((controller) => {
-        controller.close();
-      });
-      subAgentStreamControllersRef.current.clear();
-      setStepThinking(false);
-      if (clearTools && tabId) {
-        clearToolPartsForTab(tabId);
-        clearCcRuntime(tabId);
-      }
-    },
-    [
-      chat.stop,
-      chat.setMessages,
-      tabId,
-      clearToolPartsForTab,
-      clearCcRuntime,
-      resetSnapshot,
-    ]
-  );
-
+  // ── Session switch cleanup ──
   const prevSessionIdRef = React.useRef(sessionId);
 
   React.useLayoutEffect(() => {
     if (prevSessionIdRef.current === sessionId) return;
-    // 中文注释：仅在复用组件且 sessionId 确实变化时清理，避免多会话常驻被误清空。
     prevSessionIdRef.current = sessionId;
     stopAndResetSession(true);
-    // 中文注释：切换会话时必须清除 getChatView 缓存，否则 staleTime=Infinity 导致复用过期空数据。
     clearCachedView();
   }, [sessionId, stopAndResetSession, clearCachedView]);
 
-  /** Replace current chat messages and resync tool runtime from the new snapshot. */
-  const replaceChatMessages = React.useCallback(
-    (messages: UIMessage[]) => {
-      chat.setMessages(messages);
-      if (!tabId) return;
-      clearToolPartsForTab(tabId);
-      toolStream.syncFromMessages({ tabId, messages });
-    },
-    [chat.setMessages, tabId, clearToolPartsForTab, toolStream],
-  );
-
-  /** Apply a server snapshot to the local chat view. */
-  const applyServerSnapshotToChat = React.useCallback(
-    (nextSnapshot: { messages: UIMessage[] }) => {
-      replaceChatMessages(nextSnapshot.messages);
-    },
-    [replaceChatMessages],
-  );
-
-  /** Commit a canonical server snapshot to both local snapshot state and rendered chat messages. */
-  const commitServerSnapshot = React.useCallback(
-    (nextSnapshot: {
-      messages: UIMessage[];
-      leafMessageId?: string | null;
-      branchMessageIds?: string[];
-      siblingNav?: Record<string, unknown>;
-      errorMessage?: string | null;
-    }) => {
-      applySnapshot(nextSnapshot);
-      applyServerSnapshotToChat(nextSnapshot);
-    },
-    [applySnapshot, applyServerSnapshotToChat],
-  );
-  commitServerSnapshotRef.current = commitServerSnapshot;
-
+  // ── History load ──
   React.useEffect(() => {
     const data = branchQueryData;
     if (!data) return;
     const nextSnapshot = applySnapshot(data);
-
-    // 关键：历史接口已按时间正序返回（最早在前），可直接渲染
     if (chat.messages.length === 0) {
       applyServerSnapshotToChat(nextSnapshot);
     }
-  }, [
-    branchQueryData,
-    applyServerSnapshotToChat,
-    applySnapshot,
-    chat.messages.length,
-  ]);
+  }, [branchQueryData, applyServerSnapshotToChat, applySnapshot, chat.messages.length]);
 
-  // ── 后台 Agent 消息实时推送订阅 ──
-  // 当后台任务（PM/Specialist）完成时，实时追加消息到当前会话
+  // ── Background agent subscription ──
   React.useEffect(() => {
     if (!sessionId) return;
     const subscription = trpcClient.chat.onSessionUpdate.subscribe(
@@ -1047,7 +495,6 @@ export default function ChatCoreProvider({
       {
         onData(event) {
           if (event.type === 'task-report') {
-            // 通过 getMessageParts 获取完整消息并追加到本地消息列表
             trpcClient.chat.getMessageParts.query({
               sessionId,
               messageId: event.messageId,
@@ -1060,7 +507,6 @@ export default function ChatCoreProvider({
                 metadata: msg.metadata,
               };
               chat.setMessages((prev) => {
-                // 避免重复追加
                 if (prev.some((m) => m.id === msg.id)) return prev;
                 return [...prev, newMessage];
               });
@@ -1070,7 +516,7 @@ export default function ChatCoreProvider({
         onError() {},
       },
     );
-    return () => { subscription.unsubscribe(); };
+    return () => { subscription.unsubscribe() };
   }, [sessionId, chat.setMessages]);
 
   const updateMessage = React.useCallback(
@@ -1082,363 +528,65 @@ export default function ChatCoreProvider({
     [chat.setMessages]
   );
 
-  const newSession = React.useCallback(() => {
-    // 中文注释：立即清空，避免 UI 闪回旧消息。
-    stopAndResetSession(true);
-    const nextSessionId = createChatSessionId();
-    // 关键：立即更新 sessionIdRef，确保 transport 在后续请求中使用新 sessionId，
-    // 不依赖 React 重渲染时序（独立 React root + Zustand 可能存在延迟传播）。
-    sessionIdRef.current = nextSessionId;
-    recordEntityVisit({
-      entityType: "chat",
-      entityId: nextSessionId,
-      projectId: projectId ?? null,
-      trigger: "chat-create",
-    });
-    onSessionChange?.(nextSessionId, {
-      loadHistory: false,
-      replaceCurrent: true,
-    });
-  }, [onSessionChange, projectId, recordEntityVisit, stopAndResetSession]);
+  // ── Message operations ──
+  const {
+    sendMessage,
+    switchSibling,
+    retryAssistantMessage,
+    resendUserMessage,
+    deleteMessageSubtree,
+  } = useChatMessageOps({
+    sessionId,
+    tabId,
+    projectId,
+    chat,
+    leafMessageId,
+    siblingNav,
+    paramsRef,
+    tabIdRef,
+    sessionIdRef,
+    basicRef,
+    pendingUserMessageIdRef,
+    pendingCompactRequestRef,
+    pendingSessionCommandRef,
+    pendingInitialTitleRefreshRef,
+    needsBranchMetaRefreshRef,
+    setMessagesRef,
+    patchSnapshot,
+    resetSnapshot,
+    resetBranchSnapshotReceipt,
+    replaceChatMessages,
+    commitServerSnapshot,
+    refreshSnapshot,
+    applyServerSnapshotToChat,
+  });
 
-  const selectSession = React.useCallback(
-    (nextSessionId: string) => {
-      // 中文注释：立即清空，避免 UI 闪回旧消息。
-      stopAndResetSession(true);
-      // 关键：同 newSession，立即更新 ref 避免渲染延迟导致旧 sessionId 被发送。
-      sessionIdRef.current = nextSessionId;
-      onSessionChange?.(nextSessionId, {
-        loadHistory: true,
-        replaceCurrent: true,
-      });
-    },
-    [stopAndResetSession, onSessionChange]
-  );
+  // ── Cloud message ──
+  const sendPendingCloudMessage = React.useCallback(() => {
+    const msg = pendingCloudMessageRef.current;
+    if (!msg) return;
+    setPendingCloudMessage(null);
+    sendMessage({ parts: msg.parts, ...(msg.metadata ? { metadata: msg.metadata } : {}) } as any);
+  }, [sendMessage]);
+
+  React.useEffect(() => {
+    if (!authLoggedIn) return;
+    if (!pendingCloudMessageRef.current) return;
+    sendPendingCloudMessage();
+  }, [authLoggedIn, sendPendingCloudMessage]);
 
   const [input, setInput] = React.useState("");
-  /** Image options for this chat session. */
   const [imageOptions, setImageOptions] = React.useState<ImageGenerateOptions | undefined>(undefined);
-  /** Codex options for this chat session. */
   const [codexOptions, setCodexOptions] = React.useState<CodexOptions | undefined>(undefined);
-  /** Claude Code options for this chat session. */
   const [claudeCodeOptions, setClaudeCodeOptions] = React.useState<ClaudeCodeOptions | undefined>(undefined);
 
   React.useEffect(() => {
-    // 关键：空消息列表时不应存在 leafMessageId（否则会把"脏 leaf"带进首条消息的 parentMessageId）
     if ((chat.messages?.length ?? 0) === 0 && leafMessageId) {
       patchSnapshot({ leafMessageId: null });
     }
   }, [chat.messages?.length, leafMessageId, patchSnapshot]);
 
-  // 发送消息后立即滚动到底部（即使 AI 还没开始返回内容）
-  const sendMessage = React.useCallback(
-    (...args: Parameters<typeof chat.sendMessage>) => {
-      const [message, options] = args as any[];
-      if (!message) return (chat.sendMessage as any)(message, options);
-
-      // 关键：parentMessageId 是消息树的核心字段，必须挂在 UIMessage 顶层（不放 metadata）
-      const explicitParentMessageId =
-        typeof message?.parentMessageId === "string" || message?.parentMessageId === null
-          ? message.parentMessageId
-          : undefined;
-      const parentMessageId = resolveParentMessageIdPure({
-        explicitParentMessageId,
-        leafMessageId,
-        messages: chat.messages as Array<{ id: string }>,
-      });
-      const nextMessageRaw =
-        message && typeof message === "object" && "text" in message
-          ? { parts: [{ type: "text", text: String((message as any).text ?? "") }] }
-          : { ...(message ?? {}) };
-
-      // 关键：统一生成 user messageId，确保服务端可稳定落库
-      const id =
-        !("id" in (nextMessageRaw as any)) || !(nextMessageRaw as any).id
-          ? generateId()
-          : (nextMessageRaw as any).id;
-
-      const nextMessage: any = {
-        role: (nextMessageRaw as any).role ?? "user",
-        ...nextMessageRaw,
-        ...(id ? { id } : {}),
-        parentMessageId,
-      };
-
-      if (
-        nextMessage.role === "user" &&
-        !nextMessage.messageKind &&
-        isCompactCommandMessage(nextMessage)
-      ) {
-        // 中文注释：/summary-history 指令统一标记为 compact_prompt，避免 UI 直接展示。
-        nextMessage.messageKind = "compact_prompt";
-      }
-      if (nextMessage.role === "user" && isCompactCommandMessage(nextMessage)) {
-        pendingCompactRequestRef.current = String(nextMessage.id);
-      }
-      if (nextMessage.role === "user" && isSessionCommandMessage(nextMessage)) {
-        pendingSessionCommandRef.current = String(nextMessage.id);
-      }
-      if (
-        nextMessage.role === "user" &&
-        !(chat.messages ?? []).some((m) => (m as any)?.role === "user") &&
-        !isCompactCommandMessage(nextMessage) &&
-        !isSessionCommandMessage(nextMessage)
-      ) {
-        // 中文注释：AI 助手首条真实用户消息会隐式创建会话，这里需要立即补记历史，
-        // 不能等远端 session 列表刷新后再由 TabLayout 追记，否则用户会看到“已发消息但无历史”。
-        const currentProjectId = paramsRef.current?.projectId;
-        recordEntityVisit({
-          entityType: "chat",
-          entityId: sessionIdRef.current,
-          projectId:
-            typeof currentProjectId === "string" && currentProjectId.trim()
-              ? currentProjectId.trim()
-              : null,
-          trigger: "chat-create",
-        });
-
-        // 中文注释：首条用户消息完成后刷新会话列表，展示标题。
-        pendingInitialTitleRefreshRef.current = true;
-
-        // 修改 tab 标题（打破"临时对话"单例匹配，使下次点击 AI 助手创建新 tab）
-        const currentTabId = tabIdRef.current;
-        if (currentTabId) {
-          const tempTitle = i18next.t(TEMP_CHAT_TAB_INPUT.titleKey);
-          const viewState = useAppView.getState();
-          if (!viewState.projectShell && viewState.title === tempTitle) {
-            const userText = getMessagePlainText(nextMessage);
-            const truncated = userText.slice(0, 30).trim() || "新对话";
-            viewState.setTitle(truncated);
-          }
-        }
-      }
-
-      pendingUserMessageIdRef.current = String(nextMessage.id);
-      resetBranchSnapshotReceipt();
-
-      const autoApproveBody = basicRef.current.autoApproveTools ? { autoApproveTools: true } : {};
-      const mergedOptions = Object.keys(autoApproveBody).length > 0
-        ? { ...options, body: { ...(options?.body ?? {}), ...autoApproveBody } }
-        : options;
-      const result = (chat.sendMessage as any)(nextMessage, mergedOptions);
-      return result;
-    },
-    [chat.sendMessage, chat.messages, leafMessageId, resetBranchSnapshotReceipt]
-  );
-
-  // 逻辑：发送暂存的云端消息（用于登录后手动或自动触发）
-  const sendPendingCloudMessage = React.useCallback(() => {
-    const msg = pendingCloudMessageRef.current
-    if (!msg) return
-    setPendingCloudMessage(null)
-    sendMessage({ parts: msg.parts, ...(msg.metadata ? { metadata: msg.metadata } : {}) } as any)
-  }, [sendMessage])
-
-  // 逻辑：登录成功后自动发送暂存的云端消息
-  React.useEffect(() => {
-    if (!authLoggedIn) return
-    if (!pendingCloudMessageRef.current) return
-    sendPendingCloudMessage()
-  }, [authLoggedIn, sendPendingCloudMessage])
-
-  const switchSibling = React.useCallback(
-    async (
-      messageId: string,
-      direction: "prev" | "next",
-      navOverride?: { prevSiblingId?: string | null; nextSiblingId?: string | null }
-    ) => {
-      const nav = siblingNav?.[messageId] ?? navOverride;
-      if (!nav) return;
-      const targetId = direction === "prev" ? nav.prevSiblingId : nav.nextSiblingId;
-      if (!targetId) return;
-
-      chat.stop();
-
-      const nextSnapshot = await refreshSnapshot({
-        anchor: { messageId: targetId, strategy: "latestLeafInSubtree" },
-        window: { limit: 50 },
-        includeToolOutput: true,
-      });
-      // 关键：切分支时，用服务端返回的"当前链快照"覆盖本地 messages（避免前端拼接导致重复渲染）
-      applyServerSnapshotToChat(nextSnapshot);
-    },
-    [
-      siblingNav,
-      chat.stop,
-      applyServerSnapshotToChat,
-      refreshSnapshot,
-    ]
-  );
-
-  const retryAssistantMessage = React.useCallback(
-    async (assistantMessageId: string) => {
-      const assistant = (chat.messages as any[]).find((m) => String(m?.id) === assistantMessageId);
-      if (!assistant) return;
-
-      // 关键：AI 重试 = 重发该 assistant 的 parent user 消息（但不重复保存 user 到 DB）
-      const parentUserMessageId = findParentUserForRetryPure({
-        assistantMessageId,
-        assistantParentMessageId: (assistant as any)?.parentMessageId,
-        siblingNavParentMessageId: siblingNav?.[assistantMessageId]?.parentMessageId,
-        messages: chat.messages as Array<{ id: string; role: string }>,
-      });
-      if (!parentUserMessageId) return;
-
-      // CLI rewind：提取元数据
-      const isDirectCli = !!(
-        (chat.messages as any[]).find((m) => String(m?.id) === parentUserMessageId)
-          ?.metadata as any
-      )?.directCli;
-      const originalChatModelId =
-        (assistant as any)?.metadata?.agent?.chatModelId ??
-        (assistant as any)?.agent?.chatModelId;
-
-      // 获取 rewind 目标：parent user 之前最近的 assistant 的 sdkAssistantUuid
-      let prevAssistantUuid: string | undefined;
-      if (isDirectCli) {
-        const parentIdx = (chat.messages as any[]).findIndex(
-          (m) => String(m?.id) === parentUserMessageId,
-        );
-        if (parentIdx > 0) {
-          for (let i = parentIdx - 1; i >= 0; i--) {
-            const m = (chat.messages as any[])[i];
-            if (m?.role === "assistant") {
-              prevAssistantUuid = m?.metadata?.sdkAssistantUuid;
-              break;
-            }
-          }
-        }
-      }
-
-      chat.stop();
-
-      // 关键：retry 不应在 SSE 完成前请求历史接口（此时 DB 还没落库，拿不到新 sibling）。
-      // 这里直接在前端本地"切链"：保留到 parent user 为止，隐藏其后的旧分支内容。
-      const slicedMessages = sliceMessagesToParent(
-        chat.messages as Array<{ id: string }>,
-        parentUserMessageId,
-      ) as UIMessage[];
-      if (slicedMessages.length === 0) return;
-      replaceChatMessages(slicedMessages);
-      patchSnapshot((previous) => {
-        const chainIdx = previous.branchMessageIds.indexOf(parentUserMessageId);
-        return {
-          leafMessageId: parentUserMessageId,
-          branchMessageIds:
-            chainIdx >= 0
-              ? previous.branchMessageIds.slice(0, chainIdx + 1)
-              : previous.branchMessageIds,
-        };
-      });
-
-      // 关键：retry 走 AI SDK v6 原生 regenerate（trigger: regenerate-message）
-      pendingUserMessageIdRef.current = parentUserMessageId;
-      needsBranchMetaRefreshRef.current = true;
-      resetBranchSnapshotReceipt();
-      await (chat.regenerate as any)({
-        body: {
-          retry: true,
-          ...(isDirectCli && originalChatModelId ? { chatModelId: originalChatModelId } : {}),
-          ...(isDirectCli && prevAssistantUuid ? { sdkRewindTarget: prevAssistantUuid } : {}),
-        },
-      });
-    },
-    [
-      chat.stop,
-      chat.messages,
-      chat.regenerate,
-      siblingNav,
-      patchSnapshot,
-      replaceChatMessages,
-      resetBranchSnapshotReceipt,
-    ]
-  );
-
-  const resendUserMessage = React.useCallback(
-    async (userMessageId: string, nextText: string, nextParts?: any[]) => {
-      const user = (chat.messages as any[]).find((m) => String(m?.id) === userMessageId);
-      if (!user || user.role !== "user") return;
-      const parentMessageId = resolveResendParentMessageIdPure(user as any);
-
-      chat.stop();
-
-      // 关键：编辑重发只需要本地切链（不提前请求历史接口）。
-      // - 有 parent：保留到 parent 节点为止，隐藏旧 user 及其后续内容
-      // - 无 parent：清空对话，从根重新开始
-      if (parentMessageId) {
-        const slicedMessages = sliceMessagesToParent(
-          chat.messages as Array<{ id: string }>,
-          parentMessageId,
-        ) as UIMessage[];
-        if (slicedMessages.length === 0) return;
-        replaceChatMessages(slicedMessages);
-        patchSnapshot((previous) => {
-          const chainIdx = previous.branchMessageIds.indexOf(parentMessageId);
-          return {
-            leafMessageId: parentMessageId,
-            branchMessageIds:
-              chainIdx >= 0
-                ? previous.branchMessageIds.slice(0, chainIdx + 1)
-                : previous.branchMessageIds,
-          };
-        });
-      } else {
-        replaceChatMessages([]);
-        resetSnapshot();
-      }
-
-      const nextUserId = generateId();
-      needsBranchMetaRefreshRef.current = true;
-      const parts =
-        Array.isArray(nextParts) && nextParts.length > 0
-          ? nextParts
-          : [{ type: "text", text: nextText }];
-      await (sendMessage as any)({
-        id: nextUserId,
-        role: "user",
-        parts,
-        parentMessageId,
-      });
-    },
-    [
-      chat.stop,
-      chat.messages,
-      sendMessage,
-      patchSnapshot,
-      replaceChatMessages,
-      resetSnapshot,
-    ]
-  );
-
-  /**
-   * Delete a message subtree and refresh the current view snapshot.
-   */
-  const deleteMessageSubtree = React.useCallback(
-    async (messageId: string) => {
-      const normalizedId = String(messageId ?? "").trim();
-      if (!normalizedId) return false;
-
-      chat.stop();
-
-      // 逻辑：调用新的 deleteMessageSubtree endpoint，从 JSONL 中删除子树
-      const result = await deleteMessageSubtreeMutation.mutateAsync({
-        sessionId,
-        messageId: normalizedId,
-      });
-      if (!result) return false;
-      const nextSnapshot = (result as any)?.snapshot;
-      if (nextSnapshot) {
-        commitServerSnapshot(nextSnapshot);
-      }
-      return true;
-    },
-    [
-      chat.stop,
-      commitServerSnapshot,
-      deleteMessageSubtreeMutation.mutateAsync,
-    ]
-  );
-
+  // ── Tool parts ──
   const toolParts = useChatRuntime((state) => {
     if (!tabId) return EMPTY_TOOL_PARTS;
     return state.toolPartsByTabId[tabId] ?? EMPTY_TOOL_PARTS;
@@ -1452,153 +600,23 @@ export default function ChatCoreProvider({
     [tabId, upsertToolPart]
   );
 
-  /** Queue a tool approval payload for the next continuation. */
-  const queueToolApprovalPayload = React.useCallback(
-    (toolCallId: string, payload: Record<string, unknown>) => {
-      if (!toolCallId) return;
-      approvalPayloadsRef.current[toolCallId] = payload;
-    },
-    []
-  );
-
-  /** Clear a queued tool approval payload. */
-  const clearToolApprovalPayload = React.useCallback((toolCallId: string) => {
-    if (!toolCallId) return;
-    delete approvalPayloadsRef.current[toolCallId];
-  }, []);
-
-  /** Attempt to continue chat after all approvals are resolved. */
-  const continueAfterToolApprovals = React.useCallback(async () => {
-    const messages = (chat.messages ?? []) as UIMessage[];
-    const lastAssistant = findLastAssistantMessage(messages);
-    if (!lastAssistant) return;
-    const assistantId = typeof (lastAssistant as any)?.id === "string"
-      ? String((lastAssistant as any).id)
-      : "";
-    if (!assistantId) return;
-    if (approvalSubmitInFlightRef.current) return;
-
-    const runtimeToolParts = tabId
-      ? useChatRuntime.getState().toolPartsByTabId[tabId] ?? EMPTY_TOOL_PARTS
-      : toolParts;
-    const toolPartById = mapToolPartsFromMessage(lastAssistant);
-    const approvalToolCallIds = collectApprovalToolCallIds(lastAssistant, runtimeToolParts);
-    const payloadToolCallIds = Object.keys(approvalPayloadsRef.current);
-    const mergedToolCallIds = Array.from(
-      new Set([...approvalToolCallIds, ...payloadToolCallIds]),
-    );
-    if (mergedToolCallIds.length === 0) return;
-    // 逻辑：按工具调用 ID 集合防重（而非按消息 ID），因为同一条 assistant 消息
-    // 在多轮工具循环中可能追加新的需审批工具调用。
-    const currentKey = mergedToolCallIds.slice().sort().join(",");
-    if (lastApprovalSubmittedKeyRef.current === currentKey) return;
-    // 逻辑：最后一条 assistant 的所有审批完成后才继续发送。
-    const unresolved = mergedToolCallIds.filter((toolCallId) => {
-      if (payloadToolCallIds.includes(toolCallId)) return false;
-      return !isToolApprovalResolved({
-        toolCallId,
-        toolParts: runtimeToolParts,
-        messagePart: toolPartById[toolCallId],
-      });
-    });
-    if (unresolved.length > 0) return;
-
-    const payloads: Record<string, Record<string, unknown>> = {};
-    for (const toolCallId of mergedToolCallIds) {
-      const payload = approvalPayloadsRef.current[toolCallId];
-      if (payload && typeof payload === "object") payloads[toolCallId] = payload;
-    }
-
-    // 逻辑：审批已全部就绪，即使 status 尚未回到 ready，也允许续接。
-    // 逻辑：只允许单次续接，避免多次提交同一批审批。
-    approvalSubmitInFlightRef.current = true;
-    try {
-      resetBranchSnapshotReceipt();
-      const autoApproveBody = basicRef.current.autoApproveTools ? { autoApproveTools: true } : {};
-      if (Object.keys(payloads).length > 0) {
-        await chat.sendMessage(undefined as any, {
-          body: { toolApprovalPayloads: payloads, ...autoApproveBody },
-        });
-      } else if (Object.keys(autoApproveBody).length > 0) {
-        await chat.sendMessage(undefined as any, {
-          body: autoApproveBody,
-        });
-      } else {
-        await chat.sendMessage(undefined as any);
-      }
-      lastApprovalSubmittedKeyRef.current = currentKey;
-      for (const toolCallId of mergedToolCallIds) {
-        delete approvalPayloadsRef.current[toolCallId];
-      }
-    } catch {
-      // 发送失败时保留暂存，便于后续重试。
-    } finally {
-      approvalSubmitInFlightRef.current = false;
-    }
-  }, [chat, resetBranchSnapshotReceipt, tabId, toolParts]);
-
-  /** Reject pending tool approvals after manual stop. */
-  const rejectPendingToolApprovals = React.useCallback(async () => {
-    const messages = (chat.messages ?? []) as UIMessage[];
-    if (messages.length === 0) return;
-    const updates: Array<{ messageId: string; nextParts: unknown[] }> = [];
-    for (const message of messages) {
-      const parts = Array.isArray((message as any)?.parts) ? (message as any).parts : [];
-      if (parts.length === 0) continue;
-      let changed = false;
-      const nextParts = parts.map((part: any) => {
-        if (!part || typeof part !== "object") return part;
-        const type = typeof part.type === "string" ? part.type : "";
-        const isTool =
-          type === "dynamic-tool" ||
-          type.startsWith("tool-") ||
-          typeof part.toolName === "string";
-        if (!isTool) return part;
-        const approval = part.approval;
-        const approvalId = typeof approval?.id === "string" ? approval.id : "";
-        if (!approvalId) return part;
-        if (approval?.approved === true || approval?.approved === false) return part;
-        // 中文注释：手动中止时直接拒绝所有待审批工具，避免残留不可用状态。
-        changed = true;
-        return {
-          ...part,
-          state: "output-denied",
-          approval: { ...approval, approved: false },
-        };
-      });
-      if (!changed) continue;
-      const messageId = String((message as any)?.id ?? "");
-      if (!messageId) continue;
-      updates.push({ messageId, nextParts });
-      updateMessage(messageId, { parts: nextParts });
-      for (const part of nextParts) {
-        const toolCallId =
-          typeof (part as any)?.toolCallId === "string" ? String((part as any).toolCallId) : "";
-        if (!toolCallId) continue;
-        if ((part as any)?.approval?.approved !== false) continue;
-        upsertToolPartForTab(toolCallId, part as any);
-      }
-    }
-    if (updates.length === 0) return;
-    for (const update of updates) {
-      try {
-        await updateApprovalMutation.mutateAsync({
-          sessionId,
-          messageId: update.messageId,
-          parts: update.nextParts as any,
-        });
-      } catch {
-        // 中文注释：落库失败时保留本地状态，避免阻断中止流程。
-      }
-    }
-  }, [chat.messages, updateMessage, upsertToolPartForTab, updateApprovalMutation]);
-
-  const stopGenerating = React.useCallback(() => {
-    // 中文注释：先停止流式，再自动拒绝当前待审批工具。
-    chat.stop();
-    setStepThinking(false);
-    void rejectPendingToolApprovals();
-  }, [chat, rejectPendingToolApprovals, setStepThinking]);
+  // ── Approval workflow ──
+  const {
+    queueToolApprovalPayload,
+    clearToolApprovalPayload,
+    continueAfterToolApprovals,
+    stopGenerating,
+  } = useChatApproval({
+    sessionId,
+    tabId,
+    toolParts,
+    chat,
+    basicRef,
+    resetBranchSnapshotReceipt,
+    updateMessage,
+    upsertToolPartForTab,
+    setStepThinking,
+  });
 
   const markToolStreaming = React.useCallback(
     (toolCallId: string) => {
@@ -1613,6 +631,13 @@ export default function ChatCoreProvider({
     [tabId, upsertToolPart]
   );
 
+  // ── Sync sub-agent streams to global store ──
+  React.useEffect(() => {
+    if (!tabId) return;
+    useChatRuntime.getState().setSubAgentStreams(tabId, subAgentStreams);
+  }, [tabId, subAgentStreams]);
+
+  // ── Context values ──
   const stateValue = React.useMemo(
     () => ({
       messages: chat.messages as UIMessage[],
@@ -1634,14 +659,7 @@ export default function ChatCoreProvider({
       branchMessageIds,
       siblingNav,
     }),
-    [
-      sessionId,
-      tabId,
-      projectId,
-      leafMessageId,
-      branchMessageIds,
-      siblingNav,
-    ]
+    [sessionId, tabId, projectId, leafMessageId, branchMessageIds, siblingNav]
   );
 
   const actionsValue = React.useMemo(
@@ -1692,21 +710,8 @@ export default function ChatCoreProvider({
       addAttachments,
       addMaskedAttachment,
     }),
-    [
-      input,
-      imageOptions,
-      codexOptions,
-      claudeCodeOptions,
-      addAttachments,
-      addMaskedAttachment,
-    ]
+    [input, imageOptions, codexOptions, claudeCodeOptions, addAttachments, addMaskedAttachment]
   );
-
-  // 中文注释：同步 subAgentStreams 到全局 store，供 stack panel 中的 SubAgentChatPanel 访问。
-  React.useEffect(() => {
-    if (!tabId) return;
-    useChatRuntime.getState().setSubAgentStreams(tabId, subAgentStreams);
-  }, [tabId, subAgentStreams]);
 
   const toolsValue = React.useMemo(
     () => ({

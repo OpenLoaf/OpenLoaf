@@ -148,8 +148,6 @@ function normalizeProjectSummary(project: {
 
 /** Input payload for project-query tool. */
 type ProjectQueryInput = {
-  /** Action name for tool call (display only). */
-  actionName?: string;
   /** Query mode. */
   mode?: "list" | "get";
   /** Project id override for get mode. */
@@ -158,8 +156,6 @@ type ProjectQueryInput = {
 
 /** Input payload for project-mutate tool. */
 type ProjectMutateInput = {
-  /** Action name for tool call (display only). */
-  actionName?: string;
   /** Mutation action. */
   action: "create" | "update" | "move" | "remove";
   /** Project id override. */

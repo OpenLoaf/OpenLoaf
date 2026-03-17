@@ -59,6 +59,49 @@ describe("useStreamingMessageBuffer", () => {
     expect(latestRef.current?.isStreamingActive).toBe(false);
   });
 
+  it("returns the live assistant on the first streaming render", () => {
+    const user: TestMessage = {
+      id: "u1",
+      role: "user",
+      parts: [{ type: "text", text: "hi" }],
+    };
+    const assistant: TestMessage = {
+      id: "a1",
+      role: "assistant",
+      parts: [{ type: "text", text: "H" }],
+    };
+    const renderSnapshots: Array<ReturnType<typeof useStreamingMessageBuffer>> = [];
+
+    function RenderProbe({
+      messages,
+      status,
+      bufferMs,
+    }: {
+      messages: TestMessage[];
+      status: "ready" | "submitted" | "streaming" | "error";
+      bufferMs: number;
+    }) {
+      const result = useStreamingMessageBuffer({
+        messages: messages as UIMessage[],
+        status,
+        isHistoryLoading: false,
+        bufferMs,
+      });
+      renderSnapshots.push(result);
+      return null;
+    }
+
+    render(
+      <RenderProbe messages={[user, assistant]} status="streaming" bufferMs={50} />,
+    );
+
+    expect(renderSnapshots.length).toBeGreaterThan(0);
+    const firstSnapshot = renderSnapshots[0];
+    expect(firstSnapshot?.staticMessages).toHaveLength(1);
+    expect((firstSnapshot?.streamingMessage?.parts?.[0] as any)?.text).toBe("H");
+    expect(firstSnapshot?.isStreamingActive).toBe(true);
+  });
+
   it("buffers last assistant updates during streaming", () => {
     vi.useFakeTimers();
     const user: TestMessage = {
@@ -97,6 +140,78 @@ describe("useStreamingMessageBuffer", () => {
 
     unmount();
     vi.useRealTimers();
+  });
+
+  it("keeps previous assistant visible across the next round transition", () => {
+    const userFirst: TestMessage = {
+      id: "u1",
+      role: "user",
+      parts: [{ type: "text", text: "first" }],
+    };
+    const assistantFirst: TestMessage = {
+      id: "a1",
+      role: "assistant",
+      parts: [{ type: "text", text: "first answer" }],
+    };
+    const userSecond: TestMessage = {
+      id: "u2",
+      role: "user",
+      parts: [{ type: "text", text: "second" }],
+    };
+    const assistantSecond: TestMessage = {
+      id: "a2",
+      role: "assistant",
+      parts: [{ type: "text", text: "s" }],
+    };
+    const assistantSecondDone: TestMessage = {
+      id: "a2",
+      role: "assistant",
+      parts: [{ type: "text", text: "second answer" }],
+    };
+
+    const { rerender } = render(
+      <Probe messages={[userFirst, assistantFirst]} status="ready" bufferMs={50} />,
+    );
+
+    expect(latestRef.current?.staticMessages).toHaveLength(2);
+    expect((latestRef.current?.staticMessages?.[1]?.parts?.[0] as any)?.text).toBe("first answer");
+
+    rerender(
+      <Probe
+        messages={[userFirst, assistantFirst, userSecond]}
+        status="submitted"
+        bufferMs={50}
+      />,
+    );
+
+    expect(latestRef.current?.streamingMessage).toBeNull();
+    expect(latestRef.current?.staticMessages).toHaveLength(3);
+    expect((latestRef.current?.staticMessages?.[1]?.parts?.[0] as any)?.text).toBe("first answer");
+
+    rerender(
+      <Probe
+        messages={[userFirst, assistantFirst, userSecond, assistantSecond]}
+        status="streaming"
+        bufferMs={50}
+      />,
+    );
+
+    expect(latestRef.current?.staticMessages).toHaveLength(3);
+    expect((latestRef.current?.staticMessages?.[1]?.parts?.[0] as any)?.text).toBe("first answer");
+    expect((latestRef.current?.streamingMessage?.parts?.[0] as any)?.text).toBe("s");
+
+    rerender(
+      <Probe
+        messages={[userFirst, assistantFirst, userSecond, assistantSecondDone]}
+        status="ready"
+        bufferMs={50}
+      />,
+    );
+
+    expect(latestRef.current?.streamingMessage).toBeNull();
+    expect(latestRef.current?.staticMessages).toHaveLength(4);
+    expect((latestRef.current?.staticMessages?.[1]?.parts?.[0] as any)?.text).toBe("first answer");
+    expect((latestRef.current?.staticMessages?.[3]?.parts?.[0] as any)?.text).toBe("second answer");
   });
 
   it("achieves ~5x throttle ratio with 100 updates at 10ms intervals, 50ms buffer", () => {

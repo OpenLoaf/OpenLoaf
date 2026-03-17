@@ -115,6 +115,8 @@
     "animationHigh": "High",
     "notificationSound": "Notification Sound",
     "notificationSoundDesc": "Play sound cue when voice input starts",
+    "showAllToolResults": "Show All Tool Results",
+    "showAllToolResultsDesc": "When enabled, all tool call results are shown in chat messages",
     "minimizeToTray": "Minimize to Tray on Close",
     "minimizeToTrayDesc": "When enabled, closing the window minimizes the app to the system tray instead of quitting"
   },
@@ -692,6 +694,21 @@
       "success": "Successfully imported {{count}} skill(s): {{names}}",
       "failed": "Import failed",
       "unsupportedFormat": "Unsupported format. Please drop a folder or .zip / .tar.gz / .skill file"
+    },
+    "transfer": {
+      "copyTo": "Copy to another project",
+      "moveTo": "Move to another project",
+      "copyTitle": "Copy Skill",
+      "moveTitle": "Move Skill",
+      "copyDesc": "Copy \"{{name}}\" to the target location",
+      "moveDesc": "Move \"{{name}}\" to the target location",
+      "cancel": "Cancel",
+      "confirmCopy": "Copy",
+      "confirmMove": "Move",
+      "processing": "Processing...",
+      "copied": "Skill copied",
+      "moved": "Skill moved",
+      "failed": "Operation failed"
     }
   },
   "modelSelector": {

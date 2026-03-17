@@ -1,338 +1,436 @@
 ---
 name: System Agent Architecture
-description: 系统 Agent 架构设计文档。当涉及系统 Agent 定义、能力组、模型解析、Agent 初始化、spawn 机制、前端 Agent 管理等开发任务时使用此 skill。
-version: 1.0.0
+description: >
+  OpenLoaf AI Agent 系统架构。包含页面上下文感知矩阵、Skill 自动加载体系、
+  临时项目机制、Agent 层级模型（Master/PM + 6 内置子 Agent）、
+  会话与上下文管理规则。当涉及 Agent 设计、上下文注入、Skill 加载、
+  临时项目、会话切换等业务规则时使用此 skill。
+version: 2.0.0
 ---
 
-# 系统 Agent 架构
+# OpenLoaf AI Agent 系统架构
 
-> **术语映射**：代码 `workspace` = 产品「工作空间」，代码 `project` = 产品「项目」。
+> **核心设计理念**：「用户在哪里，AI 就知道什么」—— 上下文感知是整个体系的灵魂。
 
-## 核心原则
+用户不需要告诉 AI「我正在看项目列表」或「我在编辑画布」，系统根据用户所在页面自动感知上下文，注入对应能力和知识，让 AI 成为每个页面的原生助手。
 
-1. 每个 Agent 独立配置模型，默认 Auto（主 Agent 在 spawn 时决定用什么模型）
-2. 8 个系统 Agent，不可删除，按能力组划分
-3. 主 Agent 混合模式：可直接执行简单任务，也可 spawn 其他 Agent
-4. 主 Agent 专属 spawn 权限（通过能力组限制自然实现）
-5. 自定义 Agent 也可配置模型
+---
 
-## 系统 Agent 列表
+## 一、页面上下文感知
 
-| # | 名称 | ID | 能力组 | 说明 |
-|---|------|-----|--------|------|
-| 1 | 主助手 | master | system + agent + file-read + web + media + code-interpreter | 混合模式，可直接执行也可 spawn |
-| 2 | 文档助手 | document | file-read + file-write + project | 文件读写 + 文档分析 + 自动总结 |
-| 3 | 终端助手 | shell | shell | Shell 命令执行 |
-| 4 | 浏览器助手 | browser | browser + web | 网页浏览和数据拓取 |
-| 5 | 邮件助手 | email | email | 邮件查询和操作 |
-| 6 | 日历助手 | calendar | calendar | 日历事件管理 |
-| 7 | 工作台组件助手 | widget | widget | 动态 Widget 创建 |
-| 8 | 项目助手 | project | project | 项目数据查询操作 |
+### 1.1 上下文数据结构
 
-注：图片/视频生成和代码解释器作为工具直接给主 Agent，不单独建 Agent。
+每条用户消息自动携带 `pageContext`，用户无感知：
 
-## Auto 模型机制
+```typescript
+type ChatPageContext = {
+  scope: 'global' | 'project'
+  page: string              // 页面标识符
+  projectId?: string        // 项目模式下必有
+  boardId?: string          // 画布页面必有
+}
+```
 
-- Agent 模型设为 Auto（默认）→ 不指定固定模型
-- 主 Agent spawn 子 Agent 时，根据任务复杂度自行决定传什么 `modelOverride`
-- 模型优先级：Agent 自身配置 > modelOverride > Auto（自动选择）
-- 实现：`resolveAgentModel()` in `apps/server/src/ai/models/resolveAgentModel.ts`
+扩展到 `ChatRequestBody`，随消息发送到服务端。
 
-## 关键设计决策
+### 1.2 全局模式页面矩阵
 
-1. `systemAgentDefinitions.ts` 零依赖，纯数据常量，所有模块从此派生
-2. `isSystem` 是运行时计算的标记（基于 folderName），不持久化到磁盘
-3. spawn 权限通过能力组限制自然实现：只有 master 有 `agent` 能力组
-4. `masterAgentRunner.ts` 的工具集从 master 定义的 capabilities 派生，不再硬编码工具 ID
-5. 不再做 default/main 迁移，默认目录固定为 `master`
+| # | 页面 | pageContext | 自动注入 | AI 能做什么 |
+|---|------|-----------|---------|------------|
+| 1 | 画布列表 | `{scope:'global', page:'canvas-list'}` | — | 搜索/筛选画布、创建画布、解释内容、批量操作 |
+| 2 | 项目列表 | `{scope:'global', page:'project-list'}` | — | 搜索项目、创建项目、对比项目、归档建议 |
+| 3 | Agent 列表 | `{scope:'global', page:'agent-list'}` | — | 解释 Agent 用途、推荐配置、创建自定义 Agent |
+| 4 | 技能列表 | `{scope:'global', page:'skill-list'}` | — | 解释技能、安装/卸载、编排建议 |
+| 5a | 工作台 | `{scope:'global', page:'workbench'}` | — | Widget 管理、布局建议、快速导航 |
+| 5b | 日历 | `{scope:'global', page:'calendar'}` | — | 创建/查询日程、时间规划、冲突检测 |
+| 5c | 邮箱 | `{scope:'global', page:'email'}` | — | 撰写/回复邮件、摘要、分类 |
+| 5d | 全局任务 | `{scope:'global', page:'tasks'}` | — | 任务 CRUD、进度跟踪、优先级建议 |
+| 5e | 全局设置 | `{scope:'global', page:'settings'}` | — | 配置解释、推荐设置、问题诊断 |
+| 5f | 临时画布 | `{scope:'global', page:'temp-canvas'}` | `boardId` | 画布编辑、节点操作、内容生成 |
+| 6 | AI 助手 | `{scope:'global', page:'ai-chat'}` | — | 通用对话、按需调度子 Agent |
 
-### 数据源
+### 1.3 项目模式页面矩阵
+
+| # | 页面 | pageContext | 自动注入 | AI 能做什么 |
+|---|------|-----------|---------|------------|
+| 6a | 项目看板 | `{scope:'project', page:'project-index', projectId}` | `projectId` | 概览分析、待办建议、文件推荐 |
+| 6b | 项目文件 | `{scope:'project', page:'project-files', projectId}` | `projectId` | 文件搜索/编辑、代码分析、文档生成 |
+| 6c | 项目画布 | `{scope:'project', page:'project-canvas', projectId}` | `projectId` | 项目画布管理、关联文件 |
+| 6d | 项目历史 | `{scope:'project', page:'project-history', projectId}` | `projectId` | 变更分析、版本对比、回滚建议 |
+| 6e | 项目任务 | `{scope:'project', page:'project-tasks', projectId}` | `projectId` | 任务管理、进度报告、Sprint 规划 |
+| 6f | 项目设置 | `{scope:'project', page:'project-settings', projectId}` | `projectId` | 项目配置、集成管理 |
+
+### 1.4 前端上下文注入点
+
+各页面组件负责将 `pageContext` 注入到 ChatInput 的 `requestParams` 中，服务端从 `ChatRequestBody` 解析。
+
+关键文件：
+- 页面组件（Sidebar、Project、CanvasListPage 等）→ 设置 `chatParams`
+- `ChatInput.tsx` → 从 `chatParams` 提取并附加到请求
+- `transport.ts` → `prepareSendMessagesRequest()` 携带 `pageContext`
+
+---
+
+## 二、Skill 自动加载体系
+
+### 2.1 设计原则
+
+- **零配置**：用户不需要手动选择 skill，系统根据 pageContext 自动加载
+- **可叠加**：自动 skill + 用户手动 `/skill/xxx` 叠加使用
+- **懒注入**：skill 内容在会话首条消息或上下文切换时注入，不每条重复
+
+### 2.2 内置 OpenLoaf Skill 矩阵
+
+| Skill 名称 | 触发页面 | 核心能力 |
+|-----------|---------|---------|
+| `openloaf-basics` | **所有页面（始终加载）** | OpenLoaf 产品认知、架构规则、通用操作 |
+| `canvas-ops` | 画布列表、临时画布、项目画布 | 画布 CRUD、节点编辑、布局优化 |
+| `project-ops` | 项目列表、项目模式所有页面 | 项目管理、文件操作、Git 操作 |
+| `calendar-ops` | 日历 | 日程 CRUD、时间管理、提醒设置 |
+| `email-ops` | 邮箱 | 邮件撰写、回复、摘要、分类 |
+| `task-ops` | 全局任务、项目任务 | 任务管理、看板操作、进度跟踪、调度配置、审批流程 |
+| `settings-guide` | 全局设置、项目设置 | 配置说明、推荐值、问题排查 |
+| `file-ops` | 项目文件 | 文件读写、代码分析、文档生成 |
+| `workbench-ops` | 工作台 | Widget 管理、布局定制 |
+
+### 2.3 加载规则
+
+```
+用户发送消息时：
+1. 读取当前 pageContext
+2. 查 skill 矩阵获取对应 skill 列表
+3. 始终追加 openloaf-basics
+4. 合并用户手动 /skill/xxx 选择的 skill
+5. 去重后注入消息
+```
+
+### 2.4 与现有 Skill 系统的关系
+
+现有 skill 加载机制不变（两阶段 Progressive Disclosure）：
+- 阶段一：索引注入（preface 中的 `<system-reminder>` 摘要列表）
+- 阶段二：动态展开（`data-skill` part 注入到 user message）
+
+自动加载的内置 skill 走相同的注入管道，区别仅在于**触发方式**：
+- 手动 skill：用户输入 `/skill/xxx` 触发
+- 自动 skill：服务端根据 `pageContext` 在 `AiExecuteService` 中自动追加到 `resolveSkillMatches` 结果
+
+### 2.5 `openloaf-basics` Skill 核心内容
+
+这是最重要的 skill，让 Agent 理解 OpenLoaf 是什么：
+
+```markdown
+## 你正在 OpenLoaf 中工作
+
+OpenLoaf 是一个 AI 驱动的全能生产力桌面应用，包含：
+- **项目**：文件管理 + 代码编辑 + 版本控制的工作空间
+- **画布**：可视化白板，支持节点式编排（文本、代码、图片、AI 节点）
+- **日历**：多源日程管理
+- **邮箱**：多账户邮件客户端
+- **任务**：Kanban 看板式任务管理（手动/定时/条件触发，AI 异步执行）
+- **工作台**：可定制的 Widget 仪表板
+
+## 核心规则
+
+### 文件与项目
+- 对话涉及文件输入/输出且未指定项目时，自动关联到「临时项目」
+- 临时项目位于 {appTempStorageDir}/temp-projects/{sessionId}/
+- 临时项目不自动删除，用户可转为正式项目或手动删除
+
+### 工具使用
+- 优先使用 OpenLoaf 内置工具，而非直接操作文件系统
+- 涉及用户数据变更时，先确认再执行
+
+### 任务系统
+- 当用户表达重复性/定时性需求时，建议创建 Task 而非每次手动执行
+- Task 支持：手动/定时(cron)/条件触发(邮件到达/文件变更/关键词匹配)
+- Task 可配置两阶段审批（生成计划 → 确认 → 执行 → 完成审查）
+```
+
+关键文件：
+- Skill 文件存放：`.agents/skills/openloaf-basics/SKILL.md`
+- 自动加载映射：`apps/server/src/ai/services/chat/pageContextSkillMap.ts`
+- 自动加载调用：`AiExecuteService.ts` 中 `resolveAutoSkillsByPageContext()` + `resolveSkillMatches()`
+
+---
+
+## 三、临时项目机制
+
+### 3.1 触发条件
+
+当用户在非项目上下文中对话，且涉及文件操作时，系统自动创建临时项目：
+
+```
+触发（任一即可）：
+- Agent 需要调用 create-file / write-file 工具
+- 用户上传了文件附件
+- 用户明确要求生成文件类产物
+
+不触发：
+- 纯文本问答
+- 查询类操作（搜索项目、查看日历等）
+- 用户已在项目上下文中
+```
+
+### 3.2 存储位置
+
+临时项目路径基于全局设置 `appTempStorageDir`（设置页「临时存储路径」）：
+
+```
+{appTempStorageDir}/temp-projects/{sessionId}/
+```
+
+如果用户未配置 `appTempStorageDir`，fallback 到 `~/.openloaf/temp/temp-projects/{sessionId}/`。
+
+关键文件：
+- 配置读取：`packages/api/src/types/basic.ts` → `appTempStorageDir`
+- 服务端使用：`apps/server/src/modules/settings/openloafConfStore.ts`
+
+### 3.3 用户体验流程
+
+```
+用户（全局模式）: "帮我写一个 Python 爬虫脚本"
+    ↓
+系统后台静默创建临时项目
+    ↓
+Agent 在临时项目目录下创建文件
+    ↓
+UI 浮现轻提示："文件已保存到临时项目"
+    ↓
+用户可选择：
+  [打开项目查看] → 跳转到临时项目文件页
+  [转为正式项目] → 重命名 + 移动到用户指定位置
+  [忽略] → 保留，用户可手动删除
+```
+
+### 3.4 为什么不是每次对话都创建临时项目
+
+- **开销**：大量对话是纯问答，不需要项目
+- **噪音**：项目列表会充斥无用的临时项目
+- **用户心智**：项目应该是有意义的容器，不是聊天记录的副产品
+
+按需创建——只有当 Agent 真正需要文件系统时才创建。
+
+---
+
+## 四、Agent 层级模型
+
+### 4.1 架构总览
+
+```
+┌──────────────────────────────────────────────────┐
+│                  用户消息入口                      │
+└──────────────────┬───────────────────────────────┘
+                   ↓
+┌──────────────────────────────────────────────────┐
+│           主 Agent（Router / 调度层）              │
+│                                                    │
+│  全局模式 → AI 秘书 (Master)                      │
+│  项目模式 → 项目经理 (PM)                         │
+│                                                    │
+│  职责：理解意图 → 决定自己处理 or 委派子 Agent     │
+└──────────────────┬───────────────────────────────┘
+                   ↓ （需要时委派）
+┌──────────────────────────────────────────────────┐
+│               内置子 Agent 池                      │
+│                                                    │
+│  📝 文档编辑专家 (Doc Editor)                     │
+│  🌐 浏览器操作专家 (Browser)                      │
+│  📊 数据分析专家 (Data Analyst)                   │
+│  🔍 信息提取专家 (Extractor)                      │
+│  🎨 画布设计专家 (Canvas Designer)                │
+│  💻 代码工程师 (Coder)                            │
+│                                                    │
+│  用户不可见，由主 Agent 按需调度                    │
+└──────────────────┬───────────────────────────────┘
+                   ↓ （用户可自定义）
+┌──────────────────────────────────────────────────┐
+│            用户自定义 Agent                        │
+│                                                    │
+│  通过 .agents/AGENT.md 或 .openloaf/agents/ 定义  │
+│  出现在 Agent 列表中，用户可手动切换               │
+└──────────────────────────────────────────────────┘
+```
+
+### 4.2 主 Agent 定位
+
+| 场景 | 默认主 Agent | 核心定位 | 典型行为 |
+|------|-------------|---------|---------|
+| 全局模式 | **AI 秘书 (Master)** | 全能管家 | 问答、调度子 Agent、跨模块操作 |
+| 项目模式 | **项目经理 (PM)** | 项目专家 | 代码分析、任务管理、文件操作 |
+
+切换规则：
+- 进入项目 → 自动切换到 PM
+- 离开项目回到全局 → 自动切换到 Master
+- 用户可手动切换（Agent 选择器），手动选择优先级最高
+
+### 4.3 内置子 Agent 详设
+
+#### 📝 文档编辑专家 (Doc Editor)
+- **触发时机**：主 Agent 判断用户意图是编辑/创建文档
+- **能力**：富文本编辑（Plate.js）、Markdown/Word/PDF 转换、长文档改写、模板应用
+- **工具集**：write-file, read-file, list-dir
+- **步数限制**：15 步
+- **对用户可见性**：不可见（主 Agent 无缝委派）
+
+#### 🌐 浏览器操作专家 (Browser)
+- **触发时机**：用户要求网页操作、截图、表单填写
+- **能力**：网页导航与截图、表单自动填写、数据抓取、页面交互
+- **工具集**：browser-navigate, browser-click, browser-fill, browser-screenshot, browser-read, web-search
+- **步数限制**：20 步
+
+#### 📊 数据分析专家 (Data Analyst)
+- **触发时机**：涉及 CSV/Excel 分析、数据可视化、统计
+- **能力**：表格数据分析、图表生成（ECharts/Mermaid）、数据清洗、趋势分析
+- **工具集**：read-file, write-file, js-repl
+- **步数限制**：15 步
+
+#### 🔍 信息提取专家 (Extractor)
+- **触发时机**：从文档/网页/图片中提取结构化信息
+- **能力**：PDF/图片 OCR、表格提取、关键信息摘要、多文档对比提取
+- **工具集**：read-file, office-read, web-fetch
+- **步数限制**：10 步
+
+#### 🎨 画布设计专家 (Canvas Designer)
+- **触发时机**：画布编辑、节点布局、可视化设计
+- **能力**：画布节点 CRUD、自动布局优化、模板应用、从文本/大纲生成画布结构
+- **工具集**：canvas-add-node, canvas-update-node, canvas-remove-node, canvas-layout, canvas-add-edge, canvas-read
+- **步数限制**：15 步
+
+#### 💻 代码工程师 (Coder)
+- **触发时机**：编写/调试/重构代码（非项目模式下由 Master 委派）
+- **能力**：多语言代码编写、代码审查、Bug 诊断、测试用例生成
+- **工具集**：write-file, read-file, grep-files, list-dir, shell-command
+- **步数限制**：20 步
+- **注意**：项目模式下 PM 自己有代码能力，不必委派
+
+### 4.4 子 Agent 委派策略
+
+```
+用户消息 →
+  ├─ 简单问答/闲聊 → 主 Agent 直接回答
+  ├─ 单步操作（创建项目/发邮件等）→ 主 Agent 直接执行
+  └─ 多步骤复杂任务 →
+      ├─ 需要浏览器 → 委派 Browser
+      ├─ 需要文档编辑 → 委派 Doc Editor
+      ├─ 需要数据分析 → 委派 Data Analyst
+      ├─ 需要信息提取 → 委派 Extractor
+      ├─ 需要画布操作 → 委派 Canvas Designer
+      ├─ 需要代码（全局模式）→ 委派 Coder
+      └─ 混合任务 → 主 Agent 分解，依次或并行委派多个子 Agent
+```
+
+### 4.5 系统约束
+
+- **最大深度**：2 级（主 → 子），子 Agent 不可继续 spawn
+- **最大并发**：4 个子 Agent
+- **自动清理**：5 分钟后完成的 Agent 自动从内存删除
+- **步数硬限**：Master 30 步，Sub 15-20 步
+
+---
+
+## 五、会话与上下文管理
+
+### 5.1 会话归属
+
+| 模式 | 存储位置 | 可见位置 | 绑定 |
+|------|---------|---------|------|
+| 全局模式会话 | 全局 session 池 | AI 助手页面历史 | 无 projectId |
+| 项目模式会话 | 绑定 projectId | 项目内右侧 Chat 面板 | projectId |
+| 画布模式会话 | 绑定 boardId | 画布内 AI 节点 | boardId（可能同时有 projectId） |
+
+### 5.2 上下文切换体验
+
+```
+场景：用户在项目 A 的文件页聊了几句，然后切换到全局日历页
+
+期望行为：
+1. 项目 A 的会话自动暂停（保留在项目 A 的 chat panel 中）
+2. 全局日历页加载全局会话（上次在日历页的会话，或新建）
+3. 自动加载 calendar-ops skill
+4. 主 Agent 切换为 Master（AI 秘书）
+5. Agent 知道用户"刚才在项目 A 工作，现在在看日历"
+
+用户切回项目 A：
+1. 恢复项目 A 的会话
+2. 重新加载 project-ops skill
+3. 主 Agent 切换为 PM
+```
+
+### 5.3 跨模块引用
+
+用户经常需要跨模块操作：
+- 在日历页说"把这个会议相关的文档整理到项目 X 里"
+- 在项目里说"帮我发邮件给同事通知进度"
+
+**策略**：主 Agent 通过 tool-search 按需激活跨模块工具，无需切换子 Agent。`openloaf-basics` skill 告诉 Agent 其他模块的存在和能力边界。
+
+---
+
+## 六、关键文件索引
+
+### Agent 系统核心
 
 | 文件 | 用途 |
 |------|------|
 | `apps/server/src/ai/shared/systemAgentDefinitions.ts` | 系统 Agent 定义（零依赖数据源） |
 | `apps/server/src/ai/models/resolveAgentModel.ts` | Agent 模型解析（优先级链） |
 | `apps/server/src/ai/tools/capabilityGroups.ts` | 能力组 → 工具 ID 映射 |
-
-### 初始化 & 迁移
-
-| 文件 | 用途 |
-|------|------|
-| `apps/server/src/ai/shared/defaultAgentResolver.ts` | ensureSystemAgentFiles() |
-| `apps/server/src/ai/shared/workspaceAgentInit.ts` | 全局 Agent 迁移清理入口，文件名沿用历史命名 |
-
-### Agent 运行时
-
-| 文件 | 用途 |
-|------|------|
-| `apps/server/src/ai/services/masterAgentRunner.ts` | 主 Agent Runner 创建（从 capabilities 派生工具集） |
-| `apps/server/src/ai/services/agentFactory.ts` | 数据驱动的子 Agent 创建 |
-| `apps/server/src/ai/services/agentManager.ts` | Agent 生命周期管理、spawn 调度、消息持久化 |
+| `apps/server/src/ai/services/agentFactory.ts` | Agent 工厂（Master/Sub 创建） |
+| `apps/server/src/ai/services/agentManager.ts` | Agent 生命周期管理、spawn 调度 |
 | `apps/server/src/ai/services/agentConfigService.ts` | Agent 配置读取、isSystem 标记 |
-| `apps/server/src/ai/services/skillsLoader.ts` | 技能文件扫描加载 |
-| `apps/server/src/ai/shared/repairToolCall.ts` | 工具调用修复 |
-| `apps/server/src/ai/agent-templates/` | Agent 模板（提示词 + 配置） |
+| `apps/server/src/ai/services/masterAgentRunner.ts` | 主 Agent Runner |
 
-### 子代理存储
-
-每个子代理复用主对话的完整存储逻辑，存储在 session 子目录中：
-
-关键函数（`chatFileStore.ts` / `messageStore.ts`）：
-- `registerAgentDir()` — 注册 agent 子目录到 sessionDirCache
-- `saveAgentMessage()` — 文件级持久化（无 DB），自动计算 parentMessageId
-- `writeAgentSessionJson()` — 写入 agent 元数据
-- `listAgentIds()` — 列出 session 下所有子代理
-
-### API & 前端
+### Skill 系统
 
 | 文件 | 用途 |
 |------|------|
-| `packages/api/src/routers/absSetting.ts` | agentSummarySchema（含 isSystem） |
-| `packages/api/src/types/tools/agent.ts` | spawn-agent 工具定义（含 modelOverride） |
-| `apps/server/src/routers/settings.ts` | getAgents/deleteAgent 路由 |
-| `apps/web/src/components/setting/menus/agent/AgentManagement.tsx` | Agent 列表（系统 Agent 标记、排序） |
-| `apps/web/src/components/setting/menus/agent/AgentDetailPanel.tsx` | Agent 编辑面板（系统 Agent 限制） |
-| `apps/web/src/components/setting/menus/provider/ProviderManagement.tsx` | 偏好设置（原模型设置，已精简） |
+| `apps/server/src/ai/services/skillsLoader.ts` | Skill 摘要扫描加载 |
+| `apps/server/src/ai/tools/SkillSelector.ts` | 运行时 skill 查找 |
+| `apps/server/src/ai/shared/prefaceBuilder.ts` | preface 构建（skill 摘要注入） |
+| `apps/server/src/ai/services/chat/AiExecuteService.ts` | skill 动态展开到 user message |
+| `apps/server/src/ai/shared/messageConverter.ts` | `data-skill` → 模型可读文本 |
+| `apps/server/src/ai/services/chat/pageContextSkillMap.ts` | pageContext → skill 名称映射 |
 
-## subAgentFactory (agentFactory) 数据驱动流程
-
-文件位置：`apps/server/src/ai/services/agentFactory.ts`
-
-## 设置页面迁移
-
-从"模型设置"中移除（标记 @deprecated）：
-- chatSource、modelQuality、toolModelSource
-- modelDefaultChatModelId、modelDefaultToolModelId
-- autoSummaryEnabled、autoSummaryHours
-
-保留（改名为"偏好设置"）：
-- modelResponseLanguage、chatOnlineSearchMemoryScope、modelSoundEnabled
-
-## 前端 Agent 管理规则
-
-- 系统 Agent 显示蓝色"系统"标签
-- 系统 Agent 排在列表顶部
-- 系统 Agent 限制：名称只读、能力组 Switch 禁用、不可删除
-- 系统 Agent 可修改：模型配置、系统提示词
-- 自定义 Agent 无限制
-
-### 注入架构概览
-
-Skill 采用**两阶段 Progressive Disclosure** 设计，避免一次性注入所有 skill 正文导致 token 浪费：
-
-1. **阶段一：索引注入（Preface）** — 首条 chat preface 的 `<system-reminder>` 仅注入 name + description 摘要列表（"菜单"）
-2. **阶段二：动态展开（User Message）** — 用户输入 `/skill/name` 时，后端解析并将完整 SKILL.md 正文作为 `data-skill` 部分注入到该条 user 消息中（"菜本身"），不会回溯修改 preface
-
-消息流示意：
-
-- Preface 只注入 skill 摘要与其它 system reminder。
-- 用户真正输入 `/skill/<name>` 后，完整 skill 正文才会以 `data-skill` part 追加到该条 user message。
-
-三层 Progressive Disclosure：
-- **Layer 1**：元数据（name + description） — 始终在 preface 中
-- **Layer 2**：SKILL.md 正文 — 仅在用户触发 `/skill/name` 时展开
-- **Layer 3**：references/、scripts/、assets/ — 由 AI 在 skill 正文指引下主动读取
-
-### 阶段一：Skill 索引注入（Preface）
-
-Preface 构建时自动扫描所有可用 skill 的 YAML front matter，生成摘要列表注入为 Block 1。
-
-**加载流程：**
-
-- 先扫描全局、父项目、当前项目 skill 摘要。
-- 再按优先级去重合并。
-- 最后结合 ignoreSkills 与 Agent `selectedSkills` 计算本次实际注入结果。
-
-**多层优先级（低→高）：**
-
-| 优先级 | Scope | 路径 |
-|--------|-------|------|
-| 1（最低）| global | `~/.agents/skills/` |
-| 2 | parent-project | `<parent-project>/.agents/skills/`（可多层） |
-| 3（最高）| project | `<project>/.agents/skills/` |
-
-同名 skill 高优先级覆盖低优先级。
-
-**ignoreSkills 过滤：**
-
-- 全局级：app config 的 `ignoreSkills`（规范 key 为 `global:<folderName>`）
-- 项目级：`<project>/.openloaf/project.json` 的 `ignoreSkills` 字段（当前项目用 `<folderName>`，父项目来源用 `<parentProjectId>:<folderName>`）
-- 服务端仍接受历史 `workspace:<folderName>` 作为兼容输入，但会归一化成 `global:<folderName>`
-- `resolveFilteredSkillSummaries()` 在 `prefaceBuilder.ts` 中应用过滤
-- Agent 配置的 `selectedSkills` 进一步限定只注入特定 skill 摘要
-
-**注入格式：**
-
-`buildSkillsSummarySection()` 生成摘要文本 → `buildSkillsReminderBlock()` 包装为 `<system-reminder>` → 作为 preface Block 1 输出。
-
-每条摘要格式：
-
-- 每条摘要至少包含 `name`、`scope`、`description`、命令文本和源文件路径。
-
-### 阶段二：Skill 动态展开（User Message）
-
-用户输入含 `/skill/name` 的文本时，后端在处理消息前解析并注入 skill 完整内容。
-
-**前端触发：**
-
-1. 用户在输入框输入 `/` → `ChatCommandMenu` 弹出斜杠命令菜单
-2. 选择"技能"分组 → 显示可用 skill 列表（从 `trpc.settings.getSkills` 查询）
-3. 选中某个 skill → `buildSkillCommandText(skillName)` 生成 `/skill/<name>` 文本插入输入框
-4. 常量 `SKILL_COMMAND_PREFIX = "/skill/"` 定义在 `packages/api/src/common/chatCommands.ts`
-
-**后端解析（AiExecuteService）：**
-
-- 服务端会先从用户输入提取所有 `/skill/<name>`。
-- 然后通过 `SkillSelector.resolveSkillByName()` 按优先级查找正文。
-- 命中的 skill 会被包装成 `data-skill` part，并排在用户文本前面注入。
-
-**消息转换（messageConverter.ts）：**
-
-`convertDataPart` 回调将 `data-skill` 类型转为模型可读文本：
-
-### SKILL.md 文件格式
-
-**Front matter 字段：**
-
-- `name`：展示名，同时用于摘要和匹配。
-- `description`：摘要描述，直接进入 preface。
-- `version`：可选元数据，不参与匹配逻辑。
-
-### Skill 关键文件索引
+### 临时项目
 
 | 文件 | 用途 |
 |------|------|
-| `apps/server/src/ai/services/skillsLoader.ts` | `loadSkillSummaries()` — 扫描并加载 skill 摘要；`readSkillContentFromPath()` — 读取 skill 正文（去 front matter） |
-| `apps/server/src/ai/tools/SkillSelector.ts` | `extractSkillNamesFromText()` — 正则提取 `/skill/name`；`resolveSkillByName()` — 按优先级搜索 skill |
-| `apps/server/src/ai/shared/promptBuilder.ts` | `buildSkillsSummarySection()` — 生成摘要文本 |
-| `apps/server/src/ai/shared/prefaceBuilder.ts` | `buildSkillsReminderBlock()` — 包装为 `<system-reminder>`；`resolveFilteredSkillSummaries()` — ignoreSkills 过滤 |
-| `apps/server/src/ai/services/chat/AiExecuteService.ts` | `resolveSkillMatches()` / `buildSkillParts()` — 动态展开 skill 到 user message |
-| `apps/server/src/ai/shared/messageConverter.ts` | `convertDataPart` 回调 — `data-skill` → 模型可读文本 |
-| `apps/web/src/components/ai/input/ChatCommandMenu.tsx` | 前端斜杠菜单 — skill 选择 UI |
-| `apps/web/src/components/ai/input/chat-input-utils.ts` | `buildSkillCommandText()` — 生成 `/skill/<name>` 命令文本 |
-| `packages/api/src/common/chatCommands.ts` | `SKILL_COMMAND_PREFIX = "/skill/"` 常量定义 |
+| `apps/server/src/ai/tools/toolScope.ts` | 临时项目创建 + `data-temp-project` 通知 |
+| `apps/web/src/components/ai/message/tools/shared/TempProjectNotification.tsx` | 临时项目前端提示 UI |
 
-### 设计动机
-
-Master Agent 从"启动时预加载 30+ 工具"改为"启动时只有 `tool-search` 一个工具"。这大幅减少了初始 token 消耗——工具定义不再全量注入到首次请求中，而是按需发现和激活。
-
-### 核心概念
-
-**`toolIds` vs `deferredToolIds`**（`AgentTemplate` 类型）：
-
-- `toolIds`：核心工具，始终可见。Master Agent 当前只有 `['tool-search']`
-- `deferredToolIds`：延迟工具（30+ 个），需要通过 `tool-search` 搜索后才可用。仅 Master Agent 使用此字段
-- `AgentTemplate`（`agent-templates/types.ts`）是源头类型，含 `deferredToolIds`、`systemPrompt` 等运行时字段
-- `SystemAgentDefinition`（`systemAgentDefinitions.ts`）是派生子集，不含 `deferredToolIds`
-
-### ActivatedToolSet 类
-
-Per-session 状态跟踪，管理哪些工具已被激活：
-
-### createToolSearchTool()
-
-两种查询模式：
-
-1. **关键词搜索**：`tool-search(query: "email")` — 在 `TOOL_CATALOG_EXTENDED` 中按 id/keywords/group/label/description 评分，返回并激活最匹配的工具
-2. **直接选择**：`tool-search(query: "select:read-file,list-dir")` — 按 ID 精确加载指定工具
-
-工具定义在 `packages/api/src/types/tools/toolSearch.ts`，评分逻辑在 `toolSearchTool.ts` 的 `computeScore()`。
-
-### 运行时集成
-
-`agentFactory.ts` 中 `createMasterAgent()` 的完整流程：
-
-**`createToolSearchPrepareStep()`**：每一步执行前，只暴露 `core + activated` 的工具子集。模型看不到未激活的工具。
-
-**`buildToolSearchGuidance()`**：生成 `<tool-search-guidance>` XML 块追加到 instructions 末尾。采用**工具能力目录**设计（非意图→工具映射表），包含三层内容：
-1. **意图判断原则**：纯语言任务（翻译/总结/改写等）直接回答，只有需要副作用时才加载工具
-2. **工具能力列表**：按功能分类列出工具 ID 与能力描述（平台感知过滤）
-3. **补充规则**：浏览器→sub-agent、代码开发→sub-agent
-
-### Tool Search 关键文件
+### Prompt 组装
 
 | 文件 | 用途 |
 |------|------|
-| `apps/server/src/ai/tools/toolSearchState.ts` | `ActivatedToolSet` 类 — per-session 激活状态 |
-| `apps/server/src/ai/tools/toolSearchTool.ts` | `createToolSearchTool()` — 关键词搜索 + 直接选择逻辑 |
-| `packages/api/src/types/tools/toolSearch.ts` | `toolSearchToolDef` — 工具定义（Zod schema） |
-| `packages/api/src/types/tools/toolCatalog.ts` | `TOOL_CATALOG_EXTENDED` — 全量工具元数据（id, label, keywords, group） |
-| `apps/server/src/ai/services/agentFactory.ts` | `createToolSearchPrepareStep()` / `buildToolSearchGuidance()` — 运行时集成 |
+| `apps/server/src/ai/agent-templates/templates/master/` | Master Agent 模板（identity + prompt） |
+| `apps/server/src/ai/agent-templates/templates/pm/` | PM Agent 模板 |
+| `apps/server/src/ai/shared/hardRules.ts` | 6 个不可覆盖的硬约束 |
+| `apps/server/src/ai/shared/agentPromptAssembler.ts` | Memory 注入 |
 
-### 设计定位
-
-Layer 2 硬规则 — 不可被用户 `prompt.md` 覆盖的系统约束。通过 `buildHardRules()` 在 `agentFactory.ts` 中自动追加到 instructions 末尾。
-
-### 指令组装链
-
-- **systemPrompt**：来自 `prompt-v3.zh.md` / `prompt-v3.en.md`（Master Agent 模版）
-- **hardRules**：`buildHardRules()` → 6 个规则函数拼接
-- **toolSearchGuidance**：`buildToolSearchGuidance()` → `<tool-search-guidance>` XML 块
-
-### 6 个硬规则构建函数
-
-| 函数 | 内容 |
-|------|------|
-| `buildSystemTagsMetaRule()` | 系统标签说明 — `<system-reminder>` 等 XML 标签的含义 |
-| `buildOutputFormatRules()` | 输出格式 — Markdown、`path:line` 引用、禁止 ANSI 转义码 |
-| `buildFileReferenceRules()` | 文件引用 — `@{path}` 语法说明 |
-| `buildAgentsDynamicLoadingRules()` | AGENTS.md 动态加载 — 搜索到的目录若含 AGENTS.md 须读取 |
-| `buildAutoMemoryRules()` | Auto Memory — AI 自主管理 `.openloaf/memory/MEMORY.md` |
-| `buildCompletionCriteria()` | 完成条件 — 问题解决或给出可执行下一步 |
-
-### Hard Rules 关键文件
+### 前端导航
 
 | 文件 | 用途 |
 |------|------|
-| `apps/server/src/ai/shared/hardRules.ts` | 全部 6 个规则函数 + `buildHardRules()` 聚合 |
-| `apps/server/src/ai/services/agentFactory.ts` | 在 `createMasterAgent()` 中调用并追加到 instructions |
-| `apps/server/src/ai/agent-templates/templates/master/prompt-v3.zh.md` | Master prompt v3 中文版 |
-| `apps/server/src/ai/agent-templates/templates/master/prompt-v3.en.md` | Master prompt v3 英文版 |
+| `apps/web/src/components/layout/sidebar/Sidebar.tsx` | 主导航栏 |
+| `apps/web/src/hooks/layout-utils.ts` | 视图状态解析 |
+| `apps/web/src/hooks/use-sidebar-navigation.ts` | 导航方法 |
+| `apps/web/src/utils/panel-utils.ts` | ComponentMap 映射表 |
+| `packages/api/src/common/tabs.ts` | Tab 定义 |
 
-### 存储路径
+---
 
-Memory 存储在 `.openloaf/memory/MEMORY.md`（独立目录，与 agent 配置解耦）。
+## Skill Sync Policy（强制）
 
-每个 scope（user / parent-project / project）都有自己的 `.openloaf/memory/` 目录。
+> 修改以下文件中与 Agent 架构相关的逻辑后，必须同步更新本 skill 文件。
 
-### 注入方式
-
-Memory 作为独立的 `<system-reminder>` 块注入到 preface 末尾，每个 scope 一个块：
-
-每个 memory block 格式：
-
-- 每个 block 会包含 memory 文件绝对路径、scope 标签与实际内容，并作为独立 `<system-reminder>` 注入。
-
-关键函数链：
-- `assembleMemoryBlocks()` (`agentPromptAssembler.ts`) — 将 MemoryBlock[] 包装为 `<system-reminder>` 字符串数组
-- `buildSessionPrefaceText()` (`prefaceBuilder.ts`) — 在末尾追加 memory blocks
-
-### Auto Memory 规则
-
-在 `hardRules.ts` (Layer 2) 中通过 `buildAutoMemoryRules()` 注入，让 AI 自主管理 memory：
-
-- **路径**: `.openloaf/memory/MEMORY.md`
-- **工具**: 使用 Write/Edit 工具直接操作
-- **应该记什么**: 稳定模式、架构决策、工作流偏好、重复问题解决方案、用户明确要求
-- **不应该记什么**: 临时状态、未验证信息、与 AGENTS.md 重复/矛盾内容、推测性结论
-- **操作规则**: 200 行截断限制、主题子文件、避免重复、语义组织、用户纠正即更新
-
-### Memory 关键文件
-
-| 文件 | 用途 |
-|------|------|
-| `apps/server/src/ai/shared/memoryLoader.ts` | Memory 读写、路径解析、MemoryBlock 类型 |
-| `apps/server/src/ai/shared/agentPromptAssembler.ts` | assembleMemoryBlocks() — 包装为 system-reminder |
-| `apps/server/src/ai/shared/prefaceBuilder.ts` | Memory 独立注入到 preface 末尾 |
-| `apps/server/src/ai/shared/hardRules.ts` | buildAutoMemoryRules() — AI 自主管理规则 |
-| `apps/server/src/routers/settings.ts` | getMemory/saveMemory tRPC 路由（透明兼容） |
-
-### 版权声明 (License Header)
-
-**所有新建的源代码文件 (.ts, .tsx, .js, .jsx, .mjs, .cjs) 必须在文件顶部包含以下版权声明。** 这是为了确保项目在 AGPLv3 双授权模式下的法律合规性。
-
-如果文件包含 Shebang (例如 `#!/usr/bin/env node`)，请将版权声明放在 Shebang 之后，并空开一行。
-
-可以使用以下命令自动补全缺失的声明：
-
-- `node scripts/add-headers.mjs`
+| 变更范围 | 需更新的章节 |
+|----------|-------------|
+| `systemAgentDefinitions.ts` Agent 定义变更 | 四、Agent 层级模型 |
+| `agentFactory.ts` 创建逻辑变更 | 四、Agent 层级模型 |
+| `AiExecuteService.ts` skill 加载逻辑变更 | 二、Skill 自动加载体系 |
+| `ChatRequestBody` 类型变更 | 一、页面上下文感知 |
+| `tabs.ts` / `Sidebar.tsx` 页面新增 | 一、页面上下文感知 |
+| `appTempStorageDir` 逻辑变更 | 三、临时项目机制 |
+| `hardRules.ts` 硬约束变更 | 六、关键文件索引 |
+| Agent 模板（identity/prompt）变更 | 六、关键文件索引 |
+| 新增/删除系统 Agent | 四、Agent 层级模型 |

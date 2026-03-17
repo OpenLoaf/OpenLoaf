@@ -20,6 +20,8 @@ import { Switch } from "@openloaf/ui/switch";
 import { Input } from "@openloaf/ui/input";
 import {
   ArrowRight,
+  Copy,
+  Download,
   Eye,
   FolderOpen,
   Globe,
@@ -27,6 +29,7 @@ import {
   Languages,
   Loader2,
   FolderCog,
+  MoveRight,
   RotateCcw,
   Search,
   Trash2,
@@ -36,8 +39,25 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@openloaf/ui/context-menu";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@openloaf/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@openloaf/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { useProject } from "@/hooks/use-project";
 import {
@@ -45,6 +65,7 @@ import {
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { toast } from "sonner";
 import {
+  exportSkillAsZip,
   resolveSkillFolderUri,
   resolveSkillUri,
   resolveSkillsRootUri,
@@ -57,6 +78,7 @@ type SkillScope = "project" | "global";
 
 type SkillSummary = {
   name: string;
+  originalName: string;
   description: string;
   path: string;
   folderName: string;
@@ -68,6 +90,7 @@ type SkillSummary = {
   ownerProjectTitle?: string;
   colorIndex?: number | null;
   hasMeta?: boolean;
+  icon?: string;
 };
 
 type SkillsSettingsPanelProps = {
@@ -249,6 +272,32 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   );
   const [translateDialogOpen, setTranslateDialogOpen] = useState(false);
 
+  // --- Transfer (copy/move) skill dialog ---
+  const { data: projectList } = useQuery({
+    ...trpc.project.listFlat.queryOptions(),
+    staleTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [transferMode, setTransferMode] = useState<"copy" | "move">("copy");
+  const [transferSkill, setTransferSkill] = useState<SkillSummary | null>(null);
+  const [transferTargetId, setTransferTargetId] = useState<string>("__global__");
+  const transferSkillMutation = useMutation(
+    trpc.settings.transferSkill.mutationOptions({
+      onSuccess: (data) => {
+        if (data.ok) {
+          const label = transferMode === "copy" ? t('skills.transfer.copied') : t('skills.transfer.moved');
+          toast.success(`${label}：${data.folderName}`);
+          invalidateSkillQueries();
+          setTransferDialogOpen(false);
+        } else {
+          toast.error(data.error ?? t('skills.transfer.failed'));
+        }
+      },
+      onError: (error) => { toast.error(error.message ?? t('skills.transfer.failed')) },
+    }),
+  );
+
   // --- Drag-and-drop ---
   const ARCHIVE_EXTENSIONS = useMemo(() => ['.zip', '.skill', '.tar', '.tar.gz', '.tgz'], []);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -377,9 +426,10 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   }, [setSkillColorMutation]);
 
   const handleInsertSkillCommand = useCallback((skill: SkillSummary) => {
-    const skillName = skill.name.trim();
+    const skillName = skill.originalName.trim();
     if (!skillName) return;
-    window.dispatchEvent(new CustomEvent("openloaf:chat-insert-skill", { detail: { skillName } }));
+    const displayName = skill.name !== skill.originalName ? skill.name : undefined;
+    window.dispatchEvent(new CustomEvent("openloaf:chat-insert-skill", { detail: { skillName, displayName } }));
     window.dispatchEvent(new CustomEvent("openloaf:chat-focus-input"));
     useLayoutState.getState().setRightChatCollapsed(false);
   }, []);
@@ -391,6 +441,34 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     const scope = skill.scope === "global" ? "global" : "project";
     await deleteSkillMutation.mutateAsync({ scope, projectId: scope === "project" ? projectId : undefined, ignoreKey: skill.ignoreKey, skillPath: skill.path });
   }, [deleteSkillMutation, projectId, t]);
+
+  const handleExportSkill = useCallback(async (skill: SkillSummary) => {
+    const skillFolderPath = skill.path.replace(/[/\\]SKILL\.md$/i, '');
+    try {
+      const ok = await exportSkillAsZip(skillFolderPath);
+      if (!ok) toast.error(t('skills.export.failed', { defaultValue: '导出失败' }));
+    } catch (err: any) {
+      toast.error(err?.message ?? t('skills.export.failed', { defaultValue: '导出失败' }));
+    }
+  }, [t]);
+
+  const handleOpenTransferDialog = useCallback((skill: SkillSummary, mode: "copy" | "move") => {
+    setTransferSkill(skill);
+    setTransferMode(mode);
+    setTransferTargetId("__global__");
+    setTransferDialogOpen(true);
+  }, []);
+
+  const handleTransferConfirm = useCallback(() => {
+    if (!transferSkill) return;
+    const skillFolderPath = transferSkill.path.replace(/[/\\]SKILL\.md$/i, '');
+    transferSkillMutation.mutate({
+      skillFolderPath,
+      mode: transferMode,
+      targetScope: transferTargetId === "__global__" ? "global" : "project",
+      targetProjectId: transferTargetId === "__global__" ? undefined : transferTargetId,
+    });
+  }, [transferSkill, transferMode, transferTargetId, transferSkillMutation]);
 
   const handleResetSkill = useCallback(async (skill: SkillSummary) => {
     const confirmed = window.confirm(t('skills.confirmReset', { name: skill.name, defaultValue: `确定要初始化「${skill.name}」吗？\n\n将删除 openloaf.json 和翻译文件，技能原始内容不受影响。` }));
@@ -422,7 +500,10 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
               {/* Header: name + switch */}
               <div className="flex min-w-0 items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-foreground">{skill.name}</div>
+                  <div className="flex items-center gap-1.5 truncate text-sm font-medium text-foreground">
+                    {skill.icon ? <span className="text-sm leading-none shrink-0">{skill.icon}</span> : null}
+                    <span className="truncate">{skill.name}</span>
+                  </div>
                 </div>
                 <Switch
                   checked={skill.isEnabled}
@@ -466,6 +547,17 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
           <ContextMenuItem icon={ArrowRight} onClick={() => handleInsertSkillCommand(skill)}>
             {t('skills.useSkill')}
           </ContextMenuItem>
+          <ContextMenuItem icon={Download} onClick={() => void handleExportSkill(skill)}>
+            {t('skills.exportSkill', { defaultValue: '导出' })}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem icon={Copy} onClick={() => handleOpenTransferDialog(skill, "copy")}>
+            {t('skills.transfer.copyTo', { defaultValue: '复制到其他项目' })}
+          </ContextMenuItem>
+          <ContextMenuItem icon={MoveRight} onClick={() => handleOpenTransferDialog(skill, "move")}>
+            {t('skills.transfer.moveTo', { defaultValue: '移动到其他项目' })}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
           <ColorPickerSubMenu
             currentIndex={skill.colorIndex}
             onSelect={(ci) => handleChangeSkillColor(skill, ci)}
@@ -475,9 +567,12 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
             {t('skills.resetSkill', { defaultValue: '初始化' })}
           </ContextMenuItem>
           {skill.isDeletable ? (
-            <ContextMenuItem icon={Trash2} variant="destructive" onClick={() => void handleDeleteSkill(skill)} disabled={deleteSkillMutation.isPending}>
-              {t('skills.deleteSkill')}
-            </ContextMenuItem>
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem icon={Trash2} variant="destructive" onClick={() => void handleDeleteSkill(skill)} disabled={deleteSkillMutation.isPending}>
+                {t('skills.deleteSkill')}
+              </ContextMenuItem>
+            </>
           ) : null}
         </ContextMenuContent>
       </ContextMenu>
@@ -645,6 +740,65 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
         allSkills={skills}
         invalidateSkillQueries={invalidateSkillQueries}
       />
+
+      {/* Transfer (copy/move) skill dialog */}
+      <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {transferMode === "copy"
+                ? t('skills.transfer.copyTitle', { defaultValue: '复制技能' })
+                : t('skills.transfer.moveTitle', { defaultValue: '移动技能' })}
+            </DialogTitle>
+            <DialogDescription>
+              {transferMode === "copy"
+                ? t('skills.transfer.copyDesc', { name: transferSkill?.name, defaultValue: `将「${transferSkill?.name}」复制到目标位置` })
+                : t('skills.transfer.moveDesc', { name: transferSkill?.name, defaultValue: `将「${transferSkill?.name}」移动到目标位置` })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Select value={transferTargetId} onValueChange={setTransferTargetId}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__global__">
+                  <span className="flex items-center gap-1.5">
+                    <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+                    {t('skills.scopeGlobal')}
+                  </span>
+                </SelectItem>
+                {projectList?.map((p) => (
+                  <SelectItem key={p.projectId} value={p.projectId}>
+                    {p.icon ? `${p.icon} ` : ""}{p.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button
+                variant="ghost"
+                className="rounded-md text-muted-foreground shadow-none transition-colors duration-150"
+              >
+                {t('skills.transfer.cancel', { defaultValue: '取消' })}
+              </Button>
+            </DialogClose>
+            <Button
+              className="rounded-md bg-ol-green/10 text-ol-green hover:bg-ol-green/20 shadow-none transition-colors duration-150"
+              onClick={handleTransferConfirm}
+              disabled={transferSkillMutation.isPending}
+            >
+              {transferSkillMutation.isPending
+                ? t('skills.transfer.processing', { defaultValue: '处理中...' })
+                : transferMode === "copy"
+                  ? t('skills.transfer.confirmCopy', { defaultValue: '复制' })
+                  : t('skills.transfer.confirmMove', { defaultValue: '移动' })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

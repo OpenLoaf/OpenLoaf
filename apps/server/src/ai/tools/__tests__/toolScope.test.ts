@@ -143,35 +143,35 @@ async function main() {
 
   await test('readFileTool: project 内相对路径 → needsApproval = false', () =>
     withCtx(() => {
-      const result = callNeedsApproval(readFileTool, { actionName: 'test', path: 'readme.md' })
+      const result = callNeedsApproval(readFileTool, { path: 'readme.md' })
       assert.equal(result, false)
     }),
   )
 
   await test('readFileTool: project 外绝对路径 → needsApproval = true', () =>
     withCtx(() => {
-      const result = callNeedsApproval(readFileTool, { actionName: 'test', path: '/etc/hosts' })
+      const result = callNeedsApproval(readFileTool, { path: '/etc/hosts' })
       assert.equal(result, true)
     }),
   )
 
   await test('listDirTool: project 内相对路径 → needsApproval = false', () =>
     withCtx(() => {
-      const result = callNeedsApproval(listDirTool, { actionName: 'test', path: '.' })
+      const result = callNeedsApproval(listDirTool, { path: '.' })
       assert.equal(result, false)
     }),
   )
 
   await test('listDirTool: project 外绝对路径 → needsApproval = true', () =>
     withCtx(() => {
-      const result = callNeedsApproval(listDirTool, { actionName: 'test', path: outsidePath })
+      const result = callNeedsApproval(listDirTool, { path: outsidePath })
       assert.equal(result, true)
     }),
   )
 
   await test('grepFilesTool: 无 path（默认 project 根）→ needsApproval = false', () =>
     withCtx(() => {
-      const result = callNeedsApproval(grepFilesTool, { actionName: 'test', pattern: 'TODO' })
+      const result = callNeedsApproval(grepFilesTool, { pattern: 'TODO' })
       assert.equal(result, false)
     }),
   )
@@ -179,7 +179,6 @@ async function main() {
   await test('grepFilesTool: project 外绝对路径 → needsApproval = true', () =>
     withCtx(() => {
       const result = callNeedsApproval(grepFilesTool, {
-        actionName: 'test',
         pattern: 'TODO',
         path: '/etc',
       })

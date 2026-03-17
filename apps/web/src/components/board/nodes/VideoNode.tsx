@@ -18,7 +18,7 @@ import { z } from "zod";
 import Hls from "hls.js";
 import { Download, Info, Loader2, Play, Scissors, Sparkles } from "lucide-react";
 import i18next from "i18next";
-import { VideoTrimBar } from "./VideoTrimBar";
+import { openVideoTrimDialog } from "../dialogs/VideoTrimDialog";
 import {
   BOARD_TOOLBAR_ITEM_AMBER,
   BOARD_TOOLBAR_ITEM_BLUE,
@@ -93,6 +93,8 @@ async function openVideoPreview(props: VideoNodeProps, fileContext?: BoardFileCo
         projectId: fileContext?.projectId,
         rootUri: fileContext?.rootUri,
         boardId,
+        clipStart: props.clipStart,
+        clipEnd: props.clipEnd,
       },
     ],
     activeIndex: 0,
@@ -101,10 +103,28 @@ async function openVideoPreview(props: VideoNodeProps, fileContext?: BoardFileCo
   });
 }
 
+/** Compute HLS path for the video node (reused by toolbar and view). */
+function computeHlsPath(sourcePath: string, resolvedPath: string): string {
+  if (isBoardRelativePath(sourcePath)) return sourcePath;
+  const parsed = parseScopedProjectPath(sourcePath);
+  if (parsed) return parsed.relativePath;
+  return resolvedPath;
+}
+
 /** Build toolbar items for video nodes. */
 function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
-  const { clipStart, clipEnd, duration } = ctx.element.props;
+  const { clipStart, clipEnd, duration, sourcePath } = ctx.element.props;
   const hasClip = (clipStart != null && clipStart > 0) || (clipEnd != null && duration != null && clipEnd < duration);
+
+  // 逻辑：计算 HLS 所需的路径和 ID，传给剪辑对话框。
+  const resolvedPath = resolveProjectRelativePath(sourcePath, ctx.fileContext) || sourcePath;
+  const hlsPath = computeHlsPath(sourcePath, resolvedPath);
+  const effectiveProjectId = ctx.fileContext?.projectId
+    ?? parseScopedProjectPath(sourcePath)?.projectId;
+  const ids = {
+    projectId: effectiveProjectId,
+    boardId: isBoardRelativePath(sourcePath) ? ctx.fileContext?.boardId : undefined,
+  };
 
   const baseItems = [
     {
@@ -120,15 +140,19 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
       icon: <Scissors size={14} />,
       className: BOARD_TOOLBAR_ITEM_AMBER,
       active: hasClip,
-      panel: (
-        <VideoTrimPanel
-          duration={duration ?? 0}
-          clipStart={clipStart ?? 0}
-          clipEnd={clipEnd ?? duration ?? 0}
-          onChange={(start, end) => ctx.updateNodeProps({ clipStart: start, clipEnd: end })}
-        />
-      ),
-      panelClassName: "w-72",
+      onSelect: () => {
+        openVideoTrimDialog({
+          hlsPath,
+          ids,
+          duration: duration ?? 0,
+          clipStart: clipStart ?? 0,
+          clipEnd: clipEnd ?? duration ?? 0,
+          posterSrc: ctx.element.props.posterPath?.trim() || undefined,
+          onConfirm: (start, end) => {
+            ctx.updateNodeProps({ clipStart: start, clipEnd: end });
+          },
+        });
+      },
     },
     ...(hasClip
       ? [
@@ -157,37 +181,6 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
   return (messageMeta.status ?? "streaming") === "complete"
     ? [...chatItems, ...baseItems]
     : chatItems;
-}
-
-/** Inline trim panel rendered inside the toolbar popover. */
-function VideoTrimPanel({
-  duration,
-  clipStart,
-  clipEnd,
-  onChange,
-}: {
-  duration: number;
-  clipStart: number;
-  clipEnd: number;
-  onChange: (start: number, end: number) => void;
-}) {
-  if (duration <= 0) {
-    return (
-      <div className="px-3 py-2 text-xs text-ol-text-auxiliary">
-        {i18next.t('board:videoNode.trim.noDuration', { defaultValue: 'Duration unknown — play the video first.' })}
-      </div>
-    );
-  }
-  return (
-    <div className="px-3 py-2">
-      <VideoTrimBar
-        duration={duration}
-        clipStart={clipStart}
-        clipEnd={clipEnd}
-        onChange={onChange}
-      />
-    </div>
-  );
 }
 
 /** Export the clipped segment via server-side ffmpeg. */
@@ -284,6 +277,7 @@ function buildHlsQualityUrl(
 /** Render a video node card with inline HLS playback. */
 export function VideoNodeView({
   element,
+  onUpdate,
 }: CanvasNodeViewProps<VideoNodeProps>) {
   const { fileContext } = useBoardContext();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -329,6 +323,10 @@ export function VideoNodeView({
   clipStartRef.current = element.props.clipStart;
   const clipEndRef = useRef(element.props.clipEnd);
   clipEndRef.current = element.props.clipEnd;
+  const durationRef = useRef(element.props.duration);
+  durationRef.current = element.props.duration;
+  const onUpdateRef = useRef(onUpdate);
+  onUpdateRef.current = onUpdate;
   const stoppedRef = useRef(false);
 
   const handleStop = useCallback(() => {
@@ -366,6 +364,15 @@ export function VideoNodeView({
 
     const qualityUrl = buildHlsQualityUrl(hlsPath, "720p", ids);
     const masterUrl = buildHlsManifestUrl(hlsPath, ids);
+
+    // 逻辑：视频加载后检测时长，若节点未记录 duration 则自动回写，使剪切面板可用。
+    const onLoadedMetadata = () => {
+      const d = video.duration;
+      if (Number.isFinite(d) && d > 0 && durationRef.current == null) {
+        onUpdateRef.current({ duration: d } as Partial<VideoNodeProps>);
+      }
+    };
+    video.addEventListener("loadedmetadata", onLoadedMetadata);
 
     const applyClipAndPlay = () => {
       const cs = clipStartRef.current;
@@ -423,6 +430,7 @@ export function VideoNodeView({
       cancelled = true;
       if (pollTimer) clearTimeout(pollTimer);
       video.removeEventListener("timeupdate", onTimeUpdate);
+      video.removeEventListener("loadedmetadata", onLoadedMetadata);
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;

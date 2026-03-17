@@ -276,6 +276,7 @@
     "filterHintDefault": "僅顯示可用檔案",
     "importFromComputer": "從電腦匯入",
     "saveToComputer": "儲存到電腦",
+    "saveToComputerUnsupported": "目前環境下僅支援將單一檔案直接儲存到電腦",
     "saveConfirmLabel": "儲存",
     "saveFileTitle": "儲存檔案",
     "cannotResolvePath": "無法解析檔案路徑",

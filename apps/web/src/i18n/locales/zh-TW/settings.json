@@ -115,6 +115,8 @@
     "animationHigh": "高",
     "notificationSound": "通知聲音提示",
     "notificationSoundDesc": "語音輸入開始時播放提示音",
+    "showAllToolResults": "顯示所有工具調用結果",
+    "showAllToolResultsDesc": "開啟後，對話中將展示所有工具調用的詳細結果",
     "minimizeToTray": "關閉時最小化至系統匣",
     "minimizeToTrayDesc": "開啟後，關閉視窗時應用程式將最小化至系統匣而不是結束"
   },
@@ -692,6 +694,21 @@
       "success": "成功匯入 {{count}} 個技能：{{names}}",
       "failed": "匯入失敗",
       "unsupportedFormat": "不支援的檔案格式，請拖入資料夾或 .zip / .tar.gz / .skill 檔案"
+    },
+    "transfer": {
+      "copyTo": "複製到其他專案",
+      "moveTo": "移動到其他專案",
+      "copyTitle": "複製技能",
+      "moveTitle": "移動技能",
+      "copyDesc": "將「{{name}}」複製到目標位置",
+      "moveDesc": "將「{{name}}」移動到目標位置",
+      "cancel": "取消",
+      "confirmCopy": "複製",
+      "confirmMove": "移動",
+      "processing": "處理中...",
+      "copied": "已複製技能",
+      "moved": "已移動技能",
+      "failed": "操作失敗"
     }
   },
   "modelSelector": {

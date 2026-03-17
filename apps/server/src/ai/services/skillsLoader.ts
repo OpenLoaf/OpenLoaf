@@ -13,8 +13,10 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 type SkillScope = "project" | "global";
 
 type SkillSummary = {
-  /** Skill name from front matter or fallback. */
+  /** Skill display name (may be translated via openloaf.json). */
   name: string;
+  /** Original skill name from SKILL.md front-matter (used for matching/loading). */
+  originalName: string;
   /** Skill description from front matter. */
   description: string;
   /** Absolute path to SKILL.md. */
@@ -27,6 +29,8 @@ type SkillSummary = {
   colorIndex?: number | null;
   /** Whether this skill has an openloaf.json metadata file. */
   hasMeta?: boolean;
+  /** Emoji icon for the skill (from openloaf.json). */
+  icon?: string;
 };
 
 type SkillSource = {
@@ -69,12 +73,12 @@ export function loadSkillSummaries(input: {
     for (const filePath of skillFiles) {
       const summary = readSkillSummaryFromPath(filePath, source.scope);
       if (!summary) continue;
-      if (!summaryByName.has(summary.name)) {
-        orderedNames.push(summary.name);
+      if (!summaryByName.has(summary.originalName)) {
+        orderedNames.push(summary.originalName);
       }
       // 逻辑：项目级 skills 覆盖全局级。
-      if (source.scope === "project" || !summaryByName.has(summary.name)) {
-        summaryByName.set(summary.name, summary);
+      if (source.scope === "project" || !summaryByName.has(summary.originalName)) {
+        summaryByName.set(summary.originalName, summary);
       }
     }
   }
@@ -186,29 +190,34 @@ export function readSkillSummaryFromPath(filePath: string, scope: SkillScope): S
     const content = readFileSync(filePath, "utf8");
     const frontMatter = parseFrontMatter(content);
     const fallbackName = path.basename(path.dirname(filePath)) || path.basename(filePath);
-    let name = (frontMatter.name || fallbackName).trim();
-    if (!name) return null;
+    const originalName = (frontMatter.name || fallbackName).trim();
+    if (!originalName) return null;
+    let name = originalName;
     let description = normalizeDescription(frontMatter.description);
     const folderName = path.basename(path.dirname(filePath)) || fallbackName;
 
-    // Override name/description/colorIndex from openloaf.json if present
+    // Override name/description/colorIndex/icon from openloaf.json if present
     const meta = readOpenLoafMeta(path.dirname(filePath));
     let colorIndex: number | null | undefined;
+    let icon: string | undefined;
     const hasMeta = meta !== null;
     if (meta) {
       if (meta.name) name = meta.name;
       if (meta.description) description = meta.description;
       colorIndex = meta.colorIndex;
+      icon = meta.icon;
     }
 
     return {
       name,
+      originalName,
       description,
       path: filePath,
       folderName,
       scope,
       colorIndex,
       hasMeta,
+      icon,
     };
   } catch {
     return null;
@@ -222,6 +231,7 @@ function readOpenLoafMeta(folderPath: string): {
   targetLanguage?: string
   sourceLanguage?: string
   colorIndex?: number | null
+  icon?: string
 } | null {
   const metaPath = path.join(folderPath, "openloaf.json");
   if (!existsSync(metaPath)) return null;
@@ -235,6 +245,7 @@ function readOpenLoafMeta(folderPath: string): {
       targetLanguage: typeof parsed.targetLanguage === "string" ? parsed.targetLanguage : undefined,
       sourceLanguage: typeof parsed.sourceLanguage === "string" ? parsed.sourceLanguage : undefined,
       colorIndex: typeof parsed.colorIndex === "number" ? parsed.colorIndex : null,
+      icon: typeof parsed.icon === "string" ? parsed.icon.trim() || undefined : undefined,
     };
   } catch {
     return null;

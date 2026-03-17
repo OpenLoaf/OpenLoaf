@@ -81,6 +81,7 @@ import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import i18next from "i18next";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { GroupMembersDialog } from "../dialogs/GroupMembersDialog";
+import { VideoTrimDialog } from "../dialogs/VideoTrimDialog";
 
 export type BoardCanvasProps = {
   /** External engine instance, optional for integration scenarios. */
@@ -916,6 +917,7 @@ export function BoardCanvas({
           parentEngine={engine}
           onClose={() => setEnterGroupId(null)}
         />
+        <VideoTrimDialog />
       </BoardProvider>
     </BoardErrorBoundary>
     </>

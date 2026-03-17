@@ -42,11 +42,7 @@ export function getMode(data: OutputData | null, input: Record<string, unknown> 
   return ''
 }
 
-export function getToolKind(part: AnyToolPart): string {
-  if (typeof part.toolName === 'string' && part.toolName.trim()) return part.toolName
-  if (part.type.startsWith('tool-')) return part.type.slice('tool-'.length)
-  return part.type
-}
+export { getToolKind } from './tool-utils'
 
 export function shortPath(p: string): string {
   const parts = p.replace(/\\/g, '/').split('/')

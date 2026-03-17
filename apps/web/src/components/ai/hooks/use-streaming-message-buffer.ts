@@ -49,12 +49,12 @@ export function useStreamingMessageBuffer(
 ): StreamingMessageBufferResult {
   const { messages, status, isHistoryLoading } = input;
   const bufferMs = Number.isFinite(input.bufferMs) ? Math.max(0, input.bufferMs ?? 0) : 16;
-  const [staticMessages, setStaticMessages] = React.useState<UIMessage[]>(messages);
   const [bufferedMessage, setBufferedMessage] = React.useState<UIMessage | null>(null);
   const latestMessageRef = React.useRef<UIMessage | null>(null);
   const lastFlushAtRef = React.useRef(0);
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const bufferedIdRef = React.useRef<string | null>(null);
+  const stableStaticMessagesRef = React.useRef<UIMessage[]>(messages);
   /** Whether chat is currently streaming. */
   const isStreaming = status === "submitted" || status === "streaming";
 
@@ -82,9 +82,6 @@ export function useStreamingMessageBuffer(
       bufferedIdRef.current = null;
       clearTimer();
       setBufferedMessage(null);
-      if (!areMessagesEqualByRef(messages, staticMessages)) {
-        setStaticMessages(messages);
-      }
       return;
     }
 
@@ -95,15 +92,7 @@ export function useStreamingMessageBuffer(
       bufferedIdRef.current = null;
       clearTimer();
       setBufferedMessage(null);
-      if (!areMessagesEqualByRef(messages, staticMessages)) {
-        setStaticMessages(messages);
-      }
       return;
-    }
-
-    const nextStatic = messages.slice(0, -1);
-    if (!areMessagesEqualByRef(nextStatic, staticMessages)) {
-      setStaticMessages(nextStatic);
     }
 
     const lastId = String((last as any)?.id ?? "");
@@ -130,7 +119,6 @@ export function useStreamingMessageBuffer(
     bufferMs,
     clearTimer,
     flushLatest,
-    staticMessages,
   ]);
 
   React.useEffect(() => {
@@ -139,14 +127,51 @@ export function useStreamingMessageBuffer(
     };
   }, [clearTimer]);
 
-  const shouldSplit = isStreaming && !isHistoryLoading && Boolean(bufferedMessage);
+  const liveStreamingMessage = React.useMemo(() => {
+    if (!isStreaming || isHistoryLoading || messages.length === 0) return null;
+    const last = messages[messages.length - 1];
+    return last?.role === "assistant" ? last : null;
+  }, [messages, isStreaming, isHistoryLoading]);
+
+  const liveStreamingId = React.useMemo(() => {
+    if (!liveStreamingMessage) return "";
+    return String((liveStreamingMessage as any)?.id ?? "");
+  }, [liveStreamingMessage]);
+
+  const currentStaticMessages = React.useMemo(() => {
+    if (liveStreamingMessage) return messages.slice(0, -1);
+    return messages;
+  }, [messages, liveStreamingMessage]);
+
+  const stableStaticMessages = React.useMemo(() => {
+    const previous = stableStaticMessagesRef.current;
+    if (areMessagesEqualByRef(currentStaticMessages, previous)) {
+      return previous;
+    }
+    stableStaticMessagesRef.current = currentStaticMessages;
+    return currentStaticMessages;
+  }, [currentStaticMessages]);
+
+  const shouldUseLiveAssistant =
+    Boolean(liveStreamingMessage) &&
+    (!bufferedMessage || bufferedIdRef.current !== liveStreamingId);
+  const shouldRenderStreamingMessage =
+    Boolean(liveStreamingMessage) && isStreaming && !isHistoryLoading;
+  // 中文注释：静态消息始终以当前消息快照同步收口，只对最后一条流式 assistant 做缓冲。
+  const resolvedStaticMessages = stableStaticMessages;
+  const resolvedStreamingMessage = shouldUseLiveAssistant
+    ? liveStreamingMessage
+    : shouldRenderStreamingMessage && Boolean(bufferedMessage)
+      ? bufferedMessage
+      : null;
+  const isStreamingActive = Boolean(resolvedStreamingMessage);
 
   return React.useMemo(
     () => ({
-      staticMessages,
-      streamingMessage: shouldSplit ? bufferedMessage : null,
-      isStreamingActive: shouldSplit,
+      staticMessages: resolvedStaticMessages,
+      streamingMessage: resolvedStreamingMessage,
+      isStreamingActive,
     }),
-    [staticMessages, bufferedMessage, shouldSplit],
+    [resolvedStaticMessages, resolvedStreamingMessage, isStreamingActive],
   );
 }

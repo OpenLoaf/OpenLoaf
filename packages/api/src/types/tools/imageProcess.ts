@@ -33,10 +33,6 @@ export const imageProcessToolDef = {
     '返回：{ ok, data: { action, outputPath, width, height, format, fileSize } }。' +
     '不适用：需要 AI 生成全新图片时不要使用，改用 image-generate。',
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：将图片转换为 WebP 格式。'),
     action: z
       .enum(['get-info', 'resize', 'crop', 'rotate', 'flip', 'grayscale', 'blur', 'sharpen', 'tint', 'convert'])
       .describe(

@@ -1,29 +1,9 @@
 {
-  "name": "命令分析规则库",
-  "description": "当用户要求“用命令分析代码”“分析 knip/tsc/build/lint/jscpd/madge/react hooks/react compiler/react-scan 输出”“清理死代码”“找重复代码”“排查循环依赖”“排查静态扫描误报”“扫描 web 或 server 的未使用代码/依赖/路由/构建问题”“分析 React Hook 告警并沉淀规则”“补充后台代码检测规则与回归流程”时使用。本技能适用于 OpenLoaf 项目内基于命令行结果做代码检测、误报甄别、规则沉淀与安全落地。",
+  "name": "命令分析规则",
+  "description": "当用户请求通过命令行分析代码、清理死代码、查找重复代码、排查循环依赖、处理静态扫描误报、扫描未使用代码/依赖/路由/构建问题、分析 React Hook 警告并沉淀规则、补充后台代码检测规则与回归流程时使用。本技能适用于 OpenLoaf 项目中基于命令行结果进行代码检测、误报甄别、规则沉淀与安全落地。",
   "version": "1.3.0",
-  "translatedAt": "2026-03-15T13:06:05Z",
+  "icon": "🔧",
+  "sourceLanguage": "zh-CN",
   "targetLanguage": "zh-CN",
-  "files": {
-    "SKILL.md": {
-      "originHash": "851b6e66545116d8500f31f927be64d1",
-      "translatedHash": "851b6e66545116d8500f31f927be64d1"
-    },
-    "references/knip-checklist.md": {
-      "originHash": "3cbda12b9e59b351e3272468364d1979",
-      "translatedHash": "3cbda12b9e59b351e3272468364d1979"
-    },
-    "references/jscpd-madge-checklist.md": {
-      "originHash": "fe00dd1f0f471d94409aad768d4331cc",
-      "translatedHash": "fe00dd1f0f471d94409aad768d4331cc"
-    },
-    "references/server-knip-rules.md": {
-      "originHash": "3caa181b4ec45e7e5379d10029f99b2b",
-      "translatedHash": "3caa181b4ec45e7e5379d10029f99b2b"
-    },
-    "references/react-hooks-checklist.md": {
-      "originHash": "c477c8276ef5b760b28fe88eb679d504",
-      "translatedHash": "c477c8276ef5b760b28fe88eb679d504"
-    }
-  }
+  "translatedAt": "2026-03-16T09:27:39.353Z"
 }

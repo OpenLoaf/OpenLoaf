@@ -27,10 +27,6 @@ export const taskManageToolDef = {
 
 状态保护规则：delete/deleteAll 仅允许 done 和 cancelled 状态的任务。`,
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('由调用的 LLM 传入，用于说明本次工具调用目的。'),
     action: z
       .enum([
         'create',
@@ -136,10 +132,6 @@ export const taskStatusToolDef = {
   description:
     '查询后台任务的状态和进度。不传 taskId 返回所有活跃任务概览。',
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('由调用的 LLM 传入，用于说明本次工具调用目的。'),
     taskId: z
       .string()
       .optional()

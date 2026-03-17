@@ -55,14 +55,29 @@ import { isWebSearchConfigured } from '@/ai/tools/webSearchTool'
 // ---------------------------------------------------------------------------
 
 /** 内置子 Agent 类型 ID。 */
-export type BuiltinSubAgentType = 'general-purpose' | 'explore' | 'plan'
+export type BuiltinSubAgentType =
+  | 'general-purpose'
+  | 'explore'
+  | 'plan'
+  | 'doc-editor'
+  | 'browser'
+  | 'data-analyst'
+  | 'extractor'
+  | 'canvas-designer'
+  | 'coder'
 
 /** explore / plan 共用的只读工具集。 */
 const READ_ONLY_TOOL_IDS = ['read-file', 'list-dir', 'grep-files', 'project-query'] as const
 
+/** 内置子 Agent 类型集合。 */
+const BUILTIN_SUB_AGENT_TYPES = new Set<string>([
+  'general-purpose', 'explore', 'plan',
+  'doc-editor', 'browser', 'data-analyst', 'extractor', 'canvas-designer', 'coder',
+])
+
 /** 判断是否为内置子 Agent 类型。 */
 export function isBuiltinSubAgentType(type: string): type is BuiltinSubAgentType {
-  return type === 'general-purpose' || type === 'explore' || type === 'plan'
+  return BUILTIN_SUB_AGENT_TYPES.has(type)
 }
 
 // ---------------------------------------------------------------------------
@@ -334,6 +349,11 @@ export function createSubAgent(input: CreateSubAgentInput): ToolLoopAgent {
   if (effectiveType === 'plan') {
     return createPlanSubAgent(wrappedModel)
   }
+  // 6 个专业内置子 Agent
+  const specialistFactory = SPECIALIST_FACTORIES[effectiveType]
+  if (specialistFactory) {
+    return specialistFactory(wrappedModel)
+  }
 
   // 动态 Agent — 从文件系统查找 AGENT.md
   const dynamicAgent = tryCreateDynamicAgent(effectiveType, input.skillRoots, wrappedModel)
@@ -427,6 +447,134 @@ function createPlanSubAgent(model: LanguageModelV3): ToolLoopAgent {
     experimental_repairToolCall: createToolCallRepair(),
   })
 }
+
+// ---------------------------------------------------------------------------
+// 6 个专业内置子 Agent
+// ---------------------------------------------------------------------------
+
+type SpecialistConfig = {
+  id: string
+  instructions: string
+  toolIds: string[]
+  maxSteps: number
+}
+
+const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
+  'doc-editor': {
+    id: 'doc-editor',
+    instructions: [
+      '你是文档编辑专用子代理，负责富文本和 Markdown 文档的创建与编辑。',
+      '',
+      '你可以使用以下工具：',
+      '- write-file: 创建或覆写文件',
+      '- read-file: 读取文件内容',
+      '- list-dir: 浏览目录结构',
+      '',
+      '注意：专注于文档编辑任务。输出格式优先使用 Markdown，富文本场景使用 Plate.js 兼容格式。',
+    ].join('\n'),
+    toolIds: ['write-file', 'read-file', 'list-dir'],
+    maxSteps: 15,
+  },
+  'browser': {
+    id: 'browser',
+    instructions: [
+      '你是浏览器操作专用子代理，负责网页操作和数据抓取。',
+      '',
+      '你可以使用以下工具：',
+      '- browser-navigate: 打开网页',
+      '- browser-click: 点击元素',
+      '- browser-fill: 填写表单',
+      '- browser-screenshot: 截图',
+      '- web-search: 搜索网页',
+      '',
+      '注意：操作网页时注意加载等待，避免操作未渲染的元素。',
+    ].join('\n'),
+    toolIds: ['browser-navigate', 'browser-click', 'browser-fill', 'browser-screenshot', 'browser-read', 'web-search'],
+    maxSteps: 20,
+  },
+  'data-analyst': {
+    id: 'data-analyst',
+    instructions: [
+      '你是数据分析专用子代理，负责数据处理、统计和可视化。',
+      '',
+      '你可以使用以下工具：',
+      '- read-file: 读取数据文件（CSV、JSON、Excel 等）',
+      '- write-file: 输出分析结果',
+      '- js-repl: 执行 JavaScript 代码进行数据处理',
+      '',
+      '注意：优先使用 js-repl 进行数据处理。大数据集使用流式处理避免内存溢出。',
+    ].join('\n'),
+    toolIds: ['read-file', 'write-file', 'js-repl'],
+    maxSteps: 15,
+  },
+  'extractor': {
+    id: 'extractor',
+    instructions: [
+      '你是信息提取专用子代理，负责从文件、网页中提取结构化信息。',
+      '',
+      '你可以使用以下工具：',
+      '- read-file: 读取文件内容',
+      '- office-read: 读取 Office 文档',
+      '- web-fetch: 获取网页内容',
+      '',
+      '注意：提取结果使用结构化格式（JSON/表格）呈现。长文档先摘要再详述。',
+    ].join('\n'),
+    toolIds: ['read-file', 'office-read', 'web-fetch'],
+    maxSteps: 10,
+  },
+  'canvas-designer': {
+    id: 'canvas-designer',
+    instructions: [
+      '你是画布设计专用子代理，负责画布节点创建、排布和设计。',
+      '',
+      '你可以使用以下工具：',
+      '- canvas-add-node: 添加节点',
+      '- canvas-update-node: 更新节点',
+      '- canvas-remove-node: 删除节点',
+      '- canvas-layout: 自动布局',
+      '',
+      '注意：节点布局注意视觉平衡，合理利用空间。批量操作分步进行。',
+    ].join('\n'),
+    toolIds: ['canvas-add-node', 'canvas-update-node', 'canvas-remove-node', 'canvas-layout', 'canvas-add-edge', 'canvas-read'],
+    maxSteps: 15,
+  },
+  'coder': {
+    id: 'coder',
+    instructions: [
+      '你是代码工程师专用子代理，负责代码编写、调试和分析。',
+      '',
+      '你可以使用以下工具：',
+      '- write-file: 创建或修改代码文件',
+      '- read-file: 读取源代码',
+      '- grep-files: 搜索代码',
+      '- list-dir: 浏览项目结构',
+      '- shell-command: 执行构建、测试等命令',
+      '',
+      '注意：遵循项目代码规范。修改前先阅读相关代码。测试驱动开发。',
+    ].join('\n'),
+    toolIds: ['write-file', 'read-file', 'grep-files', 'list-dir', 'shell-command'],
+    maxSteps: 20,
+  },
+}
+
+/** Factory map for specialist sub-agents. */
+const SPECIALIST_FACTORIES: Record<string, (model: LanguageModelV3) => ToolLoopAgent> =
+  Object.fromEntries(
+    Object.entries(SPECIALIST_CONFIGS).map(([key, config]) => [
+      key,
+      (model: LanguageModelV3) => {
+        const toolIds = config.toolIds.filter((id) => !AGENT_TOOL_IDS_TO_EXCLUDE.has(id))
+        return new ToolLoopAgent({
+          id: `sub-agent-${config.id}-${Date.now()}`,
+          model,
+          instructions: config.instructions,
+          tools: buildToolset(toolIds),
+          stopWhen: stepCountIs(config.maxSteps),
+          experimental_repairToolCall: createToolCallRepair(),
+        })
+      },
+    ]),
+  )
 
 /** Try to create a dynamic agent from AGENT.md. */
 function tryCreateDynamicAgent(

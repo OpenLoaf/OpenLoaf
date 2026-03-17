@@ -82,7 +82,6 @@ async function main() {
 
   await test('W1c: schema validates valid input', () => {
     const result = webSearchToolDef.parameters.safeParse({
-      actionName: 'test search',
       query: 'TypeScript 5.0 features',
     })
     assert.equal(result.success, true)
@@ -90,7 +89,6 @@ async function main() {
 
   await test('W1d: schema validates with maxResults', () => {
     const result = webSearchToolDef.parameters.safeParse({
-      actionName: 'test',
       query: 'test query',
       maxResults: 3,
     })
@@ -99,22 +97,20 @@ async function main() {
 
   await test('W1e: schema rejects empty query', () => {
     const result = webSearchToolDef.parameters.safeParse({
-      actionName: 'test',
       query: '',
     })
     assert.equal(result.success, false)
   })
 
-  await test('W1f: schema rejects missing actionName', () => {
+  await test('W1f: schema accepts input without actionName (removed from schema)', () => {
     const result = webSearchToolDef.parameters.safeParse({
       query: 'test',
     })
-    assert.equal(result.success, false)
+    assert.equal(result.success, true)
   })
 
   await test('W1g: schema rejects maxResults > 10', () => {
     const result = webSearchToolDef.parameters.safeParse({
-      actionName: 'test',
       query: 'test',
       maxResults: 20,
     })
@@ -123,7 +119,6 @@ async function main() {
 
   await test('W1h: schema rejects maxResults < 1', () => {
     const result = webSearchToolDef.parameters.safeParse({
-      actionName: 'test',
       query: 'test',
       maxResults: 0,
     })
@@ -132,7 +127,6 @@ async function main() {
 
   await test('W1i: schema rejects non-integer maxResults', () => {
     const result = webSearchToolDef.parameters.safeParse({
-      actionName: 'test',
       query: 'test',
       maxResults: 2.5,
     })
@@ -194,7 +188,7 @@ async function main() {
   await test('W3e: tool returns error when not configured', async () => {
     writeSettings('', '')
     const result: any = await webSearchTool.execute(
-      { actionName: 'test', query: 'test' },
+      { query: 'test' },
       toolCtx,
     )
     assert.equal(result.ok, false)
@@ -232,7 +226,7 @@ async function main() {
 
     await test('W4a: live search returns results', async () => {
       const result: any = await webSearchTool.execute(
-        { actionName: 'test live search', query: 'OpenAI GPT', maxResults: 3 },
+        { query: 'OpenAI GPT', maxResults: 3 },
         toolCtx,
       )
       assert.equal(result.ok, true)
@@ -242,7 +236,7 @@ async function main() {
 
     await test('W4b: live results have expected fields', async () => {
       const result: any = await webSearchTool.execute(
-        { actionName: 'test fields', query: 'TypeScript programming language', maxResults: 2 },
+        { query: 'TypeScript programming language', maxResults: 2 },
         toolCtx,
       )
       assert.equal(result.ok, true)
@@ -255,7 +249,7 @@ async function main() {
 
     await test('W4c: maxResults is respected', async () => {
       const result: any = await webSearchTool.execute(
-        { actionName: 'test limit', query: 'JavaScript', maxResults: 2 },
+        { query: 'JavaScript', maxResults: 2 },
         toolCtx,
       )
       assert.equal(result.ok, true)
@@ -278,7 +272,7 @@ async function main() {
     }
     try {
       const result: any = await webSearchTool.execute(
-        { actionName: 'test error', query: 'test' },
+        { query: 'test' },
         toolCtx,
       )
       assert.equal(result.ok, false)
@@ -294,7 +288,7 @@ async function main() {
     globalThis.fetch = async () => new Response('Not Found', { status: 404, statusText: 'Not Found' })
     try {
       const result: any = await webSearchTool.execute(
-        { actionName: 'test 404', query: 'test' },
+        { query: 'test' },
         toolCtx,
       )
       assert.equal(result.ok, false)
@@ -313,7 +307,7 @@ async function main() {
       })
     try {
       const result: any = await webSearchTool.execute(
-        { actionName: 'test empty', query: 'empty' },
+        { query: 'empty' },
         toolCtx,
       )
       assert.equal(result.ok, true)
@@ -333,7 +327,7 @@ async function main() {
       })
     try {
       const result: any = await webSearchTool.execute(
-        { actionName: 'test malformed', query: 'test' },
+        { query: 'test' },
         toolCtx,
       )
       assert.equal(result.ok, false)

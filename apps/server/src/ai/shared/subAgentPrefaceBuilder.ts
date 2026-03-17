@@ -69,13 +69,26 @@ export function buildSubAgentListSection(agents: SubAgentEntry[]): string {
   return lines.join('\n')
 }
 
-/** 收集所有可用的自定义 agent（仅动态，从文件系统扫描）。 */
+/** 内置专业子 Agent 描述（始终可用）。 */
+const BUILTIN_SPECIALIST_AGENTS: SubAgentEntry[] = [
+  { key: 'general-purpose', name: 'General Purpose', description: '通用子代理，拥有完整工具集（除 Agent 协作工具外）' },
+  { key: 'explore', name: 'Explorer', description: '只读代码库探索，快速搜索和分析代码' },
+  { key: 'plan', name: 'Planner', description: '只读架构方案设计，分析代码库并输出实现计划' },
+  { key: 'doc-editor', name: 'Doc Editor', description: '富文本/Markdown 文档编辑' },
+  { key: 'browser', name: 'Browser', description: '网页操作与数据抓取' },
+  { key: 'data-analyst', name: 'Data Analyst', description: '数据分析与可视化' },
+  { key: 'extractor', name: 'Extractor', description: '信息提取与摘要' },
+  { key: 'canvas-designer', name: 'Canvas Designer', description: '画布节点设计与布局' },
+  { key: 'coder', name: 'Coder', description: '代码编写与调试' },
+]
+
+/** 收集所有可用 agent（内置 + 动态）。 */
 export function collectAvailableAgents(input: {
   projectRootPath?: string
   parentProjectRootPaths?: string[]
 }): SubAgentEntry[] {
-  const entries: SubAgentEntry[] = []
-  const seen = new Set<string>()
+  const entries: SubAgentEntry[] = [...BUILTIN_SPECIALIST_AGENTS]
+  const seen = new Set<string>(BUILTIN_SPECIALIST_AGENTS.map((a) => a.key))
 
   try {
     const dynamicAgents = loadAgentSummaries({
@@ -256,7 +269,7 @@ export async function buildSubAgentPrefaceText(input: {
 
   // Skills 列表（子 agent 默认无技能，仅勾选的才注入）
   const activeSkills = input.skills?.length
-    ? context.skillSummaries.filter((s) => input.skills!.includes(s.name))
+    ? context.skillSummaries.filter((s) => input.skills!.includes(s.name) || input.skills!.includes(s.originalName))
     : []
   if (activeSkills.length > 0) {
     sections.push(buildSkillsSummarySection(activeSkills))

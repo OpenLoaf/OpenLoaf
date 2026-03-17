@@ -171,9 +171,11 @@
     "widget-check": "驗證 Widget",
     "generate-widget": "產生動態 Widget",
     "image-process": "圖片處理",
+    "video-download": "影片下載",
     "video-convert": "影片轉換",
     "doc-convert": "文件轉換",
-    "file-info": "檔案資訊"
+    "file-info": "檔案資訊",
+    "web-fetch": "取得網頁內容"
   },
   "session": {
     "renameTitle": "重新命名會話",
@@ -375,6 +377,21 @@
       "file": "檔案",
       "action": "操作",
       "more": "+{{count}} 更多"
+    },
+    "videoDownload": {
+      "processing": "下載中…",
+      "operationFailed": "影片下載失敗",
+      "saveAs": "另存為",
+      "sourceUrl": "來源連結",
+      "destination": "保存位置",
+      "chatAsset": "聊天資源目錄",
+      "boardAsset": "畫布資源目錄",
+      "unknownDestination": "未知位置",
+      "title": "標題",
+      "duration": "時長",
+      "resolution": "解析度",
+      "format": "格式",
+      "fileSize": "檔案大小"
     },
     "word": {
       "totalParagraphs": "{{count}} 個段落",

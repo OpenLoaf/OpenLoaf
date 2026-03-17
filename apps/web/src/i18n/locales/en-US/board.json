@@ -397,7 +397,16 @@
   "videoNode": {
     "toolbar": {
       "play": "Play",
+      "trim": "Trim",
+      "exportClip": "Export Clip",
       "detail": "Details"
+    },
+    "trim": {
+      "dialogTitle": "Trim Video",
+      "reset": "Reset",
+      "confirm": "Confirm",
+      "loading": "Loading video...",
+      "noDuration": "Duration unknown — play the video first."
     }
   },
   "audioNode": {

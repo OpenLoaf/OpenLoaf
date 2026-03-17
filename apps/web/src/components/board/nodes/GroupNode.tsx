@@ -38,10 +38,7 @@ function GroupNodeView(_props: CanvasNodeViewProps<GroupNodeProps>) {
   return (
     <NodeFrame>
       <div
-        className={cn(
-          "pointer-events-none absolute inset-0 rounded-lg",
-          BOARD_GENERATE_NODE_BASE_IMAGE
-        )}
+        className="pointer-events-none absolute inset-0 rounded-lg border border-border/60"
       />
     </NodeFrame>
   );

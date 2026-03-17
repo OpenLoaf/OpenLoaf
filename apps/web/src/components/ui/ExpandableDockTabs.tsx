@@ -218,6 +218,12 @@ function getStackItemFallbackIcon(item: DockItem): StackFallbackIcon {
       icon: FolderOpen,
     };
   }
+  if (item.component === "project-filesystem-panel") {
+    return {
+      type: "lucide",
+      icon: FolderOpen,
+    };
+  }
   return {
     type: "lucide",
     icon: Layers,

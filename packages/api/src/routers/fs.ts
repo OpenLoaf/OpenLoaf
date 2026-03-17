@@ -195,9 +195,9 @@ function buildVideoThumbnailKey(input: {
   return createHash("sha256").update(payload).digest("hex");
 }
 
-/** Probe video dimensions (rotation-aware) from the source file. */
+/** Probe video dimensions and duration (rotation-aware) from the source file. */
 async function probeVideoDimensions(sourcePath: string) {
-  return new Promise<{ width: number; height: number } | null>((resolve) => {
+  return new Promise<{ width: number; height: number; duration?: number } | null>((resolve) => {
     ffmpeg.ffprobe(sourcePath, (error, data) => {
       if (error) {
         resolve(null);
@@ -211,6 +211,9 @@ async function probeVideoDimensions(sourcePath: string) {
         resolve(null);
         return;
       }
+      // 逻辑：从 format.duration 提取视频时长（秒），供剪切面板使用。
+      const rawDuration = Number(data?.format?.duration);
+      const duration = Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : undefined;
       const tagRotation = Number(stream?.tags?.rotate);
       const sideRotation = Number(
         stream?.side_data_list?.find((item: { rotation?: number }) => typeof item?.rotation === "number")
@@ -224,10 +227,10 @@ async function probeVideoDimensions(sourcePath: string) {
       const normalized = ((rotation % 360) + 360) % 360;
       // 逻辑：处理旋转元信息，确保宽高匹配实际显示方向。
       if (normalized === 90 || normalized === 270) {
-        resolve({ width: height, height: width });
+        resolve({ width: height, height: width, duration });
         return;
       }
-      resolve({ width, height });
+      resolve({ width, height, duration });
     });
   });
 }
@@ -577,13 +580,14 @@ export const fsRouter = t.router({
       return { items: videoMerged };
     }),
 
-  /** Probe video dimensions for a file entry. */
+  /** Probe video dimensions and duration for a file entry. */
   videoMetadata: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
     const resolvedScope = resolveFsReadScope(input, input.uri);
     if (!resolvedScope) {
       return {
         width: null,
         height: null,
+        duration: null,
       };
     }
     const { fullPath } = resolvedScope;
@@ -591,6 +595,7 @@ export const fsRouter = t.router({
     return {
       width: meta?.width ?? null,
       height: meta?.height ?? null,
+      duration: meta?.duration ?? null,
     };
   }),
 

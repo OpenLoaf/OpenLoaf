@@ -29,6 +29,8 @@ import {
 } from "@openloaf/api/types/tools/runtime";
 import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
 import { chartRenderToolDef } from "@openloaf/api/types/tools/chart";
+import { videoDownloadToolDef } from "@openloaf/api/types/tools/videoDownload";
+import { webFetchToolDef } from "@openloaf/api/types/tools/webFetch";
 import {
   spawnAgentToolDef,
   sendInputToolDef,
@@ -76,6 +78,8 @@ const TOOL_DEFS: ToolNameSource[] = [
   updatePlanToolDef,
   jsxCreateToolDef,
   chartRenderToolDef,
+  videoDownloadToolDef,
+  webFetchToolDef,
 ];
 
 /** Tool id to display name map. */

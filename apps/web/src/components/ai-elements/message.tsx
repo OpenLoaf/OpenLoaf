@@ -53,6 +53,20 @@ export const Message = ({ className, from, ...props }: MessageProps) => (
 
 export type MessageContentProps = HTMLAttributes<HTMLDivElement>;
 
+export const USER_MESSAGE_SURFACE_CLASS = cn(
+  "border-[var(--ol-chat-human-border)]",
+  "group-[.is-user]:!bg-[var(--ol-chat-human-bg)]",
+  "group-[.is-user]:!text-[var(--ol-chat-human-text)]",
+  "[&_a]:text-[var(--ol-chat-human-text)]",
+  "[&_a]:underline",
+  "[&_a]:decoration-[var(--ol-chat-human-text-muted)]",
+);
+
+export const USER_MESSAGE_TEXT_CLASS = "text-[var(--ol-chat-human-text)]";
+
+export const USER_MESSAGE_MUTED_TEXT_CLASS =
+  "text-[var(--ol-chat-human-text-muted)]";
+
 export const MessageContent = ({
   children,
   className,
@@ -60,7 +74,7 @@ export const MessageContent = ({
 }: MessageContentProps) => (
   <div
     className={cn(
-      "is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm",
+      "is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 text-sm group-[.is-user]:overflow-hidden",
       "group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
       "group-[.is-assistant]:text-foreground",
       className
@@ -308,6 +322,7 @@ export type MessageBranchPageProps = HTMLAttributes<HTMLSpanElement>;
 
 export const MessageBranchPage = ({
   className,
+  children,
   ...props
 }: MessageBranchPageProps) => {
   const { currentBranch, totalBranches } = useMessageBranch();
@@ -320,7 +335,7 @@ export const MessageBranchPage = ({
       )}
       {...props}
     >
-      {currentBranch + 1} of {totalBranches}
+      {children ?? `${currentBranch + 1}/${totalBranches}`}
     </ButtonGroupText>
   );
 };

@@ -72,8 +72,10 @@ export type PromptContext = {
   };
   /** Available skill summaries. */
   skillSummaries: Array<{
-    /** Skill name. */
+    /** Skill display name (may be translated). */
     name: string;
+    /** Original skill name from SKILL.md front-matter (used for matching/loading). */
+    originalName: string;
     /** Skill scope. */
     scope: string;
     /** Skill description. */

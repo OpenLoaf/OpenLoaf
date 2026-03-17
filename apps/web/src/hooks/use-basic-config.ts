@@ -71,6 +71,7 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   },
   webSearchProvider: "",
   webSearchApiKey: "",
+  chatShowAllToolResults: false,
 };
 
 export function useBasicConfig() {

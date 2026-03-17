@@ -33,6 +33,7 @@ const TOOL_TIMEOUT_MAP: Record<string, number> = {
   // Media generation — can be slow
   'image-generate': 120_000,
   'video-generate': 180_000,
+  'video-download': 600_000,
 
   // Office document tools — ZIP I/O + XML parsing can be slow for large files
   'word-mutate': 120_000,

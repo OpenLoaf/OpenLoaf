@@ -2,6 +2,7 @@
 
 import type { DockItem } from "@openloaf/api/common";
 import { PROJECT_LIST_TAB_INPUT } from "@openloaf/api/common";
+import type { ChatPageContext } from "@openloaf/api/types/message";
 import { useProjectLayout } from "@/hooks/use-project-layout";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
@@ -44,6 +45,20 @@ export type OpenProjectShellTabInput = Omit<ProjectShellState, "section"> & {
   tab: ProjectShellPageTab;
   baseParams?: Record<string, unknown>;
 };
+
+/** Resolve ChatPageContext from a project-shell state. */
+function resolveProjectPageContext(input: { projectId: string; section: ProjectShellSection }): ChatPageContext {
+  const PAGE_MAP: Record<ProjectShellSection, string> = {
+    assistant: 'project-index',
+    index: 'project-index',
+    canvas: 'project-canvas',
+    files: 'project-files',
+    history: 'project-history',
+    scheduled: 'project-tasks',
+    settings: 'project-settings',
+  }
+  return { scope: 'project', page: PAGE_MAP[input.section] ?? 'project-index', projectId: input.projectId }
+}
 
 /** Return true when the value is a supported project-shell section. */
 export function isProjectShellSection(value: unknown): value is ProjectShellSection {
@@ -186,7 +201,10 @@ export function applyProjectShellToTab(_tabId: string, input: ProjectShellState)
   view.setTitle(input.title);
   view.setIcon(input.icon ?? undefined);
   view.setProjectShell(input);
-  view.setChatParams({ projectId: input.projectId });
+  view.setChatParams({
+    projectId: input.projectId,
+    pageContext: resolveProjectPageContext({ projectId: input.projectId, section: input.section }),
+  });
 
   layout.clearStack();
   layout.setBase(base);
@@ -231,7 +249,10 @@ export function openProjectShell(input: ProjectShellInput) {
     base,
     leftWidthPercent,
     rightChatCollapsed: base ? savedLayout?.rightChatCollapsed ?? true : false,
-    chatParams: { projectId: input.projectId },
+    chatParams: {
+      projectId: input.projectId,
+      pageContext: resolveProjectPageContext({ projectId: input.projectId, section: resolved.section }),
+    },
     projectShell: resolved,
   });
   return "main";
@@ -299,7 +320,7 @@ export function exitProjectShellToProjectList(_tabId: string, title: string, ico
   const layout = useLayoutState.getState();
 
   view.setProjectShell(null);
-  view.setChatParams({ projectId: null });
+  view.setChatParams({ projectId: null, pageContext: { scope: 'global', page: 'project-list' } });
   view.setTitle(title);
   view.setIcon(icon);
 

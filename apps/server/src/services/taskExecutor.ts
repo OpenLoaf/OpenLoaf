@@ -345,6 +345,7 @@ class TaskExecutor {
         } as any],
         trigger: 'submit-message',
         projectId: taskProjectId,
+        pageContext: taskConfig?.pageContext,
         params: agentType
           ? { agentType, taskId }
           : undefined,

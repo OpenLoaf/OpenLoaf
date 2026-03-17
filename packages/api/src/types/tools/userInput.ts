@@ -58,10 +58,6 @@ export const requestUserInputToolDef = {
     + '2. choice 模式：展示选项卡让用户选择，支持单选/多选。\n'
     + '返回：{ answers: { key1: "value1", ... } }',
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：收集 API Key。'),
     title: z.string().optional().describe('标题。'),
     description: z.string().optional().describe('描述说明。'),
     mode: z.enum(['form', 'choice']).default('form').describe('交互模式：form 表单输入，choice 选项选择。'),

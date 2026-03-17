@@ -12,13 +12,14 @@
 import { FILE_TOKEN_REGEX } from "../input/chat-input-utils";
 
 const COMMAND_REGEX = /(^|\s)(\/[\w-]+)(?![/\w-])/g;
-const SKILL_REGEX = /\/skill\/([\w-]+)(?=\s|[^\x00-\x7F]|$)/g;
+// New format: /skill/[originalName|displayName] or /skill/[originalName]; legacy: /skill/name
+const SKILL_REGEX = /\/skill\/\[([\w-]+)(?:\|([^\]]*))?\]|\/skill\/([\w-]+)(?=\s|[^\x00-\x7F]|$)/g;
 
 export type ChatTextToken =
   | { type: "text"; value: string }
   | { type: "command"; value: string }
   | { type: "mention"; value: string }
-  | { type: "skill"; value: string };
+  | { type: "skill"; value: string; displayName?: string };
 
 /** Normalize URL boundary in CJK text to avoid malformed auto-links. */
 export function preprocessChatText(value: string): string {
@@ -41,7 +42,10 @@ function splitCommandSegments(value: string): ChatTextToken[] {
     if (skillMatch.index > skillLastIndex) {
       afterSkill.push({ type: "text", value: value.slice(skillLastIndex, skillMatch.index) });
     }
-    afterSkill.push({ type: "skill", value: skillMatch[1] ?? "" });
+    // match[1] = new format originalName, match[2] = new format displayName, match[3] = legacy name
+    const originalName = skillMatch[1] ?? skillMatch[3] ?? "";
+    const displayName = skillMatch[2] || undefined;
+    afterSkill.push({ type: "skill", value: originalName, displayName });
     skillLastIndex = skillMatch.index + skillMatch[0].length;
     skillMatch = SKILL_REGEX.exec(value);
   }

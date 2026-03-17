@@ -43,7 +43,7 @@ function PageContent() {
 
 export default function Page() {
   return (
-    <div className="[--header-height:calc(--spacing(10))] bg-sidebar">
+    <div className="[--header-height:calc(--spacing(10))] bg-sidebar overflow-hidden">
       <AppBootstrap />
       <SidebarProvider
           className="flex flex-col"

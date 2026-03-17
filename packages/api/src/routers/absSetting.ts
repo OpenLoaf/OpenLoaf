@@ -68,8 +68,10 @@ const skillScopeSchema = z.enum(["project", "global"]);
 
 /** Skill summary payload. */
 const skillSummarySchema = z.object({
-  /** Skill name. */
+  /** Skill display name (may be translated via openloaf.json). */
   name: z.string(),
+  /** Original skill name from SKILL.md front-matter (used for matching/loading). */
+  originalName: z.string(),
   /** Skill description. */
   description: z.string(),
   /** Skill file path. */
@@ -92,6 +94,8 @@ const skillSummarySchema = z.object({
   colorIndex: z.number().int().min(0).max(7).nullable().optional(),
   /** Whether this skill has an openloaf.json metadata file. */
   hasMeta: z.boolean().optional(),
+  /** Emoji icon for the skill (from openloaf.json). */
+  icon: z.string().optional(),
 });
 
 /** Capability group payload. */
@@ -207,6 +211,7 @@ export const settingSchemas = {
       translated: z.boolean(),
       name: z.string().optional(),
       description: z.string().optional(),
+      icon: z.string().optional(),
       error: z.string().optional(),
     }),
   },
@@ -591,6 +596,20 @@ export const settingSchemas = {
       error: z.string().optional(),
     }),
   },
+  /** Export a skill folder as a zip archive (base64-encoded). */
+  exportSkill: {
+    input: z.object({
+      skillFolderPath: z.string(),
+    }),
+    output: z.object({
+      ok: z.boolean(),
+      /** Base64-encoded zip content. */
+      contentBase64: z.string().optional(),
+      /** Suggested file name for download. */
+      fileName: z.string().optional(),
+      error: z.string().optional(),
+    }),
+  },
   /** Import a skill from a local folder or archive path. */
   importSkill: {
     input: z.object({
@@ -601,6 +620,25 @@ export const settingSchemas = {
     output: z.object({
       ok: z.boolean(),
       importedSkills: z.array(z.string()),
+      error: z.string().optional(),
+    }),
+  },
+  /** Copy or move a skill to another scope (global or project). */
+  transferSkill: {
+    input: z.object({
+      /** Source skill folder path (absolute). */
+      skillFolderPath: z.string(),
+      /** Operation mode. */
+      mode: z.enum(['copy', 'move']),
+      /** Target scope. */
+      targetScope: skillScopeSchema,
+      /** Target project id (required when targetScope is 'project'). */
+      targetProjectId: z.string().optional(),
+    }),
+    output: z.object({
+      ok: z.boolean(),
+      /** The folder name of the transferred skill. */
+      folderName: z.string().optional(),
       error: z.string().optional(),
     }),
   },
@@ -879,6 +917,18 @@ export abstract class BaseSettingRouter {
       translateSkill: shieldedProcedure
         .input(settingSchemas.translateSkill.input)
         .output(settingSchemas.translateSkill.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      exportSkill: shieldedProcedure
+        .input(settingSchemas.exportSkill.input)
+        .output(settingSchemas.exportSkill.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      transferSkill: shieldedProcedure
+        .input(settingSchemas.transferSkill.input)
+        .output(settingSchemas.transferSkill.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

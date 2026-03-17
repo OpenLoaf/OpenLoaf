@@ -22,6 +22,7 @@ import {
   Trash2,
   MoreHorizontal,
   Search,
+  Link,
   Square,
   X,
   Star,
@@ -164,6 +165,8 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
   const canOpenProjectWindow =
     typeof window !== "undefined" &&
     Boolean(window.openloafElectron?.openProjectWindow);
+  const isElectronMode =
+    typeof window !== "undefined" && Boolean(window.openloafElectron);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterProjectType, setFilterProjectType] = useState<string>("__all__");
@@ -315,9 +318,11 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
       const files = e.dataTransfer.files;
       if (!files.length) return;
 
-      // Electron exposes `path` on File objects
+      // Use Electron's webUtils.getPathForFile via preload bridge (sandbox-safe).
+      // Falls back to the legacy File.path property for non-sandboxed environments.
       const file = files[0] as File & { path?: string };
-      const folderPath = file.path;
+      const folderPath =
+        window.openloafElectron?.getPathForFile?.(file) || file.path || "";
       if (!folderPath) return;
 
       // Pre-fill path and title, then open dialog in create mode
@@ -472,6 +477,40 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     [openProject, t],
   );
 
+  /** Copy text to clipboard with a fallback implementation. */
+  const copyTextToClipboard = useCallback(
+    async (value: string, message: string) => {
+      try {
+        await navigator.clipboard.writeText(value);
+        toast.success(message);
+      } catch {
+        // 逻辑：浏览器剪贴板失败时降级到 textarea 复制，避免桌面端权限差异导致无响应。
+        const textarea = document.createElement("textarea");
+        textarea.value = value;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+        toast.success(message);
+      }
+    },
+    [],
+  );
+
+  /** Copy the project address from the project list card menu. */
+  const handleCopyProjectAddress = useCallback(
+    async (project: ProjectListItem) => {
+      const storagePath = getDisplayPathFromUri(project.rootUri);
+      await copyTextToClipboard(
+        storagePath,
+        t("projectListPage.addressCopied"),
+      );
+    },
+    [copyTextToClipboard, t],
+  );
+
   const handleRenameSave = useCallback(() => {
     if (!renameTarget || !renameTarget.nextTitle.trim()) return;
     updateMutation.mutate({
@@ -618,6 +657,17 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                         <FolderSearch className="mr-2 h-4 w-4" />
                         {t("projectTree.openInFileManager")}
                       </DropdownMenuItem>
+                      {isElectronMode ? (
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleCopyProjectAddress(project);
+                          }}
+                        >
+                          <Link className="mr-2 h-4 w-4" />
+                          {t("projectListPage.copyAddress")}
+                        </DropdownMenuItem>
+                      ) : null}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={(e) => {
@@ -642,7 +692,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                         }}
                       >
                         <Star
-                          className={`mr-2 h-4 w-4 ${project.isFavorite ? "fill-ol-amber text-ol-amber" : ""}`}
+                          className="mr-2 h-4 w-4"
                         />
                         {project.isFavorite
                           ? t("projectTree.unfavorite")
@@ -706,6 +756,12 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               <FolderSearch className="mr-2 h-4 w-4" />
               {t("projectTree.openInFileManager")}
             </ContextMenuItem>
+            {isElectronMode ? (
+              <ContextMenuItem onSelect={() => void handleCopyProjectAddress(project)}>
+                <Link className="mr-2 h-4 w-4" />
+                {t("projectListPage.copyAddress")}
+              </ContextMenuItem>
+            ) : null}
             <ContextMenuSeparator />
             <ContextMenuItem
               onSelect={() =>
@@ -725,7 +781,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               }
             >
               <Star
-                className={`mr-2 h-4 w-4 ${project.isFavorite ? "fill-ol-amber text-ol-amber" : ""}`}
+                className="mr-2 h-4 w-4"
               />
               {project.isFavorite
                 ? t("projectTree.unfavorite")
@@ -754,9 +810,11 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
       handleProjectClick,
       handleProjectOpenInSidebar,
       handleProjectOpenInWindow,
+      handleCopyProjectAddress,
       handleToggleFavorite,
       handleChangeProjectColor,
       handleRemove,
+      isElectronMode,
       t,
     ],
   );

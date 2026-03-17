@@ -302,7 +302,7 @@ export const taskManageTool = tool({
 export const taskStatusTool = tool({
   description: taskStatusToolDef.description,
   inputSchema: zodSchema(taskStatusToolDef.parameters),
-  execute: async ({ actionName: _actionName, taskId }) => {
+  execute: async ({ taskId }) => {
     const { globalRoot, projectRoot } = resolveToolRoots()
 
     if (taskId) {

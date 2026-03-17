@@ -37,6 +37,11 @@ async function createPixiApp(container: HTMLDivElement) {
   return app
 }
 
+/** Stop a PixiJS application ticker before releasing render resources. */
+function stopPixiApp(app: Application): void {
+  app.stop?.()
+}
+
 export type PixiApplicationProps = {
   engine: CanvasEngine
   snapshot: CanvasSnapshot
@@ -67,6 +72,7 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
     // 底层 PixiJS：连线
     const bottomApp = await createPixiApp(bottomContainer)
     if (disposedRef.current) {
+      stopPixiApp(bottomApp)
       bottomApp.destroy(true, { children: true })
       return
     }
@@ -82,6 +88,8 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
     // 上层 PixiJS：笔画 + 叠层
     const topApp = await createPixiApp(topContainer)
     if (disposedRef.current) {
+      stopPixiApp(bottomApp)
+      stopPixiApp(topApp)
       bottomApp.destroy(true, { children: true })
       topApp.destroy(true, { children: true })
       return
@@ -131,6 +139,9 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
     strokeRenderer.sync()
 
     cleanupRef.current = () => {
+      // 逻辑：先停 ticker，再清理图层资源，避免渲染还在进行时底层 texture/filter 已被销毁。
+      stopPixiApp(bottomApp)
+      stopPixiApp(topApp)
       unsubSnapshot()
       unsubView()
       bottomViewportSync.destroy()

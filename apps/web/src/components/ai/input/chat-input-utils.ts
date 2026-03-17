@@ -50,10 +50,17 @@ export const normalizeFileMentionSpacing = (value: string) => {
   );
 };
 
-/** Build skill command text for chat input. */
-export const buildSkillCommandText = (skillName: string) => {
-  const trimmed = skillName.trim();
-  return trimmed ? `${SKILL_COMMAND_PREFIX}${trimmed}` : "";
+/** Build skill command text for chat input.
+ *  When displayName differs from originalName, produces `/skill/[originalName|displayName]`.
+ *  Otherwise produces `/skill/[originalName]`.
+ */
+export const buildSkillCommandText = (originalName: string, displayName?: string) => {
+  const trimmed = originalName.trim();
+  if (!trimmed) return "";
+  if (displayName && displayName.trim() !== trimmed) {
+    return `${SKILL_COMMAND_PREFIX}[${trimmed}|${displayName.trim()}]`;
+  }
+  return `${SKILL_COMMAND_PREFIX}[${trimmed}]`;
 };
 
 /** Append text to chat input with proper spacing. */

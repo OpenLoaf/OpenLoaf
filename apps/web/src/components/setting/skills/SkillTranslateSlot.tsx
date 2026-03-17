@@ -9,14 +9,15 @@
  */
 'use client'
 
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { queryClient, trpc } from '@/utils/trpc'
 import { useStackPanelSlot } from '@/hooks/use-stack-panel-slot'
 import { getCachedAccessToken } from '@/lib/saas-auth'
 import { toast } from 'sonner'
-import { Check, Languages, Loader2, RefreshCw } from 'lucide-react'
+import { Check, Download, Languages, Loader2, RefreshCw } from 'lucide-react'
+import { exportSkillAsZip } from './skill-utils'
 
 type SkillTranslateSlotProps = {
   skillFolderPath: string
@@ -88,58 +89,99 @@ function SkillTranslateSlot({ skillFolderPath }: SkillTranslateSlotProps) {
   const status = statusQuery.data?.status ?? 'not-translated'
   const isTranslating = translateMutation.isPending
 
+  const [isExporting, setIsExporting] = useState(false)
+  const handleExport = useCallback(async () => {
+    setIsExporting(true)
+    try {
+      const ok = await exportSkillAsZip(skillFolderPath)
+      if (!ok) toast.error(t('skills.export.failed', { defaultValue: '导出失败' }))
+    } catch (err: any) {
+      toast.error(err?.message ?? t('skills.export.failed', { defaultValue: '导出失败' }))
+    } finally {
+      setIsExporting(false)
+    }
+  }, [skillFolderPath, t])
+  // NOTE: isExporting here is kept to disable the header button during export,
+  // while the loading toast is managed inside exportSkillAsZip.
+
   useEffect(() => {
     if (!slotCtx) return
 
-    let icon: React.ReactElement
-    let label: string
-    let disabled = false
-    let className =
+    let translateIcon: React.ReactElement
+    let translateLabel: string
+    let translateDisabled = false
+    let translateClassName =
       'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors'
 
     if (isTranslating) {
-      icon = React.createElement(Loader2, {
+      translateIcon = React.createElement(Loader2, {
         className: 'h-3.5 w-3.5 animate-spin',
       })
-      label = t('skills.translate.buttonTranslating')
-      disabled = true
-      className += ' text-muted-foreground cursor-not-allowed'
+      translateLabel = t('skills.translate.buttonTranslating')
+      translateDisabled = true
+      translateClassName += ' text-muted-foreground cursor-not-allowed'
     } else if (status === 'translated') {
-      icon = React.createElement(Check, {
+      translateIcon = React.createElement(Check, {
         className: 'h-3.5 w-3.5 text-green-600 dark:text-green-400',
       })
-      label = t('skills.translate.buttonTranslated')
-      className += ' text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
+      translateLabel = t('skills.translate.buttonTranslated')
+      translateClassName += ' text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
     } else if (status === 'needs-update') {
-      icon = React.createElement(RefreshCw, {
+      translateIcon = React.createElement(RefreshCw, {
         className: 'h-3.5 w-3.5 text-amber-600 dark:text-amber-400',
       })
-      label = t('skills.translate.buttonRetranslate')
-      className += ' text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+      translateLabel = t('skills.translate.buttonRetranslate')
+      translateClassName += ' text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20'
     } else {
-      icon = React.createElement(Languages, { className: 'h-3.5 w-3.5' })
-      label = t('skills.translate.buttonTranslate')
-      className += ' text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+      translateIcon = React.createElement(Languages, { className: 'h-3.5 w-3.5' })
+      translateLabel = t('skills.translate.buttonTranslate')
+      translateClassName += ' text-muted-foreground hover:bg-muted/60 hover:text-foreground'
     }
+
+    const exportLabel = t('skills.exportSkill', { defaultValue: '导出' })
+    const exportClassName =
+      'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+
+    const exportButton = React.createElement(
+      'button',
+      {
+        type: 'button',
+        className: exportClassName,
+        title: exportLabel,
+        'aria-label': exportLabel,
+        disabled: isExporting,
+        onClick: handleExport,
+      },
+      isExporting
+        ? React.createElement(Loader2, { className: 'h-3.5 w-3.5 animate-spin' })
+        : React.createElement(Download, { className: 'h-3.5 w-3.5' }),
+    )
+
+    const translateButton = React.createElement(
+      'button',
+      {
+        type: 'button',
+        className: translateClassName,
+        title: translateLabel,
+        'aria-label': translateLabel,
+        disabled: translateDisabled,
+        onClick: handleTranslate,
+      },
+      translateIcon,
+      React.createElement('span', { className: 'hidden sm:inline' }, translateLabel),
+    )
 
     slotCtx.setSlot({
       rightSlotBeforeClose: React.createElement(
-        'button',
-        {
-          type: 'button',
-          className,
-          title: label,
-          'aria-label': label,
-          disabled,
-          onClick: handleTranslate,
-        },
-        icon,
-        React.createElement('span', { className: 'hidden sm:inline' }, label),
+        React.Fragment,
+        null,
+        exportButton,
+        translateButton,
       ),
     })
 
     return () => slotCtx.setSlot(null)
-  }, [slotCtx, status, isTranslating, handleTranslate, t])
+  }, [slotCtx, status, isTranslating, isExporting, handleTranslate, handleExport, t])
 
   return null
 }

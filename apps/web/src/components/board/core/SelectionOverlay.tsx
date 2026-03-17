@@ -556,6 +556,8 @@ type SingleSelectionOutlineProps = {
   element: CanvasNodeElement;
   /** Snapshot for positioning. */
   snapshot: CanvasSnapshot;
+  /** Hide the outline visually but keep it mounted (e.g. during drag). */
+  hidden?: boolean;
 };
 
 type ResizeCorner = "top-left" | "top-right" | "bottom-right" | "bottom-left";
@@ -602,6 +604,7 @@ export function SingleSelectionOutline({
   engine,
   element,
   snapshot,
+  hidden,
 }: SingleSelectionOutlineProps) {
   const definition = engine.nodes.getDefinition(element.type);
   const canResize = definition?.capabilities?.resizable !== false;
@@ -613,8 +616,8 @@ export function SingleSelectionOutline({
   // Refs for DOM-based position sync.
   const outlineRef = useRef<HTMLDivElement>(null);
   const handleRefsMap = useRef<Record<string, HTMLButtonElement | null>>({});
-
   // 逻辑：通过 DOM 测量同步选区边框位置，消除 store 与 DOM 之间的帧延迟不一致。
+  // hidden 时也保持 ResizeObserver 活跃，避免 drag 结束后重新 mount 导致闪烁。
   useLayoutEffect(() => {
     if (isMoving) return;
     const container = engine.getContainer();
@@ -823,13 +826,17 @@ export function SingleSelectionOutline({
     "bottom-left": { x: left, y: top + height },
   };
 
+  // 逻辑：hidden 时用 visibility:hidden 保持 DOM 存在（ResizeObserver 继续追踪），
+  // 避免 drag 结束后重新 mount 时 React inline style 与 ResizeObserver sync 竞争导致闪烁。
+  const hiddenStyle = hidden ? { visibility: "hidden" as const } : undefined;
+
   return (
     <>
       <div
         ref={outlineRef}
         data-board-selection-outline
         className="pointer-events-none absolute z-10 box-border rounded-none border-2 border-[#1E96EB]"
-        style={{ left, top, width, height }}
+        style={{ left, top, width, height, ...hiddenStyle }}
       />
       {allowHandles
         ? SINGLE_SELECTION_CORNERS.map((corner) => {
@@ -852,6 +859,7 @@ export function SingleSelectionOutline({
                   top: point.y,
                   width: SINGLE_SELECTION_HANDLE_SIZE,
                   height: SINGLE_SELECTION_HANDLE_SIZE,
+                  ...hiddenStyle,
                 }}
               />
             );

@@ -33,6 +33,21 @@ interface ChatMessageTextProps {
   projectId?: string;
 }
 
+const MESSAGE_TOKEN_CHIP_BASE_CLASS = cn(
+  "inline-flex items-center gap-[3px] align-middle px-1.5 py-px mx-0.5 rounded-md border border-transparent",
+  "text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-[200px] transition-colors",
+);
+
+const SKILL_TOKEN_CHIP_CLASS = cn(
+  MESSAGE_TOKEN_CHIP_BASE_CLASS,
+  "bg-[var(--ol-skill-chip-bg)] text-[var(--ol-skill-chip-text)] hover:bg-[var(--ol-skill-chip-bg-hover)]",
+);
+
+const MENTION_TOKEN_CHIP_CLASS = cn(
+  MESSAGE_TOKEN_CHIP_BASE_CLASS,
+  "bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover",
+);
+
 export default function ChatMessageText({ value, className, projectId }: ChatMessageTextProps) {
   const normalizedValue = React.useMemo(() => preprocessChatText(value), [value]);
   const segments = React.useMemo(() => parseChatTextTokens(normalizedValue), [normalizedValue]);
@@ -74,14 +89,15 @@ export default function ChatMessageText({ value, className, projectId }: ChatMes
     }
 
     if (segment.type === "skill") {
+      const label = segment.displayName || segment.value;
       return (
         <span
           key={`skill-${index}`}
-          className="inline-flex items-center gap-[3px] align-middle py-px px-1.5 mx-0.5 rounded-md bg-purple-200/80 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-[200px] hover:bg-purple-300 dark:hover:bg-purple-900/60 transition-colors"
+          className={SKILL_TOKEN_CHIP_CLASS}
           onClick={() => handleSkillClick(segment.value)}
         >
-          <Sparkles className="size-3 shrink-0" />
-          <span className="overflow-hidden text-ellipsis">{segment.value}</span>
+          <Sparkles className="size-3 shrink-0 text-current" />
+          <span className="overflow-hidden text-ellipsis">{label}</span>
         </span>
       );
     }
@@ -100,9 +116,9 @@ export default function ChatMessageText({ value, className, projectId }: ChatMes
           data-openloaf-mention="true"
           data-mention-value={segment.value}
           data-slate-value={segment.value}
-          className="inline-flex items-center gap-[3px] align-middle py-px px-1.5 mx-0.5 rounded-md bg-blue-200/80 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-[200px] hover:bg-blue-300 dark:hover:bg-blue-900/60 transition-colors"
+          className={MENTION_TOKEN_CHIP_CLASS}
         >
-          <FileText className="size-3 shrink-0" />
+          <FileText className="size-3 shrink-0 text-current" />
           <span className="overflow-hidden text-ellipsis">{label}</span>
         </span>
       );

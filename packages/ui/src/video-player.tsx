@@ -46,6 +46,10 @@ type VideoPlayerProps = {
   title?: string;
   /** Optional override for layout size switching. */
   smallLayoutWhen?: boolean;
+  /** Optional clip start time in seconds. */
+  clipStartTime?: number;
+  /** Optional clip end time in seconds. */
+  clipEndTime?: number;
   className?: string;
 };
 
@@ -59,6 +63,8 @@ export function VideoPlayer({
   thumbnails,
   title,
   smallLayoutWhen,
+  clipStartTime,
+  clipEndTime,
   className,
 }: VideoPlayerProps) {
   const [isHlsReady, setIsHlsReady] = useState(() => {
@@ -137,6 +143,8 @@ export function VideoPlayer({
       poster={poster}
       autoPlay={autoPlay}
       muted={muted}
+      clipStartTime={clipStartTime}
+      clipEndTime={clipEndTime}
       className={cn("vds-video-layout w-full h-full", className)}
     >
       <MediaProvider />

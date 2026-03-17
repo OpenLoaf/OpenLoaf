@@ -60,6 +60,7 @@ export const masterTemplate: AgentTemplate = {
     // media
     'image-generate',
     'video-generate',
+    'video-download',
     'list-media-models',
     // chart
     'chart-render',

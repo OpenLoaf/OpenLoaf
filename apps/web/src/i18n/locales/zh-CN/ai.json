@@ -171,9 +171,11 @@
     "widget-check": "验证 Widget",
     "generate-widget": "生成动态 Widget",
     "image-process": "图片处理",
+    "video-download": "视频下载",
     "video-convert": "视频转换",
     "doc-convert": "文档转换",
-    "file-info": "文件信息"
+    "file-info": "文件信息",
+    "web-fetch": "获取网页内容"
   },
   "session": {
     "renameTitle": "重命名会话",
@@ -375,6 +377,21 @@
       "file": "文件",
       "action": "操作",
       "more": "+{{count}} 更多"
+    },
+    "videoDownload": {
+      "processing": "下载中…",
+      "operationFailed": "视频下载失败",
+      "saveAs": "另存为",
+      "sourceUrl": "来源链接",
+      "destination": "保存位置",
+      "chatAsset": "聊天资源目录",
+      "boardAsset": "画布资源目录",
+      "unknownDestination": "未知位置",
+      "title": "标题",
+      "duration": "时长",
+      "resolution": "分辨率",
+      "format": "格式",
+      "fileSize": "文件大小"
     },
     "word": {
       "totalParagraphs": "{{count}} 个段落",

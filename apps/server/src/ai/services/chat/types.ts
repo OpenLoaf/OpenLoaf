@@ -10,7 +10,7 @@
 import type { ChatCommandId } from "@openloaf/api/common/chatCommands";
 import type { ChatModelSource } from "@openloaf/api/common";
 import type { ClientPlatform } from "@openloaf/api/types/platform";
-import type { ChatRequestBody, OpenLoafUIMessage } from "@openloaf/api/types/message";
+import type { ChatPageContext, ChatRequestBody, OpenLoafUIMessage } from "@openloaf/api/types/message";
 
 /** Chat stream request payload, based on ChatRequestBody with server-only fields. */
 export type ChatStreamRequest = ChatRequestBody & {
@@ -81,6 +81,8 @@ export type AiExecuteRequest = {
   clientPlatform?: ClientPlatform;
   /** Board chat: explicit message ID chain from canvas connector graph. */
   messageIdChain?: string[];
+  /** Page context for skill auto-loading. */
+  pageContext?: ChatPageContext;
 };
 
 export type AiCommandContext = {

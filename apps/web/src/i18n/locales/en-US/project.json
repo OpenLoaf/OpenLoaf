@@ -276,6 +276,7 @@
     "filterHintDefault": "Show available files only",
     "importFromComputer": "Import from computer",
     "saveToComputer": "Save to Computer",
+    "saveToComputerUnsupported": "Only a single file can be saved directly to your computer in this environment",
     "saveConfirmLabel": "Save",
     "saveFileTitle": "Save File",
     "cannotResolvePath": "Cannot resolve file path",

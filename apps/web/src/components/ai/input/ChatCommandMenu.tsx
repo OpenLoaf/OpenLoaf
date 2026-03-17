@@ -28,6 +28,7 @@ import { buildSkillCommandText } from "./chat-input-utils";
 
 type SkillSummary = {
   name: string;
+  originalName: string;
   description: string;
   scope: "global" | "project";
   isEnabled: boolean;
@@ -35,9 +36,13 @@ type SkillSummary = {
 
 type SkillItem = {
   id: string;
+  /** Display label (translated name). */
   label: string;
   description?: string;
-  skillName: string;
+  /** Original name from SKILL.md (used for matching/loading). */
+  originalName: string;
+  /** Display name (may differ from originalName when translated). */
+  displayName: string;
 };
 
 type MenuIndexState = {
@@ -83,14 +88,16 @@ function filterSkills(
       if (!keyword) return true;
       return (
         skill.name.toLowerCase().includes(keyword) ||
+        skill.originalName.toLowerCase().includes(keyword) ||
         skill.description.toLowerCase().includes(keyword)
       );
     })
     .map((skill) => ({
-      id: `skill-${skill.name}`,
+      id: `skill-${skill.originalName}`,
       label: skill.name,
       description: `${scopeLabels[skill.scope]} · ${skill.description || "未提供说明"}`,
-      skillName: skill.name,
+      originalName: skill.originalName,
+      displayName: skill.name,
     }));
 }
 
@@ -182,7 +189,7 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
 
     /** Apply the selected skill item. */
     const selectItem = useCallback((item: SkillItem) => {
-      onChange(replaceSlashToken(value, buildSkillCommandText(item.skillName)));
+      onChange(replaceSlashToken(value, buildSkillCommandText(item.originalName, item.displayName)));
       onRequestFocus?.();
       setMenuActiveIndex(0);
     }, [onChange, onRequestFocus, setMenuActiveIndex, value]);

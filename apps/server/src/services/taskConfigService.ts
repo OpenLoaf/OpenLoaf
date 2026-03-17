@@ -115,6 +115,8 @@ export type TaskConfig = {
   // Chat integration
   /** The chat session that triggered this task (for completion reporting). */
   sourceSessionId?: string
+  /** Page context at task creation time (for skill auto-loading during execution). */
+  pageContext?: { scope: 'global' | 'project'; page: string; projectId?: string; boardId?: string }
 
   // Metadata
   createdAt: string

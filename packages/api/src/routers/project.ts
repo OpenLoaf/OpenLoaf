@@ -1228,6 +1228,20 @@ export const projectRouter = t.router({
       };
     }),
 
+  /** Promote a temp project to a permanent project. */
+  promoteTempProject: shieldedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        title: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { promoteTempProject } = await import("../services/tempProjectService");
+      await promoteTempProject(input.projectId, { title: input.title });
+      return { ok: true };
+    }),
+
 });
 
 export type ProjectRouter = typeof projectRouter;

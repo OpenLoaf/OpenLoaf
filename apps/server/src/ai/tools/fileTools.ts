@@ -442,7 +442,6 @@ export const applyPatchTool = tool({
   inputExamples: [
     {
       input: {
-        actionName: '修改配置文件的端口号',
         patch: `*** Begin Patch
 *** Update File: src/config.ts
 @@ export const config
@@ -456,7 +455,6 @@ export const applyPatchTool = tool({
     },
     {
       input: {
-        actionName: '创建新的工具函数文件',
         patch: `*** Begin Patch
 *** Add File: src/utils/format.ts
 +export function formatDate(date: Date): string {

@@ -29,7 +29,6 @@ import { useRecordEntityVisit } from "@/hooks/use-record-entity-visit"
 import { useChatSessions } from "@/hooks/use-chat-sessions"
 import { LeftDock } from "./LeftDock"
 import { TabActiveProvider } from "./TabActiveContext"
-import { buildBoardChatTabState } from "@/components/board/utils/board-chat-tab"
 
 const RIGHT_CHAT_MIN_PX = 360
 const DIVIDER_GAP_PX = 10
@@ -72,63 +71,25 @@ class PanelErrorBoundary extends React.Component<
 }
 
 // Render the right chat panel (single session, no multi-session accordion).
+// The right-side chat is fully independent from the board — users can freely
+// switch sessions and create new ones regardless of which board is open.
 function RightChatPanel() {
-  const appView = useAppView()
+  const activeSessionId = useAppView((s) => s.chatSessionId)
+  const chatParams = useAppView((s) => s.chatParams)
   const layout = useLayoutState()
   const { recordEntityVisit } = useRecordEntityVisit()
   const { sessions: remoteSessions } = useChatSessions()
 
-  const activeSessionId = appView.chatSessionId
   const hasRemoteActiveSession = React.useMemo(() => {
     if (!activeSessionId) return false
     return remoteSessions.some((session) => session.id === activeSessionId)
   }, [activeSessionId, remoteSessions])
 
-  const boardBaseParams = React.useMemo(
-    () =>
-      layout.base?.component === "board-viewer"
-        ? (layout.base.params as Record<string, unknown> | undefined)
-        : undefined,
-    [layout.base],
-  )
-  const boardChatSessionId = React.useMemo(() => {
-    const boardId = boardBaseParams?.boardId
-    return typeof boardId === "string" ? boardId.trim() : ""
-  }, [boardBaseParams])
-  const isBoardChatTab = boardChatSessionId.length > 0
   const currentProjectId = React.useMemo(() => {
-    const params = appView.chatParams as Record<string, unknown> | undefined
-    const pid = boardBaseParams?.projectId ?? params?.projectId
+    const params = chatParams as Record<string, unknown> | undefined
+    const pid = params?.projectId
     return typeof pid === "string" ? pid.trim() : ""
-  }, [boardBaseParams, appView.chatParams])
-
-  // Sync board chat session
-  React.useEffect(() => {
-    if (!isBoardChatTab) return
-
-    if (activeSessionId !== boardChatSessionId) {
-      appView.setChatSession(boardChatSessionId, true)
-    }
-
-    const currentChatParams = appView.chatParams as Record<string, unknown>
-    const nextChatParams = buildBoardChatTabState(
-      boardChatSessionId,
-      currentProjectId || null,
-    ).chatParams
-    const same =
-      Object.keys(nextChatParams).length === Object.keys(currentChatParams).length
-      && Object.entries(nextChatParams).every(([key, value]) => currentChatParams[key] === value)
-
-    if (!same) {
-      appView.setChatParams(nextChatParams)
-    }
-  }, [
-    activeSessionId,
-    boardChatSessionId,
-    currentProjectId,
-    isBoardChatTab,
-    appView,
-  ])
+  }, [chatParams])
 
   // Record entity visit
   const prevVisitRef = React.useRef<{
@@ -151,7 +112,6 @@ function RightChatPanel() {
       projectId: nextProjectId,
     }
 
-    if (isBoardChatTab) return
     if (!nextSessionId || !hasRemoteActiveSession) return
     if (!sessionChanged && !projectChanged) return
 
@@ -164,7 +124,6 @@ function RightChatPanel() {
   }, [
     activeSessionId,
     currentProjectId,
-    isBoardChatTab,
     hasRemoteActiveSession,
     recordEntityVisit,
   ])
@@ -183,10 +142,10 @@ function RightChatPanel() {
             sessionId={activeSessionId}
             loadHistory={true}
             tabId="main"
-            {...(appView.chatParams ?? {})}
+            {...(chatParams ?? {})}
             active={true}
             onSessionChange={(sessionId, options) => {
-              appView.setChatSession(sessionId, options?.loadHistory)
+              useAppView.getState().setChatSession(sessionId, options?.loadHistory)
             }}
           />
         </div>

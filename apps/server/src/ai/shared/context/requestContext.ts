@@ -12,6 +12,7 @@ import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { CodexRequestOptions } from "@/ai/models/cli/codex/codexOptions";
 import type { ClaudeCodeRequestOptions } from "@/ai/services/chat/messageOptionResolver";
+import type { ChatPageContext } from "@openloaf/api/types/message";
 import type { ClientPlatform } from "@openloaf/api/types/platform";
 import type { UpdatePlanArgs } from "@openloaf/api/types/tools/runtime";
 
@@ -94,6 +95,8 @@ export type RequestContext = {
   creditsConsumed?: number;
   /** Client platform for conditional tool registration. */
   clientPlatform?: ClientPlatform;
+  /** Page context for AI agent skill auto-loading. */
+  pageContext?: ChatPageContext;
 };
 
 const storage = new AsyncLocalStorage<RequestContext>();
@@ -352,4 +355,9 @@ export function addCreditsConsumed(credits: number): void {
 /** Get accumulated credits consumed. */
 export function getCreditsConsumed(): number | undefined {
   return getRequestContext()?.creditsConsumed;
+}
+
+/** Get page context for skill auto-loading. */
+export function getPageContext(): ChatPageContext | undefined {
+  return getRequestContext()?.pageContext;
 }

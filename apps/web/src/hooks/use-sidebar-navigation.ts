@@ -21,6 +21,7 @@ import { buildBoardFolderUri } from '@/components/project/filesystem/utils/file-
 import { BOARD_INDEX_FILE_NAME } from '@/lib/file-name'
 import { resolveProjectModeProjectShell } from '@/lib/project-mode'
 import { buildBoardChatTabState } from '@/components/board/utils/board-chat-tab'
+import type { ChatPageContext } from '@openloaf/api/types/message'
 
 function findProjectRootUri(nodes: ProjectNode[] | undefined, projectId: string): string {
   if (!projectId || !nodes?.length) return ''
@@ -49,7 +50,8 @@ export function useSidebarNavigation() {
 
       // Single-view: just set the chat session directly
       if (projectId) {
-        setChatParams({ projectId, boardId: undefined })
+        const pageContext: ChatPageContext = { scope: 'project', page: 'project-index', projectId }
+        setChatParams({ projectId, boardId: undefined, pageContext })
         if (currentBase?.component === 'plant-page') {
           const currentParams = (currentBase.params ?? {}) as Record<string, unknown>
           const currentProjectId =
@@ -68,7 +70,8 @@ export function useSidebarNavigation() {
         }
       } else {
         // Clear stale board/project params when switching to global chat
-        setChatParams({ projectId: undefined, boardId: undefined })
+        const pageContext: ChatPageContext = { scope: 'global', page: 'ai-chat' }
+        setChatParams({ projectId: undefined, boardId: undefined, pageContext })
       }
       setChatSession(chatId, true)
     },
@@ -112,7 +115,6 @@ export function useSidebarNavigation() {
       // Check if current view already has this board as base
       if (currentBase?.id === baseId) {
         const boardChatState = buildBoardChatTabState(input.boardId, resolvedProjectId)
-        setChatSession(boardChatState.chatSessionId, true)
         setChatParams(boardChatState.chatParams)
         return
       }
@@ -154,7 +156,7 @@ export function useSidebarNavigation() {
     const view = useAppView.getState()
     if (!layout.base && view.title === tabTitle) {
       // Already on temp chat, just normalize any leaked scoped chat params.
-      setChatParams({ projectId: undefined, boardId: undefined })
+      setChatParams({ projectId: undefined, boardId: undefined, pageContext: { scope: 'global', page: 'ai-chat' } })
       return
     }
 
@@ -178,6 +180,7 @@ export function useSidebarNavigation() {
       title: tabTitle,
       icon: TEMP_CANVAS_TAB_INPUT.icon,
       leftWidthPercent: 100,
+      chatParams: { pageContext: { scope: 'global', page: 'temp-canvas' } as ChatPageContext },
       base: {
         id: `board:${boardFolderUri}`,
         component: 'board-viewer',

@@ -88,7 +88,7 @@ type ChatProps = {
     sessionId: string,
     options?: { loadHistory?: boolean; replaceCurrent?: boolean }
   ) => void;
-  /** Enable multi-session mode (show new session button). */
+  /** Control whether the header keeps session history / switching UI enabled. */
   enableMultiSession?: boolean;
 } & Record<string, unknown>;
 

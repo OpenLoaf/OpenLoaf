@@ -45,24 +45,23 @@ export const shellCommandTool = tool({
   inputExamples: [
     {
       input: {
-        actionName: '列出项目中的 TypeScript 文件',
         command: 'find src -name "*.ts" | head -20',
         workdir: '/home/user/project',
       },
     },
     {
       input: {
-        actionName: '查看 git 提交历史',
         command: 'git log --oneline -10',
         workdir: '/home/user/project',
       },
     },
   ],
   needsApproval: ({ command }) => needsApprovalForCommand(command),
-  execute: async ({ command, workdir, timeoutMs, login }): Promise<string> => {
+  execute: async ({ command, workdir, login, timeout }): Promise<string> => {
     const { cwd } = resolveToolWorkdir({ workdir });
     const { file, args } = buildShellCommand({ command, login });
 
+    const timeoutMs = Math.min(timeout ?? 120_000, 600_000);
     const startAt = Date.now();
     const outputChunks: string[] = [];
     let timedOut = false;
@@ -73,38 +72,39 @@ export const shellCommandTool = tool({
       stdio: "pipe",
     });
 
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+      // 给进程 3s 优雅退出，否则强杀
+      setTimeout(() => {
+        if (!child.killed) child.kill("SIGKILL");
+      }, 3000);
+    }, timeoutMs);
+
     child.stdout.setEncoding("utf-8");
     child.stderr.setEncoding("utf-8");
     child.stdout.on("data", (chunk) => outputChunks.push(String(chunk)));
     child.stderr.on("data", (chunk) => outputChunks.push(String(chunk)));
-
-    let timeoutId: NodeJS.Timeout | null = null;
-    if (typeof timeoutMs === "number" && Number.isFinite(timeoutMs) && timeoutMs > 0) {
-      // 超时后强制终止进程，避免卡死。
-      timeoutId = setTimeout(() => {
-        timedOut = true;
-        child.kill("SIGTERM");
-      }, Math.floor(timeoutMs));
-    }
 
     const { code } = await new Promise<{ code: number | null }>((resolve, reject) => {
       child.once("error", reject);
       child.once("exit", (exitCode) => {
         resolve({ code: exitCode });
       });
-    }).finally(() => {
-      if (timeoutId) clearTimeout(timeoutId);
     });
+
+    clearTimeout(timer);
 
     const durationMs = Date.now() - startAt;
     const durationSeconds = Math.round(durationMs / 100) / 10;
     const aggregatedOutput = outputChunks.join("");
-    const output = timedOut
-      ? `command timed out after ${durationMs} milliseconds\n${aggregatedOutput}`
-      : aggregatedOutput;
 
-    const truncated = formatFreeformOutput(output);
-    const sections = [`Exit code: ${code ?? -1}`, `Wall time: ${durationSeconds} seconds`];
+    const truncated = formatFreeformOutput(aggregatedOutput);
+    const sections: string[] = [];
+    if (timedOut) {
+      sections.push(`⚠ Command timed out after ${timeoutMs / 1000}s and was killed.`);
+    }
+    sections.push(`Exit code: ${code ?? -1}`, `Wall time: ${durationSeconds} seconds`);
     if (truncated.totalLines !== truncated.truncatedLines) {
       sections.push(`Total output lines: ${truncated.totalLines}`);
     }

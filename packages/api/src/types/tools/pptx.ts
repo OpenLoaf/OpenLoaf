@@ -16,10 +16,6 @@ export const pptxQueryToolDef = {
   description:
     '触发：当用户提到 PPT、PPTX、幻灯片、演示文稿，或询问"读取 PPT"、"查看幻灯片"时调用。用途：读取 PowerPoint 文件的结构化概览、原始 XML 或纯文本。返回：{ ok: true, data: { mode, ... } }。模式说明：read-structure 返回幻灯片列表（标题、文本块、图片）；read-xml 读取 ZIP 内任意文件（xmlPath="*" 列出所有 entry）；read-text 提取所有幻灯片的纯文本。不适用：需要创建、修改 PPTX 时不要使用，改用 pptx-mutate。',
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：读取演示文稿内容。'),
     mode: z
       .enum(['read-structure', 'read-xml', 'read-text'])
       .describe(
@@ -49,10 +45,6 @@ export const pptxMutateToolDef = {
   description:
     '触发：当你需要创建或编辑 PowerPoint 文件时调用。用途：create 创建新的 .pptx 文件（含结构化幻灯片内容），edit 使用 XPath 定位 + XML 编辑修改已有文件（支持修改文字/样式/图片/动画等任意内容）。返回：{ ok: true, data: { action, ... } }。编辑流程：先用 pptx-query(read-structure 或 read-xml) 查看文件结构，然后用 edit 的 edits 数组批量操作。不适用：仅需读取时不要使用，改用 pptx-query。',
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：创建项目演示。'),
     action: z
       .enum(['create', 'edit'])
       .describe(

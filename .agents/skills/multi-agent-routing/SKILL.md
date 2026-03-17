@@ -1,280 +1,189 @@
 ---
 name: multi-agent-routing
 description: >
-  多 Agent 对话路由架构。包含三层指挥链（Secretary → PM → Specialist）的
-  角色分工、路由判定规则、记忆体系设计，以及 @agents/ 前端触发、服务端路由、
-  task-report 回报的完整实现细节。
-version: 2.1.0
+  多 Agent 对话路由与协作架构。包含页面上下文驱动的路由决策、Agent 自动切换规则、
+  Task 异步执行集成、异步群组聊天机制、跨项目 @mention 路由、task-report 回报、
+  以及对话与 Task 的双向流转。当涉及消息路由、Agent 切换、任务调度、
+  异步协作等业务逻辑时使用此 skill。
+version: 3.0.0
 ---
 
-# 多 Agent 对话路由架构
+# 多 Agent 对话路由与协作架构
 
-> OpenLoaf AI Agent 团队体系：用户 → 秘书（Secretary）→ 项目管理员（PM）→ 专家（Specialist）三层指挥链。
+> OpenLoaf AI 团队体系：页面上下文驱动路由 → 主 Agent 调度 → 子 Agent 并行协作 → Task 异步执行 → 结果回报。
 
 ---
 
-## 一、架构总览：三层指挥链
+## 一、交互模式总览
 
 ```
-用户
- │
- ├── 对话 ──→ AI 秘书（Secretary / Master Agent）
- │              │
- │              ├── 直接回答（不产生文件的事）
- │              │
- │              ├── 创建/进入项目 ──→ Project Manager Agent
- │              │                      │
- │              │                      ├── 自己处理简单的项目管理事务
- │              │                      │
- │              │                      └── 分配任务 ──→ Specialist Agent(s)
- │              │                                        │
- │              │                                        └── 执行 → 汇报 → PM 验收
- │              │
- │              └── 创建定时/条件触发任务（不属于任何项目的也行）
- │
- └── @mention ──→ 直接和某个 Agent 对话（PM 或 Specialist）
+┌─────────────────────────────────────────────────────┐
+│                   用户与 AI 的交互模式               │
+├─────────────┬───────────────────────────────────────┤
+│  同步对话    │  用户发消息 → Agent 实时回复           │
+│             │  （Chat 的核心模式）                   │
+├─────────────┼───────────────────────────────────────┤
+│  异步任务    │  用户创建 Task → Agent 后台执行        │
+│             │  → 完成后回报到源 Chat Session          │
+│             │  （Task 系统的核心模式）               │
+├─────────────┼───────────────────────────────────────┤
+│  异步群组    │  主 Agent 拆解任务 → spawn 多个子 Agent │
+│             │  → 各自并行执行 → 汇总回报              │
+│             │  （多 Agent 协作模式）                  │
+└─────────────┴───────────────────────────────────────┘
 ```
 
-## 二、角色定义
+---
 
-| 角色 | 数量 | 生命周期 | 核心职责 |
-|------|------|----------|----------|
-| **Secretary** (Master) | 每个对话 1 个 | 对话期间存在 | 理解用户意图、判断直接做还是派活、创建项目、调度 PM |
-| **Project Manager** | 每个项目 1 个 | 项目存在即存在 | 管理项目内所有工作、分解任务、分配 Specialist、验收成果、维护项目记忆 |
-| **Specialist** | 按需创建 | 任务期间存在，经验保留 | 执行具体工作（写代码、写文档、审查、测试等） |
+## 二、路由决策流程
 
-## 三、秘书路由判定规则
+### 2.1 完整路由链
 
-秘书（Secretary / Master Agent）收到用户消息后，核心判断：**直接做 vs 派活**。
+```
+用户消息到达服务端
+    ↓
+Step 1: 解析 pageContext（scope + page + projectId + boardId）
+    ↓
+Step 2: 自动加载 skill（pageContext → skill 映射表 → 注入到消息）
+    ↓
+Step 3: 选择主 Agent
+    ├─ 有 projectId → PM Agent
+    ├─ 有 targetAgent（跨项目 @mention）→ 任务路由（见 §四）
+    └─ 其他 → Master Agent
+    ↓
+Step 4: 主 Agent 处理
+    ├─ 简单任务 → 直接回答
+    ├─ 需要文件但无项目 → 创建临时项目 → 继续处理
+    ├─ 复杂任务 → 委派子 Agent（见 §三）
+    └─ 重复性任务 → 建议创建 Task（见 §五）
+```
 
-### 直接做 = 不产生持久产物的事情
+### 2.2 主 Agent 判定规则
 
+**直接做 = 不产生持久产物的事情**
 - 回答问题、翻译、解释、计算
 - 读文件、查数据、搜索信息
-- 简单的一步操作（创建一个日历事件、发一封邮件）
+- 简单的一步操作（创建日历事件、发邮件）
 - 闲聊、建议、决策辅助
 
-### 派活 = 产生文件/成果物、或需要多步规划的事情
-
+**委派子 Agent = 产生文件/成果物、或需要多步规划的事情**
 - 写文档、写代码、生成报告
 - 审查代码、重构模块
-- 任何涉及"创建/修改文件"的工作
+- 涉及「创建/修改文件」的工作
 - 复杂的多步骤任务
 
-### 灰色地带原则
+**灰色地带原则**：
+> 主 Agent 可以「看」（读取、分析），但不应该「做」（创建、修改文件）。一旦涉及到「做」，就应该进入项目 → PM 接手或委派专业子 Agent。
 
-> **秘书可以"看"（读取、分析），但不应该"做"（创建、修改文件）。一旦涉及到"做"，就应该进入项目 → PM 接手。**
+### 2.3 Skill 自动加载映射
 
-## 四、关键流程示例
+服务端在 `AiExecuteService` 中根据 `pageContext.page` 查表，自动追加 skill：
 
-### 流程 1：需要产出文件（如"帮我写一个产品方案"）
+| pageContext.page | 自动加载的 skill |
+|-----------------|-----------------|
+| `canvas-list`, `temp-canvas`, `project-canvas` | `openloaf-basics` + `canvas-ops` |
+| `project-list`, `project-*` | `openloaf-basics` + `project-ops` |
+| `calendar` | `openloaf-basics` + `calendar-ops` |
+| `email` | `openloaf-basics` + `email-ops` |
+| `tasks`, `project-tasks` | `openloaf-basics` + `task-ops` |
+| `settings`, `project-settings` | `openloaf-basics` + `settings-guide` |
+| `project-files` | `openloaf-basics` + `project-ops` + `file-ops` |
+| `workbench` | `openloaf-basics` + `workbench-ops` |
+| 其他 / `ai-chat` | `openloaf-basics` |
 
-1. 秘书判断 → 需要产出文件 → 需要项目
-2. 秘书创建临时项目 → 自动生成 PM
-3. PM 分析需求 → 分解为子任务（市场调研、竞品分析、方案撰写）
-4. PM 分配 Specialist（Research Agent 做调研、Document Writer 写方案）
-5. Specialist 各自执行 → 向 PM 汇报
-6. PM 验收整合 → 向秘书汇报 → 秘书告诉用户
-
-### 流程 2：不产生文件（如"翻译这段话"）
-
-1. 秘书判断 → 不产生文件 → 直接做
-2. 秘书翻译 → 回复用户
-
-### 流程 3：PM 发现需要额外资源
-
-1. PM 发现需要设计图 → 向秘书请求 Designer Agent
-2. 或者 PM 直接联系关联项目的 PM（跨项目协作）
-
-## 五、Prompt 组装架构
-
-每个 Agent 的最终 prompt = **identity（自我认知）** + **标准思维框架（共享）** + **hardRules（硬约束）**
-
-### 文件结构
-
-```
-templates/master/
-  identity.zh.md    ← 秘书自我认知（产品介绍 + 秘书角色 + 任务委派规则）
-  identity.en.md
-  prompt-v3.zh.md   ← 标准思维框架（所有 Agent 共享）
-  prompt-v3.en.md
-  index.ts          ← combine(identity, prompt) + 导出 getStandardPrompt()
-
-templates/pm/
-  identity.zh.md    ← PM 自我认知（产品介绍 + PM 角色 + 任务分解/调度/验收/汇报）
-  identity.en.md
-  index.ts          ← pm/identity + master/getStandardPrompt()
-
-templates/project/
-  identity.zh.md    ← Specialist 自我认知（产品简介 + 执行者角色）
-  identity.en.md
-  index.ts          ← project/identity + master/getStandardPrompt()
-```
-
-### 组装公式
-
-```
-Secretary = master/identity + 标准思维框架 + hardRules（+ preface 注入工具目录/会话上下文/记忆）
-PM        = pm/identity     + 标准思维框架 + hardRules + toolSearchGuidance
-Specialist= project/identity+ 标准思维框架 + hardRules + toolSearchGuidance
-```
-
-### 继承链
-
-```
-标准思维框架（prompt-v3.md）—— 所有 Agent 共享
- ├── Secretary identity → 秘书角色 + 任务委派 + 产品全貌
- ├── PM identity        → 项目经理角色 + 任务分解/调度/验收
- └── Specialist identity→ 执行者角色 + 能力清单
-
-hardRules（hardRules.ts）—— 不可覆盖的硬约束（语言/输出格式/静默执行/记忆/执行规则）
-```
-
-## 六、三层记忆体系
-
-所有记忆都带时间衰减。
-
-| 层级 | 记住什么 | 存在哪里 | 衰减规则 |
-|------|----------|----------|----------|
-| **秘书记忆** | 用户偏好、沟通风格、常用项目 | 用户级存储 | 高频强化，低频衰减 |
-| **PM 记忆** | 项目技术栈、架构决策、团队经验 | 项目级存储 | 项目活跃时强化，闲置时衰减 |
-| **Specialist 记忆** | 执行经验、踩过的坑、最佳实践 | Agent 角色级存储 | 被调用时强化，长期不用衰减 |
-
-### 衰减模型
-
-- 每条记忆有 `lastAccessedAt` + `accessCount`
-- 权重 = `accessCount × recency_factor`
-- 上下文窗口有限时，按权重排序截取
-- 定期清理极低权重记忆
-
-## 七、Specialist Agent 与项目设置的连接
-
-### 两种 Specialist 来源
-
-| 来源 | 定义方式 | 存储位置 | 场景 |
-|------|---------|---------|------|
-| **内置默认** | `templates/project/identity.md` + 标准框架 | 代码内 | PM 调用 `spawn-agent(subagent_type: "general-purpose")` 或未匹配自定义 Agent 时的回退 |
-| **项目自定义** | `AGENT.md`（YAML front matter + system prompt） | `.openloaf/agents/<name>/AGENT.md` | 用户在项目设置中创建/管理的专属 Agent |
-
-### 项目自定义 Agent 定义格式
-
-```yaml
-# .openloaf/agents/code-reviewer/AGENT.md
----
-name: code-reviewer
-description: 代码审查专家
-icon: shield-check
-toolIds:
-  - read-file
-  - list-dir
-  - grep-files
-  - apply-patch
-allowSubAgents: false
----
-
-你是代码审查专家，负责...（system prompt）
-```
-
-### 解析优先级（AgentSelector）
-
-PM 调用 `spawn-agent(subagent_type: "code-reviewer")` 时，`resolveAgentByName()` 按以下顺序查找：
-
-1. **项目级** — `<projectRoot>/.openloaf/agents/code-reviewer/AGENT.md`
-2. **父项目级** — 关联父项目的同路径
-3. **全局级** — `~/.agents/agents/code-reviewer/AGENT.md`
-4. **内置类型** — `general-purpose` / `explore` / `plan`
-5. **回退** — 未匹配任何 → 使用 `general-purpose`（内置默认 Specialist）
-
-### 项目设置 UI 连接
-
-**路径**：项目 → 设置 → AI → Agents
-
-**功能**：
-- 查看/创建/编辑/删除项目级 Agent（`ProjectAgentSettings.tsx` → `ProjectAgentView.tsx`）
-- 从全局 Agent 复制到项目（"从全局复制"按钮）
-- 启用/禁用 Agent（不删除文件）
-- 每个 Agent 可配置：名称、描述、图标、工具集、模型、是否允许子 Agent
-
-**关键服务**：
-- `agentConfigService.ts` — 扫描 `.openloaf/agents/` 目录，解析 AGENT.md
-- `AgentSelector.ts` — `resolveAgentByName()` 按优先级查找匹配 Agent
-- `agentFactory.ts` — `createDynamicAgentFromConfig()` 从 AgentConfig 实例化 ToolLoopAgent
-
-## 八、项目即容器
-
-- 所有产生文件的工作都在项目内进行
-- 没有项目 → 秘书自动创建临时项目
-- 临时项目可以被用户提升为永久项目
-- 每个项目自动拥有一个 PM
-- 项目是 Agent 工作的边界和上下文
+`openloaf-basics` **始终加载**，确保 Agent 对 OpenLoaf 有基本认知。
 
 ---
 
-# 实现细节
+## 三、异步群组聊天
 
-> 以下为当前代码层面的实现细节：`@agents/项目/管理员` 路由系统。
+### 3.1 协作工具集
 
-## 核心数据流
+| 工具 | 用途 | 约束 |
+|------|------|------|
+| `spawn-agent` | 创建子 Agent | 最大深度 2、并发上限 4 |
+| `send-input` | 向子 Agent 发消息 | 子 Agent 必须已 spawn |
+| `wait-agent` | 等待子 Agent 完成 | ANY 语义，任一完成即返回 |
+| `abort-agent` | 中止子 Agent | 立即终止 |
 
-### 模式 A：项目内直聊（PM 直聊模式）
+### 3.2 群组协作 UI 展示
 
-当用户在项目对话中直接输入消息（session 有 projectId）：
+当主 Agent 委派多个子 Agent 时，前端展示类似群组讨论：
 
 ```
-用户在项目 X 的对话中输入消息
-    ↓ 前端 Chat.tsx 设置 requestParams: { projectId, agentType: 'pm' }
-    ↓ SSE 请求发送到服务端
+[PM] 好的，我来安排团队协作：
 
-服务端 chatStreamService 检测到 params.agentType === 'pm'
-    ↓ createPMAgentRunner() 创建 PM Agent
-    ↓ PM Agent 以流式方式直接回复用户
-    ↓ PM 可通过 spawn-agent 工具创建子任务（自主决定）
+┌─ 群组协作 ────────────────────────────┐
+│                                        │
+│  📊 数据分析师  ✅ 已完成              │
+│  ├ 分析了 sales.csv (1.2万行)         │
+│  └ 发现3个关键趋势                    │
+│                                        │
+│  📝 文档编辑师  ✅ 已完成              │
+│  └ 生成 trend-report.md (2.4KB)       │
+│                                        │
+│  🎨 画布设计师  🔄 进行中...           │
+│  └ 创建数据仪表板画布...              │
+│                                        │
+└────────────────────────────────────────┘
+
+[PM] 分析报告和画布已完成，关键发现：...
 ```
 
-**关键**：项目内对话 = PM 直接流式回复，不走任务创建流程。PM 自己决定何时需要创建子任务。
+### 3.3 子 Agent 上下文继承
 
-### 模式 B：跨项目 @mention 路由（任务模式）
+主 Agent spawn 子 Agent 时，子 Agent 自动继承：
+- `projectId` → 子 Agent 在同一项目沙箱中工作
+- 对应 pageContext 的 skill → 子 Agent 拥有相同的能力认知
+- 临时项目路径 → 如果主 Agent 已创建临时项目
 
-当用户从主对话（或其他项目对话）@mention 另一个项目的 PM：
+### 3.4 子 Agent 消息流
+
+子 Agent 输出通过 `data-sub-agent-start/delta/chunk/end` 事件推送到前端：
+- 前端通过 `useSubAgentStreams` 为每个 toolCallId 创建独立 ReadableStream
+- 支持多个并发子 Agent 流
+- 状态流转：`output-streaming` → `output-available` / `output-error`
+
+---
+
+## 四、跨项目 @mention 路由
+
+### 4.1 数据流
 
 ```
 用户在主对话输入 "@agents/项目X/pm 做个需求分析"
-    ↓ 前端 ChatAgentMention 解析出 selectedAgent: {projectId, projectTitle, agentType:'pm'}
-    ↓ ChatInput.handleSubmit() 判断 selectedAgent.projectId !== 当前 projectId（跨项目）
-    ↓ 注入 metadata.targetAgent: {kind:'pm', projectId, projectTitle}
-    ↓ SSE 请求发送到服务端
-
-服务端 chatStreamService 检测到 metadata.targetAgent 且 targetAgent.projectId !== session.projectId
-    ↓ findActivePmTask(projectId) 查找活跃 PM 任务
-    ├─ 无活跃任务 → createTaskConfig() 创建新 PM 任务
-    │   ↓ TaskOrchestrator 调度执行
-    │   ↓ PM 在独立 session (task-{taskId}-{uuid}) 中运行
-    │   ↓ 完成后 → reportToSourceSession() → task-report 消息写入主对话
-    │   ↓ TaskEventBus → onSessionUpdate → 前端实时收到
-    │
-    └─ 有活跃任务 → updateTask() 追加消息
-        ↓ PM 继续执行，完成后同样 report 回来
-
-服务端返回 createAgentRouteAckResponse()
-    ↓ 轻量确认消息："已将指令发送给「项目X」的管理员，稍后会在此回报结果。"
-    ↓ 不触发主 Agent（master），直接返回 SSE 流
+    ↓
+前端 ChatAgentMention 解析出 selectedAgent: {projectId, projectTitle, agentType:'pm'}
+    ↓
+ChatInput.handleSubmit() 判断 isCrossProject
+    ↓
+注入 metadata.targetAgent: {kind:'pm', projectId, projectTitle}
+    ↓
+服务端 chatStreamService 检测 targetAgent
+    ├─ findActivePmTask(projectId)
+    │   ├─ 有活跃任务 → appendUserMessage（追加消息）
+    │   └─ 无活跃任务 → createTaskConfig（创建新 PM 任务）
+    ↓
+返回 createAgentRouteAckResponse：
+  "已将指令发送给「项目X」的管理员，稍后会在此回报结果。"
+    ↓
+PM 在独立 session 中执行 → 完成后 task-report 写入源会话
 ```
 
-### 路由决策总结
+### 4.2 路由决策矩阵
 
 | 场景 | agentType | targetAgent | 走哪条路 | 响应方式 |
 |------|-----------|-------------|---------|---------|
 | 项目内直接对话 | `'pm'` | 无 | PM Agent 直聊 | 流式 |
-| 项目内 @mention 同项目 PM | `'pm'` | 被忽略（同项目） | PM Agent 直聊 | 流式 |
-| 主对话 @mention 某项目 PM | 无 | `{kind:'pm', projectId}` | 任务创建/追加 | ACK + task-report |
+| 同项目 @mention PM | `'pm'` | 被忽略 | PM Agent 直聊 | 流式 |
+| 主对话 @mention 项目 PM | 无 | `{kind:'pm', projectId}` | 任务创建/追加 | ACK + task-report |
 | 项目 A @mention 项目 B PM | `'pm'` | `{kind:'pm', projectId:B}` | 任务创建/追加 | ACK + task-report |
 | 主对话无 mention | 无 | 无 | Master Agent | 流式 |
 
-## 类型定义
-
-### TargetAgent（`packages/api/src/types/message.ts`）
+### 4.3 类型定义
 
 ```typescript
+// packages/api/src/types/message.ts
 export type TargetAgent = {
   kind: 'pm'
   projectId: string
@@ -282,228 +191,259 @@ export type TargetAgent = {
 }
 ```
 
-### SelectedAgent（`ChatAgentMention.tsx`）
+---
 
-```typescript
-export type SelectedAgent = {
-  projectId: string
-  projectTitle: string
-  agentType: 'pm'
-}
+## 五、Task 与对话的双向流转
+
+### 5.1 对话 → Task（从对话中创建任务）
+
+```
+用户："以后每周五下午帮我整理本周的邮件摘要"
+    ↓
+Agent 识别意图：重复性任务 → 调用 task-manage.create
+    {
+      name: "每周邮件摘要",
+      triggerMode: "scheduled",
+      schedule: { type: "cron", cronExpr: "0 17 * * 5" },
+      agentName: "master",
+      pageContext: { scope: 'global', page: 'email' },   ← 自动注入
+      sourceSessionId: 当前会话,
+      selectedSkills: ["email-ops"],                       ← 自动关联
+      requiresReview: true,
+      skipPlanConfirm: true
+    }
+    ↓
+Agent 回复："已创建定时任务，每周五 17:00 执行。
+            执行结果会发送到这个对话中。"
 ```
 
-## 前端：@ Mention 触发与选择
+### 5.2 Task → 对话（任务结果回报）
 
-### ChatAgentMention 组件
-
-**文件**：`apps/web/src/components/ai/input/ChatAgentMention.tsx`
-
-**触发规则**：
-- 正则 `/(^|\s)@(\S*)$/u` — 用户输入 `@` 即触发（不需要输入 `@agents/`）
-- `@` 后的文本作为项目名搜索关键词，模糊匹配 `useProjects()` 返回的项目列表
-- 菜单固定宽度 280px，最大高度 320px
-
-**数据源**：
-- `useProjects()` hook（`apps/web/src/hooks/use-projects.ts`）
-- 每个项目映射为 `MentionItem`：`{ id: projectId, label: project.title, icon: project.icon, projectId, agentType: 'pm' }`
-
-**定位方式**：
-- 隐藏 `<span ref={menuRef}>` 锚点 + `closest(".openloaf-thinking-border")` 查找父容器
-- 计算 `{ left: rect.left, bottom: window.innerHeight - rect.top + GAP }` 固定定位
-- 与 `ChatCommandMenu` 共用相同的定位模式
-
-**选择行为**：
-- 选中后文本替换为 `@agents/项目名/pm `（注意末尾空格）
-- 通过 `onAgentSelect(selectedAgent)` 回调传递给 ChatInput
-- 支持 ArrowUp/Down 导航、Tab/Enter 选择、Escape 取消
-
-### ChatInput 集成
-
-**文件**：`apps/web/src/components/ai/input/ChatInput.tsx`
-
-**状态管理**：
-- 外层 `ChatInput` 组件维护 `selectedAgent` state
-- 通过 `onAgentSelect` prop 传递给内层 `ChatInputBox`
-
-**handleSubmit 逻辑**：
-1. 如果 `selectedAgent` 存在：
-   - 从文本中剥离 `@agents/.../pm` 前缀（正则 `/^@agents\/\S+\/pm\s*/u`）
-   - **跨项目判定**：`isCrossProject = selectedAgent.projectId !== projectId`
-   - 仅当 `isCrossProject` 为 true 时，注入 `metadata.targetAgent: { kind: 'pm', projectId, projectTitle }`
-   - 同项目 mention 不注入 targetAgent（消息直接走 PM 直聊模式）
-2. 发送后清空 `selectedAgent`
-
-### Chat 组件 requestParams
-
-**文件**：`apps/web/src/components/ai/Chat.tsx`
-
-当 session 关联到项目（`projectId` 存在）时，自动设置 `agentType: 'pm'`：
-```typescript
-const requestParams = useMemo(() => {
-  const nextParams = { ...rawParams };
-  if (projectId) {
-    nextParams.projectId = projectId;
-    nextParams.agentType = 'pm'; // 项目对话 = PM 直聊
+```
+周五 17:00 TaskScheduler 触发
+    ↓
+TaskExecutor 启动 Agent：
+  - 读取 task.pageContext → 加载 email-ops skill
+  - 执行邮件摘要生成
+    ↓
+Agent 完成后，追加 task-report 到 sourceSessionId：
+  {
+    role: "task-report",
+    parts: [
+      { type: "text", text: "本周邮件摘要：..." },
+      { type: "data-task", data: { taskId, status: "done" } }
+    ],
+    agent: { name: "AI秘书", kind: "master" }
   }
-  return nextParams;
-}, [rawParams, projectId]);
+    ↓
+用户下次打开会话 → 看到 task-report 消息
+通知栏 → 🔔 "每周邮件摘要已生成"
 ```
 
-这使得项目内所有消息自动走 PM Agent 流式路径，无需用户手动 @mention。
+### 5.3 Task 上下文继承规则
 
-## 前端：Agent Chip 渲染
+- **Task 配置新增 `pageContext` 字段**：创建时从当前对话的 pageContext 快照存入
+- **执行时自动加载 skill**：TaskExecutor 读取 `task.pageContext`，查表注入对应 skill
+- **Agent 选择**：有指定 `agentName` 用指定的，没指定按 pageContext 自动匹配（项目 → PM，全局 → Master）
+- **pageContext 是创建时快照**：执行时使用快照值（执行时用户可能不在原页面）
 
-### ChatInputEditor 中的 Chip
+### 5.4 Task 中的群组协作
 
-**文件**：`apps/web/src/components/ai/input/ChatInputEditor.tsx`
+复杂 Task 执行时，Agent 可以 spawn 子 Agent 协作：
 
-**渲染规则**：
-- `valueToHtml()` 正则匹配 `@agents/([^/\s]+)/pm` 并转换为 chip HTML
-- Agent chip 使用 `ol-agent-chip` class + **内联样式**（不依赖 CSS class）
-- 颜色方案：琥珀色（`background: rgba(254,243,199,0.8); color: #b45309`）
-- 图标：lucide Users SVG 内联
-- 显示文本：`{项目名}/管理员`
-
-**Chip HTML 结构**：
-```html
-<span class="ol-agent-chip" data-token="@agents/项目/pm" contenteditable="false"
-  style="display:inline-flex;align-items:center;gap:3px;...;background:rgba(254,243,199,0.8);color:#b45309">
-  <svg>...</svg>
-  <span style="overflow:hidden;text-overflow:ellipsis">项目名/管理员</span>
-</span>
+```
+Task："整理项目 A 的技术文档"（后台执行）
+    ↓
+PM Agent 启动：
+  1. spawn Coder → 扫描代码结构、提取 API 定义
+  2. spawn Extractor → 从 README 和注释中提取信息
+  3. wait-agent → 等待两者完成
+  4. 自己整合结果
+  5. spawn Doc Editor → 生成结构化文档
+  6. wait-agent → 文档完成
+  7. 回报到源会话
+    ↓
+task-report 中包含协作过程摘要 + 最终产物链接
 ```
 
-**关键设计决策**：
-- 使用内联样式而非 CSS class — 解决 HMR 导致 `<style>` 标签丢失的问题
-- `ensureStyles()` 使用 ID-based `<style>` 标签（`id="ol-chip-styles"`）+ 清理无 ID 的旧标签
-- `domToValue()` 和 `isEmpty()` 需识别 `AGENT_CHIP_CLASS` 以正确处理反序列化
+### 5.5 Task 完成通知体验
 
-**valueToHtml 正则**（合并匹配 @mention、/skill、@agents）：
-```typescript
-/@\{([^}]+)\}|\/skill\/([\w-]+)(?=\s|[^\x00-\x7F])|@agents\/([^/\s]+)\/pm(?=\s|$)/g
+当后台 Task 完成，用户不一定在原页面：
+
+```
+通知方式（分层）：
+1. 系统通知栏：🔔 小红点 + "项目 A 的代码检查任务已完成"
+2. 源会话中：追加 task-report 消息（下次打开可见）
+3. 任务看板：状态卡片从 running → review/done
+4. 可选：桌面通知（Electron 原生通知）
 ```
 
-## 服务端：路由逻辑
+---
 
-### chatStreamService 路由
+## 六、Task 系统核心规则
 
-**文件**：`apps/server/src/ai/services/chat/chatStreamService.ts`
+### 6.1 执行模式
 
-**路由入口**：在 `startChatStream()` 函数中，两层路由判定：
+- **单阶段**（`skipPlanConfirm=true && !requiresReview`）：`todo → running → done`
+- **两阶段**（需确认/审查）：`todo → running(plan) → review(plan) → running(execute) → review(completion) → done`
 
-**第一层：跨项目 targetAgent 路由**（任务模式）
-```typescript
-const targetAgent = (lastMessage as any)?.metadata?.targetAgent as TargetAgent | undefined
+### 6.2 触发模式
 
-// 只有跨项目 mention 才走任务路由
-const isCrossProjectMention = targetAgent?.kind === 'pm'
-  && targetAgent.projectId
-  && targetAgent.projectId !== projectId; // projectId = 当前 session 的项目
+| 模式 | 说明 | 示例 |
+|------|------|------|
+| `manual` | 手动启动 | 用户点击运行 |
+| `scheduled` | 定时/周期 | cron: `0 9 * * *`、once、interval |
+| `condition` | 条件触发 | 邮件到达、文件变更、聊天关键词 |
 
-if (isCrossProjectMention) {
-  // 1. 提取纯文本
-  // 2. findActivePmTask() 查找活跃任务
-  // 3. 有则 appendUserMessage()，无则 createTaskConfig()
-  // 4. 返回 createAgentRouteAckResponse()（不触发 master agent）
-}
+### 6.3 会话隔离
+
+- `isolated`：每次执行独立会话（适合重复任务）
+- `shared`：复用同一会话（适合渐进式任务）
+
+### 6.4 错误恢复
+
+- `cooldownMs`：两次执行最小间隔
+- `consecutiveErrors`：连续失败 3 次自动禁用
+- `planConfirmTimeoutMs`：确认超时时间
+
+---
+
+## 七、完整用户旅程示例
+
+### 示例 1：全局模式 → 项目列表 → 对话
+
+```
+[用户点击 Sidebar "项目空间"]
+  → pageContext = {scope: 'global', page: 'project-list'}
+  → 自动加载 openloaf-basics + project-ops
+  → Master Agent 就绪
+
+[用户]："帮我创建一个新项目，叫做 Q2-Marketing"
+  → Master 调用 create-project
+  → 返回："已创建，要打开它吗？"
+
+[用户]："打开它"
+  → 导航到项目页面
+  → pageContext 更新为 {scope: 'project', page: 'project-index', projectId: 'xxx'}
+  → 主 Agent 切换为 PM
+  → skill 切换为 project-ops
 ```
 
-**第二层：agentType 参数路由**（直聊模式）
-```typescript
-const agentType = input.request.params?.agentType;
-if (agentType === 'pm') {
-  // PM Agent 直接流式回复（项目内对话走这里）
-  masterAgent = createPMAgentRunner({ model, modelInfo, taskId, projectId });
-} else if (agentType === 'project') {
-  masterAgent = createProjectAgentRunner({ model, modelInfo, taskId });
-} else {
-  masterAgent = createMasterAgentRunner({ model, modelInfo, instructions });
-}
+### 示例 2：全局对话 → 自动临时项目
+
+```
+[用户在 AI 助手页面]
+  → pageContext = {scope: 'global', page: 'ai-chat'}
+
+[用户]："帮我用 Python 写一个爬虫脚本"
+  → Master 分析意图：需要创建文件
+  → 委派 Coder 子 Agent
+  → Coder 检测无项目上下文 → 创建临时项目
+  → 在临时项目中创建 scraper.py
+  → 返回代码 + 轻提示
+
+[用户]："不错，保存为正式项目"
+  → Agent 调用 promote-temp-project
+  → 临时项目转为正式项目
 ```
 
-**关键**：同项目的 `targetAgent` 会被忽略（前端不注入 + 后端跳过），消息直接走 `agentType: 'pm'` 路径。
+### 示例 3：项目模式 → 多 Agent 协作
 
-### findActivePmTask
+```
+[用户在项目文件页]
+  → PM Agent 就绪 + file-ops 已加载
 
-**文件**：`apps/server/src/services/taskConfigService.ts`
-
-```typescript
-export function findActivePmTask(
-  projectId: string,
-  globalRoot: string,
-  projectRoots?: string | string[] | null
-): TaskConfig | null
+[用户]："分析 reports/ 下的 CSV，生成趋势报告，做成画布"
+  → PM 分析：数据分析 + 文档生成 + 画布设计
+  → spawn Data Analyst → 分析 CSV
+  → Data Analyst 完成 → PM 整合
+  → spawn Doc Editor → 生成报告
+  → spawn Canvas Designer → 创建画布
+  → PM 汇总回复 + 文件链接 + 画布链接
 ```
 
-**查找逻辑**：
-1. `listTasksByStatus('running')` → 过滤 `agentName === 'pm' && projectId === targetProjectId`
-2. 如有多个 running，取最新（按 `createdAt` 排序）
-3. 无 running 则查 `status === 'todo'`（排队中）
-4. 均无则返回 `null`
+### 示例 4：对话 → Task → 异步回报
 
-### createAgentRouteAckResponse
+```
+[用户在邮箱页]
+  → calendar-ops 已加载
 
-**文件**：`apps/server/src/ai/services/chat/streamOrchestrator.ts`
+[用户]："以后每天早上帮我检查重要邮件并提醒"
+  → Master 识别：重复任务
+  → 创建 Task（cron: 0 9 * * *，email-ops skill，sourceSession）
+  → "已创建定时任务"
 
-轻量确认响应，不触发主 Agent：
-1. 保存 assistant 消息到主 session
-2. 返回 SSE 流：`start → text-start → text-delta → text-end → finish`
-3. 确认文本：`已将指令发送给「{项目名}」的管理员，稍后会在此回报结果。`
+[次日 9:00] TaskScheduler 触发
+  → Agent 加载 email-ops → 检查邮件 → 生成摘要
+  → task-report 回报到源会话
+  → 用户打开该会话 → 看到邮件摘要
+```
 
-## 关键文件索引
+---
 
-| 用途 | 文件路径 | 角色 |
-|------|---------|------|
-| @ Mention UI | `apps/web/src/components/ai/input/ChatAgentMention.tsx` | 项目选择菜单 |
-| 项目聊天参数 | `apps/web/src/components/ai/Chat.tsx` | agentType:'pm' 注入 |
-| 消息提交 | `apps/web/src/components/ai/input/ChatInput.tsx` | 跨项目 metadata 注入 |
-| Chip 渲染 | `apps/web/src/components/ai/input/ChatInputEditor.tsx` | valueToHtml/domToValue |
-| 项目列表 | `apps/web/src/hooks/use-projects.ts` | useProjects() hook |
-| 类型定义 | `packages/api/src/types/message.ts` | TargetAgent 类型 |
-| 流路由 | `apps/server/src/ai/services/chat/chatStreamService.ts` | targetAgent 路由 |
-| 确认响应 | `apps/server/src/ai/services/chat/streamOrchestrator.ts` | createAgentRouteAckResponse |
-| 任务查找 | `apps/server/src/services/taskConfigService.ts` | findActivePmTask |
-| 任务执行 | `apps/server/src/services/taskExecutor.ts` | PM 任务运行 |
-| 事件总线 | `apps/server/src/services/taskEventBus.ts` | task-report 事件 |
-| Agent 工厂 | `apps/server/src/ai/services/agentFactory.ts` | Agent 实例化（内置 + 动态） |
-| Agent 配置加载 | `apps/server/src/ai/services/agentConfigService.ts` | 扫描 .openloaf/agents/ 解析 AGENT.md |
-| Agent 名称解析 | `apps/server/src/ai/tools/AgentSelector.ts` | resolveAgentByName() 按优先级查找 |
-| 项目 Agent 设置 UI | `apps/web/src/components/project/settings/menus/ProjectAgentSettings.tsx` | 项目级 Agent 管理界面 |
-| 项目 Agent 视图 | `apps/web/src/components/setting/menus/agent/ProjectAgentView.tsx` | Agent 列表/创建/编辑/删除 |
-| Task Report UI | `apps/web/src/components/ai/message/MessageTaskReport.tsx` | 任务报告渲染 |
-| Agent 模板 | `apps/server/src/ai/agent-templates/templates/` | identity.md（自我认知）+ prompt-v3.md（标准框架） |
-| 硬约束规则 | `apps/server/src/ai/shared/hardRules.ts` | 不可覆盖的输出/执行/语言/记忆规则 |
-| 工具目录生成 | `apps/server/src/ai/shared/toolSearchGuidance.ts` | 从 TOOL_CATALOG_EXTENDED + deferredToolIds 动态生成 |
+## 八、关键文件索引
+
+### 路由与调度
+
+| 文件 | 用途 |
+|------|------|
+| `apps/server/src/ai/services/chat/chatStreamService.ts` | 消息路由入口（targetAgent/agentType 检测） |
+| `apps/server/src/ai/services/chat/AiExecuteService.ts` | skill 自动加载 + 动态展开 |
+| `apps/server/src/ai/services/chat/streamOrchestrator.ts` | createAgentRouteAckResponse |
+
+### Task 系统
+
+| 文件 | 用途 |
+|------|------|
+| `apps/server/src/services/taskConfigService.ts` | 任务 CRUD + findActivePmTask |
+| `apps/server/src/services/taskScheduler.ts` | 定时调度（cron/interval/once） |
+| `apps/server/src/services/taskOrchestrator.ts` | 任务生命周期、冲突检测、审批 |
+| `apps/server/src/services/taskExecutor.ts` | 执行引擎、两阶段审批、结果回报 |
+| `apps/server/src/services/taskEventBus.ts` | 事件发布（statusChange） |
+
+### Agent 协作
+
+| 文件 | 用途 |
+|------|------|
+| `apps/server/src/ai/tools/agentTools.ts` | spawn-agent / send-input / wait-agent / abort-agent |
+| `apps/server/src/ai/services/agentManager.ts` | 并发管理（MAX_DEPTH=2, MAX_CONCURRENT=4） |
+| `apps/server/src/ai/services/agentFactory.ts` | 数据驱动的子 Agent 创建 |
+| `apps/server/src/ai/tools/AgentSelector.ts` | resolveAgentByName() 按优先级查找 |
+
+### 前端
+
+| 文件 | 用途 |
+|------|------|
+| `apps/web/src/components/ai/input/ChatAgentMention.tsx` | @mention 项目选择菜单 |
+| `apps/web/src/components/ai/input/ChatInput.tsx` | 跨项目 metadata 注入 |
+| `apps/web/src/components/ai/hooks/use-sub-agent-streams.ts` | 子 Agent 消息流 |
+| `apps/web/src/components/ai/message/MessageTaskReport.tsx` | task-report 渲染 |
+| `apps/web/src/components/tasks/TaskBoardPage.tsx` | 任务看板 Kanban |
+
+### 类型定义
+
+| 文件 | 用途 |
+|------|------|
+| `packages/api/src/types/message.ts` | ChatRequestBody, TargetAgent, OpenLoafAgentInfo |
+| `packages/api/src/types/tools/task.ts` | task-manage Tool 定义 |
+| `packages/api/src/types/tools/agent.ts` | spawn-agent Tool 定义 |
+
+---
 
 ## Skill Sync Policy（强制）
 
-> **硬性规则**：修改下列任何文件中与多 Agent 路由相关的逻辑后，**必须在同一次提交中同步更新本 skill 文件**。不允许只改代码不更新文档。提交前检查 diff 是否涉及下列文件，如涉及则打开本文件确认内容是否仍然准确。
+> 修改以下文件后，必须同步更新本 skill 文件。
 
-| 变更范围 | 需更新的 skill 章节 |
-|----------|-------------------|
-| `ChatAgentMention.tsx` 触发正则、数据源、选择逻辑 | 前端：@ Mention 触发与选择 |
-| `Chat.tsx` requestParams / agentType 设置 | 前端：Chat 组件 requestParams |
-| `ChatInput.tsx` handleSubmit / selectedAgent / 跨项目判定 / metadata 注入 | 前端：@ Mention 触发与选择 → ChatInput 集成 |
-| `ChatInputEditor.tsx` valueToHtml/domToValue 正则、chip 样式、ensureStyles | 前端：Agent Chip 渲染 |
-| `chatStreamService.ts` targetAgent 路由、任务创建/追加逻辑 | 服务端：路由逻辑 → chatStreamService 路由 |
-| `streamOrchestrator.ts` createAgentRouteAckResponse 格式或行为 | 服务端：路由逻辑 → createAgentRouteAckResponse |
-| `taskConfigService.ts` findActivePmTask 查找策略 | 服务端：路由逻辑 → findActivePmTask |
-| `message.ts` TargetAgent / SelectedAgent 类型定义 | 类型定义 |
-| `taskExecutor.ts` / `taskEventBus.ts` PM 任务执行或 report 机制 | 核心数据流 + 关键文件索引 |
-| `MessageTaskReport.tsx` task-report 渲染逻辑 | 关键文件索引 |
-| 新增 agent 类型（非 pm） | 全文档（数据流、类型、路由、chip 等） |
-| `agentConfigService.ts` Agent 定义加载逻辑变更 | 七、Specialist Agent 与项目设置的连接 |
-| `AgentSelector.ts` Agent 名称解析/优先级变更 | 七、Specialist Agent 与项目设置的连接 |
-| `ProjectAgentSettings.tsx` / `ProjectAgentView.tsx` Agent 设置 UI 变更 | 七、关键文件索引 |
-| `templates/*/identity.*.md` Agent 自我认知变更 | 五、Prompt 组装架构 |
-| `templates/master/prompt-v3.*.md` 标准思维框架变更 | 五、Prompt 组装架构 |
-| `shared/hardRules.ts` 硬约束规则变更 | 五、Prompt 组装架构 + 关键文件索引 |
-| `shared/toolSearchGuidance.ts` 工具目录生成逻辑变更 | 关键文件索引 |
-| 架构层级变更（新增/删除角色层） | 一～八章架构设计部分 |
-
-**同步规则**：
-1. 代码变更后，逐条对照上表，确认受影响章节的描述仍然正确
-2. 如果新增了文件或删除了文件，同步更新「关键文件索引」表
-3. 如果数据流发生变化（如新增路由分支），同步更新「核心数据流」图
-4. 如果类型签名变更，同步更新「类型定义」章节中的代码片段
-5. 如果架构设计发生变化（角色、路由规则、记忆体系），同步更新对应的架构章节
+| 变更范围 | 需更新的章节 |
+|----------|-------------|
+| `chatStreamService.ts` 路由逻辑 | 二、路由决策流程 + 四、跨项目 @mention |
+| `AiExecuteService.ts` skill 加载逻辑 | 二、Skill 自动加载映射 |
+| `ChatAgentMention.tsx` 触发/选择逻辑 | 四、跨项目 @mention 路由 |
+| `ChatInput.tsx` handleSubmit / metadata 注入 | 四、跨项目 @mention 路由 |
+| `taskConfigService.ts` / `taskExecutor.ts` 任务逻辑 | 五、Task 与对话的双向流转 + 六、Task 系统核心规则 |
+| `agentTools.ts` 协作工具变更 | 三、异步群组聊天 |
+| `agentManager.ts` 并发/深度限制变更 | 三、异步群组聊天 |
+| `message.ts` TargetAgent / ChatRequestBody 变更 | 一、交互模式 + 四、类型定义 |
+| `MessageTaskReport.tsx` task-report 渲染变更 | 五、Task 完成通知体验 |
+| 新增 Agent 类型或触发模式 | 对应章节 |
+| 架构层级变更（新增/删除角色层） | 全文档 |

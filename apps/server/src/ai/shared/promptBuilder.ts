@@ -27,7 +27,7 @@ export function buildSkillsSummarySection(
 
   for (const summary of summaries) {
     lines.push(
-      `- ${summary.name} [${summary.scope}] ${summary.description}`,
+      `- ${summary.originalName} [${summary.scope}] ${summary.description}`,
     )
   }
   return lines.join('\n')

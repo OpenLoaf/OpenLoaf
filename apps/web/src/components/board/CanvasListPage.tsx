@@ -50,6 +50,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@openloaf/ui/dropdown-menu";
 import {
@@ -374,6 +375,16 @@ function BoardCard({
                   <DropdownMenuItem
                     onClick={(e) => {
                       e.stopPropagation();
+                      handleCopyPathSelect();
+                    }}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    {labels.copyPath}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
                       handleRenameSelect();
                     }}
                   >
@@ -389,15 +400,7 @@ function BoardCard({
                     <CopyPlus className="mr-2 h-4 w-4" />
                     {labels.duplicate}
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCopyPathSelect();
-                    }}
-                  >
-                    <Copy className="mr-2 h-4 w-4" />
-                    {labels.copyPath}
-                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={(e) => {
                       e.stopPropagation();
@@ -445,15 +448,15 @@ function BoardCard({
             {labels.openInFileManager}
           </ContextMenuItem>
         )}
-        {(onOpenInNewWindow || onOpenInFileManager) && <ContextMenuSeparator />}
+        <ContextMenuItem icon={Copy} onSelect={handleCopyPathSelect}>
+          {labels.copyPath}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
         <ContextMenuItem icon={Edit2} onSelect={handleRenameSelect}>
           {labels.rename}
         </ContextMenuItem>
         <ContextMenuItem icon={CopyPlus} onSelect={handleDuplicateSelect}>
           {labels.duplicate}
-        </ContextMenuItem>
-        <ContextMenuItem icon={Copy} onSelect={handleCopyPathSelect}>
-          {labels.copyPath}
         </ContextMenuItem>
         <ColorPickerSubMenu
           currentIndex={board.colorIndex}

@@ -302,6 +302,7 @@ export async function runChatStream(input: {
     imageModelId: agentModelIds.imageModelId,
     videoModelId: agentModelIds.videoModelId,
     clientPlatform: input.request.clientPlatform,
+    pageContext: input.request.pageContext,
   });
 
   const lastMessage = incomingMessages.at(-1) as OpenLoafUIMessage | undefined;
@@ -823,6 +824,7 @@ export async function runChatImageRequest(input: {
     messageId,
     saasAccessToken: input.saasAccessToken,
     clientPlatform: input.request.clientPlatform,
+    pageContext: input.request.pageContext,
   });
 
   const lastMessage = incomingMessages.at(-1) as OpenLoafUIMessage | undefined;

@@ -96,6 +96,8 @@ export function GroupMembersDialog({
     prevGroupIdRef.current = groupId
 
     const engine = new CanvasEngine()
+    // 逻辑：子画布禁用多选和框选，避免选区边框闪烁问题。
+    engine.setSingleSelectOnly(true)
     const definitions = parentEngine.nodes.getDefinitions()
     if (definitions.length > 0) {
       engine.registerNodes(definitions)

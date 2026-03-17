@@ -1,8 +1,9 @@
 {
-  "name": "black-industrial-catalog-design",
-  "description": "当用户请求\"做成 OP-XY 风格\"、\"做黑场工业目录风页面\"、\"做硬件展品化产品页\"、\"做黑色 editorial 硬件官网\"、\"把页面改成黑场工业目录风\"、\"给我一套 Figma 规范和 Next.js 骨架\"，或希望获得源自 teenage engineering OP-XY 产品页面的深色、目录式、以硬件为核心的设计系统时，应使用此技能。",
+  "name": "黑场工业目录设计",
+  "description": "当用户要求制作‘OP-XY风格’、‘黑场工业目录风页面’、‘硬件展品化产品页’、‘黑色editorial硬件官网’、‘将页面改成黑场工业目录风’或希望获得一套基于Teenage Engineering OP-XY产品页的暗色、目录式、以硬件为核心的Figma规范与Next.js骨架时，应使用此技能。",
   "version": "0.1.0",
-  "sourceLanguage": "en",
+  "icon": "🔧",
+  "sourceLanguage": "zh-CN",
   "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T04:18:46.623Z"
+  "translatedAt": "2026-03-16T09:27:52.962Z"
 }

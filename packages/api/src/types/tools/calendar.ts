@@ -15,10 +15,6 @@ export const calendarQueryToolDef = {
   description:
     '触发：当用户**查询**日历日程（"今天/本周/这个月有什么日程/安排/会议"）时调用。仅用于读取/查询已有日程，不用于创建任务。不适用：用户说"帮我创建任务"/"创建一个任务"/"记一个任务"等创建意图时，改用 task-manage；用户查询应用项目列表时，改用 project-query。用途：list-sources 返回所有日历源，list-items 返回指定时间范围内的日程事项。返回：{ ok: true, data: { mode, sources|items } }。',
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：查看本周日程。'),
     mode: z
       .enum(['list-sources', 'list-items'])
       .describe('查询模式：list-sources 返回日历源列表，list-items 返回日程/提醒列表'),
@@ -44,10 +40,6 @@ export const calendarMutateToolDef = {
   description:
     '触发：当你需要创建、更新、删除日程/任务/提醒事项/会议/约会，或切换任务/提醒完成状态时调用。用途：执行日历数据变更操作。返回：{ ok: true, data: { action, item|id } }。不适用：仅需读取时不要使用。action 选择：用户说"取消/撤销/删除"日程或提醒 → 使用 delete；用户说"完成/标记完成" → 使用 toggle-completed。',
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：创建会议。'),
     action: z
       .enum(['create', 'update', 'delete', 'toggle-completed'])
       .describe('变更类型：create/update/delete/toggle-completed'),

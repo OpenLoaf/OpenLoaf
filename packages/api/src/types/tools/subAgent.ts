@@ -26,10 +26,6 @@ export const subAgentToolDef = {
   description:
     "触发：当任务需要交给子代理独立执行（例如分离浏览/文档分析），且你需要获得其最终结果时调用。用途：创建指定子代理执行任务，过程会产生流式事件供系统展示。返回：子代理最后一个响应 part（可能是 text 或工具 part），也可能为 null。不适用：简单任务无需拆分时不要使用。",
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：启动子代理执行网页操作。"),
     name: z
       .enum(subAgentNames)
       .describe(

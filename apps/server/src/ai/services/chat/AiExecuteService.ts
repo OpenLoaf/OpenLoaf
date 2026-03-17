@@ -22,6 +22,7 @@ import { getOpenLoafRootDir } from "@openloaf/config";
 import { resolveParentProjectRootPaths } from "@/ai/shared/util";
 import { CommandParser } from "@/ai/tools/CommandParser";
 import { SkillSelector, type SkillMatch } from "@/ai/tools/SkillSelector";
+import { resolveAutoSkillsByPageContext } from "@/ai/services/chat/pageContextSkillMap";
 
 type AiExecuteServiceInput = {
   /** Unified AI request payload. */
@@ -70,11 +71,15 @@ export class AiExecuteService {
     let selectedSkills: string[] = [];
     let enrichedLastMessage = lastMessage;
 
-    // 逻辑：仅在非指令用户输入时解析 /skill/。
+    // 逻辑：仅在非指令用户输入时解析 /skill/ + 自动 skill。
     if (lastMessage.role === "user" && !commandContext) {
-      selectedSkills = SkillSelector.extractSkillNamesFromText(lastText);
+      const manualSkills = SkillSelector.extractSkillNamesFromText(lastText);
+      const autoSkills = resolveAutoSkillsByPageContext(request.pageContext);
+      // Merge manual + auto, deduplicate
+      const allSkillNames = [...new Set([...manualSkills, ...autoSkills])];
+      selectedSkills = allSkillNames;
       const skillMatches = await resolveSkillMatches({
-        names: selectedSkills,
+        names: allSkillNames,
         request,
       });
       if (skillMatches.length > 0) {
@@ -171,6 +176,7 @@ function buildChatStreamRequest(input: {
     autoApproveTools: input.autoApproveTools,
     clientPlatform: input.request.clientPlatform,
     messageIdChain: input.request.messageIdChain,
+    pageContext: input.request.pageContext,
   };
 }
 
@@ -201,6 +207,7 @@ function buildChatImageRequest(input: {
     imageSaveDir: input.request.imageSaveDir,
     selectedSkills: input.selectedSkills,
     clientPlatform: input.request.clientPlatform,
+    pageContext: input.request.pageContext,
   };
 }
 

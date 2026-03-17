@@ -1,8 +1,9 @@
 {
-  "name": "multi-agent-routing",
-  "description": ">",
-  "version": "2.1.0",
+  "name": "多智能体路由",
+  "description": "根据任务需求将请求分发给多个智能体进行处理，实现协同工作与负载均衡。",
+  "version": "3.0.0",
+  "icon": "🤖",
   "sourceLanguage": "en",
   "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T04:19:00.549Z"
+  "translatedAt": "2026-03-16T09:28:39.092Z"
 }

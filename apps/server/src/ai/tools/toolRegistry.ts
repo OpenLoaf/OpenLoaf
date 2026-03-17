@@ -38,9 +38,11 @@ import { pdfQueryTool, pdfMutateTool } from "@/ai/tools/pdfTools";
 import { imageGenerateTool, videoGenerateTool, listMediaModelsTool } from "@/ai/tools/mediaGenerateTools";
 import { imageProcessTool } from "@/ai/tools/imageProcessTools";
 import { videoConvertTool } from "@/ai/tools/videoConvertTools";
+import { videoDownloadTool } from "@/ai/tools/videoDownloadTool";
 import { docConvertTool } from "@/ai/tools/docConvertTools";
 import { fileInfoTool } from "@/ai/tools/fileInfoTool";
 import { webSearchTool } from "@/ai/tools/webSearchTool";
+import { webFetchTool } from "@/ai/tools/webFetchTool";
 import { loadSkillTool } from "@/ai/tools/loadSkillTool";
 import { requestUserInputTool } from "@/ai/tools/requestUserInputTool";
 import { jsxCreateTool } from "@/ai/tools/jsxCreateTool";
@@ -86,9 +88,11 @@ import {
 } from "@openloaf/api/types/tools/mediaGenerate";
 import { imageProcessToolDef } from "@openloaf/api/types/tools/imageProcess";
 import { videoConvertToolDef } from "@openloaf/api/types/tools/videoConvert";
+import { videoDownloadToolDef } from "@openloaf/api/types/tools/videoDownload";
 import { docConvertToolDef } from "@openloaf/api/types/tools/docConvert";
 import { fileInfoToolDef } from "@openloaf/api/types/tools/fileInfo";
 import { webSearchToolDef } from "@openloaf/api/types/tools/webSearch";
+import { webFetchToolDef } from "@openloaf/api/types/tools/webFetch";
 import { loadSkillToolDef } from "@openloaf/api/types/tools/skill";
 import { requestUserInputToolDef } from "@openloaf/api/types/tools/userInput";
 import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
@@ -294,6 +298,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [videoConvertToolDef.id]: {
     tool: videoConvertTool,
   },
+  [videoDownloadToolDef.id]: {
+    tool: videoDownloadTool,
+  },
   [docConvertToolDef.id]: {
     tool: docConvertTool,
   },
@@ -302,6 +309,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [webSearchToolDef.id]: {
     tool: webSearchTool,
+  },
+  [webFetchToolDef.id]: {
+    tool: webFetchTool,
   },
   [loadSkillToolDef.id]: {
     tool: loadSkillTool,

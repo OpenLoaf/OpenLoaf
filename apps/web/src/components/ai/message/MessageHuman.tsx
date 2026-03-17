@@ -35,7 +35,13 @@ import { cn } from "@/lib/utils";
 import ChatMessageText from "./ChatMessageText";
 import MessageFile from "./tools/MessageFile";
 import { FILE_TOKEN_REGEX } from "../input/chat-input-utils";
-import { Message, MessageContent } from "@/components/ai-elements/message";
+import {
+  Message,
+  MessageContent,
+  USER_MESSAGE_MUTED_TEXT_CLASS,
+  USER_MESSAGE_SURFACE_CLASS,
+  USER_MESSAGE_TEXT_CLASS,
+} from "@/components/ai-elements/message";
 import { Attachment, Attachments } from "@/components/ai-elements/attachments";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 
@@ -393,7 +399,10 @@ export default function MessageHuman({
   return (
     <Message from="user" className={cn("max-w-[88%] min-w-0", className)}>
       <MessageContent
-        className="max-h-64 overflow-x-hidden overflow-y-auto show-scrollbar border border-primary/35 p-3 shadow-sm group-[.is-user]:!bg-primary/85 group-[.is-user]:!text-primary-foreground [&_a]:text-primary-foreground [&_a]:underline [&_a]:decoration-primary-foreground/50"
+        className={cn(
+          "max-h-64 overflow-x-hidden overflow-y-auto show-scrollbar border p-3 shadow-sm",
+          USER_MESSAGE_SURFACE_CLASS,
+        )}
         onPointerDownCapture={handleMentionPointerDown}
       >
         {displayParts.length > 0 && (
@@ -413,7 +422,7 @@ export default function MessageHuman({
                     } as any
                   }
                   key={`${part.url}-${index}`}
-                  className="!size-auto overflow-visible rounded-md border border-primary/40 bg-transparent p-0"
+                  className="!size-auto overflow-visible rounded-md border border-[var(--ol-chat-human-border)] bg-transparent p-0"
                   onClick={() => {
                     if (!preview?.src) return;
                     openPreview(part.url);
@@ -436,14 +445,14 @@ export default function MessageHuman({
                       baseSrc={preview.src}
                       maskSrc={maskPreview?.status === "ready" ? maskPreview.src : undefined}
                       alt="chat image"
-                      containerClassName="max-h-16 max-w-[90px] overflow-hidden rounded-md border border-primary/40"
+                      containerClassName="max-h-16 max-w-[90px] overflow-hidden rounded-md border border-[var(--ol-chat-human-border)]"
                       className="block max-h-16 max-w-[90px] object-contain"
                       maskClassName="max-h-16 max-w-[90px] object-contain opacity-70"
                     />
                   ) : preview?.status === "error" ? (
-                    <div className="text-xs text-primary-foreground/80">{t('image.loadFailed')}</div>
+                    <div className={cn("text-xs", USER_MESSAGE_MUTED_TEXT_CLASS)}>{t('image.loadFailed')}</div>
                   ) : (
-                    <Shimmer className="text-xs text-primary-foreground/80">
+                    <Shimmer className={cn("text-xs", USER_MESSAGE_MUTED_TEXT_CLASS)}>
                       {t('image.loading')}
                     </Shimmer>
                   )}
@@ -457,7 +466,7 @@ export default function MessageHuman({
             <MessageHumanTextPart
               key={`text-${index}`}
               text={text}
-              className="text-primary-foreground text-[12px] leading-4 break-words"
+              className={cn(USER_MESSAGE_TEXT_CLASS, "text-[12px] leading-4 break-words")}
               projectId={projectId}
               projects={projects}
             />

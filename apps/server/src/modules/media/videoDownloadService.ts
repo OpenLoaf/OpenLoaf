@@ -118,9 +118,11 @@ export function cancelDownloadTask(taskId: string): boolean {
 
 /** Clean up completed/failed tasks older than 10 minutes. */
 function scheduleCleanup(taskId: string) {
-  setTimeout(() => {
+  const timer = setTimeout(() => {
     tasks.delete(taskId)
   }, 10 * 60 * 1000)
+  // 逻辑：清理定时器不应阻止进程退出，尤其是测试场景。
+  timer.unref?.()
 }
 
 async function runDownload(

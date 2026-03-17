@@ -36,6 +36,10 @@ interface VideoViewerProps {
   height?: number;
   /** Force the large layout to keep controls stable. */
   forceLargeLayout?: boolean;
+  /** Clip start time in seconds. */
+  clipStart?: number;
+  /** Clip end time in seconds. */
+  clipEnd?: number;
   panelKey?: string;
   tabId?: string;
 }
@@ -95,6 +99,8 @@ export default function VideoViewer({
   width,
   height,
   forceLargeLayout,
+  clipStart: clipStartProp,
+  clipEnd: clipEndProp,
   panelKey,
   tabId,
 }: VideoViewerProps) {
@@ -462,6 +468,8 @@ export default function VideoViewer({
             thumbnails={manifest?.thumbnails}
             title={displayTitle}
             smallLayoutWhen={forceLargeLayout ? false : undefined}
+            clipStartTime={clipStartProp}
+            clipEndTime={clipEndProp}
             className={cn(
               "max-h-full max-w-full rounded-lg bg-black",
               isPortrait === null

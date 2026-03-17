@@ -120,7 +120,6 @@ async function main() {
     await withCtx(async () => {
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath,
           content: [
@@ -136,7 +135,7 @@ async function main() {
     // read-structure
     const structResult: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath },
+        { mode: 'read-structure', filePath },
         toolCtx,
       ),
     )
@@ -147,7 +146,7 @@ async function main() {
     // read-text
     const textResult: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-text', filePath },
+        { mode: 'read-text', filePath },
         toolCtx,
       ),
     )
@@ -161,7 +160,6 @@ async function main() {
     await withCtx(async () => {
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath,
           content: [
@@ -174,7 +172,7 @@ async function main() {
     })
     const result: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-text', filePath },
+        { mode: 'read-text', filePath },
         toolCtx,
       ),
     )
@@ -188,7 +186,6 @@ async function main() {
     await withCtx(async () => {
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath,
           content: [
@@ -202,7 +199,7 @@ async function main() {
     })
     const result: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath },
+        { mode: 'read-structure', filePath },
         toolCtx,
       ),
     )
@@ -218,7 +215,6 @@ async function main() {
     await withCtx(async () => {
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath: file1,
           content: [{ type: 'paragraph', text: 'File 1' }],
@@ -227,7 +223,6 @@ async function main() {
       )
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath: file2,
           content: [
@@ -240,7 +235,6 @@ async function main() {
       )
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'merge',
           filePath: merged,
           sourcePaths: [file1, file2],
@@ -251,7 +245,7 @@ async function main() {
 
     const result: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath: merged },
+        { mode: 'read-structure', filePath: merged },
         toolCtx,
       ),
     )
@@ -264,7 +258,6 @@ async function main() {
     await withCtx(async () => {
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath,
           content: [{ type: 'paragraph', text: 'Original content' }],
@@ -273,7 +266,6 @@ async function main() {
       )
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'add-text',
           filePath,
           overlays: [
@@ -286,7 +278,7 @@ async function main() {
 
     const result: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-text', filePath },
+        { mode: 'read-text', filePath },
         toolCtx,
       ),
     )
@@ -302,7 +294,7 @@ async function main() {
     // read-form-fields
     const fieldsResult: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-form-fields', filePath },
+        { mode: 'read-form-fields', filePath },
         toolCtx,
       ),
     )
@@ -316,7 +308,6 @@ async function main() {
     await withCtx(async () => {
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'fill-form',
           filePath,
           fields: { name: 'John Doe', agree: 'true' },
@@ -328,7 +319,7 @@ async function main() {
     // Verify fill
     const afterFill: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-form-fields', filePath },
+        { mode: 'read-form-fields', filePath },
         toolCtx,
       ),
     )
@@ -349,7 +340,7 @@ async function main() {
       () =>
         withCtx(() =>
           pdfQueryTool.execute(
-            { actionName: 'test', mode: 'read-structure', filePath: rel('nonexistent.pdf') },
+            { mode: 'read-structure', filePath: rel('nonexistent.pdf') },
             toolCtx,
           ),
         ),
@@ -365,7 +356,7 @@ async function main() {
       () =>
         withCtx(() =>
           pdfQueryTool.execute(
-            { actionName: 'test', mode: 'read-structure', filePath: txtFile },
+            { mode: 'read-structure', filePath: txtFile },
             toolCtx,
           ),
         ),
@@ -378,7 +369,7 @@ async function main() {
       () =>
         withCtx(() =>
           pdfMutateTool.execute(
-            { actionName: 'test', action: 'create', filePath: rel('j3.pdf') },
+            { action: 'create', filePath: rel('j3.pdf') },
             toolCtx,
           ),
         ),
@@ -391,7 +382,7 @@ async function main() {
       () =>
         withCtx(() =>
           pdfMutateTool.execute(
-            { actionName: 'test', action: 'fill-form', filePath: rel('j4.pdf') },
+            { action: 'fill-form', filePath: rel('j4.pdf') },
             toolCtx,
           ),
         ),
@@ -404,7 +395,7 @@ async function main() {
       () =>
         withCtx(() =>
           pdfMutateTool.execute(
-            { actionName: 'test', action: 'merge', filePath: rel('j5.pdf') },
+            { action: 'merge', filePath: rel('j5.pdf') },
             toolCtx,
           ),
         ),
@@ -417,7 +408,7 @@ async function main() {
       () =>
         withCtx(() =>
           pdfMutateTool.execute(
-            { actionName: 'test', action: 'add-text', filePath: rel('j6.pdf') },
+            { action: 'add-text', filePath: rel('j6.pdf') },
             toolCtx,
           ),
         ),
@@ -431,7 +422,7 @@ async function main() {
       () =>
         withCtx(() =>
           pdfQueryTool.execute(
-            { actionName: 'test', mode: 'unknown-mode' as any, filePath },
+            { mode: 'unknown-mode' as any, filePath },
             toolCtx,
           ),
         ),
@@ -444,7 +435,7 @@ async function main() {
       () =>
         withCtx(() =>
           pdfMutateTool.execute(
-            { actionName: 'test', action: 'unknown' as any, filePath: rel('j8.pdf') },
+            { action: 'unknown' as any, filePath: rel('j8.pdf') },
             toolCtx,
           ),
         ),
@@ -459,7 +450,6 @@ async function main() {
         withCtx(() =>
           pdfMutateTool.execute(
             {
-              actionName: 'test',
               action: 'add-text',
               filePath,
               overlays: [{ page: 999, x: 0, y: 0, text: 'test' }],
@@ -477,7 +467,6 @@ async function main() {
         withCtx(() =>
           pdfMutateTool.execute(
             {
-              actionName: 'test',
               action: 'create',
               filePath: rel('j10.pdf'),
               content: [{ type: 'paragraph', text: '这是中文内容' }],
@@ -493,7 +482,7 @@ async function main() {
     const filePath = rel('i3.pdf') // reuse from I3 (2 pages)
     const result: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-text', filePath, pageRange: '1' },
+        { mode: 'read-text', filePath, pageRange: '1' },
         toolCtx,
       ),
     )
@@ -514,7 +503,7 @@ async function main() {
     await test('K1: read-structure on real PDF', async () => {
       const result: any = await withCtx(() =>
         pdfQueryTool.execute(
-          { actionName: 'test', mode: 'read-structure', filePath: realPdf },
+          { mode: 'read-structure', filePath: realPdf },
           toolCtx,
         ),
       )
@@ -527,7 +516,7 @@ async function main() {
     await test('K2: read-text full extraction on real PDF', async () => {
       const result: any = await withCtx(() =>
         pdfQueryTool.execute(
-          { actionName: 'test', mode: 'read-text', filePath: realPdf },
+          { mode: 'read-text', filePath: realPdf },
           toolCtx,
         ),
       )
@@ -541,7 +530,7 @@ async function main() {
     await test('K3: read-text with pageRange="1" on real PDF', async () => {
       const result: any = await withCtx(() =>
         pdfQueryTool.execute(
-          { actionName: 'test', mode: 'read-text', filePath: realPdf, pageRange: '1' },
+          { mode: 'read-text', filePath: realPdf, pageRange: '1' },
           toolCtx,
         ),
       )
@@ -552,7 +541,7 @@ async function main() {
     await test('K4: read-text with pageRange="1-2" on real PDF', async () => {
       const result: any = await withCtx(() =>
         pdfQueryTool.execute(
-          { actionName: 'test', mode: 'read-text', filePath: realPdf, pageRange: '1-2' },
+          { mode: 'read-text', filePath: realPdf, pageRange: '1-2' },
           toolCtx,
         ),
       )
@@ -563,7 +552,7 @@ async function main() {
     await test('K5: read-form-fields on real PDF (no forms expected)', async () => {
       const result: any = await withCtx(() =>
         pdfQueryTool.execute(
-          { actionName: 'test', mode: 'read-form-fields', filePath: realPdf },
+          { mode: 'read-form-fields', filePath: realPdf },
           toolCtx,
         ),
       )
@@ -582,7 +571,6 @@ async function main() {
     await withCtx(async () => {
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath,
           content: [
@@ -603,7 +591,7 @@ async function main() {
     // Verify structure
     const structResult: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath },
+        { mode: 'read-structure', filePath },
         toolCtx,
       ),
     )
@@ -613,7 +601,7 @@ async function main() {
     // Verify text content
     const textResult: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-text', filePath },
+        { mode: 'read-text', filePath },
         toolCtx,
       ),
     )
@@ -632,7 +620,6 @@ async function main() {
     await withCtx(async () => {
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath,
           content: [
@@ -645,7 +632,7 @@ async function main() {
 
     const result: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-text', filePath },
+        { mode: 'read-text', filePath },
         toolCtx,
       ),
     )
@@ -658,7 +645,6 @@ async function main() {
     await withCtx(async () => {
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath,
           content: [{ type: 'paragraph', text: 'Base content' }],
@@ -668,7 +654,6 @@ async function main() {
       // First overlay
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'add-text',
           filePath,
           overlays: [{ page: 1, x: 100, y: 500, text: 'OVERLAY_ALPHA', fontSize: 14 }],
@@ -678,7 +663,6 @@ async function main() {
       // Second overlay
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'add-text',
           filePath,
           overlays: [{ page: 1, x: 100, y: 300, text: 'OVERLAY_BETA', fontSize: 14 }],
@@ -689,7 +673,7 @@ async function main() {
 
     const result: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-text', filePath },
+        { mode: 'read-text', filePath },
         toolCtx,
       ),
     )
@@ -704,7 +688,6 @@ async function main() {
     await withCtx(async () => {
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath,
           content: [{ type: 'paragraph', text: 'Color test base' }],
@@ -713,7 +696,6 @@ async function main() {
       )
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'add-text',
           filePath,
           overlays: [{ page: 1, x: 100, y: 400, text: 'RED_TEXT', fontSize: 12, color: '#FF0000' }],
@@ -724,7 +706,7 @@ async function main() {
 
     const result: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-text', filePath },
+        { mode: 'read-text', filePath },
         toolCtx,
       ),
     )
@@ -737,7 +719,6 @@ async function main() {
     await withCtx(async () => {
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath,
           content: [{ type: 'paragraph', text: 'Secret phone 18812345678 here' }],
@@ -747,7 +728,6 @@ async function main() {
       // Mask the phone number with white background + black ****
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'add-text',
           filePath,
           overlays: [{
@@ -767,7 +747,7 @@ async function main() {
     // Verify the overlay was applied (file still readable)
     const result: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath },
+        { mode: 'read-structure', filePath },
         toolCtx,
       ),
     )
@@ -783,7 +763,6 @@ async function main() {
     await withCtx(async () => {
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath: src1,
           content: [{ type: 'paragraph', text: 'SOURCE_ONE_CONTENT' }],
@@ -792,7 +771,6 @@ async function main() {
       )
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath: src2,
           content: [{ type: 'paragraph', text: 'SOURCE_TWO_CONTENT' }],
@@ -801,7 +779,6 @@ async function main() {
       )
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'merge',
           filePath: merged,
           sourcePaths: [src1, src2],
@@ -812,7 +789,7 @@ async function main() {
 
     const result: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-text', filePath: merged },
+        { mode: 'read-text', filePath: merged },
         toolCtx,
       ),
     )
@@ -831,7 +808,6 @@ async function main() {
       // src1: 1 page
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath: src1,
           content: [{ type: 'paragraph', text: 'A1' }],
@@ -841,7 +817,6 @@ async function main() {
       // src2: 2 pages
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath: src2,
           content: [
@@ -855,7 +830,6 @@ async function main() {
       // src3: 1 page
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath: src3,
           content: [{ type: 'paragraph', text: 'C1' }],
@@ -864,7 +838,6 @@ async function main() {
       )
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'merge',
           filePath: merged,
           sourcePaths: [src1, src2, src3],
@@ -875,7 +848,7 @@ async function main() {
 
     const result: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath: merged },
+        { mode: 'read-structure', filePath: merged },
         toolCtx,
       ),
     )
@@ -892,7 +865,6 @@ async function main() {
     await withCtx(async () => {
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'fill-form',
           filePath,
           fields: { name: 'Alice Smith' },
@@ -904,7 +876,7 @@ async function main() {
     // Read back and verify
     const result: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-form-fields', filePath },
+        { mode: 'read-form-fields', filePath },
         toolCtx,
       ),
     )
@@ -922,7 +894,6 @@ async function main() {
     await withCtx(async () => {
       await pdfMutateTool.execute(
         {
-          actionName: 'test',
           action: 'fill-form',
           filePath,
           fields: { agree: 'true' },
@@ -934,7 +905,7 @@ async function main() {
     // Read back and verify
     const result: any = await withCtx(() =>
       pdfQueryTool.execute(
-        { actionName: 'test', mode: 'read-form-fields', filePath },
+        { mode: 'read-form-fields', filePath },
         toolCtx,
       ),
     )

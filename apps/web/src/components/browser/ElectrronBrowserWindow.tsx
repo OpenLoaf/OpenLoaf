@@ -911,7 +911,10 @@ export default function ElectrronBrowserWindow({
 
           <BrowserProgressBar visible={showProgress} />
 
-          <div ref={hostRef} className="relative min-h-0 flex-1 overflow-hidden">
+          <div
+            ref={hostRef}
+            className="relative min-h-0 flex-1 overflow-hidden rounded-b-xl"
+          >
             {showHome ? (
               <BrowserHome onOpenUrl={onOpenUrl} />
             ) : (

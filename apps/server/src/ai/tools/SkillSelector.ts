@@ -74,7 +74,10 @@ export class SkillSelector {
             : "project",
         );
         if (!summary) continue;
-        if (normalizeSkillName(summary.name) !== normalizedName) continue;
+        if (
+          normalizeSkillName(summary.originalName) !== normalizedName &&
+          normalizeSkillName(summary.name) !== normalizedName
+        ) continue;
         const content = readSkillContentFromPath(filePath);
         return {
           name: summary.name,
@@ -88,20 +91,38 @@ export class SkillSelector {
     return null;
   }
 
-  /** Extract ordered skill names from user text. */
+  /** Extract ordered skill names from user text.
+   *  Supports both new format `/skill/[originalName|displayName]` and legacy `/skill/name`.
+   */
   static extractSkillNamesFromText(text: string): string[] {
-    const matches = text.matchAll(/\/skill\/([^\s]+)/gu);
+    // New format: /skill/[originalName|displayName] or /skill/[originalName]
+    const bracketMatches = text.matchAll(/\/skill\/\[([^\]|]+)(?:\|[^\]]*)?\]/gu);
+    // Legacy format: /skill/name (ASCII word chars and hyphens only)
+    const legacyMatches = text.matchAll(/\/skill\/([\w-]+)/gu);
+
     const ordered: string[] = [];
     const seen = new Set<string>();
-    for (const match of matches) {
-      const rawName = match[1] ?? "";
-      const name = rawName.trim();
+
+    // Process bracket format first (higher priority)
+    for (const match of bracketMatches) {
+      const name = (match[1] ?? "").trim();
       if (!name) continue;
       const key = name.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
       ordered.push(name);
     }
+
+    // Process legacy format for backward compatibility
+    for (const match of legacyMatches) {
+      const name = (match[1] ?? "").trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      ordered.push(name);
+    }
+
     return ordered;
   }
 }

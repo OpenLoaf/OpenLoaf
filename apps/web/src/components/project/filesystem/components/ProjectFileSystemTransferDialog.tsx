@@ -51,6 +51,7 @@ import { Ban, FolderPlus, PencilLine } from "lucide-react";
 import { useFileSelection } from "@/hooks/use-file-selection";
 import { useFileRename } from "@/hooks/use-file-rename";
 import { useProjects } from "@/hooks/use-projects";
+import { getPreviewEndpoint } from "@/lib/image/uri";
 import { isBoardFolderName } from "@/lib/file-name";
 import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
 import {
@@ -58,10 +59,12 @@ import {
   buildChildUri,
   formatScopedProjectPath,
   getDisplayPathFromUri,
+  getEntryExt,
   getParentRelativePath,
   getRelativePathFromUri,
   parseScopedProjectPath,
   getUniqueName,
+  resolveFileUriFromRoot,
   type FileSystemEntry,
 } from "../utils/file-system-utils";
 import { sortEntriesByType } from "../utils/entry-sort";
@@ -126,6 +129,34 @@ function normalizePageTreeProjects(nodes?: ProjectTreeNode[]): ProjectTreeNode[]
   return walk(nodes);
 }
 
+/** Convert an array buffer to base64 for Electron save dialogs. */
+function encodeArrayBufferToBase64(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+  // 逻辑：分片拼接，避免大文件下载时一次性展开导致栈溢出。
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
+}
+
+/** Join a picked local directory path with a file or folder name. */
+function joinLocalTargetPath(basePath: string, name: string) {
+  const normalizedBase = basePath.trim().replace(/[\\/]+$/, "");
+  if (!normalizedBase) return name;
+  const separator = normalizedBase.includes("\\") ? "\\" : "/";
+  return `${normalizedBase}${separator}${name}`;
+}
+
+/** Create a unique local transfer session id. */
+function createLocalTransferId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `fs-export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 /** Check if target uri is inside source uri. */
 function isSubPath(sourceUri: string, targetUri: string) {
   if (!sourceUri || !targetUri) return false;
@@ -147,6 +178,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
   const { t } = useTranslation(['project']);
   const queryClient = useQueryClient();
   const projectListQuery = useProjects();
+  const sourceRootUri = defaultRootUri ?? null;
   const [activeRootUri, setActiveRootUri] = useState<string | null>(
     defaultRootUri ?? null
   );
@@ -172,6 +204,11 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
   const activeProjectId = useMemo(
     () => (activeRootUri ? projectIdByRootUri.get(activeRootUri) : undefined),
     [activeRootUri, projectIdByRootUri]
+  );
+  /** Resolve the source project id for transfer/save actions. */
+  const sourceProjectId = useMemo(
+    () => (sourceRootUri ? projectIdByRootUri.get(sourceRootUri) : undefined),
+    [projectIdByRootUri, sourceRootUri]
   );
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(
@@ -378,6 +415,84 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
   const handleNavigate = (uri: string) => {
     setActiveUri(uri);
   };
+
+  /** Save the source entries to the local computer. */
+  const handleSaveToComputer = useCallback(async () => {
+    if (transferEntries.length === 0) return;
+    const hasFolderEntry = transferEntries.some((entry) => entry.kind === "folder");
+    const requiresDirectoryExport = hasFolderEntry || transferEntries.length > 1;
+    const electronApi = window.openloafElectron;
+
+    try {
+      if (requiresDirectoryExport) {
+        if (!electronApi?.pickDirectory || !electronApi?.startTransfer || !sourceRootUri) {
+          toast.error(t('project:filesystem.saveToComputerUnsupported'));
+          return;
+        }
+        const pickedDirectory = await electronApi.pickDirectory();
+        if (!pickedDirectory?.ok) return;
+
+        for (const entry of transferEntries) {
+          const sourcePath = resolveFileUriFromRoot(sourceRootUri, entry.uri);
+          const targetPath = joinLocalTargetPath(pickedDirectory.path, entry.name);
+          const result = await electronApi.startTransfer({
+            id: createLocalTransferId(),
+            sourcePath,
+            targetPath,
+            kind: entry.kind,
+          });
+          if (!result?.ok) {
+            throw new Error(result?.reason ?? t('project:filesystem.cannotResolvePath'));
+          }
+        }
+        toast.success(t('project:filesystem.saveConfirmLabel'));
+        return;
+      }
+
+      const entry = transferEntries[0];
+      if (!entry || entry.kind !== "file" || !sourceProjectId) {
+        toast.error(t('project:filesystem.cannotResolvePath'));
+        return;
+      }
+
+      const previewUrl = getPreviewEndpoint(entry.uri, { projectId: sourceProjectId });
+      if (electronApi?.saveFile) {
+        const response = await fetch(previewUrl);
+        if (!response.ok) throw new Error("fetch failed");
+        const buffer = await response.arrayBuffer();
+        const extension = getEntryExt(entry) || "bin";
+        const saveResult = await electronApi.saveFile({
+          contentBase64: encodeArrayBufferToBase64(buffer),
+          suggestedName: entry.name,
+          filters: [{ name: "File", extensions: [extension] }],
+        });
+        if (!saveResult?.ok) {
+          if (saveResult?.canceled) return;
+          throw new Error(saveResult?.reason ?? t('project:filesystem.cannotResolvePath'));
+        }
+        toast.success(t('project:filesystem.saveConfirmLabel'));
+        return;
+      }
+
+      const link = document.createElement("a");
+      link.href = previewUrl;
+      link.download = entry.name;
+      link.rel = "noreferrer";
+      link.click();
+      toast.success(t('project:filesystem.saveConfirmLabel'));
+    } catch (error: any) {
+      toast.error(error?.message ?? t('project:filesystem.cannotResolvePath'));
+    }
+  }, [sourceProjectId, sourceRootUri, t, transferEntries]);
+
+  /** Close the dialog first, then continue with local save. */
+  const handleSaveToComputerClick = useCallback(() => {
+    onOpenChange(false);
+    // 中文注释：先关闭当前弹窗，再打开系统保存面板，避免焦点冲突。
+    window.setTimeout(() => {
+      void handleSaveToComputer();
+    }, 0);
+  }, [handleSaveToComputer, onOpenChange]);
 
   /** Confirm the transfer action based on the current mode. */
   const handleConfirmTransfer = async () => {
@@ -714,17 +829,32 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
             </div>
           </div>
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="ghost">{t('project:filesystem.cancel')}</Button>
-          </DialogClose>
-          <Button
-            type="button"
-            onClick={handleConfirmTransfer}
-            disabled={effectiveConfirmDisabled}
-          >
-            {confirmLabel}
-          </Button>
+        <DialogFooter className="flex w-full items-center justify-start gap-3">
+          {mode === "select" ? (
+            <span />
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-md shadow-none transition-colors duration-150"
+              disabled={transferEntries.length === 0}
+              onClick={handleSaveToComputerClick}
+            >
+              {t('project:filesystem.saveToComputer')}
+            </Button>
+          )}
+          <div className="ml-auto flex items-center gap-2">
+            <DialogClose asChild>
+              <Button variant="ghost">{t('project:filesystem.cancel')}</Button>
+            </DialogClose>
+            <Button
+              type="button"
+              onClick={handleConfirmTransfer}
+              disabled={effectiveConfirmDisabled}
+            >
+              {confirmLabel}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

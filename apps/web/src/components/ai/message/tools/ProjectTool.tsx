@@ -17,6 +17,7 @@ import { queryClient } from "@/utils/trpc";
 import UnifiedTool from "./UnifiedTool";
 import {
   asPlainObject,
+  getToolKind,
   getToolOutputState,
   normalizeToolInput,
   type AnyToolPart,
@@ -25,15 +26,6 @@ import {
 
 /** Project tools that should trigger project tree refresh. */
 const PROJECT_TOOL_MUTATIONS = new Set(["project-mutate"]);
-
-/** Resolve tool key for project routing. */
-function getToolKind(part: AnyToolPart): string {
-  if (typeof part.toolName === "string" && part.toolName.trim()) return part.toolName;
-  if (typeof part.type === "string" && part.type.startsWith("tool-")) {
-    return part.type.slice("tool-".length);
-  }
-  return part.type ?? "";
-}
 
 /** Extract project info from tool output. */
 function extractProjectInfo(output: unknown):

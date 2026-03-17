@@ -17,6 +17,7 @@ import { TrafficLights } from '@openloaf/ui/traffic-lights'
 import {
   asPlainObject,
   getApprovalId,
+  getToolKind,
   getToolName,
   isApprovalPending,
   isToolStreaming,
@@ -54,12 +55,6 @@ function getMode(data: ExcelOutputData | null, input: Record<string, unknown> | 
   if (typeof input?.mode === 'string') return input.mode
   if (typeof input?.action === 'string') return input.action
   return ''
-}
-
-function getToolKind(part: AnyToolPart): string {
-  if (typeof part.toolName === 'string' && part.toolName.trim()) return part.toolName
-  if (part.type.startsWith('tool-')) return part.type.slice('tool-'.length)
-  return part.type
 }
 
 // ---------------------------------------------------------------------------

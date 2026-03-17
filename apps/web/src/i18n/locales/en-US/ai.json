@@ -171,9 +171,11 @@
     "widget-check": "Check Widget",
     "generate-widget": "Generate Widget",
     "image-process": "Image Process",
+    "video-download": "Video Download",
     "video-convert": "Video Convert",
     "doc-convert": "Document Convert",
-    "file-info": "File Info"
+    "file-info": "File Info",
+    "web-fetch": "Fetch Web Content"
   },
   "session": {
     "renameTitle": "Rename Session",
@@ -375,6 +377,21 @@
       "file": "File",
       "action": "Action",
       "more": "+{{count}} more"
+    },
+    "videoDownload": {
+      "processing": "Downloading...",
+      "operationFailed": "Video download failed",
+      "saveAs": "Save as",
+      "sourceUrl": "Source URL",
+      "destination": "Saved to",
+      "chatAsset": "Chat asset folder",
+      "boardAsset": "Board asset folder",
+      "unknownDestination": "Unknown location",
+      "title": "Title",
+      "duration": "Duration",
+      "resolution": "Resolution",
+      "format": "Format",
+      "fileSize": "File size"
     },
     "word": {
       "totalParagraphs": "{{count}} paragraphs",

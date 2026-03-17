@@ -159,6 +159,8 @@ Board 节点通过 `intent: "image"` + `responseMode: "json"` 走独立流程：
 
 修改优先级: `instructions`（base）→ preface（运行时）→ skill（用户选择）
 
+**技能摘要输出**: `promptBuilder.buildSkillsSummarySection()` 使用 `summary.originalName` 输出技能名称给 AI 模型，确保 AI 调用 `load-skill` 时传入的是可匹配的原始名，而非翻译后的显示名。`prefaceBuilder` 和 `subAgentPrefaceBuilder` 过滤技能时同时匹配 `name` 和 `originalName`。
+
 ## SSE Streaming Output
 
 工具执行中推送自定义 data：

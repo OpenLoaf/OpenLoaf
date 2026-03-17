@@ -1,7 +1,8 @@
 {
-  "name": "web-layout-structure",
-  "description": "在 apps/web/src/components/layout 中处理或调试 Web 应用布局时使用，包括 header、sidebar、单视图拆分、左侧停靠堆叠面板、右侧聊天面板以及布局门控。",
+  "name": "网页布局结构",
+  "description": "用于在 apps/web/src/components/layout 中工作或调试网页应用布局，包括头部、侧边栏、单视图分割、左侧停靠面板、右侧聊天面板或布局控制点。",
+  "icon": "🧩",
   "sourceLanguage": "en",
   "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T04:19:01.580Z"
+  "translatedAt": "2026-03-16T09:28:29.965Z"
 }

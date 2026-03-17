@@ -1,8 +1,9 @@
 {
-  "name": "teenage engineering品牌设计",
-  "description": "当用户要求“做成 teenage engineering 风格”、“分析 teenage engineering 设计”、“分析 OP-XY 页面样式”、“参考 teenage engineering 做页面”、“做工业玩具极简风格”、“做北欧电子产品品牌风格”、“做像 teenage engineering 一样的产品页”、“做像 teenage engineering 一样的商店页”，或希望获得受 teenage engineering 的工业、编辑式、以硬件为先的视觉语言启发的设计系统时，应使用此技能。",
+  "name": "青少年工程品牌设计",
+  "description": "当用户要求制作‘青少年工程风格’、‘分析青少年工程设计’、‘分析OP-XY页面样式’、‘参考青少年工程做页面’、‘做工业玩具极简风格’、‘做北欧电子产品品牌风格’、‘做像青少年工程一样的产品页’、‘做像青少年工程一样的商店页’，或希望获得受青少年工程工业、编辑、硬件优先视觉语言启发的设计系统时，请使用此技能。",
   "version": "0.2.0",
-  "sourceLanguage": "en",
+  "icon": "🎨",
+  "sourceLanguage": "zh-CN",
   "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T04:19:00.028Z"
+  "translatedAt": "2026-03-16T09:28:27.750Z"
 }

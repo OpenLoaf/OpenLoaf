@@ -12,6 +12,8 @@
 type AnyPart = {
   type?: unknown;
   toolName?: unknown;
+  state?: unknown;
+  errorText?: unknown;
 };
 
 const HIDDEN_TOOL_NAMES = new Set(["tool-search"]);
@@ -33,6 +35,15 @@ export function isToolPart(part: unknown): boolean {
   if (typeof p.type !== "string") return false;
   const type = p.type.trim();
   return type === "dynamic-tool";
+}
+
+/** 判断一个 tool part 是否有错误状态（错误的工具调用不应被隐藏）。 */
+export function isToolPartError(part: unknown): boolean {
+  if (!part || typeof part !== "object") return false;
+  const p = part as AnyPart;
+  if (p.state === "output-error") return true;
+  if (typeof p.errorText === "string" && p.errorText.trim().length > 0) return true;
+  return false;
 }
 
 /** 判断一个 tool part 是否应在 Web 聊天中隐藏。 */

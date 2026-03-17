@@ -79,6 +79,7 @@ vi.mock('@/lib/image/uri', () => ({
   fetchBlobFromUri: vi.fn().mockResolvedValue(null),
   resolveFileUri: vi.fn((p: string) => p),
   createBlobUrl: vi.fn(() => ''),
+  getPreviewEndpoint: vi.fn((path: string) => path),
 }))
 
 vi.mock('@/components/file/lib/open-file', () => ({

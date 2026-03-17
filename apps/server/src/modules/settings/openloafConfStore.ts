@@ -98,6 +98,7 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   },
   webSearchProvider: "",
   webSearchApiKey: "",
+  chatShowAllToolResults: false,
 };
 
 /** Normalize CLI tool config. */
@@ -388,6 +389,12 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : typeof fallbackSource.webSearchApiKey === "string"
         ? fallbackSource.webSearchApiKey
         : DEFAULT_BASIC_CONF.webSearchApiKey;
+  const chatShowAllToolResults =
+    typeof source.chatShowAllToolResults === "boolean"
+      ? source.chatShowAllToolResults
+      : typeof fallbackSource.chatShowAllToolResults === "boolean"
+        ? fallbackSource.chatShowAllToolResults
+        : DEFAULT_BASIC_CONF.chatShowAllToolResults;
 
   return {
     chatSource,
@@ -428,6 +435,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     cliTools,
     webSearchProvider,
     webSearchApiKey,
+    chatShowAllToolResults,
   };
 }
 

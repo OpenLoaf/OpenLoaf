@@ -49,6 +49,10 @@ export type FilePreviewItem = {
   maskUri?: string;
   /** Optional file name for save. */
   saveName?: string;
+  /** Optional clip start time in seconds for video preview. */
+  clipStart?: number;
+  /** Optional clip end time in seconds for video preview. */
+  clipEnd?: number;
 };
 
 export type FilePreviewPayload = {

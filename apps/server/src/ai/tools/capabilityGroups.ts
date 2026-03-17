@@ -95,6 +95,12 @@ const RAW_CAPABILITY_GROUPS = [
     toolIds: ['list-media-models', 'video-generate'],
   },
   {
+    id: 'video-download',
+    label: '视频下载',
+    description: '通过视频网址下载媒体文件到当前会话或画布资源目录',
+    toolIds: ['video-download'],
+  },
+  {
     id: 'chart',
     label: '图表',
     description: '生成并渲染图表',
@@ -122,7 +128,7 @@ const RAW_CAPABILITY_GROUPS = [
     id: 'web',
     label: '网络请求',
     description: '发起 HTTP 请求和链接预览',
-    toolIds: ['open-url'],
+    toolIds: ['open-url', 'web-fetch'],
   },
   {
     id: 'agent',

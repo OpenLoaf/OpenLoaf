@@ -29,6 +29,8 @@ export * from "./chart";
 export * from "./task";
 export * from "./imageProcess";
 export * from "./videoConvert";
+export * from "./videoDownload";
 export * from "./docConvert";
 export * from "./fileInfo";
 export * from "./webSearch";
+export * from "./webFetch";

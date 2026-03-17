@@ -302,6 +302,8 @@
     "renameDesc": "输入项目的新名称。",
     "confirmRemove": "确认移除此项目？仅从列表移除，不会删除磁盘文件。",
     "openInNewWindow": "新窗口打开",
+    "copyAddress": "复制项目地址",
+    "addressCopied": "已复制项目地址",
     "totalCount": "共 {{count}} 个",
     "childCount": "{{count}} 个子项目",
     "createFailed": "创建失败",

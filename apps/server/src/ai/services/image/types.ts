@@ -9,7 +9,7 @@
  */
 import type { ChatModelSource } from "@openloaf/api/common";
 import type { ClientPlatform } from "@openloaf/api/types/platform";
-import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
+import type { ChatPageContext, OpenLoafUIMessage } from "@openloaf/api/types/message";
 
 export type ChatImageMessageInput = {
   /** Message id. */
@@ -63,6 +63,8 @@ export type ChatImageRequest = {
   selectedSkills?: string[];
   /** Client platform for conditional tool registration. */
   clientPlatform?: ClientPlatform;
+  /** Page context for skill auto-loading. */
+  pageContext?: ChatPageContext;
 };
 
 type ChatImageResponse = {

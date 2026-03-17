@@ -29,10 +29,6 @@ export const docConvertToolDef = {
     '返回：{ ok, data: { outputPath, sourceFormat, outputFormat, fileSize, lossyConversion? } }。' +
     '不适用：需要读取/编辑文档内容（不转换格式）时，使用 word-query/excel-query/pdf-query 等专用工具。',
   parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe('由调用的 LLM 传入，用于说明本次工具调用目的，例如：将 DOCX 转换为 PDF。'),
     filePath: z
       .string()
       .min(1)
