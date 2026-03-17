@@ -21,13 +21,19 @@ export type ChatTextToken =
   | { type: "mention"; value: string }
   | { type: "skill"; value: string; displayName?: string };
 
-/** Normalize URL boundary in CJK text to avoid malformed auto-links. */
+/** Normalize URL boundary in CJK text to avoid malformed auto-links.
+ *  Also strip residual <think>...</think> blocks that some models emit as plain text. */
 export function preprocessChatText(value: string): string {
   if (!value) return value;
-  return value.replace(
+  // Strip <think>...</think> blocks (including multiline) that weren't extracted by server middleware
+  let cleaned = value.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  // Also strip unclosed <think> tags (streaming edge case or truncated output)
+  cleaned = cleaned.replace(/<think>[\s\S]*$/gi, "");
+  cleaned = cleaned.replace(
     /(https?:\/\/[^\s\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]+)([\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef])/g,
     "$1 $2",
   );
+  return cleaned;
 }
 
 /** Split plain text into skill / command / text segments. */

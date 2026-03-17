@@ -400,7 +400,7 @@ export default function MessageHuman({
     <Message from="user" className={cn("max-w-[88%] min-w-0", className)}>
       <MessageContent
         className={cn(
-          "max-h-64 overflow-x-hidden overflow-y-auto show-scrollbar border p-3 shadow-sm",
+          "max-h-64 overflow-x-hidden overflow-y-auto show-scrollbar border p-3 shadow-none",
           USER_MESSAGE_SURFACE_CLASS,
         )}
         onPointerDownCapture={handleMentionPointerDown}

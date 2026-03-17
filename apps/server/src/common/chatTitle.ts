@@ -11,6 +11,13 @@
 // 逻辑：匹配形如 @{path/to/file} 或 @{[projectId]/path/to/file} 的文件引用。
 const FILE_TOKEN_REGEX = /@\{([^}]+)\}/g;
 
+/** Skill reference matcher: /skill/[originalName|displayName] or /skill/[originalName] or /skill/name */
+const SKILL_REF_REGEX =
+  /\/skill\/\[([\w-]+)(?:\|([^\]]*))?\]|\/skill\/([\w-]+)/g;
+
+/** Bare absolute file path (Unix-style). */
+const BARE_PATH_REGEX = /(?:^|\s)(\/(?:[\w._-]+\/)+[\w._-]+)/g;
+
 /** Extract a readable file label from a token value. */
 function extractFileLabel(token: string): string {
   const trimmed = token.trim();
@@ -43,5 +50,27 @@ export function replaceFileTokensWithNames(text: string): string {
     // 中文注释：将文件引用替换为文件名，避免标题过长。
     const label = extractFileLabel(String(token ?? raw ?? ""));
     return label || raw;
+  });
+}
+
+/** Replace skill references with display names for title use. */
+export function replaceSkillRefsWithNames(text: string): string {
+  if (!text || !text.includes("/skill/")) return text;
+  SKILL_REF_REGEX.lastIndex = 0;
+  return text.replace(SKILL_REF_REGEX, (_raw, origName, displayName, legacyName) => {
+    return displayName || origName || legacyName || "";
+  });
+}
+
+/** Replace bare absolute file paths with their basename. */
+export function replaceBarePathsWithNames(text: string): string {
+  if (!text || !text.includes("/")) return text;
+  BARE_PATH_REGEX.lastIndex = 0;
+  return text.replace(BARE_PATH_REGEX, (match, fullPath) => {
+    const parts = fullPath.split("/");
+    const basename = parts[parts.length - 1] || fullPath;
+    // 保留前面的空格（如果有的话）
+    const prefix = match.startsWith(" ") ? " " : "";
+    return prefix + basename;
   });
 }

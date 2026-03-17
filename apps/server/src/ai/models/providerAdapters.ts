@@ -25,6 +25,7 @@ import {
   ensureOpenAiCompatibleBaseUrl,
   readApiKey,
 } from "@/ai/shared/util";
+import { getSessionId } from "@/ai/shared/context/requestContext";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 
 type AdapterInput = {
@@ -124,6 +125,28 @@ const SAAS_PROVIDER_FACTORIES: Record<
   qwen: ({ baseURL, apiKey, fetch }) => createAlibaba({ baseURL, apiKey, fetch }),
 };
 
+/**
+ * 构建 SaaS 专用 fetch，自动注入 chatSessionId 到请求体。
+ * SDK 0.1.9 新增：/api/v1/chat/completions 和 /api/v1/responses 支持可选 chatSessionId 字段。
+ */
+function buildSaasFetch(): typeof fetch {
+  const debugFetch = buildAiDebugFetch();
+  return async (input, init) => {
+    const sessionId = getSessionId();
+    if (sessionId && init?.body) {
+      try {
+        const bodyStr = typeof init.body === "string" ? init.body : String(init.body);
+        const parsed = JSON.parse(bodyStr);
+        parsed.chatSessionId = sessionId;
+        init = { ...init, body: JSON.stringify(parsed) };
+      } catch {
+        // JSON 解析失败时不注入，保持原始请求
+      }
+    }
+    return debugFetch(input, init);
+  };
+}
+
 /** Build SaaS AI SDK adapter — 根据模型的 provider 字段路由到正确的 SDK。 */
 function buildSaasAdapter(): ProviderAdapter {
   return {
@@ -131,16 +154,16 @@ function buildSaasAdapter(): ProviderAdapter {
     buildAiSdkModel: ({ provider, modelId }) => {
       const apiKey = readApiKey(provider.authConfig);
       const resolvedApiUrl = provider.apiUrl.trim();
-      const debugFetch = buildAiDebugFetch();
+      const saasFetch = buildSaasFetch();
       if (!apiKey || !resolvedApiUrl) return null;
       const baseURL = ensureOpenAiCompatibleBaseUrl(resolvedApiUrl);
       // 根据 provider.id（SaaS 模型的原始 provider，如 "moonshot"）选择对应 SDK。
       const factory = SAAS_PROVIDER_FACTORIES[provider.id];
       if (factory) {
-        return factory({ baseURL, apiKey, fetch: debugFetch })(modelId);
+        return factory({ baseURL, apiKey, fetch: saasFetch })(modelId);
       }
       // 未匹配的 provider 回退到 OpenAI chat completions。
-      const openaiProvider = createOpenAI({ baseURL, apiKey, fetch: debugFetch });
+      const openaiProvider = createOpenAI({ baseURL, apiKey, fetch: saasFetch });
       return openaiProvider.chat(modelId);
     },
   };

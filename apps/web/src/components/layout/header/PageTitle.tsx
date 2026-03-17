@@ -20,6 +20,81 @@ import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { resolveLayoutViewState } from "@/hooks/layout-utils";
 import { useProject } from "@/hooks/use-project";
+import {
+  type PreviousViewSnapshot,
+  resolvePreviousViewSnapshot,
+  restorePreviousViewFromBase,
+} from "@/lib/primary-page-navigation";
+
+/** Strip `/skill/[id|displayName]` format to just the display name. */
+function cleanSkillTitle(title: string): string {
+  if (!title.startsWith('/skill/[')) return title;
+  const match = title.match(/^\/skill\/\[[^\]|]+\|([^\]]+)\]$/);
+  if (match) return match[1];
+  const match2 = title.match(/^\/skill\/\[([^\]]+)\]$/);
+  if (match2) return match2[1];
+  return title;
+}
+
+/** Resolve one localized back-button label from a captured previous view snapshot. */
+function resolvePreviousViewLabel(
+  snapshot: PreviousViewSnapshot | null,
+  t: (key: string) => string,
+) {
+  if (!snapshot) return t("header.back");
+
+  const snapshotTitle = snapshot.title?.trim() ?? "";
+  const resolvedView = resolveLayoutViewState({
+    ...snapshot.layout,
+    projectShell: snapshot.projectShell,
+    title: snapshot.title,
+    chatSessionId: snapshot.chatSessionId,
+    chatLoadHistory: snapshot.chatLoadHistory,
+    chatParams: snapshot.chatParams,
+  });
+
+  if (snapshot.projectShell?.title?.trim()) {
+    return snapshot.projectShell.title.trim();
+  }
+
+  switch (resolvedView.viewType) {
+    case "project":
+      return snapshotTitle || t("panelTitle.plant-page");
+    case "project-list":
+      return t("sidebarProjectSpace");
+    case "canvas-list":
+      return snapshotTitle || t("smartCanvas");
+    case "workbench":
+      return t("workbench");
+    case "calendar":
+      return t("calendar");
+    case "email":
+      return t("email");
+    case "scheduled-tasks":
+      return t("tasks");
+    case "ai-assistant":
+      return t("aiAssistant");
+    case "global-chat":
+      return snapshotTitle || t("aiAssistant");
+    default:
+      break;
+  }
+
+  switch (resolvedView.foregroundComponent) {
+    case "settings-page":
+      return t("settings");
+    case "agent-management":
+      return t("agents");
+    case "skill-settings":
+      return t("skills");
+    case "project-settings-page":
+      return t("panelTitle.project-settings-page");
+    case "board-viewer":
+      return snapshotTitle || t("smartCanvas");
+    default:
+      return snapshotTitle || t("header.back");
+  }
+}
 
 /**
  * PageTitle 组件
@@ -37,6 +112,29 @@ export const PageTitle = () => {
   const inProject = layoutView.isProjectContext;
   const isProjectWindow = isProjectWindowMode();
   const isBoardWindow = isBoardWindowMode();
+  const previousViewSnapshot = useMemo(
+    () => resolvePreviousViewSnapshot(activeTab?.base),
+    [activeTab?.base],
+  );
+  const previousViewLabel = useMemo(
+    () => resolvePreviousViewLabel(previousViewSnapshot, t),
+    [previousViewSnapshot, t],
+  );
+  const previousViewButtonClassName = useMemo(() => {
+    const targetComponent = previousViewSnapshot?.layout.base?.component;
+    if (previousViewSnapshot?.projectShell) {
+      return "bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover";
+    }
+    if (
+      targetComponent === CANVAS_LIST_TAB_INPUT.component ||
+      targetComponent === 'board-viewer'
+    ) {
+      return "bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover";
+    }
+    return "bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent/80";
+  }, [previousViewSnapshot]);
+  const showPreviousViewBack =
+    Boolean(previousViewSnapshot) && !isBoardViewer && !isProjectWindow && !isBoardWindow;
 
   // 画布所属项目 id（从 base params 中获取，全局和项目模式均有）
   const boardProjectId = isBoardViewer
@@ -54,6 +152,8 @@ export const PageTitle = () => {
   }, [inProject, layoutView.projectShell, activeTab?.projectShell, boardProjectData]);
 
   const handleBackFromBoard = useCallback(() => {
+    if (restorePreviousViewFromBase(activeTab?.base)) return;
+
     const layout = useLayoutState.getState();
     const view = useAppView.getState();
     const previousBase = (activeTab?.base?.params as any)?.__previousBase;
@@ -87,6 +187,10 @@ export const PageTitle = () => {
     }
   }, [inProject, layoutView.projectShell, activeTab?.projectShell, activeTab?.base?.params, t]);
 
+  const handleBackToPreviousView = useCallback(() => {
+    restorePreviousViewFromBase(activeTab?.base);
+  }, [activeTab?.base]);
+
   const handleBackToProjectList = useCallback(() => {
     const title = t('sidebarProjectSpace');
     exitProjectShellToProjectList("main", title, PROJECT_LIST_TAB_INPUT.icon);
@@ -104,7 +208,7 @@ export const PageTitle = () => {
       return projectShellTitle || activeTab?.title || t('project');
     }
     if (layoutView.viewType === 'global-chat') {
-      return activeTab?.title ?? t('aiAssistant');
+      return t('aiAssistant');
     }
     if (layoutView.viewType === 'workbench') return t('workbench');
     if (layoutView.viewType === 'calendar') return t('calendar');
@@ -123,13 +227,26 @@ export const PageTitle = () => {
     if (baseComponent === 'email-page') return t('email');
     if (baseComponent === 'scheduled-tasks-page') return t('panelTitle.scheduled-tasks-page');
 
-    return projectShellTitle || '';
+    return activeTab?.title || projectShellTitle || '';
   }, [layoutView, activeTab, isBoardViewer, isSettingsPage, t]);
 
-  if (!title) return null;
+  // 清洗 /skill/[id|displayName] 格式，只保留 displayName
+  const cleanedTitle = useMemo(() => cleanSkillTitle(title), [title]);
+
+  if (!cleanedTitle) return null;
 
   return (
     <div className="flex items-center gap-2 min-w-0">
+      {showPreviousViewBack && (
+        <button
+          type="button"
+          onClick={handleBackToPreviousView}
+          className={`flex items-center gap-1 h-6 max-w-56 rounded-md px-2 text-xs font-medium transition-colors duration-150 ${previousViewButtonClassName}`}
+        >
+          <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{previousViewLabel}</span>
+        </button>
+      )}
       {inProject && !isBoardViewer && !isProjectWindow && (
         <button
           type="button"
@@ -144,20 +261,30 @@ export const PageTitle = () => {
         <button
           type="button"
           onClick={handleBackFromBoard}
-          className="flex items-center gap-1 h-6 rounded-md px-2 text-xs font-medium bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover transition-colors duration-150"
+          className="flex items-center gap-1 h-6 max-w-56 rounded-md px-2 text-xs font-medium bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover transition-colors duration-150"
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          {layoutView.projectShell?.title ?? activeTab?.projectShell?.title ?? t('project')}
+          <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">
+            {previousViewSnapshot?.projectShell?.title
+              ?? previousViewSnapshot?.title
+              ?? layoutView.projectShell?.title
+              ?? activeTab?.projectShell?.title
+              ?? t('project')}
+          </span>
         </button>
       )}
       {isBoardViewer && !inProject && !isBoardWindow && (
         <button
           type="button"
           onClick={handleBackFromBoard}
-          className="flex items-center gap-1 h-6 rounded-md px-2 text-xs font-medium bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover transition-colors duration-150"
+          className="flex items-center gap-1 h-6 max-w-56 rounded-md px-2 text-xs font-medium bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover transition-colors duration-150"
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          {t('canvasList.back')}
+          <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">
+            {previousViewSnapshot?.projectShell?.title
+              ?? previousViewSnapshot?.title
+              ?? t('canvasList.back')}
+          </span>
         </button>
       )}
       <h1 className="text-sm font-medium text-foreground/80 truncate">
@@ -165,9 +292,9 @@ export const PageTitle = () => {
           <>
             <span className="text-muted-foreground/60">{boardProjectTitle}</span>
             <span className="text-muted-foreground/40 mx-1">/</span>
-            {title}
+            {cleanedTitle}
           </>
-        ) : title}
+        ) : cleanedTitle}
       </h1>
     </div>
   );

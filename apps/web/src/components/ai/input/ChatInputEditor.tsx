@@ -476,6 +476,33 @@ export function ChatInputEditor({
       e.preventDefault();
       const text = e.clipboardData.getData("text/plain");
       if (!text) return;
+      const el = editorRef.current;
+      if (!el) return;
+
+      // Check if pasted text contains tokens that need chip rendering
+      const hasTokens = /@\{[^}]+\}|\/skill\/[\[a-zA-Z]|@agents\//.test(text);
+      if (hasTokens) {
+        // Merge pasted text into the value string and let valueToHtml render chips
+        const currentValue = domToValue(el);
+        const sel = window.getSelection();
+        // Estimate caret offset in the plain-text value
+        let caretOffset = currentValue.length;
+        if (sel?.rangeCount) {
+          const range = sel.getRangeAt(0);
+          const preRange = document.createRange();
+          preRange.selectNodeContents(el);
+          preRange.setEnd(range.startContainer, range.startOffset);
+          caretOffset = preRange.toString().length;
+        }
+        const before = currentValue.slice(0, caretOffset);
+        const after = currentValue.slice(caretOffset);
+        const newValue = before + text + after;
+        valueRef.current = newValue;
+        // Do NOT suppress sync — let useEffect re-render via valueToHtml
+        onChange(newValue);
+        return;
+      }
+
       const sel = window.getSelection();
       if (!sel?.rangeCount) return;
       const range = sel.getRangeAt(0);
@@ -486,8 +513,7 @@ export function ChatInputEditor({
       range.collapse(true);
       sel.removeAllRanges();
       sel.addRange(range);
-      const el = editorRef.current;
-      if (el) triggerChange(el);
+      triggerChange(el);
     },
     [onPasteFiles, triggerChange],
   );

@@ -17,6 +17,8 @@ import { useStackPanelSlot } from '@/hooks/use-stack-panel-slot'
 import { getCachedAccessToken } from '@/lib/saas-auth'
 import { toast } from 'sonner'
 import { Check, Download, Languages, Loader2, RefreshCw } from 'lucide-react'
+import { Button } from '@openloaf/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@openloaf/ui/tooltip'
 import { exportSkillAsZip } from './skill-utils'
 
 type SkillTranslateSlotProps = {
@@ -110,65 +112,68 @@ function SkillTranslateSlot({ skillFolderPath }: SkillTranslateSlotProps) {
     let translateIcon: React.ReactElement
     let translateLabel: string
     let translateDisabled = false
-    let translateClassName =
-      'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors'
 
     if (isTranslating) {
-      translateIcon = React.createElement(Loader2, {
-        className: 'h-3.5 w-3.5 animate-spin',
-      })
+      translateIcon = React.createElement(Loader2, { className: 'h-4 w-4 animate-spin' })
       translateLabel = t('skills.translate.buttonTranslating')
       translateDisabled = true
-      translateClassName += ' text-muted-foreground cursor-not-allowed'
     } else if (status === 'translated') {
-      translateIcon = React.createElement(Check, {
-        className: 'h-3.5 w-3.5 text-green-600 dark:text-green-400',
-      })
+      translateIcon = React.createElement(Check, { className: 'h-4 w-4' })
       translateLabel = t('skills.translate.buttonTranslated')
-      translateClassName += ' text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
     } else if (status === 'needs-update') {
-      translateIcon = React.createElement(RefreshCw, {
-        className: 'h-3.5 w-3.5 text-amber-600 dark:text-amber-400',
-      })
+      translateIcon = React.createElement(RefreshCw, { className: 'h-4 w-4' })
       translateLabel = t('skills.translate.buttonRetranslate')
-      translateClassName += ' text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20'
     } else {
-      translateIcon = React.createElement(Languages, { className: 'h-3.5 w-3.5' })
+      translateIcon = React.createElement(Languages, { className: 'h-4 w-4' })
       translateLabel = t('skills.translate.buttonTranslate')
-      translateClassName += ' text-muted-foreground hover:bg-muted/60 hover:text-foreground'
     }
 
     const exportLabel = t('skills.exportSkill', { defaultValue: '导出' })
-    const exportClassName =
-      'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors text-muted-foreground hover:bg-muted/60 hover:text-foreground'
 
     const exportButton = React.createElement(
-      'button',
-      {
-        type: 'button',
-        className: exportClassName,
-        title: exportLabel,
-        'aria-label': exportLabel,
-        disabled: isExporting,
-        onClick: handleExport,
-      },
-      isExporting
-        ? React.createElement(Loader2, { className: 'h-3.5 w-3.5 animate-spin' })
-        : React.createElement(Download, { className: 'h-3.5 w-3.5' }),
+      Tooltip,
+      null,
+      React.createElement(
+        TooltipTrigger,
+        { asChild: true },
+        React.createElement(
+          Button,
+          {
+            size: 'sm',
+            variant: 'ghost',
+            className: 'text-muted-foreground hover:text-foreground',
+            'aria-label': exportLabel,
+            disabled: isExporting,
+            onClick: handleExport,
+          },
+          isExporting
+            ? React.createElement(Loader2, { className: 'h-4 w-4 animate-spin' })
+            : React.createElement(Download, { className: 'h-4 w-4' }),
+        ),
+      ),
+      React.createElement(TooltipContent, { side: 'bottom' }, exportLabel),
     )
 
     const translateButton = React.createElement(
-      'button',
-      {
-        type: 'button',
-        className: translateClassName,
-        title: translateLabel,
-        'aria-label': translateLabel,
-        disabled: translateDisabled,
-        onClick: handleTranslate,
-      },
-      translateIcon,
-      React.createElement('span', { className: 'hidden sm:inline' }, translateLabel),
+      Tooltip,
+      null,
+      React.createElement(
+        TooltipTrigger,
+        { asChild: true },
+        React.createElement(
+          Button,
+          {
+            size: 'sm',
+            variant: 'ghost',
+            className: 'text-muted-foreground hover:text-foreground',
+            'aria-label': translateLabel,
+            disabled: translateDisabled,
+            onClick: handleTranslate,
+          },
+          translateIcon,
+        ),
+      ),
+      React.createElement(TooltipContent, { side: 'bottom' }, translateLabel),
     )
 
     slotCtx.setSlot({

@@ -12,7 +12,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { Palette, Plus, Edit2, Trash2, MoreHorizontal, Copy, CopyPlus, CalendarDays, Search, X, FolderOpen, FolderSearch, Sparkles, Loader2, ExternalLink } from "lucide-react";
+import { Palette, Plus, Edit2, Trash2, MoreHorizontal, Copy, CopyPlus, CalendarDays, Search, X, FolderOpen, FolderSearch, Sparkles, Loader2, ExternalLink, RefreshCw } from "lucide-react";
 import { useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 
@@ -121,6 +121,7 @@ interface BoardItem {
   folderUri: string;
   projectId?: string | null;
   createdAt: string | Date;
+  updatedAt: string | Date;
   [key: string]: any;
 }
 
@@ -200,7 +201,7 @@ function groupBoardsByTime(boards: BoardItem[]): BoardGroup[] {
   const oneDay = 24 * 60 * 60 * 1000;
 
   const sorted = [...boards].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   );
 
   const today: BoardItem[] = [];
@@ -210,7 +211,7 @@ function groupBoardsByTime(boards: BoardItem[]): BoardGroup[] {
   const byMonth = new Map<string, BoardItem[]>();
 
   for (const board of sorted) {
-    const t = new Date(board.createdAt);
+    const t = new Date(board.updatedAt);
     const diffDays = Math.floor((todayStart - startOfDay(t).getTime()) / oneDay);
     if (diffDays <= 0) today.push(board);
     else if (diffDays === 1) yesterday.push(board);
@@ -929,6 +930,19 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
           <span className="text-xs text-muted-foreground">
             {t("canvasList.totalCount", { count: boardsQuery.data?.pages[0]?.total ?? displayedBoards.length })}
           </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                onClick={() => invalidateBoardList()}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${boardsQuery.isFetching ? "animate-spin" : ""}`} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("canvasList.refresh", { defaultValue: "刷新" })}</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

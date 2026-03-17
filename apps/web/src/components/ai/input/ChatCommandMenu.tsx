@@ -23,6 +23,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
+import { FolderOpen, Globe, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buildSkillCommandText } from "./chat-input-utils";
 
@@ -43,6 +44,7 @@ type SkillItem = {
   originalName: string;
   /** Display name (may differ from originalName when translated). */
   displayName: string;
+  scope: SkillSummary["scope"];
 };
 
 type MenuIndexState = {
@@ -92,12 +94,14 @@ function filterSkills(
         skill.description.toLowerCase().includes(keyword)
       );
     })
+    .sort((a, b) => (a.scope === b.scope ? 0 : a.scope === "global" ? -1 : 1))
     .map((skill) => ({
       id: `skill-${skill.originalName}`,
       label: skill.name,
-      description: `${scopeLabels[skill.scope]} · ${skill.description || "未提供说明"}`,
+      description: skill.description || "未提供说明",
       originalName: skill.originalName,
       displayName: skill.name,
+      scope: skill.scope,
     }));
 }
 
@@ -113,9 +117,48 @@ function replaceSlashToken(input: string, replacement: string): string {
   return next.endsWith(" ") ? next : `${next} `;
 }
 
-const MENU_WIDTH = 280;
+const MENU_WIDTH = 360;
 const MENU_GAP = 8;
 const EMPTY_SKILLS: SkillSummary[] = [];
+
+function SkillMenuItem({
+  item,
+  isActive,
+  onClick,
+  onPointerMove,
+}: {
+  item: SkillItem;
+  isActive: boolean;
+  onClick: () => void;
+  onPointerMove: () => void;
+}) {
+  return (
+    <div
+      role="option"
+      aria-selected={isActive}
+      className={cn(
+        "flex flex-col gap-0.5 px-2.5 py-2 text-left text-xs cursor-default rounded-sm mx-1",
+        isActive ? "bg-muted/70" : "hover:bg-muted/60",
+      )}
+      onClick={onClick}
+      onPointerMove={onPointerMove}
+    >
+      <span className="text-[12px] font-medium text-foreground">
+        {item.label}
+        {item.originalName !== item.label && (
+          <span className="ml-1.5 font-normal text-muted-foreground">
+            {item.originalName}
+          </span>
+        )}
+      </span>
+      {item.description ? (
+        <span className="text-[11px] text-muted-foreground truncate">
+          {item.description}
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
   ({ value, onChange, onRequestFocus, isFocused, projectId, className }, ref) => {
@@ -147,6 +190,8 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
       () => filterSkills(skills, query ?? "", scopeLabels),
       [skills, query, scopeLabels],
     );
+    const globalItems = useMemo(() => items.filter((i) => i.scope === "global"), [items]);
+    const projectItems = useMemo(() => items.filter((i) => i.scope === "project"), [items]);
     const isOpen = Boolean(isFocused && query !== null);
     const menuIndexKey = `${isOpen ? "open" : "closed"}:${query ?? ""}`;
     const activeIndex =
@@ -247,8 +292,11 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
         aria-label="Slash menu"
         onMouseDown={(e) => e.preventDefault()}
       >
-        <div className="shrink-0 px-2.5 py-2 text-xs font-medium text-muted-foreground border-b border-border">
-          技能
+        <div className="shrink-0 px-2.5 py-2 border-b border-border">
+          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-[var(--ol-skill-chip-bg)] text-[var(--ol-skill-chip-text)]">
+            <Sparkles className="size-3" />
+            技能
+          </span>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto py-1">
           {items.length === 0 ? (
@@ -256,31 +304,52 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
               暂无可用技能
             </div>
           ) : (
-            items.map((item, index) => {
-              const isActive = index === activeIndex;
-              return (
-                <div
-                  key={item.id}
-                  role="option"
-                  aria-selected={isActive}
-                  className={cn(
-                    "flex flex-col gap-0.5 px-2.5 py-2 text-left text-xs cursor-default rounded-sm mx-1",
-                    isActive ? "bg-muted/70" : "hover:bg-muted/60",
+            <>
+              {globalItems.length > 0 && (
+                <>
+                  <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground bg-popover">
+                    <Globe className="size-3" />
+                    {scopeLabels.global}
+                  </div>
+                  {globalItems.map((item, i) => {
+                    const isActive = i === activeIndex;
+                    return (
+                      <SkillMenuItem
+                        key={item.id}
+                        item={item}
+                        isActive={isActive}
+                        onClick={() => selectItem(item)}
+                        onPointerMove={() => setMenuActiveIndex(i)}
+                      />
+                    );
+                  })}
+                </>
+              )}
+              {projectItems.length > 0 && (
+                <>
+                  {globalItems.length > 0 && (
+                    <div className="mx-2.5 my-1 border-t border-border" />
                   )}
-                  onClick={() => selectItem(item)}
-                  onPointerMove={() => setMenuActiveIndex(index)}
-                >
-                  <span className="text-[12px] font-medium text-foreground">
-                    {item.label}
-                  </span>
-                  {item.description ? (
-                    <span className="text-[11px] text-muted-foreground truncate">
-                      {item.description}
-                    </span>
-                  ) : null}
-                </div>
-              );
-            })
+                  <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground bg-popover">
+                    <FolderOpen className="size-3" />
+                    {scopeLabels.project}
+                  </div>
+                  {projectItems.map((item, i) => {
+                    const flatIndex = globalItems.length + i;
+                    const isActive = flatIndex === activeIndex;
+                    return (
+                      <SkillMenuItem
+                        key={item.id}
+                        item={item}
+                        isActive={isActive}
+                        onClick={() => selectItem(item)}
+                        onPointerMove={() => setMenuActiveIndex(flatIndex)}
+                      />
+                    );
+                  })}
+                </>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -20,9 +20,14 @@ import { trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useAppState } from "@/hooks/use-app-state";
+import { useLayoutState } from "@/hooks/use-layout-state";
 import { cn } from "@/lib/utils";
 import ProjectTabs, { type ProjectTabValue } from "@/components/project/ProjectTabs";
 import { openProjectShellTab } from "@/lib/project-shell";
+import {
+  readPersistedSettingsMenu,
+  writePersistedSettingsMenu,
+} from "@/lib/settings-menu-storage";
 
 import { ProjectBasicSettings } from "./menus/ProjectBasicSettings";
 import { ProjectAiSettings } from "./menus/ProjectAiSettings";
@@ -75,6 +80,13 @@ function isProjectSettingsMenuKey(
   return MENU_KEY_SET.has(value as ProjectSettingsMenuKey);
 }
 
+/** Normalize persisted project settings menu keys to current supported values. */
+function normalizeProjectSettingsMenuKey(
+  value: unknown,
+): ProjectSettingsMenuKey | null {
+  return isProjectSettingsMenuKey(value) ? value : null;
+}
+
 type ProjectSettingsHeaderProps = {
   isLoading: boolean;
   pageTitle: string;
@@ -85,7 +97,7 @@ export function ProjectSettingsHeader({
   isLoading,
   pageTitle,
 }: ProjectSettingsHeaderProps) {
-  const { t } = useTranslation(["project", "settings"]);
+  const { t } = useTranslation(["project", "settings", "nav"]);
   if (isLoading) return null;
 
   return (
@@ -114,11 +126,14 @@ export default function ProjectSettingsPage({
   settingsMenu,
   showProjectTabs = true,
 }: ProjectSettingsPageProps) {
-  const { t } = useTranslation(["project", "settings"]);
+  const { t } = useTranslation(["project", "settings", "nav"]);
   const tabActive = useTabActive();
   const appState = useAppState();
+  const setBaseParams = useLayoutState((s) => s.setBaseParams);
   const [activeKey, setActiveKey] = useState<ProjectSettingsMenuKey>(() =>
-    isProjectSettingsMenuKey(settingsMenu) ? settingsMenu : "basic"
+    normalizeProjectSettingsMenuKey(settingsMenu)
+      ?? normalizeProjectSettingsMenuKey(readPersistedSettingsMenu("project"))
+      ?? "basic"
   );
   const gitInfoQuery = useQuery({
     ...trpc.project.getGitInfo.queryOptions(
@@ -185,7 +200,11 @@ export default function ProjectSettingsPage({
   const lastCollapsedRef = useRef<boolean | null>(null);
   const { basic } = useBasicConfig();
   const shouldAnimate = basic.uiAnimationLevel !== "low";
-  const pageTitle = appState.projectShell?.title ?? appState.title ?? projectId ?? "Project";
+  const pageTitle =
+    appState.projectShell?.title
+    ?? appState.title
+    ?? projectId
+    ?? t("nav:panelTitle.plant-page");
   const pageIcon = appState.projectShell?.icon ?? appState.icon ?? null;
   const resolvedRootUri = rootUri ?? appState.projectShell?.rootUri ?? "";
 
@@ -195,10 +214,19 @@ export default function ProjectSettingsPage({
   }, [activeKey, allMenuItems]);
 
   useEffect(() => {
-    if (!isProjectSettingsMenuKey(settingsMenu)) return;
-    if (settingsMenu === activeKey) return;
-    setActiveKey(settingsMenu);
+    const normalizedMenu = normalizeProjectSettingsMenuKey(settingsMenu);
+    if (!normalizedMenu) return;
+    if (normalizedMenu === activeKey) return;
+    setActiveKey(normalizedMenu);
   }, [activeKey, settingsMenu]);
+
+  useEffect(() => {
+    writePersistedSettingsMenu("project", activeKey);
+    if (!tabId) return;
+    if (settingsMenu === activeKey) return;
+    // 中文注释：项目设置也把当前菜单写回 project base params，确保刷新后仍然定位到同一子设置页。
+    setBaseParams({ settingsMenu: activeKey });
+  }, [activeKey, setBaseParams, settingsMenu, tabId]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -274,7 +302,13 @@ export default function ProjectSettingsPage({
           groups={menuGroups}
           activeKey={activeKey}
           isCollapsed={isCollapsed}
-          onChange={(key) => setActiveKey(key as ProjectSettingsMenuKey)}
+          onChange={(key) => {
+            const nextKey = key as ProjectSettingsMenuKey;
+            setActiveKey(nextKey);
+            writePersistedSettingsMenu("project", nextKey);
+            if (!tabId) return;
+            setBaseParams({ settingsMenu: nextKey });
+          }}
         />
       }
       content={

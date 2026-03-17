@@ -55,6 +55,7 @@ interface ModelCheckboxItemProps {
   checked: boolean
   disabled?: boolean
   onToggle: () => void
+  selectionType?: 'multiple' | 'single'
 }
 
 export function ModelCheckboxItem({
@@ -65,8 +66,10 @@ export function ModelCheckboxItem({
   checked,
   disabled,
   onToggle,
+  selectionType = 'multiple',
 }: ModelCheckboxItemProps) {
   const { t } = useTranslation('ai')
+  const isSingleSelection = selectionType === 'single'
   const tagLabels =
     tags && tags.length > 0
       ? tags.map((tag) => ({
@@ -77,13 +80,20 @@ export function ModelCheckboxItem({
 
   return (
     <div
-      role="button"
+      role={isSingleSelection ? 'radio' : 'checkbox'}
+      aria-checked={checked}
       tabIndex={disabled ? -1 : 0}
       className={cn(
-        'flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-left transition-colors',
+        'flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left transition-[background-color,border-color,color] outline-none',
+        isSingleSelection && 'border border-transparent',
         disabled
           ? 'pointer-events-none'
-          : 'hover:bg-sidebar-accent/60',
+          : isSingleSelection
+            ? checked
+              ? 'border-ol-blue/20 bg-ol-blue/8'
+              : 'hover:border-border/70 hover:bg-sidebar-accent/60'
+            : 'hover:bg-sidebar-accent/60',
+        !disabled && isSingleSelection && 'focus-visible:border-ol-blue/30 focus-visible:bg-sidebar-accent/60 focus-visible:ring-2 focus-visible:ring-ol-blue/15',
       )}
       onClick={disabled ? undefined : onToggle}
       onKeyDown={
@@ -126,15 +136,29 @@ export function ModelCheckboxItem({
       {!disabled && (
         <span
           className={cn(
-            'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors',
+            'flex shrink-0 items-center justify-center border transition-all',
+            isSingleSelection ? 'h-[18px] w-[18px] rounded-full' : 'h-4 w-4 rounded-sm',
             checked
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border bg-background text-transparent',
+              ? isSingleSelection
+                ? 'border-ol-blue/40 bg-ol-blue/10 text-ol-blue'
+                : 'border-primary bg-primary text-primary-foreground'
+              : isSingleSelection
+                ? 'border-border/80 bg-background/80 text-transparent'
+                : 'border-border bg-background text-transparent',
           )}
           tabIndex={-1}
           aria-hidden
         >
-          <Check className="h-3 w-3" />
+          {isSingleSelection ? (
+            <span
+              className={cn(
+                'h-1.5 w-1.5 rounded-full transition-transform duration-150',
+                checked ? 'scale-100 bg-current' : 'scale-0 bg-transparent',
+              )}
+            />
+          ) : (
+            <Check className="h-3 w-3" />
+          )}
         </span>
       )}
     </div>

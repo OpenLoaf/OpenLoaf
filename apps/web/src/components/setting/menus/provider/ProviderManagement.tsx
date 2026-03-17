@@ -31,7 +31,7 @@ import { Label } from "@openloaf/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
-import { ChevronDown, MessageSquare, Volume2 } from "lucide-react";
+import { ChevronDown, Eye, MessageSquare, Volume2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { Switch } from "@openloaf/ui/animate-ui/components/radix/switch";
@@ -214,6 +214,28 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
                     void setBasic({ modelSoundEnabled: checked })
                   }
                   aria-label="Model sound"
+                />
+              </div>
+            </OpenLoafSettingsField>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={Eye} bg="bg-ol-purple-bg" fg="text-ol-purple" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">{t('provider.showAllToolResults')}</div>
+              <div className="text-xs text-muted-foreground">
+                {t('provider.showAllToolResultsDesc')}
+              </div>
+            </div>
+
+            <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+              <div className="origin-right scale-110">
+                <Switch
+                  checked={basic.chatShowAllToolResults}
+                  onCheckedChange={(checked) =>
+                    void setBasic({ chatShowAllToolResults: checked })
+                  }
+                  aria-label="Show all tool results"
                 />
               </div>
             </OpenLoafSettingsField>

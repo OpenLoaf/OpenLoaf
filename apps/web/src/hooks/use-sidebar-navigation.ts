@@ -22,6 +22,7 @@ import { BOARD_INDEX_FILE_NAME } from '@/lib/file-name'
 import { resolveProjectModeProjectShell } from '@/lib/project-mode'
 import { buildBoardChatTabState } from '@/components/board/utils/board-chat-tab'
 import type { ChatPageContext } from '@openloaf/api/types/message'
+import { captureCurrentViewSnapshot } from '@/lib/primary-page-navigation'
 
 function findProjectRootUri(nodes: ProjectNode[] | undefined, projectId: string): string {
   if (!projectId || !nodes?.length) return ''
@@ -135,6 +136,7 @@ export function useSidebarNavigation() {
             projectId: resolvedProjectId,
             rootUri: input.rootUri,
             __previousBase: currentBase ?? null,
+            __previousView: captureCurrentViewSnapshot(),
           },
         },
       })

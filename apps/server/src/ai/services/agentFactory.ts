@@ -22,6 +22,7 @@ import {
   stepCountIs,
   wrapLanguageModel,
   addToolInputExamplesMiddleware,
+  extractReasoningMiddleware,
 } from 'ai'
 import type {
   LanguageModelV3,
@@ -170,11 +171,20 @@ function dynamicStepLimit(): StopCondition<Record<string, never>> {
 // Model wrapping — inputExamples middleware (Anthropic Best Practice)
 // ---------------------------------------------------------------------------
 
-/** 包装模型以启用工具输入示例中间件。 */
+/**
+ * 包装模型以启用中间件：
+ * 1. addToolInputExamplesMiddleware — 工具输入示例（Anthropic Best Practice）
+ * 2. extractReasoningMiddleware — 提取 <think> 标签为 reasoning 部分
+ *    适用于 DeepSeek R1/V3、MiniMax、Qwen QwQ、Kimi 等使用 <think> 标签的模型。
+ *    对原生支持 reasoning 的模型（Claude、OpenAI o1）无副作用。
+ */
 function wrapModelWithExamples(model: LanguageModelV3): LanguageModelV3 {
   return wrapLanguageModel({
     model,
-    middleware: addToolInputExamplesMiddleware(),
+    middleware: [
+      extractReasoningMiddleware({ tagName: 'think', startWithReasoning: true }),
+      addToolInputExamplesMiddleware(),
+    ],
   }) as unknown as LanguageModelV3
 }
 

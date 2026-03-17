@@ -150,6 +150,8 @@ export const AppSidebar = ({
       title?: string;
       titleKey?: string;
       icon: string;
+      preserveCurrentView?: boolean;
+      baseParams?: Record<string, unknown>;
     }) => {
       const tabTitle = input.titleKey ? i18next.t(input.titleKey) : (input.title ?? "");
       openPrimaryPage({
@@ -157,6 +159,9 @@ export const AppSidebar = ({
         component: input.component,
         title: tabTitle,
         icon: input.icon,
+      }, {
+        preserveCurrentView: input.preserveCurrentView,
+        baseParams: input.baseParams,
       });
     },
     [],
@@ -266,14 +271,14 @@ export const AppSidebar = ({
             tooltip={t("agents")}
             color="blue"
             isActive={!isInProject && isAgentsActive}
-            onClick={() => openPrimaryPageTab({ ...AGENTS_TAB_INPUT })}
+            onClick={() => openPrimaryPageTab({ ...AGENTS_TAB_INPUT, preserveCurrentView: true })}
           />
           <IconNavItem
             icon={Wand2}
             tooltip={t("skills")}
             color="purple"
             isActive={!isInProject && isSkillsActive}
-            onClick={() => openPrimaryPageTab({ ...SKILLS_TAB_INPUT })}
+            onClick={() => openPrimaryPageTab({ ...SKILLS_TAB_INPUT, preserveCurrentView: true })}
           />
           <IconNavItem
             icon={Settings}
@@ -289,6 +294,7 @@ export const AppSidebar = ({
                 component: "settings-page",
                 titleKey: "nav:settings",
                 icon: "⚙️",
+                preserveCurrentView: true,
               });
             }}
           />

@@ -151,10 +151,10 @@ const RECOVERY_RULES: RecoveryRule[] = [
     hint: '服务端内部错误。这是外部服务的问题，可以稍后重试。',
   },
 
-  // Tool loading / validation errors
+  // Tool input validation errors (from toolInputValidation wrapper)
   {
-    pattern: /Invalid input for tool|invalid_type|Invalid option/i,
-    hint: '工具参数校验失败。可能原因：1) 工具尚未通过 tool-search 加载，缺少参数 schema；2) 参数格式不正确。请先用 tool-search(query: "select:<tool-id>") 加载工具后重试。',
+    pattern: /Invalid input for tool/i,
+    hint: '__DYNAMIC_VALIDATION_HINT__',
   },
 
   // Agent / tool specific
@@ -172,9 +172,31 @@ const RECOVERY_RULES: RecoveryRule[] = [
   },
 ]
 
+/** Extract field-level validation details from zod-style error messages. */
+function buildValidationHint(errorMsg: string): string {
+  // Try to extract field paths and constraint messages from zod error JSON
+  // Example: "path": ["maxLength"], "message": "Too small: expected number to be >0"
+  const pathMatches = [...errorMsg.matchAll(/"path":\s*\[\s*"([^"]+)"/g)]
+  const msgMatches = [...errorMsg.matchAll(/"message":\s*"([^"]+)"/g)]
+
+  if (pathMatches.length > 0) {
+    const details = pathMatches.map((pm, i) => {
+      const field = pm[1]
+      const constraint = msgMatches[i]?.[1] ?? 'invalid value'
+      return `${field}: ${constraint}`
+    })
+    return `参数校验失败 — ${details.join('; ')}。请修正参数值或移除无效的可选参数后重试。`
+  }
+
+  return '参数校验失败。请检查参数类型和取值范围，修正后重试。如果该参数是可选的，可以直接移除。'
+}
+
 function findRecoveryHint(errorMsg: string): string {
   for (const rule of RECOVERY_RULES) {
     if (rule.pattern.test(errorMsg)) {
+      if (rule.hint === '__DYNAMIC_VALIDATION_HINT__') {
+        return buildValidationHint(errorMsg)
+      }
       return rule.hint
     }
   }

@@ -31,6 +31,7 @@ import {
   Filter,
   FolderSearch,
   FolderInput,
+  RefreshCw,
 } from "lucide-react";
 import { useInfiniteQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
@@ -885,6 +886,19 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               count: totalProjects,
             })}
           </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                onClick={() => invalidateProjects()}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${projectsQuery.isFetching ? "animate-spin" : ""}`} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("projectListPage.refresh", { defaultValue: "刷新" })}</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

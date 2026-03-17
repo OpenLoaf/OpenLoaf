@@ -208,8 +208,6 @@ function getSelectedImageAnchors(snapshot: CanvasSnapshot): CanvasAnchorHit[] {
   snapshot.selectedIds.forEach(selectedId => {
     const element = snapshot.elements.find(item => item.id === selectedId);
     if (!element || element.kind !== "node") return;
-    const meta = element.meta as Record<string, unknown> | undefined;
-    if (typeof meta?.groupId === "string") return;
     if (!LARGE_ANCHOR_NODE_TYPES.has(element.type)) return;
     const anchors = snapshot.anchors[selectedId];
     if (!anchors) return;
@@ -232,11 +230,9 @@ function getHoveredImageAnchors(snapshot: CanvasSnapshot): CanvasAnchorHit[] {
   if (!hoverNodeId) return [];
   if (snapshot.selectedIds.includes(hoverNodeId)) return [];
   const element = snapshot.elements.find(item => item.id === hoverNodeId);
-  const meta = element?.meta as Record<string, unknown> | undefined;
   if (
     !element ||
     element.kind !== "node" ||
-    typeof meta?.groupId === "string" ||
     !LARGE_ANCHOR_NODE_TYPES.has(element.type)
   ) {
     return [];

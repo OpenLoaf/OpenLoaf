@@ -33,6 +33,10 @@ import {
 } from "lucide-react";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { Button } from "@openloaf/ui/button";
+import {
+  readPersistedSettingsMenu,
+  writePersistedSettingsMenu,
+} from "@/lib/settings-menu-storage";
 
 import { BasicSettings } from "./menus/BasicSettings";
 
@@ -194,7 +198,9 @@ export default function SettingsPage({
   const { t } = useTranslation(['settings', 'nav']);
   const MENU = useMemo(() => buildMenu((key) => t(key)), [t]);
   const [activeKey, setActiveKey] = useState<SettingsMenuKey>(() =>
-    normalizeSettingsMenuKey(settingsMenu) ?? "basic",
+    normalizeSettingsMenuKey(settingsMenu)
+      ?? normalizeSettingsMenuKey(readPersistedSettingsMenu("global"))
+      ?? "basic",
   );
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openTooltipKey, setOpenTooltipKey] = useState<SettingsMenuKey | null>(
@@ -243,6 +249,14 @@ export default function SettingsPage({
     // 从持久化参数恢复上次选中的菜单，刷新后保持位置。
     setActiveKey(normalizedMenu);
   }, [settingsMenu, activeKey]);
+
+  useEffect(() => {
+    writePersistedSettingsMenu("global", activeKey);
+    if (!tabId) return;
+    if (settingsMenu === activeKey) return;
+    // 中文注释：把当前菜单同步回 base params，保证刷新和恢复布局时能回到同一菜单。
+    setBaseParams({ settingsMenu: activeKey });
+  }, [activeKey, settingsMenu, setBaseParams, tabId]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -309,6 +323,7 @@ export default function SettingsPage({
   /** Persist the active menu into the dock base params (only when used inside a tab). */
   const handleMenuChange = (nextKey: SettingsMenuKey) => {
     setActiveKey(nextKey);
+    writePersistedSettingsMenu("global", nextKey);
     if (!tabId) return;
     setBaseParams({ settingsMenu: nextKey });
   };

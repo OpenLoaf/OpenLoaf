@@ -39,6 +39,8 @@
     "chatMemoryScopeGlobal": "Global Memory",
     "modelSound": "Model Sound Cues",
     "modelSoundDesc": "Play sound cues when sending requests and when finished",
+    "showAllToolResults": "Show All Tool Results",
+    "showAllToolResultsDesc": "When enabled, all tool call results are shown in chat messages",
     "confirmDeleteTitle": "Confirm Delete",
     "confirmDeleteDesc": "Are you sure you want to delete this provider configuration?",
     "keepAtLeastOneModel": "At least one model must be kept",
@@ -115,8 +117,6 @@
     "animationHigh": "High",
     "notificationSound": "Notification Sound",
     "notificationSoundDesc": "Play sound cue when voice input starts",
-    "showAllToolResults": "Show All Tool Results",
-    "showAllToolResultsDesc": "When enabled, all tool call results are shown in chat messages",
     "minimizeToTray": "Minimize to Tray on Close",
     "minimizeToTrayDesc": "When enabled, closing the window minimizes the app to the system tray instead of quitting"
   },

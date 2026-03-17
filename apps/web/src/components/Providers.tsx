@@ -436,7 +436,8 @@ function ModelRegistryBootstrap() {
     if (!saasUrl) return;
     // 启动时从 SaaS 拉取供应商模板，填充本地模型注册表。
     initModelRegistry(saasUrl).catch((error) => {
-      console.error("[ModelRegistry] 初始化失败:", error);
+      // 网络不可用时 fetch 抛出 TypeError，属于预期业务异常，降级为 warn。
+      console.warn("[ModelRegistry] 初始化失败（网络可能不可用）:", error.message);
     });
   }, []);
 

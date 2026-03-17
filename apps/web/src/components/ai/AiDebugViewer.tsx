@@ -102,6 +102,48 @@ function subscribeDocumentTheme(callback: () => void) {
   return () => observer.disconnect()
 }
 
+/** Normalize local path separators for cross-platform folder parsing. */
+function normalizeLocalPath(value: string): string {
+  return value.replace(/\\/g, '/')
+}
+
+/** Convert a local filesystem path into a file:// URI. */
+function toFileUri(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (trimmed.startsWith('file://')) return trimmed
+  const normalized = normalizeLocalPath(trimmed)
+  if (/^[A-Za-z]:\//.test(normalized)) {
+    return `file:///${encodeURI(normalized)}`
+  }
+  if (normalized.startsWith('/')) {
+    return `file://${encodeURI(normalized)}`
+  }
+  return `file:///${encodeURI(normalized)}`
+}
+
+/** Resolve the chat log folder path from a messages.jsonl path. */
+function resolveLogFolderPath(jsonlPath?: string): string {
+  const trimmedJsonlPath = jsonlPath?.trim() ?? ''
+  if (!trimmedJsonlPath) return ''
+
+  if (trimmedJsonlPath.startsWith('file://')) {
+    try {
+      const url = new URL(trimmedJsonlPath)
+      const filePath = normalizeLocalPath(decodeURIComponent(url.pathname)).replace(
+        /^\/([A-Za-z]:)/,
+        '$1',
+      )
+      return filePath.replace(/\/[^/]*$/, '')
+    } catch {
+      return ''
+    }
+  }
+
+  const normalizedPath = normalizeLocalPath(trimmedJsonlPath)
+  return normalizedPath.replace(/\/[^/]*$/, '')
+}
+
 function ReadOnlyEditor({ value, language }: { value: string; language: string }) {
   const { resolvedTheme } = useTheme()
   const monacoRef = useRef<typeof Monaco | null>(null)
@@ -156,18 +198,19 @@ export default function AiDebugViewer({
   const { t } = useTranslation('ai')
   const removeStackItem = useLayoutState((s) => s.removeStackItem)
   const shouldRenderStackHeader = Boolean(tabId && panelKey)
+  const logFolderPath = resolveLogFolderPath(jsonlPath)
 
-  const handleCopyJsonlPath = useCallback(async () => {
-    if (!jsonlPath) {
+  const handleCopyLogFolderPath = useCallback(async () => {
+    if (!logFolderPath) {
       toast.error(t('debug.copyError'))
       return
     }
     try {
-      await navigator.clipboard.writeText(jsonlPath)
+      await navigator.clipboard.writeText(logFolderPath)
       toast.success(t('debug.copySuccess'))
     } catch {
       const textarea = document.createElement('textarea')
-      textarea.value = jsonlPath
+      textarea.value = logFolderPath
       textarea.style.position = 'fixed'
       textarea.style.opacity = '0'
       document.body.appendChild(textarea)
@@ -176,16 +219,15 @@ export default function AiDebugViewer({
       document.body.removeChild(textarea)
       toast.success(t('debug.copySuccess'))
     }
-  }, [jsonlPath, t])
+  }, [logFolderPath, t])
 
   const handleOpenFolder = useCallback(async () => {
-    if (!jsonlPath) return
+    if (!logFolderPath) return
     const api = window.openloafElectron
     if (api?.openPath) {
-      const folderPath = jsonlPath.replace(/\/[^/]*$/, '')
-      await api.openPath({ uri: `file://${folderPath}` })
+      await api.openPath({ uri: toFileUri(logFolderPath) })
     }
-  }, [jsonlPath])
+  }, [logFolderPath])
 
   const hasPrompt = Boolean(promptContent?.trim())
   const hasPreface = Boolean(prefaceContent?.trim())
@@ -203,7 +245,7 @@ export default function AiDebugViewer({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={handleCopyJsonlPath}
+                  onClick={handleCopyLogFolderPath}
                   aria-label={t('debug.copyLogPath')}
                   title={t('debug.copyLogPath')}
                 >

@@ -116,13 +116,6 @@ function TrimControlsInner({
   const paused = useMediaState('paused')
   const remote = useMediaRemote()
 
-  const handleSeek = useCallback(
-    (time: number) => {
-      remote.seek(time)
-    },
-    [remote],
-  )
-
   const handlePlayPause = useCallback(() => {
     if (paused) {
       remote.play()
@@ -140,7 +133,6 @@ function TrimControlsInner({
         currentTime={currentTime}
         thumbnailsUrl={thumbnailsUrl}
         onChange={onClipChange}
-        onSeek={handleSeek}
       />
       {/* Action buttons */}
       <div className="flex items-center justify-between px-5 pt-1">

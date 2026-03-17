@@ -16,6 +16,7 @@ import { useLayoutState } from "@/hooks/use-layout-state";
 import { AI_ASSISTANT_TAB_INPUT, CANVAS_LIST_TAB_INPUT, WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
 import { resolveProjectModeProjectShell } from "@/lib/project-mode";
 import { applyProjectShellToTab } from "@/lib/project-shell";
+import { openPrimaryPage, restorePreviousViewFromBase } from "@/lib/primary-page-navigation";
 
 export type GlobalShortcutDefinition = {
   id: string;
@@ -145,16 +146,19 @@ export function openSettingsTab(settingsMenu?: string) {
   }
 
   // Save current base and switch to settings
-  // 中文注释：进入全局设置时关闭当前 stack，确保设置页成为前景页并按页面规则隐藏右侧 chat。
-  layout.clearStack();
-  layout.setBase({
-    id: 'settings',
-    component: 'settings-page',
-    params: {
-      ...(settingsMenu ? { settingsMenu } : {}),
-      __previousBase: currentBase ?? null,
+  // 中文注释：全局设置页也记录进入前视图，便于 header 返回按钮完整恢复来源页面。
+  openPrimaryPage(
+    {
+      baseId: "settings",
+      component: "settings-page",
+      title: i18next.t("nav:settings"),
+      icon: "⚙️",
     },
-  });
+    {
+      preserveCurrentView: true,
+      baseParams: settingsMenu ? { settingsMenu } : undefined,
+    },
+  );
 }
 
 /** Close settings and restore the previous left dock base panel. */
@@ -162,6 +166,8 @@ export function closeSettingsTab() {
   const layout = useLayoutState.getState();
   const base = layout.base;
   if (base?.component !== 'settings-page') return;
+
+  if (restorePreviousViewFromBase(base)) return;
 
   const previousBase = (base.params as any)?.__previousBase;
   layout.setBase(

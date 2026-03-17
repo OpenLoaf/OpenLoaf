@@ -8,45 +8,37 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Slider as SliderPrimitive } from 'radix-ui'
 
-function clamp(v: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, v))
-}
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-/** Format seconds into mm:ss.s (single decimal). */
-function formatTimePrecise(seconds: number): string {
+function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}:${s.toFixed(1).padStart(4, '0')}`
 }
 
 // ---------------------------------------------------------------------------
-// VTT thumbnail parsing & filmstrip
+// VTT thumbnail filmstrip
 // ---------------------------------------------------------------------------
 
-type ThumbnailEntry = { startTime: number; endTime: number; url: string }
+type ThumbnailEntry = { url: string }
 
-/** Parse HLS VTT thumbnail manifest into entries. */
 function parseVttThumbnails(vttText: string, baseUrl: string): ThumbnailEntry[] {
   const entries: ThumbnailEntry[] = []
   const lines = vttText.split(/\r?\n/)
   let i = 0
   while (i < lines.length) {
     const line = lines[i]!.trim()
-    // 逻辑：匹配 "00:00:00.000 --> 00:00:04.000" 时间行。
-    const timeMatch = line.match(
-      /^(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})$/,
-    )
-    if (timeMatch) {
-      const startTime = parseVttTime(timeMatch[1]!)
-      const endTime = parseVttTime(timeMatch[2]!)
-      // 逻辑：下一行是缩略图 URL。
+    if (line.match(/^\d{2}:\d{2}:\d{2}\.\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}\.\d{3}$/)) {
       const urlLine = lines[i + 1]?.trim()
       if (urlLine && !urlLine.includes('-->')) {
         const url = urlLine.startsWith('http') || urlLine.startsWith('/')
           ? urlLine
           : new URL(urlLine, baseUrl).toString()
-        entries.push({ startTime, endTime, url })
+        entries.push({ url })
       }
       i += 2
     } else {
@@ -54,36 +46,6 @@ function parseVttThumbnails(vttText: string, baseUrl: string): ThumbnailEntry[] 
     }
   }
   return entries
-}
-
-function parseVttTime(str: string): number {
-  const parts = str.split(':')
-  const h = Number(parts[0])
-  const m = Number(parts[1])
-  const s = Number(parts[2])
-  return h * 3600 + m * 60 + s
-}
-
-/** Load thumbnail images and return data URLs. */
-async function loadThumbnailImages(
-  entries: ThumbnailEntry[],
-  signal?: AbortSignal,
-): Promise<string[]> {
-  const results: string[] = []
-  // 逻辑：并行加载所有缩略图，失败的用空字符串占位。
-  const promises = entries.map(async (entry, idx) => {
-    try {
-      const res = await fetch(entry.url, { signal, cache: 'force-cache' })
-      if (!res.ok) return
-      const blob = await res.blob()
-      const dataUrl = await blobToDataUrl(blob)
-      results[idx] = dataUrl
-    } catch {
-      // 逻辑：忽略单帧加载失败。
-    }
-  })
-  await Promise.all(promises)
-  return results
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -95,15 +57,12 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   })
 }
 
-/** Hook to fetch and parse VTT thumbnails. */
 function useThumbnails(thumbnailsUrl: string | undefined) {
   const [images, setImages] = useState<string[]>([])
-
   useEffect(() => {
     if (!thumbnailsUrl) return
     let cancelled = false
     const controller = new AbortController()
-
     const run = async () => {
       try {
         const res = await fetch(thumbnailsUrl, { cache: 'no-store', signal: controller.signal })
@@ -111,91 +70,46 @@ function useThumbnails(thumbnailsUrl: string | undefined) {
         const text = await res.text()
         if (cancelled) return
         const parsed = parseVttThumbnails(text, thumbnailsUrl)
-        const imgs = await loadThumbnailImages(parsed, controller.signal)
-        if (!cancelled) setImages(imgs)
-      } catch {
-        // 逻辑：VTT 加载失败时不阻塞 UI。
-      }
+        const results: string[] = []
+        await Promise.all(
+          parsed.map(async (entry, idx) => {
+            try {
+              const r = await fetch(entry.url, { signal: controller.signal, cache: 'force-cache' })
+              if (!r.ok) return
+              results[idx] = await blobToDataUrl(await r.blob())
+            } catch { /* skip */ }
+          }),
+        )
+        if (!cancelled) setImages(results)
+      } catch { /* skip */ }
     }
     run()
-    return () => {
-      cancelled = true
-      controller.abort()
-    }
+    return () => { cancelled = true; controller.abort() }
   }, [thumbnailsUrl])
-
   return images
 }
 
 // ---------------------------------------------------------------------------
-// Filmstrip component
+// Constants
 // ---------------------------------------------------------------------------
 
-function Filmstrip({
-  images,
-  trackHeight,
-}: {
-  images: string[]
-  trackHeight: number
-}) {
-  if (images.length === 0) return null
-  return (
-    <div
-      className="absolute inset-0 flex overflow-hidden"
-      style={{ height: trackHeight }}
-    >
-      {images.map((src, i) => (
-        <div
-          key={`frame-${i}`}
-          className="relative flex-1 overflow-hidden"
-          style={{ minWidth: 0 }}
-        >
-          {src ? (
-            <img
-              src={src}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-              draggable={false}
-            />
-          ) : (
-            <div className="h-full w-full bg-ol-surface-muted" />
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
+const TRACK_H = 48
+const HANDLE_W = 12
+const SCALE = 10000
 
 // ---------------------------------------------------------------------------
-// Drag type: 'start' handle, 'end' handle, or 'seek' (playhead scrub)
+// Component
 // ---------------------------------------------------------------------------
-
-type DragTarget = 'start' | 'end' | 'seek' | null
-
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
-
-const TRACK_HEIGHT = 48
 
 export type VideoTrimRangeSliderProps = {
   duration: number
   clipStart: number
   clipEnd: number
-  /** Current playback position for the playhead indicator. */
   currentTime?: number
-  /** VTT thumbnails URL for filmstrip background. */
   thumbnailsUrl?: string
   onChange: (start: number, end: number) => void
-  /** Seek when clicking on the track. */
-  onSeek?: (time: number) => void
 }
 
-/**
- * Enhanced dual-handle range slider for video trim with filmstrip thumbnails.
- * Shows video frame thumbnails as background, dimmed regions outside selection,
- * dual drag handles, and a draggable playhead indicator.
- */
 export function VideoTrimRangeSlider({
   duration,
   clipStart,
@@ -203,191 +117,159 @@ export function VideoTrimRangeSlider({
   currentTime,
   thumbnailsUrl,
   onChange,
-  onSeek,
 }: VideoTrimRangeSliderProps) {
-  const trackRef = useRef<HTMLDivElement>(null)
-  const draggingRef = useRef<DragTarget>(null)
-  const [, setDragTick] = useState(0)
-
-  const clipStartRef = useRef(clipStart)
-  clipStartRef.current = clipStart
-  const clipEndRef = useRef(clipEnd)
-  clipEndRef.current = clipEnd
-  const onChangeRef = useRef(onChange)
-  onChangeRef.current = onChange
-  const onSeekRef = useRef(onSeek)
-  onSeekRef.current = onSeek
-
   const images = useThumbnails(thumbnailsUrl)
   const hasFilmstrip = images.length > 0
 
-  const pctOf = useCallback(
-    (v: number) => (duration > 0 ? (v / duration) * 100 : 0),
+  const toSlider = useCallback(
+    (v: number) => (duration > 0 ? Math.round((v / duration) * SCALE) : 0),
+    [duration],
+  )
+  const fromSlider = useCallback(
+    (v: number) => (duration > 0 ? (v / SCALE) * duration : 0),
     [duration],
   )
 
-  const valueFromClientX = useCallback(
-    (clientX: number) => {
-      const track = trackRef.current
-      if (!track || duration <= 0) return 0
-      const rect = track.getBoundingClientRect()
-      const pct = (clientX - rect.left) / rect.width
-      return clamp(Math.round(pct * duration * 10) / 10, 0, duration)
+  // 逻辑：拖拽中标记，用于冻结播放头。
+  const [dragging, setDragging] = useState(false)
+  const frozenPlayheadRef = useRef<number | null>(null)
+
+  const handleValueChange = useCallback(
+    (values: number[]) => {
+      let start = fromSlider(values[0]!)
+      let end = fromSlider(values[1]!)
+      // 逻辑：clamp 到 [0, duration]，防止溢出。
+      start = Math.max(0, Math.min(start, duration))
+      end = Math.max(start + 0.1, Math.min(end, duration))
+      onChange(start, end)
     },
-    [duration],
+    [fromSlider, onChange, duration],
   )
 
-  // 逻辑：document-level pointer events 统一处理 handle 拖拽和 playhead scrub。
-  useEffect(() => {
-    const handleMove = (e: PointerEvent) => {
-      const target = draggingRef.current
-      if (!target) return
-      e.preventDefault()
-      const v = valueFromClientX(e.clientX)
-      if (target === 'start') {
-        onChangeRef.current(Math.min(v, clipEndRef.current - 0.1), clipEndRef.current)
-      } else if (target === 'end') {
-        onChangeRef.current(clipStartRef.current, Math.max(v, clipStartRef.current + 0.1))
-      } else if (target === 'seek') {
-        onSeekRef.current?.(v)
-      }
-    }
-    const handleUp = () => {
-      if (draggingRef.current) {
-        draggingRef.current = null
-        setDragTick((c) => c + 1)
-      }
-    }
-    document.addEventListener('pointermove', handleMove)
-    document.addEventListener('pointerup', handleUp)
-    return () => {
-      document.removeEventListener('pointermove', handleMove)
-      document.removeEventListener('pointerup', handleUp)
-    }
-  }, [valueFromClientX])
+  const handleValueCommit = useCallback(() => {
+    setDragging(false)
+    frozenPlayheadRef.current = null
+  }, [])
 
-  const onHandleDown = useCallback(
-    (handle: 'start' | 'end') => (e: React.PointerEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      draggingRef.current = handle
-      setDragTick((c) => c + 1)
-    },
-    [],
-  )
+  const handlePointerDown = useCallback(() => {
+    setDragging(true)
+    frozenPlayheadRef.current = currentTime ?? null
+  }, [currentTime])
 
-  // 逻辑：点击/按住轨道空白区域启动 seek 拖拽，按住后可持续拖动播放头。
-  const handleTrackPointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      const v = valueFromClientX(e.clientX)
-      onSeek?.(v)
-      draggingRef.current = 'seek'
-      setDragTick((c) => c + 1)
-    },
-    [valueFromClientX, onSeek],
-  )
-
-  const startPct = pctOf(clipStart)
-  const endPct = pctOf(clipEnd)
-  const playheadPct = currentTime != null ? pctOf(currentTime) : null
+  const pct = (v: number) => (duration > 0 ? (v / duration) * 100 : 0)
+  const startPct = pct(clipStart)
+  const endPct = pct(clipEnd)
+  // 逻辑：拖拽中冻结播放头位置，避免播放头随 currentTime 乱跳。
+  const displayPlayhead = dragging ? frozenPlayheadRef.current : currentTime
+  const playheadPct = displayPlayhead != null ? pct(displayPlayhead) : null
 
   return (
     <div className="flex flex-col gap-2 select-none">
       {/* Time labels */}
-      <div className="flex items-center justify-between text-xs text-ol-text-auxiliary tabular-nums">
-        <span>{formatTimePrecise(clipStart)}</span>
+      <div className="flex items-center justify-between text-xs text-ol-text-auxiliary tabular-nums px-1">
+        <span>{formatTime(clipStart)}</span>
         <span className="text-ol-text-secondary font-medium">
-          {formatTimePrecise(clipEnd - clipStart)}
+          {formatTime(clipEnd - clipStart)}
         </span>
-        <span>{formatTimePrecise(clipEnd)}</span>
+        <span>{formatTime(clipEnd)}</span>
       </div>
-      {/* Track with filmstrip */}
-      <div
-        ref={trackRef}
-        className="relative cursor-pointer"
-        style={{ height: TRACK_HEIGHT }}
-        onPointerDown={handleTrackPointerDown}
-      >
-        {/* Filmstrip thumbnails or plain background */}
+
+      {/* Track area — overflow-hidden 防止柄溢出 */}
+      <div className="relative overflow-hidden" style={{ height: TRACK_H }}>
+
+        {/* === Visual layers (all pointer-events-none) === */}
+
+        {/* Filmstrip background */}
         {hasFilmstrip ? (
-          <Filmstrip images={images} trackHeight={TRACK_HEIGHT} />
+          <div className="absolute inset-0 flex overflow-hidden pointer-events-none">
+            {images.map((src, i) => (
+              <div key={`f-${i}`} className="relative flex-1 overflow-hidden" style={{ minWidth: 0 }}>
+                {src ? (
+                  <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+                ) : (
+                  <div className="h-full w-full bg-ol-surface-muted" />
+                )}
+              </div>
+            ))}
+          </div>
         ) : (
-          <div
-            className="absolute inset-0 bg-ol-surface-muted"
-            style={{ height: TRACK_HEIGHT }}
-          />
+          <div className="absolute inset-0 bg-ol-surface-muted pointer-events-none" />
         )}
 
-        {/* Dimmed left region (outside selection) */}
+        {/* Dimmed left */}
         <div
-          className="absolute top-0 left-0 bg-background/70"
-          style={{ width: `${startPct}%`, height: TRACK_HEIGHT }}
+          className="absolute top-0 left-0 bg-background/70 pointer-events-none"
+          style={{ width: `${startPct}%`, height: TRACK_H }}
         />
-        {/* Dimmed right region (outside selection) */}
+        {/* Dimmed right */}
         <div
-          className="absolute top-0 right-0 bg-background/70"
-          style={{ width: `${100 - endPct}%`, height: TRACK_HEIGHT }}
-        />
-
-        {/* Selection border highlight */}
-        <div
-          className="absolute top-0 border-y-2 border-ol-blue/80 pointer-events-none"
-          style={{
-            left: `${startPct}%`,
-            width: `${endPct - startPct}%`,
-            height: TRACK_HEIGHT,
-          }}
+          className="absolute top-0 right-0 bg-background/70 pointer-events-none"
+          style={{ width: `${100 - endPct}%`, height: TRACK_H }}
         />
 
-        {/* Start handle */}
+        {/* Selection top/bottom border */}
         <div
-          className="absolute top-0 flex items-center justify-center cursor-grab active:cursor-grabbing z-10"
-          style={{ left: `${startPct}%`, height: TRACK_HEIGHT }}
-          onPointerDown={onHandleDown('start')}
+          className="absolute top-0 border-y-2 border-ol-blue pointer-events-none"
+          style={{ left: `${startPct}%`, width: `${endPct - startPct}%`, height: TRACK_H }}
+        />
+
+        {/* Visual handles — 由 clipStart/clipEnd 驱动定位 */}
+        <div
+          className="absolute top-0 pointer-events-none z-10"
+          style={{ left: `${startPct}%`, height: TRACK_H }}
         >
-          <div className="relative -translate-x-1/2 h-full w-4 flex items-center justify-center">
-            <div className="h-full w-1.5 rounded-l-sm bg-ol-blue shadow-md" />
-            {/* Grip lines */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="flex flex-col gap-0.5">
-                <div className="h-px w-1 rounded-full bg-white/80" />
-                <div className="h-px w-1 rounded-full bg-white/80" />
-                <div className="h-px w-1 rounded-full bg-white/80" />
-              </div>
-            </div>
-          </div>
+          <div
+            className="h-full bg-ol-blue rounded-l-sm"
+            style={{ width: HANDLE_W, transform: `translateX(-100%)` }}
+          />
+        </div>
+        <div
+          className="absolute top-0 pointer-events-none z-10"
+          style={{ left: `${endPct}%`, height: TRACK_H }}
+        >
+          <div
+            className="h-full bg-ol-blue rounded-r-sm"
+            style={{ width: HANDLE_W }}
+          />
         </div>
 
-        {/* End handle */}
-        <div
-          className="absolute top-0 flex items-center justify-center cursor-grab active:cursor-grabbing z-10"
-          style={{ left: `${endPct}%`, height: TRACK_HEIGHT }}
-          onPointerDown={onHandleDown('end')}
-        >
-          <div className="relative -translate-x-1/2 h-full w-4 flex items-center justify-center">
-            <div className="h-full w-1.5 rounded-r-sm bg-ol-blue shadow-md" />
-            {/* Grip lines */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="flex flex-col gap-0.5">
-                <div className="h-px w-1 rounded-full bg-white/80" />
-                <div className="h-px w-1 rounded-full bg-white/80" />
-                <div className="h-px w-1 rounded-full bg-white/80" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Playhead — white line with shadow, draggable */}
+        {/* Playhead */}
         {playheadPct != null && (
           <div
             className="absolute top-0 pointer-events-none z-20"
-            style={{ left: `${playheadPct}%`, height: TRACK_HEIGHT }}
+            style={{ left: `${playheadPct}%`, height: TRACK_H }}
           >
             <div className="h-full w-0.5 -translate-x-1/2 bg-white shadow-[0_0_4px_rgba(0,0,0,0.5)]" />
           </div>
         )}
+
+        {/* === Radix Slider — 透明交互层 === */}
+        {/* 逻辑：Radix Slider 处理所有拖拽数学，thumb 透明但保留交互热区。 */}
+        <SliderPrimitive.Root
+          min={0}
+          max={SCALE}
+          step={1}
+          minStepsBetweenThumbs={1}
+          value={[toSlider(clipStart), toSlider(clipEnd)]}
+          onValueChange={handleValueChange}
+          onValueCommit={handleValueCommit}
+          onPointerDown={handlePointerDown}
+          className="absolute inset-0 flex touch-none items-center"
+          style={{ height: TRACK_H }}
+        >
+          <SliderPrimitive.Track className="relative h-full w-full">
+            <SliderPrimitive.Range className="absolute h-full" />
+          </SliderPrimitive.Track>
+          {/* 逻辑：Thumb 视觉透明，但有 24px 宽的交互热区。 */}
+          <SliderPrimitive.Thumb
+            className="block outline-none cursor-grab active:cursor-grabbing"
+            style={{ width: 24, height: TRACK_H, opacity: 0 }}
+          />
+          <SliderPrimitive.Thumb
+            className="block outline-none cursor-grab active:cursor-grabbing"
+            style={{ width: 24, height: TRACK_H, opacity: 0 }}
+          />
+        </SliderPrimitive.Root>
       </div>
     </div>
   )

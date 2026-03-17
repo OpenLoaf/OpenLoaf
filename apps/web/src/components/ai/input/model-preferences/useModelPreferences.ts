@@ -29,6 +29,10 @@ import {
 } from '@/lib/provider-models'
 import { useMainAgentModel } from '../../hooks/use-main-agent-model'
 import { useOptionalChatSession } from '../../context'
+import {
+  buildSinglePreferredIds,
+  normalizeSinglePreferredIds,
+} from './model-selection-utils'
 
 function normalizeIds(value?: string[] | null): string[] {
   if (!Array.isArray(value)) return []
@@ -116,18 +120,22 @@ export function useModelPreferences() {
   const [overrideVideoIds, setOverrideVideoIds] = useState<string[] | null>(null)
   const [overrideCodeIds, setOverrideCodeIds] = useState<string[] | null>(null)
   const prefersCachedModels = Boolean(masterDetail)
-  const preferredChatIds = prefersCachedModels
+  const resolvedChatIds = prefersCachedModels
     ? cachedChatIds
     : overrideChatIds ?? cachedChatIds
-  const preferredImageIds = prefersCachedModels
+  const resolvedImageIds = prefersCachedModels
     ? cachedImageIds
     : overrideImageIds ?? cachedImageIds
-  const preferredVideoIds = prefersCachedModels
+  const resolvedVideoIds = prefersCachedModels
     ? cachedVideoIds
     : overrideVideoIds ?? cachedVideoIds
-  const preferredCodeIds = prefersCachedModels
+  const resolvedCodeIds = prefersCachedModels
     ? cachedCodeIds
     : overrideCodeIds ?? cachedCodeIds
+  const preferredChatIds = normalizeSinglePreferredIds(resolvedChatIds)
+  const preferredImageIds = normalizeSinglePreferredIds(resolvedImageIds)
+  const preferredVideoIds = normalizeSinglePreferredIds(resolvedVideoIds)
+  const preferredCodeIds = normalizeSinglePreferredIds(resolvedCodeIds)
 
   const isAuto = preferredChatIds.length === 0
   const isImageAuto = preferredImageIds.length === 0
@@ -146,54 +154,38 @@ export function useModelPreferences() {
 
   const toggleChatModel = useCallback(
     (modelId: string) => {
-      const normalized = modelId.trim()
-      if (!normalized) return
-      const nextIds = preferredChatIds.includes(normalized)
-        ? preferredChatIds.filter((id) => id !== normalized)
-        : [...preferredChatIds, normalized]
+      const nextIds = buildSinglePreferredIds(resolvedChatIds, modelId)
       if (!masterDetail) setOverrideChatIds(nextIds)
       setModelIds(nextIds)
     },
-    [masterDetail, preferredChatIds, setModelIds],
+    [masterDetail, resolvedChatIds, setModelIds],
   )
 
   const toggleImageModel = useCallback(
     (modelId: string) => {
-      const normalized = modelId.trim()
-      if (!normalized) return
-      const nextIds = preferredImageIds.includes(normalized)
-        ? preferredImageIds.filter((id) => id !== normalized)
-        : [...preferredImageIds, normalized]
+      const nextIds = buildSinglePreferredIds(resolvedImageIds, modelId)
       if (!masterDetail) setOverrideImageIds(nextIds)
       setImageModelIds(nextIds)
     },
-    [masterDetail, preferredImageIds, setImageModelIds],
+    [masterDetail, resolvedImageIds, setImageModelIds],
   )
 
   const toggleVideoModel = useCallback(
     (modelId: string) => {
-      const normalized = modelId.trim()
-      if (!normalized) return
-      const nextIds = preferredVideoIds.includes(normalized)
-        ? preferredVideoIds.filter((id) => id !== normalized)
-        : [...preferredVideoIds, normalized]
+      const nextIds = buildSinglePreferredIds(resolvedVideoIds, modelId)
       if (!masterDetail) setOverrideVideoIds(nextIds)
       setVideoModelIds(nextIds)
     },
-    [masterDetail, preferredVideoIds, setVideoModelIds],
+    [masterDetail, resolvedVideoIds, setVideoModelIds],
   )
 
   const toggleCodeModel = useCallback(
     (modelId: string) => {
-      const normalized = modelId.trim()
-      if (!normalized) return
-      const nextIds = preferredCodeIds.includes(normalized)
-        ? preferredCodeIds.filter((id) => id !== normalized)
-        : [...preferredCodeIds, normalized]
+      const nextIds = buildSinglePreferredIds(resolvedCodeIds, modelId)
       if (!masterDetail) setOverrideCodeIds(nextIds)
       setCodeModelIds(nextIds)
     },
-    [masterDetail, preferredCodeIds, setCodeModelIds],
+    [masterDetail, resolvedCodeIds, setCodeModelIds],
   )
 
   const selectCodeModel = useCallback(

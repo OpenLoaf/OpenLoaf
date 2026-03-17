@@ -215,7 +215,7 @@ export default function UnifiedTool({
 
   return (
     <Tool
-      defaultOpen={isApprovalRequested}
+      defaultOpen={isApprovalRequested && !!approvalId}
       onOpenChange={(open) => {
         if (open) void fetchToolOutput();
       }}

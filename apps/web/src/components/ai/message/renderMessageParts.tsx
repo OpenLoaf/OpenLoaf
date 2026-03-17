@@ -211,7 +211,7 @@ export function renderMessageParts(
             `text:${index}:${nextIndex}`,
             undefined,
             <MessageStreamMarkdown
-              markdown={mergedText}
+              markdown={normalizedText}
               className={cn(MESSAGE_TEXT_CLASSNAME, options?.textClassName)}
               isAnimating={isAnimating}
             />,

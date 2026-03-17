@@ -20,7 +20,7 @@ import { Checkbox } from "@openloaf/ui/checkbox";
 import { Input } from "@openloaf/ui/input";
 import { FilterTab } from "@openloaf/ui/filter-tab";
 import {
-  Search, Trash2, X, FolderOpen, Eye, Plus, Pencil,
+  Search, Trash2, X, FolderOpen, Eye, Plus, Pencil, RefreshCw,
   Globe, FileSearch, FilePen, Terminal, Mail, Calendar,
   Image, LayoutGrid, Link, Users, Code, Settings, FolderKanban, Blocks,
   Bot, Sparkles, FileText,
@@ -509,6 +509,22 @@ function GlobalAgentView() {
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
               {t("settings:agent.openDirTooltip")}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                onClick={() => queryClient.invalidateQueries({ queryKey: trpc.settings.getAgents.queryOptions().queryKey })}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${agentsQuery.isFetching ? "animate-spin" : ""}`} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              {t("settings:agent.refresh", { defaultValue: "刷新" })}
             </TooltipContent>
           </Tooltip>
         </div>

@@ -13,6 +13,7 @@ import { createElement } from "react";
 import { useChatState, useChatTools } from "../../context";
 import { getToolKind, type AnyToolPart, type ToolVariant } from "./shared/tool-utils";
 import { findToolEntry, CliThinkingTool, UnifiedTool } from "./tool-registry";
+import { useBasicConfig } from "@/hooks/use-basic-config";
 
 /**
  * 工具调用消息组件
@@ -31,6 +32,7 @@ export default function MessageTool({
 }) {
   const { status } = useChatState();
   const { toolParts } = useChatTools();
+  const { basic } = useBasicConfig();
   if (!part) return null;
   const toolCallId = typeof part.toolCallId === "string" ? part.toolCallId : "";
   const toolSnapshot = toolCallId ? toolParts[toolCallId] : undefined;
@@ -87,12 +89,13 @@ export default function MessageTool({
     }
   }
 
-  // 没有专用 UI 的工具：成功后隐藏，出错/拒绝时保留显示
+  // 没有专用 UI 的工具：成功后隐藏，出错/拒绝时保留显示。
+  // 当用户开启"显示所有工具调用结果"时，成功的工具也保持显示。
   const isCompleted = resolvedPart.state === 'output-available'
     || resolvedPart.state === 'output-error'
     || resolvedPart.state === 'output-denied'
   const hasError = resolvedPart.state === 'output-error' || resolvedPart.state === 'output-denied'
-  if (isCompleted && !hasError) return null
+  if (isCompleted && !hasError && !basic.chatShowAllToolResults) return null
 
   return (
     <UnifiedTool part={resolvedPart} className={className} variant={variant} messageId={messageId} />

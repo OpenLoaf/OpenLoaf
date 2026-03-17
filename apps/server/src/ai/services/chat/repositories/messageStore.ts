@@ -10,7 +10,11 @@
 import { generateId } from 'ai'
 import { prisma } from '@openloaf/db'
 import type { ChatMessageKind, OpenLoafUIMessage } from '@openloaf/api'
-import { replaceFileTokensWithNames } from '@/common/chatTitle'
+import {
+  replaceFileTokensWithNames,
+  replaceSkillRefsWithNames,
+  replaceBarePathsWithNames,
+} from '@/common/chatTitle'
 import { getBoardId, getProjectId } from '@/ai/shared/context/requestContext'
 import { toNumberOrUndefined, isRecord } from '@/ai/shared/util'
 import {
@@ -362,10 +366,18 @@ function extractTitleTextFromParts(parts: unknown[]): string {
   const chunks: string[] = []
   for (const part of parts as any[]) {
     if (!part || typeof part !== 'object') continue
+    // 跳过 data-skill 等数据类型的 parts，它们不适合作为标题
+    if (typeof part.type === 'string' && part.type.startsWith('data-')) continue
     if (part.type === 'text' && typeof part.text === 'string') {
-      chunks.push(replaceFileTokensWithNames(part.text))
+      let text = replaceFileTokensWithNames(part.text)
+      text = replaceSkillRefsWithNames(text)
+      text = replaceBarePathsWithNames(text)
+      chunks.push(text)
     } else if (typeof part.text === 'string') {
-      chunks.push(replaceFileTokensWithNames(part.text))
+      let text = replaceFileTokensWithNames(part.text)
+      text = replaceSkillRefsWithNames(text)
+      text = replaceBarePathsWithNames(text)
+      chunks.push(text)
     }
   }
   const raw = chunks.join('\n').trim()

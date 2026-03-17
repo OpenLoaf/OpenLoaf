@@ -49,6 +49,7 @@ export const masterTemplate: AgentTemplate = {
     // web
     'open-url',
     'web-search',
+    'web-fetch',
     // browser automation
     'browser-snapshot',
     'browser-observe',

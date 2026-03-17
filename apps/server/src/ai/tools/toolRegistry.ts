@@ -134,6 +134,7 @@ import {
 } from "@/ai/tools/browserAutomationTools";
 import { wrapToolWithTimeout } from "@/ai/tools/toolTimeout";
 import { wrapToolWithErrorEnhancer } from "@/ai/tools/toolErrorEnhancer";
+import { wrapToolWithInputValidation } from "@/ai/tools/toolInputValidation";
 import { getRequestContext } from "@/ai/shared/context/requestContext";
 
 type ToolEntry = {
@@ -359,8 +360,9 @@ function getToolById(toolId: string): ToolEntry | undefined {
  * Builds a ToolLoopAgent toolset from a list of ToolDef.id (MVP).
  *
  * Each tool is wrapped with:
- * 1. Timeout protection (prevents indefinite blocking)
- * 2. Error enhancement (structured recovery hints for LLM)
+ * 1. Input validation passthrough (converts schema errors → tool execution errors for LLM feedback)
+ * 2. Timeout protection (prevents indefinite blocking)
+ * 3. Error enhancement (structured recovery hints for LLM)
  */
 export function buildToolset(toolIds: readonly string[] = []) {
   const toolset: Record<string, any> = {};
@@ -368,7 +370,8 @@ export function buildToolset(toolIds: readonly string[] = []) {
     const entry = getToolById(toolId);
     if (!entry) continue;
     const withAutoApproval = wrapToolWithAutoApproval(toolId, entry.tool);
-    const withTimeout = wrapToolWithTimeout(toolId, withAutoApproval);
+    const withInputValidation = wrapToolWithInputValidation(toolId, withAutoApproval);
+    const withTimeout = wrapToolWithTimeout(toolId, withInputValidation);
     const withErrorEnhancer = wrapToolWithErrorEnhancer(toolId, withTimeout);
     toolset[toolId] = withErrorEnhancer;
   }

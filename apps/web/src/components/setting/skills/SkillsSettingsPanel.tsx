@@ -30,6 +30,7 @@ import {
   Loader2,
   FolderCog,
   MoveRight,
+  RefreshCw,
   RotateCcw,
   Search,
   Trash2,
@@ -659,18 +660,28 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
             <TooltipTrigger asChild>
               <Button
                 type="button"
-                size="sm"
+                size="icon"
                 variant="ghost"
-                className="h-8 gap-1.5 rounded-md px-2.5 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => setTranslateDialogOpen(true)}
-                disabled={skills.length === 0}
+                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                onClick={() => invalidateSkillQueries()}
+                disabled={skillsQuery.isLoading}
               >
-                <Languages className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{t('skills.translateTitles.button', { defaultValue: '翻译标题' })}</span>
+                <RefreshCw className={cn("h-3.5 w-3.5", skillsQuery.isFetching && "animate-spin")} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{t('skills.translateTitles.tooltip', { defaultValue: '一键翻译未翻译技能的标题和描述' })}</TooltipContent>
+            <TooltipContent>{t('skills.refresh', { defaultValue: '刷新' })}</TooltipContent>
           </Tooltip>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="rounded-md bg-ol-green/10 text-ol-green hover:bg-ol-green/20"
+            onClick={() => setTranslateDialogOpen(true)}
+            disabled={skills.length === 0}
+          >
+            <Languages className="mr-1.5 h-4 w-4" />
+            {t('skills.translateTitles.button', { defaultValue: '翻译标题' })}
+          </Button>
         </div>
       </div>
 

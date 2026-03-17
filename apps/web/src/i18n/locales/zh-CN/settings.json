@@ -39,6 +39,8 @@
     "chatMemoryScopeGlobal": "全局记忆",
     "modelSound": "模型声音提示",
     "modelSoundDesc": "发送请求与结束时播放提示音",
+    "showAllToolResults": "显示所有工具调用结果",
+    "showAllToolResultsDesc": "开启后，对话中将展示所有工具调用的详细结果",
     "confirmDeleteTitle": "确认删除",
     "confirmDeleteDesc": "确认要删除这个服务商配置吗？",
     "keepAtLeastOneModel": "至少保留一个模型",
@@ -115,8 +117,6 @@
     "animationHigh": "高",
     "notificationSound": "通知声音提示",
     "notificationSoundDesc": "语音输入开始时播放提示音",
-    "showAllToolResults": "显示所有工具调用结果",
-    "showAllToolResultsDesc": "开启后，对话中将展示所有工具调用的详细结果",
     "minimizeToTray": "关闭时最小化到托盘",
     "minimizeToTrayDesc": "开启后，关闭窗口时应用将最小化到系统托盘而不是退出"
   },

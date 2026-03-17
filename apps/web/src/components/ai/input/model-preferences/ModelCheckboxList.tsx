@@ -58,6 +58,7 @@ export function ChatModelCheckboxList({
             checked={preferredIds.includes(option.id)}
             disabled={disabled}
             onToggle={() => onToggle(option.id)}
+            selectionType="single"
           />
         )
       })}
@@ -101,6 +102,7 @@ export function MediaModelCheckboxList({
           checked={preferredIds.includes(model.id)}
           disabled={disabled}
           onToggle={() => onToggle(model.id)}
+          selectionType="single"
         />
       ))}
     </div>

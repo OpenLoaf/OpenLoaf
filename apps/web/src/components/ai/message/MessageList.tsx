@@ -164,6 +164,7 @@ export default function MessageList({ className, projectId }: MessageListProps) 
             {shouldShowThinking ? (
               <motion.div
                 key="thinking"
+                className="my-0.5 px-2"
                 layout
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}

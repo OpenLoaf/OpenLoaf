@@ -36,6 +36,7 @@ export const PM_AGENT_TOOL_IDS = [
   // web
   'open-url',
   'web-search',
+  'web-fetch',
   // project (query only)
   'project-query',
   // document

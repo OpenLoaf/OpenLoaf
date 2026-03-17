@@ -47,11 +47,20 @@ import { lazy, Suspense } from "react";
 const LazyCanvasListPage = lazy(() => import("@/components/board/CanvasListPage"));
 const LazyProjectSettingsPage = lazy(() => import("@/components/project/settings/ProjectSettingsPage"));
 
+type ProjectSettingsMenuValue =
+  | "basic"
+  | "ai"
+  | "memory"
+  | "skills"
+  | "agents"
+  | "git";
+
 interface ProjectPageProps {
   tabId?: string;
   projectId?: string;
   rootUri?: string;
   projectTab?: ProjectTabValue;
+  settingsMenu?: ProjectSettingsMenuValue | null;
   fileUri?: string | null;
   [key: string]: any;
 }
@@ -164,6 +173,7 @@ export default function ProjectPage({
   rootUri,
   tabId,
   projectTab,
+  settingsMenu,
   fileUri: externalFileUri,
 }: ProjectPageProps) {
   const { t } = useTranslation("project");
@@ -605,6 +615,7 @@ export default function ProjectPage({
                         tabId={tabId}
                         projectId={projectId}
                         rootUri={rootUri}
+                        settingsMenu={settingsMenu ?? undefined}
                         showProjectTabs={false}
                       />
                     </Suspense>

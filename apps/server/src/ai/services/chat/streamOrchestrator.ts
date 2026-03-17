@@ -14,8 +14,12 @@ import {
   UI_MESSAGE_STREAM_HEADERS,
   type UIMessage,
 } from "ai";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { logger } from "@/common/logger";
 import type { ChatMessageKind, TokenUsage } from "@openloaf/api";
+import { readBasicConf } from "@/modules/settings/openloafConfStore";
+import { resolveMessagesJsonlPath } from "@/ai/services/chat/repositories/chatFileStore";
 import {
   getCliSummary,
   getSessionId,
@@ -248,6 +252,19 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
           input.modelMessages as UIMessage[],
           input.agentRunner.agent.tools,
         );
+
+        // AI 调试模式 — 每步 LLM 请求/响应实时写入独立文件
+        const isDebugMode = readBasicConf().chatPrefaceEnabled;
+        const debugSessionId = input.sessionId;
+        const debugMessageId = input.assistantMessageId;
+        const debugAttemptTag = (() => {
+          const now = new Date();
+          const hh = String(now.getHours()).padStart(2, "0");
+          const mm = String(now.getMinutes()).padStart(2, "0");
+          const ss = String(now.getSeconds()).padStart(2, "0");
+          return `${hh}${mm}${ss}`;
+        })();
+
         const agentStream = await input.agentRunner.agent.stream({
           messages: modelMessages,
           abortSignal: input.abortController.signal,
@@ -255,6 +272,42 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
             delayInMs: 10,
             chunking: new Intl.Segmenter("zh", { granularity: "word" }),
           }),
+          ...(isDebugMode ? {
+            experimental_onStepStart: (event: any) => {
+              void writeDebugStepFile({
+                sessionId: debugSessionId,
+                assistantMessageId: debugMessageId,
+                attemptTag: debugAttemptTag,
+                stepNumber: event.stepNumber,
+                kind: "request",
+                data: {
+                  stepNumber: event.stepNumber,
+                  model: event.model,
+                  system: event.system,
+                  messages: event.messages,
+                  activeTools: event.activeTools,
+                  toolChoice: event.toolChoice,
+                },
+              });
+            },
+            onStepFinish: (event: any) => {
+              void writeDebugStepFile({
+                sessionId: debugSessionId,
+                assistantMessageId: debugMessageId,
+                attemptTag: debugAttemptTag,
+                stepNumber: event.stepNumber,
+                kind: "response",
+                data: {
+                  stepNumber: event.stepNumber,
+                  text: event.text,
+                  toolCalls: event.toolCalls,
+                  toolResults: event.toolResults,
+                  finishReason: event.finishReason,
+                  usage: event.usage,
+                },
+              });
+            },
+          } : {}),
         });
         const uiStream = agentStream.toUIMessageStream({
           originalMessages: input.modelMessages as any[],
@@ -534,6 +587,37 @@ async function saveErrorMessage(input: ErrorStreamInput) {
     parentMessageId: input.parentMessageId,
     allowEmpty: false,
   });
+}
+
+/**
+ * AI 调试模式 — 将单步 LLM 请求或响应写入独立 JSON 文件。
+ *
+ * 文件名格式：debug_api_${hhmmss}_${messageId}_step${N}_request.json
+ *           debug_api_${hhmmss}_${messageId}_step${N}_response.json
+ */
+async function writeDebugStepFile(input: {
+  sessionId: string;
+  assistantMessageId: string;
+  attemptTag: string;
+  stepNumber: number;
+  kind: "request" | "response";
+  data: unknown;
+}): Promise<void> {
+  try {
+    const jsonlPath = await resolveMessagesJsonlPath(input.sessionId);
+    const sessionDir = path.dirname(jsonlPath);
+    const debugDir = path.join(sessionDir, "debug", `${input.assistantMessageId}_${input.attemptTag}`);
+    await fs.mkdir(debugDir, { recursive: true });
+    const fileName = `step${input.stepNumber}_${input.kind}.json`;
+    const debugPath = path.join(debugDir, fileName);
+
+    await fs.writeFile(debugPath, JSON.stringify(input.data, null, 2), "utf-8");
+  } catch (err) {
+    logger.warn(
+      { err, sessionId: input.sessionId, step: input.stepNumber, kind: input.kind },
+      "[chat] failed to write debug step file",
+    );
+  }
 }
 
 /** 将 JSON 转为 SSE chunk。 */
