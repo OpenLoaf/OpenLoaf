@@ -118,7 +118,7 @@ const SUB_AGENT_MAX_STEPS = 15
 // ---------------------------------------------------------------------------
 
 /** Core tool IDs that are always visible (never deferred). */
-const CORE_TOOL_IDS = ['tool-search', 'load-skill'] as const
+const CORE_TOOL_IDS = ['tool-search', 'shell-command'] as const
 
 /**
  * Activation guard for ToolSearch pull mode.
@@ -151,7 +151,7 @@ function applyActivationGuard(
       execute: async (input: any, options: any) => {
         if (!activatedSet.isActive(toolId)) {
           throw new Error(
-            `Tool "${toolId}" has not been loaded. You must call tool-search(query: "select:${toolId}") to load it first, then call it again with the correct parameters.`
+            `Tool "${toolId}" has not been loaded. You must call tool-search(names: "${toolId}") to load it first, then call it again with the correct parameters.`
           )
         }
         return originalExecute(input, options)
@@ -292,7 +292,9 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
   const tools = buildToolset(allToolIds)
 
   // Create per-session ActivatedToolSet
-  const activatedSet = new ActivatedToolSet(coreToolIds)
+  // MCP tools are pre-activated (no tool-search needed) — they are external
+  // services the user explicitly configured, so they should be immediately usable.
+  const activatedSet = new ActivatedToolSet([...coreToolIds, ...mcpToolIds])
 
   // Rehydrate previously activated tools from message history (fixes approval flow state loss)
   // Pass allToolIds to skip tools from disconnected MCP servers
@@ -371,7 +373,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
   const wrappedModel = wrapModelWithExamples(input.model)
 
   const ctx = getRequestContext()
-  const coreToolIds = ['tool-search', 'load-skill'] as string[]
+  const coreToolIds = ['tool-search'] as string[]
 
   // Filter PM agent tools by platform
   let deferredToolIds = filterToolIdsByPlatform(
@@ -387,12 +389,12 @@ export function createPMAgent(input: CreatePMAgentInput) {
   const allToolIds = [...new Set([...coreToolIds, ...deferredToolIds, ...mcpToolIds])]
 
   const tools = buildToolset(allToolIds)
-  const activatedSet = new ActivatedToolSet(coreToolIds)
+  const activatedSet = new ActivatedToolSet([...coreToolIds, ...mcpToolIds])
   tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
   applyActivationGuard(tools, activatedSet, coreToolIds)
 
   const hardRules = buildHardRules()
-  const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)
+  const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds, mcpToolIds)
   const finalInstructions = `${instructions}\n\n${hardRules}\n\n${toolSearchGuidance}`
 
   return new ToolLoopAgent({
@@ -492,13 +494,13 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   const allToolIds = [...new Set([...coreToolIds, ...deferredToolIds, ...mcpToolIds])]
 
   const tools = buildToolset(allToolIds)
-  const activatedSet = new ActivatedToolSet(coreToolIds)
+  const activatedSet = new ActivatedToolSet([...coreToolIds, ...mcpToolIds])
   tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
   applyActivationGuard(tools, activatedSet, coreToolIds)
 
   // 使用与主 Agent 相同的完整 instructions（sub-agent 不共享 preface，需自带 guidance）
   const basePrompt = masterTpl.systemPrompt
-  const finalInstructions = `${basePrompt}\n\n${buildHardRules()}\n\n${buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)}`
+  const finalInstructions = `${basePrompt}\n\n${buildHardRules()}\n\n${buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds, mcpToolIds)}`
 
   return new ToolLoopAgent({
     id: `sub-agent-general-${Date.now()}`,
