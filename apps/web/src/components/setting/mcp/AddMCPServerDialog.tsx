@@ -94,7 +94,18 @@ type Props = {
  *    { "context7": { "command": "npx", "args": [...] } }
  */
 function parseMcpJson(text: string): ParsedServer[] {
-  const json = JSON.parse(text)
+  let json: any
+  try {
+    json = JSON.parse(text)
+  } catch {
+    // Try wrapping in braces — handles fragments like: "name": { "command": ... }
+    const trimmed = text.trim()
+    if (trimmed.startsWith('"') && !trimmed.startsWith('{')) {
+      json = JSON.parse(`{${trimmed}}`)
+    } else {
+      throw new Error('Invalid JSON')
+    }
+  }
   if (!json || typeof json !== 'object') throw new Error('Invalid JSON')
 
   // Detect root key
