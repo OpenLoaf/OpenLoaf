@@ -18,7 +18,6 @@
 import type { ClientPlatform } from '@openloaf/api/types/platform'
 import {
   TOOL_CATALOG_EXTENDED,
-  getMcpCatalogEntries,
   type ToolCatalogExtendedItem,
 } from '@openloaf/api/types/tools/toolCatalog'
 import { isWebSearchConfigured } from '@/ai/tools/webSearchTool'
@@ -57,12 +56,10 @@ const GROUP_LABELS: Record<string, string> = {
  * @param platform  - Client platform for filtering platform-specific tools.
  * @param deferredToolIds - Agent's deferred tool IDs. Only these tools appear in the catalog.
  *                          If omitted, all tools in TOOL_CATALOG_EXTENDED are included.
- * @param mcpToolIds - MCP tool IDs that are pre-activated (no tool-search needed).
  */
 export function buildToolSearchGuidance(
   platform?: ClientPlatform,
   deferredToolIds?: readonly string[],
-  mcpToolIds?: readonly string[],
 ): string {
   const allowedIds = deferredToolIds ? new Set(deferredToolIds) : null
 
@@ -88,32 +85,6 @@ export function buildToolSearchGuidance(
     }
   }
 
-  // Build MCP tools section — these are pre-activated, can be called directly
-  let mcpSection = ''
-  if (mcpToolIds && mcpToolIds.length > 0) {
-    const mcpEntries = getMcpCatalogEntries()
-    const mcpByServer = new Map<string, { id: string; name: string; description: string }[]>()
-    for (const id of mcpToolIds) {
-      // Extract server name from mcp__serverName__toolName
-      const parts = id.split('__')
-      const serverName = parts[1] ?? 'unknown'
-      const entry = mcpEntries.find((e) => e.id === id)
-      if (!mcpByServer.has(serverName)) mcpByServer.set(serverName, [])
-      mcpByServer.get(serverName)!.push({
-        id,
-        name: entry?.label ?? id,
-        description: entry?.description ?? '',
-      })
-    }
-
-    const serverLines: string[] = []
-    for (const [serverName, tools] of mcpByServer) {
-      const toolList = tools.map((t) => `  - ${t.id}: ${t.description || t.name}`).join('\n')
-      serverLines.push(`**${serverName}** MCP Server:\n${toolList}`)
-    }
-    mcpSection = `\n\n## MCP 外部工具（已激活，可直接调用）\n以下 MCP 工具已预加载，无需 tool-search，可直接调用：\n\n${serverLines.join('\n\n')}`
-  }
-
   return `# 工具与技能
 **你初始没有任何可用工具。必须先用 tool-search 加载后才能调用。**
 
@@ -124,5 +95,5 @@ export function buildToolSearchGuidance(
 2. 若无匹配技能 → 从下方分类中判断方向，加载对应工具
 
 可用工具分类：
-${groupLines.join('\n')}${mcpSection}`
+${groupLines.join('\n')}`
 }

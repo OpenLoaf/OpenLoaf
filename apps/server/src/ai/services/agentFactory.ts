@@ -392,7 +392,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
   applyActivationGuard(tools, activatedSet, coreToolIds)
 
   const hardRules = buildHardRules()
-  const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds, mcpToolIds)
+  const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)
   const finalInstructions = `${instructions}\n\n${hardRules}\n\n${toolSearchGuidance}`
 
   return new ToolLoopAgent({
@@ -498,7 +498,7 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
 
   // 使用与主 Agent 相同的完整 instructions（sub-agent 不共享 preface，需自带 guidance）
   const basePrompt = masterTpl.systemPrompt
-  const finalInstructions = `${basePrompt}\n\n${buildHardRules()}\n\n${buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds, mcpToolIds)}`
+  const finalInstructions = `${basePrompt}\n\n${buildHardRules()}\n\n${buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)}`
 
   return new ToolLoopAgent({
     id: `sub-agent-general-${Date.now()}`,
