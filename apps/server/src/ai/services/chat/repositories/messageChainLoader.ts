@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import type { OpenLoafUIMessage } from '@openloaf/api/types/message'
+import type { ChatMessageKind, OpenLoafUIMessage } from '@openloaf/api/types/message'
 import { loadMessageChainFromFile, loadMessageTree, normalizeTaskReportForModel } from './chatFileStore'
 
 /** Default max messages in a chain. */
@@ -40,7 +40,7 @@ export async function loadMessageChain(input: {
     parentMessageId: row.parentMessageId ?? null,
     parts: (row.parts ?? []) as OpenLoafUIMessage['parts'],
     metadata: row.metadata ?? undefined,
-    messageKind: row.messageKind ?? 'normal',
+    messageKind: (row.messageKind ?? 'normal') as ChatMessageKind,
   }))
 }
 

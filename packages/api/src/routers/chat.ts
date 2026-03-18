@@ -362,7 +362,7 @@ export const chatRouter = t.router({
     .input(z.object({
       sessionId: z.string().min(1),
       messageId: z.string().min(1),
-      parts: z.array(z.record(z.unknown())).or(z.array(z.unknown())),
+      parts: z.array(z.record(z.string(), z.unknown())).or(z.array(z.unknown())),
     }))
     .mutation(async (): Promise<boolean> => {
       throw new Error('Not implemented: override in server chat router.')
@@ -375,7 +375,7 @@ export const chatRouter = t.router({
     .input(z.object({
       sessionId: z.string().min(1),
       messageId: z.string().min(1),
-      metadata: z.record(z.unknown()),
+      metadata: z.record(z.string(), z.unknown()),
     }))
     .mutation(async (): Promise<{ metadata: Record<string, unknown> | null }> => {
       throw new Error('Not implemented: override in server chat router.')
