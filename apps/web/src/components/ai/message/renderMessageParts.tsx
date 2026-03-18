@@ -16,16 +16,10 @@ import {
 import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./tools/MessageTool";
 import MessageFile from "./tools/MessageFile";
-import { isHiddenToolPart, isToolPart, isToolPartError } from "@/lib/chat/message-parts";
-import { findToolEntry } from "./tools/tool-registry";
-import { getToolKind } from "./tools/shared/tool-utils";
+import { isToolPart } from "@/lib/chat/message-parts";
+import { shouldShowToolPart } from "@/lib/chat/tool-visibility";
 import type React from "react";
 import { MessageResponse } from "@/components/ai-elements/message";
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from "@/components/ai-elements/reasoning";
 import {
   Source,
   Sources,
@@ -139,7 +133,7 @@ function wrapPart(
   motionProps?: React.ComponentProps<typeof motion.div>,
 ): React.ReactNode {
   return (
-    <motion.div key={key} className={cn("empty:hidden", className)} {...(motionProps ?? {})}>
+    <motion.div key={key} className={className || undefined} {...(motionProps ?? {})}>
       {children}
     </motion.div>
   );
@@ -172,11 +166,15 @@ export function renderMessageParts(
   const isAnimating = Boolean(options?.isAnimating);
   const motionProps = options?.motionProps;
   const showAllToolResults = Boolean(options?.showAllToolResults);
-  // 隐藏逻辑：仅隐藏成功返回的隐藏工具，错误状态的工具始终显示。
-  const shouldHide = (part: AnyMessagePart) =>
-    !showAllToolResults && isHiddenToolPart(part) && !isToolPartError(part);
+  // 统一可见性判断：tool part 通过 shouldShowToolPart 决定是否显示
+  const isPartVisible = (part: AnyMessagePart) => {
+    if (isToolPart(part)) return shouldShowToolPart(part, { showAllToolResults });
+    return true;
+  };
   const list = Array.isArray(parts) ? parts : [];
-  const transientParts = list.filter((part) => isTransientPart(part) && !shouldHide(part));
+  const transientParts = list.filter(
+    (part) => isTransientPart(part) && isPartVisible(part),
+  );
   const transientToolCallIds = new Set(
     transientParts
       .map((part) => (typeof part.toolCallId === "string" ? part.toolCallId : ""))
@@ -184,7 +182,7 @@ export function renderMessageParts(
   );
   const visibleList = list.filter(
     (part) =>
-      !shouldHide(part) &&
+      isPartVisible(part) &&
       !isTransientPart(part) &&
       !(part?.toolCallId && transientToolCallIds.has(String(part.toolCallId))),
   );
@@ -222,41 +220,10 @@ export function renderMessageParts(
     }
 
     if (part?.type === "reasoning") {
-      if (!renderText) continue;
-      // 合并连续 reasoning 片段
+      // Reasoning 由 MessageThinking 组件统一渲染，此处跳过所有 reasoning parts。
       let nextIndex = index;
       while (nextIndex < visibleList.length && visibleList[nextIndex]?.type === "reasoning") {
         nextIndex += 1;
-      }
-      // 仅显示当前正在流式输出的 thinking 块：
-      // - isAnimating 为 true（消息正在流式输出）
-      // - 该 reasoning 块必须是消息末尾的最后一组（说明还在思考中，后面没有文本/工具产出）
-      // 已结束的 thinking 块（后面已有文本或工具）直接隐藏。
-      const isLastGroup = nextIndex >= visibleList.length;
-      if (isAnimating && isLastGroup) {
-        const reasoningChunks: string[] = [];
-        for (let ri = index; ri < nextIndex; ri++) {
-          const chunk = String((visibleList[ri] as AnyMessagePart)?.text ?? "").trim();
-          if (chunk) reasoningChunks.push(chunk);
-        }
-        const reasoningText = preprocessChatText(reasoningChunks.join("\n\n"));
-        if (reasoningText) {
-          nodes.push(
-            wrapPart(
-              `reasoning:${index}:${nextIndex}`,
-              "px-1",
-              <Reasoning isStreaming defaultOpen>
-                <ReasoningTrigger
-                  getThinkingMessage={() => i18next.t("tool.thinkingStreaming", { ns: "ai", defaultValue: "深度思考中..." })}
-                />
-                <ReasoningContent className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs text-muted-foreground">
-                  {reasoningText}
-                </ReasoningContent>
-              </Reasoning>,
-              motionProps,
-            ),
-          );
-        }
       }
       index = nextIndex - 1;
       continue;
@@ -349,26 +316,10 @@ export function renderMessageParts(
       continue;
     }
 
-    // 关键：tool part 也属于消息内容的一部分，需要保持与 MessageList 一致的渲染规则（支持嵌套）。
+    // 工具渲染：可见性已在 visibleList 阶段由 shouldShowToolPart 统一处理
     if (isToolPart(part)) {
-      // 中文注释：tool-search 为内部加载工具，不在 Web 聊天中展示。
-      if (shouldHide(part)) continue;
       if (!renderTools) continue;
       const toolPart = part as any;
-      // 预过滤：没有专用 UI 且已成功完成的工具，跳过 wrapPart 避免空 motion.div 占据布局空间。
-      // 与 MessageTool 的 return null 逻辑保持一致。
-      if (!showAllToolResults) {
-        const toolState = toolPart.state;
-        const isCompleted = toolState === 'output-available' || toolState === 'output-error' || toolState === 'output-denied';
-        const hasError = toolState === 'output-error' || toolState === 'output-denied';
-        if (isCompleted && !hasError) {
-          const kind = getToolKind(toolPart).toLowerCase();
-          const providerExecuted = !!toolPart.providerExecuted;
-          const hasEntry = findToolEntry(kind, providerExecuted, toolPart)
-            || (providerExecuted && findToolEntry(kind, false, toolPart));
-          if (!hasEntry) continue;
-        }
-      }
       nodes.push(
         wrapPart(
           toolPart.toolCallId ?? `${toolPart.type}-${index}`,
