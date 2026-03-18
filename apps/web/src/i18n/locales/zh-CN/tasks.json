@@ -226,10 +226,12 @@
     "timeout": "超时"
   },
   "tabs": {
+    "info": "详情",
     "plan": "计划",
     "activity": "活动",
     "log": "日志",
-    "chat": "对话"
+    "chat": "对话",
+    "history": "日志与活动"
   },
   "taskAction": {
     "create": "创建任务",
@@ -258,11 +260,22 @@
   "detail": {
     "created": "创建",
     "agent": "智能体",
+    "description": "任务描述",
+    "status": "状态",
+    "priority": "优先级",
+    "triggerMode": "触发方式",
+    "sessionMode": "会话模式",
+    "lastRun": "上次执行",
+    "runCount": "执行次数",
     "confirmPlan": "确认计划",
     "reject": "拒绝",
     "pass": "通过",
     "rework": "返工",
     "cancelTask": "取消任务"
+  },
+  "sessionMode": {
+    "isolated": "独立会话",
+    "shared": "共享会话"
   },
   "history": {
     "colDate": "日期",

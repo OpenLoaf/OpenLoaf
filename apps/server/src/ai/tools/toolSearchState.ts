@@ -40,6 +40,10 @@ export class ActivatedToolSet {
    * and re-activates the tools that were previously loaded. This restores the
    * dynamic tool activation state that would otherwise be lost when a new
    * ActivatedToolSet is created (e.g., after an approval flow interruption).
+   *
+   * Handles two message formats:
+   * - AI SDK format: part.toolName === 'tool-search'
+   * - Stored/JSONL format: part.type === 'tool-tool-search' (toolName derived from type)
    */
   static rehydrateFromMessages(
     set: ActivatedToolSet,
@@ -52,8 +56,17 @@ export class ActivatedToolSet {
       for (const part of parts) {
         if (!part || typeof part !== 'object') continue
         const p = part as Record<string, unknown>
+
+        // Resolve toolName from explicit field or derive from type prefix
+        const toolName =
+          typeof p.toolName === 'string'
+            ? p.toolName
+            : typeof p.type === 'string' && (p.type as string).startsWith('tool-')
+              ? (p.type as string).slice(5)
+              : ''
+
         if (
-          p.toolName === 'tool-search' &&
+          toolName === 'tool-search' &&
           p.state === 'output-available' &&
           p.output &&
           typeof p.output === 'object'

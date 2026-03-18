@@ -226,10 +226,12 @@
     "timeout": "逾時"
   },
   "tabs": {
+    "info": "詳情",
     "plan": "計畫",
     "activity": "活動",
     "log": "日誌",
-    "chat": "對話"
+    "chat": "對話",
+    "history": "日誌與活動"
   },
   "taskAction": {
     "create": "建立任務",
@@ -258,11 +260,22 @@
   "detail": {
     "created": "建立",
     "agent": "智能體",
+    "description": "任務描述",
+    "status": "狀態",
+    "priority": "優先順序",
+    "triggerMode": "觸發方式",
+    "sessionMode": "工作階段模式",
+    "lastRun": "上次執行",
+    "runCount": "執行次數",
     "confirmPlan": "確認計畫",
     "reject": "拒絕",
     "pass": "通過",
     "rework": "返工",
     "cancelTask": "取消任務"
+  },
+  "sessionMode": {
+    "isolated": "獨立工作階段",
+    "shared": "共用工作階段"
   },
   "history": {
     "colDate": "日期",

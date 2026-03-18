@@ -36,6 +36,8 @@ export type ChatActionsContextValue = {
   deleteMessageSubtree: (messageId: string) => Promise<boolean>;
   setPendingCloudMessage: (msg: PendingCloudMessage | null) => void;
   sendPendingCloudMessage: () => void;
+  /** When true, hide mutating actions (retry, delete, compress, edit). */
+  readOnly?: boolean;
 };
 
 const ChatActionsContext = createContext<ChatActionsContextValue | null>(null);

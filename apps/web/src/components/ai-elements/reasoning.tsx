@@ -189,7 +189,9 @@ export const ReasoningTrigger = memo(
       >
         {children ?? (
           <>
-            <BrainIcon className="size-4" />
+            <div className="flex size-6 shrink-0 items-center justify-center">
+              <BrainIcon className="size-4" />
+            </div>
             {getThinkingMessage(isStreaming, duration)}
             <ChevronDownIcon
               className={cn(

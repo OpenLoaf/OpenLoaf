@@ -12,18 +12,22 @@ import { toolSearchToolDef } from '@openloaf/api/types/tools/toolSearch'
 import { TOOL_CATALOG_EXTENDED } from '@openloaf/api/types/tools/toolCatalog'
 import type { ActivatedToolSet } from './toolSearchState'
 
+/** Schema resolver function type — maps tool IDs to their JSON schemas. */
+export type SchemaResolver = (toolIds: string[]) => Record<string, object>
+
 export function createToolSearchTool(
   activatedSet: ActivatedToolSet,
   availableToolIds: ReadonlySet<string>,
+  getSchemas?: SchemaResolver,
 ) {
   return tool({
     description: toolSearchToolDef.description,
     inputSchema: zodSchema(toolSearchToolDef.parameters),
     execute: async ({ query, maxResults = 5 }) => {
       if (query.startsWith('select:')) {
-        return handleDirectSelect(query.slice(7), activatedSet, availableToolIds)
+        return handleDirectSelect(query.slice(7), activatedSet, availableToolIds, getSchemas)
       }
-      return handleKeywordSearch(query, maxResults, activatedSet, availableToolIds)
+      return handleKeywordSearch(query, maxResults, activatedSet, availableToolIds, getSchemas)
     },
   })
 }
@@ -32,6 +36,7 @@ function handleDirectSelect(
   idsStr: string,
   activatedSet: ActivatedToolSet,
   availableToolIds: ReadonlySet<string>,
+  getSchemas?: SchemaResolver,
 ) {
   const requestedIds = idsStr
     .split(',')
@@ -54,8 +59,14 @@ function handleDirectSelect(
     }
   }
 
+  // Resolve parameter schemas for loaded tools
+  const schemas = getSchemas ? getSchemas(loaded.map((t) => t.id)) : {}
+
   return {
-    tools: loaded,
+    tools: loaded.map((t) => ({
+      ...t,
+      ...(schemas[t.id] ? { parameters: schemas[t.id] } : {}),
+    })),
     notFound,
     message: loaded.length
       ? `Loaded ${loaded.length} tool(s): ${loaded.map((t) => t.id).join(', ')}. You can now call them directly.`
@@ -68,6 +79,7 @@ function handleKeywordSearch(
   maxResults: number,
   activatedSet: ActivatedToolSet,
   availableToolIds: ReadonlySet<string>,
+  getSchemas?: SchemaResolver,
 ) {
   const queryTokens = query
     .toLowerCase()
@@ -84,12 +96,16 @@ function handleKeywordSearch(
   const matchedIds = scored.map((s) => s.entry.id)
   activatedSet.activate(matchedIds)
 
+  // Resolve parameter schemas for matched tools
+  const schemas = getSchemas ? getSchemas(matchedIds) : {}
+
   return {
     tools: scored.map(({ entry }) => ({
       id: entry.id,
       name: entry.label,
       description: entry.description,
       group: entry.group,
+      ...(schemas[entry.id] ? { parameters: schemas[entry.id] } : {}),
     })),
     message: matchedIds.length
       ? `Loaded ${matchedIds.length} tool(s): ${matchedIds.join(', ')}. You can now call them directly.`

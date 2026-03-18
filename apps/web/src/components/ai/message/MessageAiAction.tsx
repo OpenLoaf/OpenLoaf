@@ -170,7 +170,7 @@ export default function MessageAiAction({
   className?: string;
 }) {
   const { t } = useTranslation(["ai", "common"]);
-  const { retryAssistantMessage, clearError, sendMessage, deleteMessageSubtree } =
+  const { retryAssistantMessage, clearError, sendMessage, deleteMessageSubtree, readOnly } =
     useChatActions();
   const { status } = useChatState();
   const { leafMessageId, sessionId } = useChatSession();
@@ -292,64 +292,68 @@ export default function MessageAiAction({
         <Download className="size-3" />
       </MessageAction>
 
-      <MessageAction
-        onClick={handleRetry}
-        disabled={isBusy}
-        className={MESSAGE_ACTION_CLASSNAME}
-        tooltip={t("ai:message.retry")}
-        label={t("ai:message.retry")}
-        aria-label={t("ai:message.retry")}
-        title={t("ai:message.retry")}
-      >
-        <RotateCcw className="size-3" />
-      </MessageAction>
+      {!readOnly ? (
+        <MessageAction
+          onClick={handleRetry}
+          disabled={isBusy}
+          className={MESSAGE_ACTION_CLASSNAME}
+          tooltip={t("ai:message.retry")}
+          label={t("ai:message.retry")}
+          aria-label={t("ai:message.retry")}
+          title={t("ai:message.retry")}
+        >
+          <RotateCcw className="size-3" />
+        </MessageAction>
+      ) : null}
 
-      <ModelSelector open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <ModelSelectorTrigger asChild>
-          <MessageAction
-            disabled={isBusy || isDeleting}
-            className={MESSAGE_ACTION_CLASSNAME}
-            label={t("ai:message.deleteNode")}
-            aria-label={t("ai:message.deleteNode")}
-            title={t("ai:message.deleteNode")}
-          >
-            <Trash2 className="size-3" />
-          </MessageAction>
-        </ModelSelectorTrigger>
-        <ModelSelectorContent title={t("ai:message.deleteNodeTitle")} className="max-w-md">
-          <div className="space-y-4 p-4">
-            <div className="space-y-1">
-              <h3 className="text-sm font-semibold">{t("ai:message.deleteNodeConfirm")}</h3>
-              <p className="text-sm text-muted-foreground">
-                {t("ai:message.deleteNodeDesc")}
-              </p>
+      {!readOnly ? (
+        <ModelSelector open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <ModelSelectorTrigger asChild>
+            <MessageAction
+              disabled={isBusy || isDeleting}
+              className={MESSAGE_ACTION_CLASSNAME}
+              label={t("ai:message.deleteNode")}
+              aria-label={t("ai:message.deleteNode")}
+              title={t("ai:message.deleteNode")}
+            >
+              <Trash2 className="size-3" />
+            </MessageAction>
+          </ModelSelectorTrigger>
+          <ModelSelectorContent title={t("ai:message.deleteNodeTitle")} className="max-w-md">
+            <div className="space-y-4 p-4">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold">{t("ai:message.deleteNodeConfirm")}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("ai:message.deleteNodeDesc")}
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <PromptInputButton
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDeleteOpen(false)}
+                  disabled={isDeleting || isBusy}
+                >
+                  {t("common:cancel")}
+                </PromptInputButton>
+                <PromptInputButton
+                  type="button"
+                  variant="destructive"
+                  onClick={() => {
+                    void handleDeleteSubtree();
+                    setDeleteOpen(false);
+                  }}
+                  disabled={isDeleting || isBusy}
+                >
+                  {t("ai:message.deleteNodeBtn")}
+                </PromptInputButton>
+              </div>
             </div>
-            <div className="flex justify-end gap-2">
-              <PromptInputButton
-                type="button"
-                variant="outline"
-                onClick={() => setDeleteOpen(false)}
-                disabled={isDeleting || isBusy}
-              >
-                {t("common:cancel")}
-              </PromptInputButton>
-              <PromptInputButton
-                type="button"
-                variant="destructive"
-                onClick={() => {
-                  void handleDeleteSubtree();
-                  setDeleteOpen(false);
-                }}
-                disabled={isDeleting || isBusy}
-              >
-                {t("ai:message.deleteNodeBtn")}
-              </PromptInputButton>
-            </div>
-          </div>
-        </ModelSelectorContent>
-      </ModelSelector>
+          </ModelSelectorContent>
+        </ModelSelector>
+      ) : null}
 
-      {canCompact ? (
+      {!readOnly && canCompact ? (
         <ModelSelector open={compactOpen} onOpenChange={setCompactOpen}>
           <ModelSelectorTrigger asChild>
             <MessageAction

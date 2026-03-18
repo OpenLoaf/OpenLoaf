@@ -425,6 +425,11 @@ class TaskExecutor {
     if (task.payload?.message && typeof task.payload.message === 'string') {
       parts.push(`### 用户原始指令\n${task.payload.message}\n`)
     }
+    if (task.sourceContextSnapshot) {
+      parts.push(`### 对话背景\n以下是触发此任务的源对话上下文，帮助你理解用户意图和已有讨论：\n`)
+      parts.push(task.sourceContextSnapshot)
+      parts.push('')
+    }
     return parts.join('\n')
   }
 
@@ -439,6 +444,11 @@ class TaskExecutor {
     }
     if (task.payload?.message && typeof task.payload.message === 'string') {
       parts.push(`### 用户原始指令\n${task.payload.message}\n`)
+    }
+    if (task.sourceContextSnapshot) {
+      parts.push(`### 对话背景\n以下是触发此任务的源对话上下文，帮助你理解用户意图和已有讨论：\n`)
+      parts.push(task.sourceContextSnapshot)
+      parts.push('')
     }
     parts.push(`### 要求`)
     parts.push(`1. 使用 update-plan 工具生成分步骤的执行计划`)

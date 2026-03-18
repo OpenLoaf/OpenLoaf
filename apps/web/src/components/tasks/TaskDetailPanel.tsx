@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { memo, useMemo, useState, useCallback } from 'react'
+import { memo, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { UIMessage } from '@ai-sdk/react'
@@ -21,8 +21,6 @@ import {
   CheckCircle2,
   Loader2,
   XCircle,
-  ScrollText,
-  Activity,
   Play,
   Bot,
 } from 'lucide-react'
@@ -33,6 +31,10 @@ import {
   ChatToolProvider,
 } from '@/components/ai/context'
 import MessageList from '@/components/ai/message/MessageList'
+import {
+  MessageStreamMarkdown,
+  MESSAGE_STREAM_MARKDOWN_CLASSNAME,
+} from '@/components/ai/message/markdown/MessageStreamMarkdown'
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -48,16 +50,14 @@ type ActivityLogEntry = {
   actor: string
 }
 
-type Tab = 'output' | 'runs' | 'activity'
-
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<TaskStatus, string> = {
-  todo: 'bg-ol-blue/15 text-ol-blue',
-  running: 'bg-ol-amber/15 text-ol-amber',
-  review: 'bg-ol-purple/15 text-ol-purple',
-  done: 'bg-ol-green/15 text-ol-green',
-  cancelled: 'bg-ol-text-auxiliary/15 text-ol-text-auxiliary',
+  todo: 'bg-ol-blue-bg text-ol-blue',
+  running: 'bg-ol-amber-bg text-ol-amber',
+  review: 'bg-ol-purple-bg text-ol-purple',
+  done: 'bg-ol-green-bg text-ol-green',
+  cancelled: 'bg-ol-surface-muted text-ol-text-auxiliary',
 }
 
 const getStatusLabels = (t: (key: string) => string): Record<TaskStatus, string> => ({
@@ -106,6 +106,7 @@ const READ_ONLY_ACTIONS = {
   deleteMessageSubtree: noopAsync as any,
   setPendingCloudMessage: noop,
   sendPendingCloudMessage: noop,
+  readOnly: true,
 }
 
 const READ_ONLY_TOOLS = {
@@ -117,9 +118,9 @@ const READ_ONLY_TOOLS = {
   continueAfterToolApprovals: noop,
 }
 
-// ─── Agent Output Tab ─────────────────────────────────────────────────
+// ─── Right: Agent Message List ────────────────────────────────────────
 
-function AgentOutputTab({
+function AgentOutputContent({
   sessionId,
   status,
   projectId,
@@ -134,7 +135,7 @@ function AgentOutputTab({
     ...trpc.chat.getChatView.queryOptions({
       sessionId: sessionId ?? '',
       window: { limit: 200 },
-      include: { messages: true, siblingNav: false },
+      include: { messages: true, siblingNav: true },
       includeToolOutput: true,
     }),
     enabled: !!sessionId,
@@ -144,7 +145,7 @@ function AgentOutputTab({
 
   if (!sessionId) {
     return (
-      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center text-sm text-ol-text-auxiliary">
         {status === 'todo' ? t('messages.notStarted') : t('messages.noPlanContent')}
       </div>
     )
@@ -152,23 +153,28 @@ function AgentOutputTab({
 
   if (isLoading) {
     return (
-      <div className="flex h-32 items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-ol-text-auxiliary" />
       </div>
     )
   }
 
-  const messages = (chatView?.messages ?? []) as UIMessage[]
+  const allMessages = (chatView?.messages ?? []) as UIMessage[]
 
-  if (messages.length === 0) {
+  if (allMessages.length === 0) {
     return (
-      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center text-sm text-ol-text-auxiliary">
         {status === 'running' ? t('messages.executingRunning') : t('messages.noPlanContent')}
       </div>
     )
   }
 
-  const leafMessageId = (chatView as any)?.leafMessageId ?? messages[messages.length - 1]?.id ?? null
+  // Skip the first human message — it's the task instruction, shown in the left sidebar
+  const firstIsUser = allMessages[0]?.role === 'user'
+  const messages = firstIsUser ? allMessages.slice(1) : allMessages
+  const leafMessageId = (chatView as any)?.leafMessageId ?? allMessages[allMessages.length - 1]?.id ?? null
+  const branchMessageIds = (chatView as any)?.branchMessageIds ?? []
+  const siblingNav = (chatView as any)?.siblingNav ?? {}
 
   return (
     <ChatStateProvider value={{
@@ -184,8 +190,8 @@ function AgentOutputTab({
           sessionId: sessionId ?? '',
           projectId,
           leafMessageId,
-          branchMessageIds: [],
-          siblingNav: {},
+          branchMessageIds,
+          siblingNav,
         }}>
           <ChatToolProvider value={READ_ONLY_TOOLS}>
             <MessageList projectId={projectId} />
@@ -196,15 +202,21 @@ function AgentOutputTab({
   )
 }
 
-// ─── Run Logs Tab ─────────────────────────────────────────────────────
+// ─── Left: History Timeline ───────────────────────────────────────────
 
-function RunLogsTab({
+function HistoryTimeline({
   taskId,
   projectId,
+  activityLog,
+  statusLabels,
+  actorLabels,
   t,
 }: {
   taskId: string
   projectId?: string
+  activityLog: ActivityLogEntry[]
+  statusLabels: Record<TaskStatus, string>
+  actorLabels: Record<string, string>
   t: (key: string) => string
 }) {
   const { data: logs = [], isLoading } = useQuery(
@@ -214,118 +226,104 @@ function RunLogsTab({
     ),
   )
 
+  const timeline = useMemo(() => {
+    const items: Array<{ type: 'run' | 'activity'; timestamp: string; data: any }> = []
+    for (const log of logs) {
+      items.push({ type: 'run', timestamp: (log as any).startedAt ?? '', data: log })
+    }
+    for (const entry of activityLog) {
+      items.push({ type: 'activity', timestamp: entry.timestamp, data: entry })
+    }
+    items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    return items
+  }, [logs, activityLog])
+
   if (isLoading) {
     return (
-      <div className="flex h-32 items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <div className="flex h-20 items-center justify-center">
+        <Loader2 className="h-4 w-4 animate-spin text-ol-text-auxiliary" />
       </div>
     )
   }
 
-  if (logs.length === 0) {
+  if (timeline.length === 0) {
     return (
-      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-        {t('messages.logGeneratedOnExecution')}
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-1">
-      {logs.map((log: any, idx: number) => {
-        const isOk = log.status === 'ok'
-        const isLast = idx === logs.length - 1
-        return (
-          <div key={log.id} className="flex gap-3">
-            <div className="flex flex-col items-center">
-              <div className={cn(
-                'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full',
-                isOk ? 'bg-ol-green-bg' : 'bg-ol-red-bg',
-              )}>
-                {isOk
-                  ? <CheckCircle2 className="h-3 w-3 text-ol-green" />
-                  : <XCircle className="h-3 w-3 text-ol-red" />
-                }
-              </div>
-              {!isLast && <div className="my-1 w-px flex-1 bg-border/40" />}
-            </div>
-            <div className="flex-1 pb-3">
-              <div className="flex items-center justify-between">
-                <span className={cn('text-xs font-medium', isOk ? 'text-ol-green' : 'text-ol-red')}>
-                  {isOk ? t('schedule.statusLabels.ok') : t('schedule.statusLabels.error')}
-                </span>
-                <span className="text-[11px] text-muted-foreground/60">
-                  {formatDuration(log.durationMs)}
-                </span>
-              </div>
-              <div className="mt-0.5 text-[11px] text-muted-foreground">
-                {formatDateTime(log.startedAt)}
-              </div>
-              {log.error && (
-                <div className="mt-1.5 break-all rounded-lg bg-ol-red-bg px-2.5 py-1.5 text-[11px] text-ol-red">
-                  {log.error}
-                </div>
-              )}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// ─── Activity Timeline ───────────────────────────────────────────────
-
-function ActivityTimeline({
-  log,
-  statusLabels,
-  actorLabels,
-  t,
-}: {
-  log: ActivityLogEntry[]
-  statusLabels: Record<TaskStatus, string>
-  actorLabels: Record<string, string>
-  t: (key: string) => string
-}) {
-  if (log.length === 0) {
-    return (
-      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+      <div className="py-4 text-center text-xs text-ol-text-auxiliary">
         {t('messages.noActivity')}
       </div>
     )
   }
 
   return (
-    <div className="space-y-3">
-      {[...log].reverse().map((entry, i) => (
-        <div key={i} className="flex gap-3">
-          <div className="flex flex-col items-center">
-            <div className="mt-1 h-2 w-2 rounded-full bg-primary" />
-            {i < log.length - 1 && <div className="w-px flex-1 bg-border" />}
-          </div>
-          <div className="min-w-0 flex-1 pb-3">
-            <div className="flex items-center gap-2 text-xs">
-              <Badge variant="outline" className={cn('text-[10px]', STATUS_COLORS[entry.to as TaskStatus])}>
-                {statusLabels[entry.to as TaskStatus] ?? entry.to}
-              </Badge>
-              {entry.reviewType && (
-                <Badge variant="secondary" className="text-[10px]">
-                  {entry.reviewType === 'plan' ? t('reviewType.plan') : t('reviewType.completion')}
+    <div className="space-y-0.5">
+      {timeline.map((item, idx) => {
+        const isLast = idx === timeline.length - 1
+
+        if (item.type === 'run') {
+          const log = item.data
+          const isOk = log.status === 'ok'
+          return (
+            <div key={`run-${log.id}`} className="flex gap-2.5">
+              <div className="flex flex-col items-center">
+                <div className={cn(
+                  'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full',
+                  isOk ? 'bg-ol-green-bg' : 'bg-ol-red-bg',
+                )}>
+                  {isOk
+                    ? <CheckCircle2 className="h-2.5 w-2.5 text-ol-green" />
+                    : <XCircle className="h-2.5 w-2.5 text-ol-red" />
+                  }
+                </div>
+                {!isLast && <div className="my-0.5 w-px flex-1 bg-ol-divider" />}
+              </div>
+              <div className="flex-1 pb-2.5">
+                <div className="flex items-center justify-between">
+                  <span className={cn('text-[11px] font-medium', isOk ? 'text-ol-green' : 'text-ol-red')}>
+                    {isOk ? t('schedule.statusLabels.ok') : t('schedule.statusLabels.error')}
+                  </span>
+                  <span className="text-[10px] text-ol-text-auxiliary">
+                    {formatDuration(log.durationMs)}
+                  </span>
+                </div>
+                <div className="text-[10px] text-ol-text-auxiliary">
+                  {formatDateTime(log.startedAt)}
+                </div>
+                {log.error && (
+                  <div className="mt-1 break-all rounded-md bg-ol-red-bg px-2 py-1 text-[10px] text-ol-red">
+                    {log.error}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        }
+
+        const entry = item.data as ActivityLogEntry
+        return (
+          <div key={`act-${idx}`} className="flex gap-2.5">
+            <div className="flex flex-col items-center">
+              <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-ol-text-auxiliary/40" />
+              {!isLast && <div className="w-px flex-1 bg-ol-divider" />}
+            </div>
+            <div className="min-w-0 flex-1 pb-2.5">
+              <div className="flex items-center gap-1.5">
+                <Badge variant="outline" className={cn('text-[10px] border-0 px-1.5 py-0', STATUS_COLORS[entry.to as TaskStatus])}>
+                  {statusLabels[entry.to as TaskStatus] ?? entry.to}
                 </Badge>
+                <span className="text-[10px] text-ol-text-auxiliary">
+                  {actorLabels[entry.actor] ?? entry.actor}
+                </span>
+              </div>
+              {entry.reason && (
+                <p className="mt-0.5 text-[10px] text-ol-text-auxiliary">{entry.reason}</p>
               )}
-              <span className="text-muted-foreground">
-                {actorLabels[entry.actor] ?? entry.actor}
+              <span className="text-[10px] text-ol-text-auxiliary">
+                {formatDateTime(entry.timestamp)}
               </span>
             </div>
-            {entry.reason && (
-              <p className="mt-1 text-xs text-muted-foreground">{entry.reason}</p>
-            )}
-            <span className="mt-0.5 block text-[10px] text-muted-foreground">
-              {formatDateTime(entry.timestamp)}
-            </span>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -345,16 +343,9 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
 }: TaskDetailPanelProps) {
   const { t } = useTranslation('tasks')
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<Tab>('output')
 
   const statusLabels = useMemo(() => getStatusLabels(t), [t])
   const actorLabels = useMemo(() => getActorLabels(t), [t])
-
-  const tabConfig: { key: Tab; label: string; icon: typeof Bot }[] = useMemo(() => [
-    { key: 'output', label: 'Agent', icon: Bot },
-    { key: 'runs', label: t('tabs.log'), icon: ScrollText },
-    { key: 'activity', label: t('tabs.activity'), icon: Activity },
-  ], [t])
 
   const { data: task, isLoading } = useQuery(
     trpc.scheduledTask.getTaskDetail.queryOptions(
@@ -363,7 +354,6 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
     ),
   )
 
-  // Get the latest run log to find the agent session ID
   const { data: runLogs = [] } = useQuery(
     trpc.scheduledTask.runLogs.queryOptions(
       { taskId: taskId ?? '', projectId, limit: 1 },
@@ -410,14 +400,14 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="h-6 w-6 animate-spin text-ol-text-auxiliary" />
       </div>
     )
   }
 
   if (!task) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center text-sm text-ol-text-auxiliary">
         {t('messages.taskNotFound')}
       </div>
     )
@@ -426,139 +416,156 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
   const status = (task.status ?? 'todo') as TaskStatus
   const reviewType = task.reviewType as ReviewType | undefined
   const activityLog = (task.activityLog ?? []) as ActivityLogEntry[]
-  const summary = task.executionSummary as {
-    currentStep?: string
-    totalSteps?: number
-    completedSteps?: number
-    lastAgentMessage?: string
-  } | undefined
+  const agentName = (task.agentName as string) || undefined
+  const description = (task.description as string)
+    || ((task.payload as any)?.message as string)
+    || ''
+  const priority = (task.priority ?? 'medium') as string
+  const triggerMode = (task.triggerMode as string) || 'manual'
+  const createdAt = task.createdAt as string | undefined
+  const canAct = status === 'review' || status === 'todo' || status === 'running'
 
-  // Resolve agent session ID: from task config or latest run log
   const agentSessionId = (task as any).sessionId
     || (runLogs.length > 0 ? (runLogs[0] as any)?.agentSessionId : undefined)
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden">
-      {/* Progress bar for running tasks */}
-      {status === 'running' && summary?.totalSteps && summary.completedSteps !== undefined && (
-        <div className="border-b px-4 py-2">
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <span>{summary.currentStep ?? t('messages.executingRunning')}</span>
-            <span>{summary.completedSteps}/{summary.totalSteps}</span>
+    <div className="flex h-full w-full overflow-hidden">
+      {/* ── Left sidebar: Agent / Description / History ── */}
+      <div className="flex w-80 shrink-0 flex-col border-r">
+        {/* ① Agent avatar + name (centered, like agent creation page) */}
+        <div className="shrink-0 border-b px-4 py-4">
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+              <Bot className="h-6 w-6 text-ol-purple" />
+            </div>
+            {agentName ? (
+              <div className="text-sm font-semibold text-ol-text-primary">{agentName}</div>
+            ) : null}
+            <div className="flex items-center gap-1.5">
+              <Badge
+                variant="outline"
+                className={cn(
+                  'border-0 text-[10px] font-medium',
+                  STATUS_COLORS[status],
+                  status === 'running' && 'animate-pulse',
+                )}
+              >
+                {statusLabels[status]}
+              </Badge>
+              <span className="text-[10px] text-ol-text-auxiliary">
+                {t(`priority.${priority}`)} &middot; {t(`triggerMode.${triggerMode}`)}
+              </span>
+            </div>
+            {createdAt ? (
+              <span className="text-[10px] text-ol-text-auxiliary">{formatDateTime(createdAt)}</span>
+            ) : null}
           </div>
-          <div className="mt-1 h-1.5 w-full rounded-full bg-secondary">
-            <div
-              className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${(summary.completedSteps / summary.totalSteps) * 100}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="flex border-b">
-        {tabConfig.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            className={cn(
-              'flex items-center gap-1.5 border-b-2 px-4 py-2 text-xs font-medium transition-colors',
-              activeTab === key
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground',
-            )}
-            onClick={() => setActiveTab(key)}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      <div className={cn(
-        'flex-1 overflow-hidden',
-        activeTab === 'output' ? 'flex flex-col' : 'overflow-auto p-4',
-      )}>
-        {activeTab === 'output' && (
-          <AgentOutputTab
-            sessionId={agentSessionId}
-            status={status}
-            projectId={projectId}
-            t={t}
-          />
-        )}
-
-        {activeTab === 'runs' && taskId && (
-          <RunLogsTab
-            taskId={taskId}
-            projectId={projectId}
-            t={t}
-          />
-        )}
-
-        {activeTab === 'activity' && (
-          <ActivityTimeline log={activityLog} statusLabels={statusLabels} actorLabels={actorLabels} t={t} />
-        )}
-      </div>
-
-      {/* Action bar */}
-      {(status === 'review' || status === 'todo' || status === 'running') && (
-        <div className="flex items-center justify-between border-t px-4 py-2">
-          <div className="flex gap-2">
-            {status === 'review' && reviewType === 'plan' && (
-              <>
-                <Button size="sm" className="h-7 text-xs" onClick={() => handleResolve('approve')}>
-                  {t('detail.confirmPlan')}
-                </Button>
+          {/* Actions */}
+          {canAct ? (
+            <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+              {status === 'review' && reviewType === 'plan' && (
+                <>
+                  <Button
+                    size="sm"
+                    className="h-6 rounded-full bg-ol-blue-bg px-3 text-[11px] font-medium text-ol-blue shadow-none transition-colors duration-150 hover:bg-ol-blue-bg-hover"
+                    onClick={() => handleResolve('approve')}
+                  >
+                    {t('detail.confirmPlan')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 rounded-full px-3 text-[11px] font-medium text-ol-text-auxiliary shadow-none hover:bg-ol-surface-muted"
+                    onClick={() => handleResolve('reject')}
+                  >
+                    {t('actions.reject')}
+                  </Button>
+                </>
+              )}
+              {status === 'review' && reviewType === 'completion' && (
+                <>
+                  <Button
+                    size="sm"
+                    className="h-6 rounded-full bg-ol-green-bg px-3 text-[11px] font-medium text-ol-green shadow-none transition-colors duration-150 hover:bg-ol-green-bg-hover"
+                    onClick={() => handleResolve('approve')}
+                  >
+                    {t('actions.pass')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 rounded-full px-3 text-[11px] font-medium text-ol-text-auxiliary shadow-none hover:bg-ol-surface-muted"
+                    onClick={() => handleResolve('rework')}
+                  >
+                    {t('actions.rework')}
+                  </Button>
+                </>
+              )}
+              {status === 'todo' && (
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="h-7 text-xs"
-                  onClick={() => handleResolve('reject')}
+                  className="h-6 rounded-full bg-ol-blue-bg px-3 text-[11px] font-medium text-ol-blue shadow-none transition-colors duration-150 hover:bg-ol-blue-bg-hover"
+                  onClick={handleRun}
+                  disabled={runMutation.isPending}
                 >
-                  {t('actions.reject')}
+                  <Play className="mr-1 h-2.5 w-2.5" />
+                  {t('schedule.run')}
                 </Button>
-              </>
-            )}
-            {status === 'review' && reviewType === 'completion' && (
-              <>
-                <Button size="sm" className="h-7 text-xs" onClick={() => handleResolve('approve')}>
-                  {t('actions.pass')}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs"
-                  onClick={() => handleResolve('rework')}
-                >
-                  {t('actions.rework')}
-                </Button>
-              </>
-            )}
-            {status === 'todo' && (
+              )}
               <Button
                 size="sm"
-                className="h-7 rounded-md bg-ol-blue-bg px-3 text-xs font-medium text-ol-blue shadow-none hover:bg-ol-blue-bg-hover"
-                onClick={handleRun}
-                disabled={runMutation.isPending}
+                variant="ghost"
+                className="h-6 rounded-full px-2.5 text-[11px] text-ol-red shadow-none hover:bg-ol-red-bg"
+                onClick={handleCancel}
               >
-                <Play className="mr-1 h-3 w-3" />
-                {t('schedule.run')}
+                <XCircle className="mr-1 h-3 w-3" />
+                {t('detail.cancelTask')}
               </Button>
-            )}
-          </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 text-xs text-destructive hover:text-destructive"
-            onClick={handleCancel}
-          >
-            <XCircle className="mr-1 h-3.5 w-3.5" />
-            {t('detail.cancelTask')}
-          </Button>
+            </div>
+          ) : null}
         </div>
-      )}
+
+        {/* ② Task description (markdown) — main area, takes remaining space */}
+        <div className="min-h-0 flex-1 overflow-y-auto border-b px-4 py-3">
+          {description ? (
+            <MessageStreamMarkdown
+              markdown={description}
+              className={cn(MESSAGE_STREAM_MARKDOWN_CLASSNAME, 'text-sm')}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-xs text-ol-text-auxiliary">
+              {t('messages.noPlanContent')}
+            </div>
+          )}
+        </div>
+
+        {/* ③ History timeline — compact, pinned to bottom */}
+        <div className="shrink-0 px-4 py-2.5">
+          <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-ol-text-auxiliary">
+            {t('tabs.history')}
+          </div>
+          {taskId ? (
+            <HistoryTimeline
+              taskId={taskId}
+              projectId={projectId}
+              activityLog={activityLog}
+              statusLabels={statusLabels}
+              actorLabels={actorLabels}
+              t={t}
+            />
+          ) : null}
+        </div>
+      </div>
+
+      {/* ── Right: Agent message list ── */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <AgentOutputContent
+          sessionId={agentSessionId}
+          status={status}
+          projectId={projectId}
+          t={t}
+        />
+      </div>
     </div>
   )
 })

@@ -92,6 +92,7 @@ import {
   findActivePmTask,
   updateTask,
 } from "@/services/taskConfigService";
+import { extractSourceContextSnapshot } from "@/services/taskContextExtractor";
 import { getOpenLoafRootDir } from "@openloaf/config";
 import {
   createAgentRouteAckResponse,
@@ -396,6 +397,9 @@ export async function runChatStream(input: {
           `[chat] @agents/pm routed to existing task (sent=${sent})`,
         );
       } else {
+        // Extract source chat context snapshot
+        const sourceContextSnapshot = await extractSourceContextSnapshot(sessionId)
+
         // Create a new PM task for the target project
         const newTask = createTaskConfig(
           {
@@ -403,18 +407,16 @@ export async function runChatStream(input: {
             description: mentionText,
             agentName: 'pm',
             sourceSessionId: sessionId,
+            sourceContextSnapshot,
             skipPlanConfirm: true,
             autoExecute: true,
             requiresReview: false,
             createdBy: 'user',
+            projectId: targetAgent.projectId,
           },
           targetProjectRoot ?? globalRoot,
           targetProjectRoot ? 'project' : 'global',
         );
-        // Attach projectId to the task
-        if (targetProjectRoot) {
-          updateTask(newTask.id, { projectId: targetAgent.projectId }, globalRoot, targetProjectRoot);
-        }
         logger.info(
           { sessionId, taskId: newTask.id, projectId: targetAgent.projectId },
           '[chat] @agents/pm created new PM task',

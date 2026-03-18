@@ -29,7 +29,7 @@ import type {
 } from '@ai-sdk/provider'
 import type { PrepareStepFunction, StopCondition } from 'ai'
 import { getRequestContext, getSessionId, type AgentFrame } from '@/ai/shared/context/requestContext'
-import { buildToolset } from '@/ai/tools/toolRegistry'
+import { buildToolset, getToolJsonSchemas } from '@/ai/tools/toolRegistry'
 import { filterToolIdsByPlatform } from '@/ai/tools/toolPlatformFilter'
 import { createToolCallRepair } from '@/ai/shared/repairToolCall'
 import { ActivatedToolSet } from '@/ai/tools/toolSearchState'
@@ -297,7 +297,7 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
   }
 
   // Inject tool-search (dynamically created, closes over activatedSet)
-  tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds))
+  tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
 
   // ★ Activation guard — block unloaded tool calls with clear error
   applyActivationGuard(tools, activatedSet, coreToolIds)
@@ -380,7 +380,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
 
   const tools = buildToolset(allToolIds)
   const activatedSet = new ActivatedToolSet(coreToolIds)
-  tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds))
+  tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
   applyActivationGuard(tools, activatedSet, coreToolIds)
 
   const hardRules = buildHardRules()
@@ -482,7 +482,7 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
 
   const tools = buildToolset(allToolIds)
   const activatedSet = new ActivatedToolSet(coreToolIds)
-  tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds))
+  tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
   applyActivationGuard(tools, activatedSet, coreToolIds)
 
   // 使用与主 Agent 相同的完整 instructions（sub-agent 不共享 preface，需自带 guidance）

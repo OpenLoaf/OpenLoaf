@@ -24,7 +24,8 @@ import {
 import { taskOrchestrator } from '@/services/taskOrchestrator'
 import { taskScheduler } from '@/services/taskScheduler'
 import { resolveToolRoots, ensureTempProject } from '@/ai/tools/toolScope'
-import { getSessionId, getSaasAccessToken } from '@/ai/shared/context/requestContext'
+import { getSessionId, getSaasAccessToken, getProjectId } from '@/ai/shared/context/requestContext'
+import { extractSourceContextSnapshot } from '@/services/taskContextExtractor'
 
 // ─── Status Protection Constants ──────────────────────────────────────
 
@@ -99,6 +100,12 @@ export const taskManageTool = tool({
         const scope = projectRoot ? 'project' : 'global'
         const rootPath = projectRoot ?? globalRoot
 
+        // Extract source chat context snapshot (non-blocking best-effort)
+        const currentSessionId = getSessionId()
+        const sourceContextSnapshot = currentSessionId
+          ? await extractSourceContextSnapshot(currentSessionId)
+          : undefined
+
         const task = createTask(
           {
             name: input.title,
@@ -111,7 +118,9 @@ export const taskManageTool = tool({
             requiresReview: false,
             agentName: input.agentName,
             createdBy: 'agent',
-            sourceSessionId: getSessionId(),
+            sourceSessionId: currentSessionId,
+            sourceContextSnapshot,
+            projectId: getProjectId(),
           },
           rootPath,
           scope,

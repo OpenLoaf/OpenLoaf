@@ -317,6 +317,57 @@ async function main() {
     failed++
   }
 
+  // ── Test 6: 存储格式（无 toolName，仅有 type 字段）的 rehydration ──
+  printSection('Test 6: 存储格式（无 toolName）rehydration')
+
+  try {
+    // 模拟真实 JSONL 存储格式：type="tool-tool-search"，无 toolName 字段
+    const storedFormatMessages = [
+      {
+        id: 'msg-user',
+        role: 'user',
+        parts: [{ type: 'text', text: '测试' }],
+      },
+      {
+        id: 'msg-assistant',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-tool-search',
+            toolCallId: `call_stored_${Date.now()}`,
+            // 注意：故意不包含 toolName 字段，模拟真实存储格式
+            state: 'output-available',
+            output: {
+              tools: [
+                { id: 'shell-command', name: 'Shell 命令', description: 'mock' },
+                { id: 'read-file', name: '读取文件', description: 'mock' },
+              ],
+              notFound: [],
+              message: 'Loaded 2 tool(s): shell-command, read-file.',
+            },
+          },
+        ],
+      },
+    ]
+
+    const set = new ActivatedToolSet(CORE_TOOL_IDS)
+    ActivatedToolSet.rehydrateFromMessages(set, storedFormatMessages)
+
+    if (!set.isActive('shell-command')) {
+      throw new Error('存储格式 rehydrate 后 shell-command 应已激活')
+    }
+    if (!set.isActive('read-file')) {
+      throw new Error('存储格式 rehydrate 后 read-file 应已激活')
+    }
+
+    console.log('  activeTools:', set.getActiveToolIds())
+    printPass('存储格式（无 toolName）rehydration 正确')
+    passed++
+  } catch (err) {
+    printFail('存储格式 rehydration', err)
+    failed++
+  }
+
   // ── 汇总 ──
   printSection('Summary')
   const ms = Date.now() - start

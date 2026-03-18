@@ -115,6 +115,8 @@ export type TaskConfig = {
   // Chat integration
   /** The chat session that triggered this task (for completion reporting). */
   sourceSessionId?: string
+  /** Snapshot of the source chat context at task creation time. */
+  sourceContextSnapshot?: string
   /** Page context at task creation time (for skill auto-loading during execution). */
   pageContext?: { scope: 'global' | 'project'; page: string; projectId?: string; boardId?: string }
 
@@ -272,6 +274,10 @@ export type CreateTaskInput = {
   createdBy?: 'user' | 'agent'
   /** The chat session that triggered this task (for completion reporting). */
   sourceSessionId?: string
+  /** Snapshot of source chat context for task agent understanding. */
+  sourceContextSnapshot?: string
+  /** Project ID to attach to the task. */
+  projectId?: string
 }
 
 /** Create a new task. */
@@ -327,6 +333,8 @@ export function createTask(
     updatedAt: now,
     createdBy: data.createdBy ?? 'user',
     sourceSessionId: data.sourceSessionId,
+    sourceContextSnapshot: data.sourceContextSnapshot,
+    projectId: data.projectId,
   }
 
   const filePath = path.join(taskDir, 'task.json')

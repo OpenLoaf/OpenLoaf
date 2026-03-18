@@ -185,7 +185,7 @@ export default function MessageList({ className, projectId }: MessageListProps) 
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
               >
-                <MessageThinking showHeader={!lastMessageIsAssistant} />
+                <MessageThinking showHeader={!lastMessageIsAssistant} streamingMessage={streamingMessage} />
               </motion.div>
             ) : null}
           </AnimatePresence>

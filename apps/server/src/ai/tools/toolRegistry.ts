@@ -137,6 +137,7 @@ import { wrapToolWithTimeout } from "@/ai/tools/toolTimeout";
 import { wrapToolWithErrorEnhancer } from "@/ai/tools/toolErrorEnhancer";
 import { wrapToolWithInputValidation } from "@/ai/tools/toolInputValidation";
 import { getRequestContext } from "@/ai/shared/context/requestContext";
+import { zodSchema } from "ai";
 
 type ToolEntry = {
   tool: any;
@@ -329,6 +330,98 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
 };
 
+
+// ---------------------------------------------------------------------------
+// Tool definition registry — maps toolId → ToolDef (with parameters zod schema).
+// Used by tool-search to return full parameter schemas to the model.
+// ---------------------------------------------------------------------------
+
+const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
+  [timeNowToolDef.id]: timeNowToolDef,
+  [openUrlToolDef.id]: openUrlToolDef,
+  [spawnAgentToolDef.id]: spawnAgentToolDef,
+  [sendInputToolDef.id]: sendInputToolDef,
+  [waitAgentToolDef.id]: waitAgentToolDef,
+  [abortAgentToolDef.id]: abortAgentToolDef,
+  [browserSnapshotToolDef.id]: browserSnapshotToolDef,
+  [browserObserveToolDef.id]: browserObserveToolDef,
+  [browserExtractToolDef.id]: browserExtractToolDef,
+  [browserActToolDef.id]: browserActToolDef,
+  [browserWaitToolDef.id]: browserWaitToolDef,
+  [browserScreenshotToolDef.id]: browserScreenshotToolDef,
+  [browserDownloadImageToolDef.id]: browserDownloadImageToolDef,
+  [shellCommandToolDef.id]: shellCommandToolDef,
+  [readFileToolDef.id]: readFileToolDef,
+  [applyPatchToolDef.id]: applyPatchToolDef,
+  [editDocumentToolDef.id]: editDocumentToolDef,
+  [listDirToolDef.id]: listDirToolDef,
+  [grepFilesToolDef.id]: grepFilesToolDef,
+  [updatePlanToolDef.id]: updatePlanToolDef,
+  [projectQueryToolDef.id]: projectQueryToolDef,
+  [projectMutateToolDef.id]: projectMutateToolDef,
+  [boardQueryToolDef.id]: boardQueryToolDef,
+  [boardMutateToolDef.id]: boardMutateToolDef,
+  [calendarQueryToolDef.id]: calendarQueryToolDef,
+  [calendarMutateToolDef.id]: calendarMutateToolDef,
+  [emailQueryToolDef.id]: emailQueryToolDef,
+  [emailMutateToolDef.id]: emailMutateToolDef,
+  [excelQueryToolDef.id]: excelQueryToolDef,
+  [excelMutateToolDef.id]: excelMutateToolDef,
+  [wordQueryToolDef.id]: wordQueryToolDef,
+  [wordMutateToolDef.id]: wordMutateToolDef,
+  [pptxQueryToolDef.id]: pptxQueryToolDef,
+  [pptxMutateToolDef.id]: pptxMutateToolDef,
+  [pdfQueryToolDef.id]: pdfQueryToolDef,
+  [pdfMutateToolDef.id]: pdfMutateToolDef,
+  [generateWidgetToolDef.id]: generateWidgetToolDef,
+  [widgetInitToolDef.id]: widgetInitToolDef,
+  [widgetListToolDef.id]: widgetListToolDef,
+  [widgetGetToolDef.id]: widgetGetToolDef,
+  [widgetCheckToolDef.id]: widgetCheckToolDef,
+  [listMediaModelsToolDef.id]: listMediaModelsToolDef,
+  [imageGenerateToolDef.id]: imageGenerateToolDef,
+  [videoGenerateToolDef.id]: videoGenerateToolDef,
+  [requestUserInputToolDef.id]: requestUserInputToolDef,
+  [jsxCreateToolDef.id]: jsxCreateToolDef,
+  [chartRenderToolDef.id]: chartRenderToolDef,
+  [jsReplToolDef.id]: jsReplToolDef,
+  [jsReplResetToolDef.id]: jsReplResetToolDef,
+  [taskManageToolDef.id]: taskManageToolDef,
+  [taskStatusToolDef.id]: taskStatusToolDef,
+  [imageProcessToolDef.id]: imageProcessToolDef,
+  [videoConvertToolDef.id]: videoConvertToolDef,
+  [videoDownloadToolDef.id]: videoDownloadToolDef,
+  [docConvertToolDef.id]: docConvertToolDef,
+  [fileInfoToolDef.id]: fileInfoToolDef,
+  [webSearchToolDef.id]: webSearchToolDef,
+  [webFetchToolDef.id]: webFetchToolDef,
+  [loadSkillToolDef.id]: loadSkillToolDef,
+  [memorySaveToolDef.id]: memorySaveToolDef,
+  [memorySearchToolDef.id]: memorySearchToolDef,
+  [memoryGetToolDef.id]: memoryGetToolDef,
+};
+
+/**
+ * Returns simplified JSON schemas for the requested tool IDs.
+ * Used by tool-search to include parameter definitions in its response,
+ * so the model knows exactly what parameters to pass.
+ */
+export function getToolJsonSchemas(toolIds: string[]): Record<string, object> {
+  const result: Record<string, object> = {}
+  for (const id of toolIds) {
+    const def = TOOL_DEF_REGISTRY[id]
+    if (!def?.parameters) continue
+    try {
+      const full = zodSchema(def.parameters).jsonSchema as Record<string, unknown>
+      // Strip verbose fields — keep type, properties, required only
+      const { $schema: _, additionalProperties: __, ...clean } = full
+      result[id] = clean
+    } catch {
+      // Skip tools with non-standard schemas
+    }
+  }
+  return result
+}
 
 /** Tool IDs excluded from auto-approval (complex/interactive). */
 const AUTO_APPROVE_EXCLUDED_TOOLS = new Set(["request-user-input"]);

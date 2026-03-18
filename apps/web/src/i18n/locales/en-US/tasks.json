@@ -226,10 +226,12 @@
     "timeout": "Timeout"
   },
   "tabs": {
+    "info": "Info",
     "plan": "Plan",
     "activity": "Activity",
     "log": "Logs",
-    "chat": "Chat"
+    "chat": "Chat",
+    "history": "Logs & Activity"
   },
   "taskAction": {
     "create": "Create Task",
@@ -258,11 +260,22 @@
   "detail": {
     "created": "Created",
     "agent": "Agent",
+    "description": "Description",
+    "status": "Status",
+    "priority": "Priority",
+    "triggerMode": "Trigger",
+    "sessionMode": "Session",
+    "lastRun": "Last Run",
+    "runCount": "Run Count",
     "confirmPlan": "Confirm Plan",
     "reject": "Reject",
     "pass": "Pass",
     "rework": "Rework",
     "cancelTask": "Cancel Task"
+  },
+  "sessionMode": {
+    "isolated": "Isolated",
+    "shared": "Shared"
   },
   "history": {
     "colDate": "Date",

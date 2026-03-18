@@ -306,6 +306,10 @@ const TaskCard = memo(function TaskCard({
     disabled: !isDraggable,
   })
 
+  const isDone = task.status === 'done'
+  const isCancelled = task.status === 'cancelled'
+  const isFinished = isDone || isCancelled
+
   const cardContent = (
     <div
       ref={setNodeRef}
@@ -314,12 +318,20 @@ const TaskCard = memo(function TaskCard({
         'group cursor-pointer rounded-lg border bg-card p-3 shadow-none transition-colors hover:bg-accent/50',
         isDragging && 'opacity-50',
         isDraggable && 'touch-none',
+        isFinished && 'opacity-70',
       )}
       onClick={() => onOpenDetail(task.id)}
     >
       {/* Header: title + priority */}
       <div className="mb-2 flex items-start justify-between gap-2">
-        <h4 className="text-sm font-medium leading-tight line-clamp-2">{task.name}</h4>
+        <div className="flex items-center gap-1.5 min-w-0">
+          {isDone ? (
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-ol-green" />
+          ) : isCancelled ? (
+            <XCircle className="h-3.5 w-3.5 shrink-0 text-ol-text-auxiliary" />
+          ) : null}
+          <h4 className={cn('text-sm font-medium leading-tight line-clamp-2', isFinished && 'line-through decoration-muted-foreground/40')}>{task.name}</h4>
+        </div>
         <Badge variant="outline" className={cn('shrink-0 text-[10px]', PRIORITY_COLORS[priority])}>
           {PRIORITY_LABELS[priority]}
         </Badge>
@@ -975,15 +987,27 @@ export default function TaskBoardPage({
         ) : (
           /* List view - simplified table */
           <div className="space-y-2">
-            {filteredTasks.map((task) => (
+            {filteredTasks.map((task) => {
+              const listDone = task.status === 'done'
+              const listCancelled = task.status === 'cancelled'
+              const listFinished = listDone || listCancelled
+              return (
               <div
                 key={task.id}
-                className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent/50"
+                className={cn(
+                  'flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent/50',
+                  listFinished && 'opacity-70',
+                )}
                 onClick={() => onOpenDetail(task.id)}
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{task.name}</span>
+                    {listDone ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-ol-green" />
+                    ) : listCancelled ? (
+                      <XCircle className="h-3.5 w-3.5 shrink-0 text-ol-text-auxiliary" />
+                    ) : null}
+                    <span className={cn('text-sm font-medium', listFinished && 'line-through decoration-muted-foreground/40')}>{task.name}</span>
                     <Badge
                       variant="outline"
                       className={cn('text-[10px]', PRIORITY_COLORS[task.priority ?? 'medium'])}
@@ -1016,7 +1040,8 @@ export default function TaskBoardPage({
                   {formatTimeAgo(task.updatedAt, t)}
                 </span>
               </div>
-            ))}
+              )
+            })}
             {filteredTasks.length === 0 && (
               <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
                 {t('messages.noTasks')}
