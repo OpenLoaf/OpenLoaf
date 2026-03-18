@@ -502,7 +502,7 @@ async function ensureSession(
 /** Minimal message shape for persistence. */
 type UIMessageLike = {
   id: string
-  role: 'system' | 'user' | 'assistant' | 'subagent'
+  role: 'system' | 'user' | 'assistant' | 'subagent' | 'task-report'
   parts?: unknown[]
   metadata?: unknown
 }
